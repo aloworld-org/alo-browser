@@ -17,7 +17,9 @@
 use alo_box::{BoxId, BoxTree, build};
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
-use alo_layout::{BlockFont, LayoutTree, MeasureText, NoText, Rect, ScaledFont, Size, compute};
+use alo_layout::{
+    BlockFont, LayoutTree, MeasureText, NoText, Rect, ScaledFont, Size, compute, layout_unit,
+};
 use alo_style::{
     ComputedStyle, FaceUnits, MeasureFace, Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET,
     resolve, resolve_measured,
@@ -1384,8 +1386,10 @@ fn an_empty_field_is_still_one_line_tall() {
     let (boxes, layout) = lay_out(html, "", Size::new(400.0, 300.0));
     let field = rect_of(&boxes, &layout, "a", html);
     // A line is 19.2 — one and a fifth of the sixteen-pixel default font —
-    // plus a pixel of padding and a pixel of border on each side.
-    assert!(close(field.size.height, 23.2), "{field:?}");
+    // plus a pixel of padding and a pixel of border on each side. The box
+    // holding the line is on the grid, so 19.1875 of it (ADR 0054 § 3); a
+    // real font's `normal` line is whole pixels, which is item 467's.
+    assert!(close(field.size.height, 23.1875), "{field:?}");
 }
 
 #[test]
@@ -1402,8 +1406,9 @@ fn a_field_with_something_in_it_is_tall_enough_for_it() {
     let field = rect_of(&boxes, &layout, "a", html);
     // A line of 19.2, sixteen of padding, two of border. The line rather than
     // the text: a line box is as tall as its line height, which is what stops
-    // a field's own text touching its border.
-    assert!(close(field.size.height, 37.2), "{field:?}");
+    // a field's own text touching its border. The box holding the line is on
+    // the grid, 19.1875 of it (ADR 0054 § 3).
+    assert!(close(field.size.height, 37.1875), "{field:?}");
 }
 
 #[test]
@@ -1595,14 +1600,16 @@ fn a_fieldsets_legend_sits_in_its_border_rather_than_under_it() {
     );
     assert_eq!(legend, Rect::new(16.0, 0.0, 36.0, 16.0));
 
+    // 0.35em at 16 px is 5.6, and 5.59375 on the grid, truncated (ADR 0054
+    // § 1); so is everything under it.
     assert!(
-        close(rect_of(&boxes, &layout, "p", html).top(), 21.6),
+        close(rect_of(&boxes, &layout, "p", html).top(), 21.593_75),
         "and what the fieldset holds starts below the legend, then the \
          padding: {:?}",
         rect_of(&boxes, &layout, "p", html),
     );
     assert!(
-        close(fieldset.size.height, 49.6),
+        close(fieldset.size.height, 49.593_75),
         "the band **replaces** the block-start border rather than adding to \
          it — sixteen of legend, 0.35em of padding, a line, 0.625em, and the \
          2px border along the bottom: {fieldset:?}",
@@ -1645,12 +1652,13 @@ fn a_fieldset_with_no_legend_has_an_ordinary_border() {
     let fieldset = geometry_of(&boxes, &layout, "f", html);
     assert_eq!(fieldset.band, None);
     assert!(close(fieldset.border.top, 2.0));
+    // The 0.35em of padding is 5.59375 on the grid (ADR 0054 § 1).
     assert!(
-        close(rect_of(&boxes, &layout, "p", html).top(), 7.6),
+        close(rect_of(&boxes, &layout, "p", html).top(), 7.593_75),
         "the border, and then the padding",
     );
     assert!(
-        close(fieldset.border_box.size.height, 35.6),
+        close(fieldset.border_box.size.height, 35.593_75),
         "which is the same fieldset without a legend's sixteen pixels, and \
          with its border back: {fieldset:?}",
     );
@@ -2368,15 +2376,18 @@ fn a_button_stands_on_its_labels_baseline() {
     // The button is one `normal` line tall, 19.2, with its 16-pixel label
     // centred 1.6 down — so the label's baseline is 13.6 down, and the text
     // beside it stands there too. Its bottom edge would have put the text at
-    // 7.2 and the line at 23.2.
+    // 7.2 and the line at 23.2. The button's edges are on the grid (ADR 0054
+    // § 3), so it is 19.1875 of that line; a real font's `normal` line is
+    // whole pixels, which is item 467's. The label's centring is a share of
+    // free space, 1.6 truncated to 1.59375, and the text beside it follows.
     assert_eq!(
         rect_of(&boxes, &layout, "b", html),
-        Rect::new(24.0, 0.0, 16.0, 19.2)
+        Rect::new(24.0, 0.0, 16.0, 19.1875)
     );
     let text = rect_of(&boxes, &layout, "t", html);
-    assert!(close(text.top(), 1.6), "{text:?}");
+    assert!(close(text.top(), 1.593_75), "{text:?}");
     let block = rect_of(&boxes, &layout, "w", html);
-    assert!(close(block.size.height, 19.2), "{block:?}");
+    assert!(close(block.size.height, 19.1875), "{block:?}");
 }
 
 /// Queue item 286: an `inline-block` holding blocks is one atomic box on
@@ -2570,8 +2581,13 @@ fn vertical_align_puts_a_box_where_each_keyword_says() {
             "{value}: the box's top is {} above the baseline",
             baseline - placed.top(),
         );
+        // The paragraph holding the line has its edges on the grid (ADR
+        // 0054 § 3): the line's height, floored onto it.
         let height = rect_of(&boxes, &layout, "p", html).size.height;
-        assert!(close(height, line), "{value}: a line of {height}");
+        assert!(
+            close(height, layout_unit::floored(line)),
+            "{value}: a line of {height}"
+        );
         assert!(layout.issues().is_empty(), "{value}: {:?}", layout.issues());
     }
 
@@ -2609,9 +2625,14 @@ fn vertical_align_on_an_inline_box_moves_what_is_in_it() {
             raised - 7.5,
         );
     }
-    // And the line grows above to hold it: 6.333 + 7.5 is more than 12.
+    // And the line grows above to hold it: 6.333 + 7.5 is more than 12. The
+    // paragraph's edges are on the grid (ADR 0054 § 3), so it is that line
+    // floored onto it.
     let height = rect_of(&boxes, &layout, "p", html).size.height;
-    assert!(close(height, 16.0 / 3.0 + 1.0 + 7.5 + 4.0), "{height}");
+    assert!(
+        close(height, layout_unit::floored(16.0 / 3.0 + 1.0 + 7.5 + 4.0)),
+        "{height}"
+    );
 
     let css = "#p { font-size: 16px } #s { font-size: 10px; vertical-align: centre }";
     let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
@@ -2673,8 +2694,10 @@ fn ex_and_ch_are_the_measured_faces() {
     assert!(close(a.height, 10.0 * 10.6), "{}", a.height);
     // Two of the parent's `x` is 21.2 px, and its own lengths are of that.
     let b = rect_of(&boxes, &layout, "b", html).size;
-    assert!(close(b.width, 10.0 * 21.2 * 0.6), "{}", b.width);
-    assert!(close(b.height, 5.0 * 21.2 * 0.53), "{}", b.height);
+    // 127.2 and 56.18, each truncated onto the grid (ADR 0054 § 1): 8,140
+    // units and 3,595.
+    assert!(close(b.width, 8140.0 / 64.0), "{}", b.width);
+    assert!(close(b.height, 3595.0 / 64.0), "{}", b.height);
     let c = rect_of(&boxes, &layout, "c", html).size;
     assert!(close(c.width, 300.0) && close(c.height, 100.0), "{c:?}");
 }

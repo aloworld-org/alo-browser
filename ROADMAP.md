@@ -132,16 +132,21 @@ correctness, not before it.
       *The `flex` shorthand was read by nothing until queue item 440
       (iteration 281), so `flex: 1` grew nothing; `alo-css`' `flex.rs` now
       splits it into its three longhands, measured against Chrome 154.*
-      *Boxes are laid out in exact floats, where Chrome 154 lays them out
-      on a grid of 1/64 px, so paddings, margins and tracks differ from
+      *Boxes were laid out in exact floats, where Chrome 154 lays them out
+      on a grid of 1/64 px, so paddings, margins and tracks differed from
       Chrome's by up to a unit each. The rule was decided in iteration 303
-      (queue item 498, ADR 0054), measured on three probe pages and two
-      corpus cases. Lengths, percentages and `calc()` are truncated toward
-      zero, text widths are rounded up, and shared space leaves every edge on
-      the grid. Nothing is built yet. Owed: building it at the boundary
-      with `taffy` (466), and the shares `taffy` decides inside its own
-      algorithms, including a grid's second column pass, which needs its
-      own ADR (499).*
+      (queue item 498, ADR 0054). · Built (iteration 305, queue item 466):
+      `alo-layout`'s `layout_unit.rs`. Lengths, percentages and `calc()`
+      are truncated toward zero, text widths are rounded up, and every
+      box's edges are placed on the grid against where its parent was
+      placed. 707 of the corpus's 1,260 element boxes are now Chrome's
+      exactly, where 514 were, and `alo-sites-booking`'s all are except
+      what its date field's line moves (467). · Owed: what `taffy` decides
+      inside its own algorithms, which needs its own ADR (499). That is a
+      grid's second column pass, so the mini-month's columns are still
+      1,837 and 1,838 units where Chrome's are all 1,838. It is also
+      flexible items' exact shares and a grid's `justify-content` after
+      its first share.*
 - [x] **Text**: HarfBuzz shaping (via `rustybuzz`), the fallback chain and line breaking, with the awkward scripts working before the easy ones. Rasterisation is queue item 17, beside paint
       *`text-transform` was read by nothing until queue item 441
       (iteration 283, ADR 0049): uppercased headings were drawn, measured
@@ -173,9 +178,10 @@ correctness, not before it.
       descent and line gap each rounded half up, a set line height on a
       1/64 px grid, and the leading's top half floored. Of 1,214 corpus
       boxes measured against Chrome with the same fonts, 835 have its top
-      and height to 1/64 px, where 498 did. Owed: a fallback font's own
-      room on a `normal` line (465), paddings, margins and grid tracks on
-      the 1/64 grid (466), and a control's own `normal` line (467).*
+      and height to 1/64 px, where 498 did. Paddings, margins and grid
+      tracks were put on the 1/64 grid by 466 (see *Layout*). Owed: a
+      fallback font's own room on a `normal` line (465), and a control's
+      own `normal` line (467).*
 - [x] **Paint**: a display list, then a software raster to a PNG
       *A small curve was under-covered and leaned to one side until queue
       item 459 (iteration 291): the rented rasteriser's four-by-four

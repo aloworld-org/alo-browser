@@ -1,14 +1,14 @@
-document at (0, 0) 800×538.94995
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
-  main at (0, 0) 800×538.94995
-    heading "Wholesale enquiries" [level=2] at (20, 48) 284.80002×67.1875
-    paragraph at (20, 177.1875) 284.80002×54.375
+document at (0, 0) 800×538.875
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
+  main at (0, 0) 800×538.875
+    heading "Wholesale enquiries" [level=2] at (20, 48) 284.79688×67.1875
+    paragraph at (20, 177.1875) 284.79688×54.375
       text "We answer within one business day." at (20, 180.1875) 266.5796×47.1875 in 2 pieces
-    paragraph at (352.80002, 48) 427.19998×79.5875
-      textbox "Name" [required] at (352.80002, 79.1875) 427.19998×48.4
-    paragraph at (352.80002, 144.5875) 427.19998×79.5875
-      textbox "Email" [required] at (352.80002, 175.775) 427.19998×48.4
-    paragraph at (352.80002, 241.175) 427.19998×167.375
-      textbox "Message" [required] at (352.80002, 272.3625) 427.19998×128
-    paragraph at (352.80002, 425.55) 427.19998×48.4
-      button "Send" at (352.80002, 425.55) 88.44492×48.4
+    paragraph at (352.79688, 48) 427.20313×79.5625
+      textbox "Name" [required] at (352.79688, 79.1875) 427.20313×48.375
+    paragraph at (352.79688, 144.5625) 427.20313×79.5625
+      textbox "Email" [required] at (352.79688, 175.75) 427.20313×48.375
+    paragraph at (352.79688, 241.125) 427.20313×167.375
+      textbox "Message" [required] at (352.79688, 272.3125) 427.20313×128
+    paragraph at (352.79688, 425.5) 427.20313×48.375
+      button "Send" at (352.79688, 425.5) 88.421875×48.375

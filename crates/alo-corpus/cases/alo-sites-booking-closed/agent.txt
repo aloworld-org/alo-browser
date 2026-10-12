@@ -1,5 +1,5 @@
 document at (0, 0) 800×245.15625
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
   main at (0, 0) 800×245.15625
     heading "Come and talk to us" [level=2] at (25, 25) 343×33.59375
     heading "Consultation" [level=3] at (432, 25) 343×38.59375

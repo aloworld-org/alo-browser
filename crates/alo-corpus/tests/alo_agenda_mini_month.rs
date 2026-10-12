@@ -127,22 +127,29 @@ fn the_grid_starts_under_the_titles_line_and_its_days_are_square() {
     // wide (`aspect-ratio: 1`), under the weekday row's 0.62rem line and 2 px.
     // That line is 1.5 times 9.92 px rounded to 1/64, floored to 1/64:
     // 9.921875 × 1.5 is 952.5 sixty-fourths, so 952 (ADR 0050 § 3).
+    //
+    // Each day is on the grid (ADR 0054 § 3): its edges are the ideal edges
+    // floored, so the columns are 1,837 and 1,838 units wide in turn, and
+    // the rows the same. Chrome's are every one 1,838, because it sizes the
+    // columns a second time once the ratio has made the rows 1,838 tall;
+    // that second pass is inside `taffy` and is queue item 499's.
     let side = (207.0 - 6.0) / 7.0;
     let weekdays = 952.0 / 64.0 + 2.0;
+    let floored = |pixels: f32| (pixels * 64.0).floor() / 64.0;
+    let span = |start: f32| (floored(start), floored(start + side) - floored(start));
     for (index, day) in days.iter().enumerate() {
         let (row, column) = (index / 7, index % 7);
-        assert!(near(day.size.width, side), "{index}: {day:?}");
-        assert!(near(day.size.height, day.size.width), "{index}: {day:?}");
         #[expect(clippy::cast_precision_loss, reason = "a row and a column of seven")]
         let (row, column) = (row as f32, column as f32);
+        let (left, width) = span(column * (side + 1.0));
+        let (top, height) = span(row * (side + 1.0));
+        assert!(near(day.origin.x, 16.0 + left), "{index}: {day:?}");
+        assert!(near(day.size.width, width), "{index}: {day:?}");
         assert!(
-            near(day.origin.x, 16.0 + column * (side + 1.0)),
+            near(day.origin.y, 43.5 + weekdays + 1.0 + top),
             "{index}: {day:?}"
         );
-        assert!(
-            near(day.origin.y, 43.5 + weekdays + 1.0 + row * (side + 1.0)),
-            "{index}: {day:?}"
-        );
+        assert!(near(day.size.height, height), "{index}: {day:?}");
     }
 }
 

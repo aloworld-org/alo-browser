@@ -29942,3 +29942,161 @@ every grant as owed. Also updated: `docs/features.md` (the new line),
 233 queue items are open (496 closed, 500 added). The next unused queue
 number is **501** and the next ADR is **0056**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 305 — queue item 466 built: every box is on Chrome's grid of 1/64 px
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 304's entry, and the queue. No `AGENTS.md` exists
+in this checkout. The first open items in the file are each blocked, wait
+for a page, or wait on a dependency that is not done. 187 depends only on
+163, which is done, but its own entry says to build it when an upload
+wants it, and nothing makes it reachable. So the first eligible item is
+466, which iteration 303 left decided and buildable next. Its one
+dependency, 498, is done. **For the item:** ADR 0054 (the decision), ADRs
+0004 and 0047 (the line with `taffy`, and no fork or `[patch]`), ADR 0050
+(line heights, already on the grid), and `docs/features.md` stage 1,
+*Layout*.
+
+**Built**, in `alo-layout`:
+- `layout_unit.rs` is new. It is the one file that holds the grid and its
+  rules: `truncated` for lengths, `rounded_up` for text widths, `edges`
+  for a box's placement, and ADR 0050's `rounded` and `floored`, which
+  `line_height.rs` now reads from it.
+- `engine.rs` truncates every length where it becomes a number, inline
+  boxes' edges included. Every percentage is carried to `taffy` as a
+  calculation (§ 6.2). Each box is placed as the tree is read back
+  (`Reading`), against where its parent was **placed**.
+- `arena.rs` truncates every calculation it resolves and rounds a leaf's
+  text width up. It keeps `taffy`'s layouts as given.
+- `auto_repeat.rs` takes the arena's `Expressions`. Where no basis is
+  definite, a plain percentage goes back to `taffy` as a percentage, so a
+  percentage track in an auto repetition is not refused as a calculation
+  nobody wrote.
+
+**ADR 0054 gained an addendum**, with three corrections found by building
+it:
+1. The edges are placed where the tree is read back, not in the arena's
+   `set_unrounded_layout`. Built the ADR's way, `alo-sites-contact-form`'s
+   label floored to 27,340 inside a form placed at 27,341 wide, where
+   Chrome's is 27,341. A parent is set after its children, so where it
+   will be placed is not known when a child is set.
+2. A length or text width within 2⁻²¹ of a grid line is on it. Chrome
+   resolves a length in double, and `0.53em` at 100 px is 52.999996 here.
+   A shared edge gets **no** slack, because Chrome shares in float, as
+   `taffy` does. With the slack, `grid-of-three`'s last track was 3,670
+   wide, where Chrome's is 3,669. The first slack tried, a fixed 1/1024
+   unit, also made the ADR's own percentage-of-a-percentage row 711 where
+   Chrome's is 710. The test now pins that row.
+3. A grid's `justify-content` is Chrome's only for its first share.
+   Chrome truncates each share and adds them up, and the boundary sees
+   only `taffy`'s sum. This was added to 499.
+
+**Closing condition, met.**
+- `alo_sites_booking.rs`'s new
+  `every_box_is_chromes_but_what_the_fields_own_line_moves` holds Chrome
+  154's measured units for the page's boxes. The skip link, `main`, the
+  section, the heading, the `h3` and the three paragraphs are Chrome's
+  exactly. The button differs only in height, by 64 units. The form, its
+  label and the field differ only by the field's 128 units (467) and the
+  centring that follows.
+- `alo_agenda_mini_month.rs` asserts each day at its ideal edges floored:
+  1,837 and 1,838 units, where Chrome's second column pass makes them all
+  1,838 (499). Every other box on that page is Chrome's.
+- Chrome was driven over CDP from a scratchpad script. A temporary
+  `alo-corpus/examples/boxes.rs` printed the same paths on this side and
+  was moved out before the gate.
+
+**Measured over the whole corpus**, 72 of 73 cases, with the corpus's
+fonts. One case did not measure, and nothing was written for it. The
+engine before this change was built in a temporary worktree with its own
+target directory, which has been removed. 707 of 1,260 element boxes now
+have Chrome's left, top, width and height exactly, where 514 did. Every
+box that ended up further from Chrome's was already more than two units
+off, except the mini-month's columns (499).
+
+**Layout assertions:**
+- `alo-layout/tests/on_the_grid.rs` has 11 tests, one per row or table
+  of ADR 0054:
+  - truncated paddings, margins and `rem`;
+  - each length truncated on its own;
+  - percentages, including a percentage of a percentage;
+  - `calc()` resolved whole;
+  - centring, overflowing centring and auto margins;
+  - grid distribution: the first share is Chrome's, and later ones are
+    within a unit per share;
+  - flexible tracks at Chrome's edges, with and without a gap;
+  - `aspect-ratio`;
+  - shrink-to-fit text rounded up, three ways;
+  - saturation;
+  - every edge of a page of shares on the grid.
+- `layout_unit.rs` has 8 unit tests of its own.
+- `auto_repeat.rs` has 1 more, for a plain percentage.
+
+**Reference renders:** every corpus reference was rewritten with
+`ALO_UPDATE_REFERENCES=1` after the old `render.png`s were copied to the
+scratchpad. They were compared with PIL. Twenty-three pictures and
+`web-a-form/filled.png` move, by antialiasing at edges that moved less
+than a pixel. The largest per-channel change is 71, and none changes
+size. `alo-window`'s three composed window references were rewritten
+because `alo-offline`'s picture moved.
+
+**Tests whose numbers moved.** They were updated, each with the reason
+and, where it was measured, Chrome's number:
+- `alo-layout`'s `numbers.rs` (8)
+- 18 tests in 12 files in `alo-corpus`. Several now say Chrome's numbers
+  hold where they used to say they would after 466: nav, tickets,
+  pricing, CTA, brand, lede.
+- `alo-agent`'s `reading_an_interface.rs`
+- 8 tests in 5 files in `alo-renderer`
+- `alo-window`'s `an_agent_outside_the_browser.rs`
+
+A first workspace run found the failing binaries in those last three
+crates. After the fixes, each
+of them passed alone, `alo-corpus` passed whole, and `alo-layout` passed.
+
+**Gate, mechanical.** `cargo clippy --workspace --all-targets
+--all-features -D warnings` ran first. It found four things, all now
+fixed: a borrowed `impl Expressions`, digit grouping, `float_cmp` on arrays
+in the new booking test, and a precision lint. Then `scripts/gate.sh` ran
+in the foreground into a scratchpad log. The harness moved it to the
+background at 600 s, and the next call waited on it with a foreground
+`until` loop. **Result: `exit 0`, "The gate is met. (10 of 10 steps)"**,
+with no `FAILED`, `panicked` or `^error` in the log. Only this entry was
+written after it.
+
+**Gate, manual.**
+- `layout_unit.rs` has one responsibility, the grid. `engine.rs` still
+  translates, runs and reads back, and placement on the grid is part of
+  reading back. The `Reading` struct exists to keep `read_back` under
+  clippy's argument limit.
+- The layout assertions and reference renders are above.
+- `docs/features.md` gains the grid's line in stage 1, *Layout*.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were read only, and `taffy`'s source was read, not changed.
+
+**Queue.** 466 is ticked with its *Done* paragraph. 499 is widened to
+cover a grid's `justify-content`.
+
+**Roadmap.** Nothing newly ticked. The stage 1 *Layout* line's note now
+reads *Built* (`layout_unit.rs`, the corpus numbers) and *Owed* (499).
+The *Text* line's note no longer owes 466. Also updated:
+`docs/features.md`, `docs/conformance.md`, `CHANGELOG.md`,
+`REMAINING.md`, and ADR 0054's addendum.
+
+**Unresolved obligations.**
+- 499: a grid sized twice, flexible items' exact shares, and a grid's
+  `justify-content` after its first share. Each is within a unit of
+  Chrome's, and it needs its ADR as its own iteration.
+- 467: a control's own `normal` line. It is now the booking page's only
+  difference from Chrome.
+- Not put on the grid, and not opened as items because no case fails on
+  them:
+  - a `fit-content()` percentage;
+  - a `vertical-align` length;
+  - where an atomic box stands inside a line (`inline.rs`).
+- The `web-*` cases' controls were already far from Chrome's, because
+  their default font size differs. Nothing there got worse.
+
+232 queue items are open (466 closed). The next unused queue number is
+**501** and the next ADR is **0056**. This is one iteration, not a
+finished queue or roadmap.

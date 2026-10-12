@@ -135,28 +135,131 @@ fn the_empty_day_field_makes_a_line_its_own_height() {
         panic!("the form, its field and its button are laid out");
     };
     // `width: 100%` of the second track: 343 wide at 432. A 27.2 line,
-    // 0.6rem of padding above and below and a 1 px border: 48.4 tall. The
-    // field's line is its computed `line-height`, not the floored one.
+    // 0.6rem of padding above and below and a 1 px border: 48.3875, and
+    // 48.375 on the grid (ADR 0054). The padding is Chrome's, 9.59375
+    // truncated; the field's line is its computed `line-height`, not
+    // Chrome's, which makes the field 50.375 there (queue item 467).
     assert!(near(field.origin.x, 432.0), "{field:?}");
     assert!(near(field.size.width, 343.0), "{field:?}");
-    assert!(near(field.size.height, 48.4), "{field:?}");
+    assert!(near(field.size.height, 48.375), "{field:?}");
     // The field stands on the baseline of the line it would hold, so its line
-    // is its own 48.4 and the button's paragraph starts the label's
+    // is its own 48.375 and the button's paragraph starts the label's
     // paragraph's 17 px margin below the field. With the field on its bottom
     // edge the line was 56.11, the strut's 7.71 below the baseline added.
     assert!(
         near(button.origin.y, field.origin.y + field.size.height + 17.0),
         "{button:?} under {field:?}"
     );
-    // So the form is 161.9875 tall: the label's line, 17 px at 1.6 floored
-    // to 1/64 (ADR 0050 § 3), 27.1875, + 4 + 48.4 + 17 + 48.4 + 17. With its
-    // 1rem top margin, 177.9875 centred in the rows' 274.75 from 25:
-    // 89.38125. Before item 384 it was 169.71 at 85.54, and before item 460
-    // 162 at 89.4.
-    assert!(near(form.size.height, 161.9875), "{form:?}");
-    assert!(near(form.origin.y, 89.381_25), "{form:?}");
-    assert!(near(field.origin.y, 120.568_75), "{field:?}");
+    // So the form is 161.9375 tall: the label's line, 17 px at 1.6 floored
+    // to 1/64 (ADR 0050 § 3), 27.1875, + 4 + 48.375 + 17 + 48.375 + 17. With
+    // its 1rem top margin, 177.9375 centred in the rows' 274.75 from 25:
+    // 89.40625, the share above it truncated onto the grid (ADR 0054 § 3).
+    // Chrome 154's form is 163.9375 tall at 88.40625: its field is 2 px
+    // taller (item 467), half of which moves the centred form up. Before
+    // item 466 it was 161.9875 at 89.38125, before item 384 169.71 at 85.54,
+    // and before item 460 162 at 89.4.
+    assert!(near(form.size.height, 161.9375), "{form:?}");
+    assert!(near(form.origin.y, 89.406_25), "{form:?}");
+    assert!(near(field.origin.y, 120.593_75), "{field:?}");
     assert!(near(button.origin.y, 185.968_75), "{button:?}");
+}
+
+/// The border box of the `nth` element named `tag`, in document order, in
+/// sixty-fourths of a pixel.
+fn units_of(rendering: &Rendering, tag: &str, nth: usize) -> Option<[f32; 4]> {
+    let document = rendering.document()?;
+    let drawing = rendering.drawing()?;
+    let node = document
+        .descendants(document.root())
+        .filter(|id| {
+            document
+                .element(*id)
+                .is_some_and(|element| &*element.name.local == tag)
+        })
+        .nth(nth)?;
+    let boxes = &drawing.boxes;
+    let id = boxes.ids().find(|id| {
+        matches!(
+            boxes.get(*id).map(|box_node| &box_node.kind),
+            Some(alo_box::BoxKind::Element { node: of, .. }) if *of == node
+        )
+    })?;
+    let rect = drawing.layout.get(id)?.border_box;
+    Some([
+        rect.origin.x * 64.0,
+        rect.origin.y * 64.0,
+        rect.size.width * 64.0,
+        rect.size.height * 64.0,
+    ])
+}
+
+/// Whether two boxes in units are the same to the bit: every number here is
+/// a whole number of units, which an `f32` holds exactly.
+fn same(left: [f32; 4], right: [f32; 4]) -> bool {
+    left.map(f32::to_bits) == right.map(f32::to_bits)
+}
+
+/// Queue item 466's closing condition: every box on the page is Chrome
+/// 154's to its 1/64 px layout unit (ADR 0054), except what the day field's
+/// own line moves, which is item 467's.
+///
+/// Chrome's numbers were read over `DevTools` on 2026-10-12 from the frozen
+/// page and sheet, given the corpus's `DejaVu Sans`, at 800 × 600, in units.
+#[test]
+fn every_box_is_chromes_but_what_the_fields_own_line_moves() {
+    let Some((_, rendering)) = booking() else {
+        panic!("the case renders");
+    };
+    let chrome: [(&str, usize, [f32; 4]); 9] = [
+        ("a", 0, [-1_022_976.0, 0.0, 10312.0, 2764.0]),
+        ("main", 0, [0.0, 0.0, 51200.0, 20784.0]),
+        ("section", 0, [0.0, 0.0, 51200.0, 20784.0]),
+        ("h2", 0, [1600.0, 1600.0, 21952.0, 2150.0]),
+        ("h3", 0, [1600.0, 5670.0, 21952.0, 1382.0]),
+        ("p", 0, [1600.0, 8652.0, 21952.0, 1740.0]),
+        ("p", 1, [1600.0, 12504.0, 21952.0, 1740.0]),
+        ("p", 2, [1600.0, 16356.0, 21952.0, 1740.0]),
+        ("button", 0, [27648.0, 11966.0, 11499.0, 3096.0]),
+    ];
+    // The skip link's width is its text's, rounded up onto the grid (ADR
+    // 0054 § 4); the button's is its text's and 0.6rem of padding each
+    // side, truncated (§ 1).
+    for (tag, nth, wanted) in chrome {
+        let Some(ours) = units_of(&rendering, tag, nth) else {
+            panic!("{tag} {nth} is laid out");
+        };
+        // Chrome's day field is 128 units taller (item 467): the form is
+        // centred, so what is above the field's middle stands 64 lower here
+        // and what is below it, the button, 64 higher.
+        let [x, y, width, height] = wanted;
+        let higher = if tag == "button" { 64.0 } else { 0.0 };
+        let expected = [x, y - higher, width, height];
+        assert!(
+            same(ours, expected),
+            "{tag} {nth}: {ours:?}, not {expected:?}"
+        );
+    }
+    let Some(form) = units_of(&rendering, "form", 0) else {
+        panic!("the form is laid out");
+    };
+    assert!(
+        same(form, [27648.0, 5658.0 + 64.0, 21952.0, 10492.0 - 128.0]),
+        "{form:?}"
+    );
+    let Some(label) = units_of(&rendering, "label", 0) else {
+        panic!("the label is laid out");
+    };
+    assert!(
+        same(label, [27648.0, 5658.0 + 64.0, 21952.0, 1740.0]),
+        "{label:?}"
+    );
+    let Some(field) = units_of(&rendering, "input", 0) else {
+        panic!("the field is laid out");
+    };
+    assert!(
+        same(field, [27648.0, 7654.0 + 64.0, 21952.0, 3224.0 - 128.0]),
+        "{field:?}"
+    );
 }
 
 #[test]
@@ -217,13 +320,13 @@ fn the_empty_day_field_draws_how_a_date_is_written_in_its_own_colour() {
     assert!(near(origin.0, 445.0), "{origin:?}");
     assert_eq!(color.to_rgba8(), (23, 33, 43, 255));
     // On the field's own line, which 384 already stood the field on: the
-    // 27.2 line 0.6rem and a border below the field's top, and the text's 20
-    // in it, with the top half of the leading floored above it (ADR 0050
-    // § 4): 7.19 of leading, half of it 3.59, floored 3.
+    // 27.2 line 0.6rem (9.59375 on the grid) and a border below the field's
+    // top, and the text's 20 in it, with the top half of the leading floored
+    // above it (ADR 0050 § 4): 7.19 of leading, half of it 3.59, floored 3.
     assert!(near(text.origin.x, 445.0), "{text:?}");
     assert!(near(text.size.height, 20.0), "{text:?}");
     assert!(
-        near(text.origin.y, 120.568_75 + 1.0 + 9.6 + 3.0),
+        near(text.origin.y, 120.593_75 + 1.0 + 9.593_75 + 3.0),
         "{text:?}"
     );
 

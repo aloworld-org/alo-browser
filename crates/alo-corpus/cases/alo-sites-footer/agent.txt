@@ -1,12 +1,12 @@
 document at (0, 0) 800×172.1875
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
   main at (0, 48) 800×0
   contentinfo at (0, 48) 800×124.1875
     navigation "Footer" at (20, 97) 356×27.1875
       list at (20, 97) 356×27.1875
-        listitem "Imprint" at (20, 97) 61.51709×27.1875
+        listitem "Imprint" at (20, 97) 61.53125×27.1875
           link "Imprint" at (20, 100) 61.51709×20
-        listitem "Privacy" at (97.51709, 97) 61.550293×27.1875
-          link "Privacy" at (97.51709, 100) 61.550293×20
+        listitem "Privacy" at (97.53125, 97) 61.5625×27.1875
+          link "Privacy" at (97.53125, 100) 61.550293×20
     paragraph at (424, 97) 356×27.1875
       text "© Nordwind Coffee Roasters" at (537.40137, 100) 242.59863×20

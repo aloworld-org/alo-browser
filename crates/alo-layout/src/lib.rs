@@ -50,6 +50,7 @@ pub mod engine;
 pub mod geometry;
 pub mod inline;
 pub mod keyword;
+pub mod layout_unit;
 pub mod legend;
 pub mod line_height;
 pub(crate) mod line_width;

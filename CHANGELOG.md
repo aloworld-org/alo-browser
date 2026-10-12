@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Every box now sits where Chrome puts it, to a sixty-fourth of a
+  pixel.** Chrome lays out on a grid of 1/64 px, and this engine now does
+  too. A padding, a margin, a width or a percentage is cut down onto the
+  grid, the width of a run of text is rounded up so its box still holds it,
+  and a centred or shared box has its edges placed on the grid. Measured
+  against Chrome 154 with the same fonts, 707 of the 1,260 boxes in the test
+  pages now match exactly, where 514 did. alo Sites' booking section matches
+  to the unit except where its date field's own line moves things. The
+  month grid in alo Agenda is still a unit off in its columns, because
+  Chrome sizes those columns twice, and that needs its own decision.
+
 - **An agent in a program of its own can now read and drive this browser.**
   The browser opens a socket that only its own person's programs can open,
   never a port. An agent asks for the tree of a tab by the tab's address and

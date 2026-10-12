@@ -347,3 +347,67 @@ value or an arrangement not in the tables above, § 1's truncation or
 
 **If a shrink-to-fit box wraps its own text after 466 is built**, § 4's
 rounding up is not happening where the box is measured.
+
+## Addendum, 2026-10-12 — built by item 466, and three things the text above had wrong
+
+Queue item 466 built § 6 in iteration 305 and measured the whole corpus
+against Chrome 154 again with the corpus's fonts, before and after: 707 of
+1,260 element boxes now have Chrome's left, top, width and height
+exactly, where 514 did, and only the mini-month's columns, item 499's,
+end up further from Chrome's. Building it corrected § 6 in three places.
+The rule of § 1 to § 5 stands as measured.
+
+**1. An edge is placed against where its parent was placed, so it is
+done as the tree is read back, not as `taffy` hands a layout over.**
+§ 6.3 said the arena truncates each edge relative to the parent when
+`taffy` sets a child's layout. Built that way, a box filling its parent
+did not fill it on the grid. `alo-sites-contact-form`'s form is a grid
+item whose track `taffy` starts at 22,579.2 units and ends at 49,920, so
+it is placed at 22,579 and is 27,341 wide, as Chrome's is. But its label
+was laid out by `taffy` against the unplaced 27,340.8, and floored on its
+own it came to 27,340, a unit narrower than the form that holds it, where
+Chrome's label is 27,341. And when `taffy` sets a child's layout, where
+the parent will be placed is not known yet, because a parent is set after
+its children. So `alo-layout`'s `engine.rs` places each box as it reads
+the tree back. A box's near edge is measured from where its parent was
+**placed**. That offset is truncated toward zero, and its size is its far
+edge floored less its near edge floored. For a box on the near side of
+its parent, this is § 6's rule exactly. For one beyond its near edge, the
+floor keeps a size already on the grid: the 20 px box centred in 10.3 px
+is at −310 and still 1,280 wide, as § 3's table says Chrome makes it. To
+truncate its far edge as well would make it 1,279.
+
+**2. A length a float holds just short of a grid line is on it. A shared
+edge is not.** This engine resolves a length in `f32`. Chrome resolves it
+in double before it becomes a float, so `0.53em` at 100 px is 52.999996
+here and 53 there, and truncated those are 3,391 units and 3,392. A
+length or a text width within four of a float's own steps of a grid line,
+2⁻²¹ of the number, is taken to be on it. It is relative because a
+float's error is. The nearest to a line that Chrome was measured to keep
+off it is a percentage of a percentage, 710.9993 units, which it
+truncates to 710; four steps of a float there are 0.0003 of a unit. An
+edge `taffy` shares out gets **no** slack. Chrome shares free space in
+float, as `taffy` does, and three `1fr` tracks in 184 px with 6 px gaps
+end at 12,287.999 units in both. Chrome floors that to 12,287, a unit
+short of the container (§ 3 records the same thing for seven tracks).
+With the slack the last track was 3,670 wide; without it, it is Chrome's
+3,669. ADR 0050's line-height rules are unchanged and take no slack.
+
+**3. A grid's `justify-content` is Chrome's only for its first share.**
+§ 6 said that truncating at the boundary gives exactly Chrome's numbers
+for centring, auto margins and grid distribution. It does for the first
+two. For distribution, Chrome truncates **each** share and adds them up.
+`space-around` with three 10 px tracks in 100.3 px puts 749 units in
+front and 1,499 between, so its tracks start at 749, 2,888 and 5,027.
+The boundary sees only where `taffy` put each track, which is its exact
+shares added up: 749.8, 2,889.5 and 5,029.2. Truncated, those are 749,
+2,889 and 5,029. So each later track is within a unit for each share
+before it. That is the same thing § 6 says of flexible items, `taffy`'s
+numbers before it hands them back, and it moves to item 499.
+
+**What 466 left off the grid**, each said where it is read: a
+`fit-content()` limit written as a percentage, which `taffy` resolves
+itself and has no calculation spelling for; a `vertical-align` length; and
+where an atomic box stands inside a line, which is `crate::inline`'s
+placement and not a box `taffy` hands back. No corpus case has failed on
+any of the three.

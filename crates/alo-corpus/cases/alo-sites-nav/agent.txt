@@ -1,13 +1,13 @@
-document at (0, 0) 800×73.3875
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
-  banner at (0, 0) 800×73.3875
-    navigation "Main" at (0, 0) 800×72.3875
-      link "Nordwind Coffee Roasters" at (20, 14.19375) 293.65234×44
-      list at (476.92126, 12) 303.0787×48.3875
-        listitem "Home" at (476.92126, 14.19375) 55.15039×44
-          link "Home" [current=page] at (476.92126, 14.19375) 55.15039×44
-        listitem "Pricing" at (548.07166, 14.19375) 57.300293×44
-          link "Pricing" at (548.07166, 14.19375) 57.300293×44
-        listitem "Order beans" at (621.37195, 12) 158.62802×48.3875
-          link "Order beans" at (621.37195, 12) 158.62802×48.3875
-  main at (0, 73.3875) 800×0
+document at (0, 0) 800×73.375
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
+  banner at (0, 0) 800×73.375
+    navigation "Main" at (0, 0) 800×72.375
+      link "Nordwind Coffee Roasters" at (20, 14.1875) 293.65625×44
+      list at (476.92188, 12) 303.07813×48.375
+        listitem "Home" at (476.92188, 14.1875) 55.15625×44
+          link "Home" [current=page] at (476.92188, 14.1875) 55.15625×44
+        listitem "Pricing" at (548.0781, 14.1875) 57.3125×44
+          link "Pricing" at (548.0781, 14.1875) 57.3125×44
+        listitem "Order beans" at (621.3906, 12) 158.60938×48.375
+          link "Order beans" at (621.3906, 12) 158.60938×48.375
+  main at (0, 73.375) 800×0

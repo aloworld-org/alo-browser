@@ -28,6 +28,13 @@
 //! pass with this file deleted once `taffy` accepts the calculation, which is
 //! how an upgrade that makes it unnecessary is noticed.
 //!
+//! **A plain percentage is carried as an expression too** (ADR 0054 § 2), so
+//! that it is truncated onto the grid once it is resolved, and so it looks
+//! calculated here. Where the grid's size is definite it is resolved like
+//! any other; where it is not, it is handed back to `taffy` as the
+//! percentage it was, which `taffy` counts, rather than refused for a
+//! calculation nobody wrote.
+//!
 //! **The node's style is never changed.** This makes a copy, for one
 //! `compute_grid_layout` call, and `crate::arena` holds it for exactly that
 //! long. The copy is a function of the call's inputs, and the inputs are
@@ -59,17 +66,41 @@ pub(crate) struct Lowering {
     pub(crate) refused: Vec<Axis>,
 }
 
+/// What the arena can say about a handle it minted.
+pub(crate) trait Expressions {
+    /// What it comes to against a basis: the arena's own answer, the same
+    /// one `taffy` reaches through `resolve_calc_value`.
+    fn resolve(&self, handle: *const (), basis: f32) -> f32;
+
+    /// The fraction it stands for, when it is a plain percentage rather than
+    /// an expression somebody wrote.
+    fn plain_percentage(&self, handle: *const ()) -> Option<f32>;
+}
+
+/// A function alone resolves expressions, none of which is a plain
+/// percentage.
+impl<F: Fn(*const (), f32) -> f32> Expressions for F {
+    fn resolve(&self, handle: *const (), basis: f32) -> f32 {
+        self(handle, basis)
+    }
+
+    fn plain_percentage(&self, _: *const ()) -> Option<f32> {
+        None
+    }
+}
+
 /// The style to lay a grid out with, given the inputs of this call.
 ///
-/// `resolve` is the arena's own answer to a `calc()` handle — the same
+/// `expressions` is the arena's own answer to a `calc()` handle — the same
 /// function `taffy` reaches through `resolve_calc_value` — so a track
 /// resolved here and the same track resolved by `taffy` on a template it
 /// accepts cannot disagree.
 pub(crate) fn lower(
     style: &Style,
     inputs: &LayoutInput,
-    resolve: impl Fn(*const (), f32) -> f32,
+    expressions: &impl Expressions,
 ) -> Lowering {
+    let resolve = |handle: *const (), basis: f32| expressions.resolve(handle, basis);
     let wanted: Vec<Axis> = [Axis::Columns, Axis::Rows]
         .into_iter()
         .filter(|axis| counts_a_calculation(template(style, *axis)))
@@ -85,10 +116,14 @@ pub(crate) fn lower(
             Axis::Columns => content.width,
             Axis::Rows => content.height,
         };
-        let Some(basis) = basis else {
+        let lowered = |track: TrackSizingFunction| match basis {
+            Some(basis) => resolved(track, basis, &resolve),
+            None => as_percentages(track, expressions),
+        };
+        if basis.is_none() && !only_percentages(template(style, axis), expressions) {
             lowering.refused.push(axis);
             continue;
-        };
+        }
         let copy = lowering.style.get_or_insert_with(|| style.clone());
         let tracks = match axis {
             Axis::Columns => &mut copy.grid_template_columns,
@@ -96,12 +131,10 @@ pub(crate) fn lower(
         };
         for component in tracks.iter_mut() {
             match component {
-                GridTemplateComponent::Single(track) => {
-                    *track = resolved(*track, basis, &resolve);
-                }
+                GridTemplateComponent::Single(track) => *track = lowered(*track),
                 GridTemplateComponent::Repeat(repetition) => {
                     for track in &mut repetition.tracks {
-                        *track = resolved(*track, basis, &resolve);
+                        *track = lowered(*track);
                     }
                 }
             }
@@ -136,6 +169,40 @@ fn counts_a_calculation(template: &[GridTemplateComponent<String>]) -> bool {
 
 fn is_calculated(track: TrackSizingFunction) -> bool {
     track.min.into_raw().is_calc() || track.max.into_raw().is_calc()
+}
+
+/// Whether every calculated end in a template is a plain percentage, which
+/// `taffy` would have counted had it been handed one.
+fn only_percentages(
+    template: &[GridTemplateComponent<String>],
+    expressions: &impl Expressions,
+) -> bool {
+    let plain = |track: &TrackSizingFunction| {
+        let (min, max) = (track.min.into_raw(), track.max.into_raw());
+        (!min.is_calc() || expressions.plain_percentage(min.calc_value()).is_some())
+            && (!max.is_calc() || expressions.plain_percentage(max.calc_value()).is_some())
+    };
+    template.iter().all(|component| match component {
+        GridTemplateComponent::Single(track) => plain(track),
+        GridTemplateComponent::Repeat(repetition) => repetition.tracks.iter().all(plain),
+    })
+}
+
+/// A track with each end that is a plain percentage handed back as that
+/// percentage, for `taffy` to count and resolve as it would have.
+fn as_percentages(
+    track: TrackSizingFunction,
+    expressions: &impl Expressions,
+) -> TrackSizingFunction {
+    let percentage = |raw: taffy::CompactLength| {
+        raw.is_calc()
+            .then(|| expressions.plain_percentage(raw.calc_value()))
+            .flatten()
+    };
+    TrackSizingFunction {
+        min: percentage(track.min.into_raw()).map_or(track.min, MinTrackSizingFunction::percent),
+        max: percentage(track.max.into_raw()).map_or(track.max, MaxTrackSizingFunction::percent),
+    }
 }
 
 /// A track with each calculated end replaced by the length it comes to.
@@ -313,14 +380,14 @@ mod tests {
         let lowering = lower(
             &grid(Dimension::length(760.0)),
             &inputs(None),
-            smaller_of_all_or_288,
+            &smaller_of_all_or_288,
         );
         assert_eq!(lowered_min(&lowering), Some(288.0));
         assert!(lowering.refused.is_empty());
         let narrow = lower(
             &grid(Dimension::length(200.0)),
             &inputs(None),
-            smaller_of_all_or_288,
+            &smaller_of_all_or_288,
         );
         assert_eq!(
             lowered_min(&narrow),
@@ -334,7 +401,7 @@ mod tests {
         let lowering = lower(
             &grid(Dimension::auto()),
             &inputs(Some(250.0)),
-            smaller_of_all_or_288,
+            &smaller_of_all_or_288,
         );
         assert_eq!(lowered_min(&lowering), Some(250.0));
     }
@@ -358,12 +425,12 @@ mod tests {
         };
         let wide = |handle: *const (), basis: f32| if handle == HANDLE { basis } else { 0.0 };
         assert_eq!(
-            lowered_min(&lower(&style, &inputs(None), wide)),
+            lowered_min(&lower(&style, &inputs(None), &wide)),
             Some(754.0)
         );
         style.box_sizing = BoxSizing::ContentBox;
         assert_eq!(
-            lowered_min(&lower(&style, &inputs(None), wide)),
+            lowered_min(&lower(&style, &inputs(None), &wide)),
             Some(800.0),
             "content-box: the width is the content box"
         );
@@ -372,22 +439,63 @@ mod tests {
     #[test]
     fn a_grid_with_no_definite_width_is_refused_and_left_as_written() {
         let mut style = grid(Dimension::auto());
-        let lowering = lower(&style, &inputs(None), smaller_of_all_or_288);
+        let lowering = lower(&style, &inputs(None), &smaller_of_all_or_288);
         assert!(lowering.style.is_none());
         assert_eq!(lowering.refused, vec![Axis::Columns]);
         // Only a maximum, or only a minimum: counted against one number and
         // sized against another (ADR 0047 cases F and G).
         style.max_size.width = LengthPercentageAuto::length(700.0);
         assert_eq!(
-            lower(&style, &inputs(None), smaller_of_all_or_288).refused,
+            lower(&style, &inputs(None), &smaller_of_all_or_288).refused,
             vec![Axis::Columns]
         );
         style.max_size.width = LengthPercentageAuto::auto();
         style.min_size.width = LengthPercentageAuto::length(700.0);
         assert_eq!(
-            lower(&style, &inputs(None), smaller_of_all_or_288).refused,
+            lower(&style, &inputs(None), &smaller_of_all_or_288).refused,
             vec![Axis::Columns]
         );
+    }
+
+    /// The arena's answers when [`HANDLE`] is a plain `25%`, carried as an
+    /// expression only so that it is truncated onto the grid (ADR 0054 § 2).
+    struct AQuarter;
+
+    impl Expressions for AQuarter {
+        fn resolve(&self, handle: *const (), basis: f32) -> f32 {
+            if handle == HANDLE {
+                basis * 0.25
+            } else {
+                f32::NAN
+            }
+        }
+
+        fn plain_percentage(&self, handle: *const ()) -> Option<f32> {
+            (handle == HANDLE).then_some(0.25)
+        }
+    }
+
+    #[test]
+    fn a_plain_percentage_with_no_definite_basis_goes_back_to_taffy_as_one() {
+        // `repeat(auto-fill, 25%)` in a grid of no definite width: `taffy`
+        // counts a percentage itself, so nothing is refused, and the track is
+        // handed back as the percentage it was written.
+        let lowering = lower(&grid(Dimension::auto()), &inputs(None), &AQuarter);
+        assert!(lowering.refused.is_empty(), "{:?}", lowering.refused);
+        let Some(style) = lowering.style else {
+            panic!("a copy with the percentage handed back");
+        };
+        let Some(GridTemplateComponent::Repeat(repetition)) = style.grid_template_columns.first()
+        else {
+            panic!("the repetition");
+        };
+        assert_eq!(
+            repetition.tracks.first().map(|track| track.min),
+            Some(MinTrackSizingFunction::percent(0.25))
+        );
+        // With a definite width it is resolved like any expression.
+        let definite = lower(&grid(Dimension::length(760.0)), &inputs(None), &AQuarter);
+        assert_eq!(lowered_min(&definite), Some(190.0));
     }
 
     #[test]
@@ -397,7 +505,7 @@ mod tests {
         let lowering = lower(
             &grid(Dimension::length(760.0)),
             &asked,
-            smaller_of_all_or_288,
+            &smaller_of_all_or_288,
         );
         assert_eq!(lowering.refused, vec![Axis::Columns]);
     }
@@ -407,7 +515,7 @@ mod tests {
         let mut style = grid(Dimension::length(760.0));
         style.aspect_ratio = Some(2.0);
         assert_eq!(
-            lower(&style, &inputs(None), smaller_of_all_or_288).refused,
+            lower(&style, &inputs(None), &smaller_of_all_or_288).refused,
             vec![Axis::Columns]
         );
         let mut style = grid(Dimension::length(760.0));
@@ -417,12 +525,12 @@ mod tests {
         };
         style.scrollbar_width = 15.0;
         assert_eq!(
-            lower(&style, &inputs(None), smaller_of_all_or_288).refused,
+            lower(&style, &inputs(None), &smaller_of_all_or_288).refused,
             vec![Axis::Columns]
         );
         style.scrollbar_width = 0.0;
         assert_eq!(
-            lowered_min(&lower(&style, &inputs(None), smaller_of_all_or_288)),
+            lowered_min(&lower(&style, &inputs(None), &smaller_of_all_or_288)),
             Some(288.0),
             "a gutter of nothing narrows nothing"
         );
@@ -435,7 +543,7 @@ mod tests {
             min: MinTrackSizingFunction::calc(HANDLE),
             max: MaxTrackSizingFunction::fr(1.0),
         })];
-        let lowering = lower(&style, &inputs(None), smaller_of_all_or_288);
+        let lowering = lower(&style, &inputs(None), &smaller_of_all_or_288);
         assert!(lowering.style.is_none() && lowering.refused.is_empty());
     }
 
@@ -450,7 +558,7 @@ mod tests {
             }],
             line_names: Vec::new(),
         })];
-        let lowering = lower(&style, &inputs(None), smaller_of_all_or_288);
+        let lowering = lower(&style, &inputs(None), &smaller_of_all_or_288);
         assert!(lowering.style.is_none() && lowering.refused.is_empty());
     }
 
@@ -468,7 +576,7 @@ mod tests {
                 max: MaxTrackSizingFunction::max_content(),
             }),
         ];
-        let lowering = lower(&style, &inputs(None), smaller_of_all_or_288);
+        let lowering = lower(&style, &inputs(None), &smaller_of_all_or_288);
         let Some(lowered) = lowering.style else {
             panic!("a definite width lowers");
         };
@@ -499,11 +607,11 @@ mod tests {
     fn rows_are_decided_apart_from_columns() {
         let mut style = grid(Dimension::length(760.0));
         style.grid_template_rows = the_blog_template();
-        let lowering = lower(&style, &inputs(None), smaller_of_all_or_288);
+        let lowering = lower(&style, &inputs(None), &smaller_of_all_or_288);
         assert_eq!(lowering.refused, vec![Axis::Rows], "the height is auto");
         assert_eq!(lowered_min(&lowering), Some(288.0));
         style.size.height = Dimension::length(100.0);
-        let both = lower(&style, &inputs(None), smaller_of_all_or_288);
+        let both = lower(&style, &inputs(None), &smaller_of_all_or_288);
         assert!(both.refused.is_empty());
     }
 
@@ -520,7 +628,7 @@ mod tests {
                 10_000,
             ))
             .collect();
-        let lowering = lower(&style, &inputs(None), |_, _| f32::MAX);
+        let lowering = lower(&style, &inputs(None), &|_, _| f32::MAX);
         assert_eq!(
             lowering
                 .style

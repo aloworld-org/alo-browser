@@ -1,10 +1,10 @@
-fill box#1 rgb(255 255 255) at (10, 10) 190×103.2
+fill box#1 rgb(255 255 255) at (10, 10) 190×103.1875
 text box#5 "Email" rgb(82 82 91) 13px at (10, 22)
-fill box#7 rgb(161 161 170) at (10, 25) 196×19.599998
+fill box#7 rgb(161 161 170) at (10, 25) 196×19.59375
 text box#8 "someone@alo.build" rgb(0 0 0) 13px at (13, 39)
-text box#12 "Password" rgb(82 82 91) 13px at (10, 56.6)
-fill box#14 rgb(161 161 170) at (10, 59.6) 196×19.599998
-text box#15 "••••••••" rgb(0 0 0) 13px at (13, 73.6)
+text box#12 "Password" rgb(82 82 91) 13px at (10, 56.59375)
+fill box#14 rgb(161 161 170) at (10, 59.59375) 196×19.59375
+text box#15 "••••••••" rgb(0 0 0) 13px at (13, 73.59375)
 fill box#18 rgb(0 117 255) at (14, 82) 13×13
 fill box#18 rgb(255 255 255) at (15.86461, 83.95032) 9.347495×8.706696
-text box#20 "Remember me" rgb(82 82 91) 13px at (10, 110.2)
+text box#20 "Remember me" rgb(82 82 91) 13px at (10, 110.1875)

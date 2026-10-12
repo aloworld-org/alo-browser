@@ -22,10 +22,8 @@
 //! to itself and inherits as one (`alo_style`'s `record_computed_font`),
 //! and everything else computes to pixels.
 
+use crate::layout_unit::{floored, rounded};
 use alo_style::ComputedStyle;
-
-/// How many layout units make a CSS pixel.
-const UNITS: f32 = 64.0;
 
 /// The line height a line box of this style uses, in CSS pixels, or
 /// [`None`] for `normal`.
@@ -35,24 +33,16 @@ pub fn used_line_height(style: &ComputedStyle) -> Option<f32> {
         Some(multiple) => floored(rounded(style.font_size()) * multiple),
         None => rounded(computed),
     };
-    // A value so large that it has no place on the grid keeps its computed
-    // number, which the cascade has already checked is finite.
+    // A value past the grid's range saturates at its edge, as Chrome's does
+    // (ADR 0054 § 5); one that is somehow not a number keeps its computed
+    // value, which the cascade has already checked is finite.
     Some(if used.is_finite() { used } else { computed })
-}
-
-/// Pixels rounded to the nearest layout unit, a half going up.
-fn rounded(pixels: f32) -> f32 {
-    (pixels * UNITS + 0.5).floor() / UNITS
-}
-
-/// Pixels floored to a layout unit.
-fn floored(pixels: f32) -> f32 {
-    (pixels * UNITS).floor() / UNITS
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout_unit::UNITS_PER_PX;
     use alo_css::{MediaContext, parse_stylesheet};
     use alo_dom::parse_document;
     use alo_style::{Origin, SourcedSheet, resolve};
@@ -71,7 +61,7 @@ mod tests {
 
     /// `units` sixty-fourths of a pixel, as measured in Chrome 154.
     fn sixty_fourths(units: f32) -> f32 {
-        units / UNITS
+        units / UNITS_PER_PX
     }
 
     #[test]
@@ -133,8 +123,11 @@ mod tests {
     }
 
     #[test]
-    fn a_line_height_too_large_for_the_grid_keeps_its_computed_value() {
+    fn a_line_height_past_the_grids_range_saturates_at_its_edge() {
         let enormous = used("font-size: 16px; line-height: 1e37px");
-        assert!(enormous.is_some_and(f32::is_finite), "{enormous:?}");
+        assert!(
+            enormous.is_some_and(|height| height.is_finite() && height < 33_554_432.0),
+            "{enormous:?}"
+        );
     }
 }

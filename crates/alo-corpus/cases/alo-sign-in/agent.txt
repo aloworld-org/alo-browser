@@ -12,7 +12,7 @@ document at (0, 0) 1000×640
     textbox "Email" [placeholder="you@company.eu"] at (510, 212) 400×46
     generic "Password" at (510, 298) 400×46
     checkbox "Remember me" [checked=false] at (514, 363) 13×13
-    link "Forgot password?" at (779.5747, 362) 130.4253×15
+    link "Forgot password?" at (779.5625, 362) 130.4375×15
     button "Sign in" at (510, 395) 400×46
-    text "or" at (703.3508, 457) 13.29834×15
+    text "or" at (703.34375, 457) 13.29834×15
     button "Sign in with SSO" at (510, 488) 400×46

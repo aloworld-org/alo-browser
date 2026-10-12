@@ -239,10 +239,12 @@ fn the_hand_is_middle_aligned_with_the_greetings_lowercase_letters() {
     let Some(line) = line else {
         panic!("the greeting's paragraph");
     };
+    // The paragraph holding the line has its edges on the grid of 1/64 px
+    // (ADR 0054 § 3), so it is the line's height floored onto it.
+    let floored = ((above + below) * 64.0).floor() / 64.0;
     assert!(
-        (line - (above + below)).abs() < 0.001 && line > 20.0,
-        "the greeting is one line of {line}, not {}",
-        above + below
+        (line - floored).abs() < 0.001 && line > 20.0,
+        "the greeting is one line of {line}, not {floored}",
     );
 }
 

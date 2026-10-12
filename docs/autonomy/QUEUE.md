@@ -7430,7 +7430,7 @@ The long pole, and the thing most of section E is unreachable without.
   tallest run. *Closes when:* a frozen page whose `normal` line holds a
   taller fallback font has Chrome's line heights to 1/64 px.
 
-- [ ] **466. A box's paddings, margins and grid tracks are on Chrome's
+- [x] **466. A box's paddings, margins and grid tracks are on Chrome's
   1/64 px grid.** *Found building 460 (iteration 293). Feature:
   `docs/features.md` stage 1, box model and grid. Needs measuring, and its
   rule written down before it is built: it moves most boxes.* With lines
@@ -7460,6 +7460,35 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* `alo-sites-booking`'s boxes are Chrome's to 1/64 px
   except its date field's own line (467), and `alo-agenda-mini-month`'s
   are too except its column widths and what follows from them (499).
+  ***Done (iteration 305).*** `alo-layout`'s `layout_unit.rs` is the one
+  file holding the grid and its rules, and `line_height.rs` reads its
+  rounding from there now. Lengths are truncated where `engine.rs` turns
+  them into numbers. A percentage is handed to `taffy` as a calculation,
+  and the arena truncates every calculation it resolves. A leaf's text
+  width is rounded up. `auto_repeat.rs` hands a plain percentage back to
+  `taffy` as a percentage where no basis is definite, so it is not refused
+  as a calculation nobody wrote. Edges are placed as `engine.rs` reads the
+  tree back, against where the parent was **placed**, not in the arena as
+  ADR 0054 § 6 said. Built the arena's way, `alo-sites-contact-form`'s label
+  was a unit narrower than the form holding it. The ADR's addendum says
+  so, and records two more corrections. A length or text width within
+  2⁻²¹ of a grid line is on it (f32 against Chrome's double), and a shared
+  edge gets no slack. A grid's `justify-content` is Chrome's only for its
+  first share, which moves to 499.
+  The closing condition is met. `alo_sites_booking.rs`'s
+  `every_box_is_chromes_but_what_the_fields_own_line_moves` holds Chrome's
+  measured units for the page's boxes, and the field, the form and the
+  button differ only by the field's 128 units (467).
+  `alo_agenda_mini_month.rs` asserts every day at its ideal edges floored,
+  1,837 and 1,838 units, which are Chrome's columns before its second pass
+  (499); every other box on that page is Chrome's.
+  Layout assertions are in `alo-layout`'s `tests/on_the_grid.rs`, one per
+  row of ADR 0054's tables, and in `layout_unit.rs`' own tests.
+  **Measured over the whole corpus** against Chrome 154 with the corpus's
+  fonts, before and after: 707 of 1,260 element boxes are Chrome's exactly,
+  where 514 were. Only the mini-month's columns are further from Chrome's.
+  Every corpus reference was rewritten. The pictures move by sub-pixel
+  antialiasing at the edges that moved, and none changes size.
 
 - [x] **498. The rule a box's lengths and shares are placed on the grid
   by.** *Cut from 466 (iteration 303), whose entry asked for its rule to
@@ -7511,6 +7540,13 @@ The long pole, and the thing most of section E is unreachable without.
   a `[patch]`. *Closes when:* the ADR is accepted, and, if it decides to
   build, `alo-agenda-mini-month`'s columns are Chrome's 1,838 units and a
   frozen line of flexible items is Chrome's to the unit.
+  **Widened (iteration 305, building 466):** a grid's `justify-content` is
+  the same problem. Chrome truncates each share and adds them up, and the
+  boundary sees only `taffy`'s exact shares added up, so `space-around`
+  with three 10 px tracks in 100.3 px starts them at 749, 2,889 and 5,029
+  units, where Chrome's are 749, 2,888 and 5,027 (ADR 0054's addendum,
+  § 3; `alo-layout`'s `tests/on_the_grid.rs` holds both). Its closing
+  condition gains a grid distributed that way and Chrome's to the unit.
 
 - [ ] **467. A control's own line at `normal` is its font's whole pixels.**
   *Found building 460 (iteration 293). Feature: `docs/features.md` stage

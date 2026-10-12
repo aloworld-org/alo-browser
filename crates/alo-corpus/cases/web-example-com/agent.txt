@@ -1,6 +1,6 @@
-document at (0, 0) 800×297.08002
+document at (0, 0) 800×297.07813
   heading "Example Domain" [level=1] at (160, 90) 480×28
-  paragraph at (160, 134.08) 480×38
-    text "This domain is for use in documentation examples without needing permission. Avoid use in operations." at (160, 134.08) 469.52344×38 in 2 pieces
-  paragraph at (160, 188.08) 480×19
-    link "Learn more" at (160, 188.08) 91.25×19
+  paragraph at (160, 134.07813) 480×38
+    text "This domain is for use in documentation examples without needing permission. Avoid use in operations." at (160, 134.07813) 469.52344×38 in 2 pieces
+  paragraph at (160, 188.07813) 480×19
+    link "Learn more" at (160, 188.07813) 91.25×19

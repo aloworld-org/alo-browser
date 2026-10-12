@@ -116,11 +116,15 @@ fn its_two_columns_stand_a_clamped_gap_apart() {
     // is 800 with 1.25rem of padding each side: 760 of content at x 20.
     assert!(near(section.size.width, 800.0), "{section:?}");
     // The gap is `clamp(2rem, 6vw, 5rem)`: 6vw of 800 is 48, between 32 and
-    // 80. The 712 left is shared .8 to 1.2: 284.8 and 427.2.
+    // 80. The 712 left is shared .8 to 1.2: 284.8 and 427.2. Each track's
+    // edges are its ideal edges floored onto the grid (ADR 0054 § 3): the
+    // heading ends at 18,227.2 units from its start and is 18,227 wide, and
+    // the form runs from 22,579.2 to 49,920 and is 27,341 wide at 22,579.
+    // Every one of those is Chrome 154's.
     assert!(near(heading.origin.x, 20.0), "{heading:?}");
-    assert!(near(heading.size.width, 284.8), "{heading:?}");
-    assert!(near(form.origin.x, 20.0 + 284.8 + 48.0), "{form:?}");
-    assert!(near(form.size.width, 427.2), "{form:?}");
+    assert!(near(heading.size.width, 18227.0 / 64.0), "{heading:?}");
+    assert!(near(form.origin.x, 22579.0 / 64.0), "{form:?}");
+    assert!(near(form.size.width, 27341.0 / 64.0), "{form:?}");
     assert!(
         near(
             form.origin.x - (heading.origin.x + heading.size.width),

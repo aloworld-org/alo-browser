@@ -1,9 +1,9 @@
 fill box#2 rgb(255 255 255) at (0, 0) 800×788.4219
 fill box#7 rgb(221 227 233) at (0, 64) 800×1
 text box#10 "North Studio" rgb(23 33 43) 20px at (20, 39)
-text box#13 "Home" rgb(23 33 43) 17px at (618.8252, 37.40625)
-text box#15 "Blog" rgb(23 33 43) 17px at (689.0283, 37.40625)
-text box#17 "RSS" rgb(23 33 43) 17px at (746.60596, 37.40625)
+text box#13 "Home" rgb(23 33 43) 17px at (618.8125, 37.40625)
+text box#15 "Blog" rgb(23 33 43) 17px at (689.0156, 37.40625)
+text box#17 "RSS" rgb(23 33 43) 17px at (746.59375, 37.40625)
 text box#23 "Blog" rgb(23 33 43) 40px at (20, 151)
 fill box#27 rgb(242 245 248) at (20, 193) 368×430.23438
 fill box#27 rgb(221 227 233) at (20, 193) 368×430.23438
@@ -23,13 +23,13 @@ text box#56 "Behind the scenes" rgb(23 33 43) 24px at (437, 279)
 text box#58 "Read article" rgb(29 78 216) 17px at (437, 312.79688)
 fill box#58 rgb(29 78 216) at (437, 313.87598) 115.42236×1
 unclip
-fill box#67 rgb(242 245 248) at (20, 663.2344) 101.84326×45.1875
-fill box#67 rgb(221 227 233) at (20, 663.2344) 101.84326×45.1875
-text box#68 "Previous" rgb(23 33 43) 17px at (35, 691.2344)
-text box#71 "Page 2 of 3" rgb(76 88 102) 17px at (352.30786, 691.2344)
-fill box#72 rgb(242 245 248) at (710.397, 663.2344) 69.60303×45.1875
-fill box#72 rgb(221 227 233) at (710.397, 663.2344) 69.60303×45.1875
-text box#73 "Next" rgb(23 33 43) 17px at (725.397, 691.2344)
+fill box#67 rgb(242 245 248) at (20, 663.2344) 101.84375×45.1875
+fill box#67 rgb(221 227 233) at (20, 663.2344) 101.84375×45.1875
+text box#68 "Previous" rgb(23 33 43) 17px at (35.000244, 691.2344)
+text box#71 "Page 2 of 3" rgb(76 88 102) 17px at (352.30005, 691.2344)
+fill box#72 rgb(242 245 248) at (710.3906, 663.2344) 69.609375×45.1875
+fill box#72 rgb(221 227 233) at (710.3906, 663.2344) 69.609375×45.1875
+text box#73 "Next" rgb(23 33 43) 17px at (725.3938, 691.2344)
 clip box#43 to (159.42236, 570.0469) 1×1
 text box#44 ": Launch notes" rgb(29 78 216) 17px at (159.42236, 589.0469)
 fill box#44 rgb(29 78 216) at (159.42236, 590.126) 140.88086×1
@@ -38,6 +38,6 @@ clip box#59 to (551.42236, 292.79688) 1×1
 text box#60 ": Behind the scenes" rgb(29 78 216) 17px at (551.42236, 311.79688)
 fill box#60 rgb(29 78 216) at (551.42236, 312.87598) 188.47754×1
 unclip
-fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.1875
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.125×43.1875
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
 fill box#5 rgb(23 33 43) at (-15968, 28.079102) 129.11035×1

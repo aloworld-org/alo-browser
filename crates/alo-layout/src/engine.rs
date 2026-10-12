@@ -51,6 +51,7 @@ use crate::keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,
 };
+use crate::layout_unit;
 use crate::legend;
 use crate::marker;
 use crate::measure::{MeasureText, TextStyle};
@@ -212,10 +213,12 @@ fn lay_out_subtree(
     let mut arena = Arena::new(boxes, styles, measure);
     let root_node = build(boxes, styles, root, &mut arena, &mut built, subtree, issues)?;
     let initial = hand_over(&mut arena, &built, available);
-    // Sub-pixel throughout: `taffy`'s rounding is a pass over a trait this
+    // Never to whole pixels: `taffy`'s rounding is a pass over a trait this
     // engine's tree does not implement, so it cannot happen. A box rounded
     // down to 96 while its text measures 96.16 wraps a word early, which is
     // how "Remember me" once became two lines in a box wide enough for one.
+    // Boxes are placed on Chrome's grid of 1/64 px instead, as they are read
+    // back (ADR 0054).
     arena.compute(root_node, available);
     if let Some(initial) = initial {
         arena.compute(initial, available);
@@ -223,14 +226,15 @@ fn lay_out_subtree(
     record_refused_templates(&arena, &built, boxes, styles, issues);
 
     let mut placed = Placed::default();
-    read_back(
-        &arena,
-        &built,
+    let mut unplaced = BTreeMap::new();
+    let mut reading = Reading {
+        arena: &arena,
+        built: &built,
         boxes,
-        root,
-        Point::ZERO,
-        &mut placed.geometry,
-    );
+        out: &mut placed.geometry,
+        unplaced: &mut unplaced,
+    };
+    reading.read_back(root, Origins::ZERO);
     // A box out of flow in a line is under a box no walk of the engine's
     // tree reaches, so it is read back on its own, against what it is placed
     // against; its line moves it to its static position once lines exist.
@@ -240,14 +244,14 @@ fn lay_out_subtree(
         };
         placed.in_line.insert(*id, axes);
         if !placed.geometry.contains_key(id) {
-            read_back(
-                &arena,
-                &built,
+            let mut reading = Reading {
+                arena: &arena,
+                built: &built,
                 boxes,
-                *id,
-                Point::ZERO,
-                &mut placed.geometry,
-            );
+                out: &mut placed.geometry,
+                unplaced: &mut unplaced,
+            };
+            reading.read_back(*id, Origins::ZERO);
         }
     }
     reach_of_the_initial_block(&built, root, &mut placed.geometry);
@@ -590,7 +594,7 @@ fn inline_edges(
             });
             return 0.0;
         }
-        value.to_px(metrics, 0.0)
+        pixels(value, metrics)
     };
     (
         Edges {
@@ -1594,9 +1598,19 @@ fn grid_line(line: GridLine) -> taffy::GridPlacement {
 /// A `calc()` of lengths only is already a plain number by the time it gets
 /// here — `calc(var(--gap) * 2)`, which is what a design system actually
 /// writes. It is the ones with a percentage inside that have to be carried as
-/// a handle and asked about later; see ADR 0004.
+/// a handle and asked about later; see ADR 0004. **A plain percentage is
+/// carried the same way**, so that the arena truncates it onto the grid once
+/// it is resolved (ADR 0054 § 2): handed over as a percentage, `taffy` would
+/// resolve it itself, as `basis × percent`, and nothing could reach it.
 fn needs_a_basis(value: &LengthPercentage) -> bool {
-    matches!(value, LengthPercentage::Calc(_)) && value.is_percentage()
+    value.is_percentage()
+}
+
+/// A length's number, truncated toward zero onto the grid, each length on
+/// its own (ADR 0054 § 1). A `calc()` of lengths only is resolved whole and
+/// truncated once.
+fn pixels(value: &LengthPercentage, metrics: FontMetrics) -> f32 {
+    layout_unit::truncated(value.to_px(metrics, 0.0))
 }
 
 /// A length or percentage, as `taffy` spells it.
@@ -1608,10 +1622,7 @@ fn length(
     if needs_a_basis(value) {
         return TaffyLengthPercentage::calc(unresolved.handle(value, metrics));
     }
-    match value {
-        LengthPercentage::Percentage(percent) => TaffyLengthPercentage::percent(percent / 100.0),
-        other => TaffyLengthPercentage::length(other.to_px(metrics, 0.0)),
-    }
+    TaffyLengthPercentage::length(pixels(value, metrics))
 }
 
 fn auto_length(
@@ -1625,12 +1636,7 @@ fn auto_length(
             if needs_a_basis(inner) {
                 return LengthPercentageAuto::calc(unresolved.handle(inner, metrics));
             }
-            match inner {
-                LengthPercentage::Percentage(percent) => {
-                    LengthPercentageAuto::percent(percent / 100.0)
-                }
-                other => LengthPercentageAuto::length(other.to_px(metrics, 0.0)),
-            }
+            LengthPercentageAuto::length(pixels(inner, metrics))
         }
     }
 }
@@ -1648,8 +1654,10 @@ fn dimension(
         Sizing::FitContent(limit) => {
             // `fit-content()` takes a percentage or a length, and the layout
             // algorithms have no `calc()` spelling for its argument — so this
-            // one expression is still refused, and says so.
-            if needs_a_basis(limit) {
+            // one expression is still refused, and says so. For the same
+            // reason a percentage limit is `taffy`'s to resolve, and is not
+            // truncated onto the grid (ADR 0054 § 2): no page has asked.
+            if matches!(limit, LengthPercentage::Calc(_)) && limit.is_percentage() {
                 issues.push(StyleIssue {
                     kind: IssueKind::UnsupportedValue,
                     source: format!("fit-content({limit}) — a calc() inside fit-content()"),
@@ -1661,17 +1669,14 @@ fn dimension(
                 LengthPercentage::Percentage(percent) => {
                     Dimension::fit_content_percent(percent / 100.0)
                 }
-                other => Dimension::fit_content_px(other.to_px(metrics, 0.0)),
+                other => Dimension::fit_content_px(pixels(other, metrics)),
             }
         }
         Sizing::Length(inner) => {
             if needs_a_basis(inner) {
                 return Dimension::calc(unresolved.handle(inner, metrics));
             }
-            match inner {
-                LengthPercentage::Percentage(percent) => Dimension::percent(percent / 100.0),
-                other => Dimension::length(other.to_px(metrics, 0.0)),
-            }
+            Dimension::length(pixels(inner, metrics))
         }
     }
 }
@@ -1716,12 +1721,7 @@ fn min_max(
             if needs_a_basis(inner) {
                 return LengthPercentageAuto::calc(unresolved.handle(inner, metrics));
             }
-            match inner {
-                LengthPercentage::Percentage(percent) => {
-                    LengthPercentageAuto::percent(percent / 100.0)
-                }
-                other => LengthPercentageAuto::length(other.to_px(metrics, 0.0)),
-            }
+            LengthPercentageAuto::length(pixels(inner, metrics))
         }
     }
 }
@@ -1796,12 +1796,7 @@ fn min_track(
             if needs_a_basis(value) {
                 return MinTrackSizingFunction::calc(unresolved.handle(value, metrics));
             }
-            match value {
-                LengthPercentage::Percentage(percent) => {
-                    MinTrackSizingFunction::percent(percent / 100.0)
-                }
-                other => MinTrackSizingFunction::length(other.to_px(metrics, 0.0)),
-            }
+            MinTrackSizingFunction::length(pixels(value, metrics))
         }
     }
 }
@@ -1820,91 +1815,141 @@ fn max_track(
             if needs_a_basis(value) {
                 return MaxTrackSizingFunction::calc(unresolved.handle(value, metrics));
             }
-            match value {
-                LengthPercentage::Percentage(percent) => {
-                    MaxTrackSizingFunction::percent(percent / 100.0)
-                }
-                other => MaxTrackSizingFunction::length(other.to_px(metrics, 0.0)),
-            }
+            MaxTrackSizingFunction::length(pixels(value, metrics))
         }
     }
 }
 
-/// Walk the tree and turn parent-relative positions into positions on the page.
-///
-/// A displaced box's position is relative to its containing block's node, so
-/// it is measured from there — the containing block is its ancestor and was
-/// read first — or from the top left of the page for the initial containing
-/// block; and an axis it takes from its [`Probe`] is where the probe is, in
-/// its parent, plus its own margin, as `taffy` places a box at its static
-/// position.
-fn read_back<M: MeasureText>(
-    arena: &Arena<'_, M>,
-    built: &Built,
-    boxes: &BoxTree,
-    id: BoxId,
-    parent_origin: Point,
-    out: &mut BTreeMap<BoxId, BoxGeometry>,
-) {
-    let Some(theirs) = built.ours_to_theirs.get(&id) else {
-        return;
+/// Where a box's top left is on the page: where `taffy` put it, and where it
+/// was placed on the grid.
+#[derive(Clone, Copy)]
+struct Origins {
+    unplaced: Point,
+    placed: Point,
+}
+
+impl Origins {
+    const ZERO: Self = Self {
+        unplaced: Point::ZERO,
+        placed: Point::ZERO,
     };
-    let Some(layout) = arena.layout(*theirs) else {
-        return;
-    };
-    let origin = match built.displaced.get(&id) {
-        None => Point::new(
-            parent_origin.x + layout.location.x,
-            parent_origin.y + layout.location.y,
-        ),
-        Some(displaced) => {
-            let base = displaced.against.map_or(Point::ZERO, |against| {
-                out.get(&against)
-                    .map_or(parent_origin, |held| held.border_box.origin)
+}
+
+/// What reading the engine's tree back needs, and what it fills in.
+struct Reading<'r, 'a, M: MeasureText> {
+    arena: &'r Arena<'a, M>,
+    built: &'r Built,
+    boxes: &'r BoxTree,
+    /// Every box's geometry, placed on the grid.
+    out: &'r mut BTreeMap<BoxId, BoxGeometry>,
+    /// Where `taffy` put each box's top left on the page, before it was
+    /// placed: a displaced box is measured from its containing block's.
+    unplaced: &'r mut BTreeMap<BoxId, Point>,
+}
+
+impl<M: MeasureText> Reading<'_, '_, M> {
+    /// Walk the tree and turn parent-relative positions into positions on the
+    /// page, each box placed on the grid (ADR 0054 §§ 3 and 6).
+    ///
+    /// A displaced box's position is relative to its containing block's node,
+    /// so it is measured from there — the containing block is its ancestor and
+    /// was read first — or from the top left of the page for the initial
+    /// containing block; and an axis it takes from its [`Probe`] is where the
+    /// probe is, in its parent, plus its own margin, as `taffy` places a box at
+    /// its static position.
+    ///
+    /// **A box is placed against where the box it is measured from was
+    /// placed**, not against where `taffy` put that box. Its near edge is
+    /// truncated toward zero from there and its size is the distance between
+    /// its two edges floored ([`layout_unit::edges`]). A box that fills its
+    /// parent in `taffy`'s numbers therefore fills it on the grid too: a grid
+    /// item whose track `taffy` started at 22,579.2 units and ended at 49,920
+    /// is placed at 22,579 and 27,341 wide, and a label filling it is 27,341
+    /// wide as well, as in Chrome, where measuring the label from its
+    /// parent's unplaced edge would floor it to 27,340.
+    fn read_back(&mut self, id: BoxId, parent: Origins) {
+        let Some(theirs) = self.built.ours_to_theirs.get(&id) else {
+            return;
+        };
+        let Some(layout) = self.arena.layout(*theirs) else {
+            return;
+        };
+        // What the box is measured from in each axis, and where `taffy` put
+        // its top left on the page.
+        let (mut from_x, mut from_y) = (parent, parent);
+        let mut unplaced = Point::new(
+            parent.unplaced.x + layout.location.x,
+            parent.unplaced.y + layout.location.y,
+        );
+        if let Some(displaced) = self.built.displaced.get(&id) {
+            let against = displaced.against.map_or(Origins::ZERO, |against| Origins {
+                unplaced: self
+                    .unplaced
+                    .get(&against)
+                    .copied()
+                    .unwrap_or(parent.unplaced),
+                placed: self
+                    .out
+                    .get(&against)
+                    .map_or(parent.placed, |held| held.border_box.origin),
             });
-            let mut origin = Point::new(base.x + layout.location.x, base.y + layout.location.y);
+            (from_x, from_y) = (against, against);
+            unplaced = Point::new(
+                against.unplaced.x + layout.location.x,
+                against.unplaced.y + layout.location.y,
+            );
             if let Some(probe) = displaced.probe
-                && let Some(at) = arena.layout(probe.node)
+                && let Some(at) = self.arena.layout(probe.node)
             {
                 if probe.across {
-                    origin.x = parent_origin.x + at.location.x + layout.margin.left;
+                    from_x = parent;
+                    unplaced.x = parent.unplaced.x + at.location.x + layout.margin.left;
                 }
                 if probe.down {
-                    origin.y = parent_origin.y + at.location.y + layout.margin.top;
+                    from_y = parent;
+                    unplaced.y = parent.unplaced.y + at.location.y + layout.margin.top;
                 }
             }
-            origin
         }
-    };
-    out.insert(
-        id,
-        BoxGeometry {
-            border_box: Rect {
-                origin,
-                size: Size::new(layout.size.width, layout.size.height),
+        let (left, width) = layout_unit::edges(unplaced.x - from_x.placed.x, layout.size.width);
+        let (top, height) = layout_unit::edges(unplaced.y - from_y.placed.y, layout.size.height);
+        let origin = Point::new(from_x.placed.x + left, from_y.placed.y + top);
+        self.unplaced.insert(id, unplaced);
+        self.out.insert(
+            id,
+            BoxGeometry {
+                border_box: Rect {
+                    origin,
+                    size: Size::new(width, height),
+                },
+                border: edges(layout.border),
+                padding: edges(layout.padding),
+                margin: edges(layout.margin),
+                scrollable: Size::new(
+                    layout.scrollable_overflow_rect.right - layout.scrollable_overflow_rect.left,
+                    layout.scrollable_overflow_rect.bottom - layout.scrollable_overflow_rect.top,
+                ),
+                // `taffy` measures the overflow from the padding box's top
+                // left, its scroll origin, and its right and bottom are never
+                // below zero: what a scroll could reach.
+                reach: Size::new(
+                    layout.scrollable_overflow_rect.right.max(0.0),
+                    layout.scrollable_overflow_rect.bottom.max(0.0),
+                ),
+                // Written by `crate::legend`, once every box has a rectangle:
+                // a band is where a legend ended up, and nothing here knows
+                // that yet.
+                band: None,
             },
-            border: edges(layout.border),
-            padding: edges(layout.padding),
-            margin: edges(layout.margin),
-            scrollable: Size::new(
-                layout.scrollable_overflow_rect.right - layout.scrollable_overflow_rect.left,
-                layout.scrollable_overflow_rect.bottom - layout.scrollable_overflow_rect.top,
-            ),
-            // `taffy` measures the overflow from the padding box's top left,
-            // its scroll origin, and its right and bottom are never below
-            // zero: what a scroll could reach.
-            reach: Size::new(
-                layout.scrollable_overflow_rect.right.max(0.0),
-                layout.scrollable_overflow_rect.bottom.max(0.0),
-            ),
-            // Written by `crate::legend`, once every box has a rectangle: a
-            // band is where a legend ended up, and nothing here knows that yet.
-            band: None,
-        },
-    );
-    let children: Vec<BoxId> = boxes.children(id).collect();
-    for child in children {
-        read_back(arena, built, boxes, child, origin, out);
+        );
+        let here = Origins {
+            unplaced,
+            placed: origin,
+        };
+        let children: Vec<BoxId> = self.boxes.children(id).collect();
+        for child in children {
+            self.read_back(child, here);
+        }
     }
 }
 

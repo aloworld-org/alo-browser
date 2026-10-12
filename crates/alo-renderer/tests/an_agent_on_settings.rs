@@ -198,25 +198,27 @@ fn pressing_a_row_runs_the_screens_own_script_and_the_tree_says_which_is_open_no
 
     // The highlight moved with it, in numbers: `navItemOn`'s background is
     // painted over the Sharing row's box and no longer over General's, and
-    // its text is in the accent colour.
+    // its text is in the accent colour. The dialog is centred down the
+    // window, its share of the room truncated onto the grid of 1/64 px (ADR
+    // 0054), so every row is 0.09375 below a whole pixel.
     let drawn = renderer
         .rendered()
         .map(|drawing| drawing.display.to_outline())
         .unwrap_or_default();
     assert!(
-        drawn.contains("rgb(252 234 227) at (36, 200.10626) 169×31"),
+        drawn.contains("rgb(252 234 227) at (36, 200.09375) 169×31"),
         "the highlight is behind Sharing:\n{drawn}"
     );
     assert!(
-        !drawn.contains("rgb(252 234 227) at (36, 134.10626) 169×31"),
+        !drawn.contains("rgb(252 234 227) at (36, 134.09375) 169×31"),
         "and not behind General:\n{drawn}"
     );
     assert!(
-        drawn.contains("\"Sharing\" rgb(231 111 81) 13px at (48, 220.10626)"),
+        drawn.contains("\"Sharing\" rgb(231 111 81) 13px at (48, 220.09375)"),
         "Sharing is in the accent colour:\n{drawn}"
     );
     assert!(
-        drawn.contains("\"General\" rgb(95 85 75) 13px at (48, 154.10626)"),
+        drawn.contains("\"General\" rgb(95 85 75) 13px at (48, 154.09375)"),
         "General is not:\n{drawn}"
     );
 }
@@ -235,7 +237,7 @@ fn the_screen_is_drawn_as_its_markup_says_until_somebody_presses_something() {
         .map(|drawing| drawing.display.to_outline())
         .unwrap_or_default();
     assert!(
-        drawn.contains("rgb(252 234 227) at (36, 134.10626) 169×31"),
+        drawn.contains("rgb(252 234 227) at (36, 134.09375) 169×31"),
         "{drawn}"
     );
 }

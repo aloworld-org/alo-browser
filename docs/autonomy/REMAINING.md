@@ -1903,3 +1903,18 @@ over it in `an_agent_outside_the_browser.rs`. The contract is
 `docs/contracts/agent-socket.md`. Found: **500** (a box's id does not
 survive a verb that adds a box). 233 queue items are open (496 closed, 500
 added). The next unused queue number is 501 and the next unused ADR 0056.
+
+Iteration 305 built queue item 466 on ADR 0054: every box is on Chrome's
+grid of 1/64 px. `alo-layout`'s `layout_unit.rs` holds the grid and its
+rules. Lengths are truncated where `engine.rs` turns them into numbers.
+Percentages are handed to `taffy` as calculations, and the arena truncates
+each one it resolves. Text widths are rounded up. Each box's edges are
+placed as the tree is read back, against where its parent was placed. The
+ADR gained an addendum with three corrections: where edges are placed, a
+float's slack for a length but not for a shared edge, and a grid's
+`justify-content` being Chrome's only for its first share. That last one
+widens 499. Against Chrome 154, 707 of 1,260 corpus boxes are now exact,
+where 514 were. `alo-sites-booking` is Chrome's except what its date
+field's line moves (467). The mini-month's columns wait for 499. 232 queue
+items are open (466 closed). The next unused queue number is 501 and the
+next unused ADR 0056.

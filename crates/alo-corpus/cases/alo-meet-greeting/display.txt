@@ -7,7 +7,7 @@ clip box#11 to (136.0498, 44.445313) 20×20
 fill box#11 rgb(231 111 81) evenodd at (138.63208, 45.407337) 15.898743×18.025318
 fill box#11 rgb(16 42 67) evenodd at (136.75867, 45.60987) 18.531647×17.822784
 unclip
-text box#14 "Your" rgb(16 42 67) 32px at (24, 99.44531)
-text box#16 "meeting space" rgb(231 111 81) 32px at (115.921875, 99.44531)
-text box#19 "Start a call or step into one that is already happening." rgb(95 85 75) 15px at (24, 132.44531)
+text box#14 "Your" rgb(16 42 67) 32px at (24, 99.4375)
+text box#16 "meeting space" rgb(231 111 81) 32px at (115.921875, 99.4375)
+text box#19 "Start a call or step into one that is already happening." rgb(95 85 75) 15px at (24, 132.4375)
 unclip

@@ -26,8 +26,27 @@
 //! casting it back is safe, and nothing ever dereferences it. An index cannot
 //! dangle, survives the `Vec` growing, and a handle from another arena resolves
 //! to nothing rather than to somebody else's expression.
+//!
+//! # The grid is reached here
+//!
+//! ADR 0054 § 6 puts two of its three places in this file, because they are
+//! where `taffy` asks this tree a question:
+//!
+//! - **Every expression this tree resolves is truncated onto the grid**, and
+//!   a plain percentage is handed over as an expression so that it reaches
+//!   the same place: `taffy` resolves a percentage of its own as `basis ×
+//!   percent`, with no hook.
+//! - **A leaf's text is measured rounded up onto the grid.**
+//!
+//! The third place, the edges `taffy` hands back, is where they are read
+//! back (`crate::engine`), because a box is placed against where its parent
+//! was placed and that is known only once the parent is.
+//!
+//! What `taffy` computes between its own passes, before it hands anything
+//! back, is out of reach here; that is queue item 499.
 
 use crate::auto_repeat::{self, Axis};
+use crate::layout_unit;
 use crate::measure::{MeasureText, TextStyle};
 use alo_box::{BoxId, BoxTree, NaturalSize};
 use alo_style::StyleTree;
@@ -75,7 +94,8 @@ struct Node {
 /// A `calc()` of lengths only is a plain number by the time it gets here — it
 /// is the ones with a percentage in them that have to wait for a basis, which
 /// is the containing block's size and is not known until the algorithm is
-/// running.
+/// running. A plain percentage waits here too, so that it is truncated onto
+/// the grid once it is resolved, as a `calc()` is (ADR 0054 § 2).
 #[derive(Debug, Default)]
 pub(crate) struct Unresolved {
     held: Vec<(LengthPercentage, FontMetrics)>,
@@ -91,19 +111,33 @@ impl Unresolved {
         handle as *const ()
     }
 
-    /// What an expression comes to, against a basis.
+    /// What an expression comes to, against a basis, truncated onto the
+    /// grid: resolved whole and truncated once, so `calc(0.01px + 0.01px +
+    /// 0.01px)` is one unit where its terms truncated alone would be none
+    /// (ADR 0054 § 2).
     ///
     /// A handle this arena did not mint resolves to nothing rather than to
     /// somebody else's expression — the same argument ADR 0003 makes about
     /// node identity.
     fn resolve(&self, handle: *const (), basis: f32) -> f32 {
+        self.held(handle).map_or(0.0, |(value, metrics)| {
+            layout_unit::truncated(value.to_px(*metrics, basis))
+        })
+    }
+
+    /// The fraction a handle stands for, when it was a plain percentage
+    /// rather than an expression: what `taffy` would have been handed had
+    /// percentages not been carried here (`crate::auto_repeat` asks).
+    fn plain_percentage(&self, handle: *const ()) -> Option<f32> {
+        match self.held(handle)? {
+            (LengthPercentage::Percentage(percent), _) => Some(percent / 100.0),
+            _ => None,
+        }
+    }
+
+    fn held(&self, handle: *const ()) -> Option<&(LengthPercentage, FontMetrics)> {
         let index = (handle as usize) / 8;
-        let Some(slot) = index.checked_sub(1) else {
-            return 0.0;
-        };
-        self.held
-            .get(slot)
-            .map_or(0.0, |(value, metrics)| value.to_px(*metrics, basis))
+        self.held.get(index.checked_sub(1)?)
     }
 }
 
@@ -122,6 +156,16 @@ pub(crate) struct Arena<'a, M: MeasureText> {
     boxes: &'a BoxTree,
     styles: &'a StyleTree,
     measure: &'a M,
+}
+
+impl auto_repeat::Expressions for &Unresolved {
+    fn resolve(&self, handle: *const (), basis: f32) -> f32 {
+        Unresolved::resolve(self, handle, basis)
+    }
+
+    fn plain_percentage(&self, handle: *const ()) -> Option<f32> {
+        Unresolved::plain_percentage(self, handle)
+    }
 }
 
 impl<'a, M: MeasureText> Arena<'a, M> {
@@ -174,10 +218,13 @@ impl<'a, M: MeasureText> Arena<'a, M> {
 
     /// Lay out a node and everything under it.
     ///
-    /// **Sub-pixel throughout**: `taffy`'s rounding is a separate pass over a
-    /// trait this tree does not implement, so it cannot happen. A box rounded
-    /// down to 96 while its text measures 96.16 wraps a word early, which is
-    /// how "Remember me" once became two lines in a box wide enough for one.
+    /// **Never to whole pixels**: `taffy`'s rounding is a separate pass over
+    /// a trait this tree does not implement, so it cannot happen. A box
+    /// rounded down to 96 while its text measures 96.16 wraps a word early,
+    /// which is how "Remember me" once became two lines in a box wide enough
+    /// for one. What this engine does instead is Chrome's grid of 1/64 px
+    /// (ADR 0054), on which a text's width is rounded *up*, so a box that
+    /// shrinks to its text still holds it.
     pub(crate) fn compute(&mut self, root: usize, available: TaffySize<AvailableSpace>) {
         compute_root_layout(self, NodeId::from(root), available);
     }
@@ -233,9 +280,7 @@ impl<'a, M: MeasureText> Arena<'a, M> {
     fn lay_out_grid(&mut self, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
         let index = usize::from(node_id);
         let unresolved = &self.unresolved;
-        let lowering = auto_repeat::lower(self.style(node_id), &inputs, |handle, basis| {
-            unresolved.resolve(handle, basis)
-        });
+        let lowering = auto_repeat::lower(self.style(node_id), &inputs, &unresolved);
         self.refused
             .extend(lowering.refused.iter().map(|axis| (index, *axis)));
         let Some(style) = lowering.style else {
@@ -296,6 +341,9 @@ impl<M: MeasureText> taffy::LayoutPartialTree for Arena<'_, M> {
         self.style(node_id)
     }
 
+    /// Keep a node's layout as `taffy` computed it. It is placed on the grid
+    /// when it is read back (`crate::engine`), against where its parent was
+    /// placed, which is not known yet when `taffy` hands a child its layout.
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &taffy::Layout) {
         if let Some(node) = self.node_mut(node_id) {
             node.layout = *layout;
@@ -350,8 +398,10 @@ impl<M: MeasureText> Arena<'_, M> {
                     let size =
                         self.measure
                             .measure(text, text_style, width_to_fit(known, room, wraps));
+                    // Rounded up onto the grid, so a box that shrinks to its
+                    // text always holds it (ADR 0054 § 4).
                     TaffySize {
-                        width: size.width,
+                        width: known.width.unwrap_or(layout_unit::rounded_up(size.width)),
                         height: size.height,
                     }
                 })
@@ -390,8 +440,10 @@ impl<M: MeasureText> Arena<'_, M> {
                         self.measure,
                     )
                     .size;
+                    // Its lines' width rounded up onto the grid, as a run of
+                    // text's is (ADR 0054 § 4).
                     TaffySize {
-                        width: known.width.unwrap_or(size.width),
+                        width: known.width.unwrap_or(layout_unit::rounded_up(size.width)),
                         height: known.height.unwrap_or(size.height),
                     }
                 })

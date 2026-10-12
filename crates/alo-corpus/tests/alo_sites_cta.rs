@@ -61,6 +61,10 @@ const SHEET: &str = "https://nordwind.alosites.com/assets/site.css";
 /// page's text, 27.2 floored to 1/64 as Chrome floors it (ADR 0050 § 3).
 const LINE: f32 = 1740.0 / 64.0;
 
+/// A button's `0.6rem` of padding, 9.6 px, truncated onto the grid as
+/// Chrome truncates it (ADR 0054 § 1): 614 sixty-fourths.
+const PADDING: f32 = 614.0 / 64.0;
+
 /// The case, read and rendered.
 fn cta() -> Option<(Case, Rendering)> {
     let case = Case::read(&cases_directory().join("alo-sites-cta"))?;
@@ -141,10 +145,12 @@ fn the_section_is_drawn_as_the_sheet_styles_it() {
     // `max-width: 70rem` is wider than the page, so the band is the page's
     // width, and its height is its padding and what is in it.
     assert_eq!((band.origin.x, band.size.width), (0.0, 800.0));
-    // 28 px at 1.2, 33.6 floored to 1/64, and its 0.5em below.
+    // 28 px at 1.2, 33.6 floored to 1/64, and its 0.5em below. A button's
+    // 0.6rem of padding is 9.6, truncated onto the grid to 9.59375 (ADR 0054
+    // § 1), which makes the band 253.15625 tall, as Chrome 154's is.
     let heading = 2150.0 / 64.0 + 14.0;
     let paragraph = LINE + 17.0;
-    let buttons = LINE + 2.0 * 9.6 + 2.0 + 17.0;
+    let buttons = LINE + 2.0 * PADDING + 2.0 + 17.0;
     assert!(
         (band.size.height - (48.0 + heading + paragraph + buttons + 48.0)).abs() < 0.01,
         "{band:?}"
@@ -167,7 +173,7 @@ fn the_section_is_drawn_as_the_sheet_styles_it() {
     assert_eq!(drawn_at(&rendering, 224, 164), Some([255, 255, 255, 255]));
     assert_eq!(drawn_at(&rendering, 377, 164), Some([29, 78, 216, 255]));
     assert!((order.origin.y - 139.781_25).abs() < 0.01, "{order:?}");
-    assert!((order.size.height - (LINE + 2.0 * 9.6 + 2.0)).abs() < 0.01);
+    assert!((order.size.height - (LINE + 2.0 * PADDING + 2.0)).abs() < 0.01);
     assert!((subscriptions.origin.x - (order.origin.x + order.size.width + 12.0)).abs() < 0.01);
     let left = order.origin.x - 24.0;
     let right = 800.0 - 24.0 - (subscriptions.origin.x + subscriptions.size.width);

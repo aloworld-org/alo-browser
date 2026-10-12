@@ -1,23 +1,23 @@
-document at (0, 0) 800×399.72
-  heading "A field guide to calm work" [level=1] at (8, 21.44) 784×38
-  paragraph at (8, 80.880005) 784×19
-    text "Great work is" at (8, 80.880005) 106.21875×19
-    text "clear & deliberate" at (119.30469, 80.880005) 162.36719×19
-    text ", not <loud>." at (281.67188, 80.880005) 107.890625×19
-  heading "Start with the essentials" [level=2] at (8, 119.8) 784×28
-  list at (8, 167.72) 784×57
-    listitem "Choose one useful outcome" [marker="•"] at (48, 167.72) 744×19
-    listitem "Make the next step visible Keep supporting detail nested" [marker="•"] at (48, 186.72) 744×38
-      list at (48, 205.72) 744×19
-        listitem "Keep supporting detail nested" [marker="◦"] at (88, 205.72) 704×19
-  list at (8, 240.72) 784×38
-    listitem "Draft" [marker="3."] at (48, 240.72) 744×19
-    listitem "Review" [marker="4."] at (48, 259.72) 744×19
-  list at (8, 294.72) 784×19
-    listitem "Publish" [marker="•"] at (48, 294.72) 744×19
-  blockquote at (48, 329.72) 704×19
-    text "Good tools make the right action obvious." at (48, 329.72) 335.52344×19
-  paragraph at (8, 364.72) 784×19
-    text "Read the" at (8, 364.72) 71.546875×19
-    link "full guide" at (84.63281, 364.72) 74.49219×19
-    text "." at (159.125, 364.72) 5.0859375×19
+document at (0, 0) 800×399.6875
+  heading "A field guide to calm work" [level=1] at (8, 21.4375) 784×38
+  paragraph at (8, 80.875) 784×19
+    text "Great work is" at (8, 80.875) 106.21875×19
+    text "clear & deliberate" at (119.30469, 80.875) 162.36719×19
+    text ", not <loud>." at (281.67188, 80.875) 107.890625×19
+  heading "Start with the essentials" [level=2] at (8, 119.78125) 784×28
+  list at (8, 167.6875) 784×57
+    listitem "Choose one useful outcome" [marker="•"] at (48, 167.6875) 744×19
+    listitem "Make the next step visible Keep supporting detail nested" [marker="•"] at (48, 186.6875) 744×38
+      list at (48, 205.6875) 744×19
+        listitem "Keep supporting detail nested" [marker="◦"] at (88, 205.6875) 704×19
+  list at (8, 240.6875) 784×38
+    listitem "Draft" [marker="3."] at (48, 240.6875) 744×19
+    listitem "Review" [marker="4."] at (48, 259.6875) 744×19
+  list at (8, 294.6875) 784×19
+    listitem "Publish" [marker="•"] at (48, 294.6875) 744×19
+  blockquote at (48, 329.6875) 704×19
+    text "Good tools make the right action obvious." at (48, 329.6875) 335.52344×19
+  paragraph at (8, 364.6875) 784×19
+    text "Read the" at (8, 364.6875) 71.546875×19
+    link "full guide" at (84.63281, 364.6875) 74.49219×19
+    text "." at (159.125, 364.6875) 5.0859375×19

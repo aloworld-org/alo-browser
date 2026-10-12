@@ -173,12 +173,14 @@ fn the_lede_is_forty_four_of_the_faces_zeros() {
     else {
         panic!("the lede is laid out");
     };
+    // 44 of them is 483.7388, truncated onto the grid (ADR 0054 § 1): 30,959
+    // units, which is Chrome 154's width for the same paragraph.
     let width = lede.border_box.size.width;
     assert!(
-        (width - 44.0 * zero).abs() < 0.001,
-        "{width} is not 44 × {zero}"
+        (width - (44.0 * zero * 64.0).trunc() / 64.0).abs() < 0.001,
+        "{width} is not 44 × {zero} on the grid"
     );
-    assert!((width - 483.7388).abs() < 0.001, "{width}");
+    assert!((width - 30959.0 / 64.0).abs() < 0.001, "{width}");
 }
 
 /// The note's two `<code>`s are drawn in the corpus's monospace face (queue

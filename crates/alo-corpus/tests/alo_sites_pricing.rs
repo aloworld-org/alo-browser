@@ -118,14 +118,14 @@ fn the_highlighted_tier_fills_the_grid_and_is_lifted() {
     };
     // Down, under the heading's 33.59375 and the paragraph's 27.1875, each
     // line floored to 1/64 as Chrome floors it (ADR 0050 § 3): Chrome 154
-    // puts it at 139.78125 too, before its transform. It is 350.7406 tall,
-    // where Chrome's is 350.703125 because Chrome also puts its buttons'
-    // 0.6rem padding on that grid (item 466).
+    // puts it at 139.78125 too, before its transform. It is 350.703125
+    // tall, as Chrome's is, since item 466 put its buttons' 0.6rem padding
+    // on the grid of 1/64 px too (ADR 0054 § 1); it was 350.7406.
     assert_eq!(
         (tier.origin.x, tier.origin.y, tier.size.width),
         (20.0, 139.781_25, 760.0)
     );
-    assert!((tier.size.height - 350.740_6).abs() < 1e-3, "{tier:?}");
+    assert!((tier.size.height - 22445.0 / 64.0).abs() < 1e-3, "{tier:?}");
     // Its layout box stays where flow put it; the transform moves what is
     // drawn, by `-.75rem`.
     let Some((moved, _)) = cast_by(&rendering, id) else {

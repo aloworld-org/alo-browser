@@ -1,5 +1,5 @@
 document at (0, 0) 800×323.96875
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
   main at (0, 0) 800×323.96875
     heading "What cafés say" [level=2] at (20, 48) 760×33.59375
     list at (20, 95.59375) 760×180.375

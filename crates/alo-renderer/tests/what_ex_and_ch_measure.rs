@@ -19,6 +19,12 @@ fn close(left: f32, right: f32) -> bool {
     (left - right).abs() < 0.001
 }
 
+/// A length as layout uses it: truncated onto Chrome's grid of 1/64 px
+/// (ADR 0054 § 1).
+fn on_the_grid(pixels: f32) -> f32 {
+    alo_layout::layout_unit::truncated(pixels)
+}
+
 /// The `dejavu` crate's sans in two weights and its sans mono, with the
 /// sans as the generic sans-serif.
 fn dejavu_fonts() -> FontDatabase {
@@ -123,10 +129,13 @@ fn ch_and_ex_are_the_faces_zero_and_x() {
         panic!("both boxes are laid out");
     };
     assert!(
-        close(ch_width, 44.0 * zero),
+        close(ch_width, on_the_grid(44.0 * zero)),
         "{ch_width} is not 44 × {zero}"
     );
-    assert!(close(ex_height, 10.0 * x), "{ex_height} is not 10 × {x}");
+    assert!(
+        close(ex_height, on_the_grid(10.0 * x)),
+        "{ex_height} is not 10 × {x}"
+    );
 }
 
 #[test]
@@ -160,7 +169,7 @@ fn the_face_is_the_one_the_text_is_set_in() {
             panic!("#{id} is laid out");
         };
         assert!(
-            close(width, 10.0 * zero),
+            close(width, on_the_grid(10.0 * zero)),
             "#{id}: {width} is not 10 × {zero}"
         );
     }
@@ -186,7 +195,7 @@ fn a_font_size_in_ex_is_the_parents_and_a_line_height_the_elements_own() {
         panic!("the child is laid out");
     };
     assert!(
-        close(width, 4.0 * x_at_child),
+        close(width, on_the_grid(4.0 * x_at_child)),
         "{width}: its own lengths are of its own face, at its own size"
     );
     // A line height written as a length is placed on Chrome's grid of 1/64

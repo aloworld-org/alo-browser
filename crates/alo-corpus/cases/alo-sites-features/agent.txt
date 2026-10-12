@@ -1,5 +1,5 @@
 document at (0, 0) 800×408.5625
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
   main at (0, 0) 800×408.5625
     heading "Why Nordwind" [level=2] at (20, 80) 760×33.59375
     paragraph at (20, 127.59375) 720×27.1875

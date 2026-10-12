@@ -123,10 +123,10 @@ fn the_banner_is_laid_out_as_the_sheet_says() {
     // center` centres the text and leaves the button at the start, as a
     // browser does.
     assert!(near(button.origin.x, 41.0), "{button:?}");
-    // 27.1875, 0.6rem of padding each side and a border: 48.3875, where
-    // Chrome puts the padding on its 1/64 grid too and makes 48.375 (item
-    // 466).
-    assert!(near(button.size.height, 48.3875), "{button:?}");
-    // 132.78125 + 48.3875, the actions' 17 below, and 40 + 1: 239.16875.
-    assert!(near(section.size.height, 239.168_75), "{section:?}");
+    // 27.1875, 0.6rem of padding each side and a border: 48.375, the
+    // padding truncated onto the grid of 1/64 px as Chrome truncates it (ADR
+    // 0054 § 1). Every box here is Chrome 154's to the unit since item 466.
+    assert!(near(button.size.height, 48.375), "{button:?}");
+    // 132.78125 + 48.375, the actions' 17 below, and 40 + 1: 239.15625.
+    assert!(near(section.size.height, 239.156_25), "{section:?}");
 }

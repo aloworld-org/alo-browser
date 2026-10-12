@@ -1,5 +1,5 @@
 document at (0, 0) 800×251.78125
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
   main at (0, 0) 800×251.78125
     figure at (20, 112.296875) 364×27.1875
       image "Roasting drum mid-batch" [broken] at (20, 112.296875) 364×27.1875

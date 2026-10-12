@@ -1,5 +1,5 @@
 document at (0, 0) 800×324.75
-  link "Skip to content" at (-15984, 0) 161.11035×43.1875
+  link "Skip to content" at (-15984, 0) 161.125×43.1875
   main at (0, 0) 800×324.75
     heading "Come and talk to us" [level=2] at (25, 25) 343×33.59375
     heading "Consultation" [level=3] at (25, 88.59375) 343×21.59375
@@ -9,7 +9,7 @@ document at (0, 0) 800×324.75
       text "Half an hour, in the studio." at (25, 198.375) 227.17578×20
     paragraph at (25, 255.5625) 343×27.1875
       text "Where: Second floor, ring the bell" at (25, 258.5625) 286.20264×20
-    paragraph at (432, 89.38125) 343×79.5875
-      date "Choose a day" [required invalid] at (432, 120.56875) 343×48.4
-    paragraph at (432, 185.96875) 343×48.4
-      button "See free times" at (432, 185.96875) 179.6954×48.4
+    paragraph at (432, 89.40625) 343×79.5625
+      date "Choose a day" [required invalid] at (432, 120.59375) 343×48.375
+    paragraph at (432, 185.96875) 343×48.375
+      button "See free times" at (432, 185.96875) 179.67188×48.375
