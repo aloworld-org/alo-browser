@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How an agent outside this browser reaches it is decided.** A socket the
+  browser process holds — not a port, because a page's own script can reach
+  `localhost` and a port would let any page read every tab and type into every
+  field with no grant consulted. Answers are kinds rather than sentences, so a
+  caller never parses English. A tab is named by its address rather than
+  numbered, because an index is a guess about a strip that may have changed.
+  And an agent holding no grant is refused before any tab is looked at, so a
+  refusal cannot reveal what somebody has open.
+
+- **The rule for where Chrome puts a box, to a sixty-fourth of a pixel,
+  has been written down.** Chrome lays out every box on a grid of 1/64 of
+  a pixel and this browser lays boxes out exactly, so paddings, margins
+  and columns come out up to a sixty-fourth away from Chrome's, and a box
+  inside several of them by the sum. A new design record (ADR 0054)
+  sets out what Chrome does, measured on three test pages and two of the
+  corpus's pages. It cuts every length down onto the grid rather than
+  rounding it, rounds a run of text's width up so that the text always
+  fits, and shares out leftover space so that every edge lands on the
+  grid. It also found one thing this browser cannot yet copy. In alo
+  Agenda's month grid, Chrome sizes the columns twice and they all come
+  out slightly wider, because each day is square. Nothing on screen
+  changes yet. Building the rule is the next step (queue item 466), and
+  the second pass needs a decision of its own (499).
+
 - **The thing this browser justifies itself by had no way in.** An agent can
   read a page as a tree and drive it by name — and only from inside the
   process. Nothing outside could send a verb. That interface is now named as
