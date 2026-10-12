@@ -108,6 +108,7 @@ declare -a BOUNDARIES=(
   "softbuffer:crates/alo-window/src/present.rs"
   "raw_window_handle:crates/alo-window/src/present.rs"
   "rustix:crates/alo-storage/src/volume.rs"
+  "serde_json:crates/alo-window/src/protocol.rs"
 )
 
 step "cargo fmt"

@@ -1891,3 +1891,15 @@ grid, and the grid's second column pass, which makes every column of
 (498 added and closed, 499 added). The next unused queue number is 500 and
 the next unused ADR 0056: the owner's ADR on the agent's socket, committed
 as a second 0053, is being renumbered 0055.
+
+Iteration 304 built queue item 496 on ADR 0055, the door an agent outside
+the browser comes in by. `alo-window` holds a Unix socket at a private
+place, reads one bounded JSON line at a time through `protocol.rs`, the one
+file that names `serde_json`, and answers on the conductor's thread from
+the tabs. A tab is named by its address. Every answer and refusal is a
+kind, and the browser process records what each agent read and changed.
+`alo-ask`, a separate process, reads, fills and sends the frozen pizza form
+over it in `an_agent_outside_the_browser.rs`. The contract is
+`docs/contracts/agent-socket.md`. Found: **500** (a box's id does not
+survive a verb that adds a box). 233 queue items are open (496 closed, 500
+added). The next unused queue number is 501 and the next unused ADR 0056.

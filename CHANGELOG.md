@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent in a program of its own can now read and drive this browser.**
+  The browser opens a socket that only its own person's programs can open,
+  never a port. An agent asks for the tree of a tab by the tab's address and
+  acts on it by name, one JSON line at a time. Every refusal comes back as a
+  kind with its own fields, with the English beside it for a person, so no
+  caller parses a sentence. The browser keeps a record of what each agent
+  read and changed, and no agent can read it. In the test, a separate
+  program fills in the frozen pizza form and sends the order. The contract
+  is `docs/contracts/agent-socket.md`, and `alo-ask` is the smallest caller.
+  On Windows this is not decided yet.
+
 - **How an agent outside this browser reaches it is decided.** A socket the
   browser process holds — not a port, because a page's own script can reach
   `localhost` and a port would let any page read every tab and type into every

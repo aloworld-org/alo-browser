@@ -12070,7 +12070,7 @@ What stage 2's exit gate actually measures: a person using it.
   *Closes when:* the declarable subset above loads on a real alo OS machine,
   each verb's refusals asserted, and the three gaps recorded as theirs.
 
-- [ ] **496. ★ The interface an agent outside this browser speaks.** *Needs
+- [x] **496. ★ The interface an agent outside this browser speaks.** *Needs
   ADR, as its own iteration.* Item 131 built the capability — a page nobody
   wrote for us read as a tree and driven by name — and **nothing outside the
   process can reach it.** `alo-agent`'s `Verb`, `Outcome`, `Target` and
@@ -12113,6 +12113,46 @@ What stage 2's exit gate actually measures: a person using it.
   frozen real page as a tree, completes a task on it by name, and the record
   says what was read and what changed — asserted in a test, with every refusal
   reachable by name and none of them a string a caller has to parse.
+
+  ***Done (iteration 304).*** `alo-window` holds the socket (`agents.rs`)
+  at a private place (`socket_place.rs`), and the conductor answers on the
+  thread that holds the tabs (`serving.rs`). `protocol.rs` is the one file
+  that names `serde_json`, rented, and `asking.rs` is what a line means.
+  The record is `agent_record.rs`, handed back by `Conductor::records`. The
+  `alo` binary opens the socket and says where it is, and `alo-ask` is the
+  smallest caller. The contract is `docs/contracts/agent-socket.md`, version
+  1, additive only. In `an_agent_outside_the_browser.rs`, `alo-ask`, a
+  separate process, does the closing condition on the frozen `web-a-form`
+  over the real renderer program: it lists the tabs, reads the form, fills
+  three fields and a size by name, reads them back with their boxes at
+  `agent.txt`'s numbers, and sends the order by its button
+  (`Submitted`, `POST`, `https://httpbin.org/post`). A second test checks
+  that the record says two reads of the form's document and five changes,
+  in order. A third meets eight refusals: `NotFound`, `NotAField`, `Unbuilt`, `NoSuchTab`,
+  `BadField` for a position, `NotJson`, `UnknownVersion` and
+  `LineTooLong`. Each arrives as a kind, each is recorded, and none needs
+  its English read.
+  *Not proved by a test:* the `alo` binary's own socket, which opens a
+  window. It is put together from the pieces the tests do prove.
+  *Found:* a box's id does not survive a verb that adds a box. That is
+  item 500.
+
+- [ ] **500. A box's id survives a verb that adds a box.** *Found building
+  496 (iteration 304). Feature: `docs/features.md` stage 1, the agent
+  surface: "rendered again from the same document, so every id an agent is
+  holding still names what it named". Depends on nothing.* It does not
+  hold. On the frozen `web-a-form`, read over the socket, *Telephone:* is
+  box 16. Text is put into *Customer name:* before it, and the same field
+  is box 17, because the text is a box of its own and the boxes are
+  numbered again in order. So an agent that read the form and then filled
+  it can find that `{"node": 16}` names something else. Usually that means
+  a `NotFound` or a wrong role, and at worst it means the wrong control.
+  ADR 0003 allocates *node* identity once. A box's identity has to follow
+  it, or a target has to name a node rather than a box. Which of the two is
+  a decision, so this may need an ADR first. *Closes when:* every box an
+  agent read keeps its id across `PutText`, `Activate` and a `<details>`
+  opening, asserted on `web-a-form` and alo's Settings, and the contract's
+  note about it is removed.
 
 - [ ] **497. ★ A grant per site, refused by us and recorded.** An agent granted
   one site may not reach another, and the site is named in every record. *This

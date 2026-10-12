@@ -10,10 +10,18 @@
 //! its own and posts what it learnt back as [`News`]. Neither ever waits for an
 //! answer from the other, which is what keeps one silent site from freezing
 //! the window.
+//!
+//! An agent outside the browser reaches the conductor the same way, as an
+//! [`Order::Agent`] sent by the thread that holds its connection
+//! ([`crate::agents`]), and is answered on a channel of its own — never in
+//! [`News`], which is the window's.
 
+use crate::agent_record::Caller;
+use crate::asking::{Answer, Ask, Refused};
 use alo_layout::Size;
 use alo_renderer::{Frame, Page, Visibility};
 use alo_url::Url;
+use std::sync::mpsc::Sender;
 
 /// What the event loop asks of the conductor.
 #[derive(Debug, Clone)]
@@ -37,6 +45,16 @@ pub enum Order {
     /// The window was closed: close every tab, and say [`News::Closed`] when
     /// they are.
     CloseEverything,
+    /// An agent outside the browser asked something (ADR 0055): answer it on
+    /// `reply`, and record it, whatever it came to.
+    Agent {
+        /// Which connection asked.
+        caller: Caller,
+        /// What it asked, or why what it sent was not a request.
+        ask: Result<Ask, Refused>,
+        /// Where the answer goes.
+        reply: Sender<Answer>,
+    },
 }
 
 /// What the conductor tells the event loop.

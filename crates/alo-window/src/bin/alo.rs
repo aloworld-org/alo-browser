@@ -7,6 +7,11 @@
 //! `alo [--frozen-fonts] [PAGE.html [SHEET.css ...]]` opens a window with one
 //! tab showing the page, or an empty tab if none is named. Closing the window
 //! closes every tab and stops every renderer.
+//!
+//! An agent outside it reaches it over a socket under the person's runtime
+//! directory (ADR 0055), whose path is said on the terminal as the window
+//! opens. A browser that cannot place one still opens, and says why there is
+//! none.
 
 use alo_net::Pool;
 use alo_renderer::fetch_make::Network;
@@ -65,6 +70,7 @@ fn main() -> ExitCode {
 
     let mut conductor = None;
     let mut refused = None;
+    let mut listening = None;
     let ran = alo_window::window::run(|tell| {
         match Conductor::start(Tabs::over(renderers), opening.fonts, network, tell) {
             Ok(started) => {
@@ -72,6 +78,7 @@ fn main() -> ExitCode {
                 // The first tab, before the window has a size: the conductor
                 // holds it until the window says one.
                 let _ = orders.send(first);
+                listening = listen(&orders);
                 conductor = Some(started);
                 orders
             }
@@ -83,6 +90,7 @@ fn main() -> ExitCode {
             }
         }
     });
+    stop_listening(listening);
     let finished = conductor.is_none_or(Conductor::finish);
     match (ran, refused) {
         (Err(why), _) | (Ok(()), Some(why)) => {
@@ -96,3 +104,48 @@ fn main() -> ExitCode {
         (Ok(()), None) => ExitCode::SUCCESS,
     }
 }
+
+/// Open the socket an agent speaks to, saying where it is or why there is
+/// none.
+#[cfg(unix)]
+fn listen(orders: &alo_window::inbox::Orders) -> Option<alo_window::agents::Listening> {
+    let placed = alo_window::socket_place::prepared()
+        .map_err(|why| why.to_string())
+        .and_then(|path| {
+            alo_window::agents::Listening::at(&path, orders.clone())
+                .map_err(|why| format!("{} could not be opened: {why}", path.display()))
+        });
+    match placed {
+        Ok(listening) => {
+            eprintln!(
+                "alo: an agent reaches this browser at {}",
+                listening.path().display()
+            );
+            Some(listening)
+        }
+        Err(why) => {
+            eprintln!("alo: no agent can reach this browser: {why}");
+            None
+        }
+    }
+}
+
+/// Stop listening, removing the socket.
+#[cfg(unix)]
+fn stop_listening(listening: Option<alo_window::agents::Listening>) {
+    if let Some(listening) = listening {
+        listening.stop();
+    }
+}
+
+/// No socket: on Windows how an agent reaches this browser is undecided
+/// (ADR 0055 § 1).
+#[cfg(not(unix))]
+fn listen(_: &alo_window::inbox::Orders) -> Option<()> {
+    eprintln!("alo: no agent can reach this browser: on Windows how one would is undecided");
+    None
+}
+
+/// Nothing to stop.
+#[cfg(not(unix))]
+fn stop_listening(_: Option<()>) {}

@@ -86,10 +86,12 @@
 //! conductor looks is taken at once, and a resize with a later resize behind
 //! it is dropped: the size that matters is the one the window is now.
 
+use crate::agent_record::AgentRecord;
 use crate::hold::{Holds, SHOWN_BEFORE_STYLE};
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::{News, Order};
 use crate::network::{Job, Networking};
+use crate::serving::{Served, serve};
 use alo_layout::Size;
 use alo_net::Cause;
 use alo_renderer::fetch_answering::{Answered, Answering, Turn};
@@ -120,8 +122,19 @@ pub enum Fonts {
 #[derive(Debug)]
 pub struct Conductor {
     orders: Orders,
-    /// The thread, which hands back the session's network as it ends.
-    thread: JoinHandle<Option<Network>>,
+    /// The thread, which hands back the session's network and the record of
+    /// what agents did as it ends.
+    thread: JoinHandle<Records>,
+}
+
+/// What a conductor hands back as it finishes: the records that outlive the
+/// window (ADR 0012 § 5, ADR 0055 § 7).
+pub struct Records {
+    /// The session's network, with its record of every request made or
+    /// refused — [`None`] if its thread panicked.
+    pub network: Option<Network>,
+    /// What every agent outside the browser read and did.
+    pub agents: AgentRecord,
 }
 
 impl Conductor {
@@ -171,8 +184,15 @@ impl Conductor {
     /// for as the window closed and it was left (ADR 0039 § 4). [`None`] if
     /// it or its network thread panicked.
     pub fn hand_back(self) -> Option<Network> {
+        self.records().and_then(|records| records.network)
+    }
+
+    /// Wait for it to finish, as [`Conductor::finish`] does, and take back
+    /// everything it recorded: the session's network, and what agents
+    /// outside the browser read and did. [`None`] if it panicked.
+    pub fn records(self) -> Option<Records> {
         drop(self.orders);
-        self.thread.join().ok().flatten()
+        self.thread.join().ok()
     }
 }
 
@@ -201,6 +221,8 @@ struct Conducting {
     fetches: Answering,
     /// The tabs whose first frame waits for their load's sheets.
     holds: Holds,
+    /// What agents outside the browser read and did.
+    agents: AgentRecord,
 }
 
 fn conduct(
@@ -209,7 +231,7 @@ fn conduct(
     networking: Networking,
     inbox: &Receiver<Arrival>,
     tell: &dyn Fn(News) -> bool,
-) -> Option<Network> {
+) -> Records {
     let mut conducting = Conducting {
         tabs,
         fonts,
@@ -221,11 +243,15 @@ fn conduct(
         in_flight: None,
         fetches: Answering::new(),
         holds: Holds::new(),
+        agents: AgentRecord::new(),
     };
     conducting.conduct(inbox, tell);
     // After the window has been told it closed: this waits for the exchange
     // in flight, if any (ADR 0041 § 5).
-    conducting.networking.and_then(Networking::finish)
+    Records {
+        network: conducting.networking.and_then(Networking::finish),
+        agents: conducting.agents,
+    }
 }
 
 /// Tell the window `news`, in order. Whether to go on: not once every tab is
@@ -333,7 +359,25 @@ impl Conducting {
                 self.close_everything();
                 vec![News::Closed]
             }
+            Order::Agent { caller, ask, reply } => {
+                let Served { answer, acted } = serve(&mut self.tabs, &mut self.agents, caller, ask);
+                // Nobody to answer is a caller that has gone, which changes
+                // nothing about what was done or recorded.
+                let _ = reply.send(answer);
+                acted.map_or_else(Vec::new, |id| self.acted(id))
+            }
         }
+    }
+
+    /// After an agent's verb ran in tab `id`: take what it asked to fetch,
+    /// and paint the tab again if it is the one shown, since the verb may
+    /// have changed it.
+    fn acted(&mut self, id: TabId) -> Vec<News> {
+        self.fetches.take_from(&mut self.tabs, id);
+        if self.selected != Some(id) {
+            return Vec::new();
+        }
+        self.paint(id)
     }
 
     /// Tell the selected tab's page whether it can be seen, if it is showing

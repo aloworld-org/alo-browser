@@ -29830,3 +29830,115 @@ updated: `REMAINING.md`. The changelog line is in 9c4a969, as above.
 233 queue items are open (498 added and closed, 499 added). The next unused
 queue number is **500** and the next ADR is **0056**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 304 — queue item 496 built: the door an agent outside the browser comes in by
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 303's entry, and the queue. No `AGENTS.md` exists
+in this checkout. 496 was marked next by the owner (d9f3899), and its one
+dependency, 131, is done. **For the item:** ADR 0055 (the decision), ADRs
+0002, 0005 and 0052 and the ADR 0052 addendum it rests on, and the agent
+surface in `docs/features.md`. That section had no line for an agent
+outside the process, so one was added in this change. 497 stays open
+behind it.
+
+**Built.** In `alo-window`, one file per responsibility:
+- `asking.rs`: what a line means. It holds the asks (`tabs`, `read`,
+  `act`), the answers, and the interface's own refusal kinds next to
+  `verb.rs`'s twelve, and every bound.
+- `protocol.rs`: the one file that names `serde_json`. It is rented under
+  ADR 0055 § 3, added to `Cargo.toml` with its reason, and added to
+  `gate.sh`'s boundary list. It brings `zmij` with it. The `unsafe` inside
+  either crate is theirs (ADR 0010), and none of ours was added. Nesting is
+  refused by a scan before the reader is handed a byte. Lengths are written
+  as the shortest number that reads back as the same `f32`.
+- `agents.rs`: the Unix socket. At most 8 callers, and lines bounded at
+  64 KiB before they are parsed. One request in flight per caller. It
+  holds no tab.
+- `socket_place.rs`: the place. `$XDG_RUNTIME_DIR` or `$TMPDIR`, then
+  `alo-browser/agent.sock`, with the directory `0700` and the socket
+  `0600`. A live socket is left alone, a stale one is cleared, and
+  anything else is refused.
+- `serving.rs`: answers from the tabs on the conductor's thread, and
+  records every request.
+- `agent_record.rs`: the browser process's record. It keeps at most 10,000
+  entries, letting the oldest go and counting them. It is handed back by
+  the new `Conductor::records`, and nothing over the socket can read it.
+- `message.rs` gains `Order::Agent`, and the conductor paints a tab again
+  after a verb runs in it.
+- The `alo` binary opens the socket and prints its path. `alo-ask` is the
+  smallest caller, and reads nothing it sends or receives.
+
+The contract is `docs/contracts/agent-socket.md`, version 1, additive
+only.
+
+**Closing condition, met in `an_agent_outside_the_browser.rs`.** `alo-ask`,
+a separate process, drives a conductor over the real renderer program with
+the corpus's fonts and the frozen `web-a-form` at its origin:
+- It reads the form. *Customer name:* arrives at `agent.txt`'s numbers,
+  `{"height":23.2,"width":209.59375,"x":146.65625,"y":16.0}`.
+- It fills three fields and *Large* by name, and reads them back.
+- It sends the order by its button: `Submitted`, `POST`,
+  `https://httpbin.org/post`.
+- The record says one listing, two reads of the form's document (more
+  than 20 nodes each) and five changes, in order, all by `agent#0`.
+
+A third test meets eight refusals: `NotFound`, `NotAField`, `Unbuilt`,
+`NoSuchTab`, `BadField` for a position, `NotJson`, `UnknownVersion` with
+its echo, and `LineTooLong`, which then closes the connection. Each
+arrives as a kind and is recorded, and none needs its English parsed.
+**Hostile input:** `protocol.rs` has a test of malformed, truncated and
+adversarial lines (invalid UTF-8, `1e999`, a `u64::MAX` node, unbalanced
+brackets, a duplicated key) that returns refusals and never panics.
+
+**Gate, mechanical.** `scripts/gate.sh` ran twice in the foreground with
+its output in a scratchpad log. Each time the harness moved it to the
+background at 600 s, and the next call waited on it with a foreground
+`until` loop.
+- **First run: not met.** Clippy found three `panic!`s in the new test's
+  helpers and one test function over 100 lines. The other nine steps
+  passed. The helpers now return `Result`, and the test is split in
+  three.
+- **Second run: met.** `exit: 0`, "The gate is met. (10 of 10 steps)",
+  with no `FAIL`, `panicked` or `^error` in the log, and no test result
+  with a failure. After it, only this entry was written.
+
+**Gate, manual.** Each new file has one responsibility. Nothing positions
+or sizes a box differently, so there is no new layout assertion, and the
+test asserts that boxes cross the socket with the case's numbers. Nothing
+draws differently, so there is no reference render, and
+`docs/conformance.md` is unchanged. No `unsafe` of ours. No verb takes a
+coordinate, and a target given as a position is refused as `BadField`.
+`alo-os` and `alo-workplace` were not touched.
+
+**Not proved by a test.** The `alo` binary's own socket (`listen` and
+`stop_listening` in `bin/alo.rs`), because that binary opens a window. It
+is put together from `socket_place::prepared` and `Listening`, which are
+tested, but it was not run here.
+
+**Found, and queued as 500.** A box's id does not survive a verb that
+adds a box. Over the socket, *Telephone:* was box 16 before text went
+into *Customer name:* and box 17 after it. That breaks a stage 1 promise
+in `docs/features.md`: "every id an agent is holding still names what it
+named". The contract warns callers to aim by name until this is fixed.
+**Also noted:** `Followed` and `Submitted` are answered, and the conductor
+does not load where they lead. That is item 85's, as it was before.
+
+**Queue.** 496 is ticked with its *Done* paragraph. 500 is added (found,
+depends on nothing, may need an ADR).
+
+**Roadmap.** Nothing is ticked. The agent's gate line gains a *Built*
+clause (the door, 496) and an *Owed* one (497, 85, 500, Windows). The
+*Under grants, and recorded* line gains the record half as built and
+every grant as owed. Also updated: `docs/features.md` (the new line),
+`CHANGELOG.md` and `REMAINING.md`.
+
+**Unresolved obligations.**
+- A grant per site, 497. It is checked first when it comes.
+- Windows, which ADR 0055 leaves undecided.
+- 500, above.
+- The binary's socket has not been run by a test.
+
+233 queue items are open (496 closed, 500 added). The next unused queue
+number is **501** and the next ADR is **0056**. This is one iteration,
+not a finished queue or roadmap.

@@ -23,6 +23,12 @@
 //!   by [`place`] and saying what happened to a tab with [`notice`].
 //! - [`opening`] is what a person named on the command line, [`fonts`] the
 //!   fonts renderers start with, and [`beside`] where the renderer program is.
+//! - [`agents`] is the socket an agent outside the browser speaks to (ADR
+//!   0055), at a place [`socket_place`] makes private; [`protocol`] reads and
+//!   writes its lines, the one file that names `serde_json`, into what
+//!   [`asking`] says they mean; [`serving`] answers them from the tabs on the
+//!   conductor's thread, and [`agent_record`] is what it records. The socket
+//!   is a Unix one, and Windows is undecided (ADR 0055 § 1).
 //!
 //! # What it is not yet
 //!
@@ -31,6 +37,10 @@
 //! pixel is replicated to the scale's whole part (§ 3) — and a link opening a
 //! tab item 300.
 
+pub mod agent_record;
+#[cfg(unix)]
+pub mod agents;
+pub mod asking;
 pub mod beside;
 pub mod colours;
 pub mod compose;
@@ -44,5 +54,9 @@ pub mod notice;
 pub mod opening;
 pub mod place;
 pub mod present;
+pub mod protocol;
+pub mod serving;
 pub mod showing;
+#[cfg(unix)]
+pub mod socket_place;
 pub mod window;

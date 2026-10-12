@@ -110,6 +110,14 @@ raw-window-handle = "0.6"
 # Only `fs`, and `std` for `Path`. Already beneath `winit` and `softbuffer` on
 # Linux at this version, and named in one file of `alo-storage`.
 rustix = { version = "1.1.5", default-features = false, features = ["fs", "std"] }
+# JSON, rented (ADR 0055 § 3), to read what an agent outside this browser asks
+# and to write what it is answered — and nothing else. An interface outsiders
+# build against has to be writable in any language in an afternoon, and a JSON
+# reader is physics nobody's engine differs by. Without default features but
+# `std`, so its map is ordered by key and an answer is the same bytes each time.
+# Named in one file, `alo-window`'s `protocol.rs`, with every bound in front of
+# it ours.
+serde_json = { version = "1", default-features = false, features = ["std"] }
 taffy = { version = "0.14", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size", "calc"] }
 
 # Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`
