@@ -102,12 +102,12 @@ fn a_pizza_forms_button_is_set_in_chromes_font() {
     // by 25. It stands 7 px below Chrome's because the textarea above it
     // is not yet Chrome's size (queue item 510).
     //
-    // One unit is allowed across, and only across. The words shape to
-    // 5,573.75 units; Chrome puts them on 5,573 and this engine on 5,574,
-    // which is a question about a line of text at a fractional size, not
-    // about a control's font: queue item 514.
+    // Exactly, since queue item 514: the words shaped at 13.333333 px were
+    // 5,573.75 units and a box of 5,574, a unit wider than Chrome's. A face
+    // is set at its size cut to hundredths, 13.33, where they are 5,572.36
+    // and held in Chrome's 5,573.
     assert!(
-        (button.size.width - units(6597.0)).abs() <= 1.0 / 64.0,
+        (button.size.width - units(6597.0)).abs() < 1.0 / 128.0,
         "{button:?}"
     );
     assert!(within_a_unit(button.size.height, 21.0), "{button:?}");

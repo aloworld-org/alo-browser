@@ -38,6 +38,8 @@
 //!   for `text-overflow: ellipsis`.
 //! - **How much room a line takes from a font** is ours: [`room`], whole
 //!   pixels of ascent, descent and line gap (ADR 0050).
+//! - **What size a face is set at** is ours: [`face_size`], the font size
+//!   cut to hundredths, which every figure read from a face is scaled by.
 //!
 //! `scripts/gate.sh` checks both boundaries on every run.
 //!
@@ -56,6 +58,7 @@
 
 pub mod cluster;
 pub mod database;
+pub mod face_size;
 pub mod font;
 pub mod line;
 pub mod linebreak;
@@ -67,6 +70,7 @@ pub mod shape;
 
 pub use cluster::cluster_ends;
 pub use database::{Absent, FontDatabase, Instead};
+pub use face_size::face_size;
 pub use font::{
     FaceMetrics, Font, FontRequest, LONGEST_NAME, Slant, Style, THINNEST_CSS_NAMES, WEIGHT_AXIS,
     Weight, WeightAxis, family_in, style_in,

@@ -47,7 +47,15 @@ font longhand and `line-height` inherited); any other value is not, so a
 page that sets its font only through it keeps whatever else set it (queue
 item 513). A form control is set in Chrome's own 13.33 px Arial, or
 `monospace` for a textarea and a date or time field, whatever the page's
-text is, as Chrome 154 computes it (queue item 506).
+text is, as Chrome 154 computes it (queue item 506). A face is set at its
+font size cut to hundredths, in a 32-bit float, as Chrome 154 sets it
+(queue item 514): `13.333333px` is 13.33 and `8.11px` is 8.1. A run's
+advances, the room a line takes, `ch`, `ex` and a field's width are all
+read at that size, and `em` is not. Of 2,922 runs of text measured at
+fractional sizes in three faces, 2,916 are Chrome's width and all are
+Chrome's height. The six that are not lie within 0.03 of a unit of a grid
+line, a sum this engine's shaper ends a hair on the other side of from
+Chrome's (queue item 527).
 
 Lines are real too: text wraps between words across inline boxes, everything on
 a line sits on one baseline, and a link broken over two lines is two rectangles.

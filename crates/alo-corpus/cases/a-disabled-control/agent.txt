@@ -1,7 +1,7 @@
 document at (0, 0) 128×124
   button "Save" [disabled] at (8, 8) 96×21
   textbox [disabled read-only] at (8, 37) 96×21
-    text "Ada" at (12, 40) 25.520832×15
+    text "Ada" at (12, 40) 25.514454×15
   button "Save" [disabled] at (8, 66) 96×21
   textbox [disabled read-only] at (8, 95) 96×21
-    text "Ada" at (12, 98) 25.520832×15
+    text "Ada" at (12, 98) 25.514454×15

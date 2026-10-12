@@ -2067,3 +2067,14 @@ level and 99.86% are exact. The only others are the translucent rounded
 corners the window server adds. 297, the tab strip, is now eligible.
 247 queue items are open (296 closed). The next unused queue number is
 527 and the next unused ADR 0057.
+
+Iteration 317 built queue item 514. A face is set at its font size cut to
+hundredths in a 32-bit float, as Chrome 154 sets it, so `13.333333px`, the
+size of every control, is 13.33 and `8.11px` is 8.1 (`alo-text`'s
+`face_size.rs`). Advances, a line's room, `ch`, `ex` and a field's width
+follow; `em` does not. Of 2,922 runs measured in three faces at 128 sizes,
+2,916 are Chrome's width and all are Chrome's height. `web-a-form`'s
+button is Chrome's 6,597 units, and every corpus number that moved is now
+Chrome's. Found: **527** (six runs whose sums end a hair from a grid
+line). 247 queue items are open (514 closed, 527 added). The next unused
+queue number is 528 and the next unused ADR 0057.

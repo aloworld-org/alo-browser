@@ -208,7 +208,11 @@ fn the_text_put_in_each_field_sits_inside_it_in_numbers() {
     // for the textarea, which is `monospace` as Chrome's is. The text each
     // holds sits its border and padding in from that corner — 4 pixels
     // across and 3 down in the one-line field, 3 and 3 in the textarea,
-    // whose border is still Chrome's one pixel.
+    // whose border is still Chrome's one pixel. And 13.333333 px is set at
+    // 13.33 (item 514), so "Ada Lovelace" is 5,669.83 units wide, which a
+    // box holds in 5,670, Chrome 154's width for it; at 13.333333 it was
+    // 5,671.25 and a unit wider. "Ring twice" in `DejaVu Sans Mono` is
+    // 5,136.22, held in Chrome's 5,137, where it was 5,137.5.
     let mut form = filled();
     let tree = read(&mut form);
     let text_of = |field: &str| {
@@ -222,11 +226,11 @@ fn the_text_put_in_each_field_sits_inside_it_in_numbers() {
         panic!("both fields hold text:\n{}", tree.to_outline());
     };
     assert!(
-        at(name, 150.656_25, 19.0, 88.613_28, 15.0),
+        at(name, 150.656_25, 19.0, 88.591_125, 15.0),
         "Ada Lovelace: {name:?}"
     );
     assert!(
-        at(instructions, 186.671_88, 540.1875, 80.273_44, 15.0),
+        at(instructions, 186.671_88, 540.1875, 80.253_37, 15.0),
         "Ring twice: {instructions:?}"
     );
 

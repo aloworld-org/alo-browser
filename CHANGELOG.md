@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Text at a fractional size is Chrome's width.** A font size such as
+  13.333333 px, which every form control has, is now set the way Chrome
+  sets it, at 13.33. Words at such sizes were a fraction of a pixel wider
+  here, enough to make a button or a label a pixel wider than Chrome's.
+  They now measure the same in nearly every case tried.
+
 - **The window has been seen on a real screen.** `alo` was started on a
   Mac and its window photographed by the system's own screen capture. It
   is the picture the browser meant to show, pixel for pixel, apart from

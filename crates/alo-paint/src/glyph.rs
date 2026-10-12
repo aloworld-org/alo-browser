@@ -58,7 +58,9 @@ pub fn outline(font: &Font, glyph_id: u16, size: f32) -> Option<Glyph> {
     if units <= 0.0 {
         return None;
     }
-    let scale = size / units;
+    // Drawn at the size the face is set at, as it was measured and shaped
+    // (`alo_text::face_size`), so a letter is as big as its advance says.
+    let scale = alo_text::face_size(size) / units;
 
     let mut builder = Builder {
         path: Path::new(),

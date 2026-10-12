@@ -8015,7 +8015,7 @@ The long pole, and the thing most of section E is unreachable without.
   longhands. *Closes when:* a frozen page that sets a font that way is
   Chrome's in numbers.
 
-- [ ] **514. A run of text at a fractional size is a unit wider than
+- [x] **514. A run of text at a fractional size is a unit wider than
   Chrome's.** *Found building 506 (iteration 310). Feature:
   `docs/features.md` stage 1, text. Needs measuring.* "Submit order" in
   13.333333 px `DejaVu Sans` shapes, kerning included, to 5,573.75 units of
@@ -8034,6 +8034,35 @@ The long pole, and the thing most of section E is unreachable without.
   order"'s 5,573.75 units would be 5,572.36, which this engine's rounding
   up makes Chrome's 5,573. Not built: it would move every fractional size,
   and every case that moves needs measuring first.
+  ***Done (iteration 317).*** *Measured in headless Chrome 154,* the
+  source not read, with the corpus's `DejaVu Sans`, `DejaVu Sans Mono` and
+  `DejaVu Serif`: 2,922 runs of text, eight strings each (kerned pairs,
+  ligatures, accents, digits, a long sentence) at 128 sizes, 30 chosen,
+  50 random and 48 at hundredths a float holds just short of. Chrome sets
+  a face at its font size **cut to hundredths in `f32`**: 13.333333 is
+  13.33, 13.339999 is 13.33, and 8.11, which is 8.109_999_7 as a float
+  and 810.999_94 a hundredfold, is 8.1. At the first 30 sizes 717 of 720
+  widths were the cut size's and 318 the written size's, and all 720 line
+  heights the cut size's (696 the written one's). At the 48 float-edge
+  sizes 1,151 of 1,152 widths were the `f32` cut's, and 860 would have
+  been another width at the size as written. `50ch` and `50ex` were the
+  cut size's in all 90 boxes and `50em` the written size's. *Built:*
+  `alo-text`'s `face_size.rs`; `Font::metrics` and `shape` read a face
+  at that size, and `alo-paint`'s `glyph::outline` draws at it, so a
+  letter is as big as its advance (an outline differs by under a
+  hundredth of a pixel either way, and the pixels it moved are within
+  item 462's noise). *Closed:* `web-a-form`'s button is Chrome's 6,597
+  units, 103.078125, where it was 6,598. Every number that moved in the
+  corpus was measured: "Save", "Ada", "someone@alo.build", "••••••••",
+  "Submit order", "Ada Lovelace" and `DejaVu Sans Mono`'s "Ring twice"
+  and `20ch` are now the widths Chrome gives them (2,095, 1,633, 8,399,
+  4,026, 5,573, 5,670, 5,137 and 10,272 units), and five of them were a
+  unit or more off before. `a-button-with-its-own-background`,
+  `a-disabled-control`, `a-filled-form` and `web-a-form` were rewritten,
+  and only text moved: 8, 16, 82 and 16 pixels, and a filled form's.
+  It also gives 511's three misses: 40 characters of `DejaVu Sans Mono`
+  at 13.333333 px are 324.99 inside, a box of 325, Chrome's. *Found:*
+  527, six runs whose sums end on the other side of a grid line.
 
 - [ ] **515. A date or time field is at least as tall as Chrome's
   calendar indicator.** *Cut from 507 (iteration 311). Feature:
@@ -8195,6 +8224,23 @@ The long pole, and the thing most of section E is unreachable without.
   next face's `x`. What it is was not found, and no real font met so far
   lacks an `x`. *Closes when:* a frozen page whose field's face has no
   `x` is Chrome's width.
+
+- [ ] **527. A run whose advances sum to a hair from a grid line is
+  Chrome's width.** *Found building 514 (iteration 317). Feature:
+  `docs/features.md` stage 1, text. Needs measuring.* Six of the 2,922
+  runs 514 measured are a unit off Chrome 154's width, three of them
+  wider and three narrower. In every one this engine's sum of advances
+  lies within 0.03 of a unit of a grid line, and `layout_unit`'s slack
+  takes some onto the line Chrome rounds past and leaves others past the
+  line Chrome keeps: `DejaVu Sans Mono`'s ten digits at 17.777778 px sum
+  to 6,847.0024 units here and are 6,848 in Chrome, and `DejaVu Serif`'s
+  "Wy" at 30.123456 px is 3,028.0015 here and 3,028 there. So it is how
+  advances are scaled and summed, which may be HarfBuzz's fixed-point
+  positions in Chrome against `rustybuzz`'s font units times a float
+  scale here. Needs: the per-glyph advance Chrome uses, read from a
+  single glyph's run at sizes that separate the candidate quantisations,
+  and the order of the sum. *Closes when:* those six runs are Chrome's
+  width, with the rule confirmed on runs it was not fitted to.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

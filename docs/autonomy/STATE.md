@@ -31416,3 +31416,109 @@ capture is gone from Owed, which still lists 297–300.
 247 queue items are open (296 closed). The next unused queue number is
 **527** and the next ADR is **0057**. This is one iteration, not a finished
 queue or roadmap.
+
+---
+
+## Iteration 317 — queue item 514 built: a face is set at its size cut to hundredths
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 316's
+entry and the queue. No `AGENTS.md` exists in this repository. For 514:
+its own text and 511's lead on it, `docs/features.md` (stage 1, text, and
+the form-control line), ADR 0050 § 1 (a line's whole-pixel room, read
+from the face) and ADR 0054 § 4 (a run's width rounded up onto the grid,
+`layout_unit.rs`). No ADR governs the size a face is set at, and none
+was needed: the rule is a measurement, as 511's was.
+
+**Why 514.** 296 was taken out of turn by the owner's choice. Continuing
+from 511, as iteration 315 did from 510: 512 and 513 wait for a page,
+and 514 needs only measuring, with Chrome 154 here.
+
+**Measured, in headless Chrome 154**, the source not read, with the
+`dejavu` crate's own TTFs by `@font-face` (checked byte-identical), in
+scratchpad probes kept nowhere: 2,922 runs, eight strings each (kerned
+pairs, ligatures, accents, digits, a long sentence) in `DejaVu Sans`,
+`DejaVu Sans Mono` and `DejaVu Serif` at 128 sizes: 30 chosen, 50 random
+(seeded) and 48 at hundredths an `f32` holds just short of. This engine's
+side came from a temporary `alo-text` example shaping the same strings,
+deleted before the gate.
+- At the 30 chosen sizes, 717 of 720 widths were the size cut to
+  hundredths and 318 the size as written; all 720 line heights the cut
+  size's and 696 the written one's.
+- The cut is in `f32`: 13.33's hundredfold is 1,333 there (1,332.99999
+  in double, which would cut to 13.32 and matched 653 of 720), and 8.11's
+  is 810.99994, so `8.11px` is set at 8.1. At the 48 float-edge sizes
+  1,151 of 1,152 widths were the `f32` cut's; at 860 of them the written
+  size would have given another width, and Chrome never did.
+- `50ch` and `50ex` were the cut size's in all 90 boxes, `50em` the
+  written size's.
+- Six runs of 2,922 miss by a unit, three each way, each within 0.03 of
+  a unit of a grid line: how advances are summed, filed as 527.
+
+**Built.** `alo-text`'s `face_size.rs` (`face_size`, re-exported):
+the size truncated at the hundredth in `f32`, left alone when its
+hundredfold is not finite. `Font::metrics` and `shape` scale by it, so a
+run's advances, `LineRoom`, `x_advance` (511's field width), `ch` and
+`ex` follow, and `alo-paint`'s `glyph::outline` draws at it. Outlines at
+the written size were tried as well: they differ by under a hundredth of
+a pixel, and against Chrome's screenshots the pixels they moved were
+within a few levels either way (item 462's noise), so a letter is drawn
+at the size its advance was measured at.
+
+**Closed.** `web-a-form`'s button is Chrome's 6,597 units, 103.078125,
+where it was 6,598. `a_controls_own_font.rs` now asserts it to under half
+a unit, where it allowed one; with the cut taken out it fails at
+103.09375 (restored from a copy, then passing). Every corpus number that
+moved was measured in Chrome: "Save" 2,095, "Ada" 1,633,
+"someone@alo.build" 8,399, "••••••••" 4,026, "Submit order" 5,573,
+"Ada Lovelace" 5,670, monospace "Ring twice" 5,137 and monospace `20ch`
+10,272. All are this engine's now, and "Ada", "someone@alo.build", the
+bullets, "Ada Lovelace", "Ring twice" and `20ch` were a unit or more off
+before. Rewritten: `a-button-with-its-own-background`,
+`a-disabled-control`, `a-filled-form` and `web-a-form` (layout, display,
+agent, render; and `filled.png`). Only text moved, 8, 16, 82 and 16
+pixels. `an_agent_on_somebody_elses_page.rs` pins the two field texts at
+their new widths, with Chrome's boxes in its comment. It also explains
+511's three misses: 40 `DejaVu Sans Mono` characters at 13.333333 px are
+324.99 inside, Chrome's 325, where they were 325.07.
+
+**Gate, mechanical.** `scripts/gate.sh` ran twice in the foreground into
+scratchpad logs. Each time the harness moved it to the background at 600
+s and the next call waited on it with a foreground `until` loop. First
+run: `exit 0`, "The gate is met. (10 of 10 steps)". Then the button's
+assertion was tightened and mutation-checked. Second run, on the
+committed tree: **`exit 0`, "The gate is met. (10 of 10 steps)"**, with
+no `FAILED`, `panicked` or `^error` line. Only this entry, `REMAINING.md`'s
+paragraph and the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: the button's width exactly; the two
+  field texts' widths; `face_size`'s four unit tests (13.333333 → 13.33,
+  8.11 → 8.1, sizes already in hundredths kept, NaN, infinities, `f32::MAX`
+  and a negative size without harm).
+- Reference renders: the four cases' `render.png` and `web-a-form`'s
+  `filled.png` rewritten, each moved pixel a letter's.
+- One file, one responsibility: the rule is its own file, read by the two
+  places that scale a face and the one that draws it.
+- Bytes from outside: a font size is a page's number; NaN, infinity and
+  `f32::MAX` are tested and none panics or turns finite metrics infinite.
+- `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md` and the queue are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 514 ticked with its *Done* paragraph. 527 added (a run whose
+sum ends a hair from a grid line).
+
+**Roadmap.** Nothing ticked. Stage 1's *Text* line keeps its tick; its
+control-font clause no longer owes 514, and a new clause says what 514
+built and that 527 is owed.
+
+**Unresolved obligations.**
+- 527: six of 2,922 runs a unit off, three wider and three narrower.
+- Measured in headless Chrome on this Mac, in three DejaVu faces only.
+- `a_controls_own_font.rs`'s comment still says the button stands 7 px
+  low because of 510; that is now 523's, not changed here.
+
+247 queue items are open (514 closed, 527 added). The next unused queue
+number is **528** and the next ADR is **0057**. This is one iteration,
+not a finished queue or roadmap.

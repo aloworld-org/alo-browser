@@ -24,8 +24,8 @@ document at (0, 0) 600×640.1875
     paragraph at (24, 436.1875) 552×20
       checkbox "Mushroom" [checked=false] at (28, 439.1875) 13×13
   paragraph at (8, 500.1875) 584×21
-    generic "Preferred delivery time:" at (202.48438, 500.1875) 165.54688×21
+    generic "Preferred delivery time:" at (202.48438, 500.1875) 165.5×21
   paragraph at (8, 537.1875) 584×50
-    textbox "Delivery instructions:" at (183.67188, 537.1875) 166.54688×46
+    textbox "Delivery instructions:" at (183.67188, 537.1875) 166.5×46
   paragraph at (8, 603.1875) 584×21
-    button "Submit order" at (8, 603.1875) 103.09375×21
+    button "Submit order" at (8, 603.1875) 103.078125×21

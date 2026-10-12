@@ -200,9 +200,18 @@ correctness, not before it.
       into its longhands, so an alo screen's `font: inherit` still takes
       the page's font back. `web-a-form`'s fields are Chrome's 21, and of
       1,261 corpus boxes 886 are Chrome's to 1/64 px, where 865 were, with
-      none further. Owed: the rest of a control's text reset (512), the
-      `font` shorthand's own grammar (513), and a unit of text width at a
-      fractional size (514).*
+      none further. Owed: the rest of a control's text reset (512) and the
+      `font` shorthand's own grammar (513). A unit of text width at a
+      fractional size was 514's, built in iteration 317.*
+      *A face was set at its font size as written until queue item 514
+      (iteration 317), where Chrome 154 sets it at the size cut to
+      hundredths in a 32-bit float: 13.333333 px is 13.33, and 8.11 is 8.1.
+      Built (`alo-text`'s `face_size.rs`, read where a face is scaled), so a
+      control's text, its line, `ch`, `ex` and a field's width are Chrome's:
+      `web-a-form`'s button is Chrome's 6,597 units where it was 6,598, and
+      2,916 of 2,922 runs measured at fractional sizes are Chrome's width.
+      Owed: six runs whose sums end within 0.03 of a unit of a grid line,
+      on the other side of it from Chrome's (527).*
       *A text field was `20ch` until queue item 511 (iteration 315), where
       Chrome 154 makes it its `size` in characters of the face's `x`, plus
       its ascent less one: measured over 3,000 fields and confirmed on 288

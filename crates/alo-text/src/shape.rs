@@ -158,6 +158,9 @@ pub fn shape(text: &str, font: &Font, size: f32, direction: Direction) -> Shaped
         return ShapedRun::empty();
     };
     let metrics = font.metrics(size);
+    // Advances are scaled by the size the face is set at, as its metrics
+    // are: `13.333333px` text is set at 13.33 (`crate::face_size`).
+    let size = crate::face_size(size);
 
     let mut buffer = rustybuzz::UnicodeBuffer::new();
     buffer.push_str(text);
