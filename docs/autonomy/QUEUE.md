@@ -12258,6 +12258,13 @@ What stage 2's exit gate actually measures: a person using it.
   application is the ceiling and nothing here may widen it — and **it is never
   presented to a person as that system's grant**, nor may any approval
   sentence claim a narrowness this browser alone enforces.
+  ***Next, by the owner's choice (2026-10-12).*** 496 is built and
+  `alo-window/src/serving.rs` already carries the note that this one *"goes
+  first here when it comes"*, so the place it belongs is prepared and named.
+  It is the last of Phase 1 that depends on nobody: the end-to-end run also
+  wants a window showing a page, which is item 296 and waits on a person's
+  screen being unlocked, but this does not.
+
   *Depends on 496. Closes when:* an agent granted one site is refused another
   by name, the refusal is not a string, the site appears in the record of every
   action, and a test shows the refusal holds for a redirect and for a page that
