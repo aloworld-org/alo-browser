@@ -108,6 +108,8 @@ fn to_string(call: &mut Call<'_>) -> Result<Answer, Escape> {
         "RegExp"
     } else if call.seen().as_date(held).is_some() {
         "Date"
+    } else if call.seen().as_string_object(held).is_some() {
+        "String"
     } else if call.seen().callable(held).is_some() {
         "Function"
     } else {

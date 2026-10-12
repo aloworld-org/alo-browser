@@ -53,8 +53,20 @@ impl Engine {
         depth: usize,
         at: usize,
     ) -> Result<(), Escape> {
-        let held = self.object_of(object, key, at, "read")?;
-        match self.objects.get(held, key)? {
+        let held = match object {
+            // A string's own `length` and units, and then `String.prototype`
+            // with the string as the receiver (queue item 488).
+            Value::Text(text) => match self.read_of_string(text, key, at)? {
+                Some(value) => return self.replace(run, depth, value),
+                None => self.string_prototype()?,
+            },
+            _ => self.object_of(object, key, at, "read")?,
+        };
+        let found = self.objects.get(held, key)?;
+        if matches!(object, Value::Text(_)) && found == Found::Missing {
+            self.unbuilt_on_string(key)?;
+        }
+        match found {
             // Nothing has the key — or an accessor has it and has no getter, in
             // which case the property is there and reading it is `undefined`
             // rather than a call.
@@ -94,8 +106,22 @@ impl Engine {
     ) -> Result<(), Escape> {
         let object = self.peek(run, depth.saturating_sub(1))?;
         let value = self.peek(run, 0)?;
-        let strict = run.strict()?;
-        let held = self.object_of(object, key, at, "write")?;
+        let held = match object {
+            // Nothing is stored into a string: the wrapper's own properties
+            // are fixed, and `OrdinarySet` refuses a receiver that is not an
+            // object, so only a setter along the chain does anything (queue
+            // item 488).
+            Value::Text(text) => {
+                let found = if self.own_of_string(text, key)?.is_some() {
+                    Set::Refused
+                } else {
+                    let prototype = self.string_prototype()?;
+                    self.objects.set_for_primitive(prototype, key)?
+                };
+                return self.written(run, found, key, depth, at);
+            }
+            _ => self.object_of(object, key, at, "write")?,
+        };
         // An array's `length` is given a length or nothing: the conversion can
         // throw, and the array cannot do it for itself (queue item 225). A
         // `length` that is not writable is refused before anything converts,
@@ -107,7 +133,25 @@ impl Engine {
             }
             _ => value,
         };
-        match self.objects.set(held, key, stored)? {
+        let found = self.objects.set(held, key, stored)?;
+        self.written(run, found, key, depth, at)
+    }
+
+    /// What a write came to — the value left in the assignment's place, a
+    /// setter's call, or the refusal strict code gets — with the object and
+    /// the value still where [`Engine::write_from`] found them.
+    fn written(
+        &mut self,
+        run: &mut Run,
+        found: Set,
+        key: Key,
+        depth: usize,
+        at: usize,
+    ) -> Result<(), Escape> {
+        let object = self.peek(run, depth.saturating_sub(1))?;
+        let value = self.peek(run, 0)?;
+        let strict = run.strict()?;
+        match found {
             Set::Done => self.replace(run, depth, value),
             Set::Setter(Value::Undefined) => {
                 if strict {

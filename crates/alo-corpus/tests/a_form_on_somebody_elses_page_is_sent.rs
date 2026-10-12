@@ -28,6 +28,7 @@ use alo_dom::constraint::Constraint;
 use alo_dom::submission::{Entry, Method, Value};
 use alo_layout::Size;
 use alo_renderer::ask::Asked;
+use alo_renderer::fetch::FetchAsk;
 use alo_renderer::{FromRenderer, Page, Renderer, ToRenderer};
 
 /// `html` loaded into a renderer of its own, at `address`.
@@ -364,48 +365,76 @@ fn text_past_a_fields_maxlength_is_refused_rather_than_cut() {
     );
 }
 
+/// Where alo Sites' analytics script reports to: its own server's
+/// `/_alo/collect`.
+const COLLECT: &str = "https://nordwind.alosites.com/_alo/collect";
+
+/// The bodies of those of `asks` that are the analytics script's beacons.
+fn reports(asks: &[FetchAsk]) -> Vec<String> {
+    asks.iter()
+        .filter(|ask| ask.url == COLLECT && ask.method == "POST")
+        .map(|ask| String::from_utf8_lossy(&ask.body).into_owned())
+        .collect()
+}
+
 #[test]
-fn the_contact_form_whose_script_stopped_is_sent_as_a_page_without_script_sends_it() {
-    let mut page = loaded("alo-sites-contact-form").expect("alo-sites-contact-form loads");
+fn the_contact_forms_own_listener_hears_the_press_and_stops_where_form_data_is_owed() {
+    // Loaded as `loaded` loads it, keeping what the load asked for.
+    let directory = cases_directory().join("alo-sites-contact-form");
+    let case = Case::read(&directory).expect("alo-sites-contact-form reads");
+    let address = std::fs::read_to_string(directory.join("address.txt")).expect("address.txt");
+    let address =
+        alo_url::parse(address.lines().next().unwrap_or_default().trim()).expect("an address");
+    let mut page = Renderer::new(corpus_fonts());
+    let FromRenderer::Loaded { fetches, .. } = page.handle(ToRenderer::Load(Box::new(
+        Page::new(case.html, Size::new(case.size.0, case.size.1)).at(address),
+    ))) else {
+        panic!("alo-sites-contact-form loads");
+    };
+    // The analytics script runs to its end: its last loop cuts `/f/` off the
+    // form's action with `slice(3)`, a property of a string (queue item
+    // 488), and reports that the form was seen.
+    assert_eq!(reports(&fetches), ["c=f4K9sL2wN7qR5tYx8vB1cA&s=view"]);
+
+    // Its `input` listener, added `once`, reports the first edit and no
+    // other.
+    let mut started = Vec::new();
     for (field, text) in [
         ("Name", "Ada Lovelace"),
         ("Email", "ada@example.com"),
         ("Message", "Two kilos a week, please."),
     ] {
-        let put = act(&mut page, field, Verb::PutText(text.to_owned()));
-        assert!(
-            matches!(put, FromRenderer::Acted { .. }),
-            "{field}: {put:?}"
-        );
+        let FromRenderer::Acted { fetches, .. } =
+            act(&mut page, field, Verb::PutText(text.to_owned()))
+        else {
+            panic!("{field} is filled");
+        };
+        started.extend(reports(&fetches));
     }
-    // The page's first script adds the `submit` listener that would send
-    // the form by `fetch`; its second, the analytics, stops the page as it
-    // loads, on a property of a primitive (queue item 73). Nobody is left to
-    // hear the press, so the form's own rules decide, as for a page that
-    // never ran script (ADR 0016 § 7): the fields pass, and it asks to `POST`
-    // what its markup says, the hidden honeypot field included.
+    assert_eq!(started, ["c=f4K9sL2wN7qR5tYx8vB1cA&s=start"]);
+
+    // The page's first script added a `submit` listener, and nothing stops
+    // the page now, so it hears the press: it cancels the submission to send
+    // the form by `fetch` itself, and its next line stops on
+    // `URLSearchParams`, which with `FormData` is queue item 472. Chrome's
+    // listener would send the same four fields as a fetch's body. Nothing is
+    // asked for, and the answer says why.
     let (outcome, asked, issues) = pressed(&mut page, "Send");
     assert!(
-        matches!(
-            &outcome,
-            Some(Outcome::Submitted { method: Method::Post, to, .. })
-                if to == "https://nordwind.alosites.com/f/f4K9sL2wN7qR5tYx8vB1cA"
-        ),
+        matches!(&outcome, Some(Outcome::Activated { name: Some(name), .. }) if name == "Send"),
         "{outcome:?} {issues:?}"
+    );
+    assert!(asked.is_none(), "{asked:?}");
+    assert!(
+        issues
+            .iter()
+            .any(|line| line.contains("ReferenceError") && line.contains("'URLSearchParams'")),
+        "the listener stops where FormData is owed: {issues:?}"
     );
     assert!(
         issues
             .iter()
-            .any(|line| line.contains("nobody heard it") && line.contains("queue item 73")),
-        "and the answer says why nobody heard: {issues:?}"
-    );
-    assert_eq!(
-        written(asked.as_ref()),
-        [
-            "website=",
-            "name=Ada Lovelace",
-            "email=ada@example.com",
-            "message=Two kilos a week, please."
-        ]
+            .any(|line| line.contains("form was not sent") && line.contains("cancelled")),
+        "and the answer says the page took the press: {issues:?}"
     );
 }

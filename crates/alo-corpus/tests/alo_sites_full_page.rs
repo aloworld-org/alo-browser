@@ -86,8 +86,14 @@ fn its_sheet_is_asked_for_and_answered_from_what_was_frozen() {
         Some("https://nordwind.alosites.com/")
     );
     assert_eq!(answered.sheets, 1);
-    assert!(answered.unfrozen.is_empty(), "{:?}", answered.unfrozen);
+    // The analytics script reports that its form was seen, as it loads
+    // (queue item 488). A beacon's answer is never read, so the case
+    // freezes none and it is answered as a network error.
+    assert_eq!(answered.unfrozen, [COLLECT]);
 }
+
+/// Where alo Sites' analytics script reports to.
+const COLLECT: &str = "https://nordwind.alosites.com/_alo/collect";
 
 #[test]
 fn what_it_records_is_the_sheets_list_its_sticky_nav_and_its_pictures() {
@@ -242,15 +248,21 @@ fn faq_lines(tree: &str) -> Vec<String> {
         .collect()
 }
 
-/// Whether the renderer answered that it activated the question, and said
-/// nothing but that no script heard the click: this page's stopped.
-fn acted_unheard(answer: &FromRenderer) -> bool {
+/// Whether the renderer answered that it activated the question, said
+/// nothing, and asked for nothing: the page's script heard the click and
+/// had nothing to report of it.
+fn acted_heard(answer: &FromRenderer) -> bool {
     matches!(
         answer,
-        FromRenderer::Acted { outcome: alo_agent::Outcome::Activated { name, .. }, issues, .. }
-            if name.as_deref() == Some("How fresh is the coffee?")
-                && !issues.is_empty()
-                && issues.iter().all(|issue| issue.contains("nobody heard it"))
+        FromRenderer::Acted {
+            outcome: alo_agent::Outcome::Activated { name, .. },
+            issues,
+            fetches,
+            navigation: None,
+            ..
+        } if name.as_deref() == Some("How fresh is the coffee?")
+            && issues.is_empty()
+            && fetches.is_empty()
     )
 }
 
@@ -313,16 +325,17 @@ fn an_agent_reads_the_question_and_that_it_is_closed_and_not_the_answer() {
 #[test]
 fn activating_the_question_opens_it_and_activating_it_again_closes_it() {
     // ADR 0048 § 4: HTML's activation behaviour, in `alo-dom`. This page's
-    // script stopped while it loaded (queue item 73), so nothing hears the
-    // click and the renderer says so; the click still does what a click
-    // does to the document. A page whose script is running is
-    // `alo-renderer`'s `an_agents_click.rs`. Chrome 154, opened: 92.375
+    // script runs to its end since queue item 488 gave a string its
+    // properties, so the analytics script's capturing `click` listener hears
+    // the click. It reports one only when `pageX` is a number, which a
+    // keyboard's click has no value of here (`alo-bindings`' `mouse_event.rs`
+    // leaves it absent), so nothing is asked for. Chrome 154, opened: 92.375
     // tall, the answer 27.1875 under a 12 margin.
     let Some((_, Rendering::Loaded(mut renderer, _))) = full_page() else {
         panic!("the case is loaded by a renderer");
     };
     let answer = activate_the_question(&mut renderer);
-    assert!(acted_unheard(&answer), "{answer:?}");
+    assert!(acted_heard(&answer), "{answer:?}");
     assert_eq!(
         faq_lines(&outline(&renderer)),
         [
@@ -347,7 +360,7 @@ fn activating_the_question_opens_it_and_activating_it_again_closes_it() {
     );
 
     let answer = activate_the_question(&mut renderer);
-    assert!(acted_unheard(&answer), "{answer:?}");
+    assert!(acted_heard(&answer), "{answer:?}");
     assert_eq!(
         faq_lines(&outline(&renderer)),
         [

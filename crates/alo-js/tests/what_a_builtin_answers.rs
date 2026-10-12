@@ -301,11 +301,12 @@ fn what_this_engine_has_not_built_refuses_by_name() {
             "let f = function () {}; f.toString()",
             "! a function's own source text, which Function.prototype.toString answers with, is queue item 220",
         ),
-        // A primitive `this` needs the wrapper object the builtins bring, and
-        // the property read says so before the builtin is even reached.
+        // A number's properties need the wrapper object its prototype brings
+        // (queue item 489), and the property read says so before the builtin
+        // is even reached. A string's are built (queue item 488).
         (
-            "'a'.toString()",
-            "! a property of a primitive needs a wrapper object, which is queue item 73",
+            "(1).toString()",
+            "! a property of a primitive needs a wrapper object, which is queue item 489",
         ),
     ]);
 }

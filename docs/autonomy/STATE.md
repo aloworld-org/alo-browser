@@ -29239,3 +29239,157 @@ added to 471, 472 and 476.
 225 queue items are open (485 closed, 487 added). The next unused queue
 number is **488** and the next ADR is **0053**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 299 — queue item 488 built, cut from 73: a property of a string
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full,
+`ROADMAP.md` (its state rules and the stage 2 lines "The ECMAScript
+standard library" and "Forms"), and iteration 298. No `AGENTS.md` exists in
+this repository or above it. For 488: item 73's queue entry and those of
+471, 472, 485, 359 and 365 (earlier cuts from 73 opened by the same
+script), ADR 0013 § 3 (absent beats approximate), ADR 0014 § 11 (one
+access interface), ADR 0031 (a builtin's slots), and `docs/features.md`'s
+standard-library line. `alo-js`' `interpret.rs`, `interpret/property.rs`,
+`interpret/call.rs`, `interpret/iterate.rs`, `object/access.rs`,
+`object/cell.rs`, `object/array.rs`, `object/date.rs`, `object/internal.rs`,
+`builtin.rs`, `builtin/numbers.rs`, `builtin/encode_uri_component.rs`,
+`builtin/object_prototype.rs` and `builtin/date.rs` were read before
+changing or leaning on them, and the corpus' `answering.rs`.
+
+**Choosing.** Iteration 298 found that `alo-sites-contact-form`'s analytics
+script stops as it loads on "a property of a primitive … queue item 73", and
+that this keeps 472 from closing on that page. In file order 73 stands
+before every forms item; its dependencies (72, 218) are done, and its own
+text says it is cut again each time a page needs a family of it, as 225,
+227, 359 and 365 were. The stop is at the script's last loop,
+`form.getAttribute("action").slice(3)`, so the cut is **488**: a property of
+a string. The forms items after 485 were checked first and are not
+eligible: 469, 473, 474, 486 and 487 wait for a page (no frozen case has a
+reset button, a `[value]` selector, a `minlength`, a multipart form, a
+`<meta>` `form-action` or a script clicking a submit button), 471 depends
+on 262, 475 on a picker, and 472 and 476 sit behind 73 in file order, 472
+also behind this stop.
+
+**What was built.** It is listed in 488's *Done* paragraph. In short:
+- `alo-js`: a `String` object cell (`object/string_object.rs`) and
+  `StringCreate` (`builtin/string_create.rs`); `String.prototype`, a
+  `String` object of the empty string, with `toString`, `valueOf`
+  (`builtin/string_prototype.rs`) and `slice` (`builtin/string_slice.rs`);
+  `Object.prototype.toString`'s `String` tag.
+- `interpret/primitive_base.rs`: a string's own `length` and units, and
+  `String.prototype` as where the walk starts, used by reads, writes and
+  deletes; `Objects::set_for_primitive` for `OrdinarySet` with a receiver
+  that is not an object.
+- `Missing::AStringIterator` (490), and `Missing::AWrapperObject` now
+  naming 489.
+
+**Two design choices the specification leaves to an engine.**
+- A read of a string's property makes no wrapper. The wrapper is new and
+  unreachable, so its own properties and its prototype are the whole
+  answer, and a getter still gets the string as `this`, as `GetValue`
+  passes it. Writes and deletes are answered the same way.
+- A `String` object's `length` and units are stored, fixed, in its
+  ordinary table when it is made, rather than worked out per question. A
+  cell may not allocate, and a unit read as a property is a new string.
+  Every own-property answer is then the exotic object's. The cost for a long
+  string is 489's to decide; today only the empty `String.prototype` is
+  made.
+
+**Found, and refused rather than answered wrongly.** With a string's
+properties readable, `for (c of 'ab')` read `Symbol.iterator` through
+`String.prototype`, found nothing and threw "not iterable", which is wrong:
+strings are iterable. A read of that key on a string that finds nothing is
+now refused by name (490). Other missing string methods are simply absent,
+as `[].push` is, since a page can feature-test them.
+
+**What the pages do now.** alo Sites' analytics script runs to its end on
+`alo-sites-contact-form` and `alo-sites-full-page`. On the contact form it
+asks for its view beacon (`c=f4K9sL2wN7qR5tYx8vB1cA&s=view`) as it loads,
+and for one start beacon over three edits (its `input` listener is `once`).
+Its own `submit` listener hears the press, cancels it and stops on
+`URLSearchParams` (472), so **nothing is sent**. Before this, the form was
+posted as if the page ran no script. That is a change in what an agent's
+press achieves on that page, and it is the faithful one: Chrome's listener
+sends the fields by `fetch`, which needs 472. The full page's FAQ click is
+heard now, and reports nothing, because a keyboard's click has no `pageX`
+here (`mouse_event.rs` leaves it absent). Both cases' view beacons are
+answered as unfrozen network errors, and their tests say so.
+
+**Tests.**
+- `alo-js`' `what_a_string_has.rs`, 10 tests, each program run ordinarily
+  and with the collector at every allocation. They cover length and units,
+  the chain, `String.prototype` handed in by the embedder, every `slice`
+  rule, the order and count of its conversions and their survival, writes
+  and deletes in both modes, a getter and a setter (named and at an index)
+  called with the string as `this`, and the refusals.
+- Unit tests in `string_create.rs` (under stress), `string_prototype.rs`
+  and `string_slice.rs`.
+- Updated tests, no assertion weakened: six `alo-js` tests that pinned the
+  old refusal now assert the value or a number's refusal naming 489. In
+  `alo-corpus`, the contact form test is rewritten to the page's new
+  behaviour and two sheet tests record the beacon. A renderer test comment
+  is corrected.
+
+**Mutation checks**, each restored from a scratchpad copy (`cmp`
+confirmed). Each failed the tests named:
+- `slice` ignoring a negative index: two tests;
+- `undefined` `end` converted: three;
+- a string's own properties skipped on read: three;
+- an own unit not refusing a write: the index-accessor test;
+- delete always `true`: the write and delete test;
+- the kept string re-converted: the order test;
+- the iterator refusal removed: the refusal test.
+
+**Gate, mechanical.** `cargo fmt --check` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first.
+`scripts/gate.sh` ran once in the foreground. The harness moved it to the
+background at 600 s, and the next call waited on its exit file with a
+foreground `until` loop. Result: `exit 0`, "The gate is met", and no
+`FAILED`, `panicked` or `^error` in its log. Only this entry was written
+after it, then the commit.
+
+**Gate, manual.**
+- **Layout assertion:** none is owed. Nothing positions or sizes anything,
+  and every committed layout passed.
+- **Reference render:** none is owed. Nothing visual changed: the
+  analytics script writes nothing to the page, and every committed picture
+  still matched.
+- **One responsibility per file.** `string_object.rs` is the slot,
+  `string_create.rs` the making, `string_prototype.rs` the prototype and its
+  brand methods, `string_slice.rs` one method, `primitive_base.rs` a
+  string's own properties as a base. `property.rs` gained `written`, split
+  out of `write_from` so both bases share the refusal.
+- **Hostile input:** nothing new reads bytes from outside. `slice` holds
+  every index within the string before it cuts, and no length can overflow
+  (a string is at most 2²⁸ − 1 units).
+- **Docs:** `docs/features.md`, `docs/conformance.md`' forms row,
+  `REMAINING.md`, `CHANGELOG.md`, and the module documentation of
+  `builtin.rs`, `object.rs` and `cell.rs`.
+- **Other rules:** no `unsafe`, and no verb takes a coordinate.
+  `alo-workplace` and `alo-os` were not touched. Chrome was not measured:
+  everything built is ECMA-262's and has one answer.
+
+**Queue.** 488 is added already ticked, with its *Done* paragraph. 73 says
+what was cut. **489** (`ToObject` of a primitive; opened by a page) and
+**490** (a string's iterator; opened by a page) are added. 471 and 472
+note that the contact form's stop is gone. 472's opener is now the
+contact form's first missing name.
+
+**Roadmap.** Two stage 2 lines move, and neither is ticked.
+- "The ECMAScript standard library": the Built clause gains a string's
+  properties, and the Owed clause names 489 and 490.
+- "Forms": the Owed clause notes that 472 is where the contact form's own
+  listener now stops.
+
+**Unresolved obligations.**
+- 472 (`FormData`, `URLSearchParams`) is now the contact form's stop, and
+  until it is built an agent's press there sends nothing. Before this
+  iteration it sent a scriptless page's `POST`.
+- `ToObject` of a primitive (489) and a string's iterator (490).
+- Whether storing every unit's property scales to a long wrapped string
+  (489's decision).
+- Nothing loads a decided navigation (item 85).
+
+226 queue items are open (488 closed, 489 and 490 added). The next unused
+queue number is **491** and the next ADR is **0053**. This is one
+iteration, not a finished queue or roadmap.

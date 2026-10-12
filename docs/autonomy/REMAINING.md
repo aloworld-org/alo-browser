@@ -1822,3 +1822,16 @@ nothing open). Found: `alo-sites-contact-form`'s analytics script stops the
 page as it loads (queue item 73), so its `submit` listener never hears the
 press, which 472 now notes. 225 queue items are open (485 closed, 487
 added). The next unused queue number is 488 and the next unused ADR 0053.
+
+Iteration 299 built item 488, cut from 73: a property of a string. A
+string's own `length` and units, then `String.prototype` — a `String`
+object of the empty string — with `toString`, `valueOf` and `slice`, read,
+written and deleted as the wrapper would answer, without making one.
+`alo-sites-contact-form` and `alo-sites-full-page` now run alo Sites'
+analytics script to its end, past `slice(3)`: the contact form reports
+that its form was seen, its first edit, and its own `submit` listener hears
+the press and stops on `URLSearchParams` (472), so nothing is sent where
+before the form was sent as a scriptless page's. `ToObject` of a primitive
+is cut into **489** and a string's iterator into **490**. 226 queue items
+are open (488 closed, 489 and 490 added). The next unused queue number is
+491 and the next unused ADR 0053.

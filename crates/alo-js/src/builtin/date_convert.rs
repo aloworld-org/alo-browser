@@ -25,7 +25,7 @@
 //! It is generic: `ToObject(this)`, its number, `null` for one that is not
 //! finite, and otherwise whatever its `toISOString` answers — called by name,
 //! so a page that replaced it is the page's choice. A primitive `this` needs
-//! the wrapper objects item 73 builds ([`Missing::AWrapperObject`]).
+//! the wrapper objects item 489 builds ([`Missing::AWrapperObject`]).
 
 use crate::abrupt::{Escape, Internal, Missing};
 use crate::convert::{Hint, Primitive};

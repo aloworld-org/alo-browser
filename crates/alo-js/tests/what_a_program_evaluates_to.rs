@@ -328,10 +328,7 @@ fn templates_ask_an_object_for_its_string() {
         ("`${1}${2}`", "\"12\""),
         ("let a = 'x'; `<${a}>`", "\"<x>\""),
         ("`${null}`", "\"null\""),
-        (
-            "`a\\nb`.length",
-            "! a property of a primitive needs a wrapper object, which is queue item 73",
-        ),
+        ("`a\\nb`.length", "3"),
     ]);
 }
 

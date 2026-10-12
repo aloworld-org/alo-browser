@@ -305,8 +305,7 @@ fn a_script_that_takes_out_the_body_the_parser_is_in_and_then_collects() {
          for (let i = 0; i < 23; i++) {{ grown = grown + grown; }}\
          {}</script><div id=nobody>nobody sees this</div><script>{}</script></body></html>\
          <div>nor this</div>",
-        // Item 80's members and the language as far as it goes: a
-        // string's `length` needs a wrapper object (item 73).
+        // Item 80's members and the language as far as it goes.
         record("data-grown", "'eight mebibytes of it'"),
         record("data-detached-ran", "'yes'"),
     ));

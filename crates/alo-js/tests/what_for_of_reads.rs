@@ -624,9 +624,10 @@ fn what_is_not_built_says_which_item_builds_it() {
             "for (const x of [].values.call({ length: { valueOf() { return 1; } } })) {}",
             "queue item 231",
         ),
-        // A string is iterable through a wrapper this engine has not built.
-        ("for (const c of 'ab') {}", "queue item 73"),
-        ("[].values.call('ab')", "queue item 73"),
+        // A string is iterable through a method `String.prototype` does not
+        // have yet, and an array iterator's `this` needs a wrapper.
+        ("for (const c of 'ab') {}", "queue item 490"),
+        ("[].values.call('ab')", "queue item 489"),
     ] {
         let answer = value(source);
         assert!(answer.starts_with('!'), "{source}: {answer}");

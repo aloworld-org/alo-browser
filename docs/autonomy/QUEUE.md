@@ -3073,6 +3073,94 @@ The long pole, and the thing most of section E is unreachable without.
   symbols and the iterator helpers stay here.
   **`Math` is cut into 365** (iteration 234), opened by alo Sites'
   analytics script.
+  **A string's properties are cut into 488** (iteration 299), opened by the
+  same script on the contact form; the `String`, `Number` and `Boolean`
+  wrappers that remain are **489**, and a string's iterator **490**.
+
+- [x] **488. A property of a string.** *Cut from 73 (iteration 299).
+  Depends on 72 and 218, done, and nothing open.* *Opened by
+  `alo-sites-contact-form`*, whose analytics script stops as it loads at its
+  last loop, `form.getAttribute("action").slice(3)`: "a property of a
+  primitive needs a wrapper object, which is queue item 73". The same
+  script stops `alo-sites-full-page`, which has the same form. That stop is
+  why the contact form's own `submit` listener never heard a press (485's
+  *Found*), and why 472 could not close on that page.
+  - Reading a property of a string as `GetValue` does — `ToObject` and
+    `[[Get]]` with the string as the receiver — without making the wrapper:
+    its own `length` and one property per code unit, then
+    `String.prototype`; a getter found there called with the string as
+    `this`.
+  - Writing and deleting one as the wrapper would answer: nothing stored, a
+    setter along the chain called with the string, a `TypeError` in strict
+    code otherwise; only `length` and the units refuse a delete.
+  - `String.prototype`, a `String` object of the empty string (ECMA-262
+    makes it one), so `Object.prototype.toString` names it `String`, with
+    `toString` and `valueOf` (`thisStringValue`) and `slice`, whose three
+    conversions are asked for and kept (ADR 0031) in the specification's
+    order.
+  - Anything the read would answer wrongly rather than as absent is
+    refused by name: iterating a string, which reads a method
+    `String.prototype` does not have yet (490).
+  *Closes when:* the contact form's analytics script runs to its end and
+  reports `c=f4K9sL2wN7qR5tYx8vB1cA&s=view` as it loads and
+  `…&s=start` on the first edit only; its own `submit` listener hears the
+  press; and `slice`'s conversions are once each and in order under the
+  collector at every allocation.
+  ***Done (iteration 299).*** What was built:
+  - `alo-js`: `object/string_object.rs`, the `[[StringData]]` cell
+    (`Cell::StringObject`, `Objects::string_object` and
+    `as_string_object`); `builtin/string_create.rs`, `StringCreate`, whose
+    fixed `length` and units are stored in the ordinary table, which
+    answers every own-property question as the exotic object does;
+    `builtin/string_prototype.rs` and `builtin/string_slice.rs`;
+    `Object.prototype.toString`'s `String` tag; `interpret/primitive_base.rs`,
+    a string's own properties and where its walk starts, used by
+    `read_into`, `write_from` and `delete`; `Objects::set_for_primitive`,
+    `OrdinarySet` for a receiver that is not an object;
+    `Missing::AStringIterator` (490); `Missing::AWrapperObject` now names
+    489.
+  *Closed by* `alo-js`' `what_a_string_has.rs` (10 tests, each program run
+  ordinarily and with the collector at every allocation): length and units,
+  half a surrogate pair included; the chain; `String.prototype` handed to
+  the script by the embedder (no script can reach it before 489); `slice`'s
+  cuts and its conversions' order, count and survival; writes and deletes in
+  both modes; a getter and a setter on `String.prototype` called with the
+  string as `this`; and the refusals by name. `alo-corpus`'
+  `a_form_on_somebody_elses_page_is_sent.rs`: the contact form's view
+  beacon, its one start beacon over three edits, and its own listener
+  hearing the press, cancelling it and stopping on `URLSearchParams` (472).
+  `alo_sites_contact_form.rs` and `alo_sites_full_page.rs` record the view
+  beacon among what the case did not freeze, and the full page's FAQ click
+  is now heard, with nothing reported (a keyboard's click has no `pageX`
+  here).
+  *Cut:* 489 and 490. Not measured in Chrome: everything here is ECMA-262's
+  and has one answer.
+
+- [ ] **489. `ToObject` of a primitive: the `String`, `Number` and `Boolean`
+  wrappers.** *Cut from 73 and 488 (iteration 299). Depends on 488, done.*
+  - `ToObject` of a string, a number, a boolean and a symbol, making the
+    wrapper where an object is really kept: a sloppy function's `this`
+    (`interpret/call.rs`' `receiver`), `Object.prototype`'s methods,
+    `Array.prototype`'s on a string, `Promise.prototype.catch`, `toJSON`.
+  - `Number.prototype`, `Boolean.prototype` and `Symbol.prototype`, so a
+    number's, a boolean's and a symbol's properties read as a string's do.
+  - The `String`, `Number` and `Boolean` functions, called and constructed,
+    and each prototype's `constructor`.
+  - Whether `StringCreate` making every unit's property at once is
+    affordable for a long string a page wraps, or the cell answers them
+    from its string; today only `String.prototype`, of the empty string, is
+    made.
+  Every place is refused by name today (`Missing::AWrapperObject`).
+  *Opened by a page* that reaches one of them.
+  *Closes when:* that page runs past it as Chrome does.
+
+- [ ] **490. A string's iterator.** *Cut from 488 (iteration 299). Depends
+  on 488, done.* `String.prototype[Symbol.iterator]` and
+  `%StringIteratorPrototype%`, iterating by code point, so `for (const c of
+  s)` and a spread of a string work. Refused by name today
+  (`Missing::AStringIterator`), because a missing method would read as *not
+  iterable*, which is wrong. *Opened by a page* that iterates a string.
+  *Closes when:* that page runs past it as Chrome does.
 
 - [x] **74. Regular expressions**, with the syntax the language actually has.
   *Depends on 72. Closes when:* a hostile pattern is refused or bounded rather
@@ -5259,6 +5347,8 @@ The long pole, and the thing most of section E is unreachable without.
   `event_loop/submitted.rs`' steps from a native, as 487 does. The contact
   form's fallback cannot run while its analytics script stops the page on
   item 73 (see 485's *Found*).
+  *Since 488:* that stop is gone; the fallback is reached once the
+  listener's `fetch` is asked for and fails, which waits on 472.
 
 - [ ] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
   § 7). Depends on 468 and 335.* `new FormData(form)` built from 468's
@@ -5279,6 +5369,9 @@ The long pole, and the thing most of section E is unreachable without.
   press and the form is sent as a scriptless page's is
   (`a_form_on_somebody_elses_page_is_sent.rs` pins it). That stop has to be
   gone before this can close on that page.
+  *Since 488 (iteration 299):* that stop is gone. The listener hears the
+  press, cancels it and stops on `URLSearchParams`, so nothing is sent; this
+  item's opener is now its first missing name, on the frozen page.
 
 - [ ] **473. The rest of the constraints.** *Cut from 82 (ADR 0051 § 3).
   Depends on 468.*

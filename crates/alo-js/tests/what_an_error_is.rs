@@ -444,9 +444,8 @@ fn every_prefix_of_an_error_program_is_an_answer_rather_than_a_crash() {
 fn a_long_message_is_kept_whole() {
     let answered = value(
         "let s = 'x'; for (let i = 0; i < 20; i = i + 1) { s = s + s; } \
-         new Error(s).message === s && ('' + new Error(s)) === 'Error: ' + s",
+         new Error(s).message === s && ('' + new Error(s)) === 'Error: ' + s \
+         && new Error(s).message.length",
     );
-    // A string's own `length` needs a wrapper object (item 73), so the
-    // message is compared rather than measured.
-    assert_eq!(answered, "true");
+    assert_eq!(answered, "1048576");
 }

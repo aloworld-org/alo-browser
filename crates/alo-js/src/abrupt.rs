@@ -155,9 +155,14 @@ impl fmt::Display for Thrown {
 /// that are building it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Missing {
-    /// A property was read from a string, a number, a boolean or a symbol,
-    /// which needs the wrapper objects the builtins bring (queue item 73).
+    /// A property was read from a number, a boolean or a symbol, or a
+    /// primitive was made an object, which needs the wrapper objects
+    /// `ToObject` makes (queue item 489). A string's properties are read
+    /// without one (queue item 488).
     AWrapperObject,
+    /// A string was iterated, which reads `String.prototype[Symbol.iterator]`
+    /// and `%StringIteratorPrototype%` (queue item 490).
+    AStringIterator,
     /// `a instanceof f` reached `OrdinaryHasInstance`'s `Get(f, "prototype")`
     /// and the walk up `a`'s chain (queue item 224).
     ///
@@ -260,7 +265,11 @@ impl fmt::Display for Missing {
         match self {
             Missing::AWrapperObject => write!(
                 out,
-                "a property of a primitive needs a wrapper object, which is queue item 73"
+                "a property of a primitive needs a wrapper object, which is queue item 489"
+            ),
+            Missing::AStringIterator => write!(
+                out,
+                "a string's iterator, String.prototype[Symbol.iterator], is queue item 490"
             ),
             Missing::APrototype => write!(
                 out,
@@ -511,7 +520,7 @@ mod tests {
         assert!(
             Escape::NotBuiltYet(Missing::AWrapperObject)
                 .to_string()
-                .contains("73")
+                .contains("489")
         );
         assert!(
             Escape::NotBuiltYet(Missing::ASecondArgumentBehindACall)

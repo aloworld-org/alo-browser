@@ -48,7 +48,8 @@
 //! iterator, which is an ordinary object with a generator's state beside it
 //! (item 230), and a `RegExp`, which is an ordinary object with a compiled
 //! pattern beside it (item 74), and a `Date`, which is an ordinary object with
-//! a time value beside it (item 356). Everything else is absent
+//! a time value beside it (item 356), and a `String` object, which is an
+//! ordinary object with a string beside it (item 488). Everything else is absent
 //! rather than stubbed, because a stub is the one answer that defeats a page's
 //! own feature test.
 
@@ -68,6 +69,7 @@ pub mod promise;
 pub mod property;
 pub mod regexp;
 pub mod slots;
+pub mod string_object;
 pub mod symbol;
 pub mod table;
 pub mod text;
@@ -95,6 +97,7 @@ pub use promise::Promise;
 pub use property::Property;
 pub use regexp::RegExp;
 pub use slots::{Held, Slots};
+pub use string_object::StringObject;
 pub use symbol::Symbol;
 pub use table::Properties;
 pub use text::Text;
@@ -358,6 +361,28 @@ impl Objects {
         self.heap
             .write(held, |cell, _| cell.date_mut().map(|date| date.set(value)))
             .flatten()
+    }
+
+    /// Make a `String` object of the string `data` with this prototype and no
+    /// properties of its own yet: the cell `StringCreate` makes before it
+    /// defines `length` and the indices, which it does through
+    /// [`Objects::define`] (queue item 488).
+    ///
+    /// **This is a safepoint**, and both references are the caller's to have
+    /// rooted, as [`Objects::object`]'s prototype is.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn string_object(&mut self, prototype: Option<Ref>, data: Ref) -> Result<Ref, Refused> {
+        let string = StringObject::new(prototype, data);
+        Ok(self.heap.allocate(Cell::StringObject(string))?)
+    }
+
+    /// The `String` object a reference names, or [`None`] if it names
+    /// anything else — `[[StringData]]`, which `thisStringValue` asks for.
+    pub fn as_string_object(&self, held: Ref) -> Option<&StringObject> {
+        self.heap.get(held)?.string_object()
     }
 
     /// Make an error with this prototype and no properties of its own: the

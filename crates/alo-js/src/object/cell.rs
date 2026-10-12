@@ -10,11 +10,12 @@
 //! nothing in that file changes when it does.* This is that enumeration, and
 //! nothing in `heap.rs` changed.
 //!
-//! # Thirteen kinds, and two of them are not a script's
+//! # Fourteen kinds, and two of them are not a script's
 //!
 //! An [`Ordinary`] object, an [`Array`] (queue item 225), an error (queue item
 //! 227), an [`ArrayIterator`] (queue item 230), a [`RegExp`] (queue item 74), a
-//! [`Promise`] (queue item 333), a [`Date`] (queue item 356), a [`Function`], a [`Text`], a [`Symbol`] — and
+//! [`Promise`] (queue item 333), a [`Date`] (queue item 356), a
+//! [`StringObject`] (queue item 488), a [`Function`], a [`Text`], a [`Symbol`] — and
 //! [`Cell::Foreign`], which is an [`Exotic`] an embedder supplied. That one is
 //! ADR 0013 § 6 and ADR 0014 § 6 in a single line of code: the DOM is **in this
 //! heap**, traced by this collector, in the same graph as the closure that
@@ -29,10 +30,12 @@
 //! to read.
 //!
 //! A [`Text`] and a [`Symbol`] are in the heap without being objects, and that
-//! is the language rather than a shortcut. `"abc".foo` reads a property of a
-//! *wrapper* the interpreter makes; the string itself has no properties at all,
-//! which is why [`Cell::internal`] answers [`None`] for one and why an access
-//! on a primitive is a [`Fault`](super::Fault) rather than an empty answer.
+//! is the language rather than a shortcut. `"abc".foo` reads a property of
+//! the *wrapper* the specification makes, which the interpreter answers for
+//! without making one (queue item 488); the string itself has no properties
+//! at all, which is why [`Cell::internal`] answers [`None`] for one and why an
+//! access on a primitive is a [`Fault`](super::Fault) rather than an empty
+//! answer.
 
 use crate::heap::{Survivors, Trace, Tracer};
 
@@ -46,6 +49,7 @@ use super::ordinary::Ordinary;
 use super::promise::Promise;
 use super::regexp::RegExp;
 use super::slots::Slots;
+use super::string_object::StringObject;
 use super::symbol::Symbol;
 use super::text::Text;
 
@@ -78,6 +82,9 @@ pub enum Cell {
     /// What `new Date(…)` makes: an ordinary object with a time value beside
     /// it (queue item 356).
     Date(Date),
+    /// A `String` object: an ordinary object with a string beside it (queue
+    /// item 488). `String.prototype` is one.
+    StringObject(StringObject),
     /// A function, which is an ordinary object that can also be called (queue
     /// item 209).
     Function(Function),
@@ -112,6 +119,7 @@ impl Cell {
             Cell::RegExp(regexp) => Some(regexp.ordinary()),
             Cell::Promise(promise) => Some(promise.ordinary()),
             Cell::Date(date) => Some(date.ordinary()),
+            Cell::StringObject(string) => Some(string.ordinary()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_ref()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -127,6 +135,7 @@ impl Cell {
             Cell::RegExp(regexp) => Some(regexp.ordinary_mut()),
             Cell::Promise(promise) => Some(promise.ordinary_mut()),
             Cell::Date(date) => Some(date.ordinary_mut()),
+            Cell::StringObject(string) => Some(string.ordinary_mut()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_mut()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -227,6 +236,14 @@ impl Cell {
         }
     }
 
+    /// The `String` object this cell is, if it is one (queue item 488).
+    pub const fn string_object(&self) -> Option<&StringObject> {
+        match self {
+            Cell::StringObject(string) => Some(string),
+            _ => None,
+        }
+    }
+
     /// Whether this cell has the `[[ErrorData]]` slot (queue item 227).
     pub const fn is_error(&self) -> bool {
         matches!(self, Cell::Error(_))
@@ -283,6 +300,7 @@ impl Cell {
             Cell::RegExp(_) => "a regular expression",
             Cell::Promise(_) => "a promise",
             Cell::Date(_) => "a date",
+            Cell::StringObject(_) => "a string object",
             Cell::Function(_) => "a function",
             Cell::Text(_) => "a string",
             Cell::Symbol(_) => "a symbol",
@@ -302,6 +320,7 @@ impl Trace for Cell {
             Cell::RegExp(regexp) => regexp.trace(tracer),
             Cell::Promise(promise) => promise.trace(tracer),
             Cell::Date(date) => date.trace(tracer),
+            Cell::StringObject(string) => string.trace(tracer),
             Cell::Function(function) => function.trace(tracer),
             Cell::Symbol(symbol) => symbol.trace(tracer),
             Cell::Foreign(exotic) => exotic.trace(tracer),
@@ -322,6 +341,7 @@ impl Trace for Cell {
             Cell::RegExp(regexp) => regexp.footprint(),
             Cell::Promise(promise) => promise.footprint(),
             Cell::Date(date) => date.footprint(),
+            Cell::StringObject(string) => string.footprint(),
             Cell::Function(function) => function.footprint(),
             Cell::Text(text) => text.footprint(),
             Cell::Foreign(exotic) => exotic.footprint(),

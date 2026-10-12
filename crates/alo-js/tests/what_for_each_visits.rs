@@ -272,10 +272,10 @@ fn what_it_refuses_it_refuses_as_the_specification_says() {
             "TypeError",
         ),
     ]);
-    // A string `this` needs its wrapper object, which is item 73's.
+    // A string `this` needs its wrapper object, which is item 489's.
     let refused = value("[].forEach.call('ab', function () {})");
     assert!(
-        refused.contains("queue item 73"),
+        refused.contains("queue item 489"),
         "a primitive `this` is refused by name: {refused}"
     );
 }

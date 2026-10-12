@@ -65,7 +65,14 @@ fn its_sheet_is_asked_for_and_answered_from_what_was_frozen() {
         Some("https://nordwind.alosites.com/")
     );
     assert_eq!(answered.sheets, 1);
-    assert!(answered.unfrozen.is_empty(), "{:?}", answered.unfrozen);
+    // The analytics script reports that the form was seen, as it loads
+    // (queue item 488). A beacon's answer is never read, so the case
+    // freezes none and it is answered as a network error; its body is
+    // `a_form_on_somebody_elses_page_is_sent.rs`'.
+    assert_eq!(
+        answered.unfrozen,
+        ["https://nordwind.alosites.com/_alo/collect"]
+    );
     assert!(answered.said.is_empty(), "{:?}", answered.said);
     assert!(answered.issues.is_empty(), "{:?}", answered.issues);
 }

@@ -58,6 +58,7 @@ mod environment;
 mod frame;
 mod iterate;
 mod primitive;
+mod primitive_base;
 mod property;
 mod regexp;
 mod reported;
@@ -1391,8 +1392,14 @@ impl Engine {
 
     /// `[[Delete]]`.
     fn remove(&mut self, object: Value, key: Key, strict: bool, at: usize) -> Result<bool, Escape> {
-        let held = self.object_of(object, key, at, "delete")?;
-        let went = self.objects.delete(held, key)?;
+        // A string's wrapper has only the properties it is made with, and
+        // they are fixed (queue item 488).
+        let went = if let Value::Text(text) = object {
+            self.own_of_string(text, key)?.is_none()
+        } else {
+            let held = self.object_of(object, key, at, "delete")?;
+            self.objects.delete(held, key)?
+        };
         if !went && strict {
             return Err(Escape::type_error(
                 format!("{} cannot be deleted", self.describe_key(key)),
@@ -1418,9 +1425,10 @@ impl Engine {
     ///
     /// Two different answers, and keeping them apart is ADR 0013 § 3 in the
     /// place it matters most: `null.a` is a `TypeError` **the language
-    /// specifies** and a page may catch, and `"abc".a` is a wrapper object this
-    /// engine has not built (queue item 73) — which is not an error the language
-    /// has, and must not be reported as one.
+    /// specifies** and a page may catch, and `(1).a` is a wrapper object this
+    /// engine has not built (queue item 489) — which is not an error the
+    /// language has, and must not be reported as one. A string is not asked
+    /// here: its properties are [`primitive_base`]'s (queue item 488).
     pub(super) fn object_of(
         &self,
         object: Value,

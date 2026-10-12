@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A script can read a string's properties.** `"abc".length`, `"abc"[1]`
+  and the methods every string shares now answer, where any property of a
+  string used to stop the script. The methods are the first three of the
+  language's: `toString`, `valueOf` and `slice`, the last converting what it
+  is given in exactly the order and number of times Chrome does. alo Sites'
+  analytics script used one to read a form's address and stopped there, so
+  on alo Sites' contact form and full page it now runs to its end and
+  reports what it saw. The contact form's own script now hears the Send
+  button too; it stops at the next thing it needs, `FormData` (472), so the
+  form is not sent yet, where before it was sent as if the page ran no
+  script. Iterating a string, and a number's properties, are still refused
+  by name (490, 489).
+
 - **An agent can send a form on a page that runs script.** Pressing a
   submit button there is a click the page hears, and the form is then
   checked and sent as Chrome does it, with the page told at each step: a

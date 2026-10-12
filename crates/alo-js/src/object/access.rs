@@ -274,6 +274,33 @@ impl Objects {
         Ok(if defined { Set::Done } else { Set::Refused })
     }
 
+    /// `[[Set]]` from `object` with a receiver that is **not an object** —
+    /// a string's property written, whose wrapper is `object`'s heir and is
+    /// never made (queue item 488).
+    ///
+    /// `OrdinarySet` stores into the receiver, and a primitive cannot be
+    /// stored into: a data property along the chain, writable or not, and a
+    /// key nothing has, are both a refusal. Only an accessor's setter is a
+    /// call, made with the primitive as `this`; [`Set::Setter`] of
+    /// [`Value::Undefined`] is an accessor with no setter. Nothing is
+    /// written here, which is why this takes `&self`.
+    ///
+    /// # Errors
+    ///
+    /// [`Fault`], for a reference that does not name an object or a chain that
+    /// does not end.
+    pub fn set_for_primitive(&self, object: Ref, key: Key) -> Result<Set, Fault> {
+        let Some((holder, _)) = self.holder_of(object, key)? else {
+            return Ok(Set::Refused);
+        };
+        Ok(match self.own(holder)?.own_property(key) {
+            Some(property) if !property.is_data() => {
+                Set::Setter(property.setter().unwrap_or(Value::Undefined))
+            }
+            Some(_) | None => Set::Refused,
+        })
+    }
+
     /// `[[Delete]]`: take a property away, answering whether it went.
     ///
     /// A property that is not there was already not there, so deleting it

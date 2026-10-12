@@ -37,7 +37,7 @@
 //!
 //! # What it refuses
 //!
-//! A primitive `this` needs the wrapper objects item 73 builds, and is
+//! A primitive `this` needs the wrapper objects item 489 builds, and is
 //! [`Missing::AWrapperObject`] as `values` is. `null` and `undefined` are
 //! the `TypeError` the specification gives.
 

@@ -560,9 +560,9 @@ fn a_prototypes_read_only_property_refuses_the_store_rather_than_shadowing_it() 
 
 #[test]
 fn a_string_is_in_the_heap_and_is_not_something_that_has_properties() {
-    // `"abc".length` reads a property of a *wrapper* the interpreter makes
-    // (queue item 73); the string itself has none at all, which is the language
-    // rather than a shortcut.
+    // `"abc".length` reads a property of the *wrapper* the specification
+    // makes, which the interpreter answers for (queue item 488); the string
+    // itself has none at all, which is the language rather than a shortcut.
     let mut objects = Objects::new();
     let text = ok!(objects.text(vec![0xD83D, 0x0041]));
     let held = objects.heap_mut().root(text);

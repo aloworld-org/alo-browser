@@ -31,7 +31,7 @@
 //! reads `then` off the receiver every time — so a page that replaced `then`
 //! on its own promise has its `catch` call the replacement. A receiver that is
 //! a primitive needs its wrapper's prototype to look `then` up on, which is
-//! item 73's, and is refused by name as `forEach` refuses one.
+//! item 489's, and is refused by name as `forEach` refuses one.
 
 use crate::abrupt::{Escape, Internal, Missing};
 use crate::heap::Ref;

@@ -32,7 +32,7 @@
 //! call, and this file then applies `OrdinaryCallBindThis`: **strict code takes
 //! what it was given**, and sloppy code turns `undefined` and `null` into the
 //! global object. A primitive `this` in sloppy code should become a wrapper
-//! object, which is queue item 73 — so it says so, rather than passing the
+//! object, which is queue item 489 — so it says so, rather than passing the
 //! primitive through and being quietly wrong about `this.length`.
 //!
 //! An **arrow** is the case that skips all of it: it has no `this` of its own,
@@ -700,7 +700,7 @@ impl Engine {
             Value::Undefined | Value::Null => Ok(Value::Object(self.realm.global(&self.objects)?)),
             Value::Object(_) => Ok(given),
             // `ToObject` on a primitive, which is a wrapper object and is queue
-            // item 73. Saying so is the honest answer; passing the primitive
+            // item 489. Saying so is the honest answer; passing the primitive
             // through would make `this.length` inside a sloppy method quietly
             // wrong.
             Value::Bool(_) | Value::Number(_) | Value::Text(_) | Value::Symbol(_) => {

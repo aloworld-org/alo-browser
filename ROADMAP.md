@@ -973,7 +973,8 @@ unreachable without it.
       constructors item 73 has not built; a
       function's own `name` and `length` and its source text are 220; the
       `Array` constructor, `Array.isArray` and every array method but the
-      three iterators and `forEach`, `JSON`, the wrapper objects, the `Symbol`
+      three iterators and `forEach`, `JSON`, the wrapper objects (489), a
+      string's iterator (490) and every string method but three, the `Symbol`
       function and the other eleven well-known symbols, the iterator helpers
       and the weak collections are still item 73, which is what remains of it;
       and **`Date` as text**: ADR 0036 decided `Date` (queue item 353), and
@@ -994,10 +995,18 @@ unreachable without it.
       `min` and `hypot` folding however many arguments a page passes
       (`builtin/math_fold.rs`), every argument converted once and in order
       (`builtin/numbers.rs`). The `pagehide` listener, reached by a
-      dispatch, now runs to its end. Still owed: a date as text (357), the
-      person's zone (358), `Math.random` (367, needs an ADR),
-      `Math.f16round` and `Math.sumPrecise` (368), and `encodeURI` and the
-      two decoders (73)
+      dispatch, now runs to its end; and **a string's properties** (queue
+      item 488): its own `length` and units, then `String.prototype` — a
+      `String` object of the empty string (`object/string_object.rs`,
+      `builtin/string_create.rs`) — with `toString`, `valueOf` and `slice`
+      (`builtin/string_prototype.rs`, `builtin/string_slice.rs`), read,
+      written and deleted as the wrapper would answer without making one
+      (`interpret/primitive_base.rs`). The same script now runs to its end
+      on the contact form and the full page, past `slice(3)`. Still owed: a
+      date as text (357), the person's zone (358), `Math.random` (367, needs
+      an ADR), `Math.f16round` and `Math.sumPrecise` (368), `encodeURI` and
+      the two decoders (73), `ToObject` of a primitive and the `String`,
+      `Number` and `Boolean` functions (489), and a string's iterator (490)
 - [ ] Regular expressions, with the syntax the language actually has
       · Built: the engine ADR 0029 decided, in `alo-js/src/regexp/` (queue
       item 74) — the pattern parser for the whole grammar, so a bad pattern
@@ -1327,7 +1336,8 @@ unreachable without it.
       and 487: a script's own `click()` on a submit button, 487; the state apart
       from its attributes, 469; a `<meta>` policy's `form-action` and its
       violations reported, 486; script's form members, 471;
-      `FormData` and `URLSearchParams`, 472; the rest of the constraints,
+      `FormData` and `URLSearchParams`, 472, where the contact form's own
+      `submit` listener now stops since 488; the rest of the constraints,
       473; multipart and plain-text bodies, 474; a file chosen by a person,
       475; validity in the agent tree, 476) — constraint validation,
       submission, file inputs — the

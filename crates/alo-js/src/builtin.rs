@@ -54,6 +54,12 @@
 //! intrinsic: nothing in the engine calls it, so the global object, which the
 //! realm roots, is all that holds it.
 //!
+//! `String.prototype` (`string_prototype`, queue item 488) is what a string's
+//! properties are read from, after its own `length` and units: a `String`
+//! object of the empty string (`string_create`), with `toString`, `valueOf`
+//! and `slice` (`string_slice`) on it. There is no `String` function, so it
+//! has no `constructor` (queue item 489).
+//!
 //! `Math` ([`math`], queue item 365) is the first namespace object, bound on
 //! the global object the same way and for the same reason. `max`, `min` and
 //! `hypot` fold however many arguments a page passes ([`math_fold`]), and the
@@ -82,7 +88,9 @@
 //! prototype (queue item 324), and no `String.prototype.match` and its kin
 //! (item 323). No `Array` constructor and no array method but the three
 //! iterators and `forEach`, no
-//! `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
+//! `JSON`, no `String`, `Number` or `Boolean` function and no wrapper object
+//! but `String.prototype` (queue item 489), no string method but three and no
+//! string iterator (queue item 490), no `AggregateError` (queue
 //! item 229), no `Symbol` and nine of the thirteen well-known symbols, and no
 //! weak collections. Each is named in the queue rather than half-built here.
 
@@ -108,6 +116,9 @@ mod promise_job;
 mod promise_resolving;
 mod promise_then;
 pub mod regexp_prototype;
+mod string_create;
+mod string_prototype;
+mod string_slice;
 
 use crate::abrupt::Escape;
 use crate::heap::{Ref, Root};
@@ -143,6 +154,9 @@ pub struct Intrinsics {
     promise: promise::Made,
     /// `Date` and its prototype (queue item 356).
     date: date::Made,
+    /// `String.prototype`, which a string's properties are read from (queue
+    /// item 488).
+    string: Root,
 }
 
 impl Intrinsics {
@@ -207,6 +221,10 @@ impl Intrinsics {
             .map_err(|why| Escape::refused(why, 0))?;
         let regexp = objects.heap_mut().root(regexp);
 
+        // `String.prototype` is a `String` object of the empty string,
+        // inheriting from `Object.prototype`, which is still rooted above.
+        let string = string_prototype::make(objects, above)?;
+
         let functions = objects
             .heap()
             .holding(&function_prototype)
@@ -239,6 +257,7 @@ impl Intrinsics {
             regexp,
             promise,
             date,
+            string,
         };
         object_prototype::furnish(objects, &intrinsics)?;
         function_prototype::furnish(objects, &intrinsics)?;
@@ -246,6 +265,7 @@ impl Intrinsics {
         array_iterator::furnish(objects, &intrinsics)?;
         array_prototype::furnish(objects, &intrinsics)?;
         regexp_prototype::furnish(objects, &intrinsics)?;
+        string_prototype::furnish(objects, &intrinsics)?;
         Ok(intrinsics)
     }
 
@@ -446,6 +466,16 @@ impl Intrinsics {
     /// A fault if this engine has lost the root, which is its own bug.
     pub fn date_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
         held(objects, &self.date.prototype)
+    }
+
+    /// `String.prototype`, which a string's properties are read from (queue
+    /// item 488).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn string_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.string)
     }
 
     /// `%ResolvePromise%`, the one resolve procedure.

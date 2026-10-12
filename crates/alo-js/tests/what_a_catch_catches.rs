@@ -449,8 +449,8 @@ fn a_try_completes_as_the_specification_says() {
 #[test]
 fn what_is_not_the_pages_is_not_caught() {
     // Something not built yet is a sentence for a person, not a value.
-    let answer = value("try { 'a'.length; } catch { 'caught'; }");
-    assert!(answer.contains("queue item 73"), "{answer}");
+    let answer = value("try { (1).a; } catch { 'caught'; }");
+    assert!(answer.contains("queue item 489"), "{answer}");
 
     // And a script the embedder stopped stays stopped, `finally` or not.
     let Ok(program) = script("let n = 0; while (true) { try { n++; } catch { } finally { } }")
