@@ -10021,10 +10021,14 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **87. Shadow DOM and custom elements.** Component frameworks are not
   optional on the modern web.
   *Depends on 80.*
-  *Needs design (iteration 161):* its dependencies are done, but it names no
-  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
-  not ready to build. Cutting a first item from it, with those written, is
-  the work that opens it.
+  ***Needs ADR.*** *The owner chose this on 2026-10-12.* Its dependencies are
+  done and nothing technical holds it; what was missing was a decision that it
+  is designed next, and only the owner makes that. It is one of three things
+  between this engine and a real website — ADR 0052 § 5 measured that the CSS
+  gap is about ten properties and that the wall is elsewhere — and of those
+  three this is the one that needed only a word. The ADR comes as its own
+  iteration (`LOOP.md` rule 4), then a first item cut from it carrying a
+  contract and a closing condition.
 
 - [ ] **88. Selection and ranges.**
   *Depends on 80.*
@@ -12480,7 +12484,23 @@ person unblocks this stage or does not.
   icon; a version. *Closes when:* the bundle is built by a documented command,
   copied to a Mac that never built it, opened by double-clicking, and shows a
   page — recorded in the journal, with the machine named, and not claimed from
-  this machine alone. *blocked: stage 2's exit gate.*
+  this machine alone.
+
+  ***Unblocked by the owner on 2026-10-12, as an explicit exception to stage 4's
+  gate.*** That gate says nothing in stage 4 begins until a person has used
+  this as their browser for a week. This contradicts it on purpose rather than
+  quietly, because **there is something to test now**: a person can be handed
+  this, open a frozen page in a real window, and drive it with an agent over
+  the socket (items 496 and 497) — which is the claim this project exists for,
+  and it is demonstrable today.
+
+  **What it is not, written here so nobody is sold it twice.** There is no
+  address bar — that is item 119, which waits on the tab strip — so this opens
+  a page named on the command line and is **not a browser anybody can browse
+  with**. Signing and notarisation stay blocked (item 478): they cost an Apple
+  developer account and matter when handing this to strangers, not colleagues.
+
+  *No longer blocked. Depends on 296.*
 
 - [ ] **478. Opened without macOS explaining itself.** *macOS only; alo OS
   installs from a source instead, which is 483.* A Developer ID

@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **There will be something to install before there is something to browse.**
+  The roadmap says no packaging begins until a person has used this as their
+  browser for a week, and the owner has made an explicit exception: a Mac
+  application can be built now, because a person can already be handed it,
+  shown a page in a real window, and allowed to drive it with an agent. It
+  opens a page named on the command line and has no address bar, and the item
+  says so, so that nobody is sold it as a browser twice.
+
+- **Shadow DOM is opened for design.** Component frameworks are not optional on
+  the modern web, and this was waiting on a decision rather than on work.
+
 - **An agent can be kept to the sites a person names.** Start the browser with
   `alo --agent-site https://example.com`, once for each site, and every agent
   speaking to it over its socket is refused every other site by name. The
