@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Tabs answer to the keyboard.** ⌘T opens a new, empty tab, ⌘W closes
+  the one in front, and ⌃Tab and ⌃⇧Tab move to the next and previous tab
+  (Ctrl in place of ⌘ off a Mac). Closing the last tab closes the window.
+  A page is told it has been hidden when another tab is chosen, before the
+  chosen page is told it can be seen, and nothing of one tab is left
+  showing under another.
+
 - **The tabs are in the window.** The window now shows its row of tabs
   across the top, with the page below it, and each tab is called by the
   page's own title. The row is redrawn as tabs open, close and load, and

@@ -12,6 +12,9 @@
 //! the order tabs were opened in, which is [`Tabs::all`]'s. Which one is
 //! selected is kept here rather than by whoever drives the window, because
 //! closing a tab has to choose another and closing is this type's to do.
+//! The tabs either side of the selected one ([`Tabs::next`],
+//! [`Tabs::previous`]) are read here too, going round the order, for the
+//! browser's keys (queue item 529).
 //!
 //! # The strip's renderer is the tabs', and never reaped
 //!
@@ -100,6 +103,31 @@ impl Tabs {
         }
         self.selected = Some(id);
         true
+    }
+
+    /// The tab after the selected one in the order, or the first when the
+    /// selected one is last; [`None`] when nothing is selected (queue item
+    /// 529). With one tab open it is that tab.
+    pub fn next(&self) -> Option<TabId> {
+        let at = self.selected_at()?;
+        let after = at.checked_add(1).filter(|after| *after < self.list.len());
+        self.list.get(after.unwrap_or(0)).map(Tab::id)
+    }
+
+    /// The tab before the selected one in the order, or the last when the
+    /// selected one is first; [`None`] when nothing is selected.
+    pub fn previous(&self) -> Option<TabId> {
+        let at = self.selected_at()?;
+        let before = at
+            .checked_sub(1)
+            .or_else(|| self.list.len().checked_sub(1))?;
+        self.list.get(before).map(Tab::id)
+    }
+
+    /// Where the selected tab is in the order.
+    fn selected_at(&self) -> Option<usize> {
+        let selected = self.selected?;
+        self.list.iter().position(|tab| tab.id == selected)
     }
 
     /// Tab `id` has been taken out of the order from place `at`: when it was
@@ -254,6 +282,23 @@ mod tests {
         assert_eq!(tabs.selected(), Some(a), "the one before, as it was last");
         assert!(tabs.close(a));
         assert_eq!(tabs.selected(), None, "and none when none is open");
+    }
+
+    #[test]
+    fn the_next_and_the_previous_tab_go_round_the_order() {
+        let mut tabs = tabs();
+        assert_eq!((tabs.next(), tabs.previous()), (None, None));
+        let a = tabs.open(url("https://a.example/"));
+        assert_eq!(tabs.next(), None, "nothing is selected");
+        assert!(tabs.select(a));
+        assert_eq!((tabs.next(), tabs.previous()), (Some(a), Some(a)));
+        let b = tabs.open(url("https://b.example/"));
+        let c = tabs.open(url("https://c.example/"));
+        assert_eq!((tabs.next(), tabs.previous()), (Some(b), Some(c)));
+        assert!(tabs.select(b));
+        assert_eq!((tabs.next(), tabs.previous()), (Some(c), Some(a)));
+        assert!(tabs.select(c));
+        assert_eq!((tabs.next(), tabs.previous()), (Some(a), Some(b)));
     }
 
     #[test]

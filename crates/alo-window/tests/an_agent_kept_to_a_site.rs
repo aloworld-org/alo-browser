@@ -106,9 +106,13 @@ fn browsing() -> Result<Conductor, String> {
                 page: Some(Box::new(page)),
             })
             .map_err(|_| "the conductor is gone".to_owned())?;
-        match news.recv_timeout(AT_MOST) {
-            Ok(News::Painted(_)) => {}
-            other => return Err(format!("{at} was not painted: {other:?}")),
+        // The second is opened over the first, which stops being shown.
+        loop {
+            match news.recv_timeout(AT_MOST) {
+                Ok(News::Painted(_)) => break,
+                Ok(News::Chosen(None)) if at == FORM => {}
+                other => return Err(format!("{at} was not painted: {other:?}")),
+            }
         }
     }
     Ok(conductor)

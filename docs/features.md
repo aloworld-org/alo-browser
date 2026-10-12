@@ -693,9 +693,16 @@ The reason this exists rather than a faster fork of somebody else's engine.
   drawn. A strip whose renderer stops answering keeps its last picture and
   says so along the bottom, and every tab goes on working. Started on a Mac
   and captured, the window on screen is the strip and the page the browser
-  composed. Still to come: the browser's own keys for a new tab, closing one
-  and moving between them, and a page told when it is chosen or left (529);
-  an agent reading the open tabs from the strip, which first needs deciding
+  composed. **The browser's own keys** (queue item 529): ⌘T opens an empty
+  tab and selects it, ⌘W closes the tab in front, ⌃Tab and ⌃⇧Tab move to the
+  next and previous tab, going round at the ends (Ctrl instead of ⌘ on other
+  systems). Only exactly those keys count — ⌘⇧T or ⌘⇧W do nothing — and a key
+  held down does its thing once. The window reads them before anything else
+  could, and no key reaches a page yet. Choosing a tab tells the page left
+  that it is hidden before telling the page chosen that it can be seen, and
+  the window shows the chosen tab's last picture at once, then draws it again
+  at the window's size; nothing of the tab left stays under it. Closing the
+  last tab closes the window. Still to come: an agent reading the open tabs from the strip, which first needs deciding
   what an agent kept to some sites may see of it (531); a title a page
   changes after it has loaded (532); a click on a page or a tab handled by
   the page's own process and decided by the browser (298); painting at the

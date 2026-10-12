@@ -10,7 +10,9 @@
 //! frame, and a gone tab's sentence. A fourth is the sentence for a tab that
 //! never painted at all. Item 528 adds the strip across the top: a window
 //! composed with a strip of one tab and of three, and a strip whose renderer
-//! has gone, keeping its last frame and saying so.
+//! has gone, keeping its last frame and saying so. Item 529 adds a new tab
+//! chosen over a page: the strip with the new tab selected, and nothing of
+//! the page left under it.
 //!
 //! The frame in each is a frozen alo page **as the corpus committed it** —
 //! `alo-corpus/cases/alo-offline/render.png` — so what is pinned here is the
@@ -29,8 +31,10 @@ use alo_renderer::strip::{Condition, Strip, StripTab};
 use alo_renderer::{Frame, FromRenderer, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::compose::{Scene, compose};
+use alo_window::message::News;
 use alo_window::notice::Lettering;
 use alo_window::place::{STRIP_HEIGHT, strip_viewport, viewport};
+use alo_window::showing::Showing;
 use std::path::{Path, PathBuf};
 
 /// The frozen page: alo's offline screen, as the corpus rendered it.
@@ -288,4 +292,45 @@ fn a_strip_whose_renderer_has_gone_keeps_its_frame_and_says_so() {
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
     assert_eq!(holds("a-gone-strip.png", &canvas), Ok(()));
+}
+
+#[test]
+fn a_new_tab_chosen_over_a_page_shows_none_of_it() {
+    let page = frozen_page().unwrap_or_else(|why| panic!("{why}"));
+    let before = strip_of(vec![the_pages_tab()], 480.0).unwrap_or_else(|why| panic!("{why}"));
+    let after = strip_of(
+        vec![
+            StripTab::new("alo", "file:///alo-offline/page.html"),
+            StripTab::new("", "about:blank").selected(),
+        ],
+        480.0,
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    // What the window hears, in the order the conductor says it after ⌘T.
+    let mut showing = Showing::default();
+    for news in [
+        News::Painted(page),
+        News::Strip(before),
+        News::Chosen(None),
+        News::Strip(after),
+    ] {
+        assert!(showing.hear(news));
+    }
+    let window = (480, 400 + STRIP_HEIGHT);
+    let canvas = compose(
+        &showing.scene(window, 1),
+        &lettering().unwrap_or_else(|why| panic!("{why}")),
+    );
+    // Below the strip, every pixel is the window's background.
+    let ground = Some(alo_window::colours::background().to_rgba8());
+    for y in STRIP_HEIGHT..window.1 {
+        for x in 0..window.0 {
+            assert_eq!(
+                canvas.at(x, y).map(alo_value::Rgba::to_rgba8),
+                ground,
+                "({x}, {y}) is not the background"
+            );
+        }
+    }
+    assert_eq!(holds("a-new-tab.png", &canvas), Ok(()));
 }

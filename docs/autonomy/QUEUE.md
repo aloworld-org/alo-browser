@@ -769,6 +769,19 @@ first. Nothing here needs JavaScript.
   integration, frozen protocol fixtures and bounded closing conditions before
   this becomes a build item. No protocol implementation is claimed.
 
+- [ ] **533. An IPv6 literal host is looked up without its brackets.**
+  *Found building 529 (iteration 320). Feature: `docs/features.md` stage 2,
+  the network. Needs a page.* `alo-net`'s pool hands the resolver the host
+  as a URL writes it, so `http://[::1]:8080/` is looked up as the name
+  `[::1]`, which no resolver knows, and the request fails "could not find
+  [::1]" without a connection being tried. An address written as an address
+  should be used as one, under the same rebinding rule as an answer
+  (`resolve.rs`). Seen from a page at `http://[::1]` on this machine whose
+  fetch was recorded failed; no frozen page reaches an IPv6 literal yet.
+  *Closes when:* a fetch to an IPv6 literal on this machine is answered, a
+  private IPv6 literal from a public page is still refused by the rebinding
+  rule, and malformed bracketed hosts are refused rather than looked up.
+
 ## B. Origins, and the model that keeps sites apart
 
 ADR 0005's four reasons, made real. Three of these are code we write and can get
@@ -12745,7 +12758,7 @@ What stage 2's exit gate actually measures: a person using it.
   strip shows the new title, carried by the answer whose task changed it
   and bounded as a load's is.
 
-- [ ] **529. The browser's own keys.** *Cut from 297 (iteration 318; ADR
+- [x] **529. The browser's own keys.** *Cut from 297 (iteration 318; ADR
   0024 § 5). Feature: `docs/features.md` stage 2, a window, tabs and a tab
   strip. Depends on 528.* A new tab (⌘T), close this one (⌘W), and the next
   and previous (⌃Tab, ⌃⇧Tab), read by the window from `winit`'s keyboard
@@ -12760,6 +12773,53 @@ What stage 2's exit gate actually measures: a person using it.
   changes the strip's state as it says; choosing a tab tells the two pages
   in that order; and no key reaches a renderer, there being no keyboard in a
   page yet (258).
+
+  ***Done (iteration 320).*** A person opens, closes and chooses tabs with
+  the browser's own keys:
+  - **The keys.** `alo-window`'s `keys.rs` gives a `Press` — the key
+    without its modifiers, the modifiers held as a set, and whether it
+    repeats — its meaning: ⌘T a new tab, ⌘W close the selected one, ⌃Tab
+    and ⌃⇧Tab the next and previous (Ctrl for ⌘ off macOS). Exactly those
+    modifiers, so ⌘⇧T and ⌘⇧W are nothing; a repeat is nothing; a key
+    already down as the window gained focus is never read. `window.rs`
+    makes the `Press` from `winit`'s `KeyEvent` (`key_without_modifiers`)
+    and the last `ModifiersChanged`, and sends `Order::Tabs` with what
+    `keys::order` says. Nothing else is done with a key.
+  - **Choosing.** `conductor/choosing.rs`: a new tab is `about:blank`,
+    starting no renderer, and chosen; the next and previous go round the
+    order (`Tabs::next`, `Tabs::previous`); closing the selected tab leaves
+    its page and shows the neighbour `Tabs::close` selected; closing the
+    last closes everything and says `News::Closed`. Opening a tab over
+    another chooses it the same way. Choosing tells the tab left `hidden`
+    before the tab chosen `visible`, both only while the window can be
+    seen, takes what their listeners fetch as the document's, and says
+    `News::Chosen` with the chosen tab's last frame before laying it out
+    at the window's size and painting it. `Showing` takes `Chosen` as
+    replacing the tab's frame and sentence.
+
+  *Closed by:*
+  - `tests/the_browsers_keys.rs`, over the real conductor and confined
+    renderers: ⌘T, ⌃⇧Tab, ⌃Tab twice (round from the last), ⌃⇧Tab round
+    from the first, ⌘W and ⌘W again, each strip equal to the same strip
+    drawn in-process, the page's last frame chosen and then painted, and
+    the last ⌘W closing the window. Two pages' `visibilitychange`
+    listeners fetch from a server on this machine, which saw
+    `/hidden-a`, `/hidden-b`, `/visible-a`, `/hidden-a`, `/visible-b`:
+    the tab left before the tab chosen, every time.
+  - `keys.rs`'s tests: each key on both platforms, a capital letter, every
+    other modifier held, unbound keys, repeats.
+  - `strip_of.rs`'s test of the next and previous going round, and
+    `showing.rs`'s of a tab chosen.
+  - `the_window_composed.rs`: `a-new-tab.png`, a new tab chosen over a
+    page, every pixel below the strip the window's background.
+  - `alo --frozen-fonts` on the frozen offline page on this Mac: ⌘T,
+    ⌃⇧Tab and ⌃Tab pressed with System Events and the window captured
+    after each, as the keys say; ⌘W twice closed the window and left no
+    `alo` or `alo-render` running.
+
+  Mutations: telling the chosen tab before the tab left fails the order
+  test; never saying `Chosen` fails the key test. Both were restored from
+  copies. No key reaches a renderer: there is no message that carries one.
 
 - [ ] **530. A flex item's name is separated from its neighbour's.**
   *Found building 297 (iteration 318). Feature: `docs/features.md` stage 1,

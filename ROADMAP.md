@@ -1749,10 +1749,17 @@ items where being right and being unusable are the same outcome.
       100,000-character title reach the strip through the real renderers;
       a strip renderer stopped with `kill -STOP` leaves the window composing
       and the tabs working; captured on this Mac, every composed colour maps
-      to one captured colour. · Owed: the browser's keys and choosing a tab
-      (529); the agent reading the strip, which needs design (531); a title
-      changed after load (532); a person's pointer (298); device pixels
-      (299); a link opening a tab (300)
+      to one captured colour. The browser's keys (529, done): ⌘T, ⌘W,
+      ⌃Tab and ⌃⇧Tab are read by the window's event loop (`keys.rs`,
+      exact modifiers, repeats ignored) and choose tabs in the conductor
+      (`conductor/choosing.rs`); choosing tells the tab left `hidden`
+      before the tab chosen `visible`, shown by the order of the pages'
+      fetches; a tab chosen replaces what the window shows (`News::Chosen`,
+      a new reference render); closing the last tab closes the window; on
+      this Mac each key was pressed in the real window and captured.
+      · Owed: the agent reading the strip, which needs design (531); a
+      title changed after load (532); a person's pointer (298); device
+      pixels (299); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

@@ -254,6 +254,8 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
     let (_, opening) = page_at("after.html", "<title>After</title><p>still here</p>")
         .unwrap_or_else(|why| panic!("{why}"));
     send(&orders, opening).unwrap_or_else(|why| panic!("{why}"));
+    // Opened over the tab shown, which is no longer shown under it.
+    assert_eq!(next(&news), Ok(News::Chosen(None)));
     let painted = next(&news).unwrap_or_else(|why| panic!("{why}"));
     assert!(matches!(painted, News::Painted(_)), "{painted:?}");
     assert_eq!(

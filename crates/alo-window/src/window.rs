@@ -16,11 +16,18 @@
 //!
 //! # What it does not do yet
 //!
-//! A person's pointer and keys reach no page: that is item 298, which decides
-//! which frame a point falls in and sends it to that frame's renderer, and
-//! item 529, the browser's own keys. The window shows the tab strip across its
-//! top and the selected tab below it (item 528); nothing yet chooses another
-//! tab.
+//! A person's pointer reaches no page: that is item 298, which decides which
+//! frame a point falls in and sends it to that frame's renderer. The window
+//! shows the tab strip across its top and the selected tab below it (item
+//! 528).
+//!
+//! # The keyboard
+//!
+//! Read here, before anything else could see it, and only for the browser's
+//! own keys (item 529, ADR 0024 § 5): each press is made a
+//! [`crate::keys::Press`] and [`crate::keys::order`] says whether it is one,
+//! and which. No key goes anywhere else, because a page has no keyboard yet
+//! (item 258).
 //!
 //! # The title
 //!
@@ -34,12 +41,16 @@
 //! Every `winit` function called here — `EventLoop::with_user_event`,
 //! `EventLoopBuilder::build`, `EventLoop::create_proxy`, `EventLoop::run_app`,
 //! `EventLoopProxy::send_event`, `ActiveEventLoop::create_window`,
-//! `ActiveEventLoop::exit`, `Window::inner_size`, `Window::scale_factor` and
-//! `Window::request_redraw` — is a safe function in `winit` 0.30.13's source,
-//! which the commit adding this file checked (ADR 0024 § 1's stop rule).
+//! `ActiveEventLoop::exit`, `Window::inner_size`, `Window::scale_factor`,
+//! `Window::request_redraw`, `Modifiers::state`, `ModifiersState`'s
+//! `super_key`, `control_key`, `shift_key` and `alt_key`, and
+//! `KeyEventExtModifierSupplement::key_without_modifiers` — is a safe
+//! function in `winit` 0.30.13's source, which the commits adding them
+//! checked (ADR 0024 § 1's stop rule).
 
 use crate::compose::compose;
 use crate::inbox::Orders;
+use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
 use crate::notice::Lettering;
 use crate::place::{replication, viewport};
@@ -49,8 +60,10 @@ use alo_renderer::Visibility;
 use std::rc::Rc;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalSize};
-use winit::event::WindowEvent;
+use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::{self as winit_keys, ModifiersState, NamedKey};
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::window::{Window, WindowAttributes, WindowId};
 
 /// How big a new window is, in the window server's logical points.
@@ -81,6 +94,7 @@ pub fn run(start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders) -> Re
         showing: Showing::default(),
         window: None,
         presenter: None,
+        modifiers: ModifiersState::empty(),
         failed: None,
     };
     event_loop
@@ -99,6 +113,8 @@ struct App {
     showing: Showing,
     window: Option<Rc<Window>>,
     presenter: Option<Presenter<Rc<Window>>>,
+    /// The modifier keys held, as the window server last said.
+    modifiers: ModifiersState,
     /// Why the window had to stop, if it did.
     failed: Option<String>,
 }
@@ -223,8 +239,49 @@ impl ApplicationHandler<News> for App {
                 // page left to tell.
                 let _ = self.orders.send(Order::Visibility(to));
             }
+            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
+            // `is_synthetic` is a key already down as the window gained focus:
+            // pressed somewhere else, so not a press here.
+            WindowEvent::KeyboardInput {
+                event,
+                is_synthetic: false,
+                ..
+            } => {
+                if let Some(order) =
+                    pressed(&event, self.modifiers).and_then(|press| keys::order(&press))
+                {
+                    // A conductor that has gone is a window closing.
+                    let _ = self.orders.send(order);
+                }
+            }
             WindowEvent::CloseRequested => self.close(event_loop),
             _ => {}
         }
     }
+}
+
+/// A key going down, as the browser reads one; [`None`] for a key coming up.
+fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
+    if event.state != ElementState::Pressed {
+        return None;
+    }
+    let key = match event.key_without_modifiers() {
+        winit_keys::Key::Character(written) => Key::Character(written.to_string()),
+        winit_keys::Key::Named(NamedKey::Tab) => Key::Tab,
+        _ => Key::Other,
+    };
+    let held = [
+        (modifiers.super_key(), Modifier::Command),
+        (modifiers.control_key(), Modifier::Control),
+        (modifiers.shift_key(), Modifier::Shift),
+        (modifiers.alt_key(), Modifier::Option),
+    ]
+    .into_iter()
+    .filter(|(down, _)| *down)
+    .fold(Held::NOTHING, |held, (_, modifier)| held.with(modifier));
+    Some(Press {
+        key,
+        held,
+        repeat: event.repeat,
+    })
 }

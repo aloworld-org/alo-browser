@@ -31782,3 +31782,111 @@ clause adds the strip in the window. Owed lists 529, 531, 532 and 298–300.
 250 queue items are open (528 closed, 531 and 532 added). The next unused
 queue number is **533** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 320 — queue item 529 built: the browser's own keys
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 319's
+entry and the queue. No `AGENTS.md` exists in this repository. For 529: its
+own text; ADR 0024 in full (§ 5 the browser's keys, § 6 what opens and
+closes a tab, § 1's stop rule on `winit`'s safety); ADR 0039 § 1 (the tab
+left is told before the tab chosen) and § 2 (closing a tab leaves its page);
+`alo-window`'s window, conductor, message, showing and inbox; `alo-renderer`'s
+`tab.rs` and `tab/strip_of.rs`; the feature line *A window, tabs, and a tab
+strip*. `winit` 0.30.13's source for `KeyEvent`, `ModifiersState`,
+`KeyEventExtModifierSupplement` (available on macOS, Windows, X11 and
+Wayland) and its macOS menu, which claims only ⌘H, ⌥⌘H and ⌘Q.
+
+**Why 529.** 531 is marked needs design, 532 waits on a frozen page, and
+529's one dependency (528) is done. The open items earlier in the file wait
+for a page, a person, a design or an unfinished dependency, as 318 and 319
+recorded.
+
+**Built.**
+- `alo-window/src/keys.rs`: a `Press` (the key without modifiers, a `Held`
+  set of modifiers, repeat) and `meaning`/`order`. ⌘T, ⌘W, ⌃Tab, ⌃⇧Tab on
+  macOS; Ctrl in place of ⌘ elsewhere. Exactly those modifiers; a repeat is
+  nothing. Clippy refused four bools in `Press`, so the modifiers are a set.
+- `window.rs` keeps the last `ModifiersChanged`, makes a `Press` from each
+  non-synthetic `KeyboardInput` with `key_without_modifiers`, and sends
+  `Order::Tabs` when `keys::order` gives one. Each new `winit` function was
+  checked safe in its source, and the module doc lists them.
+- `message.rs`: `Order::Tabs(TabOrder)` and `News::Chosen(Option<Frame>)`.
+  `showing.rs` takes `Chosen` as replacing the tab's frame and sentence.
+- `alo-window/src/conductor/choosing.rs`, a child of the conductor for one
+  reason to change (which tab is chosen, and who is told): a new tab, close
+  the selected, next, previous; `choose` hides the tab left (only while the
+  window can be seen) before `show_chosen` tells the chosen one `visible`,
+  says `Chosen` with its last frame, and lays it out at the window's size.
+  Closing the last tab closes everything and says `Closed`. `Order::Open`
+  over a shown tab now chooses the same way.
+- `alo-renderer`'s `strip_of.rs`: `Tabs::next` and `Tabs::previous`, going
+  round the order.
+- Four existing window tests now expect `Chosen(None)` when a second tab
+  is opened over a shown one. That is the intended change: the tab left is
+  no longer shown under the new one (ADR 0024 § 2).
+
+**Found.** A page at `http://[::1]:port/` never reaches its server: the
+pool resolves the host with its brackets ("could not find [::1]"). Filed as
+**533** in section A. The order test uses `127.0.0.1` and `localhost` as its
+two sites instead.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, and no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout: nothing new positions or sizes a box. The new reference asserts
+  in numbers that every pixel below the 36 px strip band of a 480×436
+  window is the window's background.
+- Reference render, looked at: `a-new-tab.png` (the strip with "alo" and
+  a selected "about:blank" above the background). Written alone with
+  `ALO_UPDATE_REFERENCES=1` filtered to its test; the other seven
+  references were unchanged and pass.
+- `the_browsers_keys.rs`, over the real conductor and confined renderers:
+  - every key changes the strip as it says, each strip equal to the same
+    strip drawn in-process;
+  - the page's last frame is chosen, then painted again;
+  - ⌃Tab goes round from the last tab and ⌃⇧Tab from the first;
+  - the last ⌘W closes the window.
+  - Two pages' listeners fetched `/hidden-a`, `/hidden-b`, `/visible-a`,
+    `/hidden-a`, `/visible-b` from a local server, in that order.
+- On screen: `alo --frozen-fonts` on `alo-offline`, keys pressed with
+  System Events, window 5113 captured with `screencapture -l` after each.
+  - The first capture's SHA-256 is `dd8f797a…`, iteration 319's.
+  - ⌘T showed "about:blank" selected over the background.
+  - ⌃⇧Tab brought back the offline page with "alo" selected.
+  - ⌃Tab's capture is byte-identical to ⌘T's.
+  - ⌘W twice closed the window, and no `alo` or `alo-render` was left
+    running.
+  - The captures are in the scratchpad only.
+- Mutations, each restored from a copy and the workspace rebuilt:
+  - telling the chosen tab before the tab left fails the order test;
+  - never saying `Chosen` fails the key test.
+- One file, one responsibility: the meaning of a key (`keys.rs`), reading
+  it from `winit` (`window.rs`), choosing a tab (`conductor/choosing.rs`)
+  and the tabs' order (`strip_of.rs`) are each their own.
+- `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md` and the queue are updated.
+- No `unsafe`. No verb takes a coordinate, and no message an agent can
+  cause carries a key. `alo-os` and `alo-workplace` were not touched.
+  Nothing was pushed.
+
+**Queue.** 529 is ticked with its *Done* paragraph. Added: 533 (an IPv6
+literal host looked up with its brackets).
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the keys. Owed: 531, 532, 298, 299 and 300.
+
+**Unresolved obligations.**
+- Closing the selected tab when it is the last in the order selects the
+  one before it, not the tab it was opened from as Chrome does. That is
+  528's rule, unchanged here.
+- A key does nothing while the window lacks focus, which is the window
+  server's to decide. Keys inside a page are item 258.
+- No claim about speed is made.
+
+250 queue items are open (529 closed, 533 added). The next unused queue
+number is **534** and the next ADR is **0057**. This is one iteration, not
+a finished queue or roadmap.

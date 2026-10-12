@@ -21,6 +21,8 @@
 //! - [`showing`] is what the window was last sent, and [`compose`] makes the
 //!   window's pixels from it — a function, tested by reference render, placed
 //!   by [`place`] and saying what happened to a tab with [`notice`].
+//! - [`keys`] is what a person's key asks of the tabs, when it is one of the
+//!   browser's own (item 529), read by the event loop before anything else.
 //! - [`opening`] is what a person named on the command line, [`fonts`] the
 //!   fonts renderers start with, and [`beside`] where the renderer program is.
 //! - [`agents`] is the socket an agent outside the browser speaks to (ADR
@@ -35,11 +37,11 @@
 //!
 //! One window. The tab strip is drawn by a renderer of its own (`alo-renderer`'s
 //! `strip`, item 297) and shown across the top of the window, the selected
-//! tab below it (item 528), but nothing chooses another tab yet: the
-//! browser's own keys are item 529, a person's pointer item 298, an agent
-//! reading the strip item 531, painting at the window's scale factor item
-//! 299 — until then a CSS pixel is replicated to the scale's whole part
-//! (§ 3) — and a link opening a tab item 300.
+//! tab below it (item 528), and a person opens, closes and chooses tabs with
+//! the browser's own keys (item 529). Not yet: a person's pointer (item
+//! 298), an agent reading the strip (item 531), painting at the window's
+//! scale factor (item 299) — until then a CSS pixel is replicated to the
+//! scale's whole part (§ 3) — and a link opening a tab (item 300).
 
 pub mod agent_record;
 pub mod agent_sites;
@@ -53,6 +55,7 @@ pub mod conductor;
 pub mod fonts;
 pub mod hold;
 pub mod inbox;
+pub mod keys;
 pub mod message;
 pub mod network;
 pub mod notice;

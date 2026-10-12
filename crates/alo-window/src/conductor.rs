@@ -58,8 +58,8 @@
 //! `visibilitychange` if that changed it — and loads every page after it in
 //! the state the window is in. What the page's listeners ask for is made as
 //! a delivery's is, and the page is painted again afterwards, since they may
-//! have changed it. Choosing among tabs is item 529's, where a person's key
-//! first chooses one, and tells the tab it leaves before the one it chooses.
+//! have changed it. Choosing another tab tells the tab left before the tab
+//! chosen ([`choosing`], item 529).
 //!
 //! # The tab strip
 //!
@@ -82,6 +82,13 @@
 //! window never waits on it. One that stops answering is given up on at the
 //! same bound as a page's, after which the window keeps its last frame of the
 //! strip and says what happened, and it is not asked again.
+//!
+//! # Choosing a tab
+//!
+//! A person's keys open a tab, close the selected one and choose the next or
+//! the previous ([`choosing`], queue item 529); opening a tab chooses it too.
+//! The window is told the tab chosen replaces the one shown, and the tab is
+//! painted at the window's size.
 //!
 //! # A page left
 //!
@@ -107,6 +114,8 @@
 //! painting sizes the window left a second ago. Everything waiting when the
 //! conductor looks is taken at once, and a resize with a later resize behind
 //! it is dropped: the size that matters is the one the window is now.
+
+mod choosing;
 
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
@@ -388,15 +397,20 @@ impl Conducting {
         match order {
             Order::Open { url, page } => {
                 let id = self.tabs.open(url);
-                self.tabs.select(id);
+                // Chosen as any tab is when another was shown, so the tab
+                // left is told it is hidden; the first tab replaces nothing.
+                let mut news = if self.tabs.selected().is_some() {
+                    self.choose(id)
+                } else {
+                    self.tabs.select(id);
+                    Vec::new()
+                };
                 match (page, self.viewport) {
-                    (Some(page), Some(viewport)) => self.load(id, *page, viewport),
-                    (Some(page), None) => {
-                        self.waiting = Some((id, *page));
-                        Vec::new()
-                    }
-                    (None, _) => Vec::new(),
+                    (Some(page), Some(viewport)) => news.extend(self.load(id, *page, viewport)),
+                    (Some(page), None) => self.waiting = Some((id, *page)),
+                    (None, _) => {}
                 }
+                news
             }
             Order::Resize(viewport) => {
                 self.viewport = Some(viewport);
@@ -409,6 +423,7 @@ impl Conducting {
                 self.visibility = to;
                 self.shown(to)
             }
+            Order::Tabs(order) => self.tab_order(order),
             Order::CloseEverything => {
                 self.close_everything();
                 vec![News::Closed]

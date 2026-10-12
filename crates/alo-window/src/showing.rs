@@ -35,6 +35,10 @@ impl Showing {
     /// answered; a sentence leaves the frame, because a tab keeps the last
     /// frame it painted (ADR 0005). The strip's are kept apart from the
     /// tab's, by the same rules.
+    ///
+    /// Another tab chosen replaces both the frame and the sentence: they were
+    /// the tab left's, and the tab chosen is shown by its own last frame, or
+    /// by the window's background when it has none (queue item 529).
     pub fn hear(&mut self, news: News) -> bool {
         match news {
             News::Painted(frame) => {
@@ -44,6 +48,11 @@ impl Showing {
             }
             News::Said(sentence) => {
                 self.sentence = Some(sentence);
+                true
+            }
+            News::Chosen(frame) => {
+                self.frame = frame;
+                self.sentence = None;
                 true
             }
             News::Strip(frame) => {
@@ -147,6 +156,21 @@ mod tests {
         showing.hear(News::Strip(a_frame(3)));
         assert_eq!(showing.strip_sentence(), None);
         assert_eq!(showing.sentence(), Some("tab"));
+    }
+
+    #[test]
+    fn another_tab_chosen_replaces_the_frame_and_the_sentence_and_not_the_strip() {
+        let mut showing = Showing::default();
+        showing.hear(News::Painted(a_frame(1)));
+        showing.hear(News::Said("gone".to_owned()));
+        showing.hear(News::Strip(a_frame(2)));
+        assert!(showing.hear(News::Chosen(Some(a_frame(3)))));
+        assert_eq!(showing.frame(), Some(&a_frame(3)));
+        assert_eq!(showing.sentence(), None);
+        assert_eq!(showing.strip(), Some(&a_frame(2)));
+        // A tab that has painted nothing is the window's background.
+        assert!(showing.hear(News::Chosen(None)));
+        assert_eq!(showing.frame(), None);
     }
 
     #[test]

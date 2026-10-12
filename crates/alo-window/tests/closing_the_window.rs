@@ -80,10 +80,11 @@ fn two_tabs_painted() -> Result<(Conductor, std::sync::mpsc::Receiver<News>), St
             .send(order)
             .map_err(|_| "the conductor is gone".to_owned())?;
     }
-    for _ in 0..2 {
-        match news.recv_timeout(AT_MOST) {
-            Ok(News::Painted(_)) => {}
-            other => return Err(format!("a tab was not painted: {other:?}")),
+    // The second tab is opened over the first, which stops being shown.
+    for expected in ["painted", "chosen", "painted"] {
+        match (expected, news.recv_timeout(AT_MOST)) {
+            ("painted", Ok(News::Painted(_))) | ("chosen", Ok(News::Chosen(None))) => {}
+            (_, other) => return Err(format!("not {expected}: {other:?}")),
         }
     }
     Ok((conductor, news))

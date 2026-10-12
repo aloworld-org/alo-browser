@@ -138,6 +138,9 @@ fn strips_until_painted(news: &Receiver<News>) -> Result<Vec<Frame>, String> {
         match next(news)? {
             News::Strip(frame) => strips.push(frame),
             News::Painted(_) => break,
+            // A tab opened over another: the one left is not shown under it
+            // (queue item 529).
+            News::Chosen(None) => {}
             other => return Err(format!("unexpected while loading: {other:?}")),
         }
     }

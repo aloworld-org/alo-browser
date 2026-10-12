@@ -2114,3 +2114,21 @@ shows every site's titles, and an agent kept to some sites must not see
 them) and choosing a tab, into **529**. Found: **532** (a title changed
 after load). 250 queue items are open (528 closed, 531 and 532 added). The
 next unused queue number is 533 and the next unused ADR 0057.
+
+Iteration 320 built queue item 529. The browser's own keys: ⌘T, ⌘W,
+⌃Tab and ⌃⇧Tab, read by the window's event loop (`keys.rs`, the one place
+a press is given a meaning) and carried out by the conductor
+(`conductor/choosing.rs`). Choosing a tab — by a key, by opening one or by
+closing the selected one — tells the tab left `hidden` before the tab
+chosen `visible` (ADR 0039 § 1), and the window is told the tab chosen
+replaces what it shows. Closing the last tab closes the window. Pinned:
+- every key through the real conductor and renderers, each strip compared
+  with the same strip drawn in-process;
+- the order the two pages are told, from their own fetches;
+- `a-new-tab.png`, a new tab chosen over a page;
+- each key pressed in `alo` on this Mac and the window captured.
+
+Found: **533** (an IPv6 literal host is looked up with its brackets, so no
+`http://[::1]/` request is ever made). 250 queue items are open (529 closed,
+533 added). The next unused queue number is 534 and the next unused ADR
+0057.

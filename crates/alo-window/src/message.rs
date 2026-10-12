@@ -42,6 +42,9 @@ pub enum Order {
     /// (ADR 0039 § 1). What the selected tab's page is told, and what the
     /// next page loaded starts as.
     Visibility(Visibility),
+    /// A person asked for a tab with one of the browser's own keys (queue item
+    /// 529, ADR 0024 § 5): read by the window before any page could see them.
+    Tabs(TabOrder),
     /// The window was closed: close every tab, and say [`News::Closed`] when
     /// they are.
     CloseEverything,
@@ -57,11 +60,34 @@ pub enum Order {
     },
 }
 
+/// What a person asked of the tabs (ADR 0024 §§ 5, 6).
+///
+/// Each is about the selected tab or the order the tabs are in, never about a
+/// tab by name: a person's key acts on what they are looking at, so nothing
+/// that carries one can single out a tab the person cannot see.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TabOrder {
+    /// Open a new tab, empty (`about:blank`, until the address bar exists —
+    /// item 119), and select it.
+    New,
+    /// Close the selected tab. Closing the last closes the window (§ 6).
+    CloseSelected,
+    /// Select the tab after the selected one, or the first after the last.
+    Next,
+    /// Select the tab before the selected one, or the last before the first.
+    Previous,
+}
+
 /// What the conductor tells the event loop.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum News {
     /// The selected tab painted this.
     Painted(Frame),
+    /// Another tab is selected, and replaces the one shown: this is the last
+    /// frame it painted, if it has painted one, and nothing is said about it
+    /// until it is (queue item 529). What was shown of the tab left is not
+    /// shown under the one chosen.
+    Chosen(Option<Frame>),
     /// The tab strip painted this (ADR 0024 § 4, queue item 528).
     Strip(Frame),
     /// The tab strip has something to tell a person, in words — that its
