@@ -156,13 +156,24 @@ input[type="month"], input[type="week"] {
 /* Form controls have a size of their own.
  *
  * A bare `<input>` is not empty — it is a box a person types into, and it is
- * about twenty characters wide before anybody says otherwise. Without this
+ * about twenty characters wide before anybody says otherwise. Without a width
  * every control on a page lays out at nothing by nothing, which is invisible
- * on screen and, worse, gives an agent a target it cannot point at. `ch` is
- * the width of the font's zero, which is what "twenty characters" means.
+ * on screen and, worse, gives an agent a target it cannot point at.
+ *
+ * A text field's width is not here. It is as many characters as its `size`
+ * says, and Chrome 154 counts a character in the face's `x` and adds its
+ * ascent, which no length can say (queue item 511): layout makes a field
+ * whose `width` is `auto` that wide (`alo_layout`'s `field_width`). What is
+ * left is `20ch`, the width of the face's zero twenty times, for a control
+ * nobody has measured yet: a `<select>` (queue item 521), a date or a time
+ * (queue item 517), and a range, a colour well, a file chooser and a picture.
  */
-input, select {
+select, input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"], input[type="range"],
+input[type="color"], input[type="file"], input[type="image"] {
   width: 20ch;
+}
+input, select {
   /* No height. A field with nothing typed into it is still one line tall,
      and that comes from the box the control holds its text in
      (`alo_box::Purpose::Control`) rather than from a rule here. A rule would

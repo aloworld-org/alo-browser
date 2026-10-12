@@ -40,6 +40,7 @@
 pub mod case;
 mod details;
 pub mod face;
+mod field_size;
 pub mod invalid;
 pub mod line_break;
 pub mod natural;

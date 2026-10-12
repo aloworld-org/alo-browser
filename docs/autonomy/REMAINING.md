@@ -2042,3 +2042,17 @@ matches Chrome's to the same bounds as a field of its size. Found:
 pixel) and **525** (a field whose page writes only a border is still
 white). 248 queue items are open (510 closed, 521–525 added). The next
 unused queue number is 526 and the next unused ADR 0057.
+
+Iteration 315 built queue item 511. A text field is as wide as its `size`
+says, twenty when it says nothing usable and always for a `number` field,
+counted as Chrome 154 counts it: the face's `x`, rounded to a whole pixel
+only when that makes it wider, `size` times, and the face's whole-pixel
+ascent less one `x` (`alo-box`'s `field_size.rs`, `alo-layout`'s
+`field_width.rs`). Measured over 3,000 fields in three faces, of which it
+gives 2,997, and confirmed on 288 more in faces and sizes it was not
+fitted to. `web-a-form`'s fields are Chrome's 172 and its labels Chrome's
+to the unit, and new corpus case `a-text-field` is Chrome's box for box
+and within 9 levels of Chrome's screenshot. Found: **526** (a face with
+no `x`), and a lead on 514: Chrome seems to set a face at its size cut to
+hundredths. 248 queue items are open (511 closed, 526 added). The next
+unused queue number is 527 and the next unused ADR 0057.

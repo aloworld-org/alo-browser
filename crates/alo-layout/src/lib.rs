@@ -47,6 +47,7 @@ pub(crate) mod baseline;
 pub(crate) mod containing;
 pub mod ellipsis;
 pub mod engine;
+pub(crate) mod field_width;
 pub mod geometry;
 pub mod inline;
 pub mod keyword;

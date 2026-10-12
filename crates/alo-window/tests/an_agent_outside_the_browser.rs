@@ -213,13 +213,13 @@ fn an_agent_in_its_own_process_fills_and_sends_a_form_nobody_wrote_for_us() {
 
     // The form as a tree, by the words on it, its boxes where the frozen
     // case's `agent.txt` has them. Since queue item 506 a field is set in a
-    // control's own 13.33 px, 21 tall as Chrome's is, and the "Large" radio
-    // is Chrome's 242.59375 down.
+    // control's own 13.33 px, 21 tall as Chrome's is, and since 511 it is
+    // Chrome's 172 wide. The "Large" radio is Chrome's 242.59375 down.
     let tree = answer(1);
     assert!(tree.starts_with(r#"{"answer":"tree","id":2,"#), "{tree}");
     assert!(
         tree.contains(
-            r#""name":"Customer name:","node":10,"rect":{"height":21.0,"width":177.65625,"x":146.65625,"y":16.0},"role":"textbox""#
+            r#""name":"Customer name:","node":10,"rect":{"height":21.0,"width":172.0,"x":146.65625,"y":16.0},"role":"textbox""#
         ),
         "{tree}"
     );

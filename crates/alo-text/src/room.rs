@@ -73,6 +73,7 @@ mod tests {
             line_gap: gap * scale,
             x_height: 0.0,
             zero_width: 0.0,
+            x_advance: 0.0,
             underline_offset: 0.0,
             underline_thickness: 0.0,
         }

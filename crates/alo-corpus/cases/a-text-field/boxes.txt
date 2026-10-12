@@ -1,0 +1,20 @@
+block flow · document
+  block flex · generic
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · searchbox
+      anonymous block
+    inline flow-root · spinbutton
+      anonymous block
+    inline flow-root · generic
+      anonymous block
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · textbox
+      anonymous block

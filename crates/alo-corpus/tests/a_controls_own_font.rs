@@ -69,11 +69,11 @@ fn a_pizza_forms_fields_are_chromes_height_and_stand_where_chromes_do() {
     for (field, top) in fields.iter().zip([16.0, 53.0, 90.0]) {
         assert!(within_a_unit(field.top(), top), "{field:?}");
         assert!(within_a_unit(field.size.height, 21.0), "{field:?}");
-        // Chrome's are 172 wide. Here they are 20 of the font's zeros,
-        // 169.66 inside their padding and border, where Chrome's width is
-        // a rule of its own: queue item 511. The font moved them 33.94
-        // nearer, from 211.59.
-        assert!(within_a_unit(field.size.width, units(11370.0)), "{field:?}");
+        // And 172 wide, as Chrome's are: twenty characters of
+        // `DejaVu Sans`' `x`, 7.89 counted as 8, and its ascent's 12 less
+        // one of them, 164 inside their padding and border (queue item
+        // 511). They were 20 of the font's zeros, 177.66.
+        assert!(within_a_unit(field.size.width, 172.0), "{field:?}");
     }
     // The radios and the checkboxes, below them, are Chrome's to the unit.
     for (toggle, top) in fields[3..10].iter().zip([

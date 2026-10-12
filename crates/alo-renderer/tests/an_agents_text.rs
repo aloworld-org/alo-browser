@@ -160,15 +160,16 @@ fn a_pages_input_listener_echoes_the_text_and_the_agent_reads_the_echo() {
 /// Where the echo's text is laid out, as the layout outline says it: level
 /// with the field's value, because a text field stands on its value's
 /// baseline (item 285) rather than on its bottom edge. It starts where the
-/// field ends: 8 and the field's 177.65625, which is the user-agent sheet's
-/// `20ch` in the face's own `0` (item 320) at a control's own 13.33 px
-/// (item 506), its padding and its 2 px border (item 505). The field's
+/// field ends: 8 and the field's 172, which is twenty characters of the
+/// face's `x` and its ascent, as Chrome counts them (item 511), at a
+/// control's own 13.33 px (item 506), its padding and its 2 px border
+/// (item 505). The field's
 /// value is 13.33 px text, 12 above its baseline, so with the padding and
 /// border its baseline is 15 down, as the echo's 16 px text's is: both
 /// stand at the line's top, where the page's 16 px had stood the field's
 /// value, and so the echo, 3 lower. It is 19 tall, 16 px `DejaVu Sans`'
 /// ascent and descent in whole pixels (ADR 0050 § 1).
-const ECHO_LAID: &str = "text \"You typed 12.50\" → 129.45313×19 at (185.65625, 51)";
+const ECHO_LAID: &str = "text \"You typed 12.50\" → 129.45313×19 at (180, 51)";
 
 #[test]
 fn beforeinput_then_input_then_change_each_trusted_and_each_with_its_members() {
@@ -236,8 +237,9 @@ fn a_cancelled_beforeinput_leaves_the_field_as_it_was_and_answers_so() {
         assert!(
             // A line of a control's own 13.33 px text, 12 and 3 (item 506),
             // inside a pixel of padding and 2 of border on each side (items
-            // 467 and 505).
-            tree.contains("textbox \"Field\" at (8, 51) 177.65625×21\n    text \"kept\""),
+            // 467 and 505), and twenty characters wide as Chrome counts
+            // them (item 511).
+            tree.contains("textbox \"Field\" at (8, 51) 172×21\n    text \"kept\""),
             "the agent reads the field as it was:\n{tree}"
         );
     }

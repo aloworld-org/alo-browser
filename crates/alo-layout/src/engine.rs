@@ -45,6 +45,7 @@ use crate::auto_repeat::Axis;
 use crate::baseline;
 use crate::containing::{self, Containing};
 use crate::ellipsis::{self, Ellipses};
+use crate::field_width;
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::inline::{self, Fragment, InlineItem, InlineLayout};
 use crate::keyword::{
@@ -1393,6 +1394,10 @@ fn style_for(
     };
 
     box_model_into(&ours, &mut style, unresolved, issues);
+    if let Some(characters) = boxes.field_size(id) {
+        let text = text_style_for(boxes, styles, id);
+        with_a_fields_width(characters, &text, &ours, &mut style, measure, issues);
+    }
     if boxes.rendered_legend(id).is_some() {
         // A fieldset showing a legend has a **band** where its block-start
         // border would be, as tall as the legend and with the border drawn
@@ -1549,6 +1554,47 @@ fn box_model_into(
         width: length(&ours.gap.horizontal, metrics, unresolved),
         height: length(&ours.gap.vertical, metrics, unresolved),
     };
+}
+
+/// A text field whose `width` is `auto` made as wide as its `size` says, in
+/// its own font ([`crate::field_width`]; queue item 511).
+///
+/// That is its content box's width, so a field sized by its border box,
+/// as Chrome's `search` field is, has its padding and border added: Chrome
+/// 154 makes a `search` field exactly as wide as a `text` field with the
+/// same `size`. A percentage of either is of a width this does not know
+/// yet, so it is counted as nothing and said.
+fn with_a_fields_width(
+    characters: u32,
+    text: &TextStyle,
+    ours: &LayoutStyle,
+    style: &mut Style,
+    measure: &impl MeasureText,
+    issues: &mut Vec<StyleIssue>,
+) {
+    if !matches!(ours.size.horizontal, Sizing::Auto) {
+        return;
+    }
+    let mut width = field_width::of(characters, text, measure);
+    if ours.box_sizing == BoxSizing::BorderBox {
+        for (value, name) in [
+            (&ours.padding.left, "left padding"),
+            (&ours.padding.right, "right padding"),
+            (&ours.border.left, "left border"),
+            (&ours.border.right, "right border"),
+        ] {
+            if value.is_percentage() {
+                issues.push(StyleIssue {
+                    kind: IssueKind::UnsupportedValue,
+                    source: format!("{value} on the {name} of a field sized by its border box"),
+                    at: Location { line: 0, column: 0 },
+                });
+                continue;
+            }
+            width += pixels(value, ours.metrics);
+        }
+    }
+    style.size.width = Dimension::length(width);
 }
 
 /// How `taffy` is to lay out a box, from what its `display` says inside.

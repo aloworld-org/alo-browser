@@ -1,10 +1,10 @@
 document at (0, 0) 600×640.1875
   paragraph at (8, 16) 584×21
-    textbox "Customer name:" at (146.65625, 16) 177.65625×21
+    textbox "Customer name:" at (146.65625, 16) 172×21
   paragraph at (8, 53) 584×21
-    textbox "Telephone:" at (99.734375, 53) 177.65625×21
+    textbox "Telephone:" at (99.734375, 53) 172×21
   paragraph at (8, 90) 584×21
-    textbox "E-mail address:" at (136.58594, 90) 177.65625×21
+    textbox "E-mail address:" at (136.58594, 90) 172×21
   group "Pizza Size" at (10, 127) 580×160.59375
     text "Pizza Size" at (26, 127) 78.27344×19
     paragraph at (24, 167.59375) 552×20

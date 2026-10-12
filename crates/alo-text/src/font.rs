@@ -195,6 +195,8 @@ pub struct FaceMetrics {
     pub x_height: f32,
     /// The width of a `0`, for the `ch` unit.
     pub zero_width: f32,
+    /// The width of a lowercase `x`: what a text field counts its width in.
+    pub x_advance: f32,
     /// How far **below** the baseline an underline sits, as a positive number.
     ///
     /// The face's own figure, because where a line goes depends on how far the
@@ -341,6 +343,7 @@ impl Font {
                 line_gap: 0.0,
                 x_height: size * 0.5,
                 zero_width: size * 0.5,
+                x_advance: size * 0.5,
                 underline_offset: size * 0.1,
                 underline_thickness: size * 0.06,
             };
@@ -367,6 +370,17 @@ impl Font {
             zero_width: face
                 .glyph_index('0')
                 .and_then(|glyph| face.glyph_hor_advance(glyph))
+                .map_or(size * 0.5, |advance| f32::from(advance) * scale),
+            // A face with no `x` is counted in its `0`. Chrome 154 counts
+            // such a face in something near it, 0.632 of an em for
+            // `DejaVu Sans` where its `0` is 0.636, and what that is was not
+            // found (queue item 526).
+            x_advance: ['x', '0']
+                .into_iter()
+                .find_map(|character| {
+                    face.glyph_index(character)
+                        .and_then(|glyph| face.glyph_hor_advance(glyph))
+                })
                 .map_or(size * 0.5, |advance| f32::from(advance) * scale),
             // The face reports the position as a signed offset from the
             // baseline, negative for below it, which is where an underline

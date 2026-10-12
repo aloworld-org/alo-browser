@@ -1926,15 +1926,49 @@ fn text_box_rect(boxes: &BoxTree, layout: &LayoutTree, pick: impl Fn(BoxId) -> b
 }
 
 #[test]
+fn a_text_field_is_as_many_of_its_xs_wide_as_its_size_says() {
+    // Queue item 511: Chrome 154 makes a field of `n` characters its `x`
+    // `n` times and its ascent less one `x`. `ScaledFont` at 20 px has an
+    // `x` of 10 and an ascent of 15, so `n` characters are 10n + 5, inside
+    // a 2 px padding either side and a 2 px border.
+    let css = "body { width: 50px } input { font-size: 20px; display: block } \
+               #s { box-sizing: border-box } #min { min-width: 300px } \
+               #max { max-width: 60px } #set { width: 70px }";
+    let html = "<body><input id=plain><input id=one size=1><input id=five size=5>\
+                <input id=number type=number size=5><input id=s type=search size=5>\
+                <input id=min size=5><input id=max><input id=set size=5>\
+                <input id=date type=date></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 600.0), &ScaledFont);
+    let width = |id: &str| rect_of(&boxes, &layout, id, html).size.width;
+    // Twenty characters when it says nothing, wider than the 50 px body: a
+    // field is as wide as it is, not as wide as there is room for.
+    assert!(close(width("plain"), 205.0 + 8.0), "{}", width("plain"));
+    assert!(close(width("one"), 15.0 + 8.0), "{}", width("one"));
+    assert!(close(width("five"), 55.0 + 8.0), "{}", width("five"));
+    // A number field is twenty whatever its `size` says.
+    assert!(close(width("number"), 205.0 + 8.0), "{}", width("number"));
+    // Sized by its border box, a field is as wide as one sized by its
+    // content box: its padding and border are added, as Chrome's `search`.
+    assert!(close(width("s"), 55.0 + 8.0), "{}", width("s"));
+    // It is a width like any other: limits apply, and a page's width wins.
+    assert!(close(width("min"), 300.0 + 8.0), "{}", width("min"));
+    assert!(close(width("max"), 60.0 + 8.0), "{}", width("max"));
+    assert!(close(width("set"), 70.0 + 8.0), "{}", width("set"));
+    // A date field is not one of these: it is still `20ch`, whose `0` is
+    // half the size with no font to measure it (queue item 517).
+    assert!(close(width("date"), 200.0 + 1.0 + 4.0), "{}", width("date"));
+}
+
+#[test]
 fn a_placeholder_adds_nothing_to_its_field_and_stands_where_its_text_will() {
     // ADR 0043 § 3. An auto-width field is sized without its hint — here
-    // as narrow as its padding, which is what this engine gives a field with
-    // no `size` and nothing in it — so it is as wide with one as without,
-    // and the line around it does not move.
+    // by its `size` of one character, which is its font's ascent, 12 (queue
+    // item 511) — so it is as wide with one as without, and the line around
+    // it does not move.
     let css = "#w, input { font-size: 16px; line-height: 20px } \
                input { padding: 5px; border: 0; width: auto }";
-    let bare = "<body><div id=w><span id=s>ab</span><input id=f></div></body>";
-    let hinted = "<body><div id=w><span id=s>ab</span><input id=f placeholder='you@company.eu'></div></body>";
+    let bare = "<body><div id=w><span id=s>ab</span><input id=f size=1></div></body>";
+    let hinted = "<body><div id=w><span id=s>ab</span><input id=f size=1 placeholder='you@company.eu'></div></body>";
     let (bare_boxes, bare_layout) =
         lay_out_measured(bare, css, Size::new(400.0, 300.0), &ScaledFont);
     let (boxes, layout) = lay_out_measured(hinted, css, Size::new(400.0, 300.0), &ScaledFont);
@@ -1947,7 +1981,7 @@ fn a_placeholder_adds_nothing_to_its_field_and_stands_where_its_text_will() {
     }
     assert_eq!(
         rect_of(&boxes, &layout, "f", hinted),
-        Rect::new(16.0, 0.0, 10.0, 30.0)
+        Rect::new(16.0, 0.0, 22.0, 30.0)
     );
 
     // The hint is a run in the field's line, where a value is: its pen at the

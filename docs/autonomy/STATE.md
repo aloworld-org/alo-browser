@@ -31171,3 +31171,146 @@ built and owes 521 to 525 where it owed 510.
 248 queue items are open (510 closed, 521–525 added). The next unused
 queue number is **526** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 315 — queue item 511 built: a text field is Chrome's width
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 314's entry and the queue. No `AGENTS.md` exists
+in this checkout. 501 waits on a person (publishing upstream), and 502 and
+503 on 501's hook. **511 is the first open item after 510**, needs only
+measuring, and Chrome 154 is here. **For the item:** its own text,
+`docs/features.md` (stage 1's form-control line, which owed 511), ADR
+0043 § 3 (an auto-width field is sized by its `size`, never its
+placeholder), ADR 0050 § 1 (a line's whole-pixel ascent), `alo-box`'s
+`face.rs` and `tree.rs`, `alo-layout`'s `measure.rs` and `engine.rs`,
+`alo-text`'s `font.rs`, `measure.rs` and `room.rs`, and the user-agent
+sheet's control rules. No ADR governs a field's width, and none was
+needed: the rule is a measurement.
+
+**Measured, in headless Chrome 154**, in scratchpad probes kept nowhere,
+the source not read, with the `dejavu` crate's own fonts by `@font-face`:
+3,000 fields, padding and border off, in `DejaVu Sans`, `DejaVu Sans Mono`
+and `DejaVu Serif` at 25 sizes from 8 to 40 px and `size` 1 to 40. A
+field of `n` characters is `ceil(c × n + a − c)` wide inside, `c` the
+face's `x` advance as `max(x, round(x))` and `a` its whole-pixel ascent.
+It gives 2,997 of the 3,000. Copies of `DejaVu Sans` changing one table
+each told the terms apart: the `x`'s advance and the `hhea` ascent moved
+them; `OS/2`'s `xAvgCharWidth` and `usWinAscent`, the `0`, the widest
+advance and the bounding box did not. The rule then gave all 288 fields
+in `DejaVu Sans Bold`, `DejaVu Sans Condensed`, `DejaVu Serif Italic` and
+`DejaVu Sans Mono Bold` at nine sizes it was not fitted to. The three
+misses are 38 to 40 characters of `DejaVu Sans Mono` at 13.33 px, a
+pixel narrower in Chrome. Probing fractional sizes with `size` up to 800
+showed that Chrome counts the `x` at 13.333333 and 10.666667 px as at
+13.33 and 10.66, so it sets a face at its size cut to hundredths. That
+is filed on 514 as a lead, since it moves all text. Also measured:
+`text`, `search`, `email`, `url`, `tel`, `password` and unknown types
+honour `size`, and `number` is always 20. `size` reads as a non-negative
+integer, with `0`, a negative number, no digits and anything over
+2,147,483,647 counting as 20. A `search` field, sized by its border box,
+is as wide as a text field. `letter-spacing`, `word-spacing`, a
+placeholder, a value and a narrower parent move nothing. A face with no
+`x` counts in 0.6323 em, which is not found (526).
+
+**Built.**
+- `alo-box`'s new `field_size.rs`: how many characters wide an element
+  is as a text field (`BoxTree::field_size`, a side map like `faces`),
+  reading `size` with `alo_dom::constraint::non_negative`.
+- `MeasureText::x_advance`, implemented by `TextMeasurer` from the new
+  `FaceMetrics::x_advance` (the `0` for a face with no `x`), and by the
+  test measurers (`NoText` 0, `BlockFont` 8, `ScaledFont` half the size).
+- `alo-layout`'s new `field_width.rs` holds Chrome's rule. `engine.rs`'s
+  `with_a_fields_width` sets it as the width of a field whose `width` is
+  `auto`. It adds horizontal padding and border when the field is sized by
+  its border box, and says so if either is a percentage.
+- The user-agent sheet keeps `20ch` only for what this did not measure: a
+  `<select>`, the date and time fields, a range, a colour well, a file
+  chooser and a picture.
+
+**Tests.**
+- `alo-box`: five unit tests of `field_size` (default, every type, a
+  number field, Chrome's readings of `size`, what is not sized).
+- `alo-layout`: four unit tests of `field_width` (`DejaVu Sans`' Chrome
+  widths at five sizes, the rounding only when wider, one character as
+  the ascent, the test measurers). In `numbers.rs`, the new
+  `a_text_field_is_as_many_of_its_xs_wide_as_its_size_says` covers size,
+  default, number, border-box search, `min-width`, `max-width`, a set
+  width, a narrow parent and a date field still at `20ch`. The
+  placeholder test now uses `size=1`, 22 wide where it was 10.
+- New corpus case **`a-text-field`** (400×286): nine fields. `chrome.png`
+  is Chrome's screenshot. `a_text_field.rs`: every box is Chrome's to the
+  unit; every pixel is within 9 levels of Chrome's and within 2 off the
+  fields' corners (524). `web-a-form`'s three fields are within the same
+  bounds, where they were 56 pixels and 137 levels off.
+- `a_controls_own_font.rs` asserts `web-a-form`'s fields at Chrome's 172.
+  Measured in Chrome, its three labels are now Chrome's to within a unit
+  (two exactly), and its fields to the unit.
+- Moved outside the corpus, each to the new width with its comment saying
+  why: `alo-renderer`'s `an_agents_text.rs` (172, the echo at 180),
+  `alo-window`'s `an_agent_outside_the_browser.rs` (172), and
+  `alo-agent`'s `reading_an_interface.rs`. In the last, a 172 px field no
+  longer fits beside "Amount" in 224, so it starts the next line and the
+  form is 16 taller.
+- **Mutation**, from a scratchpad copy and restored with `cp`: with `x`
+  unrounded, `web-a-form`'s width test and two `field_width` unit tests
+  fail. With the ascent term taken out, all three `a_text_field.rs` tests,
+  the font test and two `numbers.rs` tests fail. Restored and re-run green.
+- **References:** every case's PNGs and `.txt`s backed up first. Without
+  `ALO_UPDATE_REFERENCES`, only `web-a-form` moved (layout, display,
+  agent, render and filled). Those were rewritten, and its fields' pixels
+  were compared with `chrome.png` before and after.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean, after one
+`many_single_char_names` fix in the new test. `alo-text`, `alo-layout`,
+`alo-box`, `alo-style`, `alo-corpus`, `alo-renderer`, `alo-agent`,
+`alo-paint` and `alo-window` passed with `--no-fail-fast`, after the moved
+tests were updated. Then `scripts/gate.sh` ran in the foreground into a
+scratchpad log. The harness moved it to the background at 600 s, and the
+next call waited on it with a foreground `until` loop. **Result: `exit
+0`, "The gate is met. (10 of 10 steps)"**, with no `FAILED`, `panicked`
+or `^error` in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: `a-text-field`'s nine boxes against
+  Chrome's units, `web-a-form`'s fields at 172, and `numbers.rs`'s new
+  test.
+- Reference renders: a new case with Chrome's screenshot committed beside
+  it. `web-a-form`'s pictures were rewritten and compared with Chrome's.
+- One file, one responsibility: which element is a field of how many
+  characters is `alo-box`'s `field_size.rs`. How wide a character is,
+  and Chrome's sum, are `alo-layout`'s `field_width.rs`. `engine.rs` only
+  applies the result. `alo-box`'s `tree.rs`, already 2,873 lines, gained
+  only the side map, as `faces` has.
+- `docs/features.md`, `conformance.md`, `ROADMAP.md`, `REMAINING.md` and
+  `CHANGELOG.md` are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. One `#[expect(clippy::cast_precision_loss)]` with its
+  reason: the character count becomes a float, as Chrome's does.
+- Hostile bytes: `size` is an attribute from outside. Unit tests cover
+  overflow, negatives and junk, and every bad value is 20. A
+  2,147,483,647-character field is a finite width here, where Chrome caps
+  it at 33,554,432 px, its layout unit's limit. That is not built: this
+  engine has no layout-unit limit anywhere yet.
+
+**Queue.** 511 is ticked with its *Done* paragraph. 514 gains the lead
+that Chrome cuts a face's size to hundredths. Found and added after 525:
+**526** (a face with no `x`).
+
+**Roadmap.** Nothing ticked. Stage 1's control-font clause no longer owes
+511, and a new clause says what 511 built and that 526, 517 and 521 are
+still owed.
+
+**Unresolved obligations.**
+- 526: a face with no `x` is counted in its `0`, where Chrome's figure is
+  0.6323 em and not explained.
+- 514's lead is not built: at sizes with more than two decimals, a
+  `DejaVu Sans Mono` field of 38 or more characters is a pixel wider than
+  Chrome's.
+- A `<select>`, the date and time fields and the rest keep `20ch` (517,
+  521).
+- Measured in headless Chrome on this Mac only.
+
+248 queue items are open (511 closed, 526 added). The next unused queue
+number is **527** and the next ADR is **0057**. This is one iteration,
+not a finished queue or roadmap.

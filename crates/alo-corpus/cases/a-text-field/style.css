@@ -1,0 +1,15 @@
+/* A text field is as many characters wide as its `size` says, and twenty
+   when it says nothing (queue item 511). Chrome 154 counts a character in
+   the face's `x`, rounded to a whole pixel only when that makes it wider,
+   and adds the face's ascent less one `x`. The first six are a control's
+   own 13.33 px, where `DejaVu Sans`' `x` of 7.89 counts as 8: twenty
+   characters, one, five, a search field of five, a number field, which is
+   twenty whatever its `size` says, and a password of seven. Then ten at
+   16 px, whose `x` of 9.47 counts as itself, ten in `DejaVu Sans Mono`,
+   whose 9.63 counts as 10, and thirty at 21 px. Each box is on whole
+   pixels. */
+body { margin: 0; padding: 8px; background: #ffffff; display: flex;
+  flex-direction: column; align-items: flex-start; gap: 8px }
+.big { font-size: 16px }
+.mono { font-size: 16px; font-family: monospace }
+.wide { font-size: 21px }

@@ -1,12 +1,12 @@
 text box#9 "Customer name:" rgb(0 0 0) 16px at (8, 31)
-fill box#10 rgb(255 255 255) at (147.5, 16.5) 176×20
-fill box#10 rgb(118 118 118) at (147, 16) 177×21
+fill box#10 rgb(255 255 255) at (147.5, 16.5) 171×20
+fill box#10 rgb(118 118 118) at (147, 16) 172×21
 text box#15 "Telephone:" rgb(0 0 0) 16px at (8, 68)
-fill box#16 rgb(255 255 255) at (100.5, 53.5) 176×20
-fill box#16 rgb(118 118 118) at (100, 53) 177×21
+fill box#16 rgb(255 255 255) at (100.5, 53.5) 171×20
+fill box#16 rgb(118 118 118) at (100, 53) 172×21
 text box#21 "E-mail address:" rgb(0 0 0) 16px at (8, 105)
-fill box#22 rgb(255 255 255) at (137.5, 90.5) 176×20
-fill box#22 rgb(118 118 118) at (137, 90) 177×21
+fill box#22 rgb(255 255 255) at (137.5, 90.5) 171×20
+fill box#22 rgb(118 118 118) at (137, 90) 172×21
 clip box#25 to (10, 135.5) 580×152.09375
 clip box#25 to (10, 135.5) 580×152.09375
 fill box#25 rgb(255 255 255) at (10, 135.5) 580×152.09375

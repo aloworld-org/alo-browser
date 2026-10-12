@@ -7940,7 +7940,7 @@ The long pole, and the thing most of section E is unreachable without.
   corner, 43 on a side, and the textarea no longer drawn as the field).
   *Cut:* 521 and 522. *Found:* 523, 524 and 525.
 
-- [ ] **511. A text field's width is Chrome's, not `20ch`.** *Cut from 506
+- [x] **511. A text field's width is Chrome's, not `20ch`.** *Cut from 506
   (iteration 310). Feature: `docs/features.md` stage 1, a form control
   holds what it shows. Needs measuring.* Chrome 154's field is as wide as
   its `size` attribute (20 when it has none) in characters, and the
@@ -7956,6 +7956,40 @@ The long pole, and the thing most of section E is unreachable without.
   field of size 20 is 205 there and 195 in `DejaVu Sans`. *Closes when:* a rule fits enough sizes
   and fonts that one it was not fitted to confirms it, and `web-a-form`'s
   fields are Chrome's 172 to 1/64 px.
+  ***Done (iteration 315).*** *Measured in Chrome 154,* padding and
+  border off, with the corpus's fonts: 3,000 fields in `DejaVu Sans`,
+  `DejaVu Sans Mono` and `DejaVu Serif` at 25 sizes from 8 to 40 px and
+  `size` 1 to 40. A field of `n` characters is `ceil(c × n + a − c)`
+  wide inside, where `c` is the face's `x` advance, rounded to a whole
+  pixel only when that makes it wider (`max(x, round(x))`), and `a` the
+  face's ascent in whole pixels, the one a line takes (ADR 0050 § 1). So
+  one character is the ascent, and 16 px's 9.47 counts as itself while
+  13.33 px's 7.89 counts as 8. Copies of `DejaVu Sans` that changed one
+  table each told the terms apart: the `x`'s advance and the `hhea`
+  ascent moved them, and `OS/2`'s average width and `usWinAscent`, the
+  `0`, the widest advance and the bounding box did not. It gives 2,997 of
+  the 3,000. The three it misses are a pixel narrower in Chrome, which
+  sets a face at its size cut to hundredths (filed on 514). It then gave
+  all 288 fields in four faces and nine sizes it was not fitted to.
+  `text`, `search`, `email`, `url`, `tel`, `password` and an unknown
+  `type` honour `size`. `number` is always 20, and `size` is read as HTML
+  reads a non-negative integer, with `0`, a negative number and anything
+  over 2,147,483,647 counting as 20. `letter-spacing`, a placeholder and a
+  value do not move it. *Built:* `alo-box`'s `field_size.rs` says how
+  many characters a field is (`BoxTree::field_size`). `MeasureText` gains
+  `x_advance` (`FaceMetrics::x_advance`, the `0` for a face with no `x`).
+  `alo-layout`'s `field_width.rs` holds the rule, and `style_for` applies
+  it to a field whose `width` is `auto`, adding padding and border when
+  the field is sized by its border box, as Chrome's `search` is. The
+  user-agent sheet keeps `20ch` only for a `<select>`, the date and time
+  fields, a range, a colour well, a file chooser and a picture. *Closed:*
+  `web-a-form`'s fields are Chrome's 172, and their pictures are within 9
+  levels of Chrome's screenshot, the corners' inner pixels only (524),
+  where they were 56 pixels off. A new case, `a-text-field`, has nine
+  fields (sizes 1, 5 and 20, search, number, password, 16 px in both
+  faces and 30 at 21 px), and every box is Chrome's to the unit, the page
+  within 9 of Chrome's screenshot and within 2 off the corners. *Found:*
+  526 (a face with no `x`), and a lead for 514.
 
 - [ ] **512. The rest of a control's text is reset as Chrome's is.** *Found
   building 506 (iteration 310). Feature: `docs/features.md` stage 1, forms.
@@ -7992,6 +8026,14 @@ The long pole, and the thing most of section E is unreachable without.
   fractional size rather than how it rounds a sum. *Closes when:* a rule
   measured over fractional sizes puts that button at Chrome's 6,597 units,
   with every case that moves measured.
+  *Lead (iteration 315):* Chrome 154 seems to set a face at its size
+  **cut to hundredths**. Fields of `DejaVu Sans Mono` and `DejaVu Sans`
+  at 13.333333 and 10.666667 px count an `x` exactly as wide as it is at
+  13.33 and 10.66 px (511's probe, `size` up to 800), and at 12.34, 14.2,
+  17.1 and 21.7 px exactly as wide as at those sizes. At 13.33 px "Submit
+  order"'s 5,573.75 units would be 5,572.36, which this engine's rounding
+  up makes Chrome's 5,573. Not built: it would move every fractional size,
+  and every case that moves needs measuring first.
 
 - [ ] **515. A date or time field is at least as tall as Chrome's
   calendar indicator.** *Cut from 507 (iteration 311). Feature:
@@ -8140,6 +8182,19 @@ The long pole, and the thing most of section E is unreachable without.
   background (a checkbox's and a range's included), and a frozen page
   with a restyled field over a colour. *Closes when:* that page's fields
   are Chrome's fill exactly.
+
+- [ ] **526. A face with no `x` counts a field's characters as Chrome
+  does.** *Found building 511 (iteration 315). Feature:
+  `docs/features.md` stage 1, a form control holds what it shows.
+  Blocked: no page yet.* A text field is counted in its face's `x`
+  (`alo_layout`'s `field_width`). A face with no `x` is counted in its
+  `0` here. Chrome 154 counts a copy of `DejaVu Sans` with its `x` taken
+  out in 0.6323 em at 10, 13.33, 16, 21 and 32 px. That is not the `0`'s
+  0.6362, nor the average width's 0.507. With the copy first and
+  `DejaVu Sans` after it in the list, it is the same, so it is not the
+  next face's `x`. What it is was not found, and no real font met so far
+  lacks an `x`. *Closes when:* a frozen page whose field's face has no
+  `x` is Chrome's width.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

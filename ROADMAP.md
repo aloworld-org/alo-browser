@@ -200,9 +200,17 @@ correctness, not before it.
       into its longhands, so an alo screen's `font: inherit` still takes
       the page's font back. `web-a-form`'s fields are Chrome's 21, and of
       1,261 corpus boxes 886 are Chrome's to 1/64 px, where 865 were, with
-      none further. Owed: a field's width by Chrome's rule (511), the rest
-      of a control's text reset (512), the `font` shorthand's own grammar
-      (513), and a unit of text width at a fractional size (514).*
+      none further. Owed: the rest of a control's text reset (512), the
+      `font` shorthand's own grammar (513), and a unit of text width at a
+      fractional size (514).*
+      *A text field was `20ch` until queue item 511 (iteration 315), where
+      Chrome 154 makes it its `size` in characters of the face's `x`, plus
+      its ascent less one: measured over 3,000 fields and confirmed on 288
+      more. Built (`alo-box`'s `field_size.rs`, `alo-layout`'s
+      `field_width.rs`, `MeasureText::x_advance`), so `web-a-form`'s fields
+      and labels are Chrome's and `a-text-field`'s nine boxes are Chrome's to
+      the unit. Owed: a face with no `x` (526), and a date or time field's
+      and a `<select>`'s own widths (517, 521), which keep `20ch`.*
       *A date or time field was a text field's height until queue item
       507 (iteration 311), where Chrome 154 holds its line in segments a
       pixel inside it above and below, and pads it `0 0 0 1px`. Both are

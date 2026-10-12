@@ -132,6 +132,14 @@ pub trait MeasureText {
     /// How tall a lowercase `x` is: where the middle of a line of this text
     /// is, which is what `vertical-align: middle` lines a box up with.
     fn x_height(&self, style: &TextStyle) -> f32;
+
+    /// How far a lowercase `x` moves the pen in the first face this style's
+    /// text would be set in: the character a text field is counted in
+    /// (`crate::field_width`).
+    ///
+    /// The face's own advance, unshaped and without `letter-spacing`, which
+    /// a field's width does not take (queue item 511).
+    fn x_advance(&self, style: &TextStyle) -> f32;
 }
 
 /// A measurer for tests and for the cases where text has no size at all.
@@ -171,6 +179,10 @@ impl MeasureText for NoText {
     }
 
     fn x_height(&self, _style: &TextStyle) -> f32 {
+        0.0
+    }
+
+    fn x_advance(&self, _style: &TextStyle) -> f32 {
         0.0
     }
 }
@@ -226,6 +238,10 @@ impl MeasureText for BlockFont {
     fn x_height(&self, _style: &TextStyle) -> f32 {
         8.0
     }
+
+    fn x_advance(&self, _style: &TextStyle) -> f32 {
+        8.0
+    }
 }
 
 /// A measurer for tests that need the font's **size** to matter: half the
@@ -274,6 +290,10 @@ impl MeasureText for ScaledFont {
 
     fn x_height(&self, style: &TextStyle) -> f32 {
         style.size * 0.5
+    }
+
+    fn x_advance(&self, style: &TextStyle) -> f32 {
+        style.size / 2.0
     }
 }
 

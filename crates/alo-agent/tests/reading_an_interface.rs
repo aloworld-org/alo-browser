@@ -234,12 +234,19 @@ fn the_whole_tree_reads_as_what_the_interface_is() {
     // 467, the border 1 until 505, and the text 14 px until 506, when the
     // field was 148 by 22 and the button 50.375 wide.
     //
+    // The field is twenty characters as Chrome counts them (item 511):
+    // `DejaVu Sans`' `x` at 13.33 px, 7.89 counted as 8, twenty times, and
+    // its ascent's 12 less one, 164, with its padding and border 172. It
+    // was `20ch`, half an em each with no face to measure a `0` in, 141.33.
+    // At 172 it no longer fits beside "Amount" in 224, so it starts the
+    // next line with the checkbox, and the form is 16 taller.
+    //
     // Every line is whole pixels of font (ADR 0050): 14 px `DejaVu Sans` is
     // 13 above its baseline and 3 below, so a link is 16 tall, and the 20 px
     // heading 19 and 5, 24.
     let expected = "\
-document at (0, 0) 240×231
-  main at (0, 0) 240×231
+document at (0, 0) 240×247
+  main at (0, 0) 240×247
     heading \"Invoices\" [level=1] at (8, 8) 224×24
     navigation \"Filters\" at (8, 32) 224×16
       link \"All\" at (8, 32) 17.356445×16
@@ -248,11 +255,11 @@ document at (0, 0) 240×231
       listitem \"Invoice 11\" [marker=\"•\"] at (8, 48) 224×24
       listitem \"Invoice 12\" [selected=true marker=\"•\"] at (8, 72) 224×24
       listitem \"Invoice 13\" [marker=\"•\"] at (8, 96) 224×24
-    form \"New invoice\" at (8, 120) 224×43
-      textbox \"Amount\" [required] at (63.015625, 121) 141.32813×21
-      checkbox \"Recurring\" [checked=true] at (208.34375, 123) 13×13
-      button \"Save\" [disabled] at (8, 142) 48.734375×21
-    text \"a plain div with no meaning\" at (8, 207) 194.50293×16
+    form \"New invoice\" at (8, 120) 224×59
+      textbox \"Amount\" [required] at (8, 137) 172×21
+      checkbox \"Recurring\" [checked=true] at (184, 139) 13×13
+      button \"Save\" [disabled] at (8, 158) 48.734375×21
+    text \"a plain div with no meaning\" at (8, 223) 194.50293×16
 ";
     assert_eq!(tree.to_outline(), expected);
 }

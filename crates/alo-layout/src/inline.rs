@@ -1520,6 +1520,10 @@ mod tests {
         fn x_height(&self, style: &TextStyle) -> f32 {
             BlockFont.x_height(style)
         }
+
+        fn x_advance(&self, style: &TextStyle) -> f32 {
+            BlockFont.x_advance(style)
+        }
     }
 
     #[test]

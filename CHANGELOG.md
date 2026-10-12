@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A text field is as wide as Chrome's.** A field with no width of its
+  own was twenty widths of the digit zero here, a little wider than
+  Chrome's, and its `size` attribute was ignored. It is now as many
+  characters wide as `size` says, twenty when it says nothing, counted
+  the way Chrome counts them, so a form's fields and the labels beside
+  them line up with Chrome's to a fraction of a pixel.
+
 - **A text area is drawn as Chrome draws one.** An unstyled `<textarea>`
   had a square grey border here. Chrome draws it with the same rounded
   grey edge and white fill as a text field, and so does this browser now,

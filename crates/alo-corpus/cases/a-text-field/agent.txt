@@ -1,0 +1,10 @@
+document at (0, 0) 400×286
+  textbox at (8, 8) 172×21
+  textbox at (8, 37) 20×21
+  textbox at (8, 66) 52×21
+  searchbox at (8, 95) 52×21
+  spinbutton at (8, 124) 172×21
+  generic at (8, 153) 68×21
+  textbox at (8, 182) 109×25
+  textbox at (8, 215) 113×25
+  textbox at (8, 248) 388×30

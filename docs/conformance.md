@@ -81,9 +81,13 @@ own picture of the control while the page leaves the border and background
 alone, so `a-script-hears-an-event` is Chrome's box for box. A control's
 font is Chrome's own 13.33 px (506), so `web-a-form`'s fields are Chrome's
 21 tall, where the page's 16 px made them 25, and every box down to its
-fieldsets stands where Chrome's does. Its fields are still 177.66 wide
-where Chrome's are 172, since Chrome's field width is a rule of its own
-and not `20ch` (511). A date or time field holds its line in segments a
+fieldsets stands where Chrome's does. A text field is as many
+characters wide as its `size` says, counted as Chrome counts them (511):
+the face's `x`, rounded only when that makes it wider, and its ascent
+less one of them. So `web-a-form`'s fields are Chrome's 172 and its
+labels Chrome's to the unit, and `a-text-field`'s nine fields, of other
+sizes, types and faces, are Chrome's box for box. A face with no `x` is
+counted in its `0`, which is near Chrome's figure and not it (526). A date or time field holds its line in segments a
 pixel inside it above and below, as Chrome's does (507), so it is 2 px
 taller than a text field with the same line. An unstyled one is still a
 third of a pixel short of Chrome's, whose calendar indicator sets a floor

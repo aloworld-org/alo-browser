@@ -356,6 +356,11 @@ pub struct BoxTree {
     /// and background alone (queue item 505). See [`crate::face`]. A side
     /// map for [`BoxTree::breaks`]' reason.
     faces: BTreeMap<BoxId, Face>,
+    /// The boxes of a text field, and how many characters wide each is:
+    /// layout makes a field whose `width` is `auto` that wide in its own
+    /// font (queue item 511). See [`crate::field_size`]. A side map for
+    /// [`BoxTree::breaks`]' reason.
+    field_sizes: BTreeMap<BoxId, u32>,
 }
 
 impl BoxTree {
@@ -456,6 +461,13 @@ impl BoxTree {
     /// and background while the page has written neither (queue item 505).
     pub fn face(&self, id: BoxId) -> Option<Face> {
         self.faces.get(&id).copied()
+    }
+
+    /// How many characters wide a box is, if it is a text field's: its
+    /// `size`, or twenty. Layout asks, to make a field whose `width` is
+    /// `auto` as wide as Chrome's (queue item 511).
+    pub fn field_size(&self, id: BoxId) -> Option<u32> {
+        self.field_sizes.get(&id).copied()
     }
 
     /// The marker box of the list item `id`, if it has one.
@@ -577,6 +589,7 @@ impl BoxTree {
             out_of_flow: BTreeSet::new(),
             toggles: BTreeMap::new(),
             faces: BTreeMap::new(),
+            field_sizes: BTreeMap::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -795,6 +808,7 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
         out_of_flow: BTreeSet::new(),
         toggles: BTreeMap::new(),
         faces: BTreeMap::new(),
+        field_sizes: BTreeMap::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -1004,6 +1018,9 @@ fn build_element(
             }
             if let Some(face) = crate::face::of(element) {
                 tree.faces.insert(box_id, face);
+            }
+            if let Some(characters) = crate::field_size::of(element) {
+                tree.field_sizes.insert(box_id, characters);
             }
             let children = match crate::details::slots(document, id) {
                 Some(slots) => details_children(document, styles, shown, id, &slots, tree),
