@@ -27,6 +27,7 @@ use crate::control::{self, Mark};
 use crate::corner::{Corners, between, ring, rounded_rectangle};
 use crate::display::{DecorationLine, DisplayItem, DisplayList, TextShadow, lines_in};
 use crate::drawing::{Drawing, DrawingItem};
+use crate::face;
 use crate::fill_rule::FillRule;
 use crate::paint::Paint;
 use crate::path::Path;
@@ -420,7 +421,17 @@ impl Builder<'_> {
             });
         }
         let border = self.border_of(id);
-        if let Some(style) = self.style_of(id) {
+        let face = self.face_of(id);
+        if let Some(layers) = &face {
+            for layer in layers {
+                out.push(DisplayItem::Fill {
+                    rule: FillRule::NonZero,
+                    box_id: id,
+                    path: layer.path.clone(),
+                    paint: Paint::Solid(layer.color),
+                });
+            }
+        } else if let Some(style) = self.style_of(id) {
             let shape = rounded_rectangle(area, corners);
             if let Some(color) = backdrop.color
                 && !color.is_invisible()
@@ -465,7 +476,26 @@ impl Builder<'_> {
             });
             out.push(DisplayItem::PopClip);
         }
-        self.draw_borders(id, area, first, last, out);
+        if face.is_none() {
+            self.draw_borders(id, area, first, last, out);
+        }
+    }
+
+    /// A button's or a text field's own picture, in place of its background
+    /// and border, while the page has written neither: drawn over its border
+    /// box moved onto whole pixels, as Chrome draws it, as a checkbox's is
+    /// (queue item 505). See [`crate::face`].
+    fn face_of(&self, id: BoxId) -> Option<Vec<toggle::Layer>> {
+        let kind = self.boxes.face(id)?;
+        if !face::drawn(self.style_of(id)?) {
+            return None;
+        }
+        let (node, geometry) = (self.boxes.get(id)?, self.layout.get(id)?);
+        Some(face::artwork(
+            kind,
+            node.semantics.states.disabled,
+            snap::to_whole_pixels(geometry.border_box),
+        ))
     }
 
     /// How thick a box's border is on each side.

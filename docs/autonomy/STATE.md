@@ -30435,3 +30435,152 @@ mode.
 236 queue items are open (467 closed, 505–507 added). The next unused
 queue number is **508** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 309 — queue item 505 built: a button's and a field's border are Chrome's, drawn as Chrome's picture
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 308's entry, `REMAINING.md` and the queue. No
+`AGENTS.md` exists in this checkout. Iteration 308 left every open item
+up to 503 blocked, waiting for a page, a person or a dependency. **505 is
+the first open item after 503**, and nothing blocks it. It needs
+measuring, and Chrome 154 is on this machine. **For the item:** item 505's
+own text and item 467's record, item 454's picture (`alo-paint`'s
+`toggle.rs` and `control.rs`), `docs/features.md` stage 1 (*a form
+control holds what it shows*, *a form control draws its state*, *a control
+nobody can operate says so*), and the user-agent sheet. It names no ADR,
+and none decides this. As with 454's checkbox, the rule is written where
+it is drawn.
+
+**Measured, in Chrome 154 with the corpus's `DejaVu Sans`**, headless, in
+scratchpad probes kept nowhere:
+- *Computed:* a `<button>`, and an `<input>` of type `button`, `submit` or
+  `reset`, are `2px outset rgb(0, 0, 0)` with `#efefef`. Every text-like
+  `<input>`, a date included, is `2px inset rgb(118, 118, 118)`. A
+  `<select>` and a `<textarea>` are `1px solid`.
+- *Drawn,* at 8× and 1× over black and white, for a 40 by 22 button and
+  field on whole pixels: a fill over the border box half a pixel in,
+  rounded 2, under a one-pixel `#767676` edge around the border box,
+  rounded 2.5 outside and 1.5 inside. That is the checkbox's edge.
+  Disabled, the edge is 36 and 214 (`#767676` at 0.3), a button's fill 96
+  and 238, and a field's 167 and 248. At 8× the disabled edge is four
+  device pixels over the page, then four over the fill.
+- *Dropped,* and the CSS bevel drawn, when the page writes any `border-*`
+  or `background-*` (even `background: #efefef`, `background-image: none`
+  or `background-color` from a class), `border-radius`, or `appearance:
+  none`. Padding, colour, width, height, font size and outline keep the
+  picture.
+- *Chrome's bevel tones:* `#767676` `inset` is 33 and 202, which is this
+  engine's 33 and 203. Black `outset` is 168 and 84, where this engine
+  draws 85 and black. That is cut to 508.
+
+**Built:**
+- `alo-style` `user_agent.rs`: `input { border: 2px inset #767676 }`,
+  `select` keeps `1px solid`, and `button` and the button-like inputs get
+  `2px outset black`.
+- `alo-style` `computed.rs`: a `ComputedStyle` keeps which properties'
+  winning declarations the page wrote (`authored`, `authored_names`). It is
+  never inherited. A `revert` back to the engine's sheet is the engine's,
+  and the `unset` a `revert` becomes when no earlier origin said anything
+  belongs to nobody. Who wrote a value is a fact only the cascade has. A
+  value that equals the engine's cannot say it.
+- `alo-box` `face.rs` (new): `Face::{Button, Field}` by element and
+  `type`, held in a side map like the toggles (`BoxTree::face`).
+- `alo-paint` `face.rs` (new): `artwork` (the fill, then the edge) and
+  `drawn` (whether the page has taken the control over). `build.rs`'s
+  `face_of` draws it in place of the background and border, on the border
+  box snapped to whole pixels, as a checkbox's is. Shadows still draw.
+  `toggle::grey` is `pub(crate)` so both pictures make their translucent
+  greys the same way.
+- `alo-css` `properties.rs`: `appearance`, read by `alo-paint`.
+
+**Tests.**
+- Unit tests: `computed.rs` (who wrote a winner, not inherited; a revert
+  is the engine's, `inherit` is the page's), `user_agent.rs` (the measured
+  borders), `alo-box` `face.rs` (3 tests) and `tree.rs`, and `alo-paint`
+  `face.rs` (5 tests: the geometry in numbers, the colours, the disabled
+  greys recovered from their readings and their overlap, a tiny control,
+  and which author properties take the picture away).
+- `alo-corpus/tests/a_controls_own_line.rs`: the button test is now
+  `a_buttons_line_and_border_are_chromes`. The button is 43.84375 by 22
+  at (12, 12), Chrome's to the unit. The new
+  `a_buttons_picture_is_chromes_within_the_measured_bound` compares a band
+  four pixels deep around the edge, and one outside it, against the
+  committed `cases/a-script-hears-an-event/chrome.png` (Chrome's 1×
+  screenshot cut to 320×120, 8-bit RGBA). It is within 7 at worst and 0.20
+  on average, where the old render was 137 and 34. The whole button box,
+  glyphs included, is 4.31 on average.
+- **Mutation:** `face_of` with `drawn` negated, so the CSS bevel is drawn,
+  fails the picture test at 239. `build.rs` was restored from a
+  scratchpad copy.
+- **Reference renders** rewritten with `ALO_UPDATE_REFERENCES=1`, every
+  committed PNG backed up first: `a-script-hears-an-event` and
+  `web-a-form` (with `filled.png`). Those were the only two cases whose
+  layout, display list or tree moved. Every other case's controls carry
+  the page's own border.
+- Rewritten to the rule, each with its reason: `numbers.rs` (an empty
+  field is 22, and a set line height plus 6), `what_a_listener_hears.rs`
+  (the paragraphs are now Chrome's 46 and 78), `an_agents_text.rs`,
+  `what_a_script_left.rs`, `reading_an_interface.rs` (the field's line is
+  now the taller one, and the checkbox fits inside it),
+  `an_agent_on_somebody_elses_page.rs` and
+  `an_agent_outside_the_browser.rs`.
+
+**Against Chrome, honestly.** The whole-corpus probe was not run again:
+the corpus test shows only two cases moved. `a-script-hears-an-event`'s 7
+boxes that 308 counted as further away are now Chrome's. `web-a-form`
+moved away. Its 16 px fields are 25 tall where Chrome's are 21 (23
+before), because Chrome's control font is 13.33 px, which is 506. Every
+box below its first field is 2 px further from Chrome's for each field
+above it: the phone field stands at 57 against Chrome's 53 (55 before),
+and the textarea at 553.19 against 540.19 (545.19). None of those boxes
+was within 2 units of Chrome's before, because a field above each was
+already too tall.
+
+**Gate, mechanical.** `cargo clippy --workspace --all-targets
+--all-features -- -D warnings` was clean after `cargo fmt --all`. The
+touched crates' tests ran first: `alo-style`, `alo-box`, `alo-css`,
+`alo-paint` and `alo-corpus` in the foreground, and `alo-layout`,
+`alo-agent`, `alo-renderer`, `alo-window` and `alo-bindings` detached.
+Nine tests failed there, and each was rewritten as above and passes. Then
+`scripts/gate.sh` ran in the foreground into a scratchpad log. The
+harness moved it to the background at 600 s, and the next call waited on
+it with a foreground `until` loop. **Result: `exit 0`, "The gate is
+met. (10 of 10 steps)"**, with no `FAILED`, `panicked` or `^error` in the
+log. Only this entry and `REMAINING.md`'s paragraph were written after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: yes. The button's box is checked against
+  Chrome's numbers, and the picture's geometry in `face.rs`.
+- Reference renders: yes, rewritten as above, and the button's picture is
+  compared with Chrome's committed screenshot within a measured bound.
+- One file, one responsibility: which boxes are a button or a field is
+  `alo-box` `face.rs`, as `toggle.rs` is for a checkbox. What they draw is
+  `alo-paint` `face.rs`. Who wrote a winner stays in the cascade, which
+  already decides it. `build.rs` only asks.
+- `docs/features.md` has the line, under *a form control holds what it
+  shows*. `conformance.md`, `ROADMAP.md` and `CHANGELOG.md` are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched.
+- Hostile bytes: nothing new reads outside bytes. A hostile `type` or
+  `appearance` is compared as text and answered, never parsed into a
+  number.
+
+**Queue.** 505 is ticked with its *Done* paragraph. **508** (black's two
+tones), **509** (a disabled control's computed colours) and **510** (a
+`<select>`'s and a `<textarea>`'s own pictures) are added after 507. 506's
+text now has the 25 and 39.6 that hold since 505.
+
+**Roadmap.** Nothing ticked. Stage 1's *Paint* line, which is ticked, gains
+a clause: what 505 built, and what it owes (508, 509 and 510).
+
+**Unresolved obligations.**
+- 506: `web-a-form`'s fields are 4 px taller than Chrome's until a
+  control has its own font, which is 2 px further than before this item.
+- 508, 509 and 510, as written in the queue.
+- A focused control's ring is unchanged, and so is the rule that a
+  `:focus` page style leaves the picture (it does unless it writes a
+  border or background). Neither was measured.
+
+238 queue items are open (505 closed, 508–510 added). The next unused
+queue number is **511** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

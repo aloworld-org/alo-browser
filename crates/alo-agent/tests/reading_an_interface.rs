@@ -226,18 +226,20 @@ fn the_whole_tree_reads_as_what_the_interface_is() {
     // as the field and the checkbox, where it was 24.1 with the field
     // standing on the baseline and the font's descent under it. The checkbox
     // has Chrome's margins and stands on its bottom border edge (item 443),
-    // so the three pixels above it make that line one taller: 21, where the
-    // field is 20. The field and the button are each a line of their 14 px
-    // text, 13 and 3, with a pixel of padding and of border on each side
-    // (item 467); a line was the computed 1.2 em, 16.8, until then. The
-    // button's text is rounded up and its padding truncated, 48.375 wide.
+    // and with the three pixels above it fits inside the field's line, 22.
+    // The field and the button are each a line of their 14 px text, 13 and
+    // 3, with a pixel of padding and Chrome's 2 of border on each side
+    // (items 467 and 505); a line was the computed 1.2 em, 16.8, until 467,
+    // and the border 1 until 505, when the checkbox's line was the taller.
+    // The button's text is rounded up and its padding truncated, 50.375
+    // wide.
     //
     // Every line is whole pixels of font (ADR 0050): 14 px `DejaVu Sans` is
     // 13 above its baseline and 3 below, so a link is 16 tall, and the 20 px
     // heading 19 and 5, 24.
     let expected = "\
-document at (0, 0) 240×229
-  main at (0, 0) 240×229
+document at (0, 0) 240×232
+  main at (0, 0) 240×232
     heading \"Invoices\" [level=1] at (8, 8) 224×24
     navigation \"Filters\" at (8, 32) 224×16
       link \"All\" at (8, 32) 17.356445×16
@@ -246,11 +248,11 @@ document at (0, 0) 240×229
       listitem \"Invoice 11\" [marker=\"•\"] at (8, 48) 224×24
       listitem \"Invoice 12\" [selected=true marker=\"•\"] at (8, 72) 224×24
       listitem \"Invoice 13\" [marker=\"•\"] at (8, 96) 224×24
-    form \"New invoice\" at (8, 120) 224×41
-      textbox \"Amount\" [required] at (63.015625, 121) 146×20
-      checkbox \"Recurring\" [checked=true] at (213.01563, 123) 13×13
-      button \"Save\" [disabled] at (8, 141) 48.375×20
-    text \"a plain div with no meaning\" at (8, 205) 194.50293×16
+    form \"New invoice\" at (8, 120) 224×44
+      textbox \"Amount\" [required] at (63.015625, 120) 148×22
+      checkbox \"Recurring\" [checked=true] at (215.01563, 123) 13×13
+      button \"Save\" [disabled] at (8, 142) 50.375×22
+    text \"a plain div with no meaning\" at (8, 208) 194.50293×16
 ";
     assert_eq!(tree.to_outline(), expected);
 }

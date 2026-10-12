@@ -1,56 +1,60 @@
-text box#9 "Customer name:" rgb(0 0 0) 16px at (8, 33)
-fill box#10 rgb(118 118 118) at (146.65625, 16) 209.59375×23
-text box#15 "Telephone:" rgb(0 0 0) 16px at (8, 72)
-fill box#16 rgb(118 118 118) at (99.734375, 55) 209.59375×23
-text box#21 "E-mail address:" rgb(0 0 0) 16px at (8, 111)
-fill box#22 rgb(118 118 118) at (136.58594, 94) 209.59375×23
-clip box#25 to (10, 141.5) 580×152.09375
-clip box#25 to (10, 141.5) 580×152.09375
-fill box#25 rgb(255 255 255) at (10, 141.5) 580×152.09375
-fill box#25 rgb(107 107 107) at (10, 141.5) 580×152.09375
+text box#9 "Customer name:" rgb(0 0 0) 16px at (8, 34)
+fill box#10 rgb(255 255 255) at (147.5, 16.5) 210×24
+fill box#10 rgb(118 118 118) at (147, 16) 211×25
+text box#15 "Telephone:" rgb(0 0 0) 16px at (8, 75)
+fill box#16 rgb(255 255 255) at (100.5, 57.5) 210×24
+fill box#16 rgb(118 118 118) at (100, 57) 211×25
+text box#21 "E-mail address:" rgb(0 0 0) 16px at (8, 116)
+fill box#22 rgb(255 255 255) at (137.5, 98.5) 210×24
+fill box#22 rgb(118 118 118) at (137, 98) 211×25
+clip box#25 to (10, 147.5) 580×152.09375
+clip box#25 to (10, 147.5) 580×152.09375
+fill box#25 rgb(255 255 255) at (10, 147.5) 580×152.09375
+fill box#25 rgb(107 107 107) at (10, 147.5) 580×152.09375
 unclip
-clip box#25 to (10, 141.5) 580×152.09375
-fill box#25 rgb(107 107 107) at (10, 141.5) 580×152.09375
-fill box#25 rgb(255 255 255) at (10, 141.5) 580×152.09375
-unclip
-unclip
-text box#28 "Pizza Size" rgb(0 0 0) 16px at (26, 148)
-fill box#33 rgb(255 255 255) at (29, 177) 13×13
-fill box#33 rgb(118 118 118) at (29, 177) 13×13
-text box#34 "Small" rgb(0 0 0) 16px at (50.085938, 189.59375)
-fill box#39 rgb(255 255 255) at (29, 213) 13×13
-fill box#39 rgb(118 118 118) at (29, 213) 13×13
-text box#40 "Medium" rgb(0 0 0) 16px at (50.085938, 225.59375)
-fill box#45 rgb(255 255 255) at (29, 249) 13×13
-fill box#45 rgb(118 118 118) at (29, 249) 13×13
-text box#46 "Large" rgb(0 0 0) 16px at (50.085938, 261.59375)
-clip box#49 to (10, 302.09375) 580×188.09375
-clip box#49 to (10, 302.09375) 580×188.09375
-fill box#49 rgb(255 255 255) at (10, 302.09375) 580×188.09375
-fill box#49 rgb(107 107 107) at (10, 302.09375) 580×188.09375
-unclip
-clip box#49 to (10, 302.09375) 580×188.09375
-fill box#49 rgb(107 107 107) at (10, 302.09375) 580×188.09375
-fill box#49 rgb(255 255 255) at (10, 302.09375) 580×188.09375
+clip box#25 to (10, 147.5) 580×152.09375
+fill box#25 rgb(107 107 107) at (10, 147.5) 580×152.09375
+fill box#25 rgb(255 255 255) at (10, 147.5) 580×152.09375
 unclip
 unclip
-text box#52 "Pizza Toppings" rgb(0 0 0) 16px at (26, 308.59375)
-fill box#57 rgb(255 255 255) at (28, 337) 13×13
-fill box#57 rgb(118 118 118) at (28, 337) 13×13
-text box#58 "Bacon" rgb(0 0 0) 16px at (49.085938, 350.1875)
-fill box#63 rgb(255 255 255) at (28, 373) 13×13
-fill box#63 rgb(118 118 118) at (28, 373) 13×13
-text box#64 "Extra Cheese" rgb(0 0 0) 16px at (49.085938, 386.1875)
-fill box#69 rgb(255 255 255) at (28, 409) 13×13
-fill box#69 rgb(118 118 118) at (28, 409) 13×13
-text box#70 "Onion" rgb(0 0 0) 16px at (49.085938, 422.1875)
-fill box#75 rgb(255 255 255) at (28, 445) 13×13
-fill box#75 rgb(118 118 118) at (28, 445) 13×13
-text box#76 "Mushroom" rgb(0 0 0) 16px at (49.085938, 458.1875)
-text box#81 "Preferred delivery time:" rgb(0 0 0) 16px at (8, 523.1875)
-fill box#82 rgb(118 118 118) at (202.48438, 506.1875) 209.59375×23
-text box#87 "Delivery instructions:" rgb(0 0 0) 16px at (8, 599.1875)
-fill box#88 rgb(118 118 118) at (183.67188, 545.1875) 209.59375×54
-fill box#92 rgb(239 239 239) at (8, 619.1875) 118.515625×23
-fill box#92 rgb(118 118 118) at (8, 619.1875) 118.515625×23
-text box#93 "Submit order" rgb(0 0 0) 16px at (15.003906, 636.1875)
+text box#28 "Pizza Size" rgb(0 0 0) 16px at (26, 154)
+fill box#33 rgb(255 255 255) at (29, 183) 13×13
+fill box#33 rgb(118 118 118) at (29, 183) 13×13
+text box#34 "Small" rgb(0 0 0) 16px at (50.085938, 195.59375)
+fill box#39 rgb(255 255 255) at (29, 219) 13×13
+fill box#39 rgb(118 118 118) at (29, 219) 13×13
+text box#40 "Medium" rgb(0 0 0) 16px at (50.085938, 231.59375)
+fill box#45 rgb(255 255 255) at (29, 255) 13×13
+fill box#45 rgb(118 118 118) at (29, 255) 13×13
+text box#46 "Large" rgb(0 0 0) 16px at (50.085938, 267.59375)
+clip box#49 to (10, 308.09375) 580×188.09375
+clip box#49 to (10, 308.09375) 580×188.09375
+fill box#49 rgb(255 255 255) at (10, 308.09375) 580×188.09375
+fill box#49 rgb(107 107 107) at (10, 308.09375) 580×188.09375
+unclip
+clip box#49 to (10, 308.09375) 580×188.09375
+fill box#49 rgb(107 107 107) at (10, 308.09375) 580×188.09375
+fill box#49 rgb(255 255 255) at (10, 308.09375) 580×188.09375
+unclip
+unclip
+text box#52 "Pizza Toppings" rgb(0 0 0) 16px at (26, 314.59375)
+fill box#57 rgb(255 255 255) at (28, 343) 13×13
+fill box#57 rgb(118 118 118) at (28, 343) 13×13
+text box#58 "Bacon" rgb(0 0 0) 16px at (49.085938, 356.1875)
+fill box#63 rgb(255 255 255) at (28, 379) 13×13
+fill box#63 rgb(118 118 118) at (28, 379) 13×13
+text box#64 "Extra Cheese" rgb(0 0 0) 16px at (49.085938, 392.1875)
+fill box#69 rgb(255 255 255) at (28, 415) 13×13
+fill box#69 rgb(118 118 118) at (28, 415) 13×13
+text box#70 "Onion" rgb(0 0 0) 16px at (49.085938, 428.1875)
+fill box#75 rgb(255 255 255) at (28, 451) 13×13
+fill box#75 rgb(118 118 118) at (28, 451) 13×13
+text box#76 "Mushroom" rgb(0 0 0) 16px at (49.085938, 464.1875)
+text box#81 "Preferred delivery time:" rgb(0 0 0) 16px at (8, 530.1875)
+fill box#82 rgb(255 255 255) at (202.5, 512.5) 211×24
+fill box#82 rgb(118 118 118) at (202, 512) 212×25
+text box#87 "Delivery instructions:" rgb(0 0 0) 16px at (8, 607.1875)
+fill box#88 rgb(118 118 118) at (183.67188, 553.1875) 209.59375×54
+fill box#92 rgb(239 239 239) at (8.5, 627.5) 120×24
+fill box#92 rgb(118 118 118) at (8, 627) 121×25
+text box#93 "Submit order" rgb(0 0 0) 16px at (16.003906, 645.1875)

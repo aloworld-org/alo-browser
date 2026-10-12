@@ -52,6 +52,7 @@ pub mod display;
 pub mod drawing;
 pub mod drawn_picture;
 pub mod encode;
+pub mod face;
 pub mod fill_rule;
 mod gif_picture;
 pub mod glyph;

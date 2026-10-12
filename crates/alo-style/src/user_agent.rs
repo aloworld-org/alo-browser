@@ -147,8 +147,17 @@ input, select {
      have been a *fixed* height, so a field with something in it would be too
      short for it — which is exactly what happened. */
   padding: 1px 2px;
-  border: 1px solid #767676;
 }
+/* A field's border and a button's are two pixels, `inset` and `outset`:
+ * Chrome 154's computed values, measured (queue item 505). Chrome does not
+ * draw them while the page leaves them alone. It draws its own picture of
+ * the control in the room they take, a one-pixel rounded edge over the
+ * fill, and that picture is `alo_paint::face`'s, for the reason a tick is
+ * not a property. A page that writes any border or background of its own
+ * gets these drawn as written instead, two tones and all. A `<select>`
+ * keeps its one solid pixel, which is Chrome's too. */
+input { border: 2px inset #767676 }
+select { border: 1px solid #767676 }
 textarea {
   width: 20ch;
   height: 3em;
@@ -163,7 +172,7 @@ textarea {
    does this engine: `alo_box::Purpose::Control`. */
 button {
   padding: 1px 6px;
-  border: 1px solid #767676;
+  border: 2px outset black;
   background: #efefef;
   text-align: center;
 }
@@ -193,6 +202,7 @@ input[type="radio"] { margin: 3px 3px 0 5px }
 input[type="button"], input[type="submit"], input[type="reset"] {
   width: auto;
   padding: 1px 6px;
+  border: 2px outset black;
   background: #efefef;
 }
 
@@ -410,6 +420,30 @@ mod tests {
         }
         // A field keeps no margin of its own.
         assert_eq!(computed(html, "text", "margin-left"), None);
+    }
+
+    #[test]
+    fn a_field_and_a_button_have_chromes_two_pixel_borders() {
+        // Chrome 154's computed values, measured (queue item 505): what it
+        // draws in their place is `alo_paint::face`'s.
+        let html = "<input id=text><input id=date type=date><button id=button>b</button>\
+                    <input id=submit type=submit><input id=reset type=reset>\
+                    <input id=push type=button><select id=list></select>";
+        for (id, border) in [
+            ("text", "2px inset #767676"),
+            ("date", "2px inset #767676"),
+            ("button", "2px outset black"),
+            ("submit", "2px outset black"),
+            ("reset", "2px outset black"),
+            ("push", "2px outset black"),
+            ("list", "1px solid #767676"),
+        ] {
+            assert_eq!(
+                computed(html, id, "border").as_deref(),
+                Some(border),
+                "{id}"
+            );
+        }
     }
 
     #[test]

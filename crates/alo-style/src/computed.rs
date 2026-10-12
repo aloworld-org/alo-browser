@@ -43,7 +43,7 @@ use alo_css::{
 };
 use alo_dom::{Document, NodeId};
 use alo_value::{FontMetrics, LengthPercentage, Rgba, Viewport};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// What one element ended up with.
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +56,10 @@ pub struct ComputedStyle {
     /// reads it.
     size_origin: SizeOrigin,
     current_color: Rgba,
+    /// The properties whose winning declaration a page wrote, on this
+    /// element alone: never inherited, since a child's style is not the
+    /// author's because its parent's was. See [`ComputedStyle::authored`].
+    authored: BTreeSet<PropertyName>,
 }
 
 impl Default for ComputedStyle {
@@ -68,6 +72,7 @@ impl Default for ComputedStyle {
             // The initial `color`. Every `currentColor` on an element nobody
             // has coloured resolves to this.
             current_color: Rgba::BLACK,
+            authored: BTreeSet::new(),
         }
     }
 }
@@ -103,6 +108,27 @@ impl ComputedStyle {
     /// Whether nothing at all is set.
     pub fn is_empty(&self) -> bool {
         self.properties.is_empty()
+    }
+
+    /// Whether the declaration that won this property on this element was
+    /// written by the page rather than by the engine's own sheet.
+    ///
+    /// The value cannot say it. A page that writes `background: #efefef` on
+    /// a button has written exactly the engine's colour, and Chrome 154 then
+    /// stops drawing the button's own picture and draws its CSS border and
+    /// background instead, as it does for any other colour (queue item
+    /// 505). Who wrote the winner is a fact only the cascade knows, so the
+    /// cascade keeps it. A `revert` that reaches back to the engine's sheet
+    /// is the engine's, and `inherit` or `initial` written by the page is
+    /// the page's.
+    pub fn authored(&self, name: &str) -> bool {
+        self.authored.contains(&PropertyName::parse(name))
+    }
+
+    /// Every property whose winner the page wrote on this element, by name,
+    /// in a stable order.
+    pub fn authored_names(&self) -> impl Iterator<Item = &PropertyName> {
+        self.authored.iter()
     }
 
     fn set(&mut self, name: &PropertyName, value: String) {
@@ -194,6 +220,7 @@ impl ComputedStyle {
             metrics: parent.metrics,
             size_origin: parent.size_origin,
             current_color: parent.current_color,
+            authored: BTreeSet::new(),
         }
     }
 }
@@ -621,6 +648,9 @@ fn compute_one(
         let Some(contender) = winning_contender(applicable, name) else {
             continue;
         };
+        if contender.origin == Some(Origin::Author) {
+            style.authored.insert(name.clone());
+        }
         apply_one(&mut style, parent, name, &contender, issues);
     }
     style
@@ -631,6 +661,9 @@ fn compute_one(
 struct Winner {
     value: String,
     at: Location,
+    /// Who wrote it, or [`None`] for the `unset` a `revert` becomes when no
+    /// earlier origin said anything, which nobody wrote.
+    origin: Option<Origin>,
 }
 
 fn winning_contender(applicable: &Applicable<'_>, name: &PropertyName) -> Option<Winner> {
@@ -651,6 +684,7 @@ fn winning_contender(applicable: &Applicable<'_>, name: &PropertyName) -> Option
                 return Some(Winner {
                     value: WideKeyword::Unset.as_str().to_owned(),
                     at: contender.at,
+                    origin: None,
                 });
             }
         }
@@ -658,6 +692,7 @@ fn winning_contender(applicable: &Applicable<'_>, name: &PropertyName) -> Option
     Some(Winner {
         value: contender.declaration.value.clone(),
         at: contender.at,
+        origin: Some(contender.origin),
     })
 }
 
@@ -749,6 +784,79 @@ mod tests {
             })
             .unwrap_or_else(|| panic!("no element with id={wanted}"));
         tree.get(id).cloned().unwrap_or_default()
+    }
+
+    /// The style of `wanted` with the engine's sheet `agent` beneath the
+    /// page's `author`.
+    fn style_under(html: &str, agent: &str, author: &str, wanted: &str) -> ComputedStyle {
+        let document = parse_document(html);
+        let (agent, author) = (parse_stylesheet(agent), parse_stylesheet(author));
+        let sheets = [
+            SourcedSheet::new(Origin::UserAgent, &agent),
+            SourcedSheet::new(Origin::Author, &author),
+        ];
+        let tree = resolve(&document, &sheets, &MediaContext::default());
+        let id = document
+            .descendants(document.root())
+            .find(|id| {
+                document
+                    .element(*id)
+                    .is_some_and(|element| element.attr("id") == Some(wanted))
+            })
+            .unwrap_or_else(|| panic!("no element with id={wanted}"));
+        tree.get(id).cloned().unwrap_or_default()
+    }
+
+    #[test]
+    fn who_wrote_a_winner_is_kept_and_not_inherited() {
+        let agent = "button { background: #efefef; color: black }";
+        let html = "<div id=d><button id=b style='color: red'><span id=s>t</span></button></div>";
+        let author = "#b { background: #efefef } #d { border-top-color: blue }";
+        let button = style_under(html, agent, author, "b");
+        // The engine's own colour, written again by the page, is the page's.
+        assert!(button.authored("background"));
+        assert!(button.authored("color"), "a style attribute is the page's");
+        assert!(!button.authored("border-top-color"));
+        let names: Vec<&str> = button.authored_names().map(PropertyName::as_str).collect();
+        assert_eq!(names, ["background", "color"]);
+        // A child inherits the colour and not who wrote it.
+        let span = style_under(html, agent, author, "s");
+        assert_eq!(span.get("color"), Some("red"));
+        assert!(!span.authored("color"));
+        // Only what the engine said is the engine's.
+        let plain = style_under("<button id=b>t</button>", agent, "", "b");
+        assert!(!plain.authored("background"));
+        assert!(!plain.authored("color"));
+    }
+
+    #[test]
+    fn a_revert_back_to_the_engines_sheet_is_the_engines_and_inherit_is_the_pages() {
+        let agent = "button { background: #efefef }";
+        let reverted = style_under(
+            "<button id=b>t</button>",
+            agent,
+            "button { background: red } #b { background: revert }",
+            "b",
+        );
+        assert_eq!(reverted.get("background"), Some("#efefef"));
+        assert!(!reverted.authored("background"));
+        let nothing_under = style_under(
+            "<button id=b>t</button>",
+            agent,
+            "#b { border-left-width: revert }",
+            "b",
+        );
+        assert!(
+            !nothing_under.authored("border-left-width"),
+            "nobody wrote the unset"
+        );
+        let inherited = style_under(
+            "<button id=b>t</button>",
+            agent,
+            "#b { background: inherit }",
+            "b",
+        );
+        assert!(inherited.authored("background"));
     }
 
     #[test]

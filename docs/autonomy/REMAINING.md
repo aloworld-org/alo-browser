@@ -1961,3 +1961,19 @@ its own picture. Found: **505** (that border and picture), **506** (a
 control's own 13.33 px font) and **507** (a date field's 2 px taller
 line). 236 queue items are open (467 closed, 505–507 added). The next
 unused queue number is 508 and the next unused ADR 0057.
+
+Iteration 309 built queue item 505. A button and a text field take
+Chrome 154's 2 px `outset` and `inset` borders, and while the page writes
+no border or background of its own they draw Chrome's picture in that
+room: a one-pixel `#767676` edge rounded 2.5 px over a `#efefef` or white
+fill, translucent when disabled. It was measured at 8× (`alo-box` and
+`alo-paint` `face.rs`). The cascade now keeps which properties the page
+wrote (`ComputedStyle::authored`), because Chrome drops the picture even
+for a page's `background: #efefef`. `a-script-hears-an-event` is Chrome's
+box for box, and its button's edge matches Chrome's committed screenshot
+within 7. `web-a-form`'s 16 px fields moved 2 px further from Chrome's
+until 506 gives a control its own font. Found: **508** (black's two
+tones), **509** (a disabled control's computed colours) and **510** (a
+`<select>`'s and a `<textarea>`'s pictures). 238 queue items are open
+(505 closed, 508–510 added). The next unused queue number is 511 and the
+next unused ADR 0057.

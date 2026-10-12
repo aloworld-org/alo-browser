@@ -84,7 +84,7 @@ pub const DISABLED_MARK: Rgba = Rgba {
 /// Over white, a grey at alpha `a` lets `255 × (1 − a)` of the white through,
 /// so the difference between the two readings is that; over black it is the
 /// grey times `a` alone.
-const fn grey(over_black: f32, over_white: f32) -> Rgba {
+pub(crate) const fn grey(over_black: f32, over_white: f32) -> Rgba {
     let alpha = (255.0 - (over_white - over_black)) / 255.0;
     let level = over_black / (255.0 - (over_white - over_black));
     Rgba {

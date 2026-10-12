@@ -196,12 +196,14 @@ fn what_an_agent_puts_in_a_field_inside_its_label_is_read_back() {
 #[test]
 fn the_text_put_in_each_field_sits_inside_it_in_numbers() {
     // The fields' own boxes are the frozen case's (`agent.txt`): the name
-    // field at (146.65625, 16), the textarea at (183.67188, 545.1875), on
+    // field at (146.65625, 16), the textarea at (183.67188, 553.1875), on
     // the grid of 1/64 px since item 466 (ADR 0054). The textarea rose
     // 0.75 when each one-line field above it became its font's line, 19,
-    // rather than 1.2 em, 19.2, on the grid (item 467). The text
-    // each holds sits its border and padding in from that corner — 3 pixels
-    // across in both, 2 down in the one-line field and 3 in the textarea.
+    // rather than 1.2 em, 19.2, on the grid (item 467), and fell 8 when
+    // the four fields above it took Chrome's 2 px border (item 505). The
+    // text each holds sits its border and padding in from that corner — 4
+    // pixels across and 3 down in the one-line field, 3 and 3 in the
+    // textarea, whose border is still Chrome's one pixel.
     let mut form = filled();
     let tree = read(&mut form);
     let text_of = |field: &str| {
@@ -215,11 +217,11 @@ fn the_text_put_in_each_field_sits_inside_it_in_numbers() {
         panic!("both fields hold text:\n{}", tree.to_outline());
     };
     assert!(
-        at(name, 149.656_25, 18.0, 106.335_94, 19.0),
+        at(name, 150.656_25, 19.0, 106.335_94, 19.0),
         "Ada Lovelace: {name:?}"
     );
     assert!(
-        at(instructions, 186.671_88, 548.1875, 83.390_625, 19.0),
+        at(instructions, 186.671_88, 556.1875, 83.390_625, 19.0),
         "Ring twice: {instructions:?}"
     );
 
@@ -229,11 +231,11 @@ fn the_text_put_in_each_field_sits_inside_it_in_numbers() {
         .map(|drawing| drawing.display.to_outline())
         .unwrap_or_default();
     assert!(
-        drawn.contains("\"Ada Lovelace\" rgb(0 0 0) 16px at (149.65625, 33)"),
+        drawn.contains("\"Ada Lovelace\" rgb(0 0 0) 16px at (150.65625, 34)"),
         "{drawn}"
     );
     assert!(
-        drawn.contains("\"Ring twice\" rgb(0 0 0) 16px at (186.67188, 563.1875)"),
+        drawn.contains("\"Ring twice\" rgb(0 0 0) 16px at (186.67188, 571.1875)"),
         "{drawn}"
     );
 }

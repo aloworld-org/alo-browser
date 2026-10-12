@@ -21,6 +21,7 @@
 //! where it landed.
 
 use crate::display::{Display, Inside, Outside};
+use crate::face::Face;
 use crate::natural::NaturalSize;
 use crate::picture::{Img, Shown};
 use crate::semantics::Semantics;
@@ -340,6 +341,11 @@ pub struct BoxTree {
     /// (queue item 454). See [`crate::toggle`]. A side map for
     /// [`BoxTree::breaks`]' reason.
     toggles: BTreeMap<BoxId, Toggle>,
+    /// The boxes of a button and a text field, and which each is: paint
+    /// draws Chrome's picture of them while the page leaves their border
+    /// and background alone (queue item 505). See [`crate::face`]. A side
+    /// map for [`BoxTree::breaks`]' reason.
+    faces: BTreeMap<BoxId, Face>,
 }
 
 impl BoxTree {
@@ -432,6 +438,13 @@ impl BoxTree {
     /// background (queue item 454).
     pub fn toggle(&self, id: BoxId) -> Option<Toggle> {
         self.toggles.get(&id).copied()
+    }
+
+    /// Which face a box draws, if it is a button's or a text field's: paint
+    /// asks, to draw Chrome's picture of the control in place of its border
+    /// and background while the page has written neither (queue item 505).
+    pub fn face(&self, id: BoxId) -> Option<Face> {
+        self.faces.get(&id).copied()
     }
 
     /// The marker box of the list item `id`, if it has one.
@@ -552,6 +565,7 @@ impl BoxTree {
             markers: BTreeSet::new(),
             out_of_flow: BTreeSet::new(),
             toggles: BTreeMap::new(),
+            faces: BTreeMap::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -769,6 +783,7 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
         markers: BTreeSet::new(),
         out_of_flow: BTreeSet::new(),
         toggles: BTreeMap::new(),
+        faces: BTreeMap::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -975,6 +990,9 @@ fn build_element(
             }
             if let Some(toggle) = crate::toggle::of(element) {
                 tree.toggles.insert(box_id, toggle);
+            }
+            if let Some(face) = crate::face::of(element) {
+                tree.faces.insert(box_id, face);
             }
             let children = match crate::details::slots(document, id) {
                 Some(slots) => details_children(document, styles, shown, id, &slots, tree),
@@ -2662,6 +2680,16 @@ mod tests {
         );
         let toggles: Vec<Toggle> = tree.ids().filter_map(|id| tree.toggle(id)).collect();
         assert_eq!(toggles, vec![Toggle::CheckBox, Toggle::Radio]);
+    }
+
+    #[test]
+    fn a_button_and_a_field_draw_a_face_and_nothing_else_does() {
+        let tree = boxes(
+            "<p>a<input type=checkbox><input><button>b</button><select></select></p>",
+            "",
+        );
+        let faces: Vec<Face> = tree.ids().filter_map(|id| tree.face(id)).collect();
+        assert_eq!(faces, vec![Face::Field, Face::Button]);
     }
 
     #[test]

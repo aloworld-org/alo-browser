@@ -66,17 +66,16 @@ fn each_listener_heard_in_order_and_the_page_says_so_in_numbers() {
     // it stands on its label's baseline (item 285), so the strut's descent
     // (item 283) is already under the label rather than added below it. The
     // button's line is a line of its 14 px label, 13 and 3 (item 467), where
-    // it was the computed 16.8. Chrome 154's paragraphs are 2 lower, at 46
-    // and 78, because its button's border is 2 where this one's is 1 (item
-    // 505).
+    // it was the computed 16.8. Its border is Chrome's 2 (item 505), so the
+    // paragraphs are where Chrome 154's are, at 46 and 78.
     assert!(
         outline.contains(
-            "    block flow · paragraph → 304×24 at (8, 44)\n\
+            "    block flow · paragraph → 304×24 at (8, 46)\n\
              \x20     text \"section1 div1 button2 n once div3 true\" → 272.40527×16 at \
-             (12, 48)\n\
-             \x20   block flow · paragraph → 304×24 at (8, 76)\n\
+             (12, 50)\n\
+             \x20   block flow · paragraph → 304×24 at (8, 78)\n\
              \x20     text \"section1 div1 button2 n div3 true\" → 234.20605×16 at \
-             (12, 80)\n"
+             (12, 82)\n"
         ),
         "{outline}"
     );

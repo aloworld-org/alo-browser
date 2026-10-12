@@ -72,9 +72,14 @@ font on a `normal` line does not yet add its own room (465). A control's
 own line is the line its text would be (467), where it was 1.2 em: a
 field or a button is its font's whole pixels inside its padding, as
 Chrome's is, so `a-filled-form` and alo Settings are Chrome's to the unit.
-A button's and a field's border are 1 px here and 2 in Chrome (505), a
-control's font is the page's here and 13.33 px in Chrome (506), and a date
-field's line is 2 px shorter than Chrome's (507). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
+A button's and a field's border are Chrome's 2 px (505), drawn as Chrome's
+own picture of the control while the page leaves the border and background
+alone, so `a-script-hears-an-event` is Chrome's box for box. A control's
+font is the page's here and 13.33 px in Chrome (506): with the right border,
+`web-a-form`'s 16 px fields are 25 tall where Chrome's are 21, and 23 before
+505, so every box below its first field is 2 px further from Chrome's per
+field above it until 506. A date field's line is 2 px shorter than
+Chrome's (507). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
 length, a percentage and a `calc()` are each truncated toward zero onto it,
 a run of text's width is rounded up, and a box's edges are placed on it as
 they are read back, so centring, auto margins and flexible tracks put each

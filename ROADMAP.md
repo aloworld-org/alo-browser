@@ -200,6 +200,17 @@ correctness, not before it.
       shape's edge pixels are now sampled sixteen by sixteen, within 3 of
       255 of their exact area. Owed: letters, which keep the rented
       sampling until they are measured against Chrome's (462).*
+      *A button and a text field were a 1 px grey square border until queue
+      item 505 (iteration 309), where Chrome 154 computes a 2 px `outset` or
+      `inset` border and draws its own picture in that room: a one-pixel
+      rounded edge over the control's fill. Both are now Chrome's, measured
+      at eight device pixels to one, and a page that writes any border or
+      background on the control gets its CSS instead, as in Chrome.
+      `a-script-hears-an-event`'s button is Chrome's 22 and its edge is
+      Chrome's screenshot's within 7 levels. Owed: black's two tones for an
+      author's `outset` (508), a disabled control's computed colours (509),
+      and whether a `<select>` and a `<textarea>` draw a picture too
+      (510).*
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
 - [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate.

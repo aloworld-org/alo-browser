@@ -39,6 +39,7 @@
 
 pub mod case;
 mod details;
+pub mod face;
 pub mod invalid;
 pub mod line_break;
 pub mod natural;
@@ -56,6 +57,7 @@ pub mod whitespace;
 /// list item decides whether it makes a `::marker` there (ADR 0044 § 1); the
 /// box tree reads the same reading.
 pub use alo_style::display::{self, Display, Inside, Outside};
+pub use face::Face;
 pub use invalid::Invalid;
 pub use natural::NaturalSize;
 pub use picture::Shown;

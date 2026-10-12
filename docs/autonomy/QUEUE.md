@@ -7653,7 +7653,7 @@ The long pole, and the thing most of section E is unreachable without.
   It said 707 where standards mode gives 807. The counts here are in
   standards mode.
 
-- [ ] **505. A button's and a field's border are Chrome's 2 px, drawn as
+- [x] **505. A button's and a field's border are Chrome's 2 px, drawn as
   Chrome draws a control.** *Cut from 467 (iteration 308). Feature:
   `docs/features.md` stage 1, a form control draws its state. Needs
   measuring.* Chrome 154 computes `2px outset` for a `<button>` and an
@@ -7670,6 +7670,37 @@ The long pole, and the thing most of section E is unreachable without.
   checkbox. An author's own border still replaces both. *Closes when:*
   `a-script-hears-an-event`'s button is 22 tall and drawn within a
   measured bound of Chrome's screenshot.
+  ***Done (iteration 309).*** *Measured in Chrome 154* with the corpus's
+  font. Computed: a `<button>` and an `<input>` of type `button`,
+  `submit` and `reset` have `2px outset rgb(0, 0, 0)`, and every text-like
+  `<input>`, a date included, has `2px inset rgb(118, 118, 118)`. A
+  `<select>` and a `<textarea>` keep `1px solid`. Drawn, at eight device
+  pixels to one: a fill over the border box half a pixel in, rounded 2
+  (`#efefef` for a button, white for a field), and a one-pixel `#767676`
+  edge over it around the border box, rounded 2.5 outside and 1.5 inside,
+  which is the checkbox's edge. Disabled, over black and white: the edge
+  is 36 and 214 (`#767676` at 0.3), a button's fill 96 and 238, and a
+  field's 167 and 248. The picture is dropped, and the CSS drawn, when the
+  page writes any `border-*` or `background-*` property (even
+  `background: #efefef` or `background-image: none`), `border-radius`, or
+  `appearance: none`. Padding, colour, size, font and outline keep it.
+  *Built:* the user-agent sheet's borders (`alo-style`). The cascade now
+  keeps which properties' winners the page wrote, on the element alone
+  (`ComputedStyle::authored`). `alo-box`'s `face.rs` marks the boxes of a
+  button and a field, as `toggle.rs` does a checkbox. `alo-paint`'s
+  `face.rs` draws the picture in place of the background and border, on
+  whole pixels, while `face::drawn` says the page has not taken over.
+  `appearance` is listed as read by `alo-paint`. *Closed:*
+  `a-script-hears-an-event`'s button is 43.84375 by 22 at (12, 12),
+  Chrome's to the unit, and its paragraphs are Chrome's 46 and 78
+  (`a_controls_own_line.rs`). Over a band four pixels deep around its edge
+  and one outside, it is Chrome's committed screenshot (`chrome.png`) within
+  7 at worst and 0.20 on average, where it was 137 and 34. Switching the
+  picture off fails that test at 239. *Moved away:* `web-a-form`'s 16 px
+  fields are 25 tall where Chrome's are 21 (23 before), because Chrome's
+  font is 13.33 px (506). Every box that moved was already a pixel or more
+  from Chrome's, because a field above it was too tall. *Found:* 508, 509
+  and 510.
 
 - [ ] **506. A control's own font is Chrome's 13.33 px.** *Found building
   467 (iteration 308). Feature: `docs/features.md` stage 1, forms. Needs
@@ -7677,8 +7708,8 @@ The long pole, and the thing most of section E is unreachable without.
   `<input>`, a `<button>`, a `<textarea>` and a `<select>`, whatever the
   page's own size is, with Arial for each and `monospace` for a
   `<textarea>`. Here a control inherits the page's font. So `web-a-form`'s
-  16 px fields are 23 tall here and 21 in Chrome, with 505's border, and
-  37.6 px wider, since `20ch` is measured in that font. Needs: which family stands for Arial
+  16 px fields are 25 tall here since 505 gave them Chrome's border, and
+  21 in Chrome, and 39.6 px wider (211.59 against 172), since `20ch` is measured in that font. Needs: which family stands for Arial
   here (`system-ui` maps to `DejaVu Sans` in the corpus), and whether the
   size is 13.3333 or 40/3 on the 1/64 grid. *Closes when:* `web-a-form`'s
   fields are Chrome's height and width to 1/64 px.
@@ -7693,6 +7724,41 @@ The long pole, and the thing most of section E is unreachable without.
   Chrome's 2 px are (its edit's own padding, likely), and whether `time`,
   `month`, `week` and `datetime-local` share them (388). *Closes when:*
   `alo-sites-booking`'s boxes are all Chrome's to 1/64 px.
+
+- [ ] **508. Black's two tones in an `inset`, `outset`, `groove` or
+  `ridge` border are Chrome's.** *Found building 505 (iteration 309).
+  Feature: `docs/features.md` stage 1, borders. Needs measuring.* Chrome
+  154 draws a 4 px `outset` black border 168 on its top and left and 84 on
+  its bottom and right. `tone.rs` draws it 85 and black. For `#767676`
+  `inset`, Chrome's 33 and 202 are this engine's 33 and 203. Since 505, a
+  button whose page sets its background gets the user-agent sheet's `2px
+  outset black` drawn, so black matters now. Needs: where Chrome's rule
+  for a dark colour starts (is `#101010` black too?), measured over
+  several dark greys and one dark hue. *Closes when:* a frozen button with
+  an author's background is drawn within a measured bound of Chrome's
+  screenshot, bevel included.
+
+- [ ] **509. A disabled control's computed colours are Chrome's.** *Found
+  building 505 (iteration 309). Feature: `docs/features.md` stage 1, a
+  control nobody can operate says so. Needs measuring.* Chrome 154 computes,
+  for a disabled button and field, a border of `rgba(118, 118, 118, 0.3)`
+  and a background of `rgba(239, 239, 239, 0.3)`, with text `rgba(16, 16,
+  16, 0.3)` on a button and `rgb(84, 84, 84)` in a field. The user-agent
+  sheet here says `#c0c0c0`, `#f5f5f5` and `#6d6d6d`. While a control draws
+  its own picture (505) only the text colour shows. Needs: a disabled
+  control's text measured on a screenshot, and a frozen page with one.
+  *Closes when:* that page's disabled control is Chrome's colours, text
+  included, within a measured bound.
+
+- [ ] **510. A `<select>`'s and a `<textarea>`'s own pictures.** *Found
+  building 505 (iteration 309). Feature: `docs/features.md` stage 1, forms.
+  Needs measuring.* Chrome 154 computes a `1px solid rgb(118, 118, 118)`
+  border for both. Whether it draws them as computed or as a picture of its
+  own, as it does a button's and a field's, was not looked at. A list also
+  draws its arrow. Needs: both at eight device pixels to one, live and
+  disabled, and what a page's own border does. *Closes when:* the
+  `textarea` in `web-a-form` is drawn within a measured bound of Chrome's
+  screenshot.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

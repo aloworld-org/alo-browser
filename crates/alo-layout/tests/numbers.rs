@@ -1386,18 +1386,20 @@ fn an_empty_field_is_still_one_line_tall() {
     let (boxes, layout) = lay_out(html, "", Size::new(400.0, 300.0));
     let field = rect_of(&boxes, &layout, "a", html);
     // A line of the test font is 16 — 12 above the baseline and 4 below,
-    // and no line gap — plus a pixel of padding and a pixel of border on each
-    // side. It is the line a line of text would be (ADR 0050 § 2), not the
-    // computed `normal` of 1.2 em, 19.2, which is what it was until queue
-    // item 467: Chrome's field is as tall as the font's line.
-    assert!(close(field.size.height, 20.0), "{field:?}");
+    // and no line gap — plus a pixel of padding and Chrome's 2 px of border
+    // on each side (queue item 505). It is the line a line of text would be
+    // (ADR 0050 § 2), not the computed `normal` of 1.2 em, 19.2, which is
+    // what it was until queue item 467: Chrome's field is as tall as the
+    // font's line.
+    assert!(close(field.size.height, 22.0), "{field:?}");
 }
 
 #[test]
 fn a_fields_line_is_the_line_height_it_set() {
     // A set line height is the line, on the grid of 1/64 px as a line of
     // text's is (ADR 0050 § 3): 1.23 at 16 px is 19.671875, floored. Smaller
-    // than the font, it is smaller still, as Chrome 154's field is.
+    // than the font, it is smaller still, as Chrome 154's field is. Around
+    // it, a pixel of padding and 2 of border on each side (queue item 505).
     for (line_height, line) in [("1.5", 24.0), ("1.23", 19.671_875), ("10px", 10.0)] {
         let html = "<body><input id=a></body>";
         let (boxes, layout) = lay_out(
@@ -1407,7 +1409,7 @@ fn a_fields_line_is_the_line_height_it_set() {
         );
         let field = rect_of(&boxes, &layout, "a", html);
         assert!(
-            close(field.size.height, line + 4.0),
+            close(field.size.height, line + 6.0),
             "{line_height}: {field:?}"
         );
     }

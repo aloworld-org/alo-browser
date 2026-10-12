@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Buttons and text fields look like Chrome's.** A button or a field had
+  a square one-pixel grey border. Chrome gives each a two-pixel border and
+  draws its own picture in that space: a thin grey edge with rounded
+  corners, over a light grey or white fill, paler when the control is
+  disabled. Both now match, measured from Chrome's screenshots, and a
+  button is the same height as Chrome's. A page that styles a control's
+  border or background gets exactly what it wrote, as in Chrome. Pages
+  whose fields use the browser's default font size are now 2 px further
+  from Chrome per field, because Chrome also gives a control a smaller
+  font of its own, which is queued.
+
 - **A form field is as tall as the line of text in it, as Chrome's is.**
   A field or a button was at least one-and-a-fifth of its font size tall
   inside, where Chrome makes it exactly as tall as a line of its text, in
