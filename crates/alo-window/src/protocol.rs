@@ -510,6 +510,13 @@ fn refused(refused: &Refused) -> Value {
             put("tab", Value::from(tab.as_str()));
             put("count", Value::from(*count));
         }
+        Refused::NotGranted { tab, site } => {
+            put("tab", Value::from(tab.as_str()));
+            // A site with no name is an identity of ours, and crosses as
+            // nothing rather than as a number nobody outside could use.
+            let named = site.host().map(|_| Value::from(site.to_string()));
+            put("site", named.unwrap_or(Value::Null));
+        }
         Refused::TreeTooDeep { tab, most } => {
             put("tab", Value::from(tab.as_str()));
             put("most", Value::from(*most));
@@ -763,6 +770,34 @@ mod tests {
              \"node\":4,\"tab\":\"t\"},\"said\":\"box#4 takes at most 3 characters, and the \
              text is 5 long\",\"v\":1}\n"
         );
+    }
+
+    #[test]
+    fn a_site_refused_crosses_as_its_name_and_a_site_with_none_as_null() {
+        let site = |text: &str| {
+            alo_renderer::site::Site::of(
+                &alo_url::parse(text).unwrap_or_else(|_| alo_url::Url::about_blank()),
+            )
+        };
+        let refused = |tab: &str| {
+            write(
+                None,
+                &Answer::Refused(Refused::NotGranted {
+                    tab: tab.to_owned(),
+                    site: site(tab),
+                }),
+            )
+        };
+        let named = refused("https://www.example.org/a");
+        assert!(
+            named.starts_with(
+                "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"NotGranted\",\
+                 \"site\":\"https://example.org\",\"tab\":\"https://www.example.org/a\"},"
+            ),
+            "{named}"
+        );
+        let none = refused("data:text/html,hi");
+        assert!(none.contains("\"site\":null,"), "{none}");
     }
 
     #[test]

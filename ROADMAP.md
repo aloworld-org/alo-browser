@@ -1732,8 +1732,14 @@ items where being right and being unusable are the same outcome.
 - [ ] Under grants, and recorded: what it read, what it did, on whose approval — `alo-os` ADR 0001's model reaching the web
       · Built: the record half for an agent outside the browser (queue item
       496): the browser process writes what each one read and did, refused
-      requests included, and nothing over the socket can read it.
-      · Owed: every grant — a site's (497) and `alo-os`'s (133)
+      requests included, and nothing over the socket can read it. A
+      person keeps every agent to the sites they name (`--agent-site`,
+      queue item 497): any other is refused by its site before a tab is
+      looked at, a redirect or a page that navigated itself is refused
+      where it ended, and every entry in the record names the site.
+      · Owed: `alo-os`'s grant (133); sites per agent rather than for every
+      agent at once, which needs an agent to have an identity the socket
+      does not give it
 - [ ] Agent-driven navigation, and a page that changes underneath an agent mid-action
 
 **Exit gate — two gates, met separately and dated separately** (ADR 0052). It
@@ -1752,7 +1758,8 @@ disappeared behind the larger.
       as a tree over the browser's socket, fills it and sends the order by
       name, and the record the browser process wrote says what it read and
       what it changed (`alo-window`'s `an_agent_outside_the_browser.rs`).
-      · Owed: a grant per site (497); loading where a verb leads, which is
+      An agent can be kept to the sites a person names (queue item 497).
+      · Owed: loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that
       adds a box (500); and Windows, which ADR 0055 leaves undecided.
 - [ ] **The person's gate.** A person uses it as their browser for a week and

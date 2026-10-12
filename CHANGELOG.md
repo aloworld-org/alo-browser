@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can be kept to the sites a person names.** Start the browser with
+  `alo --agent-site https://example.com`, once for each site, and every agent
+  speaking to it over its socket is refused every other site by name. The
+  refusal is a kind, `NotGranted`, with the site it refused, and it comes
+  before any tab is looked at. So it never says what else a person has open,
+  and the list of tabs leaves out what an agent may not reach. A tab is judged
+  by the page it shows. A redirect, or a page that sends itself elsewhere,
+  is refused where it ended up. Every entry in the record of what agents did
+  now names the site. This is the browser's own refusal, never a grant: it
+  only narrows what can already reach the browser.
+
 - **Decided: the last sixty-fourths of a pixel are fixed inside the layout
   library, not by rewriting it.** Where flexible columns or items share out
   space, this engine can still be up to 1/64 px a share from Chrome. alo

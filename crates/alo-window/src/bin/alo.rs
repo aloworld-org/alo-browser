@@ -4,14 +4,16 @@
 
 //! `alo`: the browser a person starts (ADR 0024 § 1).
 //!
-//! `alo [--frozen-fonts] [PAGE.html [SHEET.css ...]]` opens a window with one
-//! tab showing the page, or an empty tab if none is named. Closing the window
-//! closes every tab and stops every renderer.
+//! `alo [--frozen-fonts] [--agent-site ADDRESS ...] [PAGE.html [SHEET.css ...]]`
+//! opens a window with one tab showing the page, or an empty tab if none is
+//! named. Closing the window closes every tab and stops every renderer.
 //!
 //! An agent outside it reaches it over a socket under the person's runtime
 //! directory (ADR 0055), whose path is said on the terminal as the window
 //! opens. A browser that cannot place one still opens, and says why there is
-//! none.
+//! none. `--agent-site` keeps every agent to the sites named (queue item 497),
+//! and the terminal says so, in this browser's own words: it is a refusal of
+//! ours, not a grant of any system's.
 
 use alo_net::Pool;
 use alo_renderer::fetch_make::Network;
@@ -72,13 +74,20 @@ fn main() -> ExitCode {
     let mut refused = None;
     let mut listening = None;
     let ran = alo_window::window::run(|tell| {
-        match Conductor::start(Tabs::over(renderers), opening.fonts, network, tell) {
+        let sites = opening.agents.clone();
+        match Conductor::start_keeping_agents_to(
+            sites,
+            Tabs::over(renderers),
+            opening.fonts,
+            network,
+            tell,
+        ) {
             Ok(started) => {
                 let orders = started.orders();
                 // The first tab, before the window has a size: the conductor
                 // holds it until the window says one.
                 let _ = orders.send(first);
-                listening = listen(&orders);
+                listening = listen(&orders, &opening.agents);
                 conductor = Some(started);
                 orders
             }
@@ -108,7 +117,10 @@ fn main() -> ExitCode {
 /// Open the socket an agent speaks to, saying where it is or why there is
 /// none.
 #[cfg(unix)]
-fn listen(orders: &alo_window::inbox::Orders) -> Option<alo_window::agents::Listening> {
+fn listen(
+    orders: &alo_window::inbox::Orders,
+    sites: &alo_window::agent_sites::AgentSites,
+) -> Option<alo_window::agents::Listening> {
     let placed = alo_window::socket_place::prepared()
         .map_err(|why| why.to_string())
         .and_then(|path| {
@@ -121,6 +133,12 @@ fn listen(orders: &alo_window::inbox::Orders) -> Option<alo_window::agents::List
                 "alo: an agent reaches this browser at {}",
                 listening.path().display()
             );
+            if *sites != alo_window::agent_sites::AgentSites::Every {
+                eprintln!(
+                    "alo: this browser lets agents reach {sites}: a refusal of its own, \
+                     which narrows what reaches it and grants nothing"
+                );
+            }
             Some(listening)
         }
         Err(why) => {
@@ -141,7 +159,7 @@ fn stop_listening(listening: Option<alo_window::agents::Listening>) {
 /// No socket: on Windows how an agent reaches this browser is undecided
 /// (ADR 0055 § 1).
 #[cfg(not(unix))]
-fn listen(_: &alo_window::inbox::Orders) -> Option<()> {
+fn listen(_: &alo_window::inbox::Orders, _: &alo_window::agent_sites::AgentSites) -> Option<()> {
     eprintln!("alo: no agent can reach this browser: on Windows how one would is undecided");
     None
 }

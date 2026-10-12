@@ -26,6 +26,7 @@
 
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_renderer::Snapshot;
+use alo_renderer::site::Site;
 use core::fmt;
 
 /// The version of the protocol this browser speaks. A request names the one
@@ -186,6 +187,15 @@ pub enum Refused {
         /// What it was named by.
         tab: String,
     },
+    /// The address is on a site the person who started this browser did not
+    /// name for agents ([`crate::agent_sites`]). Judged before any tab is
+    /// looked at, so it says nothing about what is open there.
+    NotGranted {
+        /// The address asked for.
+        tab: String,
+        /// Its site.
+        site: Site,
+    },
     /// No open tab is at that address.
     NoSuchTab {
         /// The address asked for.
@@ -248,6 +258,7 @@ impl Refused {
             Refused::BadField { .. } => "BadField",
             Refused::FieldTooLong { .. } => "FieldTooLong",
             Refused::NotAnAddress { .. } => "NotAnAddress",
+            Refused::NotGranted { .. } => "NotGranted",
             Refused::NoSuchTab { .. } => "NoSuchTab",
             Refused::Ambiguous { .. } => "Ambiguous",
             Refused::NothingLoaded { .. } => "NothingLoaded",
@@ -324,6 +335,10 @@ impl fmt::Display for Refused {
                 write!(f, "{field:?} may hold at most {most} characters")
             }
             Refused::NotAnAddress { tab } => write!(f, "{tab:?} is not an address"),
+            Refused::NotGranted { tab, site } => write!(
+                f,
+                "agents may not reach {site}, where {tab} is: this browser keeps them to the sites its person named"
+            ),
             Refused::NoSuchTab { tab } => write!(f, "no tab is open at {tab}"),
             Refused::Ambiguous { tab, count } => {
                 write!(

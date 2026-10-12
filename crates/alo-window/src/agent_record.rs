@@ -15,7 +15,8 @@
 //!
 //! # What it says
 //!
-//! Which caller asked, at which tab, and what came of it: how much of which
+//! Which caller asked, at which tab, on which site, and what came of it: how
+//! much of which
 //! document was read, or the verb, what it was aimed at, the action it was
 //! given and its outcome or refusal — *what it read and what it changed*,
 //! which is ADR 0052's agent gate. A request refused before it reached a tab
@@ -30,6 +31,7 @@
 use crate::asking::Refused;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_net::cause::{ActionId, DocumentId};
+use alo_renderer::site::Site;
 use core::fmt;
 use std::collections::VecDeque;
 
@@ -86,6 +88,10 @@ pub struct Entry {
     pub caller: Caller,
     /// The tab it named, as it named it, if it named one.
     pub tab: Option<String>,
+    /// The site of the address it named, whenever that was an address —
+    /// which, for a read or a verb, is the site of the page it reached
+    /// (queue item 497). Refused or not, the site is said.
+    pub site: Option<Site>,
     /// What came of it.
     pub did: Did,
 }
@@ -95,6 +101,9 @@ impl fmt::Display for Entry {
         write!(f, "{}", self.caller)?;
         if let Some(tab) = &self.tab {
             write!(f, " at {tab}")?;
+        }
+        if let Some(site) = &self.site {
+            write!(f, " on {site}")?;
         }
         match &self.did {
             Did::Listed { tabs } => write!(f, ": listed {tabs} tabs"),
@@ -161,6 +170,7 @@ mod tests {
         Entry {
             caller: Caller(caller),
             tab: None,
+            site: None,
             did: Did::Refused(Refused::NotJson),
         }
     }
@@ -188,8 +198,23 @@ mod tests {
         let listed = Entry {
             caller: Caller(0),
             tab: None,
+            site: None,
             did: Did::Listed { tabs: 3 },
         };
         assert_eq!(listed.to_string(), "agent#0: listed 3 tabs");
+        let tab = "https://www.example.com/a";
+        let read = Entry {
+            caller: Caller(1),
+            tab: Some(tab.to_owned()),
+            site: alo_url::parse(tab).ok().map(|url| Site::of(&url)),
+            did: Did::Read {
+                document: None,
+                nodes: 4,
+            },
+        };
+        assert_eq!(
+            read.to_string(),
+            "agent#1 at https://www.example.com/a on https://example.com: read 4 nodes"
+        );
     }
 }

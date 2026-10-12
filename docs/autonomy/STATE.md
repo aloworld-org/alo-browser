@@ -30191,3 +30191,105 @@ what was decided and that its *Owed* waits on 501, 502 and 503.
 234 queue items are open (499 closed, 501–503 added). The next unused
 queue number is **504** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 307 — queue item 497 built: an agent is kept to the sites a person names
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 306's entry and the queue. No `AGENTS.md` exists in
+this checkout. The owner's commit 169cdf9 put 497 next. Its one dependency,
+496, is done, and it is not marked *needs ADR*. **For the item:** ADR 0055
+(§§ 6–8), ADR 0052 and its addendum (alo OS's two conditions), ADR 0026 (no
+agent makes a grant), ADR 0005 and `alo-renderer`'s `site.rs` (what a site
+is), `docs/contracts/agent-socket.md`, and `docs/features.md` stage 2's
+agent surface. `alo-os` was searched read-only for anything more on a
+per-site grant, and nothing was found beyond what ADR 0052 quotes.
+
+**Decided inside the ADR's bounds, and said here so it can be reviewed.**
+ADR 0055 § 8 settles that the restriction is per site, ours, and only
+narrows. It does not say who names the sites. ADR 0026 does: *no agent can
+make, answer or revoke* a grant. So the person names them when they start
+the browser (`--agent-site`), and nothing over the socket can name, widen
+or read them. The contract gains a refusal kind and a filtered `tabs`, and
+no new ask, so it stays version 1 and additive. Sites per agent would need a
+new ask or alo OS's grant, which is a real decision. That is cut to **504**
+(needs ADR) rather than made here.
+
+**Built.**
+- `alo-window/src/agent_sites.rs`, new, with one responsibility: which
+  sites agents may reach (`Every` or `Only`, ADR 0005's sites). An address
+  with no site is refused when it is named.
+- `serving.rs`: the address is read, then its site judged, then the tabs
+  looked at. `tabs` is filtered, and `NotGranted` is recorded with the site.
+- `asking.rs` and `protocol.rs`: `Refused::NotGranted { tab, site }`. A site
+  with none crosses as `null`.
+- `agent_record.rs`: `Entry::site`, and *"on SITE"* in its words.
+- `conductor.rs`: `Conductor::start_keeping_agents_to`. `start` keeps its
+  meaning, with `AgentSites::Every`.
+- `opening.rs` and `bin/alo.rs`: `--agent-site ADDRESS`. The terminal calls
+  it the browser's own refusal, which grants nothing.
+
+**Tests.**
+- `alo-window/tests/an_agent_kept_to_a_site.rs` (3 tests).
+  - From `alo-ask`, a separate process, to a conductor kept to httpbin. It
+    holds the frozen pizza form and a tab opened on httpbin, redirected to
+    `example.org`. The redirected tab is not listed. A read and a verb
+    there are each refused as `NotGranted` with
+    `"site":"https://example.org"`. Its opening address is `NoSuchTab`. The
+    form is read and filled as before.
+  - The record names the site of all five asks that named an address.
+  - Over real tabs, a page on httpbin follows its own link to
+    `example.org` as it loads. It is read until it goes. Once loaded where
+    it asked, as item 85 will load it, it is refused there and not listed.
+- Unit tests: 4 in `agent_sites.rs`, 4 in `serving.rs` (the order, the
+  list, a verb never reaching a tab, a non-address having no site), 1 in
+  `protocol.rs` (the wire shape), 2 in `opening.rs`, and one in
+  `agent_record.rs` extended to say the site.
+- `an_agent_outside_the_browser.rs` changed one assertion, for the record's
+  new words, *"on https://httpbin.org"*.
+
+**Found while testing, and not this item's.** Two tabs opened on one site
+share a renderer, which holds one page, so the second load replaces the
+first's page there. The test loads the form last for that reason and says
+so. It is the existing one-page-per-renderer rule, and no queue item was
+opened for it.
+
+**Gate, mechanical.** `cargo clippy -p alo-window --all-targets
+--all-features -D warnings` was clean first. Then `scripts/gate.sh` ran in
+the foreground into a scratchpad log. The harness moved it to the
+background at 600 s, and the next call waited on it with a foreground
+`until` loop. **Result: `exit 0`, "The gate is met. (10 of 10 steps)"**,
+with no `FAILED`, `panicked` or `^error` in the log. Only this entry was
+written after it.
+
+**Gate, manual.**
+- Nothing positions, sizes or draws differently, so no layout assertion or
+  reference render is owed. Only who may ask changed.
+- `agent_sites.rs` is a new file for the new responsibility. `serving.rs`
+  still answers from the tabs, and judging the site is part of finding the
+  tab.
+- `docs/features.md` gains the item's line in stage 2.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were read only.
+- Hostile bytes: a refused site adds no parsing. The address was already
+  parsed by `alo_url` and bounded at `MOST_ADDRESS`.
+
+**Queue.** 497 is ticked with its *Done* paragraph. **504** is added.
+
+**Roadmap.** Nothing ticked. The stage 2 *Under grants, and recorded* line's
+*Built* now includes 497. Its *Owed* is `alo-os`'s grant (133) and sites per
+agent. The agent's gate's note no longer owes 497. Also updated:
+`docs/contracts/agent-socket.md`, `docs/features.md`, `CHANGELOG.md` and
+`REMAINING.md`.
+
+**Unresolved obligations.**
+- 504 (sites per agent) needs an ADR.
+- A verb on a named site whose page then asks to go to another site is
+  answered with where it asked to go (`Followed`, `Submitted`), as before.
+  Whether the browser should refuse to *go* there on an agent's behalf
+  belongs to item 85, which loads where a verb leads.
+- The `alo` binary's own `--agent-site` path opens a window. It is put
+  together from pieces the tests prove, as 496's socket is.
+
+234 queue items are open (497 closed, 504 added). The next unused queue
+number is **505** and the next ADR is **0057**. This is one iteration, not a
+finished queue or roadmap.

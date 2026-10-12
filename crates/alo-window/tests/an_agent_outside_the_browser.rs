@@ -308,10 +308,9 @@ fn the_record_says_what_the_agent_read_and_what_it_changed() {
     assert!(entries.iter().all(|entry| entry.tab.as_deref() != Some("")));
     let words: Vec<String> = entries.iter().map(ToString::to_string).collect();
     assert!(
-        words.iter().any(
-            |line| line.starts_with(&format!("agent#0 at {FORM}: action#"))
-                && line.contains("put \"Ada Lovelace\"")
-        ),
+        words.iter().any(|line| line.starts_with(&format!(
+            "agent#0 at {FORM} on https://httpbin.org: action#"
+        )) && line.contains("put \"Ada Lovelace\"")),
         "{words:#?}"
     );
 }

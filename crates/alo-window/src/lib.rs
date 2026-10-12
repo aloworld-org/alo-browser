@@ -27,7 +27,8 @@
 //!   0055), at a place [`socket_place`] makes private; [`protocol`] reads and
 //!   writes its lines, the one file that names `serde_json`, into what
 //!   [`asking`] says they mean; [`serving`] answers them from the tabs on the
-//!   conductor's thread, and [`agent_record`] is what it records. The socket
+//!   conductor's thread, kept to the sites a person named in
+//!   [`agent_sites`], and [`agent_record`] is what it records. The socket
 //!   is a Unix one, and Windows is undecided (ADR 0055 § 1).
 //!
 //! # What it is not yet
@@ -38,6 +39,7 @@
 //! tab item 300.
 
 pub mod agent_record;
+pub mod agent_sites;
 #[cfg(unix)]
 pub mod agents;
 pub mod asking;

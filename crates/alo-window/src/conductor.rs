@@ -87,6 +87,7 @@
 //! it is dropped: the size that matters is the one the window is now.
 
 use crate::agent_record::AgentRecord;
+use crate::agent_sites::AgentSites;
 use crate::hold::{Holds, SHOWN_BEFORE_STYLE};
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::{News, Order};
@@ -155,11 +156,27 @@ impl Conductor {
         network: Network,
         tell: impl Fn(News) -> bool + Send + 'static,
     ) -> std::io::Result<Self> {
+        Self::start_keeping_agents_to(AgentSites::Every, tabs, fonts, network, tell)
+    }
+
+    /// Start one as [`Conductor::start`] does, answering agents outside the
+    /// browser only about the pages of `sites` (queue item 497).
+    ///
+    /// # Errors
+    ///
+    /// What the operating system said when it would not start a thread.
+    pub fn start_keeping_agents_to(
+        sites: AgentSites,
+        tabs: Tabs,
+        fonts: Fonts,
+        network: Network,
+        tell: impl Fn(News) -> bool + Send + 'static,
+    ) -> std::io::Result<Self> {
         let (orders, results, inbox) = inbox::inbox();
         let networking = Networking::start(network, results)?;
         let thread = std::thread::Builder::new()
             .name("alo-conductor".to_owned())
-            .spawn(move || conduct(tabs, fonts, networking, &inbox, &tell))?;
+            .spawn(move || conduct(tabs, fonts, sites, networking, &inbox, &tell))?;
         Ok(Self { orders, thread })
     }
 
@@ -223,11 +240,14 @@ struct Conducting {
     holds: Holds,
     /// What agents outside the browser read and did.
     agents: AgentRecord,
+    /// The sites they may reach.
+    sites: AgentSites,
 }
 
 fn conduct(
     tabs: Tabs,
     fonts: Fonts,
+    sites: AgentSites,
     networking: Networking,
     inbox: &Receiver<Arrival>,
     tell: &dyn Fn(News) -> bool,
@@ -244,6 +264,7 @@ fn conduct(
         fetches: Answering::new(),
         holds: Holds::new(),
         agents: AgentRecord::new(),
+        sites,
     };
     conducting.conduct(inbox, tell);
     // After the window has been told it closed: this waits for the exchange
@@ -360,7 +381,8 @@ impl Conducting {
                 vec![News::Closed]
             }
             Order::Agent { caller, ask, reply } => {
-                let Served { answer, acted } = serve(&mut self.tabs, &mut self.agents, caller, ask);
+                let Served { answer, acted } =
+                    serve(&mut self.tabs, &mut self.agents, &self.sites, caller, ask);
                 // Nobody to answer is a caller that has gone, which changes
                 // nothing about what was done or recorded.
                 let _ = reply.send(answer);

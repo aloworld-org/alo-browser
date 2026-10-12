@@ -12248,7 +12248,7 @@ What stage 2's exit gate actually measures: a person using it.
   opening, asserted on `web-a-form` and alo's Settings, and the contract's
   note about it is removed.
 
-- [ ] **497. ★ A grant per site, refused by us and recorded.** An agent granted
+- [x] **497. ★ A grant per site, refused by us and recorded.** An agent granted
   one site may not reach another, and the site is named in every record. *This
   is a refusal, not a grant, and the distinction is alo OS's and binding.*
   Their ADR 0001 requires a grant to be enumerated, visible, revocable and
@@ -12269,6 +12269,44 @@ What stage 2's exit gate actually measures: a person using it.
   by name, the refusal is not a string, the site appears in the record of every
   action, and a test shows the refusal holds for a redirect and for a page that
   navigates itself.
+  ***Done (iteration 307).*** A person names the sites when they start the
+  browser: `alo --agent-site ADDRESS`, once per site (`opening.rs`). ADR 0026
+  says no agent makes a grant, so nothing over the socket can name, widen or
+  read them. `agent_sites.rs` holds them as ADR 0005's sites, and refuses an
+  address with no site when it is named. Without the option nothing
+  narrows, so the socket's own grant is the ceiling, as alo OS's first
+  condition asks. In `serving.rs` the address is read, then its site judged,
+  and only then the tabs looked at. So `NotGranted { tab, site }` is the
+  answer whether that site has two tabs open or none, and `tabs` lists only
+  what an agent may reach. Every record entry carries the site of the
+  address it named, refused or not. A tab is judged by the page it shows,
+  since it is found by its page's address. The terminal calls this the
+  browser's own refusal, and grants nothing, which is the second condition.
+  *Tests:* `an_agent_kept_to_a_site.rs`. From `alo-ask`, a separate process,
+  over the frozen pizza form beside a tab opened on httpbin and redirected to
+  `example.org`: the redirected tab is not listed; a read and a verb there
+  are each refused as `NotGranted` with `"site":"https://example.org"`;
+  where it was opened is `NoSuchTab`; the form is read and filled as before;
+  and the record names the site of all five asks that named an address.
+  Over real tabs, a page on httpbin that follows its own link to
+  `example.org` as it loads is read until it goes. Once it is loaded where
+  it asked, as item 85 will load it, it is refused there and not listed.
+  Unit tests cover the order, the list, the wire shape (a site with none
+  is `null`) and the command line. The contract has the option, the kind
+  and the order.
+  *Found:* sites per agent is item 504.
+
+- [ ] **504. Sites per agent, not for every agent at once.** *Cut from 497
+  (iteration 307). Feature: `docs/features.md` stage 2, the agent surface.
+  Needs design.* `--agent-site` keeps every connected agent to the same
+  sites, because a connection is only a number (`Caller`). Nothing about it
+  says whose agent it is, or what task a person approved. Keeping two agents
+  to two different sets needs that identity from somewhere. It could come
+  from alo OS's grant (133) or from a connection narrowing itself before it
+  is handed to an agent, and the second would change the contract. Which of
+  the two is a decision, so it needs an ADR first. *Depends on 497. Closes
+  when:* two agents connected at once are kept to two different sites, each
+  refused the other's by name, asserted from two separate processes.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -16,9 +16,25 @@ A **Unix domain socket** held by the browser process, at
     $TMPDIR/alo-browser/agent.sock              (otherwise; macOS sets it per person)
 
 The directory is `0700` and the socket `0600`. Only processes running as the
-person who started the browser can open it. That is the only grant version 1
-checks, and the operating system enforces it. There is no port, and a page can
-never reach the socket.
+person who started the browser can open it. That is the grant everything else
+sits under, and the operating system enforces it. There is no port, and a page
+can never reach the socket.
+
+### Kept to sites
+
+A person may start the browser with `alo --agent-site ADDRESS`, as many times
+as there are sites. Every agent is then kept to the **sites** of those
+addresses. A site is the scheme and the registrable domain, so
+`https://example.com` covers `https://www.example.com` but not
+`http://example.com`. An address on any other site is refused as
+`NotGranted`, and so is a document with no site (`data:`, `about:blank`, a
+local file). Without the option, nothing here narrows what the socket allows.
+
+This is **this browser's own refusal, never a grant**. It only narrows: it
+cannot raise what lets a program open the socket, or any grant over the
+application made by the system it runs on, and it is not that system's grant.
+No agent can name, widen or read the sites. They hold for every agent
+connected and end when the browser does.
 
 `alo` prints the path when its window opens. When there is no private place,
 or another browser is already answering there, it says so and opens no socket.
@@ -66,7 +82,11 @@ belongs to another ask: a misspelt field is reported, never silently ignored.
 
 A tab is named **by its address, never by a number**. A position in the tab
 strip is a coordinate (ADR 0002). The address is read as a URL, so
-`https://Example.com` names the tab at `https://example.com/`.
+`https://Example.com` names the tab at `https://example.com/`. It is the
+address of the page the tab shows. A tab that was redirected, or whose page
+went somewhere else, is named by where it is now, not by where it was opened.
+
+When agents are kept to sites, `tabs` lists only the tabs on those sites.
 
 The answer is `{"answer":"tree","id":…,"tab":…,"tree":NODE,"v":1}`. `tree` is
 `null` for a page with nothing in it. A `NODE` is:
@@ -165,6 +185,7 @@ caller must never depend on it.
 | `BadField` | `field` | A field holds what it cannot, such as an unknown ask or verb, or a target that names nothing, two things, or a position |
 | `FieldTooLong` | `field`, `most` | |
 | `NotAnAddress` | `tab` | `tab` is not a URL |
+| `NotGranted` | `tab`, `site` | `tab` is on a site agents are kept from. `site` is `scheme://registrable-domain`, or `null` for a document with no site |
 | `NoSuchTab` | `tab` | No open tab is at that address |
 | `Ambiguous` | `tab`, `count` | More than one tab is at that address. None is picked for you |
 | `NothingLoaded` | `tab` | |
@@ -175,14 +196,16 @@ caller must never depend on it.
 Two kinds share the name `Ambiguous`, as ADR 0055 § 5 asks. The page's
 carries `target`, and the interface's carries `tab` and `count`.
 
-**Order.** A request is refused for what can be judged without a page, such as
-a malformed line or a name that is not an address, before any tab is looked
-at. A per-site grant (queue item 497) will be checked before that too.
+**Order.** A request is refused for what can be judged without a page before
+any tab is looked at. That covers a malformed line, a name that is not an
+address, and an address on a site agents are kept from. So `NotGranted` is
+the answer whether that site has two tabs open, one, or none.
 
 ## The record
 
 The browser process records every request: which connection asked, the tab it
-named, and what came of it. A read records how many nodes of which document it
+named, that address's site whenever it is an address, and what came of it. A
+refused request has its site recorded too. A read records how many nodes of which document it
 read. A verb records the target, the verb, the action id it was given, and its
 outcome or refusal. A refused request is recorded as refused.
 

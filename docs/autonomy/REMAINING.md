@@ -1934,3 +1934,16 @@ person), **502** (building on it; depends on 501 and a release) and
 **503** (flex `justify-content`'s rule; needs measuring). 234 queue items
 are open (499 closed, 501–503 added). The next unused queue number is 504
 and the next unused ADR 0057.
+
+Iteration 307 built queue item 497 on ADR 0055 § 8. A person keeps every
+agent outside the browser to the sites they name with `alo --agent-site
+ADDRESS` (`agent_sites.rs`, `opening.rs`). Any other site is refused as
+`NotGranted` with its site, before any tab is looked at (`serving.rs`). The
+list of tabs leaves out what an agent may not reach, and every record entry
+names the site. A tab is judged by the page it shows, so a redirect or a
+page that navigated itself is refused where it ended. It is ours, a refusal
+and never a grant, and it only narrows. `an_agent_kept_to_a_site.rs` proves
+it from a separate process and over real tabs. Found: **504** (sites per
+agent rather than for every agent; needs ADR). 234 queue items are open
+(497 closed, 504 added). The next unused queue number is 505 and the next
+unused ADR 0057.

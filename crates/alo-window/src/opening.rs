@@ -13,7 +13,13 @@
 //! The files are read **here, in the browser process**, which is the process
 //! allowed to open a file (ADR 0005); a renderer is handed the text and never
 //! learns a path.
+//!
+//! It is also where a person keeps agents outside the browser to the sites
+//! they name (`--agent-site`, queue item 497): a person's deliberate act,
+//! which no agent can make (ADR 0026), and ours alone — it only ever narrows
+//! what the socket already allows ([`crate::agent_sites`]).
 
+use crate::agent_sites::AgentSites;
 use crate::conductor::Fonts;
 use crate::message::Order;
 use alo_layout::Size;
@@ -22,7 +28,8 @@ use alo_url::Url;
 use std::path::{Path, PathBuf};
 
 /// How to use `alo`, as it is said when it was used wrongly.
-pub const USAGE: &str = "usage: alo [--frozen-fonts] [PAGE.html [SHEET.css ...]]";
+pub const USAGE: &str =
+    "usage: alo [--frozen-fonts] [--agent-site ADDRESS ...] [PAGE.html [SHEET.css ...]]";
 
 /// What was asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,6 +40,8 @@ pub struct Opening {
     pub page: Option<PathBuf>,
     /// The style sheets to give it, in the order they were named.
     pub sheets: Vec<PathBuf>,
+    /// The sites agents outside the browser may reach.
+    pub agents: AgentSites,
 }
 
 impl Opening {
@@ -43,27 +52,42 @@ impl Opening {
     /// committed render was — which is what lets a capture of the window be
     /// compared with a reference at all.
     ///
+    /// `--agent-site ADDRESS`, as often as there are sites, keeps every agent
+    /// outside the browser to the sites of those addresses. Without it, they
+    /// are kept to nothing narrower than the socket.
+    ///
     /// # Errors
     ///
-    /// [`USAGE`] with what was wrong, for an option that is not one or a
-    /// sheet with no page.
+    /// [`USAGE`] with what was wrong, for an option that is not one, an
+    /// `--agent-site` with no address or one that has no site, or a sheet
+    /// with no page.
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let mut fonts = Fonts::AsAsked;
         let mut files = Vec::new();
-        for argument in arguments {
+        let mut sites = Vec::new();
+        let mut arguments = arguments.into_iter();
+        while let Some(argument) = arguments.next() {
             if argument == "--frozen-fonts" {
                 fonts = Fonts::AsStarted;
+            } else if argument == "--agent-site" {
+                let Some(address) = arguments.next() else {
+                    return Err(format!("--agent-site names no address\n{USAGE}"));
+                };
+                sites.push(address);
             } else if argument.starts_with("--") {
                 return Err(format!("{argument:?} is not an option\n{USAGE}"));
             } else {
                 files.push(PathBuf::from(argument));
             }
         }
+        let agents = AgentSites::named(sites.iter().map(String::as_str))
+            .map_err(|why| format!("--agent-site: {why}\n{USAGE}"))?;
         let mut files = files.into_iter();
         Ok(Self {
             fonts,
             page: files.next(),
             sheets: files.collect(),
+            agents,
         })
     }
 
@@ -149,6 +173,39 @@ mod tests {
     }
 
     #[test]
+    fn agents_are_kept_to_the_sites_a_person_names() {
+        let opening = Opening::from_arguments(arguments(&[
+            "--agent-site",
+            "https://example.com",
+            "page.html",
+            "--agent-site",
+            "https://shop.example.org/",
+        ]))
+        .expect("these are arguments");
+        assert_eq!(opening.page, Some(PathBuf::from("page.html")));
+        assert_eq!(
+            opening.agents.to_string(),
+            "only https://example.com, https://example.org"
+        );
+        let nothing = Opening::from_arguments(arguments(&[])).expect("no arguments is fine");
+        assert_eq!(nothing.agents, AgentSites::Every);
+    }
+
+    #[test]
+    fn a_site_that_is_not_one_is_refused_before_the_window_opens() {
+        let refused = |words: &[&str]| Opening::from_arguments(arguments(words));
+        assert!(refused(&["--agent-site"]).is_err_and(|why| why.contains("names no address")));
+        assert!(
+            refused(&["--agent-site", "nowhere"])
+                .is_err_and(|why| why.contains("\"nowhere\" is not an address"))
+        );
+        assert!(
+            refused(&["--agent-site", "data:text/html,hi"])
+                .is_err_and(|why| why.contains("opaque"))
+        );
+    }
+
+    #[test]
     fn an_option_that_is_not_one_is_refused_by_name() {
         let refused = Opening::from_arguments(arguments(&["--fonts"]));
         assert!(refused.is_err_and(|why| why.contains("\"--fonts\"") && why.contains(USAGE)));
@@ -161,6 +218,7 @@ mod tests {
             fonts: Fonts::AsStarted,
             page: Some(case.join("page.html")),
             sheets: vec![case.join("style.css")],
+            agents: AgentSites::Every,
         };
         let Ok(Order::Open {
             url,
@@ -182,6 +240,7 @@ mod tests {
             fonts: Fonts::AsAsked,
             page: Some(PathBuf::from("/nowhere/at/all.html")),
             sheets: Vec::new(),
+            agents: AgentSites::Every,
         };
         assert!(
             opening
