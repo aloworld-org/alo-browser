@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A form field is as tall as the line of text in it, as Chrome's is.**
+  A field or a button was at least one-and-a-fifth of its font size tall
+  inside, where Chrome makes it exactly as tall as a line of its text, in
+  whole pixels. alo Settings now lays out exactly as Chrome 154 lays it out,
+  box for box, and so does a small sign-in form; across the test pages 855
+  of 1,260 boxes match Chrome to a sixty-fourth of a pixel, where 807 did.
+  A button is still 2 px shorter than Chrome's, because Chrome gives it a
+  thicker border that it draws as its own picture, which is queued.
+
 - **There will be something to install before there is something to browse.**
   The roadmap says no packaging begins until a person has used this as their
   browser for a week, and the owner has made an explicit exception: a Mac

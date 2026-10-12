@@ -1385,11 +1385,32 @@ fn an_empty_field_is_still_one_line_tall() {
     let html = "<body><input id=a></body>";
     let (boxes, layout) = lay_out(html, "", Size::new(400.0, 300.0));
     let field = rect_of(&boxes, &layout, "a", html);
-    // A line is 19.2 — one and a fifth of the sixteen-pixel default font —
-    // plus a pixel of padding and a pixel of border on each side. The box
-    // holding the line is on the grid, so 19.1875 of it (ADR 0054 § 3); a
-    // real font's `normal` line is whole pixels, which is item 467's.
-    assert!(close(field.size.height, 23.1875), "{field:?}");
+    // A line of the test font is 16 — 12 above the baseline and 4 below,
+    // and no line gap — plus a pixel of padding and a pixel of border on each
+    // side. It is the line a line of text would be (ADR 0050 § 2), not the
+    // computed `normal` of 1.2 em, 19.2, which is what it was until queue
+    // item 467: Chrome's field is as tall as the font's line.
+    assert!(close(field.size.height, 20.0), "{field:?}");
+}
+
+#[test]
+fn a_fields_line_is_the_line_height_it_set() {
+    // A set line height is the line, on the grid of 1/64 px as a line of
+    // text's is (ADR 0050 § 3): 1.23 at 16 px is 19.671875, floored. Smaller
+    // than the font, it is smaller still, as Chrome 154's field is.
+    for (line_height, line) in [("1.5", 24.0), ("1.23", 19.671_875), ("10px", 10.0)] {
+        let html = "<body><input id=a></body>";
+        let (boxes, layout) = lay_out(
+            html,
+            &format!("#a {{ line-height: {line_height} }}"),
+            Size::new(400.0, 300.0),
+        );
+        let field = rect_of(&boxes, &layout, "a", html);
+        assert!(
+            close(field.size.height, line + 4.0),
+            "{line_height}: {field:?}"
+        );
+    }
 }
 
 #[test]
@@ -1404,11 +1425,10 @@ fn a_field_with_something_in_it_is_tall_enough_for_it() {
         Size::new(400.0, 300.0),
     );
     let field = rect_of(&boxes, &layout, "a", html);
-    // A line of 19.2, sixteen of padding, two of border. The line rather than
+    // A line of 16, sixteen of padding, two of border. The line rather than
     // the text: a line box is as tall as its line height, which is what stops
-    // a field's own text touching its border. The box holding the line is on
-    // the grid, 19.1875 of it (ADR 0054 § 3).
-    assert!(close(field.size.height, 37.1875), "{field:?}");
+    // a field's own text touching its border.
+    assert!(close(field.size.height, 34.0), "{field:?}");
 }
 
 #[test]
@@ -2373,21 +2393,19 @@ fn a_button_stands_on_its_labels_baseline() {
     let css = "#b { padding: 0; border: 0; margin: 0 }";
     let html = "<body><div id=w><span id=t>ab </span><button id=b>Go</button></div></body>";
     let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
-    // The button is one `normal` line tall, 19.2, with its 16-pixel label
-    // centred 1.6 down — so the label's baseline is 13.6 down, and the text
-    // beside it stands there too. Its bottom edge would have put the text at
-    // 7.2 and the line at 23.2. The button's edges are on the grid (ADR 0054
-    // § 3), so it is 19.1875 of that line; a real font's `normal` line is
-    // whole pixels, which is item 467's. The label's centring is a share of
-    // free space, 1.6 truncated to 1.59375, and the text beside it follows.
+    // The button is one `normal` line tall: the test font's 12 above and 4
+    // below, 16, as a line of its label is (queue item 467). So its label
+    // fills it, its baseline 12 down, and the text beside it stands there
+    // too, at the top. Its bottom edge would have put the text 4 down and
+    // the line at 20.
     assert_eq!(
         rect_of(&boxes, &layout, "b", html),
-        Rect::new(24.0, 0.0, 16.0, 19.1875)
+        Rect::new(24.0, 0.0, 16.0, 16.0)
     );
     let text = rect_of(&boxes, &layout, "t", html);
-    assert!(close(text.top(), 1.593_75), "{text:?}");
+    assert!(close(text.top(), 0.0), "{text:?}");
     let block = rect_of(&boxes, &layout, "w", html);
-    assert!(close(block.size.height, 19.1875), "{block:?}");
+    assert!(close(block.size.height, 16.0), "{block:?}");
 }
 
 /// Queue item 286: an `inline-block` holding blocks is one atomic box on

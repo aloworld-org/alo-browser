@@ -230,7 +230,9 @@ fn a_cancelled_beforeinput_leaves_the_field_as_it_was_and_answers_so() {
         assert_eq!(value(&renderer).as_deref(), Some("kept"));
         let tree = outline(&mut renderer);
         assert!(
-            tree.contains("textbox \"Field\" at (8, 51) 209.59375×23.1875\n    text \"kept\""),
+            // A line of 16 px text, 15 and 4, inside a pixel of padding and of
+            // border on each side (item 467).
+            tree.contains("textbox \"Field\" at (8, 51) 209.59375×23\n    text \"kept\""),
             "the agent reads the field as it was:\n{tree}"
         );
     }

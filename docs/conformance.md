@@ -68,16 +68,22 @@ way. What is drawn is still the font's height. `normal` is the font's
 ascent, descent and line gap; the corpus's faces have no gap. Of the 1,214
 element boxes in the corpus measured against Chrome with the same fonts,
 835 now have Chrome's top and height to 1/64 px, where 498 did. A fallback
-font on a `normal` line does not yet add its own room (465), and a control's
-own line at `normal` is still 1.2 em rather than its font's whole pixels
-(467). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
+font on a `normal` line does not yet add its own room (465). A control's
+own line is the line its text would be (467), where it was 1.2 em: a
+field or a button is its font's whole pixels inside its padding, as
+Chrome's is, so `a-filled-form` and alo Settings are Chrome's to the unit.
+A button's and a field's border are 1 px here and 2 in Chrome (505), a
+control's font is the page's here and 13.33 px in Chrome (506), and a date
+field's line is 2 px shorter than Chrome's (507). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
 length, a percentage and a `calc()` are each truncated toward zero onto it,
 a run of text's width is rounded up, and a box's edges are placed on it as
 they are read back, so centring, auto margins and flexible tracks put each
 edge where Chrome does. Measured again with the same fonts, 707 of the
 corpus's 1,260 element boxes have Chrome's left, top, width and height
-exactly, where 514 did before; `alo-sites-booking`'s are all Chrome's but
-what its date field's own line moves (467). What the grid cannot reach yet
+exactly, where 514 did before, and 855 since item 467 (measured in
+standards mode: the earlier counts put Chrome in quirks mode for cases with
+no `</head>`, and were 807 there); `alo-sites-booking`'s are all Chrome's
+but what its date field's own line moves (507). What the grid cannot reach yet
 is what `taffy` decides between its own passes (499): the mini-month's
 columns are their ideal edges floored, 1,837 and 1,838 units, where Chrome
 sizes them again and makes every one 1,838, and the shares of flexible

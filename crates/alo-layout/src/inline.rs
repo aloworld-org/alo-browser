@@ -1166,6 +1166,17 @@ pub fn empty_line_baseline(strut: &TextStyle, measurer: &impl MeasureText) -> f3
     reach_of(strut, measurer).above
 }
 
+/// How tall a line holding nothing but the strut would be: the line height
+/// that was set, or with `normal` the font's whole-pixel ascent, descent and
+/// line gap (ADR 0050 §§ 1–3).
+///
+/// It is what a form control is at least one of (queue item 467), so a
+/// field with nothing typed in it is as tall as it is with something.
+pub fn empty_line_height(strut: &TextStyle, measurer: &impl MeasureText) -> f32 {
+    let reach = reach_of(strut, measurer);
+    reach.above + reach.below
+}
+
 /// How far text in this style takes room above and below its baseline
 /// (ADR 0050 §§ 2 and 4).
 ///
@@ -1521,6 +1532,36 @@ mod tests {
             ..TextStyle::default()
         };
         assert_eq!(one_line(&set, &Gapped), (16.0, 12.0, 0.0));
+    }
+
+    #[test]
+    fn an_empty_line_is_as_tall_as_a_line_holding_only_its_strut() {
+        // Queue item 467: what a form control is at least one of. `normal`
+        // is the font's ascent, descent and line gap; a set line height is
+        // itself, smaller than the font or not; and either way it is the
+        // height a line of text in that style would have.
+        let gapped = |style: &TextStyle| empty_line_height(style, &Gapped);
+        assert!(close(
+            empty_line_height(&TextStyle::default(), &BlockFont),
+            16.0
+        ));
+        assert!(close(gapped(&TextStyle::default()), 19.0));
+        for set in [24.0, 19.671_875, 9.0] {
+            let style = TextStyle {
+                line_height: Some(set),
+                ..TextStyle::default()
+            };
+            assert!(close(gapped(&style), set), "{set}");
+        }
+        for style in [
+            TextStyle::default(),
+            TextStyle {
+                line_height: Some(21.5),
+                ..TextStyle::default()
+            },
+        ] {
+            assert!(close(gapped(&style), one_line(&style, &Gapped).0));
+        }
     }
 
     #[test]

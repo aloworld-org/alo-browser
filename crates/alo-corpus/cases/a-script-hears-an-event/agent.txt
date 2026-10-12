@@ -1,6 +1,6 @@
-document at (0, 0) 320×108.796875
-  button "Pick" at (12, 12) 41.84375×20.796875
-  paragraph at (8, 44.796875) 304×24
-    text "section1 div1 button2 n once div3 true" at (12, 48.796875) 272.40527×16
-  paragraph at (8, 76.796875) 304×24
-    text "section1 div1 button2 n div3 true" at (12, 80.796875) 234.20605×16
+document at (0, 0) 320×108
+  button "Pick" at (12, 12) 41.84375×20
+  paragraph at (8, 44) 304×24
+    text "section1 div1 button2 n once div3 true" at (12, 48) 272.40527×16
+  paragraph at (8, 76) 304×24
+    text "section1 div1 button2 n div3 true" at (12, 80) 234.20605×16

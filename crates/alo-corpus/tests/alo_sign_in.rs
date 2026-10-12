@@ -147,10 +147,12 @@ fn the_email_field_draws_its_hint_where_its_text_will_be() {
     assert!(near(field.origin.y, 212.0), "{field:?}");
     assert_eq!(field.size, Size::new(400.0, 46.0));
     // At the content edge, a border and `--space-4` in: 527. Down it, the
-    // field's 16.8 line in the middle of its 44 of content, 13.6 below the
-    // border, and the run at that line's top, 14 px text's 13 and 3 tall.
+    // field's line in the middle of its 44 of content, 14 below the border,
+    // and the run at that line's top. The line is 14 px text's 13 and 3,
+    // as a line of it is; it was the computed 16.8 until item 467, which
+    // put the hint 13.6 below the border.
     assert!(near(hint.origin.x, 527.0), "{hint:?}");
-    assert!(near(hint.origin.y, 212.0 + 1.0 + 13.6), "{hint:?}");
+    assert!(near(hint.origin.y, 212.0 + 1.0 + 14.0), "{hint:?}");
     assert!(near(hint.size.height, 16.0), "{hint:?}");
 }
 

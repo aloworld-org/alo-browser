@@ -120,16 +120,18 @@ fn what_a_script_appends_is_in_the_next_render_in_numbers() {
     let (Some(drawing), Some(document)) = (renderer.rendered(), renderer.document()) else {
         panic!("nothing was rendered");
     };
+    // The field is one line of its text tall, as a line of that text is
+    // (item 467): 16, inside a pixel of padding and of border on each side.
     assert_eq!(
         drawing.layout.to_outline(&drawing.boxes),
-        "block flow · document → 300×60.796875 at (0, 0)\n\
-         \x20 block flow · generic → 300×60.796875 at (0, 0)\n\
+        "block flow · document → 300×60 at (0, 0)\n\
+         \x20 block flow · generic → 300×60 at (0, 0)\n\
          \x20   block flow · generic → 300×20 at (0, 0)\n\
          \x20     text \"changed\" → 60.40918×16 at (0, 0)\n\
-         \x20   block flow · textbox \"Made by script\" → 126×20.796875 at (0, 20)\n\
-         \x20     anonymous → 120×16.796875 at (3, 22)\n\
-         \x20   block flow · generic → 300×20 at (0, 40.796875)\n\
-         \x20     text \"second\" → 49.929688×16 at (0, 40.796875)\n",
+         \x20   block flow · textbox \"Made by script\" → 126×20 at (0, 20)\n\
+         \x20     anonymous → 120×16 at (3, 22)\n\
+         \x20   block flow · generic → 300×20 at (0, 40)\n\
+         \x20     text \"second\" → 49.929688×16 at (0, 40)\n",
         "the field the script made sits between the two blocks, and the text \
          it changed is drawn",
     );
@@ -307,7 +309,7 @@ fn a_resize_lays_out_the_document_the_page_has_not_its_markup() {
     };
     let laid = drawing.layout.to_outline(&drawing.boxes);
     assert!(
-        laid.starts_with("block flow · document → 150×60.796875 at (0, 0)"),
+        laid.starts_with("block flow · document → 150×60 at (0, 0)"),
         "{laid}"
     );
     assert!(laid.contains("textbox \"Made by script\""), "{laid}");

@@ -7606,7 +7606,7 @@ The long pole, and the thing most of section E is unreachable without.
   fits enough measured lines that a line it was not fitted to confirms
   it, and a frozen line of each distribution is Chrome's to the unit.
 
-- [ ] **467. A control's own line at `normal` is its font's whole pixels.**
+- [x] **467. A control's own line at `normal` is its font's whole pixels.**
   *Found building 460 (iteration 293). Feature: `docs/features.md` stage
   1, forms. Depends on 460 (done).* A button or a field holds what it shows
   in a box at least one line tall (`alo-layout`'s `control_line`), and that
@@ -7617,6 +7617,82 @@ The long pole, and the thing most of section E is unreachable without.
   Needs the measurer where `control_content_style` and `field_line_offset`
   are, and Chrome's button padding checked. *Closes when:* those two
   cases' controls are Chrome's height to 1/64 px.
+  ***Done (iteration 308), with the button's border cut to 505.*** A
+  control's line is now the line a line of its text would be:
+  `inline::empty_line_height`, from the same `reach_of` its lines are laid
+  out with, asked of the measurer for the control's strut. That is the
+  line height set, on the 1/64 grid, or with `normal` the font's
+  whole-pixel ascent, descent and line gap. `control_content_style` and
+  `field_line_offset` take the measurer (`Arena::measure`). *Measured in
+  Chrome 154 with the corpus's font,* 150 controls (a button, a field, a
+  submit, a checkbox and a list, each at 10 to 24 px and at `normal`,
+  `1.5` and `20px`): a button and a field are each their line, a pixel of
+  padding and **2 px of border** on each side, so 16 px `normal` is 25. A
+  button's padding is 1px 6px, as here. *Closed:* `a-filled-form`'s
+  fields are 19, Chrome's, and every one of its boxes is Chrome's to the
+  unit (`a_controls_own_line.rs`). `a-script-hears-an-event`'s button is
+  18 inside its border, as Chrome's is. It is 20 tall where Chrome's is 22,
+  and the 2 px are its border, 1 here and 2 in Chrome, which needs a
+  button's own picture to draw: that is 505. *Measured over the whole
+  corpus*, in standards mode: 855 of 1,260 element boxes are Chrome's
+  exactly, where 807 were. 92 came nearer and 7 went further, and the 7
+  are all that button's border. `alo-settings` went from 35 of 38 boxes
+  off Chrome's to none, and `alo-offline` from 5 of 7 to none.
+  `a-filled-form`'s render is 5.4 from Chrome's screenshot on average,
+  where it was 10.0. *Evidence:* a unit test of `empty_line_height` (a
+  line gap, set heights above and below the font, and equal to a line of
+  text); `numbers.rs` (an empty field, a filled one, a set line height,
+  and a button on its label's baseline); six corpus references and three
+  window references rewritten; eight assertions in `alo-agent`,
+  `alo-renderer`, `alo-window` and `alo-corpus` moved to the rule. A
+  mutation back to the computed line height fails both corpus tests and
+  three layout tests. *Found:* 505 (a control's border and picture), 506
+  (a control's own font), 507 (a date field's line). Also found: iteration
+  305's corpus counts were taken with Chrome in quirks mode for the cases
+  with no `</head>`, because the probe's sheets went before the doctype.
+  It said 707 where standards mode gives 807. The counts here are in
+  standards mode.
+
+- [ ] **505. A button's and a field's border are Chrome's 2 px, drawn as
+  Chrome draws a control.** *Cut from 467 (iteration 308). Feature:
+  `docs/features.md` stage 1, a form control draws its state. Needs
+  measuring.* Chrome 154 computes `2px outset` for a `<button>` and an
+  `<input type=submit>`, and `2px inset` for a text field, each in
+  `rgb(118, 118, 118)` or black. It does not draw that border. At 1× it
+  draws a 1 px `#767676` edge with rounded corners, and the button's
+  `#efefef` fill reaches into the second pixel. The user-agent sheet here
+  says `1px solid #767676`. So `a-script-hears-an-event`'s button is 20
+  tall where Chrome's is 22, with its inside Chrome's 18, and every
+  unstyled field is 2 short of Chrome's. A 2 px border in the sheet alone would be
+  drawn as two pixels of grey, or as two tones for `outset`. Needs: the
+  picture, measured at 8× (the corner's radius, the edge's colour, a
+  disabled control, a field), drawn by `alo-paint` as `toggle.rs` draws a
+  checkbox. An author's own border still replaces both. *Closes when:*
+  `a-script-hears-an-event`'s button is 22 tall and drawn within a
+  measured bound of Chrome's screenshot.
+
+- [ ] **506. A control's own font is Chrome's 13.33 px.** *Found building
+  467 (iteration 308). Feature: `docs/features.md` stage 1, forms. Needs
+  measuring.* Chrome 154 computes a `font-size` of 13.3333px for an
+  `<input>`, a `<button>`, a `<textarea>` and a `<select>`, whatever the
+  page's own size is, with Arial for each and `monospace` for a
+  `<textarea>`. Here a control inherits the page's font. So `web-a-form`'s
+  16 px fields are 23 tall here and 21 in Chrome, with 505's border, and
+  37.6 px wider, since `20ch` is measured in that font. Needs: which family stands for Arial
+  here (`system-ui` maps to `DejaVu Sans` in the corpus), and whether the
+  size is 13.3333 or 40/3 on the 1/64 grid. *Closes when:* `web-a-form`'s
+  fields are Chrome's height and width to 1/64 px.
+
+- [ ] **507. A date field's line is 2 px taller than a text field's.**
+  *Found building 467 (iteration 308). Feature: `docs/features.md` stage
+  1, forms (ADR 0042). Needs measuring.* In Chrome 154, at 16 px with no
+  padding and no border, a text field is 19 tall and a date field 21. With
+  `line-height: 30px` they are 30 and 32. So `alo-sites-booking`'s date
+  field is 48.375 here and 50.375 in Chrome, and so are the 6 of its 16
+  boxes that are not Chrome's. Item 467 did not move them. Needs: where
+  Chrome's 2 px are (its edit's own padding, likely), and whether `time`,
+  `month`, `week` and `datetime-local` share them (388). *Closes when:*
+  `alo-sites-booking`'s boxes are all Chrome's to 1/64 px.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

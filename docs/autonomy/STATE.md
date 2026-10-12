@@ -30293,3 +30293,145 @@ agent. The agent's gate's note no longer owes 497. Also updated:
 234 queue items are open (497 closed, 504 added). The next unused queue
 number is **505** and the next ADR is **0057**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 308 — queue item 467 built: a control's own line is the line its text would be
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 307's entry, `REMAINING.md` and the queue. No
+`AGENTS.md` exists in this checkout. The owner committed 0136909 while
+this iteration was choosing: 87 (Shadow DOM) opened for an ADR and 477
+(the Mac app) unblocked on 296. Neither moved the choice. Iterations 305
+and 306 found every open item up to 499 blocked, waiting for a page or
+waiting on a dependency. After 499, 501 is blocked on a person and 502
+waits on it. 503 must be measured, and then its code goes through 502's
+hook, so it cannot close. **467 is the first item after that whose
+dependency is done**: 460 (done). It has a closing condition, and it can be
+measured here. 85 and 87 (each *needs ADR*) and 500 come later in the
+file. **For the item:** ADR 0050 (§§ 1–4, and § 5 on what stays exact),
+ADR 0054 (the 1/64 grid), item 460's record, `docs/features.md` stage 1
+(*a form control holds what it shows in a box of its own*), and
+`alo-layout`'s `engine.rs`, `inline.rs`, `line_height.rs` and `arena.rs`.
+
+**Measured, in Chrome 154 with the corpus's `DejaVu Sans`**, headless, in
+scratchpad probes kept nowhere. There were 150 controls: a button, a text
+field, a submit, a checkbox and a `<select>`, each at 10, 12, 13, 13.3,
+14, 15, 16, 17, 20 and 24 px, at `normal`, `1.5` and `20px`. A button and
+a field are each their line, as ADR 0050 builds a line of text, plus a
+pixel of padding and **2 px of border** on each side. A 16 px `normal`
+control is 25. A button's padding is `1px 6px`, as here. Chrome computes
+`2px outset` for a button and `2px inset` for a field, and at 1× draws
+neither: it draws a 1 px `#767676` rounded edge, and the button's
+`#efefef` fill reaches into the second pixel. Every control's computed
+font is 13.3333px. A date field is 2 px taller than a text field with the
+same line.
+
+**Built**, in `alo-layout`:
+- `inline.rs`: `empty_line_height`, the height of a line holding only
+  the strut, from the same `reach_of` the lines are laid out with.
+- `engine.rs`: `control_line` asks for it, for the control's strut,
+  where it was the computed `line-height` (1.2 em at `normal`).
+  `control_content_style`, `style_for`, `field_line_offset` and
+  `lines_start_down` take the measurer.
+- `arena.rs`: `Arena::measure`, so `build` can hand the measurer to
+  `style_for`.
+
+**Cut, not built.** A button's 2 px border cannot be fixed in the sheet
+alone. Chrome draws a picture, not that border, so it needs a button's own
+picture, as `toggle.rs` gives a checkbox. That is **505**. So the closing
+condition is met for `a-filled-form` and only inside the border for
+`a-script-hears-an-event`. Its button is 18 inside its border, as
+Chrome's is, and 20 tall where Chrome's is 22. Item 467's *Done* says so.
+
+**Found:** **505** (a control's 2 px border, drawn as Chrome's picture),
+**506** (a control's own 13.33 px font: `web-a-form`'s fields are 23 here
+and 21 in Chrome), and **507** (a date field's 2 px taller line, which is
+all that is left in `alo-sites-booking`). Before this, `features.md`,
+`ROADMAP.md` and `conformance.md` blamed 467 for that remainder, and 467
+did not move it. Also: the whole-corpus Chrome probe from iteration 293,
+reused by 305, injected its sheets before `<!DOCTYPE html>` when a page
+has no `</head>`, so Chrome measured those cases in quirks mode. Measured
+in standards mode, the count before this item is 807, not 305's 707. The
+roadmap and conformance notes now say so.
+
+**Tests.**
+- `alo-corpus/tests/a_controls_own_line.rs` (new, 2 tests).
+  `a-filled-form`'s fields are 19, and the fields, labels and form stand
+  at Chrome's y to 1/64 px. `a-script-hears-an-event`'s button is
+  Chrome's 18 inside its border, and 20 tall until 505.
+- A unit test of `empty_line_height` in `inline.rs`: a line gap, set
+  heights above and below the font, and equal to a line of text.
+- `numbers.rs`: a new test, a field's line is the line height it set
+  (`1.5`, `1.23` floored on the grid, and `10px`). Three tests rewritten
+  to the rule: an empty field is 20 (16 + 4), a filled one 34, and a
+  button on its label's baseline is 16.
+- Rewritten to the rule, each with its reason: `alo_sign_in.rs` (the hint
+  is 14 below the border, not 13.6), `an_agent_on_somebody_elses_page.rs`
+  (the textarea is 0.75 higher), `reading_an_interface.rs`,
+  `an_agents_text.rs`, `what_a_listener_hears.rs` (which also says
+  Chrome's paragraphs are 2 lower until 505), `what_a_script_left.rs`,
+  `an_agent_on_settings.rs` (rows are 0.90625 below a pixel, not
+  0.09375) and `an_agent_outside_the_browser.rs`.
+- **Reference renders** rewritten with `ALO_UPDATE_REFERENCES=1`, the old
+  ones backed up first. The six corpus cases were `a-filled-form`,
+  `a-script-hears-an-event`, `alo-offline`, `alo-settings`, `alo-sign-in`
+  and `web-a-form` (with `filled.png`). Three `alo-window` references
+  compose `alo-offline`. `a-filled-form`'s render is 5.4 from Chrome's
+  screenshot on average, where it was 10.0. No moved case has a committed
+  `chrome.png`.
+- **Mutation:** `control_line` put back to the computed line height fails
+  both corpus tests and three layout tests. `engine.rs` was restored from
+  a scratchpad copy. The new set-line-height test does not catch that
+  mutation, because the grid truncates 19.68 to 19.671875. It guards the
+  set-height path, not the `normal` one.
+- **Whole corpus against Chrome**, in standards mode: 855 of 1,260
+  element boxes are Chrome's exactly, where 807 were. 92 came nearer and
+  7 went further. The 7 are all `a-script-hears-an-event`, 128 units
+  each: the button's missing 2 px of border, which 1.2 em had been hiding.
+  None of the 7 was within 2 units of Chrome before. `alo-settings` went
+  from 35 of 38 boxes off Chrome's to none, `alo-offline` from 5 of 7 to
+  none, and `a-filled-form` from 8 of 9 to none.
+
+**Gate, mechanical.** `cargo clippy --workspace --all-targets
+--all-features -- -D warnings` was clean. `cargo test --workspace
+--all-features --no-fail-fast` ran first, detached. It failed one target,
+`an_agent_on_settings`, which was fixed and passes. Then `scripts/gate.sh`
+ran in the foreground into a scratchpad log. The harness moved it to the
+background at 600 s, and the next call waited on it with a foreground
+`until` loop. **Result: `exit 0`, "The gate is met. (10 of 10 steps)"**,
+with no `FAILED`, `panicked` or `^error` in the log. Only this entry and
+`REMAINING.md`'s paragraph were written after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: yes, as listed above, against Chrome's
+  numbers where a case has them.
+- Reference renders: yes, rewritten and compared as above.
+- One file, one responsibility: the new function sits in `inline.rs`
+  beside `empty_line_baseline`, and both answer from `reach_of`. The
+  engine only asks it. The temporary `alo-corpus/examples/boxes.rs` was
+  moved out before the gate.
+- `docs/features.md` has the line, under *a form control holds what it
+  shows*. `conformance.md` and `CHANGELOG.md` are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched.
+- Hostile bytes: nothing new reads outside bytes. A hostile `line-height`
+  was already bounded where a line uses it (`a_hostile_line_height.rs`
+  passes).
+
+**Queue.** 467 is ticked with its *Done* paragraph. **505, 506 and 507**
+are added.
+
+**Roadmap.** Nothing ticked. Stage 1's *Text* line no longer owes a
+control's own line, and says what 467 did. Its *Layout* line says that
+booking's remainder is 507's, and that the counts were taken in quirks
+mode.
+
+**Unresolved obligations.**
+- 505: a button is 2 px shorter than Chrome's until its border and
+  picture are Chrome's.
+- 506 and 507, as written in the queue.
+- `web-a-form`'s fields are still 23 against Chrome's 21, which is 506
+  and 505 together.
+
+236 queue items are open (467 closed, 505–507 added). The next unused
+queue number is **508** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

@@ -508,9 +508,10 @@ fn control_content_style(
     id: BoxId,
     centred: bool,
     at_least_a_line: bool,
+    measure: &impl MeasureText,
 ) -> Style {
     let line = if at_least_a_line {
-        control_line(boxes, styles, id)
+        control_line(boxes, styles, id, measure)
     } else {
         0.0
     };
@@ -536,15 +537,16 @@ fn control_content_style(
 }
 
 /// The one line the box a control holds what it shows in is at least as
-/// tall as: the control's own line height.
-fn control_line(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> f32 {
-    boxes
-        .get(id)
-        .and_then(|node| node.parent)
-        .and_then(|parent| boxes.get(parent))
-        .and_then(|parent| parent.kind.node())
-        .and_then(|source| styles.get(source))
-        .map_or(0.0, alo_style::ComputedStyle::line_height)
+/// tall as: a line holding only the control's strut, which is the strut its
+/// own lines are laid out with.
+///
+/// That is the line height the control set, on the grid of 1/64 px, or with
+/// `normal` its font's ascent, descent and line gap, each a whole pixel
+/// (ADR 0050). It was the computed `line-height`, which answers `normal`
+/// with 1.2 em: a 13 px field was 15.59 tall inside where Chrome 154's is
+/// 15, and a 14 px button 16.8 where Chrome's is 16 (queue item 467).
+fn control_line(boxes: &BoxTree, styles: &StyleTree, id: BoxId, measure: &impl MeasureText) -> f32 {
+    inline::empty_line_height(&text_style_for(boxes, styles, id), measure)
 }
 
 /// How far down a one-line field's line starts in its content box: half of
@@ -557,8 +559,14 @@ fn control_line(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> f32 {
 /// *line* that is centred, not its text, so a field exactly one line tall —
 /// nearly every field, whose height comes from its padding — is not moved,
 /// and its text stands where it did, empty or filled.
-fn field_line_offset(boxes: &BoxTree, styles: &StyleTree, id: BoxId, content: Rect) -> f32 {
-    ((content.size.height - control_line(boxes, styles, id)) / 2.0).max(0.0)
+fn field_line_offset(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    content: Rect,
+    measure: &impl MeasureText,
+) -> f32 {
+    ((content.size.height - control_line(boxes, styles, id, measure)) / 2.0).max(0.0)
 }
 
 /// An inline box's own border and padding, on each side.
@@ -757,7 +765,7 @@ fn place_inline_content(
             measure,
         );
 
-        let down = lines_start_down(boxes, styles, id, content, layout.size.height);
+        let down = lines_start_down(boxes, styles, id, content, layout.size.height, measure);
         let origin = Point::new(content.origin.x, content.origin.y + down);
         record_lines(boxes, styles, id, &layout, origin.y, measure, out);
         let lines = ellipsis::Lines {
@@ -905,11 +913,12 @@ fn lines_start_down(
     id: BoxId,
     content: Rect,
     height: f32,
+    measure: &impl MeasureText,
 ) -> f32 {
     if centres_its_lines(boxes, id) {
         ((content.size.height - height) / 2.0).max(0.0)
     } else if holds_one_line(boxes, id) {
-        field_line_offset(boxes, styles, id, content)
+        field_line_offset(boxes, styles, id, content, measure)
     } else {
         0.0
     }
@@ -950,7 +959,7 @@ fn record_an_empty_field(
         return;
     };
     let strut = text_style_for(boxes, styles, id);
-    let down = field_line_offset(boxes, styles, id, content);
+    let down = field_line_offset(boxes, styles, id, content, measure);
     out.lines.insert(
         id,
         baseline::Lines::one(
@@ -1028,7 +1037,8 @@ fn build<M: MeasureText>(
     issues: &mut Vec<StyleIssue>,
 ) -> Option<usize> {
     let node = boxes.get(id)?;
-    let style = style_for(boxes, styles, id, arena.unresolved(), issues);
+    let measure = arena.measure();
+    let style = style_for(boxes, styles, id, measure, arena.unresolved(), issues);
 
     if is_inline_formatting_context(boxes, id) {
         let made = arena.push(style, NodeKind::InlineFormatting(id), Vec::new());
@@ -1266,6 +1276,7 @@ fn style_for(
     boxes: &BoxTree,
     styles: &StyleTree,
     id: BoxId,
+    measure: &impl MeasureText,
     unresolved: &mut Unresolved,
     issues: &mut Vec<StyleIssue>,
 ) -> Style {
@@ -1282,7 +1293,7 @@ fn style_for(
         ..
     } = node.kind
     {
-        return control_content_style(boxes, styles, id, centred, at_least_a_line);
+        return control_content_style(boxes, styles, id, centred, at_least_a_line, measure);
     }
     let ours = node
         .kind

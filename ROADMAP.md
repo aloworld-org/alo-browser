@@ -141,7 +141,9 @@ correctness, not before it.
       box's edges are placed on the grid against where its parent was
       placed. 707 of the corpus's 1,260 element boxes are now Chrome's
       exactly, where 514 were, and `alo-sites-booking`'s all are except
-      what its date field's line moves (467). Decided (iteration 306,
+      what its date field's line moves (507). Those counts were taken
+      with Chrome in quirks mode for the cases with no `</head>`; in
+      standards mode they were 807, and after 467 they are 855. Decided (iteration 306,
       queue item 499, ADR 0056): this engine does not take the sharing of
       flexible space over from `taffy`; a hook on `taffy`'s tree trait,
       offered upstream by a person, puts its shares on the grid. A
@@ -186,9 +188,11 @@ correctness, not before it.
       1/64 px grid, and the leading's top half floored. Of 1,214 corpus
       boxes measured against Chrome with the same fonts, 835 have its top
       and height to 1/64 px, where 498 did. Paddings, margins and grid
-      tracks were put on the 1/64 grid by 466 (see *Layout*). Owed: a
-      fallback font's own room on a `normal` line (465), and a control's
-      own `normal` line (467).*
+      tracks were put on the 1/64 grid by 466 (see *Layout*). A
+      control's own line was 1.2 em until queue item 467 (iteration 308)
+      and is now the line its text would be, so alo Settings' boxes are
+      all Chrome's. Owed: a fallback font's own room on a `normal` line
+      (465).*
 - [x] **Paint**: a display list, then a software raster to a PNG
       *A small curve was under-covered and leaned to one side until queue
       item 459 (iteration 291): the rented rasteriser's four-by-four

@@ -217,13 +217,13 @@ fn an_agent_in_its_own_process_fills_and_sends_a_form_nobody_wrote_for_us() {
     assert!(tree.starts_with(r#"{"answer":"tree","id":2,"#), "{tree}");
     assert!(
         tree.contains(
-            r#""name":"Customer name:","node":10,"rect":{"height":23.1875,"width":209.59375,"x":146.65625,"y":16.0},"role":"textbox""#
+            r#""name":"Customer name:","node":10,"rect":{"height":23.0,"width":209.59375,"x":146.65625,"y":16.0},"role":"textbox""#
         ),
         "{tree}"
     );
     assert!(
         tree.contains(
-            r#""name":"Large","node":45,"rect":{"height":13.0,"width":13.0,"x":29.0,"y":249.15625},"role":"radio","states":{"checked":"false"}"#
+            r#""name":"Large","node":45,"rect":{"height":13.0,"width":13.0,"x":29.0,"y":248.59375},"role":"radio","states":{"checked":"false"}"#
         ),
         "{tree}"
     );
@@ -256,7 +256,7 @@ fn an_agent_in_its_own_process_fills_and_sends_a_form_nobody_wrote_for_us() {
         r#"{"children":[],"name":"+44 20 7946 0000","#,
         // By where it is rather than its id: the text put in above is in the
         // tree now, and the ids of the boxes after it have moved.
-        r#""rect":{"height":13.0,"width":13.0,"x":29.0,"y":249.15625},"role":"radio","states":{"checked":"true"}"#,
+        r#""rect":{"height":13.0,"width":13.0,"x":29.0,"y":248.59375},"role":"radio","states":{"checked":"true"}"#,
     ] {
         assert!(filled.contains(read_back), "{read_back} in {filled}");
     }

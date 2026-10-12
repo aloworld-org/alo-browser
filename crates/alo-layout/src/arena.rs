@@ -183,6 +183,11 @@ impl<'a, M: MeasureText> Arena<'a, M> {
         }
     }
 
+    /// What this tree measures text with.
+    pub(crate) fn measure(&self) -> &'a M {
+        self.measure
+    }
+
     /// The expressions waiting for a basis, to add one to.
     pub(crate) fn unresolved(&mut self) -> &mut Unresolved {
         &mut self.unresolved

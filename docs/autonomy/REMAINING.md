@@ -1947,3 +1947,17 @@ it from a separate process and over real tabs. Found: **504** (sites per
 agent rather than for every agent; needs ADR). 234 queue items are open
 (497 closed, 504 added). The next unused queue number is 505 and the next
 unused ADR 0057.
+
+Iteration 308 built queue item 467. A form control's line is the line its
+text would be, as Chrome's is: the line height it set, or with `normal`
+its font's whole-pixel ascent, descent and line gap (ADR 0050), where it
+was 1.2 em (`alo-layout`'s `inline::empty_line_height`, which
+`control_line` asks for). `a-filled-form` and alo Settings are now
+Chrome's box for box. Across the corpus, 855 of 1,260 boxes are Chrome's
+exactly, where 807 were, measured in standards mode: iteration 305's 707
+put Chrome in quirks mode for pages with no `</head>`. A button is still
+2 px shorter than Chrome's, because Chrome's border is 2 px and drawn as
+its own picture. Found: **505** (that border and picture), **506** (a
+control's own 13.33 px font) and **507** (a date field's 2 px taller
+line). 236 queue items are open (467 closed, 505–507 added). The next
+unused queue number is 508 and the next unused ADR 0057.
