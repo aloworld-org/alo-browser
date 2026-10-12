@@ -87,7 +87,15 @@ and not `20ch` (511). A date or time field holds its line in segments a
 pixel inside it above and below, as Chrome's does (507), so it is 2 px
 taller than a text field with the same line. An unstyled one is still a
 third of a pixel short of Chrome's, whose calendar indicator sets a floor
-(515), and its width is `20ch` where Chrome's is what it draws (517). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
+(515), and its width is `20ch` where Chrome's is what it draws (517). A
+`<textarea>` draws a field's picture in its one solid pixel, as Chrome's
+does (510): its sides are Chrome's screenshot's exactly in `web-a-form`
+and `a-text-area`. Its box is still `20ch` by `3em`, where Chrome's is
+`cols` and `rows` (523), so `web-a-form`'s is 10 px taller than
+Chrome's, and Chrome's resize grip is not drawn (522). A `<select>` is
+still a square solid pixel with no chevron (521), and a field whose page
+writes only a border shows the page through where Chrome's is white
+(525). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
 length, a percentage and a `calc()` are each truncated toward zero onto it,
 a run of text's width is rounded up, and a box's edges are placed on it as
 they are read back, so centring, auto margins and flexible tracks put each

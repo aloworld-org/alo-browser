@@ -2029,3 +2029,16 @@ darkest pixel to a level, each fill exactly. Found: **520** (a
 fieldset's groove is Chrome's `rgb(239, 239, 239)`). 244 queue items are
 open (509 closed, 520 added). The next unused queue number is 521 and the
 next unused ADR 0057.
+
+Iteration 314 built queue item 510, with the `<select>` cut to 521 and the
+grip to 522. A `<textarea>` draws a field's picture (`alo-box`'s
+`face::of`), which Chrome 154 draws in it pixel for pixel, live, disabled
+and read-only, measured at one and eight device pixels to one. A page's
+border or background takes it away, as a field's. `web-a-form`'s textarea
+is Chrome's committed screenshot exactly along its sides and within 9 in
+its corners (43 and 107 before), and new corpus case `a-text-area`
+matches Chrome's to the same bounds as a field of its size. Found:
+**523** (a textarea's `cols` and `rows`), **524** (an edge's inner corner
+pixel) and **525** (a field whose page writes only a border is still
+white). 248 queue items are open (510 closed, 521–525 added). The next
+unused queue number is 526 and the next unused ADR 0057.

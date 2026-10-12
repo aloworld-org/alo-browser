@@ -481,10 +481,10 @@ impl Builder<'_> {
         }
     }
 
-    /// A button's or a text field's own picture, in place of its background
-    /// and border, while the page has written neither: drawn over its border
-    /// box moved onto whole pixels, as Chrome draws it, as a checkbox's is
-    /// (queue item 505). See [`crate::face`].
+    /// A button's, a text field's or a text area's own picture, in place of
+    /// its background and border, while the page has written neither: drawn
+    /// over its border box moved onto whole pixels, as Chrome draws it, as a
+    /// checkbox's is (queue items 505 and 510). See [`crate::face`].
     fn face_of(&self, id: BoxId) -> Option<Vec<toggle::Layer>> {
         let kind = self.boxes.face(id)?;
         if !face::drawn(self.style_of(id)?) {

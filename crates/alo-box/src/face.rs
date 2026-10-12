@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! A button and a text field: the controls Chrome draws a picture of while
-//! the page leaves their border and background alone.
+//! A button, a text field and a text area: the controls Chrome draws a
+//! picture of while the page leaves their border and background alone.
 //!
 //! Chrome 154 computes a `2px outset` border for a button and a `2px inset`
 //! one for a field, and draws neither. In the room they take it draws a
@@ -14,8 +14,15 @@
 //! boxes are these controls, which is the **element's** to say, as it is
 //! for a checkbox ([`crate::toggle`]).
 //!
-//! Only what was measured. A `<select>` and a `<textarea>` keep their one
-//! solid pixel here, and a colour well, a file chooser and a range draw
+//! A `<textarea>` computes a `1px solid` border, not a field's two inset
+//! pixels, and Chrome draws exactly a field's picture over it: the same
+//! edge and fill, live, disabled and read-only, pixel for pixel at one and
+//! eight device pixels to one (queue item 510). So it is a field here. The
+//! grip it draws in its corner belongs to `resize`, not to the picture
+//! (queue item 522).
+//!
+//! Only what was measured. A `<select>` keeps its one solid pixel here
+//! (queue item 521), and a colour well, a file chooser and a range draw
 //! themselves differently again, which waits for a page that shows how.
 
 use alo_dom::Element;
@@ -26,8 +33,8 @@ pub enum Face {
     /// A `<button>`, or an `<input>` of type `button`, `submit` or `reset`:
     /// filled `#efefef`.
     Button,
-    /// An `<input>` a person types into, a date or a time included: filled
-    /// white.
+    /// An `<input>` a person types into, a date or a time included, or a
+    /// `<textarea>`: filled white.
     Field,
 }
 
@@ -41,6 +48,9 @@ const NOT_A_FIELD: [&str; 10] = [
 pub(crate) fn of(element: &Element) -> Option<Face> {
     if element.name.is_html("button") {
         return Some(Face::Button);
+    }
+    if element.name.is_html("textarea") {
+        return Some(Face::Field);
     }
     if !element.name.is_html("input") {
         return None;
@@ -115,6 +125,15 @@ mod tests {
     }
 
     #[test]
+    fn a_text_area_is_a_field() {
+        assert_eq!(first("<textarea></textarea>"), Some(Face::Field));
+        assert_eq!(
+            first("<textarea disabled rows=9></textarea>"),
+            Some(Face::Field)
+        );
+    }
+
+    #[test]
     fn nothing_else_is() {
         for kind in [
             "checkbox", "radio", "hidden", "color", "file", "range", "image",
@@ -122,7 +141,7 @@ mod tests {
             assert_eq!(first(&format!("<input type={kind}>")), None, "{kind}");
         }
         assert_eq!(first("<select></select>"), None);
-        assert_eq!(first("<textarea></textarea>"), None);
+        assert_eq!(first("<select multiple></select>"), None);
         assert_eq!(first("<div role=button>b</div>"), None);
     }
 }

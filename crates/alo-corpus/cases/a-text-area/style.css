@@ -1,0 +1,13 @@
+/* A text area draws a field's picture (queue item 510): a one-pixel
+   rounded `#767676` edge over a white fill, in the room of its one solid
+   pixel of border, and translucent greys when it is disabled. The second
+   box is a field of the same size, which Chrome draws pixel for pixel as
+   it draws the first. The fourth is given a background by the page, which
+   takes the picture away, so the sheet's square solid border is drawn.
+   Only the last can be resized, so only it has Chrome's grip, which is
+   queue item 522's. Each box is on whole pixels. */
+body { margin: 0; padding: 8px; background: #ffffff; display: flex;
+  flex-direction: column; align-items: flex-start; gap: 8px }
+textarea, input { box-sizing: border-box; width: 96px; height: 40px; resize: none }
+.own { background: #fef3c7 }
+.grip { resize: both }

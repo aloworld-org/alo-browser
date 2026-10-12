@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A text area is drawn as Chrome draws one.** An unstyled `<textarea>`
+  had a square grey border here. Chrome draws it with the same rounded
+  grey edge and white fill as a text field, and so does this browser now,
+  greyed out when it is disabled. A page that gives the text area its own
+  border or background still gets exactly what it wrote. Chrome's resize
+  grip in the corner, its size, and a drop-down list's own look are still
+  to come.
+
 - **Disabled controls are Chrome's colours, and a page's background on
   one wins.** A disabled button's label is now Chrome's faint near-black
   and a disabled field's text Chrome's darker grey, where both were one

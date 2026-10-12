@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! What a button and a text field look like while the page leaves them
-//! alone: Chrome's own picture of each.
+//! What a button, a text field and a text area look like while the page
+//! leaves them alone: Chrome's own picture of each.
 //!
 //! Chrome 154 computes a `2px outset` border for a button and a `2px inset`
 //! one for a field, and the user-agent sheet says the same, so the
@@ -20,6 +20,11 @@
 //!
 //! That is the checkbox's edge ([`crate::toggle`]): a one-pixel stroke
 //! along a 2-pixel corner, half a pixel in.
+//!
+//! A `<textarea>` is a field here. It computes a `1px solid` border rather
+//! than two inset pixels, and Chrome draws a field's picture in it exactly,
+//! every pixel of 60 by 28 at one and at eight device pixels to one, live,
+//! disabled and read-only, over black, white and a green (queue item 510).
 //!
 //! # Measured, not read
 //!
@@ -95,8 +100,8 @@ fn restyles(name: &str) -> bool {
         || (name.starts_with("border") && !matches!(name, "border-collapse" | "border-spacing"))
 }
 
-/// The picture a button or a field draws of itself in `border_box`, back
-/// to front.
+/// The picture a button or a field (a text area included) draws of itself
+/// in `border_box`, back to front.
 pub fn artwork(face: Face, disabled: bool, border_box: Rect) -> Vec<Layer> {
     let (fill, edge) = match (face, disabled) {
         (Face::Button, false) => (BUTTON_FILL, EDGE),

@@ -450,7 +450,8 @@ impl BoxTree {
         self.toggles.get(&id).copied()
     }
 
-    /// Which face a box draws, if it is a button's or a text field's: paint
+    /// Which face a box draws, if it is a button's, a text field's or a text
+    /// area's: paint
     /// asks, to draw Chrome's picture of the control in place of its border
     /// and background while the page has written neither (queue item 505).
     pub fn face(&self, id: BoxId) -> Option<Face> {
@@ -2749,11 +2750,12 @@ mod tests {
     #[test]
     fn a_button_and_a_field_draw_a_face_and_nothing_else_does() {
         let tree = boxes(
-            "<p>a<input type=checkbox><input><button>b</button><select></select></p>",
+            "<p>a<input type=checkbox><input><button>b</button><select></select>\
+             <textarea></textarea></p>",
             "",
         );
         let faces: Vec<Face> = tree.ids().filter_map(|id| tree.face(id)).collect();
-        assert_eq!(faces, vec![Face::Field, Face::Button]);
+        assert_eq!(faces, vec![Face::Field, Face::Button, Face::Field]);
     }
 
     #[test]

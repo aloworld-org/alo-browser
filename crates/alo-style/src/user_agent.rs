@@ -186,7 +186,9 @@ input[type="month"], input[type="week"] {
  * fill, and that picture is `alo_paint::face`'s, for the reason a tick is
  * not a property. A page that writes any border or background of its own
  * gets these drawn as written instead, two tones and all. A `<select>`
- * keeps its one solid pixel, which is Chrome's too. */
+ * and a `<textarea>` keep their one solid pixel, which is Chrome's computed
+ * border too. A `<textarea>` draws a field's picture in it (queue item
+ * 510); a `<select>` draws its pixel, as yet (queue item 521). */
 input { border: 2px inset #767676 }
 select { border: 1px solid #767676 }
 textarea {

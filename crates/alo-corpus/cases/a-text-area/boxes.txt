@@ -1,0 +1,12 @@
+block flow · document
+  block flex · generic
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · textbox [disabled read-only]
+      anonymous block
+    inline flow-root · textbox
+      anonymous block
+    inline flow-root · textbox
+      anonymous block

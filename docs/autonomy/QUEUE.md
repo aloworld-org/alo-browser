@@ -7894,7 +7894,7 @@ The long pole, and the thing most of section E is unreachable without.
   cascade test fails. No other corpus case moved. *Found:* 520 (a
   fieldset's groove colour).
 
-- [ ] **510. A `<select>`'s and a `<textarea>`'s own pictures.** *Found
+- [x] **510. A `<select>`'s and a `<textarea>`'s own pictures.** *Found
   building 505 (iteration 309). Feature: `docs/features.md` stage 1, forms.
   Needs measuring.* Chrome 154 computes a `1px solid rgb(118, 118, 118)`
   border for both. Whether it draws them as computed or as a picture of its
@@ -7903,6 +7903,42 @@ The long pole, and the thing most of section E is unreachable without.
   disabled, and what a page's own border does. *Closes when:* the
   `textarea` in `web-a-form` is drawn within a measured bound of Chrome's
   screenshot.
+  ***Done (iteration 314), with the `<select>` cut to 521 and the grip to
+  522.*** *Measured in Chrome 154's screenshots*, the source not read. A
+  `<textarea>` computes `1px solid rgb(118, 118, 118)`, white, padding 2px,
+  and does not draw that border. It draws a field's picture in it: with
+  `resize: none`, a 60 by 28 textarea and an `<input>` of the same box are
+  the same pixels at one and at eight device pixels to one, live, disabled
+  and read-only, over white, black and `#3a7` (one level apart once, at 8×
+  on green). A page's `background`, `background-image: none`,
+  `border-color`, `border-radius` or `appearance: none` gives exactly the
+  CSS (`1px solid #767676` over white, 0 levels off a plain `div`), and
+  colour and padding keep the picture: a field's rule, `face::drawn`. A
+  resizable textarea (the default) also draws a grip in its corner, which
+  is `resize`'s and not the picture's: 522. A `<select>` draws the same
+  rounded edge and a chevron, keeps the chevron under a page's border and
+  loses it with `appearance: none`, and fades to 0.7 when disabled: 521.
+  *Built:* `alo-box`'s `face::of` says a `<textarea>` is a `Face::Field`,
+  so `alo-paint`'s `face.rs` draws the field's picture in it. Nothing in
+  layout changed. *Closed:* `web-a-form`'s textarea, compared at each
+  engine's own box (they differ: 523), is Chrome's committed screenshot
+  (`chrome.png`) exactly along its sides and within 9 in its corners,
+  leaving out the grip's corner, where it was 43 and 107 off
+  (`a_text_area.rs`'s `a_pizza_forms_text_area_is_drawn_as_chromes`). New
+  corpus case `a-text-area`: a live, a disabled, a page-backgrounded and a
+  resizable textarea and a field of the same size, every box Chrome's to
+  the unit. Each textarea's fill is Chrome's exactly; its sides are 0, 5
+  and 0 off and its corners 9, 5 and 0. The 9 is one pixel, a corner's
+  inner pixel, 191 here and 199 in Chrome, and the field beside it is off
+  by exactly as much: this engine draws the textarea and the field the
+  same pixels, as Chrome does. That is the picture's own precision (524).
+  *Evidence:* an `alo-box` unit test (a textarea is a field, a `<select>`
+  is not), the box tree's faces test, four corpus tests, and `web-a-form`'s
+  `render.png`, `filled.png` and `display.txt` rewritten, only the
+  textarea's 852 pixels moving in either picture. With the textarea taken
+  out of `face::of`, three of the four corpus tests fail (113 off in a
+  corner, 43 on a side, and the textarea no longer drawn as the field).
+  *Cut:* 521 and 522. *Found:* 523, 524 and 525.
 
 - [ ] **511. A text field's width is Chrome's, not `20ch`.** *Cut from 506
   (iteration 310). Feature: `docs/features.md` stage 1, a form control
@@ -8036,6 +8072,74 @@ The long pole, and the thing most of section E is unreachable without.
   whether `fieldset-group`'s and `web-a-form`'s fieldsets then match.
   *Closes when:* a frozen fieldset's groove is Chrome's screenshot's on
   every side within a measured bound.
+
+- [ ] **521. A `<select>`'s own picture.** *Cut from 510 (iteration
+  314). Feature: `docs/features.md` stage 1, forms. Needs measuring.*
+  Chrome 154 computes `1px solid rgb(118, 118, 118)` for a drop-down
+  `<select>`, white, with no padding, and draws over it the field's
+  rounded edge and a chevron after its text (`a-text-area`'s probe, by
+  eye). A page's own border is drawn square **and the chevron stays**;
+  `appearance: none` takes both away. Disabled, it computes grey 128 text
+  and `opacity: 0.7`. A `multiple` or sized list computes `border-radius:
+  2px` and a scroll bar. Here a `<select>` is its one square solid pixel
+  and no chevron. Needs: the chevron's shape and place at eight device
+  pixels to one, in the corpus's font, and whether its room is in the
+  `<select>`'s width. *Closes when:* a frozen drop-down `<select>`, live
+  and disabled, is Chrome's screenshot within a measured bound, chevron
+  included.
+
+- [ ] **522. A box a person can resize draws Chrome's grip.** *Found
+  building 510 (iteration 314). Feature: `docs/features.md` stage 1,
+  forms. Needs measuring.* Chrome 154 draws two short diagonal strokes,
+  dark grey with a lighter line beside each, in the bottom right corner of
+  a `<textarea>` while its `resize` is not `none`, between about 3 and 12
+  pixels in from its edges, and keeps them when the page restyles the
+  border. CSS gives the grip to any box with `resize` whose `overflow` is
+  not `visible`. Here nothing reads `resize`. `a-text-area`'s last
+  textarea has it; with its corner included, its sides are 38 off
+  Chrome's. Needs: the strokes at eight device pixels to one, on a
+  `<textarea>` and on a `div` with `resize: both; overflow: auto`, at two
+  sizes. *Closes when:* that textarea's grip corner is Chrome's
+  screenshot within a measured bound, and `a_text_area.rs` no longer
+  leaves it out.
+
+- [ ] **523. A `<textarea>` is as big as its `cols` and `rows` say.**
+  *Found building 510 (iteration 314). Feature: `docs/features.md` stage
+  1, a form control holds what it shows. Needs measuring.* Chrome 154's
+  unstyled textarea is 177 by 30 inside its padding (13.33 px
+  `monospace`), 183 by 36 in all. Here the sheet says `width: 20ch;
+  height: 3em`, 160.55 by 40, so `web-a-form`'s is 166.55 by 46 and every
+  box after it stands 10 px lower than Chrome's. Chrome's height looks
+  like two lines of 15, HTML's default `rows`; its width is 20 characters
+  and more, maybe a scroll bar's room, as 511's field has a term of its
+  own. Needs: `cols` and `rows` at several values and two fonts. *Closes
+  when:* `web-a-form`'s textarea is Chrome's 183 by 36 to 1/64 px.
+
+- [ ] **524. A control's rounded edge's inner corner pixel is Chrome's.**
+  *Found building 510 (iteration 314). Feature: `docs/features.md` stage
+  1, a form control draws its state. Needs measuring.* On a live field
+  or textarea over white, the pixel diagonally inside each corner of the
+  one-pixel edge is 191 here and 199 in Chrome 154, 9 levels at worst
+  with every other edge pixel within 2. Item 505's bound was 7 on a
+  button. `a-text-area`'s field and textareas show it. Needs: Chrome's
+  corner at eight device pixels to one against this engine's
+  `face::artwork`, whose edge is stroked half a pixel in along a 2 pixel
+  corner. *Closes when:* that pixel is Chrome's within the bound the
+  sides meet, on a button and a field, and `a_text_area.rs`'s 9 is
+  tightened to it.
+
+- [ ] **525. A field whose page writes only a border is still white.**
+  *Found building 510 (iteration 314). Feature: `docs/features.md` stage
+  1, forms. Needs measuring.* Chrome 154 computes `background-color:
+  rgb(255, 255, 255)` for a `<textarea>` and a drop-down `<select>`, and
+  over a green page a textarea, a text field and a select with only
+  `border: 1px solid red` are white inside, a button `#efefef`. Here the
+  sheet gives a field, a textarea and a select no background, since the
+  picture is drawn white, so once a page's border takes the picture away
+  the page shows through. Needs: each `<input>` type's computed
+  background (a checkbox's and a range's included), and a frozen page
+  with a restyled field over a colour. *Closes when:* that page's fields
+  are Chrome's fill exactly.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

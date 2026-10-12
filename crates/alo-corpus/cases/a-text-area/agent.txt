@@ -1,0 +1,6 @@
+document at (0, 0) 128×248
+  textbox at (8, 8) 96×40
+  textbox at (8, 56) 96×40
+  textbox [disabled read-only] at (8, 104) 96×40
+  textbox at (8, 152) 96×40
+  textbox at (8, 200) 96×40

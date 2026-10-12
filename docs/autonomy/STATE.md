@@ -31069,3 +31069,105 @@ built and owes 520 where it owed 509.
 244 queue items are open (509 closed, 520 added). The next unused
 queue number is **521** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 314 — queue item 510 built: a text area draws a field's picture
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 313's entry and the queue. No `AGENTS.md` exists
+in this checkout. 501 waits on a person (publishing upstream), and 502 and
+503 on 501's hook. **510 is the first open item after them**, nothing
+blocks it, and Chrome 154 is here to measure it. **For the item:** its
+own text, 505's and 509's records, `docs/features.md` (stage 1's
+form-control line, which owed 510), `alo-box`'s and `alo-paint`'s
+`face.rs`, `alo-paint`'s `build.rs` and the user-agent sheet's control
+rules. No ADR governs a control's picture: 505 measured it and drew it,
+and this extends that measurement to a textarea.
+
+**Measured, in headless Chrome 154**, in scratchpad probes kept nowhere,
+the source not read: a textarea's and a select's computed style, live,
+disabled, read-only, `multiple` and sized; screenshots at one and eight
+device pixels to one of a textarea and a field of the same box, live,
+disabled and read-only, over white, black and `#3a7`, which are the same
+pixels; and what a page's `background`, `background-image: none`,
+`border-color`, `border-radius`, `appearance: none`, colour and padding
+do to a textarea. What a select draws, what the grip is, and what a field
+whose page writes only a border shows were looked at and filed, not
+built. Then both cases screenshotted with the corpus's fonts per computed
+family, and their boxes dumped.
+
+**Built.** `alo-box`'s `face::of` says a `<textarea>` is a `Face::Field`,
+so `alo-paint`'s `face.rs` draws the field's picture in its border box
+while `face::drawn` holds. Comments in both `face.rs` files, `build.rs`,
+`tree.rs` and the user-agent sheet say so. Nothing in layout changed.
+
+**Tests.**
+- `alo-box`: `a_text_area_is_a_field`, and `nothing_else_is` now checks a
+  `<select multiple>` where it checked a textarea; the box tree's faces
+  test includes a textarea.
+- New corpus case **`a-text-area`** (128×248): a live textarea, a field
+  of the same 96×40 box, a disabled textarea, one with a page's
+  background, and a resizable one. `chrome.png` is Chrome's screenshot.
+  `a_text_area.rs`: every box is Chrome's to the unit; the textarea and
+  the field are the same pixels here and in Chrome; each textarea's fill
+  is Chrome's exactly, its sides 0, 5 and 0 off and corners 9, 5 and 0,
+  the resizable one's grip corner left out (522).
+- `web-a-form` gains `chrome.png`, and
+  `a_pizza_forms_text_area_is_drawn_as_chromes` compares its textarea at
+  each engine's own box: sides exactly Chrome's, corners within 9, where
+  they were 43 and 107.
+- **Mutation**, from a scratchpad copy and restored with `cp`: with the
+  textarea taken out of `face::of`, three of the four corpus tests fail
+  (113 off in a corner, 43 on a side, the textarea no longer the field).
+  Restored and re-run green.
+- **References:** every case's PNGs and `.txt`s backed up first. Without
+  `ALO_UPDATE_REFERENCES`, only the new case and `web-a-form` failed.
+  `web-a-form`'s `render.png`, `filled.png` and `display.txt` were
+  rewritten; in both pictures only the textarea's 852 pixels moved.
+  `alo-sites-contact-form` and `alo-sites-full-page` hold textareas their
+  pages restyle, and did not move.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean. `alo-box`,
+`alo-paint`, `alo-style` and `alo-corpus` passed with `--no-fail-fast`,
+after `filled.png` was rewritten. Then `scripts/gate.sh` ran in the
+foreground into a scratchpad log. The harness moved it to the background
+at 600 s, and the next call waited on it with a foreground `until` loop.
+**Result: `exit 0`, "The gate is met. (10 of 10 steps)"**, with no
+`FAILED`, `panicked` or `^error` in the log. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: the new case's five boxes against
+  Chrome's units. Nothing in layout changed, and `web-a-form`'s
+  textarea box, which is not Chrome's, is filed (523).
+- Reference renders: a new case with Chrome's screenshot committed
+  beside it, `web-a-form` given Chrome's screenshot, and its two
+  pictures rewritten and compared pixel by pixel with their backups.
+- One file, one responsibility: which element draws which face is
+  `alo-box`'s `face.rs`'s, as before; the picture is unchanged.
+- `docs/features.md`, `conformance.md`, `ROADMAP.md`, `REMAINING.md` and
+  `CHANGELOG.md` are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched.
+- Hostile bytes: nothing new reads outside bytes.
+
+**Queue.** 510 is ticked with its *Done* paragraph, the `<select>` cut
+to **521** and the grip to **522**. Found and added after 520: **523**
+(a textarea's `cols` and `rows`), **524** (a rounded edge's inner corner
+pixel, 9 off on a field and a textarea alike) and **525** (a field whose
+page writes only a border is still white in Chrome).
+
+**Roadmap.** Nothing ticked. Stage 1's form-control clause gains 510 as
+built and owes 521 to 525 where it owed 510.
+
+**Unresolved obligations.**
+- 521: a `<select>` is still a square solid pixel, with no chevron.
+- 522: Chrome's resize grip is not drawn; the tests leave its corner out.
+- 523: `web-a-form`'s textarea is 166.55 by 46 where Chrome's is 183 by
+  36, so every box after it is 10 px lower than Chrome's.
+- 524 and 525, as filed.
+- Measured in headless Chrome on this Mac only.
+
+248 queue items are open (510 closed, 521–525 added). The next unused
+queue number is **526** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.
