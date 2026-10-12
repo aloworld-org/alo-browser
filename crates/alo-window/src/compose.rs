@@ -15,8 +15,9 @@
 //! renderer already sent — so a renderer that has stopped answering cannot
 //! make a redraw wait, because nothing here could wait for it.
 //!
-//! The tab strip (item 297) is not here yet. When it is, it is a second frame
-//! at the top of the window and this is where it is placed.
+//! The tab strip is a renderer's frame of its own (item 297) and is not
+//! composed here yet. Item 528 places it, a second frame at the top of the
+//! window, here.
 
 use crate::colours::background;
 use crate::notice::Lettering;

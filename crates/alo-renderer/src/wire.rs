@@ -53,6 +53,7 @@ use alo_text::{Slant, Weight};
 mod fetch;
 mod form;
 mod sheet;
+mod strip;
 
 pub use fetch::fetched_size;
 pub use sheet::sheet_answer_size;
@@ -246,6 +247,25 @@ impl Writer {
             ScrollBy::ToEnd => self.tag(2),
         }
     }
+    /// Why a request could not be answered.
+    fn failure(&mut self, failure: &Failure) {
+        match failure {
+            Failure::NothingLoaded => self.tag(0),
+            Failure::Unpaintable { why } => {
+                self.tag(1);
+                self.text(why);
+            }
+            Failure::NotAFont { family } => {
+                self.tag(2);
+                self.text(family);
+            }
+            Failure::NoStrip { why } => {
+                self.tag(3);
+                self.text(why);
+            }
+        }
+    }
+
     fn node(&mut self, node: &SnapshotNode) {
         self.id(node.id);
         self.role(&node.role);
@@ -350,6 +370,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(8);
             writer.sheet_answer(answer);
         }
+        ToRenderer::Strip(strip) => {
+            writer.tag(11);
+            writer.strip(strip);
+        }
     }
     writer.out
 }
@@ -441,17 +465,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         }
         FromRenderer::Failed(failure) => {
             writer.tag(5);
-            match failure {
-                Failure::NothingLoaded => writer.tag(0),
-                Failure::Unpaintable { why } => {
-                    writer.tag(1);
-                    writer.text(why);
-                }
-                Failure::NotAFont { family } => {
-                    writer.tag(2);
-                    writer.text(family);
-                }
-            }
+            writer.failure(failure);
         }
     }
     writer.out
@@ -1202,6 +1216,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         8 => ToRenderer::Sheet(Box::new(reader.sheet_answer()?)),
         9 => ToRenderer::Visibility(reader.visibility()?),
         10 => ToRenderer::Leave,
+        11 => ToRenderer::Strip(Box::new(reader.strip()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1256,6 +1271,9 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                 },
                 2 => Failure::NotAFont {
                     family: reader.text()?,
+                },
+                3 => Failure::NoStrip {
+                    why: reader.text()?,
                 },
                 other => return Err(unreadable(format!("a failure tagged {other}"))),
             };

@@ -233,6 +233,9 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         FromRenderer::Failed(Failure::Unpaintable {
             why: "a window of no size".to_owned(),
         }),
+        FromRenderer::Failed(Failure::NoStrip {
+            why: "the template has no tablist".to_owned(),
+        }),
         FromRenderer::UsingGenerics {
             answering: vec!["sans-serif".to_owned(), "monospace".to_owned()],
         },

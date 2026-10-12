@@ -97,6 +97,8 @@ pub mod sheet_owed;
 mod show;
 pub mod site;
 pub mod snapshot;
+pub mod strip;
+pub mod strip_document;
 mod submit;
 pub mod svg_picture;
 pub mod tab;

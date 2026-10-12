@@ -33,7 +33,9 @@
 //!
 //! # What it is not yet
 //!
-//! One window and one tab. The tab strip is item 297, a person's pointer item
+//! One window and one tab. The tab strip is drawn by a renderer of its own
+//! (`alo-renderer`'s `strip`, item 297) but not yet in the window, which is
+//! item 528; a person's pointer is item
 //! 298, painting at the window's scale factor item 299 — until then a CSS
 //! pixel is replicated to the scale's whole part (§ 3) — and a link opening a
 //! tab item 300.

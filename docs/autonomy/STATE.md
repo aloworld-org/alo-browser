@@ -31522,3 +31522,129 @@ built and that 527 is owed.
 247 queue items are open (514 closed, 527 added). The next unused queue
 number is **528** and the next ADR is **0057**. This is one iteration,
 not a finished queue or roadmap.
+
+---
+
+## Iteration 318 — queue item 297 built: the tab strip is a document the engine renders
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iterations 316
+and 317's entries, and the queue. No `AGENTS.md` exists in this repository.
+For 297: its own text, ADR 0024 in full (§ 4 is the strip's decision, § 6
+what a tab is), ADR 0005's boundary through `alo-renderer`'s `message.rs`,
+`wire.rs`, `renderer.rs`, `tab.rs`, `host.rs` and `site.rs`, and the
+feature line *A window, tabs, and a tab strip* in `docs/features.md`. The
+design reference is `alo-workplace`'s `web/src/ds/tokens.css`, read only.
+
+**Why 297.** Iteration 316 closed 296 and named 297 eligible. Its one
+dependency is done, and 298, 300, 308 and 477 wait behind it. The open
+items earlier in the file wait for a page, a person, a design or an
+unfinished dependency.
+
+**Scope cut, not depth.** 297 as written also asked for `Tabs` to gain a
+selected tab, the strip to be shown in the window and the browser's own
+keys. Those touch the conductor, composition and `winit`'s keyboard, and
+are their own work. They are cut to **528** (the strip in the window, with
+page titles reported by loads) and **529** (the keys). 297's *Closes
+when* is entirely about the strip as a rendered document, and all of it
+is met here.
+
+**Built.**
+- `alo-renderer/src/strip.rs` holds the message's data. `Strip` is the tabs
+  in order and a size. `StripTab` has a title, an address, whether it is
+  selected, and a `Condition` (shown, loading, gone). `site()` is
+  `alo:tab-strip`'s opaque origin, minted fresh, so no page's URL is that
+  site. `LONGEST_TITLE` (1,024 characters) bounds what is drawn.
+- `alo-renderer/src/strip_document.rs` builds the document. It parses only
+  the compiled-in `interface/strip.html`, then adds each tab with
+  `create_element`, `set_attribute`, `create_text_node` and `append_child`.
+  Each tab is a `tab` with `aria-selected`, `aria-busy` while loading, its
+  title (or its address, if the title is blank) as one text node, and
+  " Stopped" in its own span when its renderer has gone. No script.
+- `interface/strip.css` follows alo's tokens: rail `#1f2529`, tabs
+  `#2a3237`, the selected tab `#f4f1ec` with navy text, terracotta for the
+  loading dot and "Stopped". Each tab asks for 200 px, shrinks to 48 at
+  least, and cuts its title with an ellipsis.
+- `ToRenderer::Strip` is handled by `Renderer::strip`. It lets go of what
+  was held, builds, and draws at `alo:tab-strip`, answering `Loaded`.
+  `Paint` and `ReadTree` then work as for a page. `Failure::NoStrip` is for
+  a template without its `tablist`.
+- The wire uses tag 11 for the strip (`wire/strip.rs`) and failure tag 3.
+  `write_from_renderer`'s failures moved into `Writer::failure`, because
+  the new arm took it past clippy's line limit.
+- `alo-window`'s module docs now point at 297 and 528.
+
+**Found while building.**
+- A 100,000-character title took 15 s of a debug build to shape. A title
+  is a page's to choose, so that is a denial of service against the strip.
+  Hence `LONGEST_TITLE`: it now takes 0.2 s, and the stylesheet still cuts
+  the title to its tab.
+- A flex item's name ran into its neighbour's ("NotesStopped"), because
+  `alo-agent` separates names only at block-outside boxes and a blockified
+  flex item keeps its `inline`. The strip puts the space inside the word's
+  own span; the engine's rule is filed as **530** (needs measuring in
+  Chrome).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, and no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry, `REMAINING.md`'s paragraph and
+the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers (`tests/the_tab_strip.rs`):
+  - one tab: (8, 6) 200×30;
+  - four tabs in 640: each 153×30, at x 8, 165, 322 and 479;
+  - two tabs in 480: at x 8 and 212;
+  - a 100,000-character title's tab: still 200×30.
+- Reference renders: `strip-one-tab.png`, `strip-four-tabs.png` and
+  `strip-a-gone-tab.png`, new in `alo-renderer/tests/references`. Each was
+  looked at, and an empty strip is the rail's colour in every pixel.
+- Agent tree: `tablist "Tabs"` holds four tabs by title. Only the second
+  is `selected=true`, the third is `busy`, and the untitled one reads by
+  its address. A gone tab reads "Reports Stopped".
+- Hostile titles: `<b>bold</b>`, `</style><script>steal()</script>`,
+  `a\0b`, 100,000 x's and `\u{202e}gnp.exe`. Each leaves exactly
+  `document, tablist, tab, tab, tab` in the tree, is named by its
+  characters, and is drawn as text beside its neighbours. None panicked.
+  The long one is drawn as x's and an ellipsis.
+- Across the boundary: the same strip sent to the real, confined
+  `alo-render` at `strip::site()` paints the identical frame and reads the
+  identical outline. `a_tab_strip_crosses_the_boundary.rs` refuses each of:
+  - a strip cut at any byte;
+  - a count of tabs larger than the message;
+  - a NaN or infinite size;
+  - a selection of 2, or a condition of 3;
+  - a title that is not UTF-8;
+  - a byte left over.
+- Mutations: removing `text-overflow: ellipsis` failed two tests; marking
+  every tab unselected failed three. Both were restored from copies, then
+  passing.
+- One file, one responsibility: the state, the document, the wire and the
+  markup are each their own file.
+- `docs/features.md`, `docs/conformance.md` (a new row), `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 297 is ticked with its *Done* paragraph. Added: 528 (the strip
+in the window), 529 (the browser's keys, depending on 528) and 530 (a flex
+item's name). 298 and 308 now also depend on 528.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the strip as a rendered document. Owed now lists 528 and 529
+before 298–300.
+
+**Unresolved obligations.**
+- The strip is not in the window. No page's `<title>` reaches it yet, and
+  `Tabs` has no selected tab of its own (528).
+- Agent verbs on the strip are not yet refused by name in the renderer.
+  ADR 0024 § 4 makes that the browser process's job, and no path sends one
+  until 528.
+- The look is alo's design by our reading of its tokens. No other browser
+  draws this strip, so there is no Chrome reference for it.
+- `LONGEST_TITLE` is a bound of ours, not measured against any browser.
+
+249 queue items are open (297 closed, 528–530 added). The next unused
+queue number is **531** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

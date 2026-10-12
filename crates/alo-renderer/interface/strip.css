@@ -1,0 +1,88 @@
+/* The tab strip, after alo's design (alo-workplace's ds/tokens.css): the
+   rail's warm charcoal behind the tabs, the workspace's porcelain for the one
+   selected, terracotta kept for the one thing that is happening — a tab
+   loading — and for a tab whose renderer has gone. The values are the
+   tokens', spelled here because tokens.css is not reachable from a renderer. */
+:root {
+  --bg-rail: #1f2529;
+  --bg-rail-hover: #2a3237;
+  --bg-app: #f4f1ec;
+  --text-primary: #102a43;
+  --text-on-rail: #f7f3ef;
+  --text-on-rail-muted: #aeb8be;
+  --accent: #e76f51;
+  --radius-md: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg-rail);
+  color: var(--text-on-rail-muted);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.tabs {
+  display: flex;
+  align-items: stretch;
+  column-gap: 4px;
+  height: 100%;
+  padding: 6px 8px 0;
+}
+
+/* A tab shares the strip with the others: as wide as 200 px when there is
+   room, narrower when there is not, never so narrow that it is nothing. */
+.tab {
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+  flex-grow: 0;
+  flex-shrink: 1;
+  flex-basis: 200px;
+  min-width: 48px;
+  padding: 0 12px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--bg-rail-hover);
+}
+
+.tab[aria-selected="true"] {
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+/* A title is a stranger's, and as long as they made it: one line, cut with
+   an ellipsis where the tab ends. */
+.title {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loading {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.gone {
+  flex-shrink: 0;
+  color: var(--accent);
+  white-space: nowrap;
+}

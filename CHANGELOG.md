@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The tab strip is drawn by the engine.** The row of tabs is a small
+  page of alo's own, drawn in a locked-down process of its own from a
+  list the browser hands it, never from markup. A page's title can only
+  ever appear there as the characters it wrote, however it is written,
+  and a long one is cut to its tab. An agent reads it as a list of tabs,
+  by title, and knows which is selected. It is not in the window yet.
+
 - **Text at a fractional size is Chrome's width.** A font size such as
   13.333333 px, which every form control has, is now set the way Chrome
   sets it, at 13.33. Words at such sizes were a fraction of a pixel wider

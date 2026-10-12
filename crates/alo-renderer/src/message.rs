@@ -30,6 +30,7 @@ use crate::generic::Generics;
 use crate::page::Page;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
+use crate::strip::Strip;
 use crate::violations::Objection;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_bindings::Visibility;
@@ -98,6 +99,16 @@ pub enum ToRenderer {
     /// sheet ([`crate::sheet_make`]). The renderer keeps them and the page
     /// is drawn with them. Answered with [`FromRenderer::Delivered`].
     Sheet(Box<SheetAnswer>),
+    /// Hold the tab strip, built from this state (ADR 0024 § 4).
+    ///
+    /// Sent only to the strip's own renderer, at a site no page can name
+    /// ([`crate::strip::site`]). It is data, never markup: the renderer
+    /// builds the strip's document from its compiled-in template, each title
+    /// a text node ([`crate::strip_document`]), lets go of anything it held
+    /// first, and answers as a load does, with [`FromRenderer::Loaded`]. It
+    /// runs no script, so the answer asks for nothing. `Paint` and
+    /// `ReadTree` then answer about the strip as they would a page.
+    Strip(Box<Strip>),
 }
 
 /// What a renderer answers with.
@@ -292,6 +303,12 @@ pub enum Failure {
         /// What was asked for, in words.
         why: String,
     },
+    /// The tab strip's document could not be built from its template: a
+    /// defect in the renderer's own markup, never in the state it was sent.
+    NoStrip {
+        /// What refused, in words.
+        why: String,
+    },
 }
 
 impl fmt::Display for Failure {
@@ -302,6 +319,7 @@ impl fmt::Display for Failure {
                 write!(f, "the bytes offered as {family:?} are not a font")
             }
             Failure::Unpaintable { why } => write!(f, "nothing could be painted: {why}"),
+            Failure::NoStrip { why } => write!(f, "the tab strip could not be built: {why}"),
         }
     }
 }
@@ -342,6 +360,13 @@ impl fmt::Display for ToRenderer {
             ToRenderer::Act { target, verb } => write!(f, "{verb:?} {target}"),
             ToRenderer::Fetched(fetched) => write!(f, "{fetched}"),
             ToRenderer::Sheet(answer) => write!(f, "{answer}"),
+            ToRenderer::Strip(strip) => write!(
+                f,
+                "hold the tab strip, {} open, at {}×{}",
+                strip.tabs.len(),
+                strip.viewport.width,
+                strip.viewport.height,
+            ),
         }
     }
 }
@@ -366,6 +391,7 @@ mod tests {
         could_be_sent::<Page>();
         could_be_sent::<Frame>();
         could_be_sent::<Snapshot>();
+        could_be_sent::<Strip>();
     }
 
     /// ADR 0012 § 7: **no page, ever, and not the agent either.** The record of
@@ -402,6 +428,8 @@ mod tests {
             // A style sheet's bytes, and nothing about the request that got
             // them.
             ToRenderer::Sheet(_) => "the answer to a style sheet the page asked for",
+            // The browser's own tabs, which only the strip's renderer is sent.
+            ToRenderer::Strip(_) => "the tab strip, as data",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -438,6 +466,14 @@ mod tests {
             "the page is hidden",
         );
         assert_eq!(ToRenderer::Leave.to_string(), "leave the page");
+        let strip = Strip {
+            tabs: vec![crate::strip::StripTab::new("a", "about:blank")],
+            viewport: Size::new(640.0, 40.0),
+        };
+        assert_eq!(
+            ToRenderer::Strip(Box::new(strip)).to_string(),
+            "hold the tab strip, 1 open, at 640×40",
+        );
     }
 
     #[test]
@@ -449,6 +485,13 @@ mod tests {
             }
             .to_string(),
             "nothing could be painted: no size",
+        );
+        assert_eq!(
+            Failure::NoStrip {
+                why: "no tablist".to_owned(),
+            }
+            .to_string(),
+            "the tab strip could not be built: no tablist",
         );
     }
 }

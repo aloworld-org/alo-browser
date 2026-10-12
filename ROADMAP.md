@@ -1350,7 +1350,7 @@ unreachable without it.
       and freed as each answer arrives, so `alo-sites-cta` reports with no
       beacon lent and its reports are made after it has gone · Owed: its
       immutable prototype (363), the legacy target override (374), choosing
-      among tabs telling each (297), going there (85), a
+      among tabs telling each (528), going there (85), a
       link's download (264), each element's own interface (262), focus
       (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
@@ -1732,8 +1732,17 @@ items where being right and being unusable are the same outcome.
       committed render. Started on this Mac and captured with
       `screencapture -l`, the window is its composition: every opaque pixel
       within one level once put through the display's colour profile, and
-      99.86% exact (296, done). · Owed: the strip (297); a person's pointer
-      (298); device pixels (299); a link opening a tab (300)
+      99.86% exact (296, done). The tab strip is a document the engine
+      renders (297, done): `ToRenderer::Strip` carries the tabs as data to a
+      confined renderer at `alo:tab-strip`, whose opaque site no page can
+      name, which builds the strip from a compiled-in template with
+      `alo-dom`'s operations, each title a text node, and draws it with a
+      stylesheet after alo's tokens. Three reference renders, each tab's
+      box in numbers, the agent reading four tabs with the second
+      selected, and five hostile titles kept as text in the tree and the
+      render. · Owed: the strip in the window, with titles from pages
+      (528); the browser's keys (529); a person's pointer (298); device
+      pixels (299); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

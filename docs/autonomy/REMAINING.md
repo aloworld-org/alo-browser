@@ -2078,3 +2078,20 @@ button is Chrome's 6,597 units, and every corpus number that moved is now
 Chrome's. Found: **527** (six runs whose sums end a hair from a grid
 line). 247 queue items are open (514 closed, 527 added). The next unused
 queue number is 528 and the next unused ADR 0057.
+
+Iteration 318 built queue item 297. The tab strip is a document the engine
+renders. `ToRenderer::Strip` carries the tabs to a confined renderer at
+`alo:tab-strip`, an opaque site no page can name, as data. That renderer
+builds the strip from a compiled-in template with `alo-dom`'s operations,
+each title a text node, and draws it with a stylesheet after alo's tokens.
+`alo-renderer`'s `tests/the_tab_strip.rs` pins:
+- three reference renders;
+- every tab's box in numbers;
+- the agent reading four tabs with the second selected;
+- five hostile titles, kept as text in the tree and in the render.
+
+A title is drawn to 1,024 characters, because 100,000 took 15 s. Cut:
+**528** (the strip in the window, with page titles) and **529** (the
+browser's keys). Found: **530** (a flex item's name runs into its
+neighbour's). 249 queue items are open (297 closed, 528–530 added). The
+next unused queue number is 531 and the next unused ADR 0057.

@@ -58,7 +58,7 @@
 //! `visibilitychange` if that changed it — and loads every page after it in
 //! the state the window is in. What the page's listeners ask for is made as
 //! a delivery's is, and the page is painted again afterwards, since they may
-//! have changed it. Choosing among tabs is item 297's, and tells the tab it
+//! have changed it. Choosing among tabs is item 528's, and tells the tab it
 //! leaves before the one it chooses.
 //!
 //! # A page left

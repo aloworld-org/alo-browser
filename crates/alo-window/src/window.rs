@@ -17,9 +17,10 @@
 //! # What it does not do yet
 //!
 //! A person's pointer and keys reach no page: that is item 298, which decides
-//! which frame a point falls in and sends it to that frame's renderer. There is
-//! no tab strip (item 297), and the window shows the selected tab — today, the
-//! only one.
+//! which frame a point falls in and sends it to that frame's renderer. The tab
+//! strip is drawn by a renderer of its own (item 297) but not shown here
+//! until item 528, and the window shows the selected tab — today, the only
+//! one.
 //!
 //! # The title
 //!

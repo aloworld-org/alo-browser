@@ -133,6 +133,8 @@ use crate::scripts;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::show;
 use crate::snapshot::Snapshot;
+use crate::strip::Strip;
+use crate::strip_document;
 use crate::submit;
 use crate::transition::{self, Left};
 use crate::view::PageView;
@@ -251,6 +253,7 @@ impl Renderer {
             ToRenderer::Act { target, verb } => self.act(&target, &verb),
             ToRenderer::Fetched(fetched) => self.delivered(&fetched),
             ToRenderer::Sheet(answer) => self.styled(&answer),
+            ToRenderer::Strip(strip) => self.strip(&strip),
         }
     }
 
@@ -653,6 +656,53 @@ impl Renderer {
                     navigation,
                     fetches,
                     sheets,
+                    left: left.fetches,
+                }
+            }
+            other => other,
+        }
+    }
+
+    /// Hold the tab strip (ADR 0024 § 4): let go of whatever was held, build
+    /// the strip's document from `strip` and the compiled-in template, and
+    /// draw it with the strip's sheet, answering as a load does.
+    ///
+    /// No markup is parsed but the template, no script runs and nothing is
+    /// fetched, so the answer carries what the drawing says and asks for
+    /// nothing. A page held before it is left first, and what it said comes
+    /// first, as a load's does.
+    fn strip(&mut self, strip: &Strip) -> FromRenderer {
+        let left = self.let_go();
+        let document = match strip_document::build(strip) {
+            Ok(document) => document,
+            Err(unbuilt) => {
+                return FromRenderer::Failed(Failure::NoStrip { why: unbuilt.why });
+            }
+        };
+        let page = Page::new("", strip.viewport)
+            .at(crate::strip::address().unwrap_or_else(alo_url::Url::about_blank))
+            .with_sheet(strip_document::SHEET);
+        self.easel.borrow_mut().begin(&page);
+        self.view = Rc::new(PageView::at(page.viewport, Rc::clone(&self.easel)));
+        self.metas = alo_net::Policies::none();
+        self.held = Some(Held::Parsed(document));
+        self.page = Some(page);
+        self.draw();
+        match self.loaded() {
+            FromRenderer::Loaded {
+                issues: mut drawn,
+                wanted,
+                ..
+            } => {
+                let mut issues = left.said;
+                issues.append(&mut drawn);
+                FromRenderer::Loaded {
+                    issues,
+                    wanted,
+                    objections: Vec::new(),
+                    navigation: None,
+                    fetches: Vec::new(),
+                    sheets: Vec::new(),
                     left: left.fetches,
                 }
             }

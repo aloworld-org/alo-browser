@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- The tab strip's template (ADR 0024 § 4). Compiled into the renderer and
+     never assembled from anything: `strip_document.rs` puts each tab into
+     #tabs with alo-dom's operations, and a title in as a text node. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tabs</title>
+  </head>
+  <body>
+    <div id="tabs" class="tabs" role="tablist" aria-label="Tabs"></div>
+  </body>
+</html>

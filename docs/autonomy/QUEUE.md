@@ -10919,7 +10919,7 @@ The long pole, and the thing most of section E is unreachable without.
   - **Rows for item 133's agent grants** are that item's, in this table.
 
 - [ ] **308. The prompt, and the indicator.** *Cut from 93 (ADR 0026 §§ 4,
-  6). Depends on 307 and 297.* The prompt is a document of ours, rendered as
+  6). Depends on 307, 297 and 528.* The prompt is a document of ours, rendered as
   the tab strip is and built from a typed message, with the origin and the
   top-level site as text nodes. It offers three answers, read from a person's
   own input, and states that an agent was acting when the ask came from an
@@ -12558,7 +12558,7 @@ What stage 2's exit gate actually measures: a person using it.
   the capture is the display's picture, and only this machine's profile
   makes it comparable. This is measured on this Mac only.
 
-- [ ] **297. The tab strip.** *Cut from 118 (ADR 0024 §§ 4, 6).* Its own
+- [x] **297. The tab strip.** *Cut from 118 (ADR 0024 §§ 4, 6).* Its own
   renderer at an internal site no page can name, under the renderer's
   sandbox profile; a typed message of the strip's state (tabs in order,
   each title, address, selected, loading or gone); a document built by
@@ -12573,6 +12573,110 @@ What stage 2's exit gate actually measures: a person using it.
   the tree and in the render, a long one truncated by the stylesheet, none
   panicking.
 
+  ***Done (iteration 318), with its window half cut to 528 and its keys to
+  529.*** The strip is a document of ours, rendered by the engine:
+  - **The message.** `alo-renderer`'s `strip.rs`: `Strip` is the tabs in
+    order and the strip's size; each `StripTab` has its title, its address,
+    whether it is selected, and its `Condition` (shown, loading, gone).
+    `ToRenderer::Strip` carries it. The wire's tag 11 is in `wire/strip.rs`,
+    and a confined renderer reads it as it reads anything: a strip cut at
+    any byte, a count of tabs larger than the message, a size that is not a
+    number, a selection of 2, a condition of 3, a title that is not UTF-8
+    and a byte left over are each refused, and every hostile title crosses
+    whole.
+  - **The site.** `strip::site()` is `alo:tab-strip`'s opaque origin, minted
+    fresh, so no URL a page writes is ever the same site.
+  - **The document.** `strip_document.rs` parses the compiled-in template
+    `interface/strip.html`, one empty `tablist` named "Tabs", and puts each
+    tab in with `create_element`, `set_attribute`, `create_text_node` and
+    `append_child`. A tab is a `tab` with `aria-selected`, `aria-busy` while
+    loading, its title (or its address when it has none) as one text node,
+    and " Stopped" after it when its renderer has gone. No script, no markup
+    from anything sent. `Failure::NoStrip` (wire tag 3) is the answer if the
+    template ever stopped having its `tablist`.
+  - **The stylesheet.** `interface/strip.css`, after `alo-workplace`'s
+    tokens: the rail's `#1f2529` behind tabs of `#2a3237`, the selected tab
+    in the workspace's `#f4f1ec` and navy text, terracotta for the loading
+    dot and for "Stopped". Each tab asks 200 px and shrinks, 48 at least;
+    a title is one line cut with an ellipsis.
+  - **The renderer.** `Renderer::strip` lets go of anything held, builds
+    the document and draws it at `alo:tab-strip`, answering `Loaded`. Then
+    `Paint` and `ReadTree` answer about it as about a page.
+  - **A bound.** A title is drawn to `LONGEST_TITLE`, 1,024 characters. A
+    100,000-character title took 15 s of a debug build to draw; it now takes
+    a fraction of a second, and the stylesheet still cuts it to the tab.
+
+  *Closed by `alo-renderer`'s `tests/the_tab_strip.rs`:*
+  - Reference renders `strip-one-tab.png`, `strip-four-tabs.png` and
+    `strip-a-gone-tab.png` are in `tests/references`.
+  - Each tab's box is asserted in numbers. One tab is (8, 6) 200×30. Four
+    tabs in 640 are 153×30 at x 8, 165, 322 and 479: 612 of room after 16 of
+    padding and three gaps of 4. Two in 480 are at 8 and 212.
+  - The agent reads `tablist "Tabs"` and four tabs by title ("Inbox",
+    "Invoices", "Calendar", and the address of the one with none), only the
+    second `[selected=true]` and the third `busy`. A gone tab reads
+    "Reports Stopped".
+  - `<b>bold</b>`, `</style><script>…`, `a\0b`, 100,000 x's and
+    `\u{202e}gnp.exe` each leave three tabs in the tree, named by exactly
+    their characters (the long one by its first 1,024), with no element made
+    of them, and each is drawn as text with its neighbours. The long one is
+    cut by the stylesheet to a run of x's and an ellipsis inside its 200 px
+    tab.
+  - The same strip, sent to the real `alo-render` (confined, as every
+    renderer is) at `strip::site()`, paints the identical frame and reads
+    the identical outline.
+
+  Mutations: without `text-overflow: ellipsis`, or with every tab marked
+  unselected, the tests fail; both were restored from copies.
+  *Not done here, and cut:* the strip in the window (528) and the browser's
+  own keys (529). *Found:* a flex item's name runs into its neighbour's
+  (530). The strip works round it by putting the space inside the word's own
+  box.
+
+- [ ] **528. The strip in the window.** *Cut from 297 (iteration 318; ADR
+  0024 §§ 2, 4, 6). Feature: `docs/features.md` stage 2, a window, tabs and
+  a tab strip. Depends on 297.* `Tabs` gains a selected tab, kept beside
+  its order, and makes a `Strip` from what it holds. A load's answer
+  carries the page's `<title>`, its text as HTML says to read it, and
+  `Tabs` keeps it as the tab's title. The conductor keeps the strip's
+  renderer at one `strip::site()`, which `Tabs::close`'s reaping never
+  stops, and sends it the strip whenever a tab opens, closes, is selected,
+  loads, starts loading, is gone, or the window is resized. Composition
+  places the strip's frame at the top of the window and the selected tab's
+  under it. That renderer dying leaves its last frame and its sentence, as
+  a tab's does. Choosing a tab tells the one left that it is hidden before
+  the one chosen that it is visible (ADR 0039 § 1). An agent's verb on the
+  strip is refused by name until item 133's grants, and reading it is
+  offered. *Closes when:* reference renders of the window composed with a
+  strip of one and of three tabs; a `<title>` reaching the strip, measured
+  with a hostile one; a test that the strip's renderer stopped with `kill
+  -STOP` leaves the window composing; and the agent reading the window's
+  tabs from the strip.
+
+- [ ] **529. The browser's own keys.** *Cut from 297 (iteration 318; ADR
+  0024 § 5). Feature: `docs/features.md` stage 2, a window, tabs and a tab
+  strip. Depends on 528.* A new tab (⌘T), close this one (⌘W), and the next
+  and previous (⌃Tab, ⌃⇧Tab), read by the window from `winit`'s keyboard
+  events before any page could see them, and sent to the conductor as
+  orders. A new tab opens `about:blank` and is selected. Closing the last
+  tab closes the window (§ 6). *Closes when:* each key, sent as a synthetic
+  key event to the window's handler, changes the strip's state as it says;
+  and no key reaches a renderer, there being no keyboard in a page yet
+  (258).
+
+- [ ] **530. A flex item's name is separated from its neighbour's.**
+  *Found building 297 (iteration 318). Feature: `docs/features.md` stage 1,
+  the agent reads the interface. Needs measuring.* A box's name is gathered
+  from its boxes, with a space only where a box is block-level outside
+  (`alo-agent`'s `name.rs`). A flex item is blockified by CSS, but its box
+  keeps the `inline` it was written with. So `<div role=tab
+  style=display:flex><span>Notes</span><span>Stopped</span></div>` is named
+  "NotesStopped" here. Chrome 154 is believed to read "Notes Stopped", but
+  that is not measured. The strip puts a space inside its second span
+  instead. *Closes when:* Chrome's names for flex and grid items with inline
+  children are measured from its accessibility tree, and this engine gives
+  the same.
+
 - [ ] **298. A person's pointer.** *Cut from 118 (ADR 0024 § 5; ADR 0018
   § 3).* The browser process decides which frame a point falls in from its
   own composition and sends it in that frame's CSS pixels as a person's
@@ -12580,7 +12684,7 @@ What stage 2's exit gate actually measures: a person using it.
   dispatches through ADR 0018's browser driver; the strip's renderer answers
   a click with a claim (select, close, open a tab) the browser process acts
   on only for a tab it holds, answering a pointer event it sent. *Depends on
-  296, 297. Closes when:* a person's click on a link in a frozen page follows
+  296, 297, 528. Closes when:* a person's click on a link in a frozen page follows
   it, the same as the agent's `Activate` on it; a click on a strip tab
   selects it; a claim about a tab not held, or with no pointer event behind
   it, is refused; hit-testing has layout assertions at box edges, inside a
