@@ -30970,3 +30970,102 @@ built and owes 518 and 519 where it owed 508.
 244 queue items are open (508 closed, 518–519 added). The next unused
 queue number is **520** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 313 — queue item 509 built: a disabled control is Chrome's colours
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 312's entry and the queue. No `AGENTS.md` exists
+in this checkout. 501 waits on a person (publishing upstream), and 502 and
+503 on 501's hook. **509 is the first open item after them**, nothing
+blocks it, and Chrome 154 is here to measure it. **For the item:** its
+own text, 505's record, `docs/features.md` (stage 1's form-control line,
+which owed 509, and *a control nobody can operate says so*), the
+user-agent sheet's disabled rules, `alo-paint`'s `face.rs` and
+`background.rs`, and `alo-css`'s `longhand.rs` and `shorthand.rs`. No
+ADR governs a disabled control's colours: the sheet's comment chose them,
+and matching Chrome's measured ones is a correction under the standing
+rule that Chrome is measured.
+
+**Measured, in headless Chrome 154**, in scratchpad probes kept nowhere,
+the source not read: `getComputedStyle` of every kind of control,
+disabled and live, and inside a disabled fieldset and a red parent. The
+values are in the queue's *Done* paragraph. A disabled fieldset computes
+exactly as a live one, and a live one's groove is `rgb(239, 239, 239)`,
+not the sheet's `#c0c0c0` (520). Then the new case screenshotted at 1×
+without `--disable-gpu`, with the corpus's font, and its boxes dumped.
+
+**Built.**
+- `alo-style`'s `user_agent.rs`: the disabled rules are Chrome's values,
+  by kind, and `fieldset:disabled` is gone.
+- `alo-style`'s `cascade.rs`: `reset_by_shorthands`. Rendering the new
+  case showed the sheet's `background-color` beating a page's
+  `background` on a disabled button, because `background` and `border`
+  are held whole and paint reads a longhand first. The old sheet had
+  that fault for buttons; the new one would have spread it to fields. A
+  longhand declaration that a winning `background` or `border` outranks
+  is now taken out, as the shorthand declares it. A reverting shorthand
+  is left alone, and `font` is left out until it is read by kind (513).
+
+**Tests.**
+- `user_agent.rs`: `a_disabled_control_has_chromes_computed_colours`,
+  sixteen controls against Chrome's computed values.
+- `cascade.rs`: three tests (a shorthand resets a longhand it beat; a
+  longhand that beat its shorthand is kept, by order, specificity or
+  origin; a reverting shorthand leaves the engine's longhands).
+- New corpus case **`a-disabled-control`** (128×128): a disabled
+  `<button>` and `<input>` drawing their own pictures, and the same two
+  with `background: #fef3c7`. `chrome.png` is Chrome's screenshot.
+  `a_disabled_control.rs`: every box is Chrome's
+  `getBoundingClientRect()` to the unit; each text's darkest pixel is
+  Chrome's within 1 (171, 84, 1 off on yellow, 84); each fill is Chrome's
+  exactly; sides within 5, corners within 3, the measured worst.
+- **Mutations**, each from a scratchpad copy and restored with `cp`: the
+  old disabled rules back fail two of the case's three tests (button text
+  109, 62 off; yellow button's sides 79 off). The reset taken out fails
+  the same two (yellow fill 250) and the first cascade test. Both
+  restored, then `alo-style` re-run green (162).
+- **References:** every case's `render.png` and `.txt` backed up first.
+  Without `ALO_UPDATE_REFERENCES`, after both changes, the corpus test
+  reported only the new case. No existing reference was rewritten.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean. Then
+`scripts/gate.sh` ran in the foreground into a scratchpad log. The harness
+moved it to the background at 600 s, and the next call waited on it with
+a foreground `until` loop. **Result: `exit 0`, "The gate is met. (10 of
+10 steps)"**, with no `FAILED`, `panicked` or `^error` in the log. Only
+this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: the new case's four boxes against
+  Chrome's units. Nothing in layout changed.
+- Reference render: a new case, with Chrome's screenshot committed beside
+  it and compared pixel by pixel.
+- One file, one responsibility: which declaration wins is
+  `cascade.rs`'s, and a shorthand resetting its longhands is that
+  question; the colours are the sheet's.
+- `docs/features.md`, `conformance.md`, `ROADMAP.md`, `REMAINING.md` and
+  `CHANGELOG.md` are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched.
+- Hostile bytes: nothing new reads outside bytes.
+
+**Queue.** 509 is ticked with its *Done* paragraph. **520** (a
+fieldset's groove is Chrome's `rgb(239, 239, 239)`) is added before 461.
+
+**Roadmap.** Nothing ticked. Stage 1's form-control clause gains 509 as
+built and owes 520 where it owed 509.
+
+**Unresolved obligations.**
+- 520: the fieldset's groove colour, and the conformance sentence that
+  says every browser uses `#c0c0c0`, which is now flagged as wrong.
+- A disabled `<select>`'s and `<textarea>`'s colours are Chrome's
+  computed ones, but whether they are drawn as Chrome draws them is
+  still 510's. No corpus case shows one.
+- A page's `border` beating the sheet's `border-color` is proved by a
+  cascade test, not by a render.
+- Measured in headless Chrome on this Mac only.
+
+244 queue items are open (509 closed, 520 added). The next unused
+queue number is **521** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

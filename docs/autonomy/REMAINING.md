@@ -2015,3 +2015,17 @@ the level. Found: **518** (a mitre's diagonal pixel) and **519** (a
 button-like `<input>`'s value is not drawn). 244 queue items are open (508
 closed, 518–519 added). The next unused queue number is 520 and the next
 unused ADR 0057.
+
+Iteration 313 built queue item 509. A disabled control's colours are
+Chrome 154's computed ones, measured for every kind of control: a field's
+text `rgb(84, 84, 84)`, a button's `rgba(16, 16, 16, 0.3)`, both tinted
+`rgba(239, 239, 239, 0.3)` and edged `rgba(118, 118, 118, 0.3)`, a list
+grey and at 0.7 opacity, a fieldset unchanged (`alo-style`'s user-agent
+sheet). The cascade now resets a longhand that a whole `background` or
+`border` beat (`cascade.rs`'s `reset_by_shorthands`), so a page's
+background on a disabled control beats the sheet's `background-color`.
+Corpus case `a-disabled-control` matches Chrome's screenshot: each text's
+darkest pixel to a level, each fill exactly. Found: **520** (a
+fieldset's groove is Chrome's `rgb(239, 239, 239)`). 244 queue items are
+open (509 closed, 520 added). The next unused queue number is 521 and the
+next unused ADR 0057.

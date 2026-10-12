@@ -7848,7 +7848,7 @@ The long pole, and the thing most of section E is unreachable without.
   84. *Found:* 518 (a mitre's diagonal pixel) and 519 (a button-like
   `<input>`'s value is not drawn).
 
-- [ ] **509. A disabled control's computed colours are Chrome's.** *Found
+- [x] **509. A disabled control's computed colours are Chrome's.** *Found
   building 505 (iteration 309). Feature: `docs/features.md` stage 1, a
   control nobody can operate says so. Needs measuring.* Chrome 154 computes,
   for a disabled button and field, a border of `rgba(118, 118, 118, 0.3)`
@@ -7859,6 +7859,40 @@ The long pole, and the thing most of section E is unreachable without.
   control's text measured on a screenshot, and a frozen page with one.
   *Closes when:* that page's disabled control is Chrome's colours, text
   included, within a measured bound.
+  ***Done (iteration 313).*** *Measured* in Chrome 154's computed style
+  for every kind of control, disabled and live: a field's text (every
+  text-like and date or time type, a checkbox, a radio, a file, a
+  textarea) `rgb(84, 84, 84)`; a button's, a button-like `<input>`'s and
+  a colour field's `rgba(16, 16, 16, 0.3)`; a range's `rgb(197, 197,
+  197)`; a tint of `rgba(239, 239, 239, 0.3)` on all but a checkbox, a
+  radio, a range, a file, an image and a hidden one; an edge of
+  `rgba(118, 118, 118, 0.3)` on all but a checkbox and a radio; a
+  `<select>`, an `<option>` and an `<optgroup>` grey 128, the list at
+  `opacity: 0.7` with its white kept; a disabled `<fieldset>` and its
+  legend exactly as a live one. A page's own `color` still wins. *Built:*
+  the user-agent sheet's disabled rules are those values (`#c0c0c0`,
+  `#6d6d6d` and `#f5f5f5` are gone, and so is `fieldset:disabled`).
+  **And a cascade fault it uncovered:** `background` and `border` are
+  held whole, and paint lets a longhand beat its shorthand, so the
+  sheet's `background-color` beat a page's `background: #fef3c7` on a
+  disabled button, a fault the old sheet had too and the new one would
+  have spread to every field. `alo-style`'s `cascade.rs` now takes out
+  every declaration of a longhand that a winning `background` or
+  `border` outranks (`reset_by_shorthands`), as the shorthand declares
+  it; one that reverts is left alone, and `font` is left out until it
+  is read by kind (513). *Closed:* new corpus case `a-disabled-control`
+  (a disabled button and field drawing their own pictures, and the same
+  two with a page's background) has every box at Chrome's
+  `getBoundingClientRect()` to the unit; the darkest pixel of each
+  control's text is Chrome's committed screenshot's within 1 (171 on a
+  button, 84 in a field); each fill is Chrome's exactly; sides are within
+  5 and corners within 3 (`a_disabled_control.rs`). *Evidence:*
+  `user_agent.rs`'s `a_disabled_control_has_chromes_computed_colours`
+  and three cascade tests. With the old disabled rules put back, the
+  button's text is 109 (62 off) and the yellow button's sides 79 off;
+  with the reset taken out, the yellow button's fill is 250 and a
+  cascade test fails. No other corpus case moved. *Found:* 520 (a
+  fieldset's groove colour).
 
 - [ ] **510. A `<select>`'s and a `<textarea>`'s own pictures.** *Found
   building 505 (iteration 309). Feature: `docs/features.md` stage 1, forms.
@@ -7990,6 +8024,18 @@ The long pole, and the thing most of section E is unreachable without.
   reads of the label (ADR 0002). *Closes when:* that case's
   submit draws "Send" where Chrome does, within the bound letters are
   compared at (462), and its box is still Chrome's.
+
+- [ ] **520. A fieldset's groove is Chrome's colour.** *Found building
+  509 (iteration 313). Feature: `docs/features.md` stage 1, a group of
+  controls looks like a group. Needs measuring.* Chrome 154 computes a
+  fieldset's border as `2px groove rgb(239, 239, 239)`, live or disabled,
+  and whatever the text colour around it. The user-agent sheet says
+  `#c0c0c0`, and `docs/conformance.md` says every browser does. Its two
+  tones (`tone.rs`) differ accordingly. Needs: Chrome's fieldset
+  screenshotted with the corpus's font, its groove's pixels read, and
+  whether `fieldset-group`'s and `web-a-form`'s fieldsets then match.
+  *Closes when:* a frozen fieldset's groove is Chrome's screenshot's on
+  every side within a measured bound.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

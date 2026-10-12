@@ -275,17 +275,33 @@ legend {
  * drawn by the control itself — see `alo_paint::control` — because a tick is
  * not a property; whether it is **live** is ordinary colour, so it is here,
  * where a page can override it.
+ *
+ * The colours are Chrome 154's computed ones, measured for every kind of
+ * control (queue item 509). A field's text is a solid dark grey and a
+ * button's is near-black at three tenths; both are tinted and edged in the
+ * same translucent greys. A list is greyed and then faded as a whole. A
+ * checkbox and a radio take only the grey, which their pictures do not use
+ * (`alo_paint::toggle` draws them disabled on its own). A `<fieldset>`
+ * looks the same disabled as live: it is what it holds that is disabled. A
+ * button or a field that draws its own picture (`alo_paint::face`) shows
+ * only the text colour from here, and the rest once a page restyles it.
  */
-button:disabled, input:disabled, select:disabled, textarea:disabled,
-fieldset:disabled {
-  border-color: #c0c0c0;
-  color: #6d6d6d;
+input:disabled, textarea:disabled { color: rgb(84, 84, 84) }
+button:disabled, input[type="button"]:disabled, input[type="submit"]:disabled,
+input[type="reset"]:disabled, input[type="color"]:disabled {
+  color: rgba(16, 16, 16, 0.3);
 }
+input[type="range"]:disabled { color: rgb(197, 197, 197) }
 button:disabled, select:disabled, textarea:disabled,
-input[type="button"]:disabled, input[type="submit"]:disabled,
-input[type="reset"]:disabled {
-  background-color: #f5f5f5;
+input:disabled:not([type="checkbox"]):not([type="radio"]) {
+  border-color: rgba(118, 118, 118, 0.3);
 }
+button:disabled, textarea:disabled,
+input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="image"]):not([type="hidden"]) {
+  background-color: rgba(239, 239, 239, 0.3);
+}
+select:disabled, option:disabled, optgroup:disabled { color: rgb(128, 128, 128) }
+select:disabled { opacity: 0.7 }
 
 /* A field's hint is grey, and a page that says otherwise wins.
  *
@@ -475,6 +491,74 @@ mod tests {
                 "{id}"
             );
         }
+    }
+
+    #[test]
+    fn a_disabled_control_has_chromes_computed_colours() {
+        // Chrome 154's computed values, measured for each kind of control
+        // (queue item 509). `None` is a property the sheet leaves alone.
+        let html = "<button id=button disabled>b</button><input id=text disabled>\
+                    <input id=submit type=submit disabled><input id=push type=button disabled>\
+                    <input id=reset type=reset disabled><input id=colour type=color disabled>\
+                    <input id=date type=date disabled><input id=check type=checkbox disabled>\
+                    <input id=radio type=radio disabled><input id=range type=range disabled>\
+                    <input id=file type=file disabled><input id=hidden type=hidden disabled>\
+                    <textarea id=area disabled></textarea>\
+                    <select id=list disabled><option id=choice disabled>o</select>\
+                    <fieldset id=group disabled><input id=inside></fieldset><input id=live>";
+        let edge = Some("rgba(118, 118, 118, 0.3)");
+        let tint = Some("rgba(239, 239, 239, 0.3)");
+        let faint = Some("rgba(16, 16, 16, 0.3)");
+        let grey = Some("rgb(84, 84, 84)");
+        for (id, color, background, border) in [
+            ("button", faint, tint, edge),
+            ("text", grey, tint, edge),
+            ("submit", faint, tint, edge),
+            ("push", faint, tint, edge),
+            ("reset", faint, tint, edge),
+            ("colour", faint, tint, edge),
+            ("date", grey, tint, edge),
+            ("check", grey, None, None),
+            ("radio", grey, None, None),
+            ("range", Some("rgb(197, 197, 197)"), None, edge),
+            ("file", grey, None, edge),
+            ("hidden", grey, None, edge),
+            ("area", grey, tint, edge),
+            ("list", Some("rgb(128, 128, 128)"), None, edge),
+            ("choice", Some("rgb(128, 128, 128)"), None, None),
+            ("inside", grey, tint, edge),
+        ] {
+            assert_eq!(computed(html, id, "color").as_deref(), color, "{id}");
+            assert_eq!(
+                computed(html, id, "background-color").as_deref(),
+                background,
+                "{id}"
+            );
+            for side in ["top", "right", "bottom", "left"] {
+                let name = format!("border-{side}-color");
+                let side = computed(html, id, &name);
+                if border.is_some() {
+                    assert_eq!(side.as_deref(), border, "{id}");
+                } else {
+                    assert_ne!(side.as_deref(), edge, "{id}");
+                }
+            }
+        }
+        // A list is faded as a whole, and nothing else is.
+        assert_eq!(computed(html, "list", "opacity").as_deref(), Some("0.7"));
+        assert_eq!(computed(html, "button", "opacity"), None);
+        // A disabled fieldset looks as a live one does, and so does a live
+        // field: their colours are the sheet's ordinary ones, the page's
+        // text colour inherited.
+        assert_eq!(computed(html, "group", "color").as_deref(), Some("black"));
+        assert_eq!(computed(html, "group", "border-top-color"), None);
+        assert_eq!(
+            computed(html, "group", "border").as_deref(),
+            Some("2px groove #c0c0c0")
+        );
+        assert_eq!(computed(html, "live", "color").as_deref(), Some("black"));
+        assert_eq!(computed(html, "live", "border-top-color"), None);
+        assert_eq!(computed(html, "live", "background-color"), None);
     }
 
     #[test]

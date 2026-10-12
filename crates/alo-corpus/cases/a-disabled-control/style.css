@@ -1,0 +1,12 @@
+/* A disabled button and a disabled field, in Chrome's colours (queue item
+   509). The first two draw their own pictures, so the only colour of the
+   sheet's that shows is the text's: near-black at three tenths on the
+   button, a solid grey of 84 in the field. The last two are given a
+   background by the page, which takes the picture away, so the sheet's
+   translucent grey border is drawn in its two tones over the page. Each box
+   is on whole pixels. */
+body { margin: 0; padding: 8px; background: #ffffff; display: flex;
+  flex-direction: column; align-items: flex-start; gap: 8px;
+  font-family: system-ui; font-size: 14px }
+button, input { box-sizing: border-box; width: 96px }
+.own { background: #fef3c7 }

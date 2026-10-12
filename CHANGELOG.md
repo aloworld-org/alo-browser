@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Disabled controls are Chrome's colours, and a page's background on
+  one wins.** A disabled button's label is now Chrome's faint near-black
+  and a disabled field's text Chrome's darker grey, where both were one
+  mid grey of this browser's own. Disabled lists, text areas and the
+  rest take Chrome's measured greys too, and a disabled fieldset no longer
+  greys itself, as Chrome's does not. A disabled button whose page gave
+  it a background was also drawn in this browser's grey instead,
+  because the browser's own rule for the colour beat the page's
+  `background`. The page now wins, as CSS says it must, and the same goes
+  for a page's `border`.
+
 - **Bevelled borders are drawn in Chrome's colours.** An `inset`,
   `outset`, `groove` or `ridge` border is two shades of its colour, and
   CSS leaves the shades to the browser. These were this browser's own,

@@ -229,10 +229,13 @@ correctness, not before it.
       Chrome's screenshot's within 7 levels. A control whose page sets a
       background draws the sheet's border in Chrome's two tones (508,
       iteration 312): black's `outset` is 168 and 84, every side to the
-      level of Chrome's screenshot. Owed: a mitre's diagonal pixel (518),
-      a button-like `<input>`'s value (519), a disabled control's computed colours (509),
-      and whether a `<select>` and a `<textarea>` draw a picture too
-      (510).*
+      level of Chrome's screenshot. A disabled control's colours are
+      Chrome's computed ones (509, iteration 313), its text's ink matching
+      Chrome's screenshot to a level, and a page's `background` or
+      `border` beats the sheet's longhands. Owed: a mitre's diagonal pixel
+      (518), a button-like `<input>`'s value (519), a fieldset's groove
+      colour (520), and whether a `<select>` and a `<textarea>` draw a
+      picture too (510).*
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
 - [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate.

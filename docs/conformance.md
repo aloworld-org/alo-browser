@@ -246,7 +246,16 @@ tick is black here and Chrome's dark grey `#3b3b3b` (458).
 disabled control draws its mark in grey rather than the accent, whatever its
 `accent-color`, and its border or edge pales — so on, off, on-and-locked and off-and-locked are four different
 pictures. That much is ordinary colour and does live in the user-agent sheet,
-where a page can override it.
+where a page can override it. Its colours are Chrome 154's computed ones,
+measured for every kind of control (item 509): a field's text a grey of 84, a
+button's near-black at three tenths, both tinted and edged in translucent
+greys; a list greyed and faded to seven tenths; a `<fieldset>` unchanged,
+since only what it holds is disabled. In `cases/a-disabled-control` the
+darkest pixel of each control's text is Chrome's committed screenshot's to a
+level, and each fill is Chrome's exactly. A page's `background` or `border`
+on a disabled control now beats the sheet's longhands, as the cascade says
+it must: the shorthand resets what it covers. Chrome's fieldset groove is
+`rgb(239, 239, 239)`, not the `#c0c0c0` below (520).
 
 **A group of controls looks like a group.** A `<fieldset>` draws a border, and
 its `<legend>` sits **in** that border rather than above it: the block-start

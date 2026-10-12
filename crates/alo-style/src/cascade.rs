@@ -177,6 +177,7 @@ impl<'a> Applicable<'a> {
         for contenders in by_property.values_mut() {
             contenders.sort_by_key(Contender::key);
         }
+        reset_by_shorthands(&mut by_property);
         Self { by_property }
     }
 
@@ -205,6 +206,7 @@ impl<'a> Applicable<'a> {
         for contenders in by_property.values_mut() {
             contenders.sort_by_key(Contender::key);
         }
+        reset_by_shorthands(&mut by_property);
         Self { by_property }
     }
 
@@ -262,6 +264,48 @@ impl<'a> Applicable<'a> {
     /// Whether nothing applied.
     pub fn is_empty(&self) -> bool {
         self.by_property.is_empty()
+    }
+}
+
+/// The shorthands held whole that this resets the longhands of.
+///
+/// `font` is held whole too and is not here: nothing reads it by kind yet
+/// (queue item 513), so a page's `font` would take the engine's own
+/// `font-size` away and put nothing in its place.
+const RESET_BY: [&str; 2] = ["background", "border"];
+
+/// Take out every declaration of a longhand that a whole shorthand beat.
+///
+/// `background` and `border` are held whole beside their longhands, and
+/// what reads them lets a longhand beat the shorthand (`alo_paint`'s
+/// `background.rs`), which is right only when the longhand won the cascade.
+/// A shorthand declares every longhand it covers, so a longhand declaration
+/// that loses to it has lost. Without this the engine's `background-color`
+/// on a disabled button beat a page's `background` (queue item 509).
+///
+/// A shorthand that reverts is left alone: it asks for the longhands of
+/// the origin below, which are the declarations this would take out.
+fn reset_by_shorthands(by_property: &mut BTreeMap<PropertyName, Vec<Contender<'_>>>) {
+    for shorthand in RESET_BY {
+        let Some(winner) = by_property
+            .get(&PropertyName::parse(shorthand))
+            .and_then(|contenders| contenders.last().copied())
+        else {
+            continue;
+        };
+        let value = winner.declaration.value.trim();
+        if value.eq_ignore_ascii_case("revert") || value.eq_ignore_ascii_case("revert-layer") {
+            continue;
+        }
+        for longhand in alo_css::longhand::longhands(shorthand).unwrap_or_default() {
+            let name = PropertyName::parse(longhand);
+            if let Some(contenders) = by_property.get_mut(&name) {
+                contenders.retain(|contender| contender.key() > winner.key());
+                if contenders.is_empty() {
+                    by_property.remove(&name);
+                }
+            }
+        }
     }
 }
 
@@ -342,6 +386,71 @@ mod tests {
         applicable
             .winner(&PropertyName::parse(property))
             .map(|contender| contender.declaration.value.clone())
+    }
+
+    #[test]
+    fn a_shorthand_held_whole_resets_the_longhands_it_beat() {
+        // The engine's longhand loses to a page's shorthand, by origin, and
+        // is taken out so that what reads the shorthand sees it.
+        let agent = "button:disabled { background-color: #eee; border-color: grey }";
+        let page = fixture(
+            "<button id=x disabled>b</button>",
+            "button { background: #fef3c7; border: 1px solid red }",
+            agent,
+        );
+        for longhand in ["background-color", "border-color", "border-top-color"] {
+            assert_eq!(winner(&page, "x", longhand), None, "{longhand}");
+        }
+        assert_eq!(winner(&page, "x", "background").as_deref(), Some("#fef3c7"));
+        // With no shorthand from the page, the engine's longhands stand.
+        let quiet = fixture("<button id=x disabled>b</button>", "", agent);
+        assert_eq!(
+            winner(&quiet, "x", "background-color").as_deref(),
+            Some("#eee")
+        );
+        assert_eq!(
+            winner(&quiet, "x", "border-left-color").as_deref(),
+            Some("grey")
+        );
+    }
+
+    #[test]
+    fn a_longhand_that_beat_its_shorthand_is_kept() {
+        // Written after it, or more specifically, or by the page over the
+        // engine's shorthand: each of these wins and is kept.
+        let fixture = fixture(
+            "<p id=x class=lead>t</p><p id=y>u</p><p id=z>v</p>",
+            "p { background: red; background-color: blue }\
+             .lead { border-color: green } p { border: 1px solid red }\
+             #z { background-color: teal }",
+            "p { background: white }",
+        );
+        assert_eq!(
+            winner(&fixture, "y", "background-color").as_deref(),
+            Some("blue")
+        );
+        assert_eq!(
+            winner(&fixture, "x", "border-top-color").as_deref(),
+            Some("green")
+        );
+        assert_eq!(winner(&fixture, "y", "border-top-color"), None);
+        assert_eq!(
+            winner(&fixture, "z", "background-color").as_deref(),
+            Some("teal")
+        );
+    }
+
+    #[test]
+    fn a_shorthand_that_reverts_leaves_the_engines_longhands() {
+        let fixture = fixture(
+            "<button id=x>b</button>",
+            "button { background: revert }",
+            "button { background-color: #eee }",
+        );
+        assert_eq!(
+            winner(&fixture, "x", "background-color").as_deref(),
+            Some("#eee")
+        );
     }
 
     #[test]
