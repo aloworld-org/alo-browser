@@ -29639,3 +29639,90 @@ pages line's Built clause gains it and its Owed clause drops 476.
 226 queue items are open (476 closed). The next unused queue number is
 **493** and the next ADR is **0053**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 302 — queue item 83 decided, the half that was left: ADR 0053, `XMLHttpRequest`
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full (§ 4: a decision is
+its own iteration), `ROADMAP.md` (its state rules and the stage 2 fetch
+line), iteration 301's entry and the owner's commits 02c1236 and 27859a9.
+No `AGENTS.md` exists in this repository or above it. For 83: its queue
+entry and those of 334, 335, 336, 338, 233, 376 and 77; ADR 0032 in full,
+and the decisions of 0005, 0016, 0018, 0019 and 0031; `docs/features.md`'
+fetch line. `alo-bindings`' `delivering.rs` and the list of its files,
+and `alo-net`'s `encoding.rs`, were read to know what the decision leans
+on. `alo-workplace` was read, not written: its tracked sources hold no
+`XMLHttpRequest`.
+
+**Choosing.** Iterations 294–301 recorded every open item above 82 as
+blocked, waiting for a page or `needs design`. 77 (modules) now has a
+frozen module from the owner (02c1236), but it is still marked `needs
+design`, which only the owner promotes, as 294 recorded for 82, 83 and 85;
+it was passed over. After 82 in file order: 469, 473, 474, 486, 487 and
+491 wait for a page, 471 depends on 262, 475 on a picker, 492 on 367's
+decision. 83 is next: the owner moved it to `needs ADR` on 2026-10-11 for
+`XMLHttpRequest`, its dependencies are done, and under `LOOP.md` § 4 the
+ADR is this iteration, with no code.
+
+**Measured first**, in Chrome 154, headless, over DevTools (scratchpad
+probes; Chrome's source not read): every request intercepted and answered
+with `Fetch.fulfillRequest`, and, because interception suppresses upload
+events, again against a Node server on `127.0.0.1`. The eleven findings
+are ADR 0053's *Measured*. The ones the decision turns on: every event is
+trusted; `readystatechange` 1 fires inside `open`, `loadstart` inside
+`send`; a body gives upload `progress`/`load`/`loadend`, states 2 and 3,
+**one** `progress` (the specification's text gives two), state 4, `load`,
+`loadend` — even for a body trickled over 480 ms; an empty body has no
+state 3; a network error or a CORS failure is state 4, `error`, `loadend`
+with status 0; `abort()` fires state 4, `abort`, `loadend` inside the call
+and leaves state 0, and in one run of two the aborted ask was never sent;
+a synchronous request runs, and `responseType` on one throws
+`InvalidAccessError`; `getAllResponseHeaders` is lower-cased and sorted.
+
+**What was decided (ADR 0053).**
+- The same `FetchAsk` as `fetch`, from the same counter, mode `cors`,
+  credentials from `withCredentials`; a `GET`'s body dropped; nothing new
+  on the wire.
+- The answer is one task firing Chrome's sequence as the browser's
+  dispatch. The specification's separate tasks are merged, because nothing
+  in this renderer could run between them until timers exist (92, 233).
+- The document cell holds the request while its answer is owed.
+- `abort()` withdraws an ask still in the cell and forgets one that has
+  left; the latter is still made, a stated cost.
+- `open(…, false)` throws `InvalidAccessError` by name.
+- `timeout` will be the browser process's to keep (a new answer on the
+  wire, decided here, built in 493); until then non-zero is refused.
+- Text decoded through `alo-net`'s `encoding.rs`; other response types
+  and bodies refused by name.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground with its
+output in a scratchpad log. The harness moved it to the background at
+600 s, and the next call waited on the log with a foreground `until` loop.
+Result: `exit 0`, "The gate is met. (10 of 10 steps)", and no `FAILED`,
+`panicked` or `^error` in the log. Only this entry was written after it.
+
+**Gate, manual.** No code changed, so there is no layout assertion or
+reference render to add, no file gained a responsibility, and there is no
+hostile-input surface. `docs/features.md` says the design is decided and
+not built; `docs/conformance.md` is unchanged because nothing renders
+differently. No `unsafe`; no verb takes a coordinate; `alo-workplace` and
+`alo-os` untouched.
+
+**Queue.** 83 records the decision and stays open; it closes when 336 and
+493–495 have. 336 gains ADR 0053's contract and a closing condition and
+still waits for a page. Added: **493** `timeout`, kept by the browser
+process; **494** `responseType` beyond text (`"json"` after 73's `JSON`);
+**495** cancelling a request that has left, which needs its own ADR.
+
+**Roadmap.** Not ticked. The stage 2 fetch line gains a Decided clause
+naming ADR 0053, and its Owed clause names 336 and 493–495. Also updated:
+`docs/features.md`, `REMAINING.md`, `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- `XMLHttpRequest` is decided, not built; 336 waits for a page that uses
+  one, and no page this browser renders does.
+- 77 has an opener and waits on the owner's promotion from `needs design`.
+- 85 (navigation) still needs its ADR; nothing loads a decided navigation.
+
+229 queue items are open (493–495 added). The next unused queue number is
+**496** and the next ADR is **0054**. This is one iteration, not a
+finished queue or roadmap.

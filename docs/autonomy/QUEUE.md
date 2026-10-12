@@ -5693,6 +5693,20 @@ The long pole, and the thing most of section E is unreachable without.
   (334), `fetch()` in a page (335) and `XMLHttpRequest` (336). It closes
   when all three have. **334 and 335 are built** (iterations 214 and 215);
   making a decided fetch is 338, and 336 waits for a page.
+  **Decided (iteration 302): ADR 0053, accepted — the half that is left.**
+  Measured first in Chrome 154 over DevTools, with every request
+  intercepted and, for the upload events interception suppresses, against
+  a server on `127.0.0.1`. In short: an `XMLHttpRequest` makes exactly
+  `fetch`'s ask — mode `cors`, credentials from `withCredentials`, numbers
+  from the same counter, nothing new on the wire — and its answer is one
+  task firing Chrome's measured events as the browser's dispatch (upload
+  `progress`/`load`/`loadend` when it had a listener; states 2, 3, one
+  `progress`, 4; `load`; `loadend`; no state 3 for an empty body; state 4,
+  `error`, `loadend` for a network error); the document holds the request
+  while its answer is owed; `abort()` withdraws an ask that has not left
+  and forgets one that has; `open(…, false)` throws `InvalidAccessError`;
+  a `timeout` will be the browser process's to keep. **No code is built
+  and this item is not done.** It closes when 336, 493, 494 and 495 have.
 
 - [x] **334. A fetch crosses the boundary, and the browser process decides
   it.** *Cut from 83 (ADR 0032 §§ 1–4). Depends on 263 (the ask's shape),
@@ -6214,11 +6228,70 @@ The long pole, and the thing most of section E is unreachable without.
   index is refused, each pinned in `alo-bindings` with the collector at
   every allocation.
 
-- [ ] **336. `XMLHttpRequest`, asynchronous.** *Cut from 83 (ADR 0032 § 6).
-  Depends on 334 and on event dispatch (254, done).* The same ask, delivered
-  as `readystatechange`, `load`, `error` and `loadend` events rather than a
-  promise; a synchronous `open(…, false)` refused by name. *Opened by a
-  frozen page that uses one, and not before.*
+- [ ] **336. `XMLHttpRequest`, asynchronous.** *Cut from 83 (ADR 0032 § 6);
+  its contract is ADR 0053 (iteration 302). Depends on 334, 335 and 338
+  and on event dispatch (254), all done.* `alo-bindings`:
+  - `XMLHttpRequest` and `XMLHttpRequestUpload` on the global object, and
+    `ProgressEvent` (`lengthComputable`, `loaded`, `total`);
+  - `open` (method normalised, URL resolved there; `readystatechange` 1
+    inside it; a second `open` forgets a request in flight with no events;
+    `open(…, false)` an `InvalidAccessError` by name), `setRequestHeader`
+    (combined with `, `, a forbidden name dropped), `send` (a `FetchAsk`
+    from `fetch`'s counter, mode `cors`, credentials from
+    `withCredentials`, a `GET`'s or `HEAD`'s body dropped, a string
+    body's author `charset` rewritten to `UTF-8`, `body_init.rs` shared;
+    `loadstart` and, with the upload listener flag, `upload`'s `loadstart`
+    inside it), `abort` (state 4, `abort`, `loadend` inside it, then state
+    0; an ask still in the cell withdrawn unsent, one that has left
+    forgotten);
+  - the wrapper held by the document cell under the ask's number while its
+    answer is owed (ADR 0053 § 3);
+  - the delivery as one task of the browser's dispatch firing ADR 0053's
+    measured sequences 3, 4 and 5;
+  - `readyState`, `status`, `statusText`, `responseURL`,
+    `getResponseHeader`, `getAllResponseHeaders` (lower-cased, sorted,
+    `\r\n`), `withCredentials`, `overrideMimeType`, `responseText` and
+    `response` for `""` and `"text"`, decoded by `alo-net`'s `encoding.rs`
+    from the override, the `Content-Type` or a byte order mark, else UTF-8;
+    every state error an `InvalidStateError`; `responseXML` `null`;
+  - refused by name: `timeout` other than 0 (493), `responseType` other
+    than `""` and `"text"` (494), a body other than a string or a
+    `URLSearchParams`.
+  *Opened by a frozen page that uses one, and not before* — no corpus case
+  and no `alo-workplace` page does yet. *Closes when:* that page's requests
+  are Chrome's (method, URL, headers, body, as Fetch interception shows
+  them) and its listeners hear Chrome's events in Chrome's order with
+  Chrome's numbers; a test shows an unreferenced request's `onload` still
+  heard after a collection at every allocation; an `abort()` in `send`'s
+  task sends nothing; a cross-origin answer without CORS fires `error`
+  with `status` 0; and a synchronous `open` throws by name.
+
+- [ ] **493. An `XMLHttpRequest`'s `timeout`, kept by the browser process.**
+  *Cut from 83 (ADR 0053 § 5). Depends on 336.* The ask carries the
+  milliseconds; the browser process stops the exchange at the deadline and
+  answers that it timed out, a new answer on the wire refused by name when
+  malformed; the renderer fires `readystatechange` 4, `timeout` and
+  `loadend` (measured, 0 of 0). A `timeout` set after `send` stays refused
+  by name. *Opened by a page* that sets one. *Closes when:* that page's
+  request, held unanswered in a test, ends at its deadline with Chrome's
+  events, and an answer inside the deadline is untouched.
+
+- [ ] **494. An `XMLHttpRequest`'s `responseType` beyond text.** *Cut from
+  83 (ADR 0053 § 6). Depends on 336.* `"json"` after `JSON` (73);
+  `"document"`, an HTML document in the realm (XML needs a parser this
+  engine does not have); `"arraybuffer"` and `"blob"` with their objects.
+  Each when a page sets it. *Closes when:* that page reads what Chrome's
+  reads, and `responseText` under any of them throws `InvalidStateError`,
+  measured.
+
+- [ ] **495. Cancelling a request that has already left.** *Cut from 83
+  (ADR 0053 § 4 and *What this costs*). Depends on 336.* A message naming
+  the ask's number that stops the browser process making, or reading, a
+  request its page no longer wants — `abort()` after the ask has left, and
+  a `fetch`'s `signal`, which is refused by name today. **Needs ADR**: a
+  new message toward the browser process, what the record says of a
+  stopped request, and whether a request already sent is stopped mid-read.
+  *Opened by a page* that aborts a request it has already sent.
 
 - [x] **347. A loaded page's linked style sheets.** *Opened by a page
   (iteration 225):* `alo-workplace`'s

@@ -1860,3 +1860,16 @@ reads it from `constraint.rs`, and a constraint not built reads
 `invalid=unknown`. The booking page's day field now reads
 `[required invalid]`. 226 queue items are open (476 closed). The next
 unused queue number is 493 and the next unused ADR 0053.
+
+Iteration 302 decided item 83's half that was left in ADR 0053:
+`XMLHttpRequest`. Measured first in Chrome 154 over DevTools, intercepted,
+and against a server on `127.0.0.1` for the upload events interception
+suppresses. It makes exactly `fetch`'s ask with nothing new on the wire; its
+answer is one task firing Chrome's events as the browser's dispatch; the
+document holds a request while its answer is owed; `abort()` withdraws an
+unsent ask; a synchronous `open` throws `InvalidAccessError`. No code was
+written. 336 now carries its contract and closing condition and still waits
+for a page; **493** (`timeout`), **494** (response types beyond text) and
+**495** (cancelling a request that has left, needs ADR) are added. 229 queue
+items are open (493–495 added). The next unused queue number is 496 and the
+next unused ADR 0054.

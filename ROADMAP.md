@@ -526,6 +526,13 @@ unreachable without it.
       decides it from its own copy of the document's origin, policy and
       cause, and the response comes back as a task of its own carrying only
       what the page may read
+      · Decided (ADR 0053, iteration 302, queue item 83's half that was
+      left): an `XMLHttpRequest` makes exactly `fetch`'s ask, mode `cors`,
+      with nothing new on the wire; its answer is one task firing Chrome
+      154's measured events as the browser's dispatch; the document holds a
+      request while its answer is owed; `abort()` withdraws an ask that has
+      not left; a synchronous `open` throws `InvalidAccessError`; a
+      `timeout` will be the browser process's to keep
       · Built: the boundary and the decision (queue item 334) — every answer
       that runs script carries its asks and `ToRenderer::Fetched` carries a
       response, both on the wire with hostile bytes refused; `Tabs` decides
@@ -573,8 +580,9 @@ unreachable without it.
       · Owed: `Request`, `Headers` and `Response`
       a page constructs, other bodies, `json()`, a `signal` and the `init`
       members refused by name, each when a page needs one; `keepalive` on
-      `fetch` (375); and asynchronous `XMLHttpRequest` when a page uses one
-      (336)
+      `fetch` (375); and `XMLHttpRequest` as ADR 0053 decides it when a page
+      uses one (336), its `timeout` (493), its response types beyond text
+      (494), and cancelling a request that has left (495, needs ADR)
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action,
       caused it. No other engine has needed to answer that, and an agent-driven

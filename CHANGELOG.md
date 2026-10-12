@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How `XMLHttpRequest` will work is decided** (ADR 0053), measured first in
+  Chrome 154. It asks for exactly what a `fetch` would and is judged by the
+  same rules, so nothing new crosses between the page and the browser. A page
+  hears Chrome's events in Chrome's order — including Chrome's single
+  `progress` where the standard's text would fire two — and a request nobody
+  kept a reference to still reaches its listeners. A request aborted before
+  it leaves the page is never sent, and a synchronous request throws the error
+  Chrome already throws for synchronous misuse. Nothing is built yet: no page
+  this browser renders uses one.
+
 - **This browser is for every operating system, not one.** The roadmap had
   started saying *destined for alo OS*, which was wrong: the agent surface is
   ours and belongs everywhere, so it is built as our own interface and an
