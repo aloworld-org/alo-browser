@@ -7445,6 +7445,72 @@ The long pole, and the thing most of section E is unreachable without.
   how a track or a flexible size shares what is left over. *Closes when:*
   `alo-agenda-mini-month` and `alo-sites-booking` have Chrome's boxes to
   1/64 px, except what another item names.
+  **Rule decided (iteration 303): ADR 0054, by item 498.** Two of the
+  numbers above were wrong, and the ADR corrects them. The `h2` margin is
+  19.90625 in Chrome, not 19.921875. The mini-month's columns are all
+  28.71875 only because of a second column pass, which 499 owns. What to
+  build is ADR 0054 § 6's three places. `LayoutStyle` truncates every
+  length toward zero to 1/64, clamped to Chrome's range. The arena's
+  `resolve_calc_value` truncates every `calc()`, and a plain percentage is
+  handed to `taffy` as a calculation so that it is truncated too. A leaf's
+  text width is rounded up. Each edge `taffy` hands back is truncated
+  toward zero relative to the parent, and the size is the distance between
+  the two edges. The grid gets one file that `line_width.rs` and
+  `line_height.rs` also read. *Depends on:* 498 (done). Buildable next.
+  *Closes when:* `alo-sites-booking`'s boxes are Chrome's to 1/64 px
+  except its date field's own line (467), and `alo-agenda-mini-month`'s
+  are too except its column widths and what follows from them (499).
+
+- [x] **498. The rule a box's lengths and shares are placed on the grid
+  by.** *Cut from 466 (iteration 303), whose entry asked for its rule to
+  be measured and written down before code depends on it (LOOP.md § 4).
+  Feature: `docs/features.md` stage 1, box model, flexbox and grid.
+  **Needs ADR.*** *Closes when:* its ADR is accepted, grounded in Chrome
+  154 measured on this machine.
+  **Decided (iteration 303): ADR 0054, accepted.** Measured on three probe
+  pages and on both of 466's corpus cases over DevTools. Every reading was
+  a whole number of 1/64 px, except one under a `transform`. A length is
+  **truncated toward zero**: `0.3px` is 19 units, `19.92px` is 1,274, half
+  a unit over 10 px is 640, and `-0.3px` is −19. Each length is truncated
+  on its own, so three nested `0.01px` paddings come to nothing. A
+  percentage is truncated after it is resolved, against a basis already on
+  the grid: 50% of `100.3px` is 3,209 units, half of 6,419. A `calc()` is
+  resolved whole and truncated once. Centring, auto margins and grid
+  `justify-content` truncate each share, toward zero even when the item
+  overflows. A grid's flexible tracks have edges at the ideal edges,
+  floored, with the `fr` size held in a 32-bit float, so seven `1fr` in
+  201 px end at 12,863 units. Flexible items fill their line exactly. In
+  all nine lines measured, the sizes are what you get by going from the
+  last item to the first, each taking the remaining share rounded half
+  away from zero. Flex `justify-content` also fills its line, by a rule
+  that was not separated. `aspect-ratio` truncates the size it derives.
+  A run of text's width is rounded **up**. A transform is not on the grid.
+  Lengths saturate at 2³¹ − 1 units. Not decided: the exact flex rules,
+  other device pixel ratios, other operating systems, writing modes.
+  Found: 499.
+
+- [ ] **499. `taffy`'s flexible shares on the grid.** *Found deciding 498
+  (iteration 303), ADR 0054 § 6. Feature: `docs/features.md` stage 1,
+  flexbox and grid. **Needs ADR**, as its own iteration, because it would
+  revise ADR 0004's line between our tree and `taffy`'s algorithms. Depends
+  on 466.* The boundary can truncate what `taffy` hands back, but not the
+  numbers `taffy` uses between its own passes. Two things follow, both
+  measured in Chrome 154. First, flexible items' shares and flex
+  `justify-content`'s come within one unit of Chrome's rather than equal
+  to them: seven `flex: 1` in 201 px would have an edge at 5,513 where
+  Chrome's is at 5,512. Second, and this is the larger one, a grid that
+  sizes its columns twice. In `alo-agenda-mini-month`, seven `1fr` columns
+  of `aspect-ratio: 1` buttons share 201 px as 1,837 and 1,838 units on
+  the first pass. The row is then 1,838 tall, every button's min-content
+  width becomes 1,838 through its ratio, and on the second pass every
+  column is 1,838 wide, overflowing the grid by two units. Inside `taffy`
+  both passes see 28.714285 px exactly, so there is no second pass. The
+  choices are a hook offered to `taffy` upstream that puts its track and
+  item sizes on a caller's grid, or this engine taking the sharing of
+  flexible space over from `taffy`. ADRs 0004 and 0047 refused a fork and
+  a `[patch]`. *Closes when:* the ADR is accepted, and, if it decides to
+  build, `alo-agenda-mini-month`'s columns are Chrome's 1,838 units and a
+  frozen line of flexible items is Chrome's to the unit.
 
 - [ ] **467. A control's own line at `normal` is its font's whole pixels.**
   *Found building 460 (iteration 293). Feature: `docs/features.md` stage

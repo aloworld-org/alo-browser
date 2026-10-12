@@ -29726,3 +29726,107 @@ naming ADR 0053, and its Owed clause names 336 and 493–495. Also updated:
 229 queue items are open (493–495 added). The next unused queue number is
 **496** and the next ADR is **0054**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 303 — queue item 466's rule decided, as item 498: ADR 0054, a box is laid out on a grid of 1/64 px
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full (§ 4: a decision is
+its own iteration), `ROADMAP.md` (its state rules, *Where it runs*, and the
+stage 1 layout and text lines), iteration 302's entry, and the owner's
+work in progress on items 496 and 497. No `AGENTS.md` exists in this
+repository or above it. For 466: its queue entry and those of 460, 464, 465
+and 467; ADR 0050 in full, the decisions of 0001, 0004 and 0047 on `taffy`;
+`alo-layout`'s `style.rs`, `line_width.rs`, `line_height.rs` and
+`arena.rs`; `taffy` 0.14's grid re-run (`compute/grid/mod.rs`); and the
+`alo-agenda-mini-month`, `alo-sites-booking` and `alo-sites-rich-text`
+cases.
+
+**Choosing.** 83 is decided and waits on 336 and 493–495, so the scan went
+on in file order from 83. 345 waits for a page, 336 depends on 334, 335 and
+338, 493–495 on 336, 423–428 and 431 are blocked, and 438 to 458 wait for
+a page. 465 depends on 460 and waits for a page. **466 is the first
+eligible item.** It depends on nothing open, and its entry says its rule
+must be measured and written down before it is built, because it moves most
+boxes. Under LOOP.md § 4 that is a decision, so, as 460 was handled in
+iteration 292, the rule was cut from 466 as **498 (needs ADR)** and 498 is
+this iteration, with no code. 496 and 497, added by the owner today, sit
+later in the file. The owner's own session took 496 while this iteration
+ran.
+
+**Measured**, in Chrome 154 headless, on three probe pages kept in the
+scratchpad only, and on the three corpus cases over DevTools at their own
+sizes with the corpus's `DejaVu Sans`. Every reading was a whole number of
+1/64 px except one under a `transform`. The findings are ADR 0054's tables:
+
+- A length is truncated toward zero, and a percentage too, after it is
+  resolved against a basis already on the grid. A `calc()` is truncated
+  once, as a whole.
+- Centring, auto margins and grid distribution truncate each share.
+- A grid's flexible tracks have their ideal edges floored, with the `fr`
+  size held in an `f32`. This fits all nine grids measured.
+- A line of flexible items fills its container exactly. In all nine lines
+  measured, the sizes are what you get by going from the last item to the
+  first, rounding each share half away from zero.
+- A text run's width is rounded up, and `aspect-ratio` truncates the size
+  it derives.
+
+**Two of 466's numbers were wrong, and the ADR corrects them.**
+`alo-sites-rich-text`'s `h2` margin is 19.90625 in Chrome, not 19.921875.
+The mini-month's columns are all 1,838 units because Chrome sizes the
+columns a second time: the `aspect-ratio: 1` days make the row 1,838 tall,
+and through the ratio every column's floor becomes 1,838. The grid then
+overflows by two units. Probes isolated the ratio as the cause.
+
+**What was decided (ADR 0054).** Build it at the boundary with `taffy`, in
+three places that are already ours:
+- `LayoutStyle` truncates every length.
+- The arena's `resolve_calc_value` truncates every calculation, and every
+  percentage is handed to `taffy` as one.
+- Each edge `taffy` hands back is truncated relative to the parent.
+
+The boundary cannot reach `taffy`'s own numbers between its passes. So
+flexible items come within one unit of Chrome's rather than equal to them,
+and the mini-month's second column pass cannot happen. ADRs 0004 and 0047
+refused a fork and a `[patch]`, and this ADR does not overturn them in
+passing. That is cut as **499 (needs ADR)**.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground, with its
+output in a scratchpad log, after the owner's concurrent gate finished, so
+that the two did not share the build directory. The harness moved it to the
+background at 600 s, and the next call waited on it with a foreground
+`until` loop. The result was `exit: 0`, "The gate is met. (10 of 10 steps)",
+and no `FAILED`, `panicked` or `^error` in the log. Only this entry and one
+line of `REMAINING.md` were written after it.
+
+**Gate, manual.** No code changed. There is no layout assertion or
+reference render to add, no file gained a responsibility, and there is no
+hostile-input surface. `docs/features.md` is unchanged, because the grid is
+decided and not built, as with ADR 0050. `docs/conformance.md` is unchanged
+because nothing renders differently. No `unsafe`; no verb takes a
+coordinate; `alo-workplace` and `alo-os` were read only, and `taffy`'s
+source was read, not changed.
+
+**Working beside the owner's session.** It committed 734f2f8 (items 496 and
+497) and 9c4a969 (its ADR on the agent's socket) while this iteration ran.
+9c4a969 took the whole working copy of `CHANGELOG.md`, so **this
+iteration's changelog entry is in that commit**, not in this one. 9c4a969
+also numbered its ADR 0053, which ADR 0053 on `XMLHttpRequest` already
+was. The owner's session has a rename to 0055 staged. This iteration
+committed only its own paths, and the staged rename was left alone.
+
+**Queue.** 498 added and ticked with its *Decided* paragraph. 466 records
+the rule and its closing condition, which is now scoped by 467 and 499, and
+it stays open and buildable next. 499 added (needs ADR, depends on 466).
+
+**Roadmap.** Not ticked. The stage 1 Layout line gains a clause: the rule
+is decided by ADR 0054, nothing is built, and 466 and 499 are owed. Also
+updated: `REMAINING.md`. The changelog line is in 9c4a969, as above.
+
+**Unresolved obligations.**
+- 466 is decided, not built. Every corpus comparison still allows about
+  1/160 px for paddings, margins and tracks.
+- 499 needs its ADR before the mini-month's columns can be Chrome's.
+- The two ADRs numbered 0053 in `HEAD` until the owner's rename lands.
+
+233 queue items are open (498 added and closed, 499 added). The next unused
+queue number is **500** and the next ADR is **0056**. This is one
+iteration, not a finished queue or roadmap.

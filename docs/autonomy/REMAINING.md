@@ -1873,3 +1873,21 @@ for a page; **493** (`timeout`), **494** (response types beyond text) and
 **495** (cancelling a request that has left, needs ADR) are added. 229 queue
 items are open (493–495 added). The next unused queue number is 496 and the
 next unused ADR 0054.
+
+Iteration 303 decided the rule for queue item 466, as item 498: ADR 0054,
+measured in Chrome 154 on three probe pages and on 466's two corpus cases
+over DevTools. Layout is on a grid of 1/64 px. A length, a percentage
+(after it is resolved against a basis already on the grid) and a `calc()`
+(as a whole) are each truncated toward zero onto it, and a run of text's
+width is rounded up. Centring, auto margins and grid distribution truncate
+each share. A grid's flexible tracks have their ideal edges floored, and a
+line of flexible items fills its container exactly. It is built at the
+boundary with `taffy`: `LayoutStyle`, the arena's `resolve_calc_value`
+with every percentage handed over as a calculation, and the edges `taffy`
+hands back, truncated. No code changed. 466 stays open, decided and
+buildable next. Found: **499** (needs ADR: `taffy`'s flexible shares on the
+grid, and the grid's second column pass, which makes every column of
+`alo-agenda-mini-month` 1,838 units in Chrome). 233 queue items are open
+(498 added and closed, 499 added). The next unused queue number is 500 and
+the next unused ADR 0056: the owner's ADR on the agent's socket, committed
+as a second 0053, is being renumbered 0055.

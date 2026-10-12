@@ -132,6 +132,16 @@ correctness, not before it.
       *The `flex` shorthand was read by nothing until queue item 440
       (iteration 281), so `flex: 1` grew nothing; `alo-css`' `flex.rs` now
       splits it into its three longhands, measured against Chrome 154.*
+      *Boxes are laid out in exact floats, where Chrome 154 lays them out
+      on a grid of 1/64 px, so paddings, margins and tracks differ from
+      Chrome's by up to a unit each. The rule was decided in iteration 303
+      (queue item 498, ADR 0054), measured on three probe pages and two
+      corpus cases. Lengths, percentages and `calc()` are truncated toward
+      zero, text widths are rounded up, and shared space leaves every edge on
+      the grid. Nothing is built yet. Owed: building it at the boundary
+      with `taffy` (466), and the shares `taffy` decides inside its own
+      algorithms, including a grid's second column pass, which needs its
+      own ADR (499).*
 - [x] **Text**: HarfBuzz shaping (via `rustybuzz`), the fallback chain and line breaking, with the awkward scripts working before the easy ones. Rasterisation is queue item 17, beside paint
       *`text-transform` was read by nothing until queue item 441
       (iteration 283, ADR 0049): uppercased headings were drawn, measured
