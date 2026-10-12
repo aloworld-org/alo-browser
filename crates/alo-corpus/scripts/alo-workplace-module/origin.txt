@@ -1,0 +1,63 @@
+alo-workplace, web/dist/assets/Badge-BlmKBifT.js — one module of the alo
+workspace as a browser actually receives it.
+
+Taken 2026-10-12 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef. The bytes in
+script.js are that file exactly as it stands, unedited: SHA-256
+f45a072e505b8b1f1ac70483349291cc8c6a6b27fb814b09362f688c74b27c56, 482 bytes. `alo-workplace` is read-only
+reference; nothing was written back to it.
+
+**Its provenance is weaker than every `cases/` origin and that is said here
+rather than glossed.** `web/dist` is **not tracked in git** — it is a build
+artefact, made on this machine on 2026-09-02 by `npm run build` (`tsc
+--noEmit && vite build`), from source whose entry last changed on 2026-08-27
+at commit 98d82f445c158833f9d9cfe1a80998fc656373c6. So no commit holds these
+bytes and nobody can re-derive them exactly; the digest above is the only
+thing that pins them. Rebuilding was refused rather than attempted, because a
+build writes `web/dist` and that checkout is read-only reference. A future
+freeze that needs reproducibility should build from a named commit in a copy
+and record the command, not re-run it here.
+
+Why this script. Item 77 — ES modules — had nothing that reached it: no page
+in `cases/` has a module script, and the frozen `alo-theme-generator` is a
+Node program (`node:fs`) rather than a page's. This is a page's module, from
+a real build of alo's own product, and it is **minified**, which is the form
+every real module arrives in and the hardest to read correctly. In 482 bytes
+it exercises a static import with renamed bindings —
+`import{j as a}from"./index-xlvwIflO.js"` — a relative specifier, and a named
+export with renaming, `export{o as B}`.
+
+The page that loads it, recorded here because 545 bytes is cheaper to quote
+than to freeze separately. `alo-workplace/web/dist/index.html`, SHA-256
+632daf1988dabc6f8cfe2d3bea3e89d069085330d66fd40f218eabd816842d8a:
+
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>alo workplace</title>
+        <script type="module" crossorigin src="/assets/index-xlvwIflO.js"></script>
+        <link rel="stylesheet" crossorigin href="/assets/index-dn50ptW4.css">
+      </head>
+      <body>
+        <div id="root"></div>
+      </body>
+    </html>
+
+What this does **not** cover, so that nothing reads it as more than it is.
+The entry that page actually loads is `index-xlvwIflO.js`, 2 163 856 bytes,
+SHA-256 e34aa291cc2e6a085fffa7e2ef8033679838515cfe07107e2d4dc853edfc36db, and
+it carries 7 static imports, 23 dynamic `import()` calls and 10 exports
+across 410 further chunks. **Dynamic import, a module graph, a module map and
+live bindings are not exercised by this file at all.** Closing item 77 needs
+those, and needs the entry or something like it; opening it needs only a
+page's module that this engine refuses, which is this.
+
+Why a script rather than a case. Nothing renders a module, exactly as nothing
+renders a service worker. And a directory under `cases/` is recognised as a
+live case by the presence of `page.html` (`alo-corpus`'s `case.rs`), so
+freezing this page there before the engine can render it would create a case
+whose expected box tree and picture do not exist — failing the corpus tests and
+stopping the loop. `scripts/` is the second kind of frozen thing, read by
+`alo-js`'s tests rather than `alo-corpus`'s.

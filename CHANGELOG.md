@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A gate run that stops early can no longer read as one that passed.** It
+  declares how many steps it has, counts them as they run, refuses a run where
+  the count does not match, and prints the count beside its verdict. The cure
+  is alo OS's — *assert what must be present, never the absence of what must
+  not* — and this gate earned it the same day: a run piped through `head` died
+  at step two of ten, and searching that log for failures found none, so it
+  looked exactly like a pass. Naming the subject of a verdict does not catch
+  that, because a truncated log names its subject correctly and then stops.
+
+- **One module of the alo workspace is frozen, as a browser receives it.** ES
+  modules had nothing real that reached them: no page in the corpus has a
+  module script, and the frozen theme generator is a Node program rather than a
+  page's. This is 482 bytes of minified output from a real build of alo's own
+  product, carrying a renamed import, a relative specifier and a renamed
+  export. Its note records what it cannot: the build output is not tracked in
+  git, so no commit holds those bytes, and the digest is all that pins them.
+
 - **An agent can see which fields a form would refuse before pressing.**
   A field now reads as `invalid` in the agent tree exactly when Chrome's
   accessibility tree says so: alo Sites' booking page's empty day field

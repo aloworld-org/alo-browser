@@ -42,7 +42,25 @@ subject() {
 }
 subject
 
-step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
+# Every step this gate has, counted so that a run which stopped early cannot
+# read as one that passed.
+#
+# alo OS's cure, which is better than the one this file had. Theirs asserts a
+# *positive* count — their gate refuses a log that does not hold exactly nine
+# passes — and the general form they drew out of it is worth keeping verbatim:
+# **assert what must be present, never the absence of what must not.**
+#
+# This file earned it the same day. A run piped through `head -6` died of
+# SIGPIPE at step two of ten; grepping that log for failures found none, so it
+# looked exactly like a pass. Naming the subject of a verdict, which this gate
+# now does, does not catch that — a truncated log names its subject correctly
+# and then stops. Only a count does.
+STEPS_DECLARED=10
+steps_run=0
+step() {
+  steps_run=$(( steps_run + 1 ))
+  printf '\n\033[1m== %s\033[0m\n' "$1"
+}
 bad() { printf '\033[31mFAIL\033[0m  %s\n' "$1"; fail=1; }
 good() { printf '\033[32mok\033[0m    %s\n' "$1"; }
 
@@ -244,8 +262,17 @@ What this cannot check, and a person must:
 
 NOTE
 
+if [ "$steps_run" -ne "$STEPS_DECLARED" ]; then
+  printf '\033[31mFAIL\033[0m  %s\n' \
+    "$steps_run of $STEPS_DECLARED steps ran — this run did not finish, and a \
+run that did not finish is not a pass"
+  fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
-  printf '\033[31mThe gate is not met.\033[0m\n'
+  printf '\033[31mThe gate is not met.\033[0m  (%s of %s steps)\n' \
+    "$steps_run" "$STEPS_DECLARED"
   exit 1
 fi
-printf '\033[32mThe gate is met.\033[0m\n'
+printf '\033[32mThe gate is met.\033[0m  (%s of %s steps)\n' \
+  "$steps_run" "$STEPS_DECLARED"
