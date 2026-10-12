@@ -15,19 +15,23 @@
 //! # Beacon's steps, as this engine takes them
 //!
 //! 1. Web IDL converts the arguments: `url` with `ToString`; `data`, an
-//!    optional `BodyInit?`, is no body when it is `null` or omitted and
-//!    otherwise a string. None of `BodyInit`'s object types — `Blob`,
-//!    `FormData`, `URLSearchParams`, a buffer source — exists in this engine
-//!    yet, so `ToString` is the conversion every other value gets, correctly
-//!    and not as a substitute: the item that builds one adds it here.
+//!    optional `BodyInit?`, is no body when it is `null` or omitted, itself
+//!    when it is a `URLSearchParams` or a `FormData` (queue item 472), and
+//!    otherwise a string. `Blob` and a buffer source do not exist in this
+//!    engine yet, so `ToString` is the conversion every other value gets,
+//!    correctly and not as a substitute: the item that builds one adds it
+//!    here.
 //! 2. `url` is parsed against the document's base URL — the first
 //!    `<base href>`, as a fetch's is ([`crate::navigating::base`]). One that
 //!    does not parse, or whose scheme is not `http` or `https`, is a
 //!    `TypeError`.
 //! 3. A string body is its UTF-8 bytes and brings `Content-Type:
-//!    text/plain;charset=UTF-8`, which is CORS-safelisted, so the mode is
-//!    `no-cors`. A body whose type is not safelisted, which only the object
-//!    types above can have, would make it `cors`.
+//!    text/plain;charset=UTF-8`, and a `URLSearchParams` brings
+//!    `application/x-www-form-urlencoded;charset=UTF-8`
+//!    ([`crate::body_init`]). Both are CORS-safelisted, so the mode is
+//!    `no-cors`. A `FormData` is refused by name there; a body whose type is
+//!    not safelisted, which only it and a `Blob` could have, would make it
+//!    `cors`.
 //! 4. If the body would take the document's keep-alive bytes in flight past
 //!    [`crate::fetching::MOST_KEPT_ALIVE`], the answer is `false` and nothing is asked
 //!    (§ 4). So it is when the asks waiting to be taken have no room for it
@@ -51,6 +55,7 @@ use alo_net::cors::{Credentials, Mode};
 use alo_net::redirect;
 use alo_url::Url;
 
+use crate::body_init::{self, Extracted};
 use crate::document_cell::DocumentCell;
 use crate::fetching::{Asked, Keepalive};
 use crate::idl::{self, Converted};
@@ -77,19 +82,22 @@ pub(crate) fn send(call: &mut Call<'_>) -> Result<Answer, Escape> {
         .host_defined()
         .ok_or(Escape::fault(Fault::NotAnObject))?;
     let url = resolved(call, owner, &url)?;
-    let body = data.map(String::into_bytes);
+    let body = match data {
+        Some(text) => Some(Extracted {
+            text,
+            content_type: body_init::TEXT_PLAIN,
+        }),
+        None => body_init::extracted(call.seen(), call.argument(1))?,
+    };
     let held = call
         .seen()
         .embedded::<DocumentCell>(owner)
         .ok_or(Escape::fault(Fault::NotAnObject))?;
-    let headers = if body.is_some() {
-        vec![(
-            "Content-Type".to_owned(),
-            "text/plain;charset=UTF-8".to_owned(),
-        )]
-    } else {
-        Vec::new()
-    };
+    let headers = body
+        .as_ref()
+        .map(|body| vec![("Content-Type".to_owned(), body.content_type.to_owned())])
+        .unwrap_or_default();
+    let body = body.map(|body| body.text.into_bytes());
     let asked = Asked {
         number: held.fetches.next_number(),
         url,
@@ -127,10 +135,12 @@ fn this(call: &Call<'_>) -> Result<(), Escape> {
     }
 }
 
-/// `data` as nothing — `null`, `undefined` or omitted — or a value to
-/// convert.
+/// `data` as a value to convert with `ToString`: not when it is nothing —
+/// `null`, `undefined` or omitted — and not when it is one of the objects
+/// [`body_init`] extracts, which no script is run for.
 fn has_data(call: &Call<'_>) -> bool {
     !matches!(call.argument(1), Value::Null | Value::Undefined)
+        && !body_init::is_one(call.seen(), call.argument(1))
 }
 
 /// `url` and `data`, converted, or what to ask for first.

@@ -26,14 +26,19 @@
 //! node's wrapper `Document`'s unforgeable `location`, which answers the
 //! same object.
 //!
-//! It also puts the two interface objects a page constructs with on the
+//! It also puts the four interface objects a page constructs with on the
 //! global object — `Event` and `CustomEvent` (ADR 0018 § 8), since a page
-//! cannot make an event any other way. Each is a constructor whose
+//! cannot make an event any other way, and `FormData` and `URLSearchParams`
+//! (queue item 472), likewise for what it sends. Each is a constructor whose
 //! `prototype` is the interface's prototype the document cell holds, neither
 //! writable nor configurable, with a `constructor` pointing back;
 //! `CustomEvent` inherits from `Event`, and `Event` carries the four phase
-//! constants as its prototype does. Called without `new`, each is a
-//! `TypeError`.
+//! constants as its prototype does; the other two inherit from
+//! `Function.prototype`. Called without `new`, each is a `TypeError`.
+//!
+//! An interface iterable over pairs — `FormData` — has its `entries` put
+//! under `Symbol.iterator` too, as the same function, and an iterator's
+//! prototype inherits from the realm's `%IteratorPrototype%`.
 //!
 //! # `document` is a value, not yet a getter
 //!
@@ -58,7 +63,10 @@ use crate::define;
 use crate::document_cell::DocumentCell;
 use crate::embed::{self, Wrapping};
 use crate::event::{make_custom_event, make_event};
-use crate::interface::{Inherits, Interface, custom_event, event, window};
+use crate::form_data::make_form_data;
+use crate::interface::{
+    Inherits, Interface, custom_event, event, form_data, url_search_params, window,
+};
 use crate::location;
 use crate::unforgeable;
 use crate::window::Window;
@@ -77,6 +85,7 @@ pub fn furnish(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
     let object_prototype = intrinsics.object_prototype(objects)?;
     let function_prototype = intrinsics.function_prototype(objects)?;
     let array_prototype = intrinsics.array_prototype(objects)?;
+    let iterator_prototype = intrinsics.iterator_prototype(objects)?;
     let iterator = intrinsics.well_known_key(objects, WellKnown::Iterator)?;
     let error = intrinsics.error_constructor(objects, Family::Error)?;
     let error_prototype = objects
@@ -95,6 +104,7 @@ pub fn furnish(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
         let above = match interface.inherits() {
             Inherits::Object => Some(object_prototype),
             Inherits::Error => Some(error_prototype),
+            Inherits::Iterator => Some(iterator_prototype),
             Inherits::Interface(parent) => objects
                 .embedded::<DocumentCell>(cell)
                 .and_then(|held| held.interfaces().prototype(parent)),
@@ -110,6 +120,9 @@ pub fn furnish(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
         interface.furnish(objects, prototype, function_prototype)?;
         if interface.iterates_as_an_array() {
             define::array_iteration(objects, prototype, array_prototype, iterator)?;
+        }
+        if interface.iterates_in_pairs() {
+            define::pair_iteration(objects, prototype, iterator)?;
         }
         if interface.has_unforgeables() {
             unforgeables(objects, cell, interface, function_prototype)?;
@@ -230,7 +243,8 @@ fn the_window(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
     window::members(objects, global, function_prototype)
 }
 
-/// Put `Event` and `CustomEvent` on `engine`'s global object.
+/// Put `Event`, `CustomEvent`, `FormData` and `URLSearchParams` on
+/// `engine`'s global object.
 ///
 /// **A safepoint.** Each constructor is held in a scope until the global
 /// object owns it, and each prototype is held by the document cell, which the
@@ -238,28 +252,64 @@ fn the_window(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
 fn constructors(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
     let global = engine.global()?;
     let (intrinsics, objects) = engine.intrinsics();
-    let mut above = intrinsics.function_prototype(objects)?;
-    let made: [(Interface, Body, Make); 2] = [
-        (Interface::Event, event::construct, make_event),
+    let functions = intrinsics.function_prototype(objects)?;
+    let mut above = functions;
+    let made: [(Interface, Native, Above); 4] = [
+        (
+            Interface::Event,
+            made(Interface::Event, event::construct, make_event),
+            Above::Functions,
+        ),
         (
             Interface::CustomEvent,
-            custom_event::construct,
-            make_custom_event,
+            made(
+                Interface::CustomEvent,
+                custom_event::construct,
+                make_custom_event,
+            ),
+            Above::Previous,
+        ),
+        (
+            Interface::FormData,
+            made(Interface::FormData, form_data::construct, make_form_data),
+            Above::Functions,
+        ),
+        (
+            Interface::UrlSearchParams,
+            url_search_params::CONSTRUCTOR,
+            Above::Functions,
         ),
     ];
-    for (interface, body, make) in made {
+    for (interface, native, inherits) in made {
+        if inherits == Above::Functions {
+            above = functions;
+        }
         let objects = engine.objects();
         let prototype = objects
             .embedded::<DocumentCell>(cell)
             .and_then(|held| held.interfaces().prototype(interface))
             .ok_or(Escape::fault(Fault::Gone))?;
         let scope = objects.heap_mut().open();
-        let outcome = constructor(objects, global, prototype, above, interface, body, make);
+        let outcome = constructor(objects, global, prototype, above, interface, native);
         objects.heap_mut().close(scope);
         // `CustomEvent` inherits from `Event`, which the global object holds.
         above = outcome?;
     }
     Ok(())
+}
+
+/// What an interface object inherits from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Above {
+    /// `Function.prototype`.
+    Functions,
+    /// The interface object made before it: `CustomEvent`'s is `Event`.
+    Previous,
+}
+
+/// The constructor of `interface`, which keeps nothing across a call.
+const fn made(interface: Interface, body: Body, make: Make) -> Native {
+    Native::constructor(interface.name(), body, Instance::Made(make))
 }
 
 /// One interface object, with the scope open, answering it.
@@ -269,15 +319,11 @@ fn constructor(
     prototype: Ref,
     above: Ref,
     interface: Interface,
-    body: Body,
-    make: Make,
+    native: Native,
 ) -> Result<Ref, Escape> {
     let name = interface.name();
     let function = objects
-        .native(
-            Native::constructor(name, body, Instance::Made(make)),
-            Some(above),
-        )
+        .native(native, Some(above))
         .map_err(|why| Escape::refused(why, 0))?;
     objects.heap_mut().hold(function);
     let named = |text: &str| -> Vec<u16> { text.encode_utf16().collect() };

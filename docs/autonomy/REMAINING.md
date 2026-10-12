@@ -1835,3 +1835,17 @@ before the form was sent as a scriptless page's. `ToObject` of a primitive
 is cut into **489** and a string's iterator into **490**. 226 queue items
 are open (488 closed, 489 and 490 added). The next unused queue number is
 491 and the next unused ADR 0053.
+
+Iteration 300 built item 472: `FormData` and `URLSearchParams`. Measured
+first in Chrome 154 over DevTools on the frozen contact form at its address.
+`FormData` takes its list from the function a submission uses and iterates
+as pairs; `URLSearchParams` reads a string, a record, or a sequence walked
+by the iterator protocol one call at a time; a `URLSearchParams` is a fetch's
+or a beacon's body with Chrome's type. `className` and `replaceWith` came
+with them. `alo-sites-contact-form`, the first case to freeze a fetch's
+answer (rebuilt from alo Sites' source), now posts Chrome's exact body when
+an agent presses Send, and puts its thanks where the form was, boxed where
+Chrome boxes it (`sent.png`). The `formdata` event is cut into **491** and a
+`FormData` body into **492**; offline, the page's `form.submit()` fallback
+waits on 471. 227 queue items are open (472 closed, 491 and 492 added). The
+next unused queue number is 493 and the next unused ADR 0053.

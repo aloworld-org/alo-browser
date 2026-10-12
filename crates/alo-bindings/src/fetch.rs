@@ -46,7 +46,9 @@
 //!    disagree;
 //! 6. a body on a `GET` or `HEAD` is a `TypeError`; a string body is its
 //!    UTF-8 bytes, and brings `Content-Type: text/plain;charset=UTF-8` when
-//!    the page set none.
+//!    the page set none; a `URLSearchParams` is extracted by
+//!    [`crate::body_init`] and brings its own type the same way, and a
+//!    `FormData` is refused by name there.
 //!
 //! An ask that would take what is waiting to be taken past
 //! [`crate::fetching::MOST_ASKED_BYTES`] fails as a network error does.
@@ -66,6 +68,7 @@ use alo_net::redirect;
 use alo_net::referrer::Policy;
 use alo_url::Url;
 
+use crate::body_init::{self, Extracted};
 use crate::delivering;
 use crate::document_cell::DocumentCell;
 use crate::fetch_init::{
@@ -238,6 +241,21 @@ fn kept_text(call: &Call<'_>, which: usize) -> Result<Option<String>, Escape> {
     }
 }
 
+/// The body kept in its slot, extracted as Fetch extracts it: a string is
+/// itself, and an object [`body_init`]'s.
+fn body(call: &Call<'_>) -> Result<Option<Extracted>, Escape> {
+    match call.kept(BODY)? {
+        Value::Undefined => Ok(None),
+        Value::Text(_) => Ok(kept_text(call, BODY)?.map(|text| Extracted {
+            text,
+            content_type: body_init::TEXT_PLAIN,
+        })),
+        object => body_init::extracted(call.seen(), object)?
+            .map(Some)
+            .ok_or(Escape::Broken(Internal::BuiltinIsWrong)),
+    }
+}
+
 /// The page's wishes, from the converted members and their defaults.
 struct Wishes {
     mode: Mode,
@@ -255,18 +273,22 @@ fn record(call: &mut Call<'_>) -> Result<u64, Escape> {
     let url = resolved(call, owner)?;
     let wishes = wishes(call)?;
     let method = method(call, wishes.mode)?;
-    let body = kept_text(call, BODY)?;
+    let body = body(call)?;
     if body.is_some() && matches!(method.as_str(), "GET" | "HEAD") {
         return Err(refused(call, format!("a {method} cannot have a body")));
     }
-    let headers = headers(call, wishes.mode, body.is_some())?;
+    let headers = headers(
+        call,
+        wishes.mode,
+        body.as_ref().map(|body| body.content_type),
+    )?;
     let fetches = &held_cell(call, owner)?.fetches;
     let asked = Asked {
         number: fetches.next_number(),
         url,
         method,
         headers,
-        body: body.map(String::into_bytes).unwrap_or_default(),
+        body: body.map(|body| body.text.into_bytes()).unwrap_or_default(),
         mode: wishes.mode,
         credentials: wishes.credentials,
         redirect: wishes.redirect,
@@ -375,8 +397,12 @@ fn method(call: &Call<'_>, mode: Mode) -> Result<String, Escape> {
 }
 
 /// The headers, normalised and checked, with what the guard drops dropped,
-/// and the `Content-Type` a string body brings when the page set none.
-fn headers(call: &Call<'_>, mode: Mode, has_body: bool) -> Result<Vec<(String, String)>, Escape> {
+/// and the `Content-Type` the body brings when the page set none.
+fn headers(
+    call: &Call<'_>,
+    mode: Mode,
+    content_type: Option<&'static str>,
+) -> Result<Vec<(String, String)>, Escape> {
     let encoded = kept_text(call, HEADERS)?.unwrap_or_default();
     let given = fetch_init::decode(&encoded).ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
     let mut headers = Vec::new();
@@ -401,15 +427,12 @@ fn headers(call: &Call<'_>, mode: Mode, has_body: bool) -> Result<Vec<(String, S
             headers.push((name, value));
         }
     }
-    if has_body
+    if let Some(content_type) = content_type
         && !headers
             .iter()
             .any(|(name, _)| name.eq_ignore_ascii_case("content-type"))
     {
-        headers.push((
-            "Content-Type".to_owned(),
-            "text/plain;charset=UTF-8".to_owned(),
-        ));
+        headers.push(("Content-Type".to_owned(), content_type.to_owned()));
     }
     Ok(headers)
 }

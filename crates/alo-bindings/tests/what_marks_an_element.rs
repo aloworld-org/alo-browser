@@ -110,7 +110,8 @@ fn thrown(body: &str) -> String {
 fn get_element_by_id_answers_the_first_in_tree_order_or_null() {
     for (source, expected) in [
         (
-            "document.getElementById('card').className === undefined",
+            // `className` reflects `class` as written (queue item 472).
+            "document.getElementById('card').className === 'card  card'",
             "true",
         ),
         (

@@ -22,13 +22,15 @@
 //!
 //! # What is read, and what is refused by name
 //!
-//! `body` as a string; `credentials`, `mode`, `redirect` and
+//! `body` as a string, or as a `URLSearchParams` or `FormData` kept as the
+//! object itself, for Fetch's steps to extract ([`crate::body_init`]);
+//! `credentials`, `mode`, `redirect` and
 //! `referrerPolicy`; `method` as a `ByteString`; and `headers` as a record —
 //! a plain object of names to values. The rest are refused by name when a
 //! page sets them to anything but their default, rather than ignored: a
 //! `signal` nobody honours is a cancel button that does nothing, and a
 //! `cache` mode nobody honours is a fetch that behaves otherwise than asked.
-//! So are a body that is not a string, headers given as a list of pairs, a
+//! So are a body that is none of those, headers given as a list of pairs, a
 //! header behind a getter or whose value is an object, and a header value
 //! with a byte past `0x7F`, which this engine holds as text and so could not
 //! send as the byte the page meant.
@@ -41,13 +43,15 @@ use alo_js::object::symbol::WellKnown;
 use alo_js::object::{Found, Key};
 use alo_js::{Escape, Value};
 
+use crate::body_init;
 use crate::dictionary::{self, Member};
 use crate::headers::Headers;
 use crate::idl::{self, Converted};
 
 /// The request steps' slots: the input, as a string.
 pub(crate) const INPUT: usize = 0;
-/// The body, a string, or `undefined` for none.
+/// The body: a string, a `URLSearchParams` or a `FormData`, or `undefined`
+/// for none.
 pub(crate) const BODY: usize = 1;
 /// `credentials`, checked.
 pub(crate) const CREDENTIALS: usize = 2;
@@ -267,10 +271,11 @@ fn take(
         Init::Body => match value {
             Value::Undefined | Value::Null => {}
             Value::Text(_) => call.keep(BODY, value)?,
+            _ if body_init::is_one(call.seen(), value) => call.keep(BODY, value)?,
             _ => {
                 return Err(not_built(
-                    "a fetch body that is not a string is not built (ADR 0032, What this does not \
-                     decide)",
+                    "a fetch body that is not a string, a URLSearchParams or a FormData is not \
+                     built (ADR 0032, What this does not decide)",
                 ));
             }
         },

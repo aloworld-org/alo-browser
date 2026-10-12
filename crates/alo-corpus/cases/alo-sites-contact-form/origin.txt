@@ -33,7 +33,8 @@ the page's own `<link rel="canonical">` says
 is answered from site.css (linked.txt). Its analytics script is the same
 script; it also finds the form (`form[action^="/f/"]`) and sends a view
 through `navigator.sendBeacon`, which sends nothing in a reference render.
-The first script's submit listener is never fired.
+The first script's submit listener is fired only by a press, which no
+reference render makes; what it sends is below.
 
 Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
 Sites cases are.
@@ -81,3 +82,39 @@ What the sheet asks for that this engine does not do is in issues.txt: the
 call-to-action section's list exactly — `::before` and `::after`,
 `@keyframes`, and `prefers-reduced-motion`. Nothing on this page uses any of
 them.
+
+## What its form is answered with
+
+The first script's `submit` listener cancels the press and sends the form
+itself: `fetch` of the form's action, `POST`, with
+`new URLSearchParams(new FormData(form))` as its body. On a `200` it puts
+the form's `data-success`, *Thanks — talk soon.*, in a paragraph where the
+form was. responses.txt freezes the answer for that one URL, and only a
+press asks for it, so the reference render, which presses nothing, is
+unchanged by it.
+
+form-sent.http (SHA-256
+ed3b2c4ed47084f5ff8f50d33e10672c8805f09076eb1a2856af0d9ebb1e84a6) is what
+alo Sites' server answers a submission it kept, **rebuilt from its source**
+rather than captured, because running that server needs its store. At the
+same `alo-workplace` commit, 738de61401d992c9b058c83237e16c90ecbd23ef,
+`products/sites/alo-sites/src/serve/forms.rs`' `submit` answers a kept
+submission, and the honeypot's silent drop, with `sent(&EN)`: status `200`,
+`content-type: text/html; charset=utf-8`, `cache-control: no-store` and
+`x-content-type-options: nosniff`, and a body that is
+`src/serve/rendered.rs`' `minimal_document("en", "Message sent",
+"Thanks — your message has been sent.")`, the strings `EN` holds in
+`src/render/strings.rs`. The file holds those headers, a `content-length`,
+and that document byte for byte. A `date` header, which the server's HTTP
+stack adds, is left out. The listener reads only the status.
+
+Chrome 154 was measured on the frozen bytes at this address over DevTools
+on 2026-10-12, every request intercepted and nothing sent: filled with
+`Ada Lovelace`, `ada@example.com` and `Two kilos a week, please.`, the
+press asks for `POST https://nordwind.alosites.com/f/f4K9sL2wN7qR5tYx8vB1cA`
+with `Content-Type: application/x-www-form-urlencoded;charset=UTF-8` and
+`website=&name=Ada+Lovelace&email=ada%40example.com&message=Two+kilos+a+week%2C+please.`,
+and, answered `200` with that body, replaces the form with
+`<p class="form-success">Thanks — talk soon.</p>`. sent.png is that moment
+as this engine draws it; Chrome's picture of it, with the corpus fonts,
+differs only inside the glyphs.

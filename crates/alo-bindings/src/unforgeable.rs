@@ -59,7 +59,7 @@ pub(crate) fn copy(
         }
         at = match interface.inherits() {
             Inherits::Interface(parent) => Some(parent),
-            Inherits::Object | Inherits::Error => None,
+            Inherits::Object | Inherits::Error | Inherits::Iterator => None,
         };
     }
     Ok(())

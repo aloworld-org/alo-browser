@@ -248,6 +248,33 @@ pub(crate) fn array_iteration(
     defined(objects, prototype, iterator, property)
 }
 
+/// Put `prototype`'s own `entries` under `iterator` too — the same function,
+/// writable, configurable and not enumerable — as Web IDL does for an
+/// interface iterable over pairs (queue item 472).
+///
+/// Allocates nothing: `entries` is on `prototype` already.
+///
+/// # Errors
+///
+/// A fault for a prototype with no `entries` of its own, which is this
+/// crate's bug.
+pub(crate) fn pair_iteration(
+    objects: &mut Objects,
+    prototype: Ref,
+    iterator: Key,
+) -> Result<(), Escape> {
+    let units: Vec<u16> = "entries".encode_utf16().collect();
+    let entries = objects
+        .existing_key(&units)
+        .map(|key| objects.get(prototype, key))
+        .transpose()?;
+    let Some(Found::Value(Value::Object(function))) = entries else {
+        return Err(Escape::fault(alo_js::Fault::Gone));
+    };
+    let property = Property::data(Value::Object(function), true, false, true);
+    defined(objects, prototype, iterator, property)
+}
+
 /// The function `array_prototype` holds under `key`, if it is the engine's
 /// own native called `name`.
 fn realms_own(

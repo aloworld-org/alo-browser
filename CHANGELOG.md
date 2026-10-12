@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can send its own form, and alo Sites' contact form now does.**
+  `FormData` reads a form's fields exactly as a submission would send them,
+  and `URLSearchParams` builds names and values from text, from an object,
+  or from any list of pairs — calling the page's own code along the way in
+  the order Chrome does. Either can be the body of a `fetch` or a beacon,
+  sent as Chrome sends it. alo Sites' contact form cancels the Send button
+  to send itself this way: an agent pressing it now posts exactly the body
+  Chrome posts, and when the site answers, *Thanks — talk soon.* takes the
+  form's place, laid out and drawn where Chrome puts it. `className` and
+  `replaceWith`, which that page also uses, work too. Still refused by
+  name: a form holding a file field, a page listening for `formdata` (491),
+  and a `FormData` sent as a body (492). Offline, the page's fallback,
+  `form.submit()`, is still missing (471).
+
 - **A script can read a string's properties.** `"abc".length`, `"abc"[1]`
   and the methods every string shares now answer, where any property of a
   string used to stop the script. The methods are the first three of the

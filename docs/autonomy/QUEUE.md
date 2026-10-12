@@ -5349,8 +5349,14 @@ The long pole, and the thing most of section E is unreachable without.
   item 73 (see 485's *Found*).
   *Since 488:* that stop is gone; the fallback is reached once the
   listener's `fetch` is asked for and fails, which waits on 472.
+  *Since 472 (iteration 300):* it is reached. Offline, the listener's
+  `.catch` calls `form.submit()`, which is absent, so the delivery reports
+  `TypeError: undefined is not a function` and the form stays
+  (`a_form_on_somebody_elses_page_is_sent.rs`'
+  `the_contact_form_offline_is_left_as_it_was` pins it). Chrome would post
+  the form as a navigation.
 
-- [ ] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
+- [x] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
   § 7). Depends on 468 and 335.* `new FormData(form)` built from 468's
   entry list by the same function, and `URLSearchParams` from one, as a
   fetch body. A `FormData` body is multipart, encoded in the renderer
@@ -5372,6 +5378,73 @@ The long pole, and the thing most of section E is unreachable without.
   *Since 488 (iteration 299):* that stop is gone. The listener hears the
   press, cancels it and stops on `URLSearchParams`, so nothing is sent; this
   item's opener is now its first missing name, on the frozen page.
+  ***Done (iteration 300).*** Measured first in Chrome 154 over DevTools on
+  the frozen page at its address: the listener posts
+  `website=&name=Ada+Lovelace&email=ada%40example.com&message=…` as
+  `application/x-www-form-urlencoded;charset=UTF-8`, and with a `200` the
+  form is replaced by `<p class="form-success">Thanks — talk soon.</p>`.
+  What was built:
+  - `alo-url`: `form::parse`, the URL Standard's urlencoded parser.
+  - `alo-dom`: `create_document_fragment`.
+  - `alo-bindings`: `FormData` (`form_data.rs`, `interface/form_data.rs`):
+    `new FormData(form, submitter)` with Chrome's `TypeError`s and
+    `NotFoundError`, its list from `alo_dom::submission::entries`, the
+    function a submission uses; `entries` and `[Symbol.iterator]` as one
+    function; a `FormData Iterator` (`form_data_iterator.rs`,
+    `interface/form_data_iterator.rs`) inheriting `%IteratorPrototype%`
+    (`Inherits::Iterator`). Refused by name: a file field's entry (a
+    `File`), an image submitter, an unread value, and a `formdata`
+    listener on the event's path (491).
+  - `URLSearchParams` (`search_params.rs`,
+    `interface/url_search_params.rs`): the union `init` walked by the
+    iterator protocol one step at a time with seven slots
+    (`search_params_init.rs`), a record's own enumerable names (a getter
+    or an object value refused by name), or a string after one `?`; and
+    `toString`.
+  - `body_init.rs`: a `URLSearchParams` as a fetch's or a beacon's body,
+    with its type; a `FormData` body refused by name (492). A fetch keeps
+    the object in its `BODY` slot and extracts it in Fetch's steps.
+  - `Element.className` and `ChildNode.replaceWith`, which the listener's
+    success path uses.
+  - `alo-corpus`: the contact form freezes alo Sites' answer to a kept
+    submission (`responses.txt`, `form-sent.http`, rebuilt from alo Sites'
+    `forms.rs` and `rendered.rs`; `origin.txt` says how), the first case to
+    freeze a fetch's answer.
+  *Closed by* `alo-corpus`' `a_form_on_somebody_elses_page_is_sent.rs`:
+  the press asks for Chrome's request, body and type exactly; answered
+  from the case, the form is gone and the thanks is there; the thanks'
+  box, the heading's, the introduction's and the section's are Chrome's
+  to 1/64 px; `sent.png` is the reference render of that moment (Chrome's
+  differs only inside glyphs, item 462); offline the form stays.
+  `alo-bindings`' `what_a_page_builds_to_send.rs` (12 tests, each ordinarily
+  and with the collector at every allocation) and unit tests in
+  `form.rs`, `search_params.rs`, `search_params_init.rs` and
+  `child_node.rs`. *Cut:* **491** and **492**. *Not this item's:* the
+  fallback's `form.submit()` (471).
+
+- [ ] **491. The `formdata` event.** *Cut from 472 (iteration 300). Depends
+  on 472, done.* HTML fires `formdata`, a `FormDataEvent` whose `formData`
+  is a `FormData` sharing the entry list being built, at the form while it
+  constructs that list — inside `new FormData(form)` and inside a
+  submission, between `submit` and the ask — with the *constructing entry
+  list* guard, so a listener's own `new FormData(form)` is an
+  `InvalidStateError`. A listener may add to the list, which needs
+  `append` and `set`. Today `new FormData(form)` is refused by name when a
+  `formdata` listener is on the event's path (form, ancestors, window), and
+  a submission fires nothing, as since 485, so a page's listener goes
+  unheard there. *Opened by a page* that listens for `formdata`. *Closes
+  when:* that page's listener hears it, and what it appends is what is
+  sent, as Chrome sends it.
+
+- [ ] **492. A `FormData` as a fetch's or a beacon's body.** *Cut from 472
+  (iteration 300). Depends on 472, done.* A `multipart/form-data` body the
+  renderer encodes (ADR 0051 § 7), with a boundary it chooses: Chrome's is
+  `----WebKitFormBoundary` and sixteen random characters, and where this
+  engine's randomness comes from is item 367's decision, so the boundary
+  is decided with this item. A file entry waits for the File API. Refused
+  by name today (`body_init.rs`). *Opened by a page* that sends a
+  `FormData`. *Closes when:* that page's body is Chrome's apart from the
+  boundary.
 
 - [ ] **473. The rest of the constraints.** *Cut from 82 (ADR 0051 § 3).
   Depends on 468.*

@@ -3,3 +3,5 @@
 *.png binary
 *.jpg binary
 *.woff2 binary
+# A frozen HTTP response is the bytes a server sent, CR LF and all.
+*.http binary

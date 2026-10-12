@@ -104,6 +104,17 @@
 //! holds, each made only by a fetch's answer ([`crate::response::make`]),
 //! with no constructor on the global object.
 //!
+//! # `FormData` and `URLSearchParams` are what a page builds and sends
+//!
+//! Both inherit from `Object.prototype` (queue item 472) and both have an
+//! interface object on the global object, since a page makes each with
+//! `new`: a [`crate::FormData`] from a form's entry list
+//! ([`form_data`]) and a [`crate::SearchParams`] from names and values
+//! ([`url_search_params`]). `FormData` is iterable over pairs, so its
+//! `entries` is also its `[Symbol.iterator]` ([`Interface::iterates_in_pairs`])
+//! and answers a `FormData Iterator`, whose prototype inherits from
+//! `%IteratorPrototype%` ([`Inherits::Iterator`], [`form_data_iterator`]).
+//!
 //! # An unforgeable member is on the instance
 //!
 //! Web IDL puts a `[LegacyUnforgeable]` attribute on **every instance**
@@ -138,9 +149,9 @@
 //!
 //! # What is not here
 //!
-//! **Only `Event` and `CustomEvent` have an interface object on the global
-//! object**, because a page cannot make an event any other way
-//! ([`crate::install`]). There is no `Node`, `Element`, `EventTarget` or
+//! **Only `Event`, `CustomEvent`, `FormData` and `URLSearchParams` have an
+//! interface object on the global object**, because a page cannot make one
+//! of them any other way ([`crate::install`]). There is no `Node`, `Element`, `EventTarget` or
 //! `DOMException` constructor, so `typeof Node` is `"undefined"`,
 //! `instanceof` has nothing to name, and their prototypes have no
 //! `constructor`. No `Symbol.toStringTag` either. Each is a member of its
@@ -158,6 +169,8 @@ pub mod element_css_inline_style;
 pub mod element_cssom_view;
 pub mod event;
 pub mod event_target;
+pub mod form_data;
+pub mod form_data_iterator;
 pub mod headers;
 pub mod hidden;
 pub mod html_element;
@@ -173,6 +186,7 @@ pub mod pointer_event;
 pub mod response;
 pub mod submit_event;
 pub mod ui_event;
+pub mod url_search_params;
 pub mod window;
 pub mod window_cssom_view;
 
@@ -250,6 +264,12 @@ pub enum Interface {
     /// What a form is submitted with: `submit` (ADR 0051 § 4, queue item
     /// 485).
     SubmitEvent,
+    /// A form's entries, as an object a page holds (queue item 472).
+    FormData,
+    /// What walks a `FormData`'s entries.
+    FormDataIterator,
+    /// Names and values a page builds: `URLSearchParams` (queue item 472).
+    UrlSearchParams,
 }
 
 /// What an interface's prototype inherits from.
@@ -259,6 +279,8 @@ pub enum Inherits {
     Object,
     /// `Error.prototype`, which `DOMException` inherits from.
     Error,
+    /// `%IteratorPrototype%`, which an iterator's prototype inherits from.
+    Iterator,
     /// Another interface's prototype.
     Interface(Interface),
 }
@@ -266,7 +288,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 29] = [
+    pub const ALL: [Self; 32] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -296,6 +318,9 @@ impl Interface {
         Self::Window,
         Self::PageTransitionEvent,
         Self::SubmitEvent,
+        Self::FormData,
+        Self::FormDataIterator,
+        Self::UrlSearchParams,
     ];
 
     /// Its name, as the standard spells it.
@@ -330,6 +355,9 @@ impl Interface {
             Self::Window => "Window",
             Self::PageTransitionEvent => "PageTransitionEvent",
             Self::SubmitEvent => "SubmitEvent",
+            Self::FormData => "FormData",
+            Self::FormDataIterator => "FormData Iterator",
+            Self::UrlSearchParams => "URLSearchParams",
         }
     }
 
@@ -344,7 +372,10 @@ impl Interface {
             | Self::Response
             | Self::Headers
             | Self::CssStyleDeclaration
-            | Self::Location => Inherits::Object,
+            | Self::Location
+            | Self::FormData
+            | Self::UrlSearchParams => Inherits::Object,
+            Self::FormDataIterator => Inherits::Iterator,
             Self::Node | Self::Window => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent | Self::PageTransitionEvent | Self::SubmitEvent => {
                 Inherits::Interface(Self::Event)
@@ -415,6 +446,9 @@ impl Interface {
             Self::Window => 26,
             Self::PageTransitionEvent => 27,
             Self::SubmitEvent => 28,
+            Self::FormData => 29,
+            Self::FormDataIterator => 30,
+            Self::UrlSearchParams => 31,
         }
     }
 
@@ -428,6 +462,13 @@ impl Interface {
     /// not there to walk.
     pub const fn iterates_as_an_array(self) -> bool {
         matches!(self, Self::NodeList)
+    }
+
+    /// Whether it is iterable over pairs, so that its `[Symbol.iterator]` is
+    /// its own `entries` function (Web IDL's *iterable declarations*, queue
+    /// item 472).
+    pub const fn iterates_in_pairs(self) -> bool {
+        matches!(self, Self::FormData)
     }
 
     /// Whether it has `[LegacyUnforgeable]` members, which go on an
@@ -495,6 +536,13 @@ impl Interface {
             Self::NodeList => node_list::furnish(objects, prototype, function_prototype),
             Self::Response => response::furnish(objects, prototype, function_prototype),
             Self::Headers => headers::furnish(objects, prototype, function_prototype),
+            Self::FormData => form_data::furnish(objects, prototype, function_prototype),
+            Self::FormDataIterator => {
+                form_data_iterator::furnish(objects, prototype, function_prototype)
+            }
+            Self::UrlSearchParams => {
+                url_search_params::furnish(objects, prototype, function_prototype)
+            }
             Self::Node => node::furnish(objects, prototype, function_prototype),
             // `ParentNode`'s `querySelectorAll` is on these three, as a mixin.
             Self::Element => {

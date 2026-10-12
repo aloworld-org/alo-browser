@@ -101,6 +101,14 @@
 //!   takes each off the count as its answer arrives
 //!   ([`fetching::answered`]; the call's steps are `beacon.rs`'s).
 //!
+//! - `FormData` and `URLSearchParams` (queue item 472) are what a page
+//!   builds and sends: a [`FormData`] holds a form's entry list, made by the
+//!   function a submission makes it with, and iterates over it
+//!   ([`FormDataIterator`]); a [`SearchParams`] holds names and values read
+//!   from a string, a record or a sequence of pairs
+//!   (`search_params_init.rs`), and is a fetch's or a beacon's body as
+//!   `application/x-www-form-urlencoded` (`body_init.rs`).
+//!
 //! # What is not here yet
 //!
 //! The renderer hands a page's document over when its first script is about
@@ -124,6 +132,7 @@
 //! item 257), inheriting `UIEvent`, also without a constructor.
 
 mod beacon;
+mod body_init;
 mod clicking;
 mod define;
 pub mod delivering;
@@ -135,6 +144,8 @@ pub mod event;
 pub mod fetch;
 mod fetch_init;
 pub mod fetching;
+pub mod form_data;
+pub mod form_data_iterator;
 pub mod headers;
 mod idl;
 pub mod install;
@@ -147,6 +158,8 @@ pub mod navigator;
 pub mod node_list;
 pub mod response;
 mod scripted;
+pub mod search_params;
+mod search_params_init;
 pub mod style_declaration;
 mod style_names;
 pub mod style_policy;
@@ -164,6 +177,8 @@ pub use document_cell::{DocumentCell, Released};
 pub use embed::{Unadopted, Wrapping, adopt, change_document, document, node_of, wrap};
 pub use event::{Event, Fired, Firing, Shape};
 pub use fetch::offer;
+pub use form_data::FormData;
+pub use form_data_iterator::FormDataIterator;
 pub use headers::Headers;
 pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
@@ -172,6 +187,7 @@ pub use location::Location;
 pub use navigator::{Identity, Navigator, introduce};
 pub use node_list::NodeList;
 pub use response::{Responded, Response};
+pub use search_params::SearchParams;
 pub use style_declaration::StyleDeclaration;
 pub use token_list::TokenList;
 pub use view::{Extent, Scrolled, Unmeasured, View, show};

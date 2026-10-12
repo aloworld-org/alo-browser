@@ -31,7 +31,13 @@
 //! object every time after (`[SameObject]`). It is read-only here: its
 //! `[PutForwards=value]` is queue item 328's.
 //!
-//! **Not here** (ADR 0017 § 8): `id`, `className`, `attributes`
+//! `className` reflects the `class` attribute (queue item 472, opened by the
+//! contact form's script, which names the paragraph it puts in the form's
+//! place): reading it answers the attribute as written, or `""` without
+//! one, and writing it sets the attribute to `ToString` of the value —
+//! `null` is `"null"`, as Chrome 154 writes it.
+//!
+//! **Not here** (ADR 0017 § 8): `id`, `attributes`
 //! (a live map), `tagName`, `hasAttribute`, `toggleAttribute`, the
 //! namespaced forms, `innerHTML` and every query. Each is absent until a page
 //! or an item needs it.
@@ -69,6 +75,14 @@ pub(super) fn furnish(
         "classList",
         class_list,
         None,
+    )?;
+    define::attribute(
+        objects,
+        prototype,
+        function_prototype,
+        "className",
+        class_name,
+        Some(set_class_name),
     )?;
     child_node::furnish(objects, prototype, function_prototype)
 }
@@ -146,6 +160,32 @@ fn remove_attribute(call: &mut Call<'_>) -> Result<Answer, Escape> {
         document.remove_attribute_by_name(this.node, &name)
     })?;
     Ok(Answer::Value(Value::Undefined))
+}
+
+/// `get className`: the `class` attribute, or `""`.
+fn class_name(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    let this = idl::this(call, Brand::Element, "className")?;
+    let value = idl::read(call, this.owner)?
+        .attribute_by_name(this.node, "class")
+        .unwrap_or_default()
+        .to_owned();
+    idl::answer_text(call, Some(value))
+}
+
+/// `set className`: the `class` attribute, set to the value as a string.
+fn set_class_name(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    let this = idl::this(call, Brand::Element, "className")?;
+    let value = match idl::only_string(call)? {
+        Converted::Ready(value) => value,
+        Converted::Asked(asked) => return Ok(asked),
+    };
+    let changed = idl::change(call, this.owner, |document| {
+        document.set_attribute_by_name(this.node, "class", &value)
+    })?;
+    match changed {
+        Ok(_) => Ok(Answer::Value(Value::Undefined)),
+        Err(refusal) => Err(dom_exception::thrown(call, this.owner, refusal)),
+    }
 }
 
 /// `get classList`: the element's one `DOMTokenList`.

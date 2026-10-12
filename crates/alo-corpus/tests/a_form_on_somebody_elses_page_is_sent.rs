@@ -21,12 +21,19 @@
 //! pressed twice: on the same markup with that script taken out, which is
 //! the scriptless half, and on the frozen bytes whole, with one observing
 //! script after them that only listens and writes down what it heard.
+//!
+//! `alo-sites-contact-form` cancels the press and sends itself by `fetch`
+//! with `new URLSearchParams(new FormData(form))` (queue item 472): its
+//! request is asserted as Chrome 154 made it, and the case's frozen answer
+//! puts its thanks where the form was, laid out where Chrome lays it out and
+//! drawn as `sent.png` says.
 
 use alo_agent::{Outcome, Refusal, Target, Verb};
-use alo_corpus::{Case, cases_directory, corpus_fonts};
+use alo_corpus::{Case, answering, cases_directory, corpus_fonts};
 use alo_dom::constraint::Constraint;
 use alo_dom::submission::{Entry, Method, Value};
 use alo_layout::Size;
+use alo_paint::{Canvas, from_png, to_png};
 use alo_renderer::ask::Asked;
 use alo_renderer::fetch::FetchAsk;
 use alo_renderer::{FromRenderer, Page, Renderer, ToRenderer};
@@ -377,28 +384,30 @@ fn reports(asks: &[FetchAsk]) -> Vec<String> {
         .collect()
 }
 
-#[test]
-fn the_contact_forms_own_listener_hears_the_press_and_stops_where_form_data_is_owed() {
-    // Loaded as `loaded` loads it, keeping what the load asked for.
+/// The contact form loaded at its address with its sheet answered, as the
+/// corpus loads it, filled as Chrome 154's was, and the analytics beacons
+/// its load and its first edit asked for.
+fn contact_form_filled() -> Option<(Case, alo_url::Url, Renderer, Vec<String>)> {
     let directory = cases_directory().join("alo-sites-contact-form");
-    let case = Case::read(&directory).expect("alo-sites-contact-form reads");
-    let address = std::fs::read_to_string(directory.join("address.txt")).expect("address.txt");
-    let address =
-        alo_url::parse(address.lines().next().unwrap_or_default().trim()).expect("an address");
+    let case = Case::read(&directory)?;
+    let address = alo_url::parse(case.address.as_deref()?).ok()?;
     let mut page = Renderer::new(corpus_fonts());
-    let FromRenderer::Loaded { fetches, .. } = page.handle(ToRenderer::Load(Box::new(
-        Page::new(case.html, Size::new(case.size.0, case.size.1)).at(address),
-    ))) else {
-        panic!("alo-sites-contact-form loads");
+    let FromRenderer::Loaded {
+        fetches, sheets, ..
+    } = page.handle(ToRenderer::Load(Box::new(
+        Page::new(case.html.clone(), Size::new(case.size.0, case.size.1)).at(address.clone()),
+    )))
+    else {
+        return None;
     };
-    // The analytics script runs to its end: its last loop cuts `/f/` off the
-    // form's action with `slice(3)`, a property of a string (queue item
-    // 488), and reports that the form was seen.
-    assert_eq!(reports(&fetches), ["c=f4K9sL2wN7qR5tYx8vB1cA&s=view"]);
-
-    // Its `input` listener, added `once`, reports the first edit and no
-    // other.
-    let mut started = Vec::new();
+    let mut beacons = reports(&fetches);
+    let beside = answering::Beside {
+        responses: &case.responses,
+        files: &case.frozen,
+    };
+    let asks = answering::Asks { fetches, sheets };
+    let loaded = answering::answer(&mut page, &address, beside, asks).ok()?;
+    (loaded.sheets == 1).then_some(())?;
     for (field, text) in [
         ("Name", "Ada Lovelace"),
         ("Email", "ada@example.com"),
@@ -407,34 +416,295 @@ fn the_contact_forms_own_listener_hears_the_press_and_stops_where_form_data_is_o
         let FromRenderer::Acted { fetches, .. } =
             act(&mut page, field, Verb::PutText(text.to_owned()))
         else {
-            panic!("{field} is filled");
+            return None;
         };
-        started.extend(reports(&fetches));
+        beacons.extend(reports(&fetches));
     }
-    assert_eq!(started, ["c=f4K9sL2wN7qR5tYx8vB1cA&s=start"]);
+    Some((case, address, page, beacons))
+}
 
-    // The page's first script added a `submit` listener, and nothing stops
-    // the page now, so it hears the press: it cancels the submission to send
-    // the form by `fetch` itself, and its next line stops on
-    // `URLSearchParams`, which with `FormData` is queue item 472. Chrome's
-    // listener would send the same four fields as a fetch's body. Nothing is
-    // asked for, and the answer says why.
-    let (outcome, asked, issues) = pressed(&mut page, "Send");
+/// The text of every element of `page`'s document whose `class` is
+/// `class`, in document order.
+fn with_class(page: &Renderer, class: &str) -> Vec<String> {
+    let Some(document) = page.document() else {
+        return Vec::new();
+    };
+    document
+        .descendants(document.root())
+        .filter(|node| {
+            document
+                .element(*node)
+                .is_some_and(|element| element.attr("class") == Some(class))
+        })
+        .map(|node| document.text_content(node))
+        .collect()
+}
+
+/// How many `<form>` elements `page`'s document holds.
+fn forms(page: &Renderer) -> usize {
+    page.document().map_or(0, |document| {
+        document
+            .descendants(document.root())
+            .filter(|node| {
+                document
+                    .element(*node)
+                    .is_some_and(|element| element.name.is_html("form"))
+            })
+            .count()
+    })
+}
+
+#[test]
+fn the_contact_forms_own_listener_sends_it_by_fetch_as_chrome_does() {
+    let (case, address, mut page, beacons) =
+        contact_form_filled().expect("alo-sites-contact-form loads and is filled");
+    // The analytics script runs to its end: its last loop cuts `/f/` off the
+    // form's action with `slice(3)`, a property of a string (queue item
+    // 488), reports that the form was seen, and its `input` listener, added
+    // `once`, reports the first edit and no other.
+    assert_eq!(
+        beacons,
+        [
+            "c=f4K9sL2wN7qR5tYx8vB1cA&s=view",
+            "c=f4K9sL2wN7qR5tYx8vB1cA&s=start"
+        ]
+    );
+
+    // The page's first script hears the press, cancels the submission and
+    // sends the form itself: `fetch(action, { method: "POST", body: new
+    // URLSearchParams(new FormData(form)) })` (queue item 472). Chrome 154
+    // asked for exactly this — the honeypot's empty `website` first, as the
+    // form holds it.
+    let FromRenderer::Acted {
+        outcome,
+        navigation,
+        issues,
+        fetches,
+        ..
+    } = act(&mut page, "Send", Verb::Activate)
+    else {
+        panic!("the press is answered");
+    };
     assert!(
-        matches!(&outcome, Some(Outcome::Activated { name: Some(name), .. }) if name == "Send"),
+        matches!(&outcome, Outcome::Activated { name: Some(name), .. } if name == "Send"),
         "{outcome:?} {issues:?}"
     );
-    assert!(asked.is_none(), "{asked:?}");
-    assert!(
-        issues
-            .iter()
-            .any(|line| line.contains("ReferenceError") && line.contains("'URLSearchParams'")),
-        "the listener stops where FormData is owed: {issues:?}"
-    );
+    assert!(navigation.is_none(), "{navigation:?}");
     assert!(
         issues
             .iter()
             .any(|line| line.contains("form was not sent") && line.contains("cancelled")),
-        "and the answer says the page took the press: {issues:?}"
+        "the answer says the page took the press: {issues:?}"
     );
+    assert!(
+        !issues.iter().any(|line| line.contains("Error")),
+        "the listener runs to its end: {issues:?}"
+    );
+    let sent: Vec<&FetchAsk> = fetches.iter().filter(|ask| ask.url != COLLECT).collect();
+    assert_eq!(sent.len(), 1, "{fetches:?}");
+    let ask = sent[0];
+    assert_eq!(ask.method, "POST");
+    assert_eq!(
+        ask.url,
+        "https://nordwind.alosites.com/f/f4K9sL2wN7qR5tYx8vB1cA"
+    );
+    assert_eq!(
+        ask.headers,
+        [(
+            "Content-Type".to_owned(),
+            "application/x-www-form-urlencoded;charset=UTF-8".to_owned()
+        )]
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&ask.body),
+        "website=&name=Ada+Lovelace&email=ada%40example.com\
+         &message=Two+kilos+a+week%2C+please."
+    );
+    assert!(
+        reports(&fetches).is_empty(),
+        "a keyboard's click reports nothing"
+    );
+
+    // Answered with what alo Sites' server sends for a submission it kept,
+    // the listener puts its thanks where the form was, as Chrome 154's did:
+    // `<p class="form-success">Thanks — talk soon.</p>`, the form gone.
+    let answered = answering::answer(
+        &mut page,
+        &address,
+        answering::Beside {
+            responses: &case.responses,
+            files: &[],
+        },
+        answering::Asks {
+            fetches,
+            sheets: Vec::new(),
+        },
+    )
+    .expect("the case answers the listener's fetch");
+    assert_eq!(answered.delivered, 1);
+    assert!(answered.unfrozen.is_empty(), "{:?}", answered.unfrozen);
+    assert!(answered.issues.is_empty(), "{:?}", answered.issues);
+    assert_eq!(forms(&page), 0, "the form is gone");
+    assert_eq!(with_class(&page, "form-success"), ["Thanks — talk soon."]);
+}
+
+#[test]
+fn the_contact_form_offline_is_left_as_it_was() {
+    let (_, address, mut page, _) =
+        contact_form_filled().expect("alo-sites-contact-form loads and is filled");
+    let FromRenderer::Acted { fetches, .. } = act(&mut page, "Send", Verb::Activate) else {
+        panic!("the press is answered");
+    };
+    // With nothing frozen the fetch is a network error, and the listener's
+    // `.catch` calls `form.submit()`. Chrome would then post the form as a
+    // navigation; here `submit` is absent until queue item 471, so the
+    // call is a `TypeError` the delivery reports, the form stays, and
+    // nothing more is asked for.
+    let answered = answering::answer(
+        &mut page,
+        &address,
+        answering::Beside {
+            responses: &[],
+            files: &[],
+        },
+        answering::Asks {
+            fetches,
+            sheets: Vec::new(),
+        },
+    )
+    .expect("the case answers the listener's fetch");
+    assert_eq!(
+        answered.unfrozen,
+        ["https://nordwind.alosites.com/f/f4K9sL2wN7qR5tYx8vB1cA"]
+    );
+    assert_eq!(
+        answered.issues,
+        ["the answer to a fetch: uncaught: TypeError: undefined is not a function"]
+    );
+    assert_eq!(answered.delivered, 1, "and nothing more was asked for");
+    assert_eq!(forms(&page), 1, "the form stays");
+    assert!(with_class(&page, "form-success").is_empty());
+}
+
+/// The contact form after its press, its fetch answered with what was
+/// frozen: the page as a person sees it once their message is sent.
+fn sent() -> Option<Renderer> {
+    let (case, address, mut page, _) = contact_form_filled()?;
+    let FromRenderer::Acted { fetches, .. } = act(&mut page, "Send", Verb::Activate) else {
+        return None;
+    };
+    let beside = answering::Beside {
+        responses: &case.responses,
+        files: &[],
+    };
+    let asks = answering::Asks {
+        fetches,
+        sheets: Vec::new(),
+    };
+    answering::answer(&mut page, &address, beside, asks).ok()?;
+    Some(page)
+}
+
+/// The border box of the first element of `page` whose name is `tag` and
+/// whose `class` is `class`, as `(x, y, width, height)`.
+fn box_of(page: &Renderer, tag: &str, class: Option<&str>) -> Option<(f32, f32, f32, f32)> {
+    let (document, drawing) = (page.document()?, page.rendered()?);
+    let node = document.descendants(document.root()).find(|node| {
+        document
+            .element(*node)
+            .is_some_and(|element| element.name.is_html(tag) && element.attr("class") == class)
+    })?;
+    let boxes = &drawing.boxes;
+    let id = boxes.ids().find(|id| {
+        matches!(
+            boxes.get(*id).map(|box_node| &box_node.kind),
+            Some(alo_box::BoxKind::Element { node: of, .. }) if *of == node
+        )
+    })?;
+    let rect = drawing.layout.get(id)?.border_box;
+    Some((
+        rect.origin.x,
+        rect.origin.y,
+        rect.size.width,
+        rect.size.height,
+    ))
+}
+
+#[test]
+fn the_thanks_takes_the_forms_place_where_chrome_puts_it() {
+    let mut page = sent().expect("the contact form is sent and answered");
+    // Chrome 154, at 800 × 600 with the corpus's own `DejaVu Sans`, in its
+    // 1/64 px units: with the form gone from column two, the introduction
+    // is placed beside the heading and the thanks under it, in column one —
+    // the sheet's `.form-success` gives it a padded, bordered box but no
+    // place, so it is placed as any grid item is — and the section is
+    // 303.375 tall. Chrome's picture of the same moment differs from
+    // `sent.png` only inside the glyphs (queue item 462).
+    for (tag, class, chrome) in [
+        (
+            "section",
+            Some("s-contact-form contact-split"),
+            [0, 0, 51_200, 19_416],
+        ),
+        ("h2", None, [1_280, 3_072, 18_227, 4_300]),
+        ("p", None, [22_579, 3_072, 27_341, 1_740]),
+        ("p", Some("form-success"), [1_280, 11_340, 18_227, 3_916]),
+    ] {
+        let found = box_of(&page, tag, class).expect("the element has a box");
+        let found = [found.0, found.1, found.2, found.3];
+        for (ours, theirs) in found.iter().zip(chrome) {
+            let theirs = f32::from(u16::try_from(theirs).expect("a small number")) / 64.0;
+            assert!(
+                (ours - theirs).abs() <= 1.0 / 64.0,
+                "{tag} {class:?}: {found:?} against Chrome's {chrome:?}"
+            );
+        }
+    }
+
+    // What an agent reads now: the thanks, and no form left to press.
+    let FromRenderer::Tree(tree) = page.handle(ToRenderer::ReadTree) else {
+        panic!("the tree is read");
+    };
+    let outline = tree.to_outline();
+    assert!(outline.contains("Thanks — talk soon."), "{outline}");
+    assert!(!outline.contains("\"Send\""), "{outline}");
+}
+
+#[test]
+fn the_sent_page_is_drawn_as_its_reference_says() {
+    // A reference render of the page once sent, beside the case's own
+    // `render.png` of it as loaded: a change that moves a pixel of the
+    // thanks says so. Rewritten, like every reference, with
+    // `ALO_UPDATE_REFERENCES` set.
+    let page = sent().expect("the contact form is sent and answered");
+    let Some(drawing) = page.rendered() else {
+        panic!("the page is drawn");
+    };
+    let path = cases_directory()
+        .join("alo-sites-contact-form")
+        .join("sent.png");
+    if std::env::var_os("ALO_UPDATE_REFERENCES").is_some() {
+        let written = to_png(&drawing.canvas)
+            .ok()
+            .and_then(|bytes| std::fs::write(&path, bytes).ok());
+        assert!(written.is_some(), "{} is written", path.display());
+        return;
+    }
+    let reference: Option<Canvas> = std::fs::read(&path)
+        .ok()
+        .and_then(|bytes| from_png(&bytes).ok());
+    let Some(reference) = reference else {
+        panic!("{} is the reference", path.display());
+    };
+    assert_eq!(
+        (reference.width(), reference.height()),
+        (drawing.canvas.width(), drawing.canvas.height())
+    );
+    let differing = reference
+        .pixels()
+        .iter()
+        .zip(drawing.canvas.pixels())
+        .filter(|(want, got)| want.to_rgba8() != got.to_rgba8())
+        .count();
+    assert_eq!(differing, 0, "pixels differ from {}", path.display());
 }

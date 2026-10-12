@@ -1,0 +1,22 @@
+HTTP/1.1 200 OK
+content-type: text/html; charset=utf-8
+cache-control: no-store
+x-content-type-options: nosniff
+content-length: 514
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Message sent</title>
+<meta name="robots" content="noindex">
+<style>body{font-family:system-ui,sans-serif;display:grid;min-height:100vh;margin:0;place-items:center;background:#fafafa;color:#1a1a1a}main{text-align:center;padding:2rem}h1{font-size:1.5rem}</style>
+</head>
+<body>
+<main>
+<h1>Message sent</h1>
+<p>Thanks — your message has been sent.</p>
+</main>
+</body>
+</html>

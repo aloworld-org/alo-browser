@@ -64,6 +64,12 @@ impl Document {
         self.create(NodeKind::Text(data.to_owned()))
     }
 
+    /// Make an empty fragment, in no tree — `createDocumentFragment`, and the
+    /// node the DOM's *convert nodes into a node* gathers several nodes into.
+    pub fn create_document_fragment(&mut self) -> NodeId {
+        self.create(NodeKind::Fragment)
+    }
+
     /// Put `node` into `parent` before `child`, or at the end when `child` is
     /// [`None`] — the standard's *pre-insert*, behind `insertBefore`.
     ///
@@ -226,6 +232,29 @@ mod tests {
         assert!(element.name.is_html("div"), "the name is lowercased");
         assert_eq!(document.create_text_node("x"), NodeId(41));
         assert_eq!(document.change_count(), 0, "making a node changes no tree");
+    }
+
+    #[test]
+    fn a_made_fragment_gathers_nodes_and_gives_them_up_when_inserted() {
+        let mut document = parse_document("<p>x</p>");
+        let fragment = document.create_document_fragment();
+        assert!(matches!(
+            document.kind(fragment),
+            Some(crate::NodeKind::Fragment)
+        ));
+        assert_eq!(document.parent(fragment), None);
+        let (a, b) = (
+            document.create_text_node("a"),
+            document.create_text_node("b"),
+        );
+        document.append_child(fragment, a).unwrap();
+        document.append_child(fragment, b).unwrap();
+        let body = document.body().unwrap();
+        let before = document.change_count();
+        document.append_child(body, fragment).unwrap();
+        assert_eq!(document.change_count(), before + 1, "one change");
+        assert_eq!(document.text_content(body), "xab");
+        assert_eq!(document.first_child(fragment), None, "left empty");
     }
 
     #[test]

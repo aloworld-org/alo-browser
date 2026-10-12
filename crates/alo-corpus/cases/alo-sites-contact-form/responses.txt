@@ -1,0 +1,3 @@
+# What alo Sites' server answers a contact form's submission with, rebuilt
+# from its source (origin.txt says how). Only the press asks for it.
+https://nordwind.alosites.com/f/f4K9sL2wN7qR5tYx8vB1cA form-sent.http

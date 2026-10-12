@@ -29393,3 +29393,142 @@ contact form's first missing name.
 226 queue items are open (488 closed, 489 and 490 added). The next unused
 queue number is **491** and the next ADR is **0053**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 300 — queue item 472 built: `FormData` and `URLSearchParams`, and the contact form sends itself
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its Forms
+line), and iteration 299's entry. No `AGENTS.md` exists in this repository
+or above it. For 472: its queue entry and 82's, 471's, 476's and 73's; ADR
+0051 (§§ *Measured*, 4, 5, 7 and 8), ADR 0032's fetch steps through
+`fetch.rs`, `fetch_init.rs` and `beacon.rs`, ADR 0031 (eight slots at most)
+and ADR 0013 § 3; `docs/features.md`' Forms and fetch lines. `alo-bindings`'
+`install.rs`, `interface.rs`, `idl.rs`, `define.rs`, `dictionary.rs`,
+`headers.rs`, `response.rs`, `listeners.rs`, `dispatch.rs` (the path),
+`interface/event.rs`, `element.rs`, `child_node.rs` and `parent_node.rs`;
+`alo-js`' `object/native.rs` and `builtin/array_iterator.rs`; `alo-dom`'s
+`submission.rs` and `mutation.rs`; `alo-url`'s `form.rs`; `alo-corpus`'
+`answering.rs` and `case.rs` were read before changing or leaning on them.
+`alo-workplace` was read, not written: alo Sites' `serve.rs`,
+`serve/forms.rs`, `serve/rendered.rs` and `render/strings.rs`.
+
+**Choosing.** Iteration 294 recorded every open item above 82 as blocked or
+waiting for a page, and 299 cut 488 from 73 because the contact form stopped
+on a property of a string. With that stop gone, no page stops on anything
+73 still holds (489 and 490 wait for a page). The contact form now stops on
+`URLSearchParams`, which is 472, whose dependencies (468, 335) are done. The
+items between 82 and 472 were checked again: 469 waits for a page, 471
+depends on 262.
+
+**Measured first**, in Chrome 154 over DevTools, on the frozen contact form
+served at its address with every request intercepted (scratchpad probes):
+the listener posts `website=&name=Ada+Lovelace&email=ada%40example.com&
+message=Two+kilos+a+week%2C+please.` as
+`application/x-www-form-urlencoded;charset=UTF-8`; answered `200` it puts
+`<p class="form-success">Thanks — talk soon.</p>` where the form was. Also
+measured: `URLSearchParams` of strings (one `?` cut, `%zz` kept, `null` as
+`null=`), of records (a symbol name throws; colliding names set the first),
+of sequences (Chrome's pair `TypeError`s), `FormData`'s `TypeError`s and
+`NotFoundError`, its iterator's chain, `className` (`null` is `"null"`) and
+`replaceWith`. With the corpus fonts, Chrome's boxes after sending match
+ours to 1/64 px, and its screenshot differs from `sent.png` only inside
+glyphs (5,397 pixels in the text's bounding box, item 462).
+
+**What was built.** It is in 472's *Done* paragraph. In short: `alo-url`'s
+urlencoded parser; `alo-dom`'s `create_document_fragment`; `FormData` from
+`alo_dom::submission::entries` with `entries`/`[Symbol.iterator]` and a
+`FormData Iterator` on `%IteratorPrototype%`; `URLSearchParams` whose `init`
+is walked by the iterator protocol one call at a time in seven slots
+(`search_params_init.rs`); `body_init.rs` for a fetch's and a beacon's body;
+`className`; `replaceWith`.
+
+**Design choices the standards leave to an engine.**
+- A fetch keeps a `URLSearchParams` body as the object in its `BODY` slot and
+  extracts it in Fetch's steps, rather than a ninth slot for its type: ADR
+  0031 caps a builtin at eight, and this is also where Fetch extracts.
+- HTML fires `formdata` while it builds `new FormData(form)`'s list. Firing
+  an event nobody hears and not firing it are the same, so the constructor
+  answers **unless a `formdata` listener is on the event's path**, and is
+  then refused by name (491). A submission fires nothing, as since 485, and
+  491 says so.
+- A record's getter or object value is refused by name, as a fetch's headers
+  already are, rather than called per property.
+
+**Cut, not shallowed.** **491** the `formdata` event; **492** a `FormData`
+as a body (its boundary needs randomness, item 367's decision). Every other
+`FormData` and `URLSearchParams` member is absent until a page needs it.
+
+**What the page does now.** An agent pressing *Send* on
+`alo-sites-contact-form` asks for exactly Chrome's request. Answered from
+the case — the first case to freeze a fetch's answer, `form-sent.http`,
+rebuilt from alo Sites' source because running its server needs its store
+(`origin.txt` says how) — the form is replaced by the thanks. Offline, the
+listener's `.catch` calls `form.submit()`, absent until 471, and the
+delivery reports a `TypeError`; Chrome would post the form as a navigation.
+
+**Tests.**
+- `alo-bindings`' `what_a_page_builds_to_send.rs`, 12 tests, each run
+  ordinarily and with the collector at every allocation. The scripts are
+  given the realm's `Symbol.iterator` as `ITERATOR` and a `q()` over
+  `querySelectorAll`, which this engine lacks a name for.
+- `alo-corpus`' `a_form_on_somebody_elses_page_is_sent.rs`: the request, the
+  thanks, the boxes against Chrome's, `sent.png`, and offline.
+- Unit tests in `form.rs`, `search_params.rs`, `search_params_init.rs`,
+  `child_node.rs` and `mutation.rs`.
+- One pin updated, not weakened: `what_marks_an_element.rs` pinned
+  `className` as absent and now pins its value.
+
+**Mutation checks**, each file copied to the scratchpad, restored with `cp`
+and confirmed with `cmp`. Fifteen were caught, among them: a pair of three
+accepted, the pair's second string dropped, every leading `?` cut, a
+record's second name appended, the window's `formdata` listener ignored,
+the submitter's owner unchecked, the iterator off by one, the urlencoded
+type replaced by `text/plain`, the beacon's `toString` run, the viable
+sibling not skipped, `[Symbol.iterator]` not defined, `+` not a space, and
+two rooting mutations (an unheld string in the iterator's pair, an unkept
+name across a call). One survived at first, a record's enumerable check;
+a function's non-enumerable `prototype` now catches it.
+
+**Gate, mechanical.** `cargo fmt --check` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first, and
+`alo-renderer`, `alo-window` and `alo-agent`'s tests had passed in a
+detached run. `scripts/gate.sh` ran once in the foreground. The harness
+moved it to the background at 600 s, and the next call waited on its log
+with a foreground `until` loop. Result: `exit 0`, "The gate is met", and no
+`FAILED`, `panicked` or `^error` in its log. After it, only this entry
+was written, and one line was added to `.gitattributes`: staging showed Git
+turning `form-sent.http`'s CR LF into LF, so the committed answer would not
+have been the server's bytes or matched its hash. `*.http` is now
+`binary`, as `*.png` is; the staged blob's SHA-256 was checked against
+`origin.txt`'s. No file in the working tree changed, so the gate's run
+stands. Then the commit.
+
+**Gate, manual.**
+- **Layout assertion:** the thanks, the heading, the introduction and the
+  section after sending, each against Chrome's box to 1/64 px. No layout
+  code changed; every committed layout passed.
+- **Reference render:** `sent.png`, new, compared pixel for pixel; every
+  committed picture still matched.
+- **One responsibility per file.** The two cells, the iterator, each
+  interface, the `init` conversion and the body extraction are each a file.
+- **Hostile input:** `form::parse` reads bytes a page chose; it indexes
+  nothing unchecked and its tests feed broken escapes and invalid UTF-8.
+- **Docs:** `docs/features.md`, `docs/conformance.md`, `REMAINING.md`,
+  `CHANGELOG.md`, the case's `origin.txt`, and module documentation.
+- **Other rules:** no `unsafe`, no verb takes a coordinate, `alo-workplace`
+  and `alo-os` untouched.
+
+**Queue.** 472 ticked with its *Done* paragraph; **491** and **492** added;
+471 notes that its opener is reached.
+
+**Roadmap.** The stage 2 Forms line moves, not ticked: its Built clause
+gains a page sending its own form, and its Owed clause names 471's newly
+reached fallback, 491 and 492 in place of 472.
+
+**Unresolved obligations.**
+- Offline, the contact form's fallback needs `form.submit()` (471).
+- The `formdata` event (491) and a `FormData` body (492).
+- Nothing loads a decided navigation (item 85).
+
+227 queue items are open by the journal's running count (472 closed, 491
+and 492 added). The next unused queue number is **493** and the next ADR is
+**0053**. This is one iteration, not a finished queue or roadmap.

@@ -1324,7 +1324,16 @@ unreachable without it.
       (`alo-bindings`' `submit_event.rs`), HTML's guard against a second
       submission (`submitting.rs`), and the ask built after the listeners
       (`alo-renderer`'s `event_loop/submitted.rs`), on the frozen
-      `alo-sites-booking` whole and decided through real tabs ·
+      `alo-sites-booking` whole and decided through real tabs.
+      **A page sends its own form by `fetch`** (queue item 472):
+      `FormData` from the entry list a submission uses, iterable over
+      pairs; `URLSearchParams` from a string, a record or a sequence of
+      pairs walked one call at a time; a `URLSearchParams` as a
+      fetch's or a beacon's body with Chrome's type; `className` and
+      `replaceWith`. `alo-sites-contact-form`'s listener posts Chrome's
+      exact body and, answered from the case's first frozen response, puts
+      its thanks where the form was, boxed where Chrome boxes it
+      (`sent.png`) ·
       Decided (ADR 0051, iteration 294): a control's state is held apart
       from its attributes; its form owner is worked out when asked for;
       each constraint is a rule in `alo-dom`, and a constraint not built yet
@@ -1335,9 +1344,10 @@ unreachable without it.
       the rest of what a control **does** (queue items 469, 471–476, 486
       and 487: a script's own `click()` on a submit button, 487; the state apart
       from its attributes, 469; a `<meta>` policy's `form-action` and its
-      violations reported, 486; script's form members, 471;
-      `FormData` and `URLSearchParams`, 472, where the contact form's own
-      `submit` listener now stops since 488; the rest of the constraints,
+      violations reported, 486; script's form members, 471, whose
+      `form.submit()` the contact form's offline fallback now reaches; the
+      `formdata` event, 491; a `FormData` as a body, 492; the rest of the
+      constraints,
       473; multipart and plain-text bodies, 474; a file chosen by a person,
       475; validity in the agent tree, 476) — constraint validation,
       submission, file inputs — the
