@@ -30727,3 +30727,134 @@ a clause: what 506 built, and what it owes (511–514).
 241 queue items are open (506 closed, 511–514 added). The next unused
 queue number is **515** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 311 — queue item 507 built: a date or a time is held in segments
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 310's entry and the queue. No `AGENTS.md` exists
+in this checkout. 501 waits on a person (publishing upstream), and 502 and
+503 on 501's hook. **507 is the first open item after them**, nothing
+blocks it, and it can be measured here with Chrome 154. **For the item:**
+item 507's own text, items 467, 505 and 506's records, ADR 0042 (§§ 3 and
+5 above all), `docs/features.md` stage 1 (*a form control holds what it
+shows*), `alo-box`'s `Purpose::Control`, `alo-layout`'s
+`control_content_style`, and the user-agent sheet.
+
+**Measured, in headless Chrome 154**, in scratchpad probes kept nowhere,
+with `DejaVu Sans` and `DejaVu Sans Mono` given to Chrome:
+- 3,600 fields: `text`, `date`, `time`, `month`, `week` and
+  `datetime-local`, at 10, 13.33, 16, 17, 24 and 40 px, at `normal`, `1`,
+  `1.6`, `30px` and `5px`, empty and filled, padding and border off, under
+  five sheets. A date-like field is 2 px taller than a text field whenever
+  its line is taller than the calendar's indicator. The 2 px go with
+  `::-webkit-datetime-edit-fields-wrapper { padding: 0 }` and nothing else,
+  so they are that wrapper's `1px 0`. A span beside such a field stands a
+  pixel lower than beside a text field (6 down against 5 at 16 px on a 20 px
+  line), so the pixel is above and below, not both below.
+- The indicator sets a floor: 1em and 4 px for date, month, week and
+  `datetime-local`, about 1.05em and 6 for a time, gone with the indicator
+  hidden (cut to 515).
+- A text field's line is never less than `normal` (16 px at `line-height:
+  10px` is 19 inside), while a date's is the line height set (found: 516).
+- Computed: the five temporal fields have `padding: 0px 0px 0px 1px`, a
+  text field `1px 2px`. Unstyled, a date is 125.33 wide and a time 78
+  (found: 517).
+
+**Built:**
+- `alo-box` `tree.rs`: `Purpose::Control` gains `in_segments`, true for
+  `<input>` of type `date`, `month`, `week`, `time` and `datetime-local`.
+- `alo-layout` `engine.rs`: `control_content_style` gives that box
+  `SEGMENT_EDGE`, 1 px, of padding above and below, and a minimum of its
+  line and both edges. The line is laid out inside them, so the field's
+  baseline and its text stand a pixel lower.
+- `alo-style` `user_agent.rs`: the five fields' `padding: 0 0 0 1px`.
+  Without it an unstyled date field would have been 23 tall here against
+  Chrome's 21.33, further than before.
+
+**Tests.**
+- `alo-box`: `a_date_or_a_time_is_held_in_segments` (the five types, a
+  capitalised one and a filled one; seven other controls are not), and the
+  existing `Purpose` tests given the new field.
+- `alo-style`: `a_field_that_writes_a_date_or_a_time_has_a_pixel_before_it_alone`.
+- `alo-layout` `numbers.rs`:
+  `a_date_or_a_time_holds_its_line_a_pixel_inside_a_text_fields`: each of
+  the five types, empty and filled, 32 tall where a text field is 30, the
+  text beside it at 8 where it is 7, and a date's own text 8 down. At
+  `1.6` and `30px` a date is a text field's height and 2.
+- `alo-corpus` `alo_sites_booking.rs`: `every_box_is_chromes` (renamed from
+  `every_box_is_chromes_but_what_the_fields_own_line_moves`) now asserts
+  all 12 measured element boxes, the form, label and field included, at
+  Chrome's units with no offsets. `the_empty_day_field_makes_a_line_its_own_height`
+  asserts Chrome's 50.375, 163.9375 and 88.40625.
+- **Mutation:** with `SEGMENT_EDGE` at 0, the layout test and two booking
+  tests fail. Restored from a scratchpad copy.
+- **References**, backed up first and rewritten with
+  `ALO_UPDATE_REFERENCES=1`: `alo-sites-booking` (layout, display, agent,
+  render) and `web-a-form` (layout, display, agent, render, `filled.png`;
+  its time field is 3 px narrower for the new padding). Against Chrome's
+  screenshot with the same fonts, `alo-sites-booking`'s render is 0.92 off
+  on average where it was 1.22, and `web-a-form`'s 2.632 where it was
+  2.634.
+
+**Whole corpus against Chrome**, by iteration 310's probe (each element's
+computed family standing for a corpus font). Chrome's numbers and the
+"before" numbers were that iteration's, from its scratchpad. Only the two
+cases with a temporal field differ between that "before" and this
+iteration's engine, which confirms it is HEAD. 892 of 1,261 element boxes
+are Chrome's exactly, where 886 were, 8 came nearer and **none went
+further**. `web-a-form`'s time field is 21 tall where Chrome's is 24 (515).
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean, with the
+temporary `alo-corpus/examples/boxes.rs` removed first. The touched
+crates' tests passed with `--no-fail-fast` (`alo-box`, `alo-layout`,
+`alo-style`, `alo-agent`, `alo-paint`, `alo-css`, `alo-corpus`), as did the
+`alo-renderer` and `alo-window` tests that hold a date or time field, after
+`alo-render` was rebuilt. Then `scripts/gate.sh` ran in the foreground into
+a scratchpad log. The harness moved it to the background at 600 s, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, with no `FAILED`, `panicked` or
+`^error` in the log. Only this entry was written after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: yes, against Chrome's measured units.
+- Reference renders: yes, rewritten and compared with Chrome's screenshots.
+- One file, one responsibility: which control is held in segments is the
+  box tree's word for its inside, beside `one_line` and `at_least_a_line`.
+  How tall that inside is stays with `control_content_style`. The padding
+  is the user-agent sheet's. `tree.rs` and `engine.rs` were already large,
+  and this adds no second reason to change either.
+- `docs/features.md` has the line under *a form control holds what it
+  shows*. `conformance.md`, `ROADMAP.md`, `REMAINING.md` and `CHANGELOG.md`
+  are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched.
+- Hostile bytes: nothing new reads outside bytes. A `type` attribute is
+  compared, lowercased, against five words.
+- ADR 0042 § 5 (no indicator, no width for one) is kept. Whether the field
+  should take the indicator's *height* first is a decision, so it is 515's
+  and marked needs design rather than built here.
+
+**Queue.** 507 is ticked with its *Done* paragraph. **515** (the
+indicator's floor, needs design), **516** (a text field's line never below
+`normal`, blocked: no page yet) and **517** (a date or time field's own
+width) are added after 514.
+
+**Roadmap.** Nothing ticked. The form-control clause under stage 1 that
+506 extended gains 507's: what was built, and what is owed (515–517). The
+grid line's "except what its date field's line moves (507)" now says all
+are.
+
+**Unresolved obligations.**
+- 515: an unstyled date field is 17 inside where Chrome's is 17.33, and
+  `web-a-form`'s time field 21 tall where Chrome's is 24.
+- 516: `numbers.rs`' `a_fields_line_is_the_line_height_it_set` asserts a
+  10 px line for a text field at `line-height: 10px` and says Chrome
+  agrees. Chrome 154 with `DejaVu Sans` makes it 19. The test was left as
+  it is, because no page asks yet, and 516 says so.
+- 517: temporal fields are `20ch` wide where Chrome's are what they draw.
+- Measured in headless Chrome only.
+
+243 queue items are open (507 closed, 515–517 added). The next unused
+queue number is **518** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

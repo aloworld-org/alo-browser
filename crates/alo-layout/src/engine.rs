@@ -498,6 +498,10 @@ fn collect_inline_items(
 /// draw alo's Agenda (queue item 437). A button's label sits in the middle
 /// of it; a field's sits at the start.
 ///
+/// A date or a time is held in segments with [`SEGMENT_EDGE`] above and below
+/// its line, which is padding on this box and so makes the field that much
+/// taller than a text field with the same line (queue item 507).
+///
 /// None of this is in the user-agent style sheet, and it cannot be: a rule
 /// that centred a button's label would also centre the children of a button an
 /// author had made a flex container, and an author cannot override a rule they
@@ -508,8 +512,10 @@ fn control_content_style(
     id: BoxId,
     centred: bool,
     at_least_a_line: bool,
+    in_segments: bool,
     measure: &impl MeasureText,
 ) -> Style {
+    let edge = if in_segments { SEGMENT_EDGE } else { 0.0 };
     let line = if at_least_a_line {
         control_line(boxes, styles, id, measure)
     } else {
@@ -526,15 +532,34 @@ fn control_content_style(
             width: Dimension::percent(1.0),
             height: Dimension::percent(1.0),
         },
+        // The box is sized by its border box, so the minimum is the line and
+        // the segments' edges, and the line is laid out inside them.
         min_size: TaffySize {
             width: LengthPercentageAuto::auto(),
-            height: LengthPercentageAuto::length(line),
+            height: LengthPercentageAuto::length(line + edge * 2.0),
+        },
+        padding: taffy::Rect {
+            left: TaffyLengthPercentage::length(0.0),
+            right: TaffyLengthPercentage::length(0.0),
+            top: TaffyLengthPercentage::length(edge),
+            bottom: TaffyLengthPercentage::length(edge),
         },
         align_items: Some(taffy::AlignItems::CENTER),
         justify_content: centred.then_some(taffy::JustifyContent::CENTER),
         ..Style::default()
     }
 }
+
+/// What a date or a time is held in has this much above and below its line:
+/// Chrome 154's `::-webkit-datetime-edit-fields-wrapper` padding, `1px 0`.
+///
+/// Measured over `date`, `month`, `week`, `time` and `datetime-local` at 10,
+/// 13.33, 16, 17, 24 and 40 px, at `normal`, `1.6` and `30px`, in
+/// `DejaVu Sans` and `DejaVu Sans Mono`, empty and filled: the field is 2
+/// px taller than a text field whenever its line is taller than the
+/// calendar's indicator, and exactly as tall once a page takes that padding
+/// off (queue item 507).
+const SEGMENT_EDGE: f32 = 1.0;
 
 /// The one line the box a control holds what it shows in is at least as
 /// tall as: a line holding only the control's strut, which is the strut its
@@ -1288,12 +1313,21 @@ fn style_for(
             alo_box::Purpose::Control {
                 centred,
                 at_least_a_line,
+                in_segments,
                 ..
             },
         ..
     } = node.kind
     {
-        return control_content_style(boxes, styles, id, centred, at_least_a_line, measure);
+        return control_content_style(
+            boxes,
+            styles,
+            id,
+            centred,
+            at_least_a_line,
+            in_segments,
+            measure,
+        );
     }
     let ours = node
         .kind

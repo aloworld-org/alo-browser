@@ -141,7 +141,7 @@ correctness, not before it.
       box's edges are placed on the grid against where its parent was
       placed. 707 of the corpus's 1,260 element boxes are now Chrome's
       exactly, where 514 were, and `alo-sites-booking`'s all are except
-      what its date field's line moves (507). Those counts were taken
+      what its date field's line moves (507, since built: all are). Those counts were taken
       with Chrome in quirks mode for the cases with no `</head>`; in
       standards mode they were 807, and after 467 they are 855. Decided (iteration 306,
       queue item 499, ADR 0056): this engine does not take the sharing of
@@ -203,6 +203,15 @@ correctness, not before it.
       none further. Owed: a field's width by Chrome's rule (511), the rest
       of a control's text reset (512), the `font` shorthand's own grammar
       (513), and a unit of text width at a fractional size (514).*
+      *A date or time field was a text field's height until queue item
+      507 (iteration 311), where Chrome 154 holds its line in segments a
+      pixel inside it above and below, and pads it `0 0 0 1px`. Both are
+      built (`alo-box`'s `in_segments`, `alo-layout`'s `SEGMENT_EDGE`, the
+      user-agent sheet), so `alo-sites-booking`'s every box is Chrome's, and
+      of 1,261 corpus boxes 892 are Chrome's to 1/64 px, where 886 were,
+      with none further. Owed: the calendar indicator's height as a floor
+      (515, needs design), a text field's line never below `normal` (516),
+      and a date or time field's own width (517).*
 - [x] **Paint**: a display list, then a software raster to a PNG
       *A small curve was under-covered and leaned to one side until queue
       item 459 (iteration 291): the rented rasteriser's four-by-four

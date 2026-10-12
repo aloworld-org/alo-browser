@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Date and time fields are Chrome's height.** Chrome holds a date or a
+  time inside a field with a pixel of room above and below the text, so
+  such a field is 2 px taller than a text field, and it pads the field
+  differently too. Here a date field was a text field's height, which put
+  the booking form on alo Sites 2 px short of Chrome's and everything
+  around it a pixel off. Now every box on that page is Chrome's to a
+  sixty-fourth of a pixel, and across the test pages 892 of 1,261 are,
+  where 886 were, with none moved away. An unstyled date field is still a
+  third of a pixel shorter than Chrome's, because Chrome's calendar button
+  sets its height and this browser draws no calendar button yet; that is
+  queued.
+
 - **Form controls are set in Chrome's own small font.** Chrome writes every
   field, button, list and text area in 13.33 px, whatever size the page
   around it uses, and in a fixed-width face for a text area and a date or

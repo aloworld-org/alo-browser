@@ -51,8 +51,8 @@ fill box#75 rgb(255 255 255) at (28, 439) 13×13
 fill box#75 rgb(118 118 118) at (28, 439) 13×13
 text box#76 "Mushroom" rgb(0 0 0) 16px at (49.085938, 452.1875)
 text box#81 "Preferred delivery time:" rgb(0 0 0) 16px at (8, 515.1875)
-fill box#82 rgb(255 255 255) at (202.5, 500.5) 168×20
-fill box#82 rgb(118 118 118) at (202, 500) 169×21
+fill box#82 rgb(255 255 255) at (202.5, 500.5) 165×20
+fill box#82 rgb(118 118 118) at (202, 500) 166×21
 text box#87 "Delivery instructions:" rgb(0 0 0) 16px at (8, 583.1875)
 fill box#88 rgb(118 118 118) at (183.67188, 537.1875) 166.54688×46
 fill box#92 rgb(239 239 239) at (8.5, 603.5) 102×20

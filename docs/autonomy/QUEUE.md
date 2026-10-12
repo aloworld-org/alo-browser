@@ -7755,7 +7755,7 @@ The long pole, and the thing most of section E is unreachable without.
   the corpus that assumed a control in the page's font were moved to the
   rule, each with its reason. *Found:* 511, 512, 513 and 514.
 
-- [ ] **507. A date field's line is 2 px taller than a text field's.**
+- [x] **507. A date field's line is 2 px taller than a text field's.**
   *Found building 467 (iteration 308). Feature: `docs/features.md` stage
   1, forms (ADR 0042). Needs measuring.* In Chrome 154, at 16 px with no
   padding and no border, a text field is 19 tall and a date field 21. With
@@ -7765,6 +7765,38 @@ The long pole, and the thing most of section E is unreachable without.
   Chrome's 2 px are (its edit's own padding, likely), and whether `time`,
   `month`, `week` and `datetime-local` share them (388). *Closes when:*
   `alo-sites-booking`'s boxes are all Chrome's to 1/64 px.
+  ***Done (iteration 311).*** *Measured in headless Chrome 154* with the
+  corpus's fonts, padding and border off: `date`, `month`, `week`, `time`
+  and `datetime-local` at 10, 13.33, 16, 17, 24 and 40 px, at `normal`,
+  `1`, `1.6`, `30px` and `5px`, in `DejaVu Sans` and `DejaVu Sans Mono`,
+  empty and filled. Each is 2 px taller than a text field whenever its
+  line is taller than the calendar's indicator, and the 2 px go when a
+  page sets `::-webkit-datetime-edit-fields-wrapper { padding: 0 }`: they
+  are that wrapper's `1px 0`, a pixel above the line and a pixel below,
+  and the text beside such a field stands a pixel lower. Chrome's
+  user-agent sheet also gives these five fields `padding: 0 0 0 1px`,
+  where a text field has `1px 2px`. *Built:* `alo-box`'s
+  `Purpose::Control` says `in_segments` for those five types, and
+  `alo-layout` gives that box 1 px of padding above and below its line
+  (`SEGMENT_EDGE`). The user-agent sheet gives the five fields Chrome's
+  padding. *Closed:* `alo-sites-booking`'s 12 measured element boxes are
+  all Chrome's to the unit (`alo_sites_booking.rs`'s
+  `every_box_is_chromes`), the field 50.375 and the form 163.9375 at
+  88.40625. Its render is 0.92 from Chrome's screenshot on average where
+  it was 1.22. *Measured over the whole corpus* with the same probe as 506:
+  892 of 1,261 element boxes are Chrome's exactly, where 886 were, 8 came
+  nearer and none went further. Only `alo-sites-booking` and `web-a-form`
+  moved. *Evidence:* an `alo-box` unit test (which fields are held in
+  segments), an `alo-style` unit test (the five fields' padding), a layout
+  test in `numbers.rs` (a date or time field 2 taller than a text field,
+  its baseline and its text a pixel lower, at three line heights), the
+  corpus test, and four references rewritten. With `SEGMENT_EDGE` at 0,
+  the layout test and two booking tests fail. *Not closed, and cut:*
+  Chrome's calendar indicator is 1em and 4 px tall (a time's about 1.05em
+  and 6), and the field is at least that, so an unstyled 13.33 px date
+  field is 17.33 inside in Chrome and 17 here. That is 515. *Found:* 515,
+  516 (a text field's line is never less than `normal`) and 517 (a date or
+  time field's own width).
 
 - [ ] **508. Black's two tones in an `inset`, `outset`, `groove` or
   `ridge` border are Chrome's.** *Found building 505 (iteration 309).
@@ -7853,6 +7885,47 @@ The long pole, and the thing most of section E is unreachable without.
   fractional size rather than how it rounds a sum. *Closes when:* a rule
   measured over fractional sizes puts that button at Chrome's 6,597 units,
   with every case that moves measured.
+
+- [ ] **515. A date or time field is at least as tall as Chrome's
+  calendar indicator.** *Cut from 507 (iteration 311). Feature:
+  `docs/features.md` stage 1, forms (ADR 0042 § 5). **Needs design**: ADR
+  0042 § 5 draws no indicator and adds no width for one, and says nothing
+  of its height.* Measured in Chrome 154: a `date`, `month`, `week` or
+  `datetime-local` field is at least 1em and 4 px tall inside (16 px: 20),
+  and a `time` field about 1.05em and 6 (16 px: 22.8). The edit's line is
+  centred in that. With `::-webkit-calendar-picker-indicator { display:
+  none }` the floor goes. So an unstyled date field, 13.33 px with a line
+  of 15, is 17.33 inside in Chrome and 17 here, and `web-a-form`'s time
+  field is 24 tall there and 21 here. Needs: whether the field takes the
+  indicator's room before the indicator is drawn (386), decided as an
+  amendment to ADR 0042 § 5, then the time indicator's rule measured.
+  *Closes when:* `web-a-form`'s time field is Chrome's 24 tall and its
+  paragraph's label stands at Chrome's 501.6875.
+
+- [ ] **516. A text field's line is never less than its font's `normal`
+  line.** *Found building 507 (iteration 311). Feature: `docs/features.md`
+  stage 1, a form control holds what it shows. Blocked: no page yet.*
+  Chrome 154's text field ignores a `line-height` smaller than its font's
+  normal line: at 16 px in `DejaVu Sans`, `line-height: 1`, `10px` and
+  `5px` each give 19 inside, as `normal` does, and 40 px at `30px` gives
+  46. A date field does not: its line is the line height set. Here a text
+  field's line is whatever was set, and `numbers.rs`'s
+  `a_fields_line_is_the_line_height_it_set` asserts 10 for `10px` and says
+  Chrome agrees, which it does not with this font. No corpus page sets a
+  field's line below `normal`. *Closes when:* a frozen page that does is
+  Chrome's in numbers, and that test asserts Chrome's.
+
+- [ ] **517. A date or time field's own width.** *Found building 507
+  (iteration 311). Feature: `docs/features.md` stage 1, forms (ADR 0042 §
+  3). Needs measuring.* Chrome 154 sizes these five fields to what they
+  draw, not to `20ch`: unstyled, a date is 125.33 wide, a time 78, a month
+  155.33, a week 147.33 and a `datetime-local` 185.33, its segments and
+  its indicator included. Here each is `20ch` of `monospace` and its
+  padding, so `web-a-form`'s time field is 165.55 wide where Chrome's is
+  78. Needs: the segments' widths in this engine's format (ADR 0042 § 2
+  draws `yyyy-mm-dd` where Chrome draws `mm/dd/yyyy`), and 515's answer on
+  the indicator's room. *Closes when:* `web-a-form`'s time field is
+  Chrome's width to 1/64 px, or the difference is the format's and said.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

@@ -161,6 +161,16 @@ pub enum Purpose {
         /// `<svg>`, and a line's minimum made each one 4.5 taller than a
         /// browser draws it (queue item 437).
         at_least_a_line: bool,
+        /// Whether what it holds is a date or a time, which a browser holds
+        /// in segments inside an edit of its own with **a pixel above and a
+        /// pixel below its line**: a `date`, `month`, `week`, `time` or
+        /// `datetime-local` field.
+        ///
+        /// Chrome 154 makes such a field 2 px taller than a text field with
+        /// the same font and line, at every size and `line-height` measured,
+        /// and the 2 px go when a page takes the padding off
+        /// `::-webkit-datetime-edit-fields-wrapper` (queue item 507).
+        in_segments: bool,
     },
     /// The content slot of a `<details>`: every child but its summary, in
     /// one block (ADR 0048 § 1).
@@ -1284,6 +1294,7 @@ fn with_its_line(tree: &BoxTree, purpose: Purpose, children: &[BoxId]) -> Purpos
         centred,
         one_line,
         at_least_a_line: false,
+        in_segments,
     } = purpose
     else {
         return purpose;
@@ -1297,6 +1308,7 @@ fn with_its_line(tree: &BoxTree, purpose: Purpose, children: &[BoxId]) -> Purpos
         centred,
         one_line,
         at_least_a_line: holds_inline_content(tree, &in_lines),
+        in_segments,
     }
 }
 
@@ -1401,12 +1413,14 @@ fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
         centred: true,
         one_line: false,
         at_least_a_line: true,
+        in_segments: false,
     };
     if element.name.is_html("button") {
         return Some(Purpose::Control {
             centred: true,
             one_line: false,
             at_least_a_line: false,
+            in_segments: false,
         });
     }
     if element.name.is_html("textarea") {
@@ -1414,6 +1428,7 @@ fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
             centred: false,
             one_line: false,
             at_least_a_line: true,
+            in_segments: false,
         });
     }
     if !element.name.is_html("input") {
@@ -1431,6 +1446,10 @@ fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
             centred: false,
             one_line: true,
             at_least_a_line: true,
+            in_segments: matches!(
+                kind.as_str(),
+                "date" | "month" | "week" | "time" | "datetime-local"
+            ),
         }),
     }
 }
@@ -2316,10 +2335,10 @@ mod tests {
             centred: false,
             one_line: true,
             at_least_a_line: true,
+            in_segments: false,
         };
         for html in [
             "<input>",
-            "<input type=date>",
             "<input type=email value=a>",
             "<input type=PASSWORD>",
         ] {
@@ -2329,6 +2348,7 @@ mod tests {
             centred: true,
             one_line: false,
             at_least_a_line: true,
+            in_segments: false,
         };
         for html in ["<input type=submit>", "<input type=button value=''>"] {
             assert_eq!(inside_of(html), vec![button], "{html}");
@@ -2339,9 +2359,52 @@ mod tests {
                 centred: false,
                 one_line: false,
                 at_least_a_line: true,
+                in_segments: false,
             }],
         );
         assert!(inside_of("<input type=checkbox>").is_empty());
+    }
+
+    /// Queue item 507: a date or a time is held in segments, a pixel above
+    /// and below its line, and a field of any other kind is not.
+    #[test]
+    fn a_date_or_a_time_is_held_in_segments() {
+        let segmented = Purpose::Control {
+            centred: false,
+            one_line: true,
+            at_least_a_line: true,
+            in_segments: true,
+        };
+        for html in [
+            "<input type=date>",
+            "<input type=DATE value=2026-10-12>",
+            "<input type=month>",
+            "<input type=week>",
+            "<input type=time>",
+            "<input type=datetime-local>",
+        ] {
+            assert_eq!(inside_of(html), vec![segmented], "{html}");
+        }
+        for html in [
+            "<input type=text>",
+            "<input type=search>",
+            "<input type=number>",
+            "<input type=dates>",
+            "<input type=submit>",
+            "<textarea></textarea>",
+            "<button>2026-10-12</button>",
+        ] {
+            assert!(
+                inside_of(html).iter().all(|purpose| !matches!(
+                    purpose,
+                    Purpose::Control {
+                        in_segments: true,
+                        ..
+                    }
+                )),
+                "{html}"
+            );
+        }
     }
 
     /// Queue item 437: a `<button>` element is what it holds, and nothing
@@ -2353,6 +2416,7 @@ mod tests {
             centred: true,
             one_line: false,
             at_least_a_line,
+            in_segments: false,
         };
         for html in [
             "<button></button>",

@@ -83,8 +83,11 @@ font is Chrome's own 13.33 px (506), so `web-a-form`'s fields are Chrome's
 21 tall, where the page's 16 px made them 25, and every box down to its
 fieldsets stands where Chrome's does. Its fields are still 177.66 wide
 where Chrome's are 172, since Chrome's field width is a rule of its own
-and not `20ch` (511). A date field's line is 2 px shorter than
-Chrome's (507). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
+and not `20ch` (511). A date or time field holds its line in segments a
+pixel inside it above and below, as Chrome's does (507), so it is 2 px
+taller than a text field with the same line. An unstyled one is still a
+third of a pixel short of Chrome's, whose calendar indicator sets a floor
+(515), and its width is `20ch` where Chrome's is what it draws (517). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
 length, a percentage and a `calc()` are each truncated toward zero onto it,
 a run of text's width is rounded up, and a box's edges are placed on it as
 they are read back, so centring, auto margins and flexible tracks put each
@@ -92,8 +95,8 @@ edge where Chrome does. Measured again with the same fonts, 707 of the
 corpus's 1,260 element boxes have Chrome's left, top, width and height
 exactly, where 514 did before, and 855 since item 467 (measured in
 standards mode: the earlier counts put Chrome in quirks mode for cases with
-no `</head>`, and were 807 there); `alo-sites-booking`'s are all Chrome's
-but what its date field's own line moves (507). What the grid cannot reach yet
+no `</head>`, and were 807 there), 892 since item 507;
+`alo-sites-booking`'s are all Chrome's. What the grid cannot reach yet
 is what `taffy` decides between its own passes (499): the mini-month's
 columns are their ideal edges floored, 1,837 and 1,838 units, where Chrome
 sizes them again and makes every one 1,838, and the shares of flexible

@@ -1862,6 +1862,58 @@ fn an_empty_field_stands_where_its_text_will() {
     assert_eq!(button, Rect::new(16.0, 4.0, 50.0, 10.0), "{button:?}");
 }
 
+#[test]
+fn a_date_or_a_time_holds_its_line_a_pixel_inside_a_text_fields() {
+    // Chrome 154 holds a date or a time in segments with a pixel of padding
+    // above and below its line, so such a field is 2 taller than a text
+    // field with the same line, and its baseline and its text a pixel lower
+    // (queue item 507). At 16 px and a 20 px line with 5 of padding and no
+    // border, a text field is 30 tall and stands on 19 (the test above); a
+    // date is 32 and stands on 20, which puts the text beside it at 8, and
+    // what is typed in it starts 8 down, a pixel under a text field's 7.
+    let css = "#w, input { font-size: 16px; line-height: 20px } \
+               input { padding: 5px; border: 0; width: 40px }";
+    for kind in ["date", "month", "week", "time", "datetime-local"] {
+        for value in ["", " value=2026-10-12"] {
+            let field = format!("<input id=f type={kind}{value}>");
+            let html = format!("<body><div id=w><span id=s>ab</span>{field}</div></body>");
+            let (boxes, layout) =
+                lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
+            let block = rect_of(&boxes, &layout, "w", &html);
+            assert!(close(block.size.height, 32.0), "{field}: {block:?}");
+            let text = rect_of(&boxes, &layout, "s", &html);
+            assert_eq!(text, Rect::new(0.0, 8.0, 16.0, 16.0), "{field}");
+            let input = rect_of(&boxes, &layout, "f", &html);
+            assert_eq!(input, Rect::new(16.0, 0.0, 50.0, 32.0), "{field}");
+            let shown = text_box_rect(&boxes, &layout, |id| {
+                boxes.get(id).and_then(alo_box::BoxNode::text) != Some("ab")
+            });
+            if kind == "date" {
+                // A date draws its value, or its format when empty (ADR
+                // 0042); the other four draw nothing yet (item 388).
+                assert!(close(shown.origin.y, 8.0), "{field}: {shown:?}");
+            }
+        }
+    }
+    // The pixels are the segments' own, on top of the line the field set:
+    // at `line-height: 1.6` the date is the text field's 25.59375 and 2, and
+    // at 30px, 32, as Chrome's are.
+    for (line_height, text_field) in [("1.6", 25.593_75), ("30px", 30.0)] {
+        let css = format!(
+            "input {{ font-size: 16px; line-height: {line_height}; padding: 0; border: 0 }}"
+        );
+        for (kind, extra) in [("text", 0.0), ("date", 2.0)] {
+            let html = format!("<body><input id=f type={kind}></body>");
+            let (boxes, layout) = lay_out(&html, &css, Size::new(400.0, 300.0));
+            let input = rect_of(&boxes, &layout, "f", &html);
+            assert!(
+                close(input.size.height, text_field + extra),
+                "{kind} at {line_height}: {input:?}"
+            );
+        }
+    }
+}
+
 /// The rectangle of the first text box `pick` chooses, or a rectangle no
 /// layout produces so that the assertion which asked reports it.
 fn text_box_rect(boxes: &BoxTree, layout: &LayoutTree, pick: impl Fn(BoxId) -> bool) -> Rect {

@@ -170,6 +170,15 @@ input, select {
      short for it — which is exactly what happened. */
   padding: 1px 2px;
 }
+/* A field that writes a date or a time has a pixel before it and nothing
+ * above, below or after: Chrome 154's computed `0px 0px 0px 1px`, measured
+ * (queue item 507). What it holds is held in segments a pixel inside its
+ * line above and below (`alo_box::Purpose::Control`'s `in_segments`), so
+ * with a text field's padding it would stand 2 px taller than Chrome's. */
+input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"] {
+  padding: 0 0 0 1px;
+}
 /* A field's border and a button's are two pixels, `inset` and `outset`:
  * Chrome 154's computed values, measured (queue item 505). Chrome does not
  * draw them while the page leaves them alone. It draws its own picture of
@@ -463,6 +472,29 @@ mod tests {
             assert_eq!(
                 computed(html, id, "border").as_deref(),
                 Some(border),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_field_that_writes_a_date_or_a_time_has_a_pixel_before_it_alone() {
+        // Chrome 154's computed values, measured (queue item 507).
+        let html = "<input id=text><input id=date type=date><input id=time type=time>\
+                    <input id=local type=datetime-local><input id=month type=month>\
+                    <input id=week type=week><input id=number type=number>";
+        for (id, padding) in [
+            ("text", "1px 2px"),
+            ("number", "1px 2px"),
+            ("date", "0 0 0 1px"),
+            ("time", "0 0 0 1px"),
+            ("local", "0 0 0 1px"),
+            ("month", "0 0 0 1px"),
+            ("week", "0 0 0 1px"),
+        ] {
+            assert_eq!(
+                computed(html, id, "padding").as_deref(),
+                Some(padding),
                 "{id}"
             );
         }

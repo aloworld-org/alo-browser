@@ -1991,3 +1991,14 @@ moved away. Found: **511** (a field's width by Chrome's rule, not `20ch`),
 shorthand's grammar) and **514** (a unit of text width at a fractional
 size). 241 queue items are open (506 closed, 511–514 added). The next
 unused queue number is 515 and the next unused ADR 0057.
+
+Iteration 311 built queue item 507. A `date`, `month`, `week`, `time` or
+`datetime-local` field holds its line in segments with a pixel above and
+below, as Chrome 154's edit does (`alo-box`'s `in_segments`, `alo-layout`'s
+`SEGMENT_EDGE`), and takes Chrome's `padding: 0 0 0 1px`.
+`alo-sites-booking`'s every box is Chrome's; of 1,261 corpus boxes 892 are
+Chrome's exactly, where 886 were, and none moved away. Found: **515** (the
+calendar indicator's height as a floor, needs design against ADR 0042 §
+5), **516** (a text field's line never below `normal`) and **517** (a date
+or time field's own width). 243 queue items are open (507 closed, 515–517
+added). The next unused queue number is 518 and the next unused ADR 0057.
