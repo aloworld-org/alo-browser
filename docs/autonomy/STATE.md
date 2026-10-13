@@ -32500,3 +32500,136 @@ clause adds `:hover`; Owed swaps 550 for 554.
 266 queue items are open (550 closed, 554 added). The next unused queue
 number is **555** and the next ADR is **0057**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 326 — queue item 554 built: a `<label>` hovered hovers its control
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 325's entry; ADR 0024 (§ 5, a person's pointer), the ADRs 550
+read (0017 § 6, 0018 § 3) and ADR 0049 § 4 (a label's text as drawn);
+queue items 550 and 554; the feature lines *A window, tabs, and a tab
+strip* and *Forms*. No `AGENTS.md` exists here.
+
+**Why 554.** It is the first open item after 550 in the file, it depends
+only on 550 (closed in iteration 325), and it waits on no page, person or
+design. The open items earlier in the file wait for a page, a person, a
+design or an unfinished dependency, as 318–325 recorded; 549 (the owner's)
+comes later in the file.
+
+**Measured**, in headless Chrome 154 over CDP (`Input.dispatchMouseEvent`,
+Node 26), the source not read. Listeners for the crossing events wrote
+their target and `querySelectorAll(':hover')`, on a probe page at 400 ×
+300 with eight labels; names came from `Accessibility.getPartialAXTree`
+at each field of a second page.
+- A hovered label hovers its control alone, not the control's ancestors:
+  by `for`, or the first labelable element it wraps. A `for` naming a
+  `<div>`, a hidden input, an id a `<div>` took first, `for=""` or an
+  `id=""` hovers and names nothing, and a `for` is never a fallback to
+  the control wrapped. A hidden input is passed over (`HIDDEN` too).
+- The control is decided when the label enters the chain and kept while it
+  stays: after a `for` change, an `id` change or a control put before it,
+  the old one stays hovered. A label that labelled nothing when it was
+  hovered hovers nothing until it is hovered again.
+- The control leaving the chain ends its hover, though its label stays
+  hovered: moving from `g` to `g2` in one label leaves `g` unhovered, and
+  so does moving back to the label's span.
+- A control taken out is unhovered, and is not hovered again when put back.
+- **Not copied:** Chrome unhovers the label's control *as it is now* when
+  the label leaves the chain, so after a `for`, `id` or insertion change
+  the old control stays hovered for as long as the page is open, and
+  after the label is taken out its control stays hovered until the pointer
+  crosses it. That is a hover stuck on an element nothing is over. Here
+  the remembered control's hover ends with its label's. The record marks
+  those five sections `DIVERGES`.
+- Drawn: a page with `#f:hover`, `#g:hover` and `#p:hover`, screenshotted
+  at rest, under each label and over `f`.
+
+**Built.**
+- `alo-dom`'s `label.rs`: `Document::labelled_control` and
+  `is_labelable`, HTML's labelled-control rule, searching the label's own
+  tree.
+- `alo-dom`'s `hover.rs`: the document keeps each hovered label with the
+  control it hovered (`hovered_by_label`), set as a label enters the
+  chain, and dropped when the label leaves it, when the control leaves it
+  and when either is taken out (`hover_leaving`). `is_hovered` answers for
+  those controls too, so style and `querySelectorAll` agree.
+- `alo-agent`: `label_names_something` and its own `is_labelable` are
+  gone. The tree asks `labelled_control`, and `label_for` takes a label
+  only when it labels the field. A field wrapped by a label whose `for`
+  points elsewhere, the second field in a label, and a field whose id a
+  `<div>` took first are no longer named by that label, as in Chrome. A
+  label that names nothing, such as one for a hidden input, is now read
+  as text.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, with no `FAILED`, `panicked` or
+`^error` line in the log. `cargo clippy --workspace --all-targets` was
+clean before it. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: 17 boxes on the probe page and 7 on the drawn page,
+  each Chrome's `getBoundingClientRect()` to 1/64 px.
+- Reference renders: `label-hovered-drawn-at-rest.png`, `-under-l.png`
+  and `-under-w.png`. Compared with PIL against Chrome's screenshots, 0
+  pixels differed in all five states (under `n` is the rest picture, over
+  `f` the picture under `l`).
+- Chrome's record: `a_label_hovered.rs` takes 7 scenarios through the 41
+  sections of `label-hovered.chrome.txt` in order, line for line, each
+  also with the collector at every allocation. A `DIVERGES` section
+  asserts this engine's answer, and that Chrome's is different.
+- Names: `a_field_its_label_labels.rs` holds each field's name to Chrome's
+  accessibility tree, and checks which labels are read as text.
+- On screen: `alo --frozen-fonts` with the drawn page. The cursor was moved
+  with `cliclick` over `l`, the wrapping label, `n`, `f` and the strip, and
+  the window was captured with `screencapture -l` each time. `f` was red
+  under `l` and over itself, `g` green under the wrapping label, and
+  nothing changed under `n` or on the strip. ⌘W closed the window, and no
+  `alo` was left.
+- Mutations, each restored from a copy (`cmp` confirmed), each fail a test:
+  a `for` falling back to the wrapped control; a hidden input labelable;
+  an empty `for` searched; no label hovering its control; a control kept
+  after leaving the chain; a control kept after being taken out; a label
+  kept after being taken out; the old chain's labels kept; `is_hovered`
+  ignoring labels (all 9 renderer tests); and `label_for` without the rule
+  (twice). Two first-round mutations survived because they were the
+  mutations' fault, not gaps in the tests: one was logically equal to the
+  code, and the other needed a page with a label whose `for` names a div
+  while it wraps an input. That case and an `id=""` case were added, and
+  both mutations then failed. `alo-render` was rebuilt after.
+- Hostile input: no new bytes are read from outside. `labelled_control`
+  refuses a non-label, a missing node and the document node.
+- One file, one responsibility: which control a label labels is
+  `label.rs`; what is hovered stays `hover.rs`. Each test file asks one
+  question: the record, the drawing and the names.
+- Also updated: `docs/features.md` (the pointer line and *Forms*),
+  `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md` and
+  the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 554 is ticked with its *Done* paragraph. Added: 555
+(`Element.id`, and a label's `htmlFor` and `control`; waits for a page).
+Building the probe found that both `el.id = …` and `label.htmlFor = …`
+make an ordinary property and change no attribute, so the test scripts use
+`setAttribute`.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the label's hover and the shared rule; Owed drops 554.
+
+**Unresolved obligations.**
+- Where Chrome's control stays hovered after its label stops being hovered,
+  this engine ends it. That is deliberate, and recorded in `hover.rs`,
+  `docs/conformance.md` and the record's `DIVERGES` sections. A page found
+  depending on Chrome's behaviour would reopen it.
+- A field with two labels is still named by one of them: a `for` label
+  first, then the nearest wrapping one. Chrome joins them. Nothing here
+  measured that, and nothing frozen has it.
+- `:active` does not exist, so a pressed label does not activate its
+  control's `:active` style.
+- A hover change draws the page again whether or not any rule names
+  `:hover`. No claim about speed is made.
+
+266 queue items are open (554 closed, 555 added). The next unused queue
+number is **556** and the next ADR is **0057**. This is one iteration,
+not a finished queue or roadmap.

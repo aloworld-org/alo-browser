@@ -122,6 +122,7 @@ pub mod field;
 pub mod footprint;
 pub mod hover;
 pub mod kind;
+pub mod label;
 pub mod mutation;
 pub mod name;
 pub mod node;

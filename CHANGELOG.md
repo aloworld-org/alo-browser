@@ -6,12 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A label hovered hovers its field.** With the pointer over a `<label>`,
+  the field it labels now takes its `:hover` styles too, as in Chrome — a
+  label pointing at a field by `for`, or wrapped around it. The same rule
+  decides which field a label names for an agent, so a field is no longer
+  named by a label whose `for` points at something else, nor by a label
+  around it that already names another field. Chrome's habit of leaving a
+  field hovered after its label has changed or gone is not copied.
+
 - **Hover styles are drawn.** A page's `:hover` rules now apply to the
   element under the mouse pointer and everything around it, as in Chrome:
   a button that changes colour when the pointer is over it does, and goes
   back when the pointer leaves, on pages with or without script. A script
-  asking which elements are hovered gets the same answer. A label hovered
-  does not yet hover the field it labels.
+  asking which elements are hovered gets the same answer.
 
 - **A page hears the pointer move.** Moving the mouse over a page now sends
   it what Chrome sends: `mouseover` and `mouseout` (and their pointer and

@@ -13151,7 +13151,7 @@ What stage 2's exit gate actually measures: a person using it.
   `:hover` on the element alone and not its ancestors; a hover not counted
   as a change — each fails the new tests.
 
-- [ ] **554. A `<label>` hovered hovers the control it labels.** *Cut from
+- [x] **554. A `<label>` hovered hovers the control it labels.** *Cut from
   550 (iteration 325). Feature: `docs/features.md` stage 2, a window, tabs
   and a tab strip. Depends on 550.* Chrome 154, with the pointer over
   `<label for=f>`, answered `querySelectorAll(':hover')` with the label's
@@ -13162,6 +13162,52 @@ What stage 2's exit gate actually measures: a person using it.
   and a frozen page whose label is hovered hovers its control as Chrome's
   does — `for`, a wrapped control, and a `for` naming no labelable element
   — with the control's hover rule drawn.
+
+  ***Done (iteration 326).*** Measured in headless Chrome 154 over CDP
+  (`Input.dispatchMouseEvent`, listeners reading
+  `querySelectorAll(':hover')`; names by `Accessibility.getPartialAXTree`),
+  the source not read. The rule for which control a label labels is
+  `alo-dom`'s `label.rs` — `Document::labelled_control` and
+  `is_labelable`, HTML's: a `for` names the first element with its id if
+  labelable, and nothing otherwise (never the control wrapped; `for=""`
+  and an `id=""` nothing); without one, the first labelable element
+  inside; a hidden input in any case passed over. `alo-agent`'s
+  `label_names_something` and `is_labelable` are gone, and `label_for`
+  takes a label only when it labels the field, so each field in
+  `a_field_its_label_labels.rs` is named as Chrome's accessibility tree
+  names it. The document keeps each hovered label with the control it
+  hovered when it was hovered (`hover.rs`), ended when the label leaves
+  the chain, the control leaves the chain or the control leaves the
+  document. *Deliberately not Chrome's:* its control's hover outlives the
+  label's when the label's control changed while hovered (`for`, the
+  control's `id`, a control put before it) or the label was taken out —
+  a hover stuck on an element nothing is over. The record marks those
+  sections `DIVERGES`, and the test asserts this engine's answer and that
+  Chrome's differs.
+  *Closed by:* `alo-renderer`'s `tests/a_label_hovered.rs`, 7 scenarios
+  line for line against `references/label-hovered.chrome.txt` (41
+  sections, each run also with the collector at every allocation, and 17
+  boxes in numbers); `tests/a_label_hovered_drawn.rs`, reference renders
+  `label-hovered-drawn-at-rest.png`, `-under-l.png` and `-under-w.png`,
+  each 0 pixels from Chrome's screenshot, on pages with and without
+  script; `alo-dom`'s unit tests in `label.rs` (5) and `hover.rs` (5 new);
+  and `alo --frozen-fonts` on this Mac, moved over with `cliclick`.
+  Mutations: a `for` falling back to the wrapped control, a hidden input
+  labelable, an empty `for` searched, no label hovering, a control kept
+  after leaving the chain, a control kept after being taken out, a label
+  kept after being taken out, the old chain's labels kept, and
+  `label_for` without the rule, each fail a test.
+  *Found:* `Element.id` and a label's `htmlFor` and `control` are not
+  members of the bindings — **555**.
+
+- [ ] **555. `Element.id`, and a label's `htmlFor` and `control`.** *Found
+  building 554 (iteration 326). Feature: `docs/features.md` stage 2, the
+  DOM. Waits for a page.* `el.id = 'z'` and `label.htmlFor = 'g'` make an
+  ordinary property on the wrapper and change no attribute, because
+  neither reflection is a member of the bindings; `label.control`, which
+  would answer `Document::labelled_control`, is absent too. *Closes when:*
+  a frozen page that sets or reads one of them gets the DOM standard's and
+  HTML's answer, in a table run with the collector at every allocation.
 
 - [ ] **551. `pointerrawupdate`.** *Cut from 542 (iteration 324). Feature:
   `docs/features.md` stage 2, events. Waits for a page.* Chrome 154 fired it

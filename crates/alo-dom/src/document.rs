@@ -74,6 +74,9 @@ pub struct Document {
     /// The element a person's pointer is over ([`crate::hover`]): always an
     /// element in this tree, or nothing.
     pub(crate) hovered: Option<NodeId>,
+    /// Each hovered `<label>` with the control it hovered when it was
+    /// hovered ([`crate::hover`]).
+    pub(crate) hovered_by_label: Vec<(NodeId, NodeId)>,
 }
 
 impl Document {
@@ -88,6 +91,7 @@ impl Document {
             issues: Vec::new(),
             being_parsed: false,
             hovered: None,
+            hovered_by_label: Vec::new(),
         }
     }
 

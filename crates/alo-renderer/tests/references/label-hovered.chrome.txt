@@ -1,0 +1,200 @@
+# What headless Chrome 154 recorded on label-hovered.html, given at
+# 400 x 300 (Emulation.setDeviceMetricsOverride) and driven with
+# Input.dispatchMouseEvent over CDP, on 2026-10-13; the source not read.
+# Each run of sections from "before anything" or the first "over l1" (or
+# "over s2", "over l3") is one scenario on a page loaded fresh. A line is
+# an event's type, its target and the ids document.querySelectorAll(':hover')
+# answered in its listener ('-' for none); 'now' is the same asked by a
+# script of its own after the input, and 'just' by the script that changed
+# the tree, straight after the change. A section titled DIVERGES is
+# Chrome's hover outliving its label's, which this engine does not copy
+# (alo-dom's hover.rs says why); what Chrome then fired on a timer after a
+# removal (552) is left out.
+# Boxes, by getBoundingClientRect: ["html 0,0 400x0","body 0,0 400x0","l1 0,0 60x40","fw 0,200 100x40","f 0,200 40x20","l2 100,0 60x80","s2 100,0 60x30","g 100,30 40x20","g2 100,50 40x20","l3 200,0 60x40","p 200,200 40x40","l4 300,0 60x40","l5 0,100 60x60","s5 0,100 60x30","g5 0,130 40x20","l6 100,100 60x40","q 0,0 400x0","l7 200,100 60x40","bw 300,200 60x40","b 300,200 40x20","q 300,220 40x20"]
+### before anything
+now -
+### over l1, for f
+pointerover l1 html,body,l1,f
+mouseover l1 html,body,l1,f
+now html,body,l1,f
+### over f itself
+pointerout l1 html,body,fw,f
+pointerover f html,body,fw,f
+mouseout l1 html,body,fw,f
+mouseover f html,body,fw,f
+now html,body,fw,f
+### over s2 in l2, wrapping g and g2
+pointerout f html,body,l2,s2,g
+pointerover s2 html,body,l2,s2,g
+mouseout f html,body,l2,s2,g
+mouseover s2 html,body,l2,s2,g
+now html,body,l2,s2,g
+### over g in l2
+pointerout s2 html,body,l2,g
+pointerover g html,body,l2,g
+mouseout s2 html,body,l2,g
+mouseover g html,body,l2,g
+now html,body,l2,g
+### over g2 in l2
+pointerout g html,body,l2,g2
+pointerover g2 html,body,l2,g2
+mouseout g html,body,l2,g2
+mouseover g2 html,body,l2,g2
+now html,body,l2,g2
+### back over s2, past g
+pointerout g2 html,body,l2,s2
+pointerover s2 html,body,l2,s2
+mouseout g2 html,body,l2,s2
+mouseover s2 html,body,l2,s2
+now html,body,l2,s2
+### over l3, for a div
+pointerout s2 html,body,l3
+pointerover l3 html,body,l3
+mouseout s2 html,body,l3
+mouseover l3 html,body,l3
+now html,body,l3
+### over l4, for a hidden input
+pointerout l3 html,body,l4
+pointerover l4 html,body,l4
+mouseout l3 html,body,l4
+mouseover l4 html,body,l4
+now html,body,l4
+### over s5 in l5, for f and wrapping g5
+pointerout l4 html,body,f,l5,s5
+pointerover s5 html,body,f,l5,s5
+mouseout l4 html,body,f,l5,s5
+mouseover s5 html,body,f,l5,s5
+now html,body,f,l5,s5
+### over g5 in l5
+pointerout s5 html,body,f,l5,g5
+pointerover g5 html,body,f,l5,g5
+mouseout s5 html,body,f,l5,g5
+mouseover g5 html,body,f,l5,g5
+now html,body,f,l5,g5
+### over l6, for an id a div took first
+pointerout g5 html,body,l6
+pointerover l6 html,body,l6
+mouseout g5 html,body,l6
+mouseover l6 html,body,l6
+now html,body,l6
+### over l7, for a button
+pointerout l6 html,body,l7,b
+pointerover l7 html,body,l7,b
+mouseout l6 html,body,l7,b
+mouseover l7 html,body,l7,b
+now html,body,l7,b
+### over nothing
+pointerout l7 html
+pointerover html html
+mouseout l7 html
+mouseover html html
+now html
+### over l1
+pointerover l1 html,body,l1,f
+mouseover l1 html,body,l1,f
+now html,body,l1,f
+### its for changed to g
+just html,body,l1,f
+now html,body,l1,f
+### within l1
+now html,body,l1,f
+### DIVERGES over nothing
+pointerout l1 html,f
+pointerover html html,f
+mouseout l1 html,f
+mouseover html html,f
+now html,f
+### DIVERGES over l1 again
+pointerout html html,body,l1,f,g
+pointerover l1 html,body,l1,f,g
+mouseout html html,body,l1,f,g
+mouseover l1 html,body,l1,f,g
+now html,body,l1,f,g
+### over l1
+pointerover l1 html,body,l1,f
+mouseover l1 html,body,l1,f
+now html,body,l1,f
+### f renamed z
+just html,body,l1,z
+now html,body,l1,z
+### DIVERGES over nothing, renamed
+pointerout l1 html,z
+pointerover html html,z
+mouseout l1 html,z
+mouseover html html,z
+now html,z
+### over l1
+pointerover l1 html,body,l1,f
+mouseover l1 html,body,l1,f
+now html,body,l1,f
+### f taken out
+just html,body,l1
+now html,body,l1
+### f put back
+just html,body,l1
+now html,body,l1
+### within l1
+now html,body,l1
+### over nothing
+pointerout l1 html
+pointerover html html
+mouseout l1 html
+mouseover html html
+now html
+### over l1
+pointerout html html,body,l1,f
+pointerover l1 html,body,l1,f
+mouseout html html,body,l1,f
+mouseover l1 html,body,l1,f
+now html,body,l1,f
+### fw taken out
+just html,body,l1
+now html,body,l1
+### over s2
+pointerover s2 html,body,l2,s2,g
+mouseover s2 html,body,l2,s2,g
+now html,body,l2,s2,g
+### a textarea put before g
+just html,body,l2,s2,g
+now html,body,l2,s2,g
+### within s2
+now html,body,l2,s2,g
+### DIVERGES over nothing, after the textarea
+pointerout s2 html,g
+pointerover html html,g
+mouseout s2 html,g
+mouseover html html,g
+now html,g
+### DIVERGES over s2 again
+pointerout html html,body,l2,s2,t,g
+pointerover s2 html,body,l2,s2,t,g
+mouseout html html,body,l2,s2,t,g
+mouseover s2 html,body,l2,s2,t,g
+now html,body,l2,s2,t,g
+### over l3
+pointerover l3 html,body,l3
+mouseover l3 html,body,l3
+now html,body,l3
+### its for changed to f
+just html,body,l3
+now html,body,l3
+### within l3
+now html,body,l3
+### over nothing
+pointerout l3 html
+pointerover html html
+mouseout l3 html
+mouseover html html
+now html
+### over l3 again
+pointerout html html,body,f,l3
+pointerover l3 html,body,f,l3
+mouseout html html,body,f,l3
+mouseover l3 html,body,f,l3
+now html,body,f,l3
+### over l1
+pointerover l1 html,body,l1,f
+mouseover l1 html,body,l1,f
+now html,body,l1,f
+### DIVERGES l1 taken out
+just html,body,f

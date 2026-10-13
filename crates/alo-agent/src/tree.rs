@@ -35,9 +35,7 @@
 //! belong to which whole, and this follows it. Still a view: nothing new is
 //! built, and the answer comes from the same trees.
 
-use crate::name::{
-    accessible_name, label_names_something, names_itself_from_content, normalise, text_of,
-};
+use crate::name::{accessible_name, names_itself_from_content, normalise, text_of};
 use alo_box::{BoxId, BoxNode, BoxTree, KnownRole, Role, States};
 use alo_dom::Document;
 use alo_layout::{LayoutTree, Rect};
@@ -423,7 +421,7 @@ impl<'a> AgentTree<'a> {
                 return false;
             }
             if let Some(source) = node.kind.node()
-                && label_names_something(self.document, source)
+                && self.document.labelled_control(source).is_some()
             {
                 return true;
             }

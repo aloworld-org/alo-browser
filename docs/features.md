@@ -221,7 +221,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **`text-decoration`**: underline, overline and line-through, stopping at
   the end of the inline rather than the edge of the line
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
-  legend, and a radio you can tell from a checkbox. An empty date field
+  legend, and a radio you can tell from a checkbox. **Which control a label
+  labels is HTML's rule, held once** (`alo-dom`'s `label.rs`, queue item
+  554): a `for` names the first element with its id when that is
+  labelable, and nothing otherwise — never the control it wraps — and a
+  label without one labels the first labelable element inside it, a hidden
+  input passed over. The agent's names and a hovered label ask the same
+  rule, and each field is named as Chrome 154's accessibility tree names
+  it. An empty date field
   draws how a date is written, `yyyy-mm-dd`, in its own colour (queue item
   385, ADR 0042; opened by `alo-sites-booking`), and a field's text is drawn
   with nothing of the field's own around it. A checkbox and a radio are 13
@@ -750,7 +757,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   Outside the page nothing is hovered; a drag hovers what it is over, and
   `<html>` outside the viewport; an element taken out of the document
   hovers the parent it left at once. On pages with and without script.
-  Still to come: a `<label>` hovered hovering its control (554),
+  **A `<label>` hovered hovers the control it labels** (queue item 554):
+  the control alone, not its ancestors, decided when the label is hovered
+  by HTML's labelled-control rule — `alo-dom`'s `label.rs`, which the
+  agent's names ask too — and ended when the label or the control leaves
+  the hovered chain, or the control leaves the document. Chrome 154 keeps
+  such a control hovered after its label's `for` or the control's `id`
+  changed, or the label was taken out; this engine does not, because that
+  is a hover stuck on an element nothing is over. Still to come:
   `pointerrawupdate` (551), what a page hears when it
   changes under a pointer that is not moving (552) and when another tab is
   chosen under it (553); a click submitting a form, which says it did not

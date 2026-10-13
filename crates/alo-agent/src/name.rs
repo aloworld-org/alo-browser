@@ -131,7 +131,9 @@ fn is_title_only(document: &Document, source: Option<NodeId>) -> bool {
 /// The text of a `<label>` that names this element.
 ///
 /// Both ways HTML allows: a `<label for=...>` pointing at it, and a `<label>`
-/// wrapped around it.
+/// wrapped around it — each only when the label's control is this element
+/// ([`Document::labelled_control`], queue item 554), so a wrapped field is
+/// not named by a label whose `for` points elsewhere, as in Chrome 154.
 ///
 /// **As drawn** (ADR 0049 § 4): the label's boxes' text, so an `uppercase`
 /// label names its field in capitals, as a person sees it and as Chrome
@@ -139,24 +141,22 @@ fn is_title_only(document: &Document, source: Option<NodeId>) -> bool {
 /// is not named by its own value. A label that makes no box has no drawn
 /// text and is read from the document, as written.
 fn label_for(document: &Document, boxes: &BoxTree, id: NodeId) -> Option<String> {
+    let labels_it = |label: NodeId| document.labelled_control(label) == Some(id);
     let element = document.element(id)?;
     if let Some(own_id) = element.attr("id") {
         let pointing = document.descendants(document.root()).find(|candidate| {
             document.element(*candidate).is_some_and(|label| {
                 label.name.is_html("label") && label.attr("for") == Some(own_id)
-            })
+            }) && labels_it(*candidate)
         });
         if let Some(label) = pointing {
             return Some(label_text(document, boxes, label, id));
         }
     }
-    // Wrapped: the nearest `<label>` ancestor.
+    // Wrapped: the nearest `<label>` ancestor that labels it.
     let mut current = document.parent(id);
     while let Some(ancestor) = current {
-        if document
-            .element(ancestor)
-            .is_some_and(|element| element.name.is_html("label"))
-        {
+        if labels_it(ancestor) {
             return Some(label_text(document, boxes, ancestor, id));
         }
         current = document.parent(ancestor);
@@ -178,44 +178,6 @@ fn label_text(document: &Document, boxes: &BoxTree, label: NodeId, control: Node
         gather(boxes, member, Some(control), &mut out);
     }
     out
-}
-
-/// Whether a `<label>` element actually names a control.
-///
-/// A label that points at nothing, or wraps nothing, is a piece of text like
-/// any other and is read as one. A label that *does* name a control has
-/// already been read — as that control's name — and reading it again is the
-/// same words twice, with the second copy being a thing an agent could try to
-/// act on.
-pub(crate) fn label_names_something(document: &Document, id: NodeId) -> bool {
-    let Some(element) = document.element(id) else {
-        return false;
-    };
-    if !element.name.is_html("label") {
-        return false;
-    }
-    if let Some(target) = element.attr("for") {
-        return document.descendants(document.root()).any(|candidate| {
-            document
-                .element(candidate)
-                .is_some_and(|held| held.attr("id") == Some(target) && is_labelable(held))
-        });
-    }
-    // Wrapped: a control inside it.
-    document
-        .descendants(id)
-        .any(|inner| document.element(inner).is_some_and(is_labelable))
-}
-
-/// The elements a `<label>` can name.
-///
-/// HTML's own list, trimmed to the controls this engine builds boxes for.
-fn is_labelable(element: &alo_dom::Element) -> bool {
-    [
-        "input", "select", "textarea", "button", "meter", "progress", "output",
-    ]
-    .iter()
-    .any(|name| element.name.is_html(name))
 }
 
 /// Everything a person would read inside a box, joined.

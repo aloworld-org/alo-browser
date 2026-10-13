@@ -1,0 +1,9 @@
+<!doctype html><html id=html><head><style>body{margin:0}label,span,input,button{display:block}input,button{border:0;padding:0;margin:0;width:40px;height:20px;background:#808080}#l1{position:absolute;left:0;top:0;width:60px;height:40px}#fw{position:absolute;left:0;top:200px;width:100px;height:40px}#l2{position:absolute;left:100px;top:0;width:60px;height:80px}#s2{height:30px}#l3{position:absolute;left:200px;top:0;width:60px;height:40px}#p{position:absolute;left:200px;top:200px;width:40px;height:40px}#l4{position:absolute;left:300px;top:0;width:60px;height:40px}#l5{position:absolute;left:0;top:100px;width:60px;height:60px}#s5{height:30px}#l6{position:absolute;left:100px;top:100px;width:60px;height:40px}#l7{position:absolute;left:200px;top:100px;width:60px;height:40px}#bw{position:absolute;left:300px;top:200px;width:60px;height:40px}</style></head><body id=body><label id=l1 for=f></label><div id=fw><input id=f></div><label id=l2><span id=s2></span><input id=g><input id=g2></label><label id=l3 for=p></label><div id=p></div><label id=l4 for=h></label><input type=hidden id=h><label id=l5 for=f><span id=s5></span><input id=g5></label><label id=l6 for=q></label><div id=q></div><label id=l7 for=b></label><div id=bw><button id=b></button><input id=q></div><p id=out hidden></p><script>
+const out = document.getElementById('out');
+function say(what) { out.textContent = out.textContent + '|' + what; }
+function who(t) { return t === null ? 'null' : t === document ? 'document' : t.getAttribute('id'); }
+function hovered() { const h = document.querySelectorAll(':hover'); let s = ''; for (let i = 0; i < h.length; i++) { s = s + (i ? ',' : '') + who(h[i]); } return s === '' ? '-' : s; }
+const kinds = ['pointerover', 'pointerout', 'mouseover', 'mouseout'];
+function heard(e) { say(e.type + ' ' + who(e.target) + ' ' + hovered()); }
+for (let k = 0; k < kinds.length; k++) { document.addEventListener(kinds[k], heard); }
+</script></body></html>

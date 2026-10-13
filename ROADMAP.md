@@ -1796,10 +1796,13 @@ items where being right and being unusable are the same outcome.
       `querySelectorAll` match it and its ancestors, and the page is drawn
       again at each crossing. Pinned against Chrome's record of `:hover`
       in every listener, and three reference renders that are Chrome's
-      screenshots pixel for pixel.
+      screenshots pixel for pixel. A hovered `<label>` hovers the control
+      it labels (554, done), by HTML's labelled-control rule in `alo-dom`'s
+      `label.rs`, which the agent's names now ask as well; pinned against
+      Chrome's record and two reference renders, with Chrome's stuck hover
+      after a label changes deliberately not copied.
       · Owed: the agent reading the strip, which needs design (531); a
-      title changed after load (532); a hovered `<label>` hovering its
-      control (554), `pointerrawupdate` (551), a page changing under a still pointer
+      title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
       (552), a tab chosen under the pointer (553); a person's submission
       (543); the other buttons (544), modifiers (545) and click counts
       (547); a click on a tab (539); device pixels (299); a link opening a

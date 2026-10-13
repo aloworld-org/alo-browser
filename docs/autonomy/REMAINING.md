@@ -2198,3 +2198,13 @@ again at each crossing and a script's `querySelectorAll(':hover')` agrees.
 Cut: **554** (a `<label>` hovered hovers the control it labels). 266 queue
 items are open (550 closed, 554 added). The next unused queue number is 555
 and the next unused ADR 0057.
+
+Iteration 326 built queue item 554: a `<label>` hovered hovers the control
+it labels. Which control a label labels is HTML's rule, held once in
+`alo-dom`'s `label.rs` and asked by the agent's names and by the hover;
+the document keeps each hovered label with the control it hovered, as
+Chrome 154 was measured to, except that the control's hover ends with the
+label's where Chrome's is left stuck. Cut: **555** (`Element.id`, and a
+label's `htmlFor` and `control`). 266 queue items are open (554 closed,
+555 added). The next unused queue number is 556 and the next unused ADR
+0057.
