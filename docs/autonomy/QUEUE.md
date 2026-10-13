@@ -13548,6 +13548,36 @@ What stage 2's exit gate actually measures: a person using it.
   when:* two agents connected at once are kept to two different sites, each
   refused the other's by name, asserted from two separate processes.
 
+- [ ] **549. ★ A window nobody is watching is not drawn.** `alo` always opens
+  a window and asks it to redraw; its only flags are `--agent-site`, `--fonts`
+  and `--frozen-fonts`. So every task an agent drives pays for painting a
+  picture nobody looks at.
+
+  **Nothing about the agent changes, and that is the point.** The tree an
+  agent reads is made from the layout tree — `Snapshot::of(&tree)` in
+  `alo-renderer/src/renderer.rs` — and never from pixels, so a page laid out
+  but not painted answers every verb identically. Screenshot-driven tools have
+  a whole class of bug here, working with a window and failing without one;
+  this cannot, because it never looked at a picture.
+
+  **What it is really for is where there is no screen.** A server, a scheduled
+  job, a machine in a cupboard — which is where an agent actually runs. It
+  also ends this repository's dependence on somebody's screen being unlocked,
+  which has stopped item 296 twice.
+
+  *Proposed by the owner (2026-10-13), from asking whether the page could be
+  rendered for the agent rather than for a person. The first half of that does
+  not work — a modern page is a program, and the frozen `alo-workplace` entry
+  is 545 bytes of markup against 2 163 856 of script — but the second half is
+  right and nobody had written it down.*
+
+  *Depends on 296, 496. Closes when:* `alo` started without a window lays a
+  frozen page out and answers `read`, `activate` and `fill` over the socket
+  with the **same** tree and the same refusals a windowed one gives, asserted
+  against each other in one test; nothing calls `winit` on that path; and a
+  windowed run still paints, so the two modes are a choice rather than a
+  replacement.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
@@ -13736,7 +13766,7 @@ person unblocks this stage or does not.
   with**. Signing and notarisation stay blocked (item 478): they cost an Apple
   developer account and matter when handing this to strangers, not colleagues.
 
-  *No longer blocked. Depends on 296.*
+  *No longer blocked. **296 closed 2026-10-12 at 21:02**, so nothing holds this.*
 
 - [ ] **478. Opened without macOS explaining itself.** *macOS only; alo OS
   installs from a source instead, which is 483.* A Developer ID
