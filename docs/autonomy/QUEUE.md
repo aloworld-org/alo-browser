@@ -7607,6 +7607,10 @@ The long pole, and the thing most of section E is unreachable without.
   items in 201 px are 1,837, 1,838, 1,837, 1,838, 1,838, 1,838 and 1,838;
   and every corpus box that moves has been measured against Chrome 154,
   `alo-sites-full-page`'s `h3` included.
+  *(Iteration 336: and every line of
+  `alo-layout/tests/references/flex-lines.chrome.txt` is Chrome's at one
+  and at two, by ADR 0054's addendum of 2026-10-13, except 572's; the hook
+  hands over the scaled shrink factor and the truncated part of 3.)*
 
 - [ ] **503. Flex `justify-content`'s shares on the grid.** *Cut from 499
   (iteration 306), ADR 0056 § 5. Feature: `docs/features.md` stage 1,
@@ -13510,7 +13514,8 @@ What stage 2's exit gate actually measures: a person using it.
   at both scales (502). *Closes when:* 563 and 564 are closed and 502's
   columns are Chrome's at both scales. *(Iteration 333: 563 is closed —
   the 21 loaded cases are exact at two in all 313 boxes exact at one; 564
-  and 502 remain.)*
+  and 502 remain.)* *(Iteration 336: 564 is measured and its build is
+  502's, so 560 waits on 502 alone.)*
 
 - [x] **561. Paint at a scale.** *Cut from 299 (ADR 0057 § 4). Feature:
   `docs/features.md` stage 2, a window, tabs and a tab strip. Depends on
@@ -13752,6 +13757,41 @@ What stage 2's exit gate actually measures: a person using it.
   size and position is measured (several rows, at one and at two, with
   unequal and equal shrink factors), written into ADR 0054 or 0056, and
   `border-widths` at two and the probe's rows at one are Chrome's.
+  *Measured (iteration 336), not closed.* Chrome 154 under
+  `--force-device-scale-factor=1` and `=2` was measured on 5,120 flex
+  lines (3,600 fitted, 1,520 held out, halves and `border-widths`' shape
+  among them), and the rule is ADR 0054's addendum of 2026-10-13: § 3's
+  last-to-first rounding half away from zero holds for shrinking, with
+  each shrink factor scaled by the inner base size in units, a share taken
+  as the unshared space times the factor's ratio, factors under one
+  sharing their part of the first free space truncated, and the clamping
+  loop. It gives every measured line, and `border-widths` at two, to the
+  unit. 762 lines are frozen as
+  `alo-layout/tests/references/flex-lines.chrome.txt`;
+  `flexible_items_share_a_line.rs` checks the rule on all of them and pins
+  this engine at most two units from Chrome's at every edge (not one, as
+  ADR 0054 § 6 said), 224 lines exact at one and 232 at two. Building it
+  is ADR 0056's hook, so 564 **depends on 502** and closes with it: *Closes
+  when* 502 lays every frozen line out as Chrome did, except 572's two,
+  and `border-widths` at two is Chrome's. Found: **572**.
+
+- [ ] **572. `taffy` takes a line's gaps away twice when its factors sum
+  below one.** *Found measuring 564 (iteration 336; ADR 0054's addendum of
+  2026-10-13). Feature: `docs/features.md` stage 1, flexbox. **Blocked: a
+  person.** Reporting it upstream, or offering the fix, is publishing, and
+  the loop does not publish (`LOOP.md`); a fork, a `[patch]` or a copy stay
+  refused (ADRs 0004, 0047).* In `resolve_flexible_lengths`, `taffy`
+  0.14.0's `initial_free_space` already has the gaps taken out, and the
+  branch for factors summing below one takes `total_main_axis_gap` away
+  from its product again, so the part loses to the whole free space and the
+  items flex by all of it. Its `main` read on 2026-10-13 is the same. Chrome
+  154 flexes by the part: two frozen lines (factors 0.5 and 0.3 with 4 px
+  gaps; 0.3 with a 0.5 px gap) have Chrome's items end 6.55 px and 0.23 px
+  further on than this engine's, at both scales. Growing lines take the same
+  branch with `min`, not measured. *Closes when:* a `taffy` release without
+  the second subtraction is taken, and those two lines of
+  `flex-lines.chrome.txt` are within the bound the rest are, or exact if
+  502 is built.
 
 - [ ] **300. A link opens a tab.** *Cut from 118 (ADR 0024 § 6; ADR 0020
   § 2).* `target="_blank"` on a link a person activated becomes a decided

@@ -33635,3 +33635,99 @@ clause adds a page told its scale (567, done); Owed swaps 567 for 570 and
 275 queue items are open (567 closed; 570 and 571 added). The next unused
 queue number is **572** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 336 — queue item 564 measured, not closed: how Chrome shares a flex line
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+flexbox and grid line and *A window, tabs, and a tab strip*; iteration
+335's entry; ADR 0054 in full with its addendum; ADR 0056 in full; ADR 0057
+by its table; queue items 499–503 and 560–571; the feature line *Every box
+on Chrome's grid of 1/64 px*; `alo-layout`'s `layout_unit.rs` (`edges`),
+`engine.rs`' read-back, `tests/on_the_grid.rs`; `taffy` 0.14.0's
+`resolve_flexible_lengths`, and its `main` for the same lines. No
+`AGENTS.md` exists here.
+
+**Why 564.** 560 waits on 564 and 502, and 299 closes on 560 alone, so
+564 is on the only path that moves those lines. 565 and 566 come before it
+in the file and are measurements nothing depends on (as 333–335 recorded);
+568 and 569 come after 567 and nothing waits on them; 570 and 571 wait for
+pages; the items before 560 wait as 318–335 recorded.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, never emulation; the source not read): 5,120 flex lines, 2 to 9
+empty items each with a width, padding and factor, shrinking or growing,
+widths and gaps to three decimals. A rule was fitted on 3,600 and confirmed
+on 1,520 it was not fitted to (500 seeded rows, 260 written to land on
+halves and in `border-widths`' shape, each at both scales), with no
+exception: ADR 0054 § 3's last-to-first rounding half away from zero holds
+for shrinking, a shrink factor scaled by the inner base size in units, each
+share the unshared space times the factor's ratio, factors summing below
+one sharing that part of the first free space truncated, and the clamping
+loop. Half up misses 164 lines; a product before the division misses 2.
+
+**Built.**
+- `alo-layout/tests/references/flex-lines.chrome.txt`: 762 lines (the
+  held-out 760 and the two fitted lines that tell the ratio from a
+  product), each at one and two, with where they came from.
+- `alo-layout/tests/flexible_items_share_a_line.rs`: the rule as ADR 0054
+  states it gives all 762 lines at both scales, and `border-widths`' line
+  at two (4,173, 3,148, 3,405, 3,533, 4,173 of 1/128 px) and at one; this
+  engine lays out all 762 at both scales with every edge on the grid and
+  within two units of Chrome's, 224 lines exact at one and 232 at two
+  (pinned), except two lines that are `taffy`'s fault (below).
+- ADR 0054: an addendum of 2026-10-13 with the rule, and a correction —
+  flexible items are within **two** units, not one, because Chrome's own
+  rounding can stand 1.25 units from the exact edge. ADR 0056: *Measured
+  since*, what its hook must hand over (the scaled factor and the
+  truncated part).
+- No engine code changed. The rule cannot be built at the boundary: ADR
+  0056 refused re-sharing at read-back, and the shares are `taffy`'s.
+
+**Found: 572.** `taffy` 0.14.0 (and `main`, read today) takes the gaps away
+a second time when the factors sum below one, so such a line flexes by all
+of its free space. Two frozen lines: Chrome's first item ends 6.55 px and
+0.23 px further on. Blocked on a person (reporting upstream is publishing).
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (they caught
+three `format!` pushes, rewritten). `scripts/gate.sh` was started in the
+foreground into a scratchpad log; the harness moved it to the background at
+600 s and killed it at its 20-minute limit while it was still checking
+boundaries (other sessions were compiling on this machine). It was run again
+detached with `nohup` and polled with foreground loops in the same turn.
+**Result: `exit 0`, "The gate is met. (10 of 10 steps)"**, no `FAILED`,
+`panicked` or `^error` line. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: the three tests above; nothing in the engine moved,
+  so no `layout.txt`, `boxes.txt` or reference render changed.
+- Reference renders: none apply; nothing is drawn differently.
+- Mutations, of the rule in the test, each restored from a copy (`cmp`
+  confirmed), each failing a test: half up for half away from zero (2
+  tests); the part rounded, not truncated (1); first-to-last (2); the
+  product before the division (survived on the first 760 lines, so the two
+  fitted lines that tell them apart were frozen too; then 2 tests).
+- Hostile input: nothing new reads bytes from outside.
+- One file, one responsibility: one test file for one measured rule.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 564 stays open with a *Measured (iteration 336), not closed*
+paragraph: it now depends on 502 and closes with it. 502's closing condition
+gains the frozen lines. 560 waits on 502 alone. Added 572.
+
+**Roadmap.** The flexbox and grid line stays unticked; its note gains what
+was measured and 572 as owed. *A window, tabs, and a tab strip* names 564
+as measured, built with 502.
+
+**Unresolved obligations.**
+- 564's build, which is 502's, behind 501 (a person offers the hook).
+- 572, a person reports `taffy`'s gap fault upstream.
+- 560 open on 502; 565, 566, 568–571 as before.
+- No claim about speed is made.
+
+276 queue items are open (572 added, none closed). The next unused queue
+number is **573** and the next ADR is **0058**. This is one iteration, not a
+finished queue or roadmap.

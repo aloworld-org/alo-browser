@@ -411,3 +411,71 @@ itself and has no calculation spelling for; a `vertical-align` length; and
 where an atomic box stands inside a line, which is `crate::inline`'s
 placement and not a box `taffy` hands back. No corpus case has failed on
 any of the three.
+
+## Addendum, 2026-10-13 — flexible items' shares, measured at one and at two, shrinking too
+
+Queue item 564 found `border-widths`' five items a unit off Chrome's at a
+scale of two, where they shrink, and asked how Chrome shares a shrinking
+line. § 3's model was fitted on nine lines, all but one growing and none at
+a scale. It was measured again, on **5,120 lines** in Chrome 154, headless,
+under `--force-device-scale-factor=1` and `=2` (never emulated), the source
+not read. Each line is a flex container of 2 to 9 empty items, each with a
+written width, a padding on each side and a factor, at widths and gaps
+written to up to three decimals, shrinking or growing; at two the grid is
+1/128 px (ADR 0057). The rule below was fitted on 3,600 lines (1,800
+written lines, each at both scales). It was then confirmed, with no
+exception, on 1,520 lines it was not fitted to: 500 written lines seeded
+at random and 260 written to land on exact halves or in `border-widths`'
+shape, each at both scales. Those 760, and the two fitted ones that tell
+the ratio in 4 from a product, are frozen as `alo-layout/tests/references/flex-lines.chrome.txt`, and
+`alo-layout/tests/flexible_items_share_a_line.rs` checks the rule against
+every one of them.
+
+**The rule, at any scale, in units of the grid of that scale:**
+
+1. Every length is truncated onto the grid first (§ 1), and the free space
+   is the container's inner size less the gaps and each item's outer flex
+   base size, in whole units.
+2. A shrinking line's factors are each item's `flex-shrink` times its
+   **inner** base size in units (its content box, not its padding); a
+   growing line's are its `flex-grow`.
+3. If the factors as written sum below one, the space shared is the
+   first free space times that sum, **truncated toward zero**, when that
+   is smaller than what is left.
+4. From the **last item to the first**, each takes the space still unshared
+   times *its factor over the factors still unshared*, that ratio taken
+   first, in double, **rounded half away from zero**. A half is decided
+   this way: two equal items 1/64 px too wide at one take 0 and −1, the
+   last taking the −1. Rounding half up (toward positive) misses 164 of
+   the 5,120 lines, and taking the product before dividing misses 2.
+5. An item that comes under its minimum is fixed at it and the rest are
+   shared again, each pass by the same rule.
+
+So § 3's model holds as written, for shrinking as for growing, with the
+scaled factor, the truncated part and the clamping loop added. At two it is
+the same rule on the finer grid: `border-widths`' five items shrink 256
+units of 1/128 px between them, 51.2 each, and from the last they take 51,
+51, 51, then 103 over two, a half, 52, then 51 — Chrome's 4,173, 3,148,
+3,405, 3,533 and 4,173.
+
+**§ 6 said flexible items were within one unit of Chrome's. They are within
+two.** Today the shares are `taffy`'s floats and each edge is floored as the
+tree is read back, which is within a unit of the exact edge. Chrome's
+last-to-first rounding can itself put an edge a unit and a quarter from the
+exact one — eight 10 px items 3/64 px too wide, at two, have an edge at
+3,839 where the exact edge is 3,837.75 — so this engine's edge can be two
+units from Chrome's. On the 762 frozen lines it is never more than two,
+every edge is on the grid, and 224 lines at one and 232 at two are exact;
+the test pins both counts. Building the rule is still ADR 0056's hook
+(queue item 502), whose hand-over at the end of `resolve_flexible_lengths`
+needs the scaled factor and the free space as truncated in 3, both of which
+`taffy` holds there.
+
+**One thing is not rounding, and is `taffy`'s.** With factors summing below
+one and a gap between the items, `taffy` 0.14.0 (and its `main` as read on
+2026-10-13) takes the gaps away a second time from the part in 3, so the
+part loses to the whole free space and the items flex by all of it. Two of
+the frozen lines show it: factors 0.5 and 0.3 with 4 px gaps, where
+Chrome's first item ends 6.55 px further on than this engine's — a whole
+pixel wrong, and more — and factors 0.3 with a 0.5 px gap, 0.23 px. That is
+a fault in `taffy`, reported nowhere yet, and queue item **572**.

@@ -253,3 +253,18 @@ would also have to repeat `taffy`'s own re-run condition.
   because some share is fixed somewhere this ADR did not name, § 3 was
   read from too little of `taffy`. The prototype covered one of the three
   places.
+
+## Measured since, 2026-10-13 (queue item 564)
+
+ADR 0054's addendum of this date measured flexible items' shares on 5,120
+lines at scales of one and two, shrinking as well as growing, and wrote the
+rule out. It changes two things here. The hand-over at the end of
+`resolve_flexible_lengths` (§ 3's second row) needs, besides each item's
+target size and factor, the **scaled** shrink factor and whether the line
+shared only the part of its free space that factors below one take,
+truncated; `taffy` holds both there. And § 4's "flexible items within a
+unit" is two units, measured: Chrome's own rounding can stand a unit and a
+quarter from the exact edge. The decision stands. A fault that is not a
+share was found beside it — `taffy` takes the gaps away twice when the
+factors sum below one, a whole pixel and more on a measured line — and is
+queue item 572, not this hook's.

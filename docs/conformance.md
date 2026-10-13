@@ -120,8 +120,12 @@ no `</head>`, and were 807 there), 892 since item 507;
 is what `taffy` decides between its own passes (499): the mini-month's
 columns are their ideal edges floored, 1,837 and 1,838 units, where Chrome
 sizes them again and makes every one 1,838, and the shares of flexible
-items and of a grid's `justify-content` after the first are within a unit
-of Chrome's. A value that is negative, not finite or cannot be read is
+items are within two units of Chrome's, and a grid's `justify-content`
+after the first within a unit. How Chrome shares a flex line is measured
+(ADR 0054's addendum of 2026-10-13: 5,120 lines at one and two, every one
+given by its rule) and waits for `taffy`'s hook to be built. A line whose
+factors sum below one with a gap between its items flexes by all of its
+free space where Chrome flexes by the part, a fault in `taffy` (572). A value that is negative, not finite or cannot be read is
 `normal`. One that is merely enormous makes a line that tall, as an
 enormous `height` makes a box that tall, and past the range of a float
 both reach geometry that is infinite; the page is still drawn. An atomic box stands on the
@@ -351,7 +355,9 @@ where Chrome does at one, 578 are exactly where Chrome puts them at two
 (`a_page_at_a_scale_of_two.rs`, against Chrome's boxes frozen beside each
 case). The other two are `border-widths`' flex items, which shrink only at
 two and take Chrome's spare 1/128 px in another order (564); the same
-shrink at one is a unit off too. The 21 cases whose page runs script are
+shrink at one is a unit off too. Chrome's order is measured — the last
+item first, each share rounded half away from zero — and waits for
+`taffy`'s hook to be built (502). The 21 cases whose page runs script are
 loaded by a renderer told the scale with the page (item 563): of their 313
 boxes this engine places exactly where Chrome does at one, all 313 are
 exactly where Chrome puts them at two, so 891 of 893 across all 73 cases.

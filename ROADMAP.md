@@ -155,7 +155,14 @@ correctness, not before it.
       flexible items' exact shares and a grid's `justify-content` after
       its first share. They wait for the hook to be offered (501) and
       released, then built on (502); flex `justify-content` needs
-      measuring first (503).*
+      measuring first (503). Measured (iteration 336, item 564): how
+      Chrome 154 shares a flex line, shrinking and growing, at one and at
+      two — 5,120 lines, a rule that gives every one (ADR 0054's addendum
+      of 2026-10-13), 762 frozen and checked by a test that pins this
+      engine within two units of each. Owed beside it: `taffy` takes a
+      line's gaps away twice when its factors sum below one, a whole pixel
+      and more on a measured line, which a person has to report upstream
+      (572).*
 - [x] **Text**: HarfBuzz shaping (via `rustybuzz`), the fallback chain and line breaking, with the awkward scripts working before the easy ones. Rasterisation is queue item 17, beside paint
       *`text-transform` was read by nothing until queue item 441
       (iteration 283, ADR 0049): uppercased headings were drawn, measured
@@ -1855,8 +1862,8 @@ items where being right and being unusable are the same outcome.
       was measured to at a real scale of two — and owed as where a
       person's pointer lands at two (568), `matchMedia` (570), a media
       query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
-      pixels (569), a shrunk flex item's share of a pixel (564), the two boxes at two
-      that keep 560 open, a plain background on whole device pixels (565)
+      pixels (569), a shrunk flex item's share of a pixel (564, measured,
+      built with 502), the two boxes at two that keep 560 open, a plain background on whole device pixels (565)
       and a line under text at a scale (566); a link opening a tab
       (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default

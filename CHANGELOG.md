@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How Chrome shares a flex line is measured, and a fault in the layout
+  library is found.** When a row of flexible boxes is too wide or too
+  narrow, Chrome 154 hands out the leftover fraction of a pixel in a
+  particular order. That order is now measured on 5,120 rows, shrinking and
+  growing, on ordinary and high-density screens, and written down as a rule
+  that reproduces every one; the browser keeps within a thirty-second of
+  a pixel of it until the layout library it rents can be asked to follow it.
+  The measuring also found that the library miscounts the gaps in a row
+  whose boxes are allowed to grow or shrink by less than their whole share,
+  which can put boxes several pixels from where Chrome puts them; it is
+  recorded for reporting upstream.
+
 - **The build no longer writes seventy-four gigabytes of debug information.**
   Every artefact carried complete debug data, which across 4,642 test binaries
   came to 73 GB against 78 GB of free disk — close enough that a little growth

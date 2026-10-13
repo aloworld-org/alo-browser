@@ -2305,3 +2305,16 @@ range syntax, boolean form and `calc()`), each waiting for a frozen page.
 299 stays open on 560 alone. 275 queue items are open (567 closed; 570 and
 571 added). The next unused queue number is 572 and the next unused ADR
 0058.
+
+Iteration 336 measured queue item 564, a shrunk flex item's share of a
+pixel, and did not close it. Chrome 154 at scales of one and two was
+measured on 5,120 flex lines, and one rule gives every one: ADR 0054 § 3's
+last-to-first rounding, half away from zero, holds for shrinking with the
+shrink factor scaled by the inner base size, the share taken as a ratio,
+and factors under one sharing their part of the free space truncated
+(ADR 0054's addendum of 2026-10-13). 762 lines are frozen and checked in
+`alo-layout`. Building the rule is ADR 0056's hook, so 564 now depends on
+502, and 560 waits on 502 alone. Found: **572**, `taffy` takes a line's
+gaps away twice when its factors sum below one, blocked on a person to
+report it. 276 queue items are open (572 added). The next unused queue
+number is 573 and the next unused ADR 0058.
