@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The build no longer writes seventy-four gigabytes of debug information.**
+  Every artefact carried complete debug data, which across 4,642 test binaries
+  came to 73 GB against 78 GB of free disk — close enough that a little growth
+  would have filled the volume and stopped the build loop mid-write. Line
+  tables are kept, so a failing test still names its file and line, which is
+  all anything here reads. The target directory is now 7.7 GB and a gate is
+  about a tenth faster.
+
 - **A page is told how dense its screen is.** `window.devicePixelRatio`
   now answers the scale the page is drawn at — 2 on a Retina display —
   and style sheets can ask with `resolution`, `min-resolution` and

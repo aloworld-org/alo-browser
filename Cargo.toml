@@ -1,3 +1,30 @@
+# Line tables, not the whole of DWARF.
+#
+# Cargo's default is `debug = true`, which writes complete debug information
+# into every artefact. With 4,642 tests across nineteen crates that came to
+# **73 GB** in `target/debug/deps` — against 78 GB free on this volume, which
+# is a cliff rather than a cost: a little more growth and `cargo` fails
+# mid-write and the build loop dies untidily.
+#
+# `debug = 1` keeps the line tables, so a failing test still names its file and
+# line, which is the only thing this repository's loop ever reads from a
+# backtrace. What it drops is the rest — variable layouts, types, the things a
+# person stepping through `lldb` would want and nothing here has ever used.
+#
+# Measured on 2026-10-13, both halves, because the second was a guess:
+#
+#   target/            74 GB  ->  7.7 GB      a 9.6x reduction
+#   disk free          78 GB  ->  144 GB
+#   warm gate        15.0 min ->  13.5 min    -10%, one sample against a
+#                                             median of twenty-one
+#
+# The disk was the point and it came out far better than the 50-70% expected.
+# The speed was expected to be 20% or more and is 10%, which is worth having
+# and is not the reason this is here. A cold build with an empty target now
+# finishes in 16.5 minutes, about what a *warm* gate cost before.
+[profile.dev]
+debug = 1
+
 [workspace]
 resolver = "3"
 members = ["crates/*"]
