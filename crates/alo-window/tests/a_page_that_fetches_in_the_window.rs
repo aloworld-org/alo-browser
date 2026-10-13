@@ -12,6 +12,7 @@
 
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -104,7 +105,7 @@ fn conducting(origin: &str, script: &str) -> Result<(Conductor, Receiver<News>),
     .at(url.clone())
     .with_sheet("div { height: 20px } #out { background: #2f6f4f } #bad { background: #b03a2e }");
     for order in [
-        Order::Resize(Size::new(200.0, 60.0)),
+        Order::Resize(Screen::new(Size::new(200.0, 60.0))),
         Order::Open {
             url,
             page: Some(Box::new(page)),

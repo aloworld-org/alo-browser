@@ -140,7 +140,6 @@ use crate::message::{News, Order};
 use crate::network::{Job, Networking};
 use crate::place::strip_viewport;
 use crate::serving::{Served, serve};
-use alo_layout::Size;
 use alo_net::Cause;
 use alo_renderer::fetch_answering::{Answered, Answering, Turn};
 use alo_renderer::fetch_exchange::{Exchange, Exchanged, Record};
@@ -148,7 +147,7 @@ use alo_renderer::fetch_make::Network;
 use alo_renderer::navigate::Decided;
 use alo_renderer::strip::Strip;
 use alo_renderer::strip_decide::unasked;
-use alo_renderer::{FromRenderer, Lost, Page, Tab, TabId, Tabs, ToRenderer, Visibility};
+use alo_renderer::{FromRenderer, Lost, Page, Screen, Tab, TabId, Tabs, ToRenderer, Visibility};
 use std::sync::mpsc::Receiver;
 use std::thread::JoinHandle;
 use std::time::Instant;
@@ -277,8 +276,9 @@ struct Conducting {
     /// press on it is decided against ([`strip_pressing`]). Empty when it
     /// has not painted the strip it was last sent.
     strip_shown: Vec<TabId>,
-    /// The window's size in CSS pixels, once it has said one.
-    viewport: Option<Size>,
+    /// The window's size in CSS pixels and its screen's scale, once it has
+    /// said them.
+    screen: Option<Screen>,
     /// Whether the window can be seen: `visible` until it says otherwise,
     /// as a window that has just opened can be.
     visibility: Visibility,
@@ -318,7 +318,7 @@ fn conduct(
         loading: None,
         strip: None,
         strip_shown: Vec::new(),
-        viewport: None,
+        screen: None,
         visibility: Visibility::Visible,
         waiting: None,
         networking: Some(networking),
@@ -430,19 +430,19 @@ impl Conducting {
                     self.tabs.select(id);
                     Vec::new()
                 };
-                match (page, self.viewport) {
-                    (Some(page), Some(viewport)) => news.extend(self.load(id, *page, viewport)),
+                match (page, self.screen) {
+                    (Some(page), Some(screen)) => news.extend(self.load(id, *page, screen)),
                     (Some(page), None) => self.waiting = Some((id, *page)),
                     (None, _) => {}
                 }
                 news
             }
-            Order::Resize(viewport) => {
-                self.viewport = Some(viewport);
+            Order::Resize(screen) => {
+                self.screen = Some(screen);
                 if let Some((id, page)) = self.waiting.take() {
-                    return self.load(id, page, viewport);
+                    return self.load(id, page, screen);
                 }
-                self.resize(viewport)
+                self.resize(screen)
             }
             Order::Visibility(to) => {
                 self.visibility = to;
@@ -497,10 +497,12 @@ impl Conducting {
         }
     }
 
-    /// Load `page` into tab `id` at `viewport`, and paint it — once the
-    /// sheets its answer asked for have answered, or the bound has passed.
-    fn load(&mut self, id: TabId, mut page: Page, viewport: Size) -> Vec<News> {
-        page.viewport = viewport;
+    /// Load `page` into tab `id` at `screen`'s size and scale, and paint it —
+    /// once the sheets its answer asked for have answered, or the bound has
+    /// passed.
+    fn load(&mut self, id: TabId, mut page: Page, screen: Screen) -> Vec<News> {
+        page.viewport = screen.size;
+        page.scale = screen.scale();
         // The tab loading is the selected one, so it is as visible as the
         // window.
         page.visibility = self.visibility;
@@ -518,7 +520,7 @@ impl Conducting {
             self.holds.loaded(id, document, owed, Instant::now());
         }
         self.record_left();
-        news.extend(self.after_load(id, viewport, loaded));
+        news.extend(self.after_load(id, screen, loaded));
         news
     }
 
@@ -527,7 +529,7 @@ impl Conducting {
     fn after_load(
         &mut self,
         id: TabId,
-        viewport: Size,
+        screen: Screen,
         loaded: Result<FromRenderer, Lost>,
     ) -> Vec<News> {
         match loaded {
@@ -538,7 +540,7 @@ impl Conducting {
                     if let Err(lost) = self.tabs.supply(id, &wanted) {
                         return vec![said_of(&self.tabs, id, &lost)];
                     }
-                    return self.redraw(id, viewport);
+                    return self.redraw(id, screen);
                 }
                 self.paint(id)
             }
@@ -547,8 +549,8 @@ impl Conducting {
         }
     }
 
-    /// The selected tab at a new size, if it is showing anything.
-    fn resize(&mut self, viewport: Size) -> Vec<News> {
+    /// The selected tab at a new size or scale, if it is showing anything.
+    fn resize(&mut self, screen: Screen) -> Vec<News> {
         let Some(id) = self.tabs.selected() else {
             return Vec::new();
         };
@@ -557,12 +559,13 @@ impl Conducting {
             // start a renderer to say so.
             return Vec::new();
         }
-        self.redraw(id, viewport)
+        self.redraw(id, screen)
     }
 
-    /// Lay a tab's document out again at `viewport` and paint it.
-    fn redraw(&mut self, id: TabId, viewport: Size) -> Vec<News> {
-        match self.tabs.ask(id, &ToRenderer::Resize(viewport)) {
+    /// Lay a tab's document out again at `screen`'s size and scale and
+    /// paint it.
+    fn redraw(&mut self, id: TabId, screen: Screen) -> Vec<News> {
+        match self.tabs.ask(id, &ToRenderer::Resize(screen)) {
             Ok(FromRenderer::Loaded { .. }) => self.paint(id),
             Ok(other) => vec![News::Said(unexpected(&other))],
             Err(lost) => vec![said_of(&self.tabs, id, &lost)],
@@ -583,8 +586,8 @@ impl Conducting {
     /// hold ends.
     fn paint(&mut self, id: TabId) -> Vec<News> {
         if self
-            .viewport
-            .is_some_and(|size| size.width < 1.0 || size.height < 1.0)
+            .screen
+            .is_some_and(|screen| screen.size.width < 1.0 || screen.size.height < 1.0)
             || self.is_held(id)
         {
             return Vec::new();
@@ -755,15 +758,18 @@ impl Conducting {
     /// Nothing is drawn before the window has said its size, nor with no tab
     /// open: the window is closing.
     fn draw_strip(&mut self) -> Vec<News> {
-        let Some(viewport) = self.viewport else {
+        let Some(screen) = self.screen else {
             return Vec::new();
         };
         if self.tabs.is_empty() || self.tabs.strip_renderer().gone().is_some() {
             return Vec::new();
         }
+        // At the window's scale, as the page is: a strip whose scale changed
+        // is a different strip, and is drawn again.
         let strip = self
             .tabs
-            .strip(strip_viewport(viewport), |id| self.is_loading(id));
+            .strip(strip_viewport(screen.size), |id| self.is_loading(id))
+            .at_scale(screen.scale());
         if self.strip.as_ref() == Some(&strip) {
             return Vec::new();
         }
@@ -870,16 +876,17 @@ fn unexpected(answer: &FromRenderer) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_layout::Size;
 
     fn size(width: f32) -> Arrival {
-        Arrival::Order(Order::Resize(Size::new(width, 10.0)))
+        Arrival::Order(Order::Resize(Screen::new(Size::new(width, 10.0))))
     }
 
     fn widths(arrived: &[Arrival]) -> Vec<Option<f32>> {
         arrived
             .iter()
             .map(|arrival| match arrival {
-                Arrival::Order(Order::Resize(size)) => Some(size.width),
+                Arrival::Order(Order::Resize(screen)) => Some(screen.size.width),
                 _ => None,
             })
             .collect()

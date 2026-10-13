@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The window is sharp on a high-density screen.** On a Retina display
+  the browser used to lay a page out at normal density and double every
+  pixel, so shapes were right and text was coarse. Now the window tells
+  the page and the tab strip the screen's scale, both are laid out and
+  painted at it, and the window shows their pictures pixel for pixel. A
+  window dragged to a screen of another density is drawn again for it.
+  Checked on this Mac's own display: the captured window matches the
+  browser's composition in every pixel to within one colour level. A
+  fractional scale is still rounded down to a whole one, pages are not
+  yet told `devicePixelRatio`, and a window wider than 4,096 screen pixels
+  shows its page cut at that edge.
+
 - **A page that runs script is laid out for a high-density screen too.**
   A renderer is now told the scale of the screen with the page it loads,
   and lays the page out and paints it there, including whatever the page's

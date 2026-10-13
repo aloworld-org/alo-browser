@@ -16,6 +16,7 @@
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
 use alo_renderer::Page;
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -72,7 +73,7 @@ fn two_tabs_painted() -> Result<(Conductor, std::sync::mpsc::Receiver<News>), St
     .map_err(|why| format!("no conductor: {why}"))?;
     let orders = conductor.orders();
     for order in [
-        Order::Resize(Size::new(120.0, 60.0)),
+        Order::Resize(Screen::new(Size::new(120.0, 60.0))),
         opening("https://one.example/")?,
         opening("https://two.example/")?,
     ] {

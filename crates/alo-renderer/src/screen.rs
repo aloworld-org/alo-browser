@@ -14,7 +14,8 @@
 //! Paint draws at the scale too, onto a canvas of device pixels (queue item
 //! 561). A renderer is told its page's scale with the page
 //! ([`crate::Page::scale`], queue item 563) and lays it out and draws it
-//! there; the window tells it one until it learns its screen's (562).
+//! there, and a `Resize` carries a whole `Screen`, so a window moved to a
+//! screen of another scale has its page laid out again at it (562).
 
 use alo_layout::Size;
 

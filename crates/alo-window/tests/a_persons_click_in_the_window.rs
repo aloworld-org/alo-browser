@@ -28,7 +28,7 @@ use alo_window::conductor::pointing::NOT_GONE;
 use alo_window::conductor::{Conductor, Fonts};
 use alo_window::inbox::Orders;
 use alo_window::message::{News, Order};
-use alo_window::place::{Contents, Placement, viewport};
+use alo_window::place::{Contents, Placement, screen};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -104,7 +104,7 @@ fn showing(
     address: &str,
     html: &str,
 ) -> Result<Frame, String> {
-    send(orders, Order::Resize(viewport(WINDOW, SCALE)))?;
+    send(orders, Order::Resize(screen(WINDOW, SCALE)))?;
     let url = alo_url::parse(address).map_err(|why| format!("not a URL: {why:?}"))?;
     send(
         orders,
@@ -218,7 +218,8 @@ fn a_click_in_the_window_is_heard_by_the_page_as_chrome_fires_it() {
          }</script>",
     )
     .unwrap_or_else(|why| panic!("{why}"));
-    assert_eq!((frame.width, frame.height), (800, 600));
+    // An 800 × 600 page painted at the window's scale of two (item 562).
+    assert_eq!((frame.width, frame.height), (1600, 1200));
 
     // (70.5, 50.25) on the page: at scale 2, 141 across and 100.5 down,
     // below the strip's 72.

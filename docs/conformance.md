@@ -333,7 +333,8 @@ worked out (corpus case `border-widths`). So alo Sites' `border-left: .3rem`
 is 4, as Chrome draws it, and a hairline of `0.5px` is one solid pixel rather
 than a grey one. A device pixel is the screen's (item 560, ADR 0057): laid
 out at a scale of two, `4.8px` is 4.5, as Chrome 154 floors it under a real
-scale of two. No window lays a page out at two yet (562).
+scale of two, which is how the window lays a page out on such a screen
+(562).
 A percentage, which is not a border width CSS accepts, is still read and laid
 out unsnapped, and `thin`, `medium` and `thick` are not read (431).
 
@@ -354,8 +355,7 @@ loaded by a renderer told the scale with the page (item 563): of their 313
 boxes this engine places exactly where Chrome does at one, all 313 are
 exactly where Chrome puts them at two, so 891 of 893 across all 73 cases.
 A scale on the wire that is not a number refuses the message, and one that
-is not a factor above zero is read as one. No window lays out or paints at
-two yet (562): it tells its renderers one.
+is not a factor above zero is read as one.
 
 **A page drawn for a screen's scale** (item 561, ADR 0057 § 4). The display
 list stays in CSS pixels and says the scale it was built for; it is drawn
@@ -370,6 +370,22 @@ against `chrome-at-2.png`, with `render-at-2.png` as its reference beside
 `render.png`). Not yet: a plain background is not snapped to whole pixels
 at any scale, though Chrome snaps one (565), and where a line under text
 falls at two is not measured (566).
+
+**The window at its screen's scale** (item 562, ADR 0057 § 3). The window
+tells the page's renderer and the strip's the whole part of its screen's
+scale with its size, on the wire as a stranger's number (one that is not a
+number refuses the message; one that is not a factor above zero is one),
+and places each frame one device pixel to each of its own. A window moved
+to a screen of another scale has its page laid out and painted again at it,
+and its strip too (`a_window_on_a_screen_of_two.rs`, each frame equal to
+the same page or strip drawn at that scale in the test). `alo` on this
+Mac's Retina display, captured with `screencapture -l`, is the window
+composed at two through the real conductor: every opaque pixel within one
+level once put through the display's profile, 99.84% exact. Not yet: a
+page is not told `devicePixelRatio` and does not match `resolution` (567);
+where a person's pointer lands at two is not measured (568); a fractional
+scale is rounded down to a whole one; and a page's picture is at most 4,096
+device pixels a side, so a wider window is cut (569).
 
 **A function in the `border` shorthand is read whole.** `border: 1px solid
 rgb(29 78 216)`, a comma-separated `rgb()`, `hsl()`, a `color-mix()` and a

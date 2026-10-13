@@ -31,7 +31,7 @@ use alo_window::beside::renderer_beside;
 use alo_window::conductor::{Conductor, Fonts};
 use alo_window::inbox::Orders;
 use alo_window::message::{News, Order};
-use alo_window::place::{Contents, Placement, viewport};
+use alo_window::place::{Contents, Placement, screen};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -111,7 +111,7 @@ fn said(news: &Receiver<News>) -> Result<String, String> {
 /// Open `html` at [`HERE`] in a window of [`WINDOW`], and wait for it to be
 /// painted: the frame.
 fn showing(orders: &Orders, news: &Receiver<News>, html: &str) -> Result<Frame, String> {
-    send(orders, Order::Resize(viewport(WINDOW, SCALE)))?;
+    send(orders, Order::Resize(screen(WINDOW, SCALE)))?;
     let url = alo_url::parse(HERE).map_err(|why| format!("not a URL: {why:?}"))?;
     send(
         orders,

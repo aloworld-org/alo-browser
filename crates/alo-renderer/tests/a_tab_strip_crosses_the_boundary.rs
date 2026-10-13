@@ -43,6 +43,7 @@ fn a_strip() -> Strip {
             width: 1000.0,
             height: 36.0,
         },
+        scale: 1.5,
     }
 }
 
@@ -80,6 +81,7 @@ fn a_count_of_tabs_larger_than_the_message_is_refused_before_anything_is_reserve
     let mut bytes = vec![11];
     bytes.extend_from_slice(&640f32.to_be_bytes());
     bytes.extend_from_slice(&36f32.to_be_bytes());
+    bytes.extend_from_slice(&1f32.to_be_bytes());
     bytes.extend_from_slice(&u64::MAX.to_be_bytes());
     assert!(read_to_renderer(&bytes).is_err());
 }
@@ -90,9 +92,40 @@ fn a_size_that_is_not_a_number_is_refused() {
         let mut bytes = vec![11];
         bytes.extend_from_slice(&width.to_be_bytes());
         bytes.extend_from_slice(&36f32.to_be_bytes());
+        bytes.extend_from_slice(&1f32.to_be_bytes());
         bytes.extend_from_slice(&0u64.to_be_bytes());
         assert!(read_to_renderer(&bytes).is_err(), "{width}");
     }
+}
+
+/// No tabs, at 640 by 36, on a screen of `scale`, written by hand.
+fn no_tabs_at(scale: f32) -> Vec<u8> {
+    let mut bytes = vec![11];
+    bytes.extend_from_slice(&640f32.to_be_bytes());
+    bytes.extend_from_slice(&36f32.to_be_bytes());
+    bytes.extend_from_slice(&scale.to_be_bytes());
+    bytes.extend_from_slice(&0u64.to_be_bytes());
+    bytes
+}
+
+#[test]
+fn a_scale_that_is_not_a_scale_is_refused_or_read_as_one() {
+    // Not a number refuses the message, as a size's does (ADR 0057 § 3).
+    for scale in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        assert!(read_to_renderer(&no_tabs_at(scale)).is_err(), "{scale}");
+    }
+    // A number that is not a factor above zero is one.
+    for scale in [0.0, -0.0, -2.0, f32::MIN] {
+        let Ok(ToRenderer::Strip(strip)) = read_to_renderer(&no_tabs_at(scale)) else {
+            panic!("a strip at {scale} was not read");
+        };
+        assert_eq!(strip.scale.to_bits(), 1f32.to_bits(), "{scale}");
+    }
+    // A factor is kept as it was sent, unrounded.
+    let Ok(ToRenderer::Strip(strip)) = read_to_renderer(&no_tabs_at(1.5)) else {
+        panic!("a strip at 1.5 was not read");
+    };
+    assert_eq!(strip.scale.to_bits(), 1.5f32.to_bits());
 }
 
 /// One tab, written by hand: its title, address, selection and condition.
@@ -100,6 +133,7 @@ fn one_tab(selected: u8, condition: u8, title: &[u8]) -> Vec<u8> {
     let mut bytes = vec![11];
     bytes.extend_from_slice(&640f32.to_be_bytes());
     bytes.extend_from_slice(&36f32.to_be_bytes());
+    bytes.extend_from_slice(&2f32.to_be_bytes());
     bytes.extend_from_slice(&1u64.to_be_bytes());
     bytes.extend_from_slice(&(title.len() as u64).to_be_bytes());
     bytes.extend_from_slice(title);
@@ -123,6 +157,7 @@ fn a_tab_written_by_hand_is_read_and_a_strange_one_is_refused() {
                 width: 640.0,
                 height: 36.0,
             },
+            scale: 2.0,
         })))
     );
     assert!(

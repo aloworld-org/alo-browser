@@ -153,6 +153,7 @@ mod tests {
         Strip {
             tabs,
             viewport: alo_layout::Size::new(400.0, 40.0),
+            scale: 1.0,
         }
     }
 

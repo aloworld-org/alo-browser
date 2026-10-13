@@ -20,6 +20,7 @@
 use alo_agent::{Outcome, Refusal, Verb};
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -70,7 +71,7 @@ fn browsing() -> Result<(Conductor, Receiver<News>), String> {
     )
     .map_err(|why| format!("no conductor: {why}"))?;
     for order in [
-        Order::Resize(Size::new(600.0, 700.0)),
+        Order::Resize(Screen::new(Size::new(600.0, 700.0))),
         Order::Open {
             url: url.clone(),
             page: Some(Box::new(Page::new(html, Size::ZERO).at(url))),

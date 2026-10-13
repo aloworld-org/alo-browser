@@ -119,6 +119,7 @@ mod tests {
                 StripTab::new("Calendar", "https://cal.example/").in_condition(Condition::Gone),
             ],
             viewport: Size::new(480.0, 36.0),
+            scale: 1.0,
         };
         let built = renderer.handle(ToRenderer::Strip(Box::new(strip)));
         assert!(matches!(built, FromRenderer::Loaded { .. }), "{built:?}");
@@ -189,6 +190,7 @@ mod tests {
         let strip = Strip {
             tabs: vec![StripTab::new("a", "about:blank")],
             viewport: Size::new(200.0, 36.0),
+            scale: 1.0,
         };
         let _ = was_strip.handle(ToRenderer::Strip(Box::new(strip)));
         assert!(matches!(

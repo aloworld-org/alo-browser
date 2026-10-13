@@ -21,7 +21,7 @@ use alo_layout::Size;
 use alo_renderer::said::{LONGEST_LINE, MOST_SAID_OF_MARKUP};
 use alo_renderer::scripts::MOST_SAID;
 use alo_renderer::wire::{LARGEST_MESSAGE, read_from_renderer, write_from_renderer};
-use alo_renderer::{FromRenderer, Page, Renderer, ToRenderer};
+use alo_renderer::{FromRenderer, Page, Renderer, Screen, ToRenderer};
 use alo_text::FontDatabase;
 
 /// A small window; nothing here is about where anything is drawn.
@@ -210,10 +210,7 @@ fn markup_and_scripts_each_say_their_own_ceilings_worth() {
 #[test]
 fn a_resize_says_the_same_ceilings_worth() {
     let (mut renderer, _) = load(format!("<!doctype html>{}", "<img>".repeat(300)));
-    let answer = renderer.handle(ToRenderer::Resize(Size {
-        width: 400.0,
-        height: 300.0,
-    }));
+    let answer = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(400.0, 300.0))));
     let mut expected = vec![NO_SRC.to_owned(); MOST_SAID_OF_MARKUP];
     expected.push(left_out(44));
     assert_eq!(issues(&answer), expected);

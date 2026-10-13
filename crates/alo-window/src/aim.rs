@@ -9,8 +9,10 @@
 //! [`Placement`] the window was drawn from — never by asking a renderer,
 //! which holds only its own frame. A point is the window server's, in
 //! device pixels from the window's top-left corner; what a renderer is sent
-//! is CSS pixels from its frame's corner, a device pixel being
-//! `1 / replication` of one while the window replicates (ADR 0024 § 3).
+//! is CSS pixels from its frame's corner, a device pixel being `1 / scale`
+//! of one at the window's whole scale (ADR 0057 § 3). Where a person's
+//! 1×1 pixel lands at a scale above one is not measured (queue item 568);
+//! the point is the device pixel's corner divided, as at one.
 //!
 //! A point is over **the page** when it is below the strip's band and over
 //! no line the window is saying something in: a notice is the browser's own
@@ -37,9 +39,8 @@ pub enum Aimed {
 }
 
 /// What the point `at`, in device pixels, is over in a `window` of device
-/// pixels placed as `placed`, each CSS pixel replicated `replication`
-/// times.
-pub fn aim(window: (u32, u32), placed: &Placement, replication: u32, at: (f64, f64)) -> Aimed {
+/// pixels placed as `placed`, `scale` device pixels to the CSS pixel.
+pub fn aim(window: (u32, u32), placed: &Placement, scale: u32, at: (f64, f64)) -> Aimed {
     let (x, y) = at;
     let inside = (0.0..f64::from(window.0)).contains(&x) && (0.0..f64::from(window.1)).contains(&y);
     let over = |rect: Option<PixelRect>| rect.is_some_and(|rect| covers(rect, at));
@@ -47,16 +48,16 @@ pub fn aim(window: (u32, u32), placed: &Placement, replication: u32, at: (f64, f
         return Aimed::Nothing;
     }
     if y < f64::from(placed.band.height) {
-        return Aimed::Strip(css(replication, x, y));
+        return Aimed::Strip(css(scale, x, y));
     }
-    Aimed::Page(on_page(placed, replication, at))
+    Aimed::Page(on_page(placed, scale, at))
 }
 
 /// Where the point `at`, in device pixels, is in the page's CSS pixels,
 /// wherever it is — inside the window or not, over a notice or the band.
 /// What a release is sent as: it goes to the page its press went to.
-pub fn on_page(placed: &Placement, replication: u32, at: (f64, f64)) -> Point {
-    css(replication, at.0, at.1 - f64::from(placed.band.height))
+pub fn on_page(placed: &Placement, scale: u32, at: (f64, f64)) -> Point {
+    css(scale, at.0, at.1 - f64::from(placed.band.height))
 }
 
 /// Whether `rect` covers the point `at`.
@@ -66,14 +67,14 @@ fn covers(rect: PixelRect, at: (f64, f64)) -> bool {
         && (top..top + f64::from(rect.height)).contains(&at.1)
 }
 
-/// Device pixels (`x`, `y`) as CSS pixels: divided by the replication.
+/// Device pixels (`x`, `y`) as CSS pixels: divided by the scale.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "a point in a window is within an f32's range, and its last bits are below a 64th of a pixel"
 )]
-fn css(replication: u32, x: f64, y: f64) -> Point {
-    let replication = f64::from(replication.max(1));
-    Point::new((x / replication) as f32, (y / replication) as f32)
+fn css(scale: u32, x: f64, y: f64) -> Point {
+    let scale = f64::from(scale.max(1));
+    Point::new((x / scale) as f32, (y / scale) as f32)
 }
 
 #[cfg(test)]
@@ -82,14 +83,14 @@ mod tests {
     use crate::place::Contents;
 
     /// A window of 960 × 872 device pixels at scale 2, the strip and a page
-    /// painted, and lines said for neither or both.
+    /// painted at 2, and lines said for neither or both.
     fn placed(saying: bool) -> Placement {
         Placement::of(
             (960, 872),
             2,
             Contents {
-                strip: Some((480, 36)),
-                frame: Some((480, 400)),
+                strip: Some((960, 72)),
+                frame: Some((960, 800)),
                 tab_saying: saying,
                 strip_saying: saying,
             },

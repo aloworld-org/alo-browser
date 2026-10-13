@@ -58,15 +58,9 @@ impl Lettering {
         .map(|font| Self { font })
     }
 
-    /// How wide a run of words is, in device pixels, at `replication`.
-    fn width_of(&self, words: &str, replication: u32) -> f32 {
-        shape(
-            words,
-            &self.font,
-            size_at(replication),
-            Direction::LeftToRight,
-        )
-        .width
+    /// How wide a run of words is, in device pixels, at `scale`.
+    fn width_of(&self, words: &str, scale: u32) -> f32 {
+        shape(words, &self.font, size_at(scale), Direction::LeftToRight).width
     }
 
     /// As much of `sentence` as fits in `room` device pixels, ending in an
@@ -75,8 +69,8 @@ impl Lettering {
     /// Cut at a character, never inside one, and from the end: the start of
     /// the sentence names the site, which is the part a person needs to know
     /// which tab it is about.
-    pub fn fitted(&self, sentence: &str, room: f32, replication: u32) -> String {
-        if self.width_of(sentence, replication) <= room {
+    pub fn fitted(&self, sentence: &str, room: f32, scale: u32) -> String {
+        if self.width_of(sentence, scale) <= room {
             return sentence.to_owned();
         }
         let mut cut: Vec<char> = sentence.chars().collect();
@@ -84,7 +78,7 @@ impl Lettering {
             cut.pop();
             let kept: String = cut.iter().collect();
             let candidate = format!("{}{ELLIPSIS}", kept.trim_end());
-            if self.width_of(&candidate, replication) <= room {
+            if self.width_of(&candidate, scale) <= room {
                 return candidate;
             }
         }
@@ -95,31 +89,25 @@ impl Lettering {
     ///
     /// The ground, a one-CSS-pixel rule along its top, and the sentence on one
     /// line, cut to fit.
-    pub fn draw(&self, canvas: &mut Canvas, rect: PixelRect, sentence: &str, replication: u32) {
+    pub fn draw(&self, canvas: &mut Canvas, rect: PixelRect, sentence: &str, scale: u32) {
         if rect.is_empty() {
             return;
         }
         let (left, top) = (signed(rect.x), signed(rect.y));
         canvas.fill_rect(left, top, rect.width, rect.height, notice_ground());
-        canvas.fill_rect(
-            left,
-            top,
-            rect.width,
-            replication.min(rect.height),
-            notice_rule(),
-        );
+        canvas.fill_rect(left, top, rect.width, scale.min(rect.height), notice_rule());
 
-        let scale = whole(replication);
-        let inset = INSET * scale;
+        let factor = whole(scale);
+        let inset = INSET * factor;
         let room = whole(rect.width) - 2.0 * inset;
         if room <= 0.0 {
             return;
         }
-        let words = self.fitted(sentence, room, replication);
+        let words = self.fitted(sentence, room, scale);
         if words.is_empty() {
             return;
         }
-        let size = size_at(replication);
+        let size = size_at(scale);
         let metrics = self.font.metrics(size);
         // Centred on the line by the face's own extent above and below the
         // baseline, so the words sit in the middle whatever they are.
@@ -161,9 +149,9 @@ impl Lettering {
     }
 }
 
-/// The text size in device pixels at a replication.
-fn size_at(replication: u32) -> f32 {
-    TEXT_SIZE * whole(replication)
+/// The text size in device pixels at a scale.
+fn size_at(scale: u32) -> f32 {
+    TEXT_SIZE * whole(scale)
 }
 
 /// A count of pixels as a length.

@@ -673,19 +673,20 @@ The reason this exists rather than a faster fork of somebody else's engine.
   shows the old picture at its old size until the new one arrives, and a tab
   whose renderer has stopped keeps its picture with a line along the bottom
   saying what happened, in the browser's own words. The page is laid out at
-  the window's size in CSS pixels; on a high-density screen each pixel is
-  doubled until the renderer lays out and paints for the screen's scale
-  (299, ADR 0057; 562), so shapes are right and text is coarse. The
-  layout half is built (560): a page laid out for a scale of two rounds
-  every whole-pixel rule in device pixels and is where Chrome 154 puts it
-  under a real scale of two, in 578 of the 580 corpus boxes compared. So
-  is the paint half (561): such a page is drawn onto a canvas of device
-  pixels, its letters outlined at the size they are shown, and a checkbox
-  or radio on the device pixels Chrome 154 draws it on at two. A renderer
-  is told the scale with the page it loads (563) and lays the page out and
-  draws it there, script and all: the corpus's 21 pages that run script are
-  where Chrome puts them at two in all 313 boxes compared. The window still
-  tells it one (562). Closing the window closes every tab and stops
+  the window's size in CSS pixels, for the scale of the screen the window
+  is on (299, ADR 0057). A page laid out for a scale of two rounds every
+  whole-pixel rule in device pixels and is where Chrome 154 puts it under
+  a real scale of two, in 891 of the 893 corpus boxes compared (560, 563),
+  and is drawn onto a canvas of device pixels, its letters outlined at the
+  size they are shown (561). The window tells the page's renderer and the
+  strip's its scale with its size, and places their frames one device
+  pixel to each of theirs: nothing is doubled, so text on a high-density
+  screen is as sharp as the screen (562). A window moved to a screen of
+  another scale has its page and strip laid out and painted again there.
+  A fractional scale is rounded down to a whole one until one is measured,
+  a page is not told `devicePixelRatio` or `resolution` yet (567), and a
+  page's picture is at most 4,096 device pixels a side (569). Closing the
+  window closes every tab and stops
   every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
   a frozen alo page in the window is the corpus's picture of it, pixel for
   pixel. The picture reaches the screen: started on a Mac and captured with

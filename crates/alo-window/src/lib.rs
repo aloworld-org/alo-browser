@@ -40,11 +40,11 @@
 //! tab below it (item 528), and a person opens, closes and chooses tabs with
 //! the browser's own keys (item 529), and presses the page with the main
 //! mouse button and moves over it ([`aim`] decides what a point is over,
-//! [`cursor`] what the page is sent, items 535 and 542). Not yet: a click
-//! on the strip (item 539), an agent
-//! reading the strip (item 531), painting at the window's
-//! scale factor (item 299) — until then a CSS pixel is replicated to the
-//! scale's whole part (§ 3) — and a link opening a tab (item 300).
+//! [`cursor`] what the page is sent, items 535 and 542) or the strip to
+//! choose a tab (item 539). The page and the strip are painted at the
+//! window's scale (item 562, ADR 0057 § 3). Not yet: an agent reading the
+//! strip (item 531), a fractional scale factor — both are painted at its
+//! whole part — and a link opening a tab (item 300).
 
 pub mod agent_record;
 pub mod agent_sites;

@@ -29,7 +29,7 @@ use alo_js::{Value, script};
 use alo_layout::Size;
 use alo_renderer::host::Renderers;
 use alo_renderer::site::Site;
-use alo_renderer::{FromRenderer, Page, Renderer, ToRenderer};
+use alo_renderer::{FromRenderer, Page, Renderer, Screen, ToRenderer};
 use alo_text::FontDatabase;
 
 /// A small window; nothing here is about where anything is.
@@ -383,10 +383,7 @@ fn a_resize_lays_the_page_out_again_and_runs_none_of_its_script() {
         .is_some();
     assert!(marked, "the page's realm could not be marked");
 
-    let resized = renderer.handle(ToRenderer::Resize(Size {
-        width: 300.0,
-        height: 150.0,
-    }));
+    let resized = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(300.0, 150.0))));
     match resized {
         FromRenderer::Loaded { issues, .. } => {
             assert_eq!(about_scripts(&issues), Vec::<&str>::new());

@@ -36,6 +36,7 @@ use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
+use crate::screen::Screen;
 use crate::snapshot::{Snapshot, SnapshotNode};
 use crate::violations::{MOST_OBJECTIONS, Objection};
 use alo_agent::verb::{Outcome, Refusal, ScrollBy, Target, Verb};
@@ -338,10 +339,11 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.text(&page.platform);
             writer.visibility(page.visibility);
         }
-        ToRenderer::Resize(size) => {
+        ToRenderer::Resize(screen) => {
             writer.tag(1);
-            writer.float(size.width);
-            writer.float(size.height);
+            writer.float(screen.size.width);
+            writer.float(screen.size.height);
+            writer.float(screen.scale());
         }
         ToRenderer::Visibility(to) => {
             writer.tag(9);
@@ -1197,10 +1199,15 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
     let mut reader = Reader::new(bytes);
     let message = match reader.tag()? {
         0 => ToRenderer::Load(Box::new(reader.page()?)),
-        1 => ToRenderer::Resize(Size {
-            width: reader.float()?,
-            height: reader.float()?,
-        }),
+        1 => {
+            let size = Size {
+                width: reader.float()?,
+                height: reader.float()?,
+            };
+            // As a load's: a scale that is not a number refuses the message,
+            // and one that is not a factor above zero is one (ADR 0057 § 3).
+            ToRenderer::Resize(Screen::new(size).at_scale(reader.float()?))
+        }
         2 => ToRenderer::Paint,
         3 => ToRenderer::ReadTree,
         4 => {

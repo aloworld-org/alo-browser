@@ -21,6 +21,7 @@ use alo_net::activity::Happened;
 use alo_net::cause::Cause;
 use alo_net::{Pool, Trust};
 use alo_renderer::Page;
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -62,7 +63,7 @@ fn closing_the_window_leaves_the_page_and_records_what_it_asked_for() {
     .at(url.clone())
     .with_sheet("div { height: 20px; background: #2f6f4f }");
     for order in [
-        Order::Resize(Size::new(120.0, 60.0)),
+        Order::Resize(Screen::new(Size::new(120.0, 60.0))),
         Order::Open {
             url,
             page: Some(Box::new(page)),

@@ -137,8 +137,8 @@ impl Conducting {
                 }
             }
         }
-        match self.viewport {
-            Some(viewport) => news.extend(self.redraw(id, viewport)),
+        match self.screen {
+            Some(screen) => news.extend(self.redraw(id, screen)),
             None => news.extend(self.paint(id)),
         }
         news

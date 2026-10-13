@@ -154,7 +154,8 @@ impl Tabs {
         self.selected = neighbour.map(Tab::id);
     }
 
-    /// The strip as it is now, at `viewport`: every tab in order, each with
+    /// The strip as it is now, at `viewport` on a screen of one (the caller
+    /// says another with [`Strip::at_scale`]): every tab in order, each with
     /// its title and the address it shows, which one is selected, and each
     /// one's condition — gone when its renderer has, loading when `loading`
     /// says so, shown otherwise.
@@ -186,7 +187,11 @@ impl Tabs {
                 }
             })
             .collect();
-        Strip { tabs, viewport }
+        Strip {
+            tabs,
+            viewport,
+            scale: 1.0,
+        }
     }
 
     /// The strip's renderer, and what it last painted.

@@ -19,6 +19,7 @@
 
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::strip::{Condition, LONGEST_TITLE, Strip, StripTab};
@@ -101,6 +102,7 @@ fn drawn(tabs: Vec<StripTab>) -> Result<Frame, String> {
     let strip = Strip {
         tabs,
         viewport: strip_viewport(PAGE),
+        scale: 1.0,
     };
     match renderer.handle(ToRenderer::Strip(Box::new(strip))) {
         FromRenderer::Loaded { .. } => {}
@@ -161,7 +163,7 @@ fn send(orders: &alo_window::inbox::Orders, order: Order) -> Result<(), String> 
 fn a_pages_title_reaches_the_strip_as_text_hostile_or_not() {
     let (conductor, news) = conducting().unwrap_or_else(|why| panic!("{why}"));
     let orders = conductor.orders();
-    send(&orders, Order::Resize(PAGE)).unwrap_or_else(|why| panic!("{why}"));
+    send(&orders, Order::Resize(Screen::new(PAGE))).unwrap_or_else(|why| panic!("{why}"));
 
     // Markup, an escaped end tag, a right-to-left override and white space
     // that collapses: the title is the text, as HTML reads it.

@@ -140,6 +140,7 @@ fn a_confined_strip_renderer_claims_the_tab_pressed() {
             width: 480.0,
             height: 36.0,
         },
+        scale: 1.0,
     };
     let loaded = renderers.ask(&site, &ToRenderer::Strip(Box::new(strip)));
     assert!(

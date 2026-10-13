@@ -241,7 +241,9 @@ Item 299 is cut into three parts, and closes when they do:
 - **A fractional scale's rules**, until measured (§ 2).
 - **Where a pointer lands at a scale**: ADR 0024 § 5's point is a 1×1
   pixel, measured at scale 1; whether it is a device pixel at 2 is
-  measured with item 562.
+  measured with item 568 (cut from 562).
+- **`devicePixelRatio` and `resolution`'s answers** in each unit, which
+  § 3 says answer the scale, are measured with item 567 (cut from 562).
 - ~~**A face's size cut to hundredths** at a scale~~: measured by item
   560, in device pixels (*Measured since*).
 - **An `outline`'s width**, which Chrome also snaps (Evidence 5), when this
@@ -295,6 +297,23 @@ life, a resize and a script's measurement included. The 21 cases whose
 page runs script, loaded so, put every one of the 313 boxes this engine
 places exactly where Chrome does at one exactly where Chrome puts them at
 two; with the markup cases, 891 of 893.
+
+**Item 562, 2026-10-13, on this Mac's built-in Retina display** (2,880 ×
+1,864 device pixels, scale two); nothing was measured in Chrome. The window
+tells both renderers its whole scale with its size and places their frames
+one to one. `alo --frozen-fonts` on `cases/alo-offline`, captured with
+`screencapture -l`, is the window composed at two through the real
+conductor: of 2,799,416 opaque pixels, 2,795,059 are exact and all are
+within one level once put through the capture's display profile, as at
+scale one in iteration 316.
+
+- **A page's picture stays at most 4,096 device pixels a side**, at every
+  scale, decided here: `pipeline.rs`' bound is the frame's and is not
+  multiplied by the scale. A frame of 4,096 square is already as large as
+  a message across the boundary may be, so a window wider than that —
+  2,048 CSS pixels at two — shows its page cut at that edge and the
+  window's background beyond, until item 569 decides how a larger frame
+  crosses.
 
 ## How we will know if this was wrong
 

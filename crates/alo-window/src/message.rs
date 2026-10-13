@@ -18,10 +18,9 @@
 
 use crate::agent_record::Caller;
 use crate::asking::{Answer, Ask, Refused};
-use alo_layout::Size;
 use alo_paint::Point;
 use alo_renderer::pointer::Pointer;
-use alo_renderer::{Frame, Page, Visibility};
+use alo_renderer::{Frame, Page, Screen, Visibility};
 use alo_url::Url;
 use std::sync::mpsc::Sender;
 
@@ -38,8 +37,9 @@ pub enum Order {
         /// file a person named, never one a renderer described.
         page: Option<Box<Page>>,
     },
-    /// The window is now this many CSS pixels.
-    Resize(Size),
+    /// The window is now this many CSS pixels, on a screen of this scale
+    /// (ADR 0057 § 3).
+    Resize(Screen),
     /// The window can now be seen, or can no longer — covered or minimised
     /// (ADR 0039 § 1). What the selected tab's page is told, and what the
     /// next page loaded starts as.

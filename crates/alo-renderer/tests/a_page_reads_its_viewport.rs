@@ -20,7 +20,7 @@
 
 use alo_dom::Document;
 use alo_layout::Size;
-use alo_renderer::{FromRenderer, Page, Renderer, ToRenderer};
+use alo_renderer::{FromRenderer, Page, Renderer, Screen, ToRenderer};
 use alo_text::FontDatabase;
 
 /// A page whose script writes what it read of its window into the root
@@ -93,7 +93,7 @@ fn after_a_resize_a_script_reads_the_new_size() {
     for stress in [false, true] {
         let (mut renderer, issues) = loaded(READS, 800.0, 600.0);
         assert!(issues.is_empty(), "{issues:?}");
-        let resized = renderer.handle(ToRenderer::Resize(Size::new(640.0, 480.0)));
+        let resized = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(640.0, 480.0))));
         assert!(
             matches!(resized, FromRenderer::Loaded { .. }),
             "{resized:?}"
@@ -137,7 +137,7 @@ fn a_fractional_viewport_reads_as_whole_pixels() {
 #[test]
 fn a_new_page_is_shown_at_its_own_size() {
     let (mut renderer, _) = loaded(READS, 800.0, 600.0);
-    let _ = renderer.handle(ToRenderer::Resize(Size::new(640.0, 480.0)));
+    let _ = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(640.0, 480.0))));
     let second = renderer.handle(ToRenderer::Load(Box::new(Page::new(
         READS,
         Size::new(300.0, 200.0),

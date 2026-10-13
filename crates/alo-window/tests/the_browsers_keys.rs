@@ -18,6 +18,7 @@
 
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::strip::{Strip, StripTab};
@@ -98,6 +99,7 @@ fn drawn(tabs: Vec<StripTab>) -> Result<Frame, String> {
     let strip = Strip {
         tabs,
         viewport: strip_viewport(PAGE),
+        scale: 1.0,
     };
     match renderer.handle(ToRenderer::Strip(Box::new(strip))) {
         FromRenderer::Loaded { .. } => {}
@@ -180,7 +182,7 @@ fn each_key_changes_the_strip_as_it_says() {
         until_strip(&news).unwrap_or_else(|why| panic!("{why}"))
     };
 
-    send(&orders, Order::Resize(PAGE)).unwrap_or_else(|why| panic!("{why}"));
+    send(&orders, Order::Resize(Screen::new(PAGE))).unwrap_or_else(|why| panic!("{why}"));
     let (books, open) = opening(
         "https://books.example/",
         "<title>Invoices</title><p style='background:#2f6f4f;height:40px'>a page</p>",
@@ -328,7 +330,7 @@ fn choosing_a_tab_tells_the_tab_left_before_the_tab_chosen() {
     let renderers = Renderers::running(renderer().unwrap_or_else(|why| panic!("{why}")), &[]);
     let (conductor, news) = conducting(renderers).unwrap_or_else(|why| panic!("{why}"));
     let orders = conductor.orders();
-    send(&orders, Order::Resize(PAGE)).unwrap_or_else(|why| panic!("{why}"));
+    send(&orders, Order::Resize(Screen::new(PAGE))).unwrap_or_else(|why| panic!("{why}"));
 
     let (_, a) = telling(&first, "a").unwrap_or_else(|why| panic!("{why}"));
     send(&orders, a).unwrap_or_else(|why| panic!("{why}"));

@@ -20,6 +20,7 @@
 
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -157,7 +158,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
         .send(opening().unwrap_or_else(|why| panic!("{why}")))
         .unwrap_or_else(|_| panic!("the conductor is gone"));
     orders
-        .send(Order::Resize(Size::new(480.0, 400.0)))
+        .send(Order::Resize(Screen::new(Size::new(480.0, 400.0))))
         .unwrap_or_else(|_| panic!("the conductor is gone"));
     let painted = next(&news).unwrap_or_else(|why| panic!("{why}"));
     let News::Painted(frame) = &painted else {
@@ -189,7 +190,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     // The window grows. The conductor is sent the size and is now stuck
     // waiting on a renderer that will not answer…
     orders
-        .send(Order::Resize(Size::new(560.0, 460.0)))
+        .send(Order::Resize(Screen::new(Size::new(560.0, 460.0))))
         .unwrap_or_else(|_| panic!("the conductor is gone"));
     std::thread::sleep(Duration::from_millis(200));
     // …and the window still answers, at once, with the frame it had, at the
@@ -204,7 +205,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     let before = compose(
         &Scene {
             window: (560, 460),
-            replication: 1,
+            scale: 1,
             strip: None,
             strip_sentence: None,
             frame: Some(&committed().unwrap_or_else(|why| panic!("{why}"))),

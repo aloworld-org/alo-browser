@@ -7,9 +7,10 @@
 //! It goes to a renderer, from the browser process, so a confined renderer
 //! is the one reading it — and reads it as it reads anything: every count
 //! checked against what is left, the condition by a closed list of tags, the
-//! size a finite number. Each title is text and stays text: it is a page's
-//! string, carried whole, and the renderer puts it into its document as a
-//! text node ([`crate::strip_document`]), never through a parser.
+//! size and the scale finite numbers. Each title is text and stays text: it
+//! is a page's string, carried whole, and the renderer puts it into its
+//! document as a text node ([`crate::strip_document`]), never through a
+//! parser.
 //!
 //! A press on the strip goes the same way, and its claim comes back the
 //! other: whether it was on a tab, and the tab's place as a number. The
@@ -23,10 +24,11 @@ use crate::strip_claim::Claim;
 use alo_layout::geometry::Size;
 
 impl Writer {
-    /// The strip: its size, then each tab in order.
+    /// The strip: its size and its screen's scale, then each tab in order.
     pub(super) fn strip(&mut self, strip: &Strip) {
         self.float(strip.viewport.width);
         self.float(strip.viewport.height);
+        self.float(strip.scale);
         self.number(strip.tabs.len() as u64);
         for tab in &strip.tabs {
             self.text(&tab.title);
@@ -64,12 +66,15 @@ impl Reader<'_> {
         Ok(Some(Claim::Select { at }))
     }
 
-    /// The strip: its size, then each tab in order.
+    /// The strip: its size and its screen's scale, then each tab in order.
+    /// A scale that is not a number is refused, as a size's is, and one that
+    /// is not a factor above zero is one (ADR 0057 § 3).
     pub(super) fn strip(&mut self) -> Result<Strip, Unreadable> {
         let viewport = Size {
             width: self.float()?,
             height: self.float()?,
         };
+        let scale = alo_value::device_scale(self.float()?);
         let how_many = self.count()?;
         let mut tabs = Vec::new();
         for _ in 0..how_many {
@@ -93,6 +98,10 @@ impl Reader<'_> {
                 condition,
             });
         }
-        Ok(Strip { tabs, viewport })
+        Ok(Strip {
+            tabs,
+            viewport,
+            scale,
+        })
     }
 }

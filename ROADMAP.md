@@ -1738,8 +1738,7 @@ items where being right and being unusable are the same outcome.
       is composed by a function from the frames it was last sent, with four
       reference renders. A test shows a renderer stopped with `kill -STOP`
       leaves the window composing its last frame at once and then its
-      sentence. Pixels are replicated to the scale factor's whole part.
-      Closing the window stops every renderer. `--frozen-fonts` makes a
+      sentence. Closing the window stops every renderer. `--frozen-fonts` makes a
       renderer process paint a frozen alo page identical to the corpus's
       committed render. Started on this Mac and captured with
       `screencapture -l`, the window is its composition: every opaque pixel
@@ -1835,7 +1834,13 @@ items where being right and being unusable are the same outcome.
       the wire and refused or made one when it is not a scale, and lays
       the page out and paints it there: the 21 corpus cases whose page
       runs script put all 313 boxes exact at one exactly where Chrome puts
-      them at two.
+      them at two. The window is at its screen's scale (562, done): a
+      `Resize` carries a `Screen`, the conductor tells the page and the
+      strip the window's whole scale, both paint in device pixels and the
+      window places their frames one to one, replicating nothing; a window
+      moved to a screen of another scale has both drawn again there; and
+      `alo` on this Mac's Retina display, captured with `screencapture -l`,
+      is its composition at two in every opaque pixel within one level.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1843,9 +1848,10 @@ items where being right and being unusable are the same outcome.
       (547); the strip's close and new-tab controls (558); device pixels
       (299), decided by ADR 0057 — a page is laid out for its screen's
       scale, every whole-pixel rule rounding in device pixels as Chrome 154
-      was measured to at a real scale of two — and owed as the window at
-      the screen's scale (562), which tells its renderers one until then,
-      a shrunk flex item's share of a pixel (564), the two boxes at two
+      was measured to at a real scale of two — and owed as
+      `devicePixelRatio` and the `resolution` media features (567), where a
+      person's pointer lands at two (568), a window wider than 4,096 device
+      pixels (569), a shrunk flex item's share of a pixel (564), the two boxes at two
       that keep 560 open, a plain background on whole device pixels (565)
       and a line under text at a scale (566); a link opening a tab
       (300)

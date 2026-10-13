@@ -15,6 +15,7 @@
 
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -55,7 +56,7 @@ fn conducting(before: &[Order], script: &str) -> Result<(Conductor, Receiver<New
     .at(url.clone())
     .with_sheet("div { height: 20px } #out { background: #2f6f4f }");
     let mut orders = before.to_vec();
-    orders.push(Order::Resize(Size::new(200.0, 60.0)));
+    orders.push(Order::Resize(Screen::new(Size::new(200.0, 60.0))));
     orders.push(Order::Open {
         url,
         page: Some(Box::new(page)),

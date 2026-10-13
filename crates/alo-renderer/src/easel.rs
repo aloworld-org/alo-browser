@@ -134,6 +134,13 @@ impl Easel {
         self.drawn = None;
     }
 
+    /// The page is shown on a screen of `scale` from now on (ADR 0057 § 3):
+    /// laid out and drawn at it from the next drawing. Anything that is not
+    /// a finite factor above zero is one.
+    pub(crate) fn rescale(&mut self, scale: f32) {
+        self.scale = alo_value::device_scale(scale);
+    }
+
     /// No page on it: the one it had was left (ADR 0039 § 2), and nothing
     /// is drawn until the next is loaded. The fonts stay.
     pub(crate) fn clear(&mut self) {

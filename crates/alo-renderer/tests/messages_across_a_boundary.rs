@@ -24,6 +24,7 @@ use alo_dom::submission::{Enctype, Entry, Method, Value};
 use alo_layout::geometry::{Point, Rect, Size};
 use alo_net::csp::{Inline, Placement};
 use alo_net::referrer::Policy;
+use alo_renderer::Screen;
 use alo_renderer::ask::{Asked, By};
 use alo_renderer::frame::Frame;
 use alo_renderer::generic::{Generics, MOST_PAIRS};
@@ -114,10 +115,8 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             user_agent: "Mozilla/5.0 (X11; Linux x86_64) alo/9.9".to_owned(),
             platform: "Linux x86_64".to_owned(),
         })),
-        ToRenderer::Resize(Size {
-            width: 320.5,
-            height: 480.0,
-        }),
+        ToRenderer::Resize(Screen::new(Size::new(320.5, 480.0))),
+        ToRenderer::Resize(Screen::new(Size::new(320.5, 480.0)).at_scale(1.5)),
         ToRenderer::Visibility(Visibility::Hidden),
         ToRenderer::Visibility(Visibility::Visible),
         ToRenderer::Leave,
@@ -609,6 +608,43 @@ fn a_scale_that_is_not_a_scale_is_refused_or_read_as_one() {
     for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
         assert!(read_with(bad).is_err(), "{bad} was accepted as a scale");
     }
+}
+
+/// A resize carries its screen's scale after its size, read as a load's is.
+#[test]
+fn a_resizes_scale_that_is_not_a_scale_is_refused_or_read_as_one() {
+    let resize_at = |scale: f32| {
+        let mut bytes = vec![1];
+        for number in [320.0_f32, 200.0, scale] {
+            bytes.extend_from_slice(&number.to_be_bytes());
+        }
+        read_to_renderer(&bytes)
+    };
+    let scale_read = |scale: f32| match resize_at(scale) {
+        Ok(ToRenderer::Resize(screen)) => {
+            assert_eq!(screen.size, Size::new(320.0, 200.0));
+            Some(screen.scale().to_bits())
+        }
+        _ => None,
+    };
+    assert_eq!(scale_read(2.0), Some(2.0_f32.to_bits()));
+    assert_eq!(scale_read(1.5), Some(1.5_f32.to_bits()), "not rounded");
+    for not_a_factor in [0.0, -0.0, -2.0, f32::MIN] {
+        assert_eq!(
+            scale_read(not_a_factor),
+            Some(1.0_f32.to_bits()),
+            "{not_a_factor} was read as a scale"
+        );
+    }
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        assert!(resize_at(bad).is_err(), "{bad} was accepted as a scale");
+    }
+    // A resize that stops before its scale is refused, not read at one.
+    let mut cut = vec![1];
+    for number in [320.0_f32, 200.0] {
+        cut.extend_from_slice(&number.to_be_bytes());
+    }
+    assert!(read_to_renderer(&cut).is_err());
 }
 
 /// Trailing bytes mean the two ends disagree about the message, and a decoder

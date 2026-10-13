@@ -24,6 +24,7 @@
 
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::strip::{Strip, StripTab};
@@ -109,6 +110,7 @@ fn drawn(tabs: Vec<StripTab>) -> Result<Frame, String> {
     let strip = Strip {
         tabs,
         viewport: strip_viewport(PAGE),
+        scale: 1.0,
     };
     match renderer.handle(ToRenderer::Strip(Box::new(strip))) {
         FromRenderer::Loaded { .. } => {}
@@ -180,7 +182,7 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
         },
     )
     .unwrap_or_else(|why| panic!("{why}"));
-    send(&orders, Order::Resize(PAGE)).unwrap_or_else(|why| panic!("{why}"));
+    send(&orders, Order::Resize(Screen::new(PAGE))).unwrap_or_else(|why| panic!("{why}"));
     let first = next(&news).unwrap_or_else(|why| panic!("{why}"));
     let News::Strip(strip) = &first else {
         panic!("the strip was not drawn: {first:?}");
@@ -200,7 +202,8 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
     );
 
     // The window grows. The conductor is now stuck waiting on the strip…
-    send(&orders, Order::Resize(Size::new(560.0, 460.0))).unwrap_or_else(|why| panic!("{why}"));
+    send(&orders, Order::Resize(Screen::new(Size::new(560.0, 460.0))))
+        .unwrap_or_else(|why| panic!("{why}"));
     std::thread::sleep(Duration::from_millis(200));
     // …and the window still composes, at once, with the strip it had.
     let window = (560, 460 + STRIP_HEIGHT);
@@ -213,7 +216,7 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
     let before = compose(
         &Scene {
             window,
-            replication: 1,
+            scale: 1,
             strip: Some(strip),
             strip_sentence: None,
             frame: None,

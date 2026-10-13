@@ -8,23 +8,26 @@
 //! *"a layout is a tree with numbers in it"*) and [`crate::compose`] only has
 //! to fill the rectangles this hands it.
 //!
-//! # The scale factor, until item 299
+//! # The scale factor
 //!
-//! ADR 0024 § 3: a renderer paints in CSS pixels today, and a window on most
-//! Macs has two device pixels to every one of those. Until the renderer paints
-//! at the window's scale, **each pixel of a frame is replicated** to the whole
-//! part of the scale factor — geometry right, text coarse — and a fractional
-//! remainder is left as background rather than stretched. The page is told
-//! the window's size in CSS pixels, and no ratio at all.
+//! ADR 0057 § 3: a page is laid out and painted for the scale of the screen
+//! its window is on, and so is the strip. Both renderers are told the
+//! window's [`scale`] with its size ([`screen`]) and send frames in **device
+//! pixels**, which the window places one to one — nothing is replicated or
+//! stretched (queue item 562). Until a fractional scale is measured (ADR 0057
+//! § 2), the window's factor is rounded down to a whole one, so a frame's
+//! device pixels are whole CSS pixels times it and a fractional remainder of
+//! the window is left as background.
 
 use alo_layout::Size;
+use alo_renderer::Screen;
 
-/// The largest number of device pixels one CSS pixel is replicated to.
+/// The largest scale a window is laid out at.
 ///
 /// No screen has a scale factor near it; the bound is there so that a window
 /// server reporting nonsense costs a window of background rather than a
 /// multiplication that overflows.
-pub const MOST_REPLICATION: u32 = 8;
+pub const MOST_SCALE: u32 = 8;
 
 /// How tall the line saying what happened to a tab is, in CSS pixels.
 pub const NOTICE_HEIGHT: u32 = 32;
@@ -55,41 +58,51 @@ impl PixelRect {
     }
 }
 
-/// How many device pixels one CSS pixel becomes: the whole part of the
-/// window's scale factor, at least one and at most [`MOST_REPLICATION`].
+/// How many device pixels one CSS pixel is in this window: the whole part
+/// of the window's scale factor, at least one and at most [`MOST_SCALE`].
 ///
 /// A factor that is not a finite number, or is below one, is one — the window is
-/// drawn at the size it says it is rather than not drawn.
-pub fn replication(scale_factor: f64) -> u32 {
+/// drawn at the size it says it is rather than not drawn. A fractional factor
+/// is rounded down until one is measured (ADR 0057 § 2).
+pub fn scale(scale_factor: f64) -> u32 {
     if !scale_factor.is_finite() {
         return 1;
     }
     // Counted down rather than cast, so there is no conversion to get wrong:
     // the largest whole number the factor reaches.
-    (1..=MOST_REPLICATION)
+    (1..=MOST_SCALE)
         .rev()
         .find(|whole| scale_factor >= f64::from(*whole))
         .unwrap_or(1)
 }
 
 /// The size a page in this window is laid out at: the window's device pixels
-/// divided by the replication, rounded down, less the strip above it.
+/// divided by the scale, rounded down, less the strip above it.
 ///
 /// What a renderer is told in a load or a `Resize`, so a frame painted at it
-/// and replicated never runs past the window's edge. A window no taller than
-/// the strip leaves a page no height at all.
-pub fn viewport(window: (u32, u32), replication: u32) -> Size {
-    let replication = replication.max(1);
-    // Whole CSS pixels, so a frame replicated by a whole number covers whole
-    // device pixels.
+/// and at the scale never runs past the window's edge. A window no taller
+/// than the strip leaves a page no height at all.
+pub fn viewport(window: (u32, u32), scale: u32) -> Size {
+    let scale = scale.max(1);
+    // Whole CSS pixels, so a frame painted at a whole scale is whole device
+    // pixels.
     #[expect(
         clippy::cast_precision_loss,
         reason = "a whole number below 2^24 is exact in an f32, and no window is that wide"
     )]
     Size::new(
-        (window.0 / replication) as f32,
-        (window.1 / replication).saturating_sub(STRIP_HEIGHT) as f32,
+        (window.0 / scale) as f32,
+        (window.1 / scale).saturating_sub(STRIP_HEIGHT) as f32,
     )
+}
+
+/// What a page in this window is laid out for: [`viewport`]'s size on a
+/// screen of `scale` (ADR 0057 § 3), as a renderer is told it.
+pub fn screen(window: (u32, u32), scale: u32) -> Screen {
+    let scale = scale.clamp(1, MOST_SCALE);
+    // At most `MOST_SCALE`, so exact in an `f32` by way of a `u8`.
+    let factor = u8::try_from(scale).map_or(1.0, f32::from);
+    Screen::new(viewport(window, scale)).at_scale(factor)
 }
 
 /// The size the strip is drawn at, above a page laid out at `page`: as wide,
@@ -100,7 +113,7 @@ pub fn strip_viewport(page: Size) -> Size {
 }
 
 /// What there is to place in a window: the sizes of the frames it was last
-/// sent, in CSS pixels, and which of them has something to say.
+/// sent, in device pixels, and which of them has something to say.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Contents {
     /// The strip's last frame, if it has painted one.
@@ -116,14 +129,14 @@ pub struct Contents {
 /// Where the strip, a tab's frame and the lines about them go in a window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Placement {
-    /// The band across the top the strip is drawn in, [`STRIP_HEIGHT`]
-    /// replicated, the window's whole width — cut at its bottom edge.
+    /// The band across the top the strip is drawn in, [`STRIP_HEIGHT`] at
+    /// the scale, the window's whole width — cut at its bottom edge.
     pub band: PixelRect,
     /// The part of the band the strip's frame covers, from its top-left
     /// corner, cut at the band's edges.
     pub strip: PixelRect,
-    /// The part of the window the tab's frame covers, replicated, from just
-    /// below the band — cut at the window's edge when the frame is larger,
+    /// The part of the window the tab's frame covers, one device pixel to
+    /// each of its pixels, from just below the band — cut at the window's edge when the frame is larger,
     /// which it is after a window shrinks and before the new frame arrives.
     pub frame: PixelRect,
     /// The line saying what happened to the tab, along the bottom of the
@@ -135,34 +148,33 @@ pub struct Placement {
 }
 
 impl Placement {
-    /// Where things go in a `window` of device pixels, replicating each CSS
-    /// pixel `replication` times, for what it holds.
+    /// Where things go in a `window` of device pixels at `scale`, for what
+    /// it holds.
     ///
-    /// A frame larger than its place is cut, never scaled: what was painted
-    /// is shown as it was painted until the renderer paints the new size (ADR
+    /// A frame is placed at its own size in device pixels, which is what its
+    /// renderer painted at the scale it was told. A frame larger than its
+    /// place is cut, never scaled: what was painted is shown as it was
+    /// painted until the renderer paints the new size or the new scale (ADR
     /// 0024 § 2). The notices are drawn over the page's frame rather than
     /// pushing it up, for the same reason — the frame is a picture of a page
     /// at a size, and moving it would show it at a size it was not — and
     /// never over the strip, which is the browser's own.
-    pub fn of(window: (u32, u32), replication: u32, contents: Contents) -> Self {
-        let replication = replication.max(1);
+    pub fn of(window: (u32, u32), scale: u32, contents: Contents) -> Self {
+        let scale = scale.max(1);
         let band = PixelRect {
             x: 0,
             y: 0,
             width: window.0,
-            height: STRIP_HEIGHT.saturating_mul(replication).min(window.1),
+            height: STRIP_HEIGHT.saturating_mul(scale).min(window.1),
         };
         let below = window.1 - band.height;
         let cut = |size: Option<(u32, u32)>, room: (u32, u32)| {
             let (width, height) = size.unwrap_or((0, 0));
-            (
-                width.saturating_mul(replication).min(room.0),
-                height.saturating_mul(replication).min(room.1),
-            )
+            (width.min(room.0), height.min(room.1))
         };
         let (strip_width, strip_height) = cut(contents.strip, (band.width, band.height));
         let (frame_width, frame_height) = cut(contents.frame, (window.0, below));
-        let line = NOTICE_HEIGHT.saturating_mul(replication);
+        let line = NOTICE_HEIGHT.saturating_mul(scale);
         // From the bottom up: the tab's line, then the strip's, each as much
         // of its height as is left above the band.
         let mut bottom = window.1;
@@ -205,27 +217,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_whole_scale_factor_is_replicated_whole() {
-        assert_eq!(replication(1.0), 1);
-        assert_eq!(replication(2.0), 2);
-        assert_eq!(replication(3.0), 3);
+    fn a_whole_scale_factor_is_kept_whole() {
+        assert_eq!(scale(1.0), 1);
+        assert_eq!(scale(2.0), 2);
+        assert_eq!(scale(3.0), 3);
     }
 
     #[test]
     fn a_fractional_scale_factor_is_rounded_down() {
-        assert_eq!(replication(1.5), 1);
-        assert_eq!(replication(2.25), 2);
-        assert_eq!(replication(2.999), 2);
+        assert_eq!(scale(1.5), 1);
+        assert_eq!(scale(2.25), 2);
+        assert_eq!(scale(2.999), 2);
     }
 
     #[test]
     fn a_scale_factor_that_is_nonsense_is_one_or_the_most() {
-        assert_eq!(replication(0.0), 1);
-        assert_eq!(replication(0.5), 1);
-        assert_eq!(replication(-2.0), 1);
-        assert_eq!(replication(f64::NAN), 1);
-        assert_eq!(replication(f64::INFINITY), 1);
-        assert_eq!(replication(1e300), MOST_REPLICATION);
+        assert_eq!(scale(0.0), 1);
+        assert_eq!(scale(0.5), 1);
+        assert_eq!(scale(-2.0), 1);
+        assert_eq!(scale(f64::NAN), 1);
+        assert_eq!(scale(f64::INFINITY), 1);
+        assert_eq!(scale(1e300), MOST_SCALE);
+    }
+
+    #[test]
+    fn a_renderer_is_told_the_viewport_on_a_screen_of_the_whole_scale() {
+        let at_two = screen((960, 872), 2);
+        assert_eq!(at_two.size, Size::new(480.0, 400.0));
+        assert_eq!(at_two.scale().to_bits(), 2.0_f32.to_bits());
+        let at_one = screen((480, 436), 1);
+        assert_eq!(at_one.size, Size::new(480.0, 400.0));
+        assert_eq!(at_one.scale().to_bits(), 1.0_f32.to_bits());
+        // A scale nobody could have measured is the nearest one there is,
+        // and the size is the one laid out at it.
+        let none = screen((10, 46), 0);
+        assert_eq!(
+            (none.size, none.scale().to_bits()),
+            (Size::new(10.0, 10.0), 1.0_f32.to_bits())
+        );
+        let most = screen((800, 800), u32::MAX);
+        assert_eq!(most.size, Size::new(100.0, 64.0));
+        assert_eq!(most.scale().to_bits(), 8.0_f32.to_bits());
     }
 
     fn rect(x: u32, y: u32, width: u32, height: u32) -> PixelRect {
@@ -280,13 +312,30 @@ mod tests {
             (960, 872),
             2,
             Contents {
-                strip: Some((480, 36)),
-                frame: Some((480, 400)),
+                strip: Some((960, 72)),
+                frame: Some((960, 800)),
                 ..Contents::default()
             },
         );
         assert_eq!(placed.strip, rect(0, 0, 960, 72));
         assert_eq!(placed.frame, rect(0, 72, 960, 800));
+    }
+
+    #[test]
+    fn a_frame_is_placed_at_its_own_size_in_device_pixels_never_replicated() {
+        // A frame painted at one, shown in a window at two before its
+        // renderer paints at two: as it was painted, a quarter of the room.
+        let placed = Placement::of(
+            (960, 872),
+            2,
+            Contents {
+                strip: Some((480, 36)),
+                frame: Some((480, 400)),
+                ..Contents::default()
+            },
+        );
+        assert_eq!(placed.strip, rect(0, 0, 480, 36));
+        assert_eq!(placed.frame, rect(0, 72, 480, 400));
     }
 
     #[test]
@@ -322,7 +371,14 @@ mod tests {
         };
         let placed = Placement::of((480, 436), 1, saying);
         assert_eq!(placed.notice, Some(rect(0, 404, 480, 32)));
-        let doubled = Placement::of((960, 872), 2, saying);
+        let doubled = Placement::of(
+            (960, 872),
+            2,
+            Contents {
+                tab_saying: true,
+                ..a_frame((960, 800))
+            },
+        );
         assert_eq!(doubled.notice, Some(rect(0, 808, 960, 64)));
         // Over the frame, which stays where and as big as it was painted.
         assert_eq!(doubled.frame, rect(0, 72, 960, 800));
@@ -380,10 +436,10 @@ mod tests {
     }
 
     #[test]
-    fn a_frame_too_large_to_multiply_is_cut_rather_than_overflowing() {
+    fn a_frame_larger_than_any_window_is_cut_at_the_windows_edge() {
         let placed = Placement::of(
             (100, 400),
-            MOST_REPLICATION,
+            MOST_SCALE,
             Contents {
                 strip: Some((u32::MAX, u32::MAX)),
                 frame: Some((u32::MAX, u32::MAX)),

@@ -26,7 +26,7 @@ use alo_window::conductor::{Conductor, Fonts};
 use alo_window::cursor::Cursor;
 use alo_window::inbox::Orders;
 use alo_window::message::{News, Order};
-use alo_window::place::{Contents, Placement, viewport};
+use alo_window::place::{Contents, Placement, screen};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -102,7 +102,7 @@ fn showing(
     address: &str,
     html: &str,
 ) -> Result<Frame, String> {
-    send(orders, Order::Resize(viewport(WINDOW, SCALE)))?;
+    send(orders, Order::Resize(screen(WINDOW, SCALE)))?;
     let url = alo_url::parse(address).map_err(|why| format!("not a URL: {why:?}"))?;
     send(
         orders,
@@ -210,7 +210,8 @@ fn moving_over_the_page_and_onto_the_strip_is_heard_as_chrome_fires_it() {
          }</script>",
     )
     .unwrap_or_else(|why| panic!("{why}"));
-    assert_eq!((frame.width, frame.height), (800, 600));
+    // An 800 × 600 page painted at the window's scale of two (item 562).
+    assert_eq!((frame.width, frame.height), (1600, 1200));
     let mut cursor = Cursor::default();
 
     // Over the strip first: the page is told nothing.

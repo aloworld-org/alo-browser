@@ -33389,3 +33389,129 @@ clause adds a renderer told its page's scale (563, done); Owed drops 563.
 272 queue items are open (563 closed). The next unused queue number is
 **567** and the next ADR is **0058**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 334 — queue item 562 closed, cut to its window half: the window at its screen's scale
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+head and its line *A window, tabs, and a tab strip*; iterations 331–333's
+entries, and 316's for how the on-screen check is made; ADR 0057 in full;
+queue items 299 and 560–566; the feature line *A window, tabs, and a tab
+strip*; `alo-window`'s `place.rs`, `compose.rs`, `window.rs`, `aim.rs`,
+`notice.rs`, `showing.rs`, `message.rs`, `conductor.rs` and
+`conductor/choosing.rs`; `alo-renderer`'s `screen.rs`, `easel.rs`,
+`renderer.rs`' strip and resize, `strip.rs`, `tab/strip_of.rs`, `wire.rs`,
+`wire/strip.rs` and `pipeline.rs`' bound. No `AGENTS.md` exists here.
+
+**Why 562.** Its dependencies, 561 and 563, are both done, and it names
+its ADR (0057 § 3), feature and closing condition. 565 and 566 come before
+it in the file but are measurements nothing depends on; 560 waits on 564
+and 502; the items before 560 wait as 318–333 recorded.
+
+**Cut, scope not depth.** 562 asked for the window chain and for
+`devicePixelRatio` and `resolution`, plus two measurements. The window
+half is built whole here; **567** (`devicePixelRatio` and the `resolution`
+media features, measured in Chrome first), **568** (where a person's 1×1
+pixel lands at two, and an inline box's hit area) and **569** (a window
+wider than a page's picture can be) are new items. 299 now closes on 560
+and 567 as well.
+
+**Built.**
+- `ToRenderer::Resize` and `Order::Resize` carry a `Screen`; the wire
+  writes the scale after the size and reads it as a load's (not a number
+  refuses the message; not a factor above zero is one). `Strip` carries a
+  scale (`Strip::at_scale`, a hand-written `Default` at one), on the wire
+  the same way; the strip's renderer is laid out at it.
+- The renderer's resize sets the page's scale and `Easel::rescale`s, so a
+  window moved to a screen of another scale has the page it holds laid out
+  and painted again there, running none of its script.
+- `place.rs`: `replication` is `scale` (the same whole factor, a
+  fractional one still rounded down), `screen` is what a renderer is told,
+  and a frame is placed at its own device-pixel size. `compose.rs` copies
+  frames one to one; the band and the window's own lines are at the scale.
+  The conductor keeps a `Screen`, tells each page it loads and the strip,
+  and redraws the strip when its scale changes. `aim.rs` divides by the
+  same scale as before.
+- The bound, decided and written into ADR 0057: a page's picture stays at
+  most 4,096 device pixels a side at every scale (569 for wider windows).
+
+**Gate, mechanical.** `cargo fmt --all -- --check` and `cargo clippy
+--workspace --all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh` ran in the foreground into a scratchpad log; at 600 s the
+harness moved it to the background, and the next call waited on it with a
+foreground `until` loop. **Result: `exit 0`, "The gate is met. (10 of 10
+steps)"**, "tests pass", no `FAILED`, `panicked` or `^error` line. Only
+this entry and the commit came after it.
+
+**Gate, manual.**
+- On screen, the closing condition: `alo --frozen-fonts
+  crates/alo-corpus/cases/alo-offline/page.html` on this Mac's built-in
+  Retina display (2,880 × 1,864, scale two); window 12029, 1000 × 732
+  points, found by a CGWindowList helper; `screencapture -l 12029 -o -x`
+  gave 2000 × 1464 with a 64-row title bar. The text is drawn at device
+  resolution (looked at, cropped at full size). A temporary example (not
+  committed, deleted) ran the real `Conductor` over `target/debug/alo-render`
+  with `fonts::frozen()`, sent the page and `Order::Resize(screen((2000,
+  1400), 2))`, heard a strip of 2000 × 72 and a page of 2000 × 1328, and
+  composed `showing.scene((2000, 1400), 2)`. Compared in Python with
+  Pillow and LittleCMS (`python3 -I`), the composition converted from sRGB
+  through the capture's embedded profile: **of 2,799,416 opaque pixels,
+  2,795,059 exact and all within one level**; the other 584 are the
+  window's rounded corners. `kill -TERM` left no `alo` or `alo-render`.
+- Layout and frames in numbers: `a_window_on_a_screen_of_two.rs` (new)
+  through the real conductor and confined renderers: a page of boxes at
+  tenths of a pixel and its strip are 480 × 120 and 480 × 72 at two, each
+  equal to the same drawn in the test at two, and the page at two is not
+  the page at one enlarged; after a move to a screen of one both equal the
+  same drawn at one (240 × 60), and at two again after moving back.
+  `a_page_loaded_at_a_scale.rs`: a page loaded at one and resized onto two
+  is 39/64 px and 200 × 100, and back at one 38/64 and 100 × 50. Unit tests
+  in `place.rs` (`screen`, frames placed at their own size), `compose.rs`
+  (one frame pixel to one device pixel below a band of 72).
+  `a_persons_pointer_in_the_window.rs` and `a_persons_click_in_the_window.rs`
+  now send the window's real screen at two, so Chrome's events are heard
+  from a page painted at two (1600 × 1200).
+- Reference renders: `a-frozen-page-at-scale-two.png` and
+  `a-strip-of-one-tab.png` rewritten (old copies kept in the scratchpad and
+  looked at beside the new: the same geometry, drawn sharp rather than
+  doubled), each made from the frozen page and strip painted at two and
+  checked one to one in numbers before the picture. The six references at
+  one did not move; no corpus file changed.
+- Mutations, each restored from a copy (`cmp` confirmed), each failing a
+  test: the conductor loading pages at one (2 tests), the strip at one (1),
+  the easel not rescaled (1), the strip's renderer at one (2), the
+  resize's scale unwritten (1), the strip's scale not made a scale (1),
+  compose replicating (2 unit and 5 reference), place multiplying a frame
+  (1), `screen` at one (3). `alo-render` was rebuilt after the renderer
+  mutations.
+- Hostile input: a `Resize` and a strip whose scale is NaN or ±∞ are
+  refused, 0, −0, −2 and `f32::MIN` read as one, 1.5 kept, and a resize
+  cut before its scale refused (`messages_across_a_boundary.rs`,
+  `a_tab_strip_crosses_the_boundary.rs`).
+- One file, one responsibility: `place.rs` is still where things go,
+  `compose.rs` the pixels, `screen.rs` what a page is laid out for.
+- Also updated: ADR 0057 (*Measured since*: item 562, the bound; *not
+  decided*: 567, 568), `docs/features.md`, `docs/conformance.md`,
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 562 ticked with a *Cut* and a *Done (iteration 334)*
+paragraph. Added 567, 568, 569. 299 closes on 560 and 567.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the window at its screen's scale (562, done) and drops
+"pixels are replicated"; Owed swaps 562 for 567, 568 and 569.
+
+**Unresolved obligations.**
+- A page is painted at its scale but not told it: `devicePixelRatio` and
+  `resolution` (567).
+- Where a pointer's pixel lands at two is not measured (568); the window
+  divides as at one.
+- A fractional scale is rounded down; a window over 4,096 device pixels is
+  cut (569).
+- 560 is still open on 564 and 502; 565 and 566 unmeasured.
+- No claim about speed is made.
+
+274 queue items are open (562 closed; 567–569 added). The next unused
+queue number is **570** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

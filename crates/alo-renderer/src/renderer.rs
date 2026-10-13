@@ -131,6 +131,7 @@ use crate::pointer::{Pointer, Went};
 use crate::press::{Ran, press, told};
 use crate::put::put;
 use crate::said;
+use crate::screen::Screen;
 use crate::scripts;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::show;
@@ -257,7 +258,7 @@ impl Renderer {
             ToRenderer::UseFont(face) => self.use_font(&face),
             ToRenderer::UseGenerics(generics) => self.use_generics(&generics),
             ToRenderer::Load(page) => self.load(*page),
-            ToRenderer::Resize(viewport) => self.resize(viewport),
+            ToRenderer::Resize(screen) => self.resize(screen),
             ToRenderer::Visibility(to) => self.visibility(to),
             ToRenderer::Leave => self.leave(),
             ToRenderer::Paint => self.paint(),
@@ -742,6 +743,7 @@ impl Renderer {
             }
         };
         let page = Page::new("", strip.viewport)
+            .at_scale(strip.scale)
             .at(crate::strip::address().unwrap_or_else(alo_url::Url::about_blank))
             .with_sheet(strip_document::SHEET);
         self.easel.borrow_mut().begin(&page);
@@ -792,16 +794,20 @@ impl Renderer {
         FromRenderer::Claimed(strip_claim::claimed(drawing, document, at))
     }
 
-    /// The same page at another size: the document it has, drawn again,
-    /// running none of its script — never its markup parsed again, which
-    /// would lose everything its script and the agent changed. What its
-    /// script reads of its viewport is the new size from here on.
-    fn resize(&mut self, viewport: Size) -> FromRenderer {
+    /// The same page at another size, or on a screen of another scale: the
+    /// document it has, drawn again, running none of its script — never its
+    /// markup parsed again, which would lose everything its script and the
+    /// agent changed. What its script reads of its viewport is the new size
+    /// from here on, and it is laid out and drawn at the new scale (ADR 0057
+    /// § 3).
+    fn resize(&mut self, screen: Screen) -> FromRenderer {
         let Some(page) = &mut self.page else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
-        page.viewport = viewport;
-        self.view.resized(viewport);
+        page.viewport = screen.size;
+        page.scale = screen.scale();
+        self.view.resized(screen.size);
+        self.easel.borrow_mut().rescale(screen.scale());
         self.draw();
         self.loaded()
     }

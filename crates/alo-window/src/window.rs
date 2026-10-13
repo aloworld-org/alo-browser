@@ -68,7 +68,7 @@ use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
 use crate::notice::Lettering;
-use crate::place::{Placement, replication, viewport};
+use crate::place::{Placement, scale, screen};
 use crate::present::Presenter;
 use crate::showing::Showing;
 use alo_renderer::Visibility;
@@ -142,35 +142,31 @@ struct App {
 }
 
 impl App {
-    /// The window's size in device pixels and how much a CSS pixel is
-    /// replicated, if there is a window.
+    /// The window's size in device pixels and its whole scale, if there is
+    /// a window.
     fn measured(&self) -> Option<((u32, u32), u32)> {
         self.window.as_ref().map(|window| {
             let size = window.inner_size();
-            (
-                (size.width, size.height),
-                replication(window.scale_factor()),
-            )
+            ((size.width, size.height), scale(window.scale_factor()))
         })
     }
 
-    /// Tell the conductor the size a page in this window is laid out at.
+    /// Tell the conductor the size a page in this window is laid out at,
+    /// and the scale of the screen it is on (ADR 0057 § 3).
     fn send_size(&self) {
-        if let Some((window, replication)) = self.measured() {
+        if let Some((window, scale)) = self.measured() {
             // A conductor that has gone is a window closing; there is nobody
             // left to lay anything out for.
-            let _ = self
-                .orders
-                .send(Order::Resize(viewport(window, replication)));
+            let _ = self.orders.send(Order::Resize(screen(window, scale)));
         }
     }
 
     /// Draw the window from what it has been sent.
     fn draw(&mut self) {
-        let Some((window, replication)) = self.measured() else {
+        let Some((window, scale)) = self.measured() else {
             return;
         };
-        let canvas = compose(&self.showing.scene(window, replication), &self.lettering);
+        let canvas = compose(&self.showing.scene(window, scale), &self.lettering);
         if let Some(presenter) = self.presenter.as_mut()
             && let Err(why) = presenter.show(&canvas)
         {
@@ -178,15 +174,15 @@ impl App {
         }
     }
 
-    /// Where things are in the window now, and how much a CSS pixel is
-    /// replicated, if there is a window.
+    /// Where things are in the window now, and its whole scale, if there is
+    /// a window.
     fn placed(&self) -> Option<((u32, u32), Placement, u32)> {
-        let (window, replication) = self.measured()?;
-        let scene = self.showing.scene(window, replication);
+        let (window, scale) = self.measured()?;
+        let scene = self.showing.scene(window, scale);
         Some((
             window,
-            Placement::of(window, replication, scene.contents()),
-            replication,
+            Placement::of(window, scale, scene.contents()),
+            scale,
         ))
     }
 
@@ -194,12 +190,12 @@ impl App {
     /// if there is a window — over nothing, at the window's corner, when the
     /// cursor has not been seen.
     fn aimed(&self) -> Option<(Aimed, alo_paint::Point)> {
-        let (window, placed, replication) = self.placed()?;
+        let (window, placed, scale) = self.placed()?;
         let at = self.cursor.unwrap_or_default();
         let over = self
             .cursor
-            .map_or(Aimed::Nothing, |at| aim(window, &placed, replication, at));
-        Some((over, on_page(&placed, replication, at)))
+            .map_or(Aimed::Nothing, |at| aim(window, &placed, scale, at));
+        Some((over, on_page(&placed, scale, at)))
     }
 
     /// The cursor moved to `at`, in device pixels: what the page is sent of

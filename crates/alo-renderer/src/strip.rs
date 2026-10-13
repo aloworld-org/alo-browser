@@ -60,12 +60,16 @@ pub fn site() -> Site {
 pub const LONGEST_TITLE: usize = 1024;
 
 /// The strip, as the browser process sees it at one instant.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Strip {
     /// Every open tab, in the order the browser process keeps them.
     pub tabs: Vec<StripTab>,
     /// How big the strip is drawn, in CSS pixels.
     pub viewport: Size,
+    /// The scale of the screen the window is on, which the strip is laid
+    /// out and drawn at, as a page is (ADR 0057 § 3): any finite factor
+    /// above zero, and anything else is one.
+    pub scale: f32,
 }
 
 /// One tab in the strip.
@@ -93,6 +97,27 @@ pub enum Condition {
     Loading,
     /// Its renderer has gone: it keeps its last frame and says so (ADR 0005).
     Gone,
+}
+
+impl Default for Strip {
+    /// No tabs, at no size, on a screen of one.
+    fn default() -> Self {
+        Self {
+            tabs: Vec::new(),
+            viewport: Size::default(),
+            scale: 1.0,
+        }
+    }
+}
+
+impl Strip {
+    /// The same strip, drawn for a screen of `scale` device pixels to the
+    /// CSS pixel. Anything that is not a finite factor above zero is one.
+    #[must_use]
+    pub fn at_scale(mut self, scale: f32) -> Self {
+        self.scale = alo_value::device_scale(scale);
+        self
+    }
 }
 
 impl StripTab {

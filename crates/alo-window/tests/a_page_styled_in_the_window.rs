@@ -18,6 +18,7 @@
 use alo_layout::Size;
 use alo_net::activity::Happened;
 use alo_net::{Pool, Purpose, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -170,7 +171,7 @@ fn conducting(origin: &str, markup: &str) -> Result<(Conductor, Receiver<News>, 
         .with_sheet("body { margin: 0 } div { height: 20px }");
     let orders = conductor.orders();
     orders
-        .send(Order::Resize(Size::new(200.0, 60.0)))
+        .send(Order::Resize(Screen::new(Size::new(200.0, 60.0))))
         .map_err(|why| why.to_string())?;
     let sent = Instant::now();
     orders
@@ -274,7 +275,7 @@ fn a_sheet_that_never_finishes_is_waited_for_only_so_long() {
     // The sheet's exchange is still in flight, and the window is answered.
     conductor
         .orders()
-        .send(Order::Resize(Size::new(300.0, 80.0)))
+        .send(Order::Resize(Screen::new(Size::new(300.0, 80.0))))
         .unwrap_or_else(|why| panic!("{why}"));
     let resized = painted(&news, PROMPTLY).unwrap_or_else(|why| panic!("{why}"));
     assert_eq!((resized.width, resized.height), (300, 80));
@@ -316,7 +317,7 @@ fn a_sheet_a_script_adds_after_the_load_holds_back_no_frame() {
     // And while that sheet trickles, nothing of the page is held back.
     conductor
         .orders()
-        .send(Order::Resize(Size::new(300.0, 80.0)))
+        .send(Order::Resize(Screen::new(Size::new(300.0, 80.0))))
         .unwrap_or_else(|why| panic!("{why}"));
     let resized = painted(&news, PROMPTLY).unwrap_or_else(|why| panic!("{why}"));
     assert_eq!((resized.width, resized.height), (300, 80));

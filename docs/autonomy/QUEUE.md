@@ -13469,7 +13469,9 @@ What stage 2's exit gate actually measures: a person using it.
   emulated scale lays out as at 1, which is how the closing condition
   above came to be written.) So a page is laid out for its screen's scale,
   reported in CSS pixels, and the closing condition above is replaced by
-  560–562's. *Closes when:* 560, 561 and 562 are closed.
+  560–562's. *Closes when:* 560, 561 and 562 are closed, and 567, which
+  562 cut and which this item's first sentence names. *(Iteration 334: 561
+  and 562 are closed; 560 and 567 remain.)*
 
 - [ ] **560. Layout for a scale.** *Cut from 299 (ADR 0057 §§ 2–3).
   Feature: `docs/features.md` stage 2, a window, tabs and a tab strip.
@@ -13570,7 +13572,7 @@ What stage 2's exit gate actually measures: a person using it.
   line where Chrome's screenshot at two does, as thick, and the case at
   one is unchanged.
 
-- [ ] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
+- [x] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
   § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,
   tabs and a tab strip. Depends on 561 and 563, both done.* `Resize` carries the scale; the
   page's renderer and the strip's paint at it; the window composes frames
@@ -13586,6 +13588,75 @@ What stage 2's exit gate actually measures: a person using it.
   `alo` on this Mac, captured with `screencapture -l`, is the composed
   reference at 2, and a frozen page reading `devicePixelRatio` and
   matching `(min-resolution: 2dppx)` is drawn as Chrome draws it at 2.
+  *Cut (iteration 334), scope not depth:* `devicePixelRatio` and the
+  `resolution` media features are **567**, measured and closed on their
+  own frozen page; where a person's 1×1 pixel lands at two, and an inline
+  box's hit area with it, is **568**; a window over the canvas's bound is
+  **569**. 562 closes on the window half, its first clause.
+  ***Done (iteration 334).*** `ToRenderer::Resize` and `Order::Resize`
+  carry a `Screen` (size and scale), written on the wire after the size
+  and read as a load's scale is (not a number refuses the message; not a
+  factor above zero is one); `Strip` carries a scale too, on the wire the
+  same way. The window (`place.rs`' `scale` and `screen`) tells the
+  conductor its whole scale with its size; the conductor tells each page
+  it loads and the strip, and a `Resize` lays the page a renderer has out
+  again at the new scale (`Easel::rescale`). Frames are in device pixels
+  and `compose.rs` places them one to one, replicating nothing; the band
+  and the window's own lines are at the scale; the pointer is divided by
+  it as before. The bound is decided: a page's picture stays at most 4,096
+  device pixels a side at every scale (`pipeline.rs`' `whole`), so a window
+  wider than that is cut, background beyond (569). Tested through the real
+  conductor and confined renderers (`a_window_on_a_screen_of_two.rs`: page
+  and strip equal to the same drawn at two, then at one after a move to a
+  screen of one, then at two again; the page at two is not the page at one
+  enlarged), the pointer and click tests now at two, two composed
+  references rewritten at two with every page pixel checked one to one,
+  hostile scales on both wires, and nine mutations. On this Mac's Retina
+  display `alo --frozen-fonts …/alo-offline/page.html` (window 12029,
+  1000×732 points) captured with `screencapture -l` is the window composed
+  at 2000×1400 through the real conductor: of 2,799,416 opaque pixels,
+  2,795,059 exact and all within one level once put through the capture's
+  profile; the other 584 are the window's rounded corners.
+
+- [ ] **567. `devicePixelRatio` and the `resolution` media features.**
+  *Cut from 562 (iteration 334; ADR 0057 § 3). Feature: `docs/features.md`
+  stage 2, a window, tabs and a tab strip. Depends on 562 (done). Needs
+  measuring.* A page is laid out and painted at its screen's scale, and
+  still not told it: `window.devicePixelRatio` is absent and
+  `(resolution: 2dppx)`, `min-resolution` and `max-resolution` are refused
+  as unknown. ADR 0057 § 3 says both answer the scale once it is painted
+  at, which it now is. What Chrome 154 under
+  `--force-device-scale-factor=2` answers for each, in `dppx`, `dpi` and
+  `x`, in a sheet and in `matchMedia`, is measured first. *Closes when:* a
+  frozen page reading `devicePixelRatio` and matching
+  `(min-resolution: 2dppx)` is laid out and drawn as Chrome draws it at
+  two, with a reference render at two, and is unchanged at one.
+
+- [ ] **568. Where a person's pointer lands at a scale.** *Cut from 562
+  (iteration 334; ADR 0057, What is not decided). Feature:
+  `docs/features.md` stage 2, a window, tabs and a tab strip. Needs
+  measuring.* At two the window divides the cursor's device-pixel point by
+  the scale, as at one, and `alo-paint`'s `occupied` keeps an inline box's
+  hit area on whole CSS pixels. ADR 0024 § 5's 1×1 pixel was measured at
+  one; whether it is a device pixel at two, and whether an inline box's
+  area is snapped in CSS or device pixels, is measured in Chrome 154 under
+  `--force-device-scale-factor=2` with `elementFromPoint` and real mouse
+  events. *Closes when:* that is written into ADR 0057 or 0024 and a
+  frozen page's pointer at two finds what Chrome finds, at points on and
+  between device pixels.
+
+- [ ] **569. A window wider than a page's picture can be.** *Cut from 562
+  (iteration 334). Feature: `docs/features.md` stage 2, a window, tabs and
+  a tab strip. Waits for a screen.* A page's picture is at most 4,096
+  device pixels a side at every scale, and a frame of 4,096 square is
+  already as large as a message across the boundary may be (64 MiB), so a
+  window over 4,096 device pixels wide — 2,048 CSS pixels at two, which a
+  5K screen reaches and this Mac's 2,880 does not — shows its page cut,
+  the window's background beyond. Raising it is a decision about how a
+  frame crosses (in pieces, or shared memory, which ADR 0005 and law 4
+  have a say in). *Closes when:* a window on a screen wider than the
+  bound shows its whole page, through confined renderers, with the
+  crossing decided in an ADR.
 
 - [x] **563. A loaded page is laid out at its scale.** *Cut from 560
   (iteration 331; ADR 0057 § 3). Feature: `docs/features.md` stage 2, a

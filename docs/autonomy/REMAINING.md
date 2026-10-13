@@ -2282,3 +2282,15 @@ exactly where Chrome 154 puts them at a real scale of two, and nothing at
 one moved. 560 stays open on 564 and 502; 562 now has both dependencies
 done. 272 queue items are open (563 closed). The next unused queue number
 is 567 and the next unused ADR 0058.
+
+Iteration 334 closed queue item 562, the window at its screen's scale, cut
+to its window half. A `Resize` carries the screen's scale, and the window
+tells the page's renderer and the strip's its whole scale; both paint in
+device pixels and the window places their frames one to one, replicating
+nothing, so text on this Mac's Retina display is drawn at its resolution.
+`alo` captured there is its composition at two in every opaque pixel within
+one level. Cut: **567** (`devicePixelRatio` and `resolution`), **568**
+(where a pointer lands at two) and **569** (a window wider than a page's
+picture can be). 299 stays open on 560 and 567. 274 queue items are open
+(562 closed; 567–569 added). The next unused queue number is 570 and the
+next unused ADR 0058.

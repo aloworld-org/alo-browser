@@ -29,6 +29,7 @@ use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::page::Page;
 use crate::pointer::Pointer;
+use crate::screen::Screen;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
 use crate::strip::Strip;
@@ -36,7 +37,6 @@ use crate::strip_claim::Claim;
 use crate::violations::Objection;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_bindings::Visibility;
-use alo_layout::Size;
 use alo_paint::Point;
 use core::fmt;
 
@@ -59,8 +59,10 @@ pub enum ToRenderer {
     UseGenerics(Generics),
     /// Render this page.
     Load(Box<Page>),
-    /// The window is a different size now.
-    Resize(Size),
+    /// The window is a different size now, or on a screen of another scale
+    /// (ADR 0057 § 3): the page is laid out and drawn for this screen from
+    /// here on.
+    Resize(Screen),
     /// The page can, or can no longer, be seen (ADR 0039 § 1).
     ///
     /// A task on the page's loop, queued in order with everything else,
@@ -396,7 +398,13 @@ impl fmt::Display for ToRenderer {
                 page.viewport.width,
                 page.viewport.height,
             ),
-            ToRenderer::Resize(size) => write!(f, "resize to {}×{}", size.width, size.height),
+            ToRenderer::Resize(screen) => write!(
+                f,
+                "resize to {}×{} at {}×",
+                screen.size.width,
+                screen.size.height,
+                screen.scale(),
+            ),
             ToRenderer::Visibility(to) => write!(f, "the page is {}", to.as_str()),
             ToRenderer::Leave => f.write_str("leave the page"),
             ToRenderer::Paint => f.write_str("paint"),
@@ -422,6 +430,7 @@ impl fmt::Display for ToRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_layout::Size;
 
     /// Everything that crosses the boundary must be able to.
     ///
@@ -512,8 +521,8 @@ mod tests {
         assert_eq!(ToRenderer::Paint.to_string(), "paint");
         assert_eq!(ToRenderer::ReadTree.to_string(), "read the tree");
         assert_eq!(
-            ToRenderer::Resize(Size::new(320.0, 480.0)).to_string(),
-            "resize to 320×480",
+            ToRenderer::Resize(Screen::new(Size::new(320.0, 480.0)).at_scale(2.0)).to_string(),
+            "resize to 320×480 at 2×",
         );
         assert_eq!(
             ToRenderer::Visibility(Visibility::Hidden).to_string(),
@@ -523,6 +532,7 @@ mod tests {
         let strip = Strip {
             tabs: vec![crate::strip::StripTab::new("a", "about:blank")],
             viewport: Size::new(640.0, 40.0),
+            scale: 1.0,
         };
         assert_eq!(
             ToRenderer::Strip(Box::new(strip)).to_string(),

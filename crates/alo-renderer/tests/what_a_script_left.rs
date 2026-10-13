@@ -21,7 +21,7 @@
 use alo_agent::{Target, Verb};
 use alo_dom::{Document, NodeId};
 use alo_layout::Size;
-use alo_renderer::{FromRenderer, Page, Renderer, Snapshot, ToRenderer};
+use alo_renderer::{FromRenderer, Page, Renderer, Screen, Snapshot, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 
 const WINDOW: Size = Size {
@@ -303,7 +303,7 @@ fn a_resize_lays_out_the_document_the_page_has_not_its_markup() {
         verb: Verb::PutText("kept".to_owned()),
     });
     let draws = renderer.draws();
-    let answer = renderer.handle(ToRenderer::Resize(Size::new(150.0, 100.0)));
+    let answer = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(150.0, 100.0))));
     assert!(matches!(answer, FromRenderer::Loaded { .. }), "{answer:?}");
     assert_eq!(renderer.draws(), draws + 1);
     let Some(drawing) = renderer.rendered() else {
@@ -382,7 +382,7 @@ fn a_page_whose_script_removes_everything_is_drawn_empty_and_still_answers() {
         verb: Verb::PutText("nowhere".to_owned()),
     });
     assert!(matches!(acted, FromRenderer::Refused(_)), "{acted:?}");
-    let resized = renderer.handle(ToRenderer::Resize(Size::new(10.0, 10.0)));
+    let resized = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(10.0, 10.0))));
     assert!(
         matches!(resized, FromRenderer::Loaded { .. }),
         "{resized:?}"

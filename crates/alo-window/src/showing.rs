@@ -89,10 +89,10 @@ impl Showing {
     }
 
     /// What to compose a window of `window` device pixels from.
-    pub fn scene(&self, window: (u32, u32), replication: u32) -> Scene<'_> {
+    pub fn scene(&self, window: (u32, u32), scale: u32) -> Scene<'_> {
         Scene {
             window,
-            replication,
+            scale,
             strip: self.strip(),
             strip_sentence: self.strip_sentence(),
             frame: self.frame(),
@@ -187,7 +187,7 @@ mod tests {
         showing.hear(News::Painted(a_frame(1)));
         let scene = showing.scene((30, 20), 2);
         assert_eq!(scene.window, (30, 20));
-        assert_eq!(scene.replication, 2);
+        assert_eq!(scene.scale, 2);
         assert_eq!(scene.frame, Some(&a_frame(1)));
         assert_eq!(scene.sentence, None);
         assert_eq!((scene.strip, scene.strip_sentence), (None, None));

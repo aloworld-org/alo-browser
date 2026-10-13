@@ -20,6 +20,7 @@
 
 use alo_layout::Size;
 use alo_net::{Cause, Pool, Trust};
+use alo_renderer::Screen;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::navigate::Decided;
@@ -91,7 +92,7 @@ fn browsing() -> Result<Conductor, String> {
     .map_err(|why| format!("no conductor: {why}"))?;
     let orders = conductor.orders();
     orders
-        .send(Order::Resize(Size::new(600.0, 700.0)))
+        .send(Order::Resize(Screen::new(Size::new(600.0, 700.0))))
         .map_err(|_| "the conductor is gone".to_owned())?;
     // The shop's page is stated at where the redirect ended, as the browser
     // process states every page it fetched; the tab is where it was opened.

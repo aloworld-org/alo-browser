@@ -57,6 +57,7 @@ fn strip_of(tabs: Vec<StripTab>, width: f32) -> Strip {
     Strip {
         tabs,
         viewport: Size::new(width, HEIGHT),
+        scale: 1.0,
     }
 }
 

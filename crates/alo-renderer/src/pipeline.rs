@@ -395,6 +395,12 @@ pub fn draw(
 
 /// A size in whole device pixels, at most 4,096 of them, without a
 /// float-to-integer cast.
+///
+/// The bound is in device pixels at every scale (queue item 562), so a
+/// window over 4,096 device pixels a side — 2,048 CSS pixels at two — shows
+/// its page cut at that edge, with the window's background beyond. Raising
+/// it is queue item 569, since a frame that size is already as large as
+/// [`crate::wire::LARGEST_MESSAGE`].
 fn whole(value: f32) -> u32 {
     let clamped = value.round().clamp(0.0, 4096.0);
     let mut whole = 0u32;

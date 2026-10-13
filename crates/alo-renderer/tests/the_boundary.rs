@@ -14,7 +14,7 @@
 
 use alo_agent::{AgentTree, ScrollBy, Target, Verb};
 use alo_layout::Size;
-use alo_renderer::{Failure, FromRenderer, Page, Renderer, ToRenderer};
+use alo_renderer::{Failure, FromRenderer, Page, Renderer, Screen, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 
 const PAGE: &str = "<!DOCTYPE html><html><body><main>\
@@ -58,7 +58,7 @@ fn a_renderer_with_nothing_loaded_answers_every_question_with_a_failure() {
     for work in [
         ToRenderer::Paint,
         ToRenderer::ReadTree,
-        ToRenderer::Resize(Size::new(100.0, 100.0)),
+        ToRenderer::Resize(Screen::new(Size::new(100.0, 100.0))),
         ToRenderer::Act {
             target: Target::Named("Save".to_owned()),
             verb: Verb::Activate,
@@ -214,7 +214,7 @@ fn resizing_lays_the_same_page_out_again() {
     let mut renderer = loaded();
     assert_eq!(renderer.viewport(), Some(Size::new(240.0, 200.0)));
     assert!(matches!(
-        renderer.handle(ToRenderer::Resize(Size::new(120.0, 400.0))),
+        renderer.handle(ToRenderer::Resize(Screen::new(Size::new(120.0, 400.0)))),
         FromRenderer::Loaded { .. },
     ));
     assert_eq!(renderer.viewport(), Some(Size::new(120.0, 400.0)));

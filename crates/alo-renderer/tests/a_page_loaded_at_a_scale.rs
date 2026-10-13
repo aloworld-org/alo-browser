@@ -4,7 +4,9 @@
 
 //! Queue item 563 (ADR 0057 § 3): a renderer is told the scale of the
 //! screen its page is shown on with the page, and lays the page out and
-//! draws it there for the page's life.
+//! draws it there for the page's life — until a `Resize` says the window
+//! is on a screen of another scale (item 562), when the page it has is laid
+//! out and drawn at that one.
 //!
 //! The box measured is a `<div>` `0.31px` wide with a `0.31px` padding: a
 //! length truncated onto 1/64 px at one and 1/128 px at two (ADR 0057,
@@ -14,7 +16,7 @@
 
 use alo_dom::Document;
 use alo_layout::Size;
-use alo_renderer::{FromRenderer, Page, Renderer, ToRenderer};
+use alo_renderer::{FromRenderer, Page, Renderer, Screen, ToRenderer};
 use alo_text::FontDatabase;
 
 const PAGE: &str = "<!doctype html><body style=\"margin:0\">\
@@ -69,15 +71,35 @@ fn a_page_is_laid_out_and_painted_at_the_scale_it_was_loaded_at() {
 }
 
 #[test]
-fn a_page_keeps_its_scale_when_its_window_is_resized() {
+fn a_page_keeps_its_scale_when_its_window_is_resized_on_the_same_screen() {
     let mut renderer = Renderer::new(FontDatabase::new());
     assert!(load(
         &mut renderer,
         Page::new(PAGE, Size::new(100.0, 50.0)).at_scale(2.0)
     ));
-    let _ = renderer.handle(ToRenderer::Resize(Size::new(120.0, 60.0)));
+    let _ = renderer.handle(ToRenderer::Resize(
+        Screen::new(Size::new(120.0, 60.0)).at_scale(2.0),
+    ));
     assert_eq!(painted(&mut renderer), Some((240, 120)));
     assert_eq!(div_width(&renderer), Some(39.0));
+}
+
+#[test]
+fn a_page_moved_to_a_screen_of_another_scale_is_laid_out_and_painted_at_it() {
+    // A window dragged from a screen of one to a screen of two, and back
+    // (ADR 0057 § 3): its `Resize` says the new screen's scale, and the
+    // page it already has is laid out and painted there.
+    let mut renderer = Renderer::new(FontDatabase::new());
+    assert!(load(&mut renderer, Page::new(PAGE, Size::new(100.0, 50.0))));
+    assert_eq!(div_width(&renderer), Some(38.0));
+    let _ = renderer.handle(ToRenderer::Resize(
+        Screen::new(Size::new(100.0, 50.0)).at_scale(2.0),
+    ));
+    assert_eq!(div_width(&renderer), Some(39.0));
+    assert_eq!(painted(&mut renderer), Some((200, 100)));
+    let _ = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(100.0, 50.0))));
+    assert_eq!(div_width(&renderer), Some(38.0));
+    assert_eq!(painted(&mut renderer), Some((100, 50)));
 }
 
 #[test]
