@@ -8292,7 +8292,7 @@ The long pole, and the thing most of section E is unreachable without.
   pixels, and that rule is held by `a_background_on_device_pixels.rs`.
   Nothing in the engine changed.
 
-- [ ] **462. A letter's edge pixels are covered as Chrome's are.** *Found
+- [x] **462. A letter's edge pixels are covered as Chrome's are.** *Found
   building 459 (iteration 291). Feature: `docs/features.md` stage 1,
   glyph rasterisation. Needs measuring.* Letters are still filled with
   the rented rasteriser's four-by-four sampling (`alo-paint`'s
@@ -8306,6 +8306,23 @@ The long pole, and the thing most of section E is unreachable without.
   letter on every page. *Closes when:* a frozen case's letters are within
   a stated, measured bound of Chrome's, and shapes and letters are
   sampled alike or the reason they are not is written down.
+  ***Done (iteration 339).*** Measured on `cases/letters-at-three-sizes`
+  (`DejaVu Sans`, black on white, at 12, 13 and 16 px, two lines each)
+  against Chrome 154's screenshot at one, without `--disable-gpu`, as it
+  draws a page (`chrome.png`) and with `-webkit-font-smoothing:
+  antialiased` (`chrome-antialiased.png`). Scored per line as the mean
+  difference in ink over pixels either picture inks: sampled sixteen by
+  sixteen every line is nearer than four by four — 23.45 against 25.37 at
+  12, 38.89 against 42.14 at 13, 22.22 against 22.61 at 16 as Chrome draws
+  a page; 20.20 against 23.57, 37.08 against 41.04 and 16.60 against 20.02
+  antialiased. So `fill_letters` is gone and letters are filled by `fill`,
+  as shapes are; `letters_against_chromes.rs` holds each size to its
+  measured bound in both pictures and to its ink ratio, and four-by-four
+  sampling fails it (mutation checked). What remains is not sampling, and
+  is filed: on macOS Chrome thickens every letter, 12 to 16 per cent more
+  ink (576); and it pulls an `x`'s and a capital's top up to a whole pixel
+  (577). Chrome's 8× screenshot, box-filtered to one, is not a usable
+  reference for position: it puts a 13 px line's letters 0.8 px lower.
 
 - [ ] **463. A disabled control's translucent shapes meet without a
   seam.** *Found building 454 (iteration 288); filed building 459
@@ -13866,6 +13883,35 @@ What stage 2's exit gate actually measures: a person using it.
   is measured, nor is anything at a fractional scale. *Closes when:* each
   is measured in Chrome 154 at one and at two and written into ADR 0057's
   table, and a frozen page of each at tenths of a pixel is Chrome's.
+
+- [ ] **576. Whether letters are thickened as Chrome thickens them on
+  macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`
+  stage 1, glyph rasterisation. Needs ADR.* Chrome 154 on macOS draws every
+  letter heavier than its outline's area: against `letters-at-three-sizes`'
+  `chrome.png` this engine's letters carry 12 to 16 per cent less ink at
+  12, 13 and 16 px, and the gap all but closes (within 2 per cent at 12
+  and 16) when the page sets `-webkit-font-smoothing: antialiased`. It is
+  the platform's font smoothing, which Chrome on Linux and Windows does not
+  apply, and this browser is for every operating system (`ROADMAP.md`,
+  *Where it runs*). Whether to thicken letters on macOS, everywhere, or
+  nowhere — and whether to honour `-webkit-font-smoothing` — is a
+  decision, written as an ADR before any code. *Closes when:* the ADR is
+  accepted and, if it says to thicken, `letters_against_chromes.rs`'s
+  bound against `chrome.png` is the antialiased one's.
+
+- [ ] **577. A letter's top on a whole pixel, as Chrome puts it.** *Found
+  closing 462 (iteration 339). Feature: `docs/features.md` stage 1, glyph
+  rasterisation. Needs measuring.* With its thickening off, Chrome 154's
+  letters at 12, 13 and 16 px end on the same rows as this engine's at the
+  baseline, but an `x`'s top and a capital's are pulled up to a whole
+  pixel: at 13 px the row above the x-height is 263 of ink across a line
+  where this engine's is 103, and the row above the capitals 140 where it
+  is 80. It is most of `letters-at-three-sizes`' remaining difference at
+  13 px (37 levels where 12 and 16 are 20 and 17). Which heights are
+  rounded, which way, at which sizes, and whether at two as at one, is
+  measured first, in a face with altered heights (`fontTools`) as well as
+  `DejaVu Sans`. *Closes when:* the rule is written down, built, and that
+  case's 13 px lines are within the bound its 12 and 16 px lines meet.
 
 - [ ] **300. A link opens a tab.** *Cut from 118 (ADR 0024 § 6; ADR 0020
   § 2).* `target="_blank"` on a link a person activated becomes a decided

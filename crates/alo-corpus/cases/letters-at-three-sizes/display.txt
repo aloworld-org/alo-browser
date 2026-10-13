@@ -1,0 +1,7 @@
+fill box#1 rgb(255 255 255) at (0, 0) 500×144
+text box#4 "Sphinx of black quartz, judge my vow. 0123456789" rgb(0 0 0) 12px at (4, 16)
+text box#7 "THE FIVE BOXING WIZARDS JUMP QUICKLY! (a@b.c)" rgb(0 0 0) 12px at (4, 40)
+text box#10 "Sphinx of black quartz, judge my vow. 0123456789" rgb(0 0 0) 13px at (4, 64)
+text box#13 "THE FIVE BOXING WIZARDS JUMP QUICKLY! (a@b.c)" rgb(0 0 0) 13px at (4, 88)
+text box#16 "Sphinx of black quartz, judge my vow. 0123456789" rgb(0 0 0) 16px at (4, 113)
+text box#19 "THE FIVE BOXING WIZARDS JUMP QUICKLY! (a@b.c)" rgb(0 0 0) 16px at (4, 137)

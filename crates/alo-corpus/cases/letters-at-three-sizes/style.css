@@ -1,0 +1,13 @@
+/* Letters against Chrome's: queue item 462. `DejaVu Sans`, black on
+   white, at 12, 13 and 16 px, a pangram in lower case and one in
+   capitals at each, every line 24 px tall so its baseline is on a whole
+   pixel. `chrome.png` is Chrome 154's screenshot of these bytes at one
+   device pixel to one, without `--disable-gpu`, with the corpus's own
+   font given to it by `@font-face`; `chrome-antialiased.png` is the same
+   with `-webkit-font-smoothing: antialiased` added, which on macOS turns
+   off the thickening Chrome otherwise gives every letter (item 576). */
+body { margin: 0; background: #ffffff; color: #000000 }
+p { margin: 0; padding-left: 4px; line-height: 24px; font-family: sans-serif }
+.at-12 { font-size: 12px }
+.at-13 { font-size: 13px }
+.at-16 { font-size: 16px }

@@ -87,6 +87,6 @@ pub use glyph::{Glyph, outline, outline_at};
 pub use hit::box_at;
 pub use paint::Paint;
 pub use path::{Path, Point, Segment};
-pub use raster::{fill, fill_letters, fill_on_page};
+pub use raster::{fill, fill_on_page};
 pub use render::{outlined_run, outlined_run_at, render};
 pub use stroke::{Dashes, LineCap, LineJoin, Stroke};

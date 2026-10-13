@@ -29,7 +29,7 @@ use crate::drawn_picture::draw_picture;
 use crate::glyph::outline_at;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
-use crate::raster::{fill, fill_letters, fill_on_page};
+use crate::raster::{fill, fill_on_page};
 use crate::synthesis::leaned;
 use alo_text::{Direction, Font, shape_at};
 use alo_value::{Matrix, Rgba};
@@ -160,7 +160,7 @@ fn draw_text(
     for shadow in shadows.iter().rev() {
         let placed = outlined.translated(Point::new(shadow.offset.0, shadow.offset.1));
         let soft = blurred(
-            &fill_letters(&moved(&placed, current)),
+            &fill(&moved(&placed, current)),
             shadow.blur * current.scale_factor(),
         );
         draw_coverage(
@@ -173,7 +173,7 @@ fn draw_text(
     }
     draw_coverage(
         target,
-        &fill_letters(&moved(&outlined, current)),
+        &fill(&moved(&outlined, current)),
         &Paint::Solid(*color),
         current,
         clip,
@@ -522,7 +522,7 @@ mod tests {
         let mut expected = Canvas::new(1700, 60, Rgba::WHITE);
         let set_at_two = outlined_run_at(&text, &font, 13.337, 2.0, 0.0, (2.0, 20.0));
         let paint = Paint::Solid(Rgba::BLACK);
-        let ink = fill_letters(&moved(&set_at_two, screen));
+        let ink = fill(&moved(&set_at_two, screen));
         draw_coverage(&mut expected, &ink, &paint, screen, None);
         let mut differing = 0;
         for y in 0..60 {

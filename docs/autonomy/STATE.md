@@ -33921,3 +33921,123 @@ that `checkbox-beside-text` is Chrome's outside its controls and text.
 277 queue items are open (461 closed). The next unused queue number is
 **576** and the next ADR is **0058**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 339 — queue item 462 closed: letters are sampled as shapes are, measured against Chrome's
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+head and stage 1 *Paint* line; iteration 338's entry and 291's (item
+459); queue items 462, 463, 566, 568, 569 and 573–575;
+`docs/features.md`' glyph rasterisation and one-rasteriser lines;
+`docs/conformance.md`'s curve paragraph; `alo-paint`'s `raster.rs`,
+`refine.rs` and `render.rs`. No ADR governs letters' sampling (459 built
+shapes' without one, and 462 is a measurement, not a decision). No
+`AGENTS.md` exists here.
+
+**Why 462.** Iteration 338 closed 461, and 462 is now the first open item
+in the file that is not blocked: it depends on nothing and names its
+feature and closing condition. 463 and the measurement items after 560
+come later in the file; 560, 564 and 572 wait on a person, as 337
+recorded.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`,
+without `--disable-gpu`, `DejaVu Sans` from the `dejavu` crate by
+`@font-face`; the source not read). `cases/letters-at-three-sizes`:
+two pangrams each at 12, 13 and 16 px, black on white, baselines on whole
+pixels. Scored per line as the mean difference in ink (255 less the grey)
+over the pixels either picture inks:
+
+| line | rented, plain | fine, plain | rented, antialiased | fine, antialiased |
+|------|------|------|------|------|
+| 12 a | 25.37 | 23.45 | 23.57 | 20.20 |
+| 12 b | 24.44 | 22.70 | 22.72 | 19.78 |
+| 13 a | 42.14 | 38.89 | 41.04 | 37.08 |
+| 13 b | 37.89 | 36.11 | 37.83 | 35.26 |
+| 16 a | 22.18 | 21.20 | 17.12 | 15.39 |
+| 16 b | 22.61 | 22.22 | 20.02 | 16.60 |
+
+"Antialiased" is the page with `-webkit-font-smoothing: antialiased`.
+Every line is nearer sampled sixteen by sixteen. The rest is not
+sampling: as Chrome draws a page, its letters carry 12–16 per cent more
+ink at every size (the ratio of ours to Chrome's is 0.83–0.89), and
+with that thickening turned off, 0.93–0.99. Chrome's pixels have no
+colour fringes (every channel equal). With the thickening off, the rows
+at the baseline agree, but the row above an `x`'s top and above the
+capitals are much heavier in Chrome (at 13 px 263 against 103, 140
+against 80): Chrome pulls those tops up to a whole pixel. Chrome's 8×
+screenshot box-filtered to one is not a usable position reference: it
+places a 13 px line 0.8 px lower than its own 1× does.
+
+**Built.**
+- `alo-paint`'s `raster.rs`: `fill_letters` and the `Sampling` switch
+  are gone; a letter is filled by `fill`, every edge tile sampled sixteen
+  by sixteen as every shape has been since 459. Its documentation says
+  what was measured and what remains (576, 577). Callers moved:
+  `render.rs` (text and its shadows, and the scale-two unit test),
+  `alo-window`'s `notice.rs`, and `tests/a_letter.rs`. Two unit tests that
+  compared with `fill_letters` now assert the shape alone.
+- `cases/letters-at-three-sizes` with `chrome.png` and
+  `chrome-antialiased.png`, and `tests/letters_against_chromes.rs`: each
+  size's lines within the measured bound against both pictures (20.5,
+  37.5, 17.0 antialiased; 23.75, 39.25, 22.5 plain) and their ink ratio
+  within (0.93, 1.0) and (0.83, 0.9).
+- Comments that sent letters' remaining differences to 462 now name 576
+  and 577 (`a_disabled_control.rs`, `a_form_on_somebody_elses_page_is_sent.rs`,
+  `a_background_beside_controls.rs`).
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (clippy
+caught a `panic!` in the new test's helper, which now returns a
+`Result`). `scripts/gate.sh` started in the foreground into a scratchpad
+log; it passed the tool's 600 s limit and was moved to the background,
+and the next call waited on it with a foreground `until` loop, nothing
+else running: **`exit 0`, "The gate is met. (10 of 10 steps)"**, no
+`FAILED`, `panicked` or `^error` line. Only this entry and the commit
+came after it.
+
+**Gate, manual.**
+- Layout, in numbers: nothing positions or sizes differently; no
+  `layout.txt`, `boxes.txt`, `display.txt` or `agent.txt` changed. The
+  new case's are committed.
+- Reference renders: rewritten with `ALO_UPDATE_REFERENCES=1` (alo-corpus,
+  alo-window, alo-paint and alo-renderer's three picture tests) from a
+  tree backed up first, and checked by script against `HEAD`: 73 pictures
+  and 306,098 pixels moved, at most 60 levels, and not one changed pixel
+  had a uniform 5×5 neighbourhood before — every one is at a letter's
+  edge. Against committed Chrome pictures: `a-button-with-its-own-background`
+  1.711 → 1.697, `a-disabled-control` 0.582 → 0.577,
+  `a-script-hears-an-event` 1.658 → 1.571, `web-a-form` 2.665 → 2.656
+  nearer; `checkbox-beside-text` 0.965 → 0.991 further. There the text's
+  signed gap to Chrome went from 22.4 to 23.1 levels lighter over its
+  1,932 changed pixels: the finer sampling's slightly lighter letters
+  against Chrome's thickened ones, item 576's gap, not a sampling fault.
+- Mutation, restored from a copy (`cmp` confirmed): the fine pass skipped
+  (four-by-four everywhere) fails both new tests, reproducing the rented
+  column's numbers exactly.
+- Hostile input: nothing new reads bytes from outside. Letters now go
+  through 459's plan, whose work is bounded by its segment budget.
+- Cost: no speed claim is made. Letters' edge tiles are now filled a
+  second time at four times the size; nothing was timed.
+- One file, one responsibility: sampling stays `raster.rs`' and
+  `refine.rs`'; the new test file holds one closing check.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 462 ticked with a *Done (iteration 339)* paragraph. Added 576
+(whether to thicken letters as Chrome on macOS does; needs ADR, since it
+is one platform's smoothing and this browser is for every system) and
+577 (a letter's top on a whole pixel; needs measuring).
+
+**Roadmap.** Stage 1's *Paint* line, already ticked, moves letters from
+its Owed clause to what is built (462) and owes 576 and 577 instead.
+
+**Unresolved obligations.**
+- 576 (an ADR before code) and 577; 463 (a disabled control's seam) as
+  before; 573–575, 566, 568–571 as before; 560 and 564 on 502 behind
+  501; 572 on a person.
+- No claim about speed is made.
+
+278 queue items are open (462 closed; 576–577 added). The next unused
+queue number is **578** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

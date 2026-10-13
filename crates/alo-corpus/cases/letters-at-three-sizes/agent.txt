@@ -1,0 +1,13 @@
+document at (0, 0) 500×144
+  paragraph at (0, 0) 500×24
+    text "Sphinx of black quartz, judge my vow. 0123456789" at (4, 5) 308.99414×14
+  paragraph at (0, 24) 500×24
+    text "THE FIVE BOXING WIZARDS JUMP QUICKLY! (a@b.c)" at (4, 29) 308.7246×14
+  paragraph at (0, 48) 500×24
+    text "Sphinx of black quartz, judge my vow. 0123456789" at (4, 52) 334.74365×15
+  paragraph at (0, 72) 500×24
+    text "THE FIVE BOXING WIZARDS JUMP QUICKLY! (a@b.c)" at (4, 76) 334.45166×15
+  paragraph at (0, 96) 500×24
+    text "Sphinx of black quartz, judge my vow. 0123456789" at (4, 98) 411.9922×19
+  paragraph at (0, 120) 500×24
+    text "THE FIVE BOXING WIZARDS JUMP QUICKLY! (a@b.c)" at (4, 122) 411.6328×19

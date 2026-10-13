@@ -19,10 +19,14 @@
 //! the exact area on a rounded corner and a dot, at the cost of only the
 //! pixels along the edge.
 //!
-//! **Letters are not**, yet: [`fill_letters`] keeps the rented sampling.
-//! Whether exact area brings text nearer Chrome's, whose letters come from a
-//! font rasteriser with its own treatment of thin strokes, is a measurement
-//! of its own (queue item 462), and every letter on every page would move.
+//! **Letters are shapes like any other** and are sampled the same way
+//! (queue item 462). Measured against Chrome 154's screenshots of `DejaVu
+//! Sans` at 12, 13 and 16 px (`alo-corpus`' `letters-at-three-sizes`), the
+//! finer sampling brings every line nearer Chrome's than the rented four by
+//! four did. What still separates them is not sampling: on macOS Chrome
+//! thickens every letter (its font smoothing, about an eighth more ink), and
+//! it pulls a letter's top up to a whole pixel where this engine draws the
+//! outline where the font puts it (items 576 and 577).
 //!
 //! # Coverage, not colour
 //!
@@ -53,15 +57,7 @@ use crate::stroke::{LineCap, LineJoin, Stroke};
 /// CSS uses for everything it fills. Anti-aliased, because a letter with hard
 /// edges at these sizes is unreadable.
 pub fn fill(path: &Path) -> Coverage {
-    covered(path, FillRule::NonZero, None, Sampling::Fine)
-}
-
-/// Fill a run of letters, sampled as the rented rasteriser samples.
-///
-/// The same as [`fill`] but for where an edge is: see the module's
-/// documentation for why letters are not yet sampled finely.
-pub fn fill_letters(path: &Path) -> Coverage {
-    covered(path, FillRule::NonZero, None, Sampling::Rented)
+    covered(path, FillRule::NonZero, None)
 }
 
 /// Fill a path by a rule, keeping only the part that lands on a page of this
@@ -74,19 +70,10 @@ pub fn fill_letters(path: &Path) -> Coverage {
 /// shape rasterised, because coverage is a property of each pixel and the
 /// shape around it, not of how large the mask is.
 pub fn fill_on_page(path: &Path, rule: FillRule, page: (u32, u32)) -> Coverage {
-    covered(path, rule, Some(page), Sampling::Fine)
+    covered(path, rule, Some(page))
 }
 
-/// How finely a pixel an edge passes through is sampled.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Sampling {
-    /// Four by four, as the rented rasteriser does.
-    Rented,
-    /// Sixteen by sixteen, where an edge is.
-    Fine,
-}
-
-fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>, sampling: Sampling) -> Coverage {
+fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>) -> Coverage {
     let Some((left, top, right, bottom)) = path.bounds() else {
         return Coverage::empty();
     };
@@ -123,12 +110,10 @@ fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>, sampling: Samp
     };
     mask.fill_path(&built, rule, true, tiny_skia::Transform::identity());
     let mut data = mask.take();
-    if sampling == Sampling::Fine {
-        let plan = Plan::of(&data, width, height, path.segments().len());
-        for &window in plan.windows() {
-            if let Some(fine) = finely(&built, rule, window) {
-                plan.write(window, &fine, &mut data);
-            }
+    let plan = Plan::of(&data, width, height, path.segments().len());
+    for &window in plan.windows() {
+        if let Some(fine) = finely(&built, rule, window) {
+            plan.write(window, &fine, &mut data);
         }
     }
 
@@ -404,15 +389,14 @@ mod tests {
             );
         }
         assert!(within(coverage.at(0, 0), 35.0, 4.0));
-        // Letters keep the rented sampling.
-        assert!(fill_letters(&square).at(0, 0) < 20);
     }
 
     #[test]
     fn a_rectangle_on_whole_pixels_is_unchanged_by_fine_sampling() {
         let rectangle = Path::rectangle(3.0, 2.0, 40.0, 20.0);
-        assert_eq!(fill(&rectangle), fill_letters(&rectangle));
-        assert!(fill(&rectangle).data().iter().all(|&value| value == 255));
+        let coverage = fill(&rectangle);
+        assert_eq!((coverage.width(), coverage.height()), (40, 20));
+        assert!(coverage.data().iter().all(|&value| value == 255));
     }
 
     #[test]

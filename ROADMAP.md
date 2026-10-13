@@ -241,8 +241,12 @@ correctness, not before it.
       item 459 (iteration 291): the rented rasteriser's four-by-four
       sampling drew a radio's dot 159 on one edge and 191 on the other. A
       shape's edge pixels are now sampled sixteen by sixteen, within 3 of
-      255 of their exact area. Owed: letters, which keep the rented
-      sampling until they are measured against Chrome's (462). Since queue
+      255 of their exact area, and since queue item 462 (iteration 339)
+      letters are too: against Chrome 154's screenshots at 12, 13 and 16
+      px every line is nearer, within a measured bound
+      (`letters-at-three-sizes`). Owed: Chrome's macOS thickening of
+      letters (576, a decision) and its letter tops on whole pixels (577).
+      Since queue
       item 565 (iteration 337) a box's background, border and shadows are
       drawn from its box on whole device pixels, as Chrome 154 draws them
       at one and at two, and since queue item 461 (iteration 338)

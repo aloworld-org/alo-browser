@@ -20,7 +20,7 @@
 //! `--disable-gpu`. Every pixel outside a control and a run of text — the
 //! whole pixels that cover each one's box — is Chrome's exactly: 49,525 of
 //! the page's 60,000. The controls are `a_control_on_whole_pixels.rs`'
-//! and the letters are item 462's.
+//! and the letters are `letters_against_chromes.rs`'.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;

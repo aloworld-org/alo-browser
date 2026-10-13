@@ -142,7 +142,7 @@ fn the_text_is_chromes_grey() {
     // Measured: the darkest pixel of each control's text is Chrome's, 171
     // on a button (a near-black at three tenths over its fill) and 84 in a
     // field, and a level off at most over the page's yellow. The letters'
-    // edges differ by more, which is queue item 462's. With the sheet's
+    // edges differ by more: items 576 and 577. With the sheet's
     // old `#6d6d6d` the button's is 109, 62 off.
     let Some((rendering, chrome)) = case() else {
         panic!("the case renders and Chrome's screenshot reads");

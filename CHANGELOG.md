@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Letters are drawn with the same care as every other shape.** The
+  edge of a letter used to be sampled more coarsely than the edge of a
+  box or a rounded corner. Measured against Chrome's screenshots of the
+  same text at three sizes, the finer sampling brings every line nearer,
+  so every letter on every page moved slightly. Chrome on a Mac still
+  draws text a little heavier and pulls letters' tops onto whole pixels;
+  both are written down as their own pieces of work.
+
 - **The gate runs its tests in less time and checks the same things.** Each
   test now runs in its own process, which is a third quicker over 4,642 of
   them, and the doctests — which that runner skips, and which include two that

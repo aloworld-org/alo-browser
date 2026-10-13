@@ -2341,3 +2341,16 @@ Chrome 154's screenshot exactly, held by `a_background_beside_controls.rs`.
 Nothing in the engine changed; 460 and 565 had built what it asked. 277
 queue items are open (461 closed). The next unused queue number is 576
 and the next unused ADR 0058.
+
+Iteration 339 closed queue item 462: letters are sampled sixteen by
+sixteen where an edge is, as every shape has been since 459. Measured
+against Chrome 154's screenshots of `DejaVu Sans` at 12, 13 and 16 px
+(`cases/letters-at-three-sizes`, as Chrome draws it and with
+`-webkit-font-smoothing: antialiased`), every line is nearer than with the
+rented four-by-four sampling, and `letters_against_chromes.rs` holds each
+size to its measured bound. 73 reference pictures moved, every changed
+pixel at a letter's edge. Found: **576** (Chrome on macOS thickens every
+letter, an eighth more ink; a decision, since it is one platform's) and
+**577** (Chrome pulls a letter's top up to a whole pixel; needs
+measuring). 278 queue items are open (462 closed; 576–577 added). The next
+unused queue number is 578 and the next unused ADR 0058.

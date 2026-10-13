@@ -199,8 +199,15 @@ samples a pixel four by four, which drew a dot twelve pixels across 111 on
 its left edge and 95 on its right and lost two thirds of a pixel of its area,
 so every tile a shape's edge passes through is sampled again sixteen by
 sixteen. A small curve is then within 3 of 255 of its exact area, and a
-straight edge within 8, the same on both sides. Letters are not yet (462):
-whether that brings them nearer Chrome's is unmeasured.
+straight edge within 8, the same on both sides. **Letters are sampled the
+same way** (item 462). Against Chrome 154's screenshots of `DejaVu Sans` at
+12, 13 and 16 px (`letters-at-three-sizes`), every line is nearer than with
+the rented sampling: the mean difference in ink over inked pixels is 20, 37
+and 17 levels at the three sizes where Chrome's letters are unthickened,
+and 23, 39 and 22 as Chrome draws a page. **Not yet:** on macOS Chrome
+thickens every letter, so this engine's carry 12 to 16 per cent less ink
+than Chrome's screenshot (576), and Chrome pulls a lower-case letter's and a
+capital's top up to a whole pixel, which at 13 px is most of a row (577).
 
 An inline box broken around a block is read by an agent as **one thing**: one
 node, named by everything the element contains, positioned everywhere it was

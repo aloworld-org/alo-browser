@@ -639,7 +639,7 @@ fn the_thanks_takes_the_forms_place_where_chrome_puts_it() {
     // the sheet's `.form-success` gives it a padded, bordered box but no
     // place, so it is placed as any grid item is — and the section is
     // 303.375 tall. Chrome's picture of the same moment differs from
-    // `sent.png` only inside the glyphs (queue item 462).
+    // `sent.png` only inside the glyphs (queue items 576 and 577).
     for (tag, class, chrome) in [
         (
             "section",

@@ -14,7 +14,7 @@
 //! a canvas to render onto; a coverage mask on its own is better asserted by
 //! saying what shape it is than by committing a picture of it.
 
-use alo_paint::{Coverage, fill_letters, outline};
+use alo_paint::{Coverage, fill, outline};
 use alo_text::{Direction, Font, Slant, Weight, shape};
 
 fn sans() -> Option<Font> {
@@ -39,7 +39,7 @@ fn coverage_of(character: char, size: f32) -> Coverage {
         return Coverage::empty();
     };
     match outline(&font, id, size) {
-        Some(glyph) => fill_letters(&glyph.path),
+        Some(glyph) => fill(&glyph.path),
         None => Coverage::empty(),
     }
 }
