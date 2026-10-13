@@ -32980,3 +32980,80 @@ clause adds the press on a tab, and Owed swaps 539 for 558.
 267 queue items are open (539 closed, 558 and 559 added). The next unused
 queue number is **560** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 330 — queue item 299 decided: ADR 0057, a page is laid out for its screen's scale
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 329's entry; ADR 0024 in full (§ 3, device pixels); ADR 0050 and
+ADR 0054 (the whole-pixel and grid rules), ADR 0056's context; queue item
+299; the feature lines *A window, tabs, and a tab strip* and *A border is
+whole device pixels wide*; `line_width.rs`, `snap.rs`, `render.rs`,
+`pipeline.rs`, `easel.rs`, `place.rs`, `compose.rs`, `aim.rs`, `alo-value`'s
+`Viewport` and `alo-css`'s `MediaContext`. No `AGENTS.md` exists here.
+
+**Why 299.** In file order after 539 come 558 (needs design), 559 and 540
+(wait for a page) and 541 (a measurement nothing depends on). 299 depends
+only on 296, closed 2026-10-12, names its ADR and feature, and is opened by
+this machine's window at scale 2. The open items earlier in the file wait
+for a page, a person, a design or an unfinished dependency, or are
+measurements nothing depends on (537, 553), as 318–329 recorded.
+
+**Why a decision and not code.** Before building, the item's premise was
+measured: *"layout identical in CSS pixels"* at 1 and 2. Under DevTools'
+emulated scale it holds (72 of 73 corpus cases unchanged). Under Chrome
+154 started with `--force-device-scale-factor=2` it does not: 48 of 73
+cases and 744 of 1,761 boxes differ, 79 by more than a pixel, up to 5.5.
+Probes fitted each cause exactly at both scales: lengths truncated onto
+1/(64·s) px (24/24), a `normal` line's ascent and descent rounded in
+device pixels (65 sizes, 65/65), the half-leading floored in device pixels
+(45/45), border widths floored in device pixels (`4.8px` → 4.5), and a
+control's and a plain background's edges snapped in device pixels
+(screenshots). That contradicts ADR 0024 § 3 as written and the item's
+closing condition, so per LOOP.md § 4 the decision is its own iteration.
+
+**Decided.** ADR 0057: every whole-pixel and grid rule rounds in device
+pixels (`rule(v·s) / s`), reported in CSS pixels; paint draws the same
+display list under the scale and snaps in device pixels; one scale carried
+on `Viewport` and `MediaContext`, from which `devicePixelRatio` and
+`resolution` answer; the corpus stays at scale 1 and a scale-2 case is a
+second set of expectations measured under the real flag, never emulation.
+ADR 0024 § 3 carries an *Amended by ADR 0057* note. Alternatives rejected:
+lay out at 1 (744 boxes wrong on most Macs), lay out in device pixels and
+divide back (same rounding, a division at every reader).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, with no `FAILED`, `panicked` or
+`^error` line. Only this entry and the commit came after it.
+
+**Gate, manual.** No code changed, so there is no layout assertion, no
+reference render and no file whose responsibility moved. The ADR's
+numbers are measurements, each stated with its method; the probe pages
+were scratchpad files and are described in the ADR well enough to rebuild.
+One claim was corrected before commit: a time field's 78 → 82 px was an
+emulation artefact (77.5 px under the real flag), so no item was cut for
+it. No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+were not touched. Nothing was pushed.
+
+**Queue.** 299 stays open with a *Decided* paragraph and a new closing
+condition: 560, 561 and 562 closed. Added: **560** (layout for a scale,
+depends on nothing), **561** (paint at a scale, depends on 560) and
+**562** (the window at the screen's scale, depends on 561).
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Owed
+clause now names device pixels as decided by ADR 0057 and owed as 560–562.
+`docs/features.md`, `docs/conformance.md`, `REMAINING.md` and `CHANGELOG.md`
+say the same.
+
+**Unresolved obligations.**
+- Nothing is built: the window still replicates pixels and text is coarse
+  on this Mac until 562.
+- A fractional scale's rules, where a pointer lands at 2, and whether a
+  face's size is cut to hundredths in CSS or device pixels are named in
+  the ADR as not decided, each with the item that measures it.
+- No claim about speed is made.
+
+270 queue items are open (560–562 added). The next unused queue number is
+**563** and the next ADR is **0058**. This is one iteration, not a finished
+queue or roadmap.

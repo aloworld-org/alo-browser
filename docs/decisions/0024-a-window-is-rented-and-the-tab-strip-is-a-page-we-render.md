@@ -129,6 +129,12 @@ pixels shown at device pixels is either a quarter of the window or blurred.
   background. This is a stated cost, not an approximation of a feature: no
   page is told a ratio, and `devicePixelRatio` stays absent (ADR 0013 § 3).
 
+*Amended by ADR 0057:* "lay out in CSS pixels" means **reported** in CSS
+pixels. Measured in Chrome 154 at a real scale of two, every rule this
+engine rounds to whole pixels or to the 1/64 px grid rounds in device
+pixels, so a page is laid out for its screen's scale, and the item is cut
+into 560–562.
+
 ## 4. The tab strip is a document, rendered by the engine
 
 ADR 0002 says an agent reads what an interface *is*. The browser's own

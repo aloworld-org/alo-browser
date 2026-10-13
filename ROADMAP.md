@@ -1824,7 +1824,11 @@ items where being right and being unusable are the same outcome.
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
       (552), a tab chosen under the pointer (553); the other buttons (544), modifiers (545) and click counts
       (547); the strip's close and new-tab controls (558); device pixels
-      (299); a link opening a tab (300)
+      (299), decided by ADR 0057 — a page is laid out for its screen's
+      scale, every whole-pixel rule rounding in device pixels as Chrome 154
+      was measured to at a real scale of two — and owed as layout for a
+      scale (560), paint at a scale (561) and the window at the screen's
+      scale (562); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

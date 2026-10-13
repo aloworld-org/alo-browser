@@ -2237,3 +2237,14 @@ key chooses one. Cut: **558** (the strip's close and new-tab controls).
 Found: **559** (a body's background does not paint the canvas). 267 queue
 items are open (539 closed, 558 and 559 added). The next unused queue
 number is 560 and the next unused ADR 0057.
+
+Iteration 330 decided queue item 299 as ADR 0057, its own iteration,
+because a measurement contradicted the item. Chrome 154 started with a
+real scale of two lays out 744 of the corpus's 1,761 boxes differently
+from scale 1: every rule this engine rounds to whole pixels or to the
+1/64 px grid rounds in device pixels there. DevTools' emulated scale does
+not show it. So a page is laid out for its screen's scale and reported in
+CSS pixels, and 299 is cut into **560** (layout for a scale), **561**
+(paint at a scale) and **562** (the window at the screen's scale). 270
+queue items are open (560–562 added; 299 stays open until they close).
+The next unused queue number is 563 and the next unused ADR 0058.

@@ -114,7 +114,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [2] **A background of several layers** (queue item 313): `background` and `background-image` as a comma list, the colour beneath them all and the first layer written on top. A radial gradient is a `circle` or an `ellipse`, sized by any of the four extent keywords and centred `at` a position of one or two keywords, percentages or pixel lengths. Gradient stops are mixed with their alpha premultiplied, so a fade to `transparent` keeps its colour. A `url()` layer is recorded and the others drawn (its picture is 311); a layer that also says where its picture sits, how big it is or whether it repeats is refused whole and recorded, as are a radial size written as lengths and a position of three or four parts. Opened by `alo-meet-greeting`, whose corner tint it draws
 - [2] **Two-toned borders**: `inset`, `outset`, `groove` and `ridge`, in a darker and a lighter tone of the border's colour, each side mitred so that a corner splits where the tones change, and a groove's halves following a rounded corner (queue item 190), **in Chrome 154's tones** (queue item 508): 0.33 off or on the brightest channel, hue kept, and a colour no brighter than `rgb(32, 32, 32)` drawn lighter instead, so a black `outset` is 168 and 84 as in Chrome, and one brighter than `rgb(235, 235, 235)` its own lighter tone; a button whose page sets its background is Chrome's screenshot on every side to the level (not yet: a mitre's diagonal pixel, 518), and a fieldset's `groove` — the user-agent sheet's, as other browsers draw it — broken by its legend, the legend's part of the line cut out and the corners left whole (queue item 267)
 - [2] **Patterned borders**: `dashed`, `dotted` and `double` — dashes and round dots spaced so a side starts and ends on one, a corner shared without a seam, `double` as two lines a third of the width each following a rounded corner, and a bound on how many pieces a page can ask for (queue item 266), and beside a fieldset's legend laid along the whole side and cut where the legend is (queue item 268)
-- [2] **A border is whole device pixels wide** (queue item 430): a border width is snapped as CSS Values 4 computes one — one of a device pixel or more floored to whole device pixels, a smaller one that is not zero made one — once it is a number, so `.3rem` is 4, `0.5px` is 1 and a `calc()` is snapped after it is worked out, and layout and paint both use what is drawn. One device pixel is one CSS pixel until item 299. alo Sites' editorial section, `border-left: .3rem`, starts its content at 44 as Chrome does; it was 44.8, drawn 4.8 wide. Corpus case `border-widths`. Opened by `alo-sites-full-page`
+- [2] **A border is whole device pixels wide** (queue item 430): a border width is snapped as CSS Values 4 computes one — one of a device pixel or more floored to whole device pixels, a smaller one that is not zero made one — once it is a number, so `.3rem` is 4, `0.5px` is 1 and a `calc()` is snapped after it is worked out, and layout and paint both use what is drawn. One device pixel is one CSS pixel until item 560 lays a page out for its screen's scale (ADR 0057): at a real scale of two Chrome 154 floors `4.8px` to 4.5. alo Sites' editorial section, `border-left: .3rem`, starts its content at 44 as Chrome does; it was 44.8, drawn 4.8 wide. Corpus case `border-widths`. Opened by `alo-sites-full-page`
 - [2] **A function in the `border` shorthand is read whole** (queue item 435): the shorthand is split into its top-level parts rather than at every space, so a colour written `rgb(29 78 216)`, `hsl()` or `color-mix()`, and a width written `calc()`, are read and drawn — they were torn into words none of which was a colour or a width, and the border was drawn in `currentColor` or not at all. alo Sites' presented cards, `border: 1px solid color-mix(in srgb, var(--section-text) 14%, transparent)`, are ringed `rgb(23 33 43 / 0.14)`, as Chrome 154 computes them. Corpus case `border-colour-functions`. Found while building 429
 - [1] **Transforms and opacity**: `translate`, `scale`, `rotate`, `skew`, `matrix`, about a `transform-origin`; `opacity` as a group drawn once and composited once, never box by box
 - [1] **Reference renders**: a committed corpus, each with its expected image *and* its expected box tree
@@ -674,8 +674,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   whose renderer has stopped keeps its picture with a line along the bottom
   saying what happened, in the browser's own words. The page is laid out at
   the window's size in CSS pixels; on a high-density screen each pixel is
-  doubled until the renderer paints at the screen's density (299), so shapes
-  are right and text is coarse. Closing the window closes every tab and stops
+  doubled until the renderer lays out and paints for the screen's scale
+  (299, ADR 0057; 560–562), so shapes are right and text is coarse. Closing the window closes every tab and stops
   every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
   a frozen alo page in the window is the corpus's picture of it, pixel for
   pixel. The picture reaches the screen: started on a Mac and captured with
@@ -786,7 +786,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   sites may see of it (531); a title a page changes after it has loaded
   (532); a control in the strip to close a tab and one to open a tab
   (558); painting at the
-  screen's density (299); and a new tab opened by a link with
+  screen's density (299), which ADR 0057 decided means laying a page out
+  for its screen's scale, every rule that rounds to whole pixels rounding
+  to device pixels, and which is built as 560–562; and a new tab opened by a link with
   `target="_blank"` that a person clicked (300)
 - [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [2] History, bookmarks, downloads

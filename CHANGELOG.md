@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided how a page meets a high-density screen** (ADR 0057). Measured
+  in Chrome 154 at a real scale of two, a page is not laid out as it is at
+  one: every rule this engine rounds to whole pixels — a line's height, a
+  border's width, the grid boxes sit on, where a checkbox is drawn —
+  rounds to the screen's own pixels, and 744 of the reference corpus's
+  1,761 boxes move, some by several pixels. So this browser will lay a
+  page out for the screen it is shown on, still reporting CSS pixels, and
+  tell the page its `devicePixelRatio` only once it paints at it. Nothing
+  is built yet; the work is three queue items (560–562).
+
 - **A tab is chosen by clicking it.** Pressing the mouse on a tab in the
   strip now chooses that tab, as ⌃Tab would: the page left is told it is
   hidden before the page chosen is told it can be seen. The strip's own

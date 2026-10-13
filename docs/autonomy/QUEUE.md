@@ -13459,6 +13459,53 @@ What stage 2's exit gate actually measures: a person using it.
   frozen page at scale 1 and 2, with layout identical in CSS pixels, and
   every existing reference render unchanged at scale 1.
 
+  *Decided (iteration 330): ADR 0057.* Measured in Chrome 154 started with
+  `--force-device-scale-factor=2`, layout is **not** identical in CSS
+  pixels: 744 of the corpus's 1,761 boxes differ from scale 1, 79 by more
+  than a pixel, because every rule this engine rounds to whole pixels or
+  to the 1/64 px grid rounds in device pixels there — a line's font
+  figures, its floored half-leading, a length's truncation, a run's
+  width, a border's width, a control's snapped picture. (DevTools'
+  emulated scale lays out as at 1, which is how the closing condition
+  above came to be written.) So a page is laid out for its screen's scale,
+  reported in CSS pixels, and the closing condition above is replaced by
+  560–562's. *Closes when:* 560, 561 and 562 are closed.
+
+- [ ] **560. Layout for a scale.** *Cut from 299 (ADR 0057 §§ 2–3).
+  Feature: `docs/features.md` stage 2, a window, tabs and a tab strip.
+  Depends on nothing.* The scale on `alo-value`'s `Viewport` and
+  `alo-css`'s `MediaContext` (1 everywhere it is not said), and every rule
+  in ADR 0057 § 2's table rounding against it: ADR 0050's font figures,
+  half-leading and set line height, ADR 0054's grid as 1/64 of a device
+  pixel, and `line_width.rs`' border width. Whether a face's size is cut
+  to hundredths in CSS or in device pixels is measured here (ADR 0057,
+  not decided). *Closes when:* the corpus laid out at 2 matches Chrome
+  154's numbers under `--force-device-scale-factor=2` (never emulation)
+  in layout assertions, to 1/128 px wherever it matches Chrome's at 1 to
+  1/64, and every committed file at scale 1 is unchanged.
+
+- [ ] **561. Paint at a scale.** *Cut from 299 (ADR 0057 § 4). Feature:
+  `docs/features.md` stage 2, a window, tabs and a tab strip. Depends on
+  560.* `alo-paint`'s `render` draws a display list under the scale onto
+  a canvas of device pixels; `snap.rs` rounds a control's box and a plain
+  background in device pixels, as measured (ADR 0057, Evidence 6);
+  `pipeline.rs` draws at the viewport's scale. *Closes when:* reference
+  renders of the same frozen page at 1 and 2, the second's checkbox edges
+  where Chrome's screenshot at 2 puts them, and every reference at 1
+  unchanged.
+
+- [ ] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
+  § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,
+  tabs and a tab strip. Depends on 561.* `Resize` carries the scale; the
+  page's renderer and the strip's paint at it; the window composes frames
+  without replicating; a person's pointer is divided by it; and
+  `devicePixelRatio` and the `resolution` media features answer it. A
+  fractional scale is rounded down to a whole one until one is measured.
+  Where a pointer's 1×1 pixel lands at 2 is measured here. *Closes when:*
+  `alo` on this Mac, captured with `screencapture -l`, is the composed
+  reference at 2, and a frozen page reading `devicePixelRatio` and
+  matching `(min-resolution: 2dppx)` is drawn as Chrome draws it at 2.
+
 - [ ] **300. A link opens a tab.** *Cut from 118 (ADR 0024 § 6; ADR 0020
   § 2).* `target="_blank"` on a link a person activated becomes a decided
   ask that opens a tab beside its opener, under ADR 0020 § 3's rules for the

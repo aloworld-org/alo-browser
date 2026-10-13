@@ -331,8 +331,9 @@ computes one: a width of a pixel or more is floored to whole pixels and a
 smaller one that is not zero is one, after `rem`, `em`, `vw` and `calc()` are
 worked out (corpus case `border-widths`). So alo Sites' `border-left: .3rem`
 is 4, as Chrome draws it, and a hairline of `0.5px` is one solid pixel rather
-than a grey one. A device pixel is a CSS pixel until item 299 brings a scale
-factor; at a scale of two this should floor to half pixels and does not yet.
+than a grey one. A device pixel is a CSS pixel until item 560 brings a scale
+factor; at a real scale of two Chrome 154 floors to half pixels (`4.8px` is
+4.5, ADR 0057) and this engine does not yet.
 A percentage, which is not a border width CSS accepts, is still read and laid
 out unsnapped, and `thin`, `medium` and `thick` are not read (431).
 
