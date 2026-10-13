@@ -130,9 +130,28 @@ else
   bad "clippy failed"
 fi
 
-step "cargo test"
-if cargo test --workspace --all-features 2>&1 | tail -n 20; then
-  good "tests pass"
+step "the tests, and the doctests with them"
+# `cargo nextest` runs each test in its own process rather than threading them
+# inside one binary. Measured on this workspace on 2026-10-13, both warm and
+# under the same load: **18.9 minutes against `cargo test`'s 27.9** — a third
+# off, with not one test skipped.
+#
+# Not one *test*. Doctests are the exception: nextest does not run them, and
+# this repository has some, two of them `compile_fail` — which assert that
+# code must **not** compile, and are exactly the kind of thing a faster runner
+# would silently stop checking. So both are run. The doctests cost six
+# seconds, so "both" is free and "either" would be a weakened gate.
+#
+# What it was worth, measured rather than projected: the test step went from
+# 27.9 minutes to 19.0, but the **gate** went from 13.5 to 12.3 — nine per
+# cent, not the thirty the step's own saving suggested. Tests are not the bulk
+# of this gate; clippy and the rest are a larger share than they look. Worth
+# keeping, and worth remembering which number was measured and which inferred.
+if ! command -v cargo-nextest >/dev/null; then
+  bad "cargo-nextest is not installed — cargo install cargo-nextest"
+elif cargo nextest run --workspace --all-features 2>&1 | tail -n 20 \
+  && cargo test --workspace --all-features --doc 2>&1 | tail -n 20; then
+  good "tests pass, and the doctests with them"
 else
   bad "tests fail"
 fi

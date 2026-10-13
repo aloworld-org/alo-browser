@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The gate runs its tests in less time and checks the same things.** Each
+  test now runs in its own process, which is a third quicker over 4,642 of
+  them, and the doctests — which that runner skips, and which include two that
+  assert code must *not* compile — are run alongside for six seconds more. The
+  whole gate is about a tenth faster, which is less than the test step's own
+  saving suggested, because tests were never the bulk of it.
+
 - **A page of checkboxes and their rows' backgrounds matches Chrome to the
   pixel.** Outside the controls and the letters themselves, every one of
   the 49,525 pixels of the test page of checkboxes and radios beside text
