@@ -58,8 +58,9 @@
 //! Nobody listens, so nothing is dispatched and no heap is made to find
 //! that out (ADR 0018 § 3). The click still does what a click does to the
 //! document — `alo-dom`'s activation steps: a box ticked, a `<details>`
-//! opened, a link followed — and the renderer asks for the link itself, as
-//! an agent's `Activate` on such a page does. ARIA state is not changed:
+//! opened, a link followed, a form submitted — and the renderer asks for
+//! the link or the form itself, as an agent's `Activate` on such a page
+//! does. ARIA state is not changed:
 //! that is the stage 1 accommodation for an agent's verbs (ADR 0018 § 7),
 //! and a person's click is not one.
 //!
@@ -70,8 +71,10 @@
 //!
 //! # A form
 //!
-//! A click whose activation would submit a form submits nothing yet, and
-//! says so: a person's submission is queue item 543.
+//! A click whose activation submits a form submits it (queue item 543): in
+//! the click's task on a page that runs script, and by `alo-dom`'s rules
+//! alone on a page nobody listens on. It is never refused, as an agent's
+//! press can be; a form not sent is said ([`crate::sent`]).
 
 use alo_bindings::navigating::{self, By, Navigation, NotFollowed};
 use alo_dom::activation::{self, Follows};
@@ -85,6 +88,7 @@ use crate::held::Held;
 use crate::hit;
 use crate::pipeline::Drawing;
 use crate::run_to::{Said, run_to};
+use crate::sent::{self, Unheard};
 
 /// What a renderer remembers of a person's press until its release.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,10 +119,6 @@ pub(crate) struct Pointed {
     /// Where the pointer was last said to be.
     at: Option<Point>,
 }
-
-/// What the line about a submission that did not happen says.
-const NOT_SUBMITTED: &str =
-    "it would have submitted a form, and a person's click submits none yet (queue item 543)";
 
 impl Pointed {
     /// Remember `node` as the node last under the pointer, in `held`'s
@@ -254,8 +254,9 @@ impl Pointed {
     }
 
     /// Let go of the main button at `at` on the page `held`, at `url`, drawn
-    /// as `drawing`: what was said, and — on a page that never ran script —
-    /// the link its click followed, for the renderer to ask for.
+    /// as `drawing`: what was said, and — on a page nobody listens on — the
+    /// link its click followed or the form it submitted, for the renderer to
+    /// ask for.
     pub(crate) fn up(
         &mut self,
         held: &mut Held,
@@ -285,27 +286,24 @@ impl Pointed {
         let mut followed = None;
         match held.release(node, at, mouse, click, crossing) {
             Ok(Some(seq)) => {
-                let follows = run_to(held, seq, &mut said)
+                let submitted = run_to(held, seq, &mut said)
                     .and_then(|turn| turn.clicked)
-                    .filter(|clicked| !clicked.canceled)
-                    .map(|clicked| clicked.follows);
-                if matches!(follows, Some(Follows::Submit { .. })) {
-                    said.say(&NOT_SUBMITTED);
+                    .and_then(|clicked| clicked.submitted);
+                if let Some(line) = submitted
+                    .as_ref()
+                    .and_then(|submitted| sent::said(submitted, held.document()))
+                {
+                    said.say(&line);
                 }
             }
             Ok(None) => {
                 if let Some(click) = click {
-                    followed = activated(held, click, &mut said).and_then(|link| {
-                        held.document()
-                            .map(|document| navigating::follow(document, url, link, By::Browser))
-                    });
+                    followed = activated(held, url, click, &mut said);
                 }
             }
             Err(Unqueued::Stopped(why)) => {
-                if let Some(click) = click
-                    && let Some(link) = activated(held, click, &mut said)
-                {
-                    held.follow(link);
+                if let Some(click) = click {
+                    followed = activated(held, url, click, &mut said);
                 }
                 said.say(&format_args!("nobody heard it: {why}"));
             }
@@ -332,18 +330,30 @@ fn heard(
     }
 }
 
-/// Run the activation steps of a click at `click` that nobody heard: the
-/// link it follows, if it is one.
-fn activated(held: &mut Held, click: NodeId, said: &mut Said) -> Option<NodeId> {
+/// Run the activation steps of a click at `click` that nobody heard, on the
+/// page `held` at `url`: the link it follows or the form it submits, if it
+/// is either, for the renderer to ask for; a form not sent is said.
+fn activated(
+    held: &mut Held,
+    url: &Url,
+    click: NodeId,
+    said: &mut Said,
+) -> Option<Result<Navigation, NotFollowed>> {
     let follows = held.change(|document| {
         let done = activation::before(document, click);
         activation::after(document, &done)
     })?;
+    let document = held.document()?;
     match follows {
-        Follows::Link { node, .. } => Some(node),
-        Follows::Submit { .. } => {
-            said.say(&NOT_SUBMITTED);
-            None
+        Follows::Link { node, .. } => Some(navigating::follow(document, url, node, By::Browser)),
+        Follows::Submit { form, submitter } => {
+            match sent::unheard(document, url, (form, submitter)) {
+                Unheard::Asked(asked) => Some(asked),
+                Unheard::NotSent(why) => {
+                    said.say(&why);
+                    None
+                }
+            }
         }
         Follows::Nothing | Follows::InputAndChange(_) | Follows::Toggled { .. } => None,
     }

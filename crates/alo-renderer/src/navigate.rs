@@ -86,6 +86,10 @@ pub struct Navigation {
     pub method: Method,
     /// What to send: a form's body when it is sent by `POST`.
     pub body: Option<Body>,
+    /// Whether a form's submission asked for it, rather than a link: a form
+    /// sent by `GET` has no body, and is still not a link to the person who
+    /// pressed its button.
+    pub form: bool,
     /// Who caused it, by ADR 0012 § 4: the agent's action in an `Act`'s
     /// answer, the document otherwise.
     pub cause: Cause,
@@ -257,7 +261,7 @@ pub enum Decided {
 impl fmt::Display for Decided {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Decided::Go(navigation) if navigation.body.is_some() => write!(
+            Decided::Go(navigation) if navigation.form => write!(
                 f,
                 "the page asked, by {}, to send a form by {} to {}",
                 navigation.by,
@@ -365,6 +369,7 @@ pub fn decide(asked: &Asked, from: &Url, policies: &Policies, cause: Cause) -> D
         url: to,
         method,
         body,
+        form: asked.submission.is_some(),
         cause,
         by: asked.by,
         referrer,
@@ -672,6 +677,26 @@ mod tests {
         assert_eq!(navigation.url.serialised, "https://example.test/get?a=1");
         assert_eq!(navigation.method, Method::Get);
         assert_eq!(navigation.body, None);
+        assert!(navigation.form, "a form with no body is still a form");
+        assert!(
+            Decided::Go(navigation)
+                .to_string()
+                .contains("to send a form by GET to https://example.test/get?a=1")
+        );
+    }
+
+    #[test]
+    fn a_link_is_not_a_form() {
+        let Decided::Go(navigation) = decided("https://example.test/next", "https://example.test/")
+        else {
+            panic!("the link was refused");
+        };
+        assert!(!navigation.form);
+        assert!(
+            Decided::Go(navigation)
+                .to_string()
+                .contains("to go to https://example.test/next")
+        );
     }
 
     #[test]

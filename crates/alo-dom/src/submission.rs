@@ -185,7 +185,8 @@ impl fmt::Display for Unsubmittable {
                 "the form holds a {kind} field, and this engine does not read what one holds yet"
             ),
             Unsubmittable::ImageButton => f.write_str(
-                "an image button sends where it was clicked, and an agent clicks nowhere",
+                "an image button sends where it was clicked, and an agent clicks nowhere; a \
+                 person's point is not sent yet (queue item 556)",
             ),
             Unsubmittable::Dialog => {
                 f.write_str("the form closes a dialog, and dialogs are not built")

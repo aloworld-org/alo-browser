@@ -1800,11 +1800,14 @@ items where being right and being unusable are the same outcome.
       it labels (554, done), by HTML's labelled-control rule in `alo-dom`'s
       `label.rs`, which the agent's names now ask as well; pinned against
       Chrome's record and two reference renders, with Chrome's stuck hover
-      after a label changes deliberately not copied.
-      · Owed: the agent reading the strip, which needs design (531); a
+      after a label changes deliberately not copied. A person's click on a
+      submit button sends its form (543, done), as an agent's press does and
+      decided as the person's, on the frozen booking and pizza forms; the
+      window says it as a form sent.
+      · Owed: telling the person why a form was not sent (557); an image
+      button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
-      (552), a tab chosen under the pointer (553); a person's submission
-      (543); the other buttons (544), modifiers (545) and click counts
+      (552), a tab chosen under the pointer (553); the other buttons (544), modifiers (545) and click counts
       (547); a click on a tab (539); device pixels (299); a link opening a
       tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default

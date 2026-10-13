@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! An agent's `Activate`, as a task (ADR 0018 §§ 5–7, queue item 256).
+//! An agent's `Activate`, as a task (ADR 0018 §§ 5–7, queue item 256), and
+//! the activation steps around a person's click too (queue items 535 and
+//! 543).
 //!
 //! `Activate` is the one `click` keyboard activation fires: a trusted
 //! `PointerEvent` with no position ([`Firing::CLICK`]). Around its dispatch
@@ -47,16 +49,6 @@ use super::submitted::Submitted;
 use super::task;
 use super::{EventLoop, Turn};
 
-/// Whether a click's activation may submit a form.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Submits {
-    /// It may: an agent's `Activate`, whose form was checked before the
-    /// click was queued (ADR 0051 § 6).
-    Yes,
-    /// It may not yet: a person's click (queue item 543).
-    No,
-}
-
 /// What an activation task did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Clicked {
@@ -81,7 +73,7 @@ impl EventLoop {
     /// steps around one click.
     pub(super) fn activate(&mut self, list: &Root, turn: &mut Turn) -> Result<Clicked, Escape> {
         let (click, target) = task::dispatched(&mut self.engine, list)?;
-        self.activation(list, click, target, Submits::Yes, turn)
+        self.activation(list, click, target, turn)
     }
 
     /// HTML's activation steps around the dispatch of `click` to `target`,
@@ -89,15 +81,16 @@ impl EventLoop {
     /// joins — an agent's `Activate`, or the click that ends a person's
     /// press ([`super::pointed`]).
     ///
-    /// A submit button's form is submitted only when `submits` says so; a
-    /// click that would have submitted one and was not let answers its
-    /// [`Follows::Submit`] with nothing submitted, for the caller to say.
+    /// A submit button's form is submitted for either. An agent's form was
+    /// looked at before its click was queued, and one this engine cannot
+    /// check or send refused the press (ADR 0051 § 6). A person's click
+    /// cannot be refused, so what stops its form is in [`Clicked::submitted`]
+    /// for the caller to say (queue item 543).
     pub(super) fn activation(
         &mut self,
         list: &Root,
         click: alo_js::heap::Ref,
         target: alo_js::heap::Ref,
-        submits: Submits,
         turn: &mut Turn,
     ) -> Result<Clicked, Escape> {
         let (cell, node) =
@@ -139,18 +132,13 @@ impl EventLoop {
                 navigating::start(self.engine.objects(), cell, *node, By::Browser)
                     .ok_or(Escape::fault(Fault::NotAnObject))?
             }
-            Follows::Submit { form, submitter } if submits == Submits::Yes => {
+            Follows::Submit { form, submitter } => {
                 submitted = Some(self.submit(list, cell, (*form, *submitter), turn)?);
                 false
             }
             // A `details` opened or closed changed the document, which is
             // drawn again; its `toggle` event is script's (queue item 434).
-            // A form a person's click would submit is not (queue item 543):
-            // the caller says so.
-            Follows::Nothing
-            | Follows::InputAndChange(_)
-            | Follows::Toggled { .. }
-            | Follows::Submit { .. } => false,
+            Follows::Nothing | Follows::InputAndChange(_) | Follows::Toggled { .. } => false,
         };
         Ok(Clicked {
             canceled,

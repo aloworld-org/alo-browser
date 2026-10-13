@@ -45,15 +45,22 @@
 //! # What Chrome fires that is not here
 //!
 //! Focus moving to what was pressed (item 258).
-//! `selectstart` and `selectionchange` (item 88). A click's activation that
-//! would submit a form (item 543).
+//! `selectstart` and `selectionchange` (item 88).
+//!
+//! # A submit button
+//!
+//! The click's activation submits its form inside the release's task, as
+//! an agent's `Activate` does ([`super::submitted`], queue item 543):
+//! `invalid` at each control that fails, or `submit` at the form, and then
+//! the ask. Measured again for this, with `Input.dispatchMouseEvent` on the
+//! frozen `alo-sites-booking` and `web-a-form` pages: Chrome 154's mouse
+//! click sends what ADR 0051 measured for a press.
 
 use alo_bindings::{Device, Fired, Firing, Pointing, node_of};
 use alo_dom::NodeId;
 use alo_js::{Escape, Fault, Root};
 use alo_paint::Point;
 
-use super::activated::Submits;
 use super::crossed::Crossed;
 use super::task;
 use super::{Clicked, EventLoop, Turn};
@@ -156,8 +163,7 @@ impl EventLoop {
     /// if there is one, then the `pointerup`
     /// first in its list, a `mouseup` at the same element when `mouse`
     /// says the press let one be fired, and then the `click` at `click`,
-    /// if there is one to fire, with HTML's activation steps around it —
-    /// which submit no form yet.
+    /// if there is one to fire, with HTML's activation steps around it.
     pub(super) fn released(
         &mut self,
         list: &Root,
@@ -183,8 +189,7 @@ impl EventLoop {
             node_of(self.engine.objects(), target).ok_or(Escape::fault(Fault::NotAnObject))?;
         let (target, click) = task::add(&mut self.engine, list, cell, node, &firing::click(at))
             .map_err(task::Unmade::into_escape)?;
-        self.activation(list, click, target, Submits::No, turn)
-            .map(Some)
+        self.activation(list, click, target, turn).map(Some)
     }
 
     /// Fire the event `firing` describes at the node whose wrapper is

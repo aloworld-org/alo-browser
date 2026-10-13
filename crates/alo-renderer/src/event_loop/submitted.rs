@@ -2,14 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! A form submitted by an agent's press, on a page that runs script (ADR
-//! 0051 §§ 4 and 6, queue item 485).
+//! A form submitted by a click, on a page that runs script (ADR 0051 §§ 4
+//! and 6, queue items 485 and 543).
 //!
 //! An agent's `Activate` on a submit button is a click ([`super::activated`]),
-//! and a click nobody cancelled submits the button's form owner. This is that
+//! and so is a person's press and release on one ([`super::pointed`]); a
+//! click nobody cancelled submits the button's form owner. This is that
 //! submission, run inside **the click's own task**, as HTML has it: the
-//! listeners of each event here run before the agent is answered, a
-//! checkpoint after every one. The steps are HTML's *form submission
+//! listeners of each event here run before the agent or the person's
+//! browser is answered, a checkpoint after every one. The steps are HTML's *form submission
 //! algorithm*, `alo-dom`'s rules with the events between them:
 //!
 //! 1. **Not again.** A form already firing its submission events is not
@@ -39,13 +40,17 @@
 //!
 //! # A constraint or a form this engine cannot check
 //!
-//! The renderer refuses a press by name **before** the click is queued when
-//! the form could fail a constraint not built, or says something this engine
-//! does not send ([`crate::submit`]): a refusal means nothing happened. So
-//! [`Submitted::Unchecked`] and [`Submitted::Unsubmittable`] are only what a
-//! click's listener made true after that look — a value it put in, an
-//! attribute it set — and are said rather than refused, since by then the
-//! click has been heard.
+//! For an agent, the renderer refuses a press by name **before** the click
+//! is queued when the form could fail a constraint not built, or says
+//! something this engine does not send ([`crate::submit`]): a refusal means
+//! nothing happened. So for an agent [`Submitted::Unchecked`] and
+//! [`Submitted::Unsubmittable`] are only what a click's listener made true
+//! after that look — a value it put in, an attribute it set — and are said
+//! rather than refused, since by then the click has been heard.
+//!
+//! A person's click is never refused: the person pressed, and the page
+//! hears it whatever this engine can send. For a person both are what the
+//! form came to, said rather than sent ([`crate::sent`]).
 
 use alo_bindings::navigating::{self, By};
 use alo_bindings::{Firing, document, submitting};
@@ -69,7 +74,7 @@ pub struct Failed {
     pub message: String,
 }
 
-/// What submitting a form from an agent's press came to.
+/// What submitting a form from a click came to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Submitted {
     /// The form was already firing its submission events, and so was not

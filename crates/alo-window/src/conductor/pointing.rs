@@ -34,12 +34,14 @@
 //! once over CDP, fired three. Nothing but a move is ever dropped, and
 //! nothing is moved past anything else.
 //!
-//! # A link followed
+//! # A link followed, or a form sent
 //!
 //! Decided as the answer passes, as the person's (`alo-renderer`'s
 //! `Tabs::point`), and said to the person: going there is session history's
 //! (item 85), and a link a person clicked that silently went nowhere would
-//! be a page that looks broken.
+//! be a page that looks broken. A form's submission is said as one, with
+//! its method, since a form sent by `GET` is not a link to the person who
+//! pressed its button (queue item 543).
 
 use super::{Conducting, said_of, unexpected};
 use crate::inbox::Arrival;
@@ -125,6 +127,11 @@ pub fn latest_moves_only(arrived: Vec<Arrival>) -> Vec<Arrival> {
 /// What a person is told of where their click was decided to go.
 fn going(decided: &Decided) -> String {
     match decided {
+        Decided::Go(navigation) if navigation.form => format!(
+            "this form is sent by {} to {}, {NOT_GONE}",
+            navigation.method.name(),
+            navigation.url
+        ),
         Decided::Go(navigation) => format!("this link goes to {}, {NOT_GONE}", navigation.url),
         Decided::Refused(refusal) => refusal.to_string(),
     }

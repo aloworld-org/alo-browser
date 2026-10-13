@@ -66,7 +66,8 @@ pub const MOST_NOT_FOLLOWED: usize = 16;
 /// browser process assigns (ADR 0020 §§ 2 and 4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum By {
-    /// The browser's own click — an agent's `Activate`.
+    /// The browser's own click — an agent's `Activate`, or a person's press
+    /// and release.
     Browser,
     /// A page's script calling `click()`.
     Script,

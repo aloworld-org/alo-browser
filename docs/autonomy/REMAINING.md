@@ -2208,3 +2208,13 @@ label's where Chrome's is left stuck. Cut: **555** (`Element.id`, and a
 label's `htmlFor` and `control`). 266 queue items are open (554 closed,
 555 added). The next unused queue number is 556 and the next unused ADR
 0057.
+
+Iteration 327 built queue item 543: a person's click on a submit button
+sends its form. The click's task submits it as an agent's `Activate` does,
+and a page nobody listens on submits it by `alo-dom`'s rules alone
+(`alo-renderer`'s `sent.rs`); a person's click is never refused, so a form
+not sent is said. The decided navigation now says whether a form asked for
+it, and the window says *this form is sent by …*. Cut: **556** (an image
+button's point) and **557** (the person told why a form was not sent). 267
+queue items are open (543 closed, 556 and 557 added). The next unused queue
+number is 558 and the next unused ADR 0057.

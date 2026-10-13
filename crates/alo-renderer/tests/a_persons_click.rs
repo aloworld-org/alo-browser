@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Queue item 535, cut from 298: a person's main button reaches the element
-//! it fell on (ADR 0024 § 5, ADR 0018 § 3).
+//! it fell on (ADR 0024 § 5, ADR 0018 § 3) — and, for queue item 543, a
+//! submit button's click sends its form (ADR 0051 §§ 4 and 6).
 //!
 //! Every page here is the page put to Chrome 154 over CDP — a 400 × 300
 //! viewport, no margin, a box `b` at (50, 40) holding a span `s`, a box `o`
@@ -459,22 +460,220 @@ fn on_a_page_that_never_ran_script_a_click_still_follows_a_link_and_ticks_a_box(
     );
 }
 
+/// A form sent by `GET` to `/send` with one field, and its button at
+/// (10, 150), 100 × 30 with its padding and border inside.
+const FORM: &str = "<form action=/send><input name=a value=1 style=position:absolute;left:300px>\
+     <button id=go style=position:absolute;left:10px;top:150px;width:100px;height:30px;margin:0;box-sizing:border-box>\
+     Send</button></form>";
+
+/// Press and let go at (20, 160), inside [`FORM`]'s button: what the release
+/// said, and where it asked to go.
+fn sent(renderer: &mut Renderer) -> (Vec<String>, Option<String>) {
+    point(renderer, Pointer::down(20.0, 160.0));
+    point(renderer, Pointer::up(20.0, 160.0))
+}
+
 #[test]
-fn a_click_that_would_submit_a_form_submits_nothing_and_says_so() {
-    let form = "<form action=/send><button style=position:absolute;left:10px;top:150px>\
-                Send</button></form>";
-    for mut renderer in [loaded(form, "", false), scriptless(form)] {
-        point(&mut renderer, Pointer::down(20.0, 155.0));
-        let (said, went) = point(&mut renderer, Pointer::up(20.0, 155.0));
+fn a_click_on_a_submit_button_sends_its_form_with_script_or_without() {
+    for stress in [false, true] {
+        let mut renderer = loaded(
+            FORM,
+            "document.addEventListener('submit', e => \
+               say('submit ' + who(e.target) + ' ' + e.isTrusted + ' ' + who(e.submitter)));",
+            stress,
+        );
+        assert!(
+            at(pieces(&renderer, "go").first(), 10.0, 150.0, 100.0, 30.0),
+            "the button is where it was placed: {:?}",
+            pieces(&renderer, "go")
+        );
+        let (said, went) = sent(&mut renderer);
+        assert!(said.is_empty(), "{said:?}");
+        assert_eq!(went.as_deref(), Some("https://example.com/send"));
+        assert_eq!(
+            heard(&renderer).last().map(String::as_str),
+            Some("submit null true go"),
+            "the form heard a trusted submit naming its button, as Chrome's does"
+        );
+    }
+
+    let mut renderer = scriptless(FORM);
+    let (said, went) = sent(&mut renderer);
+    assert!(said.is_empty(), "{said:?}");
+    assert_eq!(went.as_deref(), Some("https://example.com/send"));
+    assert!(
+        renderer.event_loop().is_none(),
+        "no heap was made to find that nobody listens"
+    );
+}
+
+#[test]
+fn a_click_on_a_person_and_an_agents_press_ask_for_the_same_form() {
+    let mut person = loaded(FORM, "", false);
+    let (_, went) = sent(&mut person);
+
+    let mut agent = loaded(FORM, "", false);
+    let FromRenderer::Acted {
+        outcome,
+        navigation,
+        ..
+    } = agent.handle(ToRenderer::Act {
+        target: Target::Named("Send".to_owned()),
+        verb: Verb::Activate,
+    })
+    else {
+        panic!("the button can be pressed");
+    };
+    assert!(matches!(outcome, Outcome::Submitted { .. }), "{outcome:?}");
+    let Some(asked) = navigation else {
+        panic!("the agent's press asked for nothing");
+    };
+    assert_eq!(went.as_deref(), Some(asked.url.as_str()));
+    let FromRenderer::Delivered {
+        navigation: Some(again),
+        ..
+    } = ({
+        let mut person = loaded(FORM, "", false);
+        point(&mut person, Pointer::down(20.0, 160.0));
+        person.handle(ToRenderer::Pointer(Pointer::up(20.0, 160.0)))
+    })
+    else {
+        panic!("the person's click asked for nothing");
+    };
+    assert_eq!(
+        again.submission, asked.submission,
+        "the same entries, method and enctype"
+    );
+}
+
+#[test]
+fn a_form_whose_fields_fail_is_not_sent_and_says_which_after_invalid_is_fired() {
+    let form = "<form action=/send><input name=day required>\
+                <button style=position:absolute;left:10px;top:150px;width:100px;height:30px;\
+                margin:0>Send</button></form>";
+    for stress in [false, true] {
+        let mut renderer = loaded(
+            form,
+            "document.addEventListener('invalid', e => say('invalid ' + e.target.getAttribute('name')), true);",
+            stress,
+        );
+        let (said, went) = sent(&mut renderer);
         assert_eq!(went, None);
         assert_eq!(
             said,
             [
-                "the person's click: it would have submitted a form, and a person's click \
-              submits none yet (queue item 543)"
+                "the person's click: its form was not sent: input name=\"day\" valueMissing: \
+                 \"Please fill out this field.\""
+            ]
+        );
+        assert!(
+            heard(&renderer).contains(&"invalid day".to_owned()),
+            "{:?}",
+            heard(&renderer)
+        );
+    }
+    let (said, went) = sent(&mut scriptless(form));
+    assert_eq!(went, None);
+    assert_eq!(said.len(), 1, "{said:?}");
+}
+
+#[test]
+fn a_form_this_engine_cannot_check_is_heard_and_said_rather_than_refused() {
+    // An agent's press on this form is refused before the page hears it
+    // (`a_form_sent_on_a_page_that_runs_script.rs`). A person pressed.
+    let form = "<form action=/send><input name=a pattern=x value=y>\
+                <button style=position:absolute;left:10px;top:150px;width:100px;height:30px;\
+                margin:0>Send</button></form>";
+    let mut renderer = loaded(form, "", false);
+    let (said, went) = sent(&mut renderer);
+    assert_eq!(went, None);
+    assert_eq!(
+        said,
+        [
+            "the person's click: its form was not sent: input name=\"a\" could fail \
+             patternMismatch, which this engine does not check yet"
+        ]
+    );
+    assert_eq!(
+        kinds(&renderer).last().map(String::as_str),
+        Some("click null"),
+        "the page heard the click"
+    );
+
+    let dialog = "<form method=dialog><button style=position:absolute;left:10px;top:150px;\
+                  width:100px;height:30px;margin:0;box-sizing:border-box>Send</button></form>";
+    for mut renderer in [loaded(dialog, "", false), scriptless(dialog)] {
+        let (said, went) = sent(&mut renderer);
+        assert_eq!(went, None);
+        assert_eq!(
+            said,
+            [
+                "the person's click: its form was not sent: the form closes a dialog, and dialogs \
+              are not built"
             ]
         );
     }
+}
+
+#[test]
+fn a_page_whose_script_stopped_sends_its_form_as_a_page_nobody_listens_on() {
+    let mut renderer = loaded(
+        FORM,
+        "document.addEventListener('submit', e => { e.preventDefault(); say('submit'); });",
+        false,
+    );
+    renderer
+        .event_loop()
+        .expect("a scripted page")
+        .stop_switch()
+        .ask();
+    // The press's task is where the page stops; from then on nobody can
+    // cancel anything, so the form's own rules decide.
+    let (said, went) = sent(&mut renderer);
+    assert_eq!(
+        went.as_deref(),
+        Some("https://example.com/send"),
+        "{said:?}"
+    );
+    assert!(
+        said.iter().any(|line| line.contains("nobody heard it")),
+        "{said:?}"
+    );
+    assert!(
+        !heard(&renderer).contains(&"submit".to_owned()),
+        "no listener ran: {:?}",
+        heard(&renderer)
+    );
+}
+
+#[test]
+fn a_cancelled_submit_sends_nothing_and_says_the_page_took_it() {
+    let mut renderer = loaded(
+        FORM,
+        "document.addEventListener('submit', e => e.preventDefault());",
+        false,
+    );
+    let (said, went) = sent(&mut renderer);
+    assert_eq!(went, None);
+    assert_eq!(
+        said,
+        [
+            "the person's click: its form was not sent: the page cancelled its submit event, and \
+          took the click"
+        ]
+    );
+
+    let mut renderer = loaded(
+        FORM,
+        "document.addEventListener('click', e => e.preventDefault());",
+        false,
+    );
+    let (said, went) = sent(&mut renderer);
+    assert_eq!(
+        (said, went),
+        (Vec::new(), None),
+        "a cancelled click submits nothing"
+    );
 }
 
 #[test]

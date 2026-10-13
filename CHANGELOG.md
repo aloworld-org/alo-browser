@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A person can send a form.** Clicking a form's submit button now sends
+  it, as pressing it does for an agent: its fields are checked first, the
+  page hears `invalid` or `submit` as in Chrome, and the browser decides
+  where it goes as the person's choice. The window says *this form is sent
+  by GET to …* rather than calling it a link. A form this browser cannot
+  check or send, or whose fields fail, is not sent, and says why.
+
 - **A label hovered hovers its field.** With the pointer over a `<label>`,
   the field it labels now takes its `:hover` styles too, as in Chrome — a
   label pointing at a field by `for`, or wrapped around it. The same rule

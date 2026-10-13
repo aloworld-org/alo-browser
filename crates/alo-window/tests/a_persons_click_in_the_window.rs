@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Queue item 535: a person's main button, from the window to the page
-//! (ADR 0024 § 5).
+//! (ADR 0024 § 5) — and, for queue item 543, a form it sends.
 //!
 //! Each press is a point in the window's device pixels, as the window
 //! server gives one, put through [`aim`] — the function the event loop asks
@@ -264,6 +264,40 @@ fn a_click_on_the_frozen_link_is_decided_as_the_persons_and_said() {
     let iana =
         alo_url::parse("https://iana.org/domains/example").unwrap_or_else(|_| Url::about_blank());
     assert_eq!(said, format!("this link goes to {iana}, {NOT_GONE}"));
+    send(&orders, Order::CloseEverything).unwrap_or_else(|why| panic!("{why}"));
+    assert!(conductor.finish());
+}
+
+#[test]
+fn a_click_on_a_forms_button_is_said_as_a_form_sent_not_a_link() {
+    let (conductor, news) = conducting().unwrap_or_else(|why| panic!("{why}"));
+    let orders = conductor.orders();
+    let frame = showing(
+        &orders,
+        &news,
+        "https://example.com/",
+        "<body style=margin:0><form method=post action=/send>\
+         <input type=hidden name=a value=1>\
+         <button style=position:absolute;left:10px;top:150px;width:100px;height:30px;margin:0>\
+         Send</button></form>",
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+
+    // (20, 160) on the page, inside the button's 100 × 30 at (10, 150): at
+    // scale 2, 40 across and 320 down, below the strip's 72.
+    click(&orders, &frame, (40.0, 392.0)).unwrap_or_else(|why| panic!("{why}"));
+    let said = loop {
+        match next(&news).unwrap_or_else(|why| panic!("{why}")) {
+            News::Said(said) => break said,
+            News::Painted(_) | News::Strip(_) | News::StripSaid(_) | News::Chosen(_) => {}
+            News::Closed => panic!("the window closed"),
+        }
+    };
+    let action = alo_url::parse("https://example.com/send").unwrap_or_else(|_| Url::about_blank());
+    assert_eq!(
+        said,
+        format!("this form is sent by POST to {action}, {NOT_GONE}")
+    );
     send(&orders, Order::CloseEverything).unwrap_or_else(|why| panic!("{why}"));
     assert!(conductor.finish());
 }

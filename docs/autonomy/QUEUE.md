@@ -13238,7 +13238,7 @@ What stage 2's exit gate actually measures: a person using it.
   chooses another tab under a still pointer is not measured. *Closes when:*
   it is, and both tabs hear what Chrome's do.
 
-- [ ] **543. A person's click on a submit button submits its form.** *Cut
+- [x] **543. A person's click on a submit button submits its form.** *Cut
   from 535 (iteration 323; ADR 0051 § 4). Feature: `docs/features.md` stage
   2, forms. Depends on 535.* The click's activation would submit; today it
   submits nothing and the answer says so. An agent's `Activate` refuses a
@@ -13247,6 +13247,38 @@ What stage 2's exit gate actually measures: a person using it.
   person's click on a frozen form's button submits it as the agent's
   `Activate` does, with what this engine cannot send said, and the
   submission decided as `Cause::Person`.
+
+  *Done (iteration 327):* the click's activation submits its form in the
+  release's task, as an agent's `Activate` does (`event_loop/activated.rs`
+  no longer tells the two apart), and on a page that never ran script or
+  whose script has stopped `alo-renderer`'s `sent.rs` checks, plans and asks
+  for it by `alo-dom`'s rules. A person's click is never refused: a
+  constraint not built, a form not sent, fields that fail, a cancelled
+  `submit` and the rest are said in the answer, naming each control by its
+  element and `name`. `navigate::Navigation` gains `form`, and the window
+  says *this form is sent by GET to …*. Chrome 154, clicked with
+  `Input.dispatchMouseEvent` on the frozen booking and pizza forms, sent
+  what ADR 0051 measured for a press. Closed by
+  `a_persons_click_sends_a_form.rs` (both frozen forms through real `Tabs`,
+  `Cause::Person`, the agent's same body) and `a_persons_click.rs`.
+  *Cut:* **556**, **557**.
+
+- [ ] **556. A person's click on an image button sends where it fell.**
+  *Cut from 543 (iteration 327; ADR 0051 § 4). Feature: `docs/features.md`
+  stage 2, forms. Waits for a page.* An `<input type=image>` sends the
+  click's coordinates as `name.x` and `name.y`; an agent clicks nowhere and
+  is refused by name, and a person's click, which has a point, is said not
+  sent too. *Closes when:* a frozen page with an image button sends Chrome's
+  coordinates for a person's click.
+
+- [ ] **557. A person is told in the window why a form was not sent.**
+  *Cut from 543 (iteration 327; ADR 0051 "What this does not decide").
+  Feature: `docs/features.md` stage 2, forms. Needs design.* A person's
+  click on a form whose fields fail, or which this engine cannot check or
+  send, sends nothing and says why only in the renderer's answer; the
+  window shows nothing. Chrome draws a bubble at the first invalid field
+  and focuses it, which is a window's and focus's (258). *Closes when:*
+  what the window shows is decided and a person sees it.
 
 - [ ] **544. The other mouse buttons.** *Cut from 535 (iteration 323).
   Feature: `docs/features.md` stage 2, a window, tabs and a tab strip.

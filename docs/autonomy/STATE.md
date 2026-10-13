@@ -32633,3 +32633,125 @@ clause adds the label's hover and the shared rule; Owed drops 554.
 266 queue items are open (554 closed, 555 added). The next unused queue
 number is **556** and the next ADR is **0057**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 327 — queue item 543 closed: a person's click sends a form
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 326's entry and 323's (535, which cut 543); ADR 0051 in full
+(§§ 4–6 and its amendment); ADR 0012 § 2 (a person's click is the
+person's); ADR 0020 (the decided navigation); queue item 543; the feature
+lines *Forms* and *A window, tabs, and a tab strip*. No `AGENTS.md` exists
+here.
+
+**Why 543.** 535 closed in iteration 323 and freed 539 and 542–545. 542
+was built in 324, and 550 and 554 followed from it. 543 is the next open
+item in the file whose dependency is done and which waits on no page,
+person or design. 555, 551 and 552 wait for a page, and 553 is a
+measurement nothing depends on. The open items earlier in the file wait for
+a page, a person, a design or an unfinished dependency, as 318–326
+recorded.
+
+**Measured**, in headless Chrome 154 over CDP. `Input.dispatchMouseEvent`
+clicked the middle of the button, and `Fetch` interception answered each
+case's own address with its frozen bytes and failed every other request.
+The source was not read. On `alo-sites-booking` with no day, the click
+fired a trusted `invalid` at the date field and requested nothing. With
+`2026-10-20` it fired `submit` (trusted, submitter *See free times*) and
+requested `GET …/b/studio-consultation?date=2026-10-20`. `web-a-form`
+untouched posted `custname=&custtel=&custemail=&delivery=&comments=` as
+`application/x-www-form-urlencoded`, and with a name, `custname=Ada+
+Lovelace&…`. A cancelled `submit` requested nothing. A mouse click sends
+what ADR 0051 measured for a press.
+
+**Built.**
+- `alo-renderer`'s `event_loop/activated.rs`: `Submits` is gone, so a
+  person's click submits its form in the release's task as an agent's
+  `Activate` does. `submitted.rs`' documentation now covers both.
+- `alo-renderer`'s new `sent.rs`: on a page that never ran script, or
+  whose script has stopped, `unheard` checks, plans and asks for the form
+  by `alo-dom`'s rules alone. `said` puts into words what a click on a
+  scripted page came to. A person's click is never refused, so a
+  constraint not built, a form not sent, failing fields, a cancelled
+  `submit`, a form taken out and one already submitting are each said as
+  *its form was not sent: …*. Each control is named by its element and
+  `name`, quoted, and the line goes through `said::line`.
+- `alo-renderer`'s `pointed.rs` uses both. `NOT_SUBMITTED` is gone, and a
+  stopped page's link is now returned to the answer like a scriptless
+  page's, not kept in the cell.
+- `navigate::Navigation` gains `form`. `Decided`'s words say *send a form
+  by GET* for a GET form too, and `alo-window`'s notice says *this form is
+  sent by {method} to {url}* rather than *this link goes to*.
+- `By::Browser`'s documentation includes a person's click. The image
+  button's refusal no longer speaks only of an agent, and names 556.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first.
+`scripts/gate.sh` ran in the foreground into a scratchpad log. At 600 s
+the harness moved it to the background, and the next call waited on it
+with a foreground `until` loop. **Result: `exit 0`, "The gate is met. (10
+of 10 steps)"**, with no `FAILED`, `panicked` or `^error` line. Only this
+entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: the frozen buttons are each case's `agent.txt` box
+  to 1/64 px before they are clicked: *Submit order* at (8, 603.1875)
+  103.078125 × 21, and *See free times* at (432, 186.96875) 179.67188 ×
+  48.375. The test renderers were given DejaVu fonts and the booking
+  page's `site.css`. The probe button is at (10, 150), 100 × 30. These
+  are the boxes clicked; nothing new is positioned or sized.
+- Reference renders: none new. Nothing new is drawn but the window's
+  existing notice, whose composition has its renders.
+- Closing condition: `a_persons_click_sends_a_form.rs` runs over real
+  `Tabs` and the confined `alo-render`. The pizza form posts Chrome's body
+  as `Cause::Person`, the same url, method, body and `Referer` as an
+  agent's press on a second tab. The booking form goes by GET with the day
+  as `Cause::Person`. The booking form with no day is not sent and says
+  `input name="date" valueMissing: "Please fill out this field."`.
+  `a_persons_click.rs` runs each case with the collector at every
+  allocation where script runs: with script and without, an agent's same
+  ask, failing fields after `invalid`, an unbuilt constraint heard and said
+  where an agent's is refused, a dialog form, a cancelled `submit` or
+  click, and a stopped page.
+- On screen: `alo --frozen-fonts` on a scratchpad page with two forms. The
+  window was found with a `CGWindowList` helper, clicked with `cliclick`
+  and captured with `screencapture -l`. *Search* showed "this form is sent
+  by GET to https://example.com/search?q=alo, and going to another page is
+  not built yet (queue item 85)". *Required*, with its field empty, sent
+  nothing and showed nothing (557). ⌘W closed it, and no `alo` was left.
+- Mutations, each restored from a copy (`cmp` confirmed) and `alo-render`
+  rebuilt after. Each fails tests: no submission from the click (5); the
+  line not said (3); a scriptless form not asked (1); no checks in
+  `unheard` (4); `form` always false (2); a stopped page's form dropped
+  (1, a test added for it); the window's form wording dropped (1); and the
+  person's cause swapped for the document's (2 frozen-page tests).
+- Hostile input: no new bytes are read from outside. A page's control
+  `name` is quoted with escapes, so it cannot write a line, and 20,000
+  failing fields are one line bounded by `said::LONGEST_LINE`. Both are
+  tested.
+- One file, one responsibility: what a person's submission came to, and
+  the scriptless submission for a person, is `sent.rs`. The agent's half
+  stays in `submit.rs`.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 543 is ticked with its *Done* paragraph. Added: 556 (an image
+button's point, waits for a page) and 557 (the person told in the window
+why a form was not sent, needs design).
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds a person's submission, and Owed swaps 543 for 556 and 557.
+
+**Unresolved obligations.**
+- A form a person's click did not send says why only in the renderer's
+  answer, and the window shows nothing (557). Chrome's bubble and focus
+  are a window's and item 258's.
+- Fields are filled by an agent's `PutText` in the tests, because a
+  person's keys do not reach a page yet.
+- `formdata` is not fired (472), for a person as for an agent.
+- No claim about speed is made.
+
+267 queue items are open (543 closed, 556 and 557 added). The next unused
+queue number is **558** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.
