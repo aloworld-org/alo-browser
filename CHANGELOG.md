@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page of checkboxes and their rows' backgrounds matches Chrome to the
+  pixel.** Outside the controls and the letters themselves, every one of
+  the 49,525 pixels of the test page of checkboxes and radios beside text
+  is now exactly what Chrome draws, with no pale seam between rows. A test
+  holds it there.
+
 - **Boxes are drawn on whole pixels, as Chrome draws them.** A box placed
   at a fraction of a pixel used to have its background, border and shadow
   smeared across the two pixels its edge fell between, where Chrome draws

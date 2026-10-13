@@ -271,8 +271,9 @@ item 454). Since item 460 every row and control stands where Chrome's does to
 1/64 px, and the whole page differs from Chrome's by 1.0 on average where it
 differed by 4.0. A
 background at a fraction of a pixel is drawn on whole pixels, as Chrome draws
-it (565); this page's rows were already on whole pixels, so it did not move
-(461 stays open on its closing check). A native checkbox with `aria-checked` draws the
+it (565); this page's rows were already on whole pixels, so it did not move,
+and every one of its 49,525 pixels outside the controls and the text is
+Chrome's exactly (461, `a_background_beside_controls.rs`). A native checkbox with `aria-checked` draws the
 state it declares; Chrome draws its own checkedness (456). A light accent's
 tick is black here and Chrome's dark grey `#3b3b3b` (458).
 

@@ -245,9 +245,11 @@ correctness, not before it.
       sampling until they are measured against Chrome's (462). Since queue
       item 565 (iteration 337) a box's background, border and shadows are
       drawn from its box on whole device pixels, as Chrome 154 draws them
-      at one and at two. Owed: a clip, a picture's box and an `<svg>`'s
-      viewport on whole pixels (575), and a spread shadow's square corners
-      (573).*
+      at one and at two, and since queue item 461 (iteration 338)
+      `checkbox-beside-text` is Chrome's screenshot exactly in all 49,525
+      pixels outside its controls and text. Owed: a clip, a picture's box
+      and an `<svg>`'s viewport on whole pixels (575), and a spread
+      shadow's square corners (573).*
       *A button and a text field were a 1 px grey square border until queue
       item 505 (iteration 309), where Chrome 154 computes a 2 px `outset` or
       `inset` border and draws its own picture in that room: a one-pixel

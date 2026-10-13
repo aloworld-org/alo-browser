@@ -33854,3 +33854,70 @@ and owes (573, 575) in its note. *A window, tabs, and a tab strip* moves
 278 queue items are open (565 closed; 573–575 added). The next unused
 queue number is **576** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 338 — queue item 461 closed: the backgrounds beside controls are Chrome's pixels
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+stage 1 *Paint* line; iteration 337's entry; queue items 461–463 and
+560–575; `docs/features.md`' whole-device-pixel line;
+`docs/conformance.md`'s control paragraph; ADR 0057's *Measured since*
+(through 337's entry); `cases/checkbox-beside-text` and its tests
+(`checkbox_beside_text.rs`, `a_control_on_whole_pixels.rs`). No
+`AGENTS.md` exists here.
+
+**Why 461.** It is the first open item in the file that is not blocked:
+iteration 337 built its rule (565) and left only its closing check, which
+needs nothing else. Everything before it waits as 318–337 recorded.
+
+**Checked.** Every pixel of `checkbox-beside-text`'s `render.png` outside
+the whole pixels covering a control's or a run of text's box (9 controls,
+16 runs) — 49,525 of 60,000 — equals Chrome 154's committed `chrome.png`
+in every channel (also with the covered boxes grown by a pixel: 48,003 of
+48,003). The seam at y 157.x the item named is gone, as the rows stand on
+whole pixels since 460.
+
+**Built.** `alo-corpus/tests/a_background_beside_controls.rs`: the check
+above as a test, asserting the count of pixels compared so a covered box
+that grew is noticed. Nothing in the engine changed; no reference, layout
+or box file moved.
+
+**Gate, mechanical.** `cargo fmt --all -- --check` and `cargo clippy
+--workspace --all-targets --all-features -- -D warnings` clean (clippy
+first caught two redundant closures in the new test). `scripts/gate.sh`
+started in the foreground into a scratchpad log; it passed the tool's
+600 s limit and was moved to the background, and was waited on by a
+foreground loop with nothing else run: **`exit 0`, "The gate is met. (10
+of 10 steps)"**, no `FAILED`, `panicked` or `^error` line. Only this entry
+and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: nothing positions or sizes differently; the case's
+  rows and controls stay asserted to 1/64 px by `checkbox_beside_text.rs`.
+- Reference renders: none changed; the new test compares the committed
+  render with Chrome's picture pixel by pixel.
+- Mutations, each restored from a copy (`cmp` confirmed): the half-leading
+  left unfloored in `inline.rs` (item 460) fails the test (49,440 pixels
+  compared, the rows off whole pixels); a box's area drawn unsnapped in
+  `build.rs`' `draw_one_area` (565) survives it, because every box in this
+  case already stands on whole pixels — that rule is held by
+  `a_background_on_device_pixels.rs`, as iteration 337 recorded.
+- Hostile input: nothing new reads bytes from outside.
+- One file, one responsibility: one test file for one closing check.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 461 ticked with a *Done (iteration 338)* paragraph.
+
+**Roadmap.** Stage 1's *Paint* line, already ticked, gains in its note
+that `checkbox-beside-text` is Chrome's outside its controls and text.
+
+**Unresolved obligations.**
+- 462 (letters) and 463 (a disabled control's seam) as before; 573–575,
+  566, 568–571 as before; 560 and 564 on 502 behind 501; 572 on a person.
+- No claim about speed is made.
+
+277 queue items are open (461 closed). The next unused queue number is
+**576** and the next ADR is **0058**. This is one iteration, not a
+finished queue or roadmap.

@@ -2334,3 +2334,10 @@ and **574** (a run of one `&nbsp;` off the grid); cut: **575** (a clip, a
 picture's box, an `<svg>`'s viewport, a fractional scale). 461 waits only
 on its closing check. 278 queue items are open (565 closed; 573–575
 added). The next unused queue number is 576 and the next unused ADR 0058.
+
+Iteration 338 closed queue item 461 on its closing check: every pixel of
+`checkbox-beside-text` outside its controls and text, 49,525 of 60,000, is
+Chrome 154's screenshot exactly, held by `a_background_beside_controls.rs`.
+Nothing in the engine changed; 460 and 565 had built what it asked. 277
+queue items are open (461 closed). The next unused queue number is 576
+and the next unused ADR 0058.

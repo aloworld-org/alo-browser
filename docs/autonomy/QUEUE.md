@@ -8259,7 +8259,7 @@ The long pole, and the thing most of section E is unreachable without.
   and the order of the sum. *Closes when:* those six runs are Chrome's
   width, with the rule confirmed on runs it was not fitted to.
 
-- [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
+- [x] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage
   1, backgrounds. Opened by `checkbox-beside-text`. Needs measuring.*
   Chrome 154 draws a white `div` at (10.3, 70.3), 10.4 square, crisply on
@@ -8280,6 +8280,17 @@ The long pole, and the thing most of section E is unreachable without.
   had already put its rows on whole pixels. What remains is this closing
   condition, checked against its `chrome.png` outside the controls and
   text.)*
+  ***Done (iteration 338).*** The closing condition, checked: every pixel
+  of `checkbox-beside-text`'s picture outside the whole pixels that cover
+  a control's or a run of text's box — 49,525 of 60,000 — is Chrome 154's
+  `chrome.png` exactly, every channel, so the seam at y 157.x is gone with
+  the rows on whole pixels. `alo-corpus`'s
+  `a_background_beside_controls.rs` holds it, and counts the pixels
+  compared so a covered box that grew is noticed. Mutations: the
+  half-leading left unfloored (item 460) fails it; drawing a box's area
+  unsnapped (565) does not, since every box here already stands on whole
+  pixels, and that rule is held by `a_background_on_device_pixels.rs`.
+  Nothing in the engine changed.
 
 - [ ] **462. A letter's edge pixels are covered as Chrome's are.** *Found
   building 459 (iteration 291). Feature: `docs/features.md` stage 1,
