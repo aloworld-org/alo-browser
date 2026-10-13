@@ -1,8 +1,8 @@
 fill box#1 rgb(255 255 255) at (10, 10) 150×45
-fill box#3 rgb(239 246 255) at (10, 10) 66.131836×15
+fill box#3 rgb(239 246 255) at (10, 10) 66×15
 text box#4 "Read the" rgb(29 78 216) 13px at (14, 22)
 fill box#4 rgb(29 78 216) at (14, 22.825195) 58.131836×1
 text box#6 "alo manual" rgb(30 58 138) 13px at (10, 37)
-fill box#8 rgb(239 246 255) at (10, 40) 118.34131×15
+fill box#8 rgb(239 246 255) at (10, 40) 118×15
 text box#7 "before you begin" rgb(29 78 216) 13px at (14, 52)
 fill box#7 rgb(29 78 216) at (14, 52.825195) 110.34131×1

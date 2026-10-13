@@ -1,0 +1,32 @@
+/* Backgrounds laid out at tenths of a pixel (queue item 565). Chrome 154
+   draws everything a box paints for its own area from its border box with
+   each edge rounded to a whole device pixel, `floor(x·s + 0.5) / s`: a
+   colour, a gradient, a border on both its edges, a rounded corner, an
+   inset shadow, a spread shadow, a shadow moved by its offset (the box
+   snapped, then moved), a box inside a box, a piece of an inline box, and
+   a box under a translation (snapped where it would be without it, then
+   moved). `tests/a_background_on_device_pixels.rs` says which is which. */
+body { margin: 0; background: #ffffff; font-family: sans-serif; font-size: 13px }
+.box { position: absolute; width: 20.4px; height: 20.4px; background: #1d4ed8 }
+.colour { left: 10.3px; top: 10.3px }
+.half { left: 40.5px; top: 10.5px; width: 20.5px; height: 20.5px }
+.bordered { left: 70.7px; top: 10.2px; width: 16.3px; height: 16.3px;
+  background: #17212b; border: 2px solid #c0392b }
+.gradient { left: 110.2px; top: 10.6px; width: 20.3px;
+  background: linear-gradient(#0a7d3b, #0a7d3b) }
+.inset { left: 140.6px; top: 10.9px; width: 20.6px; background: #ffffff;
+  box-shadow: inset 0 0 0 3px #17212b }
+.spread { left: 180.4px; top: 10.45px; width: 20.2px;
+  box-shadow: 0 0 0 3px #c0392b }
+.offset { left: 220.25px; top: 10.75px; width: 20.2px;
+  box-shadow: 4.3px 2.6px 0 0 #17212b }
+.rounded { left: 260.85px; top: 10.15px; background: #17212b; border-radius: 5px }
+.moved { left: 300px; top: 10px; width: 20.3px; height: 20.3px;
+  background: #c0392b; transform: translate(0.5px, 0.25px) }
+.holder { position: absolute; left: 340.3px; top: 10.3px; width: 30px; height: 30px }
+.nested { left: 0.4px; top: 0.4px; width: 20.2px; height: 20.2px; background: #0a7d3b }
+.line { position: absolute; left: 10.35px; top: 60.4px }
+.piece { background: #1d4ed8; padding: 0 20.3px }
+.row { position: absolute; left: 10.2px; top: 100.3px; display: flex }
+.row > div { width: 10.3px; height: 20.3px; background: #1d4ed8 }
+.row > div:nth-child(even) { background: #c0392b }

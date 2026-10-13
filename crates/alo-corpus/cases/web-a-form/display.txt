@@ -7,14 +7,14 @@ fill box#16 rgb(118 118 118) at (100, 53) 172×21
 text box#21 "E-mail address:" rgb(0 0 0) 16px at (8, 105)
 fill box#22 rgb(255 255 255) at (137.5, 90.5) 171×20
 fill box#22 rgb(118 118 118) at (137, 90) 172×21
-clip box#25 to (10, 135.5) 580×152.09375
-clip box#25 to (10, 135.5) 580×152.09375
-fill box#25 rgb(255 255 255) at (10, 135.5) 580×152.09375
-fill box#25 rgb(108 108 108) at (10, 135.5) 580×152.09375
+clip box#25 to (10, 136) 580×152
+clip box#25 to (10, 136) 580×152
+fill box#25 rgb(255 255 255) at (10, 136) 580×152
+fill box#25 rgb(108 108 108) at (10, 136) 580×152
 unclip
-clip box#25 to (10, 135.5) 580×152.09375
-fill box#25 rgb(108 108 108) at (10, 135.5) 580×152.09375
-fill box#25 rgb(255 255 255) at (10, 135.5) 580×152.09375
+clip box#25 to (10, 136) 580×152
+fill box#25 rgb(108 108 108) at (10, 136) 580×152
+fill box#25 rgb(255 255 255) at (10, 136) 580×152
 unclip
 unclip
 text box#28 "Pizza Size" rgb(0 0 0) 16px at (26, 142)
@@ -27,14 +27,14 @@ text box#40 "Medium" rgb(0 0 0) 16px at (50.085938, 219.59375)
 fill box#45 rgb(255 255 255) at (29, 243) 13×13
 fill box#45 rgb(118 118 118) at (29, 243) 13×13
 text box#46 "Large" rgb(0 0 0) 16px at (50.085938, 255.59375)
-clip box#49 to (10, 296.09375) 580×188.09375
-clip box#49 to (10, 296.09375) 580×188.09375
-fill box#49 rgb(255 255 255) at (10, 296.09375) 580×188.09375
-fill box#49 rgb(108 108 108) at (10, 296.09375) 580×188.09375
+clip box#49 to (10, 296) 580×188
+clip box#49 to (10, 296) 580×188
+fill box#49 rgb(255 255 255) at (10, 296) 580×188
+fill box#49 rgb(108 108 108) at (10, 296) 580×188
 unclip
-clip box#49 to (10, 296.09375) 580×188.09375
-fill box#49 rgb(108 108 108) at (10, 296.09375) 580×188.09375
-fill box#49 rgb(255 255 255) at (10, 296.09375) 580×188.09375
+clip box#49 to (10, 296) 580×188
+fill box#49 rgb(108 108 108) at (10, 296) 580×188
+fill box#49 rgb(255 255 255) at (10, 296) 580×188
 unclip
 unclip
 text box#52 "Pizza Toppings" rgb(0 0 0) 16px at (26, 302.59375)

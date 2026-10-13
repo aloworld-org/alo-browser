@@ -1,18 +1,18 @@
-fill box#2 rgb(255 255 255) at (0, 0) 800×324.75
-fill box#9 rgb(242 245 248) at (0, 0) 800×324.75
-fill box#9 rgb(221 227 233) at (0, 0) 800×324.75
+fill box#2 rgb(255 255 255) at (0, 0) 800×325
+fill box#9 rgb(242 245 248) at (0, 0) 800×325
+fill box#9 rgb(221 227 233) at (0, 0) 800×325
 text box#12 "Come and talk to us" rgb(23 33 43) 28px at (25, 51)
 text box#15 "Consultation" rgb(23 33 43) 18px at (25, 105.59375)
 text box#18 "30 minutes" rgb(23 33 43) 17px at (25, 154.1875)
 text box#21 "Half an hour, in the studio." rgb(76 88 102) 17px at (25, 214.375)
 text box#24 "Where: Second floor, ring the bell" rgb(76 88 102) 17px at (25, 274.5625)
 text box#30 "Choose a day" rgb(23 33 43) 17px at (432, 107.40625)
-fill box#31 rgb(255 255 255) at (432, 119.59375) 343×50.375
-fill box#31 rgb(221 227 233) at (432, 119.59375) 343×50.375
+fill box#31 rgb(255 255 255) at (432, 120) 343×50
+fill box#31 rgb(221 227 233) at (432, 120) 343×50
 text box#32 "yyyy-mm-dd" rgb(23 33 43) 17px at (445, 150.1875)
-fill box#37 rgb(29 78 216) at (432, 186.96875) 179.67188×48.375
-fill box#37 rgb(29 78 216) at (432, 186.96875) 179.67188×48.375
+fill box#37 rgb(29 78 216) at (432, 187) 180×48
+fill box#37 rgb(29 78 216) at (432, 187) 180×48
 text box#38 "See free times" rgb(255 255 255) 17px at (452.18823, 216.5625)
-fill box#4 rgb(242 245 248) at (-15984, 0) 161.125×43.1875
+fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
 fill box#5 rgb(23 33 43) at (-15968, 28.079102) 129.11035×1

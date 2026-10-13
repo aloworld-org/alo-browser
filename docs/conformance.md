@@ -269,9 +269,10 @@ its box rounded to the nearest pixel, a half up, measured in Chrome 154.
 by 1.5 on average and 61 at most, where they differed by 16 (and by 47 before
 item 454). Since item 460 every row and control stands where Chrome's does to
 1/64 px, and the whole page differs from Chrome's by 1.0 on average where it
-differed by 4.0. A plain
-background at a fraction of a pixel is smoothed here where Chrome draws it on
-whole pixels (461). A native checkbox with `aria-checked` draws the
+differed by 4.0. A
+background at a fraction of a pixel is drawn on whole pixels, as Chrome draws
+it (565); this page's rows were already on whole pixels, so it did not move
+(461 stays open on its closing check). A native checkbox with `aria-checked` draws the
 state it declares; Chrome draws its own checkedness (456). A light accent's
 tick is black here and Chrome's dark grey `#3b3b3b` (458).
 
@@ -374,9 +375,16 @@ of its controls on exactly the device pixels Chrome 154 draws them on under
 `--force-device-scale-factor=2`, each control's picture within 65 of 255 of
 Chrome's at worst and 0.79 on average (`a_page_drawn_at_a_scale_of_two.rs`,
 against `chrome-at-2.png`, with `render-at-2.png` as its reference beside
-`render.png`). Not yet: a plain background is not snapped to whole pixels
-at any scale, though Chrome snaps one (565), and where a line under text
-falls at two is not measured (566).
+`render.png`). Since item 565 every box's own area — background, border, shadows, an
+inline box's pieces — is drawn on whole device pixels, at one and at two:
+`backgrounds-on-device-pixels` puts every pixel along each box's middle
+row and column exactly where Chrome 154's are at both scales, but a shadow
+moved by a fraction of a pixel, within 6 of 255 (this engine samples a
+soft edge sixteen by sixteen, Chrome by its exact area). At corners where
+two soft edges meet Chrome covers a pixel by the lesser edge, and a spread
+shadow on a square box keeps square corners in Chrome and is rounded here
+(573); a clip, a picture's box and an `<svg>`'s viewport are not snapped
+(575). Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (item 562, ADR 0057 § 3). The window
 tells the page's renderer and the strip's the whole part of its screen's

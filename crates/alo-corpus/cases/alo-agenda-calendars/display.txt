@@ -3,8 +3,8 @@ fill box#3 rgb(244 241 236) at (0, 0) 280×340
 fill box#5 rgb(240 236 230) at (0, 0) 240×340
 fill box#5 rgb(222 215 205) at (239, 0) 1×340
 clip box#5 to (0, 0) 239×340
-shadow box#7 rgb(231 111 81 / 0.6) blur 8 at (19, 21) 139.79688×35
-fill box#7 rgb(231 111 81) at (16, 16) 145.79688×41
+shadow box#7 rgb(231 111 81 / 0.6) blur 8 at (19, 21) 140×35
+fill box#7 rgb(231 111 81) at (16, 16) 146×41
 clip box#8 to (34, 27.5) 18×18
 fill box#8 rgb(255 255 255) at (39.25, 28.25) 1.5×4.5
 fill box#8 rgb(255 255 255) at (45.25, 28.25) 1.5×4.5
@@ -19,8 +19,8 @@ clip box#20 to (206, 79) 15×15
 fill box#20 rgb(95 85 75) at (208.5, 85.875) 10×1.25
 fill box#20 rgb(95 85 75) at (212.875, 81.5) 1.25×10
 unclip
-fill box#26 rgb(231 111 81) at (20, 110.75) 16×16
-fill box#26 rgb(231 111 81) at (20, 110.75) 16×16
+fill box#26 rgb(231 111 81) at (20, 111) 16×16
+fill box#26 rgb(231 111 81) at (20, 111) 16×16
 clip box#27 to (22, 112.75) 12×12
 fill box#27 rgb(255 255 255) at (23.25, 115) 9.5×7
 unclip
@@ -36,8 +36,8 @@ fill box#32 rgb(122 111 98) at (210.07195, 118.986946) 4.8615265×3.317772
 fill box#32 rgb(122 111 98) at (210.072, 115.195335) 4.8559875×3.317665
 unclip
 ungroup
-fill box#39 rgb(75 131 196) at (20, 142.25) 16×16
-fill box#39 rgb(75 131 196) at (20, 142.25) 16×16
+fill box#39 rgb(75 131 196) at (20, 142) 16×16
+fill box#39 rgb(75 131 196) at (20, 142) 16×16
 clip box#40 to (22, 144.25) 12×12
 fill box#40 rgb(255 255 255) at (23.25, 146.5) 9.5×7
 unclip
@@ -63,13 +63,13 @@ fill box#49 rgb(122 111 98) at (213.04167, 149.16667) 1.0833282×4.3333282
 unclip
 ungroup
 text box#59 "OTHER CALENDARS" rgb(95 85 75) 12px at (16, 198)
-fill box#65 rgb(46 139 87) at (20, 217.75) 16×16
+fill box#65 rgb(46 139 87) at (20, 218) 16×16
 clip box#66 to (44, 216) 118.578125×19.5
 text box#67 "Team holidays" rgb(16 42 67) 13px at (44, 230)
 unclip
 text box#70 "can edit" rgb(122 111 98) 12px at (170.57813, 229.75)
-fill box#76 rgb(155 109 214) at (20, 249.25) 16×16
-fill box#76 rgb(155 109 214) at (20, 249.25) 16×16
+fill box#76 rgb(155 109 214) at (20, 249) 16×16
+fill box#76 rgb(155 109 214) at (20, 249) 16×16
 clip box#77 to (22, 251.25) 12×12
 fill box#77 rgb(255 255 255) at (23.25, 253.5) 9.5×7
 unclip

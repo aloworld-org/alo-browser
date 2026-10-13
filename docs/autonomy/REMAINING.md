@@ -2318,3 +2318,19 @@ and factors under one sharing their part of the free space truncated
 gaps away twice when its factors sum below one, blocked on a person to
 report it. 276 queue items are open (572 added). The next unused queue
 number is 573 and the next unused ADR 0058.
+
+Iteration 337 closed queue item 565: a box's own area is drawn on whole
+device pixels. Chrome 154 at scales of one and two was measured on 1,536
+boxes at tenths of a pixel, and everything a box paints for its own area —
+a colour, a gradient, a border on both edges, a rounded corner, an inline
+box's piece, spread, inset and blurred shadows — is drawn from its border
+box with each edge snapped, a shadow's offset added after and a transform
+moving the snapped box (ADR 0057, *Measured since*). `alo-paint` now
+draws so, and a fieldset's border from the line through its legend;
+`cases/backgrounds-on-device-pixels` is Chrome's along every box's middle
+at both scales. 34 corpus cases' display lists moved at one, each line a
+box onto whole pixels. Found: **573** (a spread shadow's square corners)
+and **574** (a run of one `&nbsp;` off the grid); cut: **575** (a clip, a
+picture's box, an `<svg>`'s viewport, a fractional scale). 461 waits only
+on its closing check. 278 queue items are open (565 closed; 573–575
+added). The next unused queue number is 576 and the next unused ADR 0058.

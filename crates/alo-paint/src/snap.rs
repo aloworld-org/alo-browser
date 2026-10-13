@@ -27,6 +27,19 @@
 //! 13-pixel square from 8.5 pixels in, across a pixel's edge, in Chrome as
 //! here.
 //!
+//! # Every box's own area
+//!
+//! The same rule holds for what any box paints for itself (queue item 565),
+//! measured from Chrome 154's screenshots of 1,536 boxes at tenths of a
+//! pixel, each at one and at two (ADR 0057, *Measured since*): a background colour or image, a border on both
+//! its edges, a rounded corner, an inset or spread or blurred shadow, a
+//! piece of an inline box, a box inside a box, a faded box. A shadow moved
+//! by an offset is the snapped box moved, so an offset of a fraction leaves
+//! its edges a fraction into a pixel; a box under a transform is snapped
+//! where it would be without one, and the transform moves the snapped box.
+//! A fieldset's border is snapped from the line through its legend, not
+//! from the top of its box (`crate::banded`).
+//!
 //! # At a scale
 //!
 //! The pixels are **device** pixels (ADR 0057 § 2). On a screen of `s`

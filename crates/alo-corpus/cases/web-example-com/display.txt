@@ -1,4 +1,4 @@
-fill box#1 rgb(238 238 238) at (160, 90) 480×117.078125
+fill box#1 rgb(238 238 238) at (160, 90) 480×117
 group box#2 at opacity 0.8
 text box#4 "Example Domain" rgb(0 0 0) 24px at (160, 112)
 text box#6 "This domain is for use in documentation examples without" rgb(0 0 0) 16px at (160, 149.07813)

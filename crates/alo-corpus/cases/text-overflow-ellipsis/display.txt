@@ -18,7 +18,7 @@ unclip
 fill box#14 rgb(221 226 238) at (8, 86) 60×22
 clip box#14 to (8, 86) 60×22
 text box#15 "aaa" rgb(0 0 0) 16px at (8, 101)
-fill box#16 rgb(244 166 166) at (37.414063, 86) 103.40625×19
+fill box#16 rgb(244 166 166) at (37, 86) 104×19
 text box#14 "…" rgb(0 0 0) 16px at (37.414063, 101)
 unclip
 fill box#19 rgb(221 226 238) at (8, 112) 70×60

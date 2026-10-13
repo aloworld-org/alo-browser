@@ -8,7 +8,7 @@ clip box#7 to (0, 28) 50×25
 fill box#7 rgb(38 70 83) at (12.5, 28) 25×25
 unclip
 text box#11 "em" rgb(0 0 0) 12px at (0, 77)
-fill box#12 rgb(233 196 106) at (22.886719, 57) 60×20
+fill box#12 rgb(233 196 106) at (23, 57) 60×20
 clip box#12 to (22.886719, 57) 60×20
 fill box#12 rgb(38 70 83) at (22.886719, 57) 60×20
 unclip

@@ -9,5 +9,5 @@ text box#9 "You're offline" rgb(16 42 67) 22px at (158.67627, 175)
 text box#12 "alo can't reach the server right now. Your mail is" rgb(72 101 129) 16px at (46.804688, 207)
 text box#12 "safe and will be waiting as soon as the connection" rgb(72 101 129) 16px at (38.492188, 231)
 text box#12 "returns." rgb(72 101 129) 16px at (208.82813, 255)
-fill box#14 rgb(231 111 81) at (181.54688, 286) 116.90625×39
+fill box#14 rgb(231 111 81) at (182, 286) 116×39
 text box#15 "Try again" rgb(255 255 255) 16px at (203.54688, 311)

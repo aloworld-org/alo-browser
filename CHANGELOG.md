@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Boxes are drawn on whole pixels, as Chrome draws them.** A box placed
+  at a fraction of a pixel used to have its background, border and shadow
+  smeared across the two pixels its edge fell between, where Chrome draws
+  it crisp. Measured on 1,536 boxes on ordinary and high-density screens,
+  Chrome rounds each edge of what a box paints for itself to the nearest
+  screen pixel; this browser now does the same, so a card's edge or a
+  highlighted row is one clean line rather than a pale fringe. Text and the
+  numbers an agent reads are unchanged: only the drawing moved.
+
 - **How Chrome shares a flex line is measured, and a fault in the layout
   library is found.** When a row of flexible boxes is too wide or too
   narrow, Chrome 154 hands out the leftover fraction of a pixel in a

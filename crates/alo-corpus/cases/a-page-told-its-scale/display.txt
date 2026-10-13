@@ -3,4 +3,4 @@ text box#6 "Shown at 1x" rgb(16 16 20) 13px at (8, 16)
 fill box#8 rgb(244 244 245) at (8, 23) 144×22
 fill box#8 rgb(113 113 122) at (8, 23) 144×22
 text box#9 "Invoices" rgb(16 16 20) 13px at (9, 36)
-fill box#12 rgb(29 78 216) at (60, 30) 30.296875×10.296875
+fill box#12 rgb(29 78 216) at (60, 30) 30×10

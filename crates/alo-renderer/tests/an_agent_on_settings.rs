@@ -202,17 +202,19 @@ fn pressing_a_row_runs_the_screens_own_script_and_the_tree_says_which_is_open_no
     // window, its share of the room truncated onto the grid of 1/64 px (ADR
     // 0054), so every row is 0.90625 below a whole pixel. It was 0.09375
     // until each field's line became its font's whole pixels (item 467):
-    // the dialog is 1.625 shorter, and half of that is above it.
+    // the dialog is 1.625 shorter, and half of that is above it. The
+    // highlight is drawn from its row's box moved onto whole pixels, as
+    // Chrome draws a background (item 565): 200.90625 is drawn from 201.
     let drawn = renderer
         .rendered()
         .map(|drawing| drawing.display.to_outline())
         .unwrap_or_default();
     assert!(
-        drawn.contains("rgb(252 234 227) at (36, 200.90625) 169×31"),
+        drawn.contains("rgb(252 234 227) at (36, 201) 169×31"),
         "the highlight is behind Sharing:\n{drawn}"
     );
     assert!(
-        !drawn.contains("rgb(252 234 227) at (36, 134.90625) 169×31"),
+        !drawn.contains("rgb(252 234 227) at (36, 135) 169×31"),
         "and not behind General:\n{drawn}"
     );
     assert!(
@@ -229,7 +231,8 @@ fn pressing_a_row_runs_the_screens_own_script_and_the_tree_says_which_is_open_no
 fn the_screen_is_drawn_as_its_markup_says_until_somebody_presses_something() {
     // The script only listens at load, so loading it changes nothing a person
     // or an agent can see: the committed reference render says the same,
-    // and so does the tree.
+    // and so does the tree. The row at 134.90625 has its highlight drawn
+    // on whole pixels, from 135 (item 565).
     let mut renderer = settings();
     let snapshot = read(&mut renderer);
     let open = named(&snapshot, "General").expect("the open section");
@@ -239,7 +242,7 @@ fn the_screen_is_drawn_as_its_markup_says_until_somebody_presses_something() {
         .map(|drawing| drawing.display.to_outline())
         .unwrap_or_default();
     assert!(
-        drawn.contains("rgb(252 234 227) at (36, 134.90625) 169×31"),
+        drawn.contains("rgb(252 234 227) at (36, 135) 169×31"),
         "{drawn}"
     );
 }

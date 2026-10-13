@@ -126,7 +126,7 @@ and the rule is unchanged:
 | A run of text's width, rounded up onto the grid | ADR 0054 § 4 | onto 1/(64·s) px |
 | Shares put on the grid | ADR 0054 § 3, ADR 0056 | onto 1/(64·s) px |
 | A border width, floored, and at least one | `line_width.rs` | `floor(w·s) / s`, at least `1 / s` |
-| A control's box and a plain background, each edge snapped | `snap.rs` | `floor(x·s + 0.5) / s` |
+| A control's box and everything a box paints for its own area, each edge snapped | `snap.rs` | `floor(x·s + 0.5) / s` |
 | A text field's character, rounded when wider, and its width, rounded up | `field_width.rs` | `round(c·s) / s`, `ceil(w·s) / s` |
 | The size a face is set at, cut to hundredths | `face_size.rs` | `trunc(z·s·100) / 100 / s` |
 
@@ -343,6 +343,55 @@ answering alike.
   `roundByDPR`, as alo's workspace bundles it) and whose sheet asks
   `resolution` three ways, has every box Chrome's at one and at two, and
   its hairline, band and floating box on Chrome's device pixels at two.
+
+**Item 565, 2026-10-13, the same Chrome under `--force-device-scale-factor=1`
+and `=2`,** screenshots without `--disable-gpu`, the source not read: two
+probes of twelve kinds of box, 56 of each kind at tenths of a pixel in
+each (one written, one seeded), and a third of 96 inset and 96 blurred
+shadows; every box drawn at one and at two, and compared with Chrome's own
+`getBoundingClientRect()` from the same run. A count below is of drawings,
+two to a box.
+
+- **Everything a box paints for its own area is drawn from its border box
+  on whole device pixels**, each edge `floor(x·s + 0.5) / s`, at one and
+  at two: a background colour (224 of 224), a gradient (224), a border on its outer and inner edges (224 and 224), a
+  rounded box (224), a faded box (224), a box inside a box (224), a piece
+  of an inline box (224), a spread shadow (224), an inset shadow (192 of 192,
+  exact), and a blurred shadow (192, within 0.011 of a Gaussian of the
+  snapped box where the unsnapped box is 0.068 off). This is the table's
+  row, now true of this engine: `alo-paint`'s `build.rs` draws a piece's
+  shadows, background and border from `snap::to_device_pixels` of it.
+- **A shadow's offset is added after the box is snapped** (224 of 224),
+  so an offset of a fraction leaves the shadow's edges a fraction into a
+  pixel: `4.3px` on a box snapped to 240 ends at 244.3.
+- **A transform moves the snapped box.** Under `scale(1)` a box is snapped
+  as without one (224); under `translate(0.5px, 0.5px)` its edges are the
+  snapped box's moved by a half (224); under a translation of a fraction
+  223 of 224 are the snapped box moved, and one, 10.3 wide at 490 moved
+  by 0.8 at one, is drawn a pixel wider by Chrome, which is not explained.
+- **A fieldset's border is snapped from the line through its legend**,
+  not from the top of its box: `web-a-form`'s second fieldset, laid out
+  from 287.59375 with the line 8.5 below, is drawn from 296 where snapping
+  the box first would draw it from 297 (`banded.rs`).
+- **What Chrome draws differently and this item does not change.** At a
+  corner where two soft edges meet, Chrome covers a pixel by the lesser of
+  the two edges' coverage, not by area; a spread shadow on a square box
+  keeps square corners where this engine rounds them by the spread (item
+  573); this engine samples a soft edge sixteen by sixteen (item 459), so
+  0.625 where Chrome covers 0.6.
+- **Not measured, and not snapped here:** an overflow clip, a picture's
+  box, an `<svg>`'s viewport, and a fractional scale (item 575).
+- `cases/backgrounds-on-device-pixels` has one of each kind; every pixel
+  along each box's middle row and column is Chrome's exactly at one and
+  at two, but the shadow moved by a fraction, within 6 of 255. At one,
+  34 corpus cases' display lists changed (31 of their `render.png`s, and
+  `sent.png` and `filled.png`), every changed line a box's own fill or
+  shadow moved onto whole pixels or a fieldset's band snapped on its own;
+  `a-page-told-its-scale` at two is nearer Chrome's picture (1.06 levels
+  on average to 0.93). `web-a-form`'s fieldsets now draw their grooves on
+  Chrome's rows, in this engine's colours rather than Chrome's (item 520),
+  so it is further from Chrome's picture by those rows (2.57 to 2.67),
+  where the smear had happened to land near Chrome's grey.
 
 ## How we will know if this was wrong
 

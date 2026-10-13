@@ -242,7 +242,12 @@ correctness, not before it.
       sampling drew a radio's dot 159 on one edge and 191 on the other. A
       shape's edge pixels are now sampled sixteen by sixteen, within 3 of
       255 of their exact area. Owed: letters, which keep the rented
-      sampling until they are measured against Chrome's (462).*
+      sampling until they are measured against Chrome's (462). Since queue
+      item 565 (iteration 337) a box's background, border and shadows are
+      drawn from its box on whole device pixels, as Chrome 154 draws them
+      at one and at two. Owed: a clip, a picture's box and an `<svg>`'s
+      viewport on whole pixels (575), and a spread shadow's square corners
+      (573).*
       *A button and a text field were a 1 px grey square border until queue
       item 505 (iteration 309), where Chrome 154 computes a 2 px `outset` or
       `inset` border and draws its own picture in that room: a one-pixel
@@ -1851,7 +1856,9 @@ items where being right and being unusable are the same outcome.
       A page is told its scale (567, done): `devicePixelRatio` answers it
       and `resolution`, `min-resolution` and `max-resolution` match it, as
       Chrome 154 answered 2,984 queries at one and two, and
-      `a-page-told-its-scale` is Chrome's in every box at both.
+      `a-page-told-its-scale` is Chrome's in every box at both. A box's
+      own area — background, border, shadows — is drawn on whole device
+      pixels at one and at two, as Chrome draws it (565, done).
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1863,8 +1870,8 @@ items where being right and being unusable are the same outcome.
       person's pointer lands at two (568), `matchMedia` (570), a media
       query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
       pixels (569), a shrunk flex item's share of a pixel (564, measured,
-      built with 502), the two boxes at two that keep 560 open, a plain background on whole device pixels (565)
-      and a line under text at a scale (566); a link opening a tab
+      built with 502), the two boxes at two that keep 560 open, and a line
+      under text at a scale (566); a link opening a tab
       (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads

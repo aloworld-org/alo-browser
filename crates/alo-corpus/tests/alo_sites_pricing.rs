@@ -151,7 +151,9 @@ fn the_highlighted_tier_casts_its_mixed_shadow() {
         panic!("the tier is drawn");
     };
     // One shadow: `--text` (#17212b) at twelve per cent, blurred over 3rem,
-    // the box's own shape 1.5rem below it.
+    // the box's own shape 1.5rem below it — the box on whole pixels, then
+    // moved, as Chrome casts it (item 565).
+    let tier = alo_paint::snap::to_whole_pixels(tier);
     let [(color, blur, (left, top, right, bottom))] = shadows.as_slice() else {
         panic!("one shadow, not {shadows:?}");
     };

@@ -8275,6 +8275,11 @@ The long pole, and the thing most of section E is unreachable without.
   meet at y 157.x leave the page showing 2 levels through their seam,
   which the rented sampling's snap had hidden; on whole pixels there is
   no seam.
+  *(Iteration 337: the rule is built by 565, at one and at two, and
+  `checkbox-beside-text`'s picture did not move with it, since item 460
+  had already put its rows on whole pixels. What remains is this closing
+  condition, checked against its `chrome.png` outside the controls and
+  text.)*
 
 - [ ] **462. A letter's edge pixels are covered as Chrome's are.** *Found
   building 459 (iteration 291). Feature: `docs/features.md` stage 1,
@@ -13551,7 +13556,7 @@ What stage 2's exit gate actually measures: a person using it.
   this engine does not snap at one either; found: a line under text at a
   scale (**566**).
 
-- [ ] **565. A plain background is drawn on whole device pixels.** *Cut
+- [x] **565. A plain background is drawn on whole device pixels.** *Cut
   from 561 (iteration 332; ADR 0057 § 2, Evidence 6). Feature:
   `docs/features.md` stage 1, paint. Needs measuring at one.* ADR 0057's
   table puts "a plain background, each edge snapped" in `snap.rs`, as
@@ -13566,6 +13571,31 @@ What stage 2's exit gate actually measures: a person using it.
   `snap::to_device_pixels`, and a frozen page of backgrounds at tenths of
   a pixel is Chrome's at one and at two, with every changed reference at
   one explained by the rule.
+  ***Done (iteration 337).*** Measured first, in Chrome 154 under
+  `--force-device-scale-factor=1` and `=2` (screenshots without
+  `--disable-gpu`, the source not read): 1,536 boxes at tenths of a pixel,
+  each at both scales. Everything a box paints for its own area is drawn
+  from its border box with each edge snapped, `floor(x·s + 0.5) / s` — a
+  colour, a gradient, a border on both edges, a rounded box, a faded box, a
+  nested box, an inline box's piece, spread, inset and blurred shadows — a
+  shadow's offset is added after (so a fractional offset leaves soft
+  edges), and a transform moves the snapped box (223 of 224 under a
+  fractional translation; one unexplained). Written into ADR 0057's table
+  and *Measured since*. Built: `alo-paint`'s `build.rs` draws a piece's
+  shadows, background and border from `snap::to_device_pixels` of it;
+  `banded.rs` snaps a fieldset's border from the line through its legend,
+  which Chrome does (`web-a-form`'s second fieldset from 296, not 297).
+  `cases/backgrounds-on-device-pixels` (one box of each kind) and
+  `a_background_on_device_pixels.rs`: every box laid out where Chrome lays
+  it out at one and at two, to 1/128 px, and every pixel along each box's
+  middle row and column Chrome's exactly at both scales, but the shadow
+  moved by a fraction, within 6 of 255 (this engine's sixteen-by-sixteen
+  edge sampling); `render-at-2.png` beside `render.png`. 34 corpus cases'
+  display lists changed at one, every changed line a box's own fill or
+  shadow onto whole pixels or a band snapped on its own. Found: **573**
+  (a spread shadow's square corners), **574** (a run of one `&nbsp;` off
+  the grid); cut: **575** (a clip, a picture, an `<svg>`'s viewport, and a
+  fractional scale).
 
 - [ ] **566. A line under text at a scale.** *Found building 561
   (iteration 332). Feature: `docs/features.md` stage 1, text decoration.
@@ -13792,6 +13822,39 @@ What stage 2's exit gate actually measures: a person using it.
   the second subtraction is taken, and those two lines of
   `flex-lines.chrome.txt` are within the bound the rest are, or exact if
   502 is built.
+
+- [ ] **573. A spread shadow on a square box has square corners.** *Found
+  building 565 (iteration 337). Feature: `docs/features.md` stage 1,
+  shadows. Needs measuring.* `cast` grows every corner by the spread, so a
+  `box-shadow: 0 0 0 3px` on a box with no radius is drawn with corners
+  rounded by 3. Chrome 154 draws `cases/backgrounds-on-device-pixels`'
+  spread shadow with square corners, a full pixel of `#c0392b` where this
+  engine leaves it near white. CSS Backgrounds 3 adjusts a spread radius
+  by how the box's own radius compares with the spread; what Chrome does
+  for a radius under the spread is measured first. *Closes when:* that
+  case's spread shadow's corners are Chrome's, and a rounded box's
+  spread shadow at radii below and above the spread is Chrome's.
+
+- [ ] **574. A run of one `&nbsp;` is put on the grid of 1/64 px.**
+  *Found building 565 (iteration 337). Feature: `docs/features.md` stage
+  1, text. Needs measuring.* A `<span>` holding only `&nbsp;` in 13 px
+  `DejaVu Sans` with `padding: 0 20.3px` is 44.7265625 wide here at one,
+  where Chrome 154 makes it 44.734375: the padding is on the grid, so the
+  run is 4.1328125, which is not, where ADR 0054 § 4 rounds a run's width
+  up onto it. *Closes when:* why that run escapes the rounding is found,
+  and a frozen piece holding a no-break space is Chrome's width at one and
+  at two.
+
+- [ ] **575. What else Chrome draws on whole device pixels.** *Cut from 565
+  (iteration 337; ADR 0057 § 2). Feature: `docs/features.md` stage 1,
+  paint. Needs measuring.* A box's own area is snapped (565), and its
+  overflow clip is not: a box at 69.90625 has its background from 70 and
+  its clip from 69.90625, so a child reaching its edge is cut a fraction
+  short of where its parent's background ends. A picture's box, an
+  `<svg>`'s viewport and an outline are drawn where layout put them. None
+  is measured, nor is anything at a fractional scale. *Closes when:* each
+  is measured in Chrome 154 at one and at two and written into ADR 0057's
+  table, and a frozen page of each at tenths of a pixel is Chrome's.
 
 - [ ] **300. A link opens a tab.** *Cut from 118 (ADR 0024 § 6; ADR 0020
   § 2).* `target="_blank"` on a link a person activated becomes a decided

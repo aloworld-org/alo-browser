@@ -1,0 +1,28 @@
+fill box#1 rgb(255 255 255) at (0, 0) 500×0
+fill box#3 rgb(29 78 216) at (10, 10) 21×21
+fill box#5 rgb(29 78 216) at (41, 11) 20×20
+fill box#7 rgb(23 33 43) at (71, 10) 20×20
+fill box#7 rgb(192 57 43) at (71, 10) 20×20
+fill box#9 linear-gradient(180deg, rgb(10 125 59), rgb(10 125 59)) at (110, 11) 20×20
+fill box#11 rgb(255 255 255) at (141, 11) 20×20
+clip box#11 to (141, 11) 20×20
+shadow box#11 rgb(23 33 43) blur 0 at (136, 6) 30×30
+unclip
+shadow box#13 rgb(192 57 43) blur 0 at (177, 7) 27×27
+fill box#13 rgb(29 78 216) at (180, 10) 21×21
+shadow box#15 rgb(23 33 43) blur 0 at (224.3, 13.6) 20×19.999998
+fill box#15 rgb(29 78 216) at (220, 11) 20×20
+fill box#17 rgb(23 33 43) at (261, 10) 20×21
+transform box#19 by matrix(1, 0, 0, 1, 0.5, 0.25)
+fill box#19 rgb(192 57 43) at (300, 10) 20×20
+untransform
+fill box#22 rgb(10 125 59) at (341, 11) 20×20
+fill box#25 rgb(29 78 216) at (10, 60) 41×15
+fill box#28 rgb(29 78 216) at (10, 100) 10×21
+fill box#29 rgb(192 57 43) at (20, 100) 11×21
+fill box#30 rgb(29 78 216) at (31, 100) 10×21
+fill box#31 rgb(192 57 43) at (41, 100) 10×21
+fill box#32 rgb(29 78 216) at (51, 100) 11×21
+fill box#33 rgb(192 57 43) at (62, 100) 10×21
+fill box#34 rgb(29 78 216) at (72, 100) 10×21
+fill box#35 rgb(192 57 43) at (82, 100) 11×21

@@ -203,7 +203,10 @@ fn the_custom_code_sections_border_is_whole_pixels_as_chrome_draws_it() {
         panic!("the case has a drawing");
     };
     let display = drawing.display.to_outline();
-    let border = format!(" at (0, {}) 4×{}", section.origin.y, section.size.height);
+    // Drawn from the section's box on whole pixels, as Chrome draws every
+    // box's background and border (item 565).
+    let drawn = alo_paint::snap::to_whole_pixels(*section);
+    let border = format!(" at (0, {}) 4×{}", drawn.origin.y, drawn.size.height);
     assert!(
         display
             .lines()

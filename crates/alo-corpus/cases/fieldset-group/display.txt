@@ -1,11 +1,11 @@
-clip box#3 to (10, 16.5) 220×68.09375
-clip box#3 to (10, 16.5) 220×68.09375
-fill box#3 rgb(255 255 255) at (10, 16.5) 220×68.09375
-fill box#3 rgb(108 108 108) at (10, 16.5) 220×68.09375
+clip box#3 to (10, 17) 220×68
+clip box#3 to (10, 17) 220×68
+fill box#3 rgb(255 255 255) at (10, 17) 220×68
+fill box#3 rgb(108 108 108) at (10, 17) 220×68
 unclip
-clip box#3 to (10, 16.5) 220×68.09375
-fill box#3 rgb(108 108 108) at (10, 16.5) 220×68.09375
-fill box#3 rgb(255 255 255) at (10, 16.5) 220×68.09375
+clip box#3 to (10, 17) 220×68
+fill box#3 rgb(108 108 108) at (10, 17) 220×68
+fill box#3 rgb(255 255 255) at (10, 17) 220×68
 unclip
 unclip
 text box#6 "Pizza size" rgb(0 0 0) 16px at (26, 23)

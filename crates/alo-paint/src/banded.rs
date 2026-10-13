@@ -56,28 +56,43 @@ use crate::fill_rule::FillRule;
 use crate::mitre::{Side, polygon_path};
 use crate::paint::Paint;
 use crate::path::Path;
+use crate::snap;
 use alo_box::BoxId;
 use alo_layout::{Band, Edges, Rect};
 
 /// The display items for the border of a box with a band in it.
 ///
-/// `border` is the box's border widths as laid out; the block-start one is
-/// the band's stroke instead, which is the width the style asked for. `sides`
-/// are the sides the style draws, in any order.
+/// `border_box` is the box as laid out, and `scale` the screen's device
+/// pixels to the CSS pixel. `border` is the box's border widths as laid
+/// out; the block-start one is the band's stroke instead, which is the
+/// width the style asked for. `sides` are the sides the style draws, in any
+/// order.
+///
+/// The border is drawn on whole device pixels, as every box's border is
+/// (`crate::snap`, queue item 565), and its top is the line through the
+/// band, not the top of the box: so the band's line is found first and
+/// then snapped on its own. Snapping the box and then moving down by the
+/// band's inset would put the line half a pixel off whenever the inset is
+/// a half — 296.5 where Chrome 154 draws `web-a-form`'s second fieldset
+/// from 296, measured at one, not read from its source.
 pub fn draw(
     box_id: BoxId,
     border_box: Rect,
+    scale: f32,
     band: Band,
     border: Edges,
     sides: &[DrawnSide],
     out: &mut Vec<DisplayItem>,
 ) {
     let inset = band.inset();
-    let area = Rect::new(
-        border_box.left(),
-        border_box.top() + inset,
-        border_box.size.width,
-        (border_box.size.height - inset).max(0.0),
+    let area = snap::to_device_pixels(
+        Rect::new(
+            border_box.left(),
+            border_box.top() + inset,
+            border_box.size.width,
+            (border_box.size.height - inset).max(0.0),
+        ),
+        scale,
     );
     let widths = Edges {
         top: band.stroke,
@@ -290,12 +305,79 @@ mod tests {
         assert_eq!(at(5, 30), 0, "outside the area");
     }
 
+    /// The top and bottom of everything a border with a band draws.
+    fn reach(out: &[DisplayItem]) -> (f32, f32) {
+        out.iter()
+            .filter_map(|item| match item {
+                DisplayItem::Fill { path, .. } => path.bounds(),
+                _ => None,
+            })
+            .fold((f32::MAX, f32::MIN), |(top, bottom), (_, t, _, b)| {
+                (top.min(t), bottom.max(b))
+            })
+    }
+
+    #[test]
+    fn the_bands_line_is_snapped_on_its_own() {
+        // `web-a-form`'s two fieldsets, each with a legend 19 tall and a
+        // stroke of 2, so the line is 8.5 below the box's top. The first is
+        // laid out from 127: its line is at 135.5, and Chrome 154 draws it
+        // from 136 at one, its bottom edge at 288. The second is laid out
+        // from 287.59375: its line is at 296.09375, which Chrome draws from
+        // 296, where snapping the box first and moving down would make it
+        // 296.5 and draw it from 297. At two, each is snapped to halves.
+        let band = Band {
+            height: 19.0,
+            stroke: 2.0,
+            gap: (20.0, 60.0),
+        };
+        for (laid_out, scale, wanted) in [
+            (
+                Rect::new(10.0, 127.0, 580.0, 160.593_75),
+                1.0,
+                (136.0, 288.0),
+            ),
+            (
+                Rect::new(10.0, 127.0, 580.0, 160.593_75),
+                2.0,
+                (135.5, 287.5),
+            ),
+            (
+                Rect::new(10.0, 287.593_75, 580.0, 196.593_75),
+                1.0,
+                (296.0, 484.0),
+            ),
+            (
+                Rect::new(10.0, 287.593_75, 580.0, 196.593_75),
+                2.0,
+                (296.0, 484.0),
+            ),
+        ] {
+            let mut out = Vec::new();
+            draw(
+                BoxId::from_index_for_tests(0),
+                laid_out,
+                scale,
+                band,
+                Edges::all(2.0),
+                &all_sides(Line::Solid),
+                &mut out,
+            );
+            let (top, bottom) = reach(&out);
+            assert!(
+                (top - wanted.0).abs() < 1e-4 && (bottom - wanted.1).abs() < 1e-4,
+                "{laid_out:?} at {scale}: {top} to {bottom}"
+            );
+        }
+    }
+
     #[test]
     fn a_solid_border_is_five_rectangles_and_no_clip() {
         let mut out = Vec::new();
         draw(
             BoxId::from_index_for_tests(0),
             area(),
+            1.0,
             band((20.0, 60.0)),
             Edges::all(2.0),
             &all_sides(Line::Solid),
@@ -310,6 +392,7 @@ mod tests {
         draw(
             BoxId::from_index_for_tests(0),
             area(),
+            1.0,
             band((20.0, 60.0)),
             Edges::all(2.0),
             &all_sides(Line::Groove),
@@ -335,6 +418,7 @@ mod tests {
         draw(
             BoxId::from_index_for_tests(0),
             area(),
+            1.0,
             band((0.0, 1.0)),
             Edges::all(2.0),
             &all_sides(Line::Groove),
@@ -356,6 +440,7 @@ mod tests {
             draw(
                 BoxId::from_index_for_tests(0),
                 area(),
+                1.0,
                 band((20.0, 60.0)),
                 Edges::all(2.0),
                 &all_sides(line),

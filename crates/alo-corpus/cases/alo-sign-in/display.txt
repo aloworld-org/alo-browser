@@ -7,7 +7,7 @@ text box#14 "Your rules." rgb(247 243 239) 40px at (64, 353.64063)
 text box#17 "Mail, calendar, chat, and files —" rgb(174 184 190) 17px at (64, 403.03125)
 text box#17 "sovereign, AI-native, and hosted" rgb(174 184 190) 17px at (64, 428.53125)
 text box#17 "in Europe." rgb(174 184 190) 17px at (64, 454.03125)
-fill box#22 rgb(46 139 87) at (64, 564.5) 8×8
+fill box#22 rgb(46 139 87) at (64, 565) 8×8
 text box#25 "Hosted on your infrastructure · EU" rgb(174 184 190) 13px at (80, 573)
 fill box#29 rgb(255 254 252) at (420, 0) 580×640
 text box#36 "Sign in" rgb(16 42 67) 32px at (510, 136)
@@ -26,9 +26,9 @@ text box#69 "Forgot password?" rgb(217 98 71) 13px at (779.5625, 374)
 fill box#69 rgb(217 98 71) at (779.5625, 374.8252) 130.4253×1
 fill box#72 rgb(231 111 81) at (510, 395) 400×46
 text box#73 "Sign in" rgb(255 255 255) 14px at (682.7451, 423)
-fill box#78 rgb(222 215 205) at (510, 464) 181.34375×1
+fill box#78 rgb(222 215 205) at (510, 464) 181×1
 text box#80 "or" rgb(122 111 98) 13px at (703.34375, 469)
-fill box#81 rgb(222 215 205) at (728.65625, 464) 181.34375×1
+fill box#81 rgb(222 215 205) at (729, 464) 181×1
 fill box#84 rgb(255 254 252) at (510, 488) 400×46
 fill box#84 rgb(222 215 205) at (510, 488) 400×46
 text box#85 "Sign in with SSO" rgb(16 42 67) 14px at (652.42773, 516)

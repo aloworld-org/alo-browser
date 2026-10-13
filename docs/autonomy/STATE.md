@@ -33731,3 +33731,126 @@ as measured, built with 502.
 276 queue items are open (572 added, none closed). The next unused queue
 number is **573** and the next ADR is **0058**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 337 — queue item 565 closed: a box's own area is drawn on whole device pixels
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+stage 1 *Paint* line and *A window, tabs, and a tab strip*; iteration
+336's entry; ADR 0057 in full; queue items 461, 520, 560–572;
+`docs/features.md`' scale and border lines; `docs/conformance.md`'s
+control and scale paragraphs; `alo-paint`'s `snap.rs`, `build.rs`
+(`draw_box`, `draw_one_area`, `draw_borders`, `cast`, `hole`,
+`transform_of`) and `banded.rs`; `alo-layout`'s `legend.rs` (`Band`);
+`alo-corpus`'s `case.rs`, `check.rs`, `rendering.rs` and the scale-two
+tests. No `AGENTS.md` exists here.
+
+**Why 565.** The dependency paths are held by a person: 560 and 564 wait
+on 502, behind 501 (a person offers the hook), and 572 is blocked on a
+person. 570 and 571 and the items before 560 wait for pages, a person, a
+design or a dependency, as 318–336 recorded. That leaves the measurement
+items 565, 566, 568 and 569 (569 waits for a screen); 565 is first in the
+file, depends on nothing, names its ADR (0057 § 2) and feature, and its
+closing condition is a frozen page and explained references. 461 is the
+same rule found at one; its closing check is its own.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, screenshots without `--disable-gpu`, every prediction from
+Chrome's own `getBoundingClientRect()` in the same run; the source not
+read): two probes of twelve kinds, 56 boxes of each at tenths of a pixel
+(one written, one seeded), and 96 inset and 96 blurred shadows — 1,536
+boxes, each at both scales. A colour, a gradient, a border on both edges,
+a rounded box, a faded box, a nested box, an inline piece, a spread and an
+inset shadow are each drawn from the border box with every edge
+`floor(x·s + 0.5) / s` (all 224 drawings of each kind; inset 192 of 192);
+a blurred shadow fits a Gaussian of the snapped box (worst 0.011, the
+unsnapped box 0.068); an offset is added after snapping (224 of 224); a
+transform moves the snapped box (224 under `scale(1)`, 224 under a half
+translation, 223 of 224 under fractional translations — one box, 10.3
+wide at 490 moved by 0.8 at one, is drawn a pixel wider, unexplained).
+
+**Built.**
+- `alo-paint`'s `build.rs`: `draw_one_area` draws a piece's shadows,
+  background and border from `snap::to_device_pixels` of it, at the
+  style tree's scale. A transform wraps the items, so a box is snapped as
+  without one, as measured.
+- `banded.rs`: `draw` takes the box as laid out and the scale, and snaps
+  the area from the line through the legend, since Chrome draws
+  `web-a-form`'s second fieldset (from 287.59375, its line 8.5 below)
+  from 296, where snapping the box first gives 297. `build.rs`'
+  `draw_band` hands it over (split out to keep `draw_borders` under
+  clippy's length).
+- `cases/backgrounds-on-device-pixels` (one box of each kind, no text) with
+  Chrome's `chrome.png` and `chrome-at-2.png`, and
+  `tests/a_background_on_device_pixels.rs`: every box laid out where
+  Chrome lays it out at one and two to 1/128 px; every pixel along each
+  box's middle row and column exactly Chrome's at both scales, but the
+  shadow moved by `4.3px 2.6px`, within 6 (this engine's sixteen-by-
+  sixteen edge sampling gives 0.625 where Chrome covers 0.6; snapping
+  after the offset would be 92 off); `render-at-2.png` as its reference.
+- ADR 0057: the table row now reads "everything a box paints for its own
+  area", and *Measured since* gains item 565. `snap.rs`' documentation
+  says the same.
+- Tests whose expectations were the unsnapped box, each now told why:
+  `alo_sites_full_page.rs` (the section's border drawn from its snapped
+  box), `alo_sites_pricing.rs` (the shadow is the snapped box moved), and
+  `alo-renderer`'s `an_agent_on_settings.rs` (the highlight from 201 and
+  135, not 200.90625 and 134.90625).
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (clippy
+caught `draw_borders` at 108 lines; the band call was split out).
+`scripts/gate.sh` was run detached with `nohup` into a scratchpad log and
+waited on with foreground loops in the same turn, with nothing else run
+meanwhile: **`exit 0`, "The gate is met. (10 of 10 steps)"**, no `FAILED`,
+`panicked` or `^error` line. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: the new case's twelve boxes against Chrome's at
+  both scales; nothing is laid out differently, and no `layout.txt` or
+  `boxes.txt` changed.
+- Reference renders: rewritten with `ALO_UPDATE_REFERENCES=1` from a
+  clean tree and checked by script against `HEAD`. 34 cases' `display.txt`
+  changed (31 `render.png`s, `sent.png`, `filled.png`,
+  `a-page-told-its-scale`'s `render-at-2.png`), and every changed line is
+  a box's fill or shadow whose rectangle is exactly the old one snapped
+  (217 lines) or a fieldset's band clip snapped on its own (16). Six
+  `alo-window` references moved with `alo-offline`'s page. Against every
+  committed Chrome picture: `a-page-told-its-scale` at two nearer (1.06
+  to 0.93 levels on average), the rest unchanged, and `web-a-form`
+  further (2.57 to 2.67): its fieldsets' grooves now sit on Chrome's rows
+  in this engine's colours (item 520), where the smear had landed near
+  Chrome's grey.
+- Mutations, each restored from a copy (`cmp` confirmed): no snap in
+  `draw_one_area` (2 tests fail, 71 of 255); a shadow snapped after its
+  offset (2 tests, 92); the band moved down from the snapped box (it
+  survived the first unit test, whose fieldset starts on a whole pixel, so
+  `web-a-form`'s second fieldset was added; then 1 test).
+- Hostile input: nothing new reads bytes from outside.
+- One file, one responsibility: the rounding stays `snap.rs`'; `build.rs`
+  and `banded.rs` use it.
+- Also updated: `docs/features.md` (a new line), `docs/conformance.md`,
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 565 ticked with a *Done (iteration 337)* paragraph. 461 notes
+that the rule is built and its closing check remains. Added 573 (a spread
+shadow on a square box keeps square corners in Chrome, rounded here), 574
+(a `<span>` of one `&nbsp;` is 4.1328125 wide, off the 1/64 grid, where
+Chrome's is on it; found because the case first held one) and 575 (a clip,
+a picture's box, an `<svg>`'s viewport and a fractional scale, not
+snapped and not measured).
+
+**Roadmap.** Stage 1's *Paint* line, already ticked, gains what 565 built
+and owes (573, 575) in its note. *A window, tabs, and a tab strip* moves
+565 from Owed to its Built clause; it stays unticked.
+
+**Unresolved obligations.**
+- 461's closing check against `checkbox-beside-text`'s `chrome.png`.
+- 573, 574, 575; 566, 568–571 as before; 560 and 564 on 502 behind 501;
+  572 on a person.
+- No claim about speed is made.
+
+278 queue items are open (565 closed; 573–575 added). The next unused
+queue number is **576** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

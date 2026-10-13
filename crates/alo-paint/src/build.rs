@@ -429,6 +429,14 @@ impl Builder<'_> {
     /// The shadows, background and border of one piece of a box.
     ///
     /// `ends` says whether this is the box's first piece and its last.
+    ///
+    /// All of it is drawn from the piece moved onto whole device pixels, each
+    /// edge rounded on its own as [`snap::to_device_pixels`] rounds (queue
+    /// item 565): a background, its image, a border on both its edges, a
+    /// rounded corner, and every shadow, which is the snapped box grown and
+    /// then moved by its offset. A transform is applied after, so a box is
+    /// snapped where it would be without one. Measured in Chrome 154 at one
+    /// and at two, not read from its source (ADR 0057, *Measured since*).
     fn draw_one_area(
         &self,
         id: BoxId,
@@ -438,6 +446,7 @@ impl Builder<'_> {
         out: &mut Vec<DisplayItem>,
     ) {
         let (first, last) = ends;
+        let area = snap::to_device_pixels(area, self.styles.scale());
         // CSS's own order for one box: the shadows it casts outwards, then
         // its background colour, then its background image over that, then
         // the shadows cast inwards, then the border, then what is inside it.
@@ -579,8 +588,7 @@ impl Builder<'_> {
             return;
         };
         if let Some(band) = geometry.band {
-            let sides = Self::drawn_sides(style);
-            banded::draw(id, border_box, band, self.border_of(id), &sides, out);
+            self.draw_band(id, geometry.border_box, band, style, out);
             return;
         }
         let corners = Corners::of(style, Self::extent_of(geometry.border_box));
@@ -681,6 +689,22 @@ impl Builder<'_> {
         if rounded {
             out.push(DisplayItem::PopClip);
         }
+    }
+
+    /// The border of a box with a legend in its band, from the box as laid
+    /// out: the band's line is snapped on its own, not moved down from the
+    /// snapped box ([`banded::draw`]).
+    fn draw_band(
+        &self,
+        id: BoxId,
+        laid_out: Rect,
+        band: alo_layout::Band,
+        style: &alo_style::ComputedStyle,
+        out: &mut Vec<DisplayItem>,
+    ) {
+        let sides = Self::drawn_sides(style);
+        let scale = self.styles.scale();
+        banded::draw(id, laid_out, scale, band, self.border_of(id), &sides, out);
     }
 
     /// Every side a border draws, when any of them is drawn as anything but
