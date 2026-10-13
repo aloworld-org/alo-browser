@@ -2218,3 +2218,10 @@ it, and the window says *this form is sent by …*. Cut: **556** (an image
 button's point) and **557** (the person told why a form was not sent). 267
 queue items are open (543 closed, 556 and 557 added). The next unused queue
 number is 558 and the next unused ADR 0057.
+
+Iteration 328 built queue item 548: a navigation refused in the window is
+recorded. The conductor takes where a page asked to go after every answer
+that can carry it, not only a person's click, and each refusal is a line
+in the session's record written by the network thread in its turn, as a
+refused fetch's is. Nothing was cut. 266 queue items are open (548
+closed). The next unused queue number is 558 and the next unused ADR 0057.

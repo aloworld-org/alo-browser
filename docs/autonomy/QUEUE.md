@@ -13313,7 +13313,7 @@ What stage 2's exit gate actually measures: a person using it.
   frozen page that listens for `dblclick` or reads `detail` hears Chrome's,
   the interval read from the platform by the browser process.
 
-- [ ] **548. A navigation refused in the window is recorded.** *Found
+- [x] **548. A navigation refused in the window is recorded.** *Found
   building 535 (iteration 323; ADR 0012 § 5, ADR 0020). Feature:
   `docs/features.md` stage 2, the network.* `navigate::Refusal::record`
   exists, and `Tabs::navigation`'s decisions — an agent's, and now a
@@ -13321,6 +13321,21 @@ What stage 2's exit gate actually measures: a person using it.
   session's record. *Closes when:* the conductor records every refused
   navigation it takes, as it records refused fetches (`Record`), with a
   test reading the line back.
+
+  *Done (iteration 328):* the conductor takes where a page asked to go
+  after every answer that can carry it — a load's, an agent's action's, a
+  delivery's, a visibility change's and a person's pointer's
+  (`conductor.rs`' `take_asks` and `navigation`) — and hands each refusal
+  to the network thread as `fetch_exchange::Record::Navigation`, written by
+  `navigate::Refusal::record_in` into the pool's record under the method it
+  was to go by and its cause. Only a person's click is said, as before; a
+  navigation let go writes nothing. Closed by `alo-window`'s
+  `a_refused_navigation_is_recorded.rs`, which reads each line back from
+  the record the conductor hands back: a person's click to `data:`
+  (`Cause::Person`, the rule said and recorded alike), a secure page's form
+  to `http` (`POST`, no body), a page's own `click()` as it loads and after
+  a refused fetch's answer (`Cause::Document`), an agent's `activate`
+  through the socket (`Cause::Agent`), and a link let go (no line).
 
 - [ ] **536. A positioned box that clips with square corners is found
   under its border.** *Found building 298 (iteration 322). Feature:

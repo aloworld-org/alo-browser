@@ -729,7 +729,15 @@ unreachable without it.
       way a cache entry is, and a file that does not read is a **gap it counts**
       rather than an error — and it is left where it is, because it is somebody's
       record and a later version of this engine may be able to read it. Deleting
-      is real: the files, not a flag on them
+      is real: the files, not a flag on them;
+      and **a navigation refused is a line too** (queue item 548): the
+      window's conductor takes where a page asked to go after every answer
+      that can carry it — a load's, an agent's action's, a delivery's, a
+      visibility change's, a person's click's — and hands each refusal to the
+      network thread to write in its turn, as a refused fetch's is, under the
+      method it was to go by and the cause the browser process assigned
+      (`conductor.rs`' `navigation`, `fetch_exchange::Record::Navigation`).
+      Only a person's click is said; a navigation let go writes nothing
       · Owed: the browser process assigning a cause to a *subresource*, which
       needs a renderer that can ask for one at all (queue items 80 and 83) —
       until then the page's own load is the only request it makes; and an

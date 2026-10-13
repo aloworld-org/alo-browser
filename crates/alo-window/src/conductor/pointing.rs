@@ -41,7 +41,9 @@
 //! (item 85), and a link a person clicked that silently went nowhere would
 //! be a page that looks broken. A form's submission is said as one, with
 //! its method, since a form sent by `GET` is not a link to the person who
-//! pressed its button (queue item 543).
+//! pressed its button (queue item 543). A refusal is written into the
+//! session's record as well (queue item 548), as every refused navigation
+//! the conductor takes is.
 
 use super::{Conducting, said_of, unexpected};
 use crate::inbox::Arrival;
@@ -62,14 +64,14 @@ impl Conducting {
             return Vec::new();
         };
         let answered = self.tabs.point(id, pointer);
-        self.fetches.take_from(&mut self.tabs, id);
+        let decided = self.take_asks(id);
         let mut news = match answered {
             Ok(FromRenderer::Delivered { .. }) => self.paint(id),
             Ok(other) => vec![News::Said(unexpected(&other))],
             Err(lost) => vec![said_of(&self.tabs, id, &lost)],
         };
         // After the paint, which clears what was said.
-        if let Some(decided) = self.tabs.navigation(id) {
+        if let Some(decided) = decided {
             news.push(News::Said(going(&decided)));
         }
         news

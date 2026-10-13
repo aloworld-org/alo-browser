@@ -19,8 +19,9 @@
 //! document is still showing when the answer comes back is decided where the
 //! tabs are, as it was before (ADR 0032 § 1).
 //!
-//! A [`Record`] is a refusal's line in the session's record. A refusal is
-//! answered without an exchange, where the tabs are, but its line is written
+//! A [`Record`] is a refusal's line in the session's record — a fetch's, a
+//! style sheet's or a navigation's. A refusal is answered (or said) without
+//! an exchange, where the tabs are, but its line is written
 //! by whoever holds the pool, in its turn, so the record keeps the order
 //! things happened in.
 
@@ -30,6 +31,7 @@ use alo_net::pool::Pool;
 use crate::fetch_decide::{self, Fetch};
 use crate::fetch_filter;
 use crate::fetch_make::{self, Network};
+use crate::navigate;
 use crate::sheet::SheetAnswer;
 use crate::sheet_decide;
 use crate::sheet_make;
@@ -179,6 +181,8 @@ pub enum Record {
     Fetch(Box<fetch_decide::Refusal>),
     /// A style sheet refused.
     Sheet(Box<sheet_decide::Refusal>),
+    /// Somewhere a page asked to go, refused (queue item 548).
+    Navigation(Box<navigate::Refusal>),
 }
 
 impl Record {
@@ -188,6 +192,7 @@ impl Record {
         match self {
             Record::Fetch(refusal) => refusal.record(pool),
             Record::Sheet(refusal) => refusal.record(pool),
+            Record::Navigation(refusal) => refusal.record_in(pool),
         }
     }
 }

@@ -1055,8 +1055,10 @@ impl Tabs {
     /// [`Tabs::act`] passes and each `Delivered` [`Tabs::fetched`] and
     /// [`Tabs::point`] pass, to
     /// the decision of the ask it carried or to nothing. Going there is the caller's (item 85); a
-    /// [`Decided::Refused`] is said to the person in its own words and
-    /// recorded with [`crate::navigate::Refusal::record`].
+    /// [`Decided::Refused`] is recorded with
+    /// [`crate::navigate::Refusal::record`] or
+    /// [`crate::navigate::Refusal::record_in`] whoever caused it, and said
+    /// to the person in its own words when it was the person's click.
     pub fn navigation(&mut self, id: TabId) -> Option<Decided> {
         self.list
             .iter_mut()

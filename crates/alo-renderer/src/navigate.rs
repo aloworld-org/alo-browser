@@ -54,6 +54,7 @@ use alo_net::body::LARGEST_BODY;
 use alo_net::cause::Cause;
 use alo_net::csp::Policies;
 use alo_net::mixed::{self, Verdict};
+use alo_net::pool::Pool;
 use alo_net::referrer::{self, Policy};
 use alo_net::request::{Purpose, Request};
 use alo_url::{Origin, Url};
@@ -222,12 +223,9 @@ impl Refusal {
     /// was written — not for a URL that did not parse or was too long to,
     /// which names nothing a line could hold and is only said.
     pub fn record(&self, activity: &mut Activity, at: SystemTime) -> bool {
-        let Some(url) = &self.url else {
+        let Some(request) = self.request() else {
             return false;
         };
-        let mut request =
-            Request::get(url.clone(), self.cause.clone()).for_purpose(Purpose::Document);
-        self.method.name().clone_into(&mut request.method);
         activity.happened(
             &request,
             at,
@@ -236,6 +234,28 @@ impl Refusal {
             },
         );
         true
+    }
+
+    /// Write the refusal into `pool`'s record, now, as [`Refusal::record`]
+    /// does: how the browser process's network thread writes the line the
+    /// window's conductor hands it ([`crate::fetch_exchange::Record`]).
+    pub fn record_in(&self, pool: &mut Pool) -> bool {
+        let Some(request) = self.request() else {
+            return false;
+        };
+        pool.refused(&request, self.rule.to_string());
+        true
+    }
+
+    /// The request the line is about: the document it would have loaded, by
+    /// the method it was to go by, with its cause. [`None`] for a URL that
+    /// did not parse.
+    fn request(&self) -> Option<Request> {
+        let url = self.url.as_ref()?;
+        let mut request =
+            Request::get(url.clone(), self.cause.clone()).for_purpose(Purpose::Document);
+        self.method.name().clone_into(&mut request.method);
+        Some(request)
     }
 }
 
@@ -597,6 +617,48 @@ mod tests {
         };
         assert!(!unparsed.record(&mut activity, SystemTime::UNIX_EPOCH));
         assert_eq!(activity.len(), 1);
+    }
+
+    #[test]
+    fn a_refusal_is_written_into_a_pools_record_as_into_an_activity() {
+        let cause = Cause::Document {
+            document: document(),
+        };
+        let mut pool = Pool::with_trust(alo_net::tls::Trust::of(&[]).unwrap());
+        let asked = submitting(
+            "http://example.com/post",
+            Method::Post,
+            Enctype::UrlEncoded,
+            &[("password", "hunter2")],
+        );
+        let Decided::Refused(insecure) = decide(
+            &asked,
+            &from("https://example.com/"),
+            &Policies::none(),
+            cause.clone(),
+        ) else {
+            panic!("sent in the clear");
+        };
+        assert!(insecure.record_in(&mut pool));
+        let line = pool.activity().latest().unwrap();
+        assert_eq!(line.cause(), &cause);
+        assert_eq!(line.method(), "POST");
+        assert_eq!(line.purpose(), &Purpose::Document);
+        assert_eq!(line.url().serialised, "http://example.com/post");
+        assert!(
+            matches!(line.happened(), Happened::Refused { rule } if *rule == Rule::Insecure.to_string())
+        );
+
+        let Decided::Refused(unparsed) = decide(
+            &asking("::"),
+            &from("https://example.com/"),
+            &Policies::none(),
+            cause,
+        ) else {
+            panic!("nonsense was navigated");
+        };
+        assert!(!unparsed.record_in(&mut pool));
+        assert_eq!(pool.activity().len(), 1);
     }
 
     fn submitting(to: &str, method: Method, enctype: Enctype, entries: &[(&str, &str)]) -> Asked {

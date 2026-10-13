@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A navigation the browser refuses is written down.** When a page asks
+  to go somewhere it may not — a `javascript:` or `data:` link, a form
+  that would be sent insecurely from a secure page — the refusal is now a
+  line in the session's record, naming the rule, the method and who caused
+  it (the person, the page or an agent's action), as a refused fetch
+  already was. Before, the window said it to the person and forgot it, and
+  a refusal from a page's own script or an agent's action was not kept at
+  all.
+
 - **A person can send a form.** Clicking a form's submit button now sends
   it, as pressing it does for an agent: its fields are checked first, the
   page hears `invalid` or `submit` as in Chrome, and the browser decides

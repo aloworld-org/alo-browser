@@ -32755,3 +32755,95 @@ clause adds a person's submission, and Owed swaps 543 for 556 and 557.
 267 queue items are open (543 closed, 556 and 557 added). The next unused
 queue number is **558** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 328 — queue item 548 built: a navigation refused in the window is recorded
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 327's entry; ADR 0012 (§ 5, what is recorded); ADR 0020 (the
+browser process decides a page's ask); queue item 548; the feature line
+*Every request attributable*. No `AGENTS.md` exists here.
+
+**Why 548.** In file order after 543 come 556 (waits for a page), 557
+(needs design), 544 (waits for a page and for 122's decision), 545
+(depends on 300, open), 546 and 547 (wait for a page). 548 names its ADRs
+and feature, waits on nothing, and its closing condition is a test. The
+open items earlier in the file wait for a page, a person, a design or an
+unfinished dependency, as 318–327 recorded.
+
+**What was found.** The conductor took a decided navigation only after a
+person's pointer. A load's, an agent's action's, a delivery's and a
+visibility change's decisions were left on the tab and replaced by the
+next answer's, so a refusal from a page's own script or an agent's action
+was never recorded, nor said. A person's was said and dropped.
+
+**Built.**
+- `alo-renderer`'s `navigate.rs`: `Refusal::record_in(pool)` writes the
+  line into a pool's record, as `record(activity, at)` does, both through
+  one `request()` — the document by the method it was to go by, with its
+  cause, and `None` for a URL that did not parse.
+- `fetch_exchange::Record::Navigation`, written by whoever holds the pool.
+- `alo-window`'s conductor: `take_asks(id)` takes the fetches and the
+  navigation after every answer that can carry them (load, an agent's
+  action, a visibility change, choosing a tab, a person's pointer), and
+  `answered` takes a delivery's. `navigation(id)` sends each refusal to the
+  network thread as `Job::Record`, in its turn. Only a person's click is
+  said, as before. Module documentation for both, and `Tabs::navigation`'s.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first.
+`scripts/gate.sh` ran in the foreground into a scratchpad log. At 600 s the
+harness moved it to the background, and the next call waited on it with a
+foreground `until` loop. **Result: `exit 0`, "The gate is met. (10 of 10
+steps)"**, with no `FAILED`, `panicked` or `^error` line. Only this entry
+and the commit came after it.
+
+**Gate, manual.**
+- Closing condition: `alo-window/tests/a_refused_navigation_is_recorded.rs`
+  runs the real conductor over the confined `alo-render`, closes the window
+  and reads the record the conductor hands back. A person's click on a
+  `data:` link is said and recorded once as `Cause::Person`, `GET`,
+  `Purpose::Document`, with the rule that was said. A secure page's form to
+  `http` is recorded under `POST`, and `hunter2` appears nowhere in the
+  record. A page's `click()` on a `javascript:` link as it loads is
+  recorded as `Cause::Document`. So is one made after a refused `ftp:`
+  fetch's answer, after that fetch's own line. An agent's `activate`
+  through `alo-ask` and the socket is recorded as `Cause::Agent`. A link let
+  go writes no line. A unit test pins `record_in` (method, purpose, cause,
+  rule; nothing for an unparsed URL).
+- Mutations, each restored from a copy (`cmp` confirmed) and `alo-render`
+  rebuilt after. Each fails tests: no record sent (4 tests); `take_asks`
+  not recording (4); a delivery's navigation not taken (1, the test added
+  for it after it first survived); `Record::Navigation` writing nothing
+  (5); the method not set on the line (1 window test, 3 unit tests).
+- Layout assertions and reference renders: none. Nothing is positioned,
+  sized or drawn differently. The probe link and button are placed
+  absolutely at (10, 150), 100 × 30, and clicked at (20, 160).
+- Hostile input: no new bytes are read from outside. The URL in a line is
+  `navigate`'s already-bounded parse, and a URL that did not parse or was
+  too long writes nothing.
+- One file, one responsibility: the line is `navigate.rs`' (what a
+  navigation refusal is), carrying it is `fetch_exchange.rs`' (what the
+  network thread writes), and taking it is the conductor's, beside
+  `record_left`.
+- Also updated: `docs/features.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md` and the queue. `docs/conformance.md` has no row this
+  changes.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 548 is ticked with its *Done* paragraph. Nothing was cut.
+
+**Roadmap.** *Every request attributable* stays unticked. Its Built clause
+adds a refused navigation as a line. Owed is unchanged: a subresource's
+cause, and an action's own outcome (203).
+
+**Unresolved obligations.**
+- A refused navigation from a page's own script or an agent's action is
+  recorded and not said in the window. That is deliberate: the page is
+  told nothing, as in every browser, and an agent's answer is its own.
+- A navigation let go is still not made (item 85).
+- No claim about speed is made.
+
+266 queue items are open (548 closed). The next unused queue number is
+**558** and the next ADR is **0057**. This is one iteration, not a finished
+queue or roadmap.

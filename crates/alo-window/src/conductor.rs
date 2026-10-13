@@ -41,6 +41,15 @@
 //! ahead of the fetches its answer asked for (queue item 348, ADR 0035), and
 //! the page is painted again with each sheet that arrives.
 //!
+//! # Where a page asked to go
+//!
+//! Decided by the renderer's host as each answer passes (`alo-renderer`'s
+//! `navigate`), and taken here after every answer that can carry it, with
+//! the fetches. A refusal is written into the session's record by the
+//! network thread, in its turn, as a refused fetch's line is (ADR 0012 § 5,
+//! queue item 548); only a person's click is said ([`pointing`]). Going
+//! where a page was let go is session history's (item 85).
+//!
 //! # A load waits for its style, only so long
 //!
 //! ADR 0035 § 5, ADR 0041 § 3. The sheets a load's answer asked for are
@@ -132,6 +141,7 @@ use alo_net::Cause;
 use alo_renderer::fetch_answering::{Answered, Answering, Turn};
 use alo_renderer::fetch_exchange::{Exchange, Exchanged, Record};
 use alo_renderer::fetch_make::Network;
+use alo_renderer::navigate::Decided;
 use alo_renderer::strip::Strip;
 use alo_renderer::{FromRenderer, Lost, Page, Tab, TabId, Tabs, ToRenderer, Visibility};
 use std::sync::mpsc::Receiver;
@@ -449,7 +459,7 @@ impl Conducting {
     /// and paint the tab again if it is the one shown, since the verb may
     /// have changed it.
     fn acted(&mut self, id: TabId) -> Vec<News> {
-        self.fetches.take_from(&mut self.tabs, id);
+        self.take_asks(id);
         if self.tabs.selected() != Some(id) {
             return Vec::new();
         }
@@ -468,7 +478,7 @@ impl Conducting {
             return Vec::new();
         }
         let told = self.tabs.visibility(id, to);
-        self.fetches.take_from(&mut self.tabs, id);
+        self.take_asks(id);
         match told {
             Ok(FromRenderer::Delivered { .. }) => self.paint(id),
             Ok(other) => vec![News::Said(unexpected(&other))],
@@ -488,7 +498,7 @@ impl Conducting {
         let mut news = self.draw_strip();
         let loaded = self.tabs.load(id, page, Cause::Person { tab: id });
         self.loading = None;
-        self.fetches.take_from(&mut self.tabs, id);
+        self.take_asks(id);
         if matches!(loaded, Ok(FromRenderer::Loaded { .. }))
             && let Some(document) = self.tabs.tab(id).and_then(Tab::document)
         {
@@ -653,6 +663,9 @@ impl Conducting {
             said,
         } = answered;
         let released = sheet.and_then(|sheet| self.holds.answered(tab, sheet));
+        // A delivery's task may have asked to go somewhere, and is recorded
+        // whether or not its tab is shown.
+        self.navigation(tab);
         if self.tabs.selected() != Some(tab) {
             return Vec::new();
         }
@@ -761,6 +774,32 @@ impl Conducting {
                     .unwrap_or_else(|| lost.to_string()),
             )],
         }
+    }
+
+    /// Take what the page in tab `id` asked for in the answer that last
+    /// passed — a load's, an action's, a delivery's, a pointer's: its
+    /// fetches and style sheets, queued to be made, and where it asked to go
+    /// ([`Conducting::navigation`]), which comes back for whoever says it.
+    fn take_asks(&mut self, id: TabId) -> Option<Decided> {
+        self.fetches.take_from(&mut self.tabs, id);
+        self.navigation(id)
+    }
+
+    /// Where the page in tab `id` last asked to go, as the browser process
+    /// decided it — taken, so it is handed over once, and a refusal's line
+    /// sent to the network thread to be written into the session's record
+    /// (ADR 0012 § 5, queue item 548), as a refused fetch's is.
+    ///
+    /// Taken after every answer that can carry one, whoever is told of it:
+    /// a decision left on the tab is replaced by the next answer's, and a
+    /// refusal nobody took would be a request refused and never recorded.
+    /// Going where a page was let go is item 85's.
+    fn navigation(&mut self, id: TabId) -> Option<Decided> {
+        let decided = self.tabs.navigation(id);
+        if let Some(Decided::Refused(refusal)) = &decided {
+            self.send(Job::Record(Record::Navigation(Box::new(refusal.clone()))));
+        }
+        decided
     }
 
     /// Write every fetch a page asked for as it was left, and was refused,

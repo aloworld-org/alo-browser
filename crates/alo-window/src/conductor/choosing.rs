@@ -110,7 +110,7 @@ impl Conducting {
             return;
         }
         let _ = self.tabs.visibility(left, Visibility::Hidden);
-        self.fetches.take_from(&mut self.tabs, left);
+        self.take_asks(left);
     }
 
     /// Show tab `id`, the one now selected: its last frame at once, then —
@@ -124,7 +124,7 @@ impl Conducting {
         }
         if self.visibility == Visibility::Visible {
             let told = self.tabs.visibility(id, Visibility::Visible);
-            self.fetches.take_from(&mut self.tabs, id);
+            self.take_asks(id);
             match told {
                 Ok(FromRenderer::Delivered { .. }) => {}
                 Ok(other) => {
