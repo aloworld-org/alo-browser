@@ -1,0 +1,46 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 57600 38400
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 0 57600 38400
+/html0/body1/div0 0 0 57600 38400
+/html0/body1/div0/div0 1536 4474 54528 29452
+/html0/body1/div0/div0/div0 1536 4474 54528 3392
+/html0/body1/div0/div0/div0/h20 2816 5498 51968 1280
+/html0/body1/div0/div0/div1 1536 7866 54528 21900
+/html0/body1/div0/div0/div1/nav0 1536 7866 12416 21900
+/html0/body1/div0/div0/div1/nav0/button0 2304 8634 10816 1984
+/html0/body1/div0/div0/div1/nav0/button0/span0 3072 9146 3279 960
+/html0/body1/div0/div0/div1/nav0/button1 2304 10746 10816 1984
+/html0/body1/div0/div0/div1/nav0/button1/span0 3072 11258 5718 960
+/html0/body1/div0/div0/div1/nav0/button2 2304 12858 10816 1984
+/html0/body1/div0/div0/div1/nav0/button2/span0 3072 13370 3194 960
+/html0/body1/div0/div0/div1/nav0/button3 2304 14970 10816 1984
+/html0/body1/div0/div0/div1/nav0/button3/span0 3072 15482 5208 960
+/html0/body1/div0/div0/div1/nav0/button4 2304 17082 10816 1984
+/html0/body1/div0/div0/div1/nav0/button4/span0 3072 17594 6274 960
+/html0/body1/div0/div0/div1/div1 13952 7866 42112 21900
+/html0/body1/div0/div0/div1/div1/section0 15488 9146 39040 6278
+/html0/body1/div0/div0/div1/div1/section0/h30 15488 9146 39040 1024
+/html0/body1/div0/div0/div1/div1/section0/p1 15488 10554 39040 1414
+/html0/body1/div0/div0/div1/div1/section0/div2 15488 12736 39040 2688
+/html0/body1/div0/div0/div1/div1/section0/div2/div0 15552 12800 38912 2560
+/html0/body1/div0/div0/div1/div1/section1 15488 16960 39040 11526
+/html0/body1/div0/div0/div1/div1/section1/h30 15488 18560 39040 1024
+/html0/body1/div0/div0/div1/div1/section1/div1 15488 20352 39040 8134
+/html0/body1/div0/div0/div1/div1/section1/div1/div0 16576 21440 36864 1216
+/html0/body1/div0/div0/div1/div1/section1/div1/div0/input0 16832 21632 832 832
+/html0/body1/div0/div0/div1/div1/section1/div1/div0/label1 18368 21536 10343 1024
+/html0/body1/div0/div0/div1/div1/section1/div1/p1 16576 23040 36864 1414
+/html0/body1/div0/div0/div1/div1/section1/div1/div2 16576 25222 36864 2176
+/html0/body1/div0/div0/div1/div1/section1/div1/div2/input0 16576 25222 18048 2176
+/html0/body1/div0/div0/div1/div1/section1/div1/div2/input1 35392 25222 18048 2176
+/html0/body1/div0/div0/div2 1536 29766 54528 4160
+/html0/body1/div0/div0/div2/span0 2816 31878 41370 0
+/html0/body1/div0/div0/div2/button1 44954 30854 4572 2048
+/html0/body1/div0/div0/div2/button2 50294 30854 4490 2048
+/html0/body1/script1 0 0 0 0

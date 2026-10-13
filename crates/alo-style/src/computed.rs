@@ -238,9 +238,19 @@ pub struct StyleTree {
     /// this engine draws (ADR 0044 §§ 3–4).
     markers: BTreeMap<NodeId, String>,
     issues: Vec<StyleIssue>,
+    /// The scale of the screen these styles were resolved for (ADR 0057
+    /// § 3). Read it with [`StyleTree::scale`].
+    scale: f32,
 }
 
 impl StyleTree {
+    /// Device pixels per CSS pixel on the screen these styles were resolved
+    /// for, which every whole-pixel rule in layout rounds against (ADR 0057
+    /// § 2): 1 for a tree resolved for no screen.
+    pub fn scale(&self) -> f32 {
+        alo_value::device_scale(self.scale)
+    }
+
     /// The style of one element, or [`None`] for a node that is not an element
     /// or is not in this document.
     pub fn get(&self, id: NodeId) -> Option<&ComputedStyle> {
@@ -326,7 +336,10 @@ pub fn resolve_admitting(
     faces: &dyn MeasureFace,
     admitted: &dyn Fn(NodeId) -> bool,
 ) -> StyleTree {
-    let mut tree = StyleTree::default();
+    let mut tree = StyleTree {
+        scale: device.scale,
+        ..StyleTree::default()
+    };
     let mut matcher = MatchContext::new(document);
     // What the root inherits from: every property at its initial value, in
     // the initial face, which is a face like any other and is measured.
@@ -479,8 +492,9 @@ fn settle_font(
 ) {
     let root_font_size = root.map_or(DEFAULT_FONT_SIZE, |metrics| metrics.font_size);
     // The window comes from the device rather than from the font, because
-    // `vw` is a fact about the page and `em` is a fact about the text.
-    let window = Viewport::new(device.width, device.height);
+    // `vw` is a fact about the page and `em` is a fact about the text. Its
+    // scale rides along to every length layout resolves (ADR 0057 § 3).
+    let window = Viewport::new(device.width, device.height).at_scale(device.scale);
     let parent_font = FontMetrics {
         root_font_size,
         root_line_height: root.map_or(parent.metrics.root_line_height, |metrics| {

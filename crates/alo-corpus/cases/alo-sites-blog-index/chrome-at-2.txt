@@ -1,0 +1,53 @@
+# Chrome 154 started with --force-device-scale-factor=2, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 51200 50461
+/html0/head0 0 0 0 0
+/html0/head0/meta0 0 0 0 0
+/html0/head0/meta1 0 0 0 0
+/html0/head0/title2 0 0 0 0
+/html0/head0/link3 0 0 0 0
+/html0/head0/meta4 0 0 0 0
+/html0/head0/meta5 0 0 0 0
+/html0/head0/meta6 0 0 0 0
+/html0/head0/meta7 0 0 0 0
+/html0/head0/link8 0 0 0 0
+/html0/head0/link9 0 0 0 0
+/html0/head0/style10 0 0 0 0
+/html0/body1 0 0 51200 50461
+/html0/body1/a0 -1022976 0 10311.5 2764.5
+/html0/body1/header1 0 0 51200 4160
+/html0/body1/header1/nav0 0 0 51200 4096
+/html0/body1/header1/nav0/a0 1280 1024 9230 2048
+/html0/body1/header1/nav0/a1 39604.5 1177.5 3213 1740.5
+/html0/body1/header1/nav0/a2 44097.5 1177.5 2405 1740.5
+/html0/body1/header1/nav0/a3 47782.5 1177.5 2137.5 1740.5
+/html0/body1/main2 0 4160 51200 46301
+/html0/body1/main2/header0 1280 7232 48640 3072
+/html0/body1/main2/header0/h10 1280 7232 48640 3072
+/html0/body1/main2/div1 1280 12352 48640 27536.5
+/html0/body1/main2/div1/article0 1280 12352 23552 27536.5
+/html0/body1/main2/div1/article0/a0 1344 12416 23424 13176
+/html0/body1/main2/div1/article0/a0/img0 1344 12416 23424 13176
+/html0/body1/main2/div1/article0/div1 1344 25592 23424 14232.5
+/html0/body1/main2/div1/article0/div1/p0 2880 27128 20352 1536
+/html0/body1/main2/div1/article0/div1/p0/time0 2880 27320 5579.5 1120
+/html0/body1/main2/div1/article0/div1/h21 2880 29624 20352 1843
+/html0/body1/main2/div1/article0/div1/h21/a0 2880 29624 11580 1792
+/html0/body1/main2/div1/article0/div1/p2 2880 31979 20352 3481
+/html0/body1/main2/div1/article0/div1/a3 2880 36772 7387.5 1280
+/html0/body1/main2/div1/article0/div1/a3/span0 10203.5 36484 64 64
+/html0/body1/main2/div1/article1 26368 12352 23552 27536.5
+/html0/body1/main2/div1/article1/div0 26432 12416 23424 9663.5
+/html0/body1/main2/div1/article1/div0/p0 27968 13952 20352 1536
+/html0/body1/main2/div1/article1/div0/p0/time0 27968 14144 5579.5 1120
+/html0/body1/main2/div1/article1/div0/h21 27968 16448 20352 1843
+/html0/body1/main2/div1/article1/div0/h21/a0 27968 16448 15880.5 1792
+/html0/body1/main2/div1/article1/div0/a2 27968 19027 7387.5 1280
+/html0/body1/main2/div1/article1/div0/a2/span0 35291.5 18739 64 64
+/html0/body1/main2/nav2 1280 42448.5 48640 2892.5
+/html0/body1/main2/nav2/a0 1280 42448.5 6518 2892.5
+/html0/body1/main2/nav2/span1 22547.5 43024.5 6105 1740.5
+/html0/body1/main2/nav2/a2 45465 42448.5 4455 2892.5
+/html0/body1/script3 0 0 0 0

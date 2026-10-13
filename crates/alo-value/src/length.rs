@@ -50,19 +50,65 @@ pub struct FontMetrics {
     pub viewport: Option<Viewport>,
 }
 
-/// How big the window is, in CSS pixels.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// How big the window is, in CSS pixels, and how many device pixels each of
+/// them is.
+///
+/// The scale is the screen's (ADR 0057 § 3). It never changes what a length
+/// *is* — `vw` is a hundredth of the width in CSS pixels at any scale — only
+/// where layout rounds one: every whole-pixel and grid rule rounds in device
+/// pixels (§ 2). One unless somebody said otherwise.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Viewport {
     /// Across.
     pub width: f32,
     /// Down.
     pub height: f32,
+    /// Device pixels per CSS pixel. Read it with [`Viewport::scale`], which
+    /// answers 1 for anything that is not a scale.
+    scale: f32,
 }
 
 impl Viewport {
-    /// A window of this size.
-    pub fn new(width: f32, height: f32) -> Self {
-        Self { width, height }
+    /// A window of this size, at a scale of one.
+    pub const fn new(width: f32, height: f32) -> Self {
+        Self {
+            width,
+            height,
+            scale: 1.0,
+        }
+    }
+
+    /// The same window on a screen of this many device pixels per CSS pixel.
+    ///
+    /// Any finite factor above zero is a scale and is kept as it is, not
+    /// rounded; anything else is 1 (ADR 0057 § 3).
+    #[must_use]
+    pub fn at_scale(self, scale: f32) -> Self {
+        Self {
+            scale: device_scale(scale),
+            ..self
+        }
+    }
+
+    /// Device pixels per CSS pixel.
+    pub fn scale(self) -> f32 {
+        device_scale(self.scale)
+    }
+}
+
+impl Default for Viewport {
+    fn default() -> Self {
+        Self::new(0.0, 0.0)
+    }
+}
+
+/// A screen's scale as ADR 0057 § 3 admits one: any finite factor above
+/// zero, and 1 for anything else.
+pub fn device_scale(scale: f32) -> f32 {
+    if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
     }
 }
 
@@ -94,6 +140,12 @@ impl FontMetrics {
             viewport: Some(viewport),
             ..self
         }
+    }
+
+    /// Device pixels per CSS pixel on the screen these metrics were taken
+    /// for: 1 without a window (ADR 0057 § 3).
+    pub fn scale(self) -> f32 {
+        self.viewport.map_or(1.0, Viewport::scale)
     }
 
     /// What one of a unit is worth, in CSS pixels.
@@ -257,6 +309,38 @@ mod tests {
 
     fn close(left: f32, right: f32) -> bool {
         (left - right).abs() < 0.0001
+    }
+
+    #[test]
+    fn a_viewport_is_at_a_scale_of_one_until_somebody_says_otherwise() {
+        let window = Viewport::new(800.0, 600.0);
+        assert!(close(window.scale(), 1.0));
+        assert!(close(Viewport::default().scale(), 1.0));
+        assert!(close(window.at_scale(2.0).scale(), 2.0));
+        assert!(close(window.at_scale(1.5).scale(), 1.5), "not rounded");
+        for nonsense in [0.0, -2.0, f32::NAN, f32::INFINITY] {
+            assert!(close(window.at_scale(nonsense).scale(), 1.0), "{nonsense}");
+        }
+    }
+
+    #[test]
+    fn a_scale_changes_no_length() {
+        // ADR 0057 § 2: `vw` is a hundredth of the window in CSS pixels at
+        // any scale, and the metrics carry the scale for layout to round by.
+        let at_one = FontMetrics::estimated(16.0, 16.0).in_viewport(Viewport::new(800.0, 600.0));
+        let at_two = FontMetrics::estimated(16.0, 16.0)
+            .in_viewport(Viewport::new(800.0, 600.0).at_scale(2.0));
+        for unit in [Unit::Vw, Unit::Vh, Unit::Em, Unit::Px] {
+            assert!(
+                close(at_one.pixels_per(unit), at_two.pixels_per(unit)),
+                "{unit:?}"
+            );
+        }
+        assert!(close(at_two.scale(), 2.0));
+        assert!(
+            close(FontMetrics::estimated(16.0, 16.0).scale(), 1.0),
+            "no window"
+        );
     }
 
     #[test]

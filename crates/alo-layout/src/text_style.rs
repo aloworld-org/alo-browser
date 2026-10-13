@@ -56,5 +56,6 @@ pub fn text_style_of(style: &ComputedStyle) -> TextStyle {
             .and_then(alo_box::WhiteSpace::parse)
             .unwrap_or_default(),
         line_height: crate::line_height::used_line_height(style),
+        scale: style.metrics().scale(),
     }
 }

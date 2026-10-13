@@ -24,7 +24,7 @@ use crate::font::FontRequest;
 use crate::linebreak::opportunities;
 use crate::room::LineRoom;
 use crate::run::{TextRun, split};
-use crate::shape::{ShapedRun, shape};
+use crate::shape::{ShapedRun, shape_at};
 
 /// One line of laid-out text.
 #[derive(Debug, Clone)]
@@ -83,6 +83,8 @@ impl Paragraph {
 /// `available_width` of [`None`] is the max-content question — "how wide would
 /// this like to be" — and gives one line however long it is. A mandatory break
 /// still ends a line whatever the width.
+///
+/// At a scale of one: [`lay_out_at`] says the screen's.
 pub fn lay_out(
     text: &str,
     database: &FontDatabase,
@@ -91,22 +93,57 @@ pub fn lay_out(
     available_width: Option<f32>,
     letter_spacing: f32,
 ) -> Paragraph {
+    lay_out_at(
+        text,
+        database,
+        request,
+        size,
+        available_width,
+        letter_spacing,
+        1.0,
+    )
+}
+
+/// Lay text into lines as [`lay_out`] does, on a screen of `scale` device
+/// pixels to the CSS pixel, whose whole pixels each line's font figures are
+/// rounded to (ADR 0057 § 2).
+pub fn lay_out_at(
+    text: &str,
+    database: &FontDatabase,
+    request: &FontRequest,
+    size: f32,
+    available_width: Option<f32>,
+    letter_spacing: f32,
+    scale: f32,
+) -> Paragraph {
     if text.is_empty() {
         return Paragraph::default();
     }
+    let set = Set {
+        size,
+        letter_spacing,
+        scale,
+    };
     let mut paragraph = Paragraph::default();
     for piece in split_at_mandatory_breaks(text) {
         lay_out_one(
             piece,
             database,
             request,
-            size,
+            set,
             available_width,
-            letter_spacing,
             &mut paragraph,
         );
     }
     paragraph
+}
+
+/// How text is set: its size and spacing, and the screen's scale.
+#[derive(Debug, Clone, Copy)]
+struct Set {
+    size: f32,
+    letter_spacing: f32,
+    scale: f32,
 }
 
 /// A paragraph on one line, however wide that is — the max-content width.
@@ -151,23 +188,20 @@ fn lay_out_one(
     text: &str,
     database: &FontDatabase,
     request: &FontRequest,
-    size: f32,
+    set: Set,
     available_width: Option<f32>,
-    letter_spacing: f32,
     out: &mut Paragraph,
 ) {
     let trimmed = text.trim_end_matches(['\n', '\r']);
     let Some(width) = available_width else {
-        out.lines
-            .push(shape_line(trimmed, database, request, size, letter_spacing));
+        out.lines.push(shape_line(trimmed, database, request, set));
         return;
     };
     if trimmed.is_empty() {
         // A blank line between two paragraphs is a line, and it is as tall as
         // the font would have been. Dropping it would close the gap the author
         // asked for.
-        out.lines
-            .push(shape_line("", database, request, size, letter_spacing));
+        out.lines.push(shape_line("", database, request, set));
         return;
     }
 
@@ -188,29 +222,15 @@ fn lay_out_one(
             index += 1;
             continue;
         };
-        if shape_line(
-            candidate.trim_end(),
-            database,
-            request,
-            size,
-            letter_spacing,
-        )
-        .width
-            <= width
-        {
+        if shape_line(candidate.trim_end(), database, request, set).width <= width {
             last_fitting = Some(offset);
             index += 1;
             continue;
         }
         if let Some(end) = last_fitting {
             if let Some(line) = trimmed.get(start..end) {
-                out.lines.push(shape_line(
-                    line.trim_end(),
-                    database,
-                    request,
-                    size,
-                    letter_spacing,
-                ));
+                out.lines
+                    .push(shape_line(line.trim_end(), database, request, set));
             }
             start = end;
             last_fitting = None;
@@ -221,13 +241,8 @@ fn lay_out_one(
             // One unbreakable piece is wider than the whole line. It goes on a
             // line of its own and sticks out, because a word cut at an
             // arbitrary point is harder to read than one that overflows.
-            out.lines.push(shape_line(
-                candidate.trim_end(),
-                database,
-                request,
-                size,
-                letter_spacing,
-            ));
+            out.lines
+                .push(shape_line(candidate.trim_end(), database, request, set));
             start = offset;
             index += 1;
         }
@@ -236,24 +251,18 @@ fn lay_out_one(
     if start < trimmed.len()
         && let Some(rest) = trimmed.get(start..)
     {
-        out.lines.push(shape_line(
-            rest.trim_end(),
-            database,
-            request,
-            size,
-            letter_spacing,
-        ));
+        out.lines
+            .push(shape_line(rest.trim_end(), database, request, set));
     }
 }
 
 /// Shape one line's worth of text into its runs.
-fn shape_line(
-    text: &str,
-    database: &FontDatabase,
-    request: &FontRequest,
-    size: f32,
-    letter_spacing: f32,
-) -> Line {
+fn shape_line(text: &str, database: &FontDatabase, request: &FontRequest, set: Set) -> Line {
+    let Set {
+        size,
+        letter_spacing,
+        scale,
+    } = set;
     let mut runs = Vec::new();
     let mut width = 0.0;
     let mut ascender: f32 = 0.0;
@@ -272,9 +281,12 @@ fn shape_line(
             // and the caller can see the gap.
             continue;
         };
-        let shaped = crate::shape::spaced(shape(text, &font, size, direction), letter_spacing);
+        let shaped = crate::shape::spaced(
+            shape_at(text, &font, size, scale, direction),
+            letter_spacing,
+        );
         width += shaped.width;
-        let room = LineRoom::of(font.metrics(size));
+        let room = LineRoom::at(font.metrics_at(size, scale), scale);
         ascender = ascender.max(room.normal_above());
         descender = descender.max(room.normal_below());
         runs.push(shaped);
@@ -285,7 +297,7 @@ fn shape_line(
     if runs.is_empty()
         && let Some(font) = database.chain(request).into_iter().next()
     {
-        let room = LineRoom::of(font.metrics(size));
+        let room = LineRoom::at(font.metrics_at(size, scale), scale);
         ascender = room.normal_above();
         descender = room.normal_below();
     }

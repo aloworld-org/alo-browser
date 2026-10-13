@@ -2248,3 +2248,15 @@ CSS pixels, and 299 is cut into **560** (layout for a scale), **561**
 (paint at a scale) and **562** (the window at the screen's scale). 270
 queue items are open (560–562 added; 299 stays open until they close).
 The next unused queue number is 563 and the next unused ADR 0058.
+
+Iteration 331 built queue item 560, layout for a scale, without closing it.
+The scale rides on `Viewport` and `MediaContext` and every whole-pixel rule
+in ADR 0057 § 2 rounds in device pixels; a text field's width and the size
+a face is set at were measured to be device-pixel rules too and added to
+the ADR's table. Against Chrome 154 under a real scale of two, 578 of the
+580 corpus boxes exact at one are exact at two, and nothing at one moved.
+Cut: **563** (a loaded page laid out at its scale). Found: **564** (a
+shrunk flex item's share of a pixel). 560 stays open on 563, 564 and 502;
+561 now depends on 560's built layout. 272 queue items are open (563 and
+564 added). The next unused queue number is 565 and the next unused ADR
+0058.

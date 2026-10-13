@@ -22,6 +22,7 @@
 use crate::inline_style::Judged;
 use crate::pictures::Pictures;
 use crate::resource::Resource;
+use crate::screen::Screen;
 use alo_box::BoxTree;
 use alo_css::{ColorScheme, MediaContext, parse_stylesheet};
 use alo_dom::Document;
@@ -169,14 +170,35 @@ pub fn render_with_resources(
     linked: &[(String, String)],
     resources: &[Resource],
 ) -> Rendered {
-    render_document_with(
-        alo_dom::parse_document(html),
+    render_at(html, css, Screen::new(size), fonts, linked, resources)
+}
+
+/// The same, laid out for a screen at its scale (ADR 0057).
+///
+/// Layout rounds against the screen's scale and reports CSS pixels; the
+/// picture is still painted at a scale of one until queue item 561.
+pub fn render_at(
+    html: &str,
+    css: &str,
+    screen: Screen,
+    fonts: &FontDatabase,
+    linked: &[(String, String)],
+    resources: &[Resource],
+) -> Rendered {
+    let document = alo_dom::parse_document(html);
+    let drawing = draw(
+        &document,
         css,
-        size,
+        screen,
         fonts,
         linked,
         resources,
-    )
+        &Judged::nothing(),
+    );
+    Rendered {
+        document,
+        drawing: Rc::new(drawing),
+    }
 }
 
 /// Render a document that already exists.
@@ -212,7 +234,7 @@ pub fn render_document_with(
     let drawing = draw(
         &document,
         css,
-        size,
+        Screen::new(size),
         fonts,
         linked,
         resources,
@@ -235,10 +257,13 @@ pub fn render_document_with(
 /// inline_style`]): a refused `<style>` contributes no rules, a refused
 /// `style` attribute no declarations, and each refusal is in the drawing's
 /// issues. [`Judged::nothing`] for a page under no policy.
+///
+/// It is laid out for `screen`, at its size and rounded against its scale
+/// (ADR 0057 § 2), and painted at a scale of one until queue item 561.
 pub fn draw(
     document: &Document,
     css: &str,
-    size: Size,
+    screen: Screen,
     fonts: &FontDatabase,
     linked: &[(String, String)],
     resources: &[Resource],
@@ -285,7 +310,9 @@ pub fn draw(
     );
     // Both dimensions, because `vh` is as real as `vw` and the window is the
     // one thing here that actually knows them.
-    let device = MediaContext::sized(size.width, size.height, ColorScheme::Light);
+    let size = screen.size;
+    let device =
+        MediaContext::sized(size.width, size.height, ColorScheme::Light).at_scale(screen.scale());
     let mut sheet_issues: Vec<String> = agent
         .issues()
         .iter()

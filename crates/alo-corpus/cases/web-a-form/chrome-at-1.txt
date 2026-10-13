@@ -1,0 +1,51 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 38400 40524
+/html0/head0 0 0 0 0
+/html0/head0/style0 0 0 0 0
+/html0/body1 512 1024 37376 38476
+/html0/body1/form0 512 1024 37376 38476
+/html0/body1/form0/p0 512 1024 37376 1344
+/html0/body1/form0/p0/label0 512 1024 19882 1216
+/html0/body1/form0/p0/label0/input0 9386 1024 11008 1344
+/html0/body1/form0/p1 512 3392 37376 1344
+/html0/body1/form0/p1/label0 512 3392 16879 1216
+/html0/body1/form0/p1/label0/input0 6383 3392 11008 1344
+/html0/body1/form0/p2 512 5760 37376 1344
+/html0/body1/form0/p2/label0 512 5760 19238 1216
+/html0/body1/form0/p2/label0/input0 8742 5760 11008 1344
+/html0/body1/form0/fieldset3 640 8128 37120 10278
+/html0/body1/form0/fieldset3/legend0 1536 8128 5266 1216
+/html0/body1/form0/fieldset3/p1 1536 10726 35328 1280
+/html0/body1/form0/fieldset3/p1/label0 1536 10790 4514 1216
+/html0/body1/form0/fieldset3/p1/label0/input0 1856 10918 832 832
+/html0/body1/form0/fieldset3/p2 1536 13030 35328 1280
+/html0/body1/form0/fieldset3/p2/label0 1536 13094 5764 1216
+/html0/body1/form0/fieldset3/p2/label0/input0 1856 13222 832 832
+/html0/body1/form0/fieldset3/p3 1536 15334 35328 1280
+/html0/body1/form0/fieldset3/p3/label0 1536 15398 4551 1216
+/html0/body1/form0/fieldset3/p3/label0/input0 1856 15526 832 832
+/html0/body1/form0/fieldset4 640 18406 37120 12582
+/html0/body1/form0/fieldset4/legend0 1536 18406 7659 1216
+/html0/body1/form0/fieldset4/p1 1536 21004 35328 1280
+/html0/body1/form0/fieldset4/p1/label0 1536 21068 4774 1216
+/html0/body1/form0/fieldset4/p1/label0/input0 1792 21196 832 832
+/html0/body1/form0/fieldset4/p2 1536 23308 35328 1280
+/html0/body1/form0/fieldset4/p2/label0 1536 23372 8422 1216
+/html0/body1/form0/fieldset4/p2/label0/input0 1792 23500 832 832
+/html0/body1/form0/fieldset4/p3 1536 25612 35328 1280
+/html0/body1/form0/fieldset4/p3/label0 1536 25676 4621 1216
+/html0/body1/form0/fieldset4/p3/label0/input0 1792 25804 832 832
+/html0/body1/form0/fieldset4/p4 1536 27916 35328 1280
+/html0/body1/form0/fieldset4/p4/label0 1536 27980 6970 1216
+/html0/body1/form0/fieldset4/p4/label0/input0 1792 28108 832 832
+/html0/body1/form0/p5 512 32012 37376 1536
+/html0/body1/form0/p5/label0 512 32108 17439 1216
+/html0/body1/form0/p5/label0/input0 12959 32012 4992 1536
+/html0/body1/form0/p6 512 34572 37376 2560
+/html0/body1/form0/p6/label0 512 35916 22955 1216
+/html0/body1/form0/p6/label0/textarea0 11755 34572 11712 2304
+/html0/body1/form0/p7 512 38156 37376 1344
+/html0/body1/form0/p7/button0 512 38156 6597 1344

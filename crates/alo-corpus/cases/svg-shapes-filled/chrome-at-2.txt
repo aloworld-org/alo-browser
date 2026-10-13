@@ -1,0 +1,53 @@
+# Chrome 154 started with --force-device-scale-factor=2, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 20480 12800
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 256 20480 12288
+/html0/body1/p0 256 256 19968 2560
+/html0/body1/p0/svg0 256 256 2560 2560
+/html0/body1/p0/svg0/rect0 512 768 2048 1536
+/html0/body1/p0/svg1 3072 256 2560 2560
+/html0/body1/p0/svg1/rect0 3328 512 2048 2048
+/html0/body1/p0/svg2 5888 256 2560 2560
+/html0/body1/p0/svg2/circle0 6144 512 2048 2048
+/html0/body1/p0/svg3 8704 256 2560 2560
+/html0/body1/p0/svg3/ellipse0 8832 896 2304 1280
+/html0/body1/p0/svg4 11520 256 2560 2560
+/html0/body1/p0/svg4/polygon0 11648 384 2304 2304
+/html0/body1/p0/svg5 14336 256 2560 2560
+/html0/body1/p0/svg5/polyline0 14464 384 2304 2304
+/html0/body1/p1 256 3072 19968 2560
+/html0/body1/p1/svg0 256 3072 2560 2560
+/html0/body1/p1/svg0/polygon0 435.20001220703125 3200 2201.60009765625 2188.7998046875
+/html0/body1/p1/svg1 3072 3072 2560 2560
+/html0/body1/p1/svg1/polygon0 3251.199951171875 3200 2201.599853515625 2188.7998046875
+/html0/body1/p1/svg2 5888 3072 2560 2560
+/html0/body1/p1/svg2/g0 6016 3200 2304 2304
+/html0/body1/p1/svg2/g0/rect0 6016 3200 1536 1536
+/html0/body1/p1/svg2/g0/rect1 6784 3968 1536 1536
+/html0/body1/p1/svg3 8704 3072 2560 2560
+/html0/body1/p1/svg3/rect0 8832 3200 1536 1536
+/html0/body1/p1/svg3/rect1 9600 3968 1536 1536
+/html0/body1/p1/svg4 11520 3072 2560 2560
+/html0/body1/p1/svg4/rect0 11894.9033203125 3446.9033203125 1810.193359375 1810.193359375
+/html0/body1/p1/svg5 14336 3072 2560 2560
+/html0/body1/p1/svg5/rect0 14592 3328 2048 2048
+/html0/body1/p2 256 5888 19968 960
+/html0/body1/p2/svg0 2731.5 5888 768 768
+/html0/body1/p2/svg0/circle0 2808.300048828125 5964.7998046875 614.39990234375 614.400390625
+/html0/body1/p3 256 7104 19968 960
+/html0/body1/p3/svg0 2189.5 7104 768 768
+/html0/body1/p3/svg0/circle0 2266.300048828125 7180.7998046875 614.39990234375 614.400390625
+/html0/body1/p4 256 8320 19968 2048
+/html0/body1/p4/svg0 256 8320 4608 2048
+/html0/body1/p4/svg0/circle0 1536 8320 2048 2048
+/html0/body1/p4/svg1 5120 8320 4608 2048
+/html0/body1/p4/svg1/circle0 5120 8320 2048 2048
+/html0/body1/p4/svg2 9984 8320 4608 2048
+/html0/body1/p4/svg2/circle0 9984 7040 4608 4608
+/html0/body1/p4/svg3 14848 8320 4608 2048
+/html0/body1/p4/svg3/circle0 14848 8320 4608 2048

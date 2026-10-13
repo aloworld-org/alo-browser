@@ -91,6 +91,7 @@ pub mod resource;
 mod run_to;
 pub mod said;
 pub mod sandbox;
+pub mod screen;
 pub mod scripts;
 pub mod scrolling_area;
 mod sent;
@@ -121,10 +122,11 @@ pub use frame::Frame;
 pub use message::{Failure, FromRenderer, ToRenderer};
 pub use page::Page;
 pub use pipeline::{
-    Drawing, Rendered, draw, render, render_document, render_document_with, render_with,
+    Drawing, Rendered, draw, render, render_at, render_document, render_document_with, render_with,
     render_with_resources,
 };
 pub use renderer::Renderer;
 pub use resource::Resource;
+pub use screen::Screen;
 pub use snapshot::{Snapshot, SnapshotNode};
 pub use tab::{Lost, Tab, TabId, Tabs};

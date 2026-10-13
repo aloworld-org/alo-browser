@@ -52,6 +52,7 @@ use crate::linked::Linked;
 use crate::objected::Objected;
 use crate::page::Page;
 use crate::pipeline::{Drawing, draw};
+use crate::screen::Screen;
 
 /// What a page is drawn with, and what it was last drawn as.
 pub struct Easel {
@@ -162,7 +163,7 @@ impl Easel {
         let drawing = draw(
             document,
             &self.sheets,
-            viewport,
+            Screen::new(viewport),
             &self.fonts,
             &linked,
             &[],

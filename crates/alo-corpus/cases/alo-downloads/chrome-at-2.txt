@@ -1,0 +1,42 @@
+# Chrome 154 started with --force-device-scale-factor=2, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 51200 50300.5
+/html0/head0 0 0 0 0
+/html0/head0/meta0 0 0 0 0
+/html0/head0/meta1 0 0 0 0
+/html0/head0/title2 0 0 0 0
+/html0/head0/style3 0 0 0 0
+/html0/head0/style4 0 0 0 0
+/html0/body1 0 0 51200 50300.5
+/html0/body1/div0 2560 2995 46080 44745.5
+/html0/body1/div0/div0 2560 2995 46080 2560
+/html0/body1/div0/div0/svg0 2560 2995 2560 2560
+/html0/body1/div0/div0/svg0/path0 4053.33349609375 3421.666748046875 426.66650390625 746.666748046875
+/html0/body1/div0/div0/svg0/path1 3626.66650390625 3208.333251953125 426.6669921875 853.333251953125
+/html0/body1/div0/div0/svg0/path2 3200 3421.666748046875 426.66650390625 1066.666748046875
+/html0/body1/div0/div0/svg0/path3 2762.072509765625 3635 2144.594482421875 1706.6669921875
+/html0/body1/div0/div0/span1 5888 3005 7442 2539.5
+/html0/body1/div0/h11 2560 7731 46080 3968
+/html0/body1/div0/p2 2560 12339 30959 5142
+/html0/body1/div0/div3 2560 19529 46080 13535
+/html0/body1/div0/div3/div0 2560 19529 22528 13535
+/html0/body1/div0/div3/div0/span0 0 0 0 0
+/html0/body1/div0/div3/div0/div1 4032 21129 19584 1825
+/html0/body1/div0/div3/div0/div2 4032 23338 19584 1428
+/html0/body1/div0/div3/div0/a3 4032 28341 19584 3123
+/html0/body1/div0/div3/div1 26112 19529 22528 13535
+/html0/body1/div0/div3/div1/span0 27584 21129 6911.5 1527
+/html0/body1/div0/div3/div1/div1 27584 23424 19584 1825
+/html0/body1/div0/div3/div1/div2 27584 25633 19584 1428
+/html0/body1/div0/div3/div1/a3 27584 28341 19584 3123
+/html0/body1/div0/p4 2560 34728 46080 12132
+/html0/body1/div0/p4/br0 10371 37468.5 0 1024
+/html0/body1/div0/p4/br1 2560 38833 0 1024
+/html0/body1/div0/p4/a2 14127 40197.5 8970.5 1024
+/html0/body1/div0/p4/br3 30082 40197.5 0 1024
+/html0/body1/div0/p4/br4 2560 41562 0 1024
+/html0/body1/div0/p4/code5 33425.5 44227 12432.5 1152
+/html0/body1/div0/p4/code6 19608.5 45591.5 2889 1152
+/html0/body1/script1 0 0 0 0

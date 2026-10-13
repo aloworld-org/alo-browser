@@ -1,0 +1,17 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 25600 4096
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 0 25600 4096
+/html0/body1/div0 0 0 25600 4096
+/html0/body1/div0/img0 512 512 3072 3072
+/html0/body1/div0/img1 4096 512 3072 3072
+/html0/body1/div0/img2 7680 512 3072 3072
+/html0/body1/div0/img3 11264 512 3072 3072
+/html0/body1/div0/img4 14848 512 3072 3072
+/html0/body1/div0/img5 18432 512 3072 3072
+/html0/body1/div0/img6 22016 512 3072 3072

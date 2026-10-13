@@ -1,0 +1,42 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 51200 50304
+/html0/head0 0 0 0 0
+/html0/head0/meta0 0 0 0 0
+/html0/head0/meta1 0 0 0 0
+/html0/head0/title2 0 0 0 0
+/html0/head0/style3 0 0 0 0
+/html0/head0/style4 0 0 0 0
+/html0/body1 0 0 51200 50304
+/html0/body1/div0 2560 2995 46080 44749
+/html0/body1/div0/div0 2560 2995 46080 2560
+/html0/body1/div0/div0/svg0 2560 2995 2560 2560
+/html0/body1/div0/div0/svg0/path0 4053.33349609375 3421.666748046875 426.66650390625 746.666748046875
+/html0/body1/div0/div0/svg0/path1 3626.66650390625 3208.333251953125 426.6669921875 853.333251953125
+/html0/body1/div0/div0/svg0/path2 3200 3421.666748046875 426.66650390625 1066.666748046875
+/html0/body1/div0/div0/svg0/path3 2762.072509765625 3635 2144.594482421875 1706.6669921875
+/html0/body1/div0/div0/span1 5888 3006 7442 2538
+/html0/body1/div0/h11 2560 7731 46080 3968
+/html0/body1/div0/p2 2560 12339 30959 5142
+/html0/body1/div0/div3 2560 19529 46080 13535
+/html0/body1/div0/div3/div0 2560 19529 22528 13535
+/html0/body1/div0/div3/div0/span0 0 0 0 0
+/html0/body1/div0/div3/div0/div1 4032 21129 19584 1825
+/html0/body1/div0/div3/div0/div2 4032 23338 19584 1429
+/html0/body1/div0/div3/div0/a3 4032 28341 19584 3123
+/html0/body1/div0/div3/div1 26112 19529 22528 13535
+/html0/body1/div0/div3/div1/span0 27584 21129 6912 1526
+/html0/body1/div0/div3/div1/div1 27584 23423 19584 1825
+/html0/body1/div0/div3/div1/div2 27584 25632 19584 1429
+/html0/body1/div0/div3/div1/a3 27584 28341 19584 3123
+/html0/body1/div0/p4 2560 34728 46080 12136
+/html0/body1/div0/p4/br0 10371 37437 0 1024
+/html0/body1/div0/p4/br1 2560 38802 0 1024
+/html0/body1/div0/p4/a2 14127 40167 8971 1024
+/html0/body1/div0/p4/br3 30083 40167 0 1024
+/html0/body1/div0/p4/br4 2560 41532 0 1024
+/html0/body1/div0/p4/code5 33426 44198 12433 1152
+/html0/body1/div0/p4/code6 19609 45563 2889 1152
+/html0/body1/script1 0 0 0 0

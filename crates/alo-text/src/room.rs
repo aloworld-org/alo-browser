@@ -12,6 +12,12 @@
 //! different answer: a face with a line gap at 9 px is 11 tall measured, and
 //! its sum rounded would be 12.
 //!
+//! **A pixel is the screen's** (ADR 0057 § 2): at a scale of two each figure
+//! is rounded to a half CSS pixel, a whole device pixel, as Chrome 154
+//! started with `--force-device-scale-factor=2` rounds it at every size from
+//! 8 to 40 px. A line of `DejaVu Sans` at 13 px is 15 tall at one and 15.5 at
+//! two.
+//!
 //! [`FaceMetrics`] keeps the font's own exact figures, because underlines,
 //! `ex`, `ch` and `vertical-align: middle` are measured with them (ADR 0050
 //! § 5). This is the other reading of the same face, the one only a line
@@ -19,7 +25,8 @@
 
 use crate::font::FaceMetrics;
 
-/// The whole pixels a line takes from a font at one size.
+/// The whole device pixels a line takes from a font at one size, in CSS
+/// pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LineRoom {
     /// How far above the baseline the font's content area reaches.
@@ -28,36 +35,53 @@ pub struct LineRoom {
     pub descent: f32,
     /// The extra room the font asks for on a `normal` line.
     pub line_gap: f32,
+    /// Device pixels per CSS pixel on the screen the figures were rounded
+    /// for.
+    scale: f32,
 }
 
 impl LineRoom {
-    /// A face's figures, each rounded half up to a whole pixel.
+    /// A face's figures, each rounded half up to a whole pixel, at a scale
+    /// of one.
     pub fn of(metrics: FaceMetrics) -> Self {
+        Self::at(metrics, 1.0)
+    }
+
+    /// A face's figures, each rounded half up to a whole device pixel on a
+    /// screen of `scale` device pixels to the CSS pixel: `round(a·s) / s`.
+    pub fn at(metrics: FaceMetrics, scale: f32) -> Self {
+        let scale = alo_value::device_scale(scale);
         Self {
-            ascent: whole(metrics.ascender),
-            descent: whole(metrics.descender),
-            line_gap: whole(metrics.line_gap),
+            ascent: whole(metrics.ascender, scale),
+            descent: whole(metrics.descender, scale),
+            line_gap: whole(metrics.line_gap, scale),
+            scale,
         }
     }
 
     /// How far above the baseline a `normal` line of this font takes room:
-    /// its ascent and the top half of its line gap, floored, as any other
-    /// leading's is (ADR 0050 §§ 2 and 4).
+    /// its ascent and the top half of its line gap, floored to a device
+    /// pixel, as any other leading's is (ADR 0050 §§ 2 and 4).
     pub fn normal_above(self) -> f32 {
-        self.ascent + (self.line_gap / 2.0).floor()
+        self.ascent + self.gap_above()
     }
 
     /// How far below the baseline a `normal` line of this font takes room:
     /// its descent and whatever of its line gap the top did not take.
     pub fn normal_below(self) -> f32 {
-        self.descent + self.line_gap - (self.line_gap / 2.0).floor()
+        self.descent + self.line_gap - self.gap_above()
+    }
+
+    /// The top half of the line gap, floored to a device pixel.
+    fn gap_above(self) -> f32 {
+        (self.line_gap * self.scale / 2.0).floor() / self.scale
     }
 }
 
-/// A figure rounded to the nearest whole pixel, a half going up: 2.5 is 3,
-/// where rounding to even would make it 2 and Chrome does not.
-fn whole(pixels: f32) -> f32 {
-    (pixels + 0.5).floor()
+/// A figure rounded to the nearest whole device pixel, a half going up: 2.5
+/// is 3, where rounding to even would make it 2 and Chrome does not.
+fn whole(pixels: f32, scale: f32) -> f32 {
+    (pixels * scale + 0.5).floor() / scale
 }
 
 #[cfg(test)]
@@ -84,6 +108,7 @@ mod tests {
             ascent,
             descent,
             line_gap,
+            scale: 1.0,
         }
     }
 
@@ -130,6 +155,34 @@ mod tests {
             LineRoom::of(face(1536.0, 512.0, 512.0, 2.0)),
             room(2.0, 1.0, 1.0)
         );
+    }
+
+    #[test]
+    fn at_a_scale_of_two_each_figure_is_rounded_to_half_a_pixel() {
+        // ADR 0057, Evidence 3: `DejaVu Sans` at 13 px reaches 12.07 above
+        // and 3.07 below, which are 12 and 3 at one, 12 and 3 at two; at
+        // 8 px 7.43 and 1.89 are 7 and 2 at one, 7.5 and 2 at two, so a
+        // line is 9.5 tall there, as Chrome makes it.
+        let at_two = LineRoom::at(face(1901.0, 483.0, 0.0, 8.0), 2.0);
+        assert_eq!((at_two.ascent, at_two.descent), (7.5, 2.0));
+        let at_one = LineRoom::at(face(1901.0, 483.0, 0.0, 8.0), 1.0);
+        assert_eq!(at_one, LineRoom::of(face(1901.0, 483.0, 0.0, 8.0)));
+        // A gap of 2.34 at 16 px is 2.5 at two: its top half floored to a
+        // device pixel is 1, and the rest, 1.5, goes below.
+        let gap = LineRoom::at(face(1901.0, 483.0, 300.0, 16.0), 2.0);
+        assert_eq!(gap.line_gap.to_bits(), 2.5_f32.to_bits());
+        assert_eq!((gap.normal_above(), gap.normal_below()), (16.0, 5.5));
+    }
+
+    #[test]
+    fn what_is_not_a_scale_is_one() {
+        for scale in [0.0, -2.0, f32::NAN, f32::INFINITY] {
+            assert_eq!(
+                LineRoom::at(face(1901.0, 483.0, 300.0, 9.0), scale),
+                LineRoom::of(face(1901.0, 483.0, 300.0, 9.0)),
+                "{scale}"
+            );
+        }
     }
 
     #[test]

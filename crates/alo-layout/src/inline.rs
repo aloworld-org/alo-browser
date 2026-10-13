@@ -1182,8 +1182,8 @@ pub fn empty_line_height(strut: &TextStyle, measurer: &impl MeasureText) -> f32 
 ///
 /// The room is the line height that was set, or with `normal` the font's
 /// ascent, descent and line gap. The leading is what the room has beyond the
-/// font's content area, and its top half, floored to a whole pixel, goes
-/// above the letters: so a line holding only this is exactly as tall as its
+/// font's content area, and its top half, floored to a whole device pixel
+/// (ADR 0057 § 2), goes above the letters: so a line holding only this is exactly as tall as its
 /// room, and the odd pixel or fraction goes below them. A line height
 /// smaller than the font is a negative leading, floored the same way.
 fn reach_of(style: &TextStyle, measurer: &impl MeasureText) -> Reach {
@@ -1193,7 +1193,8 @@ fn reach_of(style: &TextStyle, measurer: &impl MeasureText) -> Reach {
         .line_height
         .filter(|height| height.is_finite())
         .unwrap_or_else(|| content + measurer.line_gap(style));
-    let above = ascent + ((room - content) / 2.0).floor();
+    let scale = alo_value::device_scale(style.scale);
+    let above = ascent + ((room - content) * scale / 2.0).floor() / scale;
     Reach {
         above,
         below: room - above,

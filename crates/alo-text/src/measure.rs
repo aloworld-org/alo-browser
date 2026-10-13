@@ -12,7 +12,7 @@
 
 use crate::database::FontDatabase;
 use crate::font::{FontRequest, Slant, Weight};
-use crate::line::lay_out;
+use crate::line::lay_out_at;
 use crate::room::LineRoom;
 use alo_layout::{MeasureText, Size, TextStyle};
 
@@ -55,13 +55,14 @@ impl<'a> TextMeasurer<'a> {
 
 impl MeasureText for TextMeasurer<'_> {
     fn measure(&self, text: &str, style: &TextStyle, available_width: Option<f32>) -> Size {
-        let paragraph = lay_out(
+        let paragraph = lay_out_at(
             text,
             self.database,
             &Self::request(style),
             style.size,
             available_width,
             style.letter_spacing,
+            style.scale,
         );
         Size::new(paragraph.width(), paragraph.height())
     }
@@ -87,6 +88,7 @@ impl MeasureText for TextMeasurer<'_> {
             &Self::request(style),
             style.size,
             style.letter_spacing,
+            style.scale,
         )
     }
 
@@ -127,16 +129,17 @@ impl TextMeasurer<'_> {
             .chain(&Self::request(style))
             .into_iter()
             .next()
-            .map(|font| font.metrics(style.size))
+            .map(|font| font.metrics_at(style.size, style.scale))
     }
 
-    /// The whole pixels a line takes from that face (ADR 0050 § 1), or from
+    /// The whole device pixels a line takes from that face (ADR 0050 § 1,
+    /// ADR 0057 § 2), or from
     /// four fifths of the size above and a fifth below when there is no face.
     ///
     /// A line asks for these and nothing else does: the exact figures stay
     /// [`TextMeasurer::face`]'s, for `ex`, `ch` and `middle`.
     fn room(self, style: &TextStyle) -> LineRoom {
-        LineRoom::of(self.face(style).unwrap_or(crate::font::FaceMetrics {
+        let face = self.face(style).unwrap_or(crate::font::FaceMetrics {
             ascender: style.size * 0.8,
             descender: style.size * 0.2,
             line_gap: 0.0,
@@ -145,7 +148,8 @@ impl TextMeasurer<'_> {
             x_advance: style.size * 0.5,
             underline_offset: style.size * 0.1,
             underline_thickness: style.size * 0.06,
-        }))
+        });
+        LineRoom::at(face, style.scale)
     }
 }
 

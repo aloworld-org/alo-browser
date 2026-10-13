@@ -1,0 +1,26 @@
+# Chrome 154 started with --force-device-scale-factor=2, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 21120 4352
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 256 21120 3840
+/html0/body1/p0 256 256 20608 3840
+/html0/body1/p0/svg0 256 256 3840 3840
+/html0/body1/p0/svg0/rect0 1101.1693115234375 890.3387451171875 2149.6611328125 2571.322265625
+/html0/body1/p0/svg0/rect1 1024 1600 2304 1152
+/html0/body1/p0/svg1 4352 256 3840 3840
+/html0/body1/p0/svg1/rect0 3769.107421875 1803.9381103515625 2571.322265625 2149.6611328125
+/html0/body1/p0/svg1/rect1 5120 1600 2304 1152
+/html0/body1/p0/svg2 8448 256 3840 3840
+/html0/body1/p0/svg2/rect0 8832 2176 1536 1536
+/html0/body1/p0/svg2/rect1 8832 640 1536 1536
+/html0/body1/p0/svg3 12544 256 3840 3840
+/html0/body1/p0/svg3/g0 14464 1024 1920 1536
+/html0/body1/p0/svg3/g0/rect0 14464 1024 1920 1536
+/html0/body1/p0/svg3/rect1 12736 640 960 768
+/html0/body1/p0/svg4 16640 256 3840 3840
+/html0/body1/p0/svg4/rect0 17609.6484375 1225.6484375 1900.703125 1900.703125
+/html0/body1/p0/svg4/rect1 17609.6484375 1225.6484375 1900.703125 1900.703125

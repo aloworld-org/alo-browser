@@ -1,0 +1,29 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 51200 20734
+/html0/head0 0 0 0 0
+/html0/head0/meta0 0 0 0 0
+/html0/head0/meta1 0 0 0 0
+/html0/head0/title2 0 0 0 0
+/html0/head0/link3 0 0 0 0
+/html0/head0/meta4 0 0 0 0
+/html0/head0/meta5 0 0 0 0
+/html0/head0/meta6 0 0 0 0
+/html0/head0/meta7 0 0 0 0
+/html0/head0/link8 0 0 0 0
+/html0/head0/style9 0 0 0 0
+/html0/body1 0 0 51200 20734
+/html0/body1/a0 -1022976 0 10312 2764
+/html0/body1/main1 0 0 51200 20734
+/html0/body1/main1/section0 0 0 51200 20734
+/html0/body1/main1/section0/h20 1280 3072 48640 2150
+/html0/body1/main1/section0/ul1 1280 6118 48640 11544
+/html0/body1/main1/section0/ul1/li0 1280 6118 48640 11544
+/html0/body1/main1/section0/ul1/li0/figure0 1280 6118 48640 11544
+/html0/body1/main1/section0/ul1/li0/figure0/blockquote0 4416 9254 42368 1996
+/html0/body1/main1/section0/ul1/li0/figure0/blockquote0/p0 4416 9254 42368 1996
+/html0/body1/main1/section0/ul1/li0/figure0/figcaption1 4416 12786 42368 1740
+/html0/body1/main1/section0/ul1/li0/figure0/figcaption1/span0 13910 12978 13570 1280
+/html0/body1/script2 0 0 0 0

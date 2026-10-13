@@ -62,6 +62,13 @@ pub struct MediaContext {
     pub height: f32,
     /// The theme being asked for.
     pub color_scheme: ColorScheme,
+    /// Device pixels per CSS pixel: the screen's scale, which layout rounds
+    /// against (ADR 0057 § 3). One unless somebody said otherwise.
+    ///
+    /// No media query here asks for it yet: `resolution` is evaluated
+    /// against it once a window paints at it (queue item 562), and is
+    /// refused as not understood until then.
+    pub scale: f32,
 }
 
 impl MediaContext {
@@ -73,6 +80,7 @@ impl MediaContext {
             // something for a caller that only said how wide the page is.
             height: width * 0.625,
             color_scheme,
+            scale: 1.0,
         }
     }
 
@@ -83,6 +91,21 @@ impl MediaContext {
             width,
             height,
             color_scheme,
+            scale: 1.0,
+        }
+    }
+
+    /// The same window on a screen of this many device pixels per CSS
+    /// pixel: any finite factor above zero, and 1 for anything else.
+    #[must_use]
+    pub fn at_scale(self, scale: f32) -> Self {
+        Self {
+            scale: if scale.is_finite() && scale > 0.0 {
+                scale
+            } else {
+                1.0
+            },
+            ..self
         }
     }
 }
@@ -541,12 +564,26 @@ mod tests {
         width: 400.0,
         height: 800.0,
         color_scheme: ColorScheme::Light,
+        scale: 1.0,
     };
     const WIDE_DARK: MediaContext = MediaContext {
         width: 1600.0,
         height: 800.0,
         color_scheme: ColorScheme::Dark,
+        scale: 1.0,
     };
+
+    #[test]
+    fn a_screen_is_at_a_scale_of_one_until_somebody_says_otherwise() {
+        assert_eq!(MediaContext::default().scale.to_bits(), 1.0_f32.to_bits());
+        let two = MediaContext::default().at_scale(2.0);
+        assert_eq!(two.scale.to_bits(), 2.0_f32.to_bits());
+        assert_eq!(two.width.to_bits(), 1280.0_f32.to_bits(), "the same window");
+        for nonsense in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            let scale = MediaContext::default().at_scale(nonsense).scale;
+            assert_eq!(scale.to_bits(), 1.0_f32.to_bits(), "{nonsense}");
+        }
+    }
 
     #[test]
     fn a_width_query_compares_the_viewport() {

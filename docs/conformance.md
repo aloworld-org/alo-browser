@@ -331,11 +331,27 @@ computes one: a width of a pixel or more is floored to whole pixels and a
 smaller one that is not zero is one, after `rem`, `em`, `vw` and `calc()` are
 worked out (corpus case `border-widths`). So alo Sites' `border-left: .3rem`
 is 4, as Chrome draws it, and a hairline of `0.5px` is one solid pixel rather
-than a grey one. A device pixel is a CSS pixel until item 560 brings a scale
-factor; at a real scale of two Chrome 154 floors to half pixels (`4.8px` is
-4.5, ADR 0057) and this engine does not yet.
+than a grey one. A device pixel is the screen's (item 560, ADR 0057): laid
+out at a scale of two, `4.8px` is 4.5, as Chrome 154 floors it under a real
+scale of two. No window lays a page out at two yet (562).
 A percentage, which is not a border width CSS accepts, is still read and laid
 out unsnapped, and `thin`, `medium` and `thick` are not read (431).
+
+**A page laid out for a screen's scale** (item 560, ADR 0057). Laid out at a
+scale of two, every rule this engine rounds to whole pixels rounds to device
+pixels and reports CSS pixels: a line's font figures and the top half of its
+leading, a set line height and every length on a grid of 1/128 px, a
+border's width, a text field's width, and the size a face is set at, cut to
+hundredths of a device pixel. Chrome 154 started with
+`--force-device-scale-factor=2` is the measure, never its emulated scale.
+Of the 580 boxes in the corpus's 52 markup cases this engine places exactly
+where Chrome does at one, 578 are exactly where Chrome puts them at two
+(`a_page_at_a_scale_of_two.rs`, against Chrome's boxes frozen beside each
+case). The other two are `border-widths`' flex items, which shrink only at
+two and take Chrome's spare 1/128 px in another order (564); the same
+shrink at one is a unit off too. The 21 cases whose page runs script are
+measured and not yet laid out at two, because a renderer is told no scale
+(563). Paint still draws at one (561), and no window lays out at two (562).
 
 **A function in the `border` shorthand is read whole.** `border: 1px solid
 rgb(29 78 216)`, a comma-separated `rgb()`, `hsl()`, a `color-mix()` and a

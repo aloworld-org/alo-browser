@@ -127,6 +127,11 @@ and the rule is unchanged:
 | Shares put on the grid | ADR 0054 § 3, ADR 0056 | onto 1/(64·s) px |
 | A border width, floored, and at least one | `line_width.rs` | `floor(w·s) / s`, at least `1 / s` |
 | A control's box and a plain background, each edge snapped | `snap.rs` | `floor(x·s + 0.5) / s` |
+| A text field's character, rounded when wider, and its width, rounded up | `field_width.rs` | `round(c·s) / s`, `ceil(w·s) / s` |
+| The size a face is set at, cut to hundredths | `face_size.rs` | `trunc(z·s·100) / 100 / s` |
+
+The last two rows were measured by item 560 and added to the table by it
+(see *Measured since*).
 
 The rules are measured at scale 1 and at scale 2 above. Nothing here
 claims a rule at 1.5 or 3 that was not measured; the form `rule(v·s) / s`
@@ -237,11 +242,34 @@ Item 299 is cut into three parts, and closes when they do:
 - **Where a pointer lands at a scale**: ADR 0024 § 5's point is a 1×1
   pixel, measured at scale 1; whether it is a device pixel at 2 is
   measured with item 562.
-- **A face's size cut to hundredths** at a scale (item 514's finding):
-  whether 13.333 px at scale 2 is cut as 26.67 device pixels or as 13.33
-  CSS pixels is measured with item 560.
+- ~~**A face's size cut to hundredths** at a scale~~: measured by item
+  560, in device pixels (*Measured since*).
 - **An `outline`'s width**, which Chrome also snaps (Evidence 5), when this
   engine draws outlines by width.
+
+## Measured since
+
+**Item 560, 2026-10-13, Chrome 154 under `--force-device-scale-factor=2`,**
+the source not read.
+
+- **A face's size is cut to hundredths of a device pixel.** A run of a
+  hundred `x` in `DejaVu Sans` at ten sizes written to the thousandth or
+  finer was the width of the face set at `trunc(z·s·100) / 100 / s` at nine
+  of them, `13.337px` set at 13.335 rather than 13.33; the tenth, `9.123px`,
+  is the same 1/64 px off at one. Cut in CSS pixels, seven would have been
+  0.3 px narrow.
+- **A text field's width is a device-pixel rule.** 621 fields in `DejaVu
+  Sans`, `DejaVu Sans Mono` and `DejaVu Serif` at 69 sizes, each at `size`
+  1, 3 and 20, were all `ceil(w·s) / s` with the `x` rounded as
+  `round(c·s) / s` when that makes it wider, at one and at two; either
+  rounding in CSS pixels left 148 or more wrong. The corpus's text fields
+  are 164.5 px wide at two, where this engine first made them 165.
+- **The corpus at two.** With every rule above taking the scale, the 580
+  boxes of the 52 markup cases this engine places exactly where Chrome does
+  at one, 578 are exactly where Chrome puts them at two. The two that are
+  not are flex items that shrink only at two; the same shrink at one is a
+  unit off too, so it is how a shrunk item's share is rounded, not the
+  scale (item 564).
 
 ## How we will know if this was wrong
 

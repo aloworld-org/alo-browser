@@ -23,6 +23,14 @@
 //! - **`a` is the face's ascent in whole pixels**, the one a line takes
 //!   (ADR 0050 § 1). One character is exactly that wide.
 //!
+//! **A pixel is a device pixel** (ADR 0057 § 2): `c` is rounded to a whole
+//! device pixel when that makes it wider, and the width is rounded up to a
+//! whole device pixel. Under `--force-device-scale-factor=2`, 621 fields in
+//! the three faces at 69 sizes, each at `size` 1, 3 and 20, were all this
+//! rule at two and at one; `DejaVu Sans` at 13.33 px, twenty characters, is
+//! 164.5 wide at two and 164 at one. Rounding either in CSS pixels instead
+//! leaves 148 or more of the 621 wrong.
+//!
 //! Each was told apart with a copy of `DejaVu Sans` that changed one table at
 //! a time. Moving the `x`'s advance moved `c`, and moving the `hhea` ascent
 //! moved `a`. The `OS/2` table's average width, its `usWinAscent`, the `0`'s
@@ -38,8 +46,9 @@ use crate::measure::{MeasureText, TextStyle};
 /// The content-box width of a text field of `characters` set in `style`,
 /// in CSS pixels.
 pub(crate) fn of(characters: u32, style: &TextStyle, measure: &impl MeasureText) -> f32 {
+    let scale = alo_value::device_scale(style.scale);
     let advance = measure.x_advance(style);
-    let character = advance.max(advance.round());
+    let character = advance.max((advance * scale).round() / scale);
     let ascent = measure.ascender(style);
     // Counted as Chrome counts it, the characters first and the ascent's
     // difference after, so that the one rounding falls where Chrome's does.
@@ -49,7 +58,10 @@ pub(crate) fn of(characters: u32, style: &TextStyle, measure: &impl MeasureText)
                   lose the same digits, and no page shows a field that wide"
     )]
     let count = characters as f32;
-    (character * count + (ascent - character)).ceil().max(0.0)
+    ((character * count + (ascent - character)) * scale)
+        .ceil()
+        .max(0.0)
+        / scale
 }
 
 #[cfg(test)]
@@ -132,6 +144,37 @@ mod tests {
             let face = dejavu_sans(size);
             for (characters, width) in [1, 2, 3, 5, 10, 20, 30].into_iter().zip(widths) {
                 let got = of(characters, &at(size), &face);
+                assert!(
+                    (got - width).abs() < 1e-3,
+                    "{size} px, {characters}: {got}, Chrome {width}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn at_a_scale_of_two_a_field_is_chromes_width_in_device_pixels() {
+        // Chrome 154 under `--force-device-scale-factor=2`, padding and
+        // border off, `size` 1, 3 and 20. The face at 13.333333 px is set
+        // at 13.33, and its ascent is rounded to a half pixel, as a line at
+        // two takes it.
+        for (size, widths) in [
+            (13.33, [12.5, 28.5, 164.5]),
+            (10.0, [9.5, 21.5, 123.5]),
+            (16.0, [15.0, 34.0, 195.5]),
+            (24.0, [22.5, 51.0, 292.5]),
+            (32.0, [29.5, 67.5, 390.5]),
+        ] {
+            let face = Face {
+                x: 1212.0 * size / 2048.0,
+                ascent: (1901.0 * size / 2048.0 * 2.0 + 0.5).floor() / 2.0,
+            };
+            let style = TextStyle {
+                scale: 2.0,
+                ..at(size)
+            };
+            for (characters, width) in [1, 3, 20].into_iter().zip(widths) {
+                let got = of(characters, &style, &face);
                 assert!(
                     (got - width).abs() < 1e-3,
                     "{size} px, {characters}: {got}, Chrome {width}"

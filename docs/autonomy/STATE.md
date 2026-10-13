@@ -33057,3 +33057,113 @@ say the same.
 270 queue items are open (560–562 added). The next unused queue number is
 **563** and the next ADR is **0058**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 331 — queue item 560 built, not closed: a page laid out for a screen's scale
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 330's entry; ADR 0057 in full, with ADR 0050 and ADR 0054's
+rules it names; queue items 299, 560, 561, 562 and 502; the feature lines
+*A window, tabs, and a tab strip* and *A border is whole device pixels
+wide*; `layout_unit.rs`, `line_width.rs`, `line_height.rs`, `inline.rs`'
+`reach_of`, `field_width.rs`, `alo-text`'s `room.rs`, `line.rs`,
+`face_size.rs`, `shape.rs` and `measure.rs`, `alo-value`'s `Viewport`,
+`alo-css`'s `MediaContext`, `alo-style`'s cascade and `alo-renderer`'s
+`pipeline.rs` and `easel.rs`. No `AGENTS.md` exists here.
+
+**Why 560.** It depends on nothing and names its ADR and feature. The open
+items before it in the file wait for a page, a person, a design or an
+unfinished dependency, or are measurements nothing depends on, as 318–330
+recorded; 299 waits on 560–562.
+
+**Built.**
+- The scale: `Viewport::at_scale`/`scale` and `device_scale` (any finite
+  factor above zero, else 1) in `alo-value`; `MediaContext::scale` and
+  `at_scale` in `alo-css`; `StyleTree::scale` and every style's metrics
+  in `alo-style`; `TextStyle::scale` from `text_style_of`; and
+  `alo-renderer`'s new `screen.rs` (`Screen`) with `render_at`. `draw`
+  takes a `Screen`; the easel hands it one at scale 1 until 563.
+- Every rule in ADR 0057 § 2 rounds as `rule(v·s) / s`: `LineRoom::at`
+  (figures and the line gap's floored half), `reach_of`'s half-leading,
+  `line_height.rs`, `layout_unit.rs`' five rules, `line_width::snap`. Two
+  rules measured here and added to the ADR's table: `field_width.rs` (621
+  of 621 fields at 1 and 2 in three faces, 69 sizes; either rounding in
+  CSS pixels leaves 148 or more wrong) and `face_size_at`, a face set at
+  its size cut to hundredths of a device pixel (9 of 10 sizes at 2; the
+  tenth, 9.123 px, is the same unit off at 1), which settles ADR 0057's
+  open question. `alo-text` gains `lay_out_at`, `shape_at`,
+  `Font::metrics_at` and a scale on `cluster_ends`; the old names are
+  scale 1.
+- Chrome 154's boxes at 1 and 2, measured by iteration 330's probe under
+  `--force-device-scale-factor=2`, are frozen beside all 73 cases they
+  cover (`chrome-at-1.txt`, `chrome-at-2.txt`), with a header saying so.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean (fixed first: a float
+compared exactly, a path passed by value, `format!` collected).
+`cargo test --workspace --no-fail-fast` passed with no `FAILED`, run
+before the gate. `scripts/gate.sh` ran in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, no `FAILED`, `panicked` or
+`^error` line. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: `alo-corpus/tests/a_page_at_a_scale_of_two.rs`.
+  Four probes with Chrome's numbers inline, each at 1 and 2: 65 `normal`
+  lines from 8 to 40 px (9.5 px tall at 8 px at two), 45 set line heights
+  (baseline and height; `17.6px` is 1,126.5/64 at two), 12 lengths
+  (`0.31px` is 39/128 at two) and nine faces' runs (`13.337px` set at
+  13.335). Then the 52 markup cases at 1 and 2 against the frozen Chrome
+  boxes: 580 boxes exact at 1, 578 exact at 2; the other two are named in
+  the test with item 564 and the test fails if either comes to match. The
+  21 script cases are counted as owed to 563. Unit tests at scale 2 in
+  `layout_unit.rs`, `line_width.rs`, `line_height.rs`, `field_width.rs`,
+  `room.rs`, `face_size.rs`, `screen.rs`, `length.rs` and `media.rs`.
+- Every committed file at scale 1 unchanged: the corpus and all suites
+  passed without `ALO_UPDATE_REFERENCES`; no reference was rewritten.
+- Reference renders: none. Paint is unchanged (561); nothing new is drawn.
+- Mutations, each restored from a copy (`cmp` confirmed), each failing the
+  new test file: font figures rounded in CSS px (2 tests), half-leading in
+  CSS px (2), the grid at 64 per CSS px (3), the field width's ceiling in
+  CSS px (1), a face cut in CSS px (1, the face probe; the corpus alone
+  did not catch it, which is why that probe exists), the arena at scale 1
+  (2), the style tree forgetting its scale (2), a border snapped at 1 (1),
+  a line height at 1 (2), `TextStyle` at 1 (4). A first field-width
+  mutation (floor for ceiling) survived because both agree on a width
+  already whole; the CSS-pixel ceiling is the one that differs.
+- Hostile input: a scale that is zero, negative, NaN or infinite is 1 in
+  `Viewport`, `MediaContext`, `Screen`, `LineRoom::at`, `face_size_at`,
+  `layout_unit` and `line_width`, each tested. No bytes are read from
+  outside: the scale reaches no wire yet (563 reads it as a stranger's).
+- One file, one responsibility: `screen.rs` is what a page is laid out
+  for; each rule stayed in the file that held it at scale 1.
+- Found on the way, not this item's: the `font` shorthand is read only as
+  a wide keyword, so the probes set `font-size` and `font-family`.
+- Also updated: ADR 0057 (two table rows, *Measured since*, the open
+  question struck), `docs/features.md`, `docs/conformance.md`,
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 560 stays open with a *Built (iteration 331), not closed*
+paragraph: it closes when 563 and 564 close and 502's columns are
+Chrome's at both scales (`alo-agenda-mini-month`'s are 1/64 px off at
+both). Cut: **563** (a loaded page laid out at its scale). Found: **564**
+(a shrunk flex item's share of a pixel; a unit off at 1 too, so not the
+scale). 561 now depends on 560's built layout and names paint's baseline
+and shaping at one; 562 depends on 561 and 563.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds layout for a scale; Owed swaps 560 for 561, 563, 562 and 564.
+
+**Unresolved obligations.**
+- 560 is not closed: 21 loaded cases at 2 (563), two flex items (564),
+  and the mini-month's columns (502).
+- Nothing on screen changes: paint is at one (561) and no window lays out
+  at two (562); `devicePixelRatio` and `resolution` are still unanswered.
+- Rules for a fractional scale are not measured; the code accepts one.
+- No claim about speed is made.
+
+272 queue items are open (563 and 564 added). The next unused queue
+number is **565** and the next ADR is **0058**. This is one iteration, not
+a finished queue or roadmap.

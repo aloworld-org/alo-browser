@@ -1,0 +1,32 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 51200 20784
+/html0/head0 0 0 0 0
+/html0/head0/meta0 0 0 0 0
+/html0/head0/meta1 0 0 0 0
+/html0/head0/title2 0 0 0 0
+/html0/head0/link3 0 0 0 0
+/html0/head0/meta4 0 0 0 0
+/html0/head0/meta5 0 0 0 0
+/html0/head0/meta6 0 0 0 0
+/html0/head0/meta7 0 0 0 0
+/html0/head0/link8 0 0 0 0
+/html0/head0/style9 0 0 0 0
+/html0/body1 0 0 51200 20784
+/html0/body1/a0 -1022976 0 10312 2764
+/html0/body1/main1 0 0 51200 20784
+/html0/body1/main1/section0 0 0 51200 20784
+/html0/body1/main1/section0/h20 1600 1600 21952 2150
+/html0/body1/main1/section0/h31 1600 5670 21952 1382
+/html0/body1/main1/section0/p2 1600 8652 21952 1740
+/html0/body1/main1/section0/p3 1600 12504 21952 1740
+/html0/body1/main1/section0/p4 1600 16356 21952 1740
+/html0/body1/main1/section0/form5 27648 5658 21952 10492
+/html0/body1/main1/section0/form5/p0 27648 5658 21952 5220
+/html0/body1/main1/section0/form5/p0/label0 27648 5658 21952 1740
+/html0/body1/main1/section0/form5/p0/input1 27648 7654 21952 3224
+/html0/body1/main1/section0/form5/p1 27648 11966 21952 3096
+/html0/body1/main1/section0/form5/p1/button0 27648 11966 11499 3096
+/html0/body1/script2 0 0 0 0

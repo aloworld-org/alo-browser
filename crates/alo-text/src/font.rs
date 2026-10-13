@@ -337,7 +337,13 @@ impl Font {
     /// The measurements of this font at a size, in CSS pixels, read at the
     /// size the face is set at ([`crate::face_size`]).
     pub fn metrics(&self, size: f32) -> FaceMetrics {
-        let size = crate::face_size(size);
+        self.metrics_at(size, 1.0)
+    }
+
+    /// The same, on a screen of `scale` device pixels to the CSS pixel,
+    /// whose hundredths the face's size is cut to ([`crate::face_size_at`]).
+    pub fn metrics_at(&self, size: f32, scale: f32) -> FaceMetrics {
+        let size = crate::face_size_at(size, scale);
         let Some(face) = self.face() else {
             return FaceMetrics {
                 ascender: size * 0.8,

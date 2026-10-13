@@ -56,6 +56,11 @@ pub struct TextStyle {
     /// the text takes on its line, the difference shared above the font and
     /// below it (ADR 0050 § 4), which is why it travels with the font.
     pub line_height: Option<f32>,
+    /// Device pixels per CSS pixel on the screen the text is laid out for,
+    /// whose whole pixels a line's font figures and leading are rounded to
+    /// (ADR 0057 § 2). It changes how much room a line takes, never how wide
+    /// the text is.
+    pub scale: f32,
 }
 
 impl Default for TextStyle {
@@ -70,6 +75,7 @@ impl Default for TextStyle {
             letter_spacing: 0.0,
             white_space: alo_box::WhiteSpace::Normal,
             line_height: None,
+            scale: 1.0,
         }
     }
 }

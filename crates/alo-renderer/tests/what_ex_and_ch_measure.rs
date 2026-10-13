@@ -22,7 +22,7 @@ fn close(left: f32, right: f32) -> bool {
 /// A length as layout uses it: truncated onto Chrome's grid of 1/64 px
 /// (ADR 0054 § 1).
 fn on_the_grid(pixels: f32) -> f32 {
-    alo_layout::layout_unit::truncated(pixels)
+    alo_layout::layout_unit::truncated(pixels, 1.0)
 }
 
 /// The `dejavu` crate's sans in two weights and its sans mono, with the

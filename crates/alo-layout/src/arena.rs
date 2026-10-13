@@ -122,7 +122,7 @@ impl Unresolved {
     /// node identity.
     fn resolve(&self, handle: *const (), basis: f32) -> f32 {
         self.held(handle).map_or(0.0, |(value, metrics)| {
-            layout_unit::truncated(value.to_px(*metrics, basis))
+            layout_unit::truncated(value.to_px(*metrics, basis), metrics.scale())
         })
     }
 
@@ -186,6 +186,12 @@ impl<'a, M: MeasureText> Arena<'a, M> {
     /// What this tree measures text with.
     pub(crate) fn measure(&self) -> &'a M {
         self.measure
+    }
+
+    /// Device pixels per CSS pixel on the screen this tree is laid out for,
+    /// whose grid every box is placed on (ADR 0057 § 2).
+    pub(crate) fn scale(&self) -> f32 {
+        self.styles.scale()
     }
 
     /// The expressions waiting for a basis, to add one to.
@@ -407,7 +413,9 @@ impl<M: MeasureText> Arena<'_, M> {
                     // Rounded up onto the grid, so a box that shrinks to its
                     // text always holds it (ADR 0054 § 4).
                     TaffySize {
-                        width: known.width.unwrap_or(layout_unit::rounded_up(size.width)),
+                        width: known
+                            .width
+                            .unwrap_or(layout_unit::rounded_up(size.width, self.scale())),
                         height: size.height,
                     }
                 })
@@ -449,7 +457,9 @@ impl<M: MeasureText> Arena<'_, M> {
                     // Its lines' width rounded up onto the grid, as a run of
                     // text's is (ADR 0054 § 4).
                     TaffySize {
-                        width: known.width.unwrap_or(layout_unit::rounded_up(size.width)),
+                        width: known
+                            .width
+                            .unwrap_or(layout_unit::rounded_up(size.width, self.scale())),
                         height: known.height.unwrap_or(size.height),
                     }
                 })

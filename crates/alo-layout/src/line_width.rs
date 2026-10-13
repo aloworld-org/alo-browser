@@ -10,31 +10,35 @@
 //! everything inside it starts 4 in — which is what Chrome lays out and draws,
 //! and what alo Sites' editorial sections are measured against.
 //!
-//! **A device pixel is one CSS pixel**, because that is all a render has until
-//! queue item 299 brings a scale factor. At a scale of two the same `.3rem`
-//! snaps to 4.5, so this is the one place that will have to learn the scale,
-//! and it is said here so that nobody reads the floor as a CSS-pixel rule.
+//! **A device pixel is the screen's** (ADR 0057 § 2): at a scale of two the
+//! same `.3rem` snaps to 4.5 CSS pixels, as Chrome 154 started with
+//! `--force-device-scale-factor=2` snaps it, and a width under a device pixel
+//! is half a CSS pixel there.
 
-/// How many device pixels one CSS pixel is: one, until item 299.
-const DEVICE_PIXELS_PER_PX: f32 = 1.0;
-
-/// A border width in CSS pixels, snapped as a border width.
+/// A border width in CSS pixels, snapped as a border width on a screen of
+/// `scale` device pixels to the CSS pixel.
 ///
 /// Zero stays zero, and so does anything that is not a positive number: a
 /// negative width is not valid CSS, and snapping one up to a pixel would draw
 /// a border nobody declared.
-pub(crate) fn snap(width: f32) -> f32 {
+pub(crate) fn snap(width: f32, scale: f32) -> f32 {
     if width.is_nan() || width <= 0.0 {
         return width;
     }
-    let device = width * DEVICE_PIXELS_PER_PX;
+    let scale = alo_value::device_scale(scale);
+    let device = width * scale;
     let snapped = if device < 1.0 { 1.0 } else { device.floor() };
-    snapped / DEVICE_PIXELS_PER_PX
+    snapped / scale
 }
 
 #[cfg(test)]
 mod tests {
-    use super::snap;
+    use super::snap as snapped;
+
+    /// Snapped at a scale of one.
+    fn snap(width: f32) -> f32 {
+        snapped(width, 1.0)
+    }
 
     /// Equal to within far less than a pixel.
     fn close(left: f32, right: f32) -> bool {
@@ -67,5 +71,23 @@ mod tests {
         assert!(close(snap(-3.5), -3.5));
         assert!(snap(f32::NAN).is_nan());
         assert!(snap(f32::INFINITY).is_infinite());
+    }
+
+    #[test]
+    fn at_a_scale_of_two_a_width_is_floored_to_half_pixels() {
+        // ADR 0057, Evidence 5: each as Chrome 154 computes it under
+        // `--force-device-scale-factor=2`.
+        for (width, at_two) in [(4.8, 4.5), (0.3, 0.5), (0.7, 0.5), (1.6, 1.5), (2.74, 2.5)] {
+            assert!(close(snapped(width, 2.0), at_two), "{width}");
+        }
+        assert!(close(snapped(1.3, 2.0), 1.0));
+        assert!(close(snapped(1.3, 1.0), 1.0));
+    }
+
+    #[test]
+    fn what_is_not_a_scale_is_one() {
+        for scale in [0.0, -2.0, f32::NAN, f32::INFINITY] {
+            assert!(close(snapped(4.8, scale), 4.0), "{scale}");
+        }
     }
 }

@@ -18,6 +18,9 @@
 //! - **A length or a percentage** is **rounded** to 1/64. `17.34px` is
 //!   17.34375.
 //!
+//! The grid is the screen's, 1/64 of a device pixel (ADR 0057 § 2), so at
+//! a scale of two both rules round onto 1/128 of a CSS pixel.
+//!
 //! So this reads the computed text as well as the number: a number computes
 //! to itself and inherits as one (`alo_style`'s `record_computed_font`),
 //! and everything else computes to pixels.
@@ -29,9 +32,10 @@ use alo_style::ComputedStyle;
 /// [`None`] for `normal`.
 pub fn used_line_height(style: &ComputedStyle) -> Option<f32> {
     let computed = style.set_line_height()?;
+    let scale = style.metrics().scale();
     let used = match style.number("line-height") {
-        Some(multiple) => floored(rounded(style.font_size()) * multiple),
-        None => rounded(computed),
+        Some(multiple) => floored(rounded(style.font_size(), scale) * multiple, scale),
+        None => rounded(computed, scale),
     };
     // A value past the grid's range saturates at its edge, as Chrome's does
     // (ADR 0054 § 5); one that is somehow not a number keeps its computed
@@ -49,10 +53,16 @@ mod tests {
 
     /// The line height a `p` with these declarations uses.
     fn used(declarations: &str) -> Option<f32> {
+        used_at(declarations, 1.0)
+    }
+
+    /// The same, on a screen of `scale` device pixels to the CSS pixel.
+    fn used_at(declarations: &str, scale: f32) -> Option<f32> {
         let document = parse_document("<p id=x>text</p>");
         let author = parse_stylesheet(&format!("p {{ {declarations} }}"));
         let sheets = [SourcedSheet::new(Origin::Author, &author)];
-        let styles = resolve(&document, &sheets, &MediaContext::default());
+        let device = MediaContext::default().at_scale(scale);
+        let styles = resolve(&document, &sheets, &device);
         let node = document
             .descendants(document.root())
             .find(|id| document.element(*id).and_then(|e| e.attr("id")) == Some("x"))?;
@@ -119,6 +129,27 @@ mod tests {
             used("font-size: 13.32px; line-height: 137%"),
             Some(18.25),
             "1167.9 rounded",
+        );
+    }
+
+    #[test]
+    fn at_a_scale_of_two_the_grid_is_a_hundred_and_twenty_eighth() {
+        // ADR 0057 § 2, as Chrome 154 lays it out under
+        // `--force-device-scale-factor=2`: `17.6px` is 1,126.4 sixty-fourths,
+        // rounded to 1,126 at one and to 1,126.5 at two.
+        assert_eq!(
+            used_at("font-size: 16px; line-height: 17.6px", 1.0),
+            Some(sixty_fourths(1126.0))
+        );
+        assert_eq!(
+            used_at("font-size: 16px; line-height: 17.6px", 2.0),
+            Some(sixty_fourths(1126.5))
+        );
+        // A number at two: 16 × 1.23 is 1,259.52 sixty-fourths, floored onto
+        // 1/128 px at 1,259.5.
+        assert_eq!(
+            used_at("font-size: 16px; line-height: 1.23", 2.0),
+            Some(sixty_fourths(1259.5))
         );
     }
 

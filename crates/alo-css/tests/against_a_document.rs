@@ -55,6 +55,7 @@ const NARROW_LIGHT: MediaContext = MediaContext {
     width: 600.0,
     height: 800.0,
     color_scheme: ColorScheme::Light,
+    scale: 1.0,
 };
 
 /// The element with this `id` attribute.

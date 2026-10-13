@@ -148,6 +148,13 @@ pub fn spaced(run: ShapedRun, spacing: f32) -> ShapedRun {
 /// one word of Arabic inside an English sentence from turning the sentence
 /// around.
 pub fn shape(text: &str, font: &Font, size: f32, direction: Direction) -> ShapedRun {
+    shape_at(text, font, size, 1.0, direction)
+}
+
+/// Shape a run as [`shape`] does, on a screen of `scale` device pixels to
+/// the CSS pixel, whose hundredths the face's size is cut to
+/// ([`crate::face_size_at`]).
+pub fn shape_at(text: &str, font: &Font, size: f32, scale: f32, direction: Direction) -> ShapedRun {
     if text.is_empty() {
         return ShapedRun::empty();
     }
@@ -157,10 +164,10 @@ pub fn shape(text: &str, font: &Font, size: f32, direction: Direction) -> Shaped
     let Some(face) = font.shaper() else {
         return ShapedRun::empty();
     };
-    let metrics = font.metrics(size);
+    let metrics = font.metrics_at(size, scale);
     // Advances are scaled by the size the face is set at, as its metrics
     // are: `13.333333px` text is set at 13.33 (`crate::face_size`).
-    let size = crate::face_size(size);
+    let size = crate::face_size_at(size, scale);
 
     let mut buffer = rustybuzz::UnicodeBuffer::new();
     buffer.push_str(text);

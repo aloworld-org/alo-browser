@@ -1,0 +1,48 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 15360 3840
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 0 15360 3840
+/html0/body1/div0 0 0 15360 1280
+/html0/body1/div0/div0 0 0 1280 1280
+/html0/body1/div0/div1 1280 0 1280 1280
+/html0/body1/div0/div2 2560 0 1280 1280
+/html0/body1/div0/div3 3840 0 1280 1280
+/html0/body1/div0/div4 5120 0 1280 1280
+/html0/body1/div0/div5 6400 0 1280 1280
+/html0/body1/div0/div6 7680 0 1280 1280
+/html0/body1/div0/div7 8960 0 1280 1280
+/html0/body1/div0/div8 10240 0 1280 1280
+/html0/body1/div0/div9 11520 0 1280 1280
+/html0/body1/div0/div10 12800 0 1280 1280
+/html0/body1/div0/div11 14080 0 1280 1280
+/html0/body1/div1 0 1280 15360 1280
+/html0/body1/div1/div0 0 1280 1280 1280
+/html0/body1/div1/div1 1280 1280 1280 1280
+/html0/body1/div1/div2 2560 1280 1280 1280
+/html0/body1/div1/div3 3840 1280 1280 1280
+/html0/body1/div1/div4 5120 1280 1280 1280
+/html0/body1/div1/div5 6400 1280 1280 1280
+/html0/body1/div1/div6 7680 1280 1280 1280
+/html0/body1/div1/div7 8960 1280 1280 1280
+/html0/body1/div1/div8 10240 1280 1280 1280
+/html0/body1/div1/div9 11520 1280 1280 1280
+/html0/body1/div1/div10 12800 1280 1280 1280
+/html0/body1/div1/div11 14080 1280 1280 1280
+/html0/body1/div2 0 2560 15360 1280
+/html0/body1/div2/div0 0 2560 1280 1280
+/html0/body1/div2/div1 1280 2560 1280 1280
+/html0/body1/div2/div2 2560 2560 1280 1280
+/html0/body1/div2/div3 3840 2560 1280 1280
+/html0/body1/div2/div4 5120 2560 1280 1280
+/html0/body1/div2/div5 6400 2560 1280 1280
+/html0/body1/div2/div6 7680 2560 1280 1280
+/html0/body1/div2/div7 8960 2560 1280 1280
+/html0/body1/div2/div8 10240 2560 1280 1280
+/html0/body1/div2/div9 11520 2560 1280 1280
+/html0/body1/div2/div10 12800 2560 1280 1280
+/html0/body1/div2/div11 14080 2560 1280 1280

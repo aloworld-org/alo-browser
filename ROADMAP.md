@@ -1818,7 +1818,15 @@ items where being right and being unusable are the same outcome.
       the strip showed when it last painted (`strip_decide.rs`), refusing a
       place not shown, a tab closed since and a claim with no press behind
       it by name; chosen as a key chooses, shown by the order of the pages'
-      fetches, through confined renderers and clicked on this Mac.
+      fetches, through confined renderers and clicked on this Mac. A page
+      is laid out for a screen's scale (560, built; ADR 0057): the scale
+      rides on `Viewport` and `MediaContext`, and a line's font figures,
+      its leading, a set line height, the 1/64 px grid, a border's width,
+      a text field's width and the size a face is set at all round in
+      device pixels, reported in CSS pixels; of the 580 boxes of the
+      corpus's 52 markup cases this engine places exactly where Chrome 154
+      does at one, 578 are exactly where Chrome puts them under a real
+      scale of two, and nothing at one moved.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1826,9 +1834,11 @@ items where being right and being unusable are the same outcome.
       (547); the strip's close and new-tab controls (558); device pixels
       (299), decided by ADR 0057 — a page is laid out for its screen's
       scale, every whole-pixel rule rounding in device pixels as Chrome 154
-      was measured to at a real scale of two — and owed as layout for a
-      scale (560), paint at a scale (561) and the window at the screen's
-      scale (562); a link opening a tab (300)
+      was measured to at a real scale of two — and owed as paint at a
+      scale (561), a loaded page laid out at its scale (563), the window at
+      the screen's scale (562), and a shrunk flex item's share of a pixel
+      (564), the two boxes at two that keep 560 open; a link opening a tab
+      (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

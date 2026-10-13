@@ -1,0 +1,57 @@
+# Chrome 154 started with --force-device-scale-factor=2, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 51200 57600
+/html0/head0 0 0 0 0
+/html0/head0/style0 0 0 0 0
+/html0/body1 512 512 50176 56064
+/html0/body1/header0 512 512 50176 0
+/html0/body1/header0/title0 0 0 0 0
+/html0/body1/header0/nextid1 512 512 0 0
+/html0/body1/h11 512 512 50176 2368
+/html0/body1/a2 20729 4252 6453 1216
+/html0/body1/p3 512 7708 50176 3648
+/html0/body1/p3/a0 512 8924 10108 1216
+/html0/body1/p3/a1 18469 8924 6026.5 1216
+/html0/body1/p3/a2 25472 8924 2945.5 1216
+/html0/body1/p3/a3 35861.5 8924 4639.5 1216
+/html0/body1/p3/a4 512 8924 49774.5 2432
+/html0/body1/dl4 512 12380 50176 23104
+/html0/body1/dl4/dt0 512 12380 50176 1216
+/html0/body1/dl4/dt0/a0 512 12380 9086 1216
+/html0/body1/dl4/dd1 3072 13596 47616 1216
+/html0/body1/dl4/dd1/a0 24528.5 13596 4570.5 1216
+/html0/body1/dl4/dd1/a1 30075.5 13596 5764.5 1216
+/html0/body1/dl4/dt2 512 14812 50176 1216
+/html0/body1/dl4/dt2/a0 512 14812 2334.5 1216
+/html0/body1/dl4/dd3 3072 16028 47616 1216
+/html0/body1/dl4/dt4 512 17244 50176 1216
+/html0/body1/dl4/dt4/a0 512 17244 9261 1216
+/html0/body1/dl4/dd5 3072 18460 47616 2432
+/html0/body1/dl4/dd5/a0 34645 18460 5249.5 1216
+/html0/body1/dl4/dd5/a1 42875.5 18460 2501 1216
+/html0/body1/dl4/dd5/a2 3072 19676 5036.5 1216
+/html0/body1/dl4/dd5/a3 9085 19676 3891.5 1216
+/html0/body1/dl4/dd5/a4 13953 19676 2522.5 1216
+/html0/body1/dl4/dd5/a5 17126.5 19676 5434 1216
+/html0/body1/dl4/dd5/a6 23211.5 19676 3906 1216
+/html0/body1/dl4/dt6 512 20892 50176 1216
+/html0/body1/dl4/dt6/a0 512 20892 4702 1216
+/html0/body1/dl4/dd7 3072 22108 47616 1216
+/html0/body1/dl4/dt8 512 23324 50176 1216
+/html0/body1/dl4/dt8/a0 512 23324 6436 1216
+/html0/body1/dl4/dd9 3072 24540 47616 1216
+/html0/body1/dl4/dt10 512 25756 50176 1216
+/html0/body1/dl4/dt10/a0 512 25756 3402 1216
+/html0/body1/dl4/dd11 3072 26972 47616 1216
+/html0/body1/dl4/dt12 512 28188 50176 1216
+/html0/body1/dl4/dt12/a0 512 28188 3643 1216
+/html0/body1/dl4/dd13 3072 29404 47616 1216
+/html0/body1/dl4/dt14 512 30620 50176 1216
+/html0/body1/dl4/dt14/a0 512 30620 7565.5 1216
+/html0/body1/dl4/dd15 3072 31836 47616 1216
+/html0/body1/dl4/dt16 512 33052 50176 1216
+/html0/body1/dl4/dt16/a0 512 33052 6605 1216
+/html0/body1/dl4/dd17 3072 34268 47616 1216
+/html0/body1/dl4/dd17/a0 13264.5 34268 8429.5 1216

@@ -377,13 +377,14 @@ impl Reader<'_> {
     /// A border with a style of `none` is no border however thick it was
     /// declared, which is why a width alone never draws one.
     ///
-    /// What is read is snapped to whole device pixels ([`line_width::snap`]),
-    /// as CSS computes a border width, so that layout and paint both see the
+    /// What is read is snapped to whole device pixels of the style's screen
+    /// ([`line_width::snap`]), as CSS computes a border width, so that layout and paint both see the
     /// width that is drawn.
     fn border_width(&mut self, side: &str) -> LengthPercentage {
         let width = self.declared_border_width(side);
-        match width.to_px_without_basis(self.style.metrics()) {
-            Some(px) => LengthPercentage::Length(Length::px(line_width::snap(px))),
+        let metrics = self.style.metrics();
+        match width.to_px_without_basis(metrics) {
+            Some(px) => LengthPercentage::Length(Length::px(line_width::snap(px, metrics.scale()))),
             // A percentage is not a border width CSS accepts; it is left to
             // layout as it was read rather than snapped against a guess.
             None => width,

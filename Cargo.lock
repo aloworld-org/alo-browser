@@ -252,6 +252,7 @@ dependencies = [
  "alo-dom",
  "alo-layout",
  "alo-style",
+ "alo-value",
  "dejavu",
  "encoding_rs",
  "rustybuzz",

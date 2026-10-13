@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can be laid out for a high-density screen.** Given a screen of
+  two device pixels to the CSS pixel, the engine now rounds everything it
+  rounds — a line's height, its leading, a border's width, a text field's
+  width, the size a typeface is set at and the fine grid boxes sit on — to
+  that screen's pixels, and still reports positions in CSS pixels. Checked
+  against Chrome 154 running at a real scale of two: of the 580 boxes in
+  the reference corpus this engine already placed exactly where Chrome does
+  at normal density, 578 are exactly where Chrome puts them at two, and
+  nothing at normal density moved. No window uses it yet: painting at the
+  scale, pages that run script and the window itself are still to come.
+
 - **Decided how a page meets a high-density screen** (ADR 0057). Measured
   in Chrome 154 at a real scale of two, a page is not laid out as it is at
   one: every rule this engine rounds to whole pixels — a line's height, a

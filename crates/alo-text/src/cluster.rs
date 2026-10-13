@@ -20,7 +20,7 @@
 use crate::database::FontDatabase;
 use crate::font::FontRequest;
 use crate::run::{TextRun, split};
-use crate::shape::{shape, spaced};
+use crate::shape::{shape_at, spaced};
 
 /// The end of every cluster of `text` set in this font, in bytes, with how
 /// far the pen has moved from the start of the text there.
@@ -34,6 +34,7 @@ pub fn cluster_ends(
     request: &FontRequest,
     size: f32,
     letter_spacing: f32,
+    scale: f32,
 ) -> Vec<(usize, f32)> {
     let mut ends = Vec::new();
     let mut pen = 0.0;
@@ -52,7 +53,10 @@ pub fn cluster_ends(
             );
             continue;
         };
-        let shaped = spaced(shape(piece, &font, size, direction), letter_spacing);
+        let shaped = spaced(
+            shape_at(piece, &font, size, scale, direction),
+            letter_spacing,
+        );
         if direction.is_rtl() {
             pen += shaped.width;
             ends.push((range.end, pen));
@@ -99,6 +103,7 @@ mod tests {
             &FontRequest::family("DejaVu Sans"),
             16.0,
             spacing,
+            1.0,
         )
     }
 

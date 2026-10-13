@@ -27,6 +27,14 @@
 //! this way, 1,151 were the `f32` cut's width; 860 would have been another
 //! width at the size as written, and none of Chrome's was that one.
 //!
+//! **The hundredth is a device pixel's** (ADR 0057 § 2). Under
+//! `--force-device-scale-factor=2`, a run of a hundred `x` in `DejaVu Sans`
+//! at ten sizes written to the thousandth or finer, `13.337px` among them,
+//! was the width of the face set at `trunc(z·s·100) / 100 / s` at nine; the
+//! tenth, `9.123px`, is the same 1/64 off at a scale of one. Cut in CSS
+//! pixels, seven of the ten would have been 0.3 px narrow: `13.337px` is
+//! set at 13.335 there, not 13.33.
+//!
 //! Six of the 2,922 runs measured in all are a unit off Chrome's. In each
 //! this engine's sum lies within 0.03 of a unit of a grid line, so they are
 //! how the shaper's advances are summed rather than the size (queue item
@@ -39,9 +47,19 @@
 /// whose hundredfold is past what an `f32` holds is left as it is, rather
 /// than made infinite, and a size that is not a number stays not a number.
 pub fn face_size(size: f32) -> f32 {
-    let hundredfold = size * 100.0;
+    face_size_at(size, 1.0)
+}
+
+/// The size a face is set at on a screen of `scale` device pixels to the
+/// CSS pixel: the size in device pixels cut to hundredths, in CSS pixels.
+///
+/// At two, `13.337px` is 26.674 device pixels, cut to 26.67, and set at
+/// 13.335. A scale that is not a scale is one.
+pub fn face_size_at(size: f32, scale: f32) -> f32 {
+    let scale = alo_value::device_scale(scale);
+    let hundredfold = size * scale * 100.0;
     if hundredfold.is_finite() {
-        hundredfold.trunc() / 100.0
+        hundredfold.trunc() / 100.0 / scale
     } else {
         size
     }
@@ -53,6 +71,17 @@ mod tests {
 
     fn same(a: f32, b: f32) -> bool {
         a.to_bits() == b.to_bits()
+    }
+
+    #[test]
+    fn at_a_scale_a_size_is_cut_to_hundredths_of_a_device_pixel() {
+        assert!(same(face_size_at(13.337, 2.0), 26.67 / 2.0));
+        assert!(same(face_size_at(17.777, 2.0), 35.55 / 2.0));
+        assert!(same(face_size_at(13.333_333, 2.0), 26.66 / 2.0));
+        assert!(same(face_size_at(13.337, 1.0), face_size(13.337)));
+        for scale in [0.0, -1.0, f32::NAN] {
+            assert!(same(face_size_at(13.337, scale), 13.33), "{scale}");
+        }
     }
 
     #[test]

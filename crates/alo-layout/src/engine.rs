@@ -1701,7 +1701,7 @@ fn needs_a_basis(value: &LengthPercentage) -> bool {
 /// its own (ADR 0054 § 1). A `calc()` of lengths only is resolved whole and
 /// truncated once.
 fn pixels(value: &LengthPercentage, metrics: FontMetrics) -> f32 {
-    layout_unit::truncated(value.to_px(metrics, 0.0))
+    layout_unit::truncated(value.to_px(metrics, 0.0), metrics.scale())
 }
 
 /// A length or percentage, as `taffy` spells it.
@@ -2002,8 +2002,11 @@ impl<M: MeasureText> Reading<'_, '_, M> {
                 }
             }
         }
-        let (left, width) = layout_unit::edges(unplaced.x - from_x.placed.x, layout.size.width);
-        let (top, height) = layout_unit::edges(unplaced.y - from_y.placed.y, layout.size.height);
+        let scale = self.arena.scale();
+        let (left, width) =
+            layout_unit::edges(unplaced.x - from_x.placed.x, layout.size.width, scale);
+        let (top, height) =
+            layout_unit::edges(unplaced.y - from_y.placed.y, layout.size.height, scale);
         let origin = Point::new(from_x.placed.x + left, from_y.placed.y + top);
         self.unplaced.insert(id, unplaced);
         self.out.insert(

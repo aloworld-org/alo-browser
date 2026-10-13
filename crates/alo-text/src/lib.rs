@@ -70,14 +70,14 @@ pub mod shape;
 
 pub use cluster::cluster_ends;
 pub use database::{Absent, FontDatabase, Instead};
-pub use face_size::face_size;
+pub use face_size::{face_size, face_size_at};
 pub use font::{
     FaceMetrics, Font, FontRequest, LONGEST_NAME, Slant, Style, THINNEST_CSS_NAMES, WEIGHT_AXIS,
     Weight, WeightAxis, family_in, style_in,
 };
-pub use line::{Line, Paragraph, lay_out, measure_unwrapped};
+pub use line::{Line, Paragraph, lay_out, lay_out_at, measure_unwrapped};
 pub use linebreak::{BreakPoint, opportunities};
 pub use measure::TextMeasurer;
 pub use room::LineRoom;
 pub use run::{TextRun, split};
-pub use shape::{Direction, ShapedGlyph, ShapedRun, shape, spaced};
+pub use shape::{Direction, ShapedGlyph, ShapedRun, shape, shape_at, spaced};

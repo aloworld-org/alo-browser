@@ -1,0 +1,41 @@
+# Chrome 154 started with --force-device-scale-factor=2, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 64000 40960
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 0 64000 40960
+/html0/body1/div0 0 0 64000 40960
+/html0/body1/div0/aside0 0 0 26880 40960
+/html0/body1/div0/aside0/div0 4096 4096 18688 1792
+/html0/body1/div0/aside0/div0/span0 4096 4096 2618.5 1792
+/html0/body1/div0/aside0/div1 4096 12253 18688 17286
+/html0/body1/div0/aside0/div1/h10 4096 12253 18688 10854
+/html0/body1/div0/aside0/div1/p1 4096 24643 18688 4896
+/html0/body1/div0/aside0/div2 4096 35904 18688 960
+/html0/body1/div0/aside0/div2/span0 4096 36128 512 512
+/html0/body1/div0/aside0/div2/span1 5120 35904 14242 960
+/html0/body1/div0/main1 26880 0 37120 40960
+/html0/body1/div0/main1/form0 32640 6768 25600 27424
+/html0/body1/div0/main1/form0/div0 32640 6768 25600 3680
+/html0/body1/div0/main1/form0/div0/h20 32640 6768 25600 2368
+/html0/body1/div0/main1/form0/div0/p1 32640 9392 25600 1056
+/html0/body1/div0/main1/form0/div1 32640 11984 25600 4512
+/html0/body1/div0/main1/form0/div1/label0 32640 11984 25600 1056
+/html0/body1/div0/main1/form0/div1/input1 32640 13552 25600 2944
+/html0/body1/div0/main1/form0/div2 32640 17520 25600 4512
+/html0/body1/div0/main1/form0/div2/label0 32640 17520 25600 1056
+/html0/body1/div0/main1/form0/div2/input1 32640 19088 25600 2944
+/html0/body1/div0/main1/form0/div3 32640 23056 25600 1216
+/html0/body1/div0/main1/form0/div3/label0 32640 23056 7946.5 1216
+/html0/body1/div0/main1/form0/div3/label0/input0 32896 23248 832 832
+/html0/body1/div0/main1/form0/div3/label0/span1 34432 23184 6154.5 960
+/html0/body1/div0/main1/form0/div3/a1 49892.5 23184 8347.5 960
+/html0/body1/div0/main1/form0/button4 32640 25296 25600 2944
+/html0/body1/div0/main1/form0/div5 32640 29264 25600 960
+/html0/body1/div0/main1/form0/div5/span0 32640 29712 11606 64
+/html0/body1/div0/main1/form0/div5/span1 45014 29264 851.5 960
+/html0/body1/div0/main1/form0/div5/span2 46633.5 29712 11606.5 64
+/html0/body1/div0/main1/form0/button6 32640 31248 25600 2944

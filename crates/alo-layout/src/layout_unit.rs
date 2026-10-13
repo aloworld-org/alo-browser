@@ -2,11 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The grid layout is placed on: 1/64 of a CSS pixel (ADR 0054).
+//! The grid layout is placed on: 1/64 of a device pixel (ADR 0054, ADR 0057).
 //!
 //! Chrome lays out in a fixed-point unit of a sixty-fourth of a pixel, and
 //! the measure is Chrome's picture, so this engine places what it lays out on
-//! the same grid. How a number reaches the grid depends on what it is, and
+//! the same grid. **The pixel is the screen's**: at a scale of two the grid
+//! is 1/128 of a CSS pixel, and every rule here rounds `v·s` and divides back
+//! (ADR 0057 § 2), so every function takes the scale and every answer is
+//! still in CSS pixels. At a scale of one nothing differs from ADR 0054. How a number reaches the grid depends on what it is, and
 //! each way is one function here, so that the constant and the rules live in
 //! one file rather than in every reader:
 //!
@@ -20,8 +23,8 @@
 //!   truncation; `crate::line_height` reads them from here.
 //!
 //! A border width is floored to whole device pixels where it is read
-//! (`crate::line_width`), and a whole pixel is 64 units, so it is on the
-//! grid already.
+//! (`crate::line_width`), and a whole device pixel is 64 units, so it is on
+//! the grid already.
 //!
 //! **A length or a text width within four of a float's own steps of a grid
 //! line is on it.** This engine computes a length in
@@ -46,7 +49,7 @@
 //! beyond that the grid is as fine as the float allows. A number that is not
 //! a number is left alone: nothing here invents one.
 
-/// How many layout units make a CSS pixel.
+/// How many layout units make a device pixel.
 pub(crate) const UNITS_PER_PX: f32 = 64.0;
 
 /// The largest number of units Chrome reports, as `getBoundingClientRect`
@@ -57,32 +60,34 @@ const LIMIT: f32 = 2_147_483_392.0;
 /// number: four steps of an `f32`, whose own step is 2⁻²³ of it.
 const SLACK: f32 = 1.0 / 2_097_152.0;
 
-/// Pixels truncated toward zero onto the grid, as a length, a percentage
-/// and a `calc()` are.
+/// Pixels truncated toward zero onto the grid of a screen at `scale`, as a
+/// length, a percentage and a `calc()` are.
 ///
-/// `0.3px` is 19 units, `-0.3px` is −19, and `19.92px` is 1,274.
-pub fn truncated(pixels: f32) -> f32 {
-    from_units(on_a_line(saturated(pixels * UNITS_PER_PX)).trunc())
+/// `0.3px` is 19 units, `-0.3px` is −19, and `19.92px` is 1,274; at a scale
+/// of two `0.31px` is 39/128, where at one it is 38/128.
+pub fn truncated(pixels: f32, scale: f32) -> f32 {
+    from_units(on_a_line(saturated(pixels * per_px(scale))).trunc(), scale)
 }
 
-/// Pixels rounded up onto the grid, as a run of text's width is.
+/// Pixels rounded up onto the grid of a screen at `scale`, as a run of
+/// text's width is.
 ///
 /// `W` at 13 px measures 785.28 units and its box is 786; a width already on
 /// the grid stays where it is.
-pub fn rounded_up(pixels: f32) -> f32 {
-    from_units(on_a_line(saturated(pixels * UNITS_PER_PX)).ceil())
+pub fn rounded_up(pixels: f32, scale: f32) -> f32 {
+    from_units(on_a_line(saturated(pixels * per_px(scale))).ceil(), scale)
 }
 
-/// Pixels rounded to the nearest unit, a half going up: a line height
-/// written as a length or a percentage (ADR 0050 § 3).
-pub fn rounded(pixels: f32) -> f32 {
-    from_units((saturated(pixels * UNITS_PER_PX) + 0.5).floor())
+/// Pixels rounded to the nearest unit of a screen at `scale`, a half going
+/// up: a line height written as a length or a percentage (ADR 0050 § 3).
+pub fn rounded(pixels: f32, scale: f32) -> f32 {
+    from_units((saturated(pixels * per_px(scale)) + 0.5).floor(), scale)
 }
 
-/// Pixels floored onto the grid: a line height written as a number, once
-/// it is multiplied out (ADR 0050 § 3).
-pub fn floored(pixels: f32) -> f32 {
-    from_units(saturated(pixels * UNITS_PER_PX).floor())
+/// Pixels floored onto the grid of a screen at `scale`: a line height
+/// written as a number, once it is multiplied out (ADR 0050 § 3).
+pub fn floored(pixels: f32, scale: f32) -> f32 {
+    from_units(saturated(pixels * per_px(scale)).floor(), scale)
 }
 
 /// Where a box's near edge goes on the grid, and how big it then is, from
@@ -102,11 +107,14 @@ pub fn floored(pixels: f32) -> f32 {
 /// already on the grid as it is: the overflowing 20 px box above stays
 /// 1,280 units wide, as it is in Chrome, where truncating its far edge too
 /// would make it 1,279.
-pub fn edges(near: f32, size: f32) -> (f32, f32) {
-    let start = saturated(near * UNITS_PER_PX);
-    let end = saturated((near + size) * UNITS_PER_PX);
-    let placed = from_units(start.trunc());
-    let sized = from_units(end.floor() - start.floor());
+///
+/// Both on the grid of a screen at `scale`.
+pub fn edges(near: f32, size: f32, scale: f32) -> (f32, f32) {
+    let per_px = per_px(scale);
+    let start = saturated(near * per_px);
+    let end = saturated((near + size) * per_px);
+    let placed = from_units(start.trunc(), scale);
+    let sized = from_units(end.floor() - start.floor(), scale);
     (placed, sized)
 }
 
@@ -125,8 +133,14 @@ fn saturated(units: f32) -> f32 {
     units.clamp(-LIMIT, LIMIT)
 }
 
-fn from_units(units: f32) -> f32 {
-    units / UNITS_PER_PX
+/// How many units make a CSS pixel on a screen at `scale`: 64 of a device
+/// pixel, and one unless the scale is a scale (ADR 0057 § 3).
+fn per_px(scale: f32) -> f32 {
+    UNITS_PER_PX * alo_value::device_scale(scale)
+}
+
+fn from_units(units: f32, scale: f32) -> f32 {
+    units / per_px(scale)
 }
 
 #[cfg(test)]
@@ -160,9 +174,9 @@ mod tests {
             (-0.1, -6.0),
         ] {
             assert!(
-                same(truncated(pixels), sixty_fourths(units)),
+                same(truncated(pixels, 1.0), sixty_fourths(units)),
                 "{pixels} px is {units} units, not {}",
-                truncated(pixels) * UNITS_PER_PX
+                truncated(pixels, 1.0) * UNITS_PER_PX
             );
         }
     }
@@ -173,14 +187,17 @@ mod tests {
         // and 3,392 units.
         let whole = 0.53_f32 * 100.0;
         assert!(whole < 53.0, "the float this guards against: {whole}");
-        assert!(same(truncated(whole), 53.0));
-        assert!(same(rounded_up(7.000_000_5), 7.0));
+        assert!(same(truncated(whole, 1.0), 53.0));
+        assert!(same(rounded_up(7.000_000_5, 1.0), 7.0));
         // A quarter of a unit is not a float's error, and is truncated; nor
         // is the seven ten-thousandths a percentage of a percentage leaves
         // short of 711, which Chrome truncates to 710 (ADR 0054 § 2).
-        assert!(same(truncated(sixty_fourths(447.75)), sixty_fourths(447.0)));
         assert!(same(
-            truncated(sixty_fourths(710.9993)),
+            truncated(sixty_fourths(447.75), 1.0),
+            sixty_fourths(447.0)
+        ));
+        assert!(same(
+            truncated(sixty_fourths(710.9993), 1.0),
             sixty_fourths(710.0)
         ));
     }
@@ -188,7 +205,7 @@ mod tests {
     #[test]
     fn a_length_on_the_grid_stays_where_it_is() {
         for pixels in [0.0, 16.0, 19.5, 28.718_75, -4.0, 0.015_625] {
-            assert!(same(truncated(pixels), pixels), "{pixels}");
+            assert!(same(truncated(pixels, 1.0), pixels), "{pixels}");
         }
     }
 
@@ -203,7 +220,7 @@ mod tests {
             (2275.0, 2275.0),
         ] {
             assert!(
-                same(rounded_up(sixty_fourths(units)), sixty_fourths(placed)),
+                same(rounded_up(sixty_fourths(units), 1.0), sixty_fourths(placed)),
                 "{units}"
             );
         }
@@ -211,22 +228,31 @@ mod tests {
 
     #[test]
     fn a_line_height_is_rounded_or_floored_as_adr_0050_says() {
-        assert!(same(rounded(sixty_fourths(1109.76)), sixty_fourths(1110.0)));
-        assert!(same(rounded(sixty_fourths(1109.5)), sixty_fourths(1110.0)));
-        assert!(same(floored(sixty_fourths(1259.52)), sixty_fourths(1259.0)));
-        assert!(same(floored(-0.3), sixty_fourths(-20.0)));
+        assert!(same(
+            rounded(sixty_fourths(1109.76), 1.0),
+            sixty_fourths(1110.0)
+        ));
+        assert!(same(
+            rounded(sixty_fourths(1109.5), 1.0),
+            sixty_fourths(1110.0)
+        ));
+        assert!(same(
+            floored(sixty_fourths(1259.52), 1.0),
+            sixty_fourths(1259.0)
+        ));
+        assert!(same(floored(-0.3, 1.0), sixty_fourths(-20.0)));
     }
 
     #[test]
     fn a_share_of_free_space_is_truncated_toward_zero() {
         // A 10 px box centred in 100.3 px: 5,779 units free, half of it
         // 2,889.5, and Chrome puts it at 2,889.
-        let (near, size) = edges(sixty_fourths(2889.5), 10.0);
+        let (near, size) = edges(sixty_fourths(2889.5), 10.0, 1.0);
         assert!(same(near, sixty_fourths(2889.0)));
         assert!(same(size, 10.0));
         // A 20 px box centred in 10.3 px overflows by 621 units: −310.5 in
         // front, and Chrome puts it at −310 and keeps it 20 px wide.
-        let (near, size) = edges(sixty_fourths(-310.5), 20.0);
+        let (near, size) = edges(sixty_fourths(-310.5), 20.0, 1.0);
         assert!(same(near, sixty_fourths(-310.0)));
         assert!(same(size, 20.0));
     }
@@ -236,7 +262,7 @@ mod tests {
         // Three `1fr` tracks of 184 px with 6 px gaps: the last ends at
         // 12,287.999 units in `taffy` and in Chrome, which makes that track
         // 3,669 wide and not 3,670.
-        let (near, size) = edges(sixty_fourths(8618.666), sixty_fourths(3669.333));
+        let (near, size) = edges(sixty_fourths(8618.666), sixty_fourths(3669.333), 1.0);
         assert!(same(near, sixty_fourths(8618.0)));
         assert!(same(size, sixty_fourths(3669.0)));
     }
@@ -251,7 +277,7 @@ mod tests {
         let mut sizes = Vec::new();
         for track in 0_u8..6 {
             let near = share * f32::from(track);
-            sizes.push(edges(near, share).1 * UNITS_PER_PX);
+            sizes.push(edges(near, share, 1.0).1 * UNITS_PER_PX);
         }
         let expected = [1837.0, 1838.0, 1838.0, 1837.0, 1838.0, 1838.0];
         for (size, wanted) in sizes.iter().zip(expected) {
@@ -260,12 +286,77 @@ mod tests {
     }
 
     #[test]
+    fn at_a_scale_of_two_the_grid_is_a_hundred_and_twenty_eighth() {
+        // ADR 0057, Evidence 2, as Chrome 154 measured it under
+        // `--force-device-scale-factor=2`: `0.31px` is 38/128 at one and
+        // 39/128 at two, `7.2px` 921/128 at two, and `1.01px` 129/128.
+        let hundred_twenty_eighths = |units: f32| units / 128.0;
+        for (pixels, at_one, at_two) in [
+            (0.31, 38.0, 39.0),
+            (7.2, 920.0, 921.0),
+            (19.92, 2548.0, 2549.0),
+            (1.01, 128.0, 129.0),
+            (9.6, 1228.0, 1228.0),
+        ] {
+            assert!(same(truncated(pixels, 1.0), hundred_twenty_eighths(at_one)));
+            assert!(
+                same(truncated(pixels, 2.0), hundred_twenty_eighths(at_two)),
+                "{pixels}: {}",
+                truncated(pixels, 2.0) * 128.0
+            );
+        }
+        // A run of 2,793.2 sixty-fourths is 2,794 at one and 2,793.5 at two.
+        assert!(same(
+            rounded_up(sixty_fourths(2793.2), 1.0),
+            sixty_fourths(2794.0)
+        ));
+        assert!(same(
+            rounded_up(sixty_fourths(2793.2), 2.0),
+            sixty_fourths(2793.5)
+        ));
+        // A set `line-height: 17.6px` is 1,126 at one and 1,126.5 at two.
+        assert!(same(rounded(17.6, 2.0), sixty_fourths(1126.5)));
+        assert!(same(
+            floored(sixty_fourths(1259.52), 2.0),
+            sixty_fourths(1259.5)
+        ));
+        // A share of free space: a 10 px box centred in 100.3 px is 2,889.5
+        // units in, which is on the grid at two.
+        let (near, size) = edges(sixty_fourths(2889.5), 10.0, 2.0);
+        assert!(same(near, sixty_fourths(2889.5)));
+        assert!(same(size, 10.0));
+    }
+
+    #[test]
+    fn what_is_not_a_scale_lays_out_at_one() {
+        for scale in [0.0, -2.0, f32::NAN, f32::INFINITY] {
+            assert!(
+                same(truncated(0.31, scale), truncated(0.31, 1.0)),
+                "{scale}"
+            );
+            assert!(
+                same(rounded_up(0.31, scale), rounded_up(0.31, 1.0)),
+                "{scale}"
+            );
+        }
+    }
+
+    #[test]
     fn past_the_grids_range_a_number_saturates() {
         for pixels in [33_554_431.99, 1e9, f32::INFINITY] {
-            assert!(same(truncated(pixels), sixty_fourths(LIMIT)), "{pixels}");
-            assert!(same(rounded_up(pixels), sixty_fourths(LIMIT)), "{pixels}");
+            assert!(
+                same(truncated(pixels, 1.0), sixty_fourths(LIMIT)),
+                "{pixels}"
+            );
+            assert!(
+                same(rounded_up(pixels, 1.0), sixty_fourths(LIMIT)),
+                "{pixels}"
+            );
         }
-        assert!(same(truncated(f32::NEG_INFINITY), sixty_fourths(-LIMIT)));
-        assert!(truncated(f32::NAN).is_nan(), "nothing is invented");
+        assert!(same(
+            truncated(f32::NEG_INFINITY, 1.0),
+            sixty_fourths(-LIMIT)
+        ));
+        assert!(truncated(f32::NAN, 1.0).is_nan(), "nothing is invented");
     }
 }

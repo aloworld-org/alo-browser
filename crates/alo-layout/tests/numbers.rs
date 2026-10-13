@@ -2695,7 +2695,7 @@ fn vertical_align_puts_a_box_where_each_keyword_says() {
         // 0054 § 3): the line's height, floored onto it.
         let height = rect_of(&boxes, &layout, "p", html).size.height;
         assert!(
-            close(height, layout_unit::floored(line)),
+            close(height, layout_unit::floored(line, 1.0)),
             "{value}: a line of {height}"
         );
         assert!(layout.issues().is_empty(), "{value}: {:?}", layout.issues());
@@ -2740,7 +2740,10 @@ fn vertical_align_on_an_inline_box_moves_what_is_in_it() {
     // floored onto it.
     let height = rect_of(&boxes, &layout, "p", html).size.height;
     assert!(
-        close(height, layout_unit::floored(16.0 / 3.0 + 1.0 + 7.5 + 4.0)),
+        close(
+            height,
+            layout_unit::floored(16.0 / 3.0 + 1.0 + 7.5 + 4.0, 1.0)
+        ),
         "{height}"
     );
 

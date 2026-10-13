@@ -1,0 +1,57 @@
+# Chrome 154, headless, measured 2026-10-13 (ADR 0057, Evidence 1).
+# Each element: its path, then getBoundingClientRect() left, top, width and
+# height in sixty-fourths of a CSS pixel, every element set in the corpus's
+# DejaVu face for its computed family. Measured, never rewritten by a test.
+/html0 0 0 51200 57600
+/html0/head0 0 0 0 0
+/html0/head0/style0 0 0 0 0
+/html0/body1 512 512 50176 56064
+/html0/body1/header0 512 512 50176 0
+/html0/body1/header0/title0 0 0 0 0
+/html0/body1/header0/nextid1 512 512 0 0
+/html0/body1/h11 512 512 50176 2432
+/html0/body1/a2 20729 4316 6453 1216
+/html0/body1/p3 512 7772 50176 3648
+/html0/body1/p3/a0 512 8988 10108 1216
+/html0/body1/p3/a1 18469 8988 6027 1216
+/html0/body1/p3/a2 25473 8988 2946 1216
+/html0/body1/p3/a3 35863 8988 4640 1216
+/html0/body1/p3/a4 512 8988 49777 2432
+/html0/body1/dl4 512 12444 50176 23104
+/html0/body1/dl4/dt0 512 12444 50176 1216
+/html0/body1/dl4/dt0/a0 512 12444 9086 1216
+/html0/body1/dl4/dd1 3072 13660 47616 1216
+/html0/body1/dl4/dd1/a0 24529 13660 4571 1216
+/html0/body1/dl4/dd1/a1 30077 13660 5765 1216
+/html0/body1/dl4/dt2 512 14876 50176 1216
+/html0/body1/dl4/dt2/a0 512 14876 2335 1216
+/html0/body1/dl4/dd3 3072 16092 47616 1216
+/html0/body1/dl4/dt4 512 17308 50176 1216
+/html0/body1/dl4/dt4/a0 512 17308 9261 1216
+/html0/body1/dl4/dd5 3072 18524 47616 2432
+/html0/body1/dl4/dd5/a0 34645 18524 5250 1216
+/html0/body1/dl4/dd5/a1 42876 18524 2501 1216
+/html0/body1/dl4/dd5/a2 3072 19740 5037 1216
+/html0/body1/dl4/dd5/a3 9086 19740 3892 1216
+/html0/body1/dl4/dd5/a4 13955 19740 2523 1216
+/html0/body1/dl4/dd5/a5 17129 19740 5434 1216
+/html0/body1/dl4/dd5/a6 23214 19740 3906 1216
+/html0/body1/dl4/dt6 512 20956 50176 1216
+/html0/body1/dl4/dt6/a0 512 20956 4702 1216
+/html0/body1/dl4/dd7 3072 22172 47616 1216
+/html0/body1/dl4/dt8 512 23388 50176 1216
+/html0/body1/dl4/dt8/a0 512 23388 6436 1216
+/html0/body1/dl4/dd9 3072 24604 47616 1216
+/html0/body1/dl4/dt10 512 25820 50176 1216
+/html0/body1/dl4/dt10/a0 512 25820 3402 1216
+/html0/body1/dl4/dd11 3072 27036 47616 1216
+/html0/body1/dl4/dt12 512 28252 50176 1216
+/html0/body1/dl4/dt12/a0 512 28252 3643 1216
+/html0/body1/dl4/dd13 3072 29468 47616 1216
+/html0/body1/dl4/dt14 512 30684 50176 1216
+/html0/body1/dl4/dt14/a0 512 30684 7566 1216
+/html0/body1/dl4/dd15 3072 31900 47616 1216
+/html0/body1/dl4/dt16 512 33116 50176 1216
+/html0/body1/dl4/dt16/a0 512 33116 6605 1216
+/html0/body1/dl4/dd17 3072 34332 47616 1216
+/html0/body1/dl4/dd17/a0 13265 34332 8430 1216
