@@ -81,6 +81,8 @@ pub mod page;
 pub mod pictures;
 pub mod pipe;
 pub mod pipeline;
+mod pointed;
+pub mod pointer;
 mod press;
 mod put;
 pub mod renderer;

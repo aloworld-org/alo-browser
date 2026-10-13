@@ -126,6 +126,8 @@ use crate::held::Held;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::Drawing;
+use crate::pointed::{self, Pressing};
+use crate::pointer::{Pointer, Went};
 use crate::press::{Ran, press, told};
 use crate::put::put;
 use crate::said;
@@ -141,7 +143,7 @@ use crate::view::PageView;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
 use alo_bindings::Visibility;
-use alo_bindings::navigating::{self, By};
+use alo_bindings::navigating::{self, By, Navigation, NotFollowed};
 use alo_dom::{Document, NodeId, Parsing};
 use alo_layout::Size;
 use alo_text::Font;
@@ -170,6 +172,9 @@ pub struct Renderer {
     /// with [`Page::viewport`] at load and at every resize, and its scroll
     /// position (ADR 0038 §§ 2–3). One for each page loaded.
     view: Rc<PageView>,
+    /// What a person's press left to its release ([`crate::pointed`]):
+    /// nothing until a press, and nothing again once the page goes.
+    pressing: Option<Pressing>,
 }
 
 impl Renderer {
@@ -178,6 +183,7 @@ impl Renderer {
         let easel = Rc::new(RefCell::new(Easel::new(fonts)));
         Self {
             view: Rc::new(PageView::at(Size::default(), Rc::clone(&easel))),
+            pressing: None,
             easel,
             page: None,
             held: None,
@@ -254,6 +260,7 @@ impl Renderer {
             ToRenderer::Fetched(fetched) => self.delivered(&fetched),
             ToRenderer::Sheet(answer) => self.styled(&answer),
             ToRenderer::Strip(strip) => self.strip(&strip),
+            ToRenderer::Pointer(pointer) => self.pointer(pointer),
         }
     }
 
@@ -510,6 +517,7 @@ impl Renderer {
             .unwrap_or_default();
         self.held = None;
         self.page = None;
+        self.pressing = None;
         self.easel.borrow_mut().clear();
         left
     }
@@ -518,11 +526,57 @@ impl Renderer {
     /// the document's — a delivery, a change of visibility — with `issues`,
     /// what its script said: where it asked to go, what it asked to fetch,
     /// the sheets it now links, and what its draw objected to.
-    fn after_the_task(&mut self, mut issues: Vec<String>) -> FromRenderer {
+    fn after_the_task(&mut self, issues: Vec<String>) -> FromRenderer {
+        self.answered(issues, None)
+    }
+
+    /// A person's main button went down or up on the page (ADR 0024 § 5,
+    /// queue item 535): the element under it found in the drawing the
+    /// person sees, drawn again first if the page changed since, and what
+    /// Chrome fires for it fired ([`crate::pointed`]). Answered as a
+    /// delivery is: the browser process assigns what it asked for from
+    /// which message it answered, and a link a page that never ran script
+    /// followed is asked for here, as an `Act`'s is.
+    fn pointer(&mut self, pointer: Pointer) -> FromRenderer {
+        self.fresh();
+        // Its own handle on the drawing, as an `Act` takes one: the page's
+        // script runs below and may leave a drawing of its own on the easel.
+        let (Some(page), Some(held), Some(drawing)) = (
+            &self.page,
+            &mut self.held,
+            self.easel.borrow().drawn().cloned(),
+        ) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        let (issues, followed) = match pointer.went {
+            Went::Down => {
+                let (pressing, issues) = pointed::down(held, &drawing, pointer.at);
+                self.pressing = pressing;
+                (issues, None)
+            }
+            Went::Up => {
+                let pressing = self.pressing.take();
+                pointed::up(held, &drawing, &page.url, pointer.at, pressing)
+            }
+        };
+        self.answered(issues, followed)
+    }
+
+    /// The answer to a task nobody but the document and a person caused,
+    /// with `issues`, what its script said, and `followed`, a link the
+    /// renderer followed itself on a page that never ran script.
+    fn answered(
+        &mut self,
+        mut issues: Vec<String>,
+        followed: Option<Result<Navigation, NotFollowed>>,
+    ) -> FromRenderer {
         let Some(held) = &mut self.held else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
-        let ongoing = held.take_navigation();
+        let mut ongoing = held.take_navigation();
+        if let Some(followed) = followed {
+            ongoing.start(followed);
+        }
         let (navigation, mut said) = ask::answer(&ongoing);
         issues.append(&mut said);
         let fetches = asks(held);

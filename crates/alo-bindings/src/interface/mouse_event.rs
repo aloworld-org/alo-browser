@@ -4,15 +4,21 @@
 
 //! `MouseEvent` (ADR 0018 §§ 5 and 8, queue item 256).
 //!
-//! The members a click carries, each read-only, with what a click keyboard
-//! activation fires carries in them — the only `MouseEvent` this engine
-//! makes ([`Shape::Pointer`](crate::event::Shape)):
+//! The members a click carries, each read-only, read from the event's
+//! [`Pointing`](crate::pointing::Pointing) — a click keyboard activation
+//! fires, or a person's mouse (queue item 535):
 //!
-//! - `screenX`, `screenY`, `clientX` and `clientY`: `0`. Not a position
-//!   somebody pressed — nothing pointed — and not one made up (ADR 0002).
-//! - `ctrlKey`, `shiftKey`, `altKey` and `metaKey`: `false`.
-//! - `button` and `buttons`: `0`.
-//! - `relatedTarget`: `null`.
+//! - `clientX` and `clientY`: where the pointer was, in CSS pixels from the
+//!   viewport's corner; `0` for a keyboard's click, which is not a position
+//!   somebody pressed and not one made up (ADR 0002).
+//! - `screenX` and `screenY`: the same numbers, the window as though it
+//!   were at the screen's origin — where it is on the person's screen is
+//!   beyond the window (ADR 0038 § 1).
+//! - `button` and `buttons`: what changed and what is held.
+//! - `ctrlKey`, `shiftKey`, `altKey` and `metaKey`: `false`. A person's
+//!   click with a modifier held is not sent to a page yet (queue item 545).
+//! - `relatedTarget`: `null`. It is a boundary event's (queue item 542),
+//!   and none is fired yet.
 //!
 //! **Absent** (ADR 0013 § 3): `getModifierState`, which converts its
 //! argument and is wanted by no page yet; CSSOM View's `pageX`, `pageY`,
@@ -26,8 +32,9 @@ use alo_js::object::Objects;
 use alo_js::object::native::{Answer, Call};
 use alo_js::{Escape, Value};
 
-use super::ui_event::pointer;
+use super::ui_event::mouse;
 use crate::define;
+use crate::pointing::Pointing;
 
 /// The name the brand check's `TypeError` uses.
 const NAME: &str = "MouseEvent";
@@ -59,28 +66,39 @@ pub(super) fn furnish(
 
 /// `member`'s answer, `value`, after the brand check.
 fn answer(call: &Call<'_>, member: &'static str, value: Value) -> Result<Answer, Escape> {
-    pointer(call, member, NAME)?;
+    mouse(call, member, NAME)?;
     Ok(Answer::Value(value))
+}
+
+/// `member`'s answer, a number `read` from the event's pointer, after the
+/// brand check.
+fn number(
+    call: &Call<'_>,
+    member: &'static str,
+    read: fn(Pointing) -> f64,
+) -> Result<Answer, Escape> {
+    let pointing = mouse(call, member, NAME)?;
+    Ok(Answer::Value(Value::Number(read(pointing))))
 }
 
 /// `get screenX`.
 fn screen_x(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    answer(call, "screenX", Value::Number(0.0))
+    number(call, "screenX", |at| f64::from(at.x))
 }
 
 /// `get screenY`.
 fn screen_y(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    answer(call, "screenY", Value::Number(0.0))
+    number(call, "screenY", |at| f64::from(at.y))
 }
 
 /// `get clientX`.
 fn client_x(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    answer(call, "clientX", Value::Number(0.0))
+    number(call, "clientX", |at| f64::from(at.x))
 }
 
 /// `get clientY`.
 fn client_y(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    answer(call, "clientY", Value::Number(0.0))
+    number(call, "clientY", |at| f64::from(at.y))
 }
 
 /// `get ctrlKey`.
@@ -105,12 +123,12 @@ fn meta_key(call: &mut Call<'_>) -> Result<Answer, Escape> {
 
 /// `get button`.
 fn button(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    answer(call, "button", Value::Number(0.0))
+    number(call, "button", |at| f64::from(at.button))
 }
 
 /// `get buttons`.
 fn buttons(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    answer(call, "buttons", Value::Number(0.0))
+    number(call, "buttons", |at| f64::from(at.buttons))
 }
 
 /// `get relatedTarget`.

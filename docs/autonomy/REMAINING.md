@@ -2160,3 +2160,19 @@ inside a positioned one is drawn under it and outside its clip) and
 list marker is found where Chrome finds only its bullet). 256 queue items
 are open (298 closed, 535–541 added). The next unused queue number is 542
 and the next unused ADR 0057.
+
+Iteration 323 built queue item 535: a person's main button reaches the
+page. The window keeps the cursor and aims a press from its own placement
+(`alo-window`'s `aim.rs`); the conductor sends it to the selected tab and
+its release to the tab the press went to (`conductor/pointing.rs`), as
+`ToRenderer::Pointer`, the one message that carries a point; the renderer
+hit-tests it and fires what Chrome 154 was measured to fire, as two tasks
+(`event_loop/pointed.rs`), with HTML's activation steps around the click.
+A link a person clicks is decided as `Cause::Person` and said in the
+window. Cut: **542** (movement, hover and boundary events), **543** (a
+person's click submitting a form), **544** (other buttons), **545** (a
+click with a modifier held), **546** (a pointing device's other
+`PointerEvent` members), **547** (click counts) and **548** (a navigation
+refused in the window is not recorded). 262 queue items are open (535
+closed, 542–548 added). The next unused queue number is 549 and the next
+unused ADR 0057.

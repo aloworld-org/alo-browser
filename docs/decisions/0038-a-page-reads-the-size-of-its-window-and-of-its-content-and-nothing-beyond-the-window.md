@@ -107,6 +107,13 @@ opened by a frozen page that fails without it. That page's item then
 answers under ADR 0030's rule: the same value for everybody, or the least
 informative value the specification allows.
 
+*Applied by queue item 535 (2026-10-13):* a person's click is the first
+thing to carry a position, and `MouseEvent`'s `screenX` and `screenY`
+already exist for an agent's keyboard click. They answer the same numbers
+as `clientX` and `clientY` — the window as though it were at the screen's
+origin — which is a position on the same scale and says nothing about where
+the window is. `window.screenX` and the rest stay absent.
+
 ## 2. The viewport is the size the renderer is told, read when it is asked
 
 `innerWidth` and `innerHeight` are the width and height of `Page::viewport`,

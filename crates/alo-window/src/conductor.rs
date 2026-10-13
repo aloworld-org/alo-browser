@@ -16,10 +16,10 @@
 //!
 //! # What it is told, and what it is not
 //!
-//! It is told what a person did and how big the window is. It is never told
-//! a point yet: which element a point is over is the renderer's to find
-//! (`alo-renderer`'s `hit`, item 298), and a person's pointer reaching it
-//! from the window is item 535.
+//! It is told what a person did and how big the window is — a person's main
+//! button among it, at a point on the selected tab's page, which it sends
+//! to that page's renderer ([`pointing`], item 535). Which element the
+//! point is over is the renderer's to find (`alo-renderer`'s `hit`).
 //!
 //! # Where a page's fetches are made
 //!
@@ -117,6 +117,7 @@
 //! it is dropped: the size that matters is the one the window is now.
 
 mod choosing;
+pub mod pointing;
 
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
@@ -280,6 +281,8 @@ struct Conducting {
     agents: AgentRecord,
     /// The sites they may reach.
     sites: AgentSites,
+    /// The tab a person's press went to, until its release ([`pointing`]).
+    pressed: Option<TabId>,
 }
 
 fn conduct(
@@ -304,6 +307,7 @@ fn conduct(
         holds: Holds::new(),
         agents: AgentRecord::new(),
         sites,
+        pressed: None,
     };
     conducting.conduct(inbox, tell);
     // After the window has been told it closed: this waits for the exchange
@@ -425,6 +429,7 @@ impl Conducting {
                 self.shown(to)
             }
             Order::Tabs(order) => self.tab_order(order),
+            Order::Pointer(pointer) => self.pointed(pointer),
             Order::CloseEverything => {
                 self.close_everything();
                 vec![News::Closed]

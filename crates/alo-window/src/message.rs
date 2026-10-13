@@ -19,6 +19,7 @@
 use crate::agent_record::Caller;
 use crate::asking::{Answer, Ask, Refused};
 use alo_layout::Size;
+use alo_renderer::pointer::Pointer;
 use alo_renderer::{Frame, Page, Visibility};
 use alo_url::Url;
 use std::sync::mpsc::Sender;
@@ -45,6 +46,11 @@ pub enum Order {
     /// A person asked for a tab with one of the browser's own keys (queue item
     /// 529, ADR 0024 § 5): read by the window before any page could see them.
     Tabs(TabOrder),
+    /// A person's main button went down or up over the selected tab's page,
+    /// at a point in its CSS pixels, as the window decided from its own
+    /// composition (ADR 0024 § 5, queue item 535). Only the window sends
+    /// one, for a person: nothing an agent sends becomes a point.
+    Pointer(Pointer),
     /// The window was closed: close every tab, and say [`News::Closed`] when
     /// they are.
     CloseEverything,

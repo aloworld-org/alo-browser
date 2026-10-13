@@ -60,7 +60,8 @@
 //! document is — with the cause assigned from **which message was answered**
 //! (§ 4): a `Load`'s ask is [`Cause::Document`], naming the document that
 //! load made; an `Act`'s is [`Cause::Agent`], naming the action
-//! [`Tabs::act`] minted, whoever on the page clicked. The decision waits on
+//! [`Tabs::act`] minted, whoever on the page clicked; a person's pointer's
+//! is [`Cause::Person`], naming the tab ([`Tabs::point`]). The decision waits on
 //! the tab for its caller ([`Tabs::navigation`]), because going there —
 //! session history, what survives — is item 85's.
 //!
@@ -117,6 +118,7 @@ use crate::host::{Gone, Renderers};
 use crate::message::{FromRenderer, ToRenderer};
 use crate::navigate::{self, Decided};
 use crate::page::Page;
+use crate::pointer::Pointer;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::sheet_decide;
 use crate::sheet_owed;
@@ -334,6 +336,28 @@ impl Tab {
     /// A delivered response's answer, passing: its task ran outside any
     /// agent's (ADR 0016 § 6), so what it asked for is the document's.
     fn delivered(&mut self, answer: &mut FromRenderer, kept: &mut KeptAlive) {
+        self.answered(answer, kept, |document| Cause::Document { document });
+    }
+
+    /// A person's pointer's answer, passing (queue item 535): where it went
+    /// is the **person's**, the link they clicked — ADR 0012 § 2's *"a link
+    /// they clicked"*, whoever on the page then asked — and what the page
+    /// fetched as it heard the click is the document's, since a person
+    /// clicking is not an agent's verb (§ 4).
+    fn pointed(&mut self, answer: &mut FromRenderer, kept: &mut KeptAlive) {
+        let tab = self.id;
+        self.answered(answer, kept, |_| Cause::Person { tab });
+    }
+
+    /// A `Delivered` answer, passing: where it asked to go decided under
+    /// the cause `going` names for the document showing, and what it asked
+    /// to fetch under the document's.
+    fn answered(
+        &mut self,
+        answer: &mut FromRenderer,
+        kept: &mut KeptAlive,
+        going: impl FnOnce(DocumentId) -> Cause,
+    ) {
         self.decided = None;
         let (
             FromRenderer::Delivered {
@@ -354,7 +378,7 @@ impl Tab {
                 asked,
                 address,
                 &self.policies,
-                cause.clone(),
+                going(document),
             )),
             _ => None,
         };
@@ -1005,11 +1029,31 @@ impl Tabs {
         Ok(answer)
     }
 
+    /// A person's main button went down or up in a tab's page, at a point
+    /// in its CSS pixels (ADR 0024 § 5, queue item 535) — sent only by the
+    /// browser process, for a person, and never on an agent's behalf.
+    ///
+    /// Where the page then asked to go is the person's, decided as the
+    /// answer passes ([`Cause::Person`]); what it asked to fetch is the
+    /// document's. Both wait on the tab with the rest.
+    ///
+    /// # Errors
+    ///
+    /// As [`Tabs::ask`].
+    pub fn point(&mut self, id: TabId, pointer: Pointer) -> Result<FromRenderer, Lost> {
+        let mut answer = self.ask(id, &ToRenderer::Pointer(pointer))?;
+        if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
+            tab.pointed(&mut answer, &mut self.kept);
+        }
+        Ok(answer)
+    }
+
     /// Where the page in a tab last asked to go, as this process decided it
     /// — taken, so it is handed over once.
     ///
     /// Set by each `Loaded` [`Tabs::load`] passes, each `Acted`
-    /// [`Tabs::act`] passes and each `Delivered` [`Tabs::fetched`] passes, to
+    /// [`Tabs::act`] passes and each `Delivered` [`Tabs::fetched`] and
+    /// [`Tabs::point`] pass, to
     /// the decision of the ask it carried or to nothing. Going there is the caller's (item 85); a
     /// [`Decided::Refused`] is said to the person in its own words and
     /// recorded with [`crate::navigate::Refusal::record`].

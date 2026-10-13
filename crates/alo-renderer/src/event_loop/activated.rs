@@ -47,6 +47,16 @@ use super::submitted::Submitted;
 use super::task;
 use super::{EventLoop, Turn};
 
+/// Whether a click's activation may submit a form.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Submits {
+    /// It may: an agent's `Activate`, whose form was checked before the
+    /// click was queued (ADR 0051 § 6).
+    Yes,
+    /// It may not yet: a person's click (queue item 543).
+    No,
+}
+
 /// What an activation task did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Clicked {
@@ -71,6 +81,25 @@ impl EventLoop {
     /// steps around one click.
     pub(super) fn activate(&mut self, list: &Root, turn: &mut Turn) -> Result<Clicked, Escape> {
         let (click, target) = task::dispatched(&mut self.engine, list)?;
+        self.activation(list, click, target, Submits::Yes, turn)
+    }
+
+    /// HTML's activation steps around the dispatch of `click` to `target`,
+    /// both held by the task's `list`, which each event fired after it
+    /// joins — an agent's `Activate`, or the click that ends a person's
+    /// press ([`super::pointed`]).
+    ///
+    /// A submit button's form is submitted only when `submits` says so; a
+    /// click that would have submitted one and was not let answers its
+    /// [`Follows::Submit`] with nothing submitted, for the caller to say.
+    pub(super) fn activation(
+        &mut self,
+        list: &Root,
+        click: alo_js::heap::Ref,
+        target: alo_js::heap::Ref,
+        submits: Submits,
+        turn: &mut Turn,
+    ) -> Result<Clicked, Escape> {
         let (cell, node) =
             node_of(self.engine.objects(), target).ok_or(Escape::fault(Fault::NotAnObject))?;
         let done = change_document(self.engine.objects(), cell, |document| {
@@ -110,13 +139,18 @@ impl EventLoop {
                 navigating::start(self.engine.objects(), cell, *node, By::Browser)
                     .ok_or(Escape::fault(Fault::NotAnObject))?
             }
-            Follows::Submit { form, submitter } => {
+            Follows::Submit { form, submitter } if submits == Submits::Yes => {
                 submitted = Some(self.submit(list, cell, (*form, *submitter), turn)?);
                 false
             }
             // A `details` opened or closed changed the document, which is
             // drawn again; its `toggle` event is script's (queue item 434).
-            Follows::Nothing | Follows::InputAndChange(_) | Follows::Toggled { .. } => false,
+            // A form a person's click would submit is not (queue item 543):
+            // the caller says so.
+            Follows::Nothing
+            | Follows::InputAndChange(_)
+            | Follows::Toggled { .. }
+            | Follows::Submit { .. } => false,
         };
         Ok(Clicked {
             canceled,

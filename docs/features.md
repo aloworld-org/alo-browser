@@ -712,13 +712,31 @@ The reason this exists rather than a faster fork of somebody else's engine.
   there; text is the element it is in, even one with no box of its own; and
   anywhere else in the window is the page's root. An `<svg>` is found as a
   whole, not shape by shape (540), and a list item over the whole of its
-  marker rather than its bullet alone (541). Nothing sends a page a point yet. Still
-  to come: an agent reading the open tabs from the strip, which first needs
-  deciding what an agent kept to some sites may see of it (531); a title a
-  page changes after it has loaded (532); a person's click reaching the
-  element it fell on (535) and a click on a tab, decided by the browser
-  (539); painting at the screen's density (299); and a new tab opened by a
-  link with `target="_blank"` that a person clicked (300)
+  marker rather than its bullet alone (541). **A person's click reaches the
+  page** (queue item 535): pressing and letting go of the main mouse button
+  over the page sends the page what Chrome 154 sends it — `pointerdown` and
+  `mousedown` as the button goes down, `pointerup`, `mouseup` and `click` as
+  it comes up — trusted, at the element under the pointer, each saying where
+  the pointer was (a click and the mouse events in whole pixels, the pointer
+  events exactly) and which button, and a page's listeners hear them in that
+  order with whatever each left waiting run before the next. A page that
+  cancels its `pointerdown` hears no `mousedown` or `mouseup`, and still its
+  click. Let go somewhere else, the click goes to what both ends are inside;
+  let go after what was pressed has been removed, there is no click. The
+  click does what a click does — ticks a box, opens a `<details>`, follows a
+  link — on a page with or without script, and a link a person clicks goes
+  where an agent's press of it goes; the window says where, since going there
+  is still to come (85). Where the window is on the screen is not told: a
+  click's screen position is its position in the page. Still to come: the
+  pointer moving and hovering, and the events it sends a page (542); a click
+  submitting a form, which says it did not (543); the other buttons (544), a
+  click with a modifier held (545) and double clicks (547); and focus moving
+  to what was pressed (258). Still to come besides: an agent reading the open
+  tabs from the strip, which first needs deciding what an agent kept to some
+  sites may see of it (531); a title a page changes after it has loaded
+  (532); a click on a tab, decided by the browser (539); painting at the
+  screen's density (299); and a new tab opened by a link with
+  `target="_blank"` that a person clicked (300)
 - [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [2] History, bookmarks, downloads
 - [2] Find in page, zoom, and per-site settings that stick

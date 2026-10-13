@@ -122,6 +122,9 @@
 //! item 255), and an agent's `Activate` is one: a `click` that is a
 //! `PointerEvent` ([`Firing::CLICK`], queue item 256), its chain `UIEvent`,
 //! `MouseEvent` and `PointerEvent`, none with a constructor on the global.
+//! A person's mouse is others (queue item 535): `pointerdown`, `mousedown`,
+//! `pointerup`, `mouseup` and `click`, each reporting where it was and what
+//! was pressed ([`Pointing`]).
 //! A script's `el.click()` (queue item 261) is `HTMLElement`'s, driven from
 //! its native as `dispatchEvent`'s is (`scripted.rs`), with the same
 //! activation rule around it (`clicking.rs` holds what it keeps); a link
@@ -156,6 +159,7 @@ pub mod location;
 pub mod navigating;
 pub mod navigator;
 pub mod node_list;
+pub mod pointing;
 pub mod response;
 mod scripted;
 pub mod search_params;
@@ -186,6 +190,7 @@ pub use interface::{Interface, Interfaces, prototype_of};
 pub use location::Location;
 pub use navigator::{Identity, Navigator, introduce};
 pub use node_list::NodeList;
+pub use pointing::{Device, Pointing};
 pub use response::{Responded, Response};
 pub use search_params::SearchParams;
 pub use style_declaration::StyleDeclaration;

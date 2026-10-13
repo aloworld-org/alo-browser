@@ -32119,3 +32119,136 @@ clause adds where a pointer falls. Owed: 531, 532, 535, 539, 299 and 300.
 256 queue items are open (298 closed, 535–541 added). The next unused queue
 number is **542** and the next ADR is **0057**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 323 — queue item 535 closed: a person's click reaches the page
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 322's
+entry and the queue. No `AGENTS.md` exists in this repository. For 535:
+its own text; ADR 0024 in full (§ 5: the browser process decides the frame
+from its own composition, and no agent message carries a point); ADR 0018
+in full (§ 3's browser driver, §§ 5–7's click, activation steps and ARIA);
+ADR 0012 §§ 2 and 4 (a link a person clicked is the person's); ADR 0038
+§ 1 (nothing beyond the window); ADR 0020 (the decided navigation);
+`alo-bindings`' `event.rs` and the `UIEvent`/`MouseEvent`/`PointerEvent`
+interfaces; `alo-renderer`'s `renderer.rs`, `press.rs`, `hit.rs`,
+`event_loop` (`task.rs`, `activated.rs`, `dispatched.rs`), `held.rs`,
+`tab.rs`, `wire.rs`; `alo-window`'s `window.rs`, `place.rs`,
+`conductor.rs`; the feature line *A window, tabs, and a tab strip*.
+
+**Why 535.** Iteration 322 left it as the one open item in its
+neighbourhood whose dependencies (298, 528) are done and which waits on no
+page, person or design: 531 needs design, 532, 534, 536, 538, 540 wait for
+a page, 537 and 541 are measurements nothing depends on, and 539 and 300
+depend on 535. The open items earlier in the file wait for a page, a
+person, a design or an unfinished dependency, as 318–322 recorded.
+
+**Measured**, in headless Chrome 154 over CDP (`Input.dispatchMouseEvent`,
+Node 26), the source not read, in scratchpad probe pages kept nowhere:
+capturing listeners on the document logged every event's members, its
+microtasks and its timers, for a press and release in place, without a
+move first, dragged apart, released outside the viewport, a right button,
+each of the five events cancelled, the pressed element or its parent
+removed in `mousedown`, and a link.
+- A press is one task (`pointerdown`, `mousedown`), a release the next
+  (`pointerup`, `mouseup`, `click`); a microtask checkpoint after each
+  listener.
+- The click goes to the nearest node both ends are in (`body` for a drag
+  from one box to another); outside the viewport the release is at the
+  root element; with the pressed element removed, no click.
+- A cancelled `pointerdown` drops `mousedown` and `mouseup`, not the
+  click; cancelling the others changes nothing.
+- Pointer events report the point as sent (`70.5999984741211`); mouse
+  events and the click are floored. `button` 0; `buttons` 1, then 0;
+  `detail` 1 on mouse events and the click, 0 on pointer events;
+  `pointerId` 1, `pointerType` `"mouse"`. All bubble, cancel and compose.
+- Also seen, and cut: boundary and move events before every press
+  (542), `focus` on a link's `mousedown` (258), `selectstart` and
+  `selectionchange` (88), `contextmenu` and `auxclick` (544).
+
+**Scope cut, not depth.** The events around a click that are not the
+press and release of the main button are cut to **542–547**, each with
+what was measured; written into 535's entry.
+
+**Built.**
+- `alo-bindings`: `pointing.rs` (`Pointing`, `Device`); events hold one;
+  `Shape::Mouse`, `Fired::MouseEvent`, `Fired::PointerEvent(Pointing)`;
+  `MouseEvent`'s coordinates and buttons, `PointerEvent`'s id and type and
+  `UIEvent`'s `detail` read it. `screenX`/`screenY` are the client
+  numbers (ADR 0038 § 1, a dated note added there).
+- `alo-renderer`: `pointer.rs` (`Pointer`, `Went`); `ToRenderer::Pointer`,
+  wire tag 12 (`wire/pointer.rs`); `event_loop/pointed.rs` with
+  `Work::Pressed` and `Work::Released` and Chrome's firings;
+  `activated.rs`' steps split into `activation`, with `Submits::No` for a
+  person; `pointed.rs` (hit test, the remembered press, the click's node,
+  a page without script); `Renderer::pointer`, answered as `Delivered`;
+  `Tabs::point`, the navigation decided as `Cause::Person`.
+- `alo-window`: `aim.rs`; `Scene::contents`; `Order::Pointer`;
+  `window.rs` reads `CursorMoved`, `CursorLeft` and the left button with
+  no modifier held; `conductor/pointing.rs` sends a press to the selected
+  tab showing a document and not held, the release to the tab pressed,
+  paints, and says a decided link (`NOT_GONE`).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, and no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: `aim.rs`' six tests (scale 2, the band, notices,
+  outside the window, beyond a small frame, a release anywhere); the probe
+  page's boxes asserted in `a_persons_click.rs` (`b` and `o` within 1/64
+  px, the span holding the pressed point, the link's place); the frozen
+  link's rect checked against its committed `agent.txt`.
+- No new reference render: nothing new is drawn. The sentence is the
+  window's existing notice, whose composition has its renders.
+- Hostile input: `wire/pointer.rs` refuses NaN and infinite points, a
+  button tag other than 0 or 1, every truncation and a trailing byte.
+  `pointed.rs` takes any finite point; outside the viewport a press
+  fires nothing and a release goes to the root.
+- On screen: `alo --frozen-fonts` on a scratchpad page with one large
+  link, window found with a `CGWindowList` helper, clicked with
+  `cliclick` at a page point, captured with `screencapture -l`: the
+  notice read "this link goes to https://example.com/next, and going to
+  another page is not built yet (queue item 85)". ⌘W closed it and no
+  `alo` or `alo-render` was left. The first click, mis-aimed because zsh
+  did not split the window's line, went to (100, 0) on the menu bar and
+  was answered with Escape. Captures in the scratchpad only.
+- Mutations, each restored from a copy (`grep` confirmed): five fail
+  their tests, as 535's entry lists. One survived — the pressed element's
+  "still in the document" check — and was removed as redundant, with the
+  reason in its doc.
+- One file, one responsibility: what an event reports of its pointer
+  (`pointing.rs`), the message (`pointer.rs`), its wire form, the events
+  as tasks (`event_loop/pointed.rs`), the renderer's press and release
+  (`pointed.rs`), which frame a point is over (`aim.rs`), and the
+  conductor's routing (`conductor/pointing.rs`) are each their own.
+- `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md`, ADR 0038's note and the queue are updated.
+- No `unsafe`. No verb takes a coordinate; the one message that carries a
+  point is made only by `Tabs::point`, called only for the window's
+  `Order::Pointer`. `alo-os` and `alo-workplace` were not touched.
+  Nothing was pushed.
+
+**Queue.** 535 is ticked with its cut and *Done* paragraph. Added: 542
+(movement and boundary events), 543 (a person's submission), 544 (other
+buttons), 545 (modifiers), 546 (device members), 547 (click counts), 548
+(refused navigations unrecorded in the window).
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the person's click; Owed now names 531, 532, 542–545, 547,
+539, 299 and 300.
+
+**Unresolved obligations.**
+- What a person's click said (a listener's throw, a form not submitted)
+  is in the answer and not shown in the window, as a load's issues are
+  not; only the decided navigation is said.
+- A press and the conductor's selected tab can disagree for an instant
+  after a key chose another tab; the press goes to the conductor's.
+- `pressure` was measured only through CDP (546).
+- Refused navigations are said and not recorded (548).
+- No claim about speed is made.
+
+262 queue items are open (535 closed, 542–548 added). The next unused
+queue number is **549** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

@@ -12924,7 +12924,7 @@ What stage 2's exit gate actually measures: a person using it.
   text found through its box parent, a point taken as a point, and clips
   ignored each fail the page tests. Found: 536, 537, 538, 540, 541.
 
-- [ ] **535. A person's click reaches the element it fell on.** *Cut from
+- [x] **535. A person's click reaches the element it fell on.** *Cut from
   298 (iteration 322; ADR 0024 § 5; ADR 0018 §§ 3 and 5). Feature:
   `docs/features.md` stage 2, a window, tabs and a tab strip. Depends on
   298, 528.* The window reads `winit`'s pointer; the browser process
@@ -12938,6 +12938,143 @@ What stage 2's exit gate actually measures: a person using it.
   in a frozen page follows it, the same as the agent's `Activate` on it;
   the events a page's listeners record are Chrome's, in Chrome's order;
   and no message an agent can cause carries a point.
+
+  **Scope cut, not depth (iteration 323).** *The events a page's listeners
+  record are Chrome's* is met for a press and release of the main button,
+  which is what a click is. What Chrome fires around it is cut, each to an
+  item with its own measurement: the pointer moving and the boundary
+  events — which Chrome fires at a press, too, when nothing was said of
+  the pointer before — to **542**; a click submitting a form to **543**;
+  the other buttons to **544**; a modifier held to **545**; a device's
+  other `PointerEvent` members to **546**; click counts to **547**. Focus
+  on `mousedown` is 258's and `selectstart` 88's, both already items.
+
+  ***Done (iteration 323).*** A person's main button, from the window to
+  the page:
+  - **Measured** in headless Chrome 154 over CDP (`Input.dispatchMouseEvent`,
+    capturing listeners on the document logging each event's members,
+    microtasks and timers), the source not read: a press is one task,
+    `pointerdown` then `mousedown`; a release the next, `pointerup`,
+    `mouseup`, then `click` at the nearest node both ends are in — the
+    root element for a release outside the viewport, and no click when
+    the pressed element left the document. A cancelled `pointerdown`
+    drops `mousedown` and `mouseup`, not the click; cancelling the others
+    changes nothing. Pointer events report the point as it arrived
+    (`70.5999984741211` for 70.6), the mouse events and the click floored;
+    `buttons` 1 then 0, `detail` 1 on the mouse events and the click and 0
+    on the pointer events, `pointerId` 1 and `pointerType` `"mouse"`.
+  - **Built.** `alo-bindings`' `pointing.rs`: what an event reports of
+    its pointer, `Pointing::KEYBOARD` for `Activate` and `el.click()`;
+    `Shape::Mouse` and `Fired::MouseEvent`; `MouseEvent`, `PointerEvent`
+    and `UIEvent`'s members read it. `screenX` and `screenY` are the
+    client numbers, the window as though at the screen's origin (ADR 0038
+    § 1). `alo-renderer`: `ToRenderer::Pointer` (`pointer.rs`, its wire
+    form refusing a non-finite point); `event_loop/pointed.rs`, the two
+    tasks with Chrome's events, the click through the same activation
+    steps as `Activate` (`activated.rs`' `activation`), submitting no
+    form; `pointed.rs`, the hit test, the press remembered, the click's
+    node, and a page that never ran script — activation steps without
+    events, no ARIA change; `Tabs::point`, deciding the navigation as
+    `Cause::Person`. `alo-window`: `aim.rs`, which frame a window point is
+    over (the page, the strip, or nothing over a notice); `window.rs`
+    reading `CursorMoved` and the left button with no modifier;
+    `conductor/pointing.rs`, the press to the selected tab, its release to
+    the tab pressed, and the decided link said to the person.
+
+  *Closed by:*
+  - `alo-renderer/tests/a_persons_click.rs`, 12 tests on the probe page
+    Chrome was given, each sequence and member Chrome's, the boxes in
+    numbers, with and without the collector at every allocation; a link
+    asking for the address the agent's `Activate` asks for; a page without
+    script following a link and ticking a box with no heap made.
+  - `a_persons_click_crosses_the_boundary.rs`: through real `Tabs` over
+    confined renderers, a click on the frozen `web-example-com`'s "Learn
+    more" decided as `Go` to `https://iana.org/domains/example` with
+    `Cause::Person`, and the agent's `Activate` on it the same address,
+    method and referrer with `Cause::Agent`.
+  - `alo-window/tests/a_persons_click_in_the_window.rs`: device points put
+    through `aim` and sent to the real conductor; a page's listeners'
+    fetches log Chrome's five events with Chrome's coordinates; the frozen
+    link said as where it goes.
+  - `aim.rs`' six tests in numbers, and the wire's four hostile tests.
+  - `alo --frozen-fonts` on this Mac, its link clicked with `cliclick`:
+    the window said `this link goes to https://example.com/next`.
+  - No message an agent can cause carries a point: the socket's requests
+    (`asking.rs`) have none, and `ToRenderer::Pointer` is made only by
+    `Tabs::point`, which only `conductor/pointing.rs` calls, for an
+    `Order::Pointer`, which only `window.rs` sends.
+
+  Mutations, each restored from a copy: a `mousedown` not floored; a
+  `mousedown` despite a cancelled `pointerdown`; the click at the released
+  element; the person's navigation as the document's; no release sent —
+  each fails its test. A check that the pressed element is still in the
+  document survived, and was removed as redundant: a node that left shares
+  no ancestor with one the hit test found.
+
+- [ ] **542. The pointer moving over a page.** *Cut from 535 (iteration
+  323; ADR 0024 § 5). Feature: `docs/features.md` stage 2, a window, tabs
+  and a tab strip. Depends on 535.* Chrome 154 fires `pointerover`,
+  `pointerenter` (at each ancestor, the document first), `mouseover`,
+  `mouseenter`, `pointermove` and `mousemove` as the pointer arrives, the
+  opposites with `relatedTarget` as it leaves, and the boundary events at
+  a press or release when nothing was said of the pointer there before;
+  `button` is `-1` on a pointer event that is not a press. Nothing of this
+  is sent: the window drops `CursorMoved` but for remembering it, and
+  `:hover` matches nothing. *Closes when:* a person's pointer moving over a
+  frozen page fires Chrome's sequence, coalesced to at most one move per
+  frame, `relatedTarget` and all, and `:hover` is drawn with a reference
+  render.
+
+- [ ] **543. A person's click on a submit button submits its form.** *Cut
+  from 535 (iteration 323; ADR 0051 § 4). Feature: `docs/features.md` stage
+  2, forms. Depends on 535.* The click's activation would submit; today it
+  submits nothing and the answer says so. An agent's `Activate` refuses a
+  form this engine cannot check or send before anything is heard (ADR 0051
+  § 6); a person's click cannot be refused that way. *Closes when:* a
+  person's click on a frozen form's button submits it as the agent's
+  `Activate` does, with what this engine cannot send said, and the
+  submission decided as `Cause::Person`.
+
+- [ ] **544. The other mouse buttons.** *Cut from 535 (iteration 323).
+  Feature: `docs/features.md` stage 2, a window, tabs and a tab strip.
+  Depends on 535. Measured, not built:* a right press in Chrome 154 fires
+  `contextmenu` after `mousedown`, and its release `auxclick` instead of
+  `click`, with `button` 2 and `buttons` 2. The window sends the left
+  button alone. *Closes when:* a frozen page that listens for one of them
+  hears Chrome's events, and what a context menu is (122) is decided.
+
+- [ ] **545. A click with a modifier held.** *Cut from 535 (iteration
+  323). Feature: `docs/features.md` stage 2, a window, tabs and a tab
+  strip. Depends on 535, 300.* The window sends no press while a modifier
+  is held, because ⌘ over a link opens a tab in Chrome, and following it in
+  this tab would be wrong. *Closes when:* `ctrlKey`, `shiftKey`, `altKey`
+  and `metaKey` carry the modifiers held, and a ⌘-click on a link opens it
+  as 300 opens a tab.
+
+- [ ] **546. A pointing device's other members.** *Cut from 535 (iteration
+  323). Feature: `docs/features.md` stage 2, events. Waits for a page.*
+  `width`, `height`, `pressure`, `tangentialPressure`, `tiltX`, `tiltY`,
+  `twist`, `altitudeAngle`, `azimuthAngle` and `isPrimary` stay absent.
+  Chrome 154 over CDP gave 1, 1, 0, 0, 0, 0, 0, π/2, 0 and `true` (`false`
+  on a click); `pressure` 0 on a press is CDP's `force`, and a real mouse
+  is believed to give 0.5, which is to be measured with a real one.
+  *Closes when:* a frozen page reads one of them and it is Chrome's.
+
+- [ ] **547. How many presses in quick succession.** *Cut from 535
+  (iteration 323). Feature: `docs/features.md` stage 2, events. Waits for
+  a page.* `detail` is always 1 and there is no `dblclick`: the window
+  counts no presses, and the interval is the system's. *Closes when:* a
+  frozen page that listens for `dblclick` or reads `detail` hears Chrome's,
+  the interval read from the platform by the browser process.
+
+- [ ] **548. A navigation refused in the window is recorded.** *Found
+  building 535 (iteration 323; ADR 0012 § 5, ADR 0020). Feature:
+  `docs/features.md` stage 2, the network.* `navigate::Refusal::record`
+  exists, and `Tabs::navigation`'s decisions — an agent's, and now a
+  person's — are said and dropped by the window, never written into the
+  session's record. *Closes when:* the conductor records every refused
+  navigation it takes, as it records refused fetches (`Record`), with a
+  test reading the line back.
 
 - [ ] **536. A positioned box that clips with square corners is found
   under its border.** *Found building 298 (iteration 322). Feature:

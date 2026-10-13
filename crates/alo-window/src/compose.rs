@@ -45,6 +45,20 @@ pub struct Scene<'a> {
     pub sentence: Option<&'a str>,
 }
 
+impl Scene<'_> {
+    /// What is in it to place: the frames' sizes in CSS pixels, and which
+    /// of them has something to say.
+    pub fn contents(&self) -> Contents {
+        let size = |frame: &Frame| (frame.width, frame.height);
+        Contents {
+            strip: self.strip.map(size),
+            frame: self.frame.map(size),
+            tab_saying: self.sentence.is_some(),
+            strip_saying: self.strip_sentence.is_some(),
+        }
+    }
+}
+
 /// The window's pixels.
 ///
 /// The background, then the band across the top in the rail's colour and
@@ -55,17 +69,7 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, background());
     let replication = scene.replication.max(1);
-    let size = |frame: &Frame| (frame.width, frame.height);
-    let placed = Placement::of(
-        scene.window,
-        replication,
-        Contents {
-            strip: scene.strip.map(size),
-            frame: scene.frame.map(size),
-            tab_saying: scene.sentence.is_some(),
-            strip_saying: scene.strip_sentence.is_some(),
-        },
-    );
+    let placed = Placement::of(scene.window, replication, scene.contents());
     let band = placed.band;
     canvas.fill_rect(0, 0, band.width, band.height, rail());
     if let Some(strip) = scene.strip {

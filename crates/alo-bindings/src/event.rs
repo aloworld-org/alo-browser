@@ -26,7 +26,8 @@
 //!
 //! A page makes its events with `new Event(…)`; the browser makes its own
 //! with [`create`], the standard's *create an event*: an `Event` — or a
-//! `PointerEvent`, for a click (queue item 256), an `InputEvent`, for text
+//! `PointerEvent`, for a click (queue item 256) or a person's pointer (queue
+//! item 535), a `MouseEvent`, for a person's mouse, an `InputEvent`, for text
 //! an agent put into a field (queue item 257), or a `PageTransitionEvent`, for
 //! a page shown or left (queue item 373), or a `SubmitEvent`, for a form an
 //! agent's press submits (queue item 485) — inheriting from the
@@ -51,6 +52,7 @@ use alo_js::{Escape, Fault};
 use crate::dispatch::Progress;
 use crate::document_cell::DocumentCell;
 use crate::interface::Interface;
+use crate::pointing::Pointing;
 use crate::unforgeable;
 
 /// Which phase a dispatch is in, as `eventPhase` answers it.
@@ -109,12 +111,15 @@ pub enum Shape {
     /// A `CustomEvent`, which has a `detail`.
     Custom,
     /// A `PointerEvent`, and so a `MouseEvent` and a `UIEvent` (ADR 0018
-    /// § 5). The only one this engine makes is a click no pointing device
-    /// caused — the browser's for an agent's `Activate` — so its members
-    /// are that click's and are not held: every coordinate `0`, no button,
-    /// no modifier, `pointerId` `-1`, `pointerType` `""`. A pointer that
-    /// really points brings fields with it, with the window that has one.
+    /// § 5): a click — keyboard activation's, whose [`Pointing`] is
+    /// [`Pointing::KEYBOARD`], or a person's — or a person's `pointerdown`
+    /// or `pointerup` (queue item 535). What it reports of its pointer is
+    /// its [`Pointing`]; no modifier is ever held.
     Pointer,
+    /// A `MouseEvent` that is not a `PointerEvent`, and so a `UIEvent`: a
+    /// person's `mousedown` or `mouseup` (queue item 535), reporting its
+    /// [`Pointing`].
+    Mouse,
     /// An `InputEvent`, and so a `UIEvent` (ADR 0018 § 5): the browser's
     /// for an agent's `PutText`, whose `inputType` and `data` it holds
     /// (`Typing`). No composition is ever in progress, so `isComposing`
@@ -169,6 +174,8 @@ pub struct Event {
     current_target: Field,
     detail: Stored,
     typing: Typing,
+    /// A `MouseEvent`'s pointer: [`Pointing::KEYBOARD`] on every other.
+    pointing: Pointing,
     /// A `SubmitEvent`'s `submitter`, as its wrapper; empty on any other.
     submitter: Field,
     progress: Option<Progress>,
@@ -193,6 +200,7 @@ impl Event {
             // A `CustomEvent`'s `detail` defaults to `null`.
             detail: Stored::holding(Value::Null),
             typing: Typing::default(),
+            pointing: Pointing::KEYBOARD,
             submitter: Field::empty(),
             progress: None,
         }
@@ -203,10 +211,22 @@ impl Event {
         self.shape == Shape::Custom
     }
 
-    /// Whether it is a `PointerEvent` — and so a `MouseEvent`, since no
-    /// other instance of one is ever made, and a `UIEvent`.
+    /// Whether it is a `PointerEvent` — and so a `MouseEvent` and a
+    /// `UIEvent`.
     pub fn is_pointer(&self) -> bool {
         self.shape == Shape::Pointer
+    }
+
+    /// Whether it is a `MouseEvent` — a `PointerEvent` or not — and so a
+    /// `UIEvent`.
+    pub fn is_mouse(&self) -> bool {
+        matches!(self.shape, Shape::Pointer | Shape::Mouse)
+    }
+
+    /// What a `MouseEvent` reports of its pointer: [`Pointing::KEYBOARD`]
+    /// on any other event.
+    pub const fn pointing(&self) -> Pointing {
+        self.pointing
     }
 
     /// Whether it is an `InputEvent` — and so a `UIEvent`.
@@ -452,6 +472,7 @@ impl Exotic for Event {
             Shape::Event => "an Event",
             Shape::Custom => "a CustomEvent",
             Shape::Pointer => "a PointerEvent",
+            Shape::Mouse => "a MouseEvent",
             Shape::Input => "an InputEvent",
             Shape::PageTransition => "a PageTransitionEvent",
             Shape::Submit => "a SubmitEvent",
@@ -470,13 +491,18 @@ pub fn make_custom_event(prototype: Option<Ref>) -> Box<dyn Exotic> {
 }
 
 /// Which interface an event the browser fires is an instance of.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Fired<'a> {
     /// `Event`: what HTML's *fire an event* makes — an `input` or a
     /// `change`, say.
     Event,
-    /// `PointerEvent`: a `click` (ADR 0018 § 5).
-    PointerEvent,
+    /// `PointerEvent`: a `click` (ADR 0018 § 5), or a person's
+    /// `pointerdown` or `pointerup` (queue item 535), reporting this of its
+    /// pointer.
+    PointerEvent(Pointing),
+    /// `MouseEvent`: a person's `mousedown` or `mouseup` (queue item 535),
+    /// reporting this of its pointer.
+    MouseEvent(Pointing),
     /// `InputEvent`: what text put into a field fires (ADR 0018 § 5).
     InputEvent {
         /// Its `inputType` — `"insertReplacementText"`, say.
@@ -499,7 +525,8 @@ impl Fired<'_> {
     const fn interface(&self) -> (Interface, Shape) {
         match self {
             Self::Event => (Interface::Event, Shape::Event),
-            Self::PointerEvent => (Interface::PointerEvent, Shape::Pointer),
+            Self::PointerEvent(_) => (Interface::PointerEvent, Shape::Pointer),
+            Self::MouseEvent(_) => (Interface::MouseEvent, Shape::Mouse),
             Self::InputEvent { .. } => (Interface::InputEvent, Shape::Input),
             Self::PageTransitionEvent => (Interface::PageTransitionEvent, Shape::PageTransition),
             Self::SubmitEvent { .. } => (Interface::SubmitEvent, Shape::Submit),
@@ -509,7 +536,7 @@ impl Fired<'_> {
 
 /// An event the browser fires: its interface, its type and its three init
 /// flags.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Firing<'a> {
     /// Its interface.
     pub interface: Fired<'a>,
@@ -528,7 +555,7 @@ impl Firing<'static> {
     /// (ADR 0018 § 5): a `PointerEvent` `click`, bubbling, cancelable and
     /// composed.
     pub const CLICK: Self = Self {
-        interface: Fired::PointerEvent,
+        interface: Fired::PointerEvent(Pointing::KEYBOARD),
         kind: "click",
         bubbles: true,
         cancelable: true,
@@ -698,6 +725,9 @@ pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<R
             input_type: input_type.encode_utf16().collect(),
             data: data.map(|data| data.encode_utf16().collect()),
         };
+    }
+    if let Fired::PointerEvent(pointing) | Fired::MouseEvent(pointing) = firing.interface {
+        event.pointing = pointing;
     }
     let submitter = match firing.interface {
         Fired::SubmitEvent { submitter } => Some(submitter),

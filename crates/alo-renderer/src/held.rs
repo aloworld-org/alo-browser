@@ -181,6 +181,40 @@ impl Held {
         self.queue(|page_loop, cell| page_loop.queue_activation(cell, node))
     }
 
+    /// Queue a person's press of the main button at `at`, over the element
+    /// `node`, as a task on the page's loop — a trusted `pointerdown`, and a
+    /// `mousedown` unless a listener cancels it (queue item 535) — answering
+    /// which task, or [`None`] on a page that has never run script, where
+    /// nobody listens.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn press(&mut self, node: NodeId, at: alo_paint::Point) -> Result<Option<Seq>, Unqueued> {
+        self.queue(|page_loop, cell| page_loop.queue_press(cell, node, at))
+    }
+
+    /// Queue a person's release of the main button at `at`, over the
+    /// element `node`, as a task on the page's loop — a trusted
+    /// `pointerup`, a `mouseup` when `mouse` says so, and the `click` at
+    /// `click` with the activation steps around it (queue item 535) —
+    /// answering which task, or [`None`] on a page that has never run
+    /// script, where nobody listens and the renderer runs the activation
+    /// steps itself.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn release(
+        &mut self,
+        node: NodeId,
+        at: alo_paint::Point,
+        mouse: bool,
+        click: Option<NodeId>,
+    ) -> Result<Option<Seq>, Unqueued> {
+        self.queue(|page_loop, cell| page_loop.queue_release(cell, node, at, mouse, click))
+    }
+
     /// Queue an agent's `PutText` of `text` into the field `node` as a task
     /// on the page's loop — a trusted `beforeinput` the page may cancel, then
     /// the text, `input` and `change` (ADR 0018 § 5) — answering which task,

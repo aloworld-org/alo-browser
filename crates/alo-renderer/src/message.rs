@@ -28,6 +28,7 @@ use crate::fetch::{FetchAsk, Fetched};
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::page::Page;
+use crate::pointer::Pointer;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
 use crate::strip::Strip;
@@ -109,6 +110,17 @@ pub enum ToRenderer {
     /// runs no script, so the answer asks for nothing. `Paint` and
     /// `ReadTree` then answer about the strip as they would a page.
     Strip(Box<Strip>),
+    /// A person's main button went down or up, here (ADR 0024 § 5, queue
+    /// item 535): the one coordinate that reaches a renderer, which only
+    /// the browser process sends and only for a person.
+    ///
+    /// The renderer finds the element under it ([`crate::hit`]), and on a
+    /// page that runs script fires what Chrome fires for it as one task
+    /// ([`crate::pointed`]); a release fires the click and its activation
+    /// steps. Answered as a delivered task is, with
+    /// [`FromRenderer::Delivered`]: the browser process assigns what it
+    /// asked for from which message it answered.
+    Pointer(Pointer),
 }
 
 /// What a renderer answers with.
@@ -369,6 +381,7 @@ impl fmt::Display for ToRenderer {
             ToRenderer::Act { target, verb } => write!(f, "{verb:?} {target}"),
             ToRenderer::Fetched(fetched) => write!(f, "{fetched}"),
             ToRenderer::Sheet(answer) => write!(f, "{answer}"),
+            ToRenderer::Pointer(pointer) => write!(f, "{pointer}"),
             ToRenderer::Strip(strip) => write!(
                 f,
                 "hold the tab strip, {} open, at {}×{}",
@@ -431,6 +444,8 @@ mod tests {
             | ToRenderer::Paint
             | ToRenderer::ReadTree
             | ToRenderer::Act { .. } => "a page, a font, or a thing to do to one",
+            // Where a person's button went, and nothing about what it went to.
+            ToRenderer::Pointer(_) => "a person's pointer",
             // What the page may read of its own request, and nothing about any
             // other.
             ToRenderer::Fetched(_) => "the answer to a fetch the page asked for",

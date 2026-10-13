@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A person's click reaches the page.** Pressing the mouse's main button on
+  a page now sends it what Chrome sends: `pointerdown` and `mousedown`, then
+  `pointerup`, `mouseup` and `click`, at the element under the pointer and
+  carrying where it was. A click ticks a box or follows a link as it would
+  in Chrome, and the window says where a link goes, since going there is not
+  built yet. Moving the pointer, the other buttons, modifier keys and double
+  clicks are still to come.
+
 - **The browser knows what is under a pointer.** A page's own process can
   now say which element any point of its picture is over, as Chrome finds
   it: what is drawn on top there, wherever a transform has moved or turned

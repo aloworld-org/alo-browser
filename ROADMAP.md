@@ -1768,10 +1768,24 @@ items where being right and being unusable are the same outcome.
       `hit.rs` turns it into the element a person pointed at; 21 pages
       put to Chrome 154's `elementFromPoint` and mouse events, each box
       the points depend on asserted in numbers.
+      A person's click reaching a page (535, done): the window keeps the
+      cursor and aims a press of the main button from its own placement
+      (`aim.rs`); the conductor sends it to the selected tab as
+      `ToRenderer::Pointer`, the one message carrying a point, and the
+      release to the tab the press went to (`conductor/pointing.rs`); the
+      renderer hit-tests and fires Chrome 154's `pointerdown`, `mousedown`,
+      `pointerup`, `mouseup` and `click` as two tasks with their measured
+      members (`event_loop/pointed.rs`), the click at the nearest node both
+      ends are in and HTML's activation steps around it; a link clicked is
+      decided as `Cause::Person` and said in the window. Pinned against
+      CDP measurements, through confined renderers on the frozen
+      `web-example-com` (the same address as the agent's `Activate`), and
+      clicked with a real mouse event in the window on this Mac.
       · Owed: the agent reading the strip, which needs design (531); a
-      title changed after load (532); a person's click reaching a page
-      (535) and a tab (539); device pixels (299); a link opening a tab
-      (300)
+      title changed after load (532); the pointer moving, hover and the
+      boundary events (542); a person's submission (543); the other
+      buttons (544), modifiers (545) and click counts (547); a click on a
+      tab (539); device pixels (299); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

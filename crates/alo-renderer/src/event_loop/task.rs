@@ -36,6 +36,7 @@ use alo_dom::NodeId;
 use alo_js::heap::Ref;
 use alo_js::object::{Held, Objects};
 use alo_js::{Engine, Escape, Fault, Root, Value};
+use alo_paint::Point;
 
 /// Which task: its place in the one order every task is run in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -95,6 +96,31 @@ pub(super) enum Work {
         list: Root,
         /// The text, which is Rust's and needs no root.
         text: String,
+    },
+    /// A person's main button pressed (ADR 0024 § 5, queue item 535): a
+    /// `pointerdown` the browser made, and a `mousedown` after it unless a
+    /// listener cancelled it ([`super::pointed`]).
+    Pressed {
+        /// The element's wrapper, then the `pointerdown` — and, as the task
+        /// runs, the element's wrapper again and the `mousedown` — in one
+        /// rooted list.
+        list: Root,
+        /// Where, in the viewport's CSS pixels.
+        at: Point,
+    },
+    /// A person's main button let go (queue item 535): a `pointerup`, a
+    /// `mouseup` unless the press's `pointerdown` was cancelled, and the
+    /// `click` with HTML's activation steps around it.
+    Released {
+        /// The element's wrapper, then the `pointerup` — and, as the task
+        /// runs, each wrapper and event it fires after — in one rooted list.
+        list: Root,
+        /// Where, in the viewport's CSS pixels.
+        at: Point,
+        /// Whether a `mouseup` is fired.
+        mouse: bool,
+        /// Where the `click` goes, if one is fired.
+        click: Option<NodeId>,
     },
     /// The page told whether it can be seen (ADR 0039 § 1, queue item 364):
     /// the state set, and a `visibilitychange` the browser made fired at the
@@ -175,6 +201,8 @@ impl Tasks {
             Work::Calls { list, .. }
             | Work::Dispatch { list }
             | Work::Activate { list }
+            | Work::Pressed { list, .. }
+            | Work::Released { list, .. }
             | Work::PutText { list, .. }
             | Work::Visibility { list, .. }
             | Work::Leave { list } => {

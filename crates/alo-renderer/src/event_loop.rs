@@ -105,6 +105,7 @@ mod delivered;
 mod described;
 mod dispatched;
 mod microtask;
+mod pointed;
 mod report;
 mod shown;
 mod source;
@@ -124,6 +125,7 @@ use alo_js::interpret::{Engine, Stop};
 use alo_js::{Clock, Escape, Thrown, Value, compile, script};
 
 pub use activated::Clicked;
+pub use pointed::PressedDown;
 pub use report::Report;
 use source::Sources;
 pub use source::{Place, Trace};
@@ -227,6 +229,9 @@ pub struct Turn {
     /// got — [`None`] if the page stopped before it answered the
     /// `beforeinput`.
     pub typed: Option<Typed>,
+    /// What a person's press came to, if this was one and it ran to its
+    /// end.
+    pub pressed: Option<PressedDown>,
 }
 
 /// A page's event loop, and the engine its script runs in.
@@ -423,6 +428,64 @@ impl EventLoop {
         })
     }
 
+    /// Queue a person's press of the main button at `at`, over the element
+    /// `node` in the document `cell` holds (ADR 0024 § 5): one task that
+    /// dispatches a trusted `pointerdown` and, unless a listener cancels it,
+    /// a `mousedown` ([`pointed`]). What it came to is the task's
+    /// [`Turn::pressed`].
+    ///
+    /// `cell` must be rooted by the caller.
+    ///
+    /// # Errors
+    ///
+    /// As [`EventLoop::queue_dispatch`].
+    pub fn queue_press(
+        &mut self,
+        cell: Ref,
+        node: NodeId,
+        at: alo_paint::Point,
+    ) -> Result<Seq, Unqueued> {
+        if let Some(stopped) = &self.stopped {
+            return Err(Unqueued::Stopped(stopped.clone()));
+        }
+        self.queue_listed(cell, node, &pointed::firing::pointer_down(at), |list| {
+            Work::Pressed { list, at }
+        })
+    }
+
+    /// Queue a person's release of the main button at `at`, over the
+    /// element `node`: one task that dispatches a trusted `pointerup`, a
+    /// `mouseup` when `mouse` says the press let one be fired, and — when
+    /// `click` names where — the `click`, with HTML's activation steps
+    /// around it ([`pointed`]). What the click came to is the task's
+    /// [`Turn::clicked`].
+    ///
+    /// `cell` must be rooted by the caller.
+    ///
+    /// # Errors
+    ///
+    /// As [`EventLoop::queue_dispatch`].
+    pub fn queue_release(
+        &mut self,
+        cell: Ref,
+        node: NodeId,
+        at: alo_paint::Point,
+        mouse: bool,
+        click: Option<NodeId>,
+    ) -> Result<Seq, Unqueued> {
+        if let Some(stopped) = &self.stopped {
+            return Err(Unqueued::Stopped(stopped.clone()));
+        }
+        self.queue_listed(cell, node, &pointed::firing::pointer_up(at), |list| {
+            Work::Released {
+                list,
+                at,
+                mouse,
+                click,
+            }
+        })
+    }
+
     /// Queue the work `work` makes of a rooted list of `node`'s wrapper and
     /// the event `firing` describes.
     fn queue_listed(
@@ -469,6 +532,7 @@ impl EventLoop {
             stopped: None,
             clicked: None,
             typed: None,
+            pressed: None,
         };
         let outcome = self.perform(&task.work, &mut turn);
         Tasks::release(&mut self.engine, task.work);
@@ -511,6 +575,19 @@ impl EventLoop {
             Work::Dispatch { list } => self.dispatch(list, turn),
             Work::Activate { list } => {
                 turn.clicked = Some(self.activate(list, turn)?);
+                Ok(())
+            }
+            Work::Pressed { list, at } => {
+                turn.pressed = Some(self.pressed(list, *at, turn)?);
+                Ok(())
+            }
+            Work::Released {
+                list,
+                at,
+                mouse,
+                click,
+            } => {
+                turn.clicked = self.released(list, *at, *mouse, *click, turn)?;
                 Ok(())
             }
             Work::PutText { list, text } => self.put_text(list, text, turn),

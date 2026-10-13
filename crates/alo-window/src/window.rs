@@ -14,13 +14,20 @@
 //! with a renderer is on the conductor's thread, and what it learnt arrives
 //! here through `winit`'s own proxy, as an event like any other.
 //!
-//! # What it does not do yet
+//! # A person's pointer
 //!
-//! A person's pointer reaches no page: that is item 535, which decides which
-//! frame a point falls in and sends it to that frame's renderer, whose
-//! hit test (item 298) finds the element under it. The window
-//! shows the tab strip across its top and the selected tab below it (item
-//! 528).
+//! Item 535, ADR 0024 § 5. The window keeps where the cursor last was and
+//! decides from its own composition what a press of the **main button** is
+//! over ([`crate::aim`]): over the page, it is sent to the conductor in the
+//! page's CSS pixels as [`Order::Pointer`], and its release is sent too,
+//! wherever the cursor is by then. Over the strip it is item 539's, and
+//! over a line the window is saying something in it is nobody's.
+//!
+//! Not sent yet: the cursor moving with no button down (item 542), the
+//! other buttons (544), a press with a modifier held (545) — ⌘ held over a
+//! link opens a tab in Chrome, which no tab here does — and how many
+//! presses came in quick succession (547). The window shows the tab strip
+//! across its top and the selected tab below it (item 528).
 //!
 //! # The keyboard
 //!
@@ -47,21 +54,25 @@
 //! `super_key`, `control_key`, `shift_key` and `alt_key`, and
 //! `KeyEventExtModifierSupplement::key_without_modifiers` — is a safe
 //! function in `winit` 0.30.13's source, which the commits adding them
-//! checked (ADR 0024 § 1's stop rule).
+//! checked (ADR 0024 § 1's stop rule). The pointer adds no call: it reads
+//! the fields of `WindowEvent::CursorMoved`, `CursorLeft` and `MouseInput`,
+//! and `ModifiersState::is_empty`, a safe `bitflags` function.
 
+use crate::aim::{Aimed, aim, on_page};
 use crate::compose::compose;
 use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
 use crate::notice::Lettering;
-use crate::place::{replication, viewport};
+use crate::place::{Placement, replication, viewport};
 use crate::present::Presenter;
 use crate::showing::Showing;
 use alo_renderer::Visibility;
+use alo_renderer::pointer::{Pointer, Went};
 use std::rc::Rc;
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalSize, PhysicalSize};
-use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::event::{ElementState, KeyEvent, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{self as winit_keys, ModifiersState, NamedKey};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
@@ -96,6 +107,8 @@ pub fn run(start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders) -> Re
         window: None,
         presenter: None,
         modifiers: ModifiersState::empty(),
+        cursor: None,
+        pressing: false,
         failed: None,
     };
     event_loop
@@ -116,6 +129,12 @@ struct App {
     presenter: Option<Presenter<Rc<Window>>>,
     /// The modifier keys held, as the window server last said.
     modifiers: ModifiersState,
+    /// Where the cursor last was in the window, in device pixels, while it
+    /// is over the window.
+    cursor: Option<(f64, f64)>,
+    /// Whether a press of the main button was sent to the page, and so its
+    /// release is owed.
+    pressing: bool,
     /// Why the window had to stop, if it did.
     failed: Option<String>,
 }
@@ -155,6 +174,51 @@ impl App {
         {
             self.failed = Some(why);
         }
+    }
+
+    /// Where things are in the window now, and how much a CSS pixel is
+    /// replicated, if there is a window.
+    fn placed(&self) -> Option<((u32, u32), Placement, u32)> {
+        let (window, replication) = self.measured()?;
+        let scene = self.showing.scene(window, replication);
+        Some((
+            window,
+            Placement::of(window, replication, scene.contents()),
+            replication,
+        ))
+    }
+
+    /// The main button went `state`: a press over the page is sent, and so
+    /// is the release of a press that was.
+    fn main_button(&mut self, state: ElementState) {
+        let Some((window, placed, replication)) = self.placed() else {
+            return;
+        };
+        let pointer = match state {
+            ElementState::Pressed => {
+                let over = self.cursor.map(|at| aim(window, &placed, replication, at));
+                match over {
+                    Some(Aimed::Page(at)) if self.modifiers.is_empty() => Pointer {
+                        went: Went::Down,
+                        at,
+                    },
+                    _ => return,
+                }
+            }
+            ElementState::Released => {
+                if !self.pressing {
+                    return;
+                }
+                let at = self.cursor.unwrap_or_default();
+                Pointer {
+                    went: Went::Up,
+                    at: on_page(&placed, replication, at),
+                }
+            }
+        };
+        self.pressing = pointer.went == Went::Down;
+        // A conductor that has gone is a window closing.
+        let _ = self.orders.send(Order::Pointer(pointer));
     }
 
     /// Stop showing the window and close every tab, and leave the event loop
@@ -241,6 +305,18 @@ impl ApplicationHandler<News> for App {
                 let _ = self.orders.send(Order::Visibility(to));
             }
             WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
+            WindowEvent::CursorMoved {
+                position: PhysicalPosition { x, y },
+                ..
+            } => self.cursor = Some((x, y)),
+            // A release outside the window still reaches it, from where the
+            // cursor was last seen.
+            WindowEvent::CursorLeft { .. } if !self.pressing => self.cursor = None,
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => self.main_button(state),
             // `is_synthetic` is a key already down as the window gained focus:
             // pressed somewhere else, so not a press here.
             WindowEvent::KeyboardInput {

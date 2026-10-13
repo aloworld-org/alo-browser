@@ -52,6 +52,7 @@ use alo_text::{Slant, Weight};
 
 mod fetch;
 mod form;
+mod pointer;
 mod sheet;
 mod strip;
 
@@ -373,6 +374,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
         ToRenderer::Strip(strip) => {
             writer.tag(11);
             writer.strip(strip);
+        }
+        ToRenderer::Pointer(pointer) => {
+            writer.tag(12);
+            writer.pointer(pointer);
         }
     }
     writer.out
@@ -1230,6 +1235,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         9 => ToRenderer::Visibility(reader.visibility()?),
         10 => ToRenderer::Leave,
         11 => ToRenderer::Strip(Box::new(reader.strip()?)),
+        12 => ToRenderer::Pointer(reader.pointer()?),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
