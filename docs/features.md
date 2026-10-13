@@ -742,8 +742,16 @@ The reason this exists rather than a faster fork of somebody else's engine.
   held; a page that cancelled its `pointerdown` hears no `mousemove` until
   the release. An element removed from under the pointer is not told it
   was left, as in Chrome. Moves that arrive faster than a page answers are
-  sent as the last of them. Still to come: `:hover` drawn under the
-  pointer (550), `pointerrawupdate` (551), what a page hears when it
+  sent as the last of them. **`:hover`, drawn under the pointer** (queue
+  item 550): the element the pointer is over and every element above it,
+  `<html>` included, match `:hover` — in style, so the page is drawn again
+  with its hover rules, and in a script's `querySelectorAll(':hover')` —
+  from before the first event of the crossing to it, as in Chrome 154.
+  Outside the page nothing is hovered; a drag hovers what it is over, and
+  `<html>` outside the viewport; an element taken out of the document
+  hovers the parent it left at once. On pages with and without script.
+  Still to come: a `<label>` hovered hovering its control (554),
+  `pointerrawupdate` (551), what a page hears when it
   changes under a pointer that is not moving (552) and when another tab is
   chosen under it (553); a click submitting a form, which says it did not
   (543); the other buttons (544), a click with a modifier held (545) and

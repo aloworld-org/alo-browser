@@ -120,6 +120,7 @@ pub mod document;
 pub mod email;
 pub mod field;
 pub mod footprint;
+pub mod hover;
 pub mod kind;
 pub mod mutation;
 pub mod name;

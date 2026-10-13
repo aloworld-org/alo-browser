@@ -2188,3 +2188,13 @@ events (`alo-bindings`). Cut: **550** (`:hover` drawn), **551**
 **553** (a tab chosen under the pointer). 266 queue items are open (542
 closed, 550–553 added; 549 was the owner's). The next unused queue number
 is 554 and the next unused ADR 0057.
+
+Iteration 325 built queue item 550: `:hover` under a person's pointer. The
+document keeps the element the pointer is over (`alo-dom`'s `hover.rs`),
+which the renderer sets before the crossing to it fires and which moves to
+the parent an element was taken out of, as Chrome 154 was measured to;
+`alo-css` matches `:hover` on it and its ancestors, so the page is drawn
+again at each crossing and a script's `querySelectorAll(':hover')` agrees.
+Cut: **554** (a `<label>` hovered hovers the control it labels). 266 queue
+items are open (550 closed, 554 added). The next unused queue number is 555
+and the next unused ADR 0057.

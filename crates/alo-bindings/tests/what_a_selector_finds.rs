@@ -137,7 +137,8 @@ fn a_document_finds_its_descendants_in_tree_order() {
         // Matching nothing is an empty list, not `null`.
         ("table", ""),
         // The interaction states and a pseudo-element parse and match
-        // nothing, as in style.
+        // nothing, as in style — `:hover` included, with no person's
+        // pointer over the page.
         ("a:hover", ""),
         ("a::before", ""),
         // Asked of a document, `:scope` is `:root`.

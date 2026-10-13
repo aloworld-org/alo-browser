@@ -1,0 +1,161 @@
+# What headless Chrome 154 recorded on hover-under-a-persons-pointer.html,
+# given at 400 x 300 (Emulation.setDeviceMetricsOverride) and driven with
+# Input.dispatchMouseEvent over CDP, on 2026-10-13; the source not read.
+# Each section is one input on a page loaded fresh for its scenario. A line
+# is an event's type, its target and the ids document.querySelectorAll(':hover')
+# answered in its listener ('-' for none); 'now' is the same asked by a script
+# of its own after the input, and 'just' by the script that changed the tree,
+# straight after the change. pointerrawupdate is not listened for (551). What
+# Chrome then fired on a timer after a removal (552) is left out.
+### before anything
+now -
+### first move into b
+pointerover b html,body,a,b
+mouseover b html,body,a,b
+pointermove b html,body,a,b
+mousemove b html,body,a,b
+now html,body,a,b
+### b -> c
+pointerout b html,body,a,c
+pointerover c html,body,a,c
+mouseout b html,body,a,c
+mouseover c html,body,a,c
+pointermove c html,body,a,c
+mousemove c html,body,a,c
+now html,body,a,c
+### c -> d
+pointerout c html,body,a,c,d
+pointerover d html,body,a,c,d
+mouseout c html,body,a,c,d
+mouseover d html,body,a,c,d
+pointermove d html,body,a,c,d
+mousemove d html,body,a,c,d
+now html,body,a,c,d
+### d -> o
+pointerout d html,body,o
+pointerover o html,body,o
+mouseout d html,body,o
+mouseover o html,body,o
+pointermove o html,body,o
+mousemove o html,body,o
+now html,body,o
+### o -> root
+pointerout o html
+pointerover html html
+mouseout o html
+mouseover html html
+pointermove html html
+mousemove html html
+now html
+### root -> outside
+pointerout html -
+mouseout html -
+now -
+### outside -> b
+pointerover b html,body,a,b
+mouseover b html,body,a,b
+pointermove b html,body,a,b
+mousemove b html,body,a,b
+now html,body,a,b
+### press at b, nothing said before
+pointerover b html,body,a,b
+mouseover b html,body,a,b
+pointerdown b html,body,a,b
+mousedown b html,body,a,b
+now html,body,a,b
+### release at c
+pointerout b html,body,a,c
+pointerover c html,body,a,c
+mouseout b html,body,a,c
+mouseover c html,body,a,c
+pointerup c html,body,a,c
+mouseup c html,body,a,c
+click a html,body,a,c
+now html,body,a,c
+### move b
+pointerover b html,body,a,b
+mouseover b html,body,a,b
+pointermove b html,body,a,b
+mousemove b html,body,a,b
+now html,body,a,b
+### press b
+pointerdown b html,body,a,b
+mousedown b html,body,a,b
+now html,body,a,b
+### drag to c
+pointerout b html,body,a,c
+pointerover c html,body,a,c
+mouseout b html,body,a,c
+mouseover c html,body,a,c
+pointermove c html,body,a,c
+mousemove c html,body,a,c
+now html,body,a,c
+### drag outside
+pointerout c html
+pointerover html html
+mouseout c html
+mouseover html html
+pointermove html html
+mousemove html html
+now html
+### release outside
+pointerup html html
+mouseup html html
+click html html
+now html
+### back to b
+pointerout html html,body,a,b
+pointerover b html,body,a,b
+mouseout html html,body,a,b
+mouseover b html,body,a,b
+pointermove b html,body,a,b
+mousemove b html,body,a,b
+now html,body,a,b
+### into d
+pointerover d html,body,a,c,d
+mouseover d html,body,a,c,d
+pointermove d html,body,a,c,d
+mousemove d html,body,a,c,d
+now html,body,a,c,d
+### d removed
+just html,body,a,c
+### into d
+pointerover d html,body,a,c,d
+mouseover d html,body,a,c,d
+pointermove d html,body,a,c,d
+mousemove d html,body,a,c,d
+now html,body,a,c,d
+### a removed
+just html,body
+### into d
+pointerover d html,body,a,c,d
+mouseover d html,body,a,c,d
+pointermove d html,body,a,c,d
+mousemove d html,body,a,c,d
+now html,body,a,c,d
+### c moved into o
+just html,body,a
+### into d
+pointerover d html,body,a,c,d
+mouseover d html,body,a,c,d
+pointermove d html,body,a,c,d
+mousemove d html,body,a,c,d
+now html,body,a,c,d
+### d removed and put back
+just html,body,a,c
+### into o
+pointerover o html,body,o
+mouseover o html,body,o
+pointermove o html,body,o
+mousemove o html,body,o
+now html,body,o
+### o moved away by its style
+just html,body,o
+### the next move
+pointerout o html
+pointerover html html
+mouseout o html
+mouseover html html
+pointermove html html
+mousemove html html
+now html

@@ -424,12 +424,13 @@ fn a_viewport_unit_in_an_ordinary_property_is_of_the_window() {
 }
 
 #[test]
-fn a_hover_rule_is_kept_and_never_applies() {
-    // The correct answer rather than a missing one: nothing is hovered on a
-    // page being rendered to a still picture. What matters is that the rule
-    // *parses* — a selector this engine could not read would drop the whole
-    // rule, and a sheet that lost rules would render a different screen.
-    let document = parse_document("<html><body><a id=l href='/x'>Link</a></body></html>");
+fn a_hover_rule_is_kept_and_applies_only_under_a_pointer() {
+    // Nothing is hovered on a page being rendered to a still picture. What
+    // matters there is that the rule *parses* — a selector this engine could
+    // not read would drop the whole rule, and a sheet that lost rules would
+    // render a different screen. Under a person's pointer it applies (queue
+    // item 550); `:focus-visible` still never does.
+    let mut document = parse_document("<html><body><a id=l href='/x'>Link</a></body></html>");
     let sheet = parse_stylesheet(
         "#l { color: #111111 }
          #l:hover { color: #ff0000 }
@@ -447,6 +448,19 @@ fn a_hover_rule_is_kept_and_never_applies() {
     let link = style(&document, &tree, "l");
     assert_eq!(link.get("color"), Some("#111111"), "the resting colour");
     assert_eq!(link.get("outline"), None, "and nothing from the focus rule");
+
+    let hovered = document
+        .descendants(document.root())
+        .find(|id| document.element(*id).and_then(|e| e.attr("id")) == Some("l"));
+    assert!(document.hover(hovered));
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+    let link = style(&document, &tree, "l");
+    assert_eq!(link.get("color"), Some("#ff0000"), "under the pointer");
+    assert_eq!(
+        link.get("outline"),
+        None,
+        "and still nothing from the focus rule"
+    );
 }
 
 #[test]

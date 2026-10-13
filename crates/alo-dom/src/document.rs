@@ -71,6 +71,9 @@ pub struct Document {
     /// Whether the parser is still building this document, a step at a time
     /// ([`crate::parse::Parsing`]).
     being_parsed: bool,
+    /// The element a person's pointer is over ([`crate::hover`]): always an
+    /// element in this tree, or nothing.
+    pub(crate) hovered: Option<NodeId>,
 }
 
 impl Document {
@@ -84,6 +87,7 @@ impl Document {
             quirks_signal: QuirksSignal::NoQuirks,
             issues: Vec::new(),
             being_parsed: false,
+            hovered: None,
         }
     }
 
@@ -135,6 +139,10 @@ impl Document {
     /// see. The parser's building does not count either: a document starts at
     /// zero whatever its markup was. A renderer compares this number to the one
     /// it rendered at to know whether what it holds is stale (ADR 0017 § 6).
+    ///
+    /// A person's pointer coming over another element counts too
+    /// ([`Document::hover`]): it changes no node, but it changes what
+    /// `:hover` matches, and so what is drawn.
     pub fn change_count(&self) -> u64 {
         self.changes
     }
@@ -401,6 +409,10 @@ impl Document {
     /// Take a node out of the tree, leaving its neighbours consistent. The node
     /// keeps its id and its own children.
     pub(crate) fn detach(&mut self, id: NodeId) {
+        if self.get(id).is_none() {
+            return;
+        }
+        self.hover_leaving(id);
         let Some(node) = self.get(id) else {
             return;
         };

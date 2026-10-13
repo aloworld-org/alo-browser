@@ -1,0 +1,9 @@
+<!doctype html><html id=html><head><style>body{margin:0}#a{position:absolute;left:0;top:0;width:200px;height:200px;display:flex;align-items:flex-start}#b,#c{flex:none;margin:20px 0 0 20px;width:60px;height:60px}#o{position:absolute;left:300px;top:0;width:50px;height:50px}</style></head><body id=body><div id=a><div id=b></div><div id=c><span id=d style="font-size:20px">x</span></div></div><div id=o></div><p id=out hidden></p><script>
+const out = document.getElementById('out');
+function say(what) { out.textContent = out.textContent + '|' + what; }
+function who(t) { return t === null ? 'null' : t === document ? 'document' : t.getAttribute('id'); }
+function hovered() { const h = document.querySelectorAll(':hover'); let s = ''; for (let i = 0; i < h.length; i++) { s = s + (i ? ',' : '') + who(h[i]); } return s === '' ? '-' : s; }
+const kinds = ['pointerover', 'pointerout', 'pointermove', 'mouseover', 'mouseout', 'mousemove', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+function heard(e) { say(e.type + ' ' + who(e.target) + ' ' + hovered()); }
+for (let k = 0; k < kinds.length; k++) { document.addEventListener(kinds[k], heard); }
+</script></body></html>

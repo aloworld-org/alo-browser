@@ -65,8 +65,10 @@ pub struct Unadopted {
     /// Why the heap refused it.
     pub refused: Refused,
     /// The document, as it was given — [`None`] only if the heap lost it,
-    /// which [`Objects::foreign_or_back`] says it does not.
-    pub document: Option<Document>,
+    /// which [`Objects::foreign_or_back`] says it does not. Boxed, so that a
+    /// refusal is not a whole document wide on every path that could return
+    /// one.
+    pub document: Option<Box<Document>>,
 }
 
 impl fmt::Display for Unadopted {
@@ -96,7 +98,7 @@ pub fn adopt(objects: &mut Objects, document: Document) -> Result<Ref, Unadopted
         .foreign_or_back(DocumentCell::new(document))
         .map_err(|(refused, cell)| Unadopted {
             refused,
-            document: cell.map(|cell| cell.document),
+            document: cell.map(|cell| Box::new(cell.document)),
         })
 }
 

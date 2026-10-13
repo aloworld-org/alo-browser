@@ -136,16 +136,17 @@ impl PseudoClass {
         )
     }
 
-    /// Whether this pseudo-class can never be true of a document stage 1 is
-    /// asked to render.
+    /// Whether this pseudo-class can never be true of a document this engine
+    /// is asked to render.
     ///
     /// Two reasons, one answer. `:visited` is refused permanently: whether a
     /// link has been followed is history, and a style that depends on it is
-    /// readable back off the page. The interaction states are refused for now:
-    /// nobody is hovering a document being rendered to a file, and they become
-    /// answerable when there is input to answer them with.
+    /// readable back off the page. The interaction states are refused until
+    /// there is input to answer them with — except `:hover`, which a person's
+    /// pointer answers (queue item 550): the document keeps the element it is
+    /// over ([`alo_dom::Document::hovered`]).
     pub fn never_matches_in_stage_one(self) -> bool {
-        self == PseudoClass::Visited || self.is_interaction_state()
+        self == PseudoClass::Visited || (self.is_interaction_state() && self != PseudoClass::Hover)
     }
 }
 
@@ -751,7 +752,10 @@ mod tests {
     #[test]
     fn what_can_never_match_is_the_interaction_states_and_visited() {
         assert!(PseudoClass::Visited.never_matches_in_stage_one());
-        assert!(PseudoClass::Hover.never_matches_in_stage_one());
+        assert!(
+            !PseudoClass::Hover.never_matches_in_stage_one(),
+            "a person's pointer answers it"
+        );
         assert!(PseudoClass::Target.never_matches_in_stage_one());
         assert!(!PseudoClass::Disabled.never_matches_in_stage_one());
         assert!(!PseudoClass::AnyLink.never_matches_in_stage_one());

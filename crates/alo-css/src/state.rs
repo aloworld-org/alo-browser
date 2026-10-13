@@ -11,11 +11,11 @@
 //! `readonly` attribute means nothing on a checkbox. So these are written out
 //! rather than guessed at.
 //!
-//! **Everything here is determinable from a static tree.** Stage 1 has no
-//! scripting and no input, so there is no state anywhere except what the
-//! markup says. The pseudo-classes that describe a person acting right now —
-//! `:hover`, `:focus`, `:active` — are not here, because there is nothing
-//! true to say about them yet; [`crate::selector::PseudoClass`] names them as
+//! **Everything here is determinable from the tree's markup.** The
+//! pseudo-classes that describe a person acting right now are not here:
+//! `:hover` is the document's own fact ([`alo_dom::Document::is_hovered`]),
+//! which [`crate::matching`] asks directly, and `:focus` and `:active` have
+//! nothing true to say yet, so [`crate::selector::PseudoClass`] names them as
 //! interaction states and [`crate::matching`] refuses them.
 
 use alo_dom::{Document, Element, NodeId};

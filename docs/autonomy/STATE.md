@@ -32394,3 +32394,109 @@ clause adds the pointer moving, and Owed now names 531, 532, 550–553, 543,
 266 queue items are open (542 closed, 550–553 added). The next unused
 queue number is **554** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 325 — queue item 550 built: `:hover` under a person's pointer
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 324's entry; ADR 0024 (§ 5, a person's pointer), ADR 0017 (§ 6,
+the change count a renderer draws by) and ADR 0018 (§ 3); queue items 542
+and 550; the feature line *A window, tabs, and a tab strip*. No
+`AGENTS.md` exists here.
+
+**Why 550.** It is the first open item after 542 in the file, it depends
+only on 542 (closed in iteration 324), and it waits on no page, person or
+design. The open items earlier in the file wait for a page, a person, a
+design or an unfinished dependency, as 318–324 recorded.
+
+**Measured**, in headless Chrome 154 over CDP (`Input.dispatchMouseEvent`,
+Node 26), the source not read: a listener at the document for every
+pointer and mouse event wrote the event, its target and
+`querySelectorAll(':hover')`, and a script asked the same after each
+input, on a probe page at 400 × 300.
+- The element entered is hovered before the crossing's first event: a
+  `pointerout` at the element left already reads the new chain.
+- The chain is the element and its ancestors, `<html>` included: `<html>`
+  alone over the background, nothing outside the viewport with no button,
+  `<html>` there during a drag. A drag hovers what it is over.
+- An element taken out of the document, or any element holding it, or
+  moved elsewhere, hovers the parent it was taken from, on the removing
+  script's next line. Putting it back does not hover it again. A box moved
+  away by its style stays hovered until the next move.
+- A hovered `<label for=f>` hovers `<input id=f>` too: cut to **554**,
+  because which control a label labels exists only inside `alo-agent`.
+- Drawn: a page with `a:hover`, `b:hover` (making `b` 20 px taller) and
+  `a:hover #c`, screenshotted by `Page.captureScreenshot` at rest, over
+  `b`, over `c` and beside `a`.
+
+**Built.**
+- `alo-dom`'s `hover.rs`: the document keeps the hovered element.
+  `Document::hover` refuses anything not an element in its tree, and counts
+  a change only when the element differs. `is_hovered` answers for the
+  element and its ancestors. `hover_leaving`, called from `detach`, moves
+  the hover to the parent of a node taken out. The change count's
+  documentation says a hover counts.
+- `alo-css` matches `:hover` from the document, so style and
+  `querySelectorAll` agree. `never_matches_in_stage_one` no longer covers
+  `:hover`; the other interaction states still match nothing.
+- `alo-renderer`'s `Pointed::remember` hovers the node it remembers,
+  before the crossing's task is queued. The change count moving draws the
+  page again at the next `fresh`.
+- `alo-bindings`' `Unadopted::document` is boxed. The extra field made
+  `Document` large enough for clippy's `result_large_err`; boxing the
+  rarely taken refusal path is the fix, not an allowance.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, with no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: the probe page's `a`, `b`, `c` and `o` at Chrome's
+  boxes to 1/64 px in every scenario; on the drawn page `a` at (10, 10)
+  120 × 100, `b` 40 × 30 at rest and 40 × 50 hovered, `c` at (70, 20) — each
+  Chrome's `getBoundingClientRect()`.
+- Reference renders: `hover-drawn-at-rest.png`, `hover-drawn-under-b.png`
+  and `hover-drawn-under-c.png`. Compared with PIL against Chrome's
+  screenshots of the same states, 0 pixels differed in each of four
+  (beside `a` is the rest picture).
+- On screen: `alo --frozen-fonts` with the drawn page. The cursor was moved
+  with `cliclick` over `b`, over `c`, beside `a`, back over `b` and onto the
+  strip, and the window was captured with `screencapture -l` each time.
+  Each state was drawn as its reference: over `b`, a blue container, a
+  red, taller `b` and a green `c`; at rest beside `a` and over the strip.
+  ⌘W closed the window, and no `alo` was left.
+- Mutations, each restored from a copy (`cmp` confirmed), each fail the
+  new tests: no hover from the pointer; the hover set after the crossing's
+  task; a removal leaving the hover alone; `:hover` on the element only;
+  a hover not counted as a change. `alo-render` was rebuilt after.
+- Hostile input: `hover` refuses a text node, the document node, an id
+  that names nothing and a node out of the tree, changing nothing. No new
+  bytes are read from outside.
+- One file, one responsibility: the hovered element's rule is
+  `alo-dom/src/hover.rs`; the two tests are split by question (what
+  matches, what is drawn).
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 550 is ticked with its cut and *Done* paragraph. Added: 554 (a
+hovered `<label>` hovers its control).
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds `:hover`; Owed swaps 550 for 554.
+
+**Unresolved obligations.**
+- A hovered label does not hover its control (554).
+- After a change under a still pointer, Chrome re-hovers on a timer; this
+  engine waits for the pointer's next message (552). Until then the hover
+  is the parent an element was taken from, as in Chrome.
+- A hover change draws the page again whether or not any rule names
+  `:hover`. No claim about speed is made.
+- An agent has no hover verb, and its snapshot reads whatever the person's
+  pointer has hovered.
+
+266 queue items are open (550 closed, 554 added). The next unused queue
+number is **555** and the next ADR is **0057**. This is one iteration,
+not a finished queue or roadmap.

@@ -13089,7 +13089,7 @@ What stage 2's exit gate actually measures: a person using it.
   at the node entered; a press's crossing with `button` `-1` — each fails
   the page tests.
 
-- [ ] **550. `:hover`, drawn under a person's pointer.** *Cut from 542
+- [x] **550. `:hover`, drawn under a person's pointer.** *Cut from 542
   (iteration 324). Feature: `docs/features.md` stage 2, a window, tabs and
   a tab strip. Depends on 542.* The renderer knows the node under the
   pointer (`pointed.rs`), and `:hover` still matches nothing, so a page's
@@ -13099,6 +13099,69 @@ What stage 2's exit gate actually measures: a person using it.
   press), the page is restyled and painted at each crossing — on a page
   that never ran script too — and a frozen page's hover rule is drawn under
   the pointer with a reference render.
+
+  **Scope cut, not depth (iteration 325).** Chrome 154 also matches
+  `:hover` on the control a hovered `<label>` labels. Which control a label
+  labels is a rule this engine has only inside `alo-agent`'s names, and
+  sharing it is its own change: cut to **554**.
+
+  ***Done (iteration 325).*** `:hover`, as Chrome 154 matches and draws it:
+  - **Measured** in headless Chrome 154 over CDP (`Input.dispatchMouseEvent`,
+    a listener at the document for every pointer and mouse event writing
+    `querySelectorAll(':hover')`), the source not read. The element entered
+    is hovered before the first event of the crossing — `pointerout` at the
+    element left already reads the new chain. The chain is the element and
+    its ancestors, `<html>` included: `<html>` alone over the page's
+    background, nothing outside the viewport with no button held, `<html>`
+    there during a drag. A drag hovers what it is over, not what was
+    pressed. Taking the hovered element, or any element holding it, out of
+    the document — or moving it elsewhere — hovers the parent it was taken
+    from, read on the removing script's next line; putting it back does not
+    hover it again. A box moved away by its style stays hovered until the
+    next move.
+  - **Built.** `alo-dom`'s `hover.rs`: the document keeps the hovered
+    element (`Document::hover`, refusing anything not an element in its
+    tree, a change counted only when it is another element), answers
+    `is_hovered` for it and its ancestors, and moves it to the parent of a
+    node taken out (`hover_leaving`, from `detach`). `alo-css` matches
+    `:hover` from it, so style and `querySelectorAll` agree. The renderer's
+    `Pointed::remember` hovers the node it remembers, before the crossing's
+    task is queued; the change count moving draws the page again. Boxing
+    `alo-bindings`' `Unadopted::document`, which the larger document made a
+    large error.
+
+  *Closed by:* `alo-renderer/tests/hover_under_a_persons_pointer.rs`, six
+  scenarios on the page Chrome was given (committed beside its record,
+  `references/hover-under-a-persons-pointer.{html,chrome.txt}`), every line
+  Chrome's, with and without the collector at every allocation, the boxes
+  in numbers. `hover_drawn_under_a_persons_pointer.rs`: a page whose
+  `a:hover`, `b:hover` (which makes `b` taller) and `a:hover #c` rules are
+  drawn under the pointer — three reference renders
+  (`references/hover-drawn-{at-rest,under-b,under-c}.png`), each the same,
+  pixel for pixel, as Chrome 154's screenshot of the page under the same
+  pointer — on a page that never ran script and on one that did, and at a
+  press where nothing was said before; `b`'s box in numbers at rest and
+  hovered. `hover.rs`' unit tests, `matching.rs`' and `the_design_system.rs`'.
+  On this Mac, `alo --frozen-fonts` with that page, the cursor moved with
+  `cliclick` and the window captured: each state drawn as the references,
+  and at rest over the strip.
+
+  Mutations, each restored from a copy: no hover from the pointer; the
+  hover set after the crossing's task; a removal leaving the hover alone;
+  `:hover` on the element alone and not its ancestors; a hover not counted
+  as a change — each fails the new tests.
+
+- [ ] **554. A `<label>` hovered hovers the control it labels.** *Cut from
+  550 (iteration 325). Feature: `docs/features.md` stage 2, a window, tabs
+  and a tab strip. Depends on 550.* Chrome 154, with the pointer over
+  `<label for=f>`, answered `querySelectorAll(':hover')` with the label's
+  chain *and* `<input id=f>`, in tree order; this engine hovers the label's
+  chain alone. Which control a label labels is decided only inside
+  `alo-agent`'s names today (`label_names_something`). *Closes when:* the
+  labelled-control rule lives in `alo-dom` once, with `alo-agent` asking it,
+  and a frozen page whose label is hovered hovers its control as Chrome's
+  does — `for`, a wrapped control, and a `for` naming no labelable element
+  — with the control's hover rule drawn.
 
 - [ ] **551. `pointerrawupdate`.** *Cut from 542 (iteration 324). Feature:
   `docs/features.md` stage 2, events. Waits for a page.* Chrome 154 fired it

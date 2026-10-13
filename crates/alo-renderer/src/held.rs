@@ -442,7 +442,7 @@ impl Held {
                     // Back where it was. [`None`] is the heap losing it,
                     // which it does not; the page is then empty, and said
                     // to be refused either way.
-                    *parsed = document.unwrap_or_default();
+                    *parsed = document.map(|document| *document).unwrap_or_default();
                     return Err(NoScript::Refused(refused));
                 }
             };

@@ -17,9 +17,12 @@
 //!   produces (ADR 0043 § 1): `::placeholder` and `::marker`. For every
 //!   other, the style sheet was told when it was parsed that it matches
 //!   nothing.
-//! - **An interaction state never matches.** Nobody is hovering a document
-//!   being rendered to a PNG. `:hover` parses so that a style sheet survives;
-//!   it matches when there is input, which is not stage 1.
+//! - **An interaction state matches only what a person is doing.** `:hover`
+//!   matches the element the document says a person's pointer is over, and
+//!   every element above it ([`alo_dom::Document::is_hovered`], queue item
+//!   550) — nothing, on a document rendered to a PNG. The others parse so
+//!   that a style sheet survives, and match nothing until there is input to
+//!   answer them.
 
 use crate::selector::{AloSelectors, PseudoClass, PseudoElement, Selector, SelectorList};
 use crate::state;
@@ -174,6 +177,7 @@ impl SelectorsElement for ElementRef<'_> {
             PseudoClass::Optional => state::is_optional(self.element),
             PseudoClass::ReadWrite => state::is_read_write(self.document, self.id, self.element),
             PseudoClass::ReadOnly => !state::is_read_write(self.document, self.id, self.element),
+            PseudoClass::Hover => self.document.is_hovered(self.id),
             // `:visited` by decision and the interaction states for now — see
             // `PseudoClass::never_matches_in_stage_one`, which is where the
             // two reasons are written down. Listing them here rather than
@@ -181,7 +185,6 @@ impl SelectorsElement for ElementRef<'_> {
             // is how one stops being answered by accident.
             _ if pc.never_matches_in_stage_one() => false,
             PseudoClass::Visited
-            | PseudoClass::Hover
             | PseudoClass::Active
             | PseudoClass::Focus
             | PseudoClass::FocusVisible
@@ -334,7 +337,7 @@ impl<'a> MatchContext<'a> {
     /// *makes* one is the document's question, not the sheet's, and is asked
     /// by whoever calls this. A state pseudo-class after the pseudo-element
     /// (`::placeholder:hover`) matches nothing, as the rented matcher
-    /// decides: nothing is hovered here.
+    /// decides for a pseudo-element matched without state.
     pub fn matches_pseudo(
         &mut self,
         selector: &Selector,
@@ -599,6 +602,47 @@ mod tests {
         ] {
             assert!(matched(LIST, selector).is_empty(), "{selector}");
         }
+    }
+
+    /// Every element `selector` matches, by `id`, with a person's pointer
+    /// over the element whose `id` is `over`.
+    fn matched_under(html: &str, over: &str, selector: &str) -> Vec<String> {
+        let mut document = parse_document(html);
+        let node = document
+            .descendants(document.root())
+            .find(|id| document.element(*id).and_then(|e| e.attr("id")) == Some(over));
+        assert!(document.hover(node), "{over} is an element");
+        let list = selectors(selector);
+        let mut context = MatchContext::new(&document);
+        document
+            .descendants(document.root())
+            .filter(|id| list.iter().any(|s| context.matches(s, *id)))
+            .filter_map(|id| document.element(id)?.attr("id").map(str::to_owned))
+            .collect()
+    }
+
+    #[test]
+    fn hover_matches_the_element_under_the_pointer_and_everything_above_it() {
+        let html = format!("<html id=html><body id=body>{LIST}</body></html>");
+        assert_eq!(
+            matched_under(&html, "link", ":hover"),
+            vec!["html", "body", "list", "three", "link"]
+        );
+        assert_eq!(matched_under(&html, "link", "li:hover"), vec!["three"]);
+        assert_eq!(matched_under(&html, "link", "li:hover > a"), vec!["link"]);
+        assert_eq!(
+            matched_under(&html, "list", ":hover"),
+            vec!["html", "body", "list"]
+        );
+        assert_eq!(
+            matched_under(&html, "list", "li:not(:hover)"),
+            vec!["one", "two", "three"]
+        );
+        assert_eq!(
+            matched_under(&html, "list", "a:focus, a:active"),
+            Vec::<String>::new(),
+            "the other interaction states still match nothing"
+        );
     }
 
     #[test]

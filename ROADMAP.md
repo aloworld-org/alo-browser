@@ -1790,9 +1790,16 @@ items where being right and being unusable are the same outcome.
       a press or release crossing first. Pinned line for line against
       Chrome's own record of the same page, through confined renderers in
       the window, and moved over with a real cursor on this Mac.
+      `:hover` (550, done): the document keeps the element the pointer is
+      over (`alo-dom`'s `hover.rs`), set before the crossing fires and
+      moved to the parent an element was taken out of; style and
+      `querySelectorAll` match it and its ancestors, and the page is drawn
+      again at each crossing. Pinned against Chrome's record of `:hover`
+      in every listener, and three reference renders that are Chrome's
+      screenshots pixel for pixel.
       · Owed: the agent reading the strip, which needs design (531); a
-      title changed after load (532); `:hover` drawn (550),
-      `pointerrawupdate` (551), a page changing under a still pointer
+      title changed after load (532); a hovered `<label>` hovering its
+      control (554), `pointerrawupdate` (551), a page changing under a still pointer
       (552), a tab chosen under the pointer (553); a person's submission
       (543); the other buttons (544), modifiers (545) and click counts
       (547); a click on a tab (539); device pixels (299); a link opening a

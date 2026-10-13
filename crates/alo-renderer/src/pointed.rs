@@ -32,6 +32,15 @@
 //! ([`Crossing::after_removal`]). Chrome fires that on a timer even when
 //! the pointer does not move, which is queue item 552.
 //!
+//! # What is hovered
+//!
+//! The node remembered is the document's hovered element too, set before
+//! the crossing to it is fired, so that `:hover` matches it and its
+//! ancestors from the crossing's first listener on, and the page is drawn
+//! again with it (queue item 550, [`alo_dom::hover`]). Taking it out of the
+//! document hovers the parent it left at once — the document does that —
+//! and the pointer's next look hovers what is under it then.
+//!
 //! # A press, then a release
 //!
 //! A **press** over nothing — outside the viewport — fires nothing and is
@@ -113,13 +122,16 @@ const NOT_SUBMITTED: &str =
 
 impl Pointed {
     /// Remember `node` as the node last under the pointer, in `held`'s
-    /// document, with its ancestors as they are now.
-    fn remember(&mut self, held: &Held, node: Option<NodeId>) {
+    /// document, with its ancestors as they are now — and tell the document,
+    /// so that `:hover` matches it before anything is fired at it, as
+    /// Chrome's does ([`alo_dom::hover`]).
+    fn remember(&mut self, held: &mut Held, node: Option<NodeId>) {
         self.under = node;
         self.above = match (held.document(), node) {
             (Some(document), Some(node)) => crossing::inclusive_ancestors(document, node),
             _ => Vec::new(),
         };
+        held.change(|document| document.hover(node));
     }
 
     /// `buttons`, as UI Events' bits.

@@ -6,14 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Hover styles are drawn.** A page's `:hover` rules now apply to the
+  element under the mouse pointer and everything around it, as in Chrome:
+  a button that changes colour when the pointer is over it does, and goes
+  back when the pointer leaves, on pages with or without script. A script
+  asking which elements are hovered gets the same answer. A label hovered
+  does not yet hover the field it labels.
+
 - **A page hears the pointer move.** Moving the mouse over a page now sends
   it what Chrome sends: `mouseover` and `mouseout` (and their pointer and
   enter and leave twins) as the pointer goes from one element to another,
   each saying which element was on the other side, and `mousemove` where it
   is. A page that lights something up when the pointer is over it now does,
   and a drag that starts on the page is followed off it. Moving onto the tab
-  strip or out of the window tells the page the pointer left. Styling by
-  `:hover` alone is still to come.
+  strip or out of the window tells the page the pointer left.
 
 - **A person's click reaches the page.** Pressing the mouse's main button on
   a page now sends it what Chrome sends: `pointerdown` and `mousedown`, then
