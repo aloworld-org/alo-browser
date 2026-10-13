@@ -32847,3 +32847,136 @@ cause, and an action's own outcome (203).
 266 queue items are open (548 closed). The next unused queue number is
 **558** and the next ADR is **0057**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 329 — queue item 539 closed: a press on the strip chooses a tab
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 328's entry, and 322–324's on why 539 waited; ADR 0024 in full
+(§ 5, a person's pointer and the strip's claim; § 4, the strip as a
+document; § 6, a tab); ADR 0020's shape (a claim, decided by the browser
+process); queue item 539; the feature line *A window, tabs, and a tab
+strip*. No `AGENTS.md` exists here.
+
+**Why 539.** In file order after 548 come 536 (waits for a page), 537 (a
+measurement nothing depends on) and 538 (waits for a page); 539 depends
+only on 535, closed in iteration 323, names its ADR and feature, and its
+closing condition is a test. 542 and 543 were taken before it in 324 and
+327 because they come earlier in the file. The open items earlier in the
+file wait for a page, a person, a design or an unfinished dependency, as
+318–328 recorded.
+
+**Built.**
+- `alo-renderer`'s new `strip_claim.rs`: `Claim::Select { at }`, a tab
+  named by its place in the strip it was sent — the only name the strip's
+  renderer knows a tab by — and `claimed`, which hit-tests the press
+  (`hit.rs`) and walks up to the nearest `role="tab"` in a `tablist`.
+- `alo-renderer`'s new `strip_decide.rs`: `decide` chooses the tab at
+  that place among the tabs the strip showed, only if it is still open,
+  and refuses by name a place not shown (`NotShown`), a tab closed since
+  (`Closed`, never moved along to its neighbour) and a press answered with
+  anything but a claim (`NotAClaim`); `unasked` names a claim in any other
+  answer (`Unasked`).
+- The protocol: `ToRenderer::StripPress(Point)`, `FromRenderer::Claimed(
+  Option<Claim>)` and `Failure::NotTheStrip`, on the wire as tags 13, 10
+  and 4 (`wire.rs`, `wire/strip.rs`). The renderer answers a press only
+  while it holds the strip (`holds_strip`, cleared when it lets go).
+- `Tabs::press_strip(at, shown)` in `tab/strip_of.rs`, not asking a strip
+  renderer that has gone.
+- `alo-window`: `cursor.rs`' `pressed` answers `Pressed::Page` or
+  `Pressed::Strip`, a bare press over the band being the strip's and the
+  page hearing nothing until its release; `window.rs` sends it as
+  `Order::StripPressed`; the new `conductor/strip_pressing.rs` decides it
+  and chooses through `choose`, so the pages are told as 529's keys tell
+  them. The conductor keeps `strip_shown`, the tabs read from the same list
+  at the same instant as the strip it last painted, emptied when a strip
+  did not paint. A claim answering a strip drawing, or from a page's
+  renderer, is said by name (`strip_unexpected`, `unexpected`).
+- Selecting is on the press: a tab is chosen the moment it is pressed. That
+  is this browser's choice and is not claimed to match any other browser,
+  whose own interface was not measured.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first (clippy's
+one finding, a loop that never looped in the new window test, was fixed).
+`scripts/gate.sh` ran in the foreground into a scratchpad log. At 600 s
+the harness moved it to the background, and the next call waited on it
+with a foreground `until` loop. **Result: `exit 0`, "The gate is met. (10
+of 10 steps)"**, with no `FAILED`, `panicked` or `^error` line. Only this
+entry and the commit came after it.
+
+**Gate, manual.**
+- Closing condition: `alo-window/tests/a_press_on_the_strip.rs` makes each
+  press as the event loop does (`Placement`, `aim`, `Cursor::pressed`) and
+  sends it to the real conductor over confined renderers. A press on the
+  first tab chooses it — `Chosen` with the page's last frame, then its
+  paint — and the strip matches the same strip drawn by the engine with it
+  selected; on the second, the same. Presses on the gap, above the tabs,
+  past the last and on the tab already chosen say nothing: the next thing
+  said is a following key's. A press before the strip has painted is
+  nobody's. With two sites' pages, a press tells the tab left `hidden`
+  before the tab chosen `visible`, read from the pages' fetches, as
+  `the_browsers_keys.rs` reads it for ⌃⇧Tab. The refusals are not driven
+  end to end, because a confined renderer drawing an honest strip never
+  makes one; `strip_decide.rs`' tests refuse each by name, including
+  `usize::MAX`, and the conductor's `a_claim_answering_no_press_is_refused_
+  by_name` pins what is said.
+- Layout, in numbers: the points pressed are on the tab boxes
+  `the_tab_strip.rs` already asserts — two tabs at (8, 6) and (212, 6),
+  200 × 30, and three at 8, 164 and 320, 152 wide — and `strip_claim.rs`
+  pins that (8, 6), inside the first tab's 8 px rounded corner, is on no
+  tab, as the hit test finds. Device pixel (200, 40) at scale 2 is the
+  strip's (100, 20), and (424, 71) is the band's last row.
+- Reference renders: none new. Nothing new is drawn; each strip after a
+  press is compared with the engine's own drawing of it.
+- On screen: `alo --frozen-fonts` on a scratchpad page titled *Red page*,
+  ⌘T by `osascript`, then `cliclick` on each tab at the window's bounds
+  from a `CGWindowList` helper, captured with `screencapture -l`. Clicking
+  *Red page* showed it selected over its page; clicking *about:blank* gave
+  a capture byte-identical to the one after ⌘T; clicking the gap between
+  them changed nothing (byte-identical again). ⌘W twice closed it, and no
+  `alo` was left.
+- Mutations, each restored from a copy (`cmp` confirmed) and `alo-render`
+  rebuilt after. Each fails tests: `claimed` always nothing (3 unit, 1
+  boundary); a closed tab chosen (1); a claim choosing nothing (2 window);
+  `strip_shown` never kept (2 window); the cursor sending no strip press
+  (1 unit, 4 window); `holds_strip` kept after a load (1, the test added
+  for it); the wire's place read as zero (3); a page's claim not named (1,
+  the test added for it). `window.rs`' arm is covered by the on-screen
+  check, since no test runs `winit`.
+- Hostile input: the claim is read from a renderer as a stranger's bytes.
+  `a_press_on_the_strip_crosses_the_boundary.rs` refuses every truncation
+  of a press and a claim, a NaN or infinite point, a claim tagged 2 and a
+  byte left over, and reads the largest place a renderer can send and
+  then refuses it in `decide`. A place is never an index without a bound
+  check (`shown.get(at)`).
+- One file, one responsibility: what a press claims is `strip_claim.rs`,
+  what the browser decides of it is `strip_decide.rs`, the conductor's
+  part is `conductor/strip_pressing.rs`, and the wire's is beside the
+  strip's state in `wire/strip.rs`.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue, and the module documentation
+  of `conductor.rs`, `window.rs`, `aim.rs` and `cursor.rs`.
+- No `unsafe`. No verb takes a coordinate: the point is a person's, sent
+  only by the window, and an agent can cause no `StripPress`. `alo-os` and
+  `alo-workplace` were not touched. Nothing was pushed.
+
+**Queue.** 539 is ticked with its *Done* paragraph. Cut: **558** (the
+strip's close and new-tab controls, needs design). Found: **559** (on
+screen, a body's background painted only its own box, not the canvas;
+waits for a page, not measured in Chrome here).
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the press on a tab, and Owed swaps 539 for 558.
+
+**Unresolved obligations.**
+- The strip cannot yet close or open a tab by a press (558).
+- A refusal of a lying strip renderer is tested on the decision and on the
+  words said, not through a lying process, since none exists to drive.
+- An agent still cannot read or choose among the tabs (531, 133).
+- Dragging a tab, and a press with a modifier held on the strip, do
+  nothing.
+- No claim about speed is made.
+
+267 queue items are open (539 closed, 558 and 559 added). The next unused
+queue number is **560** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

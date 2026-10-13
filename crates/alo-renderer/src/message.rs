@@ -32,10 +32,12 @@ use crate::pointer::Pointer;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
 use crate::strip::Strip;
+use crate::strip_claim::Claim;
 use crate::violations::Objection;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_bindings::Visibility;
 use alo_layout::Size;
+use alo_paint::Point;
 use core::fmt;
 
 /// Work for a renderer.
@@ -121,6 +123,15 @@ pub enum ToRenderer {
     /// [`FromRenderer::Delivered`]: the browser process assigns what it
     /// asked for from which message it answered.
     Pointer(Pointer),
+    /// A person's main button went down over the tab strip, here, in its
+    /// CSS pixels (ADR 0024 § 5, queue item 539): sent only to the strip's
+    /// own renderer, only by the browser process, and only for a person.
+    ///
+    /// The renderer finds the tab under it ([`crate::strip_claim`]) and
+    /// answers with [`FromRenderer::Claimed`]; nothing is dispatched, since
+    /// the strip runs no script. A renderer that holds no strip answers
+    /// [`Failure::NotTheStrip`].
+    StripPress(Point),
 }
 
 /// What a renderer answers with.
@@ -299,6 +310,15 @@ pub enum FromRenderer {
     Refused(Refusal),
     /// The request could not be answered at all.
     Failed(Failure),
+    /// What a press on the tab strip means, as its renderer claims it (ADR
+    /// 0024 § 5): the tab pressed, by its place in the strip, or [`None`]
+    /// for a press on no tab.
+    ///
+    /// **A claim, never a call**, and the answer to
+    /// [`ToRenderer::StripPress`] alone: the browser process acts on it only
+    /// as that answer, only about a tab it holds, and refuses it by name in
+    /// answer to anything else ([`crate::strip_decide`]).
+    Claimed(Option<Claim>),
 }
 
 /// Why a request could not be answered.
@@ -330,6 +350,8 @@ pub enum Failure {
         /// What refused, in words.
         why: String,
     },
+    /// A press on the tab strip, sent to a renderer that holds no strip.
+    NotTheStrip,
 }
 
 impl fmt::Display for Failure {
@@ -341,6 +363,7 @@ impl fmt::Display for Failure {
             }
             Failure::Unpaintable { why } => write!(f, "nothing could be painted: {why}"),
             Failure::NoStrip { why } => write!(f, "the tab strip could not be built: {why}"),
+            Failure::NotTheStrip => f.write_str("a press on the tab strip, and no strip is held"),
         }
     }
 }
@@ -382,6 +405,9 @@ impl fmt::Display for ToRenderer {
             ToRenderer::Fetched(fetched) => write!(f, "{fetched}"),
             ToRenderer::Sheet(answer) => write!(f, "{answer}"),
             ToRenderer::Pointer(pointer) => write!(f, "{pointer}"),
+            ToRenderer::StripPress(at) => {
+                write!(f, "a press on the tab strip at ({}, {})", at.x, at.y)
+            }
             ToRenderer::Strip(strip) => write!(
                 f,
                 "hold the tab strip, {} open, at {}×{}",
@@ -454,6 +480,8 @@ mod tests {
             ToRenderer::Sheet(_) => "the answer to a style sheet the page asked for",
             // The browser's own tabs, which only the strip's renderer is sent.
             ToRenderer::Strip(_) => "the tab strip, as data",
+            // Where a person pressed the strip, and nothing about any page.
+            ToRenderer::StripPress(_) => "a person's press on the strip",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -466,6 +494,8 @@ mod tests {
             | FromRenderer::Left { .. }
             | FromRenderer::Refused(_)
             | FromRenderer::Failed(_) => "what became of it, and nothing about any other request",
+            // A place in the strip it was sent, and nothing else.
+            FromRenderer::Claimed(_) => "which tab a press was on",
         };
 
         assert!(!sent(&ToRenderer::Paint).is_empty());

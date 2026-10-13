@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! What a person's cursor sends the selected tab's page (ADR 0024 § 5,
-//! queue items 535 and 542).
+//! What a person's cursor sends the selected tab's page, and the strip
+//! (ADR 0024 § 5, queue items 535, 539 and 542).
 //!
 //! The event loop says what the window server said — the cursor moved, left
 //! the window, the main button went down or up — together with what the
@@ -28,10 +28,28 @@
 //! no tab here does, queue item 545) — sends nothing until its release,
 //! moves included: the page was not pressed, and a move reporting a button
 //! the page never heard go down would be a lie about it.
+//!
+//! # A press on the strip
+//!
+//! A press of the main button over the tab strip with no modifier held is
+//! the strip's (queue item 539): it is sent there, as a point in the strip's
+//! CSS pixels, and is what chooses a tab — on the press, so a tab is chosen
+//! the moment it is pressed. Its moves and its release are sent nowhere: the
+//! strip claims nothing of them, and dragging a tab is a later item. With a
+//! modifier held it is nobody's, as on the page.
 
 use crate::aim::Aimed;
 use alo_paint::Point;
 use alo_renderer::pointer::Pointer;
+
+/// Where a press of the main button is sent.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Pressed {
+    /// To the selected tab's page, as its pointer going down.
+    Page(Pointer),
+    /// To the tab strip, at this point in its CSS pixels.
+    Strip(Point),
+}
 
 /// What the window remembers of the cursor, for the page.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -75,13 +93,20 @@ impl Cursor {
     }
 
     /// The main button went down over `aimed`, with `bare` saying no
-    /// modifier is held: the press the page is sent, if it is the page's.
-    pub fn pressed(&mut self, aimed: Aimed, bare: bool) -> Option<Pointer> {
+    /// modifier is held: the press the page or the strip is sent, if it is
+    /// either's.
+    pub fn pressed(&mut self, aimed: Aimed, bare: bool) -> Option<Pressed> {
         match aimed {
             Aimed::Page(at) if bare && !self.pressing => {
                 self.pressing = true;
                 self.over = true;
-                Some(Pointer::down(at.x, at.y))
+                Some(Pressed::Page(Pointer::down(at.x, at.y)))
+            }
+            Aimed::Strip(at) if bare && !self.pressing => {
+                // The page hears nothing until it is let go, as for any
+                // press that was not the page's.
+                self.elsewhere = true;
+                Some(Pressed::Strip(at))
             }
             _ => {
                 self.elsewhere = !self.pressing;
@@ -130,6 +155,14 @@ mod tests {
         sent.map(|pointer| (pointer.went, pointer.at.x, pointer.at.y))
     }
 
+    /// A press, as what the page was sent of it.
+    fn down(sent: Option<Pressed>) -> Option<(Went, f32, f32)> {
+        match sent {
+            Some(Pressed::Page(pointer)) => went(Some(pointer)),
+            Some(Pressed::Strip(_)) | None => None,
+        }
+    }
+
     #[test]
     fn a_move_over_the_page_is_sent_and_leaving_it_is_said_once() {
         let mut cursor = Cursor::default();
@@ -164,7 +197,7 @@ mod tests {
     fn a_press_on_the_page_is_followed_by_every_move_and_its_release() {
         let mut cursor = Cursor::default();
         assert_eq!(
-            went(cursor.pressed(page(10.0, 10.0), true)),
+            down(cursor.pressed(page(10.0, 10.0), true)),
             Some((Went::Down, 10.0, 10.0))
         );
         assert!(cursor.is_pressing());
@@ -195,7 +228,7 @@ mod tests {
             Some((Went::Moved, 1.0, 1.0))
         );
         assert_eq!(
-            went(cursor.pressed(page(1.0, 1.0), false)),
+            cursor.pressed(page(1.0, 1.0), false),
             None,
             "a modifier was held"
         );
@@ -209,11 +242,52 @@ mod tests {
             Some((Went::Moved, 3.0, 1.0))
         );
         assert_eq!(
-            went(cursor.pressed(Aimed::Strip(Point::new(3.0, 3.0)), true)),
+            cursor.pressed(Aimed::Strip(Point::new(3.0, 3.0)), false),
             None,
-            "the strip's"
+            "the strip's, with a modifier held"
         );
         assert_eq!(went(cursor.moved(Aimed::Nothing, Point::default())), None);
         assert_eq!(went(cursor.released(Point::default())), None);
+    }
+
+    #[test]
+    fn a_press_on_the_strip_is_the_strips_and_the_page_hears_nothing_of_it() {
+        let mut cursor = Cursor::default();
+        assert_eq!(
+            went(cursor.moved(page(1.0, 1.0), Point::new(1.0, 1.0))),
+            Some((Went::Moved, 1.0, 1.0))
+        );
+        let off = Point::new(40.0, -16.0);
+        assert_eq!(
+            went(cursor.moved(Aimed::Strip(Point::new(40.0, 20.0)), off)),
+            Some((Went::Left, 40.0, -16.0))
+        );
+        assert_eq!(
+            cursor.pressed(Aimed::Strip(Point::new(40.0, 20.0)), true),
+            Some(Pressed::Strip(Point::new(40.0, 20.0)))
+        );
+        assert!(!cursor.is_pressing(), "the page was not pressed");
+        assert_eq!(
+            went(cursor.moved(page(40.0, 5.0), Point::new(40.0, 5.0))),
+            None,
+            "a drag from the strip onto the page"
+        );
+        assert_eq!(went(cursor.released(Point::new(40.0, 5.0))), None);
+        assert_eq!(
+            went(cursor.moved(page(41.0, 5.0), Point::new(41.0, 5.0))),
+            Some((Went::Moved, 41.0, 5.0)),
+            "and once it is let go, the page hears the pointer again"
+        );
+    }
+
+    #[test]
+    fn a_press_while_the_page_is_pressed_is_nobodys() {
+        let mut cursor = Cursor::default();
+        assert!(cursor.pressed(page(1.0, 1.0), true).is_some());
+        assert_eq!(
+            cursor.pressed(Aimed::Strip(Point::new(3.0, 3.0)), true),
+            None
+        );
+        assert!(cursor.is_pressing(), "the page's press is still held");
     }
 }

@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A tab is chosen by clicking it.** Pressing the mouse on a tab in the
+  strip now chooses that tab, as ⌃Tab would: the page left is told it is
+  hidden before the page chosen is told it can be seen. The strip's own
+  locked-down renderer only says which place in the strip was pressed, and
+  the browser chooses a tab only if it was one the strip showed and is
+  still open; anything else is refused and said in the strip's line.
+
 - **A navigation the browser refuses is written down.** When a page asks
   to go somewhere it may not — a `javascript:` or `data:` link, a form
   that would be sent insecurely from a secure page — the refusal is now a

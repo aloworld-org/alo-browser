@@ -764,14 +764,28 @@ The reason this exists rather than a faster fork of somebody else's engine.
   the hovered chain, or the control leaves the document. Chrome 154 keeps
   such a control hovered after its label's `for` or the control's `id`
   changed, or the label was taken out; this engine does not, because that
-  is a hover stuck on an element nothing is over. Still to come:
+  is a hover stuck on an element nothing is over. **A press on a tab in the
+  strip chooses it** (queue item 539): the press of the main button, with
+  no modifier held, goes to the strip's own renderer, which says which tab
+  it was on — by its place in the strip, the only name it knows a tab by —
+  anywhere on the tab, its title or the words in it, but not in its rounded
+  top corners, the gaps between tabs or the strip beyond them. The browser
+  chooses that tab only if it is one the strip showed when the person
+  pressed and it is still open, and refuses anything else by name in the
+  strip's line: a place it did not show, a tab closed since, or a claim no
+  press asked for. A tab chosen by a press is chosen as a key chooses one,
+  telling the page left before the page chosen; a press on the tab already
+  chosen, or on no tab, does nothing, and the page hears nothing of a press
+  on the strip. Started on a Mac and clicked with the system's own pointer,
+  the window showed the tab clicked. Still to come:
   `pointerrawupdate` (551), what a page hears when it
   changes under a pointer that is not moving (552) and when another tab is
   chosen under it (553); the other buttons (544), a click with a modifier held (545) and
   double clicks (547); and focus moving to what was pressed (258). Still to come besides: an agent reading the open
   tabs from the strip, which first needs deciding what an agent kept to some
   sites may see of it (531); a title a page changes after it has loaded
-  (532); a click on a tab, decided by the browser (539); painting at the
+  (532); a control in the strip to close a tab and one to open a tab
+  (558); painting at the
   screen's density (299); and a new tab opened by a link with
   `target="_blank"` that a person clicked (300)
 - [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default

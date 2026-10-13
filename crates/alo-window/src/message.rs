@@ -19,6 +19,7 @@
 use crate::agent_record::Caller;
 use crate::asking::{Answer, Ask, Refused};
 use alo_layout::Size;
+use alo_paint::Point;
 use alo_renderer::pointer::Pointer;
 use alo_renderer::{Frame, Page, Visibility};
 use alo_url::Url;
@@ -51,6 +52,11 @@ pub enum Order {
     /// composition (ADR 0024 § 5, queue item 535). Only the window sends
     /// one, for a person: nothing an agent sends becomes a point.
     Pointer(Pointer),
+    /// A person's main button went down over the tab strip, at a point in
+    /// its CSS pixels, as the window decided from its own composition (ADR
+    /// 0024 § 5, queue item 539). Only the window sends one, for a person;
+    /// what it chooses is the strip renderer's claim, decided here.
+    StripPressed(Point),
     /// The window was closed: close every tab, and say [`News::Closed`] when
     /// they are.
     CloseEverything,

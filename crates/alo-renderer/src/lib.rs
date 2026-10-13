@@ -103,6 +103,8 @@ mod show;
 pub mod site;
 pub mod snapshot;
 pub mod strip;
+pub mod strip_claim;
+pub mod strip_decide;
 pub mod strip_document;
 mod submit;
 pub mod svg_picture;

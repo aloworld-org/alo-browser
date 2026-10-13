@@ -13377,7 +13377,7 @@ What stage 2's exit gate actually measures: a person using it.
   draws it, with a reference render, and the pointer finds Chrome's
   elements at those points.
 
-- [ ] **539. A click on the strip, decided by the browser.** *Cut from 298
+- [x] **539. A click on the strip, decided by the browser.** *Cut from 298
   (iteration 322; ADR 0024 § 5). Feature: `docs/features.md` stage 2, a
   window, tabs and a tab strip. Depends on 535.* The strip's renderer
   answers a person's click with a claim — select tab N, close tab N, open
@@ -13386,6 +13386,47 @@ What stage 2's exit gate actually measures: a person using it.
   strip tab selects it; a claim about a tab not held, or with no pointer
   event behind it, is refused by name; and choosing by a click tells the
   two pages in the order 529's keys do.
+  *Done (iteration 329):* a press of the main button with no modifier
+  held over the band is sent as `Order::StripPressed` in the strip's CSS
+  pixels (`alo-window`'s `cursor.rs`, `window.rs`); the conductor sends it
+  to the strip's renderer as `ToRenderer::StripPress`, which answers
+  `FromRenderer::Claimed` with the tab's place in the strip or nothing
+  (`alo-renderer`'s `strip_claim.rs`, from the hit test); and the
+  conductor decides it against the tabs the strip showed when it last
+  painted (`strip_decide.rs`, `conductor/strip_pressing.rs`), choosing as
+  `choose` does. A place not shown, a tab closed since, a claim answering
+  a strip drawing or claimed by a page's renderer, and a press answered
+  with something else are refused by name in the strip's line. Selecting
+  is on the press, by this browser's choice; only selecting is claimed,
+  since the strip draws no close or new-tab control (cut to 558). Tested
+  through the real conductor and confined renderers
+  (`a_press_on_the_strip.rs`), across the boundary with hostile bytes
+  (`a_press_on_the_strip_crosses_the_boundary.rs`), by eight mutations,
+  and clicked with `cliclick` in `alo` on this Mac.
+
+- [ ] **558. The strip's controls: close a tab, open a tab.** *Cut from
+  539 (iteration 329; ADR 0024 § 5). Feature: `docs/features.md` stage 2,
+  a window, tabs and a tab strip. Needs design.* ADR 0024 § 5 names three
+  claims — select, close, open — and the strip draws no control for the
+  last two, so only selecting is claimed. A close control on each tab and
+  a new-tab control after the last are a change to `interface/strip.html`,
+  `strip.css` and `strip_document.rs` after alo's design, with reference
+  renders, and two more claims decided as `strip_decide.rs` decides a
+  selection (closing the last tab closing the window, as ⌘W does).
+  *Closes when:* a press on a tab's close control closes that tab and on
+  the new-tab control opens one, through the real conductor, each refused
+  by name when it is not about a tab the strip showed; and the agent reads
+  each control by name.
+
+- [ ] **559. A body's background paints the canvas.** *Found building 539
+  (iteration 329, on screen). Feature: `docs/features.md` stage 1, paint.
+  Waits for a page.* `<body style="margin:0;background:#c0392b">` holding
+  a `<p>` paints red only over the body's own box, from below the `<p>`'s
+  collapsed top margin to its end, and leaves the rest of the window
+  white; CSS Backgrounds 3 § 2.11.2 has the root's background, or the
+  body's when the root has none, paint the whole canvas. Not measured in
+  Chrome here. *Closes when:* a frozen page with a background on its body
+  or root alone is drawn as Chrome draws it, with a reference render.
 
 - [ ] **540. A shape inside an `<svg>` is found as itself.** *Found
   building 298 (iteration 322). Feature: `docs/features.md` stage 2, SVG.

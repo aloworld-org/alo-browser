@@ -1811,13 +1811,20 @@ items where being right and being unusable are the same outcome.
       after a label changes deliberately not copied. A person's click on a
       submit button sends its form (543, done), as an agent's press does and
       decided as the person's, on the frozen booking and pizza forms; the
-      window says it as a form sent.
+      window says it as a form sent. A press on a tab in the strip chooses
+      it (539, done): the window sends it as `Order::StripPressed`, the
+      strip's renderer claims the tab by its place (`strip_claim.rs`,
+      `FromRenderer::Claimed`), and the browser decides it against the tabs
+      the strip showed when it last painted (`strip_decide.rs`), refusing a
+      place not shown, a tab closed since and a claim with no press behind
+      it by name; chosen as a key chooses, shown by the order of the pages'
+      fetches, through confined renderers and clicked on this Mac.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
       (552), a tab chosen under the pointer (553); the other buttons (544), modifiers (545) and click counts
-      (547); a click on a tab (539); device pixels (299); a link opening a
-      tab (300)
+      (547); the strip's close and new-tab controls (558); device pixels
+      (299); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

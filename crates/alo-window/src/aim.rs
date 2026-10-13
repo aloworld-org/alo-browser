@@ -18,7 +18,8 @@
 //! the page even where the last frame does not reach — after the window
 //! grew, before the new frame arrives — because the page is laid out at the
 //! window's size, and the renderer answers for its own viewport. Over the
-//! band it is **the strip's**, which a click on is item 539's.
+//! band it is **the strip's**, and a press there chooses the tab the strip's
+//! renderer claims (item 539).
 
 use crate::place::{PixelRect, Placement};
 use alo_paint::Point;

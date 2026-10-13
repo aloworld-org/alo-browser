@@ -10,9 +10,16 @@
 //! size a finite number. Each title is text and stays text: it is a page's
 //! string, carried whole, and the renderer puts it into its document as a
 //! text node ([`crate::strip_document`]), never through a parser.
+//!
+//! A press on the strip goes the same way, and its claim comes back the
+//! other: whether it was on a tab, and the tab's place as a number. The
+//! place is any number a renderer chose, and is read as one; whether there
+//! is a tab there is the browser process's to decide
+//! ([`crate::strip_decide`]), not the reader's to assume.
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::strip::{Condition, Strip, StripTab};
+use crate::strip_claim::Claim;
 use alo_layout::geometry::Size;
 
 impl Writer {
@@ -32,9 +39,31 @@ impl Writer {
             });
         }
     }
+
+    /// A press's claim: whether it was on a tab, then the tab's place.
+    pub(super) fn claim(&mut self, claim: Option<&Claim>) {
+        match claim {
+            None => self.bool(false),
+            Some(Claim::Select { at }) => {
+                self.bool(true);
+                self.number(*at as u64);
+            }
+        }
+    }
 }
 
 impl Reader<'_> {
+    /// A press's claim: whether it was on a tab, then the tab's place — a
+    /// place no `usize` holds is refused.
+    pub(super) fn claim(&mut self) -> Result<Option<Claim>, Unreadable> {
+        if !self.bool()? {
+            return Ok(None);
+        }
+        let at = usize::try_from(self.number()?)
+            .map_err(|_| unreadable("a tab's place larger than any strip"))?;
+        Ok(Some(Claim::Select { at }))
+    }
+
     /// The strip: its size, then each tab in order.
     pub(super) fn strip(&mut self) -> Result<Strip, Unreadable> {
         let viewport = Size {

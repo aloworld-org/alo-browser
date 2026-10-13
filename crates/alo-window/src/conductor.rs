@@ -96,7 +96,10 @@
 //! # Choosing a tab
 //!
 //! A person's keys open a tab, close the selected one and choose the next or
-//! the previous ([`choosing`], queue item 529); opening a tab chooses it too.
+//! the previous ([`choosing`], queue item 529); opening a tab chooses it too,
+//! and so does a person's press on a tab in the strip, which its renderer
+//! claims by its place and this thread decides against the tabs the strip
+//! showed when it last painted ([`strip_pressing`], item 539).
 //! The window is told the tab chosen replaces the one shown, and the tab is
 //! painted at the window's size.
 //!
@@ -127,6 +130,7 @@
 
 mod choosing;
 pub mod pointing;
+mod strip_pressing;
 
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
@@ -143,6 +147,7 @@ use alo_renderer::fetch_exchange::{Exchange, Exchanged, Record};
 use alo_renderer::fetch_make::Network;
 use alo_renderer::navigate::Decided;
 use alo_renderer::strip::Strip;
+use alo_renderer::strip_decide::unasked;
 use alo_renderer::{FromRenderer, Lost, Page, Tab, TabId, Tabs, ToRenderer, Visibility};
 use std::sync::mpsc::Receiver;
 use std::thread::JoinHandle;
@@ -268,6 +273,10 @@ struct Conducting {
     /// The strip as it was last sent to its renderer, so it is sent again
     /// only when it has changed.
     strip: Option<Strip>,
+    /// The tabs the strip showed when it last painted, in order: what a
+    /// press on it is decided against ([`strip_pressing`]). Empty when it
+    /// has not painted the strip it was last sent.
+    strip_shown: Vec<TabId>,
     /// The window's size in CSS pixels, once it has said one.
     viewport: Option<Size>,
     /// Whether the window can be seen: `visible` until it says otherwise,
@@ -308,6 +317,7 @@ fn conduct(
         fonts,
         loading: None,
         strip: None,
+        strip_shown: Vec::new(),
         viewport: None,
         visibility: Visibility::Visible,
         waiting: None,
@@ -440,6 +450,7 @@ impl Conducting {
             }
             Order::Tabs(order) => self.tab_order(order),
             Order::Pointer(pointer) => self.pointed(pointer),
+            Order::StripPressed(at) => self.strip_pressed(at),
             Order::CloseEverything => {
                 self.close_everything();
                 vec![News::Closed]
@@ -722,6 +733,7 @@ impl Conducting {
         self.waiting = None;
         self.loading = None;
         self.strip = None;
+        self.strip_shown.clear();
     }
 
     /// Whether tab `id` is loading: its load asked for and not yet answered,
@@ -759,14 +771,19 @@ impl Conducting {
         // Kept whatever came of it: a strip that could not be drawn is not
         // asked again until it is a different strip.
         self.strip = Some(strip);
+        // The tabs it shows, read from the same list at the same instant as
+        // the strip was — only if it painted, since a press is on what the
+        // person sees, and a strip that did not paint is not what they see.
+        self.strip_shown.clear();
+        if let Ok(FromRenderer::Painted(_)) = &drawn {
+            self.strip_shown = self.tabs.all().iter().map(Tab::id).collect();
+        }
         match drawn {
             Ok(FromRenderer::Painted(frame)) => vec![News::Strip(frame)],
             Ok(FromRenderer::Failed(failure)) => vec![News::StripSaid(format!(
                 "the tab strip could not be drawn: {failure}"
             ))],
-            Ok(_) => vec![News::StripSaid(
-                "the tab strip's renderer answered something it was not asked".to_owned(),
-            )],
+            Ok(other) => vec![News::StripSaid(strip_unexpected(&other))],
             Err(lost) => vec![News::StripSaid(
                 self.tabs
                     .strip_renderer()
@@ -829,8 +846,21 @@ fn said_of(tabs: &Tabs, id: TabId, lost: &Lost) -> News {
     )
 }
 
-/// An answer that was not the one asked for, in words.
+/// An answer the strip's renderer gave to being drawn that was not the one
+/// asked for, in words: a claim by name, since it answers no press.
+fn strip_unexpected(answer: &FromRenderer) -> String {
+    unasked(answer).map_or_else(
+        || "the tab strip's renderer answered something it was not asked".to_owned(),
+        |refused| refused.to_string(),
+    )
+}
+
+/// An answer that was not the one asked for, in words: a claim on the
+/// strip by name, since a page's renderer has no press to claim about.
 fn unexpected(answer: &FromRenderer) -> String {
+    if let Some(refused) = unasked(answer) {
+        return refused.to_string();
+    }
     match answer {
         FromRenderer::Failed(failure) => format!("this page could not be shown: {failure}"),
         _ => "this page's renderer answered something it was not asked".to_owned(),
@@ -866,6 +896,24 @@ mod tests {
         let kept = latest_size_only(vec![size(1.0), Arrival::NetworkGone, size(2.0), size(3.0)]);
         assert_eq!(widths(&kept), vec![None, Some(3.0)]);
         assert!(matches!(kept.first(), Some(Arrival::NetworkGone)));
+    }
+
+    #[test]
+    fn a_claim_answering_no_press_is_refused_by_name() {
+        use alo_renderer::strip_claim::Claim;
+        let refused = "a renderer claimed a tab with no press behind it, and nothing was chosen";
+        for claim in [Some(Claim::Select { at: 0 }), None] {
+            let claimed = FromRenderer::Claimed(claim);
+            assert_eq!(unexpected(&claimed), refused, "a page's renderer");
+            assert_eq!(strip_unexpected(&claimed), refused, "the strip's");
+        }
+        assert_eq!(
+            strip_unexpected(&FromRenderer::Left {
+                issues: Vec::new(),
+                fetches: Vec::new()
+            }),
+            "the tab strip's renderer answered something it was not asked"
+        );
     }
 
     #[test]

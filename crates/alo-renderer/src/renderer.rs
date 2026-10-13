@@ -136,6 +136,7 @@ use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::show;
 use crate::snapshot::Snapshot;
 use crate::strip::Strip;
+use crate::strip_claim;
 use crate::strip_document;
 use crate::submit;
 use crate::transition::{self, Left};
@@ -176,6 +177,9 @@ pub struct Renderer {
     /// ([`crate::pointed`]): nothing until it sends one, and nothing again
     /// once the page goes.
     pointed: Pointed,
+    /// Whether what it holds is the tab strip ([`ToRenderer::Strip`]), the
+    /// one thing a press on the strip may be answered about.
+    holds_strip: bool,
 }
 
 impl Renderer {
@@ -185,6 +189,7 @@ impl Renderer {
         Self {
             view: Rc::new(PageView::at(Size::default(), Rc::clone(&easel))),
             pointed: Pointed::default(),
+            holds_strip: false,
             easel,
             page: None,
             held: None,
@@ -262,6 +267,7 @@ impl Renderer {
             ToRenderer::Sheet(answer) => self.styled(&answer),
             ToRenderer::Strip(strip) => self.strip(&strip),
             ToRenderer::Pointer(pointer) => self.pointer(pointer),
+            ToRenderer::StripPress(at) => self.strip_press(at),
         }
     }
 
@@ -519,6 +525,7 @@ impl Renderer {
         self.held = None;
         self.page = None;
         self.pointed = Pointed::default();
+        self.holds_strip = false;
         self.easel.borrow_mut().clear();
         left
     }
@@ -742,6 +749,7 @@ impl Renderer {
         self.metas = alo_net::Policies::none();
         self.held = Some(Held::Parsed(document));
         self.page = Some(page);
+        self.holds_strip = true;
         self.draw();
         match self.loaded() {
             FromRenderer::Loaded {
@@ -765,6 +773,23 @@ impl Renderer {
             }
             other => other,
         }
+    }
+
+    /// A person pressed the tab strip at `at` (ADR 0024 § 5, queue item
+    /// 539): which tab it was on, claimed by its place, from the drawing the
+    /// person sees ([`crate::strip_claim`]). Nothing is dispatched — the
+    /// strip runs no script — and a renderer holding a page, or nothing,
+    /// answers that it holds no strip.
+    fn strip_press(&mut self, at: alo_paint::Point) -> FromRenderer {
+        if !self.holds_strip {
+            return FromRenderer::Failed(Failure::NotTheStrip);
+        }
+        self.fresh();
+        let easel = self.easel.borrow();
+        let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        FromRenderer::Claimed(strip_claim::claimed(drawing, document, at))
     }
 
     /// The same page at another size: the document it has, drawn again,

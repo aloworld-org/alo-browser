@@ -38,6 +38,14 @@
 //! no strip is drawn by a fresh process behind the person's back (ADR 0005:
 //! *"a browser that silently restarts a renderer hides a bug that somebody
 //! needs to see"*).
+//!
+//! # A press on the strip
+//!
+//! ADR 0024 § 5, queue item 539. A person's press is sent to the strip's
+//! renderer, which claims the tab it was on by its place; the claim is
+//! decided against the tabs the caller says that strip showed
+//! ([`crate::strip_decide`]), because which strip a person saw is the
+//! caller's to know — it is the one whose frame the window was last sent.
 
 use super::{Lost, Tab, TabId, Tabs};
 use crate::frame::Frame;
@@ -45,7 +53,9 @@ use crate::host::Gone;
 use crate::message::{FromRenderer, ToRenderer};
 use crate::site::Site;
 use crate::strip::{self, Condition, Strip, StripTab};
+use crate::strip_decide::{self, Decided};
 use alo_layout::Size;
+use alo_paint::Point;
 
 /// The tab strip's renderer, as the tabs keep it.
 #[derive(Debug, Clone)]
@@ -219,6 +229,27 @@ impl Tabs {
         }
     }
 
+    /// A person pressed the strip at `at`, in its CSS pixels, when the strip
+    /// last painted showed the tabs `shown`, in order: ask its renderer
+    /// which tab that was, and decide its claim ([`strip_decide::decide`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Lost::Gone`] when its renderer died or stopped answering, now or
+    /// before, as [`Tabs::draw_strip`].
+    pub fn press_strip(&mut self, at: Point, shown: &[TabId]) -> Result<Decided, Lost> {
+        if let Some(gone) = &self.strip.gone {
+            return Err(Lost::Gone(gone.clone()));
+        }
+        let site = self.strip.site.clone();
+        match self.renderers.ask(&site, &ToRenderer::StripPress(at)) {
+            Ok(answer) => Ok(strip_decide::decide(answer, shown, |id| {
+                self.tab(id).is_some()
+            })),
+            Err(gone) => Err(self.strip_lost(gone)),
+        }
+    }
+
     /// The strip's renderer has gone: keep what happened, and say it.
     fn strip_lost(&mut self, gone: Gone) -> Lost {
         self.strip.gone = Some(gone.clone());
@@ -372,6 +403,24 @@ mod tests {
         assert_eq!(drawn, Err(Lost::Gone(gone)));
         assert_eq!(tabs.renderers().started(), started, "nothing was started");
         assert!(tabs.strip_renderer().what_happened().is_some());
+    }
+
+    #[test]
+    fn a_strip_whose_renderer_has_gone_is_not_pressed() {
+        let mut tabs = tabs();
+        let a = tabs.open(url("https://a.example/"));
+        let gone = Gone {
+            site: tabs.strip_renderer().site().to_string(),
+            why: "it exited".to_owned(),
+        };
+        let _ = tabs.strip_lost(gone.clone());
+        let started = tabs.renderers().started();
+        assert_eq!(
+            tabs.press_strip(Point::new(10.0, 10.0), &[a]),
+            Err(Lost::Gone(gone))
+        );
+        assert_eq!(tabs.renderers().started(), started, "nothing was started");
+        assert_eq!(tabs.selected(), None, "and nothing was chosen");
     }
 
     #[test]

@@ -22,8 +22,9 @@
 //! — its moves over the page and its leaving, a press of the **main
 //! button** over the page and the moves and release that follow — each in
 //! the page's CSS pixels as [`Order::Pointer`]. A press over the strip is
-//! item 539's, and over a line the window is saying something in it is
-//! nobody's.
+//! sent as [`Order::StripPressed`], in the strip's CSS pixels, and chooses
+//! the tab its renderer claims (item 539); over a line the window is saying
+//! something in it is nobody's.
 //!
 //! Not sent yet: the other buttons (544), a press with a modifier held
 //! (545) — ⌘ held over a link opens a tab in Chrome, which no tab here does
@@ -62,7 +63,7 @@
 
 use crate::aim::{Aimed, aim, on_page};
 use crate::compose::compose;
-use crate::cursor::Cursor;
+use crate::cursor::{Cursor, Pressed};
 use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
@@ -226,17 +227,26 @@ impl App {
         self.send_pointer(sent);
     }
 
-    /// The main button went `state`: a press over the page is sent, and so
-    /// is the release of a press that was.
+    /// The main button went `state`: a press over the page or the strip is
+    /// sent, and so is the release of a press the page heard.
     fn main_button(&mut self, state: ElementState) {
         let Some((over, on_page)) = self.aimed() else {
             return;
         };
-        let sent = match state {
-            ElementState::Pressed => self.pointer.pressed(over, self.modifiers.is_empty()),
-            ElementState::Released => self.pointer.released(on_page),
-        };
-        self.send_pointer(sent);
+        match state {
+            ElementState::Pressed => match self.pointer.pressed(over, self.modifiers.is_empty()) {
+                Some(Pressed::Page(pointer)) => self.send_pointer(Some(pointer)),
+                // A conductor that has gone is a window closing.
+                Some(Pressed::Strip(at)) => {
+                    let _ = self.orders.send(Order::StripPressed(at));
+                }
+                None => {}
+            },
+            ElementState::Released => {
+                let sent = self.pointer.released(on_page);
+                self.send_pointer(sent);
+            }
+        }
     }
 
     /// Send the conductor what the page is sent of the cursor, if anything.

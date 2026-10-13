@@ -264,6 +264,7 @@ impl Writer {
                 self.tag(3);
                 self.text(why);
             }
+            Failure::NotTheStrip => self.tag(4),
         }
     }
 
@@ -379,6 +380,11 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(12);
             writer.pointer(pointer);
         }
+        ToRenderer::StripPress(at) => {
+            writer.tag(13);
+            writer.float(at.x);
+            writer.float(at.y);
+        }
     }
     writer.out
 }
@@ -473,6 +479,10 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         FromRenderer::Failed(failure) => {
             writer.tag(5);
             writer.failure(failure);
+        }
+        FromRenderer::Claimed(claim) => {
+            writer.tag(10);
+            writer.claim(claim.as_ref());
         }
     }
     writer.out
@@ -1236,6 +1246,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         10 => ToRenderer::Leave,
         11 => ToRenderer::Strip(Box::new(reader.strip()?)),
         12 => ToRenderer::Pointer(reader.pointer()?),
+        13 => ToRenderer::StripPress(alo_paint::Point::new(reader.float()?, reader.float()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1294,6 +1305,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                 3 => Failure::NoStrip {
                     why: reader.text()?,
                 },
+                4 => Failure::NotTheStrip,
                 other => return Err(unreadable(format!("a failure tagged {other}"))),
             };
             FromRenderer::Failed(failure)
@@ -1337,6 +1349,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             let fetches = reader.fetches()?;
             FromRenderer::Left { issues, fetches }
         }
+        10 => FromRenderer::Claimed(reader.claim()?),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

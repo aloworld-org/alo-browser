@@ -2225,3 +2225,15 @@ that can carry it, not only a person's click, and each refusal is a line
 in the session's record written by the network thread in its turn, as a
 refused fetch's is. Nothing was cut. 266 queue items are open (548
 closed). The next unused queue number is 558 and the next unused ADR 0057.
+
+Iteration 329 built queue item 539: a press on a tab in the strip chooses
+it. The window sends a press of the main button over the band as
+`Order::StripPressed`; the strip's renderer claims the tab under it by its
+place (`alo-renderer`'s `strip_claim.rs`), and the conductor decides the
+claim against the tabs the strip showed when it last painted
+(`strip_decide.rs`), refusing by name a place not shown, a tab closed
+since and a claim with no press behind it. A tab chosen so is chosen as a
+key chooses one. Cut: **558** (the strip's close and new-tab controls).
+Found: **559** (a body's background does not paint the canvas). 267 queue
+items are open (539 closed, 558 and 559 added). The next unused queue
+number is 560 and the next unused ADR 0057.
