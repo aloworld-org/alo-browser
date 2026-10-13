@@ -33287,3 +33287,105 @@ and 566.
 273 queue items are open (561 closed; 565 and 566 added). The next unused
 queue number is **567** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 333 — queue item 563 closed: a loaded page is laid out at its scale
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+head and its line *A window, tabs, and a tab strip*; iterations 331 and
+332's entries; ADR 0057 in full; queue items 560–566; the feature lines
+*A window, tabs, and a tab strip*; `alo-renderer`'s `page.rs`, `wire.rs`'
+page reader and writer, `easel.rs`, `screen.rs`, `pipeline.rs`,
+`renderer.rs`' draw, fresh and resize, `view.rs` and `message.rs`;
+`alo-corpus`'s `rendering.rs` and `a_page_at_a_scale_of_two.rs`. No
+`AGENTS.md` exists here.
+
+**Why 563.** It names its ADR (0057 § 3), its feature and its closing
+condition, and its one dependency, 560's layout, is built. In file order
+565 and 566 come first, but each is a measurement nothing depends on, and
+LOOP.md leaves such items alone until something does; 562 depends on 563;
+560 waits on 563, 564 and 502. The items before 560 wait as 318–332
+recorded.
+
+**Built.**
+- `Page::scale` (public, as every field of `Page` is), 1 from `Page::new`
+  and `from_response`; `Page::at_scale` makes anything not a finite factor
+  above zero one.
+- The wire writes the scale after the viewport. Read back, a NaN or an
+  infinity refuses the message (the reader's `float`, as a size's), and a
+  number that is not above zero is `device_scale`d to one.
+- `Easel` keeps the scale from `begin` for the page's life (`clear` puts
+  it back to one) and draws at `Screen::new(viewport).at_scale(scale)`, so
+  a `Paint`, a resize and a script's measurement (ADR 0038 § 4, the same
+  easel) are all at the page's scale.
+- `alo-corpus`'s `Rendering::at_scale` renders a case at a scale, markup
+  through `render_at` and a loaded page told the scale with the page;
+  `Rendering::of` is it at one.
+- `Resize` still carries a size alone and the window still sends `Page`s
+  at one: carrying the scale from the window is 562's, as ADR 0057 § 6 and
+  the queue say.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first. No separate
+workspace test run (the gate's own test step is the evidence).
+`scripts/gate.sh` ran in the foreground into a scratchpad log, was moved
+to the background by the harness at 600 s, and the next call waited on it
+with a foreground `until` loop. **Result: `exit 0`, "The gate is met. (10
+of 10 steps)"**, "tests pass", no `FAILED`, `panicked` or `^error` line.
+Only this entry, `REMAINING.md`'s paragraph and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: `a_page_at_a_scale_of_two.rs` now compares all 73
+  cases with frozen Chrome boxes. The 21 loaded cases had 313 boxes exact
+  at one, and all 313 are exact at two; about 276 of those move between
+  one and two in Chrome's own numbers, across all 21 cases, so the
+  comparison discriminates. Overall 891 of 893, the two being 564's
+  (unchanged). The test asserts 73 cases, 21 loaded, at least 893 and 313
+  boxes compared. `a_page_loaded_at_a_scale.rs`: a `0.31px` box with a
+  `0.31px` padding is 39/64 px wide in a page loaded at two and 38/64 at
+  one; the frame is 200×100 for a 100×50 viewport; a resize to 120×60
+  keeps two (240×120, 39); the next page loaded at one is at one; a page
+  whose script read `scrollWidth` (`100`, read back) is drawn at two and a
+  `Paint` after it draws nothing again. `rendering.rs` unit test: the same
+  box through `Rendering::of` and `at_scale(2)`, markup and loaded.
+- Every committed file at one unchanged: the gate's corpus test ran
+  without `ALO_UPDATE_REFERENCES`, and `git status` shows no case file
+  modified. No reference was written.
+- Reference renders: none new. Paint is 561's and unchanged; this item
+  only tells a renderer the scale, and the frame size at two is asserted.
+- Mutations, each restored from a copy (`cmp` confirmed), each failing a
+  test: the easel drawing at one (3 renderer tests, and the corpus test
+  names `a-script-beside-itself` first); `begin` not taking the scale (3);
+  the wire reading the scale without `device_scale` (1); the wire not
+  writing it (3); `Rendering::at_scale`'s markup path at one (1) and its
+  loaded page told no scale (1). `clear` resetting the scale is not
+  observable (the next `begin` sets it) and has no test of its own.
+- Hostile input: `a_scale_that_is_not_a_scale_is_refused_or_read_as_one`
+  splices 0, −0, −2, `f32::MIN`, NaN and ±∞ into a written `Load`: the
+  first four read as one, the rest refuse the message; 1.5 is kept
+  unrounded. No panic path added; the reader only calls existing `float`.
+- One file, one responsibility: `page.rs` is what a page is sent with,
+  `easel.rs` what it is drawn with, `wire.rs` the bytes; each kept its own.
+- Also updated: ADR 0057 (*Measured since*: item 563), `docs/features.md`,
+  `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md` and
+  the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 563 ticked with a *Done (iteration 333)* paragraph. 560's note
+says 563 is closed and 564 and 502 remain. 562's dependencies (561, 563)
+are both done.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds a renderer told its page's scale (563, done); Owed drops 563.
+
+**Unresolved obligations.**
+- Nothing on screen changes yet: the window tells its renderers one, and
+  `devicePixelRatio` and `resolution` are unanswered (562).
+- 560 is still open on 564 and 502's columns.
+- A plain background (565) and a line under text (566) at a scale are
+  unmeasured.
+- No claim about speed is made.
+
+272 queue items are open (563 closed). The next unused queue number is
+**567** and the next ADR is **0058**. This is one iteration, not a
+finished queue or roadmap.

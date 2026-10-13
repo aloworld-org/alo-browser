@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page that runs script is laid out for a high-density screen too.**
+  A renderer is now told the scale of the screen with the page it loads,
+  and lays the page out and paints it there, including whatever the page's
+  scripts did to it and any measurement they took. Across the 21 reference
+  pages that run script, every box already placed where Chrome 154 places
+  it at normal density is exactly where Chrome puts it at a real scale of
+  two. A scale that is not a number is refused at the process boundary;
+  one that is zero or negative is read as normal density. Nothing at normal
+  density changed. No window uses it yet.
+
 - **A page can be painted for a high-density screen.** A page laid out
   for a screen of two device pixels to the CSS pixel is now drawn at that
   density too, onto a picture twice as wide and twice as tall, with its

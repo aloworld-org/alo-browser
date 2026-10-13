@@ -2272,3 +2272,13 @@ pixels, which this engine never snapped at one either). Found: **566** (a
 line under text at a scale). 273 queue items are open (561 closed; 565 and
 566 added). The next unused queue number is 567 and the next unused ADR
 0058.
+
+Iteration 333 closed queue item 563, a loaded page laid out at its scale.
+`Page` carries the screen's scale, on the wire too (a scale that is not a
+number refuses the message; one not above zero is read as one), and a
+renderer lays its page out and paints it at that scale for the page's life.
+The 21 corpus cases whose page runs script put all 313 boxes exact at one
+exactly where Chrome 154 puts them at a real scale of two, and nothing at
+one moved. 560 stays open on 564 and 502; 562 now has both dependencies
+done. 272 queue items are open (563 closed). The next unused queue number
+is 567 and the next unused ADR 0058.

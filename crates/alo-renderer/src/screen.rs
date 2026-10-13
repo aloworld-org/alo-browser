@@ -12,8 +12,9 @@
 //! where its numbers were rounded differs.
 //!
 //! Paint draws at the scale too, onto a canvas of device pixels (queue item
-//! 561), but a renderer is told no scale until 563 and 562: a page a
-//! renderer loads is laid out and drawn at one.
+//! 561). A renderer is told its page's scale with the page
+//! ([`crate::Page::scale`], queue item 563) and lays it out and draws it
+//! there; the window tells it one until it learns its screen's (562).
 
 use alo_layout::Size;
 

@@ -350,8 +350,12 @@ where Chrome does at one, 578 are exactly where Chrome puts them at two
 case). The other two are `border-widths`' flex items, which shrink only at
 two and take Chrome's spare 1/128 px in another order (564); the same
 shrink at one is a unit off too. The 21 cases whose page runs script are
-measured and not yet laid out at two, because a renderer is told no scale
-(563). No window lays out or paints at two yet (562).
+loaded by a renderer told the scale with the page (item 563): of their 313
+boxes this engine places exactly where Chrome does at one, all 313 are
+exactly where Chrome puts them at two, so 891 of 893 across all 73 cases.
+A scale on the wire that is not a number refuses the message, and one that
+is not a factor above zero is read as one. No window lays out or paints at
+two yet (562): it tells its renderers one.
 
 **A page drawn for a screen's scale** (item 561, ADR 0057 § 4). The display
 list stays in CSS pixels and says the scale it was built for; it is drawn

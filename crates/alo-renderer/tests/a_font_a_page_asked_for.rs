@@ -56,6 +56,7 @@ fn asking_for(family: &str) -> ToRenderer {
             width: 200.0,
             height: 60.0,
         },
+        scale: 1.0,
         visibility: alo_renderer::Visibility::Visible,
         scheme: ColorScheme::Light,
         policies: Vec::new(),

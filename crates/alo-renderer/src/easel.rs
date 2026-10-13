@@ -62,6 +62,10 @@ pub struct Easel {
     sheets: String,
     /// Where the page is, which its linked sheets resolve against.
     url: Url,
+    /// The scale of the screen the page is shown on, which every drawing of
+    /// it is laid out and painted at (ADR 0057 § 3): [`Page::scale`], kept
+    /// for the page's life.
+    scale: f32,
     /// The page's linked style sheets: asked for, and arrived.
     pub(crate) linked: Linked,
     /// Every enforced policy the page holds — its headers' and each
@@ -104,6 +108,7 @@ impl Easel {
             fonts,
             sheets: String::new(),
             url: Url::about_blank(),
+            scale: 1.0,
             linked: Linked::new(),
             under: Policies::none(),
             stated: Policies::none(),
@@ -115,11 +120,12 @@ impl Easel {
     }
 
     /// A new page on it, drawn with `page`'s sheets at its address under its
-    /// headers' policies: nothing drawn, nothing linked, nothing objected
-    /// to. The fonts stay.
+    /// headers' policies, on its screen's scale: nothing drawn, nothing
+    /// linked, nothing objected to. The fonts stay.
     pub(crate) fn begin(&mut self, page: &Page) {
         self.sheets = page.sheets.join("\n");
         self.url = page.url.clone();
+        self.scale = alo_value::device_scale(page.scale);
         self.linked = Linked::new();
         self.under = Page::policies_of(&page.policies);
         self.stated = page.stated();
@@ -133,6 +139,7 @@ impl Easel {
     pub(crate) fn clear(&mut self) {
         self.sheets = String::new();
         self.url = Url::about_blank();
+        self.scale = 1.0;
         self.linked = Linked::new();
         self.under = Policies::none();
         self.stated = Policies::none();
@@ -149,8 +156,9 @@ impl Easel {
         self.restyle = true;
     }
 
-    /// Draw `document` again, whole, at `viewport`, its inline style judged
-    /// by the policies the page holds ([`crate::inline_style`]).
+    /// Draw `document` again, whole, at `viewport` on the page's screen, its
+    /// inline style judged by the policies the page holds
+    /// ([`crate::inline_style`]).
     ///
     /// What the judgment objected to for the first time waits in
     /// [`Objected`] for the next answer that carries objections — this
@@ -163,7 +171,7 @@ impl Easel {
         let drawing = draw(
             document,
             &self.sheets,
-            Screen::new(viewport),
+            Screen::new(viewport).at_scale(self.scale),
             &self.fonts,
             &linked,
             &[],

@@ -1831,6 +1831,11 @@ items where being right and being unusable are the same outcome.
       under it onto a canvas of device pixels, letters outlined at the size
       shown, and `checkbox-beside-text`'s nine controls fall on exactly
       Chrome's device pixels at two (`render-at-2.png` beside `render.png`).
+      A renderer is told its page's scale with the page (563, done), on
+      the wire and refused or made one when it is not a scale, and lays
+      the page out and paints it there: the 21 corpus cases whose page
+      runs script put all 313 boxes exact at one exactly where Chrome puts
+      them at two.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1838,8 +1843,8 @@ items where being right and being unusable are the same outcome.
       (547); the strip's close and new-tab controls (558); device pixels
       (299), decided by ADR 0057 — a page is laid out for its screen's
       scale, every whole-pixel rule rounding in device pixels as Chrome 154
-      was measured to at a real scale of two — and owed as a loaded page
-      laid out at its scale (563), the window at the screen's scale (562),
+      was measured to at a real scale of two — and owed as the window at
+      the screen's scale (562), which tells its renderers one until then,
       a shrunk flex item's share of a pixel (564), the two boxes at two
       that keep 560 open, a plain background on whole device pixels (565)
       and a line under text at a scale (566); a link opening a tab

@@ -12,18 +12,17 @@
 //! read. At two every one of them is a whole number of 1/128 px.
 //!
 //! The 21 cases whose page runs script carry Chrome's boxes too, measured
-//! the same day, and are not laid out at two here: a renderer is told no
-//! scale until queue item 563, which compares them.
+//! the same day, and are loaded by a renderer told the scale with the page
+//! (queue item 563), as a window's renderer is.
 //!
 //! Four probes pin the rules one at a time, each at both scales: a line's
 //! font figures rounded to whole device pixels, the leading's top half
 //! floored to one, a length truncated onto 1/64 of one, and a face's size
 //! cut to hundredths of one. Then the corpus:
 //! `chrome-at-1.txt` and `chrome-at-2.txt` beside 73 cases are Chrome's
-//! boxes for every element at each scale, and in the 52 of markup every box
-//! this engine places
-//! exactly where Chrome does at one, it places exactly where Chrome does at
-//! two.
+//! boxes for every element at each scale, and in all 73 — 52 of markup and
+//! 21 a renderer loads — every box this engine places exactly where Chrome
+//! does at one, it places exactly where Chrome does at two.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -319,29 +318,20 @@ fn chrome_boxes(directory: &Path, scale: u8) -> Option<BTreeMap<String, Units>> 
     Some(found)
 }
 
-/// The case's boxes at one and at two, by path, or [`None`] for a page
-/// whose script a renderer runs: a renderer is told no scale until item 563.
-fn ours(case: &Case) -> Result<Option<[BTreeMap<String, Units>; 2]>, String> {
-    let at_one = Rendering::of(case)?;
-    if matches!(at_one, Rendering::Loaded(..)) {
-        return Ok(None);
+/// The case's boxes at one and at two, by path, and whether a renderer
+/// loaded it (its page runs script) rather than the pipeline drawing it.
+fn ours(case: &Case) -> Result<([BTreeMap<String, Units>; 2], bool), String> {
+    let mut both = [BTreeMap::new(), BTreeMap::new()];
+    let mut loaded = false;
+    for (scale, boxes) in [1.0, 2.0].into_iter().zip(&mut both) {
+        let rendering = Rendering::at_scale(case, scale)?;
+        loaded = matches!(rendering, Rendering::Loaded(..));
+        let (Some(document), Some(drawing)) = (rendering.document(), rendering.drawing()) else {
+            return Err(format!("drew nothing at {scale}"));
+        };
+        *boxes = boxes_by_path(document, &drawing);
     }
-    let (Some(document), Some(drawing)) = (at_one.document(), at_one.drawing()) else {
-        return Err("drew nothing at one".to_owned());
-    };
-    let screen = Screen::new(Size::new(case.size.0, case.size.1)).at_scale(2.0);
-    let at_two = render_at(
-        &case.html,
-        &case.css,
-        screen,
-        &corpus_fonts(),
-        &case.linked,
-        &case.resources,
-    );
-    Ok(Some([
-        boxes_by_path(document, &drawing),
-        boxes_by_path(&at_two.document, &at_two.drawing),
-    ]))
+    Ok((both, loaded))
 }
 
 /// The boxes Chrome places a sixty-fourth from this engine at two, for a
@@ -360,6 +350,7 @@ const NOT_THE_SCALE: [(&str, &str, u16); 2] = [
 #[test]
 fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_two() {
     let mut compared = 0_usize;
+    let mut compared_loaded = 0_usize;
     let mut cases = 0_usize;
     let mut loaded = 0_usize;
     let mut wrong = Vec::new();
@@ -379,11 +370,10 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
             wrong.push(format!("{}: not a case", directory.display()));
             continue;
         };
-        let [ours_one, ours_two] = match ours(&case) {
-            Ok(Some(both)) => both,
-            Ok(None) => {
-                loaded += 1;
-                continue;
+        let ([ours_one, ours_two], by_a_renderer) = match ours(&case) {
+            Ok((both, by_a_renderer)) => {
+                loaded += usize::from(by_a_renderer);
+                (both, by_a_renderer)
             }
             Err(why) => {
                 wrong.push(format!("{}: {why}", case.name));
@@ -404,6 +394,7 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
                 continue;
             }
             compared += 1;
+            compared_loaded += usize::from(by_a_renderer);
             let matches = two.iter().zip(chrome_at_two).all(|(a, b)| same(*a, *b));
             let excuse = NOT_THE_SCALE
                 .iter()
@@ -423,17 +414,19 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-    assert_eq!(
-        cases, 52,
-        "every case of markup Chrome was measured on at two"
-    );
+    assert_eq!(cases, 73, "every case Chrome was measured on at two");
     assert_eq!(
         loaded, 21,
-        "the pages a renderer loads, measured and owed to item 563"
+        "the pages whose script runs, loaded by a renderer told the scale"
     );
     assert!(
-        compared >= 580,
-        "{compared} boxes compared, where 580 were exact at one on 2026-10-13"
+        compared >= 893,
+        "{compared} boxes compared, where 893 were exact at one on 2026-10-13"
+    );
+    assert!(
+        compared_loaded >= 313,
+        "{compared_loaded} boxes of loaded pages compared, where 313 were exact \
+         at one on 2026-10-13"
     );
     assert_eq!(excused.len(), NOT_THE_SCALE.len(), "{excused:?}");
 }

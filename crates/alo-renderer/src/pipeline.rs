@@ -261,9 +261,8 @@ pub fn render_document_with(
 ///
 /// It is laid out for `screen`, at its size and rounded against its scale
 /// (ADR 0057 § 2), and painted at that scale onto a canvas of device
-/// pixels, the size times the scale (§ 4). The easel hands it a screen at
-/// one until queue item 563, so a page a renderer loads is still drawn at
-/// one.
+/// pixels, the size times the scale (§ 4). The easel hands it the screen
+/// its page was loaded for ([`crate::Page::scale`]).
 pub fn draw(
     document: &Document,
     css: &str,

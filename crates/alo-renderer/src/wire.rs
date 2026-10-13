@@ -321,6 +321,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             }
             writer.float(page.viewport.width);
             writer.float(page.viewport.height);
+            writer.float(page.scale);
             writer.tag(match page.scheme {
                 ColorScheme::Light => 0,
                 ColorScheme::Dark => 1,
@@ -1099,6 +1100,10 @@ impl<'a> Reader<'a> {
             width: self.float()?,
             height: self.float()?,
         };
+        // A scale is a stranger's number like any other: one that is not a
+        // number is refused with the message, as a size's would be, and one
+        // that is a number but not a factor above zero is one (ADR 0057 § 3).
+        let scale = alo_value::device_scale(self.float()?);
         let scheme = match self.tag()? {
             0 => ColorScheme::Light,
             1 => ColorScheme::Dark,
@@ -1122,6 +1127,7 @@ impl<'a> Reader<'a> {
             html,
             sheets,
             viewport,
+            scale,
             visibility,
             scheme,
             policies,

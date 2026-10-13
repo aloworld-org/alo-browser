@@ -675,13 +675,17 @@ The reason this exists rather than a faster fork of somebody else's engine.
   saying what happened, in the browser's own words. The page is laid out at
   the window's size in CSS pixels; on a high-density screen each pixel is
   doubled until the renderer lays out and paints for the screen's scale
-  (299, ADR 0057; 562–563), so shapes are right and text is coarse. The
+  (299, ADR 0057; 562), so shapes are right and text is coarse. The
   layout half is built (560): a page laid out for a scale of two rounds
   every whole-pixel rule in device pixels and is where Chrome 154 puts it
   under a real scale of two, in 578 of the 580 corpus boxes compared. So
   is the paint half (561): such a page is drawn onto a canvas of device
   pixels, its letters outlined at the size they are shown, and a checkbox
-  or radio on the device pixels Chrome 154 draws it on at two. Closing the window closes every tab and stops
+  or radio on the device pixels Chrome 154 draws it on at two. A renderer
+  is told the scale with the page it loads (563) and lays the page out and
+  draws it there, script and all: the corpus's 21 pages that run script are
+  where Chrome puts them at two in all 313 boxes compared. The window still
+  tells it one (562). Closing the window closes every tab and stops
   every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
   a frozen alo page in the window is the corpus's picture of it, pixel for
   pixel. The picture reaches the screen: started on a Mac and captured with
@@ -794,8 +798,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (558); painting at the
   screen's density (299), which ADR 0057 decided means laying a page out
   for its screen's scale, every rule that rounds to whole pixels rounding
-  to device pixels, whose layout and paint are built (560, 561) and whose
-  loaded pages and window are 563 and 562, with a plain background on
+  to device pixels, whose layout and paint are built (560, 561), a
+  renderer laying out a page at the scale it is told with it (563), and
+  whose window is 562, with a plain background on
   whole device pixels (565) and a line under text at a scale (566) still
   to measure; and a new tab opened by a link with
   `target="_blank"` that a person clicked (300)

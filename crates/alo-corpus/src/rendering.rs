@@ -14,6 +14,12 @@
 //! render of what a script did is what queue item 250 was closed by
 //! (`cases/a-script-grows-a-list`).
 //!
+//! A case is rendered at a scale of one unless a test says otherwise
+//! ([`Rendering::at_scale`]), markup and loaded page alike: the page is laid
+//! out and drawn for a screen of that many device pixels to the CSS pixel
+//! (ADR 0057), and a loaded one is told its scale with the page, as a
+//! renderer is.
+//!
 //! A loaded page is told it runs on [`crate::SYSTEM`], whatever machine
 //! renders it, so a script that reads `navigator` draws the same reference
 //! everywhere.
@@ -36,7 +42,7 @@ use std::rc::Rc;
 use alo_dom::Document;
 use alo_dom::scripts::{Carried, carried};
 use alo_layout::Size;
-use alo_renderer::{Drawing, FromRenderer, Page, Rendered, Renderer, ToRenderer};
+use alo_renderer::{Drawing, FromRenderer, Page, Rendered, Renderer, Screen, ToRenderer};
 
 use crate::answering::{self, Answered, Asks, Beside};
 use crate::case::Case;
@@ -59,15 +65,26 @@ impl Rendering {
     /// with script that links what a renderer does not ask for, an answer
     /// the corpus cannot give, or a load the renderer refused.
     pub fn of(case: &Case) -> Result<Self, String> {
+        Self::at_scale(case, 1.0)
+    }
+
+    /// Render `case` the way its page would be on a screen of `scale` device
+    /// pixels to the CSS pixel (ADR 0057). Anything that is not a finite
+    /// factor above zero is one.
+    ///
+    /// # Errors
+    ///
+    /// As [`Rendering::of`].
+    pub fn at_scale(case: &Case, scale: f32) -> Result<Self, String> {
         let size = Size::new(case.size.0, case.size.1);
         let runs_script = carried(&alo_dom::parse_document(&case.html))
             .iter()
             .any(|found| matches!(found, Carried::Script(_)));
         if !runs_script {
-            return Ok(Self::Markup(Box::new(alo_renderer::render_with_resources(
+            return Ok(Self::Markup(Box::new(alo_renderer::render_at(
                 &case.html,
                 &case.css,
-                size,
+                Screen::new(size).at_scale(scale),
                 &crate::corpus_fonts(),
                 &case.linked,
                 &case.resources,
@@ -75,7 +92,9 @@ impl Rendering {
         }
         let mut renderer = Renderer::new(crate::corpus_fonts())
             .told_the_time_by(Rc::new(alo_js::Fixed::at(crate::INSTANT)));
-        let mut page = Page::new(case.html.clone(), size).with_sheet(case.css.clone());
+        let mut page = Page::new(case.html.clone(), size)
+            .with_sheet(case.css.clone())
+            .at_scale(scale);
         page.user_agent = crate::SYSTEM.user_agent();
         crate::SYSTEM.platform.clone_into(&mut page.platform);
         if let Some(address) = &case.address {
@@ -179,6 +198,56 @@ mod tests {
                 .count()
         });
         assert_eq!(paragraphs, Some(0), "the script did not run");
+    }
+
+    /// The first `<div>`'s border box's width, and the canvas's, which is in
+    /// device pixels.
+    fn widths(rendering: &Rendering) -> Option<(f32, u32)> {
+        let document = rendering.document()?;
+        let drawing = rendering.drawing()?;
+        let div = document.descendants(document.root()).find(|id| {
+            document
+                .element(*id)
+                .is_some_and(|element| element.name.is_html("div"))
+        })?;
+        let width = drawing.boxes.ids().find_map(|id| {
+            match drawing.boxes.get(id).map(|found| &found.kind) {
+                Some(alo_box::BoxKind::Element { node, .. }) if *node == div => {
+                    drawing.layout.get(id).map(|at| at.border_box.size.width)
+                }
+                _ => None,
+            }
+        })?;
+        Some((width, drawing.canvas.width()))
+    }
+
+    #[test]
+    fn a_case_is_laid_out_and_drawn_at_the_scale_it_is_asked_for() {
+        // `0.31px` is truncated onto 1/64 px at one and 1/128 px at two
+        // (ADR 0057, Evidence 2), so a box of it is 19/64 or 39/128 wide,
+        // loaded or not; the canvas is the case's 40 CSS pixels in device
+        // pixels.
+        for script in ["", "<script>1</script>"] {
+            let sized = case(&format!(
+                "<div style=\"width:0.31px;padding-left:0.31px\"></div>{script}"
+            ));
+            let one = Rendering::of(&sized).ok();
+            let two = Rendering::at_scale(&sized, 2.0).ok();
+            assert_eq!(
+                one.as_ref().and_then(widths).map(|(w, c)| (w * 64.0, c)),
+                Some((38.0, 40)),
+                "at one, script {script:?}"
+            );
+            assert_eq!(
+                two.as_ref().and_then(widths).map(|(w, c)| (w * 64.0, c)),
+                Some((39.0, 80)),
+                "at two, script {script:?}"
+            );
+            assert_eq!(
+                two.as_ref().map(|two| matches!(two, Rendering::Loaded(..))),
+                Some(!script.is_empty())
+            );
+        }
     }
 
     #[test]

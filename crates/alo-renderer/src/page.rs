@@ -36,6 +36,13 @@ pub struct Page {
     pub sheets: Vec<String>,
     /// How big the window is.
     pub viewport: Size,
+    /// The scale of the screen the window is on: device pixels per CSS
+    /// pixel (ADR 0057 § 3), which the page is laid out and drawn at.
+    ///
+    /// The browser process's to know, as the window's size is. Any finite
+    /// factor above zero; anything else is laid out at one, and a scale on
+    /// the wire that is not one is read as one ([`crate::wire`]).
+    pub scale: f32,
     /// Whether the page can be seen as it loads (ADR 0039 § 1): the browser
     /// process's to know, since only it knows which tab is selected and
     /// whether its window is covered. A page loaded into a tab opened behind
@@ -95,6 +102,7 @@ impl Page {
             html: html.into(),
             sheets: Vec::new(),
             viewport,
+            scale: 1.0,
             visibility: Visibility::Visible,
             scheme: ColorScheme::Light,
             policies: Vec::new(),
@@ -185,6 +193,14 @@ impl Page {
         self
     }
 
+    /// The same page, on a screen of `scale` device pixels to the CSS pixel.
+    /// Anything that is not a finite factor above zero is one.
+    #[must_use]
+    pub fn at_scale(mut self, scale: f32) -> Self {
+        self.scale = alo_value::device_scale(scale);
+        self
+    }
+
     /// The same page in the dark.
     #[must_use]
     pub fn in_the_dark(mut self) -> Self {
@@ -206,6 +222,7 @@ impl Page {
             html: response.text().text,
             sheets: Vec::new(),
             viewport,
+            scale: 1.0,
             visibility: Visibility::Visible,
             scheme: ColorScheme::Light,
             policies: response
@@ -293,6 +310,23 @@ mod tests {
             3,
             "the list a violation is named against left one out"
         );
+    }
+
+    #[test]
+    fn a_page_is_at_one_until_the_browser_process_says_otherwise() {
+        let page = Page::new("", Size::new(1.0, 1.0));
+        assert_eq!(page.scale.to_bits(), 1.0_f32.to_bits());
+        assert_eq!(
+            page.clone().at_scale(2.0).scale.to_bits(),
+            2.0_f32.to_bits()
+        );
+        for scale in [0.0, -2.0, f32::NAN, f32::INFINITY] {
+            assert_eq!(
+                page.clone().at_scale(scale).scale.to_bits(),
+                1.0_f32.to_bits(),
+                "{scale}"
+            );
+        }
     }
 
     #[test]

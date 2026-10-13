@@ -13505,7 +13505,9 @@ What stage 2's exit gate actually measures: a person using it.
   that shrink only at 2 (**564**, a unit off at 1 under the same shrink,
   so not a scale rule); and `alo-agenda-mini-month`'s columns, 1/64 px off
   at both scales (502). *Closes when:* 563 and 564 are closed and 502's
-  columns are Chrome's at both scales.
+  columns are Chrome's at both scales. *(Iteration 333: 563 is closed —
+  the 21 loaded cases are exact at two in all 313 boxes exact at one; 564
+  and 502 remain.)*
 
 - [x] **561. Paint at a scale.** *Cut from 299 (ADR 0057 § 4). Feature:
   `docs/features.md` stage 2, a window, tabs and a tab strip. Depends on
@@ -13570,7 +13572,7 @@ What stage 2's exit gate actually measures: a person using it.
 
 - [ ] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
   § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,
-  tabs and a tab strip. Depends on 561 and 563.* `Resize` carries the scale; the
+  tabs and a tab strip. Depends on 561 and 563, both done.* `Resize` carries the scale; the
   page's renderer and the strip's paint at it; the window composes frames
   without replicating; a person's pointer is divided by it; and
   `devicePixelRatio` and the `resolution` media features answer it. A
@@ -13585,7 +13587,7 @@ What stage 2's exit gate actually measures: a person using it.
   reference at 2, and a frozen page reading `devicePixelRatio` and
   matching `(min-resolution: 2dppx)` is drawn as Chrome draws it at 2.
 
-- [ ] **563. A loaded page is laid out at its scale.** *Cut from 560
+- [x] **563. A loaded page is laid out at its scale.** *Cut from 560
   (iteration 331; ADR 0057 § 3). Feature: `docs/features.md` stage 2, a
   window, tabs and a tab strip. Depends on 560's layout (built).* A page a
   renderer loads is laid out at one, because `Page` carries no scale and
@@ -13599,6 +13601,22 @@ What stage 2's exit gate actually measures: a person using it.
   `a_page_at_a_scale_of_two.rs` as the markup cases are, every box exact
   at 1 exact at 2; a scale on the wire is refused or made one when it is
   not a scale; and every committed file at 1 is unchanged.
+  ***Done (iteration 333).*** `Page` carries `scale` (`Page::at_scale`;
+  1 from `Page::new` and `from_response`), written on the wire after the
+  viewport: a scale that is not a number refuses the message as a size's
+  would, and one that is not a factor above zero is read as one
+  (`messages_across_a_boundary.rs`). The easel takes it at `begin`, keeps
+  it for the page's life and lays out at it on every drawing, so a resize
+  and a script's measurement are at the page's scale and the next page is
+  at its own (`a_page_loaded_at_a_scale.rs`: a `0.31px` box with a
+  `0.31px` padding is 39/64 px wide at two and 38/64 at one, the frame
+  twice the viewport). `alo-corpus`'s `Rendering::at_scale` renders a
+  case, markup or loaded, at a scale, and `a_page_at_a_scale_of_two.rs`
+  now compares all 73 cases: the 21 loaded ones put all 313 boxes exact
+  at one exactly where Chrome puts them at two (891 of 893 overall, the
+  two being 564's). Every committed file at one is unchanged. The window
+  still tells its renderers one, and `devicePixelRatio` and `resolution`
+  are unanswered: both are 562's.
 
 - [ ] **564. A shrunk flex item's share of a pixel is Chrome's.** *Found
   building 560 (iteration 331). Feature: `docs/features.md` stage 1,

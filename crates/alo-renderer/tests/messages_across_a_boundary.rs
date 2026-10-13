@@ -102,6 +102,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 height: 600.0,
             },
             // Not what `Page::new` gives, so a reader that assumed it would show.
+            scale: 2.0,
             visibility: Visibility::Hidden,
             scheme: ColorScheme::Dark,
             policies: vec![
@@ -566,6 +567,47 @@ fn a_number_that_is_not_a_number_is_refused() {
             read_to_renderer(&bytes).is_err(),
             "{bad} was accepted as a window size"
         );
+    }
+}
+
+/// A screen's scale crosses with the page it is laid out at (ADR 0057 § 3).
+/// One that is not a number is refused, as a window's size would be; one that
+/// is a number but not a factor above zero is read as one, which is how the
+/// page would have been laid out had nobody said.
+#[test]
+fn a_scale_that_is_not_a_scale_is_refused_or_read_as_one() {
+    let written = write_to_renderer(&ToRenderer::Load(Box::new(
+        Page::new("<p>hi</p>", Size::new(123.25, 456.5)).at_scale(2.0),
+    )));
+    let needle: Vec<u8> = [123.25_f32, 456.5, 2.0]
+        .iter()
+        .flat_map(|number| number.to_be_bytes())
+        .collect();
+    let at = written
+        .windows(needle.len())
+        .position(|window| window == needle)
+        .map(|at| at + 8)
+        .expect("the size and the scale, written together");
+    let read_with = |scale: f32| {
+        let mut bytes = written.clone();
+        bytes.splice(at..at + 4, scale.to_be_bytes());
+        read_to_renderer(&bytes)
+    };
+    let scale_read = |scale: f32| match read_with(scale) {
+        Ok(ToRenderer::Load(page)) => Some(page.scale.to_bits()),
+        _ => None,
+    };
+    assert_eq!(scale_read(2.0), Some(2.0_f32.to_bits()));
+    assert_eq!(scale_read(1.5), Some(1.5_f32.to_bits()), "not rounded");
+    for not_a_factor in [0.0, -0.0, -2.0, f32::MIN] {
+        assert_eq!(
+            scale_read(not_a_factor),
+            Some(1.0_f32.to_bits()),
+            "{not_a_factor} was read as a scale"
+        );
+    }
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        assert!(read_with(bad).is_err(), "{bad} was accepted as a scale");
     }
 }
 

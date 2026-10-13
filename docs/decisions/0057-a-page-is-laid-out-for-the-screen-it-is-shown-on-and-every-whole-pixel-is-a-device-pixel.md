@@ -288,6 +288,14 @@ in the corpus's DejaVu face, without `--disable-gpu`.
   reference moves, and until then that half of the row is not true of
   this engine.
 
+**Item 563, 2026-10-13, against the same Chrome boxes** (frozen beside each
+case by iteration 330; nothing new was measured). A renderer is told the
+scale with the page it loads and lays the page out at it for the page's
+life, a resize and a script's measurement included. The 21 cases whose
+page runs script, loaded so, put every one of the 313 boxes this engine
+places exactly where Chrome does at one exactly where Chrome puts them at
+two; with the markup cases, 891 of 893.
+
 ## How we will know if this was wrong
 
 **If a case laid out at 2 differs from Chrome's real scale-2 numbers** by
