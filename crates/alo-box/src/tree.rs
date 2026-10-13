@@ -223,8 +223,9 @@ impl BoxKind {
     /// beside one in its lines. An `inline-block`, `inline-flex` or
     /// `inline-grid` is inline-level too, but it is one atomic box on the
     /// line, and inside it a block is a block like any other (CSS Display 3
-    /// § 2.4; queue item 286).
-    fn is_inline_box(&self) -> bool {
+    /// § 2.4; queue item 286). A text box is one too: it sits in a line and
+    /// has no formatting context of its own.
+    pub fn is_inline_box(&self) -> bool {
         self.outside() == Outside::Inline && self.inside() == Inside::Flow
     }
 }

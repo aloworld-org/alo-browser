@@ -31972,3 +31972,150 @@ Chrome's spaces and what is still owed (534). It is not a new tick.
 250 queue items are open (530 closed, 534 added). The next unused queue
 number is **535** and the next ADR is **0057**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 322 — queue item 298 built: where a person's pointer falls
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 321's
+entry and the queue. No `AGENTS.md` exists in this repository. For 298:
+its own text; ADR 0024 in full (§ 5: a person's pointer is the one
+coordinate that reaches a renderer, and the renderer hit-tests against its
+own layout); ADR 0018 in full (§ 3's browser driver, § 5's `Activate`);
+ADR 0002 (no verb takes a coordinate); ADR 0022 (an `<svg>`'s insides are
+not boxes); `alo-paint`'s `build.rs`, `display.rs`, `render.rs`,
+`snap.rs` and `corner.rs`; `alo-layout`'s fragments; `alo-box`'s
+`BoxKind`; `alo-renderer`'s `pipeline.rs` and `view.rs` (nothing scrolls
+a viewport); the feature line *A window, tabs, and a tab strip*.
+
+**Why 298.** Iteration 321 left 531 (needs design), 532 and 534 (wait for
+a page) in the neighbourhood. 298's dependencies, 296, 297 and 528, are
+all done, and it is the first of 298–300 in the file; 300 depends on it.
+The open items earlier in the file wait for a page, a person, a design or
+an unfinished dependency, as 318–321 recorded.
+
+**Scope cut, not depth.** 298 is three pieces of work in three processes:
+which element a point is over (the renderer's), a person's click reaching
+it (window, conductor, renderer and the events a click fires, which must
+be measured first), and a click on the strip (claims the browser
+decides). The second is cut to **535**, the third to **539**, each with
+298's own clauses. 298's remaining clause, *hit-testing has layout
+assertions at box edges, inside a transform and under an overflow clip*,
+is met here. 300 now depends on 535.
+
+**Measured**, in headless Chrome 154 over CDP (Node 26), the source not
+read, in scratchpad probe pages kept nowhere: `elementFromPoint` at 779
+points over 44 probe loads (some pages loaded more than once) at 400 × 300
+with the `dejavu` crate's sans, and `Input.dispatchMouseEvent` at 356 of
+those points on four pages, whose `mousedown` targets agreed with
+`elementFromPoint` at all 356, compared point for point.
+- A point is the pixel that starts at it: a box is found where it
+  overlaps the square (x, y)–(x + 1, y + 1) by some area. A box from 10 is
+  found at 9.05, not 9; from 10.25 at 9.3, not 9.25; its far edge is exact
+  (30.74 found, 30.75 not).
+- The last box drawn wins, a body with no background included (it is
+  over a negative `z-index`).
+- Transforms, overflow clips (to the padding box, rounded too) and a
+  box's own rounded corners all hold.
+- An inline box's piece is found on whole pixels, each edge rounded (a
+  span at 26.953 is found from 26.05); a block at the same place from 26.
+- Text is its element in the document (a `display: contents` span);
+  nothing under a point inside the viewport is the root.
+- Chrome differs from what it draws in one place: a positioned
+  `overflow: hidden` box with square corners has its in-flow content found
+  under its border (536).
+
+**Built.**
+- `alo-paint`'s `display.rs`: `DisplayItem::Area`, a box's shape, drawn
+  as nothing and left out of `to_outline`, so no committed `display.txt`
+  changed. `render.rs` skips it.
+- `build.rs`: `occupied` records one area per piece of every box where it
+  paints, its border box with rounded corners, an inline box's pieces
+  first put on whole pixels (`snap::to_whole_pixels`).
+  `BoxKind::is_inline_box` is made public for it.
+- `alo-paint`'s `hit.rs`: `box_at` walks the list forward under its
+  transforms and clips. It cuts the point's pixel by each clip as it opens
+  and by each area (Sutherland–Hodgman against convex shapes; a contour
+  that is not convex is taken as its bounds) and keeps the last area
+  overlapped by more than 10⁻⁵ px². The area is computed from a polygon's
+  first corner, because a sliver's area was lost in `f32` rounding
+  (found by a failing test at 109.99, 59.99).
+- `alo-renderer`'s `hit.rs`: `element_at` gives the element (an element
+  box's own, a text box's element in the document, an anonymous box's
+  nearest element), the root when no box is there, and nothing outside
+  the viewport.
+- `conductor.rs` and `window.rs` docs now say the pointer is 535's.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, and no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: `alo-renderer/tests/where_a_pointer_falls.rs`, 21
+  pages, each expected element Chrome's. Each box the points depend on is
+  asserted against Chrome's `getClientRects()`, within 1/64 px: the edge
+  boxes, a block's border and padding, `f`, the clip's two boxes, the two
+  inline boxes, the inline block, two fields. The one exception is the
+  link in the inline test: it starts 0.023 px before Chrome's, because a
+  space between two inline boxes is narrower here (537). Its test says so
+  and allows 0.03.
+- No reference render: nothing new is drawn. The workspace's existing
+  reference renders and `display.txt`s are unchanged and pass.
+- Hostile input: `hit.rs`'s unit tests cover a list that closes clips,
+  transforms and groups it never opened, an empty clip, a transform to
+  nothing, to NaN and to infinity, a point at NaN and at `f32::MAX`, and a
+  non-convex contour. Each returns an answer, without panicking. The
+  module uses no indexing or casts, and curve flattening is bounded at 64
+  pieces.
+- Mutations, each restored from a copy (`cmp` confirmed):
+  - inline pieces left unsnapped fails the whole-pixel test;
+  - text found through its box parent fails the `display: contents` test;
+  - a point taken as a point (a 0.001 square) fails all 20 page tests
+    then present, as no such square can overlap by the least overlap;
+  - clips ignored fails the clip and rounded-clip tests.
+- One file, one responsibility: what a display list holds (`display.rs`),
+  building it (`build.rs`), which box a point is over (`alo-paint`'s
+  `hit.rs`), and which element that is (`alo-renderer`'s `hit.rs`) are
+  each their own.
+- `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md` and the queue are updated.
+- No `unsafe`. No verb takes a coordinate, and nothing an agent can send
+  reaches `element_at`. `alo-os` and `alo-workplace` were not touched.
+  Nothing was pushed.
+
+**Found.**
+- **536**: Chrome's border quirk above.
+- **537**: a space between two inline boxes is 6.336 wide here and 6.359
+  in Chrome.
+- **538**: the builder numbers a positioned layer after the layers inside
+  it, so an absolute box inside an absolute box is drawn *under* it, and a
+  layer escapes every clip up to its stacking context. So one placed in a
+  positioned `overflow: hidden` box is drawn outside it. The pointer
+  follows the drawing, so Chrome's (75, 75) and (125, 75) differ. This is
+  a paint bug with reference-render consequences, filed rather than fixed
+  here.
+- **540**: an `<svg>`'s shapes are not found one by one (ADR 0022).
+- **541**: Chrome finds a list item only over its marker's bullet (x 20 to
+  27 in the probe), and the `<ul>` over the space after it. This engine
+  finds the item over the whole marker run. The renderer's doc says so.
+
+**Queue.** 298 is ticked with its cut and *Done* paragraph. Added: 535,
+536, 537, 538, 539, 540, 541. 300 depends on 535, and 121 and 122 name
+535 as the pointer they wait for.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds where a pointer falls. Owed: 531, 532, 535, 539, 299 and 300.
+
+**Unresolved obligations.**
+- Nothing sends a page a point yet (535), so no person's click reaches a
+  page.
+- 536, 538, 540 and 541 are places where the pointer differs from
+  Chrome's; each is filed with Chrome's answer.
+- Device pixels (299) will change the frame's coordinates, and the window
+  will have to send CSS pixels.
+- No claim about speed is made. The hit test is linear in the display
+  list.
+
+256 queue items are open (298 closed, 535–541 added). The next unused queue
+number is **542** and the next ADR is **0057**. This is one iteration, not
+a finished queue or roadmap.

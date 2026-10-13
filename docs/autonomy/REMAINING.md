@@ -2143,3 +2143,20 @@ workaround for it is gone. Found: **534** (a `<br>`, and a picture drawn
 as its `alt`, run into their neighbours in a name). 250 queue items are
 open (530 closed, 534 added). The next unused queue number is 535 and the
 next unused ADR 0057.
+
+Iteration 322 built queue item 298 at its first piece: which element a
+person's pointer is over, as Chrome 154 finds it. The display list records
+each box's area where it paints (`DisplayItem::Area`, drawn as nothing);
+`alo-paint`'s `hit.rs` finds the box drawn last over a point's pixel
+through the list's transforms and clips, and `alo-renderer`'s `hit.rs`
+turns it into an element. Pinned by 21 pages put to Chrome's
+`elementFromPoint` (`where_a_pointer_falls.rs`), with each box the points
+depend on in numbers. Cut: **535** (a person's click reaching that
+element) and **539** (a click on the strip). Found: **536** (Chrome finds
+a positioned clip's content under its square border), **537** (a space
+between two inline boxes is 0.023 px narrow), **538** (a positioned box
+inside a positioned one is drawn under it and outside its clip) and
+**540** (an `<svg>`'s shapes are not found one by one) and **541** (a
+list marker is found where Chrome finds only its bullet). 256 queue items
+are open (298 closed, 535–541 added). The next unused queue number is 542
+and the next unused ADR 0057.

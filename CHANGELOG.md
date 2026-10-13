@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser knows what is under a pointer.** A page's own process can
+  now say which element any point of its picture is over, as Chrome finds
+  it: what is drawn on top there, wherever a transform has moved or turned
+  it, never outside a box that clips it and never in a rounded corner. A
+  box with nothing drawn on it can still be pointed at, and text counts as
+  the element it is in. Nothing sends a page a click yet; this is what a
+  click will be aimed with.
+
 - **Names have their spaces.** A button, link or tab named by what is
   written inside it is now read with a space between parts that are laid
   out apart, as Chrome reads it: a tab built as a flexible row of "Notes"

@@ -12867,19 +12867,148 @@ What stage 2's exit gate actually measures: a person using it.
   reads as Chrome reads it, with a picture shown (not broken) measured
   too.
 
-- [ ] **298. A person's pointer.** *Cut from 118 (ADR 0024 § 5; ADR 0018
+- [x] **298. A person's pointer.** *Cut from 118 (ADR 0024 § 5; ADR 0018
   § 3).* The browser process decides which frame a point falls in from its
   own composition and sends it in that frame's CSS pixels as a person's
   pointer event; the renderer hit-tests against its layout tree and
   dispatches through ADR 0018's browser driver; the strip's renderer answers
   a click with a claim (select, close, open a tab) the browser process acts
   on only for a tab it holds, answering a pointer event it sent. *Depends on
-  296, 297, 528. Closes when:* a person's click on a link in a frozen page follows
-  it, the same as the agent's `Activate` on it; a click on a strip tab
-  selects it; a claim about a tab not held, or with no pointer event behind
-  it, is refused; hit-testing has layout assertions at box edges, inside a
-  transform and under an overflow clip; and no message an agent can cause
-  carries a point.
+  296, 297, 528. Closes when:* ~~a person's click on a link in a frozen page
+  follows it, the same as the agent's `Activate` on it; a click on a strip
+  tab selects it; a claim about a tab not held, or with no pointer event
+  behind it, is refused;~~ hit-testing has layout assertions at box edges,
+  inside a transform and under an overflow clip~~; and no message an agent
+  can cause carries a point~~.
+
+  **Scope cut, not depth (iteration 322).** The item is three pieces of
+  work across three processes: which element a point is over (the
+  renderer's), a person's click reaching that element (window, conductor,
+  renderer and the events a click fires), and a click on the strip
+  (claims the browser process decides). The struck clauses moved to
+  **535** (a person's click on a page, and no agent message carrying a
+  point) and **539** (a click on the strip, and its claims refused unless
+  held and answered). What is left is the hit test, which both stand on.
+
+  ***Done (iteration 322).*** Which element a person's pointer is over, as
+  Chrome 154 finds it:
+  - **Measured**, not read from Chrome's source, with `elementFromPoint`
+    over CDP on probe pages at 400 × 300 with the `dejavu` crate's sans,
+    and with `Input.dispatchMouseEvent`, whose `mousedown` targets agreed
+    at every point tried. A point is the pixel that starts at it: a box
+    is found where it overlaps the square from (x, y) to (x + 1, y + 1)
+    by some area, so a box from 10 is found at 9.05 and not 9, and a box
+    at 10.25 at 9.3 and not 9.25; its far edges are exact. The box drawn
+    last wins. Transforms, clips (to the padding box) and rounded
+    corners are honoured. An inline box's pieces are on whole pixels,
+    each edge rounded (`snap::to_whole_pixels`); other boxes are exact.
+    Text is the element it is in, in the document (a `display: contents`
+    span is found by its text); a point over no box inside the viewport
+    is the root element.
+  - **Built.** `alo-paint`'s `DisplayItem::Area`, one per piece of every
+    box, recorded by the builder where the box paints, drawn as nothing
+    and left out of the outline (so no `display.txt` changed).
+    `alo-paint`'s `hit.rs`: `box_at` walks the list forward under its
+    transforms and clips, cuts the point's pixel by each clip as it opens
+    and by each area (Sutherland–Hodgman against convex shapes; a
+    contour that is not convex is its bounds), and keeps the last area
+    overlapped by more than 10⁻⁵ px². `alo-renderer`'s `hit.rs`:
+    `element_at` maps the box to its element, or the root, or nothing
+    outside the viewport. `BoxKind::is_inline_box` is public.
+
+  *Closed by:* `alo-renderer/tests/where_a_pointer_falls.rs`, 21 pages,
+  each answer Chrome's, each box the points depend on in numbers; and
+  `alo-paint`'s eleven `hit.rs` unit tests, including a list that closes
+  what it never opened, a transform to nothing or to no number, and a
+  point that is not a number. Mutations: inline pieces left unsnapped,
+  text found through its box parent, a point taken as a point, and clips
+  ignored each fail the page tests. Found: 536, 537, 538, 540, 541.
+
+- [ ] **535. A person's click reaches the element it fell on.** *Cut from
+  298 (iteration 322; ADR 0024 § 5; ADR 0018 §§ 3 and 5). Feature:
+  `docs/features.md` stage 2, a window, tabs and a tab strip. Depends on
+  298, 528.* The window reads `winit`'s pointer; the browser process
+  decides from its own composition (`place.rs`) whether a point is in the
+  strip or the selected tab, and sends it in that frame's CSS pixels as a
+  person's pointer event; the renderer finds the element with
+  `hit::element_at` and dispatches through ADR 0018's browser driver.
+  Which events a person's click fires, in what order, and what each
+  carries (`clientX` was seen floored to whole pixels in Chrome 154) is
+  measured before it is built. *Closes when:* a person's click on a link
+  in a frozen page follows it, the same as the agent's `Activate` on it;
+  the events a page's listeners record are Chrome's, in Chrome's order;
+  and no message an agent can cause carries a point.
+
+- [ ] **536. A positioned box that clips with square corners is found
+  under its border.** *Found building 298 (iteration 322). Feature:
+  `docs/features.md` stage 2, a window, tabs and a tab strip. Waits for a
+  page.* Chrome 154 finds the in-flow content of an absolutely positioned
+  `overflow: hidden` box with square corners under that box's border,
+  where the content is not drawn (`left:0;top:0;width:100px;height:100px;
+  overflow:hidden;border:10px solid` holding a 300 px child: Chrome finds
+  the child at (115, 50)); in the flow, or with rounded corners, it clips
+  at the padding box as it draws. This engine follows what is drawn
+  everywhere. *Closes when:* a frozen page depends on the difference, and
+  the hit test follows Chrome for it in numbers.
+
+- [ ] **537. A space between two inline boxes is Chrome's width.** *Found
+  building 298 (iteration 322). Feature: `docs/features.md` stage 1, text.
+  Needs measuring.* In `<p style="font-size:20px">Hello
+  <span>world</span> <a>go</a></p>` in DejaVu Sans, the span is placed
+  exactly as Chrome 154 places it (57.0625, 55.078125 wide), and the space
+  after it is 6.336 wide here and 6.359375 (407/64) in Chrome, so the
+  link starts at 118.4766 rather than 118.5. *Closes when:* the space's
+  width is measured in runs that separate how it is shaped and summed
+  (alone, beside each box, at several sizes), and this engine places that
+  link at Chrome's 118.5.
+
+- [ ] **538. A positioned box inside a positioned box is drawn over it,
+  and inside its clip.** *Found building 298 (iteration 322). Feature:
+  `docs/features.md` stage 1, paint. Waits for a page.* `alo-paint`'s
+  `Builder::paint` numbers a layer after painting the layers inside it,
+  so of two positioned boxes with the same `z-index`, the one inside is
+  drawn first and the one holding it is drawn over it. A positioned box's
+  layer is also lifted out of every clip between it and its stacking
+  context, so one placed in a positioned `overflow: hidden` box is drawn
+  outside that box. Chrome 154, for `<div style="position:absolute;
+  left:0;top:0;width:100px;height:100px;overflow:hidden"><div
+  style="position:absolute;left:50px;top:50px;width:100px;height:100px">`,
+  finds the inner box at (75, 75) and the root at (125, 75); this engine
+  finds the outer box and the inner one, because that is how it draws
+  them. *Closes when:* a frozen page with such boxes is drawn as Chrome
+  draws it, with a reference render, and the pointer finds Chrome's
+  elements at those points.
+
+- [ ] **539. A click on the strip, decided by the browser.** *Cut from 298
+  (iteration 322; ADR 0024 § 5). Feature: `docs/features.md` stage 2, a
+  window, tabs and a tab strip. Depends on 535.* The strip's renderer
+  answers a person's click with a claim — select tab N, close tab N, open
+  a tab — and the browser process acts only on a claim about a tab it
+  holds, answering a pointer event it sent. *Closes when:* a click on a
+  strip tab selects it; a claim about a tab not held, or with no pointer
+  event behind it, is refused by name; and choosing by a click tells the
+  two pages in the order 529's keys do.
+
+- [ ] **540. A shape inside an `<svg>` is found as itself.** *Found
+  building 298 (iteration 322). Feature: `docs/features.md` stage 2, SVG.
+  Waits for a page.* An `<svg>`'s insides are not boxes (ADR 0022), so a
+  pointer over a `<circle>` finds the `<svg>`; Chrome finds the circle,
+  and only where it is painted. *Closes when:* a frozen page with a
+  listener on a shape inside an `<svg>` finds it, by a decision about
+  where a drawing's shapes are hit-tested recorded against ADR 0022.
+
+- [ ] **541. A list item's marker is found as Chrome finds it.** *Found
+  building 298 (iteration 322). Feature: `docs/features.md` stage 2, a
+  window, tabs and a tab strip. Needs measuring.* A marker's text box is
+  its item's, so this engine finds the item anywhere over the marker run,
+  bullet and the space after it alike. Chrome 154, for `<ul
+  style="padding-left:40px;font-size:20px"><li>item</li></ul>` in DejaVu
+  Sans, finds the `<li>` only from x 20 to 27 — about the bullet — and the
+  `<ul>` from 28 to the item's edge at 40, by `elementFromPoint` and mouse
+  events alike. *Closes when:* what part of a marker Chrome finds is
+  measured (the bullet's advance, its ink, or its run without the space;
+  `inside` markers too) and a frozen list page's marker is found as Chrome
+  finds it.
 
 - [ ] **299. Device pixels.** *Cut from 118 (ADR 0024 § 3).* The renderer lays
   out in CSS pixels and paints at the window's scale factor; `Resize` carries
@@ -12895,7 +13024,7 @@ What stage 2's exit gate actually measures: a person using it.
   § 2).* `target="_blank"` on a link a person activated becomes a decided
   ask that opens a tab beside its opener, under ADR 0020 § 3's rules for the
   address; a script's `window.open` and a named target stay refused by name.
-  *Depends on 297, 298. Opened by* a frozen page with such a link. *Closes
+  *Depends on 297, 535. Opened by* a frozen page with such a link. *Closes
   when:* that page's link opens a tab with the address decided by the
   browser process, and a `_blank` link activated by a script with no person
   behind it is refused. Whether an agent's `Activate` (ADR 0018's keyboard
@@ -12913,12 +13042,12 @@ What stage 2's exit gate actually measures: a person using it.
   *Needs design (iteration 197):* it names no ADR, feature contract or
   closing condition, so `LOOP.md` step 2 says it is not ready to build. Each
   of the three is browser interface over a window that does not yet take a
-  person's input (296, 298), and *settings that stick* is a file of the
+  person's input (296, 535), and *settings that stick* is a file of the
   person's that ADR 0011 has not been asked about.
 - [ ] **122. Context menus, and keyboard operation of every one of them.**
   *Needs design (iteration 197):* as 121 — no ADR, contract or closing
   condition, and a menu is browser interface over a window that takes no
-  pointer yet (298).
+  pointer yet (535).
 - [ ] **123. Printing, print preview, export to PDF.** *Depends on 99.*
 - [ ] **124. Viewing a PDF** — or saying plainly that we hand it to something
   else. *Needs ADR* — it is a decision, not an omission.

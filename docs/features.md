@@ -703,12 +703,22 @@ The reason this exists rather than a faster fork of somebody else's engine.
   that it is hidden before telling the page chosen that it can be seen, and
   the window shows the chosen tab's last picture at once, then draws it again
   at the window's size; nothing of the tab left stays under it. Closing the
-  last tab closes the window. Still to come: an agent reading the open tabs from the strip, which first needs deciding
-  what an agent kept to some sites may see of it (531); a title a page
-  changes after it has loaded (532); a click on a page or a tab handled by
-  the page's own process and decided by the browser (298); painting at the
-  screen's density (299); and a new tab opened by a link with
-  `target="_blank"` that a person clicked (300)
+  last tab closes the window. **Where a pointer falls** (queue item 298):
+  the page's own process can say which element any point of its picture is
+  over, as Chrome 154 finds it — the box drawn last there, through what
+  turns, moves or scales it, never outside what clips it and never in its
+  own rounded corners. A point counts as the pixel that starts at it, so a
+  box is found from just before its edge; a box nobody can see is still
+  there; text is the element it is in, even one with no box of its own; and
+  anywhere else in the window is the page's root. An `<svg>` is found as a
+  whole, not shape by shape (540), and a list item over the whole of its
+  marker rather than its bullet alone (541). Nothing sends a page a point yet. Still
+  to come: an agent reading the open tabs from the strip, which first needs
+  deciding what an agent kept to some sites may see of it (531); a title a
+  page changes after it has loaded (532); a person's click reaching the
+  element it fell on (535) and a click on a tab, decided by the browser
+  (539); painting at the screen's density (299); and a new tab opened by a
+  link with `target="_blank"` that a person clicked (300)
 - [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [2] History, bookmarks, downloads
 - [2] Find in page, zoom, and per-site settings that stick

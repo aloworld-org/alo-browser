@@ -372,6 +372,7 @@ impl Builder<'_> {
         } else {
             pieces
         };
+        self.occupied(id, &node.kind, &areas, out);
         let last = areas.len().saturating_sub(1);
         for (index, area) in areas.iter().enumerate() {
             // A box broken across lines has its start edge only on its first
@@ -391,6 +392,34 @@ impl Builder<'_> {
             self.draw_text(id, text, out);
         }
         backdrop.refused
+    }
+
+    /// Where a person's pointer finds a box: one [`DisplayItem::Area`] per
+    /// piece, its border box with its rounded corners, in the box's place in
+    /// paint order ([`crate::hit`]).
+    ///
+    /// A piece of an **inline box** — a `<span>`, a run of text — is moved
+    /// onto whole pixels first, each edge rounded on its own as
+    /// [`snap::to_whole_pixels`] rounds; any other box is found where layout
+    /// put it. Measured in Chrome 154, not read from its source: a `<span>`
+    /// whose padding starts at 26.953125 is first found by a point at 26.05,
+    /// a block starting there by a point at 26.
+    fn occupied(&self, id: BoxId, kind: &BoxKind, pieces: &[Rect], out: &mut Vec<DisplayItem>) {
+        let in_lines = kind.is_inline_box() && self.boxes.natural_size(id).is_none();
+        for piece in pieces {
+            let rect = if in_lines {
+                snap::to_whole_pixels(*piece)
+            } else {
+                *piece
+            };
+            let corners = self.style_of(id).map_or(Corners::SQUARE, |style| {
+                Corners::of(style, Self::extent_of(rect))
+            });
+            out.push(DisplayItem::Area {
+                box_id: id,
+                path: rounded_rectangle(rect, corners),
+            });
+        }
     }
 
     /// The shadows, background and border of one piece of a box.

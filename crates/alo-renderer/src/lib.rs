@@ -70,6 +70,7 @@ pub mod form_body;
 pub mod frame;
 pub mod generic;
 pub mod held;
+pub mod hit;
 pub mod host;
 pub mod inline_style;
 pub mod linked;

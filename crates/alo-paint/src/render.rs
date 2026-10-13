@@ -35,6 +35,8 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
     for item in list.items() {
         let current = transforms.last().copied().unwrap_or(Matrix::IDENTITY);
         match item {
+            // Where a pointer finds a box, which is nothing to draw.
+            DisplayItem::Area { .. } => {}
             DisplayItem::Picture { rect, picture, .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
                 draw_picture(target, picture, *rect, current);

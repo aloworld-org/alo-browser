@@ -17,8 +17,9 @@
 //! # What it is told, and what it is not
 //!
 //! It is told what a person did and how big the window is. It is never told
-//! a point: hit-testing is item 298, and a person's pointer reaches a
-//! renderer through it, not through here.
+//! a point yet: which element a point is over is the renderer's to find
+//! (`alo-renderer`'s `hit`, item 298), and a person's pointer reaching it
+//! from the window is item 535.
 //!
 //! # Where a page's fetches are made
 //!

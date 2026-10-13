@@ -1761,9 +1761,17 @@ items where being right and being unusable are the same outcome.
       fetches; a tab chosen replaces what the window shows (`News::Chosen`,
       a new reference render); closing the last tab closes the window; on
       this Mac each key was pressed in the real window and captured.
+      Where a pointer falls (298, done): the display list records each
+      box's area in paint order (`alo-paint`'s `DisplayItem::Area`, drawn
+      as nothing), `hit.rs` finds the box drawn last over a point's pixel
+      through the list's transforms and clips, and `alo-renderer`'s
+      `hit.rs` turns it into the element a person pointed at; 21 pages
+      put to Chrome 154's `elementFromPoint` and mouse events, each box
+      the points depend on asserted in numbers.
       · Owed: the agent reading the strip, which needs design (531); a
-      title changed after load (532); a person's pointer (298); device
-      pixels (299); a link opening a tab (300)
+      title changed after load (532); a person's click reaching a page
+      (535) and a tab (539); device pixels (299); a link opening a tab
+      (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

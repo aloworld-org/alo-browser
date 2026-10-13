@@ -148,7 +148,21 @@ pub enum DisplayItem {
     },
     /// The end of the innermost group.
     PopGroup,
-    /// A run of text.
+    /// Where a person's pointer finds a box: drawn as nothing.
+    ///
+    /// A box with no background is still somewhere a person can click, so
+    /// what a box *occupies* cannot be read from what it fills. It goes in
+    /// the list rather than beside it because which box is on top at a point
+    /// is paint order, under the clips and transforms around it, and the list
+    /// is where that is decided once ([`crate::hit`]). One per piece of a box
+    /// broken across lines, as its background is.
+    Area {
+        /// The box it is.
+        box_id: BoxId,
+        /// The shape it occupies, in the coordinates of the transforms around
+        /// it.
+        path: Path,
+    },
     /// A decoded picture, drawn into a rectangle.
     Picture {
         /// The box it belongs to.
@@ -194,6 +208,7 @@ impl DisplayItem {
             | DisplayItem::Shadow { box_id, .. }
             | DisplayItem::Picture { box_id, .. }
             | DisplayItem::Text { box_id, .. }
+            | DisplayItem::Area { box_id, .. }
             | DisplayItem::PushClip { box_id, .. }
             | DisplayItem::PushTransform { box_id, .. }
             | DisplayItem::PushGroup { box_id, .. } => Some(*box_id),
@@ -254,11 +269,16 @@ impl DisplayList {
     /// This is what makes a picture that changed *diagnosable*: the line says
     /// which box, what colour and where, so a failure reads "the row's
     /// background moved four pixels" rather than "the image differs".
+    ///
+    /// An [`DisplayItem::Area`] has no line: it draws nothing, and the
+    /// outline is of what is drawn. Where a point falls is asserted through
+    /// [`crate::hit`] instead.
     pub fn to_outline(&self) -> String {
         let mut out = String::new();
         for item in &self.items {
             // Writing to a `String` cannot fail.
             let _ = match item {
+                DisplayItem::Area { .. } => Ok(()),
                 DisplayItem::Picture {
                     box_id,
                     rect,

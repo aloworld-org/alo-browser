@@ -16,8 +16,9 @@
 //!
 //! # What it does not do yet
 //!
-//! A person's pointer reaches no page: that is item 298, which decides which
-//! frame a point falls in and sends it to that frame's renderer. The window
+//! A person's pointer reaches no page: that is item 535, which decides which
+//! frame a point falls in and sends it to that frame's renderer, whose
+//! hit test (item 298) finds the element under it. The window
 //! shows the tab strip across its top and the selected tab below it (item
 //! 528).
 //!
