@@ -65,7 +65,7 @@ pub mod sheets;
 pub use alo_renderer::pipeline::{Rendered, render, render_with, render_with_resources};
 pub use answering::Answered;
 pub use case::{Case, Frozen};
-pub use check::{Difference, check};
+pub use check::{Difference, check, check_picture};
 pub use rendering::Rendering;
 
 use std::path::PathBuf;

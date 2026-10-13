@@ -20,7 +20,7 @@ use core::fmt;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Difference {
     /// Which expectation: `boxes.txt`, `layout.txt`, `display.txt`,
-    /// `render.png`.
+    /// `render.png`, or a picture drawn at another scale, `render-at-2.png`.
     pub expectation: String,
     /// What is wrong, in words.
     pub detail: String,
@@ -65,7 +65,7 @@ pub fn check(case: &Case, document: &Document, drawing: &Drawing) -> Vec<Differe
             differences.push(difference);
         }
     }
-    if let Some(difference) = check_picture(case, &drawing.canvas) {
+    if let Some(difference) = check_picture(case, "render.png", &drawing.canvas) {
         differences.push(difference);
     }
     differences
@@ -119,28 +119,33 @@ fn first_differing_line(expected: &str, produced: &str) -> String {
     }
 }
 
-/// Compare the picture, or write it when updating.
-fn check_picture(case: &Case, canvas: &Canvas) -> Option<Difference> {
-    let path = case.expectation("render.png");
+/// Compare a picture with the case's committed one called `name`, or write
+/// it when updating.
+///
+/// `render.png` is every case's, drawn at a scale of one; a case drawn at
+/// another scale too keeps that picture beside it under its own name, never
+/// in its place (ADR 0057 § 5).
+pub fn check_picture(case: &Case, name: &str, canvas: &Canvas) -> Option<Difference> {
+    let path = case.expectation(name);
     let drawn = match to_png(canvas) {
         Ok(bytes) => bytes,
         Err(error) => {
             return Some(Difference {
-                expectation: "render.png".to_owned(),
+                expectation: name.to_owned(),
                 detail: error.to_string(),
             });
         }
     };
     if updating() {
         return std::fs::write(&path, &drawn).err().map(|error| Difference {
-            expectation: "render.png".to_owned(),
+            expectation: name.to_owned(),
             detail: format!("could not be written: {error}"),
         });
     }
 
     let Ok(committed) = std::fs::read(&path) else {
         return Some(Difference {
-            expectation: "render.png".to_owned(),
+            expectation: name.to_owned(),
             detail: "there is no committed picture yet".to_owned(),
         });
     };
@@ -148,14 +153,14 @@ fn check_picture(case: &Case, canvas: &Canvas) -> Option<Difference> {
         Ok(canvas) => canvas,
         Err(error) => {
             return Some(Difference {
-                expectation: "render.png".to_owned(),
+                expectation: name.to_owned(),
                 detail: format!("the committed picture could not be read: {error}"),
             });
         }
     };
     if (expected.width(), expected.height()) != (canvas.width(), canvas.height()) {
         return Some(Difference {
-            expectation: "render.png".to_owned(),
+            expectation: name.to_owned(),
             detail: format!(
                 "the picture changed size: was {}×{}, now {}×{}",
                 expected.width(),
@@ -185,7 +190,7 @@ fn check_picture(case: &Case, canvas: &Canvas) -> Option<Difference> {
         return None;
     }
     Some(Difference {
-        expectation: "render.png".to_owned(),
+        expectation: name.to_owned(),
         detail: match first {
             Some((x, y, was, now)) => format!(
                 "{differing} pixels differ; the first is at {x},{y}: was {was:?}, now {now:?}",

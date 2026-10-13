@@ -218,11 +218,20 @@ impl DisplayItem {
 }
 
 /// Everything to draw, in the order to draw it.
+///
+/// In CSS pixels at every scale (ADR 0057 § 4), and **built for one**: what
+/// it snapped onto whole pixels it snapped onto the device pixels of a
+/// screen at [`DisplayList::scale`], and [`crate::render`] draws it at that
+/// scale, so a list cannot be drawn at a scale it was not built for.
 #[derive(Debug, Clone, Default)]
 pub struct DisplayList {
     items: Vec<DisplayItem>,
     /// What the styles asked to be drawn and this engine did not draw.
     issues: Vec<alo_css::StyleIssue>,
+    /// Device pixels per CSS pixel on the screen it was built for. Read it
+    /// with [`DisplayList::scale`], which makes the zero of a default list
+    /// one.
+    scale: f32,
 }
 
 impl DisplayList {
@@ -258,10 +267,24 @@ impl DisplayList {
         self.items.push(item);
     }
 
-    /// Take a list's items, put in order, and what was refused while
-    /// building it.
-    pub(crate) fn from_parts(items: Vec<DisplayItem>, issues: Vec<alo_css::StyleIssue>) -> Self {
-        Self { items, issues }
+    /// Device pixels per CSS pixel on the screen this list was built for,
+    /// and is drawn at: 1 for a list built for no screen.
+    pub fn scale(&self) -> f32 {
+        alo_value::device_scale(self.scale)
+    }
+
+    /// Take a list's items, put in order, what was refused while building
+    /// it, and the scale it was built for.
+    pub(crate) fn from_parts(
+        items: Vec<DisplayItem>,
+        issues: Vec<alo_css::StyleIssue>,
+        scale: f32,
+    ) -> Self {
+        Self {
+            items,
+            issues,
+            scale: alo_value::device_scale(scale),
+        }
     }
 
     /// The list as one line per item, for a test to compare.
@@ -376,5 +399,21 @@ impl DisplayList {
             };
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_list_built_for_no_screen_is_drawn_at_one() {
+        assert_eq!(DisplayList::default().scale().to_bits(), 1.0_f32.to_bits());
+        let at_two = DisplayList::from_parts(Vec::new(), Vec::new(), 2.0);
+        assert_eq!(at_two.scale().to_bits(), 2.0_f32.to_bits());
+        for scale in [0.0, -2.0, f32::NAN, f32::INFINITY] {
+            let list = DisplayList::from_parts(Vec::new(), Vec::new(), scale);
+            assert_eq!(list.scale().to_bits(), 1.0_f32.to_bits(), "{scale}");
+        }
     }
 }

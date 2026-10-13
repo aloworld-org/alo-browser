@@ -27,30 +27,42 @@
 //! 13-pixel square from 8.5 pixels in, across a pixel's edge, in Chrome as
 //! here.
 //!
-//! # One scale
+//! # At a scale
 //!
-//! The canvas is drawn at one device pixel to each CSS pixel — a window that
-//! has more replicates them (`alo-window`'s `place.rs`) — so a whole CSS
-//! pixel is a whole device pixel here. When the canvas learns a scale, this
-//! is where it rounds against it, as `alo-layout`'s `line_width.rs` already
-//! says for a border's width.
+//! The pixels are **device** pixels (ADR 0057 § 2). On a screen of `s`
+//! device pixels to the CSS pixel each edge is rounded as `floor(x·s + 0.5)
+//! / s`, and the box stays in CSS pixels: measured from Chrome 154 started
+//! with `--force-device-scale-factor=2`, a checkbox laid out at (10.3,
+//! 22.77) is drawn from device pixel (21, 46), which is (10.5, 23), and
+//! `cases/checkbox-beside-text`'s nine controls are each drawn from
+//! `floor(x·2 + 0.5)` (queue item 561). At a scale of one this is the rule
+//! above, unchanged.
 
 use alo_layout::Rect;
 
 /// The whole pixels `rect` is drawn on: each edge rounded to the nearest
 /// whole pixel, a half towards the right and the bottom.
 pub fn to_whole_pixels(rect: Rect) -> Rect {
-    let left = round(rect.origin.x);
-    let top = round(rect.origin.y);
-    let right = round(rect.origin.x + rect.size.width);
-    let bottom = round(rect.origin.y + rect.size.height);
+    to_device_pixels(rect, 1.0)
+}
+
+/// The whole device pixels `rect` is drawn on, on a screen of `scale`
+/// device pixels to the CSS pixel, in CSS pixels: each edge rounded as
+/// `floor(x·s + 0.5) / s`. A scale that is not a scale is one.
+pub fn to_device_pixels(rect: Rect, scale: f32) -> Rect {
+    let scale = alo_value::device_scale(scale);
+    let left = round(rect.origin.x, scale);
+    let top = round(rect.origin.y, scale);
+    let right = round(rect.origin.x + rect.size.width, scale);
+    let bottom = round(rect.origin.y + rect.size.height, scale);
     Rect::new(left, top, right - left, bottom - top)
 }
 
-/// The nearest whole number, a half rounded up whatever the sign — which
-/// `f32::round`, rounding a half away from zero, does not do below zero.
-fn round(value: f32) -> f32 {
-    (value + 0.5).floor()
+/// The nearest whole device pixel, a half rounded up whatever the sign —
+/// which `f32::round`, rounding a half away from zero, does not do below
+/// zero.
+fn round(value: f32, scale: f32) -> f32 {
+    (value * scale + 0.5).floor() / scale
 }
 
 #[cfg(test)]
@@ -108,5 +120,39 @@ mod tests {
     fn a_box_already_on_whole_pixels_stays() {
         let snapped = to_whole_pixels(Rect::new(4.0, 3.0, 13.0, 13.0));
         assert!(is(snapped, (4.0, 3.0, 17.0, 16.0)), "{snapped:?}");
+    }
+
+    #[test]
+    fn at_two_each_edge_is_rounded_to_a_device_pixel() {
+        // Chrome 154 at a real scale of two (ADR 0057, Evidence 6): a
+        // checkbox at (10.3, 22.77) is drawn from device pixel (21, 46),
+        // and a box 13.4 square at 200.2 covers device pixels 400 to 427.
+        let snapped = to_device_pixels(Rect::new(10.3, 22.77, 13.0, 13.0), 2.0);
+        assert!(is(snapped, (10.5, 23.0, 23.5, 36.0)), "{snapped:?}");
+        let snapped = to_device_pixels(Rect::new(200.2, 22.2, 13.4, 13.4), 2.0);
+        assert!(is(snapped, (200.0, 22.0, 213.5, 35.5)), "{snapped:?}");
+        // `checkbox-beside-text`'s first control, at 23.9609375 at two.
+        let snapped = to_device_pixels(Rect::new(23.960_938, 63.5, 13.0, 13.0), 2.0);
+        assert!(is(snapped, (24.0, 63.5, 37.0, 76.5)), "{snapped:?}");
+    }
+
+    #[test]
+    fn at_one_it_is_the_whole_pixel_rule() {
+        let rect = Rect::new(10.49, -5.5, 13.4, 20.5);
+        let one = to_device_pixels(rect, 1.0);
+        let whole = to_whole_pixels(rect);
+        assert!(is(one, edges(whole)), "{one:?} {whole:?}");
+    }
+
+    #[test]
+    fn what_is_not_a_scale_is_one() {
+        let rect = Rect::new(10.3, 22.77, 13.4, 13.4);
+        for scale in [0.0, -2.0, f32::NAN, f32::INFINITY] {
+            let snapped = to_device_pixels(rect, scale);
+            assert!(
+                is(snapped, (10.0, 23.0, 24.0, 36.0)),
+                "{scale}: {snapped:?}"
+            );
+        }
     }
 }

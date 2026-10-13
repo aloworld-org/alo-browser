@@ -8,22 +8,39 @@
 //! clever here on purpose: the decisions were made when the display list was
 //! built, and this file only carries them out — which is what makes a picture
 //! that came out wrong diagnosable from the list rather than from the pixels.
+//!
+//! # At a scale
+//!
+//! A list is in CSS pixels and the canvas is in device pixels: on a screen
+//! of `s` device pixels to the CSS pixel the caller hands a canvas `s` times
+//! the page's size, and the whole list is drawn under a growth of `s` that
+//! every transform in it composes with (ADR 0057 § 4). Nothing is drawn
+//! small and enlarged: a shape is grown before it is filled, a letter is
+//! outlined at the size its face is set at on that screen and shaped as
+//! layout shaped it there, and a blur grows with the transform in force as
+//! it always has. At a scale of one the growth is the identity, so nothing
+//! drawn at one moves.
 
 use crate::blur::blurred;
 use crate::canvas::Canvas;
 use crate::coverage::Coverage;
 use crate::display::{DisplayItem, DisplayList};
 use crate::drawn_picture::draw_picture;
-use crate::glyph::outline;
+use crate::glyph::outline_at;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
 use crate::raster::{fill, fill_letters, fill_on_page};
 use crate::synthesis::leaned;
-use alo_text::{Direction, Font, shape};
+use alo_text::{Direction, Font, shape_at};
 use alo_value::{Matrix, Rgba};
 
-/// Draw a display list onto a canvas.
+/// Draw a display list onto a canvas, at the scale the list was built for
+/// ([`DisplayList::scale`]): a canvas of device pixels, the page's size in
+/// CSS pixels times the scale.
 pub fn render(list: &DisplayList, canvas: &mut Canvas) {
+    // The screen's growth is the transform outside every other, so a box's
+    // own transform happens in CSS pixels and lands in device pixels.
+    let screen = Matrix::scaling(list.scale());
     // Three stacks, because three things nest. A clip applies to a subtree; a
     // transform applies to a subtree and composes with the ones outside it; a
     // group is a subtree drawn somewhere else and composited back.
@@ -33,7 +50,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
     let (width, height) = (canvas.width(), canvas.height());
 
     for item in list.items() {
-        let current = transforms.last().copied().unwrap_or(Matrix::IDENTITY);
+        let current = transforms.last().copied().unwrap_or(screen);
         match item {
             // Where a pointer finds a box, which is nothing to draw.
             DisplayItem::Area { .. } => {}
@@ -101,49 +118,66 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                     clips.last(),
                 );
             }
-            DisplayItem::Text {
-                text,
-                origin,
-                font,
-                oblique,
-                size,
-                letter_spacing,
-                color,
-                shadows,
-                ..
-            } => {
-                // The run is outlined once and drawn once per shadow plus
-                // once for itself: shaping and outlining are the expensive
-                // part, and a shadow is the same letters somewhere else. A
-                // lean is part of the letters, so a shadow leans with them.
-                let outlined = letters(text, font, *size, *letter_spacing, *origin, *oblique);
+            DisplayItem::Text { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
-                // Furthest back first, so the first shadow written ends up on
-                // top — which is the order CSS draws them in.
-                for shadow in shadows.iter().rev() {
-                    let placed = outlined.translated(Point::new(shadow.offset.0, shadow.offset.1));
-                    let soft = blurred(
-                        &fill_letters(&moved(&placed, current)),
-                        shadow.blur * current.scale_factor(),
-                    );
-                    draw_coverage(
-                        target,
-                        &soft,
-                        &Paint::Solid(shadow.color),
-                        Matrix::IDENTITY,
-                        clips.last(),
-                    );
-                }
-                draw_coverage(
-                    target,
-                    &fill_letters(&moved(&outlined, current)),
-                    &Paint::Solid(*color),
-                    current,
-                    clips.last(),
-                );
+                draw_text(target, item, current, clips.last(), list.scale());
             }
         }
     }
+}
+
+/// A text item and the shadows it casts, under the transform in force, its
+/// letters set as they are on a screen at `scale`. Anything that is not a
+/// text item draws nothing.
+fn draw_text(
+    target: &mut Canvas,
+    item: &DisplayItem,
+    current: Matrix,
+    clip: Option<&Clip>,
+    scale: f32,
+) {
+    let DisplayItem::Text {
+        text,
+        origin,
+        font,
+        oblique,
+        size,
+        letter_spacing,
+        color,
+        shadows,
+        ..
+    } = item
+    else {
+        return;
+    };
+    // The run is outlined once and drawn once per shadow plus once for
+    // itself: shaping and outlining are the expensive part, and a shadow is
+    // the same letters somewhere else. A lean is part of the letters, so a
+    // shadow leans with them.
+    let outlined = letters(text, font, *size, *letter_spacing, *origin, *oblique, scale);
+    // Furthest back first, so the first shadow written ends up on top — which
+    // is the order CSS draws them in.
+    for shadow in shadows.iter().rev() {
+        let placed = outlined.translated(Point::new(shadow.offset.0, shadow.offset.1));
+        let soft = blurred(
+            &fill_letters(&moved(&placed, current)),
+            shadow.blur * current.scale_factor(),
+        );
+        draw_coverage(
+            target,
+            &soft,
+            &Paint::Solid(shadow.color),
+            Matrix::IDENTITY,
+            clip,
+        );
+    }
+    draw_coverage(
+        target,
+        &fill_letters(&moved(&outlined, current)),
+        &Paint::Solid(*color),
+        current,
+        clip,
+    );
 }
 
 /// A shape where the transform in force puts it.
@@ -158,8 +192,9 @@ fn moved(path: &Path, transform: Matrix) -> Path {
     path.transformed(transform)
 }
 
-/// A text item's letters as one shape: its run outlined, then leaned by
-/// however far the face had to be ([`crate::synthesis`]).
+/// A text item's letters as one shape: its run outlined as it is set on a
+/// screen at `scale`, then leaned by however far the face had to be
+/// ([`crate::synthesis`]).
 fn letters(
     text: &str,
     font: &Font,
@@ -167,9 +202,10 @@ fn letters(
     letter_spacing: f32,
     origin: (f32, f32),
     oblique: f32,
+    scale: f32,
 ) -> Path {
     leaned(
-        &outlined_run(text, font, size, letter_spacing, origin),
+        &outlined_run_at(text, font, size, scale, letter_spacing, origin),
         oblique,
         origin.1,
     )
@@ -192,16 +228,31 @@ pub fn outlined_run(
     letter_spacing: f32,
     origin: (f32, f32),
 ) -> Path {
+    outlined_run_at(text, font, size, 1.0, letter_spacing, origin)
+}
+
+/// The same run as set on a screen of `scale` device pixels to the CSS
+/// pixel, still in CSS pixels: shaped and outlined at the
+/// size its face is set at there ([`alo_text::face_size_at`]), as layout
+/// measured it, or a line laid out at two is drawn with one's advances.
+pub fn outlined_run_at(
+    text: &str,
+    font: &Font,
+    size: f32,
+    scale: f32,
+    letter_spacing: f32,
+    origin: (f32, f32),
+) -> Path {
     // The same spacing the line was measured with, or the letters land where
     // the line did not put them.
     let run = alo_text::spaced(
-        shape(text, font, size, Direction::LeftToRight),
+        shape_at(text, font, size, scale, Direction::LeftToRight),
         letter_spacing,
     );
     let mut whole = Path::new();
     let mut pen = origin;
     for glyph in &run.glyphs {
-        if let Some(shaped) = outline(font, glyph.glyph_id, size) {
+        if let Some(shaped) = outline_at(font, glyph.glyph_id, size, scale) {
             let placed = shaped
                 .path
                 .translated(Point::new(pen.0 + glyph.offset.0, pen.1 + glyph.offset.1));
@@ -432,6 +483,79 @@ mod tests {
             "the half-covered row is grey, not black or white: {top}",
         );
         assert_eq!(canvas.at(0, 1), Some(Rgba::WHITE));
+    }
+
+    /// One run of text as a display list built for a screen at `scale`.
+    fn one_run(text: &str, font: &Font, size: f32, scale: f32) -> DisplayList {
+        let item = DisplayItem::Text {
+            box_id: BoxId::from_index_for_tests(0),
+            text: text.to_owned(),
+            origin: (2.0, 20.0),
+            font: font.clone(),
+            oblique: 0.0,
+            size,
+            letter_spacing: 0.0,
+            color: Rgba::BLACK,
+            shadows: Vec::new(),
+        };
+        DisplayList::from_parts(vec![item], Vec::new(), scale)
+    }
+
+    #[test]
+    fn at_two_a_run_is_set_and_drawn_as_it_is_on_that_screen() {
+        let Some(font) = Font::load(
+            "DejaVu Sans",
+            alo_text::Weight::NORMAL,
+            alo_text::Slant::Normal,
+            dejavu::sans::regular().to_vec(),
+        ) else {
+            panic!("the font this crate is tested with");
+        };
+        // `13.337px` is set at 13.335 on a screen at two and 13.33 at one
+        // (ADR 0057, *Measured since*), so a hundred `x` end 0.3 CSS pixels
+        // apart. Drawn at two, the letters are the run as set at two, grown
+        // by two: device pixel for device pixel, the same coverage.
+        let text = "x".repeat(100);
+        let mut drawn = Canvas::new(1700, 60, Rgba::WHITE);
+        render(&one_run(&text, &font, 13.337, 2.0), &mut drawn);
+        let screen = Matrix::scaling(2.0);
+        let mut expected = Canvas::new(1700, 60, Rgba::WHITE);
+        let set_at_two = outlined_run_at(&text, &font, 13.337, 2.0, 0.0, (2.0, 20.0));
+        let paint = Paint::Solid(Rgba::BLACK);
+        let ink = fill_letters(&moved(&set_at_two, screen));
+        draw_coverage(&mut expected, &ink, &paint, screen, None);
+        let mut differing = 0;
+        for y in 0..60 {
+            for x in 0..1700 {
+                if drawn.at(x, y) != expected.at(x, y) {
+                    differing += 1;
+                }
+            }
+        }
+        assert_eq!(differing, 0);
+        // And set at one, the run would end a little over half a device
+        // pixel short of where it does.
+        let set_at_one = outlined_run_at(&text, &font, 13.337, 1.0, 0.0, (2.0, 20.0));
+        let (Some(two), Some(one)) = (set_at_two.bounds(), set_at_one.bounds()) else {
+            panic!("both runs have ink");
+        };
+        let short = (two.2 - one.2) * 2.0;
+        assert!((0.5..0.7).contains(&short), "{short}");
+        // Its letters are outlined at that size too: as tall as one `x`
+        // set at 13.335.
+        let x = shape_at("x", &font, 13.337, 2.0, Direction::LeftToRight);
+        let Some(letter) = x
+            .glyphs
+            .first()
+            .and_then(|glyph| outline_at(&font, glyph.glyph_id, 13.337, 2.0))
+            .and_then(|glyph| glyph.path.bounds())
+        else {
+            panic!("an x has a shape");
+        };
+        assert!(
+            (two.1 - (20.0 + letter.1)).abs() < 1.0e-4,
+            "{two:?} {letter:?}"
+        );
     }
 
     #[test]

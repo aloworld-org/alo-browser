@@ -11,9 +11,9 @@
 //! A page laid out at two is reported in CSS pixels like any other; only
 //! where its numbers were rounded differs.
 //!
-//! Paint draws at a scale of one whatever this says until queue item 561,
-//! and a renderer is told no scale until 562: a page a renderer loads is
-//! laid out at one.
+//! Paint draws at the scale too, onto a canvas of device pixels (queue item
+//! 561), but a renderer is told no scale until 563 and 562: a page a
+//! renderer loads is laid out and drawn at one.
 
 use alo_layout::Size;
 

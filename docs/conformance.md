@@ -351,7 +351,21 @@ case). The other two are `border-widths`' flex items, which shrink only at
 two and take Chrome's spare 1/128 px in another order (564); the same
 shrink at one is a unit off too. The 21 cases whose page runs script are
 measured and not yet laid out at two, because a renderer is told no scale
-(563). Paint still draws at one (561), and no window lays out at two (562).
+(563). No window lays out or paints at two yet (562).
+
+**A page drawn for a screen's scale** (item 561, ADR 0057 § 4). The display
+list stays in CSS pixels and says the scale it was built for; it is drawn
+under a growth of that scale onto a canvas of device pixels, so a letter is
+outlined at the size it is shown, shaped at the size its face is set at on
+that screen. A checkbox's, a radio's and a control face's picture is snapped
+to whole device pixels. `checkbox-beside-text` drawn at two puts all nine
+of its controls on exactly the device pixels Chrome 154 draws them on under
+`--force-device-scale-factor=2`, each control's picture within 65 of 255 of
+Chrome's at worst and 0.79 on average (`a_page_drawn_at_a_scale_of_two.rs`,
+against `chrome-at-2.png`, with `render-at-2.png` as its reference beside
+`render.png`). Not yet: a plain background is not snapped to whole pixels
+at any scale, though Chrome snaps one (565), and where a line under text
+falls at two is not measured (566).
 
 **A function in the `border` shorthand is read whole.** `border: 1px solid
 rgb(29 78 216)`, a comma-separated `rgb()`, `hsl()`, a `color-mix()` and a

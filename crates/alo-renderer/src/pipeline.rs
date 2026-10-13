@@ -176,7 +176,8 @@ pub fn render_with_resources(
 /// The same, laid out for a screen at its scale (ADR 0057).
 ///
 /// Layout rounds against the screen's scale and reports CSS pixels; the
-/// picture is still painted at a scale of one until queue item 561.
+/// picture is painted at the scale, on a canvas of device pixels (ADR 0057
+/// § 4).
 pub fn render_at(
     html: &str,
     css: &str,
@@ -259,7 +260,10 @@ pub fn render_document_with(
 /// issues. [`Judged::nothing`] for a page under no policy.
 ///
 /// It is laid out for `screen`, at its size and rounded against its scale
-/// (ADR 0057 § 2), and painted at a scale of one until queue item 561.
+/// (ADR 0057 § 2), and painted at that scale onto a canvas of device
+/// pixels, the size times the scale (§ 4). The easel hands it a screen at
+/// one until queue item 563, so a page a renderer loads is still drawn at
+/// one.
 pub fn draw(
     document: &Document,
     css: &str,
@@ -365,8 +369,14 @@ pub fn draw(
     );
 
     // White, because a page with no background of its own is a white page and
-    // a transparent picture is harder to look at in a diff.
-    let mut canvas = Canvas::new(whole(size.width), whole(size.height), Rgba::WHITE);
+    // a transparent picture is harder to look at in a diff. In device pixels:
+    // the list is drawn at its scale onto it (ADR 0057 § 4).
+    let scale = screen.scale();
+    let mut canvas = Canvas::new(
+        whole(size.width * scale),
+        whole(size.height * scale),
+        Rgba::WHITE,
+    );
     alo_paint::render(&display, &mut canvas);
 
     // After the boxes exist, because it is the text that was actually built
@@ -384,7 +394,8 @@ pub fn draw(
     }
 }
 
-/// A size in whole pixels, without a float-to-integer cast.
+/// A size in whole device pixels, at most 4,096 of them, without a
+/// float-to-integer cast.
 fn whole(value: f32) -> u32 {
     let clamped = value.round().clamp(0.0, 4096.0);
     let mut whole = 0u32;
@@ -449,6 +460,39 @@ mod tests {
             ),
             (20, 10)
         );
+    }
+
+    #[test]
+    fn at_two_the_canvas_is_device_pixels_and_the_layout_css_pixels() {
+        // A box at (1.5, 2.25), 3 by 2.5 CSS pixels: on a screen at two it
+        // covers device pixels 3 to 8 across and 5 to 8 down whole, and half
+        // of rows 4 and 9, its edges being at 4.5 and 9.5 (ADR 0057 § 4).
+        let html = "<!DOCTYPE html><html><body><div></div></body></html>";
+        let css = "body { margin: 0 } div { position: absolute; left: 1.5px; \
+                   top: 2.25px; width: 3px; height: 2.5px; background: #000000 }";
+        let screen = Screen::new(Size::new(20.0, 10.0)).at_scale(2.0);
+        let rendered = render_at(html, css, screen, &no_fonts(), &[], &[]);
+        let canvas = &rendered.drawing.canvas;
+        assert_eq!((canvas.width(), canvas.height()), (40, 20));
+        assert_eq!(
+            rendered.drawing.display.scale().to_bits(),
+            2.0_f32.to_bits()
+        );
+        let black = Some(Rgba::BLACK);
+        for (x, y) in [(3, 5), (8, 5), (3, 8), (8, 8)] {
+            assert_eq!(canvas.at(x, y), black, "inside, at ({x}, {y})");
+        }
+        for (x, y) in [(2, 6), (9, 6), (5, 3), (5, 10)] {
+            assert_eq!(canvas.at(x, y), Some(Rgba::WHITE), "outside, at ({x}, {y})");
+        }
+        // The layout is still in CSS pixels.
+        let laid_out = rendered
+            .drawing
+            .layout
+            .iter()
+            .map(|(_, geometry)| geometry.border_box)
+            .find(|rect| (rect.size.width - 3.0).abs() < 0.001);
+        assert!(laid_out.is_some_and(|rect| (rect.origin.x - 1.5).abs() < 0.001));
     }
 
     #[test]

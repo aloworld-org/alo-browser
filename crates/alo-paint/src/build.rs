@@ -91,7 +91,7 @@ pub fn build(
     // The root always establishes a stacking context, so nothing is left over
     // to escape past it.
     let items = builder.paint(root).items;
-    DisplayList::from_parts(items, builder.refused)
+    DisplayList::from_parts(items, builder.refused, styles.scale())
 }
 
 struct Builder<'a> {
@@ -404,6 +404,10 @@ impl Builder<'_> {
     /// put it. Measured in Chrome 154, not read from its source: a `<span>`
     /// whose padding starts at 26.953125 is first found by a point at 26.05,
     /// a block starting there by a point at 26.
+    ///
+    /// Whole CSS pixels at every scale, as measured at one: where a pointer
+    /// lands on a screen at two is measured with queue item 562 (ADR 0057,
+    /// *What is not decided here*), and until then this does not guess.
     fn occupied(&self, id: BoxId, kind: &BoxKind, pieces: &[Rect], out: &mut Vec<DisplayItem>) {
         let in_lines = kind.is_inline_box() && self.boxes.natural_size(id).is_none();
         for piece in pieces {
@@ -512,8 +516,9 @@ impl Builder<'_> {
 
     /// A button's, a text field's or a text area's own picture, in place of
     /// its background and border, while the page has written neither: drawn
-    /// over its border box moved onto whole pixels, as Chrome draws it, as a
-    /// checkbox's is (queue items 505 and 510). See [`crate::face`].
+    /// over its border box moved onto whole device pixels, as Chrome draws
+    /// it, as a checkbox's is (queue items 505, 510 and 561). See
+    /// [`crate::face`].
     fn face_of(&self, id: BoxId) -> Option<Vec<toggle::Layer>> {
         let kind = self.boxes.face(id)?;
         if !face::drawn(self.style_of(id)?) {
@@ -523,7 +528,7 @@ impl Builder<'_> {
         Some(face::artwork(
             kind,
             node.semantics.states.disabled,
-            snap::to_whole_pixels(geometry.border_box),
+            snap::to_device_pixels(geometry.border_box, self.styles.scale()),
         ))
     }
 
@@ -758,6 +763,7 @@ impl Builder<'_> {
             color,
             ascender,
         } = pen;
+        let scale = self.styles.scale();
         let shadows = self.text_shadows_of(id);
 
         let decorations = self.decorations_of(id);
@@ -773,7 +779,7 @@ impl Builder<'_> {
             if !trimmed.is_empty() {
                 // Measured as a `normal` line, whose top half of the line gap
                 // is above the letters (ADR 0050 § 2).
-                let room = alo_text::LineRoom::of(font.metrics(size));
+                let room = alo_text::LineRoom::at(font.metrics_at(size, scale), scale);
                 let baseline = geometry.border_box.top() + room.normal_above();
                 out.push(DisplayItem::Text {
                     box_id: id,
@@ -794,7 +800,7 @@ impl Builder<'_> {
                         geometry.border_box.left(),
                         geometry.border_box.right() - geometry.border_box.left(),
                         baseline,
-                        font.metrics(size),
+                        font.metrics_at(size, scale),
                     ));
                 }
             }
@@ -845,7 +851,7 @@ impl Builder<'_> {
                     fragment.rect.left(),
                     width,
                     baseline,
-                    font.metrics(size),
+                    font.metrics_at(size, scale),
                 ));
             }
         }
@@ -861,8 +867,10 @@ impl Builder<'_> {
         let request = self.font_request(id);
         let font = self.context.fonts.chain(&request).into_iter().next()?;
         // Where a line puts the baseline below the top of a piece of text:
-        // the face's ascent in whole pixels, as layout took it (ADR 0050).
-        let ascender = alo_text::LineRoom::of(font.metrics(size)).ascent;
+        // the face's ascent in whole device pixels, as layout took it (ADR
+        // 0050, ADR 0057 § 2).
+        let scale = self.styles.scale();
+        let ascender = alo_text::LineRoom::at(font.metrics_at(size, scale), scale).ascent;
         let oblique = crate::synthesis::oblique_for(request.slant, font.slant());
         let letter_spacing = style
             .get("letter-spacing")
@@ -961,8 +969,8 @@ impl Builder<'_> {
     }
 
     /// A checkbox's or a radio's own picture, drawn over its border box
-    /// moved onto whole pixels, as Chrome draws it (queue item 457); the
-    /// box itself stays where layout put it.
+    /// moved onto whole device pixels, as Chrome draws it (queue items 457
+    /// and 561); the box itself stays where layout put it.
     fn toggle_of(&self, id: BoxId, kind: alo_box::Toggle, out: &mut Vec<DisplayItem>) {
         let (Some(node), Some(geometry)) = (self.boxes.get(id), self.layout.get(id)) else {
             return;
@@ -974,7 +982,8 @@ impl Builder<'_> {
                 .style_of(id)
                 .and_then(|style| style.color("accent-color")),
         };
-        for layer in toggle::artwork(kind, state, snap::to_whole_pixels(geometry.border_box)) {
+        let snapped = snap::to_device_pixels(geometry.border_box, self.styles.scale());
+        for layer in toggle::artwork(kind, state, snapped) {
             out.push(DisplayItem::Fill {
                 rule: FillRule::NonZero,
                 box_id: id,

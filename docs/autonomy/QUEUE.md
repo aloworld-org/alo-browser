@@ -13507,7 +13507,7 @@ What stage 2's exit gate actually measures: a person using it.
   at both scales (502). *Closes when:* 563 and 564 are closed and 502's
   columns are Chrome's at both scales.
 
-- [ ] **561. Paint at a scale.** *Cut from 299 (ADR 0057 § 4). Feature:
+- [x] **561. Paint at a scale.** *Cut from 299 (ADR 0057 § 4). Feature:
   `docs/features.md` stage 2, a window, tabs and a tab strip. Depends on
   560's layout, built in iteration 331 (not on its cases still owed).*
   `alo-paint`'s `render` draws a display list under the scale onto
@@ -13521,6 +13521,52 @@ What stage 2's exit gate actually measures: a person using it.
   renders of the same frozen page at 1 and 2, the second's checkbox edges
   where Chrome's screenshot at 2 puts them, and every reference at 1
   unchanged.
+  ***Done (iteration 332).*** A display list is built for a scale and
+  says so (`DisplayList::scale`, from the style tree's), and `render`
+  draws it under a growth of that scale onto a canvas of device pixels,
+  every box's own transform composing inside it; `pipeline.rs` makes the
+  canvas the size times the scale. `snap.rs`' `to_device_pixels` rounds
+  each edge as `floor(x·s + 0.5) / s`, and a checkbox's, a radio's and a
+  control face's pictures take it. A run's baseline is `LineRoom::at`, and
+  its letters are shaped with `shape_at` and outlined with the new
+  `outline_at`, at the size the face is set at on that screen
+  (`outlined_run_at`). `cases/checkbox-beside-text` gains `chrome-at-2.png`
+  (Chrome 154 under `--force-device-scale-factor=2`) and `render-at-2.png`,
+  and `alo-corpus/tests/a_page_drawn_at_a_scale_of_two.rs` puts all nine
+  controls on exactly Chrome's device pixels, the five unchecked
+  checkboxes' two-pixel edges on Chrome's columns and rows, each control's
+  picture within 65 of 255 at worst and 0.79 on average of Chrome's, and
+  the case's `render.png` unchanged at one. Every committed file at one is
+  unchanged. Cut: a plain background on whole pixels (**565**), which
+  this engine does not snap at one either; found: a line under text at a
+  scale (**566**).
+
+- [ ] **565. A plain background is drawn on whole device pixels.** *Cut
+  from 561 (iteration 332; ADR 0057 § 2, Evidence 6). Feature:
+  `docs/features.md` stage 1, paint. Needs measuring at one.* ADR 0057's
+  table puts "a plain background, each edge snapped" in `snap.rs`, as
+  iteration 290 measured (Chrome 154 rounds each edge of a plain
+  background to a whole pixel, as a control's), but this engine has never
+  snapped one: a background laid out at 200.2 is drawn smoothed across
+  two pixels at one and at two. Snapping it moves pictures at one, so it
+  is its own item: which boxes Chrome snaps (a background colour alone, or
+  with a border, a radius, an image, a shadow; inline pieces) is measured
+  at one and at two before any reference is rewritten. *Closes when:* that
+  rule is written into ADR 0057's table or its own ADR, built through
+  `snap::to_device_pixels`, and a frozen page of backgrounds at tenths of
+  a pixel is Chrome's at one and at two, with every changed reference at
+  one explained by the rule.
+
+- [ ] **566. A line under text at a scale.** *Found building 561
+  (iteration 332). Feature: `docs/features.md` stage 1, text decoration.
+  Needs measuring.* An underline, overline or line through text is at
+  least one CSS pixel thick (`build.rs`' `decoration_at`) and placed from
+  the face's figures at the size it is set at, unrounded. Whether Chrome
+  154 at a real scale of two keeps a minimum of one CSS pixel or one
+  device pixel, and whether it puts the line on whole device pixels, is
+  not measured. *Closes when:* `text-decorations` drawn at two puts each
+  line where Chrome's screenshot at two does, as thick, and the case at
+  one is unchanged.
 
 - [ ] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
   § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,
@@ -13529,7 +13575,12 @@ What stage 2's exit gate actually measures: a person using it.
   without replicating; a person's pointer is divided by it; and
   `devicePixelRatio` and the `resolution` media features answer it. A
   fractional scale is rounded down to a whole one until one is measured.
-  Where a pointer's 1×1 pixel lands at 2 is measured here. *Closes when:*
+  Where a pointer's 1×1 pixel lands at 2 is measured here, and with it
+  whether an inline box's area is snapped to whole CSS or device pixels
+  (`build.rs`' `occupied`, whole CSS pixels at every scale until then).
+  A page's canvas is at most 4,096 device pixels a side (`pipeline.rs`'
+  `whole`, unchanged by 561), so a window over 2,048 CSS pixels wide at
+  two would be cut: the bound is decided here. *Closes when:*
   `alo` on this Mac, captured with `screencapture -l`, is the composed
   reference at 2, and a frozen page reading `devicePixelRatio` and
   matching `(min-resolution: 2dppx)` is drawn as Chrome draws it at 2.
@@ -13542,8 +13593,8 @@ What stage 2's exit gate actually measures: a person using it.
   form, `wire.rs`, read as a stranger's bytes: a scale that is not a
   finite factor above zero is one) carries the scale, and the easel lays
   out at it; the corpus's `Rendering` renders a loaded case at a scale.
-  `devicePixelRatio` and `resolution` stay 562's, since paint is not yet
-  at the scale. *Closes when:* the 21 cases whose page runs script,
+  `devicePixelRatio` and `resolution` stay 562's, since no window paints
+  at the scale yet (paint at a scale is built, 561; the window is 562). *Closes when:* the 21 cases whose page runs script,
   whose Chrome boxes at 1 and 2 are frozen beside them, are compared in
   `a_page_at_a_scale_of_two.rs` as the markup cases are, every box exact
   at 1 exact at 2; a scale on the wire is refused or made one when it is

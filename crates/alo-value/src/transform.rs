@@ -70,6 +70,16 @@ impl Matrix {
         }
     }
 
+    /// A growth by `by` on both axes, about the origin: how a list in CSS
+    /// pixels reaches a canvas of device pixels (ADR 0057 § 4).
+    pub fn scaling(by: f32) -> Self {
+        Self {
+            a: by,
+            d: by,
+            ..Self::IDENTITY
+        }
+    }
+
     /// This transform, then another — which is the order CSS composes them in,
     /// left to right along the value.
     #[must_use]
@@ -256,6 +266,18 @@ mod tests {
         assert!(matrix.is_identity());
         assert!(Transform::default().is_empty());
         assert_eq!(matrix.apply(7.0, 9.0), (7.0, 9.0));
+    }
+
+    #[test]
+    fn a_scaling_grows_about_the_origin_and_then_a_move_is_grown_too() {
+        let grown = Matrix::scaling(2.0);
+        assert!(close(grown.apply(10.5, -3.0), (21.0, -6.0)));
+        assert!(close((grown.scale_factor(), 0.0), (2.0, 0.0)));
+        assert!(Matrix::scaling(1.0).is_identity());
+        // A box's own move first, then the screen's growth: the move is in
+        // CSS pixels and lands twice as far.
+        let moved = Matrix::translation(3.0, 4.0).then(grown);
+        assert!(close(moved.apply(0.0, 0.0), (6.0, 8.0)));
     }
 
     #[test]

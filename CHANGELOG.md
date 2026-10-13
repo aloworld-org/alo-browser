@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can be painted for a high-density screen.** A page laid out
+  for a screen of two device pixels to the CSS pixel is now drawn at that
+  density too, onto a picture twice as wide and twice as tall, with its
+  letters drawn at the size they are shown rather than drawn small and
+  enlarged. Checkboxes and radios land on the screen's own pixels: in a
+  reference page of nine of them, every one is on exactly the pixels
+  Chrome 154 draws it on at a real scale of two. Nothing drawn at normal
+  density changed. No window uses it yet.
+
 - **A page can be laid out for a high-density screen.** Given a screen of
   two device pixels to the CSS pixel, the engine now rounds everything it
   rounds — a line's height, its leading, a border's width, a text field's

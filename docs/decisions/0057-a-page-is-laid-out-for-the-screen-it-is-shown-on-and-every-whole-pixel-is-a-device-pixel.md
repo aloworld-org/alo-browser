@@ -271,6 +271,23 @@ the source not read.
   unit off too, so it is how a shrunk item's share is rounded, not the
   scale (item 564).
 
+**Item 561, 2026-10-13, the same Chrome under the same flag,** a
+screenshot of `cases/checkbox-beside-text` at 600 by 400, each element set
+in the corpus's DejaVu face, without `--disable-gpu`.
+
+- **A control's picture is on whole device pixels, as § 2 says.** Each of
+  the case's nine checkboxes and radios is drawn from
+  `floor(x·2 + 0.5)` of its `getBoundingClientRect()` at two, every edge
+  of the box, and an unchecked checkbox's 1 px edge is two device pixels
+  of `rgb(118, 118, 118)`. This engine, drawing the same list under a
+  growth of two, puts all nine on the same device pixels.
+- **A plain background is in the table and not built.** The row was taken
+  from iteration 290's measurement at one, but this engine has never
+  snapped a plain background, at one or at two, and doing so moves
+  pictures at one. It is item 565, measured at both scales before any
+  reference moves, and until then that half of the row is not true of
+  this engine.
+
 ## How we will know if this was wrong
 
 **If a case laid out at 2 differs from Chrome's real scale-2 numbers** by

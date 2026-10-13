@@ -33167,3 +33167,123 @@ clause adds layout for a scale; Owed swaps 560 for 561, 563, 562 and 564.
 272 queue items are open (563 and 564 added). The next unused queue
 number is **565** and the next ADR is **0058**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 332 — queue item 561 closed: paint at a scale
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 331's entry; ADR 0057 in full; queue items 299 and 560–564; the
+feature line *A window, tabs, and a tab strip*; `alo-paint`'s `snap.rs`,
+`render.rs`, `display.rs`, `glyph.rs`, `build.rs` (text, pen, face,
+toggle, area), `drawn_picture.rs` and `raster.rs`' fills; `alo-renderer`'s
+`pipeline.rs` and `screen.rs`; `alo-corpus`'s `check.rs`, `rendering.rs`
+and `a_control_on_whole_pixels.rs`. No `AGENTS.md` exists here.
+
+**Why 561.** Its one dependency, 560's layout, is built; it is the first
+open item after 560 whose dependencies are met (563 comes after it in the
+file; 562 depends on 561 and 563). The items before it wait as 318–331
+recorded.
+
+**Built.**
+- `DisplayList` carries the scale it was built for (`scale()`, from
+  `StyleTree::scale`; a default list or a non-scale is 1). `render` draws
+  the list under `Matrix::scaling(s)` (new in `alo-value`), the transform
+  outside every box's own, onto a canvas the caller makes in device
+  pixels; at 1 the growth is the identity. A text item is drawn by a new
+  `draw_text` (split out of `render`, which clippy's line limit asked for
+  and which is the same responsibility), its run shaped with `shape_at` and
+  outlined with the new `glyph::outline_at` at the size its face is set at
+  on that screen (`outlined_run_at`; `outlined_run` is scale 1).
+- `snap::to_device_pixels(rect, s)`, `floor(x·s + 0.5) / s` per edge;
+  `to_whole_pixels` is it at 1. A checkbox's, a radio's and a control
+  face's picture take it. An inline box's hit area stays on whole CSS
+  pixels, documented as 562's to measure.
+- `build.rs` places a baseline with `LineRoom::at(metrics_at(size, s), s)`
+  and a decoration from `metrics_at`.
+- `pipeline.rs` makes the canvas `whole(size · s)` (still at most 4,096
+  device pixels a side, written into 562).
+- `alo-corpus`'s `check_picture` is public and takes the reference's name,
+  so a case keeps `render-at-2.png` beside `render.png` (ADR 0057 § 5).
+- Measured: Chrome 154 under `--force-device-scale-factor=2` (size by CDP
+  with `deviceScaleFactor: 0`, never emulation), without `--disable-gpu`,
+  DejaVu per computed family, screenshot of `checkbox-beside-text` at
+  600×400: each control drawn from `floor(x·2 + 0.5)` of its rectangle at
+  two, a 1 px edge two device pixels of `rgb(118,118,118)`. The same
+  script at 1 reproduced the committed `chrome.png` byte for byte. Frozen
+  as `chrome-at-2.png` (RGBA).
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean (fixed first: `render`
+over 100 lines, panics in test helpers, two doc idents). A separate
+`cargo test --workspace` run was stopped at the harness's background
+limit before reporting (the machine is shared with other sessions' builds),
+so the gate's own test step is the full suite's evidence.
+`scripts/gate.sh` ran in the foreground into a scratchpad log, was moved
+to the background at 600 s, and the next call waited on it with a
+foreground `until` loop. **Result: `exit 0`, "The gate is met. (10 of 10
+steps)"**, "tests pass", no `FAILED`, `panicked` or `^error` line. Only
+this entry and the commit came after it.
+
+**Gate, manual.**
+- Reference render: `checkbox-beside-text/render-at-2.png`, new, beside
+  `render.png`; looked at beside Chrome's screenshot.
+- Numbers: `a_page_drawn_at_a_scale_of_two.rs` — all nine controls'
+  device-pixel boxes equal Chrome's (48,6,74,32 … 48,322,88,362); the five
+  unchecked checkboxes' edge pixels are `118` in ours and Chrome's and the
+  pixels beside them equal Chrome's; each control within 65 of 255 at
+  worst (measured 65, the checked tick) and 2.4 on average, 0.79 over all
+  (measured); the canvas is 600×400; `render.png` still holds at 1.
+  Unit tests: `snap.rs` (Evidence 6's numbers at 2, 1 = the old rule,
+  non-scales), `display.rs`, `render.rs` (a run of 100 `x` at `13.337px`
+  drawn at two is the run set at two, grown, and ends 0.5–0.7 device px
+  past the run set at one; its height is one `x` outlined at 13.335),
+  `glyph.rs` (an `H` at `13.337px` outlined at 13.335 at two, 13.33 at
+  one), `transform.rs` (`scaling`), `pipeline.rs` (a box at (1.5, 2.25)
+  covers device pixels 3–8 and 5–8 whole at two, layout still 1.5).
+- Every committed file at scale 1 unchanged: the gate's corpus test ran
+  without `ALO_UPDATE_REFERENCES` and `git status` shows no case file
+  modified; the one update run (for `render-at-2.png`) rewrote `render.png`
+  at 1 identically.
+- Mutations, each restored from a copy (`cmp` confirmed), each failing a
+  test: the toggle snapped at 1; `render` ignoring the scale; `snap.rs`
+  rounding in CSS px; the canvas at 1's width; the baseline from
+  `LineRoom::of`; `letters` at 1; `shape_at` at 1 and `outline_at` at 1
+  inside `outlined_run_at` (both first survived the case, whose 16 and 32 px
+  cut alike at either scale, which is why the `13.337px` render test
+  exists); the glyph cut at 1.
+- Hostile input: a scale that is zero, negative, NaN or infinite is 1 in
+  `DisplayList` and `to_device_pixels`, tested. No bytes are read from
+  outside; the scale still reaches no wire (563).
+- One file, one responsibility: `snap.rs` is where a picture lands on
+  device pixels, `render.rs` draws a list, `display.rs` is the list.
+- Also updated: ADR 0057 (*Measured since*: item 561, and that the table's
+  plain-background half is not true of this engine — 565),
+  `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 561 ticked with a *Done (iteration 332)* paragraph. Cut:
+**565** (a plain background on whole device pixels; ADR 0057's table
+claims it for `snap.rs`, but this engine never snapped one at 1 either,
+and snapping moves references at 1, so it is measured first). Found:
+**566** (a line under text at a scale: minimum thickness and placement at
+2 unmeasured). 562 gains the hit area's pixels and the 4,096 bound; 563's
+note on 561 updated.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds painting at a scale (561, done); Owed drops 561 and adds 565
+and 566.
+
+**Unresolved obligations.**
+- Nothing on screen changes yet: a renderer is told no scale (563) and no
+  window paints at two (562); `devicePixelRatio` and `resolution` are
+  still unanswered.
+- A plain background is not snapped at any scale (565); a decoration at
+  two is unmeasured (566); a button face at two has no case of its own
+  (it shares `to_device_pixels` with the checkbox).
+- 560 is still open on 563, 564 and 502.
+- No claim about speed is made.
+
+273 queue items are open (561 closed; 565 and 566 added). The next unused
+queue number is **567** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

@@ -45,6 +45,14 @@ impl Glyph {
 /// draw" and "could not be read" are different answers and a caller that
 /// confused them would draw a missing-glyph box for every space.
 pub fn outline(font: &Font, glyph_id: u16, size: f32) -> Option<Glyph> {
+    outline_at(font, glyph_id, size, 1.0)
+}
+
+/// The same, set at the size it is on a screen of `scale` device pixels to
+/// the CSS pixel ([`alo_text::face_size_at`]), still in CSS pixels: the
+/// renderer grows the shape by the scale, so a letter is outlined at the
+/// size it is shown rather than drawn small and enlarged (ADR 0057 § 4).
+pub fn outline_at(font: &Font, glyph_id: u16, size: f32, scale: f32) -> Option<Glyph> {
     let mut face = ttf_parser::Face::parse(font.data(), font.index()).ok()?;
     // A variable font is one file holding a continuum, and the weight it was
     // set to decides what its outlines *are*. The tag and the coordinate come
@@ -59,8 +67,8 @@ pub fn outline(font: &Font, glyph_id: u16, size: f32) -> Option<Glyph> {
         return None;
     }
     // Drawn at the size the face is set at, as it was measured and shaped
-    // (`alo_text::face_size`), so a letter is as big as its advance says.
-    let scale = alo_text::face_size(size) / units;
+    // (`alo_text::face_size_at`), so a letter is as big as its advance says.
+    let scale = alo_text::face_size_at(size, scale) / units;
 
     let mut builder = Builder {
         path: Path::new(),
@@ -185,6 +193,26 @@ mod tests {
 
         assert!((large_top - small_top * 2.0).abs() < 0.01);
         assert!((large_right - small_right * 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn at_two_a_glyph_is_outlined_at_the_size_its_face_is_set_at_there() {
+        // `13.337px` is set at 13.335 on a screen at two, and at 13.33 at
+        // one (ADR 0057, *Measured since*); the shape is still in CSS pixels.
+        let font = sans();
+        let id = shape("H", &font, 100.0, Direction::LeftToRight)
+            .glyphs
+            .first()
+            .map(|glyph| glyph.glyph_id)
+            .expect("one glyph");
+        let hundred = outline(&font, id, 100.0).expect("a readable font");
+        let at_two = outline_at(&font, id, 13.337, 2.0).expect("a readable font");
+        let at_one = outline_at(&font, id, 13.337, 1.0).expect("a readable font");
+        let (_, _, wide, _) = hundred.path.bounds().expect("a shape");
+        let (_, _, two, _) = at_two.path.bounds().expect("a shape");
+        let (_, _, one, _) = at_one.path.bounds().expect("a shape");
+        assert!((two - wide * 0.133_35).abs() < 1.0e-4, "{two}");
+        assert!((one - wide * 0.1333).abs() < 1.0e-4, "{one}");
     }
 
     #[test]

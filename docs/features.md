@@ -675,10 +675,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   saying what happened, in the browser's own words. The page is laid out at
   the window's size in CSS pixels; on a high-density screen each pixel is
   doubled until the renderer lays out and paints for the screen's scale
-  (299, ADR 0057; 561–563), so shapes are right and text is coarse. The
+  (299, ADR 0057; 562–563), so shapes are right and text is coarse. The
   layout half is built (560): a page laid out for a scale of two rounds
   every whole-pixel rule in device pixels and is where Chrome 154 puts it
-  under a real scale of two, in 578 of the 580 corpus boxes compared. Closing the window closes every tab and stops
+  under a real scale of two, in 578 of the 580 corpus boxes compared. So
+  is the paint half (561): such a page is drawn onto a canvas of device
+  pixels, its letters outlined at the size they are shown, and a checkbox
+  or radio on the device pixels Chrome 154 draws it on at two. Closing the window closes every tab and stops
   every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
   a frozen alo page in the window is the corpus's picture of it, pixel for
   pixel. The picture reaches the screen: started on a Mac and captured with
@@ -791,8 +794,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (558); painting at the
   screen's density (299), which ADR 0057 decided means laying a page out
   for its screen's scale, every rule that rounds to whole pixels rounding
-  to device pixels, whose layout is built (560) and whose paint, loaded
-  pages and window are 561, 563 and 562; and a new tab opened by a link with
+  to device pixels, whose layout and paint are built (560, 561) and whose
+  loaded pages and window are 563 and 562, with a plain background on
+  whole device pixels (565) and a line under text at a scale (566) still
+  to measure; and a new tab opened by a link with
   `target="_blank"` that a person clicked (300)
 - [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [2] History, bookmarks, downloads

@@ -2260,3 +2260,15 @@ shrunk flex item's share of a pixel). 560 stays open on 563, 564 and 502;
 561 now depends on 560's built layout. 272 queue items are open (563 and
 564 added). The next unused queue number is 565 and the next unused ADR
 0058.
+
+Iteration 332 closed queue item 561, paint at a scale. A display list says
+the scale it was built for and is drawn under it onto a canvas of device
+pixels; a control's picture is snapped to whole device pixels, and a run's
+letters are shaped and outlined at the size their face is set at on that
+screen. `checkbox-beside-text` at two puts all nine controls on Chrome
+154's device pixels, with `render-at-2.png` committed beside `render.png`,
+and nothing at one moved. Cut: **565** (a plain background on whole device
+pixels, which this engine never snapped at one either). Found: **566** (a
+line under text at a scale). 273 queue items are open (561 closed; 565 and
+566 added). The next unused queue number is 567 and the next unused ADR
+0058.
