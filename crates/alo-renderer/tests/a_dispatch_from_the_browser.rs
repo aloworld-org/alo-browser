@@ -47,7 +47,7 @@ fn clock() -> Rc<dyn Clock> {
 fn view() -> Rc<dyn View> {
     let easel = Easel::new(alo_text::FontDatabase::new());
     Rc::new(PageView::at(
-        alo_layout::Size::new(800.0, 600.0),
+        alo_renderer::Screen::new(alo_layout::Size::new(800.0, 600.0)),
         Rc::new(core::cell::RefCell::new(easel)),
     ))
 }

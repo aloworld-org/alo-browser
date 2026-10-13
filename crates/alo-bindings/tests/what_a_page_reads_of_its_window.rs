@@ -14,8 +14,15 @@
 //!   `[Replaceable]`.
 //! - A page shown no view refuses each by name (§ 5), and a page cannot be
 //!   shown twice.
-//! - The screen, the window's outer size and place, and the scale factor are
-//!   absent (§ 1).
+//! - The screen and the window's outer size and place are absent (§ 1).
+//!
+//! And queue item 567: **`devicePixelRatio`** answers the [`View`]'s scale,
+//! the screen's the page is laid out and painted at (ADR 0057 § 3), asked
+//! at every read, a `double`, the window's own and `[Replaceable]` as the
+//! others are — as Chrome 154 has it, measured under
+//! `--force-device-scale-factor=2`: an own accessor of the window, getter
+//! and setter, enumerable and configurable, not on `Window.prototype`; after
+//! `devicePixelRatio = 3` a writable data property holding 3.
 //!
 //! And queue item 370: **an element's `scrollWidth` and `scrollHeight`**
 //! answer what the view measures of it at the moment of the read (§ 4),
@@ -41,6 +48,7 @@ use alo_js::{numeric, script};
 #[derive(Debug)]
 struct Lent {
     viewport: Cell<Extent>,
+    scale: Cell<f64>,
     scrolled: Cell<Scrolled>,
     /// The scrolling area of each element measured, by its `id`: an element
     /// not here has no box.
@@ -55,6 +63,7 @@ impl Lent {
     fn at(width: f64, height: f64) -> Rc<Self> {
         Rc::new(Self {
             viewport: Cell::new(Extent { width, height }),
+            scale: Cell::new(1.0),
             scrolled: Cell::new(Scrolled::default()),
             areas: RefCell::new(Vec::new()),
             busy: Cell::new(false),
@@ -74,6 +83,10 @@ impl Lent {
 impl View for Lent {
     fn viewport(&self) -> Extent {
         self.viewport.get()
+    }
+
+    fn scale(&self) -> f64 {
+        self.scale.get()
     }
 
     fn scrolled(&self) -> Scrolled {
@@ -265,6 +278,7 @@ fn each_member_is_the_windows_own_enumerable_configurable_and_replaceable() {
         "scrollY",
         "pageXOffset",
         "pageYOffset",
+        "devicePixelRatio",
     ] {
         assert_eq!(
             at_800(&format!(
@@ -310,6 +324,7 @@ fn a_page_shown_no_view_refuses_by_name() {
             "scrollY",
             "pageXOffset",
             "pageYOffset",
+            "devicePixelRatio",
         ] {
             assert_eq!(
                 page.run(&format!(
@@ -340,11 +355,45 @@ fn nothing_beyond_the_window_is_answered() {
     assert_eq!(
         at_800(
             "j([typeof screen, typeof outerWidth, typeof outerHeight, typeof screenX, \
-              typeof screenY, typeof screenLeft, typeof screenTop, \
-              typeof devicePixelRatio])"
+              typeof screenY, typeof screenLeft, typeof screenTop])"
         ),
-        "undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined"
+        "undefined,undefined,undefined,undefined,undefined,undefined,undefined"
     );
+}
+
+#[test]
+fn the_device_pixel_ratio_is_the_views_scale_asked_at_every_read() {
+    for stress in [false, true] {
+        let view = Lent::at(800.0, 600.0);
+        let mut page =
+            Page::new(Some(Rc::clone(&view)), stress).unwrap_or_else(|why| panic!("{why}"));
+        assert_eq!(
+            page.run("var r = devicePixelRatio; j([r, typeof r, window.devicePixelRatio])"),
+            "1,number,1"
+        );
+        // As a `Resize` onto a screen of two leaves it.
+        view.scale.set(2.0);
+        assert_eq!(
+            page.run("j([devicePixelRatio, self.devicePixelRatio])"),
+            "2,2"
+        );
+        assert_eq!(
+            page.run("r"),
+            "1",
+            "what a script kept is what it read then"
+        );
+        // floating-ui's rounding to the screen, as alo's workspace bundles it.
+        assert_eq!(
+            page.run("Math.round(10.3 * devicePixelRatio) / devicePixelRatio"),
+            "10.5"
+        );
+        // A `double`, as it is: a scale the window rounds is not rounded here.
+        view.scale.set(1.5);
+        assert_eq!(page.run("devicePixelRatio"), "1.5");
+        // Never a ratio a `double` cannot be.
+        view.scale.set(f64::NAN);
+        assert_eq!(page.run("devicePixelRatio"), "0");
+    }
 }
 
 /// Run `source` in a page shown by `view`, both ways; and answer what it

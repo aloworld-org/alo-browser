@@ -242,8 +242,8 @@ Item 299 is cut into three parts, and closes when they do:
 - **Where a pointer lands at a scale**: ADR 0024 § 5's point is a 1×1
   pixel, measured at scale 1; whether it is a device pixel at 2 is
   measured with item 568 (cut from 562).
-- **`devicePixelRatio` and `resolution`'s answers** in each unit, which
-  § 3 says answer the scale, are measured with item 567 (cut from 562).
+- ~~**`devicePixelRatio` and `resolution`'s answers** in each unit~~:
+  measured by item 567 (*Measured since*).
 - ~~**A face's size cut to hundredths** at a scale~~: measured by item
   560, in device pixels (*Measured since*).
 - **An `outline`'s width**, which Chrome also snaps (Evidence 5), when this
@@ -314,6 +314,35 @@ scale one in iteration 316.
   2,048 CSS pixels at two — shows its page cut at that edge and the
   window's background beyond, until item 569 decides how a larger frame
   crosses.
+
+**Item 567, 2026-10-13, Chrome 154 under `--force-device-scale-factor=1`
+and `=2`,** the source not read; 3,032 `matchMedia` answers, frozen as
+`alo-css/tests/references/resolution.chrome.txt`, and a sheet's `@media`
+answering alike.
+
+- **`devicePixelRatio` is the scale**, 1 and 2: an own accessor of the
+  window, getter and setter, enumerable and configurable, not on
+  `Window.prototype`, and `[Replaceable]` — assigned 3, it is a writable
+  data property holding 3. It is answered here from the page's view, asked
+  at every read, so a window moved to a screen of another scale answers
+  the new one.
+- **A resolution is read as a double and compared as an `f32`** in
+  `dppx`: `dpi` is a 96th of one and `dpcm` 2.54/96, converted before the
+  number is made an `f32`, so `192.00001dpi` is two and `191.9dpi` and
+  `1.99999dppx` are not. **`dpcm` alone is compared in hundredths**: the
+  query and the scale are each rounded to a hundredth of a `dppx`, a half
+  up, so `75.59dpcm` and `75.6dpcm` are both two. This fits every one of
+  the 2,856 answers of the second probe; exact comparison misses 160.
+- **Units in any case; zero is a resolution, a negative one is not**;
+  `infinite`, a bare number and `px` match nothing. Chrome also takes
+  `calc()`, the range syntax, the boolean `(resolution)` and the prefixed
+  `-webkit-device-pixel-ratio`; this engine refuses each as it refuses them
+  for `width` (item 571; the prefix is stage 3's, item 141).
+- **`cases/a-page-told-its-scale`**, whose script rounds a floating box to
+  the screen's device pixels with `devicePixelRatio` (floating-ui's
+  `roundByDPR`, as alo's workspace bundles it) and whose sheet asks
+  `resolution` three ways, has every box Chrome's at one and at two, and
+  its hairline, band and floating box on Chrome's device pixels at two.
 
 ## How we will know if this was wrong
 

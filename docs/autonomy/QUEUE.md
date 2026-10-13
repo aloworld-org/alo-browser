@@ -13471,7 +13471,8 @@ What stage 2's exit gate actually measures: a person using it.
   reported in CSS pixels, and the closing condition above is replaced by
   560–562's. *Closes when:* 560, 561 and 562 are closed, and 567, which
   562 cut and which this item's first sentence names. *(Iteration 334: 561
-  and 562 are closed; 560 and 567 remain.)*
+  and 562 are closed; 560 and 567 remain.)* *(Iteration 335: 567 is
+  closed; 560 remains.)*
 
 - [ ] **560. Layout for a scale.** *Cut from 299 (ADR 0057 §§ 2–3).
   Feature: `docs/features.md` stage 2, a window, tabs and a tab strip.
@@ -13618,7 +13619,7 @@ What stage 2's exit gate actually measures: a person using it.
   2,795,059 exact and all within one level once put through the capture's
   profile; the other 584 are the window's rounded corners.
 
-- [ ] **567. `devicePixelRatio` and the `resolution` media features.**
+- [x] **567. `devicePixelRatio` and the `resolution` media features.**
   *Cut from 562 (iteration 334; ADR 0057 § 3). Feature: `docs/features.md`
   stage 2, a window, tabs and a tab strip. Depends on 562 (done). Needs
   measuring.* A page is laid out and painted at its screen's scale, and
@@ -13631,6 +13632,31 @@ What stage 2's exit gate actually measures: a person using it.
   frozen page reading `devicePixelRatio` and matching
   `(min-resolution: 2dppx)` is laid out and drawn as Chrome draws it at
   two, with a reference render at two, and is unchanged at one.
+  ***Done (iteration 335).*** Measured first: Chrome 154 under
+  `--force-device-scale-factor=1` and `=2` answered 3,032 `matchMedia`
+  queries (frozen as `alo-css/tests/references/resolution.chrome.txt`; a
+  sheet's `@media` answered alike): a resolution is read as a double,
+  turned into `dppx` (`dpi` /96, `dpcm` ×2.54/96) and compared as an `f32`,
+  except `dpcm`, compared with the scale in hundredths of a `dppx`; units
+  in any case, zero a resolution, a negative one not. `devicePixelRatio`
+  is an own `[Replaceable]` accessor of the window, enumerable and
+  configurable. Built: `alo-css`'s `media/resolution.rs` and
+  `MediaCondition::Resolution` (`resolution`, `min-` and `max-`), the
+  number read again from its text as an `f64`;
+  `alo-bindings`' `View::scale` and `devicePixelRatio` beside `innerWidth`,
+  asked at every read; the renderer's `PageView` holds a `Screen`, set at
+  load and on every `Resize`. Every understood query of the 3,032 answers
+  as Chrome did (2,984); the nine forms Chrome matches and this engine
+  refuses are named in the test (`calc()`, the range syntax and the
+  boolean form are **571**; the prefixed ratio is stage 3's, 141).
+  `cases/a-page-told-its-scale` (a floating box rounded with
+  `devicePixelRatio` as floating-ui's `roundByDPR` does, a hairline under
+  `(min-resolution: 2dppx)`, a band under `192dpi`, a ground under
+  `(max-resolution: 1x)`) has every box Chrome's at one and at two
+  (`chrome-at-1.txt`, `chrome-at-2.txt`), its hairline, band and floating
+  box on the device pixels of Chrome's picture at two (`chrome-at-2.png`),
+  a `render-at-2.png` beside `render.png`, and every other committed file
+  unchanged. `matchMedia` is not built (**570**).
 
 - [ ] **568. Where a person's pointer lands at a scale.** *Cut from 562
   (iteration 334; ADR 0057, What is not decided). Feature:
@@ -13657,6 +13683,30 @@ What stage 2's exit gate actually measures: a person using it.
   have a say in). *Closes when:* a window on a screen wider than the
   bound shows its whole page, through confined renderers, with the
   crossing decided in an ADR.
+
+- [ ] **570. `matchMedia`, and a `MediaQueryList`.** *Found building 567
+  (iteration 335; ADR 0038, What this does not decide). Feature:
+  `docs/features.md` stage 2, a window, tabs and a tab strip. Waits for a
+  frozen page.* A sheet answers every media query this engine
+  understands, and a script cannot ask one: `matchMedia` is absent. Chrome
+  154's `matches` and `media` for 3,032 resolution queries are already
+  frozen (`alo-css/tests/references/resolution.chrome.txt`), and its
+  `media` serialises a query it does not understand as written. What a
+  `change` listener hears when a window moves to a screen of another scale
+  or width, and when, is measured with it. *Closes when:* a frozen page
+  that reads `matchMedia(...).matches` (alo's workspace bundles several)
+  draws as Chrome draws it, and its `change` is heard as Chrome's is.
+
+- [ ] **571. A media query's range syntax, boolean form and `calc()`.**
+  *Found building 567 (iteration 335). Feature: `docs/features.md` stage 1,
+  media queries. Waits for a frozen page.* Chrome 154 matches
+  `(resolution >= 2dppx)`, `(1dppx < resolution < 3dppx)`, the boolean
+  `(resolution)` and `(min-resolution: calc(1dppx + 1dppx))`; this engine
+  refuses each, as it refuses `(width >= 600px)`, and the query never
+  matches. *Closes when:* a frozen page that writes one of them is drawn as
+  Chrome draws it, for width and resolution alike, and
+  `a_resolution_is_compared_as_chrome_compares_it.rs`' refused list loses
+  them.
 
 - [x] **563. A loaded page is laid out at its scale.** *Cut from 560
   (iteration 331; ADR 0057 § 3). Feature: `docs/features.md` stage 2, a

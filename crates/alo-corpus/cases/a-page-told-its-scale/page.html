@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>A page told its scale</title></head>
+<body><main>
+<p id="ratio">Not told its scale</p>
+<div class="card">Invoices</div>
+<div class="dense"></div>
+<div id="tip" class="tip"></div>
+<script>
+// floating-ui's roundByDPR, as alo's workspace bundles it: a floating box is
+// put on whole device pixels of the screen it is shown on.
+const ratio = window.devicePixelRatio || 1;
+function roundByDPR(value) { return Math.round(value * ratio) / ratio; }
+document.getElementById('ratio').textContent = 'Shown at ' + ratio + 'x';
+document.getElementById('tip').setAttribute(
+  'style', 'left: ' + roundByDPR(60.3) + 'px; top: ' + roundByDPR(30.3) + 'px');
+</script>
+</main></body></html>

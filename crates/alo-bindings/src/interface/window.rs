@@ -16,9 +16,9 @@
 //!   defined on the instance by [`members`]. Its getter answers the window;
 //!   its setter defines an own data property `self` holding the value
 //!   assigned, so a page's `self = 1` replaces it, as Web IDL says.
-//! - `innerWidth`, `innerHeight`, `scrollX`, `scrollY`, `pageXOffset` and
-//!   `pageYOffset` — CSSOM View's, in [`super::window_cssom_view`], defined
-//!   on the instance beside `self`.
+//! - `innerWidth`, `innerHeight`, `scrollX`, `scrollY`, `pageXOffset`,
+//!   `pageYOffset` and `devicePixelRatio` — CSSOM View's, in
+//!   [`super::window_cssom_view`], defined on the instance beside `self`.
 //! - `location` — `[LegacyUnforgeable]`, `[PutForwards=href]`: an accessor
 //!   answering the page's one `Location` ([`crate::location`]), read
 //!   through the window's document. Assigning to it navigates, and is

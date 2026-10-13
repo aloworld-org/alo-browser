@@ -33515,3 +33515,123 @@ clause adds the window at its screen's scale (562, done) and drops
 274 queue items are open (562 closed; 567–569 added). The next unused
 queue number is **570** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 335 — queue item 567 closed: `devicePixelRatio` and the `resolution` media features
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+head and its line *A window, tabs, and a tab strip*; iterations 333 and
+334's entries; ADR 0057 in full; ADR 0038 §§ 1–2 and *What this does not
+decide*; ADR 0024 § 3; queue items 299 and 560–569; the feature line *A
+window, tabs, and a tab strip*; `alo-css`'s `media.rs`; `alo-bindings`'
+`view.rs`, `interface/window_cssom_view.rs` and `interface/window.rs`;
+`alo-renderer`'s `view.rs`, `screen.rs` and `renderer.rs`' load, strip and
+resize; `alo-corpus`'s `rendering.rs`, `check.rs`, `corpus.rs`,
+`a_page_at_a_scale_of_two.rs` and `a_page_drawn_at_a_scale_of_two.rs`. No
+`AGENTS.md` exists here.
+
+**Why 567.** Its one dependency, 562, is done; it names its ADR (0057
+§ 3), its feature and its closing condition; and 299 closes on it. 565 and
+566 come before it in the file but are measurements nothing depends on;
+560 waits on 564 and 502; 568 and 569 come after it; the items before 560
+wait as 318–334 recorded.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, never emulation; the source not read). 3,032 `matchMedia`
+answers, frozen as `alo-css/tests/references/resolution.chrome.txt`; a
+sheet's `@media` answered the same for all 88 queries of the first probe
+at both scales. A resolution is read as a double, made `dppx` (`dpi` /96,
+`dpcm` ×2.54/96) and compared as an `f32`; `dpcm` alone is compared in
+hundredths of a `dppx`, query and scale each rounded a half up. That fits
+all 2,856 answers of the second probe (exact comparison misses 160).
+`devicePixelRatio` is an own `[Replaceable]` accessor of the window,
+enumerable and configurable, not on `Window.prototype`.
+
+**Built.**
+- `alo-css`: `media/resolution.rs` (`QueryResolution`, `ResolutionUnit`:
+  the units, the conversion and the comparison rule) and
+  `MediaCondition::Resolution` for `resolution`, `min-` and `max-`, any
+  case. The number is read again from the token's text as an `f64`,
+  because cssparser's `f32` rounded before dividing makes `192.00001dpi`
+  more than two (the first run of the replay test found this: 2 of 3,032).
+  A negative value, a bare number, `px`, `infinite` and `calc()` are
+  refused and recorded.
+- `alo-bindings`: `View::scale`, and `devicePixelRatio` beside `innerWidth`,
+  asked at every read, a `double`. ADR 0038 § 1 gains an *Applied by*
+  note: by its own measure the scale is no longer beyond the window, since
+  layout depends on it (ADR 0057).
+- `alo-renderer`: `PageView` holds a `Screen`, set at load (page and strip)
+  and on every `Resize`.
+- `cases/a-page-told-its-scale` (160 × 80): its script rounds a floating
+  box to the screen with `devicePixelRatio` (floating-ui's `roundByDPR`,
+  as alo-workplace's bundle carries it) and writes the ratio; its sheet
+  draws a hairline under `(min-resolution: 2dppx)`, a band under
+  `(min-resolution: 192dpi)` and a ground under `(max-resolution: 1x)`.
+  The first version held a `<span>` whose text width is 1/64 px off at
+  one (not the scale); the span was taken out and Chrome re-measured.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (they caught
+a float comparison, now by bits, and `panic!` in test helpers, now in the
+tests). `scripts/gate.sh` ran in the foreground into a scratchpad log, was
+moved to the background by the harness at 600 s, and the next call waited
+on it with a foreground `until` loop. **Result: `exit 0`, "The gate is
+met. (10 of 10 steps)"**, "tests pass", no `FAILED`, `panicked` or
+`^error` line. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: `a_page_told_its_scale.rs` puts every box of the
+  case where Chrome's `chrome-at-1.txt` and `chrome-at-2.txt` do (6 at
+  one, 7 at two with the band; the floating box at (60, 30) and (60.5,
+  30.5); the card 22 and 21 px tall), and reads "Shown at 1x" and "Shown
+  at 2x". `a_page_at_a_scale_of_two.rs` now counts 74 cases, 22 loaded, at
+  least 899 and 319 boxes. `a_page_reads_its_viewport.rs`: a page loaded
+  at two reads 2 and its `(min-resolution: 2dppx)` box is 20 px; resized
+  onto one, the box is 10 px and a later script reads 1; back at two, 2 and
+  20, with and without the collector at every allocation.
+- Reference renders: `render.png` and `render-at-2.png` written for the
+  new case (looked at beside `chrome-at-2.png`: the same hairline, band,
+  box and "2x"); the test checks 13 device pixels of ours and Chrome's
+  picture at two — the hairline one device pixel at row 46, the band rows
+  88–99, the floating box from column 121 and row 61. References were
+  written with `ALO_UPDATE_REFERENCES=1` over the corpus test after a
+  backup; `git status` shows no other case file changed.
+- The Chrome replay: every query this engine understands, 2,984 of 3,032,
+  answers as Chrome did; the nine forms Chrome matches and this engine
+  refuses are named in the test (`calc()`, range, boolean: 571; the
+  `-webkit-` ratio: stage 3, 141).
+- Mutations, each restored from a copy (`cmp` confirmed), each failing a
+  test: resolution compared at one (3 tests); `dpcm` without hundredths
+  (3); the number not read again as an `f64` (1); the `f32` rounding
+  dropped (2); `devicePixelRatio` answering 1 (1); a `Resize` not giving
+  the view its scale (1); a load not giving it (5). `alo-render` rebuilt
+  after the renderer mutations.
+- Hostile input: `a_hostile_resolution_compares_and_never_panics`
+  (`f64::MAX`, ∞, denormals in each unit), and the refused forms above;
+  a ratio that is not finite answers 0. No panic path added.
+- One file, one responsibility: the resolution rule is its own file under
+  `media/`, since it changes for its own reason; `media.rs` still parses
+  and evaluates queries.
+- Also updated: ADR 0057 (*Measured since*: item 567; the open question
+  struck), ADR 0038 (*Applied by* 567), `docs/features.md`,
+  `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md` and
+  the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were only read. Nothing was pushed.
+
+**Queue.** 567 ticked with a *Done (iteration 335)* paragraph. Added 570
+(`matchMedia`) and 571 (range syntax, boolean form and `calc()` in a
+media query), each waiting for a frozen page. 299 closes on 560 alone.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds a page told its scale (567, done); Owed swaps 567 for 570 and
+571.
+
+**Unresolved obligations.**
+- `matchMedia` (570) and the media-query forms Chrome takes and this
+  engine refuses (571).
+- 560 open on 564 and 502; 565, 566, 568 and 569 as before.
+- No claim about speed is made.
+
+275 queue items are open (567 closed; 570 and 571 added). The next unused
+queue number is **572** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

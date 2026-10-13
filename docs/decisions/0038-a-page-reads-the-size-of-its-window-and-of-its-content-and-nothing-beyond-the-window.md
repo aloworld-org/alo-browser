@@ -107,6 +107,14 @@ opened by a frozen page that fails without it. That page's item then
 answers under ADR 0030's rule: the same value for everybody, or the least
 informative value the specification allows.
 
+*Applied by queue item 567 (2026-10-13), under ADR 0057:*
+`devicePixelRatio` is answered, with the screen's real scale. By this
+section's own measure it is no longer beyond the window: since ADR 0057 a
+page's layout depends on the scale — every whole-pixel rule rounds against
+it, so a page could read it from a `0.31px` box's width — and its sheets
+match `resolution` by it. Refusing it would hide nothing and break the
+pages that round to it. `screen` and the rest stay absent.
+
 *Applied by queue item 535 (2026-10-13):* a person's click is the first
 thing to carry a position, and `MouseEvent`'s `screenX` and `screenY`
 already exist for an agent's keyboard click. They answer the same numbers

@@ -1841,6 +1841,10 @@ items where being right and being unusable are the same outcome.
       moved to a screen of another scale has both drawn again there; and
       `alo` on this Mac's Retina display, captured with `screencapture -l`,
       is its composition at two in every opaque pixel within one level.
+      A page is told its scale (567, done): `devicePixelRatio` answers it
+      and `resolution`, `min-resolution` and `max-resolution` match it, as
+      Chrome 154 answered 2,984 queries at one and two, and
+      `a-page-told-its-scale` is Chrome's in every box at both.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1848,9 +1852,9 @@ items where being right and being unusable are the same outcome.
       (547); the strip's close and new-tab controls (558); device pixels
       (299), decided by ADR 0057 — a page is laid out for its screen's
       scale, every whole-pixel rule rounding in device pixels as Chrome 154
-      was measured to at a real scale of two — and owed as
-      `devicePixelRatio` and the `resolution` media features (567), where a
-      person's pointer lands at two (568), a window wider than 4,096 device
+      was measured to at a real scale of two — and owed as where a
+      person's pointer lands at two (568), `matchMedia` (570), a media
+      query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
       pixels (569), a shrunk flex item's share of a pixel (564), the two boxes at two
       that keep 560 open, a plain background on whole device pixels (565)
       and a line under text at a scale (566); a link opening a tab

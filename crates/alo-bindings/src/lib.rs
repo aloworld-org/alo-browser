@@ -52,7 +52,8 @@
 //!   `load` reaches it last when bubbling and first when capturing
 //!   ([`dispatch`]).
 //! - The window's `innerWidth`, `innerHeight`, `scrollX`, `scrollY`,
-//!   `pageXOffset` and `pageYOffset` (ADR 0038, queue item 366) ask the
+//!   `pageXOffset` and `pageYOffset` (ADR 0038, queue item 366), and its
+//!   `devicePixelRatio` (ADR 0057 § 3, queue item 567), ask the
 //!   page's [`View`], which the embedder hands it with [`show()`]: this crate
 //!   has no layout, so it asks, at every read, and a page shown nothing
 //!   refuses by name. So do an element's `scrollWidth` and `scrollHeight`

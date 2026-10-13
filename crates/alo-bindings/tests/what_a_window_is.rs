@@ -505,6 +505,10 @@ impl View for Corpus {
         }
     }
 
+    fn scale(&self) -> f64 {
+        1.0
+    }
+
     fn scrolled(&self) -> Scrolled {
         Scrolled::default()
     }

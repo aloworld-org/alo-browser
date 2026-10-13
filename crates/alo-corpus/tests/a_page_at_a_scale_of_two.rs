@@ -13,15 +13,17 @@
 //!
 //! The 21 cases whose page runs script carry Chrome's boxes too, measured
 //! the same day, and are loaded by a renderer told the scale with the page
-//! (queue item 563), as a window's renderer is.
+//! (queue item 563), as a window's renderer is. So does
+//! `a-page-told-its-scale` (queue item 567), measured the same way, whose
+//! script reads the scale and whose sheet asks `resolution`.
 //!
 //! Four probes pin the rules one at a time, each at both scales: a line's
 //! font figures rounded to whole device pixels, the leading's top half
 //! floored to one, a length truncated onto 1/64 of one, and a face's size
 //! cut to hundredths of one. Then the corpus:
-//! `chrome-at-1.txt` and `chrome-at-2.txt` beside 73 cases are Chrome's
-//! boxes for every element at each scale, and in all 73 — 52 of markup and
-//! 21 a renderer loads — every box this engine places exactly where Chrome
+//! `chrome-at-1.txt` and `chrome-at-2.txt` beside 74 cases are Chrome's
+//! boxes for every element at each scale, and in all 74 — 52 of markup and
+//! 22 a renderer loads — every box this engine places exactly where Chrome
 //! does at one, it places exactly where Chrome does at two.
 
 use std::collections::BTreeMap;
@@ -414,18 +416,18 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-    assert_eq!(cases, 73, "every case Chrome was measured on at two");
+    assert_eq!(cases, 74, "every case Chrome was measured on at two");
     assert_eq!(
-        loaded, 21,
+        loaded, 22,
         "the pages whose script runs, loaded by a renderer told the scale"
     );
     assert!(
-        compared >= 893,
-        "{compared} boxes compared, where 893 were exact at one on 2026-10-13"
+        compared >= 899,
+        "{compared} boxes compared, where 899 were exact at one on 2026-10-13"
     );
     assert!(
-        compared_loaded >= 313,
-        "{compared_loaded} boxes of loaded pages compared, where 313 were exact \
+        compared_loaded >= 319,
+        "{compared_loaded} boxes of loaded pages compared, where 319 were exact \
          at one on 2026-10-13"
     );
     assert_eq!(excused.len(), NOT_THE_SCALE.len(), "{excused:?}");

@@ -683,9 +683,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   pixel to each of theirs: nothing is doubled, so text on a high-density
   screen is as sharp as the screen (562). A window moved to a screen of
   another scale has its page and strip laid out and painted again there.
-  A fractional scale is rounded down to a whole one until one is measured,
-  a page is not told `devicePixelRatio` or `resolution` yet (567), and a
-  page's picture is at most 4,096 device pixels a side (569). Closing the
+  A page is told the scale it is drawn at (567): `devicePixelRatio`
+  answers it, and `resolution`, `min-resolution` and `max-resolution` in
+  `dppx`, `x`, `dpi` and `dpcm` match as Chrome 154 matches them, so a page
+  that draws a hairline or rounds a floating box for a dense screen is
+  drawn as Chrome draws it there. `matchMedia` is not built (570). A
+  fractional scale is rounded down to a whole one until one is measured,
+  and a page's picture is at most 4,096 device pixels a side (569). Closing the
   window closes every tab and stops
   every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
   a frozen alo page in the window is the corpus's picture of it, pixel for

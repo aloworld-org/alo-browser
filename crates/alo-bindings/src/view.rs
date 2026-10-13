@@ -68,11 +68,16 @@ pub struct Scrolled {
 pub struct Unmeasured;
 
 /// How a page is shown: what its window's `innerWidth`, `innerHeight`,
-/// `scrollX` and `scrollY` read, and its elements' `scrollWidth` and
-/// `scrollHeight`.
+/// `scrollX`, `scrollY` and `devicePixelRatio` read, and its elements'
+/// `scrollWidth` and `scrollHeight`.
 pub trait View: fmt::Debug {
     /// The size the page is laid out at: its viewport (ADR 0038 § 2).
     fn viewport(&self) -> Extent;
+
+    /// The scale of the screen the page is laid out and painted at, in
+    /// device pixels to the CSS pixel (ADR 0057 § 3, queue item 567): any
+    /// finite factor above zero.
+    fn scale(&self) -> f64;
 
     /// Where the viewport is scrolled to (ADR 0038 § 3).
     fn scrolled(&self) -> Scrolled;

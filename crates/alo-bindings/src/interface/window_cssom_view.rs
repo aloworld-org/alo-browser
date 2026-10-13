@@ -16,6 +16,13 @@
 //!   `pageXOffset` and `pageYOffset` are the specification's other names for
 //!   the same two getters, and so are built with them. A position that is
 //!   not finite — which a `double` cannot hold — answers `0`.
+//! - `devicePixelRatio` — `[Replaceable] readonly attribute double`: the
+//!   scale of the screen the page is laid out and painted at, its
+//!   [`View`]'s, asked at every read so that a window moved to a screen of
+//!   another scale answers the new one (queue item 567, ADR 0057 § 3). It is
+//!   not a fact beyond the window by ADR 0038 § 1's measure: the page's
+//!   layout depends on it, since every whole-pixel rule rounds against it,
+//!   and its sheets already match `resolution` by it.
 //!
 //! `Window` is `[Global]`, so each is an accessor **on the one instance**,
 //! enumerable and configurable, beside `self`. Each is `[Replaceable]`: its
@@ -29,8 +36,8 @@
 //! # Not here
 //!
 //! Everything beyond the window stays absent (§ 1): `screen`,
-//! `outerWidth`, `outerHeight`, `screenX`, `screenY`, `screenLeft`,
-//! `screenTop` and `devicePixelRatio`. Each is opened by a frozen page that
+//! `outerWidth`, `outerHeight`, `screenX`, `screenY`, `screenLeft` and
+//! `screenTop`. Each is opened by a frozen page that
 //! fails without it, and answered then under ADR 0030's rule, never with the
 //! machine's value.
 //!
@@ -55,17 +62,19 @@ enum Reads {
     Height,
     X,
     Y,
+    Ratio,
 }
 
 /// Every member, by name, in the order the specification lists them; a
 /// native is made around its index here.
-const MEMBERS: [(&str, Reads); 6] = [
+const MEMBERS: [(&str, Reads); 7] = [
     ("innerWidth", Reads::Width),
     ("innerHeight", Reads::Height),
     ("scrollX", Reads::X),
     ("pageXOffset", Reads::X),
     ("scrollY", Reads::Y),
     ("pageYOffset", Reads::Y),
+    ("devicePixelRatio", Reads::Ratio),
 ];
 
 /// Every member, on the window `global`.
@@ -136,6 +145,7 @@ fn read(view: &dyn View, reads: Reads) -> f64 {
         Reads::Height => long(view.viewport().height),
         Reads::X => double(view.scrolled().x),
         Reads::Y => double(view.scrolled().y),
+        Reads::Ratio => double(view.scale()),
     }
 }
 
@@ -157,8 +167,8 @@ pub(super) fn long(size: f64) -> f64 {
     nearest.clamp(0.0, f64::from(i32::MAX)) + 0.0
 }
 
-/// A position, as a Web IDL `double` holds it: as it is, or `0` when it is
-/// not finite, which a `double` cannot be.
+/// A position or a ratio, as a Web IDL `double` holds it: as it is, or `0`
+/// when it is not finite, which a `double` cannot be.
 fn double(position: f64) -> f64 {
     if position.is_finite() { position } else { 0.0 }
 }
@@ -214,5 +224,6 @@ mod tests {
         assert_eq!(reads("pageYOffset"), reads("scrollY"));
         assert_eq!(reads("innerWidth"), Some(Reads::Width));
         assert_eq!(reads("innerHeight"), Some(Reads::Height));
+        assert_eq!(reads("devicePixelRatio"), Some(Reads::Ratio));
     }
 }

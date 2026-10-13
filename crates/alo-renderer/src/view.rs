@@ -10,12 +10,14 @@
 //! `scrollWidth` and `scrollHeight`. It answers from what only the renderer
 //! holds:
 //!
-//! - **the viewport**, the size every drawing of the page is laid out at —
-//!   [`crate::Page`]'s, kept here too so that a read in the middle of a
-//!   script needs no borrow of the renderer. The renderer sets it in the two
-//!   places a page's size is ever set: when the page is loaded and when it is
-//!   resized ([`PageView::resized`]), so a read after a `Resize` answers the
-//!   new size (§ 2);
+//! - **the viewport**, the size every drawing of the page is laid out at,
+//!   and **the scale** of the screen it is laid out and painted at (ADR
+//!   0057 § 3, queue item 567) — [`crate::Page`]'s, kept here too so that a
+//!   read in the middle of a script needs no borrow of the renderer. The
+//!   renderer sets both in the two places a page's size or scale is ever
+//!   set: when the page is loaded and when it is resized
+//!   ([`PageView::resized`]), so a read after a `Resize` answers the new
+//!   size and scale (§ 2);
 //! - **the scroll position**, held here and nowhere else (§ 3). It is the
 //!   top left, `0` and `0`, because nothing scrolls a viewport yet: no wheel
 //!   in the window, no `scrollTo`, and an agent's `Scroll` changes nothing
@@ -40,31 +42,32 @@ use alo_dom::{Document, NodeId};
 use alo_layout::Size;
 
 use crate::easel::Easel;
+use crate::screen::Screen;
 use crate::scrolling_area;
 
-/// A page's viewport and scroll position, as its script reads them, and the
-/// easel its elements are measured on.
+/// A page's viewport, its screen's scale and its scroll position, as its
+/// script reads them, and the easel its elements are measured on.
 #[derive(Debug)]
 pub struct PageView {
-    viewport: Cell<Size>,
+    screen: Cell<Screen>,
     scrolled: Scrolled,
     easel: Rc<RefCell<Easel>>,
 }
 
 impl PageView {
-    /// A page laid out at `viewport`, scrolled to its top left, drawn on
+    /// A page laid out for `screen`, scrolled to its top left, drawn on
     /// `easel`.
-    pub fn at(viewport: Size, easel: Rc<RefCell<Easel>>) -> Self {
+    pub fn at(screen: Screen, easel: Rc<RefCell<Easel>>) -> Self {
         Self {
-            viewport: Cell::new(viewport),
+            screen: Cell::new(screen),
             scrolled: Scrolled::default(),
             easel,
         }
     }
 
-    /// The page is laid out at `viewport` from now on.
-    pub fn resized(&self, viewport: Size) {
-        self.viewport.set(viewport);
+    /// The page is laid out for `screen` from now on.
+    pub fn resized(&self, screen: Screen) {
+        self.screen.set(screen);
     }
 
     /// The easel the page is drawn on, for the renderer to tell it what the
@@ -76,11 +79,15 @@ impl PageView {
 
 impl View for PageView {
     fn viewport(&self) -> Extent {
-        let Size { width, height } = self.viewport.get();
+        let Size { width, height } = self.screen.get().size;
         Extent {
             width: f64::from(width),
             height: f64::from(height),
         }
+    }
+
+    fn scale(&self) -> f64 {
+        f64::from(self.screen.get().scale())
     }
 
     fn scrolled(&self) -> Scrolled {
@@ -93,7 +100,7 @@ impl View for PageView {
         node: NodeId,
     ) -> Result<Option<Extent>, Unmeasured> {
         let mut easel = self.easel.try_borrow_mut().map_err(|_| Unmeasured)?;
-        easel.fresh(document, self.viewport.get());
+        easel.fresh(document, self.screen.get().size);
         let Some(drawing) = easel.drawn() else {
             return Ok(None);
         };
@@ -110,6 +117,7 @@ impl View for PageView {
 mod tests {
     use super::PageView;
     use crate::easel::Easel;
+    use crate::screen::Screen;
     use alo_bindings::{Extent, Scrolled, Unmeasured, View};
     use alo_layout::Size;
     use alo_text::FontDatabase;
@@ -121,8 +129,8 @@ mod tests {
     }
 
     #[test]
-    fn a_view_answers_the_size_it_was_last_given_and_the_top_left() {
-        let view = PageView::at(Size::new(800.0, 600.0), easel());
+    fn a_view_answers_the_size_and_scale_it_was_last_given_and_the_top_left() {
+        let view = PageView::at(Screen::new(Size::new(800.0, 600.0)).at_scale(2.0), easel());
         assert_eq!(
             view.viewport(),
             Extent {
@@ -130,8 +138,9 @@ mod tests {
                 height: 600.0
             }
         );
+        assert_eq!(view.scale().to_bits(), 2.0_f64.to_bits());
         assert_eq!(view.scrolled(), Scrolled { x: 0.0, y: 0.0 });
-        view.resized(Size::new(640.0, 480.0));
+        view.resized(Screen::new(Size::new(640.0, 480.0)));
         assert_eq!(
             view.viewport(),
             Extent {
@@ -139,13 +148,14 @@ mod tests {
                 height: 480.0
             }
         );
+        assert_eq!(view.scale().to_bits(), 1.0_f64.to_bits());
         assert_eq!(view.scrolled(), Scrolled { x: 0.0, y: 0.0 });
     }
 
     #[test]
     fn a_measurement_is_drawn_once_and_kept_until_the_document_changes() {
         let easel = easel();
-        let view = PageView::at(Size::new(800.0, 600.0), Rc::clone(&easel));
+        let view = PageView::at(Screen::new(Size::new(800.0, 600.0)), Rc::clone(&easel));
         let mut document = alo_dom::parse_document(
             "<!DOCTYPE html><html><body style='margin:0'><div style='height:900px'></div></body></html>",
         );

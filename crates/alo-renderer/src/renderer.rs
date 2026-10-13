@@ -188,7 +188,10 @@ impl Renderer {
     pub fn new(fonts: FontDatabase) -> Self {
         let easel = Rc::new(RefCell::new(Easel::new(fonts)));
         Self {
-            view: Rc::new(PageView::at(Size::default(), Rc::clone(&easel))),
+            view: Rc::new(PageView::at(
+                Screen::new(Size::default()),
+                Rc::clone(&easel),
+            )),
             pointed: Pointed::default(),
             holds_strip: false,
             easel,
@@ -665,8 +668,11 @@ impl Renderer {
         let mut held = Held::Parsed(document);
         let mut said = Vec::new();
         let mut objections = Vec::new();
-        // A new page is shown at its own size, scrolled to its top.
-        self.view = Rc::new(PageView::at(page.viewport, Rc::clone(&self.easel)));
+        // A new page is shown at its own size and scale, scrolled to its top.
+        self.view = Rc::new(PageView::at(
+            Screen::new(page.viewport).at_scale(page.scale),
+            Rc::clone(&self.easel),
+        ));
         let policies = scripts::at_load(
             &mut held,
             &mut parsing,
@@ -747,7 +753,10 @@ impl Renderer {
             .at(crate::strip::address().unwrap_or_else(alo_url::Url::about_blank))
             .with_sheet(strip_document::SHEET);
         self.easel.borrow_mut().begin(&page);
-        self.view = Rc::new(PageView::at(page.viewport, Rc::clone(&self.easel)));
+        self.view = Rc::new(PageView::at(
+            Screen::new(page.viewport).at_scale(page.scale),
+            Rc::clone(&self.easel),
+        ));
         self.metas = alo_net::Policies::none();
         self.held = Some(Held::Parsed(document));
         self.page = Some(page);
@@ -806,7 +815,7 @@ impl Renderer {
         };
         page.viewport = screen.size;
         page.scale = screen.scale();
-        self.view.resized(screen.size);
+        self.view.resized(screen);
         self.easel.borrow_mut().rescale(screen.scale());
         self.draw();
         self.loaded()

@@ -169,8 +169,9 @@ said how tall it is), a length, and a percentage of the box's own
 by the room its `line-height` gives it, leading and all, as CSS says. A face whose table has no x-height, DejaVu among
 them, is measured by its own `x`, as browsers do.
 
-**Media queries** answer `min-width`, `max-width`, `width` and
-`prefers-color-scheme`, joined by `and`, after an optional `not` or `only`
+**Media queries** answer `min-width`, `max-width`, `width`,
+`prefers-color-scheme`, and the screen's `resolution`, `min-resolution` and
+`max-resolution` (item 567, below), joined by `and`, after an optional `not` or `only`
 and a media type (`screen` and `all` match, `print` and the rest do not).
 A width is written in `px`, `em` or `rem`, or is a bare zero. `em` and
 `rem` are the initial font size, 16 px, not the page's, because Media
@@ -381,9 +382,14 @@ and its strip too (`a_window_on_a_screen_of_two.rs`, each frame equal to
 the same page or strip drawn at that scale in the test). `alo` on this
 Mac's Retina display, captured with `screencapture -l`, is the window
 composed at two through the real conductor: every opaque pixel within one
-level once put through the display's profile, 99.84% exact. Not yet: a
-page is not told `devicePixelRatio` and does not match `resolution` (567);
-where a person's pointer lands at two is not measured (568); a fractional
+level once put through the display's profile, 99.84% exact. A page is
+told its scale (567): `devicePixelRatio` answers it, asked at every read,
+and `resolution`, `min-resolution` and `max-resolution` are matched against
+it in `dppx`, `x`, `dpi` and `dpcm`, answering each of 2,984 queries as
+Chrome 154 did at one and at two (`cases/a-page-told-its-scale`, every box
+Chrome's at both scales). Not yet: `matchMedia` (570), and a resolution
+written with `calc()`, the range syntax or the boolean `(resolution)`
+(571); where a person's pointer lands at two is not measured (568); a fractional
 scale is rounded down to a whole one; and a page's picture is at most 4,096
 device pixels a side, so a wider window is cut (569).
 

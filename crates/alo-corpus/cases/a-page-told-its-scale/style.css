@@ -1,0 +1,12 @@
+body { margin: 0; font-family: sans-serif; font-size: 13px; color: #101014; background: #ffffff; }
+main { padding: 4px 8px; }
+p { margin: 0 0 4px; }
+.card { height: 20px; border: 1px solid #71717a; }
+.dense { display: none; height: 6px; background: #16a34a; }
+.tip { position: absolute; width: 30.3px; height: 10.3px; background: #1d4ed8; }
+/* A hairline where the screen can draw one. */
+@media (min-resolution: 2dppx) { .card { border-width: 0.5px; } }
+/* A band only a dense screen is shown, asked in dots per inch. */
+@media (min-resolution: 192dpi) { .dense { display: block; } }
+/* A ground only a screen of one is shown, asked in x. */
+@media (max-resolution: 1x) { .card { background: #f4f4f5; } }

@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page is told how dense its screen is.** `window.devicePixelRatio`
+  now answers the scale the page is drawn at — 2 on a Retina display —
+  and style sheets can ask with `resolution`, `min-resolution` and
+  `max-resolution`, in `dppx`, `x`, `dpi` or `dpcm`. Each answers exactly
+  as Chrome 154 answered 2,984 measured queries, so a page that draws a
+  hairline or rounds a popover's position for a dense screen is drawn as
+  Chrome draws it there. `matchMedia` is not built yet.
+
 - **The window is sharp on a high-density screen.** On a Retina display
   the browser used to lay a page out at normal density and double every
   pixel, so shapes were right and text was coarse. Now the window tells

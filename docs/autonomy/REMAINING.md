@@ -2294,3 +2294,14 @@ one level. Cut: **567** (`devicePixelRatio` and `resolution`), **568**
 picture can be). 299 stays open on 560 and 567. 274 queue items are open
 (562 closed; 567–569 added). The next unused queue number is 570 and the
 next unused ADR 0058.
+
+Iteration 335 closed queue item 567, `devicePixelRatio` and the
+`resolution` media features. A page reads the scale it is drawn at, and its
+sheets match `resolution`, `min-resolution` and `max-resolution` in `dppx`,
+`x`, `dpi` and `dpcm` exactly as Chrome 154 answered 2,984 measured queries
+at one and two; `cases/a-page-told-its-scale` is Chrome's in every box at
+both scales. Found: **570** (`matchMedia`) and **571** (a media query's
+range syntax, boolean form and `calc()`), each waiting for a frozen page.
+299 stays open on 560 alone. 275 queue items are open (567 closed; 570 and
+571 added). The next unused queue number is 572 and the next unused ADR
+0058.

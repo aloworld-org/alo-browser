@@ -12,6 +12,10 @@
 //!   and 480: the view is asked at every read, never copied at load. The
 //!   page is drawn at that size too, so the two agree.
 //! - A new page is shown at its own size.
+//! - Queue item 567 (ADR 0057 § 3): a page loaded on a screen of two reads
+//!   `devicePixelRatio` 2 and its sheet's `(min-resolution: 2dppx)` holds;
+//!   after a `Resize` onto a screen of one, a script reads 1 and the rule no
+//!   longer holds in the drawing.
 //!
 //! What a test does between messages — queueing a task on the page's loop
 //! and running it — is what a timer or an event will do once one can (items
@@ -147,4 +151,72 @@ fn a_new_page_is_shown_at_its_own_size() {
         read(renderer.document()).as_deref(),
         Some("300x200 at 0,0 0,0")
     );
+}
+
+/// A page that writes its `devicePixelRatio` into its root, with a box that
+/// is 20 px wide on a screen of two or more and 10 px on any other.
+const RATIO: &str = "<!DOCTYPE html><html><head><style>\
+div { width: 10px; height: 1px } \
+@media (min-resolution: 2dppx) { div { width: 20px } }\
+</style></head><body><div></div><script>\
+document.documentElement.setAttribute('data-read', '' + devicePixelRatio);\
+</script></body></html>";
+
+/// The first `<div>`'s width in the renderer's last drawing.
+fn div_width(renderer: &Renderer) -> Option<f32> {
+    let document = renderer.document()?;
+    let drawing = renderer.rendered()?;
+    let div = document.descendants(document.root()).find(|id| {
+        document
+            .element(*id)
+            .is_some_and(|element| element.name.is_html("div"))
+    })?;
+    drawing
+        .boxes
+        .ids()
+        .find_map(|id| match drawing.boxes.get(id).map(|found| &found.kind) {
+            Some(alo_box::BoxKind::Element { node, .. }) if *node == div => {
+                drawing.layout.get(id).map(|at| at.border_box.size.width)
+            }
+            _ => None,
+        })
+}
+
+#[test]
+fn a_page_reads_the_scale_of_its_screen_and_its_sheet_asks_it() {
+    for stress in [false, true] {
+        let mut renderer = Renderer::new(FontDatabase::new());
+        let loaded = renderer.handle(ToRenderer::Load(Box::new(
+            Page::new(RATIO, Size::new(100.0, 50.0)).at_scale(2.0),
+        )));
+        assert!(matches!(loaded, FromRenderer::Loaded { .. }), "{loaded:?}");
+        assert_eq!(read(renderer.document()).as_deref(), Some("2"));
+        assert_eq!(div_width(&renderer), Some(20.0));
+        // The window moved to a screen of one.
+        let _ = renderer.handle(ToRenderer::Resize(Screen::new(Size::new(100.0, 50.0))));
+        assert_eq!(div_width(&renderer), Some(10.0), "the sheet asks again");
+        later(
+            &mut renderer,
+            "document.documentElement.setAttribute('data-read', '' + devicePixelRatio);",
+            stress,
+        )
+        .unwrap_or_else(|why| panic!("{why}"));
+        assert_eq!(
+            read(renderer.document()).as_deref(),
+            Some("1"),
+            "stress: {stress}"
+        );
+        // And back.
+        let _ = renderer.handle(ToRenderer::Resize(
+            Screen::new(Size::new(100.0, 50.0)).at_scale(2.0),
+        ));
+        later(
+            &mut renderer,
+            "document.documentElement.setAttribute('data-read', '' + devicePixelRatio);",
+            stress,
+        )
+        .unwrap_or_else(|why| panic!("{why}"));
+        assert_eq!(read(renderer.document()).as_deref(), Some("2"));
+        assert_eq!(div_width(&renderer), Some(20.0));
+    }
 }

@@ -2,18 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Media queries: the two things `docs/features.md` asks for in stage 1.
+//! Media queries: the two things `docs/features.md` asks for in stage 1, and
+//! the screen's resolution.
 //!
 //! **Width, and `prefers-color-scheme`.** The workspace already ships a light
 //! and a dark theme, and its breakpoints are widths, so those two carry the
-//! whole of alo's own styling. Everything else in the media grammar is
-//! recognised as *not understood* and recorded, rather than guessed at.
+//! whole of alo's own styling. **`resolution`**, `min-resolution` and
+//! `max-resolution` ask the scale a page is laid out and painted at (ADR
+//! 0057 § 3, queue item 567; [`resolution`]). Everything else in the media
+//! grammar is recognised as *not understood* and recorded, rather than
+//! guessed at.
 //!
 //! When a query is not understood, CSS says to replace it with `not all`, and
 //! that is what happens here: it never matches. Failing closed matters more in
 //! a media query than almost anywhere else, because the alternative is a dark
 //! theme's rules leaking into a light one, which looks like a rendering bug and
 //! is not one.
+
+mod resolution;
+
+pub use resolution::{QueryResolution, ResolutionUnit};
 
 use crate::issue::{IssueKind, Location, StyleIssue};
 use core::fmt;
@@ -63,11 +71,11 @@ pub struct MediaContext {
     /// The theme being asked for.
     pub color_scheme: ColorScheme,
     /// Device pixels per CSS pixel: the screen's scale, which layout rounds
-    /// against (ADR 0057 § 3). One unless somebody said otherwise.
+    /// against and paint draws at (ADR 0057 § 3). One unless somebody said
+    /// otherwise.
     ///
-    /// No media query here asks for it yet: `resolution` is evaluated
-    /// against it once a window paints at it (queue item 562), and is
-    /// refused as not understood until then.
+    /// `resolution`, `min-resolution` and `max-resolution` are compared with
+    /// it, as a page's `devicePixelRatio` answers it (queue item 567).
     pub scale: f32,
 }
 
@@ -161,15 +169,26 @@ impl fmt::Display for MediaType {
     }
 }
 
-/// How a width feature compares.
+/// How a width or a resolution feature compares.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Comparison {
-    /// `min-width`: the viewport is at least this wide.
+    /// `min-width`, `min-resolution`: the device has at least this much.
     AtLeast,
-    /// `max-width`: the viewport is at most this wide.
+    /// `max-width`, `max-resolution`: the device has at most this much.
     AtMost,
-    /// `width`: the viewport is exactly this wide.
+    /// `width`, `resolution`: the device has exactly this much.
     Exactly,
+}
+
+impl Comparison {
+    /// The prefix a feature compared this way is written with.
+    fn prefix(self) -> &'static str {
+        match self {
+            Comparison::AtLeast => "min-",
+            Comparison::AtMost => "max-",
+            Comparison::Exactly => "",
+        }
+    }
 }
 
 /// The size of one `em` or `rem` in a media query, in CSS pixels.
@@ -228,6 +247,13 @@ pub enum MediaCondition {
     },
     /// `prefers-color-scheme`.
     ColorScheme(ColorScheme),
+    /// The screen's scale, compared.
+    Resolution {
+        /// How to compare.
+        comparison: Comparison,
+        /// The resolution being compared against, as written.
+        resolution: QueryResolution,
+    },
 }
 
 impl MediaCondition {
@@ -244,6 +270,10 @@ impl MediaCondition {
                 }
             }
             MediaCondition::ColorScheme(scheme) => context.color_scheme == *scheme,
+            MediaCondition::Resolution {
+                comparison,
+                resolution,
+            } => resolution.compared(*comparison, context.scale),
         }
     }
 }
@@ -252,16 +282,15 @@ impl fmt::Display for MediaCondition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MediaCondition::Width { comparison, length } => {
-                let name = match comparison {
-                    Comparison::AtLeast => "min-width",
-                    Comparison::AtMost => "max-width",
-                    Comparison::Exactly => "width",
-                };
-                write!(f, "({name}: {length})")
+                write!(f, "({}width: {length})", comparison.prefix())
             }
             MediaCondition::ColorScheme(scheme) => {
                 write!(f, "(prefers-color-scheme: {scheme})")
             }
+            MediaCondition::Resolution {
+                comparison,
+                resolution,
+            } => write!(f, "({}resolution: {resolution})", comparison.prefix()),
         }
     }
 }
@@ -495,19 +524,22 @@ fn parse_one_condition<'i>(
             return Ok(MediaCondition::ColorScheme(scheme));
         }
 
-        let comparison = if name.eq_ignore_ascii_case("min-width") {
-            Comparison::AtLeast
-        } else if name.eq_ignore_ascii_case("max-width") {
-            Comparison::AtMost
-        } else if name.eq_ignore_ascii_case("width") {
-            Comparison::Exactly
-        } else {
-            return Err(input.new_custom_error(()));
-        };
-        Ok(MediaCondition::Width {
-            comparison,
-            length: expect_length(input)?,
-        })
+        let name = name.to_ascii_lowercase();
+        let (comparison, feature) = [Comparison::AtLeast, Comparison::AtMost]
+            .into_iter()
+            .find_map(|comparison| Some((comparison, name.strip_prefix(comparison.prefix())?)))
+            .unwrap_or((Comparison::Exactly, name.as_str()));
+        match feature {
+            "width" => Ok(MediaCondition::Width {
+                comparison,
+                length: expect_length(input)?,
+            }),
+            "resolution" => Ok(MediaCondition::Resolution {
+                comparison,
+                resolution: expect_resolution(input)?,
+            }),
+            _ => Err(input.new_custom_error(())),
+        }
     })
 }
 
@@ -541,6 +573,58 @@ fn expect_length<'i>(
                 location,
             }))
         }
+    }
+}
+
+/// A resolution: a number of `dppx`, `x`, `dpi` or `dpcm`, never below
+/// zero ([`resolution`]).
+///
+/// The number is read again from the text it was written as, as an `f64`:
+/// the tokenizer's `f32` is rounded before it is divided, which turns
+/// `192.00001dpi` into a resolution above two where Chrome reads two. A
+/// number this cannot read back — only an escape inside it could make one —
+/// is the tokenizer's.
+///
+/// Every other form is refused and the query recorded: a `calc()`, which
+/// Chrome 154 also takes and no page here has asked for; a unit that is not
+/// a resolution; and `infinite`, which Chrome 154 refuses too.
+fn expect_resolution<'i>(
+    input: &mut CssParser<'i, '_>,
+) -> Result<QueryResolution, cssparser::ParseError<'i, ()>> {
+    let location = input.current_source_location();
+    let start = input.position();
+    let token = input.next()?.clone();
+    if let Token::Dimension { value, unit, .. } = &token
+        && let Some(resolution) = ResolutionUnit::from_name(unit).and_then(|unit| {
+            QueryResolution::new(as_written(input.slice_from(start), *value), unit)
+        })
+    {
+        return Ok(resolution);
+    }
+    Err(cssparser::ParseError::from(BasicParseError {
+        kind: cssparser::BasicParseErrorKind::UnexpectedToken(token),
+        location,
+    }))
+}
+
+/// The number a dimension's `text` starts with, as an `f64`, when it reads
+/// as the same number the tokenizer read; `tokenized` otherwise.
+///
+/// No resolution's unit starts with an `e`, so the number is every leading
+/// sign, digit, point and exponent character.
+fn as_written(text: &str, tokenized: f32) -> f64 {
+    let number = text
+        .trim_start()
+        .split(|c: char| !(c.is_ascii_digit() || matches!(c, '+' | '-' | '.' | 'e' | 'E')))
+        .next()
+        .and_then(|number| number.parse::<f64>().ok());
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "only compared with the tokenizer's f32, to check it is the same number"
+    )]
+    match number {
+        Some(number) if (number as f32).to_bits() == tokenized.to_bits() => number,
+        _ => f64::from(tokenized),
     }
 }
 
@@ -668,7 +752,12 @@ mod tests {
     #[test]
     fn what_we_do_not_understand_never_matches_and_is_recorded() {
         for text in [
-            "(min-resolution: 2dppx)",
+            "(min-resolution: 2px)",
+            "(min-resolution: -1dppx)",
+            "(min-resolution: calc(1dppx + 1dppx))",
+            "(resolution: infinite)",
+            "(resolution)",
+            "(-webkit-min-device-pixel-ratio: 2)",
             "(width >= 600px)",
             "(min-width: 40ex)",
             "(min-width: 40vw)",
@@ -687,7 +776,7 @@ mod tests {
 
     #[test]
     fn one_bad_query_does_not_take_the_list_down_with_it() {
-        let (list, issues) = parse("(min-resolution: 2dppx), (prefers-color-scheme: dark)");
+        let (list, issues) = parse("(orientation: landscape), (prefers-color-scheme: dark)");
         assert_eq!(list.len(), 2);
         assert_eq!(issues.len(), 1);
         assert!(
@@ -716,8 +805,52 @@ mod tests {
 
     #[test]
     fn an_unsupported_query_keeps_the_text_it_was_written_with() {
-        let (list, _) = parse("(min-resolution: 2dppx)");
-        assert_eq!(list.to_string(), "(min-resolution: 2dppx)");
+        let (list, _) = parse("(min-resolution: 2PX)");
+        assert_eq!(list.to_string(), "(min-resolution: 2PX)");
+    }
+
+    #[test]
+    fn a_resolution_query_compares_the_screens_scale() {
+        let one = MediaContext::default();
+        let two = MediaContext::default().at_scale(2.0);
+        let at_least_two = understood("(min-resolution: 2dppx)");
+        assert!(!at_least_two.matches(&one));
+        assert!(at_least_two.matches(&two));
+        let at_most_one = understood("(max-resolution: 96dpi)");
+        assert!(at_most_one.matches(&one));
+        assert!(!at_most_one.matches(&two));
+        let exactly_two = understood("(resolution: 2x)");
+        assert!(!exactly_two.matches(&one));
+        assert!(exactly_two.matches(&two));
+        assert!(understood("(RESOLUTION: 75.6DPCM)").matches(&two));
+        assert!(understood("(Min-Resolution: 0dppx)").matches(&one));
+        assert!(
+            understood("not (min-resolution: 2dppx)").matches(&one),
+            "a screen of one is not a screen of two"
+        );
+        assert!(
+            understood("screen and (min-resolution: 2dppx) and (min-width: 1px)").matches(&two)
+        );
+    }
+
+    #[test]
+    fn a_resolution_writes_itself_back_out_in_lower_case() {
+        assert_eq!(
+            understood("(MIN-RESOLUTION: 2DPPX)").to_string(),
+            "(min-resolution: 2dppx)"
+        );
+        assert_eq!(
+            understood("(max-resolution:192dpi)").to_string(),
+            "(max-resolution: 192dpi)"
+        );
+        assert_eq!(
+            understood("(resolution: 2e0x)").to_string(),
+            "(resolution: 2x)"
+        );
+        assert_eq!(
+            understood("(MAX-WIDTH: 48rem)").to_string(),
+            "(max-width: 48rem)"
+        );
     }
 
     #[test]
