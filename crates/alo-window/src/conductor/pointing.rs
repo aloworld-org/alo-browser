@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! A person's main button, on the selected tab's page (ADR 0024 § 5, queue
-//! item 535).
+//! A person's pointer, on the selected tab's page (ADR 0024 § 5, queue
+//! items 535 and 542).
 //!
 //! The window has decided from its own composition that the point is over
 //! the page and sent it in the page's CSS pixels ([`crate::aim`]). The
@@ -20,6 +20,20 @@
 //! the press went to**, wherever the pointer has got to — and to no tab, if
 //! that one is no longer selected, or there was no press.
 //!
+//! # Moving, and leaving
+//!
+//! A move goes where a release would while a press is held — the tab
+//! pressed, if it is still selected — and otherwise to the selected tab, on
+//! the terms a press does; so does the pointer leaving the page. The page is
+//! painted again after each, since its listeners may have changed it.
+//!
+//! **Moves are coalesced**: of moves that arrived together, with nothing
+//! between them, only the last is sent ([`latest_moves_only`]). The window
+//! server reports a move for every few pixels, and a renderer that is
+//! answering one is not ready for the next; Chrome, given five moves at
+//! once over CDP, fired three. Nothing but a move is ever dropped, and
+//! nothing is moved past anything else.
+//!
 //! # A link followed
 //!
 //! Decided as the answer passes, as the person's (`alo-renderer`'s
@@ -28,7 +42,8 @@
 //! be a page that looks broken.
 
 use super::{Conducting, said_of, unexpected};
-use crate::message::News;
+use crate::inbox::Arrival;
+use crate::message::{News, Order};
 use alo_renderer::navigate::Decided;
 use alo_renderer::pointer::{Pointer, Went};
 use alo_renderer::{FromRenderer, Tab, TabId};
@@ -38,8 +53,8 @@ use alo_renderer::{FromRenderer, Tab, TabId};
 pub const NOT_GONE: &str = "and going to another page is not built yet (queue item 85)";
 
 impl Conducting {
-    /// Send a person's main button to the page it is aimed at, and paint
-    /// the page again.
+    /// Send a person's pointer to the page it is aimed at, and paint the
+    /// page again.
     pub(super) fn pointed(&mut self, pointer: Pointer) -> Vec<News> {
         let Some(id) = self.aimed(pointer.went) else {
             return Vec::new();
@@ -73,8 +88,38 @@ impl Conducting {
                 self.pressed
             }
             Went::Up => self.pressed.take().filter(|id| shows(self, *id)),
+            Went::Moved | Went::Left => match self.pressed {
+                Some(pressed) => Some(pressed).filter(|id| shows(self, *id)),
+                None => self
+                    .tabs
+                    .selected()
+                    .filter(|id| shows(self, *id) && !self.is_held(*id)),
+            },
         }
     }
+}
+
+/// What arrived, with every move of a person's pointer that is followed
+/// straight away by another dropped: nothing else is dropped, and nothing
+/// changes place.
+pub fn latest_moves_only(arrived: Vec<Arrival>) -> Vec<Arrival> {
+    let is_move = |arrival: &Arrival| {
+        matches!(
+            arrival,
+            Arrival::Order(Order::Pointer(Pointer {
+                went: Went::Moved,
+                ..
+            }))
+        )
+    };
+    let mut kept: Vec<Arrival> = Vec::with_capacity(arrived.len());
+    for arrival in arrived {
+        if is_move(&arrival) && kept.last().is_some_and(is_move) {
+            kept.pop();
+        }
+        kept.push(arrival);
+    }
+    kept
 }
 
 /// What a person is told of where their click was decided to go.
@@ -82,5 +127,62 @@ fn going(decided: &Decided) -> String {
     match decided {
         Decided::Go(navigation) => format!("this link goes to {}, {NOT_GONE}", navigation.url),
         Decided::Refused(refusal) => refusal.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pointer(pointer: Pointer) -> Arrival {
+        Arrival::Order(Order::Pointer(pointer))
+    }
+
+    /// Each arrival, as a pointer's what and where, or `None`.
+    fn seen(arrived: &[Arrival]) -> Vec<Option<(Went, f32)>> {
+        arrived
+            .iter()
+            .map(|arrival| match arrival {
+                Arrival::Order(Order::Pointer(pointer)) => Some((pointer.went, pointer.at.x)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn of_moves_together_only_the_last_is_kept() {
+        let kept = latest_moves_only(vec![
+            pointer(Pointer::moved(1.0, 0.0)),
+            pointer(Pointer::moved(2.0, 0.0)),
+            pointer(Pointer::moved(3.0, 0.0)),
+        ]);
+        assert_eq!(seen(&kept), [Some((Went::Moved, 3.0))]);
+    }
+
+    #[test]
+    fn a_move_is_never_carried_past_anything_else() {
+        let kept = latest_moves_only(vec![
+            pointer(Pointer::moved(1.0, 0.0)),
+            pointer(Pointer::moved(2.0, 0.0)),
+            pointer(Pointer::down(2.0, 0.0)),
+            pointer(Pointer::moved(3.0, 0.0)),
+            Arrival::NetworkGone,
+            pointer(Pointer::moved(4.0, 0.0)),
+            pointer(Pointer::moved(5.0, 0.0)),
+            pointer(Pointer::left(6.0, 0.0)),
+            pointer(Pointer::up(6.0, 0.0)),
+        ]);
+        assert_eq!(
+            seen(&kept),
+            [
+                Some((Went::Moved, 2.0)),
+                Some((Went::Down, 2.0)),
+                Some((Went::Moved, 3.0)),
+                None,
+                Some((Went::Moved, 5.0)),
+                Some((Went::Left, 6.0)),
+                Some((Went::Up, 6.0)),
+            ]
+        );
     }
 }

@@ -12,31 +12,40 @@
 //! on and never where it is (ADR 0002), and `alo-window`'s socket has no
 //! request that carries a point.
 //!
-//! What is sent is the main button going down or coming up, and where.
-//! Moving without a button (queue item 542), the other buttons (544), a
-//! press with a modifier held (545) and how many presses came in quick
-//! succession (547) are not sent yet; the window drops them.
+//! What is sent is the pointer moving over the page, leaving it, and the
+//! main button going down or coming up, and where (queue items 535 and
+//! 542). The other buttons (544), a press with a modifier held (545) and
+//! how many presses came in quick succession (547) are not sent yet; the
+//! window drops them.
 
 use alo_paint::Point;
 use core::fmt;
 
-/// What the main button did.
+/// What the pointer did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Went {
-    /// It was pressed.
+    /// Its main button was pressed.
     Down,
-    /// It was let go.
+    /// Its main button was let go.
     Up,
+    /// It moved over the page — or, with the main button down after a
+    /// press on the page, anywhere (queue item 542).
+    Moved,
+    /// It left the page: for the browser's own drawing over it, or off the
+    /// window.
+    Left,
 }
 
-/// A person's main button going down or up, at a point.
+/// A person's pointer moving, leaving, or its main button going down or
+/// up, at a point.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pointer {
     /// What the button did.
     pub went: Went,
-    /// Where, in the frame's CSS pixels from its top-left corner. A release
-    /// may be outside the frame: it goes to the frame the press went to,
-    /// wherever the pointer has got to by then.
+    /// Where, in the frame's CSS pixels from its top-left corner. A release,
+    /// and a move with the button down, may be outside the frame: each goes
+    /// to the frame the press went to, wherever the pointer has got to by
+    /// then. Where it left is where it was when it did.
     pub at: Point,
 }
 
@@ -56,15 +65,32 @@ impl Pointer {
             at: Point::new(x, y),
         }
     }
+
+    /// The pointer moved to (`x`, `y`).
+    pub fn moved(x: f32, y: f32) -> Self {
+        Self {
+            went: Went::Moved,
+            at: Point::new(x, y),
+        }
+    }
+
+    /// The pointer left the page, last at (`x`, `y`).
+    pub fn left(x: f32, y: f32) -> Self {
+        Self {
+            went: Went::Left,
+            at: Point::new(x, y),
+        }
+    }
 }
 
 impl fmt::Display for Pointer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let went = match self.went {
-            Went::Down => "pressed",
-            Went::Up => "let go",
-        };
-        write!(f, "a person's main button {went} at {}", self.at)
+        match self.went {
+            Went::Down => write!(f, "a person's main button pressed at {}", self.at),
+            Went::Up => write!(f, "a person's main button let go at {}", self.at),
+            Went::Moved => write!(f, "a person's pointer moved to {}", self.at),
+            Went::Left => write!(f, "a person's pointer left the page at {}", self.at),
+        }
     }
 }
 
@@ -81,6 +107,14 @@ mod tests {
         assert_eq!(
             Pointer::up(-3.0, 9.0).to_string(),
             "a person's main button let go at (-3, 9)",
+        );
+        assert_eq!(
+            Pointer::moved(30.5, 2.0).to_string(),
+            "a person's pointer moved to (30.5, 2)",
+        );
+        assert_eq!(
+            Pointer::left(-1.0, 2.0).to_string(),
+            "a person's pointer left the page at (-1, 2)",
         );
     }
 }

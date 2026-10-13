@@ -2,14 +2,35 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! A person's main button on a page (ADR 0024 § 5, ADR 0018 § 3, queue item
-//! 535).
+//! A person's pointer on a page: its main button (ADR 0024 § 5, ADR 0018
+//! § 3, queue item 535) and its moving (queue item 542).
 //!
-//! The browser process sent where the button went, in the page's CSS
+//! The browser process sent where the pointer went, in the page's CSS
 //! pixels ([`crate::pointer`]). Which element that is over is the hit
 //! test's, against the drawing the person sees ([`crate::hit`]); what is
 //! fired at it, and in what order, is the event loop's, measured from
-//! Chrome 154 (`event_loop/pointed.rs`).
+//! Chrome 154 (`event_loop/pointed.rs`, `event_loop/crossed.rs`).
+//!
+//! # The node under the pointer
+//!
+//! The renderer remembers the node last under the pointer ([`Pointed`]).
+//! Every message the pointer sends — a move, a press, a release — looks
+//! again, and fires the crossing between the two if they differ
+//! ([`crate::crossing`]): a press where nothing was said of the pointer
+//! before enters everything above what it pressed, as Chrome's does.
+//!
+//! A **move** goes to the element under the point; outside the viewport it
+//! goes nowhere, leaving everything and firing no move — unless the main
+//! button is down, when, as Chrome's, it is over the root element, as a
+//! release there is. **Leaving** the page — over the browser's own drawing,
+//! or off the window — goes nowhere.
+//!
+//! A node last under the pointer that has **left its document** since is
+//! not told the pointer left it: at the next message, before anything
+//! else, a task of its own fires Chrome's crossing from its nearest
+//! ancestor still in the document, at the point the pointer was last at
+//! ([`Crossing::after_removal`]). Chrome fires that on a timer even when
+//! the pointer does not move, which is queue item 552.
 //!
 //! # A press, then a release
 //!
@@ -49,107 +70,254 @@ use alo_dom::{Document, NodeId};
 use alo_paint::Point;
 use alo_url::Url;
 
-use crate::event_loop::Unqueued;
+use crate::crossing::{self, Crossing};
+use crate::event_loop::{Moving, Unqueued};
 use crate::held::Held;
 use crate::hit;
 use crate::pipeline::Drawing;
 use crate::run_to::{Said, run_to};
 
-/// What a renderer remembers of a press until its release.
+/// What a renderer remembers of a person's press until its release.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Pressing {
+struct Pressing {
     /// The element pressed.
     node: NodeId,
-    /// Whether the release may fire a `mouseup`: not when the press's
-    /// `pointerdown` was cancelled.
+    /// Whether the release may fire a `mouseup`, and a move before it a
+    /// `mousemove`: not when the press's `pointerdown` was cancelled.
     mouse: bool,
+}
+
+/// What a renderer remembers of a person's pointer between messages: for
+/// one page, and nothing once it goes.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct Pointed {
+    /// The press, until its release.
+    pressing: Option<Pressing>,
+    /// Whether the main button is down: from a press the page was sent
+    /// over one of its elements until the release.
+    down: bool,
+    /// The node last under the pointer: [`None`] before anything was said
+    /// of it, and once it has gone outside the viewport or off the page.
+    under: Option<NodeId>,
+    /// That node and its ancestors as they were when it was found under the
+    /// pointer, innermost first: where to look for one still in the
+    /// document if it leaves it.
+    above: Vec<NodeId>,
+    /// Where the pointer was last said to be.
+    at: Option<Point>,
 }
 
 /// What the line about a submission that did not happen says.
 const NOT_SUBMITTED: &str =
     "it would have submitted a form, and a person's click submits none yet (queue item 543)";
 
-/// Press the main button at `at` on the page `held`, drawn as `drawing`:
-/// what to remember until the release, and what was said.
-pub(crate) fn down(
-    held: &mut Held,
-    drawing: &Drawing,
-    at: Point,
-) -> (Option<Pressing>, Vec<String>) {
-    let Some(node) = held
-        .document()
-        .and_then(|document| hit::element_at(drawing, document, at))
-    else {
-        return (None, Vec::new());
-    };
-    let mut said = Said::about("the person's press");
-    let mouse = match held.press(node, at) {
-        Ok(Some(seq)) => run_to(held, seq, &mut said)
-            .and_then(|turn| turn.pressed)
-            .is_none_or(|pressed| !pressed.canceled),
-        Ok(None) => true,
-        Err(Unqueued::Stopped(why)) => {
-            said.say(&format_args!("nobody heard it: {why}"));
-            true
+impl Pointed {
+    /// Remember `node` as the node last under the pointer, in `held`'s
+    /// document, with its ancestors as they are now.
+    fn remember(&mut self, held: &Held, node: Option<NodeId>) {
+        self.under = node;
+        self.above = match (held.document(), node) {
+            (Some(document), Some(node)) => crossing::inclusive_ancestors(document, node),
+            _ => Vec::new(),
+        };
+    }
+
+    /// `buttons`, as UI Events' bits.
+    fn buttons(&self) -> u16 {
+        u16::from(self.down)
+    }
+
+    /// Whether a move may fire a `mousemove`: not while a cancelled
+    /// `pointerdown`'s button is down.
+    fn mouse(&self) -> bool {
+        self.pressing.is_none_or(|pressed| pressed.mouse)
+    }
+
+    /// The pointer moved to `at` on the page `held`, drawn as `drawing`:
+    /// what was said.
+    pub(crate) fn moved(&mut self, held: &mut Held, drawing: &Drawing, at: Point) -> Vec<String> {
+        let mut said = Said::about("the person's pointer");
+        self.settle(held, drawing, &mut said);
+        let over = held.document().and_then(|document| {
+            hit::element_at(drawing, document, at)
+                .or_else(|| self.down.then(|| document.document_element()).flatten())
+        });
+        self.go(held, at, over, &mut said);
+        said.lines()
+    }
+
+    /// The pointer left the page, last at `at`: what was said.
+    pub(crate) fn left(&mut self, held: &mut Held, drawing: &Drawing, at: Point) -> Vec<String> {
+        let mut said = Said::about("the person's pointer");
+        self.settle(held, drawing, &mut said);
+        self.go(held, at, None, &mut said);
+        said.lines()
+    }
+
+    /// Fire the crossing from the node last under the pointer to `over`,
+    /// and a move at `over` if it is a node, and remember them.
+    fn go(&mut self, held: &mut Held, at: Point, over: Option<NodeId>, said: &mut Said) {
+        let crossing = held
+            .document()
+            .and_then(|document| Crossing::between(document, self.under, over));
+        self.remember(held, over);
+        self.at = Some(at);
+        if crossing.is_none() && over.is_none() {
+            return;
         }
-        Err(why @ (Unqueued::NoSuchNode(_) | Unqueued::NotADocument)) => {
-            said.say(&why);
-            return (None, said.lines());
+        let moving = Moving {
+            at,
+            crossing,
+            over,
+            buttons: self.buttons(),
+            mouse: self.mouse(),
+        };
+        let queued = held.moved(moving);
+        heard(held, queued, said);
+    }
+
+    /// Before anything else, if the node last under the pointer has left
+    /// its document: Chrome's crossing from its nearest ancestor still in
+    /// it, at the point the pointer was last at, as a task of its own.
+    fn settle(&mut self, held: &mut Held, drawing: &Drawing, said: &mut Said) {
+        let (Some(under), Some(at)) = (self.under, self.at) else {
+            return;
+        };
+        let Some((crossing, now)) = held.document().and_then(|document| {
+            if crossing::is_connected(document, under) {
+                return None;
+            }
+            let now = hit::element_at(drawing, document, at)
+                .or_else(|| self.down.then(|| document.document_element()).flatten());
+            Some((Crossing::after_removal(document, &self.above, now), now))
+        }) else {
+            return;
+        };
+        self.remember(held, now);
+        if crossing.is_empty() {
+            return;
         }
-    };
-    (Some(Pressing { node, mouse }), said.lines())
+        let moving = Moving {
+            at,
+            crossing: Some(crossing),
+            over: None,
+            buttons: self.buttons(),
+            mouse: self.mouse(),
+        };
+        let queued = held.moved(moving);
+        heard(held, queued, said);
+    }
+
+    /// Press the main button at `at` on the page `held`, drawn as `drawing`:
+    /// what was said.
+    pub(crate) fn down(&mut self, held: &mut Held, drawing: &Drawing, at: Point) -> Vec<String> {
+        let mut said = Said::about("the person's press");
+        self.settle(held, drawing, &mut said);
+        let Some((node, crossing)) = held.document().and_then(|document| {
+            let node = hit::element_at(drawing, document, at)?;
+            Some((node, Crossing::between(document, self.under, Some(node))))
+        }) else {
+            return said.lines();
+        };
+        self.remember(held, Some(node));
+        self.at = Some(at);
+        self.down = true;
+        let mouse = match held.press(node, at, crossing) {
+            Ok(Some(seq)) => run_to(held, seq, &mut said)
+                .and_then(|turn| turn.pressed)
+                .is_none_or(|pressed| !pressed.canceled),
+            Ok(None) => true,
+            Err(Unqueued::Stopped(why)) => {
+                said.say(&format_args!("nobody heard it: {why}"));
+                true
+            }
+            Err(why @ (Unqueued::NoSuchNode(_) | Unqueued::NotADocument)) => {
+                said.say(&why);
+                self.down = false;
+                return said.lines();
+            }
+        };
+        self.pressing = Some(Pressing { node, mouse });
+        said.lines()
+    }
+
+    /// Let go of the main button at `at` on the page `held`, at `url`, drawn
+    /// as `drawing`: what was said, and — on a page that never ran script —
+    /// the link its click followed, for the renderer to ask for.
+    pub(crate) fn up(
+        &mut self,
+        held: &mut Held,
+        drawing: &Drawing,
+        url: &Url,
+        at: Point,
+    ) -> (Vec<String>, Option<Result<Navigation, NotFollowed>>) {
+        let mut said = Said::about("the person's click");
+        self.settle(held, drawing, &mut said);
+        let pressing = self.pressing.take();
+        self.down = false;
+        let Some((node, click, crossing)) = held.document().and_then(|document| {
+            let node =
+                hit::element_at(drawing, document, at).or_else(|| document.document_element())?;
+            let click = pressing.and_then(|pressed| shared(document, pressed.node, node));
+            Some((
+                node,
+                click,
+                Crossing::between(document, self.under, Some(node)),
+            ))
+        }) else {
+            return (said.lines(), None);
+        };
+        self.remember(held, Some(node));
+        self.at = Some(at);
+        let mouse = pressing.is_none_or(|pressed| pressed.mouse);
+        let mut followed = None;
+        match held.release(node, at, mouse, click, crossing) {
+            Ok(Some(seq)) => {
+                let follows = run_to(held, seq, &mut said)
+                    .and_then(|turn| turn.clicked)
+                    .filter(|clicked| !clicked.canceled)
+                    .map(|clicked| clicked.follows);
+                if matches!(follows, Some(Follows::Submit { .. })) {
+                    said.say(&NOT_SUBMITTED);
+                }
+            }
+            Ok(None) => {
+                if let Some(click) = click {
+                    followed = activated(held, click, &mut said).and_then(|link| {
+                        held.document()
+                            .map(|document| navigating::follow(document, url, link, By::Browser))
+                    });
+                }
+            }
+            Err(Unqueued::Stopped(why)) => {
+                if let Some(click) = click
+                    && let Some(link) = activated(held, click, &mut said)
+                {
+                    held.follow(link);
+                }
+                said.say(&format_args!("nobody heard it: {why}"));
+            }
+            Err(why @ (Unqueued::NoSuchNode(_) | Unqueued::NotADocument)) => said.say(&why),
+        }
+        (said.lines(), followed)
+    }
 }
 
-/// Let go of the main button at `at` on the page `held`, at `url`, drawn as
-/// `drawing`, after `pressing`: what was said, and — on a page that never
-/// ran script — the link its click followed, for the renderer to ask for.
-pub(crate) fn up(
+/// Run the task `queued` to its end, if it was queued, saying what its
+/// script said — and, if the page has stopped, that nobody heard it.
+fn heard(
     held: &mut Held,
-    drawing: &Drawing,
-    url: &Url,
-    at: Point,
-    pressing: Option<Pressing>,
-) -> (Vec<String>, Option<Result<Navigation, NotFollowed>>) {
-    let Some((node, click)) = held.document().and_then(|document| {
-        let node =
-            hit::element_at(drawing, document, at).or_else(|| document.document_element())?;
-        let click = pressing.and_then(|pressed| shared(document, pressed.node, node));
-        Some((node, click))
-    }) else {
-        return (Vec::new(), None);
-    };
-    let mouse = pressing.is_none_or(|pressed| pressed.mouse);
-    let mut said = Said::about("the person's click");
-    let mut followed = None;
-    match held.release(node, at, mouse, click) {
+    queued: Result<Option<crate::event_loop::Seq>, Unqueued>,
+    said: &mut Said,
+) {
+    match queued {
         Ok(Some(seq)) => {
-            let follows = run_to(held, seq, &mut said)
-                .and_then(|turn| turn.clicked)
-                .filter(|clicked| !clicked.canceled)
-                .map(|clicked| clicked.follows);
-            if matches!(follows, Some(Follows::Submit { .. })) {
-                said.say(&NOT_SUBMITTED);
-            }
+            run_to(held, seq, said);
         }
-        Ok(None) => {
-            if let Some(click) = click {
-                followed = activated(held, click, &mut said).and_then(|link| {
-                    held.document()
-                        .map(|document| navigating::follow(document, url, link, By::Browser))
-                });
-            }
-        }
-        Err(Unqueued::Stopped(why)) => {
-            if let Some(click) = click
-                && let Some(link) = activated(held, click, &mut said)
-            {
-                held.follow(link);
-            }
-            said.say(&format_args!("nobody heard it: {why}"));
-        }
+        Ok(None) => {}
+        Err(Unqueued::Stopped(why)) => said.say(&format_args!("nobody heard it: {why}")),
         Err(why @ (Unqueued::NoSuchNode(_) | Unqueued::NotADocument)) => said.say(&why),
     }
-    (said.lines(), followed)
 }
 
 /// Run the activation steps of a click at `click` that nobody heard: the
@@ -176,21 +344,10 @@ fn activated(held: &mut Held, click: NodeId, said: &mut Said) -> Option<NodeId> 
 /// by the hit test, so it is in the document, and a node that has left it
 /// shares no ancestor with anything that has not.
 fn shared(document: &Document, pressed: NodeId, released: NodeId) -> Option<NodeId> {
-    let above_pressed = inclusive_ancestors(document, pressed);
-    inclusive_ancestors(document, released)
+    let above_pressed = crossing::inclusive_ancestors(document, pressed);
+    crossing::inclusive_ancestors(document, released)
         .into_iter()
         .find(|node| above_pressed.contains(node))
-}
-
-/// `node`, its parent, and so on up to the node with none.
-fn inclusive_ancestors(document: &Document, node: NodeId) -> Vec<NodeId> {
-    let mut found = vec![node];
-    let mut next = document.parent(node);
-    while let Some(parent) = next {
-        found.push(parent);
-        next = document.parent(parent);
-    }
-    found
 }
 
 #[cfg(test)]

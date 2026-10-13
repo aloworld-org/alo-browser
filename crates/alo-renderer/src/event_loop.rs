@@ -101,6 +101,7 @@
 //! [`Held::put_text`]: crate::held::Held::put_text
 
 mod activated;
+mod crossed;
 mod delivered;
 mod described;
 mod dispatched;
@@ -124,7 +125,10 @@ use alo_js::heap::Ref;
 use alo_js::interpret::{Engine, Stop};
 use alo_js::{Clock, Escape, Thrown, Value, compile, script};
 
+use crate::crossing::Crossing;
+
 pub use activated::Clicked;
+pub use crossed::{Crossed, Moving};
 pub use pointed::PressedDown;
 pub use report::Report;
 use source::Sources;
@@ -444,12 +448,13 @@ impl EventLoop {
         cell: Ref,
         node: NodeId,
         at: alo_paint::Point,
+        crossing: Option<Crossing>,
     ) -> Result<Seq, Unqueued> {
         if let Some(stopped) = &self.stopped {
             return Err(Unqueued::Stopped(stopped.clone()));
         }
         self.queue_listed(cell, node, &pointed::firing::pointer_down(at), |list| {
-            Work::Pressed { list, at }
+            Work::Pressed { list, at, crossing }
         })
     }
 
@@ -472,6 +477,7 @@ impl EventLoop {
         at: alo_paint::Point,
         mouse: bool,
         click: Option<NodeId>,
+        crossing: Option<Crossing>,
     ) -> Result<Seq, Unqueued> {
         if let Some(stopped) = &self.stopped {
             return Err(Unqueued::Stopped(stopped.clone()));
@@ -482,8 +488,34 @@ impl EventLoop {
                 at,
                 mouse,
                 click,
+                crossing,
             }
         })
+    }
+
+    /// Queue a person's pointer moving, in the document `cell` holds (queue
+    /// item 542): one task that fires the crossing `moving` holds, if any,
+    /// and the move itself ([`crossed`]).
+    ///
+    /// `cell` must be rooted by the caller.
+    ///
+    /// # Errors
+    ///
+    /// As [`EventLoop::queue_dispatch`].
+    pub fn queue_move(&mut self, cell: Ref, moving: Moving) -> Result<Seq, Unqueued> {
+        if let Some(stopped) = &self.stopped {
+            return Err(Unqueued::Stopped(stopped.clone()));
+        }
+        match task::of_the_document(&mut self.engine, cell) {
+            Ok(list) => Ok(self.tasks.push(Work::Moved { list, moving })),
+            Err(Unmade::NoSuchNode(node)) => Err(Unqueued::NoSuchNode(node)),
+            Err(Unmade::NotADocument) => Err(Unqueued::NotADocument),
+            Err(Unmade::Escaped(escape)) => {
+                let why = Stopped::Escaped(escape);
+                self.stop(why.clone());
+                Err(Unqueued::Stopped(why))
+            }
+        }
     }
 
     /// Queue the work `work` makes of a rooted list of `node`'s wrapper and
@@ -577,8 +609,8 @@ impl EventLoop {
                 turn.clicked = Some(self.activate(list, turn)?);
                 Ok(())
             }
-            Work::Pressed { list, at } => {
-                turn.pressed = Some(self.pressed(list, *at, turn)?);
+            Work::Pressed { list, at, crossing } => {
+                turn.pressed = Some(self.pressed(list, *at, crossing.as_ref(), turn)?);
                 Ok(())
             }
             Work::Released {
@@ -586,10 +618,12 @@ impl EventLoop {
                 at,
                 mouse,
                 click,
+                crossing,
             } => {
-                turn.clicked = self.released(list, *at, *mouse, *click, turn)?;
+                turn.clicked = self.released(list, *at, *mouse, *click, crossing.as_ref(), turn)?;
                 Ok(())
             }
+            Work::Moved { list, moving } => self.moved(list, moving, turn),
             Work::PutText { list, text } => self.put_text(list, text, turn),
             Work::Visibility { list, to } => self.shown(list, *to, turn),
             Work::Leave { list } => self.leave(list, turn),

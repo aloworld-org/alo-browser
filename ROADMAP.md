@@ -1781,11 +1781,22 @@ items where being right and being unusable are the same outcome.
       CDP measurements, through confined renderers on the frozen
       `web-example-com` (the same address as the agent's `Activate`), and
       clicked with a real mouse event in the window on this Mac.
+      The pointer moving (542, done): the window sends a move over the
+      page, its leaving once, and every move of a drag the page pressed
+      (`cursor.rs`), the conductor coalescing moves that arrived together;
+      the renderer keeps the node last under the pointer (`pointed.rs`)
+      and fires Chrome 154's crossings and moves as one task
+      (`crossing.rs`, `event_loop/crossed.rs`), `relatedTarget` and all,
+      a press or release crossing first. Pinned line for line against
+      Chrome's own record of the same page, through confined renderers in
+      the window, and moved over with a real cursor on this Mac.
       · Owed: the agent reading the strip, which needs design (531); a
-      title changed after load (532); the pointer moving, hover and the
-      boundary events (542); a person's submission (543); the other
-      buttons (544), modifiers (545) and click counts (547); a click on a
-      tab (539); device pixels (299); a link opening a tab (300)
+      title changed after load (532); `:hover` drawn (550),
+      `pointerrawupdate` (551), a page changing under a still pointer
+      (552), a tab chosen under the pointer (553); a person's submission
+      (543); the other buttons (544), modifiers (545) and click counts
+      (547); a click on a tab (539); device pixels (299); a link opening a
+      tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

@@ -39,8 +39,9 @@
 //! `strip`, item 297) and shown across the top of the window, the selected
 //! tab below it (item 528), and a person opens, closes and chooses tabs with
 //! the browser's own keys (item 529), and presses the page with the main
-//! mouse button ([`aim`] decides what a point is over, item 535). Not yet:
-//! the pointer moving (item 542), a click on the strip (item 539), an agent
+//! mouse button and moves over it ([`aim`] decides what a point is over,
+//! [`cursor`] what the page is sent, items 535 and 542). Not yet: a click
+//! on the strip (item 539), an agent
 //! reading the strip (item 531), painting at the window's
 //! scale factor (item 299) — until then a CSS pixel is replicated to the
 //! scale's whole part (§ 3) — and a link opening a tab (item 300).
@@ -55,6 +56,7 @@ pub mod beside;
 pub mod colours;
 pub mod compose;
 pub mod conductor;
+pub mod cursor;
 pub mod fonts;
 pub mod hold;
 pub mod inbox;

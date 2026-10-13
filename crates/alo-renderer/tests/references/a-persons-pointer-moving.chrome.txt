@@ -1,0 +1,290 @@
+# What headless Chrome 154 recorded on a-persons-pointer-moving.html, given
+# at 400 x 300 (Emulation.setDeviceMetricsOverride) and driven with
+# Input.dispatchMouseEvent over CDP, on 2026-10-13; the source not read.
+# Each section is one input (a move, a press, a release, with the left
+# button held where the test says) on a page loaded fresh for its scenario,
+# and its lines are what the page's listeners wrote, in order.
+# pointerrawupdate, which Chrome also fired, is left out: queue item 551.
+# A line is: type target relatedTarget clientX clientY button buttons
+# detail pointerId pointerType bubbles cancelable composed isTrusted.
+### first move into b at 30.6,30.3
+pointerover b null 30.600000381469727 30.299999237060547 -1 0 0 1 mouse true true true true
+pointerenter document null 30.600000381469727 30.299999237060547 -1 0 0 1 mouse false false false true
+pointerenter html null 30.600000381469727 30.299999237060547 -1 0 0 1 mouse false false false true
+pointerenter body null 30.600000381469727 30.299999237060547 -1 0 0 1 mouse false false false true
+pointerenter a null 30.600000381469727 30.299999237060547 -1 0 0 1 mouse false false false true
+pointerenter b null 30.600000381469727 30.299999237060547 -1 0 0 1 mouse false false false true
+mouseover b null 30 30 0 0 0 undefined undefined true true true true
+mouseenter document null 30 30 0 0 0 undefined undefined false false false true
+mouseenter html null 30 30 0 0 0 undefined undefined false false false true
+mouseenter body null 30 30 0 0 0 undefined undefined false false false true
+mouseenter a null 30 30 0 0 0 undefined undefined false false false true
+mouseenter b null 30 30 0 0 0 undefined undefined false false false true
+pointermove b null 30.600000381469727 30.299999237060547 -1 0 0 1 mouse true true true true
+mousemove b null 30 30 0 0 0 undefined undefined true true true true
+### within b
+pointermove b null 35 35 -1 0 0 1 mouse true true true true
+mousemove b null 35 35 0 0 0 undefined undefined true true true true
+### b -> c
+pointerout b c 130 60 -1 0 0 1 mouse true true true true
+pointerleave b c 130 60 -1 0 0 1 mouse false false false true
+pointerover c b 130 60 -1 0 0 1 mouse true true true true
+pointerenter c b 130 60 -1 0 0 1 mouse false false false true
+mouseout b c 130 60 0 0 0 undefined undefined true true true true
+mouseleave b c 130 60 0 0 0 undefined undefined false false false true
+mouseover c b 130 60 0 0 0 undefined undefined true true true true
+mouseenter c b 130 60 0 0 0 undefined undefined false false false true
+pointermove c null 130 60 -1 0 0 1 mouse true true true true
+mousemove c null 130 60 0 0 0 undefined undefined true true true true
+### c -> d (span)
+pointerout c d 103 25 -1 0 0 1 mouse true true true true
+pointerover d c 103 25 -1 0 0 1 mouse true true true true
+pointerenter d c 103 25 -1 0 0 1 mouse false false false true
+mouseout c d 103 25 0 0 0 undefined undefined true true true true
+mouseover d c 103 25 0 0 0 undefined undefined true true true true
+mouseenter d c 103 25 0 0 0 undefined undefined false false false true
+pointermove d null 103 25 -1 0 0 1 mouse true true true true
+mousemove d null 103 25 0 0 0 undefined undefined true true true true
+### d -> a
+pointerout d a 190 190 -1 0 0 1 mouse true true true true
+pointerleave d a 190 190 -1 0 0 1 mouse false false false true
+pointerleave c a 190 190 -1 0 0 1 mouse false false false true
+pointerover a d 190 190 -1 0 0 1 mouse true true true true
+mouseout d a 190 190 0 0 0 undefined undefined true true true true
+mouseleave d a 190 190 0 0 0 undefined undefined false false false true
+mouseleave c a 190 190 0 0 0 undefined undefined false false false true
+mouseover a d 190 190 0 0 0 undefined undefined true true true true
+pointermove a null 190 190 -1 0 0 1 mouse true true true true
+mousemove a null 190 190 0 0 0 undefined undefined true true true true
+### a -> o
+pointerout a o 320 10 -1 0 0 1 mouse true true true true
+pointerleave a o 320 10 -1 0 0 1 mouse false false false true
+pointerover o a 320 10 -1 0 0 1 mouse true true true true
+pointerenter o a 320 10 -1 0 0 1 mouse false false false true
+mouseout a o 320 10 0 0 0 undefined undefined true true true true
+mouseleave a o 320 10 0 0 0 undefined undefined false false false true
+mouseover o a 320 10 0 0 0 undefined undefined true true true true
+mouseenter o a 320 10 0 0 0 undefined undefined false false false true
+pointermove o null 320 10 -1 0 0 1 mouse true true true true
+mousemove o null 320 10 0 0 0 undefined undefined true true true true
+### o -> root (nothing)
+pointerout o html 380 250 -1 0 0 1 mouse true true true true
+pointerleave o html 380 250 -1 0 0 1 mouse false false false true
+pointerleave body html 380 250 -1 0 0 1 mouse false false false true
+pointerover html o 380 250 -1 0 0 1 mouse true true true true
+mouseout o html 380 250 0 0 0 undefined undefined true true true true
+mouseleave o html 380 250 0 0 0 undefined undefined false false false true
+mouseleave body html 380 250 0 0 0 undefined undefined false false false true
+mouseover html o 380 250 0 0 0 undefined undefined true true true true
+pointermove html null 380 250 -1 0 0 1 mouse true true true true
+mousemove html null 380 250 0 0 0 undefined undefined true true true true
+### root -> b
+pointerout html b 30 30 -1 0 0 1 mouse true true true true
+pointerover b html 30 30 -1 0 0 1 mouse true true true true
+pointerenter body html 30 30 -1 0 0 1 mouse false false false true
+pointerenter a html 30 30 -1 0 0 1 mouse false false false true
+pointerenter b html 30 30 -1 0 0 1 mouse false false false true
+mouseout html b 30 30 0 0 0 undefined undefined true true true true
+mouseover b html 30 30 0 0 0 undefined undefined true true true true
+mouseenter body html 30 30 0 0 0 undefined undefined false false false true
+mouseenter a html 30 30 0 0 0 undefined undefined false false false true
+mouseenter b html 30 30 0 0 0 undefined undefined false false false true
+pointermove b null 30 30 -1 0 0 1 mouse true true true true
+mousemove b null 30 30 0 0 0 undefined undefined true true true true
+### b -> outside viewport
+pointerout b null -5 30 -1 0 0 1 mouse true true true true
+pointerleave b null -5 30 -1 0 0 1 mouse false false false true
+pointerleave a null -5 30 -1 0 0 1 mouse false false false true
+pointerleave body null -5 30 -1 0 0 1 mouse false false false true
+pointerleave html null -5 30 -1 0 0 1 mouse false false false true
+pointerleave document null -5 30 -1 0 0 1 mouse false false false true
+mouseout b null -5 30 0 0 0 undefined undefined true true true true
+mouseleave b null -5 30 0 0 0 undefined undefined false false false true
+mouseleave a null -5 30 0 0 0 undefined undefined false false false true
+mouseleave body null -5 30 0 0 0 undefined undefined false false false true
+mouseleave html null -5 30 0 0 0 undefined undefined false false false true
+mouseleave document null -5 30 0 0 0 undefined undefined false false false true
+### outside -> b
+pointerover b null 30 30 -1 0 0 1 mouse true true true true
+pointerenter document null 30 30 -1 0 0 1 mouse false false false true
+pointerenter html null 30 30 -1 0 0 1 mouse false false false true
+pointerenter body null 30 30 -1 0 0 1 mouse false false false true
+pointerenter a null 30 30 -1 0 0 1 mouse false false false true
+pointerenter b null 30 30 -1 0 0 1 mouse false false false true
+mouseover b null 30 30 0 0 0 undefined undefined true true true true
+mouseenter document null 30 30 0 0 0 undefined undefined false false false true
+mouseenter html null 30 30 0 0 0 undefined undefined false false false true
+mouseenter body null 30 30 0 0 0 undefined undefined false false false true
+mouseenter a null 30 30 0 0 0 undefined undefined false false false true
+mouseenter b null 30 30 0 0 0 undefined undefined false false false true
+pointermove b null 30 30 -1 0 0 1 mouse true true true true
+mousemove b null 30 30 0 0 0 undefined undefined true true true true
+### press at b, nothing said before
+pointerover b null 30 30 0 1 0 1 mouse true true true true
+pointerenter document null 30 30 0 1 0 1 mouse false false false true
+pointerenter html null 30 30 0 1 0 1 mouse false false false true
+pointerenter body null 30 30 0 1 0 1 mouse false false false true
+pointerenter a null 30 30 0 1 0 1 mouse false false false true
+pointerenter b null 30 30 0 1 0 1 mouse false false false true
+mouseover b null 30 30 0 1 0 undefined undefined true true true true
+mouseenter document null 30 30 0 1 0 undefined undefined false false false true
+mouseenter html null 30 30 0 1 0 undefined undefined false false false true
+mouseenter body null 30 30 0 1 0 undefined undefined false false false true
+mouseenter a null 30 30 0 1 0 undefined undefined false false false true
+mouseenter b null 30 30 0 1 0 undefined undefined false false false true
+pointerdown b null 30 30 0 1 0 1 mouse true true true true
+mousedown b null 30 30 0 1 1 undefined undefined true true true true
+### release at c
+pointerout b c 130 60 0 0 0 1 mouse true true true true
+pointerleave b c 130 60 0 0 0 1 mouse false false false true
+pointerover c b 130 60 0 0 0 1 mouse true true true true
+pointerenter c b 130 60 0 0 0 1 mouse false false false true
+mouseout b c 130 60 0 0 0 undefined undefined true true true true
+mouseleave b c 130 60 0 0 0 undefined undefined false false false true
+mouseover c b 130 60 0 0 0 undefined undefined true true true true
+mouseenter c b 130 60 0 0 0 undefined undefined false false false true
+pointerup c null 130 60 0 0 0 1 mouse true true true true
+mouseup c null 130 60 0 0 1 undefined undefined true true true true
+click a null 130 60 0 0 1 1 mouse true true true true
+### move b
+pointerover b null 30 30 -1 0 0 1 mouse true true true true
+pointerenter document null 30 30 -1 0 0 1 mouse false false false true
+pointerenter html null 30 30 -1 0 0 1 mouse false false false true
+pointerenter body null 30 30 -1 0 0 1 mouse false false false true
+pointerenter a null 30 30 -1 0 0 1 mouse false false false true
+pointerenter b null 30 30 -1 0 0 1 mouse false false false true
+mouseover b null 30 30 0 0 0 undefined undefined true true true true
+mouseenter document null 30 30 0 0 0 undefined undefined false false false true
+mouseenter html null 30 30 0 0 0 undefined undefined false false false true
+mouseenter body null 30 30 0 0 0 undefined undefined false false false true
+mouseenter a null 30 30 0 0 0 undefined undefined false false false true
+mouseenter b null 30 30 0 0 0 undefined undefined false false false true
+pointermove b null 30 30 -1 0 0 1 mouse true true true true
+mousemove b null 30 30 0 0 0 undefined undefined true true true true
+### press b
+pointerdown b null 30 30 0 1 0 1 mouse true true true true
+mousedown b null 30 30 0 1 1 undefined undefined true true true true
+### drag to c
+pointerout b c 130 60 -1 1 0 1 mouse true true true true
+pointerleave b c 130 60 -1 1 0 1 mouse false false false true
+pointerover c b 130 60 -1 1 0 1 mouse true true true true
+pointerenter c b 130 60 -1 1 0 1 mouse false false false true
+mouseout b c 130 60 0 1 0 undefined undefined true true true true
+mouseleave b c 130 60 0 1 0 undefined undefined false false false true
+mouseover c b 130 60 0 1 0 undefined undefined true true true true
+mouseenter c b 130 60 0 1 0 undefined undefined false false false true
+pointermove c null 130 60 -1 1 0 1 mouse true true true true
+mousemove c null 130 60 0 1 0 undefined undefined true true true true
+### drag outside
+pointerout c html -5 60 -1 1 0 1 mouse true true true true
+pointerleave c html -5 60 -1 1 0 1 mouse false false false true
+pointerleave a html -5 60 -1 1 0 1 mouse false false false true
+pointerleave body html -5 60 -1 1 0 1 mouse false false false true
+pointerover html c -5 60 -1 1 0 1 mouse true true true true
+mouseout c html -5 60 0 1 0 undefined undefined true true true true
+mouseleave c html -5 60 0 1 0 undefined undefined false false false true
+mouseleave a html -5 60 0 1 0 undefined undefined false false false true
+mouseleave body html -5 60 0 1 0 undefined undefined false false false true
+mouseover html c -5 60 0 1 0 undefined undefined true true true true
+pointermove html null -5 60 -1 1 0 1 mouse true true true true
+mousemove html null -5 60 0 1 0 undefined undefined true true true true
+### release outside
+pointerup html null -5 60 0 0 0 1 mouse true true true true
+mouseup html null -5 60 0 0 1 undefined undefined true true true true
+click html null -5 60 0 0 1 1 mouse true true true true
+### back to b
+pointerout html b 30 30 -1 0 0 1 mouse true true true true
+pointerover b html 30 30 -1 0 0 1 mouse true true true true
+pointerenter body html 30 30 -1 0 0 1 mouse false false false true
+pointerenter a html 30 30 -1 0 0 1 mouse false false false true
+pointerenter b html 30 30 -1 0 0 1 mouse false false false true
+mouseout html b 30 30 0 0 0 undefined undefined true true true true
+mouseover b html 30 30 0 0 0 undefined undefined true true true true
+mouseenter body html 30 30 0 0 0 undefined undefined false false false true
+mouseenter a html 30 30 0 0 0 undefined undefined false false false true
+mouseenter b html 30 30 0 0 0 undefined undefined false false false true
+pointermove b null 30 30 -1 0 0 1 mouse true true true true
+mousemove b null 30 30 0 0 0 undefined undefined true true true true
+### into b
+pointerover b null 30 30 -1 0 0 1 mouse true true true true
+pointerenter document null 30 30 -1 0 0 1 mouse false false false true
+pointerenter html null 30 30 -1 0 0 1 mouse false false false true
+pointerenter body null 30 30 -1 0 0 1 mouse false false false true
+pointerenter a null 30 30 -1 0 0 1 mouse false false false true
+pointerenter b null 30 30 -1 0 0 1 mouse false false false true
+mouseover b null 30 30 0 0 0 undefined undefined true true true true
+mouseenter document null 30 30 0 0 0 undefined undefined false false false true
+mouseenter html null 30 30 0 0 0 undefined undefined false false false true
+mouseenter body null 30 30 0 0 0 undefined undefined false false false true
+mouseenter a null 30 30 0 0 0 undefined undefined false false false true
+mouseenter b null 30 30 0 0 0 undefined undefined false false false true
+pointermove b null 30 30 -1 0 0 1 mouse true true true true
+mousemove b null 30 30 0 0 0 undefined undefined true true true true
+### press b cancelled
+pointerdown b null 30 30 0 1 0 1 mouse true true true true
+### drag to c after cancelled down
+pointerout b c 130 60 -1 1 0 1 mouse true true true true
+pointerleave b c 130 60 -1 1 0 1 mouse false false false true
+pointerover c b 130 60 -1 1 0 1 mouse true true true true
+pointerenter c b 130 60 -1 1 0 1 mouse false false false true
+mouseout b c 130 60 0 1 0 undefined undefined true true true true
+mouseleave b c 130 60 0 1 0 undefined undefined false false false true
+mouseover c b 130 60 0 1 0 undefined undefined true true true true
+mouseenter c b 130 60 0 1 0 undefined undefined false false false true
+pointermove c null 130 60 -1 1 0 1 mouse true true true true
+### release c
+pointerup c null 130 60 0 0 0 1 mouse true true true true
+click a null 130 60 0 0 1 1 mouse true true true true
+### move c after
+pointermove c null 131 60 -1 0 0 1 mouse true true true true
+mousemove c null 131 60 0 0 0 undefined undefined true true true true
+### into b at 70,70
+pointerover b null 70 70 -1 0 0 1 mouse true true true true
+pointerenter document null 70 70 -1 0 0 1 mouse false false false true
+pointerenter html null 70 70 -1 0 0 1 mouse false false false true
+pointerenter body null 70 70 -1 0 0 1 mouse false false false true
+pointerenter a null 70 70 -1 0 0 1 mouse false false false true
+pointerenter b null 70 70 -1 0 0 1 mouse false false false true
+mouseover b null 70 70 0 0 0 undefined undefined true true true true
+mouseenter document null 70 70 0 0 0 undefined undefined false false false true
+mouseenter html null 70 70 0 0 0 undefined undefined false false false true
+mouseenter body null 70 70 0 0 0 undefined undefined false false false true
+mouseenter a null 70 70 0 0 0 undefined undefined false false false true
+mouseenter b null 70 70 0 0 0 undefined undefined false false false true
+pointermove b null 70 70 -1 0 0 1 mouse true true true true
+mousemove b null 70 70 0 0 0 undefined undefined true true true true
+### b removed, straight to c
+pointerover c a 70 70 -1 0 0 1 mouse true true true true
+pointerenter c a 70 70 -1 0 0 1 mouse false false false true
+mouseover c a 70 70 0 0 0 undefined undefined true true true true
+mouseenter c a 70 70 0 0 0 undefined undefined false false false true
+pointerout c a 130 60 -1 0 0 1 mouse true true true true
+pointerleave c a 130 60 -1 0 0 1 mouse false false false true
+pointerover a c 130 60 -1 0 0 1 mouse true true true true
+mouseout c a 130 60 0 0 0 undefined undefined true true true true
+mouseleave c a 130 60 0 0 0 undefined undefined false false false true
+mouseover a c 130 60 0 0 0 undefined undefined true true true true
+pointermove a null 130 60 -1 0 0 1 mouse true true true true
+mousemove a null 130 60 0 0 0 undefined undefined true true true true
+### into b at 70,70
+pointerover b null 70 70 -1 0 0 1 mouse true true true true
+pointerenter document null 70 70 -1 0 0 1 mouse false false false true
+pointerenter html null 70 70 -1 0 0 1 mouse false false false true
+pointerenter body null 70 70 -1 0 0 1 mouse false false false true
+pointerenter a null 70 70 -1 0 0 1 mouse false false false true
+pointerenter b null 70 70 -1 0 0 1 mouse false false false true
+mouseover b null 70 70 0 0 0 undefined undefined true true true true
+mouseenter document null 70 70 0 0 0 undefined undefined false false false true
+mouseenter html null 70 70 0 0 0 undefined undefined false false false true
+mouseenter body null 70 70 0 0 0 undefined undefined false false false true
+mouseenter a null 70 70 0 0 0 undefined undefined false false false true
+mouseenter b null 70 70 0 0 0 undefined undefined false false false true
+pointermove b null 70 70 -1 0 0 1 mouse true true true true
+mousemove b null 70 70 0 0 0 undefined undefined true true true true
+### a removed, move (now html)
+pointerleave body html 70 70 -1 0 0 1 mouse false false false true
+pointerover html body 70 70 -1 0 0 1 mouse true true true true
+mouseleave body html 70 70 0 0 0 undefined undefined false false false true
+mouseover html body 70 70 0 0 0 undefined undefined true true true true
+pointermove html null 71 70 -1 0 0 1 mouse true true true true
+mousemove html null 71 70 0 0 0 undefined undefined true true true true

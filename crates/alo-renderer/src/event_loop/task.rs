@@ -38,6 +38,9 @@ use alo_js::object::{Held, Objects};
 use alo_js::{Engine, Escape, Fault, Root, Value};
 use alo_paint::Point;
 
+use super::crossed::Moving;
+use crate::crossing::Crossing;
+
 /// Which task: its place in the one order every task is run in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Seq(u64);
@@ -97,30 +100,46 @@ pub(super) enum Work {
         /// The text, which is Rust's and needs no root.
         text: String,
     },
-    /// A person's main button pressed (ADR 0024 § 5, queue item 535): a
-    /// `pointerdown` the browser made, and a `mousedown` after it unless a
-    /// listener cancelled it ([`super::pointed`]).
+    /// A person's main button pressed (ADR 0024 § 5, queue item 535): the
+    /// crossing to the element pressed if it is not the one last under the
+    /// pointer (queue item 542), a `pointerdown` the browser made, and a
+    /// `mousedown` after it unless a listener cancelled it
+    /// ([`super::pointed`]).
     Pressed {
         /// The element's wrapper, then the `pointerdown` — and, as the task
-        /// runs, the element's wrapper again and the `mousedown` — in one
-        /// rooted list.
+        /// runs, each wrapper and event it fires — in one rooted list.
         list: Root,
         /// Where, in the viewport's CSS pixels.
         at: Point,
+        /// The crossing fired first, if there is one.
+        crossing: Option<Crossing>,
     },
-    /// A person's main button let go (queue item 535): a `pointerup`, a
-    /// `mouseup` unless the press's `pointerdown` was cancelled, and the
-    /// `click` with HTML's activation steps around it.
+    /// A person's main button let go (queue item 535): the crossing to the
+    /// element under it if it is not the one last under the pointer, a
+    /// `pointerup`, a `mouseup` unless the press's `pointerdown` was
+    /// cancelled, and the `click` with HTML's activation steps around it.
     Released {
         /// The element's wrapper, then the `pointerup` — and, as the task
         /// runs, each wrapper and event it fires after — in one rooted list.
         list: Root,
         /// Where, in the viewport's CSS pixels.
         at: Point,
+        /// The crossing fired first, if there is one.
+        crossing: Option<Crossing>,
         /// Whether a `mouseup` is fired.
         mouse: bool,
         /// Where the `click` goes, if one is fired.
         click: Option<NodeId>,
+    },
+    /// A person's pointer moved (queue item 542): the crossing, if the node
+    /// under it changed, then `pointermove` and `mousemove` at the node
+    /// it is over ([`super::crossed`]).
+    Moved {
+        /// The document's wrapper — and, as the task runs, each wrapper and
+        /// event it fires — in one rooted list.
+        list: Root,
+        /// What it fires.
+        moving: Moving,
     },
     /// The page told whether it can be seen (ADR 0039 § 1, queue item 364):
     /// the state set, and a `visibilitychange` the browser made fired at the
@@ -203,6 +222,7 @@ impl Tasks {
             | Work::Activate { list }
             | Work::Pressed { list, .. }
             | Work::Released { list, .. }
+            | Work::Moved { list, .. }
             | Work::PutText { list, .. }
             | Work::Visibility { list, .. }
             | Work::Leave { list } => {
@@ -423,6 +443,51 @@ pub(super) fn push(objects: &mut Objects, list: &Root, value: Ref) -> Result<(),
     objects
         .with_slots(held, |slots, _| slots.push(Value::Object(value)))
         .ok_or(Escape::fault(Fault::Gone))
+}
+
+/// The rooted list of the wrapper of the document `cell` holds, made if it
+/// has none, and nothing else — what a [`Work::Moved`] starts from.
+///
+/// # Errors
+///
+/// [`Unmade`]: no document, or a heap too full to hold the list.
+pub(super) fn of_the_document(engine: &mut Engine, cell: Ref) -> Result<Root, Unmade> {
+    let objects = engine.objects();
+    let list = objects.slots().map_err(|why| Escape::refused(why, 0))?;
+    let list = objects.heap_mut().root(list);
+    let Some(root) = objects
+        .embedded::<alo_bindings::DocumentCell>(cell)
+        .map(|held| held.document().root())
+    else {
+        objects.heap_mut().release(list);
+        return Err(Unmade::NotADocument);
+    };
+    match hold(objects, &list, cell, root) {
+        Ok(_) => Ok(list),
+        Err(why) => {
+            objects.heap_mut().release(list);
+            Err(why)
+        }
+    }
+}
+
+/// The object first in a task's rooted `list`: the wrapper every list
+/// begins with.
+///
+/// # Errors
+///
+/// [`Escape::Broken`] if the list has gone or begins with something else,
+/// which is the engine's bug or ours.
+pub(super) fn first(engine: &mut Engine, list: &Root) -> Result<Ref, Escape> {
+    let objects = engine.objects();
+    let held = objects
+        .heap()
+        .holding(list)
+        .ok_or(Escape::fault(Fault::Gone))?;
+    match objects.slot(held, 0) {
+        Some(Held::Value(Value::Object(object))) => Ok(object),
+        Some(Held::Value(_) | Held::Uninitialized) | None => Err(Escape::fault(Fault::Gone)),
+    }
 }
 
 /// The event and the target's wrapper a [`Work::Dispatch`] task holds — or

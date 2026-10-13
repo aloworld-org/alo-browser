@@ -34,13 +34,17 @@
 //!   `PointerEvent`'s `pointerId` is `1` and its `pointerType` `"mouse"`,
 //!   the `click` included.
 //!
+//! # The pointer arriving
+//!
+//! A press or a release over a node that is not the one last under the
+//! pointer — a press where nothing was said of the pointer before, a
+//! release somewhere else — fires the crossing to it first, in the same
+//! task, carrying the button that changed (queue item 542,
+//! [`super::crossed`]).
+//!
 //! # What Chrome fires that is not here
 //!
-//! The pointer arriving: `pointerover`, `pointerenter`, `mouseover`,
-//! `mouseenter`, `pointermove` and `mousemove`, which Chrome fires as the
-//! pointer moves and, for a press where nothing was said of the pointer
-//! before, at the press — and their opposites, when a release is somewhere
-//! else (queue item 542). Focus moving to what was pressed (item 258).
+//! Focus moving to what was pressed (item 258).
 //! `selectstart` and `selectionchange` (item 88). A click's activation that
 //! would submit a form (item 543).
 
@@ -50,8 +54,10 @@ use alo_js::{Escape, Fault, Root};
 use alo_paint::Point;
 
 use super::activated::Submits;
+use super::crossed::Crossed;
 use super::task;
 use super::{Clicked, EventLoop, Turn};
+use crate::crossing::Crossing;
 
 /// What a press's task did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,15 +131,19 @@ pub(super) mod firing {
 }
 
 impl EventLoop {
-    /// Run a [`Work::Pressed`](task::Work::Pressed) task: the `pointerdown`
-    /// first in its list, and then — unless a listener cancelled it — a
-    /// `mousedown` at the same element.
+    /// Run a [`Work::Pressed`](task::Work::Pressed) task: the `crossing`,
+    /// if there is one, then the `pointerdown` first in its list, and then
+    /// — unless a listener cancelled it — a `mousedown` at the same element.
     pub(super) fn pressed(
         &mut self,
         list: &Root,
         at: Point,
+        crossing: Option<&Crossing>,
         turn: &mut Turn,
     ) -> Result<PressedDown, Escape> {
+        if let Some(crossing) = crossing {
+            self.cross(list, crossing, at, Crossed::Pressing, turn)?;
+        }
         let (down, target) = task::dispatched(&mut self.engine, list)?;
         let canceled = self.dispatch_event(down, target, turn)?;
         if !canceled {
@@ -142,7 +152,8 @@ impl EventLoop {
         Ok(PressedDown { canceled })
     }
 
-    /// Run a [`Work::Released`](task::Work::Released) task: the `pointerup`
+    /// Run a [`Work::Released`](task::Work::Released) task: the `crossing`,
+    /// if there is one, then the `pointerup`
     /// first in its list, a `mouseup` at the same element when `mouse`
     /// says the press let one be fired, and then the `click` at `click`,
     /// if there is one to fire, with HTML's activation steps around it —
@@ -153,8 +164,12 @@ impl EventLoop {
         at: Point,
         mouse: bool,
         click: Option<NodeId>,
+        crossing: Option<&Crossing>,
         turn: &mut Turn,
     ) -> Result<Option<Clicked>, Escape> {
+        if let Some(crossing) = crossing {
+            self.cross(list, crossing, at, Crossed::Releasing, turn)?;
+        }
         let (up, target) = task::dispatched(&mut self.engine, list)?;
         self.dispatch_event(up, target, turn)?;
         if mouse {

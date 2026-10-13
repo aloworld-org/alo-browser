@@ -32252,3 +32252,145 @@ clause adds the person's click; Owed now names 531, 532, 542–545, 547,
 262 queue items are open (535 closed, 542–548 added). The next unused
 queue number is **549** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 324 — queue item 542 built: a person's pointer moving over a page
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`;
+iteration 323's entry; ADR 0024 (§ 5, a person's pointer) and ADR 0018
+(§ 3, the browser's dispatch); queue items 535 and 542; the feature line
+*A window, tabs, and a tab strip*. No `AGENTS.md` exists here.
+
+**Why 542.** 535 closed in iteration 323, which freed 539, 542, 543, 544
+and 545's first half. 542 is the first of them in the file, and it waits
+on no page, person or design. The open items earlier in the file wait for
+a page, a person, a design or an unfinished dependency, as 318–323
+recorded. The owner's commit `bc3b8e7` took number 549 (a window nobody
+watches), so this iteration's new items start at 550.
+
+**Measured**, in headless Chrome 154 over CDP (`Input.dispatchMouseEvent`,
+Node 26), the source not read. Listeners on the window, the document and
+every element logged each event's members, microtasks and timers, on a
+probe page at 400 × 300: ten moves across and off the page, a press with
+nothing said before, a release elsewhere, a drag off the viewport and a
+release there, cancelled `pointerover`, `pointermove`, `pointerout` and
+`pointerdown`, elements removed from under the pointer (the node itself,
+an ancestor, then a move elsewhere, outside, or no move at all), a box
+moved away by a style change, and five moves sent at once.
+- A crossing fires the pointer family (out, leaves innermost first, over,
+  enters outermost first), then the mouse family; a move then fires
+  `pointermove` and `mousemove`. All of it is one task, with a microtask
+  checkpoint after each listener.
+- The document is entered first from nowhere and left last to nowhere;
+  the window never is. `relatedTarget` is the other node, and `null` on a
+  move.
+- Over, out and move bubble, cancel and compose; enters and leaves do
+  none of the three. Cancelling any of them changed nothing.
+- On a move, `button` is `-1` on a pointer event and `0` on a mouse event.
+  A press or release over another node crosses first, carrying the
+  button that changed. Outside the viewport with no button, the pointer is
+  over nothing and fires no move; with the button down it is over the root.
+- A cancelled `pointerdown` holds back `mousemove` until the release.
+- A removed node is not told it was left. Chrome looks again (on a timer,
+  or at the next move) from the node's nearest ancestor still in the
+  document: no out, and an over even at that ancestor.
+- Five moves sent at once were fired as three.
+- Also seen, and cut: `pointerrawupdate` (551), the timer-driven crossing
+  after a change under a still pointer (552). Not measured: a tab chosen
+  under the pointer (553).
+
+The first probe page put `b` and `c` as positioned boxes inside a
+positioned `a`, and this engine found `a` over `b`. That is open item 538
+(a positioned box inside a positioned box is drawn under it), not this
+item. The page was changed to make `b` and `c` flex items with the same
+geometry, and Chrome was measured again. Its record was identical except
+after a removal, where `c` slides under the old point. The removal
+scenarios use (70, 70), away from the span's text, because Chrome's
+default font and DejaVu Sans give `x` different widths.
+
+**Scope cut, not depth.** `:hover` matched and drawn, with its reference
+render, is a selector, a restyle and a render of its own. It is cut to
+**550**, together with 551–553 above. All four are written into 542's
+entry.
+
+**Built.**
+- `alo-bindings`: an event's `relatedTarget` field, traced and set by
+  `event::relate` before dispatch, and read by `MouseEvent`.
+- `alo-renderer`:
+  - `crossing.rs`: which nodes are left and entered, and after a removal,
+    from the ancestors as they were (a detached subtree no longer knows
+    its former parent).
+  - `event_loop/crossed.rs`: the crossing and the move as one task, and
+    the crossing before a press's or release's own events. Adds
+    `Work::Moved` and `task::of_the_document`.
+  - `pointed.rs`: `Pointed`, which keeps the node last under the pointer,
+    its ancestors, the buttons held and the press.
+  - `Went::Moved` and `Went::Left`, wire tags 2 and 3.
+- `alo-window`:
+  - `cursor.rs` decides what the page is sent of the cursor. `window.rs`
+    now goes through it for `CursorMoved`, `CursorLeft` and the main
+    button.
+  - The conductor sends a move where a release would go, and coalesces
+    moves that arrived together (`latest_moves_only`).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, with no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: `a`, `b`, `c` and `o` asserted at Chrome's boxes to
+  1/64 px, and the span holding (103, 25) and not (130, 60), in every
+  scenario.
+- No new reference render: nothing new is drawn. `:hover` is 550's, and
+  carries its render there.
+- Hostile input: `wire/pointer.rs` refuses tags 4 and above, along with
+  every truncation, a trailing byte and non-finite points. A node a
+  listener removed mid-crossing is not fired at, and does not stop the
+  page.
+- On screen: `alo --frozen-fonts` on a scratchpad page whose `mouseover`
+  and `mouseout` listeners colour two boxes. The cursor was moved with
+  `cliclick` to each box, onto the strip and back, and the window was
+  captured with `screencapture -l` each time. The box under the cursor
+  was red and the other grey; over the strip both were grey. ⌘W closed
+  the window, and no `alo` or `alo-render` was left. The first pass
+  mis-aimed by one box (page x 555 instead of 200), and its captures were
+  consistent with where it actually aimed.
+- Mutations, each restored from a copy (`cmp` confirmed), each fail the
+  page tests: the mouse family first; enters innermost first; no look
+  after a removal; `mousemove` despite a cancelled `pointerdown`; a drag
+  outside going nowhere; the out at the node entered; a press's crossing
+  with `button` `-1`. `alo-render` was rebuilt after the restore.
+- One file, one responsibility, each its own file: which nodes a crossing
+  touches (`crossing.rs`); firing them (`event_loop/crossed.rs`); what the
+  renderer remembers of the pointer (`pointed.rs`); what the window sends
+  (`cursor.rs`); routing and coalescing (`conductor/pointing.rs`).
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate, and the point still travels
+  only in `ToRenderer::Pointer`, made only by `Tabs::point` for the
+  window's `Order::Pointer`. `alo-os` and `alo-workplace` were not
+  touched. Nothing was pushed.
+
+**Queue.** 542 is ticked with its cut and *Done* paragraph. Added: 550
+(`:hover`), 551 (`pointerrawupdate`), 552 (a page changing under a still
+pointer), 553 (a tab chosen under the pointer). 545 now says a move
+reports no modifier.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the pointer moving, and Owed now names 531, 532, 550–553, 543,
+544, 545, 547, 539, 299 and 300.
+
+**Unresolved obligations.**
+- A move with a modifier held reports none (545).
+- The conductor paints after every move it sends, whether or not the page
+  changed. Coalescing bounds how many moves are sent, but no claim about
+  speed is made.
+- A press the page did not hear (on the strip, or with a modifier) sends
+  no moves until its release. Chrome would send them, with `buttons` 1.
+- A node removed and put back elsewhere before the next look is taken as
+  never removed.
+
+266 queue items are open (542 closed, 550–553 added). The next unused
+queue number is **554** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

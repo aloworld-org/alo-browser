@@ -126,7 +126,7 @@ use crate::held::Held;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::Drawing;
-use crate::pointed::{self, Pressing};
+use crate::pointed::Pointed;
 use crate::pointer::{Pointer, Went};
 use crate::press::{Ran, press, told};
 use crate::put::put;
@@ -172,9 +172,10 @@ pub struct Renderer {
     /// with [`Page::viewport`] at load and at every resize, and its scroll
     /// position (ADR 0038 §§ 2–3). One for each page loaded.
     view: Rc<PageView>,
-    /// What a person's press left to its release ([`crate::pointed`]):
-    /// nothing until a press, and nothing again once the page goes.
-    pressing: Option<Pressing>,
+    /// What a person's pointer left to its next message
+    /// ([`crate::pointed`]): nothing until it sends one, and nothing again
+    /// once the page goes.
+    pointed: Pointed,
 }
 
 impl Renderer {
@@ -183,7 +184,7 @@ impl Renderer {
         let easel = Rc::new(RefCell::new(Easel::new(fonts)));
         Self {
             view: Rc::new(PageView::at(Size::default(), Rc::clone(&easel))),
-            pressing: None,
+            pointed: Pointed::default(),
             easel,
             page: None,
             held: None,
@@ -517,7 +518,7 @@ impl Renderer {
             .unwrap_or_default();
         self.held = None;
         self.page = None;
-        self.pressing = None;
+        self.pointed = Pointed::default();
         self.easel.borrow_mut().clear();
         left
     }
@@ -530,10 +531,11 @@ impl Renderer {
         self.answered(issues, None)
     }
 
-    /// A person's main button went down or up on the page (ADR 0024 § 5,
-    /// queue item 535): the element under it found in the drawing the
-    /// person sees, drawn again first if the page changed since, and what
-    /// Chrome fires for it fired ([`crate::pointed`]). Answered as a
+    /// A person's pointer moved, left the page, or its main button went
+    /// down or up (ADR 0024 § 5, queue items 535 and 542): the element
+    /// under it found in the drawing the person sees, drawn again first if
+    /// the page changed since, and what Chrome fires for it fired
+    /// ([`crate::pointed`]). Answered as a
     /// delivery is: the browser process assigns what it asked for from
     /// which message it answered, and a link a page that never ran script
     /// followed is asked for here, as an `Act`'s is.
@@ -548,16 +550,13 @@ impl Renderer {
         ) else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
+        let remembered = &mut self.pointed;
+        let at = pointer.at;
         let (issues, followed) = match pointer.went {
-            Went::Down => {
-                let (pressing, issues) = pointed::down(held, &drawing, pointer.at);
-                self.pressing = pressing;
-                (issues, None)
-            }
-            Went::Up => {
-                let pressing = self.pressing.take();
-                pointed::up(held, &drawing, &page.url, pointer.at, pressing)
-            }
+            Went::Moved => (remembered.moved(held, &drawing, at), None),
+            Went::Left => (remembered.left(held, &drawing, at), None),
+            Went::Down => (remembered.down(held, &drawing, at), None),
+            Went::Up => remembered.up(held, &drawing, &page.url, at),
         };
         self.answered(issues, followed)
     }

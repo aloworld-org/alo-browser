@@ -17,8 +17,9 @@
 //! - `button` and `buttons`: what changed and what is held.
 //! - `ctrlKey`, `shiftKey`, `altKey` and `metaKey`: `false`. A person's
 //!   click with a modifier held is not sent to a page yet (queue item 545).
-//! - `relatedTarget`: `null`. It is a boundary event's (queue item 542),
-//!   and none is fired yet.
+//! - `relatedTarget`: the node a person's pointer crossed from or to, for
+//!   the events it fires as it crosses (queue item 542); `null` on every
+//!   other.
 //!
 //! **Absent** (ADR 0013 § 3): `getModifierState`, which converts its
 //! argument and is wanted by no page yet; CSSOM View's `pageX`, `pageY`,
@@ -34,6 +35,7 @@ use alo_js::{Escape, Value};
 
 use super::ui_event::mouse;
 use crate::define;
+use crate::event::Event;
 use crate::pointing::Pointing;
 
 /// The name the brand check's `TypeError` uses.
@@ -131,7 +133,15 @@ fn buttons(call: &mut Call<'_>) -> Result<Answer, Escape> {
     number(call, "buttons", |at| f64::from(at.buttons))
 }
 
-/// `get relatedTarget`.
+/// `get relatedTarget`: the other node's wrapper, or `null`.
 fn related_target(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    answer(call, "relatedTarget", Value::Null)
+    mouse(call, "relatedTarget", NAME)?;
+    let related = match call.this() {
+        Value::Object(held) => call
+            .seen()
+            .embedded::<Event>(held)
+            .and_then(Event::related_target),
+        _ => None,
+    };
+    Ok(Answer::Value(related.map_or(Value::Null, Value::Object)))
 }

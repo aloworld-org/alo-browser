@@ -16,18 +16,20 @@
 //!
 //! # A person's pointer
 //!
-//! Item 535, ADR 0024 § 5. The window keeps where the cursor last was and
-//! decides from its own composition what a press of the **main button** is
-//! over ([`crate::aim`]): over the page, it is sent to the conductor in the
-//! page's CSS pixels as [`Order::Pointer`], and its release is sent too,
-//! wherever the cursor is by then. Over the strip it is item 539's, and
-//! over a line the window is saying something in it is nobody's.
+//! Items 535 and 542, ADR 0024 § 5. The window keeps where the cursor last
+//! was and decides from its own composition what it is over
+//! ([`crate::aim`]); [`crate::cursor`] decides what the page is sent of it
+//! — its moves over the page and its leaving, a press of the **main
+//! button** over the page and the moves and release that follow — each in
+//! the page's CSS pixels as [`Order::Pointer`]. A press over the strip is
+//! item 539's, and over a line the window is saying something in it is
+//! nobody's.
 //!
-//! Not sent yet: the cursor moving with no button down (item 542), the
-//! other buttons (544), a press with a modifier held (545) — ⌘ held over a
-//! link opens a tab in Chrome, which no tab here does — and how many
-//! presses came in quick succession (547). The window shows the tab strip
-//! across its top and the selected tab below it (item 528).
+//! Not sent yet: the other buttons (544), a press with a modifier held
+//! (545) — ⌘ held over a link opens a tab in Chrome, which no tab here does
+//! — and how many presses came in quick succession (547). A move is sent
+//! whatever modifier is held, and reports none (545). The window shows the
+//! tab strip across its top and the selected tab below it (item 528).
 //!
 //! # The keyboard
 //!
@@ -60,6 +62,7 @@
 
 use crate::aim::{Aimed, aim, on_page};
 use crate::compose::compose;
+use crate::cursor::Cursor;
 use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
@@ -68,7 +71,6 @@ use crate::place::{Placement, replication, viewport};
 use crate::present::Presenter;
 use crate::showing::Showing;
 use alo_renderer::Visibility;
-use alo_renderer::pointer::{Pointer, Went};
 use std::rc::Rc;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
@@ -108,7 +110,7 @@ pub fn run(start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders) -> Re
         presenter: None,
         modifiers: ModifiersState::empty(),
         cursor: None,
-        pressing: false,
+        pointer: Cursor::default(),
         failed: None,
     };
     event_loop
@@ -132,9 +134,8 @@ struct App {
     /// Where the cursor last was in the window, in device pixels, while it
     /// is over the window.
     cursor: Option<(f64, f64)>,
-    /// Whether a press of the main button was sent to the page, and so its
-    /// release is owed.
-    pressing: bool,
+    /// What the page has been sent of the cursor ([`crate::cursor`]).
+    pointer: Cursor,
     /// Why the window had to stop, if it did.
     failed: Option<String>,
 }
@@ -188,37 +189,62 @@ impl App {
         ))
     }
 
+    /// What the cursor is over, and where it is in the page's CSS pixels,
+    /// if there is a window — over nothing, at the window's corner, when the
+    /// cursor has not been seen.
+    fn aimed(&self) -> Option<(Aimed, alo_paint::Point)> {
+        let (window, placed, replication) = self.placed()?;
+        let at = self.cursor.unwrap_or_default();
+        let over = self
+            .cursor
+            .map_or(Aimed::Nothing, |at| aim(window, &placed, replication, at));
+        Some((over, on_page(&placed, replication, at)))
+    }
+
+    /// The cursor moved to `at`, in device pixels: what the page is sent of
+    /// it, if anything.
+    fn cursor_moved(&mut self, at: (f64, f64)) {
+        self.cursor = Some(at);
+        let Some((over, on_page)) = self.aimed() else {
+            return;
+        };
+        let sent = self.pointer.moved(over, on_page);
+        self.send_pointer(sent);
+    }
+
+    /// The cursor left the window: the page is told, unless a press it
+    /// heard is held, whose release still reaches it from where the cursor
+    /// was last seen.
+    fn cursor_left(&mut self) {
+        let Some((_, on_page)) = self.aimed() else {
+            return;
+        };
+        let sent = self.pointer.left(on_page);
+        if !self.pointer.is_pressing() {
+            self.cursor = None;
+        }
+        self.send_pointer(sent);
+    }
+
     /// The main button went `state`: a press over the page is sent, and so
     /// is the release of a press that was.
     fn main_button(&mut self, state: ElementState) {
-        let Some((window, placed, replication)) = self.placed() else {
+        let Some((over, on_page)) = self.aimed() else {
             return;
         };
-        let pointer = match state {
-            ElementState::Pressed => {
-                let over = self.cursor.map(|at| aim(window, &placed, replication, at));
-                match over {
-                    Some(Aimed::Page(at)) if self.modifiers.is_empty() => Pointer {
-                        went: Went::Down,
-                        at,
-                    },
-                    _ => return,
-                }
-            }
-            ElementState::Released => {
-                if !self.pressing {
-                    return;
-                }
-                let at = self.cursor.unwrap_or_default();
-                Pointer {
-                    went: Went::Up,
-                    at: on_page(&placed, replication, at),
-                }
-            }
+        let sent = match state {
+            ElementState::Pressed => self.pointer.pressed(over, self.modifiers.is_empty()),
+            ElementState::Released => self.pointer.released(on_page),
         };
-        self.pressing = pointer.went == Went::Down;
-        // A conductor that has gone is a window closing.
-        let _ = self.orders.send(Order::Pointer(pointer));
+        self.send_pointer(sent);
+    }
+
+    /// Send the conductor what the page is sent of the cursor, if anything.
+    fn send_pointer(&self, sent: Option<alo_renderer::pointer::Pointer>) {
+        if let Some(pointer) = sent {
+            // A conductor that has gone is a window closing.
+            let _ = self.orders.send(Order::Pointer(pointer));
+        }
     }
 
     /// Stop showing the window and close every tab, and leave the event loop
@@ -308,10 +334,8 @@ impl ApplicationHandler<News> for App {
             WindowEvent::CursorMoved {
                 position: PhysicalPosition { x, y },
                 ..
-            } => self.cursor = Some((x, y)),
-            // A release outside the window still reaches it, from where the
-            // cursor was last seen.
-            WindowEvent::CursorLeft { .. } if !self.pressing => self.cursor = None,
+            } => self.cursor_moved((x, y)),
+            WindowEvent::CursorLeft { .. } => self.cursor_left(),
             WindowEvent::MouseInput {
                 state,
                 button: MouseButton::Left,

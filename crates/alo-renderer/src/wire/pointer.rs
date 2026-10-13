@@ -5,7 +5,7 @@
 //! A person's pointer on the wire (ADR 0024 § 5, queue item 535).
 //!
 //! It goes to a renderer, from the browser process, and a confined renderer
-//! reads it as it reads anything: what the button did by a closed list of
+//! reads it as it reads anything: what the pointer did by a closed list of
 //! tags, and the point as two finite numbers — a NaN or an infinity is
 //! refused by [`Reader::float`], since a comparison that answers "false" to
 //! everything would turn the hit test's bounds into ones that pass.
@@ -20,6 +20,8 @@ impl Writer {
         self.tag(match pointer.went {
             Went::Down => 0,
             Went::Up => 1,
+            Went::Moved => 2,
+            Went::Left => 3,
         });
         self.float(pointer.at.x);
         self.float(pointer.at.y);
@@ -32,7 +34,9 @@ impl Reader<'_> {
         let went = match self.tag()? {
             0 => Went::Down,
             1 => Went::Up,
-            other => return Err(unreadable(format!("a button that went {other}"))),
+            2 => Went::Moved,
+            3 => Went::Left,
+            other => return Err(unreadable(format!("a pointer that went {other}"))),
         };
         let x = self.float()?;
         let y = self.float()?;
@@ -55,6 +59,8 @@ mod tests {
             Pointer::down(70.6, 50.3),
             Pointer::up(-12.25, 1.0e6),
             Pointer::up(0.0, -0.0),
+            Pointer::moved(30.6, 30.3),
+            Pointer::left(-5.0, 30.0),
         ] {
             let message = ToRenderer::Pointer(pointer);
             assert_eq!(read_to_renderer(&write_to_renderer(&message)), Ok(message));
@@ -74,15 +80,15 @@ mod tests {
     }
 
     #[test]
-    fn a_button_that_went_anywhere_else_is_refused() {
+    fn a_pointer_that_went_anywhere_else_is_refused() {
         let mut bytes = write_to_renderer(&ToRenderer::Pointer(Pointer::down(1.0, 2.0)));
-        for went in [2_u8, 7, 255] {
+        for went in [4_u8, 7, 255] {
             if let Some(tag) = bytes.get_mut(1) {
                 *tag = went;
             }
             assert!(
                 read_to_renderer(&bytes).is_err(),
-                "a button that went {went}"
+                "a pointer that went {went}"
             );
         }
     }

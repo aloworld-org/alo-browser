@@ -10,7 +10,9 @@
 //! whatever a page hangs off it. A `CustomEvent` is the same cell with its
 //! `detail`, a `PointerEvent` the same cell with its [`Shape`] saying so, an
 //! `InputEvent` the same cell with its `inputType` and `data`, and a
-//! `SubmitEvent` the same cell with its `submitter`.
+//! `SubmitEvent` the same cell with its `submitter`. A `MouseEvent` a person's
+//! pointer fires as it crosses from one node to another holds the other as
+//! its `relatedTarget` (queue item 542).
 //!
 //! # A dispatch's state lives here
 //!
@@ -113,12 +115,13 @@ pub enum Shape {
     /// A `PointerEvent`, and so a `MouseEvent` and a `UIEvent` (ADR 0018
     /// § 5): a click — keyboard activation's, whose [`Pointing`] is
     /// [`Pointing::KEYBOARD`], or a person's — or a person's `pointerdown`
-    /// or `pointerup` (queue item 535). What it reports of its pointer is
-    /// its [`Pointing`]; no modifier is ever held.
+    /// or `pointerup` (queue item 535), or one fired as a person's pointer
+    /// moves (542). What it reports of its pointer is its [`Pointing`]; no
+    /// modifier is ever held.
     Pointer,
     /// A `MouseEvent` that is not a `PointerEvent`, and so a `UIEvent`: a
-    /// person's `mousedown` or `mouseup` (queue item 535), reporting its
-    /// [`Pointing`].
+    /// person's `mousedown` or `mouseup` (queue item 535), or one fired as
+    /// a person's pointer moves (542), reporting its [`Pointing`].
     Mouse,
     /// An `InputEvent`, and so a `UIEvent` (ADR 0018 § 5): the browser's
     /// for an agent's `PutText`, whose `inputType` and `data` it holds
@@ -178,6 +181,9 @@ pub struct Event {
     pointing: Pointing,
     /// A `SubmitEvent`'s `submitter`, as its wrapper; empty on any other.
     submitter: Field,
+    /// A `MouseEvent`'s `relatedTarget`, as its wrapper; empty on any
+    /// other, and on a `MouseEvent` that crosses nothing.
+    related: Field,
     progress: Option<Progress>,
 }
 
@@ -202,6 +208,7 @@ impl Event {
             typing: Typing::default(),
             pointing: Pointing::KEYBOARD,
             submitter: Field::empty(),
+            related: Field::empty(),
             progress: None,
         }
     }
@@ -248,6 +255,12 @@ impl Event {
     /// which is what any other event has.
     pub const fn submitter(&self) -> Option<Ref> {
         self.submitter.get()
+    }
+
+    /// A `MouseEvent`'s `relatedTarget`, as its wrapper: [`None`] for
+    /// `null`, which is what any other event has.
+    pub const fn related_target(&self) -> Option<Ref> {
+        self.related.get()
     }
 
     /// An `InputEvent`'s `inputType`, as code units: empty on any other.
@@ -446,6 +459,7 @@ impl Trace for Event {
         self.current_target.trace(tracer);
         self.detail.trace(tracer);
         self.submitter.trace(tracer);
+        self.related.trace(tracer);
         if let Some(progress) = &self.progress {
             progress.trace(tracer);
         }
@@ -497,11 +511,11 @@ pub enum Fired<'a> {
     /// `change`, say.
     Event,
     /// `PointerEvent`: a `click` (ADR 0018 § 5), or a person's
-    /// `pointerdown` or `pointerup` (queue item 535), reporting this of its
-    /// pointer.
+    /// `pointerdown` or `pointerup` (queue item 535) or a pointer moving
+    /// (542), reporting this of its pointer.
     PointerEvent(Pointing),
     /// `MouseEvent`: a person's `mousedown` or `mouseup` (queue item 535),
-    /// reporting this of its pointer.
+    /// or a pointer moving (542), reporting this of its pointer.
     MouseEvent(Pointing),
     /// `InputEvent`: what text put into a field fires (ADR 0018 § 5).
     InputEvent {
@@ -748,4 +762,27 @@ pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<R
     // Copying allocates nothing, so the event nothing holds yet survives it.
     unforgeable::copy(objects, cell, made, interface)?;
     Ok(made)
+}
+
+/// Give `event`, a `MouseEvent` the browser made and has not dispatched yet,
+/// `related` as its `relatedTarget`: the node a person's pointer crossed
+/// from or to (queue item 542). `related` is a wrapper the caller holds,
+/// and from here on `event` holds it too; setting it allocates nothing.
+///
+/// # Errors
+///
+/// A fault when `event` is not a `MouseEvent`, which is the caller's bug.
+pub fn relate(objects: &mut Objects, event: Ref, related: Ref) -> Result<(), Escape> {
+    objects
+        .write_embedded::<Event, _>(event, |event, barrier| {
+            if event.is_mouse() {
+                event.related.set(barrier, Some(related));
+                true
+            } else {
+                false
+            }
+        })
+        .filter(|set| *set)
+        .map(|_| ())
+        .ok_or(Escape::fault(Fault::NotAnObject))
 }

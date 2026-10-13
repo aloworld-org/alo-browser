@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page hears the pointer move.** Moving the mouse over a page now sends
+  it what Chrome sends: `mouseover` and `mouseout` (and their pointer and
+  enter and leave twins) as the pointer goes from one element to another,
+  each saying which element was on the other side, and `mousemove` where it
+  is. A page that lights something up when the pointer is over it now does,
+  and a drag that starts on the page is followed off it. Moving onto the tab
+  strip or out of the window tells the page the pointer left. Styling by
+  `:hover` alone is still to come.
+
 - **A person's click reaches the page.** Pressing the mouse's main button on
   a page now sends it what Chrome sends: `pointerdown` and `mousedown`, then
   `pointerup`, `mouseup` and `click`, at the element under the pointer and

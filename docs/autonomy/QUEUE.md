@@ -13011,7 +13011,7 @@ What stage 2's exit gate actually measures: a person using it.
   document survived, and was removed as redundant: a node that left shares
   no ancestor with one the hit test found.
 
-- [ ] **542. The pointer moving over a page.** *Cut from 535 (iteration
+- [x] **542. The pointer moving over a page.** *Cut from 535 (iteration
   323; ADR 0024 § 5). Feature: `docs/features.md` stage 2, a window, tabs
   and a tab strip. Depends on 535.* Chrome 154 fires `pointerover`,
   `pointerenter` (at each ancestor, the document first), `mouseover`,
@@ -13022,8 +13022,112 @@ What stage 2's exit gate actually measures: a person using it.
   is sent: the window drops `CursorMoved` but for remembering it, and
   `:hover` matches nothing. *Closes when:* a person's pointer moving over a
   frozen page fires Chrome's sequence, coalesced to at most one move per
-  frame, `relatedTarget` and all, and `:hover` is drawn with a reference
-  render.
+  frame, `relatedTarget` and all~~, and `:hover` is drawn with a reference
+  render~~.
+
+  **Scope cut, not depth (iteration 324).** The events are one piece of
+  work — measured, fired, and carried from the window — and `:hover` is
+  another: a selector that matches by the pointer's state, a restyle and a
+  redraw at every crossing, and a reference render. The struck clause moved
+  to **550**. Also measured and cut, each to its own item:
+  `pointerrawupdate` (**551**), the crossing Chrome fires on a timer when
+  the page changes under a still pointer (**552**), and what two tabs hear
+  when another is chosen under the pointer (**553**).
+
+  ***Done (iteration 324).*** A person's pointer moving, as Chrome 154 fires
+  it:
+  - **Measured** in headless Chrome 154 over CDP (`Input.dispatchMouseEvent`,
+    listeners on the window, the document and every element), the source
+    not read. A crossing fires the pointer family — out, each leave
+    innermost first, over, each enter outermost first — then the same as
+    mouse events; a move then fires `pointermove` and `mousemove`; all of
+    it one task. The document is entered first from nowhere and left last
+    to nowhere; the window never. `relatedTarget` is the other node. Over,
+    out and move bubble, cancel and compose; enters and leaves none of the
+    three; cancelling any of them changed nothing. Pointer events keep the
+    point, mouse events are floored; `detail` 0; a move's `button` is `-1`
+    on a pointer event and `0` on a mouse event, `buttons` what is held. A
+    press or release over another node crosses first with the button that
+    changed (`0`, and `buttons` `1` then `0`). Outside the viewport with no
+    button a move goes nowhere and fires no move; with the button down it is
+    over the root element. A cancelled `pointerdown` holds back `mousemove`
+    until the release, and nothing else. A node removed from under the
+    pointer is not told: at the next look, a crossing from its nearest
+    ancestor still in the document, with no out, an over even at that
+    ancestor itself. Five moves sent at once were fired as three.
+  - **Built.** `alo-bindings`: an event's `relatedTarget` (`event::relate`,
+    traced), read by `MouseEvent`. `alo-renderer`: `crossing.rs`, which
+    nodes are left and entered, and after a removal; `event_loop/crossed.rs`,
+    the crossing and the move as one task, `Work::Moved`, and the crossing
+    before a press's or release's own events; `pointed.rs`'s `Pointed`,
+    the node last under the pointer and its ancestors as they were, the
+    buttons held and the press; `Went::Moved` and `Went::Left` on the wire
+    (tags 2 and 3). `alo-window`: `cursor.rs`, what the page is sent — a
+    move over it, leaving it once, every move between a press it heard and
+    its release, nothing during a press it did not hear; the conductor
+    sends a move where a release would go, and coalesces moves that
+    arrived together (`latest_moves_only`).
+
+  *Closed by:* `alo-renderer/tests/a_persons_pointer_moving.rs`, seven
+  scenarios on the page Chrome was given (committed beside its record,
+  `references/a-persons-pointer-moving.{html,chrome.txt}`), every line each
+  listener wrote Chrome's, with and without the collector at every
+  allocation, the boxes in numbers; a page that never ran script moved over
+  with no heap made. `alo-window/tests/a_persons_pointer_in_the_window.rs`:
+  device points through `aim` and `Cursor` to the real conductor and
+  confined renderers, the page's listeners' fetches Chrome's crossings,
+  leaving onto the strip included. `crossing.rs`', `crossed.rs`',
+  `cursor.rs`' and `latest_moves_only`'s unit tests, and the wire's. On this
+  Mac, `alo --frozen-fonts` with a page whose `mouseover` and `mouseout`
+  listeners colour two boxes, the cursor moved with `cliclick` and the
+  window captured: the box under the cursor red, the other grey, both grey
+  over the strip.
+
+  Mutations, each restored from a copy: the mouse family before the pointer
+  family; enters innermost first; no look after a removal; `mousemove`
+  despite a cancelled `pointerdown`; a drag outside going nowhere; the out
+  at the node entered; a press's crossing with `button` `-1` — each fails
+  the page tests.
+
+- [ ] **550. `:hover`, drawn under a person's pointer.** *Cut from 542
+  (iteration 324). Feature: `docs/features.md` stage 2, a window, tabs and
+  a tab strip. Depends on 542.* The renderer knows the node under the
+  pointer (`pointed.rs`), and `:hover` still matches nothing, so a page's
+  hover styles are never drawn. *Closes when:* `:hover` matches the node
+  under the pointer and each of its ancestors, as Chrome 154 is measured to
+  match it (the document's root included, and through a crossing at a
+  press), the page is restyled and painted at each crossing — on a page
+  that never ran script too — and a frozen page's hover rule is drawn under
+  the pointer with a reference render.
+
+- [ ] **551. `pointerrawupdate`.** *Cut from 542 (iteration 324). Feature:
+  `docs/features.md` stage 2, events. Waits for a page.* Chrome 154 fired it
+  first at every move, at the node under the pointer (the root element
+  outside the viewport, where nothing else fires), bubbling and composed
+  and not cancelable, with the move's members — in a secure context only,
+  which a `file:` page was. *Closes when:* a frozen page that listens for it
+  hears Chrome's, and only in a secure context.
+
+- [ ] **552. A page that changes under a pointer that is still.** *Cut from
+  542 (iteration 324). Feature: `docs/features.md` stage 2, events. Waits
+  for a page.* Chrome 154, with the node under the pointer removed and the
+  pointer left alone, fired the crossing from its nearest ancestor still in
+  the document within 600 ms and without a move; with a box only moved out
+  from under it (a style change), nothing until the next move — both in
+  headless Chrome, whose timing for a real mouse is to be measured. This
+  engine fires the first at the next message the pointer sends, before
+  that message's own events, and never on its own. *Closes when:* what
+  Chrome does after a change under a still pointer is measured with a real
+  mouse, and a frozen page that changes under the pointer hears it as
+  Chrome's does, with no move.
+
+- [ ] **553. Another tab chosen while the pointer is over the page.** *Found
+  building 542 (iteration 324). Feature: `docs/features.md` stage 2, a
+  window, tabs and a tab strip. Needs measuring.* The tab left keeps the
+  node last under the pointer and hears nothing; the tab chosen hears its
+  first move as arriving from nowhere. What Chrome's two pages hear when ⌃⇥
+  chooses another tab under a still pointer is not measured. *Closes when:*
+  it is, and both tabs hear what Chrome's do.
 
 - [ ] **543. A person's click on a submit button submits its form.** *Cut
   from 535 (iteration 323; ADR 0051 § 4). Feature: `docs/features.md` stage
@@ -13047,7 +13151,8 @@ What stage 2's exit gate actually measures: a person using it.
   323). Feature: `docs/features.md` stage 2, a window, tabs and a tab
   strip. Depends on 535, 300.* The window sends no press while a modifier
   is held, because ⌘ over a link opens a tab in Chrome, and following it in
-  this tab would be wrong. *Closes when:* `ctrlKey`, `shiftKey`, `altKey`
+  this tab would be wrong. A move is sent whatever is held, and reports no
+  modifier (542). *Closes when:* `ctrlKey`, `shiftKey`, `altKey`
   and `metaKey` carry the modifiers held, and a ⌘-click on a link opens it
   as 300 opens a tab.
 

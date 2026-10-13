@@ -1,0 +1,18 @@
+<!doctype html><html id=html><head><style>body{margin:0}#a{position:absolute;left:0;top:0;width:200px;height:200px;display:flex;align-items:flex-start}#b,#c{flex:none;margin:20px 0 0 20px;width:60px;height:60px}#o{position:absolute;left:300px;top:0;width:50px;height:50px}</style></head><body id=body><div id=a><div id=b></div><div id=c><span id=d style="font-size:20px">x</span></div></div><div id=o></div><p id=out hidden></p><script>
+const out = document.getElementById('out');
+function say(what) { out.textContent = out.textContent + '|' + what; }
+function who(t) { return t === null ? 'null' : t === document ? 'document' : t.getAttribute('id'); }
+const kinds = ['pointerover', 'pointerenter', 'pointerout', 'pointerleave', 'pointermove', 'mouseover', 'mouseenter', 'mouseout', 'mouseleave', 'mousemove', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+function heard(e) {
+  if (e.currentTarget !== e.target) { return; }
+  say(e.type + ' ' + who(e.target) + ' ' + who(e.relatedTarget) + ' ' + e.clientX + ' ' + e.clientY + ' ' + e.button + ' ' + e.buttons + ' ' + e.detail + ' ' + e.pointerId + ' ' + e.pointerType + ' ' + e.bubbles + ' ' + e.cancelable + ' ' + e.composed + ' ' + e.isTrusted);
+  if (e.type === 'pointerdown' && cancelDown) { e.preventDefault(); }
+  if (e.type === 'pointerover' || e.type === 'pointermove') { e.preventDefault(); }
+}
+let cancelDown = false;
+const all = document.querySelectorAll('*');
+for (let k = 0; k < kinds.length; k++) {
+  document.addEventListener(kinds[k], heard);
+  for (let i = 0; i < all.length; i++) { all[i].addEventListener(kinds[k], heard); }
+}
+</script></body></html>

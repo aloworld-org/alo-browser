@@ -727,11 +727,27 @@ The reason this exists rather than a faster fork of somebody else's engine.
   link — on a page with or without script, and a link a person clicks goes
   where an agent's press of it goes; the window says where, since going there
   is still to come (85). Where the window is on the screen is not told: a
-  click's screen position is its position in the page. Still to come: the
-  pointer moving and hovering, and the events it sends a page (542); a click
-  submitting a form, which says it did not (543); the other buttons (544), a
-  click with a modifier held (545) and double clicks (547); and focus moving
-  to what was pressed (258). Still to come besides: an agent reading the open
+  click's screen position is its position in the page. **The pointer moving
+  over the page** (queue item 542): as the pointer goes from one element to
+  another the page hears what Chrome 154 sends — `pointerout` and a
+  `pointerleave` at each element it left, `pointerover` and a
+  `pointerenter` at each it entered, then the same again as mouse events,
+  each saying which element was on the other side — and then `pointermove`
+  and `mousemove` where it is, all as one task. Arriving from outside it
+  enters the document first; going off the page — onto the tab strip, over
+  something the window is saying, out of the window — it leaves everything
+  and moves nothing. A press or a release somewhere the page was not told
+  the pointer was crosses there first. Dragging after a press on the page,
+  every move is the page's, outside the window too, saying the button is
+  held; a page that cancelled its `pointerdown` hears no `mousemove` until
+  the release. An element removed from under the pointer is not told it
+  was left, as in Chrome. Moves that arrive faster than a page answers are
+  sent as the last of them. Still to come: `:hover` drawn under the
+  pointer (550), `pointerrawupdate` (551), what a page hears when it
+  changes under a pointer that is not moving (552) and when another tab is
+  chosen under it (553); a click submitting a form, which says it did not
+  (543); the other buttons (544), a click with a modifier held (545) and
+  double clicks (547); and focus moving to what was pressed (258). Still to come besides: an agent reading the open
   tabs from the strip, which first needs deciding what an agent kept to some
   sites may see of it (531); a title a page changes after it has loaded
   (532); a click on a tab, decided by the browser (539); painting at the

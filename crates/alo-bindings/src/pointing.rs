@@ -75,7 +75,8 @@ pub struct Pointing {
     pub buttons: u16,
     /// `detail`: how many times in quick succession the button was
     /// pressed, for a `mousedown`, `mouseup` or `click`; `0` for a
-    /// `PointerEvent` that is not a click, and for a click nothing pressed.
+    /// `PointerEvent` that is not a click, for a click nothing pressed, and
+    /// for every event a pointer moving fires (queue item 542).
     pub detail: u32,
     /// What pointed.
     pub device: Device,

@@ -2176,3 +2176,15 @@ click with a modifier held), **546** (a pointing device's other
 refused in the window is not recorded). 262 queue items are open (535
 closed, 542–548 added). The next unused queue number is 549 and the next
 unused ADR 0057.
+
+Iteration 324 built queue item 542: a person's pointer moving over a page.
+The window sends a move over the page, its leaving once, and every move of
+a drag the page pressed (`alo-window`'s `cursor.rs`); the conductor
+coalesces moves that arrived together. The renderer keeps the node last
+under the pointer and fires what Chrome 154 was measured to fire as one
+task (`crossing.rs`, `event_loop/crossed.rs`), with `relatedTarget` on the
+events (`alo-bindings`). Cut: **550** (`:hover` drawn), **551**
+(`pointerrawupdate`), **552** (a page changing under a still pointer) and
+**553** (a tab chosen under the pointer). 266 queue items are open (542
+closed, 550–553 added; 549 was the owner's). The next unused queue number
+is 554 and the next unused ADR 0057.

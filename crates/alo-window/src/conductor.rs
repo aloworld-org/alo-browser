@@ -368,7 +368,7 @@ impl Conducting {
                 self.close_everything();
                 return;
             };
-            for arrival in latest_size_only(arrived) {
+            for arrival in pointing::latest_moves_only(latest_size_only(arrived)) {
                 let news = match arrival {
                     Arrival::Order(order) => self.carry_out(order),
                     Arrival::Exchanged(exchanged) => self.exchanged(*exchanged),
