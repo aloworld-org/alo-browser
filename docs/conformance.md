@@ -460,9 +460,12 @@ laid out; an SVG file in an `<img>` is drawn into its rounded content box,
 grown to fill it (589). `svgs-on-device-pixels` is Chrome's in every plain
 pixel at one and at two; where a shape's corner lies a fraction into a
 pixel both ways the two differ by up to 31 and 41 of 255, Chrome covering
-it by the lesser edge. No fractional scale is measured (593). An `outline` is not drawn at all (591), and a picture on a line
-with both a width and a height set is laid out to its ratio rather than
-its height (590). A rounded clip inside a border follows the border's
+it by the lesser edge. No fractional scale is measured (593). An `outline` is not drawn at all (591). A picture with both a width
+and a height set is that size, on a line, as a block, as a flex item and
+positioned, and its `min-` and `max-` limits are CSS 2 § 10.4's (590);
+`pictures-sized-on-a-line` is Chrome's in all 35 boxes at one and at two,
+and in every plain pixel of its pictures, where a picture scaled up is
+smoothed across its texels by Chrome and not here (594). A rounded clip inside a border follows the border's
 inner curve, each radius less the border beside it (588), as Chrome's
 does in 60 of 60 boxes measured; `rounded-clips-inside-borders` is
 Chrome's in every plain pixel at one and at two. A border whose sides

@@ -1376,15 +1376,12 @@ fn style_for(
             x: overflow_for(ours.overflow.horizontal),
             y: overflow_for(ours.overflow.vertical),
         },
-        // A replaced box's own ratio, unless the style states one. This is
-        // what makes `<img width=80>` come out the picture's shape rather than
-        // eighty by whatever the picture's height happened to be: `taffy`
-        // resolves one definite dimension against a ratio, and that is what a
-        // ratio is for. Doing it in the leaf measure instead does not work,
-        // because the measure is asked before the style width is applied.
-        aspect_ratio: ours
-            .aspect_ratio
-            .or_else(|| boxes.natural_size(id).and_then(|natural| natural.ratio())),
+        // Only the ratio an author wrote. A replaced box's own ratio is
+        // applied where the box is sized (`crate::replaced`, from the arena's
+        // leaf): handed to `taffy` it held a picture at least its width over
+        // its ratio tall whatever its style fixed, and carried a
+        // `max-height` across into a narrower width (queue item 590).
+        aspect_ratio: ours.aspect_ratio,
         flex_direction: match ours.flex.direction {
             FlexDirection::Row => taffy::FlexDirection::Row,
             FlexDirection::RowReverse => taffy::FlexDirection::RowReverse,

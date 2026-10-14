@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A picture given a width and a height is that size.** An `<img>` with
+  both set used to be laid out at least as tall as its own shape asked —
+  a square picture at 30 by 20 came out 30 by 30 — on a line and as a
+  block, and a `max-height` on a picture with a width set made it
+  narrower rather than shorter. A picture is now sized as CSS says and
+  Chrome lays it out: what the style fixed, its limits applied one
+  dimension at a time, keeping its shape only where nothing fixed it.
+  Three pictures in a flex row too wide for them now shrink as Chrome
+  shrinks them.
+
 - **An `<svg>` is clipped and drawn on whole pixels, as Chrome draws it.**
   An `<svg>` laid out at a fraction of a pixel used to clip its drawing a
   fraction into a pixel and draw it there, smearing its edges across two

@@ -1,0 +1,43 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      text "x"
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      text "x"
+    block flow · generic
+      text "x"
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      text "x"
+    block flow · generic
+      text "x"
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      inline flow · image
+      text "x"
+    block flex · generic
+      inline flow · image
+      inline flow · image
+    block flex · generic
+      inline flow · image
+      inline flow · image
+    block flow · generic
+      block flow · image
+      block flow · image
+      block flow · image
+    block flow · generic
+      inline flow-root · generic
+        text "x"
+        inline flow · image
+      inline flow · image
+      inline flow · image
+      text "x"

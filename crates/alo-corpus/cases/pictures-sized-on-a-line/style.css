@@ -1,0 +1,40 @@
+/* Pictures on a line with their width and their height both set (queue
+   item 590). This engine took such a picture's height from its ratio
+   rather than its style, so `both`, 30 by 20, was laid out 30 by 30. One
+   with a width or a height alone still takes the other from its ratio
+   (`height-only`, `width-only`); `capped` is held by a `max-height`, and
+   was 24.4 wide, the cap carried across its ratio. The fourth line is
+   CSS 2 § 10.4's table, nothing fixed; then the same pictures as flex
+   items, in a column, as blocks and positioned, where `taffy` was handed
+   the ratio too. `tests/pictures_sized_on_a_line.rs` has Chrome's boxes. */
+body { margin: 0; background: #ffffff; font-family: "DejaVu Sans"; font-size: 16px }
+.line { margin: 4px 0 0 4.3px; color: #111111 }
+img { margin-left: 2.3px }
+.both { width: 30px; height: 20px }
+.tenths { width: 24.3px; height: 13.7px }
+.bordered { width: 20.4px; height: 10.6px; border: 2px solid #1d4ed8 }
+.padded { width: 16.3px; height: 26.7px; padding: 1.3px 0.7px 2.45px 1.6px;
+  background: #c0392b }
+.sized-border-box { box-sizing: border-box; width: 30px; height: 18.5px;
+  border: 3px solid #1d4ed8 }
+.wide-both { width: 20px; height: 30px }
+.wide-tall { width: 12.5px; height: 40.2px }
+.height-only { height: 15.3px }
+.width-only { width: 30.7px }
+.middle { width: 20px; height: 9px; vertical-align: middle }
+.top { width: 14px; height: 33.3px; vertical-align: top }
+.block { display: inline-block; padding: 1px }
+.in-a-block { width: 26px; height: 7.7px }
+.capped { width: 60px; max-height: 12.2px }
+.raised { width: 18px; height: 12px; vertical-align: 5.5px }
+.narrowed { max-width: 25px }
+.grown { min-height: 30px }
+.boxed-in { max-width: 30px; max-height: 10px }
+.floored-and-capped { min-width: 50px; max-height: 10.3px }
+.flex, .column, .blocks { display: flex; margin: 4px 0 0 4.3px }
+.column { flex-direction: column; align-items: flex-start }
+.blocks { display: block; position: relative; height: 70px }
+.flex-both, .column-both, .block-both { width: 30px; height: 20px }
+.flex-capped, .column-capped, .block-capped { width: 60px; max-height: 12.2px }
+.block-both, .block-capped { display: block }
+.placed { position: absolute; left: 70.4px; top: 3.3px; width: 30.6px; height: 9.1px }

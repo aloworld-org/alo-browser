@@ -35741,3 +35741,136 @@ says the `<svg>` is built and owes 593, 591 and 592.
 280 queue items are open (589 closed; 593 added). The next unused queue
 number is **594** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 355 — queue item 590: a picture given a width and a height is that size
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the three states; stage 1's Layout line), iteration 354's entry, queue
+items 576–577 and 585–593, `docs/features.md`' `<img>` line (the feature
+contract: *lays out at the picture's own size and keeps its ratio when
+given one dimension*), ADR 0004 (the arena: we own the tree, `taffy` the
+algorithms; only `engine.rs` and `arena.rs` name `taffy`), ADR 0054 (the
+1/64 grid) and ADR 0057 § 5 (`render-at-2.png` beside `render.png`).
+`alo-layout`'s `replaced.rs`, `arena.rs` (`measure_leaf`) and `engine.rs`
+(`atomic_item`, the `Style` handed over), and `taffy` 0.14's
+`compute_leaf_layout`, `compute_root_layout` and block item sizing, read
+to find the cause. No `AGENTS.md` exists here.
+
+**Why 590.** The first open item whose dependencies are done: those
+before it wait as iterations 318–354 recorded (463 and 572 on a person,
+560 and 564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and
+559 on pages), 589 closed. It depends on nothing and names its feature and
+closing condition.
+
+**Found first.** The item looked in `atomic_item`; the cause is wider.
+`taffy`'s leaf ends with `height = max(height, width / ratio)` whenever a
+box has a ratio, after the style's size is applied, and its block and
+flex parents carry a `max-` or `min-` size across the ratio into the
+other axis. This engine handed `taffy` every picture's own ratio, so a
+square picture at `width: 30px; height: 20px` was 30 × 30 on a line *and*
+as a block (the item said a block was right; a probe showed it was not),
+and `width: 60px; max-height: 12.2px` on a 2:1 picture was 24.4 wide as a
+block and a flex item, 30 high on a line.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1` and
+`=2`, the page set in the `dejavu` crate's DejaVu Sans, the source not
+read): a probe of both pictures in a block, positioned, a flex row, a flex
+column, as blocks and on a line — Chrome 30 × 20 and 60 × 12.19 in every
+one — and then the case below, whose every box is frozen beside it as
+`chrome-at-1.txt` and `chrome-at-2.txt`, with Chrome's screenshots.
+Chrome follows CSS 2 §§ 10.3.2, 10.6.2 and § 10.4's table in each of the
+table's rows put to it (`narrowed`, `grown`, `boxed-in`,
+`floored-and-capped`).
+
+**Built.** `alo-layout`'s `replaced.rs` gains `Asked` and `used_size`: a
+dimension the style fixed is clamped on its own and the other follows
+from the clamped one (then is clamped), and with neither fixed the
+content's size is brought inside its limits by § 10.4's table (a size with
+no area is clamped per axis). `arena.rs`' leaf sizes a replaced box at its
+inherent size itself (`replaced_size`: the style's lengths resolved, made
+content-box ones, a dimension the parent fixed standing in for the
+style's) and hands `taffy` that size in content-size mode, so its ratio
+rule never runs. `engine.rs` hands `taffy` only an `aspect-ratio` an
+author wrote; a box that has one keeps the old path, unchanged.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh` was started in the foreground; it ran past the tool's
+600 s foreground limit and was moved to the background by the harness,
+and the next call waited on it with an until-loop and read it in the same
+step: **`GATE EXIT 0`, "The gate is met. (10 of 10 steps)"**, 4,912
+tests run, 4,912 passed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Numbers: `replaced.rs`' new tests (both fixed is both; a cap on the
+  dimension that follows is not carried back; the one that follows
+  follows the clamped one; a minimum outranks a maximum; § 10.4's table
+  row by row on a 40 × 20 picture; no ratio, each clamped on its own);
+  `arena.rs`' `replaced_size` tests (a style's size plus its edges, in
+  `content-box` and `border-box`; a width the parent fixed stands in for
+  the style's, the height following). New case `pictures-sized-on-a-line`
+  (25 pictures: on lines, at tenths, bordered, padded, `border-box`, at
+  `middle`, `top` and a length, in an inline block, § 10.4's rows, as
+  flex items, in a column, as blocks, positioned):
+  `pictures_sized_on_a_line.rs` has all 35 of its boxes at Chrome's to a
+  quarter of a sixty-fourth, at one and at two. The case joins
+  `a_page_at_a_scale_of_two.rs`' corpus (75 cases, 53 of markup).
+- Reference renders: the case's `render.png` and `render-at-2.png`, with
+  Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) beside them. Inside
+  every picture's border box, wherever both pictures have one of the
+  case's plain colours they are the same, at one and at two; Chrome
+  blends only where `wide.png`'s halves meet, in at most two columns,
+  smoothing a picture it scales (found: 594). `a-turned-picture`'s
+  references moved: its three `width: 48px` pictures in a flex row 184 px
+  wide inside its padding now shrink to 40 × 40 at 28, 100 and 172 —
+  Chrome 154's boxes, measured here (`row 0 0 240 120`, the pictures 40 ×
+  40 at 100 and 172), where they were held at 48 by the ratio's
+  transferred minimum; its render was looked at, the three turns intact.
+  Its references were copied aside, the old ones put back to confirm the
+  corpus test fails on them, then the new ones restored. No other case
+  moved.
+- Mutation, each restored from a copy (`cmp` confirmed): § 10.4's table
+  skipped when a ratio exists failed two `replaced.rs` tests and four of
+  the case's boxes; `border-box` lengths read as content-box failed
+  `sized-border-box`; a parent's fixed width ignored survived the corpus
+  (`taffy`'s flex places an item at its own size whatever the leaf
+  answers) and is now caught by `arena.rs`' parent-width test. A first
+  version cleared a parent-fixed dimension's limits; that mutation
+  survived everything, so the branch was removed rather than kept
+  untested — a parent's size is limited like a written one, a no-op on
+  sizes `taffy` has already limited.
+- Hostile input: nothing new reads bytes from outside. `within_limits`
+  divides only by a width and height it has checked are above zero, and
+  a ratio is only one `NaturalSize::ratio` found finite and positive.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: the arithmetic of a replaced box's size
+  is `replaced.rs`' (no `taffy` there); resolving `taffy`'s lengths for
+  it is `arena.rs`', where `taffy` asks the tree its questions.
+- Also updated: `docs/features.md` (the `<img>` line), `docs/conformance.md`,
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 590 is ticked with a *Done* paragraph. Found: **594** — a
+picture scaled up is smoothed across its texels by Chrome and not here.
+
+**Roadmap.** Stage 1's Layout line (already ticked; the item served it):
+a paragraph saying what was wrong, what is built and what the case shows.
+Nothing is owed on it from this item.
+
+**Unresolved obligations.**
+- 594, as above.
+- An author's `aspect-ratio` on a replaced box still goes to `taffy`
+  as before, so the same `max(height, width / ratio)` applies to it; no
+  corpus page writes one, and it is left as it was rather than changed
+  unmeasured.
+- 591, 592 and 593; 576, 577, 585, 586 as before; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501.
+- `a-turned-picture`'s `chrome-at-1.txt` and `chrome-at-2.txt` hold no
+  boxes (iteration 330's probe measured none there); this iteration
+  measured its row by hand and did not rewrite those files.
+- No claim about speed is made.
+
+280 queue items are open (590 closed; 594 added). The next unused queue
+number is **595** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

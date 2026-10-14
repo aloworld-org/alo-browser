@@ -2516,3 +2516,15 @@ for 1,792 `<svg>`s and 672 such pictures at one and at two (ADR 0057,
 at both scales. Cut: **593** (ADR 0057's table at a fractional scale). 280
 queue items are open (589 closed; 593 added). The next unused queue number
 is 594 and the next unused ADR 0058.
+
+Iteration 355 closed queue item 590: a replaced box is sized by
+`alo-layout`'s `replaced.rs` — what its style or its parent fixed, a fixed
+dimension clamped on its own and the other following from it, CSS 2
+§ 10.4's table when neither is fixed — and `taffy` is handed only an
+author's `aspect-ratio`, where it was handed a picture's own ratio and
+held the picture at least its width over it tall. Measured in Chrome 154
+on lines, as blocks, as flex items and positioned; `pictures-sized-on-a-line`
+is Chrome's in all 35 boxes at one and at two, and `a-turned-picture`'s
+flex row shrinks as Chrome's does. Found: **594** (a picture scaled up is
+smoothed across its texels). 280 queue items are open (590 closed; 594
+added). The next unused queue number is 595 and the next unused ADR 0058.

@@ -53,11 +53,12 @@ use alo_box::{BoxId, BoxTree, NaturalSize};
 use alo_style::StyleTree;
 use alo_value::{FontMetrics, LengthPercentage};
 use std::collections::{BTreeMap, BTreeSet};
+use taffy::util::{MaybeResolve, ResolveOrZero};
 use taffy::{
     AvailableSpace, Cache, CacheTree, LayoutInput, LayoutOutput, NodeId, RunMode,
-    Size as TaffySize, Style, TraversePartialTree, compute_block_layout, compute_cached_layout,
-    compute_flexbox_layout, compute_grid_layout, compute_hidden_layout, compute_leaf_layout,
-    compute_root_layout,
+    Size as TaffySize, SizingMode, Style, TraversePartialTree, compute_block_layout,
+    compute_cached_layout, compute_flexbox_layout, compute_grid_layout, compute_hidden_layout,
+    compute_leaf_layout, compute_root_layout,
 };
 
 /// What a node in this tree stands for.
@@ -420,6 +421,22 @@ impl<M: MeasureText> Arena<'_, M> {
                     }
                 })
             }
+            // At its own size, a replaced box is sized here rather than by
+            // `taffy`, which was never handed its ratio (`crate::replaced`).
+            // Only an author's `aspect-ratio` is `taffy`'s, as on any box.
+            Some(NodeKind::Replaced(natural))
+                if inputs.sizing_mode == SizingMode::InherentSize
+                    && style.aspect_ratio.is_none() =>
+            {
+                let (border_box, content) =
+                    replaced_size(&self.unresolved, *natural, style, &inputs);
+                let inputs = LayoutInput {
+                    known_dimensions: border_box.map(Some),
+                    sizing_mode: SizingMode::ContentSize,
+                    ..inputs
+                };
+                compute_leaf_layout(inputs, style, resolve, |_, _| content)
+            }
             Some(NodeKind::Replaced(natural)) => {
                 let natural = *natural;
                 compute_leaf_layout(inputs, style, resolve, |known, room| {
@@ -467,6 +484,69 @@ impl<M: MeasureText> Arena<'_, M> {
             _ => compute_leaf_layout(inputs, style, resolve, |_, _| TaffySize::ZERO),
         }
     }
+}
+
+/// A replaced box's border box and content box at its own size: what
+/// its style fixed and limited, made content-box lengths, handed to
+/// [`crate::replaced::used_size`].
+///
+/// A dimension its parent fixed (`known_dimensions`, a border-box
+/// length — a flex item's final size, a stretched one) stands in for
+/// the style's and is limited as the style's would be, which leaves a
+/// size `taffy` already limited where it was.
+fn replaced_size(
+    unresolved: &Unresolved,
+    natural: NaturalSize,
+    style: &Style,
+    inputs: &LayoutInput,
+) -> (TaffySize<f32>, TaffySize<f32>) {
+    let calc = |handle: *const (), basis: f32| unresolved.resolve(handle, basis);
+    let parent = inputs.parent_size;
+    let edges = style.padding.resolve_or_zero(parent.width, calc)
+        + style.border.resolve_or_zero(parent.width, calc);
+    let edges = edges.sum_axes();
+    // What the style writes is a content-box length, unless it says the
+    // border box.
+    let written = match style.box_sizing {
+        taffy::BoxSizing::ContentBox => TaffySize::ZERO,
+        taffy::BoxSizing::BorderBox => edges,
+    };
+    let inside = |length: Option<f32>, edge: f32| length.map(|length| (length - edge).max(0.0));
+    let size = style.size.maybe_resolve(parent, calc);
+    let min = style.min_size.maybe_resolve(parent, calc);
+    let max = style.max_size.maybe_resolve(parent, calc);
+    let known = inputs.known_dimensions;
+    let asked = crate::replaced::Asked {
+        width: inside(known.width, edges.width).or(inside(size.width, written.width)),
+        height: inside(known.height, edges.height).or(inside(size.height, written.height)),
+        min: crate::geometry::Size::new(
+            inside(min.width, written.width).unwrap_or(0.0),
+            inside(min.height, written.height).unwrap_or(0.0),
+        ),
+        max: crate::geometry::Size::new(
+            inside(max.width, written.width).unwrap_or(f32::INFINITY),
+            inside(max.height, written.height).unwrap_or(f32::INFINITY),
+        ),
+    };
+    let margins = style.margin.resolve_or_zero(parent.width, calc);
+    let room = match inputs.available_space.width {
+        AvailableSpace::Definite(room) => {
+            Some((room - margins.horizontal_axis_sum() - edges.width).max(0.0))
+        }
+        AvailableSpace::MinContent | AvailableSpace::MaxContent => None,
+    };
+    let content = crate::replaced::used_size(natural, asked, room);
+    let content = TaffySize {
+        width: content.width,
+        height: content.height,
+    };
+    (
+        TaffySize {
+            width: content.width + edges.width,
+            height: content.height + edges.height,
+        },
+        content,
+    )
 }
 
 /// How wide a leaf may be when it is measured.
@@ -588,6 +668,99 @@ mod tests {
                 unit: alo_value::Unit::Rem,
             }))),
         ])))
+    }
+
+    /// A picture at its own size, asked with `known` fixed by its parent,
+    /// with room to fill and nothing to resolve a percentage against.
+    fn picture_sized(style: &Style, known: TaffySize<Option<f32>>) -> TaffySize<f32> {
+        let inputs = LayoutInput {
+            run_mode: RunMode::PerformLayout,
+            known_dimensions: known,
+            available_space: TaffySize {
+                width: AvailableSpace::Definite(500.0),
+                height: AvailableSpace::MaxContent,
+            },
+            ..LayoutInput::HIDDEN
+        };
+        replaced_size(
+            &Unresolved::default(),
+            NaturalSize::sized(20.0, 20.0),
+            style,
+            &inputs,
+        )
+        .0
+    }
+
+    /// A square picture at `width: 30px; height: 20px` with a two-pixel
+    /// border is 34 by 24, its ratio set aside (queue item 590).
+    #[test]
+    fn a_picture_is_the_size_its_style_fixed_plus_its_edges() {
+        let style = Style {
+            box_sizing: taffy::BoxSizing::ContentBox,
+            size: TaffySize {
+                width: taffy::Dimension::length(30.0),
+                height: taffy::Dimension::length(20.0),
+            },
+            border: taffy::Rect {
+                left: taffy::LengthPercentage::length(2.0),
+                right: taffy::LengthPercentage::length(2.0),
+                top: taffy::LengthPercentage::length(2.0),
+                bottom: taffy::LengthPercentage::length(2.0),
+            },
+            ..Style::default()
+        };
+        assert_eq!(
+            picture_sized(&style, TaffySize::NONE),
+            TaffySize {
+                width: 34.0,
+                height: 24.0
+            }
+        );
+        let border_box = Style {
+            box_sizing: taffy::BoxSizing::BorderBox,
+            ..style
+        };
+        assert_eq!(
+            picture_sized(&border_box, TaffySize::NONE),
+            TaffySize {
+                width: 30.0,
+                height: 20.0
+            }
+        );
+    }
+
+    /// A width its parent fixed — a flex item's final size — stands in for
+    /// the style's, and the height follows from it through the picture's
+    /// ratio.
+    #[test]
+    fn a_width_the_parent_fixed_stands_in_for_the_style() {
+        let style = Style {
+            size: TaffySize {
+                width: taffy::Dimension::length(48.0),
+                height: taffy::Dimension::auto(),
+            },
+            ..Style::default()
+        };
+        assert_eq!(
+            picture_sized(&style, TaffySize::NONE),
+            TaffySize {
+                width: 48.0,
+                height: 48.0
+            }
+        );
+        assert_eq!(
+            picture_sized(
+                &style,
+                TaffySize {
+                    width: Some(40.0),
+                    height: None
+                }
+            ),
+            TaffySize {
+                width: 40.0,
+                height: 40.0
+            }
+        );
     }
 
     #[test]

@@ -166,6 +166,16 @@ correctness, not before it.
       line's gaps away twice when its factors sum below one, a whole pixel
       and more on a measured line, which a person has to report upstream
       (572).*
+      *A picture with both a width and a height set was laid out at least
+      its width over its ratio tall — 30 by 30 for a square at 30 by 20 —
+      and a `max-height` beside a set width narrowed it, until queue item
+      590 (iteration 355): `taffy` was handed a picture's own ratio and
+      applies it past what the style fixed. · Built: a replaced box's size
+      is `alo-layout`'s `replaced.rs` (`used_size`, CSS 2 § 10.4's limits)
+      and `taffy` is handed only an author's `aspect-ratio`;
+      `pictures-sized-on-a-line` is Chrome's in all 35 boxes at one and at
+      two, on a line, as a block, as a flex item and positioned, and
+      `a-turned-picture`'s flex row now shrinks as Chrome's does.*
 - [x] **Text**: HarfBuzz shaping (via `rustybuzz`), the fallback chain and line breaking, with the awkward scripts working before the easy ones. Rasterisation is queue item 17, beside paint
       *`text-transform` was read by nothing until queue item 441
       (iteration 283, ADR 0049): uppercased headings were drawn, measured

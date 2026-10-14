@@ -21,10 +21,12 @@
 //! font figures rounded to whole device pixels, the leading's top half
 //! floored to one, a length truncated onto 1/64 of one, and a face's size
 //! cut to hundredths of one. Then the corpus:
-//! `chrome-at-1.txt` and `chrome-at-2.txt` beside 74 cases are Chrome's
-//! boxes for every element at each scale, and in all 74 — 52 of markup and
+//! `chrome-at-1.txt` and `chrome-at-2.txt` beside 75 cases are Chrome's
+//! boxes for every element at each scale, and in all 75 — 53 of markup and
 //! 22 a renderer loads — every box this engine places exactly where Chrome
-//! does at one, it places exactly where Chrome does at two.
+//! does at one, it places exactly where Chrome does at two. The 75th,
+//! `pictures-sized-on-a-line`, was measured on 2026-10-14 for queue item
+//! 590.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -416,7 +418,7 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-    assert_eq!(cases, 74, "every case Chrome was measured on at two");
+    assert_eq!(cases, 75, "every case Chrome was measured on at two");
     assert_eq!(
         loaded, 22,
         "the pages whose script runs, loaded by a renderer told the scale"

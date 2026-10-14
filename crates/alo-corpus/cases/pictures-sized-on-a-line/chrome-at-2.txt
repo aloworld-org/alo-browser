@@ -1,0 +1,42 @@
+# Chrome 154, headless, --force-device-scale-factor=2, measured 2026-10-14
+# (queue item 590). Each element: its path, then getBoundingClientRect()
+# left, top, width and height in sixty-fourths of a CSS pixel, the page set
+# in the dejavu crate's DejaVu Sans. Measured, never rewritten by a test.
+/html0 0 0 32000 18261
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 256 32000 18005
+/html0/body1/div0 275 256 31725 2204
+/html0/body1/div0/img0 1028 924 1920 1280
+/html0/body1/div0/img1 3095 1327.5 1555 876.5
+/html0/body1/div0/img2 4797 1270 1561.5 934
+/html0/body1/div0/img3 6505.5 256 1189.5 1948
+/html0/body1/div0/img4 7842 1020 1920 1184
+/html0/body1/div1 275 2716 31725 2828.5
+/html0/body1/div1/img0 1028 3368.5 1280 1920
+/html0/body1/div1/img1 2455 2716 800 2572.5
+/html0/body1/div1/img2 3402 4309.5 1958 979
+/html0/body1/div1/img3 5507 4306.5 1964.5 982
+/html0/body1/div1/img4 7618.5 4720.5 1280 576
+/html0/body1/div1/img5 9045.5 2716 896 2131
+/html0/body1/div2 275 5800.5 31725 2176
+/html0/body1/div2/img0 1028 6920.5 1600 800
+/html0/body1/div2/img1 2775 5800.5 3840 1920
+/html0/body1/div2/img2 6762 7080.5 1280 640
+/html0/body1/div2/img3 8189 7061.5 3200 659
+/html0/body1/div3 275 8232.5 31725 1280
+/html0/body1/div3/img0 422 8232.5 1920 1280
+/html0/body1/div3/img1 2489 8232.5 3840 780.5
+/html0/body1/div4 275 9768.5 31725 2060.5
+/html0/body1/div4/img0 422 9768.5 1920 1280
+/html0/body1/div4/img1 422 11048.5 3840 780.5
+/html0/body1/div5 275 12085 31725 4480
+/html0/body1/div5/img0 422 12085 1920 1280
+/html0/body1/div5/img1 422 13365 3840 780.5
+/html0/body1/div5/img2 4927.5 12296 1958 582
+/html0/body1/div6 275 16821 31725 1440
+/html0/body1/div6/span0 275 16917 2545 1344
+/html0/body1/div6/span0/img0 1092 17448.5 1664 492.5
+/html0/body1/div6/img1 2967 17160.5 3840 780.5
+/html0/body1/div6/img2 6954 16821 1152 768

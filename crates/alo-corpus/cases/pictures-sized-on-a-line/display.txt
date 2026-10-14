@@ -1,0 +1,37 @@
+fill box#1 rgb(255 255 255) at (0, 4) 500×281
+text box#4 "x" rgb(17 17 17) 16px at (4.296875, 34.421875)
+picture box#5 20×20 at (16, 14) 30×20
+picture box#6 20×20 at (48, 21) 25×13
+fill box#7 rgb(29 78 216) at (75, 20) 24×14
+picture box#7 20×20 at (77, 22) 20×10
+fill box#8 rgb(192 57 43) at (102, 4) 18×30
+picture box#8 20×20 at (103, 5) 17×27
+fill box#9 rgb(29 78 216) at (123, 16) 30×18
+picture box#9 20×20 at (126, 19) 24×12
+text box#10 "x" rgb(17 17 17) 16px at (152.51563, 34.421875)
+text box#13 "x" rgb(17 17 17) 16px at (4.296875, 82.609375)
+picture box#14 40×20 at (16, 53) 20×30
+picture box#15 40×20 at (38, 42) 13×41
+picture box#16 40×20 at (53, 67) 31×16
+picture box#17 40×20 at (86, 67) 31×16
+picture box#18 20×20 at (119, 74) 20×9
+picture box#19 20×20 at (141, 42) 14×34
+text box#20 "x" rgb(17 17 17) 16px at (155.32813, 82.609375)
+text box#23 "x" rgb(17 17 17) 16px at (4.296875, 120.609375)
+picture box#24 40×20 at (16, 108) 25×13
+picture box#25 40×20 at (43, 91) 60×30
+picture box#26 40×20 at (106, 111) 20×10
+picture box#27 40×20 at (128, 110) 50×11
+text box#28 "x" rgb(17 17 17) 16px at (177.95313, 120.609375)
+picture box#31 20×20 at (7, 129) 30×20
+picture box#32 40×20 at (39, 129) 60×12
+picture box#35 20×20 at (7, 153) 30×20
+picture box#36 40×20 at (7, 173) 60×12
+text box#45 "x" rgb(17 17 17) 16px at (5.296875, 280.29688)
+picture box#46 20×20 at (17, 273) 26×7
+picture box#47 40×20 at (46, 268) 60×12
+picture box#48 20×20 at (109, 263) 18×12
+text box#49 "x" rgb(17 17 17) 16px at (126.65625, 280.29688)
+picture box#41 20×20 at (77, 192) 31×9
+picture box#39 20×20 at (7, 189) 30×20
+picture box#40 40×20 at (7, 209) 60×12

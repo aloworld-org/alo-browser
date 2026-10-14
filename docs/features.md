@@ -190,7 +190,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
   thread of their own, so a resize or a close is answered while a server
   trickles. Not yet: a bound on a whole exchange (item 376)
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
-  given one dimension
+  given one dimension. **Given both, it is both** (queue item 590): a
+  picture with a width and a height set is that size whatever its ratio,
+  on a line, as a block, as a flex item or positioned, and its limits —
+  `min-width` and the rest — are CSS 2 § 10.4's: a dimension the style
+  fixed is clamped on its own and the other follows from the clamped one,
+  and with neither fixed the picture is brought inside its limits keeping
+  its shape where they allow. A replaced box's size is `alo-layout`'s
+  `replaced.rs`; `taffy` is handed only an `aspect-ratio` an author wrote.
+  `pictures-sized-on-a-line` is Chrome's in every box at one and at two
 - [2] **A broken picture is its text** (queue item 413, ADR 0046): an
   `<img>` whose picture is not shown and whose `alt` is not empty is an
   inline run of that `alt` in the element's own style, wrapping with its line

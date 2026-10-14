@@ -14348,7 +14348,7 @@ What stage 2's exit gate actually measures: a person using it.
   plain pixel Chrome's; six corpus cases' `<svg>` clips moved onto whole
   pixels. The fractional scale is cut to **593**.
 
-- [ ] **590. A picture on a line with a width and a height set.** *Found
+- [x] **590. A picture on a line with a width and a height set.** *Found
   building 587 (iteration 352). Feature: `docs/features.md` stage 1,
   layout of replaced boxes.* An inline `<img>` with `width: 30px; height:
   20px` is laid out 30 × 30 by this engine, its height taken from its
@@ -14359,6 +14359,25 @@ What stage 2's exit gate actually measures: a person using it.
   (`atomic_item`), which is where it is to be looked for. *Closes when:*
   a frozen case of pictures on a line with both set is laid out as
   Chrome's, in numbers at one and at two.
+
+  **Done (iteration 355).** Not the line alone: `taffy`'s leaf holds any
+  box handed a ratio at least its width over the ratio tall, whatever its
+  style fixed, and its block and flex parents carry a `max-height` across
+  the ratio into a width — so a square picture at 30 by 20 was 30 by 30
+  as a block too, and `width: 60px; max-height: 12.2px` on a 2:1 picture
+  was 24.4 wide everywhere. Chrome 154 lays every one of them out as CSS 2
+  §§ 10.3.2, 10.4 and 10.6.2 say, measured on a probe of the four contexts
+  and on the case. A replaced box is sized by `alo-layout`'s `replaced.rs`
+  (`used_size`: what the style or the parent fixed, a fixed dimension
+  clamped on its own and the other following from it, § 10.4's table when
+  neither is fixed), from the arena's leaf (`replaced_size`), and `taffy`
+  is handed only an author's `aspect-ratio`. `pictures-sized-on-a-line`
+  (25 pictures: on lines, at tenths, bordered, padded, `border-box`, each
+  `vertical-align`, in an inline block, § 10.4's rows, as flex items, in
+  a column, as blocks and positioned) is Chrome's in all 35 boxes at one
+  and at two, and in every plain pixel of its pictures. `a-turned-picture`'s
+  three 48 px pictures in a row too narrow for them now shrink to 40, as
+  Chrome's do (measured; they were held at 48). Found: **594**.
 
 - [ ] **591. An `outline` is drawn.** *Found building 587 (iteration
   352). Feature: `docs/features.md` stage 1, paint. Waits for a page.*
@@ -14394,6 +14413,19 @@ What stage 2's exit gate actually measures: a person using it.
   `--force-device-scale-factor=1.5` and written into the ADR, any that
   differ are built, and a frozen page laid out and drawn at 1.5 is
   Chrome's in numbers and pixels.
+
+- [ ] **594. A picture scaled up is smoothed across its texels.** *Found
+  building 590 (iteration 355). Feature: `docs/features.md` stage 2,
+  image codecs (a picture drawn). Needs measuring.* Chrome 154 draws a
+  picture it scales up with its texels blended into their neighbours:
+  `pictures-sized-on-a-line`'s 40 × 20 `wide.png`, blue then red, shown
+  60 × 30, has two columns of blends where its halves meet (`(56, 75,
+  187)` and `(165, 61, 72)` at one), where this engine draws the two
+  colours meeting hard. Every pixel either side is the same in both. Which
+  filter Chrome uses up and down, at one and at two, and under
+  `image-rendering`, is measured first. *Closes when:* the filter is
+  written down, built, and that case's pictures are Chrome's in every
+  pixel, the seams with them.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

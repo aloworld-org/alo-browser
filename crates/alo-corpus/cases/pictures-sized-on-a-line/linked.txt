@@ -1,0 +1,3 @@
+# What the page named, and the file beside this case holding it.
+/ink.png ink.png
+/wide.png wide.png
