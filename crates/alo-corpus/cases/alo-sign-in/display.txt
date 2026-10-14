@@ -23,7 +23,7 @@ fill box#64 rgb(255 255 255) at (514, 363) 13×13
 fill box#64 rgb(118 118 118) at (514, 363) 13×13
 text box#66 "Remember me" rgb(95 85 75) 13px at (538, 374)
 text box#69 "Forgot password?" rgb(217 98 71) 13px at (779.5625, 374)
-fill box#69 rgb(217 98 71) at (779.5625, 374.8252) 130.4253×1
+fill box#69 rgb(217 98 71) at (779.5625, 375) 130.4253×1
 fill box#72 rgb(231 111 81) at (510, 395) 400×46
 text box#73 "Sign in" rgb(255 255 255) 14px at (682.7451, 423)
 fill box#78 rgb(222 215 205) at (510, 464) 181×1

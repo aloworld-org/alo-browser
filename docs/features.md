@@ -220,7 +220,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **A wrapped inline is more than one rectangle** — and offscreen only when
   every piece of it is
 - [2] **`text-decoration`**: underline, overline and line-through, stopping at
-  the end of the inline rather than the edge of the line
+  the end of the inline rather than the edge of the line. **Each line is
+  where Chrome 154 draws it** (queue item 566): on whole device pixels, a
+  tenth of the font's size thick cut down to whole pixels, an underline
+  half that thickness rounded up below the baseline, an overline its
+  thickness above the text, a line through two thirds of the ascent
+  down, all from the text's top rounded to a device pixel, at one and at
+  two. Not yet: a gap where a descender crosses an underline (579), and
+  the space before a decorated span's child (580)
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
   legend, and a radio you can tell from a checkbox. **Which control a label
   labels is HTML's rule, held once** (`alo-dom`'s `label.rs`, queue item

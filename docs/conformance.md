@@ -193,6 +193,15 @@ backgrounds, borders, and anti-aliased text. The first reference render is
 committed at `crates/alo-paint/tests/references/invoices.png` and is diffed on
 every run.
 
+**A line under, over or through text is where Chrome 154 draws it**
+(item 566), at one and at two device pixels to the CSS pixel: whole
+device rows, a tenth of the font's size thick cut down, placed from the
+text's top rounded to a device pixel. That rule drew all 480 lines of a
+probe exactly as Chrome did, and `text-decorations`' lines are on Chrome's
+rows at both scales. Chrome breaks an underline where a descender crosses
+it and this engine does not (579), and a decorated span's space before
+its child is left bare here (580).
+
 Boxes can be round, and clip what is inside them to their own shape. **A
 curve's edge is covered as its area says** (item 459): the rented rasteriser
 samples a pixel four by four, which drew a dot twelve pixels across 111 on

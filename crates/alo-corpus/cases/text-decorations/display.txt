@@ -1,25 +1,25 @@
 text box#3 "a line below" rgb(0 0 0) 14px at (0, 19)
-fill box#3 rgb(0 0 0) at (0, 19.888672) 84.15039×1
+fill box#3 rgb(0 0 0) at (0, 20) 84.15039×1
 text box#6 "a line above" rgb(0 0 0) 14px at (0, 41)
-fill box#6 rgb(0 0 0) at (0, 28.004883) 85.674805×1
+fill box#6 rgb(0 0 0) at (0, 27) 85.674805×1
 text box#9 "a line through" rgb(0 0 0) 14px at (0, 63)
-fill box#9 rgb(0 0 0) at (0, 58.671875) 97.75391×1
+fill box#9 rgb(0 0 0) at (0, 58) 97.75391×1
 text box#12 "below and through at once" rgb(0 0 0) 14px at (0, 85)
-fill box#12 rgb(0 0 0) at (0, 85.88867) 188.3711×1
-fill box#12 rgb(0 0 0) at (0, 80.671875) 188.3711×1
+fill box#12 rgb(0 0 0) at (0, 86) 188.3711×1
+fill box#12 rgb(0 0 0) at (0, 80) 188.3711×1
 text box#16 "a decorated inline that is long enough to" rgb(0 0 0) 14px at (0, 107)
-fill box#16 rgb(0 0 0) at (0, 107.88867) 285.41406×1
+fill box#16 rgb(0 0 0) at (0, 108) 285.41406×1
 text box#16 "wrap onto a second line" rgb(0 0 0) 14px at (0, 123)
-fill box#16 rgb(0 0 0) at (0, 123.88867) 167.74023×1
+fill box#16 rgb(0 0 0) at (0, 124) 167.74023×1
 text box#17 "and plain text" rgb(0 0 0) 14px at (172.19043, 123)
 text box#17 "after it" rgb(0 0 0) 14px at (0, 139)
 text box#21 "the colour comes from the element that" rgb(204 0 0) 14px at (0, 161)
-fill box#21 rgb(204 0 0) at (0, 161.88867) 280.54688×1
+fill box#21 rgb(204 0 0) at (0, 162) 280.54688×1
 text box#21 "declared it, not from the text" rgb(204 0 0) 14px at (0, 177)
-fill box#21 rgb(204 0 0) at (0, 177.88867) 202.8086×1
+fill box#21 rgb(204 0 0) at (0, 178) 202.8086×1
 text box#25 "an underlined span with" rgb(204 0 0) 14px at (0, 199)
-fill box#25 rgb(204 0 0) at (0, 199.88867) 169.29199×1
+fill box#25 rgb(204 0 0) at (0, 200) 169.29199×1
 text box#27 "a black child" rgb(0 0 0) 14px at (173.74219, 199)
-fill box#27 rgb(204 0 0) at (173.74219, 199.88867) 87.87598×1
+fill box#27 rgb(204 0 0) at (173.74219, 200) 87.87598×1
 text box#28 "inside it" rgb(204 0 0) 14px at (0, 215)
-fill box#28 rgb(204 0 0) at (0, 215.88867) 55.27539×1
+fill box#28 rgb(204 0 0) at (0, 216) 55.27539×1

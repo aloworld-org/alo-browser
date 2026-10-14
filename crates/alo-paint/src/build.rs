@@ -805,6 +805,13 @@ impl Builder<'_> {
                 // is above the letters (ADR 0050 § 2).
                 let room = alo_text::LineRoom::at(font.metrics_at(size, scale), scale);
                 let baseline = geometry.border_box.top() + room.normal_above();
+                let piece = crate::decoration::Piece {
+                    top: baseline - room.ascent,
+                    ascent: room.ascent,
+                    left: geometry.border_box.left(),
+                    width: geometry.border_box.right() - geometry.border_box.left(),
+                    size,
+                };
                 out.push(DisplayItem::Text {
                     box_id: id,
                     text: trimmed.to_owned(),
@@ -817,15 +824,7 @@ impl Builder<'_> {
                     shadows,
                 });
                 for (line, colour) in &decorations {
-                    out.push(Self::decoration_at(
-                        id,
-                        *line,
-                        *colour,
-                        geometry.border_box.left(),
-                        geometry.border_box.right() - geometry.border_box.left(),
-                        baseline,
-                        font.metrics_at(size, scale),
-                    ));
+                    out.push(Self::decoration_at(id, *line, *colour, piece, scale));
                 }
             }
             return;
@@ -866,17 +865,15 @@ impl Builder<'_> {
             // at the end of the inline rather than running to the edge of the
             // line it sits on. A fragment is one piece of one inline on one
             // line, so drawing per fragment is the whole of that rule.
-            let width = cut.map_or(fragment.rect.size.width, |cut| cut.width);
+            let piece = crate::decoration::Piece {
+                top: fragment.rect.top(),
+                ascent: ascender,
+                left: fragment.rect.left(),
+                width: cut.map_or(fragment.rect.size.width, |cut| cut.width),
+                size,
+            };
             for (line, colour) in &decorations {
-                out.push(Self::decoration_at(
-                    id,
-                    *line,
-                    *colour,
-                    fragment.rect.left(),
-                    width,
-                    baseline,
-                    font.metrics_at(size, scale),
-                ));
+                out.push(Self::decoration_at(id, *line, *colour, piece, scale));
             }
         }
     }
@@ -1157,37 +1154,25 @@ impl Builder<'_> {
             .collect()
     }
 
-    /// One decoration line under, over or through a piece of text.
-    ///
-    /// `at` is the baseline, which is where every one of these is measured
-    /// from — the face says how far below it an underline goes, and the other
-    /// two are placed against the same ascent the letters use.
+    /// One decoration line under, over or through a piece of text, where
+    /// `crate::decoration` puts it: from the top of the piece, in whole
+    /// device pixels at `scale`.
     fn decoration_at(
         id: BoxId,
         line: DecorationLine,
         colour: Rgba,
-        left: f32,
-        width: f32,
-        baseline: f32,
-        metrics: alo_text::FaceMetrics,
+        piece: crate::decoration::Piece,
+        scale: f32,
     ) -> DisplayItem {
-        let thickness = metrics.underline_thickness.max(1.0);
-        let top = match line {
-            DecorationLine::Underline => baseline + metrics.underline_offset,
-            // Along the top of the letters rather than the top of the line
-            // box, which is where a reader expects it and which keeps it clear
-            // of the line above.
-            DecorationLine::Overline => baseline - metrics.ascender,
-            // Half way up an `x`, which is what "through" means for lowercase
-            // text and which is where every implementation puts it.
-            DecorationLine::LineThrough => baseline - metrics.x_height / 2.0 - thickness / 2.0,
-        };
         DisplayItem::Fill {
             rule: FillRule::NonZero,
             box_id: id,
             // A plain rectangle: a decoration has no corners of its own, so
             // the rounding machinery would only be a way to get it wrong.
-            path: rounded_rectangle(Rect::new(left, top, width, thickness), Corners::default()),
+            path: rounded_rectangle(
+                crate::decoration::line_at(line, piece, scale),
+                Corners::default(),
+            ),
             paint: Paint::Solid(colour),
         }
     }

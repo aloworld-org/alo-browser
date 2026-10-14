@@ -393,6 +393,28 @@ two to a box.
   so it is further from Chrome's picture by those rows (2.57 to 2.67),
   where the smear had happened to land near Chrome's grey.
 
+**Item 566, 2026-10-14, Chrome 154 under `--force-device-scale-factor=1`
+and `=2`,** screenshots without `--disable-gpu`, the source not read: `x`,
+three no-break spaces and `x` in `DejaVu Sans` at twenty sizes from 8 to
+64 px, each underlined, overlined and struck through, on a whole pixel
+and a quarter, a half and three quarters below one; 480 lines, read from
+the columns over the spaces.
+
+- **A text decoration is a whole-device-pixel rule** (480 of 480), and
+  every row it touches is wholly inked. In device pixels: its thickness is
+  `t = max(1, size·s/10)`, drawn cut to a whole number; the top of the
+  text is its piece's top rounded as `floor(y·s + 0.5)`, the baseline the
+  ascent below it; an underline starts `max(1, ceil(t/2))` below the
+  baseline, an overline its drawn thickness above the top, a line through
+  `2/3` of the ascent below the top less `t/2`; and each line's top is
+  rounded as `floor(y + 0.5)`. The face's own underline figures are not
+  used, so ADR 0050 § 5's exact underline is replaced by this rule; that
+  section said the rounding was not measured.
+- **It is not one rule at one and another at two**: the rule above is the
+  same at both scales, and at one it moved this engine's lines too,
+  `text-decorations` among them, from fractions of a pixel onto Chrome's
+  rows. `alo-paint`'s `decoration.rs` draws it.
+
 ## How we will know if this was wrong
 
 **If a case laid out at 2 differs from Chrome's real scale-2 numbers** by

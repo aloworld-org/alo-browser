@@ -13702,7 +13702,7 @@ What stage 2's exit gate actually measures: a person using it.
   the grid); cut: **575** (a clip, a picture, an `<svg>`'s viewport, and a
   fractional scale).
 
-- [ ] **566. A line under text at a scale.** *Found building 561
+- [x] **566. A line under text at a scale.** *Found building 561
   (iteration 332). Feature: `docs/features.md` stage 1, text decoration.
   Needs measuring.* An underline, overline or line through text is at
   least one CSS pixel thick (`build.rs`' `decoration_at`) and placed from
@@ -13712,6 +13712,58 @@ What stage 2's exit gate actually measures: a person using it.
   not measured. *Closes when:* `text-decorations` drawn at two puts each
   line where Chrome's screenshot at two does, as thick, and the case at
   one is unchanged.
+  ***Done (iteration 342).*** Measured first (Chrome 154, headless,
+  `--force-device-scale-factor=1` and `=2`, without `--disable-gpu`, the
+  source not read): `x`, three no-break spaces and `x` in `DejaVu Sans` at
+  twenty sizes from 8 to 64 px, underlined, overlined and struck through,
+  on a whole pixel and a quarter, a half and three quarters below one,
+  480 lines read from the columns over the spaces. One rule draws all 480
+  to the device row, every row wholly inked: in device pixels, a thickness
+  `t = max(1, size·s/10)` drawn cut to whole pixels; the piece's top
+  rounded as `floor(y·s + 0.5)` and its baseline the ascent below that;
+  an underline `max(1, ceil(t/2))` below the baseline, an overline its
+  drawn thickness above the top, a line through `2/3` of the ascent below
+  the top less `t/2`; each line's top `floor(y + 0.5)`. The face's own
+  underline figures are not used. **So the case at one was not right
+  either**, and this clause of the closing condition was measured false:
+  at one this engine drew a face-figure line of fractions of a pixel,
+  smeared over two rows (a 14 px line through a third on one row and
+  two thirds on the next, a row below Chrome's). The rule is drawn at every scale, and `text-decorations` at one
+  is now Chrome's too. Built: `alo-paint`'s `decoration.rs`
+  (`line_at`, `Piece`), called by `build.rs`' `decoration_at` from every
+  piece and from text outside a line. Evidence: `decoration.rs`' six unit
+  tests (sizes, gaps and a piece between device pixels, each a line read
+  from Chrome); `a_line_under_text_at_a_scale.rs`, which finds every row
+  holding a run of ink twelve CSS pixels long in Chrome's committed
+  `chrome.png` and `chrome-at-2.png` and in this engine's picture: the
+  same rows at one (11 lines) and two (10 lines, 20 rows), each run's
+  ends within a device pixel; `render-at-2.png` committed beside
+  `render.png`. Found: **579** (Chrome leaves a descender's gap in an
+  underline) and **580** (the space before a decorated span's child is
+  not decorated here).
+
+- [ ] **579. An underline steps around a descender.** *Found building 566
+  (iteration 342). Feature: `docs/features.md` stage 2, `text-decoration`.
+  Needs measuring.* Chrome 154 leaves a gap in an underline where a
+  letter's ink crosses it (`text-decoration-skip-ink: auto`, its
+  default): `text-decorations`' `g`, `p` and `y` each break Chrome's
+  line in `chrome.png` (`a decorated inline that is long enough to wrap`
+  is three runs at row 108), where this engine's line runs through them.
+  How wide a gap is beside the ink, at one and at two, and whether a line
+  through or an overline steps aside too, is measured first. *Closes
+  when:* `text-decorations`' underlines are Chrome's run by run at one and
+  at two, and `a_line_under_text_at_a_scale.rs` compares runs, not ends.
+
+- [ ] **580. The space before a decorated span's child is decorated.**
+  *Found building 566 (iteration 342). Feature: `docs/features.md` stage
+  2, `text-decoration`. Needs nothing measured.* `text-decorations`' last
+  paragraph, `an underlined span with <span class=black>a black
+  child</span>`: Chrome underlines the space after `with`, and this engine
+  does not, because `build.rs`' `draw_text` trims a piece's end before
+  drawing it and underlines what is left, whether or not the piece ends
+  its line. A gap of five pixels at one (row 200, 169 to 174). *Closes
+  when:* a decoration runs under a space that does not end its line, and
+  not under one that does, against `chrome.png` at both.
 
 - [x] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
   § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,

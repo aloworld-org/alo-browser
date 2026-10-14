@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Underlines, overlines and lines through text are crisp, and where
+  Chrome puts them.** Measured on 480 lines at ordinary and high-density
+  screen sizes, Chrome draws each one on whole pixels of the screen, a
+  tenth of the text's size thick, placed from the top of the text rather
+  than from the font's own underline figures. They are drawn that way
+  here now, on both kinds of screen; before, a line through 14 px text
+  was smeared across two rows, a row below Chrome's. Links in the corpus
+  pages moved by up to a row. Chrome still leaves a gap where a letter's
+  tail crosses an underline, which is not done here yet.
+
 - **A disabled checkbox or radio is drawn the way Chrome draws it.**
   Measured at three screen densities, Chrome paints its pale inside
   first, stopping a fifth of a pixel short of the edge, then the

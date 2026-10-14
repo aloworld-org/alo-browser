@@ -1871,7 +1871,11 @@ items where being right and being unusable are the same outcome.
       Chrome 154 answered 2,984 queries at one and two, and
       `a-page-told-its-scale` is Chrome's in every box at both. A box's
       own area — background, border, shadows — is drawn on whole device
-      pixels at one and at two, as Chrome draws it (565, done).
+      pixels at one and at two, as Chrome draws it (565, done). A line
+      under, over or through text is drawn on whole device pixels, a tenth
+      of the size thick, as Chrome 154 drew all 480 lines measured at one
+      and at two (566, done): `text-decorations` is on Chrome's rows at
+      both.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1883,8 +1887,9 @@ items where being right and being unusable are the same outcome.
       person's pointer lands at two (568), `matchMedia` (570), a media
       query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
       pixels (569), a shrunk flex item's share of a pixel (564, measured,
-      built with 502), the two boxes at two that keep 560 open, and a line
-      under text at a scale (566); a link opening a tab
+      built with 502), and the two boxes at two that keep 560 open; an
+      underline that steps around a descender (579) and one under the
+      space before a span's child (580); a link opening a tab
       (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads

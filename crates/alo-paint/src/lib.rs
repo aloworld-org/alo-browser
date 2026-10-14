@@ -48,6 +48,7 @@ pub mod canvas;
 pub mod control;
 pub mod corner;
 pub mod coverage;
+pub mod decoration;
 pub mod display;
 pub mod drawing;
 pub mod drawn_picture;

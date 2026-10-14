@@ -2376,3 +2376,16 @@ where it was 24, a radio's 10. 463's own check was run and is not met by
 Chrome's one-to-one coverage quantising, which this engine does not
 reproduce; it waits on a person. 278 queue items are open (578 closed).
 The next unused queue number is 579 and the next unused ADR 0058.
+
+Iteration 342 closed queue item 566: a line under, over or through text
+is drawn where Chrome 154 draws it, at one and at two. Measured on 480
+lines at twenty sizes and four offsets at both scales, Chrome puts every
+one on whole device rows, `max(1, size·s/10)` thick cut down, from the
+text's top rounded to a device pixel, ignoring the face's underline
+figures (ADR 0057, *Measured since*); `alo-paint`'s `decoration.rs` draws
+that rule, and `text-decorations` is on Chrome's rows at one and at two
+(`chrome.png`, `chrome-at-2.png`, `render-at-2.png`). The case at one
+moved too, since the rule is Chrome's at one as well. Found: **579**
+(an underline's gap around a descender) and **580** (the space before a
+decorated span's child). 279 queue items are open (566 closed; 579–580
+added). The next unused queue number is 581 and the next unused ADR 0058.

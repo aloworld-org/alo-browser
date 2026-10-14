@@ -146,8 +146,6 @@ impl TextMeasurer<'_> {
             x_height: style.size * 0.5,
             zero_width: style.size * 0.5,
             x_advance: style.size * 0.5,
-            underline_offset: style.size * 0.1,
-            underline_thickness: style.size * 0.06,
         });
         LineRoom::at(face, style.scale)
     }

@@ -19,4 +19,4 @@ text box#42 "Start weekly" rgb(255 255 255) 17px at (66.1875, 445.70313)
 untransform
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
-fill box#5 rgb(23 33 43) at (-15968, 28.079102) 129.11035×1
+fill box#5 rgb(23 33 43) at (-15968, 28) 129.11035×1

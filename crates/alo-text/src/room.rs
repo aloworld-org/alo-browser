@@ -18,9 +18,10 @@
 //! 8 to 40 px. A line of `DejaVu Sans` at 13 px is 15 tall at one and 15.5 at
 //! two.
 //!
-//! [`FaceMetrics`] keeps the font's own exact figures, because underlines,
-//! `ex`, `ch` and `vertical-align: middle` are measured with them (ADR 0050
-//! § 5). This is the other reading of the same face, the one only a line
+//! [`FaceMetrics`] keeps the font's own exact figures, because `ex`, `ch`
+//! and `vertical-align: middle` are measured with them (ADR 0050 § 5); a
+//! text decoration takes none of them but the ascent a line rounded (queue
+//! item 566). This is the other reading of the same face, the one only a line
 //! asks for.
 
 use crate::font::FaceMetrics;
@@ -98,8 +99,6 @@ mod tests {
             x_height: 0.0,
             zero_width: 0.0,
             x_advance: 0.0,
-            underline_offset: 0.0,
-            underline_thickness: 0.0,
         }
     }
 

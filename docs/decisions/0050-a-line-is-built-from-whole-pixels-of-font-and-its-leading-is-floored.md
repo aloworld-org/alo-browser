@@ -172,7 +172,10 @@ Only a line's vertical room changes. These keep the font's exact figures:
   `vertical_align.rs` already says.
 - **Underlines, `ex` and `ch`** keep `FaceMetrics`' exact figures.
   Whether Chrome rounds an underline's position was not measured, and
-  this ADR does not move it.
+  this ADR does not move it. *(Since measured, by queue item 566: a
+  decoration does not use the face's figures at all, and is drawn on
+  whole device pixels; ADR 0057, Measured since. `ex` and `ch` stay
+  exact.)*
 - **Advances, widths and where a glyph is drawn across** are not touched.
 - **The computed `line-height`** is not touched, so neither is an `lh`
   unit.

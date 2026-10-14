@@ -34272,3 +34272,136 @@ clause now names 463 waiting on a person instead of 578.
 278 queue items are open (578 closed). The next unused queue number is
 **579** and the next ADR is **0058**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 342 — queue item 566 closed: a line under, over or through text is on Chrome's device rows at one and at two
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+stage 2 window line (device pixels) and stage 1 paint line; iteration
+341's entry; queue items 566–578 and 562's paragraph; `docs/features.md`'s
+`text-decoration` line; `docs/conformance.md`'s paint paragraphs; ADR
+0057 (§§ 2, 5, *What is not decided*, *Measured since*) and ADR 0050 § 5
+(which left an underline's rounding unmeasured); `alo-paint`'s `build.rs`
+(`draw_text`, `decoration_at`), `snap.rs`; `alo-text`'s `font.rs`
+(`metrics_at`) and `room.rs`. No `AGENTS.md` exists here.
+
+**Why 566.** 463 waits on a person (iteration 341), and the items before
+it in the file wait as 318–341 recorded. 566 is the next open item in
+the file: it depends on nothing and names its feature, case and closing
+condition. 568–571 come after it (569 waits for a screen, 570 and 571 for
+pages), 564 and 572 wait on 502 and a person, and 573–577 come later.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, without `--disable-gpu`, `DejaVu Sans` by `@font-face`, the
+source not read): `x`, three no-break spaces and `x` at twenty sizes from
+8 to 64 px, each underlined, overlined and struck through, on a whole
+pixel and at a quarter, a half and three quarters below one, with each
+piece's top and baseline from `getBoundingClientRect()` in the same run;
+480 lines read from the columns over the spaces. (A run of nothing but
+no-break spaces is not decorated by Chrome at all, so the `x`s are
+needed.) Every line is whole rows, wholly inked, and one rule gives all
+480 at both scales: in device pixels `t = max(1, size·s/10)`, drawn as
+`trunc(t)`; the piece's top `floor(y·s + 0.5)` and the baseline the
+rounded ascent below it; an underline `max(1, ceil(t/2))` below the
+baseline, an overline `trunc(t)` above the top, a line through
+`top + 2·ascent/3 − t/2`; each line's top `floor(y + 0.5)`. With the
+piece's top left unrounded, the best of the forms tried still got 38
+lines wrong; with it rounded, an overline `t` rather than `trunc(t)`
+above the top got 60 wrong. The rule
+holds at one as at two, and this engine's lines at one were not it: the
+face's underline figures, a fraction of a pixel thick, smeared.
+
+**Built.**
+- `alo-paint`'s `decoration.rs` (new): `Piece` (top, ascent, left, width,
+  size) and `line_at(line, piece, scale)`, the rule above; six unit tests,
+  each expectation a line read from Chrome's screenshots (sizes 18, 20,
+  22, 64 at one; 15 and 28 at two; a piece a quarter of a pixel down at
+  two; an invalid scale is one).
+- `build.rs`' `decoration_at` takes a `Piece` and draws `line_at`'s
+  rectangle, from every piece and from text outside a line.
+- `alo-text`'s `FaceMetrics` loses `underline_offset` and
+  `underline_thickness`, which nothing reads any more and whose
+  documentation said they placed the line.
+- `alo-corpus/tests/a_line_under_text_at_a_scale.rs`: Chrome's
+  screenshots of `text-decorations` at one and two, committed as
+  `chrome.png` and `chrome-at-2.png` (taken at 600 wide with the root 300
+  wide, as the case's viewport, and cut to its size; headless Chrome
+  will not open a window under 500), and the rows holding a run of ink
+  twelve CSS pixels long compared: the same 11 rows at one and 20 at two
+  (ten lines; the eleventh is below the case's foot at two, in both
+  pictures), each run's ends within a device pixel. `render-at-2.png`
+  committed beside `render.png`.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (the first
+clippy refused a test helper that panicked; it returns its finding now).
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on it with
+one foreground `until` loop, nothing else running: **`GATE EXIT 0`, "The
+gate is met. (10 of 10 steps)"**, 4,813 tests passed. Only this entry,
+the `REMAINING.md` paragraph and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: nothing is laid out differently; no `layout.txt`,
+  `boxes.txt` or `agent.txt` changed. A decoration's rectangle is
+  asserted in device rows in `decoration.rs`' tests and against Chrome's
+  rows in the corpus test.
+- Reference renders: rewritten with `ALO_UPDATE_REFERENCES=1` (alo-corpus,
+  alo-renderer, alo-window, `EXIT 0`) from a tree backed up first. 21
+  `display.txt`s changed, each a decoration's fill moved to whole rows,
+  and 8 pictures moved, every changed pixel on a decoration's rows:
+  `text-decorations` (3,773 pixels; against Chrome's `chrome.png`, 57.0
+  levels off on average on those pixels before and 3.1 after, 3,692
+  nearer and 80 further, the further ones where Chrome breaks its
+  underline around a descender), `web-first-website` (4,480),
+  `alo-sites-blog-index` (464), `broken-link` (340), `alo-sign-in` (258),
+  `alo-sites-rich-text` (254, a line through moved a whole row as its
+  piece at y 294.69 now rounds its top first, as the probe's quarter rows
+  showed Chrome does), `web-example-com` (184), `absolute-inline` (56).
+  Only `text-decorations` has a Chrome screenshot to compare with.
+- Mutation, restored from copies (`cmp` confirmed): `HEAD`'s `build.rs`
+  fails all three corpus tests (rows 28, 59, 81 at one where Chrome's are
+  27, 58, 80; 57–58 at two where Chrome's are 55–56); a thickness cut to
+  whole CSS pixels fails the at-two unit test; a top left unrounded fails
+  the quarter-pixel unit test. A first mutation (the tenth taken before
+  multiplying by the scale) survived because it is the same number above
+  10 px, so it was replaced by the second.
+- The closing condition said "the case at one is unchanged". Measured,
+  that was false of Chrome: at one Chrome draws the same rule and this
+  engine did not, so the case at one changed, onto Chrome's rows. This is
+  written into 566's *Done* paragraph rather than kept as a clause met.
+- Hostile input: nothing new reads bytes from outside; a scale that is
+  not a scale is one, tested.
+- Cost: no speed claim.
+- One file, one responsibility: where a decoration goes is
+  `decoration.rs`'s; what a piece draws and in what order stays
+  `build.rs`'s.
+- Also updated: `docs/features.md`, `docs/conformance.md`, ADR 0057's
+  *Measured since* (and a note in ADR 0050 § 5, whose unmeasured question
+  this answers), `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md` and the
+  queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 566 is ticked with a *Done* paragraph. Found: **579** (Chrome
+breaks an underline where a descender crosses it, `text-decoration-skip-ink`;
+needs measuring) and **580** (a decorated piece's trailing space is
+trimmed before its line is drawn even when the piece does not end its
+line, so the space before a span's child is bare; five pixels at one in
+`text-decorations`).
+
+**Roadmap.** Stage 2's window line: the Built clause names decorations on
+whole device pixels (566, done); the owed clause loses 566 and gains 579
+and 580.
+
+**Unresolved obligations.**
+- 579 and 580 (new); 463 waits on a person; 576 (an ADR) and 577;
+  573–575, 568–571 as before; 560 and 564 on 502 behind 501; 572 on a
+  person.
+- Glyphs themselves are still drawn at the piece's unrounded baseline,
+  while Chrome rounds the piece's top; whether its letters move with it
+  is 577's measurement, not this item's.
+- No claim about speed is made.
+
+279 queue items are open (566 closed; 579–580 added). The next unused
+queue number is **581** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.
