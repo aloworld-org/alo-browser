@@ -44,6 +44,7 @@
 pub(crate) mod arena;
 pub(crate) mod auto_repeat;
 pub(crate) mod baseline;
+pub mod border_style;
 pub(crate) mod containing;
 pub mod ellipsis;
 pub mod engine;
@@ -69,6 +70,7 @@ pub mod track;
 pub mod tree;
 pub mod vertical_align;
 
+pub use border_style::border_style;
 pub use ellipsis::{Cut, ELLIPSIS, Ellipsis, Truncated, truncate};
 pub use engine::compute;
 pub use geometry::{Edges, Point, Rect, Size};

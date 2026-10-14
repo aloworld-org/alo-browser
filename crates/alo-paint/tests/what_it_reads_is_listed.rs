@@ -29,6 +29,11 @@ const IN_FILE: &[(&str, &[&str])] = &[("build.rs", &["clips"]), ("corner.rs", &[
 /// a `{side}` in one stands for all four sides.
 const INDIRECT: &[&str] = &["border-{side}", "border"];
 
+/// Names read for this crate by `alo-layout`, through the function named
+/// beside them, so that layout and paint agree on what was written: a
+/// `{side}` stands for all four sides.
+const THROUGH_LAYOUT: &[(&str, &str)] = &[("alo_layout::border_style(", "border-{side}-style")];
+
 /// Every `.rs` file under `dir`, with its path relative to `root`.
 fn sources(root: &Path, dir: &Path) -> Option<Vec<(String, String)>> {
     let mut found = Vec::new();
@@ -93,6 +98,13 @@ fn every_property_it_reads_is_listed_with_it_and_nothing_else_is() {
         );
     }
     read.extend(INDIRECT.iter().flat_map(|name| expanded(name)));
+    for (function, name) in THROUGH_LAYOUT {
+        assert!(
+            files.iter().any(|(_, text)| text.contains(function)),
+            "{function} is called nowhere in the source"
+        );
+        read.extend(expanded(name));
+    }
     let listed: BTreeSet<String> = properties::read_by(Reader::Paint)
         .map(str::to_owned)
         .collect();

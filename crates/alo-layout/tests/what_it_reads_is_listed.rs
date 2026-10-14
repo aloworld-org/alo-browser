@@ -36,7 +36,12 @@ const IN_FILE: &[(&str, &[&str])] = &[(
 
 /// Names that reach a reader through a variable, as written in the source:
 /// a `{side}` in one stands for all four sides.
-const INDIRECT: &[&str] = &["border-{side}-width", "border-{side}", "border"];
+const INDIRECT: &[&str] = &[
+    "border-{side}-width",
+    "border-{side}-style",
+    "border-{side}",
+    "border",
+];
 
 /// Every `.rs` file under `dir`, with its path relative to `root`.
 fn sources(root: &Path, dir: &Path) -> Option<Vec<(String, String)>> {

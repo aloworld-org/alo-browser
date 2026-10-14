@@ -2572,3 +2572,14 @@ smaller on an axis, which Chrome samples through mipmaps, now opens item
 (`image-rendering`, blocked on a page). 284 queue items are open (594
 closed; 600 and 601 added). The next unused queue number is 602 and the
 next unused ADR 0058.
+
+Iteration 359 closed queue item 595: a side whose border style is `none`
+or `hidden`, or given no style, has no width however its width was
+written, as Chrome 154 computes it. Layout and paint read a side's style
+through one function, `alo-layout`'s `border_style.rs`, in which a side
+shorthand that names no style resets it. `borders-with-a-side-none`, ten
+boxes, is Chrome's in numbers and in every plain pixel at one and at two;
+no other case moved. Found: **602** (a style with no width is `medium`)
+and **603** (`border` written after a longhand does not override it). 285
+queue items are open (595 closed; 602 and 603 added). The next unused
+queue number is 604 and the next unused ADR 0058.

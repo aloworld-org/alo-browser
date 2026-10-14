@@ -14,6 +14,7 @@
 //! property falls back to its initial value. That is what CSS does, and the
 //! recording is what makes a wrong layout diagnosable rather than mysterious.
 
+use crate::border_style;
 use crate::keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning, TextOverflow,
@@ -391,8 +392,13 @@ impl Reader<'_> {
         }
     }
 
-    /// One border's width as the style sheet says it, before it is snapped.
+    /// One border's width as the style sheet says it, before it is snapped:
+    /// none at all when the side's style draws no line
+    /// ([`crate::border_style`]), however the width was written.
     fn declared_border_width(&mut self, side: &str) -> LengthPercentage {
+        if !border_style::draws_a_line(border_style::border_style(self.style, side).as_deref()) {
+            return LengthPercentage::ZERO;
+        }
         for (property, whole) in [
             (format!("border-{side}-width"), false),
             (format!("border-{side}"), true),
@@ -402,11 +408,7 @@ impl Reader<'_> {
                 continue;
             };
             let width = if whole {
-                let border = alo_value::parse_border(text);
-                if border.style.as_deref().is_some_and(is_invisible_style) {
-                    return LengthPercentage::ZERO;
-                }
-                border.width
+                alo_value::parse_border(text).width
             } else {
                 parse_length_percentage(text)
             };
@@ -513,10 +515,6 @@ impl Reader<'_> {
 }
 
 /// Whether a border style draws nothing whatever its width.
-fn is_invisible_style(style: &str) -> bool {
-    style.eq_ignore_ascii_case("none") || style.eq_ignore_ascii_case("hidden")
-}
-
 /// A keyword property, so that one reader serves all of them.
 pub trait KeywordValue: Default {
     /// Read the keyword.

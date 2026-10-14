@@ -138,7 +138,8 @@ fn the_box_model_adds_up_the_way_css_says_it_does() {
     let html = "<body><div id=a></div></body>";
     let css = "div { width: 100px; height: 50px; padding: 10px; \
                border-top-width: 2px; border-right-width: 2px; \
-               border-bottom-width: 2px; border-left-width: 2px; margin: 8px }";
+               border-bottom-width: 2px; border-left-width: 2px; border-style: solid; \
+               margin: 8px }";
     let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
 
     // `content-box` is the initial value: `width` is the content, and padding

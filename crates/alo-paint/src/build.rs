@@ -753,7 +753,9 @@ impl Builder<'_> {
         ]
         .into_iter()
         .filter_map(|(side, name)| {
-            let line = border_style(style, name).as_deref().and_then(Line::of)?;
+            let line = alo_layout::border_style(style, name)
+                .as_deref()
+                .and_then(Line::of)?;
             Some(DrawnSide {
                 side,
                 line,
@@ -1433,7 +1435,7 @@ fn uniform_border(widths: alo_layout::Edges, style: &alo_style::ComputedStyle) -
     ];
     let mut color: Option<Rgba> = None;
     for (side, _) in sides.into_iter().filter(|(_, width)| *width > 0.0) {
-        if border_style(style, side).as_deref() != Some("solid") {
+        if alo_layout::border_style(style, side).as_deref() != Some("solid") {
             return None;
         }
         let side_color = border_color(style, side);
@@ -1444,25 +1446,6 @@ fn uniform_border(widths: alo_layout::Edges, style: &alo_style::ComputedStyle) -
         }
     }
     color.filter(|color| !color.is_invisible())
-}
-
-/// What kind of line one border draws.
-///
-/// The longhand beats the per-side shorthand, which beats `border` — CSS's own
-/// order, and the one a sheet relies on when it writes `border: 1px solid` and
-/// then overrides one side.
-fn border_style(style: &alo_style::ComputedStyle, side: &str) -> Option<String> {
-    if let Some(text) = style.get(&format!("border-{side}-style")) {
-        return Some(text.trim().to_ascii_lowercase());
-    }
-    for property in [format!("border-{side}"), "border".to_owned()] {
-        if let Some(text) = style.get(&property)
-            && let Some(kind) = alo_value::parse_border(text).style
-        {
-            return Some(kind);
-        }
-    }
-    None
 }
 
 /// What colour one border is.

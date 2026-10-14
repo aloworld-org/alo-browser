@@ -209,14 +209,18 @@ fn a_solid_side_beside_a_two_toned_one_is_mitred_too() {
 }
 
 #[test]
-fn a_side_whose_style_is_not_drawn_leaves_its_place_empty() {
-    // A hidden bottom draws nothing, and is not drawn as anything else; its
-    // neighbours still stop where it begins.
+fn a_side_whose_style_is_not_drawn_has_no_width() {
+    // A hidden bottom draws nothing and takes no room: its width is zero,
+    // as CSS computes it and Chrome 154 does (queue item 595), so the
+    // border box ends 8px sooner, at 38, where the content does.
     let canvas = draw("border: 8px inset #808080; border-bottom-style: hidden");
-    assert_eq!(tone(&canvas, 38, 44), 'W', "no bottom");
+    assert_eq!(tone(&canvas, 38, 39), 'W', "no bottom");
+    assert_eq!(tone(&canvas, 11, 39), 'W', "nor a corner below the box");
     assert_eq!(tone(&canvas, 11, 28), 'D', "the left is still there");
-    // The bottom left corner's diagonal runs from (10, 46) to (18, 38): the
-    // left side is above it and the empty bottom below it.
-    assert_eq!(tone(&canvas, 11, 41), 'D', "the left reaches the diagonal");
-    assert_eq!(tone(&canvas, 14, 44), 'W', "and stops there");
+    // The bottom left corner's mitre runs from (10, 38) to (18, 38), along
+    // the box's bottom edge: the left side is the whole corner, to its last
+    // row.
+    assert_eq!(tone(&canvas, 11, 37), 'D', "the left reaches the bottom");
+    assert_eq!(tone(&canvas, 17, 37), 'D', "across its whole width");
+    assert_eq!(tone(&canvas, 19, 37), 'W', "and the content is beside it");
 }

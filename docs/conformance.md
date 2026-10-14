@@ -487,9 +487,13 @@ differ in width or colour fills its rounded corners to the inner curve,
 one colour as one ring and differing sides split on the mitre (592);
 `borders-side-by-side` is Chrome's in every plain pixel at one and at two.
 A dashed or dotted side along a rounded corner is placed on the straight
-side and clipped, where Chrome places its pieces otherwise (596), and a
-`border-*-style: none` longhand leaves a width `border-width` set in place
-(595). Where a line under text falls at two is not measured (566).
+side and clipped, where Chrome places its pieces otherwise (596). A side
+whose style is `none` or `hidden`, or given none, has no width however its
+width was written (595); `borders-with-a-side-none` is Chrome's in numbers
+and in every plain pixel at one and at two. A style written with no width
+is laid out with none where Chrome's is `medium`, 3px (602), and `border`
+or `border-<side>` written after one of its longhands does not override it
+(603). Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (item 562, ADR 0057 § 3). The window
 tells the page's renderer and the strip's the whole part of its screen's

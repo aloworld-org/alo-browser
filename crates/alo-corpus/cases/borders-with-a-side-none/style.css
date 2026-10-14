@@ -1,0 +1,28 @@
+/* Borders with a side whose style is `none` or `hidden` (queue item 595),
+   written every way a sheet writes one: a longhand beside `border-width`
+   and `border-style`, `hidden` beside `border`, a width with no style
+   at all, a side shorthand that names no style, `border-style: none`
+   after `border`, a style list of two, and boxes at tenths of a pixel.
+   Chrome 154 computes such a side's width as 0px however its width was
+   written, and lays the box out and draws it so; this engine kept the
+   written width unless the style came in the same shorthand.
+   `tests/borders_with_a_side_none.rs` says how near Chrome. */
+body { margin: 0; background: #ffffff }
+.b { position: absolute; width: 24px; height: 20px; background: #fde68a;
+  border-color: #1d4ed8 }
+.left-none { left: 15px; top: 15px; border-width: 4px 10px; border-style: solid;
+  border-left-style: none; border-radius: 14px }
+.top-hidden { left: 75px; top: 15px; border: 6px solid #1d4ed8; border-top-style: hidden;
+  border-radius: 12px }
+.no-style { left: 135px; top: 15px; border-width: 8px }
+.side-without-style { left: 195px; top: 15px; border: 4px solid #1d4ed8; border-left: 8px }
+.right-none-two-colours { left: 255px; top: 15px; border-width: 6px; border-style: solid;
+  border-color: #1d4ed8 #c0392b; border-right-style: none; border-radius: 10px }
+.all-none { left: 315px; top: 15px; border: 5px solid #1d4ed8; border-style: none }
+.longhand-width { left: 375px; top: 15px; border-width: 3px; border-style: solid;
+  border-left-width: 9px; border-left-style: none; border-radius: 8px }
+.inset-left-none { left: 435px; top: 15px; border: 4px inset #808080; border-left-style: none }
+.tenths { left: 15.3px; top: 75.6px; border-width: 3px 7px; border-style: solid;
+  border-bottom-style: none; border-radius: 9px }
+.two-none { left: 75.7px; top: 75.2px; border-width: 5px 3px 7px 9px; border-style: solid none;
+  border-radius: 13px 6px }

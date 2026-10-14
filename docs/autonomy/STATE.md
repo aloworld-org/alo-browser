@@ -36203,3 +36203,99 @@ in its Built, and its Owed gains 179 (opened), 600 and 601.
 284 queue items are open (594 closed; 600 and 601 added). The next unused
 queue number is **602** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 359 — queue item 595: a border side styled `none` has no width
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its states, *Where it runs*, stage 1's paint line on whole device
+pixels), iteration 358's entry, queue items 595–601, 591, 179, 576, 577,
+585 and 586, `docs/features.md` stage 1's box-model and rounded-corners
+lines, `alo-layout`'s `style.rs`, `alo-paint`'s `build.rs`, `alo-css`'
+`shorthand.rs`, `longhand.rs`, `declaration.rs` and `properties.rs` (ADR
+0033 § 4's list). No `AGENTS.md` exists here. The item names no ADR; ADR
+0057 (whole device pixels) bears on the case's picture at two (§ 5) and
+was not changed.
+
+**Why 595.** The first open item whose dependencies are done: those
+before it wait as iteration 358 recorded (463 and 572 on a person, 560 and
+564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and 559 on
+pages, 591 on a page that draws an outline). 595 depends on nothing and
+names its feature and closing condition.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1` and
+`=2`, screenshots without `--disable-gpu`; the source not read;
+scratchpad `m595/`): ten boxes, `getComputedStyle` and
+`getBoundingClientRect()` ×128. A side styled `none` or `hidden`, or with
+no style written, computes `0px` however its width was written —
+beside `border-width`, beside `border`, as a longhand width, under
+`border-style: none` after `border`, in a two-value style list. A side
+shorthand naming no style (`border-left: 8px` after `border: 4px solid`)
+resets the side's style to `none`. Also measured, and not this item's
+(`m595/side/`): `border-style: solid` alone and `border: solid` are 3px
+(`medium`), and a `border-left: 5px solid` written after
+`border-left-style: none` is `5px solid`.
+
+**Built.** `alo-layout`'s new `border_style.rs`: `border_style` reads a
+side's style — the longhand, else the first of `border-<side>` and
+`border` written, whose style or `none` decides — moved there from
+`alo-paint`'s `build.rs`, which now calls it; and `draws_a_line`.
+`style.rs`' `declared_border_width` gives no width when the side draws no
+line, and its own same-shorthand check is gone. `alo-css`' list says
+layout reads the four style longhands too; both crates' listing tests
+know it (paint's names what it reads through `alo_layout::border_style`).
+Doc comments say so.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy` on the four
+touched crates clean, run first. `scripts/gate.sh` was started in the
+foreground; it ran past the tool's 600 s limit and was moved to the
+background by the harness, and the next call waited on it with an
+until-loop and read it in the same step: **`exit 0`, "The gate is met.
+(10 of 10 steps)"**, 4,944 tests run, 4,944 passed. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Numbers: `borders_with_a_side_none.rs`' first test holds every box's
+  border box and its four widths to Chrome's within a 128th at one and at
+  two. `border_style.rs`' unit tests hold the reading order, a style list,
+  a side shorthand's reset and nothing written. `numbers.rs`' box-model
+  test wrote widths with no style, which Chrome lays out as no border; it
+  now writes `border-style: solid`. `two_toned_borders.rs`' hidden-bottom
+  test asserted an 8 px bottom that was not drawn; it now asserts the box
+  ends 8 px sooner with the left side to its last row.
+- Reference renders: new case `borders-with-a-side-none` with
+  `render.png`, `render-at-2.png` and Chrome's `chrome.png` and
+  `chrome-at-2.png` (RGBA). Every plain pixel is Chrome's at one and at
+  two; blends within 92 at one (`right-none-two-colours`' rounded corner)
+  and 80 at two (`tenths`' corner), measured. The corpus run before
+  references were written listed no other case as changed.
+- Mutation, restored from a copy (`cmp` confirmed): never zeroing a width
+  failed all three of the case's tests (`left-none` a 10 px left border;
+  (40, 15) a different colour).
+- Hostile input: nothing new reads bytes from outside.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: a side's style is `border_style.rs`';
+  its width stays `style.rs`'; which drawing a border gets `build.rs`'.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 595 is ticked with a *Done* paragraph. Found: **602** (a style
+written with no width is `medium`, 3px, where this engine gives none) and
+**603** (`border` or `border-<side>` written after one of its longhands
+does not override it, since the cascade competes them as different
+names).
+
+**Roadmap.** Stage 1's paint line on whole device pixels: its Owed list
+loses 595, and a *since queue item 595* clause names `border_style.rs` and
+the case, owing 602 and 603.
+
+**Unresolved obligations.**
+- 602 and 603, as above; 596–601, 591, 179; 576, 577, 585, 586 as before;
+  463 and 572 wait on a person; 568–571 on a screen or pages; 560 and 564
+  on 502 behind 501.
+- No claim about speed is made.
+
+285 queue items are open (595 closed; 602 and 603 added). The next unused
+queue number is **604** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

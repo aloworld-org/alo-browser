@@ -287,9 +287,14 @@ correctness, not before it.
       a checkbox's and a radio's drawing at a fractional scale (597), a
       centred line's start and a `middle` raise off the grid (598), the
       window at a fractional screen's own scale (599), an
-      `outline`, which is not drawn at all (591), a dash or a dot along a
-      rounded corner (596), and a `border-*-style: none` longhand that does
-      not take away a width set by `border-width` (595). Since queue item
+      `outline`, which is not drawn at all (591), and a dash or a dot along
+      a rounded corner (596). Since queue item 595 (iteration 359) a side
+      styled `none` or `hidden`, or given no style, has no width however
+      it was written (`alo-layout`'s `border_style.rs`,
+      `borders-with-a-side-none` Chrome's in numbers and every plain pixel
+      at one and at two). Owed: a style with no width written is `medium`
+      (602), and `border` written after a longhand overrides it (603).
+      Since queue item
       573 (iteration 349) a spread shadow's corners are Chrome's —
       square on a square box, a radius under the spread grown by less of
       it (`Corners::spread`, `spread-shadow-corners`). Owed: an inset

@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A border side styled `none` takes no room.** A box written with
+  `border-width: 4px 10px` and then `border-left-style: none` used to keep
+  a ten-pixel left border that nothing drew, so its content sat ten pixels
+  in and its top and bottom were cut on a slant against a side that was
+  not there. A side whose style is `none` or `hidden`, or that was given
+  no style at all, now has no width however its width was written, as
+  Chrome computes it, and the box is laid out and drawn as Chrome draws it.
+
 - **A picture drawn larger than it is is smoothed as Chrome smooths it.**
   An `<img>` shown bigger than its own pixels used to be drawn in hard
   blocks, each of its pixels a square of the page's, so a photograph's

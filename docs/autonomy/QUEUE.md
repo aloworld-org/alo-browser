@@ -14520,7 +14520,7 @@ What stage 2's exit gate actually measures: a person using it.
   enlarged, and differ from each other drawn smaller. Cut: **600**
   (a translucent texel's last rounding), **601** (`image-rendering`).
 
-- [ ] **595. A `border-*-style: none` longhand takes away a width
+- [x] **595. A `border-*-style: none` longhand takes away a width
   `border-width` set.** *Found building 592 (iteration 356). Feature:
   `docs/features.md` stage 1, the box model.* `alo-layout`'s
   `declared_border_width` reads a side's width from `border-<side>-width`
@@ -14534,6 +14534,21 @@ What stage 2's exit gate actually measures: a person using it.
   zero whenever its computed style is `none` or `hidden`, however the
   width and the style were written, and a frozen case of such boxes is
   Chrome's in numbers and pixels at one and at two.
+
+  **Done** (iteration 359). Chrome 154 measured on ten boxes (scratchpad
+  `m595/`, `getComputedStyle` and `getBoundingClientRect()` at one and at
+  two, and screenshots): a side styled `none` or `hidden`, or given no
+  style anywhere, computes a width of 0px however it was written, and a
+  side shorthand naming no style (`border-left: 8px` after `border: 4px
+  solid`) resets the style to `none`. `alo-layout`'s new `border_style.rs`
+  reads a side's style — longhand, then the first of `border-<side>` and
+  `border` written — and `style.rs`' `declared_border_width` gives no width
+  when it draws no line; `alo-paint`'s `build.rs` reads styles through the
+  same function, so the two cannot disagree. Case
+  `borders-with-a-side-none` (`tests/borders_with_a_side_none.rs`): every
+  box's border box and widths are Chrome's within a 128th at one and at
+  two, and every plain pixel is Chrome's at both. Found on the way: 602
+  and 603.
 
 - [ ] **596. Dashes and dots along a rounded corner, as Chrome places
   them.** *Found building 592 (iteration 356). Feature: `docs/features.md`
@@ -14620,6 +14635,31 @@ What stage 2's exit gate actually measures: a person using it.
   when:* a page that sets it renders wrongly, and then the property is
   read in `alo-css`' `properties.rs`, drawn by those rules, and that page
   is Chrome's in every pixel at one and at two.
+
+- [ ] **602. A border style written with no width is `medium`.** *Found
+  building 595 (iteration 359). Feature: `docs/features.md` stage 1, the
+  box model.* `alo-layout`'s `declared_border_width` gives a side no width
+  when nothing writes one, and `border: solid` none either; CSS's initial
+  `border-*-width` is `medium`, and Chrome 154 computes 3px for
+  `border-style: solid` alone and for `border: solid` (measured,
+  iteration 359's scratchpad `m595/side/`). *Closes when:* a side with a
+  visible style and no width written is `medium` — 3px, snapped as any
+  width is — at one and at two, and a frozen case of such boxes is
+  Chrome's in numbers and in every plain pixel at one and at two.
+
+- [ ] **603. `border` written after one of its longhands overrides it.**
+  *Found building 595 (iteration 359). Feature: `docs/features.md` stage
+  1, the cascade.* `border` and `border-<side>` are held whole rather than
+  split (`alo-css`' `shorthand.rs`), and every reader takes a longhand
+  first, so `border-left-style: none; border-left: 5px solid` is no left
+  border here where Chrome 154 computes `5px solid` (measured, iteration
+  359's scratchpad `m595/side/`), and `border-style: none; border: 5px
+  solid` likewise. The two compete as different names in the cascade,
+  as `padding` and `padding-left` did before they were split.
+  *Closes when:* a by-kind border shorthand and a longhand it sets compete
+  as one property in the cascade — whichever is written later or wins by
+  origin and specificity decides — and a frozen case of such blocks is
+  Chrome's in numbers and pixels at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`
