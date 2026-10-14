@@ -254,6 +254,10 @@ struct Pending {
     /// margin. It counts in how wide the line is, so that aligning a line
     /// moves the margin box rather than the border box.
     after: f32,
+    /// Whether the line goes on past a space before this: text and an atomic
+    /// box do; an inline box's piece and a break do not. A space after the
+    /// last of these on a line ends it, and hangs.
+    goes_on: bool,
 }
 
 /// A piece of one box, on one line.
@@ -271,6 +275,12 @@ pub struct Fragment {
     pub text: Option<Range<usize>>,
     /// Which line it is on, counting from zero.
     pub line: usize,
+    /// How wide the white space this piece of text ends in is, when the line
+    /// goes on after it. The space is not in `rect`, which is what is drawn;
+    /// it is still the inline's, and a decoration runs under it (queue item
+    /// 580). Zero for a piece whose space ends its line, where it hangs, and
+    /// for anything that is not text.
+    pub space: f32,
 }
 
 /// One line of a formatting context.
@@ -738,10 +748,12 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 rect: Rect::new(at, 0.0, 0.0, ascent + descent),
                 text: None,
                 line: self.lines.len(),
+                space: 0.0,
             },
             below_baseline: descent,
             place,
             after: 0.0,
+            goes_on: false,
         });
         self.reach(place, reach.above, reach.below);
         // A break is content even alone on its line: `<br><br>` is a blank
@@ -858,10 +870,14 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 rect: Rect::new(self.pen, 0.0, visible, ascent + descent),
                 text: Some(range),
                 line: self.lines.len(),
+                // A kerned pair can measure a hair narrower with its space
+                // than without it; there is no space to draw under then.
+                space: (placed - visible).max(0.0),
             },
             below_baseline: descent,
             place,
             after: 0.0,
+            goes_on: true,
         });
         self.pen += placed;
         self.reach(place, reach.above, reach.below);
@@ -959,10 +975,12 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 rect: Rect::new(held.start, 0.0, (right - held.start).max(0.0), height),
                 text: None,
                 line: self.lines.len(),
+                space: 0.0,
             },
             below_baseline: held.descent + held.under,
             place: held.place,
             after: 0.0,
+            goes_on: false,
         });
     }
 
@@ -1000,6 +1018,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 rect: Rect::new(self.pen + margin.left, 0.0, size.width, size.height),
                 text: None,
                 line: self.lines.len(),
+                space: 0.0,
             },
             // An atomic box sits with its own baseline on the line's. Measured
             // from its border box, which is the rectangle placed; with a bottom
@@ -1007,6 +1026,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             below_baseline: size.height - (baseline - margin.top),
             place,
             after: margin.right,
+            goes_on: true,
         });
         self.pen += width;
         self.reach(place, baseline, height - baseline);
@@ -1067,6 +1087,17 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let start = leftover * self.alignment.share();
         self.anchor_waiting(start, top);
 
+        // The space after the last thing on the line ends it: it hangs, and
+        // nothing is drawn under it (CSS Text 3 § 4.1.2). Every space before
+        // that is inside the line.
+        if let Some(last) = self
+            .current
+            .iter_mut()
+            .rev()
+            .find(|pending| pending.goes_on)
+        {
+            last.fragment.space = 0.0;
+        }
         let fragments: Vec<Fragment> = merge_adjacent(core::mem::take(&mut self.current))
             .into_iter()
             .map(|pending| {
@@ -1237,6 +1268,8 @@ fn merge_adjacent(pending: Vec<Pending>) -> Vec<Pending> {
                 .height
                 .max(item.fragment.rect.size.height);
             last.below_baseline = last.below_baseline.max(item.below_baseline);
+            // What the merged piece ends in is what its last part ends in.
+            last.fragment.space = item.fragment.space;
             if let (Some(before), Some(after)) = (&mut last.fragment.text, &item.fragment.text) {
                 before.end = after.end;
             }
@@ -2622,5 +2655,84 @@ mod tests {
             let layout = lay_out(&items, Some(80.0), &BlockFont);
             assert_eq!(lines_of(&layout), vec![vec!["1@0", "2@80"], vec!["4@0"]]);
         }
+    }
+
+    /// Each line's pieces with the space each is said to end in: `1+8` is
+    /// box 1's piece ending in eight pixels of space the line goes on past.
+    fn spaces_of(layout: &InlineLayout) -> Vec<Vec<String>> {
+        layout
+            .lines
+            .iter()
+            .map(|line| {
+                line.fragments
+                    .iter()
+                    .filter(|fragment| fragment.text.is_some())
+                    .map(|fragment| format!("{}+{}", fragment.box_id.as_usize(), fragment.space))
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn opened(index: usize) -> InlineItem {
+        InlineItem::Open {
+            box_id: box_id(index),
+            edge: 0.0,
+            style: TextStyle::default(),
+            over: 0.0,
+            under: 0.0,
+            align: LineAlign::Baseline,
+        }
+    }
+
+    #[test]
+    fn a_space_the_line_goes_on_past_is_the_pieces_and_one_that_ends_it_hangs() {
+        // `<u>one </u><b>two </b>`: the space after `one` is inside the line,
+        // and a decoration runs under it; the one after `two` ends the line.
+        let items = [text(1, "one "), text(2, "two ")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(spaces_of(&layout), [vec!["1+8", "2+0"]]);
+        // The space is beside the rectangle, never in it: what is drawn is
+        // the letters, and `two` still starts after the space.
+        assert_eq!(lines_of(&layout), [vec!["1@0", "2@32"]]);
+        let one = layout.union_for(box_id(1)).expect("`one` has a place");
+        assert_eq!(one, Rect::new(0.0, 0.0, 24.0, 16.0));
+    }
+
+    #[test]
+    fn a_space_a_line_wraps_after_hangs_and_one_inside_a_piece_is_its_own() {
+        // Pieces of one box on one line are one fragment, whose letters run
+        // across the spaces inside it; the space it ends in is its last
+        // word's, which here ends the line.
+        let items = [text(1, "one two three")];
+        let layout = lay_out(&items, Some(80.0), &BlockFont);
+        assert_eq!(spaces_of(&layout), [vec!["1+0"], vec!["1+0"]]);
+        // Followed on its line, the same merged piece ends in its last
+        // word's space.
+        let items = [text(1, "one two "), text(2, "x")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(spaces_of(&layout), [vec!["1+8", "2+0"]]);
+    }
+
+    #[test]
+    fn a_space_before_a_break_or_an_inline_boxs_end_hangs_and_before_a_box_does_not() {
+        let items = [text(1, "one "), line_break(2), text(3, "two")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(spaces_of(&layout), [vec!["1+0"], vec!["3+0"]]);
+
+        let items = [
+            opened(3),
+            text(1, "one "),
+            InlineItem::Close {
+                box_id: box_id(3),
+                edge: 0.0,
+            },
+        ];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(spaces_of(&layout), [vec!["1+0"]]);
+
+        // A picture after the space is on the line, so the space is inside it.
+        let items = [text(1, "one "), atomic(2, 10.0, 10.0)];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(spaces_of(&layout), [vec!["1+8"]]);
     }
 }

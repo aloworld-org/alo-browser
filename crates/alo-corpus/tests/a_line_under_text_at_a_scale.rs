@@ -107,27 +107,6 @@ fn both(scale: u32, reference: &str) -> Result<(Lines, Lines), String> {
     ))
 }
 
-/// Our pieces with one gap Chrome does not leave taken away: the two pieces
-/// either side of it on each of `rows`, which must be exactly there, made
-/// one. What is joined is said by name, so that the day the gap closes this
-/// fails and the exception goes.
-fn joined(mut ours: Lines, rows: &[u32], gap: (u32, u32)) -> Result<Lines, String> {
-    for row in rows {
-        let pieces = ours.get_mut(row).ok_or(format!("row {row} has no line"))?;
-        let at = pieces
-            .windows(2)
-            .position(|pair| matches!(pair, [left, right] if (left.1, right.0) == gap))
-            .ok_or(format!(
-                "row {row}: the gap {gap:?} is not ours: {pieces:?}"
-            ))?;
-        let end = pieces.remove(at + 1).1;
-        if let Some(piece) = pieces.get_mut(at) {
-            piece.1 = end;
-        }
-    }
-    Ok(ours)
-}
-
 fn compare(theirs: &Lines, ours: &Lines, rows: usize) {
     assert_eq!(theirs.len(), rows, "Chrome's rows: {theirs:?}");
     assert_eq!(
@@ -161,11 +140,9 @@ fn at_one_each_line_is_on_chromes_rows() {
     };
     // Eleven lines: one each on the first three paragraphs, two on each of
     // the other four. The space after `with`, before the black child, is
-    // not underlined here and is in Chrome: queue item 580.
-    match joined(ours, &[200], (169, 174)) {
-        Ok(ours) => compare(&theirs, &ours, 11),
-        Err(why) => panic!("{why}"),
-    }
+    // underlined, as it is in Chrome; the one `wrap` ends its first line in
+    // is not (queue item 580).
+    compare(&theirs, &ours, 11);
 }
 
 #[test]
@@ -176,12 +153,8 @@ fn at_two_each_line_is_on_chromes_device_rows() {
     };
     // Ten, of two rows each: a line at two stands taller than at one (ADR
     // 0057, Evidence 1), and the last underline is below the case's 220 px,
-    // in Chrome's picture as in ours. The space before the black child is
-    // queue item 580, as at one.
-    match joined(ours, &[409, 410], (338, 348)) {
-        Ok(ours) => compare(&theirs, &ours, 20),
-        Err(why) => panic!("{why}"),
-    }
+    // in Chrome's picture as in ours. The spaces are as at one.
+    compare(&theirs, &ours, 20);
 }
 
 #[test]

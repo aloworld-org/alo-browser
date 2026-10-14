@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An underline runs under the space between words in different
+  styles.** Where an underlined phrase went on into a differently
+  coloured or styled part of itself, the space just before that part was
+  left bare, a five-pixel break in the line that Chrome does not have.
+  It is underlined now; a space that ends a line still is not, as in
+  Chrome.
+
 - **An underline steps aside for a letter's tail, as Chrome's does.**
   Where a `g`, `j`, `p`, `q` or `y` hangs through an underline, or an
   accent reaches up through an overline, the line now breaks around the

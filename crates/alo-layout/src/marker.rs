@@ -107,6 +107,7 @@ pub(crate) fn place(
                 rect,
                 text: Some(0..text.len()),
                 line: 0,
+                space: 0.0,
             }],
         );
         geometry.insert(

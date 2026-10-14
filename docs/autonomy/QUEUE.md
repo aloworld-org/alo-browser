@@ -13786,7 +13786,7 @@ What stage 2's exit gate actually measures: a person using it.
   test joins exactly that gap on exactly those rows and fails if it is
   not there, so closing 580 forces the exception out. Found: **581**.
 
-- [ ] **580. The space before a decorated span's child is decorated.**
+- [x] **580. The space before a decorated span's child is decorated.**
   *Found building 566 (iteration 342). Feature: `docs/features.md` stage
   2, `text-decoration`. Needs nothing measured.* `text-decorations`' last
   paragraph, `an underlined span with <span class=black>a black
@@ -13796,6 +13796,37 @@ What stage 2's exit gate actually measures: a person using it.
   its line. A gap of five pixels at one (row 200, 169 to 174). *Closes
   when:* a decoration runs under a space that does not end its line, and
   not under one that does, against `chrome.png` at both.
+  ***Done (iteration 344).*** The cause was layout's, not paint's
+  trimming alone: a text fragment's rectangle is its letters, its
+  trailing space left out, and the line was drawn the rectangle's width.
+  Built: `alo-layout`'s `Fragment::space`, the width of the white space a
+  piece ends in when its line goes on past it — set by `place_text` from
+  what the piece measures with and without it, carried by
+  `merge_adjacent` from a merged piece's last part, and zeroed in
+  `end_line` for the last piece of text or atomic box on the line, after
+  which the space hangs (CSS Text 3 § 4.1.2; a break or an inline box's
+  end edge does not carry a line on). The rectangle is unchanged, so no
+  `layout.txt` or hit test moved. `alo-paint`'s `build.rs` draws a
+  piece's decorations over its width and that space, an ellipsis's cut
+  as before. Evidence: three `inline.rs` unit tests (a space mid-line
+  and one ending it, a merged piece and a wrapped one, a break, an inline
+  box's end and a picture after a space);
+  `a_line_under_text_at_a_scale.rs` with its named exception removed:
+  every piece of every line is Chrome's at one and at two, the space
+  before the black child underlined and the space `wrap`'s first line
+  ends in not. The five changed pixels at one and twenty at two each now
+  equal Chrome's. Found: **582**.
+
+- [ ] **582. A space that is a text box of its own is decorated.**
+  *Found building 580 (iteration 344), by reading, not yet drawn.
+  Feature: `docs/features.md` stage 2, `text-decoration`. Needs a
+  case.* `<u><a>one</a> <a>two</a></u>`: the space between the links is a
+  text box of its own, and `inline.rs`' `add_run` gives a piece that is
+  only white space room but no fragment, so nothing draws under it,
+  where Chrome's underline is expected to run on. *Closes when:* a
+  frozen case with such a space under a decoration is Chrome's at one and
+  at two, row by row and piece by piece, and the space ending a line is
+  still bare.
 
 - [ ] **581. `text-decoration-skip-ink`'s values.** *Found building 579
   (iteration 343). Feature: `docs/features.md` stage 2, `text-decoration`.

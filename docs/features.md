@@ -231,8 +231,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   glyph's ink crosses the line's middle, as wide as that ink — its
   outline's control points counted, as Chrome counts them — and the
   line's thickness more each side, each end on the nearest device pixel;
-  a line through never does. Not yet: the space before a decorated span's
-  child (580), and `text-decoration-skip-ink`'s other values, which are
+  a line through never does. **A line runs under a space the line goes on
+  past, and not under one that ends it** (queue item 580), where the space
+  hangs. Not yet: a space that is a text box of its own, between two
+  inlines (582), and `text-decoration-skip-ink`'s other values, which are
   not read (581)
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
   legend, and a radio you can tell from a checkbox. **Which control a label

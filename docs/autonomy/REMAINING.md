@@ -2401,3 +2401,13 @@ that rule, and `text-decorations` is Chrome's piece by piece at one and
 at two but for 580's space. Found: **581** (`text-decoration-skip-ink`'s
 values are not read). 279 queue items are open (579 closed; 581 added).
 The next unused queue number is 582 and the next unused ADR 0058.
+
+Iteration 344 closed queue item 580: a decoration runs under a space its
+line goes on past and not under one that ends the line, as Chrome 154's
+does. `alo-layout`'s `Fragment` carries the width of the space a piece of
+text ends in, zero where the space hangs at the line's end; `alo-paint`
+draws a piece's lines over it. `text-decorations` is Chrome's piece by
+piece at one and at two with no exception left in its test. Found:
+**582** (a space that is a text box of its own is still bare). 279 queue
+items are open (580 closed; 582 added). The next unused queue number is
+583 and the next unused ADR 0058.

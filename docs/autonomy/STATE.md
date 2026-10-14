@@ -34535,3 +34535,101 @@ done); the owed clause loses 579 and gains 581.
 279 queue items are open (579 closed; 581 added). The next unused queue
 number is **582** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 344 — queue item 580 closed: a decoration runs under a space its line goes on past
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+stage 2 window line; iteration 343's entry; queue items 566, 579, 580,
+581; `docs/features.md`'s `text-decoration` line; `docs/conformance.md`'s
+decoration paragraph; `alo-layout`'s `inline.rs` (`add_run`,
+`place_text`, `end_line`, `merge_adjacent`, `Fragment`) and `marker.rs`;
+`alo-paint`'s `build.rs` (`draw_text`, `decorations_at`); the corpus test
+`a_line_under_text_at_a_scale.rs`. No ADR governs a hanging space; 580
+says it needs nothing measured, and Chrome's own screenshots in the case
+decided it. No `AGENTS.md` exists here.
+
+**Why 580.** It is the first open item in the file whose dependencies
+are done: the items before it wait as iterations 318–343 recorded (463
+on a person, 560 and 564 on 502 behind 501, 568–571 on a screen or
+pages, 572 on a person), and 580 depends on nothing and names its
+feature, case and closing condition.
+
+**Found first.** The item blamed paint's `trim_end`, but the drawn line
+was the fragment's width, and layout's text fragment is its letters with
+the trailing space left out (`place_text`'s `visible`): `"an underlined
+span with "` is 169.29 wide and the black child starts at 173.74, the
+4.45 between drawn by nothing.
+
+**Built.**
+- `alo-layout`'s `Fragment::space` (new field): the width of the white
+  space a text piece ends in, when the line goes on past it.
+  `place_text` sets it from the piece measured with and without its
+  space (never below zero); `merge_adjacent` carries a merged piece's
+  last part's; `end_line` zeroes it on the last piece of text or atomic
+  box on the line (`Pending::goes_on`; a break and an inline box's piece
+  do not carry a line on), where the space hangs (CSS Text 3 § 4.1.2).
+  The rectangle is unchanged: no `layout.txt`, `boxes.txt`, `agent.txt`
+  or hit test moved.
+- `alo-paint`'s `build.rs`: a piece's decorations run over its width and
+  that space; an ellipsis's cut is drawn as before.
+- `a_line_under_text_at_a_scale.rs`: the named exception (`joined`) is
+  gone, as 579's entry said closing 580 would force.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on it with
+one foreground `until` loop, nothing else running: **`GATE EXIT 0`, "The
+gate is met. (10 of 10 steps)"**, 4,831 tests run, 4,831 passed. Only
+this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: three `inline.rs` unit tests assert each piece's
+  space by line (`1+8` mid-line, `+0` where it ends a line, after a wrap,
+  before a `<br>`, before an inline box's end; `+8` before a picture; a
+  merged piece's last word's), and that `one`'s rectangle is still
+  24×16 at 0 with `two` at 32.
+- Reference renders: rewritten with `ALO_UPDATE_REFERENCES=1`
+  (alo-corpus, alo-renderer, alo-window). Only `text-decorations` moved:
+  one fill in `display.txt` (56.29 → 60.74 wide), `render.png` 5 pixels
+  (row 200, x 169–173) and `render-at-2.png` 20 (rows 409–410, x
+  338–347); against `chrome.png` and `chrome-at-2.png` on those pixels,
+  158.8 and 162.4 levels off on average before and **0.0 after**. The
+  corpus test compares every piece of every line with Chrome's at one
+  and two with no exception.
+- Mutation, restored from copies (`cmp` confirmed): no zeroing at the
+  line's end fails all three unit tests and both corpus comparisons
+  (`wrap`'s first line runs 258..290 where Chrome's is 258..285); a merge
+  that does not carry the space fails one unit test and the corpus;
+  paint ignoring the space fails both corpus comparisons with the old
+  gap.
+- Hostile input: nothing new reads bytes from outside; a space measured
+  narrower than nothing is clamped to zero.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: what a line holds and where its space
+  hangs stays `inline.rs`'s; what a piece draws stays `build.rs`'s.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 580 is ticked with a *Done* paragraph. Found: **582** (a
+space that is a text box of its own, `<u><a>one</a> <a>two</a></u>`, has
+room but no fragment, so nothing is drawn under it) — found by reading
+`add_run`, not yet drawn or compared with Chrome; it needs a case.
+
+**Roadmap.** Stage 2's window line: the Built clause names the space a
+line goes on past (580, done); the owed clause loses 580 and gains 582.
+
+**Unresolved obligations.**
+- 582 (new) and 581; 463 waits on a person; 576 (an ADR) and 577;
+  573–575, 568–571 as before; 560 and 564 on 502 behind 501; 572 on a
+  person.
+- A preserved space (`white-space: pre`) that ends a line is still left
+  out of its fragment and so undecorated; whether Chrome draws under it
+  is not measured, and no case has one.
+- No claim about speed is made.
+
+279 queue items are open (580 closed; 582 added). The next unused queue
+number is **583** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

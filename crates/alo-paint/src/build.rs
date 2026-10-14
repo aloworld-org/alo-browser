@@ -901,12 +901,14 @@ impl Builder<'_> {
             // One line per **fragment**, which is what makes a decoration stop
             // at the end of the inline rather than running to the edge of the
             // line it sits on. A fragment is one piece of one inline on one
-            // line, so drawing per fragment is the whole of that rule.
+            // line, so drawing per fragment is the whole of that rule. It
+            // runs under the space the piece ends in when the line goes on
+            // past it, and not under one that ends the line (queue item 580).
             let piece = crate::decoration::Piece {
                 top: fragment.rect.top(),
                 ascent: ascender,
                 left: fragment.rect.left(),
-                width: cut.map_or(fragment.rect.size.width, |cut| cut.width),
+                width: cut.map_or(fragment.rect.size.width + fragment.space, |cut| cut.width),
                 size,
             };
             let letters = Letters {
