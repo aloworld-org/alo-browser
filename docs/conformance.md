@@ -212,9 +212,12 @@ text box of its own — between two inlines — or the first thing in one
 two, its narrow line ending bare and its two ellipsis lines stopping
 where what is kept ends, and the leading spaces of five links on
 `web-first-website` are underlined where Chrome's are. Before an
-ellipsis, the space a kept piece of text ends in is still underlined
-here and is not in Chrome (583; `text-overflow-ellipsis`' own comment
-says otherwise and is wrong). `text-decoration-skip-ink` is not read, so
+ellipsis a line stops at the last letter kept (item 583):
+`text-overflow-ellipsis`' underline is Chrome's, 8 to 47, against a
+frozen Chrome 154 picture beside the case, and a probe of six such lines
+(a space kept in the cut piece, a piece kept whole before a span or a
+bold of which nothing is, two preserved spaces, a box kept between) drew
+every one on Chrome's pixels. `text-decoration-skip-ink` is not read, so
 `none` and `all` draw as `auto` does (581).
 
 Boxes can be round, and clip what is inside them to their own shape. **A

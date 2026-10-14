@@ -1882,7 +1882,10 @@ items where being right and being unusable are the same outcome.
       line, as Chrome's does (580, done): layout's `Fragment::space`. So
       does a space that is a text box of its own or begins one, and not
       one where an ellipsis ends the line (582, done): layout's
-      `LineBox::spaces`.
+      `LineBox::spaces`. Before an ellipsis a line stops at the last
+      letter kept, never under the space after it, as Chrome 154's does
+      (583, done): layout's `Cut::width`, and `text-overflow-ellipsis`
+      is Chrome's underline in a frozen Chrome picture.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1894,10 +1897,8 @@ items where being right and being unusable are the same outcome.
       person's pointer lands at two (568), `matchMedia` (570), a media
       query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
       pixels (569), a shrunk flex item's share of a pixel (564, measured,
-      built with 502), and the two boxes at two that keep 560 open; an
-      the space a kept piece of text ends in before an ellipsis, still
-      underlined (583), and `text-decoration-skip-ink`'s other values
-      (581); a link opening a tab
+      built with 502), and the two boxes at two that keep 560 open;
+      `text-decoration-skip-ink`'s other values (581); a link opening a tab
       (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads

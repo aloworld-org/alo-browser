@@ -13854,7 +13854,7 @@ What stage 2's exit gate actually measures: a person using it.
   30 changed pixels 148.7 levels from Chrome's on average before, 5.6
   after. Found: **583**.
 
-- [ ] **583. Before an ellipsis, a kept piece of text's last space is
+- [x] **583. Before an ellipsis, a kept piece of text's last space is
   bare.** *Found building 582 (iteration 345). Feature: `docs/features.md`
   stage 2, `text-decoration`. Measured.* Chrome 154 draws no decoration
   under the space a kept piece of text ends in where a "…" ends the line:
@@ -13865,6 +13865,27 @@ What stage 2's exit gate actually measures: a person using it.
   a cut piece's lines stop where its kept letters end, the case's comment
   is corrected, and `text-overflow-ellipsis`' underline is Chrome's at one
   in a frozen Chrome picture beside it.
+  ***Done (iteration 346).*** Measured first in Chrome 154 (headless,
+  `--force-device-scale-factor=1` and `=4`, without `--disable-gpu`,
+  `DejaVu Sans` by `@font-face`): a line stops at the last letter kept in
+  every arrangement tried — a space kept in the cut piece, a piece kept
+  whole before a `<span>` or a `<b>` of which nothing is kept, two
+  preserved spaces in `pre`, and a hidden inline-block after a kept
+  space — and runs on under a space before a box or a letter that is kept.
+  Built: `alo-layout`'s `Cut::width` is the kept letters without the white
+  space they end in (`letters`, from the cut piece's own cluster ends); a
+  piece kept whole that ends in white space and is the last thing kept is
+  given a cut of its own there when a cut falls after it; and
+  `LayoutTree::cut` finds the cut whose end a piece's text holds, since a
+  box can have two pieces on one line (a space of its own between them).
+  `layout.txt`'s "drawn" names only a piece something is left out of, so
+  no `layout.txt` moved. Evidence: `chrome.png` beside
+  `text-overflow-ellipsis` and `a_line_under_what_an_ellipsis_keeps.rs`
+  (Chrome's one row, 8..47, and ours on it); three `ellipsis.rs` unit
+  tests in numbers, one `tree.rs` test of the lookup, two `an_ellipsis.rs`
+  paint tests (39.22 and 29.41 wide); the case's comment corrected; its
+  `render.png` six pixels shorter, 193.9 levels from Chrome's on average
+  before and 1.3 after. Nothing found.
 
 - [ ] **581. `text-decoration-skip-ink`'s values.** *Found building 579
   (iteration 343). Feature: `docs/features.md` stage 2, `text-decoration`.

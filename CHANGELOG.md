@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An underline stops at the last letter before a "…".** Where a line
+  too long for its box was cut short with "…", the underline ran on
+  under the space before the "…", a few pixels further than Chrome draws
+  it. It now stops at the last letter kept, as Chrome's does, whether
+  one space or several came before the cut.
+
 - **An underline runs under the space between two links.** Where an
   underlined phrase held two links, or a styled word whose text began with
   a space, the space between them was left bare, a break in the line that

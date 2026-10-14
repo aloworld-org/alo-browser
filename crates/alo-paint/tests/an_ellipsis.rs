@@ -4,8 +4,9 @@
 
 //! What paint draws of a line `text-overflow: ellipsis` ended (queue item
 //! 442): the text it kept, the "…" after it in the block's colour, the
-//! underline under what was kept and not under the "…", and nothing of an
-//! atomic box it hid.
+//! underline under what was kept and not under the "…", nor under the white
+//! space where what was kept ends (queue item 583), and nothing of an atomic
+//! box it hid.
 
 use alo_box::build as build_boxes;
 use alo_css::{MediaContext, parse_stylesheet};
@@ -118,4 +119,55 @@ fn the_underline_runs_under_what_was_kept_and_not_under_the_ellipsis() {
         panic!("one underline: {lines:#?}");
     };
     assert!(underline.contains(" 19.96"), "{underline}");
+}
+
+/// The fills in the block's blue, which are its underlines.
+fn underlines(list: &DisplayList) -> Vec<String> {
+    list.to_outline()
+        .lines()
+        .filter(|line| line.starts_with("fill ") && line.contains("rgb(29 78 216)"))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// A block of `width` that clips, ends its line in "…" and underlines it.
+fn underlined(width: u32, white_space: &str) -> String {
+    format!(
+        "body {{ margin: 0; font-family: sans-serif }}
+         div {{ width: {width}px; white-space: {white_space}; overflow: hidden;
+               text-overflow: ellipsis; color: #1d4ed8; text-decoration: underline }}"
+    )
+}
+
+#[test]
+fn the_underline_stops_at_the_last_letter_kept() {
+    // `aaaa bbbbbbbbb` in 61, as Chrome 154 draws it: "aaaa " is kept, the
+    // "…" after the space, and the line under "aaaa" alone — 39.22 wide
+    // (9.8047 an "a"), not the 44.3 that counts the space.
+    let page = "<!DOCTYPE html><html><body><div>aaaa bbbbbbbbb</div></body></html>";
+    let lines = underlines(&draw(page, &underlined(61, "nowrap")));
+    let [underline] = lines.as_slice() else {
+        panic!("one underline: {lines:#?}");
+    };
+    assert!(underline.ends_with(" 39.21875×1"), "{underline}");
+    // Kept whole before a span of which nothing is kept, the same.
+    let page = "<!DOCTYPE html><html><body><div>aaaa <span>bbbbbbbbb</span></div>\
+                </body></html>";
+    let lines = underlines(&draw(page, &underlined(61, "nowrap")));
+    let [underline] = lines.as_slice() else {
+        panic!("one underline: {lines:#?}");
+    };
+    assert!(underline.ends_with(" 39.21875×1"), "{underline}");
+}
+
+#[test]
+fn preserved_spaces_where_what_is_kept_ends_are_bare() {
+    // `pre`'s two spaces after "aaa" leave the box two pieces on its line,
+    // each found its own cut: the line is under "aaa" alone, 29.41 wide.
+    let page = "<!DOCTYPE html><html><body><div>aaa  bbbbbbbbb</div></body></html>";
+    let lines = underlines(&draw(page, &underlined(61, "pre")));
+    let [underline] = lines.as_slice() else {
+        panic!("one underline: {lines:#?}");
+    };
+    assert!(underline.ends_with(" 29.414063×1"), "{underline}");
 }

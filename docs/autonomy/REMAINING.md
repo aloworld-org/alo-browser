@@ -2422,3 +2422,12 @@ piece at one and at two. Found: **583** (before an ellipsis, a kept piece
 of text's own last space is underlined, where Chrome's is not). 279 queue
 items are open (582 closed; 583 added). The next unused queue number is
 584 and the next unused ADR 0058.
+
+Iteration 346 closed queue item 583: before an ellipsis a decoration stops
+at the last letter kept, as Chrome 154's does. `alo-layout`'s `Cut::width`
+is the kept letters without the white space they end in, a piece kept
+whole and last before the cut is cut there too, and a cut is found by the
+piece whose text holds its end. `text-overflow-ellipsis`' underline is
+Chrome's in a frozen `chrome.png`. 278 queue items are open (583 closed;
+none added). The next unused queue number is 584 and the next unused ADR
+0058.

@@ -35,9 +35,12 @@
 //! - A decoration stops where what is kept ends: no line is drawn under a
 //!   space there, whether it ends a piece of text or is a text box of its
 //!   own (iteration 345). A space with no letters before that is decorated;
-//!   one there or after it is recorded as hidden (queue item 582). A kept
-//!   piece of text's own last space is still drawn under here (queue item
-//!   583).
+//!   one there or after it is recorded as hidden (queue item 582). A cut's
+//!   width is its letters without the space they end in, and a piece kept
+//!   whole that is the last thing kept is cut there too, so a decoration
+//!   stops at the last letter kept — two preserved spaces as well as one,
+//!   and a space after which nothing at all of the next piece is kept
+//!   (iteration 346, queue item 583).
 //! - An atomic box that does not fit whole, with its margins, is hidden whole.
 //! - An inline box's own background and border are not hidden: they are the
 //!   box's, not the text's, and the box's clip cuts them as before.
@@ -93,7 +96,9 @@ pub struct Cut {
     /// The byte of the box's text where what is drawn stops. The piece's
     /// own start when none of it is.
     pub end: usize,
-    /// How wide what is drawn is.
+    /// How wide what is drawn is: the letters kept, without the white space
+    /// they end in, which is where a decoration under them stops (queue
+    /// item 583). The "…" stands after that space, not here.
     pub width: f32,
 }
 
@@ -228,6 +233,9 @@ fn end_line(
     // Where what is kept ends; [`None`] until something is.
     let mut end: Option<f32> = None;
     let mut cut = false;
+    // The piece of text kept whole that is the last thing kept, drawn short
+    // of the white space it ends in if the cut falls after it.
+    let mut whole: Option<(BoxId, Cut)> = None;
     for fragment in &line.fragments {
         let left = fragment.rect.left();
         if let (Some(range), Some((text, style))) =
@@ -252,6 +260,17 @@ fn end_line(
             let kept = clusters.iter().take_while(|(_, pen)| fits(*pen)).last();
             if kept.is_some_and(|(byte, _)| *byte >= piece.len()) {
                 end = kept.map(|(_, pen)| left + pen);
+                // One that ends in a letter has no space to leave bare.
+                whole = (piece.trim_end().len() < piece.len()).then(|| {
+                    (
+                        fragment.box_id,
+                        Cut {
+                            line: index,
+                            end: range.end,
+                            width: letters(piece, &clusters),
+                        },
+                    )
+                });
                 continue;
             }
             // The first thing on a line is kept and clipped rather than
@@ -263,11 +282,14 @@ fn end_line(
                 Cut {
                     line: index,
                     end: range.start + byte,
-                    width: pen,
+                    width: piece
+                        .get(..byte)
+                        .map_or(0.0, |kept| letters(kept, &clusters)),
                 },
             ));
             if kept.is_some() {
                 end = Some(left + pen);
+                whole = None;
             }
             cut = true;
         } else if let Some(margin) = content.atomics.get(&fragment.box_id) {
@@ -278,11 +300,17 @@ fn end_line(
             let right = fragment.rect.right() + margin;
             if right <= limit + ALLOWANCE || end.is_none() {
                 end = Some(right);
+                whole = None;
             } else {
                 out.hidden.push(fragment.box_id);
             }
             cut = right > limit + ALLOWANCE;
         }
+    }
+    // A piece kept whole and last is drawn short too, when there is a cut
+    // after it: the white space it ends in is where what is kept ends.
+    if let Some(whole) = whole.filter(|_| cut) {
+        out.cuts.push(whole);
     }
     let end = end.or(cut.then_some(0.0));
     // A space with no letters where what is kept ends, or after it, is not
@@ -301,6 +329,18 @@ fn end_line(
         }
     }
     end
+}
+
+/// How wide `kept` is without the white space it ends in, from the ends of
+/// the clusters of the piece it begins: Chrome 154 draws no decoration under
+/// a space where what is kept ends (measured, iteration 346).
+fn letters(kept: &str, clusters: &[(usize, f32)]) -> f32 {
+    let length = kept.trim_end().len();
+    clusters
+        .iter()
+        .take_while(|(byte, _)| *byte <= length)
+        .last()
+        .map_or(0.0, |(_, pen)| *pen)
 }
 
 /// One formatting context's lines, as the engine placed them.
@@ -494,7 +534,8 @@ mod tests {
         // "abc defghij" in 48: "abc " is 32, and "abc d" and the ellipsis
         // would be 48 — which fits exactly, so the cut falls after the `d`.
         // In 47 it falls after the space, and the ellipsis stands after it,
-        // as Chrome's "aaaa …" does.
+        // as Chrome's "aaaa …" does — but what is drawn, and underlined, is
+        // the 24 of "abc": the space is where what is kept ends (583).
         let truncated = ended(&[text(1, "abc defghij")], 47.0);
         assert_eq!(
             truncated.cuts,
@@ -503,11 +544,121 @@ mod tests {
                 Cut {
                     line: 0,
                     end: 4,
-                    width: 32.0
+                    width: 24.0
                 }
             )],
         );
         assert!(close(truncated.ellipses[0].rect.left(), 32.0));
+    }
+
+    #[test]
+    fn a_piece_kept_whole_and_last_is_drawn_short_of_its_space() {
+        // `abc <span>defghij</span>` in 47: "abc " is kept whole and nothing
+        // of the span, so "abc" is drawn and underlined, 24 wide, and the
+        // ellipsis still stands after the space at 32, as Chrome 154 draws
+        // `aaaa <span>bbbbbbbbb</span>` in 61 px.
+        let truncated = ended(&[text(1, "abc "), text(2, "defghij")], 47.0);
+        assert_eq!(
+            truncated.cuts,
+            vec![
+                (
+                    box_id(2),
+                    Cut {
+                        line: 0,
+                        end: 0,
+                        width: 0.0
+                    }
+                ),
+                (
+                    box_id(1),
+                    Cut {
+                        line: 0,
+                        end: 4,
+                        width: 24.0
+                    }
+                ),
+            ],
+            "{truncated:?}",
+        );
+        assert!(close(truncated.ellipses[0].rect.left(), 32.0));
+        // In 56 "de" is kept too, so the space before it is not where what
+        // is kept ends, and "abc " is drawn whole, its space underlined.
+        let truncated = ended(&[text(1, "abc "), text(2, "defghij")], 56.0);
+        assert_eq!(
+            truncated.cuts,
+            vec![(
+                box_id(2),
+                Cut {
+                    line: 0,
+                    end: 2,
+                    width: 16.0
+                }
+            )],
+        );
+        // Nor when a box kept after it ends what is kept, as Chrome's
+        // `aaaa <inline-block> b…` underlines its first space.
+        let truncated = ended(
+            &[text(1, "abc "), atomic(2, 8.0, 0.0), text(3, "defghij")],
+            55.0,
+        );
+        assert!(truncated.hidden.is_empty());
+        assert_eq!(truncated.cuts.len(), 1, "{truncated:?}");
+        assert_eq!(truncated.cuts[0].0, box_id(3));
+    }
+
+    #[test]
+    fn every_space_where_what_is_kept_ends_is_left_out_of_a_cuts_width() {
+        // Preserved, two spaces after "ab" both go: Chrome 154 underlines
+        // `aaa  bbbbbbbbb` in `pre` only under "aaa". The second space is a
+        // space of its own, so the box has two pieces on the line, "ab " kept
+        // whole and drawn 16 wide, and "cdefghij" of which nothing is.
+        let pre = TextStyle {
+            white_space: WhiteSpace::Pre,
+            ..TextStyle::default()
+        };
+        let items = [InlineItem::Text {
+            box_id: box_id(1),
+            text: "ab  cdefghij".to_owned(),
+            style: pre.clone(),
+        }];
+        let layout = lay_out_aligned(&items, Some(47.0), TextAlignment::Start, &pre, &BlockFont);
+        let truncated = truncate(&items, &layout, 47.0, &pre, &BlockFont);
+        assert_eq!(
+            truncated.cuts,
+            vec![
+                (
+                    box_id(1),
+                    Cut {
+                        line: 0,
+                        end: 4,
+                        width: 0.0
+                    }
+                ),
+                (
+                    box_id(1),
+                    Cut {
+                        line: 0,
+                        end: 3,
+                        width: 16.0
+                    }
+                ),
+            ],
+        );
+        assert_eq!(truncated.hidden_spaces, vec![(box_id(1), 3)]);
+        // A cut that keeps only white space keeps no letters at all.
+        let truncated = ended(&[text(1, "abcd"), text(2, " efghij")], 47.0);
+        assert_eq!(
+            truncated.cuts,
+            vec![(
+                box_id(2),
+                Cut {
+                    line: 0,
+                    end: 1,
+                    width: 0.0
+                }
+            )],
+            "{truncated:?}",
+        );
     }
 
     #[test]

@@ -12,8 +12,9 @@
    - #wraps: only the line that overflows — the long word — is ended.
    - #visible: `overflow: visible`, so nothing is hidden and nothing ended.
    - #coloured: the "…" is the block's blue, not the text's red.
-   - #underlined: the underline runs under what is kept, the space too, and
-     not under the "…". */
+   - #underlined: the underline runs under the letters kept, "aaaa", and not
+     under the space after them, where what is kept ends, nor under the "…"
+     (queue item 583; chrome.png beside the case is Chrome's picture). */
 body { margin: 8px; background: #ffffff; color: #000000; font-size: 16px }
 div {
   width: 61px;

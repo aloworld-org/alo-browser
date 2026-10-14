@@ -184,12 +184,18 @@ impl LayoutTree {
     ///
     /// The piece is where it was and as wide as it was; this is what paint
     /// leaves out, never what layout measured.
+    ///
+    /// A box can have two pieces on one line — preserved spaces after a
+    /// piece, one of them a space of its own between it and the next — so a
+    /// cut is the piece's whose text holds where it ends, not merely its
+    /// box's on its line.
     pub fn cut(&self, fragment: &Fragment) -> Option<Cut> {
+        let range = fragment.text.as_ref()?;
         self.ellipses
             .cuts
             .get(&fragment.box_id)?
             .iter()
-            .find(|cut| cut.line == fragment.line)
+            .find(|cut| cut.line == fragment.line && (range.start..=range.end).contains(&cut.end))
             .copied()
     }
 
@@ -261,9 +267,12 @@ impl LayoutTree {
             }
             alo_box::BoxKind::Text { text, .. } => {
                 let mut description = format!("text {text:?}");
-                // What an ellipsis left of it, piece by piece.
+                // What an ellipsis left of it, piece by piece. A piece kept
+                // whole is cut only short of its space's decoration (queue
+                // item 583), and its text is all drawn.
                 for fragment in self.fragments(id) {
                     if let (Some(cut), Some(range)) = (self.cut(fragment), fragment.text.clone())
+                        && cut.end < range.end
                         && let Some(drawn) = text.get(range.start..cut.end)
                     {
                         let _ = write!(description, " · drawn {drawn:?}");
@@ -371,6 +380,51 @@ mod tests {
         assert!(tree.is_empty());
         assert_eq!(tree.len(), 0);
         assert_eq!(tree.viewport(), Size::ZERO);
+    }
+
+    #[test]
+    fn each_of_a_boxs_pieces_on_one_line_is_found_its_own_cut() {
+        // `pre`'s "ab  cdefghij": "ab " and "cdefghij" are two pieces of one
+        // box on one line, a space of its own between them. Nothing of the
+        // second is kept and the first is drawn short of its space (queue
+        // item 583); each is found the cut whose end its text holds.
+        let id = alo_box::BoxId::from_index_for_tests(1);
+        let piece = |text: core::ops::Range<usize>| Fragment {
+            box_id: id,
+            rect: Rect::new(0.0, 0.0, 16.0, 16.0),
+            text: Some(text),
+            line: 0,
+            space: 0.0,
+        };
+        let (none, short) = (
+            Cut {
+                line: 0,
+                end: 4,
+                width: 0.0,
+            },
+            Cut {
+                line: 0,
+                end: 3,
+                width: 16.0,
+            },
+        );
+        let mut ellipses = Ellipses::default();
+        ellipses.cuts.insert(id, vec![none, short]);
+        let tree = LayoutTree {
+            ellipses,
+            ..LayoutTree::default()
+        };
+        assert_eq!(tree.cut(&piece(0..3)), Some(short));
+        assert_eq!(tree.cut(&piece(4..12)), Some(none));
+        // On another line, or holding neither end, nothing is cut.
+        assert_eq!(
+            tree.cut(&Fragment {
+                line: 1,
+                ..piece(0..3)
+            }),
+            None
+        );
+        assert_eq!(tree.cut(&piece(5..12)), None);
     }
 
     #[test]

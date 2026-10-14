@@ -34765,3 +34765,111 @@ gains 583.
 279 queue items are open (582 closed; 583 added). The next unused queue
 number is **584** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+---
+
+## Iteration 346 — queue item 583: before an ellipsis, a line stops at the last letter kept
+
+**Read first.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s head
+and stage 2's window line, iteration 345's entry, queue items 580, 582
+and 583, `docs/features.md`' `text-decoration` paragraph, and
+`ellipsis.rs`' measured rules (it is the feature contract for
+`text-overflow`; ADR 0057's *Measured since* covers decorations). No
+`AGENTS.md` exists here.
+
+**Why 583.** It is the first open item in the file whose dependencies are
+done: the items before it wait as iterations 318–345 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person), and 583 depends on nothing, is measured, and names its
+feature and closing condition.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=4`, without `--disable-gpu`, `DejaVu Sans` regular and bold by
+`@font-face`, the source not read): in 61 px, `aaaa bbbbbbbbb`,
+`aaaa <span>bbbbbbbbb</span>` and `aaaa <b>bbbbbbbbb</b>` are underlined
+8..47, `pre`'s `aaa  bbbbbbbbb` 8..37, a hidden inline-block after
+`aaaa ` 8..47; in 110 px a kept inline-block between `aaaa ` and ` b…`
+leaves both spaces underlined (8..52 and 82..97). So a line stops at the
+last letter kept, however many spaces follow it and whichever piece they
+are in, and runs on under a space that something kept comes after.
+
+**Built.**
+- `alo-layout`'s `ellipsis.rs`: `Cut::width` is the kept letters without
+  the white space they end in (`letters`, from the piece's own cluster
+  ends); a piece kept whole that ends in white space and is the last
+  thing kept gets a cut of its own at its letters when a cut falls after
+  it (`whole`, cleared when a box or a cut piece's letters are kept
+  after it). The "…" stands where it stood.
+- `tree.rs`' `LayoutTree::cut` finds the cut whose end the piece's text
+  holds, not merely the first for its box and line: a box can have two
+  pieces on one line, a space of its own between them (the `pre` unit
+  layout has exactly that). Its `layout.txt` dump names "drawn" only for
+  a piece something is left out of, so no `layout.txt` moved
+  (`atomic-in-nowrap-line` did until that, with `· drawn "ab "`, its
+  whole text).
+- `text-overflow-ellipsis`: Chrome's `chrome.png` beside it (RGBA), the
+  wrong comment in its `style.css` corrected.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on it with
+one foreground `until` loop, nothing else running: **`GATE EXIT 0`, "The
+gate is met. (10 of 10 steps)"**, 4,848 tests run, 4,848 passed. Only
+this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: `ellipsis.rs` — `a_space_before_the_cut_is_kept`
+  now 24 wide; `a_piece_kept_whole_and_last_is_drawn_short_of_its_space`
+  (cut at 24 in 47, the "…" still at 32; nothing for it in 56; nothing
+  when a box is kept after it); `every_space_where_what_is_kept_ends_is_
+  left_out_of_a_cuts_width` (`pre`'s two spaces, 16 wide; a cut keeping
+  only a space, 0). `tree.rs` — `each_of_a_boxs_pieces_on_one_line_is_
+  found_its_own_cut`. `an_ellipsis.rs` — underlines 39.21875 and
+  29.414063 wide through the real pipeline.
+- Reference renders: `a_line_under_what_an_ellipsis_keeps.rs` reads
+  Chrome's `chrome.png` and ours as `decoration_rows` does: Chrome's one
+  row, 244, runs 8..47, and ours is on it. With
+  `ALO_UPDATE_REFERENCES=1`, references backed up first, only
+  `text-overflow-ellipsis` moved: one `fill` line in `display.txt` and
+  six pixels of `render.png`, 193.9 levels from Chrome's on average
+  before and 1.3 after. A scratchpad probe of the six measured lines drew
+  every one on Chrome's pixels (it was a temporary `alo-corpus` example,
+  removed before the gate).
+- Mutation, restored from copies (`cmp` confirmed): the old width (`pen`)
+  fails the corpus test (row 244: ours 8..52) and the unit tests; the
+  whole piece never cut fails two unit tests and a paint test; a kept box
+  not clearing it fails a unit test; the old box-and-line lookup fails the
+  `tree.rs` test. That last mutation survived the paint tests at first:
+  the real pipeline lays a non-wrapping `pre` line as one piece, so only
+  the unit layout has two pieces of one box on a line; the `tree.rs` test
+  was written for it.
+- Hostile input: nothing new reads bytes from outside; `letters` reads
+  only `get` and a cluster list, never indexes.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: what an ellipsis keeps stays
+  `ellipsis.rs`'; finding a piece's cut stays `tree.rs`'; paint unchanged.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, `ellipsis.rs`' measured rules, the
+  queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 583 is ticked with a *Done* paragraph. Nothing found.
+
+**Roadmap.** Stage 2's window line: the Built clause names the stop at
+the last letter kept (583, done, `Cut::width`); the owed clause loses
+583 (and a stray "an" left before it).
+
+**Unresolved obligations.**
+- 581 is next by order; 463 waits on a person; 576 (an ADR) and 577;
+  573–575, 568–571 as before; 560 and 564 on 502 behind 501; 572 on a
+  person.
+- The "…" after a space that is a box of its own still stands where the
+  text before the space ended (`ellipsis.rs`, *What is not here*).
+- Whether a frozen picture in RGB should be read is still not an item.
+- No claim about speed is made.
+
+278 queue items are open (583 closed; none added). The next unused queue
+number is **584** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.
