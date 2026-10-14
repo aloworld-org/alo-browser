@@ -14550,7 +14550,7 @@ What stage 2's exit gate actually measures: a person using it.
   two, and every plain pixel is Chrome's at both. Found on the way: 602
   and 603.
 
-- [ ] **596. Dashes and dots along a rounded corner, as Chrome places
+- [x] **596. Dashes and dots along a rounded corner, as Chrome places
   them.** *Found building 592 (iteration 356). Feature: `docs/features.md`
   stage 2, patterned borders. Needs measuring.* `border.rs` places a
   dash or a dot on its straight side and lets the ring clip it where the
@@ -14563,6 +14563,38 @@ What stage 2's exit gate actually measures: a person using it.
   measured first. *Closes when:* the rule is written down, built, and a
   frozen case of rounded dashed and dotted borders is Chrome's at one and
   at two.
+
+  **Done (iteration 360).** Measured in Chrome 154 at one, two and eight
+  on 49 probe boxes (iteration 360's scratchpad `m596/`), the source not
+  read. A dashed or dotted side with a curve inside either of its corners
+  — the padding box's, so a radius no larger than the border leaves the
+  side straight, on a box whose other corners are round too — lays its
+  pieces along the border's centre line (the border box brought in by
+  half of each side's width), one closed line clockwise from where the
+  top-left curve meets the top, in its own pattern, kept inside the ring
+  and its own wedge. A dash is two widths and a gap one, three and two
+  under three device pixels; of the two counts nearest that gap the
+  nearer is taken, so a whole number goes round; a line no longer than two
+  dashes is drawn whole. A dot is round, fitted the same way less a
+  hundredth of a device pixel, and square — a dash a width long, a width
+  apart, not fitted — at three device pixels or fewer. The first dash is
+  laid last, joined to the one before when that reaches the line's end.
+  The line is measured as Chrome measures it: each corner a conic halved
+  until its middle is within half a device pixel of its chord, a distance
+  inside a chord found as far through its parameter
+  (`alo-paint`'s `contour.rs`; the exact arc length left the 4/10 dotted
+  box 9 and 26 pixels off at one and two, this none). A dash is swept 2.2
+  times the widest of its side and those beside it, as the true sweep of
+  its normals (`sweep.rs`): the rented stroker leaves the middle of a
+  curve tighter than half its width open, where Chrome's covers it (a
+  22 px box with a 10 px dashed border is a solid disc with a 2 px hole).
+  The spacing is `centre_line.rs`'. `dashes-and-dots-round-a-corner`,
+  fifteen boxes, is Chrome's in every plain pixel at one and at two but
+  one at each (2,112 and 10,707 before; the 44 × 40 box above was 287),
+  and its dashes cross five tops within a device pixel of Chrome's at
+  eight. Cut: **604** (the one pixel, and a stroke round a curve tighter
+  than it), **605** (a centre line on half device pixels at one) and
+  **606** (Chrome's spacing on a straight side).
 
 - [ ] **597. A checkbox and a radio drawn at a fractional scale.** *Cut
   from 593 (iteration 357; ADR 0057, Measured since). Feature:
@@ -14660,6 +14692,67 @@ What stage 2's exit gate actually measures: a person using it.
   as one property in the cascade — whichever is written later or wins by
   origin and specificity decides — and a frozen case of such blocks is
   Chrome's in numbers and pixels at one and at two.
+
+- [ ] **604. A dash's stroke round a curve tighter than it, as Chrome's
+  stroker draws it.** *Cut from 596 (iteration 360). Feature:
+  `docs/features.md` stage 2, patterned borders. Needs measuring.*
+  `alo-paint`'s `sweep.rs` covers what a dash's normals cover, and where
+  the stroke's half width — 1.1 times the widest of the side and those
+  beside it — is more than the centre line's radius of curvature, Chrome
+  154's own stroker departs from that: `dashes-and-dots-round-a-corner`'s
+  `uneven-dashed` (4 px top, 10 px sides, corners of 14; the top's curve
+  6.75 round where its stroke is 11 each side) has the pixel before the
+  top's first dash blue in Chrome and white here, (28, 16) at one and
+  (57, 30) at two, in that case's test as `NOT_YET`; a 24 × 24 box with a
+  10 px dashed border and corners of 12 has two dashes of 121° and gaps
+  of 59° round its 7 px centre line in Chrome, where the spacing gives
+  164° and 16°, and a 30 × 30 box with corners of 15 has 164° and 16° in
+  Chrome where the spacing gives 115° and 65° (iteration 360's scratchpad
+  `m596/case4/`). *Closes when:* how Chrome's stroke covers a dash round
+  a curve tighter than half its width is measured at one, two and eight,
+  built, `NOT_YET` is empty, and a frozen case of such boxes is Chrome's
+  in every plain pixel at one and at two.
+
+- [ ] **605. A rounded border's centre line on half device pixels at one.**
+  *Cut from 596 (iteration 360). Feature: `docs/features.md` stage 2,
+  patterned borders. Needs measuring.* A side an odd number of device
+  pixels wide puts the centre line on half pixels, and at one Chrome 154
+  spaces some such borders as though the line were longer: a 44 × 40 box
+  with a 3 px dashed border and corners of 12 takes 16 dashes where the
+  line's 138 px gives 15, needing at least 1.4 px more; a 100 × 60 box
+  with a 5 px border, solid sides and dashed top and bottom, corners of
+  16, takes 19 where 18 is nearer, needing 0.5 more; but a 100 × 60 box
+  with a 3 px dashed border and corners of 12 takes the count its length
+  gives, so no more than 2.4 more. Snapping the line's rectangle out,
+  in, or rounding its edges either way each fitted some boxes and broke
+  others. A 1 px dashed border round a 44 × 40 box with corners of 10,
+  a 3 px dotted border round a 100 × 60 box with corners of 12 (square
+  dots 6 apart, from 1 to 3 px off round each corner), and a 3 px dashed
+  border round a 14 × 14 box with corners of 5 differ the same way. At
+  two each is Chrome's. *Closes when:* Chrome's centre line, or its
+  length, for a border on half device pixels is measured, built, and a
+  frozen case of those boxes is Chrome's in every plain pixel at one.
+
+- [ ] **606. Dashes and dots on a straight side, spaced as Chrome spaces
+  them.** *Cut from 596 (iteration 360). Feature: `docs/features.md`
+  stage 2, patterned borders. Needs measuring.* A dashed side with no
+  curve inside its corners is spaced by `pattern.rs`' own rule — dashes
+  three widths long with equal gaps — where Chrome 154 draws each such
+  side as an open line from corner to corner: dashes two widths and gaps
+  about one (three and two under three device pixels), as many dashes as
+  fit with a gap between each two, of the two counts whose gaps are
+  nearest one width the nearer (a 100 px side 4 px wide: nine dashes of 8
+  with gaps of 3.5; a 60 px side: five of 8 with gaps of 5). A 100 × 60
+  box with a 4 px dashed border differs in 544 plain pixels at one and
+  2,368 at two; a box rounded only at its bottom right, whose top and
+  left are straight, in 272 and 1,184. Straight dotted sides measured so
+  far (4 px and 2 px, 100 × 60) are Chrome's already, but a 44 × 40 box
+  with one corner of 16 differs in 13 at two. How a straight side's
+  pattern meets a corner, and a curved side's, is measured with it.
+  *Closes when:* Chrome's spacing on a straight dashed and dotted side is
+  built in `pattern.rs`, and `border-patterns` and a frozen case of
+  square and partly rounded patterned boxes are Chrome's in every plain
+  pixel at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

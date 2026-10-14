@@ -41,10 +41,21 @@
 //!   edge's corners are the border box's less two thirds of the border — so
 //!   both lines follow a rounded corner.
 //!
-//! Along a rounded corner a dash or a dot is still placed on the straight
-//! side, and the curve clips it; spacing them along the curve itself is not
-//! done.
+//! # Round a rounded corner
+//!
+//! A dashed or dotted side with a curve inside either of its corners — the
+//! padding box's corner, so a radius no larger than the border leaves the
+//! side straight — is not drawn as above. Its dashes or dots are laid round
+//! the whole box along the border's centre line, in that side's own
+//! pattern, and kept inside the ring and the side's wedge
+//! ([`crate::centre_line`]), which is how Chrome 154 was measured to draw
+//! them (queue item 596). Sides whose pattern is the same shape and colour
+//! are one fill inside their wedges together, so a border of one width and
+//! colour has no seam on its mitres. A side between two square inner
+//! corners is drawn straight, as on a square box, even when the box's other
+//! corners are round; so is Chrome's.
 
+use crate::centre_line;
 use crate::corner::{Corners, ring, rounded_rectangle};
 use crate::display::DisplayItem;
 use crate::fill_rule::FillRule;
@@ -121,16 +132,20 @@ pub struct DrawnSide {
 /// stop where it begins. A side with no width is not drawn whatever it asks
 /// for, and its neighbours take the corner.
 ///
-/// In four layers, each one clip and one fill per colour: the sides drawn
+/// In five layers, each one clip and one fill per colour: the sides drawn
 /// across their whole width (solid, the toned sides' inner colour, and
-/// dashes); the toned sides' outer halves; the two lines of `double`; and
-/// the dots.
+/// straight dashes); the toned sides' outer halves; the two lines of
+/// `double`; straight dots; and dashes and dots laid round a curve, each
+/// pattern inside its own wedges. `scale` is the screen's, in device pixels
+/// to the CSS pixel, which decides how finely a curve is measured and how
+/// thin a side is.
 pub fn draw_mitred(
     box_id: BoxId,
     border_box: Rect,
     corners: Corners,
     widths: Edges,
     sides: &[DrawnSide],
+    scale: f32,
     out: &mut Vec<DisplayItem>,
 ) {
     let sides: Vec<DrawnSide> = sides
@@ -142,13 +157,24 @@ pub fn draw_mitred(
         return;
     }
     let whole = ring(border_box, corners, widths);
+    // A dashed or dotted side with a curve inside either of its corners is
+    // laid round the centre line instead.
+    let inner = corners.fitted_to(border_box.size).inside(widths);
+    let along_curve = |drawn: &DrawnSide| {
+        matches!(drawn.line, Line::Dashed | Line::Dotted) && curves_inside(inner, drawn.side)
+    };
+    let straight: Vec<DrawnSide> = sides
+        .iter()
+        .copied()
+        .filter(|drawn| !along_curve(drawn))
+        .collect();
 
     // Across the whole width, inside the ring the border makes: the clip is
     // what makes a wedge a side. Where a dash is cut off on a mitre, the
     // point is put into both wedges that meet there (see `joined`).
-    let joints = joints(&sides, border_box, widths);
+    let joints = joints(&straight, border_box, widths);
     let mut across = Vec::new();
-    for drawn in &sides {
+    for drawn in &straight {
         let own = wedge(drawn.side, border_box, widths);
         let shape = match drawn.line {
             Line::Dashed => dashed(drawn.side, &own, &joints, border_box, widths),
@@ -193,7 +219,7 @@ pub fn draw_mitred(
 
     // The dots, inside the ring and inside the wedges of their colour.
     let mut dots: Vec<(Rgba, Path, Path)> = Vec::new();
-    for drawn in sides.iter().filter(|drawn| drawn.line == Line::Dotted) {
+    for drawn in straight.iter().filter(|drawn| drawn.line == Line::Dotted) {
         let shape = dotted(drawn.side, border_box, widths);
         let owned = polygon_path(&wedge(drawn.side, border_box, widths));
         if let Some((_, held, wedges)) = dots.iter_mut().find(|(color, ..)| *color == drawn.color) {
@@ -212,6 +238,86 @@ pub fn draw_mitred(
             clipped(box_id, &wedges, &[(color, shape)], out);
         }
         out.push(DisplayItem::PopClip);
+    }
+
+    let curved: Vec<DrawnSide> = sides
+        .iter()
+        .copied()
+        .filter(|drawn| along_curve(drawn))
+        .collect();
+    draw_round(box_id, (border_box, corners, widths), &curved, scale, out);
+}
+
+/// Sides laid round a rounded box, each side's pattern along the whole
+/// centre line, kept inside the ring and its own wedge. Sides whose pattern
+/// is the same shape and colour are one fill inside their wedges together,
+/// so a border of one width and colour has no seam on its mitres.
+fn draw_round(
+    box_id: BoxId,
+    (border_box, corners, widths): (Rect, Corners, Edges),
+    sides: &[DrawnSide],
+    scale: f32,
+    out: &mut Vec<DisplayItem>,
+) {
+    if sides.is_empty() {
+        return;
+    }
+    let line = centre_line::centre_line(border_box, corners, widths, scale);
+    let mut curved: Vec<(Rgba, Path, Path)> = Vec::new();
+    let mut made: Vec<((Line, u32, u32, Rgba), usize)> = Vec::new();
+    for drawn in sides {
+        let width = width_of(widths, drawn.side);
+        let reach = beside(drawn.side)
+            .into_iter()
+            .map(|other| width_of(widths, other))
+            .fold(width, f32::max);
+        let key = (drawn.line, width.to_bits(), reach.to_bits(), drawn.color);
+        let owned = polygon_path(&wedge(drawn.side, border_box, widths));
+        if let Some((_, at)) = made.iter().find(|(held, _)| *held == key) {
+            if let Some((_, _, wedges)) = curved.get_mut(*at) {
+                wedges.extend(&owned);
+            }
+            continue;
+        }
+        let shape = match drawn.line {
+            Line::Dashed => centre_line::dashes(&line, width, reach, scale),
+            _ => centre_line::dots(&line, width, reach, scale),
+        };
+        if let Some(shape) = shape {
+            made.push((key, curved.len()));
+            curved.push((drawn.color, shape, owned));
+        }
+    }
+    if !curved.is_empty() {
+        out.push(DisplayItem::PushClip {
+            box_id,
+            path: ring(border_box, corners, widths),
+        });
+        for (color, shape, wedges) in curved {
+            clipped(box_id, &wedges, &[(color, shape)], out);
+        }
+        out.push(DisplayItem::PopClip);
+    }
+}
+
+/// Whether the inside of either of a side's corners is curved: `inner` is
+/// the padding box's corners.
+fn curves_inside(inner: Corners, side: Side) -> bool {
+    let round = |(across, down): (f32, f32)| across > 0.0 || down > 0.0;
+    let (first, second) = match side {
+        Side::Top => (inner.top_left, inner.top_right),
+        Side::Right => (inner.top_right, inner.bottom_right),
+        Side::Bottom => (inner.bottom_right, inner.bottom_left),
+        Side::Left => (inner.bottom_left, inner.top_left),
+    };
+    round(first) || round(second)
+}
+
+/// The two sides that meet a side at its corners.
+fn beside(side: Side) -> [Side; 2] {
+    match side {
+        Side::Top | Side::Bottom => [Side::Left, Side::Right],
+        Side::Left | Side::Right => [Side::Top, Side::Bottom],
     }
 }
 
@@ -420,6 +526,7 @@ mod tests {
                     color: Rgba::TRANSPARENT,
                 },
             ],
+            1.0,
             &mut out,
         );
         assert!(out.is_empty(), "{out:?}");
@@ -440,6 +547,7 @@ mod tests {
                 line: Line::Groove,
                 color,
             }),
+            1.0,
             &mut out,
         );
         let kinds: Vec<String> = out
@@ -588,6 +696,7 @@ mod tests {
             Corners::all(0.0),
             Edges::all(4.0),
             &sides,
+            1.0,
             &mut out,
         );
         assert_eq!(
@@ -605,6 +714,7 @@ mod tests {
             Corners::all(0.0),
             Edges::all(6.0),
             &all_sides(Line::Double, grey(0)),
+            1.0,
             &mut out,
         );
         assert_eq!(kinds(&out), ["clip", "fill", "pop"]);
@@ -666,6 +776,7 @@ mod tests {
                     color,
                 },
             ],
+            1.0,
             &mut out,
         );
         assert_eq!(
@@ -738,5 +849,77 @@ mod tests {
             checked += 1;
         }
         assert!(checked > 0, "no dash was cut off on the mitre");
+    }
+
+    fn rounded(widths: Edges, sides: &[DrawnSide], corners: Corners) -> Vec<DisplayItem> {
+        let mut out = Vec::new();
+        draw_mitred(
+            BoxId::from_index_for_tests(0),
+            Rect::new(0.0, 0.0, 44.0, 40.0),
+            corners,
+            widths,
+            sides,
+            1.0,
+            &mut out,
+        );
+        out
+    }
+
+    #[test]
+    fn a_rounded_border_of_one_pattern_is_one_fill_inside_its_wedges_and_its_ring() {
+        let out = rounded(
+            Edges::all(4.0),
+            &all_sides(Line::Dashed, grey(0)),
+            Corners::all(14.0),
+        );
+        assert_eq!(kinds(&out), ["clip", "clip", "fill", "pop", "pop"]);
+        // The four wedges together, as the inner clip.
+        let Some(DisplayItem::PushClip { path, .. }) = out.get(1) else {
+            panic!("the wedges clip the dashes");
+        };
+        assert_eq!(outlines(path).len(), 4);
+    }
+
+    #[test]
+    fn sides_of_two_widths_draw_two_patterns() {
+        let out = rounded(
+            Edges {
+                top: 4.0,
+                right: 10.0,
+                bottom: 4.0,
+                left: 10.0,
+            },
+            &all_sides(Line::Dotted, grey(0)),
+            Corners::all(14.0),
+        );
+        assert_eq!(
+            kinds(&out),
+            ["clip", "clip", "fill", "pop", "clip", "fill", "pop", "pop"]
+        );
+    }
+
+    #[test]
+    fn a_side_between_two_square_inner_corners_stays_straight() {
+        // Corners of 3 inside a border of 4: the padding box is square, so
+        // each side is its wedge cut across, as on a square box.
+        let out = rounded(
+            Edges::all(4.0),
+            &all_sides(Line::Dashed, grey(0)),
+            Corners::all(3.0),
+        );
+        assert_eq!(kinds(&out), ["clip", "fill", "pop"]);
+        // Only the top-left corner round inside: the top and the left go
+        // round the curve, the right and the bottom are straight.
+        let corners = Corners {
+            top_right: (0.0, 0.0),
+            bottom_right: (0.0, 0.0),
+            bottom_left: (0.0, 0.0),
+            ..Corners::all(16.0)
+        };
+        let out = rounded(Edges::all(4.0), &all_sides(Line::Dashed, grey(0)), corners);
+        assert_eq!(
+            kinds(&out),
+            ["clip", "fill", "pop", "clip", "clip", "fill", "pop", "pop"]
+        );
     }
 }

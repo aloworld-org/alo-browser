@@ -1,0 +1,24 @@
+/* Dashed and dotted borders with rounded corners (queue item 596): one
+   width and two, one colour and four, circles and an ellipse, thin sides
+   whose dots are square at one and round at two, small boxes, and two
+   boxes laid out at tenths of a pixel. */
+body { margin: 0; background: #ffffff }
+.b { position: absolute; box-sizing: border-box; width: 44px; height: 40px;
+  border-color: #1d4ed8 }
+.uneven-dashed { left: 15px; top: 15px; border-style: dashed; border-width: 4px 10px; border-radius: 14px }
+.uneven-dotted { left: 75px; top: 15px; border-style: dotted; border-width: 4px 10px; border-radius: 14px }
+.solid-beside-dashed { left: 135px; top: 15px; border-style: solid dashed; border-width: 4px 10px; border-radius: 14px }
+.thin-dashed { left: 195px; top: 15px; border-style: dashed; border-width: 2px; border-radius: 12px }
+.thin-dotted { left: 255px; top: 15px; border-style: dotted; border-width: 2px; border-radius: 12px }
+.wide-dotted { left: 315px; top: 15px; border-style: dotted; border-width: 6px; border-radius: 20px }
+.ellipse { left: 375px; top: 15px; border-style: dashed; border-width: 4px; border-radius: 20px / 10px }
+.thick { left: 435px; top: 15px; border-style: dashed; border-width: 10px; border-radius: 20px }
+.four { left: 15px; top: 75px; border-style: dotted dashed; border-width: 6px 3px 2px 8px;
+  border-radius: 18px 8px 22px 12px; border-color: #1d4ed8 #c0392b #16a34a #000000 }
+.two-colours { left: 75px; top: 75px; border-style: dotted; border-width: 4px 10px; border-radius: 14px;
+  border-color: #c0392b #1d4ed8 }
+.small-dashed { left: 135px; top: 75px; width: 20px; height: 16px; border-style: dashed; border-width: 3px; border-radius: 6px }
+.small-dotted { left: 195px; top: 75px; width: 12px; height: 12px; border-style: dotted; border-width: 4px; border-radius: 6px }
+.small-thin { left: 255px; top: 75px; width: 24px; height: 20px; border-style: dotted; border-width: 2px; border-radius: 4px }
+.tenths { left: 315.3px; top: 75.6px; border-style: dashed; border-width: 4px; border-radius: 16px }
+.tenths-dotted { left: 375.7px; top: 75.2px; border-style: dotted; border-width: 5px; border-radius: 15px }

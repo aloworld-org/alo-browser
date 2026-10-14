@@ -2583,3 +2583,20 @@ no other case moved. Found: **602** (a style with no width is `medium`)
 and **603** (`border` written after a longhand does not override it). 285
 queue items are open (595 closed; 602 and 603 added). The next unused
 queue number is 604 and the next unused ADR 0058.
+
+Iteration 360 closed queue item 596: a dashed or dotted side with a curve
+inside either of its corners is laid along the border's centre line, one
+closed line from where the top-left curve meets the top, in the side's own
+pattern and inside its own wedge, as Chrome 154 was measured laying it on
+49 probe boxes at one, two and eight. The line is measured as coarsely as
+Chrome measures it (`alo-paint`'s `contour.rs`), the dashes and dots are
+spaced to go round it a whole number of times (`centre_line.rs`), and a
+dash is swept as the true reach of its normals, which covers the middle of
+a curve tighter than its half width where the rented stroker left it open
+(`sweep.rs`). `dashes-and-dots-round-a-corner`, fifteen boxes, is Chrome's
+in every plain pixel at one and at two but one pixel at each, where 2,112
+and 10,707 differed. Cut: **604** (a stroke round a curve tighter than
+it), **605** (a centre line on half device pixels at one) and **606**
+(Chrome's spacing on a straight side). 287 queue items are open (596
+closed; 604, 605 and 606 added). The next unused queue number is 607 and
+the next unused ADR 0058.

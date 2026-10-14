@@ -104,7 +104,15 @@ pub fn draw(
     }
 
     let mut drawn = Vec::new();
-    draw_mitred(box_id, area, Corners::SQUARE, widths, sides, &mut drawn);
+    draw_mitred(
+        box_id,
+        area,
+        Corners::SQUARE,
+        widths,
+        sides,
+        scale,
+        &mut drawn,
+    );
     if drawn.is_empty() {
         return;
     }
@@ -453,6 +461,7 @@ mod tests {
                 Corners::SQUARE,
                 Edges::all(2.0),
                 &all_sides(line),
+                1.0,
                 &mut whole,
             );
             assert!(!whole.is_empty(), "{line:?} draws");

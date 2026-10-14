@@ -723,7 +723,15 @@ impl Builder<'_> {
             ..geometry.border
         };
         let sides = Self::drawn_sides(style);
-        border::draw_mitred(id, border_box, corners, widths, &sides, out);
+        border::draw_mitred(
+            id,
+            border_box,
+            corners,
+            widths,
+            &sides,
+            self.styles.scale(),
+            out,
+        );
     }
 
     /// The border of a box with a legend in its band, from the box as laid

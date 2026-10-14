@@ -386,10 +386,15 @@ tones' average: 49 off at worst there (518).
 `border-patterns`): dashes about three widths long with equal gaps, and round
 dots a width across, each spaced so a side starts and ends on one; `double` as
 two lines a third of the width each, both following a rounded corner. The
-spacing is ours, which CSS allows. Along a rounded corner a dash or a dot is
-placed on the straight side and clipped by the curve rather than spaced along
-it, and where sides of different widths meet, a corner dot is clipped to its
-own side's share of the corner. A side is drawn with at most 16 384 dashes or
+spacing is ours, which CSS allows, on a straight side; Chrome's is
+measured and not built (606). Round a rounded corner each side's dashes or
+dots are laid along the border's centre line, as Chrome 154 lays them (596):
+`dashes-and-dots-round-a-corner`, fifteen boxes, is Chrome's in every plain
+pixel at one and at two but one at each, where Chrome's stroke round a curve
+tighter than it reaches back before the top's first dash (604); a centre
+line on half device pixels at one is spaced otherwise by Chrome (605).
+Where sides of different widths meet on a square box, a corner dot is
+clipped to its own side's share of the corner. A side is drawn with at most 16 384 dashes or
 dots; past that they are spaced further apart. Beside a fieldset's legend
 each is cut where the legend is (above).
 
@@ -486,8 +491,10 @@ Chrome's in every plain pixel at one and at two. A border whose sides
 differ in width or colour fills its rounded corners to the inner curve,
 one colour as one ring and differing sides split on the mitre (592);
 `borders-side-by-side` is Chrome's in every plain pixel at one and at two.
-A dashed or dotted side along a rounded corner is placed on the straight
-side and clipped, where Chrome places its pieces otherwise (596). A side
+A dashed or dotted side round a rounded corner is laid along the
+border's centre line, as Chrome's (596); `dashes-and-dots-round-a-corner`
+is Chrome's in every plain pixel at one and at two but one pixel at each
+(604). A side
 whose style is `none` or `hidden`, or given none, has no width however its
 width was written (595); `borders-with-a-side-none` is Chrome's in numbers
 and in every plain pixel at one and at two. A style written with no width

@@ -36299,3 +36299,121 @@ the case, owing 602 and 603.
 285 queue items are open (595 closed; 602 and 603 added). The next unused
 queue number is **604** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 360 — queue item 596: dashes and dots round a rounded corner
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 1's paint line on whole device pixels, whose Owed list named 596),
+iteration 359's entry, queue items 596–603, 591 and 179,
+`docs/features.md` stage 2's patterned-borders line, `docs/conformance.md`
+on patterned borders, `alo-paint`'s `border.rs`, `pattern.rs`, `mitre.rs`,
+`corner.rs`, `stroke.rs`, `raster.rs`, `banded.rs` and `build.rs`. No
+`AGENTS.md` exists here. The item names no ADR; ADR 0057 (whole device
+pixels) bears on the case's pictures at two and was not changed.
+
+**Why 596.** The first open item whose dependencies are done: those before
+it wait as iterations 358 and 359 recorded (463 and 572 on a person, 560
+and 564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and 559
+on pages, 591 on a page that draws an outline). 596 depends on nothing and
+names its feature and closing condition.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1`, `=2`
+and `=8`, screenshots without `--disable-gpu`; the source not read;
+scratchpad `m596/`): 49 probe boxes on four pages (`p1.html`, `p2.html`,
+`case3/`, `case4/`), run lengths along rows and arcs (`runs.py`,
+`arc.py`) and per-box plain-pixel comparison (`cmp.py`) against this
+engine's renders through a temporary `alo-corpus` example (removed). A side
+with a curve inside either of its corners lays its pieces along the
+border's centre line, one closed line from where the top-left curve meets
+the top, clockwise, in its own pattern, inside its own wedge; a side between
+two square inner corners is drawn straight even on a partly rounded box.
+Dash 2w and gap w (3w and 2w under three device pixels), the count whose
+gap is nearer w; round dots fitted the same way less 0.01 device px; square
+unfitted dots at three device pixels or fewer; a line no longer than two
+dashes drawn whole (a 22 × 22 box with a 10 px border). The line's length
+and where a distance falls on it fit Chrome's coarse conic measure (half a
+device pixel) at one and two where an exact arc length did not (the 4/10
+dotted box: 9 and 26 plain pixels off exact, none coarse). Tried and
+rejected: a scale-free tolerance, and four ways of snapping the centre
+line's rectangle (each fixed some boxes and broke others; now item 605).
+
+**Built.** `alo-paint`'s new `contour.rs` (the centre line as lines and
+quarter-ellipse conics, measured Chrome's way, cut into stations with
+outward normals, dropping slivers under a 4096th of a device pixel or a
+few `f32` steps), `centre_line.rs` (the centre line, Chrome's spacing, dots
+as circles, dashes laid with the first laid last) and `sweep.rs` (a square-
+ended stroke as the union of its normals, split where inner normals cross,
+mitred at a square corner — the rented stroker left the middle of a curve
+tighter than half its width open, which Chrome covers). `border.rs`'
+`draw_mitred` takes the screen's scale and draws such sides in a new layer
+(`draw_round`), grouping sides of one pattern and colour into one fill
+inside their wedges; `banded.rs` and `build.rs` pass the scale. Doc
+comments say all of it.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy` on `alo-paint`
+and `alo-corpus` clean first (six findings fixed, among them exact float
+asserts). `scripts/gate.sh` was started in the foreground; it ran past the
+tool's 600 s limit and was moved to the background by the harness, and the
+next call waited on it with an until-loop and read it in the same step:
+**`exit 0`, "The gate is met. (10 of 10 steps)"**, 4,972 tests run, 4,972
+passed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Numbers: `dashes_and_dots_round_a_corner.rs`' first test renders the case
+  at eight and holds every dash crossing five boxes' top centre lines to
+  where Chrome's picture at eight has it, within a device pixel.
+  `contour.rs`' unit tests hold the coarse length at one, two and eight
+  against the exact one, the start point, stations and normals, a square
+  corner's two stations and a sliver left out; `centre_line.rs`' hold the
+  spacing's choice, Chrome's dash starts round a 4 px box, the thin ratios,
+  square and round dots, the whole-line case and the bound; `sweep.rs`'
+  hold a rectangle, a fold covering a tight curve's middle, a mitre, a
+  bevel and one winding everywhere; `border.rs`' the layers.
+- Reference renders: new case `dashes-and-dots-round-a-corner`, fifteen
+  boxes, with `render.png`, `render-at-2.png` and Chrome's `chrome.png` and
+  `chrome-at-2.png` (RGBA). Every plain pixel is Chrome's at one and at two
+  but one at each, listed in the test as `NOT_YET` (item 604); blends within
+  40 and 36 on average and no more than 140 and 110 past half a step
+  (measured 131 and 102; Chrome draws edges at one in quarters). Before:
+  2,112 and 10,707 plain pixels differed (the item's 44 × 40 box: 287, as
+  the item said). The corpus run before references were written listed no
+  other case as changed.
+- Mutation, each restored from a copy (`cmp` confirmed): an overreach of
+  1.0, a scale-free tolerance, no fold split, every patterned side round,
+  the thin ratio dropped, and the square-dot threshold made strict — each
+  failed at least one unit test; the first, second, third and fifth also
+  failed the case's tests (the case has no partly rounded box and no
+  three-device-pixel dots, which the unit tests hold).
+- Hostile input: nothing new reads bytes from outside; a width or box that
+  is not a number draws nothing, and the pieces are bounded by
+  `pattern::MAX_PIECES` (tested).
+- Cost: none measured; no speed claim. A curved dash is a polygon a degree
+  of turn at a time.
+- One file, one responsibility: measuring the line is `contour.rs`', the
+  pattern `centre_line.rs`', a stroke's shape `sweep.rs`', which side is
+  drawn how and in what layer `border.rs`'.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 596 is ticked with a *Done* paragraph. Cut: **604** (a dash's
+stroke round a curve tighter than its half width, as Chrome's stroker draws
+it — the case's one pixel at each scale, and two small 10 px boxes),
+**605** (a centre line on half device pixels at one) and **606** (Chrome's
+spacing on a straight side, which square boxes and the straight sides of
+partly rounded ones use).
+
+**Roadmap.** Stage 1's paint line on whole device pixels: its Owed list
+loses 596, and a *since queue item 596* clause names the three files and
+the case, owing 604, 605 and 606.
+
+**Unresolved obligations.**
+- 604, 605 and 606, as above; 597–603, 591, 179; 576, 577, 585, 586 as
+  before; 463 and 572 wait on a person; 568–571 on a screen or pages; 560
+  and 564 on 502 behind 501.
+- No claim about speed is made.
+
+287 queue items are open (596 closed; 604, 605 and 606 added). The next
+unused queue number is **607** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

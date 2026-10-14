@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Dashes and dots go round a rounded corner.** A dashed or dotted border
+  on a box with rounded corners used to place its dashes on each straight
+  side and let the curve cut them off, so a corner held a stub or nothing.
+  The dashes and dots now run along the middle of the border all the way
+  round, bending with each corner and spaced to meet evenly, as Chrome
+  draws them — each side in its own pattern where the sides differ in
+  width, round dots or square ones as Chrome chooses by their size. On the
+  fifteen probe boxes, all but one pixel at each of one and two device
+  pixels to the CSS pixel are the colour Chrome draws, where more than two
+  thousand differed before.
+
 - **A border side styled `none` takes no room.** A box written with
   `border-width: 4px 10px` and then `border-left-style: none` used to keep
   a ten-pixel left border that nothing drew, so its content sat ten pixels
