@@ -434,13 +434,19 @@ impl Builder<'_> {
         }
         let geometry = self.layout.get(id)?;
         // Content is clipped to the padding box: a border is drawn over the
-        // content, not clipped by it.
+        // content, not clipped by it. Its corners are the padding edge's
+        // curve — the border box's radii, resolved against it and fitted to
+        // it, each less the border beside it — so a clip follows a border's
+        // inner curve rather than leaving a sliver between them. CSS
+        // Backgrounds 3's rule, and Chrome 154's in 60 of 60 bordered,
+        // rounded boxes at one, two and eight (queue item 588; measured, not
+        // read from its source).
         let border_box = snap::to_device_pixels(geometry.border_box, self.styles.scale());
         let padding_box = border_box.shrunk_by(geometry.border);
-        Some(rounded_rectangle(
-            padding_box,
-            Corners::of(style, Self::extent_of(padding_box)),
-        ))
+        let corners = Corners::of(style, Self::extent_of(border_box))
+            .fitted_to(border_box.size)
+            .inside(geometry.border);
+        Some(rounded_rectangle(padding_box, corners))
     }
 
     /// Everything one box draws for itself, and what it could not.

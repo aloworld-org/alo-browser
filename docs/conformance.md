@@ -457,9 +457,12 @@ a whole device pixel (587), and one that starts off the page starts there;
 An `<svg>`'s viewport is not snapped, and no fractional scale is measured
 (589). An `outline` is not drawn at all (591), and a picture on a line
 with both a width and a height set is laid out to its ratio rather than
-its height (590). A rounded clip
-takes the border box's radii on the padding box, which Chrome may not
-(588, not measured). Where a line under text falls at two is not measured (566).
+its height (590). A rounded clip inside a border follows the border's
+inner curve, each radius less the border beside it (588), as Chrome's
+does in 60 of 60 boxes measured; `rounded-clips-inside-borders` is
+Chrome's in every plain pixel at one and at two. A border whose sides
+differ in width or colour leaves the inside of a rounded corner unfilled,
+the page showing between its strips and its inner curve (592). Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (item 562, ADR 0057 § 3). The window
 tells the page's renderer and the strip's the whole part of its screen's

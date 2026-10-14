@@ -480,6 +480,29 @@ and padding from the same run.
   `outline` is not drawn by this engine at all (item 591), so there is
   nothing of it to snap yet.
 
+**Item 588, 2026-10-14, Chrome 154 under `--force-device-scale-factor=1`,
+`=2` and `=8`,** screenshots without `--disable-gpu`, the source not
+read: two probes, twelve chosen and forty-eight seeded boxes 44 by 40 on
+whole pixels, each with a transparent border of one to thirteen pixels a
+side, rounded corners (lengths, percentages, ellipses, four different
+corners, radii too large for the box) and `overflow: hidden`, each holding
+a black child reaching past it; every pixel of each padding box scored
+against a model of the clip sampled 4 by 4.
+
+- **A rounded clip is the padding edge's curve**: each radius resolved
+  against the snapped border box, fitted to it, and then less the border
+  beside it, never below square, which is CSS Backgrounds 3's rule. It
+  fits 60 of 60 within 0.14 of coverage at eight and two and 0.19 at one.
+  This engine's rule — the radii resolved against the padding box and
+  fitted to it, with nothing taken off — fits 2 of 60, both where the two
+  agree; taking the border off without fitting the radii to the border
+  box first fits 56 at eight. `alo-paint`'s `build.rs` `clip_of` clips so.
+- `cases/rounded-clips-inside-borders` has seventeen such boxes, seven
+  with blue borders and two at tenths; wherever both pictures have a plain
+  colour it is the same, at one and at two. `rounded-card`'s picture moved
+  in 58 pixels at its card's corners, which are rounded by 11 inside its
+  1 px border where they were rounded by 12; no display list moved.
+
 ## How we will know if this was wrong
 
 **If a case laid out at 2 differs from Chrome's real scale-2 numbers** by

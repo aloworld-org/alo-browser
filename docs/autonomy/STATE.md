@@ -35527,3 +35527,97 @@ says the picture is built and owes 589, 588 and 591.
 280 queue items are open (587 closed; 589–591 added). The next unused
 queue number is **592** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 353 — queue item 588 closed: a rounded clip inside a border follows its inner curve
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the three states; stage 1's paint line), iterations 351 and 352's
+entries, queue items 576–577 and 585–591, ADR 0057 (*Measured since*,
+items 575 and 587), `alo-paint`'s `corner.rs`, `build.rs` (`clip_of`,
+`draw_one_area`, the border's ring) and `border.rs`' `draw_mitred`, and
+`docs/features.md`' stage 1 paint lines (*Rounded corners, and clipping
+to them*, the feature contract). No `AGENTS.md` exists here.
+
+**Why 588.** It is the first open item in the file whose dependencies are
+done: those before it wait as iterations 318–352 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person, 536–541 and 559 on pages), 587 closed. It depends on nothing
+and names its feature and closing condition. It said *needs measuring*;
+the measuring was done first.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`,
+`=2` and `=8`, without `--disable-gpu`, the source not read): two probes
+of 30 boxes 44 × 40 on whole pixels, twelve chosen and 48 seeded, each
+with a transparent border of 0 to 13 px a side, rounded corners
+(lengths, percentages, ellipses, four different corners, radii too large
+to fit) and `overflow: hidden`, holding a black child reaching past it;
+every pixel of each padding box scored against a 4 × 4-sampled model.
+Each radius resolved against the border box, fitted to it, less the
+border beside it, never below square (CSS Backgrounds 3) fits 60 of 60
+within 0.14 of coverage at eight and two and 0.19 at one; this engine's
+rule (resolved against and fitted to the padding box, nothing taken off)
+fits 2; the border taken off radii not first fitted fits 56 at eight.
+Written into ADR 0057's *Measured since*.
+
+**Built.** `alo-paint`'s `build.rs` `clip_of` rounds the padding box by
+`Corners::of(border box).fitted_to(border box).inside(border)`.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on it with
+one foreground `until` loop: **`GATE EXIT 0`, "The gate is met. (10 of 10
+steps)"**, 4,894 tests run, 4,894 passed. Only this entry and the commit
+came after it.
+
+**Gate, manual.**
+- Numbers: `clipping.rs`'
+  `a_rounded_clip_inside_a_border_follows_the_borders_inner_curve`. New
+  case `rounded-clips-inside-borders` (seventeen boxes, seven with blue
+  borders, two at tenths): `a_rounded_clip_inside_a_border.rs` has every
+  clip's padding box and four corners' radii, read back from the display
+  list's path, as the rule's at one and at two.
+- Reference renders: the case's `render.png` and `render-at-2.png`, with
+  Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) beside them; wherever
+  both pictures have one of the case's plain colours it is the same, at
+  one and at two, and blends are within 82 and 75 of 255. The worst at one
+  is on a border's outer ellipse, unchanged by this item; the worst on a
+  clip, 79, is a pixel whose area under the curve is 0.83, which Chrome's
+  screenshot at eight covers by 0.77 and at one by 0.46 — its coarse
+  smoothing at one. Every corpus picture and text reference was backed up
+  before `ALO_UPDATE_REFERENCES=1`: only `rounded-card/render.png` moved,
+  58 pixels at its card's corners, now rounded by 11 inside its 1 px
+  border where they were by 12; no display list moved.
+- Mutation, each restored from a copy (`cmp` confirmed): the old
+  `clip_of` failed the case's three tests and the unit test; the border
+  taken off unfitted radii failed the case (`fitted`, 14.78 where the rule
+  says 17).
+- Hostile input: nothing new reads bytes from outside.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: what a box clips to is `build.rs`'
+  `clip_of`; a corner's arithmetic is `corner.rs`', unchanged.
+- Also updated: ADR 0057, `docs/features.md`, `docs/conformance.md`,
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 588 is ticked with a *Done* paragraph. Found: **592** — a
+border drawn side by side (`draw_mitred`: sides of different widths or
+colours) fills each side's straight strip clipped to the ring, so the
+inside of a rounded corner, where its inner curve bulges into the padding
+box, is left unfilled; a `4px 10px` border rounded 14 px leaves white 2 px
+wide there. The case's box of unequal widths has a transparent border for
+that reason, and says so.
+
+**Roadmap.** Stage 1's paint line: the Owed clause that named 588 now
+says the rounded clip is built and owes 589, 591 and 592.
+
+**Unresolved obligations.**
+- 589, 590, 591 and 592, as above.
+- 576, 577, 585, 586 as before; 463 waits on a person; 568–571 on a
+  screen or pages; 560 and 564 on 502 behind 501; 572 on a person.
+- No claim about speed is made.
+
+280 queue items are open (588 closed; 592 added). The next unused queue
+number is **593** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

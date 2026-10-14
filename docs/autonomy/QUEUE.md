@@ -14295,7 +14295,7 @@ What stage 2's exit gate actually measures: a person using it.
   engine at all, so it is not a snapping question: found as **591**. Also
   found: **590**.
 
-- [ ] **588. A rounded clip's corners.** *Found building 575 (iteration
+- [x] **588. A rounded clip's corners.** *Found building 575 (iteration
   351). Feature: `docs/features.md` stage 1, paint. Needs measuring.*
   `build.rs`' `clip_of` rounds the padding box by the border box's radii
   fitted to it, where CSS Backgrounds 3 rounds an overflow clip by the
@@ -14305,6 +14305,21 @@ What stage 2's exit gate actually measures: a person using it.
   when:* Chrome 154's clip corners on bordered, rounded boxes are read
   from an 8× screenshot, the rule is built, and a frozen case of them is
   Chrome's at one and at two.
+
+  **Done (iteration 353).** Measured first, in Chrome 154 at one, two and
+  eight on two probes of 60 boxes on whole pixels (twelve chosen, 48
+  seeded: borders of 0 to 13 px a side, lengths, percentages, ellipses,
+  four different corners, radii too large for the box): each corner of
+  the clip is the radius resolved against the border box, fitted to it,
+  and less the border beside it, never below square — 60 of 60 within
+  0.14 of coverage at eight, where this engine's rule fits 2 and taking
+  the border off unfitted radii 56. Written into ADR 0057's *Measured
+  since*. `alo-paint`'s `clip_of` clips so. `rounded-clips-inside-borders`
+  (seventeen boxes, seven with blue borders, two at tenths) has every
+  clip's padding box and radii as the rule's, at one and at two
+  (`a_rounded_clip_inside_a_border.rs`), and every pixel where both
+  pictures are plain Chrome's. `rounded-card`'s picture moved in 58
+  pixels at its corners. Found: **592**.
 
 - [ ] **589. An `<svg>`'s viewport on whole device pixels, and a
   fractional scale.** *Cut from 587 (iteration 352; ADR 0057 § 2).
@@ -14339,6 +14354,20 @@ What stage 2's exit gate actually measures: a person using it.
   picture does not have; a page that shows one opens it. ADR 0057's Evidence 5 already measured its width,
   floored in device pixels. *Closes when:* a frozen page with outlines of
   each style, width and offset is Chrome's at one and at two.
+
+- [ ] **592. A border drawn side by side has its rounded corners
+  filled.** *Found building 588 (iteration 353). Feature:
+  `docs/features.md` stage 1, borders.* A border whose sides differ in
+  width or colour, or are not solid, is drawn by `border.rs`'
+  `draw_mitred` as each side's straight strip clipped to the ring; where
+  a rounded corner's inner curve bulges into the padding box, no strip
+  reaches it, and the page shows through. A 44 × 40 box with
+  `border-width: 4px 10px`, `border-radius: 14px` and one colour leaves a
+  sliver of white 2 px wide along the inside of each corner, where Chrome
+  154 draws the border's colour to its inner curve. *Closes when:* how
+  Chrome divides a rounded corner between two sides of different widths
+  and colours is measured, built, and a frozen case of such borders is
+  Chrome's at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

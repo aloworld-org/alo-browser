@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A rounded box with a border clips along the border's inner curve.**
+  A box with rounded corners, a border and `overflow: hidden` used to
+  round what it clips by its outer corners, so a sliver of the page
+  showed between the border's inner curve and the content; each corner
+  is now rounded by its radius less the border beside it, as CSS says and
+  Chrome draws it.
+
 - **A picture is drawn on whole pixels, as Chrome draws it.** An `<img>`
   laid out at a fraction of a pixel used to be drawn from its left edge
   rounded and its width rounded, so one picture in two came out a pixel

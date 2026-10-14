@@ -259,9 +259,12 @@ correctness, not before it.
       2,016 of 2,016 clips measured (`clips-on-device-pixels`), and
       since queue item 587 (iteration 352) a picture is drawn into its
       content box on whole device pixels, 1,568 of 1,568 pictures
-      measured (`pictures-on-device-pixels`). Owed: an `<svg>`'s
-      viewport and a fractional scale (589), a rounded clip's radii
-      (588), and an `outline`, which is not drawn at all (591). Since queue item
+      measured (`pictures-on-device-pixels`), and since queue item 588
+      (iteration 353) a rounded clip inside a border follows its inner
+      curve, 60 of 60 clips measured (`rounded-clips-inside-borders`).
+      Owed: an `<svg>`'s viewport and a fractional scale (589), an
+      `outline`, which is not drawn at all (591), and a border drawn side
+      by side, whose rounded corners' insides are left unfilled (592). Since queue item
       573 (iteration 349) a spread shadow's corners are Chrome's —
       square on a square box, a radius under the spread grown by less of
       it (`Corners::spread`, `spread-shadow-corners`). Owed: an inset

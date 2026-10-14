@@ -1,0 +1,36 @@
+/* Boxes that clip, with borders and rounded corners (queue item 588).
+   Chrome 154 clips a box's content to its padding box rounded by the
+   padding edge's curve: each radius resolved against the border box,
+   fitted to it, and then less the border beside it, never below square,
+   which is CSS Backgrounds 3's rule. This engine rounded the padding box
+   by the border box's radii instead, which left a sliver of the page
+   between a border's inner curve and what it clips. Each box holds a red
+   child reaching 20px past it on every side, so what is drawn of it is
+   the clip. The blue borders show the sliver; the transparent ones
+   leave only the clip, and ask for radii CSS scales down to fit.
+   `.sides`' border is transparent because this engine leaves the inside
+   of a rounded corner unfilled on a border of unequal widths (queue item
+   592).
+   `tests/a_rounded_clip_inside_a_border.rs` says how near Chrome. */
+body { margin: 0; background: #ffffff }
+.clip { position: absolute; box-sizing: border-box; width: 44px; height: 40px;
+  overflow: hidden; border-style: solid; border-color: transparent }
+.ring { border-color: #1d4ed8 }
+.spill { display: block; margin: -20px; height: 80px; background: #c0392b }
+.ring-6-12 { left: 15px; top: 15px; border-width: 6px 6px 6px 6px; border-radius: 12px }
+.ring-2-12 { left: 75px; top: 15px; border-width: 2px 2px 2px 2px; border-radius: 12px }
+.ring-10-8 { left: 135px; top: 15px; border-width: 10px 10px 10px 10px; border-radius: 8px }
+.sides { left: 195px; top: 15px; border-width: 4px 10px 4px 10px; border-radius: 14px }
+.ring-ellipse { left: 255px; top: 15px; border-width: 6px 6px 6px 6px; border-radius: 20px / 10px }
+.ring-percent { left: 315px; top: 15px; border-width: 6px 6px 6px 6px; border-radius: 30% }
+.ring-1-4 { left: 375px; top: 15px; border-width: 1px 1px 1px 1px; border-radius: 4px }
+.pill { left: 15px; top: 75px; border-width: 3px 3px 3px 3px; border-radius: 9999px }
+.uneven { left: 75px; top: 75px; border-width: 8px 2px 12px 4px; border-radius: 16px }
+.half { left: 135px; top: 75px; border-width: 6px 6px 6px 6px; border-radius: 50% }
+.diagonals { left: 195px; top: 75px; border-width: 12px 4px 4px 12px; border-radius: 18px 6px }
+.fitted { left: 255px; top: 75px; border-width: 10px 10px 13px 3px; border-radius: 23px }
+.fitted-percent { left: 315px; top: 75px; border-width: 4px 10px 4px 4px; border-radius: 55% }
+.fitted-uneven { left: 375px; top: 75px; border-width: 4px 3px 10px 13px; border-radius: 23px }
+.corners { left: 435px; top: 75px; border-width: 2px 1px 4px 1px; border-radius: 16px 15px 22px 12px }
+.tenths { left: 15.3px; top: 135.6px; border-width: 3px 3px 3px 3px; border-radius: 10px }
+.tenths-wide { left: 75.7px; top: 135.2px; border-width: 6px 6px 6px 6px; border-radius: 12px }

@@ -2495,3 +2495,13 @@ Found: **590** (a picture on a line with a width and a height set is laid
 out to its ratio) and **591** (an `outline` is not drawn). 280 queue
 items are open (587 closed; 589–591 added). The next unused queue number
 is 592 and the next unused ADR 0058.
+
+Iteration 353 closed queue item 588: a rounded box that clips inside a
+border clips to its padding edge's curve, each radius resolved against
+the border box, fitted to it and less the border beside it, as Chrome 154
+was measured clipping 60 of 60 bordered, rounded boxes at one, two and
+eight (ADR 0057, *Measured since*). `rounded-clips-inside-borders` is
+Chrome's in every plain pixel at both scales. Found: **592** (a border
+drawn side by side leaves its rounded corners' inner curve unfilled). 280
+queue items are open (588 closed; 592 added). The next unused queue number
+is 593 and the next unused ADR 0058.

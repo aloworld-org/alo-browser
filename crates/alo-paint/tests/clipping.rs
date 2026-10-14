@@ -149,3 +149,31 @@ fn a_clip_is_on_whole_pixels_where_the_background_is_drawn() {
         "the clip is on whole pixels:\n{outline}",
     );
 }
+
+/// A bordered, rounded box clips to its padding edge's curve: each radius
+/// less the border beside it (queue item 588). Its `12px` corners inside a
+/// `6px` border clip round by 6, so the banner reaches into the corner up
+/// to the border's own inner curve; rounding the padding box by 12 left the
+/// card's white between the two.
+#[test]
+fn a_rounded_clip_inside_a_border_follows_the_borders_inner_curve() {
+    let bordered = ROUNDED.replace(
+        "overflow: hidden;",
+        "overflow: hidden; border: 6px solid #1d4ed8;",
+    );
+    let (list, canvas) = draw(CARD, &bordered, 120.0, 60.0);
+    assert!(
+        list.to_outline().contains("to (14, 14) 100×40"),
+        "the clip is the padding box:\n{}",
+        list.to_outline(),
+    );
+    // Two and a half pixels in from the padding box's corner each way: 4.95
+    // from the centre of a curve of 6, and 13.4 from one of 12.
+    let corner = canvas
+        .at(16, 16)
+        .expect("just inside the padding box's corner");
+    assert!(
+        corner.red < 0.2,
+        "the banner reaches the border's inner curve: {corner}",
+    );
+}
