@@ -14269,7 +14269,7 @@ What stage 2's exit gate actually measures: a person using it.
   `<svg>`'s viewport, an outline and a fractional scale are cut to
   **587**. Found: **588**.
 
-- [ ] **587. A picture, an `<svg>` and an outline on whole device
+- [x] **587. A picture, an `<svg>` and an outline on whole device
   pixels.** *Cut from 575 (iteration 351; ADR 0057 § 2). Feature:
   `docs/features.md` stage 1, paint. Needs measuring.* A picture's box, an
   `<svg>`'s viewport and an outline are drawn where layout put them, at
@@ -14278,6 +14278,22 @@ What stage 2's exit gate actually measures: a person using it.
   anything at a fractional scale. *Closes when:* each is measured in
   Chrome 154 at one and at two and written into ADR 0057's table, and a
   frozen page of each at tenths of a pixel is Chrome's.
+
+  **Cut, and done for the picture (iteration 352).** Measured first, in
+  Chrome 154 at one and at two on two probes of seven kinds of `<img>`
+  (1,568 pictures, each an 8 × 8 PNG of solid black): a picture is drawn
+  into its content box with each edge rounded as `floor(x·s + 0.5) / s`
+  on its own, 1,568 of 1,568, where the snapped border box less a padding
+  of fractions fits none of the 224 padded ones. Written into ADR 0057's
+  table and *Measured since*. `alo-paint`'s `picture_of` draws so, and
+  `drawn_picture.rs` no longer slides a picture that starts off the page
+  back onto it. `pictures-on-device-pixels` (nine pictures at tenths, two
+  starting off the page) is Chrome's in every pixel at one and at two,
+  and its boxes and pictures are Chrome's to 1/128 px
+  (`pictures_on_device_pixels.rs`). An `<svg>`'s viewport and a
+  fractional scale are cut to **589**. An outline is not drawn by this
+  engine at all, so it is not a snapping question: found as **591**. Also
+  found: **590**.
 
 - [ ] **588. A rounded clip's corners.** *Found building 575 (iteration
   351). Feature: `docs/features.md` stage 1, paint. Needs measuring.*
@@ -14289,6 +14305,40 @@ What stage 2's exit gate actually measures: a person using it.
   when:* Chrome 154's clip corners on bordered, rounded boxes are read
   from an 8× screenshot, the rule is built, and a frozen case of them is
   Chrome's at one and at two.
+
+- [ ] **589. An `<svg>`'s viewport on whole device pixels, and a
+  fractional scale.** *Cut from 587 (iteration 352; ADR 0057 § 2).
+  Feature: `docs/features.md` stage 1, paint. Needs measuring.* An
+  `<svg>`'s drawing is placed at its content box as laid out, and clipped
+  there, at fractions of a pixel, where a picture (587), a box's own area
+  (565) and an overflow clip (575) are on whole device pixels. Nothing in
+  ADR 0057's table is measured at a fractional scale. *Closes when:* an
+  `<svg>`'s viewport is measured in Chrome 154 at one and at two and
+  written into ADR 0057's table, a frozen page of `<svg>`s at tenths of a
+  pixel is Chrome's at both, and the table's rules are measured at 1.5.
+
+- [ ] **590. A picture on a line with a width and a height set.** *Found
+  building 587 (iteration 352). Feature: `docs/features.md` stage 1,
+  layout of replaced boxes.* An inline `<img>` with `width: 30px; height:
+  20px` is laid out 30 × 30 by this engine, its height taken from its
+  picture's ratio rather than its style, where Chrome 154 lays it out
+  30 × 20; positioned, or a block, the same picture is 30 × 20 here too.
+  The ratio is handed to `taffy` as an `aspect_ratio` (`engine.rs`) and
+  an atomic inline box is laid out as the root of a subtree of its own
+  (`atomic_item`), which is where it is to be looked for. *Closes when:*
+  a frozen case of pictures on a line with both set is laid out as
+  Chrome's, in numbers at one and at two.
+
+- [ ] **591. An `outline` is drawn.** *Found building 587 (iteration
+  352). Feature: `docs/features.md` stage 1, paint. Waits for a page.*
+  `outline` and its longhands are read by nothing in `alo-paint`: no box
+  draws one. No corpus case writes one. `alo-workplace` draws one on
+  keyboard focus (`ds/global.css`' `:focus-visible`, `outline: 2px solid
+  var(--accent)`) and while a card is dragged over a column
+  (`CrmModule.module.css`' `.columnOver`, `2px dashed`), states a frozen
+  picture does not have; a page that shows one opens it. ADR 0057's Evidence 5 already measured its width,
+  floored in device pixels. *Closes when:* a frozen page with outlines of
+  each style, width and offset is Chrome's at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

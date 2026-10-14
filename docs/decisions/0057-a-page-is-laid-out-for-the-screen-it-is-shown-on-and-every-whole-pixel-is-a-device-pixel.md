@@ -128,11 +128,13 @@ and the rule is unchanged:
 | A border width, floored, and at least one | `line_width.rs` | `floor(w·s) / s`, at least `1 / s` |
 | A control's box and everything a box paints for its own area, each edge snapped | `snap.rs` | `floor(x·s + 0.5) / s` |
 | An overflow clip: the border box, each edge snapped, less the border | `build.rs` | `floor(x·s + 0.5) / s` |
+| A picture: its content box, each edge snapped | `build.rs` | `floor(x·s + 0.5) / s` |
 | A text field's character, rounded when wider, and its width, rounded up | `field_width.rs` | `round(c·s) / s`, `ceil(w·s) / s` |
 | The size a face is set at, cut to hundredths | `face_size.rs` | `trunc(z·s·100) / 100 / s` |
 
 The last two rows were measured by item 560 and added to the table by it,
-and the overflow clip's by item 575 (see *Measured since*).
+the overflow clip's by item 575 and the picture's by item 587 (see
+*Measured since*).
 
 The rules are measured at scale 1 and at scale 2 above. Nothing here
 claims a rule at 1.5 or 3 that was not measured; the form `rule(v·s) / s`
@@ -445,6 +447,38 @@ each box's middle row and column against Chrome's own
   `<svg>`'s viewport, an outline, and any fractional scale. Whether a
   clip's corners are the padding box's radii, as an inset shadow's are
   (item 585), is item 588.
+
+**Item 587, 2026-10-14, Chrome 154 under `--force-device-scale-factor=1`
+and `=2`,** screenshots without `--disable-gpu`, the source not read: two
+probes (one written at tenths, one seeded) of seven kinds of `<img>`, 56
+of each, each showing an 8 × 8 PNG of solid black, so that the black
+drawn is the picture's box; read along each picture's middle row and
+column against Chrome's own `getBoundingClientRect()`, computed border
+and padding from the same run.
+
+- **A picture is drawn into its content box with each edge on a whole
+  device pixel**, rounded on its own as `floor(x·s + 0.5) / s`: 1,568 of
+  1,568 pictures at one and at two — at its own size, at a size set, with
+  a `2px` border, with a `2.6px` border (floored first), with a padding of
+  fractions, in the flow inside a positioned box, and on a line. It is the
+  content box rounded, not the snapped border box less its border and
+  padding: of the 224 padded pictures the second fits none, because its
+  edges fall between pixels, and 37 even when those are rounded again.
+  This engine drew a picture from its content box's left edge rounded and
+  its width rounded, which, modelled, fits 1,055 of the 1,568. `alo-paint`'s `build.rs` draws the picture so.
+- **A picture that starts off the page starts there.** This engine slid
+  a picture whose left or top edge was below zero back onto the page
+  whole; `drawn_picture.rs` now passes over the columns and rows off it.
+- `cases/pictures-on-device-pixels` has one of each kind and two pictures
+  starting off the page; every pixel of it is Chrome's exactly at one and
+  at two. No other corpus case moved: every picture in it was already on
+  whole pixels.
+- **Not measured here**, and cut to item 589: an `<svg>`'s viewport and
+  any fractional scale. What is drawn *inside* a picture not at its own
+  size, which at two is every picture, stays item 179's: the case's
+  pictures are of one colour, so sampling is not what it compares. An
+  `outline` is not drawn by this engine at all (item 591), so there is
+  nothing of it to snap yet.
 
 ## How we will know if this was wrong
 

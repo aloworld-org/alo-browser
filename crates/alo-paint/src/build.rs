@@ -1221,6 +1221,12 @@ impl Builder<'_> {
     /// sits inside its own padding and border like any other content — an
     /// `<img>` with a border draws the border around the picture rather than
     /// over it.
+    ///
+    /// On whole device pixels, each edge of the content box rounded on its
+    /// own as [`snap::to_device_pixels`] rounds, as Chrome 154 draws it
+    /// (queue item 587): the content box itself, not the snapped border box
+    /// less its border and padding, so a padding of a fraction leaves the
+    /// picture's edge on a whole pixel all the same.
     fn picture_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
         let Some(picture) = self.context.pictures.get(&id) else {
             return;
@@ -1230,7 +1236,7 @@ impl Builder<'_> {
         };
         out.push(DisplayItem::Picture {
             box_id: id,
-            rect: geometry.content_box(),
+            rect: snap::to_device_pixels(geometry.content_box(), self.styles.scale()),
             picture: std::sync::Arc::clone(picture),
         });
     }

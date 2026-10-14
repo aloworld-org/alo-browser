@@ -1,0 +1,27 @@
+/* Pictures laid out at tenths of a pixel (queue item 587). Chrome 154 draws
+   a picture into its content box with each edge rounded to a whole device
+   pixel on its own, `floor(x·s + 0.5) / s`: the content box itself, not the
+   snapped border box less its border and padding, which `padded` tells
+   apart. `beside` starts off the page's left edge and `above` off its top,
+   where this engine slid a picture back onto the page whole.
+   `tests/pictures_on_device_pixels.rs` says which is which. */
+body { margin: 0; background: #ffffff }
+img { position: absolute; width: 20.4px; height: 20.4px }
+.plain { left: 10.3px; top: 10.3px; width: auto; height: auto }
+.sized { left: 50.6px; top: 10.7px; width: 20.3px; height: 20.7px }
+.bordered { left: 90.7px; top: 10.2px; width: 16.3px; height: 16.3px;
+  border: 2px solid #1d4ed8 }
+.floored { left: 130.45px; top: 10.55px; width: 16.3px; height: 16.3px;
+  border: 2.6px solid #1d4ed8 }
+.padded { left: 170.85px; top: 10.15px; width: 16.3px; height: 16.3px;
+  padding: 1.3px 0.7px 2.45px 1.6px; background: #c0392b }
+.above { left: 210.25px; top: -5.5px }
+.holder { position: absolute; left: 290px; top: 10px; width: 40px; height: 40px }
+.nested { position: static; display: block; margin-left: 0.4px; margin-top: 0.6px }
+.beside { left: -5.5px; top: 60.4px; width: 20.5px; height: 20.5px }
+.line { position: absolute; left: 30px; top: 60px; line-height: 0 }
+.gap { display: inline-block; width: 0.7px }
+/* A width and its ratio: a picture on a line with both set is laid out
+   by this engine to its ratio rather than its height (queue item 590). */
+.piece { position: static; vertical-align: top; margin-top: 0.3px; width: 30.3px;
+  height: auto }

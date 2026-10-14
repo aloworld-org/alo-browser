@@ -2483,3 +2483,15 @@ an `<svg>`'s viewport, an outline and a fractional scale). Found: **588**
 (a rounded clip's corners). 278 queue items are open (575 closed; 587 and
 588 added). The next unused queue number is 589 and the next unused ADR
 0058.
+
+Iteration 352 closed queue item 587 for a picture's box and cut the rest:
+a picture is drawn into its content box with each edge rounded to a whole
+device pixel on its own, as Chrome 154 was measured drawing 1,568 of 1,568
+pictures of seven kinds at one and at two (ADR 0057, *Measured since*),
+and a picture starting off the page starts there rather than being slid
+onto it. `pictures-on-device-pixels` is Chrome's in every pixel at both
+scales. Cut: **589** (an `<svg>`'s viewport and a fractional scale).
+Found: **590** (a picture on a line with a width and a height set is laid
+out to its ratio) and **591** (an `outline` is not drawn). 280 queue
+items are open (587 closed; 589–591 added). The next unused queue number
+is 592 and the next unused ADR 0058.

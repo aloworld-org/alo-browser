@@ -451,8 +451,13 @@ which leaves a sliver of background in each corner (585). An overflow clip is on
 border box less its border, so a child reaching its parent's edge ends
 where the parent's background does; `clips-on-device-pixels` is Chrome's
 exactly at one and at two but within 5 px of a rounded corner (within 43
-and 51 of 255). A picture's box, an `<svg>`'s viewport and an outline are
-not snapped, and no fractional scale is measured (587). A rounded clip
+and 51 of 255). A picture is drawn into its content box with each edge on
+a whole device pixel (587), and one that starts off the page starts there;
+`pictures-on-device-pixels` is Chrome's in every pixel at one and at two.
+An `<svg>`'s viewport is not snapped, and no fractional scale is measured
+(589). An `outline` is not drawn at all (591), and a picture on a line
+with both a width and a height set is laid out to its ratio rather than
+its height (590). A rounded clip
 takes the border box's radii on the padding box, which Chrome may not
 (588, not measured). Where a line under text falls at two is not measured (566).
 

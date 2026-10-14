@@ -1,0 +1,13 @@
+fill box#1 rgb(255 255 255) at (0, 0) 500×0
+picture box#3 20×20 at (10, 10) 20×20
+picture box#5 20×20 at (51, 11) 20×20
+fill box#7 rgb(29 78 216) at (91, 10) 20×20
+picture box#7 20×20 at (93, 12) 16×16
+fill box#9 rgb(29 78 216) at (130, 11) 21×20
+picture box#9 20×20 at (132, 13) 17×16
+fill box#11 rgb(192 57 43) at (171, 10) 18×20
+picture box#11 20×20 at (172, 11) 17×17
+picture box#13 20×20 at (210, -5) 21×20
+picture box#16 20×20 at (290, 11) 21×20
+picture box#18 20×20 at (-5, 60) 20×21
+picture box#22 20×20 at (31, 60) 30×31

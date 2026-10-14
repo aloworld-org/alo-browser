@@ -15,7 +15,10 @@
 //! rotation, no skew, no mirror — is drawn in whole pixels: the corners are
 //! transformed once and every pixel inside them is filled from the picture
 //! with integer arithmetic. That is exact, it cannot lose anything to
-//! rounding, and it is every `<img>` almost every page has.
+//! rounding, and it is every `<img>` almost every page has. The rectangle
+//! it is given is already on whole device pixels (`crate::snap`, queue item
+//! 587); a corner left of or above the page puts the picture's first
+//! columns or rows off it, and they are passed over, never slid back on.
 //!
 //! **Turned.** Anything else is drawn the way a transformed shape is: the
 //! rectangle is transformed *as a shape* and rasterised, so its edges are
@@ -77,26 +80,37 @@ fn upright(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix)
 
     let across = whole(right - left);
     let down = whole(bottom - top);
-    let at_x = whole(left);
-    let at_y = whole(top);
+    let (at_x, off_x) = (whole(left), off_the_page(left));
+    let (at_y, off_y) = (whole(top), off_the_page(top));
     let wide = picture.width();
     let tall = picture.height();
     if across == 0 || down == 0 {
         return;
     }
 
-    for y in 0..down {
+    // A picture that starts left of or above the page has its first columns
+    // or rows off it, and they are passed over rather than the picture slid
+    // back onto the page.
+    for y in off_y..down {
         // Which row of the picture this row comes from, in whole numbers: the
         // destination row scaled by the picture's height over the box's.
         let from_y = (y * tall / down).min(tall - 1);
-        for x in 0..across {
+        for x in off_x..across {
             let from_x = (x * wide / across).min(wide - 1);
             let Some(colour) = picture.at(from_x, from_y) else {
                 continue;
             };
-            target.blend(at_x + x, at_y + y, colour, 255);
+            target.blend(at_x + x - off_x, at_y + y - off_y, colour, 255);
         }
     }
+}
+
+/// How many whole pixels an edge at `value` starts before the page's own,
+/// rounded as [`whole`] rounds an edge on it — a half towards the right and
+/// the bottom, so an edge at −5.5 starts five pixels off, as `snap.rs` has
+/// it — and none for an edge on the page.
+fn off_the_page(value: f32) -> u32 {
+    whole((-value - 0.5).ceil())
 }
 
 /// The turned path: the rectangle as a transformed shape, each covered pixel
@@ -374,6 +388,34 @@ mod tests {
         // to (10, 10) upside down: its red quarter is now bottom right.
         assert_eq!(canvas.at(5, 5), Some(RED));
         assert_eq!(canvas.at(15, 15), Some(Rgba::WHITE));
+    }
+
+    #[test]
+    fn an_upright_picture_partly_off_the_page_starts_off_it() {
+        // Twenty pixels a side at (-5, -5), each quarter ten: red lands from
+        // -5 to 5 and green from 5 to 15, not slid back onto the page whole
+        // as from 0 to 10 and from 10 to 20.
+        let mut canvas = Canvas::new(20, 20, Rgba::WHITE);
+        let rect = Rect::new(-5.0, -5.0, 20.0, 20.0);
+        draw_picture(&mut canvas, &quarters(), rect, Matrix::IDENTITY);
+        assert_eq!(canvas.at(0, 0), Some(RED));
+        assert_eq!(canvas.at(4, 4), Some(RED));
+        assert_eq!(canvas.at(5, 0), Some(GREEN));
+        assert_eq!(canvas.at(0, 5), Some(BLUE));
+        assert_eq!(canvas.at(14, 14), Some(Rgba::BLACK));
+        assert_eq!(canvas.at(15, 0), Some(Rgba::WHITE));
+        assert_eq!(canvas.at(0, 15), Some(Rgba::WHITE));
+    }
+
+    #[test]
+    fn an_edge_off_the_page_is_rounded_as_on_it() {
+        // A half rounds towards the right and the bottom whatever the sign,
+        // as `snap.rs` rounds: from -5.5 the picture starts at -5.
+        let mut canvas = Canvas::new(20, 20, Rgba::WHITE);
+        let rect = Rect::new(-5.5, 0.0, 10.0, 10.0);
+        draw_picture(&mut canvas, &quarters(), rect, Matrix::IDENTITY);
+        assert_eq!(canvas.at(4, 0), Some(GREEN));
+        assert_eq!(canvas.at(5, 0), Some(Rgba::WHITE));
     }
 
     #[test]

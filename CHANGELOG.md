@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A picture is drawn on whole pixels, as Chrome draws it.** An `<img>`
+  laid out at a fraction of a pixel used to be drawn from its left edge
+  rounded and its width rounded, so one picture in two came out a pixel
+  narrower or shorter than Chrome's; each edge is now rounded on its own,
+  at one and at two device pixels to the CSS pixel. A picture that starts
+  left of or above the page is drawn starting there, where it used to be
+  slid back onto the page whole.
+
 - **A box that clips cuts its content where its background ends.** A box
   with `overflow: hidden` laid out at a fraction of a pixel used to cut
   its content a fraction short of its own background's edge, leaving a

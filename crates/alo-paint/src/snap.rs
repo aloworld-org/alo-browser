@@ -40,7 +40,10 @@
 //! A fieldset's border is snapped from the line through its legend, not
 //! from the top of its box (`crate::banded`). A box that clips its content
 //! clips it to the same snapped border box, less its border, so the clip
-//! is where its background is drawn (queue item 575).
+//! is where its background is drawn (queue item 575). A picture is drawn
+//! into its content box with each edge rounded here on its own — the
+//! content box itself, not the snapped border box less a padding of
+//! fractions (queue item 587).
 //!
 //! # At a scale
 //!

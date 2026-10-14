@@ -35422,3 +35422,108 @@ says the clip is built and owes 587 and 588.
 278 queue items are open (575 closed; 587 and 588 added). The next unused
 queue number is **589** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 352 — queue item 587 cut and closed for the picture: a picture on whole device pixels
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the three states; stage 1's paint line), iteration 351's entry, queue
+items 576–577 and 585–588, ADR 0057 (§§ 2, 4, 5, *What is not decided
+here* and *Measured since*, items 561, 565 and 575), `alo-paint`'s
+`snap.rs`, `build.rs` (`picture_of`, `drawing_of`, `clip_of`) and
+`drawn_picture.rs`, and `docs/features.md`' *A box is drawn on whole
+device pixels* (the feature contract). No `AGENTS.md` exists here.
+
+**Why 587.** It is the first open item in the file whose dependencies are
+done: those before it wait as iterations 318–351 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person, 536–541 and 559 on pages). It depends on nothing and names
+its feature and closing condition. It said *needs measuring*; the
+measuring was done first. It named a picture's box, an `<svg>`'s viewport,
+an outline and a fractional scale; this iteration built the picture and
+cut the `<svg>` and the scale to **589** rather than leave a half-built
+item (LOOP.md step 3). An outline turned out not to be drawn by this
+engine at all, which is not a snapping question: found as **591**.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, without `--disable-gpu`, the source not read): two probes, one
+at written tenths and one seeded, of seven kinds of `<img>` — at its own
+size, at a size set, a `2px` border, a `2.6px` border, a padding of
+fractions, a block in the flow, on a line — 56 of each, each an 8 × 8 PNG
+of solid black, read along every picture's middle row and column against
+Chrome's own `getBoundingClientRect()`, computed border and padding from
+the same run. The content box with each edge rounded as
+`floor(x·s + 0.5) / s` fits 1,568 of 1,568 within 0.02 of coverage; the
+snapped border box less border and padding fits none of the 224 padded
+pictures (37 if rounded again); the old path (left rounded, width
+rounded), modelled, fits 1,055. Written into ADR 0057's table and
+*Measured since*.
+
+**Built.** `alo-paint`'s `build.rs` `picture_of` draws into
+`snap::to_device_pixels(content_box, scale)`. `drawn_picture.rs`'
+upright path clamped a negative corner to zero, sliding a picture that
+started left of or above the page back onto it whole; it now passes over
+the columns and rows off the page (`off_the_page`), a half rounded as
+`snap.rs` rounds it.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first; the tests
+were built with `--no-run` to warm. `scripts/gate.sh` in the foreground,
+read in the same step: **`GATE EXIT 0`, "The gate is met. (10 of 10
+steps)"**, 4,890 tests run, 4,890 passed. Only this entry and the commit
+came after it.
+
+**Gate, manual.**
+- Numbers: `drawn_picture.rs`'
+  `an_upright_picture_partly_off_the_page_starts_off_it` and
+  `an_edge_off_the_page_is_rounded_as_on_it` (both failed before the
+  fix). New case `pictures-on-device-pixels` (nine pictures at tenths,
+  one starting left of the page and one above it):
+  `pictures_on_device_pixels.rs` has every border box at Chrome's
+  `getBoundingClientRect()` to 1/128 px, and every picture's drawn
+  rectangle in the display list at the rule's, at one and at two.
+- Reference renders: the case's `render.png` and `render-at-2.png`, with
+  Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) beside them; every
+  pixel of the whole picture is Chrome's exactly at one and at two. Every
+  case's references were backed up before `ALO_UPDATE_REFERENCES=1`; no
+  other case's `display.txt` or picture moved, since every corpus picture
+  was already on whole pixels.
+- Mutation, each restored from a copy (`cmp` confirmed): the content box
+  unsnapped failed the case (`plain` at one, 232 of 255); the snapped
+  border box less border and padding failed it (`padded`, 169 of 255);
+  the off-page fix removed failed it (`above` at one, 232 of 255).
+- Hostile input: nothing new reads bytes from outside; the picture is
+  decoded as before.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: where a picture lands is `build.rs`'
+  `picture_of`, beside where a box's own area and clip are snapped; the
+  rounding is `snap.rs`'; turning the rectangle into pixels is
+  `drawn_picture.rs`'.
+- Also updated: ADR 0057, `snap.rs`' and `drawn_picture.rs`' module docs,
+  `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched (`alo-workplace`'s CSS was read for item 591). Nothing
+  was pushed.
+
+**Queue.** 587 is ticked with a *Cut, and done for the picture*
+paragraph. Cut: **589** (an `<svg>`'s viewport and a fractional scale).
+Found: **590** — an inline `<img>` with a width and a height set is laid
+out to its picture's ratio, 30 × 30 where Chrome's is 30 × 20; the case's
+picture on a line therefore sets a width and its ratio, and says why.
+**591** — an `outline` is not drawn; waits for a page.
+
+**Roadmap.** Stage 1's paint line: the Owed clause that named 587 now
+says the picture is built and owes 589, 588 and 591.
+
+**Unresolved obligations.**
+- 588, 589, 590 and 591, as above.
+- 576, 577, 585, 586 as before; 463 waits on a person; 568–571 on a
+  screen or pages; 560 and 564 on 502 behind 501; 572 on a person.
+- What is drawn inside a picture not at its own size (every picture at
+  two) is still nearest-neighbour (179); this case's pictures are of one
+  colour so that it compares the box, not the sampling.
+- No claim about speed is made.
+
+280 queue items are open (587 closed; 589–591 added). The next unused
+queue number is **592** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.
