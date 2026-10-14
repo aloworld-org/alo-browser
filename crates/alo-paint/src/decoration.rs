@@ -52,12 +52,21 @@ pub struct Piece {
     pub size: f32,
 }
 
+/// How thick a line is for a font of `size` CSS pixels on a screen of
+/// `scale` device pixels to the CSS pixel, in device pixels, before it is cut
+/// to whole ones: what [`line_at`] draws cut, and what a line steps aside
+/// from a letter by ([`crate::skip_ink`]). A scale that is not a scale is
+/// one.
+pub fn thickness(size: f32, scale: f32) -> f32 {
+    (size * alo_value::device_scale(scale) / 10.0).max(1.0)
+}
+
 /// The rectangle `line` is drawn in for `piece`, on a screen of `scale`
 /// device pixels to the CSS pixel, in CSS pixels. A scale that is not a
 /// scale is one.
 pub fn line_at(line: DecorationLine, piece: Piece, scale: f32) -> Rect {
+    let thickness = thickness(piece.size, scale);
     let scale = alo_value::device_scale(scale);
-    let thickness = (piece.size * scale / 10.0).max(1.0);
     let drawn = thickness.trunc();
     let top = (piece.top * scale + 0.5).floor();
     let ascent = piece.ascent * scale;

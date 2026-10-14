@@ -6,4 +6,5 @@ text box#18 "The roastery" rgb(23 33 43) 28px at (384, 106)
 text box#21 "A 1962 Probat drum, rebuilt by hand." rgb(23 33 43) 17px at (384, 146.59375)
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
-fill box#5 rgb(23 33 43) at (-15968, 28) 129.11035×1
+fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
+fill box#5 rgb(23 33 43) at (-15938, 28) 99.11035×1

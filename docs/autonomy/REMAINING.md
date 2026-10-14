@@ -2389,3 +2389,15 @@ moved too, since the rule is Chrome's at one as well. Found: **579**
 (an underline's gap around a descender) and **580** (the space before a
 decorated span's child). 279 queue items are open (566 closed; 579–580
 added). The next unused queue number is 581 and the next unused ADR 0058.
+
+Iteration 343 closed queue item 579: an underline and an overline step
+aside where a letter's ink crosses them, as Chrome 154's do
+(`text-decoration-skip-ink: auto`). Measured with a red line under blue
+letters at 22 sizes and both scales, Chrome's gaps are whole device
+pixels: the band from half a pixel below the line's top to `t − ½`, a
+glyph's ink in it counting its control points, widened by the unrounded
+thickness `t` each side and rounded. `alo-paint`'s `skip_ink.rs` draws
+that rule, and `text-decorations` is Chrome's piece by piece at one and
+at two but for 580's space. Found: **581** (`text-decoration-skip-ink`'s
+values are not read). 279 queue items are open (579 closed; 581 added).
+The next unused queue number is 582 and the next unused ADR 0058.

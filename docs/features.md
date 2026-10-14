@@ -226,8 +226,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   half that thickness rounded up below the baseline, an overline its
   thickness above the text, a line through two thirds of the ascent
   down, all from the text's top rounded to a device pixel, at one and at
-  two. Not yet: a gap where a descender crosses an underline (579), and
-  the space before a decorated span's child (580)
+  two. **An underline and an overline step aside for the letters**
+  (`text-decoration-skip-ink: auto`, queue item 579): a gap wherever a
+  glyph's ink crosses the line's middle, as wide as that ink — its
+  outline's control points counted, as Chrome counts them — and the
+  line's thickness more each side, each end on the nearest device pixel;
+  a line through never does. Not yet: the space before a decorated span's
+  child (580), and `text-decoration-skip-ink`'s other values, which are
+  not read (581)
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
   legend, and a radio you can tell from a checkbox. **Which control a label
   labels is HTML's rule, held once** (`alo-dom`'s `label.rs`, queue item

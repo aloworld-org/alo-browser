@@ -164,13 +164,20 @@ fn nothing_else_on_the_page_is_struck_or_underlined_but_the_link() {
     };
     // Two lines on the page: the task's strike and the link's underline. The
     // link's `<u>` underlines the same words in the same place and colour.
-    let lines = drawing
+    // The underline steps aside for the `g` of "guide" (queue item 579), so
+    // it is two pieces on one row: a line is counted by its row.
+    let mut rows: Vec<f32> = drawing
         .display
         .items()
         .iter()
-        .filter(|item| matches!(item, DisplayItem::Fill { .. }))
-        .count();
-    assert_eq!(lines, 2);
+        .filter_map(|item| match item {
+            DisplayItem::Fill { path, .. } => path.bounds().map(|(_, top, _, _)| top),
+            _ => None,
+        })
+        .collect();
+    rows.sort_by(f32::total_cmp);
+    rows.dedup_by(|a, b| near(*a, *b));
+    assert_eq!(rows.len(), 2, "{rows:?}");
 }
 
 /// The font weight the display list draws the run `run` in, if it is drawn.

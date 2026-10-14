@@ -34405,3 +34405,133 @@ and 580.
 279 queue items are open (566 closed; 579–580 added). The next unused
 queue number is **581** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 343 — queue item 579 closed: an underline and an overline step aside for the letters, where Chrome's do
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+stage 2 window line; iteration 342's entry; queue items 566, 579, 580;
+`docs/features.md`'s `text-decoration` line; `docs/conformance.md`'s
+decoration paragraph; ADR 0057 (*Measured since*, item 566) and ADR 0001
+(the outline parser stays rented behind `glyph.rs`); `alo-paint`'s
+`decoration.rs`, `build.rs` (`draw_text`, `decoration_at`), `render.rs`
+(`outlined_run_at`), `glyph.rs`, `path.rs`, `synthesis.rs`; the corpus
+test `a_line_under_text_at_a_scale.rs`. No ADR governs skip-ink; 579 is a
+measurement. No `AGENTS.md` exists here.
+
+**Why 579.** It is the first open item in the file whose dependencies
+are done: the items before it wait as iterations 318–342 recorded (463
+on a person, 560 and 564 on 502 behind 501, 568–571 on a screen or
+pages, 572 on a person), and 579 depends on nothing and names its
+feature, case and closing condition.
+
+**Measured first** (Chrome 154 headless, without `--disable-gpu`,
+`--force-device-scale-factor=1` and `=2`, `DejaVu Sans` by `@font-face`,
+the source not read): `g j p q y ( ) , ç Q _ ŋ ţ` underlined and struck
+through and `É Å Ê Î Ö Ç Ŕ` overlined at 22 sizes from 8 to 64 px; the
+line `#f00` and the letters `#00f`, so the line's coverage is read from
+the green channel with the letters' taken out (transparent text draws no
+decoration at all, and an inline `text-decoration` shorthand resets the
+colour — both found the hard way); each glyph's pen from
+`Range.getBoundingClientRect()`, its outline from the font with
+`fontTools`. 1,022 underline gap edges, every one a whole device pixel.
+- The rule (device pixels, `t = max(1, size·s/10)` unrounded): the band
+  from half a pixel below the line's top to `t − ½` below it; a glyph's
+  ink is the extremes of where its outline crosses the band's edges and
+  of every outline point inside it, control points included; the gap is
+  that ink ± `t`, each end rounded to nearest. **1,014 of 1,022 edges
+  exact**, eight one pixel off with the unrounded edge within 0.02 of a
+  half; all 44 overlines' gaps exact; no line through has a gap.
+- Rejected on the same data: the drawn rows as the band (137 edges
+  wrong); a band from the top row's middle to the drawn bottom (20); a
+  dilation of the drawn thickness; including control points with the
+  drawn band (188). Scale two at `s` repeats scale one at `2s` exactly.
+- The control points matter: `g`'s descender in `DejaVu Sans` is a
+  quadratic whose control point stands 37 font units clear of its curve,
+  and Chrome's gap is that much wider (2.3 device pixels at 64 px at two).
+- `_` never gets a gap: with the thinner band the bar misses it.
+
+**Built.**
+- `alo-paint`'s `skip_ink.rs` (new): `pieces(line, thickness, glyphs,
+  scale)`, the rule above; crossings of lines and quadratics solved
+  exactly, a cubic's bracketed over 64 steps and halved; a coordinate or
+  scale that is not a number counts for nothing. Fifteen unit tests, four
+  of them gaps read from Chrome's screenshots.
+- `decoration.rs`: `thickness(size, scale)`, which `line_at` now uses.
+- `render.rs`: `outlined_glyphs_at`, one shape per glyph; `outlined_run_at`
+  is made from it, so a run becomes shapes in one place.
+- `build.rs`: `decorations_at` replaces `decoration_at`; an underline and
+  an overline are drawn as the pieces `skip_ink` leaves around the
+  piece's letters (outlined, leaned as drawn, only when such a line is
+  there); a line through is drawn whole. `Letters` carries a piece's text
+  and pen.
+- `a_line_under_text_at_a_scale.rs` compares every piece of every line
+  with Chrome's within a device pixel, at one and at two. One gap is a
+  **named exception, not a met clause**: the space before the black
+  child (580's), joined by `joined` only where it is exactly there, so
+  closing 580 makes the test fail until the exception is removed.
+  `alo_sites_rich_text.rs` counts lines by row, since the link's
+  underline is now two pieces around `guide`'s `g`.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (clippy
+refused two hand-written midpoints and an indexing, panicking test helper;
+both rewritten). `scripts/gate.sh`, started in the foreground, passed the
+tool's 600 s limit and was moved to the background; the next call waited
+on it with one foreground `until` loop, nothing else running: **`GATE
+EXIT 0`, "The gate is met. (10 of 10 steps)"**, 4,828 tests run, 4,828
+passed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: nothing is laid out differently; no `layout.txt`,
+  `boxes.txt` or `agent.txt` changed. Each line's pieces are numbers in
+  19 `display.txt`s (fills only: 42 fills became 91), asserted against
+  Chrome's device columns in the unit tests and the corpus test.
+- Reference renders: rewritten with `ALO_UPDATE_REFERENCES=1` (alo-corpus,
+  alo-renderer, alo-window) from a tree backed up first. Seven pictures
+  moved, every changed pixel in a gap: `text-decorations` at one (37
+  pixels; against `chrome.png` on those pixels 145.7 levels off on average
+  before, 23.2 after, 29 nearer, 8 further) and at two (138; 162.3 → 22.8
+  against `chrome-at-2.png`, 102 nearer, 36 further — the further ones
+  letter edges inside gaps, where Chrome's letters are thicker),
+  `web-first-website` (120), `broken-link` (12), `alo-sign-in` (12),
+  `alo-sites-rich-text` (8), `absolute-inline` (4); none of those five
+  has a Chrome picture. Thirteen `alo-sites-*` cases changed only their
+  display lists: the off-page "Skip to content" link's `p`.
+- Mutation, restored from copies (`cmp` confirmed): control points not
+  counted fails two unit tests (the 64 px `g` ends at 205); the drawn rows
+  as the band fails four; widening by the drawn thickness fails two; no
+  line stepping aside fails both corpus comparisons.
+- Hostile input: a font's outline is bytes from outside once web fonts
+  load; non-finite coordinates and scales are tested to break nothing,
+  and nothing indexes or divides by a font's numbers unguarded.
+- Cost: decorated text with an underline or overline is shaped and
+  outlined once more while the display list is built. No speed claim.
+- One file, one responsibility: where a line breaks for letters is
+  `skip_ink.rs`'s; where a line is, `decoration.rs`'s; how a run becomes
+  shapes, `render.rs`'s; what a piece draws, `build.rs`'s.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md` (and its 566 line, which said this was not done),
+  `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 579 is ticked with a *Done* paragraph that names the 580
+exception. Found: **581** (`text-decoration-skip-ink` is not read, so
+`none` and `all` draw as `auto`).
+
+**Roadmap.** Stage 2's window line: the Built clause names skip-ink (579,
+done); the owed clause loses 579 and gains 581.
+
+**Unresolved obligations.**
+- 580 (the space before a decorated span's child), with a named exception
+  in `a_line_under_text_at_a_scale.rs` that must go when it closes; 581
+  (new); 463 waits on a person; 576 (an ADR) and 577; 573–575, 568–571 as
+  before; 560 and 564 on 502 behind 501; 572 on a person.
+- The eight underline edges one pixel off sit within 0.02 of a half;
+  whether Chrome positions glyphs off its layout's 1/64 grid there is not
+  measured.
+- No claim about speed is made.
+
+279 queue items are open (579 closed; 581 added). The next unused queue
+number is **582** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

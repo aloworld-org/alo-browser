@@ -67,6 +67,7 @@ pub mod picture;
 pub mod raster;
 mod refine;
 pub mod render;
+pub mod skip_ink;
 pub mod snap;
 pub mod stroke;
 pub mod synthesis;

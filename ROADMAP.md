@@ -1875,7 +1875,9 @@ items where being right and being unusable are the same outcome.
       under, over or through text is drawn on whole device pixels, a tenth
       of the size thick, as Chrome 154 drew all 480 lines measured at one
       and at two (566, done): `text-decorations` is on Chrome's rows at
-      both.
+      both. An underline or an overline steps aside where a letter's ink
+      crosses it, as Chrome 154 does, every overline gap and 1,014 of 1,022
+      underline gap edges measured exactly (579, done).
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1888,8 +1890,8 @@ items where being right and being unusable are the same outcome.
       query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
       pixels (569), a shrunk flex item's share of a pixel (564, measured,
       built with 502), and the two boxes at two that keep 560 open; an
-      underline that steps around a descender (579) and one under the
-      space before a span's child (580); a link opening a tab
+      underline under the space before a span's child (580) and
+      `text-decoration-skip-ink`'s other values (581); a link opening a tab
       (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An underline steps aside for a letter's tail, as Chrome's does.**
+  Where a `g`, `j`, `p`, `q` or `y` hangs through an underline, or an
+  accent reaches up through an overline, the line now breaks around the
+  letter rather than running through it. How wide each gap is was
+  measured on over a thousand gap edges in Chrome at ordinary and
+  high-density screen sizes, and the gaps fall on the same screen pixels
+  as Chrome's in all but eight of them, each of those one pixel off. Lines
+  through text are left whole, as in Chrome. Underlined links with such
+  letters in the corpus pages are now drawn in pieces.
+
 - **Underlines, overlines and lines through text are crisp, and where
   Chrome puts them.** Measured on 480 lines at ordinary and high-density
   screen sizes, Chrome draws each one on whole pixels of the screen, a
@@ -13,8 +23,7 @@ What changed, in words a person outside this repository can read. Newest first.
   than from the font's own underline figures. They are drawn that way
   here now, on both kinds of screen; before, a line through 14 px text
   was smeared across two rows, a row below Chrome's. Links in the corpus
-  pages moved by up to a row. Chrome still leaves a gap where a letter's
-  tail crosses an underline, which is not done here yet.
+  pages moved by up to a row.
 
 - **A disabled checkbox or radio is drawn the way Chrome draws it.**
   Measured at three screen densities, Chrome paints its pale inside

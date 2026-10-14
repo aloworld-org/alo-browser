@@ -13742,7 +13742,7 @@ What stage 2's exit gate actually measures: a person using it.
   underline) and **580** (the space before a decorated span's child is
   not decorated here).
 
-- [ ] **579. An underline steps around a descender.** *Found building 566
+- [x] **579. An underline steps around a descender.** *Found building 566
   (iteration 342). Feature: `docs/features.md` stage 2, `text-decoration`.
   Needs measuring.* Chrome 154 leaves a gap in an underline where a
   letter's ink crosses it (`text-decoration-skip-ink: auto`, its
@@ -13753,6 +13753,38 @@ What stage 2's exit gate actually measures: a person using it.
   through or an overline steps aside too, is measured first. *Closes
   when:* `text-decorations`' underlines are Chrome's run by run at one and
   at two, and `a_line_under_text_at_a_scale.rs` compares runs, not ends.
+  ***Done (iteration 343).*** Measured first (Chrome 154, headless,
+  `--force-device-scale-factor=1` and `=2`, without `--disable-gpu`, the
+  source not read): `g j p q y ( ) , ç Q _ ŋ ţ` underlined, struck through
+  and `É Å Ê Î Ö Ç Ŕ` overlined in `DejaVu Sans` at 22 sizes from 8 to
+  64 px, the line red and the letters blue so each could be read alone,
+  each glyph's pen from `Range.getBoundingClientRect()` in the same run,
+  its outline from the font with `fontTools`. Every gap edge is a whole
+  device pixel. In device pixels, with `t = max(1, size·s/10)` unrounded:
+  the band runs from half a pixel below the line's top to `t − ½` below
+  it; a glyph's ink is the leftmost and rightmost of where its outline
+  crosses the band's edges and every outline point inside it, **control
+  points included** (`g`'s descender's control point stands 37 font
+  units clear of its curve, and Chrome's gap is that much wider); the gap
+  is that ink widened by `t` each side, each end rounded to nearest.
+  1,014 of 1,022 underline edges are exact, the other eight one pixel off
+  with the unrounded edge within 0.02 of a half; every gap of all 44
+  overlines is exact; a line through never had a gap. Tried and worse:
+  the drawn rows as the band (137 edges wrong), a band from the top's
+  middle to the drawn bottom (20), every control point without the
+  thinner band (188), widening by the drawn thickness. Built:
+  `alo-paint`'s `skip_ink.rs` (`pieces`), `decoration.rs`' `thickness`,
+  `render.rs`' `outlined_glyphs_at` (which `outlined_run_at` is now made
+  from), and `build.rs`' `decorations_at`, which draws an underline and
+  an overline as the pieces left. Evidence: `skip_ink.rs`' fifteen unit
+  tests, four of them gaps read from Chrome's screenshots (`g` at 32 px,
+  `g` and `j` at 64 px at two, a 10 px line one row thick, an overline's
+  `É`); `a_line_under_text_at_a_scale.rs` now compares every piece of
+  every line with Chrome's, within a device pixel, at one and at two.
+  **One gap is named as an exception there, not met**: the space after
+  `with` before the black child, which is 580 and not this item; the
+  test joins exactly that gap on exactly those rows and fails if it is
+  not there, so closing 580 forces the exception out. Found: **581**.
 
 - [ ] **580. The space before a decorated span's child is decorated.**
   *Found building 566 (iteration 342). Feature: `docs/features.md` stage
@@ -13764,6 +13796,18 @@ What stage 2's exit gate actually measures: a person using it.
   its line. A gap of five pixels at one (row 200, 169 to 174). *Closes
   when:* a decoration runs under a space that does not end its line, and
   not under one that does, against `chrome.png` at both.
+
+- [ ] **581. `text-decoration-skip-ink`'s values.** *Found building 579
+  (iteration 343). Feature: `docs/features.md` stage 2, `text-decoration`.
+  Needs measuring.* An underline and an overline always step aside for
+  the letters here, which is `auto`, the initial value; the property is
+  not read, so `none` (a line drawn through the letters) and `all` draw
+  as `auto`. It inherits. Whether Chrome 154 draws `all` differently from
+  `auto` on Latin text, and whether a line through ever steps aside under
+  either, is measured first. *Closes when:* the property is listed in
+  `alo-css`' `properties.rs` and inherited, `none` and `all` draw as
+  Chrome's at one and at two in a case with descenders, and an unknown
+  value is ignored.
 
 - [x] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
   § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,

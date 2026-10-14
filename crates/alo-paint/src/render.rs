@@ -243,24 +243,45 @@ pub fn outlined_run_at(
     letter_spacing: f32,
     origin: (f32, f32),
 ) -> Path {
+    let mut whole = Path::new();
+    for glyph in outlined_glyphs_at(text, font, size, scale, letter_spacing, origin) {
+        whole.extend(&glyph);
+    }
+    whole
+}
+
+/// The same run, one shape per glyph, each where it is drawn: what a line
+/// under the text steps aside for, glyph by glyph ([`crate::skip_ink`]).
+/// A glyph with nothing to draw is an empty shape, so there is one per
+/// glyph the run was shaped to.
+pub fn outlined_glyphs_at(
+    text: &str,
+    font: &Font,
+    size: f32,
+    scale: f32,
+    letter_spacing: f32,
+    origin: (f32, f32),
+) -> Vec<Path> {
     // The same spacing the line was measured with, or the letters land where
     // the line did not put them.
     let run = alo_text::spaced(
         shape_at(text, font, size, scale, Direction::LeftToRight),
         letter_spacing,
     );
-    let mut whole = Path::new();
+    let mut glyphs = Vec::with_capacity(run.glyphs.len());
     let mut pen = origin;
     for glyph in &run.glyphs {
-        if let Some(shaped) = outline_at(font, glyph.glyph_id, size, scale) {
-            let placed = shaped
-                .path
-                .translated(Point::new(pen.0 + glyph.offset.0, pen.1 + glyph.offset.1));
-            whole.extend(&placed);
-        }
+        glyphs.push(outline_at(font, glyph.glyph_id, size, scale).map_or_else(
+            Path::new,
+            |shaped| {
+                shaped
+                    .path
+                    .translated(Point::new(pen.0 + glyph.offset.0, pen.1 + glyph.offset.1))
+            },
+        ));
         pen.0 += glyph.advance;
     }
-    whole
+    glyphs
 }
 
 /// Put a coverage mask onto the canvas, filled, inside whatever clip is in

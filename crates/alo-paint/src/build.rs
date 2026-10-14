@@ -50,6 +50,36 @@ struct Pen {
     ascender: f32,
 }
 
+/// One piece of text as it is drawn, for the lines that step aside for its
+/// letters.
+struct Letters<'a> {
+    text: &'a str,
+    font: &'a alo_text::Font,
+    size: f32,
+    letter_spacing: f32,
+    /// Where the pen starts, on the baseline.
+    origin: (f32, f32),
+    oblique: f32,
+}
+
+impl Letters<'_> {
+    /// Each glyph's shape where it is drawn on a screen at `scale`, leaned as
+    /// the text is: the same shapes `crate::render` fills.
+    fn shapes(&self, scale: f32) -> Vec<crate::path::Path> {
+        crate::render::outlined_glyphs_at(
+            self.text,
+            self.font,
+            self.size,
+            scale,
+            self.letter_spacing,
+            self.origin,
+        )
+        .iter()
+        .map(|glyph| crate::synthesis::leaned(glyph, self.oblique, self.origin.1))
+        .collect()
+    }
+}
+
 /// What paint needs that is not in the layout: the fonts, and the colour of
 /// the page behind everything.
 #[derive(Debug, Clone, Copy)]
@@ -812,10 +842,11 @@ impl Builder<'_> {
                     width: geometry.border_box.right() - geometry.border_box.left(),
                     size,
                 };
+                let origin = (geometry.border_box.left(), baseline);
                 out.push(DisplayItem::Text {
                     box_id: id,
                     text: trimmed.to_owned(),
-                    origin: (geometry.border_box.left(), baseline),
+                    origin,
                     font: font.clone(),
                     oblique,
                     size,
@@ -823,9 +854,15 @@ impl Builder<'_> {
                     color,
                     shadows,
                 });
-                for (line, colour) in &decorations {
-                    out.push(Self::decoration_at(id, *line, *colour, piece, scale));
-                }
+                let letters = Letters {
+                    text: trimmed,
+                    font: &font,
+                    size,
+                    letter_spacing,
+                    origin,
+                    oblique,
+                };
+                Self::decorations_at(id, &decorations, piece, &letters, scale, out);
             }
             return;
         }
@@ -847,13 +884,13 @@ impl Builder<'_> {
             if trimmed.is_empty() {
                 continue;
             }
-            let baseline = fragment.rect.top() + ascender;
+            // The pen sits on the baseline, which is the ascender below the
+            // top of the piece.
+            let origin = (fragment.rect.left(), fragment.rect.top() + ascender);
             out.push(DisplayItem::Text {
                 box_id: id,
                 text: trimmed.to_owned(),
-                // The pen sits on the baseline, which is the ascender below
-                // the top of the piece.
-                origin: (fragment.rect.left(), baseline),
+                origin,
                 font: font.clone(),
                 oblique,
                 size,
@@ -872,9 +909,15 @@ impl Builder<'_> {
                 width: cut.map_or(fragment.rect.size.width, |cut| cut.width),
                 size,
             };
-            for (line, colour) in &decorations {
-                out.push(Self::decoration_at(id, *line, *colour, piece, scale));
-            }
+            let letters = Letters {
+                text: trimmed,
+                font: &font,
+                size,
+                letter_spacing,
+                origin,
+                oblique,
+            };
+            Self::decorations_at(id, &decorations, piece, &letters, scale, out);
         }
     }
 
@@ -1154,26 +1197,46 @@ impl Builder<'_> {
             .collect()
     }
 
-    /// One decoration line under, over or through a piece of text, where
-    /// `crate::decoration` puts it: from the top of the piece, in whole
-    /// device pixels at `scale`.
-    fn decoration_at(
+    /// The decoration lines under, over and through a piece of text, each
+    /// where `crate::decoration` puts it: from the top of the piece, in whole
+    /// device pixels at `scale`. An underline and an overline step aside
+    /// where a letter's ink crosses them (`crate::skip_ink`), so they are
+    /// drawn as the pieces left; a line through the text is drawn whole.
+    fn decorations_at(
         id: BoxId,
-        line: DecorationLine,
-        colour: Rgba,
+        decorations: &[(DecorationLine, Rgba)],
         piece: crate::decoration::Piece,
+        letters: &Letters<'_>,
         scale: f32,
-    ) -> DisplayItem {
-        DisplayItem::Fill {
-            rule: FillRule::NonZero,
-            box_id: id,
-            // A plain rectangle: a decoration has no corners of its own, so
-            // the rounding machinery would only be a way to get it wrong.
-            path: rounded_rectangle(
-                crate::decoration::line_at(line, piece, scale),
-                Corners::default(),
-            ),
-            paint: Paint::Solid(colour),
+        out: &mut Vec<DisplayItem>,
+    ) {
+        // Shaped and outlined only when a line steps aside for them: most
+        // text is not decorated, and a line through does not look.
+        let skips = |line: &DecorationLine| *line != DecorationLine::LineThrough;
+        let glyphs = if decorations.iter().any(|(line, _)| skips(line)) {
+            letters.shapes(scale)
+        } else {
+            Vec::new()
+        };
+        let thickness = crate::decoration::thickness(piece.size, scale);
+        for (line, colour) in decorations {
+            let whole = crate::decoration::line_at(*line, piece, scale);
+            let drawn = if skips(line) {
+                crate::skip_ink::pieces(whole, thickness, &glyphs, scale)
+            } else {
+                vec![whole]
+            };
+            for rect in drawn {
+                out.push(DisplayItem::Fill {
+                    rule: FillRule::NonZero,
+                    box_id: id,
+                    // A plain rectangle: a decoration has no corners of its
+                    // own, so the rounding machinery would only be a way to
+                    // get it wrong.
+                    path: rounded_rectangle(rect, Corners::default()),
+                    paint: Paint::Solid(*colour),
+                });
+            }
         }
     }
 

@@ -22,4 +22,5 @@ fill box#22 rgb(221 227 233) at (353, 79) 26×49
 unclip
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
-fill box#5 rgb(23 33 43) at (-15968, 28) 129.11035×1
+fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
+fill box#5 rgb(23 33 43) at (-15938, 28) 99.11035×1

@@ -198,9 +198,15 @@ every run.
 device rows, a tenth of the font's size thick cut down, placed from the
 text's top rounded to a device pixel. That rule drew all 480 lines of a
 probe exactly as Chrome did, and `text-decorations`' lines are on Chrome's
-rows at both scales. Chrome breaks an underline where a descender crosses
-it and this engine does not (579), and a decorated span's space before
-its child is left bare here (580).
+rows at both scales. **An underline or an overline breaks where a
+letter's ink crosses it, where Chrome breaks it** (item 579): measured on
+1,022 gap edges of underlines and every gap of 44 overlines at 22 sizes
+and both scales, the rule puts every overline gap and 1,014 underline
+edges exactly on Chrome's device pixel, and the other eight one pixel off
+where the edge falls on a half. `text-decorations`' lines are Chrome's
+piece by piece at both scales, but for one: a decorated span's space
+before its child is left bare here (580). `text-decoration-skip-ink` is
+not read, so `none` and `all` draw as `auto` does (581).
 
 Boxes can be round, and clip what is inside them to their own shape. **A
 curve's edge is covered as its area says** (item 459): the rented rasteriser
