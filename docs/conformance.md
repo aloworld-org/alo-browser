@@ -267,13 +267,19 @@ greys over black, white and grey to separate colour from opacity.
 committed beside it: inside each shape the colour is Chrome's to a unit, and
 the edges differ only by how each smooths them — Chrome quantises an edge's
 coverage to quarters at one to one and this rasteriser does not — by at most
-61 of 255 and 2.47 on average (64 and 3.0 before item 459). A disabled
-control's translucent edge and inside are drawn as one picture, mixed by
-coverage where they meet and faded once, as Chrome's seam measures at eight
-device pixels to one (463), where they used to let the page through by up to
-44 of 255 over black. Over black they now differ from Chrome's by 24 at most,
-because Chrome's disabled ring at one device pixel to one is thinner on its
-diagonal than at eight, which is not yet built (578). Where a control stands on a fraction of a pixel
+61 of 255 and 2.11 on average (64 and 3.0 before item 459, 2.14 before
+578). A disabled control is drawn as Chrome draws it, fitted at one, two and
+eight device pixels to one over black and white (578): an inside a fifth of a
+pixel in from the edge's outside, and over it `#767676` at 77/255 as the
+edge, the checked fill or the dot, each composited on its own. Its pieces
+used to let the page through by up to 44 of 255 over black, and faded as one
+picture (463) were 24 from Chrome's; over black they now differ by 15 at
+most, on a tick's edge, and a disabled radio by 10. What remains is the
+quantising: Chrome covers a straight edge pixel three quarters where the
+inside reaches four fifths of it (7 over black), so a disabled checkbox over
+black is nearer Chrome's at its worst pixel and further on average (2.76
+where it was 2.09). 463's own closing condition, seams within the unit the
+inside meets, is not met by that margin and waits on a person. Where a control stands on a fraction of a pixel
 its picture is drawn on whole pixels, as Chrome's is (item 457): each edge of
 its box rounded to the nearest pixel, a half up, measured in Chrome 154.
 `checkbox-beside-text`'s controls differ from Chrome's committed screenshot

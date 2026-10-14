@@ -20,11 +20,14 @@
 //! average over all 6,264 (64 and 3.0 before queue item 459 sampled an
 //! edge's pixels sixteen by sixteen). A disabled control's translucent edge
 //! and inside used to meet as two shapes each smoothed on its own, which
-//! let the page through the seam: up to 44 of 255 over black, where Chrome's
-//! seam is the two pieces mixed. They are drawn as one picture now (queue
-//! item 463) and differ by at most 24, all of it where Chrome's thin ring
-//! at one to one runs further in than this engine's on the diagonal (queue
-//! item 578).
+//! let the page through the seam: up to 44 of 255 over black. Chrome draws
+//! the edge over an inside that stops a fifth of a pixel short of it (queue
+//! item 578), and so does this engine now: over black a disabled control
+//! differs from Chrome's by at most 15, on a tick's edge, and a disabled
+//! radio by at most 10, where it was 24 with the pieces faded as one (463).
+//! What is left is the quantising: Chrome covers a straight edge's pixel
+//! three quarters where the inside reaches four fifths of it, which is 7
+//! over black, and its corners differ from one another by as much.
 //!
 //! The two controls with `aria-checked="mixed"` are left out: this engine
 //! draws a bar across them and Chrome does not (queue item 456).
@@ -140,8 +143,9 @@ fn every_control_is_chromes_picture_within_the_measured_bound() {
             "the control at ({left}, {top}) differs from Chrome's by {worst}"
         );
         // Measured: 4.85 at worst, a live checked checkbox's tick. A disabled
-        // radio over black was 9.22 until its pieces were drawn as one
-        // (queue item 463), and is 2.96.
+        // radio over black was 9.22 with its pieces side by side, 2.96 faded
+        // as one (queue item 463), and is 1.61 with its edge over an inside
+        // that stops short of it (578).
         assert!(
             sum * 100 <= 490 * pixels,
             "the control at ({left}, {top}) differs from Chrome's by {} on average",
@@ -150,9 +154,9 @@ fn every_control_is_chromes_picture_within_the_measured_bound() {
         total += sum;
         counted += pixels;
     }
-    // Measured: 2.47 (3.0 before queue item 459).
+    // Measured: 2.11 (3.0 before queue item 459, 2.14 before 578).
     assert!(
-        total * 100 <= 250 * counted,
+        total * 100 <= 212 * counted,
         "the controls differ from Chrome's by {} on average",
         f64::from(total) / f64::from(counted)
     );
@@ -192,18 +196,27 @@ fn a_disabled_control_over_black_is_chromes_without_a_seam() {
                 pixels += 1;
             }
         }
-        // Measured: 24 at worst and 2.96 on average, a disabled radio, where
-        // the seam let 44 and 9.22 through. What is left is where Chrome's
-        // ring runs on the diagonal at one to one (queue item 578).
+        // Measured: 15 at worst, on a checked checkbox's tick, and 2.76 on
+        // average, where the pieces side by side let 44 and 9.22 through and
+        // faded as one picture were 24 and 2.96 (queue items 463 and 578).
         assert!(
-            worst <= 24,
+            worst <= 15,
             "the disabled control at ({left}, {top}) differs from Chrome's by {worst} over black"
         );
         assert!(
-            sum * 100 <= 300 * pixels,
+            sum * 100 <= 280 * pixels,
             "the disabled control at ({left}, {top}) differs from Chrome's by {} over black",
             f64::from(sum) / f64::from(pixels)
         );
+        // A radio has no tick: every pixel is its inside, its edge or both.
+        // Measured: 10 at worst, one pixel in on the diagonal, which was 24
+        // before the inside stopped short of the edge's outside (578).
+        if pictures.radios.contains(&(left, top, span)) {
+            assert!(
+                worst <= 10,
+                "the disabled radio at ({left}, {top}) differs from Chrome's by {worst} over black"
+            );
+        }
     }
 }
 
@@ -250,10 +263,8 @@ fn inside_each_shape_the_colour_is_chromes() {
         (68, 10, "the white ring around it"),
         (67, 10, "its accent edge"),
         (94, 10, "a disabled inside over white"),
-        (88, 10, "a disabled edge over white"),
         (111, 15, "a disabled fill over white"),
         (10, 52, "a disabled inside over black"),
-        (4, 52, "a disabled edge over black"),
         (27, 50, "a disabled fill over black"),
         (73, 52, "a disabled dot over black"),
         (90, 57, "a checked checkbox's `accent-color`"),
@@ -263,6 +274,23 @@ fn inside_each_shape_the_colour_is_chromes() {
         let d = difference(pictures.ours.at(x, y), pictures.chrome.at(x, y));
         assert!(
             d.is_some_and(|d| d <= 1),
+            "{what} at ({x}, {y}): {:?} here, {:?} in Chrome",
+            pictures.ours.at(x, y).map(Rgba::to_rgba8),
+            pictures.chrome.at(x, y).map(Rgba::to_rgba8)
+        );
+    }
+    // A disabled control's edge is no shape's inside at one to one: on a
+    // straight edge its pixel is the edge over the inside where the inside
+    // reaches, four fifths of it here and three quarters in Chrome, which
+    // quantises (queue item 578). Measured: 130 against 123 over black, 210
+    // against 209 over white.
+    for (x, y, bound, what) in [
+        (4, 52, 7, "a disabled edge over black"),
+        (88, 10, 1, "a disabled edge over white"),
+    ] {
+        let d = difference(pictures.ours.at(x, y), pictures.chrome.at(x, y));
+        assert!(
+            d.is_some_and(|d| d <= bound),
             "{what} at ({x}, {y}): {:?} here, {:?} in Chrome",
             pictures.ours.at(x, y).map(Rgba::to_rgba8),
             pictures.chrome.at(x, y).map(Rgba::to_rgba8)

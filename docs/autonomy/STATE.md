@@ -34154,3 +34154,121 @@ picture in its Built clause and owes 578 then 463's closing check.
 279 queue items are open (463 still open; 578 added). The next unused
 queue number is **579** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 341 — queue item 578 closed: a disabled control is its inside with the edge's grey over it
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+stage 2 forms line; iteration 340's entry; queue items 578 and 463 and
+454's paragraph on Chrome's one-to-one quantising; `docs/features.md`'s
+line on a form control drawing its state; `docs/conformance.md`'s
+control paragraph; `alo-paint`'s `toggle.rs`, `face.rs` and `build.rs`'
+`toggle_of`; `alo-corpus`'s `toggle_artwork.rs` and `alo-paint`'s
+`control_states.rs`. No ADR governs a control's picture (454 built it
+from measurement), and 578 is a measurement. No `AGENTS.md` exists here.
+
+**Why 578.** Iteration 340 named it the next open item that is not
+blocked: it depends on nothing, names its feature, case and closing
+condition, and 463 waits on it.
+
+**Measured first** (Chrome 154 headless, without `--disable-gpu`, the
+source not read): the four disabled controls and two live ones at 13 and
+20 px, over black and white rows, at `--force-device-scale-factor` 1, 2
+and 8, fitted by coverage in a Python model sampling sixteen by sixteen.
+- At eight the outermost device pixel reads 36/214, which is `#767676` at
+  77/255 over the page alone; the next 85/210, that edge over 2/5 of the
+  inside; then 152/209, the edge over the whole inside (167/248). The dot
+  and a checked checkbox's fill are 152/209 too.
+- So Chrome draws the inside, a fifth of a pixel in from the edge's
+  outside (corners 2 px on a checkbox), and over it the one grey as the
+  ring, the checked fill (corners 2) or the dot, each source over. With
+  that one rule a disabled radio is within 9 of Chrome's at one and at
+  two and 0.17 on average at eight; a checkbox 0.46 on average at eight.
+  Insets of 0.1 to 0.3 and inside corners of 1.5 to 3.0 were all worse.
+- What iteration 340 took for the edge at one, 123/209, is this edge over
+  3/4 of the inside: Chrome quantises the straight edge pixel's 4/5 to
+  3/4. Its 2× reading is 0.57 for 0.6 and its 8× 0.42 for 0.4.
+
+**Built.**
+- `alo-paint`'s `toggle.rs`: `artwork` returns plain layers. A disabled
+  control is `DISABLED_INSIDE` inset `DISABLED_INSET` (0.2), then
+  `DISABLED_EDGE` as ring, fill or dot, then the tick in `DISABLED_MARK`.
+  `Artwork`, `within`, `over_to_read` and `DISABLED_FILL` are gone.
+  `DISABLED_EDGE` is exactly `#767676` at 77/255: `grey(36, 214)`, the
+  rounded readings, made the fill 153 where Chrome draws 152. `face.rs`
+  imports it instead of keeping its own copy.
+- `build.rs`' `toggle_of` draws the layers with no group.
+- Tests: `toggle.rs` rewritten for layers (the inset, the colours, the
+  edge over the inside reading 152/209 and the tick over that 214/237, the
+  readings recovered to Chrome's rounding); `face.rs`' grey test checks
+  the shared edge to half a unit over black, white and both fills;
+  `control_states.rs`' monotone test restated as what Chrome measures
+  (the ring is *more* opaque than the inside, 0.79 to 0.68, so the old
+  "less and less from the middle" was false): no pixel inside the last
+  one that hides as much as the inside hides less than it.
+  `toggle_artwork.rs`: over black at most 15 (was 24) and 2.80 on
+  average (was 3.00); a disabled radio at most 10; the overall average
+  bound tightened from 2.50 to 2.12 (measured 2.11; HEAD 2.14). The two
+  edge pixels at (4, 52) and (88, 10) left the flat-colour list, since at
+  one an edge pixel is no shape's inside, and are held to 7 and 1.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on it with
+one foreground `until` loop, nothing else running: **`GATE EXIT 0`, "The
+gate is met. (10 of 10 steps)"**, 4,804 tests passed (one fewer than 340:
+two tests of the removed joined picture went, one came). Only this entry
+and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: nothing positions or sizes differently; no
+  `layout.txt`, `boxes.txt` or `agent.txt` changed.
+- Reference renders: rewritten with `ALO_UPDATE_REFERENCES=1` (alo-corpus,
+  alo-renderer, alo-window) from a tree backed up first. Four pictures
+  moved: `toggle-artwork` (833 pixels, at most 20), `control-states`
+  (108, at most 7), and through the exact edge colour `a-disabled-control`
+  (231, at most 1) and `a-text-area` (257, at most 1), whose moved pixels
+  came nearer Chrome's committed screenshots in 484 of 488. On
+  `toggle-artwork` over black, against Chrome: disabled radios 24 → 10 at
+  worst and 2.96 → 1.61 on average; disabled checkboxes 15 → 12 and 16 →
+  15 at worst but 1.05 → 1.96 and 2.09 → 2.76 on average, along straight
+  edges Chrome quantises. Over white and `#dde2ee` every disabled
+  control's worst pixel stayed or came nearer; four means rose, by up to
+  0.26 (an unchecked checkbox over `#dde2ee`). The 13 disabled controls' means sum to 16.9 where they
+  were 18.1.
+- Mutation, restored from copies (`cmp` confirmed): HEAD's `toggle.rs`,
+  `build.rs` and `face.rs` fail the over-black bound (16 against 15), and
+  give 2.14 against the 2.12 overall bound; HEAD's radios read 24 against
+  the radio bound of 10.
+- Hostile input: nothing new reads bytes from outside.
+- Cost: no speed claim; a disabled toggle no longer takes a group's
+  surface, and nothing was timed.
+- One file, one responsibility: a toggle's picture stays `toggle.rs`'s; the
+  shared edge colour lives there because `face.rs` already took its edge
+  and `grey` from it.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 578 is ticked with a *Done* paragraph. **463's own check was
+run and is not met**: its seam pixels over black are within 10 (radios)
+where its inside pixels are within 1. The remainder is Chrome's
+one-to-one coverage quantising, not shape or compositing, and this engine
+samples exact coverage by design (454's stated bound). Meeting 463 means
+reproducing that quantising or restating 463 as a measured bound; that
+choice is a person's, so 463 is left open and says it waits on one.
+
+**Roadmap.** Stage 2's forms line: the Built clause names the inside and
+edge rule (463 and 578, 44 → 24 → 15 over black, a radio 10); the owed
+clause now names 463 waiting on a person instead of 578.
+
+**Unresolved obligations.**
+- 463 waits on a person (quantising or a restated bound); 576 (an ADR)
+  and 577 as before; 573–575, 566, 568–571 as before; 560 and 564 on 502
+  behind 501; 572 on a person.
+- No claim about speed is made.
+
+278 queue items are open (578 closed). The next unused queue number is
+**579** and the next ADR is **0058**. This is one iteration, not a
+finished queue or roadmap.

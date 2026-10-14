@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A disabled checkbox or radio is drawn the way Chrome draws it.**
+  Measured at three screen densities, Chrome paints its pale inside
+  first, stopping a fifth of a pixel short of the edge, then the
+  see-through grey edge over it, and fills a checked one or its dot with
+  that same grey. Drawn that way here too, a disabled radio's worst pixel
+  on a black page is 10 levels from Chrome's where it was 24. Disabled
+  buttons and fields share the exact edge colour and moved by at most
+  one level, nearer Chrome. Chrome still rounds an edge pixel's coverage
+  to quarters on an ordinary screen, so a disabled checkbox's straight
+  edges are a few levels from Chrome's on black; whether to copy that
+  rounding is left to a person.
+
 - **A disabled checkbox or radio no longer shows a dark ring inside its
   edge.** Its pale edge and pale inside were drawn as two separate
   see-through shapes, and where they met a sliver of the page showed

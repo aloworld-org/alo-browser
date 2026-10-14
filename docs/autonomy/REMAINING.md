@@ -2365,3 +2365,14 @@ rest is Chrome's ring at one device pixel to one, thinner on its
 diagonal than at eight: cut to **578**, on which 463 now depends. 279
 queue items are open (578 added). The next unused queue number is 579
 and the next unused ADR 0058.
+
+Iteration 341 closed queue item 578: Chrome 154 draws a disabled checkbox
+or radio as an inside a fifth of a pixel short of its edge with
+`#767676` at 77/255 over it as edge, checked fill or dot, fitted at one,
+two and eight device pixels to one (`alo-paint`'s `toggle.rs`; the
+joined picture and its group are gone, and `face.rs` shares the exact
+edge colour). Over black `toggle-artwork`'s worst disabled pixel is 15
+where it was 24, a radio's 10. 463's own check was run and is not met by
+Chrome's one-to-one coverage quantising, which this engine does not
+reproduce; it waits on a person. 278 queue items are open (578 closed).
+The next unused queue number is 579 and the next unused ADR 0058.

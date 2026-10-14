@@ -1434,9 +1434,11 @@ unreachable without it.
       translucent greys when disabled, all measured from Chrome 154's
       screenshots. Corpus case `toggle-artwork`, compared with Chrome's
       screenshot beside it pixel by pixel within a measured bound; a
-      disabled one's edge and inside are drawn as one picture faded once,
-      so the page no longer shows where they meet (queue item 463,
-      iteration 340: 44 of 255 at worst over black, now 24). **Drawn
+      disabled one is an inside a fifth of a pixel short of its edge with
+      `#767676` at 77/255 over it as edge, fill or dot, fitted at one, two
+      and eight device pixels to one, so the page no longer shows where
+      they meet (queue items 463 and 578, iterations 340–341: 44 of 255
+      at worst over black, then 24, now 15, a radio 10). **Drawn
       on whole pixels** where it stands on fractions (queue item 457,
       `alo-paint`'s `snap.rs`), each edge rounded as Chrome 154 rounds it;
       `checkbox-beside-text` compared with Chrome's screenshot. **A form
@@ -1509,8 +1511,9 @@ unreachable without it.
       border on a checkbox, which Chrome ignores (453, waits for a page);
       a native checkbox's picture following its own checkedness rather
       than `aria-checked` (456, waits for a page), a light accent's
-      dark tick (458, waits for a page), and a disabled control's ring at
-      one device pixel to one (578, then 463's closing check)
+      dark tick (458, waits for a page), and whether a disabled control's
+      seams at one device pixel to one must meet Chrome's quantised
+      coverage (463, waits on a person)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

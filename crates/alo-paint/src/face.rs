@@ -47,7 +47,7 @@
 //! [`drawn`] says it.
 
 use crate::corner::{Corners, ring, rounded_rectangle};
-use crate::toggle::{EDGE, Layer, grey};
+use crate::toggle::{DISABLED_EDGE, EDGE, Layer, grey};
 use alo_box::Face;
 use alo_layout::{Edges, Rect};
 use alo_style::ComputedStyle;
@@ -63,11 +63,6 @@ pub const BUTTON_FILL: Rgba = Rgba {
 
 /// A live field's fill.
 pub const FIELD_FILL: Rgba = Rgba::WHITE;
-
-/// A disabled control's edge: 36 over black and 214 over white, so
-/// `#767676` at 77/255, which is the `rgba(118, 118, 118, 0.3)` Chrome
-/// computes for its border.
-pub const DISABLED_EDGE: Rgba = grey(36.0, 214.0);
 
 /// A disabled button's fill: 96 over black, 238 over white.
 pub const DISABLED_BUTTON_FILL: Rgba = grey(96.0, 238.0);
@@ -196,7 +191,6 @@ mod tests {
     #[test]
     fn a_disabled_grey_reads_as_measured_over_black_and_over_white() {
         for (color, black, white) in [
-            (DISABLED_EDGE, 36.0, 214.0),
             (DISABLED_BUTTON_FILL, 96.0, 238.0),
             (DISABLED_FIELD_FILL, 167.0, 248.0),
         ] {
@@ -205,11 +199,14 @@ mod tests {
             assert!((over_black - black).abs() < 0.01, "{color:?}");
             assert!((over_white - white).abs() < 0.01, "{color:?}");
         }
-        // And the edge over the fill is what Chrome draws where they meet:
-        // 202 over white for a button, 152 over black for a field.
+        // The edge is `#767676` at 77/255, which Chrome reads as 36 and
+        // 214, and over the fill it is what Chrome draws where they meet: 202
+        // over white for a button, 152 over black for a field.
         let over = |top: Rgba, under: f32| top.red * 255.0 * top.alpha + under * (1.0 - top.alpha);
-        assert!((over(DISABLED_EDGE, 238.0) - 202.0).abs() < 1.0);
-        assert!((over(DISABLED_EDGE, 167.0) - 152.0).abs() < 1.0);
+        assert!((over(DISABLED_EDGE, 0.0) - 36.0).abs() < 0.5);
+        assert!((over(DISABLED_EDGE, 255.0) - 214.0).abs() < 0.5);
+        assert!((over(DISABLED_EDGE, 238.0) - 202.0).abs() < 0.5);
+        assert!((over(DISABLED_EDGE, 167.0) - 152.0).abs() < 0.5);
     }
 
     #[test]

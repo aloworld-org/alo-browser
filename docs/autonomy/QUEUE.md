@@ -8364,8 +8364,21 @@ The long pole, and the thing most of section E is unreachable without.
   gives), so this engine's seam pixels are mixed in the right way at the
   wrong place. That is 578; this item closes on its own condition once
   578 is built.
+  **Checked after 578 (iteration 341); not met, and now waits on a
+  person.** With 578 built, `toggle-artwork`'s disabled controls over
+  black differ from Chrome's by 15 at most (on a tick's edge), a disabled
+  radio by 10, where its inside pixels are within 1. The remainder is no
+  longer where the pieces are or how they are composited, both fitted to
+  well under a unit at eight device pixels to one: it is Chrome's
+  one-to-one coverage quantising, which covers a straight edge pixel 3/4
+  where the inside reaches 4/5 of it and draws a checkbox's four corners
+  unlike one another (100 and 109 over black). This engine samples exact
+  coverage by design (454's stated bound for every edge, 61 on a tick).
+  So this condition can be met only by reproducing Chrome's quantising
+  or by restating it as a measured bound, and choosing between them is
+  not the loop's to do.
 
-- [ ] **578. A disabled control's ring at one device pixel to one, as
+- [x] **578. A disabled control's ring at one device pixel to one, as
   Chrome draws it.** *Cut from 463 (iteration 340). Feature:
   `docs/features.md` stage 1, a form control draws its state. Opened by
   `toggle-artwork`. Needs measuring.* At one to one Chrome 154's disabled
@@ -8380,6 +8393,28 @@ The long pole, and the thing most of section E is unreachable without.
   is written down and built, and `toggle-artwork`'s disabled controls'
   edge pixels at one are nearer Chrome's than 463 left them (24 at worst
   over black), so that 463's own check can be run.
+  ***Done (iteration 341).*** Measured in Chrome 154 (headless, without
+  `--disable-gpu`, the source not read): the four disabled controls at 13
+  and 20 px over black and white at one, two and eight device pixels to
+  one, fitted by coverage. Chrome draws an inside (167/248) a fifth of a
+  pixel in from the edge's outside, corners 2 px on a checkbox, and over
+  it `#767676` at 77/255 (36/214 alone, 152/209 over the inside) as the
+  ring, a checked checkbox's whole fill (corners 2) or a radio's dot,
+  each composited on its own, source over. At eight the outermost device
+  pixel is the edge over the page and the next the edge over 2/5 of the
+  inside. That one rule fits every scale: by exact coverage a disabled
+  radio is within 9 at one and at two and 0.17 on average at eight,
+  against 24 or more at one for the pieces side by side or faded once.
+  Built in `alo-paint`'s `toggle.rs`: `artwork` returns plain layers again; `Artwork`, `within`, `over_to_read`,
+  `DISABLED_FILL` and the group in `build.rs` are gone, and the old
+  123/209 edge, which was this edge over 3/4 of the inside, is replaced
+  by the shared `DISABLED_EDGE`, which `face.rs` now imports rather than
+  defining its own rounded `grey(36, 214)`. Over black the worst disabled
+  pixel went from 24 to 15 (a tick's edge), a radio's from 24 to 10 and
+  its mean from 2.96 to 1.61; a disabled checkbox's mean rose from 1.05
+  and 2.09 to 1.96 and 2.76, along its straight edges, where Chrome
+  quantises (463's paragraph). Disabled buttons and fields moved by at
+  most a unit, nearer Chrome's in 484 of 488 moved pixels.
 
 - [x] **455. A stopped HTTP/2 body is reported the same way whatever the
   timing.** *Found by the gate in iteration 287, which did not cause it.

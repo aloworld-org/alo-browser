@@ -21,7 +21,7 @@ use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
 use alo_layout::{Size, compute};
 use alo_paint::control::DEFAULT_ACCENT;
-use alo_paint::toggle::{DISABLED_FILL, EDGE};
+use alo_paint::toggle::{DISABLED_EDGE, DISABLED_INSIDE, EDGE};
 use alo_paint::{Canvas, DisplayList, PaintContext, build, render};
 use alo_style::{Origin, SourcedSheet, USER_AGENT_STYLE_SHEET, resolve};
 use alo_text::{Font, FontDatabase, Slant, TextMeasurer, Weight};
@@ -264,7 +264,7 @@ fn a_disabled_control_still_says_what_state_it_is_in() {
         "a disabled control draws its state like any other, inside its edge:\n{}",
         list.to_outline(),
     );
-    let grey = over_white(DISABLED_FILL);
+    let grey = over_white(DISABLED_EDGE.over(DISABLED_INSIDE));
     assert!(
         pixels(&canvas, INSIDE, grey) > 100,
         "in the colour that says it is not live",
@@ -304,17 +304,17 @@ fn opacity(over_white: &Canvas, over_black: &Canvas, x: u32, y: u32) -> Option<f
 }
 
 #[test]
-fn a_disabled_control_lets_the_page_through_only_at_its_outside() {
-    // Queue item 463. A disabled control's edge and inside are translucent
-    // and meet along a curve. Drawn side by side, each smoothed on its own,
-    // a pixel half covered by each lets the page through both halves, and
-    // over black the seam showed as a darker ring inside the edge. Chrome's
-    // seam is the two pieces mixed by how much of the pixel each covers, so
-    // from the middle outwards a control hides less and less of the page
-    // and never dips and recovers: the edge (169/255) hides a little less
-    // than the inside (174/255) or a radio's dot (198/255), and the page
-    // shows only past the edge. A checked checkbox is left out: its tick
-    // hides more than the fill it crosses, wherever it crosses it.
+fn a_disabled_control_never_lets_the_page_through_between_its_pieces() {
+    // Queues 463 and 578. A disabled control's inside and edge are
+    // translucent. Drawn side by side, each smoothed on its own, a pixel half
+    // covered by each lets the page through both halves, and over black the
+    // seam showed as a darker ring inside the edge. Chrome draws the edge
+    // over the inside, so where they cross they hide more of the page than
+    // the inside alone (0.79 against 0.68), and past them only the edge's
+    // 0.30. So from the middle outwards no pixel hides less of the page than
+    // the inside does until the last that hides as much: nothing dips there
+    // and recovers. A checked checkbox is left out: it is filled edge to
+    // edge, and its tick hides more than the fill it crosses.
     for attributes in [
         "type=radio disabled",
         "type=radio checked disabled",
@@ -334,17 +334,26 @@ fn a_disabled_control_lets_the_page_through_only_at_its_outside() {
                 (8..=16u32).rev().map(move |y| (line, y)).collect(),
             ]
         });
+        let inside = DISABLED_INSIDE.alpha - 2.0 / 255.0;
         for ray in rays {
-            let mut previous = 1.0f32;
-            for (x, y) in ray {
-                let Some(here) = opacity(&white, &black, x, y) else {
-                    panic!("({x}, {y}) is on the page");
-                };
+            let hidden = ray
+                .iter()
+                .map(|&(x, y)| {
+                    let Some(here) = opacity(&white, &black, x, y) else {
+                        panic!("({x}, {y}) is on the page");
+                    };
+                    here
+                })
+                .collect::<Vec<_>>();
+            let Some(last) = hidden.iter().rposition(|&here| here >= inside) else {
+                continue;
+            };
+            for (&(x, y), &here) in ray.iter().zip(&hidden).take(last) {
                 assert!(
-                    here <= previous + 2.0 / 255.0,
-                    "{attributes}: ({x}, {y}) hides {here} of the page, more than the {previous} nearer the middle"
+                    here >= inside,
+                    "{attributes}: ({x}, {y}) hides {here} of the page, less than the inside's {}, inside pixels that hide that much",
+                    DISABLED_INSIDE.alpha
                 );
-                previous = previous.min(here);
             }
         }
     }
