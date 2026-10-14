@@ -1,0 +1,12 @@
+/*
+ * Lines centred in odd leftover room and boxes aligned `middle`, at one,
+ * two and 1.5 (queue item 598). Each line box is tinted; text is clear.
+ */
+body { margin: 0; font-family: sans-serif; color: transparent; }
+.a, .v { position: absolute; width: 150px; background: #e4e8f0; }
+.a { line-height: 20px; font-size: 16px; }
+.v { width: 60px; }
+b { display: inline-block; height: 10px; background: #2050d0; font-weight: normal; }
+.m { width: 10px; vertical-align: middle; background: #d03020; }
+.t { width: auto; height: auto; }
+.s { vertical-align: middle; }

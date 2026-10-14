@@ -525,3 +525,52 @@ placed 1 (the other 32 break their lines elsewhere than Chrome, as they
 did before, queue item 586). Across the corpus, 950 of 1,267 element boxes
 are Chrome's exactly at one, where 899 were, and 949 at two, where 926
 were; no box that was within two units of Chrome's moved further from it.
+
+## Addendum, 2026-10-14 — the halves a line takes: a centred line's start and a `middle` box's raise
+
+Measured by queue item 598 in Chrome 154, headless, under
+`--force-device-scale-factor=1`, `=2` and `=1.5`, the source not read: a
+`--dump-dom` page of 260 lines in odd leftover room (inline-blocks a
+sixty-fourth or a hundred-and-twenty-eighth over a whole width, text, two
+boxes about a word, padded containers, `text-align: right` beside them) and
+340 boxes aligned `middle` (inline-blocks of odd heights at ten font sizes,
+`line-height` normal and set, margins), then a second page of 600 more on
+another seed with negative margins, inline-blocks holding text, a `middle`
+box inside a span of another size, and spans aligned `middle`, and 80
+buttons. Positions were read against a zero-height inline-block standing on
+the baseline, so each number is the rule alone.
+
+- **A centred line starts half its leftover room in, truncated onto the
+  grid** — a share of free space, as § 3 says of everything else layout
+  hands out. 37 units of room start a line 18 in. Every centred line of both
+  pages, and every button's content, at all three scales; this engine had
+  put 106, 121 and 85 of the first page's half a unit right. `right` needs
+  no rounding: its room is on the grid already.
+- **A box aligned `middle` is raised by half its parent's x-height rounded
+  to the nearest unit, a half going up, less half its own height above its
+  baseline less below, truncated toward zero** — each half on its own. The
+  13 px face's x-height is 455 units, and a box is raised 228 for it, not
+  227.5; a box 1,183 units tall has its middle 591 above its baseline, not
+  591.5. Rounding the sum instead, or either half the other way, misses
+  rows the rule keeps. Every `middle` box of both pages at all three
+  scales; this engine had 225, 259 and 131 of the first page's off.
+- **An x-height is not on the grid, so it is moved onto a line only within
+  a float's error of one.** At 1.5 the 12.25 px face is set at 18.37 device
+  pixels, 642.95 units to its x-height, and Chrome raises by 321; the
+  sixteenth-of-a-unit slack an edge is given at that scale would have taken
+  it to 643 and 322. The 14 px face's 735 units, a float's step either side
+  of the line, raise by 368.
+
+Built in `alo-layout`'s `layout_unit.rs` (`half_truncated`, `half_rounded`),
+used by `inline.rs`' line start and `vertical_align.rs`' `middle`. The frozen
+case `centred-and-middle-on-the-grid`, 118 boxes, is Chrome's in every box at
+one, 1.5 and two (40, 34 and 32 were off) and in every pixel. Across the
+corpus no box moved further from Chrome's; nine came to match it, one at one
+and eight at 1.5 — `alo-offline`'s centred button and `alo-meet-greeting`'s
+line, whose picture is aligned `middle` — and the corpus's 1.5 test lists
+none of them any longer.
+
+Found on the way, not decided here: Chrome stands an absolutely positioned
+box with no inset on an otherwise empty centred line at the line's middle,
+where this engine leaves it at the start (queue item 608); and a button's
+`width` is its border box in Chrome, its content box here (queue item 609).

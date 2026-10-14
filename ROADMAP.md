@@ -289,9 +289,15 @@ correctness, not before it.
       draws them (`alo-paint`'s `toggle::picture_box`;
       `toggles-at-fractional-scales` Chrome's in every plain pixel at one,
       1.5 and two, `checkbox-beside-text` at 1.5 but four pixels of
-      letters). Owed: the foot of a line's letters at 1.5 (607), a
-      centred line's start and a `middle` raise off the grid (598), the
-      window at a fractional screen's own scale (599), an
+      letters), and since queue item 598 (iteration 362) a centred line's
+      start and a `middle` raise are put on the layout grid as Chrome 154
+      puts them (`alo-layout`'s `layout_unit::half_truncated` and
+      `half_rounded`; `centred-and-middle-on-the-grid` Chrome's in every
+      box and pixel at one, 1.5 and two, and the corpus at 1.5 Chrome's in
+      every box exact at one but 564's two). Owed: the foot of a line's
+      letters at 1.5 (607), an out-of-flow box's static position on an
+      empty centred line (608), a button's `width` as its border box
+      (609), the window at a fractional screen's own scale (599), an
       `outline`, which is not drawn at all (591). Since queue item 596
       (iteration 360) a dashed or dotted side with a curve inside a corner
       is laid along the border's centre line as Chrome 154 lays it, the

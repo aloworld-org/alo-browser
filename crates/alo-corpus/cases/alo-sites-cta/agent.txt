@@ -3,7 +3,7 @@ document at (0, 0) 800×253.15625
   main at (0, 0) 800×253.15625
     heading "Taste the difference" [level=2] at (24, 48) 752×33.59375
     paragraph at (24, 95.59375) 752×27.1875
-      text "First bag ships free." at (316.53906, 98.59375) 166.92188×20
+      text "First bag ships free." at (316.53125, 98.59375) 166.92188×20
     paragraph at (24, 139.78125) 752×48.375
       link "Order now" at (218.4375, 139.78125) 140.70313×48.375
       link "See subscriptions" at (371.14063, 139.78125) 210.42188×48.375

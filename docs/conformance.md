@@ -169,7 +169,8 @@ with no summary is given none and says so (433), and the `toggle` event,
 **`vertical-align`** moves an image, an inline-block or an inline box, and
 everything inside it, from its parent's baseline (item 312). Every keyword
 is read: `baseline`, `middle` (half the parent's x-height over its
-baseline), `text-top`, `text-bottom`, `sub` and `super` (Chromium's
+baseline, that half rounded onto the layout grid and the box's own half
+height truncated onto it, as Chrome 154 does: item 598), `text-top`, `text-bottom`, `sub` and `super` (Chromium's
 distances, a fifth of the font size and a pixel down, a third and a pixel
 up), `top` and `bottom` (against the line box, after everything else has
 said how tall it is), a length, and a percentage of the box's own
@@ -475,9 +476,12 @@ are drawn in their snapped box cut to whole CSS pixels (597):
 every plain pixel at one, 1.5 and two, and every unchecked one covers the
 device pixels Chrome's does; `checkbox-beside-text` at 1.5 is Chrome's in
 every plain pixel but four at the foot of its last row's letters (607),
-which no control touches. A centred line's
-start and a `middle` raise are off the grid by under a sixty-fourth
-(598), and text is not compared (576). An `outline` is not drawn at all (591). A picture with both a width
+which no control touches. A centred line's start and a `middle` raise
+are put on the grid as Chrome puts them (598): at 1.5 every one of the
+986 corpus boxes exact at one is Chrome's but the two flex items 564 owns,
+and
+`centred-and-middle-on-the-grid`, 118 boxes, is Chrome's in every box and
+pixel at one, 1.5 and two. Text is not compared (576). An `outline` is not drawn at all (591). A picture with both a width
 and a height set is that size, on a line, as a block, as a flex item and
 positioned, and its `min-` and `max-` limits are CSS 2 § 10.4's (590);
 `pictures-sized-on-a-line` is Chrome's in all 35 boxes at one and at two,

@@ -1,7 +1,7 @@
 fill box#2 rgb(255 255 255) at (0, 0) 800×253
 fill box#9 rgb(29 78 216) at (0, 0) 800×253
 text box#12 "Taste the difference" rgb(255 255 255) 28px at (242.5625, 74)
-text box#15 "First bag ships free." rgb(255 255 255) 17px at (316.53906, 114.59375)
+text box#15 "First bag ships free." rgb(255 255 255) 17px at (316.53125, 114.59375)
 fill box#18 rgb(255 255 255) at (218, 140) 141×48
 fill box#18 rgb(255 255 255) at (218, 140) 141×48
 text box#19 "Order now" rgb(29 78 216) 17px at (238.625, 169.375)

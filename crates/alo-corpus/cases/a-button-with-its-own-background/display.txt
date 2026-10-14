@@ -4,7 +4,7 @@ clip box#2 to (8, 8) 96×21
 fill box#2 rgb(168 168 168) at (8, 8) 96×21
 fill box#2 rgb(84 84 84) at (8, 8) 96×21
 unclip
-text box#3 "Save" rgb(0 0 0) 13.333333px at (39.632813, 23)
+text box#3 "Save" rgb(0 0 0) 13.333333px at (39.625, 23)
 fill box#5 rgb(219 234 254) at (8, 37) 96×21
 clip box#5 to (8, 37) 96×21
 fill box#5 rgb(168 168 168) at (8, 37) 96×21

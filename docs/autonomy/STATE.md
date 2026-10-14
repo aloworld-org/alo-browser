@@ -36514,3 +36514,128 @@ and the two cases, owing 607.
 287 queue items are open (597 closed; 607 added). The next unused queue
 number is **608** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 362 — queue item 598: a centred line's start and a `middle` raise on the grid
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 1's paint line on whole device pixels, whose Owed list named 598),
+iteration 361's entry, queue items 591–607, ADR 0054 (the 1/64 grid; § 3
+on shares of free space, and its addenda) and ADR 0057 (§ 2 and *Measured
+since*), `docs/features.md` stage 1's lines on the 1/64 grid and
+`vertical-align`, `docs/conformance.md` on a fractional scale,
+`alo-layout`'s `inline.rs`, `vertical_align.rs` and `layout_unit.rs`,
+`alo-value`'s `scale.rs`, `alo-text`'s `face_size.rs`, and the corpus tests
+`a_page_at_a_scale_of_one_and_a_half.rs` and `meets_greeting.rs`. No
+`AGENTS.md` exists here.
+
+**Why 598.** The first open item whose dependencies are done: those
+before it wait as iterations 358–361 recorded (463 and 572 on a person,
+560 and 564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and
+559 on pages, 591 on a page that draws an outline). 598 names its feature
+(stage 1, layout on the 1/64 grid) and its closing condition.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1`,
+`=1.5` and `=2`, `--dump-dom` of `getBoundingClientRect()`, every element
+in the `dejavu` crate's `DejaVu Sans`; the source not read; scratchpad
+`m598/`): 260 lines in odd leftover room and 340 boxes aligned `middle`
+(`p1`), 600 more on a second seed with negative margins, inline-blocks
+holding text, `middle` inside a span of another size and spans aligned
+`middle` (`p2`), the 1.5 misses again at the page's top (`p3`, which
+showed `p1`/`p2`'s far rows to be f32 noise near a million units), and 80
+buttons (`p4`). Each position was read against a zero-height inline-block
+on the baseline. A centred line starts half its leftover room in, the half
+truncated onto the grid; a `middle` box is raised by half its parent's
+x-height rounded to the nearest unit, a half going up, less half its
+height above its baseline less below, truncated toward zero, each half on
+its own. A first build snapped the x-height with `device_pixels`' 1/16
+slack and missed 18 rows at 1.5, all with a 12.25 px parent: 642.95 units
+were taken to 643 and raised by 322 where Chrome raises by 321. An
+x-height is not on the grid, so it now takes a length's float-error slack
+(`on_a_line`) instead.
+
+**Built.** `alo-layout`'s `layout_unit::half_truncated` and
+`half_rounded`; `inline.rs`' `TextAlignment::start` (replacing `share`,
+used for a line and for the empty line an out-of-flow box stands on);
+`vertical_align.rs`' `middle`, with `Parent` now carrying its scale. ADR
+0054 gains an addendum of 2026-10-14 on the halves a line takes. Doc
+comments in all three files say it.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first.
+`scripts/gate.sh` was started in the foreground; it ran past the tool's
+600 s limit and was moved to the background by the harness, and the next
+call waited on it with an until-loop and read it in the same step:
+**`exit 0`, "The gate is met. (10 of 10 steps)"**, 4,988 tests run, 4,988
+passed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Numbers: the new case's `every_box_is_where_chrome_puts_it_at_one_one_and_a_half_and_two`
+  holds all 118 of `centred-and-middle-on-the-grid`'s boxes to Chrome's
+  frozen `chrome-at-1.txt`, `-1.5.txt` and `-2.txt` within a twentieth of
+  a device sixty-fourth (40, 34 and 32 were off before); unit tests hold
+  `half_truncated` and `half_rounded` at one, two and 1.5 (the 12.25 px
+  and 14 px faces among them), `middle` with both halves and a box reaching
+  further below than above, and a centred line's start at one and two.
+  `a_page_at_a_scale_of_one_and_a_half.rs`' `NOT_THE_SCALE` loses its
+  seven 598 boxes; both scale tests count the new case (75 at 1.5, 76 at
+  two). `meets_greeting.rs`' two hand assertions take half the x-height
+  rounded (228 units, 44.4375 px, Chrome's `chrome-at-1.txt`).
+- Probes: every row of `p1`–`p3` is Chrome's at all three scales (`p1`
+  before: 106, 121 and 85 lines and 225, 259 and 131 `middle` boxes off;
+  `p2` before: 125/139/95 and 203/160/79), and all 80 buttons' content is
+  centred as Chrome's once the button's own width is set aside (609).
+- Corpus, before and after, every element against Chrome's frozen boxes
+  at each scale: none moved further from Chrome's; nine came to match it
+  (one at one, eight at 1.5, `alo-meet-greeting` and `alo-offline`); exact
+  boxes 985 → 986 at one, 1,020 → 1,028 at 1.5, 985 at two.
+- Reference renders: new case with `render.png`, `render-at-1.5.png`,
+  `render-at-2.png` and Chrome's `chrome.png`, `chrome-at-1.5.png`,
+  `chrome-at-2.png` (RGBA, cropped from a 600 px window): every pixel a
+  plain colour in both and the same one at all three scales, no blends
+  (16 differed at one before). Rewritten after checking: `layout.txt`,
+  `display.txt`, `agent.txt` and `render.png` of `a-button-with-its-own-background`,
+  `a-disabled-control`, `alo-agenda-mini-month`, `alo-meet-greeting`,
+  `alo-offline`, `alo-sign-in`, `alo-sites-cta`, `alo-sites-full-page` and
+  `alo-sites-tickets` (each a centred text start a half unit left, or the
+  greeting's line), and six `alo-window` references that compose
+  `alo-offline` (1,627 pixels, its own change). The two buttons beside a
+  `chrome.png` move 108 and 122 pixels by a level and are no nearer or
+  further from Chrome's picture in any way that counts (mean 16.62 → 16.80
+  and 4.95 → 5.03 on the moved pixels), its thickened letters dominating
+  (576); the layout probes are the evidence there.
+- Mutation, each restored from a copy (`cmp` confirmed): a centred half
+  left off the grid, the x-height half left off it, the box's half left
+  off it, the x-height given the 1/16 slack, and floor for truncation —
+  each failed a unit test, the corpus's 1.5 test, and the new case's
+  numbers test; the x-height one also its pixels and `meets_greeting`.
+- Hostile input: nothing new reads bytes from outside; the halves
+  saturate as every grid number does.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: the grid's rules are `layout_unit.rs`',
+  where a line sits `inline.rs`', what `vertical-align` means
+  `vertical_align.rs`'.
+- Temporary probe tests (`zz_598.rs`, `zz_598b.rs`) were removed before
+  the gate.
+- Also updated: `docs/features.md`, `docs/conformance.md`, ADR 0054,
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 598 is ticked with a *Done* paragraph. Found: **608** (an
+out-of-flow box alone on a centred line stands at its middle in Chrome and
+at its start here, at every scale, before this change too) and **609** (a
+button's `width` is its border box in Chrome, its content box here).
+
+**Roadmap.** Stage 1's paint line on whole device pixels: its Owed list
+loses 598 and gains 608 and 609, and a *since queue item 598* clause names
+`half_truncated`, `half_rounded` and the case.
+
+**Unresolved obligations.**
+- 608 and 609, as above; 599–607, 591, 179; 576, 577, 585, 586 as before;
+  463 and 572 wait on a person; 568–571 on a screen or pages; 560 and 564
+  on 502 behind 501.
+- No claim about speed is made.
+
+288 queue items are open (598 closed; 608 and 609 added). The next unused
+queue number is **610** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

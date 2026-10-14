@@ -2,5 +2,5 @@ document at (0, 0) 480×400
   main at (32, 75) 416×250
     heading "You're offline" [level=1] at (32, 155) 416×25
     paragraph at (32, 190) 416×72
-      text "alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns." at (38.492188, 192) 403.01563×67 in 3 pieces
+      text "alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns." at (38.484375, 192) 403.01563×67 in 3 pieces
     button "Try again" at (181.54688, 286) 116.90625×39

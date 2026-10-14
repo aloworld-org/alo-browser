@@ -133,6 +133,7 @@
 //! layout's, against its containing block, which this file never sees.
 
 use crate::geometry::{Edges, Point, Rect, Size};
+use crate::layout_unit;
 use crate::measure::{MeasureText, TextStyle};
 use crate::soft_wrap::SoftWrap;
 use crate::text_run::TextRun;
@@ -403,12 +404,14 @@ impl TextAlignment {
         None
     }
 
-    /// How far along the leftover room a line starts.
-    fn share(self) -> f32 {
+    /// How far into `leftover` room a line starts, on the grid of a screen
+    /// at `scale`: a centred line's half of it is truncated, as Chrome's is
+    /// (queue item 598), so a line in 37 units of room starts 18 in.
+    fn start(self, leftover: f32, scale: f32) -> f32 {
         match self {
             TextAlignment::Start => 0.0,
-            TextAlignment::Center => 0.5,
-            TextAlignment::End => 1.0,
+            TextAlignment::Center => layout_unit::half_truncated(leftover, scale),
+            TextAlignment::End => leftover,
         }
     }
 }
@@ -1118,7 +1121,8 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         if self.holds_nothing() || !self.content {
             // A box out of flow on a line that does not exist stands where
             // the line would have: at its top, aligned as a line of nothing.
-            let start = self.available_width.unwrap_or(0.0).max(0.0) * self.alignment.share();
+            let room = self.available_width.unwrap_or(0.0).max(0.0);
+            let start = self.alignment.start(room, self.strut.scale);
             self.anchor_waiting(start, top);
             // Either nothing was laid down at all, or what was laid down is
             // only empty inline boxes with no edges of their own — which CSS
@@ -1166,7 +1170,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let leftover = self
             .available_width
             .map_or(0.0, |available| (available - width).max(0.0));
-        let start = leftover * self.alignment.share();
+        let start = self.alignment.start(leftover, self.strut.scale);
         self.anchor_waiting(start, top);
 
         // The space after the last thing on the line ends it: it hangs, and
@@ -1332,6 +1336,7 @@ fn font_of(style: &TextStyle, measurer: &impl MeasureText) -> Parent {
         descent: measurer.descender(style),
         x_height: measurer.x_height(style),
         font_size: style.size,
+        scale: style.scale,
     }
 }
 
@@ -2403,6 +2408,27 @@ mod tests {
         );
         assert_eq!(lines_of(&layout).len(), 2, "{:?}", lines_of(&layout));
         assert_eq!(layout.anchors, vec![anchor(2, 24.0, 16.0)]);
+    }
+
+    #[test]
+    fn a_centred_line_starts_half_its_room_in_truncated_onto_the_grid() {
+        // A box a sixty-fourth over 40 wide in 200 leaves 10,239 units; half
+        // is 5,119.5, and Chrome 154 starts the line at 5,119 (queue item
+        // 598). At two the room is 20,478 units and the half whole.
+        for (scale, start) in [(1.0, 5119.0 / 64.0), (2.0, 10239.0 / 128.0)] {
+            let style = TextStyle {
+                scale,
+                ..TextStyle::default()
+            };
+            let layout = lay_out_aligned(
+                &[atomic(1, 40.0 + 1.0 / 64.0, 20.0)],
+                Some(200.0),
+                TextAlignment::Center,
+                &style,
+                &BlockFont,
+            );
+            assert_eq!(rect_of(&layout, 1).map(|rect| rect.origin.x), Some(start));
+        }
     }
 
     #[test]

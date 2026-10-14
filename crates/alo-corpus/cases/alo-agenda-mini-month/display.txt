@@ -10,12 +10,12 @@ unclip
 clip box#21 to (206, 18) 15×15
 fill box#21 rgb(122 111 98) at (211, 21.125) 5×8.75
 unclip
-text box#29 "M" rgb(122 111 98) 9.92px at (26.070313, 53.5)
+text box#29 "M" rgb(122 111 98) 9.92px at (26.0625, 53.5)
 text box#32 "T" rgb(122 111 98) 9.92px at (57.03125, 53.5)
 text box#35 "W" rgb(122 111 98) 9.92px at (84.875, 53.5)
-text box#38 "T" rgb(122 111 98) 9.92px at (116.46094, 53.5)
+text box#38 "T" rgb(122 111 98) 9.92px at (116.453125, 53.5)
 text box#41 "F" rgb(122 111 98) 9.92px at (146.34375, 53.5)
-text box#44 "S" rgb(122 111 98) 9.92px at (175.77344, 53.5)
+text box#44 "S" rgb(122 111 98) 9.92px at (175.76563, 53.5)
 text box#47 "S" rgb(122 111 98) 9.92px at (205.48438, 53.5)
 group box#49 at opacity 0.5
 text box#50 "28" rgb(122 111 98) 11.52px at (23.015625, 79.09375)

@@ -14634,7 +14634,7 @@ What stage 2's exit gate actually measures: a person using it.
   What remains between the two pictures is the checked checkbox's tick's
   edge, which differs from Chrome's at every scale, at one too.
 
-- [ ] **598. A line's start under `text-align` and a `middle` raise on the
+- [x] **598. A line's start under `text-align` and a `middle` raise on the
   grid.** *Found building 593 (iteration 357). Feature:
   `docs/features.md` stage 1, layout (the 1/64 grid). Needs measuring.*
   `inline.rs` starts a centred line at half its leftover room and raises
@@ -14648,6 +14648,31 @@ What stage 2's exit gate actually measures: a person using it.
   Chrome puts each on the grid (truncated, floored or rounded) is
   measured at one, two and 1.5 on lines of odd leftover room and boxes of
   odd heights, built, and those seven boxes come off the list.
+
+  **Done (iteration 362).** Measured in Chrome 154 at one, two and 1.5
+  (iteration 362's scratchpad `m598/`), the source not read: 260 lines in
+  odd leftover room and 340 boxes aligned `middle`, then 600 more on a
+  second seed with negative margins, inline-blocks holding text, `middle`
+  inside a span of another size, and 80 buttons, each read against a
+  zero-height inline-block on the baseline. A centred line starts half its
+  leftover room in, that half truncated onto the grid; a `middle` box is
+  raised by half its parent's x-height rounded to the nearest unit, a half
+  going up, less half its own height above its baseline less below,
+  truncated toward zero, each half on its own. The x-height is moved onto a
+  grid line only within a float's error: at 1.5 the 12.25 px face's 642.95
+  units raise by 321, where the sixteenth an edge is given would make 322.
+  Built in `alo-layout`'s `layout_unit.rs` (`half_truncated`,
+  `half_rounded`), used by `inline.rs`' `TextAlignment::start` and
+  `vertical_align.rs`' `middle`; written into ADR 0054's addendum of
+  2026-10-14 on the halves a line takes. Every row of both probes is
+  Chrome's at all three scales, where the first had 106, 121 and 85 lines
+  and 225, 259 and 131 `middle` boxes off. The seven boxes are off
+  `NOT_THE_SCALE`; across the corpus none moved further from Chrome's and
+  nine came to match it. New case `centred-and-middle-on-the-grid`, 118
+  boxes, is Chrome's in every box (40, 34 and 32 were off) and every pixel
+  at one, 1.5 and two (16 differed at one). Found: **608** (an
+  out-of-flow box's static position on an empty centred line) and **609**
+  (a button's `width` is its border box).
 
 - [ ] **599. The window at a fractional screen's own scale.** *Cut from 593
   (iteration 357; ADR 0057 § 3). Feature: `docs/features.md` stage 2, a
@@ -14791,6 +14816,39 @@ What stage 2's exit gate actually measures: a person using it.
   first, at 1, 1.5 and two, against item 576's thickening. *Closes when:*
   the rule is written down, built, `NOT_YET` is empty, and a frozen case
   of lines at 1.5 is Chrome's in every plain pixel.
+
+- [ ] **608. An out-of-flow box on an empty centred line stands at its
+  middle.** *Found building 598 (iteration 362). Feature:
+  `docs/features.md` stage 1, an absolute box placed against its containing
+  block (its static position). Needs measuring.* A `position: absolute`
+  box with no inset, alone in a block with `text-align: center`, stands at
+  the line's start here and in the middle of the line in Chrome 154: 22
+  probe blocks of odd widths (`<div style="text-align:center"><u
+  style="position:absolute;width:5px;height:5px"></u></div>`, iteration
+  362's scratchpad `m598/p2`) all put it well in — the first 6,044 units —
+  where this engine puts it at the start, at one, 1.5 and two alike, and
+  this was so before 598.
+  `inline.rs` already anchors such a box at the aligned start of a line
+  that is not there (`a_box_out_of_flow_alone_makes_no_line_and_stands_where_one_would`),
+  so the static position is lost later, where the anchor becomes a
+  position. Whether Chrome centres the box's own width or its start, and
+  with padding, is measured first. *Closes when:* the rule is written down,
+  built, and a frozen case of such boxes is Chrome's in numbers at one, 1.5
+  and two.
+
+- [ ] **609. A button's `width` is its border box.** *Found building 598
+  (iteration 362). Feature: `docs/features.md` stage 1, a form control
+  holding what it shows in a box of its own. Needs measuring.* Chrome 154
+  lays out `<button style="width: 60.65625px">` 3,882 units wide, its
+  border box, as though it were `box-sizing: border-box`; this engine
+  makes that its content box and the button 4,906 units, 16 px wider with
+  its padding and border, so everything centred in it is 8 px right of
+  Chrome's at every scale (80 probe buttons, iteration 362's scratchpad
+  `m598/p4`). Which controls Chrome sizes by their border box — `button`,
+  `select`, `<input type=button>` and the rest — is measured first, against
+  what a field does (item 506). *Closes when:* each control Chrome sizes by
+  its border box is sized so here, and a frozen case of controls given a
+  width and a height is Chrome's in numbers at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

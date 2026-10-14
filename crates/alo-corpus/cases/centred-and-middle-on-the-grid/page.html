@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--
+  Lines centred in odd leftover room, and boxes aligned `middle` of odd
+  heights, as Chrome 154 puts them on its grid at one, two and 1.5: half the
+  leftover room truncated, half an x-height rounded, half a box's height
+  truncated (queue item 598). Written for this engine; positions in
+  binary fractions of a pixel, so a written length is what layout sees.
+-->
+<html><head><meta charset=utf-8><title>Centred and middle on the grid</title></head><body>
+<div class=a style="left:4.5px;top:4px;width:116.5px;text-align:center"><b style="width:50.25px"></b></div>
+<div class=a style="left:164.5px;top:4px;width:102.1953125px;text-align:center"><span style="font-size:14px">x</span></div>
+<div class=a style="left:4.25px;top:28px;width:106.5px;text-align:center"><b style="width:18.5px"></b><span style="font-size:14px">ab</span><b style="width:6.8515625px"></b></div>
+<div class=a style="left:164.5px;top:28px;width:107.3359375px;text-align:center"><b style="width:11.875px"></b> <b style="width:14.734375px"></b></div>
+<div class=a style="left:4.625px;top:52px;width:113.90625px;padding-left:1.15625px;text-align:center"><b style="width:50.5625px"></b></div>
+<div class=a style="left:164px;top:52px;width:124.5px;text-align:center"><span style="font-size:13.337px">xxxx</span></div>
+<div class=a style="left:4px;top:76px;width:79.8125px;text-align:center"><b style="width:22.5px"></b><span style="font-size:13.337px">ab</span><b style="width:9.71875px"></b></div>
+<div class=a style="left:164.9375px;top:76px;width:147.2109375px;text-align:right"><b style="width:33.3359375px"></b> <b style="width:14.53125px"></b></div>
+<div class=a style="left:4.28125px;top:100px;width:89.34375px;text-align:center"><b style="width:30.4609375px"></b></div>
+<div class=a style="left:164.5px;top:100px;width:84px;text-align:center"><span style="font-size:15.5px">xx</span></div>
+<div class=a style="left:4.25px;top:124px;width:91.5px;text-align:center"><b style="width:18.6875px"></b><span style="font-size:11px">ab</span><b style="width:18.5px"></b></div>
+<div class=a style="left:164.25px;top:124px;width:107.5px;padding-left:1.5px;text-align:center"><b style="width:7.5625px"></b> <b style="width:21.09375px"></b></div>
+<div class=a style="left:4px;top:148px;width:113.21875px;padding-left:4.5px;text-align:center"><b style="width:40.109375px"></b></div>
+<div class=a style="left:164.75px;top:148px;width:144.765625px;padding-left:5.5px;text-align:center"><span style="font-size:13.337px">xxxx</span></div>
+<div class=a style="left:4.5px;top:172px;width:109.171875px;padding-left:3.375px;text-align:center"><b style="width:14.171875px"></b><span style="font-size:11px">ab</span><b style="width:8.25px"></b></div>
+<div class=a style="left:164px;top:172px;width:101.6875px;padding-left:1.09375px;text-align:center"><b style="width:28.21875px"></b> <b style="width:24.015625px"></b></div>
+<div class=a style="left:4.75px;top:196px;width:124.0625px;text-align:center"><b style="width:55.5px"></b></div>
+<div class=a style="left:164px;top:196px;width:104.8125px;text-align:center"><span style="font-size:12.25px">xxxxxx</span></div>
+<div class=a style="left:4.6875px;top:220px;width:116.859375px;text-align:right"><b style="width:13.625px"></b><span style="font-size:13.337px">ab</span><b style="width:24.828125px"></b></div>
+<div class=a style="left:164.25px;top:220px;width:148.25px;text-align:center"><b style="width:24.5px"></b> <b style="width:12.5px"></b></div>
+<div class=a style="left:4px;top:244px;width:78.375px;text-align:center"><b style="width:21.5625px"></b></div>
+<div class=a style="left:164.109375px;top:244px;width:121.5px;padding-left:2.8515625px;text-align:center"><span style="font-size:17px">xxxxx</span></div>
+<div class=a style="left:4.5px;top:268px;width:107.96875px;text-align:center"><b style="width:22.375px"></b><span style="font-size:13px">ab</span><b style="width:14.53125px"></b></div>
+<div class=a style="left:164px;top:268px;width:120.375px;text-align:center"><b style="width:38.921875px"></b> <b style="width:12.1953125px"></b></div>
+<div class=v style="left:4.5px;top:300px;font-size:17px;line-height:normal">x<b class=m style="height:12.25px"></b></div>
+<div class=v style="left:164.5px;top:300px;font-size:15.5px;line-height:24.5px">x<b class=m style="height:14.5px;margin-top:2.5px;margin-bottom:1.265625px"></b></div>
+<div class=v style="left:4.25px;top:344px;font-size:17px;line-height:normal">x<b class=m style="height:30.046875px;margin-bottom:-20.1875px"></b></div>
+<div class=v style="left:164.25px;top:344px;font-size:17px;line-height:18.2578125px">x<b class="m t" style="font-size:13px">ab</b></div>
+<div class=v style="left:4.5px;top:388px;font-size:13.337px;line-height:normal">x<span style="font-size:13.337px">x<b class=m style="height:19.828125px"></b></span></div>
+<div class=v style="left:164.5px;top:388px;font-size:11px;line-height:17.5px">x<span class=s style="font-size:14px">x</span></div>
+<div class=v style="left:4.5px;top:432px;font-size:12.25px;line-height:normal">x<b class=m style="height:30.625px"></b></div>
+<div class=v style="left:164px;top:432px;font-size:14px;line-height:24.96875px">x<b class=m style="height:19.6875px;margin-top:1.3515625px;margin-bottom:3.046875px"></b></div>
+<div class=v style="left:4.25px;top:476px;font-size:14px;line-height:22.609375px">x<b class=m style="height:16.875px;margin-bottom:-20.5px"></b></div>
+<div class=v style="left:164.5px;top:476px;font-size:12.25px;line-height:normal">x<b class="m t" style="font-size:13.337px">ab</b></div>
+<div class=v style="left:4px;top:520px;font-size:15.5px;line-height:normal">x<span style="font-size:12.25px">x<b class=m style="height:7.2265625px"></b></span></div>
+<div class=v style="left:164.25px;top:520px;font-size:17px;line-height:normal">x<span class=s style="font-size:15.5px">x</span></div>
+<div class=v style="left:4.5px;top:564px;font-size:13px;line-height:normal">x<b class=m style="height:30.65625px"></b></div>
+<div class=v style="left:164px;top:564px;font-size:13.337px;line-height:normal">x<b class=m style="height:10.4375px;margin-top:3.0546875px;margin-bottom:0px"></b></div>
+<div class=v style="left:4.25px;top:608px;font-size:11px;line-height:25.5px">x<b class=m style="height:10.5px;margin-bottom:-5.0625px"></b></div>
+<div class=v style="left:164.25px;top:608px;font-size:12.25px;line-height:18.3125px">x<b class="m t" style="font-size:13.337px">ab</b></div>
+<div class=v style="left:4.25px;top:652px;font-size:11px;line-height:19.25px">x<span style="font-size:13px">x<b class=m style="height:8.90625px"></b></span></div>
+<div class=v style="left:164.5px;top:652px;font-size:13.337px;line-height:normal">x<span class=s style="font-size:11px">x</span></div>
+<div class=v style="left:4.25px;top:696px;font-size:14px;line-height:normal">x<b class=m style="height:8.5px"></b></div>
+<div class=v style="left:164.5px;top:696px;font-size:13px;line-height:normal">x<b class=m style="height:21.703125px;margin-top:2.5px;margin-bottom:4.015625px"></b></div>
+<div class=v style="left:4.5px;top:740px;font-size:14px;line-height:15.5px">x<b class=m style="height:11.875px;margin-bottom:-20.3984375px"></b></div>
+<div class=v style="left:164px;top:740px;font-size:11px;line-height:normal">x<b class="m t" style="font-size:14px">ab</b></div>
+<div class=v style="left:4.25px;top:784px;font-size:17px;line-height:28.296875px">x<span style="font-size:13px">x<b class=m style="height:13.8046875px"></b></span></div>
+<div class=v style="left:164.25px;top:784px;font-size:13.337px;line-height:normal">x<span class=s style="font-size:13px">x</span></div>
+</body></html>

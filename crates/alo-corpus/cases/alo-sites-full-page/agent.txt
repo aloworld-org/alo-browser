@@ -80,7 +80,7 @@ document at (0, 0) 800×6483.2656
       summary "How fresh is the coffee?" [expanded=false] at (37, 2914.8906) 726×27.1875
     heading "Taste the difference" [level=2] at (24, 3063.0781) 752×33.59375
     paragraph at (24, 3110.6719) 752×27.1875
-      text "First bag ships free." at (316.53906, 3113.6719) 166.92188×20
+      text "First bag ships free." at (316.53125, 3113.6719) 166.92188×20
     paragraph at (24, 3154.8594) 752×48.375
       link "Order now" at (218.4375, 3154.8594) 140.70313×48.375
       link "See subscriptions" at (371.14063, 3154.8594) 210.42188×48.375

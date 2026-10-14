@@ -180,13 +180,22 @@ fn the_hand_is_a_twenty_pixel_square_on_the_greetings_line() {
         panic!("the greeting's text");
     };
     let (above, _) = greeting_reach(metrics);
-    let hand_above = 10.0 + metrics.x_height / 2.0;
+    let hand_above = 10.0 + half_x_height(metrics.x_height);
     assert!(above > hand_above, "the strut is the line's top");
     assert!(
         (content.top() - (44.0 + above - hand_above)).abs() < 0.001,
         "on the greeting's line: {}",
         content.top()
     );
+}
+
+/// Half an x-height as a box aligned `middle` is raised by it: rounded to
+/// the nearest sixty-fourth, a half going up (queue item 598). The 13 px
+/// face's x-height is 455 sixty-fourths, so the hand is raised by 228 of
+/// them, where half would be 227.5; Chrome 154 puts its top at 2,844
+/// (`chrome-at-1.txt`), 44.4375 px, which is that.
+fn half_x_height(x_height: f32) -> f32 {
+    (x_height * 64.0 / 2.0 + 0.5).floor() / 64.0
 }
 
 #[test]
@@ -210,7 +219,7 @@ fn the_hand_is_middle_aligned_with_the_greetings_lowercase_letters() {
     );
     let middle = content.top() + content.size.height / 2.0;
     assert!(
-        (middle - (baseline - x_height / 2.0)).abs() < 0.001,
+        (middle - (baseline - half_x_height(x_height))).abs() < 0.001,
         "the hand's middle at {middle}, the baseline at {baseline}",
     );
     // The line is the strut's leading above the baseline and the hand below

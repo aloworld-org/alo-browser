@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Centred lines and `middle`-aligned pictures land where Chrome puts
+  them.** A centred line starts half its spare room in, and an icon aligned
+  `vertical-align: middle` is raised by half the x-height of the text
+  beside it. This engine left each half wherever it fell, so a centred
+  button or a line holding an icon could be a fraction of a pixel off
+  Chrome's — at a screen scale of 1.5, enough to move everything below it.
+  Chrome rounds each half onto its layout grid in a particular way, measured
+  on 1,280 probe lines and boxes, and so does this engine now: on a new
+  page of 118 such boxes every one is where Chrome puts it at scales one,
+  1.5 and two, where 40, 34 and 32 were not.
+
 - **Checkboxes and radios are the right size on a screen at 1.5.** On a
   screen of one and a half device pixels to the CSS pixel, a checkbox or
   a radio filled the whole box it was laid out in, rounded to the screen's

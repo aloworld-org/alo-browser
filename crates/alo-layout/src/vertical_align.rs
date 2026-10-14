@@ -12,7 +12,11 @@
 //! - **`baseline`** — none. The initial value.
 //! - **`middle`** — the box's vertical midpoint at the parent's baseline plus
 //!   half the parent's x-height, which is where the middle of a lowercase
-//!   letter is. That is the keyword icons beside text are given.
+//!   letter is. That is the keyword icons beside text are given. Both halves
+//!   are put on the layout grid as Chrome puts them (queue item 598): half
+//!   the x-height rounded, a half going up, and half the box's height
+//!   truncated toward zero, each on its own, so that the raise is on the grid
+//!   and so is the line that holds it.
 //! - **`text-top`** and **`text-bottom`** — the box's top at the top of the
 //!   parent's font, or its bottom at the bottom of it.
 //! - **`sub`** and **`super`** — CSS leaves "the proper position" to the
@@ -32,6 +36,7 @@
 //! makes the line taller above the baseline, and one lowered makes it deeper
 //! below, so nothing raised or lowered overlaps the line before or after.
 
+use crate::layout_unit;
 use alo_value::{FontMetrics, LengthPercentage, parse_length_percentage};
 
 /// `vertical-align` as it was written.
@@ -134,6 +139,9 @@ pub struct Parent {
     pub x_height: f32,
     /// Its font size.
     pub font_size: f32,
+    /// The scale of the screen it is laid out for, whose grid a raise is put
+    /// on.
+    pub scale: f32,
 }
 
 /// Which way a box held by the line box itself is held.
@@ -165,7 +173,10 @@ impl LineAlign {
             LineAlign::TextTop => parent.ascent - above,
             LineAlign::TextBottom => below - parent.descent,
             // The box's middle is (above - below) / 2 over its own baseline.
-            LineAlign::Middle => parent.x_height / 2.0 - (above - below) / 2.0,
+            LineAlign::Middle => {
+                layout_unit::half_rounded(parent.x_height, parent.scale)
+                    - layout_unit::half_truncated(above - below, parent.scale)
+            }
             LineAlign::Raise(by) => by,
             LineAlign::Top => return Err(Edge::Top),
             LineAlign::Bottom => return Err(Edge::Bottom),
@@ -182,6 +193,7 @@ mod tests {
         descent: 4.0,
         x_height: 8.0,
         font_size: 16.0,
+        scale: 1.0,
     };
 
     fn close(left: f32, right: f32) -> bool {
@@ -245,6 +257,37 @@ mod tests {
         assert_eq!(raise(LineAlign::Raise(-3.0)), Ok(-3.0));
         assert_eq!(raise(LineAlign::Top), Err(Edge::Top));
         assert_eq!(raise(LineAlign::Bottom), Err(Edge::Bottom));
+    }
+
+    #[test]
+    fn middle_puts_both_halves_on_the_grid_as_chrome_does() {
+        // Measured in Chrome 154 (queue item 598): half the x-height rounded
+        // to a unit, a half going up, and half the box's height truncated.
+        let middle = |x_height: f32, height: f32, scale: f32| {
+            let parent = Parent {
+                x_height,
+                scale,
+                ..PARENT
+            };
+            LineAlign::Middle.raise(height, 0.0, parent)
+        };
+        // `DejaVu Sans` at 13 px: 455 units to its x-height, raised 228 for
+        // it; a box 1,183 units tall has its middle 591 over its baseline.
+        assert!(middle(455.0 / 64.0, 1183.0 / 64.0, 1.0).is_ok_and(|by| close(by, -363.0 / 64.0)));
+        // At two the same are 910 and 2,366 of a smaller unit.
+        assert!(middle(455.0 / 64.0, 1183.0 / 64.0, 2.0).is_ok_and(|by| close(by, -728.0 / 128.0)));
+        // At 1.5, 12.25 px is set at 18.37 device pixels: 642.95 units to
+        // its x-height, whose half is 321, not the 322 a sixteenth's slack
+        // would take it to. A 9 px box is 864 units, half of it 432.
+        assert!(middle(642.95 / 96.0, 9.0, 1.5).is_ok_and(|by| close(by, -111.0 / 96.0)));
+        // Below its baseline more than above, a box's half is truncated
+        // toward zero: 7 units more below is 3 more, not 4.
+        assert!(
+            middle(8.0, 0.0, 1.0).is_ok_and(|by| close(by, 4.0))
+                && LineAlign::Middle
+                    .raise(0.0, 7.0 / 64.0, PARENT)
+                    .is_ok_and(|by| close(by, 4.0 + 3.0 / 64.0))
+        );
     }
 
     #[test]

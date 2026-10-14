@@ -2611,3 +2611,17 @@ and `checkbox-beside-text` at 1.5 in every plain pixel but four at the foot
 of its last row's letters, where 74 differed. Found: **607** (the foot of
 a line's letters at 1.5). 287 queue items are open (597 closed; 607
 added). The next unused queue number is 608 and the next unused ADR 0058.
+
+Iteration 362 closed queue item 598: a centred line starts half its
+leftover room in, that half truncated onto the layout grid, and a box
+aligned `middle` is raised by half its parent's x-height rounded to the
+grid, a half going up, less half its own height truncated, as Chrome 154
+was measured doing on 1,280 probe rows at one, two and 1.5 (`alo-layout`'s
+`layout_unit::half_truncated` and `half_rounded`, ADR 0054's addendum of
+2026-10-14). The seven boxes `a_page_at_a_scale_of_one_and_a_half.rs` held
+for it are Chrome's, and the new case `centred-and-middle-on-the-grid`, 118
+boxes, is Chrome's in every box and pixel at one, 1.5 and two. Found:
+**608** (an out-of-flow box's static position on an empty centred line)
+and **609** (a button's `width` is its border box). 288 queue items are
+open (598 closed; 608 and 609 added). The next unused queue number is 610
+and the next unused ADR 0058.

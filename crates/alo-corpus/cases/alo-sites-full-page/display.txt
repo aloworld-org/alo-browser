@@ -62,7 +62,7 @@ fill box#208 rgb(221 227 233) at (20, 2902) 760×53
 text box#210 "How fresh is the coffee?" rgb(23 33 43) 17px at (37, 2933.8906)
 fill box#214 rgb(29 78 216) at (0, 3015) 800×253
 text box#217 "Taste the difference" rgb(255 255 255) 28px at (242.5625, 3089.0781)
-text box#220 "First bag ships free." rgb(255 255 255) 17px at (316.53906, 3129.6719)
+text box#220 "First bag ships free." rgb(255 255 255) 17px at (316.53125, 3129.6719)
 fill box#223 rgb(255 255 255) at (218, 3155) 141×48
 fill box#223 rgb(255 255 255) at (218, 3155) 141×48
 text box#224 "Order now" rgb(29 78 216) 17px at (238.625, 3184.4531)
@@ -123,7 +123,7 @@ text box#373 "Tell us how much you drink; we work it out." rgb(76 88 102) 17px a
 unclip
 fill box#379 rgb(242 245 248) at (0, 5469) 800×239
 fill box#379 rgb(221 227 233) at (0, 5469) 800×239
-text box#382 "Cupping evenings" rgb(23 33 43) 28px at (258.85156, 5536.172)
+text box#382 "Cupping evenings" rgb(23 33 43) 28px at (258.84375, 5536.172)
 text box#385 "Six seats around the roaster, once a month." rgb(76 88 102) 17px at (212.9375, 5576.7656)
 fill box#388 rgb(29 78 216) at (41, 5602) 247×48
 fill box#388 rgb(29 78 216) at (41, 5602) 247×48

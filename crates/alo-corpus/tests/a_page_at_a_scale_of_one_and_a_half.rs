@@ -18,7 +18,7 @@
 //!   length and face-size probes, and a line height written as a number at
 //!   eleven sizes, and `rules-at-a-scale.chrome-at-*.txt` is what Chrome made
 //!   of them.
-//! - **The corpus**: `chrome-at-1.5.txt` beside 74 cases is Chrome's box for
+//! - **The corpus**: `chrome-at-1.5.txt` beside 75 cases is Chrome's box for
 //!   every element, and every box this engine places exactly where Chrome
 //!   does at one, it places where Chrome does at 1.5, but for the boxes
 //!   [`NOT_THE_SCALE`] names.
@@ -213,39 +213,13 @@ fn each_rule_rounds_in_device_pixels_at_one_two_and_one_and_a_half() {
 ///
 /// - `border-widths`' two flex items shrink by a share Chrome hands out
 ///   otherwise, at two as at 1.5 (item 564).
-/// - `alo-offline`'s button is centred on its line by half the leftover
-///   room, which this engine leaves off the grid: half a sixty-fourth of a
-///   device pixel to the right (item 598).
-/// - `alo-meet-greeting`'s greeting holds a picture aligned `middle`, raised
-///   by a number this engine leaves off the grid, so its line is a
-///   sixty-fourth of a device pixel short and everything below it a
-///   sixty-fourth higher (item 598).
-const NOT_THE_SCALE: [(&str, &str, u16); 9] = [
+///
+/// `alo-offline`'s centred button and `alo-meet-greeting`'s line holding a
+/// picture aligned `middle` were here until both halves were put on the grid
+/// as Chrome puts them (item 598).
+const NOT_THE_SCALE: [(&str, &str, u16); 2] = [
     ("border-widths", "/html0/body1/div0", 564),
     ("border-widths", "/html0/body1/div1", 564),
-    ("alo-offline", "/html0/body1/main0/button3", 598),
-    ("alo-meet-greeting", "/html0/body1/div0/div0", 598),
-    ("alo-meet-greeting", "/html0/body1/div0/div0/header0", 598),
-    (
-        "alo-meet-greeting",
-        "/html0/body1/div0/div0/header0/p0",
-        598,
-    ),
-    (
-        "alo-meet-greeting",
-        "/html0/body1/div0/div0/header0/h11",
-        598,
-    ),
-    (
-        "alo-meet-greeting",
-        "/html0/body1/div0/div0/header0/h11/em0",
-        598,
-    ),
-    (
-        "alo-meet-greeting",
-        "/html0/body1/div0/div0/header0/p2",
-        598,
-    ),
 ];
 
 /// Chrome's boxes beside a case at one scale, by path, or [`None`] when the
@@ -333,7 +307,7 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-    assert_eq!(cases, 74, "every case Chrome was measured on at 1.5");
+    assert_eq!(cases, 75, "every case Chrome was measured on at 1.5");
     assert!(
         compared >= 985,
         "{compared} boxes compared, where 985 were exact at one on 2026-10-14"

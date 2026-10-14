@@ -21,6 +21,8 @@
 //! - **A set line height** keeps ADR 0050's rules, [`rounded`] and
 //!   [`floored`], which Chrome applies there and which disagree with
 //!   truncation; `crate::line_height` reads them from here.
+//! - **A half** is [`half_truncated`]: a centred line's start and a `middle`
+//!   box's half height; but half an x-height is [`half_rounded`].
 //!
 //! A border width is floored to whole device pixels where it is read
 //! (`crate::line_width`), and a whole device pixel is 64 units, so it is on
@@ -130,6 +132,38 @@ pub fn edges(near: f32, size: f32, scale: f32) -> (f32, f32) {
     let placed = from_units(start.trunc(), scale);
     let sized = from_units(end.floor() - start.floor(), scale);
     (placed, sized)
+}
+
+/// Half of `pixels`, truncated toward zero onto the grid of a screen at
+/// `scale`: where a centred line starts in its leftover room, and how far
+/// a box aligned `middle` has its middle from its own baseline (queue item
+/// 598).
+///
+/// Measured in Chrome 154 at one, two and 1.5: a line centred in 37 units
+/// of leftover room starts 18 in, not 18.5, and a `middle` box 1,183 units
+/// tall has its middle 591 units over its baseline, not 591.5.
+/// `pixels` is taken onto the grid first, as every number Chrome halves is
+/// on it already.
+pub fn half_truncated(pixels: f32, scale: f32) -> f32 {
+    from_units((saturated(on_the_grid(pixels, scale)) / 2.0).trunc(), scale)
+}
+
+/// Half of `pixels`, rounded to the nearest unit of a screen at `scale`, a
+/// half going up: half of a font's x-height, which a box aligned `middle`
+/// is raised by (queue item 598).
+///
+/// Measured in Chrome 154: `DejaVu Sans` at 17 px is 595 units to its
+/// x-height, and a `middle` box is raised by 298 for it, not 297.5; at 12.25
+/// px, 428.75 units, by 214. An x-height is not on the grid to begin with,
+/// so it is moved onto a line only within a float's own error of one, as a
+/// length is, and never by the sixteenth of a unit an edge is at 1.5: there
+/// the 12.25 px face is 642.95 units, whose half Chrome rounds to 321, and
+/// the 14 px face 735, whose half it rounds to 368.
+pub fn half_rounded(pixels: f32, scale: f32) -> f32 {
+    from_units(
+        (on_a_line(saturated(pixels * per_px(scale))) / 2.0 + 0.5).floor(),
+        scale,
+    )
 }
 
 /// A number of units, moved onto the grid line it is within [`SLACK`] of.
@@ -276,6 +310,45 @@ mod tests {
         let (near, size) = edges(sixty_fourths(-310.5), 20.0, 1.0);
         assert!(same(near, sixty_fourths(-310.0)));
         assert!(same(size, 20.0));
+    }
+
+    #[test]
+    fn a_half_is_truncated_toward_zero_on_the_grid() {
+        // Queue item 598, measured in Chrome 154: 37 units of room centre a
+        // line 18 in, at one, at two and at 1.5, and below zero toward it.
+        assert!(same(
+            half_truncated(sixty_fourths(37.0), 1.0),
+            sixty_fourths(18.0)
+        ));
+        assert!(same(
+            half_truncated(sixty_fourths(-37.0), 1.0),
+            sixty_fourths(-18.0)
+        ));
+        assert!(same(half_truncated(74.0 / 128.0, 2.0), 37.0 / 128.0));
+        assert!(same(half_truncated(37.0 / 128.0, 2.0), 18.0 / 128.0));
+        assert!((half_truncated(37.0 / 96.0, 1.5) * 96.0 - 18.0).abs() < 1e-4);
+        // Whole sixty-fourths a float holds just short of at 1.5 are whole.
+        assert!((half_truncated(0.395_833_3, 1.5) * 96.0 - 19.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn half_an_x_height_is_rounded_a_half_going_up() {
+        // `DejaVu Sans` at 17 px is 595 units to its x-height: 298, not 297.5.
+        assert!(same(
+            half_rounded(sixty_fourths(595.0), 1.0),
+            sixty_fourths(298.0)
+        ));
+        // At 12.25 px, 428.75 units: 214.
+        assert!(same(
+            half_rounded(sixty_fourths(428.75), 1.0),
+            sixty_fourths(214.0)
+        ));
+        // At two, 13.337 px is set at 26.67 device pixels, 933.45 units: 467.
+        assert!(same(half_rounded(933.45 / 128.0, 2.0), 467.0 / 128.0));
+        // At 1.5, 12.25 px is 642.95 units, whose half is 321 and not taken
+        // to 643's; 14 px is 735, a float's step from it, whose half is 368.
+        assert!((half_rounded(642.95 / 96.0, 1.5) * 96.0 - 321.0).abs() < 1e-4);
+        assert!((half_rounded(21.0 * 35.0 / 96.0, 1.5) * 96.0 - 368.0).abs() < 1e-4);
     }
 
     #[test]
