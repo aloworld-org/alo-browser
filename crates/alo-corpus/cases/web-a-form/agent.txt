@@ -4,9 +4,9 @@ document at (0, 0) 600×640.1875
   paragraph at (8, 53) 584×21
     textbox "Telephone:" at (99.734375, 53) 172×21
   paragraph at (8, 90) 584×21
-    textbox "E-mail address:" at (136.58594, 90) 172×21
+    textbox "E-mail address:" at (136.59375, 90) 172×21
   group "Pizza Size" at (10, 127) 580×160.59375
-    text "Pizza Size" at (26, 127) 78.27344×19
+    text "Pizza Size" at (26, 127) 78.28125×19
     paragraph at (24, 167.59375) 552×20
       radio "Small" [checked=false] at (29, 170.59375) 13×13
     paragraph at (24, 203.59375) 552×20
@@ -14,7 +14,7 @@ document at (0, 0) 600×640.1875
     paragraph at (24, 239.59375) 552×20
       radio "Large" [checked=false] at (29, 242.59375) 13×13
   group "Pizza Toppings" at (10, 287.59375) 580×196.59375
-    text "Pizza Toppings" at (26, 287.59375) 115.66406×19
+    text "Pizza Toppings" at (26, 287.59375) 115.671875×19
     paragraph at (24, 328.1875) 552×20
       checkbox "Bacon" [checked=false] at (28, 331.1875) 13×13
     paragraph at (24, 364.1875) 552×20

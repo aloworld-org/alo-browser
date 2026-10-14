@@ -6,7 +6,7 @@ block flow · document → 480×400 at (0, 0)
         inline flow-root · image [hidden] → 56×56 at (212, 75)
         text " " → not laid out
       block flow · heading [level=1] → 416×25 at (32, 155)
-        text "You're offline" → 162.64746×25 at (158.67627, 155)
+        text "You're offline" → 162.65625×25 at (158.67188, 155)
       block flow · paragraph → 416×72 at (32, 190)
         text " alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns. " → 403.01563×67 at (38.492188, 192)
       anonymous → 416×39 at (32, 286)

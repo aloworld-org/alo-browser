@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Text inside a line is on Chrome's layout grid.** A `<span>` around a
+  word or a no-break space, and whatever comes after it on the line, used
+  to be a fraction of a pixel off where Chrome puts them; each piece of
+  text now takes its width rounded up to a sixty-fourth of a device pixel,
+  as Chrome's does, so 51 more of the corpus's boxes are exactly where
+  Chrome has them.
+
 - **A square box's spread shadow is square.** `box-shadow: 0 0 0 3px`
   on a box with square corners used to come out with corners rounded by
   the spread; it is now square, and a box rounded by less than the spread

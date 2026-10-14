@@ -137,7 +137,10 @@ correctness, not before it.
       Chrome's by up to a unit each. The rule was decided in iteration 303
       (queue item 498, ADR 0054). · Built (iteration 305, queue item 466):
       `alo-layout`'s `layout_unit.rs`. Lengths, percentages and `calc()`
-      are truncated toward zero, text widths are rounded up, and every
+      are truncated toward zero, text widths are rounded up (by Chrome's
+      text item, one text box's text on one line, since item 574,
+      iteration 350: `text_run.rs`, `text-on-the-grid`; 950 of 1,267
+      corpus boxes exact at one where 899 were), and every
       box's edges are placed on the grid against where its parent was
       placed. 707 of the corpus's 1,260 element boxes are now Chrome's
       exactly, where 514 were, and `alo-sites-booking`'s all are except

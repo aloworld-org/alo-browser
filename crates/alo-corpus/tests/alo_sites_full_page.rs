@@ -345,7 +345,7 @@ fn activating_the_question_opens_it_and_activating_it_again_closes_it() {
             "group at (20, 2901.8906) 760×92.375",
             "summary \"How fresh is the coffee?\" [expanded=true] at (37, 2914.8906) 726×27.1875",
             "paragraph at (37, 2954.0781) 726×27.1875",
-            "text \"It ships the day it is roasted.\" at (37, 2957.0781) 241.85156×20",
+            "text \"It ships the day it is roasted.\" at (37, 2957.0781) 241.85938×20",
         ],
     );
     let opened = renderer.document().and_then(|document| {

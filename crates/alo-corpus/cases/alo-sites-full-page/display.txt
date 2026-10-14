@@ -1,18 +1,18 @@
 fill box#2 rgb(255 255 255) at (0, 0) 800×6483
-text box#41 "Coffee roasted the morning it" rgb(23 33 43) 40px at (66.083984, 175.375)
+text box#41 "Coffee roasted the morning it" rgb(23 33 43) 40px at (66.078125, 175.375)
 text box#41 "ships" rgb(23 33 43) 40px at (340.78125, 223.375)
-text box#44 "Small-batch roastery on the harbour" rgb(76 88 102) 20px at (217.86133, 276.375)
+text box#44 "Small-batch roastery on the harbour" rgb(76 88 102) 20px at (217.85938, 276.375)
 fill box#47 rgb(29 78 216) at (251, 305) 155×49
 fill box#47 rgb(29 78 216) at (251, 305) 155×49
-text box#48 "Shop roasts" rgb(255 255 255) 17px at (271.67407, 334.96875)
+text box#48 "Shop roasts" rgb(255 255 255) 17px at (271.67188, 334.96875)
 fill box#49 rgb(29 78 216) at (418, 305) 131×49
-text box#50 "Our story" rgb(29 78 216) 17px at (438.06445, 334.96875)
-text box#54 "Roasting drum mid-batch" rgb(23 33 43) 17px at (292.09814, 404.75)
+text box#50 "Our story" rgb(29 78 216) 17px at (438.0625, 334.96875)
+text box#54 "Roasting drum mid-batch" rgb(23 33 43) 17px at (292.09375, 404.75)
 group box#57 at opacity 0
 transform box#57 by matrix(1, 0, 0, 1, 0, 24)
 fill box#57 rgb(76 88 102) at (0, 461) 800×409
 text box#60 "Why Nordwind" rgb(23 33 43) 28px at (284.60938, 566.9375)
-text box#63 "Three promises on every bag." rgb(76 88 102) 17px at (252.91089, 607.53125)
+text box#63 "Three promises on every bag." rgb(76 88 102) 17px at (252.90625, 607.53125)
 fill box#67 rgb(72 84 97) at (20, 633) 760×157
 fill box#67 rgb(23 33 43 / 0.14) at (20, 633) 760×157
 text box#70 "Roasted to order" rgb(23 33 43) 18px at (41, 690.71875)
@@ -32,7 +32,7 @@ fill box#124 rgb(242 245 248) at (20, 1768) 760×181
 fill box#124 rgb(221 227 233) at (20, 1768) 760×181
 text box#128 "The freshest beans we've ever pulled shots with." rgb(23 33 43) 24px at (69, 1840.4688) leaned 14deg
 text box#131 "Mara Lindqvist" rgb(23 33 43) 17px at (69, 1891.6563)
-text box#133 "Head barista, Kaffebaren" rgb(76 88 102) 17px at (217.33496, 1891.6563)
+text box#133 "Head barista, Kaffebaren" rgb(76 88 102) 17px at (217.34375, 1891.6563)
 text box#142 "Subscriptions" rgb(23 33 43) 28px at (20, 2070.8438)
 text box#145 "Pause or cancel any time." rgb(76 88 102) 17px at (20, 2111.4375)
 transform box#149 by matrix(1, 0, 0, 1, 0, -12)
@@ -61,13 +61,13 @@ fill box#208 rgb(242 245 248) at (20, 2902) 760×53
 fill box#208 rgb(221 227 233) at (20, 2902) 760×53
 text box#210 "How fresh is the coffee?" rgb(23 33 43) 17px at (37, 2933.8906)
 fill box#214 rgb(29 78 216) at (0, 3015) 800×253
-text box#217 "Taste the difference" rgb(255 255 255) 28px at (242.56836, 3089.0781)
-text box#220 "First bag ships free." rgb(255 255 255) 17px at (316.54395, 3129.6719)
+text box#217 "Taste the difference" rgb(255 255 255) 28px at (242.5625, 3089.0781)
+text box#220 "First bag ships free." rgb(255 255 255) 17px at (316.53906, 3129.6719)
 fill box#223 rgb(255 255 255) at (218, 3155) 141×48
 fill box#223 rgb(255 255 255) at (218, 3155) 141×48
-text box#224 "Order now" rgb(29 78 216) 17px at (238.62744, 3184.4531)
+text box#224 "Order now" rgb(29 78 216) 17px at (238.625, 3184.4531)
 fill box#225 rgb(255 255 255) at (371, 3155) 211×48
-text box#226 "See subscriptions" rgb(255 255 255) 17px at (391.3308, 3184.4531)
+text box#226 "See subscriptions" rgb(255 255 255) 17px at (391.32813, 3184.4531)
 text box#232 "Wholesale" rgb(23 33 43) 28px at (20, 3342.2344)
 text box#232 "enquiries" rgb(23 33 43) 28px at (20, 3375.8281)
 text box#235 "We answer within one business" rgb(23 33 43) 17px at (20, 3464.4219)
@@ -83,7 +83,7 @@ fill box#263 rgb(255 255 255) at (353, 3541) 427×128
 fill box#263 rgb(221 227 233) at (353, 3541) 427×128
 fill box#268 rgb(29 78 216) at (353, 3694) 88×48
 fill box#268 rgb(29 78 216) at (353, 3694) 88×48
-text box#269 "Send" rgb(255 255 255) 17px at (372.98535, 3723.3281)
+text box#269 "Send" rgb(255 255 255) 17px at (372.98438, 3723.3281)
 text box#277 "Seasonal roasts" rgb(23 33 43) 28px at (20, 3881.1094)
 fill box#281 rgb(221 227 233) at (20, 3903) 760×1
 clip box#281 to (20, 3903.7031) 760×686.5625
@@ -124,10 +124,10 @@ unclip
 fill box#379 rgb(242 245 248) at (0, 5469) 800×239
 fill box#379 rgb(221 227 233) at (0, 5469) 800×239
 text box#382 "Cupping evenings" rgb(23 33 43) 28px at (258.85156, 5536.172)
-text box#385 "Six seats around the roaster, once a month." rgb(76 88 102) 17px at (212.9419, 5576.7656)
+text box#385 "Six seats around the roaster, once a month." rgb(76 88 102) 17px at (212.9375, 5576.7656)
 fill box#388 rgb(29 78 216) at (41, 5602) 247×48
 fill box#388 rgb(29 78 216) at (41, 5602) 247×48
-text box#389 "See tickets and dates" rgb(255 255 255) 17px at (61.188965, 5631.547)
+text box#389 "See tickets and dates" rgb(255 255 255) 17px at (61.1875, 5631.547)
 shadow box#392 rgb(23 33 43 / 0.1) blur 48 at (0, 5732) 800×239
 fill box#392 rgb(242 245 248) at (0, 5708) 800×239
 fill box#392 rgb(221 227 233) at (0, 5708) 800×239
@@ -148,12 +148,12 @@ transform box#415 by matrix(1, 0, 0, 1, 0, 24)
 fill box#415 rgb(23 33 43) at (0, 6359) 800×124
 fill box#415 rgb(221 227 233) at (0, 6359) 800×1
 fill box#423 rgb(255 255 255) at (20, 6428) 21×1
-fill box#423 rgb(255 255 255) at (46, 6428) 35.51709×1
+fill box#423 rgb(255 255 255) at (46, 6428) 35.53125×1
 text box#423 "Imprint" rgb(255 255 255) 17px at (20, 6427.078)
 fill box#427 rgb(255 255 255) at (97.53125, 6428) 52.46875×1
-fill box#427 rgb(255 255 255) at (156, 6428) 3.081543×1
+fill box#427 rgb(255 255 255) at (156, 6428) 3.09375×1
 text box#427 "Privacy" rgb(255 255 255) 17px at (97.53125, 6427.078)
-text box#432 "© Nordwind Coffee Roasters" rgb(255 255 255) 17px at (537.40137, 6427.078)
+text box#432 "© Nordwind Coffee Roasters" rgb(255 255 255) 17px at (537.3906, 6427.078)
 untransform
 ungroup
 clip box#239 to (352.79688, 3316.2344) 1×1
@@ -163,7 +163,7 @@ fill box#242 rgb(221 227 233) at (353, 3347) 26×49
 unclip
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
 fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
-fill box#5 rgb(23 33 43) at (-15938, 28) 99.11035×1
+fill box#5 rgb(23 33 43) at (-15938, 28) 99.125×1
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
 fill box#7 rgb(255 255 255) at (0, 0) 800×73
 fill box#7 rgb(221 227 233) at (0, 72) 800×1

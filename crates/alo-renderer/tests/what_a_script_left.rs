@@ -129,11 +129,11 @@ fn what_a_script_appends_is_in_the_next_render_in_numbers() {
         "block flow · document → 300×61 at (0, 0)\n\
          \x20 block flow · generic → 300×61 at (0, 0)\n\
          \x20   block flow · generic → 300×20 at (0, 0)\n\
-         \x20     text \"changed\" → 60.40918×16 at (0, 0)\n\
+         \x20     text \"changed\" → 60.421875×16 at (0, 0)\n\
          \x20   block flow · textbox \"Made by script\" → 128×21 at (0, 20)\n\
          \x20     anonymous → 120×15 at (4, 23)\n\
          \x20   block flow · generic → 300×20 at (0, 41)\n\
-         \x20     text \"second\" → 49.929688×16 at (0, 41)\n",
+         \x20     text \"second\" → 49.9375×16 at (0, 41)\n",
         "the field the script made sits between the two blocks, and the text \
          it changed is drawn",
     );

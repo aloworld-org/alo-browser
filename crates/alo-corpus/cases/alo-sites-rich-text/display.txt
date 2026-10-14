@@ -1,7 +1,7 @@
 text box#3 "A field guide to calm work" rgb(0 0 0) 32px at (8, 51.4375)
 text box#6 "Great work is" rgb(0 0 0) 16px at (8, 95.875)
-text box#9 "clear & deliberate" rgb(0 0 0) 16px at (119.30469, 95.875) leaned 14deg
-text box#10 ", not <loud>." rgb(0 0 0) 16px at (281.67188, 95.875)
+text box#9 "clear & deliberate" rgb(0 0 0) 16px at (119.3125, 95.875) leaned 14deg
+text box#10 ", not <loud>." rgb(0 0 0) 16px at (281.6875, 95.875)
 text box#13 "Start with the essentials" rgb(0 0 0) 24px at (8, 141.78125)
 text box#19 "•" rgb(0 0 0) 16px at (30, 182.6875)
 text box#18 "Choose one useful outcome" rgb(0 0 0) 16px at (48, 182.6875)
@@ -18,7 +18,7 @@ text box#49 "Publish" rgb(0 0 0) 16px at (48, 309.6875)
 fill box#49 rgb(0 0 0) at (48, 304) 57.03125×1
 text box#54 "Good tools make the right action obvious." rgb(0 0 0) 16px at (48, 344.6875)
 text box#57 "Read the" rgb(0 0 0) 16px at (8, 379.6875)
-fill box#60 rgb(0 0 238) at (84.63281, 381) 30.367188×1
-fill box#60 rgb(0 0 238) at (124, 381) 35.125×1
-text box#60 "full guide" rgb(0 0 238) 16px at (84.63281, 379.6875)
-text box#61 "." rgb(0 0 0) 16px at (159.125, 379.6875)
+fill box#60 rgb(0 0 238) at (84.640625, 381) 30.359375×1
+fill box#60 rgb(0 0 238) at (124, 381) 35.140625×1
+text box#60 "full guide" rgb(0 0 238) 16px at (84.640625, 379.6875)
+text box#61 "." rgb(0 0 0) 16px at (159.14063, 379.6875)

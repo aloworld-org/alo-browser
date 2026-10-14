@@ -1,7 +1,7 @@
 fill box#1 rgb(250 250 250) at (14, 14) 132×124
 transform box#3 by matrix(0.9781476, -0.2079117, 0.2079117, 0.9781476, -4.323696, 8.862778)
 fill box#3 rgb(180 83 9) at (14, 14) 52×22
-text box#4 "New" rgb(255 255 255) 12px at (26.913086, 29)
+text box#4 "New" rgb(255 255 255) 12px at (26.90625, 29)
 untransform
 group box#6 at opacity 0.45
 fill box#6 linear-gradient(90deg, rgb(24 24 27), rgb(82 82 91)) at (14, 60) 120×34

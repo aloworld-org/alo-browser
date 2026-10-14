@@ -256,11 +256,11 @@ fn bold_text_is_drawn_in_the_bold_face_as_wide_as_it_was_laid_out() {
     let [h1, h2, strong] = laid.as_slice() else {
         panic!("three laid-out runs: {laid:?}");
     };
-    // The widths layout measured in DejaVu Sans Bold, as `layout.txt` has
-    // them.
+    // The widths layout measured in DejaVu Sans Bold, rounded up onto the
+    // grid of 1/64 px (item 574), as `layout.txt` has them.
     assert!(near(h1.size.width, 471.79688), "{h1:?}");
-    assert!(near(h2.size.width, 333.73828), "{h2:?}");
-    assert!(near(strong.size.width, 162.36719), "{strong:?}");
+    assert!(near(h2.size.width, 333.75), "{h2:?}");
+    assert!(near(strong.size.width, 162.375), "{strong:?}");
     for run in &bold {
         assert_eq!(drawn_weight(&rendering, *run), Some(700), "{run:?}");
     }

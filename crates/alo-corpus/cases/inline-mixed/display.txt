@@ -1,5 +1,5 @@
 text box#3 "Set in" rgb(39 39 42) 13px at (8, 27)
-text box#5 "small" rgb(113 113 122) 10px at (49.46289, 27) leaned 14deg
-text box#6 "and" rgb(39 39 42) 13px at (80.23096, 27)
-text box#8 "large" rgb(24 24 27) 20px at (108.8208, 27)
+text box#5 "small" rgb(113 113 122) 10px at (49.46875, 27) leaned 14deg
+text box#6 "and" rgb(39 39 42) 13px at (80.2417, 27)
+text box#8 "large" rgb(24 24 27) 20px at (108.84375, 27)
 text box#9 "together." rgb(39 39 42) 13px at (8, 44)

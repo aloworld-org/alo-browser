@@ -3,7 +3,7 @@ document at (0, 0) 800×538.875
   main at (0, 0) 800×538.875
     heading "Wholesale enquiries" [level=2] at (20, 48) 284.79688×67.1875
     paragraph at (20, 177.1875) 284.79688×54.375
-      text "We answer within one business day." at (20, 180.1875) 266.5796×47.1875 in 2 pieces
+      text "We answer within one business day." at (20, 180.1875) 266.59375×47.1875 in 2 pieces
     paragraph at (352.79688, 48) 427.20313×79.5625
       textbox "Name" [required] at (352.79688, 79.1875) 427.20313×48.375
     paragraph at (352.79688, 144.5625) 427.20313×79.5625

@@ -378,9 +378,13 @@ fn miras_name_ends_in_an_ellipsis_inside_its_box() {
         panic!("one piece: {fragments:?}");
     };
     assert!(near(ellipsis.rect.origin.y, fragment.rect.origin.y));
-    // The text is where it was and as wide as it was, and drawn up to the
-    // comma.
-    assert!(near(fragment.rect.size.width, 296.664_06), "{fragment:?}");
+    // The text is where it was and as wide as it was — 18,986.5 units,
+    // rounded up onto the grid as Chrome rounds a text item (item 574) —
+    // and drawn up to the comma.
+    assert!(
+        near(fragment.rect.size.width, 18_987.0 / 64.0),
+        "{fragment:?}"
+    );
     let drawn = layout.cut(fragment).and_then(|cut| {
         drawing
             .boxes

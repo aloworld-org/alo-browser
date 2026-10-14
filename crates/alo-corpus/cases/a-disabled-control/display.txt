@@ -1,7 +1,7 @@
 fill box#1 rgb(255 255 255) at (0, 0) 128×124
 fill box#2 rgb(217 217 217 / 0.44313726) at (8.5, 8.5) 95×20
 fill box#2 rgb(118 118 118 / 0.3019608) at (8, 8) 96×21
-text box#3 "Save" rgb(16 16 16 / 0.3) 13.333333px at (39.64016, 23)
+text box#3 "Save" rgb(16 16 16 / 0.3) 13.333333px at (39.632813, 23)
 fill box#5 rgb(245 245 245 / 0.68235296) at (8.5, 37.5) 95×20
 fill box#5 rgb(118 118 118 / 0.3019608) at (8, 37) 96×21
 text box#6 "Ada" rgb(84 84 84) 13.333333px at (12, 52)
@@ -10,7 +10,7 @@ clip box#8 to (8, 66) 96×21
 fill box#8 rgb(202 202 202 / 0.3) at (8, 66) 96×21
 fill box#8 rgb(33 33 33 / 0.3) at (8, 66) 96×21
 unclip
-text box#9 "Save" rgb(16 16 16 / 0.3) 13.333333px at (39.64016, 81)
+text box#9 "Save" rgb(16 16 16 / 0.3) 13.333333px at (39.632813, 81)
 fill box#11 rgb(254 243 199) at (8, 95) 96×21
 clip box#11 to (8, 95) 96×21
 fill box#11 rgb(33 33 33 / 0.3) at (8, 95) 96×21

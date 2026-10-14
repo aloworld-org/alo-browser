@@ -5,4 +5,4 @@ document at (0, 0) 800×251.78125
       image "Roasting drum mid-batch" [broken] at (20, 112.296875) 364×27.1875
     heading "The roastery" [level=2] at (384, 80) 364×33.59375
     paragraph at (384, 127.59375) 364×27.1875
-      text "A 1962 Probat drum, rebuilt by hand." at (384, 130.59375) 316.44238×20
+      text "A 1962 Probat drum, rebuilt by hand." at (384, 130.59375) 316.45313×20

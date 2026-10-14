@@ -12,8 +12,8 @@ fill box#31 rgb(221 227 233) at (432, 120) 343×50
 text box#32 "yyyy-mm-dd" rgb(23 33 43) 17px at (445, 150.1875)
 fill box#37 rgb(29 78 216) at (432, 187) 180×48
 fill box#37 rgb(29 78 216) at (432, 187) 180×48
-text box#38 "See free times" rgb(255 255 255) 17px at (452.18823, 216.5625)
+text box#38 "See free times" rgb(255 255 255) 17px at (452.1875, 216.5625)
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
 fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
-fill box#5 rgb(23 33 43) at (-15938, 28) 99.11035×1
+fill box#5 rgb(23 33 43) at (-15938, 28) 99.125×1
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)

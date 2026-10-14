@@ -217,10 +217,13 @@ fn the_notes_code_is_drawn_in_the_monospace_face() {
         let Some(laid) = drawing.layout.get(id) else {
             panic!("{code} is laid out");
         };
+        // Its advances, and the run rounded up onto the grid as Chrome
+        // rounds a text item (item 574).
         let width = laid.border_box.size.width;
+        let wanted = alo_layout::layout_unit::rounded_up(characters * advance, 1.0);
         assert!(
-            (width - characters * advance).abs() < 0.001,
-            "{code} is {width}, not {characters} × {advance}"
+            (width - wanted).abs() < 0.001,
+            "{code} is {width}, not {characters} × {advance} rounded up, {wanted}"
         );
     }
     // The sentence around them keeps the page's sans-serif.

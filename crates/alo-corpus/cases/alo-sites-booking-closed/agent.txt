@@ -4,10 +4,10 @@ document at (0, 0) 800×245.15625
     heading "Come and talk to us" [level=2] at (25, 25) 343×33.59375
     heading "Consultation" [level=3] at (432, 25) 343×38.59375
     paragraph at (25, 88.59375) 343×27.1875
-      text "30 minutes" at (25, 91.59375) 107.09668×20
+      text "30 minutes" at (25, 91.59375) 107.109375×20
     paragraph at (432, 88.59375) 343×27.1875
-      text "Half an hour, in the studio." at (432, 91.59375) 227.17578×20
+      text "Half an hour, in the studio." at (432, 91.59375) 227.1875×20
     paragraph at (25, 148.78125) 343×54.375
-      text "Where: Second floor, ring the bell" at (25, 151.78125) 286.20264×20
+      text "Where: Second floor, ring the bell" at (25, 151.78125) 286.20313×20
     paragraph at (432, 148.78125) 343×54.375
-      text "This is not taking bookings at the moment." at (432, 151.78125) 283.36377×47.1875 in 2 pieces
+      text "This is not taking bookings at the moment." at (432, 151.78125) 283.375×47.1875 in 2 pieces

@@ -4,8 +4,8 @@ fill box#18 rgb(242 245 248) at (20, 96) 760×180
 fill box#18 rgb(221 227 233) at (20, 96) 760×180
 text box#22 "The freshest beans we've ever pulled shots with." rgb(23 33 43) 24px at (69, 167.59375) leaned 14deg
 text box#25 "Mara Lindqvist" rgb(23 33 43) 17px at (69, 218.78125)
-text box#27 "Head barista, Kaffebaren" rgb(76 88 102) 17px at (217.33496, 218.78125)
+text box#27 "Head barista, Kaffebaren" rgb(76 88 102) 17px at (217.34375, 218.78125)
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
 fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
-fill box#5 rgb(23 33 43) at (-15938, 28) 99.11035×1
+fill box#5 rgb(23 33 43) at (-15938, 28) 99.125×1
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)

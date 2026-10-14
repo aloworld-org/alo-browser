@@ -1,4 +1,4 @@
 document at (0, 0) 200×72
   heading "Inbox" [level=1] at (8, 8) 184×24
   paragraph at (8, 40) 184×24
-    text "Three new messages" at (12, 44) 148.14844×16
+    text "Three new messages" at (12, 44) 148.15625×16

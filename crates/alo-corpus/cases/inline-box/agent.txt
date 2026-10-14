@@ -1,5 +1,5 @@
 document at (0, 0) 170×65
   paragraph at (10, 10) 150×45
-    text "The" at (10, 10) 24.178223×15
-    text "quick brown fox jumps over" at (10, 10) 138.31396×30 in 2 pieces
-    text "the lazy dog." at (10, 25) 135.35596×30 in 2 pieces
+    text "The" at (10, 10) 24.1875×15
+    text "quick brown fox jumps over" at (10, 10) 138.32813×30 in 2 pieces
+    text "the lazy dog." at (10, 25) 135.375×30 in 2 pieces

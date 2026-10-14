@@ -1,4 +1,4 @@
 document at (0, 0) 160×152
-  text "New" at (26.913086, 18) 26.173828×14
+  text "New" at (26.90625, 18) 26.1875×14
   paragraph at (14, 60) 120×30
-    text "Half here" at (22, 68) 54.791016×14
+    text "Half here" at (22, 68) 54.796875×14

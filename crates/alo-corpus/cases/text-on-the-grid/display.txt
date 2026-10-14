@@ -1,0 +1,29 @@
+fill box#1 rgb(255 255 255) at (0, 0) 240×0
+fill box#4 rgb(29 78 216) at (10, 10) 45×15
+fill box#8 rgb(29 78 216) at (10, 30) 49×15
+fill box#10 rgb(192 57 43) at (59, 30) 8×15
+text box#11 "x" rgb(255 255 255) 13px at (59.203125, 42.390625)
+fill box#14 rgb(29 78 216) at (10, 50) 60×15
+text box#15 "x\u{a0}x" rgb(255 255 255) 13px at (30.640625, 62.390625)
+fill box#16 rgb(192 57 43) at (70, 50) 8×15
+text box#17 "x" rgb(255 255 255) 13px at (70.46875, 62.390625)
+text box#20 "x" rgb(0 0 0) 13px at (10.34375, 82.390625)
+text box#22 "xx" rgb(0 0 0) 13px at (18.046875, 82.390625)
+fill box#23 rgb(192 57 43) at (33, 70) 8×15
+text box#24 "x" rgb(255 255 255) 13px at (33.4375, 82.390625)
+text box#27 "x xx" rgb(0 0 0) 13px at (10.34375, 102.390625)
+fill box#28 rgb(192 57 43) at (38, 90) 7×15
+text box#29 "x" rgb(255 255 255) 13px at (37.5625, 102.390625)
+text box#32 "i,.m ima W.xai" rgb(0 0 0) 13px at (10.34375, 142.39063)
+fill box#33 rgb(192 57 43) at (102, 130) 8×15
+text box#34 "x" rgb(255 255 255) 13px at (102.15625, 142.39063)
+fill box#37 rgb(29 78 216) at (10, 110) 48×15
+text box#38 "ii" rgb(255 255 255) 13px at (30.640625, 122.390625)
+fill box#40 rgb(29 78 216) at (62, 110) 48×15
+text box#41 "ll" rgb(255 255 255) 13px at (82.609375, 122.390625)
+fill box#43 rgb(229 231 235) at (160, 10) 60×30
+text box#44 "mill will" rgb(0 0 0) 13px at (160.1875, 22.390625)
+text box#44 "lilt" rgb(0 0 0) 13px at (160.1875, 37.390625)
+fill box#45 rgb(192 57 43) at (180, 25) 8×15
+text box#46 "x" rgb(255 255 255) 13px at (180.26563, 37.390625)
+text box#47 "ill" rgb(0 0 0) 13px at (192.10107, 37.390625)

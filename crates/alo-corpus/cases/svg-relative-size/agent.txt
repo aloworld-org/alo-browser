@@ -2,9 +2,9 @@ document at (0, 0) 200×171
   image at (0, 4) 100×20
   image at (0, 28) 50×25
   paragraph at (0, 57) 200×23
-    text "em" at (0, 66) 19.072266×14
-    image at (22.886719, 57) 60×20
-    text "em" at (86.70117, 66) 19.072266×14
+    text "em" at (0, 66) 19.078125×14
+    image at (22.890625, 57) 60×20
+    text "em" at (86.70508, 66) 19.076172×14
   image at (0, 84) 40×30
   image at (0, 118) 100×30
   paragraph at (0, 152) 200×15

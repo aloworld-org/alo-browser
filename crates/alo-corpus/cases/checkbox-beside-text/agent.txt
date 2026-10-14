@@ -1,25 +1,25 @@
 document at (0, 0) 300×186
-  text "ab" at (0, 1) 19.960938×19
-  checkbox [checked=false] at (23.960938, 3) 13×13
-  text "cd" at (39.960938, 1) 18.953125×19
-  text "ab" at (0, 21) 19.960938×19
-  radio [checked=false] at (24.960938, 23) 13×13
-  text "cd" at (40.960938, 21) 18.953125×19
+  text "ab" at (0, 1) 19.96875×19
+  checkbox [checked=false] at (23.96875, 3) 13×13
+  text "cd" at (39.96875, 1) 18.953125×19
+  text "ab" at (0, 21) 19.96875×19
+  radio [checked=false] at (24.96875, 23) 13×13
+  text "cd" at (40.96875, 21) 18.953125×19
   checkbox "Send" [checked=false] at (4, 43) 13×13
-  text "ab" at (0, 61) 19.960938×19
-  checkbox [checked=true] at (23.960938, 63) 13×13
-  text "cd" at (39.960938, 61) 18.953125×19
-  radio [checked=true] at (63.914063, 63) 13×13
-  text "ef" at (79.91406, 61) 15.4765625×19
+  text "ab" at (0, 61) 19.96875×19
+  checkbox [checked=true] at (23.96875, 63) 13×13
+  text "cd" at (39.96875, 61) 18.953125×19
+  radio [checked=true] at (63.921875, 63) 13×13
+  text "ef" at (79.921875, 61) 15.484375×19
   text "ab" at (0, 83) 39.921875×38
   checkbox [checked=false] at (43.921875, 100) 13×13
   text "cd" at (59.921875, 83) 37.90625×38
-  text "ab" at (0, 121) 19.960938×19
-  checkbox [checked=false] at (19.960938, 123) 13×13
-  text "cd" at (32.960938, 121) 18.953125×19
-  text "ab" at (0, 140) 19.960938×19
-  radio [checked=false] at (19.960938, 142) 13×13
-  text "cd" at (32.960938, 140) 18.953125×19
-  text "ab" at (0, 167) 19.960938×19
-  checkbox [checked=false] at (23.960938, 162) 20×20
-  text "cd" at (46.960938, 167) 18.953125×19
+  text "ab" at (0, 121) 19.96875×19
+  checkbox [checked=false] at (19.96875, 123) 13×13
+  text "cd" at (32.96875, 121) 18.953125×19
+  text "ab" at (0, 140) 19.96875×19
+  radio [checked=false] at (19.96875, 142) 13×13
+  text "cd" at (32.96875, 140) 18.953125×19
+  text "ab" at (0, 167) 19.96875×19
+  checkbox [checked=false] at (23.96875, 162) 20×20
+  text "cd" at (46.96875, 167) 18.953125×19

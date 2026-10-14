@@ -35209,3 +35209,123 @@ joins the Owed clause.
 277 queue items are open (573 closed; 585 added). The next unused queue
 number is **586** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 350 — queue item 574 closed: text inside a line is on the grid
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the three states; stage 1's *Layout* line), iteration 349's entry, queue
+items 568–577 and 585, ADR 0054 (§ 4, *Text is measured onto the grid by
+rounding up*, § 5 and both addenda), ADR 0057 § 2 (the grid is the
+device pixel's), and `docs/features.md`' grid entry (the feature
+contract). No `AGENTS.md` exists here.
+
+**Why 574.** It is the first open item in the file whose dependencies are
+done: those before it wait as iterations 318–349 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person), 573 closed last iteration, and 574 depends on nothing and
+names its feature and closing condition. It said *needs measuring*; the
+measuring was done first, in this iteration.
+
+**Why the run escaped.** Not the no-break space: § 4's rounding had been
+built only where a leaf or a whole inline formatting context is measured
+(`arena.rs`), so the block holding the `<span>` was on the grid while the
+`<span>`, the text in it and anything after it on the line were exact
+floats.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, `DejaVu Sans` via `@font-face`, the source not read), predicted
+from the canvas's `measureText` of the same strings: 300 lines of words
+joined by spaces and `&nbsp;`, some split by an empty `<b>`, each followed
+by an empty `<i>`; 120 padded spans; 120 blocks that wrap; 620 lines'
+`Range` rectangles. The unit Chrome rounds is the **item**, one text box's
+text on one line: its advance rounded up, what follows starting there
+(300 of 300 at one; a word at a time gives 181, the whole line 258), a
+wrapped line's share rounded on its own (120 of 120), and what it draws
+its letters' width rounded up without a line's trailing space (620 of 620
+at both scales). At two 16.3 px misses the canvas prediction (Chrome's
+canvas measures it narrower than its layout sets it); this engine sets it
+where Chrome's layout does. Written as ADR 0054's addendum of 2026-10-14.
+
+**Built.** `alo-layout`'s `text_run.rs`: a `TextRun` is one text box's
+contiguous text on the current line; a piece starts where shaping put it
+in its run, its letters end at the run's letters rounded up, and the pen
+after it is the run's advance rounded up, at the screen's scale.
+`inline.rs`' `place_text`, `place_space` and the fit test lay each piece
+through it, and a new line starts a new run. On the probe page this engine
+now places 300 of 300 lines and 120 of 120 spans where Chrome does at one
+and at two, where it placed 5 and 0, and 88 of 120 wrapped blocks, where
+it placed 1; the other 32 break their lines elsewhere than Chrome's,
+exactly as before this change (586).
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first. The first
+`scripts/gate.sh` run failed on one test this change moved and the earlier
+targeted runs had not covered (`alo-agent`'s `reading_an_interface.rs`, a
+text width now rounded); the other crates were then run with
+`--no-fail-fast` and that was the only one. Fixed, and `scripts/gate.sh`
+run again in the foreground: **`GATE EXIT 0`, "The gate is met. (10 of 10
+steps)"**, 4,879 tests run, 4,879 passed. Only this entry and the commit
+came after it.
+
+**Gate, manual.**
+- Layout in numbers: new case `text-on-the-grid` (a padded `&nbsp;`, two,
+  `x&nbsp;x`, `x<b></b>xx`, `x xx`, `i,.m ima W.xai`, two padded spans
+  around a `&nbsp;`, a wrapped paragraph) with Chrome's
+  `getBoundingClientRect()` of all 20 boxes at one and at two in
+  `text_on_the_grid.rs`, every one exact in 1/128 px.
+  `inline.rs`' `a_text_item_advances_by_its_width_rounded_up_onto_the_grid`
+  and six unit tests in `text_run.rs`. Whole corpus against the frozen
+  `chrome-at-{1,2}.txt` (before measured on a `git worktree` of HEAD):
+  950 of 1,267 boxes exact at one where 899 were, 949 at two where 926
+  were; 5 moved further, each by half a unit and each already hundreds of
+  units off for another reason; none within two units before got worse.
+  `a_page_at_a_scale_of_two.rs`' floor is raised from 899 to 950.
+- Reference renders: `text-on-the-grid/render.png` is new. Every
+  `render*.png` and expectation was backed up before
+  `ALO_UPDATE_REFERENCES=1`; 160 text expectations changed, every changed
+  line the same line with numbers moved by at most 0.04 px, except one
+  underline piece in `web-first-website` whose skip-ink cut lands on the
+  neighbouring whole pixel (1.0). 44 pictures changed (median 204 pixels,
+  sub-pixel letter shifts; one pixel row in `web-first-website` beyond 40
+  levels, that underline's end), six of them `alo-window`'s. Eleven tests
+  whose own numbers were text widths now rounded were updated, each to a
+  width on the grid (`rounded_up` where the test computes it from
+  advances); `an_agent_on_somebody_elses_page.rs`' two fields' text now
+  equals the 5,670 and 5,137 units its comment already named as Chrome's.
+- Mutation, restored from a copy (`cmp` confirmed): never carrying a run
+  on (a word at a time) survived the case at first, because `x xx` rounds
+  the same both ways, so `i,.m ima W.xai` was chosen from the probe, where
+  the two differ at one and at two; then it failed the case and the unit
+  test. Not rounding a run failed the case. Not starting a new run on a
+  new line failed the case and five unit tests. Resets at inline boxes,
+  atomic boxes and breaks were removed as unreachable: a run is already
+  keyed to one box's contiguous bytes.
+- Hostile input: nothing new reads bytes from outside; the rounding goes
+  through `layout_unit::rounded_up`, which saturates.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: where a piece of text stands on the grid
+  is `text_run.rs`' alone; `inline.rs` keeps the line.
+- Also updated: ADR 0054's addendum, `docs/features.md`,
+  `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md`, the
+  queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 574 is ticked with a *Done* paragraph. Found: **586** — in 32
+of the 120 wrapped probe blocks Chrome breaks lines where this engine does
+not (every one has a word starting with `.` or `,`), unchanged by this
+item.
+
+**Roadmap.** Stage 1's *Layout* line, already ticked: its note says text
+widths are rounded by Chrome's item since 574, with the corpus count.
+
+**Unresolved obligations.**
+- 586, as above. Not measured: a list marker's width (`"• "` stays an
+  exact float), text in a control's own line, and any fractional scale.
+- 575–577, 585 as before; 463 waits on a person; 568–571 on a screen or
+  pages; 560 and 564 on 502 behind 501; 572 on a person.
+- No claim about speed is made.
+
+277 queue items are open (574 closed; 586 added). The next unused queue
+number is **587** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

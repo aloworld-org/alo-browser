@@ -24,13 +24,13 @@ fill box#64 rgb(118 118 118) at (514, 363) 13×13
 text box#66 "Remember me" rgb(95 85 75) 13px at (538, 374)
 fill box#69 rgb(217 98 71) at (779.5625, 375) 23.4375×1
 fill box#69 rgb(217 98 71) at (812, 375) 20×1
-fill box#69 rgb(217 98 71) at (837, 375) 72.98779×1
+fill box#69 rgb(217 98 71) at (837, 375) 73×1
 text box#69 "Forgot password?" rgb(217 98 71) 13px at (779.5625, 374)
 fill box#72 rgb(231 111 81) at (510, 395) 400×46
-text box#73 "Sign in" rgb(255 255 255) 14px at (682.7451, 423)
+text box#73 "Sign in" rgb(255 255 255) 14px at (682.7422, 423)
 fill box#78 rgb(222 215 205) at (510, 464) 181×1
 text box#80 "or" rgb(122 111 98) 13px at (703.34375, 469)
 fill box#81 rgb(222 215 205) at (729, 464) 181×1
 fill box#84 rgb(255 254 252) at (510, 488) 400×46
 fill box#84 rgb(222 215 205) at (510, 488) 400×46
-text box#85 "Sign in with SSO" rgb(16 42 67) 14px at (652.42773, 516)
+text box#85 "Sign in with SSO" rgb(16 42 67) 14px at (652.4219, 516)

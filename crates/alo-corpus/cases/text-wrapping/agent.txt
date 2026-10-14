@@ -1,3 +1,3 @@
 document at (0, 0) 180×64
   paragraph at (0, 0) 176×64
-    text "The quick brown fox jumps over the lazy dog and keeps going." at (8, 8) 150.5957×48 in 3 pieces
+    text "The quick brown fox jumps over the lazy dog and keeps going." at (8, 8) 150.60938×48 in 3 pieces

@@ -76,10 +76,10 @@ fn each_listener_heard_in_order_and_the_page_says_so_in_numbers() {
     assert!(
         outline.contains(
             "    block flow · paragraph → 304×24 at (8, 46)\n\
-             \x20     text \"section1 div1 button2 n once div3 true\" → 272.40527×16 at \
+             \x20     text \"section1 div1 button2 n once div3 true\" → 272.40625×16 at \
              (12, 50)\n\
              \x20   block flow · paragraph → 304×24 at (8, 78)\n\
-             \x20     text \"section1 div1 button2 n div3 true\" → 234.20605×16 at \
+             \x20     text \"section1 div1 button2 n div3 true\" → 234.21875×16 at \
              (12, 82)\n"
         ),
         "{outline}"

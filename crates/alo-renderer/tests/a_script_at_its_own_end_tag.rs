@@ -238,13 +238,13 @@ fn what_a_script_inserts_beside_itself_is_laid_out_there_in_numbers() {
          \x20   block flow · list → 300×60 at (0, 0)\n\
          \x20     block flow list-item · listitem → 300×20 at (0, 0)\n\
          \x20       text \"• \" → 12.708008×16 at (-16, 0)\n\
-         \x20       text \"One\" → 28.50586×16 at (0, 0)\n\
+         \x20       text \"One\" → 28.515625×16 at (0, 0)\n\
          \x20     block flow list-item · listitem → 300×20 at (0, 20)\n\
          \x20       text \"• \" → 12.708008×16 at (-16, 20)\n\
          \x20       text \"Two\" → 26.25×16 at (0, 20)\n\
          \x20     block flow list-item · listitem → 300×20 at (0, 40)\n\
          \x20       text \"• \" → 12.708008×16 at (-16, 40)\n\
-         \x20       text \"Three\" → 40.09961×16 at (0, 40)\n",
+         \x20       text \"Three\" → 40.109375×16 at (0, 40)\n",
         "the row the script made is between the row before it and the row the \
          parser read after it, with its marker as theirs (ADR 0044)",
     );

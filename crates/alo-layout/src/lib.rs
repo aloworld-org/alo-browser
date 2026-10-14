@@ -63,6 +63,7 @@ pub mod replaced;
 pub mod sizing;
 pub(crate) mod soft_wrap;
 pub mod style;
+pub(crate) mod text_run;
 pub mod text_style;
 pub mod track;
 pub mod tree;

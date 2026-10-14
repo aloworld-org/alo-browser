@@ -13,13 +13,13 @@ text box#20 "abcd" rgb(0 0 0) 16px at (8, 135)
 text box#23 "efghij" rgb(29 78 216) 16px at (8, 155)
 fill box#25 rgb(221 226 238) at (8, 164) 80×20
 text box#27 "abcd" rgb(0 0 0) 16px at (8, 179)
-text box#31 "efghij" rgb(29 78 216) 16px at (52, 179)
+text box#31 "efghij" rgb(29 78 216) 16px at (52.015625, 179)
 fill box#33 rgb(221 226 238) at (8, 188) 80×20
 text box#34 "abc" rgb(0 0 0) 16px at (8, 203)
-text box#36 "defghijk" rgb(29 78 216) 16px at (36.757813, 203)
+text box#36 "defghijk" rgb(29 78 216) 16px at (36.765625, 203)
 fill box#38 rgb(221 226 238) at (8, 212) 80×20
 text box#39 "abc" rgb(0 0 0) 16px at (8, 227)
-text box#41 "defghijk" rgb(29 78 216) 16px at (36.757813, 227)
+text box#41 "defghijk" rgb(29 78 216) 16px at (36.765625, 227)
 fill box#43 rgb(221 226 238) at (8, 236) 80×20
 text box#45 "ab" rgb(0 0 0) 16px at (8, 251)
 text box#47 "cdefghij" rgb(29 78 216) 16px at (33.046875, 251)

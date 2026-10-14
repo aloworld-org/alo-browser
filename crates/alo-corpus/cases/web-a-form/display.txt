@@ -58,4 +58,4 @@ fill box#88 rgb(255 255 255) at (184.5, 537.5) 165×45
 fill box#88 rgb(118 118 118) at (184, 537) 166×46
 fill box#92 rgb(239 239 239) at (8.5, 603.5) 102×20
 fill box#92 rgb(118 118 118) at (8, 603) 103×21
-text box#93 "Submit order" rgb(0 0 0) 13.333333px at (16.005028, 618.1875)
+text box#93 "Submit order" rgb(0 0 0) 13.333333px at (16, 618.1875)

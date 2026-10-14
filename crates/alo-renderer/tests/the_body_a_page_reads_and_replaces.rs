@@ -121,9 +121,9 @@ fn a_body_a_script_assigns_is_laid_out_in_numbers_and_read_by_the_agent() {
         "block flow · document → 300×40 at (0, 0)\n\
          \x20 block flow · generic → 300×40 at (0, 0)\n\
          \x20   block flow · generic → 300×20 at (0, 0)\n\
-         \x20     text \"Kept\" → 31.472656×16 at (0, 0)\n\
+         \x20     text \"Kept\" → 31.484375×16 at (0, 0)\n\
          \x20   block flow · generic → 300×20 at (0, 20)\n\
-         \x20     text \"Made\" → 38.158203×16 at (0, 20)\n",
+         \x20     text \"Made\" → 38.171875×16 at (0, 20)\n",
         "the new body's two rows, and nothing of the old body's",
     );
     let tree = read(&mut renderer).to_outline();

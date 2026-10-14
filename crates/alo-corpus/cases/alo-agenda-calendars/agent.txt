@@ -2,7 +2,7 @@ document at (0, 0) 280×340
   complementary at (0, 0) 240×340
     button "New event" at (16, 16) 145.79688×41
       image at (34, 27.5) 18×18
-    text "MY CALENDARS" at (16, 79.5) 111.679924×14
+    text "MY CALENDARS" at (16, 79.5) 111.6875×14
     button "New calendar" at (204, 77) 19×19
       image at (206, 79) 15×15
     button "Personal" [pressed=true] at (20, 109) 178×19.5
@@ -15,11 +15,11 @@ document at (0, 0) 280×340
       image at (185, 143.75) 13×13
     button "Delete calendar" at (206, 143.75) 13×13
       image at (206, 143.75) 13×13
-    text "OTHER CALENDARS" at (16, 187) 138.35625×14
+    text "OTHER CALENDARS" at (16, 187) 138.35938×14
     button "Team holidays" [pressed=false] at (20, 216) 142.57813×19.5
-    text "can edit" at (170.57813, 218.75) 48.410156×14
+    text "can edit" at (170.57813, 218.75) 48.421875×14
     button "Mira's calendar" [pressed=true] at (20, 247.5) 137.98438×19.5
       image at (22, 251.25) 12×12
-    text "can view" at (165.98438, 250.25) 53.003906×14
+    text "can view" at (165.98438, 250.25) 53.015625×14
     button "Working hours" at (16, 292) 132.71875×31.5
       image at (24, 300.25) 15×15

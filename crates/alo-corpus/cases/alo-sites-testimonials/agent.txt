@@ -7,6 +7,6 @@ document at (0, 0) 800×323.96875
         figure at (20, 95.59375) 760×180.375
           blockquote at (69, 144.59375) 662×31.1875
             paragraph at (69, 144.59375) 662×31.1875
-              text "The freshest beans we've ever pulled shots with." at (69, 145.59375) 587.6133×28
-          text "Mara Lindqvist" at (69, 202.78125) 142.4165×20
-          text "Head barista, Kaffebaren" at (217.33496, 202.78125) 212.01855×20
+              text "The freshest beans we've ever pulled shots with." at (69, 145.59375) 587.625×28
+          text "Mara Lindqvist" at (69, 202.78125) 142.42188×20
+          text "Head barista, Kaffebaren" at (217.34375, 202.78125) 212.03125×20

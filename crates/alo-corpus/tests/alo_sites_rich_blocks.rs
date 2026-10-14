@@ -57,6 +57,12 @@ fn near(left: f32, right: f32) -> bool {
     (left - right).abs() < 1e-3
 }
 
+/// A text item's width as a box: its advances rounded up onto the grid of
+/// 1/64 px, as Chrome rounds one (ADR 0054 § 4, item 574).
+fn on_the_grid(width: f32) -> f32 {
+    alo_layout::layout_unit::rounded_up(width, 1.0)
+}
+
 /// The size code is drawn at: `monospace`'s own `medium` (ADR 0045 § 3).
 const CODE: f32 = 13.0;
 
@@ -137,7 +143,10 @@ fn the_indentation_is_room_the_block_is_measured_with() {
         panic!("the Rust block's text has a box");
     };
     assert!(near(text.origin.x, 8.0), "{text:?}");
-    assert!(near(text.size.width, INDENT + 24.0 * ADVANCE), "{text:?}");
+    assert!(
+        near(text.size.width, on_the_grid(INDENT + 24.0 * ADVANCE)),
+        "{text:?}"
+    );
     assert!(near(text.size.height, 3.0 * LINE), "{text:?}");
 }
 
@@ -204,8 +213,11 @@ fn code_is_drawn_in_the_monospace_face() {
     let [typescript, equation] = widths.as_slice() else {
         panic!("two text boxes: {widths:?}");
     };
-    assert!(near(*typescript, 27.0 * ADVANCE), "{typescript}");
-    assert!(near(*equation, 16.0 * ADVANCE), "{equation}");
+    assert!(
+        near(*typescript, on_the_grid(27.0 * ADVANCE)),
+        "{typescript}"
+    );
+    assert!(near(*equation, on_the_grid(16.0 * ADVANCE)), "{equation}");
 }
 
 #[test]
@@ -296,7 +308,7 @@ fn the_broken_picture_is_its_alt_on_the_figures_first_line() {
     // 40 in. Its first line is the alt and nothing else, one 16 px line.
     assert!(near(border.origin.x, 48.0), "{border:?}");
     assert!(near(border.origin.y, 16.0), "{border:?}");
-    assert!(near(border.size.width, ALT), "{border:?}");
+    assert!(near(border.size.width, on_the_grid(ALT)), "{border:?}");
     assert!(near(border.size.height, SANS_LINE), "{border:?}");
     let runs = runs(&rendering);
     let Some((_, x, baseline)) = runs

@@ -2460,3 +2460,15 @@ and `backgrounds-on-device-pixels`' spread shadow's corners are exact.
 Found: **585** (an inset shadow's corners are the padding box's). 277
 queue items are open (573 closed; 585 added). The next unused queue number
 is 586 and the next unused ADR 0058.
+
+Iteration 350 closed queue item 574: inside a line, text is on the grid
+of 1/64 of a device pixel. Chrome 154 rounds a text item — one text box's
+text on one line — up onto the grid and starts what follows there, and
+draws its letters' width rounded up; measured on 300 lines, 120 spans,
+120 wrapped blocks and 620 text rectangles at one and at two (ADR 0054's
+addendum of 2026-10-14). `alo-layout`'s `text_run.rs`; `text-on-the-grid`
+is Chrome's in all 20 boxes at one and at two, and 950 of the corpus's
+1,267 boxes are Chrome's exactly at one where 899 were. Found: **586**
+(where Chrome breaks a line before punctuation). 277 queue items are open
+(574 closed; 586 added). The next unused queue number is 587 and the next
+unused ADR 0058.

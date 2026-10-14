@@ -1,29 +1,29 @@
 document at (0, 0) 200×528
-  text "ab" at (8, 8) 19.960938×19
-  text "cdefghij" at (8, 28) 63.617188×19
-  text "ab" at (8, 52) 19.960938×19
-  text "cdefghij" at (8, 72) 63.617188×19
-  text "ab" at (8, 96) 19.960938×19
-  text "cdefghij" at (33.046875, 96) 63.617188×19
-  text "abcd" at (8, 120) 38.914063×19
-  text "efghij" at (8, 140) 44.664063×19
-  text "abcd" at (8, 164) 38.914063×19
-  text "efghij" at (52, 164) 44.664063×19
-  text "abc" at (8, 188) 28.757813×19
-  text "defghijk" at (36.757813, 188) 64.08594×19
-  text "abc" at (8, 212) 28.757813×19
-  text "defghijk" at (36.757813, 212) 64.08594×19
+  text "ab" at (8, 8) 19.96875×19
+  text "cdefghij" at (8, 28) 63.625×19
+  text "ab" at (8, 52) 19.96875×19
+  text "cdefghij" at (8, 72) 63.625×19
+  text "ab" at (8, 96) 19.96875×19
+  text "cdefghij" at (33.046875, 96) 63.625×19
+  text "abcd" at (8, 120) 38.921875×19
+  text "efghij" at (8, 140) 44.671875×19
+  text "abcd" at (8, 164) 38.921875×19
+  text "efghij" at (52.015625, 164) 44.671875×19
+  text "abc" at (8, 188) 28.765625×19
+  text "defghijk" at (36.765625, 188) 64.09375×19
+  text "abc" at (8, 212) 28.765625×19
+  text "defghijk" at (36.765625, 212) 64.09375×19
   text "ab" at (8, 236) 25.046875×19
-  text "cdefghij" at (33.046875, 236) 63.617188×19
+  text "cdefghij" at (33.046875, 236) 63.625×19
   text "abc-" at (8, 260) 34.53125×19
-  text "defghij" at (8, 280) 54.820313×19
+  text "defghij" at (8, 280) 54.828125×19
   text "abc-" at (8, 304) 34.53125×19
-  text "defghij" at (8, 324) 54.820313×19
+  text "defghij" at (8, 324) 54.828125×19
   text "abc-" at (8, 348) 34.53125×19
-  text "defghij" at (42.53125, 348) 54.820313×19
-  text "ab" at (8, 372) 19.960938×19
+  text "defghij" at (42.53125, 348) 54.828125×19
+  text "ab" at (8, 372) 19.96875×19
   text "x" at (33.046875, 372) 9.46875×19
   text "cd" at (8, 412) 18.953125×19
-  text "ab" at (8, 436) 19.960938×19
+  text "ab" at (8, 436) 19.96875×19
   text "de" at (8, 456) 20×19
   text "ab" at (8, 480) 25.046875×19

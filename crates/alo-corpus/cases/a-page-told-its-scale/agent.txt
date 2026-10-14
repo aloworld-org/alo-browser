@@ -1,5 +1,5 @@
 document at (0, 0) 160×49
   main at (0, 0) 160×49
     paragraph at (8, 4) 144×15
-      text "Shown at 1x" at (8, 4) 80.60889×15
-    text "Invoices" at (9, 24) 53.25049×15
+      text "Shown at 1x" at (8, 4) 80.609375×15
+    text "Invoices" at (9, 24) 53.265625×15

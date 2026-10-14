@@ -8,7 +8,7 @@ fill box#4 rgb(219 234 254) at (10, 21) 80×23
 fill box#4 rgb(37 99 235) at (10, 21) 80×2
 fill box#4 rgb(37 99 235) at (88, 21) 2×23
 fill box#4 rgb(37 99 235) at (10, 42) 80×2
-text box#5 "quick brown fox" rgb(30 58 138) 13px at (45.310547, 22)
+text box#5 "quick brown fox" rgb(30 58 138) 13px at (45.3125, 22)
 text box#5 "jumps over" rgb(30 58 138) 13px at (10, 37)
-text box#6 "the lazy" rgb(24 24 27) 13px at (93.793945, 37)
+text box#6 "the lazy" rgb(24 24 27) 13px at (93.8042, 37)
 text box#6 "dog." rgb(24 24 27) 13px at (10, 52)

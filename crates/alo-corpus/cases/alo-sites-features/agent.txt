@@ -3,9 +3,9 @@ document at (0, 0) 800×408.5625
   main at (0, 0) 800×408.5625
     heading "Why Nordwind" [level=2] at (20, 80) 760×33.59375
     paragraph at (20, 127.59375) 720×27.1875
-      text "Three promises on every bag." at (252.91089, 130.59375) 254.17822×20
+      text "Three promises on every bag." at (252.90625, 130.59375) 254.1875×20
     list at (20, 171.78125) 760×156.78125
       listitem "Roasted to order Your batch goes in the drum after you order." at (20, 171.78125) 760×156.78125
         heading "Roasted to order" [level=3] at (41, 212.78125) 718×21.59375
         paragraph at (41, 243.375) 718×27.1875
-          text "Your batch goes in the drum after you order." at (41, 246.375) 377.1626×20
+          text "Your batch goes in the drum after you order." at (41, 246.375) 377.17188×20

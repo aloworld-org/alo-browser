@@ -212,7 +212,9 @@ fn the_text_put_in_each_field_sits_inside_it_in_numbers() {
     // 13.33 (item 514), so "Ada Lovelace" is 5,669.83 units wide, which a
     // box holds in 5,670, Chrome 154's width for it; at 13.333333 it was
     // 5,671.25 and a unit wider. "Ring twice" in `DejaVu Sans Mono` is
-    // 5,136.22, held in Chrome's 5,137, where it was 5,137.5.
+    // 5,136.22, held in Chrome's 5,137, where it was 5,137.5. Since item
+    // 574 the text is rounded up onto the grid itself, as Chrome rounds a
+    // text item, so each is those 5,670 and 5,137 units wide too.
     let mut form = filled();
     let tree = read(&mut form);
     let text_of = |field: &str| {
@@ -226,11 +228,11 @@ fn the_text_put_in_each_field_sits_inside_it_in_numbers() {
         panic!("both fields hold text:\n{}", tree.to_outline());
     };
     assert!(
-        at(name, 150.656_25, 19.0, 88.591_125, 15.0),
+        at(name, 150.656_25, 19.0, 5_670.0 / 64.0, 15.0),
         "Ada Lovelace: {name:?}"
     );
     assert!(
-        at(instructions, 186.671_88, 540.1875, 80.253_37, 15.0),
+        at(instructions, 186.671_88, 540.1875, 5_137.0 / 64.0, 15.0),
         "Ring twice: {instructions:?}"
     );
 

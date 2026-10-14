@@ -1,6 +1,6 @@
 block flow · document → 200×72 at (0, 0)
   block flow · generic → 200×72 at (0, 0)
     block flow · heading [level=1] → 184×24 at (8, 8)
-      text "Inbox" → 62.63672×24 at (8, 8)
+      text "Inbox" → 62.640625×24 at (8, 8)
     block flow · paragraph → 184×24 at (8, 40)
-      text "Three new messages" → 148.14844×16 at (12, 44)
+      text "Three new messages" → 148.15625×16 at (12, 44)

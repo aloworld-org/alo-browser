@@ -3,55 +3,55 @@ document at (0, 0) 800×584.875
   heading "World Wide Web" [level=1] at (8, 21.4375) 784×38
   text "The WorldWideWeb (W3) is a wide-area" at (8, 80.875) 315.89063×19
   link "hypermedia" at (323.89063, 80.875) 100.828125×19
-  text "information retrieval initiative aiming to give universal access to a large universe of documents." at (8, 80.875) 780.64844×38 in 2 pieces
+  text "information retrieval initiative aiming to give universal access to a large universe of documents." at (8, 80.875) 780.65625×38 in 2 pieces
   paragraph at (8, 134.875) 784×57
-    text "Everything there is online about W3 is linked directly or indirectly to this document, including an" at (8, 134.875) 773.64844×19
+    text "Everything there is online about W3 is linked directly or indirectly to this document, including an" at (8, 134.875) 773.65625×19
     link "executive summary" at (8, 134.875) 778.7344×38 in 2 pieces
-    text "of the project," at (171.02344, 153.875) 112.46875×19
-    link "Mailing lists" at (288.57813, 153.875) 94.16406×19
-    text "," at (382.7422, 153.875) 10.171875×19
-    link "Policy" at (398, 153.875) 46.023438×19
-    text ", November's" at (444.02344, 153.875) 111.22656×19
-    link "W3 news" at (560.33594, 153.875) 72.49219×19
-    text "," at (632.8281, 153.875) 10.171875×19
-    link "Frequently Asked Questions" at (8, 153.875) 777.72656×38 in 2 pieces
-    text "." at (87.89844, 172.875) 10.171875×19
+    text "of the project," at (171.02344, 153.875) 112.47656×19
+    link "Mailing lists" at (288.57813, 153.875) 94.171875×19
+    text "," at (382.75, 153.875) 10.171875×19
+    link "Policy" at (398.01563, 153.875) 46.03125×19
+    text ", November's" at (444.04688, 153.875) 111.234375×19
+    link "W3 news" at (560.3594, 153.875) 72.5×19
+    text "," at (632.8594, 153.875) 10.171875×19
+    link "Frequently Asked Questions" at (8, 153.875) 777.7656×38 in 2 pieces
+    text "." at (87.90625, 172.875) 10.171875×19
   link "What's out there?" at (8, 207.875) 141.96875×19
-  text "Pointers to the world's online information," at (48, 226.875) 335.2578×19
-  link "subjects" at (383.2578, 226.875) 71.41406×19
-  text "," at (454.67188, 226.875) 10.171875×19
-  link "W3 servers" at (469.9297, 226.875) 90.07031×19
-  text ", etc." at (560, 226.875) 40.171875×19
-  link "Help" at (8, 245.875) 36.476563×19
+  text "Pointers to the world's online information," at (48, 226.875) 335.26563×19
+  link "subjects" at (383.26563, 226.875) 71.421875×19
+  text "," at (454.6875, 226.875) 10.171875×19
+  link "W3 servers" at (469.95313, 226.875) 90.078125×19
+  text ", etc." at (560.03125, 226.875) 40.171875×19
+  link "Help" at (8, 245.875) 36.484375×19
   text "on the browser you are using" at (48, 264.875) 234.125×19
   link "Software Products" at (8, 283.875) 144.70313×19
-  text "A list of W3 project components and their current state. (e.g." at (48, 302.875) 488.2422×19
-  link "Line Mode" at (541.3281, 302.875) 82.02344×19
-  text ",X11" at (623.35156, 302.875) 41.492188×19
-  link "Viola" at (669.9297, 302.875) 39.078125×19
-  text "," at (709.0078, 302.875) 10.171875×19
-  link "NeXTStep" at (48, 302.875) 676.2656×38 in 2 pieces
-  text "," at (126.69531, 321.875) 10.171875×19
-  link "Servers" at (141.95313, 321.875) 60.804688×19
-  text "," at (202.75781, 321.875) 10.171875×19
-  link "Tools" at (218.01563, 321.875) 39.414063×19
-  text "," at (257.4297, 321.875) 10.171875×19
-  link "Mail robot" at (267.60156, 321.875) 84.90625×19
-  text "," at (352.5078, 321.875) 10.171875×19
-  link "Library" at (362.6797, 321.875) 61.03125×19
-  text ")" at (423.71094, 321.875) 11.328125×19
+  text "A list of W3 project components and their current state. (e.g." at (48, 302.875) 488.25×19
+  link "Line Mode" at (541.3281, 302.875) 82.03125×19
+  text ",X11" at (623.3594, 302.875) 41.5×19
+  link "Viola" at (669.9375, 302.875) 39.078125×19
+  text "," at (709.0156, 302.875) 10.171875×19
+  link "NeXTStep" at (48, 302.875) 676.28125×38 in 2 pieces
+  text "," at (126.703125, 321.875) 10.171875×19
+  link "Servers" at (141.96875, 321.875) 60.8125×19
+  text "," at (202.78125, 321.875) 10.171875×19
+  link "Tools" at (218.04688, 321.875) 39.421875×19
+  text "," at (257.46875, 321.875) 10.171875×19
+  link "Mail robot" at (267.64063, 321.875) 84.90625×19
+  text "," at (352.54688, 321.875) 10.171875×19
+  link "Library" at (362.71875, 321.875) 61.03125×19
+  text ")" at (423.75, 321.875) 11.328125×19
   link "Technical" at (8, 340.875) 73.46875×19
-  text "Details of protocols, formats, program internals etc" at (48, 359.875) 409.83594×19
+  text "Details of protocols, formats, program internals etc" at (48, 359.875) 409.84375×19
   link "Bibliography" at (8, 378.875) 100.5625×19
-  text "Paper documentation on W3 and references." at (48, 397.875) 357.77344×19
+  text "Paper documentation on W3 and references." at (48, 397.875) 357.78125×19
   link "People" at (8, 416.875) 53.15625×19
   text "A list of some people involved in the project." at (48, 435.875) 357.5625×19
   link "History" at (8, 454.875) 56.921875×19
-  text "A summary of the history of the project." at (48, 473.875) 321.0547×19
-  link "How can I help" at (8, 492.875) 118.21094×19
-  text "?" at (126.21094, 492.875) 13.578125×19
+  text "A summary of the history of the project." at (48, 473.875) 321.0625×19
+  link "How can I help" at (8, 492.875) 118.21875×19
+  text "?" at (126.21875, 492.875) 13.578125×19
   text "If you would like to support the web.." at (48, 511.875) 297.40625×19
   link "Getting code" at (8, 530.875) 103.203125×19
-  text "Getting the code by" at (48, 549.875) 159.25781×19
-  link "anonymous FTP" at (207.25781, 549.875) 131.71094×19
-  text ", etc." at (338.96875, 549.875) 45.257813×19
+  text "Getting the code by" at (48, 549.875) 159.26563×19
+  link "anonymous FTP" at (207.26563, 549.875) 131.71875×19
+  text ", etc." at (338.98438, 549.875) 45.265625×19

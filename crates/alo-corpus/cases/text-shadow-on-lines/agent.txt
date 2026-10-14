@@ -1,26 +1,26 @@
 document at (0, 0) 300×352
   paragraph at (8, 8) 292×24
-    text "jumpy gypsy" at (8, 8) 128.08594×24
+    text "jumpy gypsy" at (8, 8) 128.09375×24
   paragraph at (8, 40) 292×24
-    text "jumpy gypsy" at (8, 40) 128.08594×24
+    text "jumpy gypsy" at (8, 40) 128.09375×24
   paragraph at (8, 72) 292×24
-    text "jumpy gypsy" at (8, 72) 128.08594×24
+    text "jumpy gypsy" at (8, 72) 128.09375×24
   paragraph at (8, 104) 292×24
-    text "ÉÅÎ jumpy" at (8, 104) 100.82031×24
+    text "ÉÅÎ jumpy" at (8, 104) 100.828125×24
   paragraph at (8, 136) 292×24
-    text "jumpy gypsy" at (8, 136) 128.08594×24
+    text "jumpy gypsy" at (8, 136) 128.09375×24
   paragraph at (8, 168) 292×24
-    text "jumpy gypsy" at (8, 168) 128.08594×24
+    text "jumpy gypsy" at (8, 168) 128.09375×24
   paragraph at (8, 200) 292×24
-    text "jumpy gypsy" at (8, 200) 128.08594×24
+    text "jumpy gypsy" at (8, 200) 128.09375×24
   paragraph at (8, 232) 292×24
-    text "jumpy" at (8, 232) 62.246094×24
-    text "gypsy" at (76.603516, 232) 59.48242×24
+    text "jumpy" at (8, 232) 62.25×24
+    text "gypsy" at (76.609375, 232) 59.484375×24
   paragraph at (8, 264) 292×24
-    text "jumpy" at (8, 264) 62.246094×24
-    text "gypsy" at (76.603516, 264) 59.48242×24
+    text "jumpy" at (8, 264) 62.25×24
+    text "gypsy" at (76.609375, 264) 59.484375×24
   paragraph at (8, 296) 292×24
-    text "jumpy" at (8, 296) 62.246094×24
-    text "gypsy" at (76.603516, 296) 59.48242×24
+    text "jumpy" at (8, 296) 62.25×24
+    text "gypsy" at (76.609375, 296) 59.484375×24
   paragraph at (8, 328) 292×24
-    text "jumpy gypsy" at (8, 328) 128.08594×24
+    text "jumpy gypsy" at (8, 328) 128.09375×24

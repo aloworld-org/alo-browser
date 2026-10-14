@@ -36,7 +36,7 @@ fill box#75 rgb(222 215 205) at (553, 394) 282×34
 text box#76 "19 May" rgb(16 42 67) 14px at (566, 416.09375)
 unclip
 fill box#84 rgb(232 226 217) at (24, 465) 852×1
-text box#89 "Cancel" rgb(95 85 75) 14px at (714.41113, 503.09375)
+text box#89 "Cancel" rgb(95 85 75) 14px at (714.40625, 503.09375)
 fill box#92 rgb(231 111 81) at (786, 482) 70×32
-text box#93 "Save" rgb(255 254 252) 14px at (801.8462, 503.09375)
+text box#93 "Save" rgb(255 254 252) 14px at (801.84375, 503.09375)
 unclip

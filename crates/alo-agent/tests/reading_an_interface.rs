@@ -249,8 +249,8 @@ document at (0, 0) 240×247
   main at (0, 0) 240×247
     heading \"Invoices\" [level=1] at (8, 8) 224×24
     navigation \"Filters\" at (8, 32) 224×16
-      link \"All\" at (8, 32) 17.356445×16
-      link \"Due\" at (29.80664, 32) 28.266602×16
+      link \"All\" at (8, 32) 17.359375×16
+      link \"Due\" at (29.8125, 32) 28.28125×16
     list at (8, 48) 224×72
       listitem \"Invoice 11\" [marker=\"•\"] at (8, 48) 224×24
       listitem \"Invoice 12\" [selected=true marker=\"•\"] at (8, 72) 224×24
@@ -259,7 +259,7 @@ document at (0, 0) 240×247
       textbox \"Amount\" [required] at (8, 137) 172×21
       checkbox \"Recurring\" [checked=true] at (184, 139) 13×13
       button \"Save\" [disabled] at (8, 158) 48.734375×21
-    text \"a plain div with no meaning\" at (8, 223) 194.50293×16
+    text \"a plain div with no meaning\" at (8, 223) 194.51563×16
 ";
     assert_eq!(tree.to_outline(), expected);
 }

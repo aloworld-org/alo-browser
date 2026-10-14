@@ -13,7 +13,7 @@ fill box#8 rgb(255 255 255) at (35.5, 34.25) 15×1.5
 fill box#8 rgb(255 255 255) at (45.25, 41) 6×1.5
 fill box#8 rgb(255 255 255) at (47.5, 38.75) 1.5×6
 unclip
-text box#9 "New event" rgb(255 255 255) 14px at (60.000977, 41)
+text box#9 "New event" rgb(255 255 255) 14px at (60, 41)
 text box#17 "MY CALENDARS" rgb(95 85 75) 12px at (16, 90.5)
 clip box#20 to (206, 79) 15×15
 fill box#20 rgb(95 85 75) at (208.5, 85.875) 10×1.25
@@ -82,5 +82,5 @@ clip box#87 to (24, 300.25) 15×15
 fill box#87 rgb(95 85 75) at (24.625, 300.875) 13.75×13.75
 fill box#87 rgb(95 85 75) at (30.875, 303.375) 3.7997932×6.2998047
 unclip
-text box#88 "Working hours" rgb(95 85 75) 13px at (47.007324, 312)
+text box#88 "Working hours" rgb(95 85 75) 13px at (47, 312)
 unclip

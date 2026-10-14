@@ -135,6 +135,7 @@
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::measure::{MeasureText, TextStyle};
 use crate::soft_wrap::SoftWrap;
+use crate::text_run::TextRun;
 use crate::vertical_align::{Edge, LineAlign, Parent};
 use alo_box::BoxId;
 use core::ops::Range;
@@ -513,6 +514,10 @@ struct Builder<'a, M: MeasureText> {
     /// The end of the last piece of text laid down, for whether there is a
     /// place to break between it and the text after it.
     tail: String,
+    /// The text box's text laid down on this line since the last thing that
+    /// was not it, whose advance is rounded onto the grid whole
+    /// ([`crate::text_run`]).
+    run: Option<TextRun>,
 }
 
 /// The white space a piece of text may end in, after which a line may break
@@ -616,6 +621,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             strut_wraps,
             wrap: SoftWrap::start(strut_wraps),
             tail: String::new(),
+            run: None,
         }
     }
 
@@ -625,6 +631,8 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// group a `top` or `bottom` box hung from belonged to that line.
     fn start_line(&mut self) {
         self.pen = 0.0;
+        // A box's text carried on to this line is a new item here.
+        self.run = None;
         self.groups = vec![Group {
             edge: None,
             ascent: self.strut_reach.above,
@@ -808,10 +816,15 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             // it does not hang, and it is drawn.
             let visible = piece.trim_end_matches(SPACES);
             let width = self.measurer.measure(visible, style, None).width;
+            // What has to fit is where its letters would end, on the grid.
+            let reach = TextRun::for_piece(self.run, box_id, offset + start, self.pen, style.scale)
+                .reach(width);
             // Nothing breaks before a piece that is only space: a line does
             // not begin with one it could end with, and the break comes after
             // it instead, where the space hangs.
-            if !visible.is_empty() && !self.fits(width) && self.may_break_before(start == 0, piece)
+            if !visible.is_empty()
+                && !self.fits(reach - self.pen)
+                && self.may_break_before(start == 0, piece)
             {
                 self.end_line();
             }
@@ -891,15 +904,21 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let descent = self.measurer.descender(style);
         let reach = reach_of(style, self.measurer);
         let place = self.innermost();
+        // Its letters start where shaping put them in its run, and the run's
+        // letters and advance end on the grid ([`crate::text_run`]).
+        let run = TextRun::for_piece(self.run, box_id, range.start, self.pen, style.scale);
+        let (left, right) = (run.left(), run.reach(visible));
+        let run = run.after(placed, range.end);
+        self.run = Some(run);
         self.current.push(Pending {
             fragment: Fragment {
                 box_id,
-                rect: Rect::new(self.pen, 0.0, visible, ascent + descent),
+                rect: Rect::new(left, 0.0, (right - left).max(0.0), ascent + descent),
                 text: Some(range),
                 line: self.lines.len(),
                 // A kerned pair can measure a hair narrower with its space
                 // than without it; there is no space to draw under then.
-                space: (placed - visible).max(0.0),
+                space: (run.end() - right).max(0.0),
             },
             below_baseline: descent,
             place,
@@ -907,7 +926,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             goes_on: true,
             blank: false,
         });
-        self.pen += placed;
+        self.pen = run.end();
         self.reach(place, reach.above, reach.below);
     }
 
@@ -919,13 +938,17 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let ascent = self.measurer.ascender(style);
         let descent = self.measurer.descender(style);
         let place = self.innermost();
+        let run = TextRun::for_piece(self.run, box_id, range.start, self.pen, style.scale);
+        let left = run.left();
+        let run = run.after(room, range.end);
+        self.run = Some(run);
         self.current.push(Pending {
             fragment: Fragment {
                 box_id,
-                rect: Rect::new(self.pen, 0.0, 0.0, ascent + descent),
+                rect: Rect::new(left, 0.0, 0.0, ascent + descent),
                 text: Some(range),
                 line: self.lines.len(),
-                space: room.max(0.0),
+                space: (run.end() - left).max(0.0),
             },
             below_baseline: descent,
             place,
@@ -933,7 +956,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             goes_on: true,
             blank: true,
         });
-        self.pen += room;
+        self.pen = run.end();
     }
 
     /// Start a nested inline box.
@@ -2279,6 +2302,43 @@ mod tests {
         assert!(close(line.baseline, 12.0), "{}", line.baseline);
         assert!(close(line.height, 22.0), "{}", line.height);
         assert_eq!(rect_of(&layout, 2), Some(Rect::new(8.0, 2.0, 10.0, 20.0)));
+    }
+
+    #[test]
+    fn a_text_item_advances_by_its_width_rounded_up_onto_the_grid() {
+        // 8.01 px a character is 512.64 units: "a b" is 1,537.92 and takes
+        // 1,538 whole, where "a " and "b" rounded apart would be 1,539. The
+        // next box's "c" starts there and takes 513.
+        let spaced = TextStyle {
+            letter_spacing: 0.01,
+            ..TextStyle::default()
+        };
+        let piece = |index: usize, text: &str| InlineItem::Text {
+            box_id: box_id(index),
+            text: text.to_owned(),
+            style: spaced.clone(),
+        };
+        let layout = lay_out(
+            &[piece(1, "a b"), piece(2, "c"), atomic(3, 1.0, 1.0)],
+            None,
+            &BlockFont,
+        );
+        let units = |index: usize| {
+            layout
+                .union_for(box_id(index))
+                .map(|rect| [rect.left() * 64.0, rect.size.width * 64.0])
+        };
+        let near = |found: Option<[f32; 2]>, wanted: [f32; 2]| {
+            found.is_some_and(|found| {
+                found
+                    .iter()
+                    .zip(wanted)
+                    .all(|(found, wanted)| (found - wanted).abs() < 1e-3)
+            })
+        };
+        assert!(near(units(1), [0.0, 1538.0]), "{:?}", units(1));
+        assert!(near(units(2), [1538.0, 513.0]), "{:?}", units(2));
+        assert!(near(units(3), [2051.0, 64.0]), "{:?}", units(3));
     }
 
     #[test]

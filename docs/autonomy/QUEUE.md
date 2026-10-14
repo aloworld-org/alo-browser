@@ -14219,7 +14219,7 @@ What stage 2's exit gate actually measures: a person using it.
   `spread-shadow-corners` (23 boxes) is Chrome's wherever both are a plain
   colour, at one and at two. Found: **585**.
 
-- [ ] **574. A run of one `&nbsp;` is put on the grid of 1/64 px.**
+- [x] **574. A run of one `&nbsp;` is put on the grid of 1/64 px.**
   *Found building 565 (iteration 337). Feature: `docs/features.md` stage
   1, text. Needs measuring.* A `<span>` holding only `&nbsp;` in 13 px
   `DejaVu Sans` with `padding: 0 20.3px` is 44.7265625 wide here at one,
@@ -14228,6 +14228,22 @@ What stage 2's exit gate actually measures: a person using it.
   up onto it. *Closes when:* why that run escapes the rounding is found,
   and a frozen piece holding a no-break space is Chrome's width at one and
   at two.
+  ***Done (iteration 350).*** Why: § 4's rounding was built only where a
+  leaf or a whole formatting context is measured, so nothing inside a
+  line — a `<span>`'s width, where the box after it starts, a piece of
+  text's rectangle — was on the grid; it was not the no-break space.
+  Measured (Chrome 154, one and two, five sizes, the source not read): the
+  unit Chrome rounds is the **item**, one text box's text on one line; its
+  advance is rounded up and what follows starts there (300 of 300 lines
+  at one; a word at a time gives 181, the whole line 258), and what it
+  draws is its letters rounded up (620 of 620 `Range` rectangles). ADR
+  0054's addendum of 2026-10-14. `alo-layout`'s `text_run.rs` is the rule,
+  and the line builder lays each piece through it. `text-on-the-grid` (a
+  padded `&nbsp;`, two, `x&nbsp;x`, an item split by an empty `<b>`, a
+  line where a word at a time is a unit off, a wrapped paragraph) is
+  Chrome's to 1/128 px in all 20 boxes at one and at two
+  (`text_on_the_grid.rs`). Corpus: 950 of 1,267 boxes exact at one where
+  899 were, 949 at two where 926 were. Found: **586**.
 
 - [ ] **575. What else Chrome draws on whole device pixels.** *Cut from 565
   (iteration 337; ADR 0057 § 2). Feature: `docs/features.md` stage 1,
@@ -14282,6 +14298,20 @@ What stage 2's exit gate actually measures: a person using it.
   inset shadow and its clip take `Corners::inside` of the border, and a
   frozen case of bordered, rounded boxes with inset shadows is Chrome's at
   one and at two.
+
+- [ ] **586. Where Chrome breaks a line before punctuation.** *Found
+  building 574 (iteration 350). Feature: `docs/features.md` stage 1, line
+  breaking. Needs measuring.* In 32 of 120 blocks 30 to 90 px wide of
+  words made of `ilWxam.,` in `DejaVu Sans`, Chrome 154 breaks lines where
+  this engine does not, and this engine broke them the same way before
+  574: `Wma lx.Wl imix m W malli .lWlxl ,` at 16.3 px in 31 px ends with
+  `,` alone on Chrome's last line, 5.1875 px, where this engine's last line
+  runs 99.47 px. Every one of the 32 has a word starting with `.` or `,`
+  (61 of the 88 that break alike have one too). Which break
+  opportunities Chrome takes before and
+  after a full stop and a comma that follow a space is measured first.
+  *Closes when:* the rule is written down, built, and a frozen case of
+  such blocks breaks as Chrome's at one and at two.
 
 - [ ] **300. A link opens a tab.** *Cut from 118 (ADR 0024 § 6; ADR 0020
   § 2).* `target="_blank"` on a link a person activated becomes a decided

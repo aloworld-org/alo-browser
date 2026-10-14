@@ -109,7 +109,11 @@ still a square solid pixel with no chevron (521), and a field whose page
 writes only a border shows the page through where Chrome's is white
 (525). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
 length, a percentage and a `calc()` are each truncated toward zero onto it,
-a run of text's width is rounded up, and a box's edges are placed on it as
+a run of text's width is rounded up — by Chrome's item, one text box's
+text on one line, so a `<span>` and what follows it are on the grid too
+(item 574: 950 of 1,267 corpus boxes are Chrome's exactly at one where 899
+were, 949 at two where 926 were, and `text-on-the-grid` is Chrome's to the
+unit at both) — and a box's edges are placed on it as
 they are read back, so centring, auto margins and flexible tracks put each
 edge where Chrome does. Measured again with the same fonts, 707 of the
 corpus's 1,260 element boxes have Chrome's left, top, width and height

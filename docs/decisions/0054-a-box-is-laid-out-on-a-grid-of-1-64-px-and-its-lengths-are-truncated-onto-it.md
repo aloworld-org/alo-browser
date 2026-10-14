@@ -479,3 +479,49 @@ the frozen lines show it: factors 0.5 and 0.3 with 4 px gaps, where
 Chrome's first item ends 6.55 px further on than this engine's — a whole
 pixel wrong, and more — and factors 0.3 with a 0.5 px gap, 0.23 px. That is
 a fault in `taffy`, reported nowhere yet, and queue item **572**.
+
+## Addendum, 2026-10-14 — § 4 rounds a text item, not a word or a line
+
+Queue item 574 found a padded `<span>` holding one `&nbsp;` 44.7265625 px
+wide here where Chrome 154's is 44.734375: § 4's rounding up had been built
+where a leaf or a whole formatting context is measured, so a box that
+shrinks to its text held it, but nothing inside a line was on the grid. A
+`<span>`'s width, where the box after it starts, and a piece of text's own
+rectangle were exact floats.
+
+Measured in Chrome 154, headless, at `--force-device-scale-factor=1` and
+`=2`, with the corpus's `DejaVu Sans` at 11.1, 13, 13.7, 16.3 and 20.45 px,
+the source not read: 300 lines of one to five words joined by spaces and
+no-break spaces, some split by an empty `<b>`, each with an empty `<i>`
+after it; 120 padded spans; 120 blocks narrow enough to wrap; and 620
+lines' `Range` rectangles. Each was predicted from the canvas's
+`measureText` of the same strings.
+
+- **The unit rounded is the item**: one text box's text on one line,
+  between whatever else the line holds. Its advance is its exact width
+  rounded up onto the grid, and what follows starts there. At one every
+  one of the 300 lines puts its `<i>` at the sum of its items rounded so;
+  rounding each word on its own gives 181 of them, and the whole line at
+  once 258. A wrapped line's share of an item is rounded on its own: 120
+  of 120 at one.
+- **What an item draws is its letters' width rounded up**, without the
+  white space a line ends in: 620 of 620 `Range` rectangles at both scales
+  (that probe left 16.3 px out).
+- A padded `<span>` is its paddings truncated (§ 1) and its item rounded:
+  120 of 120 at one.
+
+At two the same rule on the grid of 1/128 px predicts every line and span
+set at 11.1, 13, 13.7 and 20.45 px, and misses 84 of the 87 at 16.3 px:
+there Chrome's canvas measures the text up to 1.2 units narrower than its
+layout sets it. This engine sets 16.3 px text where Chrome's layout does
+(below), so it is the canvas that differs at that size and the rule
+holds.
+
+Built by item 574 in `alo-layout`'s `text_run.rs`, which the line builder
+lays each piece of text through. On the same probe page this engine now
+places all 300 lines and 120 spans where Chrome does, at one and at two,
+where it had placed 5 and none; 88 of the wrapped blocks, where it had
+placed 1 (the other 32 break their lines elsewhere than Chrome, as they
+did before, queue item 586). Across the corpus, 950 of 1,267 element boxes
+are Chrome's exactly at one, where 899 were, and 949 at two, where 926
+were; no box that was within two units of Chrome's moved further from it.

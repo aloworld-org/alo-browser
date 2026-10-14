@@ -3,6 +3,6 @@ document at (0, 0) 800×239.15625
   main at (0, 0) 800×239.15625
     heading "Cupping evenings" [level=2] at (41, 41) 718×33.59375
     paragraph at (41, 88.59375) 718×27.1875
-      text "Six seats around the roaster, once a month." at (212.9419, 91.59375) 374.1162×20
+      text "Six seats around the roaster, once a month." at (212.9375, 91.59375) 374.125×20
     paragraph at (41, 132.78125) 718×48.375
       link "See tickets and dates" at (41, 132.78125) 247.25×48.375

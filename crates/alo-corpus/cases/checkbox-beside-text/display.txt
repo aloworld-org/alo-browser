@@ -3,12 +3,12 @@ fill box#3 rgb(221 226 238) at (0, 0) 300×20
 text box#4 "ab" rgb(0 0 0) 16px at (0, 16)
 fill box#5 rgb(255 255 255) at (24, 3) 13×13
 fill box#5 rgb(118 118 118) at (24, 3) 13×13
-text box#6 "cd" rgb(0 0 0) 16px at (39.960938, 16)
+text box#6 "cd" rgb(0 0 0) 16px at (39.96875, 16)
 fill box#8 rgb(221 226 238) at (0, 20) 300×20
 text box#9 "ab" rgb(0 0 0) 16px at (0, 36)
 fill box#10 rgb(255 255 255) at (25, 23) 13×13
 fill box#10 rgb(118 118 118) at (25, 23) 13×13
-text box#11 "cd" rgb(0 0 0) 16px at (40.960938, 36)
+text box#11 "cd" rgb(0 0 0) 16px at (40.96875, 36)
 fill box#13 rgb(221 226 238) at (0, 40) 300×19
 fill box#14 rgb(255 255 255) at (4, 43) 13×13
 fill box#14 rgb(118 118 118) at (4, 43) 13×13
@@ -17,11 +17,11 @@ fill box#18 rgb(221 226 238) at (0, 59) 300×24
 text box#19 "ab" rgb(0 0 0) 16px at (0, 76)
 fill box#20 rgb(0 117 255) at (24, 63) 13×13
 fill box#20 rgb(255 255 255) at (25.864609, 64.95032) 9.347496×8.706696
-text box#21 "cd" rgb(0 0 0) 16px at (39.960938, 76)
+text box#21 "cd" rgb(0 0 0) 16px at (39.96875, 76)
 fill box#22 rgb(255 255 255) at (64, 63) 13×13
 fill box#22 rgb(0 117 255) at (64, 63) 13×13
 fill box#22 rgb(0 117 255) at (66.6, 65.6) 7.800003×7.800003
-text box#23 "ef" rgb(0 0 0) 16px at (79.91406, 76)
+text box#23 "ef" rgb(0 0 0) 16px at (79.921875, 76)
 fill box#25 rgb(221 226 238) at (0, 83) 300×38
 text box#26 "ab" rgb(0 0 0) 32px at (0, 113)
 fill box#27 rgb(255 255 255) at (44, 100) 13×13
@@ -31,14 +31,14 @@ fill box#30 rgb(221 226 238) at (0, 121) 300×19
 text box#31 "ab" rgb(0 0 0) 16px at (0, 136)
 fill box#32 rgb(255 255 255) at (20, 123) 13×13
 fill box#32 rgb(118 118 118) at (20, 123) 13×13
-text box#33 "cd" rgb(0 0 0) 16px at (32.960938, 136)
+text box#33 "cd" rgb(0 0 0) 16px at (32.96875, 136)
 fill box#35 rgb(221 226 238) at (0, 140) 300×19
 text box#36 "ab" rgb(0 0 0) 16px at (0, 155)
 fill box#37 rgb(255 255 255) at (20, 142) 13×13
 fill box#37 rgb(118 118 118) at (20, 142) 13×13
-text box#38 "cd" rgb(0 0 0) 16px at (32.960938, 155)
+text box#38 "cd" rgb(0 0 0) 16px at (32.96875, 155)
 fill box#40 rgb(221 226 238) at (0, 159) 300×27
 text box#41 "ab" rgb(0 0 0) 16px at (0, 182)
 fill box#42 rgb(255 255 255) at (24, 162) 20×20
 fill box#42 rgb(118 118 118) at (24, 162) 20×20
-text box#43 "cd" rgb(0 0 0) 16px at (46.960938, 182)
+text box#43 "cd" rgb(0 0 0) 16px at (46.96875, 182)

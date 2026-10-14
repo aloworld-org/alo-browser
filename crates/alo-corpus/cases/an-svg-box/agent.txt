@@ -5,7 +5,7 @@ document at (0, 0) 320×403
   paragraph at (0, 98) 320×43
     image "Half" at (0, 98) 80×40
   paragraph at (0, 145) 320×97
-    text "Ratio" at (0, 145) 30.808594×14
+    text "Ratio" at (0, 145) 30.8125×14
     image "Ratio" at (0, 159) 320×80
   paragraph at (0, 246) 320×153
     image at (0, 246) 300×150

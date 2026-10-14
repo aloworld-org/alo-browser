@@ -422,8 +422,10 @@ fn every_box_placed_as_chrome_places_it_at_one_is_placed_as_chrome_places_it_at_
         "the pages whose script runs, loaded by a renderer told the scale"
     );
     assert!(
-        compared >= 899,
-        "{compared} boxes compared, where 899 were exact at one on 2026-10-13"
+        compared >= 950,
+        "{compared} boxes compared, where 950 were exact at one on 2026-10-14 \
+         (899 on 2026-10-13, before a text item was rounded onto the grid whole, \
+         item 574)"
     );
     assert!(
         compared_loaded >= 319,

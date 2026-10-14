@@ -1,6 +1,6 @@
 text box#9 "World Wide Web" rgb(0 0 0) 32px at (8, 51.4375)
 text box#10 "The WorldWideWeb (W3) is a wide-area" rgb(0 0 0) 16px at (8, 95.875)
-fill box#12 rgb(0 0 238) at (323.89063, 97) 5.0859375×1
+fill box#12 rgb(0 0 238) at (323.89063, 97) 5.09375×1
 fill box#12 rgb(0 0 238) at (328.97656, 97) 10.0234375×1
 fill box#12 rgb(0 0 238) at (346, 97) 2×1
 fill box#12 rgb(0 0 238) at (353, 97) 71.71875×1
@@ -13,67 +13,67 @@ fill box#17 rgb(0 0 238) at (163, 170) 2.9375×1
 text box#17 "executive summary" rgb(0 0 238) 16px at (8, 168.875)
 text box#18 "of the project," rgb(0 0 0) 16px at (171.02344, 168.875)
 fill box#20 rgb(0 0 238) at (288.57813, 170) 47.421875×1
-fill box#20 rgb(0 0 238) at (345, 170) 37.742188×1
+fill box#20 rgb(0 0 238) at (345, 170) 37.75×1
 text box#20 "Mailing lists" rgb(0 0 238) 16px at (288.57813, 168.875)
-text box#21 " ," rgb(0 0 0) 16px at (382.7422, 168.875)
-fill box#23 rgb(0 0 238) at (398, 170) 36×1
-fill box#23 rgb(0 0 238) at (441, 170) 3.0234375×1
-text box#23 "Policy" rgb(0 0 238) 16px at (398, 168.875)
-text box#24 " , November's" rgb(0 0 0) 16px at (444.02344, 168.875)
-fill box#26 rgb(0 0 238) at (560.33594, 170) 72.49219×1
-text box#26 "W3 news" rgb(0 0 238) 16px at (560.33594, 168.875)
-text box#27 " ," rgb(0 0 0) 16px at (632.8281, 168.875)
-fill box#29 rgb(0 0 238) at (648.08594, 170) 29.914063×1
-fill box#29 rgb(0 0 238) at (682, 170) 41×1
-fill box#29 rgb(0 0 238) at (730, 170) 55.726563×1
-text box#29 "Frequently Asked" rgb(0 0 238) 16px at (648.08594, 168.875)
+text box#21 " ," rgb(0 0 0) 16px at (382.75, 168.875)
+fill box#23 rgb(0 0 238) at (398.01563, 170) 35.984375×1
+fill box#23 rgb(0 0 238) at (441, 170) 3.046875×1
+text box#23 "Policy" rgb(0 0 238) 16px at (398.01563, 168.875)
+text box#24 " , November's" rgb(0 0 0) 16px at (444.04688, 168.875)
+fill box#26 rgb(0 0 238) at (560.3594, 170) 72.5×1
+text box#26 "W3 news" rgb(0 0 238) 16px at (560.3594, 168.875)
+text box#27 " ," rgb(0 0 0) 16px at (632.8594, 168.875)
+fill box#29 rgb(0 0 238) at (648.125, 170) 29.875×1
+fill box#29 rgb(0 0 238) at (683, 170) 40×1
+fill box#29 rgb(0 0 238) at (730, 170) 55.765625×1
+text box#29 "Frequently Asked" rgb(0 0 238) 16px at (648.125, 168.875)
 fill box#29 rgb(0 0 238) at (8, 189) 7×1
-fill box#29 rgb(0 0 238) at (20, 189) 67.89844×1
+fill box#29 rgb(0 0 238) at (20, 189) 67.90625×1
 text box#29 "Questions" rgb(0 0 238) 16px at (8, 187.875)
-text box#30 " ." rgb(0 0 0) 16px at (87.89844, 187.875)
+text box#30 " ." rgb(0 0 0) 16px at (87.90625, 187.875)
 fill box#35 rgb(0 0 238) at (8, 224) 141.96875×1
 text box#35 "What's out there?" rgb(0 0 238) 16px at (8, 222.875)
 text box#38 "Pointers to the world's online information," rgb(0 0 0) 16px at (48, 241.875)
-fill box#40 rgb(0 0 238) at (383.2578, 243) 5.0859375×1
-fill box#40 rgb(0 0 238) at (388.34375, 243) 26.65625×1
-fill box#40 rgb(0 0 238) at (422, 243) 32.671875×1
-text box#40 "subjects" rgb(0 0 238) 16px at (388.34375, 241.875)
-text box#41 " ," rgb(0 0 0) 16px at (454.67188, 241.875)
-fill box#43 rgb(0 0 238) at (469.9297, 243) 90.07031×1
-text box#43 "W3 servers" rgb(0 0 238) 16px at (469.9297, 241.875)
-text box#44 ", etc." rgb(0 0 0) 16px at (560, 241.875)
+fill box#40 rgb(0 0 238) at (383.26563, 243) 5.09375×1
+fill box#40 rgb(0 0 238) at (388.35156, 243) 26.648438×1
+fill box#40 rgb(0 0 238) at (422, 243) 32.6875×1
+text box#40 "subjects" rgb(0 0 238) 16px at (388.35156, 241.875)
+text box#41 " ," rgb(0 0 0) 16px at (454.6875, 241.875)
+fill box#43 rgb(0 0 238) at (469.95313, 243) 90.078125×1
+text box#43 "W3 servers" rgb(0 0 238) 16px at (469.95313, 241.875)
+text box#44 ", etc." rgb(0 0 0) 16px at (560.03125, 241.875)
 fill box#47 rgb(0 0 238) at (8, 262) 26×1
-fill box#47 rgb(0 0 238) at (39, 262) 5.4765625×1
+fill box#47 rgb(0 0 238) at (39, 262) 5.484375×1
 text box#47 "Help" rgb(0 0 238) 16px at (8, 260.875)
 text box#50 "on the browser you are using" rgb(0 0 0) 16px at (48, 279.875)
 fill box#53 rgb(0 0 238) at (8, 300) 144.70313×1
 text box#53 "Software Products" rgb(0 0 238) 16px at (8, 298.875)
 text box#56 "A list of W3 project components and their current state. (e.g." rgb(0 0 0) 16px at (48, 317.875)
-fill box#58 rgb(0 0 238) at (541.3281, 319) 82.02344×1
+fill box#58 rgb(0 0 238) at (541.3281, 319) 82.03125×1
 text box#58 "Line Mode" rgb(0 0 238) 16px at (541.3281, 317.875)
-text box#59 " ,X11" rgb(0 0 0) 16px at (623.35156, 317.875)
-fill box#61 rgb(0 0 238) at (669.9297, 319) 39.078125×1
-text box#61 "Viola" rgb(0 0 238) 16px at (669.9297, 317.875)
-text box#62 " ," rgb(0 0 0) 16px at (709.0078, 317.875)
+text box#59 " ,X11" rgb(0 0 0) 16px at (623.3594, 317.875)
+fill box#61 rgb(0 0 238) at (669.9375, 319) 39.078125×1
+text box#61 "Viola" rgb(0 0 238) 16px at (669.9375, 317.875)
+text box#62 " ," rgb(0 0 0) 16px at (709.0156, 317.875)
 fill box#64 rgb(0 0 238) at (48, 338) 68×1
-fill box#64 rgb(0 0 238) at (121, 338) 5.6953125×1
+fill box#64 rgb(0 0 238) at (121, 338) 5.703125×1
 text box#64 "NeXTStep" rgb(0 0 238) 16px at (48, 336.875)
-text box#65 " ," rgb(0 0 0) 16px at (126.69531, 336.875)
-fill box#67 rgb(0 0 238) at (141.95313, 338) 60.804688×1
-text box#67 "Servers" rgb(0 0 238) 16px at (141.95313, 336.875)
-text box#68 " ," rgb(0 0 0) 16px at (202.75781, 336.875)
-fill box#70 rgb(0 0 238) at (218.01563, 338) 39.414063×1
-text box#70 "Tools" rgb(0 0 238) 16px at (218.01563, 336.875)
-text box#71 " ," rgb(0 0 0) 16px at (257.4297, 336.875)
-fill box#73 rgb(0 0 238) at (267.60156, 338) 5.0859375×1
-fill box#73 rgb(0 0 238) at (272.6875, 338) 79.82031×1
-text box#73 "Mail robot" rgb(0 0 238) 16px at (272.6875, 336.875)
-text box#74 " ," rgb(0 0 0) 16px at (352.5078, 336.875)
-fill box#76 rgb(0 0 238) at (362.6797, 338) 5.0859375×1
-fill box#76 rgb(0 0 238) at (367.76563, 338) 46.234375×1
-fill box#76 rgb(0 0 238) at (421, 338) 2.7109375×1
-text box#76 "Library" rgb(0 0 238) 16px at (367.76563, 336.875)
-text box#77 " )" rgb(0 0 0) 16px at (423.71094, 336.875)
+text box#65 " ," rgb(0 0 0) 16px at (126.703125, 336.875)
+fill box#67 rgb(0 0 238) at (141.96875, 338) 60.8125×1
+text box#67 "Servers" rgb(0 0 238) 16px at (141.96875, 336.875)
+text box#68 " ," rgb(0 0 0) 16px at (202.78125, 336.875)
+fill box#70 rgb(0 0 238) at (218.04688, 338) 39.421875×1
+text box#70 "Tools" rgb(0 0 238) 16px at (218.04688, 336.875)
+text box#71 " ," rgb(0 0 0) 16px at (257.46875, 336.875)
+fill box#73 rgb(0 0 238) at (267.64063, 338) 5.09375×1
+fill box#73 rgb(0 0 238) at (272.72656, 338) 79.82031×1
+text box#73 "Mail robot" rgb(0 0 238) 16px at (272.72656, 336.875)
+text box#74 " ," rgb(0 0 0) 16px at (352.54688, 336.875)
+fill box#76 rgb(0 0 238) at (362.71875, 338) 5.09375×1
+fill box#76 rgb(0 0 238) at (367.8047, 338) 46.195313×1
+fill box#76 rgb(0 0 238) at (421, 338) 2.75×1
+text box#76 "Library" rgb(0 0 238) 16px at (367.8047, 336.875)
+text box#77 " )" rgb(0 0 0) 16px at (423.75, 336.875)
 fill box#80 rgb(0 0 238) at (8, 357) 73.46875×1
 text box#80 "Technical" rgb(0 0 238) 16px at (8, 355.875)
 text box#83 "Details of protocols, formats, program internals etc" rgb(0 0 0) 16px at (48, 374.875)
@@ -92,16 +92,16 @@ fill box#98 rgb(0 0 238) at (62, 471) 2.921875×1
 text box#98 "History" rgb(0 0 238) 16px at (8, 469.875)
 text box#101 "A summary of the history of the project." rgb(0 0 0) 16px at (48, 488.875)
 fill box#104 rgb(0 0 238) at (8, 509) 108×1
-fill box#104 rgb(0 0 238) at (121, 509) 5.2109375×1
+fill box#104 rgb(0 0 238) at (121, 509) 5.21875×1
 text box#104 "How can I help" rgb(0 0 238) 16px at (8, 507.875)
-text box#105 " ?" rgb(0 0 0) 16px at (126.21094, 507.875)
+text box#105 " ?" rgb(0 0 0) 16px at (126.21875, 507.875)
 text box#107 "If you would like to support the web.." rgb(0 0 0) 16px at (48, 526.875)
 fill box#110 rgb(0 0 238) at (8, 547) 50×1
 fill box#110 rgb(0 0 238) at (67, 547) 44.203125×1
 text box#110 "Getting code" rgb(0 0 238) 16px at (8, 545.875)
 text box#113 "Getting the code by" rgb(0 0 0) 16px at (48, 564.875)
-fill box#115 rgb(0 0 238) at (207.25781, 566) 5.0859375×1
-fill box#115 rgb(0 0 238) at (212.34375, 566) 39.65625×1
-fill box#115 rgb(0 0 238) at (259, 566) 79.96875×1
-text box#115 "anonymous FTP" rgb(0 0 238) 16px at (212.34375, 564.875)
-text box#116 " , etc." rgb(0 0 0) 16px at (338.96875, 564.875)
+fill box#115 rgb(0 0 238) at (207.26563, 566) 5.09375×1
+fill box#115 rgb(0 0 238) at (212.35156, 566) 39.648438×1
+fill box#115 rgb(0 0 238) at (259, 566) 79.984375×1
+text box#115 "anonymous FTP" rgb(0 0 238) 16px at (212.35156, 564.875)
+text box#116 " , etc." rgb(0 0 0) 16px at (338.98438, 564.875)

@@ -30,13 +30,13 @@ text box#54 "The app keeps itself up to date — new versions install automatica
 text box#54 "download it once." rgb(100 116 139) 13.76px at (40, 597.9531)
 text box#57 "Prefer the web? Just open" rgb(100 116 139) 13.76px at (40, 640.6094)
 text box#59 "mail.alomails.com" rgb(207 91 62) 13.76px at (220.73438, 640.6094)
-text box#60 "in any browser." rgb(100 116 139) 13.76px at (365.26813, 640.6094)
+text box#60 "in any browser." rgb(100 116 139) 13.76px at (365.28015, 640.6094)
 text box#63 "On first launch your system may warn about an “unidentified developer” — that's because the app isn't" rgb(100 116 139) 13.76px at (40, 683.2656)
 text box#63 "code-signed yet, not because anything is wrong. On Windows choose" rgb(100 116 139) 13.76px at (40, 704.59375)
 fill box#64 rgb(239 233 224) at (522, 691) 195×18
-text box#65 "More info → Run anyway" rgb(100 116 139) 13.76px at (528.27185, 704.59375)
-text box#66 "; on" rgb(100 116 139) 13.76px at (716.52466, 704.59375)
+text box#65 "More info → Run anyway" rgb(100 116 139) 13.76px at (528.28125, 704.59375)
+text box#66 "; on" rgb(100 116 139) 13.76px at (716.5469, 704.59375)
 text box#66 "macOS right-click the app and choose" rgb(100 116 139) 13.76px at (40, 725.9219)
 fill box#67 rgb(239 233 224) at (306, 712) 46×18
-text box#68 "Open" rgb(100 116 139) 13.76px at (312.3783, 725.9219)
-text box#69 "." rgb(100 116 139) 13.76px at (351.51517, 725.9219)
+text box#68 "Open" rgb(100 116 139) 13.76px at (312.39063, 725.9219)
+text box#69 "." rgb(100 116 139) 13.76px at (351.53125, 725.9219)

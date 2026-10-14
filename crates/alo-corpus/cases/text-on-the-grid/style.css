@@ -1,0 +1,20 @@
+/* Text laid out on the grid of 1/64 of a device pixel (queue item 574).
+   Chrome 154 rounds a text item's advance up onto the grid — one text
+   box's text on one line, between whatever else the line holds — and
+   what follows starts there: a padded span holding one `&nbsp;` is its
+   paddings truncated and its letter rounded up, 44.734375 px at 13 px.
+   `tests/text_on_the_grid.rs` holds Chrome's boxes at one and at two. */
+body { margin: 0; background: #ffffff; font-family: sans-serif; font-size: 13px }
+.line { position: absolute; left: 10.35px }
+.one { top: 10.4px }
+.two { top: 30.4px }
+.three { top: 50.4px }
+.four { top: 70.4px }
+.five { top: 90.4px }
+.six { top: 110.4px }
+.seven { top: 130.4px }
+.piece { background: #1d4ed8; color: #ffffff; padding: 0 20.3px }
+.mark { background: #c0392b; color: #ffffff }
+b { font-weight: normal }
+.wrapped { position: absolute; left: 160.2px; top: 10.4px; width: 60px; margin: 0;
+  background: #e5e7eb }

@@ -1,30 +1,30 @@
 document at (0, 0) 300×198
   paragraph at (0, 6) 300×16
-    text "one" at (0, 6) 26.051758×16
-    text "two" at (30.501953, 6) 25.504883×16
-    text "three" at (60.45703, 6) 37.03711×16
+    text "one" at (0, 6) 26.0625×16
+    text "two" at (30.515625, 6) 25.515625×16
+    text "three" at (60.484375, 6) 37.046875×16
   paragraph at (0, 28) 300×16
-    text "one" at (0, 28) 26.051758×16
-    text "two" at (30.501953, 28) 25.504883×16
-    text "after" at (60.45703, 28) 33.120117×16
+    text "one" at (0, 28) 26.0625×16
+    text "two" at (30.515625, 28) 25.515625×16
+    text "after" at (60.484375, 28) 33.125×16
   paragraph at (0, 50) 300×16
-    text "one" at (0, 50) 26.051758×16
-    text "two" at (30.501953, 50) 25.504883×16
+    text "one" at (0, 50) 26.0625×16
+    text "two" at (30.515625, 50) 25.515625×16
   paragraph at (0, 72) 300×16
-    text "one" at (0, 72) 26.051758×16
-    text "two" at (30.501953, 72) 25.504883×16
+    text "one" at (0, 72) 26.0625×16
+    text "two" at (30.515625, 72) 25.515625×16
   paragraph at (0, 94) 300×16
-    text "one" at (0, 94) 26.051758×16
-    text "two" at (30.501953, 94) 25.504883×16
+    text "one" at (0, 94) 26.0625×16
+    text "two" at (30.512695, 94) 25.518555×16
   paragraph at (0, 116) 100×32
-    text "first" at (0, 116) 27.357422×16
-    text "second" at (31.807617, 116) 49.929688×16
-    text "third" at (0, 132) 32.648438×16
+    text "first" at (0, 116) 27.359375×16
+    text "second" at (31.8125, 116) 49.9375×16
+    text "third" at (0, 132) 32.65625×16
   paragraph at (0, 154) 52×16
-    text "one" at (0, 154) 26.051758×16
-    text "two" at (30.501953, 154) 25.504883×16
-    text "three" at (60.45703, 154) 37.03711×16
+    text "one" at (0, 154) 26.0625×16
+    text "two" at (30.515625, 154) 25.515625×16
+    text "three" at (60.484375, 154) 37.046875×16
   paragraph at (0, 176) 75×16
-    text "one" at (0, 176) 26.051758×16
-    text "two" at (30.501953, 176) 25.504883×16
-    text "three" at (60.45703, 176) 37.03711×16
+    text "one" at (0, 176) 26.0625×16
+    text "two" at (30.515625, 176) 25.515625×16
+    text "three" at (60.484375, 176) 37.046875×16
