@@ -36417,3 +36417,100 @@ the case, owing 604, 605 and 606.
 287 queue items are open (596 closed; 604, 605 and 606 added). The next
 unused queue number is **607** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 361 — queue item 597: a checkbox and a radio at a fractional scale
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 1's paint line on whole device pixels, whose Owed list named 597),
+iteration 360's entry, queue items 597–606, ADR 0057 (whole device pixels;
+its § 2 and *Measured since* bear on this, and it was not changed),
+`docs/features.md` stage 1's line on boxes drawn on whole device pixels,
+`docs/conformance.md` on a fractional scale, `alo-paint`'s `toggle.rs`,
+`control.rs`, `snap.rs` and `build.rs`, and the corpus tests
+`a_page_at_a_scale_of_one_and_a_half.rs` and
+`a_page_drawn_at_a_scale_of_two.rs`. No `AGENTS.md` exists here.
+
+**Why 597.** The first open item whose dependencies are done: those
+before it wait as iterations 358–360 recorded (463 and 572 on a person,
+560 and 564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and
+559 on pages, 591 on a page that draws an outline). 597 was cut from 593,
+done, and names its feature and closing condition.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1`,
+`=1.5` and `=2`, screenshots without `--disable-gpu`; the source not read;
+scratchpad `m597/`): 624 checkboxes and radios, checked and not, of 13
+sizes from 11 to 30 px, absolutely positioned at sixteenths of a pixel,
+compared with this engine's pictures through a temporary `alo-corpus`
+example (removed). A toggle is drawn from its snapped border box's corner,
+its width and height each the whole CSS pixels the snapped box's device
+pixels make, any fraction cut off, and its picture is then the largest
+square in that, centred, as before. At 1.5 a 13 px checkbox snapped to 20
+device pixels is drawn 13 wide (19.5 device pixels), one snapped to 19
+is drawn 12; at two a 13.5 px one is drawn 13. A first probe written at
+offsets of 0.3333 px showed apparent misses that were the lengths' own
+rounding into layout units, not the controls; the probe was rewritten
+in exact sixteenths. On it, 2,689 plain pixels differed at 1.5 and 2,504
+at two before, none after; at one nothing moved.
+
+**Built.** `alo-paint`'s `toggle::picture_box` (the rule, with the float
+noise of a CSS pixel at 1.5 rounded away first), used by `build.rs`'
+`toggle_of`. Doc comments in `toggle.rs`, `build.rs` and `snap.rs` say it.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy` on `alo-paint`
+and `alo-corpus` clean first (four `panic!`s in the new test's helpers
+moved into the tests). `scripts/gate.sh` was started in the foreground;
+it ran past the tool's 600 s limit and was moved to the background by the
+harness, and the next call waited on it with an until-loop and read it in
+the same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, 4,981
+tests passed, none failed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Numbers: `toggles_at_a_fractional_scale.rs`' first test holds every
+  unchecked control of the new case — 108 — to the device pixels Chrome's
+  picture inks at one, 1.5 and two, from `picture_box`; `toggle.rs`' five
+  new unit tests hold the box at one, 1.5 (20 and 19 device pixels) and
+  two (27), a box a float step short, and no room or no scale.
+- Reference renders: new case `toggles-at-fractional-scales`, 216
+  controls, with `render.png`, `render-at-1.5.png`, `render-at-2.png` and
+  Chrome's `chrome.png`, `chrome-at-1.5.png` and `chrome-at-2.png` (RGBA):
+  every plain pixel Chrome's at all three (677 and 1,248 before at 1.5 and
+  two); blends 6.99, 5.74 and 6.49 from Chrome's on average, 78, 91 and 65
+  at most — the checked tick's edge, which differs at one too.
+  `checkbox-beside-text` gains `chrome-at-1.5.png` (fonts set as its
+  `chrome-at-2.png` was) and `render-at-1.5.png`: every plain pixel
+  Chrome's but four (74 before), none a control's, listed as `NOT_YET`
+  (item 607). The corpus run before references were written listed no
+  other case as changed.
+- Mutation, each restored from a copy (`cmp` confirmed): no cut to whole
+  CSS pixels failed all four of the case tests and two unit tests; no
+  rounding of the device pixels first failed the float-step unit test
+  only (no case control lands a float step short).
+- Hostile input: nothing new reads bytes from outside; a box with no room
+  or a scale that is not one is drawn in nothing or as at one (tested).
+- Cost: none measured; no speed claim.
+- One file, one responsibility: where a toggle's picture is drawn and
+  what it is are `toggle.rs`'; snapping a box `snap.rs`'; which box
+  draws what `build.rs`'.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 597 is ticked with a *Done* paragraph. Found: **607** (the
+foot of a line's letters at 1.5: in `checkbox-beside-text`'s last row
+Chrome's letters reach a device row lower, though this engine's baseline
+is at device pixel 271.0 where layout puts it and every box is Chrome's).
+
+**Roadmap.** Stage 1's paint line on whole device pixels: its Owed list
+loses 597, and a *since queue item 597* clause names `toggle::picture_box`
+and the two cases, owing 607.
+
+**Unresolved obligations.**
+- 607, as above; 598–606, 591, 179; 576, 577, 585, 586 as before; 463
+  and 572 wait on a person; 568–571 on a screen or pages; 560 and 564 on
+  502 behind 501.
+- No claim about speed is made.
+
+287 queue items are open (597 closed; 607 added). The next unused queue
+number is **608** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

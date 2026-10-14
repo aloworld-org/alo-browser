@@ -14596,7 +14596,7 @@ What stage 2's exit gate actually measures: a person using it.
   than it), **605** (a centre line on half device pixels at one) and
   **606** (Chrome's spacing on a straight side).
 
-- [ ] **597. A checkbox and a radio drawn at a fractional scale.** *Cut
+- [x] **597. A checkbox and a radio drawn at a fractional scale.** *Cut
   from 593 (iteration 357; ADR 0057, Measured since). Feature:
   `docs/features.md` stage 2, a window, tabs and a tab strip. Needs
   measuring.* At 1.5 a checkbox whose box is not whole device pixels
@@ -14611,6 +14611,28 @@ What stage 2's exit gate actually measures: a person using it.
   *Closes when:* Chrome's rule for a control's drawing at a fractional
   scale is written down, built in `alo-paint`'s `control.rs`, and
   `checkbox-beside-text` at 1.5 is Chrome's in every plain pixel.
+
+  **Done (iteration 361).** Measured in Chrome 154 at one, two and 1.5
+  on 624 checkboxes and radios, checked and not, of 13 sizes from 11 to
+  30 pixels at twelfths and sixteenths of a pixel (iteration 361's
+  scratchpad `m597/`), the source not read. A toggle is drawn from its
+  snapped border box's corner, its width and its height each the whole
+  CSS pixels the snapped box's device pixels make, any fraction cut off,
+  and its picture is the largest square in that, centred, as before: at
+  1.5 a 13 px checkbox snapped to 20 device pixels is drawn 13 wide, one
+  snapped to 19 is drawn 12, and one 20 across and 19 down is a 12 px
+  square in 13 by 12; at two a 13.5 px one, 27 device pixels, is drawn
+  13. At one, and wherever the device pixels make whole CSS pixels, it is
+  the snapped box (`alo-paint`'s `toggle::picture_box`). On the probe,
+  2,689 plain pixels differed at 1.5 and 2,504 at two, and none now; at
+  one nothing moved. The new case `toggles-at-fractional-scales`, 216 of
+  them, is Chrome's in every plain pixel at one, 1.5 and two (677 and
+  1,248 before at 1.5 and two), and every unchecked one covers the device
+  pixels Chrome's does at each scale. `checkbox-beside-text` at 1.5 is
+  Chrome's in every plain pixel but four (74 before), none a control's:
+  the foot of its last row's letters, listed as `NOT_YET` — item **607**.
+  What remains between the two pictures is the checked checkbox's tick's
+  edge, which differs from Chrome's at every scale, at one too.
 
 - [ ] **598. A line's start under `text-align` and a `middle` raise on the
   grid.** *Found building 593 (iteration 357). Feature:
@@ -14753,6 +14775,22 @@ What stage 2's exit gate actually measures: a person using it.
   built in `pattern.rs`, and `border-patterns` and a frozen case of
   square and partly rounded patterned boxes are Chrome's in every plain
   pixel at one and at two.
+
+- [ ] **607. The foot of a line's letters at 1.5.** *Found building 597
+  (iteration 361). Feature: `docs/features.md` stage 1, glyph
+  rasterisation. Needs measuring.* `checkbox-beside-text` at 1.5: in its
+  last row (`#sized`, a 20 px checkbox on the line), Chrome 154 draws the
+  letters' foot a device pixel lower than this engine — the stem of `b`
+  is black at device row 271 in Chrome where this engine's ends at 270 —
+  though this engine's baseline is at device pixel 271.0, where layout
+  puts it, and every box is Chrome's. The rows above, whose baselines
+  fall on half device pixels, are Chrome's in every plain pixel. Four
+  pixels, listed in `toggles_at_a_fractional_scale.rs` as `NOT_YET`.
+  Whether Chrome places a run's glyphs at 1.5 on a different baseline, cut
+  its size differently, or rasterises their foot otherwise is measured
+  first, at 1, 1.5 and two, against item 576's thickening. *Closes when:*
+  the rule is written down, built, `NOT_YET` is empty, and a frozen case
+  of lines at 1.5 is Chrome's in every plain pixel.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

@@ -25,7 +25,9 @@
 //! Only the box is snapped. What a control draws inside it is placed in the
 //! snapped box as it would be in any other: a checkbox 30 wide draws its
 //! 13-pixel square from 8.5 pixels in, across a pixel's edge, in Chrome as
-//! here.
+//! here. On a screen whose device pixels do not make whole CSS pixels,
+//! a checkbox's or a radio's picture is cut to whole CSS pixels from the
+//! snapped corner (`crate::toggle::picture_box`, queue item 597).
 //!
 //! # Every box's own area
 //!

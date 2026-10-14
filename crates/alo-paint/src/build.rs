@@ -1093,8 +1093,9 @@ impl Builder<'_> {
     }
 
     /// A checkbox's or a radio's own picture, drawn over its border box
-    /// moved onto whole device pixels, as Chrome draws it (queue items 457
-    /// and 561); the box itself stays where layout put it.
+    /// moved onto whole device pixels and cut to whole CSS pixels from its
+    /// corner, as Chrome draws it (queue items 457, 561 and 597); the box
+    /// itself stays where layout put it.
     fn toggle_of(&self, id: BoxId, kind: alo_box::Toggle, out: &mut Vec<DisplayItem>) {
         let (Some(node), Some(geometry)) = (self.boxes.get(id), self.layout.get(id)) else {
             return;
@@ -1106,8 +1107,9 @@ impl Builder<'_> {
                 .style_of(id)
                 .and_then(|style| style.color("accent-color")),
         };
-        let snapped = snap::to_device_pixels(geometry.border_box, self.styles.scale());
-        for layer in toggle::artwork(kind, state, snapped) {
+        let scale = self.styles.scale();
+        let snapped = snap::to_device_pixels(geometry.border_box, scale);
+        for layer in toggle::artwork(kind, state, toggle::picture_box(snapped, scale)) {
             out.push(DisplayItem::Fill {
                 rule: FillRule::NonZero,
                 box_id: id,

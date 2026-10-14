@@ -21,7 +21,9 @@
 //!
 //! The shape is the largest square that fits in the box, centred
 //! ([`crate::control`]'s field): a checkbox thirty pixels wide is a
-//! thirteen-pixel square in its middle, as in Chrome.
+//! thirteen-pixel square in its middle, as in Chrome. The box it is drawn
+//! in is the border box on whole device pixels, cut to whole CSS pixels
+//! ([`picture_box`]), which on a screen at 1.5 is not the snapped box.
 //!
 //! # Measured, not read
 //!
@@ -121,6 +123,34 @@ const CORNER: f32 = 2.0;
 
 /// How wide the edge is, in pixels, at any size.
 const EDGE_WIDTH: f32 = 1.0;
+
+/// The box a toggle's picture is drawn in, given its border box `snapped`
+/// onto whole device pixels on a screen of `scale` device pixels to the CSS
+/// pixel: from the snapped box's corner, its width and its height each the
+/// whole CSS pixels its device pixels make, any fraction left over cut off.
+///
+/// Measured from Chrome 154's screenshots, not read from its source (queue
+/// item 597): 624 checkboxes and radios of 13 sizes from 11 to 30 pixels,
+/// at twelfths of a pixel across and twenty-fourths down, at one, two and
+/// 1.5. At 1.5 a 13-pixel checkbox whose snapped box is 20 device pixels
+/// across is drawn 13 CSS pixels — 19.5 device pixels — wide from its
+/// snapped left edge, and one whose box is 19 across is drawn 12 wide, 18
+/// device pixels; a box 20 across and 19 down draws a 12-pixel square
+/// centred in 13 by 12. At two a 13.5-pixel box, 27 device pixels, is
+/// drawn 26. At one, and wherever the device pixels make whole CSS pixels,
+/// this is the snapped box itself.
+pub fn picture_box(snapped: Rect, scale: f32) -> Rect {
+    let scale = alo_value::device_scale(scale);
+    // The snapped box is whole device pixels; rounding takes away the float
+    // noise a CSS pixel at 1.5 leaves, so 19.5 × 1.5 is 39 and not 38.99.
+    let whole = |pixels: f32| ((pixels * scale).round() / scale).trunc().max(0.0);
+    Rect::new(
+        snapped.left(),
+        snapped.top(),
+        whole(snapped.size.width),
+        whole(snapped.size.height),
+    )
+}
 
 /// The state a toggle is drawn in.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -411,5 +441,56 @@ mod tests {
         };
         let checked = artwork(Toggle::CheckBox, state, Rect::new(0.0, 0.0, 13.0, 13.0));
         assert_eq!(checked.first().map(|layer| layer.color), Some(green));
+    }
+
+    fn edges(rect: Rect) -> (f32, f32, f32, f32) {
+        (rect.left(), rect.top(), rect.right(), rect.bottom())
+    }
+
+    #[test]
+    fn at_one_a_toggle_is_drawn_in_its_snapped_box() {
+        let snapped = Rect::new(10.0, 23.0, 13.0, 14.0);
+        let drawn = edges(picture_box(snapped, 1.0));
+        assert!(close(drawn.2, 23.0) && close(drawn.3, 37.0), "{drawn:?}");
+    }
+
+    #[test]
+    fn at_one_and_a_half_a_toggle_is_cut_to_whole_css_pixels() {
+        // Chrome 154: a 13 px checkbox snapped to 20 device pixels across is
+        // drawn 13 wide, 19.5 device pixels, from the snapped edge; one
+        // snapped to 19 is drawn 12 wide, 18 device pixels.
+        let twenty = Rect::new(4.0, 24.0 + 2.0 / 3.0, 20.0 / 1.5, 19.0 / 1.5);
+        let drawn = edges(picture_box(twenty, 1.5));
+        assert!(
+            close(drawn.0, 4.0) && close(drawn.1, 24.0 + 2.0 / 3.0),
+            "{drawn:?}"
+        );
+        assert!(close(drawn.2 - drawn.0, 13.0), "{drawn:?}");
+        assert!(close(drawn.3 - drawn.1, 12.0), "{drawn:?}");
+    }
+
+    #[test]
+    fn at_two_an_odd_number_of_device_pixels_loses_its_half() {
+        // A 13.5 px checkbox is 27 device pixels at two, and drawn 26.
+        let drawn = picture_box(Rect::new(4.0, 4.0, 13.5, 13.5), 2.0);
+        assert!(close(drawn.size.width, 13.0) && close(drawn.size.height, 13.0));
+        let even = picture_box(Rect::new(4.0, 4.0, 13.0, 13.0), 2.0);
+        assert!(close(even.size.width, 13.0));
+    }
+
+    #[test]
+    fn a_box_a_float_step_short_of_whole_device_pixels_is_not_cut_again() {
+        // 26 × 1.5 is 39 device pixels; a box a float step under 26 still
+        // makes 26 rather than 25.
+        let drawn = picture_box(Rect::new(0.0, 0.0, 39.0 / 1.5 - 1e-5, 26.0), 1.5);
+        assert!(close(drawn.size.width, 26.0), "{drawn:?}");
+    }
+
+    #[test]
+    fn a_box_with_no_room_or_no_scale_is_drawn_in_nothing_or_as_at_one() {
+        let empty = picture_box(Rect::new(3.0, 3.0, 0.0, 0.0), 1.5);
+        assert!(close(empty.size.width, 0.0) && close(empty.size.height, 0.0));
+        let unscaled = picture_box(Rect::new(3.0, 3.0, 13.0, 13.0), f32::NAN);
+        assert!(close(unscaled.size.width, 13.0));
     }
 }

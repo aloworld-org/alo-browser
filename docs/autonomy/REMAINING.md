@@ -2600,3 +2600,14 @@ it), **605** (a centre line on half device pixels at one) and **606**
 (Chrome's spacing on a straight side). 287 queue items are open (596
 closed; 604, 605 and 606 added). The next unused queue number is 607 and
 the next unused ADR 0058.
+
+Iteration 361 closed queue item 597: a checkbox and a radio are drawn in
+their border box snapped to whole device pixels and cut to whole CSS
+pixels from its corner, as Chrome 154 was measured drawing 624 of them at
+one, two and 1.5 (`alo-paint`'s `toggle::picture_box`). The new case
+`toggles-at-fractional-scales`, 216 controls, is Chrome's in every plain
+pixel at one, 1.5 and two, where 677 and 1,248 differed at 1.5 and two,
+and `checkbox-beside-text` at 1.5 in every plain pixel but four at the foot
+of its last row's letters, where 74 differed. Found: **607** (the foot of
+a line's letters at 1.5). 287 queue items are open (597 closed; 607
+added). The next unused queue number is 608 and the next unused ADR 0058.

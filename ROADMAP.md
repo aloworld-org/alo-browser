@@ -283,8 +283,13 @@ correctness, not before it.
       fractional scale is laid out and drawn as Chrome does it at 1.5 —
       every rule of ADR 0057 § 2 counted in sixty-fourths of a device
       pixel, which no float holds there (975 of 985 corpus boxes, 904 of
-      904 probe numbers, six cases' pictures in every plain pixel). Owed:
-      a checkbox's and a radio's drawing at a fractional scale (597), a
+      904 probe numbers, six cases' pictures in every plain pixel), and
+      since queue item 597 (iteration 361) a checkbox and a radio are
+      drawn in their snapped box cut to whole CSS pixels, as Chrome 154
+      draws them (`alo-paint`'s `toggle::picture_box`;
+      `toggles-at-fractional-scales` Chrome's in every plain pixel at one,
+      1.5 and two, `checkbox-beside-text` at 1.5 but four pixels of
+      letters). Owed: the foot of a line's letters at 1.5 (607), a
       centred line's start and a `middle` raise off the grid (598), the
       window at a fractional screen's own scale (599), an
       `outline`, which is not drawn at all (591). Since queue item 596

@@ -1,0 +1,11 @@
+/* Checkboxes and radios at fractions of a pixel and of fractional sizes:
+   queue item 597. Four groups — unchecked and checked checkboxes,
+   unchecked and checked radios — of nine sizes (11, 13, 15, 13.25, 12.75,
+   13.5 and 20 square, 30 by 13 and 13 by 20), each at six offsets of
+   sixteenths of a pixel across and thirty-seconds down. Chrome 154 draws
+   each in its border box snapped to whole device pixels and cut to whole
+   CSS pixels from its snapped corner: at 1.5 a 13 px checkbox whose box is
+   20 device pixels across is drawn 13 CSS pixels wide, one 19 across 12
+   wide; at two a 13.5 px one, 27 device pixels, is drawn 26. */
+body { margin: 0; background: #ffffff }
+input { margin: 0; position: absolute }

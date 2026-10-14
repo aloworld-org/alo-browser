@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Checkboxes and radios are the right size on a screen at 1.5.** On a
+  screen of one and a half device pixels to the CSS pixel, a checkbox or
+  a radio filled the whole box it was laid out in, rounded to the screen's
+  pixels, so it came out up to a pixel wider or taller than Chrome draws
+  it and its edge was smeared across a half-covered pixel. Chrome draws
+  the control in that box cut to whole CSS pixels from its corner, and so
+  does this engine now — at 1.5, and at two for a control of a fractional
+  size. On 216 probe controls every pixel that is a plain colour in both
+  pictures is the colour Chrome draws, where 677 differed at 1.5 and
+  1,248 at two.
+
 - **Dashes and dots go round a rounded corner.** A dashed or dotted border
   on a box with rounded corners used to place its dashes on each straight
   side and let the curve cut them off, so a corner held a stub or nothing.

@@ -469,8 +469,13 @@ it by the lesser edge. At 1.5 (queue item 593, Chrome 154 under
 `--force-device-scale-factor=1.5`) 975 of the 985 corpus boxes exact at
 one are Chrome's, the probes of every rule are Chrome's in all 904
 numbers, and six cases drawn at 1.5 are Chrome's in every plain pixel,
-more than 40 of 255 apart only at rounded corners; a checkbox whose box
-is not whole device pixels is drawn otherwise (597), a centred line's
+more than 40 of 255 apart only at rounded corners. A checkbox and a radio
+are drawn in their snapped box cut to whole CSS pixels (597):
+`toggles-at-fractional-scales`, 216 controls of nine sizes, is Chrome's in
+every plain pixel at one, 1.5 and two, and every unchecked one covers the
+device pixels Chrome's does; `checkbox-beside-text` at 1.5 is Chrome's in
+every plain pixel but four at the foot of its last row's letters (607),
+which no control touches. A centred line's
 start and a `middle` raise are off the grid by under a sixty-fourth
 (598), and text is not compared (576). An `outline` is not drawn at all (591). A picture with both a width
 and a height set is that size, on a line, as a block, as a flex item and
