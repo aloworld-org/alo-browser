@@ -14245,7 +14245,7 @@ What stage 2's exit gate actually measures: a person using it.
   (`text_on_the_grid.rs`). Corpus: 950 of 1,267 boxes exact at one where
   899 were, 949 at two where 926 were. Found: **586**.
 
-- [ ] **575. What else Chrome draws on whole device pixels.** *Cut from 565
+- [x] **575. What else Chrome draws on whole device pixels.** *Cut from 565
   (iteration 337; ADR 0057 § 2). Feature: `docs/features.md` stage 1,
   paint. Needs measuring.* A box's own area is snapped (565), and its
   overflow clip is not: a box at 69.90625 has its background from 70 and
@@ -14255,6 +14255,40 @@ What stage 2's exit gate actually measures: a person using it.
   is measured, nor is anything at a fractional scale. *Closes when:* each
   is measured in Chrome 154 at one and at two and written into ADR 0057's
   table, and a frozen page of each at tenths of a pixel is Chrome's.
+
+  *Cut, and done for the clip (iteration 351).* Measured in Chrome 154 at
+  one and at two on two probes of nine kinds of box that clips (2,016
+  clips, each a black child reaching past its box): the clip is the border
+  box with each edge rounded as `floor(x·s + 0.5) / s`, less the border,
+  2,016 of 2,016, where the padding box as laid out fits only the 27
+  already on whole pixels. Written into ADR 0057's table and *Measured
+  since*. `alo-paint`'s `clip_of` clips so; `clips-on-device-pixels` (nine
+  boxes at tenths, `overflow: clip` among them) is Chrome's in every pixel
+  at one and at two but within 5 px of a rounded corner, and its boxes are
+  Chrome's to 1/128 px (`a_clip_on_device_pixels.rs`). A picture's box, an
+  `<svg>`'s viewport, an outline and a fractional scale are cut to
+  **587**. Found: **588**.
+
+- [ ] **587. A picture, an `<svg>` and an outline on whole device
+  pixels.** *Cut from 575 (iteration 351; ADR 0057 § 2). Feature:
+  `docs/features.md` stage 1, paint. Needs measuring.* A picture's box, an
+  `<svg>`'s viewport and an outline are drawn where layout put them, at
+  fractions of a pixel, where a box's own area (565) and an overflow clip
+  (575) are drawn on whole device pixels. None is measured, nor is
+  anything at a fractional scale. *Closes when:* each is measured in
+  Chrome 154 at one and at two and written into ADR 0057's table, and a
+  frozen page of each at tenths of a pixel is Chrome's.
+
+- [ ] **588. A rounded clip's corners.** *Found building 575 (iteration
+  351). Feature: `docs/features.md` stage 1, paint. Needs measuring.*
+  `build.rs`' `clip_of` rounds the padding box by the border box's radii
+  fitted to it, where CSS Backgrounds 3 rounds an overflow clip by the
+  padding edge's curve (each radius less the border beside it), as Chrome
+  was measured doing for an inset shadow (585). With no border the two
+  agree; a bordered, rounded box that clips is not measured. *Closes
+  when:* Chrome 154's clip corners on bordered, rounded boxes are read
+  from an 8× screenshot, the rule is built, and a frozen case of them is
+  Chrome's at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

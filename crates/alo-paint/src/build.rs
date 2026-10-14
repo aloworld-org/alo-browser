@@ -413,6 +413,15 @@ impl Builder<'_> {
     ///
     /// `visible` — the initial value — does not clip, which is why content can
     /// spill out of a box by default. Everything else does.
+    ///
+    /// The clip is on whole device pixels, as the box's own background is:
+    /// its border box with each edge rounded as [`snap::to_device_pixels`]
+    /// rounds, less its border, which is already whole device pixels. So a
+    /// child reaching its parent's edge is cut where the parent's background
+    /// ends, not a fraction short of it. Measured in Chrome 154 at one and at
+    /// two, not read from its source: 2,016 of 2,016 clips, where the
+    /// padding box as laid out fits only the 27 already on whole pixels
+    /// (queue item 575; ADR 0057, *Measured since*).
     fn clip_of(&self, id: BoxId) -> Option<Path> {
         let style = self.style_of(id)?;
         let clips = |name: &str| {
@@ -426,7 +435,8 @@ impl Builder<'_> {
         let geometry = self.layout.get(id)?;
         // Content is clipped to the padding box: a border is drawn over the
         // content, not clipped by it.
-        let padding_box = geometry.padding_box();
+        let border_box = snap::to_device_pixels(geometry.border_box, self.styles.scale());
+        let padding_box = border_box.shrunk_by(geometry.border);
         Some(rounded_rectangle(
             padding_box,
             Corners::of(style, Self::extent_of(padding_box)),

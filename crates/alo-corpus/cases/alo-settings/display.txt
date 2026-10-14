@@ -1,12 +1,12 @@
 fill box#1 rgb(244 241 236) at (0, 0) 900×600
 fill box#3 rgb(31 37 41 / 0.48) at (0, 0) 900×600
 fill box#5 rgb(255 254 252) at (24, 70) 852×460
-clip box#5 to (24, 69.90625) 852×460.1875
+clip box#5 to (24, 70) 852×460
 fill box#7 rgb(232 226 217) at (24, 122) 852×1
 text box#9 "Mail settings" rgb(16 42 67) 17px at (44, 101.90625)
 fill box#13 rgb(244 241 236) at (24, 123) 194×342
 fill box#13 rgb(232 226 217) at (217, 123) 1×342
-clip box#13 to (24, 122.90625) 193×342.1875
+clip box#13 to (24, 123) 193×342
 fill box#15 rgb(252 234 227) at (36, 135) 169×31
 text box#17 "General" rgb(231 111 81) 13px at (48, 154.90625)
 text box#21 "Filters & rules" rgb(95 85 75) 13px at (48, 187.90625)
@@ -14,7 +14,7 @@ text box#25 "Sharing" rgb(95 85 75) 13px at (48, 220.90625)
 text box#29 "Notifications" rgb(95 85 75) 13px at (48, 253.90625)
 text box#33 "App passwords" rgb(95 85 75) 13px at (48, 286.90625)
 unclip
-clip box#36 to (218, 122.90625) 658×342.1875
+clip box#36 to (218, 123) 658×342
 text box#41 "Your signature" rgb(16 42 67) 14px at (242, 155.90625)
 text box#44 "Added to the bottom of messages you send…" rgb(122 111 98) 13px at (242, 179.90625)
 fill box#46 rgb(222 215 205) at (242, 199) 610×42

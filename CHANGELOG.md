@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box that clips cuts its content where its background ends.** A box
+  with `overflow: hidden` laid out at a fraction of a pixel used to cut
+  its content a fraction short of its own background's edge, leaving a
+  sliver of the background showing past a child that filled it; the clip
+  is now on the same whole device pixels as the background, as Chrome's
+  is.
+
 - **Text inside a line is on Chrome's layout grid.** A `<span>` around a
   word or a no-break space, and whatever comes after it on the line, used
   to be a fraction of a pixel off where Chrome puts them; each piece of

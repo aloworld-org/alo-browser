@@ -2472,3 +2472,14 @@ is Chrome's in all 20 boxes at one and at two, and 950 of the corpus's
 (where Chrome breaks a line before punctuation). 277 queue items are open
 (574 closed; 586 added). The next unused queue number is 587 and the next
 unused ADR 0058.
+
+Iteration 351 closed queue item 575 for the overflow clip and cut the
+rest: a box that clips clips to its border box on whole device pixels,
+less its border, where its own background is drawn, as Chrome 154 was
+measured clipping 2,016 of 2,016 boxes at one and at two (ADR 0057,
+*Measured since*). `clips-on-device-pixels` is Chrome's in every pixel at
+both scales but a rounded corner's curve. Cut: **587** (a picture's box,
+an `<svg>`'s viewport, an outline and a fractional scale). Found: **588**
+(a rounded clip's corners). 278 queue items are open (575 closed; 587 and
+588 added). The next unused queue number is 589 and the next unused ADR
+0058.

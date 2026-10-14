@@ -35329,3 +35329,96 @@ widths are rounded by Chrome's item since 574, with the corpus count.
 277 queue items are open (574 closed; 586 added). The next unused queue
 number is **587** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 351 — queue item 575 cut and closed for the clip: an overflow clip on whole device pixels
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 1's paint line), iteration 350's entry, queue items 575–577 and
+585–586, ADR 0057 (§§ 2, 4, 5 and *Measured since*, items 561 and 565),
+`alo-paint`'s `snap.rs`, and `docs/features.md`' *A box is drawn on whole
+device pixels* (the feature contract). No `AGENTS.md` exists here.
+
+**Why 575.** It is the first open item in the file whose dependencies are
+done: those before it wait as iterations 318–350 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person), 573 and 574 closed. It depends on nothing and names its
+feature and closing condition. It said *needs measuring*; the measuring
+was done first. It named five things (a clip, a picture's box, an
+`<svg>`'s viewport, an outline, a fractional scale); this iteration built
+the clip, the one with a defect a person can see, and cut the rest to
+**587** rather than leave a half-built item (LOOP.md step 3).
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, without `--disable-gpu`, the source not read): two probes, one
+at written tenths and one seeded, of nine kinds of box that clips — plain,
+with a background, a `2px` border, a `2.6px` border, rounded,
+`overflow: auto`, `overflow-x` alone, a box in the flow, an inline block
+on a line — 56 of each, each holding a black child reaching 5 px past it,
+read along every box's middle row and column against Chrome's own
+`getBoundingClientRect()` and computed border from the same run. The
+border box with each edge rounded as `floor(x·s + 0.5) / s`, less the
+border, fits 2,016 of 2,016 within 0.02 of coverage; the padding box as
+laid out fits 27 (each already on whole pixels), rounding outwards 193,
+inwards 160. Written into ADR 0057's table and *Measured since*.
+
+**Built.** `alo-paint`'s `build.rs` `clip_of` clips to
+`snap::to_device_pixels(border_box, scale)` less the border.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on it with
+one foreground `until` loop: **`GATE EXIT 0`, "The gate is met. (10 of 10
+steps)"**, 4,884 tests run, 4,884 passed. Only this entry and the commit
+came after it.
+
+**Gate, manual.**
+- Numbers: `alo-paint`'s `clipping.rs`
+  `a_clip_is_on_whole_pixels_where_the_background_is_drawn` (a bordered
+  box at (10.3, 20.6) clips to (12, 23) 31×10). New case
+  `clips-on-device-pixels` (nine boxes at tenths, `overflow: clip` among
+  them): `a_clip_on_device_pixels.rs` has every box at Chrome's
+  `getBoundingClientRect()` to 1/128 px at one and at two.
+- Reference renders: the case's `render.png` and `render-at-2.png`, with
+  Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) beside them. Every
+  pixel along each box's middle row and column is Chrome's exactly at one
+  and at two, and every pixel of the whole picture is too, but within 5 px
+  of the rounded box's corners, where the curve's smoothing is within 43
+  and 51 of 255 (item 459's sampling; 28 and 60 pixels). Every
+  `render*.png` and `display.txt` was backed up before
+  `ALO_UPDATE_REFERENCES=1`: five other cases' `display.txt` moved
+  (`alo-agenda-calendars`, `alo-settings`, `alo-sites-blog-index`,
+  `alo-sites-contact-form`, `alo-sites-full-page`), every changed line a
+  clip onto whole pixels; no picture changed.
+- Mutation, restored from a copy (`cmp` confirmed): the padding box as
+  laid out failed the case (`plain` at one, 73 of 255); snapping in CSS
+  pixels rather than device pixels failed it at two (232 of 255).
+- Hostile input: nothing new reads bytes from outside.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: what a box clips to is `build.rs`'
+  `clip_of`, beside where its own area is snapped; the rounding is
+  `snap.rs`', unchanged.
+- Also updated: ADR 0057, `snap.rs`' module doc, `docs/features.md`,
+  `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md`,
+  the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 575 is ticked with a *Cut, and done for the clip* paragraph.
+Cut: **587** (a picture's box, an `<svg>`'s viewport, an outline, a
+fractional scale). Found: **588** — `clip_of` rounds the padding box by
+the border box's radii, where CSS Backgrounds 3 uses the padding edge's
+curve; not measured.
+
+**Roadmap.** Stage 1's paint line: the Owed clause that named 575 now
+says the clip is built and owes 587 and 588.
+
+**Unresolved obligations.**
+- 587 and 588, as above.
+- 576, 577, 585, 586 as before; 463 waits on a person; 568–571 on a
+  screen or pages; 560 and 564 on 502 behind 501; 572 on a person.
+- No claim about speed is made.
+
+278 queue items are open (575 closed; 587 and 588 added). The next unused
+queue number is **589** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

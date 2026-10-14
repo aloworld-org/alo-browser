@@ -254,8 +254,11 @@ correctness, not before it.
       drawn from its box on whole device pixels, as Chrome 154 draws them
       at one and at two, and since queue item 461 (iteration 338)
       `checkbox-beside-text` is Chrome's screenshot exactly in all 49,525
-      pixels outside its controls and text. Owed: a clip, a picture's box
-      and an `<svg>`'s viewport on whole pixels (575). Since queue item
+      pixels outside its controls and text. Since queue item 575
+      (iteration 351) an overflow clip is on the same whole device pixels,
+      2,016 of 2,016 clips measured (`clips-on-device-pixels`). Owed: a
+      picture's box, an `<svg>`'s viewport, an outline and a fractional
+      scale (587), and a rounded clip's radii (588). Since queue item
       573 (iteration 349) a spread shadow's corners are Chrome's —
       square on a square box, a radius under the spread grown by less of
       it (`Corners::spread`, `spread-shadow-corners`). Owed: an inset

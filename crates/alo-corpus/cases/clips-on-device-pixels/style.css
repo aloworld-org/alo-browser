@@ -1,0 +1,31 @@
+/* Boxes that clip, laid out at tenths of a pixel (queue item 575). Each
+   holds a dark child reaching 5px past it on every side, so what is drawn
+   of the child is the clip. Chrome 154 clips to the border box with each
+   edge rounded to a whole device pixel, `floor(x·s + 0.5) / s`, less the
+   border — where the box's own background is drawn — and not to the
+   padding box as laid out. `backed` is the case that found it: a child
+   cut a fraction short of its parent's background left a sliver of the
+   background showing. `tests/a_clip_on_device_pixels.rs` says which is
+   which. */
+body { margin: 0; background: #ffffff; font-family: sans-serif; font-size: 13px }
+.clip { position: absolute; width: 20.4px; height: 20.4px; overflow: hidden }
+.spill { display: block; margin: -5px; height: 30.4px; background: #17212b }
+.plain { left: 10.3px; top: 10.3px }
+.backed { left: 50.6px; top: 10.7px; width: 20.3px; background: #c0392b }
+.bordered { left: 90.7px; top: 10.2px; width: 16.3px; height: 16.3px;
+  border: 2px solid #1d4ed8 }
+.bordered .spill { height: 26.3px }
+.floored { left: 130.45px; top: 10.55px; width: 16.3px; height: 16.3px;
+  border: 2.6px solid #1d4ed8 }
+.floored .spill { height: 26.3px }
+.rounded { left: 170.85px; top: 10.15px; border-radius: 4px; background: #c0392b }
+.clipped { left: 210.25px; top: 10.75px; overflow: clip }
+.sideways { left: 250.5px; top: 10.5px; width: 20.5px; height: 20.5px;
+  overflow: visible; overflow-x: hidden }
+.sideways .spill { height: 30.5px }
+.holder { position: absolute; left: 290px; top: 10px; width: 40px; height: 40px }
+.nested { position: static; margin-left: 0.4px; margin-top: 0.6px }
+.line { position: absolute; left: 10px; top: 60px; line-height: 0 }
+.gap { display: inline-block; width: 0.7px }
+.piece { position: static; display: inline-block; vertical-align: top;
+  margin-top: 0.3px; width: 30.3px; background: #c0392b }

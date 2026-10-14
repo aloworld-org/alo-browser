@@ -127,11 +127,12 @@ and the rule is unchanged:
 | Shares put on the grid | ADR 0054 § 3, ADR 0056 | onto 1/(64·s) px |
 | A border width, floored, and at least one | `line_width.rs` | `floor(w·s) / s`, at least `1 / s` |
 | A control's box and everything a box paints for its own area, each edge snapped | `snap.rs` | `floor(x·s + 0.5) / s` |
+| An overflow clip: the border box, each edge snapped, less the border | `build.rs` | `floor(x·s + 0.5) / s` |
 | A text field's character, rounded when wider, and its width, rounded up | `field_width.rs` | `round(c·s) / s`, `ceil(w·s) / s` |
 | The size a face is set at, cut to hundredths | `face_size.rs` | `trunc(z·s·100) / 100 / s` |
 
-The last two rows were measured by item 560 and added to the table by it
-(see *Measured since*).
+The last two rows were measured by item 560 and added to the table by it,
+and the overflow clip's by item 575 (see *Measured since*).
 
 The rules are measured at scale 1 and at scale 2 above. Nothing here
 claims a rule at 1.5 or 3 that was not measured; the form `rule(v·s) / s`
@@ -414,6 +415,36 @@ the columns over the spaces.
   same at both scales, and at one it moved this engine's lines too,
   `text-decorations` among them, from fractions of a pixel onto Chrome's
   rows. `alo-paint`'s `decoration.rs` draws it.
+
+**Item 575, 2026-10-14, Chrome 154 under `--force-device-scale-factor=1`
+and `=2`,** screenshots without `--disable-gpu`, the source not read: two
+probes (one written at tenths, one seeded) of nine kinds of box that
+clips, 56 of each, each holding a black child reaching 5 px past it on
+every side, so that what is drawn of the child is the clip; read along
+each box's middle row and column against Chrome's own
+`getBoundingClientRect()` and computed border from the same run.
+
+- **An overflow clip is on whole device pixels**: the border box with
+  each edge rounded as `floor(x·s + 0.5) / s`, less the border, which is
+  already whole device pixels (§ 2's row). 2,016 of 2,016 clips, at one
+  and at two: a plain box, one with a background, a `2px` border, a
+  `2.6px` border (floored first), a rounded box, `overflow: auto`,
+  `overflow-x` alone, a box in the flow and an inline block on a line.
+  The padding box as laid out, smoothed across its edge pixels, fits 27,
+  each a box already on whole pixels; rounding outwards or inwards fits
+  193 and 160. So a clip is where the
+  box's own background is drawn, and a child reaching its edge is cut
+  where that background ends. `alo-paint`'s `build.rs` clips so.
+- `cases/clips-on-device-pixels` has one of each kind and
+  `overflow: clip`; every pixel of it is Chrome's exactly at one and at
+  two, but within 5 px of the rounded box's corners, where the curve's
+  smoothing is within 43 and 51 of 255 (item 459). At one, five corpus
+  cases' display lists moved, each a clip onto whole pixels; no picture
+  changed.
+- **Not measured here**, and cut to item 587: a picture's box, an
+  `<svg>`'s viewport, an outline, and any fractional scale. Whether a
+  clip's corners are the padding box's radii, as an inset shadow's are
+  (item 585), is item 588.
 
 ## How we will know if this was wrong
 

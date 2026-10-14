@@ -129,3 +129,23 @@ fn the_edge_of_a_rounded_clip_is_smooth_rather_than_stepped() {
         "a curved clip has partly-covered pixels along it, found {partly}",
     );
 }
+
+/// A box laid out at fractions of a pixel clips on whole pixels: its border
+/// box with each edge rounded, less its border (queue item 575). Chrome 154
+/// clips there, where the box's own background is drawn, so a child
+/// reaching the box's edge is not cut a fraction short of it.
+#[test]
+fn a_clip_is_on_whole_pixels_where_the_background_is_drawn() {
+    let css = "body { margin: 0 }
+#card { position: absolute; left: 10.3px; top: 20.6px; width: 30.3px;
+        height: 10.2px; border: 2px solid #000000; overflow: hidden }
+#banner { height: 40px; background: #000000 }";
+    let (list, _) = draw(CARD, css, 120.0, 60.0);
+    let outline = list.to_outline();
+    // Laid out from (10.3, 20.6) to (44.6, 34.8); drawn from (10, 21) to
+    // (45, 35), and the clip two pixels inside that.
+    assert!(
+        outline.contains("to (12, 23) 31×10"),
+        "the clip is on whole pixels:\n{outline}",
+    );
+}

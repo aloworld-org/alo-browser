@@ -38,7 +38,9 @@
 //! its edges a fraction into a pixel; a box under a transform is snapped
 //! where it would be without one, and the transform moves the snapped box.
 //! A fieldset's border is snapped from the line through its legend, not
-//! from the top of its box (`crate::banded`).
+//! from the top of its box (`crate::banded`). A box that clips its content
+//! clips it to the same snapped border box, less its border, so the clip
+//! is where its background is drawn (queue item 575).
 //!
 //! # At a scale
 //!

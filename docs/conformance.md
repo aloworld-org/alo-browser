@@ -447,8 +447,14 @@ shadow's corners are Chrome's (573): square on a square box, and a radius
 smaller than the spread grown by less of it, `spread-shadow-corners` at
 one and at two. An inset shadow on a bordered, rounded box is clipped and
 rounded by the border box's radii where Chrome uses the padding box's,
-which leaves a sliver of background in each corner (585). A clip, a picture's box and an `<svg>`'s viewport are not snapped
-(575). Where a line under text falls at two is not measured (566).
+which leaves a sliver of background in each corner (585). An overflow clip is on the same whole device pixels (575): the snapped
+border box less its border, so a child reaching its parent's edge ends
+where the parent's background does; `clips-on-device-pixels` is Chrome's
+exactly at one and at two but within 5 px of a rounded corner (within 43
+and 51 of 255). A picture's box, an `<svg>`'s viewport and an outline are
+not snapped, and no fractional scale is measured (587). A rounded clip
+takes the border box's radii on the padding box, which Chrome may not
+(588, not measured). Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (item 562, ADR 0057 § 3). The window
 tells the page's renderer and the strip's the whole part of its screen's

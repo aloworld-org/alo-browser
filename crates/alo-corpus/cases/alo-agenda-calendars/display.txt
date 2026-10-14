@@ -24,7 +24,7 @@ fill box#26 rgb(231 111 81) at (20, 111) 16×16
 clip box#27 to (22, 112.75) 12×12
 fill box#27 rgb(255 255 255) at (23.25, 115) 9.5×7
 unclip
-clip box#28 to (44, 109) 154×19.5
+clip box#28 to (44, 109) 154×20
 text box#29 "Personal" rgb(16 42 67) 13px at (44, 123)
 unclip
 group box#31 at opacity 0
@@ -41,7 +41,7 @@ fill box#39 rgb(75 131 196) at (20, 142) 16×16
 clip box#40 to (22, 144.25) 12×12
 fill box#40 rgb(255 255 255) at (23.25, 146.5) 9.5×7
 unclip
-clip box#41 to (44, 140.5) 133×19.5
+clip box#41 to (44, 141) 133×19
 text box#42 "Work" rgb(16 42 67) 13px at (44, 154.5)
 unclip
 group box#44 at opacity 0
@@ -64,7 +64,7 @@ unclip
 ungroup
 text box#59 "OTHER CALENDARS" rgb(95 85 75) 12px at (16, 198)
 fill box#65 rgb(46 139 87) at (20, 218) 16×16
-clip box#66 to (44, 216) 118.578125×19.5
+clip box#66 to (44, 216) 119×20
 text box#67 "Team holidays" rgb(16 42 67) 13px at (44, 230)
 unclip
 text box#70 "can edit" rgb(122 111 98) 12px at (170.57813, 229.75)
@@ -73,7 +73,7 @@ fill box#76 rgb(155 109 214) at (20, 249) 16×16
 clip box#77 to (22, 251.25) 12×12
 fill box#77 rgb(255 255 255) at (23.25, 253.5) 9.5×7
 unclip
-clip box#78 to (44, 247.5) 113.984375×19.5
+clip box#78 to (44, 248) 114×19
 text box#79 "Mira's calendar" rgb(16 42 67) 13px at (44, 261.5)
 text box#78 "…" rgb(16 42 67) 13px at (143.14404, 261.5)
 unclip
