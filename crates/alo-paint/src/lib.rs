@@ -63,6 +63,7 @@ pub mod glyph;
 pub mod hit;
 mod jpeg_picture;
 pub mod mitre;
+pub mod mix_onto;
 pub mod paint;
 pub mod path;
 pub mod pattern;

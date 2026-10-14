@@ -1,0 +1,19 @@
+/* Five opaque grounds, each with the same six pictures on it, every one
+   drawn larger than it is and placed on whole pixels, so that every pixel
+   inside a picture is the picture's mix put onto the ground. In flow rather
+   than positioned: a positioned picture inside a positioned ground is drawn
+   under the ground's background here (queue item 538). */
+body { margin: 0; background: #ffffff }
+.ground { display: flex; align-items: flex-start; gap: 6px; padding: 4px; height: 36px; width: 212px }
+.white { background: #ffffff }
+.black { background: #000000 }
+.grey { background: #7f7f7f }
+.blue { background: #1d4ed8 }
+.yellow { background: #f0c020 }
+img { flex: none }
+.glass-large { width: 40px; height: 30px }
+.glass-small { width: 20px; height: 18px }
+.fade-large { width: 40px; height: 10px }
+.fade-small { width: 10px; height: 10px }
+.veil-large { width: 36px; height: 36px }
+.veil-small { width: 12px; height: 20px }

@@ -219,13 +219,21 @@ The reason this exists rather than a faster fork of somebody else's engine.
   samples of random colour pairs (all but 59, in one column whose position
   is a seventieth of a 256th from rounding the other way): bilinear onto its content box as drawn on whole
   device pixels, never past its own edge texels; the far texel's share the
-  fraction to the nearest 256th; and the mix moved a thirty-second of a
-  level towards the middle before it is rounded half up. Every opaque pixel
-  of every probe is Chrome's, and every pixel of each picture in
-  `pictures-sized-on-a-line` drawn no smaller than it is (five at one,
-  twenty-one at two). A picture at its own size is its texels exactly. Not
-  yet: a texel that is not opaque is mixed premultiplied and composited in
-  floats, a level from Chrome in 6 of 147 pixels measured (600); a picture
+  fraction to the nearest 256th; and the mix held in sixteenths of a level.
+  Every opaque pixel of every probe is Chrome's, and every pixel of each
+  picture in `pictures-sized-on-a-line` drawn no smaller than it is (five
+  at one, twenty-one at two). A picture at its own size is its texels
+  exactly. **A translucent one** (queue item 600, `alo-paint`'s
+  `mix_onto.rs`) has each texel premultiplied to a level before it is
+  mixed, and the mix put onto the pixel beneath in one 32-bit fused
+  multiply-add — `fma(beneath, 1 − alpha, colour)`, then times 255, a half
+  up — as Chrome was measured to put 3.9 million samples, every one but
+  two in a column whose weight lies 0.007 of a 256th from rounding the
+  other way; `translucent-pictures-drawn-larger` is Chrome's in every
+  pixel at one and at two, and the see-through WebP of
+  `a-picture-in-each-format` too. Not yet: a translucent picture over a
+  pixel that is not opaque either, inside a group drawn at an opacity,
+  still composited in floats and not measured; a picture
   drawn smaller on either axis, through Chrome's mipmaps, or turned (179);
   and `image-rendering`, whose `pixelated` and `crisp-edges` Chrome draws
   one texel a pixel from each pixel's centre (601)

@@ -1,0 +1,73 @@
+Made here, 2026-10-15, rather than taken from a page.
+
+Why not a page. Item 600 is a rounding: how Chrome 154 puts a translucent
+picture, drawn larger than it is, onto what is beneath it. A page a site served
+would carry whatever pictures it happened to, at sizes where Chrome's position
+in floats might decide a weight (item 594) rather than the rule this case
+judges. So the pictures are three small ones made to cross every alpha the
+rule cares about — clear, nearly clear, half, nearly opaque and opaque texels
+side by side — at sizes where no column's or row's weight is within a fiftieth
+of a 256th of rounding the other way, at one or at two. Nothing here touches
+the network, and anybody can re-derive every file from the script below.
+
+What made them. Pillow 10.4.0, its PNG writer, which shares no code with the
+`png` crate this engine rents to read them. The script, exactly as run:
+
+```python
+import sys
+from PIL import Image
+
+out = sys.argv[1]
+
+# Twelve translucent colours, four across and three down, from clear to
+# opaque, so every pixel between them mixes texels of different alphas.
+glass = Image.new("RGBA", (4, 3))
+texels = [
+    (220, 40, 40, 0), (40, 180, 60, 37), (40, 80, 220, 89), (250, 200, 30, 128),
+    (10, 10, 10, 160), (200, 100, 240, 201), (255, 255, 255, 64), (0, 140, 140, 255),
+    (130, 60, 20, 17), (90, 200, 250, 230), (240, 120, 160, 99), (60, 60, 200, 180),
+]
+for i, texel in enumerate(texels):
+    glass.putpixel((i % 4, i // 4), texel)
+glass.save(f"{out}/glass.png")
+
+# Iteration 358's pair: red beside a transparent blue.
+fade = Image.new("RGBA", (2, 1))
+fade.putpixel((0, 0), (200, 30, 30, 255))
+fade.putpixel((1, 0), (30, 30, 200, 0))
+fade.save(f"{out}/fade.png")
+
+# Black at four alphas: a veil with no colour of its own, so what shows is
+# the alpha's arithmetic alone.
+veil = Image.new("RGBA", (2, 2))
+for i, alpha in enumerate([32, 96, 160, 224]):
+    veil.putpixel((i % 2, i // 2), (0, 0, 0, alpha))
+veil.save(f"{out}/veil.png")
+```
+
+run as `python3 -I freeze.py .`.
+
+What each is for.
+
+- `glass.png` — 4 × 3, twelve colours at alphas from 0 to 255, so every mix
+  between texels crosses alphas that differ.
+- `fade.png` — 2 × 1, iteration 358's red beside a transparent blue: a colour
+  fading to nothing, where its six pixels first showed the rule was missing.
+- `veil.png` — 2 × 2, black at alphas 32, 96, 160 and 224: no colour of its
+  own, so what shows on each ground is the alpha's arithmetic alone.
+
+`chrome.png` and `chrome-at-2.png` are Chrome 154's screenshots of `page.html`
+with `style.css` inline after the doctype and the pictures beside it, 220 by
+220 CSS pixels, headless, `--force-device-scale-factor=1` and `=2`, without
+`--disable-gpu`, saved as RGBA, taken 2026-10-15. Two runs at one were
+identical.
+
+SHA-256, so a file that changed says so:
+
+```
+0482ee8c62f2e532122bd3188226bf5849cc674e817085d995b76dc7b1d0733c  chrome-at-2.png
+87219132e77e227ee0524e660f9f9a211cc3f79578b07be83c6aaff28d3c6c23  chrome.png
+079b2bcb3ce39d5fc69b4ed902ce45293bf8fe288d2bfcc04c2019168e1656c5  fade.png
+cbe5a53ef9d93bec3f6c8d0e9f64947c1edb646e02066c8a56052aeed2c2c732  glass.png
+025842ed7544c481a3cd2f00e0ae85c5e1de3c877d57d5402049518c9e4aed9b  veil.png
+```

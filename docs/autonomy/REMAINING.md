@@ -2635,3 +2635,14 @@ the window is its composition at 1.5 through the real conductor in all
 699,822 opaque pixels. Cut: **610** (a fractional scale other than 1.5).
 288 queue items are open (599 closed; 610 added). The next unused queue
 number is 611 and the next unused ADR 0058.
+
+Iteration 364 closed queue item 600: a translucent picture drawn larger
+than it is has each texel premultiplied to a level, its mix held in
+sixteenths of a level, and the mix put onto the eight-bit pixel beneath in
+one 32-bit fused multiply-add, as Chrome 154 was measured doing on 3.9
+million samples (`alo-paint`'s `bilinear.rs` and new `mix_onto.rs`). The
+same arithmetic is item 594's opaque rule exactly. The new case
+`translucent-pictures-drawn-larger` is Chrome's in every pixel at one and
+two, where 2,850 and 12,399 differed, and `a-picture-in-each-format`'s
+see-through WebP is Chrome's in every pixel. 287 queue items are open (600
+closed). The next unused queue number is 611 and the next unused ADR 0058.

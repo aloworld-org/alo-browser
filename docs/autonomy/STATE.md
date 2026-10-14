@@ -36757,3 +36757,126 @@ ticked.
 288 queue items are open (599 closed; 610 added). The next unused queue
 number is **611** and the next ADR is **0058**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 364 — queue item 600: a translucent texel's last rounding
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its states, stage 2's image codecs line, whose Owed list named 600),
+iteration 363's and 358's entries, queue items 591–610 and 538,
+`docs/features.md`' picture lines, `docs/conformance.md` on pictures, and
+`alo-paint`'s `bilinear.rs`, `drawn_picture.rs`, `canvas.rs` and
+`alo-value`'s `Rgba::over` and `to_rgba8`. No `AGENTS.md` exists here. The
+item names no ADR; ADR 0057 (whole device pixels) bears on where a picture
+is drawn and was not changed.
+
+**Why 600.** The first open item whose dependencies are done: those before
+it wait as iteration 363 recorded (463 and 572 on a person, 560 and 564 on
+502 behind 501, 568–571 on a screen or pages, 536–541 and 559 on pages, 591
+on a page that draws an outline). 600 depends on nothing, names its
+feature (stage 2, a picture drawn larger than it is) and its closing
+condition, and its "measured first" is this iteration's work.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1` and
+`=2`, screenshots without `--disable-gpu`, which is the GPU path — it
+differs from `--disable-gpu` in 365,192 pixels of the same page — the
+source not read; scratchpad `m600/`): 300 random translucent pairs at
+seven widths over five grounds at one and two (`gen.py`); every colour
+level at seven alphas beside a transparent texel, twenty widths, over
+white, grey and black (`gen_c.py`); a black texel at every alpha beside a
+transparent one over four colours (`gen_d.py`); and 256 × 256 random
+texels at their own size over seven grounds (`gen_b.py`). Fitted in steps:
+at their own size, a texel premultiplied to a level and the ground's
+`div255` — all 458,752. Over black, the premultiplied mix alone, rounded
+as 594's opaque rule — all 2,118,144 channels. The black veil pinned the
+alpha: one value per alpha and weight explains every ground, and it is
+the alpha mix to the nearest **sixteenth of a level**; the leftover misses
+were exact halves above 128 going up, against 594's opaque halves going
+down, which is floats deciding ties. Then a brute force over float32
+orders on the 527,512 samples within 0.002 of a half: only
+`fma(beneath, 1 − alpha, colour)` in one rounding, written out times 255
+a half up, fits all of them. Over everything: 3,873,772 samples, all but
+two (one column whose weight is 0.007 of a 256th from rounding the other
+way — 594's float position) and a 256-wide picture at two, whose every
+weight is a tie. The same arithmetic on an opaque mix is 594's
+"thirty-second towards the middle" rule exactly: sixteenths to a level,
+a half towards 127.5 — at every level, which a unit test now shows over
+every mix.
+
+**Built.** `alo-paint`'s `bilinear.rs`: `sample` returns a `Mix`, each
+texel premultiplied to a level and the mix held in sixteenths; the old
+`rounded`/`translucent` are gone. New `mix_onto.rs`: `onto(mix, under)`,
+the measured composite onto an opaque pixel (or any pixel, for an opaque
+mix), and floats as before for a translucent mix over a translucent pixel,
+which was not measured. `Canvas::replace` puts a pixel made from the one
+beneath. `drawn_picture.rs` draws an upright smoothed picture through
+them. One file, one responsibility: mixing texels is `bilinear.rs`', what
+a mix becomes on the page `mix_onto.rs`'.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first. `scripts/gate.sh`
+was started in the foreground; it ran past the tool's 600 s limit and was
+moved to the background by the harness, and the next call waited on it
+with an until-loop and read it in the same step: **`exit 0`, "The gate is
+met. (10 of 10 steps)"**, 5,014 tests run, 5,014 passed. Only this entry
+and the commit came after it.
+
+**Gate, manual.**
+- The closing condition: new case `translucent-pictures-drawn-larger`
+  (three RGBA pictures made by a script in its `origin.txt` — twelve
+  colours from clear to opaque, iteration 358's red beside a transparent
+  blue, black at four alphas — each at two sizes over five grounds, sizes
+  chosen so no weight is within a fiftieth of a 256th of a tie at one or
+  two) is Chrome's `chrome.png` and `chrome-at-2.png` in **every pixel**,
+  48,400 and 193,600, in `translucent_pictures_drawn_larger.rs`. With
+  HEAD's `bilinear.rs` and `drawn_picture.rs` put back (from copies, `cmp`
+  confirmed restored) 2,850 pixels differ at one, and the render at two
+  differs from this one in 12,399.
+- Numbers: the case's thirty pictures are asserted at their positions and
+  sizes and drawn larger on both axes; unit tests in `mix_onto.rs` hold
+  Chrome's own levels (an opaque half at every level, iteration 358's six
+  red pixels, a black veil over white, two half-way blends above 128 that
+  go up, two that a separate multiply and add gets wrong) and in
+  `bilinear.rs` (premultiplied to a level, sixteenths, 594's rule over
+  every mix). Nothing is positioned or sized differently.
+- Reference renders: the new case's `render.png` and `render-at-2.png`,
+  looked at; `a-picture-in-each-format`'s `render.png` rewritten (a copy
+  taken first): its 36 changed pixels all move onto Chrome's, against
+  iteration 358's screenshot of it, and its see-through WebP is now
+  Chrome's in every pixel. No other reference moved.
+- Mutation, each restored from a copy (`cmp` confirmed): sixteenths
+  truncated (3 unit tests and the case fail), a separate multiply and add
+  for the fused one (the case, then a new unit test added for it, fail),
+  premultiplying floored (a unit test and the case fail).
+- Hostile input: nothing new reads bytes from outside; every sum is in
+  `u64` under 2³², a sixteenth is held at most 4,080, and a level is
+  clamped before it is a byte.
+- Found on the way: the case's first draft, grounds `position: relative`
+  holding `position: absolute` pictures, had every ground's background
+  drawn over its pictures — queue item 538. The case uses flex instead,
+  and 538 says so.
+- Cost: none measured; no speed claim.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 600 is ticked with a *Done* paragraph. 538 gains a note of
+this page. Nothing cut: the one thing left unmeasured (a translucent mix
+over a translucent pixel) is named in the Done paragraph, `features.md`
+and the roadmap rather than as an item, since no page has shown it.
+
+**Roadmap.** Stage 2's image codecs line: a *since queue item 600* clause
+in its Built, and its Owed loses 600 and gains the translucent group case,
+not measured. Not ticked.
+
+**Unresolved obligations.**
+- 179 and 601 for pictures, as before; a translucent picture inside a
+  group at an opacity is composited in floats and not measured.
+- 591, 601–610 and 179; 576, 577, 585, 586 as before; 463 and 572 wait on
+  a person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501;
+  538 waits on a page.
+- No claim about speed is made.
+
+287 queue items are open (600 closed). The next unused queue number is
+**611** and the next ADR is **0058**. This is one iteration, not a
+finished queue or roadmap.

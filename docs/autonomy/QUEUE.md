@@ -13509,6 +13509,13 @@ What stage 2's exit gate actually measures: a person using it.
   draws it, with a reference render, and the pointer finds Chrome's
   elements at those points.
 
+  *Seen again* (iteration 364): the first draft of
+  `translucent-pictures-drawn-larger` set each ground `position:
+  relative` and its pictures `position: absolute`, and every ground's
+  background was drawn over its pictures — `display.txt` listed the six
+  pictures before their ground's fill. The case was laid out in flex
+  instead, so it judges item 600 alone; a page that does this opens 538.
+
 - [x] **539. A click on the strip, decided by the browser.** *Cut from 298
   (iteration 322; ADR 0024 § 5). Feature: `docs/features.md` stage 2, a
   window, tabs and a tab strip. Depends on 535.* The strip's renderer
@@ -14708,7 +14715,7 @@ What stage 2's exit gate actually measures: a person using it.
   hears both frames painted at it. Where a person's pointer lands at 1.5
   is item 568's, as at two. Cut: **610** (another fractional factor).
 
-- [ ] **600. A translucent texel's last rounding, as Chrome's.** *Cut from
+- [x] **600. A translucent texel's last rounding, as Chrome's.** *Cut from
   594 (iteration 358). Feature: `docs/features.md` stage 2, a picture
   drawn larger than it is.* `alo-paint`'s `bilinear.rs` mixes a pixel
   from a texel that is not opaque with Chrome's weights, premultiplied,
@@ -14723,6 +14730,28 @@ What stage 2's exit gate actually measures: a person using it.
   *Closes when:* the rule is written down, built, and a frozen case of
   translucent pictures drawn larger is Chrome's in every pixel at one and
   at two.
+
+  **Done** (iteration 364). Measured over black, white, grey and three
+  colours (iteration 364's scratchpad `m600/`): Chrome 154 premultiplies
+  each texel to a level, mixes the premultiplied colour and the alpha with
+  the 256ths' weights and holds each to the nearest sixteenth of a level,
+  then puts the mix onto the eight-bit pixel beneath in 32-bit floats as
+  one fused multiply-add, `fma(beneath, 1 − alpha, colour)`, written out
+  times 255 a half up. That is every one of 3,873,772 samples — a black
+  veil at every alpha, every colour level at seven alphas, random
+  translucent pairs at one and two, and texels at their own size — but
+  two in one column whose weight lies 0.007 of a 256th from rounding the
+  other way (594's float position), and a 256-wide picture at two whose
+  every weight is a tie. For an opaque mix it is item 594's rule exactly,
+  shown on every mix by a unit test. Built: `alo-paint`'s `bilinear.rs`
+  returns a `Mix` in sixteenths; the new `mix_onto.rs` puts it onto the
+  pixel beneath; `Canvas::replace` lets a drawing make a pixel from the
+  one it replaces. The new case `translucent-pictures-drawn-larger` is
+  Chrome's in every pixel at one and two (2,850 and 12,399 differed), and
+  `a-picture-in-each-format`'s see-through WebP in every pixel (36
+  differed). Not measured, and composited in floats as before: a
+  translucent mix over a pixel that is not opaque, inside a group at an
+  opacity.
 
 - [ ] **601. `image-rendering`.** *Cut from 594 (iteration 358). Feature:
   `docs/features.md` stage 2, a picture drawn larger than it is.

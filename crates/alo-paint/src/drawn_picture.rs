@@ -38,7 +38,9 @@
 //!
 //! An upright picture drawn no smaller than it is on either axis is smoothed
 //! across its texels as Chrome 154 smooths it, which [`crate::bilinear`]
-//! holds (queue item 594): at its own size that is every texel exactly.
+//! holds (queue item 594), and put onto the pixel beneath as Chrome puts
+//! it, which [`crate::mix_onto`] holds (600): at its own size that is every
+//! texel exactly.
 //! Drawn smaller on either axis, or turned, it is still one pixel of the
 //! picture per pixel of the page, coarse when scaled, so a rotated picture's
 //! stripes have stepped edges *inside* it while its outline is smooth. Item
@@ -46,6 +48,7 @@
 
 use crate::bilinear::{sample, taps};
 use crate::canvas::Canvas;
+use crate::mix_onto::onto;
 use crate::path::Path;
 use crate::raster::fill;
 use crate::render::{pixel_centre, place};
@@ -103,10 +106,10 @@ fn upright(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix)
         // picture slid back onto the page.
         for (y, row) in (0..down).zip(rows).skip(whole_index(off_y)) {
             for (x, column) in (0..across).zip(&columns).skip(whole_index(off_x)) {
-                let Some(colour) = sample(picture, *column, row) else {
+                let Some(mix) = sample(picture, *column, row) else {
                     continue;
                 };
-                target.blend(at_x + x - off_x, at_y + y - off_y, colour, 255);
+                target.replace(at_x + x - off_x, at_y + y - off_y, |under| onto(mix, under));
             }
         }
         return;

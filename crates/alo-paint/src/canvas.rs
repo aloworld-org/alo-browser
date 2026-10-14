@@ -92,6 +92,19 @@ impl Canvas {
         }
     }
 
+    /// Put a pixel in place of one, made from the pixel it replaces: for a
+    /// drawing whose arithmetic onto what is beneath is its own rather than
+    /// [`Rgba::over`]'s, as a smoothed picture's is
+    /// ([`crate::mix_onto`]). A pixel off the canvas is passed over.
+    pub fn replace(&mut self, x: u32, y: u32, made: impl FnOnce(Rgba) -> Rgba) {
+        let Some(index) = self.index(x, y) else {
+            return;
+        };
+        if let Some(pixel) = self.pixels.get_mut(index) {
+            *pixel = made(*pixel);
+        }
+    }
+
     /// Fill a whole rectangle of pixels with a colour.
     ///
     /// The rectangle is in whole pixels and is clipped to the canvas; a

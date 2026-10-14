@@ -492,8 +492,13 @@ differ where `wide.png`'s halves meet, which Chrome samples through
 mipmaps (179). `a-picture`'s PNG drawn at 80 and 30 is Chrome's in every
 pixel, and `a-picture-in-each-format`'s GIFs and lossless and animated
 WebPs at twice their size; a JPEG or a lossy WebP differs by what its
-decoder gives (a level for the JPEG, up to 14 for the lossy WebP), and a
-see-through stripe's edge by a level in 36 pixels (600). A rounded clip inside a border follows the border's
+decoder gives (a level for the JPEG, up to 14 for the lossy WebP); its
+see-through WebP is Chrome's in every pixel since item 600, a translucent
+texel premultiplied to a level and its mix put onto the page in one
+32-bit fused multiply-add, and `translucent-pictures-drawn-larger` — three
+translucent pictures at two sizes each over five grounds — is Chrome's in
+every pixel at one and at two. A translucent picture inside a group drawn
+at an opacity is composited in floats and was not measured. A rounded clip inside a border follows the border's
 inner curve, each radius less the border beside it (588), as Chrome's
 does in 60 of 60 boxes measured; `rounded-clips-inside-borders` is
 Chrome's in every plain pixel at one and at two. A border whose sides

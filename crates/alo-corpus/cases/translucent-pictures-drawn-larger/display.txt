@@ -1,0 +1,36 @@
+fill box#1 rgb(255 255 255) at (0, 0) 220×220
+fill box#2 rgb(255 255 255) at (0, 0) 220×44
+picture box#3 4×3 at (4, 4) 40×30
+picture box#4 4×3 at (50, 4) 20×18
+picture box#5 2×1 at (76, 4) 40×10
+picture box#6 2×1 at (122, 4) 10×10
+picture box#7 2×2 at (138, 4) 36×36
+picture box#8 2×2 at (180, 4) 12×20
+fill box#10 rgb(0 0 0) at (0, 44) 220×44
+picture box#11 4×3 at (4, 48) 40×30
+picture box#12 4×3 at (50, 48) 20×18
+picture box#13 2×1 at (76, 48) 40×10
+picture box#14 2×1 at (122, 48) 10×10
+picture box#15 2×2 at (138, 48) 36×36
+picture box#16 2×2 at (180, 48) 12×20
+fill box#18 rgb(127 127 127) at (0, 88) 220×44
+picture box#19 4×3 at (4, 92) 40×30
+picture box#20 4×3 at (50, 92) 20×18
+picture box#21 2×1 at (76, 92) 40×10
+picture box#22 2×1 at (122, 92) 10×10
+picture box#23 2×2 at (138, 92) 36×36
+picture box#24 2×2 at (180, 92) 12×20
+fill box#26 rgb(29 78 216) at (0, 132) 220×44
+picture box#27 4×3 at (4, 136) 40×30
+picture box#28 4×3 at (50, 136) 20×18
+picture box#29 2×1 at (76, 136) 40×10
+picture box#30 2×1 at (122, 136) 10×10
+picture box#31 2×2 at (138, 136) 36×36
+picture box#32 2×2 at (180, 136) 12×20
+fill box#34 rgb(240 192 32) at (0, 176) 220×44
+picture box#35 4×3 at (4, 180) 40×30
+picture box#36 4×3 at (50, 180) 20×18
+picture box#37 2×1 at (76, 180) 40×10
+picture box#38 2×1 at (122, 180) 10×10
+picture box#39 2×2 at (138, 180) 36×36
+picture box#40 2×2 at (180, 180) 12×20

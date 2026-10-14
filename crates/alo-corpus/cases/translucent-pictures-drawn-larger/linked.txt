@@ -1,0 +1,5 @@
+# What the page named, and the file beside this case holding it. `origin.txt`
+# says how each was made.
+/glass.png glass.png
+/fade.png fade.png
+/veil.png veil.png

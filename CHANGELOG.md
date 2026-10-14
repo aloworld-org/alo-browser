@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **See-through pictures drawn larger are Chrome's to the level.** A
+  picture with transparency in it — an icon with soft edges, a PNG with a
+  see-through background — drawn larger than its own size came out a
+  level off Chrome's in places, darker or lighter by one where its
+  translucent parts met the page. Chrome rounds such a picture at three
+  particular points on the way to the screen, measured on nearly four
+  million samples, and this engine now rounds at the same three: on a new
+  page of translucent pictures over five colours every pixel is Chrome's
+  at normal and double resolution, where 2,850 and 12,399 were not.
+
 - **A screen at 150 per cent shows pages at 150 per cent.** On a screen
   of one and a half device pixels to the CSS pixel — common on Windows
   and Linux laptops — the window rounded the scale down to one, so pages

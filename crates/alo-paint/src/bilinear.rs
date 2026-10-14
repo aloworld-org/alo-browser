@@ -31,24 +31,31 @@
 //!    fraction rounded to the nearest 1/256, and the two rows of a pair are
 //!    mixed the same way down. A ramp of black into white drawn 40 wide is
 //!    6, 19, 32, 45, 58 … at one: an exact fraction gives 57 for the fifth.
-//! 3. **Rounded towards the middle.** The mix is a level and some 65,536ths,
-//!    and becomes a level by rounding half up after being moved a
-//!    thirty-second of a level towards 127.5: up below 128, down from it.
-//!    A plain rounding disagreed with Chrome on 27,094 of the samples, and
-//!    this on those 59.
+//! 3. **Held in sixteenths of a level.** The mix is a level and some
+//!    65,536ths, and is kept to the nearest sixteenth of a level, a half up:
+//!    a [`Mix`]. What it becomes on the page is [`crate::mix_onto`]'s, and for
+//!    an opaque mix that is the sixteenths to a level, a half towards 127.5 —
+//!    which is the rule iteration 358 first wrote here as "a thirty-second of
+//!    a level towards the middle, then a half up", and which agrees with it
+//!    on every mix. A plain rounding disagreed with Chrome on 27,094 of the
+//!    pairs' samples, and this on those 59.
 //!
 //! The colours are mixed as they are written, in sRGB, not in linear light:
 //! black and white halfway is 128.
 //!
 //! # Translucent texels
 //!
-//! A pixel mixed from any texel that is not opaque is mixed with the same
-//! weights, its colours premultiplied by their alpha so that a transparent
-//! texel lends nothing, and composited in floats like every other drawing
-//! on the canvas. Chrome rounds such a pixel once more somewhere, and the
-//! two differ by a level in 6 of 147 pixels measured over white, along a
-//! row of a red texel beside a transparent one at one and at two: queue
-//! item 600.
+//! A texel that is not opaque is **premultiplied to a level first** — its
+//! colour times its alpha over 255, to the nearest level — so a transparent
+//! texel lends nothing, and its premultiplied colour and its alpha are each
+//! mixed with the same weights and held in sixteenths like an opaque
+//! colour (queue item 600). Measured on Chrome 154 over black, where what
+//! is drawn is the premultiplied mix alone: every colour level at seven
+//! alphas beside a transparent texel, at twenty widths, 2,118,144 channels,
+//! every one; and with the same over white and grey, through
+//! [`crate::mix_onto`], 1,076,505 distinct samples, every one.
+//! Premultiplying in floats instead missed 33,275 of 478,659 channels of
+//! random translucent pairs over black.
 //!
 //! # What this does not decide
 //!
@@ -59,7 +66,6 @@
 //! nor `image-rendering`, which this engine does not read yet (601).
 
 use crate::canvas::Canvas;
-use alo_value::Rgba;
 
 /// Where a column or a row of the drawing samples the picture: the texel
 /// before its position and the texel after, and the second's share in
@@ -108,9 +114,29 @@ fn texel(value: i64) -> u32 {
     u32::try_from(value).unwrap_or(0)
 }
 
-/// The colour the picture gives the pixel sampled at `across` and `down`,
-/// or [`None`] for a tap off the picture.
-pub fn sample(picture: &Canvas, across: Tap, down: Tap) -> Option<Rgba> {
+/// A mix of texels, premultiplied, each channel in sixteenths of a level:
+/// from 0 to [`Mix::OPAQUE`]. What it becomes on the page is
+/// [`crate::mix_onto::onto`]'s.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mix {
+    /// Red, premultiplied by the alpha.
+    pub red: u16,
+    /// Green, premultiplied by the alpha.
+    pub green: u16,
+    /// Blue, premultiplied by the alpha.
+    pub blue: u16,
+    /// How opaque the mix is.
+    pub alpha: u16,
+}
+
+impl Mix {
+    /// A whole level of 255, in sixteenths.
+    pub const OPAQUE: u16 = 255 * 16;
+}
+
+/// What the picture gives the pixel sampled at `across` and `down`, or
+/// [`None`] for a tap off the picture.
+pub fn sample(picture: &Canvas, across: Tap, down: Tap) -> Option<Mix> {
     let texels = [
         picture.at(across.near, down.near)?.to_rgba8(),
         picture.at(across.far, down.near)?.to_rgba8(),
@@ -119,83 +145,45 @@ pub fn sample(picture: &Canvas, across: Tap, down: Tap) -> Option<Rgba> {
     ];
     let (x, y) = (u64::from(across.weight), u64::from(down.weight));
     let shares = [(256 - x) * (256 - y), x * (256 - y), (256 - x) * y, x * y];
-    if texels.iter().all(|(_, _, _, alpha)| *alpha == u8::MAX) {
-        let mixed = |channel: fn(&(u8, u8, u8, u8)) -> u8| {
-            rounded(
-                texels
-                    .iter()
-                    .zip(shares)
-                    .map(|(texel, share)| share * u64::from(channel(texel)))
-                    .sum(),
-            )
-        };
-        return Some(Rgba::from_rgba8(
-            mixed(|t| t.0),
-            mixed(|t| t.1),
-            mixed(|t| t.2),
-            u8::MAX,
-        ));
-    }
-    Some(translucent(&texels, shares))
+    let mixed = |channel: fn(&(u8, u8, u8, u8)) -> u64| {
+        sixteenths(
+            texels
+                .iter()
+                .zip(shares)
+                .map(|(texel, share)| share * channel(texel))
+                .sum(),
+        )
+    };
+    Some(Mix {
+        red: mixed(|t| premultiplied(t.0, t.3)),
+        green: mixed(|t| premultiplied(t.1, t.3)),
+        blue: mixed(|t| premultiplied(t.2, t.3)),
+        alpha: mixed(|t| u64::from(t.3)),
+    })
+}
+
+/// A texel's channel times its alpha, to the nearest level. A product of
+/// two levels over 255 is never exactly a half, so there is no tie to break.
+fn premultiplied(channel: u8, alpha: u8) -> u64 {
+    (u64::from(channel) * u64::from(alpha) + 127) / 255
 }
 
 /// One 65,536th of a level, the unit [`sample`]'s mix is counted in.
 const PARTS: u64 = 256 * 256;
 
-/// A mix counted in 65,536ths of a level, as a level: moved a thirty-second
-/// of one towards the middle, then rounded half up. Never more than 255,
-/// which a mix of levels cannot pass.
-fn rounded(mix: u64) -> u8 {
-    // In 32nds of a level: a half is 16 of them and the move is one, up
-    // below the middle and down from it.
-    let half_and_move = if mix < 128 * PARTS { 17 } else { 15 };
-    let level = (32 * mix + half_and_move * PARTS) / (32 * PARTS);
-    u8::try_from(level).unwrap_or(u8::MAX)
-}
-
-/// A mix from texels not all opaque: premultiplied, so a transparent texel
-/// lends no colour, and handed back as a colour over its alpha.
-fn translucent(texels: &[(u8, u8, u8, u8); 4], shares: [u64; 4]) -> Rgba {
-    let alpha: u64 = texels
-        .iter()
-        .zip(shares)
-        .map(|(texel, share)| share * u64::from(texel.3))
-        .sum();
-    if alpha == 0 {
-        return Rgba::TRANSPARENT;
-    }
-    let premultiplied = |channel: fn(&(u8, u8, u8, u8)) -> u8| -> u64 {
-        texels
-            .iter()
-            .zip(shares)
-            .map(|(texel, share)| share * u64::from(channel(texel)) * u64::from(texel.3))
-            .sum()
-    };
-    // Every sum is under 2³², so each is exact in an `f64`; the colour over
-    // the alpha is a channel from zero to one.
-    let exact = |value: u64| f64::from(u32::try_from(value).unwrap_or(u32::MAX));
-    let over_alpha = |value: u64| narrowed(exact(value) / (exact(alpha) * 255.0));
-    Rgba {
-        red: over_alpha(premultiplied(|t| t.0)),
-        green: over_alpha(premultiplied(|t| t.1)),
-        blue: over_alpha(premultiplied(|t| t.2)),
-        alpha: narrowed(exact(alpha) / (exact(PARTS) * 255.0)),
-    }
-}
-
-/// A channel from zero to one, as the canvas holds it.
-fn narrowed(value: f64) -> f32 {
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "a channel between zero and one, where an f32 keeps every level a canvas holds"
-    )]
-    let narrow = value.clamp(0.0, 1.0) as f32;
-    narrow
+/// A mix counted in 65,536ths of a level, to the nearest sixteenth, a half
+/// up. Never more than [`Mix::OPAQUE`], which a mix of levels cannot pass.
+fn sixteenths(mix: u64) -> u16 {
+    let sixteenth = PARTS / 16;
+    u16::try_from((mix + sixteenth / 2) / sixteenth)
+        .map_or(Mix::OPAQUE, |held| held.min(Mix::OPAQUE))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mix_onto::onto;
+    use alo_value::Rgba;
 
     fn picture(texels: &[(u8, u8, u8, u8)], width: u32) -> Canvas {
         let height = u32::try_from(texels.len()).expect("small") / width;
@@ -221,10 +209,8 @@ mod tests {
         taps(span, picture.width())
             .into_iter()
             .map(|across| {
-                sample(picture, across, down)
-                    .expect("on the picture")
-                    .to_rgba8()
-                    .0
+                let mix = sample(picture, across, down).expect("on the picture");
+                onto(mix, Rgba::WHITE).to_rgba8().0
             })
             .collect()
     }
@@ -266,21 +252,66 @@ mod tests {
             .into_iter()
             .skip(29)
             .take(2)
-            .map(|across| sample(&wide, across, down).expect("on it").to_rgba8())
+            .map(|across| {
+                let mix = sample(&wide, across, down).expect("on it");
+                onto(mix, Rgba::WHITE).to_rgba8()
+            })
             .collect();
         assert_eq!(seam, [(56, 75, 187, 255), (165, 61, 72, 255)]);
     }
 
     #[test]
-    fn a_mix_is_moved_towards_the_middle_before_it_is_rounded() {
-        // A level and 120/256 rounds up below 128, a level and 135/256
-        // rounds down from it: what a plain half-up rounding gets wrong.
-        assert_eq!(rounded(5 * PARTS + 120 * 256), 6);
-        assert_eq!(rounded(5 * PARTS + 119 * 256), 5);
-        assert_eq!(rounded(200 * PARTS + 135 * 256), 200);
-        assert_eq!(rounded(200 * PARTS + 136 * 256), 201);
-        assert_eq!(rounded(255 * PARTS), 255);
-        assert_eq!(rounded(0), 0);
+    fn a_mix_is_held_to_the_nearest_sixteenth_of_a_level() {
+        // A level and 120/256 is 7.5 sixteenths, a half, and goes up; a
+        // level and 119/256 is under it and goes down.
+        assert_eq!(sixteenths(5 * PARTS + 120 * 256), 5 * 16 + 8);
+        assert_eq!(sixteenths(5 * PARTS + 119 * 256), 5 * 16 + 7);
+        assert_eq!(sixteenths(200 * PARTS + 136 * 256), 200 * 16 + 9);
+        assert_eq!(sixteenths(255 * PARTS), Mix::OPAQUE);
+        assert_eq!(sixteenths(0), 0);
+        assert_eq!(sixteenths(u64::MAX / 2), Mix::OPAQUE);
+    }
+
+    #[test]
+    fn a_mix_of_opaque_texels_is_the_rule_item_594_fitted() {
+        // Iteration 358 wrote it as a thirty-second of a level towards the
+        // middle, then a half up: up from 120/256 below 128 and from 136/256
+        // above. Held in sixteenths and written out, every mix agrees.
+        let earlier = |mix: u64| {
+            let half_and_move = if mix < 128 * PARTS { 17 } else { 15 };
+            (32 * mix + half_and_move * PARTS) / (32 * PARTS)
+        };
+        for level in 0..255_u64 {
+            for part in 0..256_u64 {
+                let mix = level * PARTS + part * 256;
+                let held = sixteenths(mix);
+                let grey = Mix {
+                    red: held,
+                    green: held,
+                    blue: held,
+                    alpha: Mix::OPAQUE,
+                };
+                let now = u64::from(onto(grey, Rgba::BLACK).to_rgba8().0);
+                assert_eq!(now, earlier(mix), "{level} and {part}/256");
+            }
+        }
+    }
+
+    #[test]
+    fn a_translucent_texel_is_premultiplied_to_a_level_first() {
+        // 202 at alpha 89 is 70.5 and a little, so 71; drawn alone at its
+        // own size it is that, in sixteenths.
+        let one = picture(&[(202, 0, 0, 89)], 1);
+        let alone = Tap {
+            near: 0,
+            far: 0,
+            weight: 0,
+        };
+        let mix = sample(&one, alone, alone).expect("on it");
+        assert_eq!((mix.red, mix.alpha), (71 * 16, 89 * 16));
+        assert_eq!(premultiplied(202, 89), 71);
+        assert_eq!(premultiplied(255, 255), 255);
+        assert_eq!(premultiplied(9, 0), 0);
     }
 
     #[test]
@@ -335,8 +366,16 @@ mod tests {
             far: 0,
             weight: 0,
         };
-        let mixed = sample(&pair, across, down).expect("on it").to_rgba8();
-        assert_eq!(mixed, (200, 30, 30, 128));
+        let mixed = sample(&pair, across, down).expect("on it");
+        assert_eq!(
+            mixed,
+            Mix {
+                red: 100 * 16,
+                green: 15 * 16,
+                blue: 15 * 16,
+                alpha: 2040,
+            }
+        );
     }
 
     #[test]
@@ -352,7 +391,13 @@ mod tests {
             far: 0,
             weight: 0,
         };
-        assert_eq!(sample(&clear, across, down), Some(Rgba::TRANSPARENT));
+        let nothing = Mix {
+            red: 0,
+            green: 0,
+            blue: 0,
+            alpha: 0,
+        };
+        assert_eq!(sample(&clear, across, down), Some(nothing));
     }
 
     #[test]

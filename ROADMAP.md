@@ -1744,11 +1744,17 @@ unreachable without it.
       thirty-second of a level towards the middle (`alo-paint`'s
       `bilinear.rs`) — so every opaque pixel of 37 probes at one and at two
       is Chrome's, and so is every pixel of every such picture in
-      `pictures-sized-on-a-line`
+      `pictures-sized-on-a-line`. Since queue item 600 (iteration 364) a
+      translucent one is too — each texel premultiplied to a level, the mix
+      held in sixteenths of a level and put onto the pixel beneath in one
+      32-bit fused multiply-add (`alo-paint`'s `mix_onto.rs`) — so
+      `translucent-pictures-drawn-larger` is Chrome's in every pixel at one
+      and at two
       · Owed: a picture drawn smaller than it is on either axis, which
       Chrome samples through mipmaps, and a turned one (179, opened now by
-      `pictures-sized-on-a-line`); a translucent texel's last rounding
-      (600); `image-rendering` (601); AVIF (269: decided in ADR 0021, `avif-parse` and `rav1d`'s safe
+      `pictures-sized-on-a-line`); a translucent picture over a pixel that
+      is not opaque, inside a group at an opacity (not measured);
+      `image-rendering` (601); AVIF (269: decided in ADR 0021, `avif-parse` and `rav1d`'s safe
       Rust API; blocked until `rav1d` releases that API, because its newest
       release offers only a C interface this repository could call only with
       `unsafe` of its own); playback of an animation (109)
