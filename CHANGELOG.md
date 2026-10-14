@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An `<svg>` is clipped and drawn on whole pixels, as Chrome draws it.**
+  An `<svg>` laid out at a fraction of a pixel used to clip its drawing a
+  fraction into a pixel and draw it there, smearing its edges across two
+  pixels; it is now clipped to its content box with each edge on a whole
+  device pixel and drawn from its corner on one, at one and at two device
+  pixels to the CSS pixel. An SVG file shown by an `<img>` is drawn as a
+  picture is, filling its box rounded to whole pixels.
+
 - **A rounded box with a border clips along the border's inner curve.**
   A box with rounded corners, a border and `overflow: hidden` used to
   round what it clips by its outer corners, so a sliver of the page

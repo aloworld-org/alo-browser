@@ -1255,6 +1255,15 @@ impl Builder<'_> {
     /// box's `overflow` is `visible`: the user-agent sheet makes every `<svg>`
     /// `overflow: hidden`, as SVG's own does, so a shape that runs past the
     /// viewport stops at its edge unless an author says otherwise.
+    ///
+    /// On whole device pixels, as Chrome 154 draws it (queue item 589). The
+    /// clip is the content box with each edge rounded on its own, as a
+    /// picture's is. An `<svg>`'s drawing is not moved into that box: it is
+    /// drawn from its border box's corner rounded so, plus its border and
+    /// padding as laid out, and its `viewBox` is fitted to the content box as
+    /// laid out — so a padding of a fraction leaves a shape a fraction into a
+    /// pixel. A picture's drawing is a picture, drawn into the rounded
+    /// content box and grown or shrunk to fill it.
     fn drawing_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
         let Some(drawing) = self.context.drawings.get(&id) else {
             return;
@@ -1265,8 +1274,25 @@ impl Builder<'_> {
         let Some(geometry) = self.layout.get(id) else {
             return;
         };
+        let scale = self.styles.scale();
         let content = geometry.content_box();
-        let at = crate::path::Point::new(content.left(), content.top());
+        let snapped = snap::to_device_pixels(content, scale);
+        let place = if drawing.is_confined() {
+            let growth = |to: f32, from: f32| if from > 0.0 { to / from } else { 1.0 };
+            alo_value::Matrix {
+                a: growth(snapped.size.width, content.size.width),
+                d: growth(snapped.size.height, content.size.height),
+                e: snapped.left(),
+                f: snapped.top(),
+                ..alo_value::Matrix::IDENTITY
+            }
+        } else {
+            let corner = snap::to_device_pixels(geometry.border_box, scale);
+            alo_value::Matrix::translation(
+                corner.left() + content.left() - geometry.border_box.left(),
+                corner.top() + content.top() - geometry.border_box.top(),
+            )
+        };
         // A picture's drawing is clipped whatever the box says: an SVG file
         // shown by an `<img>` is the rectangle it was given (ADR 0027 § 5).
         let clips = drawing.is_confined()
@@ -1277,14 +1303,14 @@ impl Builder<'_> {
         if clips {
             out.push(DisplayItem::PushClip {
                 box_id: id,
-                path: rect_path(content),
+                path: rect_path(snapped),
             });
         }
         for item in drawing.items() {
             out.push(match item {
                 DrawingItem::Fill { path, color, rule } => DisplayItem::Fill {
                     box_id: id,
-                    path: path.translated(at),
+                    path: path.transformed(place),
                     paint: Paint::Solid(*color),
                     rule: *rule,
                 },

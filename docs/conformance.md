@@ -454,8 +454,13 @@ exactly at one and at two but within 5 px of a rounded corner (within 43
 and 51 of 255). A picture is drawn into its content box with each edge on
 a whole device pixel (587), and one that starts off the page starts there;
 `pictures-on-device-pixels` is Chrome's in every pixel at one and at two.
-An `<svg>`'s viewport is not snapped, and no fractional scale is measured
-(589). An `outline` is not drawn at all (591), and a picture on a line
+An `<svg>` is clipped to its content box on whole device pixels and
+drawn from its border box's corner on one, plus its border and padding as
+laid out; an SVG file in an `<img>` is drawn into its rounded content box,
+grown to fill it (589). `svgs-on-device-pixels` is Chrome's in every plain
+pixel at one and at two; where a shape's corner lies a fraction into a
+pixel both ways the two differ by up to 31 and 41 of 255, Chrome covering
+it by the lesser edge. No fractional scale is measured (593). An `outline` is not drawn at all (591), and a picture on a line
 with both a width and a height set is laid out to its ratio rather than
 its height (590). A rounded clip inside a border follows the border's
 inner curve, each radius less the border beside it (588), as Chrome's

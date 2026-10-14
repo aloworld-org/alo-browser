@@ -2505,3 +2505,14 @@ Chrome's in every plain pixel at both scales. Found: **592** (a border
 drawn side by side leaves its rounded corners' inner curve unfilled). 280
 queue items are open (588 closed; 592 added). The next unused queue number
 is 593 and the next unused ADR 0058.
+
+Iteration 354 closed queue item 589 for the `<svg>` and cut the rest: an
+`<svg>` is clipped to its content box with each edge rounded to a whole
+device pixel and drawn from its border box's corner rounded so, plus its
+border and padding as laid out; an SVG file in an `<img>` is drawn into its
+rounded content box and grown to fill it, as Chrome 154 was measured doing
+for 1,792 `<svg>`s and 672 such pictures at one and at two (ADR 0057,
+*Measured since*). `svgs-on-device-pixels` is Chrome's in every plain pixel
+at both scales. Cut: **593** (ADR 0057's table at a fractional scale). 280
+queue items are open (589 closed; 593 added). The next unused queue number
+is 594 and the next unused ADR 0058.

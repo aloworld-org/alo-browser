@@ -129,12 +129,14 @@ and the rule is unchanged:
 | A control's box and everything a box paints for its own area, each edge snapped | `snap.rs` | `floor(x·s + 0.5) / s` |
 | An overflow clip: the border box, each edge snapped, less the border | `build.rs` | `floor(x·s + 0.5) / s` |
 | A picture: its content box, each edge snapped | `build.rs` | `floor(x·s + 0.5) / s` |
+| An `<svg>`'s clip: its content box, each edge snapped | `build.rs` | `floor(x·s + 0.5) / s` |
+| An `<svg>`'s drawing: from its border box's corner snapped, plus its border and padding | `build.rs` | `floor(x·s + 0.5) / s` |
 | A text field's character, rounded when wider, and its width, rounded up | `field_width.rs` | `round(c·s) / s`, `ceil(w·s) / s` |
 | The size a face is set at, cut to hundredths | `face_size.rs` | `trunc(z·s·100) / 100 / s` |
 
 The last two rows were measured by item 560 and added to the table by it,
-the overflow clip's by item 575 and the picture's by item 587 (see
-*Measured since*).
+the overflow clip's by item 575, the picture's by item 587 and the
+`<svg>`'s by item 589 (see *Measured since*).
 
 The rules are measured at scale 1 and at scale 2 above. Nothing here
 claims a rule at 1.5 or 3 that was not measured; the form `rule(v·s) / s`
@@ -241,7 +243,7 @@ Item 299 is cut into three parts, and closes when they do:
 
 ## What is not decided here
 
-- **A fractional scale's rules**, until measured (§ 2).
+- **A fractional scale's rules**, until measured (§ 2; item 593).
 - **Where a pointer lands at a scale**: ADR 0024 § 5's point is a 1×1
   pixel, measured at scale 1; whether it is a device pixel at 2 is
   measured with item 568 (cut from 562).
@@ -502,6 +504,43 @@ against a model of the clip sampled 4 by 4.
   colour it is the same, at one and at two. `rounded-card`'s picture moved
   in 58 pixels at its card's corners, which are rounded by 11 inside its
   1 px border where they were rounded by 12; no display list moved.
+
+**Item 589, 2026-10-14, Chrome 154 under `--force-device-scale-factor=1`
+and `=2`,** screenshots without `--disable-gpu`, the source not read: two
+probes (one written at tenths, one seeded) of eight kinds of `<svg>`, 56 of
+each, and of three kinds of `<img>` showing an SVG file, 56 of each, each
+drawing a black square inside the box or one reaching past it; read along
+the square's middle row and column against Chrome's own
+`getBoundingClientRect()` and computed border and padding from the same
+run, the padding put on the grid as layout puts it.
+
+- **An `<svg>` is clipped to its content box with each edge rounded on its
+  own**, `floor(x·s + 0.5) / s`, as a picture is: 672 of 672 whose shape
+  reaches past the box — plain, with a `2.6px` border and a padding of
+  fractions, and on a line. The snapped border box less its border and
+  padding fits none of the padded ones.
+- **Its drawing is not moved into that box.** It is drawn from the border
+  box's corner rounded so, plus the border and the padding as laid out:
+  1,120 of 1,120 whose shape is inside or `overflow: visible`, in the flow
+  or not, and fitting a `viewBox`. The rounded content box's corner fits
+  the 896 without a padding and none of the 224 with one, whose shapes
+  Chrome draws a fraction into a pixel. A `viewBox` is fitted to the
+  content box as laid out, not as rounded (56 and 56 of 56 against 2 and
+  3).
+- **An SVG file shown by an `<img>` is a picture**: drawn into its content
+  box with each edge rounded, and grown to fill it, 672 of 672 at a
+  `viewBox`, reaching past it, and framed by a border and a padding of
+  fractions. This is § 2's picture row, and not the `<svg>`'s rule.
+- `alo-paint`'s `build.rs` `drawing_of` clips and places a drawing so.
+  `cases/svgs-on-device-pixels` has one of each kind; wherever both
+  pictures have one of its plain colours they are the same at one and at
+  two, and blends are within 31 and 41 of 255, the worst at the corners of
+  shapes a fraction into a pixel both ways, where Chrome covers a pixel by
+  the lesser of its two edges' coverage (item 565). At one, six corpus
+  cases' display lists moved, each an `<svg>`'s clip onto whole pixels
+  (`alo-agenda-calendars`, `alo-agenda-mini-month`, `alo-downloads`,
+  `alo-meet-greeting`, `svg-relative-size`, `svg-shapes-filled`).
+- **Not measured here**, and cut to item 593: any fractional scale.
 
 ## How we will know if this was wrong
 

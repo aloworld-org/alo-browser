@@ -1,0 +1,32 @@
+/* `<svg>`s laid out at tenths of a pixel (queue item 589). Chrome 154 clips
+   an `<svg>`'s drawing to its content box with each edge rounded to a whole
+   device pixel on its own, `floor(x·s + 0.5) / s`, and draws it from its
+   border box's corner rounded so plus its border and padding as laid out:
+   `offset`, with a padding of fractions, has its square a fraction into a
+   pixel. A `viewBox` is fitted to the content box as laid out (`fitted`).
+   An SVG file shown by an `<img>` is a picture: drawn into its content box
+   rounded so, grown to fill it (`file`, `framed`).
+   `tests/svgs_on_device_pixels.rs` says which is which. */
+body { margin: 0; background: #ffffff }
+svg, img { position: absolute }
+.clipped { left: 10.3px; top: 10.6px; width: 20.4px; height: 20.3px }
+.inner { left: 50.6px; top: 10.7px; width: 20.3px; height: 20.7px }
+.visible { left: 90.75px; top: 10.2px; width: 20.4px; height: 20.4px;
+  overflow: visible }
+.padded { left: 130.45px; top: 10.55px; width: 16.3px; height: 16.3px;
+  padding: 1.3px 0.7px 2.45px 1.6px; border: 2.6px solid #c0392b;
+  background: #c0392b }
+.offset { left: 180.85px; top: 10.15px; width: 16.3px; height: 16.3px;
+  padding: 1.3px 0.7px 2.45px 1.6px; border: 2.6px solid #c0392b;
+  background: #c0392b }
+.fitted { left: 230.25px; top: 10.4px; width: 20.7px; height: 20.3px }
+.holder { position: absolute; left: 290px; top: 10px; width: 40px; height: 40px }
+.nested { position: static; display: block; margin-left: 0.4px; margin-top: 0.6px }
+.line { position: absolute; left: 340px; top: 10px; line-height: 0 }
+.gap { display: inline-block; width: 0.7px }
+.piece { position: static; vertical-align: top; margin-top: 0.3px; width: 20.4px;
+  height: 20.4px }
+.file { left: 10.6px; top: 60.3px; width: 20.7px; height: 20.3px }
+.framed { left: 50.45px; top: 60.55px; width: 16.3px; height: 16.3px;
+  padding: 1.3px 0.7px 2.45px 1.6px; border: 2.6px solid #c0392b;
+  background: #c0392b }

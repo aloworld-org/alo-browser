@@ -25,8 +25,10 @@
 //!
 //! In the box's own coordinates: CSS pixels from the top-left corner of its
 //! **content box**, with every SVG transform already applied. Paint moves it to
-//! wherever layout put the box, and under whatever CSS transform the box has,
-//! exactly as it moves a picture.
+//! wherever layout put the box, and under whatever CSS transform the box has —
+//! on whole device pixels, as Chrome 154 draws it (queue item 589): an inline
+//! `<svg>`'s from its border box's corner rounded to one, a picture's into its
+//! content box rounded and grown to fill it, as a picture is.
 //!
 //! # Where a drawing stops
 //!

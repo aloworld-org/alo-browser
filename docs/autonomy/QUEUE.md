@@ -14321,7 +14321,7 @@ What stage 2's exit gate actually measures: a person using it.
   pictures are plain Chrome's. `rounded-card`'s picture moved in 58
   pixels at its corners. Found: **592**.
 
-- [ ] **589. An `<svg>`'s viewport on whole device pixels, and a
+- [x] **589. An `<svg>`'s viewport on whole device pixels, and a
   fractional scale.** *Cut from 587 (iteration 352; ADR 0057 § 2).
   Feature: `docs/features.md` stage 1, paint. Needs measuring.* An
   `<svg>`'s drawing is placed at its content box as laid out, and clipped
@@ -14331,6 +14331,22 @@ What stage 2's exit gate actually measures: a person using it.
   `<svg>`'s viewport is measured in Chrome 154 at one and at two and
   written into ADR 0057's table, a frozen page of `<svg>`s at tenths of a
   pixel is Chrome's at both, and the table's rules are measured at 1.5.
+
+  **Cut, and done for the `<svg>` (iteration 354).** Measured first, in
+  Chrome 154 at one and at two on two probes (one at tenths, one seeded)
+  of eight kinds of `<svg>` and three of `<img>` showing an SVG file, 56 of
+  each: an `<svg>` is clipped to its content box with each edge rounded on
+  its own (672 of 672), and drawn from its border box's corner rounded so
+  plus its border and padding as laid out (1,120 of 1,120; the rounded
+  content box's corner fits none of the 224 padded), its `viewBox` fitted
+  to the content box as laid out; an SVG file in an `<img>` is drawn into
+  its rounded content box, grown to fill it (672 of 672). Written into ADR
+  0057's table and *Measured since*. `alo-paint`'s `drawing_of` clips and
+  places a drawing so. `svgs-on-device-pixels` (eight `<svg>`s and two
+  such pictures at tenths) has every border box, clip and shape Chrome's
+  or the rule's at one and at two (`svgs_on_device_pixels.rs`), and every
+  plain pixel Chrome's; six corpus cases' `<svg>` clips moved onto whole
+  pixels. The fractional scale is cut to **593**.
 
 - [ ] **590. A picture on a line with a width and a height set.** *Found
   building 587 (iteration 352). Feature: `docs/features.md` stage 1,
@@ -14368,6 +14384,16 @@ What stage 2's exit gate actually measures: a person using it.
   Chrome divides a rounded corner between two sides of different widths
   and colours is measured, built, and a frozen case of such borders is
   Chrome's at one and at two.
+
+- [ ] **593. ADR 0057's table at a fractional scale.** *Cut from 589
+  (iteration 354; ADR 0057 § 2). Feature: `docs/features.md` stage 1,
+  paint. Needs measuring.* Every rule in ADR 0057 § 2's table is measured
+  at one and at two only, and § 3 has the window round a fractional
+  screen down to a whole factor until one is measured. *Closes when:* the
+  table's rules are measured in Chrome 154 under
+  `--force-device-scale-factor=1.5` and written into the ADR, any that
+  differ are built, and a frozen page laid out and drawn at 1.5 is
+  Chrome's in numbers and pixels.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

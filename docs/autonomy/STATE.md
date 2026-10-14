@@ -35621,3 +35621,123 @@ says the rounded clip is built and owes 589, 591 and 592.
 280 queue items are open (588 closed; 592 added). The next unused queue
 number is **593** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 354 — queue item 589 cut and closed for the `<svg>`: an `<svg>` on whole device pixels
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the three states; stage 1's paint line), iterations 352 and 353's
+entries, queue items 576–577 and 585–592, ADR 0057 (§§ 2–5, *What is not
+decided here* and *Measured since*, items 565, 575, 587 and 588), ADR
+0022 §§ 1–2 and ADR 0027 § 5 (a drawing, and an SVG file's drawing
+confined), `alo-paint`'s `build.rs` (`drawing_of`, `picture_of`),
+`snap.rs`, `drawing.rs` and `path.rs`, and `docs/features.md`' *A box is
+drawn on whole device pixels* (the feature contract). No `AGENTS.md`
+exists here.
+
+**Why 589.** It is the first open item in the file whose dependencies are
+done: those before it wait as iterations 318–353 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person, 536–541 and 559 on pages), 588 closed. It depends on nothing
+and names its feature and closing condition. It said *needs measuring*;
+the measuring was done first. It named an `<svg>`'s viewport and a
+fractional scale; this iteration built the `<svg>` and cut the scale to
+**593** rather than leave a half-built item (LOOP.md step 3).
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, without `--disable-gpu`, the source not read): two probes, one
+at written tenths and one seeded, of eight kinds of `<svg>` — a shape
+reaching past it, a shape inside it, `overflow: visible`, a `2.6px`
+border with a padding of fractions (twice: shape past, shape inside), a
+`viewBox`, in the flow, on a line — and three kinds of `<img>` showing an
+SVG file, 56 of each, read along each shape's middle row and column
+against Chrome's own `getBoundingClientRect()`, computed border and
+padding from the same run, the padding put on the 1/64 grid. Every one of
+1,792 `<svg>`s fits: clipped to the content box with each edge rounded as
+`floor(x·s + 0.5) / s` (672 of 672 that reach past it; the snapped border
+box less border and padding fits none padded), drawn from the border
+box's corner so rounded plus border and padding as laid out (1,120 of
+1,120; the rounded content box's corner fits none of the 224 padded), a
+`viewBox` fitted to the content box as laid out (the rounded box's size
+fits 2 and 3 of 56). An SVG file in an `<img>` is a picture: drawn into
+its rounded content box, grown to fill it, 672 of 672 — the `<svg>`'s rule
+fits 14 and 28 of 56 at a `viewBox`. Written into ADR 0057's table and
+*Measured since*.
+
+**Built.** `alo-paint`'s `build.rs` `drawing_of` clips a drawing to
+`snap::to_device_pixels(content_box, scale)` and places it by a matrix:
+for an `<svg>`, a move to the snapped border box's corner plus border and
+padding; for a confined (picture's) drawing, a growth from the content
+box as laid out to the snapped one, and a move to its corner.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first; the tests
+were built with `--no-run` to warm. `scripts/gate.sh` in the foreground,
+read in the same step: first **`GATE EXIT 1`** — `alo-window`'s
+`the_window_composed` failed at scale two, `a-frozen-page-at-scale-two.png`
+and `a-strip-of-one-tab.png` each 877 pixels moved, all inside the
+offline page's waving-hand `<svg>` (CSS 214–265 × 113–164), which is this
+change; both references were backed up, rewritten with
+`ALO_UPDATE_REFERENCES=1`, and the moved area checked. Then, in the
+foreground and read in the same step: **`GATE EXIT 0`, "The gate is met.
+(10 of 10 steps)"**, 4,901 tests run, 4,901 passed. Only this entry and
+the commit came after it.
+
+**Gate, manual.**
+- Numbers: `alo-paint`'s new `drawings_on_device_pixels.rs` (an `<svg>`
+  at quarters with a border and a padding: its clip and square at one and
+  at two, and the same drawing confined, grown into its rounded box). New
+  case `svgs-on-device-pixels` (eight `<svg>`s and two SVG pictures at
+  tenths): `svgs_on_device_pixels.rs` has every border box at Chrome's
+  `getBoundingClientRect()` to 1/128 px, every clip at the rule's exactly
+  and every shape within 1/128 px of it, at one and at two.
+- Reference renders: the case's `render.png` and `render-at-2.png`, with
+  Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) beside them; wherever
+  both pictures have one of the case's three plain colours they are the
+  same, at one and at two, and blends are within 31 and 41 of 255 — the
+  worst at the corners of `offset`'s, `fitted`'s and `framed`'s shapes,
+  a fraction into a pixel both ways, where Chrome covers a pixel by the
+  lesser edge (ADR 0057, item 565); along a straight edge within 7, this
+  engine's 16 × 16 sampling (459). Every case's references were backed up
+  before `ALO_UPDATE_REFERENCES=1`: six cases' display lists and pictures
+  moved, every changed line belonging to a box that clips a drawing
+  (`alo-agenda-calendars`, `alo-agenda-mini-month`, `alo-downloads`,
+  `alo-meet-greeting`, `svg-relative-size`, `svg-shapes-filled`); and the
+  two window references above.
+- Mutation, each restored from a copy (`cmp` confirmed): the clip
+  unsnapped failed the case's clip, picture and reference tests; the
+  drawing moved to the rounded content box's corner failed its shape
+  test (`offset`) and picture; a picture's drawing not grown failed the
+  shape test (`file`); drawn where layout put it failed the case and both
+  unit tests.
+- Hostile input: nothing new reads bytes from outside; an SVG file is
+  parsed as before, and a content box of no width or height is not
+  divided by (its growth is one).
+- Cost: none measured; no speed claim.
+- One file, one responsibility: where a drawing lands is `build.rs`'
+  `drawing_of`, beside `picture_of`; the rounding is `snap.rs`'.
+- Also updated: ADR 0057, `snap.rs`' and `drawing.rs`' module docs,
+  `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 589 is ticked with a *Cut, and done for the `<svg>`* paragraph.
+Cut: **593** — ADR 0057's table at a fractional scale (1.5), measured,
+built where it differs, and a frozen page at 1.5 Chrome's.
+
+**Roadmap.** Stage 1's paint line: the Owed clause that named 589 now
+says the `<svg>` is built and owes 593, 591 and 592.
+
+**Unresolved obligations.**
+- 590, 591, 592 and 593, as above.
+- 576, 577, 585, 586 as before; 463 waits on a person; 568–571 on a
+  screen or pages; 560 and 564 on 502 behind 501; 572 on a person.
+- ADR 0057's item 562 compared a screen capture of `alo-offline` at two
+  with the composed reference; that reference's hand moved here, and the
+  capture was not retaken (it needs this Mac's display, which an
+  iteration does not drive).
+- No claim about speed is made.
+
+280 queue items are open (589 closed; 593 added). The next unused queue
+number is **594** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

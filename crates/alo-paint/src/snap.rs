@@ -43,7 +43,9 @@
 //! is where its background is drawn (queue item 575). A picture is drawn
 //! into its content box with each edge rounded here on its own — the
 //! content box itself, not the snapped border box less a padding of
-//! fractions (queue item 587).
+//! fractions (queue item 587). An `<svg>` is clipped to its content box
+//! rounded the same way, and drawn from its border box's corner rounded,
+//! plus its border and padding as laid out (queue item 589).
 //!
 //! # At a scale
 //!

@@ -261,8 +261,11 @@ correctness, not before it.
       content box on whole device pixels, 1,568 of 1,568 pictures
       measured (`pictures-on-device-pixels`), and since queue item 588
       (iteration 353) a rounded clip inside a border follows its inner
-      curve, 60 of 60 clips measured (`rounded-clips-inside-borders`).
-      Owed: an `<svg>`'s viewport and a fractional scale (589), an
+      curve, 60 of 60 clips measured (`rounded-clips-inside-borders`),
+      and since queue item 589 (iteration 354) an `<svg>` is clipped and
+      drawn on whole device pixels, 1,792 of 1,792 `<svg>`s and 672 of 672
+      SVG pictures measured (`svgs-on-device-pixels`).
+      Owed: a fractional scale (593), an
       `outline`, which is not drawn at all (591), and a border drawn side
       by side, whose rounded corners' insides are left unfilled (592). Since queue item
       573 (iteration 349) a spread shadow's corners are Chrome's —

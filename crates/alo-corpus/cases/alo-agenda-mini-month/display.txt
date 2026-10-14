@@ -4,11 +4,11 @@ fill box#5 rgb(240 236 230) at (0, 0) 240×280
 fill box#5 rgb(222 215 205) at (239, 0) 1×280
 clip box#5 to (0, 0) 239×280
 text box#12 "October 2026" rgb(16 42 67) 13px at (16, 30)
-clip box#17 to (185, 18.25) 15×15
-fill box#17 rgb(122 111 98) at (190, 21.375) 5×8.75
+clip box#17 to (185, 18) 15×15
+fill box#17 rgb(122 111 98) at (190, 21.125) 5×8.75
 unclip
-clip box#21 to (206, 18.25) 15×15
-fill box#21 rgb(122 111 98) at (211, 21.375) 5×8.75
+clip box#21 to (206, 18) 15×15
+fill box#21 rgb(122 111 98) at (211, 21.125) 5×8.75
 unclip
 text box#29 "M" rgb(122 111 98) 9.92px at (26.070313, 53.5)
 text box#32 "T" rgb(122 111 98) 9.92px at (57.03125, 53.5)

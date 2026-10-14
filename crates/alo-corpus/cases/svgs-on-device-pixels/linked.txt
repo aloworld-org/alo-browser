@@ -1,0 +1,4 @@
+# What the page named, and the file beside this case holding it. A frozen
+# file had no response, so its `.svg` stands in for the type
+# `image/svg+xml` (ADR 0027 § 1).
+/drawing.svg drawing.svg
