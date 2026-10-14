@@ -1,0 +1,71 @@
+block flow · document
+  block flow · generic
+    block flow · paragraph
+      inline flow · generic
+        text "one"
+      text " "
+      inline flow · generic
+        text "two"
+      text " "
+      inline flow · generic
+        text "three"
+    block flow · paragraph
+      inline flow · generic
+        inline flow · generic
+          text "one"
+        text " "
+        inline flow · generic
+          text "two"
+      text " "
+      inline flow · generic
+        text "after"
+    block flow · paragraph
+      inline flow · generic
+        inline flow · generic
+          text "one"
+        text " "
+        inline flow · generic
+          text "two"
+    block flow · paragraph
+      inline flow · generic
+        inline flow · generic
+          text "one"
+        text " "
+        inline flow · generic
+          text "two"
+    block flow · paragraph
+      inline flow · generic
+        inline flow · generic
+          text "one"
+        inline flow · generic
+          text " two"
+    block flow · paragraph
+      inline flow · generic
+        inline flow · generic
+          text "first"
+        text " "
+        inline flow · generic
+          text "second"
+        text " "
+        inline flow · generic
+          text "third"
+    block flow · paragraph
+      inline flow · generic
+        inline flow · generic
+          text "one"
+        text " "
+        inline flow · generic
+          text "two"
+        text " "
+        inline flow · generic
+          text "three"
+    block flow · paragraph
+      inline flow · generic
+        inline flow · generic
+          text "one"
+        text " "
+        inline flow · generic
+          text "two"
+        text " "
+        inline flow · generic
+          text "three"

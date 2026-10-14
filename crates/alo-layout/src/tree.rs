@@ -98,6 +98,7 @@ impl fmt::Display for BoxGeometry {
 pub struct LayoutTree {
     geometry: BTreeMap<BoxId, BoxGeometry>,
     fragments: BTreeMap<BoxId, Vec<Fragment>>,
+    spaces: BTreeMap<BoxId, Vec<Fragment>>,
     ellipses: Ellipses,
     issues: Vec<StyleIssue>,
     viewport: Size,
@@ -148,6 +149,16 @@ impl LayoutTree {
     /// the answer to "where is this" and not to "what do I draw".
     pub fn fragments(&self, id: BoxId) -> &[Fragment] {
         self.fragments.get(&id).map_or(&[], Vec::as_slice)
+    }
+
+    /// The white space with no letters a text box holds on each line that
+    /// goes on past it — the space between `</a>` and `<a>`, or the one its
+    /// text begins with — each a [`Fragment`] with no width whose
+    /// [`Fragment::space`] is the room it takes. Not where the box is, and
+    /// nothing is drawn for it but a decoration under it, over it or
+    /// through it (queue item 582); one an ellipsis hid is not here.
+    pub fn spaces(&self, id: BoxId) -> &[Fragment] {
+        self.spaces.get(&id).map_or(&[], Vec::as_slice)
     }
 
     /// The "…" each of a box's lines ends in where `text-overflow` cut it,
@@ -203,10 +214,15 @@ impl LayoutTree {
         Self {
             geometry,
             fragments,
+            spaces: BTreeMap::new(),
             ellipses: Ellipses::default(),
             issues,
             viewport,
         }
+    }
+
+    pub(crate) fn with_spaces(self, spaces: BTreeMap<BoxId, Vec<Fragment>>) -> Self {
+        Self { spaces, ..self }
     }
 
     pub(crate) fn with_ellipses(self, ellipses: Ellipses) -> Self {

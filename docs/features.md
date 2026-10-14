@@ -233,9 +233,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   line's thickness more each side, each end on the nearest device pixel;
   a line through never does. **A line runs under a space the line goes on
   past, and not under one that ends it** (queue item 580), where the space
-  hangs. Not yet: a space that is a text box of its own, between two
-  inlines (582), and `text-decoration-skip-ink`'s other values, which are
-  not read (581)
+  hangs, **whether it is the end of a piece of text, a text box of its
+  own between two inlines, or the start of one** (queue item 582); not
+  under a space where an ellipsis ends the line. Not yet: the space a kept
+  piece of text ends in before an ellipsis, which is still underlined
+  (583), and `text-decoration-skip-ink`'s other values, which are not read
+  (581)
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
   legend, and a radio you can tell from a checkbox. **Which control a label
   labels is HTML's rule, held once** (`alo-dom`'s `label.rs`, queue item

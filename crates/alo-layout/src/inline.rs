@@ -258,6 +258,9 @@ struct Pending {
     /// box do; an inline box's piece and a break do not. A space after the
     /// last of these on a line ends it, and hangs.
     goes_on: bool,
+    /// Whether it is white space and nothing else: room on the line, with
+    /// no letters to draw. It is the line's as a space, never a fragment.
+    blank: bool,
 }
 
 /// A piece of one box, on one line.
@@ -288,6 +291,14 @@ pub struct Fragment {
 pub struct LineBox {
     /// The pieces on it, in the order they were laid down.
     pub fragments: Vec<Fragment>,
+    /// The white space on it that is a piece of text with no letters — the
+    /// space between `</a>` and `<a>`, which is a text box of its own, or
+    /// the one a box's text begins with — and which the line goes on past.
+    /// Each is a [`Fragment`] with no width whose [`Fragment::space`] is the
+    /// room it takes. It draws nothing, it is not where its box is, and a
+    /// decoration runs under it (queue item 582). One that ends its line
+    /// hangs, and is not here.
+    pub spaces: Vec<Fragment>,
     /// How wide the line's content is.
     pub width: f32,
     /// How far the baseline sits below the top of the line.
@@ -326,6 +337,12 @@ impl InlineLayout {
     /// Every piece of every box, in the order they were laid down.
     pub fn fragments(&self) -> impl Iterator<Item = &Fragment> {
         self.lines.iter().flat_map(|line| line.fragments.iter())
+    }
+
+    /// Every white space with no letters a line goes on past; see
+    /// [`LineBox::spaces`].
+    pub fn spaces(&self) -> impl Iterator<Item = &Fragment> {
+        self.lines.iter().flat_map(|line| line.spaces.iter())
     }
 
     /// The rectangle a box occupies: the union of its pieces.
@@ -671,6 +688,14 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         self.open.last().map_or(ON_THE_LINE, |held| held.place)
     }
 
+    /// Whether nothing is on the line yet but white space with no letters,
+    /// which is room and not a piece: everything that asks whether a line
+    /// is empty asked it before such a space was recorded, and the answer
+    /// is the same.
+    fn holds_nothing(&self) -> bool {
+        self.current.iter().all(|pending| pending.blank)
+    }
+
     /// Whether something of this width still fits on the line being built.
     ///
     /// Something wider than the whole line goes on it anyway when the line is
@@ -679,7 +704,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     fn fits(&self, width: f32) -> bool {
         match self.available_width {
             None => true,
-            Some(available) => self.current.is_empty() || self.pen + width <= available + 0.001,
+            Some(available) => self.holds_nothing() || self.pen + width <= available + 0.001,
         }
     }
 
@@ -717,7 +742,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// newlines in a row are a blank line, and a page that quietly dropped it
     /// would be a page missing a paragraph's worth of space.
     fn break_line(&mut self) {
-        if self.current.is_empty() {
+        if self.holds_nothing() {
             self.content = true;
         }
         self.end_line();
@@ -754,6 +779,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             place,
             after: 0.0,
             goes_on: false,
+            blank: false,
         });
         self.reach(place, reach.above, reach.below);
         // A break is content even alone on its line: `<br><br>` is a blank
@@ -798,8 +824,9 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 // removes only those: a space `pre` kept is the indentation of
                 // a line of code, and it takes its room wherever it stands.
                 let preserved = !style.white_space.collapses_spaces();
-                if preserved || !self.current.is_empty() {
-                    self.pen += self.measurer.measure(piece, style, None).width;
+                if preserved || !self.holds_nothing() {
+                    let room = self.measurer.measure(piece, style, None).width;
+                    self.place_space(box_id, offset + start..offset + end, room, style);
                 }
                 self.laid(piece, style);
                 start = end;
@@ -878,9 +905,35 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             place,
             after: 0.0,
             goes_on: true,
+            blank: false,
         });
         self.pen += placed;
         self.reach(place, reach.above, reach.below);
+    }
+
+    /// White space with no letters, taking `room`: a [`Pending`] with no
+    /// width that ends in that space, so the line can tell whether it goes
+    /// on past it. It does not make the line taller, as it did not before it
+    /// was recorded.
+    fn place_space(&mut self, box_id: BoxId, range: Range<usize>, room: f32, style: &TextStyle) {
+        let ascent = self.measurer.ascender(style);
+        let descent = self.measurer.descender(style);
+        let place = self.innermost();
+        self.current.push(Pending {
+            fragment: Fragment {
+                box_id,
+                rect: Rect::new(self.pen, 0.0, 0.0, ascent + descent),
+                text: Some(range),
+                line: self.lines.len(),
+                space: room.max(0.0),
+            },
+            below_baseline: descent,
+            place,
+            after: 0.0,
+            goes_on: true,
+            blank: true,
+        });
+        self.pen += room;
     }
 
     /// Start a nested inline box.
@@ -961,6 +1014,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             .get(held.from..)
             .into_iter()
             .flatten()
+            .filter(|pending| !pending.blank)
             .map(|pending| pending.fragment.rect.right())
             .fold(held.start, f32::max)
     }
@@ -981,6 +1035,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             place: held.place,
             after: 0.0,
             goes_on: false,
+            blank: false,
         });
     }
 
@@ -1027,6 +1082,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             place,
             after: margin.right,
             goes_on: true,
+            blank: false,
         });
         self.pen += width;
         self.reach(place, baseline, height - baseline);
@@ -1036,7 +1092,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// start a new one.
     fn end_line(&mut self) {
         let top = self.lines.last().map_or(0.0, |line| line.top + line.height);
-        if self.current.is_empty() || !self.content {
+        if self.holds_nothing() || !self.content {
             // A box out of flow on a line that does not exist stands where
             // the line would have: at its top, aligned as a line of nothing.
             let start = self.available_width.unwrap_or(0.0).max(0.0) * self.alignment.share();
@@ -1073,9 +1129,12 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             .collect();
 
         let (baseline, height, hung) = self.settle();
+        // A space with no letters is room inside the line, never its end:
+        // one the line ends in hangs.
         let width = self
             .current
             .iter()
+            .filter(|pending| !pending.blank)
             .map(|pending| pending.fragment.rect.right() + pending.after)
             .fold(0.0, f32::max);
 
@@ -1098,26 +1157,33 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         {
             last.fragment.space = 0.0;
         }
-        let fragments: Vec<Fragment> = merge_adjacent(core::mem::take(&mut self.current))
+        let (blanks, pieces): (Vec<Pending>, Vec<Pending>) = core::mem::take(&mut self.current)
             .into_iter()
-            .map(|pending| {
-                // This is what a line box is for: everything hangs from one
-                // baseline, so a taller piece pushes the line down rather than
-                // pushing the others up. A piece raised or lowered hangs that
-                // far from it, and one in a `top` or `bottom` group hangs from
-                // that group's.
-                let above = pending.fragment.rect.size.height - pending.below_baseline;
-                let from = hung.get(pending.place.group).copied().unwrap_or(baseline);
-                let y = top + from - pending.place.raise - above;
-                Fragment {
-                    rect: pending.fragment.rect.translated(Point::new(start, y)),
-                    ..pending.fragment
-                }
-            })
+            .partition(|pending| pending.blank);
+        let on_line = |pending: Pending| {
+            // This is what a line box is for: everything hangs from one
+            // baseline, so a taller piece pushes the line down rather than
+            // pushing the others up. A piece raised or lowered hangs that
+            // far from it, and one in a `top` or `bottom` group hangs from
+            // that group's.
+            let above = pending.fragment.rect.size.height - pending.below_baseline;
+            let from = hung.get(pending.place.group).copied().unwrap_or(baseline);
+            let y = top + from - pending.place.raise - above;
+            Fragment {
+                rect: pending.fragment.rect.translated(Point::new(start, y)),
+                ..pending.fragment
+            }
+        };
+        let fragments: Vec<Fragment> = merge_adjacent(pieces).into_iter().map(on_line).collect();
+        let spaces: Vec<Fragment> = blanks
+            .into_iter()
+            .filter(|pending| pending.fragment.space > 0.0)
+            .map(on_line)
             .collect();
 
         self.lines.push(LineBox {
             fragments,
+            spaces,
             width,
             baseline,
             height,
@@ -2734,5 +2800,140 @@ mod tests {
         let items = [text(1, "one "), atomic(2, 10.0, 10.0)];
         let layout = lay_out(&items, Some(1000.0), &BlockFont);
         assert_eq!(spaces_of(&layout), [vec!["1+8"]]);
+    }
+
+    /// Each line's spaces with no letters: their box, where they start, and
+    /// how much room they take.
+    fn blanks_of(layout: &InlineLayout) -> Vec<Vec<String>> {
+        layout
+            .lines
+            .iter()
+            .map(|line| {
+                line.spaces
+                    .iter()
+                    .map(|space| {
+                        format!(
+                            "{}@{}+{}",
+                            space.box_id.as_usize(),
+                            space.rect.left(),
+                            space.space
+                        )
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_space_that_is_a_box_of_its_own_is_the_lines_and_never_a_piece() {
+        // `<u><a>one</a> <a>two</a></u>`: the space between the links takes
+        // its room, is recorded where it is, and is no fragment of anything.
+        let items = [text(1, "one"), text(2, " "), text(3, "two")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["1@0", "3@32"]]);
+        assert_eq!(blanks_of(&layout), [vec!["2@24+8"]]);
+        let space = layout.spaces().next().expect("the space is recorded");
+        assert_eq!(space.rect, Rect::new(24.0, 0.0, 0.0, 16.0));
+        assert_eq!(space.text, Some(0..1));
+        assert_eq!(layout.union_for(box_id(2)), None, "it draws nothing");
+        assert!((layout.lines[0].width - 56.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_space_a_boxs_text_begins_with_is_a_space_before_its_piece() {
+        // `<u>one<span> two</span></u>`: the span's piece is its letters,
+        // after the space, and the space is the span's.
+        let items = [text(1, "one"), text(2, " two")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["1@0", "2@32"]]);
+        assert_eq!(blanks_of(&layout), [vec!["2@24+8"]]);
+        assert_eq!(
+            layout.spaces().next().and_then(|space| space.text.clone()),
+            Some(0..1)
+        );
+        let two = layout.union_for(box_id(2)).expect("`two` has a place");
+        assert_eq!(two, Rect::new(32.0, 0.0, 24.0, 16.0));
+    }
+
+    #[test]
+    fn a_space_of_its_own_that_ends_a_line_hangs_and_is_not_recorded() {
+        // `first` is 40, its space 8, and `second` 48 more does not fit in
+        // 60: the line ends in the space, which hangs, and is no wider.
+        let items = [text(1, "first"), text(2, " "), text(3, "second")];
+        let layout = lay_out(&items, Some(60.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["1@0"], vec!["3@0"]]);
+        assert_eq!(blanks_of(&layout), [Vec::<String>::new(), Vec::new()]);
+        assert!((layout.lines[0].width - 40.0).abs() < 0.001);
+
+        // The same at the end of the last line.
+        let items = [text(1, "one"), text(2, " ")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(blanks_of(&layout), [Vec::<String>::new()]);
+        assert!((layout.lines[0].width - 24.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_space_of_its_own_at_a_lines_start_takes_no_room_unless_it_was_kept() {
+        let items = [text(1, " "), text(2, "one")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["2@0"]]);
+        assert_eq!(blanks_of(&layout), [Vec::<String>::new()]);
+
+        // `pre` keeps them, each a place to break, and each room the line
+        // goes on past.
+        let pre = TextStyle {
+            white_space: alo_box::WhiteSpace::Pre,
+            ..TextStyle::default()
+        };
+        let items = [
+            InlineItem::Text {
+                box_id: box_id(1),
+                text: "  ".to_owned(),
+                style: pre.clone(),
+            },
+            InlineItem::Text {
+                box_id: box_id(2),
+                text: "one".to_owned(),
+                style: pre,
+            },
+        ];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["2@16"]]);
+        assert_eq!(blanks_of(&layout), [vec!["1@0+8", "1@8+8"]]);
+    }
+
+    #[test]
+    fn a_line_of_only_a_space_of_its_own_is_no_line() {
+        // As before the space was recorded: a lone collapsible space between
+        // two blocks makes no line, and a word too wide for the line still
+        // goes on the first one after a space that took no room.
+        let layout = lay_out(&[text(1, " ")], Some(1000.0), &BlockFont);
+        assert!(layout.lines.is_empty());
+        let items = [text(1, " "), text(2, "enormous")];
+        let layout = lay_out(&items, Some(20.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["2@0"]]);
+
+        // A kept space is room on the line and still not a thing on it: a
+        // word too wide for the line goes after it rather than to a line
+        // of its own, which leaves the space's line empty.
+        let kept = TextStyle {
+            white_space: alo_box::WhiteSpace::PreWrap,
+            ..TextStyle::default()
+        };
+        let items = [
+            InlineItem::Text {
+                box_id: box_id(1),
+                text: " ".to_owned(),
+                style: kept.clone(),
+            },
+            InlineItem::Text {
+                box_id: box_id(2),
+                text: "enormous".to_owned(),
+                style: kept,
+            },
+        ];
+        let layout = lay_out(&items, Some(20.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["2@8"]]);
+        assert_eq!(blanks_of(&layout), [vec!["1@0+8"]]);
     }
 }

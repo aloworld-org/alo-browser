@@ -12,23 +12,20 @@
 //! by `@font-face` and the root 300 px wide as the case's viewport is,
 //! taken 2026-10-14 and cut to the case's size.
 //!
-//! A decoration is the only thing on its row that runs unbroken for twelve
-//! CSS pixels or more, so a row with such a run is a line's row, and each
-//! such run is a piece of a line. An underline steps aside where a letter's
-//! ink crosses it (`text-decoration-skip-ink`, queue item 579), so a line is
-//! several pieces, and they are compared piece by piece. What a letter
-//! inks inside a gap is never as long: two device pixels at one and ten at
-//! two in Chrome's pictures, where the shortest piece of a line is 26 and
-//! 51.
+//! Lines are read and compared as `alo_corpus::decoration_rows` reads them:
+//! a row with a run of ink twelve CSS pixels long is a line's row, and each
+//! such run a piece of it. What a letter inks inside a gap is never as long
+//! here: two device pixels at one and ten at two in Chrome's pictures, where
+//! the shortest piece of a line is 26 and 51.
 //!
 //! `render-at-2.png` is this engine's picture at two, a reference beside
 //! `render.png` and never in its place (ADR 0057 § 5).
 
+use alo_corpus::decoration_rows::{self, Lines, lines};
 use alo_corpus::{Case, cases_directory, check_picture, corpus_fonts};
 use alo_layout::Size;
 use alo_paint::Canvas;
 use alo_renderer::{Drawing, Screen, render_at};
-use std::collections::BTreeMap;
 use std::rc::Rc;
 
 fn case() -> Option<Case> {
@@ -54,42 +51,6 @@ fn chrome(case: &Case, name: &str) -> Option<Canvas> {
     alo_paint::from_png(&bytes).ok()
 }
 
-/// Whether a pixel is ink: black or the case's red, not the page's white
-/// and not a letter's soft edge.
-fn ink(canvas: &Canvas, x: u32, y: u32) -> bool {
-    canvas.at(x, y).is_some_and(|pixel| {
-        let (red, green, blue, _) = pixel.to_rgba8();
-        red.min(green).min(blue) < 100
-    })
-}
-
-/// Each row holding a run of ink at least `run` device pixels long, and
-/// every such run on it: where it starts and ends.
-fn lines(canvas: &Canvas, run: u32) -> Lines {
-    let mut rows: Lines = BTreeMap::new();
-    for y in 0..canvas.height() {
-        let mut x = 0;
-        while x < canvas.width() {
-            if !ink(canvas, x, y) {
-                x += 1;
-                continue;
-            }
-            let start = x;
-            while x < canvas.width() && ink(canvas, x, y) {
-                x += 1;
-            }
-            if x - start >= run {
-                rows.entry(y).or_default().push((start, x));
-            }
-        }
-    }
-    rows
-}
-
-/// The pieces of the lines in a picture: each row a line is on, and where
-/// each of its pieces starts and ends.
-type Lines = BTreeMap<u32, Vec<(u32, u32)>>;
-
 fn both(scale: u32, reference: &str) -> Result<(Lines, Lines), String> {
     let case = case().ok_or("the case reads")?;
     let chrome =
@@ -109,24 +70,8 @@ fn both(scale: u32, reference: &str) -> Result<(Lines, Lines), String> {
 
 fn compare(theirs: &Lines, ours: &Lines, rows: usize) {
     assert_eq!(theirs.len(), rows, "Chrome's rows: {theirs:?}");
-    assert_eq!(
-        ours.keys().collect::<Vec<_>>(),
-        theirs.keys().collect::<Vec<_>>(),
-        "every line on Chrome's rows, as thick"
-    );
-    for ((row, their_pieces), (_, our_pieces)) in theirs.iter().zip(ours) {
-        assert_eq!(
-            their_pieces.len(),
-            our_pieces.len(),
-            "row {row}: Chrome's pieces {their_pieces:?}, ours {our_pieces:?}"
-        );
-        for ((start, end), (our_start, our_end)) in their_pieces.iter().zip(our_pieces) {
-            assert!(
-                start.abs_diff(*our_start) <= 1 && end.abs_diff(*our_end) <= 1,
-                "row {row}: Chrome's piece runs {start}..{end}, ours {our_start}..{our_end}"
-            );
-        }
-    }
+    let compared = decoration_rows::compare(theirs, ours);
+    assert!(compared.is_ok(), "{compared:?}");
 }
 
 // At 14 px a tenth of the size, cut down, is one device pixel per CSS

@@ -13817,7 +13817,7 @@ What stage 2's exit gate actually measures: a person using it.
   ends in not. The five changed pixels at one and twenty at two each now
   equal Chrome's. Found: **582**.
 
-- [ ] **582. A space that is a text box of its own is decorated.**
+- [x] **582. A space that is a text box of its own is decorated.**
   *Found building 580 (iteration 344), by reading, not yet drawn.
   Feature: `docs/features.md` stage 2, `text-decoration`. Needs a
   case.* `<u><a>one</a> <a>two</a></u>`: the space between the links is a
@@ -13827,6 +13827,44 @@ What stage 2's exit gate actually measures: a person using it.
   frozen case with such a space under a decoration is Chrome's at one and
   at two, row by row and piece by piece, and the space ending a line is
   still bare.
+  ***Done (iteration 345).*** Seen first in Chrome 154 (headless,
+  `--force-device-scale-factor=1` and `=2`, without `--disable-gpu`): the
+  line runs on under such a space and under the space a box's text
+  begins with (`<span> two</span>`), under, over and through alike; one
+  that ends a wrapped line is bare; and on a line ended in an ellipsis
+  none is drawn under a space where what is kept ends, whether it is a
+  box of its own or the end of a kept piece of text, the "…" standing
+  after it. Built: `alo-layout`'s `LineBox::spaces` — a white-space piece
+  that takes room is recorded as a fragment with no width whose `space`
+  is that room, never among the line's fragments, so no box, union or hit
+  test moves; a line ending in one lets it hang (`goes_on`), it never
+  widens the line or an inline box's extent, and every "is the line still
+  empty" question (`holds_nothing`) is answered as before it was
+  recorded. The engine carries them as `LayoutTree::spaces`, moved with
+  an atomic or out-of-flow box; `ellipsis.rs` hides those where what is
+  kept ends (`Truncated::hidden_spaces`); `alo-paint`'s `draw_text` draws
+  a text box's decorations over them, and a white-space box with no
+  rectangle is drawn for that alone. Evidence: `cases/decorated-spaces`
+  (nine lines) with `chrome.png`, `chrome-at-2.png` and `render-at-2.png`;
+  `a_decorated_space.rs`, every line's every piece Chrome's within a
+  device pixel at one and at two, the row readers now shared as
+  `alo_corpus::decoration_rows`; six `inline.rs` and one `ellipsis.rs`
+  unit tests in numbers. `web-first-website`'s five links whose text
+  begins with a newline are now underlined from where Chrome's are: its
+  30 changed pixels 148.7 levels from Chrome's on average before, 5.6
+  after. Found: **583**.
+
+- [ ] **583. Before an ellipsis, a kept piece of text's last space is
+  bare.** *Found building 582 (iteration 345). Feature: `docs/features.md`
+  stage 2, `text-decoration`. Measured.* Chrome 154 draws no decoration
+  under the space a kept piece of text ends in where a "…" ends the line:
+  `text-overflow-ellipsis`' `#underlined` (`aaaa bbbbbbbbb` in 61 px) is
+  underlined 8..47 in Chrome and 8..52 here, because `build.rs` draws a cut
+  piece's lines `Cut::width` wide, which counts the kept space; the case's
+  own comment says the space is underlined, and is wrong. *Closes when:*
+  a cut piece's lines stop where its kept letters end, the case's comment
+  is corrected, and `text-overflow-ellipsis`' underline is Chrome's at one
+  in a frozen Chrome picture beside it.
 
 - [ ] **581. `text-decoration-skip-ink`'s values.** *Found building 579
   (iteration 343). Feature: `docs/features.md` stage 2, `text-decoration`.

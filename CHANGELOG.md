@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An underline runs under the space between two links.** Where an
+  underlined phrase held two links, or a styled word whose text began with
+  a space, the space between them was left bare, a break in the line that
+  Chrome does not have. It is underlined now, as is a line over or through
+  it; a space that ends a line, or that a "…" ends a line at, still is
+  not, as in Chrome. The same space at the start of a link on the Web's
+  first website is now underlined where Chrome underlines it.
+
 - **An underline runs under the space between words in different
   styles.** Where an underlined phrase went on into a differently
   coloured or styled part of itself, the space just before that part was

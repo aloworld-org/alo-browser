@@ -378,6 +378,11 @@ impl Builder<'_> {
     /// Everything one box draws for itself, and what it could not.
     fn draw_box(&self, id: BoxId, out: &mut Vec<DisplayItem>) -> Vec<alo_css::StyleIssue> {
         let Some(geometry) = self.layout.get(id) else {
+            // A text box of nothing but white space has no rectangle, and a
+            // line that goes on past it still runs its decorations under it.
+            if let Some(BoxKind::Text { text, .. }) = self.boxes.get(id).map(|node| &node.kind) {
+                self.draw_text(id, text, out);
+            }
             return Vec::new();
         };
         let Some(node) = self.boxes.get(id) else {
@@ -809,6 +814,8 @@ impl Builder<'_> {
         let Some(pen) = self.pen_for(id) else {
             return;
         };
+        let decorations = self.decorations_of(id);
+        self.draw_spaces(id, &decorations, &pen, out);
         let Pen {
             font,
             oblique,
@@ -820,7 +827,6 @@ impl Builder<'_> {
         let scale = self.styles.scale();
         let shadows = self.text_shadows_of(id);
 
-        let decorations = self.decorations_of(id);
         let fragments = self.layout.fragments(id);
         if fragments.is_empty() {
             // A text box that is not inside a line — a flex or grid item —
@@ -920,6 +926,42 @@ impl Builder<'_> {
                 oblique,
             };
             Self::decorations_at(id, &decorations, piece, &letters, scale, out);
+        }
+    }
+
+    /// White space with no letters that a line goes on past — the space
+    /// between `</a>` and `<a>`, or the one a box's text begins with — drawn
+    /// as its decorations and nothing else (queue item 582). It has no
+    /// letters for a line to step aside for.
+    fn draw_spaces(
+        &self,
+        id: BoxId,
+        decorations: &[(DecorationLine, Rgba)],
+        pen: &Pen,
+        out: &mut Vec<DisplayItem>,
+    ) {
+        if decorations.is_empty() {
+            return;
+        }
+        let (size, ascender) = (pen.size, pen.ascender);
+        let scale = self.styles.scale();
+        for space in self.layout.spaces(id) {
+            let piece = crate::decoration::Piece {
+                top: space.rect.top(),
+                ascent: ascender,
+                left: space.rect.left(),
+                width: space.rect.size.width + space.space,
+                size,
+            };
+            let letters = Letters {
+                text: "",
+                font: &pen.font,
+                size,
+                letter_spacing: pen.letter_spacing,
+                origin: (space.rect.left(), space.rect.top() + ascender),
+                oblique: pen.oblique,
+            };
+            Self::decorations_at(id, decorations, piece, &letters, scale, out);
         }
     }
 

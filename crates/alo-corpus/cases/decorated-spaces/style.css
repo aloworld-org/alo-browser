@@ -1,0 +1,11 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 14px }
+p { margin: 6px 0 }
+.under { text-decoration: underline }
+.over { text-decoration: overline }
+.through { text-decoration: line-through }
+.red { color: #cc0000 }
+.narrow { width: 100px }
+/* A line ended in an ellipsis: what is kept is decorated, the space before
+   a cut inside a word with it, and a space where what is kept ends is not. */
+.cut { width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.cut.wider { width: 75px }

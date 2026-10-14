@@ -34633,3 +34633,135 @@ line goes on past (580, done); the owed clause loses 580 and gains 582.
 279 queue items are open (580 closed; 582 added). The next unused queue
 number is **583** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 345 — queue item 582 closed: a decoration runs under a space that is a text box of its own
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+head and stage 2's window line; iteration 344's entry; queue items 566,
+579, 580, 581 and 582; `docs/features.md`'s `text-decoration` line;
+`docs/conformance.md`'s decoration paragraph; `alo-layout`'s `inline.rs`
+(`add_run`, `place_text`, `end_line`, `merge_adjacent`, `content_right`,
+`fits`, `break_line`), `engine.rs` (`place_inline_content`,
+`place_atomics`), `out_of_flow.rs`, `tree.rs` and `ellipsis.rs`;
+`alo-paint`'s `build.rs` (`draw_box`, `draw_text`, `decorations_at`);
+the corpus test `a_line_under_text_at_a_scale.rs`. No ADR governs a
+space's decoration; Chrome's own screenshots decided it. No `AGENTS.md`
+exists here.
+
+**Why 582.** It is the first open item in the file whose dependencies
+are done: the items before it wait as iterations 318–344 recorded (463
+on a person, 560 and 564 on 502 behind 501, 568–571 on a screen or
+pages, 572 on a person), and 582 depends on nothing and names its
+feature and closing condition; its "needs a case" is met in this
+iteration.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, without `--disable-gpu`, `DejaVu Sans` by `@font-face`, the
+source not read): the line runs on under a space between two `<a>`s,
+under, over and through, whoever declares it, and under the space a
+box's text begins with; a space that ends a wrapped line is bare. On a
+line ended in "…", nothing is drawn under a space where what is kept
+ends — a box of its own, the start of one, or the end of a kept piece
+of text (`one two three` in 75 px is underlined 0..56, the "…" after
+the space) — and a space before a cut inside a word is underlined.
+
+**Built.**
+- `alo-layout`'s `LineBox::spaces`: a white-space piece that takes room
+  is pushed as a pending fragment with no width whose `space` is that
+  room (`place_space`, `Pending::blank`), and `end_line` puts it among
+  the line's spaces, never its fragments, so no rectangle, union,
+  `layout.txt`, `boxes.txt`, `agent.txt` or hit test moves. It goes on
+  the line (`goes_on`), so one the line ends in hangs and is dropped; it
+  never widens the line or an inline box (`content_right`); and every
+  "is the line still empty" question (`holds_nothing`: `fits`,
+  `break_line`, `add_run`, `end_line`) answers as before it was recorded.
+- `engine.rs` carries them as `Placed::spaces` and `LayoutTree::spaces`,
+  moved with an atomic box (`moved`) and an out-of-flow one.
+- `ellipsis.rs`: `Truncated::hidden_spaces`, the spaces at or after
+  where what is kept ends, removed before they reach the tree.
+- `alo-paint`'s `build.rs`: `draw_spaces` draws a text box's decorations
+  over its spaces; `draw_box` draws a white-space text box with no
+  rectangle for that alone.
+- `alo-corpus`'s `decoration_rows.rs`: the row reader and comparison
+  `a_line_under_text_at_a_scale.rs` had, shared with the new test.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (clippy
+found `draw_text` over 100 lines, so the spaces went into their own
+method; a missing `# Errors` section; a `panic!` in a test helper —
+each fixed, nothing silenced). `scripts/gate.sh`, started in the
+foreground, passed the tool's 600 s limit and was moved to the
+background; the next call waited on it with one foreground `until`
+loop, nothing else running: **`GATE EXIT 0`, "The gate is met. (10 of
+10 steps)"**, 4,842 tests run, 4,842 passed. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: six `inline.rs` unit tests (a space box at 24 +8
+  with no fragment and no union, `two` still at 32; a span's leading
+  space before its 24-wide piece at 32; a space ending a wrapped line
+  and the last line hangs, the lines 40 and 24 wide; a collapsible space
+  at a line's start takes nothing and `pre`'s two take 8 each; a lone
+  space is no line, and a `pre-wrap` space before a word too wide stays
+  on its line with the word at 8) and one `ellipsis.rs` test (the space
+  where what is kept ends is hidden in 48 and in 40, the one before it
+  kept, nothing in 80).
+- Reference renders: `cases/decorated-spaces` (new: nine lines, its
+  `chrome.png`, `chrome-at-2.png`, `render.png`, `render-at-2.png` and
+  the four text references). `a_decorated_space.rs` reads every row
+  with a run of ink 12 CSS pixels long in Chrome's pictures and ours:
+  the same 9 rows at one and 18 at two, each a single piece within a
+  device pixel of Chrome's. Rewritten with `ALO_UPDATE_REFERENCES=1`,
+  the references backed up first: only `web-first-website` moved — five
+  `fill` lines in `display.txt` and 30 pixels of `render.png`, the
+  underline under five links' leading newline. Against a Chrome 154
+  screenshot of the same bytes (doctype added, as its frozen boxes were
+  measured), those pixels are 148.7 levels off on average before and
+  5.6 after; Chrome's blue runs start at 324, 383, 268, 363 and 207, as
+  ours now do.
+- Mutation, restored from copies (`cmp` confirmed): the ellipsis hiding
+  nothing fails both corpus comparisons (row 190: ours 0..60, Chrome's
+  0..56); `hidden_spaces` never recorded fails the ellipsis test; a
+  space that never hangs fails an `inline.rs` test; "empty" meaning no
+  pending at all survived at first, so the `pre-wrap` assertion was
+  added and now fails; paint ignoring spaces fails both corpus
+  comparisons with Chrome's single run broken in three.
+- Hostile input: nothing new reads bytes from outside; a space measured
+  narrower than nothing is clamped to zero and an empty one is dropped.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: what a line holds stays `inline.rs`';
+  what an ellipsis hides stays `ellipsis.rs`'; what a piece draws stays
+  `build.rs`'; reading lines from a picture is `decoration_rows.rs`'
+  alone.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the `ellipsis.rs` module's measured
+  rules and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 582 is ticked with a *Done* paragraph. Found: **583** (before
+an ellipsis, a kept piece of text's own last space is underlined here:
+`text-overflow-ellipsis`' `#underlined` is 8..47 in Chrome and 8..52
+here, and that case's comment, which says the space is underlined, is
+wrong).
+
+**Roadmap.** Stage 2's window line: the Built clause names spaces of
+their own (582, done, `LineBox::spaces`); the owed clause loses 582 and
+gains 583.
+
+**Unresolved obligations.**
+- 583 (new) and 581; 463 waits on a person; 576 (an ADR) and 577;
+  573–575, 568–571 as before; 560 and 564 on 502 behind 501; 572 on a
+  person.
+- The "…" after a space that is a box of its own still stands where the
+  text before the space ended, where Chrome's stands after it
+  (`ellipsis.rs`, *What is not here*); its decoration rows agree because
+  neither draws under that space.
+- `alo_paint::from_png` refused Chrome's screenshots saved as RGB until
+  they were saved as RGBA; whether a frozen picture in RGB should be
+  read is not an item yet.
+- No claim about speed is made.
+
+279 queue items are open (582 closed; 583 added). The next unused queue
+number is **584** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

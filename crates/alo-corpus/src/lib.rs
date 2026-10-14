@@ -59,6 +59,7 @@
 pub mod answering;
 pub mod case;
 pub mod check;
+pub mod decoration_rows;
 pub mod rendering;
 pub mod sheets;
 

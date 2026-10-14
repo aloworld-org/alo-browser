@@ -108,6 +108,7 @@ pub fn compute(
         return LayoutTree::from_parts(BTreeMap::new(), BTreeMap::new(), issues, viewport);
     };
     LayoutTree::from_parts(laid_out.geometry, laid_out.fragments, issues, viewport)
+        .with_spaces(laid_out.spaces)
         .with_ellipses(laid_out.ellipses)
 }
 
@@ -120,6 +121,9 @@ struct LaidOut {
     baseline: Option<f32>,
     geometry: BTreeMap<BoxId, BoxGeometry>,
     fragments: BTreeMap<BoxId, Vec<Fragment>>,
+    /// Every space with no letters a line goes on past, by its box; see
+    /// [`crate::inline::LineBox::spaces`].
+    spaces: BTreeMap<BoxId, Vec<Fragment>>,
     /// What `text-overflow` hid; see [`crate::ellipsis`].
     ellipses: Ellipses,
 }
@@ -132,6 +136,9 @@ pub(crate) struct Placed {
     pub(crate) geometry: BTreeMap<BoxId, BoxGeometry>,
     /// Every piece of every box laid out in a line.
     pub(crate) fragments: BTreeMap<BoxId, Vec<Fragment>>,
+    /// Every space with no letters a line goes on past, by its box. Not a
+    /// piece: it draws nothing and is not where its box is.
+    pub(crate) spaces: BTreeMap<BoxId, Vec<Fragment>>,
     /// Where the baselines of each inline formatting context's first and
     /// last lines stand; see [`crate::baseline`].
     pub(crate) lines: BTreeMap<BoxId, baseline::Lines>,
@@ -272,6 +279,7 @@ fn lay_out_subtree(
         baseline: baseline::of_atomic(boxes, styles, root, &placed.lines, &placed.geometry),
         geometry: placed.geometry,
         fragments: placed.fragments,
+        spaces: placed.spaces,
         ellipses: placed.ellipses,
     })
 }
@@ -800,6 +808,13 @@ fn place_inline_content(
             origin,
             strut: &strut,
         };
+        // Before the lines are ended: an ellipsis hides the spaces past it.
+        for space in layout.spaces() {
+            out.spaces.entry(space.box_id).or_default().push(Fragment {
+                rect: space.rect.translated(origin),
+                ..space.clone()
+            });
+        }
         ellipsis::place(boxes, styles, id, &lines, measure, out);
         for fragment in layout.fragments() {
             let placed = Fragment {
@@ -884,14 +899,10 @@ fn place_atomics(
                     out.geometry.insert(inner, held);
                 }
                 for (inner, pieces) in sub.fragments {
-                    let moved: Vec<Fragment> = pieces
-                        .into_iter()
-                        .map(|piece| Fragment {
-                            rect: piece.rect.translated(offset),
-                            ..piece
-                        })
-                        .collect();
-                    out.fragments.insert(inner, moved);
+                    out.fragments.insert(inner, moved(pieces, offset));
+                }
+                for (inner, spaces) in sub.spaces {
+                    out.spaces.insert(inner, moved(spaces, offset));
                 }
                 // Relative to the boxes they end, which moved above.
                 out.ellipses.extend(sub.ellipses);
@@ -1004,6 +1015,18 @@ fn holds_one_line(boxes: &BoxTree, id: BoxId) -> bool {
             ..
         })
     )
+}
+
+/// Pieces placed in an atomic box's own layout, moved to where the box
+/// stands.
+fn moved(pieces: Vec<Fragment>, offset: Point) -> Vec<Fragment> {
+    pieces
+        .into_iter()
+        .map(|piece| Fragment {
+            rect: piece.rect.translated(offset),
+            ..piece
+        })
+        .collect()
 }
 
 /// The rectangle a box and everything under it were drawn in.

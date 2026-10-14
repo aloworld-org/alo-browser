@@ -69,10 +69,15 @@ pub(crate) fn stand_at_static_position(
         if let Some(placed) = out.geometry.get_mut(&inner) {
             placed.border_box = placed.border_box.translated(by);
         }
-        if let Some(pieces) = out.fragments.get_mut(&inner) {
-            for piece in pieces {
-                piece.rect = piece.rect.translated(by);
-            }
+        let spaces = out.spaces.get_mut(&inner).into_iter().flatten();
+        for piece in out
+            .fragments
+            .get_mut(&inner)
+            .into_iter()
+            .flatten()
+            .chain(spaces)
+        {
+            piece.rect = piece.rect.translated(by);
         }
     }
 }

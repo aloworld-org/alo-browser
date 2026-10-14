@@ -32,6 +32,12 @@
 //! - Whole clusters are hidden from the end, and a space before the cut stays
 //!   — `aaaa bbbbbbbbb` in 61 px is `aaaa …`. The "…" stands straight after
 //!   the last glyph kept, not after an inline box's padding beside it.
+//! - A decoration stops where what is kept ends: no line is drawn under a
+//!   space there, whether it ends a piece of text or is a text box of its
+//!   own (iteration 345). A space with no letters before that is decorated;
+//!   one there or after it is recorded as hidden (queue item 582). A kept
+//!   piece of text's own last space is still drawn under here (queue item
+//!   583).
 //! - An atomic box that does not fit whole, with its margins, is hidden whole.
 //! - An inline box's own background and border are not hidden: they are the
 //!   box's, not the text's, and the box's clip cuts them as before.
@@ -123,6 +129,10 @@ pub struct Truncated {
     pub cuts: Vec<(BoxId, Cut)>,
     /// The atomic boxes not drawn.
     pub hidden: Vec<BoxId>,
+    /// The spaces with no letters where what is kept ends or after it, each
+    /// by its box and the byte its text starts at
+    /// ([`crate::inline::LineBox::spaces`]): nothing is drawn under them.
+    pub hidden_spaces: Vec<(BoxId, usize)>,
 }
 
 /// End every line of `layout` wider than `room` in an ellipsis set in
@@ -274,7 +284,23 @@ fn end_line(
             cut = right > limit + ALLOWANCE;
         }
     }
-    end.or(cut.then_some(0.0))
+    let end = end.or(cut.then_some(0.0));
+    // A space with no letters where what is kept ends, or after it, is not
+    // decorated: Chrome 154 puts the "…" after such a space and draws no
+    // line under it, as it draws none under the space a kept piece of text
+    // ends in there (measured, iteration 345).
+    if let Some(kept) = end.filter(|_| cut) {
+        for space in &line.spaces {
+            if let Some(range) = space
+                .text
+                .as_ref()
+                .filter(|_| space.rect.left() >= kept - ALLOWANCE)
+            {
+                out.hidden_spaces.push((space.box_id, range.start));
+            }
+        }
+    }
+    end
 }
 
 /// One formatting context's lines, as the engine placed them.
@@ -333,6 +359,11 @@ pub(crate) fn place(
         out.ellipses.cuts.entry(box_id).or_default().push(cut);
     }
     out.ellipses.hidden.extend(truncated.hidden);
+    for (box_id, start) in truncated.hidden_spaces {
+        if let Some(spaces) = out.spaces.get_mut(&box_id) {
+            spaces.retain(|space| space.text.as_ref().is_none_or(|range| range.start != start));
+        }
+    }
 }
 
 /// Whether the lines of `id` end in an ellipsis where they overflow:
@@ -535,6 +566,31 @@ mod tests {
             )],
         );
         assert!(close(truncated.ellipses[0].rect.left(), 16.0));
+    }
+
+    #[test]
+    fn a_space_of_its_own_where_what_is_kept_ends_is_hidden_and_one_before_is_not() {
+        // `<a>ab</a> <a>cd</a> <a>efgh</a>`, eight a character: the spaces
+        // run 16..24 and 40..48. In 48 the "…" must start by 40, so `cd` is
+        // kept whole, `efgh` is hidden, and the space after `cd`, where what
+        // is kept ends, is hidden with it; the one before `cd` is not.
+        let items = [
+            text(1, "ab"),
+            text(2, " "),
+            text(3, "cd"),
+            text(4, " "),
+            text(5, "efgh"),
+        ];
+        let truncated = ended(&items, 48.0);
+        assert_eq!(truncated.hidden_spaces, vec![(box_id(4), 0)]);
+        assert!(close(truncated.ellipses[0].rect.left(), 40.0));
+        // In 40 the cut falls inside `cd`, after `c`: the space before it is
+        // still kept, and the one after it hidden.
+        let truncated = ended(&items, 40.0);
+        assert_eq!(truncated.hidden_spaces, vec![(box_id(4), 0)]);
+        assert!(close(truncated.ellipses[0].rect.left(), 32.0));
+        // A line that fits hides nothing.
+        assert!(ended(&items, 80.0).hidden_spaces.is_empty());
     }
 
     #[test]

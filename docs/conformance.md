@@ -206,10 +206,16 @@ edges exactly on Chrome's device pixel, and the other eight one pixel off
 where the edge falls on a half. `text-decorations`' lines are Chrome's
 piece by piece at both scales, the space before the decorated span's
 child included (item 580): a line runs under a space its line goes on
-past and stops before one that ends the line. A space that is a text
-box of its own — between two inlines — is still bare (582).
-`text-decoration-skip-ink` is not read, so `none` and `all` draw as
-`auto` does (581).
+past and stops before one that ends the line. So does a space that is a
+text box of its own — between two inlines — or the first thing in one
+(item 582): `decorated-spaces` is Chrome's piece by piece at one and at
+two, its narrow line ending bare and its two ellipsis lines stopping
+where what is kept ends, and the leading spaces of five links on
+`web-first-website` are underlined where Chrome's are. Before an
+ellipsis, the space a kept piece of text ends in is still underlined
+here and is not in Chrome (583; `text-overflow-ellipsis`' own comment
+says otherwise and is wrong). `text-decoration-skip-ink` is not read, so
+`none` and `all` draw as `auto` does (581).
 
 Boxes can be round, and clip what is inside them to their own shape. **A
 curve's edge is covered as its area says** (item 459): the rented rasteriser

@@ -1,5 +1,6 @@
 text box#9 "World Wide Web" rgb(0 0 0) 32px at (8, 51.4375)
 text box#10 "The WorldWideWeb (W3) is a wide-area" rgb(0 0 0) 16px at (8, 95.875)
+fill box#12 rgb(0 0 238) at (323.89063, 97) 5.0859375×1
 text box#12 "hypermedia" rgb(0 0 238) 16px at (328.97656, 95.875)
 fill box#12 rgb(0 0 238) at (328.97656, 97) 10.0234375×1
 fill box#12 rgb(0 0 238) at (346, 97) 2×1
@@ -33,6 +34,7 @@ text box#30 " ." rgb(0 0 0) 16px at (87.89844, 187.875)
 text box#35 "What's out there?" rgb(0 0 238) 16px at (8, 222.875)
 fill box#35 rgb(0 0 238) at (8, 224) 141.96875×1
 text box#38 "Pointers to the world's online information," rgb(0 0 0) 16px at (48, 241.875)
+fill box#40 rgb(0 0 238) at (383.2578, 243) 5.0859375×1
 text box#40 "subjects" rgb(0 0 238) 16px at (388.34375, 241.875)
 fill box#40 rgb(0 0 238) at (388.34375, 243) 26.65625×1
 fill box#40 rgb(0 0 238) at (422, 243) 32.671875×1
@@ -63,9 +65,11 @@ text box#68 " ," rgb(0 0 0) 16px at (202.75781, 336.875)
 text box#70 "Tools" rgb(0 0 238) 16px at (218.01563, 336.875)
 fill box#70 rgb(0 0 238) at (218.01563, 338) 39.414063×1
 text box#71 " ," rgb(0 0 0) 16px at (257.4297, 336.875)
+fill box#73 rgb(0 0 238) at (267.60156, 338) 5.0859375×1
 text box#73 "Mail robot" rgb(0 0 238) 16px at (272.6875, 336.875)
 fill box#73 rgb(0 0 238) at (272.6875, 338) 79.82031×1
 text box#74 " ," rgb(0 0 0) 16px at (352.5078, 336.875)
+fill box#76 rgb(0 0 238) at (362.6797, 338) 5.0859375×1
 text box#76 "Library" rgb(0 0 238) 16px at (367.76563, 336.875)
 fill box#76 rgb(0 0 238) at (367.76563, 338) 46.234375×1
 fill box#76 rgb(0 0 238) at (421, 338) 2.7109375×1
@@ -96,6 +100,7 @@ text box#110 "Getting code" rgb(0 0 238) 16px at (8, 545.875)
 fill box#110 rgb(0 0 238) at (8, 547) 50×1
 fill box#110 rgb(0 0 238) at (67, 547) 44.203125×1
 text box#113 "Getting the code by" rgb(0 0 0) 16px at (48, 564.875)
+fill box#115 rgb(0 0 238) at (207.25781, 566) 5.0859375×1
 text box#115 "anonymous FTP" rgb(0 0 238) 16px at (212.34375, 564.875)
 fill box#115 rgb(0 0 238) at (212.34375, 566) 39.65625×1
 fill box#115 rgb(0 0 238) at (259, 566) 79.96875×1

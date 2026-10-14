@@ -2411,3 +2411,14 @@ piece at one and at two with no exception left in its test. Found:
 **582** (a space that is a text box of its own is still bare). 279 queue
 items are open (580 closed; 582 added). The next unused queue number is
 583 and the next unused ADR 0058.
+
+Iteration 345 closed queue item 582: a decoration runs under a space that
+is a text box of its own, or the first thing in one, where its line goes
+on past it, as Chrome 154's does. `alo-layout`'s `LineBox::spaces` records
+such a space with the room it takes, never as a fragment, so no box moves;
+an ellipsis hides the ones where what it keeps ends; `alo-paint` draws a
+text box's decorations over them. `decorated-spaces` is Chrome's piece by
+piece at one and at two. Found: **583** (before an ellipsis, a kept piece
+of text's own last space is underlined, where Chrome's is not). 279 queue
+items are open (582 closed; 583 added). The next unused queue number is
+584 and the next unused ADR 0058.
