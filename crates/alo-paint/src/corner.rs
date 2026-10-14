@@ -118,6 +118,33 @@ impl Corners {
         }
     }
 
+    /// The corners of a shadow's shape, spread this far from the box's: out
+    /// when `by` is positive, in when it is negative.
+    ///
+    /// A shape that shrinks loses the spread from each radius, and never goes
+    /// past square. One that grows gains it, except that a radius smaller
+    /// than the spread gains less — the spread times `1 + (r − 1)³`, where `r`
+    /// is the radius over the spread — so a square box casts a square shadow
+    /// and a nearly square one a nearly square shadow, rather than every
+    /// shadow being rounded by its spread. Each of a corner's two radii is
+    /// taken on its own. That is CSS Backgrounds 3's rule, and Chrome 154
+    /// draws it to within its anti-aliasing at every radius and spread
+    /// measured, outset and inset, circular and elliptical (queue item 573;
+    /// measured, not read from its source).
+    ///
+    /// The radii are the ones the box uses, so fit them to it first: Chrome
+    /// spreads a radius CSS has already scaled down to fit.
+    #[must_use]
+    pub fn spread(self, by: f32) -> Self {
+        let pair = |(across, down): (f32, f32)| (spread(across, by), spread(down, by));
+        Self {
+            top_left: pair(self.top_left),
+            top_right: pair(self.top_right),
+            bottom_right: pair(self.bottom_right),
+            bottom_left: pair(self.bottom_left),
+        }
+    }
+
     /// Read `border-radius` and the four per-corner longhands from a style.
     ///
     /// The shorthand takes one to four values in the same order as every other
@@ -227,6 +254,21 @@ pub fn between(outer: &Path, inner: &Path) -> Path {
         push(&mut path, *segment);
     }
     path
+}
+
+/// One radius of a shape spread `by` from a box's; see [`Corners::spread`].
+fn spread(radius: f32, by: f32) -> f32 {
+    if by <= 0.0 {
+        return (radius + by).max(0.0);
+    }
+    if radius <= 0.0 {
+        return 0.0;
+    }
+    if radius >= by {
+        return radius + by;
+    }
+    let short = radius / by - 1.0;
+    radius + by * (1.0 + short * short * short)
 }
 
 fn inset((across, down): (f32, f32), horizontal: f32, vertical: f32) -> (f32, f32) {
@@ -420,6 +462,58 @@ mod tests {
     fn a_box_of_no_size_has_no_corners_rather_than_a_division_by_nothing() {
         let fitted = Corners::all(10.0).fitted_to(Size::ZERO);
         assert!(fitted.are_square());
+    }
+
+    #[test]
+    fn a_square_corner_spreads_square() {
+        assert_eq!(Corners::SQUARE.spread(3.0), Corners::SQUARE);
+        assert_eq!(Corners::SQUARE.spread(-3.0), Corners::SQUARE);
+    }
+
+    #[test]
+    fn a_radius_at_least_the_spread_gains_all_of_it() {
+        let spread = Corners::all(12.0).spread(8.0);
+        assert!(close(spread.top_left.0, 20.0));
+        assert!(close(spread.bottom_right.1, 20.0));
+        assert!(close(Corners::all(4.0).spread(4.0).top_right.0, 8.0));
+    }
+
+    #[test]
+    fn a_radius_under_the_spread_gains_less_of_it() {
+        // Chrome 154 drew these at 1.89, 6.65, 11.08 and 13.89 (8 px
+        // spread) and 12.40 (4 of 12), read from where an 8× screenshot's
+        // diagonal is half covered.
+        for (radius, by, drawn) in [
+            (0.5, 8.0, 1.908),
+            (2.0, 8.0, 6.625),
+            (4.0, 8.0, 11.0),
+            (6.0, 8.0, 13.875),
+            (4.0, 12.0, 12.444),
+        ] {
+            let spread = Corners::all(radius).spread(by).top_left.0;
+            assert!(close(spread, drawn), "{radius} by {by}: {spread}");
+        }
+    }
+
+    #[test]
+    fn each_radius_of_an_ellipse_is_spread_on_its_own() {
+        let corners = Corners {
+            top_left: (12.0, 2.0),
+            top_right: (5.0, 0.0),
+            ..Corners::SQUARE
+        };
+        let spread = corners.spread(8.0);
+        assert!(close(spread.top_left.0, 20.0));
+        assert!(close(spread.top_left.1, 6.625));
+        assert!(close(spread.top_right.0, 12.578));
+        assert!(close(spread.top_right.1, 0.0), "a flat corner stays flat");
+    }
+
+    #[test]
+    fn a_shape_spread_inwards_loses_the_spread_and_stops_at_square() {
+        let spread = Corners::all(5.0).spread(-3.0);
+        assert!(close(spread.top_left.0, 2.0));
+        assert!(close(Corners::all(2.0).spread(-3.0).bottom_left.1, 0.0));
     }
 
     #[test]

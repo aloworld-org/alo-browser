@@ -35110,3 +35110,102 @@ order and the lines' own shadows (584, done, `between_lines` and
 277 queue items are open (584 closed; none added). The next unused queue
 number is **585** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 349 — queue item 573 closed: a spread shadow's corners are Chrome's
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the three states, the window line's Built and Owed clauses), iteration
+348's entry, queue items 568–577, and `docs/features.md`' shadows and
+whole-device-pixels entries (the feature contract; no ADR governs a
+shadow's corners). No `AGENTS.md` exists here.
+
+**Why 573.** It is the first open item in the file whose dependencies are
+done: the items before it wait as iterations 318–348 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person), and 573 depends on nothing and names its feature and
+closing condition. It said *needs measuring*; the measuring was done
+first, in this iteration.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=8`,
+without `--disable-gpu`, black shadows on white, the source not read):
+82 boxes on whole pixels. Read along each corner's diagonal and fitted
+per pixel against supersampled models, Chrome draws CSS Backgrounds 3's
+rule: a radius at least the spread grows by all of it, a smaller one by
+the spread times `1 + (r − 1)³` (`r` the radius over the spread), a
+square one not at all; each of a corner's two radii on its own (a corner
+of `5px / 0` stays square); from the radii as already fitted to the box
+(40×10 at 30 px spread by 8 is 12.58, not 13); a shape that shrinks — an
+inset spread, a negative outset one — loses the spread down to square;
+an inset hole grown by a negative spread takes the rule too. Every
+measured corner is within 0.06–0.36 of a pixel's coverage of the rule;
+growing by the whole spread, or by the whole spread except at zero, is a
+full pixel off wherever the radius is under the spread.
+
+**Built.** `alo-paint`'s `corner.rs`: `Corners::spread(by)`, the rule,
+with unit tests from the measured numbers. `build.rs`' `cast` and `hole`
+fit the box's radii to it and then spread them; `grown_corners` is gone.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on its log
+with one foreground `until` loop: **`GATE EXIT 0`, "The gate is met. (10
+of 10 steps)"**, 4,870 tests run, 4,870 passed. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Geometry in numbers: `corner.rs`' tests — 12 by 8 is 20; 0.5, 2, 4 and
+  6 by 8 are 1.908, 6.625, 11 and 13.875; 4 by 12 is 12.444; an ellipse
+  of 12 by 2 spread by 8 is 20 by 6.625; 5 by 0 is 12.578 by 0; 5 by −3
+  is 2 and 2 by −3 is 0.
+- Reference renders: new case `spread-shadow-corners` (23 boxes, spreads
+  4, 8, 10 and 12, radii 0 to 50 %, an ellipse, four inset holes grown by
+  −6, a radius fitted from 40 to 3 before a spread of 10, a flat corner)
+  with Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) and
+  `render-at-2.png`; `a_spread_shadow_has_chromes_corners.rs`: every pixel
+  both pictures draw in a plain colour is the same at one and at two, and
+  every blend within 37 (one) and 43 (two) of 255 — both worsts on a
+  box's own rounded background, not a shadow (item 459's sampling).
+  `backgrounds-on-device-pixels`: a new test has every device pixel within
+  4 px of the spread shadow's corners Chrome's exactly at one and at two;
+  its `render.png` (20 pixels) and `render-at-2.png` (56) changed, at
+  those corners only. Every `render*.png` and `display.txt` was backed up
+  before `ALO_UPDATE_REFERENCES=1`; no other case's file changed.
+- Mutation, restored from a copy (`cmp` confirmed): the whole spread
+  always; spreading before fitting (survived the comparison until the
+  fitted box was made 40×6 at 40 px spread by 10, 9.57 against 13; then
+  failed); the shrink branch replaced (survived until the unit test
+  required exactly 0 rather than `are_square`, which a negative radius
+  passed; then failed); an inset hole grown by the whole spread. Each
+  failed a test.
+- Hostile input: nothing new reads bytes from outside.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: what a shape's corners are when it is
+  derived from a box's is `corner.rs`' job (`inside`, `fitted_to`), so
+  `spread` is beside them; `build.rs` keeps only where shadows go.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 573 is ticked with a *Done* paragraph. Found: **585** — an
+inset shadow and its clip use the border box's radii on the padding box,
+where Chrome uses the padding box's (measured: 6 px border, 12 px radius,
+`inset 0 0 0 2px`; Chrome rounds the padding box by 6 and the hole by 4,
+this engine by 12 and 10).
+
+**Roadmap.** Stage 1's paint line: 573 leaves the Owed clause and the
+Built clause names `Corners::spread` and `spread-shadow-corners`; 585
+joins the Owed clause.
+
+**Unresolved obligations.**
+- 585, as above. Not measured: a blurred spread shadow's corners (the
+  shape blurred is the one measured here, so they should follow), and
+  any fractional scale.
+- 574–577 as before; 463 waits on a person; 568–571 on a screen or
+  pages; 560 and 564 on 502 behind 501; 572 on a person.
+- No claim about speed is made.
+
+277 queue items are open (573 closed; 585 added). The next unused queue
+number is **586** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

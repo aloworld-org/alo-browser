@@ -252,8 +252,11 @@ correctness, not before it.
       at one and at two, and since queue item 461 (iteration 338)
       `checkbox-beside-text` is Chrome's screenshot exactly in all 49,525
       pixels outside its controls and text. Owed: a clip, a picture's box
-      and an `<svg>`'s viewport on whole pixels (575), and a spread
-      shadow's square corners (573).*
+      and an `<svg>`'s viewport on whole pixels (575). Since queue item
+      573 (iteration 349) a spread shadow's corners are Chrome's —
+      square on a square box, a radius under the spread grown by less of
+      it (`Corners::spread`, `spread-shadow-corners`). Owed: an inset
+      shadow's corners from the padding box's radii (585).*
       *A button and a text field were a 1 px grey square border until queue
       item 505 (iteration 309), where Chrome 154 computes a 2 px `outset` or
       `inset` border and draws its own picture in that room: a one-pixel

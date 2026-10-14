@@ -1531,12 +1531,13 @@ fn rect_path(rect: Rect) -> Path {
 /// the offset.
 ///
 /// The corners grow with it, so a shadow under a rounded card is rounded
-/// rather than a rounded shape inside a square blur.
+/// rather than a rounded shape inside a square blur — and a square box's
+/// stays square ([`Corners::spread`]).
 fn cast(border_box: Rect, corners: Corners, shadow: DrawnShadow) -> Path {
     rounded_rectangle(
         grown_rect(border_box, shadow.spread)
             .translated(alo_layout::Point::new(shadow.offset.0, shadow.offset.1)),
-        grown_corners(corners, shadow.spread),
+        corners.fitted_to(border_box.size).spread(shadow.spread),
     )
 }
 
@@ -1556,7 +1557,7 @@ fn hole(padding_box: Rect, corners: Corners, shadow: DrawnShadow) -> Path {
     let inner = rounded_rectangle(
         grown_rect(padding_box, -shadow.spread)
             .translated(alo_layout::Point::new(shadow.offset.0, shadow.offset.1)),
-        grown_corners(corners, -shadow.spread),
+        corners.fitted_to(padding_box.size).spread(-shadow.spread),
     );
     between(
         &Path::rectangle(
@@ -1578,16 +1579,4 @@ fn grown_rect(rect: Rect, by: f32) -> Rect {
         (rect.size.width + by * 2.0).max(0.0),
         (rect.size.height + by * 2.0).max(0.0),
     )
-}
-
-/// Corners for a shape that grew: a radius grows with the shape around it, and
-/// never past straight.
-fn grown_corners(corners: Corners, by: f32) -> Corners {
-    let grow = |(across, down): (f32, f32)| ((across + by).max(0.0), (down + by).max(0.0));
-    Corners {
-        top_left: grow(corners.top_left),
-        top_right: grow(corners.top_right),
-        bottom_right: grow(corners.bottom_right),
-        bottom_left: grow(corners.bottom_left),
-    }
 }

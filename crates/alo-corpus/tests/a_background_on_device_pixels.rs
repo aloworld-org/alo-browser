@@ -257,3 +257,51 @@ fn the_picture_at_two_is_its_reference() {
     let difference = check_picture(&case, "render-at-2.png", &drawing.canvas);
     assert!(difference.is_none(), "{difference:?}");
 }
+
+/// How far a spread shadow's corner reaches past its box, in CSS pixels:
+/// the case's spread, and one more so a rounded corner's edge is inside
+/// what is compared.
+const SPREAD: f32 = 4.0;
+
+/// The spread shadow's corners are square, as Chrome draws them (queue
+/// item 573): every device pixel within `SPREAD` of the box's four corners
+/// and outside the box is Chrome's exactly. They were rounded by the
+/// spread, which left the corner pixel near white where Chrome's is the
+/// shadow's colour.
+#[test]
+fn the_spread_shadow_has_square_corners_as_chromes_has() {
+    let Some(case) = case() else {
+        panic!("the case reads");
+    };
+    for (scale, number) in [(1.0, 1), (2.0, 2)] {
+        let (Some(rendering), Some(chrome)) = (drawn(&case, scale), chrome(&case, number)) else {
+            panic!("the case renders at {scale}, and Chrome's picture is beside it");
+        };
+        let (Some(drawing), Some(rect)) = (rendering.drawing(), border_box(&rendering, "spread"))
+        else {
+            panic!("the spread box is drawn at {scale}");
+        };
+        let across = device(rect.left() - SPREAD, scale)..device(rect.right() + SPREAD, scale);
+        let down = device(rect.top() - SPREAD, scale)..device(rect.bottom() + SPREAD, scale);
+        let near_a_corner = |at: u32, from: f32, to: f32| {
+            at < device(from + SPREAD, scale) || at >= device(to - SPREAD, scale)
+        };
+        let mut compared = 0;
+        for y in down {
+            for x in across.clone() {
+                if !near_a_corner(x, rect.left(), rect.right())
+                    || !near_a_corner(y, rect.top(), rect.bottom())
+                {
+                    continue;
+                }
+                let found = difference(&drawing.canvas, &chrome, x, y);
+                assert_eq!(found, 0, "at {scale}, ({x}, {y}) is {found} from Chrome's");
+                compared += 1;
+            }
+        }
+        assert!(
+            compared >= 4 * 64,
+            "at {scale} only {compared} were compared"
+        );
+    }
+}

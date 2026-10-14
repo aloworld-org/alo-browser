@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A square box's spread shadow is square.** `box-shadow: 0 0 0 3px`
+  on a box with square corners used to come out with corners rounded by
+  the spread; it is now square, and a box rounded by less than the spread
+  casts a shadow rounded by less than its radius plus the spread, as
+  Chrome draws them.
+
 - **An underline casts the text's shadow.** Under text with a
   `text-shadow`, an underline, overline or line through now casts the
   same shadow as the letters, and the letters' shadow falls beneath an

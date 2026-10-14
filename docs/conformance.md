@@ -438,9 +438,12 @@ inline box's pieces — is drawn on whole device pixels, at one and at two:
 row and column exactly where Chrome 154's are at both scales, but a shadow
 moved by a fraction of a pixel, within 6 of 255 (this engine samples a
 soft edge sixteen by sixteen, Chrome by its exact area). At corners where
-two soft edges meet Chrome covers a pixel by the lesser edge, and a spread
-shadow on a square box keeps square corners in Chrome and is rounded here
-(573); a clip, a picture's box and an `<svg>`'s viewport are not snapped
+two soft edges meet Chrome covers a pixel by the lesser edge. A spread
+shadow's corners are Chrome's (573): square on a square box, and a radius
+smaller than the spread grown by less of it, `spread-shadow-corners` at
+one and at two. An inset shadow on a bordered, rounded box is clipped and
+rounded by the border box's radii where Chrome uses the padding box's,
+which leaves a sliver of background in each corner (585). A clip, a picture's box and an `<svg>`'s viewport are not snapped
 (575). Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (item 562, ADR 0057 § 3). The window

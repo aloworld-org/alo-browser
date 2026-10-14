@@ -14191,7 +14191,7 @@ What stage 2's exit gate actually measures: a person using it.
   `flex-lines.chrome.txt` are within the bound the rest are, or exact if
   502 is built.
 
-- [ ] **573. A spread shadow on a square box has square corners.** *Found
+- [x] **573. A spread shadow on a square box has square corners.** *Found
   building 565 (iteration 337). Feature: `docs/features.md` stage 1,
   shadows. Needs measuring.* `cast` grows every corner by the spread, so a
   `box-shadow: 0 0 0 3px` on a box with no radius is drawn with corners
@@ -14202,6 +14202,22 @@ What stage 2's exit gate actually measures: a person using it.
   for a radius under the spread is measured first. *Closes when:* that
   case's spread shadow's corners are Chrome's, and a rounded box's
   spread shadow at radii below and above the spread is Chrome's.
+  ***Done (iteration 349).*** Chrome 154 (headless, 8× screenshots,
+  without `--disable-gpu`, the source not read) draws CSS Backgrounds 3's
+  rule on 82 boxes: a radius at least the spread grows by all of it, a
+  smaller one by the spread times `1 + (r − 1)³`, `r` the radius over the
+  spread, and a square one not at all; each of a corner's two radii on
+  its own, from the radii as fitted to the box; a shape that shrinks (an
+  inset spread, a negative outset one) loses the spread down to square,
+  and an inset hole grown by a negative spread takes the rule. Every
+  measured corner is within Chrome's anti-aliasing of it (0.06–0.36 of a
+  pixel's coverage), where growing by the whole spread is a full pixel
+  off. `alo-paint`'s `Corners::spread` is the rule; `build.rs`' `cast` and
+  `hole` fit and then spread. `backgrounds-on-device-pixels`' spread
+  shadow's corners are Chrome's exactly at one and at two
+  (`the_spread_shadow_has_square_corners_as_chromes_has`), and
+  `spread-shadow-corners` (23 boxes) is Chrome's wherever both are a plain
+  colour, at one and at two. Found: **585**.
 
 - [ ] **574. A run of one `&nbsp;` is put on the grid of 1/64 px.**
   *Found building 565 (iteration 337). Feature: `docs/features.md` stage
@@ -14252,6 +14268,20 @@ What stage 2's exit gate actually measures: a person using it.
   measured first, in a face with altered heights (`fontTools`) as well as
   `DejaVu Sans`. *Closes when:* the rule is written down, built, and that
   case's 13 px lines are within the bound its 12 and 16 px lines meet.
+
+- [ ] **585. An inset shadow's corners are the padding box's.** *Found
+  building 573 (iteration 349). Feature: `docs/features.md` stage 1,
+  shadows.* `build.rs` clips an inset shadow to the padding box rounded by
+  the border box's radii, and spreads its hole from them too. CSS
+  Backgrounds 3 and Chrome 154 use the padding box's (each radius less the
+  border beside it): a 40 px box with a 6 px border, `border-radius: 12px`
+  and `inset 0 0 0 2px` is drawn by Chrome with the padding box rounded by
+  6 and the hole by 4, read along an 8× screenshot's diagonal, where this
+  engine rounds them by 12 and 10 and leaves a sliver of the background
+  between the border's inner curve and the shadow. *Closes when:* the
+  inset shadow and its clip take `Corners::inside` of the border, and a
+  frozen case of bordered, rounded boxes with inset shadows is Chrome's at
+  one and at two.
 
 - [ ] **300. A link opens a tab.** *Cut from 118 (ADR 0024 § 6; ADR 0020
   § 2).* `target="_blank"` on a link a person activated becomes a decided

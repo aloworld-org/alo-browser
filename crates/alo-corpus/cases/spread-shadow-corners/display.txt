@@ -1,0 +1,55 @@
+fill box#1 rgb(255 255 255) at (0, 0) 500×0
+shadow box#3 rgb(192 57 43) blur 0 at (11, 11) 38×38
+fill box#3 rgb(29 78 216) at (15, 15) 30×30
+shadow box#5 rgb(192 57 43) blur 0 at (71, 11) 38×38
+fill box#5 rgb(29 78 216) at (75, 15) 30×30
+shadow box#7 rgb(192 57 43) blur 0 at (131, 11) 38×38
+fill box#7 rgb(29 78 216) at (135, 15) 30×30
+shadow box#9 rgb(192 57 43) blur 0 at (191, 11) 38×38
+fill box#9 rgb(29 78 216) at (195, 15) 30×30
+shadow box#11 rgb(192 57 43) blur 0 at (251, 11) 38×38
+fill box#11 rgb(29 78 216) at (255, 15) 30×30
+shadow box#13 rgb(192 57 43) blur 0 at (311, 11) 38×38
+fill box#13 rgb(29 78 216) at (315, 15) 30×30
+shadow box#15 rgb(192 57 43) blur 0 at (371, 11) 38×38
+fill box#15 rgb(29 78 216) at (375, 15) 30×30
+shadow box#17 rgb(192 57 43) blur 0 at (431, 11) 38×38
+fill box#17 rgb(29 78 216) at (435, 15) 30×30
+shadow box#19 rgb(192 57 43) blur 0 at (7, 67) 46×46
+fill box#19 rgb(29 78 216) at (15, 75) 30×30
+shadow box#21 rgb(192 57 43) blur 0 at (67, 67) 46×46
+fill box#21 rgb(29 78 216) at (75, 75) 30×30
+shadow box#23 rgb(192 57 43) blur 0 at (127, 67) 46×46
+fill box#23 rgb(29 78 216) at (135, 75) 30×30
+shadow box#25 rgb(192 57 43) blur 0 at (187, 67) 46×46
+fill box#25 rgb(29 78 216) at (195, 75) 30×30
+shadow box#27 rgb(192 57 43) blur 0 at (247, 67) 46×46
+fill box#27 rgb(29 78 216) at (255, 75) 30×30
+shadow box#29 rgb(192 57 43) blur 0 at (307, 67) 46×46
+fill box#29 rgb(29 78 216) at (315, 75) 30×30
+shadow box#31 rgb(192 57 43) blur 0 at (367, 67) 46×46
+fill box#31 rgb(29 78 216) at (375, 75) 30×30
+shadow box#33 rgb(192 57 43) blur 0 at (427, 67) 46×46
+fill box#33 rgb(29 78 216) at (435, 75) 30×30
+fill box#35 rgb(29 78 216) at (15, 135) 30×30
+clip box#35 to (15, 135) 30×30
+shadow box#35 rgb(192 57 43) blur 0 at (-13, 107) 86×86
+unclip
+fill box#37 rgb(29 78 216) at (75, 135) 30×30
+clip box#37 to (75, 135) 30×30
+shadow box#37 rgb(192 57 43) blur 0 at (47, 107) 86×86
+unclip
+fill box#39 rgb(29 78 216) at (135, 135) 30×30
+clip box#39 to (135, 135) 30×30
+shadow box#39 rgb(192 57 43) blur 0 at (107, 107) 86×86
+unclip
+fill box#41 rgb(29 78 216) at (195, 135) 30×30
+clip box#41 to (195, 135) 30×30
+shadow box#41 rgb(192 57 43) blur 0 at (167, 107) 86×86
+unclip
+shadow box#43 rgb(192 57 43) blur 0 at (245, 137) 60×26
+fill box#43 rgb(29 78 216) at (255, 147) 40×6
+shadow box#45 rgb(192 57 43) blur 0 at (313, 123) 54×54
+fill box#45 rgb(29 78 216) at (325, 135) 30×30
+shadow box#47 rgb(192 57 43) blur 0 at (389, 129) 42×42
+fill box#47 rgb(29 78 216) at (395, 135) 30×30

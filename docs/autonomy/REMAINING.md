@@ -2449,3 +2449,14 @@ those lines, the letters, the line through's shadows and the line through.
 `text-shadow-on-lines` is Chrome's at one and at two. 277 queue items are
 open (584 closed; none added). The next unused queue number is 585 and the
 next unused ADR 0058.
+
+Iteration 349 closed queue item 573: a spread shadow's corners follow CSS
+Backgrounds 3's rule, as Chrome 154 was measured drawing them on 82 boxes
+— a radius at least the spread grows by all of it, a smaller one by the
+spread times `1 + (r − 1)³`, a square one not at all, each radius on its
+own and from the radii as fitted to the box. `alo-paint`'s
+`Corners::spread`; `spread-shadow-corners` is Chrome's at one and at two,
+and `backgrounds-on-device-pixels`' spread shadow's corners are exact.
+Found: **585** (an inset shadow's corners are the padding box's). 277
+queue items are open (573 closed; 585 added). The next unused queue number
+is 586 and the next unused ADR 0058.
