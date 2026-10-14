@@ -2354,3 +2354,14 @@ letter, an eighth more ink; a decision, since it is one platform's) and
 **577** (Chrome pulls a letter's top up to a whole pixel; needs
 measuring). 278 queue items are open (462 closed; 576–577 added). The next
 unused queue number is 578 and the next unused ADR 0058.
+
+Iteration 340 built queue item 463 without closing it: a disabled
+checkbox's or radio's edge and inside are drawn as one picture faded
+once (`alo-paint`'s `toggle.rs`, `Artwork::joined`), because Chrome 154's
+seam, measured at eight device pixels to one, is the two pieces mixed by
+coverage. `toggle-artwork`'s disabled radio over black is 2.96 from
+Chrome's on average where it was 9.22, 24 at worst where it was 44. The
+rest is Chrome's ring at one device pixel to one, thinner on its
+diagonal than at eight: cut to **578**, on which 463 now depends. 279
+queue items are open (578 added). The next unused queue number is 579
+and the next unused ADR 0058.

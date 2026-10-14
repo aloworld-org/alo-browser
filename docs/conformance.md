@@ -268,8 +268,12 @@ committed beside it: inside each shape the colour is Chrome's to a unit, and
 the edges differ only by how each smooths them — Chrome quantises an edge's
 coverage to quarters at one to one and this rasteriser does not — by at most
 61 of 255 and 2.47 on average (64 and 3.0 before item 459). A disabled
-control's translucent pieces still let the page show through where they meet,
-up to 44 of 255 over black, which Chrome's do not (463). Where a control stands on a fraction of a pixel
+control's translucent edge and inside are drawn as one picture, mixed by
+coverage where they meet and faded once, as Chrome's seam measures at eight
+device pixels to one (463), where they used to let the page through by up to
+44 of 255 over black. Over black they now differ from Chrome's by 24 at most,
+because Chrome's disabled ring at one device pixel to one is thinner on its
+diagonal than at eight, which is not yet built (578). Where a control stands on a fraction of a pixel
 its picture is drawn on whole pixels, as Chrome's is (item 457): each edge of
 its box rounded to the nearest pixel, a half up, measured in Chrome 154.
 `checkbox-beside-text`'s controls differ from Chrome's committed screenshot

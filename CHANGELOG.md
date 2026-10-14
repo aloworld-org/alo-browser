@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A disabled checkbox or radio no longer shows a dark ring inside its
+  edge.** Its pale edge and pale inside were drawn as two separate
+  see-through shapes, and where they met a sliver of the page showed
+  between them: on a black page, a dark seam. They are now drawn as one
+  picture, the way Chrome draws them, so a disabled radio on black is
+  three times nearer Chrome's. Chrome's ring is still drawn a little
+  thinner on its diagonal at ordinary screen sizes; that is its own piece
+  of work.
+
 - **Letters are drawn with the same care as every other shape.** The
   edge of a letter used to be sampled more coarsely than the edge of a
   box or a rounded corner. Measured against Chrome's screenshots of the

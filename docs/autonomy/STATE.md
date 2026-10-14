@@ -34041,3 +34041,116 @@ its Owed clause to what is built (462) and owes 576 and 577 instead.
 278 queue items are open (462 closed; 576–577 added). The next unused
 queue number is **578** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 340 — queue item 463 built, not closed: a disabled control's pieces are drawn as one; its ring at one is cut to 578
+
+**Contracts read.** `CLAUDE.md`; `docs/autonomy/LOOP.md`; `ROADMAP.md`'s
+head and stage 2 forms line; iteration 339's entry; queue items 463 and
+462 (for how a measurement item was taken); `docs/features.md`' line
+on a form control drawing its state; `docs/conformance.md`'s
+control paragraph; `alo-paint`'s `toggle.rs`, `build.rs`, `render.rs`,
+`canvas.rs` and `display.rs`; `alo-corpus`'s `toggle_artwork.rs` and
+`alo-paint`'s `control_states.rs`. No ADR governs a control's picture
+(454 built it from measurement), and 463 is a measurement. No
+`AGENTS.md` exists here.
+
+**Why 463.** Iteration 339 named it the next open item that is not
+blocked; it depends on nothing and names its feature, case and closing
+condition.
+
+**Measured first** (Chrome 154 headless, without `--disable-gpu`, the
+source not read): a probe of the four disabled controls over black,
+white and `#808080`, at `--force-device-scale-factor=8` and `=1`, and
+`toggle-artwork`'s committed `chrome.png`.
+- At eight, the edge reads 152/209 over black/white (0.776 opaque), the
+  inside 167/248 (0.682), the checked fill 152/209. Every seam pixel's
+  opacity lies between the two pieces' (0.69–0.75) and none is below the
+  inside's or above the edge's. So the pieces are mixed by coverage: not
+  side by side with the page between them (that would dip to about 0.6),
+  not one opaque picture faded once (the two opacities differ), and not
+  overlapping (nothing is more opaque than its pieces).
+- At one, the straight edge reads 123/209, not 152/209, and one pixel in
+  on the radio's diagonal Chrome reads 153 over black, 0.753 opaque, more
+  than either piece. No mixing gives that. Chrome's ring at one is not
+  its ring at eight made small: thinner on the diagonal.
+
+**Built.**
+- `alo-paint`'s `toggle.rs`: `artwork` returns an `Artwork` of `joined`
+  layers, an `opacity`, and layers drawn `over` them. A disabled control's
+  edge is drawn under its whole shape and its inside (or checked fill)
+  over it, opaque, on a surface faded once to the inner piece's opacity
+  (`within`): mixed by coverage exactly where they meet, the edge alone
+  at the outside. A disabled radio's dot is drawn over the whole inside in
+  the colour that reads there as Chrome's dot (`over_to_read`, which
+  refuses a colour that cannot exist). Live controls draw what they drew.
+  `Palette` is gone; the module's documentation says what was measured.
+- `build.rs`' `toggle_of` wraps a translucent artwork's joined layers in
+  `PushGroup`/`PopGroup`.
+- Tests: four new unit tests in `toggle.rs` (the joined pieces reach the
+  page as each was measured, over black and white; `over_to_read` reads
+  as asked over three pages and refuses the inside over the edge);
+  `control_states.rs`' `a_disabled_control_lets_the_page_through_only_at_its_outside`
+  (from the middle out, a disabled radio, checked radio and checkbox hide
+  less and less of the page, read from the same control on a white and a
+  black page); `toggle_artwork.rs`' `a_disabled_control_over_black_is_chromes_without_a_seam`
+  (the five disabled controls on black within 24 and 3.00 on average),
+  and its per-control average bound tightened from 9.25 to 4.90.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first. The first
+`scripts/gate.sh` run, in the foreground, **failed**: the new over-black
+test picked its controls by the square's own corner pixel, which a
+checkbox covers, and found 2 of 5. It reads the pixel left of the square
+now. Rerun in the foreground; it passed the tool's 600 s limit and was
+moved to the background, and the next call waited on it with a
+foreground `until` loop, nothing else running: **`exit 0`, "The gate is
+met. (10 of 10 steps)"**, 4,805 tests passed. Only this entry, the
+`REMAINING.md` paragraph and the commit came after it.
+
+**Gate, manual.**
+- Layout, in numbers: nothing positions or sizes differently. The display
+  lists of `control-states` and `toggle-artwork` changed, each disabled
+  toggle's two fills now inside a `group … ungroup` pair; no
+  `layout.txt`, `boxes.txt` or `agent.txt` changed.
+- Reference renders: rewritten with `ALO_UPDATE_REFERENCES=1`
+  (alo-corpus, alo-renderer, alo-window, `EXIT 0`, nothing failed) from a
+  tree backed up first. Two pictures moved: `toggle-artwork` (328 pixels,
+  at most 30 levels) and `control-states` (58 pixels, at most 8), every
+  moved pixel on a disabled toggle. Against Chrome's `toggle-artwork`
+  screenshot: over black the disabled radio went from 6.07 to 2.96 on
+  average, the checked one from 9.22 to 2.96, the checkboxes from 1.73
+  and 2.77 to 1.05 and 2.09, the worst pixel from 44 to 24; over
+  `#dde2ee` all four came nearer; over white two came nearer and two
+  moved away by 0.03 and 0.06. Live controls did not move.
+- Mutation, restored from a copy (`cmp` confirmed), twice: `HEAD`'s
+  `toggle.rs` and `build.rs` fail the monotone test (a dip at (19, 9)),
+  the over-black test (42 against 24) and the per-control bound (6.07).
+- Hostile input: nothing new reads bytes from outside.
+- Cost: no speed claim. A disabled toggle now takes a page-sized surface,
+  as `opacity` already does; nothing was timed.
+- One file, one responsibility: a toggle's picture stays `toggle.rs`'s
+  and its place in the list `build.rs`'s.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md` and the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 463 is **not ticked**: its closing condition, seam pixels
+over black within the unit the inside meets, is not met (24), and what
+is left is Chrome's ring at one device pixel to one, not compositing.
+It carries a *Built, not closed* paragraph and now depends on **578**
+(that ring, measured at one and two, then built), after which 463's own
+check is run.
+
+**Roadmap.** Stage 2's forms line (part built) names the joined disabled
+picture in its Built clause and owes 578 then 463's closing check.
+
+**Unresolved obligations.**
+- 578, then 463's closing check; 576 (an ADR) and 577 as before;
+  573–575, 566, 568–571 as before; 560 and 564 on 502 behind 501; 572 on
+  a person.
+- No claim about speed is made.
+
+279 queue items are open (463 still open; 578 added). The next unused
+queue number is **579** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

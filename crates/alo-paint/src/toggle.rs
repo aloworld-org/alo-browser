@@ -40,7 +40,7 @@
 //! is queue item 453.
 
 use crate::control::{self, Mark};
-use crate::corner::{Corners, between, ring, rounded_rectangle};
+use crate::corner::{Corners, ring, rounded_rectangle};
 use crate::path::Path;
 use alo_box::{Checked, Toggle};
 use alo_layout::{Edges, Rect};
@@ -124,8 +124,55 @@ pub struct Layer {
     pub color: Rgba,
 }
 
-/// The picture a toggle draws of itself in `border_box`, back to front.
-pub fn artwork(toggle: Toggle, state: State, border_box: Rect) -> Vec<Layer> {
+/// A toggle's picture: the shapes drawn as one, then the shapes over them.
+#[derive(Debug, Clone)]
+pub struct Artwork {
+    /// The edge and what it holds, back to front, drawn on a surface of
+    /// their own and composited onto the page once, at [`Self::opacity`].
+    pub joined: Vec<Layer>,
+    /// How much of [`Self::joined`] reaches the page: one for a live
+    /// control, whose shapes are opaque and need no surface of their own.
+    pub opacity: f32,
+    /// What is drawn over that, each shape on its own: a tick, a bar, or a
+    /// disabled radio's dot.
+    pub over: Vec<Layer>,
+}
+
+impl Artwork {
+    /// Every shape, back to front, whatever surface it is drawn on.
+    pub fn layers(&self) -> impl Iterator<Item = &Layer> {
+        self.joined.iter().chain(&self.over)
+    }
+}
+
+/// The picture a toggle draws of itself in `border_box`.
+///
+/// # Where two pieces meet
+///
+/// A disabled control's pieces are translucent, and Chrome's seam between
+/// two of them is neither piece and not the page: across it the picture
+/// moves from one piece's reading to the other's in proportion to how much
+/// of the pixel each covers. Measured at eight device pixels to one over
+/// black and over white (queue item 463), the seam's opacity lies between
+/// the edge's and the inside's everywhere and dips below neither. Two
+/// translucent shapes drawn side by side, each smoothed on its own, would
+/// each let the page through the half pixel the other covers, and a seam
+/// over black showed up to 44 of 255 of it.
+///
+/// So the outer piece is drawn under the whole shape and the inner one over
+/// it, opaque, on a surface faded once to the inner piece's opacity: where
+/// the inner piece covers part of a pixel the result is the two readings
+/// mixed by that part, and at the outer edge it is the outer piece alone.
+/// The outer piece's own colour there is its reading divided by that
+/// opacity, which is a colour only while the inner piece is the more
+/// opaque — true of a disabled edge (169/255) under a disabled inside
+/// (174/255) or fill (198/255).
+///
+/// A disabled radio's dot is the more opaque of it and its inside, so it
+/// cannot join them. It is drawn over the inside in the colour that, over
+/// the inside, reads as Chrome's dot does ([`over_to_read`]), which mixes
+/// across its seam the same way.
+pub fn artwork(toggle: Toggle, state: State, border_box: Rect) -> Artwork {
     let field = control::field(border_box);
     let corners = match toggle {
         Toggle::CheckBox => Corners::all(CORNER + EDGE_WIDTH / 2.0),
@@ -134,25 +181,9 @@ pub fn artwork(toggle: Toggle, state: State, border_box: Rect) -> Vec<Layer> {
         Toggle::Radio => Corners::all(field.size.width / 2.0),
     };
     let edge_widths = Edges::all(EDGE_WIDTH.min(field.size.width / 2.0));
-    let edge = ring(field, corners, edge_widths);
-    let palette = Palette::of(state);
-    // Each shape is drawn over the page, never over another, wherever it is
-    // translucent: Chrome's disabled edge, inside, fill and dot each read the
-    // same over black whatever lies beside them, so none of them lies on
-    // another. Where the edge is opaque the inside reaches under it, where
-    // it cannot be seen, so that the pixels the two share are the edge over
-    // the inside: two shapes that meet along a curve, each smoothed on its
-    // own, would let the page show through the seam between them.
-    let opaque = palette.edge.alpha >= 1.0 && palette.checked_edge.alpha >= 1.0;
+    let whole = || rounded_rectangle(field, corners);
     let within_edge =
         || rounded_rectangle(field.shrunk_by(edge_widths), corners.inside(edge_widths));
-    let inside = || {
-        if opaque {
-            rounded_rectangle(field, corners)
-        } else {
-            within_edge()
-        }
-    };
     let mark = match toggle {
         Toggle::CheckBox => match state.checked {
             Some(Checked::Yes) => Some(Mark::Tick),
@@ -162,72 +193,99 @@ pub fn artwork(toggle: Toggle, state: State, border_box: Rect) -> Vec<Layer> {
         Toggle::Radio => (state.checked == Some(Checked::Yes)).then_some(Mark::Dot),
     };
     let layer = |path: Path, color: Rgba| Layer { path, color };
-    match (toggle, mark) {
+    if state.disabled {
+        // The piece inside the edge: a checked checkbox's fill, anything
+        // else's inside, which a checked radio's dot is drawn over.
+        let inner = match (toggle, mark) {
+            (Toggle::CheckBox, Some(_)) => DISABLED_FILL,
+            _ => DISABLED_INSIDE,
+        };
+        let opacity = inner.alpha;
+        let over = match (toggle, mark) {
+            (_, None) => Vec::new(),
+            (Toggle::Radio, Some(mark)) => over_to_read(DISABLED_FILL, DISABLED_INSIDE)
+                .map(|dot| vec![layer(control::mark(mark, field), dot)])
+                .unwrap_or_default(),
+            (Toggle::CheckBox, Some(mark)) => {
+                vec![layer(control::mark(mark, field), DISABLED_MARK)]
+            }
+        };
+        return Artwork {
+            joined: vec![
+                layer(whole(), within(DISABLED_EDGE, opacity)),
+                layer(within_edge(), within(inner, opacity)),
+            ],
+            opacity,
+            over,
+        };
+    }
+    // A live control's shapes are opaque, so each is drawn over the last:
+    // the inside reaches under the edge, where it cannot be seen, and the
+    // pixels the two share are the edge over the inside, with no seam.
+    let accent = state.accent.unwrap_or(control::DEFAULT_ACCENT);
+    let edge = ring(field, corners, edge_widths);
+    let joined = match (toggle, mark) {
         // Unchecked, or a radio in the mixed state, which ARIA says is to be
         // treated as unchecked.
-        (_, None) => vec![layer(inside(), palette.inside), layer(edge, palette.edge)],
+        (_, None) => vec![layer(whole(), INSIDE), layer(edge, EDGE)],
         // A checked radio keeps its inside: the accent is its edge and its
         // dot, with a ring of white between.
-        (Toggle::Radio, Some(mark)) => {
-            let dot = control::mark(mark, field);
-            let ring_between = if opaque {
-                inside()
-            } else {
-                between(&within_edge(), &dot)
-            };
-            vec![
-                layer(ring_between, palette.inside),
-                layer(edge, palette.checked_edge),
-                layer(dot, palette.fill),
-            ]
-        }
-        // A live checked or mixed checkbox is filled edge to edge, rounded
-        // to [`CORNER`], and the mark drawn across it.
-        (Toggle::CheckBox, Some(mark)) if opaque => vec![
-            layer(rounded_rectangle(field, Corners::all(CORNER)), palette.fill),
-            layer(control::mark(mark, field), palette.mark),
+        (Toggle::Radio, Some(mark)) => vec![
+            layer(whole(), INSIDE),
+            layer(edge, accent),
+            layer(control::mark(mark, field), accent),
         ],
-        // A disabled one keeps its grey edge, and is filled inside it.
+        // A checked or mixed checkbox is filled edge to edge, rounded to
+        // [`CORNER`], and the mark drawn across it.
         (Toggle::CheckBox, Some(mark)) => vec![
-            layer(within_edge(), palette.fill),
-            layer(edge, palette.checked_edge),
-            layer(control::mark(mark, field), palette.mark),
+            layer(rounded_rectangle(field, Corners::all(CORNER)), accent),
+            layer(control::mark(mark, field), control::mark_color(accent)),
         ],
+    };
+    Artwork {
+        joined,
+        opacity: 1.0,
+        over: Vec::new(),
     }
 }
 
-/// The colours one toggle is drawn in.
-struct Palette {
-    inside: Rgba,
-    edge: Rgba,
-    /// A checked radio's edge.
-    checked_edge: Rgba,
-    /// A checked checkbox's fill, and a checked radio's dot.
-    fill: Rgba,
-    /// The tick or the bar across a checked checkbox's fill.
-    mark: Rgba,
+/// A translucent colour as it is drawn on a surface that is then faded to
+/// `opacity`, so that it reaches the page as `color` does.
+fn within(color: Rgba, opacity: f32) -> Rgba {
+    Rgba {
+        alpha: (color.alpha / opacity).min(1.0),
+        ..color
+    }
 }
 
-impl Palette {
-    fn of(state: State) -> Self {
-        if state.disabled {
-            return Self {
-                inside: DISABLED_INSIDE,
-                edge: DISABLED_EDGE,
-                checked_edge: DISABLED_EDGE,
-                fill: DISABLED_FILL,
-                mark: DISABLED_MARK,
-            };
-        }
-        let accent = state.accent.unwrap_or(control::DEFAULT_ACCENT);
-        Self {
-            inside: INSIDE,
-            edge: EDGE,
-            checked_edge: accent,
-            fill: accent,
-            mark: control::mark_color(accent),
-        }
+/// The colour that, drawn over `under`, reads as `target` over any page —
+/// or [`None`] when no colour does, because `target` lets through more of
+/// the page than `under` already does, or is a grey `under` cannot be
+/// turned into.
+///
+/// Over a page `p`, `target` reads `t + (1 − a)·p` with `t` its colour
+/// times its alpha `a`. Drawn over `under`, a colour of alpha `x` lets
+/// through `(1 − x)(1 − under's alpha)` of the page, which fixes `x`; what
+/// `under` still shows then fixes the colour.
+pub fn over_to_read(target: Rgba, under: Rgba) -> Option<Rgba> {
+    let through = 1.0 - under.alpha;
+    if through <= 0.0 {
+        return None;
     }
+    let alpha = 1.0 - (1.0 - target.alpha) / through;
+    if alpha <= 0.0 || alpha > 1.0 {
+        return None;
+    }
+    let channel = |want: f32, below: f32| {
+        let level = (want * target.alpha - (1.0 - alpha) * below * under.alpha) / alpha;
+        (0.0..=1.0).contains(&level).then_some(level)
+    };
+    Some(Rgba {
+        red: channel(target.red, under.red)?,
+        green: channel(target.green, under.green)?,
+        blue: channel(target.blue, under.blue)?,
+        alpha,
+    })
 }
 
 #[cfg(test)]
@@ -250,59 +308,65 @@ mod tests {
         layer.path.bounds().unwrap_or((0.0, 0.0, 0.0, 0.0))
     }
 
+    fn colors(artwork: &Artwork) -> Vec<Rgba> {
+        artwork.layers().map(|layer| layer.color).collect()
+    }
+
     #[test]
     fn an_unchecked_checkbox_is_white_inside_a_grey_edge() {
-        let layers = artwork(
+        let live = artwork(
             Toggle::CheckBox,
             live(Some(Checked::No)),
             Rect::new(4.0, 3.0, 13.0, 13.0),
         );
-        assert_eq!(layers.len(), 2);
-        assert_eq!(layers.first().map(|layer| layer.color), Some(Rgba::WHITE));
-        assert_eq!(layers.get(1).map(|layer| layer.color), Some(EDGE));
+        assert_eq!(colors(&live), vec![Rgba::WHITE, EDGE]);
+        assert!(close(live.opacity, 1.0) && live.over.is_empty());
         // The edge is the whole box, and the opaque edge hides an inside
         // that reaches under it.
-        let inside = layers.first().map(bounds).unwrap_or_default();
+        let inside = live.joined.first().map(bounds).unwrap_or_default();
         assert!(close(inside.0, 4.0) && close(inside.1, 3.0));
         assert!(close(inside.2, 17.0) && close(inside.3, 16.0));
-        let edge = layers.get(1).map(bounds).unwrap_or_default();
+        let edge = live.joined.get(1).map(bounds).unwrap_or_default();
         assert!(close(edge.0, 4.0) && close(edge.2, 17.0));
-        // A translucent edge would show it, so a disabled inside stops one
-        // pixel in.
+        // A disabled one turns that over: the edge's grey is the whole box,
+        // and the inside, opaque on a surface faded to its own opacity,
+        // stops one pixel in.
         let disabled = State {
             checked: Some(Checked::No),
             disabled: true,
             accent: None,
         };
-        let layers = artwork(Toggle::CheckBox, disabled, Rect::new(4.0, 3.0, 13.0, 13.0));
-        let inside = layers.first().map(bounds).unwrap_or_default();
+        let dead = artwork(Toggle::CheckBox, disabled, Rect::new(4.0, 3.0, 13.0, 13.0));
+        assert!(close(dead.opacity, DISABLED_INSIDE.alpha));
+        let edge = dead.joined.first().map(bounds).unwrap_or_default();
+        assert!(close(edge.0, 4.0) && close(edge.2, 17.0));
+        let inside = dead.joined.get(1).map(bounds).unwrap_or_default();
         assert!(close(inside.0, 5.0) && close(inside.1, 4.0));
         assert!(close(inside.2, 16.0) && close(inside.3, 15.0));
+        assert_eq!(dead.joined.get(1).map(|layer| layer.color.alpha), Some(1.0));
     }
 
     #[test]
     fn a_checked_checkbox_is_filled_with_the_accent_and_ticked_in_white() {
-        let layers = artwork(
+        let checked = artwork(
             Toggle::CheckBox,
             live(Some(Checked::Yes)),
             Rect::new(0.0, 0.0, 13.0, 13.0),
         );
-        let colors: Vec<Rgba> = layers.iter().map(|layer| layer.color).collect();
-        assert_eq!(colors, vec![control::DEFAULT_ACCENT, Rgba::WHITE]);
+        assert_eq!(colors(&checked), vec![control::DEFAULT_ACCENT, Rgba::WHITE]);
     }
 
     #[test]
     fn a_checked_radio_is_an_accent_edge_a_white_ring_and_an_accent_dot() {
-        let layers = artwork(
+        let radio = artwork(
             Toggle::Radio,
             live(Some(Checked::Yes)),
             Rect::new(0.0, 0.0, 20.0, 20.0),
         );
-        let colors: Vec<Rgba> = layers.iter().map(|layer| layer.color).collect();
         let accent = control::DEFAULT_ACCENT;
-        assert_eq!(colors, vec![Rgba::WHITE, accent, accent]);
+        assert_eq!(colors(&radio), vec![Rgba::WHITE, accent, accent]);
         // Chrome's dot is 12 across at 20: from 4 to 16.
-        let dot = layers.get(2).map(bounds).unwrap_or_default();
+        let dot = radio.joined.get(2).map(bounds).unwrap_or_default();
         assert!(close(dot.0, 4.0) && close(dot.2, 16.0), "{dot:?}");
     }
 
@@ -313,8 +377,7 @@ mod tests {
             live(Some(Checked::Mixed)),
             Rect::new(0.0, 0.0, 13.0, 13.0),
         );
-        let colors: Vec<Rgba> = mixed.iter().map(|layer| layer.color).collect();
-        assert_eq!(colors, vec![Rgba::WHITE, EDGE]);
+        assert_eq!(colors(&mixed), vec![Rgba::WHITE, EDGE]);
     }
 
     #[test]
@@ -324,26 +387,73 @@ mod tests {
             disabled: true,
             accent: Some(Rgba::new(0.0, 0.5, 0.0, 1.0)),
         };
-        let layers = artwork(Toggle::CheckBox, state, Rect::new(0.0, 0.0, 13.0, 13.0));
-        let colors: Vec<Rgba> = layers.iter().map(|layer| layer.color).collect();
-        // Its grey edge stays, around the fill rather than under it.
-        assert_eq!(colors, vec![DISABLED_FILL, DISABLED_EDGE, DISABLED_MARK]);
-        let fill = layers.first().map(bounds).unwrap_or_default();
+        let checkbox = artwork(Toggle::CheckBox, state, Rect::new(0.0, 0.0, 13.0, 13.0));
+        // Its grey edge stays, under the fill, and both reach the page faded
+        // to the fill's opacity; the tick is drawn over them.
+        assert!(close(checkbox.opacity, DISABLED_FILL.alpha));
+        let joined: Vec<Rgba> = checkbox.joined.iter().map(|layer| layer.color).collect();
+        assert_eq!(
+            joined,
+            vec![
+                within(DISABLED_EDGE, DISABLED_FILL.alpha),
+                within(DISABLED_FILL, DISABLED_FILL.alpha)
+            ]
+        );
+        let fill = checkbox.joined.get(1).map(bounds).unwrap_or_default();
         assert!(close(fill.0, 1.0) && close(fill.2, 12.0), "{fill:?}");
-        // A radio's dot is over the page, not over its inside: the inside
-        // is a ring around it.
+        let over: Vec<Rgba> = checkbox.over.iter().map(|layer| layer.color).collect();
+        assert_eq!(over, vec![DISABLED_MARK]);
+        // A radio's inside is whole, and its dot is drawn over it in the
+        // colour that reads there as Chrome's dot does.
         let radio = artwork(Toggle::Radio, state, Rect::new(0.0, 0.0, 13.0, 13.0));
-        let colors: Vec<Rgba> = radio.iter().map(|layer| layer.color).collect();
-        assert_eq!(colors, vec![DISABLED_INSIDE, DISABLED_EDGE, DISABLED_FILL]);
-        let holes = radio.first().map_or(0, |layer| {
-            layer
-                .path
-                .segments()
-                .iter()
-                .filter(|segment| matches!(segment, crate::path::Segment::MoveTo(_)))
-                .count()
-        });
-        assert_eq!(holes, 2, "the inside is cut around the dot");
+        assert!(close(radio.opacity, DISABLED_INSIDE.alpha));
+        assert_eq!(radio.joined.len(), 2);
+        let dot = radio.over.first().map(|layer| layer.color);
+        assert_eq!(dot, over_to_read(DISABLED_FILL, DISABLED_INSIDE));
+        assert!(dot.is_some());
+    }
+
+    #[test]
+    fn a_joined_picture_reaches_the_page_as_each_piece_reads() {
+        // The edge and the inside, each drawn on a transparent surface faded
+        // to the joined opacity, over black and over white: what each was
+        // measured as.
+        for (inner, opacity) in [
+            (DISABLED_INSIDE, DISABLED_INSIDE.alpha),
+            (DISABLED_FILL, DISABLED_FILL.alpha),
+        ] {
+            for (piece, measured) in [(DISABLED_EDGE, DISABLED_EDGE), (inner, inner)] {
+                let drawn = within(piece, opacity);
+                assert!(drawn.alpha <= 1.0);
+                for page in [Rgba::BLACK, Rgba::WHITE] {
+                    let faded = Rgba {
+                        alpha: drawn.alpha * opacity,
+                        ..drawn
+                    };
+                    let got = faded.over(page);
+                    let want = measured.over(page);
+                    assert!(close(got.red, want.red), "{piece:?} over {page:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_colour_drawn_over_another_reads_as_asked() {
+        let Some(dot) = over_to_read(DISABLED_FILL, DISABLED_INSIDE) else {
+            panic!("a disabled dot can be drawn over a disabled inside");
+        };
+        for page in [Rgba::BLACK, Rgba::WHITE, Rgba::new(0.5, 0.5, 0.5, 1.0)] {
+            let got = dot.over(DISABLED_INSIDE.over(page));
+            let want = DISABLED_FILL.over(page);
+            assert!(close(got.red, want.red), "over {page:?}: {got:?} {want:?}");
+        }
+        // Nothing drawn over a colour lets more of the page through it.
+        assert_eq!(over_to_read(DISABLED_EDGE, DISABLED_INSIDE), None);
+        // And the inside cannot be drawn over a whole edge, which is why the
+        // two are joined: the grey it would take is brighter than white.
+        assert_eq!(over_to_read(DISABLED_INSIDE, DISABLED_EDGE), None);
+        assert_eq!(over_to_read(Rgba::WHITE, Rgba::WHITE), None);
     }
 
     #[test]
@@ -366,12 +476,12 @@ mod tests {
     #[test]
     fn a_wide_toggle_is_a_square_in_its_middle() {
         // Chrome draws a checkbox 30 by 13 as a 13-pixel square from 8.5.
-        let layers = artwork(
+        let wide = artwork(
             Toggle::CheckBox,
             live(Some(Checked::No)),
             Rect::new(0.0, 0.0, 30.0, 13.0),
         );
-        let edge = layers.get(1).map(bounds).unwrap_or_default();
+        let edge = wide.joined.get(1).map(bounds).unwrap_or_default();
         assert!(close(edge.0, 8.5) && close(edge.2, 21.5), "{edge:?}");
     }
 
@@ -383,7 +493,7 @@ mod tests {
             disabled: false,
             accent: Some(green),
         };
-        let layers = artwork(Toggle::CheckBox, state, Rect::new(0.0, 0.0, 13.0, 13.0));
-        assert_eq!(layers.first().map(|layer| layer.color), Some(green));
+        let checked = artwork(Toggle::CheckBox, state, Rect::new(0.0, 0.0, 13.0, 13.0));
+        assert_eq!(checked.joined.first().map(|layer| layer.color), Some(green));
     }
 }

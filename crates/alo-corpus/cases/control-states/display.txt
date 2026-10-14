@@ -8,12 +8,16 @@ text box#11 "On" rgb(63 63 70) 13px at (36, 42.5)
 fill box#14 rgb(0 117 255) at (12, 52) 13×13
 fill box#14 rgb(255 255 255) at (14.469999, 57.525) 8.059999×1.9500008
 text box#16 "Some" rgb(63 63 70) 13px at (36, 62.5)
-fill box#19 rgb(196 196 196 / 0.7764706) at (13, 73) 11×11
-fill box#19 rgb(186 186 186 / 0.6627451) at (12, 72) 13×13
+group box#19 at opacity 0.7764706
+fill box#19 rgb(186 186 186 / 0.85353535) at (12, 72) 13×13
+fill box#19 rgb(196 196 196) at (13, 73) 11×11
+ungroup
 fill box#19 rgb(255 255 255 / 0.60194176) at (13.86461, 73.95032) 9.347495×8.706696
 text box#21 "On, locked" rgb(63 63 70) 13px at (36, 82.5)
-fill box#24 rgb(245 245 245 / 0.68235296) at (13, 93) 11×11
-fill box#24 rgb(186 186 186 / 0.6627451) at (12, 92) 13×13
+group box#24 at opacity 0.68235296
+fill box#24 rgb(186 186 186 / 0.97126436) at (12, 92) 13×13
+fill box#24 rgb(245 245 245) at (13, 93) 11×11
+ungroup
 text box#26 "Off, locked" rgb(63 63 70) 13px at (36, 102.5)
 fill box#29 rgb(255 255 255) at (13, 113) 13×13
 fill box#29 rgb(118 118 118) at (13, 113) 13×13
@@ -22,9 +26,11 @@ fill box#34 rgb(255 255 255) at (13, 133) 13×13
 fill box#34 rgb(0 117 255) at (13, 133) 13×13
 fill box#34 rgb(0 117 255) at (15.6, 135.6) 7.800001×7.800003
 text box#36 "Medium" rgb(63 63 70) 13px at (37, 142.5)
-fill box#39 rgb(245 245 245 / 0.68235296) at (14, 154) 11×11
-fill box#39 rgb(186 186 186 / 0.6627451) at (13, 153) 13×13
-fill box#39 rgb(196 196 196 / 0.7764706) at (15.6, 155.6) 7.800001×7.800003
+group box#39 at opacity 0.68235296
+fill box#39 rgb(186 186 186 / 0.97126436) at (13, 153) 13×13
+fill box#39 rgb(245 245 245) at (14, 154) 11×11
+ungroup
+fill box#39 rgb(116 116 116 / 0.2962963) at (15.6, 155.6) 7.800001×7.800003
 text box#41 "Large, locked" rgb(63 63 70) 13px at (37, 162.5)
 fill box#44 rgb(184 240 0) at (12, 172) 13×13
 fill box#44 rgb(0 0 0) at (13.864609, 173.95032) 9.347496×8.706711

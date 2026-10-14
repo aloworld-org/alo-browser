@@ -296,6 +296,60 @@ fn a_disabled_control_that_is_off_is_not_the_same_picture_as_a_live_one() {
     );
 }
 
+/// How much of the page one pixel of a control hides, from that pixel over
+/// a white page and over a black one: a colour of alpha `a` lets through
+/// `1 − a` of the page, which is the whole of the difference between the two.
+fn opacity(over_white: &Canvas, over_black: &Canvas, x: u32, y: u32) -> Option<f32> {
+    Some(1.0 - (over_white.at(x, y)?.red - over_black.at(x, y)?.red))
+}
+
+#[test]
+fn a_disabled_control_lets_the_page_through_only_at_its_outside() {
+    // Queue item 463. A disabled control's edge and inside are translucent
+    // and meet along a curve. Drawn side by side, each smoothed on its own,
+    // a pixel half covered by each lets the page through both halves, and
+    // over black the seam showed as a darker ring inside the edge. Chrome's
+    // seam is the two pieces mixed by how much of the pixel each covers, so
+    // from the middle outwards a control hides less and less of the page
+    // and never dips and recovers: the edge (169/255) hides a little less
+    // than the inside (174/255) or a radio's dot (198/255), and the page
+    // shows only past the edge. A checked checkbox is left out: its tick
+    // hides more than the fill it crosses, wherever it crosses it.
+    for attributes in [
+        "type=radio disabled",
+        "type=radio checked disabled",
+        "type=checkbox disabled",
+    ] {
+        let (_, white) = control(attributes);
+        let (_, black) = draw(
+            &format!("<!DOCTYPE html><html><body><input id=c {attributes}></body></html>"),
+            &format!("html {{ background: #000000 }}\n{PAGE}"),
+        );
+        // The control is 16 by 16 at (8, 8); its middle is between 15 and 16.
+        let rays = (8..24u32).flat_map(|line| {
+            [
+                (15..24u32).map(move |x| (x, line)).collect::<Vec<_>>(),
+                (8..=16u32).rev().map(move |x| (x, line)).collect(),
+                (15..24u32).map(move |y| (line, y)).collect(),
+                (8..=16u32).rev().map(move |y| (line, y)).collect(),
+            ]
+        });
+        for ray in rays {
+            let mut previous = 1.0f32;
+            for (x, y) in ray {
+                let Some(here) = opacity(&white, &black, x, y) else {
+                    panic!("({x}, {y}) is on the page");
+                };
+                assert!(
+                    here <= previous + 2.0 / 255.0,
+                    "{attributes}: ({x}, {y}) hides {here} of the page, more than the {previous} nearer the middle"
+                );
+                previous = previous.min(here);
+            }
+        }
+    }
+}
+
 #[test]
 fn a_page_may_choose_the_colour_and_the_mark_stays_readable() {
     // `accent-color` is the property CSS has for this, and a pale one turns

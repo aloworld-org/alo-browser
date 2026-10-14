@@ -8338,6 +8338,48 @@ The long pole, and the thing most of section E is unreachable without.
   once, or opaque and then faded, measured over black, white and grey.
   *Closes when:* a disabled control's seam pixels over black are
   Chrome's within the bound its inside pixels meet.
+  **Built, not closed (iteration 340); now depends on 578.** Measured in
+  Chrome 154 (headless, without `--disable-gpu`, the source not read): the
+  four disabled controls over black, white and `#808080` at eight device
+  pixels to one and at one. At eight, the edge reads 152/209 over
+  black/white and the inside 167/248, and every seam pixel lies between
+  the two pieces' opacities (0.69 to 0.75 between 0.682 and 0.776): the
+  pieces are mixed by coverage, never side by side with the page between
+  them, and neither one faded layer (the two opacities differ) nor
+  overlapping shapes (no pixel is more opaque than its pieces). So
+  `alo-paint`'s `toggle.rs` now draws a disabled control's edge under its
+  whole shape and its inside or fill over it, opaque, on a surface faded
+  once to the inner piece's opacity (`Artwork::joined`, a `PushGroup` in
+  `build.rs`), which mixes the two by coverage exactly and leaves the edge
+  alone at the outside; a disabled radio's dot is drawn over its whole
+  inside in the colour that reads there as Chrome's dot (`over_to_read`).
+  `toggle-artwork`'s disabled radio over black went from 9.22 on average
+  and 44 at worst to 2.96 and 24; every disabled control over black or
+  `#dde2ee` came nearer, two over white moved away by 0.03 and 0.06; live
+  controls did not move. **The closing condition is not met:** the seam
+  is still 24 from Chrome's, not within the unit the inside meets, and
+  that remainder is not compositing. At one device pixel to one Chrome's
+  disabled ring is thinner on the diagonal than its live ring (a seam
+  pixel there is 0.753 opaque, more than either piece, which no mixing
+  gives), so this engine's seam pixels are mixed in the right way at the
+  wrong place. That is 578; this item closes on its own condition once
+  578 is built.
+
+- [ ] **578. A disabled control's ring at one device pixel to one, as
+  Chrome draws it.** *Cut from 463 (iteration 340). Feature:
+  `docs/features.md` stage 1, a form control draws its state. Opened by
+  `toggle-artwork`. Needs measuring.* At one to one Chrome 154's disabled
+  radio over black reads 153 one pixel in from its edge on the diagonal,
+  where this engine's, the edge and inside now mixed by coverage, reads
+  129: Chrome's inside reaches further out there than at eight to one,
+  and that pixel hides 0.753 of the page where its edge alone hides 0.663
+  and its inside 0.682. A straight edge pixel is 123/209 at one to one
+  and 152/209 at eight. So Chrome's one-to-one ring is not its eight-to-one
+  ring made small; how it is drawn at one, and at two, is measured first
+  (probe radii and widths, over black and white). *Closes when:* the rule
+  is written down and built, and `toggle-artwork`'s disabled controls'
+  edge pixels at one are nearer Chrome's than 463 left them (24 at worst
+  over black), so that 463's own check can be run.
 
 - [x] **455. A stopped HTTP/2 body is reported the same way whatever the
   timing.** *Found by the gate in iteration 287, which did not cause it.

@@ -1007,14 +1007,27 @@ impl Builder<'_> {
                 .and_then(|style| style.color("accent-color")),
         };
         let snapped = snap::to_device_pixels(geometry.border_box, self.styles.scale());
-        for layer in toggle::artwork(kind, state, snapped) {
-            out.push(DisplayItem::Fill {
-                rule: FillRule::NonZero,
+        let artwork = toggle::artwork(kind, state, snapped);
+        // A translucent picture's pieces are drawn as one and faded once, so
+        // that where two meet the page does not show between them.
+        let grouped = artwork.opacity < 1.0;
+        if grouped {
+            out.push(DisplayItem::PushGroup {
                 box_id: id,
-                path: layer.path,
-                paint: Paint::Solid(layer.color),
+                opacity: artwork.opacity,
             });
         }
+        let fill = |layer: toggle::Layer| DisplayItem::Fill {
+            rule: FillRule::NonZero,
+            box_id: id,
+            path: layer.path,
+            paint: Paint::Solid(layer.color),
+        };
+        out.extend(artwork.joined.into_iter().map(fill));
+        if grouped {
+            out.push(DisplayItem::PopGroup);
+        }
+        out.extend(artwork.over.into_iter().map(fill));
     }
 
     /// Into the *content* box rather than the border box, because a picture

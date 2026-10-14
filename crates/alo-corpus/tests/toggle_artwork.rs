@@ -18,11 +18,13 @@
 //! Chrome's to within a unit, and the pixels on an edge differ by the two
 //! ways of smoothing it: measured, by at most 61 of 255 and by 2.47 on
 //! average over all 6,264 (64 and 3.0 before queue item 459 sampled an
-//! edge's pixels sixteen by sixteen). The other bound is a seam: a disabled control's
-//! translucent shapes meet without overlapping, and where two curves each
-//! smoothed on its own meet, a little of the page shows through; in
-//! Chrome's it does not. That is up to 44 of 255 on the pixels along a
-//! disabled control's edge, over black.
+//! edge's pixels sixteen by sixteen). A disabled control's translucent edge
+//! and inside used to meet as two shapes each smoothed on its own, which
+//! let the page through the seam: up to 44 of 255 over black, where Chrome's
+//! seam is the two pieces mixed. They are drawn as one picture now (queue
+//! item 463) and differ by at most 24, all of it where Chrome's thin ring
+//! at one to one runs further in than this engine's on the diagonal (queue
+//! item 578).
 //!
 //! The two controls with `aria-checked="mixed"` are left out: this engine
 //! draws a bar across them and Chrome does not (queue item 456).
@@ -40,6 +42,8 @@ struct Pictures {
     controls: Vec<(u32, u32, u32)>,
     /// Which of the controls are radios: round, so the same either side.
     radios: Vec<(u32, u32, u32)>,
+    /// Which are disabled: translucent, so over black every seam shows.
+    disabled: Vec<(u32, u32, u32)>,
 }
 
 fn pictures() -> Option<Pictures> {
@@ -65,17 +69,25 @@ fn pictures() -> Option<Pictures> {
             // A square that starts half way through a pixel covers one more.
             let span = (left + side).ceil() - left.floor();
             let square = (pixel(left.floor()), pixel(top.floor()), pixel(span));
-            Some((square, boxes.toggle(id) == Some(Toggle::Radio)))
+            let disabled = boxes
+                .get(id)
+                .is_some_and(|node| node.semantics.states.disabled);
+            Some((square, boxes.toggle(id) == Some(Toggle::Radio), disabled))
         })
         .collect::<Vec<_>>();
     Some(Pictures {
         ours: drawing.canvas.clone(),
         chrome,
-        controls: squares.iter().map(|(square, _)| *square).collect(),
+        controls: squares.iter().map(|(square, ..)| *square).collect(),
         radios: squares
             .iter()
-            .filter(|(_, radio)| *radio)
-            .map(|(square, _)| *square)
+            .filter(|(_, radio, _)| *radio)
+            .map(|(square, ..)| *square)
+            .collect(),
+        disabled: squares
+            .iter()
+            .filter(|(.., disabled)| *disabled)
+            .map(|(square, ..)| *square)
             .collect(),
     })
 }
@@ -127,13 +139,11 @@ fn every_control_is_chromes_picture_within_the_measured_bound() {
             worst <= 61,
             "the control at ({left}, {top}) differs from Chrome's by {worst}"
         );
-        // Measured: 9.22 at worst, a disabled radio over black, all of it
-        // on the seams where its translucent shapes meet (queue item 463).
-        // It was 8.86 before item 459 sampled the seams' curves finely: 27
-        // of these 30 controls came nearer Chrome's and three, each disabled
-        // over black, moved away by at most 0.51.
+        // Measured: 4.85 at worst, a live checked checkbox's tick. A disabled
+        // radio over black was 9.22 until its pieces were drawn as one
+        // (queue item 463), and is 2.96.
         assert!(
-            sum * 100 <= 925 * pixels,
+            sum * 100 <= 490 * pixels,
             "the control at ({left}, {top}) differs from Chrome's by {} on average",
             f64::from(sum) / f64::from(pixels)
         );
@@ -146,6 +156,55 @@ fn every_control_is_chromes_picture_within_the_measured_bound() {
         "the controls differ from Chrome's by {} on average",
         f64::from(total) / f64::from(counted)
     );
+}
+
+#[test]
+fn a_disabled_control_over_black_is_chromes_without_a_seam() {
+    // Queue item 463: over black, a seam that lets the page through is as
+    // dark as the page, and Chrome's has none. Which controls stand on
+    // black is read from Chrome's picture: the pixel left of the square.
+    let Some(pictures) = pictures() else {
+        panic!("the case renders and Chrome's screenshot reads");
+    };
+    let over_black = pictures
+        .disabled
+        .iter()
+        .filter(|(left, top, _)| {
+            pictures
+                .chrome
+                .at(left.saturating_sub(1), *top)
+                .is_some_and(|pixel| pixel.to_rgba8() == (0, 0, 0, 255))
+        })
+        .copied()
+        .collect::<Vec<_>>();
+    assert_eq!(over_black.len(), 5, "the dark row's five disabled controls");
+    for (left, top, span) in over_black {
+        let mut worst = 0u8;
+        let mut sum = 0u32;
+        let mut pixels = 0u32;
+        for y in top..top + span {
+            for x in left..left + span {
+                let Some(d) = difference(pictures.ours.at(x, y), pictures.chrome.at(x, y)) else {
+                    panic!("({x}, {y}) is on both pictures");
+                };
+                worst = worst.max(d);
+                sum += u32::from(d);
+                pixels += 1;
+            }
+        }
+        // Measured: 24 at worst and 2.96 on average, a disabled radio, where
+        // the seam let 44 and 9.22 through. What is left is where Chrome's
+        // ring runs on the diagonal at one to one (queue item 578).
+        assert!(
+            worst <= 24,
+            "the disabled control at ({left}, {top}) differs from Chrome's by {worst} over black"
+        );
+        assert!(
+            sum * 100 <= 300 * pixels,
+            "the disabled control at ({left}, {top}) differs from Chrome's by {} over black",
+            f64::from(sum) / f64::from(pixels)
+        );
+    }
 }
 
 #[test]
