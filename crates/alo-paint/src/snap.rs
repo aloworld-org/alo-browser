@@ -80,9 +80,10 @@ pub fn to_device_pixels(rect: Rect, scale: f32) -> Rect {
 
 /// The nearest whole device pixel, a half rounded up whatever the sign —
 /// which `f32::round`, rounding a half away from zero, does not do below
-/// zero.
+/// zero. At a scale a float cannot hold the grid of, an edge laid out on a
+/// half is a half here too ([`alo_value::device_pixels`]).
 fn round(value: f32, scale: f32) -> f32 {
-    (value * scale + 0.5).floor() / scale
+    (alo_value::device_pixels(value, scale) + 0.5).floor() / scale
 }
 
 #[cfg(test)]
@@ -174,5 +175,18 @@ mod tests {
                 "{scale}: {snapped:?}"
             );
         }
+    }
+
+    #[test]
+    fn at_one_and_a_half_an_edge_a_float_short_of_a_half_is_on_it() {
+        // 447.5 device pixels is 298.333… CSS pixels, which no float holds;
+        // layout's sums land a float either side of it. Chrome, counting in
+        // sixty-fourths of a device pixel, has the half and rounds it up
+        // (queue item 593), so this edge is drawn from device pixel 448.
+        let short = f32::from_bits((447.5_f32 / 1.5).to_bits() - 1);
+        assert!(short * 1.5 < 447.5, "the float this guards against");
+        let snapped = to_device_pixels(Rect::new(short, short, 13.0, 13.0), 1.5);
+        assert!(close(snapped.origin.x * 1.5, 448.0), "{snapped:?}");
+        assert!(close(snapped.origin.y * 1.5, 448.0), "{snapped:?}");
     }
 }

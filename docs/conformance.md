@@ -460,7 +460,14 @@ laid out; an SVG file in an `<img>` is drawn into its rounded content box,
 grown to fill it (589). `svgs-on-device-pixels` is Chrome's in every plain
 pixel at one and at two; where a shape's corner lies a fraction into a
 pixel both ways the two differ by up to 31 and 41 of 255, Chrome covering
-it by the lesser edge. No fractional scale is measured (593). An `outline` is not drawn at all (591). A picture with both a width
+it by the lesser edge. At 1.5 (queue item 593, Chrome 154 under
+`--force-device-scale-factor=1.5`) 975 of the 985 corpus boxes exact at
+one are Chrome's, the probes of every rule are Chrome's in all 904
+numbers, and six cases drawn at 1.5 are Chrome's in every plain pixel,
+more than 40 of 255 apart only at rounded corners; a checkbox whose box
+is not whole device pixels is drawn otherwise (597), a centred line's
+start and a `middle` raise are off the grid by under a sixty-fourth
+(598), and text is not compared (576). An `outline` is not drawn at all (591). A picture with both a width
 and a height set is that size, on a line, as a block, as a flex item and
 positioned, and its `min-` and `max-` limits are CSS 2 § 10.4's (590);
 `pictures-sized-on-a-line` is Chrome's in all 35 boxes at one and at two,
@@ -495,7 +502,8 @@ Chrome 154 did at one and at two (`cases/a-page-told-its-scale`, every box
 Chrome's at both scales). Not yet: `matchMedia` (570), and a resolution
 written with `calc()`, the range syntax or the boolean `(resolution)`
 (571); where a person's pointer lands at two is not measured (568); a fractional
-scale is rounded down to a whole one; and a page's picture is at most 4,096
+scale is rounded down to a whole one by the window, though a page at 1.5
+is laid out and drawn as Chrome does (593, 599); and a page's picture is at most 4,096
 device pixels a side, so a wider window is cut (569).
 
 **A function in the `border` shorthand is read whole.** `border: 1px solid

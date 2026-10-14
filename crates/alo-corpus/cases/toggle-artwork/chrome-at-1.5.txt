@@ -1,0 +1,47 @@
+# Chrome 154 started with --force-device-scale-factor=1.5, headless, measured 2026-10-14
+# (queue item 593). Each element: its path, then getBoundingClientRect() left,
+# top, width and height in sixty-fourths of a CSS pixel, every element set in
+# the corpus's DejaVu face for its computed family. Measured, never rewritten
+# by a test.
+/html0 0 0 15360 7616
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 0 15360 7616
+/html0/body1/div0 0 0 15360 1344
+/html0/body1/div0/input0 256 256 832 832
+/html0/body1/div0/input1 1600 256 832 832
+/html0/body1/div0/input2 2944 256 832 832
+/html0/body1/div0/input3 4288 256 832 832
+/html0/body1/div0/input4 5632 256 832 832
+/html0/body1/div0/input5 6976 256 832 832
+/html0/body1/div0/input6 8320 256 832 832
+/html0/body1/div0/input7 9664 256 832 832
+/html0/body1/div1 0 1344 15360 1344
+/html0/body1/div1/input0 256 1600 832 832
+/html0/body1/div1/input1 1600 1600 832 832
+/html0/body1/div1/input2 2944 1600 832 832
+/html0/body1/div1/input3 4288 1600 832 832
+/html0/body1/div1/input4 5632 1600 832 832
+/html0/body1/div1/input5 6976 1600 832 832
+/html0/body1/div1/input6 8320 1600 832 832
+/html0/body1/div1/input7 9664 1600 832 832
+/html0/body1/div2 0 2688 15360 1344
+/html0/body1/div2/input0 256 2944 832 832
+/html0/body1/div2/input1 1600 2944 832 832
+/html0/body1/div2/input2 2944 2944 832 832
+/html0/body1/div2/input3 4288 2944 832 832
+/html0/body1/div2/input4 5632 2944 832 832
+/html0/body1/div2/input5 6976 2944 832 832
+/html0/body1/div3 0 4032 15360 1792
+/html0/body1/div3/input0 256 4288 1280 1280
+/html0/body1/div3/input1 2048 4288 1280 1280
+/html0/body1/div3/input2 3840 4288 1280 1280
+/html0/body1/div3/input3 5632 4288 1280 1280
+/html0/body1/div3/input4 7424 4288 1920 832
+/html0/body1/div3/input5 9856 4288 1920 832
+/html0/body1/div3/input6 12288 4288 1920 832
+/html0/body1/div4 0 5824 15360 1792
+/html0/body1/div4/input0 256 6080 1280 1280
+/html0/body1/div4/input1 2048 6080 1280 1280
+/html0/body1/div4/input2 3840 6080 1280 1280

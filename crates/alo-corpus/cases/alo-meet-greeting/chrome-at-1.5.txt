@@ -1,0 +1,18 @@
+# Chrome 154 started with --force-device-scale-factor=1.5, headless, measured 2026-10-14
+# (queue item 593). Each element: its path, then getBoundingClientRect() left,
+# top, width and height in sixty-fourths of a CSS pixel, every element set in
+# the corpus's DejaVu face for its computed family. Measured, never rewritten
+# by a test.
+/html0 0 0 51200 14080
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 0 51200 14080
+/html0/body1/div0 0 0 51200 14080
+/html0/body1/div0/div0 0 0 51200 14012.6669921875
+/html0/body1/div0/div0/header0 1536 2816 48128 6076.6669921875
+/html0/body1/div0/div0/header0/p0 1536 2816 48128 1308.666748046875
+/html0/body1/div0/div0/header0/p0/img0 8707.333984375 2844.666748046875 1280 1280
+/html0/body1/div0/div0/header0/h11 1536 4380.6669921875 48128 2560
+/html0/body1/div0/div0/header0/h11/em0 7419.33349609375 4466 16900 2389.33349609375
+/html0/body1/div0/div0/header0/p2 1536 7452.6669921875 48128 1440

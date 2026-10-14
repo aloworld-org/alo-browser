@@ -47,6 +47,7 @@ pub mod gradient;
 pub mod length;
 pub mod mix;
 pub mod parse;
+pub mod scale;
 pub mod shadow;
 pub mod shorthand;
 pub mod svg_number;
@@ -58,12 +59,13 @@ pub use background::{Background, Image};
 pub use calc::{CalcNode, Kind};
 pub use color::{Color, Rgba, from_hsl};
 pub use gradient::{Angle, Extent, Gradient, Offset, Position, Shape, Stop};
-pub use length::{FontMetrics, Length, LengthPercentage, Viewport, device_scale};
+pub use length::{FontMetrics, Length, LengthPercentage, Viewport};
 pub use parse::{
     is_keyword, parse_background, parse_background_image, parse_box_shadows, parse_color,
     parse_gradient, parse_length, parse_length_percentage, parse_number, parse_text_shadows,
     parse_transform, parse_transform_origin,
 };
+pub use scale::{device_pixels, device_scale, holds_its_grid};
 pub use shadow::{DrawnShadow, Shadow};
 pub use shorthand::{Border, parse_border};
 pub use transform::{Function, Matrix, Transform};

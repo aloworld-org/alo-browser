@@ -279,7 +279,14 @@ correctness, not before it.
       and any other border's sides are split on the mitre and fill a
       rounded corner to its inner curve, as Chrome 154 draws them
       (`borders-side-by-side`, every plain pixel Chrome's at one and at
-      two). Owed: a fractional scale (593), an
+      two), and since queue item 593 (iteration 357) a page at a
+      fractional scale is laid out and drawn as Chrome does it at 1.5 —
+      every rule of ADR 0057 § 2 counted in sixty-fourths of a device
+      pixel, which no float holds there (975 of 985 corpus boxes, 904 of
+      904 probe numbers, six cases' pictures in every plain pixel). Owed:
+      a checkbox's and a radio's drawing at a fractional scale (597), a
+      centred line's start and a `middle` raise off the grid (598), the
+      window at a fractional screen's own scale (599), an
       `outline`, which is not drawn at all (591), a dash or a dot along a
       rounded corner (596), and a `border-*-style: none` longhand that does
       not take away a width set by `border-width` (595). Since queue item

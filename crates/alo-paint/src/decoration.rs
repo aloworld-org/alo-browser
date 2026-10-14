@@ -68,7 +68,7 @@ pub fn line_at(line: DecorationLine, piece: Piece, scale: f32) -> Rect {
     let thickness = thickness(piece.size, scale);
     let scale = alo_value::device_scale(scale);
     let drawn = thickness.trunc();
-    let top = (piece.top * scale + 0.5).floor();
+    let top = (alo_value::device_pixels(piece.top, scale) + 0.5).floor();
     let ascent = piece.ascent * scale;
     let at = match line {
         DecorationLine::Underline => top + ascent + (thickness / 2.0).ceil().max(1.0),
@@ -227,5 +227,21 @@ mod tests {
                 (928, 1)
             );
         }
+    }
+
+    #[test]
+    fn at_one_and_a_half_a_top_a_float_short_of_a_half_rounds_up() {
+        // A piece's top at 447.5 device pixels, as layout's float holds it a
+        // step short: rounded up to 448, as Chrome's half is (queue item
+        // 593), and a 15 px overline two device pixels thick above it.
+        let short = f32::from_bits((447.5_f32 / 1.5).to_bits() - 1);
+        assert!(short * 1.5 < 447.5, "the float this guards against");
+        assert_eq!(
+            rows(
+                line_at(DecorationLine::Overline, piece(short, 14.0, 15.0), 1.5),
+                1.5
+            ),
+            (446, 2)
+        );
     }
 }

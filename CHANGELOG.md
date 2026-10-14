@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page at a fractional scale is laid out and drawn as Chrome does.**
+  On a screen of one and a half device pixels to the CSS pixel, a box's
+  edge, a line's leading and a line height written as a number used to
+  land a sixty-fourth of a device pixel — or a whole device pixel of
+  leading — short of where Chrome puts them, because a float cannot hold
+  that screen's grid and a sum came out a step under a line. Numbers
+  that close to a line are now on it there, and 975 of the 985 corpus
+  boxes measured, every probe of the rounding rules and six pages' pictures
+  are Chrome's at 1.5. Nothing at one or two moves. The window still
+  rounds a fractional screen down for now.
+
 - **A border whose sides differ fills its rounded corners.** A solid
   border with sides of different widths or colours used to be drawn as
   four strips, which left the page showing in a thin crescent inside

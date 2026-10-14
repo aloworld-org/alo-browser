@@ -138,10 +138,14 @@ The last two rows were measured by item 560 and added to the table by it,
 the overflow clip's by item 575, the picture's by item 587 and the
 `<svg>`'s by item 589 (see *Measured since*).
 
-The rules are measured at scale 1 and at scale 2 above. Nothing here
-claims a rule at 1.5 or 3 that was not measured; the form `rule(v·s) / s`
-is what the two scales share, and an item that builds for a fractional
-scale measures one before it is trusted.
+The rules are measured at scale 1 and at scale 2 above, and at 1.5 by
+item 593 (*Measured since*): every row holds there as written, the value
+counted in sixty-fourths of a device pixel, which at 1.5 no float holds,
+and a checkbox's or a radio's drawing inside its snapped box is the one
+thing found to differ (item 597). Nothing here claims a rule at 3 or 1.25
+that was not measured; the form `rule(v·s) / s` is what the scales share,
+and an item that builds for another scale measures it before it is
+trusted.
 
 The scale changes where a value is rounded, never what a value *is*: a
 computed `16px` is 16 at every scale, `vw` is a hundredth of the viewport
@@ -165,7 +169,9 @@ too, and the frame a renderer sends is in device pixels.
 - **Any finite factor above zero** is a scale; anything else is 1. It is
   not rounded: a window at 1.5 is laid out at 1.5. Until a fractional
   scale is measured (§ 2), the window keeps rounding one down to a whole
-  factor, as it replicates today.
+  factor, as it replicates today. Item 593 measured 1.5, and the page
+  laid out and drawn at it is Chrome's; the window takes a fractional
+  screen's own scale with item 599.
 - `devicePixelRatio` answers the scale, and `(resolution: 2dppx)`,
   `min-resolution` and `max-resolution` are evaluated against it, where
   today they are refused as unknown. ADR 0024 § 3 kept the ratio absent
@@ -243,7 +249,9 @@ Item 299 is cut into three parts, and closes when they do:
 
 ## What is not decided here
 
-- **A fractional scale's rules**, until measured (§ 2; item 593).
+- ~~**A fractional scale's rules**~~: measured at 1.5 by item 593
+  (*Measured since*). A window on a fractional screen still rounds it
+  down to a whole factor (§ 3) until item 599 lays it out at its own.
 - **Where a pointer lands at a scale**: ADR 0024 § 5's point is a 1×1
   pixel, measured at scale 1; whether it is a device pixel at 2 is
   measured with item 568 (cut from 562).
@@ -541,6 +549,62 @@ run, the padding put on the grid as layout puts it.
   (`alo-agenda-calendars`, `alo-agenda-mini-month`, `alo-downloads`,
   `alo-meet-greeting`, `svg-relative-size`, `svg-shapes-filled`).
 - **Not measured here**, and cut to item 593: any fractional scale.
+
+**Item 593, 2026-10-14, Chrome 154 under `--force-device-scale-factor=1.5`**
+(and `=1` and `=2` for the probes beside it), headless, screenshots without
+`--disable-gpu`, the source not read: `getBoundingClientRect()` of every
+element of the 74 corpus cases Chrome was measured on at two, frozen
+beside each as `chrome-at-1.5.txt`; a probe page of § 2's line, leading,
+length and face-size rules and a line height written as a number at
+eleven sizes and eleven factors (`alo-corpus/tests/references/
+rules-at-a-scale.html`, Chrome's answers beside it at all three scales);
+screenshots of the fourteen cases with a picture at two; and 336
+checkboxes and radios at 24 offsets and seven sizes.
+
+- **Every row of § 2's table holds at 1.5 as written.** At 1.5 the grid
+  is 1/96 of a CSS pixel and Chrome's numbers are whole sixty-fourths of a
+  device pixel, which no `f32` holds; this engine's are within a float's
+  error of them. Of the 985 corpus boxes this engine places exactly where
+  Chrome does at one, 183 were off at 1.5 before this item, each by a
+  sixty-fourth of a device pixel or by a whole device pixel of leading,
+  and every one for that error: a box's edge at 4,831.99 sixty-fourths
+  floored a unit short of Chrome's 4,832, and a 20 px line less 22 and 6
+  device pixels of font leaving 1.3333334 CSS pixels, whose half is
+  0.99999994 device pixels, floored to none where Chrome has one.
+- **So at a scale that is not a power of two a number within a sixteenth
+  of a sixty-fourth of a device pixel of a sixty-fourth is on it** —
+  `alo-value`'s `device_pixels`, and through it `layout_unit.rs`' edges and
+  a number's line height, `inline.rs`' leading and `snap.rs`' and
+  `decoration.rs`' rounding to whole device pixels. At one and two a float
+  holds every line, and nothing there moved. A length and a text width
+  keep their relative slack alone: given this one as well, 3 and 7 boxes
+  the corpus had right moved. With it, 975 of the 985 are Chrome's to a
+  twentieth of a sixty-fourth; the ten left are a float's error 2,089 px
+  down (0.02 of one), `border-widths`' two shrunk flex items (item 564,
+  as at two), and seven boxes off by under a sixty-fourth, where a line
+  centred by `text-align` and a picture aligned `middle` are placed off
+  the grid at every scale (item 598). The probes at 1.5 are Chrome's in
+  all 904 numbers, as at one and two; a line height written as a number
+  was a unit short in 2 of 121 before.
+- **A box is drawn on whole device pixels as § 2 says**: six cases drawn
+  at 1.5 (`backgrounds-`, `clips-`, `pictures-` and `svgs-on-device-
+  pixels`, `rounded-clips-inside-borders`, `spread-shadow-corners`, each
+  with `render-at-1.5.png` and Chrome's `chrome-at-1.5.png`) are Chrome's
+  in every pixel where both pictures are one of Chrome's plain colours,
+  and more than 40 of 255 from it only at the corners of rounded shapes,
+  0 to 9 pixels a case. A 13 px background at 24 offsets a twenty-fourth
+  of a pixel apart, one of them on a half device pixel, is drawn from the
+  pixel `floor(x·s + 0.5)` gives at each.
+- **A checkbox's drawing is not its snapped box at 1.5** where the box is
+  not whole device pixels across: a 13 px checkbox is 19.5 device pixels,
+  and Chrome draws it from its snapped left edge 19.5 wide, its last
+  column half covered, when that edge was rounded down, and 18 wide when
+  it was rounded up, where the snapped box is 20 and 19. A radio differs
+  again. Sizes that are whole device pixels (12 px, 14 px, 12.6667 px) are
+  drawn in their snapped box, as at one and two. Cut to item 597.
+- Text is not compared at 1.5: Chrome thickens letters on macOS (item
+  576), and the five cases with text differ from Chrome's pictures at 1.5
+  no more than at two.
 
 ## How we will know if this was wrong
 

@@ -2542,3 +2542,17 @@ none` longhand leaves a width `border-width` set) and **596** (dashes and
 dots along a rounded corner). 281 queue items are open (592 closed; 595
 and 596 added). The next unused queue number is 597 and the next unused
 ADR 0058.
+
+Iteration 357 closed queue item 593: ADR 0057's table measured at a scale
+of 1.5 in Chrome 154. Every row holds as written, counted in sixty-fourths
+of a device pixel, which no float holds at 1.5; `alo-value`'s
+`device_pixels` puts a number within a sixteenth of one on it there, and a
+box's edge, a leading, a number's line height and every snapped edge go
+through it. 975 of the 985 corpus boxes exact at one are Chrome's at 1.5,
+the probes of the rules are Chrome's in all 904 numbers, and six cases
+drawn at 1.5 are Chrome's in every plain pixel; nothing at one or two
+moved. Cut: **597** (a checkbox and a radio drawn at a fractional scale),
+**598** (a centred line's start and a `middle` raise off the grid) and
+**599** (the window at a fractional screen's own scale). 283 queue items
+are open (593 closed; 597, 598 and 599 added). The next unused queue
+number is 600 and the next unused ADR 0058.

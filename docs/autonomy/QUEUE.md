@@ -14426,7 +14426,7 @@ What stage 2's exit gate actually measures: a person using it.
   `rounded-clips-inside-borders`' `sides` box is blue now, with Chrome's
   pictures taken again. Found: **595**, **596**.
 
-- [ ] **593. ADR 0057's table at a fractional scale.** *Cut from 589
+- [x] **593. ADR 0057's table at a fractional scale.** *Cut from 589
   (iteration 354; ADR 0057 § 2). Feature: `docs/features.md` stage 1,
   paint. Needs measuring.* Every rule in ADR 0057 § 2's table is measured
   at one and at two only, and § 3 has the window round a fractional
@@ -14435,6 +14435,31 @@ What stage 2's exit gate actually measures: a person using it.
   `--force-device-scale-factor=1.5` and written into the ADR, any that
   differ are built, and a frozen page laid out and drawn at 1.5 is
   Chrome's in numbers and pixels.
+
+  **Done (iteration 357).** Measured in Chrome 154 under
+  `--force-device-scale-factor=1.5`: every element of the 74 cases
+  measured at two (`chrome-at-1.5.txt` beside each), a probe page of the
+  table's line, leading, length and face-size rules and a line height
+  written as a number at 121 sizes and factors, at one, two and 1.5
+  (`alo-corpus/tests/references/rules-at-a-scale.*`), fourteen cases'
+  pictures, and 336 checkboxes and radios. Every row holds at 1.5 as
+  written, counted in sixty-fourths of a device pixel — which no float
+  holds at 1.5, so 183 of the 985 boxes exact at one were a sixty-fourth
+  or a pixel of leading off, each for a float a step short of a line
+  Chrome counts in whole units. Built: `alo-value`'s `scale.rs`
+  (`device_scale` moved there, `holds_its_grid`, `device_pixels`: at a
+  scale that is not a power of two, a number within a sixteenth of a
+  sixty-fourth of a device pixel of one is on it), used by
+  `layout_unit.rs`' edges and number line heights, `inline.rs`' leading,
+  `snap.rs` and `decoration.rs`. 975 of the 985 boxes are Chrome's at
+  1.5; the probes are Chrome's in all 904 numbers at each scale; six
+  cases drawn at 1.5 (`render-at-1.5.png`) are Chrome's
+  (`chrome-at-1.5.png`) in every plain pixel, differing by more than 40
+  only at rounded corners. Nothing at one or two moved. Written into
+  ADR 0057's *Measured since*. Cut: **597** (a checkbox and a radio
+  drawn at a fractional scale, which is the one row found to differ),
+  **598** (a line's `text-align` start and a `middle` raise off the grid,
+  at any scale), **599** (the window at a fractional screen's own scale).
 
 - [ ] **594. A picture scaled up is smoothed across its texels.** *Found
   building 590 (iteration 355). Feature: `docs/features.md` stage 2,
@@ -14477,6 +14502,49 @@ What stage 2's exit gate actually measures: a person using it.
   measured first. *Closes when:* the rule is written down, built, and a
   frozen case of rounded dashed and dotted borders is Chrome's at one and
   at two.
+
+- [ ] **597. A checkbox and a radio drawn at a fractional scale.** *Cut
+  from 593 (iteration 357; ADR 0057, Measured since). Feature:
+  `docs/features.md` stage 2, a window, tabs and a tab strip. Needs
+  measuring.* At 1.5 a checkbox whose box is not whole device pixels
+  across is not drawn in its snapped box: a 13 px checkbox, 19.5 device
+  pixels, is drawn from its snapped left edge 19.5 wide (its last column
+  half covered) when that edge was rounded down and 18 wide when it was
+  rounded up, where the snapped box is 20 and 19; 11, 15, 17 and 25 px
+  likewise. A radio differs again. Sizes whole in device pixels are drawn
+  in the snapped box, as at one and two. `checkbox-beside-text` at 1.5
+  differs from Chrome's picture in 74 plain pixels at its checkboxes'
+  edges. The probe was iteration 357's scratchpad (`cb2gen.py`).
+  *Closes when:* Chrome's rule for a control's drawing at a fractional
+  scale is written down, built in `alo-paint`'s `control.rs`, and
+  `checkbox-beside-text` at 1.5 is Chrome's in every plain pixel.
+
+- [ ] **598. A line's start under `text-align` and a `middle` raise on the
+  grid.** *Found building 593 (iteration 357). Feature:
+  `docs/features.md` stage 1, layout (the 1/64 grid). Needs measuring.*
+  `inline.rs` starts a centred line at half its leftover room and raises
+  a box aligned `middle` by half the parent's x-height less half its own
+  height, and puts neither on the grid. At 1.5 `alo-offline`'s centred
+  button is half a sixty-fourth of a device pixel right of Chrome's, and
+  `alo-meet-greeting`'s picture aligned `middle` leaves its line a
+  sixty-fourth short (seven boxes, listed in
+  `a_page_at_a_scale_of_one_and_a_half.rs`' `NOT_THE_SCALE`). At one and
+  two the same halves can fall off the grid too. *Closes when:* how
+  Chrome puts each on the grid (truncated, floored or rounded) is
+  measured at one, two and 1.5 on lines of odd leftover room and boxes of
+  odd heights, built, and those seven boxes come off the list.
+
+- [ ] **599. The window at a fractional screen's own scale.** *Cut from 593
+  (iteration 357; ADR 0057 § 3). Feature: `docs/features.md` stage 2, a
+  window, tabs and a tab strip. Depends on 593.* `alo-window`'s
+  `place::scale` rounds a fractional screen down to a whole factor and
+  the window composes in whole factors (`u32`). A page laid out and drawn
+  at 1.5 is now Chrome's (593); the window should lay it out at the
+  screen's own scale, divide a pointer by it, and tell the page the same
+  `devicePixelRatio`. *Closes when:* a window on a screen at 1.5 (or one
+  forced to it) lays its page and strip out at 1.5, composes without
+  replicating, and its captured picture is the composed reference at
+  1.5.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

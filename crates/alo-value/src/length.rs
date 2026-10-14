@@ -17,6 +17,7 @@
 //! to a viewport, and a viewport belongs to layout.
 
 use crate::calc::CalcNode;
+use crate::scale::device_scale;
 use crate::unit::Unit;
 use core::fmt;
 
@@ -99,16 +100,6 @@ impl Viewport {
 impl Default for Viewport {
     fn default() -> Self {
         Self::new(0.0, 0.0)
-    }
-}
-
-/// A screen's scale as ADR 0057 § 3 admits one: any finite factor above
-/// zero, and 1 for anything else.
-pub fn device_scale(scale: f32) -> f32 {
-    if scale.is_finite() && scale > 0.0 {
-        scale
-    } else {
-        1.0
     }
 }
 

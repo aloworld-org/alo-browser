@@ -35978,3 +35978,114 @@ item 592* clause, and its Owed list loses 592 and gains 595 and 596.
 281 queue items are open (592 closed; 595 and 596 added). The next unused
 queue number is **597** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 357 — queue item 593: ADR 0057's table at a fractional scale
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 356's entry, queue items 591–596 and 560, ADR 0057 (§§ 1–6,
+*What is not decided here*, *Measured since*), and `docs/features.md`
+stage 1's device-pixel lines and stage 2's window line. No `AGENTS.md`
+exists here.
+
+**Why 593.** The first open item whose dependencies are done: those
+before it wait as iteration 356 recorded (463 and 572 on a person, 560 and
+564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and 559 on
+pages), and 591 waits for a page that draws an outline. 593 depends on
+nothing, names its feature and closing condition, and its "needs
+measuring" is this iteration's work.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1.5`,
+and `=1`, `=2` for the probes; screenshots without `--disable-gpu`; the
+source not read): every element of the 74 cases measured at two
+(`a-turned-picture` has no boxes at either), frozen as `chrome-at-1.5.txt`
+beside each; a probe page of ADR 0057 § 2's line, leading, length and
+face-size rules plus 121 line heights written as numbers, at all three
+scales (`alo-corpus/tests/references/rules-at-a-scale.*`); screenshots of
+the fourteen cases that carry a picture at two; and 336 checkboxes and
+radios at 24 offsets and seven sizes.
+
+**Found.** Every row of the table holds at 1.5 as written. What did not
+was arithmetic: at 1.5 the grid is 1/96 px and Chrome counts in whole
+sixty-fourths of a device pixel, which no `f32` holds, so of 985 corpus
+boxes exact at one, 183 were off — a box's edge at 4,831.99 units floored
+to 4,831 where Chrome has 4,832, and a leading of 1.3333334 px halved to
+0.99999994 device pixels and floored to none where Chrome has one. A line
+height written as a number was a unit short in 2 of 121 probes.
+
+**Built.** `alo-value`'s new `scale.rs` (`device_scale` moved from
+`length.rs`, which had gained a second reason to change; `holds_its_grid`;
+`device_pixels`: at a scale that is not a power of two, a number within a
+sixteenth of a sixty-fourth of a device pixel of one is on it). Used by
+`layout_unit.rs`' `edges` and `floored`, `inline.rs`' leading, `snap.rs`
+and `decoration.rs`. A length and a text width keep their relative slack
+only: given this one too, 3 and 7 corpus boxes that were right moved. The
+same change was tried on `room.rs`' font figures, `line_width.rs` and
+`field_width.rs` and taken out again: no case or probe needed it, their
+inputs are floats Chrome also holds in float, and a whole line gap never
+floors wrongly at 1.5 (checked for 1 to 79 device pixels).
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh` was started in the foreground; it ran past the tool's
+600 s limit and was moved to the background by the harness, and the next
+call waited on it with an until-loop and read it in the same step:
+**`exit 0`, "The gate is met. (10 of 10 steps)"**, 4,925 tests run,
+4,925 passed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Numbers: `a_page_at_a_scale_of_one_and_a_half.rs` — the probes against
+  Chrome at one, two and 1.5 in all 904 numbers each, to a twentieth of a
+  sixty-fourth of a device pixel; every box exact at one is Chrome's at
+  1.5 (985 compared, 74 cases) but the nine `NOT_THE_SCALE` names, each
+  with its item. Unit tests at 1.5 in `scale.rs`, `layout_unit.rs`,
+  `snap.rs` and `decoration.rs`.
+- Reference renders: `render-at-1.5.png` and Chrome's `chrome-at-1.5.png`
+  (RGBA) beside six cases (`backgrounds-`, `clips-`, `pictures-`,
+  `svgs-on-device-pixels`, `rounded-clips-inside-borders`,
+  `spread-shadow-corners`): every pixel where both are one of Chrome's
+  plain colours is the same, and 0 to 9 a case are more than 40 apart,
+  all at the four corners of rounded shapes. The five text cases differ
+  from Chrome at 1.5 no more than at two (letters, 576) and are not
+  compared. Every other reference is unchanged: renders at two compared
+  byte for byte with the committed `render-at-2.png`, and the gate's
+  corpus run at one.
+- Mutation, each restored from a copy (`cmp` confirmed): the old leading
+  and the old `edges` each failed both numbers tests; the old `floored`
+  failed the probes (E100–E103 a unit short); the old `snap.rs` and
+  `decoration.rs` rounding failed their 1.5 unit tests. The old `snap.rs`
+  alone does not fail the picture test — no edge there lands a float
+  under a half — which is why the unit tests exist.
+- Hostile input: nothing new reads bytes from outside.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: the scale and its device pixels are
+  `scale.rs`' in `alo-value`; the grid's rules stay `layout_unit.rs`'.
+- Also updated: ADR 0057 (§ 2, § 3, *What is not decided here*, *Measured
+  since*), `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, `alo-window`'s `place.rs` doc comment,
+  the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 593 is ticked with a *Done* paragraph. Its closing condition
+asks that any row that differs be built; the one found to differ — a
+checkbox's and a radio's drawing inside a box that is not whole device
+pixels — is cut, its measurements written into the item: **597**. Found:
+**598** — a line's start under `text-align: center` and a `middle` raise
+are not put on the grid (seven boxes at 1.5, at any scale in principle).
+Cut: **599** — the window still rounds a fractional screen down to a
+whole factor, its scale a `u32` throughout.
+
+**Roadmap.** Stage 1's paint line on whole device pixels: a *since queue
+item 593* clause, and its Owed list loses 593 and gains 597, 598 and 599.
+
+**Unresolved obligations.**
+- 597, 598 and 599, as above. `checkbox-beside-text` at 1.5 differs from
+  Chrome's picture in 74 plain pixels at its checkboxes' edges (597).
+- Text at 1.5 is not compared against Chrome's pictures (576).
+- 591, 594, 595, 596; 576, 577, 585, 586 as before; 463 and 572 wait on
+  a person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501.
+- No claim about speed is made.
+
+283 queue items are open (593 closed; 597, 598 and 599 added). The next
+unused queue number is **600** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

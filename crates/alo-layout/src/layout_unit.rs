@@ -42,6 +42,21 @@
 //! a line height, [`rounded`] and [`floored`], are kept exactly as that
 //! decision measured them.
 //!
+//! **At a scale that is not a power of two, an edge and a number's line
+//! height are on the grid line they are within a sixteenth of a unit of.**
+//! At one and at two a float holds every grid line, so a sum that misses
+//! one misses it in Chrome too. At 1.5 the grid is 1/96 of a CSS pixel,
+//! which no float holds: a box's edge Chrome puts at 4,832 units, counting
+//! in whole sixty-fourths of a device pixel, comes out of this engine's
+//! float at 4,831.99, and floored that is a unit short. Measured in Chrome
+//! 154 at `--force-device-scale-factor=1.5` over the corpus (queue item
+//! 593): of 985 boxes exact at one, 183 were off at 1.5 before, 80 with
+//! this for an edge, and none of the nine left is for it; a line height
+//! written as a number was a unit short in 2 of 121 probes. A length and a
+//! text width keep their relative slack alone: given this one as well, a
+//! length moved 3 boxes the corpus had right and a text width 7 more
+//! ([`alo_value::device_pixels`]).
+//!
 //! **Past the grid's range a number saturates**, as Chrome's does: it holds
 //! 2³¹ − 1 units, about 33,554,432 px, and reports the largest of them as
 //! the largest 32-bit float below 2³¹ (ADR 0054 § 5). This engine lays out
@@ -87,7 +102,7 @@ pub fn rounded(pixels: f32, scale: f32) -> f32 {
 /// Pixels floored onto the grid of a screen at `scale`: a line height
 /// written as a number, once it is multiplied out (ADR 0050 § 3).
 pub fn floored(pixels: f32, scale: f32) -> f32 {
-    from_units(saturated(pixels * per_px(scale)).floor(), scale)
+    from_units(saturated(on_the_grid(pixels, scale)).floor(), scale)
 }
 
 /// Where a box's near edge goes on the grid, and how big it then is, from
@@ -110,9 +125,8 @@ pub fn floored(pixels: f32, scale: f32) -> f32 {
 ///
 /// Both on the grid of a screen at `scale`.
 pub fn edges(near: f32, size: f32, scale: f32) -> (f32, f32) {
-    let per_px = per_px(scale);
-    let start = saturated(near * per_px);
-    let end = saturated((near + size) * per_px);
+    let start = saturated(on_the_grid(near, scale));
+    let end = saturated(on_the_grid(near + size, scale));
     let placed = from_units(start.trunc(), scale);
     let sized = from_units(end.floor() - start.floor(), scale);
     (placed, sized)
@@ -126,6 +140,13 @@ fn on_a_line(units: f32) -> f32 {
     } else {
         units
     }
+}
+
+/// Pixels as units of a screen at `scale`, on the grid line they are within
+/// a float's error of where a float cannot hold the grid
+/// ([`alo_value::device_pixels`]).
+fn on_the_grid(pixels: f32, scale: f32) -> f32 {
+    alo_value::device_pixels(pixels, scale) * UNITS_PER_PX
 }
 
 /// A number of units held inside Chrome's range.
@@ -325,6 +346,24 @@ mod tests {
         let (near, size) = edges(sixty_fourths(2889.5), 10.0, 2.0);
         assert!(same(near, sixty_fourths(2889.5)));
         assert!(same(size, 10.0));
+    }
+
+    #[test]
+    fn at_one_and_a_half_an_edge_a_float_short_of_the_grid_is_on_it() {
+        // 4,832 units at 1.5 is 50.333… CSS pixels, which a float holds a
+        // step short; Chrome, counting in whole units, has the line.
+        let short = f32::from_bits((4832.0_f32 / 96.0).to_bits() - 1);
+        assert!(short * 96.0 < 4832.0, "the float this guards against");
+        let (near, size) = edges(short, 10.0, 1.5);
+        assert!((near * 96.0 - 4832.0).abs() < 1e-3, "{}", near * 96.0);
+        assert!((size * 96.0 - 960.0).abs() < 1e-3, "{}", size * 96.0);
+        // `line-height: 1.3` at 13.3333 px: 1,663.996 units, which Chrome
+        // has as 1,664.
+        let line = floored(13.3333 * 1.3, 1.5);
+        assert!((line * 96.0 - 1664.0).abs() < 1e-3, "{}", line * 96.0);
+        // A fifth of a unit short is short, and floored.
+        let fifth = floored(4831.8 / 96.0, 1.5);
+        assert!((fifth * 96.0 - 4831.0).abs() < 1e-3, "{}", fifth * 96.0);
     }
 
     #[test]

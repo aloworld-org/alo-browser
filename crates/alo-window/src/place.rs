@@ -63,7 +63,8 @@ impl PixelRect {
 ///
 /// A factor that is not a finite number, or is below one, is one — the window is
 /// drawn at the size it says it is rather than not drawn. A fractional factor
-/// is rounded down until one is measured (ADR 0057 § 2).
+/// is rounded down: 1.5 is measured (ADR 0057, *Measured since*, item 593),
+/// and a window lays a page out at it with item 599.
 pub fn scale(scale_factor: f64) -> u32 {
     if !scale_factor.is_finite() {
         return 1;

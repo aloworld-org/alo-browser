@@ -1,0 +1,42 @@
+# Chrome 154 started with --force-device-scale-factor=1.5, headless, measured 2026-10-14
+# (queue item 593). Each element: its path, then getBoundingClientRect() left,
+# top, width and height in sixty-fourths of a CSS pixel, every element set in
+# the corpus's DejaVu face for its computed family. Measured, never rewritten
+# by a test.
+/html0 0 0 64000 40960
+/html0/head0 0 0 0 0
+/html0/head0/link0 0 0 0 0
+/html0/head0/style1 0 0 0 0
+/html0/body1 0 0 64000 40960
+/html0/body1/div0 0 0 64000 40960
+/html0/body1/div0/aside0 0 0 26880 40960
+/html0/body1/div0/aside0/div0 4096 4096 18688 1749.3333740234375
+/html0/body1/div0/aside0/div0/span0 4096 4096 2618.666748046875 1749.3333740234375
+/html0/body1/div0/aside0/div1 4096 12221.333984375 18688 17285.333984375
+/html0/body1/div0/aside0/div1/h10 4096 12221.333984375 18688 10853.333984375
+/html0/body1/div0/aside0/div1/p1 4096 24610.66796875 18688 4896
+/html0/body1/div0/aside0/div2 4096 35882.66796875 18688 981.3333740234375
+/html0/body1/div0/aside0/div2/span0 4096 36117.3359375 512 512
+/html0/body1/div0/aside0/div2/span1 5120 35882.66796875 14242 981.3333740234375
+/html0/body1/div0/main1 26880 0 37120 40960
+/html0/body1/div0/main1/form0 32640 6794.6669921875 25600 27370.66796875
+/html0/body1/div0/main1/form0/div0 32640 6794.6669921875 25600 3669.33349609375
+/html0/body1/div0/main1/form0/div0/h20 32640 6794.6669921875 25600 2389.33349609375
+/html0/body1/div0/main1/form0/div0/p1 32640 9440 25600 1024
+/html0/body1/div0/main1/form0/div1 32640 12000 25600 4480
+/html0/body1/div0/main1/form0/div1/label0 32640 12000 25600 1024
+/html0/body1/div0/main1/form0/div1/input1 32640 13536 25600 2944
+/html0/body1/div0/main1/form0/div2 32640 17504 25600 4480
+/html0/body1/div0/main1/form0/div2/label0 32640 17504 25600 1024
+/html0/body1/div0/main1/form0/div2/input1 32640 19040 25600 2944
+/html0/body1/div0/main1/form0/div3 32640 23008 25600 1216
+/html0/body1/div0/main1/form0/div3/label0 32640 23008 7946.6669921875 1216
+/html0/body1/div0/main1/form0/div3/label0/input0 32896 23200 832 832
+/html0/body1/div0/main1/form0/div3/label0/span1 34432 23125.333984375 6154.6669921875 981.3333740234375
+/html0/body1/div0/main1/form0/div3/a1 49892.66796875 23125.333984375 8347.333984375 981.3333740234375
+/html0/body1/div0/main1/form0/button4 32640 25248 25600 2944
+/html0/body1/div0/main1/form0/div5 32640 29216 25600 981.3333740234375
+/html0/body1/div0/main1/form0/div5/span0 32640 29674.66796875 11606 64
+/html0/body1/div0/main1/form0/div5/span1 45014 29216 851.3333740234375 981.3333740234375
+/html0/body1/div0/main1/form0/div5/span2 46633.3359375 29674.66796875 11606.6669921875 64
+/html0/body1/div0/main1/form0/button6 32640 31221.333984375 25600 2944
