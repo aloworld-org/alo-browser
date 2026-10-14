@@ -1886,6 +1886,11 @@ items where being right and being unusable are the same outcome.
       letter kept, never under the space after it, as Chrome 154's does
       (583, done): layout's `Cut::width`, and `text-overflow-ellipsis`
       is Chrome's underline in a frozen Chrome picture.
+      `text-decoration-skip-ink` is read as the text's own, inherited:
+      `none` draws whole and `all` as `auto`, and an underline and an
+      overline are drawn beneath the letters, as Chrome 154 draws them
+      (581, done): `alo-paint`'s `SkipInk`, and `skip-ink-values` is
+      Chrome's at one and at two.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1898,7 +1903,8 @@ items where being right and being unusable are the same outcome.
       query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
       pixels (569), a shrunk flex item's share of a pixel (564, measured,
       built with 502), and the two boxes at two that keep 560 open;
-      `text-decoration-skip-ink`'s other values (581); a link opening a tab
+      a text shadow beneath the decoration lines, and their own shadows
+      (584); a link opening a tab
       (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads

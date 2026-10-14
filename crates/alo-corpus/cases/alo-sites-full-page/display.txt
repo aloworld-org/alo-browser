@@ -88,8 +88,8 @@ text box#277 "Seasonal roasts" rgb(23 33 43) 28px at (20, 3881.1094)
 fill box#281 rgb(221 227 233) at (20, 3903) 760×1
 clip box#281 to (20, 3903.7031) 760×686.5625
 text box#284 "Harbour Blend" rgb(23 33 43) 17px at (20, 3946.7031)
-text box#288 "Harbour Blend" rgb(23 33 43) 20px at (20, 4437.703)
 fill box#288 rgb(23 33 43) at (20, 4439) 163.4375×2
+text box#288 "Harbour Blend" rgb(23 33 43) 20px at (20, 4437.703)
 text box#291 "Chocolate, hazelnut and red apple." rgb(76 88 102) 17px at (20, 4469.703)
 text box#294 "A balanced roast for espresso or filter." rgb(23 33 43) 17px at (20, 4513.8906)
 text box#297 "2026-08-11" rgb(76 88 102) 15px at (20, 4558.078)
@@ -147,12 +147,12 @@ group box#415 at opacity 0
 transform box#415 by matrix(1, 0, 0, 1, 0, 24)
 fill box#415 rgb(23 33 43) at (0, 6359) 800×124
 fill box#415 rgb(221 227 233) at (0, 6359) 800×1
-text box#423 "Imprint" rgb(255 255 255) 17px at (20, 6427.078)
 fill box#423 rgb(255 255 255) at (20, 6428) 21×1
 fill box#423 rgb(255 255 255) at (46, 6428) 35.51709×1
-text box#427 "Privacy" rgb(255 255 255) 17px at (97.53125, 6427.078)
+text box#423 "Imprint" rgb(255 255 255) 17px at (20, 6427.078)
 fill box#427 rgb(255 255 255) at (97.53125, 6428) 52.46875×1
 fill box#427 rgb(255 255 255) at (156, 6428) 3.081543×1
+text box#427 "Privacy" rgb(255 255 255) 17px at (97.53125, 6427.078)
 text box#432 "© Nordwind Coffee Roasters" rgb(255 255 255) 17px at (537.40137, 6427.078)
 untransform
 ungroup
@@ -162,9 +162,9 @@ fill box#242 rgb(255 255 255) at (353, 3347) 26×49
 fill box#242 rgb(221 227 233) at (353, 3347) 26×49
 unclip
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
-text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
 fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
 fill box#5 rgb(23 33 43) at (-15938, 28) 99.11035×1
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
 fill box#7 rgb(255 255 255) at (0, 0) 800×73
 fill box#7 rgb(221 227 233) at (0, 72) 800×1
 text box#13 "Nordwind Coffee Roasters" rgb(23 33 43) 20px at (20, 43.1875)

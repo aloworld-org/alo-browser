@@ -13887,7 +13887,7 @@ What stage 2's exit gate actually measures: a person using it.
   `render.png` six pixels shorter, 193.9 levels from Chrome's on average
   before and 1.3 after. Nothing found.
 
-- [ ] **581. `text-decoration-skip-ink`'s values.** *Found building 579
+- [x] **581. `text-decoration-skip-ink`'s values.** *Found building 579
   (iteration 343). Feature: `docs/features.md` stage 2, `text-decoration`.
   Needs measuring.* An underline and an overline always step aside for
   the letters here, which is `auto`, the initial value; the property is
@@ -13898,6 +13898,50 @@ What stage 2's exit gate actually measures: a person using it.
   `alo-css`' `properties.rs` and inherited, `none` and `all` draw as
   Chrome's at one and at two in a case with descenders, and an unknown
   value is ignored.
+  ***Done (iteration 347).*** Measured first (Chrome 154, headless,
+  `--force-device-scale-factor=1` and `=2`, without `--disable-gpu`,
+  `DejaVu Sans` by `@font-face`, red lines under blue letters, the source
+  not read): `gjpqy` underlined at 32 px and `ÉÅÊÎÖÇŔ` overlined at nine
+  sizes from 10 to 64 px under each value. `all` is drawn as `auto`, every
+  gap on the same pixels at both scales; `none` is the line whole; a line
+  through is whole under all three. The value is the **text's own**: under
+  a `none` underline a child set `auto` steps aside and the parent's own
+  text does not, and the other way round. `getComputedStyle` reads `ALL`
+  as `all`, `initial` as `auto`, and `bogus` and `none auto` as the value
+  inherited. And Chrome draws an underline and an overline **beneath the
+  letters** and a line through over them, with a text's shadow beneath
+  all of it. Built: `alo-css`' `properties.rs` lists the property (Paint),
+  `alo-style`'s `inheritance.rs` inherits it; `alo-paint`'s
+  `skip_ink.rs` reads it (`SkipInk`), and `build.rs` asks the text's
+  nearest element, passing a value it cannot read for its parent's
+  (`skip_ink_of`), and draws an underline and an overline before the text
+  item and a line through after (`Decorations`, `between_lines`). Cut,
+  scope not depth: under text that casts a shadow every line stays after
+  the text item, since an item draws its shadows with its letters
+  (**584**). Evidence: `cases/skip-ink-values` with Chrome's `chrome.png`
+  and `chrome-at-2.png` and `render-at-2.png`;
+  `a_line_that_steps_aside_or_not.rs` — every line's every piece Chrome's
+  within a device pixel at one (38 rows) and two (76), and on each row
+  where a line runs whole the letters on top as Chrome's are, the one row
+  excused named (the 64 px accents' tops at one, 577's); `alo-paint`'s
+  `a_line_and_its_letters.rs`, the order and the pieces in numbers; unit
+  tests for the keywords and the inheritance. Eight mutations each failed
+  a test. 22 cases' `display.txt` moved (lines now listed before the
+  text); no `render.png` changed. Found: **584**.
+
+- [ ] **584. A text's shadow beneath its decoration lines, and the lines'
+  own shadows.** *Found building 581 (iteration 347). Feature:
+  `docs/features.md` stage 2, `text-decoration`. Seen, not measured.*
+  Chrome 154 draws a text's shadow first, then an underline or overline,
+  then the letters, then a line through, and a `text-shadow` shadows each
+  line as well (a probe's 4 px green shadow fell under a red underline,
+  and a green copy of the underline 4 px below it). Here a text item draws
+  its shadows with its letters, so under shadowed text every line is drawn
+  after both (`build.rs`' `Decorations::beneath_letters`), and no line
+  casts a shadow. Splitting the shadows from the letters moves every test
+  that finds text by its item, so it is its own change. *Closes when:* a
+  frozen case of underlined, overlined and struck-through text with a
+  `text-shadow` is Chrome's at one and at two, order and shadows both.
 
 - [x] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
   § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,

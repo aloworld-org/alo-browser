@@ -2431,3 +2431,13 @@ piece whose text holds its end. `text-overflow-ellipsis`' underline is
 Chrome's in a frozen `chrome.png`. 278 queue items are open (583 closed;
 none added). The next unused queue number is 584 and the next unused ADR
 0058.
+
+Iteration 347 closed queue item 581: `text-decoration-skip-ink` is read
+as the text's own, inherited value — `none` draws an underline or overline
+whole, `all` as `auto`, and a value that is none of the three is passed
+over for the inherited one — and an underline and an overline are drawn
+beneath the letters, a line through over them, as Chrome 154 draws them.
+`skip-ink-values` is Chrome's at one and at two. Found: **584** (a text's
+shadow beneath its lines, and the lines' own shadows). 278 queue items
+are open (581 closed; 584 added). The next unused queue number is 585 and
+the next unused ADR 0058.

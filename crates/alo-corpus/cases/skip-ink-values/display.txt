@@ -1,0 +1,68 @@
+fill box#3 rgb(204 0 0) at (14, 26) 32×2
+fill box#3 rgb(204 0 0) at (51, 26) 9×2
+fill box#3 rgb(204 0 0) at (67, 26) 10×2
+fill box#3 rgb(204 0 0) at (89, 26) 2×2
+fill box#3 rgb(204 0 0) at (98, 26) 3×2
+fill box#3 rgb(204 0 0) at (107, 26) 19×2
+fill box#3 rgb(204 0 0) at (132, 26) 4.0859375×2
+text box#3 "jumpy gypsy" rgb(0 0 204) 20px at (8, 25)
+fill box#6 rgb(204 0 0) at (8, 56) 128.08594×2
+text box#6 "jumpy gypsy" rgb(0 0 204) 20px at (8, 55)
+fill box#9 rgb(204 0 0) at (14, 86) 32×2
+fill box#9 rgb(204 0 0) at (51, 86) 9×2
+fill box#9 rgb(204 0 0) at (67, 86) 10×2
+fill box#9 rgb(204 0 0) at (89, 86) 2×2
+fill box#9 rgb(204 0 0) at (98, 86) 3×2
+fill box#9 rgb(204 0 0) at (107, 86) 19×2
+fill box#9 rgb(204 0 0) at (132, 86) 4.0859375×2
+text box#9 "jumpy gypsy" rgb(0 0 204) 20px at (8, 85)
+text box#12 "jumpy gypsy" rgb(0 0 204) 20px at (8, 115)
+fill box#12 rgb(204 0 0) at (8, 108) 128.08594×2
+fill box#15 rgb(204 0 0) at (8, 146) 68.603516×2
+text box#15 "jumpy" rgb(0 0 204) 20px at (8, 145)
+fill box#17 rgb(204 0 0) at (76.603516, 146) 0.39648438×2
+fill box#17 rgb(204 0 0) at (89, 146) 2×2
+fill box#17 rgb(204 0 0) at (98, 146) 3×2
+fill box#17 rgb(204 0 0) at (107, 146) 19×2
+fill box#17 rgb(204 0 0) at (132, 146) 4.0859375×2
+text box#17 "gypsy" rgb(0 0 204) 20px at (76.603516, 145)
+fill box#20 rgb(204 0 0) at (14, 176) 32×2
+fill box#20 rgb(204 0 0) at (51, 176) 9×2
+fill box#20 rgb(204 0 0) at (67, 176) 9.603516×2
+text box#20 "jumpy" rgb(0 0 204) 20px at (8, 175)
+fill box#22 rgb(204 0 0) at (76.603516, 176) 59.48242×2
+text box#22 "gypsy" rgb(0 0 204) 20px at (76.603516, 175)
+fill box#25 rgb(204 0 0) at (8, 206) 68.603516×2
+text box#25 "jumpy" rgb(0 0 204) 20px at (8, 205)
+fill box#27 rgb(204 0 0) at (76.603516, 206) 59.48242×2
+text box#27 "gypsy" rgb(0 0 204) 20px at (76.603516, 205)
+fill box#30 rgb(204 0 0) at (8, 236) 68.603516×2
+text box#30 "jumpy" rgb(0 0 204) 20px at (8, 235)
+fill box#32 rgb(204 0 0) at (76.603516, 236) 0.39648438×2
+fill box#32 rgb(204 0 0) at (89, 236) 2×2
+fill box#32 rgb(204 0 0) at (98, 236) 3×2
+fill box#32 rgb(204 0 0) at (107, 236) 19×2
+fill box#32 rgb(204 0 0) at (132, 236) 4.0859375×2
+text box#32 "gypsy" rgb(0 0 204) 20px at (76.603516, 235)
+fill box#36 rgb(204 0 0) at (14, 266) 32×2
+fill box#36 rgb(204 0 0) at (51, 266) 9×2
+fill box#36 rgb(204 0 0) at (67, 266) 10×2
+fill box#36 rgb(204 0 0) at (89, 266) 2×2
+fill box#36 rgb(204 0 0) at (98, 266) 3×2
+fill box#36 rgb(204 0 0) at (107, 266) 19×2
+fill box#36 rgb(204 0 0) at (132, 266) 4.0859375×2
+text box#36 "jumpy gypsy" rgb(0 0 204) 20px at (8, 265)
+fill box#41 rgb(204 0 0) at (8, 296) 128.08594×2
+text box#41 "jumpy gypsy" rgb(0 0 204) 20px at (8, 295)
+fill box#44 rgb(204 0 0) at (8, 300) 16×6
+fill box#44 rgb(204 0 0) at (43, 300) 17×6
+fill box#44 rgb(204 0 0) at (80, 300) 12×6
+fill box#44 rgb(204 0 0) at (111, 300) 0.09375×6
+text box#44 "ÉÅÎ" rgb(0 0 204) 64px at (8, 365)
+fill box#47 rgb(204 0 0) at (8, 380) 103.09375×6
+text box#47 "ÉÅÎ" rgb(0 0 204) 64px at (8, 445)
+fill box#50 rgb(204 0 0) at (8, 460) 16×6
+fill box#50 rgb(204 0 0) at (43, 460) 17×6
+fill box#50 rgb(204 0 0) at (80, 460) 12×6
+fill box#50 rgb(204 0 0) at (111, 460) 0.09375×6
+text box#50 "ÉÅÎ" rgb(0 0 204) 64px at (8, 525)

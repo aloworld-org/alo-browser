@@ -31,6 +31,7 @@ use crate::face;
 use crate::fill_rule::FillRule;
 use crate::paint::Paint;
 use crate::path::Path;
+use crate::skip_ink::SkipInk;
 use crate::snap;
 use crate::toggle;
 use alo_box::{BoxId, BoxKind, BoxTree};
@@ -50,6 +51,29 @@ struct Pen {
     ascender: f32,
 }
 
+/// The decoration lines on a box's text, and how they meet its letters.
+struct Decorations {
+    /// Each line, with the colour of the element that asked for it.
+    lines: Vec<(DecorationLine, Rgba)>,
+    /// Whether an underline and an overline step aside for the letters: the
+    /// text's own `text-decoration-skip-ink` (`crate::skip_ink`).
+    skips_ink: bool,
+    /// Whether an underline and an overline are drawn before the letters, so
+    /// that a letter is on top of a line it crosses, as Chrome 154 draws
+    /// them (queue item 581); a line through is drawn after them. Not for
+    /// text that casts a shadow: Chrome draws the shadow beneath the line,
+    /// and a text item draws its shadows with its letters, so there the
+    /// lines stay on top of both (queue item 584).
+    beneath_letters: bool,
+}
+
+impl Decorations {
+    /// Whether `line` is drawn before the letters rather than after them.
+    fn beneath(&self, line: DecorationLine) -> bool {
+        self.beneath_letters && line != DecorationLine::LineThrough
+    }
+}
+
 /// One piece of text as it is drawn, for the lines that step aside for its
 /// letters.
 struct Letters<'a> {
@@ -63,6 +87,21 @@ struct Letters<'a> {
 }
 
 impl Letters<'_> {
+    /// The letters as a text item of `id`'s, in `color`, casting `shadows`.
+    fn item(&self, id: BoxId, color: Rgba, shadows: Vec<TextShadow>) -> DisplayItem {
+        DisplayItem::Text {
+            box_id: id,
+            text: self.text.to_owned(),
+            origin: self.origin,
+            font: self.font.clone(),
+            oblique: self.oblique,
+            size: self.size,
+            letter_spacing: self.letter_spacing,
+            color,
+            shadows,
+        }
+    }
+
     /// Each glyph's shape where it is drawn on a screen at `scale`, leaned as
     /// the text is: the same shapes `crate::render` fills.
     fn shapes(&self, scale: f32) -> Vec<crate::path::Path> {
@@ -814,7 +853,12 @@ impl Builder<'_> {
         let Some(pen) = self.pen_for(id) else {
             return;
         };
-        let decorations = self.decorations_of(id);
+        let shadows = self.text_shadows_of(id);
+        let decorations = Decorations {
+            lines: self.decorations_of(id),
+            skips_ink: self.skip_ink_of(id).steps_aside(),
+            beneath_letters: shadows.is_empty(),
+        };
         self.draw_spaces(id, &decorations, &pen, out);
         let Pen {
             font,
@@ -825,7 +869,6 @@ impl Builder<'_> {
             ascender,
         } = pen;
         let scale = self.styles.scale();
-        let shadows = self.text_shadows_of(id);
 
         let fragments = self.layout.fragments(id);
         if fragments.is_empty() {
@@ -849,17 +892,6 @@ impl Builder<'_> {
                     size,
                 };
                 let origin = (geometry.border_box.left(), baseline);
-                out.push(DisplayItem::Text {
-                    box_id: id,
-                    text: trimmed.to_owned(),
-                    origin,
-                    font: font.clone(),
-                    oblique,
-                    size,
-                    letter_spacing,
-                    color,
-                    shadows,
-                });
                 let letters = Letters {
                     text: trimmed,
                     font: &font,
@@ -868,7 +900,8 @@ impl Builder<'_> {
                     origin,
                     oblique,
                 };
-                Self::decorations_at(id, &decorations, piece, &letters, scale, out);
+                let item = letters.item(id, color, shadows);
+                Self::between_lines(id, &decorations, piece, &letters, item, scale, out);
             }
             return;
         }
@@ -893,17 +926,6 @@ impl Builder<'_> {
             // The pen sits on the baseline, which is the ascender below the
             // top of the piece.
             let origin = (fragment.rect.left(), fragment.rect.top() + ascender);
-            out.push(DisplayItem::Text {
-                box_id: id,
-                text: trimmed.to_owned(),
-                origin,
-                font: font.clone(),
-                oblique,
-                size,
-                letter_spacing,
-                color,
-                shadows: shadows.clone(),
-            });
             // One line per **fragment**, which is what makes a decoration stop
             // at the end of the inline rather than running to the edge of the
             // line it sits on. A fragment is one piece of one inline on one
@@ -925,8 +947,26 @@ impl Builder<'_> {
                 origin,
                 oblique,
             };
-            Self::decorations_at(id, &decorations, piece, &letters, scale, out);
+            let item = letters.item(id, color, shadows.clone());
+            Self::between_lines(id, &decorations, piece, &letters, item, scale, out);
         }
+    }
+
+    /// A piece of text's letters, `item`, with its decoration lines: those
+    /// drawn beneath the letters first, then the letters, then the rest
+    /// ([`Decorations::beneath`]).
+    fn between_lines(
+        id: BoxId,
+        decorations: &Decorations,
+        piece: crate::decoration::Piece,
+        letters: &Letters<'_>,
+        item: DisplayItem,
+        scale: f32,
+        out: &mut Vec<DisplayItem>,
+    ) {
+        Self::decorations_at(id, decorations, true, piece, letters, scale, out);
+        out.push(item);
+        Self::decorations_at(id, decorations, false, piece, letters, scale, out);
     }
 
     /// White space with no letters that a line goes on past — the space
@@ -936,11 +976,11 @@ impl Builder<'_> {
     fn draw_spaces(
         &self,
         id: BoxId,
-        decorations: &[(DecorationLine, Rgba)],
+        decorations: &Decorations,
         pen: &Pen,
         out: &mut Vec<DisplayItem>,
     ) {
-        if decorations.is_empty() {
+        if decorations.lines.is_empty() {
             return;
         }
         let (size, ascender) = (pen.size, pen.ascender);
@@ -961,7 +1001,9 @@ impl Builder<'_> {
                 origin: (space.rect.left(), space.rect.top() + ascender),
                 oblique: pen.oblique,
             };
-            Self::decorations_at(id, decorations, piece, &letters, scale, out);
+            for beneath in [true, false] {
+                Self::decorations_at(id, decorations, beneath, piece, &letters, scale, out);
+            }
         }
     }
 
@@ -1214,6 +1256,33 @@ impl Builder<'_> {
         found
     }
 
+    /// The text's own `text-decoration-skip-ink`, which decides for every
+    /// line under or over it, whichever element asked for the line (queue
+    /// item 581).
+    ///
+    /// It inherits, so the nearest element's computed style holds it, and
+    /// one that holds nothing has the initial `auto`. A value that is none of
+    /// the three was never a value: the cascade keeps what was written, so
+    /// such a value is passed over here for the one its parent has, as a
+    /// declaration CSS drops would have left it.
+    fn skip_ink_of(&self, id: BoxId) -> SkipInk {
+        let mut walking = Some(id);
+        while let Some(at) = walking {
+            if let Some(style) = self.style_of(at) {
+                match style.get("text-decoration-skip-ink") {
+                    None => return SkipInk::Auto,
+                    Some(written) => {
+                        if let Some(value) = SkipInk::parse(written) {
+                            return value;
+                        }
+                    }
+                }
+            }
+            walking = self.boxes.get(at).and_then(|node| node.parent);
+        }
+        SkipInk::Auto
+    }
+
     /// A rectangle's width and height, which is what a percentage radius is a
     /// percentage of.
     fn extent_of(rect: alo_layout::Rect) -> (f32, f32) {
@@ -1241,29 +1310,38 @@ impl Builder<'_> {
             .collect()
     }
 
-    /// The decoration lines under, over and through a piece of text, each
-    /// where `crate::decoration` puts it: from the top of the piece, in whole
-    /// device pixels at `scale`. An underline and an overline step aside
-    /// where a letter's ink crosses them (`crate::skip_ink`), so they are
-    /// drawn as the pieces left; a line through the text is drawn whole.
+    /// The decoration lines under, over and through a piece of text that are
+    /// drawn `beneath` its letters, or the ones drawn after them
+    /// ([`Decorations::beneath`]), each where `crate::decoration` puts it:
+    /// from the top of the piece, in whole device pixels at `scale`. An
+    /// underline and an overline step aside where a letter's ink crosses
+    /// them (`crate::skip_ink`), unless the text's `text-decoration-skip-ink`
+    /// is `none`, so they are drawn as the pieces left; a line through the
+    /// text is drawn whole.
     fn decorations_at(
         id: BoxId,
-        decorations: &[(DecorationLine, Rgba)],
+        decorations: &Decorations,
+        beneath: bool,
         piece: crate::decoration::Piece,
         letters: &Letters<'_>,
         scale: f32,
         out: &mut Vec<DisplayItem>,
     ) {
+        let drawn_here = decorations
+            .lines
+            .iter()
+            .filter(|(line, _)| decorations.beneath(*line) == beneath);
         // Shaped and outlined only when a line steps aside for them: most
         // text is not decorated, and a line through does not look.
-        let skips = |line: &DecorationLine| *line != DecorationLine::LineThrough;
-        let glyphs = if decorations.iter().any(|(line, _)| skips(line)) {
+        let skips =
+            |line: &DecorationLine| decorations.skips_ink && *line != DecorationLine::LineThrough;
+        let glyphs = if drawn_here.clone().any(|(line, _)| skips(line)) {
             letters.shapes(scale)
         } else {
             Vec::new()
         };
         let thickness = crate::decoration::thickness(piece.size, scale);
-        for (line, colour) in decorations {
+        for (line, colour) in drawn_here {
             let whole = crate::decoration::line_at(*line, piece, scale);
             let drawn = if skips(line) {
                 crate::skip_ink::pieces(whole, thickness, &glyphs, scale)

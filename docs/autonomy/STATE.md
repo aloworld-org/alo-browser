@@ -34873,3 +34873,132 @@ the last letter kept (583, done, `Cut::width`); the owed clause loses
 278 queue items are open (583 closed; none added). The next unused queue
 number is **584** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+---
+
+## Iteration 347 — queue item 581: `text-decoration-skip-ink`'s values
+
+**Read first.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s head
+and stage 2's window line, iteration 346's entry, queue items 579–583
+and 581's text, `docs/features.md`' `text-decoration` paragraph, and
+`alo-paint`'s `skip_ink.rs` (the measured rule 579 wrote, which is the
+feature contract for the property; no ADR governs it). No `AGENTS.md`
+exists here.
+
+**Why 581.** It is the first open item in the file whose dependencies
+are done: the items before it wait as iterations 318–346 recorded (463
+on a person, 560 and 564 on 502 behind 501, 568–571 on a screen or
+pages, 572 on a person, 573–577 by order after it in their own
+sections), and 581 depends on nothing and names its feature and closing
+condition.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`
+and `=2`, without `--disable-gpu`, `DejaVu Sans` by `@font-face`, red
+lines under blue letters, the source not read): `gjpqy` underlined at
+32 px and `ÉÅÊÎÖÇŔ` overlined at nine sizes from 10 to 64 px under each
+value. `all` draws every gap where `auto` does, at both scales; `none` is
+the line whole; a line through is whole under all three. The text's own
+value decides: a `none` underline over a child set `auto` steps aside
+under the child only, and the other way round. `getComputedStyle`: `ALL`
+is `all`, `initial` is `auto`, `bogus` and `none auto` leave the
+inherited value. Chrome draws an underline and an overline beneath the
+letters, a line through over them, and a text's shadow beneath
+everything, a line's own shadow included (a 4 px green shadow fell under
+a red underline, and the underline cast one too).
+
+**Built.**
+- `alo-css`' `properties.rs`: `text-decoration-skip-ink` (Paint).
+  `alo-style`'s `inheritance.rs`: it inherits.
+- `alo-paint`'s `skip_ink.rs`: `SkipInk` (`auto`, `all`, `none`, any
+  case; anything else `None`), the measurements in its doc.
+- `build.rs`: `skip_ink_of` reads the text's nearest element's value,
+  `auto` when it holds none (so `initial`, which the cascade removes, is
+  `auto`), and passes a value it cannot read for its parent's, as a
+  declaration CSS drops would have left it (the cascade keeps every
+  value as written). `Decorations` carries the lines, whether they step
+  aside, and whether an underline and an overline go beneath the letters;
+  `between_lines` draws those, then the text item (`Letters::item`), then
+  the rest. `draw_text` had reached clippy's 100 lines, and the helper
+  is what took it back under.
+- **Cut, scope not depth:** under text that casts a shadow, every line is
+  still drawn after the text item, because an item draws its shadows with
+  its letters, and putting a line before it would put the shadow over the
+  line where Chrome puts it under. Splitting shadows from letters moves
+  every test that finds text by its item; filed as **584**, with the
+  lines' own shadows.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first (clippy's
+first run found `draw_text` at 106 lines; fixed as above). The four
+touched crates' tests passed with `--no-fail-fast`. `scripts/gate.sh`,
+started in the foreground, passed the tool's 600 s limit and was moved to
+the background; the next call waited on its log with one foreground
+`until` loop, nothing else running: **`GATE EXIT 0`, "The gate is met.
+(10 of 10 steps)"**, 4,858 tests run, 4,858 passed. Only this entry and
+the commit came after it.
+
+**Gate, manual.**
+- Layout and paint, in numbers: `a_line_and_its_letters.rs` (`alo-paint`)
+  — at 20 px `gy` 24.53 wide, the underline on row 40 and overline on 18
+  listed before the text and the line through on 32 after it; under a
+  `text-shadow` the text first and all three after; `none` one piece of
+  24.53 each, `auto` and `all` an underline in two pieces and an overline
+  in one; a child `auto` under a `none` `<u>` four pieces, `bogus` two,
+  `initial` four. `skip_ink.rs`: the keywords; `inheritance.rs`: it
+  inherits and `text-decoration-line` does not.
+- Reference renders: `cases/skip-ink-values` (thirteen paragraphs: each
+  value under and over, a line through under `all`, the text's own value
+  both ways, `bogus`, `initial`, `none auto`, a `none` from a `<div>`)
+  with Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) and
+  `render-at-2.png`. `a_line_that_steps_aside_or_not.rs`: on the rows
+  holding twelve CSS pixels of red, every piece is Chrome's within a
+  device pixel at one (38 rows) and two (76); on each row of a line that
+  runs whole (14 at one, 28 at two), letters are on top where Chrome's
+  are and nowhere else, at least half as many (Chrome's are thicker,
+  576). **One row is excused by name**: at one, the 64 px accents' tops
+  reach the `none` overline's last row in Chrome (19 pixels) and not here
+  — the letters' place, 577 — and the test fails if that stops being so.
+  `ALO_UPDATE_REFERENCES=1` with every `render.png` backed up first: 22
+  cases' `display.txt` moved (the lines now listed before the text), no
+  other case's `render.png` changed.
+- Mutation, restored from copies (`cmp` confirmed): the value never read,
+  the lines after the letters, an unreadable value read as `auto`, a
+  missing value walked past, the property not inherited, a line through
+  stepping aside, and a line through beneath the letters each failed the
+  case's tests; lines beneath the letters under a shadow failed the
+  paint test.
+- Hostile input: nothing new reads bytes from outside; `SkipInk::parse`
+  compares a trimmed string with three words.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: the property's value sits with its rule
+  in `skip_ink.rs` (both are `text-decoration-skip-ink`); which element
+  is asked, and the order, stay `build.rs`'.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 581 is ticked with a *Done* paragraph. Found: **584** (a
+text's shadow beneath its decoration lines, and the lines' own shadows).
+
+**Roadmap.** Stage 2's window line: the Built clause names
+`text-decoration-skip-ink` read as the text's own and the lines beneath
+the letters (581, done, `SkipInk`); the owed clause swaps 581 for 584.
+
+**Unresolved obligations.**
+- 584: under shadowed text the lines are drawn over the shadow and
+  letters, and cast no shadow.
+- `all` is drawn as `auto` because Chrome draws Latin text alike; no
+  ideograph was measured, and none is in the corpus fonts.
+- A value that cannot be read is passed over for the parent's, not for a
+  lower-priority declaration of the same element, which CSS would keep;
+  the cascade does not validate values.
+- 577 (a letter's top on a whole pixel) still separates the 64 px accents
+  from Chrome's by one row; 463 waits on a person; 576 (an ADR) and 577;
+  573–575, 568–571 as before; 560 and 564 on 502 behind 501; 572 on a
+  person.
+- No claim about speed is made.
+
+278 queue items are open (581 closed; 584 added). The next unused queue
+number is **585** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

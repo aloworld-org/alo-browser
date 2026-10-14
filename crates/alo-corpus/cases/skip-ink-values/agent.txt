@@ -1,0 +1,31 @@
+document at (0, 0) 300×540
+  paragraph at (8, 6) 292×24
+    text "jumpy gypsy" at (8, 6) 128.08594×24
+  paragraph at (8, 36) 292×24
+    text "jumpy gypsy" at (8, 36) 128.08594×24
+  paragraph at (8, 66) 292×24
+    text "jumpy gypsy" at (8, 66) 128.08594×24
+  paragraph at (8, 96) 292×24
+    text "jumpy gypsy" at (8, 96) 128.08594×24
+  paragraph at (8, 126) 292×24
+    text "jumpy" at (8, 126) 62.246094×24
+    text "gypsy" at (76.603516, 126) 59.48242×24
+  paragraph at (8, 156) 292×24
+    text "jumpy" at (8, 156) 62.246094×24
+    text "gypsy" at (76.603516, 156) 59.48242×24
+  paragraph at (8, 186) 292×24
+    text "jumpy" at (8, 186) 62.246094×24
+    text "gypsy" at (76.603516, 186) 59.48242×24
+  paragraph at (8, 216) 292×24
+    text "jumpy" at (8, 216) 62.246094×24
+    text "gypsy" at (76.603516, 216) 59.48242×24
+  paragraph at (8, 246) 292×24
+    text "jumpy gypsy" at (8, 246) 128.08594×24
+  paragraph at (8, 276) 292×24
+    text "jumpy gypsy" at (8, 276) 128.08594×24
+  paragraph at (8, 306) 292×74
+    text "ÉÅÎ" at (8, 306) 103.09375×74
+  paragraph at (8, 386) 292×74
+    text "ÉÅÎ" at (8, 386) 103.09375×74
+  paragraph at (8, 466) 292×74
+    text "ÉÅÎ" at (8, 466) 103.09375×74

@@ -1,0 +1,14 @@
+/* Red lines under blue letters, so that which is on top where a line
+   crosses a letter can be read from the picture. */
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 20px; color: #0000cc }
+p { margin: 6px 0 0 8px; white-space: nowrap }
+.under { text-decoration-line: underline; text-decoration-color: #cc0000 }
+.over { text-decoration-line: overline; text-decoration-color: #cc0000; font-size: 64px }
+.through { text-decoration-line: line-through; text-decoration-color: #cc0000 }
+.auto { text-decoration-skip-ink: auto }
+.none { text-decoration-skip-ink: none }
+.all { text-decoration-skip-ink: ALL }
+/* Not a value: the text keeps the one it inherits. */
+.bogus { text-decoration-skip-ink: bogus }
+.two { text-decoration-skip-ink: none auto }
+.initial { text-decoration-skip-ink: initial }

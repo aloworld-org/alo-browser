@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can ask for an underline that runs through the letters.**
+  `text-decoration-skip-ink: none` now draws an underline or overline
+  whole, through a `g`'s or `y`'s tail, where it used to step aside
+  regardless; `all` steps aside as the default does, as Chrome draws Latin
+  text. An underline and an overline are now drawn beneath the letters,
+  so a letter crossing one is on top, as in Chrome.
+
 - **An underline stops at the last letter before a "…".** Where a line
   too long for its box was cut short with "…", the underline ran on
   under the space before the "…", a few pixels further than Chrome draws

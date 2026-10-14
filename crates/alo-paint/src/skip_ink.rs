@@ -38,10 +38,63 @@
 //!   crosses the band.
 //! - **The gap** is that stretch widened by `t` each side, each end rounded
 //!   to the nearest whole pixel. Gaps that meet are one gap.
+//!
+//! # The property's values, measured
+//!
+//! Measured the same way (queue item 581): `gjpqy` underlined at 32 px,
+//! and `ÉÅÊÎÖÇŔ` overlined at nine sizes from 10 to 64 px, under each value
+//! at one and at two.
+//!
+//! - **`all` is drawn as `auto`**, every gap of every line on the same
+//!   pixels. CSS asks `all` to step aside for ideographs too, where `auto`
+//!   may not; this engine's `auto` already steps aside for every glyph, and
+//!   no ideograph was measured, so the two are one rule here ([`SkipInk`]).
+//! - **`none` is the line whole**, under and over alike.
+//! - **A line through is whole under all three.**
+//! - **The value is the text's own**, not that of the element that asked for
+//!   the line: under a `none` underline, a child's `auto` text steps aside
+//!   and the parent's own text does not, and the other way round. It
+//!   inherits, so the text's value is the nearest one written above it.
+//! - **A value that is not one of the three is no value**: `bogus`, and
+//!   `none auto`, leave the text with what it would have had without them.
+//!   Keywords are read in any case.
 
 use alo_layout::Rect;
 
 use crate::path::{Path, Point, Segment};
+
+/// What `text-decoration-skip-ink` asks of the text it is set on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkipInk {
+    /// The initial value: a line steps aside for the letters.
+    Auto,
+    /// Drawn as `auto` (measured, above).
+    All,
+    /// A line runs whole, through the letters.
+    None,
+}
+
+impl SkipInk {
+    /// The value written, or [`None`] for one that is none of the three —
+    /// which is not a value, and leaves the text the value it inherits.
+    pub fn parse(written: &str) -> Option<Self> {
+        let written = written.trim();
+        [
+            (Self::Auto, "auto"),
+            (Self::All, "all"),
+            (Self::None, "none"),
+        ]
+        .into_iter()
+        .find(|(_, name)| written.eq_ignore_ascii_case(name))
+        .map(|(value, _)| value)
+    }
+
+    /// Whether an underline or an overline steps aside for the letters. A
+    /// line through never does, whatever this is.
+    pub fn steps_aside(self) -> bool {
+        self != Self::None
+    }
+}
 
 /// The pieces of `line` left once it steps aside for `glyphs`, each a shape
 /// where it is drawn, in CSS pixels, on a screen of `scale` device pixels to
@@ -277,6 +330,18 @@ mod tests {
     /// A stroke from 10 to 30 down, `width` wide: across any line at 20.
     fn bar(left: f32, width: f32) -> Path {
         Path::rectangle(left, 10.0, width, 20.0)
+    }
+
+    #[test]
+    fn the_three_values_are_read_in_any_case_and_nothing_else_is() {
+        assert_eq!(SkipInk::parse("auto"), Some(SkipInk::Auto));
+        assert_eq!(SkipInk::parse(" ALL "), Some(SkipInk::All));
+        assert_eq!(SkipInk::parse("None"), Some(SkipInk::None));
+        for refused in ["", "bogus", "none auto", "auto,", "inherit", "0"] {
+            assert_eq!(SkipInk::parse(refused), None, "{refused:?}");
+        }
+        assert!(SkipInk::Auto.steps_aside() && SkipInk::All.steps_aside());
+        assert!(!SkipInk::None.steps_aside());
     }
 
     #[test]

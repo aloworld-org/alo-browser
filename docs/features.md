@@ -238,8 +238,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   under a space where an ellipsis ends the line, **and before an ellipsis
   not past the last letter kept** — one space or two preserved, whether the
   cut falls in the same piece or nothing of the next is kept (queue item
-  583). Not yet: `text-decoration-skip-ink`'s other values, which are not
-  read (581)
+  583). **`text-decoration-skip-ink` is read, as the text's own** (queue
+  item 581): `none` draws the line whole, `all` as `auto`, as Chrome 154
+  draws Latin text; it inherits, the text's own value deciding whichever
+  element asked for the line, and a value that is none of the three is
+  passed over for the inherited one. An underline and an overline are
+  drawn beneath the letters and a line through over them, as Chrome's
+  are. Not yet: under text that casts a shadow, the shadow beneath the
+  lines and the lines' own shadows (584)
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
   legend, and a radio you can tell from a checkbox. **Which control a label
   labels is HTML's rule, held once** (`alo-dom`'s `label.rs`, queue item

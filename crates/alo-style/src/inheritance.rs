@@ -73,6 +73,7 @@ const INHERITED: &[&str] = &[
     "tab-size",
     "text-align",
     "text-align-last",
+    "text-decoration-skip-ink",
     "text-indent",
     "text-justify",
     "text-rendering",
@@ -130,6 +131,15 @@ mod tests {
         ] {
             assert!(inherits_named(name), "{name} should inherit");
         }
+    }
+
+    #[test]
+    fn whether_a_line_steps_aside_inherits_and_the_line_itself_does_not() {
+        // A decoration propagates to the text inside the element that asked
+        // for it rather than inheriting; whether it steps aside for that
+        // text's letters is the text's own, inherited (queue item 581).
+        assert!(inherits_named("text-decoration-skip-ink"));
+        assert!(!inherits_named("text-decoration-line"));
     }
 
     #[test]

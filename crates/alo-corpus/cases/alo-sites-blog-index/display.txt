@@ -12,16 +12,16 @@ text box#35 "2026-08-09" rgb(76 88 102) 15px at (45, 440.875)
 text box#38 "Launch notes" rgb(23 33 43) 24px at (45, 484.875)
 text box#40 "What we learned & what comes" rgb(23 33 43) 17px at (45, 518.6719)
 text box#40 "next." rgb(23 33 43) 17px at (45, 545.8594)
-text box#42 "Read article" rgb(29 78 216) 17px at (45, 590.0469)
 fill box#42 rgb(29 78 216) at (45, 591) 115.42236×1
+text box#42 "Read article" rgb(29 78 216) 17px at (45, 590.0469)
 unclip
 fill box#48 rgb(242 245 248) at (412, 193) 368×430
 fill box#48 rgb(221 227 233) at (412, 193) 368×430
 clip box#48 to (413, 194) 366×428.23438
 text box#53 "2026-08-01" rgb(76 88 102) 15px at (437, 235)
 text box#56 "Behind the scenes" rgb(23 33 43) 24px at (437, 279)
-text box#58 "Read article" rgb(29 78 216) 17px at (437, 312.79688)
 fill box#58 rgb(29 78 216) at (437, 314) 115.42236×1
+text box#58 "Read article" rgb(29 78 216) 17px at (437, 312.79688)
 unclip
 fill box#67 rgb(242 245 248) at (20, 663) 102×45
 fill box#67 rgb(221 227 233) at (20, 663) 102×45
@@ -31,14 +31,14 @@ fill box#72 rgb(242 245 248) at (710, 663) 70×45
 fill box#72 rgb(221 227 233) at (710, 663) 70×45
 text box#73 "Next" rgb(23 33 43) 17px at (725.3938, 691.2344)
 clip box#43 to (159.42236, 570.0469) 1×1
-text box#44 ": Launch notes" rgb(29 78 216) 17px at (159.42236, 589.0469)
 fill box#44 rgb(29 78 216) at (159.42236, 590) 140.88086×1
+text box#44 ": Launch notes" rgb(29 78 216) 17px at (159.42236, 589.0469)
 unclip
 clip box#59 to (551.42236, 292.79688) 1×1
-text box#60 ": Behind the scenes" rgb(29 78 216) 17px at (551.42236, 311.79688)
 fill box#60 rgb(29 78 216) at (551.42236, 313) 188.47754×1
+text box#60 ": Behind the scenes" rgb(29 78 216) 17px at (551.42236, 311.79688)
 unclip
 fill box#4 rgb(242 245 248) at (-15984, 0) 161×43
-text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
 fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
 fill box#5 rgb(23 33 43) at (-15938, 28) 99.11035×1
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)

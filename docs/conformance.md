@@ -217,8 +217,15 @@ ellipsis a line stops at the last letter kept (item 583):
 frozen Chrome 154 picture beside the case, and a probe of six such lines
 (a space kept in the cut piece, a piece kept whole before a span or a
 bold of which nothing is, two preserved spaces, a box kept between) drew
-every one on Chrome's pixels. `text-decoration-skip-ink` is not read, so
-`none` and `all` draw as `auto` does (581).
+every one on Chrome's pixels. `text-decoration-skip-ink` is read (item
+581): `skip-ink-values` — `none`, `all` and `auto` under and over the
+letters, a line through under `all`, a child's value under its parent's
+line both ways, `bogus`, `initial`, `none auto` and an inherited `none` —
+has every line's every piece on Chrome's pixels at one and at two, and
+the letters on top of an underline or overline that runs whole and under
+a line through, as Chrome's are. Under text that casts a shadow the lines
+are still drawn over the shadow and the letters alike, where Chrome draws
+the shadow beneath them and shadows the lines too (584).
 
 Boxes can be round, and clip what is inside them to their own shape. **A
 curve's edge is covered as its area says** (item 459): the rented rasteriser
