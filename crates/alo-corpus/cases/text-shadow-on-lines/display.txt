@@ -1,0 +1,131 @@
+shadow box#3 rgb(0 170 0) blur 0 at (7.638672, 15.8046875) 127.85156×19.355469
+shadow box#3 rgb(0 170 0) blur 0 at (14, 32) 32×2
+shadow box#3 rgb(0 170 0) blur 0 at (51, 32) 9×2
+shadow box#3 rgb(0 170 0) blur 0 at (67, 32) 10×2
+shadow box#3 rgb(0 170 0) blur 0 at (89, 32) 2×2
+shadow box#3 rgb(0 170 0) blur 0 at (98, 32) 3×2
+shadow box#3 rgb(0 170 0) blur 0 at (107, 32) 19×2
+shadow box#3 rgb(0 170 0) blur 0 at (132, 32) 4.0859375×2
+fill box#3 rgb(204 0 0) at (14, 28) 32×2
+fill box#3 rgb(204 0 0) at (51, 28) 9×2
+fill box#3 rgb(204 0 0) at (67, 28) 10×2
+fill box#3 rgb(204 0 0) at (89, 28) 2×2
+fill box#3 rgb(204 0 0) at (98, 28) 3×2
+fill box#3 rgb(204 0 0) at (107, 28) 19×2
+fill box#3 rgb(204 0 0) at (132, 28) 4.0859375×2
+text box#3 "jumpy gypsy" rgb(0 0 204) 20px at (8, 27)
+shadow box#6 rgb(0 170 0) blur 0 at (7.638672, 37.804688) 127.85156×19.355469
+shadow box#6 rgb(0 170 0) blur 0 at (8, 54) 128.08594×2
+fill box#6 rgb(204 0 0) at (8, 60) 128.08594×2
+text box#6 "jumpy gypsy" rgb(0 0 204) 20px at (8, 59)
+text box#9 "jumpy gypsy" rgb(0 0 204) 20px at (8, 91) + shadow rgb(0 170 0) blur 0 at (0, 4)
+shadow box#9 rgb(0 170 0) blur 0 at (8, 88) 128.08594×2
+fill box#9 rgb(204 0 0) at (8, 84) 128.08594×2
+shadow box#12 rgb(0 170 0) blur 0 at (9.962891, 108.43555) 98.26172×22.72461
+shadow box#12 rgb(0 170 0) blur 0 at (8, 106) 100.82031×2
+fill box#12 rgb(204 0 0) at (8, 102) 100.82031×2
+text box#12 "ÉÅÎ jumpy" rgb(0 0 204) 20px at (8, 123)
+shadow box#15 rgb(170 0 170) blur 0 at (7.638672, 136.80469) 127.85156×19.355469
+shadow box#15 rgb(0 170 0) blur 0 at (7.638672, 143.80469) 127.85156×19.355469
+shadow box#15 rgb(170 0 170) blur 0 at (14, 153) 32×2
+shadow box#15 rgb(170 0 170) blur 0 at (51, 153) 9×2
+shadow box#15 rgb(170 0 170) blur 0 at (67, 153) 10×2
+shadow box#15 rgb(170 0 170) blur 0 at (89, 153) 2×2
+shadow box#15 rgb(170 0 170) blur 0 at (98, 153) 3×2
+shadow box#15 rgb(170 0 170) blur 0 at (107, 153) 19×2
+shadow box#15 rgb(170 0 170) blur 0 at (132, 153) 4.0859375×2
+shadow box#15 rgb(0 170 0) blur 0 at (14, 160) 32×2
+shadow box#15 rgb(0 170 0) blur 0 at (51, 160) 9×2
+shadow box#15 rgb(0 170 0) blur 0 at (67, 160) 10×2
+shadow box#15 rgb(0 170 0) blur 0 at (89, 160) 2×2
+shadow box#15 rgb(0 170 0) blur 0 at (98, 160) 3×2
+shadow box#15 rgb(0 170 0) blur 0 at (107, 160) 19×2
+shadow box#15 rgb(0 170 0) blur 0 at (132, 160) 4.0859375×2
+fill box#15 rgb(204 0 0) at (14, 156) 32×2
+fill box#15 rgb(204 0 0) at (51, 156) 9×2
+fill box#15 rgb(204 0 0) at (67, 156) 10×2
+fill box#15 rgb(204 0 0) at (89, 156) 2×2
+fill box#15 rgb(204 0 0) at (98, 156) 3×2
+fill box#15 rgb(204 0 0) at (107, 156) 19×2
+fill box#15 rgb(204 0 0) at (132, 156) 4.0859375×2
+text box#15 "jumpy gypsy" rgb(0 0 204) 20px at (8, 155)
+shadow box#18 rgb(170 0 170) blur 0 at (7.638672, 175.80469) 127.85156×19.355469
+shadow box#18 rgb(0 170 0) blur 0 at (7.638672, 174.80469) 127.85156×19.355469
+shadow box#18 rgb(170 0 170) blur 0 at (8, 192) 128.08594×2
+shadow box#18 rgb(0 170 0) blur 0 at (8, 191) 128.08594×2
+fill box#18 rgb(204 0 0) at (8, 188) 128.08594×2
+text box#18 "jumpy gypsy" rgb(0 0 204) 20px at (8, 187)
+shadow box#21 rgb(0 170 0) blur 2 at (9.638672, 206.80469) 127.85156×19.355469
+shadow box#21 rgb(0 170 0) blur 2 at (16, 223) 32×2
+shadow box#21 rgb(0 170 0) blur 2 at (53, 223) 9×2
+shadow box#21 rgb(0 170 0) blur 2 at (69, 223) 10×2
+shadow box#21 rgb(0 170 0) blur 2 at (91, 223) 2×2
+shadow box#21 rgb(0 170 0) blur 2 at (100, 223) 3×2
+shadow box#21 rgb(0 170 0) blur 2 at (109, 223) 19×2
+shadow box#21 rgb(0 170 0) blur 2 at (134, 223) 4.0859375×2
+fill box#21 rgb(204 0 0) at (14, 220) 32×2
+fill box#21 rgb(204 0 0) at (51, 220) 9×2
+fill box#21 rgb(204 0 0) at (67, 220) 10×2
+fill box#21 rgb(204 0 0) at (89, 220) 2×2
+fill box#21 rgb(204 0 0) at (98, 220) 3×2
+fill box#21 rgb(204 0 0) at (107, 220) 19×2
+fill box#21 rgb(204 0 0) at (132, 220) 4.0859375×2
+text box#21 "jumpy gypsy" rgb(0 0 204) 20px at (8, 219)
+fill box#24 rgb(204 0 0) at (14, 252) 32×2
+fill box#24 rgb(204 0 0) at (51, 252) 9×2
+fill box#24 rgb(204 0 0) at (67, 252) 9.603516×2
+text box#24 "jumpy" rgb(0 0 204) 20px at (8, 251)
+shadow box#26 rgb(0 170 0) blur 0 at (77.70703, 243.79883) 57.783203×15.361328
+shadow box#26 rgb(0 170 0) blur 0 at (76.603516, 256) 0.39648438×2
+shadow box#26 rgb(0 170 0) blur 0 at (89, 256) 2×2
+shadow box#26 rgb(0 170 0) blur 0 at (98, 256) 3×2
+shadow box#26 rgb(0 170 0) blur 0 at (107, 256) 19×2
+shadow box#26 rgb(0 170 0) blur 0 at (132, 256) 4.0859375×2
+fill box#26 rgb(204 0 0) at (76.603516, 252) 0.39648438×2
+fill box#26 rgb(204 0 0) at (89, 252) 2×2
+fill box#26 rgb(204 0 0) at (98, 252) 3×2
+fill box#26 rgb(204 0 0) at (107, 252) 19×2
+fill box#26 rgb(204 0 0) at (132, 252) 4.0859375×2
+text box#26 "gypsy" rgb(0 0 204) 20px at (76.603516, 251)
+shadow box#29 rgb(0 170 0) blur 0 at (7.638672, 271.8047) 62.01172×19.355469
+shadow box#29 rgb(0 170 0) blur 0 at (14, 288) 32×2
+shadow box#29 rgb(0 170 0) blur 0 at (51, 288) 9×2
+shadow box#29 rgb(0 170 0) blur 0 at (67, 288) 9.603516×2
+fill box#29 rgb(204 0 0) at (14, 284) 32×2
+fill box#29 rgb(204 0 0) at (51, 284) 9×2
+fill box#29 rgb(204 0 0) at (67, 284) 9.603516×2
+text box#29 "jumpy" rgb(0 0 204) 20px at (8, 283)
+fill box#31 rgb(204 0 0) at (76.603516, 284) 0.39648438×2
+fill box#31 rgb(204 0 0) at (89, 284) 2×2
+fill box#31 rgb(204 0 0) at (98, 284) 3×2
+fill box#31 rgb(204 0 0) at (107, 284) 19×2
+fill box#31 rgb(204 0 0) at (132, 284) 4.0859375×2
+text box#31 "gypsy" rgb(0 0 204) 20px at (76.603516, 283)
+shadow box#35 rgb(0 170 0) blur 0 at (7.638672, 303.8047) 62.01172×19.355469
+shadow box#35 rgb(0 170 0) blur 0 at (14, 320) 32×2
+shadow box#35 rgb(0 170 0) blur 0 at (51, 320) 9×2
+shadow box#35 rgb(0 170 0) blur 0 at (67, 320) 3.2460938×2
+fill box#35 rgb(204 0 0) at (14, 316) 32×2
+fill box#35 rgb(204 0 0) at (51, 316) 9×2
+fill box#35 rgb(204 0 0) at (67, 316) 3.2460938×2
+text box#35 "jumpy" rgb(0 0 204) 20px at (8, 315)
+shadow box#36 rgb(0 170 0) blur 0 at (70.24609, 320) 6.357422×2
+fill box#36 rgb(204 0 0) at (70.24609, 316) 6.357422×2
+shadow box#38 rgb(0 170 0) blur 0 at (77.70703, 307.79883) 57.783203×15.361328
+shadow box#38 rgb(0 170 0) blur 0 at (76.603516, 320) 0.39648438×2
+shadow box#38 rgb(0 170 0) blur 0 at (89, 320) 2×2
+shadow box#38 rgb(0 170 0) blur 0 at (98, 320) 3×2
+shadow box#38 rgb(0 170 0) blur 0 at (107, 320) 19×2
+shadow box#38 rgb(0 170 0) blur 0 at (132, 320) 4.0859375×2
+fill box#38 rgb(204 0 0) at (76.603516, 316) 0.39648438×2
+fill box#38 rgb(204 0 0) at (89, 316) 2×2
+fill box#38 rgb(204 0 0) at (98, 316) 3×2
+fill box#38 rgb(204 0 0) at (107, 316) 19×2
+fill box#38 rgb(204 0 0) at (132, 316) 4.0859375×2
+text box#38 "gypsy" rgb(0 0 204) 20px at (76.603516, 315)
+shadow box#41 rgb(0 170 0) blur 0 at (7.638672, 354.8047) 127.85156×19.355469
+shadow box#41 rgb(0 170 0) blur 0 at (8, 371) 128.08594×2
+shadow box#41 rgb(0 170 0) blur 0 at (8, 349) 128.08594×2
+fill box#41 rgb(204 0 0) at (8, 348) 128.08594×2
+fill box#41 rgb(204 0 0) at (8, 326) 128.08594×2
+text box#41 "jumpy gypsy" rgb(0 0 204) 20px at (8, 347)

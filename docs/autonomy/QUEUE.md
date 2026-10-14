@@ -13929,7 +13929,7 @@ What stage 2's exit gate actually measures: a person using it.
   a test. 22 cases' `display.txt` moved (lines now listed before the
   text); no `render.png` changed. Found: **584**.
 
-- [ ] **584. A text's shadow beneath its decoration lines, and the lines'
+- [x] **584. A text's shadow beneath its decoration lines, and the lines'
   own shadows.** *Found building 581 (iteration 347). Feature:
   `docs/features.md` stage 2, `text-decoration`. Seen, not measured.*
   Chrome 154 draws a text's shadow first, then an underline or overline,
@@ -13942,6 +13942,39 @@ What stage 2's exit gate actually measures: a person using it.
   that finds text by its item, so it is its own change. *Closes when:* a
   frozen case of underlined, overlined and struck-through text with a
   `text-shadow` is Chrome's at one and at two, order and shadows both.
+  ***Done (iteration 348).*** Measured first (Chrome 154, headless,
+  `--force-device-scale-factor=1`, `=2` and `=4`, without
+  `--disable-gpu`, `DejaVu Sans` by `@font-face`, the source not read):
+  Chrome draws the letters' shadows, then every underline and overline
+  piece's shadows, then those lines, the letters, the line through's
+  shadows and the line through. A line's shadow is the piece as drawn —
+  on whole device pixels, its skip-ink gaps kept — moved by the shadow's
+  offset and not snapped again (an 8.5 px offset half-covers two rows at
+  one), blurred as the letters' are; it is the text's own `text-shadow`
+  (a `<u>` with none over a child with one shadows the child's line, and
+  the other way round, none); a line under a space between two spans
+  casts it; the first shadow written is on top among the lines' shadows as
+  among the letters'; and an underline is on top of the overline's shadow
+  and the overline of the underline's (all lines' shadows before any
+  line). Built: `alo-paint`'s `build.rs` — `Decorations` carries the
+  text's shadows; `between_lines` puts the letters' shadows in
+  `DisplayItem::Shadow`s of their own (`Letters::shadow_items`, the run
+  `crate::render` outlines) only when a line goes beneath the letters,
+  and otherwise leaves them in the text item; `draw_lines` draws each
+  piece's shadows, furthest back first, before the pieces; spaces' lines
+  cast them too. Evidence: `cases/text-shadow-on-lines` (eleven
+  paragraphs) with Chrome's `chrome.png` and `chrome-at-2.png` and
+  `render-at-2.png`; `a_line_and_its_shadow.rs` — every pixel both
+  engines draw in a plain colour (white, the letters' blue, the lines'
+  red, a shadow's green or purple) the same at one; at two the same but
+  for 155 single pixels on the letters' edges, each colour a device pixel
+  away in the other picture (Chrome's thicker letters, 576 and 577), held
+  to 160. `a_line_and_its_letters.rs` asserts the order and every piece's
+  shadow in numbers. Seven mutations (no line shadows, letters' shadows
+  kept in the text, every line beneath, shadow layers in written order,
+  shadows not moved, the lines beneath the letters drawn after them, and
+  spaces' lines casting none) each failed a test. No other
+  case's file changed. Nothing found.
 
 - [x] **562. The window at the screen's scale.** *Cut from 299 (ADR 0057
   § 3; ADR 0024 §§ 2–3, 5). Feature: `docs/features.md` stage 2, a window,

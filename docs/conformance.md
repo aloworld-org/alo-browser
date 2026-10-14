@@ -223,9 +223,14 @@ letters, a line through under `all`, a child's value under its parent's
 line both ways, `bogus`, `initial`, `none auto` and an inherited `none` —
 has every line's every piece on Chrome's pixels at one and at two, and
 the letters on top of an underline or overline that runs whole and under
-a line through, as Chrome's are. Under text that casts a shadow the lines
-are still drawn over the shadow and the letters alike, where Chrome draws
-the shadow beneath them and shadows the lines too (584).
+a line through, as Chrome's are. Under text that casts a shadow (item
+584) each line casts the text's shadow and the shadows go where Chrome's
+do: `text-shadow-on-lines` — shadows below and above, under, over and
+through, two shadows, a blurred one, a line from a parent without a
+shadow, a space between two spans, and lines' shadows reaching the other
+line — has every pixel both engines draw in a plain colour the same at
+one, and at two all but 155 single pixels at the letters' edges, where
+Chrome's letters are thicker (576, 577).
 
 Boxes can be round, and clip what is inside them to their own shape. **A
 curve's edge is covered as its area says** (item 459): the rented rasteriser

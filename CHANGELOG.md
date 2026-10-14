@@ -6,6 +6,11 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An underline casts the text's shadow.** Under text with a
+  `text-shadow`, an underline, overline or line through now casts the
+  same shadow as the letters, and the letters' shadow falls beneath an
+  underline rather than over it, as Chrome draws them.
+
 - **A page can ask for an underline that runs through the letters.**
   `text-decoration-skip-ink: none` now draws an underline or overline
   whole, through a `g`'s or `y`'s tail, where it used to step aside

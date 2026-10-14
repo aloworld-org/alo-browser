@@ -2441,3 +2441,11 @@ beneath the letters, a line through over them, as Chrome 154 draws them.
 shadow beneath its lines, and the lines' own shadows). 278 queue items
 are open (581 closed; 584 added). The next unused queue number is 585 and
 the next unused ADR 0058.
+
+Iteration 348 closed queue item 584: under text that casts a shadow each
+decoration line casts it too, and the shadows go where Chrome 154 puts
+them — the letters' shadows, then the underline's and overline's shadows,
+those lines, the letters, the line through's shadows and the line through.
+`text-shadow-on-lines` is Chrome's at one and at two. 277 queue items are
+open (584 closed; none added). The next unused queue number is 585 and the
+next unused ADR 0058.

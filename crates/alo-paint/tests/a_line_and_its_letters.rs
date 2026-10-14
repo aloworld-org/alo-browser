@@ -6,8 +6,8 @@
 //! underline or an overline steps aside for them, which the text's own
 //! `text-decoration-skip-ink` decides, and which is drawn first — an
 //! underline and an overline before the letters and a line through after,
-//! as Chrome 154 draws them, except under text that casts a shadow, where
-//! every line is still drawn after the text and its shadow (queue item 584).
+//! as Chrome 154 draws them — and, under text that casts a shadow, where the
+//! shadows go and that each line casts one too (queue item 584).
 
 use alo_box::build as build_boxes;
 use alo_css::{MediaContext, parse_stylesheet};
@@ -122,15 +122,76 @@ fn an_underline_and_an_overline_are_drawn_before_the_letters_and_a_line_through_
 }
 
 #[test]
-fn under_a_text_shadow_every_line_is_drawn_after_the_text() {
-    let css = format!("{LINES} p {{ text-shadow: 0 2px 0 #00ff00 }}");
-    let said = said(&draw("<p class=all3>gy</p>", &css));
-    assert_eq!(
-        said.first().map(String::as_str),
-        Some("text gy"),
-        "{said:?}"
+fn under_a_text_shadow_the_lines_go_between_the_shadows_and_cast_their_own() {
+    // Chrome 154's order (queue item 584): the letters' shadows, then every
+    // underline and overline piece's shadows, furthest back first, then
+    // those lines, the letters, the line through's shadows and the line
+    // through. A line's shadow is the piece as drawn, gaps and all, moved by
+    // the shadow's offset.
+    let css =
+        format!("{LINES} p {{ color: black; text-shadow: 0 2px 0 #00ff00, 1px 3px #0000ff }}");
+    let outline = draw("<p class=all3>gy</p>", &css).to_outline();
+    let drawn: Vec<&str> = outline.lines().collect();
+    let (blue, green) = (
+        "shadow box#3 rgb(0 0 255) blur 0",
+        "shadow box#3 rgb(0 255 0) blur 0",
     );
-    assert_eq!(pieces_per_line(&said).len(), 3, "{said:?}");
+    let lines = |shadow: &str, (x, y): (f32, f32)| {
+        [
+            format!("{shadow} at ({}, {}) 2×2", 12.0 + x, 40.0 + y),
+            format!("{shadow} at ({}, {}) 3.53125×2", 21.0 + x, 40.0 + y),
+            format!("{shadow} at ({x}, {}) 24.53125×2", 18.0 + y),
+        ]
+    };
+    let expected: Vec<String> = lines(blue, (1.0, 3.0))
+        .into_iter()
+        .chain(lines(green, (0.0, 2.0)))
+        .chain(lines("fill box#3 rgb(0 0 0)", (0.0, 0.0)))
+        .chain([
+            "text box#3 \"gy\" rgb(0 0 0) 20px at (0, 39)".to_owned(),
+            format!("{blue} at (1, 35) 24.53125×2"),
+            format!("{green} at (0, 34) 24.53125×2"),
+            "fill box#3 rgb(0 0 0) at (0, 32) 24.53125×2".to_owned(),
+        ])
+        .collect();
+    // The letters' own shadows come first, the back one first, each the
+    // letters moved by its offset.
+    assert_eq!(drawn.len(), expected.len() + 2, "{outline}");
+    // `gy`'s ink is 22.83 wide and 15.36 tall from (1.10, 27.80), and each
+    // shadow is that moved by its offset.
+    assert_eq!(
+        drawn[..2],
+        [
+            format!("{blue} at (2.1035156, 30.798828) 22.832031×15.361328"),
+            format!("{green} at (1.1035156, 29.798828) 22.832031×15.361328"),
+        ],
+        "{outline}"
+    );
+    assert_eq!(
+        drawn[2..],
+        expected.iter().map(String::as_str).collect::<Vec<_>>()[..],
+        "{outline}"
+    );
+}
+
+#[test]
+fn with_no_line_beneath_the_letters_their_shadows_stay_in_the_text() {
+    let css = "p { text-decoration-line: line-through; text-shadow: 0 2px 0 #00ff00 }";
+    let outline = draw("<p>gy</p>", css).to_outline();
+    let drawn: Vec<&str> = outline.lines().collect();
+    assert_eq!(drawn.len(), 3, "{outline}");
+    assert!(
+        drawn[0].ends_with("+ shadow rgb(0 255 0) blur 0 at (0, 2)"),
+        "{outline}"
+    );
+    assert_eq!(
+        drawn[1],
+        "shadow box#3 rgb(0 255 0) blur 0 at (0, 34) 24.53125×2"
+    );
+    assert!(
+        drawn[2].starts_with("fill box#3 rgb(0 0 0) at (0, 32) "),
+        "{outline}"
+    );
 }
 
 #[test]

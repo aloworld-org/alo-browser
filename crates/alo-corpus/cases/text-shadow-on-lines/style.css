@@ -1,0 +1,20 @@
+/* Red lines under blue letters, and green and purple shadows, so that
+   what is on top of what can be read from the picture. */
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 20px; color: #0000cc }
+p { margin: 8px 0 0 8px; white-space: nowrap }
+.under { text-decoration-line: underline; text-decoration-color: #cc0000 }
+.over { text-decoration-line: overline; text-decoration-color: #cc0000 }
+.under.over { text-decoration-line: underline overline }
+.through { text-decoration-line: line-through; text-decoration-color: #cc0000 }
+.none { text-decoration-skip-ink: none }
+/* Each shadow a whole number of pixels away, so its edges are a line's. */
+.drop { text-shadow: 0 4px #00aa00 }
+.lift { text-shadow: 0 -6px #00aa00 }
+.two { text-shadow: 0 4px #00aa00, 0 -3px #aa00aa }
+/* Two shadows a pixel apart: the first written is on top. */
+.stack { text-shadow: 0 3px #00aa00, 0 4px #aa00aa }
+.soft { text-shadow: 2px 3px 2px #00aa00 }
+.flat { text-shadow: none }
+/* The overline's shadow on the underline, and the underline's on the
+   next line's overline: which is on top is a line over a shadow. */
+.reach { text-shadow: 0 23px #00aa00 }

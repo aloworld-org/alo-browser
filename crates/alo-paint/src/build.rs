@@ -58,19 +58,17 @@ struct Decorations {
     /// Whether an underline and an overline step aside for the letters: the
     /// text's own `text-decoration-skip-ink` (`crate::skip_ink`).
     skips_ink: bool,
-    /// Whether an underline and an overline are drawn before the letters, so
-    /// that a letter is on top of a line it crosses, as Chrome 154 draws
-    /// them (queue item 581); a line through is drawn after them. Not for
-    /// text that casts a shadow: Chrome draws the shadow beneath the line,
-    /// and a text item draws its shadows with its letters, so there the
-    /// lines stay on top of both (queue item 584).
-    beneath_letters: bool,
+    /// The text's own `text-shadow`, which each line casts as well as the
+    /// letters (queue item 584).
+    shadows: Vec<TextShadow>,
 }
 
 impl Decorations {
-    /// Whether `line` is drawn before the letters rather than after them.
-    fn beneath(&self, line: DecorationLine) -> bool {
-        self.beneath_letters && line != DecorationLine::LineThrough
+    /// Whether `line` is drawn before the letters rather than after them:
+    /// an underline and an overline are, so that a letter is on top of a
+    /// line it crosses, and a line through is not (queue item 581).
+    fn beneath(line: DecorationLine) -> bool {
+        line != DecorationLine::LineThrough
     }
 }
 
@@ -100,6 +98,27 @@ impl Letters<'_> {
             color,
             shadows,
         }
+    }
+
+    /// The letters' shadows, furthest back first, each as its own item:
+    /// the same run [`crate::render`] outlines for a text item, moved by the
+    /// shadow's offset. For text whose lines go between its shadows and its
+    /// letters, which one text item cannot hold.
+    fn shadow_items(&self, id: BoxId, shadows: &[TextShadow], scale: f32) -> Vec<DisplayItem> {
+        let mut run = Path::new();
+        for glyph in self.shapes(scale) {
+            run.extend(&glyph);
+        }
+        shadows
+            .iter()
+            .rev()
+            .map(|shadow| DisplayItem::Shadow {
+                box_id: id,
+                path: run.translated(crate::path::Point::new(shadow.offset.0, shadow.offset.1)),
+                blur: shadow.blur,
+                color: shadow.color,
+            })
+            .collect()
     }
 
     /// Each glyph's shape where it is drawn on a screen at `scale`, leaned as
@@ -853,11 +872,10 @@ impl Builder<'_> {
         let Some(pen) = self.pen_for(id) else {
             return;
         };
-        let shadows = self.text_shadows_of(id);
         let decorations = Decorations {
             lines: self.decorations_of(id),
             skips_ink: self.skip_ink_of(id).steps_aside(),
-            beneath_letters: shadows.is_empty(),
+            shadows: self.text_shadows_of(id),
         };
         self.draw_spaces(id, &decorations, &pen, out);
         let Pen {
@@ -900,8 +918,7 @@ impl Builder<'_> {
                     origin,
                     oblique,
                 };
-                let item = letters.item(id, color, shadows);
-                Self::between_lines(id, &decorations, piece, &letters, item, scale, out);
+                Self::between_lines(id, &decorations, piece, &letters, color, scale, out);
             }
             return;
         }
@@ -947,26 +964,72 @@ impl Builder<'_> {
                 origin,
                 oblique,
             };
-            let item = letters.item(id, color, shadows.clone());
-            Self::between_lines(id, &decorations, piece, &letters, item, scale, out);
+            Self::between_lines(id, &decorations, piece, &letters, color, scale, out);
         }
     }
 
-    /// A piece of text's letters, `item`, with its decoration lines: those
-    /// drawn beneath the letters first, then the letters, then the rest
-    /// ([`Decorations::beneath`]).
+    /// A piece of text's letters, in `color`, with its decoration lines, in
+    /// Chrome 154's order (queue item 584): the letters' shadows, then the
+    /// shadows of the lines drawn beneath the letters, those lines, the
+    /// letters, and the shadows of the rest and the rest
+    /// ([`Decorations::beneath`]). With no line beneath them the letters'
+    /// shadows stay with the letters, in one text item.
     fn between_lines(
         id: BoxId,
         decorations: &Decorations,
         piece: crate::decoration::Piece,
         letters: &Letters<'_>,
-        item: DisplayItem,
+        color: Rgba,
         scale: f32,
         out: &mut Vec<DisplayItem>,
     ) {
-        Self::decorations_at(id, decorations, true, piece, letters, scale, out);
+        let beneath = Self::decorations_at(decorations, true, piece, letters, scale);
+        let item = if beneath.is_empty() {
+            letters.item(id, color, decorations.shadows.clone())
+        } else {
+            out.extend(letters.shadow_items(id, &decorations.shadows, scale));
+            letters.item(id, color, Vec::new())
+        };
+        Self::draw_lines(id, &beneath, &decorations.shadows, out);
         out.push(item);
-        Self::decorations_at(id, decorations, false, piece, letters, scale, out);
+        let after = Self::decorations_at(decorations, false, piece, letters, scale);
+        Self::draw_lines(id, &after, &decorations.shadows, out);
+    }
+
+    /// Decoration lines, each drawn piece in its colour, after the shadows
+    /// the text casts them: every piece's shadow first, furthest back first,
+    /// then the pieces, so that one line is on top of another's shadow as
+    /// in Chrome 154. A line's shadow is the piece as drawn, on whole device
+    /// pixels and stepped aside for the letters, moved by the shadow's
+    /// offset and not put on whole pixels again.
+    fn draw_lines(
+        id: BoxId,
+        pieces: &[(Rect, Rgba)],
+        shadows: &[TextShadow],
+        out: &mut Vec<DisplayItem>,
+    ) {
+        for shadow in shadows.iter().rev() {
+            let by = alo_layout::Point::new(shadow.offset.0, shadow.offset.1);
+            for (rect, _) in pieces {
+                out.push(DisplayItem::Shadow {
+                    box_id: id,
+                    path: rounded_rectangle(rect.translated(by), Corners::default()),
+                    blur: shadow.blur,
+                    color: shadow.color,
+                });
+            }
+        }
+        for (rect, colour) in pieces {
+            out.push(DisplayItem::Fill {
+                rule: FillRule::NonZero,
+                box_id: id,
+                // A plain rectangle: a decoration has no corners of its own,
+                // so the rounding machinery would only be a way to get it
+                // wrong.
+                path: rounded_rectangle(*rect, Corners::default()),
+                paint: Paint::Solid(*colour),
+            });
+        }
     }
 
     /// White space with no letters that a line goes on past — the space
@@ -1002,7 +1065,8 @@ impl Builder<'_> {
                 oblique: pen.oblique,
             };
             for beneath in [true, false] {
-                Self::decorations_at(id, decorations, beneath, piece, &letters, scale, out);
+                let pieces = Self::decorations_at(decorations, beneath, piece, &letters, scale);
+                Self::draw_lines(id, &pieces, &decorations.shadows, out);
             }
         }
     }
@@ -1312,25 +1376,23 @@ impl Builder<'_> {
 
     /// The decoration lines under, over and through a piece of text that are
     /// drawn `beneath` its letters, or the ones drawn after them
-    /// ([`Decorations::beneath`]), each where `crate::decoration` puts it:
-    /// from the top of the piece, in whole device pixels at `scale`. An
-    /// underline and an overline step aside where a letter's ink crosses
-    /// them (`crate::skip_ink`), unless the text's `text-decoration-skip-ink`
-    /// is `none`, so they are drawn as the pieces left; a line through the
-    /// text is drawn whole.
+    /// ([`Decorations::beneath`]), as the pieces drawn and their colours,
+    /// each where `crate::decoration` puts it: from the top of the piece, in
+    /// whole device pixels at `scale`. An underline and an overline step
+    /// aside where a letter's ink crosses them (`crate::skip_ink`), unless
+    /// the text's `text-decoration-skip-ink` is `none`, so they are the
+    /// pieces left; a line through the text is whole.
     fn decorations_at(
-        id: BoxId,
         decorations: &Decorations,
         beneath: bool,
         piece: crate::decoration::Piece,
         letters: &Letters<'_>,
         scale: f32,
-        out: &mut Vec<DisplayItem>,
-    ) {
+    ) -> Vec<(Rect, Rgba)> {
         let drawn_here = decorations
             .lines
             .iter()
-            .filter(|(line, _)| decorations.beneath(*line) == beneath);
+            .filter(|(line, _)| Decorations::beneath(*line) == beneath);
         // Shaped and outlined only when a line steps aside for them: most
         // text is not decorated, and a line through does not look.
         let skips =
@@ -1341,6 +1403,7 @@ impl Builder<'_> {
             Vec::new()
         };
         let thickness = crate::decoration::thickness(piece.size, scale);
+        let mut pieces = Vec::new();
         for (line, colour) in drawn_here {
             let whole = crate::decoration::line_at(*line, piece, scale);
             let drawn = if skips(line) {
@@ -1348,18 +1411,9 @@ impl Builder<'_> {
             } else {
                 vec![whole]
             };
-            for rect in drawn {
-                out.push(DisplayItem::Fill {
-                    rule: FillRule::NonZero,
-                    box_id: id,
-                    // A plain rectangle: a decoration has no corners of its
-                    // own, so the rounding machinery would only be a way to
-                    // get it wrong.
-                    path: rounded_rectangle(rect, Corners::default()),
-                    paint: Paint::Solid(*colour),
-                });
-            }
+            pieces.extend(drawn.into_iter().map(|rect| (rect, *colour)));
         }
+        pieces
     }
 
     /// The shadows a run of text casts.

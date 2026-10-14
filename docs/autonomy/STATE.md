@@ -35002,3 +35002,111 @@ the letters (581, done, `SkipInk`); the owed clause swaps 581 for 584.
 278 queue items are open (581 closed; 584 added). The next unused queue
 number is **585** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 348 — queue item 584: a text's shadow beneath its lines, and the lines' own shadows
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the three states, the window line's Built and Owed clauses), iteration
+347's entry, queue item 584, and `docs/features.md`' `text-decoration`
+entry (its feature contract; no ADR governs it). No `AGENTS.md` exists
+here.
+
+**Why 584.** It is the first open item in the file whose dependencies are
+done: the items before it wait as iterations 318–347 recorded (463 on a
+person, 560 and 564 on 502 behind 501, 568–571 on a screen or pages, 572
+on a person), it sits directly after 581 and before 573–577, and it
+depends on nothing and names its feature and closing condition.
+
+**Measured first** (Chrome 154, headless, `--force-device-scale-factor=1`,
+`=2` and `=4`, without `--disable-gpu`, `DejaVu Sans` by `@font-face`,
+blue letters, red lines, green and purple shadows, the source not read):
+Chrome draws the letters' shadows, then the shadows of every underline and
+overline piece, then those lines, the letters, the line through's shadows
+and the line through. A line's purple shadow from a second `text-shadow`
+covered the letters' green first one; a line through's shadow covered the
+letters; an underline's shadow 20 px up lay under them. An underline is on
+top of the overline's shadow and the overline on top of the underline's,
+so every line's shadows come before any line. Among the lines' shadows
+the first written is on top, as among the letters'. A line's shadow is the
+piece as drawn — skip-ink gaps kept, on whole device pixels — moved by the
+offset and not snapped again (8.5 px half-covers two rows at one), and
+blurred like the letters'. It is the text's own `text-shadow`: a `<u>`
+with none over a child with one shadows the child's line, and the other
+way round there is none. A line under a space between two spans casts it.
+
+**Built.** `alo-paint`'s `build.rs`: `Decorations` carries the text's
+shadows in place of `beneath_letters`; `between_lines` takes the letters'
+colour, and when a line goes beneath the letters puts their shadows in
+`DisplayItem::Shadow`s of their own, furthest back first
+(`Letters::shadow_items`, the glyph shapes `crate::render` fills, joined),
+leaving the text item shadowless — otherwise the shadows stay in the text
+item, so no list without such a line changed. `decorations_at` returns the
+pieces and colours; `draw_lines` pushes each piece's shadows (layers back
+to front) and then the pieces; spaces' lines go through it too.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh`, started in the foreground, passed the tool's 600 s
+limit and was moved to the background; the next call waited on its log
+with one foreground `until` loop: **`GATE EXIT 0`, "The gate is met. (10
+of 10 steps)"**, 4,862 tests run, 4,862 passed. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Paint order and geometry in numbers: `a_line_and_its_letters.rs`
+  (`alo-paint`) — under `text-shadow: 0 2px 0 #00ff00, 1px 3px #0000ff`
+  `gy` at 20 px is drawn as the letters' blue shadow at (2.10, 30.80) and
+  green at (1.10, 29.80), each 22.83×15.36; the underline's pieces' and
+  overline's shadows, blue then green, at their offsets (13, 43) 2×2,
+  (22, 43) 3.53×2, (1, 21) 24.53×2, and so on; the lines; the text with no
+  shadows; the line through's shadows at (1, 35) and (0, 34); the line
+  through at (0, 32). With only a line through, the shadow stays in the
+  text item. The test this replaces asserted the old order (the lines after
+  the text under a shadow), which 584 was opened to change.
+- Reference renders: `cases/text-shadow-on-lines` (eleven paragraphs:
+  shadows below and above, under, over and through, two shadows, two a
+  pixel apart, a blurred one, a line from a parent without a shadow and
+  the reverse, a space between two spans, and lines' shadows reaching the
+  other line) with Chrome's `chrome.png` and `chrome-at-2.png` (RGBA) and
+  `render-at-2.png`. `a_line_and_its_shadow.rs`: every pixel both engines
+  draw in a plain colour is the same at one (0 differ); at two all but 155
+  single pixels at letters' edges, each with its colour a device pixel
+  away in the other picture (Chrome's thicker letters and whole-pixel
+  tops, 576 and 577), held to 160. Every `render.png` and `display.txt`
+  was backed up before `ALO_UPDATE_REFERENCES=1`; no other case's file
+  changed (no other case has decorated, shadowed text).
+- Mutation, restored from a copy (`cmp` confirmed): no line shadows; the
+  letters' shadows always in the text item; every line beneath the
+  letters; lines' shadow layers in written order (survived the first case,
+  so a paragraph of two shadows a pixel apart was added, Chrome re-shot,
+  and then it failed); shadows not moved by their offset; the lines
+  beneath drawn after the letters; spaces' lines casting none. Each failed
+  a test.
+- Hostile input: nothing new reads bytes from outside.
+- Cost: none measured; no speed claim.
+- One file, one responsibility: where the shadows and lines go in the
+  list is paint order, which is `build.rs`'; nothing new about what a
+  line or a shadow is.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 584 is ticked with a *Done* paragraph. Nothing found.
+
+**Roadmap.** Stage 2's window line: the Built clause names the shadows'
+order and the lines' own shadows (584, done, `between_lines` and
+`draw_lines`, `text-shadow-on-lines`); 584 leaves the Owed clause.
+
+**Unresolved obligations.**
+- Not measured: whether an ellipsis "…" under a decorated, shadowed line
+  is ordered the same way (it carries its own shadows, as before), and
+  shadows at a fractional device scale.
+- 576 and 577 (the letters' thickness and tops) are what remains between
+  this case and Chrome's at two; 463 waits on a person; 573–575, 568–571
+  as before; 560 and 564 on 502 behind 501; 572 on a person.
+- No claim about speed is made.
+
+277 queue items are open (584 closed; none added). The next unused queue
+number is **585** and the next ADR is **0058**. This is one iteration,
+not a finished queue or roadmap.

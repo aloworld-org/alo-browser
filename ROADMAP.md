@@ -1890,7 +1890,13 @@ items where being right and being unusable are the same outcome.
       `none` draws whole and `all` as `auto`, and an underline and an
       overline are drawn beneath the letters, as Chrome 154 draws them
       (581, done): `alo-paint`'s `SkipInk`, and `skip-ink-values` is
-      Chrome's at one and at two.
+      Chrome's at one and at two. Under text that casts a shadow the
+      letters' shadows are drawn first, then the underline's and
+      overline's shadows, those lines, the letters, and the line through's
+      shadow and the line through, each line casting the text's own
+      `text-shadow`, as Chrome 154 draws them (584, done): `alo-paint`'s
+      `build.rs` (`between_lines`, `draw_lines`), and
+      `text-shadow-on-lines` is Chrome's at one and at two.
       · Owed: telling the person why a form was not sent (557); an image
       button's point (556); the agent reading the strip, which needs design (531); a
       title changed after load (532); `pointerrawupdate` (551), a page changing under a still pointer
@@ -1903,8 +1909,7 @@ items where being right and being unusable are the same outcome.
       query's range syntax, boolean form and `calc()` (571), a window wider than 4,096 device
       pixels (569), a shrunk flex item's share of a pixel (564, measured,
       built with 502), and the two boxes at two that keep 560 open;
-      a text shadow beneath the decoration lines, and their own shadows
-      (584); a link opening a tab
+      a link opening a tab
       (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads

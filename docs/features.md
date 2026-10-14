@@ -244,8 +244,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   element asked for the line, and a value that is none of the three is
   passed over for the inherited one. An underline and an overline are
   drawn beneath the letters and a line through over them, as Chrome's
-  are. Not yet: under text that casts a shadow, the shadow beneath the
-  lines and the lines' own shadows (584)
+  are. **Under text that casts a shadow, each line casts it too** (queue
+  item 584): the text's own `text-shadow`, the line's pieces as drawn
+  moved by each shadow's offset, blurred as the letters' shadow is; the
+  letters' shadows first, then the underline's and overline's shadows,
+  those lines, the letters, the line through's shadows and the line
+  through, as Chrome 154 draws them
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
   legend, and a radio you can tell from a checkbox. **Which control a label
   labels is HTML's rule, held once** (`alo-dom`'s `label.rs`, queue item
