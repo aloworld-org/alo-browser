@@ -1,12 +1,12 @@
 fill box#1 rgb(255 255 255) at (0, 0) 200×123
 text box#4 "Inbox" rgb(16 16 20) 20px at (8, 27)
-fill box#6 rgb(212 212 216) at (8, 64) 184×1
+fill box#6 rgb(212 212 216) at (8, 40) 184×25
 text box#8 "•" rgb(16 16 20) 14px at (-4, 57)
 text box#7 "Older" rgb(16 16 20) 14px at (12, 57)
 fill box#9 rgb(220 252 231) at (8, 65) 184×25
-fill box#9 rgb(212 212 216) at (8, 89) 184×1
+fill box#9 rgb(212 212 216) at (8, 65) 184×25
 text box#11 "•" rgb(16 16 20) 14px at (-4, 82)
 text box#10 "From the script" rgb(16 16 20) 14px at (12, 82)
-fill box#12 rgb(212 212 216) at (8, 114) 184×1
+fill box#12 rgb(212 212 216) at (8, 90) 184×25
 text box#14 "•" rgb(16 16 20) 14px at (-4, 107)
 text box#13 "Newer" rgb(16 16 20) 14px at (12, 107)

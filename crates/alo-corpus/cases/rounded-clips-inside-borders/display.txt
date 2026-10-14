@@ -11,6 +11,7 @@ fill box#9 rgb(29 78 216) at (135, 15) 44×40
 clip box#9 to (145, 25) 24×20
 fill box#10 rgb(192 57 43) at (125, 5) 64×80
 unclip
+fill box#12 rgb(29 78 216) at (195, 15) 44×40
 clip box#12 to (205, 19) 24×32
 fill box#13 rgb(192 57 43) at (185, -1) 64×80
 unclip

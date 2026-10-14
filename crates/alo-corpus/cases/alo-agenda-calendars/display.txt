@@ -1,7 +1,7 @@
 fill box#1 rgb(244 241 236) at (0, 0) 280×340
 fill box#3 rgb(244 241 236) at (0, 0) 280×340
 fill box#5 rgb(240 236 230) at (0, 0) 240×340
-fill box#5 rgb(222 215 205) at (239, 0) 1×340
+fill box#5 rgb(222 215 205) at (0, 0) 240×340
 clip box#5 to (0, 0) 239×340
 shadow box#7 rgb(231 111 81 / 0.6) blur 8 at (19, 21) 140×35
 fill box#7 rgb(231 111 81) at (16, 16) 146×41

@@ -4,4 +4,4 @@ fill box#4 rgb(29 78 216) at (48, 8) 32×32
 fill box#5 rgb(0 128 0) at (88, 8) 32×32
 fill box#7 rgb(128 0 128) at (128, 8) 32×32
 fill box#8 rgb(23 33 43 / 0.14) at (168, 8) 32×32
-fill box#9 rgb(255 0 0) at (208, 8) 24×4
+fill box#9 rgb(255 0 0) at (208, 8) 24×28

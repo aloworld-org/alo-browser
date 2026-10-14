@@ -1,5 +1,5 @@
 fill box#2 rgb(255 255 255) at (0, 0) 800×788
-fill box#7 rgb(221 227 233) at (0, 64) 800×1
+fill box#7 rgb(221 227 233) at (0, 0) 800×65
 text box#10 "North Studio" rgb(23 33 43) 20px at (20, 39)
 text box#13 "Home" rgb(23 33 43) 17px at (618.8125, 37.40625)
 text box#15 "Blog" rgb(23 33 43) 17px at (689.0156, 37.40625)

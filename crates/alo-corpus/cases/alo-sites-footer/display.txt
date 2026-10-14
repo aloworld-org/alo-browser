@@ -2,7 +2,7 @@ fill box#2 rgb(255 255 255) at (0, 48) 800×124
 group box#10 at opacity 0
 transform box#10 by matrix(1, 0, 0, 1, 0, 24)
 fill box#10 rgb(23 33 43) at (0, 48) 800×124
-fill box#10 rgb(221 227 233) at (0, 48) 800×1
+fill box#10 rgb(221 227 233) at (0, 48) 800×124
 fill box#18 rgb(255 255 255) at (20, 117) 21×1
 fill box#18 rgb(255 255 255) at (46, 117) 35.53125×1
 text box#18 "Imprint" rgb(255 255 255) 17px at (20, 116)

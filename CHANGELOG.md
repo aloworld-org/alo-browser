@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A border whose sides differ fills its rounded corners.** A solid
+  border with sides of different widths or colours used to be drawn as
+  four strips, which left the page showing in a thin crescent inside
+  every rounded corner and gave a square corner wholly to one side. A
+  border of one colour is now one ring following both curves, and sides
+  of different colours meet on the diagonal through the corner and carry
+  it into the curve, as Chrome draws them.
+
 - **A picture given a width and a height is that size.** An `<img>` with
   both set used to be laid out at least as tall as its own shape asked —
   a square picture at 30 by 20 came out 30 by 30 — on a line and as a

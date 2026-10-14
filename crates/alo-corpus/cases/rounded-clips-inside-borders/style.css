@@ -8,9 +8,8 @@
    child reaching 20px past it on every side, so what is drawn of it is
    the clip. The blue borders show the sliver; the transparent ones
    leave only the clip, and ask for radii CSS scales down to fit.
-   `.sides`' border is transparent because this engine leaves the inside
-   of a rounded corner unfilled on a border of unequal widths (queue item
-   592).
+   `.sides`' border, of unequal widths, was transparent until this engine
+   filled the inside of such a border's rounded corners (queue item 592).
    `tests/a_rounded_clip_inside_a_border.rs` says how near Chrome. */
 body { margin: 0; background: #ffffff }
 .clip { position: absolute; box-sizing: border-box; width: 44px; height: 40px;

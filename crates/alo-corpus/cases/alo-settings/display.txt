@@ -2,10 +2,10 @@ fill box#1 rgb(244 241 236) at (0, 0) 900×600
 fill box#3 rgb(31 37 41 / 0.48) at (0, 0) 900×600
 fill box#5 rgb(255 254 252) at (24, 70) 852×460
 clip box#5 to (24, 70) 852×460
-fill box#7 rgb(232 226 217) at (24, 122) 852×1
+fill box#7 rgb(232 226 217) at (24, 70) 852×53
 text box#9 "Mail settings" rgb(16 42 67) 17px at (44, 101.90625)
 fill box#13 rgb(244 241 236) at (24, 123) 194×342
-fill box#13 rgb(232 226 217) at (217, 123) 1×342
+fill box#13 rgb(232 226 217) at (24, 123) 194×342
 clip box#13 to (24, 123) 193×342
 fill box#15 rgb(252 234 227) at (36, 135) 169×31
 text box#17 "General" rgb(231 111 81) 13px at (48, 154.90625)
@@ -21,7 +21,7 @@ fill box#46 rgb(222 215 205) at (242, 199) 610×42
 clip box#46 to (243, 200) 608×40
 text box#48 "Kind regards," rgb(16 42 67) 14px at (255, 225)
 unclip
-fill box#51 rgb(232 226 217) at (242, 265) 610×1
+fill box#51 rgb(232 226 217) at (242, 265) 610×180
 text box#54 "Out of office" rgb(16 42 67) 14px at (242, 303)
 fill box#56 rgb(222 215 205) at (242, 318) 610×127
 fill box#60 rgb(255 255 255) at (263, 338) 13×13
@@ -35,7 +35,7 @@ fill box#75 rgb(255 254 252) at (553, 394) 282×34
 fill box#75 rgb(222 215 205) at (553, 394) 282×34
 text box#76 "19 May" rgb(16 42 67) 14px at (566, 416.09375)
 unclip
-fill box#84 rgb(232 226 217) at (24, 465) 852×1
+fill box#84 rgb(232 226 217) at (24, 465) 852×65
 text box#89 "Cancel" rgb(95 85 75) 14px at (714.40625, 503.09375)
 fill box#92 rgb(231 111 81) at (786, 482) 70×32
 text box#93 "Save" rgb(255 254 252) 14px at (801.84375, 503.09375)

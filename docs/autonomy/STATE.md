@@ -35874,3 +35874,107 @@ Nothing is owed on it from this item.
 280 queue items are open (590 closed; 594 added). The next unused queue
 number is **595** and the next ADR is **0058**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 356 — queue item 592: a border drawn side by side has its rounded corners filled
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 355's entry, the item, `docs/features.md` stage 1's rounded
+corners and stage 2's borders lines, and ADR 0057 (whole device pixels;
+§ 5 for a case's picture at two). No `AGENTS.md` exists here.
+
+**Why 592.** The first open item whose dependencies are done: those
+before it wait as iteration 355 recorded (463 and 572 on a person,
+560 and 564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and
+559 on pages), and 591 waits for a page that draws an outline. 592
+depends on nothing and names its feature and closing condition.
+
+**Found first.** The item put the cause in `border.rs`' `draw_mitred`; it
+was not there. Its wedges are the whole box split on the mitres, so a side
+drawn that way already reaches into a rounded corner's curve — the case's
+`inset` and `double` boxes were Chrome's before any change. A `solid`
+border whose sides differ never reached `draw_mitred`: `build.rs` drew it
+as four rectangles clipped to the box's outer curve, leaving the inside
+of every rounded corner white and giving a square corner wholly to the
+side drawn last.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1`, `=2`
+and `=8`, without `--disable-gpu`; the source not read): eighteen 44 × 40
+boxes — one colour on two and four widths, two and four colours, square,
+elliptical, four radii, a radius under the border, a side with no width,
+a side `none`, translucent colours, `inset`, `double`, `dashed`, `dotted`,
+a mix, and two at tenths of a pixel. A solid border of one colour is one
+ring whatever its widths. Otherwise each side is the part of the ring on
+its side of the mitre through the border box's corner and the padding
+box's, carried on into the curve: read along a two-colour corner's rows at
+eight, 2.5 across for every 1 down on a 10 and 4 border, through (10, 4)
+and beyond it to the inner curve.
+
+**Built.** `build.rs`' `draw_borders`: a border that is `solid` and one
+colour on every side with a width (`uniform_border`, now a free function
+over the laid-out widths) is one ring; every other border goes to
+`border::draw_mitred`. The four rectangles and `mitred_sides` are gone.
+Doc comments in `build.rs`, `border.rs` and `mitre.rs` say so.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean, run first.
+`scripts/gate.sh` was started in the foreground; it ran past the tool's
+600 s limit and was moved to the background by the harness, and the next
+call waited on it with an until-loop and read it in the same step:
+**`exit 0`, "The gate is met. (10 of 10 steps)"**, 4,915 tests run, 4,915
+passed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Numbers: `borders_side_by_side.rs`' first test reads each of the
+  sixteen borders' rings at one and at two — the outline its border box
+  as drawn (ADR 0057's snapping, worked out by hand for the two at
+  tenths), the hole its padding box — and whether it is drawn as one ring
+  or as sides.
+- Reference renders: new case `borders-side-by-side` (sixteen boxes; the
+  probe's `dashed`, `dotted`, mixed and `border-left-style: none` boxes
+  left out, see 595 and 596), with `render.png`, `render-at-2.png` and
+  Chrome's `chrome.png` and `chrome-at-2.png` (RGBA). Wherever both
+  pictures are one of its nine plain colours they are the same, at one,
+  two (the test) and eight (by hand); blends within 95 and 99 of 255, on
+  `thick`'s outer curve. `rounded-clips-inside-borders`' `sides` box,
+  transparent because of 592, is blue now: Chrome's pictures were taken
+  again (they differ from the first pair inside `sides` and in 2 curve
+  pixels elsewhere at one and 8 at two, Chrome's run-to-run smoothing),
+  its references moved inside that box only, and its tests pass within
+  their old bounds. Every other case's `render.png` is unchanged, checked
+  against copies taken first; fourteen cases' `display.txt` list a
+  one-colour border by its ring's bounds where they listed a strip.
+  `alo_sites_full_page.rs`' item-430 test looked for a 4-wide strip in the
+  display list; it now reads the ring's hole starting 4 in.
+- Mutation, each restored from a copy (`cmp` confirmed): the old
+  `build.rs` failed all three of the case's tests (654 pixels at one and
+  2,987 at two a different plain colour); a mitre tilted the other way in
+  `mitre.rs` failed the pixel test and the picture at two.
+- Hostile input: nothing new reads bytes from outside.
+- Cost: none measured; no speed claim. A one-sided line is now one ring
+  over its box rather than a strip; its pixels are the same.
+- One file, one responsibility: which drawing a border gets is
+  `build.rs`'; how sides are drawn stays `border.rs`'; the wedges
+  `mitre.rs`'.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 592 is ticked with a *Done* paragraph. Found: **595** — a
+`border-*-style: none` longhand does not take away a width `border-width`
+set (Chrome computes 0, this engine lays out 10); **596** — dashes and
+dots along a rounded corner are placed otherwise by Chrome.
+
+**Roadmap.** Stage 1's paint line on whole device pixels: a *since queue
+item 592* clause, and its Owed list loses 592 and gains 595 and 596.
+
+**Unresolved obligations.**
+- 595 and 596, as above.
+- 591, 593 and 594; 576, 577, 585, 586 as before; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501.
+- A mitre's diagonal pixel between two colours is still 518's.
+- No claim about speed is made.
+
+281 queue items are open (592 closed; 595 and 596 added). The next unused
+queue number is **597** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

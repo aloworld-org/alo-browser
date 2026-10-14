@@ -469,8 +469,13 @@ smoothed across its texels by Chrome and not here (594). A rounded clip inside a
 inner curve, each radius less the border beside it (588), as Chrome's
 does in 60 of 60 boxes measured; `rounded-clips-inside-borders` is
 Chrome's in every plain pixel at one and at two. A border whose sides
-differ in width or colour leaves the inside of a rounded corner unfilled,
-the page showing between its strips and its inner curve (592). Where a line under text falls at two is not measured (566).
+differ in width or colour fills its rounded corners to the inner curve,
+one colour as one ring and differing sides split on the mitre (592);
+`borders-side-by-side` is Chrome's in every plain pixel at one and at two.
+A dashed or dotted side along a rounded corner is placed on the straight
+side and clipped, where Chrome places its pieces otherwise (596), and a
+`border-*-style: none` longhand leaves a width `border-width` set in place
+(595). Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (item 562, ADR 0057 § 3). The window
 tells the page's renderer and the strip's the whole part of its screen's

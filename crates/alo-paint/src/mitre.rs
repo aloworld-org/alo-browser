@@ -4,9 +4,9 @@
 
 //! Which part of a box belongs to which side of its border.
 //!
-//! A border drawn side by side — any style but a plain `solid` — needs each
-//! side's own region, so that where two sides differ the corner is split
-//! between them rather than given to one.
+//! A border drawn side by side — any border but a `solid` one of one colour —
+//! needs each side's own region, so that where two sides differ the corner
+//! is split between them rather than given to one.
 //!
 //! Where two sides of different colours meet, the corner is split along the
 //! line through the border box's corner and the padding box's — a **mitre**.
@@ -16,8 +16,8 @@
 //! corner as the curve does, which is further than the padding box's
 //! rectangle — a first version that stopped at that rectangle left a hole in
 //! every rounded corner. Four overlapping rectangles, which is how a solid
-//! border of differing sides is drawn, would give one side the whole corner,
-//! and with two tones that is visible.
+//! border of differing sides was drawn until queue item 592, gave one side
+//! the whole of a square corner and left that hole in a rounded one.
 //!
 //! # Joints
 //!

@@ -4,7 +4,7 @@ fill box#5 rgb(23 33 43) at (-15968, 28) 25×1
 fill box#5 rgb(23 33 43) at (-15938, 28) 99.125×1
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27)
 fill box#7 rgb(255 255 255) at (0, 0) 800×73
-fill box#7 rgb(221 227 233) at (0, 72) 800×1
+fill box#7 rgb(221 227 233) at (0, 0) 800×73
 text box#12 "Nordwind Coffee Roasters" rgb(23 33 43) 20px at (20, 43.1875)
 text box#20 "Home" rgb(29 78 216) 17px at (476.92188, 41.59375)
 text box#25 "Pricing" rgb(23 33 43) 17px at (548.0781, 41.59375)

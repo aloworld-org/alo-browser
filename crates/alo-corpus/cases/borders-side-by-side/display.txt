@@ -1,0 +1,55 @@
+fill box#1 rgb(255 255 255) at (0, 0) 500×0
+fill box#3 rgb(29 78 216) at (15, 15) 44×40
+fill box#5 rgb(29 78 216) at (75, 15) 44×40
+clip box#7 to (135, 15) 44×40
+fill box#7 rgb(29 78 216) at (135, 15) 44×40
+fill box#7 rgb(192 57 43) at (135, 15) 44×40
+unclip
+clip box#9 to (195, 15) 44×40
+fill box#9 rgb(29 78 216) at (195, 15) 44×11
+fill box#9 rgb(192 57 43) at (222.5, 15) 16.5×40
+fill box#9 rgb(22 163 74) at (195, 33) 44×22
+fill box#9 rgb(0 0 0) at (195, 15) 27.5×40
+unclip
+clip box#11 to (255, 15) 44×40
+fill box#11 rgb(29 78 216) at (255, 15) 44×11
+fill box#11 rgb(192 57 43) at (282.5, 15) 16.5×40
+fill box#11 rgb(22 163 74) at (255, 33) 44×22
+fill box#11 rgb(0 0 0) at (255, 15) 27.5×40
+unclip
+clip box#13 to (315, 15) 44×40
+fill box#13 rgb(29 78 216) at (315, 15) 44×40
+fill box#13 rgb(192 57 43) at (315, 15) 44×40
+unclip
+fill box#15 rgb(29 78 216) at (375, 15) 44×40
+clip box#17 to (435, 15) 44×40
+fill box#17 rgb(29 78 216) at (435, 15) 44×40
+fill box#17 rgb(192 57 43) at (435, 15) 44×40
+unclip
+clip box#19 to (15, 75) 44×40
+fill box#19 rgb(44 44 44) at (15, 75) 44×40
+fill box#19 rgb(212 212 212) at (15, 75) 44×40
+unclip
+clip box#21 to (75, 75) 44×40
+fill box#21 rgb(29 78 216) at (75, 75) 44×40
+unclip
+clip box#23 to (135, 75) 44×40
+fill box#23 rgb(29 78 216) at (135, 75) 44×40
+fill box#23 rgb(192 57 43) at (135, 75) 44×40
+unclip
+clip box#25 to (195, 75) 44×40
+fill box#25 rgb(29 78 216) at (195, 75) 44×8.8888855
+fill box#25 rgb(192 57 43) at (216.77777, 75) 22.222229×40
+fill box#25 rgb(22 163 74) at (195, 83.888885) 44×31.111115
+fill box#25 rgb(0 0 0) at (195, 75) 13.333328×40
+unclip
+fill box#27 rgb(29 78 216 / 0.5) at (255, 75) 44×40
+clip box#29 to (315, 75) 44×40
+fill box#29 rgb(29 78 216 / 0.5) at (315, 75) 44×40
+fill box#29 rgb(192 57 43 / 0.5) at (315, 75) 44×40
+unclip
+clip box#31 to (15, 136) 44×40
+fill box#31 rgb(29 78 216) at (15, 136) 44×40
+fill box#31 rgb(192 57 43) at (15, 136) 44×40
+unclip
+fill box#33 rgb(29 78 216) at (76, 135) 44×40

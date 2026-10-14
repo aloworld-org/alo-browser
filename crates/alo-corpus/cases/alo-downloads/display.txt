@@ -25,7 +25,7 @@ text box#42 "macOS" rgb(31 43 69) 18.4px at (431, 385.98438)
 text box#45 "Apple Silicon & Intel · universal · .dmg" rgb(100 116 139) 14.4px at (431, 416.5)
 fill box#47 rgb(199 191 178) at (431, 443) 306×49
 text box#48 "Building — available shortly" rgb(255 255 255) 16px at (458, 471.82813)
-fill box#53 rgb(231 224 214) at (40, 543) 720×1
+fill box#53 rgb(231 224 214) at (40, 543) 720×189
 text box#54 "The app keeps itself up to date — new versions install automatically in the background, so you" rgb(100 116 139) 13.76px at (40, 576.625)
 text box#54 "download it once." rgb(100 116 139) 13.76px at (40, 597.9531)
 text box#57 "Prefer the web? Just open" rgb(100 116 139) 13.76px at (40, 640.6094)

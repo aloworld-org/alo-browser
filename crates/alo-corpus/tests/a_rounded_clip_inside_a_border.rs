@@ -8,13 +8,13 @@
 //! `cases/rounded-clips-inside-borders` places seventeen boxes 44 by 40,
 //! each with a border, rounded corners and `overflow: hidden`, each holding
 //! a red child that reaches 20 px past it on every side, so what is drawn
-//! of the child is the clip. Seven have blue borders, as wide on every
-//! side, whose radii fit as written; ten have transparent ones, with sides
-//! of unequal widths, radii CSS scales down to fit, percentages, ellipses
-//! and four different corners; two are laid out at tenths of a pixel.
-//! `sides`' border is transparent because this engine leaves the inside
-//! of a rounded corner unfilled on a border of unequal widths (queue item
-//! 592).
+//! of the child is the clip. Eight have blue borders — seven as wide on
+//! every side, whose radii fit as written, and `sides`, whose sides are
+//! not, which was transparent until this engine filled the inside of such
+//! a border's rounded corners (queue item 592); nine have transparent
+//! ones, with sides of unequal widths, radii CSS scales down to fit,
+//! percentages, ellipses and four different corners; two are laid out at
+//! tenths of a pixel.
 //!
 //! Chrome 154 clips to the padding box rounded by each radius resolved
 //! against the border box, fitted to it, and then less the border beside
@@ -27,7 +27,9 @@
 //! `chrome.png` and `chrome-at-2.png` beside the case are Chrome 154's
 //! screenshots of the same bytes, 500 by 200 CSS pixels, headless, started
 //! with `--force-device-scale-factor=1` and `=2`, without `--disable-gpu`,
-//! taken 2026-10-14.
+//! taken 2026-10-14, and again that day when `sides` was made blue: the
+//! second pair differs from the first inside `sides` and in 2 curve pixels
+//! elsewhere at one and 8 at two, Chrome's own run-to-run smoothing.
 //!
 //! `render-at-2.png` is this engine's picture at two, beside `render.png`
 //! and never in its place (ADR 0057 § 5).

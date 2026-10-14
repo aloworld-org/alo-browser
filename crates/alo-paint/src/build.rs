@@ -662,21 +662,21 @@ impl Builder<'_> {
 
     /// The border.
     ///
-    /// A border of one width and one colour all the way round is drawn as a
-    /// **ring** — the box's shape with the box's shape inside it, wound the
-    /// other way — so that it follows the corners. Four rectangles would have
-    /// square corners over a rounded background.
+    /// A border that is `solid` and one colour all the way round is drawn as
+    /// a **ring** — the box's shape with its padding box's shape inside it,
+    /// wound the other way — so that it follows the corners, inside and out,
+    /// whatever each side's width. That is what Chrome 154 draws (queue item
+    /// 592): one shape, with no seam where two sides meet.
     ///
-    /// A border whose sides differ is still four rectangles, clipped to the
-    /// box's shape so that they do not stick out of the corners. The inner
-    /// corner of such a border is squarer than CSS draws it; that shows only
-    /// with a thick border and a large radius, and the alternative is four
-    /// mitred trapezoids, which is queue item 19's kind of work.
-    ///
-    /// A border with any side that is not `solid` — `inset`, `outset`,
-    /// `groove`, `ridge`, `dashed`, `dotted` or `double` — is drawn by
-    /// [`border::draw_mitred`] instead, with each side mitred so that the
-    /// corners are split where the sides differ.
+    /// Any other border is drawn side by side by [`border::draw_mitred`],
+    /// each side the mitred wedge of the box that is its own, inside the
+    /// ring: sides that differ in colour split a corner along the line
+    /// through the border box's corner and the padding box's, carried on
+    /// into a rounded corner as far as its inner curve, which is where
+    /// Chrome 154 was measured to split it. Four rectangles, which is how a
+    /// solid border of differing sides was drawn before, gave one side the
+    /// whole of a square corner and left the inside of a rounded one
+    /// unfilled.
     ///
     /// A border with a legend sitting in it is [`banded::draw`]'s.
     ///
@@ -702,12 +702,12 @@ impl Builder<'_> {
         }
         let corners = Corners::of(style, Self::extent_of(geometry.border_box));
 
-        // One width and one colour on every side: a ring. Only for a box drawn
-        // in one piece — a piece in the middle of a broken box has no start
-        // edge and no end edge, so there is no ring to draw.
+        // One colour on every side: a ring. Only for a box drawn in one
+        // piece — a piece in the middle of a broken box has no start edge
+        // and no end edge, so there is no ring to draw.
         if first
             && last
-            && let Some(color) = self.uniform_border(id, style)
+            && let Some(color) = uniform_border(geometry.border, style)
         {
             out.push(DisplayItem::Fill {
                 rule: FillRule::NonZero,
@@ -717,87 +717,13 @@ impl Builder<'_> {
             });
             return;
         }
-        if let Some(sides) = Self::mitred_sides(style) {
-            let widths = alo_layout::Edges {
-                left: if first { geometry.border.left } else { 0.0 },
-                right: if last { geometry.border.right } else { 0.0 },
-                ..geometry.border
-            };
-            border::draw_mitred(id, border_box, corners, widths, &sides, out);
-            return;
-        }
-        let sides = [
-            ("top", geometry.border.top),
-            ("right", geometry.border.right),
-            ("bottom", geometry.border.bottom),
-            ("left", geometry.border.left),
-        ];
-        // Which sides are actually drawn, worked out before anything is
-        // pushed: a box with no border at all must not push a clip for it,
-        // which is what the first version did — and a stray clip changes what
-        // everything inside the box looks like.
-        let drawn: Vec<(&str, f32, Rgba)> = sides
-            .into_iter()
-            .filter(|(side, _)| match *side {
-                "left" => first,
-                "right" => last,
-                _ => true,
-            })
-            .filter(|(_, width)| *width > 0.0)
-            .filter(|(side, _)| border_style(style, side).is_some_and(|kind| kind == "solid"))
-            .filter_map(|(side, width)| {
-                let color = border_color(style, side);
-                (!color.is_invisible()).then_some((side, width, color))
-            })
-            .collect();
-        if drawn.is_empty() {
-            return;
-        }
-
-        let rounded = !corners.fitted_to(border_box.size).are_square();
-        if rounded {
-            out.push(DisplayItem::PushClip {
-                box_id: id,
-                path: rounded_rectangle(border_box, corners),
-            });
-        }
-        for (side, width, color) in drawn {
-            let rect = match side {
-                "top" => Rect::new(
-                    border_box.left(),
-                    border_box.top(),
-                    border_box.size.width,
-                    width,
-                ),
-                "right" => Rect::new(
-                    border_box.right() - width,
-                    border_box.top(),
-                    width,
-                    border_box.size.height,
-                ),
-                "bottom" => Rect::new(
-                    border_box.left(),
-                    border_box.bottom() - width,
-                    border_box.size.width,
-                    width,
-                ),
-                _ => Rect::new(
-                    border_box.left(),
-                    border_box.top(),
-                    width,
-                    border_box.size.height,
-                ),
-            };
-            out.push(DisplayItem::Fill {
-                rule: FillRule::NonZero,
-                box_id: id,
-                path: rect_path(rect),
-                paint: Paint::Solid(color),
-            });
-        }
-        if rounded {
-            out.push(DisplayItem::PopClip);
-        }
+        let widths = alo_layout::Edges {
+            left: if first { geometry.border.left } else { 0.0 },
+            right: if last { geometry.border.right } else { 0.0 },
+            ..geometry.border
+        };
+        let sides = Self::drawn_sides(style);
+        border::draw_mitred(id, border_box, corners, widths, &sides, out);
     }
 
     /// The border of a box with a legend in its band, from the box as laid
@@ -814,20 +740,6 @@ impl Builder<'_> {
         let sides = Self::drawn_sides(style);
         let scale = self.styles.scale();
         banded::draw(id, laid_out, scale, band, self.border_of(id), &sides, out);
-    }
-
-    /// Every side a border draws, when any of them is drawn as anything but
-    /// `solid`.
-    ///
-    /// `None` for a border that is solid wherever it is drawn, which keeps
-    /// its rectangles; one side of any other style is enough to draw all four
-    /// mitred, since a rectangle beside a mitred side would take its corner.
-    fn mitred_sides(style: &alo_style::ComputedStyle) -> Option<Vec<DrawnSide>> {
-        let sides = Self::drawn_sides(style);
-        sides
-            .iter()
-            .any(|drawn| drawn.line != Line::Solid)
-            .then_some(sides)
     }
 
     /// Every side a border's style draws, with the line and colour it asks
@@ -849,34 +761,6 @@ impl Builder<'_> {
             })
         })
         .collect()
-    }
-
-    /// The colour of a border that is the same on all four sides, if it is.
-    fn uniform_border(&self, id: BoxId, style: &alo_style::ComputedStyle) -> Option<Rgba> {
-        let geometry = self.layout.get(id)?;
-        let widths = [
-            geometry.border.top,
-            geometry.border.right,
-            geometry.border.bottom,
-            geometry.border.left,
-        ];
-        let first = widths.first().copied()?;
-        if first <= 0.0 || widths.iter().any(|width| (width - first).abs() > 0.001) {
-            return None;
-        }
-        let mut color: Option<Rgba> = None;
-        for side in ["top", "right", "bottom", "left"] {
-            if border_style(style, side).as_deref() != Some("solid") {
-                return None;
-            }
-            let side_color = border_color(style, side);
-            match color {
-                None => color = Some(side_color),
-                Some(held) if held == side_color => {}
-                Some(_) => return None,
-            }
-        }
-        color.filter(|color| !color.is_invisible())
     }
 
     /// The pieces of a text box, one per line it is on.
@@ -1532,6 +1416,34 @@ impl Builder<'_> {
     fn nearest_styled_ancestor(&self, id: BoxId) -> Option<&alo_style::ComputedStyle> {
         self.boxes.nearest_style(self.styles, id)
     }
+}
+
+/// The colour of a border that is `solid` and one colour on every side it
+/// draws, if it is.
+///
+/// A side with no width draws nothing, so neither its style nor its colour
+/// stops the rest being one ring; a border with no width anywhere is not
+/// one.
+fn uniform_border(widths: alo_layout::Edges, style: &alo_style::ComputedStyle) -> Option<Rgba> {
+    let sides = [
+        ("top", widths.top),
+        ("right", widths.right),
+        ("bottom", widths.bottom),
+        ("left", widths.left),
+    ];
+    let mut color: Option<Rgba> = None;
+    for (side, _) in sides.into_iter().filter(|(_, width)| *width > 0.0) {
+        if border_style(style, side).as_deref() != Some("solid") {
+            return None;
+        }
+        let side_color = border_color(style, side);
+        match color {
+            None => color = Some(side_color),
+            Some(held) if held == side_color => {}
+            Some(_) => return None,
+        }
+    }
+    color.filter(|color| !color.is_invisible())
 }
 
 /// What kind of line one border draws.

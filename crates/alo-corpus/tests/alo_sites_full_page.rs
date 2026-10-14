@@ -27,6 +27,8 @@
 use alo_agent::{AgentTree, Target, Verb};
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
+use alo_paint::display::DisplayItem;
+use alo_paint::path::{Path, Segment};
 use alo_renderer::{FromRenderer, Renderer, ToRenderer};
 
 /// The case, read and rendered.
@@ -202,17 +204,45 @@ fn the_custom_code_sections_border_is_whole_pixels_as_chrome_draws_it() {
     let Some(drawing) = rendering.drawing() else {
         panic!("the case has a drawing");
     };
-    let display = drawing.display.to_outline();
     // Drawn from the section's box on whole pixels, as Chrome draws every
-    // box's background and border (item 565).
+    // box's background and border (item 565). The border is one ring, the
+    // box less its padding box (item 592): its outline is the drawn box,
+    // and its hole starts 4 in.
     let drawn = alo_paint::snap::to_whole_pixels(*section);
-    let border = format!(" at (0, {}) 4×{}", drawn.origin.y, drawn.size.height);
+    let (top, bottom) = (drawn.origin.y, drawn.origin.y + drawn.size.height);
+    let rings: Vec<Vec<(f32, f32)>> = drawing
+        .display
+        .items()
+        .iter()
+        .filter_map(|item| match item {
+            DisplayItem::Fill { path, .. } if path.bounds() == Some((0.0, top, 800.0, bottom)) => {
+                Some(lefts_and_rights(path))
+            }
+            _ => None,
+        })
+        .collect();
     assert!(
-        display
-            .lines()
-            .any(|line| line.starts_with("fill ") && line.contains(&border)),
-        "the border is drawn 4 wide, looked for{border}:\n{display}"
+        rings.contains(&vec![(0.0, 800.0), (4.0, 800.0)]),
+        "the border is drawn 4 wide: {rings:?}"
     );
+}
+
+/// Each outline of a path as how far left and right it reaches.
+fn lefts_and_rights(path: &Path) -> Vec<(f32, f32)> {
+    let mut outlines: Vec<(f32, f32)> = Vec::new();
+    for segment in path.segments() {
+        match *segment {
+            Segment::MoveTo(to) => outlines.push((to.x, to.x)),
+            Segment::LineTo(to) | Segment::QuadTo(_, to) | Segment::CubicTo(_, _, to) => {
+                if let Some((left, right)) = outlines.last_mut() {
+                    *left = left.min(to.x);
+                    *right = right.max(to.x);
+                }
+            }
+            Segment::Close => {}
+        }
+    }
+    outlines
 }
 
 /// The border box of the `details` in the FAQ and of the CTA's heading, in

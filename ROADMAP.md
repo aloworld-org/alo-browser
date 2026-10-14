@@ -274,10 +274,15 @@ correctness, not before it.
       curve, 60 of 60 clips measured (`rounded-clips-inside-borders`),
       and since queue item 589 (iteration 354) an `<svg>` is clipped and
       drawn on whole device pixels, 1,792 of 1,792 `<svg>`s and 672 of 672
-      SVG pictures measured (`svgs-on-device-pixels`).
-      Owed: a fractional scale (593), an
-      `outline`, which is not drawn at all (591), and a border drawn side
-      by side, whose rounded corners' insides are left unfilled (592). Since queue item
+      SVG pictures measured (`svgs-on-device-pixels`), and since queue
+      item 592 (iteration 356) a solid border of one colour is one ring
+      and any other border's sides are split on the mitre and fill a
+      rounded corner to its inner curve, as Chrome 154 draws them
+      (`borders-side-by-side`, every plain pixel Chrome's at one and at
+      two). Owed: a fractional scale (593), an
+      `outline`, which is not drawn at all (591), a dash or a dot along a
+      rounded corner (596), and a `border-*-style: none` longhand that does
+      not take away a width set by `border-width` (595). Since queue item
       573 (iteration 349) a spread shadow's corners are Chrome's —
       square on a square box, a radius under the spread grown by less of
       it (`Corners::spread`, `spread-shadow-corners`). Owed: an inset

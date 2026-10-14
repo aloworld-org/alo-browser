@@ -5,7 +5,11 @@
 //! A border drawn side by side: each side the mitred wedge of the box that is
 //! its own ([`crate::mitre`]), so that a corner splits where two sides differ.
 //!
-//! Every border style but a plain `solid` one is drawn this way. Four of them
+//! Every border is drawn this way but a `solid` one of one colour, which is
+//! one ring (queue item 592) — so a solid border whose sides differ in
+//! colour is drawn side by side too, its corners split on the mitre and
+//! carried into a rounded corner as far as its inner curve, which is where
+//! Chrome 154 was measured to split them. Four of the other styles
 //! are two tones of one colour — `inset`, `outset`, `groove` and `ridge`,
 //! whose colours are [`crate::tone`]'s — and three are a pattern along the
 //! side — `dashed`, `dotted` and `double`, whose spacing is

@@ -2528,3 +2528,17 @@ is Chrome's in all 35 boxes at one and at two, and `a-turned-picture`'s
 flex row shrinks as Chrome's does. Found: **594** (a picture scaled up is
 smoothed across its texels). 280 queue items are open (590 closed; 594
 added). The next unused queue number is 595 and the next unused ADR 0058.
+
+Iteration 356 closed queue item 592: a `solid` border of one colour on
+every side that has a width is drawn as one ring, the border box's shape
+less the padding box's, and every other border side by side, its sides
+split on the mitre through the border box's corner and the padding box's
+and carried into a rounded corner as far as its inner curve — as Chrome
+154 was measured drawing sixteen such boxes at one, two and eight. A
+solid border whose sides differed was four rectangles, which left the
+inside of every rounded corner white. `borders-side-by-side` is Chrome's
+in every plain pixel at both scales. Found: **595** (a `border-*-style:
+none` longhand leaves a width `border-width` set) and **596** (dashes and
+dots along a rounded corner). 281 queue items are open (592 closed; 595
+and 596 added). The next unused queue number is 597 and the next unused
+ADR 0058.

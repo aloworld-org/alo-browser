@@ -14390,7 +14390,7 @@ What stage 2's exit gate actually measures: a person using it.
   floored in device pixels. *Closes when:* a frozen page with outlines of
   each style, width and offset is Chrome's at one and at two.
 
-- [ ] **592. A border drawn side by side has its rounded corners
+- [x] **592. A border drawn side by side has its rounded corners
   filled.** *Found building 588 (iteration 353). Feature:
   `docs/features.md` stage 1, borders.* A border whose sides differ in
   width or colour, or are not solid, is drawn by `border.rs`'
@@ -14403,6 +14403,28 @@ What stage 2's exit gate actually measures: a person using it.
   Chrome divides a rounded corner between two sides of different widths
   and colours is measured, built, and a frozen case of such borders is
   Chrome's at one and at two.
+
+  **Done (iteration 356).** The cause was not where the item put it.
+  `draw_mitred`'s wedges are the whole box split on the mitres, so a
+  side drawn that way already reached into its corner's curve, and the
+  case's `inset` and `double` boxes were Chrome's before this change. A
+  `solid` border whose sides differ was never drawn by it: `build.rs`
+  drew one as four rectangles clipped to the box's outer curve, which
+  left the inside of every rounded corner white and gave a square
+  corner wholly to the side drawn last. Chrome 154, measured at one, two
+  and eight on the case's sixteen boxes: one ring for a solid border of
+  one colour, whatever its widths; otherwise each side the part of the
+  ring on its side of the mitre through the border box's corner and the
+  padding box's, carried into the curve (the line read along the
+  corner's rows at eight, 2.5 across for every 1 down on a 10 and 4
+  border). So a solid border of one colour on every side that has a
+  width is one ring, and every other border goes to `draw_mitred`; the
+  rectangles are gone. `borders-side-by-side` is Chrome's in every plain
+  pixel at one and at two (blends within 95 and 99 of 255, on curves),
+  where the old drawing differed in 654 and 2,987; its numbers test
+  reads each border's ring, border box to padding box, at both scales.
+  `rounded-clips-inside-borders`' `sides` box is blue now, with Chrome's
+  pictures taken again. Found: **595**, **596**.
 
 - [ ] **593. ADR 0057's table at a fractional scale.** *Cut from 589
   (iteration 354; ADR 0057 § 2). Feature: `docs/features.md` stage 1,
@@ -14426,6 +14448,35 @@ What stage 2's exit gate actually measures: a person using it.
   `image-rendering`, is measured first. *Closes when:* the filter is
   written down, built, and that case's pictures are Chrome's in every
   pixel, the seams with them.
+
+- [ ] **595. A `border-*-style: none` longhand takes away a width
+  `border-width` set.** *Found building 592 (iteration 356). Feature:
+  `docs/features.md` stage 1, the box model.* `alo-layout`'s
+  `declared_border_width` reads a side's width from `border-<side>-width`
+  and zeroes it for `none` or `hidden` only when the style came in the
+  same shorthand (`border` or `border-<side>`). A box with
+  `border-width: 4px 10px; border-left-style: none` is laid out with a
+  10 px left border here, its padding box 10 px in and its top and
+  bottom sides mitred against a side that draws nothing; Chrome 154
+  computes `border-left-width: 0px` (measured) and draws the crescent a
+  ring with no left side makes. *Closes when:* a side's used width is
+  zero whenever its computed style is `none` or `hidden`, however the
+  width and the style were written, and a frozen case of such boxes is
+  Chrome's in numbers and pixels at one and at two.
+
+- [ ] **596. Dashes and dots along a rounded corner, as Chrome places
+  them.** *Found building 592 (iteration 356). Feature: `docs/features.md`
+  stage 2, patterned borders. Needs measuring.* `border.rs` places a
+  dash or a dot on its straight side and lets the ring clip it where the
+  corner curves; Chrome 154 places them otherwise. On a 44 × 40 box with
+  `border-width: 4px 10px` and `border-radius: 14px`, 287 pixels at one
+  are a different plain colour from Chrome's when dashed, 175 when
+  dotted, and 177 for solid tops beside dashed sides. How Chrome lays a
+  pattern around a rounded corner — along the curve, or per side and
+  clipped some other way — with sides of one width and of two, is
+  measured first. *Closes when:* the rule is written down, built, and a
+  frozen case of rounded dashed and dotted borders is Chrome's at one and
+  at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`
