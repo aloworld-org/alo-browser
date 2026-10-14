@@ -41,6 +41,7 @@
 
 mod background;
 pub mod banded;
+pub mod bilinear;
 pub mod blur;
 pub mod border;
 pub mod build;

@@ -213,6 +213,22 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed
   or mirrored with its box, its outline anti-aliased like any other edge
   (queue item 178); sampled nearest-neighbour inside (item 179)
+- [2] **A picture drawn larger than it is is smoothed across its texels**
+  (queue item 594, `alo-paint`'s `bilinear.rs`), as Chrome 154 was measured
+  to smooth 37 probe pictures at one and at two and 1,470,000 channel
+  samples of random colour pairs (all but 59, in one column whose position
+  is a seventieth of a 256th from rounding the other way): bilinear onto its content box as drawn on whole
+  device pixels, never past its own edge texels; the far texel's share the
+  fraction to the nearest 256th; and the mix moved a thirty-second of a
+  level towards the middle before it is rounded half up. Every opaque pixel
+  of every probe is Chrome's, and every pixel of each picture in
+  `pictures-sized-on-a-line` drawn no smaller than it is (five at one,
+  twenty-one at two). A picture at its own size is its texels exactly. Not
+  yet: a texel that is not opaque is mixed premultiplied and composited in
+  floats, a level from Chrome in 6 of 147 pixels measured (600); a picture
+  drawn smaller on either axis, through Chrome's mipmaps, or turned (179);
+  and `image-rendering`, whose `pixelated` and `crisp-edges` Chrome draws
+  one texel a pixel from each pixel's centre (601)
 - [2] **PNG and JPEG from a page**, with the format taken from the bytes rather
   than the name, and the same bounds either way
 - [2] **GIF and WebP from a page** (queue item 180): GIF87a and GIF89a with

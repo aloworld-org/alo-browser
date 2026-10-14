@@ -11593,6 +11593,24 @@ The long pole, and the thing most of section E is unreachable without.
   visibly speckled, in a reference render — and law 3 applies, so this waits
   for a page that needs it rather than being guessed at.
 
+  *Opened by `pictures-sized-on-a-line` (iteration 358).* Since 594 a
+  picture drawn no smaller than it is on both axes is smoothed as Chrome
+  smooths it (`alo-paint`'s `bilinear.rs`); what is left here is a
+  picture drawn smaller on either axis, and a turned one. Of that case's
+  `wide.png` pictures drawn smaller on an axis, nine at one (`wide-tall`,
+  `height-only`, `width-only`, `narrowed`, `floored-and-capped`, `capped`
+  and its three copies) and `wide-tall` at two differ from Chrome's where
+  the halves meet. Chrome
+  154 was measured filtering a picture drawn smaller as `bilinear.rs` does
+  at three quarters of its size and more (16 texels to 15 and 12, 40 to
+  30, 5 to 4, exactly), and otherwise through mipmaps: a 16-texel checker
+  drawn 10, 8, 5 and 3 wide is not that filter, and `capped`, 60 wide and
+  12.2 high from 40 × 20, has its seam where a half-size level's would be.
+  Probes in iteration 358's scratchpad `m594/` (`gen.py`, `fit.py`,
+  `run6d.py`). *Now closes when:* how Chrome picks and makes a level, and
+  samples a turned picture, is measured, built, and that case's pictures
+  are Chrome's in every pixel at one and at two.
+
 - [x] **177. JPEG.** Rented, pure Rust. *Scope cut on starting: GIF, WebP and
   AVIF went to item 180 — JPEG is the one that matters, because most
   photographs on the web are one.*
@@ -14461,7 +14479,7 @@ What stage 2's exit gate actually measures: a person using it.
   **598** (a line's `text-align` start and a `middle` raise off the grid,
   at any scale), **599** (the window at a fractional screen's own scale).
 
-- [ ] **594. A picture scaled up is smoothed across its texels.** *Found
+- [x] **594. A picture scaled up is smoothed across its texels.** *Found
   building 590 (iteration 355). Feature: `docs/features.md` stage 2,
   image codecs (a picture drawn). Needs measuring.* Chrome 154 draws a
   picture it scales up with its texels blended into their neighbours:
@@ -14473,6 +14491,34 @@ What stage 2's exit gate actually measures: a person using it.
   `image-rendering`, is measured first. *Closes when:* the filter is
   written down, built, and that case's pictures are Chrome's in every
   pixel, the seams with them.
+
+  **Done (iteration 358), its scope cut to pictures drawn no smaller
+  than they are.** Measured in Chrome 154 (headless, without
+  `--disable-gpu`, the source not read): 67 probe pictures at one and at
+  two — a dark texel among light ones from 5 to 55 pixels, corners, the
+  case's two halves, ramps, translucent texels, boxes at tenths, pictures
+  drawn smaller and five `image-rendering` values — and 1,470,000 channel
+  samples of 400 random colour pairs at sixteen widths. Written down in
+  `alo-paint`'s new `bilinear.rs`: bilinear onto the content box as
+  drawn on whole device pixels, clamped to the edge texels; the far
+  texel's share to the nearest 256th; the mix moved a thirty-second of a
+  level towards 127.5 before rounding half up. Every opaque pixel of the
+  37 probes drawn no smaller is Chrome's at one and at two, and every
+  sample but 59 in one column whose position is a seventieth of a 256th
+  from rounding the other way (plain rounding misses 27,094). Built:
+  `drawn_picture.rs`' upright path samples through it when neither axis
+  shrinks. `pictures-sized-on-a-line`'s pictures drawn no smaller, five
+  at one and twenty-one at two, are Chrome's in every pixel, seams
+  included (`every_picture_is_drawn_as_chrome_draws_it`), and
+  `a-picture`'s PNG at 80 and 30 and `a-picture-in-each-format`'s GIFs
+  and lossless WebPs are Chrome's in every pixel of their pictures. The
+  nine `wide.png` pictures of that case drawn smaller on an axis at one,
+  and `wide-tall` at two, are what was cut: Chrome samples them through
+  mipmaps, and they open item 179. Also measured: `smooth` and `high-quality` are `auto`;
+  `-webkit-optimize-contrast` is bilinear without mipmaps; `pixelated`
+  and `crisp-edges` are one texel a pixel from each pixel's centre
+  enlarged, and differ from each other drawn smaller. Cut: **600**
+  (a translucent texel's last rounding), **601** (`image-rendering`).
 
 - [ ] **595. A `border-*-style: none` longhand takes away a width
   `border-width` set.** *Found building 592 (iteration 356). Feature:
@@ -14545,6 +14591,35 @@ What stage 2's exit gate actually measures: a person using it.
   forced to it) lays its page and strip out at 1.5, composes without
   replicating, and its captured picture is the composed reference at
   1.5.
+
+- [ ] **600. A translucent texel's last rounding, as Chrome's.** *Cut from
+  594 (iteration 358). Feature: `docs/features.md` stage 2, a picture
+  drawn larger than it is.* `alo-paint`'s `bilinear.rs` mixes a pixel
+  from a texel that is not opaque with Chrome's weights, premultiplied,
+  and composites it in floats; Chrome 154 rounds it once more on the way,
+  and the two differ by a level in 6 of 147 pixels measured over white (a
+  red texel beside a transparent blue one, 2 × 1, drawn 40 and 9 wide at
+  one and at two; iteration 358's scratchpad `m594/alpha6.py`), and in 36
+  pixels of `a-picture-in-each-format`'s see-through WebP. Neither
+  rounding the premultiplied mix and its alpha as an opaque mix is
+  rounded, nor rounding after the composite, fits all six. Which step
+  rounds, and how, is measured first — over more than one background.
+  *Closes when:* the rule is written down, built, and a frozen case of
+  translucent pictures drawn larger is Chrome's in every pixel at one and
+  at two.
+
+- [ ] **601. `image-rendering`.** *Cut from 594 (iteration 358). Feature:
+  `docs/features.md` stage 2, a picture drawn larger than it is.
+  blocked: no page yet.* This engine does not read the property. Chrome
+  154 was measured: `smooth`, `high-quality` and `auto` alike;
+  `-webkit-optimize-contrast` bilinear without mipmaps (a 16-texel
+  checker drawn 10 wide is `bilinear.rs`' filter exactly, where `auto`
+  is not); `pixelated` and `crisp-edges` one texel a pixel, the texel
+  under each pixel's centre, when drawn larger (every pixel of 13, 40 and
+  60 wide at one and at two), and not alike drawn smaller. *Closes
+  when:* a page that sets it renders wrongly, and then the property is
+  read in `alo-css`' `properties.rs`, drawn by those rules, and that page
+  is Chrome's in every pixel at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

@@ -1710,8 +1710,18 @@ unreachable without it.
       a GIF's screen and its frame, and a WebP's canvas and each lossy
       bitstream inside it. An animated GIF or WebP is drawn as its first frame.
       Frozen files in corpus cases `a-picture` and `a-picture-in-each-format`
-      go through one list of truncation and corruption tests
-      · Owed: AVIF (269: decided in ADR 0021, `avif-parse` and `rav1d`'s safe
+      go through one list of truncation and corruption tests. Since queue
+      item 594 (iteration 358) a picture drawn no smaller than it is is
+      smoothed across its texels as Chrome 154 smooths it — bilinear onto
+      its box as drawn, the weights in 256ths, a mix rounded a
+      thirty-second of a level towards the middle (`alo-paint`'s
+      `bilinear.rs`) — so every opaque pixel of 37 probes at one and at two
+      is Chrome's, and so is every pixel of every such picture in
+      `pictures-sized-on-a-line`
+      · Owed: a picture drawn smaller than it is on either axis, which
+      Chrome samples through mipmaps, and a turned one (179, opened now by
+      `pictures-sized-on-a-line`); a translucent texel's last rounding
+      (600); `image-rendering` (601); AVIF (269: decided in ADR 0021, `avif-parse` and `rav1d`'s safe
       Rust API; blocked until `rav1d` releases that API, because its newest
       release offers only a C interface this repository could call only with
       `unsafe` of its own); playback of an animation (109)

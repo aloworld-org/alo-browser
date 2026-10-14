@@ -31,12 +31,15 @@
 //! `render-at-2.png` is this engine's picture at two, beside `render.png`
 //! and never in its place (ADR 0057 § 5).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
+use alo_box::BoxId;
 use alo_corpus::{Case, Rendering, cases_directory, check_picture};
 use alo_dom::{Document, NodeId};
 use alo_paint::Canvas;
+use alo_paint::display::DisplayItem;
 use alo_renderer::Drawing;
+use alo_value::Rgba;
 
 /// An element's border box in sixty-fourths of a CSS pixel: left, top,
 /// width, height.
@@ -78,6 +81,26 @@ fn chrome(case: &Case, scale: u8) -> Option<BTreeMap<String, Units>> {
 /// Chrome files name (`/html0/body1/div0` is the first element child of the
 /// second element child of the first).
 fn ours(document: &Document, drawing: &Drawing) -> BTreeMap<String, Units> {
+    boxes(document, drawing)
+        .into_iter()
+        .filter_map(|(path, id)| {
+            let border = drawing.layout.get(id)?.border_box;
+            Some((
+                path,
+                [
+                    border.origin.x,
+                    border.origin.y,
+                    border.size.width,
+                    border.size.height,
+                ]
+                .map(|v| v * 64.0),
+            ))
+        })
+        .collect()
+}
+
+/// Every element's first box, by its path.
+fn boxes(document: &Document, drawing: &Drawing) -> Vec<(String, BoxId)> {
     let mut first = BTreeMap::new();
     for id in drawing.boxes.ids() {
         if let Some(alo_box::BoxKind::Element { node, .. }) =
@@ -90,19 +113,37 @@ fn ours(document: &Document, drawing: &Drawing) -> BTreeMap<String, Units> {
     walk(document, document.root(), "", &mut paths);
     paths
         .into_iter()
-        .filter_map(|(path, node)| {
-            let border = drawing.layout.get(*first.get(&node)?)?.border_box;
-            Some((
-                path,
-                [
-                    border.origin.x,
-                    border.origin.y,
-                    border.size.width,
-                    border.size.height,
-                ]
-                .map(|v| v * 64.0),
-            ))
+        .filter_map(|(path, node)| Some((path, *first.get(&node)?)))
+        .collect()
+}
+
+/// The pictures drawn smaller than they are, across or down, in device
+/// pixels at `scale`: which Chrome samples through its mipmaps (queue item
+/// 179) rather than as [`alo_paint::bilinear`] does.
+fn drawn_smaller(document: &Document, drawing: &Drawing, scale: f32) -> BTreeSet<String> {
+    let smaller: BTreeSet<BoxId> = drawing
+        .display
+        .items()
+        .iter()
+        .filter_map(|item| match item {
+            DisplayItem::Picture {
+                box_id,
+                rect,
+                picture,
+            } => {
+                let (across, down) = (rect.size.width * scale, rect.size.height * scale);
+                let (wide, tall) = (picture.width(), picture.height());
+                (across.round() < f32::from(u16::try_from(wide).ok()?)
+                    || down.round() < f32::from(u16::try_from(tall).ok()?))
+                .then_some(*box_id)
+            }
+            _ => None,
         })
+        .collect();
+    boxes(document, drawing)
+        .into_iter()
+        .filter(|(_, id)| smaller.contains(id))
+        .map(|(path, _)| path)
         .collect()
 }
 
@@ -191,12 +232,17 @@ fn plain(canvas: &Canvas, x: u32, y: u32) -> Option<(u8, u8, u8)> {
         .find(|colour| *colour == (red, green, blue))
 }
 
-/// Every device pixel inside every picture's border box is Chrome's
-/// wherever both pictures have a plain colour there, at one and at two: the
-/// picture, its border and its padding, in the place and at the size
-/// Chrome lays them out. Only where `wide.png`'s halves meet does either
-/// blend, in at most two columns: Chrome smooths a picture it scales across
-/// its texels, which this engine does not (queue item 594). The letters
+/// Every device pixel inside the border box of every picture drawn no
+/// smaller than it is, across and down, is Chrome's exactly, at one and at
+/// two: the picture smoothed across its texels as Chrome smooths it, the
+/// seams where `wide.png`'s halves meet with it (queue item 594), and its
+/// border and padding, in the place and at the size Chrome lays them out.
+/// Five pictures at one and twenty-one at two.
+///
+/// A picture drawn smaller on either axis is still one texel a pixel here
+/// and goes through Chrome's mipmaps there (item 179): for those, every
+/// pixel where both pictures are a plain colour is Chrome's, and either may
+/// blend in at most two columns where `wide.png`'s halves meet. The letters
 /// between pictures are left out — Chrome thickens them on macOS (item
 /// 576).
 #[test]
@@ -226,6 +272,12 @@ fn every_picture_is_drawn_as_chrome_draws_it() {
             .filter(|(path, _)| path.contains("/img"))
             .collect::<Vec<_>>();
         assert_eq!(pictures.len(), 25, "at {scale}");
+        let smaller = drawn_smaller(&document, &drawing, f32::from(scale));
+        assert_eq!(
+            pictures.len() - smaller.len(),
+            if scale == 1 { 5 } else { 21 },
+            "at {scale}: drawn smaller {smaller:?}"
+        );
         let per_unit = f32::from(scale) / 64.0;
         for (path, [left, top, width, height]) in pictures {
             // The device pixels wholly inside the border box: an edge a
@@ -235,6 +287,18 @@ fn every_picture_is_drawn_as_chrome_draws_it() {
                 ((left + width) * per_unit).floor(),
                 ((top + height) * per_unit).floor(),
             );
+            if !smaller.contains(&path) {
+                for y in pixels(y0, y1) {
+                    for x in pixels(x0, x1) {
+                        assert_eq!(
+                            ours.at(x, y).map(Rgba::to_rgba8),
+                            chrome.at(x, y).map(Rgba::to_rgba8),
+                            "{path} at {scale}: ({x}, {y})"
+                        );
+                    }
+                }
+                continue;
+            }
             let (mut same, mut blended) = (0_u32, BTreeMap::<u32, u32>::new());
             for y in pixels(y0, y1) {
                 for x in pixels(x0, x1) {

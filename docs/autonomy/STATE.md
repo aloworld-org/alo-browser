@@ -36089,3 +36089,117 @@ item 593* clause, and its Owed list loses 593 and gains 597, 598 and 599.
 283 queue items are open (593 closed; 597, 598 and 599 added). The next
 unused queue number is **600** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 358 — queue item 594: a picture scaled up is smoothed across its texels
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its states, *Where it runs*, stage 1's paint line, stage 2's image
+codecs line), iteration 357's entry, queue items 594–599, 179, 176 and
+590, `docs/features.md`' picture lines in stages 1 and 2, and
+`alo-paint`'s `drawn_picture.rs`, `render.rs` and `canvas.rs`. No
+`AGENTS.md` exists here. The item names no ADR; ADR 0057 (whole device
+pixels) bears on where a picture is drawn and was not changed.
+
+**Why 594.** The first open item whose dependencies are done: those
+before it wait as iteration 357 recorded (463 and 572 on a person, 560 and
+564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and 559 on
+pages, 591 on a page that draws an outline). 594 depends on nothing, names
+its feature and closing condition, and its "measured first" is this
+iteration's work.
+
+**Measured** (Chrome 154, headless, `--force-device-scale-factor=1` and
+`=2`, screenshots without `--disable-gpu`, the source not read; scratchpad
+`m594/`): 67 probe pictures (`gen.py`) — a dark texel among light ones
+drawn 5 to 55 wide and unevenly, corners, the case's halves, a black-white
+ramp, a red texel beside a transparent one, boxes at tenths, pictures drawn
+smaller, and `pixelated`, `crisp-edges`, `smooth`, `high-quality` and
+`-webkit-optimize-contrast` — and 400 random colour pairs drawn at sixteen
+widths (`gen2.py`, 1,470,000 channel samples at one). Fitted (`fit.py`,
+`exact*.py`, `pfit*.py`, `model6.py`): bilinear onto the content box as
+drawn on whole device pixels (never as laid out: the boxes at tenths tell
+them apart), clamped to the edge texels; the far texel's share the
+fraction to the nearest 256th (the ramp shows it: 58 where an exact
+fraction gives 57); then rounded half up after the mix is moved a
+thirty-second of a level towards 127.5 — found when the leftover misses
+were all within 0.05 of a half and turned out a function of the exact
+value alone, rounding up from 120/256 below 128 and from 136/256 above.
+That is every opaque pixel of the 37 probes drawn no smaller at one and
+two, and all but 59 samples of the pairs (one column whose position is a
+seventieth of a 256th from where its weight rounds the other way); a plain
+rounding misses 27,094. Not fitted: a translucent texel's last rounding
+(6 of 147 pixels a level off). Also: drawn smaller, Chrome is this filter
+at three quarters and more and uses mipmaps below; `smooth` and
+`high-quality` are `auto`, `-webkit-optimize-contrast` is bilinear without
+mipmaps, `pixelated` and `crisp-edges` are nearest from each pixel's
+centre enlarged.
+
+**Built.** `alo-paint`'s new `bilinear.rs` (`taps` in whole numbers,
+`sample`, the rounding; a translucent mix premultiplied and composited in
+floats), split from `drawn_picture.rs`, whose upright path samples
+through it when neither axis shrinks. A picture drawn smaller, or turned,
+is unchanged (179). Doc comments in both say so.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy` on the two
+touched crates clean, run first. `scripts/gate.sh` was started in the
+foreground; it ran past the tool's 600 s limit and was moved to the
+background by the harness, and the next call waited on it with an
+until-loop and read it in the same step: **`exit 0`, "The gate is met.
+(10 of 10 steps)"**, 4,936 tests run, 4,936 passed. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Numbers: unit tests in `bilinear.rs` hold Chrome's own pixels — the
+  ramp at 40 and 7 wide, the case's seam at 1.5, the weight's 256ths, the
+  rounding's thresholds, edge clamping, a texel at its own size,
+  transparency, a tap off the picture. Nothing is positioned or sized
+  differently; `display.txt` of every case is unchanged.
+- Reference renders: `pictures-sized-on-a-line`'s
+  `every_picture_is_drawn_as_chrome_draws_it` now asks every pixel inside
+  each picture drawn no smaller — five at one, twenty-one at two — to be
+  Chrome's `chrome.png`/`chrome-at-2.png` exactly, and keeps the old
+  plain-colour bound for those drawn smaller. `render.png` and
+  `render-at-2.png` of that case, and `render.png` of `a-picture` and
+  `a-picture-in-each-format`, rewritten (copies taken first; no other
+  case moved). Against Chrome screenshots taken of the latter two
+  (scratchpad `m594/cases`, not committed): `a-picture`'s PNG at 80 and
+  30 is Chrome's in every pixel (480 and 120 differed before), its JPEG
+  within a level in 240 of 6,400 (the decoder); in each format, the
+  GIFs and lossless and animated WebPs are Chrome's in every pixel (192
+  differed each), the lossy WebP within 14 (the decoder), the see-through
+  WebP a level off in 36 pixels (600).
+- Mutation, each restored from a copy (`cmp` confirmed): no move towards
+  the middle failed the case's pixel test at one, its picture at two and
+  two unit tests; a truncated weight failed the same and four unit
+  tests; nearest-neighbour everywhere failed the case's pixel test and
+  its picture at two.
+- Hostile input: nothing new reads bytes from outside; every sum is in
+  `u64` and bounded by 2³².
+- Cost: none measured; no speed claim. An enlarged picture costs four
+  texels a pixel where it cost one.
+- One file, one responsibility: the filter is `bilinear.rs`'; which pixels
+  a picture covers stays `drawn_picture.rs`'.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 594 is ticked with a *Done* paragraph that says its scope was
+cut to pictures drawn no smaller than they are: its closing condition
+asked for every picture of the case, and the nine `wide.png` pictures
+drawn smaller on an axis at one (and `wide-tall` at two) are Chrome's
+mipmaps, now written into item 179, which this case opens. Cut: **600**
+(a translucent texel's last rounding) and **601** (`image-rendering`,
+blocked: no page yet).
+
+**Roadmap.** Stage 2's image codecs line: a *since queue item 594* clause
+in its Built, and its Owed gains 179 (opened), 600 and 601.
+
+**Unresolved obligations.**
+- 179 (pictures drawn smaller, or turned), 600 and 601, as above.
+- 595–599, 591; 576, 577, 585, 586 as before; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501.
+- No claim about speed is made.
+
+284 queue items are open (594 closed; 600 and 601 added). The next unused
+queue number is **602** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

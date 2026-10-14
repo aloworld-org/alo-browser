@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A picture drawn larger than it is is smoothed as Chrome smooths it.**
+  An `<img>` shown bigger than its own pixels used to be drawn in hard
+  blocks, each of its pixels a square of the page's, so a photograph's
+  edges stepped and two colours met with no blend between them. It is now
+  blended between neighbouring pixels exactly as Chrome 154 blends them —
+  to the level, on every opaque pixel of the probe pictures measured and
+  all but 59 of nearly one and a half million samples — on every screen, which matters most at a scale of two, where every
+  picture is drawn twice its size. A picture drawn smaller than it is
+  still takes one of its pixels for each of the page's, for now.
+
 - **A page at a fractional scale is laid out and drawn as Chrome does.**
   On a screen of one and a half device pixels to the CSS pixel, a box's
   edge, a line's leading and a line height written as a number used to

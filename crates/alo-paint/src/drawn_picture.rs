@@ -34,12 +34,17 @@
 //! every scaled picture in the corpus — which is item 179's question, decided
 //! when a page asks it, not a side effect of this one.
 //!
-//! # What is still nearest-neighbour
+//! # Smoothed, and where it is still nearest-neighbour
 //!
-//! Both paths. One pixel of the picture per pixel of the page: exact at one to
-//! one, and coarse when scaled or turned, so a rotated picture's stripes have
-//! stepped edges *inside* it while its outline is smooth. Item 179.
+//! An upright picture drawn no smaller than it is on either axis is smoothed
+//! across its texels as Chrome 154 smooths it, which [`crate::bilinear`]
+//! holds (queue item 594): at its own size that is every texel exactly.
+//! Drawn smaller on either axis, or turned, it is still one pixel of the
+//! picture per pixel of the page, coarse when scaled, so a rotated picture's
+//! stripes have stepped edges *inside* it while its outline is smooth. Item
+//! 179.
 
+use crate::bilinear::{sample, taps};
 use crate::canvas::Canvas;
 use crate::path::Path;
 use crate::raster::fill;
@@ -88,9 +93,26 @@ fn upright(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix)
         return;
     }
 
-    // A picture that starts left of or above the page has its first columns
-    // or rows off it, and they are passed over rather than the picture slid
-    // back onto the page.
+    // Drawn no smaller than it is, it is smoothed across its texels as Chrome
+    // smooths it (queue item 594).
+    if across >= wide && down >= tall {
+        let columns = taps(across, wide);
+        let rows = taps(down, tall);
+        // A picture that starts left of or above the page has its first
+        // columns or rows off it, and they are passed over rather than the
+        // picture slid back onto the page.
+        for (y, row) in (0..down).zip(rows).skip(whole_index(off_y)) {
+            for (x, column) in (0..across).zip(&columns).skip(whole_index(off_x)) {
+                let Some(colour) = sample(picture, *column, row) else {
+                    continue;
+                };
+                target.blend(at_x + x - off_x, at_y + y - off_y, colour, 255);
+            }
+        }
+        return;
+    }
+
+    // Drawn smaller, it is still one texel a pixel: item 179.
     for y in off_y..down {
         // Which row of the picture this row comes from, in whole numbers: the
         // destination row scaled by the picture's height over the box's.
@@ -103,6 +125,11 @@ fn upright(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix)
             target.blend(at_x + x - off_x, at_y + y - off_y, colour, 255);
         }
     }
+}
+
+/// A count of pixels to pass over, as an index.
+fn whole_index(count: u32) -> usize {
+    usize::try_from(count).unwrap_or(usize::MAX)
 }
 
 /// How many whole pixels an edge at `value` starts before the page's own,
@@ -390,6 +417,20 @@ mod tests {
         assert_eq!(canvas.at(15, 15), Some(Rgba::WHITE));
     }
 
+    /// The four quarters ten texels a side, so that drawn at its own size
+    /// nothing is smoothed.
+    fn large_quarters() -> Canvas {
+        let small = quarters();
+        let mut picture = Canvas::new(20, 20, Rgba::TRANSPARENT);
+        for y in 0..20 {
+            for x in 0..20 {
+                let colour = small.at(x / 10, y / 10).expect("a quarter");
+                picture.blend(x, y, colour, 255);
+            }
+        }
+        picture
+    }
+
     #[test]
     fn an_upright_picture_partly_off_the_page_starts_off_it() {
         // Twenty pixels a side at (-5, -5), each quarter ten: red lands from
@@ -397,7 +438,7 @@ mod tests {
         // as from 0 to 10 and from 10 to 20.
         let mut canvas = Canvas::new(20, 20, Rgba::WHITE);
         let rect = Rect::new(-5.0, -5.0, 20.0, 20.0);
-        draw_picture(&mut canvas, &quarters(), rect, Matrix::IDENTITY);
+        draw_picture(&mut canvas, &large_quarters(), rect, Matrix::IDENTITY);
         assert_eq!(canvas.at(0, 0), Some(RED));
         assert_eq!(canvas.at(4, 4), Some(RED));
         assert_eq!(canvas.at(5, 0), Some(GREEN));

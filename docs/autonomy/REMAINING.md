@@ -2556,3 +2556,19 @@ moved. Cut: **597** (a checkbox and a radio drawn at a fractional scale),
 **599** (the window at a fractional screen's own scale). 283 queue items
 are open (593 closed; 597, 598 and 599 added). The next unused queue
 number is 600 and the next unused ADR 0058.
+
+Iteration 358 closed queue item 594, its scope cut to pictures drawn no
+smaller than they are: such a picture is smoothed across its texels as
+Chrome 154 smooths it — bilinear onto its content box as drawn, clamped to
+its edge texels, the weights in 256ths, and the mix moved a thirty-second
+of a level towards the middle before it is rounded (`alo-paint`'s
+`bilinear.rs`). Every opaque pixel of 37 probes at one and at two is
+Chrome's, and all but 59 of 1,470,000 channel samples of random colour
+pairs; `pictures-sized-on-a-line`'s pictures drawn no smaller are Chrome's
+in every pixel at both scales, and so are `a-picture`'s PNG and
+`a-picture-in-each-format`'s GIFs and lossless WebPs. A picture drawn
+smaller on an axis, which Chrome samples through mipmaps, now opens item
+179. Cut: **600** (a translucent texel's last rounding) and **601**
+(`image-rendering`, blocked on a page). 284 queue items are open (594
+closed; 600 and 601 added). The next unused queue number is 602 and the
+next unused ADR 0058.
