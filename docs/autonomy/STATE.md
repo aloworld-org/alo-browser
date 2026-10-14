@@ -36639,3 +36639,121 @@ loses 598 and gains 608 and 609, and a *since queue item 598* clause names
 288 queue items are open (598 closed; 608 and 609 added). The next unused
 queue number is **610** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 363 — queue item 599: the window at a fractional screen's own scale
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 1's paint line, whose Owed list named 599, and stage 2's device
+pixels line), iteration 362's entry, queue items 591–610, ADR 0057 (§§ 2–3,
+*What is not decided here*, *Measured since*), `docs/features.md` stage 2's
+window line, `docs/conformance.md` on the window at its screen's scale,
+and `alo-window`'s `place.rs`, `aim.rs`, `compose.rs`, `notice.rs`,
+`showing.rs`, `window.rs`, `opening.rs`, `bin/alo.rs` and its tests, and
+`alo-renderer`'s `pipeline.rs` (`whole`, how a canvas is sized). No
+`AGENTS.md` exists here.
+
+**Why 599.** The first open item whose dependencies are done: those before
+it wait as iterations 358–362 recorded (463 and 572 on a person, 560 and
+564 on 502 behind 501, 568–571 on a screen or pages, 536–541 and 559 on
+pages, 591 on a page that draws an outline). 599 depends on 593 (done),
+names its feature (stage 2, a window, tabs and a tab strip) and its
+closing condition.
+
+**Built.** `alo-window`'s `scale.rs` (new): `Scale`, the scales a window
+takes — every whole factor to eight and 1.5, the measured ones (ADR 0057
+§ 2 trusts a rule only at a measured scale) — with `of_screen` (a
+screen's factor as the largest measured scale it reaches: 1.75 is 1.5,
+1.25 is one, nonsense is one), `named` (exactly a measured one, for the
+command line), `device` (a window's length in whole CSS pixels as the
+device pixels a renderer's canvas of it has, `round(n·s)`, so the band is
+54 and a line 48 at 1.5) and `fitting` (the most whole CSS pixels whose
+canvas fits, counted from a guess so a nonsense size costs nothing).
+`place.rs`, `aim.rs`, `compose.rs`, `notice.rs`, `showing.rs` and
+`window.rs` take a `Scale` in place of a `u32`; `opening.rs` reads
+`--scale FACTOR` (refusing a factor not measured, before the window
+opens) and `window::run` lays the window out at it on any screen, as
+Chrome's `--force-device-scale-factor` does — the only way to see 1.5 on
+this Mac. ADR 0057 § 3, *What is not decided here* and *Measured since*
+(item 599) say so; one file, one responsibility: what a scale is is
+`scale.rs`', where things go `place.rs`'.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first (one `float_cmp`
+fixed by comparing bits). `scripts/gate.sh` was started in the
+foreground; it ran past the tool's 600 s limit and was moved to the
+background by the harness, and the next call waited on it with an
+until-loop and read it in the same step: **`exit 0`, "The gate is met.
+(10 of 10 steps)"**, 5,000 tests run, 5,000 passed. Only this entry and
+the commit came after it.
+
+**Gate, manual.**
+- The closing condition, on screen: `target/debug/alo --frozen-fonts
+  --scale 1.5 crates/alo-corpus/cases/alo-offline/page.html` opened on
+  this Mac's external 1,920 × 1,080 screen (scale one; window 26388, 1000
+  × 732 points found by a CGWindowList helper, 1000 × 700 inside under a
+  32-row title bar). `screencapture -l 26388 -o -x` against the window
+  composed at 1.5 through the real `Conductor` over `target/debug/alo-render`
+  with `fonts::frozen()` (a temporary example, `Order::Resize(screen((1000,
+  700), 1.5))`, heard a strip of 999 × 54 and a page of 999 × 645 — 666 ×
+  430 CSS pixels at 1.5, the last device column background), compared in
+  Python with Pillow (`python3 -I`): **of 699,822 opaque pixels, all
+  699,822 exact**; the other 178 are the corners macOS rounds. The example
+  and the `Cargo.toml` lines it needed were removed (`git diff` shows the
+  manifest unchanged); `pkill -TERM -x alo` left no `alo` or `alo-render`.
+- Numbers: `scale.rs`' unit tests (factors taken, named and refused;
+  `device` at one, two and 1.5; `fitting` exhaustively below 400 at four
+  scales and at nonsense sizes); `place.rs` (`screen` at 1.5 is 1,333 ×
+  897 for a 2000 × 1400 window; viewports at 1.5 a device pixel either
+  side; a placement at 1.5 with band 54, frame at 54, lines at 606 and 558,
+  48 tall); `aim.rs` (a device pixel two thirds of a CSS pixel at 1.5,
+  under a band of 54); `compose.rs` (a frame one to one below a band of 54);
+  `opening.rs` (`--scale` read, and 1.25, 1.75, 0, -1, 9, NaN, inf, words
+  and nothing refused). `a_window_on_a_screen_at_its_scale.rs` (renamed
+  from `…_of_two.rs`): through the real conductor and confined renderers,
+  after two, one and two, a window of 360 × 144 at 1.5 tells both
+  renderers 240 × 60 at 1.5, and both frames (360 × 90, 360 × 54) equal
+  the same drawn in the test at 1.5, and are not the page at one enlarged.
+- Reference renders: `a-strip-of-one-tab-at-one-and-a-half.png` (strip and
+  frozen page at 1.5, every frame pixel one to one, and not the page at
+  one replicated) and `a-gone-tab-at-one-and-a-half.png` (the line 48
+  device pixels along the bottom, the page its own above it), both looked
+  at. `ALO_UPDATE_REFERENCES=1` rewrote no existing reference: every one at
+  one and two is unchanged.
+- Mutation, each restored from a copy (`cmp` confirmed): 1.5 dropped from
+  the measured scales (5 tests fail), `device` floored (4), `fitting`
+  strict (4), the viewport's band taken at two (3).
+- Hostile input: `--scale` is a person's argument, parsed as a number and
+  refused unless exactly a measured scale; a window server's factor that
+  is not finite or below one is one; `fitting` counts at most a few steps
+  from its guess and caps a window at 2^23 device pixels; `device`
+  saturates.
+- Cost: none measured; no speed claim.
+- Also updated: ADR 0057, `docs/features.md`, `docs/conformance.md`,
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 599 is ticked with a *Done* paragraph. Cut: **610** (a screen
+at a fractional scale other than 1.5 — 1.25, 1.75 — needs ADR 0057's table
+measured there first).
+
+**Roadmap.** Stage 1's paint line: its Owed list loses 599 and gains a
+*since queue item 599* clause. Stage 2's device-pixels line gains "a
+screen at 1.5 is taken at 1.5 rather than one (599, done)". Neither is
+ticked.
+
+**Unresolved obligations.**
+- 610, as above; where a person's pointer lands at 1.5 is 568's, as at
+  two; 591, 600–609 and 179; 576, 577, 585, 586 as before; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501.
+- The capture was on a screen of one forced to 1.5, not on a screen whose
+  own factor is 1.5: no such screen is on this machine. `Scale::of_screen`
+  takes 1.5 by its unit test, and the window path from there is the same.
+- No claim about speed is made.
+
+288 queue items are open (599 closed; 610 added). The next unused queue
+number is **611** and the next ADR is **0058**. This is one iteration, not
+a finished queue or roadmap.

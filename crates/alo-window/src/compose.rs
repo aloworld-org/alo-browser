@@ -27,6 +27,7 @@
 use crate::colours::{background, rail};
 use crate::notice::Lettering;
 use crate::place::{Contents, PixelRect, Placement};
+use crate::scale::Scale;
 use alo_paint::Canvas;
 use alo_renderer::Frame;
 use alo_value::Rgba;
@@ -37,9 +38,9 @@ pub struct Scene<'a> {
     /// The window's size in device pixels.
     pub window: (u32, u32),
     /// How many device pixels one CSS pixel is in the window
-    /// ([`crate::place::scale`]): what the strip's band and the lines along
+    /// ([`Scale::of_screen`]): what the strip's band and the lines along
     /// the bottom are drawn at. The frames are already at it.
-    pub scale: u32,
+    pub scale: Scale,
     /// The tab strip's last frame, if it ever painted one.
     pub strip: Option<&'a Frame>,
     /// What to tell a person about the strip, if anything.
@@ -73,7 +74,7 @@ impl Scene<'_> {
 pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, background());
-    let scale = scene.scale.max(1);
+    let scale = scene.scale;
     let placed = Placement::of(scene.window, scale, scene.contents());
     let band = placed.band;
     canvas.fill_rect(0, 0, band.width, band.height, rail());
@@ -133,7 +134,7 @@ mod tests {
     }
 
     /// A window of `window` with a tab's `frame` and nothing else.
-    fn tab_only(window: (u32, u32), scale: u32, frame: Option<&Frame>) -> Scene<'_> {
+    fn tab_only(window: (u32, u32), scale: Scale, frame: Option<&Frame>) -> Scene<'_> {
         Scene {
             window,
             scale,
@@ -146,7 +147,7 @@ mod tests {
 
     #[test]
     fn a_window_with_nothing_sent_is_the_rail_above_its_background() {
-        let canvas = compose(&tab_only((4, 40), 1, None), &lettering());
+        let canvas = compose(&tab_only((4, 40), Scale::ONE, None), &lettering());
         assert_eq!((canvas.width(), canvas.height()), (4, 40));
         for y in 0..40 {
             let expected = if y < STRIP_HEIGHT {
@@ -165,7 +166,10 @@ mod tests {
         // at two.
         let frame = two_pixels();
         let top = STRIP_HEIGHT * 2;
-        let canvas = compose(&tab_only((5, top + 3), 2, Some(&frame)), &lettering());
+        let canvas = compose(
+            &tab_only((5, top + 3), Scale::TWO, Some(&frame)),
+            &lettering(),
+        );
         assert_eq!(rgba8(&canvas, 0, top - 1), Some(rail().to_rgba8()));
         assert_eq!(rgba8(&canvas, 0, top), Some((255, 0, 0, 255)));
         assert_eq!(rgba8(&canvas, 1, top), Some((0, 0, 255, 255)));
@@ -173,6 +177,25 @@ mod tests {
         for (x, y) in [(2, 0), (3, 0), (4, 0), (0, 1), (1, 1), (4, 2)] {
             assert_eq!(
                 rgba8(&canvas, x, top + y),
+                Some(background().to_rgba8()),
+                "at {x},{y}"
+            );
+        }
+    }
+
+    #[test]
+    fn at_one_and_a_half_a_frame_is_one_to_one_below_a_band_of_fifty_four() {
+        let frame = two_pixels();
+        let canvas = compose(
+            &tab_only((3, 56), Scale::ONE_AND_A_HALF, Some(&frame)),
+            &lettering(),
+        );
+        assert_eq!(rgba8(&canvas, 0, 53), Some(rail().to_rgba8()));
+        assert_eq!(rgba8(&canvas, 0, 54), Some((255, 0, 0, 255)));
+        assert_eq!(rgba8(&canvas, 1, 54), Some((0, 0, 255, 255)));
+        for (x, y) in [(2, 54), (0, 55), (1, 55)] {
+            assert_eq!(
+                rgba8(&canvas, x, y),
                 Some(background().to_rgba8()),
                 "at {x},{y}"
             );
@@ -190,7 +213,7 @@ mod tests {
         let canvas = compose(
             &Scene {
                 strip: Some(&strip),
-                ..tab_only((3, STRIP_HEIGHT + 2), 1, Some(&frame))
+                ..tab_only((3, STRIP_HEIGHT + 2), Scale::ONE, Some(&frame))
             },
             &lettering(),
         );
@@ -212,7 +235,7 @@ mod tests {
         let canvas = compose(
             &Scene {
                 strip: Some(&clear),
-                ..tab_only((1, STRIP_HEIGHT + 1), 1, Some(&clear))
+                ..tab_only((1, STRIP_HEIGHT + 1), Scale::ONE, Some(&clear))
             },
             &lettering(),
         );
@@ -229,7 +252,7 @@ mod tests {
         let canvas = compose(
             &Scene {
                 window: (0, 0),
-                scale: 2,
+                scale: Scale::TWO,
                 strip: Some(&frame),
                 strip_sentence: Some("gone"),
                 frame: Some(&frame),

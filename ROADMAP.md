@@ -297,8 +297,11 @@ correctness, not before it.
       every box exact at one but 564's two). Owed: the foot of a line's
       letters at 1.5 (607), an out-of-flow box's static position on an
       empty centred line (608), a button's `width` as its border box
-      (609), the window at a fractional screen's own scale (599), an
-      `outline`, which is not drawn at all (591). Since queue item 596
+      (609), an `outline`, which is not drawn at all (591). Since queue
+      item 599 (iteration 363) the window takes a screen at 1.5 at its
+      own scale rather than rounding it to one (`alo-window`'s
+      `scale.rs`; `alo --scale 1.5` captured on screen is the window
+      composed at 1.5 in every opaque pixel). Since queue item 596
       (iteration 360) a dashed or dotted side with a curve inside a corner
       is laid along the border's centre line as Chrome 154 lays it, the
       line measured as coarsely as Chrome measures it and each dash swept
@@ -1940,6 +1943,11 @@ items where being right and being unusable are the same outcome.
       moved to a screen of another scale has both drawn again there; and
       `alo` on this Mac's Retina display, captured with `screencapture -l`,
       is its composition at two in every opaque pixel within one level.
+      A screen at 1.5 is taken at 1.5 rather than one (599, done): the
+      window's band, lines and viewport are its lengths at the scale, and
+      `alo --scale 1.5`, captured on screen, is its composition at 1.5 in
+      every opaque pixel; a factor nobody measured is shown at the largest
+      measured scale below it.
       A page is told its scale (567, done): `devicePixelRatio` answers it
       and `resolution`, `min-resolution` and `max-resolution` match it, as
       Chrome 154 answered 2,984 queries at one and two, and

@@ -38,6 +38,7 @@ use alo_window::conductor::{Conductor, Fonts};
 use alo_window::message::{News, Order};
 use alo_window::notice::Lettering;
 use alo_window::place::{STRIP_HEIGHT, strip_viewport};
+use alo_window::scale::Scale;
 use alo_window::showing::Showing;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, channel};
@@ -208,7 +209,7 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
     // …and the window still composes, at once, with the strip it had.
     let window = (560, 460 + STRIP_HEIGHT);
     let started = Instant::now();
-    let composed = compose(&showing.scene(window, 1), &lettering);
+    let composed = compose(&showing.scene(window, Scale::ONE), &lettering);
     assert!(
         started.elapsed() < PATIENCE,
         "composing waited on the strip"
@@ -216,7 +217,7 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
     let before = compose(
         &Scene {
             window,
-            scale: 1,
+            scale: Scale::ONE,
             strip: Some(strip),
             strip_sentence: None,
             frame: None,
@@ -242,7 +243,7 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
         Some(strip),
         "the strip's frame was not kept"
     );
-    let told = compose(&showing.scene(window, 1), &lettering);
+    let told = compose(&showing.scene(window, Scale::ONE), &lettering);
     assert_eq!(told.at(10, 10), before.at(10, 10), "the strip was not kept");
     assert_eq!(
         told.at(559, 495).map(alo_value::Rgba::to_rgba8),

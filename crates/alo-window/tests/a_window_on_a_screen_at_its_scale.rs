@@ -17,6 +17,10 @@
 //! The page is a row of boxes at widths and offsets in tenths of a pixel,
 //! which are rounded onto a finer grid at two (ADR 0057 § 2), so its frame
 //! at two is not its frame at one grown.
+//!
+//! Queue item 599: a window on a screen of 1.5 tells both renderers 1.5 —
+//! the size it lays a page out at is the window's own ([`screen`]) — and
+//! each paints at it, in device pixels, nothing rounded down to one.
 
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
@@ -30,7 +34,8 @@ use alo_url::Url;
 use alo_window::beside::renderer_beside;
 use alo_window::conductor::{Conductor, Fonts};
 use alo_window::message::{News, Order};
-use alo_window::place::{STRIP_HEIGHT, strip_viewport};
+use alo_window::place::{STRIP_HEIGHT, screen, strip_viewport};
+use alo_window::scale::Scale;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
@@ -228,4 +233,25 @@ fn a_page_and_the_strip_are_painted_at_the_screens_scale_and_again_when_it_chang
         strip == strip_at_two,
         "the strip was not painted at two again"
     );
+
+    // Moved to a screen of 1.5: the window of 360 × 144 device pixels it
+    // then is leaves the page the same CSS pixels below a band of 54, and
+    // both are painted at 1.5.
+    let half = screen((360, 90 + 54), Scale::ONE_AND_A_HALF);
+    assert_eq!(half.size, PAGE);
+    assert_eq!(half.scale().to_bits(), 1.5_f32.to_bits());
+    let at_half = page_drawn(1.5).unwrap_or_else(|why| panic!("{why}"));
+    let strip_at_half = strip_drawn(&url, 1.5).unwrap_or_else(|why| panic!("{why}"));
+    send(&orders, Order::Resize(half)).unwrap_or_else(|why| panic!("{why}"));
+    let (page, strip) = after_resize(&news).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!((page.width, page.height), (360, 90));
+    assert_eq!((strip.width, strip.height), (360, 54));
+    assert!(page == at_half, "the page was not painted at 1.5");
+    assert!(strip == strip_at_half, "the strip was not painted at 1.5");
+    // And not at one, enlarged: some device pixel is not the CSS pixel
+    // under it.
+    let replicated = (0..page.height)
+        .flat_map(|y| (0..page.width).map(move |x| (x, y)))
+        .all(|(x, y)| page.at(x, y) == at_one.at(x * 2 / 3, y * 2 / 3));
+    assert!(!replicated, "the page at 1.5 is the page at one, enlarged");
 }

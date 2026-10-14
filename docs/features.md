@@ -742,9 +742,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `dppx`, `x`, `dpi` and `dpcm` match as Chrome 154 matches them, so a page
   that draws a hairline or rounds a floating box for a dense screen is
   drawn as Chrome draws it there. `matchMedia` is not built (570). A
-  fractional scale is rounded down to a whole one — a page at 1.5 is laid
-  out and drawn as Chrome does (593), and the window takes it with 599 —
-  and a page's picture is at most 4,096 device pixels a side (569). Closing the
+  screen at 1.5 is laid out and drawn at 1.5, as Chrome does (593, 599),
+  and `alo --scale 1.5` shows a window at it on any screen; a fractional
+  scale nobody has measured, such as 1.25, is shown at the largest
+  measured one below it. A page's picture is at most 4,096 device pixels a
+  side (569). Closing the
   window closes every tab and stops
   every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
   a frozen alo page in the window is the corpus's picture of it, pixel for

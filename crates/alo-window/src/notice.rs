@@ -25,6 +25,7 @@
 
 use crate::colours::{notice_ground, notice_ink, notice_rule};
 use crate::place::PixelRect;
+use crate::scale::Scale;
 use alo_paint::{Canvas, fill, outlined_run};
 use alo_text::{Direction, Font, Slant, Weight, shape};
 
@@ -59,7 +60,7 @@ impl Lettering {
     }
 
     /// How wide a run of words is, in device pixels, at `scale`.
-    fn width_of(&self, words: &str, scale: u32) -> f32 {
+    fn width_of(&self, words: &str, scale: Scale) -> f32 {
         shape(words, &self.font, size_at(scale), Direction::LeftToRight).width
     }
 
@@ -69,7 +70,7 @@ impl Lettering {
     /// Cut at a character, never inside one, and from the end: the start of
     /// the sentence names the site, which is the part a person needs to know
     /// which tab it is about.
-    pub fn fitted(&self, sentence: &str, room: f32, scale: u32) -> String {
+    pub fn fitted(&self, sentence: &str, room: f32, scale: Scale) -> String {
         if self.width_of(sentence, scale) <= room {
             return sentence.to_owned();
         }
@@ -87,18 +88,25 @@ impl Lettering {
 
     /// Draw the notice saying `sentence` into `rect` of `canvas`.
     ///
-    /// The ground, a one-CSS-pixel rule along its top, and the sentence on one
-    /// line, cut to fit.
-    pub fn draw(&self, canvas: &mut Canvas, rect: PixelRect, sentence: &str, scale: u32) {
+    /// The ground, a one-CSS-pixel rule along its top — as many device
+    /// pixels as [`Scale::device`] makes one, two at 1.5 — and the sentence
+    /// on one line, cut to fit, its letters outlined at their size in device
+    /// pixels.
+    pub fn draw(&self, canvas: &mut Canvas, rect: PixelRect, sentence: &str, scale: Scale) {
         if rect.is_empty() {
             return;
         }
         let (left, top) = (signed(rect.x), signed(rect.y));
         canvas.fill_rect(left, top, rect.width, rect.height, notice_ground());
-        canvas.fill_rect(left, top, rect.width, scale.min(rect.height), notice_rule());
+        canvas.fill_rect(
+            left,
+            top,
+            rect.width,
+            scale.device(1).min(rect.height),
+            notice_rule(),
+        );
 
-        let factor = whole(scale);
-        let inset = INSET * factor;
+        let inset = INSET * scale.factor();
         let room = whole(rect.width) - 2.0 * inset;
         if room <= 0.0 {
             return;
@@ -150,8 +158,8 @@ impl Lettering {
 }
 
 /// The text size in device pixels at a scale.
-fn size_at(scale: u32) -> f32 {
-    TEXT_SIZE * whole(scale)
+fn size_at(scale: Scale) -> f32 {
+    TEXT_SIZE * scale.factor()
 }
 
 /// A count of pixels as a length.
@@ -179,7 +187,7 @@ mod tests {
 
     #[test]
     fn a_sentence_that_fits_is_kept_whole() {
-        let words = lettering().fitted("the renderer is gone", 1000.0, 1);
+        let words = lettering().fitted("the renderer is gone", 1000.0, Scale::ONE);
         assert_eq!(words, "the renderer is gone");
     }
 
@@ -187,15 +195,15 @@ mod tests {
     fn a_sentence_too_long_is_cut_at_its_end_with_an_ellipsis() {
         let lettering = lettering();
         let sentence = "the renderer for https://bank.example is gone: it said nothing";
-        let words = lettering.fitted(sentence, 120.0, 1);
+        let words = lettering.fitted(sentence, 120.0, Scale::ONE);
         assert!(words.ends_with(ELLIPSIS), "{words:?}");
         assert!(words.starts_with("the renderer"), "{words:?}");
-        assert!(lettering.width_of(&words, 1) <= 120.0);
+        assert!(lettering.width_of(&words, Scale::ONE) <= 120.0);
     }
 
     #[test]
     fn a_window_too_narrow_for_even_an_ellipsis_says_nothing_rather_than_overflowing() {
-        assert_eq!(lettering().fitted("gone", 1.0, 1), "");
+        assert_eq!(lettering().fitted("gone", 1.0, Scale::ONE), "");
     }
 
     #[test]
@@ -207,7 +215,7 @@ mod tests {
             width: 300,
             height: 32,
         };
-        lettering().draw(&mut canvas, rect, "gone", 1);
+        lettering().draw(&mut canvas, rect, "gone", Scale::ONE);
         assert_eq!(canvas.at(0, 7), Some(Rgba::WHITE), "it drew above itself");
         assert_eq!(
             canvas.at(0, 8).map(Rgba::to_rgba8),
@@ -235,7 +243,7 @@ mod tests {
             width: 60,
             height: 6,
         };
-        lettering().draw(&mut canvas, rect, "gjpqy gjpqy", 1);
+        lettering().draw(&mut canvas, rect, "gjpqy gjpqy", Scale::ONE);
         for x in 0..60 {
             for y in [0, 1, 8, 9] {
                 assert_eq!(canvas.at(x, y), Some(Rgba::WHITE), "ink at {x},{y}");

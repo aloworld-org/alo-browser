@@ -42,6 +42,7 @@ use alo_window::cursor::{Cursor, Pressed};
 use alo_window::inbox::Orders;
 use alo_window::message::{News, Order, TabOrder};
 use alo_window::place::{Contents, Placement, STRIP_HEIGHT, strip_viewport};
+use alo_window::scale::Scale;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -137,14 +138,14 @@ fn send(orders: &Orders, order: Order) -> Result<(), String> {
 fn press(orders: &Orders, at: (f64, f64)) -> Result<(), String> {
     let placed = Placement::of(
         WINDOW,
-        2,
+        Scale::TWO,
         Contents {
             strip: Some((480, STRIP_HEIGHT)),
             frame: Some((480, 400)),
             ..Contents::default()
         },
     );
-    let aimed = aim(WINDOW, &placed, 2, at);
+    let aimed = aim(WINDOW, &placed, Scale::TWO, at);
     let mut cursor = Cursor::default();
     let sent = cursor.pressed(aimed, true);
     let _ = cursor.released(alo_paint::Point::default());
@@ -185,7 +186,7 @@ fn opening(address: &str, html: &str) -> Result<(Url, Order), String> {
 
 #[test]
 fn the_window_sends_a_press_on_the_band_to_the_strip_in_its_css_pixels() {
-    let placed = Placement::of(WINDOW, 2, Contents::default());
+    let placed = Placement::of(WINDOW, Scale::TWO, Contents::default());
     assert_eq!(placed.band.height, 72);
     // Device pixel (200, 40) is the strip's CSS pixel (100, 20); the band's
     // last row is the strip's, and the row below it is the page's.
@@ -193,7 +194,7 @@ fn the_window_sends_a_press_on_the_band_to_the_strip_in_its_css_pixels() {
         ((200.0, 40.0), (100.0, 20.0)),
         ((424.0, 71.0), (212.0, 35.5)),
     ] {
-        let aimed = aim(WINDOW, &placed, 2, at);
+        let aimed = aim(WINDOW, &placed, Scale::TWO, at);
         assert_eq!(
             aimed,
             Aimed::Strip(alo_paint::Point::new(strip.0, strip.1)),
@@ -205,7 +206,7 @@ fn the_window_sends_a_press_on_the_band_to_the_strip_in_its_css_pixels() {
         );
     }
     assert!(matches!(
-        aim(WINDOW, &placed, 2, (424.0, 72.0)),
+        aim(WINDOW, &placed, Scale::TWO, (424.0, 72.0)),
         Aimed::Page(_)
     ));
 }

@@ -2625,3 +2625,13 @@ boxes, is Chrome's in every box and pixel at one, 1.5 and two. Found:
 and **609** (a button's `width` is its border box). 288 queue items are
 open (598 closed; 608 and 609 added). The next unused queue number is 610
 and the next unused ADR 0058.
+
+Iteration 363 closed queue item 599: the window takes a screen at 1.5 at
+its own scale rather than rounding it down to one (`alo-window`'s
+`scale.rs`: the measured scales, a window's lengths at them, and the most
+whole CSS pixels that fit), and `alo --scale 1.5` lays it out at 1.5 on
+any screen. Captured with `screencapture -l` on this Mac's external screen,
+the window is its composition at 1.5 through the real conductor in all
+699,822 opaque pixels. Cut: **610** (a fractional scale other than 1.5).
+288 queue items are open (599 closed; 610 added). The next unused queue
+number is 611 and the next unused ADR 0058.

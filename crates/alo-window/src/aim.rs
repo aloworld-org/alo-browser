@@ -10,7 +10,7 @@
 //! which holds only its own frame. A point is the window server's, in
 //! device pixels from the window's top-left corner; what a renderer is sent
 //! is CSS pixels from its frame's corner, a device pixel being `1 / scale`
-//! of one at the window's whole scale (ADR 0057 § 3). Where a person's
+//! of one at the window's [`Scale`] (ADR 0057 § 3). Where a person's
 //! 1×1 pixel lands at a scale above one is not measured (queue item 568);
 //! the point is the device pixel's corner divided, as at one.
 //!
@@ -24,6 +24,7 @@
 //! renderer claims (item 539).
 
 use crate::place::{PixelRect, Placement};
+use crate::scale::Scale;
 use alo_paint::Point;
 
 /// What a point in the window is over.
@@ -40,7 +41,7 @@ pub enum Aimed {
 
 /// What the point `at`, in device pixels, is over in a `window` of device
 /// pixels placed as `placed`, `scale` device pixels to the CSS pixel.
-pub fn aim(window: (u32, u32), placed: &Placement, scale: u32, at: (f64, f64)) -> Aimed {
+pub fn aim(window: (u32, u32), placed: &Placement, scale: Scale, at: (f64, f64)) -> Aimed {
     let (x, y) = at;
     let inside = (0.0..f64::from(window.0)).contains(&x) && (0.0..f64::from(window.1)).contains(&y);
     let over = |rect: Option<PixelRect>| rect.is_some_and(|rect| covers(rect, at));
@@ -56,7 +57,7 @@ pub fn aim(window: (u32, u32), placed: &Placement, scale: u32, at: (f64, f64)) -
 /// Where the point `at`, in device pixels, is in the page's CSS pixels,
 /// wherever it is — inside the window or not, over a notice or the band.
 /// What a release is sent as: it goes to the page its press went to.
-pub fn on_page(placed: &Placement, scale: u32, at: (f64, f64)) -> Point {
+pub fn on_page(placed: &Placement, scale: Scale, at: (f64, f64)) -> Point {
     css(scale, at.0, at.1 - f64::from(placed.band.height))
 }
 
@@ -72,9 +73,8 @@ fn covers(rect: PixelRect, at: (f64, f64)) -> bool {
     clippy::cast_possible_truncation,
     reason = "a point in a window is within an f32's range, and its last bits are below a 64th of a pixel"
 )]
-fn css(scale: u32, x: f64, y: f64) -> Point {
-    let scale = f64::from(scale.max(1));
-    Point::new((x / scale) as f32, (y / scale) as f32)
+fn css(scale: Scale, x: f64, y: f64) -> Point {
+    Point::new(scale.css(x) as f32, scale.css(y) as f32)
 }
 
 #[cfg(test)]
@@ -87,7 +87,7 @@ mod tests {
     fn placed(saying: bool) -> Placement {
         Placement::of(
             (960, 872),
-            2,
+            Scale::TWO,
             Contents {
                 strip: Some((960, 72)),
                 frame: Some((960, 800)),
@@ -105,10 +105,16 @@ mod tests {
     fn below_the_band_is_the_page_in_its_own_css_pixels() {
         let placed = placed(false);
         assert_eq!(placed.band.height, 72, "36 CSS pixels at scale 2");
-        assert_eq!(aim((960, 872), &placed, 2, (141.2, 72.0)), page(70.6, 0.0));
-        assert_eq!(aim((960, 872), &placed, 2, (0.0, 871.0)), page(0.0, 399.5));
         assert_eq!(
-            aim((960, 872), &placed, 2, (959.5, 600.5)),
+            aim((960, 872), &placed, Scale::TWO, (141.2, 72.0)),
+            page(70.6, 0.0)
+        );
+        assert_eq!(
+            aim((960, 872), &placed, Scale::TWO, (0.0, 871.0)),
+            page(0.0, 399.5)
+        );
+        assert_eq!(
+            aim((960, 872), &placed, Scale::TWO, (959.5, 600.5)),
             page(479.75, 264.25)
         );
     }
@@ -117,11 +123,11 @@ mod tests {
     fn the_band_is_the_strips() {
         let placed = placed(false);
         assert_eq!(
-            aim((960, 872), &placed, 2, (100.0, 0.0)),
+            aim((960, 872), &placed, Scale::TWO, (100.0, 0.0)),
             Aimed::Strip(Point::new(50.0, 0.0))
         );
         assert_eq!(
-            aim((960, 872), &placed, 2, (100.0, 71.9)),
+            aim((960, 872), &placed, Scale::TWO, (100.0, 71.9)),
             Aimed::Strip(Point::new(50.0, 35.95))
         );
     }
@@ -130,10 +136,14 @@ mod tests {
     fn outside_the_window_is_nothing() {
         let placed = placed(false);
         for at in [(-0.5, 100.0), (960.0, 100.0), (10.0, 872.0), (10.0, -1.0)] {
-            assert_eq!(aim((960, 872), &placed, 2, at), Aimed::Nothing, "{at:?}");
+            assert_eq!(
+                aim((960, 872), &placed, Scale::TWO, at),
+                Aimed::Nothing,
+                "{at:?}"
+            );
         }
         assert_eq!(
-            aim((960, 872), &placed, 2, (f64::NAN, 100.0)),
+            aim((960, 872), &placed, Scale::TWO, (f64::NAN, 100.0)),
             Aimed::Nothing
         );
     }
@@ -151,35 +161,77 @@ mod tests {
             placed.strip_notice.map(|rect| (rect.y, rect.height)),
             Some((744, 64))
         );
-        assert_eq!(aim((960, 872), &placed, 2, (10.0, 808.0)), Aimed::Nothing);
-        assert_eq!(aim((960, 872), &placed, 2, (10.0, 744.0)), Aimed::Nothing);
-        assert_eq!(aim((960, 872), &placed, 2, (10.0, 743.0)), page(5.0, 335.5));
+        assert_eq!(
+            aim((960, 872), &placed, Scale::TWO, (10.0, 808.0)),
+            Aimed::Nothing
+        );
+        assert_eq!(
+            aim((960, 872), &placed, Scale::TWO, (10.0, 744.0)),
+            Aimed::Nothing
+        );
+        assert_eq!(
+            aim((960, 872), &placed, Scale::TWO, (10.0, 743.0)),
+            page(5.0, 335.5)
+        );
     }
 
     #[test]
     fn beyond_the_last_frame_is_still_the_page() {
         let small = Placement::of(
             (960, 872),
-            2,
+            Scale::TWO,
             Contents {
                 frame: Some((100, 100)),
                 ..Contents::default()
             },
         );
         assert_eq!(
-            aim((960, 872), &small, 2, (900.0, 800.0)),
+            aim((960, 872), &small, Scale::TWO, (900.0, 800.0)),
             page(450.0, 364.0)
+        );
+    }
+
+    #[test]
+    fn at_one_and_a_half_a_device_pixel_is_two_thirds_of_a_css_pixel() {
+        let placed = Placement::of(
+            (720, 654),
+            Scale::ONE_AND_A_HALF,
+            Contents {
+                strip: Some((720, 54)),
+                frame: Some((720, 600)),
+                ..Contents::default()
+            },
+        );
+        assert_eq!(placed.band.height, 54, "36 CSS pixels at 1.5");
+        let half = Scale::ONE_AND_A_HALF;
+        assert_eq!(
+            aim((720, 654), &placed, half, (150.0, 54.0)),
+            page(100.0, 0.0)
+        );
+        assert_eq!(
+            aim((720, 654), &placed, half, (3.0, 654.0 - 1.5)),
+            page(2.0, 399.0)
+        );
+        assert_eq!(
+            aim((720, 654), &placed, half, (30.0, 52.5)),
+            Aimed::Strip(Point::new(20.0, 35.0))
         );
     }
 
     #[test]
     fn a_release_is_placed_on_the_page_wherever_it_is() {
         let placed = placed(true);
-        assert_eq!(on_page(&placed, 2, (-20.0, 10.0)), Point::new(-10.0, -31.0));
         assert_eq!(
-            on_page(&placed, 2, (2000.0, 900.0)),
+            on_page(&placed, Scale::TWO, (-20.0, 10.0)),
+            Point::new(-10.0, -31.0)
+        );
+        assert_eq!(
+            on_page(&placed, Scale::TWO, (2000.0, 900.0)),
             Point::new(1000.0, 414.0)
         );
-        assert_eq!(on_page(&placed, 1, (10.0, 46.0)), Point::new(10.0, -26.0));
+        assert_eq!(
+            on_page(&placed, Scale::ONE, (10.0, 46.0)),
+            Point::new(10.0, -26.0)
+        );
     }
 }

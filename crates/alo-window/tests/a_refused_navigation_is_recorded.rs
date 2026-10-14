@@ -32,6 +32,7 @@ use alo_window::conductor::{Conductor, Fonts};
 use alo_window::inbox::Orders;
 use alo_window::message::{News, Order};
 use alo_window::place::{Contents, Placement, screen};
+use alo_window::scale::Scale;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -44,7 +45,7 @@ const AT_MOST: Duration = Duration::from_secs(60);
 /// The window, in device pixels, at scale 2: an 800 × 600 page below the
 /// strip.
 const WINDOW: (u32, u32) = (1600, 1272);
-const SCALE: u32 = 2;
+const SCALE: Scale = Scale::TWO;
 
 /// Where every page here is.
 const HERE: &str = "https://example.com/";

@@ -4,9 +4,10 @@
 
 //! `alo`: the browser a person starts (ADR 0024 § 1).
 //!
-//! `alo [--frozen-fonts] [--agent-site ADDRESS ...] [PAGE.html [SHEET.css ...]]`
-//! opens a window with one tab showing the page, or an empty tab if none is
-//! named. Closing the window closes every tab and stops every renderer.
+//! `alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...]
+//! [PAGE.html [SHEET.css ...]]` opens a window with one tab showing the
+//! page, or an empty tab if none is named, laid out at the scale named or at
+//! its screen's. Closing the window closes every tab and stops every renderer.
 //!
 //! An agent outside it reaches it over a socket under the person's runtime
 //! directory (ADR 0055), whose path is said on the terminal as the window
@@ -73,7 +74,7 @@ fn main() -> ExitCode {
     let mut conductor = None;
     let mut refused = None;
     let mut listening = None;
-    let ran = alo_window::window::run(|tell| {
+    let ran = alo_window::window::run(opening.scale, |tell| {
         let sites = opening.agents.clone();
         match Conductor::start_keeping_agents_to(
             sites,

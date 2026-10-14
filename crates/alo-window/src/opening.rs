@@ -18,18 +18,23 @@
 //! they name (`--agent-site`, queue item 497): a person's deliberate act,
 //! which no agent can make (ADR 0026), and ours alone — it only ever narrows
 //! what the socket already allows ([`crate::agent_sites`]).
+//!
+//! And it is where a person lays the window out at a scale its screen is
+//! not (`--scale`, queue item 599), as Chrome's `--force-device-scale-factor`
+//! does: the one way to see a scale none of this machine's screens has.
 
 use crate::agent_sites::AgentSites;
 use crate::conductor::Fonts;
 use crate::message::Order;
+use crate::scale::Scale;
 use alo_layout::Size;
 use alo_renderer::Page;
 use alo_url::Url;
 use std::path::{Path, PathBuf};
 
 /// How to use `alo`, as it is said when it was used wrongly.
-pub const USAGE: &str =
-    "usage: alo [--frozen-fonts] [--agent-site ADDRESS ...] [PAGE.html [SHEET.css ...]]";
+pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
+     [PAGE.html [SHEET.css ...]]";
 
 /// What was asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +47,9 @@ pub struct Opening {
     pub sheets: Vec<PathBuf>,
     /// The sites agents outside the browser may reach.
     pub agents: AgentSites,
+    /// The scale the window is laid out at whatever its screen's, if one
+    /// was named.
+    pub scale: Option<Scale>,
 }
 
 impl Opening {
@@ -56,15 +64,21 @@ impl Opening {
     /// outside the browser to the sites of those addresses. Without it, they
     /// are kept to nothing narrower than the socket.
     ///
+    /// `--scale FACTOR` lays the window out at that scale on any screen: one
+    /// this engine has measured ([`Scale::named`]) — a whole factor up to
+    /// eight, or 1.5 — so that a scale nobody measured is refused rather
+    /// than quietly shown at another.
+    ///
     /// # Errors
     ///
     /// [`USAGE`] with what was wrong, for an option that is not one, an
-    /// `--agent-site` with no address or one that has no site, or a sheet
-    /// with no page.
+    /// `--agent-site` with no address or one that has no site, a `--scale`
+    /// with no factor or one that is not measured, or a sheet with no page.
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let mut fonts = Fonts::AsAsked;
         let mut files = Vec::new();
         let mut sites = Vec::new();
+        let mut scale = None;
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
             if argument == "--frozen-fonts" {
@@ -74,6 +88,11 @@ impl Opening {
                     return Err(format!("--agent-site names no address\n{USAGE}"));
                 };
                 sites.push(address);
+            } else if argument == "--scale" {
+                let Some(factor) = arguments.next() else {
+                    return Err(format!("--scale names no factor\n{USAGE}"));
+                };
+                scale = Some(named_scale(&factor)?);
             } else if argument.starts_with("--") {
                 return Err(format!("{argument:?} is not an option\n{USAGE}"));
             } else {
@@ -88,6 +107,7 @@ impl Opening {
             page: files.next(),
             sheets: files.collect(),
             agents,
+            scale,
         })
     }
 
@@ -116,6 +136,20 @@ impl Opening {
             page: Some(Box::new(page)),
         })
     }
+}
+
+/// The measured scale `factor` names, or why it names none.
+fn named_scale(factor: &str) -> Result<Scale, String> {
+    factor
+        .parse::<f64>()
+        .ok()
+        .and_then(Scale::named)
+        .ok_or_else(|| {
+            format!(
+                "--scale {factor:?} is not a scale this browser has measured: \
+                 a whole factor from 1 to 8, or 1.5\n{USAGE}"
+            )
+        })
 }
 
 /// A file's text.
@@ -206,6 +240,31 @@ mod tests {
     }
 
     #[test]
+    fn a_window_is_laid_out_at_a_scale_a_person_names() {
+        let opening = Opening::from_arguments(arguments(&["--scale", "1.5", "page.html"]))
+            .expect("these are arguments");
+        assert_eq!(opening.scale, Some(Scale::ONE_AND_A_HALF));
+        assert_eq!(opening.page, Some(PathBuf::from("page.html")));
+        let two = Opening::from_arguments(arguments(&["--scale", "2"])).expect("an argument");
+        assert_eq!(two.scale, Some(Scale::TWO));
+        let none = Opening::from_arguments(arguments(&[])).expect("no arguments is fine");
+        assert_eq!(none.scale, None);
+    }
+
+    #[test]
+    fn a_scale_nobody_measured_is_refused_before_the_window_opens() {
+        let refused = |words: &[&str]| Opening::from_arguments(arguments(words));
+        assert!(refused(&["--scale"]).is_err_and(|why| why.contains("names no factor")));
+        for factor in ["1.25", "1.75", "0", "-1", "9", "NaN", "inf", "one", ""] {
+            assert!(
+                refused(&["--scale", factor])
+                    .is_err_and(|why| why.contains("not a scale this browser has measured")),
+                "{factor:?}"
+            );
+        }
+    }
+
+    #[test]
     fn an_option_that_is_not_one_is_refused_by_name() {
         let refused = Opening::from_arguments(arguments(&["--fonts"]));
         assert!(refused.is_err_and(|why| why.contains("\"--fonts\"") && why.contains(USAGE)));
@@ -219,6 +278,7 @@ mod tests {
             page: Some(case.join("page.html")),
             sheets: vec![case.join("style.css")],
             agents: AgentSites::Every,
+            scale: None,
         };
         let Ok(Order::Open {
             url,
@@ -241,6 +301,7 @@ mod tests {
             page: Some(PathBuf::from("/nowhere/at/all.html")),
             sheets: Vec::new(),
             agents: AgentSites::Every,
+            scale: None,
         };
         assert!(
             opening

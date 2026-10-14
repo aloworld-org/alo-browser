@@ -511,14 +511,16 @@ is laid out with none where Chrome's is `medium`, 3px (602), and `border`
 or `border-<side>` written after one of its longhands does not override it
 (603). Where a line under text falls at two is not measured (566).
 
-**The window at its screen's scale** (item 562, ADR 0057 § 3). The window
-tells the page's renderer and the strip's the whole part of its screen's
-scale with its size, on the wire as a stranger's number (one that is not a
+**The window at its screen's scale** (items 562 and 599, ADR 0057 § 3).
+The window tells the page's renderer and the strip's its screen's scale —
+a whole factor, or 1.5, and for any other factor the largest of those
+below it — with its size, on the wire as a stranger's number (one that is not a
 number refuses the message; one that is not a factor above zero is one),
 and places each frame one device pixel to each of its own. A window moved
 to a screen of another scale has its page laid out and painted again at it,
-and its strip too (`a_window_on_a_screen_of_two.rs`, each frame equal to
-the same page or strip drawn at that scale in the test). `alo` on this
+and its strip too (`a_window_on_a_screen_at_its_scale.rs`, at two, one and
+1.5, each frame equal to the same page or strip drawn at that scale in the
+test). `alo` on this
 Mac's Retina display, captured with `screencapture -l`, is the window
 composed at two through the real conductor: every opaque pixel within one
 level once put through the display's profile, 99.84% exact. A page is
@@ -528,10 +530,14 @@ it in `dppx`, `x`, `dpi` and `dpcm`, answering each of 2,984 queries as
 Chrome 154 did at one and at two (`cases/a-page-told-its-scale`, every box
 Chrome's at both scales). Not yet: `matchMedia` (570), and a resolution
 written with `calc()`, the range syntax or the boolean `(resolution)`
-(571); where a person's pointer lands at two is not measured (568); a fractional
-scale is rounded down to a whole one by the window, though a page at 1.5
-is laid out and drawn as Chrome does (593, 599); and a page's picture is at most 4,096
-device pixels a side, so a wider window is cut (569).
+(571); where a person's pointer lands at two is not measured (568); and a
+page's picture is at most 4,096 device pixels a side, so a wider window is
+cut (569). At 1.5 (item 599) the strip's band is 54 device pixels and a
+window's line 48, and `alo --frozen-fonts --scale 1.5` on this Mac's
+external screen, captured with `screencapture -l`, is the window composed
+at 1.5 through the real conductor in every opaque pixel (references
+`a-strip-of-one-tab-at-one-and-a-half.png` and
+`a-gone-tab-at-one-and-a-half.png`).
 
 **A function in the `border` shorthand is read whole.** `border: 1px solid
 rgb(29 78 216)`, a comma-separated `rgb()`, `hsl()`, a `color-mix()` and a

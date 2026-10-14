@@ -14674,7 +14674,7 @@ What stage 2's exit gate actually measures: a person using it.
   out-of-flow box's static position on an empty centred line) and **609**
   (a button's `width` is its border box).
 
-- [ ] **599. The window at a fractional screen's own scale.** *Cut from 593
+- [x] **599. The window at a fractional screen's own scale.** *Cut from 593
   (iteration 357; ADR 0057 § 3). Feature: `docs/features.md` stage 2, a
   window, tabs and a tab strip. Depends on 593.* `alo-window`'s
   `place::scale` rounds a fractional screen down to a whole factor and
@@ -14685,6 +14685,28 @@ What stage 2's exit gate actually measures: a person using it.
   forced to it) lays its page and strip out at 1.5, composes without
   replicating, and its captured picture is the composed reference at
   1.5.
+
+  **Done (iteration 363).** `alo-window`'s `scale.rs` (new): `Scale`, the
+  scales a window takes — every whole factor to eight, and 1.5, the
+  measured ones — a screen's factor taken as the largest of them it
+  reaches (`of_screen`: 1.75 is 1.5, 1.25 is one), a window's length in
+  device pixels as a renderer's canvas rounds it (`device`: the band 54
+  and a line 48 at 1.5), and the most whole CSS pixels whose canvas fits
+  (`fitting`: 1,333 of 2,000 at 1.5). `place.rs`, `aim.rs`, `compose.rs`,
+  `notice.rs`, `showing.rs` and `window.rs` take it in place of a whole
+  number; `opening.rs` reads `--scale FACTOR`, refusing a factor not
+  measured, and the window lays itself out at it on any screen, as
+  Chrome's `--force-device-scale-factor` does. Closed: `alo --frozen-fonts
+  --scale 1.5 …/alo-offline/page.html` on this Mac's external screen,
+  captured with `screencapture -l`, is the window composed at 1.5 through
+  the real conductor (a temporary example, removed) in all 699,822 opaque
+  pixels, the strip and page 999 device pixels wide; new references
+  `a-strip-of-one-tab-at-one-and-a-half.png` and
+  `a-gone-tab-at-one-and-a-half.png`, each frame placed one to one and not
+  the page at one enlarged; the real-conductor test (renamed
+  `a_window_on_a_screen_at_its_scale.rs`) moves to a window at 1.5 and
+  hears both frames painted at it. Where a person's pointer lands at 1.5
+  is item 568's, as at two. Cut: **610** (another fractional factor).
 
 - [ ] **600. A translucent texel's last rounding, as Chrome's.** *Cut from
   594 (iteration 358). Feature: `docs/features.md` stage 2, a picture
@@ -14849,6 +14871,19 @@ What stage 2's exit gate actually measures: a person using it.
   what a field does (item 506). *Closes when:* each control Chrome sizes by
   its border box is sized so here, and a frozen case of controls given a
   width and a height is Chrome's in numbers at one and at two.
+
+- [ ] **610. A screen at a fractional scale other than 1.5.** *Cut from
+  599 (iteration 363; ADR 0057 §§ 2–3). Feature: `docs/features.md` stage
+  2, a window, tabs and a tab strip. Needs measuring.* A window on a
+  screen at 1.25 or 1.75 — Windows' and some Linux desktops' common
+  settings — is shown at the largest measured scale below it (`alo-window`'s
+  `Scale::of_screen`: one and 1.5), its page smaller than the screen asks
+  and the rest of the window background, because ADR 0057 § 2's rules are
+  measured at one, 1.5 and two only. *Closes when:* the table's rules are
+  measured in Chrome 154 under `--force-device-scale-factor=1.25` and
+  `=1.75`, any that differ are built, those scales join `scale.rs`'
+  measured ones, and a frozen page laid out and drawn at each is Chrome's
+  in numbers and pixels.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

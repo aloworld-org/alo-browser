@@ -30,6 +30,10 @@
 //! two. Each such window is also checked in numbers: every pixel below the
 //! band is the page's frame's own.
 //!
+//! Item 599 has the window take a screen's scale of 1.5 as it is: a window
+//! at 1.5 is composed from the strip and the frozen page each drawn at 1.5,
+//! in a band of 54 device pixels, and checked the same way.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
 
@@ -43,6 +47,7 @@ use alo_window::compose::{Scene, compose};
 use alo_window::message::News;
 use alo_window::notice::Lettering;
 use alo_window::place::{STRIP_HEIGHT, screen, strip_viewport};
+use alo_window::scale::Scale;
 use alo_window::showing::Showing;
 use std::path::{Path, PathBuf};
 
@@ -96,8 +101,8 @@ fn frozen_page_at(scale: f32) -> Result<Frame, String> {
 /// Every device pixel of `canvas` below the band of a window at `scale`
 /// that `frame` covers, compared with the frame's own: the first that
 /// differs, if any does.
-fn placed_one_to_one(canvas: &Canvas, frame: &Frame, scale: u32) -> Option<(u32, u32)> {
-    let top = STRIP_HEIGHT * scale;
+fn placed_one_to_one(canvas: &Canvas, frame: &Frame, scale: Scale) -> Option<(u32, u32)> {
+    let top = scale.device(STRIP_HEIGHT);
     (0..frame.height)
         .flat_map(|y| (0..frame.width).map(move |x| (x, y)))
         .find(|(x, y)| {
@@ -205,7 +210,7 @@ fn a_frozen_alo_page_in_a_window_at_scale_two() {
     let canvas = compose(
         &Scene {
             window: (960, 800 + 2 * STRIP_HEIGHT),
-            scale: 2,
+            scale: Scale::TWO,
             strip: None,
             strip_sentence: None,
             frame: Some(&page),
@@ -213,7 +218,7 @@ fn a_frozen_alo_page_in_a_window_at_scale_two() {
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
-    assert_eq!(placed_one_to_one(&canvas, &page, 2), None);
+    assert_eq!(placed_one_to_one(&canvas, &page, Scale::TWO), None);
     assert_eq!(holds("a-frozen-page-at-scale-two.png", &canvas), Ok(()));
 }
 
@@ -223,7 +228,7 @@ fn a_window_grown_before_its_new_frame_shows_the_old_one_at_its_old_size() {
     let canvas = compose(
         &Scene {
             window: (560, 460 + STRIP_HEIGHT),
-            scale: 1,
+            scale: Scale::ONE,
             strip: None,
             strip_sentence: None,
             frame: Some(&page),
@@ -241,7 +246,7 @@ fn a_gone_tab_keeps_its_frame_and_says_what_happened() {
     let canvas = compose(
         &Scene {
             window: (480, 400 + STRIP_HEIGHT),
-            scale: 1,
+            scale: Scale::ONE,
             strip: None,
             strip_sentence: None,
             frame: Some(&page),
@@ -258,7 +263,7 @@ fn a_tab_gone_before_it_ever_painted_is_its_sentence_on_the_background() {
     let canvas = compose(
         &Scene {
             window: (480, 120 + 2 * STRIP_HEIGHT),
-            scale: 2,
+            scale: Scale::TWO,
             strip: None,
             strip_sentence: None,
             frame: None,
@@ -275,7 +280,7 @@ fn a_window_with_a_strip_of_one_tab_at_scale_two() {
     let window = (960, 800 + 2 * STRIP_HEIGHT);
     // The page is laid out at what the window leaves it below the strip, on
     // a screen of two.
-    let told = screen(window, 2);
+    let told = screen(window, Scale::TWO);
     assert_eq!(told.size, Size::new(480.0, 400.0));
     assert_eq!(told.scale().to_bits(), 2.0_f32.to_bits());
     let strip =
@@ -284,7 +289,7 @@ fn a_window_with_a_strip_of_one_tab_at_scale_two() {
     let canvas = compose(
         &Scene {
             window,
-            scale: 2,
+            scale: Scale::TWO,
             strip: Some(&strip),
             strip_sentence: None,
             frame: Some(&page),
@@ -292,13 +297,90 @@ fn a_window_with_a_strip_of_one_tab_at_scale_two() {
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
-    assert_eq!(placed_one_to_one(&canvas, &page, 2), None);
+    assert_eq!(placed_one_to_one(&canvas, &page, Scale::TWO), None);
     // And the band is the strip's frame, one to one from the corner.
     let in_band = (0..strip.height)
         .flat_map(|y| (0..strip.width).map(move |x| (x, y)))
         .find(|(x, y)| canvas.at(*x, *y).map(alo_value::Rgba::to_rgba8) != strip.at(*x, *y));
     assert_eq!(in_band, None);
     assert_eq!(holds("a-strip-of-one-tab.png", &canvas), Ok(()));
+}
+
+#[test]
+fn a_window_with_a_strip_of_one_tab_at_one_and_a_half() {
+    let half = Scale::ONE_AND_A_HALF;
+    let page = frozen_page_at(half.factor()).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(
+        (page.width, page.height),
+        (720, 600),
+        "a page of 480 × 400 painted at 1.5 is 720 × 600 device pixels"
+    );
+    let window = (720, 600 + 54);
+    // The page is laid out at what the window leaves it below a band of
+    // 36 CSS pixels at 1.5, which is 54 device pixels.
+    let told = screen(window, half);
+    assert_eq!(told.size, Size::new(480.0, 400.0));
+    assert_eq!(told.scale().to_bits(), 1.5_f32.to_bits());
+    let strip =
+        strip_of(vec![the_pages_tab()], 480.0, told.scale()).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!((strip.width, strip.height), (720, 54));
+    let canvas = compose(
+        &Scene {
+            window,
+            scale: half,
+            strip: Some(&strip),
+            strip_sentence: None,
+            frame: Some(&page),
+            sentence: None,
+        },
+        &lettering().unwrap_or_else(|why| panic!("{why}")),
+    );
+    assert_eq!(placed_one_to_one(&canvas, &page, half), None);
+    let in_band = (0..strip.height)
+        .flat_map(|y| (0..strip.width).map(move |x| (x, y)))
+        .find(|(x, y)| canvas.at(*x, *y).map(alo_value::Rgba::to_rgba8) != strip.at(*x, *y));
+    assert_eq!(in_band, None);
+    // Not the page at one enlarged: its device pixels are not each the CSS
+    // pixel under them, as replicating would make them.
+    let at_one = frozen_page_at(1.0).unwrap_or_else(|why| panic!("{why}"));
+    let replicated = (0..page.height)
+        .flat_map(|y| (0..page.width).map(move |x| (x, y)))
+        .all(|(x, y)| page.at(x, y) == at_one.at(x * 2 / 3, y * 2 / 3));
+    assert!(!replicated, "the page at 1.5 is the page at one, enlarged");
+    assert_eq!(
+        holds("a-strip-of-one-tab-at-one-and-a-half.png", &canvas),
+        Ok(())
+    );
+}
+
+#[test]
+fn a_tab_gone_at_one_and_a_half_says_so_in_a_line_of_its_own_height_at_it() {
+    let half = Scale::ONE_AND_A_HALF;
+    let page = frozen_page_at(half.factor()).unwrap_or_else(|why| panic!("{why}"));
+    let sentence = silent_sentence();
+    let canvas = compose(
+        &Scene {
+            window: (720, 654),
+            scale: half,
+            strip: None,
+            strip_sentence: None,
+            frame: Some(&page),
+            sentence: Some(&sentence),
+        },
+        &lettering().unwrap_or_else(|why| panic!("{why}")),
+    );
+    // The line is 32 CSS pixels at 1.5 along the bottom, 48 device pixels,
+    // and the page's frame is its own above it.
+    let above = (0..606 - 54)
+        .flat_map(|y| (0..720).map(move |x| (x, y)))
+        .find(|(x, y)| canvas.at(*x, 54 + y).map(alo_value::Rgba::to_rgba8) != page.at(*x, *y));
+    assert_eq!(above, None);
+    assert_ne!(
+        canvas.at(0, 606).map(alo_value::Rgba::to_rgba8),
+        page.at(0, 606 - 54),
+        "no line at the bottom"
+    );
+    assert_eq!(holds("a-gone-tab-at-one-and-a-half.png", &canvas), Ok(()));
 }
 
 #[test]
@@ -317,7 +399,7 @@ fn a_window_with_a_strip_of_three_tabs() {
     let canvas = compose(
         &Scene {
             window: (480, 400 + STRIP_HEIGHT),
-            scale: 1,
+            scale: Scale::ONE,
             strip: Some(&strip),
             strip_sentence: None,
             frame: Some(&page),
@@ -340,7 +422,7 @@ fn a_strip_whose_renderer_has_gone_keeps_its_frame_and_says_so() {
     let canvas = compose(
         &Scene {
             window: (480, 400 + STRIP_HEIGHT),
-            scale: 1,
+            scale: Scale::ONE,
             strip: Some(&strip),
             strip_sentence: Some(&sentence),
             frame: Some(&page),
@@ -376,7 +458,7 @@ fn a_new_tab_chosen_over_a_page_shows_none_of_it() {
     }
     let window = (480, 400 + STRIP_HEIGHT);
     let canvas = compose(
-        &showing.scene(window, 1),
+        &showing.scene(window, Scale::ONE),
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
     // Below the strip, every pixel is the window's background.

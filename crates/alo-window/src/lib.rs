@@ -20,7 +20,8 @@
 //!   [`hold`] keeps a load's first frame back for its style sheets.
 //! - [`showing`] is what the window was last sent, and [`compose`] makes the
 //!   window's pixels from it — a function, tested by reference render, placed
-//!   by [`place`] and saying what happened to a tab with [`notice`].
+//!   by [`place`] at the window's [`scale`] and saying what happened to a tab
+//!   with [`notice`].
 //! - [`keys`] is what a person's key asks of the tabs, when it is one of the
 //!   browser's own (item 529), read by the event loop before anything else.
 //! - [`opening`] is what a person named on the command line, [`fonts`] the
@@ -42,9 +43,10 @@
 //! mouse button and moves over it ([`aim`] decides what a point is over,
 //! [`cursor`] what the page is sent, items 535 and 542) or the strip to
 //! choose a tab (item 539). The page and the strip are painted at the
-//! window's scale (item 562, ADR 0057 § 3). Not yet: an agent reading the
-//! strip (item 531), a fractional scale factor — both are painted at its
-//! whole part — and a link opening a tab (item 300).
+//! window's [`scale`] (item 562, ADR 0057 § 3), 1.5 among them (item 599).
+//! Not yet: an agent reading the strip (item 531), a scale factor nobody
+//! has measured, such as 1.25 — painted at the largest measured scale below
+//! it — and a link opening a tab (item 300).
 
 pub mod agent_record;
 pub mod agent_sites;
@@ -68,6 +70,7 @@ pub mod opening;
 pub mod place;
 pub mod present;
 pub mod protocol;
+pub mod scale;
 pub mod serving;
 pub mod showing;
 #[cfg(unix)]

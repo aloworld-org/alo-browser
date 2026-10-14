@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A screen at 150 per cent shows pages at 150 per cent.** On a screen
+  of one and a half device pixels to the CSS pixel — common on Windows
+  and Linux laptops — the window rounded the scale down to one, so pages
+  and the tab strip came out two thirds of the size the screen asked for,
+  with the rest of the window left empty. The window now lays the page and
+  the strip out at 1.5 and shows every pixel they paint one for one. A
+  scale nobody has checked against Chrome yet, such as 125 per cent, is
+  still shown at the nearest checked scale below it. `alo --scale 1.5`
+  shows the window at 1.5 on any screen, as Chrome's
+  `--force-device-scale-factor` does: captured on this Mac, every pixel of
+  it is the picture the browser composed.
+
 - **Centred lines and `middle`-aligned pictures land where Chrome puts
   them.** A centred line starts half its spare room in, and an icon aligned
   `vertical-align: middle` is raised by half the x-height of the text

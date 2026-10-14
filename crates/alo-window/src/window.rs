@@ -68,8 +68,9 @@ use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
 use crate::notice::Lettering;
-use crate::place::{Placement, scale, screen};
+use crate::place::{Placement, screen};
 use crate::present::Presenter;
+use crate::scale::Scale;
 use crate::showing::Showing;
 use alo_renderer::Visibility;
 use std::rc::Rc;
@@ -86,6 +87,11 @@ const FIRST_SIZE: (f64, f64) = (1000.0, 700.0);
 
 /// Run the window until it is closed and every tab under it is.
 ///
+/// The window is laid out at `forced` when a person named a scale, and at
+/// its screen's otherwise ([`Scale::of_screen`]) — as Chrome's
+/// `--force-device-scale-factor` lays a page out at a scale the screen is
+/// not, which is how a scale this machine's screens do not have is seen.
+///
 /// `start` is handed the way to tell the window something — a function that
 /// answers whether the window was still there to hear it — and returns where
 /// to send orders. It is a function rather than a value because the way to
@@ -95,7 +101,10 @@ const FIRST_SIZE: (f64, f64) = (1000.0, 700.0);
 ///
 /// What `winit` said, in words, when there could be no event loop or no
 /// window.
-pub fn run(start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders) -> Result<(), String> {
+pub fn run(
+    forced: Option<Scale>,
+    start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders,
+) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
     let event_loop = EventLoop::<News>::with_user_event()
@@ -105,6 +114,7 @@ pub fn run(start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders) -> Re
     let orders = start(Box::new(move |news| proxy.send_event(news).is_ok()));
     let mut app = App {
         orders,
+        forced,
         lettering,
         showing: Showing::default(),
         window: None,
@@ -126,6 +136,8 @@ pub fn run(start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders) -> Re
 /// The event loop's state.
 struct App {
     orders: Orders,
+    /// The scale a person named, if they named one.
+    forced: Option<Scale>,
     lettering: Lettering,
     showing: Showing,
     window: Option<Rc<Window>>,
@@ -142,12 +154,15 @@ struct App {
 }
 
 impl App {
-    /// The window's size in device pixels and its whole scale, if there is
-    /// a window.
-    fn measured(&self) -> Option<((u32, u32), u32)> {
+    /// The window's size in device pixels and its scale, if there is a
+    /// window.
+    fn measured(&self) -> Option<((u32, u32), Scale)> {
         self.window.as_ref().map(|window| {
             let size = window.inner_size();
-            ((size.width, size.height), scale(window.scale_factor()))
+            let scale = self
+                .forced
+                .unwrap_or_else(|| Scale::of_screen(window.scale_factor()));
+            ((size.width, size.height), scale)
         })
     }
 
@@ -174,9 +189,9 @@ impl App {
         }
     }
 
-    /// Where things are in the window now, and its whole scale, if there is
-    /// a window.
-    fn placed(&self) -> Option<((u32, u32), Placement, u32)> {
+    /// Where things are in the window now, and its scale, if there is a
+    /// window.
+    fn placed(&self) -> Option<((u32, u32), Placement, Scale)> {
         let (window, scale) = self.measured()?;
         let scene = self.showing.scene(window, scale);
         Some((

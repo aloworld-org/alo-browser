@@ -30,6 +30,7 @@ use alo_window::compose::{Scene, compose};
 use alo_window::conductor::{Conductor, Fonts};
 use alo_window::message::{News, Order};
 use alo_window::notice::Lettering;
+use alo_window::scale::Scale;
 use alo_window::showing::Showing;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, channel};
@@ -196,7 +197,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     // …and the window still answers, at once, with the frame it had, at the
     // size it was painted: the resize reference, pixel for pixel.
     let started = Instant::now();
-    let composed = compose(&showing.scene((560, 460), 1), &lettering);
+    let composed = compose(&showing.scene((560, 460), Scale::ONE), &lettering);
     assert!(
         started.elapsed() < PATIENCE,
         "composing took {:?}, as long as the renderer is given",
@@ -205,7 +206,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     let before = compose(
         &Scene {
             window: (560, 460),
-            scale: 1,
+            scale: Scale::ONE,
             strip: None,
             strip_sentence: None,
             frame: Some(&committed().unwrap_or_else(|why| panic!("{why}"))),
@@ -233,7 +234,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     );
     assert!(showing.hear(said.clone()));
     assert_eq!(showing.frame(), Some(frame), "the frame was not kept");
-    let told = compose(&showing.scene((560, 460), 1), &lettering);
+    let told = compose(&showing.scene((560, 460), Scale::ONE), &lettering);
     // The notice is along the bottom, over the frame's background, and the
     // frame above it is untouched.
     assert_eq!(

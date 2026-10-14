@@ -16,6 +16,7 @@
 
 use crate::compose::Scene;
 use crate::message::News;
+use crate::scale::Scale;
 use alo_renderer::Frame;
 
 /// The selected tab and the strip, as far as the window has been told.
@@ -89,7 +90,7 @@ impl Showing {
     }
 
     /// What to compose a window of `window` device pixels from.
-    pub fn scene(&self, window: (u32, u32), scale: u32) -> Scene<'_> {
+    pub fn scene(&self, window: (u32, u32), scale: Scale) -> Scene<'_> {
         Scene {
             window,
             scale,
@@ -185,9 +186,9 @@ mod tests {
     fn the_scene_is_what_was_sent_at_the_size_the_window_is() {
         let mut showing = Showing::default();
         showing.hear(News::Painted(a_frame(1)));
-        let scene = showing.scene((30, 20), 2);
+        let scene = showing.scene((30, 20), Scale::TWO);
         assert_eq!(scene.window, (30, 20));
-        assert_eq!(scene.scale, 2);
+        assert_eq!(scene.scale, Scale::TWO);
         assert_eq!(scene.frame, Some(&a_frame(1)));
         assert_eq!(scene.sentence, None);
         assert_eq!((scene.strip, scene.strip_sentence), (None, None));

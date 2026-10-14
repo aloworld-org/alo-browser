@@ -27,6 +27,7 @@ use alo_window::cursor::Cursor;
 use alo_window::inbox::Orders;
 use alo_window::message::{News, Order};
 use alo_window::place::{Contents, Placement, screen};
+use alo_window::scale::Scale;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -40,7 +41,7 @@ const AT_MOST: Duration = Duration::from_secs(60);
 /// The window, in device pixels, at scale 2: an 800 × 600 page below the
 /// strip, the size the frozen page's corpus files were laid out at.
 const WINDOW: (u32, u32) = (1600, 1272);
-const SCALE: u32 = 2;
+const SCALE: Scale = Scale::TWO;
 
 fn renderer() -> Result<PathBuf, String> {
     let path = renderer_beside(Path::new(env!("CARGO_BIN_EXE_alo")));

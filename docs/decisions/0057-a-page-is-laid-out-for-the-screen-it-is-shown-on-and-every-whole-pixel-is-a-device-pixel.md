@@ -170,8 +170,10 @@ too, and the frame a renderer sends is in device pixels.
   not rounded: a window at 1.5 is laid out at 1.5. Until a fractional
   scale is measured (§ 2), the window keeps rounding one down to a whole
   factor, as it replicates today. Item 593 measured 1.5, and the page
-  laid out and drawn at it is Chrome's; the window takes a fractional
-  screen's own scale with item 599.
+  laid out and drawn at it is Chrome's; since item 599 the window takes
+  a screen's factor as it is when it is a measured scale — a whole one,
+  or 1.5 — and the largest measured one below it otherwise, so a screen
+  at 1.25 is still shown at one (*Measured since*, item 599).
 - `devicePixelRatio` answers the scale, and `(resolution: 2dppx)`,
   `min-resolution` and `max-resolution` are evaluated against it, where
   today they are refused as unknown. ADR 0024 § 3 kept the ratio absent
@@ -250,8 +252,9 @@ Item 299 is cut into three parts, and closes when they do:
 ## What is not decided here
 
 - ~~**A fractional scale's rules**~~: measured at 1.5 by item 593
-  (*Measured since*). A window on a fractional screen still rounds it
-  down to a whole factor (§ 3) until item 599 lays it out at its own.
+  (*Measured since*), and a window on a screen at 1.5 is laid out at it
+  since item 599. Any other fractional factor is still rounded down to
+  the largest measured scale below it (§ 3) until it is measured.
 - **Where a pointer lands at a scale**: ADR 0024 § 5's point is a 1×1
   pixel, measured at scale 1; whether it is a device pixel at 2 is
   measured with item 568 (cut from 562).
@@ -605,6 +608,23 @@ checkboxes and radios at 24 offsets and seven sizes.
 - Text is not compared at 1.5: Chrome thickens letters on macOS (item
   576), and the five cases with text differ from Chrome's pictures at 1.5
   no more than at two.
+
+**Item 599, 2026-10-15, on this Mac** (the window, not Chrome: nothing
+here is a rule of Chrome's). `alo-window`'s `scale.rs` holds the scales a
+window takes — every whole factor to eight, and 1.5 — and a window's
+lengths at one of them: the band's 36 CSS pixels and a line's 32 are as
+many device pixels as a renderer's canvas of that many, `round(n·s)`
+(54 and 48 at 1.5), and a page is laid out in the most whole CSS pixels
+whose canvas fits the window (1,333 of 2,000 device pixels at 1.5, the
+last one background). A person may name a measured scale on the command
+line (`alo --scale 1.5`), as Chrome's flag does, which is how a scale this
+machine's screens do not have was seen: `alo --frozen-fonts --scale 1.5
+…/alo-offline/page.html` on the external 1,920 × 1,080 screen (window
+1000 × 732 points, 1000 × 700 inside), captured with `screencapture -l`,
+is the window composed at 1.5 through the real conductor and confined
+renderers in every one of its 699,822 opaque pixels; the other 178 are
+the corners macOS rounds. The strip and the page each came as 999
+device pixels wide, 666 CSS pixels at 1.5.
 
 ## How we will know if this was wrong
 
