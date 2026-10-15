@@ -2669,3 +2669,22 @@ boxes measured in Chrome 155, is Chrome's in numbers and in every plain
 pixel at one and at two; its worst blend, 76, is a two-colour mitre (518).
 No other reference moved. 285 queue items are open (603 closed). The next
 unused queue number is 611 and the next unused ADR 0058.
+
+Iteration 367 closed queue item 179, its scope cut: a picture drawn
+smaller than it is on both axes goes through Chrome 155's mipmap levels.
+Chrome uploads the largest level that still covers the box. A level is
+Skia's: halved rounded down, one-two-one on an odd side, the sum rounded
+down. Two levels are mixed by the larger ratio's logarithm as a GPU takes
+it, straight between quarters of the mantissa, to the nearest 256th less
+120, and the mix is held once in sixteenths. Chrome keeps one decoded
+picture per file, so once a copy has gone through its levels every later
+draw of it does too (`alo-paint`'s `mip_level.rs` and `picture_filter.rs`,
+`alo-renderer`'s `pictures.rs` decoding each file once). A picture smaller
+on one axis only stays bilinear. `pictures-sized-on-a-line` is Chrome's in
+every pixel of every picture at one and at two. The new case
+`pictures-drawn-smaller` is Chrome 155's in every pixel but four, each a
+level apart where the mix is a tie. Cut: **611** (the copy where an odd
+side is halved), **612** (a translucent picture drawn smaller), **613** (a
+turned picture) and **614** (levels made for a copy first drawn without
+them). 288 queue items are open (179 closed, four cut). The next unused
+queue number is 615 and the next unused ADR 0058.

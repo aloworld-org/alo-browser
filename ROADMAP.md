@@ -1759,10 +1759,18 @@ unreachable without it.
       held in sixteenths of a level and put onto the pixel beneath in one
       32-bit fused multiply-add (`alo-paint`'s `mix_onto.rs`) — so
       `translucent-pictures-drawn-larger` is Chrome's in every pixel at one
-      and at two
-      · Owed: a picture drawn smaller than it is on either axis, which
-      Chrome samples through mipmaps, and a turned one (179, opened now by
-      `pictures-sized-on-a-line`); a translucent picture over a pixel that
+      and at two. Since queue item 179 (iteration 367) a picture drawn
+      smaller on both axes goes through Chrome 155's mipmap levels — the
+      copy it uploads for the box, Skia's levels, two of them mixed by the
+      larger ratio's logarithm as a GPU takes it, and, as Chrome's decode
+      cache holds one picture per file, every later draw of a copy that has
+      levels mixed too (`alo-paint`'s `mip_level.rs` and
+      `picture_filter.rs`) — so every pixel of `pictures-sized-on-a-line`
+      is Chrome's at one and at two, and `pictures-drawn-smaller` all but
+      four a level apart where the mix is a tie
+      · Owed: a turned picture (613); the copy where an odd side is halved
+      (611), a translucent picture drawn smaller (612) and levels made for
+      a copy first drawn without them (614); a translucent picture over a pixel that
       is not opaque, inside a group at an opacity (not measured);
       `image-rendering` (601); AVIF (269: decided in ADR 0021, `avif-parse` and `rav1d`'s safe
       Rust API; blocked until `rav1d` releases that API, because its newest

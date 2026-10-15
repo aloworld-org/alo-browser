@@ -11600,7 +11600,7 @@ The long pole, and the thing most of section E is unreachable without.
   Still nearest-neighbour inside (179), and a picture still ignores a clip
   in force — found reading the renderer, no page fails on it, no item opened.
 
-- [ ] **179. Sampling a picture that is not at its own size.** Nearest-neighbour
+- [x] **179. Sampling a picture that is not at its own size.** Nearest-neighbour
   today: exact at one-to-one, coarse anywhere else.
   *Depends on 176. Closes when:* a picture drawn at half its size is not
   visibly speckled, in a reference render — and law 3 applies, so this waits
@@ -11623,6 +11623,34 @@ The long pole, and the thing most of section E is unreachable without.
   `run6d.py`). *Now closes when:* how Chrome picks and makes a level, and
   samples a turned picture, is measured, built, and that case's pictures
   are Chrome's in every pixel at one and at two.
+
+  **Done (iteration 367), its scope cut.** Measured in Chrome 155
+  (`155.0.8059.41`), random-colour pictures each in a file of its own,
+  every pixel at one and at two (scratchpad `m179/`). A picture is
+  bilinear unless it is drawn smaller on **both** axes in device pixels.
+  Then Chrome uploads the largest level that still covers the box, halving
+  both sides rounded up, and draws that copy bilinear, or mixed from two
+  levels of its chain when the box is smaller than it on both axes. A level
+  is Skia's: each side halved rounded down, two texels or one-two-one, the
+  sum rounded down. The two levels and the farther one's share come from
+  the larger ratio's logarithm, taken as a GPU takes it (straight between
+  quarters of the mantissa), to the nearest 256th, less 120. The mix is
+  unrounded until it is held in sixteenths. And Chrome keeps one decoded
+  picture per file: whether a copy has levels is decided by its first
+  draw, so every later draw of a copy with levels is mixed by its larger
+  ratio, even one smaller on one axis only. That is what `capped` and
+  `floored-and-capped` were. Built in `alo-paint`'s `mip_level.rs` (the
+  levels and the uploaded copy) and `picture_filter.rs` (the choice, the
+  level of detail, the mix and the paint's memory of copies), with
+  `alo-renderer`'s `pictures.rs` decoding a file once for every `<img>`
+  naming it. `pictures-sized-on-a-line` is Chrome 154's in every pixel of
+  all 25 pictures at one and at two, and the new case
+  `pictures-drawn-smaller`, ten draws of seven random-colour files, Chrome
+  155's in every pixel but four, each a level apart in one channel where
+  the mix lies within a thirtieth of a sixteenth of half way. Cut:
+  **611** (the copy where an odd side is halved), **612** (a translucent
+  picture drawn smaller), **613** (a turned picture) and **614** (levels
+  Chrome makes for a copy first drawn without them).
 
 - [x] **177. JPEG.** Rented, pure Rust. *Scope cut on starting: GIF, WebP and
   AVIF went to item 180 — JPEG is the one that matters, because most
@@ -14962,6 +14990,58 @@ What stage 2's exit gate actually measures: a person using it.
   `=1.75`, any that differ are built, those scales join `scale.rs`'
   measured ones, and a frozen page laid out and drawn at each is Chrome's
   in numbers and pixels.
+
+- [ ] **611. The copy Chrome uploads where an odd side is halved.** *Cut
+  from 179 (iteration 367). Feature: `docs/features.md` stage 2, a picture
+  drawn smaller than it is. Needs measuring.* Where halving a picture
+  towards the copy it uploads meets an odd side, Chrome's copy is a texel
+  larger than Skia's level (five texels make three, not two). `mip_level.rs`
+  makes it as Skia's level below it resampled bilinear to that size and
+  rounded to the nearest, the rule that fitted best. Of 416 rows of odd
+  stripes read at the copy's own size (iteration 367's scratchpad
+  `m179/`, `p9` and `p10`), 316 are that exactly. Sources 11, 23 and 25
+  wide miss some rows by a level. Sources 13, 21, 45 and 75 wide take
+  another path, a mix of the two levels either side (13 to 7 is 0.53 of
+  the way). *Closes when:* how Chrome makes that copy is measured for
+  every width to 100 and both axes, built, and a frozen case of odd-sided
+  pictures drawn into boxes that need it is Chrome's in every pixel at one
+  and at two.
+
+- [ ] **612. A translucent picture drawn smaller than it is.** *Cut from
+  179 (iteration 367). Feature: `docs/features.md` stage 2, a picture drawn
+  smaller than it is. Needs measuring.* `mip_level.rs` makes every level
+  of premultiplied texels and `picture_filter.rs` mixes their alpha as
+  their colour, which is how Skia holds a picture. Nothing measured says
+  Chrome rounds a translucent level, or a mix of two, as an opaque one.
+  *Closes when:* translucent random pictures drawn smaller on both axes,
+  over black, white and a grey, are measured at one and at two, any rule
+  that differs is built, and a frozen case of them is Chrome's in every
+  pixel.
+
+- [ ] **613. A turned picture, sampled as Chrome samples it.** *Cut from
+  179 (iteration 367). Feature: `docs/features.md` stage 2, a picture under
+  a transform. Needs measuring.* `drawn_picture.rs`' turned path takes one
+  texel per pixel, the one under the pixel's centre put back through the
+  inverse transform, so the stripes inside a rotated, skewed or mirrored
+  picture are stepped while its outline is smooth. Chrome samples through
+  the same GPU filter as an upright picture. Where a turned picture's
+  level of detail comes from, and whether a mirror is filtered as an
+  upright picture is, are not measured. *Closes when:* a turned picture's
+  filter is measured at one and at two, built, and a frozen case of turned
+  and mirrored pictures is Chrome's in every pixel inside their outlines.
+
+- [ ] **614. Levels Chrome makes for a copy first drawn without them.**
+  *Cut from 179 (iteration 367). Feature: `docs/features.md` stage 2, a
+  picture drawn smaller than it is. Needs measuring.* When a file's first
+  draw does not shrink it on both axes and a later one does, Chrome mixes
+  the later draw, and every draw after it, from levels it did not make as
+  Skia's: a 32 × 32 picture drawn 40 × 20 and then 20 × 20 is
+  `picture_filter.rs`' rule in all but 98 of the second draw's 1,200
+  pixels, and all but 190 of 2,400 in a 20 × 40 draw after it (iteration
+  367's scratchpad, pages `D` and `I`). Here those levels are Skia's.
+  *Closes when:* how those levels are made, likely by the GPU, is measured,
+  built, and a frozen case of a file drawn that way round is Chrome's in
+  every pixel at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

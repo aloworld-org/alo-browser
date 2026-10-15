@@ -1,0 +1,8 @@
+# What the page named, and the file beside this case holding it.
+/a.png a.png
+/b.png b.png
+/c.png c.png
+/d.png d.png
+/e.png e.png
+/f.png f.png
+/g.png g.png

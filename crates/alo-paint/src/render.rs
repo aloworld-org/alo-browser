@@ -29,6 +29,7 @@ use crate::drawn_picture::draw_picture;
 use crate::glyph::outline_at;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
+use crate::picture_filter::Uploads;
 use crate::raster::{fill, fill_on_page};
 use crate::synthesis::leaned;
 use alo_text::{Direction, Font, shape_at};
@@ -47,6 +48,10 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
     let mut clips: Vec<Clip> = Vec::new();
     let mut transforms: Vec<Matrix> = Vec::new();
     let mut groups: Vec<(f32, Canvas)> = Vec::new();
+    // What Chrome's decode cache holds by the time each picture is drawn:
+    // whether a copy has mipmap levels is decided by its first draw (queue
+    // item 179).
+    let mut uploads = Uploads::default();
     let (width, height) = (canvas.width(), canvas.height());
 
     for item in list.items() {
@@ -56,7 +61,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
             DisplayItem::Area { .. } => {}
             DisplayItem::Picture { rect, picture, .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
-                draw_picture(target, picture, *rect, current);
+                draw_picture(target, picture, *rect, current, &mut uploads);
             }
             DisplayItem::PushTransform { matrix, .. } => {
                 // The inner transform happens first, in the coordinates the

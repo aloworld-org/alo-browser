@@ -36,7 +36,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use alo_box::BoxId;
 use alo_corpus::{Case, Rendering, cases_directory, check_picture};
 use alo_dom::{Document, NodeId};
-use alo_paint::Canvas;
 use alo_paint::display::DisplayItem;
 use alo_renderer::Drawing;
 use alo_value::Rgba;
@@ -117,34 +116,49 @@ fn boxes(document: &Document, drawing: &Drawing) -> Vec<(String, BoxId)> {
         .collect()
 }
 
-/// The pictures drawn smaller than they are, across or down, in device
-/// pixels at `scale`: which Chrome samples through its mipmaps (queue item
-/// 179) rather than as [`alo_paint::bilinear`] does.
-fn drawn_smaller(document: &Document, drawing: &Drawing, scale: f32) -> BTreeSet<String> {
-    let smaller: BTreeSet<BoxId> = drawing
-        .display
-        .items()
-        .iter()
-        .filter_map(|item| match item {
-            DisplayItem::Picture {
-                box_id,
-                rect,
-                picture,
-            } => {
-                let (across, down) = (rect.size.width * scale, rect.size.height * scale);
-                let (wide, tall) = (picture.width(), picture.height());
-                (across.round() < f32::from(u16::try_from(wide).ok()?)
-                    || down.round() < f32::from(u16::try_from(tall).ok()?))
-                .then_some(*box_id)
-            }
-            _ => None,
-        })
-        .collect();
-    boxes(document, drawing)
-        .into_iter()
-        .filter(|(_, id)| smaller.contains(id))
-        .map(|(path, _)| path)
-        .collect()
+/// The pictures drawn smaller than they are in device pixels at `scale`:
+/// those smaller on one axis only, which Chrome draws bilinear unless an
+/// earlier draw of the file went through its levels, and those smaller on
+/// both, which go through them (queue item 179).
+fn drawn_smaller(
+    document: &Document,
+    drawing: &Drawing,
+    scale: f32,
+) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut one_axis = BTreeSet::new();
+    let mut both = BTreeSet::new();
+    for item in drawing.display.items() {
+        let DisplayItem::Picture {
+            box_id,
+            rect,
+            picture,
+        } = item
+        else {
+            continue;
+        };
+        let (across, down) = (rect.size.width * scale, rect.size.height * scale);
+        let (Ok(wide), Ok(tall)) = (
+            u16::try_from(picture.width()),
+            u16::try_from(picture.height()),
+        ) else {
+            continue;
+        };
+        let narrower = across.round() < f32::from(wide);
+        let shorter = down.round() < f32::from(tall);
+        if narrower && shorter {
+            both.insert(*box_id);
+        } else if narrower || shorter {
+            one_axis.insert(*box_id);
+        }
+    }
+    let named = |ids: &BTreeSet<BoxId>| {
+        boxes(document, drawing)
+            .into_iter()
+            .filter(|(_, id)| ids.contains(id))
+            .map(|(path, _)| path)
+            .collect()
+    };
+    (named(&one_axis), named(&both))
 }
 
 fn walk(document: &Document, node: NodeId, path: &str, out: &mut Vec<(String, NodeId)>) {
@@ -198,53 +212,20 @@ fn every_box_is_where_chrome_puts_it_at_one_and_at_two() {
     }
 }
 
-/// The colours the case is drawn in where nothing is blended: the page,
-/// `ink.png`, `wide.png`'s two halves, and the borders' and padding's.
-const PLAIN: [(u8, u8, u8); 5] = [
-    (255, 255, 255),
-    (23, 33, 43),
-    (29, 78, 216),
-    (192, 57, 43),
-    (17, 17, 17),
-];
-
-/// The pictures of `wide.png`, whose two halves meet in its middle.
-const TWO_COLOURED: [&str; 12] = [
-    "/html0/body1/div1/img0",
-    "/html0/body1/div1/img1",
-    "/html0/body1/div1/img2",
-    "/html0/body1/div1/img3",
-    "/html0/body1/div2/img0",
-    "/html0/body1/div2/img1",
-    "/html0/body1/div2/img2",
-    "/html0/body1/div2/img3",
-    "/html0/body1/div3/img1",
-    "/html0/body1/div4/img1",
-    "/html0/body1/div5/img1",
-    "/html0/body1/div6/img1",
-];
-
-/// A pixel's colour, if it is one of the case's plain ones.
-fn plain(canvas: &Canvas, x: u32, y: u32) -> Option<(u8, u8, u8)> {
-    let (red, green, blue, _) = canvas.at(x, y)?.to_rgba8();
-    PLAIN
-        .into_iter()
-        .find(|colour| *colour == (red, green, blue))
-}
-
-/// Every device pixel inside the border box of every picture drawn no
-/// smaller than it is, across and down, is Chrome's exactly, at one and at
-/// two: the picture smoothed across its texels as Chrome smooths it, the
-/// seams where `wide.png`'s halves meet with it (queue item 594), and its
-/// border and padding, in the place and at the size Chrome lays them out.
-/// Five pictures at one and twenty-one at two.
-///
-/// A picture drawn smaller on either axis is still one texel a pixel here
-/// and goes through Chrome's mipmaps there (item 179): for those, every
-/// pixel where both pictures are a plain colour is Chrome's, and either may
-/// blend in at most two columns where `wide.png`'s halves meet. The letters
-/// between pictures are left out — Chrome thickens them on macOS (item
-/// 576).
+/// Every device pixel inside the border box of every picture, across and
+/// down, is Chrome's exactly, at one and at two: the picture smoothed across
+/// its texels as Chrome smooths it (queue item 594), through Chrome's mipmap
+/// levels where it is drawn smaller on both axes (179), the seams where
+/// `wide.png`'s halves meet with it, and its border and padding, in the
+/// place and at the size Chrome lays them out. At one, five pictures are
+/// smaller on both axes: `narrowed`, 25 × 12.5, mixed from two levels,
+/// `boxed-in`, 20 × 10, level one's own texels, and three too little
+/// smaller to mix. `wide.png`'s pictures after `narrowed`, though larger
+/// across — `floored-and-capped` and the four 60 × 12.2 — are mixed from
+/// its levels too, because Chrome holds one copy of the file and its first
+/// draw through levels gave that copy levels; `wide-tall`, drawn before it,
+/// is bilinear. At two none is smaller on both. The letters between
+/// pictures are left out — Chrome thickens them on macOS (item 576).
 #[test]
 fn every_picture_is_drawn_as_chrome_draws_it() {
     let Some(case) = case() else {
@@ -272,13 +253,14 @@ fn every_picture_is_drawn_as_chrome_draws_it() {
             .filter(|(path, _)| path.contains("/img"))
             .collect::<Vec<_>>();
         assert_eq!(pictures.len(), 25, "at {scale}");
-        let smaller = drawn_smaller(&document, &drawing, f32::from(scale));
+        let (one_axis, both) = drawn_smaller(&document, &drawing, f32::from(scale));
         assert_eq!(
-            pictures.len() - smaller.len(),
-            if scale == 1 { 5 } else { 21 },
-            "at {scale}: drawn smaller {smaller:?}"
+            (one_axis.len(), both.len()),
+            if scale == 1 { (15, 5) } else { (4, 0) },
+            "at {scale}: smaller on one axis {one_axis:?}, on both {both:?}"
         );
         let per_unit = f32::from(scale) / 64.0;
+        let mut wrong = Vec::new();
         for (path, [left, top, width, height]) in pictures {
             // The device pixels wholly inside the border box: an edge a
             // fraction into a pixel is a blend of the picture and the page.
@@ -287,36 +269,21 @@ fn every_picture_is_drawn_as_chrome_draws_it() {
                 ((left + width) * per_unit).floor(),
                 ((top + height) * per_unit).floor(),
             );
-            if !smaller.contains(&path) {
-                for y in pixels(y0, y1) {
-                    for x in pixels(x0, x1) {
-                        assert_eq!(
-                            ours.at(x, y).map(Rgba::to_rgba8),
-                            chrome.at(x, y).map(Rgba::to_rgba8),
-                            "{path} at {scale}: ({x}, {y})"
-                        );
-                    }
-                }
-                continue;
-            }
-            let (mut same, mut blended) = (0_u32, BTreeMap::<u32, u32>::new());
             for y in pixels(y0, y1) {
                 for x in pixels(x0, x1) {
-                    match (plain(ours, x, y), plain(&chrome, x, y)) {
-                        (Some(mine), Some(theirs)) => {
-                            assert_eq!(mine, theirs, "{path} at {scale}: ({x}, {y})");
-                            same += 1;
-                        }
-                        _ => *blended.entry(x).or_default() += 1,
+                    let (mine, theirs) = (
+                        ours.at(x, y).map(Rgba::to_rgba8),
+                        chrome.at(x, y).map(Rgba::to_rgba8),
+                    );
+                    if mine != theirs {
+                        wrong.push(format!(
+                            "{path} ({x}, {y}): Chrome {theirs:?}, this engine {mine:?}"
+                        ));
                     }
                 }
             }
-            assert!(same > 0, "{path} at {scale} covers a device pixel");
-            assert!(
-                blended.is_empty() || (TWO_COLOURED.contains(&path.as_str()) && blended.len() <= 2),
-                "{path} at {scale}: blends in columns {blended:?}"
-            );
         }
+        assert!(wrong.is_empty(), "at {scale}:\n{}", wrong.join("\n"));
     }
 }
 

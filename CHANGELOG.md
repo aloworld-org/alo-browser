@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pictures drawn smaller are filtered as Chrome filters them.** A
+  picture drawn smaller than it is on both axes took one texel a pixel
+  here, so a photograph shown as a thumbnail was speckled and its edges
+  stepped. Chrome mixes two of the picture's mipmap levels then, and this
+  engine now makes those levels as Chrome does. It uploads the same
+  smaller copy for the box, picks the two levels and how much of each in
+  256ths as Chrome's GPU does, and remembers, as Chrome's decode cache
+  does, that once one draw of a file has gone through its levels every
+  later draw of it does too. A picture smaller on one axis only stays
+  bilinear, as Chrome draws it. Measured in Chrome 155 on hundreds of
+  random pictures. A page of pictures at many sizes is Chrome's in every
+  pixel of every picture at normal and double resolution, and a new page
+  of random-colour pictures in all but four pixels, each one level apart
+  where Chrome's arithmetic is a tie. Still owed: a copy whose side is
+  odd, a see-through picture drawn smaller, and a rotated one.
+
 - **A side's border shorthand overrides the longhand before it.**
   `border-left-style: none; border-left: 5px solid red` drew no left
   border here, because the earlier `border-left-style` was read first

@@ -74,6 +74,11 @@ impl Pictures {
     /// could not be read about it is still said.
     pub fn read(document: &Document, resources: &[Resource]) -> Self {
         let mut pictures = Self::default();
+        // One decoded picture per file, shared by every `<img>` that names
+        // it, as Chrome's decode cache holds it: what a picture is drawn
+        // through can depend on how the same file was drawn before
+        // (`alo_paint::picture_filter`).
+        let mut decoded: BTreeMap<String, Arc<Canvas>> = BTreeMap::new();
         for id in document.descendants(document.root()) {
             let Some(element) = document.element(id) else {
                 continue;
@@ -107,7 +112,11 @@ impl Pictures {
                 }
                 continue;
             }
-            match alo_paint::picture::read(&resource.bytes) {
+            let read = match decoded.get(&src) {
+                Some(canvas) => Ok(Arc::clone(canvas)),
+                None => alo_paint::picture::read(&resource.bytes).map(Arc::new),
+            };
+            match read {
                 Ok(canvas) => {
                     let (width, height) = (canvas.width(), canvas.height());
                     pictures.shown.show(
@@ -117,7 +126,8 @@ impl Pictures {
                             f32::from(u16::try_from(height).unwrap_or(u16::MAX)),
                         ),
                     );
-                    pictures.rasters.insert(id, Arc::new(canvas));
+                    decoded.insert(src, Arc::clone(&canvas));
+                    pictures.rasters.insert(id, canvas);
                 }
                 Err(why) => pictures
                     .issues

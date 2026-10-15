@@ -59,11 +59,11 @@
 //!
 //! # What this does not decide
 //!
-//! A picture drawn smaller than it is, on either axis, is not sampled here:
-//! Chrome filters it the same way at three quarters of its size and more
-//! (16 texels to 12, 40 to 30) and through mipmaps by 16 to 10, which is
-//! item 179's. Nor is a turned picture,
-//! nor `image-rendering`, which this engine does not read yet (601).
+//! Which texels are mixed when a picture is drawn smaller on both axes:
+//! Chrome mixes two of its mipmap levels then, and [`crate::picture_filter`]
+//! decides which (queue item 179), sampling each level with these taps and
+//! [`mixed`]. Nor a turned picture, nor `image-rendering`, which this engine
+//! does not read yet (601).
 
 use crate::canvas::Canvas;
 
@@ -134,49 +134,83 @@ impl Mix {
     pub const OPAQUE: u16 = 255 * 16;
 }
 
+/// A texel premultiplied by its alpha, each channel a level: red, green,
+/// blue and alpha.
+pub type Texel = [u8; 4];
+
+/// A texel as it is written, premultiplied to a level (queue item 600).
+pub fn premultiplied((red, green, blue, alpha): (u8, u8, u8, u8)) -> Texel {
+    let times = |channel: u8| u8::try_from(premultiply(channel, alpha)).unwrap_or(u8::MAX);
+    [times(red), times(green), times(blue), alpha]
+}
+
 /// What the picture gives the pixel sampled at `across` and `down`, or
 /// [`None`] for a tap off the picture.
 pub fn sample(picture: &Canvas, across: Tap, down: Tap) -> Option<Mix> {
+    let texel = |x, y| {
+        picture
+            .at(x, y)
+            .map(|colour| premultiplied(colour.to_rgba8()))
+    };
+    mixed(texel, across, down).map(|parts| Mix::held(parts, PARTS))
+}
+
+/// The four texels `across` and `down` name, mixed, each channel in
+/// 65,536ths of a level and not yet rounded: red, green, blue and alpha. A
+/// mix of mipmap levels is mixed again before it is held
+/// ([`crate::picture_filter`]). [`None`] for a tap off the texels.
+pub fn mixed(
+    texel: impl Fn(u32, u32) -> Option<Texel>,
+    across: Tap,
+    down: Tap,
+) -> Option<[u64; 4]> {
     let texels = [
-        picture.at(across.near, down.near)?.to_rgba8(),
-        picture.at(across.far, down.near)?.to_rgba8(),
-        picture.at(across.near, down.far)?.to_rgba8(),
-        picture.at(across.far, down.far)?.to_rgba8(),
+        texel(across.near, down.near)?,
+        texel(across.far, down.near)?,
+        texel(across.near, down.far)?,
+        texel(across.far, down.far)?,
     ];
     let (x, y) = (u64::from(across.weight), u64::from(down.weight));
     let shares = [(256 - x) * (256 - y), x * (256 - y), (256 - x) * y, x * y];
-    let mixed = |channel: fn(&(u8, u8, u8, u8)) -> u64| {
-        sixteenths(
-            texels
-                .iter()
-                .zip(shares)
-                .map(|(texel, share)| share * channel(texel))
-                .sum(),
-        )
-    };
-    Some(Mix {
-        red: mixed(|t| premultiplied(t.0, t.3)),
-        green: mixed(|t| premultiplied(t.1, t.3)),
-        blue: mixed(|t| premultiplied(t.2, t.3)),
-        alpha: mixed(|t| u64::from(t.3)),
-    })
+    let mut parts = [0_u64; 4];
+    for (texel, share) in texels.iter().zip(shares) {
+        for (part, channel) in parts.iter_mut().zip(texel) {
+            *part += share * u64::from(*channel);
+        }
+    }
+    Some(parts)
+}
+
+impl Mix {
+    /// A mix counted in `per_level` parts of a level, each channel held to
+    /// the nearest sixteenth of a level, a half up.
+    pub fn held([red, green, blue, alpha]: [u64; 4], per_level: u64) -> Self {
+        let held = |channel| sixteenths(channel, per_level);
+        Self {
+            red: held(red),
+            green: held(green),
+            blue: held(blue),
+            alpha: held(alpha),
+        }
+    }
 }
 
 /// A texel's channel times its alpha, to the nearest level. A product of
 /// two levels over 255 is never exactly a half, so there is no tie to break.
-fn premultiplied(channel: u8, alpha: u8) -> u64 {
+fn premultiply(channel: u8, alpha: u8) -> u64 {
     (u64::from(channel) * u64::from(alpha) + 127) / 255
 }
 
-/// One 65,536th of a level, the unit [`sample`]'s mix is counted in.
-const PARTS: u64 = 256 * 256;
+/// One 65,536th of a level, the unit [`mixed`] counts in.
+pub const PARTS: u64 = 256 * 256;
 
-/// A mix counted in 65,536ths of a level, to the nearest sixteenth, a half
-/// up. Never more than [`Mix::OPAQUE`], which a mix of levels cannot pass.
-fn sixteenths(mix: u64) -> u16 {
-    let sixteenth = PARTS / 16;
-    u16::try_from((mix + sixteenth / 2) / sixteenth)
-        .map_or(Mix::OPAQUE, |held| held.min(Mix::OPAQUE))
+/// A mix counted in `per_level` parts of a level, to the nearest sixteenth,
+/// a half up. Never more than [`Mix::OPAQUE`], which a mix of levels cannot
+/// pass.
+fn sixteenths(mix: u64, per_level: u64) -> u16 {
+    let doubled = mix.saturating_mul(32).saturating_add(per_level);
+    let held = doubled / per_level.max(1).saturating_mul(2);
+    u16::try_from(held).map_or(Mix::OPAQUE, |held| held.min(Mix::OPAQUE))
 }
 
 #[cfg(test)]
@@ -264,12 +298,18 @@ mod tests {
     fn a_mix_is_held_to_the_nearest_sixteenth_of_a_level() {
         // A level and 120/256 is 7.5 sixteenths, a half, and goes up; a
         // level and 119/256 is under it and goes down.
-        assert_eq!(sixteenths(5 * PARTS + 120 * 256), 5 * 16 + 8);
-        assert_eq!(sixteenths(5 * PARTS + 119 * 256), 5 * 16 + 7);
-        assert_eq!(sixteenths(200 * PARTS + 136 * 256), 200 * 16 + 9);
-        assert_eq!(sixteenths(255 * PARTS), Mix::OPAQUE);
-        assert_eq!(sixteenths(0), 0);
-        assert_eq!(sixteenths(u64::MAX / 2), Mix::OPAQUE);
+        assert_eq!(sixteenths(5 * PARTS + 120 * 256, PARTS), 5 * 16 + 8);
+        assert_eq!(sixteenths(5 * PARTS + 119 * 256, PARTS), 5 * 16 + 7);
+        assert_eq!(sixteenths(200 * PARTS + 136 * 256, PARTS), 200 * 16 + 9);
+        assert_eq!(sixteenths(255 * PARTS, PARTS), Mix::OPAQUE);
+        assert_eq!(sixteenths(0, PARTS), 0);
+        assert_eq!(sixteenths(u64::MAX / 2, PARTS), Mix::OPAQUE);
+        // Counted in 2^24ths, as two levels mixed in 256ths are: the same
+        // half rounds up.
+        assert_eq!(
+            sixteenths((5 * PARTS + 120 * 256) * 256, PARTS * 256),
+            5 * 16 + 8
+        );
     }
 
     #[test]
@@ -284,7 +324,7 @@ mod tests {
         for level in 0..255_u64 {
             for part in 0..256_u64 {
                 let mix = level * PARTS + part * 256;
-                let held = sixteenths(mix);
+                let held = sixteenths(mix, PARTS);
                 let grey = Mix {
                     red: held,
                     green: held,
@@ -309,9 +349,10 @@ mod tests {
         };
         let mix = sample(&one, alone, alone).expect("on it");
         assert_eq!((mix.red, mix.alpha), (71 * 16, 89 * 16));
-        assert_eq!(premultiplied(202, 89), 71);
-        assert_eq!(premultiplied(255, 255), 255);
-        assert_eq!(premultiplied(9, 0), 0);
+        assert_eq!(premultiply(202, 89), 71);
+        assert_eq!(premultiply(255, 255), 255);
+        assert_eq!(premultiply(9, 0), 0);
+        assert_eq!(premultiplied((202, 9, 255, 89)), [71, 3, 89, 89]);
     }
 
     #[test]

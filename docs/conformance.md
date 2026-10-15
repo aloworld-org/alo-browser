@@ -485,11 +485,15 @@ pixel at one, 1.5 and two. Text is not compared (576). An `outline` is not drawn
 and a height set is that size, on a line, as a block, as a flex item and
 positioned, and its `min-` and `max-` limits are CSS 2 § 10.4's (590);
 `pictures-sized-on-a-line` is Chrome's in all 35 boxes at one and at two,
-and in every pixel of each picture drawn no smaller than it is, smoothed
-across its texels as Chrome smooths it (594); nine drawn smaller on an
-axis at one, and one at two, are Chrome's in every plain pixel and
-differ where `wide.png`'s halves meet, which Chrome samples through
-mipmaps (179). `a-picture`'s PNG drawn at 80 and 30 is Chrome's in every
+and in every pixel of every picture at one and at two: smoothed across
+its texels as Chrome smooths it (594), and drawn through Chrome's mipmap
+levels where it is smaller on both axes or after a draw of the same file
+that was (179). `pictures-drawn-smaller`, ten draws of seven random-colour
+files, is Chrome 155's in every pixel at one and at two but four, each a
+level apart in one channel where the mix lies within a thirtieth of a
+sixteenth of half way. An odd-sided picture's copy (611), a translucent
+picture drawn smaller (612) and levels made after a first draw without
+them (614) are not measured to the level. `a-picture`'s PNG drawn at 80 and 30 is Chrome's in every
 pixel, and `a-picture-in-each-format`'s GIFs and lossless and animated
 WebPs at twice their size; a JPEG or a lossy WebP differs by what its
 decoder gives (a level for the JPEG, up to 14 for the lossy WebP); its
@@ -693,8 +697,8 @@ it. A blur under a non-uniform scale or a skew is softened by the average of
 the two axes, because a blur radius is one number. A picture under a
 rotation, skew or mirror is drawn turned with its box and its outline is
 smooth, but it is sampled nearest-neighbour, so the stripes *inside* a turned
-picture, or one drawn smaller than it is, have stepped edges — one drawn
-larger is smoothed as Chrome smooths it (594); and a picture ignores a clip in force,
+picture have stepped edges (613) — an upright one drawn larger or smaller
+is filtered as Chrome filters it (594, 179); and a picture ignores a clip in force,
 so one inside `overflow: hidden` is drawn whole. A picture is read as PNG,
 JPEG, GIF or WebP. An animated GIF or WebP is drawn as its first frame and
 does not move. AVIF is refused and the `<img>` keeps the box its style asked

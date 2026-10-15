@@ -37088,3 +37088,160 @@ Owed loses 603 and keeps 518. Not ticked.
 285 queue items are open (603 closed). The next unused queue number is
 **611** and the next ADR is **0058**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 367 — queue item 179: a picture drawn smaller than it is
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its states, and stage 2's image codecs line, whose Owed named 179),
+iterations 358's, 364's, 365's and 366's entries, queue items 179, 176,
+591, 594, 600, 601 and 604–610, `docs/features.md`' picture lines in stage
+2, `docs/conformance.md` on pictures, `alo-paint`'s `bilinear.rs`,
+`mix_onto.rs`, `drawn_picture.rs`, `render.rs` and `canvas.rs`, and
+`alo-renderer`'s `pictures.rs`. No `AGENTS.md` exists here. The item names
+no ADR; ADR 0057 (whole device pixels) bears on where a picture is drawn
+and was not changed.
+
+**Why 179.** It is the first open item in the file whose dependencies are
+done. 176 is done, and since iteration 358 the frozen case
+`pictures-sized-on-a-line` opens 179 with a closing condition: its law-3
+wait for a page is met. Iterations 359–366 took 594–603 after it without
+saying why 179 waited, and nothing in the queue or the journal says it
+does. The items between it and 594 wait as earlier iterations recorded.
+
+**Measured.** Chrome 155 (`155.0.8059.41`), headless,
+`--force-device-scale-factor=1` and `=2`, screenshots without
+`--disable-gpu`, the source not read (scratchpad `m179/`):
+random-colour pictures, nearly all each in a file of its own, every pixel
+compared against Python models, with least-squares fits of the filter's
+weights from stripe pictures.
+- Bilinear unless the box is smaller on **both** axes in device pixels: a
+  64 × 4 picture at every width 2–63 × 4, and 32 × 32 at 4 × 32 and 4 × 40,
+  exact at one and at two.
+- Chrome uploads the largest level that still covers the box, each side
+  halved rounded up, and draws that copy. It is bilinear when the box is
+  no smaller than the copy on an axis (32 × 32 drawn 16 × 4 is level one
+  drawn at its own width), otherwise trilinear in the copy's own chain.
+- Levels are Skia's: halved rounded down, two texels or one-two-one, the
+  sum rounded down. 698 of 700 random stripes 64–255 wide are exact.
+  Rounding to the nearest, or plain pairs on odd sides, missed widely.
+- The level of detail is in 256ths: `round(256 · log2(r)) − 120`, with
+  the larger ratio's log2 taken straight between its values at quarters
+  of the mantissa, as a GPU takes it. 755 of 773 measured ratios are
+  exact; every other one lies within 0.03 of a 256th from a half.
+  Mantissa or table precision moved none of those. Plain log2 less 0.475
+  missed most ratios by one or two.
+- The two levels' bilinear mixes are weighed unrounded and held once in
+  sixteenths. That misses 1,537 of 1,578,102 channels, all in the bottom
+  rows of a 127-tall draw where the vertical weight is worked in floats.
+  Holding each level's mix first missed 19,497.
+- **Chrome keeps one decoded picture per file.** Whether a copy (file and
+  level) has levels is decided by its first draw, and once it has them
+  every later draw of it is trilinear by its larger ratio, even a draw
+  smaller on one axis only. Pages A, F and G: exact. A copy first drawn
+  one level down leaves the picture's own copy unlevelled: page H, exact.
+  A copy first drawn without levels gets levels Chrome makes otherwise:
+  pages D and I, 98 of 1,200 off. That last case is cut as 614.
+- Where an odd side is halved on the way to the copy, the copy is a texel
+  larger than Skia's level, and fits Skia's level below it resampled
+  bilinear and rounded in 316 of 416 rows. Widths 13, 21, 45 and 75 take
+  another path. Cut as 611.
+
+**Built.** `alo-paint`:
+- `mip_level.rs` (new): `Level`, a premultiplied texel grid, with
+  `halved` (Skia's), `resampled` (exact rationals, rounded) and
+  `uploaded` (Chrome's copy and its number of halvings).
+- `picture_filter.rs` (new): `Uploads`, the paint's memory of copies,
+  and `Filtered`, the per-pixel mix, with `detail` and `log2_as_drawn`.
+- `bilinear.rs`: now samples any premultiplied texels (`mixed`,
+  `premultiplied`, `Mix::held`), with the same arithmetic as before.
+- `drawn_picture.rs`: the upright path draws through `Filtered`, given the
+  paint's `Uploads`, which `render.rs` keeps for one paint.
+
+`alo-renderer`'s `pictures.rs` decodes each `src` once and shares it
+among every `<img>` naming it, as Chrome's cache does.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first (two `must_use`
+and one `single_match_else` fixed). `scripts/gate.sh` was started in the
+foreground. It ran past the tool's 600 s limit and was moved to the
+background by the harness, and the next call waited on it with an
+until-loop and read it in the same step: **`exit 0`, "The gate is met.
+(10 of 10 steps)"**, 5,052 tests run, 5,052 passed. Only this entry and
+the commit came after it.
+
+**Gate, manual.**
+- The closing condition: `pictures_sized_on_a_line.rs` now asserts every
+  device pixel inside every one of the 25 pictures' border boxes is
+  Chrome's exactly, at one and at two. It passes. Before, nine pictures at
+  one and one at two had only their plain pixels compared, and they
+  differed at `wide.png`'s seam. That case's Chrome pictures are Chrome
+  154's; the rule was measured in 155, and both agree on every pixel.
+- New case `pictures-drawn-smaller`: ten draws of seven random-colour
+  files on whole pixels, with Chrome 155's `chrome.png` and
+  `chrome-at-2.png` (RGBA). It covers:
+  - a copy one and two levels down;
+  - shares 53, 136, 158 and 241, and a whole level and 241;
+  - the paint-order rule, both ways;
+  - a 48 × 24 copy;
+  - one-axis and too-little-smaller draws.
+
+  `pictures_drawn_smaller.rs` asserts each box in CSS pixels at one and
+  at two (a layout assertion in numbers). It asserts every pixel of the
+  page at both scales is Chrome's but four, named in `ROUNDED_APART`: one
+  channel a level apart where the mix is within 0.035 of a half-sixteenth
+  (1,335.49, 2,039.51, 2,520.50, 2,552.53).
+- Numbers: unit tests in `mip_level.rs` (pairs and one-two-one rounded
+  down, both axes rounded once, premultiplied, resampling, the uploaded
+  copy and its steps) and `picture_filter.rs` (the logarithm between
+  quarters, the measured shares, one-axis and slightly smaller draws
+  bilinear, the mix, and pages A, D, H and I's memory).
+- Reference renders: the corpus was run with `ALO_UPDATE_REFERENCES=1`
+  (cases backed up first). Only `pictures-sized-on-a-line`'s `render.png`
+  (204 pixels) and `render-at-2.png` moved, and the new case's references
+  were written. Both were looked at beside Chrome's at 5× and 6×: alike.
+- Mutation, each restored from a copy (`cmp` confirmed):
+  - no memory of earlier draws;
+  - a bias of 121;
+  - plain log2;
+  - levels rounded to the nearest;
+  - an upload covering either axis.
+
+  Each fails unit tests and the new case. "Shrinks on both axes" as
+  "either" survived. It was equivalent, because `uploaded` already stays
+  at the picture then, and the redundant test was removed.
+- Hostile input: nothing new reads bytes. Level sizes come from a decoded
+  picture already bounded by `agreed_size`. Every sum is `u64`, and every
+  index is a checked `get`.
+- One file, one responsibility: what levels hold is `mip_level.rs`'; which
+  filter a draw takes, including what earlier draws decided, is
+  `picture_filter.rs`'; which pixels a picture covers stays
+  `drawn_picture.rs`'.
+- Cost: a draw now builds the levels it needs. None measured; no speed
+  claim.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 179 is ticked with a *Done* paragraph, its scope cut into
+**611** (the copy where an odd side is halved), **612** (a translucent
+picture drawn smaller, mixed premultiplied and unmeasured), **613** (a
+turned picture, still one texel a pixel) and **614** (levels made for a
+copy first drawn without them).
+
+**Roadmap.** Stage 2's image codecs line: a *since queue item 179* clause
+in its Built. Its Owed loses 179 and gains 611–614. Not ticked.
+
+**Unresolved obligations.**
+- 611, 612, 613, 614, as above.
+- Within a paint, Chrome's cache is modelled per file and level. Across
+  raster tiles and frames it is not measured. A page that draws one file
+  in two tiles may differ.
+- 591, 601, 604–610; 576, 577, 585, 586 as before; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501;
+  538 waits on a page.
+- No claim about speed is made.
+
+288 queue items are open (179 closed, 611–614 cut). The next unused
+queue number is **615** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

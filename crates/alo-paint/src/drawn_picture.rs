@@ -31,41 +31,50 @@
 //! The upright path is not a shortcut through the turned one. Sampling at a
 //! pixel's centre picks different source pixels from sampling at its corner
 //! whenever the picture is scaled, so folding the two together would move
-//! every scaled picture in the corpus — which is item 179's question, decided
+//! every scaled picture in the corpus — which is item 613's question, decided
 //! when a page asks it, not a side effect of this one.
 //!
 //! # Smoothed, and where it is still nearest-neighbour
 //!
-//! An upright picture drawn no smaller than it is on either axis is smoothed
-//! across its texels as Chrome 154 smooths it, which [`crate::bilinear`]
-//! holds (queue item 594), and put onto the pixel beneath as Chrome puts
-//! it, which [`crate::mix_onto`] holds (600): at its own size that is every
-//! texel exactly.
-//! Drawn smaller on either axis, or turned, it is still one pixel of the
-//! picture per pixel of the page, coarse when scaled, so a rotated picture's
-//! stripes have stepped edges *inside* it while its outline is smooth. Item
-//! 179.
+//! An upright picture is smoothed as Chrome smooths it for the box it is
+//! drawn into, which [`crate::picture_filter`] decides: across its texels
+//! when it is drawn no smaller on an axis, which [`crate::bilinear`] holds
+//! (queue item 594), and through Chrome's mipmap levels when it is drawn
+//! smaller on both (179); and each pixel is put onto the pixel beneath as
+//! Chrome puts it, which [`crate::mix_onto`] holds (600). At its own size
+//! that is every texel exactly.
+//! A turned picture is still one pixel of the picture per pixel of the page,
+//! coarse when scaled, so a rotated picture's stripes have stepped edges
+//! *inside* it while its outline is smooth. Item 613.
 
-use crate::bilinear::{sample, taps};
 use crate::canvas::Canvas;
 use crate::mix_onto::onto;
 use crate::path::Path;
+use crate::picture_filter::Uploads;
 use crate::raster::fill;
 use crate::render::{pixel_centre, place};
 use alo_layout::Rect;
 use alo_value::Matrix;
+use std::sync::Arc;
 
-/// Draw a picture into a rectangle in page coordinates, under a transform.
+/// Draw a picture into a rectangle in page coordinates, under a transform,
+/// after the draws `uploads` remembers from the same paint.
 ///
 /// A picture or a rectangle with no area draws nothing, and so does a
 /// transform that flattens the rectangle onto a line — there is nothing it
 /// could be drawn into.
-pub fn draw_picture(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix) {
+pub fn draw_picture(
+    target: &mut Canvas,
+    picture: &Arc<Canvas>,
+    rect: Rect,
+    transform: Matrix,
+    uploads: &mut Uploads,
+) {
     if picture.width() == 0 || picture.height() == 0 {
         return;
     }
     if keeps_upright(transform) {
-        upright(target, picture, rect, transform);
+        upright(target, picture, rect, transform, uploads);
     } else {
         turned(target, picture, rect, transform);
     }
@@ -79,7 +88,13 @@ fn keeps_upright(transform: Matrix) -> bool {
 }
 
 /// The upright path: the transformed corners, filled in whole pixels.
-fn upright(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix) {
+fn upright(
+    target: &mut Canvas,
+    picture: &Arc<Canvas>,
+    rect: Rect,
+    transform: Matrix,
+    uploads: &mut Uploads,
+) {
     // The corners, transformed once. Everything after this is integers, so that
     // the per-pixel arithmetic cannot lose anything and does not need a cast
     // this crate's lints refuse.
@@ -90,49 +105,24 @@ fn upright(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix)
     let down = whole(bottom - top);
     let (at_x, off_x) = (whole(left), off_the_page(left));
     let (at_y, off_y) = (whole(top), off_the_page(top));
-    let wide = picture.width();
-    let tall = picture.height();
     if across == 0 || down == 0 {
         return;
     }
 
-    // Drawn no smaller than it is, it is smoothed across its texels as Chrome
-    // smooths it (queue item 594).
-    if across >= wide && down >= tall {
-        let columns = taps(across, wide);
-        let rows = taps(down, tall);
-        // A picture that starts left of or above the page has its first
-        // columns or rows off it, and they are passed over rather than the
-        // picture slid back onto the page.
-        for (y, row) in (0..down).zip(rows).skip(whole_index(off_y)) {
-            for (x, column) in (0..across).zip(&columns).skip(whole_index(off_x)) {
-                let Some(mix) = sample(picture, *column, row) else {
-                    continue;
-                };
-                target.replace(at_x + x - off_x, at_y + y - off_y, |under| onto(mix, under));
-            }
-        }
-        return;
-    }
-
-    // Drawn smaller, it is still one texel a pixel: item 179.
+    // Smoothed as Chrome smooths it for this box: bilinear across its texels
+    // (queue item 594), or through its mipmap levels when it is drawn
+    // smaller on both axes (179). A picture that starts left of or above the
+    // page has its first columns or rows off it, and they are passed over
+    // rather than the picture slid back onto the page.
+    let filtered = uploads.filtered(picture, across, down);
     for y in off_y..down {
-        // Which row of the picture this row comes from, in whole numbers: the
-        // destination row scaled by the picture's height over the box's.
-        let from_y = (y * tall / down).min(tall - 1);
         for x in off_x..across {
-            let from_x = (x * wide / across).min(wide - 1);
-            let Some(colour) = picture.at(from_x, from_y) else {
+            let Some(mix) = filtered.mix(x, y) else {
                 continue;
             };
-            target.blend(at_x + x - off_x, at_y + y - off_y, colour, 255);
+            target.replace(at_x + x - off_x, at_y + y - off_y, |under| onto(mix, under));
         }
     }
-}
-
-/// A count of pixels to pass over, as an index.
-fn whole_index(count: u32) -> usize {
-    usize::try_from(count).unwrap_or(usize::MAX)
 }
 
 /// How many whole pixels an edge at `value` starts before the page's own,
@@ -283,7 +273,13 @@ mod tests {
 
     fn drawn(transform: Matrix) -> Canvas {
         let mut canvas = Canvas::new(40, 40, Rgba::WHITE);
-        draw_picture(&mut canvas, &quarters(), square(), transform);
+        draw_picture(
+            &mut canvas,
+            &Arc::new(quarters()),
+            square(),
+            transform,
+            &mut Uploads::default(),
+        );
         canvas
     }
 
@@ -413,7 +409,13 @@ mod tests {
             e: 0.0,
             f: 0.0,
         };
-        draw_picture(&mut canvas, &quarters(), rect, half_turn);
+        draw_picture(
+            &mut canvas,
+            &Arc::new(quarters()),
+            rect,
+            half_turn,
+            &mut Uploads::default(),
+        );
         // About the page's own corner, the picture lands back over (-10, -10)
         // to (10, 10) upside down: its red quarter is now bottom right.
         assert_eq!(canvas.at(5, 5), Some(RED));
@@ -441,7 +443,13 @@ mod tests {
         // as from 0 to 10 and from 10 to 20.
         let mut canvas = Canvas::new(20, 20, Rgba::WHITE);
         let rect = Rect::new(-5.0, -5.0, 20.0, 20.0);
-        draw_picture(&mut canvas, &large_quarters(), rect, Matrix::IDENTITY);
+        draw_picture(
+            &mut canvas,
+            &Arc::new(large_quarters()),
+            rect,
+            Matrix::IDENTITY,
+            &mut Uploads::default(),
+        );
         assert_eq!(canvas.at(0, 0), Some(RED));
         assert_eq!(canvas.at(4, 4), Some(RED));
         assert_eq!(canvas.at(5, 0), Some(GREEN));
@@ -457,7 +465,13 @@ mod tests {
         // as `snap.rs` rounds: from -5.5 the picture starts at -5.
         let mut canvas = Canvas::new(20, 20, Rgba::WHITE);
         let rect = Rect::new(-5.5, 0.0, 10.0, 10.0);
-        draw_picture(&mut canvas, &quarters(), rect, Matrix::IDENTITY);
+        draw_picture(
+            &mut canvas,
+            &Arc::new(quarters()),
+            rect,
+            Matrix::IDENTITY,
+            &mut Uploads::default(),
+        );
         assert_eq!(canvas.at(4, 0), Some(GREEN));
         assert_eq!(canvas.at(5, 0), Some(Rgba::WHITE));
     }

@@ -1,0 +1,25 @@
+/* Pictures drawn smaller than they are (queue item 179). Each file is
+   random colours, so a texel mixed from the wrong level, at the wrong share
+   or rounded the wrong way shows. Each sits on whole pixels. At one:
+   `a-first`, 10 × 10 of 32, is level one's 16 × 16 copy mixed with its next
+   level; `a-later` is a second copy, the picture's own, mixed by its larger
+   ratio, four, a whole level and 136/256 down. `b-first` mixes at
+   53/256, and `b-later`, smaller down only, is mixed after it because its
+   copy already has levels. `c-first` is level two's copy drawn at its own
+   size; `c-later` the picture's own at 158/256. `d` is a level and
+   241/256 down, `e` 48 × 24 a copy a level down at 241/256, `f` smaller
+   down only and so bilinear, `g` 24 × 24 of 32 too little smaller to mix.
+   At two most of them grow. `tests/pictures_drawn_smaller.rs` has Chrome's
+   pixels. */
+body { margin: 0; background: #ffffff }
+img { position: absolute; display: block }
+.a-first { left: 2px; top: 2px; width: 10px; height: 10px }
+.a-later { left: 14px; top: 2px; width: 20px; height: 8px }
+.b-first { left: 36px; top: 2px; width: 20px; height: 20px }
+.b-later { left: 58px; top: 2px; width: 40px; height: 10px }
+.c-first { left: 100px; top: 2px; width: 16px; height: 4px }
+.c-later { left: 118px; top: 2px; width: 30px; height: 10px }
+.d { left: 2px; top: 26px; width: 6px; height: 22px }
+.e { left: 10px; top: 26px; width: 9px; height: 7px }
+.f { left: 21px; top: 26px; width: 32px; height: 10px }
+.g { left: 55px; top: 26px; width: 24px; height: 24px }

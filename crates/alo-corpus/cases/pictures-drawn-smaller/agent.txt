@@ -1,0 +1,11 @@
+document at (0, 0) 500×0
+  image at (2, 2) 10×10
+  image at (14, 2) 20×8
+  image at (36, 2) 20×20
+  image at (58, 2) 40×10
+  image at (100, 2) 16×4
+  image at (118, 2) 30×10
+  image at (2, 26) 6×22
+  image at (10, 26) 9×7
+  image at (21, 26) 32×10
+  image at (55, 26) 24×24

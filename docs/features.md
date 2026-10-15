@@ -212,7 +212,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (419), and a picture still on its way (420)
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed
   or mirrored with its box, its outline anti-aliased like any other edge
-  (queue item 178); sampled nearest-neighbour inside (item 179)
+  (queue item 178); sampled nearest-neighbour inside (item 613)
 - [2] **A picture drawn larger than it is is smoothed across its texels**
   (queue item 594, `alo-paint`'s `bilinear.rs`), as Chrome 154 was measured
   to smooth 37 probe pictures at one and at two and 1,470,000 channel
@@ -233,10 +233,30 @@ The reason this exists rather than a faster fork of somebody else's engine.
   pixel at one and at two, and the see-through WebP of
   `a-picture-in-each-format` too. Not yet: a translucent picture over a
   pixel that is not opaque either, inside a group drawn at an opacity,
-  still composited in floats and not measured; a picture
-  drawn smaller on either axis, through Chrome's mipmaps, or turned (179);
-  and `image-rendering`, whose `pixelated` and `crisp-edges` Chrome draws
+  still composited in floats and not measured; a turned
+  picture (613); and `image-rendering`, whose `pixelated` and `crisp-edges` Chrome draws
   one texel a pixel from each pixel's centre (601)
+- [2] **A picture drawn smaller than it is on both axes goes through
+  Chrome's mipmap levels** (queue item 179, `alo-paint`'s `mip_level.rs`
+  and `picture_filter.rs`), as Chrome 155 was measured on hundreds of
+  random-colour pictures at one and at two. Smaller on one axis only, it
+  is bilinear. Smaller on both, Chrome uploads the largest level that
+  still covers the box (each side halved, rounded up), and draws it
+  bilinear, or mixed from two levels of its chain when the box is smaller
+  than it on both axes. A level is Skia's: each side halved rounded down,
+  two texels or one-two-one, the sum rounded down. The two levels and the
+  farther's share in 256ths come from the larger ratio's logarithm as a
+  GPU takes it, straight between quarters of the mantissa, less 120/256.
+  The mix is held in sixteenths once. One file is decoded once for every
+  `<img>` naming it, and once a draw of a copy has gone through its levels,
+  every later draw of that copy does too, by its larger ratio.
+  `pictures-sized-on-a-line` is Chrome's in every pixel of all 25 pictures
+  at one and at two, and `pictures-drawn-smaller` in all but four pixels,
+  each one level apart where the mix is within a thirtieth of a sixteenth
+  of half way. Not yet: the copy Chrome makes where an odd side is halved,
+  built as the rule that fitted best (611); a translucent picture drawn
+  smaller, mixed premultiplied and not measured (612); and levels Chrome
+  makes for a copy first drawn without them (614)
 - [2] **PNG and JPEG from a page**, with the format taken from the bytes rather
   than the name, and the same bounds either way
 - [2] **GIF and WebP from a page** (queue item 180): GIF87a and GIF89a with
