@@ -517,8 +517,12 @@ no width resetting it, and a width longhand takes the named widths (602);
 `borders-with-no-width-written` is Chrome's in numbers and in every plain
 pixel at one and at two, its blends within 82 of 255 — the worst on a
 mitre between two colours of different widths, whose seam Chrome mixes
-evenly and this engine does not (518). `border` or `border-<side>` written
-after one of its longhands does not override it (603). Where a line under text falls at two is not measured (566).
+evenly and this engine does not (518). A `border` or `border-<side>` that
+beats one of its longhands in the cascade — written later, in a later
+rule, or from the `style` attribute — overrides it, and one that loses to
+it does not (603); `border-shorthands-after-longhands` is Chrome 155's in
+numbers and in every plain pixel at one and at two, its blends within 76
+of 255, on two two-colour mitres (518), and exact elsewhere. Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (items 562 and 599, ADR 0057 § 3).
 The window tells the page's renderer and the strip's its screen's scale —

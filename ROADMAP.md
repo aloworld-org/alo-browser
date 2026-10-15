@@ -319,9 +319,13 @@ correctness, not before it.
       no width resets it, and a width longhand takes `thin`, `medium` and
       `thick` (`alo-value`'s `parse_line_width`,
       `borders-with-no-width-written` Chrome's in numbers and every plain
-      pixel at one and at two). Owed: `border` written after a longhand
-      overrides it (603), and a two-colour mitre's seam anti-aliased as
-      Chrome's (518).
+      pixel at one and at two). Since queue item 603 (iteration 366) a
+      side's shorthand takes out the longhands it beat in the cascade, as
+      `border` already did, so `border-left` written after
+      `border-left-style` overrides it (`alo-style`'s `cascade.rs`,
+      `border-shorthands-after-longhands` Chrome's in numbers and every
+      plain pixel at one and at two). Owed: a two-colour mitre's seam
+      anti-aliased as Chrome's (518).
       Since queue item
       573 (iteration 349) a spread shadow's corners are Chrome's —
       square on a square box, a radius under the spread grown by less of

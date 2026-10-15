@@ -8,7 +8,7 @@
 //! [`crate::shorthand`] splits the shorthands whose parts are told apart by
 //! **counting**, and its tables say which longhands each one becomes. The
 //! shorthands whose parts are told apart by **kind** — `background`,
-//! `border`, `font` — are never split: a block holds them whole and the
+//! `border` and its four sides, `font` — are never split: a block holds them whole and the
 //! stage that uses them reads them, longhand first. (`font` as a CSS-wide
 //! keyword alone is the one exception, split into this list by
 //! [`crate::font`].) Their longhands are
@@ -28,7 +28,7 @@
 use crate::shorthand::{GAPS, LOGICAL_AXES, PAIRED, SIDED};
 
 /// The shorthands read by kind, and every longhand each one sets or resets.
-static BY_KIND: [(&str, &[&str]); 3] = [
+static BY_KIND: [(&str, &[&str]); 7] = [
     (
         "background",
         &[
@@ -72,6 +72,36 @@ static BY_KIND: [(&str, &[&str]); 3] = [
             "border-top-style",
             "border-top-width",
             "border-width",
+        ],
+    ),
+    // A side's shorthand sets that side's three longhands and nothing else
+    // — not `border-image`, which only `border` resets (queue item 603).
+    (
+        "border-top",
+        &["border-top-color", "border-top-style", "border-top-width"],
+    ),
+    (
+        "border-right",
+        &[
+            "border-right-color",
+            "border-right-style",
+            "border-right-width",
+        ],
+    ),
+    (
+        "border-bottom",
+        &[
+            "border-bottom-color",
+            "border-bottom-style",
+            "border-bottom-width",
+        ],
+    ),
+    (
+        "border-left",
+        &[
+            "border-left-color",
+            "border-left-style",
+            "border-left-width",
         ],
     ),
     (
@@ -187,6 +217,18 @@ mod tests {
             longhands("font")
                 .unwrap_or_default()
                 .contains(&"line-height")
+        );
+        assert_eq!(
+            longhands("border-left"),
+            Some(
+                [
+                    "border-left-color",
+                    "border-left-style",
+                    "border-left-width"
+                ]
+                .as_slice()
+            ),
+            "a side's three, and not border-image",
         );
     }
 

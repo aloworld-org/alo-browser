@@ -36983,3 +36983,108 @@ Owed loses 602 and names 518's two-colour mitre beside 603. Not ticked.
 286 queue items are open (602 closed). The next unused queue number is
 **611** and the next ADR is **0058**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 366 — queue item 603: a border shorthand after its longhand
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its states, and stage 1's paint line whose Owed named 603), iterations
+364's and 365's entries, queue items 601–610 and 518,
+`docs/features.md`' box model line and its *Shorthands compete with
+longhands* line, `docs/conformance.md` on borders, `alo-css`'
+`declaration.rs`, `shorthand.rs`, `longhand.rs` and `inline.rs`,
+`alo-style`'s `cascade.rs`, and the border readers in `alo-layout`'s
+`style.rs` and `border_style.rs` and `alo-paint`'s `build.rs`. No
+`AGENTS.md` exists here. The item names no ADR; ADR 0033 § 5 (which
+longhands CSSOM's `setProperty` and `removeProperty` take out) shares
+`longhand.rs`' lists and was not changed.
+
+**Why 603.** The first open item whose dependencies are done: those before
+it wait as iteration 365 recorded, and 601 is `blocked: no page yet`. 603
+depends on nothing and names its feature and its closing condition.
+
+**What was wrong, exactly.** Half of what the item said was already fixed:
+`border` takes out the longhands it beat in the cascade
+(`reset_by_shorthands`, queue item 509), so `border-style: none; border:
+5px solid` was right. The side shorthands were not in that list, and
+every reader — layout's width and style, paint's colour — takes the
+longhand first, so `border-left-style: none; border-left: 5px solid` was
+no left border, and the case's first run said so (`side-after-style`: a
+border of `[0, 0, 0, 0]` where Chrome's is `[0, 0, 0, 5]`).
+
+**Measured.** Chrome 155 (`155.0.8059.41`), headless,
+`--force-device-scale-factor=1` and `=2`, screenshots without
+`--disable-gpu`, the source not read (scratchpad `m603/`): twelve boxes,
+`getComputedStyle` widths, styles and colours per side and
+`getBoundingClientRect()` — identical at one and at two. A shorthand
+after its longhand in one block, in a later rule and from the `style`
+attribute wins; a longhand after it, in a more specific rule, or
+`!important` wins; `border` after a side's shorthand wins.
+
+**Built.** `alo-css`' `longhand.rs`: `border-top`, `-right`, `-bottom`
+and `-left`, each its side's colour, style and width (not `border-image`,
+which only `border` resets). `alo-style`'s `cascade.rs`: `RESET_BY`
+names the four. Their order against `border` does not matter — whatever
+a side's shorthand that `border` beat would take out, `border` beat too —
+and the comment says so. CSSOM now takes a written `border-left-color`
+out of a `style` attribute when `border-left` is set, as ADR 0033 § 5
+asks of a shorthand.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first.
+`scripts/gate.sh` was started in the foreground; it ran past the tool's
+600 s limit and was moved to the background by the harness, and the next
+call waited on it with an until-loop and read it in the same step:
+**`exit 0`, "The gate is met. (10 of 10 steps)"**, 5,028 tests run, 5,028
+passed. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- The closing condition: new case `border-shorthands-after-longhands`,
+  twelve boxes 24 × 20 inside their borders, with Chrome 155's
+  `chrome.png` and `chrome-at-2.png` (RGBA). In
+  `border_shorthands_after_longhands.rs` every box's border box is
+  Chrome's within a 128th and its four widths Chrome's at one and at two,
+  and every pixel both pictures have as a plain colour is the same colour
+  at both scales (counted separately: 0 plain mismatches at either).
+- Numbers: a cascade unit test (a side's shorthand later in a block, in a
+  later rule, and by the page over the engine's `border-color` on a
+  disabled button takes out its side's longhands; an id's longhand and a
+  later `border` are kept as winners; another side's longhand is left)
+  and a `longhand.rs` assertion of `border-left`'s three.
+- Blends: measured at zero bound first — 76 on `side-after-color`'s
+  red/blue mitre and 60 on `side-over-all`'s, at both scales, and every
+  other blend Chrome's exactly. `EDGE` is 76 and says so; the mitre is
+  518's, noted there rather than as a duplicate item.
+- Reference renders: the new case's `render.png` and `render-at-2.png`,
+  looked at beside Chrome's (identical to the eye). The corpus was run
+  with `ALO_UPDATE_REFERENCES=1` (cases backed up first): **no existing
+  reference moved**.
+- Mutation, each restored from a copy (`cmp` confirmed): the four sides
+  taken out of `RESET_BY` (the unit test and all three case tests fail);
+  `border-left` covering `border-top-color` as well (the unit test fails).
+- Hostile input: nothing new reads bytes from outside.
+- One file, one responsibility: which longhands a shorthand covers stays
+  `longhand.rs`', which win the cascade's.
+- Cost: none measured; no speed claim.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 603 is ticked with a *Done* paragraph. 518 gains a note of this
+case's two mitres. Nothing cut.
+
+**Roadmap.** Stage 1's paint line: a *since queue item 603* clause; its
+Owed loses 603 and keeps 518. Not ticked.
+
+**Unresolved obligations.**
+- 518 (a two-colour mitre's seam).
+- `background` and `border` were already reset; `font` is still held
+  whole and not reset (513), as the code says.
+- 591, 601, 604–610 and 179; 576, 577, 585, 586 as before; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page.
+- No claim about speed is made.
+
+285 queue items are open (603 closed). The next unused queue number is
+**611** and the next ADR is **0058**. This is one iteration, not a
+finished queue or roadmap.

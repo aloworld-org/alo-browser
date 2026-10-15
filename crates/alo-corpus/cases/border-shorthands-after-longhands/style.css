@@ -1,0 +1,35 @@
+/* A border shorthand written after one of its longhands (queue item 603).
+   `border` and `border-<side>` are held whole beside their longhands, and
+   every reader takes a longhand first; so a side shorthand that beat a
+   longhand in the cascade — written later, in a later rule, or from the
+   `style` attribute — was overridden by the longhand it beat. Here each
+   shorthand and longhand compete as the one property they are: the later
+   wins at equal standing, and specificity and `!important` still decide
+   first. `tests/border_shorthands_after_longhands.rs` says how near
+   Chrome. */
+body { margin: 0; background: #ffffff }
+.b { position: absolute; width: 24px; height: 20px; background: #fde68a }
+.side-after-style { left: 15px; top: 15px; border-left-style: none;
+  border-left: 5px solid #c0392b }
+.all-after-style { left: 75px; top: 15px; border-style: none;
+  border: 5px solid #1d4ed8 }
+.all-after-width { left: 135px; top: 15px; border-top-width: 1px;
+  border: 4px solid #1d4ed8 }
+.side-after-color { left: 195px; top: 15px; border: 4px solid #1d4ed8;
+  border-bottom-color: #1d4ed8; border-bottom: 6px solid #c0392b }
+.longhand-after-side { left: 255px; top: 15px; border-left: 6px solid #c0392b;
+  border-left-width: 2px }
+.across-rules { left: 315px; top: 15px; border-top-width: 1px;
+  border-top-style: dotted }
+.later-rule { border-top: 6px solid #c0392b }
+#specific { border-right-width: 1px }
+.specific-longhand { left: 375px; top: 15px; border-right: 6px solid #c0392b }
+.important-longhand { left: 435px; top: 15px;
+  border-left-color: #1d4ed8 !important; border-left: 6px solid #c0392b }
+.attached { left: 15px; top: 75px; border-top-style: none }
+.all-after-side { left: 75px; top: 75px; border-left: 8px solid #c0392b;
+  border: 3px solid #1d4ed8 }
+.side-over-all { left: 135px; top: 75px; border: 2px solid #1d4ed8;
+  border-top-style: none; border-top: 4px solid #c0392b }
+.tenths { left: 195.3px; top: 75.6px; border-right-width: 1px;
+  border-right-color: #1d4ed8; border-right: 5px solid #c0392b }

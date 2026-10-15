@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A side's border shorthand overrides the longhand before it.**
+  `border-left-style: none; border-left: 5px solid red` drew no left
+  border here, because the earlier `border-left-style` was read first
+  whichever came later; the same went for a later rule's or a `style`
+  attribute's `border-top` over a sheet's `border-top-width`, and for a
+  page's `border-left` on a disabled button, whose engine colour stayed.
+  A side's shorthand now beats the longhands it beats in the cascade, as
+  `border` already did, and a longhand written later, more specifically or
+  `!important` still wins. A new page of twelve such boxes is Chrome's in
+  every box and every plain pixel at normal and double resolution.
+
 - **A border given a style and no width is drawn.** A sheet that writes
   `border-style: solid`, or `border: solid red`, and no width meant a
   border three pixels wide — CSS's `medium` — and got none at all here: the

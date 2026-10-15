@@ -269,10 +269,23 @@ impl<'a> Applicable<'a> {
 
 /// The shorthands held whole that this resets the longhands of.
 ///
+/// A side's shorthand takes out its own side's longhands that lost to it —
+/// without it `border-left-style: none; border-left: 5px solid` drew no
+/// left border (queue item 603). It is also one of the longhands `border`
+/// resets, and the order they are asked in does not matter: whatever a
+/// side's shorthand that `border` beat would take out, `border` beat too.
+///
 /// `font` is held whole too and is not here: nothing reads it by kind yet
 /// (queue item 513), so a page's `font` would take the engine's own
 /// `font-size` away and put nothing in its place.
-const RESET_BY: [&str; 2] = ["background", "border"];
+const RESET_BY: [&str; 6] = [
+    "background",
+    "border",
+    "border-top",
+    "border-right",
+    "border-bottom",
+    "border-left",
+];
 
 /// Take out every declaration of a longhand that a whole shorthand beat.
 ///
@@ -437,6 +450,44 @@ mod tests {
         assert_eq!(
             winner(&fixture, "z", "background-color").as_deref(),
             Some("teal")
+        );
+    }
+
+    #[test]
+    fn a_sides_shorthand_resets_its_own_sides_longhands_that_it_beat() {
+        // Queue item 603: written later in the block, in a later rule, or
+        // by the page over the engine's `border-color`, a side's shorthand
+        // takes out the longhands it beat — its own side's only.
+        let fixture = fixture(
+            "<p id=x class=later>t</p><p id=y>u</p><button id=z disabled>b</button>",
+            "#x { border-left-style: none; border-left: 5px solid red; border-top-width: 1px }\
+             p.later { border-top: 6px solid }\
+             #y { border-right-width: 1px } p { border-right: 6px solid; border: 3px solid }\
+             button { border-left: 2px solid red }",
+            "button:disabled { border-color: grey }",
+        );
+        assert_eq!(winner(&fixture, "x", "border-left-style"), None);
+        assert_eq!(
+            winner(&fixture, "x", "border-left").as_deref(),
+            Some("5px solid red")
+        );
+        assert_eq!(
+            winner(&fixture, "x", "border-top-width").as_deref(),
+            Some("1px"),
+            "the id's longhand beats the later class's side shorthand",
+        );
+        // `border` beat `border-right` on order, and the id's longhand beat
+        // them both.
+        assert_eq!(winner(&fixture, "y", "border-right"), None);
+        assert_eq!(
+            winner(&fixture, "y", "border-right-width").as_deref(),
+            Some("1px")
+        );
+        assert_eq!(winner(&fixture, "z", "border-left-color"), None);
+        assert_eq!(
+            winner(&fixture, "z", "border-top-color").as_deref(),
+            Some("grey"),
+            "another side's longhand is not the left's to reset",
         );
     }
 

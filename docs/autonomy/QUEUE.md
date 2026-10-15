@@ -8143,6 +8143,11 @@ The long pole, and the thing most of section E is unreachable without.
   91, 72)` and `(112, 101, 158)` down the steps: 82 of 255 apart, that
   case's `EDGE`, as `borders-side-by-side`'s 95 and 99 are likely the same
   seam.
+  And again (iteration 366): `border-shorthands-after-longhands`'
+  `side-after-color` (a red 6px bottom against blue 4px sides) and
+  `side-over-all` (a red 4px top against blue 2px sides), 76 and 60 of 255
+  at one and at two, that case's `EDGE`; every other blend there is
+  Chrome's exactly.
 
 - [ ] **519. A button-like `<input>` shows its value.** *Found building
   508 (iteration 312). Feature: `docs/features.md` stage 1, a form control
@@ -14803,7 +14808,7 @@ What stage 2's exit gate actually measures: a person using it.
   at two, and every plain pixel is Chrome's at both; blends within 82, on
   a two-colour mitre (518, noted there). No other reference moved.
 
-- [ ] **603. `border` written after one of its longhands overrides it.**
+- [x] **603. `border` written after one of its longhands overrides it.**
   *Found building 595 (iteration 359). Feature: `docs/features.md` stage
   1, the cascade.* `border` and `border-<side>` are held whole rather than
   split (`alo-css`' `shorthand.rs`), and every reader takes a longhand
@@ -14816,6 +14821,24 @@ What stage 2's exit gate actually measures: a person using it.
   as one property in the cascade — whichever is written later or wins by
   origin and specificity decides — and a frozen case of such blocks is
   Chrome's in numbers and pixels at one and at two.
+
+  **Done** (iteration 366). `border` already took out the longhands it
+  beat (`alo-style`'s `reset_by_shorthands`, queue item 509), so
+  `border-style: none; border: 5px solid` was right by then; the side
+  shorthands did not, and `border-left-style: none; border-left: 5px
+  solid` was still no left border. `alo-css`' `longhand.rs` gains
+  `border-top`, `-right`, `-bottom` and `-left`, each its side's colour,
+  style and width (which CSSOM's `setProperty` and `removeProperty` share),
+  and the cascade's `RESET_BY` names them. Chrome 155 measured on twelve
+  boxes, the same at one and at two (scratchpad `m603/`,
+  `getComputedStyle` and `getBoundingClientRect()`, and screenshots):
+  a shorthand after its longhand in one block, in a later rule and from
+  the `style` attribute wins; a longhand after it, more specific or
+  `!important` wins. Case `border-shorthands-after-longhands`
+  (`tests/border_shorthands_after_longhands.rs`): every border box and
+  width is Chrome's within a 128th at one and at two, and every plain
+  pixel is Chrome's; blends within 76, on two two-colour mitres (518,
+  noted there), exact elsewhere. No other reference moved.
 
 - [ ] **604. A dash's stroke round a curve tighter than it, as Chrome's
   stroker draws it.** *Cut from 596 (iteration 360). Feature:

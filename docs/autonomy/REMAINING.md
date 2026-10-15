@@ -2658,3 +2658,14 @@ twelve boxes, is Chrome's in numbers and in every plain pixel at one and
 at two; its worst blend, a two-colour mitre, is noted on 518. 286 queue
 items are open (602 closed). The next unused queue number is 611 and the
 next unused ADR 0058.
+
+Iteration 366 closed queue item 603: `border-top`, `border-right`,
+`border-bottom` and `border-left` take out the longhands they beat in the
+cascade, as `border` already did (`alo-style`'s `RESET_BY`, and
+`alo-css`' `longhand.rs`, whose lists CSSOM's `setProperty` and
+`removeProperty` share), so a side's shorthand written after its longhand
+overrides it. The new case `border-shorthands-after-longhands`, twelve
+boxes measured in Chrome 155, is Chrome's in numbers and in every plain
+pixel at one and at two; its worst blend, 76, is a two-colour mitre (518).
+No other reference moved. 285 queue items are open (603 closed). The next
+unused queue number is 611 and the next unused ADR 0058.
