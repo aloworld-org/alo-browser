@@ -36880,3 +36880,106 @@ not measured. Not ticked.
 287 queue items are open (600 closed). The next unused queue number is
 **611** and the next ADR is **0058**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 365 — queue item 602: a border style with no width is `medium`
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its states, and stage 1's paint line whose Owed named 602), iteration
+364's entry, `REMAINING.md`'s tail, queue items 595, 601–610 and 518,
+`docs/features.md`' box model line, `docs/conformance.md` on borders, and
+`alo-layout`'s `style.rs`, `border_style.rs` and `line_width.rs` and
+`alo-value`'s `shorthand.rs`. No `AGENTS.md` exists here. The item names
+no ADR; ADR 0057 (a border width snapped to device pixels) bears on it and
+was not changed.
+
+**Why 602.** The first open item whose dependencies are done: those before
+it wait as iteration 364 recorded, and 601 is `blocked: no page yet`. 602
+depends on nothing and names its feature and its closing condition.
+
+**Measured.** The machine's Chrome had updated itself to **155**
+(`155.0.8059.41`) since iteration 364; no 154 remains (Playwright's is
+151). Chrome 155 was used and is named as such in the case, its test, the
+queue and the docs. Headless, `--force-device-scale-factor=1` and `=2`,
+screenshots without `--disable-gpu`, the source not read (scratchpad
+`m602/`): on twelve boxes, a side given a style and no width computes
+3px — `border-style` alone, `border: solid`, `border-top-style` alone,
+`border-bottom` alone, `border-style: solid none` — a side shorthand
+naming no width resets its side to 3px under `border: 6px solid`, and
+`thin`, `medium` and `thick` in a width longhand are 1, 3 and 5px. Every
+border box is on the grid it was before, at both scales.
+
+**Built.** `alo-value`'s `shorthand.rs`: `parse_line_width` (a width as a
+width longhand takes it, named or a length) and `initial_line_width`
+(`medium`), the 3px held once as `MEDIUM` for both. `alo-layout`'s
+`style.rs`: `declared_border_width` reads a side that draws a line as
+`border_style.rs` reads its style — the longhand (through
+`parse_line_width`, refused and none when unreadable), then the first of
+`border-<side>` and `border` written, which decides with its width or
+`medium`, and `medium` when nothing is written. Paint takes border widths
+from layout, so one reading serves both.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first (one
+`single_match_else` rewritten as `if let`). `scripts/gate.sh` was started
+in the foreground; it ran past the tool's 600 s limit and was moved to
+the background by the harness, and the next call waited on it with an
+until-loop and read it in the same step: **`exit 0`, "The gate is met.
+(10 of 10 steps)"**, 5,024 tests run, 5,024 passed. Only this entry and
+the commit came after it.
+
+**Gate, manual.**
+- The closing condition: new case `borders-with-no-width-written`,
+  twelve boxes 24 × 20 inside their borders, with Chrome 155's
+  `chrome.png` and `chrome-at-2.png` (RGBA). In
+  `borders_with_no_width_written.rs` every box's border box is Chrome's
+  within a 128th and its four widths Chrome's at one and at two, and
+  every pixel both pictures have as a plain colour is the same colour at
+  both scales.
+- Numbers: unit tests in `style.rs` (a style with no width is 3px five
+  ways; a side shorthand resets it; named widths in longhands; a written
+  width still wins and `wide` is refused; no style is still no width) and
+  `shorthand.rs` (`parse_line_width`, `initial_line_width`).
+- Blends: measured on the case at zero bound first — the worst is 82 at
+  both scales, every step of `side-resets`' red 3px / blue 6px mitre,
+  which Chrome draws as an even mix and `draw_mitred` alternates; away
+  from it 47, on the `inset` box's mitre; rounded corners nearer. `EDGE`
+  is 82 at both and says so. That seam is queue item 518's (it names
+  uneven widths); the new evidence is noted there rather than as a
+  duplicate item.
+- Reference renders: the new case's `render.png` and `render-at-2.png`,
+  looked at beside Chrome's. The corpus was run with
+  `ALO_UPDATE_REFERENCES=1` (cases backed up first): **no existing
+  reference moved**.
+- Mutation, each restored from a copy (`cmp` confirmed): HEAD's
+  `declared_border_width` put back (the case's three tests and four unit
+  tests fail), `medium` at 2px (three and four), the side shorthand
+  falling through to `border` instead of resetting (three and one).
+- Hostile input: nothing new reads bytes from outside; a width longhand
+  nobody can read is refused as before.
+- One file, one responsibility: reading a border value stays in
+  `shorthand.rs`, reading a box's widths in `style.rs`.
+- Cost: none measured; no speed claim.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 602 is ticked with a *Done* paragraph. 518 gains a *Seen
+again* note. Nothing cut.
+
+**Roadmap.** Stage 1's paint line: a *since queue item 602* clause; its
+Owed loses 602 and names 518's two-colour mitre beside 603. Not ticked.
+
+**Unresolved obligations.**
+- 603 (a shorthand after its longhand), 518 (a mitre's diagonal).
+- Earlier cases were measured in Chrome 154 and this one in 155; nothing
+  here was re-measured in 155, and a later comparison that mixes them
+  should say which it used.
+- 591, 601, 603–610 and 179; 576, 577, 585, 586 as before; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page.
+- No claim about speed is made.
+
+286 queue items are open (602 closed). The next unused queue number is
+**611** and the next ADR is **0058**. This is one iteration, not a
+finished queue or roadmap.

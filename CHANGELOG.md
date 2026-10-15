@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A border given a style and no width is drawn.** A sheet that writes
+  `border-style: solid`, or `border: solid red`, and no width meant a
+  border three pixels wide — CSS's `medium` — and got none at all here: the
+  box was laid out and drawn bare. It is now 3px, as Chrome draws it, and
+  `border-left: solid` after `border: 6px solid` makes that one side 3px,
+  since a shorthand resets the width it leaves out. `border-width: thin`,
+  `medium` and `thick` are 1, 3 and 5 pixels, where they were refused. A
+  new page of twelve such boxes is Chrome's in every box and every plain
+  pixel at normal and double resolution.
+
 - **See-through pictures drawn larger are Chrome's to the level.** A
   picture with transparency in it — an icon with soft edges, a PNG with a
   see-through background — drawn larger than its own size came out a

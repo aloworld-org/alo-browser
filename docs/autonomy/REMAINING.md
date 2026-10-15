@@ -2646,3 +2646,15 @@ same arithmetic is item 594's opaque rule exactly. The new case
 two, where 2,850 and 12,399 differed, and `a-picture-in-each-format`'s
 see-through WebP is Chrome's in every pixel. 287 queue items are open (600
 closed). The next unused queue number is 611 and the next unused ADR 0058.
+
+Iteration 365 closed queue item 602: a side given a border style and no
+width is `medium`, 3px, as Chrome 155 computes it — by `border-style`
+alone, `border: solid`, a style longhand or a side shorthand — and a side
+shorthand naming no width resets its side to 3px under a wider `border`;
+a width longhand takes `thin`, `medium` and `thick` (`alo-value`'s
+`parse_line_width` and `initial_line_width`, `alo-layout`'s
+`declared_border_width`). The new case `borders-with-no-width-written`,
+twelve boxes, is Chrome's in numbers and in every plain pixel at one and
+at two; its worst blend, a two-colour mitre, is noted on 518. 286 queue
+items are open (602 closed). The next unused queue number is 611 and the
+next unused ADR 0058.

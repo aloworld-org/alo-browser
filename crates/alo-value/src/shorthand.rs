@@ -88,12 +88,29 @@ pub fn parse_border(text: &str) -> Border {
     border
 }
 
+/// A border width as a width longhand — `border-top-width`, or a part of
+/// `border-width` — takes it: one of the three named widths, or a length.
+pub fn parse_line_width(text: &str) -> Option<LengthPercentage> {
+    let text = text.trim();
+    named_width(text).or_else(|| parse_length_percentage(text))
+}
+
+/// `medium`, a border width's initial value: the width of a side whose
+/// style draws a line and whose width nothing wrote, and of a `border`
+/// that names a style and no width, which resets the width it leaves out.
+pub fn initial_line_width() -> LengthPercentage {
+    LengthPercentage::Length(crate::length::Length::px(MEDIUM))
+}
+
+/// How wide `medium` is, in CSS pixels. Chrome computes it as 3px.
+const MEDIUM: f32 = 3.0;
+
 /// `thin`, `medium` and `thick`, which are the three widths CSS gives names.
 fn named_width(text: &str) -> Option<LengthPercentage> {
     let pixels = if text.eq_ignore_ascii_case("thin") {
         1.0
     } else if text.eq_ignore_ascii_case("medium") {
-        3.0
+        MEDIUM
     } else if text.eq_ignore_ascii_case("thick") {
         5.0
     } else {
@@ -114,6 +131,26 @@ mod tests {
 
     fn color(border: &Border) -> Option<(u8, u8, u8, u8)> {
         Some(border.color?.resolve(Rgba::BLACK).to_rgba8())
+    }
+
+    #[test]
+    fn a_width_longhand_takes_a_named_width_or_a_length() {
+        let px = |text| Some(parse_line_width(text)?.to_px(FontMetrics::default(), 0.0));
+        assert_eq!(px("thin"), Some(1.0));
+        assert_eq!(px(" MEDIUM "), Some(3.0));
+        assert_eq!(px("thick"), Some(5.0));
+        assert_eq!(px("7px"), Some(7.0));
+        assert_eq!(px("solid"), None);
+        assert_eq!(px(""), None);
+    }
+
+    #[test]
+    fn the_initial_width_is_medium() {
+        assert_eq!(
+            Some(initial_line_width()),
+            parse_line_width("medium"),
+            "a width nothing wrote is the width `medium` names",
+        );
     }
 
     #[test]

@@ -395,33 +395,31 @@ impl Reader<'_> {
     /// One border's width as the style sheet says it, before it is snapped:
     /// none at all when the side's style draws no line
     /// ([`crate::border_style`]), however the width was written.
+    ///
+    /// A side that draws a line is read as its style is: the longhand, then
+    /// the first of the side's shorthand and `border` that is written,
+    /// which decides whether or not it names a width — a shorthand resets
+    /// what it leaves out, so `border-left: solid` under `border: 6px solid`
+    /// is `medium`. Nothing written is `medium` too, a width's initial
+    /// value: `border-style: solid` alone is 3px each side, as Chrome
+    /// computes it (queue item 602).
     fn declared_border_width(&mut self, side: &str) -> LengthPercentage {
         if !border_style::draws_a_line(border_style::border_style(self.style, side).as_deref()) {
             return LengthPercentage::ZERO;
         }
-        for (property, whole) in [
-            (format!("border-{side}-width"), false),
-            (format!("border-{side}"), true),
-            ("border".to_owned(), true),
-        ] {
-            let Some(text) = self.style.get(&property) else {
-                continue;
-            };
-            let width = if whole {
-                alo_value::parse_border(text).width
-            } else {
-                parse_length_percentage(text)
-            };
-            match width {
-                Some(width) => return width,
-                None if !whole => {
-                    self.refuse(&property, text);
-                    return LengthPercentage::ZERO;
-                }
-                None => {}
+        let longhand = format!("border-{side}-width");
+        if let Some(text) = self.style.get(&longhand) {
+            if let Some(width) = alo_value::parse_line_width(text) {
+                return width;
             }
+            self.refuse(&longhand, text);
+            return LengthPercentage::ZERO;
         }
-        LengthPercentage::ZERO
+        [format!("border-{side}"), "border".to_owned()]
+            .iter()
+            .find_map(|property| self.style.get(property))
+            .and_then(|text| alo_value::parse_border(text).width)
+            .unwrap_or_else(alo_value::initial_line_width)
     }
 
     /// `overflow`, `overflow-x` and `overflow-y`.
@@ -797,5 +795,71 @@ mod tests {
             Sizing::Length(value) => assert!(close(value.to_px(style.metrics, 0.0), 40.0)),
             other => panic!("expected a length, got {other}"),
         }
+    }
+
+    /// Each side's border width, top, right, bottom and left, in pixels,
+    /// of a box given `css`, and whether anything was refused.
+    fn borders(css: &str) -> ([f32; 4], bool) {
+        let (style, issues) = read_style(css);
+        let border = style.border;
+        (
+            [&border.top, &border.right, &border.bottom, &border.left].map(px),
+            !issues.is_empty(),
+        )
+    }
+
+    fn widths_are(css: &str, expected: [f32; 4]) {
+        let (found, refused) = borders(css);
+        assert!(
+            found.iter().zip(expected).all(|(a, b)| close(*a, b)),
+            "{css}: {found:?} where Chrome computes {expected:?}",
+        );
+        assert!(!refused, "{css}: nothing is refused");
+    }
+
+    #[test]
+    fn a_style_with_no_width_written_is_medium() {
+        widths_are("border-style: solid", [3.0; 4]);
+        widths_are("border: solid red", [3.0; 4]);
+        widths_are("border-top-style: solid", [3.0, 0.0, 0.0, 0.0]);
+        widths_are("border-bottom: dashed", [0.0, 0.0, 3.0, 0.0]);
+        widths_are("border-style: solid none", [3.0, 0.0, 3.0, 0.0]);
+    }
+
+    #[test]
+    fn a_side_shorthand_with_no_width_resets_it_to_medium() {
+        widths_are(
+            "border: 6px solid blue; border-left: solid red",
+            [6.0, 6.0, 6.0, 3.0],
+        );
+    }
+
+    #[test]
+    fn a_width_longhand_takes_the_named_widths() {
+        widths_are(
+            "border-style: solid; border-width: thin medium thick",
+            [1.0, 3.0, 5.0, 3.0],
+        );
+        widths_are(
+            "border-style: solid; border-left-width: THICK",
+            [3.0, 3.0, 3.0, 5.0],
+        );
+    }
+
+    #[test]
+    fn a_written_width_still_wins_and_a_wrong_one_is_refused() {
+        widths_are(
+            "border: 2px solid; border-top-width: 7px",
+            [7.0, 2.0, 2.0, 2.0],
+        );
+        let (found, refused) = borders("border-style: solid; border-top-width: wide");
+        assert!(close(found[0], 0.0) && close(found[1], 3.0), "{found:?}");
+        assert!(refused, "a width nobody can read is said");
+    }
+
+    #[test]
+    fn no_style_is_still_no_width_whatever_the_width() {
+        widths_are("border-width: thick", [0.0; 4]);
+        widths_are("", [0.0; 4]);
     }
 }

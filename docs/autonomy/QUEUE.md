@@ -8136,6 +8136,14 @@ The long pole, and the thing most of section E is unreachable without.
   are Chrome's within a bound measured at those scales, and the bound in
   its test is tightened to it.
 
+  *Seen again* (iteration 365): two colours, not two tones, on uneven
+  widths — `borders-with-no-width-written`'s `side-resets`, a red 3px
+  left against a blue 6px bottom — have every diagonal pixel Chrome 155's
+  even mix `(111, 68, 130)` at one where this engine alternates `(193,
+  91, 72)` and `(112, 101, 158)` down the steps: 82 of 255 apart, that
+  case's `EDGE`, as `borders-side-by-side`'s 95 and 99 are likely the same
+  seam.
+
 - [ ] **519. A button-like `<input>` shows its value.** *Found building
   508 (iteration 312). Feature: `docs/features.md` stage 1, a form control
   holds what it shows. Needs measuring.* An `<input type=submit>`,
@@ -14766,7 +14774,7 @@ What stage 2's exit gate actually measures: a person using it.
   read in `alo-css`' `properties.rs`, drawn by those rules, and that page
   is Chrome's in every pixel at one and at two.
 
-- [ ] **602. A border style written with no width is `medium`.** *Found
+- [x] **602. A border style written with no width is `medium`.** *Found
   building 595 (iteration 359). Feature: `docs/features.md` stage 1, the
   box model.* `alo-layout`'s `declared_border_width` gives a side no width
   when nothing writes one, and `border: solid` none either; CSS's initial
@@ -14776,6 +14784,24 @@ What stage 2's exit gate actually measures: a person using it.
   visible style and no width written is `medium` — 3px, snapped as any
   width is — at one and at two, and a frozen case of such boxes is
   Chrome's in numbers and in every plain pixel at one and at two.
+
+  **Done** (iteration 365). Chrome 155 — the machine's Chrome had updated
+  from 154 — measured on twelve boxes (scratchpad `m602/`,
+  `getComputedStyle` and `getBoundingClientRect()` at one and at two, and
+  screenshots): a side given a style and no width computes 3px, whether
+  by `border-style` alone, `border: solid`, a style longhand or a side
+  shorthand alone; a side shorthand naming no width resets its side to
+  3px under a wider `border` (`border-left: solid` after `border: 6px
+  solid`); and `thin`, `medium` and `thick` in a width longhand are 1, 3
+  and 5px. `alo-value`'s `shorthand.rs` gains `parse_line_width` and
+  `initial_line_width`; `alo-layout`'s `declared_border_width` reads the
+  longhand through the first, then the first of `border-<side>` and
+  `border` written — its width or `medium` — as `border_style.rs` reads a
+  style, and `medium` when nothing is written. Case
+  `borders-with-no-width-written` (`tests/borders_with_no_width_written.rs`):
+  every box's border box and widths are Chrome's within a 128th at one and
+  at two, and every plain pixel is Chrome's at both; blends within 82, on
+  a two-colour mitre (518, noted there). No other reference moved.
 
 - [ ] **603. `border` written after one of its longhands overrides it.**
   *Found building 595 (iteration 359). Feature: `docs/features.md` stage

@@ -67,6 +67,6 @@ pub use parse::{
 };
 pub use scale::{device_pixels, device_scale, holds_its_grid};
 pub use shadow::{DrawnShadow, Shadow};
-pub use shorthand::{Border, parse_border};
+pub use shorthand::{Border, initial_line_width, parse_border, parse_line_width};
 pub use transform::{Function, Matrix, Transform};
 pub use unit::Unit;

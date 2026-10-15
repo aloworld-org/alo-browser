@@ -1,0 +1,26 @@
+/* Borders given a style and no width (queue item 602), written every way
+   a sheet writes one: `border-style` alone, `border` naming only a style
+   and a colour, a side shorthand naming no width after `border`, one
+   side's style longhand alone, one side's shorthand alone, the named
+   widths `thin`, `medium` and `thick` in the width longhands, an `inset`
+   border, rounded corners, and boxes at tenths of a pixel. CSS's initial
+   border width is `medium`, which Chrome computes as 3px; this engine
+   gave such a side no width, and refused a named width in a longhand.
+   `tests/borders_with_no_width_written.rs` says how near Chrome. */
+body { margin: 0; background: #ffffff }
+.b { position: absolute; width: 24px; height: 20px; background: #fde68a;
+  color: #1d4ed8; border-color: #1d4ed8 }
+.style-alone { left: 15px; top: 15px; border-style: solid }
+.border-no-width { left: 75px; top: 15px; border: solid #1d4ed8 }
+.side-resets { left: 135px; top: 15px; border: 6px solid #1d4ed8;
+  border-left: solid #c0392b }
+.one-longhand { left: 195px; top: 15px; border-top-style: solid }
+.side-alone { left: 255px; top: 15px; border-bottom: solid }
+.named-widths { left: 315px; top: 15px; border-style: solid;
+  border-width: thin medium thick }
+.named-side { left: 375px; top: 15px; border-style: solid; border-left-width: thick }
+.inset-medium { left: 435px; top: 15px; border-style: inset; border-color: #808080 }
+.rounded { left: 15px; top: 75px; border-style: solid; border-radius: 10px }
+.tenths { left: 75.3px; top: 75.6px; border: solid #1d4ed8; border-radius: 9px }
+.two-styles { left: 135.7px; top: 75.2px; border-style: solid none }
+.medium-written { left: 195px; top: 75px; border-style: solid; border-width: medium }

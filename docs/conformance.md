@@ -511,10 +511,14 @@ is Chrome's in every plain pixel at one and at two but one pixel at each
 (604). A side
 whose style is `none` or `hidden`, or given none, has no width however its
 width was written (595); `borders-with-a-side-none` is Chrome's in numbers
-and in every plain pixel at one and at two. A style written with no width
-is laid out with none where Chrome's is `medium`, 3px (602), and `border`
-or `border-<side>` written after one of its longhands does not override it
-(603). Where a line under text falls at two is not measured (566).
+and in every plain pixel at one and at two. A side given a style and no
+width is `medium`, 3px, as Chrome 155 computes it, a side shorthand naming
+no width resetting it, and a width longhand takes the named widths (602);
+`borders-with-no-width-written` is Chrome's in numbers and in every plain
+pixel at one and at two, its blends within 82 of 255 — the worst on a
+mitre between two colours of different widths, whose seam Chrome mixes
+evenly and this engine does not (518). `border` or `border-<side>` written
+after one of its longhands does not override it (603). Where a line under text falls at two is not measured (566).
 
 **The window at its screen's scale** (items 562 and 599, ADR 0057 § 3).
 The window tells the page's renderer and the strip's its screen's scale —

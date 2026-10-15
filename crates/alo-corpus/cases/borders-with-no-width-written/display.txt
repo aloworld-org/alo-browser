@@ -1,0 +1,31 @@
+fill box#1 rgb(255 255 255) at (0, 0) 500×0
+fill box#3 rgb(253 230 138) at (15, 15) 30×26
+fill box#3 rgb(29 78 216) at (15, 15) 30×26
+fill box#5 rgb(253 230 138) at (75, 15) 30×26
+fill box#5 rgb(29 78 216) at (75, 15) 30×26
+fill box#7 rgb(253 230 138) at (135, 15) 33×32
+clip box#7 to (135, 15) 33×32
+fill box#7 rgb(29 78 216) at (135, 15) 33×32
+fill box#7 rgb(192 57 43) at (135, 15) 8×32
+unclip
+fill box#9 rgb(253 230 138) at (195, 15) 24×23
+fill box#9 rgb(29 78 216) at (195, 15) 24×23
+fill box#11 rgb(253 230 138) at (255, 15) 24×23
+fill box#11 rgb(29 78 216) at (255, 15) 24×23
+fill box#13 rgb(253 230 138) at (315, 15) 30×26
+fill box#13 rgb(29 78 216) at (315, 15) 30×26
+fill box#15 rgb(253 230 138) at (375, 15) 32×26
+fill box#15 rgb(29 78 216) at (375, 15) 32×26
+fill box#17 rgb(253 230 138) at (435, 15) 30×26
+clip box#17 to (435, 15) 30×26
+fill box#17 rgb(44 44 44) at (435, 15) 30×26
+fill box#17 rgb(212 212 212) at (435, 15) 30×26
+unclip
+fill box#19 rgb(253 230 138) at (15, 75) 30×26
+fill box#19 rgb(29 78 216) at (15, 75) 30×26
+fill box#21 rgb(253 230 138) at (75, 76) 30×26
+fill box#21 rgb(29 78 216) at (75, 76) 30×26
+fill box#23 rgb(253 230 138) at (136, 75) 24×26
+fill box#23 rgb(29 78 216) at (136, 75) 24×26
+fill box#25 rgb(253 230 138) at (195, 75) 30×26
+fill box#25 rgb(29 78 216) at (195, 75) 30×26

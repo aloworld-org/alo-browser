@@ -314,8 +314,14 @@ correctness, not before it.
       styled `none` or `hidden`, or given no style, has no width however
       it was written (`alo-layout`'s `border_style.rs`,
       `borders-with-a-side-none` Chrome's in numbers and every plain pixel
-      at one and at two). Owed: a style with no width written is `medium`
-      (602), and `border` written after a longhand overrides it (603).
+      at one and at two). Since queue item 602 (iteration 365) a side
+      given a style and no width is `medium`, 3px, a side shorthand naming
+      no width resets it, and a width longhand takes `thin`, `medium` and
+      `thick` (`alo-value`'s `parse_line_width`,
+      `borders-with-no-width-written` Chrome's in numbers and every plain
+      pixel at one and at two). Owed: `border` written after a longhand
+      overrides it (603), and a two-colour mitre's seam anti-aliased as
+      Chrome's (518).
       Since queue item
       573 (iteration 349) a spread shadow's corners are Chrome's —
       square on a square box, a radius under the spread grown by less of
