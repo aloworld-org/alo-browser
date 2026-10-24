@@ -42,6 +42,12 @@
 //! tab it is in. Otherwise it answers [`Outcome::Activated`], as the engine
 //! does for a click the page cancelled.
 //!
+//! A link to a part of the page asks Chrome for no navigation: Chrome moves
+//! the frame within its document in the click's task and tells of it after
+//! (`Page.navigatedWithinDocument`, measured against Chrome 155, item 640).
+//! So a press of a link whose frame moved, as a `fragment`, to the address
+//! the link goes to answers [`Outcome::Followed`] too, as the engine does.
+//!
 //! Chrome tells of that request from the task the click ran in, on the same
 //! channel the renderer answers on; so once the renderer has answered a
 //! question asked after the click, a request the click made has been told
@@ -68,7 +74,7 @@
 //!   listener, Chrome does not say, and both leave the field as it was.
 
 use crate::chrome::Failed;
-use crate::chrome_protocol::{self, AxNode, Chord, Command, Mouse};
+use crate::chrome_protocol::{self, AxNode, Chord, Command, Mouse, Within};
 use crate::chrome_reading::ChromeReading;
 use crate::chrome_tab::Tab;
 use crate::chrome_tree::Unread;
@@ -77,6 +83,7 @@ use alo_agent::{Outcome, Refusal};
 use alo_box::BoxId;
 use alo_dom::submission::Method;
 use alo_net::cause::ActionId;
+use alo_url::Url;
 use core::fmt;
 use std::collections::HashSet;
 
@@ -245,6 +252,8 @@ impl Tab<'_> {
         let dom = dom_of(node);
         // What the page asked for before this press is not what it did.
         drop(self.take_requested());
+        drop(self.take_within());
+        let before = self.address().cloned();
         self.ask(&Command::ScrollIntoView { node: dom })?;
         let rect = self
             .drawn(dom)?
@@ -272,8 +281,14 @@ impl Tab<'_> {
             .take_requested()
             .into_iter()
             .find(|requested| requested.disposition == "currentTab");
+        let moves = self.take_within();
         Ok(match (asked, to) {
             (Some(asked), Some(to)) if asked.reason == "anchorClick" => {
+                Outcome::Followed { node, to }
+            }
+            // A link to a part of the page asks for nothing: Chrome moves to
+            // it in the click's task and says so after the fact.
+            (None, Some(to)) if went_to_a_part(&moves, before.as_ref(), &to) => {
                 Outcome::Followed { node, to }
             }
             (Some(asked), _) if asked.reason.starts_with("formSubmission") => Outcome::Submitted {
@@ -364,6 +379,21 @@ fn pixels(point: i64) -> f64 {
     point as f64
 }
 
+/// Whether the page's own frame, at `before` when it was pressed, moved in
+/// `moves` to the part of itself the link `href` goes to: a `fragment` move
+/// to the address `href` names, resolved against `before`. A move a script
+/// made instead — `pushState`, or `location.hash` set somewhere else — is
+/// not the link followed.
+fn went_to_a_part(moves: &[Within], before: Option<&Url>, href: &str) -> bool {
+    let Some(goes) = before.and_then(|before| alo_url::join(before, href).ok()) else {
+        return false;
+    };
+    moves.iter().any(|moved| {
+        moved.how == "fragment"
+            && alo_url::parse(&moved.url).is_ok_and(|url| url.to_string() == goes.to_string())
+    })
+}
+
 /// The DOM nodes Chrome's tree holds at or under the DOM node `dom`,
 /// including those it ignores: what a click meant for `dom` may land on.
 fn within(nodes: &[AxNode], dom: u64) -> HashSet<u64> {
@@ -431,6 +461,36 @@ mod tests {
         assert_eq!(middle(f32::NAN, 0.0, 1.0, 1.0), None);
         assert_eq!(middle(0.0, 0.0, f32::INFINITY, 1.0), None);
         assert_eq!(middle(f32::MAX, 0.0, f32::MAX, 1.0), None, "past 2^53");
+    }
+
+    #[test]
+    fn a_link_to_a_part_is_followed_only_to_where_it_goes() {
+        let moved = |url: &str, how: &str| Within {
+            frame: "F".to_owned(),
+            url: url.to_owned(),
+            how: how.to_owned(),
+        };
+        let before = alo_url::parse("http://a.test/p.html").unwrap();
+        let at = Some(&before);
+        let part = [moved("http://a.test/p.html#second", "fragment")];
+        assert!(went_to_a_part(&part, at, "#second"));
+        assert!(went_to_a_part(&part, at, "p.html#second"));
+        assert!(!went_to_a_part(&part, at, "#third"), "somewhere else");
+        assert!(!went_to_a_part(&part, None, "#second"), "no address before");
+        assert!(!went_to_a_part(&[], at, "#second"), "nothing moved");
+        assert!(
+            !went_to_a_part(
+                &[moved("http://a.test/p.html#second", "historyApi")],
+                at,
+                "#second"
+            ),
+            "a script's move, not the link's"
+        );
+        assert!(went_to_a_part(
+            &[moved("http://a.test/p.html#", "fragment")],
+            at,
+            "#"
+        ));
     }
 
     #[test]

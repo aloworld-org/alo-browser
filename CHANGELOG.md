@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page in Chrome that moves to a part of itself is known by where it
+  moved.** An agent that follows a link to `#section`, or a page whose
+  script changes its own address with `history.pushState`, now finds the
+  tab at the new address, the part included, rather than at one the page no
+  longer shows. Such a link is now reported as followed, as it is on this
+  browser's own engine, instead of merely pressed. On the engine itself a
+  tab still goes nowhere a link asks, so it keeps the address it was opened
+  at; the two differ there exactly as they already did for every other
+  link, until the engine can navigate.
+
 - **An agent outside the browser can now drive a page in Chrome through the
   same socket it uses for this browser's own engine.** Nothing about what
   the agent sends changes: the order it places on a pizza form — three

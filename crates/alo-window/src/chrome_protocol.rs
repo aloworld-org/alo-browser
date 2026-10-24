@@ -707,6 +707,38 @@ pub fn committed(params: &[u8]) -> Result<Committed, Malformed> {
     })
 }
 
+/// A frame that moved to another address of the document it holds — a link
+/// to a part of it, `history.pushState` — from a
+/// `Page.navigatedWithinDocument` event. No document was committed and none
+/// was asked for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Within {
+    /// The frame's id.
+    pub frame: String,
+    /// The address it moved to, as Chrome spells it, with its fragment.
+    pub url: String,
+    /// How, in Chrome's words: `fragment`, `historyApi` or `other`.
+    pub how: String,
+}
+
+/// A `Page.navigatedWithinDocument` event's `params`, read. Measured against
+/// Chrome 155 on 2026-10-24: a link to `#part` is told of as `fragment` with
+/// the whole address, an empty fragment's `#` kept, and `pushState` as
+/// `historyApi`.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without a `frameId`, a `url` and a
+/// `navigationType`, each text.
+pub fn within(params: &[u8]) -> Result<Within, Malformed> {
+    let fields = object(params)?;
+    Ok(Within {
+        frame: text(fields.get("frameId"), "frameId")?,
+        url: words(fields.get("url"), "url")?,
+        how: text(fields.get("navigationType"), "navigationType")?,
+    })
+}
+
 /// The address of a WebSocket a page opened, from a
 /// `Network.webSocketCreated` event, as Chrome spells it.
 ///
@@ -1601,6 +1633,68 @@ mod tests {
                 br#"{"cssLayoutViewport":{"pageX":0,"pageY":0,"clientWidth":600,"clientHeight":700},"cssContentSize":{"x":0,"y":0,"width":600,"height":700}}"#
             ),
             Ok((600.0, 700.0))
+        );
+    }
+
+    #[test]
+    fn a_move_within_a_document_is_read_as_chrome_155_wrote_it() {
+        // Both cut from Chrome 155's on 2026-10-24.
+        assert_eq!(
+            within(
+                br#"{"frameId":"ECD71688D9DB2E3433469C906B3BA487","url":"http://127.0.0.1:60476/a.html#part","navigationType":"fragment"}"#
+            ),
+            Ok(Within {
+                frame: "ECD71688D9DB2E3433469C906B3BA487".to_owned(),
+                url: "http://127.0.0.1:60476/a.html#part".to_owned(),
+                how: "fragment".to_owned(),
+            })
+        );
+        assert_eq!(
+            within(
+                br#"{"frameId":"ECD7","url":"http://127.0.0.1:60476/pushed.html?x","navigationType":"historyApi"}"#
+            )
+            .map(|within| (within.url, within.how)),
+            Ok((
+                "http://127.0.0.1:60476/pushed.html?x".to_owned(),
+                "historyApi".to_owned()
+            ))
+        );
+    }
+
+    #[test]
+    fn a_move_within_a_document_that_is_not_one_is_refused_as_a_kind() {
+        assert_eq!(within(b"{}"), bad("frameId"));
+        assert_eq!(
+            within(br#"{"frameId":"F","navigationType":"fragment"}"#),
+            bad("url")
+        );
+        assert_eq!(
+            within(br#"{"frameId":"F","url":7,"navigationType":"fragment"}"#),
+            bad("url")
+        );
+        assert_eq!(
+            within(br#"{"frameId":"F","url":"u"}"#),
+            bad("navigationType")
+        );
+        assert_eq!(
+            within(br#"{"frameId":["F"],"url":"u","navigationType":"fragment"}"#),
+            bad("frameId")
+        );
+        assert_eq!(within(b"[]"), Err(Malformed::NotAnObject));
+        assert_eq!(
+            within(br#"{"frameId":"F","url":"u","navigationType":"frag"#),
+            Err(Malformed::NotJson)
+        );
+        let long = format!(
+            r#"{{"frameId":"F","url":"u","navigationType":"{}"}}"#,
+            "x".repeat(MOST_TEXT + 1)
+        );
+        assert_eq!(
+            within(long.as_bytes()),
+            Err(Malformed::TooLong {
+                field: "navigationType",
+                most: MOST_TEXT
+            })
         );
     }
 

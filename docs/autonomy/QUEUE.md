@@ -50,7 +50,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **621** | the verbs, through Chrome |
 | ✓ | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
-| | **641** | **the program can be told to use Chrome — nothing can run it yet** |
+| | **641** | **the program can be told to use Chrome — nothing can run it yet** (640 done) |
 | | **622** | which renderer is in use, where a person can read it |
 | | **623** | the agent's sentence, where a person can read it |
 | | **624** | the acted-on box, marked while it is acted on |
@@ -16246,7 +16246,7 @@ What stage 2's exit gate actually measures: a person using it.
   answers for the same page — in the engine's words or with the difference
   written down — or this item closes saying why not.
 
-- [ ] **640. A page in Chrome that goes to a fragment of itself is named
+- [x] **640. A page in Chrome that goes to a fragment of itself is named
   with it.** *Cut from 630; ADR 0055 § 5.* A tab in Chrome is named by the
   address its own frame last committed, and a link to `#part` commits
   nothing: Chrome tells of it as `Page.navigatedWithinDocument`, which is
@@ -16255,6 +16255,30 @@ What stage 2's exit gate actually measures: a person using it.
   630. Closes when:* the address a tab is named by after a fragment link is
   the same through both renderers, asserted in a test of each, or this item
   closes saying they differ and why that is right.
+  **Done (2026-10-24), closing on the second branch: they differ, and the
+  difference is not new.** Measured against Chrome 155.0.8059.86: a link to
+  `#part` and a script's `history.pushState` each commit nothing and ask for
+  nothing; Chrome tells of both as `Page.navigatedWithinDocument`, with the
+  whole address (an empty `#` kept) and `fragment` or `historyApi`. Read now
+  (`chrome_protocol::within`, malformed, truncated and over-long shapes
+  refused as kinds): a tab in Chrome is named where its frame moved, with the
+  part, its document unchanged, so it is listed and read at
+  `part.html#second` and `NoSuchTab` at `part.html`, and after `pushState` at
+  the address the script gave. Chrome asks for no navigation for such a
+  link, so its press used to answer `Activated` where the engine answers
+  `Followed`; a press whose frame moved, as a `fragment`, to the address the
+  link's `href` names now answers `Followed` with the `href`, as the engine's
+  does. **The engine's tab is still named where it was opened**, without the
+  part, and reads there: it answers the link `Followed` and goes nowhere,
+  because going where a page was let go is item 85's and the conductor does
+  that for no link at all. So the two renderers name a tab differently after
+  a link to a part exactly as they already do after every other link (630) —
+  Chrome where the page is, the engine where it was — and that is right for
+  each: ADR 0055 § 5 names a tab by the page's address, and the engine's page
+  has not moved. It stops differing when item 85 moves the engine's tab, and
+  a fragment is then a navigation within the document there too, not a
+  load. Asserted in `a_tab_in_chrome_named_where_it_is.rs` (two new tests)
+  and `a_tab_in_the_engine_after_a_link_to_a_part.rs`.
 
 - [ ] **641. ★ The program can be told to use Chrome.** The Chrome path is a
   library and its tests and **nothing else**: `crates/alo-window/src/bin/alo.rs`

@@ -2824,3 +2824,13 @@ where its page is now; a verb on a page that left is refused as the new
 kind `NotCarriedOut`. Cut: 639 (issues through Chrome) and 640 (a fragment
 through Chrome). 304 queue items are open (630 closed; 639 and 640 added).
 The next unused queue number is 641 and the next unused ADR 0062.
+
+Iteration 378 built queue item 640: a page in Chrome that moves within
+itself — a link to `#part`, a script's `pushState` — is named where it
+moved, the part included, read from `Page.navigatedWithinDocument`
+(`chrome_protocol::within`); such a link answers `Followed`, as the
+engine's does. The engine's tab is still named where it was opened, because
+it follows no link until item 85; the item closes saying so, asserted in a
+test of each renderer. 303 queue items are open (640 closed). 641 is next
+on the product path. The next unused queue number is 642 and the next
+unused ADR 0062.

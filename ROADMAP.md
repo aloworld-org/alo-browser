@@ -161,14 +161,17 @@ about this project (ADR 0058 § 6).
   closes 629); the agent's socket reaching a tab in Chrome through the same
   serving and the same grants as the engine's, the same eight lines filling
   httpbin's form there, every refusal the same kind, the record naming
-  Chrome and its version, and the tab named by where its page is now (630).
+  Chrome and its version, and the tab named by where its page is now (630),
+  a link to a part of the page and a script's `pushState` included, the link
+  answered `Followed` as the engine answers it (640; the engine's tab, which
+  follows no link until item 85, is still named where it was opened).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
   it, and the network promises that do not hold there named (ADR 0060).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
-  what a page's script said, through Chrome (639); a fragment link, through
-  Chrome (640); a form Chrome would not send, answered as the engine
+  what a page's script said, through Chrome (639); the program told to use
+  Chrome, so a person can run it (641); a form Chrome would not send, answered as the engine
   answers it (631); which renderer is in use, where a person can read it (622); the
   agent's work where a person can see it (623–625); **what a person actually
   looks at (627)** — the boundary's `Painted(Frame)` has no answer on the
@@ -686,14 +689,16 @@ unreachable without it.
       `chrome_serving.rs`) through the same serving and grants as the
       engine's tabs, httpbin's order filling the form by the same eight
       lines, its refusals the same kinds, the record naming Chrome and its
-      version, and a tab named by where its page is now
+      version, and a tab named by where its page is now, after a link to a
+      part of it or a `pushState` too (item 640, `chrome_protocol::within`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
       aside on this path by name (ADR 0060)
       · Owed: a frame as a document of its own in the record (636); whose cause a tab an agent opened is
       (638, needs an ADR); the resolver measured (635); what a page's
-      script said, through Chrome (639); a fragment, through Chrome (640); a
+      script said, through Chrome (639); the program told to use Chrome
+      (641); a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), what a person looks at (627), and saying which renderer is in use where a
       person can read it (622)

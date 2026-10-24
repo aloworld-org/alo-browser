@@ -53,7 +53,12 @@ many nodes a tree has are its own, and a number read from one is never good
 in the other. Through Chrome, `issues` is always empty, because what the
 page's script said is not asked of Chrome (queue item 639), and a tab is
 named by the page it shows when the request is answered, however it got
-there.
+there — a link to a part of the page, or a script's `pushState`, included,
+with the part (queue item 640). A tab of this engine's goes nowhere a link
+or a page asks yet (queue item 85): after `activate` answers `Followed` it is
+still named where it was opened, where the same tab in Chrome is named where
+its page went. That is the one way the two renderers name a tab
+differently.
 
 At most **8** agents may be connected at once. A ninth gets one
 `TooManyCallers` refusal, and its connection is closed.

@@ -16,6 +16,13 @@
 //! loaded, with nothing asked of the tab while it goes; the tab is named by
 //! where it went all the same, because Chrome's word on it is taken in
 //! before a tab is looked for.
+//!
+//! A fourth page moves within itself: its link goes to a part of it, and its
+//! button moves it to another address of its own by `history.pushState`.
+//! Neither commits a document, and the tab is named where it moved all the
+//! same — with the part, for the link (queue item 640). The link is answered
+//! `Followed`, as this engine answers it; what the engine names its tab
+//! after the same link is `a_tab_in_the_engine_after_a_link_to_a_part.rs`.
 
 use alo_window::agent_sites::AgentSites;
 use alo_window::agents::Listening;
@@ -34,7 +41,9 @@ const AT_MOST: Duration = Duration::from_secs(20);
 
 /// A server on this machine, answering `/a.html` with a page whose link goes
 /// to `/b.html` on the other name, `/b.html` with a page of its own, and
-/// `/itself.html` with a page that goes to `/b.html` on its own: its port.
+/// `/itself.html` with a page that goes to `/b.html` on its own, and
+/// `/part.html` with a page whose link goes to a part of itself and whose
+/// button moves it to another address of its own by script: its port.
 fn serve() -> Option<u16> {
     let listener = TcpListener::bind("127.0.0.1:0").ok()?;
     let port = listener.local_addr().ok()?.port();
@@ -70,6 +79,14 @@ fn serve() -> Option<u16> {
                     Some("/b.html") => (
                         "200 OK",
                         "<!doctype html><title>Second</title><h1>Second</h1>".to_owned(),
+                    ),
+                    Some("/part.html") => (
+                        "200 OK",
+                        "<!doctype html><title>Parts</title><h1>Parts</h1>\
+                         <a href=\"#second\">To the second part</a>\
+                         <button onclick=\"history.pushState(null, '', 'moved.html')\">Move</button>\
+                         <div style=\"height:3000px\"></div><h2 id=\"second\">Second part</h2>"
+                            .to_owned(),
                     ),
                     Some("/itself.html") => (
                         "200 OK",
@@ -304,5 +321,112 @@ fn a_tab_whose_page_went_elsewhere_on_its_own_is_named_by_where_it_went() {
         read.get(1)
             .is_some_and(|answer| answer.contains(r#""kind":"NoSuchTab""#)),
         "{read:#?}"
+    );
+}
+
+/// A tab in Chrome at `/part.html`, every site reachable, reached through a
+/// socket of its own; `asked`, each line sent and answered before the next;
+/// and what was answered — `PORT`, in `asked` and in what is answered, is
+/// the server's port.
+fn in_parts(name: &str, asked: &[&str]) -> Result<Vec<String>, String> {
+    let port = serve().ok_or("no server")?;
+    let first = format!("http://127.0.0.1:{port}/part.html");
+    let address = alo_url::parse(&first).map_err(|why| format!("{why:?}"))?;
+    let serving = ChromeServing::start(Opening::Network(address), SIZE, AgentSites::Every)
+        .map_err(|why| format!("no tab in Chrome: {why}"))?;
+    let path = socket(name)?;
+    let listening =
+        Listening::at(&path, serving.orders()).map_err(|why| format!("not listening: {why}"))?;
+    let mut answers = Vec::new();
+    let mut result = Ok(());
+    for line in asked {
+        match ask(&path, &[line.replace("PORT", &port.to_string())]) {
+            Ok(mut answered) => answers.append(&mut answered),
+            Err(why) => {
+                result = Err(why);
+                break;
+            }
+        }
+    }
+    listening.stop();
+    let _ = serving.records();
+    result?;
+    Ok(answers
+        .into_iter()
+        .map(|answer| answer.replace(&port.to_string(), "PORT"))
+        .collect())
+}
+
+/// The `kind` an answer's outcome or refusal says, or nothing.
+fn kind(answer: &str) -> &str {
+    answer
+        .split(r#""kind":""#)
+        .nth(1)
+        .and_then(|rest| rest.split('"').next())
+        .unwrap_or("")
+}
+
+#[test]
+fn a_tab_whose_page_went_to_a_part_of_itself_is_named_with_the_part() {
+    let answers = in_parts(
+        "part",
+        &[
+            r#"{"v":1,"id":1,"ask":"act","tab":"http://127.0.0.1:PORT/part.html","target":{"role":"link","name":"To the second part"},"verb":"activate"}"#,
+            r#"{"v":1,"id":1,"ask":"tabs"}"#,
+            r#"{"v":1,"id":3,"ask":"read","tab":"http://127.0.0.1:PORT/part.html#second"}"#,
+            r#"{"v":1,"id":4,"ask":"read","tab":"http://127.0.0.1:PORT/part.html"}"#,
+        ],
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    assert!(
+        answers.first().is_some_and(
+            |answer| kind(answer) == "Followed" && answer.contains(r##""to":"#second""##)
+        ),
+        "{answers:#?}"
+    );
+    assert_eq!(
+        answers.get(1).map(String::as_str),
+        Some(tabs_answer(&["http://127.0.0.1:PORT/part.html#second".to_owned()]).as_str()),
+        "{answers:#?}"
+    );
+    assert!(
+        answers.get(2).is_some_and(|tree| tree.starts_with(
+            r#"{"answer":"tree","id":3,"tab":"http://127.0.0.1:PORT/part.html#second","#
+        ) && tree.contains(r#""name":"Second part""#)),
+        "{answers:#?}"
+    );
+    assert_eq!(
+        answers.get(3).map(|answer| kind(answer)),
+        Some("NoSuchTab"),
+        "{answers:#?}"
+    );
+}
+
+#[test]
+fn a_tab_whose_page_moved_itself_by_script_is_named_where_it_moved() {
+    let answers = in_parts(
+        "moved",
+        &[
+            r#"{"v":1,"id":1,"ask":"act","tab":"http://127.0.0.1:PORT/part.html","target":{"role":"button","name":"Move"},"verb":"activate"}"#,
+            r#"{"v":1,"id":1,"ask":"tabs"}"#,
+            r#"{"v":1,"id":3,"ask":"read","tab":"http://127.0.0.1:PORT/moved.html"}"#,
+        ],
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(
+        answers.first().map(|answer| kind(answer)),
+        Some("Activated"),
+        "{answers:#?}"
+    );
+    assert_eq!(
+        answers.get(1).map(String::as_str),
+        Some(tabs_answer(&["http://127.0.0.1:PORT/moved.html".to_owned()]).as_str()),
+        "{answers:#?}"
+    );
+    assert!(
+        answers
+            .get(2)
+            .is_some_and(|tree| tree.contains(r#""name":"Parts""#)),
+        "{answers:#?}"
     );
 }

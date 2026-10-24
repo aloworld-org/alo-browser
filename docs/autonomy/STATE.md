@@ -38447,3 +38447,126 @@ and gains 639 and 640. Not ticked — 627, 622, 623–625, 631, 632, 635, 636,
 304 queue items are open (630 closed; 639 and 640 added). The next unused
 queue number is **641** and the next ADR is **0062**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 378 — queue item 640: a page in Chrome that moves within itself is named where it moved
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, iteration
+377's entry, the queue's product path and items 627, 630, 639, 640 and 641;
+ADR 0055 § 5 (a tab is named by its address) and the feature line of ADR
+0058 in `docs/features.md`; `docs/contracts/agent-socket.md`. No
+`AGENTS.md` exists in the repository.
+
+**Why 640.** The owner's commit `bb06330` added 641 (the program told to
+use Chrome) to the product path, ahead of building 627's window on top of
+it, and 641 *depends on 640* — its closing condition is a run "differing
+only as 640 says it may". 640's own dependency (630) is done, it names its
+ADR and its closing condition, and it is the smallest step that unblocks
+the next product-path item. 627 remains open and next after 641.
+
+**Measured** (Chrome 155.0.8059.86, `--version` checked; a scratch Node
+CDP probe, not committed): a link to `#part` and `history.pushState` each
+commit no document and pause no request. Chrome tells of each as
+`Page.navigatedWithinDocument` `{frameId, url, navigationType}` — the whole
+address with its fragment (an empty `#` kept), `fragment` or `historyApi` —
+and of a fragment link sends no `Page.frameRequestedNavigation` at all, so
+the press of such a link answered `Activated` through Chrome where the
+engine answers `Followed` (found by the new test failing first, along with
+the tab staying named without the part).
+
+**Built.**
+- `chrome_protocol.rs`: `Within` and `within()`, the event read; well-formed
+  shapes cut from Chrome 155's, malformed, truncated and over-long ones
+  refused as kinds, each in a test of its own.
+- `chrome_tab.rs`: the tab's own frame moving within its document sets the
+  tab's address (its document is unchanged; nothing is recorded, as nothing
+  was asked for), and is kept for the press that may have caused it —
+  bounded to `MOST_WITHIN` (16) between presses, the first kept, since a
+  page can call `pushState` without end and a link's own move comes first
+  in its task.
+- `chrome_act.rs`: a press with no navigation asked for, whose frame moved
+  as a `fragment` to the address the link's `href` names resolved against
+  the page's address before the press, answers `Followed` with the `href`,
+  as the engine does; a script's move (`historyApi`, or a fragment
+  elsewhere) does not.
+
+**What the engine does, and why the item closes on its second branch.** The
+engine answers the same link `Followed` to `#second` and goes nowhere: the
+conductor goes where a page was let go for no link at all (item 85). So its
+tab is still named `https://example.org/part.html`, listed and read there,
+and `NoSuchTab` at `…#second`. The two renderers name a tab differently
+after a link to a part exactly as they already did after every other link
+(item 630) — Chrome where the page is, the engine where it was — which is
+ADR 0055 § 5 applied to each: the engine's page has not moved. Written into
+the queue's *Done*, `docs/features.md`, the socket contract (whose "nothing
+here differs" now names this as the one way they name a tab differently)
+and the changelog.
+
+**Gate, mechanical.** `scripts/gate.sh` started in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background, and the
+next call waited on the log with a foreground until-loop and read it in the
+same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, nextest
+**5,176 tests run, 5,176 passed**, no `FAIL` or `panicked` line. `cargo
+clippy --workspace --all-targets` had first refused two test functions at
+105 lines (the new asserts had been added to existing tests); they were
+split into tests of their own, not silenced. Only this entry came after
+the gate, then the commit.
+
+**Gate, manual.**
+- *Closing condition, asserted in a test of each renderer:*
+  `a_tab_in_chrome_named_where_it_is.rs` — after `activate` on "To the
+  second part" the answer is `Followed` to `#second`, `tabs` lists
+  `http://127.0.0.1:PORT/part.html#second`, a read there holds "Second
+  part", and `…/part.html` is `NoSuchTab`; after the "Move" button's
+  `pushState` the press is `Activated`, the tab is listed at `moved.html`
+  and read there. `a_tab_in_the_engine_after_a_link_to_a_part.rs` — the
+  same link through the engine's conductor and the real renderer program
+  answers `Followed` to `#second`, `tabs` lists `part.html` alone, a read at
+  `…#second` is `NoSuchTab` and one at `part.html` holds the tree.
+- *Unit tests:* `chrome_protocol` (the event read, and refused) and
+  `chrome_act::went_to_a_part` (the link's own address, a relative `href`,
+  another part, no address before, nothing moved, a script's move, an empty
+  fragment).
+- *Hostile bytes:* the one new reader, `within`, refuses a missing or
+  non-text field, a non-object, truncated JSON and an over-long
+  `navigationType` as kinds; it returns no panic.
+- *Mutations* (restored from copies, `cmp`-checked): not setting the address
+  on a move fails both new Chrome tests; never answering `Followed` for a
+  fragment fails the link test. **Not caught by a test:** the `MOST_WITHIN`
+  bound — no test here makes a page move more than sixteen times between
+  presses; written down as unverified rather than claimed.
+- *One file, one responsibility:* reading Chrome's words stays in
+  `chrome_protocol.rs`, the tab's state in `chrome_tab.rs`, what came of a
+  press in `chrome_act.rs`; the engine's half is a test file of its own
+  rather than a second subject in the Chrome one. No layout or visual
+  change: no layout assertion or reference render applies. No `unsafe`; no
+  verb takes a coordinate (the gate's check passed). `alo-os` and
+  `alo-workplace` were not touched. Nothing was pushed.
+
+**Queue.** 640 ticked with a *Done* paragraph; the product-path table notes
+641's dependency met. Nothing added.
+
+**Roadmap.** The product path's *Built* gains the tab named after a link to
+a part and a `pushState` (640); its *Owed* drops 640 and names 641. The ADR
+0058 line's `· Built:` gains the same and its `· Owed:` swaps 640 for 641.
+Not ticked. `REMAINING.md` says the same.
+
+**Unresolved obligations.**
+- The `MOST_WITHIN` bound is untested, as above.
+- A press whose page's own click handler `pushState`s before the link's
+  default action resolves its fragment against the moved address, which
+  `went_to_a_part` (resolving against the address before the press) reads
+  as not followed; the engine would answer `Followed`. Not measured, and
+  not claimed either way.
+- Inherited and still open: `Unacted::Moved`'s race (630); ROADMAP's
+  product-path paragraph still says the window question is undecided,
+  which ADR 0061 decided — left for 627's iteration; 638 not reached from
+  the socket; one tab per Chrome.
+- 641 is next on the product path, then 627; 622–625, 631, 632, 635, 636,
+  639 owed; 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586;
+  463 and 572 wait on a person; 568–571 on a screen or pages; 560 and 564 on
+  502 behind 501; 538 waits on a page; 638 needs an ADR.
+- No claim about speed is made.
+
+303 queue items are open (640 closed). The next unused queue number is
+**642** and the next ADR is **0062**. This is one iteration, not a finished
+queue or roadmap.

@@ -67,7 +67,9 @@ use crate::asking::Refused;
 use crate::chrome::{Chrome, Failed};
 use crate::chrome_gate::{self, Refusal};
 use crate::chrome_hold::{Holding, Kind, Unheld};
-use crate::chrome_protocol::{self, AxNode, Command, Declined, Malformed, Message, Requested};
+use crate::chrome_protocol::{
+    self, AxNode, Command, Declined, Malformed, Message, Requested, Within,
+};
 use crate::chrome_record::{Causes, Hop, purpose_of};
 use crate::chrome_tree::{self, Unread};
 use alo_layout::Rect;
@@ -104,6 +106,9 @@ pub struct Tab<'c> {
     /// The navigations the page's own frame asked for, told of since they
     /// were last taken ([`Tab::take_requested`]).
     requested: Vec<Requested>,
+    /// The moves the page's own frame made within the document it holds,
+    /// told of since they were last taken ([`Tab::take_within`]).
+    within: Vec<Within>,
     /// The tabs the page opened, by id, each closed before it loaded
     /// anything.
     closed: HashSet<String>,
@@ -114,10 +119,16 @@ pub struct Tab<'c> {
     /// The address of every WebSocket the page opened, as Chrome spells it.
     sockets: Vec<String>,
     /// The address of the page the tab shows: where it was opened, until its
-    /// own frame commits a document, and then that document's — or
-    /// [`None`], for an address that is not one this browser reads.
+    /// own frame commits a document, and then that document's, and the
+    /// address it last moved to within it — or [`None`], for an address
+    /// that is not one this browser reads.
     address: Option<Url>,
 }
+
+/// The most moves within its document a page's frame is remembered to have
+/// made between two presses: a script can call `history.pushState` a
+/// million times in one task, and a press asks only after the first.
+const MOST_WITHIN: usize = 16;
 
 /// What a tab's requests are answered from.
 enum Kept {
@@ -280,6 +291,7 @@ impl<'c> Tab<'c> {
             answering: HashMap::new(),
             telling: HashMap::new(),
             requested: Vec::new(),
+            within: Vec::new(),
             closed: HashSet::new(),
             causes,
             acted: None,
@@ -361,8 +373,11 @@ impl<'c> Tab<'c> {
     /// (ADR 0055 § 5): where it was opened until its own frame commits a
     /// document, and that document's from then — so a page that went
     /// somewhere else is named only by where it is now (queue item 497).
-    /// [`None`] for an address this browser cannot read as one, which
-    /// cannot be named at all.
+    /// A move within the document — a link to a part of it, a script's
+    /// `history.pushState` — names it by where it moved, fragment and all,
+    /// though no document was committed (queue item 640). [`None`] for an
+    /// address this browser cannot read as one, which cannot be named at
+    /// all.
     pub fn address(&self) -> Option<&Url> {
         self.address.as_ref()
     }
@@ -403,6 +418,12 @@ impl<'c> Tab<'c> {
     /// asked, in the order Chrome told of them.
     pub(crate) fn take_requested(&mut self) -> Vec<Requested> {
         std::mem::take(&mut self.requested)
+    }
+
+    /// The moves the page's own frame made within its document since this
+    /// was last asked, in the order Chrome told of them.
+    pub(crate) fn take_within(&mut self) -> Vec<Within> {
+        std::mem::take(&mut self.within)
     }
 
     /// Where Chrome drew the DOM node `node`: nowhere, when it declines to
@@ -547,6 +568,16 @@ impl<'c> Tab<'c> {
                 self.committed(&params)?;
                 Ok(None)
             }
+            // The tab's own frame moved within the document it holds: no
+            // request, no commit, and an address of its own from now.
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if session == self.session && method == "Page.navigatedWithinDocument" => {
+                self.moved_within(&params)?;
+                Ok(None)
+            }
             // A WebSocket, told of before its handshake and held by nothing.
             Message::Event { method, params, .. }
                 if method == "Network.webSocketCreated" && held.is_some() =>
@@ -674,6 +705,22 @@ impl<'c> Tab<'c> {
         if committed.frame == self.target && !committed.inside {
             self.causes.committed(self.chrome.record_mut());
             self.address = alo_url::parse(&committed.url).ok();
+        }
+        Ok(())
+    }
+
+    /// A frame of the tab that moved within its document, told of in
+    /// `params`: when it is the tab's own, the tab is at that address from
+    /// now, and its document is the one it held.
+    fn moved_within(&mut self, params: &[u8]) -> Result<(), Failed> {
+        let within = chrome_protocol::within(params).map_err(Failed::Malformed)?;
+        if within.frame == self.target {
+            self.address = alo_url::parse(&within.url).ok();
+            // The first of a task's moves are the ones a press asks after: a
+            // link's own comes before anything a script did in its task.
+            if self.within.len() < MOST_WITHIN {
+                self.within.push(within);
+            }
         }
         Ok(())
     }
