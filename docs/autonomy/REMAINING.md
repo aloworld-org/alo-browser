@@ -2773,3 +2773,17 @@ network), 634 (its record) and 635 (whether Chrome keeps the machine's
 resolver). 304 queue items are open (633, 634 and 635 added; 629 stays open
 until 633 and 634). The next unused queue number is 636 and the next unused
 ADR 0061.
+
+Iteration 374 built queue item 633: `Tab::open` opens a page from the
+network in Chrome and `Tab::open_for_agent` does so after the agent's
+sites are judged, an off-site address `NotGranted` with nothing written.
+Every frame and worker of the tab is held (`chrome_hold.rs`) until its
+requests are paused — measured, a dedicated worker has no `Fetch` and its
+requests pause through its document — and every paused request is judged
+by ADR 0020's rules (`chrome_gate.rs`) and let go or refused; a navigation
+Chrome never pauses, such as `mailto:`, is judged as it is told of. The
+frozen tab is held the same way: a frozen page's service worker script is
+paused in its own target and refused, asserted against a server that was
+asked nothing. 303 queue items are open (633 closed). 634 is
+next on the product path, and closes 629. The next unused queue number is
+636 and the next unused ADR 0061.

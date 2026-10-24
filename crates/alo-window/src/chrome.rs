@@ -36,10 +36,12 @@
 //!
 //! # What it is not yet
 //!
-//! It answers `Browser.getVersion`, holds tabs ([`crate::chrome_tab`], item
-//! 620) and closes. The verbs carried out through it are item 621.
+//! It answers `Browser.getVersion`, holds tabs ([`crate::chrome_tab`], items
+//! 620 and 633) and closes; the verbs are carried out through it
+//! ([`crate::chrome_act`], item 621).
 
 use crate::beside::{NotInstalled, chrome_in, chrome_places, is_program};
+use crate::chrome_hold::Unheld;
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_wire::{self, Frames, Unframed};
 use core::fmt;
@@ -114,6 +116,10 @@ pub enum Failed {
     Declined(Declined),
     /// The command could not be written.
     Unwritten(ErrorKind),
+    /// A target of a tab could not be held, and the tab is not let go on
+    /// ([`crate::chrome_hold`]). Boxed, so that every other failure, which
+    /// a tree's reading carries down each level it recurses, stays small.
+    Unheld(Box<Unheld>),
 }
 
 impl fmt::Display for Failed {
@@ -127,6 +133,7 @@ impl fmt::Display for Failed {
             Self::Malformed(why) => why.fmt(f),
             Self::Declined(why) => why.fmt(f),
             Self::Unwritten(kind) => write!(f, "Chrome could not be written to: {kind}"),
+            Self::Unheld(why) => why.fmt(f),
         }
     }
 }
@@ -241,6 +248,12 @@ impl Chrome {
     /// How long it is waited for.
     pub fn patience(&self) -> Duration {
         self.patience
+    }
+
+    /// How many commands have been written to Chrome so far, for a test that
+    /// wants to see that something was refused before Chrome heard of it.
+    pub fn written(&self) -> u64 {
+        self.asked
     }
 
     /// Which Chrome this is, as it says itself.

@@ -41,7 +41,10 @@
 //!   page in it is a [`chrome_tab`], read as the tree an agent reads by
 //!   [`chrome_tree`] (item 620), and acted on by [`chrome_act`]: each verb
 //!   decided by `alo-agent` against a [`chrome_reading`] of it, and carried
-//!   out as a real click or real typing (item 621).
+//!   out as a real click or real typing (item 621). A page from the network
+//!   is carried by Chrome's own network (ADR 0060): every target of its tab
+//!   held by [`chrome_hold`] until its requests are paused, and each request
+//!   judged by [`chrome_gate`] before Chrome is let send it (item 633).
 //!
 //! # What it is not yet
 //!
@@ -67,6 +70,8 @@ pub mod beside;
 #[cfg(unix)]
 pub mod chrome;
 pub mod chrome_act;
+pub mod chrome_gate;
+pub mod chrome_hold;
 pub mod chrome_protocol;
 pub mod chrome_reading;
 pub mod chrome_tab;

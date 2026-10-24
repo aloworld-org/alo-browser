@@ -126,6 +126,12 @@ pub enum Command {
         /// What it is answered with.
         body: Vec<u8>,
     },
+    /// `Fetch.continueRequest`: let the paused request `request` go on, as
+    /// Chrome made it, to Chrome's own network (ADR 0060 § 1).
+    Continue {
+        /// The request, by the id Chrome paused it under.
+        request: String,
+    },
     /// `Fetch.failRequest`: refuse the paused request `request`, as blocked
     /// by the browser rather than lost by the network.
     Refuse {
@@ -195,9 +201,11 @@ pub enum Command {
         /// What arrives.
         text: String,
     },
-    /// `Target.setAutoAttach`, for Chrome itself: be attached to every tab
-    /// that opens from now on, each held before it loads anything until it
-    /// is let go or closed — or, with `hold` false, no longer.
+    /// `Target.setAutoAttach`: be attached to every target that starts from
+    /// now on, each held before it loads or runs anything until it is let go
+    /// or closed — or, with `hold` false, no longer. Sent to Chrome itself,
+    /// every tab that opens; sent through a target's session, every frame and
+    /// worker it starts.
     HoldNewTabs {
         /// Whether to.
         hold: bool,
@@ -222,6 +230,7 @@ impl Command {
             Self::LayOutAt { .. } => "Emulation.setDeviceMetricsOverride",
             Self::Navigate { .. } => "Page.navigate",
             Self::Fulfil { .. } => "Fetch.fulfillRequest",
+            Self::Continue { .. } => "Fetch.continueRequest",
             Self::Refuse { .. } => "Fetch.failRequest",
             Self::ReadTree => "Accessibility.getFullAXTree",
             Self::WhereDrawn { .. } => "DOM.getContentQuads",
@@ -282,6 +291,7 @@ impl Command {
                 put("responseHeaders", Value::Array(vec![Value::Object(header)]));
                 put("body", Value::from(base64(body)));
             }
+            Self::Continue { request } => put("requestId", Value::from(request.as_str())),
             Self::Refuse { request } => {
                 put("requestId", Value::from(request.as_str()));
                 put("errorReason", Value::from("BlockedByClient"));
@@ -768,13 +778,16 @@ pub fn requested(params: &[u8]) -> Result<Requested, Malformed> {
     })
 }
 
-/// A tab Chrome attached this browser to, from `Target.attachedToTarget`.
+/// A target Chrome attached this browser to, from `Target.attachedToTarget`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attached {
     /// The session it is spoken to through.
     pub session: String,
-    /// The tab, by its id.
+    /// The target, by its id.
     pub target: String,
+    /// What it is, in Chrome's word: `page`, `iframe`, `worker`,
+    /// `service_worker`, …
+    pub kind: String,
     /// The tab that opened it, if one did.
     pub opener: Option<String>,
 }
@@ -784,7 +797,7 @@ pub struct Attached {
 /// # Errors
 ///
 /// [`Malformed`], for params with no `sessionId`, no `targetInfo` holding a
-/// `targetId`, or an `openerId` that is not text.
+/// `targetId` and a `type`, or an `openerId` that is not text.
 pub fn attached(params: &[u8]) -> Result<Attached, Malformed> {
     let fields = object(params)?;
     let Some(Value::Object(info)) = fields.get("targetInfo") else {
@@ -795,11 +808,22 @@ pub fn attached(params: &[u8]) -> Result<Attached, Malformed> {
     Ok(Attached {
         session: text(fields.get("sessionId"), "sessionId")?,
         target: text(info.get("targetId"), "targetId")?,
+        kind: text(info.get("type"), "type")?,
         opener: match info.get("openerId") {
             None => None,
             opener => Some(text(opener, "openerId")?),
         },
     })
+}
+
+/// The session a `Target.detachedFromTarget` event's `params` say has
+/// ended.
+///
+/// # Errors
+///
+/// [`Malformed`], for params with no `sessionId` that is text.
+pub fn detached(params: &[u8]) -> Result<String, Malformed> {
+    text(object(params)?.get("sessionId"), "sessionId")
 }
 
 /// One node of Chrome's accessibility tree, as `Accessibility.getFullAXTree`
@@ -1192,12 +1216,22 @@ mod tests {
             Ok(Attached {
                 session: "A1".to_owned(),
                 target: "B2".to_owned(),
+                kind: "page".to_owned(),
                 opener: Some("20360EF611555F6E57382076C619E00F".to_owned()),
             })
         );
         assert_eq!(
-            attached(br#"{"sessionId":"A","targetInfo":{"targetId":"B2"}}"#).map(|tab| tab.opener),
+            attached(br#"{"sessionId":"A","targetInfo":{"targetId":"B2","type":"page"}}"#)
+                .map(|tab| tab.opener),
             Ok(None)
+        );
+        assert_eq!(
+            attached(br#"{"sessionId":"A","targetInfo":{"targetId":"B2"}}"#),
+            bad("type")
+        );
+        assert_eq!(
+            attached(br#"{"sessionId":"A","targetInfo":{"targetId":"B2","type":["iframe"]}}"#),
+            bad("type")
         );
         assert_eq!(attached(br#"{"sessionId":"A"}"#), bad("targetInfo"));
         assert_eq!(
@@ -1213,12 +1247,55 @@ mod tests {
             bad("targetId")
         );
         assert_eq!(
-            attached(br#"{"sessionId":"A","targetInfo":{"targetId":"B","openerId":7}}"#),
+            attached(
+                br#"{"sessionId":"A","targetInfo":{"targetId":"B","type":"page","openerId":7}}"#
+            ),
             bad("openerId")
         );
         assert_eq!(
             String::from_utf8_lossy(&written(4, Some("A"), &Command::LetGo)),
             r#"{"id":4,"method":"Runtime.runIfWaitingForDebugger","params":{},"sessionId":"A"}"#
+        );
+    }
+
+    #[test]
+    fn a_frame_and_a_worker_of_a_tab_are_read_as_chrome_155_tells_of_them() {
+        // Cut from Chrome 155's events on 2026-10-24, through a tab's own
+        // session: a frame from another site, then a service worker.
+        assert_eq!(
+            attached(
+                br#"{"sessionId":"F1","targetInfo":{"targetId":"F2","type":"iframe","title":"","url":"","attached":true,"canAccessOpener":false,"browserContextId":"C3"},"waitingForDebugger":true}"#
+            ),
+            Ok(Attached {
+                session: "F1".to_owned(),
+                target: "F2".to_owned(),
+                kind: "iframe".to_owned(),
+                opener: None,
+            })
+        );
+        assert_eq!(
+            attached(
+                br#"{"sessionId":"W1","targetInfo":{"targetId":"W2","type":"service_worker","title":"","url":"http://127.0.0.1:53040/sw.js","attached":true,"canAccessOpener":false},"waitingForDebugger":true}"#
+            )
+            .map(|worker| worker.kind),
+            Ok("service_worker".to_owned())
+        );
+        assert_eq!(
+            detached(br#"{"sessionId":"F1","targetId":"F2"}"#),
+            Ok("F1".to_owned())
+        );
+        assert_eq!(detached(br#"{"targetId":"F2"}"#), bad("sessionId"));
+        assert_eq!(detached(br#"{"sessionId":7}"#), bad("sessionId"));
+        assert_eq!(detached(b"[]"), Err(Malformed::NotAnObject));
+        assert_eq!(
+            String::from_utf8_lossy(&written(
+                5,
+                Some("F1"),
+                &Command::Continue {
+                    request: "R".to_owned()
+                }
+            )),
+            r#"{"id":5,"method":"Fetch.continueRequest","params":{"requestId":"R"},"sessionId":"F1"}"#
         );
     }
 

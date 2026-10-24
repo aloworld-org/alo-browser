@@ -37925,3 +37925,114 @@ for ADR 0060 and its Owed names 633 and 634; the ADR 0058 line gains a
 304 queue items are open (633, 634 and 635 added; 629 open until 633 and
 634). The next unused queue number is **636** and the next ADR is
 **0061**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 374 — queue item 633: a page from the network opens in Chrome, every target held and every request judged
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2's four
+differences, the hostile-bytes clause), `ROADMAP.md` (the product path, the
+ADR 0058 line), iteration 373's entry, queue items 619–635 and the product
+path table, ADR 0060 in full, ADR 0020 §§ 2–3 and `alo-renderer`'s
+`navigate.rs` (its `Rule` names and `LONGEST_URL`), ADR 0055 § 8 and
+`agent_sites.rs`, `serving.rs`'s `NotGranted` order, the ADR 0058 feature
+line in `docs/features.md`, and `chrome.rs`, `chrome_tab.rs`,
+`chrome_protocol.rs` and `chrome_act.rs`. No `AGENTS.md` exists here.
+
+**Why 633.** The first open item on the product path whose dependencies
+(620, 497) are done, and the one iteration 373 named next.
+
+**Measured first** (Python over `--remote-debugging-pipe`, Chrome
+155.0.8059.86, scratchpad `p633/`, a local server on two names):
+- With the tab's session auto-attaching, waiting, and each attached target
+  doing the same, a cross-site frame, a dedicated worker and a service
+  worker are told of through the tab, and only a WebSocket reaches the
+  server unpaused — whether or not Chrome's own browser-level hold is also
+  on; a service worker attached at both levels runs once the tab's session
+  lets it go.
+- **A dedicated worker has no `Fetch`**: `Fetch.enable` on it is `-32601`,
+  and its script and its `fetch` are paused through its document's session.
+  A frame's document is paused in its parent; its own requests in the frame.
+- A link or script sending the tab to `data:`, `file:`, `javascript:` or
+  `chrome:` is stopped by Chrome and told of nowhere; a redirect to `file:`
+  or `data:` is `ERR_UNSAFE_REDIRECT` before its hop pauses; `mailto:`,
+  `blob:`, `ftp:`, `about:srcdoc` and an unknown scheme are never paused and
+  are told of by `Page.frameRequestedNavigation` (headless, Chrome went
+  nowhere for any). `Page.navigate` to `file:` *is* paused.
+- A page that sets `location` to `mailto:` while it is parsed never reaches
+  its own `load`; the test's page does it after `load`.
+
+**Built.** `chrome_gate.rs` judges an address a page in Chrome asked for —
+bounded at ADR 0020's 2 MiB, parsed again with `alo-url`, let go for `http`,
+`https` and `about:blank`, refused otherwise by `navigate::Rule`'s own
+names. `chrome_hold.rs` keeps the targets of a tab held, which kinds pause
+their own requests, and lets one go only once everything it was asked is
+answered; a refusal, or a kind it does not know, is `Unheld`, and the tab
+is closed (`Failed::Unheld`, boxed — unboxed it grew `Failed` enough that
+`chrome_tree`'s recursive reading overflowed its test's stack, which the
+first nextest run caught). `chrome_tab.rs` gains `Tab::open` (`http` and
+`https` only, else `NotTheNetwork` before a command), `Tab::open_for_agent`
+(`NotAnAddress`/`NotGranted` in `Unopened::Refused` before a command),
+`went()` and `refusals()`; its session holds every target for a frozen page
+too, so a frozen page's service worker script is paused in its own target
+and refused. `chrome_protocol.rs` gains `Fetch.continueRequest`, a target's
+`type`, and `Target.detachedFromTarget`; `Chrome::written` counts commands.
+
+**Gate, mechanical.** `scripts/gate.sh` started in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background, and the
+next call waited on the log with a foreground until-loop and read it in the
+same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, nextest
+5,148 tests run, 5,148 passed, no `FAILED` or `panicked` line. Only this
+entry came after it, then the commit.
+
+**Gate, manual.**
+- *Hostile bytes:* every new reader refuses malformed shapes by kind —
+  `attached` without or with a non-text `type`, `detached` without a text
+  `sessionId` or not an object — and `judge` refuses the empty, unparsable,
+  NUL-bearing and over-2-MiB addresses without panicking, saying at most
+  200 characters.
+- *Asserted against the server's own log*
+  (`tests/a_page_from_the_network_in_chrome.rs`): every request it received
+  was let go by the tab first, each in its target (the other-site frame's
+  `fetch` in the frame, the service worker's script and `fetch` in the
+  service worker, the dedicated worker's in the page); `mailto:` is refused
+  as `Rule::Scheme` and the page stays; an off-site agent address, a
+  non-address and a person's `data:` write nothing (`Chrome::written`
+  unchanged) and ask the server nothing; a frozen page's service worker asks
+  the server nothing. Run three times green.
+- *Mutations* (restored from copies): without the tab-level hold the
+  network test and the frozen test each fail; with a frame not told to
+  pause, the frame's `fetch` reaches the server un-let-go and the test says
+  so.
+- One file, one responsibility: the judgement and the holding are files of
+  their own; `chrome_tab.rs` opens and answers. No layout or visual change:
+  no layout assertion or reference render applies. No `unsafe`; no verb
+  takes a coordinate. `alo-os` and `alo-workplace` were not touched.
+  Nothing was pushed.
+
+**Queue.** 633 ticked with a *Done* paragraph; the product path table ticks
+633. 629 stays open until 634.
+
+**Roadmap.** "Where the product path stands today" moves 633 into
+*Built*, and its *Owed* names 634 as what closes 629; the ADR 0058 line's
+`· Built:` gains the network tab and its `· Owed:` names 634. Not ticked.
+`docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Unresolved obligations.**
+- Nothing is in the record yet: `went()` and `refusals()` are the tab's own
+  lists, and ADR 0012's lines with their causes are 634's.
+- A navigation Chrome never pauses (`mailto:` and the rest) is judged and
+  named, but nothing of the browser process's stands between it and Chrome;
+  headless Chrome 155 went nowhere for any of them, measured, and that is
+  Chrome's refusal, not ours.
+- ADR 0060's Consequences say the frozen tab "does not change"; it now
+  holds its targets as § 2 says, and is still § 2's special case. The ADR is
+  left as written.
+- A WebSocket still cannot be held (ADR 0060 § 3); recording it is 634's.
+- 634, then 630, are next on the product path; 635 is owed. 604, 605, 606,
+  616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501; 538
+  waits on a page; 627 needs an ADR.
+- No claim about speed is made.
+
+303 queue items are open (633 closed). The next unused queue number is
+**636** and the next ADR is **0061**. This is one iteration, not a finished
+queue or roadmap.

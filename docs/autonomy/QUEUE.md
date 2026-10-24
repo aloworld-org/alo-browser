@@ -44,7 +44,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **619** | Chrome spawned and spoken to over a pipe |
 | ✓ | **620** | Chrome's tree, read as ours |
 | | **629** | a page from the network through Chrome, under the grants — **decided, ADR 0060** |
-| | **633** | a page from the network opened in Chrome, every request held to our rules |
+| ✓ | **633** | a page from the network opened in Chrome, every request held to our rules |
 | | **634** | every request of a page in Chrome in the record |
 | ✓ | **621** | the verbs, through Chrome |
 | | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
@@ -16007,7 +16007,7 @@ What stage 2's exit gate actually measures: a person using it.
   field through Chrome reads back as that date, and an option chosen by its
   words is the one selected — or the refusal stays and this item says why.
 
-- [ ] **633. A page from the network opens in Chrome, every request held to
+- [x] **633. A page from the network opens in Chrome, every request held to
   the browser process's rules.** *ADR 0060 §§ 2–3, cut from 629.* A tab of
   `chrome_tab.rs` opened at an address rather than with bytes: every target
   of it — frames, dedicated and service workers — held by auto-attach until
@@ -16023,6 +16023,34 @@ What stage 2's exit gate actually measures: a person using it.
   refused scheme is refused by name; an off-site address under a restriction
   writes nothing to the pipe (asserted on the commands sent); and the
   malformed shapes of every new reader are refused, not panicked on.
+  ***Done (iteration 374).*** `Tab::open` opens an `http` or `https` address
+  through Chrome's network (any other is `NotTheNetwork`, before a command)
+  and `Tab::open_for_agent` first judges the agent's address against its
+  `AgentSites` — `NotAnAddress` or `NotGranted` by site in
+  `Unopened::Refused`, with `Chrome::written` unchanged. The tab's session
+  auto-attaches every target, waiting, and each attached does the same
+  (`chrome_hold.rs`): a frame, a service worker and a shared worker are also
+  told to pause every request, and let go only once both commands are
+  answered; **a dedicated worker has no `Fetch`** (`-32601`, measured) and its
+  requests pause through its document, so it is held and not told to pause;
+  any other kind, or a refusal, is `Failed::Unheld` and the tab is closed.
+  Every paused request is judged by `chrome_gate.rs` — bounded at 2 MiB,
+  parsed again, and let go for `http`, `https` and `about:blank` only, with
+  ADR 0020's `Rule` names — and continued or failed. Measured: links and
+  scripts sending the tab to `data:`, `file:`, `javascript:` or `chrome:`
+  are stopped by Chrome and told of nowhere, redirects to them are
+  `ERR_UNSAFE_REDIRECT` before the hop pauses, and `mailto:`, `blob:`,
+  `ftp:` and unknown schemes are never paused but told of by
+  `Page.frameRequestedNavigation`, where they are judged and refused by name.
+  The frozen tab is held the same way, so its service worker's script is
+  refused too. `tests/a_page_from_the_network_in_chrome.rs`, against a local
+  server on two sites: every request the server received was let go first,
+  each in its target (the other-site frame's `fetch` in the frame, the
+  service worker's script and `fetch` in the service worker, the dedicated
+  worker's in the page); a page sending itself to `mailto:` is refused as
+  `Rule::Scheme` and stays; an off-site agent address writes nothing; a
+  frozen page's service worker asks the server nothing. Two mutations
+  (no tab-level hold; a frame not told to pause) each fail it.
 
 - [ ] **634. Every request of a page in Chrome is in the record.** *ADR 0060
   § 2, ADR 0012, cut from 629.* Each request `633` lets go or refuses becomes

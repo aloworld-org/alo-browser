@@ -145,13 +145,18 @@ about this project (ADR 0058 § 6).
   both carry (620); the verbs on a page in Chrome, decided by the engine's own
   rules before Chrome is asked anything and carried out as a real click or
   real typing, httpbin's order coming to the same outcomes through both
-  renderers (621).
+  renderers (621); a page from the network opened in Chrome, every frame and
+  worker of its tab held until its requests are paused and every request
+  judged by our rules before Chrome is let send it — none of a local page's,
+  its other-site frame's, its worker's or its service worker's reached the
+  server unseen — and an agent's off-site address refused before a single
+  command is written (633).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
   it, and the network promises that do not hold there named (ADR 0060).
-- **Owed:** a page from the network through Chrome, under the grants (629,
-  built as 633 and 634);
+- **Owed:** every request of a page in Chrome in the record, with its cause
+  (634, which closes 629);
   the agent's socket reaching a tab in Chrome, its grants and record naming
   the renderer (630); a form Chrome would not send, answered as the engine
   answers it (631); which renderer is in use, where a person can read it (622); the
@@ -652,13 +657,20 @@ unreachable without it.
       or as a field focused, selected and typed into — `web-a-form`'s order
       comes to the same five outcomes through Chrome as through the engine;
       and a tab a frozen page opens is held before it loads anything and
-      closed, so a click cannot take a frozen page to the network
+      closed, so a click cannot take a frozen page to the network; a page
+      from the network opened in a tab of it (item 633), every frame and
+      worker held until its requests are paused (`chrome_hold.rs`) and every
+      request judged by ADR 0020's rules before it is let go or refused by
+      name (`chrome_gate.rs`) — a local page's other-site frame, dedicated
+      worker and service worker sent nothing the tab had not let go first,
+      a `mailto:` it sends itself to is refused by name, and an agent's
+      off-site address is `NotGranted` with nothing written to Chrome
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
       aside on this path by name (ADR 0060)
-      · Owed: a page from the network through Chrome (629, as 633 and 634;
-      the resolver measured as 635), the socket
+      · Owed: every request of a page in Chrome in the record (634, which
+      closes 629; the resolver measured as 635), the socket
       reaching a tab in Chrome with the record naming its renderer (630), a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), what a person looks at (627), and saying which renderer is in use where a

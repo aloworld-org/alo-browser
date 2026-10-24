@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page from the internet can be opened in Chrome, and nothing it asks
+  for leaves without this browser seeing it first.** Every part of the page
+  that could ask for things on its own — a frame from another site, a
+  background worker, a service worker — is stopped before it runs until
+  its requests can be paused, and each request is checked by the same
+  rules this browser's own engine uses before Chrome is let send it. A
+  page trying to hand the person to another program, such as an e-mail
+  link it follows by itself, is refused by name. An agent kept to certain
+  sites that names another is refused before Chrome is told anything.
+  Tested against a server on the same machine: nothing the page, its frame
+  or its workers asked for reached the server unseen. Writing each of
+  those requests into the browser's record comes next.
+
 - **Decided: a page shown through Chrome uses Chrome's own network, and
   the browser checks every request before it goes.** Measured against
   Chrome 155: this browser's own networking cannot carry everything such a
