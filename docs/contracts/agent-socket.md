@@ -36,7 +36,8 @@ application made by the system it runs on, and it is not that system's grant.
 No agent can name, widen or read the sites. They hold for every agent
 connected and end when the browser does.
 
-`alo` prints the path when its window opens. When there is no private place,
+`alo` prints the path when its window opens, and `alo --chrome` once the
+page is open in Chrome; either first says which renderer draws the page. When there is no private place,
 or another browser is already answering there, it says so and opens no socket.
 On Windows how an agent reaches the browser is not decided yet.
 

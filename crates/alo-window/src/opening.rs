@@ -22,8 +22,18 @@
 //! And it is where a person lays the window out at a scale its screen is
 //! not (`--scale`, queue item 599), as Chrome's `--force-device-scale-factor`
 //! does: the one way to see a scale none of this machine's screens has.
+//!
+//! And it is where a person tells `alo` to have the machine's own Chrome draw
+//! the page instead of this engine (`--chrome`, ADR 0058, queue item 641):
+//! an `http` or `https` address, opened through Chrome's own network with
+//! every request judged here (ADR 0060), or a page's file, read here and
+//! handed to Chrome as bytes at its `file:` address, as a frozen page is. No
+//! window shows it yet (item 627), so what only a window or this engine's
+//! renderers use — a scale, the frozen fonts, a page's sheets — is refused
+//! beside it rather than quietly dropped.
 
 use crate::agent_sites::AgentSites;
+use crate::chrome_serving;
 use crate::conductor::Fonts;
 use crate::message::Order;
 use crate::scale::Scale;
@@ -34,7 +44,21 @@ use std::path::{Path, PathBuf};
 
 /// How to use `alo`, as it is said when it was used wrongly.
 pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
-     [PAGE.html [SHEET.css ...]]";
+     [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)";
+
+/// The size, in CSS pixels, a page in Chrome is laid out at: there is no
+/// window to give it one until item 627, so it is the size ADR 0061 measured
+/// Chrome's frames at.
+pub const CHROME_SIZE: (u32, u32) = (1200, 800);
+
+/// Which renderer a person asked to draw the page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Renderer {
+    /// This browser's own engine, in a window.
+    ThisEngine,
+    /// The Chrome installed on this machine, driven over a pipe (ADR 0058).
+    Chrome,
+}
 
 /// What was asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,6 +74,8 @@ pub struct Opening {
     /// The scale the window is laid out at whatever its screen's, if one
     /// was named.
     pub scale: Option<Scale>,
+    /// Which renderer draws the page.
+    pub renderer: Renderer,
 }
 
 impl Opening {
@@ -69,19 +95,27 @@ impl Opening {
     /// eight, or 1.5 — so that a scale nobody measured is refused rather
     /// than quietly shown at another.
     ///
+    /// `--chrome` has the machine's Chrome draw the page named — which may
+    /// then be an address as well as a file — and draws it in no window.
+    ///
     /// # Errors
     ///
     /// [`USAGE`] with what was wrong, for an option that is not one, an
     /// `--agent-site` with no address or one that has no site, a `--scale`
-    /// with no factor or one that is not measured, or a sheet with no page.
+    /// with no factor or one that is not measured, or a sheet with no page;
+    /// and with `--chrome`, no page, or a scale, the frozen fonts or a sheet
+    /// beside it.
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let mut fonts = Fonts::AsAsked;
         let mut files = Vec::new();
         let mut sites = Vec::new();
         let mut scale = None;
+        let mut renderer = Renderer::ThisEngine;
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
-            if argument == "--frozen-fonts" {
+            if argument == "--chrome" {
+                renderer = Renderer::Chrome;
+            } else if argument == "--frozen-fonts" {
                 fonts = Fonts::AsStarted;
             } else if argument == "--agent-site" {
                 let Some(address) = arguments.next() else {
@@ -102,12 +136,63 @@ impl Opening {
         let agents = AgentSites::named(sites.iter().map(String::as_str))
             .map_err(|why| format!("--agent-site: {why}\n{USAGE}"))?;
         let mut files = files.into_iter();
-        Ok(Self {
+        let opening = Self {
             fonts,
             page: files.next(),
             sheets: files.collect(),
             agents,
             scale,
+            renderer,
+        };
+        if renderer == Renderer::Chrome {
+            opening.refuse_beside_chrome()?;
+        }
+        Ok(opening)
+    }
+
+    /// What `--chrome` cannot be given, or nothing.
+    fn refuse_beside_chrome(&self) -> Result<(), String> {
+        let refused = if self.page.is_none() {
+            "--chrome names no page: an address, or a page's file"
+        } else if self.scale.is_some() {
+            "--scale lays out a window, and Chrome draws in none yet (queue item 627)"
+        } else if self.fonts == Fonts::AsStarted {
+            "--frozen-fonts are this engine's, and Chrome draws with its own"
+        } else if !self.sheets.is_empty() {
+            "a page's sheets are given by this engine, and Chrome is given only the page"
+        } else {
+            return Ok(());
+        };
+        Err(format!("{refused}\n{USAGE}"))
+    }
+
+    /// The page to open in Chrome: the address named, when it is an `http`
+    /// or `https` one, or else the page's file, read here and served to
+    /// Chrome at its `file:` address.
+    ///
+    /// # Errors
+    ///
+    /// When no page was named, an address names another scheme, or the file
+    /// could not be read or named as a URL — and why.
+    pub fn chrome_page(&self) -> Result<chrome_serving::Opening, String> {
+        let Some(path) = &self.page else {
+            return Err(format!("no page to open in Chrome\n{USAGE}"));
+        };
+        if let Some(address) = path.to_str().and_then(|text| alo_url::parse(text).ok()) {
+            return if matches!(address.scheme.as_str(), "http" | "https") {
+                Ok(chrome_serving::Opening::Network(address))
+            } else {
+                Err(format!(
+                    "Chrome is given an http or https address, or a page's file, \
+                     and {address} is neither\n{USAGE}"
+                ))
+            };
+        }
+        let page = std::fs::read(path)
+            .map_err(|why| format!("{} could not be read: {why}", path.display()))?;
+        Ok(chrome_serving::Opening::Frozen {
+            url: file_url(path)?.to_string(),
+            page,
         })
     }
 
@@ -271,6 +356,91 @@ mod tests {
     }
 
     #[test]
+    fn this_engine_draws_unless_chrome_is_named() {
+        let engine = Opening::from_arguments(arguments(&["page.html"])).expect("an argument");
+        assert_eq!(engine.renderer, Renderer::ThisEngine);
+        let chrome = Opening::from_arguments(arguments(&[
+            "--chrome",
+            "--agent-site",
+            "https://example.com",
+            "https://www.example.com/a?b#c",
+        ]))
+        .expect("these are arguments");
+        assert_eq!(chrome.renderer, Renderer::Chrome);
+        assert_eq!(chrome.agents.to_string(), "only https://example.com");
+        let Ok(chrome_serving::Opening::Network(address)) = chrome.chrome_page() else {
+            panic!("an address is opened from the network");
+        };
+        assert_eq!(address.to_string(), "https://www.example.com/a?b#c");
+        let plain = Opening::from_arguments(arguments(&["--chrome", "http://127.0.0.1:8080/"]))
+            .expect("an address");
+        assert!(matches!(
+            plain.chrome_page(),
+            Ok(chrome_serving::Opening::Network(address)) if address.scheme == "http"
+        ));
+    }
+
+    #[test]
+    fn a_file_for_chrome_is_read_here_and_served_at_its_address() {
+        let case = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases/alo-sign-in");
+        let named = case.join("page.html");
+        let chrome =
+            Opening::from_arguments(vec!["--chrome".to_owned(), named.display().to_string()])
+                .expect("a file");
+        let Ok(chrome_serving::Opening::Frozen { url, page }) = chrome.chrome_page() else {
+            panic!("a file is served frozen");
+        };
+        assert!(url.starts_with("file:///"), "{url}");
+        assert!(url.ends_with("/alo-sign-in/page.html"), "{url}");
+        assert_eq!(Some(page), std::fs::read(&named).ok());
+        let missing = Opening::from_arguments(arguments(&["--chrome", "/nowhere/at/all.html"]))
+            .expect("a file, as far as arguments go");
+        assert!(
+            missing
+                .chrome_page()
+                .is_err_and(|why| why.contains("/nowhere/at/all.html"))
+        );
+    }
+
+    #[test]
+    fn what_chrome_cannot_be_given_is_refused_before_it_starts() {
+        let refused = |words: &[&str]| Opening::from_arguments(arguments(words));
+        for (words, said) in [
+            (&["--chrome"][..], "--chrome names no page"),
+            (
+                &["--chrome", "--scale", "2", "a.html"][..],
+                "--scale lays out a window",
+            ),
+            (
+                &["--chrome", "--frozen-fonts", "a.html"][..],
+                "--frozen-fonts are this engine's",
+            ),
+            (
+                &["--chrome", "a.html", "b.css"][..],
+                "a page's sheets are given by this engine",
+            ),
+        ] {
+            assert!(
+                refused(words).is_err_and(|why| why.contains(said) && why.contains(USAGE)),
+                "{words:?}"
+            );
+        }
+        for address in [
+            "data:text/html,hi",
+            "file:///tmp/a.html",
+            "ftp://example.com/",
+        ] {
+            let opening = refused(&["--chrome", address]).expect("an argument");
+            assert!(
+                opening
+                    .chrome_page()
+                    .is_err_and(|why| why.contains("http or https address")),
+                "{address}"
+            );
+        }
+    }
+
+    #[test]
     fn a_frozen_page_is_read_with_its_sheet_and_named_by_its_file() {
         let case = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases/alo-sign-in");
         let opening = Opening {
@@ -279,6 +449,7 @@ mod tests {
             sheets: vec![case.join("style.css")],
             agents: AgentSites::Every,
             scale: None,
+            renderer: Renderer::ThisEngine,
         };
         let Ok(Order::Open {
             url,
@@ -302,6 +473,7 @@ mod tests {
             sheets: Vec::new(),
             agents: AgentSites::Every,
             scale: None,
+            renderer: Renderer::ThisEngine,
         };
         assert!(
             opening

@@ -2834,3 +2834,16 @@ it follows no link until item 85; the item closes saying so, asserted in a
 test of each renderer. 303 queue items are open (640 closed). 641 is next
 on the product path. The next unused queue number is 642 and the next
 unused ADR 0062.
+
+Iteration 379 built queue item 641: `alo --chrome (ADDRESS | PAGE.html)`
+runs the Chrome path from the program a person starts (`opening::Renderer`,
+`Opening::chrome_page`, `ChromeServing::rendered_by`). It says on the
+terminal which renderer draws the page — Chrome by its own version, or this
+engine — answers the socket from another process, and, drawing in no window
+until 627, runs until its input ends. A scale, the frozen fonts and a
+page's sheets are refused beside it. Asserted by running the binary in
+`the_program_told_to_use_chrome.rs`; a live run of the same page through
+both renderers is in the journal. 303 queue items are open (641 closed;
+iteration 378's count of 303 was one short).
+627 is next on the product path. The next unused queue number is 642 and
+the next unused ADR 0062.

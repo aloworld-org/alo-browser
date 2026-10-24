@@ -38570,3 +38570,129 @@ Not ticked. `REMAINING.md` says the same.
 303 queue items are open (640 closed). The next unused queue number is
 **642** and the next ADR is **0062**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 379 — queue item 641: the program can be told to use Chrome
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path and the ADR 0058 line), iteration 378's entry, the queue's product
+path and items 622, 627 and 641; ADR 0058's feature line in
+`docs/features.md`; `docs/contracts/agent-socket.md`; `opening.rs`,
+`chrome_serving.rs` and `bin/alo.rs`. No `AGENTS.md` exists in the
+repository.
+
+**Why 641.** It is the next product-path item and its one dependency, 640,
+is done; 627 stays open and is next after it, as iteration 378 and the
+owner's commit `bb06330` placed it.
+
+**Probed first** (scratch test, deleted): a frozen tab in Chrome served at
+a `file:` URL loads our bytes — not a file Chrome reads itself — and the
+link to `#x` answers `Followed` and renames the tab. So a page's file can be
+read by the browser process (ADR 0005) and handed to Chrome as a frozen
+page, and one file can be run through both renderers.
+
+**Built.**
+- `opening.rs`: `--chrome`, `Renderer { ThisEngine, Chrome }`,
+  `CHROME_SIZE` (1200×800, ADR 0061's measuring size, until 627 gives a
+  window's), and `Opening::chrome_page` — an `http`/`https` address as
+  `Opening::Network`, anything else that parses as a URL refused by name,
+  otherwise a file read here into `Opening::Frozen` at its `file:` URL.
+  Beside `--chrome`, no page, `--scale`, `--frozen-fonts` and sheets are
+  refused before Chrome starts, rather than dropped.
+- `chrome_serving.rs`: the thread tells back the product Chrome gave
+  itself, kept as `ChromeServing::rendered_by`.
+- `bin/alo.rs`: `in_this_engine` (the old body, now saying `pages are drawn
+  by this browser's engine`) and `in_chrome`: start `ChromeServing`, say
+  `pages are drawn by Chrome/155.0.8059.86, driven by this browser`, listen
+  on the same socket with the same grants, say there is no window yet
+  (627), run until stdin ends, then stop listening and close Chrome.
+
+**Gate, mechanical.** `scripts/gate.sh` started in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background, and the
+next call waited on the log with a foreground until-loop and read it in the
+same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, nextest
+**5,183 tests run, 5,183 passed**, no `FAIL` or `panicked` line. Clippy had
+first refused `in_this_engine` taking `Opening` by value and a raw string's
+needless hashes; both fixed, not silenced. Only this entry came after the
+gate, then the commit.
+
+**Gate, manual.**
+- *Closing condition, by running the binary:*
+  `the_program_told_to_use_chrome.rs` starts `alo --chrome
+  http://127.0.0.1:PORT/part.html` as a process of its own, its socket under
+  a runtime directory of the test's own; the terminal's line is matched
+  exactly against the product a Chrome of the test's own gives
+  (`Chrome/155.0.8059.86`); `alo-ask` gets `tabs`, a `read` whose document
+  is `1200.0` × `800.0` at `0,0` (a layout assertion in numbers),
+  `activate` on "To the second part" answering `Followed` to `#second`, the
+  tab then listed at `…#second` and read there; closing its input exits 0
+  and removes the socket. Kept by `--agent-site http://localhost` it says
+  so, lists no tabs and refuses the page `NotGranted` for
+  `http://127.0.0.1`; a file named opens at its `file:` address; four
+  refusals exit 2 without naming a renderer.
+- *The live run*, recorded rather than claimed (Chrome 155.0.8059.86,
+  `--version` checked): one page file, a link to `#second` 3000 px down,
+  through `alo --chrome FILE` and through `alo FILE` (the engine, in its
+  window on this Mac's screen), each driven by `alo-ask` with the same six
+  lines. Both said which renderer draws the page and where an agent reaches
+  it. Every ask was answered the same kind: `tabs` the file's address,
+  `read` a tree of heading, link, heading with the same roles, names and
+  `offscreen` on the second heading, `activate` `Followed` to `#second`.
+  They differed in (a) box numbers (8 vs 4); (b) each renderer's own
+  geometry and names — Chrome's document 1200×800 and named "Parts" by its
+  title, the engine's 1000 wide (its window) and as tall as the page,
+  3167.7, with its own font metrics (link 117.5 vs 123.6 wide); and (c)
+  after the link, Chrome's tab named `…#second` and read there with the
+  second heading on screen, the engine's still named without the part and
+  `…#second` `NoSuchTab`. (a) and (b) are each renderer's own description
+  of the page (contract, *Whichever renderer draws the page*); (c) is
+  exactly what 640 says. The Chrome run ended by closing its input, exit
+  0, socket removed; the engine run was ended by `SIGTERM` (exit 143), not
+  by closing the window — closing is `closing_the_window.rs`'s, not
+  re-proved here — and its stale socket is the kind `socket_place` clears.
+- *Unit tests:* `opening` — the default is the engine; an address and a
+  plain `http` one open from the network; a file is read and served at its
+  address; a missing file is named; no page, a scale, frozen fonts, a sheet
+  and `data:`/`file:`/`ftp:` addresses are refused.
+- *Mutation* (restored from a copy, `cmp`-checked, binary rebuilt): not
+  printing the renderer line fails the binary test.
+- *Hostile bytes:* nothing new reads bytes from outside — the file is read
+  whole and handed to the existing frozen path; the command line is the
+  person's.
+- *One file, one responsibility:* what was asked stays in `opening.rs`,
+  the Chrome thread in `chrome_serving.rs`, and the binary only chooses
+  and wires; the test of the program is a file of its own. No layout or
+  visual change to anything drawn: the layout assertion above is on
+  Chrome's laid-out size; no reference render applies. No `unsafe`; no verb
+  takes a coordinate. `alo-os` and `alo-workplace` were not touched.
+  Nothing was pushed.
+
+**Queue.** 641 ticked with a *Done* paragraph; the product-path table marks
+it. Nothing added.
+
+**Roadmap.** The product path's *Built* gains `alo --chrome` (641); its
+*Owed* drops 641 and rewords 622 as asking the *running* browser, which
+only the terminal answers today. The ADR 0058 line's `· Built:` gains the
+same and its `· Owed:` drops 641. Not ticked. `REMAINING.md`, the features
+line and the socket contract say the same.
+
+**Unresolved obligations.**
+- 622 is not closed: the renderer is said on the terminal as the program
+  starts, not answered to a person asking the running browser.
+- `alo --chrome` ended by a signal rather than by its input leaves Chrome's
+  profile directory behind (Chrome itself ends with its pipe, item 619);
+  not new, now reachable by a person's Ctrl-C.
+- Inherited and still open: the `MOST_WITHIN` bound untested (640);
+  a click handler's `pushState` before a link's default action (640);
+  `Unacted::Moved`'s race (630); ROADMAP's product-path paragraph still
+  calls the window undecided, which ADR 0061 decided — left for 627; 638
+  not reached from the socket; one tab per Chrome.
+- 627 is next on the product path; 622–625, 631, 632, 635, 636, 639 owed;
+  604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 638 needs an ADR.
+- No claim about speed is made.
+
+303 queue items are open (641 closed; counted as `- [ ] **` lines, 304
+before it — iteration 378's 303 was one short). The next unused queue number is
+**642** and the next ADR is **0062**. This is one iteration, not a finished
+queue or roadmap.

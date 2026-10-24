@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`alo --chrome` runs a page in the Chrome installed on the machine.**
+  Until now that path existed only as a library and its tests; nobody could
+  start it. Name an address or a page's file after `--chrome` and the
+  browser opens it in Chrome, says on the terminal which Chrome is drawing
+  it and its version (or, without the option, that this browser's own
+  engine is), and answers an agent over the same socket, under the same
+  site limits and into the same record. There is no window to look at yet,
+  so it keeps running until its input ends (Ctrl-D at a terminal), then
+  closes Chrome. Options that only make sense for a window or for this
+  browser's own engine — a scale, the frozen fonts, style sheets beside the
+  page — are refused with `--chrome` rather than silently ignored.
+
 - **A page in Chrome that moves to a part of itself is known by where it
   moved.** An agent that follows a link to `#section`, or a page whose
   script changes its own address with `history.pushState`, now finds the

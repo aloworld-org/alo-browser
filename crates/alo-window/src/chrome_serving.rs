@@ -28,6 +28,7 @@ use crate::chrome_pages::ChromePages;
 use crate::chrome_tab::{Tab, Unopened};
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::Order;
+use crate::pages::RenderedBy;
 use crate::serving::serve;
 use alo_url::Url;
 use core::fmt;
@@ -85,6 +86,7 @@ impl std::error::Error for Unserved {}
 pub struct ChromeServing {
     orders: Orders,
     thread: JoinHandle<AgentRecord>,
+    rendered_by: RenderedBy,
 }
 
 impl ChromeServing {
@@ -110,7 +112,11 @@ impl ChromeServing {
             .spawn(move || serve_in_chrome(opening, size, &sites, &inbox, &tell))
             .map_err(|why| Unserved::NoThread(why.kind()))?;
         match started.recv() {
-            Ok(Ok(())) => Ok(Self { orders, thread }),
+            Ok(Ok(product)) => Ok(Self {
+                orders,
+                thread,
+                rendered_by: RenderedBy::Chrome { product },
+            }),
             Ok(Err(why)) => {
                 let _ = thread.join();
                 Err(why)
@@ -120,6 +126,12 @@ impl ChromeServing {
                 Err(Unserved::Gone)
             }
         }
+    }
+
+    /// Which Chrome draws its page, as that Chrome says itself — what the
+    /// record names, and what `alo` says on the terminal (item 641).
+    pub fn rendered_by(&self) -> &RenderedBy {
+        &self.rendered_by
     }
 
     /// Where to send it orders: what [`crate::agents::Listening::at`] sends
@@ -138,14 +150,14 @@ impl ChromeServing {
     }
 }
 
-/// Start Chrome, open the page, say whether that worked on `tell`, and
-/// answer agents until told to close.
+/// Start Chrome, open the page, say whether that worked — and which Chrome
+/// it is — on `tell`, and answer agents until told to close.
 fn serve_in_chrome(
     opening: Opening,
     size: (u32, u32),
     sites: &AgentSites,
     inbox: &Receiver<Arrival>,
-    tell: &Sender<Result<(), Unserved>>,
+    tell: &Sender<Result<String, Unserved>>,
 ) -> AgentRecord {
     let mut record = AgentRecord::new();
     let mut chrome = match Chrome::start() {
@@ -167,13 +179,13 @@ fn serve_in_chrome(
         Opening::Network(address) => Tab::open(&mut chrome, &address, size),
     };
     let mut pages = match opened {
-        Ok(tab) => ChromePages::of(tab, product),
+        Ok(tab) => ChromePages::of(tab, product.clone()),
         Err(why) => {
             let _ = tell.send(Err(Unserved::Unopened(why)));
             return record;
         }
     };
-    if tell.send(Ok(())).is_err() {
+    if tell.send(Ok(product)).is_err() {
         return record;
     }
     while let Some(arrived) = arrivals(inbox, None) {

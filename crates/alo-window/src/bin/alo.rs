@@ -15,14 +15,25 @@
 //! none. `--agent-site` keeps every agent to the sites named (queue item 497),
 //! and the terminal says so, in this browser's own words: it is a refusal of
 //! ours, not a grant of any system's.
+//!
+//! `alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)` has the
+//! Chrome installed on the machine draw the page instead (ADR 0058, queue
+//! item 641), behind the same socket, the same grants and the same record.
+//! Chrome shows it in no window yet (item 627), so this browser runs until
+//! its input ends — Ctrl-D at a terminal — and then closes Chrome.
+//!
+//! Either way the terminal says which renderer draws the page: this engine,
+//! or Chrome by the version it gives itself (ADR 0058 § 6).
 
 use alo_net::Pool;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
 use alo_window::beside::renderer_beside;
+use alo_window::chrome_serving::ChromeServing;
 use alo_window::conductor::{Conductor, Fonts};
-use alo_window::opening::Opening;
+use alo_window::opening::{CHROME_SIZE, Opening, Renderer};
+use alo_window::pages::RenderedBy;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -33,6 +44,14 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    match opening.renderer {
+        Renderer::ThisEngine => in_this_engine(&opening),
+        Renderer::Chrome => in_chrome(&opening),
+    }
+}
+
+/// Open a window whose page this engine draws, and run until it closes.
+fn in_this_engine(opening: &Opening) -> ExitCode {
     // Read before the window opens, so a file that is not there is said on
     // the terminal rather than as an empty window.
     let first = match opening.first_tab() {
@@ -65,6 +84,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    eprintln!("alo: pages are drawn by {}", RenderedBy::ThisEngine);
     let renderers = Renderers::running(renderer, &[]);
     let renderers = match opening.fonts {
         Fonts::AsAsked => renderers.with_machine(alo_renderer::fonts::from_this_machine()),
@@ -112,6 +132,47 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
         (Ok(()), None) => ExitCode::SUCCESS,
+    }
+}
+
+/// Open the page in the machine's Chrome, answer agents about it, and run
+/// until this program's input ends.
+fn in_chrome(opening: &Opening) -> ExitCode {
+    // Read before Chrome is started, so a file that is not there is said
+    // without starting it.
+    let page = match opening.chrome_page() {
+        Ok(page) => page,
+        Err(why) => {
+            eprintln!("alo: {why}");
+            return ExitCode::from(2);
+        }
+    };
+    let serving = match ChromeServing::start(page, CHROME_SIZE, opening.agents.clone()) {
+        Ok(serving) => serving,
+        Err(why) => {
+            eprintln!("alo: {why}");
+            return ExitCode::FAILURE;
+        }
+    };
+    eprintln!("alo: pages are drawn by {}", serving.rendered_by());
+    let listening = listen(&serving.orders(), &opening.agents);
+    eprintln!(
+        "alo: Chrome shows this page in no window yet (queue item 627); \
+         this browser runs until its input ends, Ctrl-D at a terminal"
+    );
+    let waited = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
+    stop_listening(listening);
+    let finished = serving.records().is_some();
+    match waited {
+        Err(why) => {
+            eprintln!("alo: this browser's input could not be read, and it has closed: {why}");
+            ExitCode::FAILURE
+        }
+        Ok(_) if !finished => {
+            eprintln!("alo: Chrome's thread did not finish");
+            ExitCode::FAILURE
+        }
+        Ok(_) => ExitCode::SUCCESS,
     }
 }
 

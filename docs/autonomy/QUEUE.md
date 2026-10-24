@@ -50,7 +50,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **621** | the verbs, through Chrome |
 | ✓ | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
-| | **641** | **the program can be told to use Chrome — nothing can run it yet** (640 done) |
+| ✓ | **641** | the program told to use Chrome — `alo --chrome`, run from a terminal |
 | | **622** | which renderer is in use, where a person can read it |
 | | **623** | the agent's sentence, where a person can read it |
 | | **624** | the acted-on box, marked while it is acted on |
@@ -16280,7 +16280,7 @@ What stage 2's exit gate actually measures: a person using it.
   load. Asserted in `a_tab_in_chrome_named_where_it_is.rs` (two new tests)
   and `a_tab_in_the_engine_after_a_link_to_a_part.rs`.
 
-- [ ] **641. ★ The program can be told to use Chrome.** The Chrome path is a
+- [x] **641. ★ The program can be told to use Chrome.** The Chrome path is a
   library and its tests and **nothing else**: `crates/alo-window/src/bin/alo.rs`
   does not mention Chrome, so there is no way to *run* any of 619, 620, 621,
   633, 634, 635 or 640. Everything on the product path is proven by tests and
@@ -16296,6 +16296,30 @@ What stage 2's exit gate actually measures: a person using it.
   version when asked — with the run recorded in the journal rather than
   claimed, and the same run against the engine differing only as 640 says it
   may.
+  ***Done (iteration 379).*** `alo --chrome (ADDRESS | PAGE.html)`: an
+  `http` or `https` address opens through Chrome's own network (633), a
+  page's file is read by the browser process and handed to Chrome as bytes
+  at its `file:` address, and anything else is refused by name, as are a
+  `--scale`, `--frozen-fonts` and a page's sheets beside it — each used only
+  by a window or this engine's renderers (`opening::Renderer`,
+  `Opening::chrome_page`). The terminal says `pages are drawn by
+  Chrome/155.0.8059.86, driven by this browser` — or `this browser's
+  engine` without the option — then where an agent reaches it; there is no
+  window until 627, so it runs until its input ends and then closes Chrome
+  and removes its socket. A page in Chrome is laid out at 1200×800
+  (`opening::CHROME_SIZE`, ADR 0061's measuring size) until a window gives
+  it a size. Asserted by running the binary in
+  `the_program_told_to_use_chrome.rs`: its version line matched against a
+  Chrome of the test's own, `tabs`, `read` (the document 1200×800, in
+  numbers) and `activate` to `#second` from `alo-ask`, its exit and its
+  socket gone; kept by `--agent-site` to another site it lists nothing and
+  refuses the page as `NotGranted`; a file opens at its address. **The
+  live run**, the same page file through both, is in the journal: every ask
+  is answered the same kind, and they differ in box numbers, in each
+  renderer's own geometry and names, and in what the tab is called after
+  the link — as 640 says. *Not closed by this:* asking the *running*
+  browser which renderer it uses is still 622's — today only the terminal
+  says it, as the program starts.
 
 ## K. ★ The agent, on somebody else's pages
 
