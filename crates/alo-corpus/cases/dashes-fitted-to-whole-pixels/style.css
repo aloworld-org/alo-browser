@@ -1,0 +1,14 @@
+/* Dashed rounded borders fitted to their length in whole device pixels
+   (queue item 617): circles whose curves are wider than half the stroke,
+   and long boxes of 4, 6 and 10 px borders whose straight tops show the
+   dashes' period and the first dash's early start. */
+body { margin: 0; background: #ffffff }
+.b { position: absolute; box-sizing: border-box; border-style: dashed; border-color: #1d4ed8; border-width: 10px }
+.c34 { left: 10px; top: 10px; width: 34px; height: 34px; border-radius: 17px }
+.c40 { left: 54px; top: 10px; width: 40px; height: 40px; border-radius: 20px }
+.c50 { left: 104px; top: 10px; width: 50px; height: 50px; border-radius: 25px }
+.c60 { left: 164px; top: 10px; width: 60px; height: 60px; border-radius: 30px }
+.four { left: 10px; top: 80px; width: 300px; height: 40px; border-width: 4px; border-radius: 16px }
+.six { left: 10px; top: 130px; width: 300px; height: 40px; border-width: 6px; border-radius: 9px }
+.ten { left: 10px; top: 180px; width: 300px; height: 40px; border-radius: 11px }
+.flat { left: 10px; top: 230px; width: 300px; height: 40px; border-radius: 24px }

@@ -2700,3 +2700,18 @@ question. A dotted ring too short for its dots, drawn whole by Chrome, is
 cut as 616. No other reference moved. 289 queue items are open (615
 added closed, 616 added open). The next unused queue number is 617 and
 the next unused ADR 0058.
+
+Iteration 369 took queue item 604 and found that its pixels at one, and
+ten at two, were not the stroker: Chrome 155 fits a dashed line's gaps to
+its length truncated to whole device pixels and lays the pattern along
+the whole line, so the leftover, under a device pixel, starts one more
+dash run on into the first, and the first dash starts that much before
+the line — on circles of any size and along long boxes. Built as item
+617 (`alo-paint`'s `centre_line.rs` `whole_pixels`) with the new case
+`dashes-fitted-to-whole-pixels`, Chrome's in every plain pixel at one and
+at two (13 and 39 before). The two earlier dash cases lose their pixels
+at one; six at two on dash ends round tight curves moved off Chrome's
+and stay with 604. Whether round dots are fitted the same way is cut as
+618, measured but not settled. No other reference moved. 290 queue items
+are open (617 added closed, 618 added open). The next unused queue number
+is 619 and the next unused ADR 0058.

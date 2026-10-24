@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A dashed rounded border's dashes are spaced as Chrome spaces them.**
+  Chrome fits a dashed line's gaps to its length cut down to whole
+  screen pixels, and lets what is left over, under a pixel, run on as
+  the start of the first dash, so that dash starts a little before the
+  corner where the line begins. This engine fitted the gaps to the
+  exact length, so its dashes drifted by up to a pixel round a long box
+  and the first dash began a pixel late. Measured in Chrome 155 on
+  eleven long boxes and eight circles; a new page of eight boxes goes
+  from 13 pixels unlike Chrome's at normal resolution and 39 at double
+  to none. Round dots may follow the same rule, but the measurements so
+  far do not settle it (still owed).
+
 - **Dashes round a small rounded box are spaced as Chrome spaces them.**
   A dashed border round a box so small that its line holds fewer than
   two dashes and two gaps drew two full-length dashes with slivers

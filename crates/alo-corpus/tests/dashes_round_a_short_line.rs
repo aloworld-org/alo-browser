@@ -18,8 +18,10 @@
 //! two widths with what was left as gaps, so the 24 px box's dashes went
 //! nearly half way round where Chrome's go a third: 115 plain pixels were
 //! a different colour from Chrome's at one and 555 at two, 84 and 354 of
-//! them on that box. Now 3 and 24 are, all in [`NOT_YET`]. Measured at one,
-//! two and eight on 133 circles 1 to 16 px wide, not read from its source.
+//! them on that box. Then 3 and 24 were; since the dashes are fitted to the
+//! line's length in whole device pixels (queue item 617) none are at one
+//! and 19 at two, all in [`NOT_YET`]. Measured at one, two and eight on 133
+//! circles 1 to 16 px wide, not read from its source.
 //!
 //! `chrome.png` and `chrome-at-2.png` beside the case are Chrome 155's
 //! (`155.0.8059.86`) screenshots of the same bytes, 200 by 100 CSS pixels,
@@ -75,27 +77,23 @@ const PLAIN: [(u8, u8, u8); 2] = [(255, 255, 255), (0x1d, 0x4e, 0xd8)];
 /// The pixels at each scale, in device pixels, whose plain colour is not
 /// Chrome's: each at the end of a dash round a curve tighter than half the
 /// stroke, which Chrome's own stroker covers otherwise (queue item 604) —
-/// at one on `ten`, where the first dash starts; at two on `ten`, `oblong`,
-/// `ellipse` and `longer`, along the edges of dash ends near the curve's
-/// middle.
+/// at two on `ten`, along the edges of its dashes' ends near the hole, and
+/// on `oblong` and `ellipse`, along the edges of dash ends near the curve's
+/// middle. None at one: the three there were the first dash's start, which
+/// item 617's whole-pixel fit put where Chrome's is.
 const NOT_YET: [(f32, &[(u32, u32)]); 2] = [
-    (1.0, &[(21, 10), (21, 11), (21, 12)]),
+    (1.0, &[]),
     (
         2.0,
         &[
+            (31, 36),
+            (33, 37),
+            (35, 38),
             (37, 39),
             (39, 40),
             (48, 47),
             (50, 48),
-            (229, 100),
-            (229, 101),
-            (229, 102),
-            (229, 103),
-            (229, 104),
-            (229, 105),
-            (229, 106),
-            (229, 107),
-            (35, 113),
+            (52, 49),
             (116, 117),
             (44, 118),
             (117, 118),

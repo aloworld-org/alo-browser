@@ -24,6 +24,18 @@
 //!   same proportion until they go round it exactly — a third of the line
 //!   and a sixth, from two widths and one ([`fitted`]; measured in Chrome
 //!   155 on circles 1 to 16 px wide, queue item 615).
+//! - **The dashes are fitted to the line's length in whole device pixels**
+//!   — truncated, not rounded — but laid along the whole of it, so the
+//!   last gap ends short of the line's end and what is left, under a
+//!   device pixel, is the start of one more dash that runs on into the
+//!   first ([`whole_pixels`]). So a dashed line's first dash starts up to
+//!   a device pixel before the line does. Measured in Chrome 155 on
+//!   eleven 300 × 40 boxes and eight circles, 4 to 10 px borders, at one,
+//!   two and eight: the period along each top fits the truncated length
+//!   to within 0.02 px at eight, and the first dash's early start is what
+//!   the truncation left (queue item 617). Whether a line is drawn whole,
+//!   or takes two shortened dashes, is decided on the truncated length
+//!   too; no line within a device pixel of either threshold was measured.
 //! - **A dot is a round dot as wide as the side**, spaced the same way with
 //!   the dot's own width as both dash and gap, less a hundredth of a device
 //!   pixel so the last dot is never lost to rounding. A side no more than
@@ -96,11 +108,26 @@ pub fn dashes(line: &Contour, width: f32, reach: f32, scale: f32) -> Option<Path
     if !measurable(length, dash) {
         return None;
     }
-    if length <= 2.0 * dash {
+    let fitted_to = whole_pixels(length, scale);
+    if fitted_to <= 2.0 * dash {
         return across(&[line.stations(0.0, length)], reach);
     }
-    let (dash, gap) = fitted(length, dash, gap)?;
+    let (dash, gap) = fitted(fitted_to, dash, gap)?;
     across(&laid(line, dash, gap), reach)
+}
+
+/// The length a dashed line's pattern is fitted to on a screen at `scale`:
+/// the line's own, truncated to whole device pixels.
+///
+/// The pattern is still laid along the whole line, so what the truncation
+/// leaves over, less than a device pixel, is the start of one more dash,
+/// which [`laid`] runs on into the first.
+fn whole_pixels(length: f32, scale: f32) -> f32 {
+    let device = length * scale;
+    if !(scale.is_finite() && scale > 0.0 && device.is_finite()) {
+        return length;
+    }
+    device.floor() / scale
 }
 
 /// The dash and the gap round a closed line `length` long, longer than two
@@ -310,6 +337,59 @@ mod tests {
             near(starts[0], 38.125, 0.125) && near(starts[1], 50.375, 0.125),
             "{starts:?}"
         );
+    }
+
+    #[test]
+    fn a_dashed_line_is_fitted_to_its_length_in_whole_device_pixels() {
+        // Chrome 155's 300 × 40 box with a 4 px border and corners of 16:
+        // its line is 639.40 long at one, 639.82 at two and 639.88 at
+        // eight, and the period along its top fits 639, 639.5 and 639.875.
+        assert!(near(whole_pixels(639.398, 1.0), 639.0, 0.0));
+        assert!(near(whole_pixels(639.823, 2.0), 639.5, 0.0));
+        assert!(near(whole_pixels(639.877, 8.0), 639.875, 0.0));
+        // Truncated, not rounded; a whole length is kept.
+        assert!(near(whole_pixels(10.9, 1.0), 10.0, 0.0));
+        assert!(near(whole_pixels(12.0, 1.0), 12.0, 0.0));
+        // A screen with no scale worth the name leaves the length alone,
+        // and so does a line too long to count in device pixels.
+        for scale in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            assert!(near(whole_pixels(10.5, scale), 10.5, 0.0), "{scale}");
+        }
+        assert!(near(whole_pixels(f32::MAX, 8.0), f32::MAX, 0.0));
+    }
+
+    #[test]
+    fn what_the_truncation_leaves_is_a_dash_run_on_into_the_first() {
+        // The 4 px border round the 100 × 60 box: its line is not a whole
+        // number of pixels long, so the last gap ends before the line does
+        // and one more dash, from there, carries on into the first.
+        let line = line_of(4.0, 1.0);
+        let length = line.length();
+        let whole = whole_pixels(length, 1.0);
+        assert!(length - whole > 0.01, "{length}");
+        let Some((dash, gap)) = fitted(whole, 8.0, 4.0) else {
+            panic!("the line is long enough to pattern");
+        };
+        let pieces = laid(&line, dash, gap);
+        let (Some(last), Some(tail)) = (pieces.last(), line.point_at(whole)) else {
+            panic!("the line is patterned");
+        };
+        let (Some(from), Some(to)) = (last.first(), last.last()) else {
+            panic!("the last piece has stations");
+        };
+        // From where the truncated length ends, on the top-left curve just
+        // before the top, to the first dash's end, 8 along the top from 26.
+        assert!(near(from.point.x, tail.x, 1e-3) && near(from.point.y, tail.y, 1e-3));
+        assert!(from.point.x < 26.0, "{from:?}");
+        assert!(near(to.point.x, 34.0, 1e-3) && near(to.point.y, 12.0, 1e-3));
+        // Fitted to the whole length instead, the same line's first dash
+        // stands alone from the top's start.
+        let Some((dash, gap)) = fitted(length, 8.0, 4.0) else {
+            panic!("the line is long enough to pattern");
+        };
+        let alone = laid(&line, dash, gap);
+        let first = alone.last().and_then(|piece| piece.first());
+        assert!(first.is_some_and(|station| near(station.point.x, 26.0, 1e-3)));
     }
 
     #[test]

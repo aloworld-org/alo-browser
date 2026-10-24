@@ -45,7 +45,7 @@ unclip
 unclip
 clip box#17 to (435, 15) 44×40
 clip box#17 to (435, 15) 44×40
-fill box#17 rgb(29 78 216) at (429, 9) 53.60379×52
+fill box#17 rgb(29 78 216) at (429, 9) 53.754883×52
 unclip
 unclip
 clip box#19 to (15, 75) 44×40

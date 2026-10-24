@@ -1,0 +1,41 @@
+fill box#1 rgb(255 255 255) at (0, 0) 330×0
+clip box#3 to (10, 10) 34×34
+clip box#3 to (10, 10) 34×34
+fill box#3 rgb(29 78 216) at (4, 4) 46×46
+unclip
+unclip
+clip box#5 to (54, 10) 40×40
+clip box#5 to (54, 10) 40×40
+fill box#5 rgb(29 78 216) at (48, 4) 51.35315×52
+unclip
+unclip
+clip box#7 to (104, 10) 50×50
+clip box#7 to (104, 10) 50×50
+fill box#7 rgb(29 78 216) at (98, 4) 62×62
+unclip
+unclip
+clip box#9 to (164, 10) 60×60
+clip box#9 to (164, 10) 60×60
+fill box#9 rgb(29 78 216) at (158.32095, 4) 71.67905×72
+unclip
+unclip
+clip box#11 to (10, 80) 300×40
+clip box#11 to (10, 80) 300×40
+fill box#11 rgb(29 78 216) at (7.6, 77.6) 304.8×44.800003
+unclip
+unclip
+clip box#13 to (10, 130) 300×40
+clip box#13 to (10, 130) 300×40
+fill box#13 rgb(29 78 216) at (6.3999996, 126.4) 307.2×47.200005
+unclip
+unclip
+clip box#15 to (10, 180) 300×40
+clip box#15 to (10, 180) 300×40
+fill box#15 rgb(29 78 216) at (4, 174) 312×52
+unclip
+unclip
+clip box#17 to (10, 230) 300×40
+clip box#17 to (10, 230) 300×40
+fill box#17 rgb(29 78 216) at (4, 224) 312×52
+unclip
+unclip

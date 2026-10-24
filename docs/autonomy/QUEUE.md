@@ -14892,9 +14892,24 @@ What stage 2's exit gate actually measures: a person using it.
   curve's middle in Chrome and is straight here, and an end on an
   ellipse is a sliver apart — `dashes-round-a-short-line`'s `NOT_YET`, 3
   pixels at one and 24 at two, beside this item's one pixel at each in
-  `dashes-and-dots-round-a-corner`. *Closes when:* how Chrome's stroke covers a dash round
+  `dashes-and-dots-round-a-corner`. *Iteration 369 found* that the
+  pixels at one in both cases, and ten of those at two, were not the stroker
+  either: every dashed line's first dash starts up to a device pixel
+  before the line, round circles of any size, because Chrome fits the
+  gaps to the length truncated to whole device pixels (item 617,
+  built). What is left is the stroker's at dash ends: on the 24 px
+  circle at eight, Chrome's dash ends stand 0.15 px further round than
+  the normal through the line outside it and 0.3 px inside it, its starts
+  bend back near the hole, and the fit moved six pixels at two on such
+  ends off Chrome's — `dashes-round-a-short-line`'s `NOT_YET`, none at one
+  and 19 at two; `dashes-and-dots-round-a-corner`'s, none at one and 2
+  at two, and its `OWED` run at eight. Chrome draws these strokes in
+  quarters of coverage, and tiny-skia's stroker (Skia's, on the CPU)
+  leaves the hole a tight curve's middle that Chrome fills, so its shape
+  is not Skia's CPU stroker's. *Closes when:* how Chrome's stroke covers a dash round
   a curve tighter than half its width is measured at one, two and eight,
-  built, both cases' `NOT_YET` are empty, and a frozen case of such boxes is Chrome's
+  built, both cases' `NOT_YET` are empty and the corner case's `OWED`
+  gone, and a frozen case of such boxes is Chrome's
   in every plain pixel at one and at two.
 
 - [ ] **605. A rounded border's centre line on half device pixels at one.**
@@ -15089,6 +15104,56 @@ What stage 2's exit gate actually measures: a person using it.
   which Chrome draws a dotted line whole, and how it spaces two or three
   dots just past it, is measured, built, and a frozen case of small
   dotted rings is Chrome's in every plain pixel at one and at two.
+
+- [x] **617. A dashed line is fitted to its length in whole device
+  pixels.** *Found building 604 (iteration 369). Feature:
+  `docs/features.md` stage 2, patterned borders. No ADR; ADR 0057 bears
+  on the pictures at two.* `centre_line.rs` fitted a rounded border's
+  dashes to the centre line's measured length and started the first at
+  the line's start, where Chrome 155's first dash starts up to a device
+  pixel earlier, on circles whose curves are not tight as on those that
+  are: the column before the line's start at the top of 26, 34 and 50 px
+  circles with 10 px borders was blue in Chrome and white here, and the
+  dashes along a long box's top drifted from Chrome's. *Closes when:*
+  the rule is measured at one, two and eight, built, and a frozen case
+  of circles and long boxes is Chrome's in every plain pixel at one and
+  at two.
+  *Done (iteration 369).* Measured in Chrome 155 (`155.0.8059.86`) at
+  one, two and eight on eleven 300 × 40 boxes (borders 4, 6 and 10,
+  corners 8 to 24) and eight circles (34 to 60 px, and 24 to 30 px whose
+  curves are tight), the source not read: the period along each top is
+  the line's length truncated to whole device pixels over the count —
+  within 0.02 px at eight on every box, within Chrome's quarter steps at
+  one and two — and the first dash starts before the line by what the
+  truncation left, so the pattern is laid along the whole measured line
+  and its leftover is a dash run on into the first. Rounding instead of
+  truncating fits neither. `centre_line.rs`' `whole_pixels`, used by
+  `dashes`. New case `dashes-fitted-to-whole-pixels` (four circles, four
+  long boxes) with Chrome 155's `chrome.png` and `chrome-at-2.png`: 13
+  plain pixels differed at one and 39 at two, now none; each long box's
+  pixel before its line start covered within a quarter of Chrome's at
+  one and at two; runs along the tops at eight within a device pixel.
+  `dashes-and-dots-round-a-corner` loses its pixel at one and at two and
+  gains two at two; `dashes-round-a-short-line` goes from 3 and 24 to
+  none and 19 — the gains all on dash ends round tight curves, 604's.
+  No other reference moved.
+
+- [ ] **618. Whether round dots are fitted to whole device pixels.**
+  *Found building 617 (iteration 369). Feature: `docs/features.md`
+  stage 2, patterned borders. Needs measuring.* `centre_line.rs`' `dots`
+  fits round dots to the measured length and steps a hundredth of a
+  device pixel short (`DOT_SLACK`). Fitting them to the length truncated
+  to whole device pixels, as 617 does dashes, and dropping the slack,
+  took the plain pixels unlike Chrome 155's on a page of eight dotted
+  circles and seven long dotted boxes (iteration 369's scratchpad
+  `m604b/d1`) from 17 to 4 at one and 7 to 1 at two, the rest along a
+  5 px dotted top at one; keeping the slack as well made one worse. But
+  the dots' pitch along seven tops at eight, from their centroids, is a
+  little nearer the slack rule's on six of them, by about a thousandth
+  of a pixel. *Closes when:* how Chrome spaces round dots round a measured line
+  is settled at one, two and eight on enough boxes to tell the two
+  apart, built, and a frozen case of dotted circles and long boxes is
+  Chrome's in every plain pixel at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

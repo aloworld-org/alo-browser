@@ -37351,3 +37351,124 @@ ticked.
 289 queue items are open (615 added closed, 616 added open). The next
 unused queue number is **617** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 369 — queue item 617 (found taking 604): a dashed line fitted to whole device pixels
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 1's paint line on whole device pixels, whose Owed named 604),
+iterations 360's, 365–368's entries, `REMAINING.md`'s continuation
+notes, queue items 591, 601 and 604–616, `docs/features.md` stage 2's
+patterned borders line, `docs/conformance.md` on patterned borders,
+ADRs 0054 and 0057 (on measuring Chrome and on pictures at two), and
+`alo-paint`'s `centre_line.rs`, `contour.rs`, `sweep.rs` and `raster.rs`,
+and both dash cases' tests. No `AGENTS.md` exists here. Neither item
+names an ADR; none was changed.
+
+**Why 604, and why 617 was built.** After 179, the first open item whose
+dependencies are done: 591 waits for a page that draws an outline and 601
+is `blocked: no page yet`, as iterations 367 and 368 recorded; 604 depends
+on nothing and is `needs measuring`. Measuring showed part of its evidence
+was not the stroker: the pixel at one in both of its cases is the first
+dash's start, which sits up to a device pixel before the line round
+circles whose curves are not tight as well. Per `LOOP.md` step 3 the scope
+was cut: that rule is item 617, added and built here; 604 keeps the
+stroker's shape at dash ends and is not ticked. Its true shape was not
+settled: Chrome draws these strokes in quarters of coverage, tiny-skia's
+stroker (Skia's CPU one, tried in a scratch crate) leaves open the middle
+of a tight curve that Chrome fills, and Chrome's dash ends on such curves
+stand 0.15 to 0.3 px further round at eight in a way no single rule here
+fitted.
+
+**Measured.** Chrome 155 (`155.0.8059.86`), headless,
+`--force-device-scale-factor=1`, `=2`, `=4`, `=8`, `=16` and `=32`,
+screenshots without `--disable-gpu`, the source not read (scratchpad
+`m604b/`): the 24 px circle alone at six scales; eight circles 24 to 60 px
+with 10 px borders (`t2`); eleven 300 × 40 boxes, borders 4, 6 and 10,
+corners 8 to 24, each alone at one, two and eight (`t4`, `t5`); fifteen
+dotted boxes (`d1`, `d2`). Dash runs read along each top's centre row,
+4-sample coverage decoded, the period fitted by least squares, and plain
+pixels compared per box against this engine's renders through temporary
+`alo-corpus` examples (removed). On every long box the period is the
+line's measured length truncated to whole device pixels over the count —
+at eight within 0.02 px of it on all eleven, at one and two within
+Chrome's quarter steps — and the first dash starts before the line's
+start by what the truncation left: the pattern is fitted to the truncated
+length and laid along the whole line, the leftover starting one more dash
+joined to the first. Rounding instead of truncating fits neither.
+
+**Built.** `alo-paint`'s `centre_line.rs`: `whole_pixels`, used by
+`dashes` for the drawn-whole threshold, `fitted` and `spacing`; `laid`
+already joined a dash that reaches the line's end to the first. A length
+or scale that cannot be counted in device pixels is left as it is. Its
+module comment says so, and that no line within a device pixel of the
+whole or two-dash thresholds was measured.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first (one finding
+fixed: a panic in a test helper). `scripts/gate.sh` was started in the
+foreground. It ran past the tool's 600 s limit and was moved to the
+background by the harness, and the next call waited on it with an
+until-loop and read it in the same step: **`exit 0`, "The gate is met.
+(10 of 10 steps)"**, 5,063 tests run, 5,063 passed. Only this entry and
+the commit came after it.
+
+**Gate, manual.**
+- Numbers: `dashes_fitted_to_whole_pixels.rs` holds, at one and at two,
+  how much of the device pixel before each long box's line start its
+  first dash covers, within a quarter of Chrome's (fitted to the whole
+  length it covered none), and at eight the count of runs along each top
+  and the first three and last two within a device pixel of Chrome
+  155's. Unit tests in `centre_line.rs`: the truncation at one, two and
+  eight on that box's measured lengths, truncating not rounding, a bad
+  scale and an overflowing length left alone, and the leftover dash
+  running from the truncated length into the first dash's end.
+- Reference renders: new case `dashes-fitted-to-whole-pixels`, four
+  circles and four long boxes, with `render.png`, `render-at-2.png` and
+  Chrome 155's `chrome.png` and `chrome-at-2.png` (RGBA): before, 13
+  plain pixels differed at one and 39 at two; now none. The corpus run
+  with `ALO_UPDATE_REFERENCES=1` (references backed up first) moved only
+  `dashes-and-dots-round-a-corner` (both pictures and one bound in
+  `display.txt`) and `dashes-round-a-short-line` (both pictures). Their
+  `NOT_YET`s: the corner case's from one pixel at each scale to none at
+  one and 2 at two; the short-line case's from 3 and 24 to none and 19.
+  The new ones, six at two, and one run at eight in the corner case
+  (`OWED`, a quarter pixel where a device pixel is allowed, asserted to
+  still differ), are dash ends on curves tighter than half the stroke,
+  604's. The re-run without the variable passed.
+- Mutation, each restored from a copy (`cmp` confirmed): the fit
+  switched off, and rounding for truncating. Each fails unit tests and
+  all three cases' tests.
+- Hostile input: nothing new reads bytes from outside. A length whose
+  device count overflows is left as it is (tested), so a huge box is
+  still bounded by `pattern::MAX_PIECES` rather than undrawn.
+- One file, one responsibility: spacing a closed line is `centre_line.rs`'
+  as before; nothing else in `alo-paint` changed.
+- Cost: none measured; no speed claim.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 617 is added ticked with a *Done* paragraph. 604 stays open,
+its text saying what iteration 369 found, and its closing condition now
+includes the corner case's `OWED`. Cut: **618** (whether round dots are
+fitted to whole device pixels: doing so took a dotted probe page from 17
+and 7 plain pixels unlike Chrome's to 4 and 1, but the dots' pitch at
+eight sits slightly nearer the existing slack rule, so it is not built).
+
+**Roadmap.** Stage 1's paint line on whole device pixels: a *since queue
+item 617* clause, and the two earlier cases' counts as they now stand;
+its Owed keeps 604, 605, 606 and 616 and gains 618. Not ticked.
+
+**Unresolved obligations.**
+- 604 (the stroker's shape at dash ends round tight curves: 2 pixels at
+  two and one run at eight in the corner case, 19 at two in the
+  short-line case), 605, 606, 616, 618.
+- 591, 601, 607–614; 576, 577, 585, 586 as before; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501;
+  538 waits on a page.
+- No claim about speed is made.
+
+290 queue items are open (617 added closed, 618 added open). The next
+unused queue number is **619** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.

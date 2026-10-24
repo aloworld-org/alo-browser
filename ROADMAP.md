@@ -312,10 +312,18 @@ correctness, not before it.
       two dashes and two gaps takes two of each, a third and a sixth of
       it, as Chrome 155 draws it (`centre_line.rs`' `fitted`;
       `dashes-round-a-short-line` Chrome's in every plain pixel at one and
-      at two but 3 and 24 that 604 owns). Owed: a stroke wider than its
-      curve is tight (604), a centre line on half device pixels at one
-      (605), Chrome's spacing on a straight side (606), and a dotted ring
-      too short for its dots drawn whole (616). Since queue item 595 (iteration 359) a side
+      at two but 3 and 24 that 604 owns). Since queue item 617
+      (iteration 369) a dashed line is fitted to its length truncated to
+      whole device pixels, the leftover running on into the first dash,
+      as Chrome 155 draws it (`centre_line.rs`' `whole_pixels`;
+      `dashes-fitted-to-whole-pixels` Chrome's in every plain pixel at one
+      and at two; `dashes-and-dots-round-a-corner` now so at one and but 2
+      at two, `dashes-round-a-short-line` at one and but 19 at two, all on
+      dash ends round curves tighter than their stroke). Owed: a stroke wider than its curve is tight (604), a
+      centre line on half device pixels at one (605), Chrome's spacing on
+      a straight side (606), a dotted ring too short for its dots drawn
+      whole (616), and whether round dots are fitted to whole device
+      pixels too (618). Since queue item 595 (iteration 359) a side
       styled `none` or `hidden`, or given no style, has no width however
       it was written (`alo-layout`'s `border_style.rs`,
       `borders-with-a-side-none` Chrome's in numbers and every plain pixel

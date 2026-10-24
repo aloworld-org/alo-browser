@@ -399,7 +399,17 @@ and a sixth of it, as Chrome 155's (615): `dashes-round-a-short-line`,
 ten small boxes, is Chrome's in every plain pixel but 3 at one and 24 at
 two, each where a dash ends on a curve tighter than its stroke (604). A
 dotted ring too short for its dots is drawn whole by Chrome and in dots
-here (616).
+here (616). The dashes are fitted to the line's length truncated to whole
+device pixels, the leftover running on into the first dash, as Chrome
+155's (617): `dashes-fitted-to-whole-pixels`, four circles and four long
+boxes, is Chrome's in every plain pixel at one and at two. The same rule
+leaves `dashes-and-dots-round-a-corner` Chrome's in every plain pixel at
+one and all but 2 at two (was 1 and 1), and `dashes-round-a-short-line`
+in every plain pixel at one and all but 19 at two (was 3 and 24): the
+first dashes' starts came right, and six pixels at two on dash ends round
+curves tighter than their stroke, which Chrome's stroker carries further
+round, moved off Chrome's (604 owns them). Whether round dots are fitted
+the same way is not settled (618).
 Where sides of different widths meet on a square box, a corner dot is
 clipped to its own side's share of the corner. A side is drawn with at most 16 384 dashes or
 dots; past that they are spaced further apart. Beside a fieldset's legend
