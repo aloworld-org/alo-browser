@@ -40,9 +40,6 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
-/// How long a renderer is given before it is given up on.
-const PATIENCE: Duration = Duration::from_secs(4);
-
 /// How long any answer the test expects may take before the test says so.
 const AT_MOST: Duration = Duration::from_secs(60);
 
@@ -81,11 +78,11 @@ fn renderer() -> Result<PathBuf, String> {
 /// A conductor over real renderers with the corpus's fonts, telling every
 /// piece of news to the receiver.
 fn conducting() -> Result<(Conductor, Receiver<News>), String> {
-    let tabs = Tabs::over(
-        Renderers::running(renderer()?, &[])
-            .with_machine(alo_window::fonts::frozen())
-            .waiting_at_most(PATIENCE),
-    );
+    // Given as long as `alo` gives a renderer: nothing here is stopped, so a
+    // shorter bound could only give up on one a busy machine had slowed
+    // (queue item 644).
+    let tabs =
+        Tabs::over(Renderers::running(renderer()?, &[]).with_machine(alo_window::fonts::frozen()));
     let (tell, news) = channel();
     let conductor = Conductor::start(tabs, Fonts::AsStarted, offline()?, move |said| {
         tell.send(said).is_ok()

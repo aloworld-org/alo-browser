@@ -25,6 +25,7 @@
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
 use alo_renderer::Screen;
+use alo_renderer::answers::LONGEST_SILENCE;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::strip::{Strip, StripTab};
@@ -44,8 +45,11 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
-/// How long a renderer is given before it is given up on.
-const PATIENCE: Duration = Duration::from_secs(4);
+/// How long a renderer is given before it is given up on: as long as `alo`
+/// gives one. Four seconds kept the test short and gave up, on a loaded
+/// machine, on renderers that were only slow, before any was stopped (queue
+/// item 644); a test may not be stricter than the browser it tests.
+const PATIENCE: Duration = LONGEST_SILENCE;
 
 /// How long any answer the test expects may take before the test says so.
 const AT_MOST: Duration = Duration::from_secs(60);
@@ -166,6 +170,20 @@ fn signal(what: &str, process: &str) -> bool {
         .is_ok_and(|status| status.success())
 }
 
+/// A renderer this test stopped, killed when the test ends if it is still
+/// this process's: a test that fails before the lifecycle kills it would
+/// otherwise leave it stopped for good, since a stopped process cannot read
+/// the end of its pipe and exit as the others do (queue item 644).
+struct Stopped(String);
+
+impl Drop for Stopped {
+    fn drop(&mut self) {
+        if renderers_running().is_ok_and(|running| running.contains(&self.0)) {
+            signal("-KILL", &self.0);
+        }
+    }
+}
+
 #[test]
 fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working() {
     let (conductor, news) = conducting().unwrap_or_else(|why| panic!("{why}"));
@@ -197,8 +215,9 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
     let [silent] = running.as_slice() else {
         panic!("expected the strip's renderer alone, found {running:?}");
     };
+    let silent = Stopped(silent.clone());
     assert!(
-        signal("-STOP", silent),
+        signal("-STOP", &silent.0),
         "the strip's renderer could not be stopped"
     );
 

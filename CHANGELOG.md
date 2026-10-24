@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A test that failed on a busy machine now fails only when the browser
+  would.** Four of the window's tests gave the browser's renderer four
+  seconds to answer, where the browser itself gives ten. On a heavily loaded
+  machine the first drawing of a page can take longer than four seconds, so
+  those tests sometimes failed — and once stopped the automated build loop —
+  without anything being wrong with the browser. They now give a renderer
+  the same ten seconds the browser does. The two tests that deliberately
+  freeze a renderer also make sure it is killed if the test fails early, so
+  a failed run can no longer leave a frozen process behind on the machine.
+
 - **A page drawn by Chrome can now be seen.** `alo --chrome` used to open a
   page in an invisible Chrome that only an agent could reach. Now Chrome
   draws it in a window of its own on the screen — just a title bar and the

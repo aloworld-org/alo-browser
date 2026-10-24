@@ -2860,3 +2860,12 @@ thumbnail in its strip, and bringing it in front did not always work under
 the suite's other shown Chromes). 304 queue items are open (627 closed; 642
 and 643 added). 642 is next on the product path. The next unused queue
 number is 644 and the next unused ADR 0062.
+
+Iteration 381 closed queue item 644, the gate failure that stopped the
+loop at 21:10 on 24 October: reproduced on purpose under load, it was the
+page's first paint outlasting the test's four-second bound, not the
+renderer the test stops. Four window tests now give a renderer `alo`'s own
+`LONGEST_SILENCE`, and the two that stop one kill it if they fail first.
+It served no roadmap line. 304 queue items are open (644 closed). 642 is
+next on the product path. The next unused queue number is 645 and the next
+unused ADR 0062.

@@ -38849,3 +38849,123 @@ the one to watch. The ADR 0058 line's `· Built:` gains the same and its
 304 queue items are open (627 closed; 642 and 643 added; counted as
 `- [ ] **` lines). The next unused queue number is **644** and the next ADR
 is **0062**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 381 — queue item 644: a renderer left stopped, and the one test that stops one
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the two paths
+and the product path's state), iteration 380's entry, `REMAINING.md`'s
+continuation order, and queue items 642, 643 and 644 in full; the test
+`a_renderer_that_never_answers.rs`, `host.rs` (`Renderers::ask`, `stop`,
+`start`), `sandbox::confined`, `answers.rs` and the conductor's `load`,
+`resize` and `draw_strip`; the supervisor's log of the 21:10 failure. No
+`AGENTS.md` exists in the repository. 644 implements no ADR and no
+`docs/features.md` line: it is about the gate's own reliability, and ADR
+0024 § 2 is the claim the test under suspicion holds the window to.
+
+**Why 644 and not 642.** 642 comes first in the file and is next on the
+product path. But 644 is the failure that stopped the supervisor, which
+`LOOP.md` names as a halt — *"a test that used to pass has started
+failing"* — and the owner wrote it up as an item with no dependencies
+rather than leaving the halt. A gate that fails at random makes every
+later iteration's evidence weaker, mine included, so it went first.
+
+**Reproduced on purpose.** The supervisor's log keeps only the gate's last
+twenty lines (`gate.sh` pipes nextest through `tail -n 20`), so "no panic
+text" was the log, not a killed test. Run alone it passes in 4.5 s; with
+24 `yes` processes on eight cores in 5.3–5.9 s; with **96, it failed three
+in three as `FAIL + LEAK` in 5.029, 5.230 and 5.171 s** — the gate's 5.007 s
+signature — at its first `News::Painted`: *"the renderer for file:(null #2)
+is gone: it said nothing for 4s, so it was stopped"*. The test's four-second
+`PATIENCE` bounded the page's first load and paint, not only the silence
+after `-STOP`. Measured with a temporary probe (restored from a copy,
+`cmp`-checked), the first paint takes 0.42/0.38/0.37 s idle, 1.2–1.3 s at
+24, 5.5–6.1 s at 96 and 12.0–12.6 s at 192. The `LEAK` is the strip's and
+page's renderers outliving a panicking test by more than nextest's 100 ms
+before they read the end of their pipe. **No renderer was stopped in the
+failure at all.** The item's other guesses were checked: `sandbox-exec`
+execs the renderer in place, so the process the test stops is the one
+`stop()` kills; and the strip's renderer is always forked before the
+page's, so `pgrep -n` picks the page's.
+
+**Built.**
+- `a_renderer_that_never_answers.rs`: `PATIENCE` is
+  `alo_renderer::answers::LONGEST_SILENCE`, `alo`'s own ten seconds — a
+  test may not be stricter than the browser it tests, and a first paint
+  slower than that is one `alo` gives up on too. The first paint's failure
+  now names the bound. The stopped renderer is held in a `Stopped` guard
+  that kills it when the test ends if it is still one of this process's
+  renderers (checked with `pgrep -P`, so a reused process number is never
+  signalled).
+- `a_strip_that_never_answers.rs`: the same bound and the same guard.
+- `the_strip_in_the_window.rs`, `a_window_on_a_screen_at_its_scale.rs`:
+  they stop nothing, so they drop their four-second bound and give a
+  renderer what `alo` gives.
+
+**Witnesses.**
+- *The fix, under load:* the four tests together, one thread, passed three
+  in three at 96 `yes` processes and two in two at 192.
+- *The siblings without the fix* (HEAD's copies, restored from copies,
+  `cmp`-checked): at 96 all passed twice; at 192
+  `the_strip_in_the_window` **failed two in two** (*"no strip after the
+  paint: StripSaid(… said nothing for 4s …)"*). `a_strip_that_never_answers`
+  and `a_window_on_a_screen_at_its_scale` **were not made to fail** at
+  either load; they changed because the defect is the same, not because it
+  was seen.
+- *The guard:* with a `panic!` injected straight after the `-STOP`, under
+  nextest no renderer was left either way: nextest gives each test a
+  process group of its own, and the system continues an orphaned group's
+  stopped members. **Run directly, without the guard's kill, the stopped
+  renderer was left twice** (`TN`, parent 1). It held the output pipe
+  open, so the command reading it hung until I killed it by hand. With the
+  guard, run directly twice, nothing was left. So the hazard the item named
+  is real for `cargo test` and direct runs, and could not have been the
+  gate's.
+- *The gate's mechanical half:* `scripts/gate.sh`, started in the
+  foreground into a scratchpad log. The harness moved it to the background
+  at 600 s; the next call waited on that log with a foreground until-loop
+  and read the result in the same step. **`exit 0`, "The gate is met. (10 of
+  10 steps)"**; nextest **5,193 tests run, 5,193 passed** in 556 s, with
+  no `FAIL`, `LEAK` or `panicked` line. `cargo clippy --all-targets` showed
+  0 warnings and 0 errors before the gate.
+
+**Gate, manual.** No layout assertion and no reference render applies: no
+engine code changed and nothing this engine draws moved. The tests' own
+assertions in numbers and pixels are unchanged. *One file, one
+responsibility:* each test keeps its one claim, and the guard lives
+beside the `signal` it uses in the file that stops the process. No
+`unsafe`, no stubs, and no verb takes a coordinate. No assertion was
+loosened: the bound now equals the product's, and the tests still assert
+the sentence, the kept frame, the notice's pixels and which renderers
+remain. `alo-os` and `alo-workplace` were not touched. Nothing was pushed.
+
+**Roadmap.** 644 served no roadmap line. It is the gate's reliability and
+belongs to neither path: no capability moved, so `ROADMAP.md` is
+unchanged. Ticking anything there would claim progress that did not
+happen. `features.md` is unchanged for the same reason. The queue ticks
+644 with a *Done* paragraph; `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- Each of the two stopping tests takes about ten seconds longer, which adds
+  roughly 20 s of test time to each gate run, spread over nextest's threads.
+- The bound is now `alo`'s own and no longer a stand-in, but it is still a
+  bound: at a load where a single answer takes more than ten seconds,
+  these tests fail, and so would `alo`. That is the honest limit, not a
+  flake.
+- Other suites set short bounds of their own and were not audited for the
+  same exposure: `alo-renderer`'s `a_renderer_that_stops_answering.rs`
+  (`SOON`, 400 ms), `a_page_runs_its_scripts.rs` and `chrome_over_a_pipe.rs`
+  (2 s). None has been seen to fail. They are named here so that the next
+  failure is recognised rather than rediscovered.
+- The supervisor's log keeps only the gate's last twenty lines, which hid
+  this panic's text. Changing `gate.sh` is a change to the gate, so it is
+  left for a person to decide.
+- Inherited and unchanged: 642 is next on the product path; 622–625, 631,
+  632, 635, 636, 639 and 643 are owed. 604, 605, 606, 616 and 618 are open;
+  so are 591, 601, 607–614, 576, 577, 585 and 586. 463 and 572 wait on a
+  person, 568–571 on a screen or pages, and 560 and 564 on 502 behind 501.
+  538 waits on a page, and 638 needs an ADR.
+- No claim about speed is made.
+
+304 queue items are open (644 closed; counted as `- [ ] **` lines). The next
+unused queue number is **645** and the next ADR is **0062**. This is one
+iteration, not a finished queue or roadmap.

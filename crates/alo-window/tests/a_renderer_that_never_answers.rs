@@ -21,6 +21,7 @@
 use alo_layout::Size;
 use alo_net::{Pool, Trust};
 use alo_renderer::Screen;
+use alo_renderer::answers::LONGEST_SILENCE;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
@@ -36,10 +37,17 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
-/// How long a renderer is given before it is given up on. Long enough for a
-/// debug build to lay out and paint the page, and short enough that a test
-/// that waits for it to pass is a test somebody runs.
-const PATIENCE: Duration = Duration::from_secs(4);
+/// How long a renderer is given before it is given up on: as long as `alo`
+/// gives one, which is the bound ADR 0024 § 2 names.
+///
+/// It was four seconds, to keep the test short, and that bound covers the
+/// page's first load and paint as well as the silence after the renderer is
+/// stopped. A debug build paints this page in 0.4 s on an idle machine and in
+/// 5.5 s with 96 busy processes on eight cores, so under a loaded gate the
+/// page's renderer was given up on before it was ever stopped (queue item
+/// 644). A test may not be stricter than the browser it tests: a first paint
+/// slower than this is one `alo` would give up on as well.
+const PATIENCE: Duration = LONGEST_SILENCE;
 
 /// How long any answer the test expects may take before the test says so.
 const AT_MOST: Duration = Duration::from_secs(60);
@@ -129,6 +137,29 @@ fn signal(what: &str, process: &str) -> bool {
         .is_ok_and(|status| status.success())
 }
 
+/// A renderer this test stopped, killed when the test ends if it is still
+/// this process's.
+///
+/// The lifecycle kills it at the bound. A test that fails before then ends
+/// its process, and every other renderer then reads the end of its pipe and
+/// exits — but a stopped one cannot read anything, and is left stopped for
+/// good, holding the test's stderr open, so whatever reads that output waits
+/// with it. Seen when the test binary is run directly; nextest gives each test
+/// a process group of its own, and the system continues the stopped members
+/// of a group orphaned like that, which is why the gate never showed it
+/// (queue item 644). Killed only while it is still one of this process's
+/// renderers, so a number the system has handed to another process since is
+/// never signalled.
+struct Stopped(String);
+
+impl Drop for Stopped {
+    fn drop(&mut self) {
+        if renderers_running().is_ok_and(|running| running.contains(&self.0)) {
+            signal("-KILL", &self.0);
+        }
+    }
+}
+
 /// What the conductor says next, or why it said nothing.
 fn next(news: &Receiver<News>) -> Result<News, String> {
     news.recv_timeout(AT_MOST)
@@ -163,7 +194,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
         .unwrap_or_else(|_| panic!("the conductor is gone"));
     let painted = next(&news).unwrap_or_else(|why| panic!("{why}"));
     let News::Painted(frame) = &painted else {
-        panic!("the page was not painted: {painted:?}");
+        panic!("the page was not painted within the {PATIENCE:?} a renderer is given: {painted:?}");
     };
     // `--frozen-fonts` is a claim that the window shows the corpus's page
     // pixel for pixel; this is where it is held to it.
@@ -182,9 +213,9 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
         2,
         "expected the strip's and the page's: {running:?}"
     );
-    let silent = newest_renderer().unwrap_or_else(|why| panic!("{why}"));
+    let silent = Stopped(newest_renderer().unwrap_or_else(|why| panic!("{why}")));
     assert!(
-        signal("-STOP", &silent),
+        signal("-STOP", &silent.0),
         "the renderer could not be stopped"
     );
 
@@ -246,7 +277,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     // The renderer was stopped by the lifecycle, not left behind; the
     // strip's is still there.
     let left = renderers_running().unwrap_or_else(|why| panic!("{why}"));
-    assert!(left.len() == 1 && !left.contains(&silent), "{left:?}");
+    assert!(left.len() == 1 && !left.contains(&silent.0), "{left:?}");
 
     orders
         .send(Order::CloseEverything)

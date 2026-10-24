@@ -16386,7 +16386,7 @@ What stage 2's exit gate actually measures: a person using it.
   the suite's concurrency, or what a person must do is said where they read
   it rather than assumed.
 
-- [ ] **644. A renderer left stopped, and the one test that stops one.**
+- [x] **644. A renderer left stopped, and the one test that stops one.**
   *Numbered 643 by mistake when it was written, and renumbered within the
   minute: 643 was already "a placed window that stays where a person sees
   it", cut from 627. Identity is allocated once and never reused (ADR
@@ -16419,6 +16419,38 @@ What stage 2's exit gate actually measures: a person using it.
   detection and the test changed to resume what it stopped. **It may close as
   "the test must undo its own `-STOP`", which is one line and would have been
   a guess today.**
+  ***Done (iteration 381).*** **Reproduced on purpose, and it was not the
+  stop.** With 96 `yes` processes on this machine's eight cores, the test
+  failed three runs in three as **`FAIL + LEAK` in 5.03–5.23 s**, the
+  gate's signature, panicking at its first `News::Painted`: *"the renderer
+  for file:(null #2) is gone: it said nothing for 4s, so it was stopped"*.
+  The test's `PATIENCE` of four seconds bounded the page's **first load and
+  paint** as well as the silence after `-STOP`, and that paint takes 0.4 s
+  idle, 1.2 s at 24 busy processes, 5.5–6.1 s at 96 and 12 s at 192 — so
+  under a loaded gate the renderer was given up on before it was ever
+  stopped. The leak is the renderers a panicking test leaves alive, which
+  exit on reading the end of their pipe more than nextest's 100 ms after
+  the test does. The gate's log keeps only its last twenty lines (`tail -n
+  20`), so "no panic text" was the log, not a killed test. **The fix:** the
+  test gives a renderer `LONGEST_SILENCE`, `alo`'s own ten seconds — a test
+  may not be stricter than the browser it tests — and passes three in three
+  at 96 and two in two at 192. The same four seconds was in three sibling
+  tests: `the_strip_in_the_window` failed two in two at 192 with it (its
+  strip given up on), and with `alo`'s bound passes there; it and
+  `a_window_on_a_screen_at_its_scale`, which stop nothing, now use the
+  default, and `a_strip_that_never_answers`, which stops the strip's, uses
+  `LONGEST_SILENCE` too. **Those two were not made to fail** at either load;
+  they changed because the defect is the same, not because it was seen.
+  **The stopped renderer was a real hazard, but not the gate's:** a test
+  that fails after its `-STOP`, run directly rather than under nextest,
+  leaves its renderer orphaned and stopped for good (`TN`, parent 1), seen
+  twice, holding the output pipe open so whatever reads it waits too.
+  Under nextest each test has a process group of its own, and the system
+  continues an orphaned group's stopped members, so the gate could not show
+  it. Both tests that stop a renderer now hold it in a `Stopped` guard that
+  kills it, if it is still one of the test's renderers, when the test ends:
+  with a failure injected after the stop, nothing was left, twice. Each
+  test now takes ten seconds more than it did.
 
 ## K. ★ The agent, on somebody else's pages
 
