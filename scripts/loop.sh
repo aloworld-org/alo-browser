@@ -649,6 +649,20 @@ for (( i = 1; i <= wanted; i++ )); do
 
   iteration_head="$(git rev-parse HEAD)"
   iteration_journal="$(git hash-object "$JOURNAL")"
+  # What the tree looked like when the worker was handed it, so that the
+  # check after it exits asks whether it left work behind — different from
+  # how it found it — rather than whether the tree is empty.
+  #
+  # **This covers less than it looks like it does, deliberately.** It
+  # forgives dirt that was already here when the iteration began. It cannot
+  # forgive a file another session writes *during* the iteration, because
+  # nothing in the tree says who wrote it, and a worker that stopped halfway
+  # must still be caught. The loop stopped that way on 5 and 12 October and
+  # again at 09:21 on 24 October, every time with a human session editing
+  # the same checkout. The cure for that case is not here: it is not to
+  # touch the tree while the loop runs. Queue item 628 asks whether a
+  # discriminator exists that is better than a guess.
+  iteration_dirty="$(git status --porcelain)"
 
   transcript="$RUN_DIR/iteration-$i.jsonl"
   say "worker events: $transcript"
@@ -740,8 +754,12 @@ $(( quiet / 60 )) minutes"
     HALT) bad "worker recorded LOOP HALT"; finished "$i"; exit 5 ;;
 
   esac
-  if [ -n "$(git status --porcelain)" ]; then
+  left_behind="$(git status --porcelain)"
+  if [ "$left_behind" != "$iteration_dirty" ]; then
     bad "worker left uncommitted changes; stopping for inspection."
+    # Say which, so the next person does not have to diff two states by eye.
+    diff <(printf '%s\n' "$iteration_dirty") <(printf '%s\n' "$left_behind") \
+      | sed -n 's/^> /  new:  /p' | tee -a "$LOG"
     exit 6
   fi
   if [ "$(git rev-parse HEAD)" = "$iteration_head" ] ||

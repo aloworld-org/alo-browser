@@ -15810,6 +15810,23 @@ What stage 2's exit gate actually measures: a person using it.
   they see is asserted — frames arriving, or a window placed — in numbers
   rather than by eye.
 
+- [ ] **628. Whether the supervisor can tell whose uncommitted file it is.**
+  `loop.sh` stops when the tree is dirty after a worker exits, on the grounds
+  that a worker which stopped halfway must not be driven over. It cannot tell
+  that file apart from one another session wrote during the iteration, so it
+  blames the worker for both — which it did on 5 and 12 October and again at
+  09:21 on 24 October, each time costing a restart and a full gate. The
+  iteration now remembers what it was handed and forgives *that*, which is the
+  cheap half; the rest is open. Candidates, none obviously right: read the
+  worker's own transcript for the paths it wrote, which is a claim made by the
+  thing being judged; hold the loop's own `git` index apart from the
+  checkout's; or accept that a shared checkout is the problem and say so in
+  `LOOP.md` rather than in code. **It may close as "no, and here is why",
+  which is a result.** *Depends on nothing. Closes when:* either a fixture in
+  `test-loop.sh` shows a stranger's mid-iteration file surviving an iteration
+  that is not blamed for it, or this item is closed with the reasoning written
+  down and `LOOP.md` says plainly not to edit the tree under a running loop.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
