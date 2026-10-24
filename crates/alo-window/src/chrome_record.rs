@@ -175,8 +175,19 @@ pub struct Causes {
     /// A navigation asked for while a verb was carried out: where to,
     /// without its fragment, and the agent's cause.
     asked: Option<(String, Cause)>,
-    /// The verb being carried out.
-    acting: Option<ActionId>,
+    /// The verb being carried out, and the document it was carried out in.
+    ///
+    /// The document is half of it because **a verb's action causes what the
+    /// page it acted in asks for, and not what a page that replaced it asks
+    /// for.** An `activate` that follows a link is answered when the page
+    /// has gone, not when the page that arrives has finished asking for
+    /// things, so without the document the cause of a new page's stylesheet
+    /// would depend on whether this machine answered the verb before Chrome
+    /// paused the stylesheet — which it did on a quiet machine and did not
+    /// under load (24 October 2026). ADR 0012 says every request says what
+    /// caused it; a cause that is one thing when the machine is busy and
+    /// another when it is not says nothing.
+    acting: Option<(ActionId, Option<DocumentId>)>,
 }
 
 impl Causes {
@@ -216,7 +227,7 @@ impl Causes {
     /// The cause of what the page asks for, now: the agent's while a verb is
     /// carried out, and otherwise the page's.
     pub fn of_page(&self) -> Cause {
-        match (self.acting, self.page) {
+        match (self.acting_here(), self.page) {
             (Some(action), Some(document)) => Cause::Agent { action, document },
             (None, Some(document)) => Cause::Document { document },
             // Before the tab's first page has committed, nothing else has
@@ -232,7 +243,7 @@ impl Causes {
     /// The tab's own frame asked to go to `url`: while a verb is carried
     /// out, that navigation is the agent's.
     pub fn asked_to_go(&mut self, url: &str) {
-        if let (Some(action), Some(document)) = (self.acting, self.page) {
+        if let (Some(action), Some(document)) = (self.acting_here(), self.page) {
             self.asked = Some((
                 without_fragment(url).to_owned(),
                 Cause::Agent { action, document },
@@ -260,16 +271,27 @@ impl Causes {
     }
 
     /// `action` is being carried out on the tab, or [`None`] once it has
-    /// been.
+    /// been. The document the tab holds as it begins is remembered with it:
+    /// the action causes what *that* document asks for, and nothing a
+    /// document which replaces it asks for.
     pub fn acting(&mut self, action: Option<ActionId>) {
-        self.acting = action;
+        self.acting = action.map(|action| (action, self.page));
+    }
+
+    /// The action being carried out *in the document the tab holds now*,
+    /// which is the only one whose requests it causes.
+    fn acting_here(&self) -> Option<ActionId> {
+        match self.acting {
+            Some((action, acted_in)) if acted_in == self.page => Some(action),
+            _ => None,
+        }
     }
 
     /// The cause of a navigation nothing asked for while a verb was carried
     /// out: the agent's while one is, the page's when it holds one, and the
     /// person's for the tab's first.
     fn of_navigation(&self) -> Cause {
-        match (self.acting, self.page) {
+        match (self.acting_here(), self.page) {
             (Some(action), Some(document)) => Cause::Agent { action, document },
             (None, Some(document)) => Cause::Document { document },
             (_, None) => Cause::Person { tab: self.tab },
@@ -359,6 +381,44 @@ mod tests {
         causes.committed(&mut record);
         let next = causes.of_request(&mut record, "http://a/next.css", Hop::None);
         assert!(record.documents().chain(&next).followed_from(action));
+    }
+
+    #[test]
+    fn a_page_the_verb_brought_asks_for_its_own_things_even_before_the_verb_answers() {
+        // The test above is the quick machine: the verb answers before the
+        // page it brought asks for anything. This is the busy one, where it
+        // does not — and the cause must be the same either way, or ADR 0012's
+        // promise holds only on an idle laptop. It did not until 24 October
+        // 2026: under load, the second page's stylesheet was pinned on the
+        // agent's action and the test above passed anyway.
+        let mut record = Record::default();
+        let mut causes = Causes::of(record.a_tab());
+        causes.of_request(&mut record, "http://a/", Hop::First);
+        causes.committed(&mut record);
+        let action = record.an_action();
+        causes.acting(Some(action));
+        causes.asked_to_go("http://a/next");
+        let going = causes.of_request(&mut record, "http://a/next", Hop::First);
+        assert!(
+            matches!(going, Cause::Agent { action: acted, .. } if acted == action),
+            "the navigation itself is the agent's"
+        );
+        causes.committed(&mut record);
+        // Still acting: the verb has not answered. The page that arrived is
+        // nonetheless the one asking.
+        let sheet = causes.of_request(&mut record, "http://a/next.css", Hop::None);
+        assert!(
+            matches!(sheet, Cause::Document { .. }),
+            "the page that arrived asked for its own sheet, not the agent: {sheet:?}"
+        );
+        // And it still leads back to the action, through that page.
+        assert!(record.documents().chain(&sheet).followed_from(action));
+        // The verb answering afterwards changes nothing.
+        causes.acting(None);
+        assert_eq!(
+            causes.of_request(&mut record, "http://a/next.js", Hop::None),
+            sheet
+        );
     }
 
     #[test]

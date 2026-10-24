@@ -6,6 +6,31 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided how a person will see the page.** Chrome will draw it in a
+  window of its own, with no tab strip and no address bar of its own, placed
+  exactly where this browser puts it; our window holds everything around it;
+  and the ring that shows what the agent is touching is drawn by Chrome
+  itself, labelled with the same words the agent uses for it. The other
+  way — Chrome sending a photograph of the page many times a second — was
+  measured and refused: each photograph costs 34 thousandths of a second to
+  make and a megabyte a second to send down the same connection the agent
+  uses to control the browser, the page arrives smaller than it really is,
+  and the compressed format turned out larger than the lossless one because
+  web pages are flat colour and text. It is kept for the case it is really
+  for, which is driving a browser on a machine nobody is sitting at
+  (ADR 0061).
+
+- **What caused a request no longer depends on how busy the machine is.**
+  When the agent clicks a link, the page that arrives asks for its own
+  stylesheets and scripts. Those belong to that page. But the browser was
+  still calling them the agent's work if the click had not finished being
+  answered yet — which on a quick machine it had, and on a busy one it had
+  not. The same click could therefore be written down two different ways,
+  and one of them said the *previous* page had asked for something it never
+  asked for. The action a verb starts now causes only what the page it acted
+  in asks for; a page that replaces it asks for its own things, and the
+  record still leads back from them to the click, through that page.
+
 - **A page's shared worker in Chrome is now held like every other part of
   the page.** A shared worker is a background script several pages can use
   at once, and Chrome tells the tab nothing about one. The browser now
