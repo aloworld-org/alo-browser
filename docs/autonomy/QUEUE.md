@@ -16386,7 +16386,11 @@ What stage 2's exit gate actually measures: a person using it.
   the suite's concurrency, or what a person must do is said where they read
   it rather than assumed.
 
-- [ ] **643. A renderer left stopped, and the one test that stops one.**
+- [ ] **644. A renderer left stopped, and the one test that stops one.**
+  *Numbered 643 by mistake when it was written, and renumbered within the
+  minute: 643 was already "a placed window that stays where a person sees
+  it", cut from 627. Identity is allocated once and never reused (ADR
+  0003), and that holds for queue numbers.*
   `a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame`
   failed the supervisor's gate on 2026-10-24 at 21:10 as **`FAIL + LEAK` in
   5.007 s**, stopping the loop. It has not been reproduced since: five runs of
