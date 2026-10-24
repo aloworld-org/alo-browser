@@ -559,6 +559,18 @@ unreachable without it.
       item 86), and a `blob:` taking the origin of whoever created it (queue
       items 72 and 90)
 
+- [ ] **A rented renderer behind the same boundary — the machine's own Chrome, driven over a pipe (ADR 0058)**, so the open web renders while the engine is built
+      · Built: the pipe (queue item 619) — `alo-window`'s `chrome.rs` starts
+      the Chrome its installer put on the machine (`beside.rs`), headless on
+      a private profile, with `--remote-debugging-pipe` and never a port;
+      `chrome_wire.rs` frames its NUL-ended messages under a bound of ours and
+      `chrome_protocol.rs` reads them, refusing every malformed one as a kind;
+      Chrome 155 answers `Browser.getVersion` and is gone with its helpers and
+      profile whether the browser closes it or dies
+      · Owed: a page in Chrome read as our tree (620), the verbs through it
+      (621), and saying which renderer is in use where a person can read it
+      (622)
+
 ### The network
 
 - [x] **URLs, properly**: WHATWG parsing, origins, IDNA and punycode. Every security decision below is made against the origin this produces, which is why it is first

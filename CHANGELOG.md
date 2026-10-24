@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser can start the Chrome installed on this machine and speak to
+  it over a pipe.** It finds Chrome where Chrome's own installer puts it —
+  never on the search path — starts it headless on a new, private profile of
+  its own rather than the person's, and asks it which version it is. It is
+  spoken to over its own pipe and never a network port, because a page's
+  script can reach a port on this machine. Chrome is gone, with its helpers
+  and its profile, when the browser closes it, and also when the browser
+  dies without a word. A Chrome that is not installed is refused by saying
+  so and where it was looked for, and anything from Chrome that is not the
+  protocol — not JSON, too deep, too long, cut off — is refused as its own
+  kind of error rather than crashing the browser. Nothing is shown through
+  Chrome yet; that is next (queue items 620–622).
+
 - **This browser will render the open web by driving the Chrome already on the
   machine, while its own engine keeps being built.** Nothing is bundled,
   linked or redistributed: Chrome is a separate program spoken to over a pipe,

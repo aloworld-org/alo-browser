@@ -8,4 +8,4 @@ allow-dbg-in-tests = false
 
 # Names of standards, spelled the way the standards spell them. `..` keeps
 # clippy's own list rather than replacing it.
-doc-valid-idents = ["..", "MathML", "XLink", "XMLNS", "HarfBuzz"]
+doc-valid-idents = ["..", "MathML", "XLink", "XMLNS", "HarfBuzz", "DevTools"]

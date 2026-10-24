@@ -28,11 +28,16 @@
 //!   fonts renderers start with, and [`beside`] where the renderer program is.
 //! - [`agents`] is the socket an agent outside the browser speaks to (ADR
 //!   0055), at a place [`socket_place`] makes private; [`protocol`] reads and
-//!   writes its lines, the one file that names `serde_json`, into what
+//!   writes its lines, one of the two files that name `serde_json`, into what
 //!   [`asking`] says they mean; [`serving`] answers them from the tabs on the
 //!   conductor's thread, kept to the sites a person named in
 //!   [`agent_sites`], and [`agent_record`] is what it records. The socket
 //!   is a Unix one, and Windows is undecided (ADR 0055 § 1).
+//! - [`chrome`] is the other renderer, the machine's own Chrome, started and
+//!   spoken to over a pipe (ADR 0058, item 619): [`chrome_wire`] finds where
+//!   each of its messages ends and [`chrome_protocol`] reads them, the one
+//!   other file that names `serde_json`, with [`json_depth`] refusing any
+//!   JSON from outside that nests too deep before either reader sees it.
 //!
 //! # What it is not yet
 //!
@@ -55,6 +60,10 @@ pub mod agents;
 pub mod aim;
 pub mod asking;
 pub mod beside;
+#[cfg(unix)]
+pub mod chrome;
+pub mod chrome_protocol;
+pub mod chrome_wire;
 pub mod colours;
 pub mod compose;
 pub mod conductor;
@@ -62,6 +71,7 @@ pub mod cursor;
 pub mod fonts;
 pub mod hold;
 pub mod inbox;
+pub mod json_depth;
 pub mod keys;
 pub mod message;
 pub mod network;

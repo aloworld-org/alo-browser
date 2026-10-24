@@ -15633,7 +15633,7 @@ What stage 2's exit gate actually measures: a person using it.
   windowed run still paints, so the two modes are a choice rather than a
   replacement.
 
-- [ ] **619. ★ Chrome is spoken to over a pipe.** *ADR 0058 § 3.* The browser
+- [x] **619. ★ Chrome is spoken to over a pipe.** *ADR 0058 § 3.* The browser
   process spawns the Chrome already installed — found the way `beside.rs`
   finds `alo-render`, and refused by name if it is absent — with
   `--remote-debugging-pipe`, and speaks the DevTools protocol over the
@@ -15652,6 +15652,25 @@ What stage 2's exit gate actually measures: a person using it.
   hard-coded; a Chrome that cannot be found is refused by name rather than
   reported as a failure to connect; and a malformed line from the far side is
   refused as a kind, not a panic.
+  ***Done (iteration 370).*** `alo-window`'s `chrome.rs` starts the
+  Chrome at the places its installer uses (`beside.rs`'s `chrome_places`,
+  never `PATH`) headless, with `--remote-debugging-pipe` and a new `0700`
+  profile of its own, through `/bin/sh`'s redirections to put the pipe on
+  descriptors 3 and 4 — the standard library cannot without `unsafe`
+  `pre_exec`. `chrome_wire.rs` frames NUL-ended messages under
+  `MOST_MESSAGE` (16 MiB); `chrome_protocol.rs`, now the second file the
+  gate lets name `serde_json`, reads them after `json_depth.rs` (moved out
+  of `protocol.rs`) refuses nesting past 16. `tests/chrome_over_a_pipe.rs`
+  drives Chrome 155: `Browser.getVersion` answers the version the program
+  itself prints for `--version`; the process, every helper and the profile
+  are gone after the handle is dropped, and after a copy of the test binary
+  playing the browser process exits without dropping it (Chrome ends at its
+  pipe's EOF, measured at 0.5 s); a missing program or a directory is
+  `Unstarted::NotInstalled`; shell programs standing in for Chrome send not
+  JSON, not an object, not UTF-8, ten thousand brackets, a bad version, a
+  declined command, a cut-off message, nothing, and an exit — each its own
+  kind. Not built: anything on Windows, where how Chrome would be spoken to
+  is undecided as the agent's socket is.
 
 - [ ] **620. ★ A page in Chrome, read as our tree.** *ADR 0058 § 4.* A page
   loaded in the rented renderer, and `Accessibility.getFullAXTree` mapped into

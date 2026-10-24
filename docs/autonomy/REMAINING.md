@@ -2715,3 +2715,13 @@ and stay with 604. Whether round dots are fitted the same way is cut as
 618, measured but not settled. No other reference moved. 290 queue items
 are open (617 added closed, 618 added open). The next unused queue number
 is 619 and the next unused ADR 0058.
+
+Iteration 370 took queue item 619, the first of ADR 0058's four, ahead of
+its place by the owner's choice (2026-10-24): the browser process starts
+the machine's own Chrome headless on a private profile and speaks to it
+over `--remote-debugging-pipe` (`alo-window`'s `chrome.rs`,
+`chrome_wire.rs`, `chrome_protocol.rs`), never a port. Chrome 155 answers
+`Browser.getVersion` and is gone with its helpers and profile whether the
+browser closes it or dies. 620 (a page read as our tree) is next in ADR
+0058's line. 293 queue items are open. The next unused queue number is
+623 and the next unused ADR 0059.

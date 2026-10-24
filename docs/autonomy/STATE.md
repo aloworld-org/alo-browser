@@ -37472,3 +37472,114 @@ its Owed keeps 604, 605, 606 and 616 and gains 618. Not ticked.
 290 queue items are open (617 added closed, 618 added open). The next
 unused queue number is **619** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 370 — queue item 619: Chrome is spoken to over a pipe
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 2's process model), iteration 369's entry, `REMAINING.md`'s
+continuation notes, queue items 619–622, ADR 0058 (and through it ADRs
+0001, 0005 and 0055 § 1), `scripts/gate.sh`'s rented-crate boundaries,
+and `alo-window`'s `beside.rs`, `protocol.rs`, `asking.rs` and `lib.rs`,
+and `alo-renderer`'s `host.rs` and `pipe.rs` for how renderers are spawned
+and framed. No `AGENTS.md` exists here.
+
+**Why 619.** Taken ahead of its place by the owner's choice, written into
+the queue in commit 6411472 (2026-10-24): it is the first of ADR 0058's
+four and nothing else in it can begin until a pipe exists. It names its
+ADR (0058 § 3) and its closing condition; `docs/features.md` had no line
+for ADR 0058, so one was added in this change before the item was called
+built.
+
+**Measured first.** Chrome 155 (`155.0.8059.86`) started from Python with
+the pipe on 3 and 4 (scratchpad `p619/probe.py`): it answers
+`Browser.getVersion` within a second, exits 0.18 s after `Browser.close`,
+and exits 0.5 s after its pipe closes with nothing sent — and in both
+cases `pgrep -f` on its profile found no helper left two seconds later.
+
+**Built.** In `alo-window`: `chrome.rs` — `Chrome::start` (the installed
+one) and `start_at`, headless, `--remote-debugging-pipe`, a new `0700`
+profile in the temporary directory, started through `/bin/sh`'s
+redirections so the pipe lands on 3 and 4 without `unsafe` `pre_exec`
+and the shell `exec`s Chrome in its own place; a reader thread over a
+bounded channel (256 messages), so every wait has a bound
+(`LONGEST_SILENCE`, 30 s, or `waiting_at_most`); `version()`; and a
+`Drop` that sends `Browser.close`, closes the pipe, kills after the
+patience, waits and removes the profile. `chrome_wire.rs` frames
+NUL-ended messages under `MOST_MESSAGE` (16 MiB) and refuses a message
+holding a NUL. `chrome_protocol.rs` writes commands and reads replies,
+declines and events, bounding texts (4096 characters) and nesting (16).
+`json_depth.rs` is `protocol.rs`'s nesting scan, moved so both protocols
+use one. `beside.rs` gains `chrome_places`, `chrome_in`, `is_program` and
+`NotInstalled` (ADR 0058's consequence that `beside.rs` gains where Chrome
+is). `scripts/gate.sh` lets `chrome_protocol.rs` name `serde_json`, with a
+comment saying why it is a second file rather than `protocol.rs` taking a
+second reason to change; `clippy.toml` spells `DevTools` as a valid
+identifier in docs. Not weakened: no lint, test or boundary was relaxed.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first (findings fixed:
+doc backticks, a 64 KiB stack array moved to the heap, panics and unwraps
+in test helpers). `scripts/gate.sh` was started in the foreground; it ran
+past the tool's 600 s limit and was moved to the background by the
+harness, and the next call waited on it with an until-loop and read it in
+the same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, 5,089
+tests run, 5,089 passed, `serde_json stays behind its boundary` among
+them. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Numbers / closing condition, `tests/chrome_over_a_pipe.rs` against the
+  machine's Chrome 155: the version over the pipe equals `Chrome/` plus
+  what the program prints for `--version` (not hard-coded), asked twice
+  and answered twice; after the handle drops the process is not running
+  (`ps`, a zombie counted as gone), no process names its profile, and the
+  profile is removed; a copy of the test binary playing the browser
+  process starts Chrome and exits without dropping it, and Chrome and
+  every helper are gone within ten seconds; a missing program and a
+  directory are `Unstarted::NotInstalled`, said as "Chrome is not
+  installed: it was looked for at …". Run three times, 5 of 5 each.
+- Hostile input: unit tests in `chrome_wire.rs` (split reads, cut-off,
+  over-long with and without a NUL, an endless far side stopped at the
+  bound, raw bytes) and `chrome_protocol.rs` (every malformed shape,
+  100,000 brackets refused before the rented reader, overflowing numbers,
+  lone surrogates); and through the real pipe, shell programs standing in
+  for Chrome send not JSON, not an object, not UTF-8, 10,000 brackets, a
+  bad version, a declined command, a cut-off message, nothing, and an
+  exit — each its own `Failed` kind, none a panic.
+- Mutation, each restored from a copy (`cmp` confirmed): `Drop` without
+  kill, wait and profile removal fails the closing test; the depth check
+  switched off fails the depth unit test.
+- Layout assertions and reference renders: nothing positions, sizes or
+  draws — no page is shown through Chrome yet (620).
+- One file, one responsibility: framing, protocol, the running process
+  and depth scanning are four files; where Chrome is lives with where
+  `alo-render` is, as ADR 0058 says.
+- Cost: none measured; no speed claim.
+- Also updated: `docs/features.md` (a process-model line for ADR 0058),
+  `ROADMAP.md`, `CHANGELOG.md`, `REMAINING.md`, the queue.
+  `docs/conformance.md` is unchanged: nothing renders through Chrome yet.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 619 ticked with a *Done* paragraph. Not built: Windows, where
+how Chrome would be spoken to is undecided as the agent's socket is.
+
+**Roadmap.** A new stage 2 process-model line for ADR 0058's rented
+renderer, written `· Built:` the pipe `· Owed:` 620, 621, 622. Not
+ticked.
+
+**Unresolved obligations.**
+- 620 (a page in Chrome read as our tree) is next in ADR 0058's line, then
+  621 and 622. ADR 0058 § 6: until 622, nothing may describe this browser
+  as memory-safe or independent of Google while Chrome is behind it — and
+  nothing yet routes a page to Chrome, so no claim has changed.
+- The gate now needs Google Chrome installed where its installer puts it;
+  `chrome_over_a_pipe.rs` fails, naming the places looked, on a machine
+  without it.
+- 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page.
+- No claim about speed is made.
+
+293 queue items are open. The next unused queue number is **623** and the
+next ADR is **0059**. This is one iteration, not a finished queue or
+roadmap.

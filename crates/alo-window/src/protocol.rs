@@ -4,7 +4,8 @@
 
 //! The agent's protocol on the wire: one JSON object per line (ADR 0055 § 3).
 //!
-//! The one file that names `serde_json`, which is rented. What a line means
+//! One of the two files that name `serde_json`, which is rented — the other
+//! is [`crate::chrome_protocol`], Chrome's. What a line means
 //! is [`crate::asking`]'s; this reads a line into a [`Request`] and writes an
 //! [`Answer`] into a line, and the contract a caller builds against is
 //! `docs/contracts/agent-socket.md`.
@@ -25,6 +26,7 @@ use crate::asking::{
     Answer, Ask, Echo, MOST_ADDRESS, MOST_NAME, MOST_NESTING, Refused, Request, VERSION,
     outcome_kind,
 };
+use crate::json_depth;
 use alo_agent::verb::Invalid as Unmet;
 use alo_agent::{Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_box::{BoxId, KnownRole, Role, States};
@@ -41,7 +43,7 @@ pub fn read(line: &[u8]) -> Request {
         echo: None,
         ask: Err(refused),
     };
-    if nesting(line) > MOST_NESTING {
+    if json_depth::of(line) > MOST_NESTING {
         return refused(Refused::TooDeep { most: MOST_NESTING });
     }
     let Ok(value) = serde_json::from_slice::<Value>(line) else {
@@ -59,34 +61,6 @@ pub fn read(line: &[u8]) -> Request {
         echo,
         ask: ask(&fields),
     }
-}
-
-/// How deeply `line` nests its arrays and objects, read as JSON's grammar
-/// reads it: a bracket inside a string is text.
-fn nesting(line: &[u8]) -> usize {
-    let (mut depth, mut deepest) = (0usize, 0usize);
-    let (mut in_text, mut escaped) = (false, false);
-    for &byte in line {
-        if in_text {
-            match byte {
-                _ if escaped => escaped = false,
-                b'\\' => escaped = true,
-                b'"' => in_text = false,
-                _ => {}
-            }
-            continue;
-        }
-        match byte {
-            b'"' => in_text = true,
-            b'[' | b'{' => {
-                depth += 1;
-                deepest = deepest.max(depth);
-            }
-            b']' | b'}' => depth = depth.saturating_sub(1),
-            _ => {}
-        }
-    }
-    deepest
 }
 
 /// What a caller asked to have handed back.
@@ -822,6 +796,5 @@ mod tests {
         ] {
             let _ = read(line);
         }
-        assert_eq!(nesting(b"]]]]["), 1, "a close before an open is not depth");
     }
 }
