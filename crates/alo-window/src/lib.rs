@@ -46,7 +46,9 @@
 //!   held by [`chrome_hold`] until its requests are paused, and each request
 //!   judged by [`chrome_gate`] before Chrome is let send it (item 633), and
 //!   written into the record with the cause this process gave it by
-//!   [`chrome_record`] (item 634).
+//!   [`chrome_record`] (item 634). A Chrome started shown draws its one
+//!   page in a window of its own, which [`chrome_window`] sizes around the
+//!   page and places on the screen (ADR 0061, item 627).
 //! - [`pages`] is what [`serving`] asks of the tabs, whichever renderer
 //!   draws them: [`engine_pages`] answers it from this engine's, and
 //!   [`chrome_pages`] from a tab in Chrome, which [`chrome_serving`] holds
@@ -86,6 +88,7 @@ pub mod chrome_record;
 pub mod chrome_serving;
 pub mod chrome_tab;
 pub mod chrome_tree;
+pub mod chrome_window;
 pub mod chrome_wire;
 pub mod colours;
 pub mod compose;

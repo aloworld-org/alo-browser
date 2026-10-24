@@ -55,6 +55,15 @@
 //! is held from there. A target that cannot be held is [`Failed::Unheld`],
 //! and the tab is closed.
 //!
+//! # A tab in a shown Chrome is its window's page
+//!
+//! A Chrome started shown ([`Chrome::start_shown`]) has one window of its own
+//! as it starts, holding `data:,`. Its tab is that window's page rather than
+//! a new one — a new tab would open in a window of Chrome's with a tab strip
+//! — and is laid out at the size asked by sizing the window around it
+//! ([`crate::chrome_window::fit`]) instead of being told a size to pretend
+//! it has. Closing the tab closes the window.
+//!
 //! # Waiting for the page, not the blank one before it
 //!
 //! A tab begins at `about:blank`, whose loading may still be told of after
@@ -72,6 +81,7 @@ use crate::chrome_protocol::{
 };
 use crate::chrome_record::{Causes, Hop, purpose_of};
 use crate::chrome_tree::{self, Unread};
+use crate::chrome_window::{self, Unplaced};
 use alo_layout::Rect;
 use alo_net::activity::Happened;
 use alo_net::cause::{ActionId, DocumentId};
@@ -166,6 +176,9 @@ pub enum Unopened {
     /// The agent that named it may not reach it, or what it named is not an
     /// address; nothing was written to Chrome.
     Refused(Refused),
+    /// A shown Chrome's window could not be sized to hold the page at the
+    /// size asked ([`crate::chrome_window::fit`]).
+    Unfitted(Box<Unplaced>),
 }
 
 impl fmt::Display for Unopened {
@@ -178,6 +191,7 @@ impl fmt::Display for Unopened {
                 "a {scheme}: address is not a page from the network, which is all this opens"
             ),
             Self::Refused(refused) => refused.fmt(f),
+            Self::Unfitted(why) => why.fmt(f),
         }
     }
 }
@@ -258,11 +272,14 @@ impl<'c> Tab<'c> {
         kept: Kept,
         (width, height): (u32, u32),
     ) -> Result<Self, Unopened> {
-        let blank = Command::CreateTarget {
-            url: "about:blank".to_owned(),
+        let target = if chrome.is_shown() {
+            chrome_window::page_of_the_window(chrome)?
+        } else {
+            let blank = Command::CreateTarget {
+                url: "about:blank".to_owned(),
+            };
+            chrome_protocol::target(&chrome.ask(None, &blank)?).map_err(Failed::Malformed)?
         };
-        let target =
-            chrome_protocol::target(&chrome.ask(None, &blank)?).map_err(Failed::Malformed)?;
         let attach = Command::AttachToTarget {
             target: target.clone(),
         };
@@ -305,9 +322,14 @@ impl<'c> Tab<'c> {
             Command::HoldNewTabs { hold: true },
             Command::TellOfLoading,
             Command::TellOfStages,
-            Command::LayOutAt { width, height },
         ] {
             tab.ask(&command)?;
+        }
+        if tab.is_shown() {
+            chrome_window::fit(&mut tab, width, height)
+                .map_err(|why| Unopened::Unfitted(Box::new(why)))?;
+        } else {
+            tab.ask(&Command::LayOutAt { width, height })?;
         }
         if tab.is_from_the_network() {
             tab.ask(&Command::TellOfSockets)?;
@@ -441,6 +463,36 @@ impl<'c> Tab<'c> {
                     .ok_or(Failed::Malformed(Malformed::BadField { field: "quads" }))
             })
             .collect()
+    }
+
+    /// Whether the tab is a shown Chrome's window's page.
+    pub(crate) fn is_shown(&self) -> bool {
+        self.chrome.is_shown()
+    }
+
+    /// The tab, by its target id in Chrome.
+    pub(crate) fn target(&self) -> &str {
+        &self.target
+    }
+
+    /// How long Chrome is waited for.
+    pub(crate) fn patience(&self) -> std::time::Duration {
+        self.chrome.patience()
+    }
+
+    /// Send `command` to Chrome itself, rather than through this tab's
+    /// session, and wait for its result — answering every request paused
+    /// meanwhile, as [`Tab::ask`] does.
+    pub(crate) fn ask_chrome(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
+        let asked = self.chrome.send(None, command)?;
+        let until = Instant::now() + self.chrome.patience();
+        loop {
+            if let Some(Message::Reply { id, result, .. }) = self.next(until)?
+                && id == asked
+            {
+                return result.map_err(Failed::Declined);
+            }
+        }
     }
 
     /// Go to the page, and wait for its own loader's `load`.

@@ -19,7 +19,9 @@
 //! `alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)` has the
 //! Chrome installed on the machine draw the page instead (ADR 0058, queue
 //! item 641), behind the same socket, the same grants and the same record.
-//! Chrome shows it in no window yet (item 627), so this browser runs until
+//! Chrome shows it in a window of its own, placed on the screen by this
+//! process (item 627, ADR 0061), and the terminal says where it went. No
+//! window of ours goes around it yet (item 642), so this browser runs until
 //! its input ends — Ctrl-D at a terminal — and then closes Chrome.
 //!
 //! Either way the terminal says which renderer draws the page: this engine,
@@ -32,7 +34,7 @@ use alo_renderer::tab::Tabs;
 use alo_window::beside::renderer_beside;
 use alo_window::chrome_serving::ChromeServing;
 use alo_window::conductor::{Conductor, Fonts};
-use alo_window::opening::{CHROME_SIZE, Opening, Renderer};
+use alo_window::opening::{CHROME_AT, CHROME_SIZE, Opening, Renderer};
 use alo_window::pages::RenderedBy;
 use std::process::ExitCode;
 
@@ -147,19 +149,25 @@ fn in_chrome(opening: &Opening) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let serving = match ChromeServing::start(page, CHROME_SIZE, opening.agents.clone()) {
-        Ok(serving) => serving,
-        Err(why) => {
-            eprintln!("alo: {why}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let serving =
+        match ChromeServing::start_shown(page, CHROME_SIZE, CHROME_AT, opening.agents.clone()) {
+            Ok(serving) => serving,
+            Err(why) => {
+                eprintln!("alo: {why}");
+                return ExitCode::FAILURE;
+            }
+        };
     eprintln!("alo: pages are drawn by {}", serving.rendered_by());
+    if let Some(placed) = serving.placed() {
+        let at = placed.window.bounds;
+        eprintln!(
+            "alo: Chrome shows the page in a window of its own at {},{}, {}×{} on the screen, \
+             the page laid out at {}×{} in it",
+            at.left, at.top, at.width, at.height, placed.page.0, placed.page.1
+        );
+    }
     let listening = listen(&serving.orders(), &opening.agents);
-    eprintln!(
-        "alo: Chrome shows this page in no window yet (queue item 627); \
-         this browser runs until its input ends, Ctrl-D at a terminal"
-    );
+    eprintln!("alo: this browser runs until its input ends, Ctrl-D at a terminal");
     let waited = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
     stop_listening(listening);
     let finished = serving.records().is_some();

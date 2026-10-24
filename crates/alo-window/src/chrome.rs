@@ -25,7 +25,7 @@
 //!
 //! # A profile of its own, and gone with the browser
 //!
-//! Each Chrome runs headless on a new, private, empty profile, never the
+//! Each Chrome runs on a new, private, empty profile, never the
 //! person's — their cookies and sessions are not this browser's to hand a
 //! renderer, and Chrome refuses to be driven on its default profile anyway.
 //! When this handle is dropped Chrome is asked to close, then killed if it has
@@ -33,6 +33,17 @@
 //! ends without dropping it — killed, or crashed — the pipe closes with it,
 //! and Chrome ends when its pipe closes: both are asserted by
 //! `tests/chrome_over_a_pipe.rs`.
+//!
+//! # Headless, or shown in a window of its own
+//!
+//! [`Chrome::start`] runs it headless, which is what every test of a page's
+//! tree and verbs is read through. [`Chrome::start_shown`] runs it with a
+//! window of its own on the screen, in `--app` mode — no tab strip and no
+//! address bar, only a title bar over the page — which is how a person
+//! looks at a page on the product path (ADR 0061). Its window opens on
+//! `data:,`, an empty page that asks nothing of any network, and the one
+//! tab opened in it is that window's page ([`crate::chrome_tab`]), placed
+//! on the screen by [`crate::chrome_window`].
 //!
 //! # What it is not yet
 //!
@@ -76,6 +87,8 @@ pub struct Chrome {
     asked: u64,
     patience: Duration,
     profile: PathBuf,
+    /// Whether it draws in a window of its own on the screen.
+    shown: bool,
     /// What its tabs asked for, and what caused each (ADR 0060 § 2).
     record: Record,
 }
@@ -155,6 +168,19 @@ impl Chrome {
         Self::start_at(&program)
     }
 
+    /// Start the Chrome installed on this machine shown, with a window of
+    /// its own on the screen (ADR 0061).
+    ///
+    /// # Errors
+    ///
+    /// As [`Chrome::start`].
+    pub fn start_shown() -> Result<Self, Unstarted> {
+        let home = std::env::var_os("HOME").map(PathBuf::from);
+        let program =
+            chrome_in(&chrome_places(home.as_deref())).map_err(Unstarted::NotInstalled)?;
+        Self::launch(&program, true)
+    }
+
     /// Start the Chrome at `program`.
     ///
     /// # Errors
@@ -163,6 +189,11 @@ impl Chrome {
     /// Chrome that is not there is never mistaken for one that would not
     /// answer; or another [`Unstarted`].
     pub fn start_at(program: &Path) -> Result<Self, Unstarted> {
+        Self::launch(program, false)
+    }
+
+    /// Start the Chrome at `program`, headless or `shown`.
+    fn launch(program: &Path, shown: bool) -> Result<Self, Unstarted> {
         if !is_program(program) {
             return Err(Unstarted::NotInstalled(NotInstalled {
                 looked: vec![program.to_path_buf()],
@@ -175,13 +206,17 @@ impl Chrome {
             .arg("-c")
             .arg(STARTER)
             .arg(program)
-            .args(["--headless", "--remote-debugging-pipe"])
+            .arg("--remote-debugging-pipe")
             .arg(user_data)
-            .args([
-                "--no-first-run",
-                "--no-default-browser-check",
-                "about:blank",
-            ])
+            .args(["--no-first-run", "--no-default-browser-check"])
+            // Measured against Chrome 155: `--app=about:blank` is passed
+            // over, and a window with a tab strip opens on the new-tab page;
+            // `data:,` is taken as the application, and is empty.
+            .args(if shown {
+                &["--app=data:,"][..]
+            } else {
+                &["--headless", "about:blank"][..]
+            })
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -225,6 +260,7 @@ impl Chrome {
             asked: 0,
             patience: LONGEST_SILENCE,
             profile,
+            shown,
             record: Record::default(),
         })
     }
@@ -247,6 +283,12 @@ impl Chrome {
     /// removed.
     pub fn profile(&self) -> &Path {
         &self.profile
+    }
+
+    /// Whether it draws in a window of its own on the screen
+    /// ([`Chrome::start_shown`]) rather than headless.
+    pub fn is_shown(&self) -> bool {
+        self.shown
     }
 
     /// How long it is waited for.

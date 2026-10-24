@@ -49,15 +49,20 @@ ADR 0058 — and nothing else does:
 | ✓ | **637** | a shared worker of a page in Chrome, held |
 | ✓ | **621** | the verbs, through Chrome |
 | ✓ | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
-| | **627** | what a person looks at — **unanswered, needs an ADR** |
+| ✓ | **627** | what a person looks at — Chrome's own window, sized and placed by us (ADR 0061) |
 | ✓ | **641** | the program told to use Chrome — `alo --chrome`, run from a terminal |
 | | **622** | which renderer is in use, where a person can read it |
 | | **623** | the agent's sentence, where a person can read it |
 | | **624** | the acted-on box, marked while it is acted on |
 | | **625** | a refusal shown to the person, not only answered to the agent |
+| | **642** | a window of ours around Chrome's, following it (ADR 0061's frame) |
+| | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
 
-**627 is the one to watch.** It was found on 24 October by walking this road
+**627 was the one to watch, and is closed with its scope cut** (iteration
+380): a page in Chrome is now drawn in a window a person can see, placed by
+this process; the window of ours that follows it is 642, and a window
+another program can push into Stage Manager's strip is 643. It was found on 24 October by walking this road
 item by item and asking what a person sees at the end of it: nothing. 619, 620
 and 621 together load a page, read it and fill it, and the boundary's
 `Painted(Frame)` has no answer on the Chrome side, so no pixel of it reaches a
@@ -15893,7 +15898,7 @@ What stage 2's exit gate actually measures: a person using it.
   sentence names its candidates as `BoxId`'s own `Display` does, with a unit
   test on the wording, and no other `Display` in the file reaches for `{:?}`.
 
-- [ ] **627. ★ What a person looks at, on the product path.** *ADR 0058 § 2
+- [x] **627. ★ What a person looks at, on the product path.** *ADR 0058 § 2
   left this open and item 620 does not close it.* `FromRenderer::Painted(Frame)`
   is how a rendered page reaches the window, and the Chrome implementation of
   that boundary has **no answer for it**: 619 spawns Chrome, 620 reads its
@@ -15928,6 +15933,36 @@ What stage 2's exit gate actually measures: a person using it.
   may send us back. Screencast is refused as the way a person looks at a
   page, not as a capability: it is the only answer that works with no display
   at all, and it is built second if a case asks.
+  ***Done, its scope cut (iteration 380).*** A Chrome can be started
+  **shown** (`Chrome::start_shown`): not headless, in `--app` mode on
+  `data:,` — measured: `--app=about:blank` is passed over and a tabbed
+  window opens on the new-tab page. Its tab is that window's own page
+  (`Target.getTargets`, the one page nothing is attached to), and is laid
+  out at the size asked by **sizing the window around it** rather than by
+  emulation: the window is sized to the page, the difference read, and the
+  window sized again (`chrome_window::fit`), so a 900×600 page sits in a
+  900×632 window — a title bar and no sides. `chrome_window::place` puts the
+  window's corner where it is asked, answers where it **went** once two
+  readings 150 ms apart agree (the system pulls a window asked for at
+  −5000,−5000 back onto the screen), and brings it in front
+  (`Target.activateTarget`). A size of nothing or past 16,384 is refused
+  before Chrome hears of it, and a headless Chrome has no window to place.
+  `alo --chrome` now shows the page so: Chrome's window at 120,60, 1200×832,
+  the page 1200×800 in it, said on the terminal in numbers
+  (`ChromeServing::start_shown`, `opening::CHROME_AT`). Asserted in
+  `a_page_in_chromes_own_window.rs` — Chrome's bounds and state, the page's
+  size, the document's box in the tree, a verb through the window — and
+  in `the_program_told_to_use_chrome.rs`, the terminal's line parsed. The
+  window server is a second witness: in the test it lists the Chrome's one
+  window on screen, titled by the page and opaque, and in the live run it
+  listed `Live` at 120,60, 1200×832 exactly. **Cut, and written as items:**
+  the window of ours tracking Chrome's — the half ADR 0061 calls the
+  riskiest thing on the product path and says this item closes on — is
+  **642**; and a placed window is not always a window a person sees: with
+  Stage Manager on, one that is not in front is a thumbnail in its strip
+  (the window server: 16,773, 97×115, while Chrome says 160,120, 900×632),
+  and under the suite's other shown Chromes thirty seconds of bringing it
+  in front did not always bring it out — **643**.
 
 - [ ] **628. Whether the supervisor can tell whose uncommitted file it is.**
   `loop.sh` stops when the tree is dirty after a worker exits, on the grounds
@@ -16320,6 +16355,36 @@ What stage 2's exit gate actually measures: a person using it.
   the link — as 640 says. *Not closed by this:* asking the *running*
   browser which renderer it uses is still 622's — today only the terminal
   says it, as the program starts.
+
+- [ ] **642. ★ A window of ours around Chrome's.** *ADR 0061, cut from
+  627.* Chrome's window is placed and brought in front by this process, and
+  nothing of ours is around it: no strip of tabs, no line where 623's
+  sentence goes, and nothing that moves when a person moves or resizes
+  Chrome's window, or closes it. ADR 0061 accepts two windows, one of ours
+  tracking the other, as the riskiest thing on the product path, and says
+  that making them feel like one browser may send us back to it. Measured
+  and not yet answered: Chrome's bounds are read over the pipe, and the
+  window server's may differ (643). *Depends on 627. Closes when:* a window
+  of ours stands beside Chrome's, a person moving or resizing Chrome's
+  window moves ours with it and resizing re-lays the page at the new size,
+  closing either closes both — each asserted in numbers from the window
+  server, not only from Chrome's word — or the ADR is reopened with what
+  was measured.
+
+- [ ] **643. A placed window that stays where a person sees it.** *Cut from
+  627.* With Stage Manager on, a window that is not in front is shrunk into
+  its strip: the window server lists Chrome's at 16,773 and 97×115 while
+  Chrome says 160,120 and 900×632. `chrome_window::place` brings the window
+  in front with `Target.activateTarget`, which works alone and with two
+  shown Chromes taking turns; under the suite's other shown Chromes, one run
+  in four left it in the strip for thirty seconds of being brought in front
+  every half second, while the frontmost application, by System Events, was
+  the person's editor throughout. *Depends on 627. Closes when:* it is known
+  why activation was not honoured — macOS's cooperative activation, Stage
+  Manager, or the competing windows — and either a placed window is in
+  front with the window server's bounds asserted equal to Chrome's under
+  the suite's concurrency, or what a person must do is said where they read
+  it rather than assumed.
 
 ## K. ★ The agent, on somebody else's pages
 

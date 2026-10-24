@@ -151,3 +151,26 @@ is never what the gate's reference renders go through.
 - Whether screencast is ever built. Not now; not never.
 - Anything about the engine path, which draws into its own window as it
   always has.
+
+## Addendum, 2026-10-24 — what iteration 380 built, and what it found
+
+Not a change to the decision. Queue item 627 was closed with its scope cut:
+Chrome is started shown in `--app` mode on `data:,` (`about:blank` is passed
+over and a tabbed window opens instead), its window's own page is the tab,
+the window is sized so the page is laid out at the size asked — a 900×600
+page in a 900×632 window — and placed, and `place` answers where the window
+went rather than where it was sent (`crates/alo-window/src/chrome_window.rs`).
+
+**How the two windows are made to feel like one is now item 642**, not 627,
+and is still what may send us back here.
+
+One thing measured that § 2 did not: **a window placed is not always a
+window seen.** With Stage Manager on, a window that is not in front is a
+thumbnail in its strip — the window server lists it at 16,773 and 97×115
+while `Browser.getWindowForTarget` still says 160,120 and 900×632. So
+Chrome's word for where its window is is not the screen's, and a frame of
+ours that followed Chrome's word would follow a window nobody can see.
+`Target.activateTarget` brings it in front alone and with two Chromes taking
+turns, and did not, once in four runs, under the test suite's other shown
+Chromes (item 643). Item 642's tracking is to be measured against the
+window server, not only against Chrome.

@@ -27,10 +27,11 @@
 //! the page instead of this engine (`--chrome`, ADR 0058, queue item 641):
 //! an `http` or `https` address, opened through Chrome's own network with
 //! every request judged here (ADR 0060), or a page's file, read here and
-//! handed to Chrome as bytes at its `file:` address, as a frozen page is. No
-//! window shows it yet (item 627), so what only a window or this engine's
-//! renderers use — a scale, the frozen fonts, a page's sheets — is refused
-//! beside it rather than quietly dropped.
+//! handed to Chrome as bytes at its `file:` address, as a frozen page is.
+//! Chrome shows it in a window of its own (item 627, ADR 0061), not in this
+//! engine's, so what only this engine's window or renderers use — a scale,
+//! the frozen fonts, a page's sheets — is refused beside it rather than
+//! quietly dropped.
 
 use crate::agent_sites::AgentSites;
 use crate::chrome_serving;
@@ -46,10 +47,18 @@ use std::path::{Path, PathBuf};
 pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
      [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)";
 
-/// The size, in CSS pixels, a page in Chrome is laid out at: there is no
-/// window to give it one until item 627, so it is the size ADR 0061 measured
-/// Chrome's frames at.
+/// The size, in CSS pixels, a page in Chrome is laid out at: the size ADR
+/// 0061 measured Chrome's frames at. Chrome's window is sized to hold the
+/// page at it (item 627); a window a person resizes is item 642's.
 pub const CHROME_SIZE: (u32, u32) = (1200, 800);
+
+/// Where the top left corner of Chrome's window is put on the screen, in
+/// the screen's points: clear of the menu bar, and leaving the whole window
+/// — [`CHROME_SIZE`] and a title bar — on either of this machine's screens,
+/// 1710 by 1107 points and 1920 by 1080. On a screen too small to hold it
+/// the page is not laid out at that size, and `alo` says so and stops
+/// rather than pretending it is.
+pub const CHROME_AT: (i32, i32) = (120, 60);
 
 /// Which renderer a person asked to draw the page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,7 +105,8 @@ impl Opening {
     /// than quietly shown at another.
     ///
     /// `--chrome` has the machine's Chrome draw the page named — which may
-    /// then be an address as well as a file — and draws it in no window.
+    /// then be an address as well as a file — in a window of Chrome's own,
+    /// not in this engine's.
     ///
     /// # Errors
     ///

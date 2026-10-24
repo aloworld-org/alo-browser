@@ -168,24 +168,31 @@ about this project (ADR 0058 § 6).
   the program a person starts told to use Chrome — `alo --chrome` with an
   address or a page's file, saying on the terminal which Chrome draws it by
   the version it gives itself, answering `tabs`, `read` and `act` over the
-  socket from another process, and closing Chrome when its input ends, in
-  no window yet (641).
+  socket from another process, and closing Chrome when its input ends
+  (641); and **the page in a window a person can see** — Chrome started
+  shown in `--app` mode, its window sized so the page is laid out at the
+  size asked and placed on the screen by this process, answered by where it
+  went and brought in front, `alo --chrome` saying on the terminal where in
+  numbers (627, `chrome_window.rs`).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
-  it, and the network promises that do not hold there named (ADR 0060).
+  it, and the network promises that do not hold there named (ADR 0060);
+  what a person looks at — Chrome's own window, with ours around it, not
+  frames copied into ours (ADR 0061).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
   what a page's script said, through Chrome (639); a form Chrome would not send, answered as the engine
   answers it (631); asking the running browser which renderer it is using,
   which today only its terminal says as it starts (622); the
-  agent's work where a person can see it (623–625); **what a person actually
-  looks at (627)** — the boundary's `Painted(Frame)` has no answer on the
-  Chrome side, so today that path drives a page nobody can see; an application
-  somebody can run (477).
+  agent's work where a person can see it (623–625); **a window of ours
+  around Chrome's, following it (642)**; a placed window that stays where a
+  person sees it, which Stage Manager's strip does not promise (643); an
+  application somebody can run (477).
 
-That last gap is the one to watch. A browser that an agent can drive and a
-person cannot watch is a tool, not a browser, and it is not yet decided whether
-Chrome's pixels come to our window or our window goes around Chrome's.
+642 is now the one to watch. A person can see the page in Chrome's window,
+but nothing of ours is around it — no tabs, nowhere for the agent's sentence
+— and ADR 0061 names a window of ours tracking another program's as the
+riskiest thing on this path, which may send the decision back.
 
 ---
 
@@ -698,7 +705,9 @@ unreachable without it.
       part of it or a `pushState` too (item 640, `chrome_protocol::within`),
       and `alo --chrome` opening an address or a page's file in Chrome from
       the program a person starts, naming the Chrome that draws it on the
-      terminal (item 641, `opening::Renderer`)
+      terminal (item 641, `opening::Renderer`), and showing the page in
+      Chrome's own window, sized around the page and placed by this
+      process (item 627, `chrome_window.rs`, ADR 0061)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -707,8 +716,9 @@ unreachable without it.
       (638, needs an ADR); the resolver measured (635); what a page's
       script said, through Chrome (639); a
       form Chrome would not send answered as `NotSubmitted` (631), a date
-      and a choice put in through Chrome (632), what a person looks at (627), and saying which renderer is in use where a
-      person can read it (622)
+      and a choice put in through Chrome (632), a window of ours around
+      Chrome's (642) and one that stays where a person sees it (643), and
+      saying which renderer is in use where a person can read it (622)
 
 ### The network
 

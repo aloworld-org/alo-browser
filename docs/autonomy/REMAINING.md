@@ -2847,3 +2847,16 @@ both renderers is in the journal. 303 queue items are open (641 closed;
 iteration 378's count of 303 was one short).
 627 is next on the product path. The next unused queue number is 642 and
 the next unused ADR 0062.
+
+Iteration 380 built queue item 627, with its scope cut: a page in Chrome
+is drawn in Chrome's own window (ADR 0061) — started shown in `--app` mode,
+its window's page the tab, the window sized around the page so it is laid
+out at the size asked, placed by this process, answered by where it went
+and brought in front (`chrome_window.rs`, `Chrome::start_shown`,
+`ChromeServing::start_shown`). `alo --chrome` shows the page so and says
+where on the terminal. Cut into 642 (a window of ours around Chrome's,
+following it) and 643 (with Stage Manager on, a window not in front is a
+thumbnail in its strip, and bringing it in front did not always work under
+the suite's other shown Chromes). 304 queue items are open (627 closed; 642
+and 643 added). 642 is next on the product path. The next unused queue
+number is 644 and the next unused ADR 0062.

@@ -217,6 +217,31 @@ pub enum Command {
     /// `Runtime.runIfWaitingForDebugger`: let a tab held by
     /// [`Command::HoldNewTabs`] go on.
     LetGo,
+    /// `Target.getTargets`: every target Chrome holds — among them the page
+    /// of a shown Chrome's own window ([`pages`]).
+    Targets,
+    /// `Browser.getWindowForTarget`: the window a tab is drawn in, and where
+    /// it is on the screen ([`window_of`]).
+    WindowOf {
+        /// The tab, by the id [`target`] or [`pages`] read.
+        target: String,
+    },
+    /// `Target.activateTarget`: bring the tab `target`, and its window, in
+    /// front of every other window — out of Stage Manager's strip, where
+    /// macOS keeps all but the window in front as a thumbnail.
+    Activate {
+        /// The tab, by the id [`target`] or [`pages`] read.
+        target: String,
+    },
+    /// `Browser.setWindowBounds`: put a window of Chrome's at `bounds` on
+    /// the screen — which the system may overrule, so where it went is read
+    /// again with [`Command::WindowOf`].
+    PlaceWindow {
+        /// The window, by the id [`window_of`] read.
+        window: i64,
+        /// Where.
+        bounds: Bounds,
+    },
 }
 
 impl Command {
@@ -250,6 +275,10 @@ impl Command {
             Self::InsertText { .. } => "Input.insertText",
             Self::HoldNewTabs { .. } => "Target.setAutoAttach",
             Self::LetGo => "Runtime.runIfWaitingForDebugger",
+            Self::Targets => "Target.getTargets",
+            Self::WindowOf { .. } => "Browser.getWindowForTarget",
+            Self::Activate { .. } => "Target.activateTarget",
+            Self::PlaceWindow { .. } => "Browser.setWindowBounds",
         }
     }
 
@@ -266,7 +295,8 @@ impl Command {
             | Self::TellOfSockets
             | Self::ReadTree
             | Self::Window
-            | Self::LetGo => {}
+            | Self::LetGo
+            | Self::Targets => {}
             Self::CreateTarget { url } | Self::Navigate { url } => {
                 put("url", Value::from(url.as_str()));
             }
@@ -274,7 +304,15 @@ impl Command {
                 put("targetId", Value::from(target.as_str()));
                 put("flatten", Value::Bool(true));
             }
-            Self::CloseTarget { target } => put("targetId", Value::from(target.as_str())),
+            Self::CloseTarget { target }
+            | Self::WindowOf { target }
+            | Self::Activate { target } => {
+                put("targetId", Value::from(target.as_str()));
+            }
+            Self::PlaceWindow { window, bounds } => {
+                put("windowId", Value::from(*window));
+                put("bounds", bounds.written());
+            }
             Self::TellOfStages => put("enabled", Value::Bool(true)),
             Self::PauseEveryRequest => {
                 let mut every = Map::new();
@@ -948,6 +986,155 @@ pub fn attached(params: &[u8]) -> Result<Attached, Malformed> {
 /// [`Malformed`], for params with no `sessionId` that is text.
 pub fn detached(params: &[u8]) -> Result<String, Malformed> {
     text(object(params)?.get("sessionId"), "sessionId")
+}
+
+/// The most targets [`pages`] reads: a Chrome holding more is refused
+/// rather than read. A shown Chrome 155 holds six as it starts — its window's
+/// page, two of its own interface and three of its extensions'.
+pub const MOST_TARGETS: usize = 4096;
+
+/// The pages Chrome holds that nothing is attached to yet, by their
+/// `targetId`, from a reply's `result` to `Target.getTargets`. A shown
+/// Chrome's own window is one of these as it starts; its interface
+/// (`browser_ui`), its extensions and their workers are not pages.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result without `targetInfos`, more than
+/// [`MOST_TARGETS`] of them, or one without a `targetId`, a `type` and an
+/// `attached`.
+pub fn pages(result: &[u8]) -> Result<Vec<String>, Malformed> {
+    let bad = Malformed::BadField {
+        field: "targetInfos",
+    };
+    let Some(Value::Array(targets)) = object(result)?.get("targetInfos").cloned() else {
+        return Err(bad);
+    };
+    if targets.len() > MOST_TARGETS {
+        return Err(bad);
+    }
+    let mut pages = Vec::new();
+    for target in &targets {
+        let Value::Object(info) = target else {
+            return Err(bad);
+        };
+        let id = text(info.get("targetId"), "targetId")?;
+        let kind = text(info.get("type"), "type")?;
+        let attached = info
+            .get("attached")
+            .and_then(Value::as_bool)
+            .ok_or(Malformed::BadField { field: "attached" })?;
+        if kind == "page" && !attached {
+            pages.push(id);
+        }
+    }
+    Ok(pages)
+}
+
+/// Where a window is on the screen, in the screen's own points — what
+/// macOS calls a point and Chrome a pixel of the screen, half a device
+/// pixel on a screen of scale two — as `Browser.setWindowBounds` takes it
+/// and `Browser.getWindowForTarget` gives it: the whole window, its title
+/// bar included.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Bounds {
+    /// Its left edge, from the left of the main screen.
+    pub left: i64,
+    /// Its top edge, from the top of the main screen.
+    pub top: i64,
+    /// Its width.
+    pub width: i64,
+    /// Its height, its title bar included.
+    pub height: i64,
+}
+
+impl Bounds {
+    /// As `Browser.setWindowBounds` takes it.
+    fn written(&self) -> Value {
+        let mut at = Map::new();
+        for (name, value) in [
+            ("left", self.left),
+            ("top", self.top),
+            ("width", self.width),
+            ("height", self.height),
+        ] {
+            at.insert(name.to_owned(), Value::from(value));
+        }
+        Value::Object(at)
+    }
+}
+
+/// Whether a window is on the screen as a window, in Chrome's words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowState {
+    /// `normal`: on the screen, at its bounds.
+    Normal,
+    /// `minimized`: in the Dock, where nobody sees the page.
+    Minimized,
+    /// `maximized`: filling the screen but for the menu bar and the Dock.
+    Maximized,
+    /// `fullscreen`: the whole screen, a space of its own.
+    Fullscreen,
+}
+
+/// A window of Chrome's, from `Browser.getWindowForTarget`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChromeWindow {
+    /// Its `windowId`, which [`Command::PlaceWindow`] names it by.
+    pub id: i64,
+    /// Where it is.
+    pub bounds: Bounds,
+    /// Whether it is shown at those bounds.
+    pub state: WindowState,
+}
+
+/// A reply's `result` to `Browser.getWindowForTarget`, read.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result without a whole `windowId`, or `bounds`
+/// without a whole `left`, `top`, `width` and `height` — the last two not
+/// negative — and a `windowState` that is one of Chrome's four.
+pub fn window_of(result: &[u8]) -> Result<ChromeWindow, Malformed> {
+    let fields = object(result)?;
+    let id = fields
+        .get("windowId")
+        .and_then(Value::as_i64)
+        .ok_or(Malformed::BadField { field: "windowId" })?;
+    let Some(Value::Object(bounds)) = fields.get("bounds") else {
+        return Err(Malformed::BadField { field: "bounds" });
+    };
+    let whole = |field: &'static str| {
+        bounds
+            .get(field)
+            .and_then(Value::as_i64)
+            .ok_or(Malformed::BadField { field })
+    };
+    let (width, height) = (whole("width")?, whole("height")?);
+    if width < 0 || height < 0 {
+        return Err(Malformed::BadField { field: "bounds" });
+    }
+    let state = match text(bounds.get("windowState"), "windowState")?.as_str() {
+        "normal" => WindowState::Normal,
+        "minimized" => WindowState::Minimized,
+        "maximized" => WindowState::Maximized,
+        "fullscreen" => WindowState::Fullscreen,
+        _ => {
+            return Err(Malformed::BadField {
+                field: "windowState",
+            });
+        }
+    };
+    Ok(ChromeWindow {
+        id,
+        bounds: Bounds {
+            left: whole("left")?,
+            top: whole("top")?,
+            width,
+            height,
+        },
+        state,
+    })
 }
 
 /// One node of Chrome's accessibility tree, as `Accessibility.getFullAXTree`
@@ -1937,5 +2124,126 @@ mod tests {
                 let _ = version(&result);
             }
         }
+    }
+
+    #[test]
+    fn a_window_is_asked_for_and_placed_by_its_ids() {
+        assert_eq!(
+            written(1, None, &Command::Targets),
+            br#"{"id":1,"method":"Target.getTargets","params":{}}"#
+        );
+        assert_eq!(
+            written(
+                2,
+                None,
+                &Command::WindowOf {
+                    target: "T".to_owned()
+                }
+            ),
+            br#"{"id":2,"method":"Browser.getWindowForTarget","params":{"targetId":"T"}}"#
+        );
+        assert_eq!(
+            written(
+                4,
+                None,
+                &Command::Activate {
+                    target: "T".to_owned()
+                }
+            ),
+            br#"{"id":4,"method":"Target.activateTarget","params":{"targetId":"T"}}"#
+        );
+        let bounds = Bounds {
+            left: -45,
+            top: 34,
+            width: 1200,
+            height: 832,
+        };
+        assert_eq!(
+            written(3, None, &Command::PlaceWindow { window: 1_852_001_420, bounds }),
+            br#"{"id":3,"method":"Browser.setWindowBounds","params":{"bounds":{"height":832,"left":-45,"top":34,"width":1200},"windowId":1852001420}}"#
+        );
+    }
+
+    #[test]
+    fn only_a_page_nothing_is_attached_to_is_a_shown_chromes_window() {
+        // As a shown Chrome 155 lists its targets as it starts, cut short.
+        let listed = br#"{"targetInfos":[
+            {"targetId":"W","type":"service_worker","attached":false},
+            {"targetId":"U","type":"browser_ui","attached":false},
+            {"targetId":"P","type":"page","attached":false},
+            {"targetId":"A","type":"page","attached":true}]}"#;
+        assert_eq!(pages(listed), Ok(vec!["P".to_owned()]));
+        assert_eq!(pages(br#"{"targetInfos":[]}"#), Ok(Vec::new()));
+        assert_eq!(pages(br"{}"), bad("targetInfos"));
+        assert_eq!(pages(br#"{"targetInfos":[1]}"#), bad("targetInfos"));
+        assert_eq!(
+            pages(br#"{"targetInfos":[{"targetId":"P","type":"page"}]}"#),
+            bad("attached")
+        );
+        assert_eq!(
+            pages(br#"{"targetInfos":[{"type":"page","attached":false}]}"#),
+            bad("targetId")
+        );
+        let many = format!(
+            r#"{{"targetInfos":[{}]}}"#,
+            vec![r#"{"targetId":"P","type":"page","attached":true}"#; MOST_TARGETS + 1].join(",")
+        );
+        assert_eq!(pages(many.as_bytes()), bad("targetInfos"));
+    }
+
+    #[test]
+    fn a_window_is_read_with_where_it_is_and_whether_it_is_shown() {
+        assert_eq!(
+            window_of(
+                br#"{"windowId":1852001420,"bounds":{"left":0,"top":34,"width":1200,"height":800,"windowState":"normal"}}"#
+            ),
+            Ok(ChromeWindow {
+                id: 1_852_001_420,
+                bounds: Bounds {
+                    left: 0,
+                    top: 34,
+                    width: 1200,
+                    height: 800
+                },
+                state: WindowState::Normal,
+            })
+        );
+        let state = |state: &str| {
+            window_of(
+                format!(
+                    r#"{{"windowId":1,"bounds":{{"left":-45,"top":0,"width":0,"height":0,"windowState":"{state}"}}}}"#
+                )
+                .as_bytes(),
+            )
+            .map(|window| window.state)
+        };
+        assert_eq!(state("minimized"), Ok(WindowState::Minimized));
+        assert_eq!(state("maximized"), Ok(WindowState::Maximized));
+        assert_eq!(state("fullscreen"), Ok(WindowState::Fullscreen));
+        assert_eq!(state("docked"), bad("windowState"));
+        assert_eq!(window_of(br#"{"bounds":{}}"#), bad("windowId"));
+        assert_eq!(
+            window_of(br#"{"windowId":1.5,"bounds":{}}"#),
+            bad("windowId")
+        );
+        assert_eq!(window_of(br#"{"windowId":1}"#), bad("bounds"));
+        assert_eq!(
+            window_of(
+                br#"{"windowId":1,"bounds":{"left":0,"top":0,"width":-1,"height":0,"windowState":"normal"}}"#
+            ),
+            bad("bounds")
+        );
+        assert_eq!(
+            window_of(
+                br#"{"windowId":1,"bounds":{"left":0.5,"top":0,"width":1,"height":1,"windowState":"normal"}}"#
+            ),
+            bad("left")
+        );
+        assert_eq!(
+            window_of(
+                br#"{"windowId":1,"bounds":{"left":0,"top":0,"width":1,"height":1e400,"windowState":"normal"}}"#
+            ),
+            Err(Malformed::NotJson)
+        );
     }
 }

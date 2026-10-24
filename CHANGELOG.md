@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page drawn by Chrome can now be seen.** `alo --chrome` used to open a
+  page in an invisible Chrome that only an agent could reach. Now Chrome
+  draws it in a window of its own on the screen — just a title bar and the
+  page, no tabs and no address bar — which the browser sizes so the page is
+  laid out at the same 1200 by 800 pixels as before, places near the top
+  left of the screen and brings to the front. The terminal says where the
+  window ended up and how big the page inside it is. If macOS moves the
+  window somewhere else, the browser reports where it actually went rather
+  than where it asked for. Two limits remain: the browser does not yet put
+  any window of its own around Chrome's, and with Stage Manager turned on,
+  Chrome's window can still end up as a thumbnail at the side of the screen
+  when other windows compete for the front.
+
 - **`alo --chrome` runs a page in the Chrome installed on the machine.**
   Until now that path existed only as a library and its tests; nobody could
   start it. Name an address or a page's file after `--chrome` and the

@@ -9,8 +9,9 @@
 //! person could run. Here the `alo` binary itself is started, as a process
 //! of its own, on a page from a server of this test's own; it says on the
 //! terminal which Chrome draws the page — by the version that Chrome gives
-//! itself, read here from a Chrome of the test's own — and where an agent
-//! reaches it. `alo-ask`, a third process, reads the page's tabs and tree
+//! itself, read here from a Chrome of the test's own — where Chrome's own
+//! window went on the screen and the page's size in it, in numbers (item
+//! 627), and where an agent reaches it. `alo-ask`, a third process, reads the page's tabs and tree
 //! and follows a link to a part of the page through the socket, and the
 //! browser closes Chrome and its socket when its input ends.
 //!
@@ -19,7 +20,7 @@
 //! cannot be given to Chrome is refused before it starts.
 
 use alo_window::chrome::Chrome;
-use alo_window::opening::CHROME_SIZE;
+use alo_window::opening::{CHROME_AT, CHROME_SIZE};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -230,6 +231,24 @@ fn the_program_opens_a_page_in_chrome_and_an_agent_reaches_it() -> Result<(), St
         "{said:?}"
     );
     assert!(product.contains("Chrome/"), "{product}");
+    // Chrome's window, where this program put it and as tall as the page
+    // and a title bar, the page laid out at the size it gives Chrome.
+    let (left, top) = CHROME_AT;
+    let (width, height) = CHROME_SIZE;
+    let window =
+        format!("alo: Chrome shows the page in a window of its own at {left},{top}, {width}×");
+    let page = format!(" on the screen, the page laid out at {width}×{height} in it");
+    let shown = said
+        .iter()
+        .find_map(|line| line.strip_prefix(&window)?.strip_suffix(&page))
+        .ok_or_else(|| format!("no window was said: {said:?}"))?;
+    let tall: u32 = shown
+        .parse()
+        .map_err(|_| format!("{shown} is not a height"))?;
+    assert!(
+        (height + 1..=height + 64).contains(&tall),
+        "the page and a title bar: {tall}"
+    );
     assert_eq!(
         socket,
         alo_window::socket_place::socket_under(&runtime),
@@ -261,7 +280,6 @@ fn the_program_opens_a_page_in_chrome_and_an_agent_reaches_it() -> Result<(), St
         "{tree}"
     );
     // Laid out at the size this program gives Chrome, in numbers.
-    let (width, height) = CHROME_SIZE;
     assert!(
         tree.contains(&format!(
             r#""rect":{{"height":{height}.0,"width":{width}.0,"x":0.0,"y":0.0}},"role":"document""#
