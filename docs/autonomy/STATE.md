@@ -38969,3 +38969,89 @@ happen. `features.md` is unchanged for the same reason. The queue ticks
 304 queue items are open (644 closed; counted as `- [ ] **` lines). The next
 unused queue number is **645** and the next ADR is **0062**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 382 — queue item 642's decision: ADR 0062, the frame floats and stands aside
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path), iteration 381's entry, `REMAINING.md`'s continuation order, queue
+items 642, 643 and the product-path table; ADR 0061 with its addendum, ADR
+0024 § 1 (the window rented, each call checked safe, `winit` named in one
+file); `chrome_window.rs`, `chrome_serving.rs`, `window.rs`, `message.rs`,
+`inbox.rs`, `bin/alo.rs`, the test `a_page_in_chromes_own_window.rs`, and
+`gate.sh`'s rented-crate list. No `AGENTS.md` exists in the repository.
+642's feature contract is `docs/features.md`'s Chrome line (ADR 0058, 0061).
+
+**Why a decision and not code.** 642 is the first open item whose
+dependencies are done on the product path, which recent iterations have
+followed. Building it meant choosing what kind of window the frame is, and
+the obvious one measured as never seen: so per `LOOP.md` § 4 (*a decision
+is its own iteration*) and 642's own *"or the ADR is reopened with what was
+measured"*, this iteration measured and wrote ADR 0062, and no code
+depends on it yet.
+
+**Measured** (Chrome 155.0.8059.86, macOS 26.5.2, Stage Manager on), with a
+temporary `alo-window` example — a borderless `winit` window at 120,60
+1200×40 above a shown Chrome placed by `chrome_window::place` at 120,100
+1200×832 — read from `CGWindowListCopyWindowInfo`. The example was deleted;
+`git status` showed only the documents below before the gate.
+- An ordinary window went into Stage Manager's strip (15,689 164×29) the
+  moment Chrome's was brought in front, two runs of two; with ours brought
+  in front Chrome's went there instead. Never both on the screen.
+- A floating one (`WindowLevel::AlwaysOnTop`, layer 3) stayed beside
+  Chrome's in five runs of five; with Terminal in front, Chrome's went to
+  the strip and ours was left alone, three of three.
+- The page wrote `document.visibilityState` into its title: it read
+  `visible` while Chrome's window was a thumbnail. Nothing over the pipe
+  says a person cannot see it.
+- `osascript` reading the window list: 80 ms wall, 20–30 ms processor time
+  a reading, idle. `objc2-core-graphics` 0.3.2 is already beneath
+  `softbuffer` 0.4.8 and its `CGWindowListCopyWindowInfo` is a safe fn;
+  whether reading the dictionaries it returns is safe was not checked.
+- **Not measured, because the screen was locked**
+  (`CGSSessionScreenIsLocked`): `cliclick` dragging Chrome's title bar
+  moved nothing and System Events listed no Chrome window; asking for our
+  floating process to be frontmost left the editor in front. ADR 0062 § 4
+  says so, and the queue tells the building iteration to measure both
+  first.
+
+**Built.** ADR 0062: the frame is a floating window, put by Chrome's word,
+shown only while the window server lists Chrome's window on the screen at
+those bounds; read through `objc2-core-graphics` if every call is safe,
+`osascript` if not; no `unsafe` either way. ADR 0061 gains an addendum
+pointing to it. No code changed.
+
+**Gate.** `scripts/gate.sh` started in the foreground into a scratchpad
+log; the harness moved it to the background at 600 s and the next call
+waited on it with a foreground until-loop and read it in the same step:
+**exit 0, "The gate is met. (10 of 10 steps)"**, nextest **5,193 tests
+run, 5,193 passed** in 561 s, no `FAIL`, `LEAK` or `panicked`. Manual: no
+layout assertion or reference render applies — nothing positions, sizes
+or draws differently, and no code changed. One file, one responsibility:
+the ADR is one decision. No `unsafe`, no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Decided* clause and the stage 2 Chrome
+line's `· Decided:` gain ADR 0062; the paragraph naming 642 the one to
+watch says what is decided and what may still send it back. Not ticked —
+642 is not built. `features.md`'s Chrome line, `REMAINING.md`, the queue
+(642 gains a *Decided* paragraph, unticked) and the changelog say the same.
+
+**Unresolved obligations.**
+- 642 is still owed whole: the frame, its following, re-laying on resize,
+  closing either closing both, each asserted from the window server.
+- Before building it: a person's drag of Chrome's window and a click on
+  the frame, measured with the screen in use. If the click sends Chrome's
+  window to the strip, ADR 0062 is reopened.
+- Whether `objc2-core-graphics`' dictionary readings are safe; and Stage
+  Manager off, unmeasured.
+- Inherited and unchanged: 622–625, 631, 632, 635, 636, 639 and 643 owed;
+  604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 638 needs an ADR. Other suites' short
+  bounds named in iteration 381 are still unaudited.
+- No claim about speed is made; the `osascript` timing is one idle
+  machine's, stated as such in the ADR.
+
+304 queue items are open (none closed or added; counted as `- [ ] **`
+lines). The next unused queue number is **645** and the next ADR is
+**0063**. This is one iteration, not a finished queue or roadmap.

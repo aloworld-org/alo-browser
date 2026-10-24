@@ -16370,6 +16370,20 @@ What stage 2's exit gate actually measures: a person using it.
   closing either closes both — each asserted in numbers from the window
   server, not only from Chrome's word — or the ADR is reopened with what
   was measured.
+  ***Decided (iteration 382): ADR 0062.*** Measured under Stage Manager
+  first, as the decision needed: an ordinary window of ours went into the
+  strip the moment Chrome's was brought in front, in two runs of two, and
+  the two were never on the screen together; a floating one
+  (`WindowLevel::AlwaysOnTop`) stayed beside Chrome's in five of five,
+  and was left alone over Terminal when Terminal came in front. Chrome's
+  page read `visible` as a thumbnail. So the frame floats, is put by
+  Chrome's word, and is **shown only while the window server lists
+  Chrome's window on the screen at those bounds** — read through
+  `objc2-core-graphics` if every call is safe, `osascript` if not.
+  *Before building, measure with the screen in use* (it was locked):
+  whether `Browser.getWindowForTarget` follows a window a person drags,
+  and whether a person clicking the frame sends Chrome's window to the
+  strip — which would reopen ADR 0062. Not ticked: no code was written.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into

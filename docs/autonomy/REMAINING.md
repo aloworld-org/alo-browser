@@ -2869,3 +2869,17 @@ renderer the test stops. Four window tests now give a renderer `alo`'s own
 It served no roadmap line. 304 queue items are open (644 closed). 642 is
 next on the product path. The next unused queue number is 645 and the next
 unused ADR 0062.
+
+Iteration 382 wrote item 642's decision, ADR 0062, before any code depends
+on it: measured under Stage Manager, an ordinary window of ours and
+Chrome's are never on the screen together, so the frame around Chrome's
+is a floating window, put by Chrome's word and shown only while the window
+server lists Chrome's window on the screen at those bounds — Chrome's page
+reads `visible` even as a thumbnail, so nothing over the pipe can say.
+The window server is read through `objc2-core-graphics`, already beneath
+`softbuffer`, if every call is safe, and through `osascript` if not. A
+person's drag and our window brought in front were not measured (the screen
+was locked), and the building iteration measures them first. No code was
+written and 642 is not done. 304 queue items are open. 642 is next on the
+product path. The next unused queue number is 645 and the next unused ADR
+0063.

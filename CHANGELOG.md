@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided how the browser's own window will sit beside Chrome's.** With
+  macOS's Stage Manager on, an ordinary window of the browser's and
+  Chrome's window were never on the screen together: whichever program was
+  in front, the other shrank to a thumbnail at the side. So the browser's
+  frame around a page in Chrome will be a floating window, placed beside
+  Chrome's, and hidden whenever Chrome's window is not actually on the
+  screen — so it is never left floating over another program on its own.
+  Nothing a person sees has changed yet; this is the decision (ADR 0062)
+  the code will be built on.
+
 - **A test that failed on a busy machine now fails only when the browser
   would.** Four of the window's tests gave the browser's renderer four
   seconds to answer, where the browser itself gives ten. On a heavily loaded

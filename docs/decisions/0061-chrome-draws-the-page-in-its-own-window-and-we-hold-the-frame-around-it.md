@@ -174,3 +174,12 @@ ours that followed Chrome's word would follow a window nobody can see.
 turns, and did not, once in four runs, under the test suite's other shown
 Chromes (item 643). Item 642's tracking is to be measured against the
 window server, not only against Chrome.
+
+## Addendum, 2026-10-24 — the frame's window, decided in ADR 0062
+
+Not a change to the decision. Iteration 382 measured the two windows under
+Stage Manager: an ordinary window of ours and Chrome's are never on the
+screen together, since two programs are two applications and Stage Manager
+shows one at a time. **ADR 0062** decides the frame is a floating window,
+put by Chrome's word and shown only while the window server lists Chrome's
+window on the screen there.

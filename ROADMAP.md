@@ -179,7 +179,10 @@ about this project (ADR 0058 § 6).
   recorded here, an agent's off-site address refused before Chrome hears of
   it, and the network promises that do not hold there named (ADR 0060);
   what a person looks at — Chrome's own window, with ours around it, not
-  frames copied into ours (ADR 0061).
+  frames copied into ours (ADR 0061); and the window of ours around it —
+  floating, since an ordinary one and Chrome's are never on the screen
+  together under Stage Manager, put by Chrome's word and shown only while
+  the window server shows Chrome's (ADR 0062).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
   what a page's script said, through Chrome (639); a form Chrome would not send, answered as the engine
   answers it (631); asking the running browser which renderer it is using,
@@ -192,7 +195,10 @@ about this project (ADR 0058 § 6).
 642 is now the one to watch. A person can see the page in Chrome's window,
 but nothing of ours is around it — no tabs, nowhere for the agent's sentence
 — and ADR 0061 names a window of ours tracking another program's as the
-riskiest thing on this path, which may send the decision back.
+riskiest thing on this path, which may send the decision back. ADR 0062 has
+decided the frame's window from what Stage Manager was measured to do; a
+person's drag and a click on the frame are still to be measured, and either
+could send it back.
 
 ---
 
@@ -711,7 +717,9 @@ unreachable without it.
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
-      aside on this path by name (ADR 0060)
+      aside on this path by name (ADR 0060); the window of ours around
+      Chrome's floats, is put by Chrome's word and is shown only while the
+      window server shows Chrome's (ADR 0062)
       · Owed: a frame as a document of its own in the record (636); whose cause a tab an agent opened is
       (638, needs an ADR); the resolver measured (635); what a page's
       script said, through Chrome (639); a
