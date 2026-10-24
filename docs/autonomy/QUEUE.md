@@ -15642,6 +15642,11 @@ What stage 2's exit gate actually measures: a person using it.
   reason. No new rented crate — `serde_json` is already behind
   `alo-window/src/protocol.rs`, and every message is bounded by us before it
   reaches it, because a limit somebody else chooses is not a limit.
+  ***Next, by the owner's choice (2026-10-24).*** It is the first of the four and
+  nothing else in ADR 0058 can begin until a pipe exists. Taken ahead of its
+  place because the engine's own queue is years of work and this is the item
+  that puts a rendered open web behind the agent surface in weeks.
+
   *Closes when:* Chrome starts, answers `Browser.getVersion`, and is gone
   after the browser process exits — asserted, with a version that is not
   hard-coded; a Chrome that cannot be found is refused by name rather than
