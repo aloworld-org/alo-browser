@@ -2811,3 +2811,16 @@ browser's own hold left it waiting for good, so it never ran rather than
 escaped; 634's escape was a probe that held nothing at Chrome's level.
 303 queue items are open (629 and 637 closed). 630 is next on the product
 path. The next unused queue number is 639 and the next unused ADR 0061.
+
+Iteration 377 built queue item 630: the agent socket reaches a tab in
+Chrome. What `serving.rs` asks of the tabs is the trait `pages::Pages`,
+answered from this engine's tabs (`engine_pages.rs`) and from a tab in
+Chrome (`chrome_pages.rs`), which `chrome_serving.rs` holds on a thread of
+its own and is sent `Order::Agent` by the same `Listening`. The same lines
+fill `web-a-form` in Chrome, the refusals arrive as the same kinds, and the
+agent record names the renderer; the two records differ in that and in
+each renderer's own box numbers and tree sizes. A tab in Chrome is named by
+where its page is now; a verb on a page that left is refused as the new
+kind `NotCarriedOut`. Cut: 639 (issues through Chrome) and 640 (a fragment
+through Chrome). 304 queue items are open (630 closed; 639 and 640 added).
+The next unused queue number is 641 and the next unused ADR 0062.

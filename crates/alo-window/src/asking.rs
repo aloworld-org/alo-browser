@@ -221,6 +221,15 @@ pub enum Refused {
         /// What happened to it, in words, for a person.
         said: String,
     },
+    /// The verb was decided on the page and its renderer did not carry it
+    /// out, so nothing was done: through Chrome, a node drawn nowhere, or
+    /// one whose middle is under something else (queue item 630).
+    NotCarriedOut {
+        /// The tab.
+        tab: String,
+        /// Why, in words, for a person.
+        said: String,
+    },
     /// The page's tree is deeper than [`MOST_DEPTH`].
     TreeTooDeep {
         /// The tab.
@@ -263,6 +272,7 @@ impl Refused {
             Refused::Ambiguous { .. } => "Ambiguous",
             Refused::NothingLoaded { .. } => "NothingLoaded",
             Refused::TabGone { .. } => "TabGone",
+            Refused::NotCarriedOut { .. } => "NotCarriedOut",
             Refused::TreeTooDeep { .. } => "TreeTooDeep",
             Refused::TooManyCallers { .. } => "TooManyCallers",
             Refused::Verb { refusal, .. } => refusal_kind(refusal),
@@ -348,6 +358,9 @@ impl fmt::Display for Refused {
             }
             Refused::NothingLoaded { tab } => write!(f, "nothing is loaded in the tab at {tab}"),
             Refused::TabGone { tab, said } => write!(f, "the tab at {tab} cannot answer: {said}"),
+            Refused::NotCarriedOut { tab, said } => {
+                write!(f, "nothing was done in the tab at {tab}: {said}")
+            }
             Refused::TreeTooDeep { tab, most } => write!(
                 f,
                 "the page at {tab} is more than {most} boxes deep, and half a tree is not answered"

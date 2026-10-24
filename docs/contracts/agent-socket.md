@@ -43,6 +43,18 @@ On Windows how an agent reaches the browser is not decided yet.
 `alo-ask [SOCKET]` is the smallest caller. It sends each line it reads and
 prints each answer.
 
+### Whichever renderer draws the page
+
+A tab may be drawn by this browser's own engine or by the Chrome installed on
+the machine (ADR 0058). **Nothing here differs between them**: the same asks,
+verbs, answers and refusal kinds, judged in the same order. What each tree
+holds is that renderer's description of the page, so a node's number and how
+many nodes a tree has are its own, and a number read from one is never good
+in the other. Through Chrome, `issues` is always empty, because what the
+page's script said is not asked of Chrome (queue item 639), and a tab is
+named by the page it shows when the request is answered, however it got
+there.
+
 At most **8** agents may be connected at once. A ninth gets one
 `TooManyCallers` refusal, and its connection is closed.
 
@@ -134,7 +146,8 @@ When the verb runs, the answer is:
     {"answer":"done","id":3,"issues":[],"outcome":{"kind":"TextPut","node":10,"text":"Ada Lovelace"},
      "said":"put \"Ada Lovelace\" into box#10","tab":"https://httpbin.org/forms/post","v":1}
 
-`issues` is what the page's script said while the verb ran. `said` is the
+`issues` is what the page's script said while the verb ran (empty through
+Chrome, which is not asked). `said` is the
 outcome in English, for a person.
 
 | Outcome `kind` | Fields besides `node` |
@@ -190,6 +203,7 @@ caller must never depend on it.
 | `Ambiguous` | `tab`, `count` | More than one tab is at that address. None is picked for you |
 | `NothingLoaded` | `tab` | |
 | `TabGone` | `tab` | The tab's renderer is gone, or could not answer. `said` says why |
+| `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, or the page went elsewhere while the verb was decided. `said` says which |
 | `TreeTooDeep` | `tab`, `most` | |
 | `TooManyCallers` | `most` | |
 
@@ -207,7 +221,9 @@ The browser process records every request: which connection asked, the tab it
 named, that address's site whenever it is an address, and what came of it. A
 refused request has its site recorded too. A read records how many nodes of which document it
 read. A verb records the target, the verb, the action id it was given, and its
-outcome or refusal. A refused request is recorded as refused.
+outcome or refusal. A refused request is recorded as refused. A request that
+reached a tab records which renderer drew its page: this browser's engine, or
+Chrome and the version it gives itself.
 
 The record is the person's, and is kept about the agent. Nothing over this
 socket can read it (ADR 0012 § 7). A renderer cannot write it.

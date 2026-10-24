@@ -22,6 +22,11 @@
 //! which is ADR 0052's agent gate. A request refused before it reached a tab
 //! is written too, because *what did it try* is a question this answers.
 //!
+//! A request that reached a tab says which renderer drew its page — this
+//! engine, or the machine's Chrome and its version (ADR 0058 § 6, queue item
+//! 630) — because a record of what an agent read is a claim about a page,
+//! and a claim whose renderer is a secret cannot be checked.
+//!
 //! # Bounded
 //!
 //! At most [`MOST_KEPT`] entries. When it is full the oldest goes and is
@@ -29,6 +34,7 @@
 //! not kept.
 
 use crate::asking::Refused;
+use crate::pages::RenderedBy;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_net::cause::{ActionId, DocumentId};
 use alo_renderer::site::Site;
@@ -92,6 +98,9 @@ pub struct Entry {
     /// which, for a read or a verb, is the site of the page it reached
     /// (queue item 497). Refused or not, the site is said.
     pub site: Option<Site>,
+    /// The renderer that drew the page in the tab it reached, whenever it
+    /// reached one.
+    pub rendered_by: Option<RenderedBy>,
     /// What came of it.
     pub did: Did,
 }
@@ -125,7 +134,10 @@ impl fmt::Display for Entry {
                 }
             }
             Did::Refused(refused) => write!(f, ": refused, {refused}"),
-        }
+        }?;
+        self.rendered_by
+            .as_ref()
+            .map_or(Ok(()), |rendered_by| write!(f, "; drawn by {rendered_by}"))
     }
 }
 
@@ -171,6 +183,7 @@ mod tests {
             caller: Caller(caller),
             tab: None,
             site: None,
+            rendered_by: None,
             did: Did::Refused(Refused::NotJson),
         }
     }
@@ -199,6 +212,7 @@ mod tests {
             caller: Caller(0),
             tab: None,
             site: None,
+            rendered_by: None,
             did: Did::Listed { tabs: 3 },
         };
         assert_eq!(listed.to_string(), "agent#0: listed 3 tabs");
@@ -207,6 +221,7 @@ mod tests {
             caller: Caller(1),
             tab: Some(tab.to_owned()),
             site: alo_url::parse(tab).ok().map(|url| Site::of(&url)),
+            rendered_by: Some(RenderedBy::ThisEngine),
             did: Did::Read {
                 document: None,
                 nodes: 4,
@@ -214,7 +229,17 @@ mod tests {
         };
         assert_eq!(
             read.to_string(),
-            "agent#1 at https://www.example.com/a on https://example.com: read 4 nodes"
+            "agent#1 at https://www.example.com/a on https://example.com: read 4 nodes; drawn by this browser's engine"
+        );
+        let in_chrome = Entry {
+            rendered_by: Some(RenderedBy::Chrome {
+                product: "Chrome/155.0.8059.86".to_owned(),
+            }),
+            ..read
+        };
+        assert_eq!(
+            in_chrome.to_string(),
+            "agent#1 at https://www.example.com/a on https://example.com: read 4 nodes; drawn by Chrome/155.0.8059.86, driven by this browser"
         );
     }
 }

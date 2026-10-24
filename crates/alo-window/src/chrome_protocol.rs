@@ -665,13 +665,25 @@ pub fn paused(params: &[u8]) -> Result<Paused, Malformed> {
 }
 
 /// A frame that has gone to a new document, from a `Page.frameNavigated`
-/// event: its id, and whether it is inside another frame.
+/// event.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Committed {
+    /// The frame's id.
+    pub frame: String,
+    /// Whether it is inside another frame.
+    pub inside: bool,
+    /// The document's address, as Chrome spells it, with its fragment.
+    pub url: String,
+}
+
+/// A frame that has gone to a new document, from a `Page.frameNavigated`
+/// event: its id, whether it is inside another frame, and its address.
 ///
 /// # Errors
 ///
-/// [`Malformed`], for params with no `frame` holding an `id`, or a
-/// `parentId` that is not text.
-pub fn committed(params: &[u8]) -> Result<(String, bool), Malformed> {
+/// [`Malformed`], for params with no `frame` holding an `id` and a `url`, or
+/// a `parentId` or `urlFragment` that is not text.
+pub fn committed(params: &[u8]) -> Result<Committed, Malformed> {
     let Some(Value::Object(frame)) = object(params)?.get("frame").cloned() else {
         return Err(Malformed::BadField { field: "frame" });
     };
@@ -682,7 +694,17 @@ pub fn committed(params: &[u8]) -> Result<(String, bool), Malformed> {
             true
         }
     };
-    Ok((text(frame.get("id"), "id")?, inside))
+    let id = text(frame.get("id"), "id")?;
+    let mut url = words(frame.get("url"), "url")?;
+    // Chrome keeps a fragment apart from the address it belongs to.
+    if let Some(fragment) = frame.get("urlFragment") {
+        url.push_str(&words(Some(fragment), "urlFragment")?);
+    }
+    Ok(Committed {
+        frame: id,
+        inside,
+        url,
+    })
 }
 
 /// The address of a WebSocket a page opened, from a
@@ -1543,11 +1565,24 @@ mod tests {
             committed(
                 br#"{"frame":{"id":"6E8136AF8E77D33D416721A3E4AE05AF","loaderId":"0C6B","url":"http://localhost:56168/page.html"},"type":"Navigation"}"#
             ),
-            Ok(("6E8136AF8E77D33D416721A3E4AE05AF".to_owned(), false))
+            Ok(Committed {
+                frame: "6E8136AF8E77D33D416721A3E4AE05AF".to_owned(),
+                inside: false,
+                url: "http://localhost:56168/page.html".to_owned()
+            })
         );
         assert_eq!(
             committed(br#"{"frame":{"id":"C","parentId":"P","url":"u"}}"#),
-            Ok(("C".to_owned(), true))
+            Ok(Committed {
+                frame: "C".to_owned(),
+                inside: true,
+                url: "u".to_owned()
+            })
+        );
+        assert_eq!(
+            committed(br##"{"frame":{"id":"F","url":"https://a.test/p","urlFragment":"#x"}}"##)
+                .map(|committed| committed.url),
+            Ok("https://a.test/p#x".to_owned())
         );
         assert_eq!(
             socket(
@@ -1597,6 +1632,11 @@ mod tests {
         assert_eq!(
             committed(br#"{"frame":{"id":"C","parentId":1}}"#),
             bad("parentId")
+        );
+        assert_eq!(committed(br#"{"frame":{"id":"C"}}"#), bad("url"));
+        assert_eq!(
+            committed(br#"{"frame":{"id":"C","url":"u","urlFragment":5}}"#),
+            bad("urlFragment")
         );
         assert_eq!(socket(b"{}"), bad("url"));
         assert_eq!(socket(br#"{"url":null}"#), bad("url"));

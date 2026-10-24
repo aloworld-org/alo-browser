@@ -47,6 +47,11 @@
 //!   judged by [`chrome_gate`] before Chrome is let send it (item 633), and
 //!   written into the record with the cause this process gave it by
 //!   [`chrome_record`] (item 634).
+//! - [`pages`] is what [`serving`] asks of the tabs, whichever renderer
+//!   draws them: [`engine_pages`] answers it from this engine's, and
+//!   [`chrome_pages`] from a tab in Chrome, which [`chrome_serving`] holds
+//!   on a thread of its own and answers the agent socket about, through the
+//!   same serving and the same grants (item 630).
 //!
 //! # What it is not yet
 //!
@@ -74,9 +79,11 @@ pub mod chrome;
 pub mod chrome_act;
 pub mod chrome_gate;
 pub mod chrome_hold;
+pub mod chrome_pages;
 pub mod chrome_protocol;
 pub mod chrome_reading;
 pub mod chrome_record;
+pub mod chrome_serving;
 pub mod chrome_tab;
 pub mod chrome_tree;
 pub mod chrome_wire;
@@ -84,6 +91,7 @@ pub mod colours;
 pub mod compose;
 pub mod conductor;
 pub mod cursor;
+pub mod engine_pages;
 pub mod fonts;
 pub mod hold;
 pub mod inbox;
@@ -93,6 +101,7 @@ pub mod message;
 pub mod network;
 pub mod notice;
 pub mod opening;
+pub mod pages;
 pub mod place;
 pub mod present;
 pub mod protocol;

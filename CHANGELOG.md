@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent outside the browser can now drive a page in Chrome through the
+  same socket it uses for this browser's own engine.** Nothing about what
+  the agent sends changes: the order it places on a pizza form — three
+  fields filled by the words beside them, a size chosen, the order sent —
+  is the same eight lines either way, and fills the form in Chrome exactly
+  as it does in the engine. Every refusal comes back as the same kind, and
+  the sites a person allowed agents are checked first, before anything about
+  the open tab is looked at. The browser's record of what the agent did now
+  says which renderer drew the page — this browser's engine, or Chrome and
+  its version — and the two records of the same order differ only in that
+  and in each renderer's own numbering and count of the page's boxes. A tab whose page went
+  somewhere else, by a link or on its own, is known only by where it went,
+  and judged by that site; a verb aimed at a page that left while it was
+  being worked out is not carried out, and says so with a refusal of its own.
+
 - **Decided how a person will see the page.** Chrome will draw it in a
   window of its own, with no tab strip and no address bar of its own, placed
   exactly where this browser puts it; our window holds everything around it;

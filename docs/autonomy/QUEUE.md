@@ -48,7 +48,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **634** | every request of a page in Chrome in the record |
 | ✓ | **637** | a shared worker of a page in Chrome, held |
 | ✓ | **621** | the verbs, through Chrome |
-| | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
+| ✓ | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
 | | **622** | which renderer is in use, where a person can read it |
 | | **623** | the agent's sentence, where a person can read it |
@@ -15994,7 +15994,7 @@ What stage 2's exit gate actually measures: a person using it.
   every target a page in Chrome starts, measured against a local server;
   only the WebSocket, as § 3 says, is told of rather than held.
 
-- [ ] **630. The agent's socket reaches a tab in Chrome, and the record says
+- [x] **630. The agent's socket reaches a tab in Chrome, and the record says
   so.** *ADR 0058 § 4, 0055.* **Cut from 621**, which carries the verbs out on
   a `chrome_tab::Tab` driven in-process: nothing yet routes a socket request
   to one. The conductor's tabs are `alo-renderer`'s, over the engine's
@@ -16007,6 +16007,40 @@ What stage 2's exit gate actually measures: a person using it.
   with no change to a single line, fills `web-a-form` in Chrome; its
   refusals arrive as the same kinds; and the record of both runs differs
   only in which renderer it names.
+  ***Done (iteration 377), with what the record differs in stated.*** What
+  `serving.rs` asks of the tabs is now a trait, `pages::Pages` — which tabs
+  are open at what address, which renderer draws each, which document each
+  holds, a tree read, a verb carried out — answered from this engine's tabs
+  by `engine_pages.rs` and from a tab in Chrome by `chrome_pages.rs`; the
+  serving itself, its order of judging and the grants are unchanged and
+  shared. `chrome_serving.rs` holds the machine's Chrome and its one tab on
+  a thread of its own, sent `Order::Agent` by the same `Listening` over the
+  same `Orders`. Every agent-record entry that reached a tab names its
+  renderer (`RenderedBy`: this engine, or Chrome by `Browser.getVersion`'s
+  product). `tests/an_agent_outside_the_browser.rs`: the same
+  `the_order()` lines, sent down a socket through `alo-ask`, fill
+  `web-a-form` in Chrome — the fields read back, Large checked, the order
+  `Submitted` by POST to `https://httpbin.org/post`; the same refusal lines
+  arrive as the same kinds, the interface's own word for word; and the
+  record of the order through each renderer is the same caller, tab, site,
+  documents, actions, targets, verbs and outcomes, **differing in the
+  renderer named and in each renderer's own description of the page — the
+  numbers of its boxes and how many a tree has (31 and 35 nodes on the
+  first read)**, which item 621 found are each renderer's own; so *only*
+  holds of everything the agent asked and what came of it, not of the
+  trees. Found and closed on the way: a tab in Chrome was named by where it
+  was opened for ever. It is named now by the address its own frame
+  committed (`Page.frameNavigated`'s `url` and `urlFragment`), Chrome's
+  word taken in before a tab is looked for (`Tab::catch_up`), so a page
+  that followed a link or sent itself elsewhere by script is named only
+  where it went and judged by that site
+  (`tests/a_tab_in_chrome_named_where_it_is.rs`, against a local server on
+  two sites); a tree read while the page left is not answered
+  (`NoSuchTab`), and a verb decided on a document that was replaced before
+  it was carried out is not carried out — refused as the new interface
+  kind `NotCarriedOut`, as is a node Chrome drew nowhere or under something
+  else, which had no kind of their own. Cut: **639** (what a page's script
+  said, through Chrome) and **640** (a page in Chrome going to a fragment).
 
 - [ ] **631. A form Chrome would not send, answered as the engine answers
   it.** *ADR 0051 § 4.* **Cut from 621.** Through Chrome, a press on a submit
@@ -16197,6 +16231,29 @@ What stage 2's exit gate actually measures: a person using it.
   agent that may not open tabs at all. *Depends on 634. Closes when:* the
   ADR is accepted and a tab an agent opened is recorded as it says, with a
   test reading the line back.
+
+- [ ] **639. What a page's script said while a verb ran, through Chrome.**
+  *Cut from 630; ADR 0055, `docs/contracts/agent-socket.md`.* An answer's
+  `issues` is what the page's script said while the verb ran, and through
+  Chrome it is always empty, because Chrome is not asked: the contract says
+  so, and *empty* there means *not heard*, not *nothing said*. Chrome tells
+  of a page's console and its uncaught errors (`Runtime.consoleAPICalled`,
+  `Runtime.exceptionThrown`) once `Runtime.enable` is sent, which is
+  untested against the tab's hold and the frozen page's refusals. *Depends
+  on 630. Closes when:* a page that writes to its console and throws while
+  a verb runs is answered, through Chrome, with the issues the engine
+  answers for the same page — in the engine's words or with the difference
+  written down — or this item closes saying why not.
+
+- [ ] **640. A page in Chrome that goes to a fragment of itself is named
+  with it.** *Cut from 630; ADR 0055 § 5.* A tab in Chrome is named by the
+  address its own frame last committed, and a link to `#part` commits
+  nothing: Chrome tells of it as `Page.navigatedWithinDocument`, which is
+  not read, so the tab goes on being named without the fragment. Whether
+  this engine's tab is named with it is not measured either. *Depends on
+  630. Closes when:* the address a tab is named by after a fragment link is
+  the same through both renderers, asserted in a test of each, or this item
+  closes saying they differ and why that is right.
 
 ## K. ★ The agent, on somebody else's pages
 

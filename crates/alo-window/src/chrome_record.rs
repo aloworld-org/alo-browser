@@ -240,6 +240,11 @@ impl Causes {
         }
     }
 
+    /// The document the tab's own frame holds, once one has committed.
+    pub fn page(&self) -> Option<DocumentId> {
+        self.page
+    }
+
     /// The tab's own frame asked to go to `url`: while a verb is carried
     /// out, that navigation is the agent's.
     pub fn asked_to_go(&mut self, url: &str) {

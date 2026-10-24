@@ -25,12 +25,15 @@ use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
 use alo_renderer::{Frame, Page};
-use alo_window::agent_record::{Caller, Did};
+use alo_window::agent_record::{AgentRecord, Caller, Did};
+use alo_window::agent_sites::AgentSites;
 use alo_window::agents::Listening;
 use alo_window::asking::{MOST_LINE, Refused};
 use alo_window::beside::renderer_beside;
+use alo_window::chrome_serving::{ChromeServing, Opening};
 use alo_window::conductor::{Conductor, Fonts, Records};
 use alo_window::message::{News, Order};
+use alo_window::pages::RenderedBy;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -143,6 +146,35 @@ fn session(name: &str, lines: &[String]) -> Result<(Vec<String>, bool, Records),
     let _ = conductor.orders().send(Order::CloseEverything);
     let records = conductor.records().ok_or("the conductor did not finish")?;
     Ok((answers?, removed, records))
+}
+
+/// The same session, with the form open in the machine's Chrome rather
+/// than this engine (queue item 630): served by [`ChromeServing`], reached
+/// through the same socket, and its record taken back as it closes.
+fn session_in_chrome(
+    name: &str,
+    lines: &[String],
+) -> Result<(Vec<String>, bool, AgentRecord), String> {
+    let page = std::fs::read(case().join("page.html")).map_err(|why| why.to_string())?;
+    let serving = ChromeServing::start(
+        Opening::Frozen {
+            url: FORM.to_owned(),
+            page,
+        },
+        (600, 700),
+        AgentSites::Every,
+    )
+    .map_err(|why| format!("no tab in Chrome: {why}"))?;
+    let path = socket(name)?;
+    let listening =
+        Listening::at(&path, serving.orders()).map_err(|why| format!("not listening: {why}"))?;
+    let answers = ask(&path, lines);
+    listening.stop();
+    let removed = !path.exists();
+    let record = serving
+        .records()
+        .ok_or("the tab in Chrome did not finish")?;
+    Ok((answers?, removed, record))
 }
 
 /// What each verb in the record changed, in a few words, in order.
@@ -319,32 +351,34 @@ fn the_record_says_what_the_agent_read_and_what_it_changed() {
     );
 }
 
-#[test]
-fn every_refusal_crosses_as_a_kind_and_is_recorded() {
-    let (answers, _, records) = session(
-        "refused",
-        &[
-            act(1, r#"{"name":"Nothing here"}"#, r#""verb":"activate""#),
-            act(2, r#"{"name":"Small"}"#, r#""verb":"put_text","text":"x""#),
-            act(
-                3,
-                r#"{"name":"Preferred delivery time:"}"#,
-                r#""verb":"put_text","text":"12:00""#,
-            ),
-            r#"{"v":1,"id":4,"ask":"read","tab":"https://example.com/"}"#.to_owned(),
-            act(5, r#"{"x":10,"y":20}"#, r#""verb":"activate""#),
-            "not json".to_owned(),
-            String::new(),
-            r#"{"v":2,"id":"six","ask":"tabs"}"#.to_owned(),
-            // Last: a line too long ends the connection after its answer.
-            format!(
-                r#"{{"v":1,"ask":"read","tab":"{}"}}"#,
-                "a".repeat(MOST_LINE)
-            ),
-        ],
-    )
-    .unwrap_or_else(|why| panic!("{why}"));
-    let kinds: Vec<&str> = answers
+/// Requests every one of which is refused: three by the page, the rest by
+/// this interface.
+fn the_refused() -> Vec<String> {
+    vec![
+        act(1, r#"{"name":"Nothing here"}"#, r#""verb":"activate""#),
+        act(2, r#"{"name":"Small"}"#, r#""verb":"put_text","text":"x""#),
+        act(
+            3,
+            r#"{"name":"Preferred delivery time:"}"#,
+            r#""verb":"put_text","text":"12:00""#,
+        ),
+        r#"{"v":1,"id":4,"ask":"read","tab":"https://example.com/"}"#.to_owned(),
+        act(5, r#"{"x":10,"y":20}"#, r#""verb":"activate""#),
+        "not json".to_owned(),
+        String::new(),
+        r#"{"v":2,"id":"six","ask":"tabs"}"#.to_owned(),
+        // Last: a line too long ends the connection after its answer.
+        format!(
+            r#"{{"v":1,"ask":"read","tab":"{}"}}"#,
+            "a".repeat(MOST_LINE)
+        ),
+    ]
+}
+
+/// The kind of each answer that is a refusal, and nothing for one that is
+/// not.
+fn kinds(answers: &[String]) -> Vec<&str> {
+    answers
         .iter()
         .map(|answer| {
             answer
@@ -353,7 +387,14 @@ fn every_refusal_crosses_as_a_kind_and_is_recorded() {
                 .and_then(|rest| rest.split('"').next())
                 .unwrap_or("")
         })
-        .collect();
+        .collect()
+}
+
+#[test]
+fn every_refusal_crosses_as_a_kind_and_is_recorded() {
+    let (answers, _, records) =
+        session("refused", &the_refused()).unwrap_or_else(|why| panic!("{why}"));
+    let kinds = kinds(&answers);
     assert_eq!(
         kinds,
         [
@@ -407,4 +448,187 @@ fn every_refusal_crosses_as_a_kind_and_is_recorded() {
         did.last(),
         Some(Did::Refused(Refused::LineTooLong { most })) if *most == MOST_LINE
     ));
+}
+
+/// The answer to the request `id` in `answers`.
+fn answered(answers: &[String], id: u32) -> &str {
+    let id = format!(r#""id":{id},"#);
+    answers
+        .iter()
+        .find(|answer| answer.contains(&id))
+        .map_or("", String::as_str)
+}
+
+#[test]
+fn the_same_order_down_the_same_socket_fills_the_form_in_chrome() {
+    let (answers, removed, _) =
+        session_in_chrome("chrome-form", &the_order()).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(answers.len(), 8, "one answer a request: {answers:#?}");
+
+    // The same one tab, by its address.
+    assert_eq!(
+        answered(&answers, 1),
+        format!(r#"{{"answer":"tabs","id":1,"tabs":["{FORM}"],"v":1}}"#)
+    );
+    // The form as Chrome's tree, read as ours: its fields by the words on
+    // them. Their nodes and boxes are Chrome's (item 620), not the engine's.
+    let tree = answered(&answers, 2);
+    assert!(tree.starts_with(r#"{"answer":"tree","id":2,"#), "{tree}");
+    for field in ["Customer name:", "Telephone:", "E-mail address:"] {
+        let named = format!(r#"{{"children":[],"name":"{field}","node":"#);
+        let at = tree
+            .find(&named)
+            .unwrap_or_else(|| panic!("{field} in {tree}"));
+        let after = tree.get(at..).unwrap_or_default();
+        assert!(
+            after
+                .split(r#""role":"#)
+                .nth(1)
+                .is_some_and(|role| role.starts_with(r#""textbox""#)),
+            "{field} is a textbox: {after}"
+        );
+    }
+    for (id, text) in [
+        (3, "Ada Lovelace"),
+        (4, "+44 20 7946 0000"),
+        (5, "ada@example.com"),
+    ] {
+        let done = answered(&answers, id);
+        assert!(
+            done.starts_with(&format!(
+                r#"{{"answer":"done","id":{id},"issues":[],"outcome":{{"kind":"TextPut","node":"#
+            )) && done.contains(&format!(r#""text":"{text}"}}"#)),
+            "{done}"
+        );
+    }
+    assert!(
+        answered(&answers, 6).contains(r#""outcome":{"kind":"Activated","name":"Large","node":"#),
+        "{}",
+        answered(&answers, 6)
+    );
+
+    // Read again: what was put in is in the fields, and the size chosen.
+    let filled = answered(&answers, 7);
+    for text in ["Ada Lovelace", "+44 20 7946 0000", "ada@example.com"] {
+        let read_back = format!(r#"{{"children":[],"name":"{text}","node":"#);
+        assert!(filled.contains(&read_back), "{read_back} in {filled}");
+    }
+    // Up to the next name, which is the radio's own.
+    let large = filled
+        .split(r#""name":"Large","node":"#)
+        .nth(1)
+        .and_then(|after| after.split(r#""name":"#).next())
+        .unwrap_or_default();
+    assert!(
+        large.contains(r#""role":"radio","states":{"checked":"true"}"#),
+        "Large is checked: {large}"
+    );
+
+    // Sent by its button, to where the form says, by POST: what the engine
+    // answers, word for word but for the node.
+    assert!(
+        answered(&answers, 8).contains(r#""outcome":{"kind":"Submitted","method":"POST","node":"#)
+            && answered(&answers, 8).contains(r#""to":"https://httpbin.org/post"}"#),
+        "{}",
+        answered(&answers, 8)
+    );
+    assert!(removed, "the socket goes when it stops");
+}
+
+#[test]
+fn every_refusal_crosses_as_the_same_kind_through_chrome() {
+    let (ours, _, _) =
+        session("refused-ours", &the_refused()).unwrap_or_else(|why| panic!("{why}"));
+    let (chromes, _, record) =
+        session_in_chrome("refused-chrome", &the_refused()).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(kinds(&chromes), kinds(&ours), "{chromes:#?}");
+    // The interface's own refusals are not the page's, and are word for
+    // word what the engine's tab is answered.
+    for at in 3..ours.len() {
+        assert_eq!(chromes.get(at), ours.get(at), "answer {at}");
+    }
+    let refused_by_the_page = record
+        .entries()
+        .filter(|entry| {
+            matches!(
+                entry.did,
+                Did::Acted {
+                    came_to: Err(_),
+                    ..
+                }
+            )
+        })
+        .count();
+    assert_eq!(refused_by_the_page, 3, "each verb an action, refused");
+}
+
+/// An entry with what is each renderer's own description of the page set
+/// aside — the number of a box, how many boxes a tree has — and with what
+/// each verb came to as [`changed`] writes it: what is left is what the
+/// agent asked, of which document, as which action, and what came of it.
+fn as_asked(entry: &alo_window::agent_record::Entry) -> String {
+    let did = match &entry.did {
+        Did::Listed { tabs } => format!("listed {tabs}"),
+        Did::Read { document, .. } => format!("read {document:?}"),
+        Did::Acted {
+            action,
+            document,
+            target,
+            verb,
+            came_to,
+        } => {
+            let came_to = match came_to {
+                Ok(Outcome::TextPut { text, .. }) => format!("put {text}"),
+                Ok(Outcome::Activated { name, .. }) => format!("activated {name:?}"),
+                Ok(Outcome::Submitted { method, to, .. }) => format!("{} {to}", method.name()),
+                Ok(other) => format!("{other:?}"),
+                Err(refusal) => format!("{refusal:?}"),
+            };
+            format!("{action} in {document:?}: {verb:?} {target}: {came_to}")
+        }
+        Did::Refused(refused) => format!("refused {refused:?}"),
+    };
+    format!(
+        "{} at {:?} on {:?}: {did}",
+        entry.caller, entry.tab, entry.site
+    )
+}
+
+#[test]
+fn the_record_of_the_order_differs_in_the_renderer_it_names() {
+    let (_, _, ours) = session("record-ours", &the_order()).unwrap_or_else(|why| panic!("{why}"));
+    let (_, _, chromes) =
+        session_in_chrome("record-chrome", &the_order()).unwrap_or_else(|why| panic!("{why}"));
+    let ours: Vec<_> = ours.agents.entries().collect();
+    let chromes: Vec<_> = chromes.entries().collect();
+    assert_eq!(
+        chromes
+            .iter()
+            .map(|entry| as_asked(entry))
+            .collect::<Vec<_>>(),
+        ours.iter().map(|entry| as_asked(entry)).collect::<Vec<_>>(),
+    );
+    // Every entry that reached the tab names its renderer; the list of tabs
+    // reached none.
+    assert!(
+        ours.iter()
+            .skip(1)
+            .all(|entry| entry.rendered_by == Some(RenderedBy::ThisEngine))
+    );
+    assert!(chromes.iter().skip(1).all(|entry| matches!(
+        &entry.rendered_by,
+        Some(RenderedBy::Chrome { product }) if product.starts_with("Chrome/")
+    )));
+    assert!([&ours, &chromes].iter().all(|entries| {
+        entries
+            .first()
+            .is_some_and(|entry| entry.rendered_by.is_none())
+    }));
+    let line = chromes.get(2).map(ToString::to_string).unwrap_or_default();
+    assert!(
+        line.starts_with(&format!(
+            "agent#0 at {FORM} on https://httpbin.org: action#0 "
+        )) && line.contains("; drawn by Chrome/"),
+        "{line}"
+    );
 }

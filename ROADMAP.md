@@ -158,14 +158,17 @@ about this project (ADR 0058 § 6).
   only its own session of — held there, so its `fetch`, its imported script
   and what it asks for as a page connects are each paused before a local
   server sees them, and its WebSocket told of and recorded (637, which
-  closes 629).
+  closes 629); the agent's socket reaching a tab in Chrome through the same
+  serving and the same grants as the engine's, the same eight lines filling
+  httpbin's form there, every refusal the same kind, the record naming
+  Chrome and its version, and the tab named by where its page is now (630).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
   it, and the network promises that do not hold there named (ADR 0060).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
-  the agent's socket reaching a tab in Chrome, its grants and record naming
-  the renderer (630); a form Chrome would not send, answered as the engine
+  what a page's script said, through Chrome (639); a fragment link, through
+  Chrome (640); a form Chrome would not send, answered as the engine
   answers it (631); which renderer is in use, where a person can read it (622); the
   agent's work where a person can see it (623–625); **what a person actually
   looks at (627)** — the boundary's `Painted(Frame)` has no answer on the
@@ -678,14 +681,19 @@ unreachable without it.
       page's, a WebSocket a line saying it was opened and not decided, an
       agent's `activate` named on the navigation it caused; and a page's
       shared worker held through Chrome's own session (item 637), every
-      request of it paused before a local server saw it
+      request of it paused before a local server saw it; and the agent
+      socket reaching a tab in Chrome (item 630, `pages.rs`,
+      `chrome_serving.rs`) through the same serving and grants as the
+      engine's tabs, httpbin's order filling the form by the same eight
+      lines, its refusals the same kinds, the record naming Chrome and its
+      version, and a tab named by where its page is now
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
       aside on this path by name (ADR 0060)
       · Owed: a frame as a document of its own in the record (636); whose cause a tab an agent opened is
-      (638, needs an ADR); the resolver measured (635); the socket
-      reaching a tab in Chrome with the record naming its renderer (630), a
+      (638, needs an ADR); the resolver measured (635); what a page's
+      script said, through Chrome (639); a fragment, through Chrome (640); a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), what a person looks at (627), and saying which renderer is in use where a
       person can read it (622)

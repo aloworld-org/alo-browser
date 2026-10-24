@@ -76,6 +76,7 @@ use alo_agent::verb::{Target, Verb, find, perform};
 use alo_agent::{Outcome, Refusal};
 use alo_box::BoxId;
 use alo_dom::submission::Method;
+use alo_net::cause::ActionId;
 use core::fmt;
 use std::collections::HashSet;
 
@@ -104,6 +105,17 @@ pub enum Unacted {
         /// when Chrome finds nothing at the point.
         by: Option<u64>,
     },
+    /// The tab's frame committed another document while the verb was being
+    /// decided, so it was decided on a page that is not there and nothing
+    /// was done (queue item 630). A page may go elsewhere on its own — a
+    /// script, a refresh — while it is read for the verb, and the verb would
+    /// otherwise be carried out on whatever arrived, on a site that may not
+    /// be the one the agent was let reach.
+    Moved {
+        /// Where the tab is now, as Chrome spells it, if this browser can
+        /// read it as an address.
+        to: Option<String>,
+    },
     /// It was decided, and is not a thing this path carries out.
     ///
     /// Reached only by an outcome no decision on Chrome's page makes today —
@@ -129,6 +141,13 @@ impl fmt::Display for Unacted {
             Self::Covered { node, by: None } => write!(
                 f,
                 "Chrome finds nothing at the middle of {node}, so nothing was pressed"
+            ),
+            Self::Moved { to: Some(to) } => write!(
+                f,
+                "the page went to {to} while the verb was decided, so nothing was done"
+            ),
+            Self::Moved { to: None } => f.write_str(
+                "the page went somewhere else while the verb was decided, so nothing was done",
             ),
             Self::Uncarried { outcome } => {
                 write!(
@@ -168,17 +187,27 @@ impl Tab<'_> {
     /// [`Unacted`]: a [`Refusal`], decided before Chrome is asked to do
     /// anything; or why it was not carried out.
     pub fn act(&mut self, target: &Target, verb: &Verb) -> Result<Outcome, Unacted> {
+        self.act_as_action(target, verb).1
+    }
+
+    /// [`Tab::act`], and the action the verb was accepted as.
+    pub(crate) fn act_as_action(
+        &mut self,
+        target: &Target,
+        verb: &Verb,
+    ) -> (ActionId, Result<Outcome, Unacted>) {
         // Accepted, and so an action, whether it is refused or carried out
         // (ADR 0012 § 4): what the page asks for until it answers is the
         // agent's, and so is a navigation it asked for (`chrome_record`).
-        self.acting();
+        let action = self.acting();
         let acted = self.decide_and_carry_out(target, verb);
         self.done_acting();
-        acted
+        (action, acted)
     }
 
     /// [`Tab::act`], once the verb is an action.
     fn decide_and_carry_out(&mut self, target: &Target, verb: &Verb) -> Result<Outcome, Unacted> {
+        let document = self.document();
         let (snapshot, nodes) = self.read_whole()?;
         let reading = ChromeReading::of(&snapshot);
         let aimed = find(&reading, target).map_err(Unacted::Refused)?;
@@ -186,6 +215,13 @@ impl Tab<'_> {
         let described = chrome_protocol::described(&self.ask(&Command::Describe { node: dom })?)?;
         let reading = reading.with_element(aimed.id, &described);
         let decided = perform(&reading, target, verb).map_err(Unacted::Refused)?;
+        // The last word from Chrome before anything is carried out: every
+        // message that arrived while the page was read has been taken.
+        if self.document() != document {
+            return Err(Unacted::Moved {
+                to: self.address().map(ToString::to_string),
+            });
+        }
         match decided {
             Outcome::Activated { node, name } => self.press(&nodes, node, name, None),
             Outcome::Followed { node, to } => self.press(&nodes, node, aimed.name, Some(to)),

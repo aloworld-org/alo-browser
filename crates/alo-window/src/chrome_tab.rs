@@ -72,7 +72,7 @@ use crate::chrome_record::{Causes, Hop, purpose_of};
 use crate::chrome_tree::{self, Unread};
 use alo_layout::Rect;
 use alo_net::activity::Happened;
-use alo_net::cause::ActionId;
+use alo_net::cause::{ActionId, DocumentId};
 use alo_net::request::Purpose;
 use alo_renderer::Snapshot;
 use alo_renderer::navigate::LONGEST_URL;
@@ -113,6 +113,10 @@ pub struct Tab<'c> {
     acted: Option<ActionId>,
     /// The address of every WebSocket the page opened, as Chrome spells it.
     sockets: Vec<String>,
+    /// The address of the page the tab shows: where it was opened, until its
+    /// own frame commits a document, and then that document's — or
+    /// [`None`], for an address that is not one this browser reads.
+    address: Option<Url>,
 }
 
 /// What a tab's requests are answered from.
@@ -280,6 +284,7 @@ impl<'c> Tab<'c> {
             causes,
             acted: None,
             sockets: Vec::new(),
+            address: alo_url::parse(url).ok(),
         };
         // Only now, so that the tab itself is not held.
         tab.chrome.ask(None, &Command::HoldNewTabs { hold: true })?;
@@ -331,12 +336,14 @@ impl<'c> Tab<'c> {
         self.acted
     }
 
-    /// A verb has been accepted on this tab: until [`Tab::done_acting`],
-    /// what the page asks for is the agent's (ADR 0012 § 4).
-    pub(crate) fn acting(&mut self) {
+    /// A verb has been accepted on this tab, as the action this answers:
+    /// until [`Tab::done_acting`], what the page asks for is the agent's
+    /// (ADR 0012 § 4).
+    pub(crate) fn acting(&mut self) -> ActionId {
         let action = self.chrome.record_mut().an_action();
         self.acted = Some(action);
         self.causes.acting(Some(action));
+        action
     }
 
     /// The verb has been carried out, or refused.
@@ -348,6 +355,22 @@ impl<'c> Tab<'c> {
     /// and recorded rather than answered from a frozen page's bytes.
     fn is_from_the_network(&self) -> bool {
         matches!(self.kept, Kept::Network)
+    }
+
+    /// The address of the page the tab shows, as an agent names the tab
+    /// (ADR 0055 § 5): where it was opened until its own frame commits a
+    /// document, and that document's from then — so a page that went
+    /// somewhere else is named only by where it is now (queue item 497).
+    /// [`None`] for an address this browser cannot read as one, which
+    /// cannot be named at all.
+    pub fn address(&self) -> Option<&Url> {
+        self.address.as_ref()
+    }
+
+    /// The document the tab's own frame holds, once one has committed, as
+    /// [`Chrome::record`] names it.
+    pub fn document(&self) -> Option<DocumentId> {
+        self.causes.page()
     }
 
     /// How many tabs the page opened — a link with `target=_blank`, a
@@ -431,6 +454,27 @@ impl<'c> Tab<'c> {
                     }
                 }
                 _ => {}
+            }
+        }
+    }
+
+    /// Take every message Chrome has sent already — answering each request
+    /// paused and each target told of, as when a command is waited for —
+    /// and wait for nothing more: so that the tab's address and document
+    /// are what Chrome last said they are, though nothing has been asked of
+    /// it since. A page that goes elsewhere on its own — a script, a refresh
+    /// — is told of whenever it does, and until this is asked it is read
+    /// nowhere.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome has gone or what it sent cannot be read.
+    pub(crate) fn catch_up(&mut self) -> Result<(), Failed> {
+        loop {
+            match self.next(Instant::now()) {
+                Ok(_) => {}
+                Err(Failed::Silent { .. }) => return Ok(()),
+                Err(why) => return Err(why),
             }
         }
     }
@@ -626,9 +670,10 @@ impl<'c> Tab<'c> {
     /// A frame of the tab that holds a new document, told of in `params`:
     /// when it is the tab's own, the document is the tab's from now.
     fn committed(&mut self, params: &[u8]) -> Result<(), Failed> {
-        let (frame, inside) = chrome_protocol::committed(params).map_err(Failed::Malformed)?;
-        if frame == self.target && !inside {
+        let committed = chrome_protocol::committed(params).map_err(Failed::Malformed)?;
+        if committed.frame == self.target && !committed.inside {
             self.causes.committed(self.chrome.record_mut());
+            self.address = alo_url::parse(&committed.url).ok();
         }
         Ok(())
     }

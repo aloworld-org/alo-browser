@@ -5,10 +5,14 @@
 //! Answering an agent outside this browser from the tabs (ADR 0055 §§ 2, 5
 //! and 7).
 //!
-//! Run on the conductor's thread, which holds the tabs, so a verb reaches a
-//! renderer over the boundary that already carries it and nothing new crosses
-//! into one. Every request is written into the [`AgentRecord`] here, whatever
-//! it came to.
+//! Run on the thread that holds the tabs — the conductor's for this
+//! engine's, so a verb reaches a renderer over the boundary that already
+//! carries it and nothing new crosses into one, and
+//! [`crate::chrome_serving`]'s for a tab in Chrome. Whichever renderer draws
+//! them ([`crate::pages`]), everything below is done here, the same way and
+//! in the same order (queue item 630). Every request is written into the
+//! [`AgentRecord`] here, whatever it came to, with the renderer that drew the
+//! page it reached.
 //!
 //! # A tab is named by its address
 //!
@@ -43,39 +47,42 @@
 use crate::agent_record::{AgentRecord, Caller, Did, Entry};
 use crate::agent_sites::AgentSites;
 use crate::asking::{Answer, Ask, MOST_DEPTH, Refused};
+use crate::pages::{Acted, Pages, Unanswered};
 use alo_agent::{Target, Verb};
 use alo_renderer::site::Site;
-use alo_renderer::{FromRenderer, Lost, Snapshot, SnapshotNode, Tab, TabId, Tabs};
+use alo_renderer::{Snapshot, SnapshotNode};
 use alo_url::Url;
 
 /// What came of one request.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Served {
+pub struct Served<T> {
     /// What the caller is told.
     pub answer: Answer,
     /// The tab a verb ran in, which the window should draw again: the verb
     /// may have changed its page.
-    pub acted: Option<TabId>,
+    pub acted: Option<T>,
 }
 
-/// Answer `ask` from `tabs` on behalf of `caller`, kept to `sites`, and
+/// Answer `ask` from `pages` on behalf of `caller`, kept to `sites`, and
 /// record it.
-pub fn serve(
-    tabs: &mut Tabs,
+pub fn serve<P: Pages>(
+    pages: &mut P,
     record: &mut AgentRecord,
     sites: &AgentSites,
     caller: Caller,
     ask: Result<Ask, Refused>,
-) -> Served {
+) -> Served<P::Tab> {
     let named = ask.as_ref().ok().and_then(Ask::tab).map(str::to_owned);
     let mut site = None;
+    let mut rendered_by = None;
     let (answer, did, acted) = match ask {
         Err(refused) => refusal(refused),
         Ok(Ask::Tabs) => {
-            let addresses: Vec<String> = tabs
-                .all()
+            pages.catch_up();
+            let addresses: Vec<String> = pages
+                .shown()
                 .iter()
-                .map(shown)
+                .map(|(_, address)| address)
                 .filter(|address| sites.allows(address))
                 .map(ToString::to_string)
                 .collect();
@@ -85,23 +92,25 @@ pub fn serve(
             (Answer::Tabs(addresses), did, None)
         }
         Ok(Ask::Read { tab }) => {
-            let (found, at) = reached(tabs, sites, &tab);
+            let (found, at) = reached(pages, sites, &tab);
             site = at;
             match found {
                 Err(refused) => refusal(refused),
                 Ok(id) => {
-                    let (answer, did) = read(tabs, id, tab);
+                    rendered_by = Some(pages.rendered_by(id));
+                    let (answer, did) = read(pages, id, tab);
                     (answer, did, None)
                 }
             }
         }
         Ok(Ask::Act { tab, target, verb }) => {
-            let (found, at) = reached(tabs, sites, &tab);
+            let (found, at) = reached(pages, sites, &tab);
             site = at;
             match found {
                 Err(refused) => refusal(refused),
                 Ok(id) => {
-                    let (answer, did) = act(tabs, id, tab, &target, &verb);
+                    rendered_by = Some(pages.rendered_by(id));
+                    let (answer, did) = act(pages, id, tab, &target, &verb);
                     (answer, did, Some(id))
                 }
             }
@@ -111,13 +120,14 @@ pub fn serve(
         caller,
         tab: named,
         site,
+        rendered_by,
         did,
     });
     Served { answer, acted }
 }
 
 /// A request refused before any page answered.
-fn refusal(refused: Refused) -> (Answer, Did, Option<TabId>) {
+fn refusal<T>(refused: Refused) -> (Answer, Did, Option<T>) {
     (
         Answer::Refused(refused.clone()),
         Did::Refused(refused),
@@ -125,18 +135,16 @@ fn refusal(refused: Refused) -> (Answer, Did, Option<TabId>) {
     )
 }
 
-/// The address a tab is named by: its page's, or where it was opened if
-/// nothing has loaded.
-fn shown(tab: &Tab) -> &Url {
-    tab.address().unwrap_or_else(|| tab.url())
-}
-
 /// The one open tab at `tab`, if an agent kept to `sites` may reach it —
 /// and, whenever `tab` is an address, its site.
 ///
 /// In this order, so that a refusal says nothing about what is open: the
 /// address read, then its site judged, and only then the tabs looked at.
-fn reached(tabs: &Tabs, sites: &AgentSites, tab: &str) -> (Result<TabId, Refused>, Option<Site>) {
+fn reached<P: Pages>(
+    pages: &mut P,
+    sites: &AgentSites,
+    tab: &str,
+) -> (Result<P::Tab, Refused>, Option<Site>) {
     let Ok(address) = alo_url::parse(tab) else {
         let refused = Refused::NotAnAddress {
             tab: tab.to_owned(),
@@ -151,18 +159,21 @@ fn reached(tabs: &Tabs, sites: &AgentSites, tab: &str) -> (Result<TabId, Refused
             };
             (Err(refused), Some(site))
         }
-        Ok(site) => (find(tabs, &address, tab), Some(site)),
+        Ok(site) => {
+            pages.catch_up();
+            (find(pages, &address, tab), Some(site))
+        }
     }
 }
 
 /// The one open tab at `address`, which the caller wrote as `tab`.
-fn find(tabs: &Tabs, address: &Url, tab: &str) -> Result<TabId, Refused> {
+fn find<P: Pages>(pages: &P, address: &Url, tab: &str) -> Result<P::Tab, Refused> {
     let address = address.to_string();
-    let at: Vec<TabId> = tabs
-        .all()
-        .iter()
-        .filter(|open| shown(open).to_string() == address)
-        .map(Tab::id)
+    let at: Vec<P::Tab> = pages
+        .shown()
+        .into_iter()
+        .filter(|(_, shown)| shown.to_string() == address)
+        .map(|(id, _)| id)
         .collect();
     match at.as_slice() {
         [] => Err(Refused::NoSuchTab {
@@ -178,8 +189,8 @@ fn find(tabs: &Tabs, address: &Url, tab: &str) -> Result<TabId, Refused> {
 
 /// Refused when nothing is loaded in tab `id` — said without asking its
 /// renderer, which asking would start.
-fn loaded(tabs: &Tabs, id: TabId, tab: &str) -> Result<(), Refused> {
-    if tabs.tab(id).and_then(Tab::document).is_none() {
+fn loaded<P: Pages>(pages: &P, id: P::Tab, tab: &str) -> Result<(), Refused> {
+    if pages.document(id).is_none() {
         return Err(Refused::NothingLoaded {
             tab: tab.to_owned(),
         });
@@ -188,55 +199,70 @@ fn loaded(tabs: &Tabs, id: TabId, tab: &str) -> Result<(), Refused> {
 }
 
 /// Read the page in tab `id`.
-fn read(tabs: &mut Tabs, id: TabId, tab: String) -> (Answer, Did) {
-    if let Err(refused) = loaded(tabs, id, &tab) {
+fn read<P: Pages>(pages: &mut P, id: P::Tab, tab: String) -> (Answer, Did) {
+    if let Err(refused) = loaded(pages, id, &tab) {
         return (Answer::Refused(refused.clone()), Did::Refused(refused));
     }
-    let document = tabs.tab(id).and_then(Tab::document);
-    let refused = match tabs.read(id) {
-        Ok(FromRenderer::Tree(snapshot)) if deepest(&snapshot) > MOST_DEPTH => {
-            Refused::TreeTooDeep {
-                tab,
-                most: MOST_DEPTH,
-            }
-        }
-        Ok(FromRenderer::Tree(snapshot)) => {
+    let refused = match pages.read(id) {
+        // Read, and by then the tab shows another page: the tree is not of
+        // the address judged, and is not answered (queue item 630).
+        Ok(_) if !still_at(pages, id, &tab) => Refused::NoSuchTab { tab },
+        Ok(snapshot) if deepest(&snapshot) > MOST_DEPTH => Refused::TreeTooDeep {
+            tab,
+            most: MOST_DEPTH,
+        },
+        Ok(snapshot) => {
             let did = Did::Read {
-                document,
+                document: pages.document(id),
                 nodes: snapshot.nodes().len(),
             };
             return (Answer::Tree { tab, snapshot }, did);
         }
-        answered => gone(tabs, id, tab, answered),
+        Err(why) => unanswered(tab, why),
     };
     (Answer::Refused(refused.clone()), Did::Refused(refused))
 }
 
+/// Whether tab `id` is still the one open tab at `tab`, the address it was
+/// found at and its site judged by.
+///
+/// A renderer asked over a pipe goes on being told of things while it is
+/// asked, and a page in Chrome may go elsewhere on its own — a script, a
+/// refresh — at any moment. So a read that began on one page can end on the
+/// next, on another site; this is asked once it has.
+fn still_at<P: Pages>(pages: &P, id: P::Tab, tab: &str) -> bool {
+    alo_url::parse(tab).is_ok_and(|address| find(pages, &address, tab) == Ok(id))
+}
+
 /// Run `verb` on `target` in the page in tab `id`.
-fn act(tabs: &mut Tabs, id: TabId, tab: String, target: &Target, verb: &Verb) -> (Answer, Did) {
-    if let Err(refused) = loaded(tabs, id, &tab) {
+fn act<P: Pages>(
+    pages: &mut P,
+    id: P::Tab,
+    tab: String,
+    target: &Target,
+    verb: &Verb,
+) -> (Answer, Did) {
+    if let Err(refused) = loaded(pages, id, &tab) {
         return (Answer::Refused(refused.clone()), Did::Refused(refused));
     }
-    let document = tabs.tab(id).and_then(Tab::document);
-    let (action, answered) = match tabs.act(id, target.clone(), verb.clone()) {
-        Ok((action, answered)) => (action, answered),
-        Err(lost) => {
-            let refused = gone(tabs, id, tab, Err(lost));
+    let document = pages.document(id);
+    let (action, acted) = match pages.act(id, target, verb) {
+        Ok(answered) => answered,
+        Err(why) => {
+            let refused = unanswered(tab, why);
             return (Answer::Refused(refused.clone()), Did::Refused(refused));
         }
     };
-    let acted = |came_to| Did::Acted {
+    let did = |came_to| Did::Acted {
         action,
         document,
         target: target.clone(),
         verb: verb.clone(),
         came_to,
     };
-    match answered {
-        FromRenderer::Acted {
-            outcome, issues, ..
-        } => {
-            let did = acted(Ok(outcome.clone()));
+    match acted {
+        Acted::Done { outcome, issues } => {
+            let did = did(Ok(outcome.clone()));
             let answer = Answer::Done {
                 tab,
                 outcome,
@@ -244,29 +270,19 @@ fn act(tabs: &mut Tabs, id: TabId, tab: String, target: &Target, verb: &Verb) ->
             };
             (answer, did)
         }
-        FromRenderer::Refused(refusal) => {
-            let did = acted(Err(refusal.clone()));
+        Acted::Refused(refusal) => {
+            let did = did(Err(refusal.clone()));
             (Answer::Refused(Refused::Verb { tab, refusal }), did)
-        }
-        other => {
-            let refused = gone(tabs, id, tab, Ok(other));
-            (Answer::Refused(refused.clone()), Did::Refused(refused))
         }
     }
 }
 
-/// Why tab `id` could not answer, for an answer that was not the one asked
-/// for: in the tab's own words when it has them.
-fn gone(tabs: &Tabs, id: TabId, tab: String, answered: Result<FromRenderer, Lost>) -> Refused {
-    let said = match answered {
-        Ok(FromRenderer::Failed(failure)) => failure.to_string(),
-        Ok(_) => "its renderer answered something it was not asked".to_owned(),
-        Err(lost) => tabs
-            .tab(id)
-            .and_then(Tab::what_happened)
-            .unwrap_or_else(|| lost.to_string()),
-    };
-    Refused::TabGone { tab, said }
+/// Why the tab at `tab` did not answer, as the kind that crosses.
+fn unanswered(tab: String, why: Unanswered) -> Refused {
+    match why {
+        Unanswered::Gone(said) => Refused::TabGone { tab, said },
+        Unanswered::NotCarriedOut(said) => Refused::NotCarriedOut { tab, said },
+    }
 }
 
 /// How many nodes deep a tree is, counted without recursing, so a tree too
@@ -285,6 +301,9 @@ fn deepest(snapshot: &Snapshot) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pages::RenderedBy;
+    use alo_net::cause::DocumentId;
+    use alo_renderer::Tabs;
     use alo_renderer::host::Renderers;
     use std::path::PathBuf;
 
@@ -486,9 +505,152 @@ mod tests {
                 caller: Caller(4),
                 tab: None,
                 site: None,
+                rendered_by: None,
                 did: Did::Refused(Refused::NotJson)
             })
         );
+    }
+
+    /// One tab of a renderer that is not this engine, counting every time
+    /// it is looked at, whose page goes to `then` as it is read — as a page
+    /// in Chrome may, going elsewhere on its own while it is asked.
+    struct Moving {
+        at: alo_url::Url,
+        then: Option<alo_url::Url>,
+        looked: usize,
+    }
+
+    impl Pages for Moving {
+        type Tab = ();
+
+        fn catch_up(&mut self) {
+            self.looked += 1;
+        }
+
+        fn shown(&self) -> Vec<((), alo_url::Url)> {
+            vec![((), self.at.clone())]
+        }
+
+        fn rendered_by(&self, (): ()) -> RenderedBy {
+            RenderedBy::Chrome {
+                product: "Chrome/0".to_owned(),
+            }
+        }
+
+        fn document(&self, (): ()) -> Option<DocumentId> {
+            Some(alo_net::cause::Identities::default().a_document())
+        }
+
+        fn read(&mut self, (): ()) -> Result<Box<Snapshot>, Unanswered> {
+            self.looked += 1;
+            if let Some(then) = self.then.take() {
+                self.at = then;
+            }
+            Ok(Box::default())
+        }
+
+        fn act(
+            &mut self,
+            (): (),
+            _: &Target,
+            _: &Verb,
+        ) -> Result<(alo_net::cause::ActionId, Acted), Unanswered> {
+            self.looked += 1;
+            Err(Unanswered::NotCarriedOut("not here".to_owned()))
+        }
+    }
+
+    #[test]
+    fn a_site_not_named_is_refused_without_a_page_of_any_renderer_being_asked() {
+        let mut pages = Moving {
+            at: url("https://example.org/"),
+            then: None,
+            looked: 0,
+        };
+        let mut record = AgentRecord::new();
+        for ask in [
+            Ask::Read {
+                tab: "https://example.org/".to_owned(),
+            },
+            Ask::Act {
+                tab: "https://example.org/".to_owned(),
+                target: Target::Named("Buy".to_owned()),
+                verb: Verb::Activate,
+            },
+        ] {
+            let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(ask));
+            assert!(matches!(
+                served.answer,
+                Answer::Refused(Refused::NotGranted { .. })
+            ));
+        }
+        assert_eq!(pages.looked, 0);
+        assert!(
+            record.entries().all(|entry| entry.rendered_by.is_none()),
+            "no tab was reached, so no renderer is named"
+        );
+    }
+
+    #[test]
+    fn a_page_that_went_elsewhere_while_it_was_read_is_not_answered() {
+        let mut pages = Moving {
+            at: url("https://example.com/a"),
+            then: Some(url("https://example.org/b")),
+            looked: 0,
+        };
+        let mut record = AgentRecord::new();
+        let read = Ask::Read {
+            tab: "https://example.com/a".to_owned(),
+        };
+        let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(read));
+        assert_eq!(
+            served.answer,
+            Answer::Refused(Refused::NoSuchTab {
+                tab: "https://example.com/a".to_owned()
+            })
+        );
+        assert_eq!(pages.looked, 2, "caught up, then read");
+        let entry = record.entries().next();
+        assert_eq!(
+            entry.and_then(|entry| entry.rendered_by.clone()),
+            Some(RenderedBy::Chrome {
+                product: "Chrome/0".to_owned()
+            }),
+            "the tab was reached, and its renderer is named"
+        );
+        // Read where it is now, it is refused for its site.
+        let read = Ask::Read {
+            tab: "https://example.org/b".to_owned(),
+        };
+        let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(read));
+        assert!(matches!(
+            served.answer,
+            Answer::Refused(Refused::NotGranted { .. })
+        ));
+    }
+
+    #[test]
+    fn a_verb_not_carried_out_crosses_as_its_own_kind() {
+        let mut pages = Moving {
+            at: url("https://example.com/"),
+            then: None,
+            looked: 0,
+        };
+        let mut record = AgentRecord::new();
+        let act = Ask::Act {
+            tab: "https://example.com/".to_owned(),
+            target: Target::Named("Buy".to_owned()),
+            verb: Verb::Activate,
+        };
+        let served = serve(&mut pages, &mut record, &kept(), Caller(0), Ok(act));
+        assert_eq!(
+            served.answer,
+            Answer::Refused(Refused::NotCarriedOut {
+                tab: "https://example.com/".to_owned(),
+                said: "not here".to_owned()
+            })
+        );
+        assert_eq!(served.acted, Some(()), "the tab may have changed");
     }
 
     #[test]

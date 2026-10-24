@@ -38283,3 +38283,167 @@ same.
 303 queue items are open (629 and 637 closed). The next unused queue number
 is **639** and the next ADR is **0061**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 377 — queue item 630: the agent's socket reaches a tab in Chrome, and the record names the renderer
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2's four
+differences, the hostile-bytes clause, step 6, running the gate in the
+foreground), `ROADMAP.md` (the product path, the ADR 0058 line),
+iteration 376's entry, the queue's product path table and items 622–640,
+ADR 0055 §§ 2–8, ADR 0058 in full, ADR 0061's decision (committed by the
+owner after iteration 376, with item 627's queue text), `serving.rs`,
+`agent_record.rs`, `agents.rs`, `inbox.rs`, `message.rs`, the conductor's
+`Order::Agent` handling, `chrome_tab.rs`, `chrome_act.rs`,
+`chrome_record.rs`' `Causes`, and `docs/contracts/agent-socket.md`. No
+`AGENTS.md` exists here.
+
+**Why 630.** The first open item on the product path whose dependencies
+(621, 629) are done, and the one iteration 376 named next. It names its
+ADRs (0058 § 4, 0055), its feature line (ADR 0058's, in
+`docs/features.md`) and its closing condition.
+
+**Built.**
+- `pages.rs`: the trait `Pages` — what serving asks of the tabs, whichever
+  renderer draws them: the open tabs and their addresses, which renderer
+  draws each (`RenderedBy`), the document each holds, a tree read, a verb
+  carried out (`Acted`), and why a tab did not answer (`Unanswered`: gone,
+  or not carried out); and `catch_up`, taking in what a renderer said since
+  it was last asked. `engine_pages.rs` answers it from `alo_renderer::Tabs`
+  with the code that was in `serving.rs`; `chrome_pages.rs` from one
+  `chrome_tab::Tab` (one tab per Chrome, since a `Tab` borrows it whole).
+- `serving.rs` is generic over it. Its order of judging is unchanged: the
+  address read, the site judged, and only then the tabs caught up with and
+  looked at. Two additions: a tree read while the tab came to show another
+  address is not answered (`NoSuchTab`), and every entry that reached a tab
+  records `rendered_by`.
+- `chrome_serving.rs`: `ChromeServing` starts the machine's Chrome on a
+  thread of its own, asks its version, opens one page (frozen or from the
+  network), and answers `Order::Agent` from the same `inbox::Orders` that
+  `agents::Listening` already sends to. `CloseEverything` or every sender
+  gone closes it; the window's orders are not carried out, and nothing on
+  this path sends one (627, ADR 0061, is not built).
+- `chrome_tab.rs`: a tab's `address` follows its own frame's commits
+  (`chrome_protocol::committed` now returns a `Committed` with `url` and
+  `urlFragment`, malformed shapes refused and tested), `document()`, and
+  `catch_up()`, which takes every message already arrived and waits for
+  nothing. `chrome_act.rs`: `act_as_action` returns the action minted, and
+  a verb whose document was replaced while it was decided is
+  `Unacted::Moved` rather than carried out on whatever arrived.
+- `asking.rs`/`protocol.rs`: a new interface refusal, `NotCarriedOut
+  {tab}` with `said` — a verb decided and not carried out (a node Chrome
+  drew nowhere or under something else, the page moved, an outcome this
+  path does not carry out), which until now had no kind and would have had
+  to cross as `TabGone`, which would be untrue. Added to version 1 of the
+  contract as `NotGranted` was by item 497.
+- `agent_record.rs`: `Entry::rendered_by`, and its sentence ends `; drawn
+  by this browser's engine` or `; drawn by Chrome/155.0.8059.86, driven by
+  this browser`.
+
+**Measured on the way** (Chrome 155.0.8059.86, `--version` checked):
+- The first Chrome run of `the_order()` through the socket answered all
+  eight; the record's actions and documents are numbered alike through
+  both renderers (`action#0`…`action#4`, `document#0`), and differ in box
+  numbers (`box#3` against `box#10` for the name field) and tree sizes (35
+  and 38 nodes through Chrome, 31 and 34 through the engine).
+- A link-following `activate` through Chrome was answered *after* the next
+  page committed, on a local server, even with that page held back a
+  second by the server: `Window`, asked after the click, waited for it. So
+  `catch_up` is not what names a tab after a link; it is what names one
+  whose page went elsewhere **on its own** (a script's `location =`), with
+  nothing asked of the tab. Doc comments first written claiming the other
+  order were corrected before the gate; nothing claims it now.
+
+**Gate, mechanical.** `scripts/gate.sh` started in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background, and the
+next call waited on the log with a foreground until-loop and read it in the
+same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, nextest
+5,170 tests run, 5,170 passed, no `FAIL` or `panicked` line. Only this
+entry came after it, then the commit.
+
+**Gate, manual.**
+- *The closing condition, asserted* (`tests/an_agent_outside_the_browser.rs`,
+  three new tests beside the three that were there, unchanged but for the
+  refusal lines moved into `the_refused()`, line for line): the same
+  `the_order()` lines, through `alo-ask` and the same `Listening`, fill
+  `web-a-form` in Chrome — the tab listed by its address, the three fields
+  textboxes by their words, each `TextPut`, Large `Activated`, the read-back
+  holding the three texts and Large checked, and `Submitted` by POST to
+  `https://httpbin.org/post`; the same refusal lines arrive as the same
+  kinds, the interface's own word for word; and the two records are equal
+  entry by entry in caller, tab, site, document, action, verb, target and
+  what came of it, the renderer named in every entry that reached the tab
+  and in none that did not.
+- *What "differs only in which renderer it names" came to.* It holds of
+  everything the agent asked and what came of it. It does **not** hold of
+  the trees: each renderer numbers its own boxes and its tree has its own
+  size — 621's finding about node ids, and the reason 620 names Chrome's
+  tree the weaker one. The test sets those two aside by name and says why;
+  the queue's *Done* paragraph says so in the item's own words.
+- *Named where it is* (`tests/a_tab_in_chrome_named_where_it_is.rs`, a
+  local server on `127.0.0.1` and `localhost`): after an agent follows a
+  link to the other site, the tab is listed and read there and not found
+  at the first address; kept to `http://127.0.0.1`, it is listed nowhere,
+  `NotGranted` at `http://localhost` and `NoSuchTab` at the first; a page
+  that sends itself elsewhere by script is listed and read where it went.
+- *Unit tests* (`serving.rs`, a fake renderer that counts every look and
+  moves as it is read): a site not named is refused for a read and a verb
+  with no page of any renderer looked at, not even caught up with, and no
+  renderer named; a page that went elsewhere while read answers
+  `NoSuchTab`, its renderer named, and is `NotGranted` where it went; a
+  verb not carried out crosses as `NotCarriedOut`. `protocol.rs`: its wire
+  form. `agent_record.rs`: both sentences. `chrome_protocol.rs`: a
+  committed frame's address with its fragment, and three malformed shapes.
+- *Hostile bytes:* the one reader changed, `committed`, refuses a frame
+  with no `url` and a `urlFragment` that is not text, tested; nothing new
+  reads outside bytes.
+- *Mutations* (restored from copies, `cmp`-checked): no address update on
+  commit fails both link tests; no catch-up fails the page that went on
+  its own (and survived both link tests, as measured above); no re-check
+  after a read fails the unit test. Not caught by a test: `Unacted::Moved`
+  — a document replaced between reading the page and carrying out a verb
+  is a race no test here can bring about on demand; it is written down as
+  owed below rather than claimed.
+- *One file, one responsibility:* serving stays serving; each renderer's
+  answer to it is a file of its own; holding Chrome and answering the
+  socket from it is `chrome_serving.rs`'s. No layout or visual change: no
+  layout assertion or reference render applies. No `unsafe`; no verb takes
+  a coordinate (the gate's check passed). `alo-os` and `alo-workplace` were
+  not touched. Nothing was pushed.
+
+**Queue.** 630 ticked with a *Done* paragraph stating what the records
+differ in; the product path table ticks 630. Added: **639** (what a page's
+script said, through Chrome — `issues` is always empty there, and the
+contract says *not heard*), **640** (a fragment link through Chrome is not
+followed: `Page.navigatedWithinDocument` is not read, and the engine's
+behaviour is not measured either).
+
+**Roadmap.** "Where the product path stands today" moves 630 into *Built*
+and drops it from *Owed*, adding 639 and 640; the ADR 0058 line's
+`· Built:` gains the socket reaching Chrome and its `· Owed:` drops 630
+and gains 639 and 640. Not ticked — 627, 622, 623–625, 631, 632, 635, 636,
+638 and 477 remain. `docs/features.md`, `CHANGELOG.md`,
+`docs/contracts/agent-socket.md` and `REMAINING.md` say the same.
+
+**Unresolved obligations.**
+- `Unacted::Moved` narrows and does not close the window in which a page
+  in Chrome could go to another site between the last check and the
+  click: CDP cannot hold a page still while input is dispatched. Untested,
+  as said above.
+- `ROADMAP.md`'s product path paragraph still says *"it is not yet decided
+  whether Chrome's pixels come to our window or our window goes around
+  Chrome's"*; ADR 0061 decided it. Left for item 627's iteration, whose
+  decision it is, rather than edited here.
+- 638 is still not reached from the socket: `ChromeServing` opens its page
+  as the person's, and nothing on the socket opens a tab.
+- A `ChromeServing` holds one tab; a second tab in one Chrome needs a
+  `Tab` that does not borrow its `Chrome` whole.
+- 627 is next on the product path (decided, ADR 0061; now an
+  implementation item); 622–625, 631, 632, 635, 636, 639, 640 are owed.
+  604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 638 needs an ADR.
+- No claim about speed is made.
+
+304 queue items are open (630 closed; 639 and 640 added). The next unused
+queue number is **641** and the next ADR is **0062**. This is one
+iteration, not a finished queue or roadmap.

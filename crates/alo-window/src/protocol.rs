@@ -479,7 +479,8 @@ fn refused(refused: &Refused) -> Value {
         Refused::NotAnAddress { tab }
         | Refused::NoSuchTab { tab }
         | Refused::NothingLoaded { tab }
-        | Refused::TabGone { tab, .. } => put("tab", Value::from(tab.as_str())),
+        | Refused::TabGone { tab, .. }
+        | Refused::NotCarriedOut { tab, .. } => put("tab", Value::from(tab.as_str())),
         Refused::Ambiguous { tab, count } => {
             put("tab", Value::from(tab.as_str()));
             put("count", Value::from(*count));
@@ -772,6 +773,20 @@ mod tests {
         );
         let none = refused("data:text/html,hi");
         assert!(none.contains("\"site\":null,"), "{none}");
+    }
+
+    #[test]
+    fn a_verb_not_carried_out_crosses_as_its_kind_with_the_tab() {
+        let refused = Answer::Refused(Refused::NotCarriedOut {
+            tab: "https://example.com/".to_owned(),
+            said: "Chrome drew box#4 nowhere".to_owned(),
+        });
+        assert_eq!(
+            write(None, &refused),
+            "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"NotCarriedOut\",\
+             \"tab\":\"https://example.com/\"},\"said\":\"nothing was done in the tab at \
+             https://example.com/: Chrome drew box#4 nowhere\",\"v\":1}\n"
+        );
     }
 
     #[test]
