@@ -282,6 +282,8 @@ dependencies = [
  "alo-agent",
  "alo-box",
  "alo-corpus",
+ "alo-css",
+ "alo-dom",
  "alo-layout",
  "alo-net",
  "alo-paint",

@@ -44,7 +44,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **619** | Chrome spawned and spoken to over a pipe |
 | ✓ | **620** | Chrome's tree, read as ours |
 | | **629** | a page from the network through Chrome, under the grants |
-| | **621** | the verbs, through Chrome |
+| ✓ | **621** | the verbs, through Chrome |
+| | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
 | | **622** | which renderer is in use, where a person can read it |
 | | **623** | the agent's sentence, where a person can read it |
@@ -15768,7 +15769,7 @@ What stage 2's exit gate actually measures: a person using it.
   and still read; an address Chrome cannot go to is refused with Chrome's
   reason. Not built, cut as 629: opening a page from the network.
 
-- [ ] **621. ★ The verbs, through Chrome.** *ADR 0058 § 4.* `activate` and
+- [x] **621. ★ The verbs, through Chrome.** *ADR 0058 § 4.* `activate` and
   `fill` carried out over CDP's `Input` domain, so a page sees a real key and
   a real click and runs its own validation — never injected script, which
   skips the page's checks and is detectable. The grants and the record do not
@@ -15779,6 +15780,60 @@ What stage 2's exit gate actually measures: a person using it.
   with no change to a single verb; every refusal in `verb.rs` is still
   reachable by name; and the record of both runs differs only in which
   renderer it names.
+  ***Done (iteration 372), with the socket and the record cut as 630.***
+  `alo-agent` decides a verb against a `Reading` (`reading.rs`) rather than
+  its own tree as such: `perform` and the now-public `find` take any reader,
+  `AgentTree` is one, and the rules did not move — one name match
+  (`is_called`), one `maxlength` rule (now `alo_dom::constraint::max_length`,
+  asked by both). `alo-window`'s `chrome_reading.rs` is Chrome's reader: the
+  snapshot's nodes, and for the node aimed at its element as
+  `DOM.describeNode` describes it, built as an `alo_dom::Element`
+  (`Element::html`, new) so the engine's own element rules answer for it.
+  `chrome_act.rs`'s `Tab::act` reads the page afresh, decides, and only then
+  carries out what was decided: `activate` scrolls the box into view, aims at
+  the whole pixel in its middle, asks Chrome's hit test what is there and
+  presses only if it is the node or inside it (`Unacted::Covered`
+  otherwise), then clicks; `put_text` focuses the field, selects with ⌘A /
+  Ctrl+A carrying Chrome's `selectAll`, and replaces with `Input.insertText`
+  (Backspace for the empty text). A press answers `Submitted` or `Followed`
+  when Chrome told of the page's own frame asking to navigate in its tab
+  (`Page.frameRequestedNavigation`), read once the renderer has answered a
+  question asked after the click — measured: without that question the
+  navigation is missed, with it it is told of even when the page queued half
+  a second of its own work in the click. `tests/the_verbs_through_chrome.rs`
+  against Chrome 155: the order item 131's agent places on `web-a-form`,
+  verb for verb, comes to the same five outcomes through the engine and
+  through Chrome (three `TextPut`s, `Activated "Large"`, `POST
+  https://httpbin.org/post`), the fields read back holding their text and
+  Large checked; the form's three refusals are the engine's three; a page of
+  the test's own reaches **NotFound, Ambiguous, NotOperable, Disabled,
+  NotAField, ReadOnly, NotADate, Unbuilt, TooLong and DoesNotScroll** by
+  name and hears none of them; a button under a transparent cover is not
+  pressed; every event the page hears is trusted (`click`, `keydown`,
+  `beforeinput`, `input`, `change`); a cancelled `beforeinput` answers
+  `TextCanceled`; a link answers `Followed "/next"`. Found and settled on the
+  way:
+  - **A tab a frozen page opens escaped every refusal**: a `target=_blank`
+    link pressed in a frozen tab opened a tab of Chrome's that went to its
+    address, measured. A frozen tab now has Chrome hold every new tab before
+    it loads anything (`Target.setAutoAttach`), and one its page opened has
+    its requests paused, is let go — held, a `window.open` never returns,
+    since the two can share a renderer — and is closed (`Tab::closed`).
+  - **Chrome builds a `date` field of segments**, named `Date` (now read as
+    `date`), and `insertText` does not reach it; a `<select>` takes no text.
+    Both are refused as `Unbuilt` on Chrome's page, whose sentence now says
+    "this browser cannot put text into one yet" on either renderer. The date
+    check now comes before it, so a text that is no date is still
+    `NotADate` (the engine's answers do not change: no field is both).
+  - A `time` field is `InputTime` and not editable in Chrome's tree; the
+    engine's `is_text_entry`, asked of its element, makes it a field, so it
+    is `Unbuilt` on both renderers rather than `NotAField` on one.
+  Not reached through Chrome, and why: `Unchecked` and `NotSubmittable` are
+  this engine's own limits — Chrome checks and sends every form itself;
+  `NotSubmitted` is 631; a date and a choice put in through Chrome are 632.
+  Not built, cut as **630**: the agent socket reaching
+  a tab in Chrome, its grants checked first and its record naming the
+  renderer.
 
 - [ ] **622. Which renderer is in use, where a person can read it.** *ADR 0058
   § 6.* The product says what is rendering — in `docs/features.md`, in
@@ -15884,6 +15939,49 @@ What stage 2's exit gate actually measures: a person using it.
   asked to go there, and the decision about whose network a Chrome request
   uses is written down — in an ADR if it is a decision rather than a
   consequence of 0058.
+
+- [ ] **630. The agent's socket reaches a tab in Chrome, and the record says
+  so.** *ADR 0058 § 4, 0055.* **Cut from 621**, which carries the verbs out on
+  a `chrome_tab::Tab` driven in-process: nothing yet routes a socket request
+  to one. The conductor's tabs are `alo-renderer`'s, over the engine's
+  renderer programs; a tab in Chrome has to answer the same `ToRenderer`
+  asks — `ReadTree`, `Act` — so that `serving.rs` and the grants of item 497
+  stand in front of it unchanged, a site an agent was not given refused
+  before a command is written. The record (`agent_record.rs`) names which
+  renderer drew the page it read and acted on. *Depends on 621, 629. Closes
+  when:* `an_agent_outside_the_browser.rs`'s order, sent down the socket
+  with no change to a single line, fills `web-a-form` in Chrome; its
+  refusals arrive as the same kinds; and the record of both runs differs
+  only in which renderer it names.
+
+- [ ] **631. A form Chrome would not send, answered as the engine answers
+  it.** *ADR 0051 § 4.* **Cut from 621.** Through Chrome, a press on a submit
+  button whose form fails its checks answers `Activated`, because nothing
+  Chrome tells of says which control failed or in what words: a `required`
+  field left empty is not `invalid` in its accessibility tree (a mistyped
+  e-mail is, after an edit), and its message is drawn in a bubble, measured
+  against Chrome 155. The engine answers `NotSubmitted` with each control
+  and Chrome's own words. Candidates, none obviously right: Chrome's
+  `invalid` events heard without script (a DOM breakpoint on `invalid` is
+  heavy and pauses the page); the engine's own constraint checks run on the
+  element descriptions `chrome_reading.rs` already builds, which would be
+  the engine's verdict about Chrome's form; or saying `Activated` and
+  nothing more, written down as the answer. *Depends on 621. Closes when:*
+  a form with an empty `required` field, pressed through Chrome, answers an
+  outcome that says it was not sent and why — or this item closes with the
+  reasoning written down.
+
+- [ ] **632. A date, and a choice, put in through Chrome.** *ADR 0042 § 4,
+  0058 § 4.* **Cut from 621.** On Chrome's page a `date` field and a
+  `<select>` are refused as `Unbuilt`, though the engine fills both: Chrome
+  builds a date field of segments that `Input.insertText` does not reach,
+  measured against Chrome 155, and a `<select>` takes no text. Carrying a
+  date in means typing its digits segment by segment in the order Chrome's
+  locale lays them out, which this browser would have to know rather than
+  guess; choosing an option means the keys a person uses on a closed
+  `<select>`. *Depends on 621. Closes when:* a valid date put into a date
+  field through Chrome reads back as that date, and an option chosen by its
+  words is the one selected — or the refusal stays and this item says why.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -36,6 +36,7 @@
 //! built, and the answer comes from the same trees.
 
 use crate::name::{accessible_name, names_itself_from_content, normalise, text_of};
+use crate::reading::is_called;
 use alo_box::{BoxId, BoxNode, BoxTree, KnownRole, Role, States};
 use alo_dom::Document;
 use alo_layout::{LayoutTree, Rect};
@@ -99,13 +100,9 @@ impl<'a> AgentTree<'a> {
     /// The name is what a person sees, so matching it the way a person would
     /// read it out is the point — "Save" finds a button labelled `Save `.
     pub fn named(&self, name: &str) -> Vec<AgentNode<'a>> {
-        let wanted = normalise(name);
         self.nodes()
             .into_iter()
-            .filter(|node| match (&node.name(), &wanted) {
-                (Some(held), Some(wanted)) => held.eq_ignore_ascii_case(wanted),
-                _ => false,
-            })
+            .filter(|node| is_called(node.name().as_deref(), name))
             .collect()
     }
 
@@ -389,19 +386,11 @@ impl<'a> AgentTree<'a> {
     /// `maxlength`, on a `<textarea>` or an `<input>` a person types text
     /// into, as HTML reads a non-negative integer.
     pub(crate) fn max_length(&self, id: BoxId) -> Option<usize> {
-        let element = self
-            .boxes
+        self.boxes
             .get(id)
             .and_then(|node| node.kind.node())
-            .and_then(|source| self.document.element(source))?;
-        let typed = element.name.is_html("textarea")
-            || alo_dom::kind::of(element).is_some_and(alo_dom::kind::Kind::is_typed_text);
-        if !typed {
-            return None;
-        }
-        element
-            .attr("maxlength")
-            .and_then(alo_dom::constraint::non_negative)
+            .and_then(|source| self.document.element(source))
+            .and_then(alo_dom::constraint::max_length)
     }
 
     /// Whether this box is inside a `<label>` that names a control, and is

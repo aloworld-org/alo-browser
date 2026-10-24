@@ -37705,3 +37705,133 @@ The product path table gains 629.
 299 queue items are open (620 closed, 629 added). The next unused queue
 number is **630** and the next ADR is **0060**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 372 — queue item 621: the verbs, through Chrome
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the two paths, where the product path stands, the ADR 0058 line),
+iteration 371's entry, `REMAINING.md`'s continuation notes, queue items
+619–631 and the product path table, ADR 0058 in full and ADR 0002's rule
+that no verb takes a coordinate, the ADR 0058 feature line in
+`docs/features.md`, `scripts/gate.sh`'s steps, and `alo-agent`'s
+`verb.rs`, `tree.rs`, `name.rs`, `alo-renderer`'s `renderer.rs` act path
+and `snapshot.rs`, `alo-window`'s `chrome*.rs` and the socket test of item
+496. No `AGENTS.md` exists here.
+
+**Why 621.** The first open item whose dependencies (620, 496, 497) are all
+done; iteration 371 named it next. It names its ADR (0058 § 4), its feature
+line and its closing condition.
+
+**Measured first** (Python over `--remote-debugging-pipe`, scratchpad
+`p621/`, Chrome 155.0.8059.86): `DOM.focus` + ⌘A carrying `selectAll` +
+`Input.insertText` fills a field, and every event the page hears is
+trusted; a click on a submit button is answered before Chrome tells of
+`Page.frameRequestedNavigation`, which does arrive before the reply to a
+question the renderer answers next — even with ten 50 ms tasks the click
+queued, which had not yet run; a `required` field left empty is not
+`invalid` in Chrome's tree; `insertText` does not reach a `date` field
+(role `Date`) and a `time` field is `InputTime`, not editable; a
+`target=_blank` link pressed in a frozen tab opens an unwatched tab that
+goes to its address (seen in `Target.getTargets`), and browser-level
+`Target.setAutoAttach` with `waitForDebuggerOnStart` holds it before it has
+one; closing it held hangs a `window.open`, and pausing its requests,
+letting it go and closing it does not.
+
+**Built.** `alo-agent`: `reading.rs` — `Reading` (candidates, and the four
+facts a verb weighs) and `is_called`; `AgentTree` implements it; `verb.rs`'s
+`perform` and a now-public `find` take any `Reading`; the date check comes
+before the unbuilt check (no field on the engine is both); `Unbuilt`'s
+sentence is renderer-neutral. `alo-dom`: `Element::html` and
+`constraint::max_length`, which `tree.rs` now asks too. `alo-window`:
+`chrome_reading.rs` (Chrome's `Reading`: the snapshot's nodes, the aimed-at
+node's element from `DOM.describeNode` asked the engine's rules, `date` and
+`<select>` unbuilt on Chrome's page); `chrome_act.rs` (`Tab::act`, the
+click checked by `DOM.getNodeForLocation`, typing, the barrier, `Unacted`);
+`chrome_tab.rs` gains the navigations the page asked for and holding and
+closing every tab a frozen page opens (`Tab::closed`); `chrome_protocol.rs`
+gains ten commands and the `described`, `node_at`, `requested` and
+`attached` readers; `chrome_tree.rs` reads Chrome's `Date` as `date`. New
+dependencies `alo-dom` and `alo-css` for `alo-window`, both ours. Not
+weakened: no lint, test or boundary relaxed; `serde_json` still named only
+by `protocol.rs` and `chrome_protocol.rs`.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy -p alo-window -p
+alo-agent -p alo-dom --all-targets --all-features -- -D warnings` clean
+first. `scripts/gate.sh` started in the foreground; it passed the tool's
+600 s limit and was moved to the background by the harness, and the next
+call waited on its log with an until-loop and read it in the same step:
+**`exit 0`, "The gate is met. (10 of 10 steps)"**, 5,135 tests run, 5,135
+passed (22 more than iteration 371: 16 unit, 6 integration). Only
+documents came after it — this entry, queue item 632 and the lines in
+`ROADMAP.md` and `REMAINING.md` that name it — and the commit.
+
+**Gate, manual.**
+- Closing condition, `tests/the_verbs_through_chrome.rs` against Chrome
+  155: `web-a-form`'s order, the same `Target`s and `Verb`s the socket test
+  sends, comes to the same five outcomes through `Renderer` and through
+  `Tab::act` — `put` ×3, `activated Some("Large")`, `POST
+  https://httpbin.org/post`; read back, each field holds its text and Large
+  is checked; the form's refusals are `NotFound`, `NotAField`, `Unbuilt` on
+  both. A page of the test's own reaches ten refusal kinds by name and the
+  page hears nothing; `Ambiguous`'s two candidates are the two buttons, and
+  one by its id is a click heard. Not reached, and written into the item:
+  `Unchecked` and `NotSubmittable` (the engine's own limits), `NotSubmitted`
+  (631). Cut as 630: the socket and the record naming the renderer.
+- Behaviour: a covered button is `Covered` and unheard; the page heard
+  `keydown beforeinput input`, then `change` as the keyboard left, all
+  trusted; a cancelled `beforeinput` is `TextCanceled`; the empty text
+  empties a field; a link is `Followed "/next"`; a busy page's form is
+  `Submitted` POST; two opened tabs closed, none of their addresses asked
+  for, and the next tab on the same Chrome is not held. Six runs of the file
+  in a row passed.
+- Mutation, each restored from a copy (`cmp` confirmed): no hit check fails
+  the cover test; no barrier fails three tests (the submission is missed);
+  never `TextCanceled` fails the typing test; not holding new tabs fails the
+  opened-tab test.
+- Hostile input: unit tests for each new reader's malformed shapes and
+  bounds (odd or non-text attributes, 4097 attributes, an over-long name,
+  a non-integer node id, each missing field, a non-object), `within`
+  following a loop, `middle` refusing NaN, infinity, no area and points past
+  2⁵³ — each an error, none a panic.
+- Layout assertions: the click point is asserted in numbers (`middle`:
+  `(29, 242.59375) 13×13` aims at `(35, 249)`); nothing here sizes or
+  places a box. Reference renders: nothing is drawn (627).
+- One file, one responsibility: the reading (`chrome_reading.rs`), carrying
+  out (`chrome_act.rs`), the tab and its requests (`chrome_tab.rs`), the
+  messages (`chrome_protocol.rs`); `reading.rs` in `alo-agent` is what a
+  verb is decided on, `verb.rs` the decision.
+- No coordinate reaches a verb: the point is private to `chrome_act.rs`,
+  found from the named node and checked against it. No script is put into
+  any page. No `unsafe`. No speed claim. `alo-os` and `alo-workplace` were
+  not touched. Nothing was pushed.
+- Also updated: `docs/features.md`, `ROADMAP.md` (both places), the queue
+  and its product path table, `CHANGELOG.md`, `REMAINING.md`.
+  `docs/conformance.md` is unchanged: it is about what the engine renders.
+
+**Queue.** 621 ticked with a *Done* paragraph. New, all cut from 621:
+**630** (the socket reaching a tab in Chrome, the record naming the
+renderer), **631** (a form Chrome would not send answered as
+`NotSubmitted`) and **632** (a date and a choice put in through Chrome). The
+product path table ticks 621 and gains 630.
+
+**Roadmap.** The ADR 0058 line's `· Built:` gains the verbs and the held
+tabs, its `· Owed:` gains 630 and 631 and drops 621; "Where the product
+path stands today" moves 621 to built. Not ticked.
+
+**Unresolved obligations.**
+- `Unbuilt` on Chrome's page covers `date` and `<select>`, which the engine
+  fills; typing a date into Chrome's segments in the order its locale
+  wants, and choosing an option, are cut as **632**.
+- `change` fires when the keyboard leaves a field, so the last field filled
+  before something other than a verb hears its `change` late, as a person's
+  does; the engine fires it with the text.
+- 629 (a page from the network through Chrome) is next in ADR 0058's line,
+  then 630.
+- 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 627 needs an ADR.
+- No claim about speed is made.
+
+301 queue items are open (621 closed; 630, 631 and 632 added). The next
+unused queue number is **633** and the next ADR is **0060**. This is one
+iteration, not a finished queue or roadmap.

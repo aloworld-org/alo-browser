@@ -48,8 +48,34 @@ pub const MOST_NODES: usize = 100_000;
 /// this many lines is far past any page a person reads.
 pub const MOST_QUADS: usize = 4096;
 
+/// The most attributes one element is read with, from `DOM.describeNode`.
+/// An element with more is refused rather than read.
+pub const MOST_ATTRIBUTES: usize = 4096;
+
+/// A mouse event, as `Input.dispatchMouseEvent` names its kinds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mouse {
+    /// The pointer arrives over the point, no button held.
+    Moved,
+    /// The left button goes down.
+    Pressed,
+    /// The left button comes up: with the press before it at the same
+    /// point, a click.
+    Released,
+}
+
+/// A key a person presses with a command Chrome's editing carries out, as
+/// `Input.dispatchKeyEvent` sends one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Chord {
+    /// ⌘A on macOS, Ctrl+A elsewhere: select everything in the field.
+    SelectAll,
+    /// Backspace: take away what is selected.
+    DeleteBackward,
+}
+
 /// A command this browser sends Chrome.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     /// `Browser.getVersion`: which Chrome this is.
     GetVersion,
@@ -115,6 +141,70 @@ pub enum Command {
     },
     /// `Page.getLayoutMetrics`: the window the page sits in.
     Window,
+    /// `DOM.describeNode`: what a node is — its name and attributes.
+    Describe {
+        /// The node, by Chrome's `backendNodeId`.
+        node: u64,
+    },
+    /// `Accessibility.getPartialAXTree`, for one node and nothing around
+    /// it: what it holds now.
+    ReadNode {
+        /// The node, by Chrome's `backendNodeId`.
+        node: u64,
+    },
+    /// `DOM.scrollIntoViewIfNeeded`: bring a node into the window, as a
+    /// person scrolls to what they are about to press.
+    ScrollIntoView {
+        /// The node, by Chrome's `backendNodeId`.
+        node: u64,
+    },
+    /// `DOM.getNodeForLocation`: what a person pressing this point would
+    /// press — never a way of choosing what to act on (ADR 0002), only of
+    /// checking that a click lands on the thing an agent named.
+    NodeAt {
+        /// In CSS pixels of the window, as Chrome takes them: whole.
+        x: i64,
+        /// In CSS pixels of the window, as Chrome takes them: whole.
+        y: i64,
+    },
+    /// `Input.dispatchMouseEvent`, with the left button.
+    Mouse {
+        /// Which.
+        kind: Mouse,
+        /// In CSS pixels of the window.
+        x: f64,
+        /// In CSS pixels of the window.
+        y: f64,
+    },
+    /// `DOM.focus`: give a node the keyboard, as a person clicking into a
+    /// field does.
+    Focus {
+        /// The node, by Chrome's `backendNodeId`.
+        node: u64,
+    },
+    /// `Input.dispatchKeyEvent`: a key going down, or coming up.
+    Key {
+        /// Which.
+        chord: Chord,
+        /// Down, or up.
+        down: bool,
+    },
+    /// `Input.insertText`: text arriving in the focused field as typing's
+    /// does, with `beforeinput` and `input` the page hears.
+    InsertText {
+        /// What arrives.
+        text: String,
+    },
+    /// `Target.setAutoAttach`, for Chrome itself: be attached to every tab
+    /// that opens from now on, each held before it loads anything until it
+    /// is let go or closed — or, with `hold` false, no longer.
+    HoldNewTabs {
+        /// Whether to.
+        hold: bool,
+    },
+    /// `Runtime.runIfWaitingForDebugger`: let a tab held by
+    /// [`Command::HoldNewTabs`] go on.
+    LetGo,
 }
 
 impl Command {
@@ -136,6 +226,16 @@ impl Command {
             Self::ReadTree => "Accessibility.getFullAXTree",
             Self::WhereDrawn { .. } => "DOM.getContentQuads",
             Self::Window => "Page.getLayoutMetrics",
+            Self::Describe { .. } => "DOM.describeNode",
+            Self::ReadNode { .. } => "Accessibility.getPartialAXTree",
+            Self::ScrollIntoView { .. } => "DOM.scrollIntoViewIfNeeded",
+            Self::NodeAt { .. } => "DOM.getNodeForLocation",
+            Self::Mouse { .. } => "Input.dispatchMouseEvent",
+            Self::Focus { .. } => "DOM.focus",
+            Self::Key { .. } => "Input.dispatchKeyEvent",
+            Self::InsertText { .. } => "Input.insertText",
+            Self::HoldNewTabs { .. } => "Target.setAutoAttach",
+            Self::LetGo => "Runtime.runIfWaitingForDebugger",
         }
     }
 
@@ -150,7 +250,8 @@ impl Command {
             | Self::Close
             | Self::TellOfLoading
             | Self::ReadTree
-            | Self::Window => {}
+            | Self::Window
+            | Self::LetGo => {}
             Self::CreateTarget { url } | Self::Navigate { url } => {
                 put("url", Value::from(url.as_str()));
             }
@@ -185,7 +286,63 @@ impl Command {
                 put("requestId", Value::from(request.as_str()));
                 put("errorReason", Value::from("BlockedByClient"));
             }
-            Self::WhereDrawn { node } => put("backendNodeId", Value::from(*node)),
+            Self::WhereDrawn { node }
+            | Self::Describe { node }
+            | Self::ScrollIntoView { node }
+            | Self::Focus { node } => put("backendNodeId", Value::from(*node)),
+            Self::ReadNode { node } => {
+                put("backendNodeId", Value::from(*node));
+                put("fetchRelatives", Value::Bool(false));
+            }
+            Self::NodeAt { x, y } => {
+                put("x", Value::from(*x));
+                put("y", Value::from(*y));
+            }
+            Self::Mouse { kind, x, y } => {
+                let (kind, button) = match kind {
+                    Mouse::Moved => ("mouseMoved", "none"),
+                    Mouse::Pressed => ("mousePressed", "left"),
+                    Mouse::Released => ("mouseReleased", "left"),
+                };
+                put("type", Value::from(kind));
+                put("x", Value::from(*x));
+                put("y", Value::from(*y));
+                put("button", Value::from(button));
+                put("clickCount", Value::from(1));
+            }
+            Self::Key { chord, down } => {
+                let (key, code, keycode, command, modifiers) = match chord {
+                    // ⌘ on macOS is Chrome's modifier 4, Ctrl elsewhere 2.
+                    Chord::SelectAll => (
+                        "a",
+                        "KeyA",
+                        65,
+                        "selectAll",
+                        if cfg!(target_os = "macos") { 4 } else { 2 },
+                    ),
+                    Chord::DeleteBackward => ("Backspace", "Backspace", 8, "deleteBackward", 0),
+                };
+                put(
+                    "type",
+                    Value::from(if *down { "rawKeyDown" } else { "keyUp" }),
+                );
+                put("key", Value::from(key));
+                put("code", Value::from(code));
+                put("windowsVirtualKeyCode", Value::from(keycode));
+                put("modifiers", Value::from(modifiers));
+                // The command is what Chrome's editing carries out; a key
+                // alone does nothing on macOS, where the shortcut is the
+                // menu's rather than the page's.
+                if *down {
+                    put("commands", Value::Array(vec![Value::from(command)]));
+                }
+            }
+            Self::InsertText { text } => put("text", Value::from(text.as_str())),
+            Self::HoldNewTabs { hold } => {
+                put("autoAttach", Value::Bool(*hold));
+                put("waitForDebuggerOnStart", Value::Bool(*hold));
+                put("flatten", Value::Bool(true));
+            }
         }
         params
     }
@@ -515,6 +672,136 @@ pub fn window(result: &[u8]) -> Result<(f64, f64), Malformed> {
     Ok((length("clientWidth")?, length("clientHeight")?))
 }
 
+/// An element, as `DOM.describeNode` describes it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Described {
+    /// Its name as the DOM gives it: upper case for an HTML element in an
+    /// HTML document, as written for any other.
+    pub node_name: String,
+    /// Its local name.
+    pub local_name: String,
+    /// Its attributes, name and value, in the order Chrome lists them.
+    pub attributes: Vec<(String, String)>,
+}
+
+/// A reply's `result` to `DOM.describeNode`, read.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `node`, a name that is not text, or
+/// `attributes` that are not pairs of texts, or more than
+/// [`MOST_ATTRIBUTES`] of them.
+pub fn described(result: &[u8]) -> Result<Described, Malformed> {
+    let Some(Value::Object(node)) = object(result)?.get("node").cloned() else {
+        return Err(Malformed::BadField { field: "node" });
+    };
+    let bad = Malformed::BadField {
+        field: "attributes",
+    };
+    let listed = match node.get("attributes") {
+        None => Vec::new(),
+        Some(Value::Array(listed)) if listed.len() <= MOST_ATTRIBUTES * 2 => listed.clone(),
+        Some(_) => return Err(bad),
+    };
+    if listed.len() % 2 != 0 {
+        return Err(bad);
+    }
+    let attributes = listed
+        .chunks_exact(2)
+        .map(|pair| {
+            Ok((
+                text(pair.first(), "attributes")?,
+                words(pair.get(1), "attributes")?,
+            ))
+        })
+        .collect::<Result<_, Malformed>>()?;
+    Ok(Described {
+        node_name: text(node.get("nodeName"), "nodeName")?,
+        local_name: text(node.get("localName"), "localName")?,
+        attributes,
+    })
+}
+
+/// The node a reply's `result` to `DOM.getNodeForLocation` names, by its
+/// `backendNodeId`.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `backendNodeId` that is a whole
+/// number.
+pub fn node_at(result: &[u8]) -> Result<u64, Malformed> {
+    object(result)?
+        .get("backendNodeId")
+        .and_then(Value::as_u64)
+        .ok_or(Malformed::BadField {
+            field: "backendNodeId",
+        })
+}
+
+/// A navigation a page asked for, from `Page.frameRequestedNavigation`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Requested {
+    /// The frame that is to navigate.
+    pub frame: String,
+    /// Why, in Chrome's words: `anchorClick`, `formSubmissionPost`, …
+    pub reason: String,
+    /// Where to, resolved, as Chrome spells it.
+    pub url: String,
+    /// Where it is to be shown: `currentTab`, `newTab`, `newWindow`, or
+    /// `download`.
+    pub disposition: String,
+}
+
+/// A `Page.frameRequestedNavigation` event's `params`, read.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without a `frameId`, a `reason`, a `url` and a
+/// `disposition`, each text.
+pub fn requested(params: &[u8]) -> Result<Requested, Malformed> {
+    let fields = object(params)?;
+    Ok(Requested {
+        frame: text(fields.get("frameId"), "frameId")?,
+        reason: text(fields.get("reason"), "reason")?,
+        url: words(fields.get("url"), "url")?,
+        disposition: text(fields.get("disposition"), "disposition")?,
+    })
+}
+
+/// A tab Chrome attached this browser to, from `Target.attachedToTarget`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Attached {
+    /// The session it is spoken to through.
+    pub session: String,
+    /// The tab, by its id.
+    pub target: String,
+    /// The tab that opened it, if one did.
+    pub opener: Option<String>,
+}
+
+/// A `Target.attachedToTarget` event's `params`, read.
+///
+/// # Errors
+///
+/// [`Malformed`], for params with no `sessionId`, no `targetInfo` holding a
+/// `targetId`, or an `openerId` that is not text.
+pub fn attached(params: &[u8]) -> Result<Attached, Malformed> {
+    let fields = object(params)?;
+    let Some(Value::Object(info)) = fields.get("targetInfo") else {
+        return Err(Malformed::BadField {
+            field: "targetInfo",
+        });
+    };
+    Ok(Attached {
+        session: text(fields.get("sessionId"), "sessionId")?,
+        target: text(info.get("targetId"), "targetId")?,
+        opener: match info.get("openerId") {
+            None => None,
+            opener => Some(text(opener, "openerId")?),
+        },
+    })
+}
+
 /// One node of Chrome's accessibility tree, as `Accessibility.getFullAXTree`
 /// describes it — read, and not yet anything of this browser's.
 /// [`crate::chrome_tree`] is what makes it one.
@@ -768,6 +1055,241 @@ mod tests {
             written(7, Some("S"), &Command::WhereDrawn { node: 62 }),
             br#"{"id":7,"method":"DOM.getContentQuads","params":{"backendNodeId":62},"sessionId":"S"}"#
         );
+    }
+
+    #[test]
+    fn a_verb_is_written_as_the_input_chrome_reads() {
+        let at = |command: &Command| {
+            String::from_utf8_lossy(&written(9, Some("S"), command)).into_owned()
+        };
+        assert_eq!(
+            at(&Command::Mouse {
+                kind: Mouse::Pressed,
+                x: 35.0,
+                y: 249.0
+            }),
+            r#"{"id":9,"method":"Input.dispatchMouseEvent","params":{"button":"left","clickCount":1,"type":"mousePressed","x":35.0,"y":249.0},"sessionId":"S"}"#
+        );
+        assert!(
+            at(&Command::Mouse {
+                kind: Mouse::Moved,
+                x: 0.0,
+                y: 0.0
+            })
+            .contains(r#""button":"none","clickCount":1,"type":"mouseMoved""#)
+        );
+        assert!(
+            at(&Command::Mouse {
+                kind: Mouse::Released,
+                x: 0.0,
+                y: 0.0
+            })
+            .contains(r#""type":"mouseReleased""#)
+        );
+        assert_eq!(
+            at(&Command::NodeAt { x: 35, y: -2 }),
+            r#"{"id":9,"method":"DOM.getNodeForLocation","params":{"x":35,"y":-2},"sessionId":"S"}"#
+        );
+        let modifier = if cfg!(target_os = "macos") { 4 } else { 2 };
+        assert_eq!(
+            at(&Command::Key {
+                chord: Chord::SelectAll,
+                down: true
+            }),
+            format!(
+                r#"{{"id":9,"method":"Input.dispatchKeyEvent","params":{{"code":"KeyA","commands":["selectAll"],"key":"a","modifiers":{modifier},"type":"rawKeyDown","windowsVirtualKeyCode":65}},"sessionId":"S"}}"#
+            )
+        );
+        // A key coming up carries out nothing.
+        assert_eq!(
+            at(&Command::Key {
+                chord: Chord::DeleteBackward,
+                down: false
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Backspace","key":"Backspace","modifiers":0,"type":"keyUp","windowsVirtualKeyCode":8},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            at(&Command::InsertText {
+                text: "Ada \"L\"".to_owned()
+            }),
+            r#"{"id":9,"method":"Input.insertText","params":{"text":"Ada \"L\""},"sessionId":"S"}"#
+        );
+        for (command, method) in [
+            (Command::Describe { node: 4 }, "DOM.describeNode"),
+            (Command::Focus { node: 4 }, "DOM.focus"),
+            (
+                Command::ScrollIntoView { node: 4 },
+                "DOM.scrollIntoViewIfNeeded",
+            ),
+        ] {
+            assert_eq!(
+                at(&command),
+                format!(
+                    r#"{{"id":9,"method":"{method}","params":{{"backendNodeId":4}},"sessionId":"S"}}"#
+                )
+            );
+        }
+        assert_eq!(
+            at(&Command::ReadNode { node: 4 }),
+            r#"{"id":9,"method":"Accessibility.getPartialAXTree","params":{"backendNodeId":4,"fetchRelatives":false},"sessionId":"S"}"#
+        );
+    }
+
+    #[test]
+    fn what_a_verb_is_answered_is_read_as_chrome_155_wrote_it() {
+        // Cut from Chrome 155's replies on 2026-10-24.
+        assert_eq!(
+            described(
+                br##"{"node":{"nodeId":0,"backendNodeId":4,"nodeType":1,"nodeName":"INPUT","localName":"input","nodeValue":"","childNodeCount":0,"attributes":["name","m","type","email"],"shadowRoots":[{"nodeId":0,"backendNodeId":42,"nodeType":11,"nodeName":"#document-fragment","localName":"","nodeValue":"","childNodeCount":1,"shadowRootType":"user-agent"}]}}"##
+            ),
+            Ok(Described {
+                node_name: "INPUT".to_owned(),
+                local_name: "input".to_owned(),
+                attributes: vec![
+                    ("name".to_owned(), "m".to_owned()),
+                    ("type".to_owned(), "email".to_owned()),
+                ],
+            })
+        );
+        assert_eq!(
+            described(br#"{"node":{"nodeName":"BUTTON","localName":"button","attributes":[]}}"#)
+                .map(|button| button.attributes.len()),
+            Ok(0)
+        );
+        assert_eq!(
+            node_at(br#"{"backendNodeId":76,"frameId":"C8737101013A69B023A314D542538DF6"}"#),
+            Ok(76)
+        );
+        assert_eq!(
+            requested(
+                br#"{"frameId":"9539EA3915583FF1207EA009417EC2B9","reason":"formSubmissionPost","url":"https://httpbin.org/post","disposition":"currentTab"}"#
+            ),
+            Ok(Requested {
+                frame: "9539EA3915583FF1207EA009417EC2B9".to_owned(),
+                reason: "formSubmissionPost".to_owned(),
+                url: "https://httpbin.org/post".to_owned(),
+                disposition: "currentTab".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn a_tab_opened_by_another_is_read_as_chrome_155_tells_of_it() {
+        assert_eq!(
+            String::from_utf8_lossy(&written(2, None, &Command::HoldNewTabs { hold: true })),
+            r#"{"id":2,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true}}"#
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&written(3, None, &Command::HoldNewTabs { hold: false })),
+            r#"{"id":3,"method":"Target.setAutoAttach","params":{"autoAttach":false,"flatten":true,"waitForDebuggerOnStart":false}}"#
+        );
+        // Cut from Chrome 155's event on 2026-10-24, a link with
+        // `target=_blank` pressed.
+        assert_eq!(
+            attached(
+                br#"{"sessionId":"A1","targetInfo":{"targetId":"B2","type":"page","title":"","url":"","attached":true,"openerId":"20360EF611555F6E57382076C619E00F","canAccessOpener":false,"browserContextId":"C3"},"waitingForDebugger":true}"#
+            ),
+            Ok(Attached {
+                session: "A1".to_owned(),
+                target: "B2".to_owned(),
+                opener: Some("20360EF611555F6E57382076C619E00F".to_owned()),
+            })
+        );
+        assert_eq!(
+            attached(br#"{"sessionId":"A","targetInfo":{"targetId":"B2"}}"#).map(|tab| tab.opener),
+            Ok(None)
+        );
+        assert_eq!(attached(br#"{"sessionId":"A"}"#), bad("targetInfo"));
+        assert_eq!(
+            attached(br#"{"sessionId":"A","targetInfo":[]}"#),
+            bad("targetInfo")
+        );
+        assert_eq!(
+            attached(br#"{"targetInfo":{"targetId":"B"}}"#),
+            bad("sessionId")
+        );
+        assert_eq!(
+            attached(br#"{"sessionId":"A","targetInfo":{}}"#),
+            bad("targetId")
+        );
+        assert_eq!(
+            attached(br#"{"sessionId":"A","targetInfo":{"targetId":"B","openerId":7}}"#),
+            bad("openerId")
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&written(4, Some("A"), &Command::LetGo)),
+            r#"{"id":4,"method":"Runtime.runIfWaitingForDebugger","params":{},"sessionId":"A"}"#
+        );
+    }
+
+    #[test]
+    fn what_a_verb_is_answered_that_is_not_one_is_refused_as_a_kind() {
+        assert_eq!(described(b"{}"), bad("node"));
+        assert_eq!(described(br#"{"node":[]}"#), bad("node"));
+        assert_eq!(
+            described(br#"{"node":{"localName":"a","attributes":[]}}"#),
+            bad("nodeName")
+        );
+        assert_eq!(
+            described(br#"{"node":{"nodeName":"A","attributes":[]}}"#),
+            bad("localName")
+        );
+        for not_pairs in [
+            &br#"{"node":{"nodeName":"A","localName":"a","attributes":["href"]}}"#[..],
+            br#"{"node":{"nodeName":"A","localName":"a","attributes":["href",1]}}"#,
+            br#"{"node":{"nodeName":"A","localName":"a","attributes":[1,"x"]}}"#,
+            br#"{"node":{"nodeName":"A","localName":"a","attributes":{}}}"#,
+        ] {
+            assert_eq!(described(not_pairs), bad("attributes"));
+        }
+        let too_many = format!(
+            r#"{{"node":{{"nodeName":"A","localName":"a","attributes":[{}]}}}}"#,
+            vec![r#""x","y""#; MOST_ATTRIBUTES + 1].join(",")
+        );
+        assert_eq!(described(too_many.as_bytes()), bad("attributes"));
+        let most = format!(
+            r#"{{"node":{{"nodeName":"A","localName":"a","attributes":[{}]}}}}"#,
+            vec![r#""x","y""#; MOST_ATTRIBUTES].join(",")
+        );
+        assert_eq!(
+            described(most.as_bytes()).map(|node| node.attributes.len()),
+            Ok(MOST_ATTRIBUTES)
+        );
+        let long_name = format!(
+            r#"{{"node":{{"nodeName":"{0}","localName":"a"}}}}"#,
+            "A".repeat(MOST_TEXT + 1)
+        );
+        assert_eq!(
+            described(long_name.as_bytes()),
+            Err(Malformed::TooLong {
+                field: "nodeName",
+                most: MOST_TEXT
+            })
+        );
+        for not_a_node in [
+            &b"{}"[..],
+            br#"{"backendNodeId":-1}"#,
+            br#"{"backendNodeId":1.5}"#,
+            br#"{"backendNodeId":"76"}"#,
+        ] {
+            assert_eq!(node_at(not_a_node), bad("backendNodeId"));
+        }
+        let all = r#""frameId":"F","reason":"anchorClick","url":"u","disposition":"currentTab""#;
+        for (field, gone) in [
+            ("frameId", r#""frameId":"F","#),
+            ("reason", r#""reason":"anchorClick","#),
+            ("url", r#""url":"u","#),
+        ] {
+            let params = format!("{{{}}}", all.replace(gone, ""));
+            assert_eq!(requested(params.as_bytes()), bad(field), "{params}");
+        }
+        assert_eq!(
+            requested(
+                format!("{{{}}}", all.replace(r#","disposition":"currentTab""#, "")).as_bytes()
+            ),
+            bad("disposition")
+        );
+        assert_eq!(requested(b"[]"), Err(Malformed::NotAnObject));
     }
 
     #[test]

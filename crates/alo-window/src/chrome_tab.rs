@@ -19,6 +19,16 @@
 //! a picture, anything a script asks for. So a case read through Chrome
 //! cannot reach a server, exactly as one read through the engine cannot.
 //!
+//! Nor can a tab the page opens: a link with `target=_blank` or a
+//! `window.open` would be a tab of Chrome's whose requests this tab never
+//! sees. So while a frozen page is open, Chrome holds every new tab before it
+//! loads anything (`Target.setAutoAttach`, waiting for the debugger); one the
+//! page opened has every request paused, is let go — a held tab can hold the
+//! page that opened it, whose renderer it may share, and a `window.open`
+//! then never returns — and is closed with its requests unanswered, and
+//! counted ([`Tab::closed`]). Measured against Chrome 155: the tab is told
+//! of before it has an address, and is gone without asking for one.
+//!
 //! Opening a page from the network, through Chrome's own requests and under
 //! the grants a person gave, is not built: what the browser process lets
 //! Chrome fetch is a question of its own (queue item 629).
@@ -31,7 +41,7 @@
 //! of any other is passed over.
 
 use crate::chrome::{Chrome, Failed};
-use crate::chrome_protocol::{self, Command, Malformed, Message};
+use crate::chrome_protocol::{self, AxNode, Command, Malformed, Message, Requested};
 use crate::chrome_tree::{self, Unread};
 use alo_layout::Rect;
 use alo_renderer::Snapshot;
@@ -50,6 +60,11 @@ pub struct Tab<'c> {
     /// The requests this tab answered and awaits Chrome's word on, and
     /// whether each was the page.
     answering: HashMap<u64, bool>,
+    /// The navigations the page's own frame asked for, told of since they
+    /// were last taken ([`Tab::take_requested`]).
+    requested: Vec<Requested>,
+    /// How many tabs the page opened, each closed before it loaded anything.
+    closed: usize,
 }
 
 /// Why a page was not opened.
@@ -120,7 +135,11 @@ impl<'c> Tab<'c> {
             page,
             refused: Vec::new(),
             answering: HashMap::new(),
+            requested: Vec::new(),
+            closed: 0,
         };
+        // Only now, so that the tab itself is not held.
+        tab.chrome.ask(None, &Command::HoldNewTabs { hold: true })?;
         for command in [
             Command::PauseEveryRequest,
             Command::TellOfLoading,
@@ -139,22 +158,41 @@ impl<'c> Tab<'c> {
         &self.refused
     }
 
+    /// How many tabs the page opened — a link with `target=_blank`, a
+    /// `window.open` — each closed before it loaded anything.
+    pub fn closed(&self) -> usize {
+        self.closed
+    }
+
     /// The page, read as the tree an agent reads.
     ///
     /// # Errors
     ///
     /// [`Unread`], when Chrome does not answer, or its tree is not a tree.
     pub fn read(&mut self) -> Result<Snapshot, Unread> {
+        self.read_whole().map(|(snapshot, _)| snapshot)
+    }
+
+    /// The page read as [`Tab::read`] reads it, and Chrome's tree it was
+    /// read from.
+    pub(crate) fn read_whole(&mut self) -> Result<(Snapshot, Vec<AxNode>), Unread> {
         let nodes =
             chrome_protocol::ax_nodes(&self.ask(&Command::ReadTree)?).map_err(Failed::Malformed)?;
         let window =
             chrome_protocol::window(&self.ask(&Command::Window)?).map_err(Failed::Malformed)?;
-        chrome_tree::snapshot(&nodes, window, &mut |node| self.drawn(node))
+        let snapshot = chrome_tree::snapshot(&nodes, window, &mut |node| self.drawn(node))?;
+        Ok((snapshot, nodes))
+    }
+
+    /// The navigations the page's own frame asked for since this was last
+    /// asked, in the order Chrome told of them.
+    pub(crate) fn take_requested(&mut self) -> Vec<Requested> {
+        std::mem::take(&mut self.requested)
     }
 
     /// Where Chrome drew the DOM node `node`: nowhere, when it declines to
     /// say, which it does for a node with no box.
-    fn drawn(&mut self, node: u64) -> Result<Vec<Rect>, Failed> {
+    pub(crate) fn drawn(&mut self, node: u64) -> Result<Vec<Rect>, Failed> {
         let quads = match self.ask(&Command::WhereDrawn { node }) {
             Ok(result) => chrome_protocol::quads(&result).map_err(Failed::Malformed)?,
             Err(Failed::Declined(_)) => return Ok(Vec::new()),
@@ -207,7 +245,7 @@ impl<'c> Tab<'c> {
 
     /// Send `command` through this tab's session and wait for its result,
     /// answering every request paused meanwhile.
-    fn ask(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
+    pub(crate) fn ask(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
         let asked = self.chrome.send(Some(&self.session), command)?;
         let until = Instant::now() + self.chrome.patience();
         loop {
@@ -246,6 +284,44 @@ impl<'c> Tab<'c> {
                 self.answering.insert(id, page);
                 Ok(None)
             }
+            // A navigation the page asked for. Its main frame has the tab's
+            // own id; a frame inside it asking is not the page going
+            // anywhere.
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if session == self.session && method == "Page.frameRequestedNavigation" => {
+                let requested = chrome_protocol::requested(&params).map_err(Failed::Malformed)?;
+                if requested.frame == self.target {
+                    self.requested.push(requested);
+                }
+                Ok(None)
+            }
+            // A tab the page opened, held before it loads anything: every
+            // request it would make is paused, it is let go — held, it may
+            // hold the page that opened it, whose renderer it can share —
+            // and it is closed with its requests unanswered.
+            Message::Event {
+                method,
+                session: None,
+                params,
+            } if method == "Target.attachedToTarget" => {
+                let attached = chrome_protocol::attached(&params).map_err(Failed::Malformed)?;
+                if attached.opener.as_deref() == Some(self.target.as_str()) {
+                    let held = Some(attached.session.as_str());
+                    self.chrome.send(held, &Command::PauseEveryRequest)?;
+                    self.chrome.send(held, &Command::LetGo)?;
+                    self.chrome.send(
+                        None,
+                        &Command::CloseTarget {
+                            target: attached.target,
+                        },
+                    )?;
+                    self.closed = self.closed.saturating_add(1);
+                }
+                Ok(None)
+            }
             // Chrome's word on a request this tab answered. The page not taken
             // is a page not shown; a refusal not taken is a request that had
             // already gone, which is what a refusal wanted.
@@ -270,8 +346,12 @@ impl<'c> Tab<'c> {
 
 impl Drop for Tab<'_> {
     fn drop(&mut self) {
-        // Not waited for: Chrome closes the tab, and the reply is passed over
-        // by whatever asks next.
+        // Not waited for: Chrome stops holding new tabs and closes this one,
+        // in that order, and the replies are passed over by whatever asks
+        // next.
+        let _ = self
+            .chrome
+            .send(None, &Command::HoldNewTabs { hold: false });
         let _ = self.chrome.send(
             None,
             &Command::CloseTarget {

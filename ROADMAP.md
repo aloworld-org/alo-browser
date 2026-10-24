@@ -142,9 +142,14 @@ about this project (ADR 0058 § 6).
   verbs and the refusals, driven on a real external page (131); Chrome spawned
   and spoken to over a pipe (619); a frozen page opened in Chrome and its tree
   read as ours, agreeing with the engine's on every role, name and state they
-  both carry (620).
+  both carry (620); the verbs on a page in Chrome, decided by the engine's own
+  rules before Chrome is asked anything and carried out as a real click or
+  real typing, httpbin's order coming to the same outcomes through both
+  renderers (621).
 - **Owed:** a page from the network through Chrome, under the grants (629);
-  the verbs carried through Chrome (621); which renderer is in use, where a person can read it (622); the
+  the agent's socket reaching a tab in Chrome, its grants and record naming
+  the renderer (630); a form Chrome would not send, answered as the engine
+  answers it (631); which renderer is in use, where a person can read it (622); the
   agent's work where a person can see it (623–625); **what a person actually
   looks at (627)** — the boundary's `Painted(Frame)` has no answer on the
   Chrome side, so today that path drives a page nobody can see; an application
@@ -634,10 +639,20 @@ unreachable without it.
       and its accessibility tree read as this browser's `Snapshot`
       (`chrome_tree.rs`) — `web-a-form` reads node for node as the engine
       reads it, but for an unnamed `form` Chrome exposes and the time field
-      Chrome builds and the engine does not
-      · Owed: a page from the network through Chrome (629), the verbs through
-      it (621), what a person looks at (627), and saying which renderer is in
-      use where a person can read it (622)
+      Chrome builds and the engine does not; the verbs on it (`chrome_act.rs`,
+      item 621), decided by `alo-agent`'s `perform` against a `Reading` of
+      Chrome's page (`chrome_reading.rs`) with the engine's own element rules,
+      every refusal reached by name before Chrome is asked anything, and
+      carried out over `Input` as a click checked against Chrome's hit test,
+      or as a field focused, selected and typed into — `web-a-form`'s order
+      comes to the same five outcomes through Chrome as through the engine;
+      and a tab a frozen page opens is held before it loads anything and
+      closed, so a click cannot take a frozen page to the network
+      · Owed: a page from the network through Chrome (629), the socket
+      reaching a tab in Chrome with the record naming its renderer (630), a
+      form Chrome would not send answered as `NotSubmitted` (631), a date
+      and a choice put in through Chrome (632), what a person looks at (627), and saying which renderer is in use where a
+      person can read it (622)
 
 ### The network
 

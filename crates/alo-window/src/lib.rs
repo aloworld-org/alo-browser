@@ -39,7 +39,9 @@
 //!   other file that names `serde_json`, with [`json_depth`] refusing any
 //!   JSON from outside that nests too deep before either reader sees it. A
 //!   page in it is a [`chrome_tab`], read as the tree an agent reads by
-//!   [`chrome_tree`] (item 620).
+//!   [`chrome_tree`] (item 620), and acted on by [`chrome_act`]: each verb
+//!   decided by `alo-agent` against a [`chrome_reading`] of it, and carried
+//!   out as a real click or real typing (item 621).
 //!
 //! # What it is not yet
 //!
@@ -64,7 +66,9 @@ pub mod asking;
 pub mod beside;
 #[cfg(unix)]
 pub mod chrome;
+pub mod chrome_act;
 pub mod chrome_protocol;
+pub mod chrome_reading;
 pub mod chrome_tab;
 pub mod chrome_tree;
 pub mod chrome_wire;

@@ -2745,3 +2745,17 @@ Chrome exposes and the time field Chrome builds, both listed in the item.
 Opening a page from the network is cut as 629. 299 queue items are open
 (620 closed, 629 added). The next unused queue number is 630 and the next
 unused ADR 0060.
+
+Iteration 372 took queue item 621, the third of ADR 0058's four: a verb on
+a page in Chrome is decided by `alo-agent`'s own `perform`, now made against
+a `Reading` that either renderer's page can be (`reading.rs`; Chrome's is
+`alo-window`'s `chrome_reading.rs`), and carried out over CDP's `Input`
+domain as a click checked against Chrome's hit test or as typing into a
+focused field (`chrome_act.rs`) — never script. `web-a-form`'s order comes
+to the same outcomes through Chrome as through the engine, and every
+refusal `perform` makes is reached on Chrome's page by name before Chrome
+is asked anything. A tab a frozen page opens is now held and closed before
+it loads anything. The socket reaching a tab in Chrome is cut as 630, a
+form Chrome would not send as 631, a date and a choice through Chrome as
+632. 301 queue items are open (621 closed; 630, 631 and 632 added). The
+next unused queue number is 633 and the next unused ADR 0060.

@@ -94,6 +94,23 @@ pub struct Element {
 }
 
 impl Element {
+    /// An HTML element with these attributes, in no document.
+    ///
+    /// What another renderer's description of one of its elements is read as
+    /// (ADR 0058 § 4): this engine's rules about an element — whether it is a
+    /// date field, how long a text it takes — are asked of it, rather than
+    /// written a second time where they could come to disagree.
+    pub fn html(local: &str, attrs: Vec<Attribute>) -> Self {
+        Self {
+            name: QualifiedName::html(local),
+            attrs,
+            template_contents: None,
+            mathml_annotation_xml_integration_point: false,
+            had_duplicate_attributes: false,
+            declared: None,
+        }
+    }
+
     /// The value of the first attribute with this local name and no namespace.
     pub fn attr(&self, local: &str) -> Option<&str> {
         self.attrs
@@ -246,5 +263,20 @@ mod tests {
         assert!(node.is_html_element("input"));
         assert!(!node.is_html_element("div"));
         assert!(node.text().is_none());
+    }
+
+    #[test]
+    fn an_element_described_from_outside_is_the_element_its_markup_makes() {
+        let described = Element::html("input", vec![Attribute::plain("type", "date")]);
+        let parsed = Element {
+            name: QualifiedName::html("input"),
+            attrs: vec![Attribute::plain("type", "date")],
+            template_contents: None,
+            mathml_annotation_xml_integration_point: false,
+            had_duplicate_attributes: false,
+            declared: None,
+        };
+        assert_eq!(described, parsed);
+        assert!(crate::date::is_date_field(&described));
     }
 }

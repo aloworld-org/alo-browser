@@ -55,7 +55,7 @@
 use crate::document::Document;
 use crate::email::{self, Judged};
 use crate::kind::{self, Kind};
-use crate::node::NodeId;
+use crate::node::{Element, NodeId};
 use crate::owner;
 use crate::value;
 use core::fmt;
@@ -327,6 +327,22 @@ fn unchecked(document: &Document, node: NodeId) -> Option<Problem> {
     None
 }
 
+/// The most text the field `element` takes, when it says: its `maxlength`,
+/// on a `<textarea>` or an `<input>` a person types text into, as HTML reads
+/// a non-negative integer.
+///
+/// One rule for every reader of a field — this engine's own tree, and a
+/// description of another renderer's element (ADR 0058 § 4) — so that the
+/// two cannot come to disagree about how long a text may be.
+pub fn max_length(element: &Element) -> Option<usize> {
+    let typed =
+        element.name.is_html("textarea") || kind::of(element).is_some_and(Kind::is_typed_text);
+    if !typed {
+        return None;
+    }
+    element.attr("maxlength").and_then(non_negative)
+}
+
 /// A number read by HTML's *rules for parsing non-negative integers*: white
 /// space before it, a sign, and the digits up to the first thing that is
 /// not one. [`None`] when there are no digits or the number is below nought.
@@ -367,6 +383,37 @@ fn in_a_datalist(document: &Document, node: NodeId) -> bool {
 mod tests {
     use super::*;
     use crate::parse_document;
+
+    #[test]
+    fn the_most_a_field_takes_is_its_maxlength_only_where_text_is_typed() {
+        let with = |local: &str, attrs: &[(&str, &str)]| {
+            Element::html(
+                local,
+                attrs
+                    .iter()
+                    .map(|(name, value)| crate::node::Attribute::plain(name, value))
+                    .collect(),
+            )
+        };
+        assert_eq!(max_length(&with("input", &[("maxlength", "3")])), Some(3));
+        assert_eq!(
+            max_length(&with("textarea", &[("maxlength", " +7x")])),
+            Some(7)
+        );
+        assert_eq!(
+            max_length(&with("input", &[("type", "email"), ("maxlength", "5")])),
+            Some(5)
+        );
+        assert_eq!(max_length(&with("input", &[("maxlength", "-1")])), None);
+        assert_eq!(max_length(&with("input", &[("maxlength", "none")])), None);
+        assert_eq!(max_length(&with("input", &[])), None);
+        // Not typed into, so a `maxlength` on it says nothing.
+        assert_eq!(
+            max_length(&with("input", &[("type", "checkbox"), ("maxlength", "1")])),
+            None
+        );
+        assert_eq!(max_length(&with("div", &[("maxlength", "1")])), None);
+    }
 
     fn named(document: &Document, name: &str) -> NodeId {
         let Some(found) = document.descendants(document.root()).find(|node| {

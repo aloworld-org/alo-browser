@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can fill in and send a form in Chrome, the way a person does.**
+  On a page open in the machine's own Chrome, the browser now carries out an
+  agent's requests — put this text in that field, press that button — by
+  clicking and typing, never by running code inside the page, so the page
+  reacts exactly as it would to a person and runs its own checks. Before
+  anything is sent to Chrome, the browser decides by the same rules its own
+  engine uses whether the request may go ahead at all: a button that says it
+  is disabled, a name that matches two things, text too long for its field
+  — each is refused, by name, and the page never hears of it. A click is
+  made only if Chrome agrees the point being clicked really is the thing the
+  agent named; something lying over it means nothing is pressed. httpbin's
+  pizza order, placed through Chrome and through this browser's own engine
+  with the very same requests, comes out the same: three fields filled, a
+  size chosen, and the order sent to the same address by the same method.
+  Not yet: an agent reaching Chrome through the browser's socket, and being
+  told which field stopped a form Chrome would not send.
+
 - **A page opened in Chrome is read as the same tree an agent reads.** The
   browser can now open a saved page in a tab of the machine's own Chrome and
   read Chrome's description of it — its accessibility tree — as this

@@ -340,6 +340,7 @@ fn is_a_control(role: &str) -> bool {
             | "spinbutton"
             | "button"
             | "date"
+            | "Date"
             | "DateTime"
     ) || role.starts_with("Input")
 }
@@ -381,7 +382,9 @@ fn role_of(role: &str) -> Role {
         "option" => KnownRole::Option,
         "slider" => KnownRole::Slider,
         "spinbutton" => KnownRole::SpinButton,
-        "date" => KnownRole::Date,
+        // ARIA has no word for a date field; Chrome 155 names its own
+        // `Date`.
+        "date" | "Date" => KnownRole::Date,
         "progressbar" => KnownRole::ProgressBar,
         "meter" => KnownRole::Meter,
         "dialog" => KnownRole::Dialog,
@@ -655,6 +658,17 @@ mod tests {
         let snapshot = read(&nodes).unwrap();
         assert_eq!(snapshot.nodes()[1].role, Role::Declared("InputTime".into()));
         assert_eq!(outline(&nodes), ["document", r#"InputTime "When:""#]);
+    }
+
+    #[test]
+    fn chromes_own_word_for_a_date_field_is_ours() {
+        // Chrome 155 names a `date` field `Date`, an internal role.
+        let nodes = [
+            ax("1", "RootWebArea", "", &["2"]),
+            ax("2", "Date", "Day", &[]),
+        ];
+        assert_eq!(outline(&nodes), ["document", r#"date "Day""#]);
+        assert!(is_a_control("Date"));
     }
 
     #[test]

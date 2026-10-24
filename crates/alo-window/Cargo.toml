@@ -16,6 +16,8 @@ dejavu.workspace = true
 serde_json.workspace = true
 alo-agent = { path = "../alo-agent" }
 alo-box = { path = "../alo-box" }
+alo-css = { path = "../alo-css" }
+alo-dom = { path = "../alo-dom" }
 alo-layout = { path = "../alo-layout" }
 alo-net = { path = "../alo-net" }
 alo-paint = { path = "../alo-paint" }

@@ -36,6 +36,15 @@
 //! runs script may cancel text it is offered, and the host then answers
 //! [`Outcome::TextCanceled`] instead.
 //!
+//! # Whichever renderer drew the page
+//!
+//! A verb is decided against a [`Reading`](crate::reading::Reading), not
+//! against this engine's tree as such: Chrome, behind the same boundary
+//! (ADR 0058 § 4), is read into one too, so a refusal is reached by the same
+//! rule on a page either renderer drew. Carrying a decision out is the
+//! renderer's own — `apply` or the page's listeners here, Chrome's `Input`
+//! domain there.
+//!
 //! # Submitting a form
 //!
 //! There is no verb for it (ADR 0051 § 6). An agent submits as a keyboard
@@ -46,7 +55,7 @@
 //! [`Refusal::NotSubmittable`] when what stopped it is something this
 //! engine does not build yet.
 
-use crate::tree::{AgentNode, AgentTree};
+use crate::reading::{Candidate, Reading, is_called};
 use alo_box::{BoxId, KnownRole, Role};
 use alo_dom::constraint::Constraint;
 use alo_dom::submission::Method;
@@ -310,12 +319,14 @@ pub enum Refusal {
         /// The text that is not a date.
         text: String,
     },
-    /// It is a field of a kind whose text this engine does not hold yet —
-    /// a `time`, `month`, `week` or `datetime-local` field.
+    /// It is a field of a kind this browser cannot put text into yet: on
+    /// this engine's page a `time`, `month`, `week` or `datetime-local`
+    /// field, whose text nothing draws; on Chrome's, those and a `date`
+    /// field and a `<select>`, which typing's text does not reach (queue
+    /// item 621).
     ///
-    /// Refused by name rather than put in: nothing draws what one holds, and
-    /// an agent told it had put a time in would believe a person could see
-    /// it.
+    /// Refused by name rather than put in: an agent told it had put a time
+    /// in would believe a person could see it.
     Unbuilt {
         /// Which node.
         node: BoxId,
@@ -383,7 +394,7 @@ impl fmt::Display for Refusal {
             ),
             Refusal::Unbuilt { node, kind } => write!(
                 f,
-                "{node} is a {kind} field, and this engine does not hold what one holds yet",
+                "{node} is a {kind} field, and this browser cannot put text into one yet",
             ),
             Refusal::DoesNotScroll { node } => write!(f, "{node} has nothing to scroll"),
             Refusal::TooLong { node, most, length } => write!(
@@ -416,35 +427,46 @@ impl std::error::Error for Refusal {}
 
 /// Do something to a thing on the page.
 ///
+/// Decided against `page`, whichever renderer drew it ([`Reading`]): the
+/// same refusals, by the same rules, for this engine's tree and for
+/// Chrome's.
+///
 /// # Errors
 ///
 /// A [`Refusal`] saying why not — including when several things match, because
 /// acting on the wrong one is worse than acting on none.
-pub fn perform(tree: &AgentTree<'_>, target: &Target, verb: &Verb) -> Result<Outcome, Refusal> {
-    let node = find(tree, target)?;
+pub fn perform<R: Reading + ?Sized>(
+    page: &R,
+    target: &Target,
+    verb: &Verb,
+) -> Result<Outcome, Refusal> {
+    let node = find(page, target)?;
     match verb {
-        Verb::Activate => activate(tree, &node),
-        Verb::PutText(text) => put_text(tree, &node, text),
+        Verb::Activate => activate(page, &node),
+        Verb::PutText(text) => put_text(page, &node, text),
         Verb::Scroll(by) => scroll(&node, *by),
     }
 }
 
-/// The one thing a target names, or why it is not one thing.
-fn find<'a>(tree: &AgentTree<'a>, target: &Target) -> Result<AgentNode<'a>, Refusal> {
-    let matches: Vec<AgentNode<'a>> = match target {
-        Target::Named(name) => tree.named(name),
-        Target::OfRole(role) => tree.with_role(role),
-        Target::NamedOfRole { role, name } => tree
-            .named(name)
-            .into_iter()
-            .filter(|node| node.role() == *role)
-            .collect(),
-        Target::Node(id) => tree
-            .nodes()
-            .into_iter()
-            .filter(|node| node.id() == *id)
-            .collect(),
-    };
+/// The one thing `target` names on `page`, or why it is not one thing.
+///
+/// # Errors
+///
+/// [`Refusal::NotFound`] when nothing matches, and [`Refusal::Ambiguous`]
+/// when several things do.
+pub fn find<R: Reading + ?Sized>(page: &R, target: &Target) -> Result<Candidate, Refusal> {
+    let matches: Vec<Candidate> = page
+        .candidates()
+        .into_iter()
+        .filter(|node| match target {
+            Target::Named(name) => is_called(node.name.as_deref(), name),
+            Target::OfRole(role) => node.role == *role,
+            Target::NamedOfRole { role, name } => {
+                node.role == *role && is_called(node.name.as_deref(), name)
+            }
+            Target::Node(id) => node.id == *id,
+        })
+        .collect();
     match matches.len() {
         0 => Err(Refusal::NotFound {
             target: target.clone(),
@@ -454,7 +476,7 @@ fn find<'a>(tree: &AgentTree<'a>, target: &Target) -> Result<AgentNode<'a>, Refu
         }),
         _ => Err(Refusal::Ambiguous {
             target: target.clone(),
-            candidates: matches.iter().map(AgentNode::id).collect(),
+            candidates: matches.iter().map(|node| node.id).collect(),
         }),
     }
 }
@@ -483,29 +505,29 @@ fn is_operable(role: &Role) -> bool {
     )
 }
 
-fn activate(tree: &AgentTree<'_>, node: &AgentNode<'_>) -> Result<Outcome, Refusal> {
-    let role = node.role();
+fn activate<R: Reading + ?Sized>(page: &R, node: &Candidate) -> Result<Outcome, Refusal> {
+    let role = node.role.clone();
     if !is_operable(&role) {
         return Err(Refusal::NotOperable {
-            node: node.id(),
+            node: node.id,
             role,
         });
     }
-    if node.states().disabled {
-        return Err(Refusal::Disabled { node: node.id() });
+    if node.states.disabled {
+        return Err(Refusal::Disabled { node: node.id });
     }
     // A link goes somewhere, and where it goes is part of what happened.
     if role == Role::Known(KnownRole::Link)
-        && let Some(destination) = tree.href_of(node.id())
+        && let Some(destination) = page.href_of(node.id)
     {
         return Ok(Outcome::Followed {
-            node: node.id(),
+            node: node.id,
             to: destination,
         });
     }
     Ok(Outcome::Activated {
-        node: node.id(),
-        name: node.name(),
+        node: node.id,
+        name: node.name.clone(),
     })
 }
 
@@ -519,57 +541,64 @@ fn is_a_field(role: &Role) -> bool {
     )
 }
 
-fn put_text(tree: &AgentTree<'_>, node: &AgentNode<'_>, text: &str) -> Result<Outcome, Refusal> {
-    let role = node.role();
-    let states = node.states();
+fn put_text<R: Reading + ?Sized>(
+    page: &R,
+    node: &Candidate,
+    text: &str,
+) -> Result<Outcome, Refusal> {
+    let role = node.role.clone();
+    let states = node.states;
     // Either the role says it is a field, or the box says text goes into it.
     // The two come apart on `<input type=password>`, which ARIA deliberately
     // gives no role so that a screen reader does not read a password back —
     // and which a browser must nonetheless be able to type into.
     if !is_a_field(&role) && !states.takes_text {
         return Err(Refusal::NotAField {
-            node: node.id(),
+            node: node.id,
             role,
         });
     }
     if states.disabled {
-        return Err(Refusal::Disabled { node: node.id() });
+        return Err(Refusal::Disabled { node: node.id });
     }
     if states.read_only {
-        return Err(Refusal::ReadOnly { node: node.id() });
-    }
-    // A field nothing draws the text of is not told it took some.
-    if let Some(kind) = tree.unbuilt_field(node.id()) {
-        return Err(Refusal::Unbuilt {
-            node: node.id(),
-            kind: kind.to_owned(),
-        });
+        return Err(Refusal::ReadOnly { node: node.id });
     }
     // A date field holds a valid date string or nothing (ADR 0042 § 4).
-    // The empty text is nothing, which is how a date is cleared.
-    if tree.is_a_date_field(node.id())
+    // The empty text is nothing, which is how a date is cleared. Asked
+    // first: a text that is not a date is the agent's to correct whether or
+    // not this browser can put a date in, which on Chrome's page it cannot
+    // yet (`Refusal::Unbuilt`).
+    if page.is_a_date_field(node.id)
         && !text.is_empty()
         && !alo_dom::date::is_valid_date_string(text)
     {
         return Err(Refusal::NotADate {
-            node: node.id(),
+            node: node.id,
             text: text.to_owned(),
+        });
+    }
+    // A field nothing draws the text of is not told it took some.
+    if let Some(kind) = page.unbuilt_field(node.id) {
+        return Err(Refusal::Unbuilt {
+            node: node.id,
+            kind: kind.to_owned(),
         });
     }
     // A person cannot type past `maxlength`, and an agent is not let past
     // it either, rather than told it put in text that was cut (ADR 0051 § 3).
-    if let Some(most) = tree.max_length(node.id()) {
+    if let Some(most) = page.max_length(node.id) {
         let length = length_in_a_field(text);
         if length > most {
             return Err(Refusal::TooLong {
-                node: node.id(),
+                node: node.id,
                 most,
                 length,
             });
         }
     }
     Ok(Outcome::TextPut {
-        node: node.id(),
+        node: node.id,
         text: text.to_owned(),
     })
 }
@@ -583,19 +612,17 @@ fn length_in_a_field(text: &str) -> usize {
         .count()
 }
 
-fn scroll(node: &AgentNode<'_>, by: ScrollBy) -> Result<Outcome, Refusal> {
-    if !node.scrolls() {
-        return Err(Refusal::DoesNotScroll { node: node.id() });
+fn scroll(node: &Candidate, by: ScrollBy) -> Result<Outcome, Refusal> {
+    if !node.scrolls {
+        return Err(Refusal::DoesNotScroll { node: node.id });
     }
-    Ok(Outcome::Scrolled {
-        node: node.id(),
-        by,
-    })
+    Ok(Outcome::Scrolled { node: node.id, by })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_box::States;
 
     #[test]
     fn a_target_says_what_it_is_asking_for() {
@@ -707,7 +734,7 @@ mod tests {
         };
         assert_eq!(
             unbuilt.to_string(),
-            "box#4 is a time field, and this engine does not hold what one holds yet",
+            "box#4 is a time field, and this browser cannot put text into one yet",
         );
 
         let not_a_date = Refusal::NotADate {
@@ -782,6 +809,148 @@ mod tests {
         assert_eq!(length_in_a_field("a\rb"), 3);
         assert_eq!(length_in_a_field("é"), 1);
         assert_eq!(length_in_a_field("😀"), 2, "two UTF-16 code units");
+    }
+
+    /// A page described rather than drawn, as another renderer's reading
+    /// arrives: each node, and the facts about the fields and links in it.
+    struct Described {
+        nodes: Vec<Candidate>,
+        dates: Vec<BoxId>,
+        unbuilt: Vec<BoxId>,
+        most: Vec<(BoxId, usize)>,
+        links: Vec<(BoxId, String)>,
+    }
+
+    impl Reading for Described {
+        fn candidates(&self) -> Vec<Candidate> {
+            self.nodes.clone()
+        }
+        fn href_of(&self, id: BoxId) -> Option<String> {
+            self.links
+                .iter()
+                .find(|(link, _)| *link == id)
+                .map(|(_, to)| to.clone())
+        }
+        fn is_a_date_field(&self, id: BoxId) -> bool {
+            self.dates.contains(&id)
+        }
+        fn unbuilt_field(&self, id: BoxId) -> Option<&'static str> {
+            self.unbuilt.contains(&id).then_some("time")
+        }
+        fn max_length(&self, id: BoxId) -> Option<usize> {
+            self.most
+                .iter()
+                .find(|(field, _)| *field == id)
+                .map(|(_, most)| *most)
+        }
+    }
+
+    fn described() -> Described {
+        let id = BoxId::from_index_for_tests;
+        let node = |at: usize, role: KnownRole, name: &str, states: States| Candidate {
+            id: id(at),
+            role: Role::Known(role),
+            name: Some(name.to_owned()),
+            states,
+            scrolls: at == 9,
+        };
+        let field = States {
+            takes_text: true,
+            ..States::default()
+        };
+        Described {
+            nodes: vec![
+                node(1, KnownRole::Button, "Twice", States::default()),
+                node(2, KnownRole::Button, "Twice", States::default()),
+                node(3, KnownRole::Paragraph, "Words", States::default()),
+                node(
+                    4,
+                    KnownRole::Button,
+                    "Off",
+                    States {
+                        disabled: true,
+                        ..States::default()
+                    },
+                ),
+                node(
+                    5,
+                    KnownRole::TextBox,
+                    "Fixed",
+                    States {
+                        read_only: true,
+                        ..field
+                    },
+                ),
+                node(6, KnownRole::Date, "Day", field),
+                node(7, KnownRole::TextBox, "When", field),
+                node(8, KnownRole::TextBox, "Short", field),
+                node(9, KnownRole::Region, "Long", States::default()),
+                node(10, KnownRole::Link, "Next", States::default()),
+            ],
+            dates: vec![id(6)],
+            unbuilt: vec![id(7)],
+            most: vec![(id(8), 3)],
+            links: vec![(id(10), "/next".to_owned())],
+        }
+    }
+
+    #[test]
+    fn every_refusal_is_reached_on_a_page_another_renderer_described() {
+        let page = described();
+        let named = |name: &str| Target::Named(name.to_owned());
+        let put = |text: &str| Verb::PutText(text.to_owned());
+        let kind = |target: Target, verb: Verb| match perform(&page, &target, &verb) {
+            Ok(outcome) => format!("done: {outcome}"),
+            Err(refusal) => format!("{refusal:?}")
+                .split([' ', '{'])
+                .next()
+                .unwrap_or_default()
+                .to_owned(),
+        };
+        assert_eq!(kind(named("Nothing"), Verb::Activate), "NotFound");
+        assert_eq!(kind(named("twice"), Verb::Activate), "Ambiguous");
+        assert_eq!(kind(named("Words"), Verb::Activate), "NotOperable");
+        assert_eq!(kind(named("Off"), Verb::Activate), "Disabled");
+        assert_eq!(kind(named("Words"), put("x")), "NotAField");
+        assert_eq!(kind(named("Fixed"), put("x")), "ReadOnly");
+        assert_eq!(kind(named("Day"), put("12/10/2026")), "NotADate");
+        assert_eq!(kind(named("When"), put("12:00")), "Unbuilt");
+        assert_eq!(kind(named("Short"), put("four")), "TooLong");
+        assert_eq!(
+            kind(named("Words"), Verb::Scroll(ScrollBy::ToEnd)),
+            "DoesNotScroll"
+        );
+        // And what is not refused is decided as it is on this engine's page.
+        assert_eq!(
+            kind(named("Next"), Verb::Activate),
+            "done: followed box#10 to \"/next\""
+        );
+        assert_eq!(
+            kind(named("Day"), put("2026-10-12")),
+            "done: put \"2026-10-12\" into box#6"
+        );
+        assert_eq!(
+            kind(named("Short"), put("abc")),
+            "done: put \"abc\" into box#8"
+        );
+        assert_eq!(
+            kind(named("Long"), Verb::Scroll(ScrollBy::ToEnd)),
+            "done: scrolled box#9 to the end"
+        );
+        assert_eq!(
+            kind(
+                Target::NamedOfRole {
+                    role: Role::Known(KnownRole::Button),
+                    name: "Twice".to_owned(),
+                },
+                Verb::Activate
+            ),
+            "Ambiguous"
+        );
+        assert_eq!(
+            kind(Target::Node(BoxId::from_index_for_tests(2)), Verb::Activate),
+            "done: activated box#2 \"Twice\""
+        );
     }
 
     #[test]
