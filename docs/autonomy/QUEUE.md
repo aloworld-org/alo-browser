@@ -43,7 +43,9 @@ ADR 0058 — and nothing else does:
 | ✓ | **131** | the tree, the verbs and the refusals, on a real external page |
 | ✓ | **619** | Chrome spawned and spoken to over a pipe |
 | ✓ | **620** | Chrome's tree, read as ours |
-| | **629** | a page from the network through Chrome, under the grants |
+| | **629** | a page from the network through Chrome, under the grants — **decided, ADR 0060** |
+| | **633** | a page from the network opened in Chrome, every request held to our rules |
+| | **634** | every request of a page in Chrome in the record |
 | ✓ | **621** | the verbs, through Chrome |
 | | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
@@ -15939,6 +15941,28 @@ What stage 2's exit gate actually measures: a person using it.
   asked to go there, and the decision about whose network a Chrome request
   uses is written down — in an ADR if it is a decision rather than a
   consequence of 0058.
+  ***Decided (iteration 373): ADR 0060.*** Measured against Chrome 155 with
+  a local server of the probe's own: on the tab's session alone a service
+  worker's script and its fetch, a cross-site frame's fetch and a WebSocket
+  reach the network unpaused; with every target held (`Target.setAutoAttach`,
+  waiting for the debugger, on each attached target too) and `Fetch.enable`
+  sent to each, **only the WebSocket** does, and no CDP command stops it
+  (`Network.setBlockedURLs` with `*` blocks everything else and not it) —
+  `Network.webSocketCreated` tells of it before its handshake. A response
+  fulfilled through `Fetch` still fills Chrome's own cookie jar and is still
+  checked by Chrome's CORS, and is one message holding the whole body; a
+  paused request carries Chrome's cookies; each hop of a redirect is paused
+  again. So **Chrome's own network carries the bytes**, in the profile
+  `chrome.rs` makes and removes, and **the browser process decides every
+  request before it leaves**: every target held and paused, each request
+  judged by our rules and continued or failed, recorded with its cause here,
+  a WebSocket recorded as not decided; an agent naming a site outside its
+  grants is `NotGranted` before any command is written, and a page that goes
+  elsewhere on its own is the person's gate's, not the agent's (630). Trust,
+  ADR 0007's partitioning, ADR 0008's resolver, ADR 0011's cache and ADR
+  0030's name are set aside on this path, in a table in the ADR, and owed in
+  words where a person can read them (622). *Closes when* 633 and 634 are
+  done.
 
 - [ ] **630. The agent's socket reaches a tab in Chrome, and the record says
   so.** *ADR 0058 § 4, 0055.* **Cut from 621**, which carries the verbs out on
@@ -15982,6 +16006,42 @@ What stage 2's exit gate actually measures: a person using it.
   `<select>`. *Depends on 621. Closes when:* a valid date put into a date
   field through Chrome reads back as that date, and an option chosen by its
   words is the one selected — or the refusal stays and this item says why.
+
+- [ ] **633. A page from the network opens in Chrome, every request held to
+  the browser process's rules.** *ADR 0060 §§ 2–3, cut from 629.* A tab of
+  `chrome_tab.rs` opened at an address rather than with bytes: every target
+  of it — frames, dedicated and service workers — held by auto-attach until
+  `Fetch.enable` reaches it, and a target that cannot be held closes the tab
+  as an error by name; every paused request parsed as untrusted and
+  continued, or refused with `Fetch.failRequest` when its scheme is one a page
+  may not send a tab to (ADR 0020); an agent's address outside its
+  `AgentSites` refused as `NotGranted` by site **before any command is
+  written**. *Depends on 620, 497. Closes when:* a page served by a local
+  server of the test's own opens through Chrome and is read; its cross-site
+  frame's, worker's and service worker's requests are each seen paused before
+  the server answers them (the server's own log, asserted); a link to a
+  refused scheme is refused by name; an off-site address under a restriction
+  writes nothing to the pipe (asserted on the commands sent); and the
+  malformed shapes of every new reader are refused, not panicked on.
+
+- [ ] **634. Every request of a page in Chrome is in the record.** *ADR 0060
+  § 2, ADR 0012, cut from 629.* Each request `633` lets go or refuses becomes
+  an `alo_net::activity` entry with the cause this process assigns — the
+  person, the document, the agent action — never one the page or Chrome
+  names; each hop of a navigation is a line of its own; a WebSocket told of
+  by `Network.webSocketCreated` is a line saying it was opened and not
+  decided. *Depends on 633. Closes when:* the record of a local page with a
+  redirect, a sub-resource and a WebSocket is read back line by line, and an
+  agent's `activate` that navigates names the agent action as its cause.
+
+- [ ] **635. Whether Chrome keeps the machine's resolver.** *ADR 0060 § 4,
+  ADR 0008.* Chrome may upgrade the system's resolver to encrypted DNS on its
+  own when it recognises the provider, which is the silent replacement ADR
+  0008 forbids. Not measured. *Depends on 619. Closes when:* what Chrome 155
+  on this machine resolves through is measured — a resolver of the test's
+  own, or Chrome's own `chrome://net-internals` state read over CDP — and,
+  if it replaces it, `chrome.rs` starts it so that it does not, with a test;
+  or this item closes saying it does not, and how that was known.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -146,7 +146,12 @@ about this project (ADR 0058 § 6).
   rules before Chrome is asked anything and carried out as a real click or
   real typing, httpbin's order coming to the same outcomes through both
   renderers (621).
-- **Owed:** a page from the network through Chrome, under the grants (629);
+- **Decided:** whose network a page in Chrome uses — Chrome's own, with
+  every request held and judged by the browser process before it leaves and
+  recorded here, an agent's off-site address refused before Chrome hears of
+  it, and the network promises that do not hold there named (ADR 0060).
+- **Owed:** a page from the network through Chrome, under the grants (629,
+  built as 633 and 634);
   the agent's socket reaching a tab in Chrome, its grants and record naming
   the renderer (630); a form Chrome would not send, answered as the engine
   answers it (631); which renderer is in use, where a person can read it (622); the
@@ -648,7 +653,12 @@ unreachable without it.
       comes to the same five outcomes through Chrome as through the engine;
       and a tab a frozen page opens is held before it loads anything and
       closed, so a click cannot take a frozen page to the network
-      · Owed: a page from the network through Chrome (629), the socket
+      · Decided: Chrome's own network carries a page's requests, each held
+      and judged by the browser process before it leaves, and trust, cookie
+      partitioning, the resolver, the cache and the browser's name are set
+      aside on this path by name (ADR 0060)
+      · Owed: a page from the network through Chrome (629, as 633 and 634;
+      the resolver measured as 635), the socket
       reaching a tab in Chrome with the record naming its renderer (630), a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), what a person looks at (627), and saying which renderer is in use where a

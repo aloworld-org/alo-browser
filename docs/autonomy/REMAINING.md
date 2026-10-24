@@ -2759,3 +2759,17 @@ it loads anything. The socket reaching a tab in Chrome is cut as 630, a
 form Chrome would not send as 631, a date and a choice through Chrome as
 632. 301 queue items are open (621 closed; 630, 631 and 632 added). The
 next unused queue number is 633 and the next unused ADR 0060.
+
+Iteration 373 decided queue item 629 as ADR 0060, measured against Chrome
+155 with a local server: Chrome's own network carries a page's requests —
+`alo-net` could not carry its WebSockets, does not own the cookie jar a
+fulfilled response fills, and cannot stream into Chrome — and the browser
+process holds every target of a tab until its requests are paused, judges
+and records each before it leaves, refuses an agent's off-site address
+before any command, and records a WebSocket as not decided. Trust, ADR
+0007's partitioning, ADR 0008's resolver, ADR 0011's cache and ADR 0030's
+name are set aside on that path by name. Cut as 633 (the tab from the
+network), 634 (its record) and 635 (whether Chrome keeps the machine's
+resolver). 304 queue items are open (633, 634 and 635 added; 629 stays open
+until 633 and 634). The next unused queue number is 636 and the next unused
+ADR 0061.

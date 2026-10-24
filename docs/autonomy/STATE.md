@@ -37835,3 +37835,93 @@ path stands today" moves 621 to built. Not ticked.
 301 queue items are open (621 closed; 630, 631 and 632 added). The next
 unused queue number is **633** and the next ADR is **0060**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 373 — queue item 629 decided: ADR 0060, Chrome's own network carries a request and the browser process decides it before it leaves
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (§ 4 of stage 2:
+a decision is its own iteration), `ROADMAP.md` (the two paths, where the
+product path stands, the ADR 0058 line), iteration 372's entry,
+`REMAINING.md`'s continuation notes, queue items 619–632 and the product
+path table, item 497, ADR 0058 in full, the one-line decisions of ADRs
+0005, 0007, 0008, 0011, 0012, 0020, 0030, 0032, 0052 and 0055, the ADR
+0058 feature line in `docs/features.md`, `alo-window`'s `chrome_tab.rs`,
+`agent_sites.rs`, `chrome_wire.rs` and `chrome.rs`'s arguments, and how
+iteration 330 decided an item as an ADR. No `AGENTS.md` exists here.
+
+**Why 629.** The first open item on the product path whose dependencies
+(620, 497) are done, named next by iteration 372. Its closing condition
+asks for the decision about whose network a Chrome request uses, *in an
+ADR if it is a decision rather than a consequence of 0058*. It is one: ADR
+0005's network in the browser process and ADRs 0007, 0008, 0011, 0012 and
+0030 are promises `alo-net` keeps, and ADR 0058 § 4 is silent on the bytes.
+So per LOOP.md the decision is this iteration, before any code depends on
+it.
+
+**Measured** (Python over `--remote-debugging-pipe`, Chrome
+155.0.8059.86, scratchpad `p629/`, a local server logging every request):
+on the tab's session alone a service worker's script and its fetch, a
+cross-site frame's fetch and a WebSocket reach the server unpaused; with
+every target held by auto-attach (waiting for the debugger, recursively)
+and `Fetch.enable` sent to each, only the WebSocket does; no
+`Network.setBlockedURLs` pattern stops it (`*` blocked everything else),
+though `Network.webSocketCreated` tells of it before its handshake; a
+paused request carries Chrome's cookies; a fulfilled `Set-Cookie` enters
+Chrome's jar and is sent on later requests; Chrome's CORS refuses a
+cross-site response we fulfilled; a fulfilment is one whole-body message;
+each hop of a redirect is paused again with `redirectedRequestId`;
+Chrome's user agent is `HeadlessChrome/155.0.0.0`.
+
+**Decided.** ADR 0060: Chrome's own network carries the bytes, in the
+profile `chrome.rs` makes and removes; the browser process holds every
+target of a tab until its requests are paused, judges each (a scheme ADR
+0020 refuses is failed by name), records each with its cause on our side,
+and records a WebSocket as not decided; an agent's address outside its
+sites is `NotGranted` before any command is written, and a page that goes
+elsewhere on its own is left to the person's gate (ADR 0052, and 630).
+Trust, ADR 0007's partitioning, ADR 0008's resolver, ADR 0011's cache,
+ADR 0030's name and `alo-net`'s CORS are set aside on that path, in a
+table. Rejected: `alo-net` fulfilling every response (no WebSocket, a jar
+it does not own, no streaming, a CORS that decides nothing), `alo-net`
+for documents only, Chrome's network unseen, refusing a page with a
+WebSocket.
+
+**Gate, mechanical.** `scripts/gate.sh` started in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background, and the
+next call waited on the log with a foreground until-loop and read it in
+the same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, 5,135
+tests run, 5,135 passed, no `FAILED` or `panicked` line. Only this entry
+came after it, then the commit.
+
+**Gate, manual.** No code changed: no layout assertion, reference render
+or file responsibility applies. The ADR's numbers are measurements, each
+with its method, the probes described well enough to rebuild. Not claimed:
+whether Chrome replaces the machine's resolver (not measured, owed as
+635), and nothing about speed. No `unsafe`, no verb takes a coordinate.
+`alo-os` and `alo-workplace` were not touched. Nothing was pushed.
+
+**Queue.** 629 stays open with a *Decided* paragraph, closing when 633 and
+634 are done. Added: **633** (a page from the network in Chrome, every
+target held and every request judged, an off-site agent address refused
+before any command), **634** (every request of a Chrome tab in the
+record, a WebSocket as not decided) and **635** (whether Chrome keeps the
+machine's resolver). The product path table marks 629 decided and lists
+633 and 634.
+
+**Roadmap.** "Where the product path stands today" gains a *Decided* line
+for ADR 0060 and its Owed names 633 and 634; the ADR 0058 line gains a
+`· Decided:` clause and its `· Owed:` names 633, 634 and 635. Not ticked.
+`docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Unresolved obligations.**
+- Nothing of ADR 0060 is built; 633 is next on the product path, then 634,
+  then 630 (which depends on 629).
+- A WebSocket on a page in Chrome cannot be refused; ADR 0060 names it and
+  the escalation (ADR 0058 § 5) rather than claiming around it.
+- 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 627 needs an ADR.
+- No claim about speed is made.
+
+304 queue items are open (633, 634 and 635 added; 629 open until 633 and
+634). The next unused queue number is **636** and the next ADR is
+**0061**. This is one iteration, not a finished queue or roadmap.

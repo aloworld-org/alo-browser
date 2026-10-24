@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: a page shown through Chrome uses Chrome's own network, and
+  the browser checks every request before it goes.** Measured against
+  Chrome 155: this browser's own networking cannot carry everything such a
+  page needs — a live WebSocket connection never passes through where it
+  could be handed over, and Chrome keeps its own cookies even for responses
+  given to it — so Chrome carries the bytes. What does not move to Chrome is
+  the deciding: every frame and background worker of the page is held until
+  its requests can be paused, each request is checked and recorded by this
+  browser before it is let through, and an agent kept to certain sites is
+  refused any other before Chrome is told anything. On such a page the
+  certificates trusted, the cookie store, name lookups, the cache and the
+  name the browser gives itself are Chrome's, and the browser will say so.
+  Nothing is built yet; ADR 0060.
+
 - **An agent can fill in and send a form in Chrome, the way a person does.**
   On a page open in the machine's own Chrome, the browser now carries out an
   agent's requests — put this text in that field, press that button — by
