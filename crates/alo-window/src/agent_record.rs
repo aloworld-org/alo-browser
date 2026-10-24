@@ -17,7 +17,7 @@
 //!
 //! Which caller asked, at which tab, on which site, and what came of it: how
 //! much of which
-//! document was read, or the verb, what it was aimed at, the action it was
+//! document was read, which renderer it was told draws the tab, or the verb, what it was aimed at, the action it was
 //! given and its outcome or refusal — *what it read and what it changed*,
 //! which is ADR 0052's agent gate. A request refused before it reached a tab
 //! is written too, because *what did it try* is a question this answers.
@@ -70,6 +70,9 @@ pub enum Did {
         /// How many nodes it was handed.
         nodes: usize,
     },
+    /// It asked which renderer draws a tab, and was told the one in
+    /// [`Entry::rendered_by`].
+    AskedRenderer,
     /// It asked for a verb, which the browser accepted under `action`.
     Acted {
         /// The action everything that follows from the verb is attributed to.
@@ -120,6 +123,7 @@ impl fmt::Display for Entry {
                 write!(f, ": read {nodes} nodes")?;
                 document.map_or(Ok(()), |document| write!(f, " of {document}"))
             }
+            Did::AskedRenderer => f.write_str(": asked which renderer draws it"),
             Did::Acted {
                 action,
                 target,
@@ -240,6 +244,14 @@ mod tests {
         assert_eq!(
             in_chrome.to_string(),
             "agent#1 at https://www.example.com/a on https://example.com: read 4 nodes; drawn by Chrome/155.0.8059.86, driven by this browser"
+        );
+        let asked = Entry {
+            did: Did::AskedRenderer,
+            ..in_chrome
+        };
+        assert_eq!(
+            asked.to_string(),
+            "agent#1 at https://www.example.com/a on https://example.com: asked which renderer draws it; drawn by Chrome/155.0.8059.86, driven by this browser"
         );
     }
 }

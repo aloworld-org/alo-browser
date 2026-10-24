@@ -124,6 +124,25 @@ The answer is `{"answer":"tree","id":…,"tab":…,"tree":NODE,"v":1}`. `tree` i
 A length is written as the shortest number that reads back as the same 32-bit
 float: `23.2`, not `23.200000762939453`.
 
+### `renderer`: which renderer draws a tab
+
+    {"v":1,"id":4,"ask":"renderer","tab":"https://httpbin.org/forms/post"}
+    {"answer":"renderer","id":4,"renderer":{"kind":"Chrome","product":"Chrome/155.0.8059.86"},
+     "said":"Chrome/155.0.8059.86, driven by this browser","tab":"https://httpbin.org/forms/post","v":1}
+
+(The answer is shown on two lines here. On the wire it is one.)
+
+ADR 0058 § 6: *somewhere a person can read, the product says what is
+rendering.* This is that place while the browser runs, for a person with
+`alo-ask` as much as for an agent (queue item 622). `renderer`'s `kind` is
+`ThisEngine` or `Chrome`, and a Chrome carries `product`: its product and
+version as it gives them itself. `said` is the same in English.
+
+It is answered by the browser process from what it started, never by the
+page or its renderer, so a tab with nothing loaded in it is answered all the
+same. The tab is named, found and kept to the sites exactly as for `read`,
+with the same refusals before any tab is looked at.
+
 ### `act`: a verb on something named
 
     {"v":1,"id":3,"ask":"act","tab":"https://httpbin.org/forms/post",

@@ -24,6 +24,7 @@
 //! request may nest and how deeply a tree may be answered are all here, and
 //! each is refused rather than truncated.
 
+use crate::pages::RenderedBy;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_renderer::Snapshot;
 use alo_renderer::site::Site;
@@ -84,6 +85,13 @@ pub enum Ask {
         /// The tab's address, as the caller wrote it.
         tab: String,
     },
+    /// Which renderer draws the tab at `tab` (ADR 0058 § 6, queue item
+    /// 622): a person's question as much as an agent's, asked with
+    /// `alo-ask`.
+    Renderer {
+        /// The tab's address, as the caller wrote it.
+        tab: String,
+    },
     /// A verb on something in the page in the tab at `tab`, named rather
     /// than pointed at (ADR 0002).
     Act {
@@ -101,7 +109,7 @@ impl Ask {
     pub fn tab(&self) -> Option<&str> {
         match self {
             Ask::Tabs => None,
-            Ask::Read { tab } | Ask::Act { tab, .. } => Some(tab),
+            Ask::Read { tab } | Ask::Renderer { tab } | Ask::Act { tab, .. } => Some(tab),
         }
     }
 }
@@ -117,6 +125,14 @@ pub enum Answer {
         tab: String,
         /// The tree.
         snapshot: Box<Snapshot>,
+    },
+    /// The renderer that draws a tab, as the browser process knows it —
+    /// never as the page says.
+    Renderer {
+        /// The tab, as the caller named it.
+        tab: String,
+        /// Which renderer draws it.
+        rendered_by: RenderedBy,
     },
     /// A verb ran, and this is what it did.
     Done {
@@ -412,6 +428,13 @@ mod tests {
         assert_eq!(Ask::Tabs.tab(), None);
         assert_eq!(
             Ask::Read {
+                tab: "about:blank".to_owned()
+            }
+            .tab(),
+            Some("about:blank")
+        );
+        assert_eq!(
+            Ask::Renderer {
                 tab: "about:blank".to_owned()
             }
             .tab(),

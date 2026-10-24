@@ -570,6 +570,7 @@ fn as_asked(entry: &alo_window::agent_record::Entry) -> String {
     let did = match &entry.did {
         Did::Listed { tabs } => format!("listed {tabs}"),
         Did::Read { document, .. } => format!("read {document:?}"),
+        Did::AskedRenderer => "asked which renderer draws it".to_owned(),
         Did::Acted {
             action,
             document,
@@ -630,5 +631,30 @@ fn the_record_of_the_order_differs_in_the_renderer_it_names() {
             "agent#0 at {FORM} on https://httpbin.org: action#0 "
         )) && line.contains("; drawn by Chrome/"),
         "{line}"
+    );
+}
+
+#[test]
+fn a_person_asking_which_renderer_draws_the_form_is_told_this_engine() {
+    let lines = [format!(
+        r#"{{"v":1,"id":1,"ask":"renderer","tab":"{FORM}"}}"#
+    )];
+    let (answers, _, records) = session("renderer", &lines).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(
+        answers,
+        [format!(
+            r#"{{"answer":"renderer","id":1,"renderer":{{"kind":"ThisEngine"}},"said":"this browser's engine","tab":"{FORM}","v":1}}"#
+        )],
+        "queue item 622: the browser process says which renderer draws the tab"
+    );
+    let entries: Vec<_> = records.agents.entries().cloned().collect();
+    assert_eq!(entries.len(), 1, "{entries:#?}");
+    assert!(
+        entries
+            .first()
+            .is_some_and(|entry| entry.did == Did::AskedRenderer
+                && entry.rendered_by == Some(RenderedBy::ThisEngine)
+                && entry.caller == Caller(0)),
+        "{entries:#?}"
     );
 }

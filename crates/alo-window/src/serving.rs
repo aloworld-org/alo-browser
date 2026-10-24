@@ -103,6 +103,26 @@ pub fn serve<P: Pages>(
                 }
             }
         }
+        Ok(Ask::Renderer { tab }) => {
+            let (found, at) = reached(pages, sites, &tab);
+            site = at;
+            match found {
+                Err(refused) => refusal(refused),
+                Ok(id) => {
+                    // The browser process's own knowledge, never the page's
+                    // word: no renderer is asked, so a tab with nothing
+                    // loaded, or one whose renderer has not started, is
+                    // answered all the same (ADR 0058 § 6, queue item 622).
+                    let drawn = pages.rendered_by(id);
+                    rendered_by = Some(drawn.clone());
+                    let answer = Answer::Renderer {
+                        tab,
+                        rendered_by: drawn,
+                    };
+                    (answer, Did::AskedRenderer, None)
+                }
+            }
+        }
         Ok(Ask::Act { tab, target, verb }) => {
             let (found, at) = reached(pages, sites, &tab);
             site = at;
@@ -572,6 +592,9 @@ mod tests {
             Ask::Read {
                 tab: "https://example.org/".to_owned(),
             },
+            Ask::Renderer {
+                tab: "https://example.org/".to_owned(),
+            },
             Ask::Act {
                 tab: "https://example.org/".to_owned(),
                 target: Target::Named("Buy".to_owned()),
@@ -627,6 +650,60 @@ mod tests {
             served.answer,
             Answer::Refused(Refused::NotGranted { .. })
         ));
+    }
+
+    #[test]
+    fn the_renderer_of_a_tab_is_answered_without_its_renderer_being_asked() {
+        let (mut tabs, mut record) = (tabs(), AgentRecord::new());
+        tabs.open(url("https://example.com/"));
+        let tab = "https://EXAMPLE.com".to_owned();
+        assert_eq!(
+            served(&mut tabs, &mut record, Ask::Renderer { tab: tab.clone() }),
+            Answer::Renderer {
+                tab: tab.clone(),
+                rendered_by: RenderedBy::ThisEngine
+            },
+            "nothing is loaded and no renderer could start, and it is answered"
+        );
+        assert_eq!(
+            record.entries().next(),
+            Some(&Entry {
+                caller: Caller(0),
+                tab: Some(tab),
+                site: Some(Site::of(&url("https://example.com/"))),
+                rendered_by: Some(RenderedBy::ThisEngine),
+                did: Did::AskedRenderer,
+            })
+        );
+
+        let mut pages = Moving {
+            at: url("https://example.com/"),
+            then: None,
+            looked: 0,
+        };
+        let renderer = Ask::Renderer {
+            tab: "https://example.com/".to_owned(),
+        };
+        let served = serve(&mut pages, &mut record, &kept(), Caller(1), Ok(renderer));
+        assert_eq!(
+            served.answer,
+            Answer::Renderer {
+                tab: "https://example.com/".to_owned(),
+                rendered_by: RenderedBy::Chrome {
+                    product: "Chrome/0".to_owned()
+                }
+            }
+        );
+        assert_eq!(served.acted, None, "nothing ran, so nothing is drawn again");
+        assert_eq!(pages.looked, 1, "caught up, and the page never read");
+        let renderer = Ask::Renderer {
+            tab: "https://example.net/".to_owned(),
+        };
+        let served = serve(&mut pages, &mut record, &kept(), Caller(1), Ok(renderer));
+        assert!(
+            matches!(served.answer, Answer::Refused(Refused::NotGranted { .. })),
+            "kept to its sites, as a read is"
+        );
     }
 
     #[test]

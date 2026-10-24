@@ -51,7 +51,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | ✓ | **627** | what a person looks at — Chrome's own window, sized and placed by us (ADR 0061) |
 | ✓ | **641** | the program told to use Chrome — `alo --chrome`, run from a terminal |
-| | **622** | which renderer is in use, where a person can read it |
+| ✓ | **622** | which renderer is in use, where a person can read it — the socket's `renderer` ask, with `alo-ask` |
 | | **623** | the agent's sentence, where a person can read it |
 | | **624** | the acted-on box, marked while it is acted on |
 | | **625** | a refusal shown to the person, not only answered to the agent |
@@ -15844,13 +15844,29 @@ What stage 2's exit gate actually measures: a person using it.
   a tab in Chrome, its grants checked first and its record naming the
   renderer.
 
-- [ ] **622. Which renderer is in use, where a person can read it.** *ADR 0058
+- [x] **622. Which renderer is in use, where a person can read it.** *ADR 0058
   § 6.* The product says what is rendering — in `docs/features.md`, in
   `--version`, and anywhere a claim is made. **A product whose engine is a
   secret is a product whose claims cannot be checked**, and nothing else here
   is worth anything if that one is not kept. *Closes when:* a person can ask
   the running browser which renderer it is using and be told, and the roadmap
   and features list say it too.
+  ***Done (iteration 383).*** A new ask on the agent socket,
+  `{"v":1,"ask":"renderer","tab":ADDRESS}`, which `alo-ask` sends for a
+  person at a terminal: answered by the browser process from what it
+  started — `{"kind":"ThisEngine"}`, or `{"kind":"Chrome","product":…}` by
+  the version Chrome gives itself — with `said` in English, never asked of
+  the page or its renderer, so a tab with nothing loaded is answered too.
+  The tab is found, kept to the sites and refused exactly as a `read` is,
+  and the record writes `Did::AskedRenderer` with the renderer named.
+  Asserted end to end by `alo --chrome` asked through `alo-ask` (the answer
+  compared byte for byte with Chrome's own `Browser.getVersion`), by the
+  engine's conductor asked the same over its socket, and in unit tests of
+  the wire, the serving and the record. **Not built, and not owed:** `alo
+  --version` was named in this item's text and not in what closes it; the
+  program has no `--version`, and a version of a program says nothing about
+  which renderer a *running* browser has. The terminal goes on saying it as
+  the program starts (641).
 
 - [ ] **623. ★ A person watching can read what the agent is doing.** *ADR
   0052 § 1.* Every answer already carries `said` — `put "Ada Lovelace" into

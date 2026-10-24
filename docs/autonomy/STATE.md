@@ -39055,3 +39055,82 @@ watch says what is decided and what may still send it back. Not ticked —
 304 queue items are open (none closed or added; counted as `- [ ] **`
 lines). The next unused queue number is **645** and the next ADR is
 **0063**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 383 — queue item 622: the running browser asked which renderer draws a tab
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path and the stage 2 Chrome line), iteration 382's entry, `REMAINING.md`'s
+continuation order, the queue's product-path table and items 622–625, 642
+and 643; ADR 0058 § 6 (*somewhere a person can read, the product says what
+is rendering*) and ADR 0055 (the socket, additive within version 1);
+`docs/contracts/agent-socket.md`; `asking.rs`, `protocol.rs`, `serving.rs`,
+`pages.rs`, `agent_record.rs`, `bin/alo.rs`, `bin/alo-ask.rs` and the
+socket tests. No `AGENTS.md` exists in the repository. 622's feature
+contract is `docs/features.md`'s Chrome line (ADR 0058).
+
+**Why 622 and not 642.** 642 is first on the product path, and ADR 0062
+and the queue say it is measured with the screen in use before it is
+built. `ioreg` read `CGSSessionScreenIsLocked = true` at the start of this
+iteration, so 642 could not be built honestly; 643 needs the same screen.
+622 has no dependency and needs none, so it was taken.
+
+**Built.** A new ask, `{"v":1,"ask":"renderer","tab":ADDRESS}`, added to
+version 1 as the contract allows (additive only). The browser process
+answers it from what it started — `{"kind":"ThisEngine"}` or
+`{"kind":"Chrome","product":"Chrome/…"}` with `said` in English — and never
+asks the page or its renderer, so a tab with nothing loaded is answered
+too. The tab is found, kept to the sites and refused exactly as a `read`
+is, and the record gains `Did::AskedRenderer` with the renderer named.
+`alo-ask`'s and `alo`'s docs say it is how a person asks. `alo --version`,
+named in the item's text but not in what closes it, was not built: a
+program's version says nothing about a *running* browser's renderer (the
+queue says so).
+
+**Tests.** Unit: the ask read, its missing and stray fields and its bound
+(`protocol.rs`); both answers written byte for byte; served for the engine
+with nothing loaded, and for a Chrome-like `Pages` without its page being
+read (`looked == 1`), refused `NotGranted` before any tab is looked at
+(`serving.rs`); the record's words (`agent_record.rs`). End to end:
+`alo --chrome` asked through `alo-ask` answers the exact line with the
+product Chrome gave a Chrome of the test's own, and the same program kept
+to another site refuses the ask `NotGranted`
+(`the_program_told_to_use_chrome.rs`); the engine's conductor over the
+real renderer answers `ThisEngine` and records it
+(`an_agent_outside_the_browser.rs`).
+
+**Gate.** `scripts/gate.sh` started in the foreground into a scratchpad
+log; the harness moved it to the background at 600 s and the next call
+waited on it with a foreground until-loop and read it in the same step:
+**exit 0, "The gate is met. (10 of 10 steps)"**, nextest **5,197 tests
+run, 5,197 passed** in 568 s, no `FAIL`, `LEAK` or `panicked`. Manual: no
+layout assertion or reference render applies — nothing is positioned,
+sized or drawn; the answer is asserted as exact bytes. One file, one
+responsibility: the wire stays in `protocol.rs`, the meaning in
+`asking.rs`, the answering in `serving.rs`, the record in
+`agent_record.rs`. No `unsafe`, no stubs, no verb taking a coordinate (the
+ask takes an address). `alo-os` and `alo-workplace` untouched. Nothing
+pushed.
+
+**Roadmap.** The product path's *Built* gains the `renderer` ask (622) and
+its *Owed* drops 622; the stage 2 Chrome line's `· Built:` gains it and its
+`· Owed:` drops it. Not ticked — the line is not finished. `features.md`,
+the socket contract, the queue (622 ticked with a *Done* paragraph, the
+product-path table marked), `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- 622 answers over the socket; nothing in a window of ours says the
+  renderer yet, because in Chrome mode there is no window of ours (642).
+  When 642 builds the frame, saying it there is natural, and 623's line is
+  where it would go.
+- 642 still waits on a person's drag and a click on the frame measured with
+  the screen in use; 643 on the same screen.
+- Inherited and unchanged: 623–625, 631, 632, 635, 636, 639, 642 and 643
+  owed; 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586;
+  463 and 572 wait on a person; 568–571 on a screen or pages; 560 and 564
+  on 502 behind 501; 538 waits on a page; 638 needs an ADR. Other suites'
+  short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+303 queue items are open (622 closed; counted as `- [ ] **` lines). The
+next unused queue number is **645** and the next ADR is **0063**. This is
+one iteration, not a finished queue or roadmap.

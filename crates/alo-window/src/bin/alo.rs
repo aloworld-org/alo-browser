@@ -25,7 +25,10 @@
 //! its input ends — Ctrl-D at a terminal — and then closes Chrome.
 //!
 //! Either way the terminal says which renderer draws the page: this engine,
-//! or Chrome by the version it gives itself (ADR 0058 § 6).
+//! or Chrome by the version it gives itself (ADR 0058 § 6). And while it
+//! runs, a person asks it which renderer draws a tab with `alo-ask` and the
+//! socket's `renderer` ask, answered by this process and never by the page
+//! (queue item 622).
 
 use alo_net::Pool;
 use alo_renderer::fetch_make::Network;

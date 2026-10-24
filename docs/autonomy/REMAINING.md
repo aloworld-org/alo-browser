@@ -2883,3 +2883,14 @@ was locked), and the building iteration measures them first. No code was
 written and 642 is not done. 304 queue items are open. 642 is next on the
 product path. The next unused queue number is 645 and the next unused ADR
 0063.
+
+Iteration 383 closed queue item 622: a person asks the running browser
+which renderer draws a tab with `alo-ask` and the socket's new `renderer`
+ask, answered by the browser process from what it started — this engine,
+or Chrome by the version it gives itself — never by the page, kept to the
+sites and recorded as a read is. 642 waits on a screen in use (it was
+locked again), so this iteration took 622 rather than build the frame
+unmeasured. 303 queue items are open (622 closed). 642 is next on the
+product path once the screen can be measured; 623 is the next open item
+that needs no screen. The next unused queue number is 645 and the next
+unused ADR 0063.

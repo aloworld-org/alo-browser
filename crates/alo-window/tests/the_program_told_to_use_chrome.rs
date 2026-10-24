@@ -12,8 +12,9 @@
 //! itself, read here from a Chrome of the test's own — where Chrome's own
 //! window went on the screen and the page's size in it, in numbers (item
 //! 627), and where an agent reaches it. `alo-ask`, a third process, reads the page's tabs and tree
-//! and follows a link to a part of the page through the socket, and the
-//! browser closes Chrome and its socket when its input ends.
+//! and follows a link to a part of the page through the socket, and asks
+//! which renderer draws it, as a person would (item 622); and the browser
+//! closes Chrome and its socket when its input ends.
 //!
 //! The same program kept to another site lets an agent reach nothing of
 //! the page, and named a page's file opens it at its `file:` address. What
@@ -265,10 +266,11 @@ fn the_program_opens_a_page_in_chrome_and_an_agent_reaches_it() -> Result<(), St
             ),
             r#"{"v":1,"id":4,"ask":"tabs"}"#.to_owned(),
             format!(r#"{{"v":1,"id":5,"ask":"read","tab":"{address}#second"}}"#),
+            format!(r#"{{"v":1,"id":6,"ask":"renderer","tab":"{address}#second"}}"#),
         ],
     )?;
-    let [tabs, tree, done, moved, again] = answers.as_slice() else {
-        return Err(format!("five answers, not {answers:?}"));
+    let [tabs, tree, done, moved, again, renderer] = answers.as_slice() else {
+        return Err(format!("six answers, not {answers:?}"));
     };
     assert_eq!(
         tabs,
@@ -299,6 +301,14 @@ fn the_program_opens_a_page_in_chrome_and_an_agent_reaches_it() -> Result<(), St
     assert!(
         again.starts_with(r#"{"answer":"tree","id":5,"#) && again.contains("Second part"),
         "{again}"
+    );
+    // A person asks the running browser which renderer draws the page, and
+    // is told Chrome by the version it gives itself (queue item 622).
+    assert_eq!(
+        renderer,
+        &format!(
+            r#"{{"answer":"renderer","id":6,"renderer":{{"kind":"Chrome","product":"{product}"}},"said":"{product}, driven by this browser","tab":"{address}#second","v":1}}"#
+        )
     );
 
     let status = running.close()?;
@@ -336,17 +346,21 @@ fn the_program_kept_to_another_site_lets_an_agent_reach_nothing() -> Result<(), 
         &[
             r#"{"v":1,"id":1,"ask":"tabs"}"#.to_owned(),
             format!(r#"{{"v":1,"id":2,"ask":"read","tab":"{address}"}}"#),
+            format!(r#"{{"v":1,"id":3,"ask":"renderer","tab":"{address}"}}"#),
         ],
     )?;
-    let [tabs, refused] = answers.as_slice() else {
-        return Err(format!("two answers, not {answers:?}"));
+    let [tabs, refused @ ..] = answers.as_slice() else {
+        return Err(format!("three answers, not {answers:?}"));
     };
     assert_eq!(tabs, r#"{"answer":"tabs","id":1,"tabs":[],"v":1}"#);
-    assert!(
-        refused.contains(r#""kind":"NotGranted""#)
-            && refused.contains(r#""site":"http://127.0.0.1""#),
-        "{refused}"
-    );
+    assert_eq!(refused.len(), 2, "{answers:?}");
+    for refused in refused {
+        assert!(
+            refused.contains(r#""kind":"NotGranted""#)
+                && refused.contains(r#""site":"http://127.0.0.1""#),
+            "{refused}"
+        );
+    }
     let status = running.close()?;
     assert!(status.success(), "{status}");
     let _ = std::fs::remove_dir_all(runtime);

@@ -173,7 +173,11 @@ about this project (ADR 0058 § 6).
   shown in `--app` mode, its window sized so the page is laid out at the
   size asked and placed on the screen by this process, answered by where it
   went and brought in front, `alo --chrome` saying on the terminal where in
-  numbers (627, `chrome_window.rs`).
+  numbers (627, `chrome_window.rs`); and **the running browser asked which
+  renderer draws a tab** — the socket's `renderer` ask, sent by a person
+  with `alo-ask`, answered by the browser process and never the page: this
+  engine, or Chrome by the version it gives itself, kept to the sites as a
+  read is and recorded (622).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -185,8 +189,7 @@ about this project (ADR 0058 § 6).
   the window server shows Chrome's (ADR 0062).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
   what a page's script said, through Chrome (639); a form Chrome would not send, answered as the engine
-  answers it (631); asking the running browser which renderer it is using,
-  which today only its terminal says as it starts (622); the
+  answers it (631); the
   agent's work where a person can see it (623–625); **a window of ours
   around Chrome's, following it (642)**; a placed window that stays where a
   person sees it, which Stage Manager's strip does not promise (643); an
@@ -713,7 +716,9 @@ unreachable without it.
       the program a person starts, naming the Chrome that draws it on the
       terminal (item 641, `opening::Renderer`), and showing the page in
       Chrome's own window, sized around the page and placed by this
-      process (item 627, `chrome_window.rs`, ADR 0061)
+      process (item 627, `chrome_window.rs`, ADR 0061), and the running
+      browser answering a person who asks which renderer draws a tab, over
+      the socket with `alo-ask` (item 622, the `renderer` ask)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -725,8 +730,7 @@ unreachable without it.
       script said, through Chrome (639); a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), a window of ours around
-      Chrome's (642) and one that stays where a person sees it (643), and
-      saying which renderer is in use where a person can read it (622)
+      Chrome's (642) and one that stays where a person sees it (643)
 
 ### The network
 

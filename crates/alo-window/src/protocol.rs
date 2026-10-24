@@ -27,6 +27,7 @@ use crate::asking::{
     outcome_kind,
 };
 use crate::json_depth;
+use crate::pages::RenderedBy;
 use alo_agent::verb::Invalid as Unmet;
 use alo_agent::{Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_box::{BoxId, KnownRole, Role, States};
@@ -112,6 +113,9 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
         "read" => Ask::Read {
             tab: text(fields, "tab", MOST_ADDRESS)?.to_owned(),
         },
+        "renderer" => Ask::Renderer {
+            tab: text(fields, "tab", MOST_ADDRESS)?.to_owned(),
+        },
         "act" => {
             let tab = text(fields, "tab", MOST_ADDRESS)?.to_owned();
             let target = match fields.get("target") {
@@ -131,7 +135,7 @@ fn ask(fields: &Map<String, Value>) -> Result<Ask, Refused> {
     // that a verb sent with a `read` is said rather than ignored.
     let takes: &[&str] = match &asked {
         Ask::Tabs => &["v", "id", "ask"],
-        Ask::Read { .. } => &["v", "id", "ask", "tab"],
+        Ask::Read { .. } | Ask::Renderer { .. } => &["v", "id", "ask", "tab"],
         Ask::Act { verb, .. } => match verb {
             Verb::Activate => &["v", "id", "ask", "tab", "target", "verb"],
             Verb::PutText(_) => &["v", "id", "ask", "tab", "target", "verb", "text"],
@@ -250,6 +254,12 @@ pub fn write(echo: Option<&Echo>, answer: &Answer) -> String {
                 snapshot.root.as_ref().map_or(Value::Null, node),
             );
         }
+        Answer::Renderer { tab, rendered_by } => {
+            line.insert("answer".to_owned(), Value::from("renderer"));
+            line.insert("tab".to_owned(), Value::from(tab.as_str()));
+            line.insert("renderer".to_owned(), renderer(rendered_by));
+            line.insert("said".to_owned(), Value::from(rendered_by.to_string()));
+        }
         Answer::Done {
             tab,
             outcome,
@@ -270,6 +280,22 @@ pub fn write(echo: Option<&Echo>, answer: &Answer) -> String {
     let mut written = Value::Object(line).to_string();
     written.push('\n');
     written
+}
+
+/// A renderer, as a kind and, for Chrome, the product and version it gives
+/// itself.
+fn renderer(rendered_by: &RenderedBy) -> Value {
+    let mut fields = Map::new();
+    match rendered_by {
+        RenderedBy::ThisEngine => {
+            fields.insert("kind".to_owned(), Value::from("ThisEngine"));
+        }
+        RenderedBy::Chrome { product } => {
+            fields.insert("kind".to_owned(), Value::from("Chrome"));
+            fields.insert("product".to_owned(), Value::from(product.as_str()));
+        }
+    }
+    Value::Object(fields)
 }
 
 /// A node of the tree, and everything under it.
@@ -786,6 +812,63 @@ mod tests {
             "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"NotCarriedOut\",\
              \"tab\":\"https://example.com/\"},\"said\":\"nothing was done in the tab at \
              https://example.com/: Chrome drew box#4 nowhere\",\"v\":1}\n"
+        );
+    }
+
+    #[test]
+    fn which_renderer_draws_a_tab_is_asked_by_its_address_alone() {
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"renderer","tab":"https://example.com/"}"#),
+            Ok(Ask::Renderer {
+                tab: "https://example.com/".to_owned()
+            })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"renderer"}"#),
+            Err(Refused::MissingField { field: "tab" })
+        );
+        assert_eq!(
+            asked(r#"{"v":1,"ask":"renderer","tab":"t","target":{"name":"n"}}"#),
+            Err(Refused::UnknownField {
+                field: "target".to_owned()
+            }),
+            "a field another ask takes is not this one's"
+        );
+        assert_eq!(
+            asked(&format!(
+                r#"{{"v":1,"ask":"renderer","tab":"{}"}}"#,
+                "a".repeat(MOST_ADDRESS + 1)
+            )),
+            Err(Refused::FieldTooLong {
+                field: "tab",
+                most: MOST_ADDRESS
+            })
+        );
+    }
+
+    #[test]
+    fn a_renderer_crosses_as_its_kind_with_chromes_own_name_for_itself() {
+        let answered = |rendered_by| {
+            write(
+                Some(&Echo::Number(9)),
+                &Answer::Renderer {
+                    tab: "https://example.com/".to_owned(),
+                    rendered_by,
+                },
+            )
+        };
+        assert_eq!(
+            answered(RenderedBy::ThisEngine),
+            "{\"answer\":\"renderer\",\"id\":9,\"renderer\":{\"kind\":\"ThisEngine\"},\
+             \"said\":\"this browser's engine\",\"tab\":\"https://example.com/\",\"v\":1}\n"
+        );
+        assert_eq!(
+            answered(RenderedBy::Chrome {
+                product: "Chrome/155.0.8059.86".to_owned()
+            }),
+            "{\"answer\":\"renderer\",\"id\":9,\"renderer\":{\"kind\":\"Chrome\",\
+             \"product\":\"Chrome/155.0.8059.86\"},\"said\":\"Chrome/155.0.8059.86, driven by \
+             this browser\",\"tab\":\"https://example.com/\",\"v\":1}\n"
         );
     }
 

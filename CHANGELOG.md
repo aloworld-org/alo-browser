@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **You can ask the running browser which engine is drawing a page.**
+  Send `{"v":1,"ask":"renderer","tab":ADDRESS}` with `alo-ask` and the
+  browser answers whether its own engine or the Chrome on your machine
+  draws that tab, naming Chrome's exact version. The browser answers from
+  what it started itself, so a page cannot claim to be drawn by something
+  else, and the question is kept to the same sites and recorded like any
+  other.
+
 - **Decided how the browser's own window will sit beside Chrome's.** With
   macOS's Stage Manager on, an ordinary window of the browser's and
   Chrome's window were never on the screen together: whichever program was

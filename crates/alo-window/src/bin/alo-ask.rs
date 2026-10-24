@@ -12,6 +12,9 @@
 //! the smallest caller of it, for a person at a terminal and for the test
 //! that drives the browser from a process of its own.
 //!
+//! `{"v":1,"ask":"renderer","tab":ADDRESS}` is the line a person sends to
+//! ask the running browser which renderer draws a tab (queue item 622).
+//!
 //! A blank line is sent and not waited on, as the browser answers none. It
 //! stops when its input ends or the browser closes the connection.
 
