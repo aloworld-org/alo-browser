@@ -2688,3 +2688,15 @@ side is halved), **612** (a translucent picture drawn smaller), **613** (a
 turned picture) and **614** (levels made for a copy first drawn without
 them). 288 queue items are open (179 closed, four cut). The next unused
 queue number is 615 and the next unused ADR 0058.
+
+Iteration 368 took queue item 604 and found its two small boxes were not
+the stroker: a closed line longer than two dashes but shorter than two
+dashes and two gaps takes two of each, the asked-for pair shortened
+together to a third and a sixth of the line, as Chrome 155 draws 133
+measured circles. Built as item 615 (`alo-paint`'s `centre_line.rs`
+`fitted`) with the new case `dashes-round-a-short-line`, Chrome's in every
+plain pixel but 3 at one and 24 at two, which 604 keeps with its stroker
+question. A dotted ring too short for its dots, drawn whole by Chrome, is
+cut as 616. No other reference moved. 289 queue items are open (615
+added closed, 616 added open). The next unused queue number is 617 and
+the next unused ADR 0058.

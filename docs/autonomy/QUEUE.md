@@ -14883,9 +14883,18 @@ What stage 2's exit gate actually measures: a person using it.
   of 59° round its 7 px centre line in Chrome, where the spacing gives
   164° and 16°, and a 30 × 30 box with corners of 15 has 164° and 16° in
   Chrome where the spacing gives 115° and 65° (iteration 360's scratchpad
-  `m596/case4/`). *Closes when:* how Chrome's stroke covers a dash round
+  `m596/case4/`). *Iteration 368 found* the two small boxes were not
+  the stroker: the 24 × 24 box's dashes are a third of its line because
+  the line is shorter than two dashes and two gaps (item 615, built), and
+  the 30 × 30 box was already Chrome's in Chrome 155 (two dashes of 20
+  with gaps of 11.4). What is left is the stroker's own shape where a
+  dash ends on such a curve: the start edge of a dash bends towards the
+  curve's middle in Chrome and is straight here, and an end on an
+  ellipse is a sliver apart — `dashes-round-a-short-line`'s `NOT_YET`, 3
+  pixels at one and 24 at two, beside this item's one pixel at each in
+  `dashes-and-dots-round-a-corner`. *Closes when:* how Chrome's stroke covers a dash round
   a curve tighter than half its width is measured at one, two and eight,
-  built, `NOT_YET` is empty, and a frozen case of such boxes is Chrome's
+  built, both cases' `NOT_YET` are empty, and a frozen case of such boxes is Chrome's
   in every plain pixel at one and at two.
 
 - [ ] **605. A rounded border's centre line on half device pixels at one.**
@@ -15042,6 +15051,44 @@ What stage 2's exit gate actually measures: a person using it.
   *Closes when:* how those levels are made, likely by the GPU, is measured,
   built, and a frozen case of a file drawn that way round is Chrome's in
   every pixel at one and at two.
+
+- [x] **615. A dashed line too short for two dashes and two gaps.**
+  *Found building 604 (iteration 368). Feature: `docs/features.md` stage
+  2, patterned borders. No ADR; ADR 0057 bears on the pictures at two.*
+  Round a closed centre line longer than two dashes but shorter than two
+  dashes and two gaps, `centre_line.rs` drew two dashes of the full two
+  widths and squeezed the gaps to what was left, so a 24 × 24 box with a
+  10 px border had dashes of 164° and gaps of 16° where Chrome's are 120°
+  and 60°. *Closes when:* Chrome's rule for such lines is measured,
+  built, and a frozen case of them is Chrome's in every plain pixel at one
+  and at two but for pixels item 604 owns.
+  *Done (iteration 368).* Measured in Chrome 155 (`155.0.8059.86`) at
+  one, two and eight on 133 dashed circles 1 to 16 px wide, the source
+  not read: between two dashes (drawn whole at or below) and two dashes
+  and two gaps, the line takes two dashes and two gaps of the asked-for
+  pair scaled down together — a third of the line and a sixth from two
+  widths and one, and the same proportion from three and two under three
+  device pixels; dashes start at the line's start and half way round.
+  `centre_line.rs`' `fitted`. New case `dashes-round-a-short-line`, ten
+  boxes (circles 1 to 10 px wide, an oblong, an ellipse and a 30 px
+  control), with Chrome 155's `chrome.png` and `chrome-at-2.png`: 115
+  plain pixels differed at one and 555 at two, now 3 and 24, each listed
+  as `NOT_YET` for 604; dash runs on a row of each box at eight within
+  two device pixels of Chrome's. No other reference moved.
+
+- [ ] **616. A dotted ring too short for its dots is drawn whole.**
+  *Found building 615 (iteration 368). Feature: `docs/features.md` stage
+  2, patterned borders. Needs measuring.* Chrome 155 draws a dotted
+  circle whole up to somewhere between 3.14 and 3.4 widths of line (a
+  4 px border round a line of 12.57 whole, of 14.14 two dots; a 6 px one
+  of 17.28 whole, of 20.42 two dots), where `centre_line.rs`' `dots`
+  draws one or two dots round shorter lines (a 4 px border round 6.28
+  and 9.42, a 6 px one round 9.42 and 15.71, an 8 px one round 12.57 and
+  20.42, all whole in Chrome), and such rings differ in up to 112 plain pixels at two
+  (iteration 368's scratchpad `m604/p3`). *Closes when:* the length at
+  which Chrome draws a dotted line whole, and how it spaces two or three
+  dots just past it, is measured, built, and a frozen case of small
+  dotted rings is Chrome's in every plain pixel at one and at two.
 
 - [ ] **576. Whether letters are thickened as Chrome thickens them on
   macOS.** *Found closing 462 (iteration 339). Feature: `docs/features.md`

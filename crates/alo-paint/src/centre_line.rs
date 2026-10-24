@@ -19,7 +19,11 @@
 //!   gap is stretched or squeezed so that a whole number of dashes and gaps
 //!   goes round the line exactly: of the two counts nearest one width a
 //!   gap, the one whose gap is nearer it ([`spacing`]). A line no longer
-//!   than two dashes is drawn whole.
+//!   than two dashes is drawn whole, and one longer than that but shorter
+//!   than two dashes and two gaps has two of each, both shortened in the
+//!   same proportion until they go round it exactly — a third of the line
+//!   and a sixth, from two widths and one ([`fitted`]; measured in Chrome
+//!   155 on circles 1 to 16 px wide, queue item 615).
 //! - **A dot is a round dot as wide as the side**, spaced the same way with
 //!   the dot's own width as both dash and gap, less a hundredth of a device
 //!   pixel so the last dot is never lost to rounding. A side no more than
@@ -95,8 +99,23 @@ pub fn dashes(line: &Contour, width: f32, reach: f32, scale: f32) -> Option<Path
     if length <= 2.0 * dash {
         return across(&[line.stations(0.0, length)], reach);
     }
-    let (dash, gap) = spacing(length, dash, gap)?;
+    let (dash, gap) = fitted(length, dash, gap)?;
     across(&laid(line, dash, gap), reach)
+}
+
+/// The dash and the gap round a closed line `length` long, longer than two
+/// dashes, from a dash and a gap asked for.
+///
+/// A line shorter than two dashes and two gaps takes two of each, the
+/// asked-for pair scaled down together until they go round it exactly;
+/// a longer one is [`spacing`]'s.
+fn fitted(length: f32, dash: f32, gap: f32) -> Option<(f32, f32)> {
+    let twice = 2.0 * (dash + gap);
+    if length < twice {
+        let share = length / twice;
+        return Some((dash * share, gap * share));
+    }
+    spacing(length, dash, gap)
 }
 
 /// The dash and the gap a dashed side `width` wide asks for on a screen at
@@ -358,6 +377,64 @@ mod tests {
             shape
                 .bounds()
                 .is_some_and(|(left, top, ..)| top < 10.5 && left < 13.0)
+        );
+    }
+
+    #[test]
+    fn a_line_shorter_than_two_dashes_and_two_gaps_takes_two_of_each_shortened() {
+        // Chrome 155: a 24 px box with a 10 px border and corners of 12 is a
+        // circle of 7 round, 43.98 long, under the 60 that two dashes of 20
+        // and two gaps of 10 need: two dashes of a third, 14.66, a sixth
+        // apart. The counts alone would give dashes of 20 and gaps of 2.
+        let length = 14.0 * core::f32::consts::PI;
+        let found = fitted(length, 20.0, 10.0);
+        assert!(
+            found.is_some_and(
+                |(dash, gap)| near(dash, length / 3.0, 1e-4) && near(gap, length / 6.0, 1e-4)
+            ),
+            "{found:?}"
+        );
+        // Under three device pixels the pair is three and two: a 2 px
+        // border's line of 14.14 at one has dashes of 4.24 and gaps of 2.83.
+        let found = fitted(14.14, 6.0, 4.0);
+        assert!(
+            found.is_some_and(|(dash, gap)| near(dash, 4.242, 1e-3) && near(gap, 2.828, 1e-3)),
+            "{found:?}"
+        );
+        // From two dashes and two gaps on, the counts decide, and a gap
+        // may be shorter than asked: 62.83 round, two of 20 with 11.42.
+        let length = 20.0 * core::f32::consts::PI;
+        assert_eq!(fitted(length, 20.0, 10.0), spacing(length, 20.0, 10.0));
+        assert_eq!(fitted(60.0, 20.0, 10.0), Some((20.0, 10.0)));
+        assert_eq!(fitted(f32::NAN, 20.0, 10.0), None);
+    }
+
+    #[test]
+    fn a_short_line_has_its_dashes_from_its_start_and_half_way_round() {
+        let line = centre_line(
+            Rect::new(0.0, 0.0, 24.0, 24.0),
+            Corners::all(12.0),
+            Edges::all(10.0),
+            1.0,
+        );
+        let length = line.length();
+        let Some((dash, gap)) = fitted(length, 20.0, 10.0) else {
+            panic!("the line is long enough to pattern");
+        };
+        let pieces = laid(&line, dash, gap);
+        assert_eq!(pieces.len(), 2);
+        // The first from the top's middle, at (12, 5); the second from the
+        // bottom's, at (12, 19).
+        let found = ends(&pieces);
+        let starts: Vec<(f32, f32)> = found.iter().map(|(from, _)| *from).collect();
+        assert!(
+            starts
+                .iter()
+                .any(|at| near(at.0, 12.0, 0.05) && near(at.1, 5.0, 0.05))
+                && starts
+                    .iter()
+                    .any(|at| near(at.0, 12.0, 0.05) && near(at.1, 19.0, 0.05)),
+            "{starts:?}"
         );
     }
 

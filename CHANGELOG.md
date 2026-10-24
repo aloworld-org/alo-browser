@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Dashes round a small rounded box are spaced as Chrome spaces them.**
+  A dashed border round a box so small that its line holds fewer than
+  two dashes and two gaps drew two full-length dashes with slivers
+  between them, so a 24 px circle with a 10 px border looked nearly
+  solid. Chrome shortens the dashes and gaps together until two of each
+  fit, a third and a sixth of the line, and this engine now does too.
+  Measured in Chrome 155 on 133 small circles; a new page of ten small
+  boxes is Chrome's in all but 3 pixels at normal resolution and 24 at
+  double, each where Chrome's stroker shapes a dash's end on a tight
+  curve differently (still owed, with small dotted rings).
+
 - **Pictures drawn smaller are filtered as Chrome filters them.** A
   picture drawn smaller than it is on both axes took one texel a pixel
   here, so a photograph shown as a thumbnail was speckled and its edges

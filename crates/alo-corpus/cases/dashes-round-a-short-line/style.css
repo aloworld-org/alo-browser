@@ -1,0 +1,16 @@
+/* Dashed borders round lines too short for two dashes and two gaps
+   (queue item 615): circles 1 to 10 px wide, an oblong with straight
+   sides, an ellipse, and one circle just long enough for the pattern's
+   own spacing. */
+body { margin: 0; background: #ffffff }
+.b { position: absolute; box-sizing: border-box; border-style: dashed; border-color: #1d4ed8 }
+.ten { left: 10px; top: 10px; width: 24px; height: 24px; border-width: 10px; border-radius: 12px }
+.five { left: 50px; top: 10px; width: 14px; height: 14px; border-width: 5px; border-radius: 7px }
+.three { left: 80px; top: 10px; width: 7.5px; height: 7.5px; border-width: 3px; border-radius: 3.75px }
+.three-wider { left: 100px; top: 10px; width: 8.5px; height: 8.5px; border-width: 3px; border-radius: 4.25px }
+.two { left: 120px; top: 10px; width: 5px; height: 5px; border-width: 2px; border-radius: 2.5px }
+.two-wider { left: 140px; top: 10px; width: 5.5px; height: 5.5px; border-width: 2px; border-radius: 2.75px }
+.one { left: 160px; top: 10px; width: 3.5px; height: 3.5px; border-width: 1px; border-radius: 1.75px }
+.oblong { left: 10px; top: 50px; width: 20px; height: 16px; border-width: 7px; border-radius: 8px }
+.ellipse { left: 50px; top: 50px; width: 27px; height: 21px; border-width: 9px; border-radius: 50% }
+.longer { left: 100px; top: 50px; width: 30px; height: 30px; border-width: 10px; border-radius: 15px }

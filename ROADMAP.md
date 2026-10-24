@@ -308,9 +308,14 @@ correctness, not before it.
       as wide as Chrome's stroke (`alo-paint`'s `contour.rs`,
       `centre_line.rs` and `sweep.rs`; `dashes-and-dots-round-a-corner`
       Chrome's in every plain pixel at one and at two but one pixel at
-      each). Owed: a stroke wider than its curve is tight (604), a centre
-      line on half device pixels at one (605), and Chrome's spacing on a
-      straight side (606). Since queue item 595 (iteration 359) a side
+      each). Since queue item 615 (iteration 368) a line too short for
+      two dashes and two gaps takes two of each, a third and a sixth of
+      it, as Chrome 155 draws it (`centre_line.rs`' `fitted`;
+      `dashes-round-a-short-line` Chrome's in every plain pixel at one and
+      at two but 3 and 24 that 604 owns). Owed: a stroke wider than its
+      curve is tight (604), a centre line on half device pixels at one
+      (605), Chrome's spacing on a straight side (606), and a dotted ring
+      too short for its dots drawn whole (616). Since queue item 595 (iteration 359) a side
       styled `none` or `hidden`, or given no style, has no width however
       it was written (`alo-layout`'s `border_style.rs`,
       `borders-with-a-side-none` Chrome's in numbers and every plain pixel

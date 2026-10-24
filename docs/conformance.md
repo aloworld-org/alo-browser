@@ -394,6 +394,12 @@ dots are laid along the border's centre line, as Chrome 154 lays them (596):
 pixel at one and at two but one at each, where Chrome's stroke round a curve
 tighter than it reaches back before the top's first dash (604); a centre
 line on half device pixels at one is spaced otherwise by Chrome (605).
+A line too short for two dashes and two gaps takes two of each, a third
+and a sixth of it, as Chrome 155's (615): `dashes-round-a-short-line`,
+ten small boxes, is Chrome's in every plain pixel but 3 at one and 24 at
+two, each where a dash ends on a curve tighter than its stroke (604). A
+dotted ring too short for its dots is drawn whole by Chrome and in dots
+here (616).
 Where sides of different widths meet on a square box, a corner dot is
 clipped to its own side's share of the corner. A side is drawn with at most 16 384 dashes or
 dots; past that they are spaced further apart. Beside a fieldset's legend

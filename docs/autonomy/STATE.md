@@ -37245,3 +37245,109 @@ in its Built. Its Owed loses 179 and gains 611–614. Not ticked.
 288 queue items are open (179 closed, 611–614 cut). The next unused
 queue number is **615** and the next ADR is **0058**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 368 — queue item 615 (found taking 604): a dashed line too short for two dashes and two gaps
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(stage 1's paint line on whole device pixels, whose Owed named 604),
+iterations 360's and 367's entries, `REMAINING.md`'s continuation notes,
+queue items 591, 601 and 604–614, `docs/features.md` stage 2's patterned
+borders line, `docs/conformance.md` on patterned borders, and
+`alo-paint`'s `centre_line.rs`, `sweep.rs` and `pattern.rs`, and the
+`dashes_and_dots_round_a_corner.rs` case test. No `AGENTS.md` exists
+here. Neither item names an ADR; ADR 0057 (pictures at two) bears on the
+case and was not changed.
+
+**Why 604, and why 615 was built.** After 179, the first open item whose
+dependencies are done: 591 waits for a page that draws an outline and 601
+is `blocked: no page yet`, as iteration 367 recorded; 604 depends on
+nothing and is `needs measuring`. Measuring it showed its evidence was two
+things. Its two small boxes were not the stroker: the 24 × 24 box's
+dashes are a third of its line because the line is shorter than two
+dashes and two gaps, and the 30 × 30 box was already Chrome's in Chrome
+155. Per `LOOP.md` step 3 the scope was cut: the spacing rule is item
+615, added and built here; 604 keeps the stroker's own shape and is not
+ticked.
+
+**Measured.** Chrome 155 (`155.0.8059.86` — it updated itself again since
+iteration 367's `.41`), headless, `--force-device-scale-factor=1`, `=2` and
+`=8`, screenshots without `--disable-gpu`, the source not read (scratchpad
+`m604/`): 65 dashed circles 1 to 16 px wide at eight (`p2`), 68 dashed
+and dotted circles at one, two and eight (`p3`), dash arcs read along each
+centre line and plain pixels compared per box against this engine's
+renders through a temporary `alo-corpus` example (removed). Round a closed
+line longer than two dashes (drawn whole at or below, as built) and
+shorter than two dashes and two gaps, Chrome draws two dashes of a third
+of the line with gaps of a sixth — the asked-for pair, two widths and one,
+scaled together — from the line's start and half way round; every such
+circle at eight, widths 1 to 16. Under three device pixels the same
+proportion of three and two (`p3` at one: the 2 px border round 14.14,
+4 plain pixels to none). At two dashes and two gaps and beyond, the
+existing count rule was already Chrome's.
+
+**Built.** `alo-paint`'s `centre_line.rs`: `fitted`, used by `dashes`,
+takes two dashes and two gaps scaled to the line where it is shorter than
+twice the pair, and `spacing` otherwise. Its module comment says so.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean first. `scripts/gate.sh`
+was started in the foreground. It ran past the tool's 600 s limit and was
+moved to the background by the harness, and the next call waited on it
+with an until-loop and read it in the same step: **`exit 0`, "The gate is
+met. (10 of 10 steps)"**, 5,057 tests run, 5,057 passed. Only this entry
+and the commit came after it.
+
+**Gate, manual.**
+- Numbers: `dashes_round_a_short_line.rs` renders the new case at eight
+  and holds where each box's dashes cross a row three quarters down it to
+  Chrome 155's picture at eight, within two device pixels (`ellipse`'s
+  second run is a quarter pixel short, a 604 sliver; every other run is
+  within an eighth). Unit tests in `centre_line.rs`: the 24 px box's third
+  and sixth, the thin three and two, the count rule from two pairs on, and
+  the two dashes' starts at the top's and bottom's middles.
+- Reference renders: new case `dashes-round-a-short-line`, ten boxes
+  (circles 1, 2, 3, 5 and 10 px wide, an oblong, an ellipse, a 30 px
+  control), with `render.png`, `render-at-2.png` and Chrome 155's
+  `chrome.png` and `chrome-at-2.png` (RGBA). Every plain pixel is Chrome's
+  at one and at two but 3 and 24, listed exactly in the test's `NOT_YET`
+  for 604 (the test fails if any of them comes right, so the list
+  shrinks). Before: 115 and 555 differed. The corpus run with
+  `ALO_UPDATE_REFERENCES=1` wrote only the new case's references; no
+  other case moved, and `dashes-and-dots-round-a-corner` still passes
+  with its one pixel each.
+- Mutation, each restored from a copy (`cmp` confirmed): the new rule
+  switched off, and the gap left unscaled. Each fails unit tests and all
+  three of the case's tests. `<` against `<=` at exactly two pairs is
+  equivalent (the scale is one there).
+- Hostile input: nothing new reads bytes from outside. A length that is
+  not a number takes no dashes (tested); the pieces stay bounded by
+  `pattern::MAX_PIECES`, and this rule only ever makes two.
+- One file, one responsibility: spacing a closed line is `centre_line.rs`'
+  as before; nothing else changed.
+- Cost: none measured; no speed claim.
+- Also updated: `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`,
+  `CHANGELOG.md`, `REMAINING.md`, the queue.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 615 is added ticked with a *Done* paragraph. 604 stays open,
+its text saying what iteration 368 found and that its closing condition
+now includes this case's `NOT_YET`. Cut: **616** (a dotted ring too short
+for its dots, drawn whole by Chrome between 3.14 and 3.4 widths, in dots
+here).
+
+**Roadmap.** Stage 1's paint line on whole device pixels: a *since queue
+item 615* clause; its Owed keeps 604, 605 and 606 and gains 616. Not
+ticked.
+
+**Unresolved obligations.**
+- 604 (the stroker's shape at a dash end on a tight curve: 1 + 1 pixels in
+  the corner case, 3 + 24 in the new one), 605, 606, 616.
+- 591, 601, 607–614; 576, 577, 585, 586 as before; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501;
+  538 waits on a page.
+- No claim about speed is made.
+
+289 queue items are open (615 added closed, 616 added open). The next
+unused queue number is **617** and the next ADR is **0058**. This is one
+iteration, not a finished queue or roadmap.
