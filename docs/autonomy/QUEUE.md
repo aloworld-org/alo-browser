@@ -50,6 +50,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **621** | the verbs, through Chrome |
 | ✓ | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
+| | **641** | **the program can be told to use Chrome — nothing can run it yet** |
 | | **622** | which renderer is in use, where a person can read it |
 | | **623** | the agent's sentence, where a person can read it |
 | | **624** | the acted-on box, marked while it is acted on |
@@ -16254,6 +16255,23 @@ What stage 2's exit gate actually measures: a person using it.
   630. Closes when:* the address a tab is named by after a fragment link is
   the same through both renderers, asserted in a test of each, or this item
   closes saying they differ and why that is right.
+
+- [ ] **641. ★ The program can be told to use Chrome.** The Chrome path is a
+  library and its tests and **nothing else**: `crates/alo-window/src/bin/alo.rs`
+  does not mention Chrome, so there is no way to *run* any of 619, 620, 621,
+  633, 634, 635 or 640. Everything on the product path is proven by tests and
+  reachable by no person. Found on 2026-10-24 by trying to repeat item 131's
+  live run against Chrome and discovering there was no command to type. This
+  is the same shape of gap as 627 — a step every item assumed somebody else
+  had taken — and it is cheap only because it was found before the window was
+  built on top of it. The binary chooses a renderer, says which it chose, and
+  the agent socket, the grants and the record are the same objects either way
+  (they already are, item 640). *Depends on 640. Closes when:* `alo` started
+  with the machine's Chrome behind it opens a page, answers `tabs`, `read` and
+  `act` over the socket from a program outside it, and names Chrome and its
+  version when asked — with the run recorded in the journal rather than
+  claimed, and the same run against the engine differing only as 640 says it
+  may.
 
 ## K. ★ The agent, on somebody else's pages
 
