@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **This browser will render the open web by driving the Chrome already on the
+  machine, while its own engine keeps being built.** Nothing is bundled,
+  linked or redistributed: Chrome is a separate program spoken to over a pipe,
+  so everything here stays safe Rust with no unsafe and no C++, and Google
+  patches the renderer within days of a flaw. The agent surface, the per-site
+  refusals and the record do not move — they stay on this side, where no page
+  can reach them. Until the engine is behind it, this cannot be described as
+  memory-safe, as independent of Google, or as running alo's own engine, and
+  the product says which renderer it is using where a person can read it.
+
 - **A dashed rounded border's dashes are spaced as Chrome spaces them.**
   Chrome fits a dashed line's gaps to its length cut down to whole
   screen pixels, and lets what is left over, under a pixel, run on as

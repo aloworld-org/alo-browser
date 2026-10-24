@@ -15633,6 +15633,53 @@ What stage 2's exit gate actually measures: a person using it.
   windowed run still paints, so the two modes are a choice rather than a
   replacement.
 
+- [ ] **619. ★ Chrome is spoken to over a pipe.** *ADR 0058 § 3.* The browser
+  process spawns the Chrome already installed — found the way `beside.rs`
+  finds `alo-render`, and refused by name if it is absent — with
+  `--remote-debugging-pipe`, and speaks the DevTools protocol over the
+  descriptors it gets back. **Never a port**: a page's own script can reach
+  `localhost`, and ADR 0055 § 1 refused a port for our socket for the same
+  reason. No new rented crate — `serde_json` is already behind
+  `alo-window/src/protocol.rs`, and every message is bounded by us before it
+  reaches it, because a limit somebody else chooses is not a limit.
+  *Closes when:* Chrome starts, answers `Browser.getVersion`, and is gone
+  after the browser process exits — asserted, with a version that is not
+  hard-coded; a Chrome that cannot be found is refused by name rather than
+  reported as a failure to connect; and a malformed line from the far side is
+  refused as a kind, not a panic.
+
+- [ ] **620. ★ A page in Chrome, read as our tree.** *ADR 0058 § 4.* A page
+  loaded in the rented renderer, and `Accessibility.getFullAXTree` mapped into
+  the `Snapshot` an agent already reads. The mapping is the whole item: Blink
+  builds that tree from its layout objects, so it is close to ours and is
+  **not** ours, and every place it is thinner has to be named rather than
+  papered over. *Depends on the item above. Closes when:* the frozen
+  `web-a-form` case — httpbin's form, which item 131 already drives through
+  our own engine — is read through Chrome and answers the same names, and a
+  test asserts the two trees agree on every name, role and value they both
+  carry; where they differ, the difference is listed in the item rather than
+  silently accepted.
+
+- [ ] **621. ★ The verbs, through Chrome.** *ADR 0058 § 4.* `activate` and
+  `fill` carried out over CDP's `Input` domain, so a page sees a real key and
+  a real click and runs its own validation — never injected script, which
+  skips the page's checks and is detectable. The grants and the record do not
+  move: a site an agent was not given is refused **before** a command is
+  written, and the record is written on our side of the pipe where no page can
+  reach it. *Depends on the item above, 496, 497. Closes when:* the same agent
+  script that fills httpbin's form through our engine fills it through Chrome
+  with no change to a single verb; every refusal in `verb.rs` is still
+  reachable by name; and the record of both runs differs only in which
+  renderer it names.
+
+- [ ] **622. Which renderer is in use, where a person can read it.** *ADR 0058
+  § 6.* The product says what is rendering — in `docs/features.md`, in
+  `--version`, and anywhere a claim is made. **A product whose engine is a
+  secret is a product whose claims cannot be checked**, and nothing else here
+  is worth anything if that one is not kept. *Closes when:* a person can ask
+  the running browser which renderer it is using and be told, and the roadmap
+  and features list say it too.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
