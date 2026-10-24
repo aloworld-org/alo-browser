@@ -17,7 +17,21 @@ What changed, in words a person outside this repository can read. Newest first.
   so and where it was looked for, and anything from Chrome that is not the
   protocol — not JSON, too deep, too long, cut off — is refused as its own
   kind of error rather than crashing the browser. Nothing is shown through
-  Chrome yet; that is next (queue items 620–622).
+  Chrome yet, and nor do queue items 620–622 show anything: they read the
+  page and drive it. **Showing it to a person is item 627**, which had not
+  been written down when this entry was.
+
+- **The roadmap now describes both roads to a browser, not one.** Until
+  today it described a single road — build our own engine until it renders
+  the modern web — with a browser a person can use at the end of it, years
+  away. Since ADR 0058 there has been a second road that takes weeks: the
+  same tree, the same actions by name, the same permissions and the same
+  record, with the Chrome already on the machine rendering behind them. The
+  roadmap mentioned it in one line, in a footnote about something else. It
+  now has its own section, the queue has a section naming the handful of
+  items that lie on it, and every claim about what renders has to say which
+  road it is about. Nothing was renumbered, nothing was deleted, and no work
+  on our own engine was dropped or deprioritised (ADR 0059).
 
 - **This browser will render the open web by driving the Chrome already on the
   machine, while its own engine keeps being built.** Nothing is bundled,

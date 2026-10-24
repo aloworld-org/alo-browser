@@ -99,6 +99,61 @@ is built.
 
 ---
 
+## The two paths
+
+*ADR 0059, 24 October 2026.* There are now **two implementations of one
+boundary**, and this file described only one of them until today.
+
+ADR 0005 put a typed message boundary between the browser process and whatever
+renders a page. ADR 0058 put the machine's own Chrome on the far side of it,
+driven over a pipe. So the same tree, the same verbs by name, the same grants
+and the same record now have two things underneath them:
+
+| | **The product path** | **The engine path** |
+|---|---|---|
+| What renders | the machine's own Chrome, over a pipe | `alo-render`, ours, in Rust |
+| What is ours | the tree, the verbs, the grants, the record, the window | all of it |
+| Reaches a browser a person can use in | weeks | years |
+| What it proves | that reading an interface beats photographing it | that a browser need not be written in a language that permits the bug |
+| Its gate | ADR 0052's two gates — the agent's and the person's | stage 2's exit gate, below, unchanged |
+| Where its work is listed | `QUEUE.md`, *The product path* | the stages below |
+
+Neither is a fallback for the other, and neither is a stage. The product path
+answers *can a person use this*. The engine path answers *can this be written
+safely* — which is the argument for having started, and which Chrome does not
+answer and never will.
+
+**The stage numbers below describe the engine.** They always have. Stage 2 is
+not "when the browser works"; it is when **our own renderer** renders the
+modern web. What the product can do while a stage is open is stated under that
+stage, in its own words. The numbers were deliberately not reassigned: `stage
+2` names a body of work that a hundred queue items close against, and handing
+that name to different work is the mistake ADR 0003 forbids (ADR 0059 § 1).
+
+**A claim names its renderer.** "alo browser renders the open web" is true on
+one path and false on the other, and the two will be in different places for
+years. A statement that does not say which path it is about is not a statement
+about this project (ADR 0058 § 6).
+
+### Where the product path stands today
+
+- **Built:** the window (296); the agent socket, a Unix socket and never a port
+  (496); a grant per site, refused by us and recorded (497); the tree, the
+  verbs and the refusals, driven on a real external page (131); Chrome spawned
+  and spoken to over a pipe (619).
+- **Owed:** Chrome's tree read as ours (620); the verbs carried through Chrome
+  (621); which renderer is in use, where a person can read it (622); the
+  agent's work where a person can see it (623–625); **what a person actually
+  looks at (627)** — the boundary's `Painted(Frame)` has no answer on the
+  Chrome side, so today that path drives a page nobody can see; an application
+  somebody can run (477).
+
+That last gap is the one to watch. A browser that an agent can drive and a
+person cannot watch is a tool, not a browser, and it is not yet decided whether
+Chrome's pixels come to our window or our window goes around Chrome's.
+
+---
+
 ## Stage 1 — it renders alo
 
 No scripting, no hostile pages, no compatibility burden. The point is that
@@ -431,9 +486,15 @@ repository. They are kept out of the list above so they cannot block it.
 
 ## Stage 2 — it renders the modern web
 
-The stage that turns an engine into a browser. It is the largest of the three by
-a wide margin: stage 1 refused scripting, hostile pages and compatibility, and
-this is where all three arrive at once.
+The stage that turns **our own engine** into a browser. It is the largest of the
+three by a wide margin: stage 1 refused scripting, hostile pages and
+compatibility, and this is where all three arrive at once.
+
+**What the product can do while this stage is open.** Everything the product
+path reaches first, on Chrome's rendering: the open web, read as a tree and
+driven by name, under grants and recorded. This stage is what makes that true a
+second time with no C++ underneath it. Until it closes, a claim about rendering
+names which path it is about (ADR 0058 § 6, ADR 0059 § 4).
 
 **An honest word about the size.** What follows is years of work, and naming it
 completely is the point — a list that stops at the interesting parts is how a

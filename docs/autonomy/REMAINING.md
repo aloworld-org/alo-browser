@@ -15,8 +15,18 @@ Stage 1 also has three separate follow-ups outside its met gate: GPU paint,
 OS compositor embedding, and measured hardware performance. They are not in
 the stage 1 queue count. Stage 4 has more queue items than roadmap lines because
 extensions include a separate design decision. A partly built line remains open.
-There are **101 open queue items** overall; splitting broad items will change
-that number without changing the amount of work owed.
+There were **101 open queue items** when this table was taken. **The table's
+figures are all as of 2026-09-07 and have not been re-audited since**; counted
+on 2026-10-24 the queue holds **298 open items**, and the difference is almost
+entirely broad items split into their parts, which changes the number without
+changing the work owed. The per-stage breakdown above is therefore the shape of
+the work, not its size, until somebody re-audits it.
+
+**Two paths, since ADR 0059.** The stages above describe the engine. About
+eight of the open items lie on the product path instead — Chrome rendering
+behind our surface, ADR 0058 — and `QUEUE.md`'s own *The product path* section
+names them. The loop takes items in `LOOP.md`'s order regardless; that section
+is a map, not a queue of its own.
 
 ## Continuation order
 

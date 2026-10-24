@@ -151,4 +151,8 @@ signed by the owner. Not by neglect, and not by this.
 - Whether to bundle Chromium rather than use the machine's. (No, for now:
   bundling means owning the patch cadence.)
 - Anything about Firefox, which alo OS pins for its own reasons.
-- Whether the engine's queue changes. It does not.
+- ~~Whether the engine's queue changes. It does not.~~ **Reversed by ADR
+  0059 (2026-10-24):** the queue's *order* is untouched and no item is
+  demoted, but the roadmap gains the product path as a named road beside
+  the stages, and the queue names the items on it. Left here struck through
+  rather than deleted, because what an ADR said on the day is the record.

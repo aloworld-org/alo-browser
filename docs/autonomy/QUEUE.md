@@ -22,6 +22,48 @@ that file is the specification for what "correct" means here.
 
 ---
 
+## The product path
+
+*ADR 0059, 24 October 2026.* **This is not a new order of work and it does not
+move anything.** Every item below is listed again, in place, in the section it
+has always been in, and the loop goes on taking items in the order `LOOP.md`
+gives. This section exists because the shortest road to a browser a person can
+use now runs through about eight items scattered across three sections, and a
+queue that cannot show that road will be read as though the road does not
+exist.
+
+These are the items that lie on it — Chrome rendering behind our surface, per
+ADR 0058 — and nothing else does:
+
+| | Item | |
+|---|---|---|
+| ✓ | **296** | a window, verified on a real screen |
+| ✓ | **496** | the agent socket — a Unix socket, never a port |
+| ✓ | **497** | a grant per site, refused by us and recorded |
+| ✓ | **131** | the tree, the verbs and the refusals, on a real external page |
+| ✓ | **619** | Chrome spawned and spoken to over a pipe |
+| | **620** | Chrome's tree, read as ours |
+| | **621** | the verbs, through Chrome |
+| | **627** | what a person looks at — **unanswered, needs an ADR** |
+| | **622** | which renderer is in use, where a person can read it |
+| | **623** | the agent's sentence, where a person can read it |
+| | **624** | the acted-on box, marked while it is acted on |
+| | **625** | a refusal shown to the person, not only answered to the agent |
+| | **477** | an application somebody can run, on macOS |
+
+**627 is the one to watch.** It was found on 24 October by walking this road
+item by item and asking what a person sees at the end of it: nothing. 619, 620
+and 621 together load a page, read it and fill it, and the boundary's
+`Painted(Frame)` has no answer on the Chrome side, so no pixel of it reaches a
+window. It is the only item here that is not a smaller version of something
+already built.
+
+**Everything else in this queue is the engine path**, it is not demoted, and
+none of it is parked. ADR 0058 § 7 reserves that judgement for the owner and an
+ADR of its own; ADR 0059 § 3 declines to make it by implication.
+
+---
+
 ## Ready
 
 - [x] **1. A DOM of our own.** `html5ever` parses; we hold the tree. Nodes,
@@ -15749,6 +15791,24 @@ What stage 2's exit gate actually measures: a person using it.
   socket by hand on 24 October 2026. *Depends on nothing. Closes when:* the
   sentence names its candidates as `BoxId`'s own `Display` does, with a unit
   test on the wording, and no other `Display` in the file reaches for `{:?}`.
+
+- [ ] **627. ★ What a person looks at, on the product path.** *ADR 0058 § 2
+  left this open and item 620 does not close it.* `FromRenderer::Painted(Frame)`
+  is how a rendered page reaches the window, and the Chrome implementation of
+  that boundary has **no answer for it**: 619 spawns Chrome, 620 reads its
+  tree, 621 drives its verbs, and at the end of all three a page is loaded,
+  read and filled that **nobody can see**. A browser an agent can drive and a
+  person cannot watch is a tool, not a browser, and it is the one thing on the
+  product path that is not a smaller version of something already built.
+  Two answers are open and neither is obviously right: CDP's
+  `Page.startScreencast` brings Chrome's frames to our window as JPEG, which is
+  lossy and costs a copy per frame; or Chrome keeps its own window and ours
+  goes around it, which is cheap and honest but means two window servers and a
+  harder story for 623's and 624's marking. **needs ADR**: which one, measured
+  rather than argued. *Depends on 619. Closes when:* the ADR is accepted, a
+  page loaded through Chrome is visible in a run a person can watch, and what
+  they see is asserted — frames arriving, or a window placed — in numbers
+  rather than by eye.
 
 ## K. ★ The agent, on somebody else's pages
 
