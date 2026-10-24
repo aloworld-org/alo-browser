@@ -45,7 +45,7 @@ use alo_dom::{Document, NodeId};
 /// A button is named by what is written on it; a paragraph has no name at all.
 /// The list is ARIA's "name from content", trimmed to the roles this engine
 /// has — and it is a list rather than a rule because ARIA makes it one.
-pub(crate) fn names_itself_from_content(role: &Role) -> bool {
+pub fn names_itself_from_content(role: &Role) -> bool {
     matches!(
         role,
         Role::Known(

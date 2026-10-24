@@ -37583,3 +37583,125 @@ ticked.
 293 queue items are open. The next unused queue number is **623** and the
 next ADR is **0059**. This is one iteration, not a finished queue or
 roadmap.
+
+## Iteration 371 — queue item 620: a page in Chrome, read as our tree
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(the product path and stage 2's process model), iteration 370's entry,
+`REMAINING.md`'s continuation notes, queue items 619–628 and the product
+path table, ADR 0058 in full (and through it 0001, 0005 and 0055 § 1), ADR
+0059's place for the product path, the feature line for ADR 0058 in
+`docs/features.md`, `scripts/gate.sh`'s rented-crate boundaries, and
+`alo-renderer`'s `snapshot.rs`, `alo-agent`'s `tree.rs` and `name.rs`
+(the reading rules), `alo-box`'s `role.rs` and `state.rs`, and the
+`web-a-form` case and item 131's test of it. No `AGENTS.md` exists here.
+
+**Why 620.** The first open item in ADR 0058's line, whose one dependency
+(619) is done; iteration 370 named it next. It names its ADR (0058 § 4),
+its feature line (added by 619) and its closing condition.
+
+**Measured first.** A Python probe over `--remote-debugging-pipe`
+(scratchpad `p620/probe.py`) against Chrome 155.0.8059.86: `Fetch.enable`
+for `*` pauses the page's own request and the favicon; fulfilling one and
+failing the other loads the form with nothing fetched; the full tree is 85
+nodes and nests 10 deep inside its reply (under `MOST_NESTING`, 16);
+`DOM.getContentQuads` answers by `backendNodeId` with no `DOM.enable`,
+for elements, text nodes and the document.
+
+**Built.** In `alo-window`: `chrome_tab.rs` — `Tab::open_frozen` makes a
+target, attaches a flattened session, pauses every request, answers the
+page's own address with its bytes and refuses every other (named in
+`Tab::refused`), lays out at the case's size, and waits for the loader
+`Page.navigate` named to reach `load` (`Page.lifecycleEvent`), never a
+`load` left from `about:blank`; `Tab::read` asks for the tree, the window
+and each node's quads; `Drop` closes the target. `chrome_tree.rs` maps the
+tree into `alo-renderer`'s `Snapshot` by the engine's reading rules and
+refuses a tree that is not one (`Unread`: no root, a node twice, a missing
+child, deeper than 512). `chrome_protocol.rs` gains commands with params
+and sessions, events with params, base64 for a body, and bounded readers
+(`target`, `session`, `navigated`, `stage`, `paused`, `quads`, `window`,
+`ax_nodes`). `chrome.rs`'s private `ask` became `send`, `receive` and
+`ask` through a session. `alo-agent`'s `names_itself_from_content` is now
+public so both trees use one list; `alo-box`'s `Role::Declared` doc says it
+also carries a role Chrome names. `alo-corpus` is a dev-dependency of
+`alo-window`, for the case and its fonts. Not weakened: no lint, test or
+boundary relaxed; `serde_json` is still named only by `protocol.rs` and
+`chrome_protocol.rs`.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy -p alo-window
+-p alo-agent --all-targets --all-features -- -D warnings` clean first
+(findings fixed: similar names, raw-string hashes, a semicolon, a redundant
+closure). `scripts/gate.sh` was started in the foreground; it ran past the
+tool's 600 s limit and was moved to the background by the harness, and the
+next call waited on its log with an until-loop and read it in the same
+step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, 5,113 tests run,
+5,113 passed (24 more than iteration 370: 19 unit, 5 integration),
+`serde_json stays behind its boundary` among them. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Closing condition, `tests/a_page_in_chrome_read_as_our_tree.rs` against
+  the machine's Chrome 155: `web-a-form` read through Chrome and through the
+  engine (`Renderer` with the corpus fonts, as item 131 reads it) agrees
+  node for node, in order, on 30 nodes — role, name and states — apart from
+  exactly the lines listed, each asserted on one side only: Chrome's
+  unnamed `form`; Chrome's `InputTime "Preferred delivery time:"` with its
+  two spin buttons and picker button; the engine's `generic "Preferred
+  delivery time:"`. The differences are written into item 620's *Done*
+  paragraph.
+- Numbers: the document is (0, 0) 600×700; all seven radios and checkboxes
+  are 13×13 and read top to bottom; every node is drawn once, on screen,
+  inside the window; a field is inside its paragraph; every id is distinct.
+  The rectangles are Chrome's in its own fonts and are not compared box for
+  box with the engine's.
+- No network: the form's only refusal can be the favicon; a frozen page
+  with an `<img>` is refused the picture and still read (`image "A cat"`,
+  `link "Next"`, no `text "Next"` beside it, `document "Pictures"`); an
+  address Chrome cannot go to is refused with Chrome's reason and Chrome is
+  still there to be asked.
+- Hostile input: unit tests for every new reader's malformed shapes and
+  bounds (100,000 nodes, 4096 quads, a quad not of eight finite numbers, a
+  non-text session, params that are not an object), and in `chrome_tree.rs`
+  a loop, a shared child, a repeated id, a missing child, an empty tree, a
+  label searched through a loop, 514 levels, and a failed `drawn` — each its
+  own `Unread`, none a panic.
+- Mutation, each restored from a copy (`cmp` confirmed): reading a label's
+  words again fails two of the five integration tests; fulfilling every
+  request with the page fails the refusal test.
+- Layout assertions: the numbers above. Reference renders: nothing is drawn
+  through Chrome yet (627), so there is no picture to compare.
+- One file, one responsibility: a tab and its requests (`chrome_tab.rs`),
+  the mapping (`chrome_tree.rs`), the protocol's messages
+  (`chrome_protocol.rs`), the process and its pipe (`chrome.rs`).
+- Cost: none measured; no speed claim.
+- Also updated: `docs/features.md`, `ROADMAP.md` (both places the product
+  path is described), `CHANGELOG.md`, `REMAINING.md`, the queue.
+  `docs/conformance.md` is unchanged: it is about what the engine renders.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 620 ticked with a *Done* paragraph listing every difference
+found. New item 629, cut from 620: a page from the network through Chrome,
+under the grants, with whose network a Chrome request uses written down.
+The product path table gains 629.
+
+**Roadmap.** The ADR 0058 line's `· Built:` gains the tab and the tree, its
+`· Owed:` gains 629 and 627; "Where the product path stands today" moves
+620 to built and adds 629. Not ticked.
+
+**Unresolved obligations.**
+- 621 (the verbs through Chrome) is next in ADR 0058's line; it will need
+  to decide what a submission does while every other request is refused,
+  which 629 owns for live pages.
+- `scrolls` is always `false` on the Chrome path; placeholders, broken
+  pictures and `aria-current` are not read. Named in `chrome_tree.rs`.
+- ADR 0058 § 6 still holds: nothing routes a person's page to Chrome, so no
+  claim has changed.
+- 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 627 needs an ADR.
+- No claim about speed is made.
+
+299 queue items are open (620 closed, 629 added). The next unused queue
+number is **630** and the next ADR is **0060**. This is one iteration, not
+a finished queue or roadmap.

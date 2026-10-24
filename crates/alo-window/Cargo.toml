@@ -24,5 +24,8 @@ alo-text = { path = "../alo-text" }
 alo-url = { path = "../alo-url" }
 alo-value = { path = "../alo-value" }
 
+[dev-dependencies]
+alo-corpus = { path = "../alo-corpus" }
+
 [lints]
 workspace = true

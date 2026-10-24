@@ -42,7 +42,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **497** | a grant per site, refused by us and recorded |
 | ✓ | **131** | the tree, the verbs and the refusals, on a real external page |
 | ✓ | **619** | Chrome spawned and spoken to over a pipe |
-| | **620** | Chrome's tree, read as ours |
+| ✓ | **620** | Chrome's tree, read as ours |
+| | **629** | a page from the network through Chrome, under the grants |
 | | **621** | the verbs, through Chrome |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
 | | **622** | which renderer is in use, where a person can read it |
@@ -15714,7 +15715,7 @@ What stage 2's exit gate actually measures: a person using it.
   kind. Not built: anything on Windows, where how Chrome would be spoken to
   is undecided as the agent's socket is.
 
-- [ ] **620. ★ A page in Chrome, read as our tree.** *ADR 0058 § 4.* A page
+- [x] **620. ★ A page in Chrome, read as our tree.** *ADR 0058 § 4.* A page
   loaded in the rented renderer, and `Accessibility.getFullAXTree` mapped into
   the `Snapshot` an agent already reads. The mapping is the whole item: Blink
   builds that tree from its layout objects, so it is close to ours and is
@@ -15725,6 +15726,47 @@ What stage 2's exit gate actually measures: a person using it.
   test asserts the two trees agree on every name, role and value they both
   carry; where they differ, the difference is listed in the item rather than
   silently accepted.
+  ***Done (iteration 371).*** `alo-window`'s `chrome_tab.rs` opens a frozen
+  page in a tab of the `Chrome` from 619 — a target of its own, spoken to
+  through a flattened session on the same pipe — at the address it was taken
+  from: every request is paused before it leaves Chrome (`Fetch.enable` for
+  `*`), the page's own address is answered with its bytes and every other is
+  refused and named (`Tab::refused`), so a case read through Chrome touches
+  no network. The page is loaded when the loader `Page.navigate` named
+  reaches `load`, never on a `load` left over from `about:blank`.
+  `chrome_tree.rs` maps `Accessibility.getFullAXTree` into the engine's own
+  `Snapshot` by the engine's reading rules (ignored nodes, unnamed
+  `generic`s, `LabelText` and `Legend` read through; a label's words not read
+  again beside the control they name; a button's words not read beside it;
+  `InlineTextBox` never read; a `ListMarker` carried as its item's `marker`),
+  each node's id its `backendDOMNodeId` and its rectangles where Chrome drew
+  it (`DOM.getContentQuads`). `chrome_protocol.rs`, still the one file that
+  names `serde_json` for Chrome, gains commands with params and sessions,
+  events with their params, and bounded readers for each result (100,000
+  nodes, 4096 quads a node). `tests/a_page_in_chrome_read_as_our_tree.rs`
+  against Chrome 155: `web-a-form` read through Chrome and through the engine
+  agrees node for node, in order — 30 nodes, every role, name and state —
+  apart from exactly these, each asserted present on one side only:
+  - **Chrome exposes the unnamed `<form>` as `form`**; ARIA exposes a form
+    only when it is named, and the engine reads it through.
+  - **Chrome builds the `time` field**: `InputTime "Preferred delivery
+    time:"` holding `spinbutton "Hours Hours"`, `spinbutton "Minutes
+    Minutes"` and `button "Show time picker Show time picker"` (Chrome names
+    each twice over); the engine has `generic "Preferred delivery time:"`
+    with nothing inside, until 388. The two name the field alike. The
+    `--` and `:` Chrome draws in it are not read, because they are inside
+    the label that names the field — by the label rule rather than by
+    ADR 0042 § 4's rule for a date's format, which nothing here applies.
+  - **Rectangles are Chrome's own, in its own fonts**, not compared box for
+    box; a radio and a checkbox are 13×13 in both, and the document is the
+    window (600×700) where the engine's is its content (600×640.1875).
+  Where Chrome's tree says less, named in `chrome_tree.rs` rather than
+  filled: whether a box **scrolls** (always `false` here — a claim this tree
+  cannot make true), a field's **placeholder**, a **broken** picture,
+  `aria-current`, a `mixed` **pressed**, and a node with no DOM node behind
+  it, which is read through. A frozen page asking for a picture is refused it
+  and still read; an address Chrome cannot go to is refused with Chrome's
+  reason. Not built, cut as 629: opening a page from the network.
 
 - [ ] **621. ★ The verbs, through Chrome.** *ADR 0058 § 4.* `activate` and
   `fill` carried out over CDP's `Input` domain, so a page sees a real key and
@@ -15826,6 +15868,22 @@ What stage 2's exit gate actually measures: a person using it.
   `test-loop.sh` shows a stranger's mid-iteration file surviving an iteration
   that is not blamed for it, or this item is closed with the reasoning written
   down and `LOOP.md` says plainly not to edit the tree under a running loop.
+
+- [ ] **629. A page from the network, through Chrome, under the grants.**
+  *ADR 0058 § 4.* Item 620 opens only a frozen page: every request a tab
+  makes is paused and every one but the page's own refused, which is right
+  for a corpus case and is not a browser. Opening a page from the network
+  means letting Chrome's own requests through, and *which* ones is a
+  question of the browser process's, not Chrome's: a site an agent was not
+  given must be refused before a command is written (item 497), a refused
+  navigation recorded as the engine's are, and what the person's own trust
+  store and the engine's `alo-net` say about a request is either kept or
+  knowingly set aside. **Cut from 620.** *Depends on 620, 497. Closes when:*
+  a page served by a local server of the test's own opens through Chrome and
+  is read, a site outside the grants is refused by name before Chrome is
+  asked to go there, and the decision about whose network a Chrome request
+  uses is written down — in an ADR if it is a decision rather than a
+  consequence of 0058.
 
 ## K. ★ The agent, on somebody else's pages
 

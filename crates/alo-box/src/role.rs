@@ -38,7 +38,8 @@ pub enum Role {
     /// A role this engine has a name for.
     Known(KnownRole),
     /// A role the author declared that this engine does not know, kept exactly
-    /// as written.
+    /// as written — or one Chrome names, read through its tree on the far side
+    /// of the renderer boundary (ADR 0058 § 4), kept as Chrome spells it.
     Declared(Box<str>),
 }
 

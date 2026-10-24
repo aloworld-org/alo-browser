@@ -140,9 +140,11 @@ about this project (ADR 0058 § 6).
 - **Built:** the window (296); the agent socket, a Unix socket and never a port
   (496); a grant per site, refused by us and recorded (497); the tree, the
   verbs and the refusals, driven on a real external page (131); Chrome spawned
-  and spoken to over a pipe (619).
-- **Owed:** Chrome's tree read as ours (620); the verbs carried through Chrome
-  (621); which renderer is in use, where a person can read it (622); the
+  and spoken to over a pipe (619); a frozen page opened in Chrome and its tree
+  read as ours, agreeing with the engine's on every role, name and state they
+  both carry (620).
+- **Owed:** a page from the network through Chrome, under the grants (629);
+  the verbs carried through Chrome (621); which renderer is in use, where a person can read it (622); the
   agent's work where a person can see it (623–625); **what a person actually
   looks at (627)** — the boundary's `Painted(Frame)` has no answer on the
   Chrome side, so today that path drives a page nobody can see; an application
@@ -627,10 +629,15 @@ unreachable without it.
       `chrome_wire.rs` frames its NUL-ended messages under a bound of ours and
       `chrome_protocol.rs` reads them, refusing every malformed one as a kind;
       Chrome 155 answers `Browser.getVersion` and is gone with its helpers and
-      profile whether the browser closes it or dies
-      · Owed: a page in Chrome read as our tree (620), the verbs through it
-      (621), and saying which renderer is in use where a person can read it
-      (622)
+      profile whether the browser closes it or dies; a frozen page opened in a
+      tab of it with every other request refused (`chrome_tab.rs`, item 620),
+      and its accessibility tree read as this browser's `Snapshot`
+      (`chrome_tree.rs`) — `web-a-form` reads node for node as the engine
+      reads it, but for an unnamed `form` Chrome exposes and the time field
+      Chrome builds and the engine does not
+      · Owed: a page from the network through Chrome (629), the verbs through
+      it (621), what a person looks at (627), and saying which renderer is in
+      use where a person can read it (622)
 
 ### The network
 

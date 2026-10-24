@@ -37,7 +37,9 @@
 //!   spoken to over a pipe (ADR 0058, item 619): [`chrome_wire`] finds where
 //!   each of its messages ends and [`chrome_protocol`] reads them, the one
 //!   other file that names `serde_json`, with [`json_depth`] refusing any
-//!   JSON from outside that nests too deep before either reader sees it.
+//!   JSON from outside that nests too deep before either reader sees it. A
+//!   page in it is a [`chrome_tab`], read as the tree an agent reads by
+//!   [`chrome_tree`] (item 620).
 //!
 //! # What it is not yet
 //!
@@ -63,6 +65,8 @@ pub mod beside;
 #[cfg(unix)]
 pub mod chrome;
 pub mod chrome_protocol;
+pub mod chrome_tab;
+pub mod chrome_tree;
 pub mod chrome_wire;
 pub mod colours;
 pub mod compose;

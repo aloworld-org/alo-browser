@@ -36,8 +36,8 @@
 //!
 //! # What it is not yet
 //!
-//! It answers `Browser.getVersion` and closes. A page loaded in it and read as
-//! this browser's tree is item 620; the verbs carried out through it, 621.
+//! It answers `Browser.getVersion`, holds tabs ([`crate::chrome_tab`], item
+//! 620) and closes. The verbs carried out through it are item 621.
 
 use crate::beside::{NotInstalled, chrome_in, chrome_places, is_program};
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
@@ -238,6 +238,11 @@ impl Chrome {
         &self.profile
     }
 
+    /// How long it is waited for.
+    pub fn patience(&self) -> Duration {
+        self.patience
+    }
+
     /// Which Chrome this is, as it says itself.
     ///
     /// # Errors
@@ -245,43 +250,71 @@ impl Chrome {
     /// [`Failed`], when it does not answer, or answers with something that is
     /// not a version.
     pub fn version(&mut self) -> Result<Version, Failed> {
-        let result = self.ask(Command::GetVersion)?;
+        let result = self.ask(None, &Command::GetVersion)?;
         chrome_protocol::version(&result).map_err(Failed::Malformed)
     }
 
-    /// Send `command`, and wait for its result.
-    fn ask(&mut self, command: Command) -> Result<Vec<u8>, Failed> {
+    /// Send `command`, through `session` when it is for a tab, and wait for
+    /// its result — passing over every event told of meanwhile, which is
+    /// what a command to Chrome itself wants. A tab, which has events to
+    /// answer, waits with [`Chrome::send`] and [`Chrome::receive`] instead.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when it is not written, not answered within the patience,
+    /// or declined.
+    pub fn ask(&mut self, session: Option<&str>, command: &Command) -> Result<Vec<u8>, Failed> {
+        let id = self.send(session, command)?;
+        let until = Instant::now() + self.patience;
+        loop {
+            match self.receive(until)? {
+                Message::Reply {
+                    id: answered,
+                    result,
+                    ..
+                } if answered == id => return result.map_err(Failed::Declined),
+                // An event, or the answer to a command given up on before it
+                // came.
+                _ => {}
+            }
+        }
+    }
+
+    /// Write `command`, through `session` when it is for a tab, without
+    /// waiting: the id its answer will carry.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed::Gone`] when nobody reads the far end, or
+    /// [`Failed::Unwritten`].
+    pub fn send(&mut self, session: Option<&str>, command: &Command) -> Result<u64, Failed> {
         self.asked = self.asked.wrapping_add(1);
         let id = self.asked;
         let to = self.to.as_mut().ok_or(Failed::Gone)?;
-        chrome_wire::write(to, &chrome_protocol::written(id, command)).map_err(|why| match why
-            .kind()
-        {
-            // Nobody reads the far end: Chrome has gone.
-            ErrorKind::BrokenPipe => Failed::Gone,
-            kind => Failed::Unwritten(kind),
-        })?;
-        let until = Instant::now() + self.patience;
-        loop {
-            let left = until.saturating_duration_since(Instant::now());
-            match self.arrived.recv_timeout(left) {
-                Ok(Ok(Message::Reply {
-                    id: answered,
-                    result,
-                })) if answered == id => {
-                    return result.map_err(Failed::Declined);
-                }
-                // An event, which nothing here reads yet, or the answer to a
-                // command given up on before it came.
-                Ok(Ok(_)) => {}
-                Ok(Err(why)) => return Err(why),
-                Err(RecvTimeoutError::Timeout) => {
-                    return Err(Failed::Silent {
-                        waited: self.patience,
-                    });
-                }
-                Err(RecvTimeoutError::Disconnected) => return Err(Failed::Gone),
+        chrome_wire::write(to, &chrome_protocol::written(id, session, command)).map_err(|why| {
+            match why.kind() {
+                // Nobody reads the far end: Chrome has gone.
+                ErrorKind::BrokenPipe => Failed::Gone,
+                kind => Failed::Unwritten(kind),
             }
+        })?;
+        Ok(id)
+    }
+
+    /// The next message from Chrome, waiting no later than `until`.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed::Silent`] when nothing came by then, [`Failed::Gone`] when the
+    /// pipe has closed, or what made its messages unreadable.
+    pub fn receive(&mut self, until: Instant) -> Result<Message, Failed> {
+        let left = until.saturating_duration_since(Instant::now());
+        match self.arrived.recv_timeout(left) {
+            Ok(arrived) => arrived,
+            Err(RecvTimeoutError::Timeout) => Err(Failed::Silent {
+                waited: self.patience,
+            }),
+            Err(RecvTimeoutError::Disconnected) => Err(Failed::Gone),
         }
     }
 }
@@ -289,7 +322,8 @@ impl Chrome {
 impl Drop for Chrome {
     fn drop(&mut self) {
         if let Some(mut to) = self.to.take() {
-            let _ = chrome_wire::write(&mut to, &chrome_protocol::written(0, Command::Close));
+            let _ =
+                chrome_wire::write(&mut to, &chrome_protocol::written(0, None, &Command::Close));
             // Dropped here, closing the pipe: a Chrome that did not read the
             // command ends at its pipe closing.
         }

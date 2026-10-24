@@ -281,6 +281,7 @@ version = "0.0.0"
 dependencies = [
  "alo-agent",
  "alo-box",
+ "alo-corpus",
  "alo-layout",
  "alo-net",
  "alo-paint",

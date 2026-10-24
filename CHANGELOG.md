@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page opened in Chrome is read as the same tree an agent reads.** The
+  browser can now open a saved page in a tab of the machine's own Chrome and
+  read Chrome's description of it — its accessibility tree — as this
+  browser's own tree, by the same rules: a label's words name the field they
+  belong to and are not read twice, a button is called by what is written on
+  it, and anything that says nothing is passed through. Read through Chrome
+  and through this browser's own engine, httpbin's pizza form comes out node
+  for node the same: every field, both groups, all seven boxes and the
+  button, with the same names and the same checked or unchecked. Where they
+  differ it is written down rather than smoothed over: Chrome shows the form
+  itself, and Chrome has a real time field where the engine does not yet. A
+  saved page touches no network: every request Chrome makes for it is
+  stopped, the page's own is answered with the saved bytes, and every other
+  is refused and listed. Opening a live page through Chrome is not built yet.
+
 - **A test that stopped the build loop measured the machine, not the
   browser.** One of the new Chrome tests gave Chrome ten seconds to shut
   down and called it a failure otherwise. On 24 October the whole build

@@ -2735,3 +2735,13 @@ over `--remote-debugging-pipe` (`alo-window`'s `chrome.rs`,
 browser closes it or dies. 620 (a page read as our tree) is next in ADR
 0058's line. 293 queue items are open. The next unused queue number is
 623 and the next unused ADR 0059.
+
+Iteration 371 took queue item 620, the second of ADR 0058's four: a
+frozen page opened in a tab of the machine's Chrome, every request but its
+own refused (`alo-window`'s `chrome_tab.rs`), and its accessibility tree
+mapped into the engine's own `Snapshot` (`chrome_tree.rs`). `web-a-form`
+reads node for node as the engine reads it, apart from an unnamed `form`
+Chrome exposes and the time field Chrome builds, both listed in the item.
+Opening a page from the network is cut as 629. 299 queue items are open
+(620 closed, 629 added). The next unused queue number is 630 and the next
+unused ADR 0060.
