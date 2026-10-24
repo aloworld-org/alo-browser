@@ -15704,6 +15704,52 @@ What stage 2's exit gate actually measures: a person using it.
   the running browser which renderer it is using and be told, and the roadmap
   and features list say it too.
 
+- [ ] **623. ★ A person watching can read what the agent is doing.** *ADR
+  0052 § 1.* Every answer already carries `said` — `put "Ada Lovelace" into
+  box#10`, `nothing on the page is "A pony"` — and all of it goes down the
+  socket to the agent and nowhere else. A person at the window sees the form
+  fill itself with no account of who is filling it or why, which is the one
+  thing a person cannot be asked to take on trust. The browser's own chrome
+  gains a line that holds the last `said`, written by the **browser** process
+  from the answer it is already sending, so the page's own script can neither
+  read it nor write it. It is the sentence the agent was given, not a second
+  wording that could disagree with it. *Depends on 296. Closes when:* a verb
+  run over the socket leaves its sentence in the window's tree, asserted in
+  numbers in a layout test and in a reference render, and a page that tries
+  to reach or forge that line cannot.
+
+- [ ] **624. ★ The thing being acted on is marked while it is acted on.** *ADR
+  0002 § 4.* A ring drawn around the box a verb is running on, for as long as
+  it runs. This is the clearest statement the product can make that the agent
+  is reading structure and not guessing at pixels — it lands on the box's own
+  bounds, exactly, because the agent named the box and the box knows where it
+  was drawn. The rectangle is **read to draw, never acted on**: no verb gains
+  a coordinate, and the marking is the browser's, downstream of the decision,
+  so a verb's outcome does not change by one bit whether or not anybody is
+  watching (and nothing is drawn at all when nobody is, item 549). *Depends on
+  623. Closes when:* the ring's box is asserted in numbers against the node's
+  own `rect` for a named target, a refused verb marks nothing, and a reference
+  render shows it.
+
+- [ ] **625. A refusal is shown to the person, not only answered to the
+  agent.** *ADR 0051 § 1.* `NotFound`, `Ambiguous`, `NotAField` are the most
+  convincing thing this browser does and today they are invisible: the agent
+  is told, the person is not. A refusal takes the line from 623 and holds it
+  longer than an outcome does, because a person needs longer to read why
+  nothing happened than to see that something did. *Depends on 623. Closes
+  when:* each refusal kind leaves its own sentence where a person can read it,
+  asserted per kind, and an agent that is refused twice in a row leaves two
+  sentences rather than one.
+
+- [ ] **626. The ambiguous refusal's sentence is English, not Rust's.**
+  `verb.rs`'s `Display` writes its candidates with `{:?}`, so a person is told
+  `ask for one of [BoxId(7), BoxId(14), …]` where every other sentence in the
+  file says `box#7`. The structured `candidates` beside it is right; only the
+  words are wrong, and they are the half a person reads. Found by driving the
+  socket by hand on 24 October 2026. *Depends on nothing. Closes when:* the
+  sentence names its candidates as `BoxId`'s own `Display` does, with a unit
+  test on the wording, and no other `Display` in the file reaches for `{:?}`.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
