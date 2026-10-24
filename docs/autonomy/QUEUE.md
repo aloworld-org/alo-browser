@@ -16386,6 +16386,36 @@ What stage 2's exit gate actually measures: a person using it.
   the suite's concurrency, or what a person must do is said where they read
   it rather than assumed.
 
+- [ ] **643. A renderer left stopped, and the one test that stops one.**
+  `a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame`
+  failed the supervisor's gate on 2026-10-24 at 21:10 as **`FAIL + LEAK` in
+  5.007 s**, stopping the loop. It has not been reproduced since: five runs of
+  it alone under load, four of the whole 292-test package, and a full gate of
+  5193 tests all passed, the gate in 555 s against the failing run's 1585 s —
+  so the machine was about three times slower then than now, and whatever that
+  was is not understood either. What is known, and is written here rather than
+  acted on because **none of it has been made to fail on purpose**:
+  - It is the only test that sends a renderer `kill -STOP` (line 187), and it
+    never sends `-CONT` or `-KILL`. A stopped process cannot run a handler.
+  - A renderer inherits the test binary's stderr (`host.rs`, `.stderr(
+    Stdio::inherit())`, and the comment there says why), so **any renderer
+    that outlives the test holds the pipe open and nextest reports `LEAK`.**
+  - Every path that drops a renderer from the table goes through
+    `Renderers::stop`, which is `kill()` — SIGKILL, which a stopped process
+    does take — and then `wait()`. So the obvious defect is not there.
+  - The run captured **no panic text**, which is what a test that is killed
+    rather than one that fails an assertion looks like.
+  - `sandbox::confined` means the process `stop()` kills may not be the
+    process the test stopped. That is the first thing to check and it is a
+    guess.
+  *Depends on nothing. Closes when:* the failure is reproduced on purpose —
+  by slowing the machine, by holding the renderer, or by stopping the
+  grandchild rather than the child — and then either fixed with a test that
+  fails without the fix, or shown to be a property of nextest's leak
+  detection and the test changed to resume what it stopped. **It may close as
+  "the test must undo its own `-STOP`", which is one line and would have been
+  a guess today.**
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
