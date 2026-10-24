@@ -44,7 +44,9 @@
 //!   out as a real click or real typing (item 621). A page from the network
 //!   is carried by Chrome's own network (ADR 0060): every target of its tab
 //!   held by [`chrome_hold`] until its requests are paused, and each request
-//!   judged by [`chrome_gate`] before Chrome is let send it (item 633).
+//!   judged by [`chrome_gate`] before Chrome is let send it (item 633), and
+//!   written into the record with the cause this process gave it by
+//!   [`chrome_record`] (item 634).
 //!
 //! # What it is not yet
 //!
@@ -74,6 +76,7 @@ pub mod chrome_gate;
 pub mod chrome_hold;
 pub mod chrome_protocol;
 pub mod chrome_reading;
+pub mod chrome_record;
 pub mod chrome_tab;
 pub mod chrome_tree;
 pub mod chrome_wire;

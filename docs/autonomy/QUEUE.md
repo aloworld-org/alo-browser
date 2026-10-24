@@ -45,7 +45,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **620** | Chrome's tree, read as ours |
 | | **629** | a page from the network through Chrome, under the grants — **decided, ADR 0060** |
 | ✓ | **633** | a page from the network opened in Chrome, every request held to our rules |
-| | **634** | every request of a page in Chrome in the record |
+| ✓ | **634** | every request of a page in Chrome in the record |
+| | **637** | a shared worker of a page in Chrome, held — **its requests escape today** |
 | ✓ | **621** | the verbs, through Chrome |
 | | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
@@ -15963,6 +15964,12 @@ What stage 2's exit gate actually measures: a person using it.
   0030's name are set aside on this path, in a table in the ADR, and owed in
   words where a person can read them (622). *Closes when* 633 and 634 are
   done.
+  ***Still open after 634 (iteration 375), and that is a finding:*** a
+  shared worker a page starts is never told of through the tab, and a
+  `fetch` it made reached a local server unpaused, measured against Chrome
+  155. ADR 0060 § 2's *no request leaves Chrome until the browser process
+  has seen it* does not hold for it, so this stays open until **637** holds
+  one.
 
 - [ ] **630. The agent's socket reaches a tab in Chrome, and the record says
   so.** *ADR 0058 § 4, 0055.* **Cut from 621**, which carries the verbs out on
@@ -16052,7 +16059,7 @@ What stage 2's exit gate actually measures: a person using it.
   frozen page's service worker asks the server nothing. Two mutations
   (no tab-level hold; a frame not told to pause) each fail it.
 
-- [ ] **634. Every request of a page in Chrome is in the record.** *ADR 0060
+- [x] **634. Every request of a page in Chrome is in the record.** *ADR 0060
   § 2, ADR 0012, cut from 629.* Each request `633` lets go or refuses becomes
   an `alo_net::activity` entry with the cause this process assigns — the
   person, the document, the agent action — never one the page or Chrome
@@ -16061,6 +16068,36 @@ What stage 2's exit gate actually measures: a person using it.
   decided. *Depends on 633. Closes when:* the record of a local page with a
   redirect, a sub-resource and a WebSocket is read back line by line, and an
   agent's `activate` that navigates names the agent action as its cause.
+  ***Done (iteration 375).*** `Chrome::record()` holds the identities, the
+  documents and the `Activity` of its tabs (`chrome_record.rs`), and every
+  request of a page from the network is a line: let go is
+  `Happened::LetGo` — a new outcome, *let go, to a network that is not this
+  engine's*, because a status this browser never read is not one to write —
+  refused is `Happened::Refused` with ADR 0020's rule, and a WebSocket is
+  the new `Happened::Undecided`. Chrome's kind of request is `alo-net`'s
+  purpose where they are the same thing and the new `Purpose::Unnamed`
+  where this engine has no word (a font, a worker's script, a favicon);
+  this engine never makes one, and the durable record (`deed.rs`) reads
+  and writes all three. Causes come from what this process did
+  (`Causes`): the tab's first page is the person's, a navigation's first
+  hop mints its document and a redirect's hop carries the same cause and
+  mints nothing, the page's own frame committing (`Page.frameNavigated`,
+  measured to arrive after the last hop and before the new page's first
+  request) makes that document the tab's, and while `act` carries a verb
+  out — minted when accepted — the tab's requests are the agent's, and so
+  is a navigation the frame asked for in that time, kept against its
+  address. `Network.enable` is sent to the tab and to every held target;
+  measured, a service worker answers it only once it runs, so it is sent
+  before it is let go and not waited for, and still tells of a socket its
+  script opens first thing. `tests/every_request_of_a_page_in_chrome_recorded.rs`:
+  `/start` redirecting across sites to a page with a style sheet, a
+  WebSocket and a link — both hops the person's and one document, the
+  sheet the page's, the socket `Undecided`, every chain ending at the
+  person — and an agent's `activate` on the link naming the action on the
+  second page's navigation, its sheet's chain reaching the action and the
+  person. Four of five mutations fail it; the fifth (a navigation asked for
+  while acting forgotten) survives it because Chrome 155 paused the hop
+  before the verb answered, and fails the unit test that keeps the ask.
 
 - [ ] **635. Whether Chrome keeps the machine's resolver.** *ADR 0060 § 4,
   ADR 0008.* Chrome may upgrade the system's resolver to encrypted DNS on its
@@ -16070,6 +16107,48 @@ What stage 2's exit gate actually measures: a person using it.
   own, or Chrome's own `chrome://net-internals` state read over CDP — and,
   if it replaces it, `chrome.rs` starts it so that it does not, with a test;
   or this item closes saying it does not, and how that was known.
+
+- [ ] **636. A frame in Chrome is a document of its own in the record.** *Cut
+  from 634 (ADR 0012 § 3).* Today a frame's requests and a worker's are
+  the tab's document's — the page that holds the frame or started the
+  worker. Each frame committing should mint its own document, caused by the
+  document holding it, so that a frame's `fetch` is the frame's and the
+  walk back passes through the page. Needs Chrome's frame tree
+  (`Page.frameAttached`'s parent, or each frame's own `frameNavigated`),
+  and the targets of another site's frame. *Depends on 634. Closes when:* a
+  local page with a same-site frame and an other-site frame that each
+  fetch is recorded with each frame's `fetch` caused by its own document,
+  whose cause is the page's document.
+
+- [ ] **637. A shared worker of a page in Chrome is held.** *Found building
+  634 (iteration 375); ADR 0060 § 2.* Measured against Chrome 155 with a
+  local server: a page's `new SharedWorker('/sh.js')` has its script
+  paused through the page, but the shared worker is **never attached to
+  the tab's session**, and a `fetch` it made reached the server unpaused —
+  as did a WebSocket it opened. So ADR 0060's *only the WebSocket
+  escapes* holds for frames, dedicated workers and service workers and not
+  for this. Candidates, none measured yet: Chrome's own session
+  auto-attaching every `shared_worker` and holding it as the tab does
+  (which tab's it is would then have to be decided, since several may
+  share one); or refusing the worker's script as it is paused, which
+  breaks pages that use one. *Depends on 633. Closes when:* the shared
+  worker's requests are paused before a local server sees them and
+  asserted from the server's side, or its script is refused by name —
+  and 629 closes with it.
+
+- [ ] **638. Whose is a page an agent asked a tab to open.** *Found building
+  634 (iteration 375); ADR 0012 § 2, ADR 0055.* `Tab::open_for_agent`
+  (633) opens a tab at an address an agent named, and ADR 0012's three
+  causes have no place for it: a person did not ask, and an agent action
+  is *"in the document it acted in"*, of which a new tab has none. Today
+  that tab's first page is recorded as the person's, because the tab is
+  theirs — which is the one line in the record that a person reading it
+  could take for something they did. ADR 0055 has agents reach tabs a
+  person opened, so nothing on the socket calls it yet; 630 will.
+  **needs ADR**: an agent action with no document, a fourth cause, or an
+  agent that may not open tabs at all. *Depends on 634. Closes when:* the
+  ADR is accepted and a tab an agent opened is recorded as it says, with a
+  test reading the line back.
 
 ## K. ★ The agent, on somebody else's pages
 

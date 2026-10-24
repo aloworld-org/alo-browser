@@ -150,13 +150,19 @@ about this project (ADR 0058 § 6).
   judged by our rules before Chrome is let send it — none of a local page's,
   its other-site frame's, its worker's or its service worker's reached the
   server unseen — and an agent's off-site address refused before a single
-  command is written (633).
+  command is written (633); every request of such a page in the record,
+  each hop of a navigation a line and a WebSocket a line saying it was not
+  decided, with the cause this process gave it — the person's first page,
+  the page's own requests, and an agent's `activate` named on the
+  navigation it caused (634).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
   it, and the network promises that do not hold there named (ADR 0060).
-- **Owed:** every request of a page in Chrome in the record, with its cause
-  (634, which closes 629);
+- **Owed:** a shared worker of a page in Chrome held — measured, its
+  `fetch` reached a local server unpaused, so ADR 0060 § 2 does not yet hold
+  for it (637, which closes 629); a frame recorded as a document of its own
+  (636); whose cause a tab an agent asked to open is (638, needs an ADR);
   the agent's socket reaching a tab in Chrome, its grants and record naming
   the renderer (630); a form Chrome would not send, answered as the engine
   answers it (631); which renderer is in use, where a person can read it (622); the
@@ -664,13 +670,20 @@ unreachable without it.
       name (`chrome_gate.rs`) — a local page's other-site frame, dedicated
       worker and service worker sent nothing the tab had not let go first,
       a `mailto:` it sends itself to is refused by name, and an agent's
-      off-site address is `NotGranted` with nothing written to Chrome
+      off-site address is `NotGranted` with nothing written to Chrome;
+      and every request of such a page in the record (item 634,
+      `chrome_record.rs`), each with the cause this process gave it — a
+      redirect's two hops one navigation of the person's, a style sheet the
+      page's, a WebSocket a line saying it was opened and not decided, an
+      agent's `activate` named on the navigation it caused
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
       aside on this path by name (ADR 0060)
-      · Owed: every request of a page in Chrome in the record (634, which
-      closes 629; the resolver measured as 635), the socket
+      · Owed: a shared worker held — its `fetch` reached a local server
+      unpaused, measured (637, which closes 629); a frame as a document of
+      its own in the record (636); whose cause a tab an agent opened is
+      (638, needs an ADR); the resolver measured (635); the socket
       reaching a tab in Chrome with the record naming its renderer (630), a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), what a person looks at (627), and saying which renderer is in use where a

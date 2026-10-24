@@ -98,7 +98,10 @@ pub fn what_to_do(request: &Request) -> Verdict {
         | Purpose::Fetch
         | Purpose::Beacon
         | Purpose::Document
-        | Purpose::Report => Verdict::Refused {
+        | Purpose::Report
+        // Never made by this engine; were one ever to reach this, a kind
+        // nobody named is refused rather than guessed harmless.
+        | Purpose::Unnamed => Verdict::Refused {
             what: request.purpose.to_string(),
         },
         // Replaced in transit, this is a wrong picture.

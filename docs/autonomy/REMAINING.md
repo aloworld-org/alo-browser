@@ -2787,3 +2787,16 @@ paused in its own target and refused, asserted against a server that was
 asked nothing. 303 queue items are open (633 closed). 634 is
 next on the product path, and closes 629. The next unused queue number is
 636 and the next unused ADR 0061.
+
+Iteration 375 built queue item 634: every request of a page from the
+network in Chrome is a line of `Chrome::record()`'s `Activity`, with a
+cause the browser process gives it (`chrome_record.rs`) — the person's
+first page, the page's own requests, an agent's verb and the navigation
+it set going — each hop of a navigation a line, a WebSocket
+`Happened::Undecided`, a request let go `Happened::LetGo`, and a kind
+`alo-net` has no word for `Purpose::Unnamed`. Measuring it found that a
+shared worker is never told of through the tab and its `fetch` reaches the
+network unpaused: 637, which now closes 629. Cut: 636 (a frame as a
+document of its own) and 638 (whose cause a tab an agent opened is, needs
+an ADR). 305 queue items are open (634 closed; 636, 637 and 638 added).
+The next unused queue number is 639 and the next unused ADR 0061.

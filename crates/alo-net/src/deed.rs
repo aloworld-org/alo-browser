@@ -338,7 +338,10 @@ impl Did {
         let said = match &self.happened {
             Happened::Refused { rule } => rule.len(),
             Happened::Failed { why } => why.len(),
-            Happened::Answered { .. } | Happened::Served { .. } => 0,
+            Happened::Answered { .. }
+            | Happened::Served { .. }
+            | Happened::LetGo
+            | Happened::Undecided => 0,
         };
         size_of::<Did>()
             .saturating_add(self.method.len())
@@ -490,6 +493,8 @@ pub fn encode(deed: &Deed) -> Vec<u8> {
                 body.tag(3);
                 body.text(why);
             }
+            Happened::LetGo => body.tag(4),
+            Happened::Undecided => body.tag(5),
         }
     }
 
@@ -663,6 +668,8 @@ fn one_request(reader: &mut Reader<'_>) -> Result<Did, Unreadable> {
         3 => Happened::Failed {
             why: reader.text()?,
         },
+        4 => Happened::LetGo,
+        5 => Happened::Undecided,
         other => {
             return Err(unreadable(format!(
                 "a record naming an outcome this engine does not have ({other})"
@@ -713,6 +720,7 @@ fn purpose_tag(purpose: &Purpose) -> u8 {
         Purpose::Fetch => 4,
         Purpose::Report => 5,
         Purpose::Beacon => 6,
+        Purpose::Unnamed => 7,
     }
 }
 
@@ -725,6 +733,7 @@ fn purpose_of(tag: u8) -> Result<Purpose, Unreadable> {
         4 => Ok(Purpose::Fetch),
         5 => Ok(Purpose::Report),
         6 => Ok(Purpose::Beacon),
+        7 => Ok(Purpose::Unnamed),
         other => Err(unreadable(format!(
             "a record naming a purpose this engine does not have ({other})"
         ))),
@@ -825,6 +834,8 @@ mod tests {
             Happened::Failed {
                 why: "there is no such host".to_owned(),
             },
+            Happened::LetGo,
+            Happened::Undecided,
         ] {
             for purpose in [
                 Purpose::Document,
@@ -834,6 +845,7 @@ mod tests {
                 Purpose::Fetch,
                 Purpose::Report,
                 Purpose::Beacon,
+                Purpose::Unnamed,
             ] {
                 let mut deed = a_deed();
                 if let Some(did) = deed.requests.first_mut() {

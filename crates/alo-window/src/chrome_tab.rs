@@ -65,10 +65,15 @@ use crate::asking::Refused;
 use crate::chrome::{Chrome, Failed};
 use crate::chrome_gate::{self, Refusal};
 use crate::chrome_hold::{Holding, Kind, Unheld};
-use crate::chrome_protocol::{self, AxNode, Command, Malformed, Message, Requested};
+use crate::chrome_protocol::{self, AxNode, Command, Declined, Malformed, Message, Requested};
+use crate::chrome_record::{Causes, Hop, purpose_of};
 use crate::chrome_tree::{self, Unread};
 use alo_layout::Rect;
+use alo_net::activity::Happened;
+use alo_net::cause::ActionId;
+use alo_net::request::Purpose;
 use alo_renderer::Snapshot;
+use alo_renderer::navigate::LONGEST_URL;
 use alo_url::Url;
 use core::fmt;
 use std::collections::{HashMap, HashSet};
@@ -91,12 +96,21 @@ pub struct Tab<'c> {
     /// The requests this tab answered and awaits Chrome's word on, and
     /// whether each was the page.
     answering: HashMap<u64, bool>,
+    /// The targets asked to tell of their sockets and let go before
+    /// answering, by the command's id: each may still refuse.
+    telling: HashMap<u64, Kind>,
     /// The navigations the page's own frame asked for, told of since they
     /// were last taken ([`Tab::take_requested`]).
     requested: Vec<Requested>,
     /// The tabs the page opened, by id, each closed before it loaded
     /// anything.
     closed: HashSet<String>,
+    /// What caused what in this tab, which each line of the record names.
+    causes: Causes,
+    /// The last verb accepted on the tab.
+    acted: Option<ActionId>,
+    /// The address of every WebSocket the page opened, as Chrome spells it.
+    sockets: Vec<String>,
 }
 
 /// What a tab's requests are answered from.
@@ -245,6 +259,7 @@ impl<'c> Tab<'c> {
                 return Err(why.into());
             }
         };
+        let causes = Causes::of(chrome.record_mut().a_tab());
         // From here the tab is closed when this is dropped, whatever fails.
         let mut tab = Self {
             chrome,
@@ -257,8 +272,12 @@ impl<'c> Tab<'c> {
             went: Vec::new(),
             holding: Holding::default(),
             answering: HashMap::new(),
+            telling: HashMap::new(),
             requested: Vec::new(),
             closed: HashSet::new(),
+            causes,
+            acted: None,
+            sockets: Vec::new(),
         };
         // Only now, so that the tab itself is not held.
         tab.chrome.ask(None, &Command::HoldNewTabs { hold: true })?;
@@ -270,6 +289,9 @@ impl<'c> Tab<'c> {
             Command::LayOutAt { width, height },
         ] {
             tab.ask(&command)?;
+        }
+        if tab.is_from_the_network() {
+            tab.ask(&Command::TellOfSockets)?;
         }
         tab.go()?;
         Ok(tab)
@@ -292,6 +314,38 @@ impl<'c> Tab<'c> {
     /// order Chrome paused it, and which target it was paused in.
     pub fn went(&self) -> &[Went] {
         &self.went
+    }
+
+    /// The address of every WebSocket a page from the network opened, in
+    /// the order Chrome told of it, as Chrome spells it: each opened
+    /// without being decided (ADR 0060 § 3), and in the record as such.
+    pub fn sockets(&self) -> &[String] {
+        &self.sockets
+    }
+
+    /// The action the last verb accepted on this tab was minted as: what
+    /// the record names as the cause of what it did.
+    pub fn acted(&self) -> Option<ActionId> {
+        self.acted
+    }
+
+    /// A verb has been accepted on this tab: until [`Tab::done_acting`],
+    /// what the page asks for is the agent's (ADR 0012 § 4).
+    pub(crate) fn acting(&mut self) {
+        let action = self.chrome.record_mut().an_action();
+        self.acted = Some(action);
+        self.causes.acting(Some(action));
+    }
+
+    /// The verb has been carried out, or refused.
+    pub(crate) fn done_acting(&mut self) {
+        self.causes.acting(None);
+    }
+
+    /// Whether this is a page from the network, whose requests are judged
+    /// and recorded rather than answered from a frozen page's bytes.
+    fn is_from_the_network(&self) -> bool {
+        matches!(self.kept, Kept::Network)
     }
 
     /// How many tabs the page opened — a link with `target=_blank`, a
@@ -435,18 +489,27 @@ impl<'c> Tab<'c> {
                 session: Some(session),
                 params,
             } if session == self.session && method == "Page.frameRequestedNavigation" => {
-                let requested = chrome_protocol::requested(&params).map_err(Failed::Malformed)?;
-                if requested.frame == self.target {
-                    // Never paused when it is a scheme Chrome hands
-                    // elsewhere, so judged as it is told of.
-                    if matches!(self.kept, Kept::Network)
-                        && let Err(refusal) = chrome_gate::judge(&requested.url)
-                    {
-                        self.refused.push(requested.url.clone());
-                        self.refusals.push(refusal);
-                    }
-                    self.requested.push(requested);
+                self.asked_to_go(&params)?;
+                Ok(None)
+            }
+            // The tab's own frame holds a new document, from now.
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if session == self.session && method == "Page.frameNavigated" => {
+                self.committed(&params)?;
+                Ok(None)
+            }
+            // A WebSocket, told of before its handshake and held by nothing.
+            Message::Event { method, params, .. }
+                if method == "Network.webSocketCreated" && held.is_some() =>
+            {
+                let url = chrome_protocol::socket(&params).map_err(Failed::Malformed)?;
+                if self.is_from_the_network() {
+                    self.write_socket(&url);
                 }
+                self.sockets.push(url);
                 Ok(None)
             }
             Message::Event {
@@ -465,27 +528,8 @@ impl<'c> Tab<'c> {
                 self.holding.forget(&gone);
                 Ok(None)
             }
-            // Chrome's word on holding a target: once it has answered all
-            // the target was asked, the target is let go.
-            Message::Reply { id, result, .. } if self.holding.awaits(id) => {
-                let answer = result.map(|_| ());
-                if let Some(ready) = self
-                    .holding
-                    .answered(id, answer)
-                    .map_err(|why| Failed::Unheld(Box::new(why)))?
-                {
-                    self.chrome.send(Some(&ready), &Command::LetGo)?;
-                }
-                Ok(None)
-            }
-            // Chrome's word on a request this tab answered. The page not taken
-            // is a page not shown; a refusal not taken is a request that had
-            // already gone, which is what a refusal wanted; a request let go
-            // and not taken was one Chrome had already given up.
-            Message::Reply { id, result, .. } if self.answering.contains_key(&id) => {
-                if self.answering.remove(&id) == Some(true) {
-                    result.map_err(Failed::Declined)?;
-                }
+            Message::Reply { id, result, .. } if self.awaits(id) => {
+                self.answered(id, result)?;
                 Ok(None)
             }
             Message::Event {
@@ -496,6 +540,92 @@ impl<'c> Tab<'c> {
             } if held.is_none() => Ok(None),
             other => Ok(Some(other)),
         }
+    }
+
+    /// Whether `id` is a command this tab sent on its own account, whose
+    /// answer it waits for rather than its caller.
+    fn awaits(&self, id: u64) -> bool {
+        self.holding.awaits(id)
+            || self.telling.contains_key(&id)
+            || self.answering.contains_key(&id)
+    }
+
+    /// Chrome's answer to `id`, a command [`Tab::awaits`].
+    fn answered(&mut self, id: u64, result: Result<Vec<u8>, Declined>) -> Result<(), Failed> {
+        // Chrome's word on holding a target: once it has answered all the
+        // target was asked, the target is let go.
+        if self.holding.awaits(id) {
+            if let Some(ready) = self
+                .holding
+                .answered(id, result.map(|_| ()))
+                .map_err(|why| Failed::Unheld(Box::new(why)))?
+            {
+                self.chrome.send(Some(&ready), &Command::LetGo)?;
+            }
+            return Ok(());
+        }
+        // A target let go before it answered whether it would tell of its
+        // WebSockets: one that will not is one whose sockets would open
+        // unrecorded.
+        if let Some(kind) = self.telling.remove(&id) {
+            return result.map(|_| ()).map_err(|declined| {
+                Failed::Unheld(Box::new(Unheld {
+                    kind: kind.chrome_word().to_owned(),
+                    declined: Some(declined),
+                }))
+            });
+        }
+        // Chrome's word on a request this tab answered. The page not taken is
+        // a page not shown; a refusal not taken is a request that had already
+        // gone, which is what a refusal wanted; a request let go and not
+        // taken was one Chrome had already given up.
+        if self.answering.remove(&id) == Some(true) {
+            result.map_err(Failed::Declined)?;
+        }
+        Ok(())
+    }
+
+    /// A navigation the page asked for, told of in `params`. Its main frame
+    /// has the tab's own id; a frame inside it asking is not the page going
+    /// anywhere.
+    fn asked_to_go(&mut self, params: &[u8]) -> Result<(), Failed> {
+        let requested = chrome_protocol::requested(params).map_err(Failed::Malformed)?;
+        if requested.frame != self.target {
+            return Ok(());
+        }
+        // Never paused when it is a scheme Chrome hands elsewhere, so judged
+        // as it is told of.
+        if self.is_from_the_network() {
+            match chrome_gate::judge(&requested.url) {
+                Err(refusal) => {
+                    let method = if requested.reason == "formSubmissionPost" {
+                        "POST"
+                    } else {
+                        "GET"
+                    };
+                    let cause = self.causes.of_page();
+                    self.write_refused(&requested.url, method, Purpose::Document, cause, &refusal);
+                    self.refused.push(requested.url.clone());
+                    self.refusals.push(refusal);
+                }
+                Ok(_) if requested.disposition == "currentTab" => {
+                    self.causes.asked_to_go(&requested.url);
+                }
+                Ok(_) => {}
+            }
+        }
+        self.requested.push(requested);
+        Ok(())
+    }
+
+    /// A frame of the tab that holds a new document, told of in `params`:
+    /// when it is the tab's own, the document is the tab's from now.
+    fn committed(&mut self, params: &[u8]) -> Result<(), Failed> {
+        let (frame, inside) = chrome_protocol::committed(params).map_err(Failed::Malformed)?;
+        if frame == self.target && !inside {
+            self.causes.committed(self.chrome.record_mut());
+        }
+        Ok(())
     }
 
     /// How to answer `paused`, a request paused in a target of kind `by`, and
@@ -514,20 +644,85 @@ impl<'c> Tab<'c> {
                 self.refused.push(paused.url);
                 (Command::Refuse { request }, false)
             }
-            Kept::Network => match chrome_gate::judge(&paused.url) {
-                Ok(_) => {
-                    self.went.push(Went {
-                        url: paused.url,
-                        by,
-                    });
-                    (Command::Continue { request }, false)
+            Kept::Network => {
+                let hop = match (by, paused.kind.as_str(), paused.redirected) {
+                    (Kind::Page, "Document", false) if paused.frame == self.target => Hop::First,
+                    (Kind::Page, "Document", true) if paused.frame == self.target => {
+                        Hop::Redirected
+                    }
+                    _ => Hop::None,
+                };
+                let cause = self
+                    .causes
+                    .of_request(self.chrome.record_mut(), &paused.url, hop);
+                let purpose = purpose_of(&paused.kind);
+                match chrome_gate::judge(&paused.url) {
+                    Ok(url) => {
+                        self.chrome.record_mut().write(
+                            url,
+                            &paused.method,
+                            purpose,
+                            cause,
+                            Happened::LetGo,
+                        );
+                        self.went.push(Went {
+                            url: paused.url,
+                            by,
+                        });
+                        (Command::Continue { request }, false)
+                    }
+                    Err(refusal) => {
+                        if hop != Hop::None {
+                            self.causes.ended();
+                        }
+                        self.write_refused(&paused.url, &paused.method, purpose, cause, &refusal);
+                        self.refused.push(paused.url);
+                        self.refusals.push(refusal);
+                        (Command::Refuse { request }, false)
+                    }
                 }
-                Err(refusal) => {
-                    self.refused.push(paused.url);
-                    self.refusals.push(refusal);
-                    (Command::Refuse { request }, false)
-                }
-            },
+            }
+        }
+    }
+
+    /// Write down that `asked` was refused, by `refusal`'s rule: not when
+    /// it is too long to be an address or does not parse as one, which
+    /// names nothing a line could hold — the refusal says it instead, as
+    /// the engine's does ([`alo_renderer::navigate::Refusal::record`]).
+    fn write_refused(
+        &mut self,
+        asked: &str,
+        method: &str,
+        purpose: Purpose,
+        cause: alo_net::Cause,
+        refusal: &Refusal,
+    ) {
+        if let Some(url) = recordable(asked) {
+            self.chrome.record_mut().write(
+                url,
+                method,
+                purpose,
+                cause,
+                Happened::Refused {
+                    rule: refusal.rule.to_string(),
+                },
+            );
+        }
+    }
+
+    /// Write down that the page opened a WebSocket at `asked`, which
+    /// nothing here decided. One whose address does not parse is not a
+    /// line, and is still in [`Tab::sockets`].
+    fn write_socket(&mut self, asked: &str) {
+        if let Some(url) = recordable(asked) {
+            let cause = self.causes.of_page();
+            self.chrome.record_mut().write(
+                url,
+                "GET",
+                Purpose::Unnamed,
+                cause,
+                Happened::Undecided,
+            );
         }
     }
 
@@ -568,6 +763,19 @@ impl<'c> Tab<'c> {
             self.chrome
                 .send(held, &Command::HoldNewTabs { hold: true })?,
         );
+        // Its WebSockets are told of through its own session, measured for
+        // a frame, a dedicated worker and a service worker alike. A
+        // service worker answers only once it runs, so it is not held for
+        // the answer: asked before it is let go, it still tells of a
+        // socket its script opens first thing (measured, Chrome 155).
+        if self.is_from_the_network() {
+            let id = self.chrome.send(held, &Command::TellOfSockets)?;
+            if kind.answers_before_it_runs() {
+                asked.push(id);
+            } else {
+                self.telling.insert(id, kind);
+            }
+        }
         self.holding.hold(&attached.session, kind, &asked);
         Ok(())
     }
@@ -590,6 +798,15 @@ impl<'c> Tab<'c> {
         }
         Ok(())
     }
+}
+
+/// `asked` as an address a line of the record can hold: within ADR 0020's
+/// bound, and parsed by this process.
+fn recordable(asked: &str) -> Option<Url> {
+    if asked.len() > LONGEST_URL {
+        return None;
+    }
+    alo_url::parse(asked).ok()
 }
 
 impl Drop for Tab<'_> {

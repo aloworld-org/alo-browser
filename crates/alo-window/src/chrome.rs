@@ -43,6 +43,7 @@
 use crate::beside::{NotInstalled, chrome_in, chrome_places, is_program};
 use crate::chrome_hold::Unheld;
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
+use crate::chrome_record::Record;
 use crate::chrome_wire::{self, Frames, Unframed};
 use core::fmt;
 use std::io::ErrorKind;
@@ -75,6 +76,8 @@ pub struct Chrome {
     asked: u64,
     patience: Duration,
     profile: PathBuf,
+    /// What its tabs asked for, and what caused each (ADR 0060 § 2).
+    record: Record,
 }
 
 /// Why Chrome was not started.
@@ -222,6 +225,7 @@ impl Chrome {
             asked: 0,
             patience: LONGEST_SILENCE,
             profile,
+            record: Record::default(),
         })
     }
 
@@ -254,6 +258,17 @@ impl Chrome {
     /// wants to see that something was refused before Chrome heard of it.
     pub fn written(&self) -> u64 {
         self.asked
+    }
+
+    /// What its tabs from the network asked for, each request a line with
+    /// the cause this process gave it ([`crate::chrome_record`]).
+    pub fn record(&self) -> &Record {
+        &self.record
+    }
+
+    /// The record, to write in.
+    pub(crate) fn record_mut(&mut self) -> &mut Record {
+        &mut self.record
     }
 
     /// Which Chrome this is, as it says itself.

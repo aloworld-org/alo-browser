@@ -48,6 +48,14 @@
 //! of. Measured against Chrome 155, including a page that queued half a
 //! second of its own work in the click before the form was sent (item 621).
 //!
+//! # Whose requests they are
+//!
+//! A verb is an action from the moment it is accepted, refused or not, and
+//! [`Tab::acted`] names it. While it is carried out, what the page asks for
+//! is the agent's in the record, and so is a navigation the page's frame
+//! asked for in that time, whenever Chrome pauses its first hop
+//! ([`crate::chrome_record`], ADR 0012 § 4).
+//!
 //! # What it cannot say yet
 //!
 //! - **A form Chrome would not send** answers [`Outcome::Activated`], not
@@ -160,6 +168,17 @@ impl Tab<'_> {
     /// [`Unacted`]: a [`Refusal`], decided before Chrome is asked to do
     /// anything; or why it was not carried out.
     pub fn act(&mut self, target: &Target, verb: &Verb) -> Result<Outcome, Unacted> {
+        // Accepted, and so an action, whether it is refused or carried out
+        // (ADR 0012 § 4): what the page asks for until it answers is the
+        // agent's, and so is a navigation it asked for (`chrome_record`).
+        self.acting();
+        let acted = self.decide_and_carry_out(target, verb);
+        self.done_acting();
+        acted
+    }
+
+    /// [`Tab::act`], once the verb is an action.
+    fn decide_and_carry_out(&mut self, target: &Target, verb: &Verb) -> Result<Outcome, Unacted> {
         let (snapshot, nodes) = self.read_whole()?;
         let reading = ChromeReading::of(&snapshot);
         let aimed = find(&reading, target).map_err(Unacted::Refused)?;

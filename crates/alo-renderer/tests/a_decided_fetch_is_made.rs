@@ -282,6 +282,7 @@ fn said(entry: &Entry) -> String {
             Happened::Served { status } => format!("served {status}"),
             Happened::Refused { rule } => format!("refused: {rule}"),
             Happened::Failed { why } => format!("failed: {why}"),
+            other @ (Happened::LetGo | Happened::Undecided) => other.to_string(),
         }
     )
 }

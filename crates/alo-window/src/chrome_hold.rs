@@ -29,6 +29,13 @@
 //! that is not told to pause is a kind whose requests would escape — so a
 //! refusal from one of them, or a kind of target this does not know, is not
 //! let go but answered as [`Unheld`], and the tab is closed.
+//!
+//! **A shared worker is not told of through the tab at all.** Measured
+//! against Chrome 155 on 24 October (item 634): a page's `new SharedWorker`
+//! has its script paused through the page, but the worker is never attached
+//! to the tab's session, and a `fetch` it makes reached a local server
+//! unpaused. So [`Kind::SharedWorker`] is held when one is told of, and
+//! nothing yet makes one be told of: queue item 637.
 
 use crate::chrome_protocol::Declined;
 use core::fmt;
@@ -72,6 +79,14 @@ impl Kind {
             Self::ServiceWorker => "service_worker",
             Self::SharedWorker => "shared_worker",
         }
+    }
+
+    /// Whether it answers what it is asked while it is held, before it runs:
+    /// a frame and a dedicated worker do; a service worker answers
+    /// `Network.enable` only once it runs, measured against Chrome 155, and
+    /// a shared worker is taken to be the same.
+    pub fn answers_before_it_runs(self) -> bool {
+        matches!(self, Self::Page | Self::Frame | Self::Worker)
     }
 
     /// Whether its requests are paused through its own session: every kind
@@ -204,6 +219,9 @@ mod tests {
             assert_eq!(Kind::of(unknown), None, "{unknown:?}");
         }
         assert!(!Kind::Worker.pauses_its_own());
+        assert!(Kind::Frame.answers_before_it_runs() && Kind::Worker.answers_before_it_runs());
+        assert!(!Kind::ServiceWorker.answers_before_it_runs());
+        assert!(!Kind::SharedWorker.answers_before_it_runs());
         for kind in [Kind::Frame, Kind::ServiceWorker, Kind::SharedWorker] {
             assert!(kind.pauses_its_own(), "{kind}");
         }

@@ -102,6 +102,10 @@ pub enum Command {
     PauseEveryRequest,
     /// `Page.enable`: be told of a page's loading.
     TellOfLoading,
+    /// `Network.enable`: be told of a page's network, for the one thing
+    /// nothing else tells of — a WebSocket, before its handshake
+    /// (`Network.webSocketCreated`, ADR 0060 § 3).
+    TellOfSockets,
     /// `Page.setLifecycleEventsEnabled`: be told of each stage of every
     /// load, by the loader it belongs to.
     TellOfStages,
@@ -226,6 +230,7 @@ impl Command {
             Self::CloseTarget { .. } => "Target.closeTarget",
             Self::PauseEveryRequest => "Fetch.enable",
             Self::TellOfLoading => "Page.enable",
+            Self::TellOfSockets => "Network.enable",
             Self::TellOfStages => "Page.setLifecycleEventsEnabled",
             Self::LayOutAt { .. } => "Emulation.setDeviceMetricsOverride",
             Self::Navigate { .. } => "Page.navigate",
@@ -258,6 +263,7 @@ impl Command {
             Self::GetVersion
             | Self::Close
             | Self::TellOfLoading
+            | Self::TellOfSockets
             | Self::ReadTree
             | Self::Window
             | Self::LetGo => {}
@@ -321,30 +327,8 @@ impl Command {
                 put("clickCount", Value::from(1));
             }
             Self::Key { chord, down } => {
-                let (key, code, keycode, command, modifiers) = match chord {
-                    // ⌘ on macOS is Chrome's modifier 4, Ctrl elsewhere 2.
-                    Chord::SelectAll => (
-                        "a",
-                        "KeyA",
-                        65,
-                        "selectAll",
-                        if cfg!(target_os = "macos") { 4 } else { 2 },
-                    ),
-                    Chord::DeleteBackward => ("Backspace", "Backspace", 8, "deleteBackward", 0),
-                };
-                put(
-                    "type",
-                    Value::from(if *down { "rawKeyDown" } else { "keyUp" }),
-                );
-                put("key", Value::from(key));
-                put("code", Value::from(code));
-                put("windowsVirtualKeyCode", Value::from(keycode));
-                put("modifiers", Value::from(modifiers));
-                // The command is what Chrome's editing carries out; a key
-                // alone does nothing on macOS, where the shortcut is the
-                // menu's rather than the page's.
-                if *down {
-                    put("commands", Value::Array(vec![Value::from(command)]));
+                for (name, value) in key(*chord, *down) {
+                    put(name, value);
                 }
             }
             Self::InsertText { text } => put("text", Value::from(text.as_str())),
@@ -356,6 +340,39 @@ impl Command {
         }
         params
     }
+}
+
+/// The `params` of `Input.dispatchKeyEvent` for `chord`, pressed when
+/// `down` and let go otherwise.
+fn key(chord: Chord, down: bool) -> Vec<(&'static str, Value)> {
+    let (key, code, keycode, command, modifiers) = match chord {
+        // ⌘ on macOS is Chrome's modifier 4, Ctrl elsewhere 2.
+        Chord::SelectAll => (
+            "a",
+            "KeyA",
+            65,
+            "selectAll",
+            if cfg!(target_os = "macos") { 4 } else { 2 },
+        ),
+        Chord::DeleteBackward => ("Backspace", "Backspace", 8, "deleteBackward", 0),
+    };
+    let mut fields = vec![
+        (
+            "type",
+            Value::from(if down { "rawKeyDown" } else { "keyUp" }),
+        ),
+        ("key", Value::from(key)),
+        ("code", Value::from(code)),
+        ("windowsVirtualKeyCode", Value::from(keycode)),
+        ("modifiers", Value::from(modifiers)),
+    ];
+    // The command is what Chrome's editing carries out; a key alone does
+    // nothing on macOS, where the shortcut is the menu's rather than the
+    // page's.
+    if down {
+        fields.push(("commands", Value::Array(vec![Value::from(command)])));
+    }
+    fields
 }
 
 /// `command`, written as the message that asks for it under `id`, through
@@ -607,13 +624,25 @@ pub struct Paused {
     pub request: String,
     /// What it asks for, as Chrome spells the address.
     pub url: String,
+    /// Its method, as Chrome spells it.
+    pub method: String,
+    /// What kind of thing it is, in Chrome's word: `Document`,
+    /// `Stylesheet`, `XHR`, `Other`, …
+    pub kind: String,
+    /// The frame it is for, by Chrome's id: a tab's own frame has the tab's
+    /// id.
+    pub frame: String,
+    /// Whether a redirect led here — a hop after the first of a navigation
+    /// or a fetch (`redirectedRequestId`).
+    pub redirected: bool,
 }
 
 /// A `Fetch.requestPaused` event's `params`, read.
 ///
 /// # Errors
 ///
-/// [`Malformed`], for params with no `requestId` or no `request.url`.
+/// [`Malformed`], for params with no `requestId`, no `request.url`, no
+/// `request.method`, no `resourceType` or no `frameId`, each text.
 pub fn paused(params: &[u8]) -> Result<Paused, Malformed> {
     let fields = object(params)?;
     let Some(Value::Object(request)) = fields.get("request") else {
@@ -622,7 +651,48 @@ pub fn paused(params: &[u8]) -> Result<Paused, Malformed> {
     Ok(Paused {
         request: text(fields.get("requestId"), "requestId")?,
         url: words(request.get("url"), "url")?,
+        method: text(request.get("method"), "method")?,
+        kind: text(fields.get("resourceType"), "resourceType")?,
+        frame: text(fields.get("frameId"), "frameId")?,
+        redirected: match fields.get("redirectedRequestId") {
+            None => false,
+            redirected => {
+                text(redirected, "redirectedRequestId")?;
+                true
+            }
+        },
     })
+}
+
+/// A frame that has gone to a new document, from a `Page.frameNavigated`
+/// event: its id, and whether it is inside another frame.
+///
+/// # Errors
+///
+/// [`Malformed`], for params with no `frame` holding an `id`, or a
+/// `parentId` that is not text.
+pub fn committed(params: &[u8]) -> Result<(String, bool), Malformed> {
+    let Some(Value::Object(frame)) = object(params)?.get("frame").cloned() else {
+        return Err(Malformed::BadField { field: "frame" });
+    };
+    let inside = match frame.get("parentId") {
+        None => false,
+        parent => {
+            text(parent, "parentId")?;
+            true
+        }
+    };
+    Ok((text(frame.get("id"), "id")?, inside))
+}
+
+/// The address of a WebSocket a page opened, from a
+/// `Network.webSocketCreated` event, as Chrome spells it.
+///
+/// # Errors
+///
+/// [`Malformed`], for params with no `url` that is text.
+pub fn socket(params: &[u8]) -> Result<String, Malformed> {
+    words(object(params)?.get("url"), "url")
 }
 
 /// Where a node was drawn, from `DOM.getContentQuads`: each quad's four
@@ -1454,8 +1524,36 @@ mod tests {
             ),
             Ok(Paused {
                 request: "interception-job-1.0".to_owned(),
-                url: "https://httpbin.org/favicon.ico".to_owned()
+                url: "https://httpbin.org/favicon.ico".to_owned(),
+                method: "GET".to_owned(),
+                kind: "Other".to_owned(),
+                frame: "F".to_owned(),
+                redirected: false,
             })
+        );
+        // A redirect's second hop, cut from Chrome 155's on 2026-10-24.
+        assert_eq!(
+            paused(
+                br#"{"requestId":"interception-job-2.0","request":{"url":"http://localhost:56168/page.html","method":"GET","headers":{}},"frameId":"6E8136AF8E77D33D416721A3E4AE05AF","resourceType":"Document","networkId":"0C6B5699858B4B5F4400C77CBFB45BA3","redirectedRequestId":"interception-job-1.0"}"#
+            )
+            .map(|paused| (paused.kind, paused.redirected)),
+            Ok(("Document".to_owned(), true))
+        );
+        assert_eq!(
+            committed(
+                br#"{"frame":{"id":"6E8136AF8E77D33D416721A3E4AE05AF","loaderId":"0C6B","url":"http://localhost:56168/page.html"},"type":"Navigation"}"#
+            ),
+            Ok(("6E8136AF8E77D33D416721A3E4AE05AF".to_owned(), false))
+        );
+        assert_eq!(
+            committed(br#"{"frame":{"id":"C","parentId":"P","url":"u"}}"#),
+            Ok(("C".to_owned(), true))
+        );
+        assert_eq!(
+            socket(
+                br#"{"requestId":"29040.6","url":"ws://127.0.0.1:56168/ws","initiator":{"type":"script"}}"#
+            ),
+            Ok("ws://127.0.0.1:56168/ws".to_owned())
         );
         assert_eq!(
             quads(br#"{"quads":[[117.3125,16,270.3125,16,270.3125,37,117.3125,37]]}"#),
@@ -1482,6 +1580,27 @@ mod tests {
         assert_eq!(paused(br#"{"requestId":"R"}"#), bad("request"));
         assert_eq!(paused(br#"{"requestId":"R","request":{}}"#), bad("url"));
         assert_eq!(paused(br#"{"request":{"url":"u"}}"#), bad("requestId"));
+        let all = r#""requestId":"R","request":{"url":"u","method":"GET"},"resourceType":"Fetch","frameId":"F""#;
+        for (field, gone) in [
+            ("method", r#","method":"GET""#),
+            ("resourceType", r#","resourceType":"Fetch""#),
+            ("frameId", r#","frameId":"F""#),
+        ] {
+            let params = format!("{{{}}}", all.replace(gone, ""));
+            assert_eq!(paused(params.as_bytes()), bad(field), "{params}");
+        }
+        let redirected = format!(r#"{{{all},"redirectedRequestId":7}}"#);
+        assert_eq!(paused(redirected.as_bytes()), bad("redirectedRequestId"));
+        assert_eq!(committed(b"{}"), bad("frame"));
+        assert_eq!(committed(br#"{"frame":"F"}"#), bad("frame"));
+        assert_eq!(committed(br#"{"frame":{}}"#), bad("id"));
+        assert_eq!(
+            committed(br#"{"frame":{"id":"C","parentId":1}}"#),
+            bad("parentId")
+        );
+        assert_eq!(socket(b"{}"), bad("url"));
+        assert_eq!(socket(br#"{"url":null}"#), bad("url"));
+        assert_eq!(socket(b"[]"), Err(Malformed::NotAnObject));
         for not_quads in [
             &br"{}"[..],
             br#"{"quads":{}}"#,

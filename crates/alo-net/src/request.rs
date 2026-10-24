@@ -81,6 +81,16 @@ pub enum Purpose {
     /// `Fetch` on a page saying `connect-src 'none'` would be blocked by the
     /// very policy it was about. See [`crate::csp`].
     Report,
+    /// A request whose renderer named its kind in a word this engine has no
+    /// purpose for: Chrome's `Font`, `Media`, `Manifest`, `Other` and the
+    /// rest, on the product path (ADR 0060).
+    ///
+    /// **This engine never makes one.** Every request it makes itself names
+    /// one of the purposes above, so this is not where its own awkward cases
+    /// go — it is what the record says when another renderer asked for
+    /// something and this engine has no word for what. A word guessed from
+    /// Chrome's would be a purpose the record states and nobody said.
+    Unnamed,
 }
 
 impl fmt::Display for Purpose {
@@ -93,6 +103,7 @@ impl fmt::Display for Purpose {
             Purpose::Fetch => "fetch",
             Purpose::Beacon => "beacon",
             Purpose::Report => "violation report",
+            Purpose::Unnamed => "a kind this engine has no word for",
         })
     }
 }

@@ -157,6 +157,23 @@ pub enum Happened {
         /// What went wrong, in words.
         why: String,
     },
+    /// This browser decided it and let it go, to a network that is not this
+    /// engine's — Chrome's own, on the product path (ADR 0060 § 1).
+    ///
+    /// Not [`Happened::Answered`]: what came back is that network's to know,
+    /// and a status written here would be a number this browser never read.
+    /// The decision is the line; what the other network did with it is not
+    /// ours to put in the record as though it were.
+    LetGo,
+    /// It was told of before it went, and nothing here decided it: a
+    /// WebSocket a page in Chrome opened, which no command holds (ADR 0060
+    /// § 3).
+    ///
+    /// Its own variant rather than a [`Happened::LetGo`], because *let go*
+    /// says a rule of ours looked at it and this did not happen. A record
+    /// that filed it with the decided ones would claim a gate where there
+    /// was none.
+    Undecided,
 }
 
 impl fmt::Display for Happened {
@@ -173,6 +190,8 @@ impl fmt::Display for Happened {
             Happened::Served { status } => write!(f, "served from the cache, {status}"),
             Happened::Refused { rule } => write!(f, "refused: {rule}"),
             Happened::Failed { why } => write!(f, "did not happen: {why}"),
+            Happened::LetGo => f.write_str("let go, to a network that is not this engine's"),
+            Happened::Undecided => f.write_str("opened, and not decided by this browser"),
         }
     }
 }
@@ -351,6 +370,11 @@ impl Activity {
     /// line is written once, with its outcome, rather than opened and closed.
     /// Concurrent loads would need the second half of that, and it is written
     /// here rather than discovered later.
+    ///
+    /// A request carried by a network that is not this engine's — Chrome's,
+    /// on the product path — is written once too, when it is **decided**
+    /// ([`Happened::LetGo`]) or told of ([`Happened::Undecided`]): what came
+    /// back is that network's to know, and is not this line's.
     pub fn happened(&mut self, request: &Request, at: SystemTime, happened: Happened) {
         // Everything this record ever holds is chosen on these six lines. What
         // is *not* here is the decision: `request.headers` and `request.body`
@@ -444,7 +468,10 @@ fn weight_of(method: &str, url: &Url, happened: &Happened) -> usize {
     let said = match happened {
         Happened::Refused { rule } => rule.len(),
         Happened::Failed { why } => why.len(),
-        Happened::Answered { .. } | Happened::Served { .. } => 0,
+        Happened::Answered { .. }
+        | Happened::Served { .. }
+        | Happened::LetGo
+        | Happened::Undecided => 0,
     };
     size_of::<Entry>()
         .saturating_add(method.len())

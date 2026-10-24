@@ -38036,3 +38036,145 @@ entry came after it, then the commit.
 303 queue items are open (633 closed). The next unused queue number is
 **636** and the next ADR is **0061**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 375 — queue item 634: every request of a page in Chrome is in the record, with the cause this process gave it
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2's four
+differences, the hostile-bytes clause, step 6), `ROADMAP.md` (the product
+path, the ADR 0058 line), iteration 374's entry, queue items 629–635 and
+the product path table, ADR 0060 in full, ADR 0012 in full, ADR 0055's
+section on tabs, `alo-net`'s `activity.rs`, `cause.rs`, `chain.rs`,
+`request.rs` and `deed.rs`, `alo-renderer`'s `navigate.rs` (`Refusal::record`)
+and `tab.rs` (how the engine mints actions and documents), and
+`chrome.rs`, `chrome_tab.rs`, `chrome_hold.rs`, `chrome_gate.rs`,
+`chrome_protocol.rs` and `chrome_act.rs`. No `AGENTS.md` exists here.
+
+**Why 634.** The first open item on the product path whose dependency (633)
+is done, and the one iteration 374 named next.
+
+**Measured first** (Python over `--remote-debugging-pipe`, Chrome
+155.0.8059.86, scratchpad `p634/`, a local server on two names):
+- A redirect's second hop is paused as `Document` with the tab's id as its
+  frame and a `redirectedRequestId`; the first hop has none.
+  `Page.frameNavigated` for the tab's frame arrives after the last hop and
+  before the new page's first sub-resource. A link's
+  `Page.frameRequestedNavigation` precedes its `Document` pause.
+- With `Network.enable` on the tab, `Network.webSocketCreated` arrives
+  before the handshake. A socket from an other-site frame or a dedicated
+  worker is told of on *that* target's session, and both accept
+  `Network.enable`. **A service worker held before it runs never answers
+  `Network.enable`** (nothing in 12 s; it answers `Fetch.enable`), which
+  is what first failed `a_page_from_the_network_in_chrome.rs`. Sent and not
+  waited for, it still tells of a socket its script opens at its top.
+  The deepest `Network.*` event nested 6, inside `MOST_NESTING`.
+- **A shared worker escapes the gate.** `new SharedWorker('/sh.js')`: its
+  script is paused through the page, but the worker is never attached to
+  the tab's session, and its `fetch('/from-shared')` and a WebSocket it
+  opened reached the server unpaused. ADR 0060's probe had no shared
+  worker. Not fixed here (one item per iteration): queue item **637**, and
+  629 now closes with it rather than with 634.
+
+**Built.**
+- `alo-net`: `Happened::LetGo` (*let go, to a network that is not this
+  engine's* — no status this browser never read) and `Happened::Undecided`
+  (a WebSocket), and `Purpose::Unnamed` for a kind of request this engine
+  has no word for, which it never makes itself; `deed.rs` writes and reads
+  all three (tags 4, 5 and 7) and its round-trip test covers them; CSP
+  governs `Unnamed` by nothing and mixed content refuses it.
+- `chrome_record.rs`: `Record` (identities, documents, `Activity`), held by
+  `Chrome` and read through `Chrome::record()`; `purpose_of` from Chrome's
+  `resourceType`; and `Causes`, which gives each request its cause from
+  what this process did — the tab's first page the person's, a navigation's
+  first hop minting its document, a redirect's hop the same cause and no
+  document, the frame's commit making it the tab's, a refused hop ending
+  the navigation, the page's own requests the page's, and while a verb is
+  carried out the agent's, as is a navigation the frame asked for then,
+  kept against its address so it is never pinned on another.
+- `chrome_tab.rs` writes a line for every request let go or refused and
+  every socket told of (`Tab::sockets()`), judges and records a
+  `frameRequestedNavigation` refusal, and sends `Network.enable` to the tab
+  and each held target — waited for only where the target answers before
+  it runs (`Kind::answers_before_it_runs`), and a later refusal is
+  `Failed::Unheld`. `next()` was split (`asked_to_go`, `committed`,
+  `awaits`/`answered`) to stay under clippy's length bound.
+- `chrome_act.rs`: `act` mints the action when the verb is accepted and the
+  tab is acting until it answers; `Tab::acted()` names it.
+- `chrome_protocol.rs`: `Paused` gains `method`, `kind`, `frame` and
+  `redirected`; `committed` and `socket` read `Page.frameNavigated` and
+  `Network.webSocketCreated`; `Command::TellOfSockets`. The key fields
+  moved into `key()` so `params` stays under the bound.
+- `chrome_hold.rs` now says a shared worker is never told of through the
+  tab, measured, and names 637.
+
+**Gate, mechanical.** `scripts/gate.sh` started in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background, and the
+next call waited on the log with a foreground until-loop and read it in the
+same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, nextest
+5,158 tests run, 5,158 passed, no `FAILED` or `panicked` line. Only this
+entry came after it, then the commit.
+
+**Gate, manual.**
+- *Hostile bytes:* `paused` refuses a missing `method`, `resourceType` or
+  `frameId` and a non-text `redirectedRequestId`; `committed` a missing or
+  non-object `frame`, a missing `id` and a non-text `parentId`; `socket` a
+  missing or null `url` and a non-object — each by kind, none panicking. An
+  address too long or unparsable writes no line (as the engine's
+  `Refusal::record`), and a socket's is still in `Tab::sockets()`.
+- *Read back line by line*
+  (`tests/every_request_of_a_page_in_chrome_recorded.rs`): `/start` at
+  `127.0.0.1` redirecting to `localhost/page.html` is two lines, in order,
+  both the person's, and one document; the style sheet is the page's,
+  whose cause is the person, its chain two links ending at the person; the
+  WebSocket is `GET ws://… (a kind this engine has no word for) … — opened,
+  and not decided by this browser`; nothing else but the favicon, and no
+  line names an agent. An `activate` on the link answers `Followed`; the
+  second page's line is `Cause::Agent` with `Tab::acted()` in the first
+  page's document; its sheet's chain reaches the action and the person,
+  whole; nothing before the navigation names the action. Three runs green.
+- *Mutations* (restored from copies): a redirect's hop minting a document,
+  no socket line, the frame's commit ignored, and `act` not acting each
+  fail it. A navigation asked for while acting, forgotten, **survives the
+  integration test** — Chrome 155 paused the second page's first hop
+  before the verb answered, so the acting rule covered it — and fails the
+  unit test that keeps the ask past the verb.
+- One file, one responsibility: who caused what, and the record it is
+  written in, is `chrome_record.rs`; `chrome_tab.rs` still opens and
+  answers; `alo-net` gained outcomes and a purpose, not a new reason to
+  change. No layout or visual change: no layout assertion or reference
+  render applies. No `unsafe`; no verb takes a coordinate. `alo-os` and
+  `alo-workplace` were not touched. Nothing was pushed.
+
+**Queue.** 634 ticked with a *Done* paragraph; the product path table ticks
+634 and gains 637. 629 stays open, now on 637. Added: **636** (a frame as a
+document of its own — cut from this item: today a frame's and a worker's
+requests are the tab's document's), **637** (a shared worker held) and
+**638** (whose cause a tab an agent asked to open is — **needs ADR**).
+
+**Roadmap.** "Where the product path stands today" moves 634 into
+*Built*; its *Owed* now leads with 637 (which closes 629), then 636 and
+638. The ADR 0058 line's `· Built:` gains the record and its `· Owed:`
+names 637, 636, 638 and 635. Not ticked. `docs/features.md`,
+`CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Unresolved obligations.**
+- **A shared worker's requests leave Chrome unseen** (637). Until it is
+  held, ADR 0060 § 2's promise is false for one kind of target, and the
+  documents now say so.
+- **A tab opened by `Tab::open_for_agent` records its first page as the
+  person's.** ADR 0012 has no cause for an agent opening a tab, and
+  choosing one is a decision (638), not this iteration's. Nothing on the
+  socket calls it yet.
+- A frame's and a worker's requests are the page's document's, not their
+  own (636).
+- A frozen page is not recorded; it reaches no network.
+- The service worker's `Network.enable` is not waited for; a refusal of it
+  closes the tab when it arrives, after the worker has run.
+- 637, then 630, are next on the product path; 635 is owed. 604, 605, 606,
+  616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501; 538
+  waits on a page; 627 and 638 need an ADR.
+- No claim about speed is made.
+
+305 queue items are open (634 closed; 636, 637 and 638 added). The next
+unused queue number is **639** and the next ADR is **0061**. This is one
+iteration, not a finished queue or roadmap.

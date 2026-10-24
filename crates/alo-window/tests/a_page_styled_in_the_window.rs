@@ -219,6 +219,7 @@ fn sheets_recorded(network: &Network) -> Vec<String> {
                 Happened::Served { status } => format!("served {status}"),
                 Happened::Refused { rule } => format!("refused: {rule}"),
                 Happened::Failed { .. } => "failed".to_owned(),
+                other @ (Happened::LetGo | Happened::Undecided) => other.to_string(),
             };
             format!("{} {outcome}", entry.url().path)
         })

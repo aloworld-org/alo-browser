@@ -259,7 +259,10 @@ impl Name {
             Purpose::Style => Some(Name::Style),
             Purpose::Image => Some(Name::Image),
             Purpose::Fetch | Purpose::Beacon => Some(Name::Connect),
-            Purpose::Document | Purpose::Report => None,
+            // An unnamed kind is never made by this engine, whose policies
+            // these are: a request of another renderer's is under that
+            // renderer's own (ADR 0060 § 4).
+            Purpose::Document | Purpose::Report | Purpose::Unnamed => None,
         }
     }
 }

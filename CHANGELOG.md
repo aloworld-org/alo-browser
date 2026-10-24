@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Everything a page in Chrome asks for is now written into the browser's
+  record, and the record says who caused it.** Each request is a line of
+  the same record the browser's own engine keeps: the page a person opened,
+  each step of a redirect, the style sheets and pictures the page loads,
+  and a live WebSocket connection — which Chrome gives no way to stop, so
+  its line says plainly that it was opened and not decided. Who caused each
+  is decided by the browser from what it was doing, never from anything the
+  page or Chrome said: when an agent clicks a link, the page that opens and
+  everything it loads lead back to that click. Measuring this found a gap:
+  a page's *shared* worker is never shown to the browser, and a request it
+  made reached the network unseen. Holding it comes next.
+
 - **A page from the internet can be opened in Chrome, and nothing it asks
   for leaves without this browser seeing it first.** Every part of the page
   that could ask for things on its own — a frame from another site, a
