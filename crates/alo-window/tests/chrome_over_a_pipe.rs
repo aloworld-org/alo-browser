@@ -66,16 +66,33 @@ fn runs(id: u32) -> Option<bool> {
     Some(!stat.trim().is_empty() && !stat.trim().starts_with('Z'))
 }
 
-/// Wait up to ten seconds for `done`, saying whether it came.
-fn within_ten_seconds(mut done: impl FnMut() -> bool) -> bool {
-    let until = Instant::now() + Duration::from_secs(10);
-    while Instant::now() < until {
+/// How long a wait for a process to go is given before it is called a
+/// failure.
+///
+/// **The number is an instrument, not the claim.** What these tests assert is
+/// that Chrome *ends*, not that it ends inside any particular time; no part of
+/// ADR 0058 promises a speed, and a test that fails because the machine was
+/// busy has measured the machine. It was ten seconds until 2026-10-24, when
+/// the full gate failed on
+/// `chrome_is_gone_when_the_browser_process_dies_without_a_word` at 10.9
+/// seconds while `a_few_million_pictures_say_a_ceilings_worth_and_how_many_more`
+/// had been running for over 420 seconds beside it. The same test passes alone
+/// in 3.3 seconds. So the budget is set far above anything a healthy machine
+/// needs and the failure says how long it actually waited, which is the number
+/// worth reading when it fires.
+const LONG_ENOUGH: Duration = Duration::from_secs(90);
+
+/// Wait up to [`LONG_ENOUGH`] for `done`, saying how long it took, or
+/// [`None`] if it never came.
+fn waiting_for(mut done: impl FnMut() -> bool) -> Option<Duration> {
+    let began = Instant::now();
+    while began.elapsed() < LONG_ENOUGH {
         if done() {
-            return true;
+            return Some(began.elapsed());
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    done()
+    done().then(|| began.elapsed())
 }
 
 #[test]
@@ -102,8 +119,8 @@ fn chrome_answers_its_own_version_and_is_gone_when_closed() {
     drop(chrome);
     assert_eq!(runs(process), Some(false), "waited for, so gone at once");
     assert!(
-        within_ten_seconds(|| anything_runs_on(&profile) == Some(false)),
-        "every helper Chrome started has gone"
+        waiting_for(|| anything_runs_on(&profile) == Some(false)).is_some(),
+        "every helper Chrome started has gone, waited {LONG_ENOUGH:?}"
     );
     assert!(!profile.exists(), "its profile is removed");
 }
@@ -148,10 +165,9 @@ fn chrome_is_gone_when_the_browser_process_dies_without_a_word() {
         format!("Chrome/{}", version_said_by(&installed().unwrap()).unwrap())
     );
     assert!(
-        within_ten_seconds(
-            || runs(process) == Some(false) && anything_runs_on(&profile) == Some(false)
-        ),
-        "Chrome ends when its pipe closes with the browser process"
+        waiting_for(|| runs(process) == Some(false) && anything_runs_on(&profile) == Some(false))
+            .is_some(),
+        "Chrome ends when its pipe closes with the browser process, waited {LONG_ENOUGH:?}"
     );
     // Nobody was left to remove it; it is in the system's temporary
     // directory, which is the system's to clear.

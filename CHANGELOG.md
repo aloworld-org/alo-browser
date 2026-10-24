@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A test that stopped the build loop measured the machine, not the
+  browser.** One of the new Chrome tests gave Chrome ten seconds to shut
+  down and called it a failure otherwise. On 24 October the whole build
+  stopped because Chrome took 10.9 seconds — while another test that draws
+  a few million pictures had been running beside it for over seven minutes
+  and was using the machine up. The same test takes 3.3 seconds on a quiet
+  machine. What the test is really claiming is that Chrome ends, not that it
+  ends by any particular moment, so the limit is now far above anything a
+  healthy machine needs, it is written down as an instrument rather than a
+  promise, and if it ever fires it says how long it actually waited. Nothing
+  about what is checked has changed.
+
 - **The browser can start the Chrome installed on this machine and speak to
   it over a pipe.** It finds Chrome where Chrome's own installer puts it —
   never on the search path — starts it headless on a new, private profile of
