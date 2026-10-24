@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's shared worker in Chrome is now held like every other part of
+  the page.** A shared worker is a background script several pages can use
+  at once, and Chrome tells the tab nothing about one. The browser now
+  catches it where Chrome does announce it, stops it before it runs, and
+  checks and records everything it asks for, as it already did for frames
+  and other workers. Until now such a worker was left stopped for good, so
+  a page relying on one did not work in Chrome here at all.
+
 - **Everything a page in Chrome asks for is now written into the browser's
   record, and the record says who caused it.** Each request is a line of
   the same record the browser's own engine keeps: the page a person opened,

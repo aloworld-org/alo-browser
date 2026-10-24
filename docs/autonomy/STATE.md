@@ -38178,3 +38178,108 @@ names 637, 636, 638 and 635. Not ticked. `docs/features.md`,
 305 queue items are open (634 closed; 636, 637 and 638 added). The next
 unused queue number is **639** and the next ADR is **0061**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 376 — queue item 637: a page's shared worker in Chrome is held, and 629 closes
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2's four
+differences, the hostile-bytes clause, step 6, running the gate in the
+foreground), `ROADMAP.md` (the product path, the ADR 0058 line),
+iteration 375's entry, queue items 629–638 and the product path table, ADR
+0060 in full, and `chrome.rs`, `chrome_tab.rs`, `chrome_hold.rs`,
+`chrome_protocol.rs` (`Attached`, `detached`) and `chrome_record.rs`'s
+API. No `AGENTS.md` exists here.
+
+**Why 637.** The first open item on the product path whose dependency (633)
+is done, and the one iteration 375 named next; it closes 629.
+
+**Measured first** (Python over `--remote-debugging-pipe`, Chrome
+155.0.8059.86, scratchpad `p637/`, a local server logging every request):
+- With no Chrome-level auto-attach, a page's shared worker's `fetch`,
+  `importScripts` and connect-time `fetch` reached the server unpaused —
+  634's finding.
+- **With Chrome's own session auto-attaching, waiting — which `Tab::begin`
+  already does — the shared worker is attached there alone**, `waiting`
+  true, no opener. Left waiting it never runs; nothing of its own reached
+  the server.
+- Held there, it answers `Fetch.enable`, `Target.setAutoAttach` and
+  `Network.enable` before it runs, and asked for nothing for 3 s until let
+  go; then every request it made was paused in its own session and its
+  WebSocket told of there by `Network.webSocketCreated`.
+- `typeof Worker` is `undefined` inside it, so it starts no target; two
+  `new SharedWorker` calls for one script are one worker connected twice.
+- No shared worker of Chrome's own was told of in any run.
+
+**So the code before this did not let it escape — it broke it.** The new
+test, run before the change, failed with the worker's requests never
+received: the browser-level hold left it waiting for good.
+
+**Built.** `chrome_tab.rs`'s `attached` holds a `shared_worker` Chrome's own
+session tells of, as this tab's (a `Tab` borrows its `Chrome` whole, so it
+is the one tab open; a tab its page opens loads nothing), the way it holds a
+frame: told to pause, to hold what it starts and to tell of its sockets,
+and let go once all three are answered. A `Target.detachedFromTarget` on
+Chrome's session is forgotten too. `chrome_hold.rs`:
+`Kind::answers_before_it_runs` is true for a shared worker, measured, and
+its module text says what was measured instead of naming 637 as owed.
+
+**Gate, mechanical.** `scripts/gate.sh` started in the foreground into a
+scratchpad log; at 600 s the harness moved it to the background, and the
+next call waited on the log with a foreground until-loop and read it in the
+same step: **`exit 0`, "The gate is met. (10 of 10 steps)"**, nextest
+5,159 tests run, 5,159 passed, no `FAILED` or `panicked` line. Only this
+entry came after it, then the commit.
+
+**Gate, manual.**
+- *Asserted from the server's side*
+  (`tests/a_page_from_the_network_in_chrome.rs`,
+  `a_pages_shared_worker_is_held_…`): every request the server received
+  was let go by the tab first (a socket's handshake excepted, which the
+  tab was told of); its script paused in the page, its `fetch`, imported
+  script, the imported script's `fetch` and its connect-time `fetch` in the
+  shared worker; it started once; its socket is in `Tab::sockets()`; and in
+  `Chrome::record()` its `fetch`, the imported `fetch` (`LetGo`) and its
+  socket (`Undecided`) are each one line caused by the page's document,
+  whose cause is the person. The other four tests in the file pass
+  unchanged.
+- *Hostile bytes:* no new reader; the attached and detached params are read
+  by the parsers already tested against malformed shapes.
+- *Mutations* (restored from copies, `cmp`-checked): a shared worker told
+  of by Chrome ignored — the old code — fails it (never received); a
+  shared worker not told to pause fails it (`/from-shared` reached the
+  server and was let go 0 times). Not caught by a test: the detached
+  bookkeeping on Chrome's session (a stale entry is inert), and waiting for
+  the shared worker's `Network.enable` (the old not-waiting also passed).
+- One file, one responsibility: holding is still `chrome_hold.rs`'s, and
+  `chrome_tab.rs` still opens and answers. No layout or visual change: no
+  layout assertion or reference render applies. No `unsafe`; no verb takes
+  a coordinate. `alo-os` and `alo-workplace` were not touched. Nothing was
+  pushed.
+
+**Queue.** 637 ticked with a *Done* paragraph; **629 ticked** — its *closes
+when* was 633 and 634, then 637 by iteration 375's finding; all three are
+done. The product path table ticks 629 and 637.
+
+**Roadmap.** "Where the product path stands today" moves 637 into *Built*
+and drops it from *Owed*; the ADR 0058 line's `· Built:` gains the shared
+worker and its `· Owed:` drops 637. Not ticked — 636, 638, 635, 630 and the
+rest remain. `docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the
+same.
+
+**Unresolved obligations.**
+- ADR 0060's measurement 2 lists frames and dedicated and service workers
+  and not shared workers; its claim that only the WebSocket escapes now
+  holds for them too, by 637's measurement. The ADR is left as written.
+- A shared worker is the tab's because only one tab is open per `Chrome`;
+  if a `Chrome` ever holds two tabs at once, whose it is must be decided
+  (the one that first asked for its script, or each that connects).
+- A shared worker's requests are the page's document's (636 owes both
+  workers and frames documents of their own).
+- 630 is next on the product path; 635 is owed. 604, 605, 606, 616, 618;
+  591, 601, 607–614; 576, 577, 585, 586; 463 and 572 wait on a person;
+  568–571 on a screen or pages; 560 and 564 on 502 behind 501; 538 waits
+  on a page; 627 and 638 need an ADR.
+- No claim about speed is made.
+
+303 queue items are open (629 and 637 closed). The next unused queue number
+is **639** and the next ADR is **0061**. This is one iteration, not a
+finished queue or roadmap.

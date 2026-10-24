@@ -2800,3 +2800,14 @@ network unpaused: 637, which now closes 629. Cut: 636 (a frame as a
 document of its own) and 638 (whose cause a tab an agent opened is, needs
 an ADR). 305 queue items are open (634 closed; 636, 637 and 638 added).
 The next unused queue number is 639 and the next unused ADR 0061.
+
+Iteration 376 built queue item 637, closing 629: a page's shared worker in
+Chrome is held through Chrome's own session — measured against Chrome 155,
+it is told of there alone, waiting, answers `Fetch.enable`,
+`Target.setAutoAttach` and `Network.enable` before it runs, and with
+`Fetch` on its own session every request it makes is paused — so
+`chrome_tab.rs` holds it as the tab's. Measured too: before this the
+browser's own hold left it waiting for good, so it never ran rather than
+escaped; 634's escape was a probe that held nothing at Chrome's level.
+303 queue items are open (629 and 637 closed). 630 is next on the product
+path. The next unused queue number is 639 and the next unused ADR 0061.

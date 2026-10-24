@@ -17,6 +17,8 @@
 //! writes a request down as it lets it go, so a request the server received
 //! that the tab did not let go is a request that escaped. None did.
 
+use alo_net::Cause;
+use alo_net::activity::Happened;
 use alo_renderer::Snapshot;
 use alo_renderer::navigate::Rule;
 use alo_renderer::site::Site;
@@ -64,6 +66,22 @@ fn page(path: &str, port: u16) -> Option<(&'static str, String)> {
              (e) => e.waitUntil(fetch('/from-service-worker')))"
                 .to_owned(),
         ),
+        "/shared.html" => (
+            html,
+            "<!doctype html><title>Shared</title><h1>Shared</h1>\
+             <script>new SharedWorker('/shared.js').port.start();\
+             new SharedWorker('/shared.js');</script>"
+                .to_owned(),
+        ),
+        "/shared.js" => (
+            script,
+            format!(
+                "fetch('/from-shared'); importScripts('/imported.js');\
+                 new WebSocket('ws://127.0.0.1:{port}/socket');\
+                 onconnect = () => fetch('/on-connect');"
+            ),
+        ),
+        "/imported.js" => (script, "fetch('/from-imported')".to_owned()),
         "/mailto.html" => (
             html,
             "<!doctype html><title>Still here</title><h1>Still here</h1>\
@@ -71,9 +89,12 @@ fn page(path: &str, port: u16) -> Option<(&'static str, String)> {
              location.href = 'mailto:someone@example.com'))</script>"
                 .to_owned(),
         ),
-        "/from-frame" | "/from-worker" | "/from-service-worker" => {
-            ("text/plain", "fetched".to_owned())
-        }
+        "/from-frame"
+        | "/from-worker"
+        | "/from-service-worker"
+        | "/from-shared"
+        | "/from-imported"
+        | "/on-connect" => ("text/plain", "fetched".to_owned()),
         _ => return None,
     })
 }
@@ -200,24 +221,7 @@ fn a_page_from_the_network_is_read_and_every_request_was_paused_before_it_went()
 
     // Every request the server received, the tab let go first: none
     // escaped, from any target.
-    let went: Vec<(Option<(String, String)>, Kind)> = tab
-        .went()
-        .iter()
-        .map(|Went { url, by }| (host_and_path(url), *by))
-        .collect();
-    let seen = received(&log);
-    for request in &seen {
-        let received = seen.iter().filter(|other| *other == request).count();
-        let let_go = went
-            .iter()
-            .filter(|(went, _)| went.as_ref() == Some(request))
-            .count();
-        assert!(
-            let_go >= received,
-            "{request:?} reached the server {received} times and was let go {let_go}: \
-             {went:?}"
-        );
-    }
+    let went = let_go_first(&tab, &log);
     // And each was paused in the target that asked for it: the frame from
     // the other site and the service worker in their own, the dedicated
     // worker's in the page's (measured: it has no `Fetch` of its own).
@@ -249,6 +253,126 @@ fn a_page_from_the_network_is_read_and_every_request_was_paused_before_it_went()
         "{went:?}"
     );
     assert_eq!(tab.refusals(), &[], "nothing here breaks a rule");
+}
+
+#[test]
+fn a_pages_shared_worker_is_held_and_every_request_of_it_paused_before_it_went() {
+    // Chrome tells the tab's session nothing of a shared worker, measured
+    // against Chrome 155; Chrome's own session is told of it, waiting, and
+    // the tab holds it there.
+    let (port, log) = serve().unwrap();
+    let mut chrome = Chrome::start().unwrap();
+    let address = alo_url::parse(&format!("http://127.0.0.1:{port}/shared.html")).unwrap();
+    let mut tab = Tab::open(&mut chrome, &address, SIZE).unwrap();
+    let awaited = [
+        ("127.0.0.1", "/shared.js"),
+        ("127.0.0.1", "/from-shared"),
+        ("127.0.0.1", "/imported.js"),
+        ("127.0.0.1", "/from-imported"),
+        ("127.0.0.1", "/on-connect"),
+        ("127.0.0.1", "/socket"),
+    ];
+    let snapshot = read_until(&mut tab, &log, &awaited).unwrap();
+    assert!(reads(&snapshot, "Shared"), "{snapshot:?}");
+    let went = let_go_first(&tab, &log);
+    let paused_in = |path: &str, kind: Kind| {
+        went.iter().any(|(went, by)| {
+            *by == kind && went.as_ref() == Some(&("127.0.0.1".to_owned(), path.to_owned()))
+        })
+    };
+    // Its script is fetched for it by the page that started it; everything
+    // it asks for itself is paused in its own target.
+    assert!(paused_in("/shared.js", Kind::Page), "{went:?}");
+    for path in [
+        "/from-shared",
+        "/imported.js",
+        "/from-imported",
+        "/on-connect",
+    ] {
+        assert!(paused_in(path, Kind::SharedWorker), "{path}: {went:?}");
+    }
+    // One worker, though two were asked for: it was connected to twice.
+    let started = went
+        .iter()
+        .filter(|(went, _)| {
+            went.as_ref()
+                .is_some_and(|(_, path)| path == "/from-shared")
+        })
+        .count();
+    assert_eq!(started, 1, "{went:?}");
+    // Its WebSocket cannot be held, and is told of in its own target.
+    assert_eq!(
+        tab.sockets(),
+        &[format!("ws://127.0.0.1:{port}/socket")],
+        "{went:?}"
+    );
+    assert_eq!(tab.refusals(), &[], "nothing here breaks a rule");
+    drop(tab);
+
+    // And each is in the record as the page's: what a shared worker asks
+    // for is the document's that started it, as a dedicated worker's is.
+    let record = chrome.record();
+    let page = record
+        .activity()
+        .entries()
+        .find(|entry| entry.url().to_string() == address.to_string())
+        .map(|entry| entry.cause().clone());
+    assert!(
+        matches!(page, Some(Cause::Person { .. })),
+        "the page is not the person's: {page:?}"
+    );
+    for (path, happened) in [
+        ("/from-shared", Happened::LetGo),
+        ("/from-imported", Happened::LetGo),
+        ("/socket", Happened::Undecided),
+    ] {
+        let scheme = if path == "/socket" { "ws" } else { "http" };
+        let url = format!("{scheme}://127.0.0.1:{port}{path}");
+        let lines: Vec<_> = record
+            .activity()
+            .entries()
+            .filter(|entry| entry.url().to_string() == url)
+            .collect();
+        let [line] = lines.as_slice() else {
+            panic!("{} lines for {url}", lines.len());
+        };
+        assert_eq!(line.happened(), &happened, "{line}");
+        let Cause::Document { document } = line.cause() else {
+            panic!("not the page's: {line}");
+        };
+        assert_eq!(record.documents().cause_of(*document), page.as_ref());
+    }
+}
+
+/// Every request the server received, checked to have been let go by `tab`
+/// at least as many times — but a WebSocket's handshake, which Chrome does
+/// not let be held and the tab was told of (ADR 0060 § 3): what the tab let
+/// go, and in which target.
+fn let_go_first(tab: &Tab<'_>, log: &Log) -> Vec<(Option<(String, String)>, Kind)> {
+    let went: Vec<(Option<(String, String)>, Kind)> = tab
+        .went()
+        .iter()
+        .map(|Went { url, by }| (host_and_path(url), *by))
+        .collect();
+    let sockets: Vec<_> = tab
+        .sockets()
+        .iter()
+        .filter_map(|url| host_and_path(url))
+        .collect();
+    let seen = received(log);
+    for request in seen.iter().filter(|request| !sockets.contains(request)) {
+        let received = seen.iter().filter(|other| *other == request).count();
+        let let_go = went
+            .iter()
+            .filter(|(went, _)| went.as_ref() == Some(request))
+            .count();
+        assert!(
+            let_go >= received,
+            "{request:?} reached the server {received} times and was let go {let_go}: \
+             {went:?}"
+        );
+    }
+    went
 }
 
 #[test]

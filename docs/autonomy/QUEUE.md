@@ -43,10 +43,10 @@ ADR 0058 — and nothing else does:
 | ✓ | **131** | the tree, the verbs and the refusals, on a real external page |
 | ✓ | **619** | Chrome spawned and spoken to over a pipe |
 | ✓ | **620** | Chrome's tree, read as ours |
-| | **629** | a page from the network through Chrome, under the grants — **decided, ADR 0060** |
+| ✓ | **629** | a page from the network through Chrome, under the grants — **decided, ADR 0060** |
 | ✓ | **633** | a page from the network opened in Chrome, every request held to our rules |
 | ✓ | **634** | every request of a page in Chrome in the record |
-| | **637** | a shared worker of a page in Chrome, held — **its requests escape today** |
+| ✓ | **637** | a shared worker of a page in Chrome, held |
 | ✓ | **621** | the verbs, through Chrome |
 | | **630** | the agent's socket reaching a tab in Chrome, the record naming the renderer |
 | | **627** | what a person looks at — **unanswered, needs an ADR** |
@@ -15927,7 +15927,7 @@ What stage 2's exit gate actually measures: a person using it.
   that is not blamed for it, or this item is closed with the reasoning written
   down and `LOOP.md` says plainly not to edit the tree under a running loop.
 
-- [ ] **629. A page from the network, through Chrome, under the grants.**
+- [x] **629. A page from the network, through Chrome, under the grants.**
   *ADR 0058 § 4.* Item 620 opens only a frozen page: every request a tab
   makes is paused and every one but the page's own refused, which is right
   for a corpus case and is not a browser. Opening a page from the network
@@ -15970,6 +15970,11 @@ What stage 2's exit gate actually measures: a person using it.
   155. ADR 0060 § 2's *no request leaves Chrome until the browser process
   has seen it* does not hold for it, so this stays open until **637** holds
   one.
+  ***Done (iteration 376), with 637.*** 633 opened the page and held every
+  target, 634 recorded every request, and 637 held the shared worker, the
+  one kind of target 634 found outside the gate. ADR 0060 § 2 now holds for
+  every target a page in Chrome starts, measured against a local server;
+  only the WebSocket, as § 3 says, is told of rather than held.
 
 - [ ] **630. The agent's socket reaches a tab in Chrome, and the record says
   so.** *ADR 0058 § 4, 0055.* **Cut from 621**, which carries the verbs out on
@@ -16120,7 +16125,7 @@ What stage 2's exit gate actually measures: a person using it.
   fetch is recorded with each frame's `fetch` caused by its own document,
   whose cause is the page's document.
 
-- [ ] **637. A shared worker of a page in Chrome is held.** *Found building
+- [x] **637. A shared worker of a page in Chrome is held.** *Found building
   634 (iteration 375); ADR 0060 § 2.* Measured against Chrome 155 with a
   local server: a page's `new SharedWorker('/sh.js')` has its script
   paused through the page, but the shared worker is **never attached to
@@ -16135,6 +16140,31 @@ What stage 2's exit gate actually measures: a person using it.
   worker's requests are paused before a local server sees them and
   asserted from the server's side, or its script is refused by name —
   and 629 closes with it.
+  ***Done (iteration 376).*** Measured against Chrome 155 with a local
+  server: the tab's session is never told of a shared worker, but Chrome's
+  own session — which `Tab::begin` already asks to hold new targets — is,
+  waiting. Held there, it answers `Fetch.enable`, `Target.setAutoAttach` and
+  `Network.enable` before it runs and asks for nothing until it is let go;
+  then its `fetch`, its `importScripts` and what it asks for on each
+  `connect` are paused in its own target, and its WebSocket is told of
+  there. `Worker` is undefined inside it, so it starts no target of its own,
+  and two `new SharedWorker` calls for one script are one worker. **Before
+  this the browser's hold left it waiting for good**: it never ran, rather
+  than escaped — 634's escape was a probe that held nothing at Chrome's
+  level. So `chrome_tab.rs` holds a shared worker Chrome's session tells of
+  as this tab's — a `Tab` borrows its `Chrome` whole, so it is the one tab
+  open, and a tab its page opens loads nothing — exactly as a frame is held,
+  and waits for its answers before letting it go
+  (`Kind::answers_before_it_runs` now true for it, measured); its end, told
+  of to Chrome's session, is forgotten. Its requests are the page's in the
+  record, as a dedicated worker's are (636 owes both their own documents).
+  `tests/a_page_from_the_network_in_chrome.rs`: a page starting one shared
+  worker twice — every request the server received was let go first, its
+  script in the page and the rest in the shared worker; it started once;
+  its socket is in `Tab::sockets()`; and its `fetch`, its imported script's
+  `fetch` and its socket are lines caused by the page's document, whose
+  cause is the person. Two mutations (a shared worker told of by Chrome
+  ignored; one not told to pause) each fail it.
 
 - [ ] **638. Whose is a page an agent asked a tab to open.** *Found building
   634 (iteration 375); ADR 0012 § 2, ADR 0055.* `Tab::open_for_agent`

@@ -50,8 +50,10 @@
 //! the tab does not see — on the tab's own session alone, Chrome 155 let a
 //! service worker's script and a cross-site frame's `fetch` through unpaused
 //! (ADR 0060's measurement 1). A frozen page's service worker is held the
-//! same way, its script paused in its own target and refused. A target that
-//! cannot be held is [`Failed::Unheld`], and the tab is closed.
+//! same way, its script paused in its own target and refused. A shared
+//! worker is never told of to the tab's session, only to Chrome's own, and
+//! is held from there. A target that cannot be held is [`Failed::Unheld`],
+//! and the tab is closed.
 //!
 //! # Waiting for the page, not the blank one before it
 //!
@@ -521,9 +523,12 @@ impl<'c> Tab<'c> {
                 self.attached(attached, session.is_none())?;
                 Ok(None)
             }
-            Message::Event { method, params, .. }
-                if method == "Target.detachedFromTarget" && held.is_some() =>
-            {
+            // A shared worker's end is told of to Chrome's own session.
+            Message::Event {
+                method,
+                session,
+                params,
+            } if method == "Target.detachedFromTarget" && (session.is_none() || held.is_some()) => {
                 let gone = chrome_protocol::detached(&params).map_err(Failed::Malformed)?;
                 self.holding.forget(&gone);
                 Ok(None)
@@ -743,9 +748,13 @@ impl<'c> Tab<'c> {
             }
             return Ok(());
         }
-        if by_chrome {
-            // A frame or worker Chrome tells of to itself is told of to the
-            // tab that holds it too, and is held there.
+        // A frame or worker Chrome tells of to itself is told of to the tab
+        // that holds it too, and is held there — except a shared worker,
+        // which is told of to Chrome's own session only, waiting, measured
+        // against Chrome 155 (item 637). It is held here as this tab's: a
+        // `Tab` borrows its `Chrome` whole, so this is the one tab open in
+        // it, and a tab its page opens is closed before it loads anything.
+        if by_chrome && attached.kind != Kind::SharedWorker.chrome_word() {
             return Ok(());
         }
         let Some(kind) = Kind::of(&attached.kind) else {
