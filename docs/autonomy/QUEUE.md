@@ -15909,6 +15909,24 @@ What stage 2's exit gate actually measures: a person using it.
   page loaded through Chrome is visible in a run a person can watch, and what
   they see is asserted — frames arriving, or a window placed — in numbers
   rather than by eye.
+  **Decided (2026-10-24): ADR 0061, the window.** Measured rather than
+  argued, and the measurements are in the ADR: a frame costs 34 ms to encode
+  and 81 KiB on the wire at 1200×800 scale 2 — a ceiling of 29.7 frames a
+  second before transport, 1.0 MiB/s down the pipe the agent's commands use —
+  and the lossy format came out *larger* than the lossless one, because an
+  interface is flat colour and text. A screencast is cheaper than that only
+  because it shrinks the picture: asked for 1000×700 it sent 756×469. And a
+  JPEG between the renderer and the window ends reference renders on the
+  product path for ever. Against that, Chrome in `--app` mode has no tab
+  strip and no omnibox, placing its window over the pipe is exact wherever
+  the position is legal, and `Overlay.highlightNode` draws the mark on the
+  node the agent named, labelled `Name` and `Role` in the agent surface's own
+  words — most of 624, free, and only on this path. The cost accepted: two
+  windows, one of ours tracking the other, which is the riskiest thing on the
+  product path. **That is what this item now closes on**, and the ADR says it
+  may send us back. Screencast is refused as the way a person looks at a
+  page, not as a capability: it is the only answer that works with no display
+  at all, and it is built second if a case asks.
 
 - [ ] **628. Whether the supervisor can tell whose uncommitted file it is.**
   `loop.sh` stops when the tree is dirty after a worker exits, on the grounds
