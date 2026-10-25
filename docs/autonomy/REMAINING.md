@@ -2894,3 +2894,13 @@ unmeasured. 303 queue items are open (622 closed). 642 is next on the
 product path once the screen can be measured; 623 is the next open item
 that needs no screen. The next unused queue number is 645 and the next
 unused ADR 0063.
+
+Iteration 384 closed queue item 623 in this engine's window: each verb an
+agent runs over the socket leaves the sentence it was answered with — the
+answer's own `said` — in a line of the browser's own along the bottom of
+the window, which no page can read or forge (`showing.rs`, `place.rs`'s
+`agent_line`, `compose.rs`, two reference renders). Through Chrome there
+is no window of ours yet; 642 now owes carrying the line. The screen was
+locked again, so 642 and 643 still wait on it. 624 and 625 build on 623
+and need no screen. 302 queue items are open (623 closed). The next
+unused queue number is 645 and the next unused ADR 0063.

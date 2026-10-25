@@ -41,6 +41,48 @@ pub fn notice_rule() -> Rgba {
     Rgba::from_rgba8(0xde, 0xd7, 0xcd, 0xff)
 }
 
+/// The ground of the line saying what an agent last did (queue item 623):
+/// `--accent-soft`, the quiet terracotta ground alo gives what an AI wrote.
+/// Not the warning's, because an agent doing what it was asked is not
+/// something gone wrong.
+pub fn agent_ground() -> Rgba {
+    Rgba::from_rgba8(0xfc, 0xea, 0xe3, 0xff)
+}
+
+/// Its words: `--text-primary`, alo's navy.
+pub fn agent_ink() -> Rgba {
+    Rgba::from_rgba8(0x10, 0x2a, 0x43, 0xff)
+}
+
+/// The three colours one of the browser's own lines is drawn in.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LineColours {
+    /// Behind the words.
+    pub ground: Rgba,
+    /// The words.
+    pub ink: Rgba,
+    /// The rule along its top, between it and the page.
+    pub rule: Rgba,
+}
+
+/// The line saying what happened to a tab or the strip.
+pub fn notice_line() -> LineColours {
+    LineColours {
+        ground: notice_ground(),
+        ink: notice_ink(),
+        rule: notice_rule(),
+    }
+}
+
+/// The line saying what an agent last did.
+pub fn agent_line() -> LineColours {
+    LineColours {
+        ground: agent_ground(),
+        ink: agent_ink(),
+        rule: notice_rule(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -53,6 +95,8 @@ mod tests {
             notice_ground(),
             notice_ink(),
             notice_rule(),
+            agent_ground(),
+            agent_ink(),
         ] {
             assert!((colour.alpha - 1.0).abs() < f32::EPSILON);
         }
@@ -60,7 +104,15 @@ mod tests {
 
     #[test]
     fn the_words_are_darker_than_their_ground() {
-        let (ink, ground) = (notice_ink().to_rgba8(), notice_ground().to_rgba8());
-        assert!(ink.0 < ground.0 && ink.1 < ground.1 && ink.2 < ground.2);
+        for line in [notice_line(), agent_line()] {
+            let (ink, ground) = (line.ink.to_rgba8(), line.ground.to_rgba8());
+            assert!(ink.0 < ground.0 && ink.1 < ground.1 && ink.2 < ground.2);
+        }
+    }
+
+    #[test]
+    fn an_agents_line_is_not_a_warnings() {
+        assert_ne!(agent_line().ground, notice_line().ground);
+        assert_ne!(agent_line().ink, notice_line().ink);
     }
 }

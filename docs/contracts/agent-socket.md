@@ -173,7 +173,13 @@ When the verb runs, the answer is:
 
 `issues` is what the page's script said while the verb ran (empty through
 Chrome, which is not asked). `said` is the
-outcome in English, for a person.
+outcome in English, for a person — and the person watching is shown the
+same sentence, word for word, in a line of the browser's own along the
+bottom of its window, written by the browser process and kept until the
+next verb runs (queue item 623). A page can neither read that line nor
+write it. A refusal's `said` is not shown there yet (item 625), and in
+`alo --chrome` there is no window of the browser's own to show it in until
+item 642.
 
 | Outcome `kind` | Fields besides `node` |
 |---|---|

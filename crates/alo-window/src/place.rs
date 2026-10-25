@@ -102,6 +102,9 @@ pub struct Contents {
     pub tab_saying: bool,
     /// Whether there is a sentence about the strip.
     pub strip_saying: bool,
+    /// Whether there is a sentence saying what an agent last did (queue
+    /// item 623).
+    pub agent_saying: bool,
 }
 
 /// Where the strip, a tab's frame and the lines about them go in a window.
@@ -123,6 +126,10 @@ pub struct Placement {
     /// The line saying what happened to the strip, above the tab's line —
     /// or along the bottom when the tab has nothing to say.
     pub strip_notice: Option<PixelRect>,
+    /// The line saying what an agent last did, in the words it was answered
+    /// with (queue item 623): above both of those, or along the bottom when
+    /// neither has anything to say.
+    pub agent_line: Option<PixelRect>,
 }
 
 impl Placement {
@@ -173,6 +180,7 @@ impl Placement {
         };
         let notice = stack(contents.tab_saying);
         let strip_notice = stack(contents.strip_saying);
+        let agent_line = stack(contents.agent_saying);
         Self {
             band,
             strip: PixelRect {
@@ -189,6 +197,7 @@ impl Placement {
             },
             notice,
             strip_notice,
+            agent_line,
         }
     }
 }
@@ -277,6 +286,7 @@ mod tests {
         assert!(placed.strip.is_empty(), "no strip has painted");
         assert!(placed.frame.is_empty(), "no tab has painted");
         assert_eq!((placed.notice, placed.strip_notice), (None, None));
+        assert_eq!(placed.agent_line, None);
     }
 
     #[test]
@@ -321,6 +331,7 @@ mod tests {
                 frame: Some((720, 600)),
                 tab_saying: true,
                 strip_saying: true,
+                agent_saying: true,
             },
         );
         assert_eq!(placed.band, rect(0, 0, 720, 54));
@@ -328,6 +339,7 @@ mod tests {
         assert_eq!(placed.frame, rect(0, 54, 720, 600));
         assert_eq!(placed.notice, Some(rect(0, 606, 720, 48)));
         assert_eq!(placed.strip_notice, Some(rect(0, 558, 720, 48)));
+        assert_eq!(placed.agent_line, Some(rect(0, 510, 720, 48)));
     }
 
     #[test]
@@ -399,6 +411,46 @@ mod tests {
         );
         assert_eq!(alone.notice, None);
         assert_eq!(alone.strip_notice, Some(rect(0, 404, 480, 32)));
+    }
+
+    #[test]
+    fn what_an_agent_did_is_a_line_above_the_notices_or_along_the_bottom_alone() {
+        let alone = Placement::of(
+            (480, 436),
+            Scale::ONE,
+            Contents {
+                agent_saying: true,
+                ..a_frame((480, 400))
+            },
+        );
+        assert_eq!(alone.agent_line, Some(rect(0, 404, 480, 32)));
+        assert_eq!((alone.notice, alone.strip_notice), (None, None));
+        // Over the frame, which stays where and as big as it was painted.
+        assert_eq!(alone.frame, rect(0, 36, 480, 400));
+        let with_the_tabs = Placement::of(
+            (480, 436),
+            Scale::ONE,
+            Contents {
+                tab_saying: true,
+                agent_saying: true,
+                ..Contents::default()
+            },
+        );
+        assert_eq!(with_the_tabs.notice, Some(rect(0, 404, 480, 32)));
+        assert_eq!(with_the_tabs.agent_line, Some(rect(0, 372, 480, 32)));
+        let doubled = Placement::of(
+            (960, 872),
+            Scale::TWO,
+            Contents {
+                tab_saying: true,
+                strip_saying: true,
+                agent_saying: true,
+                ..Contents::default()
+            },
+        );
+        assert_eq!(doubled.notice, Some(rect(0, 808, 960, 64)));
+        assert_eq!(doubled.strip_notice, Some(rect(0, 744, 960, 64)));
+        assert_eq!(doubled.agent_line, Some(rect(0, 680, 960, 64)));
     }
 
     #[test]

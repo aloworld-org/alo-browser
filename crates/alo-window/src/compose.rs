@@ -24,7 +24,7 @@
 //! device pixels (ADR 0057 § 3, queue item 562), so each of their pixels is
 //! one of the window's: nothing is replicated or stretched here.
 
-use crate::colours::{background, rail};
+use crate::colours::{agent_line, background, notice_line, rail};
 use crate::notice::Lettering;
 use crate::place::{Contents, PixelRect, Placement};
 use crate::scale::Scale;
@@ -49,6 +49,9 @@ pub struct Scene<'a> {
     pub frame: Option<&'a Frame>,
     /// What to tell a person about that tab, if anything.
     pub sentence: Option<&'a str>,
+    /// What an agent's last verb was answered with, if one has run (queue
+    /// item 623).
+    pub agent_said: Option<&'a str>,
 }
 
 impl Scene<'_> {
@@ -61,6 +64,7 @@ impl Scene<'_> {
             frame: self.frame.map(size),
             tab_saying: self.sentence.is_some(),
             strip_saying: self.strip_sentence.is_some(),
+            agent_saying: self.agent_said.is_some(),
         }
     }
 }
@@ -69,8 +73,8 @@ impl Scene<'_> {
 ///
 /// The background, then the band across the top in the rail's colour and
 /// the strip in it, then the tab's frame below the band, then the lines
-/// along the bottom — the tab's, and the strip's above it. A window of no
-/// size is a canvas of no size.
+/// along the bottom — the tab's, the strip's above it, and what an agent
+/// last did above both. A window of no size is a canvas of no size.
 pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, background());
@@ -84,12 +88,13 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     if let Some(frame) = scene.frame {
         copy(&mut canvas, frame, placed.frame);
     }
-    for (sentence, rect) in [
-        (scene.sentence, placed.notice),
-        (scene.strip_sentence, placed.strip_notice),
+    for (sentence, rect, colours) in [
+        (scene.sentence, placed.notice, notice_line()),
+        (scene.strip_sentence, placed.strip_notice, notice_line()),
+        (scene.agent_said, placed.agent_line, agent_line()),
     ] {
         if let (Some(sentence), Some(rect)) = (sentence, rect) {
-            lettering.draw(&mut canvas, rect, sentence, scale);
+            lettering.draw(&mut canvas, rect, sentence, scale, colours);
         }
     }
     canvas
@@ -142,6 +147,7 @@ mod tests {
             strip_sentence: None,
             frame,
             sentence: None,
+            agent_said: None,
         }
     }
 
@@ -257,6 +263,7 @@ mod tests {
                 strip_sentence: Some("gone"),
                 frame: Some(&frame),
                 sentence: Some("gone"),
+                agent_said: Some("activated box#3"),
             },
             &lettering(),
         );

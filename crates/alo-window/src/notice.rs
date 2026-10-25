@@ -7,7 +7,9 @@
 //! ADR 0005: *"The tab keeps the last frame it painted and says what
 //! happened."* `alo-renderer`'s `tab.rs` makes the sentence; this puts it in
 //! front of a person, along the bottom of the window and over the frame the
-//! tab kept.
+//! tab kept. The line saying what an agent last did (queue item 623) is drawn
+//! the same way, in colours of its own ([`LineColours`]), for the same
+//! reason: it is the browser's sentence, and no page may draw it.
 //!
 //! # Why it is drawn here and not by a renderer
 //!
@@ -23,7 +25,7 @@
 //! something, and so that drawing it never depends on what fonts this machine
 //! happens to have.
 
-use crate::colours::{notice_ground, notice_ink, notice_rule};
+use crate::colours::LineColours;
 use crate::place::PixelRect;
 use crate::scale::Scale;
 use alo_paint::{Canvas, fill, outlined_run};
@@ -86,24 +88,31 @@ impl Lettering {
         String::new()
     }
 
-    /// Draw the notice saying `sentence` into `rect` of `canvas`.
+    /// Draw a line saying `sentence` into `rect` of `canvas`, in `colours`.
     ///
     /// The ground, a one-CSS-pixel rule along its top — as many device
     /// pixels as [`Scale::device`] makes one, two at 1.5 — and the sentence
     /// on one line, cut to fit, its letters outlined at their size in device
     /// pixels.
-    pub fn draw(&self, canvas: &mut Canvas, rect: PixelRect, sentence: &str, scale: Scale) {
+    pub fn draw(
+        &self,
+        canvas: &mut Canvas,
+        rect: PixelRect,
+        sentence: &str,
+        scale: Scale,
+        colours: LineColours,
+    ) {
         if rect.is_empty() {
             return;
         }
         let (left, top) = (signed(rect.x), signed(rect.y));
-        canvas.fill_rect(left, top, rect.width, rect.height, notice_ground());
+        canvas.fill_rect(left, top, rect.width, rect.height, colours.ground);
         canvas.fill_rect(
             left,
             top,
             rect.width,
             scale.device(1).min(rect.height),
-            notice_rule(),
+            colours.rule,
         );
 
         let inset = INSET * scale.factor();
@@ -151,7 +160,7 @@ impl Lettering {
                 if at_y < rect.y || at_y >= rect.y + rect.height || at_x >= rect.x + rect.width {
                     continue;
                 }
-                canvas.blend(at_x, at_y, notice_ink(), amount);
+                canvas.blend(at_x, at_y, colours.ink, amount);
             }
         }
     }
@@ -179,6 +188,7 @@ fn signed(pixels: u32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::colours::{agent_line, notice_ground, notice_line, notice_rule};
     use alo_value::Rgba;
 
     fn lettering() -> Lettering {
@@ -215,7 +225,7 @@ mod tests {
             width: 300,
             height: 32,
         };
-        lettering().draw(&mut canvas, rect, "gone", Scale::ONE);
+        lettering().draw(&mut canvas, rect, "gone", Scale::ONE, notice_line());
         assert_eq!(canvas.at(0, 7), Some(Rgba::WHITE), "it drew above itself");
         assert_eq!(
             canvas.at(0, 8).map(Rgba::to_rgba8),
@@ -243,11 +253,40 @@ mod tests {
             width: 60,
             height: 6,
         };
-        lettering().draw(&mut canvas, rect, "gjpqy gjpqy", Scale::ONE);
+        lettering().draw(&mut canvas, rect, "gjpqy gjpqy", Scale::ONE, notice_line());
         for x in 0..60 {
             for y in [0, 1, 8, 9] {
                 assert_eq!(canvas.at(x, y), Some(Rgba::WHITE), "ink at {x},{y}");
             }
         }
+    }
+
+    #[test]
+    fn a_line_is_drawn_in_the_colours_it_is_given() {
+        let mut canvas = Canvas::new(300, 32, Rgba::WHITE);
+        let rect = PixelRect {
+            x: 0,
+            y: 0,
+            width: 300,
+            height: 32,
+        };
+        let colours = agent_line();
+        lettering().draw(&mut canvas, rect, "activated box#3", Scale::ONE, colours);
+        assert_eq!(
+            canvas.at(0, 0).map(Rgba::to_rgba8),
+            Some(colours.rule.to_rgba8())
+        );
+        assert_eq!(
+            canvas.at(299, 31).map(Rgba::to_rgba8),
+            Some(colours.ground.to_rgba8())
+        );
+        // The darkest pixel of the words is the agent's ink, not the warning's.
+        let darkest = (0..300)
+            .flat_map(|x| (1..32).map(move |y| (x, y)))
+            .filter_map(|(x, y)| canvas.at(x, y).map(Rgba::to_rgba8))
+            .min_by_key(|(red, green, blue, _)| {
+                u32::from(*red) + u32::from(*green) + u32::from(*blue)
+            });
+        assert_eq!(darkest, Some(colours.ink.to_rgba8()));
     }
 }

@@ -103,7 +103,11 @@ fn said(news: &Receiver<News>) -> Result<String, String> {
     loop {
         match next(news)? {
             News::Said(said) => return Ok(said),
-            News::Painted(_) | News::Strip(_) | News::StripSaid(_) | News::Chosen(_) => {}
+            News::Painted(_)
+            | News::Strip(_)
+            | News::StripSaid(_)
+            | News::Chosen(_)
+            | News::AgentSaid(_) => {}
             News::Closed => return Err("the window closed".to_owned()),
         }
     }

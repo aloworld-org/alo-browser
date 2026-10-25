@@ -13,6 +13,12 @@
 //! for the tab strip (queue item 528), and changes only when [`News`]
 //! arrives. A resize changes nothing here: the window's size is the window's,
 //! and each frame stays the size it was painted until a new one replaces it.
+//!
+//! It holds one more line, the browser's own: the sentence the last verb an
+//! agent ran was answered with (queue item 623). It is kept until the next
+//! one replaces it — through new frames, other sentences and other tabs
+//! chosen — because it is about what an agent did, not about what a tab
+//! shows, and a person who looked away for a second still needs to read it.
 
 use crate::compose::Scene;
 use crate::message::News;
@@ -26,6 +32,7 @@ pub struct Showing {
     sentence: Option<String>,
     strip: Option<Frame>,
     strip_sentence: Option<String>,
+    agent_said: Option<String>,
 }
 
 impl Showing {
@@ -65,6 +72,10 @@ impl Showing {
                 self.strip_sentence = Some(sentence);
                 true
             }
+            News::AgentSaid(sentence) => {
+                self.agent_said = Some(sentence);
+                true
+            }
             News::Closed => false,
         }
     }
@@ -89,6 +100,12 @@ impl Showing {
         self.strip_sentence.as_deref()
     }
 
+    /// The sentence the last verb an agent ran was answered with, if one has
+    /// run.
+    pub fn agent_said(&self) -> Option<&str> {
+        self.agent_said.as_deref()
+    }
+
     /// What to compose a window of `window` device pixels from.
     pub fn scene(&self, window: (u32, u32), scale: Scale) -> Scene<'_> {
         Scene {
@@ -98,6 +115,7 @@ impl Showing {
             strip_sentence: self.strip_sentence(),
             frame: self.frame(),
             sentence: self.sentence(),
+            agent_said: self.agent_said(),
         }
     }
 }
@@ -192,5 +210,34 @@ mod tests {
         assert_eq!(scene.frame, Some(&a_frame(1)));
         assert_eq!(scene.sentence, None);
         assert_eq!((scene.strip, scene.strip_sentence), (None, None));
+        assert_eq!(scene.agent_said, None);
+    }
+
+    #[test]
+    fn what_an_agent_did_is_kept_until_the_next_verb_whatever_else_arrives() {
+        let mut showing = Showing::default();
+        assert_eq!(showing.agent_said(), None);
+        assert!(showing.hear(News::AgentSaid("activated box#3".to_owned())));
+        assert_eq!(showing.agent_said(), Some("activated box#3"));
+        // Nothing of the tab's or the strip's touches it, nor another tab.
+        for news in [
+            News::Painted(a_frame(1)),
+            News::Said("gone".to_owned()),
+            News::Strip(a_frame(2)),
+            News::StripSaid("gone".to_owned()),
+            News::Chosen(None),
+        ] {
+            showing.hear(news);
+            assert_eq!(showing.agent_said(), Some("activated box#3"));
+        }
+        // And it touches nothing of theirs.
+        showing.hear(News::Painted(a_frame(4)));
+        showing.hear(News::AgentSaid("scrolled box#1 to 0, 40".to_owned()));
+        assert_eq!(showing.frame(), Some(&a_frame(4)));
+        assert_eq!(showing.sentence(), None);
+        assert_eq!(showing.agent_said(), Some("scrolled box#1 to 0, 40"));
+        let scene = showing.scene((30, 20), Scale::ONE);
+        assert_eq!(scene.agent_said, Some("scrolled box#1 to 0, 40"));
+        assert!(!News::AgentSaid(String::new()).is_strip());
     }
 }

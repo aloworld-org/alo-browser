@@ -177,7 +177,10 @@ about this project (ADR 0058 § 6).
   renderer draws a tab** — the socket's `renderer` ask, sent by a person
   with `alo-ask`, answered by the browser process and never the page: this
   engine, or Chrome by the version it gives itself, kept to the sites as a
-  read is and recorded (622).
+  read is and recorded (622); and **the agent's sentence where a person
+  can read it**, in this engine's window — each verb's `said`, word for
+  word, in a line of the browser's own, which no page can read or forge
+  (623; through Chrome it waits on the window of ours, 642).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -190,8 +193,9 @@ about this project (ADR 0058 § 6).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
   what a page's script said, through Chrome (639); a form Chrome would not send, answered as the engine
   answers it (631); the
-  agent's work where a person can see it (623–625); **a window of ours
-  around Chrome's, following it (642)**; a placed window that stays where a
+  rest of the agent's work where a person can see it — the box acted on
+  marked (624) and a refusal shown (625); **a window of ours around
+  Chrome's, following it, with 623's line in it (642)**; a placed window that stays where a
   person sees it, which Stage Manager's strip does not promise (643); an
   application somebody can run (477).
 
@@ -730,7 +734,8 @@ unreachable without it.
       script said, through Chrome (639); a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), a window of ours around
-      Chrome's (642) and one that stays where a person sees it (643)
+      Chrome's, carrying the agent's sentence as the engine's window does
+      (642, 623), and one that stays where a person sees it (643)
 
 ### The network
 
@@ -2288,7 +2293,9 @@ disappeared behind the larger.
       as a tree over the browser's socket, fills it and sends the order by
       name, and the record the browser process wrote says what it read and
       what it changed (`alo-window`'s `an_agent_outside_the_browser.rs`).
-      An agent can be kept to the sites a person names (queue item 497).
+      An agent can be kept to the sites a person names (queue item 497),
+      and a person watching the window reads each verb's sentence in a
+      line of the browser's own (queue item 623).
       · Owed: loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that
       adds a box (500); and Windows, which ADR 0055 leaves undecided.

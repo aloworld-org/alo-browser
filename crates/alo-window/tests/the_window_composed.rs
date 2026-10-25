@@ -34,9 +34,15 @@
 //! at 1.5 is composed from the strip and the frozen page each drawn at 1.5,
 //! in a band of 54 device pixels, and checked the same way.
 //!
+//! Item 623 adds the line saying what an agent last did, in the sentence its
+//! verb was answered with, over the frozen page: at one, and at 1.5 with a
+//! gone tab's line below it.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
 
+use alo_agent::Outcome;
+use alo_box::BoxId;
 use alo_layout::Size;
 use alo_paint::{Canvas, from_png, to_png};
 use alo_renderer::host::Gone;
@@ -46,7 +52,7 @@ use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::compose::{Scene, compose};
 use alo_window::message::News;
 use alo_window::notice::Lettering;
-use alo_window::place::{STRIP_HEIGHT, screen, strip_viewport};
+use alo_window::place::{PixelRect, Placement, STRIP_HEIGHT, screen, strip_viewport};
 use alo_window::scale::Scale;
 use alo_window::showing::Showing;
 use std::path::{Path, PathBuf};
@@ -215,6 +221,7 @@ fn a_frozen_alo_page_in_a_window_at_scale_two() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -233,6 +240,7 @@ fn a_window_grown_before_its_new_frame_shows_the_old_one_at_its_old_size() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -251,6 +259,7 @@ fn a_gone_tab_keeps_its_frame_and_says_what_happened() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: Some(&sentence),
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -268,6 +277,7 @@ fn a_tab_gone_before_it_ever_painted_is_its_sentence_on_the_background() {
             strip_sentence: None,
             frame: None,
             sentence: Some(&sentence),
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -294,6 +304,7 @@ fn a_window_with_a_strip_of_one_tab_at_scale_two() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -332,6 +343,7 @@ fn a_window_with_a_strip_of_one_tab_at_one_and_a_half() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -366,6 +378,7 @@ fn a_tab_gone_at_one_and_a_half_says_so_in_a_line_of_its_own_height_at_it() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: Some(&sentence),
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -404,6 +417,7 @@ fn a_window_with_a_strip_of_three_tabs() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -427,6 +441,7 @@ fn a_strip_whose_renderer_has_gone_keeps_its_frame_and_says_so() {
             strip_sentence: Some(&sentence),
             frame: Some(&page),
             sentence: None,
+            agent_said: None,
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -473,4 +488,82 @@ fn a_new_tab_chosen_over_a_page_shows_none_of_it() {
         }
     }
     assert_eq!(holds("a-new-tab.png", &canvas), Ok(()));
+}
+
+/// The sentence an agent is answered with for putting a name into the
+/// field at box 10 — made by `alo-agent`'s own type, so the reference shows
+/// the words a person is shown rather than a sentence written for the test.
+fn agents_sentence() -> String {
+    Outcome::TextPut {
+        node: BoxId::from_index_for_tests(10),
+        text: "Ada Lovelace".to_owned(),
+    }
+    .to_string()
+}
+
+#[test]
+fn what_an_agent_did_is_a_line_of_the_browsers_over_the_page() {
+    let page = frozen_page().unwrap_or_else(|why| panic!("{why}"));
+    let sentence = agents_sentence();
+    assert_eq!(sentence, "put \"Ada Lovelace\" into box#10");
+    let mut showing = Showing::default();
+    for news in [News::Painted(page.clone()), News::AgentSaid(sentence)] {
+        assert!(showing.hear(news));
+    }
+    let window = (480, 400 + STRIP_HEIGHT);
+    let scene = showing.scene(window, Scale::ONE);
+    let placed = Placement::of(window, Scale::ONE, scene.contents());
+    let line = PixelRect {
+        x: 0,
+        y: 404,
+        width: 480,
+        height: 32,
+    };
+    assert_eq!(placed.agent_line, Some(line));
+    let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
+    // Above the line every pixel is the page's own; the line is drawn over
+    // it and nowhere else.
+    for y in STRIP_HEIGHT..line.y {
+        for x in 0..window.0 {
+            assert_eq!(
+                canvas.at(x, y).map(alo_value::Rgba::to_rgba8),
+                page.at(x, y - STRIP_HEIGHT),
+                "at {x},{y}"
+            );
+        }
+    }
+    assert_eq!(holds("an-agents-sentence.png", &canvas), Ok(()));
+}
+
+#[test]
+fn what_an_agent_did_at_one_and_a_half_is_above_a_gone_tabs_line() {
+    let page = frozen_page_at(1.5).unwrap_or_else(|why| panic!("{why}"));
+    let gone = silent_sentence();
+    let sentence = agents_sentence();
+    let window = (720, 600 + 54);
+    let scene = Scene {
+        window,
+        scale: Scale::ONE_AND_A_HALF,
+        strip: None,
+        strip_sentence: None,
+        frame: Some(&page),
+        sentence: Some(&gone),
+        agent_said: Some(&sentence),
+    };
+    let placed = Placement::of(window, Scale::ONE_AND_A_HALF, scene.contents());
+    // Each line 32 CSS pixels at 1.5, 48 device pixels: the tab's along the
+    // bottom, the agent's above it.
+    assert_eq!(
+        placed.notice.map(|rect| (rect.y, rect.height)),
+        Some((606, 48))
+    );
+    assert_eq!(
+        placed.agent_line.map(|rect| (rect.y, rect.height)),
+        Some((558, 48))
+    );
+    let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
+    assert_eq!(
+        holds("an-agents-sentence-at-one-and-a-half.png", &canvas),
+        Ok(())
+    );
 }

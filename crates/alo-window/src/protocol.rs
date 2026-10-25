@@ -258,7 +258,6 @@ pub fn write(echo: Option<&Echo>, answer: &Answer) -> String {
             line.insert("answer".to_owned(), Value::from("renderer"));
             line.insert("tab".to_owned(), Value::from(tab.as_str()));
             line.insert("renderer".to_owned(), renderer(rendered_by));
-            line.insert("said".to_owned(), Value::from(rendered_by.to_string()));
         }
         Answer::Done {
             tab,
@@ -269,13 +268,14 @@ pub fn write(echo: Option<&Echo>, answer: &Answer) -> String {
             line.insert("tab".to_owned(), Value::from(tab.as_str()));
             line.insert("outcome".to_owned(), self::outcome(outcome));
             line.insert("issues".to_owned(), Value::from(issues.clone()));
-            line.insert("said".to_owned(), Value::from(outcome.to_string()));
         }
         Answer::Refused(refused) => {
             line.insert("answer".to_owned(), Value::from("refused"));
             line.insert("refusal".to_owned(), self::refused(refused));
-            line.insert("said".to_owned(), Value::from(refused.to_string()));
         }
+    }
+    if let Some(said) = answer.said() {
+        line.insert("said".to_owned(), Value::from(said));
     }
     let mut written = Value::Object(line).to_string();
     written.push('\n');

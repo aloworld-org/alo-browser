@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **You can see what an agent is doing in the browser's window.** When an
+  agent fills in a field or presses a button through the browser's socket,
+  a line along the bottom of the window now says what it did, in the same
+  words the agent was told — `put "Ada Lovelace" into box#10` — and keeps
+  saying it until the agent does the next thing. The browser writes that
+  line itself, so a page cannot read it or fake it. It is in the browser's
+  own window for now; a page shown in Chrome gets it once the browser has a
+  window of its own around Chrome's.
+
 - **You can ask the running browser which engine is drawing a page.**
   Send `{"v":1,"ask":"renderer","tab":ADDRESS}` with `alo-ask` and the
   browser answers whether its own engine or the Chrome on your machine

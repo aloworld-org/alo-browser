@@ -103,6 +103,16 @@
 //! The window is told the tab chosen replaces the one shown, and the tab is
 //! painted at the window's size.
 //!
+//! # What an agent did, told to the person watching
+//!
+//! Queue item 623, ADR 0052 § 1. An agent's verb that ran is answered with a
+//! sentence — `put "Ada Lovelace" into box#10` — and the window is sent the
+//! same sentence, taken from the answer before it goes, as
+//! [`News::AgentSaid`]: after the tab is painted again, so the line and the
+//! page it describes arrive together. A refusal is not sent (item 625), and
+//! neither is a read. Nothing a page or a renderer says can become one: the
+//! conductor writes it, from what it answered.
+//!
 //! # A page left
 //!
 //! ADR 0039 § 2: closing the window closes every tab, and each tab's page is
@@ -134,6 +144,7 @@ mod strip_pressing;
 
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
+use crate::asking::Answer;
 use crate::hold::{Holds, SHOWN_BEFORE_STYLE};
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::{News, Order};
@@ -458,10 +469,18 @@ impl Conducting {
             Order::Agent { caller, ask, reply } => {
                 let Served { answer, acted } =
                     serve(&mut self.tabs, &mut self.agents, &self.sites, caller, ask);
+                // What the agent is told a verb did, the person watching is
+                // told too, in the same words (item 623) — taken before the
+                // answer goes, and only of a verb that ran.
+                let said = matches!(answer, Answer::Done { .. })
+                    .then(|| answer.said())
+                    .flatten();
                 // Nobody to answer is a caller that has gone, which changes
                 // nothing about what was done or recorded.
                 let _ = reply.send(answer);
-                acted.map_or_else(Vec::new, |id| self.acted(id))
+                let mut news = acted.map_or_else(Vec::new, |id| self.acted(id));
+                news.extend(said.map(News::AgentSaid));
+                news
             }
         }
     }

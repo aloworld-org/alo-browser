@@ -32,7 +32,9 @@
 //!   [`asking`] says they mean; [`serving`] answers them from the tabs on the
 //!   conductor's thread, kept to the sites a person named in
 //!   [`agent_sites`], and [`agent_record`] is what it records. The socket
-//!   is a Unix one, and Windows is undecided (ADR 0055 § 1).
+//!   is a Unix one, and Windows is undecided (ADR 0055 § 1). What a verb
+//!   that ran was answered with is shown to the person watching, in a line
+//!   of the window's own ([`message::News::AgentSaid`], item 623).
 //! - [`chrome`] is the other renderer, the machine's own Chrome, started and
 //!   spoken to over a pipe (ADR 0058, item 619): [`chrome_wire`] finds where
 //!   each of its messages ends and [`chrome_protocol`] reads them, the one

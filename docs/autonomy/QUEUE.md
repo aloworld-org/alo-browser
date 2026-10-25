@@ -52,7 +52,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **627** | what a person looks at — Chrome's own window, sized and placed by us (ADR 0061) |
 | ✓ | **641** | the program told to use Chrome — `alo --chrome`, run from a terminal |
 | ✓ | **622** | which renderer is in use, where a person can read it — the socket's `renderer` ask, with `alo-ask` |
-| | **623** | the agent's sentence, where a person can read it |
+| ✓ | **623** | the agent's sentence, where a person can read it — in this engine's window; through Chrome it comes with 642 |
 | | **624** | the acted-on box, marked while it is acted on |
 | | **625** | a refusal shown to the person, not only answered to the agent |
 | | **642** | a window of ours around Chrome's, following it (ADR 0061's frame) |
@@ -15868,7 +15868,7 @@ What stage 2's exit gate actually measures: a person using it.
   which renderer a *running* browser has. The terminal goes on saying it as
   the program starts (641).
 
-- [ ] **623. ★ A person watching can read what the agent is doing.** *ADR
+- [x] **623. ★ A person watching can read what the agent is doing.** *ADR
   0052 § 1.* Every answer already carries `said` — `put "Ada Lovelace" into
   box#10`, `nothing on the page is "A pony"` — and all of it goes down the
   socket to the agent and nowhere else. A person at the window sees the form
@@ -15881,6 +15881,27 @@ What stage 2's exit gate actually measures: a person using it.
   run over the socket leaves its sentence in the window's tree, asserted in
   numbers in a layout test and in a reference render, and a page that tries
   to reach or forge that line cannot.
+  ***Done (iteration 384), in this engine's window.*** The conductor takes
+  the `said` of every answer to a verb that ran — `Answer::said`, the one
+  wording, which the socket now writes from too — and sends it to the
+  window as `News::AgentSaid` after the tab is painted again; `Showing`
+  keeps it until the next verb, through new frames, other sentences and
+  other tabs chosen. `Placement` puts it in `agent_line`, 32 CSS pixels
+  along the bottom of the window above the tab's and the strip's notices,
+  and `compose` draws it on `--accent-soft` in `--text-primary`; a press on
+  it is nobody's (`aim`). Asserted end to end in
+  `the_agents_sentence_in_the_window.rs`: `alo-ask` puts a name into a
+  field over the socket of a conductor over the real renderer, and the
+  window's line is the answer's `said` byte for byte, at 0,404 480×32 in a
+  window of 480×436, drawn there over the page's frame; a refusal between
+  two verbs leaves no line and the second verb's replaces the first's; and
+  a page that writes a forged sentence into its title and text as it loads
+  and as the field changes puts no line in the window and finds the real
+  one nowhere in its tree. Reference renders: `an-agents-sentence.png` and
+  `an-agents-sentence-at-one-and-a-half.png`, over a gone tab's line.
+  **Not built, and owed by 642:** in `alo --chrome` there is no window of
+  ours, so nothing shows the line there; 642's frame carries it. A
+  refusal's line is 625's.
 
 - [ ] **624. ★ The thing being acted on is marked while it is acted on.** *ADR
   0002 § 4.* A ring drawn around the box a verb is running on, for as long as
@@ -16400,6 +16421,11 @@ What stage 2's exit gate actually measures: a person using it.
   whether `Browser.getWindowForTarget` follows a window a person drags,
   and whether a person clicking the frame sends Chrome's window to the
   strip — which would reopen ADR 0062. Not ticked: no code was written.
+  *Owed with it (iteration 384):* 623's line — the sentence each verb an
+  agent runs is answered with — is shown in this engine's window and
+  nowhere in `alo --chrome`; the frame is where it goes there, written by
+  this process from `chrome_serving`'s answers as the conductor writes it
+  from its own.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into

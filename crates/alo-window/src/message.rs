@@ -109,6 +109,12 @@ pub enum News {
     /// The selected tab has something to tell a person, in words — that its
     /// renderer is gone, or that what it was given could not be shown.
     Said(String),
+    /// An agent's verb ran, and this is the sentence the agent was answered
+    /// with — its `said`, word for word (queue item 623, ADR 0052 § 1). Written
+    /// by the conductor from the answer it sent, never by a page or its
+    /// renderer, so a person watching a form fill itself can read who is
+    /// filling it and how.
+    AgentSaid(String),
     /// Every tab is closed, and every renderer under them stopped.
     Closed,
 }

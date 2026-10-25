@@ -268,6 +268,23 @@ pub enum Refused {
     },
 }
 
+impl Answer {
+    /// What it says in English, for a person reading — the line's `said` —
+    /// if it says anything: a list of tabs and a tree do not.
+    ///
+    /// The one wording of it there is. The socket writes it beside the
+    /// kind, and the window shows a verb's to the person watching (queue
+    /// item 623), so the two can never disagree.
+    pub fn said(&self) -> Option<String> {
+        match self {
+            Answer::Tabs(_) | Answer::Tree { .. } => None,
+            Answer::Renderer { rendered_by, .. } => Some(rendered_by.to_string()),
+            Answer::Done { outcome, .. } => Some(outcome.to_string()),
+            Answer::Refused(refused) => Some(refused.to_string()),
+        }
+    }
+}
+
 impl Refused {
     /// Its kind, as it crosses: `verb.rs`'s own name for a refusal of the
     /// page's, and this interface's for its own.

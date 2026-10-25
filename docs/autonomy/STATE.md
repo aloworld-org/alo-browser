@@ -39134,3 +39134,90 @@ product-path table marked), `REMAINING.md` and the changelog say the same.
 303 queue items are open (622 closed; counted as `- [ ] **` lines). The
 next unused queue number is **645** and the next ADR is **0063**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 384 — queue item 623: the agent's sentence where a person can read it
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path, the stage 2 Chrome line and the agent's gate), iteration 383's
+entry, `REMAINING.md`'s continuation order, the queue's product-path
+table and items 622–625, 642 and 643; ADR 0052 § 1 (the item's), ADR 0024
+§§ 2 and 4 (composition a function, the window's own words never a
+page's) and ADR 0055 (the socket); `docs/contracts/agent-socket.md`;
+`compose.rs`, `place.rs`, `showing.rs`, `notice.rs`, `colours.rs`,
+`message.rs`, `aim.rs`, `asking.rs`, `protocol.rs`, `conductor.rs` and the
+window's tests; `alo-workplace`'s `tokens.css` for the line's colours
+(read only). No `AGENTS.md` exists in the repository. 623's feature
+contract is `docs/features.md`'s agent-socket line (item 496).
+
+**Why 623.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and again before committing, so 642 and 643, which the queue says are
+measured with the screen in use, could not be built honestly. 623 is the
+next product-path item and depends only on 296, which is done.
+
+**Built.** `Answer::said` is now the one wording of an answer's English:
+the socket writes `said` from it, and the conductor sends a verb's that
+ran to the window as `News::AgentSaid`, after the tab is painted again.
+`Showing` keeps it until the next verb. `Placement` gains `agent_line` (32
+CSS pixels along the bottom, above the tab's and the strip's notices),
+`compose` draws it with `Lettering` in colours of its own
+(`--accent-soft`, `--text-primary`; `colours::LineColours`), and `aim`
+treats a press on it as nobody's. A refusal and a read leave no line
+(625 is the refusal's). "The window's tree" is read as the window's
+geometry, `Placement`, which `place.rs` describes as the tree with
+numbers in it; an agent reading the window's own chrome is item 531.
+
+**Tests.** Unit: `Showing` keeps the line through frames, sentences and
+tabs chosen; `Placement` puts it alone, above a tab's line, and at two
+(680, 64 high); `aim` refuses presses on it; the colours are solid, dark
+on light and not the warning's; `Lettering` draws in the colours given.
+End to end (`the_agents_sentence_in_the_window.rs`, four tests): `alo-ask`
+puts a name into a field over the socket of a conductor over the real
+renderer, and the window's line is the answer's `said` byte for byte;
+placed at 0,404 480×32 in a 480×436 window and drawn there with the
+page's frame untouched above it; a refusal between two verbs leaves no
+line and the second replaces the first; a page forging the sentence in its
+title and text on load and on input puts no line in the window, and the
+real sentence is nowhere in its tree. Reference renders:
+`an-agents-sentence.png` (at one, every pixel above the line asserted to
+be the page's) and `an-agents-sentence-at-one-and-a-half.png` (above a gone
+tab's line, 558 and 606, 48 high), both looked at before committing. A
+person's click in `a_persons_click_in_the_window.rs` now asserts it is
+never told as an agent's.
+
+**Gate.** `scripts/gate.sh` started in the foreground into a scratchpad
+log; the harness moved it to the background at 600 s and the next call
+waited on it with a foreground until-loop and read it in the same step:
+**exit 0, "The gate is met. (10 of 10 steps)"**, nextest **5,207 tests
+run, 5,207 passed** in 558 s, no `FAIL`, `LEAK` or `panicked`. Manual:
+layout assertions in numbers (`place.rs`, `aim.rs`, the end-to-end test,
+`the_window_composed.rs`), two reference renders. One file, one
+responsibility: geometry stays in `place.rs`, holding in `showing.rs`,
+drawing in `compose.rs`/`notice.rs`, colours in `colours.rs`, the wording
+in `asking.rs`. No `unsafe`, no stubs, no verb taking a coordinate.
+`alo-os` and `alo-workplace` untouched. Nothing pushed. Not seen in the
+running `alo` on a screen (locked); the event loop hands every `News` to
+`Showing::hear` unchanged, which is what the tests drive.
+
+**Roadmap.** The product path's *Built* gains 623 in this engine's window
+and its *Owed* names 624 and 625, with 623's line owed by 642 through
+Chrome; the stage 2 Chrome line's `· Owed:` says 642 carries the line; the
+agent's gate's `· Built:` gains it. Not ticked — no line is finished.
+`features.md`, the socket contract, the queue (623 ticked with a *Done*
+paragraph, the table marked, 642 told what it now owes), `REMAINING.md`,
+`lib.rs`'s map and the changelog say the same.
+
+**Unresolved obligations.**
+- Through Chrome nothing shows the line: there is no window of ours until
+  642, which now owes it.
+- 642 still waits on a person's drag and a click on the frame measured
+  with the screen in use; 643 on the same screen.
+- Inherited and unchanged: 624, 625, 631, 632, 635, 636, 639, 642 and 643
+  owed; 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586;
+  463 and 572 wait on a person; 568–571 on a screen or pages; 560 and 564
+  on 502 behind 501; 538 waits on a page; 638 needs an ADR. Other suites'
+  short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+302 queue items are open (623 closed; counted as `- [ ] **` lines). The
+next unused queue number is **645** and the next ADR is **0063**. This is
+one iteration, not a finished queue or roadmap.
