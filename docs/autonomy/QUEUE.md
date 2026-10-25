@@ -16896,7 +16896,7 @@ What stage 2's exit gate actually measures: a person using it.
   each fail a test. Cut: the viewport and the body, item 662; a
   `<textarea>` and a list box, item 663.
 
-- [ ] **662. The root scrolls as the viewport does, and a body whose
+- [x] **662. The root scrolls as the viewport does, and a body whose
   `overflow` the viewport takes.** *Cut from 661 (iteration 408).*
   Measured against Chrome 155: on a page of 500 in a viewport of 113, the
   root under `overflow: visible`, `hidden`, or `height: 100px` is scrolled
@@ -16914,6 +16914,49 @@ What stage 2's exit gate actually measures: a person using it.
   against the viewport, a root of `clip` refused, and a propagated body
   neither clipped nor scrolled — a layout assertion and a reference render
   for the body drawn, with the numbers above.
+  ***Done (iteration 409), the viewport's `overflow`, measured.*** Against
+  Chrome 155.0.8059.86, headless, on a page of 500 in a viewport of 213
+  with `documentElement.scrollTop` and `body.scrollTop` set to 40. **The
+  closing condition's "a root of `clip` refused" was re-measured and is
+  wrong**: a root of `overflow: clip` is scrolled by 40 (and by 70 after
+  `load`, through `scrollTo` as well), as are roots of `overflow-x: clip`
+  and `overflow-y: clip` — CSS has the viewport read `clip` as `hidden`,
+  which a script may scroll — so the root is never refused for its
+  `overflow`, only for having nothing to scroll. Under a root of
+  `visible`, a body of `height: 50px` with `overflow` `auto`, `hidden`,
+  `scroll`, `clip`, `overflow-x: clip` or `overflow-y: clip` is not
+  scrolled (the page is, by 40, and its `scrollHeight` is 500); under a
+  root of `auto` the body scrolls itself (40) and the page's
+  `scrollHeight` is 50. A first child's top margin of 30 collapses through
+  a propagated body of `hidden` (its top at 30) and not through one under
+  a root of `auto` (0). Screenshots: the propagated body's content is
+  drawn past its 50 pixels, and so is a root's of `overflow: hidden;
+  height: 50px`. The viewport has something to scroll from half a device
+  pixel, as a box does: 213.5 in 213 is scrolled by one and 213.4 not, at
+  one; 213.25 by a half and 213.24 not, at two. Built: `alo-box` records
+  the body element's box (`BoxTree::body`); `alo-layout`'s new
+  `viewport.rs` says whose `overflow` the viewport takes — the root's, and
+  the body's when the root's is `visible` on both axes and the body's box
+  is the root's child — and holds the viewport's scrolling area, moved
+  there from `alo-renderer`'s `scrolling_area.rs`, which now calls it.
+  Such a box is laid out with `overflow: visible`, is never a scroll
+  container, and `alo-paint` clips nothing to it
+  (`LayoutTree::gives_its_overflow_to_the_viewport`); the root's
+  `LayoutTree::scrolls` asks the viewport's area against the viewport.
+  Tests: `viewport.rs`'s own (whose overflow is taken, the area, the half
+  pixel at one and two); `scroll_container.rs`'s, a propagated body is not
+  one; `alo-box`'s, the body's box; `alo-agent`'s
+  `a_page_scrolls_as_its_viewport_does.rs`, a long page scrolled under
+  eight root styles with its area 500, a root as tall as its content
+  scrolled while its own box has nothing past it, a short page refused,
+  four propagated bodies not scrolled with the body 50 tall and the area
+  500, the body scrolling itself under a root of `auto` or `clip`, and the
+  margin collapsing; `alo-paint`'s `clipping.rs`, neither box clips; and
+  the corpus case `a-body-gives-the-viewport-its-overflow`, its layout in
+  numbers and Chrome's screenshot equal in every pixel. Mutations — no
+  paint exception, no `visible` given to layout, no scroll-container
+  exception, the root asked of its own box — each fail a test. Cut:
+  `text-overflow` on such a box, item 664.
 
 - [ ] **663. A `<textarea>` and a list box hold what passes their edge.**
   *Cut from 661 (iteration 408).* Measured against Chrome 155: a
@@ -16925,6 +16968,17 @@ What stage 2's exit gate actually measures: a person using it.
   list box's size is item 521's). Closes when:* each is laid out holding
   what it holds, is a scroll container as Chrome's user-agent sheet makes
   it, and is answered `Scrolled` with its scrolling area in numbers.
+
+- [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
+  *Cut from 662 (iteration 409).* A root, or a body under a root of
+  `visible`, has a used `overflow` of `visible` (CSS Overflow 3 § 3.3), and
+  layout and paint now treat it so; but `alo-layout`'s `ellipsis.rs` and
+  `baseline.rs` reread the computed `overflow`, so a `<body
+  style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">`
+  under a root of `visible` would still cut its line with an ellipsis.
+  Unmeasured against Chrome. *Depends on nothing. Closes when:* Chrome's
+  drawing of such a body is measured and this engine's line is cut, or
+  not, as Chrome's is, in numbers and a reference render.
 
 - [x] **646. A form Chrome refuses and draws no bubble for.** *Cut from
   631 (iteration 387); ADR 0051 § 6 and its amendment of 25 October.*

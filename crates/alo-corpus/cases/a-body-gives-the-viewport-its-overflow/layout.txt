@@ -1,0 +1,4 @@
+block flow · document → 240×50 at (0, 0)
+  block flow · generic → 240×50 at (0, 0)
+    block flow · generic → 60×130 at (0, 0)
+    block flow · generic → 30×20 at (100, 130)

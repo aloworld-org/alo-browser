@@ -3200,3 +3200,13 @@ from it, 662 (the root as the viewport, and a body the viewport takes its
 locked, so 642, 643 and 658 still wait on it. 298 queue items are open (661
 closed, 662 and 663 opened). The next unused queue number is 664 and the
 next unused ADR 0065.
+
+Iteration 409 closed queue item 662: the root answers for the viewport —
+scrolled when the page's scrolling area passes the window by half a device
+pixel, whatever the root's `overflow`, `clip` included as Chrome 155 was
+re-measured to scroll it — and a body whose `overflow` the viewport takes
+under a root of `visible` is laid out, drawn and answered as `visible`, with
+a corpus case that is Chrome's in every pixel; cut from it, 664
+(`text-overflow` on such a box). The screen was locked, so 642, 643 and 658
+still wait on it. 298 queue items are open (662 closed, 664 opened). The
+next unused queue number is 665 and the next unused ADR 0065.

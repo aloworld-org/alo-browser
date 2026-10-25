@@ -177,3 +177,28 @@ fn a_rounded_clip_inside_a_border_follows_the_borders_inner_curve() {
         "the banner reaches the border's inner curve: {corner}",
     );
 }
+
+/// Chrome 155 draws what a root of `overflow: hidden` holds past the root's
+/// own height, and what a body of `overflow: auto` holds past the body's
+/// under a root of `visible`: the viewport takes their `overflow`, and its
+/// edge is the canvas's (queue item 662).
+#[test]
+fn a_box_whose_overflow_the_viewport_takes_clips_nothing() {
+    let tall = "<!DOCTYPE html><html><body><div id=tall></div></body></html>";
+    for css in [
+        "html { overflow: hidden; height: 20px } body { margin: 0 }",
+        "body { margin: 0; overflow: auto; height: 20px }",
+    ] {
+        let sheet = format!("{css} #tall {{ height: 50px; background: #000000 }}");
+        let (list, canvas) = draw(tall, &sheet, 120.0, 60.0);
+        assert!(!list.to_outline().contains("clip"), "{css}");
+        let below = canvas.at(10, 40).expect("past the box's own height");
+        assert!(below.red < 0.2, "{css}: drawn past it, {below}");
+    }
+    // Under a root that is not `visible` the body clips at its own edge.
+    let sheet = "html { overflow: auto } body { margin: 0; overflow: auto; height: 20px }\
+                 #tall { height: 50px; background: #000000 }";
+    let (_, canvas) = draw(tall, sheet, 120.0, 60.0);
+    let below = canvas.at(10, 40).expect("past the body");
+    assert!(below.red > 0.8, "clipped away: {below}");
+}

@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A long page says it scrolls, and a body gives the window its
+  `overflow`.** On this engine's page an agent asking to scroll the
+  page's root was refused whenever the root was as tall as what it held,
+  which a long page's root always is; it is now answered as the window
+  is, scrolled when the page passes the window by half a device pixel,
+  as Chrome 155 scrolls it whatever the root's `overflow`. And a
+  `<body>` with `overflow: auto` or `hidden` under a root of `visible`
+  no longer clips what it holds or says it scrolls: the window takes its
+  `overflow`, so what it holds is drawn past it, a margin collapses
+  through it, and the page's own size counts it, as Chrome draws and
+  measures it (item 662). The root no longer clips what it holds either.
+
 - **A box that spills over is not said to scroll unless it can.** On
   this engine's page an agent asking to scroll a box whose content ran
   past it under `overflow: visible` was told it had scrolled it, where

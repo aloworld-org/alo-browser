@@ -31,17 +31,16 @@
 //!   cannot reach: Chrome computes the field's own as `clip` even under
 //!   `overflow: visible`. A date or a time field does not.
 //!
-//! # The root, and what is not here
+//! # The root, and the body
 //!
 //! The root element's `overflow` is the viewport's, and the viewport is
 //! always a scroll container: Chrome scrolls a page through
 //! `documentElement.scrollTop` under `overflow: visible`. So the root is one
-//! whatever its style, standing for the viewport; whether it has something
-//! to scroll is still answered from its own box, which is not yet the
-//! viewport's area. That, and a `<body>` whose
-//! `overflow` the viewport takes when the root's is `visible` — so that the
-//! body itself neither clips nor scrolls — are queue item 662: layout does
-//! not know which element is the body.
+//! whatever its style, standing for the viewport, and whether it has
+//! something to scroll is the viewport's question
+//! ([`crate::LayoutTree::scrolls`]). A `<body>` whose `overflow` the
+//! viewport takes, when the root's is `visible`, is never one: its own used
+//! `overflow` is `visible` ([`crate::viewport`], queue item 662).
 
 use crate::keyword::Overflow;
 use crate::style::LayoutStyle;
@@ -54,7 +53,11 @@ use std::collections::BTreeSet;
 pub(crate) fn scroll_containers(boxes: &BoxTree, styles: &StyleTree) -> BTreeSet<BoxId> {
     boxes
         .ids()
-        .filter(|&id| Some(id) == boxes.root() || is_a_scroll_container(boxes, styles, id))
+        .filter(|&id| {
+            Some(id) == boxes.root()
+                || (!crate::viewport::takes_the_overflow_of(boxes, styles, id)
+                    && is_a_scroll_container(boxes, styles, id))
+        })
         .collect()
 }
 
@@ -215,9 +218,24 @@ mod tests {
     }
 
     #[test]
+    fn a_body_whose_overflow_the_viewport_takes_is_not_one() {
+        // Chrome 155 leaves `body.scrollTop` at 0 under a root of `visible`,
+        // and scrolls the body under a root of `auto`.
+        let page = |root: &str| {
+            format!(
+                "<!doctype html><html style='{root}'>\
+                 <body id=t style='overflow:auto;height:50px'>a"
+            )
+        };
+        assert_eq!(is_one(&page(""), "t"), Some(false));
+        assert_eq!(is_one(&page("overflow: auto"), "t"), Some(true));
+        assert_eq!(is_one(&page("overflow: clip"), "t"), Some(true));
+    }
+
+    #[test]
     fn the_root_is_one_as_the_viewports_whatever_its_style() {
         // Chrome 155 scrolls a long page by `documentElement.scrollTop`.
-        for style in ["", "overflow: visible", "overflow: auto"] {
+        for style in ["", "overflow: visible", "overflow: auto", "overflow: clip"] {
             let page = format!("<!doctype html><html id=t style='{style}'><body>");
             assert_eq!(is_one(&page, "t"), Some(true), "{style}");
         }

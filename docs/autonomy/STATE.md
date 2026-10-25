@@ -41715,3 +41715,100 @@ queue ticks 661 with a *Done* paragraph and opens 662 and 663;
 298 queue items are open (661 closed, 662 and 663 opened). The next unused
 queue number is **664** and the next ADR is **0065**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 409 — queue item 662: the viewport's `overflow`
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the agent's
+gate's *Built*/*Owed*), iteration 408's entry, the queue's product path and
+items 642, 662 and 663; ADR 0002 (an agent holds no false record), ADR 0038
+§ 4 (the scrolling area); `docs/features.md`'s agent-socket line;
+`alo-layout`'s `scroll_container.rs`, `tree.rs`, `engine.rs`, `style.rs`,
+`alo-box`'s `tree.rs`, `alo-dom`'s `body.rs`, `alo-paint`'s `build.rs`,
+`alo-renderer`'s `scrolling_area.rs`, `alo-agent`'s `tree.rs` and
+`verb.rs`. No `AGENTS.md` exists in the repository. 662 names no ADR of its
+own beyond ADR 0038 § 4; the feature contract is the agent-socket line.
+
+**Why 662.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 (the owner's next choice), 643 and 658 could
+not be measured from the window server, and 477 needs a second Mac. 662 is
+the first open item after them that depends on nothing and needs no screen.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop and `--screenshot`, probe pages in the scratchpad. **Item 662's
+"a root of `clip` refused" is wrong**: a root of `overflow: clip`,
+`overflow-x: clip` or `overflow-y: clip` is scrolled by 40 (70 after
+`load`, and through `scrollTo`), so iteration 408's measurement of it is
+not reproduced; the queue's *Done* paragraph says so. Under a root of
+`visible`, a body of 50 with `overflow` `auto`, `hidden`, `scroll`,
+`clip`, `overflow-x: clip` or `overflow-y: clip` is not scrolled, the page
+is, and its `scrollHeight` is 500; under a root of `auto` the body scrolls
+and the page's `scrollHeight` is 50. A top margin of 30 collapses through a
+propagated body of `hidden` (top 30), not under a root of `auto` (0).
+Screenshots: a propagated body's content and a root's of `overflow:
+hidden; height: 50px` are drawn past their boxes. The viewport scrolls
+from half a device pixel: 213.5 in 213 yes, 213.4 no at one; 213.25 yes,
+213.24 no at two.
+
+**Built.** `BoxTree::body` (the body element's box). `alo-layout`'s new
+`viewport.rs`: whose `overflow` the viewport takes (the root's, and the
+body's under a root `visible` on both axes, when the body's box is the
+root's child), the viewport's scrolling area (moved from `alo-renderer`,
+which now calls it) and whether the viewport overflows. Such a box is given
+to `taffy` as `visible`, is never a scroll container, and paint clips
+nothing to it (`LayoutTree::gives_its_overflow_to_the_viewport`); the
+root's `LayoutTree::scrolls` asks the viewport's area against the
+viewport.
+
+**Tests.** `viewport.rs` (six), `scroll_container.rs` (a propagated body),
+`alo-box`'s body box, `alo-agent/tests/a_page_scrolls_as_its_viewport_does.rs`
+(five, with the boxes and areas in numbers), `alo-paint/tests/clipping.rs`
+(neither box clips; a body under `auto` does), and the corpus case
+`a-body-gives-the-viewport-its-overflow` with
+`alo-corpus/tests/a_body_gives_the_viewport_its_overflow.rs` (layout in
+numbers; equal to Chrome's `chrome.png` in every pixel). Mutations,
+restored from copies and checked with `cmp`: no paint exception (corpus
+test and clipping test fail), no `visible` given to layout (2 agent tests),
+no scroll-container exception (1), the root asked of its own box (2).
+
+**Gate.** `cargo clippy --workspace --all-targets --all-features` clean,
+the touched crates' lib tests and new tests green, then `scripts/gate.sh`
+in the foreground — it ran past the tool's 600 s, was waited on by an
+until-loop in the next call and read there: **exit 0, "The gate is met."
+(10 of 10 steps)**, nextest **5,387 tests run, 5,387 passed**, no `FAIL`,
+`LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the body's 240×50 border box, the
+held blocks at (0, 0) 60×130 and (100, 130) 30×20, the page area 500, the
+body's top at 30 and 0. Reference render: the new case's `render.png`,
+written by `ALO_UPDATE_REFERENCES=1`; no other case's reference moved
+(`git status` showed only the new case). One file, one responsibility:
+whose `overflow` the viewport takes and what it scrolls is
+`viewport.rs`'s; which box is the body is the box tree's, as a legend is.
+No bytes from outside read anew. No `unsafe`, no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The agent's gate's `· Built:` gains 662; its `· Owed:` drops
+662 and names 664. Not ticked — the line waits on a person. The queue ticks
+662 with a *Done* paragraph and opens 664; `features.md`, `conformance.md`,
+`REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- 664: `ellipsis.rs` and `baseline.rs` reread the computed `overflow`, so
+  `text-overflow` on a propagated body is unmeasured and may cut a line.
+- 663: a `<textarea>` and a list box are refused where Chrome scrolls.
+- The viewport's own edge clips at the canvas; a root of `clip` drawing
+  differently from `hidden` was not measured.
+- CSS's computed `overflow` (`visible` to `auto` beside a scrolling axis)
+  is still not applied to what `taffy` is given (iteration 408's note).
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 649 and 650 are open.
+- Inherited and unchanged: off macOS the toggling click holds Ctrl,
+  unmeasured; an author's `option { display: block }` is undecided; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; item 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+298 queue items are open (662 closed, 664 opened). The next unused queue
+number is **665** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.

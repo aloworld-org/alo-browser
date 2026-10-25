@@ -422,7 +422,17 @@ impl Builder<'_> {
     /// two, not read from its source: 2,016 of 2,016 clips, where the
     /// padding box as laid out fits only the 27 already on whole pixels
     /// (queue item 575; ADR 0057, *Measured since*).
+    ///
+    /// A box whose `overflow` the viewport took — the root's, and the body's
+    /// under a root of `visible` — clips nothing: Chrome 155 draws what a
+    /// `<body style="overflow:auto;height:50px">` holds past its 50 pixels,
+    /// and what a root of `overflow: hidden; height: 50px` holds past its
+    /// own (queue item 662, [`alo_layout::viewport`]). The viewport's own
+    /// edge is the canvas's.
     fn clip_of(&self, id: BoxId) -> Option<Path> {
+        if self.layout.gives_its_overflow_to_the_viewport(id) {
+            return None;
+        }
         let style = self.style_of(id)?;
         let clips = |name: &str| {
             style

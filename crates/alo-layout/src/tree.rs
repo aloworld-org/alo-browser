@@ -122,6 +122,8 @@ pub struct LayoutTree {
     viewport: Size,
     scale: f32,
     scroll_containers: BTreeSet<BoxId>,
+    root: Option<BoxId>,
+    overflow_given: BTreeSet<BoxId>,
 }
 
 impl LayoutTree {
@@ -172,8 +174,24 @@ impl LayoutTree {
     /// enough past it ([`LayoutTree::overflows`]). A `div` of 10 pixels
     /// holding 126 with `overflow: visible` spills and is not scrolled
     /// (queue item 661).
+    ///
+    /// The root answers for the viewport (queue item 662): whether the
+    /// viewport's scrolling area passes the viewport
+    /// ([`crate::viewport::scrolling_area`]), not whether the root's content
+    /// passes the root's own box — a root as tall as its content still
+    /// scrolls a page taller than the window.
     pub fn scrolls(&self, id: BoxId) -> bool {
+        if self.root == Some(id) {
+            return crate::viewport::overflows(self.viewport, self.get(id), self.scale());
+        }
         self.is_scroll_container(id) && self.overflows(id)
+    }
+
+    /// Whether a box's `overflow` is the viewport's rather than its own —
+    /// the root's, and the body's under a root of `visible` — so that it
+    /// neither clips nor scrolls what it holds; see [`crate::viewport`].
+    pub fn gives_its_overflow_to_the_viewport(&self, id: BoxId) -> bool {
+        self.overflow_given.contains(&id)
     }
 
     /// How many boxes were laid out.
@@ -277,6 +295,8 @@ impl LayoutTree {
             viewport,
             scale: 1.0,
             scroll_containers: BTreeSet::new(),
+            root: None,
+            overflow_given: BTreeSet::new(),
         }
     }
 
@@ -287,6 +307,20 @@ impl LayoutTree {
     pub(crate) fn with_scroll_containers(self, scroll_containers: BTreeSet<BoxId>) -> Self {
         Self {
             scroll_containers,
+            ..self
+        }
+    }
+
+    /// The root's box, which answers for the viewport, and the boxes whose
+    /// `overflow` the viewport takes; see [`crate::viewport`].
+    pub(crate) fn with_viewport_overflow(
+        self,
+        root: Option<BoxId>,
+        overflow_given: BTreeSet<BoxId>,
+    ) -> Self {
+        Self {
+            root,
+            overflow_given,
             ..self
         }
     }

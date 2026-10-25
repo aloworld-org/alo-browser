@@ -1,0 +1,4 @@
+html { background: #ffffff }
+body { margin: 0; height: 50px; overflow: auto; background: #fde047 }
+#tall { width: 60px; height: 130px; background: #1d4ed8 }
+#below { width: 30px; height: 20px; margin-left: 100px; background: #b91c1c }

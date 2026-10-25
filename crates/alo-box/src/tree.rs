@@ -371,6 +371,12 @@ pub struct BoxTree {
     /// where the document put it. See [`crate::options`]. A side map for
     /// [`BoxTree::breaks`]' reason.
     undrawn: BTreeMap<BoxId, Vec<BoxId>>,
+    /// The box of HTML's *body element*, when it has one: whose `overflow`
+    /// the viewport takes when the root's is `visible` (CSS Overflow 3
+    /// § 3.3, queue item 662). Layout cannot tell which element is the body
+    /// — it has boxes and styles and no document — so the tree that has the
+    /// document says, as it says which box is a fieldset's legend.
+    body: Option<BoxId>,
 }
 
 impl BoxTree {
@@ -516,6 +522,13 @@ impl BoxTree {
             .copied()
     }
 
+    /// The box of HTML's *body element* (`document.body`), or [`None`] when
+    /// there is no body element or it generated no box. Its first box, were
+    /// it ever broken into pieces.
+    pub fn body(&self) -> Option<BoxId> {
+        self.body
+    }
+
     /// The style a box's **text** is set with.
     ///
     /// A text box came from a text node, and a text node has no style of its
@@ -614,6 +627,7 @@ impl BoxTree {
             faces: BTreeMap::new(),
             field_sizes: BTreeMap::new(),
             undrawn: BTreeMap::new(),
+            body: None,
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -840,6 +854,7 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
         faces: BTreeMap::new(),
         field_sizes: BTreeMap::new(),
         undrawn: BTreeMap::new(),
+        body: None,
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -864,6 +879,13 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
             Some(anonymous)
         }
     };
+    tree.body = document.body().and_then(|body| {
+        tree.ids().find(|&id| {
+            tree.get(id).is_some_and(
+                |node| matches!(node.kind, BoxKind::Element { node, .. } if node == body),
+            )
+        })
+    });
     tree
 }
 
@@ -3042,5 +3064,23 @@ mod tests {
         assert!(small.get(far).is_none());
         assert!(small.children(far).next().is_none());
         assert!(small.descendants(far).is_empty());
+    }
+
+    #[test]
+    fn the_body_elements_box_is_known_and_none_when_it_has_none() {
+        let tree = boxes("<!doctype html><body><p>a</p>", "");
+        let body = tree.body().expect("the body has a box");
+        assert_eq!(tree.get(body).and_then(|node| node.parent), tree.root());
+        assert_eq!(
+            tree.get(body).map(|node| node.semantics.role.to_string()),
+            Some("generic".to_owned())
+        );
+        let hidden = boxes("<!doctype html><body><p>a</p>", "body { display: none }");
+        assert_eq!(hidden.body(), None);
+        let contents = boxes(
+            "<!doctype html><body><p>a</p>",
+            "body { display: contents }",
+        );
+        assert_eq!(contents.body(), None, "no box of its own");
     }
 }

@@ -60,11 +60,12 @@ use crate::out_of_flow::{self, Axes};
 use crate::placement::{GridLine, GridPlacement};
 use crate::scroll_container;
 use crate::sizing::{AutoLength, MaxSizing, Sizing};
-use crate::style::{self, LayoutStyle};
+use crate::style::{self, AxisValues, LayoutStyle};
 use crate::text_style::text_style_of;
 use crate::track::{RepeatCount, Track, TrackList, TrackListEntry, TrackSize};
 use crate::tree::{BoxGeometry, LayoutTree};
 use crate::vertical_align::LineAlign;
+use crate::viewport;
 use alo_box::{BoxId, BoxKind, BoxTree, Inside, Outside};
 use alo_css::{IssueKind, Location, StyleIssue};
 use alo_style::StyleTree;
@@ -113,6 +114,13 @@ pub fn compute(
         .with_ellipses(laid_out.ellipses)
         .with_scale(styles.scale())
         .with_scroll_containers(scroll_container::scroll_containers(boxes, styles))
+        .with_viewport_overflow(
+            Some(root),
+            boxes
+                .ids()
+                .filter(|&id| viewport::takes_the_overflow_of(boxes, styles, id))
+                .collect(),
+        )
 }
 
 /// One formatting context, laid out on its own.
@@ -1356,12 +1364,18 @@ fn style_for(
             measure,
         );
     }
-    let ours = node
+    let mut ours = node
         .kind
         .node()
         .and_then(|source| styles.get(source))
         .map(|computed| style::read(computed, issues))
         .unwrap_or_default();
+    // The viewport's `overflow`, taken from this box, leaves it `visible`:
+    // a margin collapses through a body of `hidden` under a root of
+    // `visible`, and what it holds reaches the page's scrolling area.
+    if viewport::takes_the_overflow_of(boxes, styles, id) {
+        ours.overflow = AxisValues::default();
+    }
 
     let mut style = Style {
         display: display_for(&node.kind, boxes.natural_size(id).is_some()),

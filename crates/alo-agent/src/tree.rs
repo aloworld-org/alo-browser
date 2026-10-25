@@ -709,7 +709,10 @@ impl<'a> AgentNode<'a> {
     /// device pixel past the padding box ([`alo_layout::LayoutTree::overflows`],
     /// queue item 645) — and only when it is a scroll container at all
     /// ([`alo_layout::LayoutTree::scrolls`], queue item 661): a box that
-    /// spills with `overflow: visible` is not scrolled.
+    /// spills with `overflow: visible` is not scrolled. The root's answer is
+    /// the viewport's, from the page's scrolling area against the window
+    /// (queue item 662), and a body whose `overflow` the viewport took never
+    /// scrolls.
     pub fn scrolls(&self) -> bool {
         self.tree.layout.scrolls(self.id)
     }

@@ -476,6 +476,10 @@ exactly at one and at two but within 5 px of a rounded corner (within 43
 and 51 of 255). A picture is drawn into its content box with each edge on
 a whole device pixel (587), and one that starts off the page starts there;
 `pictures-on-device-pixels` is Chrome's in every pixel at one and at two.
+The root's `overflow` is the viewport's, and so is the body's under a root
+of `visible` (662): neither clips what it holds, and a margin collapses
+through such a body as through one of `visible`;
+`a-body-gives-the-viewport-its-overflow` is Chrome's in every pixel at one.
 An `<svg>` is clipped to its content box on whole device pixels and
 drawn from its border box's corner on one, plus its border and padding as
 laid out; an SVG file in an `<img>` is drawn into its rounded content box,
