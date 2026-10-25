@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser holds at most 32 MiB of what Chrome says before it is
+  read.** What Chrome tells the browser waits until the browser reads it,
+  and until now only the number of messages waiting was limited — a page
+  writing long lines fast enough could have had the browser holding some
+  4 GiB. Now what waits is limited in bytes too, and past it Chrome is
+  made to wait instead (queue item 653).
+
 - **A page shown in Chrome no longer hangs when its service worker is
   stopped and started again.** Chrome can stop a page's service worker
   and start it again later; when it did, the page's next request through

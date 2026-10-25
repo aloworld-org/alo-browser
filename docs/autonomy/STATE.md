@@ -40621,3 +40621,85 @@ paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
 302 queue items are open (655 closed; counted as `- [ ] **` lines). The
 next unused queue number is **657** and the next ADR is **0064**. This is
 one iteration, not a finished queue or roadmap.
+
+
+## Iteration 398 — queue item 653: Chrome's messages held by bytes as well as by count
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the two
+paths, the product path's *Built*/*Decided*/*Owed*, the stage 2 Chrome
+line), iteration 397's entry, `REMAINING.md`'s continuation order, the
+queue's items 642–656; `alo-window`'s `chrome.rs`, `chrome_wire.rs`,
+`chrome_protocol.rs`'s `Message` and `read`, and the far-side tests in
+`chrome_over_a_pipe.rs`. No `AGENTS.md` exists in the repository. 653
+names no ADR — it was found building 639 and is a bound of the pipe ADR
+0058 § 3 built; its feature contract is `docs/features.md`'s Chrome
+renderer line, which says how the pipe reads.
+
+**Why 653.** `ioreg` read `CGSSessionScreenIsLocked = true`, so 642 and
+643 could not be built honestly. 653 is first among the product path's
+owed items in `ROADMAP.md`'s order and depends on nothing.
+
+**Built.**
+- `chrome_held.rs`, new: a hold between the thread reading Chrome's pipe
+  and whoever takes from it — `held(most_messages, most_bytes)`, a
+  `Teller` that waits for room and a `Taker` that waits until an instant.
+  A message is held only while there are fewer than the most messages and
+  its bytes with all held come to no more than the most bytes; one is
+  always held when nothing else is. A taker gone answers a waiting teller
+  at once and lets go of what was held; a teller gone ends the taker once
+  all it told is taken. A poisoned lock is read through, since nothing
+  panics holding it.
+- `chrome.rs`: `sync_channel(HELD_MESSAGES)` replaced by
+  `held(HELD_MESSAGES, HELD_BYTES)`, `HELD_BYTES` public at two of
+  `MOST_MESSAGE` (32 MiB); `weight` counts what a read message holds (its
+  texts, the JSON written again, its own size); `Chrome::held_bytes`.
+- Tests: seven unit tests in `chrome_held.rs`; in `chrome_over_a_pipe.rs`,
+  `a_far_side_telling_more_than_is_taken_is_held_to_a_bound_in_bytes` — a
+  shell program standing where Chrome would writes one 4 MiB event as
+  fast as the pipe takes it; what is held, watched until it settles, is
+  never past 32 MiB and within two messages of it, three taken are the
+  event whole and in order, and what is held after is still in bounds.
+  Mutation, restored from a copy and checked with `cmp`: the byte bound
+  ignored — fails (33,555,128 held, past 33,554,432). Not caught: the
+  one-message rule removed hangs a unit test rather than failing it.
+
+**Gate.** `scripts/gate.sh`, started in the foreground; it passed the
+600 s window and was waited on by a bounded foreground loop in the next
+step: **exit 0, "The gate is met." (10 of 10 steps)**, clippy silent,
+nextest **5,308 tests run, 5,308 passed** in 565.0 s, no `FAIL`, `LEAK`
+or `panicked`. Only this entry and the commit came after.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies; no reference changed. One file, one
+responsibility: holding what was read until it is taken, and how much,
+is now `chrome_held.rs`'s alone; `chrome.rs` keeps starting Chrome and
+speaking to it, and says what a message weighs because it knows what it
+read. Bytes from outside: the weight is a sum of lengths with a
+saturating add, and the hold's arithmetic saturates; the far side in the
+test is hostile in volume. No `unsafe`, no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 653 and its *Owed* drops
+it; the stage 2 Chrome line's `· Built:` gains it and `· Owed:` drops it.
+Not ticked — neither line is finished. The queue ticks 653 with a *Done*
+paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- Not bounded by the hold: the one message the reader has in hand while
+  it waits for room, and the one being read off the pipe — each at most
+  16 MiB — and the JSON tree a message is parsed through.
+- 647 and 656, the commit-before-request race, did not fail this run;
+  still not reproduced by hand.
+- 642 and 643 still wait on the screen in use (locked); 648 needs an ADR;
+  645, 646, 649 and 650 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655).
+- No claim about speed is made.
+
+301 queue items are open (653 closed; counted as `- [ ] **` lines). The
+next unused queue number is **657** and the next ADR is **0064**. This is
+one iteration, not a finished queue or roadmap.

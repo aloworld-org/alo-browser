@@ -9,7 +9,9 @@
 //! the process's own descriptors, with `--remote-debugging-pipe`. **Never a
 //! port**: a page's own script can reach `localhost`, and ADR 0055 § 1
 //! refused a port for the agent's socket for the same reason. Messages are
-//! framed by [`crate::chrome_wire`] and read by [`crate::chrome_protocol`].
+//! framed by [`crate::chrome_wire`] and read by [`crate::chrome_protocol`],
+//! on a thread of their own, and held until taken by [`crate::chrome_held`]
+//! — at most [`HELD_BYTES`] of them, whatever Chrome is telling of.
 //!
 //! # How the pipe reaches Chrome's descriptors 3 and 4
 //!
@@ -54,6 +56,7 @@
 //! ([`crate::chrome_act`], item 621).
 
 use crate::beside::{NotInstalled, chrome_in, chrome_places, is_program};
+use crate::chrome_held::{Taker, Untaken, held};
 use crate::chrome_hold::Unheld;
 use crate::chrome_profile::new_profile;
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
@@ -63,7 +66,6 @@ use core::fmt;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command as Process, Stdio};
-use std::sync::mpsc::{Receiver, RecvTimeoutError, sync_channel};
 use std::time::{Duration, Instant};
 
 /// How long Chrome is waited for, to answer and to close, unless a caller
@@ -77,6 +79,12 @@ pub const LONGEST_SILENCE: Duration = Duration::from_secs(30);
 /// side telling of events nobody asked for is held back, never stored.
 const HELD_MESSAGES: usize = 256;
 
+/// How many bytes the messages read from Chrome and not yet taken may hold
+/// together, held to it as [`HELD_MESSAGES`] is ([`crate::chrome_held`],
+/// item 653): two of the longest message the pipe reads, so one that long
+/// never waits on another that is not.
+pub const HELD_BYTES: usize = 2 * MOST_MESSAGE;
+
 /// The shell's whole script: move the pipes to 3 and 4, then become Chrome.
 const STARTER: &str = r#"exec "$0" "$@" 3<&0 4>&1 0</dev/null 1>/dev/null"#;
 
@@ -84,7 +92,7 @@ const STARTER: &str = r#"exec "$0" "$@" 3<&0 4>&1 0</dev/null 1>/dev/null"#;
 pub struct Chrome {
     child: Child,
     to: Option<ChildStdin>,
-    arrived: Receiver<Result<Message, Failed>>,
+    arrived: Taker<Result<Message, Failed>>,
     asked: u64,
     patience: Duration,
     profile: PathBuf,
@@ -243,7 +251,7 @@ impl Chrome {
             let _ = std::fs::remove_dir_all(&profile);
             return Err(Unstarted::Unspawned(ErrorKind::BrokenPipe));
         };
-        let (tell, arrived) = sync_channel(HELD_MESSAGES);
+        let (tell, arrived) = held(HELD_MESSAGES, HELD_BYTES);
         // Its own thread, so that waiting for Chrome is a wait with a bound
         // rather than a read that may never return. It ends when the pipe
         // does, or at the first thing that cannot be read as messages.
@@ -259,7 +267,8 @@ impl Chrome {
                     Err(why) => Err(Failed::Unframed(why)),
                 };
                 let ended = matches!(next, Err(Failed::Unframed(_)));
-                if tell.send(next).is_err() || ended {
+                let bytes = weight(&next);
+                if tell.tell(next, bytes).is_err() || ended {
                     return;
                 }
             }
@@ -300,6 +309,12 @@ impl Chrome {
     /// ([`Chrome::start_shown`]) rather than headless.
     pub fn is_shown(&self) -> bool {
         self.shown
+    }
+
+    /// What the messages read from Chrome and not yet taken hold, in
+    /// bytes: never more than [`HELD_BYTES`].
+    pub fn held_bytes(&self) -> usize {
+        self.arrived.bytes()
     }
 
     /// How long it is waited for.
@@ -392,15 +407,40 @@ impl Chrome {
     /// [`Failed::Silent`] when nothing came by then, [`Failed::Gone`] when the
     /// pipe has closed, or what made its messages unreadable.
     pub fn receive(&mut self, until: Instant) -> Result<Message, Failed> {
-        let left = until.saturating_duration_since(Instant::now());
-        match self.arrived.recv_timeout(left) {
+        match self.arrived.take(until) {
             Ok(arrived) => arrived,
-            Err(RecvTimeoutError::Timeout) => Err(Failed::Silent {
+            Err(Untaken::Waited) => Err(Failed::Silent {
                 waited: self.patience,
             }),
-            Err(RecvTimeoutError::Disconnected) => Err(Failed::Gone),
+            Err(Untaken::Ended) => Err(Failed::Gone),
         }
     }
+}
+
+/// What a message read from Chrome holds while it waits to be taken, in
+/// bytes: its own size and every text and buffer it owns. Its `result` or
+/// `params` is the JSON written again, which is what is held, rather than
+/// what the pipe carried.
+fn weight(next: &Result<Message, Failed>) -> usize {
+    let owned = match next {
+        Ok(Message::Reply {
+            session, result, ..
+        }) => {
+            session.as_ref().map_or(0, String::len)
+                + match result {
+                    Ok(result) => result.len(),
+                    Err(declined) => declined.message.len(),
+                }
+        }
+        Ok(Message::Event {
+            method,
+            session,
+            params,
+        }) => method.len() + session.as_ref().map_or(0, String::len) + params.len(),
+        Ok(Message::Skipped { method, .. }) => method.as_ref().map_or(0, String::len),
+        Err(_) => 0,
+    };
+    owned.saturating_add(core::mem::size_of::<Result<Message, Failed>>())
 }
 
 impl Drop for Chrome {

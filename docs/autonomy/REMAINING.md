@@ -3073,3 +3073,11 @@ lets it go. An update of its script is a new target. Memory pressure and a
 crash of its process are not measured. The screen was locked, so 642 and
 643 still wait on it. 302 queue items are open (655 closed). The next
 unused queue number is 657 and the next unused ADR 0064.
+
+Iteration 398 closed queue item 653: what Chrome says and the tab has not
+yet read is held by `chrome_held.rs` to 256 messages and 32 MiB together
+(`HELD_BYTES`, two of the longest message), the reader and Chrome's
+writing waiting past either, with a far side writing 4 MiB events as fast
+as the pipe takes them held within the bound. The screen was locked, so
+642 and 643 still wait on it. 301 queue items are open (653 closed). The
+next unused queue number is 657 and the next unused ADR 0064.

@@ -17054,7 +17054,7 @@ What stage 2's exit gate actually measures: a person using it.
   is never let go. Chrome did not stop one held by the tab, idle forty
   seconds, on its own.
 
-- [ ] **653. Chrome's messages are held by count, not by size.** *Found
+- [x] **653. Chrome's messages are held by count, not by size.** *Found
   building 639 (iteration 391).* `chrome.rs` holds at most 256 messages
   read off the pipe until they are taken (`HELD_MESSAGES`), each at most
   16 MiB, so a page whose script writes long lines to its console while a
@@ -17063,6 +17063,33 @@ What stage 2's exit gate actually measures: a person using it.
   when:* what is held waiting is bounded in bytes as well as in messages,
   with a test that a far side sending messages near the bound faster than
   they are taken is held to that bound.
+  ***Done (iteration 398).*** `chrome_held.rs`, a hold of its own between
+  the thread reading Chrome's pipe and whoever takes from it, replaces the
+  standard library's `sync_channel`: a message is held only while fewer
+  than `HELD_MESSAGES` (256) are and its bytes with everything held come
+  to no more than `chrome.rs`'s `HELD_BYTES`, two of the longest message
+  (32 MiB); past either the reader waits, and Chrome's writing with it. A
+  message is always held when nothing else is, so one past a bound set
+  below the longest message slows the pipe rather than stopping it. What
+  a message weighs is what it holds once read — its texts, the `result`
+  or `params` JSON written again, and its own size — counted by
+  `chrome.rs`'s `weight`. A taker gone answers a waiting reader at once
+  and lets go of what was held; a reader gone ends the taker once
+  everything told is taken. `Chrome::held_bytes` says what is held.
+  Tests: seven unit tests in `chrome_held.rs` (order and weight, the byte
+  bound and exactly at it, the count bound, a message heavier than the
+  bound held alone, the end after the reader goes, a waiting reader
+  answered when the taker goes, a faster teller held to the bound), and in
+  `chrome_over_a_pipe.rs` a far side standing where Chrome would that
+  writes the same 4 MiB event as fast as the pipe takes it: what is held
+  is watched until it settles, never past 32 MiB and within two messages
+  of it; three messages taken are each the event, whole and in order; and
+  what is held after is still within the bound. Mutation, restored from a
+  copy and checked with `cmp`: the byte bound ignored — fails (33,555,128
+  held, past 33,554,432). **Not caught:** the one-message rule removed
+  hangs a unit test rather than failing it. Not bounded: the one message
+  the reader has in hand while it waits, and the one Chrome is part-way
+  through writing, each at most 16 MiB.
 
 - [x] **655. A service worker that stops and starts again is never let
   go.** *Found building 654 (iteration 394); ADR 0060 § 2.* Measured

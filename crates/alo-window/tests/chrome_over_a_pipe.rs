@@ -11,13 +11,14 @@
 //! is: whether it closed Chrome itself or died without a word. A Chrome that is
 //! not there is refused by name, and a far side that sends what is not the
 //! protocol is refused as a kind, never a panic; those are played by small
-//! shell programs standing where Chrome would.
+//! shell programs standing where Chrome would. So is one telling of more than
+//! is taken, which is held to a bound in bytes rather than stored (item 653).
 
 #![cfg(unix)]
 
 use alo_window::beside::{NotInstalled, chrome_in, chrome_places};
-use alo_window::chrome::{Chrome, Failed, Unstarted};
-use alo_window::chrome_protocol::{Declined, Malformed, Version};
+use alo_window::chrome::{Chrome, Failed, HELD_BYTES, Unstarted};
+use alo_window::chrome_protocol::{Declined, Malformed, Message, Version};
 use alo_window::chrome_wire::Unframed;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -308,4 +309,67 @@ fn a_far_side_that_goes_or_says_nothing_is_said_to_have() {
     .unwrap()
     .unwrap();
     assert_eq!(version.product, "Chrome/0");
+}
+
+/// The heaviest that what `chrome` holds was seen, watched until it has not
+/// changed for a second, it runs past `HELD_BYTES`, or twenty seconds pass.
+fn heaviest_held(chrome: &Chrome) -> usize {
+    let started = Instant::now();
+    let (mut heaviest, mut last, mut since) = (0, 0, Instant::now());
+    while started.elapsed() < Duration::from_secs(20) {
+        let now = chrome.held_bytes();
+        heaviest = heaviest.max(now);
+        if now > HELD_BYTES {
+            break;
+        }
+        if now != last {
+            (last, since) = (now, Instant::now());
+        } else if now > 0 && since.elapsed() > Duration::from_secs(1) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    heaviest
+}
+
+#[test]
+fn a_far_side_telling_more_than_is_taken_is_held_to_a_bound_in_bytes() {
+    // The same event of four mebibytes, written again and again as fast as
+    // the pipe takes it. Held by count alone, 256 of them would be a
+    // gibibyte.
+    const SAID: usize = 4 * 1024 * 1024;
+    let far = FarSide::running(
+        "flood",
+        &format!(
+            "said=\"$(dirname \"$0\")/said\"\n\
+             {{ printf '{{\"method\":\"Said\",\"params\":{{\"line\":\"'; \
+             head -c {SAID} /dev/zero | tr '\\000' a; printf '\"}}}}\\000'; }} > \"$said\"\n\
+             while cat \"$said\" >&4; do :; done"
+        ),
+    )
+    .unwrap();
+    let mut chrome = Chrome::start_at(&far.directory.join("chrome"))
+        .unwrap()
+        .waiting_at_most(Duration::from_secs(2));
+    let heaviest = heaviest_held(&chrome);
+    assert!(heaviest <= HELD_BYTES, "{heaviest} held, past {HELD_BYTES}");
+    // Held to the bound in bytes, which is reached long before the count.
+    assert!(
+        heaviest > HELD_BYTES - 2 * SAID,
+        "only {heaviest} held: the far side never got ahead"
+    );
+    // What is held is still every message, whole and in order, and taking
+    // some makes room for more, held to the same bound.
+    for _ in 0..3 {
+        let Message::Event { method, params, .. } = chrome
+            .receive(Instant::now() + Duration::from_secs(5))
+            .unwrap()
+        else {
+            panic!("not the event told of");
+        };
+        assert_eq!(method, "Said");
+        assert_eq!(params.len(), SAID + "{\"line\":\"\"}".len());
+    }
+    let heaviest = heaviest_held(&chrome);
+    assert!(heaviest <= HELD_BYTES, "{heaviest} held, past {HELD_BYTES}");
 }
