@@ -30,6 +30,15 @@
 //!   does (`Input.insertText`), which the page hears as `beforeinput` and
 //!   `input`; `change` follows when the keyboard moves on, as it does for a
 //!   person. The empty text is a Backspace over the selection.
+//!
+//!   A **date field** is three segments in Chrome that typing's text does
+//!   not reach, so a date goes in as a person puts one in: each segment, in
+//!   the order Chrome lays them out, given the keyboard and its part typed
+//!   as digits, and the empty text is a Backspace in each
+//!   ([`crate::chrome_date`], item 632). The page hears a person's keys,
+//!   and an `input` and a `change` as each segment changes the field's
+//!   value. A date Chrome's field would not hold as written is not typed
+//!   at all ([`Unacted::Untypable`]).
 //! - **`scroll`** is never decided on Chrome's page: its tree cannot say that
 //!   a box scrolls ([`crate::chrome_tree`]), so every scroll is refused as
 //!   `DoesNotScroll`, by the rule that refuses it on this engine's page.
@@ -83,12 +92,13 @@
 
 use crate::chrome::Failed;
 use crate::chrome_bubble;
-use crate::chrome_protocol::{self, AxNode, Chord, Command, Mouse, Within};
+use crate::chrome_date::{self, Digits, Part};
+use crate::chrome_protocol::{self, AxNode, Chord, Command, Digit, Mouse, Within};
 use crate::chrome_reading::ChromeReading;
 use crate::chrome_tab::Tab;
 use crate::chrome_tree::Unread;
 use alo_agent::verb::{Invalid, Target, Verb, find, perform};
-use alo_agent::{Outcome, Refusal};
+use alo_agent::{Outcome, Reading, Refusal};
 use alo_box::BoxId;
 use alo_dom::submission::Method;
 use alo_net::cause::ActionId;
@@ -132,6 +142,16 @@ pub enum Unacted {
         /// read it as an address.
         to: Option<String>,
     },
+    /// A date was decided for a date field, and Chrome's field would not
+    /// hold it as it was written, or shows segments a date's parts cannot be
+    /// typed into without guessing which is which; so no key was sent
+    /// (queue item 632).
+    Untypable {
+        /// Which node.
+        node: BoxId,
+        /// Why.
+        why: chrome_date::Untypable,
+    },
     /// It was decided, and is not a thing this path carries out.
     ///
     /// Reached only by an outcome no decision on Chrome's page makes today —
@@ -165,6 +185,9 @@ impl fmt::Display for Unacted {
             Self::Moved { to: None } => f.write_str(
                 "the page went somewhere else while the verb was decided, so nothing was done",
             ),
+            Self::Untypable { node, why } => {
+                write!(f, "{why}, so nothing was typed into {node}")
+            }
             Self::Uncarried { outcome } => {
                 write!(
                     f,
@@ -254,6 +277,9 @@ impl Tab<'_> {
                     submits: false,
                 };
                 self.press(&nodes, node, pressed)
+            }
+            Outcome::TextPut { node, text } if reading.is_a_date_field(node) => {
+                self.date_in(&nodes, node, text)
             }
             Outcome::TextPut { node, text } => self.type_in(node, text),
             outcome @ (Outcome::Scrolled { .. }
@@ -358,11 +384,49 @@ impl Tab<'_> {
             self.ask(&Command::InsertText { text: text.clone() })?;
         }
         let after = self.holds(dom)?;
-        Ok(if after == before && before != text {
-            Outcome::TextCanceled { node, text }
+        Ok(taken(node, text, &before, &after))
+    }
+
+    /// Put the date `text` into the date field `node` — or empty it, for
+    /// the empty text — as a person does: each of its segments, found in
+    /// `nodes` in the order Chrome lays them out, given the keyboard and
+    /// typed into; and say whether the page took it.
+    fn date_in(&mut self, nodes: &[AxNode], node: BoxId, text: String) -> Result<Outcome, Unacted> {
+        let dom = dom_of(node);
+        let untypable = |why| Unacted::Untypable { node, why };
+        let digits = if text.is_empty() {
+            None
         } else {
-            Outcome::TextPut { node, text }
-        })
+            Some(Digits::of(&text).map_err(untypable)?)
+        };
+        let mut segments = Vec::new();
+        for segment in chrome_date::segments(nodes, dom) {
+            let described =
+                chrome_protocol::described(&self.ask(&Command::Describe { node: segment })?)?;
+            let part = described
+                .attributes
+                .iter()
+                .find(|(name, _)| name == "pseudo")
+                .and_then(|(_, pseudo)| Part::of_pseudo(pseudo));
+            segments.push((segment, part));
+        }
+        let order = chrome_date::laid_out(&segments).map_err(untypable)?;
+        let before = self.holds(dom)?;
+        for (segment, part) in order {
+            // A segment given the keyboard starts again at the first digit
+            // typed into it, so what it held is replaced.
+            self.ask(&Command::Focus { node: segment })?;
+            match &digits {
+                Some(digits) => {
+                    for digit in digits.of_part(part).chars().filter_map(Digit::of) {
+                        self.chord(Chord::Digit(digit))?;
+                    }
+                }
+                None => self.chord(Chord::DeleteBackward)?,
+            }
+        }
+        let after = self.holds(dom)?;
+        Ok(taken(node, text, &before, &after))
     }
 
     /// A key down and up again.
@@ -381,6 +445,17 @@ impl Tab<'_> {
             .find(|node| node.node == Some(dom))
             .and_then(|node| node.value)
             .unwrap_or_default())
+    }
+}
+
+/// What came of putting `text` into the field `node`, which held `before`
+/// and holds `after`: the page did not take it when the field holds what
+/// it held, and that was not already `text`.
+fn taken(node: BoxId, text: String, before: &str, after: &str) -> Outcome {
+    if after == before && before != text {
+        Outcome::TextCanceled { node, text }
+    } else {
+        Outcome::TextPut { node, text }
     }
 }
 
@@ -549,6 +624,32 @@ mod tests {
     }
 
     #[test]
+    fn text_is_cancelled_only_when_the_field_still_holds_what_it_held() {
+        let node = BoxId::from_wire(7);
+        let put = |text: &str| Outcome::TextPut {
+            node,
+            text: text.to_owned(),
+        };
+        assert_eq!(
+            taken(node, "2026-10-12".to_owned(), "", "2026-10-12"),
+            put("2026-10-12")
+        );
+        assert_eq!(
+            taken(node, "2026-10-12".to_owned(), "2024-02-29", "2024-02-29"),
+            Outcome::TextCanceled {
+                node,
+                text: "2026-10-12".to_owned()
+            }
+        );
+        assert_eq!(
+            taken(node, "2026-10-12".to_owned(), "2026-10-12", "2026-10-12"),
+            put("2026-10-12"),
+            "what it held already"
+        );
+        assert_eq!(taken(node, String::new(), "", ""), put(""));
+    }
+
+    #[test]
     fn a_node_is_its_dom_node_by_the_id_the_tree_gave_it() {
         assert_eq!(dom_of(BoxId::from_wire(76)), 76);
         assert_eq!(box_of(76), BoxId::from_wire(76));
@@ -569,6 +670,16 @@ mod tests {
         assert_eq!(
             Unacted::Undrawn { node }.to_string(),
             "Chrome drew box#7 nowhere"
+        );
+        assert_eq!(
+            Unacted::Untypable {
+                node,
+                why: chrome_date::Untypable::LeadingZeros {
+                    text: "02026-01-02".to_owned()
+                }
+            }
+            .to_string(),
+            "Chrome's date field would hold the year of \"02026-01-02\" without its leading zeros, so nothing was typed into box#7"
         );
         assert_eq!(
             Unacted::Refused(Refusal::Disabled { node }).to_string(),

@@ -240,7 +240,7 @@ caller must never depend on it.
 | `Ambiguous` | `tab`, `count` | More than one tab is at that address. None is picked for you |
 | `NothingLoaded` | `tab` | |
 | `TabGone` | `tab` | The tab's renderer is gone, or could not answer. `said` says why |
-| `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, or the page went elsewhere while the verb was decided. `said` says which |
+| `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, the page went elsewhere while the verb was decided, or a date Chrome's date field would not hold as it was written — past `275760-09-13`, or a year of more than four digits that starts with `0` — was not typed (queue item 632). `said` says which |
 | `TreeTooDeep` | `tab`, `most` | |
 | `TooManyCallers` | `most` | |
 

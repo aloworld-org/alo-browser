@@ -324,9 +324,9 @@ pub enum Refusal {
     },
     /// It is a field of a kind this browser cannot put text into yet: on
     /// this engine's page a `time`, `month`, `week` or `datetime-local`
-    /// field, whose text nothing draws; on Chrome's, those and a `date`
-    /// field and a `<select>`, which typing's text does not reach (queue
-    /// item 621).
+    /// field, whose text nothing draws; on Chrome's, those and a
+    /// `<select>`, which takes no text (queue item 621) and whose option an
+    /// agent has no decided way to choose (item 648).
     ///
     /// Refused by name rather than put in: an agent told it had put a time
     /// in would believe a person could see it.

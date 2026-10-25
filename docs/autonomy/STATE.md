@@ -39544,3 +39544,133 @@ the ADR, the queue (631 ticked with a *Done* paragraph, 646 added),
 301 queue items are open (631 closed, 646 opened; counted as `- [ ] **`
 lines). The next unused queue number is **647** and the next ADR is
 **0063**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 388 — queue item 632: a date put in through Chrome
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's state, the stage 2 Chrome line), iteration 387's entry and the
+owner's commit adding item 647, the queue's product-path table and items
+632, 635, 636, 638, 639, 642, 643, 645, 646 and 647; ADR 0042 (§ 4, the
+item's citation: an agent puts a date as a valid date string) and ADR 0058
+§ 4 (the verbs through Chrome); `docs/contracts/agent-socket.md`;
+`chrome_act.rs`, `chrome_reading.rs`, `chrome_protocol.rs`'s `Chord`,
+`AxNode` and `Described`, `chrome_pages.rs`, `alo-agent`'s `verb.rs` and
+`reading.rs`, `alo-dom`'s `field.rs`, `date.rs`, `value.rs` and
+`submission.rs`, `alo-renderer`'s `submit.rs`, and
+`the_verbs_through_chrome.rs` and `a_form_chrome_would_not_send.rs`. No
+`AGENTS.md` exists in the repository. 632's feature contract is
+`docs/features.md`'s Chrome renderer line (ADR 0058).
+
+**Why 632.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and again before the gate, so 642 and 643 could not be built honestly.
+Of the product path's owed items in the order the journal lists them
+(632, 635, 636, 639), 632 is first and its dependency, 621, is done. 647
+depends on nothing but closes only on reproducing a gate-only failure,
+which the owner's own entry says has not been done by hand; it was left.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, from a Node
+CDP probe in the scratchpad (script used only to read the probe pages'
+values, never in a product path): a date field's three segments are
+`spinbutton`s under its `Date` node, in the order the machine's region
+lays them out (`dd/mm/yyyy` on this Mac, region BE), each describing a
+shadow `<span>` whose `pseudo` attribute names its part; the segment's
+accessible name is Chrome's words (`Day`, and `Day Day` inside a
+`<label>`), so it is not used. `--lang` and `-AppleLanguages` changed
+neither names nor order here. `DOM.focus` on a segment gives it the
+keyboard and the next digit starts it again (`10` into a day of `29` is
+`10`); a digit's `keyDown` with its `text` types it; Backspace (the
+existing `deleteBackward` chord) empties a segment and the field; Chrome
+fires no `beforeinput`, and `input` and `change` at each change of the
+value (`0002-…`, `0020-…` as a year is typed); a date outside
+`min`/`max` is held and fails its range; `275760-09-14` is not held,
+`275761-01-01` is held as `275760-01-01`, and `02026-01-02` as
+`2026-01-02`; the field's node reads its value as the valid date string.
+
+**Built.** `chrome_date.rs`: `Part::of_pseudo`, `segments` (the
+spinbuttons under the field, in tree order), `laid_out` (exactly one
+day, month and year, or `Untypable::Segments`), and `Digits::of` (each
+part as written, or `Untypable::PastTheLastDay` / `LeadingZeros`).
+`chrome_act.rs` carries a decided `TextPut` on a date field by
+describing each segment, focusing it and typing its digits in Chrome's
+order — or a Backspace in each for the empty text — and reads the value
+back; `taken` is now the one rule for `TextPut` and `TextCanceled` that
+typing and dates share. `Chord::Digit` (`chrome_protocol.rs`) types a
+digit. `Unacted::Untypable` answers `NotCarriedOut` on the socket.
+`ChromeReading::unbuilt_field` no longer names `date`; a `<select>` is
+still `Unbuilt`. **Cut:** 648, how an agent chooses an option — decided
+for neither renderer; and, read from the code, this engine's own
+`PutText` on a `<select>` is answered `TextPut` while writing a `value`
+attribute `value::selected` never reads.
+
+**Found, not changed.** Through the engine a GET form's `Submitted.to` is
+the action without the query, its entries carried beside it in the
+answer's `navigation.submission`; through Chrome `to` carries the query.
+The new test reads each where its renderer puts it. Not cut as an item:
+both are true descriptions of what each renderer said, and the socket
+contract was not read as promising either.
+
+**Tests.** Unit: `chrome_date` (six: the pseudo names, digits as written,
+the untypable dates including a 4,096-digit year, segments in order with
+an ignored wrapper and a loop, one of each part, the sentences),
+`chrome_protocol`'s digit key both ways and `Digit::of`, `chrome_act`'s
+`taken` and `Untypable`'s sentence, `chrome_reading`'s date decided as
+`TextPut`. End to end (`a_date_put_in_through_chrome.rs`, two, real
+headless Chrome): an empty, a filled (leap day) and an emptied date field
+put through the engine and through Chrome come to the same three
+outcomes, and Chrome's form sends exactly the engine's entries
+(`day=2026-10-12`, `moved=0005-01-02`, `gone=`); `275760-09-14` and
+`02026-01-02` send no key, `12/10/2026` is `NotADate`, a page cancelling
+every `keydown` answers `TextCanceled` with no `change`, a date put in is
+eight trusted keydowns ending `change=2026-10-12`, and an emptied one
+ends on `change=`. `the_verbs_through_chrome.rs` drops its date-as-
+`Unbuilt` row. Mutations, restored from copies: no date branch fails
+both; no leading-zero rule fails the second; no last-day rule fails the
+second; only the first segment focused fails the first (Chrome's
+auto-advance hides it on an empty field, not on a filled one). **Survives:**
+typing in a fixed order rather than Chrome's, since each segment is
+focused by itself and only one region was available here; the order is
+covered by `laid_out`'s unit test only.
+
+**Gate.** First run (foreground into a scratchpad log, moved to the
+background at 600 s and waited on by a foreground until-loop): **exit 1**,
+5,252 of 5,253, `chrome_protocol::tests::a_verb_is_written_as_the_input_chrome_reads`
+failed — this change's own expected JSON had a doubled `}` copied from a
+`format!` literal. Fixed; the crate's 242 unit tests passed. Second run
+the same way: **exit 0, "The gate is met. (10 of 10 steps)"**, nextest
+**5,253 tests run, 5,253 passed** in 559.1 s, no `FAIL`, `LEAK` or
+`panicked`. Manual: nothing here positions, sizes or draws, so no layout
+assertion or reference render applies, and no existing reference changed.
+One file, one responsibility: what a date field's segments are and what
+is typed into them is `chrome_date.rs`'s; carrying a verb out stays in
+`chrome_act.rs`; the key's wire form in `chrome_protocol.rs`. No
+`unsafe`, no stubs, no verb taking a coordinate, no script in a page.
+`alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The stage 2 Chrome line's `· Built:` gains 632 and its
+`· Owed:` swaps it for 648; the product path's *Built* and *Owed* say
+the same. Not ticked — neither line is finished. The agent's gate line
+is unchanged. `features.md`, the socket contract, `verb.rs`'s `Unbuilt`,
+the queue (632 ticked with a *Done* paragraph saying its scope was cut,
+648 added), `REMAINING.md`, `lib.rs`'s map and the changelog say the
+same. ADR 0042 § 4 was not amended: its rule — a valid date string, which
+a page cannot tell from a person's — holds through Chrome, where the
+page hears a person's keys rather than a `beforeinput`.
+
+**Unresolved obligations.**
+- 648, cut here, needs an ADR; until it lands the engine answers
+  `TextPut` for a `<select>` it did not change.
+- Segment order is read from Chrome but only one region's order was
+  exercised; a test on a machine in another region would close that.
+- 642 and 643 still wait on the screen in use (locked twice this
+  iteration); 645, 646 and 647 are open.
+- Inherited and unchanged: 635, 636, 639, 642 and 643 owed; 604, 605,
+  606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572 wait
+  on a person; 568–571 on a screen or pages; 560 and 564 on 502 behind
+  501; 538 waits on a page; 638 needs an ADR; item 549 is unbuilt. Other
+  suites' short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+302 queue items are open (632 closed, 648 opened; 647 was opened by the
+owner's commit since iteration 387; counted as `- [ ] **` lines). The
+next unused queue number is **649** and the next ADR is **0063**. This
+is one iteration, not a finished queue or roadmap.

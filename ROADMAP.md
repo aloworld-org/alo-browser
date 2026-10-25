@@ -191,7 +191,10 @@ about this project (ADR 0058 § 6).
   answered as the engine answers it** — `NotSubmitted`, naming the control
   Chrome stopped at and the words of the bubble it draws there, read from
   its tree, which a page cannot forge (631; the first control and no
-  constraint, where the engine names each and its constraint).
+  constraint, where the engine names each and its constraint); and **a
+  date put in through Chrome** — a segment at a time, in the order Chrome
+  lays them out, read from its tree rather than guessed from a locale, so
+  a form sends the dates it sends through the engine (632).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -203,7 +206,8 @@ about this project (ADR 0058 § 6).
   the window server shows Chrome's (ADR 0062).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
   what a page's script said, through Chrome (639); a form Chrome refuses
-  and draws no bubble for (646); the
+  and draws no bubble for (646); how an agent chooses an option of a
+  `<select>`, on either renderer (648, needs an ADR); the
   rest of the agent's work where a person can see it — **a window of ours
   around Chrome's, following it, with 623's and 625's lines and 624's
   ring in it (642)**; a placed window that stays where a
@@ -736,7 +740,13 @@ unreachable without it.
       the socket with `alo-ask` (item 622, the `renderer` ask), and a
       form Chrome would not send answered `NotSubmitted`, with the control
       Chrome stopped at and the words of the bubble it draws beside it,
-      which are the engine's words for it (item 631, `chrome_bubble.rs`)
+      which are the engine's words for it (item 631, `chrome_bubble.rs`),
+      and a date put into a date field through Chrome as a person puts one
+      in — each of its segments, in the order Chrome lays them out, read
+      from its tree by the part each says it is, given the keyboard and
+      typed — so a form sends the very dates it sends through the engine,
+      and a date Chrome's field would not hold as written is not typed at
+      all (item 632, `chrome_date.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -747,8 +757,9 @@ unreachable without it.
       (638, needs an ADR); the resolver measured (635); what a page's
       script said, through Chrome (639); a form Chrome refuses and draws
       no bubble for — an `invalid` a page cancels, a hidden required
-      field — answered as anything but a press the page took (646); a date
-      and a choice put in through Chrome (632), a window of ours around
+      field — answered as anything but a press the page took (646); how an
+      agent chooses an option of a `<select>`, on either renderer (648,
+      needs an ADR), a window of ours around
       Chrome's, carrying the agent's sentence, its refusals and the ring
       around the box it acted on as the engine's window does (642, 623,
       625, 624), and one that stays where a person sees it (643)

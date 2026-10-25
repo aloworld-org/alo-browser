@@ -2940,3 +2940,18 @@ it tells of the first control only. A form Chrome refuses with no bubble
 is cut as 646. The screen was locked again, so 642 and 643 still wait on
 it. 301 queue items are open (631 closed, 646 opened). The next unused
 queue number is 647 and the next unused ADR 0063.
+
+Iteration 388 closed queue item 632 with its scope cut, measured against
+Chrome 155: a date field's three segments are `spinbutton`s under it in
+Chrome's tree, in the order the machine's region lays them out, each
+describing a shadow element whose `pseudo` names its part. A date put
+through Chrome is now typed a segment at a time, each given the keyboard
+(`chrome_date.rs`), and a form sends the dates the engine sends; a date
+Chrome's field would not hold as written — past 275760-09-13, or a long
+year with leading zeros — is not typed and answers `NotCarriedOut`. A
+`<select>` stays refused as `Unbuilt`: how an agent chooses an option is
+undecided on either renderer, and the engine's own `PutText` on one is
+answered `TextPut` while changing nothing a form sends — both cut as 648,
+needing an ADR. The screen was locked, so 642 and 643 still wait on it.
+302 queue items are open (632 closed, 648 opened; 647 was added by the
+owner). The next unused queue number is 649 and the next unused ADR 0063.

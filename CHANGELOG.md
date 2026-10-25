@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can fill in a date on a page shown in Chrome.** Chrome's
+  date box is three little boxes — day, month, year — that ignore pasted
+  text, so the browser used to refuse an agent's date there. It now types
+  the date in the way a person does, box by box, in whatever order Chrome
+  shows them on this computer, and checks that the box then holds that
+  date. A form sends exactly the dates it sends in the browser's own
+  engine. A date Chrome cannot hold as written, after the year 275760 or
+  with extra zeros in front of a long year, is refused before anything is
+  typed. Choosing an item from a drop-down list is still refused: how an
+  agent should choose one has not been decided yet.
+
 - **An agent is told why a form would not send, on a page shown in
   Chrome.** When an agent presses a form's send button through the
   browser's socket and Chrome refuses — a required field left empty, an

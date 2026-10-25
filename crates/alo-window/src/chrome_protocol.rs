@@ -64,14 +64,32 @@ pub enum Mouse {
     Released,
 }
 
-/// A key a person presses with a command Chrome's editing carries out, as
-/// `Input.dispatchKeyEvent` sends one.
+/// A key a person presses, as `Input.dispatchKeyEvent` sends one: one with
+/// a command Chrome's editing carries out, or a digit typed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Chord {
     /// ⌘A on macOS, Ctrl+A elsewhere: select everything in the field.
     SelectAll,
     /// Backspace: take away what is selected.
     DeleteBackward,
+    /// A digit, typed as a person types it: the key going down makes the
+    /// character, which is how a segment of Chrome's date field is filled
+    /// (queue item 632).
+    Digit(Digit),
+}
+
+/// One of the ten digits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Digit(u8);
+
+impl Digit {
+    /// `digit`, if it is an ASCII digit.
+    pub fn of(digit: char) -> Option<Self> {
+        u8::try_from(digit)
+            .ok()
+            .filter(u8::is_ascii_digit)
+            .map(Self)
+    }
 }
 
 /// A command this browser sends Chrome.
@@ -393,6 +411,7 @@ fn key(chord: Chord, down: bool) -> Vec<(&'static str, Value)> {
             if cfg!(target_os = "macos") { 4 } else { 2 },
         ),
         Chord::DeleteBackward => ("Backspace", "Backspace", 8, "deleteBackward", 0),
+        Chord::Digit(digit) => return typed(digit, down),
     };
     let mut fields = vec![
         (
@@ -409,6 +428,23 @@ fn key(chord: Chord, down: bool) -> Vec<(&'static str, Value)> {
     // page's.
     if down {
         fields.push(("commands", Value::Array(vec![Value::from(command)])));
+    }
+    fields
+}
+
+/// The `params` of `Input.dispatchKeyEvent` for `digit`, typed: going down
+/// with its text, which is what makes the character, and coming up without.
+fn typed(Digit(digit): Digit, down: bool) -> Vec<(&'static str, Value)> {
+    let typed = char::from(digit).to_string();
+    let mut fields = vec![
+        ("type", Value::from(if down { "keyDown" } else { "keyUp" })),
+        ("key", Value::from(typed.as_str())),
+        ("code", Value::from(format!("Digit{typed}"))),
+        ("windowsVirtualKeyCode", Value::from(digit)),
+        ("modifiers", Value::from(0)),
+    ];
+    if down {
+        fields.push(("text", Value::from(typed)));
     }
     fields
 }
@@ -1443,6 +1479,26 @@ mod tests {
             }),
             r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Backspace","key":"Backspace","modifiers":0,"type":"keyUp","windowsVirtualKeyCode":8},"sessionId":"S"}"#
         );
+        // A digit going down makes its character; its key code is the
+        // digit's own, which is its ASCII code.
+        let five = Chord::Digit(Digit::of('5').unwrap());
+        assert_eq!(
+            at(&Command::Key {
+                chord: five,
+                down: true
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Digit5","key":"5","modifiers":0,"text":"5","type":"keyDown","windowsVirtualKeyCode":53},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            at(&Command::Key {
+                chord: five,
+                down: false
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Digit5","key":"5","modifiers":0,"type":"keyUp","windowsVirtualKeyCode":53},"sessionId":"S"}"#
+        );
+        assert_eq!(Digit::of('0'), Some(Digit(b'0')));
+        assert_eq!(Digit::of('a'), None);
+        assert_eq!(Digit::of('٣'), None, "a digit of another script");
         assert_eq!(
             at(&Command::InsertText {
                 text: "Ada \"L\"".to_owned()

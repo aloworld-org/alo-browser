@@ -119,6 +119,7 @@ impl Pages for ChromePages<'_> {
                 why @ (Unacted::Undrawn { .. }
                 | Unacted::Covered { .. }
                 | Unacted::Moved { .. }
+                | Unacted::Untypable { .. }
                 | Unacted::Uncarried { .. }),
             ) => Err(Unanswered::NotCarriedOut(why.to_string())),
         }

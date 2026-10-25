@@ -16230,7 +16230,7 @@ What stage 2's exit gate actually measures: a person using it.
   `chrome_bubble`'s unit test. A form refused with no bubble is cut to
   646.
 
-- [ ] **632. A date, and a choice, put in through Chrome.** *ADR 0042 § 4,
+- [x] **632. A date, and a choice, put in through Chrome.** *ADR 0042 § 4,
   0058 § 4.* **Cut from 621.** On Chrome's page a `date` field and a
   `<select>` are refused as `Unbuilt`, though the engine fills both: Chrome
   builds a date field of segments that `Input.insertText` does not reach,
@@ -16241,6 +16241,40 @@ What stage 2's exit gate actually measures: a person using it.
   `<select>`. *Depends on 621. Closes when:* a valid date put into a date
   field through Chrome reads back as that date, and an option chosen by its
   words is the one selected — or the refusal stays and this item says why.
+  ***Done (iteration 388), its scope cut.*** Measured against Chrome
+  155.0.8059.86 from a Node probe over CDP, no script in any product page:
+  a date field's segments are `spinbutton`s under it in Chrome's tree, in
+  the order the machine's region lays them out (`dd/mm/yyyy` here), each
+  describing a shadow element whose `pseudo` names its part
+  (`-webkit-datetime-edit-day-field`, `-month-field`, `-year-field`)
+  where the segment's name is Chrome's words; `DOM.focus` on a segment
+  gives it the keyboard and the next digit starts it again, a digit's
+  `keyDown` with its text types it, Backspace empties the segment and the
+  field; Chrome fires no `beforeinput`, and an `input` and a `change` each
+  time the value changes; a date outside `min`/`max` is held; a date past
+  275760-09-13 is not, and `02026-01-02` is held as `2026-01-02`; the
+  field's node reads its value as the valid date string. So
+  `chrome_date.rs` finds the segments and their parts, `chrome_act.rs`
+  types each part into its own segment in that order (or a Backspace in
+  each, for the empty text) and reads the value back; `Chord::Digit` is a
+  digit typed. A date the field would not hold as written is not typed and
+  is `Unacted::Untypable`, `NotCarriedOut` on the socket. The order is
+  read from Chrome, never guessed; only one region's order was seen on
+  this machine, and a fixed order would also pass here because each
+  segment is focused by itself. *Tests:* `chrome_date` (six), the digit's
+  key in `chrome_protocol`, `taken` in `chrome_act`, the reading's date
+  decided as `TextPut`; `a_date_put_in_through_chrome.rs` (two, real
+  headless Chrome): an empty, a filled and an emptied date field filled
+  through the engine and through Chrome come to the same outcomes and the
+  form sends the engine's very entries; untypable dates send no key, a
+  page cancelling every key is `TextCanceled`, a date put in is heard as
+  eight trusted keys ending `change=2026-10-12`, and emptied again.
+  Mutations (restored from copies): no date branch, no leading-zero rule,
+  no last-day rule, and only the first segment focused each fail a test.
+  **The choice is cut** as 648: a `<select>` stays `Unbuilt` through
+  Chrome, because how an agent chooses an option is decided for neither
+  renderer, and this engine's own `PutText` on one is answered `TextPut`
+  while writing a `value` attribute no form reads.
 
 - [x] **633. A page from the network opens in Chrome, every request held to
   the browser process's rules.** *ADR 0060 §§ 2–3, cut from 629.* A tab of
@@ -16677,6 +16711,23 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on nothing. Closes when:* the failure is reproduced on purpose,
   the cause it produces is read rather than guessed, and the fix carries a
   test that fails without it.
+
+- [ ] **648. How an agent chooses an option.** *Cut from 632 (iteration
+  388); ADR 0002, ADR 0042 § 4's rule for a date as the precedent.* No
+  verb chooses an option of a `<select>`, on either renderer. Through
+  Chrome one is refused `Unbuilt`. On this engine's page a `<select>` is
+  a `combobox`, which `alo-agent` counts a field, so `PutText` on one is
+  answered `TextPut` — and `alo_dom::field::put_text` writes a `value`
+  attribute that `alo_dom::value::selected` never reads, so the form
+  sends what it sent before: an agent told it chose something nobody
+  chose (read from the code, not run end to end). **needs ADR**: whether
+  an option is chosen by `PutText` of its words on the list, by
+  `Activate` on the option, or by a verb of its own; what a list of
+  several choices takes; and how, through Chrome, the keys a person uses
+  on a closed `<select>` reach it. *Depends on nothing. Closes when:* the
+  ADR is accepted, and an option chosen by the decided verb is the one a
+  form sends, through the engine and through Chrome, with the engine's
+  `PutText` on a `<select>` answering the truth.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -31,10 +31,15 @@
 //! # Fields typing's text does not reach
 //!
 //! Chrome builds a `date` field of segments, as it builds a `time` field,
-//! and text arriving as typing's does (`Input.insertText`) does not reach it
-//! — measured against Chrome 155, a date put in that way leaves the field
-//! empty — and a `<select>` takes no text at all. So on Chrome's page both
-//! are refused by name as `Refusal::Unbuilt`, beside the kinds the engine
+//! and text arriving as typing's does (`Input.insertText`) does not reach
+//! it — measured against Chrome 155, a date put in that way leaves the
+//! field empty. A date is decided here as the engine decides it, a valid
+//! date string or nothing, and carried in a segment at a time
+//! ([`crate::chrome_date`], item 632).
+//!
+//! A `<select>` takes no text at all, and how an agent chooses an option is
+//! not decided for either renderer (item 648). So on Chrome's page it is
+//! refused by name as `Refusal::Unbuilt`, beside the kinds the engine
 //! refuses, rather than answered as text the page would not take: a page
 //! that cancelled nothing would be blamed for a field this browser cannot
 //! fill.
@@ -139,15 +144,8 @@ impl Reading for ChromeReading {
 
     fn unbuilt_field(&self, id: BoxId) -> Option<&'static str> {
         let element = self.element(id)?;
-        alo_dom::field::unbuilt(element).or_else(|| {
-            if alo_dom::date::is_date_field(element) {
-                Some("date")
-            } else if element.name.is_html("select") {
-                Some("select")
-            } else {
-                None
-            }
-        })
+        alo_dom::field::unbuilt(element)
+            .or_else(|| element.name.is_html("select").then_some("select"))
     }
 
     fn max_length(&self, id: BoxId) -> Option<usize> {
@@ -255,19 +253,19 @@ mod tests {
                 kind: "time".to_owned(),
             })
         );
-        // A date that is one is refused all the same: Chrome's segments do
-        // not take typing's text.
+        // A date that is one is put, a segment at a time (item 632).
         assert_eq!(
             perform(
                 &reading,
                 &named("Day"),
                 &Verb::PutText("2026-10-12".to_owned())
             ),
-            Err(Refusal::Unbuilt {
+            Ok(Outcome::TextPut {
                 node: id(4),
-                kind: "date".to_owned(),
+                text: "2026-10-12".to_owned(),
             })
         );
+        assert_eq!(reading.unbuilt_field(id(4)), None);
         let select =
             ChromeReading::of(&page()).with_element(id(3), &described("SELECT", "select", &[]));
         assert_eq!(select.unbuilt_field(id(3)), Some("select"));
