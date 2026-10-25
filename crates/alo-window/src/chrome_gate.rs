@@ -31,7 +31,10 @@
 //! (`Page.frameRequestedNavigation`): that ask is judged here too, and a
 //! refusal is named, though nothing of the browser process's stands between
 //! it and Chrome — Chrome went nowhere for any of them, headless, which is
-//! how [`crate::chrome::Chrome`] starts it.
+//! how [`crate::chrome::Chrome`] starts it. A frame inside the page sending
+//! itself there is told of the same way, through the tab's session for a
+//! frame from the page's site and through the frame's own target for one
+//! from another (item 651), and judged the same.
 //!
 //! Nothing here assigns a cause or writes the record: that is item 634's.
 

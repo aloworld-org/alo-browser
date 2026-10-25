@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A frame inside a page shown in Chrome is held to the rules when it
+  sends itself to an address like `mailto:`, which Chrome never stops for
+  this browser to judge.** A link or a script sending a page there was
+  already refused and written down; one inside a frame of the page — from the page's own site or
+  another, or put there by the page — was only noticed. It is now refused
+  in the same words and written in the record against the frame that was
+  to go.
+
 - **An answer that arrived as the browser hung up is no longer thrown
   away.** When an agent sends a line longer than the browser will take, the
   browser says so and closes the connection, because it cannot tell where

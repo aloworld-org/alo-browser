@@ -40008,3 +40008,114 @@ ADR 0055 names `issues` and decides nothing about which renderer fills it.
 304 queue items are open (639 closed, 652 and 653 opened; counted as
 `- [ ] **` lines). The next unused queue number is **654** and the next
 ADR is **0063**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 392 — queue item 651: a frame sent to a scheme Chrome never pauses
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Owed* and the stage 2 Chrome line), iteration 391's entry
+and the owner's commit after it (`7811566`, `alo-ask`), `REMAINING.md`'s
+continuation order, the queue's product-path table and items 604–618,
+626, 628 and 642–653; ADR 0060 § 2 and ADR 0020 (the rules a page in
+Chrome is judged by, and that a refused navigation is recorded);
+`chrome_tab.rs`, `chrome_gate.rs`, `chrome_record.rs` (`Causes`) and
+`chrome_protocol.rs`' `requested`, and the tests of 633, 634 and 636. No
+`AGENTS.md` exists in the repository. 651's feature contract is
+`docs/features.md`'s Chrome renderer line.
+
+**Why 651.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 could not be built honestly; 477
+needs a Mac that never built it. Of the product path's owed items in
+`ROADMAP.md`'s order, 651 is first and its dependency, 636, is done; 638
+needs an ADR. The engine-path items before it in the file (604–618) are
+paint fidelity that every iteration since 380 has left behind the
+product path, and 601 is blocked on a page.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, from a Node
+CDP probe in the scratchpad (`m651/probe.mjs`) attaching as the tab does
+— every target held, `Fetch`, `Page` and `Runtime` on in each, a local
+server at `127.0.0.1` and `localhost`. A same-site frame sending itself to
+`mailto:`, by `location.href` or by clicking a link, is told of as
+`Page.frameRequestedNavigation` through the **tab's session**; an
+other-site frame doing the same through **its own target**; the page
+setting its other-site frame's `src` to `mailto:` through the **tab's
+session**. Each is told once, names the frame that is to go and not who
+asked, and is followed by `Page.frameStartedNavigating` and
+`frameClearedScheduledNavigation` but no `Page.frameNavigated`: Chrome
+commits nothing (the same-site frame still at its page in the tab's frame
+tree; the other-site frame's own tree was not read). An other-site frame
+sending the *tab* to `mailto:` is a `SecurityError` in the frame and told
+of nowhere; a same-site frame's is the tab's own ask, already judged.
+
+**Built.** `chrome_tab.rs`' `asked_to_go`: a frame's ask, from whichever
+of the tab's frames' sessions Chrome told of it in, is judged by
+`chrome_gate::judge` as the tab's own frame's is when the page is from the
+network; a refusal is written to the record (`GET`, or `POST` for a form,
+`Document`) with `Causes::of_frame` — the document the frame holds, or
+the agent's in it while a verb runs — and named in `Tab::refused` and
+`Tab::refusals`. One asked for and let go is noted for the agent's cause
+as before; the tab's own frame told of through another session is noted
+only, as before; only the tab's own frame's asks go to `take_requested`.
+The page sending its frame away is written as the frame's document's,
+because Chrome names only the frame — written down in the queue, the code
+and the test. `chrome_gate.rs`' and `chrome_tab.rs`' module notes say so.
+
+**Tests.** End to end, real headless Chrome
+(`every_request_of_a_page_in_chrome_recorded.rs`, new test and pages
+`/mailto-framed.html`, `/mailto-same.html`, `/mailto-other.html`,
+`/quiet.html`): three frames — same-site and other-site each sending
+themselves after a `fetch`, and an other-site one sent by the page — each
+refused as `Scheme { mailto }`; each line `GET`, `Document`, refused by
+that rule and caused by the frame's own document, read from the frame's
+`fetch` line, whose cause is the page; four documents remembered (no
+frame went) and every line whole back to the person. The server's
+`answer` was split (`answer_mailto`) to stay under clippy's line bound.
+Mutations, restored from copies and checked with `cmp`: frames only
+noted, as before — the test fails (no refusals within 30 s); the page's
+cause written for the frame's — it fails on the first frame (twice, the
+second after the test was restructured).
+
+**Gate.** The first run failed on clippy (`too_many_lines` in the test
+file's `answer`, and an implicit clone); fixed by splitting, not allowed.
+The second and third runs were killed by the tool's time limit while the
+tests ran under load (about 10), not by a failure — a `nohup` inside the
+tool's process group dies with it. The fourth, started in a session of its
+own and waited on by bounded foreground loops at once: **exit 0, "The gate
+is met. (10 of 10 steps)"**, clippy silent, nextest **5,289 tests run,
+5,289 passed** in 729.3 s, no `FAIL`, `LEAK` or `panicked`. Manual:
+nothing here positions, sizes or draws, so no layout assertion or
+reference render applies, and no reference changed. One file, one
+responsibility: judging stays `chrome_gate.rs`'s, causes
+`chrome_record.rs`'s, and which of Chrome's events is a frame's ask
+`chrome_tab.rs`'s, where the tab's own was already decided. Bytes from
+outside: no new reader — the event is read by the existing
+`chrome_protocol::requested`, already fed malformed input; the address is
+a stranger's and parsed again by `judge`, bounded. No `unsafe`, no stubs,
+no verb taking a coordinate, no script put into a page. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 651 and its *Owed* loses
+it; the stage 2 Chrome line's `· Built:` gains it and its `· Owed:` loses
+it. Not ticked — neither line is finished. `features.md` (the Chrome
+line), the queue (651 ticked with a *Done* paragraph), `REMAINING.md` and
+the changelog say the same. No ADR was amended: ADR 0060 § 2 already
+decides that every ask the browser process can be shown is judged.
+
+**Unresolved obligations.**
+- Who asked a frame's navigation is not known through Chrome: the page
+  sending its frame to `mailto:` is recorded as the frame's document's.
+  Not cut as an item: Chrome's event carries no initiator, and nothing
+  measured says another event does.
+- A frame asking for a new tab (`disposition` `newTab`) to a refused
+  scheme is judged by the same code, but was not measured.
+- 642 and 643 still wait on the screen in use (locked this iteration);
+  638 and 648 need ADRs; 645, 646, 647, 649, 650, 652 and 653 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited.
+- No claim about speed is made.
+
+303 queue items are open (651 closed; counted as `- [ ] **` lines). The
+next unused queue number is **654** and the next ADR is **0063**. This is
+one iteration, not a finished queue or roadmap.

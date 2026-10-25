@@ -35,9 +35,9 @@
 //! its requests (ADR 0060 § 1) — but none leaves until the browser process has
 //! seen it: every paused request is judged by [`crate::chrome_gate`] and let
 //! go (`Fetch.continueRequest`) or refused by name (`Fetch.failRequest`), in
-//! [`Tab::went`] or [`Tab::refusals`]. A navigation the page asks for that
-//! Chrome never pauses — a link to `mailto:` — is judged as it is told of, and
-//! a refusal named. [`Tab::open_for_agent`] is the same, after the agent's
+//! [`Tab::went`] or [`Tab::refusals`]. A navigation the page, or a frame in
+//! it, asks for that Chrome never pauses — a link to `mailto:` — is judged as
+//! it is told of, and a refusal named and recorded. [`Tab::open_for_agent`] is the same, after the agent's
 //! address is judged against the sites a person named for agents: one outside
 //! them is refused as [`Refused::NotGranted`] **before a single command is
 //! written** (ADR 0060 § 3).
@@ -846,36 +846,45 @@ impl<'c> Tab<'c> {
     /// through `session`. Its main frame has the tab's own id; a frame inside
     /// it asking is not the page going anywhere, and is the agent's while a
     /// verb is carried out in the frame's document.
+    ///
+    /// Either is judged as it is told of when the page is from the network,
+    /// because Chrome never pauses a scheme it hands elsewhere, and a refusal
+    /// is written with the asking frame's document as its cause. Measured
+    /// against Chrome 155: a same-site frame sending itself elsewhere is told
+    /// of through the tab's session, a frame from another site through its
+    /// own target, and a page sending its other-site frame elsewhere through
+    /// the tab's — each once, naming the frame that is to go, never who
+    /// asked — and Chrome sent none of them to `mailto:`.
     fn asked_to_go(&mut self, session: &str, params: &[u8]) -> Result<(), Failed> {
         let requested = chrome_protocol::requested(params).map_err(Failed::Malformed)?;
-        if requested.frame != self.target || session != self.session {
+        let own = requested.frame == self.target;
+        if own && session != self.session {
             if requested.disposition == "currentTab" {
                 self.causes.asked_to_go(&requested.frame, &requested.url);
             }
             return Ok(());
         }
-        // Never paused when it is a scheme Chrome hands elsewhere, so judged
-        // as it is told of.
-        if self.is_from_the_network() {
-            match chrome_gate::judge(&requested.url) {
-                Err(refusal) => {
-                    let method = if requested.reason == "formSubmissionPost" {
-                        "POST"
-                    } else {
-                        "GET"
-                    };
-                    let cause = self.causes.of_page();
-                    self.write_refused(&requested.url, method, Purpose::Document, cause, &refusal);
-                    self.refused.push(requested.url.clone());
-                    self.refusals.push(refusal);
-                }
-                Ok(_) if requested.disposition == "currentTab" => {
-                    self.causes.asked_to_go(&requested.frame, &requested.url);
-                }
-                Ok(_) => {}
+        let judged = self.is_from_the_network();
+        match judged.then(|| chrome_gate::judge(&requested.url)) {
+            Some(Err(refusal)) => {
+                let method = if requested.reason == "formSubmissionPost" {
+                    "POST"
+                } else {
+                    "GET"
+                };
+                let cause = self.causes.of_frame(&requested.frame);
+                self.write_refused(&requested.url, method, Purpose::Document, cause, &refusal);
+                self.refused.push(requested.url.clone());
+                self.refusals.push(refusal);
             }
+            _ if requested.disposition == "currentTab" && (judged || !own) => {
+                self.causes.asked_to_go(&requested.frame, &requested.url);
+            }
+            _ => {}
         }
-        self.requested.push(requested);
+        if own {
+            self.requested.push(requested);
+        }
         Ok(())
     }
 

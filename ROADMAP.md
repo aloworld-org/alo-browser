@@ -200,7 +200,10 @@ about this project (ADR 0058 § 6).
   the person (636); and **what a page's script said while a verb ran,
   through Chrome** — its console and its uncaught throws, heard only while
   the verb runs and put into the engine's words, and a line longer than
-  Chrome's messages may be said to be so without ending the pipe (639).
+  Chrome's messages may be said to be so without ending the pipe (639);
+  and **a frame sent to a scheme Chrome never pauses, refused** — by
+  itself from either site or by the page, judged as Chrome tells of it and
+  recorded against the frame's document (651).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -210,7 +213,7 @@ about this project (ADR 0058 § 6).
   floating, since an ordinary one and Chrome's are never on the screen
   together under Stage Manager, put by Chrome's word and shown only while
   the window server shows Chrome's (ADR 0062).
-- **Owed:** a frame's navigation to a scheme Chrome never pauses, judged (651); whose cause a tab an agent asked to open is (638, needs an ADR);
+- **Owed:** whose cause a tab an agent asked to open is (638, needs an ADR);
   what a frame or worker in a process of its own says while a verb runs,
   through Chrome (652); Chrome's messages held by count, not by size, while
   they wait to be read (653); a form Chrome refuses
@@ -767,15 +770,17 @@ unreachable without it.
       while a verb runs, what was said before forgotten first, and each
       console call and uncaught throw put into the engine's words, with a
       message from Chrome too long to read skipped to its end rather than
-      ending the pipe (item 639, `chrome_said.rs`, `chrome_wire.rs`)
+      ending the pipe (item 639, `chrome_said.rs`, `chrome_wire.rs`), and a
+      frame sent to a scheme Chrome never pauses refused by name and
+      recorded against its document, told of through the tab's session or
+      the frame's own target (item 651, `chrome_tab.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
       aside on this path by name (ADR 0060); the window of ours around
       Chrome's floats, is put by Chrome's word and is shown only while the
       window server shows Chrome's (ADR 0062)
-      · Owed: a frame's navigation to a scheme Chrome never pauses, judged as the
-      tab's own is (651); whose cause a tab an agent opened is
+      · Owed: whose cause a tab an agent opened is
       (638, needs an ADR); what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,

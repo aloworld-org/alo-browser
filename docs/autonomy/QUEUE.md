@@ -16871,7 +16871,7 @@ What stage 2's exit gate actually measures: a person using it.
   answers what the system does or is told to use the system's resolver,
   with a test.
 
-- [ ] **651. A frame's navigation to a scheme Chrome never pauses.** *Cut
+- [x] **651. A frame's navigation to a scheme Chrome never pauses.** *Cut
   from 636 (iteration 390); ADR 0060 § 2, ADR 0020.* The tab's own frame
   asking to go to `mailto:` is judged as Chrome tells of it
   (`Page.frameRequestedNavigation`), refused by name and recorded,
@@ -16883,6 +16883,35 @@ What stage 2's exit gate actually measures: a person using it.
   frame each sending itself to a refused scheme are refused by name and
   recorded with the frame's document as the cause, asserted from a test —
   or the item closes saying what Chrome does not tell of.
+  ***Done (iteration 392).*** Measured against Chrome 155.0.8059.86,
+  headless, from a Node CDP probe in the scratchpad that attaches as the
+  tab does (every target held, `Fetch` and `Page` on in each): a frame
+  from the page's site sending itself to `mailto:` — by `location.href`
+  or a link's click — is told of as `Page.frameRequestedNavigation`
+  through the **tab's session**, a frame from another site through **its
+  own target**, and the page setting its other-site frame's `src` to
+  `mailto:` through the **tab's session**; each once, naming the frame
+  that is to go and never who asked, and `Page.frameStartedNavigating`
+  follows but no `Page.frameNavigated`, so Chrome commits nothing there
+  (the same-site frame still at its page in the tab's frame tree). An
+  other-site frame sending the *tab* there is Chrome's own
+  `SecurityError` and told of nowhere. `chrome_tab.rs`' `asked_to_go`
+  now judges a frame's ask as it judges the tab's own, from whichever of
+  the tab's frames' sessions it came, and a refusal is named in
+  `Tab::refusals` and written with `Causes::of_frame` — the document the
+  frame holds, or the agent's in it while a verb runs. **The page sending
+  its frame away is written as the frame's document's**, because Chrome
+  names only the frame; that is a difference from who really asked,
+  written here and in the test. Asserted in
+  `every_request_of_a_page_in_chrome_recorded.rs`' new test, real
+  headless Chrome: three frames (same-site and other-site each sending
+  themselves, an other-site one sent by the page) each refused as
+  `Scheme { mailto }`, each line `GET`, `Document`, refused by that rule
+  and caused by the frame's own document (read from the frame's `fetch`),
+  four documents remembered and every line leading back to the person.
+  Mutations, restored from copies and checked with `cmp`: frames only
+  noted, as before — the test fails; the page's cause for the frame's —
+  it fails on the first frame.
 
 - [ ] **652. What a frame or worker in a process of its own says while a
   verb runs, through Chrome.** *Cut from 639 (iteration 391); ADR 0055.*

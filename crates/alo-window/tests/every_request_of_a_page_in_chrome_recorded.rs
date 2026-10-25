@@ -24,13 +24,22 @@
 //! worker's that of the frame that started it. When the worker has
 //! fetched, the other-site frame goes to a second page of its own, whose
 //! load is the first frame document's.
+//!
+//! A fourth page holds three frames that are each sent to `mailto:`, a
+//! scheme Chrome never pauses (queue item 651): one from the page's own site
+//! and one from the other each sending itself, and one from the other sent
+//! there by the page. Chrome tells of the first and third through the tab's
+//! session and of the second through the frame's own target; each is
+//! refused by name, and its line's cause is the document the frame holds.
 
 use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
 use alo_net::activity::{Entry, Happened};
 use alo_net::request::Purpose;
 use alo_net::{Cause, chain::End};
+use alo_renderer::navigate::Rule;
 use alo_window::chrome::Chrome;
+use alo_window::chrome_gate::Refusal;
 use alo_window::chrome_tab::Tab;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -47,9 +56,55 @@ const AT_MOST: Duration = Duration::from_secs(30);
 /// its path.
 type Log = Arc<Mutex<Vec<(String, String)>>>;
 
+/// The server's answer to `path` when it is one of the page whose frames
+/// are sent to `mailto:`, on port `port`.
+fn answer_mailto(path: &str, port: u16) -> Option<(&'static str, &'static str, String, String)> {
+    let html = "text/html; charset=utf-8";
+    Some(match path {
+        "/mailto-framed.html" => (
+            "200 OK",
+            html,
+            String::new(),
+            format!(
+                "<!doctype html><title>Framed</title>\
+                 <iframe src=\"/mailto-same.html\"></iframe>\
+                 <iframe src=\"http://localhost:{port}/mailto-other.html\"></iframe>\
+                 <iframe src=\"http://localhost:{port}/quiet.html\" \
+                 onload=\"this.onload = null; this.src = 'mailto:quiet@example.com'\"></iframe>\
+                 <script>fetch('/from-page')</script>"
+            ),
+        ),
+        "/mailto-same.html" | "/mailto-other.html" => {
+            let which = path
+                .trim_start_matches("/mailto-")
+                .trim_end_matches(".html");
+            (
+                "200 OK",
+                html,
+                String::new(),
+                format!(
+                    "<!doctype html><script>addEventListener('load', () => \
+                     fetch('/from-{which}').then(() => \
+                     location.href = 'mailto:{which}@example.com'))</script>"
+                ),
+            )
+        }
+        "/quiet.html" => (
+            "200 OK",
+            html,
+            String::new(),
+            "<!doctype html><script>fetch('/from-quiet')</script>".to_owned(),
+        ),
+        _ => return None,
+    })
+}
+
 /// The server's answer to `path`, on port `port`: its status, type, the
 /// header it adds and its body.
 fn answer(path: &str, port: u16) -> (&'static str, &'static str, String, String) {
+    if let Some(answer) = answer_mailto(path, port) {
+        return answer;
+    }
     let html = "text/html; charset=utf-8";
     match path {
         "/start" => (
@@ -518,4 +573,111 @@ fn a_frames_fetch_is_its_own_documents_and_that_document_the_pages() {
         assert!(chain.is_whole(), "{entry}: {chain:?}");
         assert_eq!(chain.end(), End::Person(*person), "{entry}");
     }
+}
+
+/// The page whose frames are sent to `mailto:`, opened in `chrome` and read
+/// until each frame has fetched and three asks were refused: the
+/// refusals, in the order of what was asked.
+fn refusals_of_frames(chrome: &mut Chrome, port: u16, log: &Log) -> Result<Vec<Refusal>, String> {
+    let framed = alo_url::parse(&format!("http://127.0.0.1:{port}/mailto-framed.html"))
+        .map_err(|why| why.why)?;
+    let mut tab = Tab::open(chrome, &framed, SIZE).map_err(|why| why.to_string())?;
+    read_until(
+        &mut tab,
+        log,
+        &[
+            ("127.0.0.1", "/from-page"),
+            ("127.0.0.1", "/from-same"),
+            ("localhost", "/from-other"),
+            ("localhost", "/from-quiet"),
+        ],
+        0,
+    )?;
+    let until = Instant::now() + AT_MOST;
+    while tab.refusals().len() < 3 && Instant::now() < until {
+        tab.read().map_err(|why| why.to_string())?;
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let mut refusals = tab.refusals().to_vec();
+    refusals.sort_by(|a, b| a.asked.cmp(&b.asked));
+    Ok(refusals)
+}
+
+#[test]
+fn a_frame_sent_to_a_scheme_chrome_never_pauses_is_refused_and_its_documents() {
+    let (port, log) = serve().unwrap();
+    let mut chrome = Chrome::start().unwrap();
+    let refusals = refusals_of_frames(&mut chrome, port, &log).unwrap();
+    let asked = |who: &str| format!("mailto:{who}@example.com");
+    let mailto = Rule::Scheme {
+        scheme: "mailto".to_owned(),
+    };
+    assert_eq!(
+        refusals,
+        ["other", "quiet", "same"].map(|who| Refusal {
+            asked: asked(who),
+            rule: mailto.clone(),
+        }),
+        "each frame's ask refused by name"
+    );
+
+    let record = chrome.record();
+    let lines: Vec<&Entry> = record.activity().entries().collect();
+    let at = |host: &str, path: &str| line(&lines, &format!("http://{host}:{port}{path}"));
+    let document = |entry: &Entry| match entry.cause() {
+        Cause::Document { document } => *document,
+        other => panic!("{entry} is not a document's: {other}"),
+    };
+    let page = document(at("127.0.0.1", "/from-page").unwrap());
+    for (who, host) in [
+        ("same", "127.0.0.1"),
+        ("other", "localhost"),
+        ("quiet", "localhost"),
+    ] {
+        // The frame's document, read from what it fetched: a frame's own,
+        // which the page caused.
+        let frame = document(at(host, &format!("/from-{who}")).unwrap());
+        assert_ne!(frame, page, "{who}");
+        assert_eq!(
+            record.documents().cause_of(frame),
+            Some(&Cause::Document { document: page }),
+            "{who}"
+        );
+        // Chrome names the frame that is to go and never who asked, so the
+        // page sending its frame away is the frame's document's line too.
+        let refused = line(&lines, &asked(who)).unwrap();
+        assert_eq!(
+            said(refused),
+            (
+                "GET".to_owned(),
+                asked(who),
+                Purpose::Document,
+                Happened::Refused {
+                    rule: mailto.to_string()
+                },
+            ),
+            "{who}"
+        );
+        assert_eq!(
+            refused.cause(),
+            &Cause::Document { document: frame },
+            "{who}"
+        );
+    }
+
+    // No frame went: four documents, the page and its three frames, and
+    // every line leads back to the person.
+    assert_eq!(record.documents().remembered(), 4);
+    let Some(person) = lines
+        .first()
+        .map(|entry| entry.chain(record.documents()).end())
+    else {
+        panic!("no lines");
+    };
+    for entry in &lines {
+        let chain = entry.chain(record.documents());
+        assert!(chain.is_whole(), "{entry}: {chain:?}");
+        assert_eq!(chain.end(), person, "{entry}");
+    }
+    assert!(matches!(person, End::Person(_)), "{person:?}");
 }

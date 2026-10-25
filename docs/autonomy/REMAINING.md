@@ -3001,3 +3001,14 @@ unhandled rejection told a task late — written down in the queue. Cut:
 by count, not size). The screen was locked, so 642 and 643 still wait on
 it. 304 queue items are open (639 closed, 652 and 653 opened). The next
 unused queue number is 654 and the next unused ADR 0063.
+
+Iteration 392 closed queue item 651, measured against Chrome 155: a frame
+sending itself to `mailto:` is told of through the tab's session when it
+is from the page's site and through its own target when it is from
+another, and the page sending its other-site frame there through the
+tab's — once each, naming the frame and not who asked — and Chrome
+commits nothing. Each is now judged as the tab's own ask is, refused by
+name and recorded with the frame's document as its cause
+(`chrome_tab.rs`). The screen was locked, so 642 and 643 still wait on
+it. 303 queue items are open (651 closed). The next unused queue number
+is 654 and the next unused ADR 0063.
