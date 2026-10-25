@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pages shown in Chrome look names up where your computer does.**
+  Chrome, left to itself, quietly switches to encrypted DNS when it
+  recognises the provider your computer uses, and quietly switches back
+  when that fails — so which company sees every site you visit could
+  change without anyone being asked. The browser now starts Chrome with
+  that switched off, so Chrome asks the DNS server your computer is set
+  up to use, and a test reads Chrome's own log to check it stays that
+  way. Encrypted DNS as a choice you make is still to come.
+
 - **An agent can fill in a date on a page shown in Chrome.** Chrome's
   date box is three little boxes — day, month, year — that ignore pasted
   text, so the browser used to refuse an agent's date there. It now types

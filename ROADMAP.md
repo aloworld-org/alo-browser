@@ -746,7 +746,11 @@ unreachable without it.
       from its tree by the part each says it is, given the keyboard and
       typed — so a form sends the very dates it sends through the engine,
       and a date Chrome's field would not hold as written is not typed at
-      all (item 632, `chrome_date.rs`)
+      all (item 632, `chrome_date.rs`), and Chrome kept on the machine's
+      resolver — measured in Chrome's own NetLog starting in *automatic*
+      secure DNS, which upgrades a resolver it recognises to encrypted DNS
+      unasked, and pinned off in the profile it is given (item 635,
+      `chrome_profile.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -754,7 +758,10 @@ unreachable without it.
       Chrome's floats, is put by Chrome's word and is shown only while the
       window server shows Chrome's (ADR 0062)
       · Owed: a frame as a document of its own in the record (636); whose cause a tab an agent opened is
-      (638, needs an ADR); the resolver measured (635); what a page's
+      (638, needs an ADR); what Chrome itself asks Google for, with no page
+      open, outside the gate and the record (649); whether Chrome's own DNS
+      client honours what the system's would — scoped resolvers, `.local`,
+      the system's own encrypted DNS (650); what a page's
       script said, through Chrome (639); a form Chrome refuses and draws
       no bubble for — an `invalid` a page cancels, a hidden required
       field — answered as anything but a press the page took (646); how an

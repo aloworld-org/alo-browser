@@ -39674,3 +39674,104 @@ page hears a person's keys rather than a `beforeinput`.
 owner's commit since iteration 387; counted as `- [ ] **` lines). The
 next unused queue number is **649** and the next ADR is **0063**. This
 is one iteration, not a finished queue or roadmap.
+
+## Iteration 389 — queue item 635: Chrome kept on the machine's resolver
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the stage 2
+Chrome line, the product path), iteration 388's entry, the queue's
+product-path table and items 635, 636, 639, 642, 643 and 645–648;
+ADR 0008 (the machine's resolver, never silently replaced) and ADR 0060
+§ 4 and its consequences (635 measures and pins); `chrome.rs`,
+`beside.rs`'s `is_program`, `lib.rs`'s map, `chrome_over_a_pipe.rs`'s
+stand-in programs and `gate.sh`'s rented-crate boundaries. No
+`AGENTS.md` exists in the repository. 635's feature contract is
+`docs/features.md`'s Chrome renderer line and its resolver line (ADR
+0008).
+
+**Why 635.** `ioreg` read `CGSSessionScreenIsLocked = true`, so 642 and
+643 could not be built honestly. Of the product path's owed items in the
+journal's order (635, 636, 639), 635 is first and its dependency, 619,
+is done.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, from
+Chrome's own NetLog (`--log-net-log`), in the scratchpad: the machine's
+resolver is its router, `192.168.178.1` (`scutil --dns`). On a fresh
+profile Chrome's DNS configuration is in **secure DNS mode 1
+(automatic)** and every lookup is asked in it; its DoH servers were empty
+here because Chrome does not recognise the router as a provider — on a
+machine whose resolver it does recognise it would upgrade unasked, and
+fall back to the clear untold. `--disable-features=DnsOverHttps`: mode 1,
+no change. `Local State` with `{"dns_over_https":{"mode":"off"}}`: mode 0,
+configuration and every lookup. `Local State` with `secure` and a
+template: mode 2 and DoH tasks to it — so it is the file Chrome reads.
+Chrome asks the nameservers itself, not through `getaddrinfo` (DNS
+transactions to `192.168.178.1:53`, `/etc/hosts` read). And, with no page
+open, Chrome itself asked Google for a variations seed, extension and
+component updates (downloading `.crx` files), a push-messaging check-in
+and `accounts.google.com`'s `ListAccounts` within three seconds.
+
+**Built.** `chrome_profile.rs`: `new_profile`, moved out of `chrome.rs`,
+now writes `LOCAL_STATE` — Chrome's own encrypted DNS off — into the
+profile as `Local State`, owner-only, `create_new` so it never writes
+over a file already there, and removes the directory if the write fails.
+Every Chrome the browser starts, headless or shown, starts on it.
+`chrome.rs`'s module documentation says so; `lib.rs`'s map names the new
+file.
+
+**Tests.** Unit (`chrome_profile`, three): a new profile is `0700` and
+holds only `Local State`, `0600`, with exactly the pin; two profiles are
+two directories; an existing `Local State` is refused `AlreadyExists`.
+End to end (`tests/chromes_resolver_is_the_machines.rs`, real headless
+Chrome, no page and no request of the test's own): the installed Chrome
+started through `Chrome::start_at` and a stand-in that adds the NetLog
+flags names only mode 0; a second whose stand-in writes `automatic` over
+the file before Chrome reads it names mode 1, so the reading tells the
+modes apart; the digit reading. The NetLog is read as text, because no
+test may name `serde_json` (`gate.sh`'s boundary), and the key
+`"secure_dns_mode":` occurs only in DNS events. Mutation, restored from
+a copy: the profile's file written as `{}` fails the first test, every
+mode `1`.
+
+**Gate.** One run (foreground into a scratchpad log, moved to the
+background at 600 s and waited on by a foreground until-loop): **exit 0,
+"The gate is met. (10 of 10 steps)"**, nextest **5,259 tests run, 5,259
+passed** in 560.6 s, no `FAIL`, `LEAK` or `panicked`. Manual: nothing
+here positions, sizes or draws, so no layout assertion or reference
+render applies, and no reference changed. One file, one responsibility:
+what a Chrome profile holds before Chrome reads it is
+`chrome_profile.rs`'s, split from `chrome.rs` in the change that gave it
+a second reason to change; starting and speaking to Chrome stays in
+`chrome.rs`. Bytes from outside: the NetLog is read only by a test.
+No `unsafe`, no stubs, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The stage 2 Chrome line's `· Built:` gains 635 and its
+`· Owed:` swaps it for 649 and 650. Not ticked — the line is not
+finished. ADR 0060 § 4's resolver row is amended from *not measured* to
+what was measured and pinned (25 October); its decision is unchanged.
+`features.md` (the Chrome line: the resolver stays the machine's; 649
+owed), the queue (635 ticked with a *Done* paragraph; 649 and 650
+added), `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- 649, found here: Chrome's own requests with no page open are outside
+  the gate and the record.
+- 650, cut here: whether Chrome's own DNS client honours scoped
+  resolvers (a VPN's split DNS), `.local` and the system's encrypted DNS.
+- The upgrade itself was not observed: this machine's resolver is not one
+  Chrome recognises. The mode that does it is what was measured and
+  pinned.
+- Encrypted DNS as a person's named choice (ADR 0008) is not built on
+  either path.
+- 642 and 643 still wait on the screen in use (locked this iteration);
+  645, 646, 647 and 648 are open.
+- Inherited and unchanged: 636, 639, 642 and 643 owed; 604, 605, 606,
+  616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501;
+  538 waits on a page; 638 and 648 need an ADR; item 549 is unbuilt.
+  Other suites' short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+303 queue items are open (635 closed, 649 and 650 opened; counted as
+`- [ ] **` lines). The next unused queue number is **651** and the next
+ADR is **0063**. This is one iteration, not a finished queue or roadmap.

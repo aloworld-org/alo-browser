@@ -16361,7 +16361,7 @@ What stage 2's exit gate actually measures: a person using it.
   while acting forgotten) survives it because Chrome 155 paused the hop
   before the verb answered, and fails the unit test that keeps the ask.
 
-- [ ] **635. Whether Chrome keeps the machine's resolver.** *ADR 0060 § 4,
+- [x] **635. Whether Chrome keeps the machine's resolver.** *ADR 0060 § 4,
   ADR 0008.* Chrome may upgrade the system's resolver to encrypted DNS on its
   own when it recognises the provider, which is the silent replacement ADR
   0008 forbids. Not measured. *Depends on 619. Closes when:* what Chrome 155
@@ -16369,6 +16369,32 @@ What stage 2's exit gate actually measures: a person using it.
   own, or Chrome's own `chrome://net-internals` state read over CDP — and,
   if it replaces it, `chrome.rs` starts it so that it does not, with a test;
   or this item closes saying it does not, and how that was known.
+  ***Done (iteration 389).*** Measured against Chrome 155.0.8059.86 from
+  Chrome's own NetLog (`--log-net-log`), with no page opened: on a profile
+  nobody touched, its DNS configuration is in **secure DNS mode 1,
+  automatic**, and every lookup is asked in it. Automatic upgrades a
+  resolver Chrome recognises to that provider's encrypted DNS and falls
+  back to the clear when it fails, unasked and untold — what ADR 0008
+  forbids. This machine's resolver is its router (192.168.178.1), which
+  Chrome does not recognise, so here the configuration's DoH servers were
+  empty and nothing was upgraded; the mode is what is pinned, since the
+  resolver a machine names changes with the network it joins. Candidates
+  measured: `--disable-features=DnsOverHttps` changed nothing (mode 1);
+  the profile's `Local State` with `dns_over_https.mode` `off` gave mode
+  0 for the configuration and every lookup, and with `secure` and a
+  template gave mode 2 asking that template — so it is the file Chrome
+  reads. `chrome_profile.rs` (the profile, moved out of `chrome.rs`) now
+  writes that file, owner-only and never over one already there, before
+  any Chrome starts, headless or shown.
+  `tests/chromes_resolver_is_the_machines.rs` starts the installed Chrome
+  through a stand-in that adds the NetLog flags and asserts every mode it
+  names is 0; a second Chrome whose stand-in writes `automatic` over the
+  file reads as 1, so the reading tells them apart. The profile written
+  without the pin fails the first (modes all 1). Chrome asks the
+  machine's nameservers through its own DNS client, not `getaddrinfo`
+  (its log shows DNS transactions to `192.168.178.1:53`, `/etc/hosts`
+  read); whether that honours everything the system's resolver would is
+  cut as 650. Found in the same log: 649.
 
 - [ ] **636. A frame in Chrome is a document of its own in the record.** *Cut
   from 634 (ADR 0012 § 3).* Today a frame's requests and a worker's are
@@ -16728,6 +16754,45 @@ What stage 2's exit gate actually measures: a person using it.
   ADR is accepted, and an option chosen by the decided verb is the one a
   form sends, through the engine and through Chrome, with the engine's
   `PutText` on a `<select>` answering the truth.
+
+- [ ] **649. What Chrome itself asks for, with no page open.** *Found
+  building 635 (iteration 389); ADR 0060 § 2, ADR 0012.* Measured from
+  Chrome 155's NetLog, headless, on the profile the browser makes, in the
+  three seconds after it starts with nothing but `about:blank` open:
+  Chrome asked `clientservices.googleapis.com` for a variations seed,
+  `clients2.google.com` and `update.googleapis.com` for extension and
+  component updates and then **downloaded `.crx` files** from
+  `*.gvt1.com` and `clients2.googleusercontent.com`,
+  `android.clients.google.com` for a push-messaging check-in and
+  registration (and `mtalk.google.com:5228`), and `accounts.google.com`
+  for `ListAccounts`, beside `www.google.com`, `www.googleapis.com` and
+  `www.gstatic.com`. None of it is a tab's, so none of it is paused,
+  judged or recorded: ADR 0060 § 2 decides every request the browser
+  process *can be shown*, and these are never shown. Candidates, none
+  measured: Chrome's own switches for background networking, component
+  updates and sync; a browser-level `Fetch` on Chrome's own session; or
+  ADR 0060 amended to set them aside by name, as § 4 does the cache.
+  *Depends on 633. Closes when:* a Chrome started as the browser starts it
+  makes no request the browser process did not let go or set aside by
+  name, asserted from its NetLog over a run of a page from a local
+  server, or the ADR says which it sends and why.
+
+- [ ] **650. Whether Chrome's own DNS client honours what the system's
+  does.** *Cut from 635 (iteration 389); ADR 0008.* Chrome 155 on macOS
+  asks the machine's nameservers itself (its NetLog's DNS transactions to
+  `192.168.178.1:53`) rather than through `getaddrinfo`. ADR 0008's list
+  of what the system resolver carries — a VPN's split DNS, a corporate
+  network's names, a Pi-hole, `/etc/hosts`, the system's own encrypted
+  DNS — is honoured by the system's resolver by definition and by
+  Chrome's only as far as Chrome reads the same configuration. Measured:
+  `/etc/hosts` is read (`num_hosts` in its configuration). Not measured:
+  a scoped resolver (`/etc/resolver/<domain>`, which is how a VPN's split
+  DNS is set on macOS), a `.local` name, and an encrypted DNS profile of
+  the system's. *Depends on 635. Closes when:* each is measured from
+  Chrome's NetLog against what `dscacheutil -q host` answers, on a
+  resolver of the test's own where one is needed, and Chrome either
+  answers what the system does or is told to use the system's resolver,
+  with a test.
 
 ## K. ★ The agent, on somebody else's pages
 

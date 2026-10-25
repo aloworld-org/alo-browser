@@ -178,7 +178,7 @@ renderer is in use (item 622) so that a person can tell which list applies.
 |---|---|---|
 | **Trust** (`alo-net`'s `Trust`) | the roots `alo-net` is given | Chrome's own certificate verifier and roots |
 | **Cookies partitioned** (ADR 0007) | two keys, ours | Chrome's jar and Chrome's third-party policy, in a profile that ends with the process |
-| **The machine's resolver** (ADR 0008) | the system's, never silently replaced | Chrome's resolver; whether Chrome 155 upgrades it to encrypted DNS on its own is **not measured**, and is owed (item 635) |
+| **The machine's resolver** (ADR 0008) | the system's, never silently replaced | the system's nameservers, asked by Chrome's own DNS client, with Chrome's own encrypted DNS turned off in the profile it is given — Chrome 155 starts in *automatic* secure DNS, which upgrades a resolver it recognises on its own, and is pinned off (item 635, amended 25 October) |
 | **The cache** (ADR 0011) | partitioned, never written when it must not outlive the session | Chrome's, in the same profile, so nothing outlives the session; a person's own profile, if ever, is a decision of its own |
 | **The browser's name** (ADR 0030) | `alo/<major>.<minor>` | Chrome's own string (8) — a page deciding what it may send is told the engine that will render it, which is the truth; sending ours over Chrome's rendering would claim an engine that is not there |
 | **CORS, mixed content, CSP** | `alo-net`'s | Chrome's, which applies them even to bytes handed to it (5) |

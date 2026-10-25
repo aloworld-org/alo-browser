@@ -25,9 +25,11 @@
 //!
 //! # A profile of its own, and gone with the browser
 //!
-//! Each Chrome runs on a new, private, empty profile, never the
-//! person's — their cookies and sessions are not this browser's to hand a
-//! renderer, and Chrome refuses to be driven on its default profile anyway.
+//! Each Chrome runs on a new, private profile, never the person's — their
+//! cookies and sessions are not this browser's to hand a renderer, and
+//! Chrome refuses to be driven on its default profile anyway. It is empty
+//! but for the one file [`crate::chrome_profile`] writes first, which keeps
+//! Chrome on the machine's resolver (ADR 0008, item 635).
 //! When this handle is dropped Chrome is asked to close, then killed if it has
 //! not, then waited for, and its profile is removed. When the browser process
 //! ends without dropping it — killed, or crashed — the pipe closes with it,
@@ -53,15 +55,14 @@
 
 use crate::beside::{NotInstalled, chrome_in, chrome_places, is_program};
 use crate::chrome_hold::Unheld;
+use crate::chrome_profile::new_profile;
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_record::Record;
 use crate::chrome_wire::{self, Frames, Unframed};
 use core::fmt;
 use std::io::ErrorKind;
-use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command as Process, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, sync_channel};
 use std::time::{Duration, Instant};
 
@@ -405,22 +406,4 @@ impl Drop for Chrome {
         let _ = self.child.wait();
         let _ = std::fs::remove_dir_all(&self.profile);
     }
-}
-
-/// A new, empty directory only this user can read, for one Chrome's profile.
-///
-/// Made rather than reused: a directory that is already there may be one
-/// somebody else put there for Chrome to read.
-fn new_profile() -> std::io::Result<PathBuf> {
-    static MADE: AtomicU64 = AtomicU64::new(0);
-    let since = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |since| since.as_nanos());
-    let path = std::env::temp_dir().join(format!(
-        "alo-chrome-{}-{}-{since}",
-        std::process::id(),
-        MADE.fetch_add(1, Ordering::Relaxed)
-    ));
-    std::fs::DirBuilder::new().mode(0o700).create(&path)?;
-    Ok(path)
 }

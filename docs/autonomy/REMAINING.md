@@ -2955,3 +2955,19 @@ answered `TextPut` while changing nothing a form sends — both cut as 648,
 needing an ADR. The screen was locked, so 642 and 643 still wait on it.
 302 queue items are open (632 closed, 648 opened; 647 was added by the
 owner). The next unused queue number is 649 and the next unused ADR 0063.
+
+Iteration 389 closed queue item 635, measured from Chrome 155's own
+NetLog: on a fresh profile Chrome's DNS is in *automatic* secure DNS
+mode, which upgrades a resolver it recognises to encrypted DNS unasked —
+the silent replacement ADR 0008 forbids. Every Chrome the browser starts
+now gets a profile whose `Local State` turns that off
+(`chrome_profile.rs`), and Chrome's log then reads mode 0 for its
+configuration and every lookup (`tests/chromes_resolver_is_the_machines.rs`).
+`--disable-features=DnsOverHttps` does nothing in 155. Found in the same
+log: Chrome itself, with no page open, fetches a variations seed,
+downloads and installs extension updates, checks in for push messaging
+and asks `accounts.google.com` — none of it gated or recorded (649); and
+Chrome asks the nameservers through its own DNS client, whose fidelity to
+the system's is unmeasured (650). The screen was locked, so 642 and 643
+still wait on it. 303 queue items are open (635 closed, 649 and 650
+opened). The next unused queue number is 651 and the next unused ADR 0063.

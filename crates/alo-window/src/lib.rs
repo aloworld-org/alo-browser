@@ -42,7 +42,9 @@
 //!   spoken to over a pipe (ADR 0058, item 619): [`chrome_wire`] finds where
 //!   each of its messages ends and [`chrome_protocol`] reads them, the one
 //!   other file that names `serde_json`, with [`json_depth`] refusing any
-//!   JSON from outside that nests too deep before either reader sees it. A
+//!   JSON from outside that nests too deep before either reader sees it.
+//!   Each Chrome starts on a profile of its own that [`chrome_profile`]
+//!   makes, keeping it on the machine's resolver (ADR 0008, item 635). A
 //!   page in it is a [`chrome_tab`], read as the tree an agent reads by
 //!   [`chrome_tree`] (item 620), and acted on by [`chrome_act`]: each verb
 //!   decided by `alo-agent` against a [`chrome_reading`] of it, and carried
@@ -92,6 +94,7 @@ pub mod chrome_date;
 pub mod chrome_gate;
 pub mod chrome_hold;
 pub mod chrome_pages;
+pub mod chrome_profile;
 pub mod chrome_protocol;
 pub mod chrome_reading;
 pub mod chrome_record;
