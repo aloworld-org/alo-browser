@@ -259,3 +259,12 @@ from a real page**, attribution is not surviving the verb boundary and the whole
 thing is decoration. That is checkable the day queue item 131 drives a frozen
 real page: read the record afterwards, and every request that action caused
 should lead back to it.
+
+## Addendum, 2026-10-25 — an agent action done in a tab, decided in ADR 0063
+
+Not a fourth cause. § 2 gave an agent action *"the document it acted in"*,
+and an agent's ask that opens a tab acts in none: item 634 recorded that
+tab's first page as the person's for want of anywhere else. **ADR 0063**
+decides that an agent action carries either the document it acted in or the
+tab it opened, so such a page is the agent's, its chain ends at the action
+in that tab, and § 2's three causes stand.

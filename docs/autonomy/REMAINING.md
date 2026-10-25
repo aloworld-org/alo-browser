@@ -3041,3 +3041,13 @@ cannot reach (647 read from its own gate failure the same day). The
 screen was locked, so 642 and 643 still wait on it. 304 queue items are
 open (654 closed, 655 and 656 opened). The next unused queue number is
 657 and the next unused ADR 0063.
+
+Iteration 395 wrote queue item 638's decision, ADR 0063: a tab an agent
+asks to open is an agent action, minted once the agent's sites reach the
+address, and an agent action carries either the document it acted in or
+the tab it opened — so the tab's first page is the agent's, never the
+person's, its chain ends at that action in that tab, and ADR 0012's three
+causes stand (an addendum there says so). No code was written; 638 stays
+open for its code half and the test reading the line back. The screen was
+locked, so 642 and 643 still wait on it. 304 queue items are open. The
+next unused queue number is 657 and the next unused ADR 0064.

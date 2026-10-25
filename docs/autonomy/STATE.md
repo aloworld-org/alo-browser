@@ -40357,3 +40357,83 @@ the socket contract, `REMAINING.md` and the changelog say the same.
 `- [ ] **` lines). The next unused queue number is **657** and the next
 ADR is **0063**. This is one iteration, not a finished queue or roadmap.
 
+
+## Iteration 395 — queue item 638's decision: ADR 0063, a tab an agent opens is its action
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the two
+paths, the product path's *Built*/*Decided*/*Owed*, the stage 2 Chrome
+line), iteration 394's entry, `REMAINING.md`'s continuation order, the
+queue's product-path table and items 638, 642, 643, 647, 653, 655 and
+656; ADR 0012 in full (§ 2's three causes, § 4, § 6's durable record),
+ADR 0055 (§§ 5–8 and what it does not decide), ADR 0059 § 3; `alo-net`'s
+`cause.rs` and `chain.rs` (`End`, `Chain::action`, `followed_from`),
+`chrome_record.rs`' notes and `Causes::of`, `chrome_tab.rs`'
+`open_for_agent` and `acting`, `alo-renderer`'s `Tabs::act`, and
+`alo-grants`' `table.rs` where only a person's cause answers a prompt or
+renews a remembered row. No `AGENTS.md` exists in the repository. 638's
+feature contract is `docs/features.md`'s Chrome renderer line.
+
+**Why 638.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 could not be built honestly. 638 is
+first among the product path's owed items in `ROADMAP.md`'s order and is
+marked **needs ADR**; `LOOP.md` § 4 makes that ADR an iteration of its
+own, before any code depends on it. Iterations 390–394 passed over it; it
+is not blocked, and nothing about it is the owner's to decide rather than
+ours — it amends no product scope (§ 4 of the ADR declines the one
+answer, refusing agents tabs, that would have been).
+
+**Decided: ADR 0063.** An agent's ask to open a tab is an agent action,
+minted once the agent's sites reach the address and before Chrome (or
+the engine's renderer) is told anything; an agent action carries
+**either the document it acted in or the tab it opened**. So the tab's
+first page — its first hop and a redirect's hops — is caused by that
+action in that tab, what the page then asks for is the page's and leads
+back to it, and the chain ends at the action and the tab as a person's
+ends at the person. ADR 0012's three causes stand; an addendum there
+says so. Argued from three things in the repository rather than taste:
+ADR 0012 § 4's forgery sentence, § 6's durable record (which keeps only
+chains reaching an action, so a person-labelled agent tab fell out of
+it), and `alo-grants`, where `Cause::Person` answers prompts and renews
+a remembered permission's thirty days. A fourth cause and refusing
+agents tabs are argued against in the ADR. Not decided: whether the
+socket offers an open (its contract has none).
+
+**Built.** Nothing in code — by design for an ADR iteration. One note in
+`chrome_record.rs` now names ADR 0063 instead of calling it 638's open
+question. `features.md`, the queue (638 gains a *Decided* paragraph, not
+ticked), `ROADMAP.md`, `REMAINING.md` and the changelog say the same.
+
+**Gate.** One run, started detached and waited on by two bounded
+foreground loops in the next steps: **"The gate is met." (10 of 10
+steps)**, clippy silent, nextest **5,292 tests run, 5,292 passed** in
+564.8 s, no `FAIL`, `LEAK` or `panicked`. Manual: nothing positions,
+sizes or draws, so no layout assertion or reference render applies; no
+reference changed. One file, one responsibility: no source file gained a
+reason to change (one comment). No new reader of outside bytes. No
+`unsafe`, no stubs, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Decided* gains ADR 0063 and its *Owed*
+names 638's code half instead of "needs an ADR"; the stage 2 Chrome
+line's `· Built:`/`· Owed:` likewise. Not ticked — neither line is
+finished, and 638 is not.
+
+**Unresolved obligations.**
+- 638's code half: `Cause::Agent`'s place (document or tab), the chain's
+  fifth end, `open_for_agent` minting its action, and a test reading the
+  line back. It is the next iteration's to take if the screen is still
+  locked.
+- 647 and 656, the commit-before-request race, did not fail this run;
+  still not reproduced by hand.
+- 642 and 643 still wait on the screen in use (locked); 648 needs an ADR;
+  645, 646, 649, 650, 653 and 655 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited.
+- No claim about speed is made.
+
+304 queue items are open (none closed or opened; counted as `- [ ] **`
+lines). The next unused queue number is **657** and the next ADR is
+**0064**. This is one iteration, not a finished queue or roadmap.

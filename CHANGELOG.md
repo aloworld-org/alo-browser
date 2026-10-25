@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided that a tab an agent opens is written down as the agent's
+  doing, never the person's.** When an agent asks the browser to open a
+  site, the record used to name the person as the one who opened it, for
+  want of anywhere else to put it — which also kept it out of the lasting
+  record of what agents did. That is now decided (ADR 0063): opening the
+  tab is the agent's action, and what the page then loads leads back to
+  it. Building it is queue item 638; nothing has changed in the browser
+  yet.
+
 - **A shared worker and a service worker of a page shown in Chrome are
   now heard during an agent's action too.** What either wrote to its
   console or threw while the action ran was missing from what the agent

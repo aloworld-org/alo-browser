@@ -215,8 +215,12 @@ about this project (ADR 0058 § 6).
   frames copied into ours (ADR 0061); and the window of ours around it —
   floating, since an ordinary one and Chrome's are never on the screen
   together under Stage Manager, put by Chrome's word and shown only while
-  the window server shows Chrome's (ADR 0062).
-- **Owed:** whose cause a tab an agent asked to open is (638, needs an ADR);
+  the window server shows Chrome's (ADR 0062); and whose a tab an agent
+  asks to open is — the agent's, an action done in that tab rather than in
+  a document, so its first page is never written as the person's, and
+  still one of ADR 0012's three causes (ADR 0063).
+- **Owed:** a tab an agent opened recorded as ADR 0063 decides, with a test
+  reading the line back (638);
   a service worker that stops and starts again, which waits on the
   browser in the target it had and is never let go (655); Chrome's messages held by count, not by size, while
   they wait to be read (653); a form Chrome refuses
@@ -787,9 +791,11 @@ unreachable without it.
       partitioning, the resolver, the cache and the browser's name are set
       aside on this path by name (ADR 0060); the window of ours around
       Chrome's floats, is put by Chrome's word and is shown only while the
-      window server shows Chrome's (ADR 0062)
-      · Owed: whose cause a tab an agent opened is
-      (638, needs an ADR); what Chrome itself asks Google for, with no page
+      window server shows Chrome's (ADR 0062); and a tab an agent opens is
+      the agent's action, done in that tab rather than in a document, never
+      the person's (ADR 0063)
+      · Owed: a tab an agent opened recorded as ADR 0063 says, with a test
+      reading the line back (638); what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); a service worker that stops

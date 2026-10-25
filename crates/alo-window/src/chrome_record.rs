@@ -72,9 +72,9 @@
 //! - **A frozen page is not recorded**: it reaches no network, and what it
 //!   asked for is [`crate::chrome_tab::Tab::refused`].
 //! - **A tab an agent asked to open** ([`crate::chrome_tab::Tab::open_for_agent`])
-//!   has its first page recorded as the person's, whose tab it is: ADR
-//!   0012's causes have no place for an agent opening one, and which it
-//!   should be is queue item 638's decision.
+//!   has its first page recorded as the person's, whose tab it is. ADR
+//!   0063 decides it is the agent's action, done in that tab rather than
+//!   in a document; building that is queue item 638.
 
 use alo_net::activity::{Activity, Happened};
 use alo_net::cause::{ActionId, Cause, DocumentId, Identities, TabId};

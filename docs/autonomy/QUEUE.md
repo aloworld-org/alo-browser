@@ -16503,6 +16503,20 @@ What stage 2's exit gate actually measures: a person using it.
   agent that may not open tabs at all. *Depends on 634. Closes when:* the
   ADR is accepted and a tab an agent opened is recorded as it says, with a
   test reading the line back.
+  **Decided (2026-10-25, iteration 395): ADR 0063.** The first answer,
+  not a fourth cause and not a refusal: an agent's ask to open a tab is an
+  agent action, minted once the agent's sites reach the address and before
+  Chrome is told anything, and an agent action carries **either the
+  document it acted in or the tab it opened**. The tab's first page (its
+  first hop and the hops a redirect leads to) is caused by that action in
+  that tab; what the page then asks for is the page's, whose chain leads
+  back to it; the chain ends at the action and the tab as a person's ends
+  at the person. An ask refused before then mints nothing. Not built: no
+  code depends on the decision yet. What is left is the code half —
+  `Cause::Agent`'s place, the chain's new end, `open_for_agent` minting the
+  action — and the test reading the line back. Whether the socket offers
+  an agent a way to open a tab is not decided there (ADR 0055's contract
+  has none).
 
 - [x] **639. What a page's script said while a verb ran, through Chrome.**
   *Cut from 630; ADR 0055, `docs/contracts/agent-socket.md`.* An answer's
