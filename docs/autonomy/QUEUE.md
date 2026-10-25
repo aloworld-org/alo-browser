@@ -16885,6 +16885,29 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on nothing. Closes when:* the failure is reproduced on purpose,
   the cause it produces is read rather than guessed, and the fix carries a
   test that fails without it.
+  ***Read at last (2026-10-25 16:28), and the hypothesis was right.*** The
+  gate printed it, the first failure since `gate.sh` was taught to say why:
+
+      the second sheet is not its page's: GET http://localhost:54740/next.css
+      (style), caused by action#0, in document#0
+
+  **`document#0` is the old page.** So Chrome asks for the new page's
+  stylesheet before this process has applied that page's
+  `Page.frameNavigated` — Chrome's preload scanner reads the response bytes
+  before the document commits — and the tab still holds the old document, so
+  the action is still "here" and the sheet is pinned on the agent in a page
+  that never asked for it.
+  ***And the cheap fix is refused by a decision already made.*** Attributing
+  a sub-resource to the *arriving* document while a navigation is under way
+  would fix this and break
+  `what_the_old_page_asks_for_before_the_new_one_commits_is_the_old_pages`,
+  which says in so many words that a beacon the old page sends in that window
+  is the old page's. Both are true, so **the cause cannot be decided from
+  which page is current**: it needs the request's own document, which
+  `Fetch.requestPaused` does not carry. `Network.requestWillBeSent` carries
+  `loaderId` and the two are joined by `networkId`.
+  ***Next, by the owner's choice (2026-10-25), ahead of 642.*** It has stopped
+  the loop three times — 23:46, 06:25 and 16:28 — and will go on doing so.
   **Read, 2026-10-25 (iteration 394's second gate run):** it failed at
   line 453 with `the second sheet is not its page's: GET
   http://localhost:…/next.css (style), caused by action#0, in document#0
