@@ -206,7 +206,10 @@ about this project (ADR 0058 § 6).
   too, whose every page is the tab's (654);
   and **a frame sent to a scheme Chrome never pauses, refused** — by
   itself from either site or by the page, judged as Chrome tells of it and
-  recorded against the frame's document (651).
+  recorded against the frame's document (651); and **a tab an agent asked
+  to open, the agent's in the record** — its first page caused by the
+  agent's action done in that tab, what the page asks for leading back to
+  that action and to no person, as ADR 0063 decides (638).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -219,9 +222,7 @@ about this project (ADR 0058 § 6).
   asks to open is — the agent's, an action done in that tab rather than in
   a document, so its first page is never written as the person's, and
   still one of ADR 0012's three causes (ADR 0063).
-- **Owed:** a tab an agent opened recorded as ADR 0063 decides, with a test
-  reading the line back (638);
-  a service worker that stops and starts again, which waits on the
+- **Owed:** a service worker that stops and starts again, which waits on the
   browser in the target it had and is never let go (655); Chrome's messages held by count, not by size, while
   they wait to be read (653); a form Chrome refuses
   and draws no bubble for (646); how an agent chooses an option of a
@@ -785,7 +786,11 @@ unreachable without it.
       (item 654, `chrome_hold.rs`) — and a
       frame sent to a scheme Chrome never pauses refused by name and
       recorded against its document, told of through the tab's session or
-      the frame's own target (item 651, `chrome_tab.rs`)
+      the frame's own target (item 651, `chrome_tab.rs`), and a tab an
+      agent asked to open recorded as that agent's action done in the tab
+      — both hops of its first page the action's, what the page asks for
+      leading back to it and never to the person, an ask refused first
+      minting no action (item 638, `alo-net`'s `Place`, `chrome_record.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -794,8 +799,7 @@ unreachable without it.
       window server shows Chrome's (ADR 0062); and a tab an agent opens is
       the agent's action, done in that tab rather than in a document, never
       the person's (ADR 0063)
-      · Owed: a tab an agent opened recorded as ADR 0063 says, with a test
-      reading the line back (638); what Chrome itself asks Google for, with no page
+      · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); a service worker that stops

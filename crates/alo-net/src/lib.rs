@@ -85,7 +85,7 @@ pub use body::Framing;
 pub use cache::{Answer, Cache};
 // Not the ids: `cause::TabId` at a call site says which kind of identity is
 // meant, and `alo_renderer::tab` is where a caller usually meets a tab.
-pub use cause::Cause;
+pub use cause::{Cause, Place};
 pub use certificate::{Fault, Refused};
 // Not `End`: it is only ever read out of a `Chain`, and one more bare word at
 // the root is one more thing a caller has to disambiguate at a glance.

@@ -18,7 +18,7 @@
 //! The server is a few lines on `127.0.0.1`, and nothing here reaches the
 //! network.
 
-use alo_net::cause::{Cause, Identities};
+use alo_net::cause::{Cause, Identities, Place};
 use alo_net::chain::Documents;
 use alo_net::kept::Kept;
 use alo_net::{Pool, Purpose, Request, Trust};
@@ -136,7 +136,7 @@ fn browse(pool: &mut Pool, port: u16) -> (Identities, Documents) {
         &mut minting,
         Cause::Agent {
             action,
-            document: theirs,
+            place: Place::Document(theirs),
         },
     );
     fetched(
@@ -145,7 +145,7 @@ fn browse(pool: &mut Pool, port: u16) -> (Identities, Documents) {
             url(port, "/the-page-it-opened"),
             Cause::Agent {
                 action,
-                document: theirs,
+                place: Place::Document(theirs),
             },
         ),
     );

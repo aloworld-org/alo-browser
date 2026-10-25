@@ -3051,3 +3051,12 @@ causes stand (an addendum there says so). No code was written; 638 stays
 open for its code half and the test reading the line back. The screen was
 locked, so 642 and 643 still wait on it. 304 queue items are open. The
 next unused queue number is 657 and the next unused ADR 0064.
+
+Iteration 396 built queue item 638's code half: an agent action carries a
+place — the document a verb acted in, or the tab an agent's open made —
+so a tab opened in Chrome at an agent's word has its first page caused by
+that action in that tab, its page's requests lead back to it, and its
+chain ends there rather than at the person; the durable record and the
+grants' history keep the new place under new tags. The screen was locked,
+so 642 and 643 still wait on it. 303 queue items are open (638 closed).
+The next unused queue number is 657 and the next unused ADR 0064.

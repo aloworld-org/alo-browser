@@ -483,7 +483,7 @@ fn prefix_of(path: &Path) -> Option<u64> {
 mod tests {
     use super::*;
     use crate::activity::Happened;
-    use crate::cause::{ActionId, Cause, DocumentId, Identities};
+    use crate::cause::{ActionId, Cause, DocumentId, Identities, Place};
     use crate::deed::LONGEST_URL;
     use crate::request::{Purpose, Request};
     use crate::response::Status;
@@ -541,7 +541,7 @@ mod tests {
                 &mut minting,
                 Cause::Agent {
                     action,
-                    document: theirs,
+                    place: Place::Document(theirs),
                 },
             );
             Self {
@@ -658,14 +658,14 @@ mod tests {
             "https://example.com/first.js",
             Cause::Agent {
                 action: browsing.action,
-                document: browsing.theirs,
+                place: Place::Document(browsing.theirs),
             },
         );
         browsing.fetched(
             "https://example.com/second.js",
             Cause::Agent {
                 action: second,
-                document: browsing.its,
+                place: Place::Document(browsing.its),
             },
         );
         kept.take_from(&browsing.record, &browsing.documents);
@@ -767,7 +767,7 @@ mod tests {
                 &format!("https://example.com/busy/{asked}"),
                 Cause::Agent {
                     action: browsing.action,
-                    document: browsing.theirs,
+                    place: Place::Document(browsing.theirs),
                 },
             );
         }
@@ -779,7 +779,7 @@ mod tests {
                 "https://example.com/ordinary.js",
                 Cause::Agent {
                     action,
-                    document: browsing.its,
+                    place: Place::Document(browsing.its),
                 },
             );
         }
@@ -813,7 +813,7 @@ mod tests {
                 &format!("https://example.com/{asked}"),
                 Cause::Agent {
                     action: browsing.action,
-                    document: browsing.theirs,
+                    place: Place::Document(browsing.theirs),
                 },
             );
         }
@@ -848,7 +848,7 @@ mod tests {
                 &enormous,
                 Cause::Agent {
                     action: browsing.action,
-                    document: browsing.theirs,
+                    place: Place::Document(browsing.theirs),
                 },
             );
         }
@@ -883,14 +883,14 @@ mod tests {
             "https://example.com/first.js",
             Cause::Agent {
                 action: browsing.action,
-                document: browsing.theirs,
+                place: Place::Document(browsing.theirs),
             },
         );
         browsing.fetched(
             "https://example.com/second.js",
             Cause::Agent {
                 action: second,
-                document: browsing.its,
+                place: Place::Document(browsing.its),
             },
         );
         kept.take_from(&browsing.record, &browsing.documents);

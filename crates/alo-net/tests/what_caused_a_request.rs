@@ -32,7 +32,7 @@
 //! still the one the browser process assigned. That test is named for the
 //! attack rather than for the field.
 
-use alo_net::cause::{Cause, Identities};
+use alo_net::cause::{Cause, Identities, Place};
 use alo_net::cors::asking_first;
 use alo_net::csp::{Disposition, Policies};
 use alo_net::csp_report::{Endpoints, Page};
@@ -88,7 +88,13 @@ fn a_person_a_page_and_an_agent_are_three_different_causes() {
 
     let navigated = Request::get(target.clone(), Cause::Person { tab });
     let fetched = Request::get(target.clone(), Cause::Document { document });
-    let acted = Request::get(target, Cause::Agent { action, document });
+    let acted = Request::get(
+        target,
+        Cause::Agent {
+            action,
+            place: Place::Document(document),
+        },
+    );
 
     assert_ne!(navigated.cause, fetched.cause);
     assert_ne!(fetched.cause, acted.cause);
@@ -107,7 +113,10 @@ fn an_agent_action_is_named_by_every_request_it_caused() {
     let mut ids = minting();
     let document = ids.a_document();
     let action = ids.an_action();
-    let cause = Cause::Agent { action, document };
+    let cause = Cause::Agent {
+        action,
+        place: Place::Document(document),
+    };
 
     let asked = Request::get(url("https://example.com/a"), cause.clone())
         .for_purpose(Purpose::Fetch)
@@ -115,7 +124,7 @@ fn an_agent_action_is_named_by_every_request_it_caused() {
 
     let Cause::Agent {
         action: named,
-        document: acted_in,
+        place: Place::Document(acted_in),
     } = &asked.cause
     else {
         panic!("an agent's request lost its action: {}", asked.cause);

@@ -40437,3 +40437,93 @@ finished, and 638 is not.
 304 queue items are open (none closed or opened; counted as `- [ ] **`
 lines). The next unused queue number is **657** and the next ADR is
 **0064**. This is one iteration, not a finished queue or roadmap.
+
+
+## Iteration 396 — queue item 638's code half: a tab an agent opens is its action, in the record
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the two
+paths, the product path's *Built*/*Decided*/*Owed*, the stage 2 Chrome
+line), iteration 395's entry, the queue's item 638, ADR 0063 in full and
+ADR 0012's addendum; `alo-net`'s `cause.rs`, `chain.rs`, `deed.rs`;
+`alo-grants`' `file.rs`; `alo-window`'s `chrome_record.rs` (`Causes`) and
+`chrome_tab.rs` (`open`, `open_for_agent`, `begin`, `acting`). No
+`AGENTS.md` exists in the repository. 638's feature contract is
+`docs/features.md`'s Chrome renderer line.
+
+**Why 638.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 could not be built honestly.
+Iteration 395 named 638's code half as the next to take in that case; its
+ADR was accepted the iteration before, so nothing it depends on is open.
+
+**Built.**
+- `alo-net`: `Cause::Agent { action, place }`, where `Place` is the
+  document a verb acted in or the tab an agent's open made (ADR 0063 § 2);
+  `in_document` answers `None` for a tab, `Display` says `action#n, in
+  tab#t`. Still three causes; the enforcing test now lists both places.
+  The walk ends at an agent's open (`End::Opened(action, tab)`), which is
+  whole, found by `Chain::action`/`followed_from`, and not a `person()`.
+  The durable record freezes it (`deed::Where`; link tag 3, ending tag 4)
+  and `alo-grants`' history file writes an agent link in a tab as tag 4.
+  Neither format's `VERSION` changed: only tags never written before were
+  added, so every earlier file reads as it did (said beside `VERSION`).
+  Every existing `Cause::Agent` site became `place: Place::Document(..)`
+  by a mechanical rewrite, then `cargo fmt`.
+- `alo-window`: `Tab::open_for_agent` mints its action after the address
+  parses, is on the network and is within the agent's sites, and before
+  any command is written to Chrome; a refused ask mints nothing.
+  `Causes::opened_by` makes that action, in the tab, the cause of the
+  tab's first page where the person's was; `Tab::opened_by` names it.
+- Tests: unit tests in `cause.rs`, `chain.rs`, `deed.rs` (round trip of
+  the new link and ending, and the truncation and flipped-byte tests now
+  cover them through `a_deed`), `file.rs` (`a_table` holds an agent link
+  in a tab) and `chrome_record.rs`; and in real Chrome 155,
+  `every_request_of_a_page_in_chrome_recorded`'s
+  `a_tab_an_agent_opened_is_its_action_in_that_tab_and_never_the_persons`:
+  a refused ask first (so the opening is `action#0`), then `/start`'s two
+  hops both the action's in the tab, the sheet's chain ending at
+  `End::Opened`, every line following from the action and none ending at
+  the person, and a tab the person opens afterwards the person's.
+  Mutations, restored from copies and checked with `cmp`: the open
+  minting no action — integration test fails; the tab's first navigation
+  turned back to the person — integration and unit test fail.
+
+**Gate.** One run, started detached and waited on by two bounded
+foreground loops in the same steps: **exit 0, "The gate is met." (10 of
+10 steps)**, clippy silent, nextest **5,297 tests run, 5,297 passed** in
+566.6 s, no `FAIL`, `LEAK` or `panicked`. Only this entry and the commit
+came after it.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies; no reference changed. One file, one
+responsibility: where an agent action happened is `cause.rs`'s, which
+already said who; how a walk ends is `chain.rs`'s; the frozen form is
+`deed.rs`'s; what opened a tab is `chrome_record.rs`'s `Causes`, which
+already said what caused its first page. Bytes from outside: the two new
+tags are read by readers already fed truncated, flipped and unknown-tag
+input, and those tests now run over the new tags. No `unsafe`, no stubs,
+no verb taking a coordinate. `alo-os` and `alo-workplace` untouched.
+Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 638 and its *Owed* drops
+it; the stage 2 Chrome line's `· Built:` gains it and `· Owed:` drops it.
+Not ticked — neither line is finished. The queue ticks 638 with a *Done*
+paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- The engine's renderer has no agent open, and the socket offers an agent
+  no way to open a tab (ADR 0063 leaves both undecided); today only the
+  browser process calls `open_for_agent`.
+- 647 and 656, the commit-before-request race, did not fail this run;
+  still not reproduced by hand.
+- 642 and 643 still wait on the screen in use (locked); 648 needs an ADR;
+  645, 646, 649, 650, 653 and 655 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited.
+- No claim about speed is made.
+
+303 queue items are open (638 closed; counted as `- [ ] **` lines). The
+next unused queue number is **657** and the next ADR is **0064**. This is
+one iteration, not a finished queue or roadmap.

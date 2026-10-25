@@ -39,7 +39,7 @@ use crate::capability::Capability;
 use crate::grant::{Answer, Ending, Kept, Remembered};
 use crate::history::{Entry, Happened, History};
 use alo_net::bytes::{Reader, Unreadable, Writer, fingerprint, unreadable};
-use alo_net::deed::Link;
+use alo_net::deed::{Link, Where};
 use alo_storage::StorageKey;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -256,10 +256,21 @@ fn write_link(body: &mut Writer, link: &Link) {
             body.tag(2);
             body.number(*document);
         }
-        Link::Agent { action, document } => {
+        Link::Agent {
+            action,
+            place: Where::Document(document),
+        } => {
             body.tag(3);
             body.number(*action);
             body.number(*document);
+        }
+        Link::Agent {
+            action,
+            place: Where::Tab(tab),
+        } => {
+            body.tag(4);
+            body.number(*action);
+            body.number(*tab);
         }
     }
 }
@@ -274,7 +285,11 @@ fn read_link(reader: &mut Reader<'_>) -> Result<Link, Unreadable> {
         },
         3 => Link::Agent {
             action: reader.number()?,
-            document: reader.number()?,
+            place: Where::Document(reader.number()?),
+        },
+        4 => Link::Agent {
+            action: reader.number()?,
+            place: Where::Tab(reader.number()?),
         },
         _ => return Err(unreadable("a cause that is none of the three")),
     })
@@ -388,10 +403,15 @@ mod tests {
         let page = Link::Document { document: 9 };
         let agent = Link::Agent {
             action: 4,
-            document: 9,
+            place: Where::Document(9),
+        };
+        let opened = Link::Agent {
+            action: 5,
+            place: Where::Tab(2),
         };
         for (second, happened) in [
             Happened::Asked { by: agent.clone() },
+            Happened::Asked { by: opened },
             Happened::RefusedWithoutAPrompt {
                 refusal: Refusal::NoGesture,
                 by: page.clone(),

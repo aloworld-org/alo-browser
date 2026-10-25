@@ -125,7 +125,7 @@ use crate::sheet_owed;
 use crate::site::Site;
 use alo_agent::{Target, Verb};
 use alo_bindings::Visibility;
-use alo_net::cause::{ActionId, Cause, DocumentId, Identities};
+use alo_net::cause::{ActionId, Cause, DocumentId, Identities, Place};
 use alo_net::chain::{Chain, Documents};
 use alo_net::csp::Policies;
 use alo_url::Url;
@@ -320,7 +320,10 @@ impl Tab {
         else {
             return;
         };
-        let cause = Cause::Agent { action, document };
+        let cause = Cause::Agent {
+            action,
+            place: Place::Document(document),
+        };
         self.decided = match (navigation.as_ref(), &self.address) {
             (Some(asked), Some(address)) => Some(navigate::decide(
                 asked,
@@ -1086,7 +1089,10 @@ impl Tabs {
     pub fn an_agent_acting(&self, id: TabId, action: ActionId) -> Option<Cause> {
         self.tab(id)
             .and_then(Tab::document)
-            .map(|document| Cause::Agent { action, document })
+            .map(|document| Cause::Agent {
+                action,
+                place: Place::Document(document),
+            })
     }
 
     /// Walk back from a cause to what caused it, and so on (ADR 0012 § 3).
@@ -1724,7 +1730,10 @@ mod tests {
         );
         assert_eq!(
             tabs.an_agent_acting(here, action),
-            Some(Cause::Agent { action, document }),
+            Some(Cause::Agent {
+                action,
+                place: Place::Document(document)
+            }),
         );
     }
 
@@ -1865,7 +1874,10 @@ mod tests {
         }
         assert_eq!(
             causes(&tabs.fetches(id)),
-            [Cause::Agent { action, document }]
+            [Cause::Agent {
+                action,
+                place: Place::Document(document)
+            }]
         );
 
         let mut delivered = FromRenderer::Delivered {
@@ -2148,7 +2160,10 @@ mod tests {
         }
         assert_eq!(
             sheet_causes(&tabs.sheets(id)),
-            [Cause::Agent { action, document }]
+            [Cause::Agent {
+                action,
+                place: Place::Document(document)
+            }]
         );
         let mut delivered = FromRenderer::Delivered {
             issues: Vec::new(),

@@ -25,6 +25,12 @@
 //! fetched, the other-site frame goes to a second page of its own, whose
 //! load is the first frame document's.
 //!
+//! A tab an agent asks to open at `/start` (ADR 0063, queue item 638) is
+//! recorded as the agent's action done in that tab: both hops of its first
+//! page carry that cause, what the page asks for is the page's and leads
+//! back to the action, no line names the person, and an ask refused before
+//! it mints no action. A tab the person then opens is still the person's.
+//!
 //! A fourth page holds three frames that are each sent to `mailto:`, a
 //! scheme Chrome never pauses (queue item 651): one from the page's own site
 //! and one from the other each sending itself, and one from the other sent
@@ -36,11 +42,13 @@ use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
 use alo_net::activity::{Entry, Happened};
 use alo_net::request::Purpose;
-use alo_net::{Cause, chain::End};
+use alo_net::{Cause, Place, chain::End};
 use alo_renderer::navigate::Rule;
+use alo_window::agent_sites::AgentSites;
+use alo_window::asking::Refused;
 use alo_window::chrome::Chrome;
 use alo_window::chrome_gate::Refusal;
-use alo_window::chrome_tab::Tab;
+use alo_window::chrome_tab::{Tab, Unopened};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
@@ -431,7 +439,7 @@ fn an_agents_activate_that_navigates_names_the_action_as_its_cause() {
     assert_eq!(next.purpose(), &Purpose::Document);
     let Cause::Agent {
         action: named,
-        document: acted_in,
+        place: Place::Document(acted_in),
     } = next.cause()
     else {
         panic!("the navigation is not the agent's: {next}");
@@ -465,6 +473,107 @@ fn an_agents_activate_that_navigates_names_the_action_as_its_cause() {
     {
         let chain = entry.chain(record.documents());
         assert!(!chain.followed_from(action), "{entry}");
+    }
+}
+
+#[test]
+fn a_tab_an_agent_opened_is_its_action_in_that_tab_and_never_the_persons() {
+    let (port, log) = serve().unwrap();
+    let mut chrome = Chrome::start().unwrap();
+    let here = format!("http://127.0.0.1:{port}");
+    let there = format!("http://localhost:{port}");
+    let sites = AgentSites::named([here.as_str(), there.as_str()]).unwrap();
+
+    // An ask refused before it is accepted mints no action.
+    match Tab::open_for_agent(&mut chrome, "http://example.com/", &sites, SIZE) {
+        Err(Unopened::Refused(Refused::NotGranted { .. })) => {}
+        Err(other) => panic!("refused otherwise: {other}"),
+        Ok(_) => panic!("opened a site the agent was not given"),
+    }
+
+    let start = format!("{here}/start");
+    let mut tab = Tab::open_for_agent(&mut chrome, &start, &sites, SIZE).unwrap();
+    let action = tab.opened_by().unwrap();
+    assert_eq!(action.as_u64(), 0, "the refused ask minted an action");
+    assert_eq!(tab.acted(), None, "opening is not a verb");
+    read_until(
+        &mut tab,
+        &log,
+        &[("localhost", "/first.css"), ("127.0.0.1", "/socket")],
+        1,
+    )
+    .unwrap();
+    drop(tab);
+
+    let record = chrome.record();
+    let lines: Vec<&Entry> = record.activity().entries().collect();
+    // Both hops of the first page are the action's, done in the tab.
+    let (Some(first), Some(second)) = (lines.first(), lines.get(1)) else {
+        panic!("no navigation in {lines:#?}");
+    };
+    assert_eq!(first.url().to_string(), start);
+    assert_eq!(second.url().to_string(), format!("{there}/page.html"));
+    let Cause::Agent {
+        action: named,
+        place: Place::Tab(opened),
+    } = first.cause()
+    else {
+        panic!("the first hop is not the agent's opening: {first}");
+    };
+    assert_eq!(*named, action);
+    assert_eq!(
+        second.cause(),
+        first.cause(),
+        "a redirect is the first hop's"
+    );
+    assert!(
+        first
+            .to_string()
+            .contains(&format!("caused by {action}, in {opened}")),
+        "{first}"
+    );
+
+    // What the page asked for is the page's, and leads back to the opening
+    // and to no person.
+    let sheet = line(&lines, &format!("{there}/first.css")).unwrap();
+    let Cause::Document { document } = sheet.cause() else {
+        panic!("the sheet is not the page's: {sheet}");
+    };
+    assert_eq!(record.documents().cause_of(*document), Some(first.cause()));
+    let chain = sheet.chain(record.documents());
+    assert_eq!(chain.end(), End::Opened(action, *opened), "{chain:?}");
+    assert_eq!(chain.action(), Some(action));
+    assert_eq!(chain.person(), None, "{chain:?}");
+    assert!(chain.is_whole(), "{chain:?}");
+    for entry in &lines {
+        let chain = entry.chain(record.documents());
+        assert_eq!(chain.end(), End::Opened(action, *opened), "{entry}");
+        assert!(chain.followed_from(action), "{entry}");
+    }
+
+    // A tab the person opens is still the person's.
+    let opened = *opened;
+    let sequence = lines.iter().map(|entry| entry.sequence()).max();
+    let next = alo_url::parse(&format!("{there}/next.html")).unwrap();
+    let mut tab = Tab::open(&mut chrome, &next, SIZE).unwrap();
+    assert_eq!(tab.opened_by(), None);
+    read_until(&mut tab, &log, &[("localhost", "/next.css")], 0).unwrap();
+    drop(tab);
+    let record = chrome.record();
+    let theirs: Vec<&Entry> = record
+        .activity()
+        .entries()
+        .filter(|entry| Some(entry.sequence()) > sequence)
+        .collect();
+    let page = line(&theirs, &next.to_string()).unwrap();
+    let Cause::Person { tab: person } = page.cause() else {
+        panic!("the person's page is not theirs: {page}");
+    };
+    assert_ne!(*person, opened);
+    for entry in &theirs {
+        let chain = entry.chain(record.documents());
+        assert_eq!(chain.end(), End::Person(*person), "{entry}");
+        assert!(chain.action().is_none(), "no agent here: {entry}");
     }
 }
 

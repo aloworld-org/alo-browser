@@ -17,7 +17,7 @@ use alo_grants::{
 };
 use alo_net::Partition;
 use alo_net::cause::{DocumentId, Identities};
-use alo_net::{Cause, deed::Link};
+use alo_net::{Cause, Place, deed::Link};
 use alo_storage::StorageKey;
 use alo_url::Origin;
 use std::fs;
@@ -89,7 +89,7 @@ impl Browser {
     fn agent_in(&mut self, document: DocumentId) -> Cause {
         Cause::Agent {
             action: self.minting.an_action(),
-            document,
+            place: Place::Document(document),
         }
     }
 

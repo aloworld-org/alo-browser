@@ -19,7 +19,12 @@
 //! process did to the tab:
 //!
 //! - **The tab's first page is the person's** ([`Cause::Person`]): this
-//!   process opened it ([`crate::chrome_tab::Tab::open`]).
+//!   process opened it ([`crate::chrome_tab::Tab::open`]) — unless an agent
+//!   asked for the tab ([`crate::chrome_tab::Tab::open_for_agent`]), and
+//!   then it is the agent's, by the action minted when the ask was
+//!   accepted, done in the tab rather than in a document ([`Place::Tab`],
+//!   ADR 0063). So a page in such a tab, and everything it asks for, leads
+//!   back to that action and not to the person.
 //! - **While a verb is being carried out, the tab's requests are the
 //!   agent's** ([`Cause::Agent`]), by the action minted when the verb was
 //!   accepted ([`crate::chrome_act`]), in the document it acted in.
@@ -71,13 +76,9 @@
 //!   ([`Happened::LetGo`]), never a status this browser did not read.
 //! - **A frozen page is not recorded**: it reaches no network, and what it
 //!   asked for is [`crate::chrome_tab::Tab::refused`].
-//! - **A tab an agent asked to open** ([`crate::chrome_tab::Tab::open_for_agent`])
-//!   has its first page recorded as the person's, whose tab it is. ADR
-//!   0063 decides it is the agent's action, done in that tab rather than
-//!   in a document; building that is queue item 638.
 
 use alo_net::activity::{Activity, Happened};
-use alo_net::cause::{ActionId, Cause, DocumentId, Identities, TabId};
+use alo_net::cause::{ActionId, Cause, DocumentId, Identities, Place, TabId};
 use alo_net::chain::Documents;
 use alo_net::request::{Purpose, Request};
 use alo_url::Url;
@@ -220,7 +221,10 @@ struct Frame {
 /// the whole truth.
 #[derive(Debug)]
 pub struct Causes {
-    tab: TabId,
+    /// What caused the tab's first page: the person, or the agent's ask
+    /// that opened the tab (ADR 0063). What its own frame and its frames ask
+    /// for before any document is in them is caused by it too.
+    first: Cause,
     /// The tab's own frame, by Chrome's id: the tab's target id.
     own: String,
     /// Every frame remembered, by Chrome's id, the tab's own among them.
@@ -246,8 +250,26 @@ impl Causes {
     /// A tab this process opened, `tab`, whose own frame Chrome names
     /// `own`: its first page is the person's.
     pub fn of(tab: TabId, own: &str) -> Self {
+        Self::beginning_with(Cause::Person { tab }, own)
+    }
+
+    /// A tab opened as `action`, an agent's ask, `tab`, whose own frame
+    /// Chrome names `own`: its first page is that action's, done in the tab
+    /// (ADR 0063).
+    pub fn opened_by(action: ActionId, tab: TabId, own: &str) -> Self {
+        Self::beginning_with(
+            Cause::Agent {
+                action,
+                place: Place::Tab(tab),
+            },
+            own,
+        )
+    }
+
+    /// A tab whose first page `first` caused.
+    fn beginning_with(first: Cause, own: &str) -> Self {
         Self {
-            tab,
+            first,
             own: own.to_owned(),
             frames: HashMap::from([(own.to_owned(), Frame::default())]),
             acting: None,
@@ -342,7 +364,7 @@ impl Causes {
                 None => break,
             }
         }
-        Cause::Person { tab: self.tab }
+        self.first.clone()
     }
 
     /// The document the tab's own frame holds, once one has committed.
@@ -366,7 +388,10 @@ impl Causes {
         {
             this.asked = Some((
                 without_fragment(url).to_owned(),
-                Cause::Agent { action, document },
+                Cause::Agent {
+                    action,
+                    place: Place::Document(document),
+                },
             ));
         }
     }
@@ -425,14 +450,17 @@ impl Causes {
     /// carried out in it, and otherwise its own.
     fn in_document(&self, document: DocumentId) -> Cause {
         match self.acting_in(document) {
-            Some(action) => Cause::Agent { action, document },
+            Some(action) => Cause::Agent {
+                action,
+                place: Place::Document(document),
+            },
             None => Cause::Document { document },
         }
     }
 
     /// The cause of a navigation of the frame `frame` nothing asked for while
     /// a verb was carried out: what the document it holds asks for, when it
-    /// holds one; for the tab's own frame's first, the person's; and for
+    /// holds one; for the tab's own frame's first, what opened the tab; and for
     /// another frame's first, what the frame holding it asks for.
     fn of_navigation(&self, frame: &str) -> Cause {
         let Some(this) = self.frames.get(frame) else {
@@ -441,7 +469,7 @@ impl Causes {
         match (this.page, &this.holder) {
             (Some(document), _) => self.in_document(document),
             (None, Some(holder)) => self.of_frame(holder),
-            (None, None) => Cause::Person { tab: self.tab },
+            (None, None) => self.first.clone(),
         }
     }
 
@@ -514,6 +542,40 @@ mod tests {
         ] {
             assert_eq!(purpose_of(kind), Purpose::Unnamed, "{kind}");
         }
+    }
+
+    /// ADR 0063: a tab an agent asked for. Its first page's every hop is
+    /// the action's, in the tab; what the page asks for is the page's, whose
+    /// chain ends at the action and the tab — never at the person.
+    #[test]
+    fn a_tab_an_agent_opened_begins_with_its_action_and_not_the_person() {
+        let mut record = Record::default();
+        let tab = record.a_tab();
+        let action = record.an_action();
+        let opening = Cause::Agent {
+            action,
+            place: Place::Tab(tab),
+        };
+        let mut causes = Causes::opened_by(action, tab, "T");
+        assert_eq!(causes.of_page(), opening, "before anything has arrived");
+        let first = causes.of_request(&mut record, "T", "http://a/start", Hop::First);
+        assert_eq!(first, opening);
+        let hop = causes.of_request(&mut record, "T", "http://b/page", Hop::Redirected);
+        assert_eq!(
+            hop, opening,
+            "a redirect is whatever asked for the first hop"
+        );
+        causes.committed(&mut record, "T");
+        let sheet = causes.of_request(&mut record, "T", "http://b/s.css", Hop::None);
+        let Cause::Document { document } = sheet else {
+            panic!("a page's sheet is not the page's: {sheet}");
+        };
+        assert_eq!(record.documents().cause_of(document), Some(&opening));
+        let chain = record.documents().chain(&sheet);
+        assert_eq!(chain.end(), End::Opened(action, tab));
+        assert_eq!(chain.action(), Some(action));
+        assert_eq!(chain.person(), None, "{chain}");
+        assert!(chain.is_whole());
     }
 
     #[test]
@@ -828,7 +890,7 @@ mod tests {
             causes.of_request(&mut record, "F", "http://b/f", Hop::None),
             Cause::Agent {
                 action,
-                document: frame
+                place: Place::Document(frame)
             }
         );
         // A link in the frame, followed after the verb has answered, is
@@ -850,7 +912,7 @@ mod tests {
             going,
             Cause::Agent {
                 action,
-                document: frame
+                place: Place::Document(frame)
             }
         );
         causes.committed(&mut record, "F");

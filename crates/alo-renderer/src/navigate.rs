@@ -401,7 +401,7 @@ pub fn decide(asked: &Asked, from: &Url, policies: &Policies, cause: Cause) -> D
 mod tests {
     use alo_bindings::navigating::Submission;
     use alo_dom::submission::{Entry, Value};
-    use alo_net::cause::{DocumentId, Identities};
+    use alo_net::cause::{DocumentId, Identities, Place};
 
     use super::*;
 
@@ -544,7 +544,10 @@ mod tests {
         let action = identities.an_action();
         let mut asked = asking("https://example.com/next");
         asked.by = By::Browser;
-        let cause = Cause::Agent { action, document };
+        let cause = Cause::Agent {
+            action,
+            place: Place::Document(document),
+        };
         let Decided::Go(navigation) = decide(
             &asked,
             &from("https://example.com/"),

@@ -130,6 +130,8 @@ pub struct Tab<'c> {
     closed: HashSet<String>,
     /// What caused what in this tab, which each line of the record names.
     causes: Causes,
+    /// The agent's ask that opened the tab, when an agent asked.
+    opened_by: Option<ActionId>,
     /// The last verb accepted on the tab.
     acted: Option<ActionId>,
     /// What the page's script has said while the verb running is heard
@@ -228,7 +230,7 @@ impl<'c> Tab<'c> {
         page: Vec<u8>,
         size: (u32, u32),
     ) -> Result<Self, Unopened> {
-        Self::begin(chrome, url, Kept::Frozen(page), size)
+        Self::begin(chrome, url, Kept::Frozen(page), None, size)
     }
 
     /// Open the page at `address`, an `http` or `https` one, through
@@ -241,16 +243,18 @@ impl<'c> Tab<'c> {
     /// [`Unopened::NotTheNetwork`] for any other address, before anything is
     /// written to Chrome; or an [`Unopened`] as [`Tab::open_frozen`] says.
     pub fn open(chrome: &'c mut Chrome, address: &Url, size: (u32, u32)) -> Result<Self, Unopened> {
-        if !matches!(address.scheme.as_str(), "http" | "https") {
-            return Err(Unopened::NotTheNetwork {
-                scheme: address.scheme.clone(),
-            });
-        }
-        Self::begin(chrome, &address.to_string(), Kept::Network, size)
+        on_the_network(address)?;
+        Self::begin(chrome, &address.to_string(), Kept::Network, None, size)
     }
 
     /// Open the page at `address`, which an agent named, as [`Tab::open`]
     /// does — when an agent kept to `sites` may reach it.
+    ///
+    /// The ask is an agent action (ADR 0063), minted once it is accepted —
+    /// the address parsed, on the network and within the agent's sites —
+    /// and before Chrome is told anything: the tab's first page is caused by
+    /// it, done in the tab, and [`Tab::opened_by`] names it. An ask refused
+    /// before then mints nothing.
     ///
     /// # Errors
     ///
@@ -274,14 +278,18 @@ impl<'c> Tab<'c> {
                 site,
             }));
         }
-        Self::open(chrome, &url, size)
+        on_the_network(&url)?;
+        let action = chrome.record_mut().an_action();
+        Self::begin(chrome, &url.to_string(), Kept::Network, Some(action), size)
     }
 
-    /// A tab at `url`, answered from `kept`, loaded.
+    /// A tab at `url`, answered from `kept`, loaded: opened as `opening`,
+    /// an agent's ask, or by the person when [`None`].
     fn begin(
         chrome: &'c mut Chrome,
         url: &str,
         kept: Kept,
+        opening: Option<ActionId>,
         (width, height): (u32, u32),
     ) -> Result<Self, Unopened> {
         let target = if chrome.is_shown() {
@@ -305,7 +313,11 @@ impl<'c> Tab<'c> {
                 return Err(why.into());
             }
         };
-        let causes = Causes::of(chrome.record_mut().a_tab(), &target);
+        let tab = chrome.record_mut().a_tab();
+        let causes = match opening {
+            Some(action) => Causes::opened_by(action, tab, &target),
+            None => Causes::of(tab, &target),
+        };
         // From here the tab is closed when this is dropped, whatever fails.
         let mut tab = Self {
             chrome,
@@ -323,6 +335,7 @@ impl<'c> Tab<'c> {
             within: Vec::new(),
             closed: HashSet::new(),
             causes,
+            opened_by: opening,
             acted: None,
             heard: None,
             hearing: Vec::new(),
@@ -376,6 +389,14 @@ impl<'c> Tab<'c> {
     /// without being decided (ADR 0060 § 3), and in the record as such.
     pub fn sockets(&self) -> &[String] {
         &self.sockets
+    }
+
+    /// The action an agent's ask to open this tab was minted as, when it
+    /// was opened at an agent's word ([`Tab::open_for_agent`]): what the
+    /// record names as the cause of its first page (ADR 0063). [`None`] for
+    /// a tab the person opened.
+    pub fn opened_by(&self) -> Option<ActionId> {
+        self.opened_by
     }
 
     /// The action the last verb accepted on this tab was minted as: what
@@ -1216,6 +1237,18 @@ impl<'c> Tab<'c> {
 
 /// Whether a message through a session held as `held` is one a frame of the
 /// tab tells of: the tab's own, or a frame of it in a target of its own.
+/// Whether `address` is a page from the network, which is all
+/// [`Tab::open`] and [`Tab::open_for_agent`] open.
+fn on_the_network(address: &Url) -> Result<(), Unopened> {
+    if matches!(address.scheme.as_str(), "http" | "https") {
+        Ok(())
+    } else {
+        Err(Unopened::NotTheNetwork {
+            scheme: address.scheme.clone(),
+        })
+    }
+}
+
 fn is_a_frames(held: Option<Kind>) -> bool {
     matches!(held, Some(Kind::Page | Kind::Frame))
 }

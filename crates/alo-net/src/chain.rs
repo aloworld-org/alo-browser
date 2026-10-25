@@ -12,8 +12,10 @@
 //!
 //! [`crate::cause`] carries one link. This file is the rest of the chain: a
 //! [`Documents`] holds what caused each document's load, and [`Documents::chain`]
-//! walks from a request's [`Cause`] to the person at the far end of it,
-//! naming every action it passes through on the way.
+//! walks from a request's [`Cause`] to the person at the far end of it — or
+//! to the agent action that opened the tab, which is where a chain begins
+//! for a tab an agent asked for (ADR 0063) — naming every action it passes
+//! through on the way.
 //!
 //! # Walked, never assembled
 //!
@@ -52,7 +54,7 @@
 //! longer do* and *nobody ever said* are different answers and a record that
 //! ran them together would be guessing in the one place that exists not to.
 
-use crate::cause::{ActionId, Cause, DocumentId, Identities, TabId};
+use crate::cause::{ActionId, Cause, DocumentId, Identities, Place, TabId};
 use core::fmt;
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -144,7 +146,18 @@ impl Documents {
                 // The far end: a navigation happens in a tab rather than in a
                 // page, so there is nothing above it to ask about.
                 Cause::Person { tab } => return Chain::ending(links, End::Person(tab)),
-                Cause::Document { document } | Cause::Agent { document, .. } => document,
+                // The same for an agent's open of a tab (ADR 0063 § 2): it
+                // made the document rather than acting in one. The person who
+                // asked the agent is outside the record, as for every verb.
+                Cause::Agent {
+                    action,
+                    place: Place::Tab(tab),
+                } => return Chain::ending(links, End::Opened(action, tab)),
+                Cause::Document { document }
+                | Cause::Agent {
+                    place: Place::Document(document),
+                    ..
+                } => document,
             };
             if !through.insert(document) {
                 return Chain::ending(links, End::CameRound(document));
@@ -176,6 +189,10 @@ impl Documents {
 pub enum End {
     /// A person's own navigation, in this tab. Where a whole chain ends.
     Person(TabId),
+    /// An agent's ask to open this tab, as this action. Where a whole chain
+    /// ends as surely as at a person: nothing caused the tab's first page
+    /// but the action (ADR 0063 § 2).
+    Opened(ActionId, TabId),
     /// This document's cause was remembered and has since been dropped under
     /// [`MOST_DOCUMENTS`].
     Forgotten(DocumentId),
@@ -197,6 +214,7 @@ impl fmt::Display for End {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             End::Person(tab) => write!(f, "the person, in {tab}"),
+            End::Opened(action, tab) => write!(f, "{action}, in {tab}"),
             End::Forgotten(document) => {
                 write!(f, "what caused {document} is no longer remembered")
             }
@@ -261,16 +279,20 @@ impl Chain {
 
     /// The tab a person's navigation started this in, when the walk reached
     /// one.
+    ///
+    /// [`None`] for a chain that ends at an agent's open of a tab: that tab
+    /// is the person's, and what started this in it was not (ADR 0063 § 3).
     pub fn person(&self) -> Option<TabId> {
         match self.end {
             End::Person(tab) => Some(tab),
-            End::Forgotten(_) | End::Unrecorded(_) | End::CameRound(_) => None,
+            End::Opened(..) | End::Forgotten(_) | End::Unrecorded(_) | End::CameRound(_) => None,
         }
     }
 
-    /// Whether the walk reached a person rather than running out of record.
+    /// Whether the walk reached where a chain begins — a person, or an
+    /// agent's open of a tab — rather than running out of record.
     pub fn is_whole(&self) -> bool {
-        matches!(self.end, End::Person(_))
+        matches!(self.end, End::Person(_) | End::Opened(..))
     }
 }
 
@@ -288,7 +310,7 @@ impl fmt::Display for Chain {
             // The last link already said it: a chain that reached a person
             // ends in that person, and saying so twice would read as two
             // navigations rather than one.
-            End::Person(_) => Ok(()),
+            End::Person(_) | End::Opened(..) => Ok(()),
             end => write!(f, " — {end}"),
         }
     }
@@ -319,7 +341,7 @@ mod tests {
             &mut minting,
             Cause::Agent {
                 action,
-                document: read,
+                place: Place::Document(read),
             },
         );
 
@@ -366,7 +388,7 @@ mod tests {
             &mut minting,
             Cause::Agent {
                 action: first,
-                document: first_page,
+                place: Place::Document(first_page),
             },
         );
         let second = minting.an_action();
@@ -374,7 +396,7 @@ mod tests {
             &mut minting,
             Cause::Agent {
                 action: second,
-                document: second_page,
+                place: Place::Document(second_page),
             },
         );
 
@@ -400,6 +422,38 @@ mod tests {
         assert_eq!(chain.links().len(), 1);
         assert_eq!(chain.end(), End::Person(tab));
         assert_eq!(chain.to_string(), "the person, in tab#0");
+    }
+
+    /// ADR 0063: a tab an agent opened. Its first page is caused by the
+    /// action in that tab, what the page asks for is the page's, and the walk
+    /// from a script the page fetched ends at the action and the tab — never
+    /// at the person, whose tab it still is.
+    #[test]
+    fn a_page_in_a_tab_an_agent_opened_leads_back_to_the_opening_and_not_the_person() {
+        let (mut minting, mut documents) = browser();
+        let tab = minting.a_tab();
+        let action = minting.an_action();
+        let opening = Cause::Agent {
+            action,
+            place: Place::Tab(tab),
+        };
+        let page = documents.opened(&mut minting, opening.clone());
+
+        let first = documents.chain(&opening);
+        assert_eq!(first.links().len(), 1, "{first}");
+        assert_eq!(first.end(), End::Opened(action, tab));
+        assert_eq!(first.to_string(), "action#0, in tab#0");
+
+        let script = documents.chain(&Cause::Document { document: page });
+        assert_eq!(script.action(), Some(action), "{script}");
+        assert!(script.followed_from(action));
+        assert!(script.is_whole(), "the chain began somewhere: {script}");
+        assert_eq!(script.person(), None, "nobody asked but the agent");
+        assert_eq!(script.end(), End::Opened(action, tab));
+        assert_eq!(
+            script.to_string(),
+            "document#0, caused by action#0, in tab#0",
+        );
     }
 
     // --- What the walk does not trust ---------------------------------------
@@ -517,7 +571,7 @@ mod tests {
             &mut minting,
             Cause::Agent {
                 action,
-                document: page,
+                place: Place::Document(page),
             },
         );
 

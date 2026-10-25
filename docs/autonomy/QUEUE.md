@@ -16490,7 +16490,7 @@ What stage 2's exit gate actually measures: a person using it.
   cause is the person. Two mutations (a shared worker told of by Chrome
   ignored; one not told to pause) each fail it.
 
-- [ ] **638. Whose is a page an agent asked a tab to open.** *Found building
+- [x] **638. Whose is a page an agent asked a tab to open.** *Found building
   634 (iteration 375); ADR 0012 § 2, ADR 0055.* `Tab::open_for_agent`
   (633) opens a tab at an address an agent named, and ADR 0012's three
   causes have no place for it: a person did not ask, and an agent action
@@ -16517,6 +16517,25 @@ What stage 2's exit gate actually measures: a person using it.
   action — and the test reading the line back. Whether the socket offers
   an agent a way to open a tab is not decided there (ADR 0055's contract
   has none).
+  **Done (2026-10-25, iteration 396).** `alo-net`'s `Cause::Agent` carries
+  a `Place` — the document a verb acted in, or the tab an agent's open
+  made — and `Cause::in_document` answers `None` for the second; the
+  chain walk ends there (`End::Opened(action, tab)`), whole, with
+  `Chain::action` and `followed_from` finding the action and `person()`
+  answering `None`. The durable record freezes both (`deed::Where`, link
+  tag 3, ending tag 4) and `alo-grants`' history file writes an agent
+  link in a tab as tag 4; neither format's version changed, since only
+  new tags were added. `Tab::open_for_agent` mints its action once the
+  address parses, is on the network and is within the agent's sites, and
+  before Chrome is told anything; `Causes::opened_by` begins the tab with
+  it and `Tab::opened_by` names it. Read back from real Chrome in
+  `every_request_of_a_page_in_chrome_recorded`'s
+  `a_tab_an_agent_opened_is_its_action_in_that_tab_and_never_the_persons`:
+  a refused ask first, then both hops of `/start`'s first page the
+  action's in the tab, the sheet's chain ending at the action and tab,
+  no line ending at the person, and a tab the person opens after it the
+  person's. Not built: the engine's renderer has no agent open, and the
+  socket offers none (ADR 0063 leaves both undecided).
 
 - [x] **639. What a page's script said while a verb ran, through Chrome.**
   *Cut from 630; ADR 0055, `docs/contracts/agent-socket.md`.* An answer's

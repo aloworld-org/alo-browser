@@ -22,7 +22,7 @@ use alo_agent::{Outcome, Target, Verb};
 use alo_dom::submission::Method;
 use alo_layout::Size;
 use alo_net::activity::{Activity, Happened};
-use alo_net::cause::{ActionId, Cause, DocumentId};
+use alo_net::cause::{ActionId, Cause, DocumentId, Place};
 use alo_renderer::host::Renderers;
 use alo_renderer::navigate::{Decided, Rule};
 use alo_renderer::tab::{Tab, TabId, Tabs};
@@ -140,7 +140,13 @@ fn the_pizza_form_is_sent_by_post_with_chromes_body_as_the_agents() {
     let (Some(action), Some(document)) = (action, document_of(&tabs, tab)) else {
         panic!("no action or no document");
     };
-    assert_eq!(navigation.cause, Cause::Agent { action, document });
+    assert_eq!(
+        navigation.cause,
+        Cause::Agent {
+            action,
+            place: Place::Document(document)
+        }
+    );
     assert_eq!(navigation.url, url("https://httpbin.org/post"));
     assert_eq!(navigation.method, Method::Post);
     let Some(body) = navigation.body.as_ref() else {
@@ -199,7 +205,13 @@ fn the_booking_form_is_sent_by_get_with_the_day_as_its_query() {
     let (Some(action), Some(document)) = (action, document_of(&tabs, tab)) else {
         panic!("no action or no document");
     };
-    assert_eq!(navigation.cause, Cause::Agent { action, document });
+    assert_eq!(
+        navigation.cause,
+        Cause::Agent {
+            action,
+            place: Place::Document(document)
+        }
+    );
 }
 
 /// A small page at `at` with one form, sent by `method` to `action`, with
@@ -273,7 +285,13 @@ fn an_http_action_from_an_https_page_is_refused_said_and_recorded() {
         panic!("no action or no document");
     };
     assert_eq!(refusal.rule, Rule::Insecure);
-    assert_eq!(refusal.cause, Cause::Agent { action, document });
+    assert_eq!(
+        refusal.cause,
+        Cause::Agent {
+            action,
+            place: Place::Document(document)
+        }
+    );
     let said = refusal.to_string();
     assert!(
         said.contains("refused") && said.contains("anybody on the network"),
@@ -291,7 +309,13 @@ fn an_http_action_from_an_https_page_is_refused_said_and_recorded() {
     };
     assert_eq!(line.method(), "POST");
     assert_eq!(line.url().serialised, "http://shop.example/login");
-    assert_eq!(line.cause(), &Cause::Agent { action, document });
+    assert_eq!(
+        line.cause(),
+        &Cause::Agent {
+            action,
+            place: Place::Document(document)
+        }
+    );
     assert!(
         matches!(line.happened(), Happened::Refused { rule } if rule.contains("network")),
         "{line:?}"

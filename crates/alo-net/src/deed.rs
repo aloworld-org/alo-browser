@@ -60,7 +60,7 @@
 
 use crate::activity::{Entry, Happened};
 use crate::bytes::{Reader, Unreadable, Writer, unreadable};
-use crate::cause::Cause;
+use crate::cause::{Cause, Place};
 use crate::chain::{Chain, End};
 use crate::request::Purpose;
 use crate::response::Status;
@@ -78,6 +78,10 @@ pub const MAGIC: [u8; 8] = *b"alodeeds";
 /// a cache miss is fetched again and a record nobody can read is a piece of
 /// somebody's history that is not there. [`crate::kept`] counts them and says
 /// how many.
+///
+/// Still 1 after ADR 0063 gave a frozen agent action a tab as its place and a
+/// walk an ending there: those are tags this format never wrote before, so
+/// every file written earlier reads exactly as it did.
 pub const VERSION: u16 = 1;
 
 /// The bytes before the checksummed part: magic, version, the durable number,
@@ -107,13 +111,43 @@ pub enum Link {
         /// What that session called the document.
         document: u64,
     },
-    /// A verb this engine performed on an agent's behalf.
+    /// Something this engine did on an agent's behalf: a verb, or opening a
+    /// tab (ADR 0063).
     Agent {
         /// What that session called the action.
         action: u64,
-        /// The document it acted in.
-        document: u64,
+        /// Where it was done.
+        place: Where,
     },
+}
+
+/// Where a frozen agent action was done: [`Place`] with its identity
+/// flattened, for [`Link`]'s reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Where {
+    /// The document a verb acted in, by what that session called it.
+    Document(u64),
+    /// The tab an agent's open made, by what that session called it.
+    Tab(u64),
+}
+
+impl Where {
+    /// The frozen form of a live place.
+    pub fn of(place: Place) -> Self {
+        match place {
+            Place::Document(document) => Where::Document(document.as_u64()),
+            Place::Tab(tab) => Where::Tab(tab.as_u64()),
+        }
+    }
+}
+
+impl fmt::Display for Where {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Where::Document(document) => write!(f, "document#{document}"),
+            Where::Tab(tab) => write!(f, "tab#{tab}"),
+        }
+    }
 }
 
 impl Link {
@@ -124,9 +158,9 @@ impl Link {
             Cause::Document { document } => Link::Document {
                 document: document.as_u64(),
             },
-            Cause::Agent { action, document } => Link::Agent {
+            Cause::Agent { action, place } => Link::Agent {
                 action: action.as_u64(),
-                document: document.as_u64(),
+                place: Where::of(*place),
             },
         }
     }
@@ -147,9 +181,7 @@ impl fmt::Display for Link {
         match self {
             Link::Person { tab } => write!(f, "the person, in tab#{tab}"),
             Link::Document { document } => write!(f, "document#{document}"),
-            Link::Agent { action, document } => {
-                write!(f, "action#{action}, in document#{document}")
-            }
+            Link::Agent { action, place } => write!(f, "action#{action}, in {place}"),
         }
     }
 }
@@ -161,6 +193,14 @@ impl fmt::Display for Link {
 pub enum Ended {
     /// A person's own navigation, in this tab. Where a whole chain ends.
     Person {
+        /// What that session called the tab.
+        tab: u64,
+    },
+    /// An agent's ask to open this tab, as this action. Where a whole chain
+    /// ends too (ADR 0063 § 2).
+    Opened {
+        /// What that session called the action.
+        action: u64,
         /// What that session called the tab.
         tab: u64,
     },
@@ -187,6 +227,10 @@ impl Ended {
     pub fn of(end: End) -> Self {
         match end {
             End::Person(tab) => Ended::Person { tab: tab.as_u64() },
+            End::Opened(action, tab) => Ended::Opened {
+                action: action.as_u64(),
+                tab: tab.as_u64(),
+            },
             End::Forgotten(document) => Ended::Forgotten {
                 document: document.as_u64(),
             },
@@ -199,9 +243,10 @@ impl Ended {
         }
     }
 
-    /// Whether the walk reached a person rather than running out of record.
+    /// Whether the walk reached where a chain begins — a person, or an
+    /// agent's open of a tab — rather than running out of record.
     pub fn is_whole(self) -> bool {
-        matches!(self, Ended::Person { .. })
+        matches!(self, Ended::Person { .. } | Ended::Opened { .. })
     }
 }
 
@@ -209,6 +254,7 @@ impl fmt::Display for Ended {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Ended::Person { tab } => write!(f, "the person, in tab#{tab}"),
+            Ended::Opened { action, tab } => write!(f, "action#{action}, in tab#{tab}"),
             Ended::Forgotten { document } => {
                 write!(f, "what caused document#{document} is no longer remembered")
             }
@@ -437,10 +483,21 @@ pub fn encode(deed: &Deed) -> Vec<u8> {
                     body.tag(1);
                     body.number(*document);
                 }
-                Link::Agent { action, document } => {
+                Link::Agent {
+                    action,
+                    place: Where::Document(document),
+                } => {
                     body.tag(2);
                     body.number(*action);
                     body.number(*document);
+                }
+                Link::Agent {
+                    action,
+                    place: Where::Tab(tab),
+                } => {
+                    body.tag(3);
+                    body.number(*action);
+                    body.number(*tab);
                 }
             }
         }
@@ -460,6 +517,11 @@ pub fn encode(deed: &Deed) -> Vec<u8> {
             Ended::CameRound { document } => {
                 body.tag(3);
                 body.number(document);
+            }
+            Ended::Opened { action, tab } => {
+                body.tag(4);
+                body.number(action);
+                body.number(tab);
             }
         }
         body.text(&did.method);
@@ -601,7 +663,11 @@ fn one_request(reader: &mut Reader<'_>) -> Result<Did, Unreadable> {
             },
             2 => Link::Agent {
                 action: reader.number()?,
-                document: reader.number()?,
+                place: Where::Document(reader.number()?),
+            },
+            3 => Link::Agent {
+                action: reader.number()?,
+                place: Where::Tab(reader.number()?),
             },
             other => {
                 return Err(unreadable(format!(
@@ -629,6 +695,10 @@ fn one_request(reader: &mut Reader<'_>) -> Result<Did, Unreadable> {
         },
         3 => Ended::CameRound {
             document: reader.number()?,
+        },
+        4 => Ended::Opened {
+            action: reader.number()?,
+            tab: reader.number()?,
         },
         other => {
             return Err(unreadable(format!(
@@ -765,7 +835,7 @@ mod tests {
                         Link::Document { document: 4 },
                         Link::Agent {
                             action: 3,
-                            document: 1,
+                            place: Where::Document(1),
                         },
                         Link::Person { tab: 0 },
                     ],
@@ -784,7 +854,7 @@ mod tests {
                     at: moment(1_700_000_005),
                     chain: vec![Link::Agent {
                         action: 3,
-                        document: 1,
+                        place: Where::Document(1),
                     }],
                     ended: Ended::Forgotten { document: 1 },
                     method: "POST".to_owned(),
@@ -796,6 +866,24 @@ mod tests {
                     happened: Happened::Refused {
                         rule: "redirected in a circle".to_owned(),
                     },
+                },
+                // ADR 0063: a page in a tab an agent opened.
+                Did {
+                    at: moment(1_700_000_009),
+                    chain: vec![
+                        Link::Document { document: 6 },
+                        Link::Agent {
+                            action: 3,
+                            place: Where::Tab(2),
+                        },
+                    ],
+                    ended: Ended::Opened { action: 3, tab: 2 },
+                    method: "GET".to_owned(),
+                    url: Address::Whole {
+                        url: "https://example.com/app.css".to_owned(),
+                    },
+                    purpose: Purpose::Style,
+                    happened: Happened::LetGo,
                 },
             ],
         }
@@ -865,6 +953,7 @@ mod tests {
     fn every_ending_survives_the_disk_as_the_one_it_was() {
         for ended in [
             Ended::Person { tab: 9 },
+            Ended::Opened { action: 9, tab: 9 },
             Ended::Forgotten { document: 9 },
             Ended::Unrecorded { document: 9 },
             Ended::CameRound { document: 9 },
@@ -893,7 +982,7 @@ mod tests {
             &mut minting,
             Cause::Agent {
                 action,
-                document: read,
+                place: Place::Document(read),
             },
         );
         let mut record = Activity::new();
@@ -926,6 +1015,53 @@ mod tests {
             decode(&encode(&a_deed_of(did))).map(|read| read.requests.len()),
             Ok(1)
         );
+    }
+
+    /// ADR 0063: a line of a page in a tab an agent opened, frozen from the
+    /// walk, says the agent's action in that tab and never the person — and
+    /// comes off the disk saying the same.
+    #[test]
+    fn a_frozen_line_of_a_tab_an_agent_opened_names_the_opening() {
+        let mut minting = Identities::default();
+        let mut documents = Documents::default();
+        let tab = minting.a_tab();
+        let action = minting.an_action();
+        let page = documents.opened(
+            &mut minting,
+            Cause::Agent {
+                action,
+                place: Place::Tab(tab),
+            },
+        );
+        let mut record = Activity::new();
+        let url = alo_url::parse("https://example.com/app.js").expect("a URL");
+        record.happened(
+            &Request::get(url, Cause::Document { document: page }).for_purpose(Purpose::Script),
+            moment(1),
+            Happened::LetGo,
+        );
+        let Some(line) = record.latest() else {
+            panic!("nothing was written down");
+        };
+        let did = Did::of(line, &line.chain(&documents));
+
+        assert_eq!(did.action(), Some(action.as_u64()));
+        assert_eq!(
+            did.ended,
+            Ended::Opened {
+                action: action.as_u64(),
+                tab: tab.as_u64()
+            }
+        );
+        assert!(did.ended.is_whole());
+        let said = did.to_string();
+        assert!(
+            said.contains("caused by document#0, caused by action#0, in tab#0"),
+            "{said}",
+        );
+        assert!(!said.contains("the person"), "{said}");
+        let read = decode(&encode(&a_deed_of(did.clone()))).expect("a record");
+        assert_eq!(read.requests, vec![did]);
     }
 
     fn a_deed_of(did: Did) -> Deed {

@@ -14,7 +14,7 @@
 //! the network.
 
 use alo_net::activity::{Entry, Happened};
-use alo_net::cause::{Cause, Identities};
+use alo_net::cause::{Cause, Identities, Place};
 use alo_net::chain::Documents;
 use alo_net::{Partition, Pool, Purpose, Request, Trust};
 use std::io::{Read, Write};
@@ -278,7 +278,7 @@ fn an_agents_work_is_reachable_from_every_line_that_followed_from_it() {
         &mut minting,
         Cause::Agent {
             action,
-            document: read,
+            place: Place::Document(read),
         },
     );
     let mut pool = pool();

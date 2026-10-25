@@ -22,7 +22,7 @@ use alo_agent::{Outcome, Target, Verb};
 use alo_dom::{Document, NodeId};
 use alo_layout::Size;
 use alo_net::activity::{Activity, Happened};
-use alo_net::cause::Cause;
+use alo_net::cause::{Cause, Place};
 use alo_renderer::ask::{Asked, By};
 use alo_renderer::host::Renderers;
 use alo_renderer::navigate::{Decided, Rule};
@@ -514,7 +514,13 @@ fn inside_an_agents_activate_the_same_click_is_the_agents() {
         panic!("the listener's click did not reach the caller");
     };
     assert_eq!(navigation.url, url("https://shop.example/basket"));
-    assert_eq!(navigation.cause, Cause::Agent { action, document });
+    assert_eq!(
+        navigation.cause,
+        Cause::Agent {
+            action,
+            place: Place::Document(document)
+        }
+    );
     assert_eq!(navigation.by, By::Script, "the claim is kept beside it");
 
     // An act whose answer asks for nothing leaves nothing waiting.

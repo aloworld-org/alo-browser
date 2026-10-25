@@ -496,7 +496,7 @@ fn shortened(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cause::{Identities, TabId};
+    use crate::cause::{Identities, Place, TabId};
     use crate::headers::Headers;
     use std::time::Duration;
 
@@ -666,7 +666,10 @@ mod tests {
         record.happened(
             &asked_for(
                 "https://example.com/next",
-                Cause::Agent { action, document },
+                Cause::Agent {
+                    action,
+                    place: Place::Document(document),
+                },
             )
             .for_purpose(Purpose::Fetch),
             moment(1),
@@ -699,7 +702,7 @@ mod tests {
             &mut minting,
             Cause::Agent {
                 action,
-                document: read,
+                place: Place::Document(read),
             },
         );
         let mut record = Activity::new();

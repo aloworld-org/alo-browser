@@ -138,25 +138,62 @@ pub enum Cause {
         /// disagree with it.
         document: DocumentId,
     },
-    /// A verb this engine performed on an agent's behalf.
+    /// Something this engine did on an agent's behalf: a verb, or opening a
+    /// tab at an address the agent named (ADR 0063).
     Agent {
-        /// The action, by the identity minted when the verb was accepted.
+        /// The action, by the identity minted when it was accepted.
         action: ActionId,
-        /// The document it acted in.
-        document: DocumentId,
+        /// Where it was done: the document a verb acted in, or the tab an
+        /// agent's open made.
+        place: Place,
     },
+}
+
+/// Where an agent action was done.
+///
+/// ADR 0063 § 2: who caused a request is one of three, and **where** an agent
+/// action happened is one of two. A verb acts in a document. An agent's ask
+/// to open a tab acts in none — it makes the document rather than acting in
+/// one, as a person's navigation does — so it happens in the tab it opened.
+/// That is a place rather than a fourth cause, because an agent is an agent
+/// whether it clicked or opened, and every reader that asks *did an agent do
+/// this* would otherwise have a second variant to remember.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Place {
+    /// The document a verb acted in.
+    Document(DocumentId),
+    /// The tab an agent's open made, before any document was in it.
+    Tab(TabId),
+}
+
+impl fmt::Display for Place {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Place::Document(document) => document.fmt(f),
+            Place::Tab(tab) => tab.fmt(f),
+        }
+    }
 }
 
 impl Cause {
     /// The document this happened in, when there is one.
     ///
-    /// [`None`] for a person's own navigation, which is the one cause that
-    /// happens in a tab rather than in a page — the first load of a window is
-    /// the request that creates the document rather than one made by it.
+    /// [`None`] for a person's own navigation and for an agent's open of a
+    /// tab, the two causes that happen in a tab rather than in a page — the
+    /// first load of a tab is the request that creates the document rather
+    /// than one made by it (ADR 0063 § 2).
     pub fn in_document(&self) -> Option<DocumentId> {
         match self {
-            Cause::Person { .. } => None,
-            Cause::Document { document } | Cause::Agent { document, .. } => Some(*document),
+            Cause::Person { .. }
+            | Cause::Agent {
+                place: Place::Tab(_),
+                ..
+            } => None,
+            Cause::Document { document }
+            | Cause::Agent {
+                place: Place::Document(document),
+                ..
+            } => Some(*document),
         }
     }
 }
@@ -166,7 +203,7 @@ impl fmt::Display for Cause {
         match self {
             Cause::Person { tab } => write!(f, "the person, in {tab}"),
             Cause::Document { document } => write!(f, "{document}"),
-            Cause::Agent { action, document } => write!(f, "{action}, in {document}"),
+            Cause::Agent { action, place } => write!(f, "{action}, in {place}"),
         }
     }
 }
@@ -264,7 +301,14 @@ mod tests {
         for cause in [
             Cause::Person { tab },
             Cause::Document { document },
-            Cause::Agent { action, document },
+            Cause::Agent {
+                action,
+                place: Place::Document(document),
+            },
+            Cause::Agent {
+                action,
+                place: Place::Tab(tab),
+            },
         ] {
             let said = match cause {
                 Cause::Person { .. } => "a person",
@@ -273,6 +317,28 @@ mod tests {
             };
             assert!(!said.is_empty());
         }
+    }
+
+    /// ADR 0063 § 2: an agent's open of a tab makes the document rather than
+    /// acting in one, so it happens in the tab — as a person's navigation
+    /// does — and is still the agent's.
+    #[test]
+    fn an_agent_that_opened_a_tab_acted_in_the_tab_and_not_in_a_document() {
+        let mut minting = Identities::default();
+        let tab = minting.a_tab();
+        let action = minting.an_action();
+        let opened = Cause::Agent {
+            action,
+            place: Place::Tab(tab),
+        };
+
+        assert_eq!(opened.in_document(), None);
+        assert_eq!(opened.to_string(), "action#0, in tab#0");
+        assert_ne!(
+            opened,
+            Cause::Person { tab },
+            "an agent's open is never the person's",
+        );
     }
 
     #[test]
@@ -292,7 +358,7 @@ mod tests {
         assert_eq!(
             Cause::Agent {
                 action: minting.an_action(),
-                document,
+                place: Place::Document(document)
             }
             .in_document(),
             Some(document),
@@ -316,8 +382,20 @@ mod tests {
         );
         assert_eq!(Cause::Document { document }.to_string(), "document#0");
         assert_eq!(
-            Cause::Agent { action, document }.to_string(),
+            Cause::Agent {
+                action,
+                place: Place::Document(document)
+            }
+            .to_string(),
             "action#0, in document#0",
+        );
+        assert_eq!(
+            Cause::Agent {
+                action,
+                place: Place::Tab(tab)
+            }
+            .to_string(),
+            "action#0, in tab#0",
         );
     }
 }

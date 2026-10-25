@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A tab an agent opens is now written down as the agent's doing.** When
+  a site is opened in Chrome at an agent's word, the record names the
+  agent's action as what opened it, and everything the page then loads
+  leads back to that action — no line in it reads as something the
+  person did, and it reaches the lasting record of what agents did. A
+  tab the person opens is still theirs (queue item 638, ADR 0063).
+
 - **Decided that a tab an agent opens is written down as the agent's
   doing, never the person's.** When an agent asks the browser to open a
   site, the record used to name the person as the one who opened it, for
