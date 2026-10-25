@@ -26,9 +26,11 @@
 //!
 //! # What the page's script said
 //!
-//! Is not asked of Chrome. A verb done through Chrome answers no issues —
-//! which says that none were heard, not that the page said nothing — and
-//! hearing them is queue item 639.
+//! Heard from Chrome while the verb is carried out, and answered as its
+//! issues in the engine's words ([`crate::chrome_said`], queue item 639):
+//! what the page wrote to its console and what it threw and nobody caught,
+//! in the tab's own session. A verb refused before it was carried out
+//! answers none, as the engine's does.
 
 use crate::chrome_act::Unacted;
 use crate::chrome_tab::Tab;
@@ -104,13 +106,7 @@ impl Pages for ChromePages<'_> {
     ) -> Result<(ActionId, Acted), Unanswered> {
         let (action, acted) = self.tab.act_as_action(target, verb);
         match acted {
-            Ok(outcome) => Ok((
-                action,
-                Acted::Done {
-                    outcome,
-                    issues: Vec::new(),
-                },
-            )),
+            Ok((outcome, issues)) => Ok((action, Acted::Done { outcome, issues })),
             Err(Unacted::Refused(refusal)) => Ok((action, Acted::Refused(refusal))),
             Err(why @ (Unacted::Unread(_) | Unacted::Failed(_))) => {
                 Err(Unanswered::Gone(why.to_string()))

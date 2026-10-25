@@ -58,7 +58,7 @@ use crate::chrome_hold::Unheld;
 use crate::chrome_profile::new_profile;
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_record::Record;
-use crate::chrome_wire::{self, Frames, Unframed};
+use crate::chrome_wire::{self, Frame, Frames, MOST_MESSAGE, Unframed};
 use core::fmt;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -129,6 +129,9 @@ pub enum Failed {
     Unframed(Unframed),
     /// A message from Chrome was not one the protocol describes.
     Malformed(Malformed),
+    /// Chrome's answer was longer than [`MOST_MESSAGE`] bytes, and was
+    /// skipped rather than read (`chrome_wire`); the pipe goes on.
+    TooLong,
     /// Chrome declined the command, and said why.
     Declined(Declined),
     /// The command could not be written.
@@ -148,6 +151,10 @@ impl fmt::Display for Failed {
             }
             Self::Unframed(why) => why.fmt(f),
             Self::Malformed(why) => why.fmt(f),
+            Self::TooLong => write!(
+                f,
+                "Chrome's answer ran past {MOST_MESSAGE} bytes and was not read"
+            ),
             Self::Declined(why) => why.fmt(f),
             Self::Unwritten(kind) => write!(f, "Chrome could not be written to: {kind}"),
             Self::Unheld(why) => why.fmt(f),
@@ -244,7 +251,10 @@ impl Chrome {
             let mut frames = Frames::from(from);
             loop {
                 let next = match frames.next_message() {
-                    Ok(Some(message)) => chrome_protocol::read(&message).map_err(Failed::Malformed),
+                    Ok(Some(Frame::Whole(message))) => {
+                        chrome_protocol::read(&message).map_err(Failed::Malformed)
+                    }
+                    Ok(Some(Frame::Skipped { head })) => Ok(chrome_protocol::skipped(&head)),
                     Ok(None) => return,
                     Err(why) => Err(Failed::Unframed(why)),
                 };
@@ -344,6 +354,9 @@ impl Chrome {
                     result,
                     ..
                 } if answered == id => return result.map_err(Failed::Declined),
+                Message::Skipped {
+                    id: Some(answered), ..
+                } if answered == id => return Err(Failed::TooLong),
                 // An event, or the answer to a command given up on before it
                 // came.
                 _ => {}

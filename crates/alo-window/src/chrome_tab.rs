@@ -85,6 +85,7 @@ use crate::chrome_protocol::{
     self, AxNode, Command, Declined, Malformed, Message, Requested, Within,
 };
 use crate::chrome_record::{Causes, Hop, purpose_of};
+use crate::chrome_said::Heard;
 use crate::chrome_tree::{self, Unread};
 use crate::chrome_window::{self, Unplaced};
 use alo_layout::Rect;
@@ -131,6 +132,9 @@ pub struct Tab<'c> {
     causes: Causes,
     /// The last verb accepted on the tab.
     acted: Option<ActionId>,
+    /// What the page's script has said while the verb running is heard
+    /// ([`Tab::hear`]), or [`None`] while none is.
+    heard: Option<Heard>,
     /// The address of every WebSocket the page opened, as Chrome spells it.
     sockets: Vec<String>,
     /// The address of the page the tab shows: where it was opened, until its
@@ -317,6 +321,7 @@ impl<'c> Tab<'c> {
             closed: HashSet::new(),
             causes,
             acted: None,
+            heard: None,
             sockets: Vec::new(),
             address: alo_url::parse(url).ok(),
         };
@@ -490,14 +495,7 @@ impl<'c> Tab<'c> {
     /// meanwhile, as [`Tab::ask`] does.
     pub(crate) fn ask_chrome(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
         let asked = self.chrome.send(None, command)?;
-        let until = Instant::now() + self.chrome.patience();
-        loop {
-            if let Some(Message::Reply { id, result, .. }) = self.next(until)?
-                && id == asked
-            {
-                return result.map_err(Failed::Declined);
-            }
-        }
+        self.answer_to(asked)
     }
 
     /// Go to the page, and wait for its own loader's `load`.
@@ -518,6 +516,9 @@ impl<'c> Tab<'c> {
                 return Ok(());
             }
             match self.next(until)? {
+                Some(Message::Skipped { id: Some(id), .. }) if id == asked => {
+                    return Err(Failed::TooLong.into());
+                }
                 Some(Message::Reply { id, result, .. }) if id == asked => {
                     let result = result.map_err(Failed::Declined)?;
                     match chrome_protocol::navigated(&result).map_err(Failed::Malformed)? {
@@ -561,13 +562,82 @@ impl<'c> Tab<'c> {
     /// answering every request paused meanwhile.
     pub(crate) fn ask(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
         let asked = self.chrome.send(Some(&self.session), command)?;
+        self.answer_to(asked)
+    }
+
+    /// Wait for the result of the command sent as `asked`, answering every
+    /// request paused meanwhile.
+    fn answer_to(&mut self, asked: u64) -> Result<Vec<u8>, Failed> {
         let until = Instant::now() + self.chrome.patience();
         loop {
-            if let Some(Message::Reply { id, result, .. }) = self.next(until)?
-                && id == asked
-            {
-                return result.map_err(Failed::Declined);
+            match self.next(until)? {
+                Some(Message::Reply { id, result, .. }) if id == asked => {
+                    return result.map_err(Failed::Declined);
+                }
+                Some(Message::Skipped { id: Some(id), .. }) if id == asked => {
+                    return Err(Failed::TooLong);
+                }
+                _ => {}
             }
+        }
+    }
+
+    /// From now until [`Tab::heard`], hear what the page's script says, each
+    /// line about `about` — and nothing it said before.
+    ///
+    /// Chrome is told of nothing a page's script says between verbs:
+    /// `Runtime` is on only while one runs. Every value a page gives its
+    /// console is described to a client that has it on, and a page decides
+    /// how long that is, so a page that logs between verbs costs Chrome
+    /// nothing of ours.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome cannot be asked.
+    pub(crate) fn hear(&mut self, about: &'static str) -> Result<(), Failed> {
+        self.ask(&Command::ForgetWhatWasSaid)?;
+        self.heard = Some(Heard::about(about));
+        self.ask(&Command::TellOfScript).map(drop)
+    }
+
+    /// What the page's script said since [`Tab::hear`], in the engine's
+    /// words ([`crate::chrome_said`]) — nothing, if it was not asked.
+    ///
+    /// Answered once Chrome has said `Runtime` is off, which the page's own
+    /// renderer answers after everything it told of before: so a thing the
+    /// page said in the verb's task has been heard (measured against Chrome
+    /// 155). A promise rejected and not handled is told of a task later, and
+    /// is heard only if that task ran before.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome cannot be asked; what was heard is dropped.
+    pub(crate) fn heard(&mut self) -> Result<Vec<String>, Failed> {
+        if self.heard.is_none() {
+            return Ok(Vec::new());
+        }
+        let off = self.ask(&Command::StopTellingOfScript);
+        let heard = self.heard.take();
+        off?;
+        Ok(heard.map(Heard::lines).unwrap_or_default())
+    }
+
+    /// Something the page's script said, told of as `method` in `params`,
+    /// heard if a verb is running.
+    fn said(&mut self, method: &str, params: &[u8]) {
+        let Some(heard) = &mut self.heard else {
+            return;
+        };
+        let read = if method == "Runtime.consoleAPICalled" {
+            chrome_protocol::console_called(params)
+        } else {
+            chrome_protocol::thrown(params)
+        };
+        // The page chose these bytes: what cannot be read is said to be
+        // so, and the verb goes on.
+        match read {
+            Ok(said) => heard.hear(&said),
+            Err(why) => heard.unread(&why),
         }
     }
 
@@ -575,24 +645,10 @@ impl<'c> Tab<'c> {
     /// held target — those are answered here — or [`None`] for one that was.
     fn next(&mut self, until: Instant) -> Result<Option<Message>, Failed> {
         let message = self.chrome.receive(until)?;
-        // Through the tab's own session, or one of a target of it held.
-        let held = match &message {
-            Message::Event {
-                session: Some(session),
-                ..
-            }
-            | Message::Reply {
-                session: Some(session),
-                ..
-            } => {
-                if *session == self.session {
-                    Some(Kind::Page)
-                } else {
-                    self.holding.kind(session)
-                }
-            }
-            _ => None,
-        };
+        let held = self.held_by(&message);
+        if self.heard_in(&message) {
+            return Ok(None);
+        }
         match message {
             Message::Event {
                 method,
@@ -684,6 +740,62 @@ impl<'c> Tab<'c> {
                 session: Some(_), ..
             } if held.is_none() => Ok(None),
             other => Ok(Some(other)),
+        }
+    }
+
+    /// Which of the tab's targets `message` came through: the tab's own
+    /// session, or one of a target of it held — or [`None`].
+    fn held_by(&self, message: &Message) -> Option<Kind> {
+        match message {
+            Message::Event {
+                session: Some(session),
+                ..
+            }
+            | Message::Reply {
+                session: Some(session),
+                ..
+            } => {
+                if *session == self.session {
+                    Some(Kind::Page)
+                } else {
+                    self.holding.kind(session)
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Whether `message` is something the page's script said — heard, if a
+    /// verb is — or a message too long to read that was.
+    ///
+    /// Only the tab's own session is told of what script says, so a frame or
+    /// worker in a target of its own is not heard, and a `Runtime` event
+    /// skipped for its length, whose session is not known, is the page's.
+    fn heard_in(&mut self, message: &Message) -> bool {
+        match message {
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if *session == self.session
+                && matches!(
+                    method.as_str(),
+                    "Runtime.consoleAPICalled" | "Runtime.exceptionThrown"
+                ) =>
+            {
+                self.said(method, params);
+                true
+            }
+            Message::Skipped {
+                method: Some(method),
+                ..
+            } if method.starts_with("Runtime.") => {
+                if let Some(heard) = &mut self.heard {
+                    heard.too_long();
+                }
+                true
+            }
+            _ => false,
         }
     }
 

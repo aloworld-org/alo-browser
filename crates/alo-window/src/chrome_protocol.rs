@@ -127,6 +127,17 @@ pub enum Command {
     /// `Page.setLifecycleEventsEnabled`: be told of each stage of every
     /// load, by the loader it belongs to.
     TellOfStages,
+    /// `Runtime.discardConsoleEntries`: forget what a page's script has
+    /// said so far, so that [`Command::TellOfScript`] tells of none of it
+    /// again (measured against Chrome 155: taken while the domain is off).
+    ForgetWhatWasSaid,
+    /// `Runtime.enable`: be told of what a page's script says to its
+    /// console and of what it throws and nobody catches, from now — and,
+    /// first, of everything it said before that was not forgotten.
+    TellOfScript,
+    /// `Runtime.disable`: no longer. Answered by the page's own renderer,
+    /// after everything it told of before (queue item 639).
+    StopTellingOfScript,
     /// `Emulation.setDeviceMetricsOverride`: lay pages out at this size, at
     /// the screen's own scale.
     LayOutAt {
@@ -275,6 +286,9 @@ impl Command {
             Self::TellOfLoading => "Page.enable",
             Self::TellOfSockets => "Network.enable",
             Self::TellOfStages => "Page.setLifecycleEventsEnabled",
+            Self::ForgetWhatWasSaid => "Runtime.discardConsoleEntries",
+            Self::TellOfScript => "Runtime.enable",
+            Self::StopTellingOfScript => "Runtime.disable",
             Self::LayOutAt { .. } => "Emulation.setDeviceMetricsOverride",
             Self::Navigate { .. } => "Page.navigate",
             Self::Fulfil { .. } => "Fetch.fulfillRequest",
@@ -311,6 +325,9 @@ impl Command {
             | Self::Close
             | Self::TellOfLoading
             | Self::TellOfSockets
+            | Self::ForgetWhatWasSaid
+            | Self::TellOfScript
+            | Self::StopTellingOfScript
             | Self::ReadTree
             | Self::Window
             | Self::LetGo
@@ -506,6 +523,16 @@ pub enum Message {
         /// Its `params`, written again as JSON for whoever reads it
         /// ([`paused`]); an empty object when it had none.
         params: Vec<u8>,
+    },
+    /// A message too long to read, skipped
+    /// ([`crate::chrome_wire::Frame::Skipped`]): what its first bytes say
+    /// it was, read by [`skipped`]. Its session is not known — Chrome writes
+    /// that last.
+    Skipped {
+        /// The answer's `id`, if it was an answer.
+        id: Option<u64>,
+        /// The event's `method`, if it was an event.
+        method: Option<String>,
     },
 }
 
@@ -1056,6 +1083,300 @@ pub fn attached(params: &[u8]) -> Result<Attached, Malformed> {
 /// [`Malformed`], for params with no `sessionId` that is text.
 pub fn detached(params: &[u8]) -> Result<String, Malformed> {
     text(object(params)?.get("sessionId"), "sessionId")
+}
+
+/// What the first bytes of a message too long to read say it was. Chrome
+/// 155 writes an answer as `{"id":…,` and an event as `{"method":"…",`,
+/// first (measured, queue item 639); anything else says nothing, and is
+/// neither.
+pub fn skipped(head: &[u8]) -> Message {
+    let id = head.strip_prefix(br#"{"id":"#).and_then(|rest| {
+        let digits = rest.iter().take_while(|byte| byte.is_ascii_digit()).count();
+        let ended = matches!(rest.get(digits), Some(b',' | b'}'));
+        let digits = rest
+            .get(..digits)
+            .filter(|digits| ended && !digits.is_empty())?;
+        core::str::from_utf8(digits).ok()?.parse().ok()
+    });
+    let method = head.strip_prefix(br#"{"method":""#).and_then(|rest| {
+        let name = rest
+            .iter()
+            .take_while(|byte| byte.is_ascii_alphanumeric() || **byte == b'.')
+            .count();
+        let ended = rest.get(name) == Some(&b'"');
+        let name = rest.get(..name).filter(|name| ended && !name.is_empty())?;
+        core::str::from_utf8(name).ok().map(str::to_owned)
+    });
+    Message::Skipped { id, method }
+}
+
+/// The most of a console call's values read; the rest are counted.
+pub const MOST_ARGS: usize = 64;
+
+/// The most places of a call stack read; the rest are counted, as the
+/// engine's own trace is bounded.
+pub const MOST_PLACES: usize = 32;
+
+/// The most characters of any one text a page chose — a string it wrote or
+/// threw, an error's words, a script's address — that are read; the rest
+/// are counted. The engine repeats as many of a string's code units
+/// (`alo-renderer`'s `LONGEST_SAID`); this counts characters.
+pub const LONGEST_SHOWN: usize = 1024;
+
+/// A page's text, cut at [`LONGEST_SHOWN`] characters.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Words {
+    /// What was kept.
+    pub kept: String,
+    /// How many characters more there were.
+    pub more: usize,
+}
+
+impl Words {
+    /// `text`, cut.
+    fn of(text: &str) -> Self {
+        let kept: String = text.chars().take(LONGEST_SHOWN).collect();
+        let more = text.chars().count().saturating_sub(LONGEST_SHOWN);
+        Self { kept, more }
+    }
+}
+
+/// A value a page's script said or threw, as Chrome describes it — a
+/// `RemoteObject` — read without asking Chrome anything more about it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Shown {
+    /// `undefined`.
+    Undefined,
+    /// `null`.
+    Null,
+    /// `true` or `false`.
+    Bool(bool),
+    /// A number, as Chrome writes it: `4`, `NaN`, `-0`.
+    Number(Words),
+    /// A `BigInt`, as Chrome writes it: `5n`.
+    BigInt(Words),
+    /// A string.
+    Text(Words),
+    /// A symbol, as Chrome describes it: `Symbol(x)`.
+    Symbol(Words),
+    /// An error object — a `DOMException` among them — by the first line of
+    /// Chrome's description, its name and message.
+    Error(Words),
+    /// Any other object, a function among them, by Chrome's description of
+    /// it: `Object`, `Array(2)`, `body`, a function's source.
+    Object(Words),
+}
+
+/// Where a script was when it said something: its address, and a line and a
+/// column counted from one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Place {
+    /// The script's address, as Chrome names it: the page's own for a
+    /// script in its markup; empty for one with none.
+    pub url: Words,
+    /// From one.
+    pub line: u64,
+    /// From one.
+    pub column: u64,
+}
+
+/// Where: innermost first, at most [`MOST_PLACES`], and how many more.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Places {
+    /// The places kept.
+    pub places: Vec<Place>,
+    /// How many more there were.
+    pub left_out: usize,
+}
+
+/// What a page's script said, as Chrome told of it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Said {
+    /// A call to its console.
+    Console {
+        /// Which, in Chrome's word: `log`, `error`, `warning`, …
+        kind: String,
+        /// What it was given, at most [`MOST_ARGS`].
+        args: Vec<Shown>,
+        /// How many more it was given.
+        more_args: usize,
+        /// Where it was called.
+        at: Places,
+    },
+    /// A throw nothing caught.
+    Thrown {
+        /// Chrome's words for it: `Uncaught`, `Uncaught (in promise)`.
+        text: String,
+        /// What was thrown, when Chrome says.
+        what: Option<Shown>,
+        /// Where it was thrown.
+        at: Places,
+    },
+}
+
+/// A `Runtime.consoleAPICalled` event's `params`, read. Measured against
+/// Chrome 155 on 2026-10-25: a `type`, every value given as an `args`
+/// entry, and the call's `stackTrace`.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without a `type` and an array of `args`, a
+/// value that is not one the protocol describes, or a `stackTrace` that is
+/// not one.
+pub fn console_called(params: &[u8]) -> Result<Said, Malformed> {
+    let fields = object(params)?;
+    let Some(Value::Array(given)) = fields.get("args") else {
+        return Err(Malformed::BadField { field: "args" });
+    };
+    Ok(Said::Console {
+        kind: text(fields.get("type"), "type")?,
+        args: given
+            .iter()
+            .take(MOST_ARGS)
+            .map(shown)
+            .collect::<Result<_, _>>()?,
+        more_args: given.len().saturating_sub(MOST_ARGS),
+        at: match fields.get("stackTrace") {
+            None => Places::default(),
+            Some(trace) => places(trace)?,
+        },
+    })
+}
+
+/// A `Runtime.exceptionThrown` event's `params`, read. Measured against
+/// Chrome 155 on 2026-10-25: `exceptionDetails` with Chrome's `text`, the
+/// thrown value as `exception`, and where — a `stackTrace`, or for a
+/// script that did not parse, only a `url`, a `lineNumber` and a
+/// `columnNumber`, each counted from nought.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without `exceptionDetails` holding a `text`,
+/// or with an `exception`, a `stackTrace` or a place that is not one.
+pub fn thrown(params: &[u8]) -> Result<Said, Malformed> {
+    let fields = object(params)?;
+    let Some(Value::Object(details)) = fields.get("exceptionDetails") else {
+        return Err(Malformed::BadField {
+            field: "exceptionDetails",
+        });
+    };
+    let at = match (details.get("stackTrace"), details.get("url")) {
+        (Some(trace), _) => places(trace)?,
+        (None, Some(url)) => Places {
+            places: vec![place(details, url)?],
+            left_out: 0,
+        },
+        (None, None) => Places::default(),
+    };
+    Ok(Said::Thrown {
+        text: text(details.get("text"), "text")?,
+        what: details.get("exception").map(shown).transpose()?,
+        at,
+    })
+}
+
+/// A `StackTrace`'s `callFrames`, innermost first.
+fn places(trace: &Value) -> Result<Places, Malformed> {
+    let Some(Value::Array(frames)) = trace.get("callFrames") else {
+        return Err(Malformed::BadField {
+            field: "callFrames",
+        });
+    };
+    let places = frames
+        .iter()
+        .take(MOST_PLACES)
+        .map(|frame| match (frame, frame.get("url")) {
+            (Value::Object(frame), Some(url)) => place(frame, url),
+            _ => Err(Malformed::BadField { field: "url" }),
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(Places {
+        places,
+        left_out: frames.len().saturating_sub(MOST_PLACES),
+    })
+}
+
+/// A place: `url`, and the `lineNumber` and `columnNumber` beside it in
+/// `fields`, counted from nought.
+fn place(fields: &Map<String, Value>, url: &Value) -> Result<Place, Malformed> {
+    let from_one = |field| {
+        fields
+            .get(field)
+            .and_then(Value::as_u64)
+            .map(|at| at.saturating_add(1))
+            .ok_or(Malformed::BadField { field })
+    };
+    let Value::String(url) = url else {
+        return Err(Malformed::BadField { field: "url" });
+    };
+    Ok(Place {
+        url: Words::of(url),
+        line: from_one("lineNumber")?,
+        column: from_one("columnNumber")?,
+    })
+}
+
+/// A `RemoteObject`, by its `type`, its `subtype` and what it carries.
+fn shown(value: &Value) -> Result<Shown, Malformed> {
+    let Value::Object(fields) = value else {
+        return Err(Malformed::BadField { field: "args" });
+    };
+    let said = |field: &'static str| match fields.get(field) {
+        Some(Value::String(said)) => Some(Words::of(said)),
+        _ => None,
+    };
+    let subtype = fields.get("subtype").and_then(Value::as_str);
+    Ok(
+        match (text(fields.get("type"), "type")?.as_str(), subtype) {
+            ("undefined", _) => Shown::Undefined,
+            ("object", Some("null")) => Shown::Null,
+            ("boolean", _) => Shown::Bool(
+                fields
+                    .get("value")
+                    .and_then(Value::as_bool)
+                    .ok_or(Malformed::BadField { field: "value" })?,
+            ),
+            ("number", _) => Shown::Number(
+                said("description")
+                    .or_else(|| said("unserializableValue"))
+                    .ok_or(Malformed::BadField {
+                        field: "description",
+                    })?,
+            ),
+            ("bigint", _) => Shown::BigInt(
+                said("unserializableValue")
+                    .or_else(|| said("description"))
+                    .ok_or(Malformed::BadField {
+                        field: "unserializableValue",
+                    })?,
+            ),
+            ("string", _) => {
+                Shown::Text(said("value").ok_or(Malformed::BadField { field: "value" })?)
+            }
+            ("symbol", _) => Shown::Symbol(said("description").ok_or(Malformed::BadField {
+                field: "description",
+            })?),
+            ("object", Some("error")) => {
+                let described = match fields.get("description") {
+                    Some(Value::String(described)) => described.lines().next().unwrap_or_default(),
+                    _ => {
+                        return Err(Malformed::BadField {
+                            field: "description",
+                        });
+                    }
+                };
+                Shown::Error(Words::of(described))
+            }
+            ("object" | "function", _) => {
+                Shown::Object(said("description").or_else(|| said("className")).ok_or(
+                    Malformed::BadField {
+                        field: "description",
+                    },
+                )?)
+            }
+            _ => return Err(Malformed::BadField { field: "type" }),
+        },
+    )
 }
 
 /// The most targets [`pages`] reads: a Chrome holding more is refused
@@ -2396,6 +2717,211 @@ mod tests {
                 br#"{"windowId":1,"bounds":{"left":0,"top":0,"width":1,"height":1e400,"windowState":"normal"}}"#
             ),
             Err(Malformed::NotJson)
+        );
+    }
+
+    #[test]
+    fn a_skipped_message_is_named_by_what_it_began_with() {
+        assert_eq!(
+            skipped(br#"{"id":42,"result":{"nodes":[{"#),
+            Message::Skipped {
+                id: Some(42),
+                method: None
+            }
+        );
+        assert_eq!(
+            skipped(br#"{"method":"Runtime.consoleAPICalled","params":{"type""#),
+            Message::Skipped {
+                id: None,
+                method: Some("Runtime.consoleAPICalled".to_owned())
+            }
+        );
+        // Cut short, in another order, or not a number or a name: nothing.
+        for head in [
+            &br#"{"id":42"#[..],
+            br#"{"id":,"#,
+            br#"{"id":99999999999999999999999,"#,
+            br#"{"method":"Runtime.consoleAPI"#,
+            br#"{"method":"a\"b","#,
+            br#"{"params":{},"method":"x","#,
+            b"",
+            b"\xff\xfe",
+        ] {
+            assert_eq!(
+                skipped(head),
+                Message::Skipped {
+                    id: None,
+                    method: None
+                },
+                "{head:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_runtime_is_asked_for_by_its_methods() {
+        for (command, method) in [
+            (Command::ForgetWhatWasSaid, "Runtime.discardConsoleEntries"),
+            (Command::TellOfScript, "Runtime.enable"),
+            (Command::StopTellingOfScript, "Runtime.disable"),
+        ] {
+            assert_eq!(
+                written(3, Some("S"), &command),
+                format!(r#"{{"id":3,"method":"{method}","params":{{}},"sessionId":"S"}}"#)
+                    .into_bytes()
+            );
+        }
+    }
+
+    #[test]
+    fn a_value_said_is_read_by_its_type() {
+        let one = |value: &str| {
+            console_called(format!(r#"{{"type":"log","args":[{value}]}}"#).as_bytes()).map(|said| {
+                match said {
+                    Said::Console { args, .. } => args,
+                    Said::Thrown { .. } => Vec::new(),
+                }
+            })
+        };
+        let words = |kept: &str| Words {
+            kept: kept.to_owned(),
+            more: 0,
+        };
+        for (value, shown) in [
+            (r#"{"type":"undefined"}"#, Shown::Undefined),
+            (
+                r#"{"type":"object","subtype":"null","value":null}"#,
+                Shown::Null,
+            ),
+            (r#"{"type":"boolean","value":true}"#, Shown::Bool(true)),
+            (
+                r#"{"type":"number","unserializableValue":"-0","description":"-0"}"#,
+                Shown::Number(words("-0")),
+            ),
+            (
+                r#"{"type":"bigint","unserializableValue":"5n","description":"5n"}"#,
+                Shown::BigInt(words("5n")),
+            ),
+            (
+                r#"{"type":"string","value":"hi"}"#,
+                Shown::Text(words("hi")),
+            ),
+            (
+                r#"{"type":"symbol","description":"Symbol(x)","objectId":"1"}"#,
+                Shown::Symbol(words("Symbol(x)")),
+            ),
+            (
+                r#"{"type":"object","subtype":"error","className":"DOMException","description":"NotFoundError: gone\n    at x"}"#,
+                Shown::Error(words("NotFoundError: gone")),
+            ),
+            (
+                r#"{"type":"function","className":"Function","description":"() => 1"}"#,
+                Shown::Object(words("() => 1")),
+            ),
+            (
+                r#"{"type":"object","subtype":"node","className":"HTMLBodyElement","description":"body"}"#,
+                Shown::Object(words("body")),
+            ),
+            (
+                r#"{"type":"object","className":"Object"}"#,
+                Shown::Object(words("Object")),
+            ),
+        ] {
+            assert_eq!(one(value), Ok(vec![shown]), "{value}");
+        }
+    }
+
+    #[test]
+    fn what_a_page_said_is_cut_and_counted_never_held_whole() {
+        let long = "é".repeat(LONGEST_SHOWN + 5);
+        let many = vec![r#"{"type":"undefined"}"#; MOST_ARGS + 3].join(",");
+        let frames =
+            vec![r#"{"url":"u","lineNumber":0,"columnNumber":0}"#; MOST_PLACES + 2].join(",");
+        let said = console_called(
+            format!(
+                r#"{{"type":"log","args":[{{"type":"string","value":"{long}"}},{many}],
+                    "stackTrace":{{"callFrames":[{frames}]}}}}"#
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        let Said::Console {
+            args,
+            more_args,
+            at,
+            ..
+        } = said
+        else {
+            panic!("not a console call");
+        };
+        assert_eq!(args.len(), MOST_ARGS);
+        assert_eq!(more_args, 4);
+        assert_eq!(
+            args.first(),
+            Some(&Shown::Text(Words {
+                kept: "é".repeat(LONGEST_SHOWN),
+                more: 5
+            }))
+        );
+        assert_eq!(at.places.len(), MOST_PLACES);
+        assert_eq!(at.left_out, 2);
+        assert_eq!(
+            at.places.first(),
+            Some(&Place {
+                url: Words {
+                    kept: "u".to_owned(),
+                    more: 0
+                },
+                line: 1,
+                column: 1
+            }),
+            "counted from one"
+        );
+    }
+
+    #[test]
+    fn what_chrome_says_of_script_is_refused_as_a_kind_when_it_is_not_the_protocol() {
+        for params in [
+            &b""[..],
+            b"[]",
+            b"{",
+            br#"{"type":"log"}"#,
+            br#"{"type":"log","args":{}}"#,
+            br#"{"type":4,"args":[]}"#,
+            br#"{"type":"log","args":[4]}"#,
+            br#"{"type":"log","args":[{"type":"alien"}]}"#,
+            br#"{"type":"log","args":[{"type":"boolean","value":"yes"}]}"#,
+            br#"{"type":"log","args":[{"type":"number"}]}"#,
+            br#"{"type":"log","args":[{"type":"string"}]}"#,
+            br#"{"type":"log","args":[{"type":"object","subtype":"error"}]}"#,
+            br#"{"type":"log","args":[{"type":"object"}]}"#,
+            br#"{"type":"log","args":[],"stackTrace":{}}"#,
+            br#"{"type":"log","args":[],"stackTrace":{"callFrames":[1]}}"#,
+            br#"{"type":"log","args":[],"stackTrace":{"callFrames":[{"url":"u"}]}}"#,
+            br#"{"type":"log","args":[],"stackTrace":{"callFrames":[{"url":"u","lineNumber":-1,"columnNumber":0}]}}"#,
+            br#"{"type":"log","args":[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]}"#,
+        ] {
+            assert!(console_called(params).is_err(), "{params:?}");
+        }
+        for params in [
+            &b"{}"[..],
+            br#"{"exceptionDetails":[]}"#,
+            br#"{"exceptionDetails":{}}"#,
+            br#"{"exceptionDetails":{"text":"Uncaught","url":4,"lineNumber":0,"columnNumber":0}}"#,
+            br#"{"exceptionDetails":{"text":"Uncaught","url":"u"}}"#,
+            br#"{"exceptionDetails":{"text":"Uncaught","exception":"x"}}"#,
+            br#"{"exceptionDetails":{"text":"Uncaught","stackTrace":[]}}"#,
+        ] {
+            assert!(thrown(params).is_err(), "{params:?}");
+        }
+        // A throw with no place and no value is still a throw.
+        assert_eq!(
+            thrown(br#"{"exceptionDetails":{"text":"Uncaught"}}"#),
+            Ok(Said::Thrown {
+                text: "Uncaught".to_owned(),
+                what: None,
+                at: Places::default()
+            })
         );
     }
 }

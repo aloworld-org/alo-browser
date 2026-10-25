@@ -2984,3 +2984,20 @@ sending itself to a scheme Chrome never pauses is not judged). The screen
 was locked, so 642 and 643 still wait on it. 303 queue items are open
 (636 closed, 651 opened). The next unused queue number is 652 and the
 next unused ADR 0063.
+
+Iteration 391 closed queue item 639, measured against Chrome 155: with
+`Runtime` on, a page's console calls and uncaught throws are told of
+through the tab's session before a later `Runtime` answer, earlier ones
+are told of again on enabling unless forgotten first, and a page's
+20-million character `console.log` is a 20 MB message — past the 16 MiB
+the wire read, which ended the whole pipe. The wire now skips such a
+message to its NUL and goes on (`chrome_wire.rs`); a tab hears only from
+a verb's decision to its answer, forgetting what was said before; and
+what it heard is the answer's `issues` in the engine's words
+(`chrome_said.rs`), the differences — places by address and page line,
+a console the engine does not have, an error's words as constructed, an
+unhandled rejection told a task late — written down in the queue. Cut:
+652 (frames and workers in targets of their own) and 653 (messages held
+by count, not size). The screen was locked, so 642 and 643 still wait on
+it. 304 queue items are open (639 closed, 652 and 653 opened). The next
+unused queue number is 654 and the next unused ADR 0063.

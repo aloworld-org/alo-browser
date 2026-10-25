@@ -197,7 +197,10 @@ about this project (ADR 0058 § 6).
   a form sends the dates it sends through the engine (632); and **each
   frame a document of its own in the record**, caused by the page holding
   it, so a frame's `fetch` leads back through the frame and the page to
-  the person (636).
+  the person (636); and **what a page's script said while a verb ran,
+  through Chrome** — its console and its uncaught throws, heard only while
+  the verb runs and put into the engine's words, and a line longer than
+  Chrome's messages may be said to be so without ending the pipe (639).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -208,7 +211,9 @@ about this project (ADR 0058 § 6).
   together under Stage Manager, put by Chrome's word and shown only while
   the window server shows Chrome's (ADR 0062).
 - **Owed:** a frame's navigation to a scheme Chrome never pauses, judged (651); whose cause a tab an agent asked to open is (638, needs an ADR);
-  what a page's script said, through Chrome (639); a form Chrome refuses
+  what a frame or worker in a process of its own says while a verb runs,
+  through Chrome (652); Chrome's messages held by count, not by size, while
+  they wait to be read (653); a form Chrome refuses
   and draws no bubble for (646); how an agent chooses an option of a
   `<select>`, on either renderer (648, needs an ADR); the
   rest of the agent's work where a person can see it — **a window of ours
@@ -757,7 +762,12 @@ unreachable without it.
       its own in the record — caused by the page holding it, the other
       site's frame too, its `fetch` and its worker's its own, measured from
       where Chrome 155 tells of each frame's making and commit (item 636,
-      `chrome_record.rs`)
+      `chrome_record.rs`), and what a page's script said while a verb ran
+      answered as its issues through Chrome — Chrome's `Runtime` on only
+      while a verb runs, what was said before forgotten first, and each
+      console call and uncaught throw put into the engine's words, with a
+      message from Chrome too long to read skipped to its end rather than
+      ending the pipe (item 639, `chrome_said.rs`, `chrome_wire.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -769,8 +779,10 @@ unreachable without it.
       (638, needs an ADR); what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650); what a page's
-      script said, through Chrome (639); a form Chrome refuses and draws
+      the system's own encrypted DNS (650); what a frame or worker in a
+      process of its own says while a verb runs, through Chrome (652);
+      Chrome's messages held by count rather than size while they wait to
+      be read (653); a form Chrome refuses and draws
       no bubble for — an `invalid` a page cancels, a hidden required
       field — answered as anything but a press the page took (646); how an
       agent chooses an option of a `<select>`, on either renderer (648,

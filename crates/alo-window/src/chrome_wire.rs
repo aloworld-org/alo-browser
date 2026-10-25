@@ -7,8 +7,21 @@
 //! Over `--remote-debugging-pipe` every DevTools message is one JSON text
 //! followed by a NUL byte, in both directions. A pipe has no boundaries of its
 //! own, so this finds them — and the far side chooses how long a message is,
-//! so the longest one is ours: [`MOST_MESSAGE`], refused rather than read on.
-//! What a message *means* is [`crate::chrome_protocol`]'s.
+//! so the longest one is ours: [`MOST_MESSAGE`]. What a message *means* is
+//! [`crate::chrome_protocol`]'s.
+//!
+//! # A message too long is skipped, not the end of the pipe
+//!
+//! A page decides how long some of Chrome's messages are: what its script
+//! writes to its console arrives whole, and a string of twenty million
+//! characters is a message of twenty megabytes (measured against Chrome 155,
+//! queue item 639). A JSON text holds no NUL of its own — a NUL in a string
+//! is written escaped — so the next message begins after the next NUL
+//! whatever came before it. So a message past the bound is **skipped**:
+//! its first [`HEAD`] bytes are kept, to say what it was, and every byte
+//! after them is read and dropped as it arrives, never held. The pipe goes
+//! on, and a page cannot end the browser's hold on its tab by saying
+//! something long.
 
 use core::fmt;
 use std::io::{ErrorKind, Read, Write};
@@ -23,15 +36,27 @@ pub const MOST_MESSAGE: usize = 16 * 1024 * 1024;
 /// How much is read from the pipe at a time.
 const CHUNK: usize = 64 * 1024;
 
+/// How many bytes of a message too long to read are kept, to say what it
+/// was: Chrome writes an answer's `id`, or an event's `method`, first.
+pub const HEAD: usize = 128;
+
+/// One message taken off the pipe.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Frame {
+    /// A whole message, without its NUL.
+    Whole(Vec<u8>),
+    /// A message longer than the bound, skipped to its NUL: its first
+    /// [`HEAD`] bytes, or fewer if the bound is smaller.
+    Skipped {
+        /// What it began with.
+        head: Vec<u8>,
+    },
+}
+
 /// Why no message could be taken off the pipe. Each one ends the stream:
 /// past any of them, where the next message starts is not known.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unframed {
-    /// More than `most` bytes came without a NUL to end them.
-    TooLong {
-        /// [`MOST_MESSAGE`], or the bound a test asked for.
-        most: usize,
-    },
     /// The pipe closed part of the way through a message.
     Truncated,
     /// The pipe could not be read.
@@ -41,9 +66,6 @@ pub enum Unframed {
 impl fmt::Display for Unframed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::TooLong { most } => {
-                write!(f, "a message from Chrome ran past {most} bytes")
-            }
             Self::Truncated => f.write_str("Chrome's pipe closed in the middle of a message"),
             Self::Unreadable(kind) => write!(f, "Chrome's pipe could not be read: {kind}"),
         }
@@ -75,32 +97,43 @@ impl<R: Read> Frames<R> {
         }
     }
 
-    /// The next whole message, without its NUL, or `None` once the pipe has
-    /// closed between two of them.
+    /// The next message, or `None` once the pipe has closed between two of
+    /// them. A message longer than the bound is [`Frame::Skipped`], and the
+    /// one after it is read as usual.
     ///
     /// # Errors
     ///
-    /// [`Unframed`]: a message too long, a pipe closed part of the way through
-    /// one, or a pipe that could not be read.
-    pub fn next_message(&mut self) -> Result<Option<Vec<u8>>, Unframed> {
+    /// [`Unframed`]: a pipe closed part of the way through a message, or a
+    /// pipe that could not be read.
+    pub fn next_message(&mut self) -> Result<Option<Frame>, Unframed> {
         let mut looked = 0;
+        // Once the message is known to be too long: what it began with. From
+        // then on nothing of it is held.
+        let mut skipping: Option<Vec<u8>> = None;
         loop {
             if let Some(at) = self.held.get(looked..).and_then(nul_in) {
                 let end = looked + at;
-                if end > self.most {
-                    return Err(Unframed::TooLong { most: self.most });
-                }
                 // What follows the message, starting at its NUL, and then
                 // what follows the NUL.
                 let mut after = self.held.split_off(end);
                 let rest = after.split_off(after.len().min(1));
                 let message = core::mem::replace(&mut self.held, rest);
-                return Ok(Some(message));
+                return Ok(Some(match skipping {
+                    Some(head) => Frame::Skipped { head },
+                    None if end > self.most => Frame::Skipped {
+                        head: self.head_of(&message),
+                    },
+                    None => Frame::Whole(message),
+                }));
+            }
+            if skipping.is_none() && self.held.len() > self.most {
+                skipping = Some(self.head_of(&self.held));
+            }
+            if skipping.is_some() {
+                self.held.clear();
+                self.held.shrink_to(CHUNK);
             }
             looked = self.held.len();
-            if looked > self.most {
-                return Err(Unframed::TooLong { most: self.most });
-            }
             let read = match self.from.read(&mut self.chunk) {
                 Ok(read) => read,
                 Err(why) if why.kind() == ErrorKind::Interrupted => continue,
@@ -110,7 +143,7 @@ impl<R: Read> Frames<R> {
                 return Err(Unframed::Unreadable(ErrorKind::InvalidData));
             };
             if arrived.is_empty() {
-                return if self.held.is_empty() {
+                return if self.held.is_empty() && skipping.is_none() {
                     Ok(None)
                 } else {
                     Err(Unframed::Truncated)
@@ -118,6 +151,12 @@ impl<R: Read> Frames<R> {
             }
             self.held.extend_from_slice(arrived);
         }
+    }
+
+    /// The first [`HEAD`] bytes of `message`, and never more than the bound.
+    fn head_of(&self, message: &[u8]) -> Vec<u8> {
+        let kept = HEAD.min(self.most).min(message.len());
+        message.get(..kept).unwrap_or_default().to_vec()
     }
 }
 
@@ -162,7 +201,7 @@ mod tests {
         }
     }
 
-    fn all(bytes: &[u8], most: usize) -> Vec<Result<Option<Vec<u8>>, Unframed>> {
+    fn all(bytes: &[u8], most: usize) -> Vec<Result<Option<Frame>, Unframed>> {
         let mut frames = Frames::bounded(Cursor::new(bytes.to_vec()), most);
         let mut seen = Vec::new();
         loop {
@@ -175,13 +214,23 @@ mod tests {
         }
     }
 
+    fn whole(bytes: &[u8]) -> Frame {
+        Frame::Whole(bytes.to_vec())
+    }
+
+    fn skipped(head: &[u8]) -> Frame {
+        Frame::Skipped {
+            head: head.to_vec(),
+        }
+    }
+
     #[test]
     fn messages_end_at_each_nul() {
         assert_eq!(
             all(b"{\"id\":1}\0{}\0", 64),
             [
-                Ok(Some(b"{\"id\":1}".to_vec())),
-                Ok(Some(b"{}".to_vec())),
+                Ok(Some(whole(b"{\"id\":1}"))),
+                Ok(Some(whole(b"{}"))),
                 Ok(None)
             ]
         );
@@ -192,7 +241,7 @@ mod tests {
         );
         assert_eq!(
             all(b"\0", 64),
-            [Ok(Some(Vec::new())), Ok(None)],
+            [Ok(Some(whole(b""))), Ok(None)],
             "an empty message is a message, for the protocol to refuse"
         );
     }
@@ -200,8 +249,8 @@ mod tests {
     #[test]
     fn a_message_split_across_reads_is_one_message() {
         let mut frames = Frames::bounded(Trickle(Cursor::new(b"{\"a\":1}\0{}\0".to_vec())), 64);
-        assert_eq!(frames.next_message(), Ok(Some(b"{\"a\":1}".to_vec())));
-        assert_eq!(frames.next_message(), Ok(Some(b"{}".to_vec())));
+        assert_eq!(frames.next_message(), Ok(Some(whole(b"{\"a\":1}"))));
+        assert_eq!(frames.next_message(), Ok(Some(whole(b"{}"))));
         assert_eq!(frames.next_message(), Ok(None));
     }
 
@@ -209,30 +258,57 @@ mod tests {
     fn a_message_cut_off_by_the_pipe_closing_is_truncated() {
         assert_eq!(
             all(b"{}\0{\"id\":", 64),
-            [Ok(Some(b"{}".to_vec())), Err(Unframed::Truncated)]
+            [Ok(Some(whole(b"{}"))), Err(Unframed::Truncated)]
         );
     }
 
     #[test]
-    fn a_message_longer_than_the_bound_is_refused_and_not_read_on() {
-        assert_eq!(all(&[b'a'; 9], 8), [Err(Unframed::TooLong { most: 8 })]);
+    fn a_message_longer_than_the_bound_is_skipped_and_the_next_is_read() {
         let mut long = vec![b'a'; 9];
         long.push(0);
+        long.extend_from_slice(b"{}\0");
         assert_eq!(
             all(&long, 8),
-            [Err(Unframed::TooLong { most: 8 })],
-            "ended, but too long"
+            [
+                Ok(Some(skipped(&[b'a'; 8]))),
+                Ok(Some(whole(b"{}"))),
+                Ok(None)
+            ],
+            "skipped, its head kept, and the pipe goes on"
         );
         let mut exact = vec![b'a'; 8];
         exact.push(0);
-        assert_eq!(all(&exact, 8), [Ok(Some(vec![b'a'; 8])), Ok(None)]);
-        // A far side that never sends a NUL is stopped at the bound, not when
-        // it chooses to stop.
-        let mut endless = Frames::bounded(std::io::repeat(b'x'), 1000);
-        assert_eq!(
-            endless.next_message(),
-            Err(Unframed::TooLong { most: 1000 })
+        assert_eq!(all(&exact, 8), [Ok(Some(whole(&[b'a'; 8]))), Ok(None)]);
+        // Cut off by the pipe closing while it is skipped: truncated.
+        assert_eq!(all(&[b'a'; 9], 8), [Err(Unframed::Truncated)]);
+    }
+
+    #[test]
+    fn a_skipped_message_keeps_only_its_head_however_it_arrives() {
+        // Twenty megabytes, as Chrome sends a page's long console line,
+        // between two messages, a byte at a time for the first part.
+        let mut bytes = b"{\"id\":1}\0{\"method\":\"Runtime.consoleAPICalled\",".to_vec();
+        bytes.resize(20 * 1024 * 1024, b'x');
+        bytes.extend_from_slice(b"\0{\"id\":2}\0");
+        let mut frames = Frames::bounded(Cursor::new(bytes), 16 * 1024 * 1024);
+        assert_eq!(frames.next_message(), Ok(Some(whole(b"{\"id\":1}"))));
+        let Ok(Some(Frame::Skipped { head })) = frames.next_message() else {
+            panic!("not skipped");
+        };
+        assert_eq!(head.len(), HEAD);
+        assert!(head.starts_with(b"{\"method\":\"Runtime.consoleAPICalled\","));
+        assert!(
+            frames.held.capacity() <= 2 * CHUNK,
+            "what was skipped is not held after it"
         );
+        assert_eq!(frames.next_message(), Ok(Some(whole(b"{\"id\":2}"))));
+        assert_eq!(frames.next_message(), Ok(None));
+
+        let mut trickled = vec![b'b'; 40];
+        trickled.extend_from_slice(b"\0{}\0");
+        let mut frames = Frames::bounded(Trickle(Cursor::new(trickled)), 16);
+        assert_eq!(frames.next_message(), Ok(Some(skipped(&[b'b'; 16]))));
+        assert_eq!(frames.next_message(), Ok(Some(whole(b"{}"))));
     }
 
     #[test]

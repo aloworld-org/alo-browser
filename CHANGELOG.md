@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent working a page in Chrome is told what the page's script
+  said.** When an agent presses a button or types into a field, it is
+  answered with what the page's own code wrote to its console and any
+  error it threw while that happened — in the same words this browser's
+  own engine uses, so an agent reads one language whichever draws the
+  page. Nothing the page said before or between actions is passed on.
+  And a page that writes something enormous — twenty million characters
+  of it — no longer cuts the browser off from the tab: the oversized
+  message is skipped, the agent is told it was, and the tab carries on.
+
 - **The record of a page shown in Chrome says which frame asked.** A
   page can hold other pages inside it — an embedded video, a map, an
   advert from another company. Until now everything those asked for was

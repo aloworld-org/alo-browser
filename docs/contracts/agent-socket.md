@@ -51,8 +51,16 @@ the machine (ADR 0058). **Nothing here differs between them**: the same asks,
 verbs, answers and refusal kinds, judged in the same order. What each tree
 holds is that renderer's description of the page, so a node's number and how
 many nodes a tree has are its own, and a number read from one is never good
-in the other. Through Chrome, `issues` is always empty, because what the
-page's script said is not asked of Chrome (queue item 639), and a tab is
+in the other. Through Chrome, `issues` is heard from Chrome while the verb
+is carried out, in the engine's words where the engine has words for it
+(queue item 639): a throw nobody caught is placed by the script's address
+and the line in the page rather than `script 1` and the line in the script;
+a call to the page's console, which this engine does not have, is said as
+`console.log:` and what it was given; and something said in a message
+longer than one from Chrome may be is said to have been, unread. What a
+frame or worker in a process of its own says is not heard (queue item 652),
+nor a promise rejected and unhandled that Chrome tells of a task after the
+verb. And a tab is
 named by the page it shows when the request is answered, however it got
 there — a link to a part of the page, or a script's `pushState`, included,
 with the part (queue item 640). A tab of this engine's goes nowhere a link
@@ -171,8 +179,9 @@ When the verb runs, the answer is:
     {"answer":"done","id":3,"issues":[],"outcome":{"kind":"TextPut","node":10,"text":"Ada Lovelace"},
      "said":"put \"Ada Lovelace\" into box#10","tab":"https://httpbin.org/forms/post","v":1}
 
-`issues` is what the page's script said while the verb ran (empty through
-Chrome, which is not asked). `said` is the
+`issues` is what the page's script said while the verb ran — at most 256
+lines, each at most 8,192 characters, and then how many more there were —
+for an agent to read rather than to match: a page chooses much of it. `said` is the
 outcome in English, for a person — and the person watching is shown the
 same sentence, word for word, in a line of the browser's own along the
 bottom of its window, written by the browser process and kept until the

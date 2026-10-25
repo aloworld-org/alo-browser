@@ -16504,7 +16504,7 @@ What stage 2's exit gate actually measures: a person using it.
   ADR is accepted and a tab an agent opened is recorded as it says, with a
   test reading the line back.
 
-- [ ] **639. What a page's script said while a verb ran, through Chrome.**
+- [x] **639. What a page's script said while a verb ran, through Chrome.**
   *Cut from 630; ADR 0055, `docs/contracts/agent-socket.md`.* An answer's
   `issues` is what the page's script said while the verb ran, and through
   Chrome it is always empty, because Chrome is not asked: the contract says
@@ -16516,6 +16516,42 @@ What stage 2's exit gate actually measures: a person using it.
   a verb runs is answered, through Chrome, with the issues the engine
   answers for the same page — in the engine's words or with the difference
   written down — or this item closes saying why not.
+  **Done (2026-10-25), with the differences written down.** Measured
+  against Chrome 155.0.8059.86 from a Node CDP probe in the scratchpad:
+  with `Runtime.enable` sent, a page's console calls and uncaught throws
+  are told of through the tab's session (a same-process frame's too) as
+  `Runtime.consoleAPICalled` and `Runtime.exceptionThrown`, each before a
+  later `Runtime` command's answer; `Runtime.enable` first tells again of
+  everything said before, and `Runtime.discardConsoleEntries`, taken while
+  the domain is off, forgets it; an accessor on an error's `stack` is not
+  called in describing it; a promise rejected and unhandled is told of a
+  task later. **And a page decides how long a message is**: a 20-million
+  character `console.log` came as a 20 MB message, past the 16 MiB the
+  wire reads, which used to end the whole pipe — so enabling `Runtime`
+  naively would have let any page cut the browser off from its tab.
+  Built: `chrome_wire` skips a message past the bound to its NUL, keeping
+  its first 128 bytes and holding nothing after them, and goes on;
+  `chrome_protocol::skipped` names it by its `id` or `method`, and an
+  answer too long is `Failed::TooLong` to whoever asked, at once. A tab
+  hears only from a verb's decision to its answer (`Tab::hear`,
+  `Tab::heard`): forget, enable, carry out, disable — the disable's answer
+  the barrier. `chrome_protocol::console_called` and `thrown` read values,
+  places and Chrome's words, bounded (64 values, 32 places, 1024
+  characters of any text the page chose) and refusing anything else as a
+  kind; `chrome_said.rs` says them in the engine's words — `the click:` /
+  `the text:`, `uncaught:` and the thrown value by the engine's rules,
+  ` (at …; called from …)`, at most 256 lines and the engine's count of
+  the rest. **Where they differ**: Chrome places a script by its address
+  and the line in the page, the engine by `script 1` and the line in the
+  script; a console call is said as `console.log:` and its values through
+  Chrome, where the engine, which has no console, says `uncaught:
+  ReferenceError: 'console' is not defined`; an error is said by the first
+  line of Chrome's description, made when it was constructed; an
+  unhandled rejection is heard only if Chrome told of it before the verb's
+  end. Asserted in `what_a_page_said_through_chrome.rs` (five tests, real
+  headless Chrome), the protocol's and `chrome_said`'s unit tests and the
+  wire's. Cut: 652 (frames and workers in targets of their own) and 653
+  (messages held by count, not size).
 
 - [x] **640. A page in Chrome that goes to a fragment of itself is named
   with it.** *Cut from 630; ADR 0055 § 5.* A tab in Chrome is named by the
@@ -16847,6 +16883,29 @@ What stage 2's exit gate actually measures: a person using it.
   frame each sending itself to a refused scheme are refused by name and
   recorded with the frame's document as the cause, asserted from a test —
   or the item closes saying what Chrome does not tell of.
+
+- [ ] **652. What a frame or worker in a process of its own says while a
+  verb runs, through Chrome.** *Cut from 639 (iteration 391); ADR 0055.*
+  `Runtime` is turned on only in the tab's own session, so a frame from
+  another site, a dedicated or shared worker and a service worker — each a
+  target of its own (`chrome_hold`) — say nothing an answer hears. A
+  same-process frame's console is heard (measured). The engine runs no
+  frames or workers' script that an agent's verb reaches today, so there
+  is no engine answer to match yet. *Depends on 639. Closes when:* a frame
+  from another site and a dedicated worker that write to their consoles
+  and throw while a verb runs are heard through Chrome, with the same
+  forgetting before and the same barrier after in each target, asserted
+  in a test — or this item closes saying which Chrome does not tell of.
+
+- [ ] **653. Chrome's messages are held by count, not by size.** *Found
+  building 639 (iteration 391).* `chrome.rs` holds at most 256 messages
+  read off the pipe until they are taken (`HELD_MESSAGES`), each at most
+  16 MiB, so a page whose script writes long lines to its console while a
+  verb runs could have the browser process hold some 4 GiB while the tab
+  reads them. Nothing bounds that in bytes. *Depends on nothing. Closes
+  when:* what is held waiting is bounded in bytes as well as in messages,
+  with a test that a far side sending messages near the bound faster than
+  they are taken is held to that bound.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -79,6 +79,16 @@
 //! answer names one and says [`None`] for which constraint, where the
 //! engine names each control that failed and its constraint.
 //!
+//! # What the page's script said
+//!
+//! From the moment a verb is decided until it is answered, the tab hears
+//! what the page's script writes to its console and what it throws and
+//! nobody catches ([`Tab::act_and_hear`], [`crate::chrome_said`], queue
+//! item 639) — and only then: Chrome is told to forget what was said
+//! before, so nothing earlier is told of again, and to stop telling once
+//! the verb is done, which the page's own renderer answers after everything
+//! it told of before. A verb refused is refused before anything is heard.
+//!
 //! # What it cannot say yet
 //!
 //! - **A form Chrome would not send and shows no bubble for** answers
@@ -226,21 +236,43 @@ impl Tab<'_> {
     /// [`Unacted`]: a [`Refusal`], decided before Chrome is asked to do
     /// anything; or why it was not carried out.
     pub fn act(&mut self, target: &Target, verb: &Verb) -> Result<Outcome, Unacted> {
+        self.act_and_hear(target, verb).map(|(outcome, _)| outcome)
+    }
+
+    /// [`Tab::act`], and what the page's script said while the verb ran, as
+    /// an answer's `issues` ([`crate::chrome_said`], queue item 639).
+    ///
+    /// # Errors
+    ///
+    /// As [`Tab::act`].
+    pub fn act_and_hear(
+        &mut self,
+        target: &Target,
+        verb: &Verb,
+    ) -> Result<(Outcome, Vec<String>), Unacted> {
         self.act_as_action(target, verb).1
     }
 
-    /// [`Tab::act`], and the action the verb was accepted as.
+    /// [`Tab::act_and_hear`], and the action the verb was accepted as.
     pub(crate) fn act_as_action(
         &mut self,
         target: &Target,
         verb: &Verb,
-    ) -> (ActionId, Result<Outcome, Unacted>) {
+    ) -> (ActionId, Result<(Outcome, Vec<String>), Unacted>) {
         // Accepted, and so an action, whether it is refused or carried out
         // (ADR 0012 § 4): what the page asks for until it answers is the
         // agent's, and so is a navigation it asked for (`chrome_record`).
         let action = self.acting();
         let acted = self.decide_and_carry_out(target, verb);
+        // Heard to the end whatever came of it, so that Chrome is not left
+        // telling of the page's script.
+        let heard = self.heard();
         self.done_acting();
+        let acted = match (acted, heard) {
+            (Ok(outcome), Ok(issues)) => Ok((outcome, issues)),
+            (Ok(_), Err(why)) => Err(Unacted::Failed(why)),
+            (Err(why), _) => Err(why),
+        };
         (action, acted)
     }
 
@@ -254,6 +286,9 @@ impl Tab<'_> {
         let described = chrome_protocol::described(&self.ask(&Command::Describe { node: dom })?)?;
         let reading = reading.with_element(aimed.id, &described);
         let decided = perform(&reading, target, verb).map_err(Unacted::Refused)?;
+        // Decided, and so heard from here: what the page's script says as
+        // the verb is carried out is the answer's `issues`.
+        self.hear(about(&decided))?;
         // The last word from Chrome before anything is carried out: every
         // message that arrived while the page was read has been taken.
         if self.document() != document {
@@ -451,6 +486,20 @@ impl Tab<'_> {
 /// What came of putting `text` into the field `node`, which held `before`
 /// and holds `after`: the page did not take it when the field holds what
 /// it held, and that was not already `text`.
+/// What the lines a page's script says while `decided` is carried out are
+/// about, in the engine's words for its own verbs (`alo-renderer`'s `press`
+/// and `put`).
+fn about(decided: &Outcome) -> &'static str {
+    match decided {
+        Outcome::TextPut { .. } | Outcome::TextCanceled { .. } => "the text",
+        Outcome::Scrolled { .. } => "the scroll",
+        Outcome::Activated { .. }
+        | Outcome::Followed { .. }
+        | Outcome::Submitted { .. }
+        | Outcome::NotSubmitted { .. } => "the click",
+    }
+}
+
 fn taken(node: BoxId, text: String, before: &str, after: &str) -> Outcome {
     if after == before && before != text {
         Outcome::TextCanceled { node, text }

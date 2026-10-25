@@ -39888,3 +39888,123 @@ added), `REMAINING.md` and the changelog say the same.
 303 queue items are open (636 closed, 651 opened; counted as `- [ ] **`
 lines). The next unused queue number is **652** and the next ADR is
 **0063**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 391 — queue item 639: what a page's script said, through Chrome
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the stage 2
+Chrome line, the product path), iteration 390's entry, `REMAINING.md`'s
+continuation order, the queue's product-path table and items 638, 639 and
+645–651; ADR 0055 and `docs/contracts/agent-socket.md` (what `issues` is,
+and that through Chrome it was empty); ADR 0013 § 3 (why the engine has
+no console); `chrome_pages.rs`, `chrome_act.rs`, `chrome_tab.rs`,
+`chrome_protocol.rs`, `chrome_wire.rs`, `chrome.rs`'s reader thread, and
+the engine's words for what a verb's script said (`alo-renderer`'s
+`run_to.rs`, `press.rs`, `put.rs`, `said.rs`, `event_loop/report.rs`,
+`event_loop/described.rs`). No `AGENTS.md` exists in the repository.
+639's feature contract is `docs/features.md`'s Chrome renderer line.
+
+**Why 639.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the gate, so 642 and 643 could not be built honestly. 639 is
+the last of the product path's owed items the journal lists (635, 636
+and 639); its dependency, 630, is done. 638 and 648 need ADRs.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, from a Node
+CDP probe in the scratchpad (no script put into any page): with
+`Runtime.enable` sent through the tab's session, console calls and
+uncaught throws are told of there — a same-process frame's too — as
+`Runtime.consoleAPICalled` and `Runtime.exceptionThrown`, before the
+answer to a later `Runtime` command; enabling tells again of everything
+said before; `Runtime.discardConsoleEntries`, answered while the domain
+is off, forgets it, and an enable after it tells of nothing; nothing is
+told after `Runtime.disable`. An accessor on a logged error's `stack` was
+not called (the page could not tell). An unhandled rejection is told of
+a task later, after the barrier. A call is placed at its method's name,
+a throw at its `new Error`. **And a page decides how long a message is**:
+`console.log('x'.repeat(2e7))` came as a 20,000,343-byte message and the
+throw after it as 40 MB — past the 16 MiB `chrome_wire` read, at which
+it used to end the whole pipe. Nesting was at most 10 (bound 16).
+
+**Built.** `chrome_wire.rs`: a message past the bound is skipped to its
+NUL — its first 128 bytes kept, nothing after them held — and the pipe
+goes on (`Frame::Skipped`; `Unframed::TooLong` removed). `chrome.rs`:
+the reader hands a skipped message on as `Message::Skipped`, named by
+`chrome_protocol::skipped` from its `id` or `method`; an answer too long
+is `Failed::TooLong` to its asker at once (also in `Tab::ask`, `go` and
+`ask_chrome`, now one `answer_to`). `chrome_protocol.rs`: three commands
+(`ForgetWhatWasSaid`, `TellOfScript`, `StopTellingOfScript`) and two
+readers, `console_called` and `thrown`, into types of our own (`Said`,
+`Shown`, `Places`, `Words`), bounded at 64 values, 32 places and 1024
+characters of any text a page chose. `chrome_said.rs` (new): `Heard`,
+the lines in the engine's words. `chrome_tab.rs`: `hear` (forget, then
+enable) and `heard` (disable, the barrier, then the lines); `next`'s
+session lookup and the new arms moved out (`held_by`, `heard_in`) to stay
+under clippy's line bound; a malformed console event is said as unread,
+never a failure of the tab. `chrome_act.rs`: hearing begins once a verb
+is decided, before the last check that the page has not moved, and ends
+however the verb ended; `act_and_hear` is public. `chrome_pages.rs`
+answers the issues.
+
+**Tests.** Unit: `chrome_wire` (a long message skipped and the next read;
+20 MiB between two messages with only the head kept and the buffer small
+after; a trickled one; truncated while skipping), `chrome_protocol` (five:
+skipped heads, including cut, misordered and non-ASCII ones; the commands'
+wire form; every value type; cutting and counting; nineteen malformed,
+truncated and too-deep shapes refused as kinds, and a throw with nothing
+but its text), `chrome_said` (four, one reading Chrome 155's own
+messages). End to end (`what_a_page_said_through_chrome.rs`, five, real
+headless Chrome): the same throws in a click and in a field's `input`,
+through the engine and through Chrome, equal up to their place; the
+console said through Chrome where the engine says `'console' is not
+defined`; nothing said at load or between verbs heard, a refused verb
+leaving nothing behind; a 20-million character line said too long while
+the throw after it and the next verb are heard; the issues reaching an
+agent through `ChromePages`. Mutations, restored from copies and checked
+with `cmp`: no forgetting before enabling — three fail; hearing never
+started — five fail; the wire ending at a long message — the long-line
+test fails. `cargo nextest run -p alo-window`: 385 passed.
+
+**Gate.** One run (foreground into a scratchpad log, moved to the
+background at 600 s and waited on by a foreground until-loop): **exit 0,
+"The gate is met. (10 of 10 steps)"**, nextest **5,286 tests run, 5,286
+passed** in 645.8 s, no `FAIL`, `LEAK` or `panicked`. Manual: nothing
+here positions, sizes or draws, so no layout assertion or reference
+render applies, and no reference changed. One file, one responsibility:
+framing stays `chrome_wire.rs`'s (skipping is how it frames); reading
+Chrome's words stays `chrome_protocol.rs`'s, the one other file that may
+name `serde_json`; putting them into the engine's words is
+`chrome_said.rs`'s, new rather than added to `chrome_pages.rs`; when the
+tab hears is `chrome_tab.rs`'s and `chrome_act.rs`'s. Bytes from outside:
+every new reader is fed malformed, truncated and adversarial input and
+refuses as a kind; a page's long message is skipped, not a failure. No
+`unsafe`, no stubs, no verb taking a coordinate, no script put into a
+page. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The stage 2 Chrome line's `· Built:` gains 639 and its
+`· Owed:` swaps it for 652 and 653; the product-path paragraph likewise.
+Not ticked — the line is not finished. `features.md` (the pipe's clause
+and the Chrome line), the socket contract (both places that said
+`issues` was empty through Chrome), the queue (639 ticked with a *Done*
+paragraph writing the differences down; 652 and 653 added),
+`REMAINING.md` and the changelog say the same. No ADR was amended:
+ADR 0055 names `issues` and decides nothing about which renderer fills it.
+
+**Unresolved obligations.**
+- 652, cut here: a frame or worker in a target of its own is not heard.
+- 653, found here: Chrome's messages are held waiting by count (256), not
+  by size, so up to some 4 GiB in the worst case.
+- An unhandled rejection is heard only if Chrome told of it before the
+  verb's end; usually it does not. Written down, not fixed.
+- Forgetting before each verb clears what a person who opened Chrome's
+  own DevTools on a shown tab would see of earlier messages.
+- 642 and 643 still wait on the screen in use (locked this iteration);
+  645, 646, 647, 648, 649, 650 and 651 are open.
+- Inherited and unchanged: 642 and 643 owed; 604, 605, 606, 616, 618;
+  591, 601, 607–614; 576, 577, 585, 586; 463 and 572 wait on a person;
+  568–571 on a screen or pages; 560 and 564 on 502 behind 501; 538 waits
+  on a page; 638 and 648 need an ADR; item 549 is unbuilt. Other suites'
+  short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+304 queue items are open (639 closed, 652 and 653 opened; counted as
+`- [ ] **` lines). The next unused queue number is **654** and the next
+ADR is **0063**. This is one iteration, not a finished queue or roadmap.
