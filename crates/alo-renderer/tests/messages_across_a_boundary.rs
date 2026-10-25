@@ -1164,13 +1164,18 @@ fn what_came_of_a_submission_survives_the_crossing() {
             invalid: vec![
                 Invalid {
                     control: Some(id(4)),
-                    constraint: Constraint::ValueMissing,
+                    constraint: Some(Constraint::ValueMissing),
                     message: "Please fill out this field.".to_owned(),
                 },
                 Invalid {
                     control: None,
-                    constraint: Constraint::CustomError,
+                    constraint: Some(Constraint::CustomError),
                     message: "mine".to_owned(),
+                },
+                Invalid {
+                    control: Some(id(5)),
+                    constraint: None,
+                    message: "words, and no constraint".to_owned(),
                 },
             ],
         }),
@@ -1185,7 +1190,7 @@ fn what_came_of_a_submission_survives_the_crossing() {
         node: id(9),
         invalid: vec![Invalid {
             control: None,
-            constraint: Constraint::TooLong,
+            constraint: Some(Constraint::TooLong),
             message: String::new(),
         }],
     }));

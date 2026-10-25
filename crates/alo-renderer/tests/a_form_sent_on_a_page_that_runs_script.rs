@@ -243,9 +243,12 @@ fn invalid_is_fired_at_each_failing_control_in_tree_order_and_submit_is_not() {
     assert_eq!(
         said,
         [
-            (Constraint::ValueMissing, "Please fill out this field."),
             (
-                Constraint::TypeMismatch,
+                Some(Constraint::ValueMissing),
+                "Please fill out this field."
+            ),
+            (
+                Some(Constraint::TypeMismatch),
                 "Please include an '@' in the email address. 'nope' is missing an '@'."
             ),
         ]

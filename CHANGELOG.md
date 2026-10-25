@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent is told why a form would not send, on a page shown in
+  Chrome.** When an agent presses a form's send button through the
+  browser's socket and Chrome refuses — a required field left empty, an
+  e-mail address that is not one — the agent used to be told only that
+  the button was pressed. It is now told the form was not sent, which
+  field Chrome stopped at, and the words Chrome shows a person in the
+  bubble beside it. A page cannot fake that answer with words of its own.
+  Chrome only ever names the first field that is wrong, and does not say
+  which rule it broke, so through Chrome the agent gets that one field;
+  the browser's own engine still names every field and its rule.
+
 - **You can see when an agent was refused, and why.** When the browser
   refuses something an agent asked for through its socket — there is
   nothing on the page by that name, the button is disabled, the site is

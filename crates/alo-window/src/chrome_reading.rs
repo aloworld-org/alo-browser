@@ -97,6 +97,14 @@ impl ChromeReading {
     fn element(&self, id: BoxId) -> Option<&Element> {
         self.elements.get(&id)
     }
+
+    /// Whether the node `id` was described, and is a submit button by this
+    /// engine's own rule (`alo_dom::kind::is_submit_button`): a press on it
+    /// is what sends its form, and so what Chrome may refuse to send it.
+    pub(crate) fn submits(&self, id: BoxId) -> bool {
+        self.element(id)
+            .is_some_and(alo_dom::kind::is_submit_button)
+    }
 }
 
 /// `described` as an HTML element, or [`None`] for any other: the DOM names
@@ -263,6 +271,31 @@ mod tests {
         let select =
             ChromeReading::of(&page()).with_element(id(3), &described("SELECT", "select", &[]));
         assert_eq!(select.unbuilt_field(id(3)), Some("select"));
+    }
+
+    #[test]
+    fn a_submit_button_is_one_by_this_engines_rule() {
+        let id = BoxId::from_wire;
+        let button = |attributes: &[(&str, &str)]| {
+            ChromeReading::of(&page())
+                .with_element(id(2), &described("BUTTON", "button", attributes))
+                .submits(id(2))
+        };
+        assert!(button(&[]), "a button with no type submits");
+        assert!(button(&[("type", "SUBMIT")]));
+        assert!(button(&[("type", "nonsense")]), "an unknown type submits");
+        assert!(!button(&[("type", "button")]));
+        assert!(!button(&[("type", "reset")]));
+        let input = ChromeReading::of(&page())
+            .with_element(id(3), &described("INPUT", "input", &[("type", "submit")]));
+        assert!(input.submits(id(3)));
+        assert!(
+            !ChromeReading::of(&page()).submits(id(2)),
+            "a node never described is not known to submit"
+        );
+        let svg =
+            ChromeReading::of(&page()).with_element(id(2), &described("button", "button", &[]));
+        assert!(!svg.submits(id(2)), "not HTML's button");
     }
 
     #[test]

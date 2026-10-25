@@ -121,7 +121,7 @@ pub(crate) fn told(
                              message,
                          }| Invalid {
                             control: box_of(pressed.boxes, control),
-                            constraint,
+                            constraint: Some(constraint),
                             message,
                         },
                     )
@@ -227,7 +227,7 @@ fn checked(
                     message,
                 } => Some(Invalid {
                     control: box_of(boxes, control),
-                    constraint,
+                    constraint: Some(constraint),
                     message,
                 }),
                 Problem::Unchecked { .. } => None,

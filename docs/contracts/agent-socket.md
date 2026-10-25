@@ -194,7 +194,7 @@ browser's own to show any of it in until item 642.
 | `TextPut`, `TextCanceled` | `text` |
 | `Scrolled` | `by` |
 | `Submitted` | `method` (`"GET"`/`"POST"`), `to` |
-| `NotSubmitted` | `invalid`: `[{"control","constraint","message"}]`, where `control` is a node or `null` and `constraint` is the validity name (`valueMissing`, …) |
+| `NotSubmitted` | `invalid`: `[{"control","constraint","message"}]`, where `control` is a node or `null` and `constraint` is the validity name (`valueMissing`, …), or `null` when the renderer gave the words and not the constraint. Through Chrome it is always `null` and `invalid` holds one control, the first, with the words of the bubble Chrome draws beside it (queue item 631) |
 
 ## Refusals
 

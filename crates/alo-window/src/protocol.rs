@@ -475,7 +475,9 @@ fn unmet(unmet: &Unmet) -> Value {
     fields.insert("control".to_owned(), unmet.control.map_or(Value::Null, id));
     fields.insert(
         "constraint".to_owned(),
-        Value::from(unmet.constraint.name()),
+        unmet
+            .constraint
+            .map_or(Value::Null, |constraint| Value::from(constraint.name())),
     );
     fields.insert("message".to_owned(), Value::from(unmet.message.as_str()));
     Value::Object(fields)
@@ -618,6 +620,33 @@ mod tests {
                 target: Target::Node(BoxId::from_wire(7)),
                 verb: Verb::Scroll(ScrollBy::ToEnd),
             })
+        );
+    }
+
+    #[test]
+    fn a_form_not_sent_names_its_constraint_only_where_the_renderer_said_it() {
+        let not_sent = Outcome::NotSubmitted {
+            node: BoxId::from_wire(9),
+            invalid: vec![
+                alo_agent::verb::Invalid {
+                    control: Some(BoxId::from_wire(4)),
+                    constraint: Some(alo_dom::constraint::Constraint::ValueMissing),
+                    message: "Please fill out this field.".to_owned(),
+                },
+                // Chrome's bubble: words, and no constraint.
+                alo_agent::verb::Invalid {
+                    control: Some(BoxId::from_wire(5)),
+                    constraint: None,
+                    message: "Fill it in, please".to_owned(),
+                },
+            ],
+        };
+        assert_eq!(
+            outcome(&not_sent).get("invalid").map(ToString::to_string),
+            Some(
+                r#"[{"constraint":"valueMissing","control":4,"message":"Please fill out this field."},{"constraint":null,"control":5,"message":"Fill it in, please"}]"#
+                    .to_owned()
+            )
         );
     }
 

@@ -16187,7 +16187,7 @@ What stage 2's exit gate actually measures: a person using it.
   else, which had no kind of their own. Cut: **639** (what a page's script
   said, through Chrome) and **640** (a page in Chrome going to a fragment).
 
-- [ ] **631. A form Chrome would not send, answered as the engine answers
+- [x] **631. A form Chrome would not send, answered as the engine answers
   it.** *ADR 0051 § 4.* **Cut from 621.** Through Chrome, a press on a submit
   button whose form fails its checks answers `Activated`, because nothing
   Chrome tells of says which control failed or in what words: a `required`
@@ -16203,6 +16203,32 @@ What stage 2's exit gate actually measures: a person using it.
   a form with an empty `required` field, pressed through Chrome, answers an
   outcome that says it was not sent and why — or this item closes with the
   reasoning written down.
+  ***Done (iteration 387), by a fourth candidate, measured.*** Against
+  Chrome 155.0.8059.86, headless and shown: after a refused press Chrome
+  gives the first failing control the keyboard and puts its bubble in the
+  tree, as an `alert` describing no DOM node, a child of the page's root,
+  named with the words a person reads — which a page's own alert, always
+  an element, cannot be. Each refused press is a new node; a click
+  elsewhere takes it away. So a press on a submit button (this engine's
+  `is_submit_button`, asked of Chrome's element) that asked for no
+  navigation and after which a bubble is in the tree that was not before
+  it answers `NotSubmitted`: the control Chrome focused and the bubble's
+  words, trailing space removed (`chrome_bubble.rs`). Chrome names no
+  constraint and a page's `setCustomValidity` may use Chrome's own words,
+  so `Invalid::constraint` is now an `Option`, `null` on the socket,
+  always named by the engine (ADR 0051's amendment of 25 October). One
+  control, the first, where the engine names each.
+  `tests/a_form_chrome_would_not_send.rs`: the same form through both —
+  the engine's two controls and constraints, Chrome's first control in
+  the engine's exact words, refused again by a new bubble, then the next
+  control once the first is put right, then `Submitted`; a page's own
+  alert in Chrome's words, a cancelled `submit` after a refused press, and
+  an `invalid` the page cancels each answer `Activated`; a page's own words
+  carried with no constraint. Mutations: no submit button known fails both
+  tests; a bubble from before the press counted survives them (Chrome
+  takes it away on the next click anyway) and fails
+  `chrome_bubble`'s unit test. A form refused with no bubble is cut to
+  646.
 
 - [ ] **632. A date, and a choice, put in through Chrome.** *ADR 0042 § 4,
   0058 § 4.* **Cut from 621.** On Chrome's page a `date` field and a
@@ -16603,6 +16629,23 @@ What stage 2's exit gate actually measures: a person using it.
   a layout assertion in numbers, or the scroll verb's rule is changed to
   what Chrome would scroll, with a test that `scroll` on a plain button
   is refused.
+
+- [ ] **646. A form Chrome refuses and draws no bubble for.** *Cut from
+  631 (iteration 387); ADR 0051 § 6 and its amendment of 25 October.*
+  Measured against Chrome 155: a page that cancels a failing control's
+  `invalid` event, and a failing control Chrome cannot give the keyboard —
+  a `required` field that is hidden — each leave the form unsent and put
+  no bubble in the tree, so the press answers `Activated` through Chrome
+  where the engine answers `NotSubmitted`. For the hidden field Chrome
+  tells of `An invalid form control with name='a' is not focusable.` as
+  `Log.entryAdded`, source `rendering`, level `error` (measured once
+  `Log.enable` is sent) — not as the console call item 639 would hear;
+  for a cancelled `invalid` nothing has been found. *Depends on 631.
+  Closes when:* both
+  pages, pressed through Chrome, answer an outcome that says the form was
+  not sent, asserted beside the engine's answer — or this item closes
+  saying what Chrome does not tell of, and why `Activated` is then the
+  truth.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -62,23 +62,32 @@
 //! asked for in that time, whenever Chrome pauses its first hop
 //! ([`crate::chrome_record`], ADR 0012 § 4).
 //!
+//! A press on a submit button that sends nothing, and after which Chrome
+//! shows the bubble it draws over a control failing its checks, answers
+//! [`Outcome::NotSubmitted`]: the control the bubble is about, and its
+//! words, read from Chrome's tree ([`crate::chrome_bubble`], item 631).
+//! Chrome tells of one control, the first, and of no constraint, so the
+//! answer names one and says [`None`] for which constraint, where the
+//! engine names each control that failed and its constraint.
+//!
 //! # What it cannot say yet
 //!
-//! - **A form Chrome would not send** answers [`Outcome::Activated`], not
-//!   [`Outcome::NotSubmitted`]: Chrome's tree does not say which control
-//!   failed — a `required` field left empty is not `invalid` in it — and its
-//!   words for why are drawn in a bubble nothing here can read (item 631).
+//! - **A form Chrome would not send and shows no bubble for** answers
+//!   [`Outcome::Activated`]: a page that cancels the control's `invalid`
+//!   event, or a failing control Chrome cannot give the keyboard to, such
+//!   as a hidden `required` field, leaves the tree as it was (item 646).
 //! - **Text the page would not take** is answered [`Outcome::TextCanceled`]
 //!   when the field holds afterwards what it held before. Whether the page
 //!   cancelled the `beforeinput` or put the old text back in its `input`
 //!   listener, Chrome does not say, and both leave the field as it was.
 
 use crate::chrome::Failed;
+use crate::chrome_bubble;
 use crate::chrome_protocol::{self, AxNode, Chord, Command, Mouse, Within};
 use crate::chrome_reading::ChromeReading;
 use crate::chrome_tab::Tab;
 use crate::chrome_tree::Unread;
-use alo_agent::verb::{Target, Verb, find, perform};
+use alo_agent::verb::{Invalid, Target, Verb, find, perform};
 use alo_agent::{Outcome, Refusal};
 use alo_box::BoxId;
 use alo_dom::submission::Method;
@@ -230,8 +239,22 @@ impl Tab<'_> {
             });
         }
         match decided {
-            Outcome::Activated { node, name } => self.press(&nodes, node, name, None),
-            Outcome::Followed { node, to } => self.press(&nodes, node, aimed.name, Some(to)),
+            Outcome::Activated { node, name } => {
+                let pressed = Pressed {
+                    name,
+                    to: None,
+                    submits: reading.submits(node),
+                };
+                self.press(&nodes, node, pressed)
+            }
+            Outcome::Followed { node, to } => {
+                let pressed = Pressed {
+                    name: aimed.name,
+                    to: Some(to),
+                    submits: false,
+                };
+                self.press(&nodes, node, pressed)
+            }
             Outcome::TextPut { node, text } => self.type_in(node, text),
             outcome @ (Outcome::Scrolled { .. }
             | Outcome::TextCanceled { .. }
@@ -240,15 +263,15 @@ impl Tab<'_> {
         }
     }
 
-    /// Click the middle of `node`, and say what came of it: `to` is where the
-    /// link it is goes, when it is one.
+    /// Click the middle of `node`, read in `nodes` before the press, and
+    /// say what came of it.
     fn press(
         &mut self,
         nodes: &[AxNode],
         node: BoxId,
-        name: Option<String>,
-        to: Option<String>,
+        pressed: Pressed,
     ) -> Result<Outcome, Unacted> {
+        let Pressed { name, to, submits } = pressed;
         let dom = dom_of(node);
         // What the page asked for before this press is not what it did.
         drop(self.take_requested());
@@ -300,8 +323,26 @@ impl Tab<'_> {
                 },
                 to: asked.url,
             },
+            (None, None) if submits => match self.bubble(nodes)? {
+                Some(bubble) => Outcome::NotSubmitted {
+                    node,
+                    invalid: vec![Invalid {
+                        control: Some(box_of(bubble.control)),
+                        constraint: None,
+                        message: bubble.message,
+                    }],
+                },
+                None => Outcome::Activated { node, name },
+            },
             _ => Outcome::Activated { node, name },
         })
+    }
+
+    /// The bubble Chrome shows now over a form it would not send, that was
+    /// not in `before`.
+    fn bubble(&mut self, before: &[AxNode]) -> Result<Option<chrome_bubble::Bubble>, Unacted> {
+        let after = chrome_protocol::ax_nodes(&self.ask(&Command::ReadTree)?)?;
+        Ok(chrome_bubble::shown(before, &after))
     }
 
     /// Replace what the field `node` holds with `text`, as a person typing
@@ -343,10 +384,24 @@ impl Tab<'_> {
     }
 }
 
+/// What was pressed, beside the node: what it is called, where it goes
+/// when it is a link, and whether it is a submit button.
+struct Pressed {
+    name: Option<String>,
+    to: Option<String>,
+    submits: bool,
+}
+
 /// The DOM node a node of the tree describes, by Chrome's `backendNodeId`:
 /// the id [`crate::chrome_tree`] gave it.
 fn dom_of(node: BoxId) -> u64 {
     u64::try_from(node.as_usize()).unwrap_or(u64::MAX)
+}
+
+/// The node of the tree that describes the DOM node `dom`, by the id
+/// [`crate::chrome_tree`] gives it.
+fn box_of(dom: u64) -> BoxId {
+    BoxId::from_wire(usize::try_from(dom).unwrap_or(usize::MAX))
 }
 
 /// The whole CSS pixel at the middle of a rectangle — where a person aims —
@@ -496,6 +551,8 @@ mod tests {
     #[test]
     fn a_node_is_its_dom_node_by_the_id_the_tree_gave_it() {
         assert_eq!(dom_of(BoxId::from_wire(76)), 76);
+        assert_eq!(box_of(76), BoxId::from_wire(76));
+        assert_eq!(dom_of(box_of(3)), 3);
     }
 
     #[test]

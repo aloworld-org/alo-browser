@@ -39430,3 +39430,117 @@ the changelog say the same.
 301 queue items are open (625 closed, 645 opened; counted as `- [ ] **`
 lines). The next unused queue number is **646** and the next ADR is
 **0063**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 387 — queue item 631: a form Chrome would not send
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the two
+paths, the product path's state, the stage 2 Chrome line), iteration
+386's entry, the queue's product-path table and items 631, 632, 635, 636,
+638, 639, 642, 643, 645 and 477; ADR 0051 §§ 4 and 6 and its amendment
+of 2026-10-12 (the item's citation); `docs/contracts/agent-socket.md`;
+`chrome_act.rs`, `chrome_reading.rs`, `chrome_protocol.rs`'s `AxNode`,
+`chrome_tab.rs`'s `read_whole`, `alo-agent`'s `verb.rs`, `alo-dom`'s
+`constraint.rs` and `kind.rs`, `alo-renderer`'s `submit.rs` and
+`wire/form.rs`, and `the_verbs_through_chrome.rs`. No `AGENTS.md` exists in
+the repository. 631's feature contract is `docs/features.md`'s Chrome
+renderer line (ADR 0058).
+
+**Why 631.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and again before the gate, so 642 and 643, which must be measured with
+the screen in use, could not be built honestly; 477 needs a Mac that
+never built it. Of the product path's other owed items (631, 632, 635,
+636, 639, in the order every journal entry since 380 lists them), 631 is
+first and its one dependency, 621, is done. The earlier engine-path items
+checked (157, 158, 187, 60, 533, 169) are blocked on an interface, a
+page or another item, as their own text says.
+
+**Measured first**, against Chrome 155.0.8059.86 over CDP from a Node
+probe in the scratchpad, headless and shown, no script put into any
+page. After a refused press Chrome sends nothing, gives the first failing
+control the keyboard (`focused`), and adds to the page's root an `alert`
+with **no `backendDOMNodeId`**, named with the bubble's words; a page's
+own `role="alert"`, even in Chrome's words, describes an element. Each
+refused press is a new node (`-1000000006`, `-8`, `-10` for three in a
+row); a click elsewhere takes it away; it stays at least five seconds
+otherwise. Its name is the message, a space and what follows it in the
+bubble: a `pattern`'s `title` follows (`Please match the requested
+format. Digits only`), `setCustomValidity('Fill it, please  ')` reads
+`Fill it, please `, `valueMissing` for a field, a checkbox and a list and
+an e-mail mismatch are the engine's words plus a space. A cancelled
+`invalid` and a hidden `required` field leave the form unsent and no
+bubble; the hidden one is told of as `Log.entryAdded`, source
+`rendering`. `minlength` on a markup value sent the form.
+
+**Built.** `chrome_bubble.rs`: the bubble in the tree after the press that
+was not before it — an alert, no element, a child of the root, not
+ignored, exactly one — and the one non-root node with the keyboard, or
+nothing. `ChromeReading::submits` asks `alo_dom::kind::is_submit_button`
+of the described element. `chrome_act.rs`'s press reads the tree again
+after a submit button's press that asked for no navigation, and answers
+`NotSubmitted` with that control and the words, trailing whitespace
+removed. Chrome names no constraint and its words cannot stand for one,
+so `alo_agent::verb::Invalid::constraint` is now `Option<Constraint>`:
+the engine always gives `Some`, the renderer's wire carries a flag before
+the tag, the socket writes `null`, and `Display` leaves it out. Written
+into ADR 0051 as an amendment of 25 October 2026 (the precedent of its
+2026-10-12 amendment, made by the change that built 476), and into the
+socket contract.
+
+**Tests.** Unit: `chrome_bubble` (four: a new bubble and its words, a
+page's alert and a deep one refused, one from before the press refused
+and a second press's taken, and seven shapes that leave a guess),
+`chrome_reading`'s `submits`, `chrome_act`'s `box_of`, `protocol`'s
+`null` constraint, `verb.rs`'s sentence without one, the renderer wire's
+round trip with one `None`. End to end
+(`a_form_chrome_would_not_send.rs`, two tests over a real headless
+Chrome): one form through the engine (two controls, `typeMismatch` and
+`valueMissing`, the engine's words) and through Chrome (the first
+control in the engine's exact words, refused again by a new bubble, the
+second control once the first is put right, then `Submitted` to the
+encoded address); a page's own alert in Chrome's words, a cancelled
+`submit` right after a refused press, and a cancelled `invalid` each
+`Activated`; a page's custom words carried with `constraint: None`.
+Mutations, restored from copies: `submits: false` fails both end-to-end
+tests; dropping the before-the-press check survives them, because Chrome
+removes the old bubble on the next click, and fails
+`a_bubble_that_was_there_before_the_press_is_not_the_press`.
+
+**Gate.** Run in the foreground into a scratchpad log; at 600 s the tool
+moved it to the background, and it was waited on by a foreground
+until-loop in the next call (the practice the memory records): **exit 0,
+"The gate is met. (10 of 10 steps)"**, nextest **5,244 tests run, 5,244
+passed** in 562.6 s, no `FAIL`, `LEAK` or `panicked`. `cargo clippy
+--workspace --all-targets` was clean before it. Manual: nothing here
+positions, sizes or draws, so no layout assertion or reference render
+applies; no existing reference changed. One file, one responsibility:
+reading the bubble is `chrome_bubble.rs`'s alone, deciding what a press
+came to stays in `chrome_act.rs`, an element's facts in
+`chrome_reading.rs`. No `unsafe`, no stubs, no verb taking a coordinate,
+no script in a page. `alo-os` and `alo-workplace` untouched. Nothing
+pushed.
+
+**Roadmap.** The product path's *Built* gains 631 and its *Owed* swaps
+631 for 646; the stage 2 Chrome line's `· Built:` gains it and its
+`· Owed:` the same. Not ticked — neither line is finished. The agent's
+gate line is unchanged: 631 is the Chrome path's, and that line's
+*Built* is about the door, not a renderer. `features.md`, the contract,
+the ADR, the queue (631 ticked with a *Done* paragraph, 646 added),
+`REMAINING.md`, `lib.rs`'s map and the changelog say the same.
+
+**Unresolved obligations.**
+- Through Chrome `NotSubmitted` holds one control and no constraint, where
+  the engine's holds each control and its constraint; written down, not
+  closed.
+- 646, cut here: a form Chrome refuses with no bubble answers `Activated`.
+- 642 and 643 still wait on the screen in use (locked twice this
+  iteration); 645 is open.
+- Inherited and unchanged: 632, 635, 636, 639, 642 and 643 owed; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 638 needs an ADR; item 549 is unbuilt.
+  Other suites' short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+301 queue items are open (631 closed, 646 opened; counted as `- [ ] **`
+lines). The next unused queue number is **647** and the next ADR is
+**0063**. This is one iteration, not a finished queue or roadmap.

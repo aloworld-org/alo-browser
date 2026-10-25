@@ -2926,3 +2926,17 @@ waits on 642 with 623's line and 624's ring. The screen was locked again,
 so 642 and 643 still wait on it. Found: 645, a plain button that says it
 has something to scroll. 301 queue items are open (625 closed, 645
 opened). The next unused queue number is 646 and the next unused ADR 0063.
+
+Iteration 387 closed queue item 631 by a candidate it had not named,
+measured against Chrome 155: a refused press puts Chrome's bubble in its
+accessibility tree as an alert describing no DOM node, which a page
+cannot forge, and gives the failing control the keyboard. A press through
+Chrome on a submit button that sends nothing and leaves a new bubble now
+answers `NotSubmitted` with that control and the bubble's words, which
+are the engine's words wherever the engine has them
+(`chrome_bubble.rs`). Chrome names no constraint, so `Invalid`'s is now
+optional, `null` on the socket (ADR 0051's amendment of 25 October), and
+it tells of the first control only. A form Chrome refuses with no bubble
+is cut as 646. The screen was locked again, so 642 and 643 still wait on
+it. 301 queue items are open (631 closed, 646 opened). The next unused
+queue number is 647 and the next unused ADR 0063.

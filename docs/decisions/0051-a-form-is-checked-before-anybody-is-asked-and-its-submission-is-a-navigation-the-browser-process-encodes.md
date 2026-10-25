@@ -528,3 +528,41 @@ read. Two of its findings change § 6's last paragraph.
 The rule is `alo-box`'s `invalid.rs`, over `alo-dom`'s `constraint.rs`, so
 the tree and the press cannot disagree about a control.
 
+
+## Amendment — 25 October 2026: a form Chrome would not send
+
+Made by the change that built queue item 631, which § 6's outcomes needed
+on the product path (ADR 0058 § 4): through Chrome a refused press
+answered `Activated`, because Chrome's tree says nothing of which control
+failed. Measured against Chrome 155.0.8059.86 over the `DevTools`
+protocol, headless and shown, on probe pages; Chrome's source was not
+read, and no script was put into any page.
+
+- **Chrome's bubble is in its tree.** After a press it refuses, Chrome
+  gives the first failing control the keyboard and adds to the page's
+  root an `alert` that describes no DOM node, named with the bubble's
+  words. A page's own `role="alert"` always describes an element, so a
+  page cannot make one. Each refused press makes a new one, under a new
+  id; a click anywhere else takes it away.
+- **Its words are what a person reads**, not `validationMessage`: the
+  message, a space, and what follows it in the bubble, spaces run
+  together. A `pattern`'s `title` follows its message; most end in the
+  space. With the trailing space removed, every message this engine also
+  says — `valueMissing` for each kind, an e-mail address and a URL that
+  are not one — is this engine's message exactly.
+- **It names no constraint**, and its words cannot stand for one: a page's
+  `setCustomValidity` may say `Please fill out this field.` too. So
+  `NotSubmitted`'s `constraint` becomes optional, and is absent when the
+  renderer gave words and not a constraint. The engine always names it.
+- **It tells of one control**, the first. Through Chrome `NotSubmitted`
+  holds that one; the engine's holds each, as § 6 says.
+- **It may say nothing.** A page cancelling the control's `invalid`, or a
+  failing control Chrome cannot focus (a hidden `required` field), leaves
+  the form unsent and no bubble. That press answers `Activated` through
+  Chrome, where the engine answers `NotSubmitted`; it is queue item 646.
+
+Candidates the item named and this does not take: hearing `invalid`
+events through a DOM breakpoint, which pauses the page; and the engine's
+own checks run over Chrome's element descriptions, which would be this
+engine's verdict about a form Chrome judged, and would need every
+control's live value, which no description carries.

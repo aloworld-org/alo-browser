@@ -200,7 +200,7 @@ fn an_address_that_is_not_one_stops_the_pizza_form_in_chromes_words() {
     assert_eq!(invalid.len(), 1, "{invalid:?}");
     let field = invalid.first().expect("one control");
     assert!(field.control.is_some(), "the field is named by its box");
-    assert_eq!(field.constraint, Constraint::TypeMismatch);
+    assert_eq!(field.constraint, Some(Constraint::TypeMismatch));
     assert_eq!(
         field.message,
         "Please include an '@' in the email address. 'nope' is missing an '@'."
@@ -230,7 +230,7 @@ fn the_booking_form_is_checked_and_sent_as_chrome_sends_it() {
     };
     let date = invalid.first().expect("the date field");
     assert_eq!(invalid.len(), 1);
-    assert_eq!(date.constraint, Constraint::ValueMissing);
+    assert_eq!(date.constraint, Some(Constraint::ValueMissing));
     assert_eq!(date.message, "Please fill out this field.");
     assert_eq!(asked, None);
 
@@ -311,7 +311,7 @@ fn the_frozen_booking_page_runs_script_and_is_checked_and_sent_as_chrome_sends_i
     assert_eq!(invalid.len(), 1, "{invalid:?}");
     let date = invalid.first().expect("the date field");
     assert!(date.control.is_some(), "the field is named by its box");
-    assert_eq!(date.constraint, Constraint::ValueMissing);
+    assert_eq!(date.constraint, Some(Constraint::ValueMissing));
     assert_eq!(date.message, "Please fill out this field.");
     assert_eq!(asked, None, "and nothing was asked for");
     assert_eq!(heard(&page), "invalid true false true booking-0-date;");

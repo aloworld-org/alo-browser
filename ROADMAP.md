@@ -187,7 +187,11 @@ about this project (ADR 0058 § 6).
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
   kept until the second verb that runs after it, two refusals in a row two
-  lines (625; through Chrome, 642).
+  lines (625; through Chrome, 642); and **a form Chrome would not send,
+  answered as the engine answers it** — `NotSubmitted`, naming the control
+  Chrome stopped at and the words of the bubble it draws there, read from
+  its tree, which a page cannot forge (631; the first control and no
+  constraint, where the engine names each and its constraint).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -198,8 +202,8 @@ about this project (ADR 0058 § 6).
   together under Stage Manager, put by Chrome's word and shown only while
   the window server shows Chrome's (ADR 0062).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
-  what a page's script said, through Chrome (639); a form Chrome would not send, answered as the engine
-  answers it (631); the
+  what a page's script said, through Chrome (639); a form Chrome refuses
+  and draws no bubble for (646); the
   rest of the agent's work where a person can see it — **a window of ours
   around Chrome's, following it, with 623's and 625's lines and 624's
   ring in it (642)**; a placed window that stays where a
@@ -729,7 +733,10 @@ unreachable without it.
       Chrome's own window, sized around the page and placed by this
       process (item 627, `chrome_window.rs`, ADR 0061), and the running
       browser answering a person who asks which renderer draws a tab, over
-      the socket with `alo-ask` (item 622, the `renderer` ask)
+      the socket with `alo-ask` (item 622, the `renderer` ask), and a
+      form Chrome would not send answered `NotSubmitted`, with the control
+      Chrome stopped at and the words of the bubble it draws beside it,
+      which are the engine's words for it (item 631, `chrome_bubble.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -738,8 +745,9 @@ unreachable without it.
       window server shows Chrome's (ADR 0062)
       · Owed: a frame as a document of its own in the record (636); whose cause a tab an agent opened is
       (638, needs an ADR); the resolver measured (635); what a page's
-      script said, through Chrome (639); a
-      form Chrome would not send answered as `NotSubmitted` (631), a date
+      script said, through Chrome (639); a form Chrome refuses and draws
+      no bubble for — an `invalid` a page cancels, a hidden required
+      field — answered as anything but a press the page took (646); a date
       and a choice put in through Chrome (632), a window of ours around
       Chrome's, carrying the agent's sentence, its refusals and the ring
       around the box it acted on as the engine's window does (642, 623,

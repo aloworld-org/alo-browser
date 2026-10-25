@@ -78,7 +78,13 @@ impl Writer {
                 self.number(invalid.len() as u64);
                 for one in invalid {
                     self.maybe_id(one.control);
-                    self.tag(tag_of(&Constraint::ALL, &one.constraint));
+                    match &one.constraint {
+                        Some(constraint) => {
+                            self.bool(true);
+                            self.tag(tag_of(&Constraint::ALL, constraint));
+                        }
+                        None => self.bool(false),
+                    }
                     self.text(&one.message);
                 }
             }
@@ -178,7 +184,11 @@ impl Reader<'_> {
                 for _ in 0..how_many {
                     invalid.push(Invalid {
                         control: self.maybe_id()?,
-                        constraint: self.constraint()?,
+                        constraint: if self.bool()? {
+                            Some(self.constraint()?)
+                        } else {
+                            None
+                        },
                         message: self.text()?,
                     });
                 }

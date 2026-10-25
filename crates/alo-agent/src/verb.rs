@@ -202,8 +202,11 @@ pub struct Invalid {
     /// Its box, or [`None`] for a control nothing draws, which an agent
     /// cannot name but which stopped the form all the same.
     pub control: Option<BoxId>,
-    /// Which constraint.
-    pub constraint: Constraint,
+    /// Which constraint, or [`None`] when the renderer said why in words
+    /// and not which: Chrome's bubble names no constraint, and its words
+    /// cannot be taken for one, since a page may write any words it likes
+    /// with `setCustomValidity` (ADR 0051, amendment of 25 October 2026).
+    pub constraint: Option<Constraint>,
     /// What the browser says about it, word for word as Chrome does.
     pub message: String,
 }
@@ -211,13 +214,13 @@ pub struct Invalid {
 impl fmt::Display for Invalid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.control {
-            Some(control) => write!(f, "{control} {}: {:?}", self.constraint, self.message),
-            None => write!(
-                f,
-                "a control nothing draws {}: {:?}",
-                self.constraint, self.message
-            ),
+            Some(control) => write!(f, "{control}")?,
+            None => f.write_str("a control nothing draws")?,
         }
+        if let Some(constraint) = self.constraint {
+            write!(f, " {constraint}")?;
+        }
+        write!(f, ": {:?}", self.message)
     }
 }
 
@@ -764,12 +767,12 @@ mod tests {
             invalid: vec![
                 Invalid {
                     control: Some(BoxId::from_index_for_tests(4)),
-                    constraint: Constraint::ValueMissing,
+                    constraint: Some(Constraint::ValueMissing),
                     message: "Please fill out this field.".to_owned(),
                 },
                 Invalid {
                     control: None,
-                    constraint: Constraint::TypeMismatch,
+                    constraint: Some(Constraint::TypeMismatch),
                     message: "Please enter a URL.".to_owned(),
                 },
             ],
@@ -779,6 +782,20 @@ mod tests {
             "pressed box#9, and its form was not sent: box#4 valueMissing: \
              \"Please fill out this field.\"; a control nothing draws typeMismatch: \
              \"Please enter a URL.\"",
+        );
+        // Through Chrome, whose bubble gives the words and not the
+        // constraint.
+        let unnamed = Outcome::NotSubmitted {
+            node,
+            invalid: vec![Invalid {
+                control: Some(BoxId::from_index_for_tests(4)),
+                constraint: None,
+                message: "Fill it in, please".to_owned(),
+            }],
+        };
+        assert_eq!(
+            unnamed.to_string(),
+            "pressed box#9, and its form was not sent: box#4: \"Fill it in, please\"",
         );
         assert_eq!(invalid.node(), node);
         assert_eq!(
