@@ -16647,6 +16647,37 @@ What stage 2's exit gate actually measures: a person using it.
   saying what Chrome does not tell of, and why `Activated` is then the
   truth.
 
+- [ ] **647. The second race in the agent's navigation cause.** The fix on
+  2026-10-24 at 18:10 closed one race in
+  `an_agents_activate_that_navigates_names_the_action_as_its_cause` and that
+  test has since stopped the loop twice more — 23:46 and 06:25 — failing in
+  about one second where it normally takes 1.75. It has not been reproduced
+  by hand: six runs of the whole 296-test package under load, and a full
+  untruncated workspace run of 5236, all green. **It fails only in the gate's
+  own runs**, and why that is, is not understood.
+  *The hypothesis, from reading rather than from evidence:* `Causes::of_page`
+  now asks whether the document a verb was carried out in is still the one
+  the tab holds, and answers `Cause::Agent` when it is. If Chrome pauses the
+  **new** page's stylesheet before this process has applied that page's
+  `Page.frameNavigated`, the tab still holds the old document, the action is
+  still "here", and the stylesheet is pinned on the agent in the page that
+  never asked for it — the same symptom as before, one step earlier.
+  Against the hypothesis: Chrome commits a document before parsing it, and
+  CDP messages arrive in order, so the commit *should* already have been
+  read. Something about that is wrong and it has not been found.
+  *What would settle it:* the panic text, which no gate ever printed until
+  `gate.sh` was fixed this morning — so **the next occurrence will say what
+  cause it actually got**, and the first thing to read is whether the
+  document in it is the old page or the new one.
+  *What the principled fix probably needs:* the request's own document
+  identity from Chrome rather than this process's idea of the current page.
+  `Fetch.requestPaused` carries a frame but no loader, so that identity may
+  have to come from `Network.requestWillBeSent`'s `loaderId` — which is a
+  design change, not a patch, and is why nothing was changed today.
+  *Depends on nothing. Closes when:* the failure is reproduced on purpose,
+  the cause it produces is read rather than guessed, and the fix carries a
+  test that fails without it.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
