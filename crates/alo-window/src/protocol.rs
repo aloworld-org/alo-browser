@@ -549,6 +549,7 @@ fn verb_refused(refusal: &Refusal, put: &mut impl FnMut(&str, Value)) {
         }
         Refusal::Disabled { node }
         | Refusal::ReadOnly { node }
+        | Refusal::Chooses { node }
         | Refusal::DoesNotScroll { node } => {
             put("node", id(*node));
         }
@@ -799,6 +800,21 @@ mod tests {
             "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"TooLong\",\"length\":5,\"most\":3,\
              \"node\":4,\"tab\":\"t\"},\"said\":\"box#4 takes at most 3 characters, and the \
              text is 5 long\",\"v\":1}\n"
+        );
+        // A list takes no text, and says which list (ADR 0064 § 4).
+        assert_eq!(
+            write(
+                None,
+                &Answer::Refused(Refused::Verb {
+                    tab: "t".to_owned(),
+                    refusal: Refusal::Chooses {
+                        node: BoxId::from_wire(6),
+                    }
+                })
+            ),
+            "{\"answer\":\"refused\",\"refusal\":{\"kind\":\"Chooses\",\"node\":6,\"tab\":\"t\"},\
+             \"said\":\"box#6 is a list to choose from, which takes no text; activate an option \
+             of it instead\",\"v\":1}\n"
         );
     }
 

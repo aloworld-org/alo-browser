@@ -35,6 +35,14 @@
 //! segments whose order is the person's (ADR 0042 § 3 decided this for a
 //! date alone). So text is **not** put into one. An agent is refused by
 //! name ([`unbuilt`]) rather than told it put a time that nobody can see.
+//!
+//! # A list takes no text
+//!
+//! A `<select>` is chosen from, never typed into (ADR 0064 § 4): its
+//! options are activated, and text is refused on it by name
+//! ([`is_chosen_from`]). Writing the text into its `value` attribute, as
+//! this once did, wrote what [`crate::value::selected`] never reads, so the
+//! form sent what it sent before while the agent was told its text went in.
 
 use crate::document::Document;
 use crate::node::{Element, NodeId};
@@ -65,6 +73,15 @@ pub fn unbuilt(element: &Element) -> Option<&'static str> {
         .iter()
         .find(|unbuilt| kind.eq_ignore_ascii_case(unbuilt))
         .copied()
+}
+
+/// Whether `element` is a list to choose from, which takes no text: a
+/// `<select>`, of one choice or several (ADR 0064 § 4).
+///
+/// The rule is about the element, not its role: an `<input>` an author
+/// calls a `combobox` — an autocomplete — is typed into, and is not this.
+pub fn is_chosen_from(element: &Element) -> bool {
+    element.name.is_html("select")
 }
 
 /// Replace the text of the field `node` with `text`, answering whether it
@@ -164,6 +181,25 @@ mod tests {
                 None,
             ]
         );
+    }
+
+    #[test]
+    fn a_select_is_chosen_from_and_a_combobox_typed_into_is_not() {
+        let document = parse_document(
+            "<select></select><select multiple size=3></select>\
+             <input role=combobox><textarea></textarea>",
+        );
+        let chosen: Vec<bool> = document
+            .descendants(document.root())
+            .filter_map(|id| document.element(id))
+            .filter(|element| {
+                ["select", "input", "textarea"]
+                    .iter()
+                    .any(|name| element.name.is_html(name))
+            })
+            .map(is_chosen_from)
+            .collect();
+        assert_eq!(chosen, [true, true, false, false]);
     }
 
     #[test]

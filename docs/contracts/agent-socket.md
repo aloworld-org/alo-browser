@@ -228,6 +228,7 @@ caller must never depend on it.
 | `Ambiguous` | `target`, `candidates` (nodes) |
 | `NotOperable`, `NotAField` | `node`, `role` |
 | `Disabled`, `ReadOnly`, `DoesNotScroll` | `node` |
+| `Chooses` | `node`: a `<select>`, which takes no text — an option of it is activated instead (ADR 0064 § 4) |
 | `NotADate` | `node`, `text` |
 | `Unbuilt` | `node`, `field_kind` |
 | `TooLong` | `node`, `most`, `length` |

@@ -393,6 +393,16 @@ impl<'a> AgentTree<'a> {
             .and_then(alo_dom::constraint::max_length)
     }
 
+    /// Whether the box `id` is a list to choose from, which takes no text
+    /// (`alo_dom::field::is_chosen_from`).
+    pub(crate) fn is_chosen_from(&self, id: BoxId) -> bool {
+        self.boxes
+            .get(id)
+            .and_then(|node| node.kind.node())
+            .and_then(|source| self.document.element(source))
+            .is_some_and(alo_dom::field::is_chosen_from)
+    }
+
     /// Whether this box is inside a `<label>` that names a control, and is
     /// not inside a field there.
     ///

@@ -41116,3 +41116,103 @@ a *Decided* paragraph and its new *closes when*, and adds 658;
 299 queue items are open (658 opened; counted as `- [ ] **` lines). The
 next unused queue number is **659** and the next ADR is **0065**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 403 — queue item 648, cut: a list takes no text
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Decided*/*Owed*, the stage 2 Chrome line), iteration 402's
+entry, the queue's product-path table and items 642, 643, 648 and 658;
+ADR 0064 in full, ADR 0055's contract (`docs/contracts/agent-socket.md`,
+additive only); `alo-agent`'s `verb.rs`, `reading.rs`, `apply.rs` and
+`tree.rs`, `alo-dom`'s `field.rs` and `value.rs`, `alo-box`'s `role.rs` and
+`state.rs`, the user agent sheet's option rules, `alo-renderer`'s
+`wire.rs`, `alo-window`'s `chrome_reading.rs`, `protocol.rs` and
+`asking.rs`. No `AGENTS.md` exists in the repository. The feature
+contract is `docs/features.md`'s Chrome renderer line.
+
+**Why 648.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 — next by the owner's choice —
+could not be measured. 648 is first of the product path's *Owed*, its ADR
+is accepted (iteration 402) and it depends on nothing.
+
+**Cut, per LOOP.md step 3.** ADR 0064 reaches the user agent sheet
+(options are `display: none` and generate no box), the box tree, layout,
+`alo-agent`, `apply`, the scripted renderer, the boundary, the socket and
+Chrome's `Input` domain. That is more than one iteration, so 648 closes on
+§ 4 alone, built whole on both renderers, and the rest is written into
+the queue: **659** (§§ 1, 2, 3, 5 on this engine's page: options in the
+tree, `Activate` choosing, `Outcome::Chosen`, the form sending it) and
+**660** (§ 6: a drawn list clicked, Meta on `multiple`, a closed list's
+option refused by name), which depends on 659. 658 now depends on 660.
+ADR 0064 gains a one-line note saying which items build which sections;
+its decision is unchanged.
+
+**Built.**
+- `alo_dom::field::is_chosen_from`: a `<select>`, of one choice or
+  several; an `<input role=combobox>` is not one. Unit test.
+- `Reading::is_chosen_from`, answered by `AgentTree` from the box's
+  element and by `ChromeReading` from Chrome's described element — one
+  rule, two renderers.
+- `Refusal::Chooses { node }`, asked first in `put_text` (before
+  `NotAField` and `Disabled`: what it is decides), so a `listbox` and a
+  disabled list are refused by what they are. `Unbuilt`'s doc no longer
+  names a `<select>`, and Chrome's reading no longer answers `Unbuilt`
+  for one.
+- The boundary's refusal tag 12; the socket's `Chooses` kind with `node`;
+  its row in `docs/contracts/agent-socket.md` (additive, version 1).
+
+**Tests.** `alo-agent`'s new `a_list_takes_no_text.rs`: a closed list, a
+`multiple` one and a disabled one each refused `Chooses`, the document's
+change count unchanged and the form's entries still `size=Medium`,
+`toppings=Bacon`; an ARIA combobox `<input>` still `TextPut` and sent. The
+verb unit test's described page (a `combobox` and a disabled `listbox`),
+`chrome_reading.rs`'s unit test, the boundary's crossing test, the
+socket's line test, and `the_verbs_through_chrome.rs` against Chrome 155,
+where a closed and a `multiple` list are both `Chooses` and the page hears
+nothing. Mutation, restored from a copy and checked with `cmp`:
+`put_text` not asking `is_chosen_from` — the new test fails (*Size:
+Ok(TextPut { node: BoxId(5), text: "Large" })*).
+
+**Gate.** `cargo fmt --check` clean; clippy first found one
+`match_wildcard_for_single_variants` in the new test, fixed by naming
+`Value::NoFile`, not silenced. Then `scripts/gate.sh` in the foreground —
+it ran past the tool's 600 s, so it was waited on by an until-loop in the
+next call and read there: **exit 0, "The gate is met." (10 of 10
+steps)**, nextest **5,327 tests run, 5,327 passed** in 571.7 s, no
+warning, `FAIL`, `LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies, and no reference changed. One file, one
+responsibility: the rule is `field.rs`'s (what text does to a field), the
+decision `verb.rs`'s, each renderer's reading only asks; the new test file
+holds one thing. Bytes from outside: the boundary's new tag is read by the
+same `Reader`, whose unknown-tag and truncation tests stand; Chrome's
+element is already parsed by `chrome_protocol`. No `unsafe`, no stubs, no
+verb taking a coordinate. `alo-os` and `alo-workplace` untouched. Nothing
+pushed.
+
+**Roadmap.** The product path's *Built* gains 648 and its *Owed* now names
+659, 660 and 658; the stage 2 Chrome line's `· Built:` gains 648 and
+`· Owed:` names 659 and 660. Not ticked — neither line is finished. The
+queue ticks 648 with a *Done, with its scope cut* paragraph and adds 659
+and 660; `features.md`, `REMAINING.md`, ADR 0064's note and the changelog
+say the same.
+
+**Unresolved obligations.**
+- 659 and 660. Until they land, `Activate` on an option finds nothing on
+  this engine's page (options generate no box) and through Chrome is a
+  click answered `Activated` that finds no box on a closed list and
+  chooses one option alone on a `multiple` list.
+- 658; 642 and 643 still wait on the screen in use (locked); 645, 649 and
+  650 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655). The two cases of iteration 401 stand.
+- No claim about speed is made.
+
+300 queue items are open (648 closed, 659 and 660 opened; counted as
+`- [ ] **` lines). The next unused queue number is **661** and the next
+ADR is **0065**. This is one iteration, not a finished queue or roadmap.

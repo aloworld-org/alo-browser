@@ -247,6 +247,7 @@ const VERBS: &str = r#"<!doctype html>
 <input aria-label="When" type=time>
 <input aria-label="Short" maxlength=3>
 <select aria-label="Size"><option>Small</option></select>
+<select aria-label="Sizes" multiple><option>Small</option><option>Large</option></select>
 <input aria-label="Name">
 <input aria-label="Kept" id=kept>
 <a href="/next">Next</a>
@@ -292,6 +293,7 @@ fn every_refusal_is_reached_on_chromes_page_and_the_page_hears_none_of_them() {
         (named("Day"), put("12/10/2026")),
         (named("When"), put("12:00")),
         (named("Size"), put("Large")),
+        (named("Sizes"), put("Large")),
         (named("Short"), put("four")),
         (named("Words"), Verb::Scroll(ScrollBy::ToEnd)),
     ]
@@ -312,7 +314,8 @@ fn every_refusal_is_reached_on_chromes_page_and_the_page_hears_none_of_them() {
             "ReadOnly",
             "NotADate",
             "Unbuilt",
-            "Unbuilt",
+            "Chooses",
+            "Chooses",
             "TooLong",
             "DoesNotScroll",
         ]

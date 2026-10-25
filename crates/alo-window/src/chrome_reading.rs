@@ -37,12 +37,12 @@
 //! date string or nothing, and carried in a segment at a time
 //! ([`crate::chrome_date`], item 632).
 //!
-//! A `<select>` takes no text at all. ADR 0064 decides that an option is
-//! chosen by activating it and that text on a list is refused by a refusal
-//! of its own, and until that is built (item 648) it is refused here by
-//! name as `Refusal::Unbuilt`, beside the kinds the engine refuses, rather
-//! than answered as text the page would not take: a page that cancelled
-//! nothing would be blamed for a field this browser cannot fill.
+//! A `<select>` takes no text at all: an option is chosen by activating it,
+//! and text on a list is refused by a refusal of its own,
+//! `Refusal::Chooses`, by the engine's own rule asked of Chrome's element
+//! (`alo_dom::field::is_chosen_from`, ADR 0064 § 4) — never answered as
+//! text the page would not take, which would blame a page that cancelled
+//! nothing.
 
 use crate::chrome_protocol::Described;
 use alo_agent::{Candidate, Reading};
@@ -143,13 +143,15 @@ impl Reading for ChromeReading {
     }
 
     fn unbuilt_field(&self, id: BoxId) -> Option<&'static str> {
-        let element = self.element(id)?;
-        alo_dom::field::unbuilt(element)
-            .or_else(|| element.name.is_html("select").then_some("select"))
+        self.element(id).and_then(alo_dom::field::unbuilt)
     }
 
     fn max_length(&self, id: BoxId) -> Option<usize> {
         self.element(id).and_then(alo_dom::constraint::max_length)
+    }
+
+    fn is_chosen_from(&self, id: BoxId) -> bool {
+        self.element(id).is_some_and(alo_dom::field::is_chosen_from)
     }
 }
 
@@ -268,7 +270,17 @@ mod tests {
         assert_eq!(reading.unbuilt_field(id(4)), None);
         let select =
             ChromeReading::of(&page()).with_element(id(3), &described("SELECT", "select", &[]));
-        assert_eq!(select.unbuilt_field(id(3)), Some("select"));
+        assert_eq!(select.unbuilt_field(id(3)), None);
+        assert!(select.is_chosen_from(id(3)));
+        assert_eq!(
+            perform(
+                &select,
+                &Target::Node(id(3)),
+                &Verb::PutText("x".to_owned())
+            ),
+            Err(Refusal::Chooses { node: id(3) })
+        );
+        assert!(!reading.is_chosen_from(id(4)), "a date field is typed into");
     }
 
     #[test]

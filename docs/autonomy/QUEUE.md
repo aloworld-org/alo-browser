@@ -16946,7 +16946,7 @@ What stage 2's exit gate actually measures: a person using it.
   restored from a copy and checked with `cmp`. The fixed binary passed 32 of
   32 runs under load. What it does not decide is 657.
 
-- [ ] **648. How an agent chooses an option.** *Cut from 632 (iteration
+- [x] **648. How an agent chooses an option.** *Cut from 632 (iteration
   388); ADR 0002, ADR 0042 § 4's rule for a date as the precedent.* No
   verb chooses an option of a `<select>`, on either renderer. Through
   Chrome one is refused `Unbuilt`. On this engine's page a `<select>` is
@@ -16986,6 +16986,68 @@ What stage 2's exit gate actually measures: a person using it.
   list Chrome draws; `PutText` on a `<select>` answers `Chooses` on both;
   a closed list's option through Chrome is refused by name; and the
   socket's contract names the new outcome and refusal kinds.
+  ***Done, with its scope cut (iteration 403).*** The whole of ADR 0064
+  reaches the style sheet, the box tree, layout, `alo-agent`, the renderer
+  boundary, the socket and Chrome, which is more than one iteration, so
+  648 closes on § 4 alone — **a list takes no text**, on both renderers —
+  and the rest is cut, not left half built: 659 (the engine's tree holding
+  options, and `Activate` on one choosing it, answered `Chosen`, the one
+  the form sends) and 660 (the same through a list Chrome draws, and a
+  closed list's option refused by name). Built: `alo_dom::field::
+  is_chosen_from` (a `<select>`, of one choice or several; an `<input
+  role=combobox>` is not one), asked by `Reading::is_chosen_from` of this
+  engine's tree and of Chrome's described element alike; `Refusal::Chooses`,
+  asked first in `put_text`, before `NotAField` and `Disabled`, so a
+  `listbox` and a disabled list are refused by what they are; Chrome's
+  `Unbuilt` for a `<select>` gone; the boundary's tag 12, the socket's
+  `Chooses` kind with `node`, and its row in
+  `docs/contracts/agent-socket.md`. Tests: `alo-agent`'s
+  `a_list_takes_no_text.rs` (three lists refused, the document's change
+  count and the form's entries unchanged — `size=Medium`,
+  `toppings=Bacon` — and an ARIA combobox input still `TextPut`), the
+  verb unit test's described page, `chrome_reading.rs`, the boundary's
+  crossing test, the socket's line, and `the_verbs_through_chrome.rs`,
+  where a closed list and a `multiple` one are both `Chooses` through
+  Chrome 155 and the page hears nothing. Mutation: `put_text` not asking
+  `is_chosen_from` — the new test fails (*Size: Ok(TextPut …)*). Still
+  true until 659 and 660: `Activate` on an option finds nothing on this
+  engine's page (options generate no box) and through Chrome is a click,
+  answered `Activated`, that on a closed list finds no box to click.
+
+- [ ] **659. An option chosen by activating it, on this engine's page.**
+  *Cut from 648 (iteration 403); ADR 0064 §§ 1, 2, 3 and 5.* An option of
+  a `<select>` is `display: none` in the user agent's sheet and generates
+  no box, so nothing in this engine's tree can be activated to choose it,
+  and no outcome says what a list holds. Build: a `<select>`'s options in
+  the agent's tree under it, by the box tree's own pass, with their words,
+  `selected` and `disabled` (an option of a disabled list or `<optgroup>`
+  disabled too) and an `<optgroup>` as a `group`, and **no rectangle**
+  while not drawn — never a second tree; `Outcome::Chosen` (the option,
+  its list, whether it is chosen after the verb, read from the page); on a
+  page that never ran script, `apply` carrying HTML's selectedness rule on
+  the `selected` attribute (the only choice in a list of one, a toggle in
+  `multiple`); on one with script, the renderer firing `input` then
+  `change`, a listener's undoing read back; 624's ring around the list
+  when the option has no box; the boundary's tag and the socket's `Chosen`
+  kind in the contract. *Depends on 648. Closes when:* an option chosen by
+  `Activate` on this engine's page is the one its form sends, with and
+  without script, a toggle in a `multiple` list adds and takes away, a
+  disabled option is `Disabled`, and a layout assertion says the closed
+  list's options have no box.
+
+- [ ] **660. An option chosen through a list Chrome draws.** *Cut from 648
+  (iteration 403); ADR 0064 § 6.* Through Chrome `Activate` on an option
+  is a click answered `Activated`, which on a `multiple` list chooses that
+  option alone and on a closed list finds no box. Build: a drawn option
+  (a list with a `size`, or `multiple`) clicked at its middle, with Meta
+  held on a `multiple` list on macOS; the answer `Chosen`, read back from
+  Chrome's tree after the verb; an option of a closed list refused by name
+  before Chrome is asked anything. *Depends on 659 (`Outcome::Chosen`).
+  Closes when:* through Chrome a `size` list's option chosen by `Activate`
+  is the one the form sends with one `input` and one `change`, two
+  options of a `multiple` list are both sent after two verbs and one is
+  taken away by a third, and a closed list's option is refused by name
+  with the page hearing nothing.
 
 - [ ] **649. What Chrome itself asks for, with no page open.** *Found
   building 635 (iteration 389); ADR 0060 § 2, ADR 0012.* Measured from
@@ -17360,7 +17422,8 @@ What stage 2's exit gate actually measures: a person using it.
   system's own, and whether the `Input` domain reaches that menu, whether
   it holds the page while open, and whether a key or a click in it then
   chooses with one `change`, is not measured: the screen was locked.
-  *Depends on 648. Closes when:* that is measured with the screen in use,
+  *Depends on 660 (it was 648's; iteration 403 cut 648). Closes when:*
+  that is measured with the screen in use,
   and either a closed list's option is chosen through a shown Chrome with
   the page hearing one `input` and one `change` for the option asked, in
   a test, or ADR 0064 says why it stays refused.

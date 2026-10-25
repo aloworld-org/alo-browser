@@ -322,11 +322,9 @@ pub enum Refusal {
         /// The text that is not a date.
         text: String,
     },
-    /// It is a field of a kind this browser cannot put text into yet: on
-    /// this engine's page a `time`, `month`, `week` or `datetime-local`
-    /// field, whose text nothing draws; on Chrome's, those and a
-    /// `<select>`, which takes no text (queue item 621) and whose option an
-    /// agent chooses by activating it once ADR 0064 is built (item 648).
+    /// It is a field of a kind this browser cannot put text into yet: a
+    /// `time`, `month`, `week` or `datetime-local` field, whose text nothing
+    /// draws.
     ///
     /// Refused by name rather than put in: an agent told it had put a time
     /// in would believe a person could see it.
@@ -335,6 +333,16 @@ pub enum Refusal {
         node: BoxId,
         /// The field's type, as HTML names it.
         kind: String,
+    },
+    /// It is a list to choose from — a `<select>` — and takes no text.
+    ///
+    /// Refused by name, on either renderer, rather than put in: a choice is
+    /// not text, and an agent chooses an option by activating it (ADR 0064
+    /// § 4). Not [`Refusal::Unbuilt`], which says *cannot yet* of something
+    /// that never will.
+    Chooses {
+        /// Which node.
+        node: BoxId,
     },
     /// It has no more content than room, so there is nothing to scroll.
     DoesNotScroll {
@@ -398,6 +406,11 @@ impl fmt::Display for Refusal {
             Refusal::Unbuilt { node, kind } => write!(
                 f,
                 "{node} is a {kind} field, and this browser cannot put text into one yet",
+            ),
+            Refusal::Chooses { node } => write!(
+                f,
+                "{node} is a list to choose from, which takes no text; activate an option of it \
+                 instead",
             ),
             Refusal::DoesNotScroll { node } => write!(f, "{node} has nothing to scroll"),
             Refusal::TooLong { node, most, length } => write!(
@@ -551,6 +564,12 @@ fn put_text<R: Reading + ?Sized>(
 ) -> Result<Outcome, Refusal> {
     let role = node.role.clone();
     let states = node.states;
+    // A list is chosen from, whatever its role says — a closed `<select>` is
+    // a `combobox`, which is otherwise a field (ADR 0064 § 4). Asked first,
+    // as `NotAField` is: what it is decides, not whether it is disabled.
+    if page.is_chosen_from(node.id) {
+        return Err(Refusal::Chooses { node: node.id });
+    }
     // Either the role says it is a field, or the box says text goes into it.
     // The two come apart on `<input type=password>`, which ARIA deliberately
     // gives no role so that a screen reader does not read a password back —
@@ -748,6 +767,15 @@ mod tests {
             not_a_date.to_string(),
             "\"12/10/2026\" is not a date box#2 can hold; a date is written yyyy-mm-dd",
         );
+
+        let chooses = Refusal::Chooses {
+            node: BoxId::from_index_for_tests(5),
+        };
+        assert_eq!(
+            chooses.to_string(),
+            "box#5 is a list to choose from, which takes no text; activate an option of it \
+             instead",
+        );
     }
 
     #[test]
@@ -836,6 +864,7 @@ mod tests {
         unbuilt: Vec<BoxId>,
         most: Vec<(BoxId, usize)>,
         links: Vec<(BoxId, String)>,
+        lists: Vec<BoxId>,
     }
 
     impl Reading for Described {
@@ -859,6 +888,9 @@ mod tests {
                 .iter()
                 .find(|(field, _)| *field == id)
                 .map(|(_, most)| *most)
+        }
+        fn is_chosen_from(&self, id: BoxId) -> bool {
+            self.lists.contains(&id)
         }
     }
 
@@ -903,11 +935,22 @@ mod tests {
                 node(8, KnownRole::TextBox, "Short", field),
                 node(9, KnownRole::Region, "Long", States::default()),
                 node(10, KnownRole::Link, "Next", States::default()),
+                node(11, KnownRole::ComboBox, "Size", States::default()),
+                node(
+                    12,
+                    KnownRole::ListBox,
+                    "Sizes",
+                    States {
+                        disabled: true,
+                        ..States::default()
+                    },
+                ),
             ],
             dates: vec![id(6)],
             unbuilt: vec![id(7)],
             most: vec![(id(8), 3)],
             links: vec![(id(10), "/next".to_owned())],
+            lists: vec![id(11), id(12)],
         }
     }
 
@@ -933,6 +976,10 @@ mod tests {
         assert_eq!(kind(named("Day"), put("12/10/2026")), "NotADate");
         assert_eq!(kind(named("When"), put("12:00")), "Unbuilt");
         assert_eq!(kind(named("Short"), put("four")), "TooLong");
+        // A list takes no text, whatever its role, and before whether it is
+        // disabled is asked: what it is decides (ADR 0064 § 4).
+        assert_eq!(kind(named("Size"), put("Large")), "Chooses");
+        assert_eq!(kind(named("Sizes"), put("Large")), "Chooses");
         assert_eq!(
             kind(named("Words"), Verb::Scroll(ScrollBy::ToEnd)),
             "DoesNotScroll"

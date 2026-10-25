@@ -48,6 +48,9 @@ pub trait Reading {
     /// The most text the field `id` takes, when it says
     /// (`alo_dom::constraint::max_length`).
     fn max_length(&self, id: BoxId) -> Option<usize>;
+    /// Whether `id` is a list to choose from, which takes no text
+    /// (`alo_dom::field::is_chosen_from`, ADR 0064 § 4).
+    fn is_chosen_from(&self, id: BoxId) -> bool;
 }
 
 /// Whether a thing called `held` is the thing called `wanted`: the same
@@ -88,6 +91,10 @@ impl Reading for AgentTree<'_> {
 
     fn max_length(&self, id: BoxId) -> Option<usize> {
         AgentTree::max_length(self, id)
+    }
+
+    fn is_chosen_from(&self, id: BoxId) -> bool {
+        AgentTree::is_chosen_from(self, id)
     }
 }
 

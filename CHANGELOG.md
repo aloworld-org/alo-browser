@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Typing into a drop-down list is refused, by name.** An agent that put
+  text into a `<select>` on this engine's page was told it had, while the
+  form went on sending what it sent before; through Chrome it was told
+  only that this was not built yet. Both now refuse it as `Chooses` — a
+  list is chosen from, by activating an option, never typed into — and
+  the agent socket names the new refusal. Choosing an option that way is
+  still to be built: queue items 659 and 660 (item 648).
+
 - **Decided how an agent chooses from a drop-down list.** An agent that
   typed into one was told it had chosen something when the form would
   still send what it sent before. That is now decided (ADR 0064): an agent

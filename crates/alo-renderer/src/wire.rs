@@ -622,6 +622,10 @@ impl Writer {
                 writer.id(*node);
                 writer.text(kind);
             }
+            Refusal::Chooses { node } => {
+                writer.tag(12);
+                writer.id(*node);
+            }
             Refusal::TooLong { .. }
             | Refusal::Unchecked { .. }
             | Refusal::NotSubmittable { .. } => {
@@ -940,6 +944,7 @@ impl<'a> Reader<'a> {
                 node: self.id()?,
                 kind: self.text()?,
             }),
+            12 => Ok(Refusal::Chooses { node: self.id()? }),
             other => self.form_refusal(other),
         }
     }

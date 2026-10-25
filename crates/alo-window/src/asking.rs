@@ -324,6 +324,7 @@ pub fn refusal_kind(refusal: &Refusal) -> &'static str {
         Refusal::ReadOnly { .. } => "ReadOnly",
         Refusal::NotADate { .. } => "NotADate",
         Refusal::Unbuilt { .. } => "Unbuilt",
+        Refusal::Chooses { .. } => "Chooses",
         Refusal::DoesNotScroll { .. } => "DoesNotScroll",
         Refusal::TooLong { .. } => "TooLong",
         Refusal::Unchecked { .. } => "Unchecked",

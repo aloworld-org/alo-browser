@@ -277,6 +277,7 @@ fn every_refusal_survives_the_crossing() {
             node: id(13),
             text: "12/10/2026".to_owned(),
         }),
+        FromRenderer::Refused(Refusal::Chooses { node: id(18) }),
         FromRenderer::Refused(Refusal::Unbuilt {
             node: id(14),
             kind: "time".to_owned(),

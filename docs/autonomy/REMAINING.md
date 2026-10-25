@@ -3138,3 +3138,16 @@ list through a shown Chrome, measured with the screen in use. No code
 depends on it yet, so 648 stays open. The screen was locked, so 642 and
 643 still wait on it. 299 queue items are open (658 opened). The next
 unused queue number is 659 and the next unused ADR 0065.
+
+Iteration 403 closed queue item 648 with its scope cut. ADR 0064 reaches
+the style sheet, the box tree, layout, `alo-agent`, the boundary, the
+socket and Chrome, so 648 closed on its § 4 alone: text on a `<select>` is
+refused `Chooses` on both renderers, by `alo_dom::field::is_chosen_from`
+asked of either renderer's element, where this engine once answered
+`TextPut` and changed nothing its form sends and Chrome answered
+`Unbuilt`. The rest is cut as 659 (options in this engine's tree, chosen
+by `Activate`, answered `Chosen`) and 660 (the same through a list Chrome
+draws, a closed list's option refused by name); 658 now depends on 660.
+The screen was locked, so 642 and 643 still wait on it. 300 queue items
+are open (648 closed, 659 and 660 opened). The next unused queue number
+is 661 and the next unused ADR 0065.
