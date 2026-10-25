@@ -93,6 +93,7 @@ use crate::chrome_protocol::{
 use crate::chrome_record::{Causes, Hop, purpose_of};
 use crate::chrome_said::Heard;
 use crate::chrome_tree::{self, Unread};
+use crate::chrome_unfocusable::{self, Unfocusable};
 use crate::chrome_window::{self, Unplaced};
 use alo_layout::Rect;
 use alo_net::activity::Happened;
@@ -131,6 +132,10 @@ pub struct Tab<'c> {
     /// The moves the page's own frame made within the document it holds,
     /// told of since they were last taken ([`Tab::take_within`]).
     within: Vec<Within>,
+    /// The form controls Chrome logged it could not give the keyboard, by
+    /// the `objectId` each was handed over as, told of since they were last
+    /// taken ([`Tab::take_unfocusable`]).
+    unfocusable: Vec<Unfocusable>,
     /// The tabs the page opened, by id, each closed before it loaded
     /// anything.
     closed: HashSet<String>,
@@ -339,6 +344,7 @@ impl<'c> Tab<'c> {
             telling: HashMap::new(),
             requested: Vec::new(),
             within: Vec::new(),
+            unfocusable: Vec::new(),
             closed: HashSet::new(),
             causes,
             opened_by: opening,
@@ -487,6 +493,14 @@ impl<'c> Tab<'c> {
     /// was last asked, in the order Chrome told of them.
     pub(crate) fn take_within(&mut self) -> Vec<Within> {
         std::mem::take(&mut self.within)
+    }
+
+    /// The form controls Chrome logged, of the page's own document, that it
+    /// could not give the keyboard to since this was last asked, in the
+    /// order Chrome told of them ([`crate::chrome_unfocusable`]). Chrome
+    /// logs only while told to ([`Command::TellOfTheLog`]).
+    pub(crate) fn take_unfocusable(&mut self) -> Vec<Unfocusable> {
+        std::mem::take(&mut self.unfocusable)
     }
 
     /// Where Chrome drew the DOM node `node`: nowhere, when it declines to
@@ -751,6 +765,9 @@ impl<'c> Tab<'c> {
         if self.heard_in(&message) {
             return Ok(None);
         }
+        if self.logged_in(&message)? {
+            return Ok(None);
+        }
         match message {
             Message::Event {
                 method,
@@ -917,6 +934,32 @@ impl<'c> Tab<'c> {
             }
             _ => false,
         }
+    }
+
+    /// Whether `message` is something Chrome logged of the page's own
+    /// document — kept, when it is a form control Chrome could not give the
+    /// keyboard ([`crate::chrome_unfocusable`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Failed::Malformed`], for an entry that is not one.
+    fn logged_in(&mut self, message: &Message) -> Result<bool, Failed> {
+        let Message::Event {
+            method,
+            session: Some(session),
+            params,
+        } = message
+        else {
+            return Ok(false);
+        };
+        if *session != self.session || method != "Log.entryAdded" {
+            return Ok(false);
+        }
+        let logged = chrome_protocol::logged(params).map_err(Failed::Malformed)?;
+        if let Some(control) = chrome_unfocusable::control(logged) {
+            self.unfocusable.push(control);
+        }
+        Ok(true)
     }
 
     /// Whether `id` is a command this tab sent on its own account, whose

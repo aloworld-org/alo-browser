@@ -566,3 +566,39 @@ events through a DOM breakpoint, which pauses the page; and the engine's
 own checks run over Chrome's element descriptions, which would be this
 engine's verdict about a form Chrome judged, and would need every
 control's live value, which no description carries.
+
+## Amendment — 25 October 2026: a form Chrome refuses and draws no bubble for
+
+Made by the change that built queue item 646, which the amendment above
+left open. Measured against Chrome 155.0.8059.86 over the `DevTools`
+protocol, headless, on probe pages; Chrome's source was not read, and no
+script was put into any page.
+
+- **A failing control Chrome cannot focus is logged.** One that is
+  `hidden`, `display: none`, or inside an `inert` part of the page gets no
+  bubble; instead Chrome logs it as `Log.entryAdded`, source `rendering`,
+  level `error`, in the words
+  `An invalid form control with name='a' is not focusable.`, with the
+  control as the entry's one argument, a node. It logs each such control
+  of the form, in the order of the document, whether or not a bubble is
+  shown for another, and it is told of before the renderer answers a
+  question asked after the press. `Log.enable` tells again of everything
+  logged before unless `Log.clear` is sent first;
+  `Runtime.discardConsoleEntries` does not clear it.
+- **So through Chrome such a press answers `NotSubmitted`**: the bubble's
+  control first when there is one, then each control Chrome logged, each
+  with Chrome's logged words as its message and no constraint, and no box
+  when the tree read before the press does not hold it — as the engine
+  gives none to a control nothing draws. The words are Chrome's about the
+  control, not the message a person would read, since a person reads
+  nothing; they are not the engine's words, and the answer does not
+  pretend they are. `Log` is on only while a press on a submit button is
+  carried out.
+- **A cancelled `invalid` answers `Activated`, and that is the truth
+  through Chrome.** Chrome logs nothing for it and shows no bubble, and
+  its tree, its log and its events tell of it exactly as of a press whose
+  `submit` the page cancelled. Both are a page taking the press to report
+  in its own way, which is what § 6 says `Activated` means. The engine,
+  which runs the checks itself, still answers `NotSubmitted`, and the two
+  renderers differ there by what each can know. Hearing the event through
+  a DOM breakpoint remains rejected, as above.

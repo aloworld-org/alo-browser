@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Through Chrome, a form stopped by a control nobody can see is said
+  not to have been sent.** A required field that is hidden, or inside a
+  part of the page nobody can use, stops a form without Chrome drawing any
+  message; an agent pressing its button was told only that it pressed it.
+  Now it is told the form was not sent, and which control stopped it, in
+  Chrome's own words. A page that hides the failure to show its own message
+  is still answered as a press the page took (queue item 646).
+
 - **The browser holds at most 32 MiB of what Chrome says before it is
   read.** What Chrome tells the browser waits until the browser reads it,
   and until now only the number of messages waiting was limited — a page

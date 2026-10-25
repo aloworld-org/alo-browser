@@ -16812,7 +16812,7 @@ What stage 2's exit gate actually measures: a person using it.
   what Chrome would scroll, with a test that `scroll` on a plain button
   is refused.
 
-- [ ] **646. A form Chrome refuses and draws no bubble for.** *Cut from
+- [x] **646. A form Chrome refuses and draws no bubble for.** *Cut from
   631 (iteration 387); ADR 0051 § 6 and its amendment of 25 October.*
   Measured against Chrome 155: a page that cancels a failing control's
   `invalid` event, and a failing control Chrome cannot give the keyboard —
@@ -16828,6 +16828,32 @@ What stage 2's exit gate actually measures: a person using it.
   not sent, asserted beside the engine's answer — or this item closes
   saying what Chrome does not tell of, and why `Activated` is then the
   truth.
+  ***Done (iteration 399), half each way, measured.*** Against Chrome
+  155.0.8059.86, headless, over CDP: a failing control Chrome cannot
+  focus — `hidden`, `display: none`, inside an `inert` part — is logged
+  as `Log.entryAdded` (`rendering`, `error`, `An invalid form control
+  with name='a' is not focusable.`) with the control as its one node
+  argument; each such control of the form, in document order, with or
+  without a bubble for another; told of before the renderer answers
+  `Page.getLayoutMetrics`; replayed by `Log.enable` unless `Log.clear` is
+  sent first (`Runtime.discardConsoleEntries` does not clear it). So a
+  press on a submit button turns `Log` on, cleared, only while it is
+  carried out (`chrome_act.rs`), the tab keeps each such entry
+  (`chrome_unfocusable.rs`, `chrome_tab.rs`), and the press answers
+  `NotSubmitted`: the bubble's control first, then each logged one —
+  described by its `objectId` to a node, with Chrome's words, no
+  constraint, and no box when the tree read before the press does not
+  hold it. A cancelled `invalid` is told of by nothing — tree, log and
+  events alike match a cancelled `submit` — so it answers `Activated`,
+  the page having taken the press; ADR 0051's second amendment of 25
+  October says so and why. `tests/a_form_chrome_would_not_send.rs`: a
+  hidden control alone, pressed twice and told of once; a shown and a
+  hidden one, bubble then log, beside the engine's two controls (one with
+  no box); an inert one; a hidden one whose `invalid` is cancelled,
+  `Activated`. Mutations: no `Log.clear` (told of twice), no `Log.enable`,
+  and the logged controls dropped each fail it. Not built: a form in a
+  frame from another site, whose log is the frame's target's; an entry
+  longer than the 16 MiB Chrome may send, skipped unread.
 
 - [ ] **647. The second race in the agent's navigation cause.** The fix on
   2026-10-24 at 18:10 closed one race in

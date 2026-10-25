@@ -40703,3 +40703,100 @@ paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
 301 queue items are open (653 closed; counted as `- [ ] **` lines). The
 next unused queue number is **657** and the next ADR is **0064**. This is
 one iteration, not a finished queue or roadmap.
+
+
+## Iteration 399 — queue item 646: a form Chrome refuses and draws no bubble for
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Decided*/*Owed*, the stage 2 Chrome line), iteration 398's
+entry, `REMAINING.md`'s last entries, the queue's items 631 and 642–656;
+ADR 0051 § 6 and its amendment of 25 October; `alo-window`'s
+`chrome_act.rs` (`press`), `chrome_bubble.rs`, `chrome_tab.rs` (`next`,
+`hear`, `heard`), `chrome_protocol.rs`'s commands and readers, and
+`tests/a_form_chrome_would_not_send.rs`. No `AGENTS.md` exists in the
+repository. The feature contract is `docs/features.md`'s Chrome renderer
+line, which promised 646 as owed.
+
+**Why 646.** `ioreg` read `CGSSessionScreenIsLocked = true`, so 642 and
+643 could not be built honestly. 646 is first among the product path's
+owed items in `ROADMAP.md`'s order and its dependency, 631, is done.
+
+**Measured**, against Chrome 155.0.8059.86, headless, from a Node probe
+over CDP (no script in any product page): a failing control Chrome cannot
+focus — `hidden`, `display: none`, inside `inert` — gets no bubble and is
+logged as `Log.entryAdded` (`rendering`, `error`, `An invalid form
+control with name='a' is not focusable.`, `name=''` for none) with the
+control as its one `node` argument; every such control of the form is
+logged, in document order, with or without a bubble for another, and
+before the renderer answers `Page.getLayoutMetrics`. `Log.enable` replays
+earlier entries unless `Log.clear` is sent first;
+`Runtime.discardConsoleEntries` does not clear them. A cancelled `invalid`
+— shown or hidden control — gives no bubble, no log entry and no tree
+change: indistinguishable from a cancelled `submit`.
+
+**Built.**
+- `chrome_protocol.rs`: `Log.clear`/`enable`/`disable` as commands,
+  `DOM.describeNode` by `objectId`, `logged` (a `Log.entryAdded`'s
+  params) and `backend_node`, with unit tests including malformed input.
+- `chrome_unfocusable.rs`, new: which logged entry is a control Chrome
+  could not focus, and its object and words; unit tests.
+- `chrome_tab.rs`: keeps such entries from the tab's own session
+  (`logged_in`, `take_unfocusable`).
+- `chrome_act.rs`: a press on a submit button has `Log` on, cleared, only
+  while it is carried out (turned off whatever came of the click), and
+  answers `NotSubmitted` with the bubble's control first and then each
+  logged control — Chrome's words, no constraint, no box when the tree
+  read before the press does not hold it. A cancelled `invalid` answers
+  `Activated`; ADR 0051's second amendment of 25 October says so and why.
+- Test `a_failing_control_chrome_cannot_focus_is_told_of_by_what_chrome_logs`:
+  hidden alone (pressed twice, told of once), shown plus hidden beside the
+  engine's two controls, inert, and a cancelled `invalid` answering
+  `Activated`. Mutations, restored from a copy and checked with `cmp`: no
+  `Log.clear` (told of twice), no `Log.enable`, and the logged controls
+  dropped — each fails it.
+
+**Gate.** `scripts/gate.sh` run detached and waited on by two bounded
+foreground loops in consecutive steps: **exit 0, "The gate is met." (10 of
+10 steps)**, clippy silent, nextest **5,313 tests run, 5,313 passed** in
+565.3 s, no `FAIL`, `LEAK` or `panicked`. Only this entry and the commit
+came after.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies; no reference changed. One file, one
+responsibility: what a logged entry means is `chrome_unfocusable.rs`'s;
+the bubble stays `chrome_bubble.rs`'s; reading Chrome's bytes stays
+`chrome_protocol.rs`'s; `next` stayed under the length lint by moving the
+log branch into `logged_in` rather than silencing it. Bytes from outside:
+the entry's text holds the page's control name and is read as page words;
+malformed entries are refused as `Malformed`, tested. No `unsafe`, no
+stubs, no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 646 and its *Owed* drops
+it; the stage 2 Chrome line's `· Built:` gains it and `· Owed:` drops it.
+Not ticked — neither line is finished. The queue ticks 646 with a *Done*
+paragraph; `features.md`, `REMAINING.md`, ADR 0051 and the changelog say
+the same.
+
+**Unresolved obligations.**
+- A form inside a frame from another site logs to the frame's own target,
+  which the press does not turn `Log` on for; and a logged entry longer
+  than the 16 MiB Chrome may send is skipped unread, so that press would
+  answer `Activated`.
+- Through Chrome the logged controls follow the bubble's, not document
+  order as the engine lists them.
+- 647 and 656, the commit-before-request race, did not fail this run;
+  still not reproduced by hand.
+- 642 and 643 still wait on the screen in use (locked); 648 needs an ADR;
+  645, 649 and 650 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655).
+- No claim about speed is made.
+
+300 queue items are open (646 closed; counted as `- [ ] **` lines). The
+next unused queue number is **657** and the next ADR is **0064**. This is
+one iteration, not a finished queue or roadmap.

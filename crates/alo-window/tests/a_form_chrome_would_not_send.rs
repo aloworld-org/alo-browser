@@ -13,6 +13,12 @@
 //! bubble, a bubble left over is not the next press's, a page's own words
 //! are carried as they are, and a press that sends the form still answers
 //! `Submitted`.
+//!
+//! A failing control Chrome cannot give the keyboard — `hidden`, or inside
+//! an `inert` part of the page — gets no bubble, and is known by what Chrome
+//! logs of it instead (item 646): the press answers `NotSubmitted` with
+//! Chrome's words and no box, beside a bubble's control or alone. A press
+//! whose failing control's `invalid` the page cancels answers `Activated`.
 
 use alo_agent::Outcome;
 use alo_agent::verb::{Invalid, Target, Verb};
@@ -46,15 +52,21 @@ fn named(name: &str) -> Target {
 
 /// `FORM`'s button pressed through this browser's own engine.
 fn through_ours() -> Result<Outcome, String> {
+    pressed_by_ours(FORM, "Send")
+}
+
+/// The button of `page` named `button`, pressed through this browser's own
+/// engine.
+fn pressed_by_ours(page: &str, button: &str) -> Result<Outcome, String> {
     let address = alo_url::parse(AT).map_err(|why| format!("{why:?}"))?;
     let mut renderer = Renderer::new(alo_corpus::corpus_fonts());
-    let page = Page::new(FORM.to_owned(), Size::new(600.0, 400.0)).at(address);
+    let page = Page::new(page.to_owned(), Size::new(600.0, 400.0)).at(address);
     match renderer.handle(ToRenderer::Load(Box::new(page))) {
         FromRenderer::Loaded { .. } => {}
         other => return Err(format!("the form did not load: {other:?}")),
     }
     match renderer.handle(ToRenderer::Act {
-        target: named("Send"),
+        target: named(button),
         verb: Verb::Activate,
     }) {
         FromRenderer::Acted { outcome, .. } => Ok(outcome),
@@ -215,4 +227,107 @@ fn only_chromes_own_new_bubble_says_a_form_was_not_sent() {
     // A form whose `invalid` the page cancels is not sent, and Chrome
     // shows nothing: answered as a press the page took (item 646).
     activated(&mut tab, "Send fourth");
+}
+
+/// A form whose only failing control is `hidden`; one whose shown control
+/// and a `hidden` one after it fail; one whose failing control is inside an
+/// `inert` part of the page; and one whose `hidden` failing control's
+/// `invalid` the page cancels.
+const UNFOCUSABLE: &str = r#"<!doctype html>
+<html lang=en><title>Unfocusable</title>
+<form action="/one">
+<input name=a required hidden>
+<label>Shown <input name=b value=x></label>
+<button>Send first</button>
+</form>
+<form action="/two">
+<label>Second <input name=c required></label>
+<input name=d required hidden>
+<button>Send second</button>
+</form>
+<form action="/three">
+<div inert><label>Third <input name=e required></label></div>
+<button>Send third</button>
+</form>
+<form action="/four">
+<input name=f required hidden oninvalid="event.preventDefault()">
+<button>Send fourth</button>
+</form>
+"#;
+
+/// What Chrome logs of a failing control named `name` it cannot focus.
+fn unfocusable(name: &str) -> Invalid {
+    Invalid {
+        control: None,
+        constraint: None,
+        message: format!("An invalid form control with name='{name}' is not focusable."),
+    }
+}
+
+#[test]
+fn a_failing_control_chrome_cannot_focus_is_told_of_by_what_chrome_logs() {
+    // The engine: each failing control, the hidden ones with no box.
+    let drawn = |page: &str, button: &str| {
+        let ours = pressed_by_ours(page, button).unwrap();
+        let Outcome::NotSubmitted { invalid, .. } = &ours else {
+            panic!("the engine sent {button}: {ours:?}");
+        };
+        invalid
+            .iter()
+            .map(|one| (one.control.is_some(), one.constraint))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        drawn(UNFOCUSABLE, "Send first"),
+        [(false, Some(Constraint::ValueMissing))]
+    );
+    assert_eq!(
+        drawn(UNFOCUSABLE, "Send second"),
+        [
+            (true, Some(Constraint::ValueMissing)),
+            (false, Some(Constraint::ValueMissing))
+        ]
+    );
+
+    let mut chrome = Chrome::start().unwrap();
+    let mut tab = opened(&mut chrome, UNFOCUSABLE).unwrap();
+    let not_sent = |tab: &mut Tab<'_>, button: &str| {
+        let node = id_of(tab, &format!("button {button:?}")).unwrap();
+        match tab.act(&named(button), &Verb::Activate) {
+            Ok(Outcome::NotSubmitted {
+                node: pressed,
+                invalid,
+            }) if pressed == node => invalid,
+            other => panic!("{button}: {other:?}"),
+        }
+    };
+    // A hidden control alone: no bubble, and Chrome's words for it.
+    assert_eq!(not_sent(&mut tab, "Send first"), [unfocusable("a")]);
+    // Pressed again, it is told of once: what was logged before is not
+    // this press's.
+    assert_eq!(not_sent(&mut tab, "Send first"), [unfocusable("a")]);
+    // Beside a bubble, after the control the bubble is about.
+    let second = id_of(&mut tab, r#"textbox "Second""#).unwrap();
+    assert_eq!(
+        not_sent(&mut tab, "Send second"),
+        [
+            Invalid {
+                control: Some(second),
+                constraint: None,
+                message: "Please fill out this field.".to_owned(),
+            },
+            unfocusable("d"),
+        ]
+    );
+    // Drawn but inert: nothing an agent can name either.
+    assert_eq!(not_sent(&mut tab, "Send third"), [unfocusable("e")]);
+    // Its `invalid` cancelled, Chrome logs nothing: the page took the press.
+    let fourth = id_of(&mut tab, r#"button "Send fourth""#).unwrap();
+    assert_eq!(
+        tab.act(&named("Send fourth"), &Verb::Activate),
+        Ok(Outcome::Activated {
+            node: fourth,
+            name: Some("Send fourth".to_owned()),
+        })
+    );
 }

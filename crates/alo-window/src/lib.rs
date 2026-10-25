@@ -51,7 +51,9 @@
 //!   decided by `alo-agent` against a [`chrome_reading`] of it, and carried
 //!   out as a real click or real typing (item 621), a date a segment at a
 //!   time as [`chrome_date`] reads them (item 632); a form Chrome would not
-//!   send is known by the bubble [`chrome_bubble`] reads (item 631), and
+//!   send is known by the bubble [`chrome_bubble`] reads (item 631) and by
+//!   each control Chrome logs it could not focus, which
+//!   [`chrome_unfocusable`] reads (item 646), and
 //!   what the page's script said while a verb ran is put into the engine's
 //!   words by [`chrome_said`] (item 639). A page from the network
 //!   is carried by Chrome's own network (ADR 0060): every target of its tab
@@ -106,6 +108,7 @@ pub mod chrome_said;
 pub mod chrome_serving;
 pub mod chrome_tab;
 pub mod chrome_tree;
+pub mod chrome_unfocusable;
 pub mod chrome_window;
 pub mod chrome_wire;
 pub mod colours;

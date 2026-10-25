@@ -33,7 +33,8 @@
 //! Chrome shows one bubble, for the first. And **nothing at all** when a
 //! page cancels the control's `invalid` event, or when the failing control
 //! cannot be given the keyboard — a hidden `required` field — though the
-//! form is not sent either (queue item 646).
+//! form is not sent either: the second Chrome logs instead
+//! ([`crate::chrome_unfocusable`], queue item 646).
 
 use crate::chrome_protocol::AxNode;
 use std::collections::HashSet;

@@ -3081,3 +3081,17 @@ writing waiting past either, with a far side writing 4 MiB events as fast
 as the pipe takes them held within the bound. The screen was locked, so
 642 and 643 still wait on it. 301 queue items are open (653 closed). The
 next unused queue number is 657 and the next unused ADR 0064.
+
+Iteration 399 closed queue item 646, measured against Chrome 155: a
+failing control Chrome cannot focus — hidden, `display: none`, inert — is
+logged as `Log.entryAdded` with the control as its node argument, each one
+of the form, with or without a bubble for another, and `Log.enable`
+replays what was logged unless `Log.clear` comes first. A press on a
+submit button now has `Log` on, cleared, while it is carried out, and
+answers `NotSubmitted` with each such control in Chrome's words and no
+constraint, after the bubble's (`chrome_unfocusable.rs`). A cancelled
+`invalid` is told of by nothing that tells it from a cancelled `submit`,
+so it answers `Activated`, written into ADR 0051's second amendment of
+25 October. The screen was locked, so 642 and 643 still wait on it. 300
+queue items are open (646 closed). The next unused queue number is 657
+and the next unused ADR 0064.

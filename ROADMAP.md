@@ -216,7 +216,13 @@ about this project (ADR 0058 § 6).
   through it goes on (655); and **what Chrome says, held to a bound in
   bytes** — 32 MiB at most, beside the 256 messages, waiting to be read,
   so a page talking faster than its tab reads is held back in Chrome's
-  pipe rather than in the browser's memory (653).
+  pipe rather than in the browser's memory (653); and **a form Chrome
+  refuses and draws no bubble for, answered `NotSubmitted`** — each failing
+  control it cannot give the keyboard, hidden or inert, read from what
+  Chrome logs of it with the control itself, in Chrome's words and with no
+  box an agent could not name, beside the bubble's or alone; a cancelled
+  `invalid` answers `Activated`, since Chrome tells of it as of a cancelled
+  `submit` (646, ADR 0051's second amendment of 25 October).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -229,8 +235,7 @@ about this project (ADR 0058 § 6).
   asks to open is — the agent's, an action done in that tab rather than in
   a document, so its first page is never written as the person's, and
   still one of ADR 0012's three causes (ADR 0063).
-- **Owed:** a form Chrome refuses
-  and draws no bubble for (646); how an agent chooses an option of a
+- **Owed:** how an agent chooses an option of a
   `<select>`, on either renderer (648, needs an ADR); the
   rest of the agent's work where a person can see it — **a window of ours
   around Chrome's, following it, with 623's and 625's lines and 624's
@@ -800,7 +805,11 @@ unreachable without it.
       had held again and let go, and never waited on by a verb while it is
       stopped (item 655, `chrome_hold.rs`, `chrome_tab.rs`), and what
       Chrome says and the tab has not yet read held to 32 MiB as well as
-      to 256 messages (item 653, `chrome_held.rs`)
+      to 256 messages (item 653, `chrome_held.rs`), and a form Chrome
+      refuses for a control it cannot focus answered `NotSubmitted` from
+      what Chrome logs of the control, a cancelled `invalid` answered
+      `Activated` as a cancelled `submit` is (item 646,
+      `chrome_unfocusable.rs`, `chrome_act.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -812,10 +821,7 @@ unreachable without it.
       · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650);
-      a form Chrome refuses and draws
-      no bubble for — an `invalid` a page cancels, a hidden required
-      field — answered as anything but a press the page took (646); how an
+      the system's own encrypted DNS (650); how an
       agent chooses an option of a `<select>`, on either renderer (648,
       needs an ADR), a window of ours around
       Chrome's, carrying the agent's sentence, its refusals and the ring

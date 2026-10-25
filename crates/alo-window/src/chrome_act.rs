@@ -79,6 +79,14 @@
 //! answer names one and says [`None`] for which constraint, where the
 //! engine names each control that failed and its constraint.
 //!
+//! Beside it, and alone when there is no bubble, each failing control
+//! Chrome could not give the keyboard — a `hidden` one, one inside an
+//! `inert` part of the page — which Chrome logs rather than shows
+//! ([`crate::chrome_unfocusable`], item 646): with Chrome's words about it
+//! and no constraint, and with no box when the tree read before the press
+//! does not hold it. So `Log` is on only while a press on a submit button
+//! is carried out, and what it logged before is forgotten first.
+//!
 //! # What the page's script said
 //!
 //! From the moment a verb is decided until it is answered, the tab hears
@@ -94,10 +102,12 @@
 //!
 //! # What it cannot say yet
 //!
-//! - **A form Chrome would not send and shows no bubble for** answers
-//!   [`Outcome::Activated`]: a page that cancels the control's `invalid`
-//!   event, or a failing control Chrome cannot give the keyboard to, such
-//!   as a hidden `required` field, leaves the tree as it was (item 646).
+//! - **A form whose failing control's `invalid` the page cancels** answers
+//!   [`Outcome::Activated`], as one whose `submit` it cancels does: Chrome
+//!   tells of the two alike, in its tree, its log and its events, and in
+//!   both the page took the press (ADR 0051's amendment of 25 October,
+//!   item 646). The engine, which runs the checks itself, answers
+//!   [`Outcome::NotSubmitted`].
 //! - **Text the page would not take** is answered [`Outcome::TextCanceled`]
 //!   when the field holds afterwards what it held before. Whether the page
 //!   cancelled the `beforeinput` or put the old text back in its `input`
@@ -110,6 +120,7 @@ use crate::chrome_protocol::{self, AxNode, Chord, Command, Digit, Mouse, Within}
 use crate::chrome_reading::ChromeReading;
 use crate::chrome_tab::Tab;
 use crate::chrome_tree::Unread;
+use crate::chrome_unfocusable::Unfocusable;
 use alo_agent::verb::{Invalid, Target, Verb, find, perform};
 use alo_agent::{Outcome, Reading, Refusal};
 use alo_box::BoxId;
@@ -358,12 +369,23 @@ impl Tab<'_> {
             return Err(Unacted::Covered { node, by: hit });
         }
         let (x, y) = (pixels(x), pixels(y));
-        for kind in [Mouse::Moved, Mouse::Pressed, Mouse::Released] {
-            self.ask(&Command::Mouse { kind, x, y })?;
+        // A press that may be refused is logged: Chrome tells of a failing
+        // control it cannot focus only there. What it logged before is
+        // forgotten first, or it would be told of again.
+        if submits {
+            drop(self.take_unfocusable());
+            self.ask(&Command::ForgetTheLog)?;
+            self.ask(&Command::TellOfTheLog)?;
         }
-        // Answered by the renderer, after anything the click asked for was
-        // told of on the same channel.
-        self.ask(&Command::Window)?;
+        let clicked = self.click(x, y);
+        // No longer, whatever came of the click.
+        if submits {
+            let off = self.ask(&Command::StopTellingOfTheLog);
+            clicked?;
+            off?;
+        } else {
+            clicked?;
+        }
         let asked = self
             .take_requested()
             .into_iter()
@@ -387,19 +409,59 @@ impl Tab<'_> {
                 },
                 to: asked.url,
             },
-            (None, None) if submits => match self.bubble(nodes)? {
-                Some(bubble) => Outcome::NotSubmitted {
-                    node,
-                    invalid: vec![Invalid {
+            (None, None) if submits => {
+                let mut invalid: Vec<Invalid> = self
+                    .bubble(nodes)?
+                    .into_iter()
+                    .map(|bubble| Invalid {
                         control: Some(box_of(bubble.control)),
                         constraint: None,
                         message: bubble.message,
-                    }],
-                },
-                None => Outcome::Activated { node, name },
-            },
+                    })
+                    .collect();
+                invalid.extend(self.unfocusable(nodes)?);
+                if invalid.is_empty() {
+                    Outcome::Activated { node, name }
+                } else {
+                    Outcome::NotSubmitted { node, invalid }
+                }
+            }
             _ => Outcome::Activated { node, name },
         })
+    }
+
+    /// A press of the left button at `x`, `y`, answered once the renderer
+    /// has answered a question asked after it — and so after anything the
+    /// click asked for, or logged, was told of on the same channel.
+    fn click(&mut self, x: f64, y: f64) -> Result<(), Unacted> {
+        for kind in [Mouse::Moved, Mouse::Pressed, Mouse::Released] {
+            self.ask(&Command::Mouse { kind, x, y })?;
+        }
+        self.ask(&Command::Window)?;
+        Ok(())
+    }
+
+    /// Each control Chrome logged that it could not give the keyboard as it
+    /// refused the press ([`crate::chrome_unfocusable`]), in the order it
+    /// logged them: Chrome's words about it, and no constraint. Its box when
+    /// the tree read before the press, `nodes`, holds it, and [`None`] — a
+    /// control an agent cannot name — when it does not, as for a `hidden`
+    /// one.
+    fn unfocusable(&mut self, nodes: &[AxNode]) -> Result<Vec<Invalid>, Unacted> {
+        let mut invalid = Vec::new();
+        for Unfocusable { object, words } in self.take_unfocusable() {
+            let described = self.ask(&Command::DescribeValue { object })?;
+            let dom = chrome_protocol::backend_node(&described)?;
+            let read = nodes
+                .iter()
+                .any(|read| read.node == Some(dom) && !read.ignored);
+            invalid.push(Invalid {
+                control: read.then(|| box_of(dom)),
+                constraint: None,
+                message: words,
+            });
+        }
+        Ok(invalid)
     }
 
     /// The bubble Chrome shows now over a form it would not send, that was

@@ -138,6 +138,16 @@ pub enum Command {
     /// `Runtime.disable`: no longer. Answered by the page's own renderer,
     /// after everything it told of before (queue item 639).
     StopTellingOfScript,
+    /// `Log.clear`: forget what Chrome itself has logged of the page, so
+    /// that [`Command::TellOfTheLog`] does not tell of it again. Measured
+    /// against Chrome 155: `Runtime.discardConsoleEntries` does not.
+    ForgetTheLog,
+    /// `Log.enable`: be told of what Chrome itself logs of the page — not
+    /// its script's words, Chrome's — from now and, first, of everything it
+    /// logged before that was not forgotten (queue item 646).
+    TellOfTheLog,
+    /// `Log.disable`: no longer.
+    StopTellingOfTheLog,
     /// `Emulation.setDeviceMetricsOverride`: lay pages out at this size, at
     /// the screen's own scale.
     LayOutAt {
@@ -184,6 +194,13 @@ pub enum Command {
     Describe {
         /// The node, by Chrome's `backendNodeId`.
         node: u64,
+    },
+    /// `DOM.describeNode`, for a node Chrome handed over as a value of the
+    /// page's — an argument of what it logged — rather than by its id: read
+    /// with [`backend_node`] for which node it is.
+    DescribeValue {
+        /// The value, by the `objectId` Chrome gave it.
+        object: String,
     },
     /// `Accessibility.getPartialAXTree`, for one node and nothing around
     /// it: what it holds now.
@@ -289,6 +306,9 @@ impl Command {
             Self::ForgetWhatWasSaid => "Runtime.discardConsoleEntries",
             Self::TellOfScript => "Runtime.enable",
             Self::StopTellingOfScript => "Runtime.disable",
+            Self::ForgetTheLog => "Log.clear",
+            Self::TellOfTheLog => "Log.enable",
+            Self::StopTellingOfTheLog => "Log.disable",
             Self::LayOutAt { .. } => "Emulation.setDeviceMetricsOverride",
             Self::Navigate { .. } => "Page.navigate",
             Self::Fulfil { .. } => "Fetch.fulfillRequest",
@@ -297,7 +317,7 @@ impl Command {
             Self::ReadTree => "Accessibility.getFullAXTree",
             Self::WhereDrawn { .. } => "DOM.getContentQuads",
             Self::Window => "Page.getLayoutMetrics",
-            Self::Describe { .. } => "DOM.describeNode",
+            Self::Describe { .. } | Self::DescribeValue { .. } => "DOM.describeNode",
             Self::ReadNode { .. } => "Accessibility.getPartialAXTree",
             Self::ScrollIntoView { .. } => "DOM.scrollIntoViewIfNeeded",
             Self::NodeAt { .. } => "DOM.getNodeForLocation",
@@ -328,6 +348,9 @@ impl Command {
             | Self::ForgetWhatWasSaid
             | Self::TellOfScript
             | Self::StopTellingOfScript
+            | Self::ForgetTheLog
+            | Self::TellOfTheLog
+            | Self::StopTellingOfTheLog
             | Self::ReadTree
             | Self::Window
             | Self::LetGo
@@ -379,6 +402,7 @@ impl Command {
             | Self::Describe { node }
             | Self::ScrollIntoView { node }
             | Self::Focus { node } => put("backendNodeId", Value::from(*node)),
+            Self::DescribeValue { object } => put("objectId", Value::from(object.as_str())),
             Self::ReadNode { node } => {
                 put("backendNodeId", Value::from(*node));
                 put("fetchRelatives", Value::Bool(false));
@@ -991,6 +1015,24 @@ pub fn described(result: &[u8]) -> Result<Described, Malformed> {
     })
 }
 
+/// The node a reply's `result` to `DOM.describeNode` describes, by its
+/// `backendNodeId`.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `node` holding a `backendNodeId`
+/// that is a whole number.
+pub fn backend_node(result: &[u8]) -> Result<u64, Malformed> {
+    let Some(Value::Object(node)) = object(result)?.get("node").cloned() else {
+        return Err(Malformed::BadField { field: "node" });
+    };
+    node.get("backendNodeId")
+        .and_then(Value::as_u64)
+        .ok_or(Malformed::BadField {
+            field: "backendNodeId",
+        })
+}
+
 /// The node a reply's `result` to `DOM.getNodeForLocation` names, by its
 /// `backendNodeId`.
 ///
@@ -1034,6 +1076,54 @@ pub fn requested(params: &[u8]) -> Result<Requested, Malformed> {
         reason: text(fields.get("reason"), "reason")?,
         url: words(fields.get("url"), "url")?,
         disposition: text(fields.get("disposition"), "disposition")?,
+    })
+}
+
+/// Something Chrome itself logged of a page, from `Log.entryAdded`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Logged {
+    /// What part of Chrome logged it: `rendering`, `network`,
+    /// `violation`, …
+    pub source: String,
+    /// How bad: `verbose`, `info`, `warning` or `error`.
+    pub level: String,
+    /// Its words, which may hold the page's own — a control's name — and so
+    /// are as long as the page made them.
+    pub text: String,
+    /// Each argument that is a node, by the `objectId` Chrome gave it, in
+    /// order, at most [`MOST_ARGS`]; any other argument is passed over.
+    pub nodes: Vec<String>,
+}
+
+/// A `Log.entryAdded` event's `params`, read. Measured against Chrome 155
+/// on 2026-10-25: an `entry` with a `source`, a `level` and a `text`, and —
+/// for a form control it could not give the keyboard — `args` holding the
+/// control as a value of `subtype` `node` with an `objectId`.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without an `entry` holding a `source`, a
+/// `level` and a `text`, each text, or with `args` that are not a list.
+pub fn logged(params: &[u8]) -> Result<Logged, Malformed> {
+    let Some(Value::Object(entry)) = object(params)?.get("entry").cloned() else {
+        return Err(Malformed::BadField { field: "entry" });
+    };
+    let given = match entry.get("args") {
+        None => Vec::new(),
+        Some(Value::Array(given)) => given.clone(),
+        Some(_) => return Err(Malformed::BadField { field: "args" }),
+    };
+    let nodes = given
+        .iter()
+        .take(MOST_ARGS)
+        .filter(|arg| arg.get("subtype").and_then(Value::as_str) == Some("node"))
+        .map(|arg| text(arg.get("objectId"), "objectId"))
+        .collect::<Result<_, _>>()?;
+    Ok(Logged {
+        source: text(entry.get("source"), "source")?,
+        level: text(entry.get("level"), "level")?,
+        text: words(entry.get("text"), "text")?,
+        nodes,
     })
 }
 
@@ -2759,11 +2849,14 @@ mod tests {
     }
 
     #[test]
-    fn the_runtime_is_asked_for_by_its_methods() {
+    fn the_runtime_and_the_log_are_asked_for_by_their_methods() {
         for (command, method) in [
             (Command::ForgetWhatWasSaid, "Runtime.discardConsoleEntries"),
             (Command::TellOfScript, "Runtime.enable"),
             (Command::StopTellingOfScript, "Runtime.disable"),
+            (Command::ForgetTheLog, "Log.clear"),
+            (Command::TellOfTheLog, "Log.enable"),
+            (Command::StopTellingOfTheLog, "Log.disable"),
         ] {
             assert_eq!(
                 written(3, Some("S"), &command),
@@ -2771,6 +2864,69 @@ mod tests {
                     .into_bytes()
             );
         }
+    }
+
+    #[test]
+    fn what_chrome_logged_is_read_with_the_nodes_it_names() {
+        // As Chrome 155 logged a hidden `required` field on 2026-10-25.
+        let entry = br#"{"entry":{"source":"rendering","level":"error","text":"An invalid form control with name='a' is not focusable.","timestamp":1.5,"url":"data:,","args":[{"type":"object","subtype":"node","className":"HTMLInputElement","description":"input","objectId":"-79.2.1"},{"type":"string","value":"x"}]}}"#;
+        assert_eq!(
+            logged(entry),
+            Ok(Logged {
+                source: "rendering".to_owned(),
+                level: "error".to_owned(),
+                text: "An invalid form control with name='a' is not focusable.".to_owned(),
+                nodes: vec!["-79.2.1".to_owned()],
+            })
+        );
+        // Most of what Chrome logs names no node.
+        let plain = logged(br#"{"entry":{"source":"network","level":"error","text":"Failed"}}"#);
+        assert_eq!(plain.map(|one| one.nodes), Ok(Vec::new()));
+        for (params, field) in [
+            (&b"{}"[..], "entry"),
+            (br#"{"entry":[]}"#, "entry"),
+            (br#"{"entry":{"level":"error","text":"t"}}"#, "source"),
+            (br#"{"entry":{"source":"s","text":"t"}}"#, "level"),
+            (br#"{"entry":{"source":"s","level":"l","text":7}}"#, "text"),
+            (
+                br#"{"entry":{"source":"s","level":"l","text":"t","args":{}}}"#,
+                "args",
+            ),
+            (
+                br#"{"entry":{"source":"s","level":"l","text":"t","args":[{"subtype":"node"}]}}"#,
+                "objectId",
+            ),
+        ] {
+            assert_eq!(logged(params), bad(field), "{params:?}");
+        }
+        assert_eq!(logged(b"{"), Err(Malformed::NotJson));
+    }
+
+    #[test]
+    fn a_value_is_described_by_its_object_and_read_as_a_node() {
+        assert_eq!(
+            written(
+                5,
+                Some("S"),
+                &Command::DescribeValue {
+                    object: "-79.2.1".to_owned()
+                }
+            ),
+            br#"{"id":5,"method":"DOM.describeNode","params":{"objectId":"-79.2.1"},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            backend_node(br#"{"node":{"nodeId":0,"backendNodeId":6,"nodeName":"INPUT"}}"#),
+            Ok(6)
+        );
+        assert_eq!(
+            backend_node(br#"{"node":{"nodeId":0}}"#),
+            bad("backendNodeId")
+        );
+        assert_eq!(
+            backend_node(br#"{"node":{"backendNodeId":-1}}"#),
+            bad("backendNodeId")
+        );
+        assert_eq!(backend_node(b"{}"), bad("node"));
     }
 
     #[test]
