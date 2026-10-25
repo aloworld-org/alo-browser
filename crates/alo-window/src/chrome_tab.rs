@@ -87,6 +87,7 @@ use crate::asking::Refused;
 use crate::chrome::{Chrome, Failed};
 use crate::chrome_gate::{self, Refusal};
 use crate::chrome_hold::{Holding, Kind, Unheld};
+use crate::chrome_owed::{self, Owed};
 use crate::chrome_protocol::{
     self, AxNode, Command, Declined, Malformed, Message, Requested, Within,
 };
@@ -141,6 +142,9 @@ pub struct Tab<'c> {
     closed: HashSet<String>,
     /// What caused what in this tab, which each line of the record names.
     causes: Causes,
+    /// The lines of requests let go while their frame went to a new
+    /// document, each waiting for Chrome to say which document asked.
+    owed: Owed,
     /// The agent's ask that opened the tab, when an agent asked.
     opened_by: Option<ActionId>,
     /// The last verb accepted on the tab.
@@ -347,6 +351,7 @@ impl<'c> Tab<'c> {
             unfocusable: Vec::new(),
             closed: HashSet::new(),
             causes,
+            owed: Owed::default(),
             opened_by: opening,
             acted: None,
             heard: None,
@@ -762,10 +767,9 @@ impl<'c> Tab<'c> {
     fn next(&mut self, until: Instant) -> Result<Option<Message>, Failed> {
         let message = self.chrome.receive(until)?;
         let held = self.held_by(&message);
-        if self.heard_in(&message) {
-            return Ok(None);
-        }
-        if self.logged_in(&message)? {
+        // What a page's script said, what Chrome logged of it, and a request
+        // a renderer of the tab told of — what a line owed waits for.
+        if self.heard_in(&message) || self.logged_in(&message)? || self.told_in(&message, held)? {
             return Ok(None);
         }
         match message {
@@ -794,10 +798,12 @@ impl<'c> Tab<'c> {
             // A frame of the tab holds a new document, from now: the tab's
             // own frame, told of through the tab's session, or a frame
             // inside it, through that or the frame's own target.
-            Message::Event { method, params, .. }
-                if is_a_frames(held) && method == "Page.frameNavigated" =>
-            {
-                self.committed(&params)?;
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if is_a_frames(held) && method == "Page.frameNavigated" => {
+                self.committed(&session, &params)?;
                 Ok(None)
             }
             // A frame made inside one of the tab's, or taken out of its page.
@@ -965,13 +971,22 @@ impl<'c> Tab<'c> {
     /// Whether `id` is a command this tab sent on its own account, whose
     /// answer it waits for rather than its caller.
     fn awaits(&self, id: u64) -> bool {
-        self.holding.awaits(id)
+        self.owed.awaits(id)
+            || self.holding.awaits(id)
             || self.telling.contains_key(&id)
             || self.answering.contains_key(&id)
     }
 
     /// Chrome's answer to `id`, a command [`Tab::awaits`].
     fn answered(&mut self, id: u64, result: Result<Vec<u8>, Declined>) -> Result<(), Failed> {
+        // A frame's renderer, answering after every request it told of: a
+        // line owed still was never told of. A refusal says the same — the
+        // target has gone, and with it whatever would have told.
+        if self.owed.awaits(id) {
+            let settled = self.owed.answered(id);
+            self.settle(settled);
+            return Ok(());
+        }
         // Chrome's word on holding a target: once it has answered all the
         // target was asked, the target is let go.
         if self.holding.awaits(id) {
@@ -1067,11 +1082,17 @@ impl<'c> Tab<'c> {
         Ok(())
     }
 
-    /// A frame of the tab that holds a new document, told of in `params`:
-    /// the frame's document from now, and when it is the tab's own, the
-    /// tab's. A frame inside another is told of with the frame holding it,
-    /// in its own target as in the tab's (measured against Chrome 155).
-    fn committed(&mut self, params: &[u8]) -> Result<(), Failed> {
+    /// A frame of the tab that holds a new document, told of in `params`
+    /// through `session`: the frame's document from now, and when it is the
+    /// tab's own, the tab's. A frame inside another is told of with the
+    /// frame holding it, in its own target as in the tab's (measured against
+    /// Chrome 155).
+    ///
+    /// When a line is owed for the frame, the renderer that told of the
+    /// commit is asked to answer after everything it told of before
+    /// ([`chrome_owed`]): what it has not told of a loader for by then, it
+    /// never will.
+    fn committed(&mut self, session: &str, params: &[u8]) -> Result<(), Failed> {
         let committed = chrome_protocol::committed(params).map_err(Failed::Malformed)?;
         let own = committed.frame == self.target;
         if own == committed.inside {
@@ -1079,10 +1100,66 @@ impl<'c> Tab<'c> {
         }
         self.causes
             .committed(self.chrome.record_mut(), &committed.frame);
+        self.forget_owed();
+        if self.owed.waits_on(&committed.frame) {
+            let asked = self
+                .chrome
+                .send(Some(session), &Command::HearTheNetworkOut)?;
+            self.owed.asked(asked, &committed.frame);
+        }
         if own {
             self.address = alo_url::parse(&committed.url).ok();
         }
         Ok(())
+    }
+
+    /// Whether `message` is a request a renderer of the tab told of
+    /// (`Network.requestWillBeSent`, through a session `held`) — and when
+    /// its line is owed, written: as the document its loader names when
+    /// that is the one its frame was getting, and otherwise as it was kept.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed::Malformed`], for one that cannot be read while a line is
+    /// owed; none is read while none is.
+    fn told_in(&mut self, message: &Message, held: Option<Kind>) -> Result<bool, Failed> {
+        let Message::Event { method, params, .. } = message else {
+            return Ok(false);
+        };
+        if held.is_none() || method != "Network.requestWillBeSent" {
+            return Ok(false);
+        }
+        if self.owed.is_empty() {
+            return Ok(true);
+        }
+        let (network, loader) = chrome_protocol::told(params).map_err(Failed::Malformed)?;
+        if let Some((line, cause)) = self.owed.told(&network, &loader) {
+            self.write_owed(line, cause);
+        }
+        Ok(true)
+    }
+
+    /// Write the lines owed for frames this tab no longer remembers, as
+    /// each was kept: no renderer of theirs will be asked.
+    fn forget_owed(&mut self) {
+        let causes = &self.causes;
+        let gone = self.owed.forgotten(|frame| !causes.remembers(frame));
+        self.settle(gone);
+    }
+
+    /// Write each of `lines`, as it was kept.
+    fn settle(&mut self, lines: Vec<chrome_owed::Line>) {
+        for line in lines {
+            let kept = line.kept.clone();
+            self.write_owed(line, kept);
+        }
+    }
+
+    /// Write `line`, caused by `cause`.
+    fn write_owed(&mut self, line: chrome_owed::Line, cause: alo_net::Cause) {
+        self.chrome
+            .record_mut()
+            .write(line.url, &line.method, line.purpose, cause, line.happened);
     }
 
     /// A frame made inside one of the tab's, told of in `params` as
@@ -1098,6 +1175,7 @@ impl<'c> Tab<'c> {
             let (frame, why) = chrome_protocol::frame_gone(params).map_err(Failed::Malformed)?;
             if why == "remove" {
                 self.causes.removed(&frame);
+                self.forget_owed();
             }
         }
         Ok(())
@@ -1143,21 +1221,42 @@ impl<'c> Tab<'c> {
                     (Kind::Page | Kind::Frame, "Document", true) => Hop::Redirected,
                     _ => Hop::None,
                 };
+                // Paused while its frame goes to a new document, a request
+                // may be either's: Chrome is yet to say whose (item 647).
+                // A frame this tab does not remember is its own frame's.
+                let frame = if self.causes.remembers(&paused.frame) {
+                    &paused.frame
+                } else {
+                    &self.target
+                };
+                let window = match (hop, &paused.network) {
+                    (Hop::None, Some(network)) => {
+                        self.causes.window(frame).map(|(arriving, loader)| Window {
+                            network: network.clone(),
+                            frame: frame.clone(),
+                            arriving,
+                            loader: loader.to_owned(),
+                        })
+                    }
+                    _ => None,
+                };
                 let cause = self.causes.of_request(
                     self.chrome.record_mut(),
                     &paused.frame,
                     &paused.url,
                     hop,
+                    paused.network.as_deref(),
                 );
                 let purpose = purpose_of(&paused.kind);
                 match chrome_gate::judge(&paused.url) {
                     Ok(url) => {
-                        self.chrome.record_mut().write(
+                        self.write_or_owe(
                             url,
                             &paused.method,
                             purpose,
                             cause,
                             Happened::LetGo,
+                            window,
                         );
                         self.went.push(Went {
                             url: paused.url,
@@ -1166,16 +1265,65 @@ impl<'c> Tab<'c> {
                         (Command::Continue { request }, false)
                     }
                     Err(refusal) => {
-                        if hop != Hop::None {
-                            self.causes.ended(&paused.frame);
+                        if hop != Hop::None
+                            && let Some(arriving) = self.causes.ended(&paused.frame)
+                        {
+                            let settled = self.owed.ended(&paused.frame, arriving);
+                            self.settle(settled);
                         }
-                        self.write_refused(&paused.url, &paused.method, purpose, cause, &refusal);
+                        if let Some(url) = recordable(&paused.url) {
+                            let happened = Happened::Refused {
+                                rule: refusal.rule.to_string(),
+                            };
+                            self.write_or_owe(
+                                url,
+                                &paused.method,
+                                purpose,
+                                cause,
+                                happened,
+                                window,
+                            );
+                        }
                         self.refused.push(paused.url);
                         self.refusals.push(refusal);
                         (Command::Refuse { request }, false)
                     }
                 }
             }
+        }
+    }
+
+    /// Write down that `method` `url`, of kind `purpose`, was asked for by
+    /// `cause`, and what `happened` to it — or, when it was paused in the
+    /// `window` of its frame going to a new document, owe the line until
+    /// Chrome says which document asked ([`chrome_owed`]).
+    fn write_or_owe(
+        &mut self,
+        url: Url,
+        method: &str,
+        purpose: Purpose,
+        cause: alo_net::Cause,
+        happened: Happened,
+        window: Option<Window>,
+    ) {
+        let Some(window) = window else {
+            self.chrome
+                .record_mut()
+                .write(url, method, purpose, cause, happened);
+            return;
+        };
+        let line = chrome_owed::Line {
+            url,
+            method: method.to_owned(),
+            purpose,
+            happened,
+            kept: cause,
+            frame: window.frame,
+            arriving: window.arriving,
+            loader: window.loader,
+        };
+        if let Some(line) = self.owed.owe(&window.network, line) {
+            self.settle(vec![line]);
         }
     }
 
@@ -1361,6 +1509,16 @@ impl<'c> Tab<'c> {
     }
 }
 
+/// Where a request paused falls when its frame is going to a new document:
+/// the id its renderer tells of it by, the frame, and the document arriving
+/// there with its loader.
+struct Window {
+    network: String,
+    frame: String,
+    arriving: DocumentId,
+    loader: String,
+}
+
 /// Whether `address` is a page from the network, which is all
 /// [`Tab::open`] and [`Tab::open_for_agent`] open.
 fn on_the_network(address: &Url) -> Result<(), Unopened> {
@@ -1390,6 +1548,9 @@ fn recordable(asked: &str) -> Option<Url> {
 
 impl Drop for Tab<'_> {
     fn drop(&mut self) {
+        // Every line is written: what was never told of, as it was kept.
+        let owed = self.owed.all();
+        self.settle(owed);
         // Not waited for: Chrome stops holding new tabs and closes this one,
         // in that order, and the replies are passed over by whatever asks
         // next.

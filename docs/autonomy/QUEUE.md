@@ -16855,7 +16855,7 @@ What stage 2's exit gate actually measures: a person using it.
   frame from another site, whose log is the frame's target's; an entry
   longer than the 16 MiB Chrome may send, skipped unread.
 
-- [ ] **647. The second race in the agent's navigation cause.** The fix on
+- [x] **647. The second race in the agent's navigation cause.** The fix on
   2026-10-24 at 18:10 closed one race in
   `an_agents_activate_that_navigates_names_the_action_as_its_cause` and that
   test has since stopped the loop twice more — 23:46 and 06:25 — failing in
@@ -16916,6 +16916,35 @@ What stage 2's exit gate actually measures: a person using it.
   failure rather than argued. Its sibling on a frame's target is 656,
   which failed in the same iteration's first gate run. Still not
   reproduced by hand.
+  ***Done (iteration 400).*** Measured against Chrome 155 with Node probes
+  over the pipe: on a quiet machine the order was always first hop, commit,
+  then the new page's requests (20 of 20); under 96 busy processes the new
+  page's sheet was paused **before** its commit was read (1 in 60, then 10
+  requests in 100 navigations), each told of afterwards by
+  `Network.requestWillBeSent` naming the arriving document's loader. A
+  navigation's `networkId` is that loader through every redirect (126 of
+  126); an old page's request as it is left is told of with its own loader,
+  with none, or never. **Reproduced on purpose**: the unfixed test binary,
+  run under the same load, failed once with the gate's own words (`caused
+  by action#0, in document#0`) in about 38 runs — and then deterministically,
+  by a relay. **Built:** `chrome_owed.rs` owes the line of a request paused
+  in a frame's window (first hop to commit, `Causes::window`), lets the
+  request go at once, and writes the line when its loader is told of — the
+  arriving document's, or as kept — or, once the commit is read, when the
+  frame's renderer answers `Network.enable` sent again
+  (`Command::HearTheNetworkOut`), which it does after everything it told of;
+  what is never told of keeps its cause, and the tab's end writes every
+  line still owed. ADR 0060's amendment of 25 October says why a loader may
+  choose between two documents this process minted and never name a cause.
+  **Tests:** `a_page_chrome_tells_of_after_what_it_asks_for.rs` starts the
+  machine's Chrome behind this test's own program run again as a relay,
+  which holds back the commit, and the session's messages after it, until
+  the request named is paused — the order measured — and asserts the hold
+  happened; the new page's sheet is the new page's, led back to the action.
+  Without the fix it fails with the gate's message, and with the loader
+  comparison mutated it fails too (`chrome_owed`'s unit test as well);
+  restored from a copy and checked with `cmp`. The fixed binary passed 32 of
+  32 runs under load. What it does not decide is 657.
 
 - [ ] **648. How an agent chooses an option.** *Cut from 632 (iteration
   388); ADR 0002, ADR 0042 § 4's rule for a date as the precedent.* No
@@ -17219,7 +17248,7 @@ What stage 2's exit gate actually measures: a person using it.
   way; and `ask_held`'s answer for one that stops while asked, since the
   stop is read before the verb asks it in the test.
 
-- [ ] **656. A frame's next document's fetch, pinned on the document
+- [x] **656. A frame's next document's fetch, pinned on the document
   before it.** *Found in iteration 394's first gate run; ADR 0012, item
   636.* `every_request_of_a_page_in_chrome_recorded.rs`'
   `a_frames_fetch_is_its_own_documents_and_that_document_the_pages` failed
@@ -17240,6 +17269,36 @@ What stage 2's exit gate actually measures: a person using it.
   order Chrome told things in is read rather than guessed, and the fix
   carries a test that fails without it — or it closes with 647 if one
   fix is the other's.
+  ***Done with 647 (iteration 400), one fix being the other's.*** A
+  frame's window is the tab's own frame's in `Causes::window`, its first
+  hop's `networkId` kept and what it asks for owed in `chrome_owed.rs`,
+  and the renderer asked through the session its commit came by — the
+  frame's own target for one from another site. **Reproduced on purpose**
+  by the same relay, holding the other-site frame's commit of its second
+  page until that page's `fetch` is paused:
+  `a_frames_new_documents_fetch_chrome_pauses_before_the_document_is_its_own`
+  failed without the fix exactly as iteration 394's gate did (`caused by
+  document#1`, the frame's first document) and passes with it.
+
+- [ ] **657. An old page's request paused after the new page's commit.**
+  *Found measuring 647 (iteration 400); ADR 0012, ADR 0060's amendment of
+  25 October.* The same race as 647 the other way round: Chrome 155,
+  under 96 busy processes, told of a new page's commit and *then* paused
+  requests the old page made as it was left — a `sendBeacon` from
+  `pagehide` in 55 of 60 runs. 647 decides only
+  the window between a first hop and its commit, so these are written as
+  the **new** page's. A request with a `networkId` could be decided the
+  same way, by its loader, if a line were owed for every request paused
+  before its `requestWillBeSent` and not only in the window — which owes
+  most of a page's lines for a moment and needs its own bound. A beacon,
+  a `keepalive` fetch and a picture asked for in `pagehide` carry no
+  `networkId` at all and are never told of, so nothing Chrome says names
+  their document: what this process knows is only that the old page was
+  being left, and whether that is enough is the question.
+  *Depends on 647. Closes when:* a request the old page made, paused
+  after the new page's commit is read, is recorded as the old page's —
+  or the record says, by name, that it cannot tell — with a test that
+  fails without it.
 
 ## K. ★ The agent, on somebody else's pages
 

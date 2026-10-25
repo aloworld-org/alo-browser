@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Through Chrome, a page's stylesheet is no longer sometimes written
+  down as the page before it's.** When a busy machine let Chrome ask for a
+  new page's stylesheet before it said the page had arrived, the record
+  put the request on the page being left — and on the agent's click that
+  left it. Now a request asked for while a page is being replaced waits
+  until Chrome says which of the two pages made it, and is written down as
+  that page's. The same holds for a frame going to a page of its own
+  (queue items 647 and 656).
+
 - **Through Chrome, a form stopped by a control nobody can see is said
   not to have been sent.** A required field that is hidden, or inside a
   part of the page nobody can use, stops a form without Chrome drawing any

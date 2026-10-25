@@ -222,7 +222,14 @@ about this project (ADR 0058 § 6).
   Chrome logs of it with the control itself, in Chrome's words and with no
   box an agent could not name, beside the bubble's or alone; a cancelled
   `invalid` answers `Activated`, since Chrome tells of it as of a cancelled
-  `submit` (646, ADR 0051's second amendment of 25 October).
+  `submit` (646, ADR 0051's second amendment of 25 October); and **a
+  page's request its own when Chrome pauses it before telling of the
+  page** — a request paused while its frame goes to a new document let
+  go at once and its line kept until Chrome names the loader that made
+  it, the arriving document's making it that document's, and the frame's
+  renderer asked after the commit to answer after everything it told of,
+  so what it never told of stays the old page's, a frame's documents
+  as the page's (647 and 656, ADR 0060's amendment of 25 October).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -235,7 +242,8 @@ about this project (ADR 0058 § 6).
   asks to open is — the agent's, an action done in that tab rather than in
   a document, so its first page is never written as the person's, and
   still one of ADR 0012's three causes (ADR 0063).
-- **Owed:** how an agent chooses an option of a
+- **Owed:** an old page's request paused after the new page's commit is
+  read, still written as the new page's (657); how an agent chooses an option of a
   `<select>`, on either renderer (648, needs an ADR); the
   rest of the agent's work where a person can see it — **a window of ours
   around Chrome's, following it, with 623's and 625's lines and 624's
@@ -809,7 +817,10 @@ unreachable without it.
       refuses for a control it cannot focus answered `NotSubmitted` from
       what Chrome logs of the control, a cancelled `invalid` answered
       `Activated` as a cancelled `submit` is (item 646,
-      `chrome_unfocusable.rs`, `chrome_act.rs`)
+      `chrome_unfocusable.rs`, `chrome_act.rs`), and a request paused while
+      its frame goes to a new document recorded as the document whose
+      loader Chrome says made it, the old page's when it says none or
+      another, a frame's as the page's (items 647 and 656, `chrome_owed.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -817,8 +828,12 @@ unreachable without it.
       Chrome's floats, is put by Chrome's word and is shown only while the
       window server shows Chrome's (ADR 0062); and a tab an agent opens is
       the agent's action, done in that tab rather than in a document, never
-      the person's (ADR 0063)
-      · Owed: what Chrome itself asks Google for, with no page
+      the person's (ADR 0063), and which of a frame's two documents a
+      request is, by Chrome's word for its loader, which chooses between
+      documents this process minted and never names a cause (ADR 0060's
+      amendment)
+      · Owed: an old page's request paused after the new page's commit
+      is read, still taken as the new page's (657); what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); how an

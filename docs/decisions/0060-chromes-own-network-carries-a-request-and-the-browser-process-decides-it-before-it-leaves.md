@@ -225,3 +225,53 @@ says assigns a cause.
   would make Chrome's jar and cache outlive the process, against ADR 0011, and
   is a decision of its own if anybody asks for it.
 - Anything about the engine path, where `alo-net` remains the network.
+
+## Amendment, 2026-10-25 — which of a frame's two documents a request is
+
+*Queue item 647.* § 2 says a cause is assigned from what this process was
+doing, never from anything Chrome or the page said, and that stays. What
+this amendment settles is narrower: **which document** a request belongs
+to, when a frame holds two.
+
+Between a navigation's first hop and its commit a frame holds the document
+it had and is getting another, both minted by this process. Item 634 took
+every request paused in that window as the old document's, on a
+measurement that Chrome tells of the commit before anything the new
+document asks for. Under load that is false — measured against Chrome 155,
+10 requests of a new page in 100 navigations under 96 busy processes, and
+the gate's own failure three times — because Chrome pauses a request in its
+browser process and tells of a commit from the page's renderer, through two
+channels with no order between them. The new page's stylesheet was written
+as the old page's, and as the agent's action in it.
+
+**Decided:** Chrome's word for a request's *loader* is taken as its
+`frameId` already is — as where a request comes from, never who wanted it.
+
+- A navigation's first hop names its `networkId`, which is the loader of
+  the document it commits (through every redirect, measured). A request
+  paused in the window is let go at once — its rule depends only on its
+  address — and its line waits for `Network.requestWillBeSent`, whose
+  `requestId` is the paused request's `networkId` and whose `loaderId`
+  names the document that made it.
+- **A loader chooses between the two documents this process minted, and
+  nothing else.** The arriving document's loader makes the line that
+  document's, whose cause is the navigation's; any other loader, none, or a
+  request never told of, leaves the line the cause it had when paused.
+  Nothing Chrome says mints a document or names a person or an action. A
+  renderer that lied could move its request from the page being left to
+  the page arriving — whose chain leads back to the same navigation — and
+  nowhere else.
+- **When to stop waiting is decided by the renderer, not a clock.** Once
+  the commit is read, the renderer that told of it is sent `Network.enable`
+  again; it answers after every request it told of before (10 of 10 under
+  load). A line still waiting then is one Chrome will never name a loader
+  for — as Chrome 155 often does for an old page's requests as it is left
+  — and keeps its cause. A cause that depended on how long this process waited would be
+  the thing ADR 0012 refuses: one answer on a quiet machine and another on
+  a busy one.
+
+**Not decided here:** a request with no `networkId` (a beacon, a
+`keepalive` fetch) has no loader to name and stays the document the frame
+holds when it is paused; and an old page's request paused *after* the new
+page's commit is read is still taken as the new page's — the same race the
+other way round, queue item 657.

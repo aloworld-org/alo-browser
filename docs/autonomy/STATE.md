@@ -40800,3 +40800,116 @@ the same.
 300 queue items are open (646 closed; counted as `- [ ] **` lines). The
 next unused queue number is **657** and the next ADR is **0064**. This is
 one iteration, not a finished queue or roadmap.
+
+
+## Iteration 400 — queue items 647 and 656: a page's request, paused before Chrome tells of the page
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Decided*/*Owed*, the stage 2 Chrome line), iteration 399's
+entry, `REMAINING.md`'s last entries, the queue's items 642–657; ADR 0012
+§§ 1–5 and ADR 0060 §§ 2–4; `alo-window`'s `chrome_record.rs`,
+`chrome_tab.rs` (`next`, `answer`, `committed`, `answered`),
+`chrome_protocol.rs`'s commands and readers, `chrome.rs`'s starter, and
+`tests/every_request_of_a_page_in_chrome_recorded.rs`. No `AGENTS.md`
+exists in the repository. The feature contract is `docs/features.md`'s
+Chrome renderer line (item 634's and 636's promise that every request says
+what caused it).
+
+**Why 647.** The owner's commit dda5392 put it ahead of 642: it stopped the
+loop three times. Its dependencies are none; 656, which depends on 636
+(done), was its sibling. The screen was locked (`CGSSessionScreenIsLocked =
+true`), so 642 and 643 could not have been built honestly anyway.
+
+**Measured**, against Chrome 155.0.8059.86, headless, with Node probes over
+the pipe (scratch only, nothing in any product page): on a quiet machine a
+followed link's first hop, commit and the new page's requests came in that
+order 50 of 50 times; under 96 busy processes the new page's sheet was
+paused **before** its `Page.frameNavigated` was read (1 in 60, then 10
+requests in 100 navigations), every one told of afterwards by
+`Network.requestWillBeSent` with the arriving document's `loaderId`; a
+navigation's `networkId` is the loader it commits, through redirects (126
+of 126); `Network.enable` sent again through the committing session was
+answered after the `requestWillBeSent` of each such request (10 of 10). An
+old page's requests as it is left are told of with their own loader, with
+`""` (a worker's), with no `networkId` at all (a beacon, a `keepalive`
+fetch), or never; and a beacon from `pagehide` was paused *after* the new
+page's commit in 55 of 60 runs — which is 657.
+
+**Reproduced on purpose.** The unfixed test binary under the same load
+failed once in about 38 runs of
+`an_agents_activate_that_navigates_names_the_action_as_its_cause`, with
+the gate's own words (`caused by action#0, in document#0`). Then
+deterministically: the new test starts the machine's Chrome behind this
+test's own program run again as a relay, which holds back the named
+commit and its session's later messages until the named request is paused
+— the measured order — and asserts it held.
+
+**Built.**
+- `chrome_owed.rs`, new: a line owed while its request's document is not
+  yet known, decided by Chrome's loader for it (the arriving document's, or
+  as kept), or settled as kept when the frame's renderer answers, the
+  navigation ends, the frame is forgotten or the tab closes; at most 256.
+- `chrome_record.rs`: a frame's arriving loader (its first hop's
+  `networkId`), `Causes::window`, `remembers`; `ended` answers the
+  document; the module's claim that the commit always comes first is
+  corrected.
+- `chrome_protocol.rs`: `Paused::network`, `told` (`requestId`,
+  `loaderId`), `Command::HearTheNetworkOut`, with malformed-input tests.
+- `chrome_tab.rs`: requests paused in a window are let go at once and their
+  lines owed (refusals too); `requestWillBeSent` decides them; the commit
+  sends the barrier through its own session; the tab's end writes the rest.
+- ADR 0060's amendment of 25 October: a loader chooses between two
+  documents this process minted and never names a cause.
+- Test `a_page_chrome_tells_of_after_what_it_asks_for.rs`: the tab's own
+  frame (647) and an other-site frame's second page (656). Mutations,
+  restored from a copy and checked with `cmp`: no owing in the tab — both
+  fail with the gate's messages (`action#0, in document#0`; `document#1`);
+  the loader comparison turned off — both fail, and `chrome_owed`'s unit
+  test. The fixed binary of the old test passed 32 of 32 under load; the
+  new test passed 10 of 10 runs and under nextest.
+
+**Gate.** First run: **exit 1** — `serde_json` named in the new test,
+outside the two files ADR 0001 allows; the relay now reads through
+`chrome_protocol`. Second run, foreground and waited on in the next step:
+**exit 0, "The gate is met." (10 of 10 steps)**, clippy silent, nextest
+**5,322 tests run, 5,322 passed** in 567.8 s, no `FAIL`, `LEAK` or
+`panicked`. Only this entry came after.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies; no reference changed. One file, one
+responsibility: owing a line is `chrome_owed.rs`'s; minting and choosing a
+document stays `chrome_record.rs`'s; reading Chrome's bytes stays
+`chrome_protocol.rs`'s; `next` stayed under the length lint by folding its
+early returns, not by silencing it. Bytes from outside: `requestWillBeSent`
+is read only while a line is owed, its two ids bounded as text, malformed
+input refused as `Malformed` and tested. No `unsafe` (the relay opens
+`/dev/fd/3` and `/dev/fd/4` as files), no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 647 and 656 and its *Owed*
+gains 657; the stage 2 Chrome line's `· Built:` and `· Decided:` gain them
+and `· Owed:` gains 657. Not ticked — neither line is finished. The queue
+ticks 647 and 656 with *Done* paragraphs and opens 657; `features.md`,
+`REMAINING.md`, ADR 0060 and the changelog say the same.
+
+**Unresolved obligations.**
+- 657: an old page's request paused after the new page's commit is read is
+  still the new page's, and a request with no `networkId` can never be told
+  apart by loader.
+- A line owed whose renderer never answers the barrier — a page whose main
+  thread never yields — is written only when the tab closes.
+- A `requestWillBeSent` longer than the 16 MiB Chrome may send is skipped
+  unread, and its line is settled as kept at the barrier.
+- 642 and 643 still wait on the screen in use (locked); 648 needs an ADR;
+  645, 649 and 650 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655).
+- No claim about speed is made.
+
+299 queue items are open (647 and 656 closed, 657 opened; counted as
+`- [ ] **` lines). The next unused queue number is **658** and the next ADR
+is **0064**. This is one iteration, not a finished queue or roadmap.

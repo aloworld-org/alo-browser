@@ -3095,3 +3095,18 @@ so it answers `Activated`, written into ADR 0051's second amendment of
 25 October. The screen was locked, so 642 and 643 still wait on it. 300
 queue items are open (646 closed). The next unused queue number is 657
 and the next unused ADR 0064.
+
+Iteration 400 closed queue items 647 and 656, the race that stopped the
+loop three times. Measured against Chrome 155: under load Chrome pauses a
+new document's sub-resource before it tells of that document's commit, and
+then names the new document's loader in `Network.requestWillBeSent`; a
+navigation's `networkId` is that loader. A request paused while its frame
+goes to a new document is let go and its line owed until its loader is
+told of, or until the frame's renderer, asked again after the commit,
+answers after everything it told of (`chrome_owed.rs`, ADR 0060's
+amendment). A test runs the machine's Chrome behind a relay that holds a
+commit back behind the request named, so both orders fail without the fix
+every time. Opened 657: an old page's request paused after the new page's
+commit is still the new page's. 299 queue items are open (647 and 656
+closed, 657 opened). The next unused queue number is 658 and the next
+unused ADR 0064.

@@ -124,6 +124,10 @@ pub enum Command {
     /// nothing else tells of — a WebSocket, before its handshake
     /// (`Network.webSocketCreated`, ADR 0060 § 3).
     TellOfSockets,
+    /// `Network.enable` again, to a target already telling of its network:
+    /// changes nothing, and is answered by its renderer after every request
+    /// it told of before (measured against Chrome 155, queue item 647).
+    HearTheNetworkOut,
     /// `Page.setLifecycleEventsEnabled`: be told of each stage of every
     /// load, by the loader it belongs to.
     TellOfStages,
@@ -301,7 +305,7 @@ impl Command {
             Self::CloseTarget { .. } => "Target.closeTarget",
             Self::PauseEveryRequest => "Fetch.enable",
             Self::TellOfLoading => "Page.enable",
-            Self::TellOfSockets => "Network.enable",
+            Self::TellOfSockets | Self::HearTheNetworkOut => "Network.enable",
             Self::TellOfStages => "Page.setLifecycleEventsEnabled",
             Self::ForgetWhatWasSaid => "Runtime.discardConsoleEntries",
             Self::TellOfScript => "Runtime.enable",
@@ -345,6 +349,7 @@ impl Command {
             | Self::Close
             | Self::TellOfLoading
             | Self::TellOfSockets
+            | Self::HearTheNetworkOut
             | Self::ForgetWhatWasSaid
             | Self::TellOfScript
             | Self::StopTellingOfScript
@@ -760,6 +765,10 @@ pub struct Paused {
     /// Whether a redirect led here — a hop after the first of a navigation
     /// or a fetch (`redirectedRequestId`).
     pub redirected: bool,
+    /// The id the page's renderer tells of it by (`networkId`), when Chrome
+    /// gave one: a navigation's is the loader of the document it commits,
+    /// and a beacon has none (measured against Chrome 155, item 647).
+    pub network: Option<String>,
 }
 
 /// A `Fetch.requestPaused` event's `params`, read.
@@ -786,7 +795,28 @@ pub fn paused(params: &[u8]) -> Result<Paused, Malformed> {
                 true
             }
         },
+        network: match fields.get("networkId") {
+            None => None,
+            network => Some(text(network, "networkId")?),
+        },
     })
+}
+
+/// A request a page's renderer told of, from a `Network.requestWillBeSent`
+/// event's `params`: its id — a paused request's `networkId` — and the
+/// loader of the document that made it, which a dedicated worker's request
+/// has as nothing (`""`, measured against Chrome 155).
+///
+/// # Errors
+///
+/// [`Malformed`], for params with no `requestId` or no `loaderId`, each
+/// text.
+pub fn told(params: &[u8]) -> Result<(String, String), Malformed> {
+    let fields = object(params)?;
+    Ok((
+        text(fields.get("requestId"), "requestId")?,
+        text(fields.get("loaderId"), "loaderId")?,
+    ))
 }
 
 /// A frame that has gone to a new document, from a `Page.frameNavigated`
@@ -1864,6 +1894,10 @@ mod tests {
             br#"{"id":5,"method":"Fetch.enable","params":{"patterns":[{"urlPattern":"*"}]},"sessionId":"S"}"#
         );
         assert_eq!(
+            written(5, Some("S"), &Command::HearTheNetworkOut),
+            br#"{"id":5,"method":"Network.enable","params":{},"sessionId":"S"}"#
+        );
+        assert_eq!(
             written(6, Some("S"), &Command::Refuse { request: "R".to_owned() }),
             br#"{"id":6,"method":"Fetch.failRequest","params":{"errorReason":"BlockedByClient","requestId":"R"},"sessionId":"S"}"#
         );
@@ -2234,6 +2268,35 @@ mod tests {
         assert_eq!(read(br#"{"method":"M","params":[1]}"#), bad("params"));
     }
 
+    /// Item 647: what a renderer tells of a request, and a paused
+    /// request's id for it.
+    #[test]
+    fn a_request_a_renderer_told_of_is_read_as_chrome_155_wrote_it() {
+        // A sub-resource's, as Chrome 155 told of it on 2026-10-25, cut.
+        assert_eq!(
+            told(
+                br#"{"requestId":"35276.7","loaderId":"E72554449136EB07321E2ECE550E5495","documentURL":"http://127.0.0.1:50301/next.html","request":{"url":"http://127.0.0.1:50301/next.css","method":"GET","headers":{}},"type":"Stylesheet","frameId":"F"}"#
+            ),
+            Ok((
+                "35276.7".to_owned(),
+                "E72554449136EB07321E2ECE550E5495".to_owned()
+            ))
+        );
+        assert_eq!(
+            told(br#"{"requestId":"1.1","loaderId":""}"#),
+            Ok(("1.1".to_owned(), String::new()))
+        );
+        assert_eq!(told(br#"{"requestId":"1.1"}"#), bad("loaderId"));
+        assert_eq!(told(br#"{"loaderId":"L"}"#), bad("requestId"));
+        assert_eq!(told(br#"{"requestId":7,"loaderId":"L"}"#), bad("requestId"));
+        assert_eq!(told(b"[]"), Err(Malformed::NotAnObject));
+        assert_eq!(told(br#"{"requestId":"1""#), Err(Malformed::NotJson));
+        assert_eq!(
+            paused(br#"{"requestId":"i","request":{"url":"u","method":"GET"},"frameId":"F","resourceType":"Other","networkId":5}"#),
+            bad("networkId")
+        );
+    }
+
     #[test]
     fn a_tab_and_its_loading_are_read_as_chrome_155_wrote_them() {
         assert_eq!(
@@ -2271,6 +2334,7 @@ mod tests {
                 kind: "Other".to_owned(),
                 frame: "F".to_owned(),
                 redirected: false,
+                network: None,
             })
         );
         // A redirect's second hop, cut from Chrome 155's on 2026-10-24.
@@ -2278,8 +2342,12 @@ mod tests {
             paused(
                 br#"{"requestId":"interception-job-2.0","request":{"url":"http://localhost:56168/page.html","method":"GET","headers":{}},"frameId":"6E8136AF8E77D33D416721A3E4AE05AF","resourceType":"Document","networkId":"0C6B5699858B4B5F4400C77CBFB45BA3","redirectedRequestId":"interception-job-1.0"}"#
             )
-            .map(|paused| (paused.kind, paused.redirected)),
-            Ok(("Document".to_owned(), true))
+            .map(|paused| (paused.kind, paused.redirected, paused.network)),
+            Ok((
+                "Document".to_owned(),
+                true,
+                Some("0C6B5699858B4B5F4400C77CBFB45BA3".to_owned())
+            ))
         );
         assert_eq!(
             committed(
