@@ -52,6 +52,20 @@ fn main() -> std::process::ExitCode {
             return ExitCode::FAILURE;
         };
         if sending.write_all(format!("{line}\n").as_bytes()).is_err() {
+            // **The answer may already be here.** A refusal that ends the
+            // conversation is answered and then the connection is closed —
+            // `LineTooLong` is one: the browser takes what it will of the
+            // line, says so, and goes, while this process is still writing
+            // the rest of it and is given a broken pipe for the remainder.
+            // Leaving then threw away a refusal that had already arrived,
+            // which is how `every_refusal_crosses_as_the_same_kind_through_
+            // chrome` lost its last refusal and stopped the build loop on
+            // 2026-10-25. A failed write says nothing about what was read.
+            let mut answer = String::new();
+            if answers.read_line(&mut answer).is_ok_and(|read| read > 0) {
+                let _ = printed.write_all(answer.as_bytes());
+                let _ = printed.flush();
+            }
             return ExitCode::SUCCESS;
         }
         if line.trim().is_empty() {

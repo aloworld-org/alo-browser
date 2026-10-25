@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An answer that arrived as the browser hung up is no longer thrown
+  away.** When an agent sends a line longer than the browser will take, the
+  browser says so and closes the connection, because it cannot tell where
+  the next line would start. The sender is usually still writing at that
+  moment and is told the pipe is broken — and `alo-ask`, the small program
+  that talks to the browser for a person at a terminal, used to give up
+  there, losing the refusal that had already arrived and was sitting in its
+  own buffer. It now reads what is waiting before it goes. Nothing can be
+  sent after that point either way; the difference is whether you are told
+  why.
+
 - **An agent working a page in Chrome is told what the page's script
   said.** When an agent presses a button or types into a field, it is
   answered with what the page's own code wrote to its console and any
