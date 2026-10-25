@@ -16675,6 +16675,18 @@ What stage 2's exit gate actually measures: a person using it.
   closing either closes both — each asserted in numbers from the window
   server, not only from Chrome's word — or the ADR is reopened with what
   was measured.
+  ***Next, by the owner's choice (2026-10-25).*** Taken ahead of its place in
+  the file. Measured that day: the loop closed 24 items in 24 hours and the
+  open count went from 294 to 304, so the queue is not converging and
+  "the first item whose dependencies are all done" (LOOP.md § 3) will not
+  reach this one. Everything this needs is finished — 627 is built and ADR
+  0062 decided how — and until it is built **there is nothing a person can
+  watch**: `alo --chrome` drives a live page through Chrome, under grants,
+  marked and narrated, in a window with nothing of ours around it. 643 and
+  477 follow it, in that order, for the same reason. The rule this uses is
+  LOOP.md § 3's own: the order "is not always the first item in the file,
+  and the queue says so where it matters".
+
   ***Decided (iteration 382): ADR 0062.*** Measured under Stage Manager
   first, as the decision needed: an ordinary window of ours went into the
   strip the moment Chrome's was brought in front, in two runs of two, and
