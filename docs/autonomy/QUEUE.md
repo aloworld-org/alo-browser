@@ -55,7 +55,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **623** | the agent's sentence, where a person can read it — in this engine's window; through Chrome it comes with 642 |
 | ✓ | **624** | the acted-on box, marked — ringed on the frame painted after the verb, in this engine's window; through Chrome it comes with 642 |
 | ✓ | **625** | a refusal shown to the person, not only answered to the agent — in this engine's window; through Chrome it comes with 642 |
-| | **642** | a window of ours around Chrome's, following it (ADR 0061's frame) |
+| **→** | **642** | **next, by the owner's choice (2026-10-25)**: a window of ours around Chrome's, following it (ADR 0061's frame) — and with it 623, 624 and 625 on the Chrome path |
 | | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
 
