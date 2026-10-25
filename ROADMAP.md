@@ -2436,7 +2436,10 @@ disappeared behind the larger.
       and a person watching the window reads each verb's sentence in a
       line of the browser's own (queue item 623), sees the box it acted
       on ringed on its own rectangles (queue item 624), and reads why a
-      verb was refused, each refusal its own line (queue item 625).
+      verb was refused, each refusal its own line (queue item 625) — an
+      ambiguous one naming the nodes it could mean as `box#7 or box#14`,
+      as every other sentence names a node, rather than in Rust's own
+      notation (queue item 626).
       · Owed: loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that
       adds a box (500); and Windows, which ADR 0055 leaves undecided.

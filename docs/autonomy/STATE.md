@@ -41447,3 +41447,84 @@ ADR 0064's note, the contract and the changelog say the same.
 298 queue items are open (660 closed; counted as `- [ ] **` lines). The
 next unused queue number is **661** and the next ADR is **0065**. This is
 one iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 406 — queue item 626: the ambiguous refusal's sentence is English, not Rust's
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Owed*, the agent's gate), iteration 405's entry, the
+queue's product-path table and items 626, 642, 643, 645 and 658;
+`docs/contracts/agent-socket.md` (ADR 0055: `said` is for a person and its
+wording may change in any version); `docs/features.md`'s agent-socket line
+(623–625); `alo-agent`'s `verb.rs` and `alo-box`'s `BoxId` `Display`. No
+`AGENTS.md` exists in the repository. 626 names no ADR of its own; the
+feature contract is the agent-socket line's promise that the English is
+beside the structured answer.
+
+**Why 626.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 (next by the owner's choice) and 658
+could not be measured, and 477 needs a Mac that never built it: every item
+left on the product path's *Owed* waits on a screen or a person. Of the
+rest, 626 is the first open item in the queue's order that depends on
+nothing and needs no screen; 645 comes after it.
+
+**Built.** `Refusal::Ambiguous`'s `Display` names its candidates through a
+`OneOf` that writes each by `BoxId`'s own `Display`, joined as English
+joins a list: `2 things are "Invoice"; ask for box#3 or box#4 instead`,
+`box#7, box#14 or box#21`, and `1 thing is …` for a list of one, which
+`resolve` never makes but a far side's refusal may hold (none: `ask for
+one of them by its node`). The structured `candidates` are unchanged, so
+the socket's version 1 is unchanged; only `said` and the window's line
+read differently.
+
+**Closing condition's last clause.** No other `Display` in `verb.rs`
+formats a value with `Debug`. What remains of `:?` there (`{name:?}`,
+`{text:?}`, `{to:?}`, the message's `{:?}`) is each a `String`'s quoting —
+`"Invoice"` — which every sentence and test in the file relies on and
+which the item does not describe as wrong; that reading is written here so
+it can be disagreed with.
+
+**Tests.** `an_ambiguous_target_names_its_candidates_as_nodes_in_english`
+(one, two, three, four and no candidates, exact wording) and
+`a_refusal_says_why_and_what_to_do_about_it`, now an exact `assert_eq!`
+rather than two `contains`. Mutation, restored from a copy and checked with
+`cmp`: the last candidate joined with a comma rather than `or` — both tests
+fail. `a_refusal_shown_to_the_person.rs` compares `said` with the window's
+line rather than with fixed words, and passed unchanged.
+
+**Gate.** `cargo clippy -p alo-agent --all-targets` clean first. Then
+`scripts/gate.sh` in the foreground — it ran past the tool's 600 s, so it
+was waited on by an until-loop in the next call and read there: **exit 0,
+"The gate is met." (10 of 10 steps)**, nextest **5,357 tests run, 5,357
+passed** in 573.5 s, no `FAIL`, `LEAK` or `panicked`. Only this entry came
+after.
+
+**Manual.** Nothing positions, sizes or draws differently: a window line's
+words change only for an ambiguous refusal, and no reference render holds
+one, so no layout assertion or reference applies and none moved. One file,
+one responsibility: the wording of a verb's answers is `verb.rs`'s, and
+`OneOf` is that wording. No bytes from outside are read anew. No `unsafe`,
+no stubs, no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. Nothing pushed.
+
+**Roadmap.** The agent's gate's `· Built:` gains 626 beside 625. Not
+ticked — the line waits on a person. The queue ticks 626 with a *Done*
+paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 645 (a plain button says it scrolls), 649 and 650 are open.
+- Off macOS the toggling click holds Ctrl, unmeasured; an author's
+  `option { display: block }` on this engine's page is undecided.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655).
+- No claim about speed is made.
+
+297 queue items are open (626 closed; counted as `- [ ] **` lines). The
+next unused queue number is **661** and the next ADR is **0065**. This is
+one iteration, not a finished queue or roadmap.

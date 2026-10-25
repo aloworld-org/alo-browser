@@ -15998,7 +15998,7 @@ What stage 2's exit gate actually measures: a person using it.
   owed by 642:** through Chrome there is no window of ours to show them in.
   Found while building it: item 645.
 
-- [ ] **626. The ambiguous refusal's sentence is English, not Rust's.**
+- [x] **626. The ambiguous refusal's sentence is English, not Rust's.**
   `verb.rs`'s `Display` writes its candidates with `{:?}`, so a person is told
   `ask for one of [BoxId(7), BoxId(14), …]` where every other sentence in the
   file says `box#7`. The structured `candidates` beside it is right; only the
@@ -16006,6 +16006,16 @@ What stage 2's exit gate actually measures: a person using it.
   socket by hand on 24 October 2026. *Depends on nothing. Closes when:* the
   sentence names its candidates as `BoxId`'s own `Display` does, with a unit
   test on the wording, and no other `Display` in the file reaches for `{:?}`.
+  ***Done (iteration 406).*** `Refusal::Ambiguous` now says `2 things are
+  "Invoice"; ask for box#3 or box#4 instead` — each candidate by `BoxId`'s
+  own `Display`, joined as English joins a list (`box#7, box#14 or
+  box#21`), and `1 thing is` for a list of one, which `resolve` never makes
+  but a far side's refusal may hold. Unit tests on the exact wording for
+  one, two, three, four and no candidates; the mutation joining the last
+  with a comma is caught by both. No other `Display` in `verb.rs` formats a
+  value with `Debug`: what remains of `:?` there quotes text — a name, an
+  address, a message — which is a string's quoting, not Rust's notation for
+  a value.
 
 - [x] **627. ★ What a person looks at, on the product path.** *ADR 0058 § 2
   left this open and item 620 does not close it.* `FromRenderer::Painted(Frame)`

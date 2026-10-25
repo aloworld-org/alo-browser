@@ -3176,3 +3176,9 @@ at the option's middle, with ⌘ held in a list of several
 (`chrome_choose`), the answer read back from Chrome's tree. The screen was
 locked, so 642 and 643 still wait on it. 298 queue items are open (660
 closed). The next unused queue number is 661 and the next unused ADR 0065.
+
+Iteration 406 closed queue item 626: the ambiguous refusal's sentence names
+its candidates as `box#3 or box#4`, as every other sentence names a node,
+rather than as `[BoxId(3), BoxId(4)]`. The screen was locked, so 642, 643
+and 658 still wait on it. 297 queue items are open (626 closed). The next
+unused queue number is 661 and the next unused ADR 0065.

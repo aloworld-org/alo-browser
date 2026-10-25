@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An ambiguous refusal reads as English.** When an agent names something
+  that matches more than one thing on the page, the sentence it is given —
+  and the line a person reads in the window — now says `ask for box#7 or
+  box#14 instead`, naming each node as every other sentence does, where it
+  said `ask for one of [BoxId(7), BoxId(14)]`. The structured candidates
+  beside it are unchanged (item 626).
+
 - **An agent can choose from a list Chrome draws.** Through Chrome,
   activating an option of a list that shows several options at once — one
   with a `size`, or one that takes several choices — now clicks it as a

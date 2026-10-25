@@ -411,15 +411,45 @@ pub enum Refusal {
     },
 }
 
+/// The nodes an ambiguous target could mean, in the words the rest of these
+/// sentences use for a node — `box#3, box#4 or box#5` — never `BoxId`'s
+/// `Debug`, which is Rust's and not a person's.
+struct OneOf<'a>(&'a [BoxId]);
+
+impl fmt::Display for OneOf<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Some((last, before)) = self.0.split_last() else {
+            return f.write_str("one of them by its node");
+        };
+        for (at, node) in before.iter().enumerate() {
+            let joint = if at == 0 { "" } else { ", " };
+            write!(f, "{joint}{node}")?;
+        }
+        if before.is_empty() {
+            write!(f, "{last}")
+        } else {
+            write!(f, " or {last}")
+        }
+    }
+}
+
 impl fmt::Display for Refusal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Refusal::NotFound { target } => write!(f, "nothing on the page is {target}"),
-            Refusal::Ambiguous { target, candidates } => write!(
-                f,
-                "{} things are {target}; ask for one of {candidates:?} instead",
-                candidates.len(),
-            ),
+            Refusal::Ambiguous { target, candidates } => {
+                let are = if candidates.len() == 1 {
+                    "thing is"
+                } else {
+                    "things are"
+                };
+                write!(
+                    f,
+                    "{} {are} {target}; ask for {} instead",
+                    candidates.len(),
+                    OneOf(candidates),
+                )
+            }
             Refusal::NotOperable { node, role } => {
                 write!(f, "{node} is a {role}, which is not a thing to operate")
             }
@@ -773,6 +803,41 @@ mod tests {
     }
 
     #[test]
+    fn an_ambiguous_target_names_its_candidates_as_nodes_in_english() {
+        let ambiguous = |indices: &[usize]| {
+            Refusal::Ambiguous {
+                target: Target::NamedOfRole {
+                    role: Role::Known(KnownRole::Button),
+                    name: "Send".to_owned(),
+                },
+                candidates: indices
+                    .iter()
+                    .map(|index| BoxId::from_index_for_tests(*index))
+                    .collect(),
+            }
+            .to_string()
+        };
+        assert_eq!(
+            ambiguous(&[7, 14, 21]),
+            "3 things are the button \"Send\"; ask for box#7, box#14 or box#21 instead",
+        );
+        assert_eq!(
+            ambiguous(&[7, 14, 21, 28]),
+            "4 things are the button \"Send\"; ask for box#7, box#14, box#21 or box#28 instead",
+        );
+        // Neither is reached by `resolve`, which is ambiguous only for two or
+        // more, but a refusal read from a far side may hold any list.
+        assert_eq!(
+            ambiguous(&[7]),
+            "1 thing is the button \"Send\"; ask for box#7 instead",
+        );
+        assert_eq!(
+            ambiguous(&[]),
+            "0 things are the button \"Send\"; ask for one of them by its node instead",
+        );
+    }
+
+    #[test]
     fn a_refusal_says_why_and_what_to_do_about_it() {
         let target = Target::Named("Invoice".to_owned());
         let candidates = vec![
@@ -783,10 +848,10 @@ mod tests {
             target,
             candidates: candidates.clone(),
         };
-        assert!(ambiguous.to_string().contains("2 things"));
-        assert!(
-            ambiguous.to_string().contains("instead"),
-            "and says how to narrow it: {ambiguous}",
+        assert_eq!(
+            ambiguous.to_string(),
+            "2 things are \"Invoice\"; ask for box#3 or box#4 instead",
+            "and says how to narrow it, naming each node as the other sentences do",
         );
 
         let disabled = Refusal::Disabled {
