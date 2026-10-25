@@ -101,6 +101,16 @@ impl Kind {
     pub fn pauses_its_own(self) -> bool {
         self != Self::Worker
     }
+
+    /// Whether what its script says while a verb runs is heard as the
+    /// page's (queue item 652): a frame's and a dedicated worker's are,
+    /// each through its own session. A shared worker's script is not one
+    /// page's but every page's that connects to it, and a service worker's
+    /// runs for every page it controls and answers nothing before it runs;
+    /// neither is heard (item 654).
+    pub fn is_heard(self) -> bool {
+        matches!(self, Self::Frame | Self::Worker)
+    }
 }
 
 impl fmt::Display for Kind {
@@ -163,6 +173,19 @@ impl Holding {
     /// What `session` is, if it is a target held here.
     pub fn kind(&self, session: &str) -> Option<Kind> {
         self.kinds.get(session).copied()
+    }
+
+    /// The session of every target held whose script is heard while a verb
+    /// runs ([`Kind::is_heard`]), in a fixed order.
+    pub fn heard(&self) -> Vec<String> {
+        let mut heard: Vec<String> = self
+            .kinds
+            .iter()
+            .filter(|(_, kind)| kind.is_heard())
+            .map(|(session, _)| session.clone())
+            .collect();
+        heard.sort();
+        heard
     }
 
     /// Whether `id` is a command sent to hold a target.
@@ -233,6 +256,22 @@ mod tests {
         for kind in [Kind::Frame, Kind::ServiceWorker, Kind::SharedWorker] {
             assert!(kind.pauses_its_own(), "{kind}");
         }
+        assert!(Kind::Frame.is_heard() && Kind::Worker.is_heard());
+        for kind in [Kind::Page, Kind::ServiceWorker, Kind::SharedWorker] {
+            assert!(!kind.is_heard(), "{kind}");
+        }
+    }
+
+    #[test]
+    fn only_frames_and_dedicated_workers_are_heard_and_only_while_held() {
+        let mut holding = Holding::default();
+        holding.hold("w", Kind::Worker, &[]);
+        holding.hold("sw", Kind::ServiceWorker, &[]);
+        holding.hold("f", Kind::Frame, &[1]);
+        holding.hold("shared", Kind::SharedWorker, &[]);
+        assert_eq!(holding.heard(), ["f", "w"]);
+        holding.forget("f");
+        assert_eq!(holding.heard(), ["w"]);
     }
 
     #[test]

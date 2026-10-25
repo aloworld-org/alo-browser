@@ -57,10 +57,13 @@ is carried out, in the engine's words where the engine has words for it
 and the line in the page rather than `script 1` and the line in the script;
 a call to the page's console, which this engine does not have, is said as
 `console.log:` and what it was given; and something said in a message
-longer than one from Chrome may be is said to have been, unread. What a
-frame or worker in a process of its own says is not heard (queue item 652),
-nor a promise rejected and unhandled that Chrome tells of a task after the
-verb. And a tab is
+longer than one from Chrome may be is said to have been, unread. A frame
+from another site and a dedicated worker, each a process or thread of its
+own, are heard as the page is (queue item 652), placed by their own
+script's address. Not heard: a shared or service worker (queue item 654); a
+dedicated worker's throw while the verb holds the page's own thread, which
+Chrome hands that thread first; and a promise rejected and unhandled that
+Chrome tells of a task after the verb. And a tab is
 named by the page it shows when the request is answered, however it got
 there — a link to a part of the page, or a script's `pushState`, included,
 with the part (queue item 640). A tab of this engine's goes nowhere a link

@@ -84,10 +84,13 @@
 //! From the moment a verb is decided until it is answered, the tab hears
 //! what the page's script writes to its console and what it throws and
 //! nobody catches ([`Tab::act_and_hear`], [`crate::chrome_said`], queue
-//! item 639) — and only then: Chrome is told to forget what was said
+//! item 639), in its own document and in each frame from another site and
+//! dedicated worker of it, which Chrome tells of in targets of their own
+//! (item 652) — and only then: Chrome is told to forget what was said
 //! before, so nothing earlier is told of again, and to stop telling once
 //! the verb is done, which the page's own renderer answers after everything
-//! it told of before. A verb refused is refused before anything is heard.
+//! it told of before, as each frame and worker does for its own. A verb
+//! refused is refused before anything is heard.
 //!
 //! # What it cannot say yet
 //!

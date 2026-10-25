@@ -3012,3 +3012,16 @@ name and recorded with the frame's document as its cause
 (`chrome_tab.rs`). The screen was locked, so 642 and 643 still wait on
 it. 303 queue items are open (651 closed). The next unused queue number
 is 654 and the next unused ADR 0063.
+
+Iteration 393 closed queue item 652, measured against Chrome 155: a frame
+from another site and a dedicated worker each answer `Runtime`'s forget,
+enable and disable in their own sessions, tell again of everything since
+they started unless they forget first, and, held, answer `Runtime.enable`
+before they run. Each is now told to forget, tell and stop as the tab's
+own session is, and one held while a verb runs is told to tell before it
+is let go (`chrome_tab.rs`, `chrome_hold.rs`). Not told of while a verb
+holds the page's own thread: a page's worker's uncaught throw, and a
+worker the page starts in that task. Cut: 654 (shared and service
+workers). The screen was locked, so 642 and 643 still wait on it. 303
+queue items are open (652 closed, 654 opened). The next unused queue
+number is 655 and the next unused ADR 0063.

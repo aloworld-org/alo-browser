@@ -135,6 +135,9 @@ pub struct Tab<'c> {
     /// What the page's script has said while the verb running is heard
     /// ([`Tab::hear`]), or [`None`] while none is.
     heard: Option<Heard>,
+    /// The frames and workers in targets of their own told to tell of what
+    /// their script says while the verb running is heard, by session.
+    hearing: Vec<String>,
     /// The address of every WebSocket the page opened, as Chrome spells it.
     sockets: Vec<String>,
     /// The address of the page the tab shows: where it was opened, until its
@@ -322,6 +325,7 @@ impl<'c> Tab<'c> {
             causes,
             acted: None,
             heard: None,
+            hearing: Vec::new(),
             sockets: Vec::new(),
             address: alo_url::parse(url).ok(),
         };
@@ -591,13 +595,67 @@ impl<'c> Tab<'c> {
     /// how long that is, so a page that logs between verbs costs Chrome
     /// nothing of ours.
     ///
+    /// The page's script is more than its own document's: a frame from
+    /// another site and a dedicated worker each say what they say through a
+    /// target of their own (item 652), and each is told to forget and then
+    /// to tell, as the tab's own session is. Measured against Chrome 155:
+    /// each answers, and each told to tell without forgetting first tells
+    /// again of everything it said since it started. One started while the
+    /// verb runs is told to tell as it is held ([`Tab::attached`]).
+    ///
     /// # Errors
     ///
     /// [`Failed`], when Chrome cannot be asked.
     pub(crate) fn hear(&mut self, about: &'static str) -> Result<(), Failed> {
+        let heard = self.holding.heard();
         self.ask(&Command::ForgetWhatWasSaid)?;
+        for session in &heard {
+            self.ask_held(session, &Command::ForgetWhatWasSaid)?;
+        }
         self.heard = Some(Heard::about(about));
-        self.ask(&Command::TellOfScript).map(drop)
+        self.ask(&Command::TellOfScript)?;
+        for session in heard {
+            // Heard from before it is asked: what it said since it forgot
+            // is told of before its answer.
+            self.hearing.push(session.clone());
+            if !self.ask_held(&session, &Command::TellOfScript)? {
+                self.hearing.retain(|other| *other != session);
+            }
+        }
+        Ok(())
+    }
+
+    /// Send `command` to the target held as `session` and wait for its
+    /// result: `true` once it is answered, or `false` when the target ended
+    /// before it was — a frame taken out of its page, or a worker that
+    /// closed — whether Chrome refused it for that or never answered.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome cannot be asked, or declines a target still
+    /// held.
+    fn ask_held(&mut self, session: &str, command: &Command) -> Result<bool, Failed> {
+        let asked = self.chrome.send(Some(session), command)?;
+        let until = Instant::now() + self.chrome.patience();
+        loop {
+            let message = self.next(until)?;
+            let gone = self.holding.kind(session).is_none();
+            match message {
+                Some(Message::Reply { id, result, .. }) if id == asked => {
+                    return match result {
+                        Ok(_) => Ok(true),
+                        Err(_) if gone => Ok(false),
+                        Err(declined) => Err(Failed::Declined(declined)),
+                    };
+                }
+                Some(Message::Skipped { id: Some(id), .. }) if id == asked => {
+                    return Err(Failed::TooLong);
+                }
+                // A target that ended may never answer what it was sent.
+                _ if gone => return Ok(false),
+                _ => {}
+            }
+        }
     }
 
     /// What the page's script said since [`Tab::hear`], in the engine's
@@ -616,7 +674,14 @@ impl<'c> Tab<'c> {
         if self.heard.is_none() {
             return Ok(Vec::new());
         }
-        let off = self.ask(&Command::StopTellingOfScript);
+        // Each frame and worker heard is a barrier of its own: its renderer
+        // answers after everything it told of before, whatever the page's
+        // did. Every one is told to stop, whichever failed first.
+        let mut off = self.ask(&Command::StopTellingOfScript).map(drop);
+        for session in core::mem::take(&mut self.hearing) {
+            let stopped = self.ask_held(&session, &Command::StopTellingOfScript);
+            off = off.and(stopped.map(drop));
+        }
         let heard = self.heard.take();
         off?;
         Ok(heard.map(Heard::lines).unwrap_or_default())
@@ -727,16 +792,18 @@ impl<'c> Tab<'c> {
             } if method == "Target.detachedFromTarget" && (session.is_none() || held.is_some()) => {
                 let gone = chrome_protocol::detached(&params).map_err(Failed::Malformed)?;
                 self.holding.forget(&gone);
+                self.hearing.retain(|heard| *heard != gone);
                 Ok(None)
             }
             Message::Reply { id, result, .. } if self.awaits(id) => {
                 self.answered(id, result)?;
                 Ok(None)
             }
+            // Told of a target not this tab's, or no longer held. A reply is
+            // handed on whatever its session, because a command sent to a
+            // target that has since ended is answered with a refusal its
+            // asker waits for ([`Tab::ask_held`]).
             Message::Event {
-                session: Some(_), ..
-            }
-            | Message::Reply {
                 session: Some(_), ..
             } if held.is_none() => Ok(None),
             other => Ok(Some(other)),
@@ -768,16 +835,17 @@ impl<'c> Tab<'c> {
     /// Whether `message` is something the page's script said — heard, if a
     /// verb is — or a message too long to read that was.
     ///
-    /// Only the tab's own session is told of what script says, so a frame or
-    /// worker in a target of its own is not heard, and a `Runtime` event
-    /// skipped for its length, whose session is not known, is the page's.
+    /// What script says is heard from the tab's own session and from each
+    /// frame's and dedicated worker's told to tell of it while a verb runs;
+    /// a `Runtime` event skipped for its length, whose session is not known,
+    /// is the page's.
     fn heard_in(&mut self, message: &Message) -> bool {
         match message {
             Message::Event {
                 method,
                 session: Some(session),
                 params,
-            } if *session == self.session
+            } if (*session == self.session || self.hearing.contains(session))
                 && matches!(
                     method.as_str(),
                     "Runtime.consoleAPICalled" | "Runtime.exceptionThrown"
@@ -1093,6 +1161,14 @@ impl<'c> Tab<'c> {
         // service worker answers only once it runs, so it is not held for
         // the answer: asked before it is let go, it still tells of a
         // socket its script opens first thing (measured, Chrome 155).
+        // Started while a verb is heard, it is told to tell of what its
+        // script says before it says anything: held, a frame and a
+        // dedicated worker each answer `Runtime.enable` before they run
+        // (measured, Chrome 155).
+        if self.heard.is_some() && kind.is_heard() {
+            asked.push(self.chrome.send(held, &Command::TellOfScript)?);
+            self.hearing.push(attached.session.clone());
+        }
         if self.is_from_the_network() {
             let id = self.chrome.send(held, &Command::TellOfSockets)?;
             if kind.answers_before_it_runs() {

@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **What a frame from another site or a background worker says during an
+  agent's action, on a page shown in Chrome, now reaches the agent.** The
+  agent already heard what the page itself wrote to its console or threw
+  while an action ran; anything from a frame of another site or a worker,
+  which Chrome runs separately, was silently missing. Each is now heard
+  for exactly as long as the action runs, as the page is. A worker shared
+  between pages, or a service worker, is still not heard.
+
 - **A frame inside a page shown in Chrome is held to the rules when it
   sends itself to an address like `mailto:`, which Chrome never stops for
   this browser to judge.** A link or a script sending a page there was

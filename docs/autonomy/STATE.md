@@ -40119,3 +40119,112 @@ decides that every ask the browser process can be shown is judged.
 303 queue items are open (651 closed; counted as `- [ ] **` lines). The
 next unused queue number is **654** and the next ADR is **0063**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 393 — queue item 652: what a frame and a worker said, through Chrome
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Owed*, the stage 2 Chrome line), iteration 392's entry,
+`REMAINING.md`'s continuation order, the queue's product-path table and
+items 638 and 642–653; ADR 0055 and `docs/contracts/agent-socket.md`
+(`issues`, and that through Chrome a frame or worker in a process of its
+own was not heard); `chrome_tab.rs`, `chrome_hold.rs`, `chrome_act.rs`,
+`chrome_said.rs` and 639's test. No `AGENTS.md` exists in the repository.
+652's feature contract is `docs/features.md`'s Chrome renderer line.
+
+**Why 652.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 could not be built honestly. Of the
+product path's owed items in `ROADMAP.md`'s order, 638 needs an ADR and
+652 is next; its dependency, 639, is done.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, from Node CDP
+probes over a pipe in the scratchpad (`m652/probe.mjs`, `probe2.mjs`,
+`probe3.mjs`; a page at `127.0.0.1` with a frame from `localhost` and a
+worker, each logging and throwing every 20 ms, the click holding the
+page's thread a second). Each target answers `Runtime.discardConsoleEntries`,
+`Runtime.enable` and `Runtime.disable` in its own session. With forgetting:
+the frame 40 lines and 10 throws, the worker 41 lines, all inside the
+click. Without: about 80 earlier lines each told again. Held before it
+runs, a page, a frame and a worker answered `Runtime.enable` in 39, 21 and
+12 ms. **Not told while the page's thread is held:** the page's worker's
+throws (0 against the frame's 10; 19 told when the page was free), because
+Chrome hands them to the page's thread first; a worker the page starts in
+that task (it did not start before the click's end); and a frame's
+`postMessage` sent from a task waiting on a synchronous request was not
+delivered before the request ended, so the first probe hung.
+
+**Built.** `chrome_hold.rs`: `Kind::is_heard` (a frame and a dedicated
+worker — not a shared or service worker, cut to 654) and `Holding::heard`.
+`chrome_tab.rs`: `hear` forgets and then tells in the tab's session and in
+each heard target, a target being heard from before it is asked so that
+what it tells of before its answer is kept; `heard` stops each as a
+barrier of its own, all of them whichever failed; `attached` tells a
+target held while a verb is heard to tell before it is let go; the
+`detachedFromTarget` arm drops it from what is heard; `ask_held` answers
+`false` for a target that ended while asked, whether Chrome refused the
+command or never answered it. One change in `next`: a reply through a
+session the tab does not hold is handed on rather than dropped, because a
+command sent to a target that has since ended is answered there and its
+asker waits for it; every caller of `next` matches replies by id.
+Documentation in `chrome_act.rs`, `chrome_said.rs`, `features.md`, the
+socket contract.
+
+**Tests.** Unit (`chrome_hold`): the heard kinds; only frames and dedicated
+workers heard, and only while held. End to end, real headless Chrome
+(`what_a_frame_and_a_worker_said_through_chrome.rs`, new): the frame from
+another site, its own worker, the page's worker and a fresh worker the frame
+starts every quarter second each say when; two one-second clicks each hear
+the frame's console and throws, its worker's console and throws, the
+page's worker's console and a worker started during the click, every line
+placed by its own script's address and every moment between the verb's
+start and its answer. Passed three runs alone. Mutations, restored from a
+copy and checked with `cmp`: no forgetting in the targets — fails (a moment
+480 ms before the verb); targets never told — fails; a target held mid-verb
+not told — fails. **Survived:** leaving the targets' `Runtime` on after the
+verb (no barrier), because what they then say is dropped by the tab either
+way and the answer cannot show it. `cargo nextest run -p alo-window`: 390
+passed.
+
+**Gate.** One run, started in a session of its own and waited on by two
+bounded foreground loops in the same steps: **exit 0, "The gate is met.
+(10 of 10 steps)"**, clippy silent, nextest **5,291 tests run, 5,291
+passed** in 564.2 s, no `FAIL`, `LEAK` or `panicked`. Manual: nothing here
+positions, sizes or draws, so no layout assertion or reference render
+applies, and no reference changed. One file, one responsibility: which
+kinds of target are heard is `chrome_hold.rs`'s, which already says what
+each kind is; when and where the tab hears is `chrome_tab.rs`'s, where the
+tab's own session was already told; putting lines into words stays
+`chrome_said.rs`'s, unchanged but for its notes. Bytes from outside: no new
+reader — a frame's or worker's events are read by 639's
+`console_called` and `thrown`, already fed malformed, truncated and
+adversarial input; a page decides how many targets it makes, and each is
+one command each way per verb. No `unsafe`, no stubs, no verb taking a
+coordinate, no script put into a page. `alo-os` and `alo-workplace`
+untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 652 beside 639 and its
+*Owed* swaps 652 for 654; the stage 2 Chrome line's `· Built:` and
+`· Owed:` likewise. Not ticked — neither line is finished. `features.md`,
+the socket contract, the queue (652 ticked with a *Done* paragraph; 654
+added), `REMAINING.md` and the changelog say the same. No ADR was amended:
+ADR 0055 names `issues` and decides nothing about which target fills it.
+
+**Unresolved obligations.**
+- The per-target barrier is argued from Chrome's answering order (measured
+  for the page in 639), not asserted for a frame or worker: its mutation
+  survives.
+- A page's worker's uncaught throw while the verb holds the page's thread,
+  and a worker the page starts in that task, are not heard; written in the
+  queue, the contract and the test.
+- 654, cut here: shared and service workers are not heard.
+- 642 and 643 still wait on the screen in use (locked this iteration);
+  638 and 648 need ADRs; 645, 646, 647, 649, 650 and 653 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited.
+- No claim about speed is made.
+
+303 queue items are open (652 closed, 654 opened; counted as `- [ ] **`
+lines). The next unused queue number is **655** and the next ADR is
+**0063**. This is one iteration, not a finished queue or roadmap.

@@ -16913,7 +16913,7 @@ What stage 2's exit gate actually measures: a person using it.
   noted, as before — the test fails; the page's cause for the frame's —
   it fails on the first frame.
 
-- [ ] **652. What a frame or worker in a process of its own says while a
+- [x] **652. What a frame or worker in a process of its own says while a
   verb runs, through Chrome.** *Cut from 639 (iteration 391); ADR 0055.*
   `Runtime` is turned on only in the tab's own session, so a frame from
   another site, a dedicated or shared worker and a service worker — each a
@@ -16925,6 +16925,56 @@ What stage 2's exit gate actually measures: a person using it.
   and throw while a verb runs are heard through Chrome, with the same
   forgetting before and the same barrier after in each target, asserted
   in a test — or this item closes saying which Chrome does not tell of.
+  ***Done (iteration 393).*** Measured against Chrome 155.0.8059.86,
+  headless, from a Node CDP probe over a pipe in the scratchpad
+  (`m652/probe2.mjs`, `probe3.mjs`): a frame from another site and a
+  dedicated worker each answer `Runtime.discardConsoleEntries`,
+  `Runtime.enable` and `Runtime.disable` in their own sessions; told to
+  tell without forgetting first, each tells again of everything it said
+  since it started (about 80 lines over two seconds, where forgetting left
+  only the 40 said in the one-second click); and held before it runs,
+  each answers `Runtime.enable` in 12 to 21 ms. **Two things Chrome does
+  not tell of while a verb holds the page's own thread:** a dedicated
+  worker of the page's uncaught throw (Chrome hands it to the page's thread
+  first, as the `Worker`'s `error` event, and tells of it only once that
+  thread is free — 0 throws told in a held second against 10 for the
+  frame), and a worker the page starts in that task, which does not start
+  until the thread is free; and a frame's `postMessage` sent from a task
+  waiting on a synchronous request was not delivered before it ended.
+  `chrome_hold.rs`: `Kind::is_heard` (a frame and a dedicated worker) and
+  `Holding::heard`. `chrome_tab.rs`: `hear` forgets and then tells in the
+  tab's session and in each such target, `heard` stops each as a barrier
+  of its own, a target held while a verb is heard is told to tell before
+  it is let go, and `ask_held` answers `false` rather than failing for a
+  target that ended while asked — refused or never answered; a reply is no
+  longer dropped for coming through a session the tab does not hold, since
+  its asker may be waiting for it. Asserted in
+  `what_a_frame_and_a_worker_said_through_chrome.rs`, real headless
+  Chrome: a page at `127.0.0.1` holds a frame from `localhost` and a worker,
+  the frame a worker of its own and a fresh worker every quarter second,
+  each saying when; two one-second clicks each hear the frame's console and
+  throws, its worker's console and throws, the page's worker's console and
+  a worker started during the click — every line placed by its own script
+  and every moment said between the verb's start and its answer.
+  Mutations, restored from copies and checked with `cmp`: no forgetting in
+  the targets — fails (a moment before the verb); never telling them —
+  fails; a target held mid-verb not told — fails (no worker started during
+  the click heard). **Not caught:** leaving the targets' `Runtime` on after
+  the verb, since what they say then is dropped by the tab either way; the
+  barrier is argued from Chrome's answering order, measured for the page in
+  639, not asserted for a frame. Shared and service workers are cut to 654.
+
+- [ ] **654. What a shared or service worker says while a verb runs,
+  through Chrome.** *Cut from 652 (iteration 393); ADR 0055.* Neither is
+  heard: a shared worker's script is every connected page's, not the
+  tab's, and is held on Chrome's own session (item 637); a service
+  worker's runs for every page it controls and answers nothing before it
+  runs (`chrome_hold`). Whether either's lines belong in one tab's
+  `issues` at all is undecided, and nothing has been measured of what
+  Chrome tells of them. *Depends on 652. Closes when:* each, writing to
+  its console and throwing while a verb on the page runs, is measured
+  through its own session, and is either heard, with a test, or this item
+  closes saying why its lines are not one verb's.
 
 - [ ] **653. Chrome's messages are held by count, not by size.** *Found
   building 639 (iteration 391).* `chrome.rs` holds at most 256 messages
