@@ -16962,6 +16962,30 @@ What stage 2's exit gate actually measures: a person using it.
   ADR is accepted, and an option chosen by the decided verb is the one a
   form sends, through the engine and through Chrome, with the engine's
   `PutText` on a `<select>` answering the truth.
+  ***Decided (iteration 402): ADR 0064.*** Measured first against Chrome
+  155.0.8059.86, headless, over the pipe: its tree holds a closed list's
+  options under a `MenuListPopup`, each an `option` with its `selected`
+  state, and says `disabled` of an option, of a disabled list's options
+  and of a disabled `<optgroup>`'s; a closed list's option has no box
+  (`DOM.getBoxModel` refuses it); on macOS no key chooses on a closed list
+  but type-ahead, which fires `input` and `change` for each option it
+  passes on the way (*Small* from *Medium* chose *Spaced out* first); a
+  click on a drawn option chooses it, and on a `multiple` list a plain
+  click chooses it alone while Meta-click toggles it. **Decided:** an
+  option is chosen by `Activate` on the option — the only choice in a list
+  of one, a toggle in a list of several, several choices several verbs —
+  answered by a new `Outcome::Chosen` saying whether the option is chosen
+  after the verb, read from the page; `PutText` on a `<select>` is refused
+  `Refusal::Chooses` on both renderers; this engine's tree holds a list's
+  options under it, with no rectangle while not drawn; through Chrome a
+  drawn option is clicked, with Meta on a `multiple` list on macOS, and a
+  closed list's option is refused by name before Chrome is asked anything,
+  since every key route chooses options nobody chose (658). Not built: no
+  code depends on the decision yet. *Now closes when:* an option chosen by
+  `Activate` is the one a form sends, through the engine and through a
+  list Chrome draws; `PutText` on a `<select>` answers `Chooses` on both;
+  a closed list's option through Chrome is refused by name; and the
+  socket's contract names the new outcome and refusal kinds.
 
 - [ ] **649. What Chrome itself asks for, with no page open.** *Found
   building 635 (iteration 389); ADR 0060 § 2, ADR 0012.* Measured from
@@ -17325,6 +17349,21 @@ What stage 2's exit gate actually measures: a person using it.
   shared or service worker's request with no id stays the page's (none
   measured), and a living page's request with none would be the page
   left's until the next navigation (none seen).
+
+- [ ] **658. An option of a closed list, through a shown Chrome.** *Cut
+  from 648 (iteration 402); ADR 0064 § 6.* A closed `<select>`'s option
+  has no box in Chrome, and on macOS the only key that changes a closed
+  list headless is type-ahead, which chooses each option it passes and
+  tells the page of each — a list that sends its page wherever it says
+  would be followed to the first. So ADR 0064 refuses it by name. A person
+  opens the list's menu, which on macOS Chrome draws as a menu of the
+  system's own, and whether the `Input` domain reaches that menu, whether
+  it holds the page while open, and whether a key or a click in it then
+  chooses with one `change`, is not measured: the screen was locked.
+  *Depends on 648. Closes when:* that is measured with the screen in use,
+  and either a closed list's option is chosen through a shown Chrome with
+  the page hearing one `input` and one `change` for the option asked, in
+  a test, or ADR 0064 says why it stays refused.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided how an agent chooses from a drop-down list.** An agent that
+  typed into one was told it had chosen something when the form would
+  still send what it sent before. That is now decided (ADR 0064): an agent
+  chooses by activating the option itself, which in a list that takes
+  several choices adds or removes that one; typing into a list is refused;
+  and through Chrome a closed list is refused for now, because every key
+  that reaches its options picks others on the way, and a page may act on
+  each. Building it is queue item 648; nothing has changed in the browser
+  yet.
+
 - **Through Chrome, what a page sends as it is left is written down as
   that page's.** A page that sends a beacon or a last request as somebody
   leaves it had that request put on the page that replaced it whenever

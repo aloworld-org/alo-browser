@@ -41018,3 +41018,101 @@ and the changelog say the same.
 298 queue items are open (657 closed; counted as `- [ ] **` lines). The
 next unused queue number is **658** and the next ADR is **0064**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 402 — queue item 648's decision: ADR 0064, how an agent chooses an option
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Decided*/*Owed*, the stage 2 Chrome line), iteration 401's
+entry, `REMAINING.md`'s last entries, the queue's product-path table and
+items 642, 643, 645 and 648–658; ADR 0002, ADR 0042 § 4, ADR 0055 and its
+contract (`docs/contracts/agent-socket.md`, additive only), ADR 0063 as
+the form of a decision iteration; `alo-agent`'s `verb.rs` and `apply.rs`,
+`alo-dom`'s `value.rs`, `alo-style`'s `user_agent.rs` (options are
+`display: none`), `alo-window`'s `chrome_act.rs`, `chrome_reading.rs` and
+`chrome_tree.rs`. No `AGENTS.md` exists in the repository. The feature
+contract is `docs/features.md`'s Chrome renderer line.
+
+**Why 648.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 — next by the owner's choice —
+could not be measured. 648 is first of the product path's *Owed* in
+`ROADMAP.md`, it depends on nothing, and it is marked **needs ADR**, which
+LOOP.md § 4 makes an iteration of its own before any code depends on it.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, over the
+pipe, with Node probes in scratch only: a closed `<select>` is a
+`combobox` whose `value` is the chosen option's words, and its options are
+in Chrome's tree under a `MenuListPopup`, each an `option` with
+`selected`, not ignored; `disabled` is said of a disabled option, of every
+option of a disabled list and of a disabled `<optgroup>`'s; hidden options
+are absent. A closed list's option has no box (`DOM.getBoxModel`: *Could
+not compute box model*). On a focused closed list Home, End, Page Up, the
+arrows and Enter change nothing on macOS; type-ahead changes it and fires
+`input` and `change` for each option it passes (*Small* from *Medium*
+chose *Spaced out* first; *Avocado* chose *Apple*; *Hulking* chose
+*Huge*; the same at 600 ms a key), cycles on a repeated letter and folds
+accents. On `size=3` a click chose an option with one `input` and one
+`change`; on `multiple` a plain click chose that option alone, Meta-click
+toggled it, Control acted as a plain click and Shift chose a range.
+
+**Decided — ADR 0064.** An option is chosen by `Activate` on the option:
+in a list of one choice it becomes the choice, in a list of several it is
+toggled, several choices are several verbs. A new `Outcome::Chosen` says
+whether it is chosen after the verb, read from the page. `PutText` on a
+`<select>` is refused `Refusal::Chooses` on both renderers (an ARIA text
+combobox still takes text). This engine's tree holds a list's options
+under it, with no rectangle while not drawn, by the same pass. Through
+Chrome a drawn option is clicked, with Meta on a `multiple` list on
+macOS; a closed list's option is refused by name before Chrome is asked
+anything, since every key route chooses options nobody chose — a jump
+menu would be followed to the first — and that is opened as **658**, a
+shown Chrome's menu measured with the screen in use. Rejected: `PutText`
+of an option's words (a choice is not text; one text cannot hold several;
+through Chrome it is type-ahead) and a verb of its own (says what
+`Activate` says). Never script or `DOM.setAttributeValue`.
+
+**Changed besides the ADR.** Two doc comments that said no way to choose
+was decided now name ADR 0064 as decided and unbuilt
+(`chrome_reading.rs`, `verb.rs`'s `Refusal::Unbuilt`). No behaviour
+changed and no code depends on the decision.
+
+**Gate.** `cargo fmt --check` clean first. Then `scripts/gate.sh` in the
+foreground — it ran past the tool's 600 s, so it was waited on by an
+until-loop in the next call and read there: **exit 0, "The gate is met."
+(10 of 10 steps)**, nextest **5,324 tests run, 5,324 passed** in 566.5 s,
+no warning, `FAIL`, `LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies, and no reference changed. One file, one
+responsibility: no file gained a reason to change. Bytes from outside:
+nothing new is read. No `unsafe`, no stubs, no verb taking a coordinate —
+the decision adds none. `alo-os` and `alo-workplace` untouched. Nothing
+pushed.
+
+**Roadmap.** The product path's *Decided* gains ADR 0064, and its *Owed*
+now names 648 as building it and 658; the stage 2 Chrome line's
+`· Decided:` gains it and `· Owed:` says the same. Not ticked — no line is
+finished, and 648 is not ticked: no code was written. The queue gives 648
+a *Decided* paragraph and its new *closes when*, and adds 658;
+`features.md`, `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- 648's code half: the engine's tree holding options, `Chosen`,
+  `Chooses`, the Chrome click with Meta, a closed list's refusal, the
+  socket contract's two new kinds, and tests that a form sends the option
+  chosen.
+- Control as the toggle off macOS is Chrome's rule, unmeasured here.
+- 658, and with it whether a shown Chrome's native menu can be reached at
+  all; 642 and 643 still wait on the screen in use (locked); 645, 649 and
+  650 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655). The two cases of iteration 401 (a worker's
+  request with no `networkId`, a living page's) stand.
+- No claim about speed is made.
+
+299 queue items are open (658 opened; counted as `- [ ] **` lines). The
+next unused queue number is **659** and the next ADR is **0065**. This is
+one iteration, not a finished queue or roadmap.

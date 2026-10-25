@@ -3123,3 +3123,18 @@ frame's session is that document's (`Causes::of_unnamed`, ADR 0060's
 second amendment). The relay test holds a page's beacon behind the new
 page's commit, and fails without the fix. 298 queue items are open (657
 closed). The next unused queue number is 658 and the next unused ADR 0064.
+
+Iteration 402 wrote ADR 0064 for queue item 648, how an agent chooses an
+option. Measured against Chrome 155: its tree holds a closed list's
+options, each with its `selected` and `disabled` state, though none has a
+box; on macOS no key changes a closed list but type-ahead, which chooses
+and tells the page of each option it passes on the way; a click chooses a
+drawn option, and Meta-click toggles one in a `multiple` list. Decided: an
+option is chosen by `Activate` on it, a toggle in a list of several,
+answered `Chosen` with what the list holds after; `PutText` on a list is
+refused `Chooses`; this engine's tree holds a list's options; through
+Chrome a closed list's option is refused by name. Opened 658, a closed
+list through a shown Chrome, measured with the screen in use. No code
+depends on it yet, so 648 stays open. The screen was locked, so 642 and
+643 still wait on it. 299 queue items are open (658 opened). The next
+unused queue number is 659 and the next unused ADR 0065.

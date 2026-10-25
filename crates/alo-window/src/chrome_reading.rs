@@ -37,12 +37,12 @@
 //! date string or nothing, and carried in a segment at a time
 //! ([`crate::chrome_date`], item 632).
 //!
-//! A `<select>` takes no text at all, and how an agent chooses an option is
-//! not decided for either renderer (item 648). So on Chrome's page it is
-//! refused by name as `Refusal::Unbuilt`, beside the kinds the engine
-//! refuses, rather than answered as text the page would not take: a page
-//! that cancelled nothing would be blamed for a field this browser cannot
-//! fill.
+//! A `<select>` takes no text at all. ADR 0064 decides that an option is
+//! chosen by activating it and that text on a list is refused by a refusal
+//! of its own, and until that is built (item 648) it is refused here by
+//! name as `Refusal::Unbuilt`, beside the kinds the engine refuses, rather
+//! than answered as text the page would not take: a page that cancelled
+//! nothing would be blamed for a field this browser cannot fill.
 
 use crate::chrome_protocol::Described;
 use alo_agent::{Candidate, Reading};

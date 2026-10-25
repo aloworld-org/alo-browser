@@ -246,9 +246,15 @@ about this project (ADR 0058 § 6).
   the window server shows Chrome's (ADR 0062); and whose a tab an agent
   asks to open is — the agent's, an action done in that tab rather than in
   a document, so its first page is never written as the person's, and
-  still one of ADR 0012's three causes (ADR 0063).
-- **Owed:** how an agent chooses an option of a
-  `<select>`, on either renderer (648, needs an ADR); the
+  still one of ADR 0012's three causes (ADR 0063); and how an agent
+  chooses an option of a `<select>` — by activating the option, which in
+  a list of several toggles it, answered by what the list holds after;
+  a list takes no text; and through Chrome a closed list's option is
+  refused by name, since every key that reaches it chooses options nobody
+  chose on the way (ADR 0064).
+- **Owed:** an option chosen as ADR 0064 decides, on both renderers, the
+  one a form sends (648), and a closed list's option through a shown
+  Chrome, measured with the screen in use (658); the
   rest of the agent's work where a person can see it — **a window of ours
   around Chrome's, following it, with 623's and 625's lines and 624's
   ring in it (642)**; a placed window that stays where a
@@ -839,13 +845,15 @@ unreachable without it.
       request is, by Chrome's word for its loader, which chooses between
       documents this process minted and never names a cause (ADR 0060's
       amendment), and so does a request it names no id for, which is the
-      page the frame left (ADR 0060's second amendment, 657)
+      page the frame left (ADR 0060's second amendment, 657); and an
+      option of a `<select>` chosen by activating it, a list taking no
+      text, and a closed list's option refused through Chrome (ADR 0064)
       · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650); how an
-      agent chooses an option of a `<select>`, on either renderer (648,
-      needs an ADR), a window of ours around
+      the system's own encrypted DNS (650); an option chosen as ADR 0064
+      decides, on either renderer (648), and a closed list's option
+      through a shown Chrome (658), a window of ours around
       Chrome's, carrying the agent's sentence, its refusals and the ring
       around the box it acted on as the engine's window does (642, 623,
       625, 624), and one that stays where a person sees it (643)

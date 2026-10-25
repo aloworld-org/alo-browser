@@ -326,7 +326,7 @@ pub enum Refusal {
     /// this engine's page a `time`, `month`, `week` or `datetime-local`
     /// field, whose text nothing draws; on Chrome's, those and a
     /// `<select>`, which takes no text (queue item 621) and whose option an
-    /// agent has no decided way to choose (item 648).
+    /// agent chooses by activating it once ADR 0064 is built (item 648).
     ///
     /// Refused by name rather than put in: an agent told it had put a time
     /// in would believe a person could see it.
