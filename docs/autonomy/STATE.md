@@ -41615,3 +41615,103 @@ the changelog say the same.
 297 queue items are open (645 closed, 661 opened). The next unused queue
 number is **662** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 408 — queue item 661: only a scroll container is scrolled
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the agent's
+gate's *Built*/*Owed*), iteration 407's entry, the queue's product path and
+item 661; ADR 0002 (an agent holds no false record), ADR 0038 § 4 (the
+scrolling area); `docs/features.md`'s agent-socket line;
+`docs/contracts/agent-socket.md`'s `scrolls` field; `alo-layout`'s
+`tree.rs`, `engine.rs`, `style.rs`, `ellipsis.rs`, `alo-box`'s `Purpose`,
+`alo-renderer`'s `scrolling_area.rs`, `alo-agent`'s `tree.rs` and `verb.rs`.
+No `AGENTS.md` exists in the repository. 661 names no ADR of its own; the
+feature contract is the agent-socket line's promise of refusals by name.
+
+**Why 661.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642, 643 and 658 could not be measured, and 477
+needs a second Mac. 661 is the first open item in the queue's order that
+depends on nothing and needs no screen — headless Chrome measures it.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop, probe pages in the scratchpad, each element's `scrollTop` and
+`scrollLeft` set to 40. Boxes of 10 holding 126: `visible`, `clip`,
+`overflow-x: clip` stay 0; `hidden`, `scroll`, `auto`, `overflow-x:
+hidden` (computed `overflow-y: auto`), `overflow-x: hidden; overflow-y:
+clip` (computed `hidden hidden`) scroll, as do an `inline-block`, a flex
+and a grid container under `auto` and a short button under `auto`; the
+short button without it does not. An inline `<span>` under `auto`
+measures 0 by 0; an `<svg>` and an `<img>` under `auto` are not scrolled.
+Text, search, password and number fields with long values scroll along
+their line though computed `clip` (even under `overflow: visible`); a
+narrow date field does not. The root: scrolled by
+`documentElement.scrollTop` under `visible`, `hidden` and `height:
+100px`, not under `clip`; a body of `overflow: auto` under a `visible`
+root is not scrolled (its `overflow` is the viewport's), under an `auto`
+or `clip` root it is. A `<textarea rows=2>` and a `<select size=2>`
+scroll.
+
+**Built.** `alo-layout`'s new `scroll_container.rs` says which boxes are
+scroll containers: an element box that is neither an inline box nor
+replaced, with `overflow` `hidden`, `scroll` or `auto` on either axis;
+or a one-line field not held in segments; and the root, standing for
+the viewport. As one axis that scrolls makes the other `auto` or `hidden`,
+a box is one on both axes or neither — the closing condition's "on which
+axis" is answered that way, and the one-axis case is measured and tested.
+`LayoutTree` keeps the set (`is_scroll_container`) and answers `scrolls`
+(a scroll container that `overflows`), which `AgentNode::scrolls` asks.
+The style is reread as `ellipsis.rs` rereads it, with its issues already
+recorded by layout. Nothing is laid out or drawn differently.
+
+**Tests.** `scroll_container.rs`: each rule above (six tests); `tree.rs`:
+a box that spills and is not one. `a_button_has_nothing_to_scroll.rs`: a
+list of 10 holding 126 refused under `visible`, `clip`, `overflow-x:
+clip`, with its padding box (10) and scrolling area (126) in numbers, and
+scrolled under the five that scroll; the short button refused and
+scrolled under `auto`; a long field scrolled, a short one and a narrow
+date field refused. Mutations, restored from copies and checked with
+`cmp`: the old rule (1 unit, 3 integration tests fail), no field rule (1
+and 1), no replaced exclusion (1), no inline exclusion (1).
+
+**Gate.** `cargo clippy --workspace --all-targets` clean and both
+packages' tests green first. Then `scripts/gate.sh` in the foreground —
+it ran past the tool's 600 s, so it was waited on by an until-loop in the
+next call and read there: **exit 0, "The gate is met." (10 of 10
+steps)**, nextest **5,373 tests run, 5,373 passed** in 572.7 s, no
+`FAIL`, `LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** A layout assertion in numbers is in the new test (padding box
+and scrolling area of the list). Nothing is drawn differently — only the
+agent's `scrolls` and the socket tree's `scrolls` field change — so no
+reference render applies and none moved. One file, one responsibility:
+what makes a scroll container is `scroll_container.rs`'s, the overflow
+rule stays the geometry's (`tree.rs`), the agent only asks. No bytes from
+outside read anew. No `unsafe`, no stubs, no verb taking a coordinate. The
+Chrome path is unchanged (its tree never claims a scroll). `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The agent's gate's `· Built:` gains 661; its `· Owed:` drops
+661 and names 662 and 663. Not ticked — the line waits on a person. The
+queue ticks 661 with a *Done* paragraph and opens 662 and 663;
+`features.md`, `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- 662: the root answered from its own box rather than the viewport's
+  area, a root of `clip` not refused, and a body whose `overflow` the
+  viewport takes still clipped and answered as scrolling.
+- 663: a `<textarea>` and a list box are refused where Chrome scrolls.
+- CSS's computed `overflow` (`visible` to `auto` beside a scrolling axis)
+  is not applied to what `taffy` is given; only the scroll-container
+  question uses the rule. Not measured as a layout difference; named here.
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 649 and 650 are open.
+- Inherited and unchanged: off macOS the toggling click holds Ctrl,
+  unmeasured; an author's `option { display: block }` is undecided; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; item 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+298 queue items are open (661 closed, 662 and 663 opened). The next unused
+queue number is **664** and the next ADR is **0065**. This is one
+iteration, not a finished queue or roadmap.

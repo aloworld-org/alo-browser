@@ -2441,9 +2441,12 @@ disappeared behind the larger.
       as every other sentence names a node, rather than in Rust's own
       notation (queue item 626). A scroll is answered only where Chrome
       would have something to scroll, by half a device pixel, so a plain
-      button is refused (queue item 645).
-      · Owed: a spilling box that is not a scroll container, which still
-      says it scrolls (661); loading where a verb leads, which is
+      button is refused (queue item 645) — and only of a scroll container,
+      so a box that spills under `overflow: visible` is refused too (queue
+      item 661).
+      · Owed: the root answered as the viewport scrolls and a body whose
+      `overflow` the viewport takes (662), a `<textarea>` and a list box
+      that hold what passes their edge (663); loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that
       adds a box (500); and Windows, which ADR 0055 leaves undecided.
 - [ ] **The person's gate.** A person uses it as their browser for a week and

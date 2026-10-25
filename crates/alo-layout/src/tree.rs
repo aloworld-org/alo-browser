@@ -19,7 +19,7 @@ use alo_box::BoxId;
 use alo_css::StyleIssue;
 use core::fmt;
 use core::fmt::Write as _;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Where one box is and how big it is.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -121,6 +121,7 @@ pub struct LayoutTree {
     issues: Vec<StyleIssue>,
     viewport: Size,
     scale: f32,
+    scroll_containers: BTreeSet<BoxId>,
 }
 
 impl LayoutTree {
@@ -156,6 +157,23 @@ impl LayoutTree {
     pub fn overflows(&self, id: BoxId) -> bool {
         self.get(id)
             .is_some_and(|geometry| geometry.overflows(self.scale()))
+    }
+
+    /// Whether a box is a **scroll container** — one Chrome scrolls at all —
+    /// whether or not it has anything to scroll; see
+    /// [`crate::scroll_container`]. The root always is, standing for the
+    /// viewport.
+    pub fn is_scroll_container(&self, id: BoxId) -> bool {
+        self.scroll_containers.contains(&id)
+    }
+
+    /// Whether Chrome would scroll a box: it is a scroll container
+    /// ([`LayoutTree::is_scroll_container`]) and its content reaches far
+    /// enough past it ([`LayoutTree::overflows`]). A `div` of 10 pixels
+    /// holding 126 with `overflow: visible` spills and is not scrolled
+    /// (queue item 661).
+    pub fn scrolls(&self, id: BoxId) -> bool {
+        self.is_scroll_container(id) && self.overflows(id)
     }
 
     /// How many boxes were laid out.
@@ -258,11 +276,19 @@ impl LayoutTree {
             issues,
             viewport,
             scale: 1.0,
+            scroll_containers: BTreeSet::new(),
         }
     }
 
     pub(crate) fn with_scale(self, scale: f32) -> Self {
         Self { scale, ..self }
+    }
+
+    pub(crate) fn with_scroll_containers(self, scroll_containers: BTreeSet<BoxId>) -> Self {
+        Self {
+            scroll_containers,
+            ..self
+        }
     }
 
     pub(crate) fn with_spaces(self, spaces: BTreeMap<BoxId, Vec<Fragment>>) -> Self {
@@ -468,6 +494,41 @@ mod tests {
         );
         assert!(!at(2.0).overflows(BoxId::from_index_for_tests(1)));
         assert!((LayoutTree::default().scale() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn a_box_is_scrolled_only_when_it_spills_and_is_a_scroll_container() {
+        let (spills, fits) = (
+            BoxId::from_index_for_tests(0),
+            BoxId::from_index_for_tests(1),
+        );
+        let mut geometry = BTreeMap::new();
+        geometry.insert(
+            spills,
+            BoxGeometry {
+                reach: Size::new(96.0, 126.0),
+                ..self::geometry()
+            },
+        );
+        geometry.insert(fits, self::geometry());
+        let tree = |containers: &[BoxId]| {
+            LayoutTree::from_parts(
+                geometry.clone(),
+                BTreeMap::new(),
+                Vec::new(),
+                Size::default(),
+            )
+            .with_scroll_containers(containers.iter().copied().collect())
+        };
+        let visible = tree(&[]);
+        assert!(visible.overflows(spills), "it spills");
+        assert!(!visible.is_scroll_container(spills));
+        assert!(!visible.scrolls(spills), "and is not scrolled");
+        let auto = tree(&[spills, fits]);
+        assert!(auto.scrolls(spills));
+        assert!(auto.is_scroll_container(fits));
+        assert!(!auto.scrolls(fits), "a container with nothing to scroll");
+        assert!(!LayoutTree::default().scrolls(spills), "not laid out");
     }
 
     #[test]

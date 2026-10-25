@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box that spills over is not said to scroll unless it can.** On
+  this engine's page an agent asking to scroll a box whose content ran
+  past it under `overflow: visible` was told it had scrolled it, where
+  Chrome scrolls nothing. Only a scroll container is scrolled now — a box
+  whose `overflow` is `hidden`, `scroll` or `auto` on either axis, or a
+  one-line text field, which Chrome scrolls along its line whatever its
+  style — and any other is refused `DoesNotScroll` (item 661). The page's
+  root standing for the window, and a `<textarea>`, are items 662 and 663.
+
 - **A plain button no longer says it scrolls.** On this engine's page an
   agent asking to scroll `<button>Send</button>` was told it had scrolled
   it, because the button's padding was counted as content spilling out.

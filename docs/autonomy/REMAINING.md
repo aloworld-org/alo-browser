@@ -3190,3 +3190,13 @@ it, 661, a spilling box that is not a scroll container. The screen was
 locked, so 642, 643 and 658 still wait on it. 297 queue items are open (645
 closed, 661 opened). The next unused queue number is 662 and the next
 unused ADR 0065.
+
+Iteration 408 closed queue item 661: the layout tree says which boxes are
+scroll containers — `overflow` `hidden`, `scroll` or `auto` on either axis,
+on a box that is neither inline nor replaced, or a one-line text field — and
+an agent's scroll is answered only for those, as Chrome 155 measures; cut
+from it, 662 (the root as the viewport, and a body the viewport takes its
+`overflow` from) and 663 (a `<textarea>` and a list box). The screen was
+locked, so 642, 643 and 658 still wait on it. 298 queue items are open (661
+closed, 662 and 663 opened). The next unused queue number is 664 and the
+next unused ADR 0065.

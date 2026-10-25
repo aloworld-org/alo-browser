@@ -58,6 +58,7 @@ use crate::marker;
 use crate::measure::{MeasureText, TextStyle};
 use crate::out_of_flow::{self, Axes};
 use crate::placement::{GridLine, GridPlacement};
+use crate::scroll_container;
 use crate::sizing::{AutoLength, MaxSizing, Sizing};
 use crate::style::{self, LayoutStyle};
 use crate::text_style::text_style_of;
@@ -111,6 +112,7 @@ pub fn compute(
         .with_spaces(laid_out.spaces)
         .with_ellipses(laid_out.ellipses)
         .with_scale(styles.scale())
+        .with_scroll_containers(scroll_container::scroll_containers(boxes, styles))
 }
 
 /// One formatting context, laid out on its own.

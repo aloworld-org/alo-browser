@@ -16846,7 +16846,7 @@ What stage 2's exit gate actually measures: a person using it.
   scale not kept — each fail it. Cut: what Chrome does with a box that is
   not a scroll container, item 661.
 
-- [ ] **661. A box that spills but is not a scroll container says it
+- [x] **661. A box that spills but is not a scroll container says it
   scrolls.** *Cut from 645 (iteration 407).* Measured against Chrome 155:
   a `div` of 10 pixels with `overflow: visible` holding 126 pixels of text
   has `scrollHeight` 126 and `clientHeight` 10, and setting its
@@ -16863,6 +16863,68 @@ What stage 2's exit gate actually measures: a person using it.
   container on one axis only (`overflow-x: hidden`, `overflow-y:
   visible`, which CSS computes as `auto` down) is measured against Chrome
   and answered as it scrolls.
+  ***Done (iteration 408), scroll containers in the layout tree,
+  measured.*** Against Chrome 155.0.8059.86, headless, each box of 10
+  holding 126 and its `scrollTop` and `scrollLeft` set to 40: `visible`,
+  `clip` and `overflow-x: clip` stay at 0; `hidden`, `scroll`, `auto`,
+  `overflow-x: hidden` (computed `overflow-y: auto`) and `overflow-x:
+  hidden; overflow-y: clip` (computed `hidden hidden`) are scrolled, and
+  so are an `inline-block`, a flex and a grid container under `auto`, and
+  a `<button style="height:8px;overflow:auto">`; the same button without
+  it (46 in 4) is not. An inline `<span>` under `overflow: auto` measures
+  0 by 0, and an `<svg>` and an `<img>` under it are not scrolled. A
+  one-line text, search, password or number field with a long value is
+  scrolled along its line (`scrollLeft` 40) though Chrome computes its
+  `overflow` as `clip`, even under `overflow: visible`; a date field of
+  20 pixels is not. Since one axis that scrolls makes the other `auto` or
+  `hidden`, a box is a scroll container on both axes or on neither, so
+  *which axis* is answered by the box being one at all and by which way it
+  spills. Built: `alo-layout`'s `scroll_container.rs` says which boxes are
+  (`overflow` `hidden`, `scroll` or `auto` on either axis, on a box that
+  is neither an inline box nor replaced, or a one-line field not held in
+  segments; the root always, standing for the viewport), the layout tree
+  keeps them (`LayoutTree::is_scroll_container`) and answers
+  `LayoutTree::scrolls` — a scroll container whose content passes it by
+  half a device pixel — which `AgentNode::scrolls` asks. Tests: the
+  module's own, one per rule above; `tree.rs`'s, a box that spills and is
+  not one; `a_button_has_nothing_to_scroll.rs`, a list of 10 holding 126
+  refused under `visible`, `clip` and `overflow-x: clip` with its padding
+  box and scrolling area in numbers and scrolled under the five that
+  scroll, the short button refused and scrolled under `auto`, a long
+  field scrolled, a short one and a narrow date field refused. Mutations
+  — the old rule, no field rule, no inline and no replaced exclusion —
+  each fail a test. Cut: the viewport and the body, item 662; a
+  `<textarea>` and a list box, item 663.
+
+- [ ] **662. The root scrolls as the viewport does, and a body whose
+  `overflow` the viewport takes.** *Cut from 661 (iteration 408).*
+  Measured against Chrome 155: on a page of 500 in a viewport of 113, the
+  root under `overflow: visible`, `hidden`, or `height: 100px` is scrolled
+  by `documentElement.scrollTop` (the window's `scrollY` with it), and
+  under `overflow: clip` it is not. The root's box here is answered from
+  its own geometry, so a root as tall as its content says it has nothing
+  to scroll, which the viewport does (ADR 0002). And when the root's
+  `overflow` is `visible`, a `<body style="overflow:auto;height:50px">`
+  gives its `overflow` to the viewport: Chrome computes it `auto`, does
+  not scroll it (`body.scrollTop` stays 0), and draws it unclipped; with
+  the root `auto` or `clip` the body scrolls itself. Layout does not know
+  which element is the body, so here it clips and says it scrolls.
+  *Depends on nothing. Closes when:* the root answers from the viewport's
+  scrolling area (`alo-renderer`'s `scrolling_area`, ADR 0038 § 4)
+  against the viewport, a root of `clip` refused, and a propagated body
+  neither clipped nor scrolled — a layout assertion and a reference render
+  for the body drawn, with the numbers above.
+
+- [ ] **663. A `<textarea>` and a list box hold what passes their edge.**
+  *Cut from 661 (iteration 408).* Measured against Chrome 155: a
+  `<textarea rows=2>` of six lines (`overflow: auto`, 94 in 34) and a
+  `<select size=2>` of five options (`overflow-y: scroll`, 85 in 34) are
+  each scrolled by 40. Here the textarea's text reaches no further than
+  its box (44 by 44) and a list box is 2 tall, so both are refused
+  `DoesNotScroll`, which Chrome would scroll. *Depends on nothing (the
+  list box's size is item 521's). Closes when:* each is laid out holding
+  what it holds, is a scroll container as Chrome's user-agent sheet makes
+  it, and is answered `Scrolled` with its scrolling area in numbers.
 
 - [x] **646. A form Chrome refuses and draws no bubble for.** *Cut from
   631 (iteration 387); ADR 0051 § 6 and its amendment of 25 October.*

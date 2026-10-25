@@ -11,6 +11,11 @@
 //! `clientHeight` as 17 and 17, and its `scrollWidth` and `clientWidth` as 43
 //! and 43, so there is nothing to scroll; and a box whose content passes its
 //! content box by 0.5 pixels scrolls, where 0.45 does not.
+//!
+//! And a box that spills is scrolled only when it is a scroll container
+//! (queue item 661): Chrome 155 leaves `scrollTop` at 0 for a box of
+//! `overflow: visible` or `clip` however far its content reaches, and scrolls
+//! one whose `overflow` is `hidden`, `scroll` or `auto` on either axis.
 
 use alo_agent::{AgentTree, Outcome, Refusal, ScrollBy, Target, Verb, perform};
 use alo_box::build as build_boxes;
@@ -173,6 +178,103 @@ fn half_a_pixel_is_the_screens_so_at_two_it_is_a_quarter() {
         "{answer:?}"
     );
     let (answer, _) = scroll_at(&a_list_holding("20.2"), "list", 2.0).expect("a box");
+    assert!(
+        matches!(answer, Err(Refusal::DoesNotScroll { .. })),
+        "{answer:?}"
+    );
+}
+
+/// A list of 10 pixels, styled `style`, holding seven lines of 18.
+fn a_short_list(style: &str) -> String {
+    format!(
+        "<!doctype html><body style=margin:0>\
+         <ul id=list style='height:10px;margin:0;padding:0;line-height:18px;{style}'>\
+         <li>a<li>b<li>c<li>d<li>e<li>f<li>g</ul>"
+    )
+}
+
+#[test]
+fn a_box_that_spills_is_scrolled_only_as_a_scroll_container() {
+    // Chrome 155: 126 in 10 with `overflow: visible` or `clip` leaves
+    // `scrollTop` 0; `overflow-x: hidden`, which computes `overflow-y` as
+    // `auto`, scrolls it by 40, and so does `hidden` beside `clip`.
+    for style in [
+        "",
+        "overflow: visible",
+        "overflow: clip",
+        "overflow-x: clip",
+    ] {
+        let (answer, list) = scroll(&a_short_list(style), "list").expect("a box");
+        assert!(
+            matches!(answer, Err(Refusal::DoesNotScroll { .. })),
+            "{style}: {answer:?}"
+        );
+        // In numbers: it spills, by 116, and is still not scrolled.
+        assert!((list.padding_box().size.height - 10.0).abs() < 1e-4);
+        assert!(
+            (list.scrolling_area().height - 126.0).abs() < 1e-4,
+            "{style}: {list:?}"
+        );
+        assert!(list.overflows(1.0), "{style}");
+    }
+    for style in [
+        "overflow: auto",
+        "overflow: hidden",
+        "overflow-x: hidden",
+        "overflow-y: scroll",
+        "overflow-x: hidden; overflow-y: clip",
+    ] {
+        let (answer, _) = scroll(&a_short_list(style), "list").expect("a box");
+        assert!(
+            matches!(answer, Ok(Outcome::Scrolled { .. })),
+            "{style}: {answer:?}"
+        );
+    }
+}
+
+#[test]
+fn a_short_button_spills_and_is_not_scrolled_unless_it_is_a_scroll_container() {
+    // Chrome 155: a button of `height: 8px` holding three lines is not
+    // scrolled; under `overflow: auto` it is.
+    let page = |style: &str| {
+        format!(
+            "<!doctype html><body style=margin:0>\
+             <button id=b style='height:8px;{style}'>a<br>b<br>c</button>"
+        )
+    };
+    let (answer, button) = scroll(&page(""), "b").expect("a box");
+    assert!(
+        matches!(answer, Err(Refusal::DoesNotScroll { .. })),
+        "{answer:?}"
+    );
+    assert!(button.overflows(1.0), "{button:?}");
+    let (answer, _) = scroll(&page("overflow:auto"), "b").expect("a box");
+    assert!(matches!(answer, Ok(Outcome::Scrolled { .. })), "{answer:?}");
+}
+
+#[test]
+fn a_field_of_text_scrolls_along_its_line_and_a_date_field_does_not() {
+    // Chrome 155 scrolls a long value's field by `scrollLeft` 40, though it
+    // computes the field's `overflow` as `clip` even under `visible`.
+    let long = "<!doctype html><body style=margin:0>\
+         <input id=f style=overflow:visible \
+         value=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>";
+    let (answer, field) = scroll(long, "f").expect("a box");
+    assert!(matches!(answer, Ok(Outcome::Scrolled { .. })), "{answer:?}");
+    assert!(
+        field.scrolling_area().width > field.padding_box().size.width + 0.5,
+        "{field:?}"
+    );
+    let short = "<!doctype html><body style=margin:0><input id=f value=a>";
+    let (answer, _) = scroll(short, "f").expect("a box");
+    assert!(
+        matches!(answer, Err(Refusal::DoesNotScroll { .. })),
+        "a field with nothing past its edge: {answer:?}"
+    );
+    // A date field held in segments is not scrolled, however narrow.
+    let date = "<!doctype html><body style=margin:0>\
+         <input id=f type=date style=width:20px value=2026-10-25>";
+    let (answer, _) = scroll(date, "f").expect("a box");
     assert!(
         matches!(answer, Err(Refusal::DoesNotScroll { .. })),
         "{answer:?}"

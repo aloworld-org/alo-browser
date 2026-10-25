@@ -707,10 +707,11 @@ impl<'a> AgentNode<'a> {
     /// agent told otherwise would ask for a scroll that does nothing. Its
     /// content spills when Chrome would have something to scroll, by half a
     /// device pixel past the padding box ([`alo_layout::LayoutTree::overflows`],
-    /// queue item 645). Whether the box is a scroll container at all is not
-    /// asked yet (queue item 661).
+    /// queue item 645) — and only when it is a scroll container at all
+    /// ([`alo_layout::LayoutTree::scrolls`], queue item 661): a box that
+    /// spills with `overflow: visible` is not scrolled.
     pub fn scrolls(&self) -> bool {
-        self.tree.layout.overflows(self.id)
+        self.tree.layout.scrolls(self.id)
     }
 
     fn node(&self) -> Option<&'a BoxNode> {

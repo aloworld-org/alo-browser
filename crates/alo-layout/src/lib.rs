@@ -61,6 +61,7 @@ pub mod measure;
 pub(crate) mod out_of_flow;
 pub mod placement;
 pub mod replaced;
+pub mod scroll_container;
 pub mod sizing;
 pub(crate) mod soft_wrap;
 pub mod style;
