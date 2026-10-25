@@ -54,7 +54,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **622** | which renderer is in use, where a person can read it — the socket's `renderer` ask, with `alo-ask` |
 | ✓ | **623** | the agent's sentence, where a person can read it — in this engine's window; through Chrome it comes with 642 |
 | ✓ | **624** | the acted-on box, marked — ringed on the frame painted after the verb, in this engine's window; through Chrome it comes with 642 |
-| | **625** | a refusal shown to the person, not only answered to the agent |
+| ✓ | **625** | a refusal shown to the person, not only answered to the agent — in this engine's window; through Chrome it comes with 642 |
 | | **642** | a window of ours around Chrome's, following it (ADR 0061's frame) |
 | | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
@@ -15950,7 +15950,7 @@ What stage 2's exit gate actually measures: a person using it.
   549 (nothing drawn while nobody watches) is unbuilt, so the tree is read
   after every verb on the selected tab whether or not the window is seen.
 
-- [ ] **625. A refusal is shown to the person, not only answered to the
+- [x] **625. A refusal is shown to the person, not only answered to the
   agent.** *ADR 0051 § 1.* `NotFound`, `Ambiguous`, `NotAField` are the most
   convincing thing this browser does and today they are invisible: the agent
   is told, the person is not. A refusal takes the line from 623 and holds it
@@ -15959,6 +15959,44 @@ What stage 2's exit gate actually measures: a person using it.
   when:* each refusal kind leaves its own sentence where a person can read it,
   asserted per kind, and an agent that is refused twice in a row leaves two
   sentences rather than one.
+  ***Done (iteration 386), in this engine's window.*** *The item cites ADR
+  0051 § 1, which is about a control's state and says nothing of
+  refusals; it was read, and the item was built under 623's grounding,
+  ADR 0052 § 1, with ADR 0024 § 2 (composition a function, tested by
+  reference render).* The conductor sends the refusal's `said` — the
+  answer's own, the one wording — as `News::AgentRefused` for every
+  request that asked for a verb and was refused, whoever refused it: the
+  page, with `verb.rs`'s refusals, or the browser process before any page
+  was asked (an address that is not one, a site not granted, a tab not
+  open). A read refused, and a line that was never a request, send
+  nothing. "Holds it longer" is counted in verbs, because the window has
+  no clock (ADR 0024 § 2): `agent_lines.rs` keeps a verb that ran until
+  the next verb runs, and a refusal until the **second** verb that runs
+  after it; a refusal never replaces anything, so two in a row are two
+  lines; at most three are kept, the oldest given up first, so an agent
+  refused over and over fills a few lines and never the page.
+  `Placement::agent_lines` stacks them oldest at the top above the
+  notices, each 32 CSS pixels, and `compose` draws a refusal on
+  `--danger-tint` in `--danger` (`colours::refused_line`), neither the
+  agent's ground nor the warning's; a press on any of them is nobody's.
+  Asserted end to end in `a_refusal_shown_to_the_person.rs`, `alo-ask`
+  over the socket of a conductor over the real renderer: thirteen kinds —
+  `NotFound`, `Ambiguous`, `NotOperable`, `Disabled`, `NotAField`,
+  `ReadOnly`, `NotADate`, `Unbuilt`, `DoesNotScroll`, `TooLong`,
+  `NotAnAddress`, `NotGranted`, `NoSuchTab` — each sent its own sentence,
+  the `said` its agent was answered under that kind byte for byte, no two
+  alike; a refused read, a line that is not JSON and a verb with no target
+  sent none; a verb that ran and two refusals are three lines at 340, 372
+  and 404 in a 480×436 window, drawn in their colours over the page's
+  frame; a refusal outlasts the verb that ran after it and not the one
+  after that. `Unchecked` and `NotSubmittable` (a form's) and `TabGone`
+  and `NotCarriedOut` (a renderer's) take the same path and were not
+  produced end to end. Reference renders: `two-refusals.png` and
+  `a-refusal-at-one-and-a-half.png`, looked at before committing. 623's
+  `a_refusal_leaves_no_sentence…` became
+  `a_refusal_between_two_verbs_is_kept_above_the_second`. **Not built, and
+  owed by 642:** through Chrome there is no window of ours to show them in.
+  Found while building it: item 645.
 
 - [ ] **626. The ambiguous refusal's sentence is English, not Rust's.**
   `verb.rs`'s `Display` writes its candidates with `{:?}`, so a person is told
@@ -16464,6 +16502,9 @@ What stage 2's exit gate actually measures: a person using it.
   node's `rects` from `chrome_tree`'s reading of the page, over Chrome's
   window at Chrome's own scroll and scale, which needs the frame to be
   placed over the page exactly.
+  *And (iteration 386):* 625's refusals, each its own line, kept as
+  `agent_lines.rs` keeps them — written from `chrome_serving`'s refused
+  answers to a verb.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into
@@ -16545,6 +16586,23 @@ What stage 2's exit gate actually measures: a person using it.
   kills it, if it is still one of the test's renderers, when the test ends:
   with a failure injected after the stop, nothing was left, twice. Each
   test now takes ten seconds more than it did.
+
+- [ ] **645. A button says it has something to scroll.** Found building
+  625 (iteration 386): on this engine's page,
+  `<button>Send</button>` in a body with no styles of its own is answered
+  `scrolled box#8 by 40px` when an agent asks to scroll it, where a
+  heading beside it is refused `DoesNotScroll`. `scroll` trusts
+  `BoxGeometry::overflows` for the node (`alo-agent`'s `tree.rs`), so
+  the button's box reports more content than room; whether that is the
+  button's text overflowing its content box by a fraction, its padding,
+  or a real overflow, is not known, and nothing was measured against
+  Chrome. An agent told it scrolled something that cannot scroll holds a
+  false record (ADR 0002). *Depends on nothing. Closes when:* the
+  button's overflow is measured against Chrome's `scrollHeight` and
+  `clientHeight` for the same markup, and either the geometry is fixed with
+  a layout assertion in numbers, or the scroll verb's rule is changed to
+  what Chrome would scroll, with a test that `scroll` on a plain button
+  is refused.
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -179,9 +179,13 @@ bottom of its window, written by the browser process and kept until the
 next verb runs (queue item 623). A page can neither read that line nor
 write it. The box `node` names is ringed in the window on the frame painted
 after the verb, on the rectangles the tree gives it there (queue item 624);
-nothing about the ring reaches the agent or changes what the verb did. A refusal's `said` is not shown there yet (item 625), and in
-`alo --chrome` there is no window of the browser's own to show it in until
-item 642.
+nothing about the ring reaches the agent or changes what the verb did. A
+verb refused leaves its refusal's `said` there too, word for word, in a
+line of its own (queue item 625) — whoever refused it, the page or the
+browser process — kept until the second verb that runs after it, so two
+refusals in a row are two lines; a read refused, or a line that was not a
+request, is not shown. In `alo --chrome` there is no window of the
+browser's own to show any of it in until item 642.
 
 | Outcome `kind` | Fields besides `node` |
 |---|---|

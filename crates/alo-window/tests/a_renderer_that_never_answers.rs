@@ -242,7 +242,7 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
             strip_sentence: None,
             frame: Some(&committed().unwrap_or_else(|why| panic!("{why}"))),
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering,

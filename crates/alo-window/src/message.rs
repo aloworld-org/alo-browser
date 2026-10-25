@@ -122,6 +122,12 @@ pub enum News {
     /// renderer, so a person watching a form fill itself can read who is
     /// filling it and how.
     AgentSaid(String),
+    /// An agent asked for a verb and was refused, and this is the sentence
+    /// it was answered with — its `said`, word for word (queue item 625):
+    /// `nothing on the page is "A pony"`. Written by the conductor as
+    /// [`News::AgentSaid`] is, so a person watching is told why nothing
+    /// happened as well as the agent.
+    AgentRefused(String),
     /// Every tab is closed, and every renderer under them stopped.
     Closed,
 }

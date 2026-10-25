@@ -178,6 +178,15 @@ fn until_closed(news: &Receiver<News>, showing: &mut Showing) -> Result<Vec<Stri
     }
 }
 
+/// What the window says of agents, sentence by sentence, oldest first.
+fn told(showing: &Showing) -> Vec<&str> {
+    showing
+        .agent_lines()
+        .iter()
+        .map(|line| line.sentence.as_str())
+        .collect()
+}
+
 /// One agent's session: `lines` asked through the socket, what it was
 /// answered, every agent sentence the window was sent, and what the window
 /// was showing as it closed.
@@ -185,8 +194,11 @@ fn session(name: &str, lines: &[String]) -> Result<(Vec<String>, Vec<String>, Sh
     let (conductor, news, mut showing) = browsing()?;
     // The page has loaded, forged its sentence and been painted: nothing of
     // it is a line of the agent's.
-    if let Some(said) = showing.agent_said() {
-        return Err(format!("a line before any agent acted: {said}"));
+    if !showing.agent_lines().is_empty() {
+        return Err(format!(
+            "a line before any agent acted: {:?}",
+            told(&showing)
+        ));
     }
     let path = socket(name)?;
     let listening =
@@ -224,7 +236,7 @@ fn a_verb_over_the_socket_leaves_the_sentence_it_was_answered_with_in_the_window
         "{said:?} is not what {answer} said"
     );
     assert!(said.starts_with("put \"Ada Lovelace\" into box#"), "{said}");
-    assert_eq!(showing.agent_said(), Some(said.as_str()));
+    assert_eq!(told(&showing), [said.as_str()]);
 }
 
 #[test]
@@ -236,13 +248,17 @@ fn the_line_is_placed_in_numbers_above_the_page_and_drawn_there() {
     // Along the bottom, the window's width and 32 CSS pixels tall, over the
     // page's frame — which stays at its own place and size.
     assert_eq!(
-        placed.agent_line,
-        Some(PixelRect {
-            x: 0,
-            y: 404,
-            width: 480,
-            height: 32
-        })
+        placed.agent_lines,
+        [
+            Some(PixelRect {
+                x: 0,
+                y: 404,
+                width: 480,
+                height: 32
+            }),
+            None,
+            None
+        ]
     );
     assert_eq!(
         placed.frame,
@@ -276,10 +292,10 @@ fn the_line_is_placed_in_numbers_above_the_page_and_drawn_there() {
 }
 
 #[test]
-fn a_refusal_leaves_no_sentence_and_two_verbs_leave_the_second() {
-    // A refusal's line is item 625's; until it is built a refusal is
-    // answered to the agent and puts nothing in the window — so a line is
-    // never the sentence of a verb that did nothing.
+fn a_refusal_between_two_verbs_is_kept_above_the_second() {
+    // A refusal's own line is item 625's (`a_refusal_shown_to_the_person.rs`);
+    // here, what it does to the lines of the verbs either side of it: the
+    // first is replaced by the second, and the refusal is kept above it.
     let lines = [
         put(1, "Name", "Ada Lovelace"),
         put(2, "Nobody's name", "Grace"),
@@ -287,10 +303,9 @@ fn a_refusal_leaves_no_sentence_and_two_verbs_leave_the_second() {
     ];
     let (answers, agents, showing) = session("two", &lines).unwrap_or_else(|why| panic!("{why}"));
     assert_eq!(answers.len(), 3, "{answers:#?}");
+    let refused = answers.get(1).map_or("", String::as_str);
     assert!(
-        answers
-            .get(1)
-            .is_some_and(|refused| refused.starts_with(r#"{"answer":"refused","id":2,"#)),
+        refused.starts_with(r#"{"answer":"refused","id":2,"#),
         "{answers:#?}"
     );
     assert_eq!(agents.len(), 2, "{agents:#?}");
@@ -300,12 +315,21 @@ fn a_refusal_leaves_no_sentence_and_two_verbs_leave_the_second() {
             .is_some_and(|said| said.starts_with("put \"Ada Lovelace\"")),
         "{agents:#?}"
     );
-    let last = agents.last().map(String::as_str);
+    let last = agents.last().map_or("", String::as_str);
     assert!(
-        last.is_some_and(|said| said.starts_with("put \"Grace Hopper\" into box#")),
+        last.starts_with("put \"Grace Hopper\" into box#"),
         "{agents:#?}"
     );
-    assert_eq!(showing.agent_said(), last);
+    let shown = told(&showing);
+    let [refusal, after] = shown.as_slice() else {
+        panic!("not two lines: {shown:#?}");
+    };
+    assert_eq!(*after, last);
+    assert_eq!(*refusal, "nothing on the page is \"Nobody's name\"");
+    assert!(
+        refused.contains(&format!(r#""said":"{}""#, in_json(refusal))),
+        "{refusal:?} is not what {refused} said"
+    );
 }
 
 #[test]
@@ -322,7 +346,7 @@ fn a_page_can_neither_forge_the_line_nor_find_it_in_its_tree() {
         panic!("not one sentence for the person: {agents:#?}");
     };
     assert_ne!(said, FORGED);
-    assert_eq!(showing.agent_said(), Some(said.as_str()));
+    assert_eq!(told(&showing), [said.as_str()]);
     // The forgery is the page's own text, where any of the page's text is.
     let tree = answers.get(1).map_or("", String::as_str);
     assert!(tree.starts_with(r#"{"answer":"tree","id":2,"#), "{tree}");

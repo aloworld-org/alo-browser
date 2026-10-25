@@ -39325,3 +39325,108 @@ paragraph, the table marked, 642 told what it now owes), `REMAINING.md`,
 301 queue items are open (624 closed; counted as `- [ ] **` lines). The
 next unused queue number is **645** and the next ADR is **0063**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 386 — queue item 625: a refusal shown to the person
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path, the stage 2 Chrome line and the agent's gate), iteration 385's
+entry, the queue's product-path table and items 623–625, 642, 643 and 644;
+ADR 0051 § 1 (the item's citation), ADR 0052 § 1 (623's), ADR 0024 § 2
+(composition a function, tested by reference render);
+`docs/contracts/agent-socket.md`; `showing.rs`, `place.rs`, `compose.rs`,
+`aim.rs`, `colours.rs`, `message.rs`, `conductor.rs`, `asking.rs`,
+`serving.rs`, `protocol.rs`, `alo-agent`'s `verb.rs` and the window's
+tests; `alo-workplace`'s `ds/tokens.css` for the refusal's colours (read
+only). No `AGENTS.md` exists in the repository. 625's feature contract is
+`docs/features.md`'s agent-socket line (item 496).
+
+**Why 625.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and again before committing, so 642 and 643, measured with the screen in
+use, could not be built honestly. 625 is the next product-path item and
+depends only on 623, which is done.
+
+**The citation.** 625 names ADR 0051 § 1, which is a control's state and
+says nothing of refusals. It was read and found not to bear; the item
+was built under 623's grounding (ADR 0052 § 1) and ADR 0024 § 2, and the
+queue's *Done* paragraph says so rather than the citation being edited.
+
+**Built.** The conductor sends `News::AgentRefused` with the answer's own
+`said` for every request that asked for a verb and was refused — by the
+page, or by the browser process before a page was asked. A refused read
+and a line that was never a request send nothing. "Holds it longer" is
+counted in verbs, since the window has no clock: `agent_lines.rs` keeps a
+verb that ran until the next one runs and a refusal until the second that
+runs after it, never replaces anything with a refusal, and keeps at most
+three lines. `Placement::agent_lines` stacks them oldest on top above the
+notices; `compose` draws a refusal on `--danger-tint` in `--danger`
+(`colours::refused_line`); `aim` treats a press on any of them as nobody's.
+
+**Tests.** Unit: `agent_lines` (replacing, two refusals two lines, a
+refusal outlasting one verb and not two, refusals before any verb, the
+bound of three), `showing`, `place` (two lines, four asked and three
+placed at 1.5, a window too short), `aim` (two agent lines refused to the
+page, the pixel above is the page's), `colours`. End to end
+(`a_refusal_shown_to_the_person.rs`, four tests, `alo-ask` over a
+conductor over the real renderer): thirteen refusal kinds each sent their
+own sentence, the `said` under that kind byte for byte, no two alike;
+none for a refused read, a non-JSON line or a verb with no target; a verb
+that ran and two refusals placed at 340, 372 and 404 in 480×436 and drawn
+in their colours over an untouched frame; a refusal outlasting the next
+verb and not the one after. `Unchecked`, `NotSubmittable`, `TabGone` and
+`NotCarriedOut` take the same path and were not produced end to end.
+Reference renders `two-refusals.png` and `a-refusal-at-one-and-a-half.png`
+in `the_window_composed.rs`, looked at; every existing reference held
+unchanged. 623's refusal test now asserts the refusal kept above the
+second verb.
+
+**The first gate failed, for a reason this change caused.** Run in the
+foreground into a scratchpad log (moved to the background at 600 s, waited
+on by a foreground until-loop): exit 1, 5,186 of 5,236 passed, two failed
+in `an_agent_kept_to_a_site.rs`, reproduced alone. That test dropped the
+window's receiver after setup, which tells the conductor the window has
+gone; a refused verb was the first thing then sent, so the conductor
+correctly closed and later requests went unanswered. The test now holds
+the receiver for its session, as every other socket test does — the
+product's rule is unchanged. `alo-window` alone then passed 335 of 335.
+
+**Gate.** Run again the same way: **exit 0, "The gate is met. (10 of 10
+steps)"**, nextest **5,236 tests run, 5,236 passed** in 559 s, no `FAIL`,
+`LEAK` or `panicked`. Manual: layout assertions in numbers (`place.rs`,
+`aim.rs`, the end-to-end test, the two composed tests), two reference
+renders, looked at. One file, one responsibility: how long lines are kept
+in the new `agent_lines.rs`, holding in `showing.rs`, geometry in
+`place.rs`, drawing in `compose.rs`, colours in `colours.rs`, deciding
+what is sent in `conductor.rs`. No `unsafe`, no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed. Not
+seen in the running `alo` on a screen (locked); the event loop hands every
+`News` to `Showing::hear` unchanged, which is what the tests drive.
+
+**Found.** Item 645: a plain `<button>Send</button>` says it has something
+to scroll, so an agent asking to scroll it is told `scrolled box#8 by
+40px` while a heading beside it is refused `DoesNotScroll`. Not measured
+against Chrome, and not fixed here.
+
+**Roadmap.** The stage 2 Chrome line's *Built* gains 625 in this engine's
+window and its *Owed* drops it, 642 now carrying 623's and 625's lines
+and 624's ring; the line's `· Owed:` and the agent's gate's `· Built:`
+say the same. Not ticked — no line is finished. `features.md`, the socket
+contract, the queue (625 ticked with a *Done* paragraph, the table marked,
+642 told what it now owes, 645 added), `REMAINING.md`, `lib.rs`'s map and
+the changelog say the same.
+
+**Unresolved obligations.**
+- Through Chrome nothing shows the refusals, the line or the ring: 642
+  owes all three.
+- 645, found here, is open.
+- 642 still waits on a person's drag and a click on the frame measured
+  with the screen in use; 643 on the same screen.
+- Inherited and unchanged: 631, 632, 635, 636, 639, 642 and 643 owed; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 638 needs an ADR; item 549 is unbuilt.
+  Other suites' short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+301 queue items are open (625 closed, 645 opened; counted as `- [ ] **`
+lines). The next unused queue number is **646** and the next ADR is
+**0063**. This is one iteration, not a finished queue or roadmap.

@@ -54,6 +54,20 @@ pub fn agent_ink() -> Rgba {
     Rgba::from_rgba8(0x10, 0x2a, 0x43, 0xff)
 }
 
+/// The ground of a line saying why an agent's verb was refused (queue item
+/// 625): `--danger-tint`. Not the agent's own ground, so a person can tell
+/// at a glance that nothing was done, and not the warning's, because the
+/// browser refusing a verb is not something gone wrong with a tab.
+pub fn refused_ground() -> Rgba {
+    Rgba::from_rgba8(0xfb, 0xe3, 0xe3, 0xff)
+}
+
+/// Its words: `--danger`, which alo's design system uses as both a danger
+/// badge's mark and its ink on `--danger-tint`.
+pub fn refused_ink() -> Rgba {
+    Rgba::from_rgba8(0xdc, 0x26, 0x26, 0xff)
+}
+
 /// The ring around the box an agent's verb acted on (queue item 624):
 /// `--accent`, alo's base terracotta, in which every control of its design
 /// system draws its focus outline — so the mark reads as alo saying *this
@@ -91,6 +105,15 @@ pub fn agent_line() -> LineColours {
     }
 }
 
+/// The line saying why an agent's verb was refused.
+pub fn refused_line() -> LineColours {
+    LineColours {
+        ground: refused_ground(),
+        ink: refused_ink(),
+        rule: notice_rule(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,6 +128,8 @@ mod tests {
             notice_rule(),
             agent_ground(),
             agent_ink(),
+            refused_ground(),
+            refused_ink(),
             mark(),
         ] {
             assert!((colour.alpha - 1.0).abs() < f32::EPSILON);
@@ -113,7 +138,7 @@ mod tests {
 
     #[test]
     fn the_words_are_darker_than_their_ground() {
-        for line in [notice_line(), agent_line()] {
+        for line in [notice_line(), agent_line(), refused_line()] {
             let (ink, ground) = (line.ink.to_rgba8(), line.ground.to_rgba8());
             assert!(ink.0 < ground.0 && ink.1 < ground.1 && ink.2 < ground.2);
         }
@@ -123,5 +148,13 @@ mod tests {
     fn an_agents_line_is_not_a_warnings() {
         assert_ne!(agent_line().ground, notice_line().ground);
         assert_ne!(agent_line().ink, notice_line().ink);
+    }
+
+    #[test]
+    fn a_refusals_line_is_neither_an_agents_nor_a_warnings() {
+        for other in [agent_line(), notice_line()] {
+            assert_ne!(refused_line().ground, other.ground);
+            assert_ne!(refused_line().ink, other.ink);
+        }
     }
 }

@@ -109,9 +109,12 @@
 //! sentence — `put "Ada Lovelace" into box#10` — and the window is sent the
 //! same sentence, taken from the answer before it goes, as
 //! [`News::AgentSaid`]: after the tab is painted again, so the line and the
-//! page it describes arrive together. A refusal is not sent (item 625), and
-//! neither is a read. Nothing a page or a renderer says can become one: the
-//! conductor writes it, from what it answered.
+//! page it describes arrive together. A read is not sent. A verb refused is
+//! (item 625), as [`News::AgentRefused`] with the refusal's sentence,
+//! whether the page refused it or this process did before any page was
+//! asked — a site not granted, a tab not open; a read refused is not, and
+//! neither is a line that was never a request. Nothing a page or a renderer
+//! says can become one: the conductor writes it, from what it answered.
 //!
 //! The box the verb acted on is ringed on the frame painted after it (queue
 //! item 624): its rectangles are read from the page's tree once the agent
@@ -150,7 +153,7 @@ mod strip_pressing;
 
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
-use crate::asking::Answer;
+use crate::asking::{Answer, Ask};
 use crate::hold::{Holds, SHOWN_BEFORE_STYLE};
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::{News, Order};
@@ -474,6 +477,7 @@ impl Conducting {
             }
             Order::Agent { caller, ask, reply } => {
                 let before = self.selected_document();
+                let a_verb = matches!(ask, Ok(Ask::Act { .. }));
                 let Served { answer, acted } =
                     serve(&mut self.tabs, &mut self.agents, &self.sites, caller, ask);
                 // The box a verb that ran acted on, by the renderer's own
@@ -488,6 +492,12 @@ impl Conducting {
                 let said = matches!(answer, Answer::Done { .. })
                     .then(|| answer.said())
                     .flatten();
+                // And why a verb was refused, whoever refused it — the page,
+                // or this process before any page was asked (item 625). A
+                // read refused, or a line that was not a request, is not.
+                let refused = (a_verb && matches!(answer, Answer::Refused(_)))
+                    .then(|| answer.said())
+                    .flatten();
                 // Nobody to answer is a caller that has gone, which changes
                 // nothing about what was done or recorded.
                 let _ = reply.send(answer);
@@ -500,6 +510,7 @@ impl Conducting {
                     news.extend(marks);
                 }
                 news.extend(said.map(News::AgentSaid));
+                news.extend(refused.map(News::AgentRefused));
                 news
             }
         }

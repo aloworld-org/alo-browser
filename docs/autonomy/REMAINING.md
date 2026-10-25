@@ -2915,3 +2915,14 @@ inside the renderer's one exchange. Through Chrome it waits on 642 with
 623's line. The screen was locked again, so 642 and 643 still wait on it;
 625 builds on 623 and needs no screen. 301 queue items are open (624
 closed). The next unused queue number is 645 and the next unused ADR 0063.
+
+Iteration 386 closed queue item 625 in this engine's window: a verb an
+agent asked for and was refused — by the page or by the browser process —
+leaves the refusal's own `said` in a line of its own on alo's danger tint,
+kept until the second verb that runs after it, two refusals two lines, at
+most three agent lines kept (`agent_lines.rs`, `place.rs`'s
+`agent_lines`, `compose.rs`, two reference renders). Through Chrome it
+waits on 642 with 623's line and 624's ring. The screen was locked again,
+so 642 and 643 still wait on it. Found: 645, a plain button that says it
+has something to scroll. 301 queue items are open (625 closed, 645
+opened). The next unused queue number is 646 and the next unused ADR 0063.

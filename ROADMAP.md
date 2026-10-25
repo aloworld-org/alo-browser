@@ -183,7 +183,11 @@ about this project (ADR 0058 § 6).
   (623; through Chrome it waits on the window of ours, 642); and **the box
   an agent acted on, ringed** on the frame painted after the verb — the
   node's own rectangles read from the same layout, drawn as alo draws focus
-  (624; through Chrome, 642).
+  (624; through Chrome, 642); and **a refusal where a person can read it**,
+  in this engine's window — each verb refused leaves its own sentence, the
+  refusal's `said`, in a line of the browser's own in its own colours,
+  kept until the second verb that runs after it, two refusals in a row two
+  lines (625; through Chrome, 642).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -196,9 +200,9 @@ about this project (ADR 0058 § 6).
 - **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
   what a page's script said, through Chrome (639); a form Chrome would not send, answered as the engine
   answers it (631); the
-  rest of the agent's work where a person can see it — a refusal shown
-  (625); **a window of ours around Chrome's, following it, with 623's line
-  and 624's ring in it (642)**; a placed window that stays where a
+  rest of the agent's work where a person can see it — **a window of ours
+  around Chrome's, following it, with 623's and 625's lines and 624's
+  ring in it (642)**; a placed window that stays where a
   person sees it, which Stage Manager's strip does not promise (643); an
   application somebody can run (477).
 
@@ -737,8 +741,9 @@ unreachable without it.
       script said, through Chrome (639); a
       form Chrome would not send answered as `NotSubmitted` (631), a date
       and a choice put in through Chrome (632), a window of ours around
-      Chrome's, carrying the agent's sentence and the ring around the box it
-      acted on as the engine's window does (642, 623, 624), and one that stays where a person sees it (643)
+      Chrome's, carrying the agent's sentence, its refusals and the ring
+      around the box it acted on as the engine's window does (642, 623,
+      625, 624), and one that stays where a person sees it (643)
 
 ### The network
 
@@ -2298,8 +2303,9 @@ disappeared behind the larger.
       what it changed (`alo-window`'s `an_agent_outside_the_browser.rs`).
       An agent can be kept to the sites a person names (queue item 497),
       and a person watching the window reads each verb's sentence in a
-      line of the browser's own (queue item 623) and sees the box it acted
-      on ringed on its own rectangles (queue item 624).
+      line of the browser's own (queue item 623), sees the box it acted
+      on ringed on its own rectangles (queue item 624), and reads why a
+      verb was refused, each refusal its own line (queue item 625).
       · Owed: loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that
       adds a box (500); and Windows, which ADR 0055 leaves undecided.

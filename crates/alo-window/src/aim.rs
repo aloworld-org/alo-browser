@@ -15,8 +15,9 @@
 //! the point is the device pixel's corner divided, as at one.
 //!
 //! A point is over **the page** when it is below the strip's band and over
-//! no line the window is saying something in: a notice, or what an agent
-//! last did (item 623), is the browser's own drawing over the page, and a
+//! no line the window is saying something in: a notice, or what agents did
+//! or why they were refused (items 623 and 625), is the browser's own
+//! drawing over the page, and a
 //! press on it is not the page's. It is over
 //! the page even where the last frame does not reach — after the window
 //! grew, before the new frame arrives — because the page is laid out at the
@@ -46,7 +47,8 @@ pub fn aim(window: (u32, u32), placed: &Placement, scale: Scale, at: (f64, f64))
     let (x, y) = at;
     let inside = (0.0..f64::from(window.0)).contains(&x) && (0.0..f64::from(window.1)).contains(&y);
     let over = |rect: Option<PixelRect>| rect.is_some_and(|rect| covers(rect, at));
-    if !inside || over(placed.notice) || over(placed.strip_notice) || over(placed.agent_line) {
+    let over_an_agents = placed.agent_lines.into_iter().any(over);
+    if !inside || over(placed.notice) || over(placed.strip_notice) || over_an_agents {
         return Aimed::Nothing;
     }
     if y < f64::from(placed.band.height) {
@@ -84,7 +86,8 @@ mod tests {
     use crate::place::Contents;
 
     /// A window of 960 × 872 device pixels at scale 2, the strip and a page
-    /// painted at 2, and lines said for neither or both.
+    /// painted at 2, and lines said for neither or all — two of them an
+    /// agent's.
     fn placed(saying: bool) -> Placement {
         Placement::of(
             (960, 872),
@@ -94,7 +97,7 @@ mod tests {
                 frame: Some((960, 800)),
                 tab_saying: saying,
                 strip_saying: saying,
-                agent_saying: saying,
+                agent_lines: if saying { 2 } else { 0 },
             },
         )
     }
@@ -171,11 +174,11 @@ mod tests {
             aim((960, 872), &placed, Scale::TWO, (10.0, 744.0)),
             Aimed::Nothing
         );
-        // What an agent last did is the 64 above both.
-        assert_eq!(
-            placed.agent_line.map(|rect| (rect.y, rect.height)),
-            Some((680, 64))
-        );
+        // What agents did is two lines of 64 above both.
+        let agents = placed
+            .agent_lines
+            .map(|line| line.map(|rect| (rect.y, rect.height)));
+        assert_eq!(agents, [Some((616, 64)), Some((680, 64)), None]);
         assert_eq!(
             aim((960, 872), &placed, Scale::TWO, (10.0, 743.0)),
             Aimed::Nothing
@@ -186,7 +189,15 @@ mod tests {
         );
         assert_eq!(
             aim((960, 872), &placed, Scale::TWO, (10.0, 679.0)),
-            page(5.0, 303.5)
+            Aimed::Nothing
+        );
+        assert_eq!(
+            aim((960, 872), &placed, Scale::TWO, (10.0, 616.0)),
+            Aimed::Nothing
+        );
+        assert_eq!(
+            aim((960, 872), &placed, Scale::TWO, (10.0, 615.0)),
+            page(5.0, 271.5)
         );
     }
 

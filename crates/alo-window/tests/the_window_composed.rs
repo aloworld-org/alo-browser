@@ -43,10 +43,14 @@
 //! engine's tree gives it for the frame the engine painted — at one, with
 //! the verb's sentence below, and at 1.5.
 //!
+//! Item 625 adds a refusal's line, in colours of its own: two refusals below
+//! what the agent did, at one, and at 1.5 a refusal outlasting the verb that
+//! ran after it, above a gone tab's line.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
 
-use alo_agent::Outcome;
+use alo_agent::{Outcome, Refusal, Target};
 use alo_box::BoxId;
 use alo_layout::Size;
 use alo_paint::{Canvas, from_png, to_png};
@@ -54,6 +58,7 @@ use alo_renderer::host::Gone;
 use alo_renderer::strip::{Condition, Strip, StripTab};
 use alo_renderer::{Frame, FromRenderer, Page, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
+use alo_window::agent_lines::AgentLine;
 use alo_window::compose::{Scene, compose};
 use alo_window::mark::{Marked, marked, ring};
 use alo_window::message::News;
@@ -227,7 +232,7 @@ fn a_frozen_alo_page_in_a_window_at_scale_two() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -247,7 +252,7 @@ fn a_window_grown_before_its_new_frame_shows_the_old_one_at_its_old_size() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -267,7 +272,7 @@ fn a_gone_tab_keeps_its_frame_and_says_what_happened() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: Some(&sentence),
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -286,7 +291,7 @@ fn a_tab_gone_before_it_ever_painted_is_its_sentence_on_the_background() {
             strip_sentence: None,
             frame: None,
             sentence: Some(&sentence),
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -314,7 +319,7 @@ fn a_window_with_a_strip_of_one_tab_at_scale_two() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -354,7 +359,7 @@ fn a_window_with_a_strip_of_one_tab_at_one_and_a_half() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -390,7 +395,7 @@ fn a_tab_gone_at_one_and_a_half_says_so_in_a_line_of_its_own_height_at_it() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: Some(&sentence),
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -430,7 +435,7 @@ fn a_window_with_a_strip_of_three_tabs() {
             strip_sentence: None,
             frame: Some(&page),
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -455,7 +460,7 @@ fn a_strip_whose_renderer_has_gone_keeps_its_frame_and_says_so() {
             strip_sentence: Some(&sentence),
             frame: Some(&page),
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
@@ -534,7 +539,7 @@ fn what_an_agent_did_is_a_line_of_the_browsers_over_the_page() {
         width: 480,
         height: 32,
     };
-    assert_eq!(placed.agent_line, Some(line));
+    assert_eq!(placed.agent_lines, [Some(line), None, None]);
     let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
     // Above the line every pixel is the page's own; the line is drawn over
     // it and nowhere else.
@@ -563,7 +568,10 @@ fn what_an_agent_did_at_one_and_a_half_is_above_a_gone_tabs_line() {
         strip_sentence: None,
         frame: Some(&page),
         sentence: Some(&gone),
-        agent_said: Some(&sentence),
+        agent_lines: &[AgentLine {
+            sentence,
+            refused: false,
+        }],
         marked: &[],
     };
     let placed = Placement::of(window, Scale::ONE_AND_A_HALF, scene.contents());
@@ -574,7 +582,7 @@ fn what_an_agent_did_at_one_and_a_half_is_above_a_gone_tabs_line() {
         Some((606, 48))
     );
     assert_eq!(
-        placed.agent_line.map(|rect| (rect.y, rect.height)),
+        placed.agent_lines[0].map(|rect| (rect.y, rect.height)),
         Some((558, 48))
     );
     let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
@@ -582,6 +590,124 @@ fn what_an_agent_did_at_one_and_a_half_is_above_a_gone_tabs_line() {
         holds("an-agents-sentence-at-one-and-a-half.png", &canvas),
         Ok(())
     );
+}
+
+/// The sentences an agent is answered with when nothing on the page is
+/// called "Nme", and when it asks to type into the "Try again" button —
+/// made by `alo-agent`'s own type, as [`agents_sentence`] is.
+fn refusals() -> (String, String) {
+    let not_found = Refusal::NotFound {
+        target: Target::Named("Nme".to_owned()),
+    };
+    let not_a_field = Refusal::NotAField {
+        node: BoxId::from_index_for_tests(12),
+        role: alo_box::Role::Known(alo_box::KnownRole::Button),
+    };
+    (not_found.to_string(), not_a_field.to_string())
+}
+
+#[test]
+fn two_refusals_are_two_lines_of_their_own_below_what_the_agent_did() {
+    let page = frozen_page().unwrap_or_else(|why| panic!("{why}"));
+    let (not_found, not_a_field) = refusals();
+    assert_eq!(not_found, "nothing on the page is \"Nme\"");
+    assert_eq!(
+        not_a_field,
+        "box#12 is a button, which is not a thing text goes into"
+    );
+    let mut showing = Showing::default();
+    for news in [
+        News::Painted(page.clone()),
+        News::AgentSaid(agents_sentence()),
+        News::AgentRefused(not_found),
+        News::AgentRefused(not_a_field),
+    ] {
+        assert!(showing.hear(news));
+    }
+    let window = (480, 400 + STRIP_HEIGHT);
+    let scene = showing.scene(window, Scale::ONE);
+    let placed = Placement::of(window, Scale::ONE, scene.contents());
+    let line = |y| PixelRect {
+        x: 0,
+        y,
+        width: 480,
+        height: 32,
+    };
+    // Oldest at the top: what the agent did, then each refusal below it.
+    assert_eq!(
+        placed.agent_lines,
+        [Some(line(340)), Some(line(372)), Some(line(404))]
+    );
+    let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
+    let at = |x, y| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+    for y in STRIP_HEIGHT..340 {
+        for x in 0..window.0 {
+            assert_eq!(at(x, y), page.at(x, y - STRIP_HEIGHT), "at {x},{y}");
+        }
+    }
+    // Each line in its own colours: the agent's ground, then the
+    // refusals', each under a rule of its own.
+    let (did, refused) = (
+        alo_window::colours::agent_line(),
+        alo_window::colours::refused_line(),
+    );
+    for (top, colours) in [(340, did), (372, refused), (404, refused)] {
+        assert_eq!(at(0, top), Some(colours.rule.to_rgba8()), "rule at {top}");
+        assert_eq!(
+            at(479, top + 31),
+            Some(colours.ground.to_rgba8()),
+            "ground at {top}"
+        );
+        let inked = (0..480)
+            .flat_map(|x| (top + 1..top + 32).map(move |y| (x, y)))
+            .filter(|(x, y)| at(*x, *y) == Some(colours.ink.to_rgba8()))
+            .count();
+        assert!(inked > 0, "no words on the line at {top}");
+    }
+    assert_eq!(holds("two-refusals.png", &canvas), Ok(()));
+}
+
+#[test]
+fn a_refusal_at_one_and_a_half_outlasts_the_verb_that_ran_after_it() {
+    let page = frozen_page_at(1.5).unwrap_or_else(|why| panic!("{why}"));
+    let gone = silent_sentence();
+    let (not_found, _) = refusals();
+    let mut showing = Showing::default();
+    for news in [
+        News::Painted(page),
+        News::AgentRefused(not_found.clone()),
+        News::AgentSaid(agents_sentence()),
+        News::Said(gone),
+    ] {
+        assert!(showing.hear(news));
+    }
+    let told: Vec<(&str, bool)> = showing
+        .agent_lines()
+        .iter()
+        .map(|line| (line.sentence.as_str(), line.refused))
+        .collect();
+    assert_eq!(
+        told,
+        [
+            (not_found.as_str(), true),
+            ("put \"Ada Lovelace\" into box#10", false)
+        ]
+    );
+    let window = (720, 600 + 54);
+    let scene = showing.scene(window, Scale::ONE_AND_A_HALF);
+    let placed = Placement::of(window, Scale::ONE_AND_A_HALF, scene.contents());
+    // 48 device pixels each: the tab's along the bottom, then what the
+    // agent did, then the refusal before it.
+    assert_eq!(
+        placed.notice.map(|rect| (rect.y, rect.height)),
+        Some((606, 48))
+    );
+    let agents = placed
+        .agent_lines
+        .map(|line| line.map(|rect| (rect.y, rect.height)));
+    assert_eq!(agents, [Some((510, 48)), Some((558, 48)), None]);
+    let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
+    assert_eq!(holds("a-refusal-at-one-and-a-half.png", &canvas), Ok(()));
 }
 
 /// The frozen page painted at `scale` by the engine, and the rectangles its
@@ -730,7 +856,7 @@ fn the_box_an_agent_acted_on_at_one_and_a_half_is_ringed_three_device_pixels_out
         strip_sentence: None,
         frame: Some(&page),
         sentence: None,
-        agent_said: None,
+        agent_lines: &[],
         marked: &ringed,
     };
     let placed = Placement::of(window, Scale::ONE_AND_A_HALF, scene.contents());

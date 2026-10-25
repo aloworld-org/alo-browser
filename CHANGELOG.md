@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **You can see when an agent was refused, and why.** When the browser
+  refuses something an agent asked for through its socket — there is
+  nothing on the page by that name, the button is disabled, the site is
+  not one you allowed — a line in its own red along the bottom of the
+  window now says so, in the same words the agent was told. A refusal
+  stays up longer than an ordinary line: through the next thing the agent
+  manages to do, so you can still read why the try before it failed. Two
+  refusals in a row are two lines. It is in the browser's own window for
+  now; a page shown in Chrome gets it once the browser has a window of
+  its own around Chrome's.
+
 - **You can see which thing on the page an agent just used.** When an
   agent fills in a field or presses a button through the browser's socket,
   the browser now draws a ring around it — in alo's own focus colour, a

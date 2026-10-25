@@ -24,7 +24,8 @@
 //! device pixels (ADR 0057 § 3, queue item 562), so each of their pixels is
 //! one of the window's: nothing is replicated or stretched here.
 
-use crate::colours::{agent_line, background, notice_line, rail};
+use crate::agent_lines::AgentLine;
+use crate::colours::{agent_line, background, notice_line, rail, refused_line};
 use crate::mark::{self, Marked};
 use crate::notice::Lettering;
 use crate::place::{Contents, PixelRect, Placement};
@@ -50,9 +51,10 @@ pub struct Scene<'a> {
     pub frame: Option<&'a Frame>,
     /// What to tell a person about that tab, if anything.
     pub sentence: Option<&'a str>,
-    /// What an agent's last verb was answered with, if one has run (queue
-    /// item 623).
-    pub agent_said: Option<&'a str>,
+    /// What agents' verbs were answered with, oldest first, as long as the
+    /// window keeps them: a verb that ran (queue item 623) or one that was
+    /// refused (625).
+    pub agent_lines: &'a [AgentLine],
     /// The rectangles of the box an agent's verb acted on, over `frame` —
     /// ringed on it (queue item 624).
     pub marked: &'a [Marked],
@@ -68,7 +70,7 @@ impl Scene<'_> {
             frame: self.frame.map(size),
             tab_saying: self.sentence.is_some(),
             strip_saying: self.strip_sentence.is_some(),
-            agent_saying: self.agent_said.is_some(),
+            agent_lines: self.agent_lines.len(),
         }
     }
 }
@@ -78,7 +80,8 @@ impl Scene<'_> {
 /// The background, then the band across the top in the rail's colour and
 /// the strip in it, then the tab's frame below the band and the ring around
 /// the box an agent acted on in it, then the lines along the bottom — the
-/// tab's, the strip's above it, and what an agent last did above both. A window of no size is a canvas of no size.
+/// tab's, the strip's above it, and what agents did above both, a refusal
+/// in colours of its own. A window of no size is a canvas of no size.
 pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, background());
@@ -96,10 +99,19 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     for (sentence, rect, colours) in [
         (scene.sentence, placed.notice, notice_line()),
         (scene.strip_sentence, placed.strip_notice, notice_line()),
-        (scene.agent_said, placed.agent_line, agent_line()),
     ] {
         if let (Some(sentence), Some(rect)) = (sentence, rect) {
             lettering.draw(&mut canvas, rect, sentence, scale, colours);
+        }
+    }
+    for (line, rect) in scene.agent_lines.iter().zip(placed.agent_lines) {
+        let colours = if line.refused {
+            refused_line()
+        } else {
+            agent_line()
+        };
+        if let Some(rect) = rect {
+            lettering.draw(&mut canvas, rect, &line.sentence, scale, colours);
         }
     }
     canvas
@@ -139,6 +151,14 @@ mod tests {
         }
     }
 
+    /// What the window keeps after an agent activated box#3.
+    fn activated() -> [AgentLine; 1] {
+        [AgentLine {
+            sentence: "activated box#3".to_owned(),
+            refused: false,
+        }]
+    }
+
     fn rgba8(canvas: &Canvas, x: u32, y: u32) -> Option<(u8, u8, u8, u8)> {
         canvas.at(x, y).map(Rgba::to_rgba8)
     }
@@ -152,7 +172,7 @@ mod tests {
             strip_sentence: None,
             frame,
             sentence: None,
-            agent_said: None,
+            agent_lines: &[],
             marked: &[],
         }
     }
@@ -269,7 +289,7 @@ mod tests {
                 strip_sentence: Some("gone"),
                 frame: Some(&frame),
                 sentence: Some("gone"),
-                agent_said: Some("activated box#3"),
+                agent_lines: &activated(),
                 marked: &[],
             },
             &lettering(),
@@ -296,7 +316,7 @@ mod tests {
         let window = (40, STRIP_HEIGHT + 64);
         let canvas = compose(
             &Scene {
-                agent_said: Some("activated box#3"),
+                agent_lines: &activated(),
                 marked: &ringed,
                 ..tab_only(window, Scale::ONE, Some(&frame))
             },

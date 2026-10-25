@@ -20,6 +20,7 @@
 //! laid out in whole CSS pixels, the most that fit the window at the scale,
 //! and any device pixel left over is background.
 
+use crate::agent_lines::MOST_AGENT_LINES;
 use crate::scale::Scale;
 use alo_layout::Size;
 use alo_renderer::Screen;
@@ -102,9 +103,10 @@ pub struct Contents {
     pub tab_saying: bool,
     /// Whether there is a sentence about the strip.
     pub strip_saying: bool,
-    /// Whether there is a sentence saying what an agent last did (queue
-    /// item 623).
-    pub agent_saying: bool,
+    /// How many sentences there are saying what agents did, or why they
+    /// were refused (queue items 623 and 625): at most
+    /// [`MOST_AGENT_LINES`] are placed.
+    pub agent_lines: usize,
 }
 
 /// Where the strip, a tab's frame and the lines about them go in a window.
@@ -126,10 +128,12 @@ pub struct Placement {
     /// The line saying what happened to the strip, above the tab's line —
     /// or along the bottom when the tab has nothing to say.
     pub strip_notice: Option<PixelRect>,
-    /// The line saying what an agent last did, in the words it was answered
-    /// with (queue item 623): above both of those, or along the bottom when
-    /// neither has anything to say.
-    pub agent_line: Option<PixelRect>,
+    /// The lines saying what agents did, in the words they were answered
+    /// with (queue items 623 and 625), oldest first: above both of those, or
+    /// along the bottom when neither has anything to say, the newest
+    /// lowest. Entry `i` is the `i`th sentence, and there is none past the
+    /// last.
+    pub agent_lines: [Option<PixelRect>; MOST_AGENT_LINES],
 }
 
 impl Placement {
@@ -180,7 +184,12 @@ impl Placement {
         };
         let notice = stack(contents.tab_saying);
         let strip_notice = stack(contents.strip_saying);
-        let agent_line = stack(contents.agent_saying);
+        // The newest of the agents' lines lowest, so stacked first.
+        let count = contents.agent_lines.min(MOST_AGENT_LINES);
+        let mut agent_lines = [None; MOST_AGENT_LINES];
+        for slot in agent_lines.iter_mut().take(count).rev() {
+            *slot = stack(true);
+        }
         Self {
             band,
             strip: PixelRect {
@@ -197,7 +206,7 @@ impl Placement {
             },
             notice,
             strip_notice,
-            agent_line,
+            agent_lines,
         }
     }
 }
@@ -286,7 +295,7 @@ mod tests {
         assert!(placed.strip.is_empty(), "no strip has painted");
         assert!(placed.frame.is_empty(), "no tab has painted");
         assert_eq!((placed.notice, placed.strip_notice), (None, None));
-        assert_eq!(placed.agent_line, None);
+        assert_eq!(placed.agent_lines, [None; MOST_AGENT_LINES]);
     }
 
     #[test]
@@ -331,7 +340,7 @@ mod tests {
                 frame: Some((720, 600)),
                 tab_saying: true,
                 strip_saying: true,
-                agent_saying: true,
+                agent_lines: 1,
             },
         );
         assert_eq!(placed.band, rect(0, 0, 720, 54));
@@ -339,7 +348,10 @@ mod tests {
         assert_eq!(placed.frame, rect(0, 54, 720, 600));
         assert_eq!(placed.notice, Some(rect(0, 606, 720, 48)));
         assert_eq!(placed.strip_notice, Some(rect(0, 558, 720, 48)));
-        assert_eq!(placed.agent_line, Some(rect(0, 510, 720, 48)));
+        assert_eq!(
+            placed.agent_lines,
+            [Some(rect(0, 510, 720, 48)), None, None]
+        );
     }
 
     #[test]
@@ -419,11 +431,11 @@ mod tests {
             (480, 436),
             Scale::ONE,
             Contents {
-                agent_saying: true,
+                agent_lines: 1,
                 ..a_frame((480, 400))
             },
         );
-        assert_eq!(alone.agent_line, Some(rect(0, 404, 480, 32)));
+        assert_eq!(alone.agent_lines, [Some(rect(0, 404, 480, 32)), None, None]);
         assert_eq!((alone.notice, alone.strip_notice), (None, None));
         // Over the frame, which stays where and as big as it was painted.
         assert_eq!(alone.frame, rect(0, 36, 480, 400));
@@ -432,25 +444,31 @@ mod tests {
             Scale::ONE,
             Contents {
                 tab_saying: true,
-                agent_saying: true,
+                agent_lines: 1,
                 ..Contents::default()
             },
         );
         assert_eq!(with_the_tabs.notice, Some(rect(0, 404, 480, 32)));
-        assert_eq!(with_the_tabs.agent_line, Some(rect(0, 372, 480, 32)));
+        assert_eq!(
+            with_the_tabs.agent_lines,
+            [Some(rect(0, 372, 480, 32)), None, None]
+        );
         let doubled = Placement::of(
             (960, 872),
             Scale::TWO,
             Contents {
                 tab_saying: true,
                 strip_saying: true,
-                agent_saying: true,
+                agent_lines: 1,
                 ..Contents::default()
             },
         );
         assert_eq!(doubled.notice, Some(rect(0, 808, 960, 64)));
         assert_eq!(doubled.strip_notice, Some(rect(0, 744, 960, 64)));
-        assert_eq!(doubled.agent_line, Some(rect(0, 680, 960, 64)));
+        assert_eq!(
+            doubled.agent_lines,
+            [Some(rect(0, 680, 960, 64)), None, None]
+        );
     }
 
     #[test]
@@ -492,5 +510,59 @@ mod tests {
         );
         assert_eq!((placed.strip.width, placed.strip.height), (100, 288));
         assert_eq!((placed.frame.width, placed.frame.height), (100, 112));
+    }
+
+    #[test]
+    fn several_agent_lines_stack_up_the_newest_lowest_and_no_more_than_three() {
+        let two = Placement::of(
+            (480, 436),
+            Scale::ONE,
+            Contents {
+                tab_saying: true,
+                agent_lines: 2,
+                ..a_frame((480, 400))
+            },
+        );
+        assert_eq!(two.notice, Some(rect(0, 404, 480, 32)));
+        assert_eq!(
+            two.agent_lines,
+            [
+                Some(rect(0, 340, 480, 32)),
+                Some(rect(0, 372, 480, 32)),
+                None
+            ]
+        );
+        // At 1.5, three of 48, and a fourth is not placed.
+        let many = Placement::of(
+            (720, 654),
+            Scale::ONE_AND_A_HALF,
+            Contents {
+                agent_lines: 4,
+                ..a_frame((720, 600))
+            },
+        );
+        assert_eq!(
+            many.agent_lines,
+            [
+                Some(rect(0, 510, 720, 48)),
+                Some(rect(0, 558, 720, 48)),
+                Some(rect(0, 606, 720, 48)),
+            ]
+        );
+        assert_eq!(many.frame, rect(0, 54, 720, 600));
+        // A window too short for them gives the oldest what is left, or
+        // nothing, and never the band.
+        let short = Placement::of(
+            (100, 80),
+            Scale::ONE,
+            Contents {
+                agent_lines: 2,
+                ..Contents::default()
+            },
+        );
+        assert_eq!(
+            short.agent_lines,
+            [Some(rect(0, 36, 100, 12)), Some(rect(0, 48, 100, 32)), None]
+        );
     }
 }

@@ -21,12 +21,14 @@
 //! ([`crate::mark`]). A sentence about the tab leaves it, as it leaves the
 //! frame.
 //!
-//! It holds one more line, the browser's own: the sentence the last verb an
-//! agent ran was answered with (queue item 623). It is kept until the next
-//! one replaces it — through new frames, other sentences and other tabs
-//! chosen — because it is about what an agent did, not about what a tab
-//! shows, and a person who looked away for a second still needs to read it.
+//! It holds the browser's own lines about agents: the sentence each verb an
+//! agent asked for was answered with, whether it ran (queue item 623) or
+//! was refused (625), for as long as [`AgentLines`] keeps them — through new
+//! frames, other sentences and other tabs chosen — because they are about
+//! what an agent did, not about what a tab shows, and a person who looked
+//! away for a second still needs to read them.
 
+use crate::agent_lines::{AgentLine, AgentLines};
 use crate::compose::Scene;
 use crate::mark::Marked;
 use crate::message::News;
@@ -40,7 +42,7 @@ pub struct Showing {
     sentence: Option<String>,
     strip: Option<Frame>,
     strip_sentence: Option<String>,
-    agent_said: Option<String>,
+    agent_lines: AgentLines,
     marked: Vec<Marked>,
 }
 
@@ -88,7 +90,11 @@ impl Showing {
                 true
             }
             News::AgentSaid(sentence) => {
-                self.agent_said = Some(sentence);
+                self.agent_lines.did(sentence);
+                true
+            }
+            News::AgentRefused(sentence) => {
+                self.agent_lines.refused(sentence);
                 true
             }
             News::Closed => false,
@@ -115,10 +121,10 @@ impl Showing {
         self.strip_sentence.as_deref()
     }
 
-    /// The sentence the last verb an agent ran was answered with, if one has
-    /// run.
-    pub fn agent_said(&self) -> Option<&str> {
-        self.agent_said.as_deref()
+    /// The sentences agents' verbs were answered with that the window still
+    /// shows, oldest first.
+    pub fn agent_lines(&self) -> &[AgentLine] {
+        self.agent_lines.lines()
     }
 
     /// The rectangles of the box an agent's verb last acted on, over the
@@ -136,7 +142,7 @@ impl Showing {
             strip_sentence: self.strip_sentence(),
             frame: self.frame(),
             sentence: self.sentence(),
-            agent_said: self.agent_said(),
+            agent_lines: self.agent_lines(),
             marked: self.marked(),
         }
     }
@@ -145,6 +151,15 @@ impl Showing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What the window says of agents, sentence by sentence.
+    fn told(showing: &Showing) -> Vec<&str> {
+        showing
+            .agent_lines()
+            .iter()
+            .map(|line| line.sentence.as_str())
+            .collect()
+    }
 
     fn a_frame(byte: u8) -> Frame {
         Frame {
@@ -232,15 +247,15 @@ mod tests {
         assert_eq!(scene.frame, Some(&a_frame(1)));
         assert_eq!(scene.sentence, None);
         assert_eq!((scene.strip, scene.strip_sentence), (None, None));
-        assert_eq!(scene.agent_said, None);
+        assert!(scene.agent_lines.is_empty());
     }
 
     #[test]
     fn what_an_agent_did_is_kept_until_the_next_verb_whatever_else_arrives() {
         let mut showing = Showing::default();
-        assert_eq!(showing.agent_said(), None);
+        assert!(told(&showing).is_empty());
         assert!(showing.hear(News::AgentSaid("activated box#3".to_owned())));
-        assert_eq!(showing.agent_said(), Some("activated box#3"));
+        assert_eq!(told(&showing), ["activated box#3"]);
         // Nothing of the tab's or the strip's touches it, nor another tab.
         for news in [
             News::Painted(a_frame(1)),
@@ -250,16 +265,16 @@ mod tests {
             News::Chosen(None),
         ] {
             showing.hear(news);
-            assert_eq!(showing.agent_said(), Some("activated box#3"));
+            assert_eq!(told(&showing), ["activated box#3"]);
         }
         // And it touches nothing of theirs.
         showing.hear(News::Painted(a_frame(4)));
         showing.hear(News::AgentSaid("scrolled box#1 to 0, 40".to_owned()));
         assert_eq!(showing.frame(), Some(&a_frame(4)));
         assert_eq!(showing.sentence(), None);
-        assert_eq!(showing.agent_said(), Some("scrolled box#1 to 0, 40"));
+        assert_eq!(told(&showing), ["scrolled box#1 to 0, 40"]);
         let scene = showing.scene((30, 20), Scale::ONE);
-        assert_eq!(scene.agent_said, Some("scrolled box#1 to 0, 40"));
+        assert_eq!(scene.agent_lines, showing.agent_lines());
         assert!(!News::AgentSaid(String::new()).is_strip());
     }
 
@@ -284,6 +299,7 @@ mod tests {
             News::Strip(a_frame(2)),
             News::StripSaid("gone".to_owned()),
             News::AgentSaid("activated box#3".to_owned()),
+            News::AgentRefused("box#4 says it is disabled".to_owned()),
         ] {
             showing.hear(news);
             assert_eq!(showing.marked(), ring.as_slice());
@@ -294,7 +310,42 @@ mod tests {
         showing.hear(News::Marked(ring.clone()));
         showing.hear(News::Chosen(Some(a_frame(4))));
         assert!(showing.marked().is_empty());
-        assert_eq!(showing.agent_said(), Some("activated box#3"));
+        assert_eq!(
+            told(&showing),
+            ["activated box#3", "box#4 says it is disabled"]
+        );
         assert!(!News::Marked(ring).is_strip());
+    }
+
+    #[test]
+    fn a_refusal_is_kept_beside_what_an_agent_did_whatever_else_arrives() {
+        let mut showing = Showing::default();
+        showing.hear(News::Painted(a_frame(1)));
+        assert!(showing.hear(News::AgentSaid("activated box#3".to_owned())));
+        assert!(showing.hear(News::AgentRefused(
+            "nothing on the page is \"A pony\"".to_owned()
+        )));
+        assert!(showing.hear(News::AgentRefused("box#4 says it is disabled".to_owned())));
+        for news in [
+            News::Painted(a_frame(2)),
+            News::Said("gone".to_owned()),
+            News::Chosen(None),
+        ] {
+            showing.hear(news);
+            assert_eq!(
+                told(&showing),
+                [
+                    "activated box#3",
+                    "nothing on the page is \"A pony\"",
+                    "box#4 says it is disabled",
+                ]
+            );
+        }
+        let refused: Vec<bool> = showing.agent_lines().iter().map(|l| l.refused).collect();
+        assert_eq!(refused, [false, true, true]);
+        // A refusal touches nothing of the tab's.
+        assert_eq!(showing.frame(), None);
+        assert_eq!(showing.sentence(), None);
+        assert!(!News::AgentRefused(String::new()).is_strip());
     }
 }

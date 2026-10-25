@@ -38,7 +38,7 @@ use alo_window::serving::serve;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::mpsc::channel;
+use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
 const AT_MOST: Duration = Duration::from_secs(60);
@@ -74,8 +74,11 @@ fn renderer() -> Result<PathBuf, String> {
 }
 
 /// A conductor keeping agents to httpbin, with the frozen form in one tab
-/// and the redirected shop in another, each painted before anybody asks.
-fn browsing() -> Result<Conductor, String> {
+/// and the redirected shop in another, each painted before anybody asks —
+/// and what the window is sent, which must be held for as long as the
+/// window is meant to be open: a conductor whose window has stopped
+/// listening closes every tab (`Conductor::start`).
+fn browsing() -> Result<(Conductor, Receiver<News>), String> {
     let case = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases/web-a-form");
     let origin = std::fs::read_to_string(case.join("origin.txt")).map_err(|why| why.to_string())?;
     assert_eq!(origin.lines().next(), Some(FORM));
@@ -116,7 +119,7 @@ fn browsing() -> Result<Conductor, String> {
             }
         }
     }
-    Ok(conductor)
+    Ok((conductor, news))
 }
 
 /// A socket of this test's own, prepared as the browser prepares its own.
@@ -161,7 +164,9 @@ fn ask(socket: &Path, lines: &[String]) -> Result<Vec<String>, String> {
 /// One agent's session: `lines` sent, what it was answered, and what the
 /// conductor recorded once the window closed.
 fn session(name: &str, lines: &[String]) -> Result<(Vec<String>, Records), String> {
-    let conductor = browsing()?;
+    // The window listens until the session ends, as a real one would: an
+    // agent's refusal is sent to it (queue item 625).
+    let (conductor, _window) = browsing()?;
     let path = socket(name)?;
     let listening =
         Listening::at(&path, conductor.orders()).map_err(|why| format!("not listening: {why}"))?;

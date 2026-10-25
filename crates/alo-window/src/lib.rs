@@ -35,7 +35,9 @@
 //!   [`agent_sites`], and [`agent_record`] is what it records. The socket
 //!   is a Unix one, and Windows is undecided (ADR 0055 § 1). What a verb
 //!   that ran was answered with is shown to the person watching, in a line
-//!   of the window's own ([`message::News::AgentSaid`], item 623).
+//!   of the window's own ([`message::News::AgentSaid`], item 623), and so is
+//!   why one was refused ([`message::News::AgentRefused`], item 625), for as
+//!   long as [`agent_lines`] says.
 //! - [`chrome`] is the other renderer, the machine's own Chrome, started and
 //!   spoken to over a pipe (ADR 0058, item 619): [`chrome_wire`] finds where
 //!   each of its messages ends and [`chrome_protocol`] reads them, the one
@@ -72,6 +74,7 @@
 //! has measured, such as 1.25 — painted at the largest measured scale below
 //! it — and a link opening a tab (item 300).
 
+pub mod agent_lines;
 pub mod agent_record;
 pub mod agent_sites;
 #[cfg(unix)]

@@ -264,7 +264,9 @@ fn a_click_on_the_frozen_link_is_decided_as_the_persons_and_said() {
             | News::StripSaid(_)
             | News::Chosen(_)
             | News::Marked(_) => {}
-            News::AgentSaid(said) => panic!("a person's click was told as an agent's: {said}"),
+            News::AgentSaid(said) | News::AgentRefused(said) => {
+                panic!("a person's click was told as an agent's: {said}")
+            }
             News::Closed => panic!("the window closed"),
         }
     };
@@ -301,7 +303,9 @@ fn a_click_on_a_forms_button_is_said_as_a_form_sent_not_a_link() {
             | News::StripSaid(_)
             | News::Chosen(_)
             | News::Marked(_) => {}
-            News::AgentSaid(said) => panic!("a person's click was told as an agent's: {said}"),
+            News::AgentSaid(said) | News::AgentRefused(said) => {
+                panic!("a person's click was told as an agent's: {said}")
+            }
             News::Closed => panic!("the window closed"),
         }
     };

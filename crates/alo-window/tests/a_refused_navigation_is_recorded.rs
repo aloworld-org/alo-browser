@@ -108,7 +108,8 @@ fn said(news: &Receiver<News>) -> Result<String, String> {
             | News::StripSaid(_)
             | News::Chosen(_)
             | News::Marked(_)
-            | News::AgentSaid(_) => {}
+            | News::AgentSaid(_)
+            | News::AgentRefused(_) => {}
             News::Closed => return Err("the window closed".to_owned()),
         }
     }
