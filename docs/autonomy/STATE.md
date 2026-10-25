@@ -40527,3 +40527,97 @@ paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
 303 queue items are open (638 closed; counted as `- [ ] **` lines). The
 next unused queue number is **657** and the next ADR is **0064**. This is
 one iteration, not a finished queue or roadmap.
+
+
+## Iteration 397 — queue item 655: a service worker that stops and starts again, held again
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the two
+paths, the product path's *Built*/*Decided*/*Owed*, the stage 2 Chrome
+line), iteration 396's entry, `REMAINING.md`'s continuation order, the
+queue's product-path table and items 645–656; ADR 0060 in full (§ 2:
+every target of a tab is held before it can ask for anything);
+`alo-window`'s `chrome_hold.rs`, `chrome_tab.rs` and item 654's test and
+probe (`m654/probe2.mjs`). No `AGENTS.md` exists in the repository.
+655's feature contract is `docs/features.md`'s Chrome renderer line.
+
+**Why 655.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the gate, so 642 and 643 could not be built honestly. 655 is
+first among the product path's owed items in `ROADMAP.md`'s order, and it
+depends only on 654, which is done.
+
+**Measured.** Chrome 155.0.8059.86, headless, Node CDP probes over a pipe
+in this session's scratchpad (`m655/probe.mjs`, `probe2.mjs`; runs saved
+beside them). `ServiceWorker.stopWorker`, `stopAllWorkers` and a
+`Target.closeTarget` of the worker's own target each stop a held service
+worker alike: target and session kept, `Inspector.targetCrashed` told
+there, nothing answered until it starts again. The page's next request
+starts it in the same session (`Inspector.targetReloadedAfterCrash`, no
+attach), waiting until `Runtime.runIfWaitingForDebugger` there; it then
+answers every hold command within a millisecond, before it runs, and had
+kept `Fetch` and `Network`. An update of its script is a new target;
+`Target.crash` is unknown to its session; memory pressure and a crash of
+its process were not measured.
+
+**Built.**
+- `chrome_hold.rs`: `Holding` keeps each target's id and whether it
+  stopped (`stopped`, `is_stopped`, `hold_again`, `targets`); `heard`
+  passes over a stopped one. The measurement is in its module docs.
+- `chrome_tab.rs`: the two `Inspector` events through a held service
+  worker's session go to `stopped_or_started` — stopped: marked and no
+  longer heard; started: held again by `ask_to_hold` (the hold commands,
+  now shared with `attached`), every answer waited on, forgetting and
+  telling when a verb is heard and told to stop telling when none is, and
+  let go once answered. `ask_held` answers `false` for one that stopped
+  while asked. `Tab::stop_service_workers_for_tests` closes each held
+  service worker's target, named so that use outside a test looks wrong
+  (the precedent is `alo_box`'s `from_index_for_tests`). A doc comment
+  that had come apart from `is_a_frames` is back on it.
+- Tests: two unit tests in `chrome_hold.rs`; in real Chrome,
+  `a_service_worker_stopped_and_started_again_through_chrome.rs` (a click
+  hears the worker; stopped, a click is answered in under 5 s at a
+  patience of 15 s and hears nothing of it; the page's fetch starts it
+  again and its `/from-sw?again` is paused in its own target, let go and
+  received; the next click hears it again, every line said while it ran).
+  Five runs alone and three under 96 busy processes passed. Mutations on
+  the final code, restored from a copy and checked with `cmp`: the stop
+  not read — fails (the click waits out the patience); the start not held
+  — fails (`/from-sw?again` never received). Not caught, written in the
+  queue: the forget and stop-telling at a restart, and `ask_held`'s answer
+  for one that stops while asked.
+
+**Gate.** One run, detached and waited on by two bounded foreground loops
+in consecutive steps: **exit 0, "The gate is met." (10 of 10 steps)**,
+clippy silent, nextest **5,300 tests run, 5,300 passed** in 562.9 s, no
+`FAIL`, `LEAK` or `panicked`. Only this entry and the commit came after.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies; no reference changed. One file, one
+responsibility: what a held target is and whether it can be asked is
+`chrome_hold.rs`'s, which already kept that; what the tab does with what
+Chrome tells of is `chrome_tab.rs`'s. Bytes from outside: the two events
+are matched by method alone and their params never read. No `unsafe`, no
+stubs, no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 655 and its *Owed* drops
+it; the stage 2 Chrome line's `· Built:` gains it and `· Owed:` drops it.
+Not ticked — neither line is finished. The queue ticks 655 with a *Done*
+paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- What memory pressure or a crash of a service worker's process does to
+  a held one is not measured.
+- 647 and 656, the commit-before-request race, did not fail this run;
+  still not reproduced by hand.
+- 642 and 643 still wait on the screen in use (locked); 648 needs an ADR;
+  645, 646, 649, 650 and 653 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited.
+- No claim about speed is made.
+
+302 queue items are open (655 closed; counted as `- [ ] **` lines). The
+next unused queue number is **657** and the next ADR is **0064**. This is
+one iteration, not a finished queue or roadmap.

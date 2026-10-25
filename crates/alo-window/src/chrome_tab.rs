@@ -55,6 +55,12 @@
 //! is held from there. A target that cannot be held is [`Failed::Unheld`],
 //! and the tab is closed.
 //!
+//! A service worker can stop and start again in the target it had, with no
+//! new attach (queue item 655): stopped, a verb neither waits on it nor
+//! hears it, and started again it waits, as at its first start, until it is
+//! held again — asked everything it was asked then — and let go
+//! ([`crate::chrome_hold`] has what was measured).
+//!
 //! A frame's own target is asked, too, to tell of the frames made in it and
 //! of each document it commits, before it is let go: what each frame's
 //! document asks for is that document's in the record
@@ -629,8 +635,9 @@ impl<'c> Tab<'c> {
     /// own thread, and what each throws is told of then — unlike a
     /// dedicated worker's, which Chrome hands the page's thread first. A
     /// service worker that has stopped answers nothing until it starts
-    /// again; Chrome 155 did not stop one held by this tab, idle for forty
-    /// seconds, past the thirty after which it stops one nobody holds.
+    /// again, so it is neither told nor waited on (item 655); Chrome 155
+    /// did not stop one held by this tab, idle for forty seconds, past the
+    /// thirty after which it stops one nobody holds.
     ///
     /// # Errors
     ///
@@ -656,8 +663,9 @@ impl<'c> Tab<'c> {
 
     /// Send `command` to the target held as `session` and wait for its
     /// result: `true` once it is answered, or `false` when the target ended
-    /// before it was — a frame taken out of its page, or a worker that
-    /// closed — whether Chrome refused it for that or never answered.
+    /// or stopped before it was — a frame taken out of its page, a worker
+    /// that closed, a service worker stopped — whether Chrome refused it for
+    /// that or never answered.
     ///
     /// # Errors
     ///
@@ -668,7 +676,7 @@ impl<'c> Tab<'c> {
         let until = Instant::now() + self.chrome.patience();
         loop {
             let message = self.next(until)?;
-            let gone = self.holding.kind(session).is_none();
+            let gone = self.holding.kind(session).is_none() || self.holding.is_stopped(session);
             match message {
                 Some(Message::Reply { id, result, .. }) if id == asked => {
                     return match result {
@@ -811,6 +819,21 @@ impl<'c> Tab<'c> {
             } if method == "Target.attachedToTarget" && (session.is_none() || held.is_some()) => {
                 let attached = chrome_protocol::attached(&params).map_err(Failed::Malformed)?;
                 self.attached(attached, session.is_none())?;
+                Ok(None)
+            }
+            // A service worker held has stopped, or started again, in the
+            // target it had.
+            Message::Event {
+                method,
+                session: Some(session),
+                ..
+            } if held == Some(Kind::ServiceWorker)
+                && matches!(
+                    method.as_str(),
+                    "Inspector.targetCrashed" | "Inspector.targetReloadedAfterCrash"
+                ) =>
+            {
+                self.stopped_or_started(&method, &session)?;
                 Ok(None)
             }
             // A shared worker's end is told of to Chrome's own session.
@@ -981,6 +1004,22 @@ impl<'c> Tab<'c> {
         }
         if own {
             self.requested.push(requested);
+        }
+        Ok(())
+    }
+
+    /// The service worker held as `session` stopped, told of as `method`
+    /// `Inspector.targetCrashed` — it answers nothing until it starts again,
+    /// and is not heard — or started again, as any other `method`: waiting,
+    /// in the target it had, so it is held again and let go once it has
+    /// answered.
+    fn stopped_or_started(&mut self, method: &str, session: &str) -> Result<(), Failed> {
+        if method == "Inspector.targetCrashed" {
+            self.holding.stopped(session);
+            self.hearing.retain(|heard| heard != session);
+        } else {
+            let asked = self.ask_to_hold(session, Kind::ServiceWorker, true)?;
+            self.holding.hold_again(session, &asked);
         }
         Ok(())
     }
@@ -1170,7 +1209,24 @@ impl<'c> Tab<'c> {
                 declined: None,
             })));
         };
-        let held = Some(attached.session.as_str());
+        let asked = self.ask_to_hold(&attached.session, kind, false)?;
+        self.holding
+            .hold(&attached.session, &attached.target, kind, &asked);
+        Ok(())
+    }
+
+    /// Ask the target held as `session`, of kind `kind`, to hold what it
+    /// starts and pause what it asks for — `again`, when it is a service
+    /// worker that stopped and has started again — and answer the commands
+    /// it is to be let go after.
+    ///
+    /// Started again, a service worker answers all of it before it runs,
+    /// and had kept what it was asked at its first start (measured, Chrome
+    /// 155): it is asked again so that what holds it is what was asked of
+    /// it, not what Chrome happened to keep.
+    fn ask_to_hold(&mut self, session: &str, kind: Kind, again: bool) -> Result<Vec<u64>, Failed> {
+        let held = Some(session);
+        let answers = again || kind.answers_before_it_runs();
         let mut asked = Vec::new();
         if kind.pauses_its_own() {
             asked.push(self.chrome.send(held, &Command::PauseEveryRequest)?);
@@ -1195,24 +1251,51 @@ impl<'c> Tab<'c> {
         // worker and a shared worker each answer `Runtime.enable` before
         // they run (measured, Chrome 155). A service worker answers it only
         // once it runs, so it is not held for the answer, which nothing
-        // here waits for.
+        // here waits for. One started again forgets first what it said
+        // before it stopped, and while no verb is heard is told to stop
+        // telling, in case it stopped while one was.
         if self.heard.is_some() && kind.is_heard() {
+            if again {
+                asked.push(self.chrome.send(held, &Command::ForgetWhatWasSaid)?);
+            }
             let id = self.chrome.send(held, &Command::TellOfScript)?;
-            if kind.answers_before_it_runs() {
+            if answers {
                 asked.push(id);
             }
-            self.hearing.push(attached.session.clone());
+            self.hearing.retain(|heard| heard != session);
+            self.hearing.push(session.to_owned());
+        } else if again {
+            asked.push(self.chrome.send(held, &Command::StopTellingOfScript)?);
         }
         if self.is_from_the_network() {
             let id = self.chrome.send(held, &Command::TellOfSockets)?;
-            if kind.answers_before_it_runs() {
+            if answers {
                 asked.push(id);
             } else {
                 self.telling.insert(id, kind);
             }
         }
-        self.holding.hold(&attached.session, kind, &asked);
-        Ok(())
+        Ok(asked)
+    }
+
+    /// Stop every service worker the tab holds, by closing its target —
+    /// which, measured against Chrome 155, stops it and keeps the target,
+    /// as Chrome stopping it does — for a test of what a tab does with one
+    /// that stops and starts again (queue item 655), and answer how many.
+    /// Nothing but a test has a reason to stop a page's service worker, and
+    /// the name says so.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome cannot be asked or declines.
+    pub fn stop_service_workers_for_tests(&mut self) -> Result<usize, Failed> {
+        let targets = self.holding.targets(Kind::ServiceWorker);
+        for target in &targets {
+            self.ask_chrome(&Command::CloseTarget {
+                target: target.clone(),
+            })?;
+        }
+        Ok(targets.len())
     }
 
     /// A tab the page opened, held before it loads anything: every request
@@ -1235,8 +1318,6 @@ impl<'c> Tab<'c> {
     }
 }
 
-/// Whether a message through a session held as `held` is one a frame of the
-/// tab tells of: the tab's own, or a frame of it in a target of its own.
 /// Whether `address` is a page from the network, which is all
 /// [`Tab::open`] and [`Tab::open_for_agent`] open.
 fn on_the_network(address: &Url) -> Result<(), Unopened> {
@@ -1249,6 +1330,8 @@ fn on_the_network(address: &Url) -> Result<(), Unopened> {
     }
 }
 
+/// Whether a message through a session held as `held` is one a frame of the
+/// tab tells of: the tab's own, or a frame of it in a target of its own.
 fn is_a_frames(held: Option<Kind>) -> bool {
     matches!(held, Some(Kind::Page | Kind::Frame))
 }

@@ -43,6 +43,30 @@
 //! Left waiting, it never runs at all. Without Chrome's session holding new
 //! targets — a probe of item 634's — its `fetch` reached the server
 //! unpaused.
+//!
+//! # A service worker stops and starts again in the target it had
+//!
+//! Measured against Chrome 155 on 25 October (item 655), from a Node CDP
+//! probe holding a service worker as the tab does: one stopped — by
+//! `ServiceWorker.stopWorker`, `ServiceWorker.stopAllWorkers` or a
+//! `Target.closeTarget` of its own target, alike — keeps its target and its
+//! session, and Chrome tells of the stop there as `Inspector.targetCrashed`.
+//! Nothing sent to it is answered while it is stopped. When the page next
+//! needs it, it starts again in the same session, told of as
+//! `Inspector.targetReloadedAfterCrash`, with no new attach — and
+//! **waiting**, its script not run and the page's request through it
+//! waiting with it, until it is let go there. Started again, it answers
+//! what it is asked within a millisecond, before it runs, where at its
+//! first start it answers only once it runs; its requests were still
+//! paused and its sockets still told of, though nothing was asked of it
+//! again. An update of its script is not this: the new version is a new
+//! target, attached and held as any other, and the old one's ends.
+//!
+//! So a stopped one is [`Holding::stopped`] — a verb neither waits on it
+//! nor hears it — and one started again is held again
+//! ([`Holding::hold_again`]) and let go once it has answered. Held, an idle
+//! one was not stopped by Chrome in forty seconds (item 654); what memory
+//! or a crash of its process does is not measured.
 
 use crate::chrome_protocol::Declined;
 use core::fmt;
@@ -159,38 +183,97 @@ impl fmt::Display for Unheld {
 #[derive(Debug, Default)]
 pub struct Holding {
     /// Every target held, let go or not yet.
-    kinds: HashMap<String, Kind>,
+    kinds: HashMap<String, Held>,
     /// The commands still unanswered, by their ids, and the session each
     /// was sent through.
     awaiting: HashMap<u64, String>,
 }
 
+/// One target held.
+#[derive(Debug)]
+struct Held {
+    kind: Kind,
+    /// Its target, by Chrome's id.
+    target: String,
+    /// Whether it has stopped, and answers nothing until it starts again.
+    stopped: bool,
+}
+
 impl Holding {
-    /// `session`, a target of kind `kind`, asked by the commands `asked` to
-    /// hold what it starts and pause what it asks for.
-    pub fn hold(&mut self, session: &str, kind: Kind, asked: &[u64]) {
-        self.kinds.insert(session.to_owned(), kind);
+    /// `session`, the target `target` of kind `kind`, asked by the commands
+    /// `asked` to hold what it starts and pause what it asks for.
+    pub fn hold(&mut self, session: &str, target: &str, kind: Kind, asked: &[u64]) {
+        self.kinds.insert(
+            session.to_owned(),
+            Held {
+                kind,
+                target: target.to_owned(),
+                stopped: false,
+            },
+        );
+        self.wait_on(session, asked);
+    }
+
+    /// `session`, a target held here that started again, asked again by
+    /// `asked`: it runs, and is let go once they are answered. `false`,
+    /// and nothing remembered, for a session not held here.
+    pub fn hold_again(&mut self, session: &str, asked: &[u64]) -> bool {
+        let Some(held) = self.kinds.get_mut(session) else {
+            return false;
+        };
+        held.stopped = false;
+        self.wait_on(session, asked);
+        true
+    }
+
+    fn wait_on(&mut self, session: &str, asked: &[u64]) {
         for id in asked {
             self.awaiting.insert(*id, session.to_owned());
         }
     }
 
+    /// `session`, a target held here, has stopped: until it is held again,
+    /// it answers nothing, so nothing waits on it.
+    pub fn stopped(&mut self, session: &str) {
+        if let Some(held) = self.kinds.get_mut(session) {
+            held.stopped = true;
+        }
+    }
+
+    /// Whether `session` is a target held here that has stopped.
+    pub fn is_stopped(&self, session: &str) -> bool {
+        self.kinds.get(session).is_some_and(|held| held.stopped)
+    }
+
     /// What `session` is, if it is a target held here.
     pub fn kind(&self, session: &str) -> Option<Kind> {
-        self.kinds.get(session).copied()
+        self.kinds.get(session).map(|held| held.kind)
     }
 
     /// The session of every target held whose script is heard while a verb
-    /// runs ([`Kind::is_heard`]), in a fixed order.
+    /// runs ([`Kind::is_heard`]) and that has not stopped, in a fixed order.
     pub fn heard(&self) -> Vec<String> {
         let mut heard: Vec<String> = self
             .kinds
             .iter()
-            .filter(|(_, kind)| kind.is_heard())
+            .filter(|(_, held)| held.kind.is_heard() && !held.stopped)
             .map(|(session, _)| session.clone())
             .collect();
         heard.sort();
         heard
+    }
+
+    /// The target of every one held of kind `kind`, by Chrome's id, in a
+    /// fixed order.
+    pub fn targets(&self, kind: Kind) -> Vec<String> {
+        let mut targets: Vec<String> = self
+            .kinds
+            .values()
+            .filter(|held| held.kind == kind)
+            .map(|held| held.target.clone())
+            .collect();
+        targets.sort();
+        targets
     }
 
     /// Whether `id` is a command sent to hold a target.
@@ -216,7 +299,7 @@ impl Holding {
             let kind = self
                 .kinds
                 .get(&session)
-                .map_or("target", |kind| kind.chrome_word());
+                .map_or("target", |held| held.kind.chrome_word());
             return Err(Unheld {
                 kind: kind.to_owned(),
                 declined: Some(declined),
@@ -275,10 +358,10 @@ mod tests {
     #[test]
     fn every_target_held_is_heard_and_only_while_held() {
         let mut holding = Holding::default();
-        holding.hold("w", Kind::Worker, &[]);
-        holding.hold("sw", Kind::ServiceWorker, &[]);
-        holding.hold("f", Kind::Frame, &[1]);
-        holding.hold("shared", Kind::SharedWorker, &[]);
+        holding.hold("w", "W", Kind::Worker, &[]);
+        holding.hold("sw", "SW", Kind::ServiceWorker, &[]);
+        holding.hold("f", "F", Kind::Frame, &[1]);
+        holding.hold("shared", "S", Kind::SharedWorker, &[]);
         assert_eq!(holding.heard(), ["f", "shared", "sw", "w"]);
         holding.forget("f");
         holding.forget("sw");
@@ -288,8 +371,8 @@ mod tests {
     #[test]
     fn a_target_is_let_go_only_when_everything_it_was_asked_is_answered() {
         let mut holding = Holding::default();
-        holding.hold("frame", Kind::Frame, &[3, 4]);
-        holding.hold("worker", Kind::Worker, &[5]);
+        holding.hold("frame", "F", Kind::Frame, &[3, 4]);
+        holding.hold("worker", "W", Kind::Worker, &[5]);
         assert!(holding.awaits(3) && holding.awaits(5) && !holding.awaits(6));
         assert_eq!(holding.answered(3, Ok(())), Ok(None), "4 is still owed");
         assert_eq!(holding.answered(5, Ok(())), Ok(Some("worker".to_owned())));
@@ -303,7 +386,7 @@ mod tests {
     #[test]
     fn a_target_that_would_not_be_held_is_unheld_by_name() {
         let mut holding = Holding::default();
-        holding.hold("sw", Kind::ServiceWorker, &[7, 8]);
+        holding.hold("sw", "SW", Kind::ServiceWorker, &[7, 8]);
         let unheld = holding.answered(7, Err(declined()));
         assert_eq!(
             unheld,
@@ -323,9 +406,41 @@ mod tests {
     }
 
     #[test]
+    fn a_stopped_target_is_not_heard_until_it_is_held_again() {
+        let mut holding = Holding::default();
+        holding.hold("sw", "SW", Kind::ServiceWorker, &[]);
+        holding.hold("f", "F", Kind::Frame, &[]);
+        holding.stopped("sw");
+        assert!(holding.is_stopped("sw") && !holding.is_stopped("f"));
+        assert_eq!(holding.heard(), ["f"]);
+        assert_eq!(holding.kind("sw"), Some(Kind::ServiceWorker), "still held");
+        assert_eq!(holding.targets(Kind::ServiceWorker), ["SW"]);
+
+        assert!(holding.hold_again("sw", &[9, 10]));
+        assert!(!holding.is_stopped("sw"));
+        assert_eq!(holding.heard(), ["f", "sw"]);
+        assert_eq!(holding.answered(9, Ok(())), Ok(None), "10 is still owed");
+        assert_eq!(holding.answered(10, Ok(())), Ok(Some("sw".to_owned())));
+    }
+
+    #[test]
+    fn only_a_target_held_is_stopped_or_held_again() {
+        let mut holding = Holding::default();
+        holding.stopped("never");
+        assert!(!holding.is_stopped("never"));
+        assert!(!holding.hold_again("never", &[1]));
+        assert!(!holding.awaits(1));
+        holding.hold("sw", "SW", Kind::ServiceWorker, &[]);
+        holding.stopped("sw");
+        holding.forget("sw");
+        assert!(!holding.is_stopped("sw") && !holding.hold_again("sw", &[2]));
+        assert!(holding.targets(Kind::ServiceWorker).is_empty());
+    }
+
+    #[test]
     fn a_target_that_ended_owes_nothing() {
         let mut holding = Holding::default();
-        holding.hold("gone", Kind::Frame, &[1]);
+        holding.hold("gone", "G", Kind::Frame, &[1]);
         holding.forget("gone");
         assert!(!holding.awaits(1));
         assert_eq!(holding.answered(1, Ok(())), Ok(None));

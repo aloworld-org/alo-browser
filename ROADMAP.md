@@ -209,7 +209,11 @@ about this project (ADR 0058 § 6).
   recorded against the frame's document (651); and **a tab an agent asked
   to open, the agent's in the record** — its first page caused by the
   agent's action done in that tab, what the page asks for leading back to
-  that action and to no person, as ADR 0063 decides (638).
+  that action and to no person, as ADR 0063 decides (638); and **a service
+  worker that stops and starts again, held again** — stopped, never waited
+  on or heard by a verb, and started again in the target it had, asked
+  what it was asked at its first start and let go, so the page's request
+  through it goes on (655).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -222,8 +226,7 @@ about this project (ADR 0058 § 6).
   asks to open is — the agent's, an action done in that tab rather than in
   a document, so its first page is never written as the person's, and
   still one of ADR 0012's three causes (ADR 0063).
-- **Owed:** a service worker that stops and starts again, which waits on the
-  browser in the target it had and is never let go (655); Chrome's messages held by count, not by size, while
+- **Owed:** Chrome's messages held by count, not by size, while
   they wait to be read (653); a form Chrome refuses
   and draws no bubble for (646); how an agent chooses an option of a
   `<select>`, on either renderer (648, needs an ADR); the
@@ -790,7 +793,10 @@ unreachable without it.
       agent asked to open recorded as that agent's action done in the tab
       — both hops of its first page the action's, what the page asks for
       leading back to it and never to the person, an ask refused first
-      minting no action (item 638, `alo-net`'s `Place`, `chrome_record.rs`)
+      minting no action (item 638, `alo-net`'s `Place`, `chrome_record.rs`),
+      and a service worker that stops and starts again in the target it
+      had held again and let go, and never waited on by a verb while it is
+      stopped (item 655, `chrome_hold.rs`, `chrome_tab.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -802,9 +808,7 @@ unreachable without it.
       · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650); a service worker that stops
-      and starts again, which waits on the browser in the target it had
-      and is never let go (655);
+      the system's own encrypted DNS (650);
       Chrome's messages held by count rather than size while they wait to
       be read (653); a form Chrome refuses and draws
       no bubble for — an `invalid` a page cancels, a hidden required

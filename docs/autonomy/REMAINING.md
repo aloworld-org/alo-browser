@@ -3060,3 +3060,16 @@ chain ends there rather than at the person; the durable record and the
 grants' history keep the new place under new tags. The screen was locked,
 so 642 and 643 still wait on it. 303 queue items are open (638 closed).
 The next unused queue number is 657 and the next unused ADR 0064.
+
+Iteration 397 closed queue item 655, measured against Chrome 155: a held
+service worker stopped — by `ServiceWorker.stopWorker`, `stopAllWorkers`
+or a close of its own target — keeps its target and session, is told of
+there as `Inspector.targetCrashed`, answers nothing until it starts again
+in that target (`Inspector.targetReloadedAfterCrash`, no new attach) and
+then waits until it is let go, answering everything asked of it first.
+`chrome_hold.rs` marks one stopped, so a verb neither tells nor waits on
+it, and `chrome_tab.rs` holds one started again as at its first start and
+lets it go. An update of its script is a new target. Memory pressure and a
+crash of its process are not measured. The screen was locked, so 642 and
+643 still wait on it. 302 queue items are open (655 closed). The next
+unused queue number is 657 and the next unused ADR 0064.

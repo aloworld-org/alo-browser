@@ -17064,7 +17064,7 @@ What stage 2's exit gate actually measures: a person using it.
   with a test that a far side sending messages near the bound faster than
   they are taken is held to that bound.
 
-- [ ] **655. A service worker that stops and starts again is never let
+- [x] **655. A service worker that stops and starts again is never let
   go.** *Found building 654 (iteration 394); ADR 0060 § 2.* Measured
   against Chrome 155 from a Node CDP probe: a service worker the tab holds,
   stopped through `ServiceWorker.stopAllWorkers`, keeps its target and
@@ -17083,6 +17083,53 @@ What stage 2's exit gate actually measures: a person using it.
   verb meanwhile neither waits on it nor hears what it said before, with a
   test that stops one between two verbs — or this item closes saying what
   of that Chrome does not allow.
+  ***Done (iteration 397).*** Measured against Chrome 155.0.8059.86,
+  headless, from Node CDP probes over a pipe in the scratchpad
+  (`m655/probe.mjs`, `probe2.mjs`) holding every target as the tab does.
+  **What stops a held one:** `ServiceWorker.stopWorker`,
+  `ServiceWorker.stopAllWorkers` (once `ServiceWorker.enable` is sent) and
+  a `Target.closeTarget` of its own target each stop it alike: it keeps
+  its target and session, Chrome tells that session
+  `Inspector.targetCrashed`, and a command sent then is answered only once
+  it starts again. `Target.crash` is not a method a service worker's
+  session knows; an update of its script makes a new version in a **new**
+  target, attached and held as any other, and the old one's ends
+  (`Target.detachedFromTarget`) — already handled. Memory pressure and a
+  crash of its process were not measured. **Starting again:** the page's
+  next request through it starts it in the same session, told of as
+  `Inspector.targetReloadedAfterCrash` with no new attach, its script not
+  run and the page's request waiting until `Runtime.runIfWaitingForDebugger`
+  is sent there; it then answers `Fetch.enable`, `Target.setAutoAttach`,
+  `Network.enable` and `Runtime`'s forget, enable and disable within a
+  millisecond, **before it runs** — where at its first start it answers
+  only once it runs — and its requests were still paused and its
+  WebSocket still told of though nothing was asked again.
+  `chrome_hold.rs`: `Holding` keeps each target's id and whether it has
+  stopped — `stopped`, `is_stopped`, `hold_again`, `targets` — and `heard`
+  passes over a stopped one. `chrome_tab.rs`: `Inspector.targetCrashed`
+  through a held service worker's session marks it stopped and stops
+  hearing it; `ask_held` answers `false` for one that stopped while asked;
+  `Inspector.targetReloadedAfterCrash` asks it everything its first hold
+  asked (`ask_to_hold`, now shared with `attached`), waiting on every
+  answer, forgetting and telling if a verb is heard and told to stop
+  telling if none is, and lets it go once answered; and
+  `Tab::stop_service_workers_for_tests` closes each held service worker's
+  target, for the test. Asserted in
+  `a_service_worker_stopped_and_started_again_through_chrome.rs`, real
+  headless Chrome, at a patience of 15 s: a page at `127.0.0.1` whose
+  service worker takes it over, ticks every 50 ms and answers `/x` by
+  fetching `/from-sw`; a click hears it; stopped, a click is answered in
+  under 5 s and hears nothing of it; the page's fetch then starts it again
+  and its `/from-sw?again` is paused in its own target, let go and
+  received by the server; and the next click hears it again, every line
+  said while that click ran. Passed five runs alone and three under 96
+  busy processes. Mutations, restored from copies and checked with `cmp`:
+  the stop not read — fails (the click waits out Chrome's patience); the
+  start not read — fails (`/from-sw?again` never received). **Not
+  caught:** a worker started again not told to forget, or not told to
+  stop telling between verbs, since what it says then is dropped either
+  way; and `ask_held`'s answer for one that stops while asked, since the
+  stop is read before the verb asks it in the test.
 
 - [ ] **656. A frame's next document's fetch, pinned on the document
   before it.** *Found in iteration 394's first gate run; ADR 0012, item

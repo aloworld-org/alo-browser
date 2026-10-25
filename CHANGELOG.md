@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page shown in Chrome no longer hangs when its service worker is
+  stopped and started again.** Chrome can stop a page's service worker
+  and start it again later; when it did, the page's next request through
+  that worker waited for ever, and an agent's action in the meantime
+  waited on the stopped worker until Chrome gave up. Now an action goes on
+  without it while it is stopped, and when it starts again it is held to
+  the same rules as when it first started and then let run, so the page's
+  request goes through, still checked and recorded (queue item 655).
+
 - **A tab an agent opens is now written down as the agent's doing.** When
   a site is opened in Chrome at an agent's word, the record names the
   agent's action as what opened it, and everything the page then loads
