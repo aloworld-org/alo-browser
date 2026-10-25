@@ -80,10 +80,28 @@ impl BoxGeometry {
         )
     }
 
-    /// Whether the content is larger than the box that holds it.
-    pub fn overflows(self) -> bool {
-        let content = self.content_box().size;
-        self.scrollable.width > content.width || self.scrollable.height > content.height
+    /// Whether the box has something to scroll at the screen's `scale`: its
+    /// scrolling area ([`BoxGeometry::scrolling_area`], CSSOM's `scrollWidth`
+    /// and `scrollHeight`) is larger than its padding box (`clientWidth` and
+    /// `clientHeight`) by **half a device pixel** or more (queue item 645,
+    /// measured against Chrome 155).
+    ///
+    /// Not asked of [`BoxGeometry::scrollable`] against the content box: the
+    /// first is measured from the padding box's corner, so a button whose
+    /// text fills its content box exactly was said to overflow by the padding
+    /// its text starts after — where Chrome measures that button's
+    /// `scrollHeight` and `clientHeight` as 17 and 17.
+    ///
+    /// Chrome scrolls a box whose content passes its content box by 0.5 CSS
+    /// pixels and not by 0.45 at a scale of one, and by 0.25 but not 0.24 at
+    /// two, wherever the box is on the page and with or without padding,
+    /// across and down alike — its end padding added to what it scrolls to,
+    /// as `taffy` adds it to [`BoxGeometry::reach`] for a block's children.
+    pub fn overflows(self, scale: f32) -> bool {
+        let room = self.padding_box().size;
+        let area = self.scrolling_area();
+        let half = 0.5 / alo_value::device_scale(scale);
+        area.width - room.width >= half || area.height - room.height >= half
     }
 }
 
@@ -102,6 +120,7 @@ pub struct LayoutTree {
     ellipses: Ellipses,
     issues: Vec<StyleIssue>,
     viewport: Size,
+    scale: f32,
 }
 
 impl LayoutTree {
@@ -123,6 +142,20 @@ impl LayoutTree {
     /// The window this layout was done for.
     pub fn viewport(&self) -> Size {
         self.viewport
+    }
+
+    /// Device pixels per CSS pixel on the screen this layout was done for
+    /// (ADR 0057): 1 for a layout done for no screen.
+    pub fn scale(&self) -> f32 {
+        alo_value::device_scale(self.scale)
+    }
+
+    /// Whether a box's content reaches far enough past it for Chrome to have
+    /// something to scroll, at this layout's scale; see
+    /// [`BoxGeometry::overflows`]. False for a box that was not laid out.
+    pub fn overflows(&self, id: BoxId) -> bool {
+        self.get(id)
+            .is_some_and(|geometry| geometry.overflows(self.scale()))
     }
 
     /// How many boxes were laid out.
@@ -224,7 +257,12 @@ impl LayoutTree {
             ellipses: Ellipses::default(),
             issues,
             viewport,
+            scale: 1.0,
         }
+    }
+
+    pub(crate) fn with_scale(self, scale: f32) -> Self {
+        Self { scale, ..self }
     }
 
     pub(crate) fn with_spaces(self, spaces: BTreeMap<BoxId, Vec<Fragment>>) -> Self {
@@ -342,14 +380,94 @@ mod tests {
 
     #[test]
     fn a_box_says_whether_its_content_spills_out_of_it() {
+        // Content reaching 88 × 48 of a padding box of 96 × 56.
         let fits = geometry();
-        assert!(!fits.overflows(), "80×40 of content in 80×40 of room");
+        assert!(!fits.overflows(1.0), "80×40 of content in 80×40 of room");
 
         let spills = BoxGeometry {
-            scrollable: Size::new(200.0, 40.0),
+            reach: Size::new(200.0, 48.0),
             ..geometry()
         };
-        assert!(spills.overflows());
+        assert!(spills.overflows(1.0));
+        let spills_down = BoxGeometry {
+            reach: Size::new(88.0, 60.0),
+            ..geometry()
+        };
+        assert!(spills_down.overflows(1.0));
+    }
+
+    #[test]
+    fn the_start_padding_is_not_content_that_spills() {
+        // Queue item 645: a button's text filling its content box, reached
+        // from the padding box's corner, 6 across and 1 down. What the content
+        // reaches is larger than the content box, and still nothing spills:
+        // it is inside the padding box, 45.578125 × 17.
+        let button = BoxGeometry {
+            border_box: Rect::new(0.0, 38.0, 49.578_125, 21.0),
+            border: Edges::all(2.0),
+            padding: Edges {
+                top: 1.0,
+                right: 6.0,
+                bottom: 1.0,
+                left: 6.0,
+            },
+            margin: Edges::all(0.0),
+            scrollable: Size::new(39.578_125, 16.0),
+            reach: Size::new(39.578_125, 16.0),
+            band: None,
+        };
+        assert!(button.reach.width > button.content_box().size.width);
+        assert!(!button.overflows(1.0));
+        assert!(!button.overflows(2.0));
+    }
+
+    #[test]
+    fn content_spills_once_it_passes_the_edge_by_half_a_device_pixel() {
+        // Measured against Chrome 155: 0.5 past the content box scrolls at a
+        // scale of one and 0.45 does not; at two, 0.25 and not 0.24. Past it
+        // and the end padding after it, which is what is scrolled to.
+        let past = |across: f32, down: f32| BoxGeometry {
+            reach: Size::new(96.0 + across, 56.0 + down),
+            ..geometry()
+        };
+        assert!(past(0.5, 0.0).overflows(1.0));
+        assert!(past(0.0, 0.5).overflows(1.0));
+        assert!(!past(0.45, 0.45).overflows(1.0));
+        assert!(past(0.25, 0.0).overflows(2.0));
+        assert!(past(0.0, 0.25).overflows(2.0));
+        assert!(!past(0.24, 0.24).overflows(2.0));
+        // A scale no screen has is read as one.
+        assert!(!past(0.45, 0.0).overflows(0.0));
+        assert!(past(0.5, 0.0).overflows(f32::NAN));
+    }
+
+    #[test]
+    fn a_layout_tree_answers_for_a_box_at_its_own_scale() {
+        let id = BoxId::from_index_for_tests(0);
+        let mut geometry = BTreeMap::new();
+        geometry.insert(
+            id,
+            BoxGeometry {
+                reach: Size::new(96.3, 48.0),
+                ..self::geometry()
+            },
+        );
+        let at = |scale| {
+            LayoutTree::from_parts(
+                geometry.clone(),
+                BTreeMap::new(),
+                Vec::new(),
+                Size::default(),
+            )
+            .with_scale(scale)
+        };
+        assert!(!at(1.0).overflows(id), "0.3 past is under half a pixel");
+        assert!(
+            at(2.0).overflows(id),
+            "and over half of a device pixel at 2"
+        );
+        assert!(!at(2.0).overflows(BoxId::from_index_for_tests(1)));
+        assert!((LayoutTree::default().scale() - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]

@@ -110,6 +110,7 @@ pub fn compute(
     LayoutTree::from_parts(laid_out.geometry, laid_out.fragments, issues, viewport)
         .with_spaces(laid_out.spaces)
         .with_ellipses(laid_out.ellipses)
+        .with_scale(styles.scale())
 }
 
 /// One formatting context, laid out on its own.

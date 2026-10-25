@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A plain button no longer says it scrolls.** On this engine's page an
+  agent asking to scroll `<button>Send</button>` was told it had scrolled
+  it, because the button's padding was counted as content spilling out.
+  A box now has something to scroll only when its content reaches past
+  its padding box by half a device pixel, which is where Chrome starts
+  scrolling one; the button is refused `DoesNotScroll`, as a heading is
+  (item 645). A box that spills but is not a scroll container is item 661.
+
 - **An ambiguous refusal reads as English.** When an agent names something
   that matches more than one thing on the page, the sentence it is given —
   and the line a person reads in the window — now says `ask for box#7 or

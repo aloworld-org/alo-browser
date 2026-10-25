@@ -3182,3 +3182,11 @@ its candidates as `box#3 or box#4`, as every other sentence names a node,
 rather than as `[BoxId(3), BoxId(4)]`. The screen was locked, so 642, 643
 and 658 still wait on it. 297 queue items are open (626 closed). The next
 unused queue number is 661 and the next unused ADR 0065.
+
+Iteration 407 closed queue item 645: a box has something to scroll only
+when its scrolling area passes its padding box by half a device pixel, as
+Chrome 155 measures, so a plain button is refused `DoesNotScroll`; cut from
+it, 661, a spilling box that is not a scroll container. The screen was
+locked, so 642, 643 and 658 still wait on it. 297 queue items are open (645
+closed, 661 opened). The next unused queue number is 662 and the next
+unused ADR 0065.

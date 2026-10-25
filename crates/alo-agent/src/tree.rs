@@ -704,12 +704,13 @@ impl<'a> AgentNode<'a> {
     ///
     /// Asked of the layout rather than of the style: a box with
     /// `overflow: auto` and nothing spilling out of it does not scroll, and an
-    /// agent told otherwise would ask for a scroll that does nothing.
+    /// agent told otherwise would ask for a scroll that does nothing. Its
+    /// content spills when Chrome would have something to scroll, by half a
+    /// device pixel past the padding box ([`alo_layout::LayoutTree::overflows`],
+    /// queue item 645). Whether the box is a scroll container at all is not
+    /// asked yet (queue item 661).
     pub fn scrolls(&self) -> bool {
-        self.tree
-            .layout
-            .get(self.id)
-            .is_some_and(alo_layout::BoxGeometry::overflows)
+        self.tree.layout.overflows(self.id)
     }
 
     fn node(&self) -> Option<&'a BoxNode> {

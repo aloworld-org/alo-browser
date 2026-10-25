@@ -16805,7 +16805,7 @@ What stage 2's exit gate actually measures: a person using it.
   with a failure injected after the stop, nothing was left, twice. Each
   test now takes ten seconds more than it did.
 
-- [ ] **645. A button says it has something to scroll.** Found building
+- [x] **645. A button says it has something to scroll.** Found building
   625 (iteration 386): on this engine's page,
   `<button>Send</button>` in a body with no styles of its own is answered
   `scrolled box#8 by 40px` when an agent asks to scroll it, where a
@@ -16821,6 +16821,48 @@ What stage 2's exit gate actually measures: a person using it.
   a layout assertion in numbers, or the scroll verb's rule is changed to
   what Chrome would scroll, with a test that `scroll` on a plain button
   is refused.
+  ***Done (iteration 407), the geometry's rule, measured.*** Against
+  Chrome 155.0.8059.86, headless: the same button's `scrollHeight` and
+  `clientHeight` are 17 and 17, `scrollWidth` and `clientWidth` 43 and 43,
+  and setting its `scrollTop` leaves it 0. Here its text filled its content
+  box exactly (33.578125 × 15); `overflows` compared what the content
+  reaches, measured from the padding box's corner and so 6 wider and 1
+  taller, with the content box's size, and said it spilled. Now
+  `BoxGeometry::overflows(scale)` compares the scrolling area
+  (`scrollWidth`/`scrollHeight`, ADR 0038 § 4) with the padding box
+  (`clientWidth`/`clientHeight`), and a box has something to scroll once
+  the first passes the second by **half a device pixel**: Chrome scrolls
+  an `overflow: auto` box whose content passes its content box by 0.5 and
+  not 0.45 at a scale of one, 0.25 and not 0.24 at two, at any position,
+  with or without padding, across and down alike — its end padding added,
+  as `taffy` adds it to a block's reach. The layout tree keeps the scale
+  it was laid out at (`LayoutTree::scale`, `LayoutTree::overflows`), and
+  the agent tree asks it. `alo-agent`'s `a_button_has_nothing_to_scroll.rs`:
+  queue item 625's page, the button refused `DoesNotScroll` beside the
+  heading, its padding, content box and reach in numbers; a list of 20
+  holding 20.5 scrolls (scrolling area 34.5 in a padding box of 34) and one
+  holding 20.45 (20.4375 on the grid) does not; 20.3 scrolls at two and
+  not at one, 20.2 not at two. Mutations — the old rule, no threshold, the
+  scale not kept — each fail it. Cut: what Chrome does with a box that is
+  not a scroll container, item 661.
+
+- [ ] **661. A box that spills but is not a scroll container says it
+  scrolls.** *Cut from 645 (iteration 407).* Measured against Chrome 155:
+  a `div` of 10 pixels with `overflow: visible` holding 126 pixels of text
+  has `scrollHeight` 126 and `clientHeight` 10, and setting its
+  `scrollTop` to 40 leaves it 0; a `<button style="height:8px">` has 16
+  and 4, and is not scrolled either. Chrome scrolls only a scroll
+  container — `overflow` `hidden`, `scroll` or `auto` on the axis — and
+  the viewport. `AgentNode::scrolls` asks only the geometry
+  (`LayoutTree::overflows`), which holds no box's `overflow`, so on this
+  engine's page such a box is answered `Scrolled` (ADR 0002: a false
+  record). *Depends on nothing. Closes when:* the layout tree says which
+  boxes are scroll containers on which axis, `scroll` is refused
+  `DoesNotScroll` for a spilling box that is not one — a test beside
+  item 645's, with Chrome's numbers above — and a box that is a scroll
+  container on one axis only (`overflow-x: hidden`, `overflow-y:
+  visible`, which CSS computes as `auto` down) is measured against Chrome
+  and answered as it scrolls.
 
 - [x] **646. A form Chrome refuses and draws no bubble for.** *Cut from
   631 (iteration 387); ADR 0051 § 6 and its amendment of 25 October.*

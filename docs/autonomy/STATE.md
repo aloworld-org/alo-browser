@@ -41528,3 +41528,90 @@ paragraph; `features.md`, `REMAINING.md` and the changelog say the same.
 297 queue items are open (626 closed; counted as `- [ ] **` lines). The
 next unused queue number is **661** and the next ADR is **0065**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 407 — queue item 645: a button says it has something to scroll
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the
+agent's gate's *Built*/*Owed*), iteration 406's entry, the queue's product
+path and item 645; ADR 0002 (an agent holds no false record) and ADR 0038
+§ 4 (the scrolling area as `scrollWidth`/`scrollHeight`), ADR 0057 (the
+screen's scale); `docs/features.md`'s agent-socket line; `alo-layout`'s
+`tree.rs` and `engine.rs`, `alo-agent`'s `tree.rs` and `verb.rs`. No
+`AGENTS.md` exists in the repository. 645 names no ADR of its own; the
+feature contract is the agent-socket line's promise of refusals by name.
+
+**Why 645.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642, 643 and 658 could not be measured, and 477
+needs a second Mac. 645 is the first open item in the queue's order that
+depends on nothing and needs no screen — headless Chrome measures it.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop, probe pages in the scratchpad. Item 625's page: the button's
+`scrollHeight`/`clientHeight` 17/17, `scrollWidth`/`clientWidth` 43/43,
+`scrollTop` stays 0 when set. An `overflow: auto` box of 20 holding 20 +
+x: scrolled for x ≥ 0.5, not for 0.45, at `top` 0, 0.3, 0.5 and 0.7, with
+padding 0 and 7 (the end padding added to `scrollHeight`); across, the
+same at 0.45/0.5. With `--force-device-scale-factor=2`: scrolled (by 0.5)
+for x ≥ 0.25, not 0.24. Also: a `div` with `overflow: visible`, 126 of
+content in 10, and a button of `height: 8px` (16 in 4) are not scrolled —
+cut to item 661.
+
+**Built.** The engine said the button spilled because `overflows`
+compared `scrollable` — measured from the padding box's corner, so the
+start padding included (39.578125 × 16) — with the content box's size
+(33.578125 × 15). `BoxGeometry::overflows(scale)` now compares the
+scrolling area with the padding box and answers true once either passes
+by half a device pixel; `LayoutTree` keeps the scale it was laid out at
+(`scale()`, from the styles; 1 when none) and answers
+`LayoutTree::overflows(id)`, which `AgentNode::scrolls` asks. `taffy`'s
+reach already counts end padding for a block holding blocks or text
+(checked: 34.5 for 7 + 20.5 + 7), so the scrolling area here and Chrome's
+`scrollHeight` agree on what is compared.
+
+**Tests.** `alo-layout`'s `tree.rs`: the button's own geometry does not
+overflow at 1 or 2; 0.5/0.45 at 1 and 0.25/0.24 at 2 across and down; a
+scale no screen has read as 1; the tree answering at its own scale.
+`alo-agent`'s `a_button_has_nothing_to_scroll.rs`: the button and the
+heading refused `DoesNotScroll`, the button's padding, content box and
+reach in numbers; a list holding 20.5 scrolled (area 34.5, room 34) and
+20.45 (20.4375 on the grid) refused; 20.3 scrolled at 2 and refused at 1,
+20.2 refused at 2. Mutations, restored from copies and checked with `cmp`:
+the old rule (2 integration and 4 unit tests fail), no threshold (1 and
+2 fail), the engine not keeping the scale (the scale-2 test fails).
+
+**Gate.** `cargo clippy -p alo-layout -p alo-agent --all-targets` clean
+and both packages' tests green first. Then `scripts/gate.sh` in the
+foreground — it ran past the tool's 600 s, so it was waited on by an
+until-loop in the next call and read there: **exit 0, "The gate is met."
+(10 of 10 steps)**, nextest **5,363 tests run, 5,363 passed** in 571.5 s,
+no `FAIL`, `LEAK` or `panicked`. Only this paragraph came after.
+
+**Manual.** A layout assertion in numbers is in the new test (padding,
+content box, reach, scrolling area). Nothing is drawn differently: only
+the agent's `scrolls` answer and the `scrolls` field of the socket's
+tree change, so no reference render applies and none moved. One file, one
+responsibility: the overflow rule stays the geometry's (`tree.rs`), the
+scale is the tree's. No bytes from outside read anew. No `unsafe`, no
+stubs, no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. Nothing pushed.
+
+**Roadmap.** The agent's gate's `· Built:` gains 645, and its `· Owed:`
+names 661. Not ticked — the line waits on a person. The queue ticks 645
+with a *Done* paragraph and opens 661; `features.md`, `REMAINING.md` and
+the changelog say the same.
+
+**Unresolved obligations.**
+- 661: a spilling box that is not a scroll container still answers
+  `Scrolled` on this engine's page.
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 649 and 650 are open.
+- Inherited and unchanged: off macOS the toggling click holds Ctrl,
+  unmeasured; an author's `option { display: block }` is undecided; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; item 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+297 queue items are open (645 closed, 661 opened). The next unused queue
+number is **662** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.
