@@ -131,7 +131,7 @@ impl ComputedStyle {
         self.authored.iter()
     }
 
-    fn set(&mut self, name: &PropertyName, value: String) {
+    pub(crate) fn set(&mut self, name: &PropertyName, value: String) {
         self.properties.insert(name.clone(), value);
     }
 
@@ -378,6 +378,7 @@ pub fn resolve_admitting(
             attached.as_slice(),
         );
         let mut style = compute_one(&applicable, &parent, &mut tree.issues);
+        crate::text_area::scroll_whatever_the_author_says(document.element(id), &mut style);
         settle_font(&mut style, &parent, root_metrics, device, faces);
         record_computed_font(&mut style);
         style.current_color = resolve_color(&style, &parent);

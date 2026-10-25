@@ -41812,3 +41812,116 @@ coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
 298 queue items are open (662 closed, 664 opened). The next unused queue
 number is **665** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 410 — queue item 663: a `<textarea>` keeps its lines and scrolls to them
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the agent's
+gate's *Built*/*Owed*), `REMAINING.md`'s continuation order, iteration 409's
+entry, the queue's product path and items 642, 643, 663, 664, 649, 650, 521
+and 523; ADR 0002 (an agent holds no false record), ADR 0033 § 4 (a property
+names the crates that read it), ADR 0038 § 4 (the scrolling area);
+`docs/features.md`'s form-control and agent-socket lines;
+`docs/contracts/agent-socket.md`; `alo-style`'s `user_agent.rs` and
+`computed.rs`, `alo-box`'s `tree.rs`, `alo-layout`'s `scroll_container.rs`,
+`baseline.rs`, `ellipsis.rs`, `style.rs` and `engine.rs`, `alo-paint`'s
+`build.rs`. No `AGENTS.md` exists in the repository. 663 names no ADR of its
+own; the feature contracts are the agent-socket line and stage 1's forms.
+
+**Why 663.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start and
+before the commit, so 642 (the owner's next choice), 643 and 658 could not be
+measured, and 477 needs a second Mac. 663 is the first open item after them in
+the queue's order that depends on nothing built and needs no screen. Its list
+box half needs a list box drawn at all, which nothing here does, so it is cut
+(665) rather than built shallow.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill loop,
+probe pages in the scratchpad. A `<textarea>` computes `white-space:
+pre-wrap`, `overflow: auto` on both axes, `overflow-wrap: break-word` and
+`resize: both`. An author's `overflow: visible`, `overflow-y: visible`, and
+`visible` on one made a block compute `auto` and are scrolled by 40; `hidden`
+and `scroll` are scrolled; `clip` is not; `overflow-x: clip` computes `hidden
+auto` and is scrolled down. `rows=2` holding six lines: `scrollHeight` 94 in
+`clientHeight` 34; `cols=4` holding 24 `a`s and `bb`: 79 high, 53 across in
+53. Beside a label, the textarea stands on its bottom margin edge (the label's
+bottom 4 below the box's) empty, holding "Ring twice", under `hidden` and
+holding six lines; under `clip` on its first line (label top 1 below the
+box's). The box's own width and height also change with `overflow` (165
+across under `hidden`, 50 high under `scroll`) — item 523's, not measured
+further.
+
+**Built.** The engine's sheet gives `textarea` `white-space: pre-wrap` and
+`overflow: auto`. `alo-style`'s new `text_area.rs` makes an axis of a
+`<textarea>`'s computed `overflow` that is `visible` (written, or left
+initial) `auto`, on the longhand, right after the element's values are
+computed; `ComputedStyle::set` is `pub(crate)` for it, and `alo-css` lists
+`alo-style` as a reader of `overflow`, `overflow-x` and `overflow-y` (ADR
+0033 § 4). Nothing else changed: the scroll-container rule, clipping and the
+baseline rule already did the right thing once the computed style was
+Chrome's. `overflow-wrap` is not in the sheet, since nothing reads it (666).
+
+**What it corrected.** `web-a-form` filled by the agent stood its textarea on
+its first line, so the label "Delivery instructions:" rose 31 px (baseline
+552.1875) once "Ring twice" was written; it now stays at 583.1875, the
+textarea's bottom edge, as empty, which is Chrome's measured placement.
+`web-a-form/filled.png` is rewritten for that (3,756 pixels, all in that
+line — checked by cropping both). Four cases' `display.txt` gain only the
+textarea's `clip`/`unclip` pair; no `render.png` moved (backed up first, and
+`git status` showed none).
+
+**Tests.** `text_area.rs` (four); `alo-agent`'s
+`a_button_has_nothing_to_scroll.rs` (two: the textarea of two rows and six
+lines scrolled, scrolling area 94 — Chrome's 94 — in a padding box of 44,
+nothing across; a short one refused with its area its padding box; scrolled
+under six author styles and refused under `clip`); `alo-paint`'s
+`clipping.rs` (a third line cut off under the sheet's `auto`, `visible`,
+`hidden` and `clip`, the first drawn); `alo-corpus`'s
+`a_textarea_written_in_stands_where_it_stood_empty` (label and button
+baselines in numbers, empty and filled). Mutations, restored from copies and
+checked with `cmp`: the sheet's `overflow` and the rule together (4 tests in
+three files fail), the rule alone (3, one per file), `pre-wrap` alone (2).
+
+**Gate.** `cargo clippy --workspace --all-targets --all-features` clean; the
+touched crates' tests green (`what_it_reads_is_listed` failed first, for the
+property list above, and passed once it named `alo-style`). Then
+`scripts/gate.sh` in the foreground — it ran past the tool's 600 s, was
+waited on by an until-loop in the next call and read there: **exit 0, "The
+gate is met." (10 of 10 steps)**, nextest **5,395 tests run, 5,395 passed**
+in 575.2 s, no `FAIL`, `LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the textarea's scrolling area 94
+and padding box 44; the label's baseline 583.1875 and the button's 618.1875,
+empty and filled. Reference render: `filled.png`, rewritten and reviewed
+against Chrome's measured placement; the clip in four `display.txt`s. One
+file, one responsibility: what a `<textarea>` does to its own computed
+`overflow` is `text_area.rs`'s; the sheet says the rest. No bytes from outside
+read anew. No `unsafe`, no stubs, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The agent's gate's `· Built:` gains 663 (the textarea); its `·
+Owed:` replaces 663 with 665. Not ticked — the line waits on a person. The
+queue ticks 663 with a *Done* paragraph naming the cut and opens 665, 666 and
+667; `features.md`, `conformance.md`, `REMAINING.md` and the changelog say the
+same.
+
+**Unresolved obligations.**
+- 665: a list box draws no options and is refused where Chrome scrolls.
+- 666: a long word does not break in a `<textarea>` (`overflow-wrap`).
+- 667: an inline block of `overflow: clip` stands on its bottom edge where
+  Chrome stands a `<textarea>` of `clip` on its first line.
+- 523: the textarea's size is `20ch` by `3em`, not Chrome's `cols` and
+  `rows`, and Chrome's size also moves with `overflow` (unmeasured further).
+- 664: `text-overflow` on a box whose `overflow` the viewport takes.
+- CSS's computed `overflow` (`visible` to `auto` beside a scrolling axis)
+  is still not applied to what `taffy` is given (iteration 408's note).
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 649 and 650 are open.
+- Inherited and unchanged: off macOS the toggling click holds Ctrl,
+  unmeasured; an author's `option { display: block }` is undecided; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; item 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (663 closed, 665, 666 and 667 opened). The next
+unused queue number is **668** and the next ADR is **0065**. This is one
+iteration, not a finished queue or roadmap.

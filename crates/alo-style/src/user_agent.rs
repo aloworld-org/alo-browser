@@ -202,11 +202,19 @@ input[type="month"], input[type="week"] {
  * 510); a `<select>` draws its pixel, as yet (queue item 521). */
 input { border: 2px inset #767676 }
 select { border: 1px solid #767676 }
+/* A `<textarea>` keeps the lines it is given and cuts off at its edge what
+ * passes it, where it can be scrolled to: Chrome 155's computed `white-space:
+ * pre-wrap` and `overflow: auto`, measured (queue item 663). An author's
+ * `overflow: visible` computes `auto` all the same (`crate::text_area`).
+ * Chrome's `overflow-wrap: break-word` is not here, because nothing in this
+ * engine reads it yet (queue item 666). */
 textarea {
   width: 20ch;
   height: 3em;
   padding: 2px;
   border: 1px solid #767676;
+  white-space: pre-wrap;
+  overflow: auto;
 }
 /* What is written on a button sits in the middle of it, across and down —
    and that is *not* here, because it cannot be. A rule that centred a

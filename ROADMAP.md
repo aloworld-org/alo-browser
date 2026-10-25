@@ -2445,10 +2445,13 @@ disappeared behind the larger.
       so a box that spills under `overflow: visible` is refused too (queue
       item 661). The root answers for the viewport, from the page's
       scrolling area against the window, and a body whose `overflow` the
-      viewport takes neither scrolls nor clips (queue item 662).
-      · Owed: a `<textarea>` and a list box that hold what passes their
-      edge (663), `text-overflow` on a box whose `overflow` the viewport
-      takes (664); loading where a verb leads, which is
+      viewport takes neither scrolls nor clips (queue item 662). A
+      `<textarea>` keeps its lines and is a scroll container, as Chrome
+      155 computes it, so one holding more than it shows is scrolled (queue
+      item 663).
+      · Owed: a list box that shows its options and scrolls to the rest
+      (665), `text-overflow` on a box whose `overflow` the viewport takes
+      (664); loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that
       adds a box (500); and Windows, which ADR 0055 leaves undecided.
 - [ ] **The person's gate.** A person uses it as their browser for a week and

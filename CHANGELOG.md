@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A `<textarea>` keeps its lines, and scrolls to the ones it cannot
+  show.** Lines written into a `<textarea>` were run together into one,
+  and nothing past its edge was cut off or could be scrolled to, so an
+  agent asking to scroll one holding six lines in a box of two was told
+  there was nothing to scroll. It now keeps each line and cuts off what
+  passes its edge, as Chrome 155 does — even when the page says
+  `overflow: visible`, which Chrome computes as `auto` — and an agent's
+  scroll is answered. Written in, it stands beside its label where it
+  stood empty, on its bottom edge, as Chrome stands it; it used to jump so
+  the label rose 31 pixels (item 663). A list box's options are item 665.
+
 - **A long page says it scrolls, and a body gives the window its
   `overflow`.** On this engine's page an agent asking to scroll the
   page's root was refused whenever the root was as tall as what it held,

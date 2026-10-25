@@ -16,6 +16,10 @@
 //! (queue item 661): Chrome 155 leaves `scrollTop` at 0 for a box of
 //! `overflow: visible` or `clip` however far its content reaches, and scrolls
 //! one whose `overflow` is `hidden`, `scroll` or `auto` on either axis.
+//!
+//! A `<textarea>` is one of those (queue item 663): Chrome 155's sheet makes
+//! it `overflow: auto` and keeps its lines, and scrolls one of two rows
+//! holding six lines by 40.
 
 use alo_agent::{AgentTree, Outcome, Refusal, ScrollBy, Target, Verb, perform};
 use alo_box::build as build_boxes;
@@ -278,5 +282,78 @@ fn a_field_of_text_scrolls_along_its_line_and_a_date_field_does_not() {
     assert!(
         matches!(answer, Err(Refusal::DoesNotScroll { .. })),
         "{answer:?}"
+    );
+}
+
+/// A `<textarea>` of two rows holding six lines, under `style`.
+fn a_text_area(style: &str) -> String {
+    format!(
+        "<!doctype html><body style=margin:0>\
+         <textarea id=t rows=2 style='{style}'>1\n2\n3\n4\n5\n6</textarea>"
+    )
+}
+
+#[test]
+fn a_text_area_holds_its_lines_past_its_edge_and_scrolls_to_them() {
+    // Chrome 155 (queue item 663): six lines of 15 in a `<textarea rows=2>`
+    // make a scrolling area of 94, its padding of 2 above and below
+    // included, and `scrollTop` 40 scrolls it by 40.
+    let (answer, area) = scroll(&a_text_area(""), "t").expect("a box");
+    assert!(matches!(answer, Ok(Outcome::Scrolled { .. })), "{answer:?}");
+    assert!(
+        (area.scrolling_area().height - 94.0).abs() < 1e-4,
+        "{area:?}"
+    );
+    // Its own height is the sheet's `3em`, 40, and 44 with its padding:
+    // Chrome's is two rows, 34 with its padding (queue item 523).
+    assert!(
+        (area.padding_box().size.height - 44.0).abs() < 1e-4,
+        "{area:?}"
+    );
+    assert!(
+        (area.scrolling_area().width - area.padding_box().size.width).abs() < 1e-4,
+        "nothing passes it across: {area:?}"
+    );
+    // Two lines are held inside it, and there is nothing to scroll.
+    let short = "<!doctype html><body style=margin:0><textarea id=t>1\n2</textarea>";
+    let (answer, area) = scroll(short, "t").expect("a box");
+    assert!(
+        matches!(answer, Err(Refusal::DoesNotScroll { .. })),
+        "{answer:?}"
+    );
+    // Its scrolling area is its padding box, as Chrome's `scrollHeight` is
+    // its `clientHeight` (34 and 34 in Chrome's smaller box).
+    assert!(
+        (area.scrolling_area().height - area.padding_box().size.height).abs() < 1e-4,
+        "{area:?}"
+    );
+}
+
+#[test]
+fn a_text_area_scrolls_whatever_its_author_says_but_clip() {
+    // Chrome 155 computes a `<textarea>`'s `overflow: visible` as `auto`
+    // and scrolls it; it scrolls `hidden` and `scroll`, and not `clip`.
+    for style in [
+        "overflow:visible",
+        "overflow-y:visible",
+        "overflow:hidden",
+        "overflow:scroll",
+        "overflow-x:clip",
+        "overflow:visible;display:block",
+    ] {
+        let (answer, _) = scroll(&a_text_area(style), "t").expect("a box");
+        assert!(
+            matches!(answer, Ok(Outcome::Scrolled { .. })),
+            "{style}: {answer:?}"
+        );
+    }
+    let (answer, area) = scroll(&a_text_area("overflow:clip"), "t").expect("a box");
+    assert!(
+        matches!(answer, Err(Refusal::DoesNotScroll { .. })),
+        "{answer:?}"
+    );
+    assert!(
+        area.overflows(1.0),
+        "it spills and is not scrolled: {area:?}"
     );
 }

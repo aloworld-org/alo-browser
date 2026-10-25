@@ -102,10 +102,15 @@ third of a pixel short of Chrome's, whose calendar indicator sets a floor
 (515), and its width is `20ch` where Chrome's is what it draws (517). A
 `<textarea>` draws a field's picture in its one solid pixel, as Chrome's
 does (510): its sides are Chrome's screenshot's exactly in `web-a-form`
-and `a-text-area`. Its box is still `20ch` by `3em`, where Chrome's is
+and `a-text-area`. It keeps its lines (`pre-wrap`) and clips what passes
+its padding box (`overflow: auto`, an author's `visible` included), as
+Chrome 155 computes it (663), so `web-a-form` filled stands its label on
+the textarea's bottom edge, at the baseline it has empty, as Chrome does;
+a long word in it does not break yet (666). Its box is still `20ch` by `3em`, where Chrome's is
 `cols` and `rows` (523), so `web-a-form`'s is 10 px taller than
 Chrome's, and Chrome's resize grip is not drawn (522). A `<select>` is
-still a square solid pixel with no chevron (521), and a field whose page
+still a square solid pixel with no chevron (521), and a list box draws
+none of its options (665), and a field whose page
 writes only a border shows the page through where Chrome's is white
 (525). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
 length, a percentage and a `calc()` are each truncated toward zero onto it,
@@ -137,7 +142,8 @@ baseline of its **last line** — a button on its label's, a text field on its
 value's, an inline-block on its last line of text — and an `<input>` with
 nothing typed in it on the line it would hold, its strut's baseline, so it
 stands where it will once typed into (item 384; an empty button and
-`<textarea>` do not) — and on its bottom margin edge when it has no line or its `overflow` is not `visible`, which is where an
+`<textarea>` do not, and a `<textarea>` written in does not either, being a
+scroll container, item 663) — and on its bottom margin edge when it has no line or its `overflow` is not `visible`, which is where an
 image and an SVG stand. A **checkbox and a radio** stand on their bottom
 *border* edge, as Chrome 154 stands them, below the user-agent sheet's 3
 pixels of margin (item 443). Chrome ignores an author's padding and border

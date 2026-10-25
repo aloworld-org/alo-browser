@@ -16958,7 +16958,7 @@ What stage 2's exit gate actually measures: a person using it.
   exception, the root asked of its own box — each fail a test. Cut:
   `text-overflow` on such a box, item 664.
 
-- [ ] **663. A `<textarea>` and a list box hold what passes their edge.**
+- [x] **663. A `<textarea>` and a list box hold what passes their edge.**
   *Cut from 661 (iteration 408).* Measured against Chrome 155: a
   `<textarea rows=2>` of six lines (`overflow: auto`, 94 in 34) and a
   `<select size=2>` of five options (`overflow-y: scroll`, 85 in 34) are
@@ -16968,6 +16968,86 @@ What stage 2's exit gate actually measures: a person using it.
   list box's size is item 521's). Closes when:* each is laid out holding
   what it holds, is a scroll container as Chrome's user-agent sheet makes
   it, and is answered `Scrolled` with its scrolling area in numbers.
+  ***Done (iteration 410) for the `<textarea>`; the list box is cut to
+  item 665.*** Measured against Chrome 155.0.8059.86, headless: a
+  `<textarea>` computes `white-space: pre-wrap`, `overflow: auto` on both
+  axes and `overflow-wrap: break-word`; an author's `overflow: visible`,
+  `overflow-y: visible` alone, and `visible` on a `<textarea>` made a block
+  all compute `auto` and are scrolled by 40; `hidden` and `scroll` are
+  scrolled, `clip` is not, and `overflow-x: clip` computes `hidden auto`
+  and is scrolled down. Beside a label, Chrome stands a `<textarea>`
+  holding "Ring twice" exactly where it stands an empty one — on its bottom
+  margin edge, the label's bottom 4 px below the box — under `auto` and
+  `hidden`; only under `clip` on its first line. Here the textarea's text
+  was collapsed onto one line and nothing made it a scroll container, so
+  its six lines reached 42 in a padding box of 44 and it was refused; and
+  once filled, it stood on its first line, so the pizza form's label rose
+  31 px (a baseline of 552.1875 rather than 583.1875) when an agent wrote
+  in it, and the line under it was shorter. Built: the
+  engine's sheet gives `textarea` `white-space: pre-wrap` and `overflow:
+  auto`, and `alo-style`'s new `text_area.rs` computes an axis of a
+  `<textarea>`'s `overflow` that is `visible` as `auto`, on the longhand.
+  So it keeps its lines, is a scroll container, clips at its padding box
+  and stands on its bottom margin edge as Chrome's does. Tests:
+  `text_area.rs`'s own (the sheet's `auto`; `visible`, `initial`, `unset`,
+  one axis and a block made `auto`; `hidden`, `scroll`, `clip` and
+  `overflow-x: clip` kept; a `div` and an `<input>` untouched);
+  `alo-agent`'s `a_button_has_nothing_to_scroll.rs`, the textarea of two
+  rows and six lines scrolled with its scrolling area 94 (Chrome's 94) in
+  a padding box of 44, a short one refused with its area its padding box,
+  and scrolled under six author styles and refused under `clip`;
+  `alo-paint`'s `clipping.rs`, a third line of a full block cut off under
+  the sheet's `auto`, an author's `visible`, `hidden` and `clip`; and
+  `alo-corpus`'s `a_textarea_written_in_stands_where_it_stood_empty`, the
+  pizza form's label drawn at a baseline of 583.1875 — the textarea's
+  bottom edge — empty and filled, and its button's at 618.1875.
+  `web-a-form/filled.png` is rewritten for that; four cases' `display.txt`
+  gain only the textarea's clip, and no `render.png` moved. Mutations —
+  the sheet's `overflow` taken out, `pre-wrap` taken out, the rule in
+  `text_area.rs` taken out — each fail a test. The textarea's own size
+  stays the sheet's `3em` (Chrome's is its `rows`, item 523). Cut:
+  the list box, item 665; a long word broken inside a `<textarea>`, item
+  666; an inline block of `overflow: clip` standing on its first line,
+  item 667.
+
+- [ ] **665. A list box shows its options and scrolls to the rest.** *Cut
+  from 663 (iteration 410).* Measured against Chrome 155: a `<select
+  size=2>` of five options computes `overflow-y: scroll` and is scrolled
+  by 40, its `scrollHeight` 85 in a `clientHeight` of 34. Here an
+  `<option>` is `display: none`, so a list box draws none of its options
+  and is 2 tall — its padding — and is refused `DoesNotScroll`. *Depends
+  on 521 (a `<select>`'s own picture) for how an option is drawn.
+  Feature: `docs/features.md` stage 1, forms. Needs measuring:* an
+  option's height, padding and font in a list box, at one and two, and a
+  `multiple` list's. *Closes when:* a list box of `size` 2 holding five
+  options is laid out holding them, two rows tall, is a scroll container
+  as Chrome's sheet makes it, and is answered `Scrolled` with its
+  scrolling area in numbers, with a reference render of it drawn.
+
+- [ ] **666. A long word breaks inside a `<textarea>`.** *Cut from 663
+  (iteration 410).* Chrome 155 computes `overflow-wrap: break-word` for a
+  `<textarea>`, so a word longer than its line breaks onto the next:
+  `<textarea cols=4 rows=2>` holding 24 `a`s and `bb` has a
+  `scrollHeight` of 79 and a `scrollWidth` equal to its `clientWidth`,
+  53. Nothing in this engine reads `overflow-wrap`, so such a word runs
+  past the textarea's edge, is cut off there, and is scrolled across.
+  *Depends on nothing. Feature: `docs/features.md` stage 1, text.*
+  *Closes when:* `overflow-wrap: break-word` (and `anywhere`, measured
+  separately) breaks a word that does not fit its line, the engine's
+  sheet gives it to a `<textarea>`, and that textarea's lines are
+  Chrome's in numbers.
+
+- [ ] **667. An inline block of `overflow: clip` stands on its first
+  line.** *Found building 663 (iteration 410).* Chrome 155 stands a
+  `<textarea style="overflow: clip">` holding "Ring twice" beside a label
+  on its first line (the label's top 1 px below the box's), where under
+  `auto` or `hidden` it stands on its bottom margin edge. `clip` makes no
+  scroll container, and `alo-layout`'s `baseline.rs` refuses every
+  `overflow` but `visible`, so here it stands on its bottom edge.
+  Measured only on a `<textarea>`. *Depends on nothing.* *Closes when:*
+  an `inline-block` `div` and a `<textarea>` under `overflow: clip` (and
+  `overflow-x: clip` beside `visible`) are measured in Chrome and stand
+  where Chrome stands them, in numbers.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of

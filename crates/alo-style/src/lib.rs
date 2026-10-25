@@ -63,6 +63,7 @@ pub mod origin;
 pub mod presentation;
 pub mod pseudo;
 pub mod size_origin;
+pub mod text_area;
 pub mod user_agent;
 pub mod variables;
 pub mod weight;

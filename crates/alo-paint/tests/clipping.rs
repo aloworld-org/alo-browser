@@ -30,6 +30,8 @@ fn fonts() -> FontDatabase {
         database.add(font);
     }
     database.map_generic("system-ui", "DejaVu Sans");
+    // A `<textarea>`'s font.
+    database.map_generic("monospace", "DejaVu Sans");
     database
 }
 
@@ -201,4 +203,40 @@ fn a_box_whose_overflow_the_viewport_takes_clips_nothing() {
     let (_, canvas) = draw(tall, sheet, 120.0, 60.0);
     let below = canvas.at(10, 40).expect("past the body");
     assert!(below.red > 0.8, "clipped away: {below}");
+}
+
+#[test]
+fn a_textarea_cuts_its_lines_off_at_its_edge_whatever_its_author_says() {
+    // Chrome 155 computes a `<textarea>`'s `overflow` as `auto`, even under
+    // an author's `visible`, and draws none of a line past its padding box
+    // (queue item 663). Four lines of a full block, 15 each, in a box of 20:
+    // the first is drawn, the third would stand at 30 to 45.
+    let area = "<!DOCTYPE html><html><body><textarea>\u{2588}\n\u{2588}\n\u{2588}\n\u{2588}\
+                </textarea></body></html>";
+    let sheet = |overflow: &str| {
+        format!(
+            "body {{ margin: 0 }} textarea {{ margin: 0; border: 0; padding: 0; \
+             width: 100px; height: 20px; font-size: 15px; line-height: 15px; \
+             color: #000000; {overflow} }}"
+        )
+    };
+    for overflow in ["", "overflow: visible", "overflow: hidden"] {
+        let (list, canvas) = draw(area, &sheet(overflow), 120.0, 60.0);
+        assert!(
+            list.to_outline().contains("clip"),
+            "{overflow}:\n{}",
+            list.to_outline()
+        );
+        let first = canvas.at(3, 7).expect("inside the first line");
+        assert!(
+            first.red < 0.2,
+            "{overflow}: the first line is drawn, {first}"
+        );
+        let third = canvas.at(3, 37).expect("inside the third line");
+        assert!(third.red > 0.8, "{overflow}: cut off, {third}");
+    }
+    // `clip` cuts it off too, and nothing scrolls to it.
+    let (_, canvas) = draw(area, &sheet("overflow: clip"), 120.0, 60.0);
+    let third = canvas.at(3, 37).expect("inside the third line");
+    assert!(third.red > 0.8, "clip: cut off, {third}");
 }

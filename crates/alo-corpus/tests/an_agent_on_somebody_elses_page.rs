@@ -414,3 +414,48 @@ fn the_first_web_page_is_followed_by_the_words_of_its_links() {
         "{any_link:?}"
     );
 }
+
+#[test]
+fn a_textarea_written_in_stands_where_it_stood_empty() {
+    // Chrome 155 stands a `<textarea>` beside its label on its bottom edge
+    // whether it is empty or holds "Ring twice": it is a scroll container
+    // (`overflow: auto`), and a scroll container's baseline is its bottom
+    // margin edge (queue item 663, measured with a label 4 px below the box
+    // in both). Here it stood on its first line once filled, so the label
+    // rose 31 px, to a baseline of 552.1875, when an agent wrote in it.
+    let baseline = |form: &mut Renderer| {
+        let drawn = form
+            .rendered()
+            .map(|drawing| drawing.display.to_outline())
+            .unwrap_or_default();
+        let label = drawn
+            .lines()
+            .find(|line| line.contains("\"Delivery instructions:\""))
+            .map(str::to_owned);
+        let button = drawn
+            .lines()
+            .find(|line| line.contains("\"Submit order\""))
+            .map(str::to_owned);
+        (label, button)
+    };
+    let empty = baseline(&mut loaded("web-a-form"));
+    let written = baseline(&mut filled());
+    // The textarea's border box is (183.67188, 537.1875) 166.5×46, with no
+    // margin, so its bottom margin edge is at 583.1875.
+    let label = "\"Delivery instructions:\" rgb(0 0 0) 16px at (8, 583.1875)";
+    let button = "\"Submit order\" rgb(0 0 0) 13.333333px at (16, 618.1875)";
+    for (label_drawn, button_drawn) in [&empty, &written] {
+        assert!(
+            label_drawn
+                .as_deref()
+                .is_some_and(|line| line.ends_with(label)),
+            "{label_drawn:?}"
+        );
+        assert!(
+            button_drawn
+                .as_deref()
+                .is_some_and(|line| line.ends_with(button)),
+            "{button_drawn:?}"
+        );
+    }
+}

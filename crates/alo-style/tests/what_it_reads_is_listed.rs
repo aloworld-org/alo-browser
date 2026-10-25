@@ -26,8 +26,9 @@ const NOT_STYLE: &[(&str, &str)] = &[];
 const IN_FILE: &[(&str, &[&str])] = &[("computed.rs", &["parse"])];
 
 /// Names that reach a reader through a variable, as written in the source:
-/// a `{side}` in one stands for all four sides.
-const INDIRECT: &[&str] = &[];
+/// a `{side}` in one stands for all four sides. A `<textarea>`'s axes are
+/// read in a loop (`text_area.rs`).
+const INDIRECT: &[&str] = &["overflow-x", "overflow-y"];
 
 /// Names read only to say they are not applied, as written in the source: a
 /// marker with a picture is not drawn (ADR 0044, item 405).

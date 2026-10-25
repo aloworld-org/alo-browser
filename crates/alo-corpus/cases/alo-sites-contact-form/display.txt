@@ -12,6 +12,8 @@ fill box#36 rgb(221 227 233) at (353, 176) 427×48
 text box#42 "Message" rgb(23 33 43) 17px at (352.79688, 260.125)
 fill box#43 rgb(255 255 255) at (353, 272) 427×128
 fill box#43 rgb(221 227 233) at (353, 272) 427×128
+clip box#43 to (354, 273) 425×126
+unclip
 fill box#48 rgb(29 78 216) at (353, 426) 88×48
 fill box#48 rgb(29 78 216) at (353, 426) 88×48
 text box#49 "Send" rgb(255 255 255) 17px at (372.98438, 455.09375)

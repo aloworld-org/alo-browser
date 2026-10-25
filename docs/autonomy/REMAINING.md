@@ -3210,3 +3210,14 @@ a corpus case that is Chrome's in every pixel; cut from it, 664
 (`text-overflow` on such a box). The screen was locked, so 642, 643 and 658
 still wait on it. 298 queue items are open (662 closed, 664 opened). The
 next unused queue number is 665 and the next unused ADR 0065.
+
+Iteration 410 closed queue item 663 for the `<textarea>`: it keeps its lines
+(`white-space: pre-wrap`) and is a scroll container (`overflow: auto`, an
+author's `visible` computed `auto`), as Chrome 155 computes it, so one of two
+rows holding six lines is scrolled with a scrolling area of 94, its lines past
+its edge are clipped, and written in it stands beside its label where it stood
+empty. Cut from it: 665 (a list box's options), 666 (`overflow-wrap` in a
+`<textarea>`) and 667 (an inline block of `overflow: clip` on its first line).
+The screen was locked, so 642, 643 and 658 still wait on it. 300 queue items
+are open (663 closed, 665, 666 and 667 opened). The next unused queue number
+is 668 and the next unused ADR 0065.
