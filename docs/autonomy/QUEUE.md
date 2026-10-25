@@ -16814,6 +16814,14 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on nothing. Closes when:* the failure is reproduced on purpose,
   the cause it produces is read rather than guessed, and the fix carries a
   test that fails without it.
+  **Read, 2026-10-25 (iteration 394's second gate run):** it failed at
+  line 453 with `the second sheet is not its page's: GET
+  http://localhost:…/next.css (style), caused by action#0, in document#0
+  — let go`. So the new page's sheet was written as the agent's action
+  **in the old page's document**: the hypothesis above, read from a
+  failure rather than argued. Its sibling on a frame's target is 656,
+  which failed in the same iteration's first gate run. Still not
+  reproduced by hand.
 
 - [ ] **648. How an agent chooses an option.** *Cut from 632 (iteration
   388); ADR 0002, ADR 0042 § 4's rule for a date as the precedent.* No
@@ -16964,7 +16972,7 @@ What stage 2's exit gate actually measures: a person using it.
   barrier is argued from Chrome's answering order, measured for the page in
   639, not asserted for a frame. Shared and service workers are cut to 654.
 
-- [ ] **654. What a shared or service worker says while a verb runs,
+- [x] **654. What a shared or service worker says while a verb runs,
   through Chrome.** *Cut from 652 (iteration 393); ADR 0055.* Neither is
   heard: a shared worker's script is every connected page's, not the
   tab's, and is held on Chrome's own session (item 637); a service
@@ -16975,6 +16983,43 @@ What stage 2's exit gate actually measures: a person using it.
   its console and throwing while a verb on the page runs, is measured
   through its own session, and is either heard, with a test, or this item
   closes saying why its lines are not one verb's.
+  ***Done (iteration 394), heard.*** Measured against Chrome
+  155.0.8059.86, headless, from Node CDP probes over a pipe in the
+  scratchpad (`m654/probe.mjs`, `probe2.mjs`) holding every target as the
+  tab does: a shared worker (attached through Chrome's own session) and a
+  service worker (through the tab's) each answer
+  `Runtime.discardConsoleEntries`, `Runtime.enable` and `Runtime.disable`
+  in their own sessions within a millisecond while they run; with
+  forgetting, a one-second hold of the page's thread heard 15 lines and 5
+  throws from each, every one said inside it; without, each told again of
+  20 lines and 6 throws said before. **Unlike a dedicated worker's, what
+  each throws is told of while the page's thread is held.** The tab's own
+  session hears neither. Held, a shared worker started in the held task
+  answers `Runtime.enable` once the page's thread is free, before it runs;
+  a service worker answers only once it runs, as with `Network.enable`.
+  **Why their lines are the verb's:** a shared worker's script is every
+  page's that connects to it and a service worker's every page's it
+  controls, and in this browser those are all one tab's — a `Tab` borrows
+  its Chrome whole and closes any tab its page opens before it loads — so
+  they are the page's script as a dedicated worker's is.
+  `chrome_hold.rs`: `Kind::is_heard` is every kind held. `chrome_tab.rs`:
+  one started while a verb is heard is told to tell as it is held, and a
+  service worker is let go without waiting on that answer. Asserted in
+  `what_a_shared_and_a_service_worker_said_through_chrome.rs`, real
+  headless Chrome: a page at `127.0.0.1` starts a shared worker and a
+  service worker that takes it over, each saying when every 50 ms and
+  throwing every fourth; two one-second clicks each hear both workers'
+  console lines and throws, every moment between the verb's start and its
+  answer, and the first hears a second service worker it registers start.
+  Passed four runs. Mutations, restored from copies and checked with
+  `cmp`: the old `is_heard` — fails (nothing heard); the service worker
+  held for its answer — fails (the verb waits 30 s on it); no forgetting
+  in the targets — fails (a line from before the verb). **Found, cut to
+  655:** a service worker stopped (`ServiceWorker.stopAllWorkers`) keeps
+  its target, answers nothing until it starts again, and starts again
+  waiting on the browser in that same target, with no new attach — so it
+  is never let go. Chrome did not stop one held by the tab, idle forty
+  seconds, on its own.
 
 - [ ] **653. Chrome's messages are held by count, not by size.** *Found
   building 639 (iteration 391).* `chrome.rs` holds at most 256 messages
@@ -16985,6 +17030,48 @@ What stage 2's exit gate actually measures: a person using it.
   when:* what is held waiting is bounded in bytes as well as in messages,
   with a test that a far side sending messages near the bound faster than
   they are taken is held to that bound.
+
+- [ ] **655. A service worker that stops and starts again is never let
+  go.** *Found building 654 (iteration 394); ADR 0060 § 2.* Measured
+  against Chrome 155 from a Node CDP probe: a service worker the tab holds,
+  stopped through `ServiceWorker.stopAllWorkers`, keeps its target and
+  session, answers nothing sent to it while stopped, and when a request of
+  the page starts it again it waits on the browser (`starting`) in that
+  same target — no `Target.attachedToTarget` is told of, so `chrome_tab.rs`
+  never asks it to pause or lets it go. The page's request through it then
+  waits for ever, and a verb that asks a stopped one to tell of its script
+  (item 654) waits until Chrome's patience runs out. Chrome did not stop a
+  held, idle one on its own in forty seconds, past the thirty after which
+  it stops one nobody holds; what else stops one — memory, a crash, an
+  update of its script — is not measured. *Depends on 654. Closes when:*
+  what stops a held service worker is measured, and one that stops and
+  starts again is paused and let go as at its first start (from
+  `ServiceWorker.workerVersionUpdated` or what Chrome tells of instead), a
+  verb meanwhile neither waits on it nor hears what it said before, with a
+  test that stops one between two verbs — or this item closes saying what
+  of that Chrome does not allow.
+
+- [ ] **656. A frame's next document's fetch, pinned on the document
+  before it.** *Found in iteration 394's first gate run; ADR 0012, item
+  636.* `every_request_of_a_page_in_chrome_recorded.rs`'
+  `a_frames_fetch_is_its_own_documents_and_that_document_the_pages` failed
+  once at line 562, `assert_ne!(next, other)`, with both
+  `DocumentId(2)`: the other-site frame's second page's `fetch` of
+  `/from-other2` was written as caused by the frame's **first** document.
+  So the request was paused and judged before this process had read the
+  frame's `Page.frameNavigated` for the new document — the shape of item
+  647's hypothesis, on a frame's own target rather than the tab's, and
+  with no verb running. Not reproduced: the test passed 20 runs alone and
+  30 under 96 busy processes. The change of iteration 394 cannot reach it
+  — what it touched runs only while a verb is heard, and the test runs
+  none. *What would settle it:* the same as 647's — the request's own
+  loader from Chrome (`Network.requestWillBeSent`'s `loaderId`, or a
+  paused request's frame checked against the commit it waits behind)
+  rather than this process's idea of the frame's current document.
+  *Depends on 636. Closes when:* the failure is reproduced on purpose, the
+  order Chrome told things in is read rather than guessed, and the fix
+  carries a test that fails without it — or it closes with 647 if one
+  fix is the other's.
 
 ## K. ★ The agent, on somebody else's pages
 

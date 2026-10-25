@@ -3025,3 +3025,19 @@ worker the page starts in that task. Cut: 654 (shared and service
 workers). The screen was locked, so 642 and 643 still wait on it. 303
 queue items are open (652 closed, 654 opened). The next unused queue
 number is 655 and the next unused ADR 0063.
+
+Iteration 394 closed queue item 654, measured against Chrome 155: a
+shared worker (through Chrome's own session) and a service worker
+(through the tab's) each answer `Runtime`'s forget, enable and disable in
+their own sessions, tell again of what they said before unless they
+forget first, and go on — throwing, told of — while a verb holds the
+page's thread. Both are now heard (`chrome_hold.rs`), since every page
+either serves is the one tab's; a service worker started mid-verb is let
+go without waiting for its answer (`chrome_tab.rs`). Found and cut: 655,
+a service worker that stops and starts again waits in its old target and
+is never let go; and 656, a frame's next document's fetch pinned on the
+document before it, from a gate run that failed in a test this change
+cannot reach (647 read from its own gate failure the same day). The
+screen was locked, so 642 and 643 still wait on it. 304 queue items are
+open (654 closed, 655 and 656 opened). The next unused queue number is
+657 and the next unused ADR 0063.

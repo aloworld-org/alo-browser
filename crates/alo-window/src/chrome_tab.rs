@@ -597,11 +597,19 @@ impl<'c> Tab<'c> {
     ///
     /// The page's script is more than its own document's: a frame from
     /// another site and a dedicated worker each say what they say through a
-    /// target of their own (item 652), and each is told to forget and then
-    /// to tell, as the tab's own session is. Measured against Chrome 155:
-    /// each answers, and each told to tell without forgetting first tells
-    /// again of everything it said since it started. One started while the
-    /// verb runs is told to tell as it is held ([`Tab::attached`]).
+    /// target of their own (item 652), and so do a shared worker and a
+    /// service worker (item 654), and each is told to forget and then to
+    /// tell, as the tab's own session is. Measured against Chrome 155: each
+    /// answers, and each told to tell without forgetting first tells again
+    /// of everything it said since it started. One started while the verb
+    /// runs is told to tell as it is held ([`Tab::attached`]).
+    ///
+    /// A shared or service worker goes on while the verb holds the page's
+    /// own thread, and what each throws is told of then — unlike a
+    /// dedicated worker's, which Chrome hands the page's thread first. A
+    /// service worker that has stopped answers nothing until it starts
+    /// again; Chrome 155 did not stop one held by this tab, idle for forty
+    /// seconds, past the thirty after which it stops one nobody holds.
     ///
     /// # Errors
     ///
@@ -836,7 +844,7 @@ impl<'c> Tab<'c> {
     /// verb is — or a message too long to read that was.
     ///
     /// What script says is heard from the tab's own session and from each
-    /// frame's and dedicated worker's told to tell of it while a verb runs;
+    /// frame's and worker's told to tell of it while a verb runs;
     /// a `Runtime` event skipped for its length, whose session is not known,
     /// is the page's.
     fn heard_in(&mut self, message: &Message) -> bool {
@@ -1162,11 +1170,16 @@ impl<'c> Tab<'c> {
         // the answer: asked before it is let go, it still tells of a
         // socket its script opens first thing (measured, Chrome 155).
         // Started while a verb is heard, it is told to tell of what its
-        // script says before it says anything: held, a frame and a
-        // dedicated worker each answer `Runtime.enable` before they run
-        // (measured, Chrome 155).
+        // script says before it says anything: held, a frame, a dedicated
+        // worker and a shared worker each answer `Runtime.enable` before
+        // they run (measured, Chrome 155). A service worker answers it only
+        // once it runs, so it is not held for the answer, which nothing
+        // here waits for.
         if self.heard.is_some() && kind.is_heard() {
-            asked.push(self.chrome.send(held, &Command::TellOfScript)?);
+            let id = self.chrome.send(held, &Command::TellOfScript)?;
+            if kind.answers_before_it_runs() {
+                asked.push(id);
+            }
             self.hearing.push(attached.session.clone());
         }
         if self.is_from_the_network() {

@@ -45,11 +45,12 @@
 //! - **An error is said by the first line of Chrome's description**, which
 //!   is its name and message as they were when it was made; the engine
 //!   reads them when it is thrown.
-//! - **A frame from another site and a dedicated worker are the page's
-//!   script too** (queue item 652): each is heard from a target of its
-//!   own, its lines placed by its own script's address and said as the
-//!   page's are. The engine runs no such frame or worker that a verb
-//!   reaches, so there is nothing of the engine's to match them to yet.
+//! - **A frame from another site and every worker are the page's script
+//!   too** — a dedicated worker (queue item 652), a shared worker and a
+//!   service worker (item 654): each is heard from a target of its own,
+//!   its lines placed by its own script's address and said as the page's
+//!   are. The engine runs no such frame or worker that a verb reaches, so
+//!   there is nothing of the engine's to match them to yet.
 //! - A line is about the verb, not the task: Chrome says nothing of which
 //!   task said it, so a timer the page set earlier that fires while the
 //!   verb runs is the verb's too. The engine's lines are what every task it

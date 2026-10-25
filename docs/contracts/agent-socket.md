@@ -60,7 +60,8 @@ a call to the page's console, which this engine does not have, is said as
 longer than one from Chrome may be is said to have been, unread. A frame
 from another site and a dedicated worker, each a process or thread of its
 own, are heard as the page is (queue item 652), placed by their own
-script's address. Not heard: a shared or service worker (queue item 654); a
+script's address, and so are a shared worker and a service worker (queue
+item 654), whose every page is this tab's. Not heard: a
 dedicated worker's throw while the verb holds the page's own thread, which
 Chrome hands that thread first; and a promise rejected and unhandled that
 Chrome tells of a task after the verb. And a tab is

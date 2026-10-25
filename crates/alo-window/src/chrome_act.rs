@@ -85,8 +85,8 @@
 //! what the page's script writes to its console and what it throws and
 //! nobody catches ([`Tab::act_and_hear`], [`crate::chrome_said`], queue
 //! item 639), in its own document and in each frame from another site and
-//! dedicated worker of it, which Chrome tells of in targets of their own
-//! (item 652) — and only then: Chrome is told to forget what was said
+//! each worker of it — dedicated, shared or service — which Chrome tells of
+//! in targets of their own (items 652 and 654) — and only then: Chrome is told to forget what was said
 //! before, so nothing earlier is told of again, and to stop telling once
 //! the verb is done, which the page's own renderer answers after everything
 //! it told of before, as each frame and worker does for its own. A verb

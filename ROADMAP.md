@@ -202,7 +202,8 @@ about this project (ADR 0058 § 6).
   the verb runs and put into the engine's words, and a line longer than
   Chrome's messages may be said to be so without ending the pipe (639),
   a frame from another site and a dedicated worker heard as the page is,
-  each in a target of its own (652);
+  each in a target of its own (652), and a shared and a service worker
+  too, whose every page is the tab's (654);
   and **a frame sent to a scheme Chrome never pauses, refused** — by
   itself from either site or by the page, judged as Chrome tells of it and
   recorded against the frame's document (651).
@@ -216,8 +217,8 @@ about this project (ADR 0058 § 6).
   together under Stage Manager, put by Chrome's word and shown only while
   the window server shows Chrome's (ADR 0062).
 - **Owed:** whose cause a tab an agent asked to open is (638, needs an ADR);
-  what a shared or service worker says while a verb runs, through Chrome
-  (654); Chrome's messages held by count, not by size, while
+  a service worker that stops and starts again, which waits on the
+  browser in the target it had and is never let go (655); Chrome's messages held by count, not by size, while
   they wait to be read (653); a form Chrome refuses
   and draws no bubble for (646); how an agent chooses an option of a
   `<select>`, on either renderer (648, needs an ADR); the
@@ -775,7 +776,9 @@ unreachable without it.
       ending the pipe (item 639, `chrome_said.rs`, `chrome_wire.rs`) — a
       frame from another site and a dedicated worker heard too, each told
       to forget, tell and stop in its own target (item 652,
-      `chrome_tab.rs`) — and a
+      `chrome_tab.rs`), and a shared and a service worker likewise, a
+      service worker started mid-verb let go without waiting on its answer
+      (item 654, `chrome_hold.rs`) — and a
       frame sent to a scheme Chrome never pauses refused by name and
       recorded against its document, told of through the tab's session or
       the frame's own target (item 651, `chrome_tab.rs`)
@@ -789,8 +792,9 @@ unreachable without it.
       (638, needs an ADR); what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650); what a shared or service
-      worker says while a verb runs, through Chrome (654);
+      the system's own encrypted DNS (650); a service worker that stops
+      and starts again, which waits on the browser in the target it had
+      and is never let go (655);
       Chrome's messages held by count rather than size while they wait to
       be read (653); a form Chrome refuses and draws
       no bubble for — an `invalid` a page cancels, a hidden required

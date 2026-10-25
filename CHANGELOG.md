@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A shared worker and a service worker of a page shown in Chrome are
+  now heard during an agent's action too.** What either wrote to its
+  console or threw while the action ran was missing from what the agent
+  was told; it is now heard for exactly as long as the action runs, as the
+  page and its other workers are. A service worker that is stopped and
+  started again is not yet handled (queue item 655).
+
 - **What a frame from another site or a background worker says during an
   agent's action, on a page shown in Chrome, now reaches the agent.** The
   agent already heard what the page itself wrote to its console or threw
