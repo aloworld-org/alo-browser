@@ -46,12 +46,27 @@
 //! then the old one is — a request the old page makes as it is left is the
 //! old page's.
 //!
+//! # A frame is a document of its own
+//!
+//! Each frame of the tab is held the same way (queue item 636): a navigation
+//! of a frame is a `Document` request paused for that frame, through the
+//! tab's session or the frame's own target, and its first hop mints the
+//! frame's document — caused by what the document holding the frame was
+//! doing, or, for a frame that already holds one, by that one, as a page's
+//! own navigation is the page's. Chrome tells of a frame being made
+//! (`Page.frameAttached`) before it asks for anything, and of its commit
+//! before what its document asks for: a same-site frame's through the tab's
+//! session, an other-site frame's through its own target, once that target
+//! is asked to tell of it (`Page.enable`) — measured against Chrome 155 on
+//! 25 October 2026. So the chain of a frame's `fetch` is the frame's
+//! document, then the page's, then the person.
+//!
 //! # What this does not say yet
 //!
-//! - **A frame is not a document of its own here.** A frame's requests, and
-//!   a worker's, are the tab's document's: the page that holds the frame or
-//!   started the worker. Each frame minting its own document, caused by the
-//!   one holding it, is queue item 636.
+//! - **A service worker's and a shared worker's requests** are named for no
+//!   frame of the tab's, and so are the tab's own frame's: the page's.
+//! - **A frame's navigation to a scheme Chrome hands elsewhere** is not
+//!   judged as the tab's own frame's is.
 //! - **What came back is Chrome's.** A request let go is a line saying so
 //!   ([`Happened::LetGo`]), never a status this browser did not read.
 //! - **A frozen page is not recorded**: it reaches no network, and what it
@@ -66,6 +81,7 @@ use alo_net::cause::{ActionId, Cause, DocumentId, Identities, TabId};
 use alo_net::chain::Documents;
 use alo_net::request::{Purpose, Request};
 use alo_url::Url;
+use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 
 /// What the tabs of one Chrome asked for, and what caused each.
@@ -161,146 +177,306 @@ pub enum Hop {
     Redirected,
 }
 
+/// The most frames of one tab whose documents are remembered at once.
+///
+/// **Measured rather than chosen**: Chrome 155 makes at most 1000 frames in
+/// one page — a page that adds 1200 `<iframe>`s holds 1202 elements and
+/// `window.frames.length` is 1000, and the tab is told of 1000 frames
+/// attached (2026-10-25). A frame taken out of its page is forgotten with
+/// every frame inside it, and so is every frame a document held when its
+/// frame commits another; so a page never reaches this, and a frame beyond
+/// it is the page's, as a frame this tab was never told of is.
+pub const MOST_FRAMES: usize = 1024;
+
+/// One frame of a tab, and the document it holds.
+#[derive(Debug, Default)]
+struct Frame {
+    /// The frame it is inside, by Chrome's id; [`None`] for the tab's own.
+    holder: Option<String>,
+    /// The document it holds, once one has committed.
+    page: Option<DocumentId>,
+    /// The document a navigation of it under way will commit, minted at its
+    /// first hop.
+    arriving: Option<DocumentId>,
+    /// The cause of its navigation under way, which every hop carries.
+    hop: Option<Cause>,
+    /// A navigation of it asked for while a verb was carried out: where to,
+    /// without its fragment, and the agent's cause.
+    asked: Option<(String, Cause)>,
+}
+
 /// What caused what, in one tab in Chrome.
+///
+/// Every frame of the tab is a document of its own (queue item 636): a
+/// frame's navigation mints its document, caused by what the document
+/// holding it was doing, and what the frame then asks for is that
+/// document's — so the walk back from a frame's `fetch` passes through the
+/// frame and then the page. Chrome names the frame each request is for,
+/// and a dedicated worker's requests are named for the frame whose document
+/// started it (measured against Chrome 155, 2026-10-25), so a worker's are
+/// its document's. A request for a frame this tab does not remember — never
+/// told of, or beyond [`MOST_FRAMES`] — is the tab's own frame's, as every
+/// frame's was before 636: the page holds it, which is true, if less than
+/// the whole truth.
 #[derive(Debug)]
 pub struct Causes {
     tab: TabId,
-    /// The document the tab's own frame holds, once one has committed.
-    page: Option<DocumentId>,
-    /// The document a navigation under way will commit, minted at its first
-    /// hop.
-    arriving: Option<DocumentId>,
-    /// The cause of the navigation under way, which every hop carries.
-    hop: Option<Cause>,
-    /// A navigation asked for while a verb was carried out: where to,
-    /// without its fragment, and the agent's cause.
-    asked: Option<(String, Cause)>,
-    /// The verb being carried out, and the document it was carried out in.
+    /// The tab's own frame, by Chrome's id: the tab's target id.
+    own: String,
+    /// Every frame remembered, by Chrome's id, the tab's own among them.
+    frames: HashMap<String, Frame>,
+    /// The verb being carried out, and the documents the tab's frames held
+    /// as it began.
     ///
-    /// The document is half of it because **a verb's action causes what the
-    /// page it acted in asks for, and not what a page that replaced it asks
-    /// for.** An `activate` that follows a link is answered when the page
-    /// has gone, not when the page that arrives has finished asking for
+    /// The documents are half of it because **a verb's action causes what
+    /// the page it acted in asks for, and not what a page that replaced it
+    /// asks for.** An `activate` that follows a link is answered when the
+    /// page has gone, not when the page that arrives has finished asking for
     /// things, so without the document the cause of a new page's stylesheet
     /// would depend on whether this machine answered the verb before Chrome
     /// paused the stylesheet — which it did on a quiet machine and did not
     /// under load (24 October 2026). ADR 0012 says every request says what
     /// caused it; a cause that is one thing when the machine is busy and
-    /// another when it is not says nothing.
-    acting: Option<(ActionId, Option<DocumentId>)>,
+    /// another when it is not says nothing. A frame's document is in the
+    /// page the verb acted on, so it is acted in too.
+    acting: Option<(ActionId, HashSet<DocumentId>)>,
 }
 
 impl Causes {
-    /// A tab this process opened, `tab`: its first page is the person's.
-    pub fn of(tab: TabId) -> Self {
+    /// A tab this process opened, `tab`, whose own frame Chrome names
+    /// `own`: its first page is the person's.
+    pub fn of(tab: TabId, own: &str) -> Self {
         Self {
             tab,
-            page: None,
-            arriving: None,
-            hop: None,
-            asked: None,
+            own: own.to_owned(),
+            frames: HashMap::from([(own.to_owned(), Frame::default())]),
             acting: None,
         }
     }
 
-    /// The cause of a request asked for at `url`, which falls in a
-    /// navigation of the tab's own frame as `hop` says; a first hop mints
-    /// the document the navigation will commit, in `record`.
-    pub fn of_request(&mut self, record: &mut Record, url: &str, hop: Hop) -> Cause {
-        match (hop, &self.hop) {
-            (Hop::None, _) => self.of_page(),
-            (Hop::Redirected, Some(cause)) => cause.clone(),
-            // A hop a redirect led to, of a navigation whose first hop this
-            // tab never paused, is taken as a first.
-            (Hop::First | Hop::Redirected, _) => {
-                let cause = match self.asked.take() {
-                    Some((to, cause)) if to == without_fragment(url) => cause,
-                    _ => self.of_navigation(),
-                };
-                self.hop = Some(cause.clone());
-                self.arriving = Some(record.opened(cause.clone()));
-                cause
-            }
+    /// Chrome made the frame `frame` inside the frame `holder`.
+    pub fn made(&mut self, frame: &str, holder: &str) {
+        if frame == self.own || self.frames.contains_key(frame) || self.frames.len() >= MOST_FRAMES
+        {
+            return;
         }
+        self.frames.insert(
+            frame.to_owned(),
+            Frame {
+                holder: Some(holder.to_owned()),
+                ..Frame::default()
+            },
+        );
+    }
+
+    /// The frame `frame` was taken out of its page: it is forgotten, with
+    /// every frame inside it.
+    pub fn removed(&mut self, frame: &str) {
+        if frame == self.own {
+            return;
+        }
+        self.forget_inside(frame);
+        self.frames.remove(frame);
+    }
+
+    /// The cause of a request for the frame `frame`, asked for at `url`,
+    /// which falls in a navigation of that frame as `hop` says; a first hop
+    /// mints the document the navigation will commit, in `record`.
+    pub fn of_request(&mut self, record: &mut Record, frame: &str, url: &str, hop: Hop) -> Cause {
+        if hop == Hop::None {
+            return self.of_frame(frame);
+        }
+        // A navigation of a frame not remembered is the page's, and mints
+        // nothing: nothing would hold the document it minted.
+        if !self.frames.contains_key(frame) {
+            return self.of_frame(&self.own);
+        }
+        let navigation = self.of_navigation(frame);
+        let Some(this) = self.frames.get_mut(frame) else {
+            return navigation;
+        };
+        if let (Hop::Redirected, Some(cause)) = (hop, &this.hop) {
+            return cause.clone();
+        }
+        // A first hop — or a hop a redirect led to, of a navigation whose
+        // first hop this tab never paused, which is taken as a first.
+        let cause = match this.asked.take() {
+            Some((to, cause)) if to == without_fragment(url) => cause,
+            _ => navigation,
+        };
+        this.hop = Some(cause.clone());
+        this.arriving = Some(record.opened(cause.clone()));
+        cause
     }
 
     /// The cause of what the page asks for, now: the agent's while a verb is
     /// carried out, and otherwise the page's.
     pub fn of_page(&self) -> Cause {
-        match (self.acting_here(), self.page) {
-            (Some(action), Some(document)) => Cause::Agent { action, document },
-            (None, Some(document)) => Cause::Document { document },
-            // Before the tab's first page has committed, nothing else has
-            // asked for anything: whatever is asked is the first page's.
-            (_, None) => self
-                .arriving
-                .map_or(Cause::Person { tab: self.tab }, |document| {
-                    Cause::Document { document }
-                }),
+        self.of_frame(&self.own)
+    }
+
+    /// The cause of what the frame `frame` asks for, now: its document's,
+    /// or the agent's in it while a verb is carried out; before a frame's
+    /// first document has committed, the one arriving, and before that what
+    /// the frame holding it asks for. A frame not remembered is the tab's
+    /// own.
+    pub fn of_frame(&self, frame: &str) -> Cause {
+        let mut at = self.remembered(frame);
+        // Each holder was remembered before the frame inside it, so this
+        // walks up and ends; it is bounded all the same, since a walk that
+        // trusted that would hang the browser process on the first bug.
+        for _ in 0..=self.frames.len() {
+            let Some(this) = self.frames.get(at) else {
+                break;
+            };
+            if let Some(document) = this.page {
+                return self.in_document(document);
+            }
+            // Before a frame's first document has committed, nothing else in
+            // it has asked for anything: whatever is asked is that one's.
+            if let Some(document) = this.arriving {
+                return Cause::Document { document };
+            }
+            match &this.holder {
+                Some(holder) => at = self.remembered(holder),
+                None => break,
+            }
         }
+        Cause::Person { tab: self.tab }
     }
 
     /// The document the tab's own frame holds, once one has committed.
     pub fn page(&self) -> Option<DocumentId> {
-        self.page
+        self.document_of(&self.own)
     }
 
-    /// The tab's own frame asked to go to `url`: while a verb is carried
-    /// out, that navigation is the agent's.
-    pub fn asked_to_go(&mut self, url: &str) {
-        if let (Some(action), Some(document)) = (self.acting_here(), self.page) {
-            self.asked = Some((
+    /// The document the frame `frame` holds, once one has committed.
+    pub fn document_of(&self, frame: &str) -> Option<DocumentId> {
+        self.frames.get(frame).and_then(|this| this.page)
+    }
+
+    /// The frame `frame` asked to go to `url`: while a verb is carried out
+    /// in the document it holds, that navigation is the agent's.
+    pub fn asked_to_go(&mut self, frame: &str, url: &str) {
+        let Some(document) = self.document_of(frame) else {
+            return;
+        };
+        if let Some(action) = self.acting_in(document)
+            && let Some(this) = self.frames.get_mut(frame)
+        {
+            this.asked = Some((
                 without_fragment(url).to_owned(),
                 Cause::Agent { action, document },
             ));
         }
     }
 
-    /// The tab's own frame committed a new document: the one its navigation
+    /// The frame `frame` committed a new document: the one its navigation
     /// minted, or — for a document that came of no request this tab paused,
     /// as `about:blank` does — one minted now, with the navigation's cause.
-    pub fn committed(&mut self, record: &mut Record) {
-        let document = self
-            .arriving
-            .take()
-            .unwrap_or_else(|| record.opened(self.of_navigation()));
-        self.page = Some(document);
-        self.hop = None;
+    /// The frames the document it held held are gone with it.
+    pub fn committed(&mut self, record: &mut Record, frame: &str) {
+        if !self.frames.contains_key(frame) {
+            return;
+        }
+        let navigation = self.of_navigation(frame);
+        self.forget_inside(frame);
+        if let Some(this) = self.frames.get_mut(frame) {
+            let document = this
+                .arriving
+                .take()
+                .unwrap_or_else(|| record.opened(navigation));
+            this.page = Some(document);
+            this.hop = None;
+        }
     }
 
-    /// The navigation under way went no further: a hop of it was refused.
-    /// Its document was caused and minted, and is never the tab's.
-    pub fn ended(&mut self) {
-        self.arriving = None;
-        self.hop = None;
+    /// The navigation of the frame `frame` under way went no further: a hop
+    /// of it was refused. Its document was caused and minted, and is never
+    /// the frame's.
+    pub fn ended(&mut self, frame: &str) {
+        if let Some(this) = self.frames.get_mut(frame) {
+            this.arriving = None;
+            this.hop = None;
+        }
     }
 
     /// `action` is being carried out on the tab, or [`None`] once it has
-    /// been. The document the tab holds as it begins is remembered with it:
-    /// the action causes what *that* document asks for, and nothing a
-    /// document which replaces it asks for.
+    /// been. The documents the tab's frames hold as it begins are
+    /// remembered with it: the action causes what *those* documents ask
+    /// for, and nothing a document which replaces one asks for.
     pub fn acting(&mut self, action: Option<ActionId>) {
-        self.acting = action.map(|action| (action, self.page));
+        self.acting = action.map(|action| {
+            let held = self.frames.values().filter_map(|this| this.page).collect();
+            (action, held)
+        });
     }
 
-    /// The action being carried out *in the document the tab holds now*,
-    /// which is the only one whose requests it causes.
-    fn acting_here(&self) -> Option<ActionId> {
-        match self.acting {
-            Some((action, acted_in)) if acted_in == self.page => Some(action),
+    /// The action being carried out, when `document` is one it is carried
+    /// out in.
+    fn acting_in(&self, document: DocumentId) -> Option<ActionId> {
+        match &self.acting {
+            Some((action, held)) if held.contains(&document) => Some(*action),
             _ => None,
         }
     }
 
-    /// The cause of a navigation nothing asked for while a verb was carried
-    /// out: the agent's while one is, the page's when it holds one, and the
-    /// person's for the tab's first.
-    fn of_navigation(&self) -> Cause {
-        match (self.acting_here(), self.page) {
-            (Some(action), Some(document)) => Cause::Agent { action, document },
-            (None, Some(document)) => Cause::Document { document },
-            (_, None) => Cause::Person { tab: self.tab },
+    /// What `document` asks for is caused by: the agent's while a verb is
+    /// carried out in it, and otherwise its own.
+    fn in_document(&self, document: DocumentId) -> Cause {
+        match self.acting_in(document) {
+            Some(action) => Cause::Agent { action, document },
+            None => Cause::Document { document },
         }
+    }
+
+    /// The cause of a navigation of the frame `frame` nothing asked for while
+    /// a verb was carried out: what the document it holds asks for, when it
+    /// holds one; for the tab's own frame's first, the person's; and for
+    /// another frame's first, what the frame holding it asks for.
+    fn of_navigation(&self, frame: &str) -> Cause {
+        let Some(this) = self.frames.get(frame) else {
+            return self.of_page();
+        };
+        match (this.page, &this.holder) {
+            (Some(document), _) => self.in_document(document),
+            (None, Some(holder)) => self.of_frame(holder),
+            (None, None) => Cause::Person { tab: self.tab },
+        }
+    }
+
+    /// `frame` when it is remembered, and otherwise the tab's own frame.
+    fn remembered<'f>(&'f self, frame: &'f str) -> &'f str {
+        if self.frames.contains_key(frame) {
+            frame
+        } else {
+            &self.own
+        }
+    }
+
+    /// Forget every frame inside `frame`, however deep, and not `frame`.
+    fn forget_inside(&mut self, frame: &str) {
+        let mut gone = HashSet::from([frame.to_owned()]);
+        loop {
+            let inside: Vec<String> = self
+                .frames
+                .iter()
+                .filter(|(id, this)| {
+                    !gone.contains(*id)
+                        && this
+                            .holder
+                            .as_ref()
+                            .is_some_and(|holder| gone.contains(holder))
+                })
+                .map(|(id, _)| id.clone())
+                .collect();
+            if inside.is_empty() {
+                break;
+            }
+            gone.extend(inside);
+        }
+        gone.remove(frame);
+        self.frames.retain(|id, _| !gone.contains(id));
     }
 }
 
@@ -344,15 +520,15 @@ mod tests {
     fn the_first_page_is_the_persons_and_what_it_loads_is_its_own() {
         let mut record = Record::default();
         let tab = record.a_tab();
-        let mut causes = Causes::of(tab);
-        let first = causes.of_request(&mut record, "http://a/start", Hop::First);
+        let mut causes = Causes::of(tab, "T");
+        let first = causes.of_request(&mut record, "T", "http://a/start", Hop::First);
         assert_eq!(first, Cause::Person { tab });
-        let hop = causes.of_request(&mut record, "http://b/page", Hop::Redirected);
+        let hop = causes.of_request(&mut record, "T", "http://b/page", Hop::Redirected);
         assert_eq!(hop, first, "a redirect is whatever asked for the first hop");
         assert_eq!(record.documents().remembered(), 1, "one document, not two");
-        causes.committed(&mut record);
+        causes.committed(&mut record, "T");
         let Cause::Document { document } =
-            causes.of_request(&mut record, "http://b/s.css", Hop::None)
+            causes.of_request(&mut record, "T", "http://b/s.css", Hop::None)
         else {
             panic!("a page's sheet is not the page's");
         };
@@ -368,23 +544,23 @@ mod tests {
     #[test]
     fn a_navigation_asked_for_while_acting_is_the_agents_after_the_verb_has_answered() {
         let mut record = Record::default();
-        let mut causes = Causes::of(record.a_tab());
-        causes.of_request(&mut record, "http://a/", Hop::First);
-        causes.committed(&mut record);
+        let mut causes = Causes::of(record.a_tab(), "T");
+        causes.of_request(&mut record, "T", "http://a/", Hop::First);
+        causes.committed(&mut record, "T");
         let action = record.an_action();
         causes.acting(Some(action));
-        let during = causes.of_request(&mut record, "http://a/f", Hop::None);
+        let during = causes.of_request(&mut record, "T", "http://a/f", Hop::None);
         assert!(matches!(during, Cause::Agent { action: acted, .. } if acted == action));
-        causes.asked_to_go("http://a/next#there");
+        causes.asked_to_go("T", "http://a/next#there");
         causes.acting(None);
         assert!(
             matches!(causes.of_page(), Cause::Document { .. }),
             "the verb has answered"
         );
-        let going = causes.of_request(&mut record, "http://a/next", Hop::First);
+        let going = causes.of_request(&mut record, "T", "http://a/next", Hop::First);
         assert!(matches!(going, Cause::Agent { action: acted, .. } if acted == action));
-        causes.committed(&mut record);
-        let next = causes.of_request(&mut record, "http://a/next.css", Hop::None);
+        causes.committed(&mut record, "T");
+        let next = causes.of_request(&mut record, "T", "http://a/next.css", Hop::None);
         assert!(record.documents().chain(&next).followed_from(action));
     }
 
@@ -397,21 +573,21 @@ mod tests {
         // 2026: under load, the second page's stylesheet was pinned on the
         // agent's action and the test above passed anyway.
         let mut record = Record::default();
-        let mut causes = Causes::of(record.a_tab());
-        causes.of_request(&mut record, "http://a/", Hop::First);
-        causes.committed(&mut record);
+        let mut causes = Causes::of(record.a_tab(), "T");
+        causes.of_request(&mut record, "T", "http://a/", Hop::First);
+        causes.committed(&mut record, "T");
         let action = record.an_action();
         causes.acting(Some(action));
-        causes.asked_to_go("http://a/next");
-        let going = causes.of_request(&mut record, "http://a/next", Hop::First);
+        causes.asked_to_go("T", "http://a/next");
+        let going = causes.of_request(&mut record, "T", "http://a/next", Hop::First);
         assert!(
             matches!(going, Cause::Agent { action: acted, .. } if acted == action),
             "the navigation itself is the agent's"
         );
-        causes.committed(&mut record);
+        causes.committed(&mut record, "T");
         // Still acting: the verb has not answered. The page that arrived is
         // nonetheless the one asking.
-        let sheet = causes.of_request(&mut record, "http://a/next.css", Hop::None);
+        let sheet = causes.of_request(&mut record, "T", "http://a/next.css", Hop::None);
         assert!(
             matches!(sheet, Cause::Document { .. }),
             "the page that arrived asked for its own sheet, not the agent: {sheet:?}"
@@ -421,7 +597,7 @@ mod tests {
         // The verb answering afterwards changes nothing.
         causes.acting(None);
         assert_eq!(
-            causes.of_request(&mut record, "http://a/next.js", Hop::None),
+            causes.of_request(&mut record, "T", "http://a/next.js", Hop::None),
             sheet
         );
     }
@@ -429,52 +605,52 @@ mod tests {
     #[test]
     fn a_navigation_the_verb_asked_for_and_never_made_is_not_pinned_on_the_next() {
         let mut record = Record::default();
-        let mut causes = Causes::of(record.a_tab());
-        causes.of_request(&mut record, "http://a/", Hop::First);
-        causes.committed(&mut record);
+        let mut causes = Causes::of(record.a_tab(), "T");
+        causes.of_request(&mut record, "T", "http://a/", Hop::First);
+        causes.committed(&mut record, "T");
         let page = causes.of_page();
         let action = record.an_action();
         causes.acting(Some(action));
-        causes.asked_to_go("http://a/never");
+        causes.asked_to_go("T", "http://a/never");
         causes.acting(None);
-        let elsewhere = causes.of_request(&mut record, "http://a/later", Hop::First);
+        let elsewhere = causes.of_request(&mut record, "T", "http://a/later", Hop::First);
         assert_eq!(elsewhere, page, "the page went on its own");
         // And the ask is spent, so it is not waiting for the next.
-        causes.committed(&mut record);
-        let again = causes.of_request(&mut record, "http://a/never", Hop::First);
+        causes.committed(&mut record, "T");
+        let again = causes.of_request(&mut record, "T", "http://a/never", Hop::First);
         assert!(matches!(again, Cause::Document { .. }), "{again}");
     }
 
     #[test]
     fn what_the_old_page_asks_for_before_the_new_one_commits_is_the_old_pages() {
         let mut record = Record::default();
-        let mut causes = Causes::of(record.a_tab());
-        causes.of_request(&mut record, "http://a/", Hop::First);
-        causes.committed(&mut record);
+        let mut causes = Causes::of(record.a_tab(), "T");
+        causes.of_request(&mut record, "T", "http://a/", Hop::First);
+        causes.committed(&mut record, "T");
         let old = causes.of_page();
-        causes.of_request(&mut record, "http://a/next", Hop::First);
+        causes.of_request(&mut record, "T", "http://a/next", Hop::First);
         assert_eq!(
-            causes.of_request(&mut record, "http://a/beacon", Hop::None),
+            causes.of_request(&mut record, "T", "http://a/beacon", Hop::None),
             old
         );
-        causes.committed(&mut record);
+        causes.committed(&mut record, "T");
         assert_ne!(causes.of_page(), old);
     }
 
     #[test]
     fn a_navigation_refused_at_a_hop_never_becomes_the_page() {
         let mut record = Record::default();
-        let mut causes = Causes::of(record.a_tab());
-        causes.of_request(&mut record, "http://a/", Hop::First);
-        causes.committed(&mut record);
+        let mut causes = Causes::of(record.a_tab(), "T");
+        causes.of_request(&mut record, "T", "http://a/", Hop::First);
+        causes.committed(&mut record, "T");
         let page = causes.of_page();
-        causes.of_request(&mut record, "http://a/away", Hop::First);
-        causes.ended();
+        causes.of_request(&mut record, "T", "http://a/away", Hop::First);
+        causes.ended("T");
         assert_eq!(record.documents().remembered(), 2, "caused, and minted");
         assert_eq!(causes.of_page(), page);
         // A later commit — Chrome's own error page, say — is not the
         // refused navigation's document.
-        causes.committed(&mut record);
+        causes.committed(&mut record, "T");
         assert_eq!(record.documents().remembered(), 3);
     }
 
@@ -482,8 +658,8 @@ mod tests {
     fn a_document_from_no_request_is_minted_as_it_commits() {
         let mut record = Record::default();
         let tab = record.a_tab();
-        let mut causes = Causes::of(tab);
-        causes.committed(&mut record);
+        let mut causes = Causes::of(tab, "T");
+        causes.committed(&mut record, "T");
         assert_eq!(record.documents().remembered(), 1);
         let Cause::Document { document } = causes.of_page() else {
             panic!("no page");
@@ -491,6 +667,213 @@ mod tests {
         assert_eq!(
             record.documents().cause_of(document),
             Some(&Cause::Person { tab })
+        );
+    }
+
+    /// A tab whose own frame `T` has committed its first page.
+    fn a_page() -> (Record, Causes, DocumentId) {
+        let mut record = Record::default();
+        let mut causes = Causes::of(record.a_tab(), "T");
+        causes.of_request(&mut record, "T", "http://a/", Hop::First);
+        causes.committed(&mut record, "T");
+        let page = causes.page().unwrap();
+        (record, causes, page)
+    }
+
+    #[test]
+    fn a_frames_fetch_is_its_own_documents_whose_cause_is_the_page() {
+        let (mut record, mut causes, page) = a_page();
+        causes.made("F", "T");
+        let going = causes.of_request(&mut record, "F", "http://b/frame", Hop::First);
+        assert_eq!(
+            going,
+            Cause::Document { document: page },
+            "the page loads it"
+        );
+        causes.committed(&mut record, "F");
+        let frame = causes.document_of("F").unwrap();
+        assert_ne!(frame, page);
+        let fetch = causes.of_request(&mut record, "F", "http://b/f", Hop::None);
+        assert_eq!(fetch, Cause::Document { document: frame });
+        let chain = record.documents().chain(&fetch);
+        assert_eq!(
+            chain.links().get(1),
+            Some(&Cause::Document { document: page }),
+            "{chain:?}"
+        );
+        assert!(chain.person().is_some() && chain.is_whole(), "{chain:?}");
+        // The page's own are still the page's.
+        assert_eq!(
+            causes.of_request(&mut record, "T", "http://a/f", Hop::None),
+            Cause::Document { document: page }
+        );
+    }
+
+    #[test]
+    fn a_frame_inside_a_frame_is_caused_by_the_frame_holding_it() {
+        let (mut record, mut causes, page) = a_page();
+        causes.made("F", "T");
+        causes.of_request(&mut record, "F", "http://b/frame", Hop::First);
+        causes.committed(&mut record, "F");
+        let frame = causes.document_of("F").unwrap();
+        causes.made("G", "F");
+        assert_eq!(
+            causes.of_request(&mut record, "G", "http://b/inner", Hop::First),
+            Cause::Document { document: frame }
+        );
+        causes.committed(&mut record, "G");
+        let inner = causes.of_request(&mut record, "G", "http://b/g", Hop::None);
+        let links = record.documents().chain(&inner).links().to_vec();
+        assert_eq!(links.get(1), Some(&Cause::Document { document: frame }));
+        assert_eq!(links.get(2), Some(&Cause::Document { document: page }));
+    }
+
+    #[test]
+    fn what_a_frame_asks_before_its_document_commits_is_the_arriving_ones() {
+        let (mut record, mut causes, page) = a_page();
+        causes.made("F", "T");
+        assert_eq!(
+            causes.of_request(&mut record, "F", "http://a/early", Hop::None),
+            Cause::Document { document: page },
+            "a frame with nothing in it yet is its holder's"
+        );
+        causes.of_request(&mut record, "F", "http://b/frame", Hop::First);
+        let hop = causes.of_request(&mut record, "F", "http://c/frame", Hop::Redirected);
+        assert_eq!(hop, Cause::Document { document: page }, "a redirect");
+        assert_eq!(record.documents().remembered(), 2, "one frame document");
+        let Cause::Document { document } =
+            causes.of_request(&mut record, "F", "http://c/f", Hop::None)
+        else {
+            panic!("not a document's");
+        };
+        assert_ne!(document, page);
+        causes.committed(&mut record, "F");
+        assert_eq!(causes.document_of("F"), Some(document));
+    }
+
+    #[test]
+    fn a_frame_not_remembered_is_the_pages_and_mints_nothing() {
+        let (mut record, mut causes, page) = a_page();
+        let before = record.documents().remembered();
+        assert_eq!(
+            causes.of_request(&mut record, "X", "http://b/frame", Hop::First),
+            Cause::Document { document: page }
+        );
+        causes.committed(&mut record, "X");
+        assert_eq!(record.documents().remembered(), before);
+        assert_eq!(causes.document_of("X"), None);
+        assert_eq!(
+            causes.of_request(&mut record, "X", "http://b/f", Hop::None),
+            Cause::Document { document: page }
+        );
+    }
+
+    #[test]
+    fn a_frame_removed_is_forgotten_with_what_it_held_and_the_tabs_own_never_is() {
+        let (mut record, mut causes, page) = a_page();
+        causes.made("F", "T");
+        causes.committed(&mut record, "F");
+        causes.made("G", "F");
+        causes.committed(&mut record, "G");
+        causes.removed("F");
+        assert_eq!(causes.document_of("F"), None);
+        assert_eq!(causes.document_of("G"), None, "inside what was removed");
+        causes.removed("T");
+        assert_eq!(causes.page(), Some(page));
+    }
+
+    #[test]
+    fn a_new_document_holds_none_of_the_frames_the_old_one_held() {
+        let (mut record, mut causes, _) = a_page();
+        causes.made("F", "T");
+        causes.committed(&mut record, "F");
+        causes.of_request(&mut record, "T", "http://a/next", Hop::First);
+        causes.committed(&mut record, "T");
+        assert_eq!(causes.document_of("F"), None);
+        let next = causes.page().unwrap();
+        assert_eq!(
+            causes.of_request(&mut record, "F", "http://a/f", Hop::None),
+            Cause::Document { document: next },
+            "a frame gone with its page is the tab's own"
+        );
+    }
+
+    #[test]
+    fn no_more_frames_than_chrome_makes_are_remembered() {
+        let (mut record, mut causes, page) = a_page();
+        for frame in 0..MOST_FRAMES + 8 {
+            causes.made(&frame.to_string(), "T");
+        }
+        assert_eq!(causes.frames.len(), MOST_FRAMES);
+        let last = (MOST_FRAMES + 7).to_string();
+        assert_eq!(
+            causes.of_request(&mut record, &last, "http://b/frame", Hop::First),
+            Cause::Document { document: page }
+        );
+        causes.removed("0");
+        causes.made(&last, "T");
+        assert!(causes.frames.contains_key(&last), "a place came free");
+    }
+
+    #[test]
+    fn a_verb_in_the_page_is_the_agents_in_its_frames_and_not_in_a_frame_it_brought() {
+        let (mut record, mut causes, _) = a_page();
+        causes.made("F", "T");
+        causes.of_request(&mut record, "F", "http://b/frame", Hop::First);
+        causes.committed(&mut record, "F");
+        let frame = causes.document_of("F").unwrap();
+        let action = record.an_action();
+        causes.acting(Some(action));
+        assert_eq!(
+            causes.of_request(&mut record, "F", "http://b/f", Hop::None),
+            Cause::Agent {
+                action,
+                document: frame
+            }
+        );
+        // A link in the frame, followed after the verb has answered, is
+        // still the agent's, and the frame's new document asks for its own.
+        causes.asked_to_go("F", "http://b/next#part");
+        causes.made("N", "T");
+        let brought = causes.of_request(&mut record, "N", "http://c/new", Hop::First);
+        assert!(matches!(brought, Cause::Agent { .. }), "{brought}");
+        causes.committed(&mut record, "N");
+        let new = causes.document_of("N").unwrap();
+        assert_eq!(
+            causes.of_request(&mut record, "N", "http://c/n", Hop::None),
+            Cause::Document { document: new },
+            "a frame the verb brought asks for its own"
+        );
+        causes.acting(None);
+        let going = causes.of_request(&mut record, "F", "http://b/next", Hop::First);
+        assert_eq!(
+            going,
+            Cause::Agent {
+                action,
+                document: frame
+            }
+        );
+        causes.committed(&mut record, "F");
+        let next = causes.of_request(&mut record, "F", "http://b/n.css", Hop::None);
+        assert!(record.documents().chain(&next).followed_from(action));
+        assert!(matches!(next, Cause::Document { .. }));
+    }
+
+    #[test]
+    fn a_frames_refused_navigation_never_becomes_its_document() {
+        let (mut record, mut causes, _) = a_page();
+        causes.made("F", "T");
+        causes.of_request(&mut record, "F", "http://b/frame", Hop::First);
+        causes.committed(&mut record, "F");
+        let frame = causes.document_of("F");
+        causes.of_request(&mut record, "F", "http://b/away", Hop::First);
+        causes.ended("F");
+        assert_eq!(causes.document_of("F"), frame);
+        assert_eq!(
+            causes.of_request(&mut record, "F", "http://b/x", Hop::None),
+            Cause::Document {
+                document: frame.unwrap()
+            }
         );
     }
 

@@ -39775,3 +39775,116 @@ added), `REMAINING.md` and the changelog say the same.
 303 queue items are open (635 closed, 649 and 650 opened; counted as
 `- [ ] **` lines). The next unused queue number is **651** and the next
 ADR is **0063**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 390 — queue item 636: a frame in Chrome is a document of its own
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the stage 2
+Chrome line, the product path), iteration 389's entry, the queue's
+product-path table and items 636, 639, 642, 643 and 645–650; ADR 0012
+(§ 2's three causes, § 3's chain, § 4's browser process assigning them)
+and ADR 0060 § 2; `chrome_record.rs`, `chrome_tab.rs`, `chrome_hold.rs`,
+`chrome_protocol.rs`'s readers, `alo-net`'s `chain.rs` and `cause.rs`,
+and `tests/every_request_of_a_page_in_chrome_recorded.rs`. No
+`AGENTS.md` exists in the repository. 636's feature contract is
+`docs/features.md`'s Chrome renderer line, its record clause (634).
+
+**Why 636.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the gate, so 642 and 643 could not be built honestly. Of the
+product path's owed items in the order the journal lists them (636,
+639), 636 is first and its dependency, 634, is done. 647 was left for
+the reason iteration 388 gives.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, from a Node
+CDP probe in the scratchpad holding a tab as the browser does (no script
+put into any page): a page at `127.0.0.1` with a same-site frame and a
+`localhost` frame. `Page.frameAttached` (frame, holder) comes before the
+frame asks for anything. Both frames' `Document` requests are paused in
+the **tab's** session, named for the frame. The same-site frame's commit
+(`Page.frameNavigated`, `parentId` set) comes through the tab's session
+before its sheet; the other-site frame's comes only through its own
+target, only once that target is sent `Page.enable` (answered before it
+runs), before its sheet, `parentId` set; the tab is then told it is gone
+as `swap`. A frame taken out is `remove`. A frame nested in the other-site
+frame is told of in that frame's target. A dedicated worker started by
+the other-site frame has its script and `fetch` paused in that frame's
+target, **named for the frame**. 1200 `<iframe>`s added by a page make
+1000 frames (`window.frames.length` 1000, 1000 attached).
+
+**Built.** `chrome_record.rs`: `Causes` keeps one `Frame` per frame of
+the tab, the tab's own among them, bounded at `MOST_FRAMES` (1024): a
+frame's first hop mints its document, caused by what the document
+holding it was doing — or, when it holds one, by that one, as a page's
+own navigation is the page's; its commit is read from either session;
+what it asks for is its document's (before its first commit, the
+arriving one's; before that, its holder's). A removed frame is forgotten
+with every frame inside it, and so is every frame a document held when
+its frame commits another. While a verb is carried out, every document
+the frames held as it began is acted in; a frame the verb brought asks
+for its own; a frame's navigation asked for during the verb is the
+agent's as the page's is. A frame never told of, or past the bound, is
+the page's and mints nothing. `chrome_protocol.rs`: `frame_made`,
+`frame_gone`. `chrome_tab.rs`: hops read for every frame in the tab's
+and frames' sessions, `Page.frameAttached`/`frameDetached`/
+`frameNavigated`/`frameRequestedNavigation` read from frames' targets,
+a held frame sent `Page.enable` and held for its answer; `next` stays
+under clippy's line bound by `made_or_gone`. Module docs say so.
+
+**Tests.** Unit: `chrome_protocol` (two: Chrome 155's own shapes;
+missing, mistyped, non-object, truncated and over-long fields refused as
+kinds); `chrome_record` (nine new: a frame's fetch its own document's,
+caused by the page; a nested frame's chain; before commit; a frame not
+remembered; removal; a new document holding none of the old frames; the
+bound; the agent in a frame and in a frame it brought; a refused frame
+hop), the eight earlier ones moved to frame-taking calls unchanged in
+meaning. End to end (`every_request_of_a_page_in_chrome_recorded.rs`,
+real headless Chrome, a server of the test's own): each frame's document
+line is the page's; each `fetch` its own frame document's, whose cause is
+the page's; the worker's script and `fetch` the other-site frame's; that
+frame's own next page its first document's; four documents; every chain
+whole to the person. Mutations, restored from a copy: the frame's
+`Page.enable` not sent — fails (the second page's cause is the page);
+frames made not remembered — fails; a frame's hop not read as one —
+**survives** the end-to-end test, because the commit mints an equivalent
+document, and is covered by the unit tests of what only the hop decides.
+
+**Gate.** One run (foreground into a scratchpad log, moved to the
+background at 600 s and waited on by a foreground until-loop): **exit 0,
+"The gate is met. (10 of 10 steps)"**, nextest **5,271 tests run, 5,271
+passed** in 559.0 s, no `FAIL`, `LEAK` or `panicked`. Manual: nothing
+here positions, sizes or draws, so no layout assertion or reference
+render applies, and no reference changed. One file, one responsibility:
+which cause a request of a tab has stays `chrome_record.rs`'s (frames are
+more of the same reason, not a second one); reading Chrome's words stays
+`chrome_protocol.rs`'s; holding and answering stays `chrome_tab.rs`'s.
+Bytes from outside: both new readers refuse malformed input as kinds, and
+the frame map is bounded. No `unsafe`, no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+`cargo doc` warnings seen are earlier ones in `conductor.rs` and
+`inbox.rs`, not this change's.
+
+**Roadmap.** The stage 2 Chrome line's `· Built:` gains 636 and its
+`· Owed:` swaps it for 651; the product-path paragraph likewise. Not
+ticked — the line is not finished. `features.md` (the Chrome line's
+record clause), the queue (636 ticked with a *Done* paragraph; 651
+added), `REMAINING.md` and the changelog say the same.
+
+**Unresolved obligations.**
+- 651, cut here: a frame sending itself to a scheme Chrome never pauses
+  is not judged as the tab's own frame is; whether Chrome tells of it is
+  not measured.
+- A service worker's and a shared worker's requests are still the page's;
+  whether Chrome names a frame for them was not measured.
+- An agent acting *inside* a frame is item 132's; a frame's document is
+  acted in here only as part of the page a verb acted on.
+- 642 and 643 still wait on the screen in use (locked this iteration);
+  645, 646, 647, 648, 649 and 650 are open.
+- Inherited and unchanged: 639, 642 and 643 owed; 604, 605, 606, 616,
+  618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572 wait on a
+  person; 568–571 on a screen or pages; 560 and 564 on 502 behind 501;
+  538 waits on a page; 638 and 648 need an ADR; item 549 is unbuilt.
+  Other suites' short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+303 queue items are open (636 closed, 651 opened; counted as `- [ ] **`
+lines). The next unused queue number is **652** and the next ADR is
+**0063**. This is one iteration, not a finished queue or roadmap.

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The record of a page shown in Chrome says which frame asked.** A
+  page can hold other pages inside it — an embedded video, a map, an
+  advert from another company. Until now everything those asked for was
+  written down as the outer page's. Now each embedded page is a page of
+  its own in the record: it says the outer page loaded it, and what it
+  then fetched is its own, so you can tell what the site you opened did
+  from what the things it embedded did. A background script one of them
+  starts counts as that one's too.
+
 - **Pages shown in Chrome look names up where your computer does.**
   Chrome, left to itself, quietly switches to encrypted DNS when it
   recognises the provider your computer uses, and quietly switches back

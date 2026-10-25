@@ -194,7 +194,10 @@ about this project (ADR 0058 § 6).
   constraint, where the engine names each and its constraint); and **a
   date put in through Chrome** — a segment at a time, in the order Chrome
   lays them out, read from its tree rather than guessed from a locale, so
-  a form sends the dates it sends through the engine (632).
+  a form sends the dates it sends through the engine (632); and **each
+  frame a document of its own in the record**, caused by the page holding
+  it, so a frame's `fetch` leads back through the frame and the page to
+  the person (636).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -204,7 +207,7 @@ about this project (ADR 0058 § 6).
   floating, since an ordinary one and Chrome's are never on the screen
   together under Stage Manager, put by Chrome's word and shown only while
   the window server shows Chrome's (ADR 0062).
-- **Owed:** a frame recorded as a document of its own (636); whose cause a tab an agent asked to open is (638, needs an ADR);
+- **Owed:** a frame's navigation to a scheme Chrome never pauses, judged (651); whose cause a tab an agent asked to open is (638, needs an ADR);
   what a page's script said, through Chrome (639); a form Chrome refuses
   and draws no bubble for (646); how an agent chooses an option of a
   `<select>`, on either renderer (648, needs an ADR); the
@@ -750,14 +753,19 @@ unreachable without it.
       resolver — measured in Chrome's own NetLog starting in *automatic*
       secure DNS, which upgrades a resolver it recognises to encrypted DNS
       unasked, and pinned off in the profile it is given (item 635,
-      `chrome_profile.rs`)
+      `chrome_profile.rs`), and each frame of a page in Chrome a document of
+      its own in the record — caused by the page holding it, the other
+      site's frame too, its `fetch` and its worker's its own, measured from
+      where Chrome 155 tells of each frame's making and commit (item 636,
+      `chrome_record.rs`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
       aside on this path by name (ADR 0060); the window of ours around
       Chrome's floats, is put by Chrome's word and is shown only while the
       window server shows Chrome's (ADR 0062)
-      · Owed: a frame as a document of its own in the record (636); whose cause a tab an agent opened is
+      · Owed: a frame's navigation to a scheme Chrome never pauses, judged as the
+      tab's own is (651); whose cause a tab an agent opened is
       (638, needs an ADR); what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,

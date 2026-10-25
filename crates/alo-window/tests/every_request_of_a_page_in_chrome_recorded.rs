@@ -16,6 +16,14 @@
 //! page's; the WebSocket a line saying it was opened and not decided; and
 //! after an agent's `activate` on the link, the second page's navigation
 //! the agent action's, and what that page asked for leading back to it.
+//!
+//! A third page holds a frame from its own site and one from the other,
+//! each of which fetches, and the other-site frame starts a worker that
+//! fetches too (queue item 636): each frame is a document of its own,
+//! caused by the page, and each `fetch` is its frame's document's — the
+//! worker's that of the frame that started it. When the worker has
+//! fetched, the other-site frame goes to a second page of its own, whose
+//! load is the first frame document's.
 
 use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
@@ -70,6 +78,43 @@ fn answer(path: &str, port: u16) -> (&'static str, &'static str, String, String)
                 .to_owned(),
         ),
         "/first.css" | "/next.css" => ("200 OK", "text/css", String::new(), "h1{}".to_owned()),
+        "/framed.html" => (
+            "200 OK",
+            html,
+            String::new(),
+            format!(
+                "<!doctype html><title>Framed</title>\
+                 <iframe src=\"/same.html\"></iframe>\
+                 <iframe src=\"http://localhost:{port}/other.html\"></iframe>\
+                 <script>fetch('/from-page')</script>"
+            ),
+        ),
+        "/same.html" => (
+            "200 OK",
+            html,
+            String::new(),
+            "<!doctype html><script>fetch('/from-same')</script>".to_owned(),
+        ),
+        "/other.html" => (
+            "200 OK",
+            html,
+            String::new(),
+            "<!doctype html><script>fetch('/from-other');\
+             new Worker('/worker.js').onmessage = () => location = '/other2.html'</script>"
+                .to_owned(),
+        ),
+        "/other2.html" => (
+            "200 OK",
+            html,
+            String::new(),
+            "<!doctype html><script>fetch('/from-other2')</script>".to_owned(),
+        ),
+        "/worker.js" => (
+            "200 OK",
+            "text/javascript",
+            String::new(),
+            "fetch('/from-worker').then(() => postMessage(1))".to_owned(),
+        ),
         // The socket is refused: it was opened, which is all the record says.
         _ => ("404 Not Found", "text/plain", String::new(), String::new()),
     }
@@ -365,5 +410,112 @@ fn an_agents_activate_that_navigates_names_the_action_as_its_cause() {
     {
         let chain = entry.chain(record.documents());
         assert!(!chain.followed_from(action), "{entry}");
+    }
+}
+
+#[test]
+fn a_frames_fetch_is_its_own_documents_and_that_document_the_pages() {
+    let (port, log) = serve().unwrap();
+    let mut chrome = Chrome::start().unwrap();
+    let framed = alo_url::parse(&format!("http://127.0.0.1:{port}/framed.html")).unwrap();
+    let mut tab = Tab::open(&mut chrome, &framed, SIZE).unwrap();
+    read_until(
+        &mut tab,
+        &log,
+        &[
+            ("127.0.0.1", "/from-page"),
+            ("127.0.0.1", "/from-same"),
+            ("localhost", "/from-other"),
+            ("localhost", "/from-worker"),
+            ("localhost", "/from-other2"),
+        ],
+        0,
+    )
+    .unwrap();
+    drop(tab);
+
+    let record = chrome.record();
+    let lines: Vec<&Entry> = record.activity().entries().collect();
+    let at = |host: &str, path: &str| line(&lines, &format!("http://{host}:{port}{path}"));
+    let document = |entry: &Entry| match entry.cause() {
+        Cause::Document { document } => *document,
+        other => panic!("{entry} is not a document's: {other}"),
+    };
+
+    // The page is the person's, and what it asks for its own.
+    let page_line = at("127.0.0.1", "/framed.html").unwrap();
+    let Cause::Person { tab: person } = page_line.cause() else {
+        panic!("the page is not the person's: {page_line}");
+    };
+    let page = document(at("127.0.0.1", "/from-page").unwrap());
+    assert_eq!(
+        record.documents().cause_of(page),
+        Some(&Cause::Person { tab: *person })
+    );
+
+    // Each frame's document is loaded by the page, through the page's own
+    // session for the other-site frame as for the same-site one.
+    for (host, path) in [("127.0.0.1", "/same.html"), ("localhost", "/other.html")] {
+        let frame = at(host, path).unwrap();
+        assert_eq!(frame.purpose(), &Purpose::Document, "{frame}");
+        assert_eq!(
+            frame.cause(),
+            &Cause::Document { document: page },
+            "{frame}"
+        );
+    }
+
+    // Each frame's fetch is its own document's, which the page caused.
+    let same = document(at("127.0.0.1", "/from-same").unwrap());
+    let other = document(at("localhost", "/from-other").unwrap());
+    assert_ne!(same, page);
+    assert_ne!(other, page);
+    assert_ne!(same, other);
+    for frame in [same, other] {
+        assert_eq!(
+            record.documents().cause_of(frame),
+            Some(&Cause::Document { document: page })
+        );
+    }
+    let chain = at("localhost", "/from-other")
+        .unwrap()
+        .chain(record.documents());
+    assert_eq!(
+        chain.links(),
+        &[
+            Cause::Document { document: other },
+            Cause::Document { document: page },
+            Cause::Person { tab: *person },
+        ],
+        "the frame's fetch, the frame, the page"
+    );
+
+    // The worker's script and its fetch are the frame's that started it.
+    let worker = at("localhost", "/worker.js").unwrap();
+    assert_eq!(worker.cause(), &Cause::Document { document: other });
+    assert_eq!(
+        at("localhost", "/from-worker").unwrap().cause(),
+        &Cause::Document { document: other }
+    );
+
+    // The frame going elsewhere is its document's doing, as a page's own
+    // navigation is — which it is only if the frame's commit, told of in
+    // its own target, was read — and the new document's fetch its own.
+    let second = at("localhost", "/other2.html").unwrap();
+    assert_eq!(second.cause(), &Cause::Document { document: other });
+    let next = document(at("localhost", "/from-other2").unwrap());
+    assert_ne!(next, other);
+    assert_eq!(
+        record.documents().cause_of(next),
+        Some(&Cause::Document { document: other })
+    );
+
+    // Four documents — the page, its two frames and the second frame's
+    // second — and every line leads back, whole, to the person.
+    assert_eq!(record.documents().remembered(), 4);
+    for entry in &lines {
+        let chain = entry.chain(record.documents());
+        assert!(chain.is_whole(), "{entry}: {chain:?}");
+        assert_eq!(chain.end(), End::Person(*person), "{entry}");
     }
 }

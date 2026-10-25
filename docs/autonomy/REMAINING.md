@@ -2971,3 +2971,16 @@ Chrome asks the nameservers through its own DNS client, whose fidelity to
 the system's is unmeasured (650). The screen was locked, so 642 and 643
 still wait on it. 303 queue items are open (635 closed, 649 and 650
 opened). The next unused queue number is 651 and the next unused ADR 0063.
+
+Iteration 390 closed queue item 636, measured against Chrome 155: every
+frame's document request is paused through the session of the frame
+holding it, a same-site frame commits through the tab's session and an
+other-site frame only through its own target once sent `Page.enable`, and
+a dedicated worker's requests are named for its document's frame. Each
+frame is now a document of its own in the record (`chrome_record.rs`),
+caused by the page holding it, its `fetch` and its worker's its own, and
+a page holds at most the 1000 frames Chrome makes. Cut: 651 (a frame
+sending itself to a scheme Chrome never pauses is not judged). The screen
+was locked, so 642 and 643 still wait on it. 303 queue items are open
+(636 closed, 651 opened). The next unused queue number is 652 and the
+next unused ADR 0063.

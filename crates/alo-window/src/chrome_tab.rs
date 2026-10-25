@@ -55,6 +55,11 @@
 //! is held from there. A target that cannot be held is [`Failed::Unheld`],
 //! and the tab is closed.
 //!
+//! A frame's own target is asked, too, to tell of the frames made in it and
+//! of each document it commits, before it is let go: what each frame's
+//! document asks for is that document's in the record
+//! ([`crate::chrome_record::Causes`], queue item 636).
+//!
 //! # A tab in a shown Chrome is its window's page
 //!
 //! A Chrome started shown ([`Chrome::start_shown`]) has one window of its own
@@ -293,7 +298,7 @@ impl<'c> Tab<'c> {
                 return Err(why.into());
             }
         };
-        let causes = Causes::of(chrome.record_mut().a_tab());
+        let causes = Causes::of(chrome.record_mut().a_tab(), &target);
         // From here the tab is closed when this is dropped, whatever fails.
         let mut tab = Self {
             chrome,
@@ -607,17 +612,25 @@ impl<'c> Tab<'c> {
                 method,
                 session: Some(session),
                 params,
-            } if session == self.session && method == "Page.frameRequestedNavigation" => {
-                self.asked_to_go(&params)?;
+            } if is_a_frames(held) && method == "Page.frameRequestedNavigation" => {
+                self.asked_to_go(&session, &params)?;
                 Ok(None)
             }
-            // The tab's own frame holds a new document, from now.
-            Message::Event {
-                method,
-                session: Some(session),
-                params,
-            } if session == self.session && method == "Page.frameNavigated" => {
+            // A frame of the tab holds a new document, from now: the tab's
+            // own frame, told of through the tab's session, or a frame
+            // inside it, through that or the frame's own target.
+            Message::Event { method, params, .. }
+                if is_a_frames(held) && method == "Page.frameNavigated" =>
+            {
                 self.committed(&params)?;
+                Ok(None)
+            }
+            // A frame made inside one of the tab's, or taken out of its page.
+            Message::Event { method, params, .. }
+                if is_a_frames(held)
+                    && matches!(method.as_str(), "Page.frameAttached" | "Page.frameDetached") =>
+            {
+                self.made_or_gone(&method, &params)?;
                 Ok(None)
             }
             // The tab's own frame moved within the document it holds: no
@@ -717,12 +730,16 @@ impl<'c> Tab<'c> {
         Ok(())
     }
 
-    /// A navigation the page asked for, told of in `params`. Its main frame
-    /// has the tab's own id; a frame inside it asking is not the page going
-    /// anywhere.
-    fn asked_to_go(&mut self, params: &[u8]) -> Result<(), Failed> {
+    /// A navigation a frame of the page asked for, told of in `params`
+    /// through `session`. Its main frame has the tab's own id; a frame inside
+    /// it asking is not the page going anywhere, and is the agent's while a
+    /// verb is carried out in the frame's document.
+    fn asked_to_go(&mut self, session: &str, params: &[u8]) -> Result<(), Failed> {
         let requested = chrome_protocol::requested(params).map_err(Failed::Malformed)?;
-        if requested.frame != self.target {
+        if requested.frame != self.target || session != self.session {
+            if requested.disposition == "currentTab" {
+                self.causes.asked_to_go(&requested.frame, &requested.url);
+            }
             return Ok(());
         }
         // Never paused when it is a scheme Chrome hands elsewhere, so judged
@@ -741,7 +758,7 @@ impl<'c> Tab<'c> {
                     self.refusals.push(refusal);
                 }
                 Ok(_) if requested.disposition == "currentTab" => {
-                    self.causes.asked_to_go(&requested.url);
+                    self.causes.asked_to_go(&requested.frame, &requested.url);
                 }
                 Ok(_) => {}
             }
@@ -751,12 +768,37 @@ impl<'c> Tab<'c> {
     }
 
     /// A frame of the tab that holds a new document, told of in `params`:
-    /// when it is the tab's own, the document is the tab's from now.
+    /// the frame's document from now, and when it is the tab's own, the
+    /// tab's. A frame inside another is told of with the frame holding it,
+    /// in its own target as in the tab's (measured against Chrome 155).
     fn committed(&mut self, params: &[u8]) -> Result<(), Failed> {
         let committed = chrome_protocol::committed(params).map_err(Failed::Malformed)?;
-        if committed.frame == self.target && !committed.inside {
-            self.causes.committed(self.chrome.record_mut());
+        let own = committed.frame == self.target;
+        if own == committed.inside {
+            return Ok(());
+        }
+        self.causes
+            .committed(self.chrome.record_mut(), &committed.frame);
+        if own {
             self.address = alo_url::parse(&committed.url).ok();
+        }
+        Ok(())
+    }
+
+    /// A frame made inside one of the tab's, told of in `params` as
+    /// `Page.frameAttached` before it asks for anything, or one gone, as
+    /// `Page.frameDetached`: taken out of its page when Chrome says
+    /// `remove`, and when it says `swap` gone on in a target of its own, and
+    /// still the tab's.
+    fn made_or_gone(&mut self, method: &str, params: &[u8]) -> Result<(), Failed> {
+        if method == "Page.frameAttached" {
+            let (frame, holder) = chrome_protocol::frame_made(params).map_err(Failed::Malformed)?;
+            self.causes.made(&frame, &holder);
+        } else {
+            let (frame, why) = chrome_protocol::frame_gone(params).map_err(Failed::Malformed)?;
+            if why == "remove" {
+                self.causes.removed(&frame);
+            }
         }
         Ok(())
     }
@@ -794,16 +836,19 @@ impl<'c> Tab<'c> {
                 (Command::Refuse { request }, false)
             }
             Kept::Network => {
+                // A frame's navigation is paused in the session of the frame
+                // holding it, or the frame's own, and is for the frame.
                 let hop = match (by, paused.kind.as_str(), paused.redirected) {
-                    (Kind::Page, "Document", false) if paused.frame == self.target => Hop::First,
-                    (Kind::Page, "Document", true) if paused.frame == self.target => {
-                        Hop::Redirected
-                    }
+                    (Kind::Page | Kind::Frame, "Document", false) => Hop::First,
+                    (Kind::Page | Kind::Frame, "Document", true) => Hop::Redirected,
                     _ => Hop::None,
                 };
-                let cause = self
-                    .causes
-                    .of_request(self.chrome.record_mut(), &paused.url, hop);
+                let cause = self.causes.of_request(
+                    self.chrome.record_mut(),
+                    &paused.frame,
+                    &paused.url,
+                    hop,
+                );
                 let purpose = purpose_of(&paused.kind);
                 match chrome_gate::judge(&paused.url) {
                     Ok(url) => {
@@ -822,7 +867,7 @@ impl<'c> Tab<'c> {
                     }
                     Err(refusal) => {
                         if hop != Hop::None {
-                            self.causes.ended();
+                            self.causes.ended(&paused.frame);
                         }
                         self.write_refused(&paused.url, &paused.method, purpose, cause, &refusal);
                         self.refused.push(paused.url);
@@ -916,6 +961,12 @@ impl<'c> Tab<'c> {
             self.chrome
                 .send(held, &Command::HoldNewTabs { hold: true })?,
         );
+        // A frame tells of the frames made in it and of what it commits only
+        // when asked, and answers before it runs (measured, Chrome 155): so
+        // what its document asks for is that document's from the first.
+        if kind == Kind::Frame {
+            asked.push(self.chrome.send(held, &Command::TellOfLoading)?);
+        }
         // Its WebSockets are told of through its own session, measured for
         // a frame, a dedicated worker and a service worker alike. A
         // service worker answers only once it runs, so it is not held for
@@ -951,6 +1002,12 @@ impl<'c> Tab<'c> {
         }
         Ok(())
     }
+}
+
+/// Whether a message through a session held as `held` is one a frame of the
+/// tab tells of: the tab's own, or a frame of it in a target of its own.
+fn is_a_frames(held: Option<Kind>) -> bool {
+    matches!(held, Some(Kind::Page | Kind::Frame))
 }
 
 /// `asked` as an address a line of the record can hold: within ADR 0020's

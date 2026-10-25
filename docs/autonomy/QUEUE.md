@@ -16396,7 +16396,7 @@ What stage 2's exit gate actually measures: a person using it.
   read); whether that honours everything the system's resolver would is
   cut as 650. Found in the same log: 649.
 
-- [ ] **636. A frame in Chrome is a document of its own in the record.** *Cut
+- [x] **636. A frame in Chrome is a document of its own in the record.** *Cut
   from 634 (ADR 0012 § 3).* Today a frame's requests and a worker's are
   the tab's document's — the page that holds the frame or started the
   worker. Each frame committing should mint its own document, caused by the
@@ -16407,6 +16407,47 @@ What stage 2's exit gate actually measures: a person using it.
   local page with a same-site frame and an other-site frame that each
   fetch is recorded with each frame's `fetch` caused by its own document,
   whose cause is the page's document.
+  ***Done (iteration 390).*** Measured against Chrome 155.0.8059.86 with a
+  local server and a Node CDP probe, held as the browser holds a tab:
+  Chrome tells of a frame being made (`Page.frameAttached`, with the frame
+  holding it) before the frame asks for anything; **every frame's
+  document request is paused through the session of the frame holding
+  it**, the other-site frame's too, named for the frame; a same-site
+  frame's commit is told of through the tab's session, and an other-site
+  frame's only through its own target, and only once that target is sent
+  `Page.enable` — which it answers before it runs — both before anything
+  the frame's document asks for, the frame's `parentId` set in either; the
+  other-site frame is then told of to the tab as gone with reason `swap`,
+  and a frame taken out of its page as `remove`. A dedicated worker's
+  requests are named for the frame whose document started it, paused in
+  that frame's target. A page adding 1200 `<iframe>`s holds 1000 frames.
+  Built: `chrome_record.rs`'s `Causes` keeps a document per frame, the
+  tab's own among them, bounded at `MOST_FRAMES` (1024, above Chrome's
+  1000): a frame's navigation mints its document at its first hop, caused
+  by what the document holding it was doing (or, for a frame that holds
+  one, by that one, as the page's own navigation is the page's), its
+  commit is read from either session, and what it asks for — its worker's
+  too — is its document's; a frame removed is forgotten with every frame
+  inside it, and so is every frame a document held when its frame commits
+  another. While a verb is carried out, a frame's document held as it
+  began is acted in as the page is; a frame the verb brought asks for its
+  own. A request for a frame never told of, or beyond the bound, is the
+  page's, and mints nothing. `chrome_protocol` reads `Page.frameAttached`
+  and `Page.frameDetached`, malformed shapes refused as kinds; a held
+  frame is sent `Page.enable` and held for its answer.
+  `tests/every_request_of_a_page_in_chrome_recorded.rs`: a page at
+  `127.0.0.1` with a same-site frame and a `localhost` frame, each
+  fetching, the second starting a worker that fetches and then going to a
+  second page — each frame's document line is the page's, each `fetch` is
+  its own frame document's whose cause is the page's, the worker's script
+  and `fetch` the frame's that started it, the second page's load the
+  first frame document's, four documents, every chain whole to the
+  person. Two mutations (a frame's `Page.enable` not sent; frames made not
+  remembered) each fail it; a third (a frame's hop not read as one)
+  survives it, because the frame's commit mints an equivalent document,
+  and is caught by the unit tests of the cases only the hop decides — a
+  redirect before commit, a refused hop, an agent's navigation of a frame.
+  Cut: 651 (a frame's navigation to a scheme Chrome hands elsewhere).
 
 - [x] **637. A shared worker of a page in Chrome is held.** *Found building
   634 (iteration 375); ADR 0060 § 2.* Measured against Chrome 155 with a
@@ -16793,6 +16834,19 @@ What stage 2's exit gate actually measures: a person using it.
   resolver of the test's own where one is needed, and Chrome either
   answers what the system does or is told to use the system's resolver,
   with a test.
+
+- [ ] **651. A frame's navigation to a scheme Chrome never pauses.** *Cut
+  from 636 (iteration 390); ADR 0060 § 2, ADR 0020.* The tab's own frame
+  asking to go to `mailto:` is judged as Chrome tells of it
+  (`Page.frameRequestedNavigation`), refused by name and recorded,
+  because Chrome never pauses it. A frame inside the page asking the same
+  is not judged: `chrome_tab.rs` only notes it for the agent's cause.
+  Whether Chrome tells of a frame's request at all, through the tab's
+  session or the frame's own target, and what it then does with it, is not
+  measured. *Depends on 636. Closes when:* a same-site and an other-site
+  frame each sending itself to a refused scheme are refused by name and
+  recorded with the frame's document as the cause, asserted from a test —
+  or the item closes saying what Chrome does not tell of.
 
 ## K. ★ The agent, on somebody else's pages
 

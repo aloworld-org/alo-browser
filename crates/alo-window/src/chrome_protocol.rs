@@ -813,6 +813,40 @@ pub fn within(params: &[u8]) -> Result<Within, Malformed> {
     })
 }
 
+/// A frame made inside another, from a `Page.frameAttached` event: the
+/// frame's id, and the id of the frame holding it. Measured against Chrome
+/// 155 on 2026-10-25: told of to the session of the frame holding it, before
+/// the frame asks for its document.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without a `frameId` and a `parentFrameId`,
+/// each text.
+pub fn frame_made(params: &[u8]) -> Result<(String, String), Malformed> {
+    let fields = object(params)?;
+    Ok((
+        text(fields.get("frameId"), "frameId")?,
+        text(fields.get("parentFrameId"), "parentFrameId")?,
+    ))
+}
+
+/// A frame gone from where it was, from a `Page.frameDetached` event: the
+/// frame's id, and why in Chrome's word — `remove` for a frame taken out of
+/// its page, `swap` for one that went on in a process of its own (measured
+/// against Chrome 155 on 2026-10-25: an other-site frame is told of as
+/// `swap` after its document committed in its own target).
+///
+/// # Errors
+///
+/// [`Malformed`], for params without a `frameId` and a `reason`, each text.
+pub fn frame_gone(params: &[u8]) -> Result<(String, String), Malformed> {
+    let fields = object(params)?;
+    Ok((
+        text(fields.get("frameId"), "frameId")?,
+        text(fields.get("reason"), "reason")?,
+    ))
+}
+
 /// The address of a WebSocket a page opened, from a
 /// `Network.webSocketCreated` event, as Chrome spells it.
 ///
@@ -1901,6 +1935,68 @@ mod tests {
                 "http://127.0.0.1:60476/pushed.html?x".to_owned(),
                 "historyApi".to_owned()
             ))
+        );
+    }
+
+    #[test]
+    fn a_frame_made_and_gone_is_read_as_chrome_155_wrote_it() {
+        // Cut from Chrome 155's on 2026-10-25.
+        assert_eq!(
+            frame_made(
+                br#"{"frameId":"87E6FC1E571944E4C68A13873420196A","parentFrameId":"FD9DE64FB81D3A86EA5C2AD40CAEA1ED"}"#
+            ),
+            Ok((
+                "87E6FC1E571944E4C68A13873420196A".to_owned(),
+                "FD9DE64FB81D3A86EA5C2AD40CAEA1ED".to_owned()
+            ))
+        );
+        assert_eq!(
+            frame_gone(br#"{"frameId":"D70531C2DC63B5CB52FA7E9B16F73A92","reason":"swap"}"#),
+            Ok((
+                "D70531C2DC63B5CB52FA7E9B16F73A92".to_owned(),
+                "swap".to_owned()
+            ))
+        );
+        assert_eq!(
+            frame_gone(br#"{"frameId":"F","reason":"remove"}"#).map(|(_, why)| why),
+            Ok("remove".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_frame_made_or_gone_that_is_not_one_is_refused_as_a_kind() {
+        assert_eq!(frame_made(b"{}"), bad("frameId"));
+        assert_eq!(frame_made(br#"{"frameId":"F"}"#), bad("parentFrameId"));
+        assert_eq!(
+            frame_made(br#"{"frameId":"F","parentFrameId":null}"#),
+            bad("parentFrameId")
+        );
+        assert_eq!(
+            frame_made(br#"{"frameId":7,"parentFrameId":"P"}"#),
+            bad("frameId")
+        );
+        assert_eq!(frame_gone(br#"{"reason":"remove"}"#), bad("frameId"));
+        assert_eq!(frame_gone(br#"{"frameId":"F"}"#), bad("reason"));
+        assert_eq!(
+            frame_gone(br#"{"frameId":"F","reason":["remove"]}"#),
+            bad("reason")
+        );
+        assert_eq!(frame_made(b"[]"), Err(Malformed::NotAnObject));
+        assert_eq!(frame_gone(b"\"F\""), Err(Malformed::NotAnObject));
+        assert_eq!(
+            frame_made(br#"{"frameId":"F","parentFrameId":"P"#),
+            Err(Malformed::NotJson)
+        );
+        let long = format!(
+            r#"{{"frameId":"{}","parentFrameId":"P"}}"#,
+            "x".repeat(MOST_TEXT + 1)
+        );
+        assert_eq!(
+            frame_made(long.as_bytes()),
+            Err(Malformed::TooLong {
+                field: "frameId",
+                most: MOST_TEXT
+            })
         );
     }
 
