@@ -151,12 +151,44 @@ step "the tests, and the doctests with them"
 # cent, not the thirty the step's own saving suggested. Tests are not the bulk
 # of this gate; clippy and the rest are a larger share than they look. Worth
 # keeping, and worth remembering which number was measured and which inferred.
+#
+# **A failing run prints why it failed, not only that it did.** Until
+# 2026-10-25 both commands were piped through `tail -n 20`, which keeps the
+# summary and throws the panic away — so every failure said which test and
+# nothing else, and each one had to be reproduced by hand before it could be
+# read. One of them could not be reproduced at all and stopped the loop twice
+# in a night. So the output is kept, a passing run prints its tail as before,
+# and a failing one prints the part with the failures in it. This makes the
+# gate no weaker: the same commands decide it, and only what is *shown*
+# changed.
+RUN_LOG="${TMPDIR:-/tmp}/alo-gate-tests.$$.log"
+trap 'rm -f "$RUN_LOG"' EXIT
+# What a reader needs from a failing run: the failures, with their output.
+#
+# Not `tail`. A run of five thousand tests prints a line per test, so a
+# failure early in it is thousands of lines from the end — which is how the
+# panic went missing even when the whole log was kept. So the failures are
+# found by what they say and printed with the lines around them, and the
+# summary is printed too because it says how many there were.
+say_why() {
+  grep -n -B2 -A25 -E 'panicked at|--- STDERR|stderr ───|^ *FAIL|^ *TIMEOUT|^ *SIGSEGV|test result: FAILED' "$1" \
+    | head -n 250
+  printf '   ─────\n'
+  tail -n 12 "$1"
+}
 if ! command -v cargo-nextest >/dev/null; then
   bad "cargo-nextest is not installed — cargo install cargo-nextest"
-elif cargo nextest run --workspace --all-features 2>&1 | tail -n 20 \
-  && cargo test --workspace --all-features --doc 2>&1 | tail -n 20; then
-  good "tests pass, and the doctests with them"
+elif cargo nextest run --workspace --all-features > "$RUN_LOG" 2>&1; then
+  tail -n 20 "$RUN_LOG"
+  if cargo test --workspace --all-features --doc > "$RUN_LOG" 2>&1; then
+    tail -n 20 "$RUN_LOG"
+    good "tests pass, and the doctests with them"
+  else
+    tail -n 60 "$RUN_LOG"
+    bad "doctests fail"
+  fi
 else
+  say_why "$RUN_LOG"
   bad "tests fail"
 fi
 
