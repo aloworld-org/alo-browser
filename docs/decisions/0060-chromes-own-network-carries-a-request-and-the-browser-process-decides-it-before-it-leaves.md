@@ -275,3 +275,37 @@ as the old page's, and as the agent's action in it.
 holds when it is paused; and an old page's request paused *after* the new
 page's commit is read is still taken as the new page's — the same race the
 other way round, queue item 657.
+
+## Second amendment, 2026-10-25 — a request Chrome names no id for
+
+*Queue item 657.* The first amendment left two things open, and they turn
+out to be one: a request with no `networkId`, and an old page's request
+paused after the new page's commit is read.
+
+Measured against Chrome 155.0.8059.86 the same day, a page sending
+beacons, `keepalive` fetches, plain fetches and pictures from `pagehide`,
+`unload` and `visibilitychange` as a link was followed: **all 391 of
+those requests, under 96 busy processes, were paused with no
+`networkId`**, none was ever told of by `Network.requestWillBeSent`, and
+312 were paused after the new page's commit was read — every one of them
+when the new page was from another site, on a quiet machine too. **Every
+request of a living page had one**: 240 of the new page's, its own
+beacons and `keepalive` fetches among them, and 31 kinds of request on a
+page asking for everything it can, headless and shown — service worker,
+shared and dedicated worker scripts, preloads, fonts, media, a ping, a
+form's submission.
+
+**Decided:** the absence of a `networkId` is taken as a loader is — as
+which of a frame's two documents asked, never who wanted it. A request
+paused with none, through a frame's session, is the document the frame
+**left**, from the commit of the one it holds until its next navigation's
+first hop; before that commit, or with no document left, it is the one the
+frame holds, as before. Nothing is waited for: the line is written as it
+is paused. A renderer that could withhold the id from a living page's
+request would move that request to the page before, in the same frame,
+whose chain the page it holds leads back through — and nowhere else.
+
+**Not decided here:** a shared or service worker's request with no
+`networkId` stays the page's, since no such request was measured; and a
+living page's request with none, which Chrome 155 was not seen to make,
+would be written as the page left's until the next navigation.

@@ -59,6 +59,14 @@
 //! that window is decided by its own loader once Chrome tells of it
 //! ([`crate::chrome_owed`]).
 //!
+//! **Nor always before what the old page asks for as it is left.** A
+//! beacon from `pagehide` is paused after the new page's commit is read
+//! under load, and every time when the new page is from another site
+//! (queue item 657, measured against Chrome 155). Chrome names no
+//! `networkId` for any request of a page being left and one for every
+//! request of a living page, so a request with none is the document the
+//! frame left, until its next navigation ([`Causes::of_unnamed`]).
+//!
 //! # A frame is a document of its own
 //!
 //! Each frame of the tab is held the same way (queue item 636): a navigation
@@ -204,6 +212,10 @@ struct Frame {
     holder: Option<String>,
     /// The document it holds, once one has committed.
     page: Option<DocumentId>,
+    /// The document it held before that one, from that one's commit until
+    /// its next navigation's first hop: the page being left, whose requests
+    /// Chrome pauses with no `networkId` (queue item 657).
+    left: Option<DocumentId>,
     /// The document a navigation of it under way will commit, minted at its
     /// first hop.
     arriving: Option<DocumentId>,
@@ -348,7 +360,36 @@ impl Causes {
         this.hop = Some(cause.clone());
         this.arriving = Some(record.opened(cause.clone()));
         this.loader = loader.map(str::to_owned);
+        // The page left before the one it holds has had its pagehide: what
+        // is asked for unnamed from now is the one it holds, leaving.
+        this.left = None;
         cause
+    }
+
+    /// The cause of a request for the frame `frame` that Chrome paused with
+    /// no `networkId` (queue item 657): the document the frame left, from
+    /// its commit until the frame's next navigation's first hop, and
+    /// otherwise what [`Causes::of_frame`] says.
+    ///
+    /// Chrome names no request id only for a document it no longer tells
+    /// of, which is a page being left: measured against Chrome 155 on 25
+    /// October 2026, all 391 requests a page made in `pagehide`, `unload`
+    /// and `visibilitychange` as a link was followed — beacons, `keepalive`
+    /// fetches, plain fetches and pictures, under 96 busy processes — had
+    /// none, and 312 of them were paused after the new page's commit was
+    /// read; every request of a living page had one, 31 kinds of request in
+    /// all, its own beacons and `keepalive` fetches among them. Like a
+    /// loader ([`crate::chrome_owed`]), its absence chooses between two
+    /// documents this process minted for the frame and names no cause.
+    pub fn of_unnamed(&self, frame: &str) -> Cause {
+        match self
+            .frames
+            .get(self.remembered(frame))
+            .and_then(|this| this.left)
+        {
+            Some(left) => self.in_document(left),
+            None => self.of_frame(frame),
+        }
     }
 
     /// The document arriving in the frame `frame`, and the loader Chrome
@@ -447,7 +488,7 @@ impl Causes {
                 .arriving
                 .take()
                 .unwrap_or_else(|| record.opened(navigation));
-            this.page = Some(document);
+            this.left = this.page.replace(document);
             this.hop = None;
             this.loader = None;
         }
@@ -775,6 +816,48 @@ mod tests {
         // A first hop Chrome named no loader for opens no window.
         causes.of_request(&mut record, "T", "http://a/x", Hop::First, None);
         assert_eq!(causes.window("T"), None);
+    }
+
+    /// Queue item 657's order: the old page's beacon paused after the new
+    /// page's commit is read, with no `networkId`. It is the old page's, and
+    /// the agent's action in it while a verb is carried out there; from the
+    /// next navigation's first hop, the page now held is the one leaving.
+    #[test]
+    fn a_request_chrome_names_no_id_for_is_the_page_left() {
+        let mut record = Record::default();
+        let mut causes = Causes::of(record.a_tab(), "T");
+        assert_eq!(causes.of_unnamed("T"), causes.of_frame("T"), "none left");
+        causes.of_request(&mut record, "T", "http://a/", Hop::First, Some("L1"));
+        causes.committed(&mut record, "T");
+        let first = causes.page().unwrap();
+        causes.made("F", "T");
+        causes.acting(Some(record.an_action()));
+        let in_first = causes.of_page();
+        causes.of_request(&mut record, "T", "http://a/go", Hop::First, Some("L2"));
+        assert_eq!(causes.of_unnamed("T"), in_first, "before the commit");
+        causes.committed(&mut record, "T");
+        let second = causes.page().unwrap();
+        assert_ne!(first, second);
+        assert_eq!(causes.of_unnamed("T"), in_first);
+        // A frame gone with the page it was in is the page's, left.
+        assert_eq!(causes.of_unnamed("F"), in_first);
+        causes.acting(None);
+        assert_eq!(causes.of_unnamed("T"), Cause::Document { document: first });
+        assert_eq!(
+            causes.of_frame("T"),
+            Cause::Document { document: second },
+            "what is named is the page held"
+        );
+        // The next navigation's first hop: the page held is the one left.
+        causes.of_request(&mut record, "T", "http://a/3", Hop::First, Some("L3"));
+        assert_eq!(causes.of_unnamed("T"), Cause::Document { document: second });
+        causes.ended("T");
+        assert_eq!(causes.of_unnamed("T"), Cause::Document { document: second });
+        // A document from no request this tab paused leaves one all the
+        // same.
+        causes.committed(&mut record, "T");
+        assert_eq!(causes.of_unnamed("T"), Cause::Document { document: second });
+        assert_ne!(causes.page(), Some(second));
     }
 
     #[test]

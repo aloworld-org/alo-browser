@@ -229,7 +229,12 @@ about this project (ADR 0058 § 6).
   it, the arriving document's making it that document's, and the frame's
   renderer asked after the commit to answer after everything it told of,
   so what it never told of stays the old page's, a frame's documents
-  as the page's (647 and 656, ADR 0060's amendment of 25 October).
+  as the page's (647 and 656, ADR 0060's amendment of 25 October); and
+  **an old page's request its own when Chrome pauses it after telling of
+  the new page** — a beacon or a `keepalive` fetch from `pagehide`, which
+  Chrome names no request id for as it names none for any request of a
+  page being left, written as the page the frame left until its next
+  navigation (657, ADR 0060's second amendment).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -242,8 +247,7 @@ about this project (ADR 0058 § 6).
   asks to open is — the agent's, an action done in that tab rather than in
   a document, so its first page is never written as the person's, and
   still one of ADR 0012's three causes (ADR 0063).
-- **Owed:** an old page's request paused after the new page's commit is
-  read, still written as the new page's (657); how an agent chooses an option of a
+- **Owed:** how an agent chooses an option of a
   `<select>`, on either renderer (648, needs an ADR); the
   rest of the agent's work where a person can see it — **a window of ours
   around Chrome's, following it, with 623's and 625's lines and 624's
@@ -820,7 +824,10 @@ unreachable without it.
       `chrome_unfocusable.rs`, `chrome_act.rs`), and a request paused while
       its frame goes to a new document recorded as the document whose
       loader Chrome says made it, the old page's when it says none or
-      another, a frame's as the page's (items 647 and 656, `chrome_owed.rs`)
+      another, a frame's as the page's (items 647 and 656, `chrome_owed.rs`),
+      and a request Chrome names no id for, paused after a frame's commit,
+      recorded as the page the frame left (item 657, `chrome_record.rs`'s
+      `Causes::of_unnamed`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -831,9 +838,9 @@ unreachable without it.
       the person's (ADR 0063), and which of a frame's two documents a
       request is, by Chrome's word for its loader, which chooses between
       documents this process minted and never names a cause (ADR 0060's
-      amendment)
-      · Owed: an old page's request paused after the new page's commit
-      is read, still taken as the new page's (657); what Chrome itself asks Google for, with no page
+      amendment), and so does a request it names no id for, which is the
+      page the frame left (ADR 0060's second amendment, 657)
+      · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); how an

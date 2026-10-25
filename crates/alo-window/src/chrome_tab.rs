@@ -1240,13 +1240,23 @@ impl<'c> Tab<'c> {
                     }
                     _ => None,
                 };
-                let cause = self.causes.of_request(
-                    self.chrome.record_mut(),
-                    &paused.frame,
-                    &paused.url,
-                    hop,
-                    paused.network.as_deref(),
-                );
+                // Paused with no request id through a frame's session, a
+                // request is a page's being left — the frame's, until its
+                // next navigation, after the commit of another (item 657).
+                let cause = if hop == Hop::None
+                    && paused.network.is_none()
+                    && matches!(by, Kind::Page | Kind::Frame)
+                {
+                    self.causes.of_unnamed(&paused.frame)
+                } else {
+                    self.causes.of_request(
+                        self.chrome.record_mut(),
+                        &paused.frame,
+                        &paused.url,
+                        hop,
+                        paused.network.as_deref(),
+                    )
+                };
                 let purpose = purpose_of(&paused.kind);
                 match chrome_gate::judge(&paused.url) {
                     Ok(url) => {

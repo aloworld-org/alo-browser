@@ -4,7 +4,9 @@
 
 //! A request a new document makes is that document's, even when Chrome
 //! pauses it before this browser has read that the document arrived: queue
-//! items 647 and 656, ADR 0060's amendment of 25 October, ADR 0012.
+//! items 647 and 656, ADR 0060's amendment of 25 October, ADR 0012. And a
+//! request the old document makes as it is left is the old document's, even
+//! when Chrome pauses it after: queue item 657, ADR 0060's second amendment.
 //!
 //! Chrome pauses a request in its browser process and tells of a commit from
 //! the page's renderer, and under load the first can reach this browser
@@ -20,6 +22,8 @@
 //! the same session, is held back until Chrome has paused the request
 //! named, which goes ahead of it. That is the order Chrome was measured to
 //! send under load, with nothing altered but when this browser reads it.
+//! The other way round, a paused request named is held back, alone, until
+//! the commit named has gone ahead of it.
 //!
 //! - The tab's own frame: an agent follows a link to a page with a style
 //!   sheet, whose commit is held until the sheet is paused. The sheet is the
@@ -28,6 +32,12 @@
 //! - A frame from another site goes to a second page of its own, which
 //!   fetches, and its commit is held until the fetch is paused. The fetch is
 //!   the frame's second document's, not its first's (item 656).
+//! - A page sends itself to another, and sends a beacon as it is hidden,
+//!   held back until the new page's commit is read. The beacon is the page
+//!   left's, not the page arrived's (item 657): Chrome names no request id
+//!   for it, as for every request of a page being left, measured against
+//!   Chrome 155 — and after the commit, every time, when the page arrived
+//!   is from another site.
 
 use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
@@ -60,8 +70,10 @@ const FAR_SIDE_OF: &str = "ALO_FAR_SIDE_OF";
 /// arguments and where it marks that it held a commit back.
 const FAR_SIDE_IN: &str = "ALO_FAR_SIDE_IN";
 
-/// Set beside it: the document whose commit is held, and the request it is
-/// held behind, each as the end of an address, as `next.html>next.css`.
+/// Set beside it: what is held — a `commit` or a paused `request` — and
+/// what it is held behind — the other — each as the end of an address, as
+/// `commit /next.html behind /next.css` or `request /beacon behind
+/// /left-for.html`.
 const FAR_SIDE_HOLDS: &str = "ALO_FAR_SIDE_HOLDS";
 
 /// What the server received: each request's path.
@@ -92,6 +104,18 @@ fn answer(path: &str, port: u16) -> (&'static str, String) {
         "/other2.html" => (
             html,
             "<!doctype html><script>fetch('/from-other2')</script>".to_owned(),
+        ),
+        "/leaving.html" => (
+            html,
+            "<!doctype html><script>addEventListener('pagehide', () => {\
+             navigator.sendBeacon('/beacon', 'x'); fetch('/kept', {keepalive: true}) });\
+             setTimeout(() => location = '/left-for.html', 300)</script>"
+                .to_owned(),
+        ),
+        "/left-for.html" => (
+            html,
+            "<!doctype html><link rel=stylesheet href=\"/left-for.css\"><h1>Arrived</h1>"
+                .to_owned(),
         ),
         _ => ("text/css", String::new()),
     }
@@ -247,11 +271,104 @@ fn be_the_far_side_if_asked() {
     std::process::exit(i32::from(ended.is_err()));
 }
 
+/// What a far side holds back.
+enum Held {
+    /// Nothing yet.
+    Nothing,
+    /// A commit, and every later message through its session but a paused
+    /// request.
+    Commit(Option<String>, Vec<Vec<u8>>),
+    /// One paused request.
+    Request(Vec<u8>),
+    /// What was held has gone on, behind what it was held behind.
+    Done,
+}
+
+impl Held {
+    /// What is held, in the order it came.
+    fn kept(self) -> Vec<Vec<u8>> {
+        match self {
+            Held::Commit(_, kept) => kept,
+            Held::Request(paused) => vec![paused],
+            Held::Nothing | Held::Done => Vec::new(),
+        }
+    }
+}
+
+/// What a far side holds back, and whether what it is held behind has gone.
+struct Hold {
+    held: Held,
+    behind_gone: bool,
+    /// Whether a commit is held, rather than a paused request.
+    commit_first: bool,
+}
+
+impl Hold {
+    /// `message`, through `session`, read: what to hand on now, and whether
+    /// the order was made. `is_held` says it is what is held, `is_behind`
+    /// what that is held behind, and `paused` that it is a paused request.
+    fn pass(
+        &mut self,
+        message: &[u8],
+        session: Option<String>,
+        is_held: bool,
+        is_behind: bool,
+        paused: bool,
+    ) -> (Vec<Vec<u8>>, bool) {
+        match &mut self.held {
+            Held::Nothing if is_held && self.commit_first => {
+                self.held = Held::Commit(session, vec![message.to_vec()]);
+                (Vec::new(), false)
+            }
+            // What it is held behind has gone already: the order is
+            // Chrome's own.
+            Held::Nothing if is_held && self.behind_gone => {
+                self.held = Held::Done;
+                (vec![message.to_vec()], true)
+            }
+            Held::Nothing if is_held => {
+                self.held = Held::Request(message.to_vec());
+                (Vec::new(), false)
+            }
+            Held::Commit(from, kept) if *from == session && !paused => {
+                kept.push(message.to_vec());
+                (Vec::new(), false)
+            }
+            _ if is_behind => {
+                self.behind_gone = true;
+                let kept = match std::mem::replace(&mut self.held, Held::Done) {
+                    Held::Nothing => {
+                        self.held = Held::Nothing;
+                        Vec::new()
+                    }
+                    other => other.kept(),
+                };
+                let ordered = !kept.is_empty();
+                let mut sent = vec![message.to_vec()];
+                sent.extend(kept);
+                (sent, ordered)
+            }
+            _ => (vec![message.to_vec()], false),
+        }
+    }
+}
+
 /// Start the machine's Chrome with the arguments this far side was given,
 /// and hand each message on between it and the browser on this side's
-/// descriptors 3 and 4, holding back the commit `holds` names.
+/// descriptors 3 and 4, holding back the commit or the paused request
+/// `holds` names until the paused request or the commit it names has gone
+/// ahead.
 fn relay(chrome: &Path, directory: &Path, holds: &str) -> Result<(), String> {
-    let (document, behind) = holds.split_once('>').ok_or("no hold")?;
+    let (commit_first, document, behind) = match holds.split(' ').collect::<Vec<_>>()[..] {
+        ["commit", document, "behind", behind] => (true, document, behind),
+        ["request", document, "behind", behind] => (false, document, behind),
+        _ => return Err(format!("no hold in {holds}")),
+    };
+    let (held_as, behind_as) = if commit_first {
+        ("Page.frameNavigated", "Fetch.requestPaused")
+    } else {
+        ("Fetch.requestPaused", "Page.frameNavigated")
+    };
     let args = std::fs::read_to_string(directory.join("args")).map_err(|why| why.to_string())?;
     let mut started = Command::new("/bin/sh")
         .arg("-c")
@@ -286,7 +403,11 @@ fn relay(chrome: &Path, directory: &Path, holds: &str) -> Result<(), String> {
         .open("/dev/fd/4")
         .map_err(|why| why.to_string())?;
     let mut from_chrome = BufReader::new(from_chrome);
-    let mut held: Option<(Option<String>, Vec<Vec<u8>>)> = None;
+    let mut hold = Hold {
+        held: Held::Nothing,
+        behind_gone: false,
+        commit_first,
+    };
     let mut message = Vec::new();
     while from_chrome
         .read_until(0, &mut message)
@@ -313,33 +434,21 @@ fn relay(chrome: &Path, directory: &Path, holds: &str) -> Result<(), String> {
                 .unwrap_or_default(),
             _ => String::new(),
         };
-        match &mut held {
-            None if method == "Page.frameNavigated" && address(&method).ends_with(document) => {
-                held = Some((session, vec![message.clone()]));
-            }
-            Some((from, kept)) if *from == session && method != "Fetch.requestPaused" => {
-                kept.push(message.clone());
-            }
-            _ => {
-                to_browser
-                    .write_all(&message)
-                    .map_err(|why| why.to_string())?;
-                if method == "Fetch.requestPaused"
-                    && address(&method).ends_with(behind)
-                    && let Some((_, kept)) = held.take()
-                {
-                    for later in kept {
-                        to_browser
-                            .write_all(&later)
-                            .map_err(|why| why.to_string())?;
-                    }
-                    File::create(directory.join("held")).map_err(|why| why.to_string())?;
-                }
-            }
+        let is_held = method == held_as && address(&method).ends_with(document);
+        let is_behind = method == behind_as && address(&method).ends_with(behind);
+        let paused = method == "Fetch.requestPaused";
+        let (sent, ordered) = hold.pass(&message, session, is_held, is_behind, paused);
+        for later in sent {
+            to_browser
+                .write_all(&later)
+                .map_err(|why| why.to_string())?;
+        }
+        if ordered {
+            File::create(directory.join("held")).map_err(|why| why.to_string())?;
         }
         message.clear();
     }
-    for later in held.map(|(_, kept)| kept).unwrap_or_default() {
+    for later in hold.held.kept() {
         to_browser
             .write_all(&later)
             .map_err(|why| why.to_string())?;
@@ -353,7 +462,7 @@ fn a_new_pages_sheet_chrome_pauses_before_the_page_is_its_own() {
     be_the_far_side_if_asked();
     let far = far_side(
         "a_new_pages_sheet_chrome_pauses_before_the_page_is_its_own",
-        "/next.html>/next.css",
+        "commit /next.html behind /next.css",
     )
     .unwrap();
     let (port, log) = serve().unwrap();
@@ -403,7 +512,7 @@ fn a_frames_new_documents_fetch_chrome_pauses_before_the_document_is_its_own() {
     be_the_far_side_if_asked();
     let far = far_side(
         "a_frames_new_documents_fetch_chrome_pauses_before_the_document_is_its_own",
-        "/other2.html>/from-other2",
+        "commit /other2.html behind /from-other2",
     )
     .unwrap();
     let (port, log) = serve().unwrap();
@@ -431,4 +540,52 @@ fn a_frames_new_documents_fetch_chrome_pauses_before_the_document_is_its_own() {
     assert_ne!(second, first, "pinned on the document before it: {fetch}");
     assert_eq!(record.documents().cause_of(*second), Some(going.cause()));
     assert!(fetch.chain(record.documents()).is_whole());
+}
+
+#[test]
+fn an_old_pages_beacon_chrome_pauses_after_the_new_page_is_the_old_pages() {
+    be_the_far_side_if_asked();
+    let far = far_side(
+        "an_old_pages_beacon_chrome_pauses_after_the_new_page_is_the_old_pages",
+        "request /beacon behind /left-for.html",
+    )
+    .unwrap();
+    let (port, log) = serve().unwrap();
+    let mut chrome = Chrome::start_at(&far.program()).unwrap();
+    let page = alo_url::parse(&format!("http://127.0.0.1:{port}/leaving.html")).unwrap();
+    let mut tab = Tab::open(&mut chrome, &page, SIZE).unwrap();
+    read_until(&mut tab, &log, "/left-for.css").unwrap();
+    read_until(&mut tab, &log, "/beacon").unwrap();
+    read_until(&mut tab, &log, "/kept").unwrap();
+    drop(tab);
+    assert!(
+        far.held(),
+        "the old page's beacon was not held back behind the new page's commit"
+    );
+
+    let record = chrome.record();
+    let lines: Vec<&Entry> = record.activity().entries().collect();
+    // The page sent itself on: the navigation is the page left's doing.
+    let going = line(&lines, &format!("http://127.0.0.1:{port}/left-for.html")).unwrap();
+    let Cause::Document { document: left } = going.cause() else {
+        panic!("the page's navigation is not its own: {going}");
+    };
+    let sheet = line(&lines, &format!("http://127.0.0.1:{port}/left-for.css")).unwrap();
+    let Cause::Document { document: arrived } = sheet.cause() else {
+        panic!("the new page's sheet is not its page's: {sheet}");
+    };
+    assert_ne!(arrived, left, "{sheet}");
+    assert_eq!(record.documents().cause_of(*arrived), Some(going.cause()));
+    // Paused after the new page was read as arrived, and still the page
+    // left's — as is its `keepalive` fetch, whichever side of the commit
+    // Chrome paused it.
+    for asked in ["/beacon", "/kept"] {
+        let it = line(&lines, &format!("http://127.0.0.1:{port}{asked}")).unwrap();
+        assert_eq!(
+            it.cause(),
+            &Cause::Document { document: *left },
+            "pinned on the page arrived ({arrived}): {it}"
+        );
+        assert!(it.chain(record.documents()).is_whole(), "{it}");
+    }
 }

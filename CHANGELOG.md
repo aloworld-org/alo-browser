@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Through Chrome, what a page sends as it is left is written down as
+  that page's.** A page that sends a beacon or a last request as somebody
+  leaves it had that request put on the page that replaced it whenever
+  Chrome asked for it after saying the new page had arrived — every time
+  when the new page was from another site. Chrome gives no request id to
+  anything a page asks for as it is being left, and always gives one to a
+  page that is still open, so a request without one is now written down
+  as the page that was left (queue item 657).
+
 - **Through Chrome, a page's stylesheet is no longer sometimes written
   down as the page before it's.** When a busy machine let Chrome ask for a
   new page's stylesheet before it said the page had arrived, the record

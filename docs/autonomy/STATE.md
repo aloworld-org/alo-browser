@@ -40913,3 +40913,108 @@ ticks 647 and 656 with *Done* paragraphs and opens 657; `features.md`,
 299 queue items are open (647 and 656 closed, 657 opened; counted as
 `- [ ] **` lines). The next unused queue number is **658** and the next ADR
 is **0064**. This is one iteration, not a finished queue or roadmap.
+
+
+## Iteration 401 — queue item 657: what a page sends as it is left, its own
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Decided*/*Owed*, the stage 2 Chrome line), iteration 400's
+entry, `REMAINING.md`'s last entries, the queue's product-path table and
+items 500, 504, 549, 626, 628 and 642–657; ADR 0060 §§ 2 and its amendment
+of 25 October, ADR 0012; `alo-window`'s `chrome_owed.rs`,
+`chrome_record.rs` (`Causes`), `chrome_tab.rs` (`next`, `answer`,
+`committed`, `told_in`) and
+`tests/a_page_chrome_tells_of_after_what_it_asks_for.rs`. No `AGENTS.md`
+exists in the repository. The feature contract is `docs/features.md`'s
+Chrome renderer line (items 634 and 636: every request says what caused
+it).
+
+**Why 657.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 — next by the owner's choice —
+could not be measured honestly. 657 is first of the product path's
+*Owed* in `ROADMAP.md`, and its dependency, 647, is done; 648 after it
+needs an ADR.
+
+**Measured first**, against Chrome 155.0.8059.86, headless, with Node
+probes over the pipe (scratch only): a page sending a beacon, a
+`keepalive` fetch, a plain fetch and a picture from `pagehide`, a beacon
+and a `keepalive` fetch from `unload` and a beacon from
+`visibilitychange`, then following a link. Under 96 busy processes, 30
+same-site runs and 30 to another site: **all 391 such requests were
+paused with no `networkId`** and none was told of by
+`requestWillBeSent`; 312 were paused after the new page's commit was
+read — 180 of 180 when the new page was from another site, and 30 of 30
+on a quiet machine too. The new page's own requests, its beacon and
+`keepalive` fetch among them, had a `networkId` 240 of 240 under load,
+and a page asking for everything it can (31 kinds: service, shared and
+dedicated worker scripts, preloads, fonts, media, a ping, a form's
+submission…) had one for every request, headless and shown. So item
+657's two halves — the old page's request after the commit, and a
+request with no `networkId` — were one question.
+
+**Built.**
+- `chrome_record.rs`: a frame's `left`, the document it held before the
+  one it holds, from that one's commit until the next navigation's first
+  hop; `Causes::of_unnamed`; a unit test.
+- `chrome_tab.rs`: a request paused through a frame's session with no
+  `networkId` takes `of_unnamed`; nothing is owed or waited for.
+- ADR 0060's second amendment: an absent id, like a loader, chooses
+  between two documents this process minted and names no cause.
+- The relay of `a_page_chrome_tells_of_after_what_it_asks_for.rs` now
+  holds either a commit behind a paused request or a paused request behind
+  a commit (`commit … behind …` / `request … behind …`, `Hold::pass`); its
+  new test holds a self-sent page's beacon behind the new page's commit
+  and asserts the beacon and the `keepalive` fetch are the page left's.
+  Mutations, restored from a copy and checked with `cmp`: the tab using
+  `of_frame` — the new test fails (*pinned on the page arrived
+  (document#1)*); the first hop not clearing `left` — the unit test fails.
+  Under 96 busy processes the test file and
+  `every_request_of_a_page_in_chrome_recorded.rs` passed 5 of 5 runs each.
+
+**Gate.** First clippy, before the gate: `relay` over the length lint
+(126/100); split into `Held::kept` and `Hold::pass`, not silenced. Then
+`scripts/gate.sh` in the foreground — it ran past the tool's 600 s, so it
+was waited on by an until-loop in the next call and read there: **exit 0,
+"The gate is met." (10 of 10 steps)**, nextest **5,324 tests run, 5,324
+passed** in 565.7 s, no warning, `FAIL`, `LEAK` or `panicked`. Only this
+entry came after.
+
+**Manual.** Nothing positions, sizes or draws, so no layout assertion or
+reference render applies; no reference changed. One file, one
+responsibility: which document caused a request stays `chrome_record.rs`'s;
+owing a line stays `chrome_owed.rs`'s (its doc now says why an unnamed
+request is never owed); the tab only chooses which to ask. Bytes from
+outside: nothing new is read — `networkId`'s absence was already parsed
+by `chrome_protocol::paused`, whose malformed-input tests stand. No
+`unsafe`, no stubs, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 657 and its *Owed* drops
+it; the stage 2 Chrome line's `· Built:` and `· Decided:` gain it and
+`· Owed:` drops it. Not ticked — neither line is finished. The queue
+ticks 657 with a *Done* paragraph; `features.md`, `REMAINING.md`, ADR 0060
+and the changelog say the same.
+
+**Unresolved obligations.**
+- A shared or service worker's request with no `networkId` stays the
+  page's; none was measured.
+- A living page's request with no `networkId`, which Chrome 155 was not
+  seen to make, would be written as the page left's until the frame's
+  next navigation.
+- The cause of a page's leaving request while an agent's verb runs is the
+  agent's action in it or the page's own, depending on whether the verb
+  has answered — unchanged by this item, so the new test sends the page
+  away by its own script.
+- 642 and 643 still wait on the screen in use (locked); 648 needs an ADR;
+  645, 649 and 650 are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655).
+- No claim about speed is made.
+
+298 queue items are open (657 closed; counted as `- [ ] **` lines). The
+next unused queue number is **658** and the next ADR is **0064**. This is
+one iteration, not a finished queue or roadmap.

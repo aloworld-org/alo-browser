@@ -49,13 +49,15 @@
 //! arriving one — whose cause, through the chain, is the same navigation —
 //! and never to a person or an action of its choosing.
 //!
-//! # What this does not say yet
+//! # A request Chrome names no id for is the page being left
 //!
-//! - **A request with no `networkId`** — a beacon, a `keepalive` fetch, a
-//!   picture asked for as a page is hidden — is never told of a loader, and
-//!   is the document the frame holds when it is paused.
-//! - **An old page's request paused after the new page's commit is read** is
-//!   the new page's, which is wrong in the other direction (queue item 657).
+//! None of this is owed for a request paused with no `networkId`: Chrome
+//! names none only for a page it no longer tells of, one being left, and
+//! never tells of a loader for it. Before the frame's commit is read that
+//! is the document the frame holds; after, it is the one the frame left —
+//! the same race the other way round, which a page from another site
+//! loses every time ([`crate::chrome_record::Causes::of_unnamed`], queue
+//! item 657).
 
 use alo_net::activity::Happened;
 use alo_net::cause::{Cause, DocumentId};

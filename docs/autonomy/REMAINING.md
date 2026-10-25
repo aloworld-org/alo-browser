@@ -3110,3 +3110,16 @@ every time. Opened 657: an old page's request paused after the new page's
 commit is still the new page's. 299 queue items are open (647 and 656
 closed, 657 opened). The next unused queue number is 658 and the next
 unused ADR 0064.
+
+Iteration 401 closed 657, an old page's request paused after the new
+page's commit. Measured against Chrome 155: every request of a page being
+left — 391 beacons, `keepalive` fetches, fetches and pictures from
+`pagehide`, `unload` and `visibilitychange` — is paused with no
+`networkId`, 312 of them after the new page's commit (all of them when the
+new page is from another site), and every request of a living page has
+one. A frame now remembers the document it left until its next
+navigation's first hop, and a request with no `networkId` paused through a
+frame's session is that document's (`Causes::of_unnamed`, ADR 0060's
+second amendment). The relay test holds a page's beacon behind the new
+page's commit, and fails without the fix. 298 queue items are open (657
+closed). The next unused queue number is 658 and the next unused ADR 0064.

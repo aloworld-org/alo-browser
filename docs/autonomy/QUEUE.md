@@ -17280,7 +17280,7 @@ What stage 2's exit gate actually measures: a person using it.
   failed without the fix exactly as iteration 394's gate did (`caused by
   document#1`, the frame's first document) and passes with it.
 
-- [ ] **657. An old page's request paused after the new page's commit.**
+- [x] **657. An old page's request paused after the new page's commit.**
   *Found measuring 647 (iteration 400); ADR 0012, ADR 0060's amendment of
   25 October.* The same race as 647 the other way round: Chrome 155,
   under 96 busy processes, told of a new page's commit and *then* paused
@@ -17299,6 +17299,32 @@ What stage 2's exit gate actually measures: a person using it.
   after the new page's commit is read, is recorded as the old page's —
   or the record says, by name, that it cannot tell — with a test that
   fails without it.
+  ***Done (iteration 401).*** **It was one question, not two.** Measured
+  against Chrome 155.0.8059.86 with a CDP probe: all 391 requests a page
+  made in `pagehide`, `unload` and `visibilitychange` as a link was
+  followed — beacons, `keepalive` fetches, plain fetches, pictures —
+  were paused with **no `networkId`**, under 96 busy processes, and none
+  was ever told of by `requestWillBeSent`; 312 were paused after the new
+  page's commit was read, and with the new page on another site that was
+  every one, on a quiet machine too (30 of 30). Every request of a living
+  page had a `networkId`: 240 of the new page's, its own beacon and
+  `keepalive` fetch among them, and 31 kinds on a page asking for
+  everything it can, headless and shown. So a frame remembers the
+  document it **left** from its commit until its next navigation's first
+  hop, and a request paused through a frame's session with no
+  `networkId` is that document's (`Causes::of_unnamed`); before the
+  commit it is the document held, as before. Nothing is owed or waited
+  for. ADR 0060's second amendment decides it: an absent id, like a
+  loader, chooses between two documents this process minted. The relay of
+  `a_page_chrome_tells_of_after_what_it_asks_for.rs` now also holds a
+  paused request back behind a commit; its new test holds a self-sent
+  page's beacon behind the new page's commit and asserts the beacon and
+  the `keepalive` fetch are the page left's. Mutations: the tab using
+  `of_frame` — the test fails, *pinned on the page arrived*; the first
+  hop not clearing the page left — the unit test fails. Not decided: a
+  shared or service worker's request with no id stays the page's (none
+  measured), and a living page's request with none would be the page
+  left's until the next navigation (none seen).
 
 ## K. ★ The agent, on somebody else's pages
 
