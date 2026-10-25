@@ -39221,3 +39221,107 @@ paragraph, the table marked, 642 told what it now owes), `REMAINING.md`,
 302 queue items are open (623 closed; counted as `- [ ] **` lines). The
 next unused queue number is **645** and the next ADR is **0063**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 385 — queue item 624: the box an agent acted on, ringed
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path, the stage 2 Chrome line and the agent's gate), iteration 384's
+entry, the queue's product-path table and items 623–625, 642 and 643;
+ADR 0002 (the item's — it has no § 4, so the whole of it: one tree, no
+verb takes a coordinate, reading is never watching); ADR 0024 § 2
+(composition a function, tested by reference render);
+`docs/contracts/agent-socket.md`; `serving.rs`, `pages.rs`,
+`engine_pages.rs`, `conductor.rs`, `showing.rs`, `compose.rs`,
+`place.rs`, `scale.rs`, `colours.rs`, `message.rs`, `alo-agent`'s
+`tree.rs` (`rects`, `rect`, `is_offscreen`) and `verb.rs`
+(`Outcome::node`), `alo-renderer`'s `snapshot.rs`; `alo-workplace`'s
+`tokens.css` and `ds/global.css` for the ring's colour and offset (read
+only). No `AGENTS.md` exists in the repository. 624's feature contract is
+`docs/features.md`'s agent-socket line (item 496).
+
+**Why 624.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and again before the gate, so 642 and 643, which the queue says are
+measured with the screen in use, could not be built honestly. 624 is the
+next product-path item, and depends only on 623, which is done.
+
+**Built.** After a verb that ran on the selected tab, once the agent has
+been answered and the tab painted again, the conductor
+(`conductor/marking.rs`) reads the page's tree with nothing sent between,
+finds the node the verb's own outcome names, and sends its `rects` — each
+CSS edge times the scale, rounded to a device pixel (`mark::marked`) — as
+`News::Marked`, between the frame and the sentence. Nothing is marked if
+the tab now holds another document, the node is gone, or the tab did not
+paint. `Showing` drops the ring with the next frame or another tab
+chosen. `mark::ring` draws it as alo draws focus — two CSS pixels of
+`--accent`, two outside the box — clipped to the frame and under the
+browser's lines; `compose` draws it after the frame. "While it runs" is
+read as the frame that shows it: a verb runs inside one exchange with its
+renderer and its box is resolved there, so nothing could be drawn during
+it (the queue says so).
+
+**Found by the reference render.** Drawn first on the box's own edge, the
+ring was invisible on alo's "Try again", which is filled with the same
+accent — the render showed a button with squared corners and nothing
+else. It now sits outside with alo's `outline-offset`, and both renders
+were looked at again before committing.
+
+**Tests.** Unit: `marked` at 1, 1.5 and 2, rounding each edge, skipping
+empty and non-finite rectangles and holding far ones at 2²⁴; `ring`'s
+pieces in numbers at all three scales, clipped where a box is scrolled
+partly away or just past the frame; drawn with the page in the gap
+(`mark.rs`); the ring kept through sentences and dropped with a new frame
+or a tab chosen (`showing.rs`); drawn over the frame and under the agent's
+line, and not at all without a frame (`compose.rs`). End to end
+(`the_acted_on_box_marked.rs`, four tests, `alo-ask` over a conductor over
+the real renderer): the one ring sent is `marked(&[rect])` of the `rect`
+the agent read for the field it named — a left edge that is not a whole
+pixel — at one and at two, placed in numbers and drawn with the gap and
+the field left as painted; a verb on the other field rings only it; a
+refused verb is sent no ring and its repaint takes the last one away. A
+mutation dropping the conductor's `Marked` failed all four. Reference
+renders in `the_window_composed.rs`: `the-acted-on-box.png` (every pixel
+above the line off the ring asserted to be the page's) and
+`the-acted-on-box-at-one-and-a-half.png`, where the engine lays the button
+out at 286.66666 down, as `chrome-at-1.5.txt` has it.
+
+**Gate.** `scripts/gate.sh` started in the foreground into a scratchpad
+log; the harness moved it to the background at 600 s and the next call
+waited on it with a foreground until-loop and read it in the same step:
+**exit 0, "The gate is met. (10 of 10 steps)"**, nextest **5,221 tests
+run, 5,221 passed** in 556 s, no `FAIL`, `LEAK` or `panicked`. Manual:
+layout assertions in numbers (`mark.rs`, the end-to-end test, the two
+composed tests), two reference renders, looked at. One file, one
+responsibility: geometry and drawing of the ring in `mark.rs`, reading
+the node in `conductor/marking.rs`, holding in `showing.rs`, ordering in
+`compose.rs`, the colour in `colours.rs`. No `unsafe`, no stubs, no verb
+taking a coordinate — the rectangles go from the tree to pixels only,
+after the verb is answered. `alo-os` and `alo-workplace` untouched.
+Nothing pushed. Not seen in the running `alo` on a screen (locked); the
+event loop hands every `News` to `Showing::hear` unchanged, which is what
+the tests drive.
+
+**Roadmap.** The product path's *Built* gains 624 in this engine's window
+and its *Owed* drops it, with 642 now owing 623's line and 624's ring
+through Chrome; the stage 2 Chrome line's `· Owed:` and the agent's
+gate's `· Built:` say the same. Not ticked — no line is finished.
+`features.md`, the socket contract, the queue (624 ticked with a *Done*
+paragraph, the table marked, 642 told what it now owes), `REMAINING.md`,
+`lib.rs`'s map and the changelog say the same.
+
+**Unresolved obligations.**
+- Through Chrome nothing shows the ring or the line: 642 owes both, and
+  the ring there needs the frame placed over Chrome's page exactly.
+- Item 549 is unbuilt, so the tree is read after every verb on the
+  selected tab whether or not anybody can see the window.
+- 642 still waits on a person's drag and a click on the frame measured
+  with the screen in use; 643 on the same screen.
+- Inherited and unchanged: 625, 631, 632, 635, 636, 639, 642 and 643
+  owed; 604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586;
+  463 and 572 wait on a person; 568–571 on a screen or pages; 560 and 564
+  on 502 behind 501; 538 waits on a page; 638 needs an ADR. Other suites'
+  short bounds named in iteration 381 are still unaudited.
+- No claim about speed is made.
+
+301 queue items are open (624 closed; counted as `- [ ] **` lines). The
+next unused queue number is **645** and the next ADR is **0063**. This is
+one iteration, not a finished queue or roadmap.

@@ -14,6 +14,13 @@
 //! arrives. A resize changes nothing here: the window's size is the window's,
 //! and each frame stays the size it was painted until a new one replaces it.
 //!
+//! It holds the ring around the box an agent's verb last acted on (queue
+//! item 624) for exactly as long as the frame it was measured against: a
+//! new frame of the tab, or another tab chosen, takes it away, because its
+//! rectangles are a layout's and the next frame may be another's
+//! ([`crate::mark`]). A sentence about the tab leaves it, as it leaves the
+//! frame.
+//!
 //! It holds one more line, the browser's own: the sentence the last verb an
 //! agent ran was answered with (queue item 623). It is kept until the next
 //! one replaces it — through new frames, other sentences and other tabs
@@ -21,6 +28,7 @@
 //! shows, and a person who looked away for a second still needs to read it.
 
 use crate::compose::Scene;
+use crate::mark::Marked;
 use crate::message::News;
 use crate::scale::Scale;
 use alo_renderer::Frame;
@@ -33,6 +41,7 @@ pub struct Showing {
     strip: Option<Frame>,
     strip_sentence: Option<String>,
     agent_said: Option<String>,
+    marked: Vec<Marked>,
 }
 
 impl Showing {
@@ -52,6 +61,7 @@ impl Showing {
             News::Painted(frame) => {
                 self.frame = Some(frame);
                 self.sentence = None;
+                self.marked.clear();
                 true
             }
             News::Said(sentence) => {
@@ -61,6 +71,7 @@ impl Showing {
             News::Chosen(frame) => {
                 self.frame = frame;
                 self.sentence = None;
+                self.marked.clear();
                 true
             }
             News::Strip(frame) => {
@@ -70,6 +81,10 @@ impl Showing {
             }
             News::StripSaid(sentence) => {
                 self.strip_sentence = Some(sentence);
+                true
+            }
+            News::Marked(marked) => {
+                self.marked = marked;
                 true
             }
             News::AgentSaid(sentence) => {
@@ -106,6 +121,12 @@ impl Showing {
         self.agent_said.as_deref()
     }
 
+    /// The rectangles of the box an agent's verb last acted on, over the
+    /// frame shown, while that frame is shown.
+    pub fn marked(&self) -> &[Marked] {
+        &self.marked
+    }
+
     /// What to compose a window of `window` device pixels from.
     pub fn scene(&self, window: (u32, u32), scale: Scale) -> Scene<'_> {
         Scene {
@@ -116,6 +137,7 @@ impl Showing {
             frame: self.frame(),
             sentence: self.sentence(),
             agent_said: self.agent_said(),
+            marked: self.marked(),
         }
     }
 }
@@ -239,5 +261,40 @@ mod tests {
         let scene = showing.scene((30, 20), Scale::ONE);
         assert_eq!(scene.agent_said, Some("scrolled box#1 to 0, 40"));
         assert!(!News::AgentSaid(String::new()).is_strip());
+    }
+
+    #[test]
+    fn a_ring_lasts_as_long_as_the_frame_it_was_measured_against() {
+        let ring = vec![Marked {
+            x: 4,
+            y: 6,
+            width: 20,
+            height: 10,
+        }];
+        let mut showing = Showing::default();
+        assert!(showing.hear(News::Painted(a_frame(1))));
+        assert!(showing.marked().is_empty());
+        assert!(showing.hear(News::Marked(ring.clone())));
+        assert_eq!(showing.marked(), ring.as_slice());
+        assert_eq!(showing.scene((30, 20), Scale::ONE).marked, ring.as_slice());
+        // What leaves the frame leaves the ring: a sentence about the tab,
+        // the strip's news and the agent's line.
+        for news in [
+            News::Said("gone".to_owned()),
+            News::Strip(a_frame(2)),
+            News::StripSaid("gone".to_owned()),
+            News::AgentSaid("activated box#3".to_owned()),
+        ] {
+            showing.hear(news);
+            assert_eq!(showing.marked(), ring.as_slice());
+        }
+        // A new frame of the tab takes it away, and so does another tab.
+        showing.hear(News::Painted(a_frame(3)));
+        assert!(showing.marked().is_empty());
+        showing.hear(News::Marked(ring.clone()));
+        showing.hear(News::Chosen(Some(a_frame(4))));
+        assert!(showing.marked().is_empty());
+        assert_eq!(showing.agent_said(), Some("activated box#3"));
+        assert!(!News::Marked(ring).is_strip());
     }
 }

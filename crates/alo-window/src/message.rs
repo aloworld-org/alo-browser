@@ -18,6 +18,7 @@
 
 use crate::agent_record::Caller;
 use crate::asking::{Answer, Ask, Refused};
+use crate::mark::Marked;
 use alo_paint::Point;
 use alo_renderer::pointer::Pointer;
 use alo_renderer::{Frame, Page, Screen, Visibility};
@@ -109,6 +110,12 @@ pub enum News {
     /// The selected tab has something to tell a person, in words — that its
     /// renderer is gone, or that what it was given could not be shown.
     Said(String),
+    /// An agent's verb ran on a box of the selected tab's page, and these are
+    /// that box's rectangles in the device pixels of the frame just painted
+    /// (queue item 624): the window rings them on that frame, and only on
+    /// it. Read by the conductor from the page's tree after the verb was
+    /// answered — drawn, never acted on (ADR 0002).
+    Marked(Vec<Marked>),
     /// An agent's verb ran, and this is the sentence the agent was answered
     /// with — its `said`, word for word (queue item 623, ADR 0052 § 1). Written
     /// by the conductor from the answer it sent, never by a page or its

@@ -38,6 +38,11 @@
 //! verb was answered with, over the frozen page: at one, and at 1.5 with a
 //! gone tab's line below it.
 //!
+//! Item 624 adds the ring around the box an agent's verb acted on: the
+//! frozen page's "Try again" button, ringed on its own rectangle as the
+//! engine's tree gives it for the frame the engine painted — at one, with
+//! the verb's sentence below, and at 1.5.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
 
@@ -50,6 +55,7 @@ use alo_renderer::strip::{Condition, Strip, StripTab};
 use alo_renderer::{Frame, FromRenderer, Page, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::compose::{Scene, compose};
+use alo_window::mark::{Marked, marked, ring};
 use alo_window::message::News;
 use alo_window::notice::Lettering;
 use alo_window::place::{PixelRect, Placement, STRIP_HEIGHT, screen, strip_viewport};
@@ -222,6 +228,7 @@ fn a_frozen_alo_page_in_a_window_at_scale_two() {
             frame: Some(&page),
             sentence: None,
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -241,6 +248,7 @@ fn a_window_grown_before_its_new_frame_shows_the_old_one_at_its_old_size() {
             frame: Some(&page),
             sentence: None,
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -260,6 +268,7 @@ fn a_gone_tab_keeps_its_frame_and_says_what_happened() {
             frame: Some(&page),
             sentence: Some(&sentence),
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -278,6 +287,7 @@ fn a_tab_gone_before_it_ever_painted_is_its_sentence_on_the_background() {
             frame: None,
             sentence: Some(&sentence),
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -305,6 +315,7 @@ fn a_window_with_a_strip_of_one_tab_at_scale_two() {
             frame: Some(&page),
             sentence: None,
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -344,6 +355,7 @@ fn a_window_with_a_strip_of_one_tab_at_one_and_a_half() {
             frame: Some(&page),
             sentence: None,
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -379,6 +391,7 @@ fn a_tab_gone_at_one_and_a_half_says_so_in_a_line_of_its_own_height_at_it() {
             frame: Some(&page),
             sentence: Some(&sentence),
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -418,6 +431,7 @@ fn a_window_with_a_strip_of_three_tabs() {
             frame: Some(&page),
             sentence: None,
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -442,6 +456,7 @@ fn a_strip_whose_renderer_has_gone_keeps_its_frame_and_says_so() {
             frame: Some(&page),
             sentence: None,
             agent_said: None,
+            marked: &[],
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
@@ -549,6 +564,7 @@ fn what_an_agent_did_at_one_and_a_half_is_above_a_gone_tabs_line() {
         frame: Some(&page),
         sentence: Some(&gone),
         agent_said: Some(&sentence),
+        marked: &[],
     };
     let placed = Placement::of(window, Scale::ONE_AND_A_HALF, scene.contents());
     // Each line 32 CSS pixels at 1.5, 48 device pixels: the tab's along the
@@ -564,6 +580,182 @@ fn what_an_agent_did_at_one_and_a_half_is_above_a_gone_tabs_line() {
     let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
     assert_eq!(
         holds("an-agents-sentence-at-one-and-a-half.png", &canvas),
+        Ok(())
+    );
+}
+
+/// The frozen page painted at `scale` by the engine, and the rectangles its
+/// tree gives the "Try again" button in that same layout — what the
+/// conductor reads after a verb on it (queue item 624).
+fn page_and_its_button(scale: f32) -> Result<(Frame, Vec<alo_layout::Rect>), String> {
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases/alo-offline/page.html");
+    let html = std::fs::read_to_string(&path)
+        .map_err(|why| format!("{} could not be read: {why}", path.display()))?;
+    let mut renderer = Renderer::new(fonts());
+    let page = Page::new(html, Size::new(480.0, 400.0)).at_scale(scale);
+    match renderer.handle(ToRenderer::Load(Box::new(page))) {
+        FromRenderer::Loaded { .. } => {}
+        other => return Err(format!("the page was not loaded: {other:?}")),
+    }
+    let frame = match renderer.handle(ToRenderer::Paint) {
+        FromRenderer::Painted(frame) => frame,
+        other => return Err(format!("the page was not painted: {other:?}")),
+    };
+    let FromRenderer::Tree(tree) = renderer.handle(ToRenderer::ReadTree) else {
+        return Err("the tree was not read".to_owned());
+    };
+    let button = tree
+        .nodes()
+        .into_iter()
+        .find(|node| node.name.as_deref() == Some("Try again"))
+        .ok_or("no button called Try again")?;
+    Ok((frame, button.rects.clone()))
+}
+
+/// The sentence an agent is answered with for activating the button.
+fn activated_sentence() -> String {
+    Outcome::Activated {
+        node: BoxId::from_index_for_tests(12),
+        name: Some("Try again".to_owned()),
+    }
+    .to_string()
+}
+
+#[test]
+fn the_box_an_agent_acted_on_is_ringed_on_its_own_rect() {
+    let (page, rects) = page_and_its_button(1.0).unwrap_or_else(|why| panic!("{why}"));
+    // The corpus's own tree says (181.54688, 286) 116.90625×39: the ring's
+    // edges are those, rounded to whole device pixels.
+    let ringed = marked(&rects, 1.0);
+    assert_eq!(
+        ringed,
+        vec![Marked {
+            x: 182,
+            y: 286,
+            width: 116,
+            height: 39
+        }]
+    );
+    let mut showing = Showing::default();
+    for news in [
+        News::Painted(page.clone()),
+        News::Marked(ringed),
+        News::AgentSaid(activated_sentence()),
+    ] {
+        assert!(showing.hear(news));
+    }
+    let window = (480, 400 + STRIP_HEIGHT);
+    let scene = showing.scene(window, Scale::ONE);
+    let placed = Placement::of(window, Scale::ONE, scene.contents());
+    let pieces = showing
+        .marked()
+        .iter()
+        .flat_map(|each| ring(*each, placed.frame, Scale::ONE))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        pieces,
+        vec![
+            PixelRect {
+                x: 178,
+                y: 318,
+                width: 124,
+                height: 2
+            },
+            PixelRect {
+                x: 178,
+                y: 363,
+                width: 124,
+                height: 2
+            },
+            PixelRect {
+                x: 178,
+                y: 320,
+                width: 2,
+                height: 43
+            },
+            PixelRect {
+                x: 300,
+                y: 320,
+                width: 2,
+                height: 43
+            },
+        ]
+    );
+    let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
+    // Everywhere above the agent's line and off the ring is the page's own.
+    let on_ring = |x: u32, y: u32| {
+        pieces
+            .iter()
+            .any(|p| (p.x..p.x + p.width).contains(&x) && (p.y..p.y + p.height).contains(&y))
+    };
+    let accent = Some(alo_window::colours::mark().to_rgba8());
+    for y in STRIP_HEIGHT..404 {
+        for x in 0..window.0 {
+            let shown = canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+            if on_ring(x, y) {
+                assert_eq!(shown, accent, "the ring at {x},{y}");
+            } else {
+                assert_eq!(shown, page.at(x, y - STRIP_HEIGHT), "the page at {x},{y}");
+            }
+        }
+    }
+    assert_eq!(holds("the-acted-on-box.png", &canvas), Ok(()));
+}
+
+#[test]
+fn the_box_an_agent_acted_on_at_one_and_a_half_is_ringed_three_device_pixels_out_and_thick() {
+    let (page, rects) = page_and_its_button(1.5).unwrap_or_else(|why| panic!("{why}"));
+    let ringed = marked(&rects, 1.5);
+    let [button] = ringed.as_slice() else {
+        panic!("not one rectangle: {ringed:?}");
+    };
+    // At 1.5 the button is laid out at (181.54167, 286.66666) 116.90625 ×
+    // 38.666668, where Chrome puts it (`chrome-at-1.5.txt`): 272.3125 and
+    // 447.67188 across round to 272 and 448, and 430 and 488 down are whole.
+    assert_eq!(
+        *button,
+        Marked {
+            x: 272,
+            y: 430,
+            width: 176,
+            height: 58
+        }
+    );
+    let window = (720, 600 + 54);
+    let scene = Scene {
+        window,
+        scale: Scale::ONE_AND_A_HALF,
+        strip: None,
+        strip_sentence: None,
+        frame: Some(&page),
+        sentence: None,
+        agent_said: None,
+        marked: &ringed,
+    };
+    let placed = Placement::of(window, Scale::ONE_AND_A_HALF, scene.contents());
+    let pieces = ring(*button, placed.frame, Scale::ONE_AND_A_HALF);
+    assert_eq!(
+        pieces.first(),
+        Some(&PixelRect {
+            x: 266,
+            y: 478,
+            width: 188,
+            height: 3
+        })
+    );
+    assert_eq!(
+        pieces.get(2),
+        Some(&PixelRect {
+            x: 266,
+            y: 481,
+            width: 3,
+            height: 64
+        })
+    );
+    let canvas = compose(&scene, &lettering().unwrap_or_else(|why| panic!("{why}")));
+    assert_eq!(
+        holds("the-acted-on-box-at-one-and-a-half.png", &canvas),
         Ok(())
     );
 }

@@ -21,7 +21,8 @@
 //! - [`showing`] is what the window was last sent, and [`compose`] makes the
 //!   window's pixels from it — a function, tested by reference render, placed
 //!   by [`place`] at the window's [`scale`] and saying what happened to a tab
-//!   with [`notice`].
+//!   with [`notice`]. [`mark`] rings the box an agent's verb acted on, on
+//!   the frame painted after it (item 624).
 //! - [`keys`] is what a person's key asks of the tabs, when it is one of the
 //!   browser's own (item 529), read by the event loop before anything else.
 //! - [`opening`] is what a person named on the command line, [`fonts`] the
@@ -102,6 +103,7 @@ pub mod hold;
 pub mod inbox;
 pub mod json_depth;
 pub mod keys;
+pub mod mark;
 pub mod message;
 pub mod network;
 pub mod notice;

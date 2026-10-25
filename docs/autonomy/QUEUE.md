@@ -53,7 +53,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **641** | the program told to use Chrome — `alo --chrome`, run from a terminal |
 | ✓ | **622** | which renderer is in use, where a person can read it — the socket's `renderer` ask, with `alo-ask` |
 | ✓ | **623** | the agent's sentence, where a person can read it — in this engine's window; through Chrome it comes with 642 |
-| | **624** | the acted-on box, marked while it is acted on |
+| ✓ | **624** | the acted-on box, marked — ringed on the frame painted after the verb, in this engine's window; through Chrome it comes with 642 |
 | | **625** | a refusal shown to the person, not only answered to the agent |
 | | **642** | a window of ours around Chrome's, following it (ADR 0061's frame) |
 | | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
@@ -15903,7 +15903,7 @@ What stage 2's exit gate actually measures: a person using it.
   ours, so nothing shows the line there; 642's frame carries it. A
   refusal's line is 625's.
 
-- [ ] **624. ★ The thing being acted on is marked while it is acted on.** *ADR
+- [x] **624. ★ The thing being acted on is marked while it is acted on.** *ADR
   0002 § 4.* A ring drawn around the box a verb is running on, for as long as
   it runs. This is the clearest statement the product can make that the agent
   is reading structure and not guessing at pixels — it lands on the box's own
@@ -15915,6 +15915,40 @@ What stage 2's exit gate actually measures: a person using it.
   623. Closes when:* the ring's box is asserted in numbers against the node's
   own `rect` for a named target, a refused verb marks nothing, and a reference
   render shows it.
+  ***Done (iteration 385), in this engine's window, with "while it runs"
+  read as the frame that shows it.*** A verb runs inside one exchange with
+  its renderer, and the box is the renderer's to resolve, so nothing could
+  be drawn while it ran; the first frame a person can see is the one
+  painted after it, and the ring is drawn on that frame and goes with it.
+  Once the agent has been answered, the conductor (`conductor/marking.rs`)
+  reads the page's tree straight after the repaint, finds the node the
+  verb's own outcome names, and sends its `rects` — each CSS edge times the
+  scale, rounded to a device pixel (`mark::marked`) — as `News::Marked`
+  between the frame and the sentence. Nothing is marked when the verb took
+  the tab to another document, or the box is gone, or the tab did not
+  paint. `Showing` drops the ring with the next frame of the tab or another
+  tab chosen, because a rectangle measured against one layout is a guess
+  about the next; a sentence about the tab leaves it, as it leaves the
+  frame. `mark::ring` draws it as alo draws focus (`ds/global.css`: two
+  pixels of `--accent`, two pixels outside the box), clipped to the frame
+  and under the browser's lines; a press on it is the page's. Drawn on the
+  box's edge, as first built, it vanished on alo's own accent-filled
+  buttons — the first reference render showed it, and the gap is why.
+  Asserted end to end in `the_acted_on_box_marked.rs`: `alo-ask` reads a
+  page and puts a name into its field by name over the socket of a
+  conductor over the real renderer, and the one ring sent is
+  `marked(&[rect])` of the `rect` the agent was told — a left edge that is
+  not a whole pixel, rounded — at one and at two, placed in numbers and
+  drawn with the gap and the field left as the page painted them; a verb
+  on the other field rings only it; a refused verb is sent no ring and its
+  repaint takes the last one away. Reference renders: `the-acted-on-box.png`
+  (alo's offline screen's "Try again", with the verb's sentence below; every
+  other pixel above the line asserted to be the page's) and
+  `the-acted-on-box-at-one-and-a-half.png` (where the button is laid out at
+  286.66666 down, as `chrome-at-1.5.txt` has it). **Not built, and owed by
+  642:** in `alo --chrome` there is no window of ours to draw it in; item
+  549 (nothing drawn while nobody watches) is unbuilt, so the tree is read
+  after every verb on the selected tab whether or not the window is seen.
 
 - [ ] **625. A refusal is shown to the person, not only answered to the
   agent.** *ADR 0051 § 1.* `NotFound`, `Ambiguous`, `NotAField` are the most
@@ -16426,6 +16460,10 @@ What stage 2's exit gate actually measures: a person using it.
   nowhere in `alo --chrome`; the frame is where it goes there, written by
   this process from `chrome_serving`'s answers as the conductor writes it
   from its own.
+  *And (iteration 385):* 624's ring around the box a verb acted on — the
+  node's `rects` from `chrome_tree`'s reading of the page, over Chrome's
+  window at Chrome's own scroll and scale, which needs the frame to be
+  placed over the page exactly.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into

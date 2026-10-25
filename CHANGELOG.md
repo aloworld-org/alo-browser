@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **You can see which thing on the page an agent just used.** When an
+  agent fills in a field or presses a button through the browser's socket,
+  the browser now draws a ring around it — in alo's own focus colour, a
+  little outside the field or button so it shows even on alo's coloured
+  buttons — on exactly the place the page drew it. The ring goes away when
+  the page is next drawn. It is in the browser's own window for now; a
+  page shown in Chrome gets it once the browser has a window of its own
+  around Chrome's.
+
 - **You can see what an agent is doing in the browser's window.** When an
   agent fills in a field or presses a button through the browser's socket,
   a line along the bottom of the window now says what it did, in the same

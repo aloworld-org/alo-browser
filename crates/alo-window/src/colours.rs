@@ -54,6 +54,14 @@ pub fn agent_ink() -> Rgba {
     Rgba::from_rgba8(0x10, 0x2a, 0x43, 0xff)
 }
 
+/// The ring around the box an agent's verb acted on (queue item 624):
+/// `--accent`, alo's base terracotta, in which every control of its design
+/// system draws its focus outline — so the mark reads as alo saying *this
+/// one*, and never as a page's own border.
+pub fn mark() -> Rgba {
+    Rgba::from_rgba8(0xe7, 0x6f, 0x51, 0xff)
+}
+
 /// The three colours one of the browser's own lines is drawn in.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LineColours {
@@ -97,6 +105,7 @@ mod tests {
             notice_rule(),
             agent_ground(),
             agent_ink(),
+            mark(),
         ] {
             assert!((colour.alpha - 1.0).abs() < f32::EPSILON);
         }

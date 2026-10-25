@@ -25,6 +25,7 @@
 //! one of the window's: nothing is replicated or stretched here.
 
 use crate::colours::{agent_line, background, notice_line, rail};
+use crate::mark::{self, Marked};
 use crate::notice::Lettering;
 use crate::place::{Contents, PixelRect, Placement};
 use crate::scale::Scale;
@@ -52,6 +53,9 @@ pub struct Scene<'a> {
     /// What an agent's last verb was answered with, if one has run (queue
     /// item 623).
     pub agent_said: Option<&'a str>,
+    /// The rectangles of the box an agent's verb acted on, over `frame` —
+    /// ringed on it (queue item 624).
+    pub marked: &'a [Marked],
 }
 
 impl Scene<'_> {
@@ -72,9 +76,9 @@ impl Scene<'_> {
 /// The window's pixels.
 ///
 /// The background, then the band across the top in the rail's colour and
-/// the strip in it, then the tab's frame below the band, then the lines
-/// along the bottom — the tab's, the strip's above it, and what an agent
-/// last did above both. A window of no size is a canvas of no size.
+/// the strip in it, then the tab's frame below the band and the ring around
+/// the box an agent acted on in it, then the lines along the bottom — the
+/// tab's, the strip's above it, and what an agent last did above both. A window of no size is a canvas of no size.
 pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, background());
@@ -87,6 +91,7 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     }
     if let Some(frame) = scene.frame {
         copy(&mut canvas, frame, placed.frame);
+        mark::draw(&mut canvas, scene.marked, placed.frame, scale);
     }
     for (sentence, rect, colours) in [
         (scene.sentence, placed.notice, notice_line()),
@@ -148,6 +153,7 @@ mod tests {
             frame,
             sentence: None,
             agent_said: None,
+            marked: &[],
         }
     }
 
@@ -264,9 +270,61 @@ mod tests {
                 frame: Some(&frame),
                 sentence: Some("gone"),
                 agent_said: Some("activated box#3"),
+                marked: &[],
             },
             &lettering(),
         );
         assert!(canvas.is_empty());
+    }
+
+    #[test]
+    fn the_ring_is_drawn_over_the_frame_and_under_the_browsers_lines() {
+        let frame = Frame {
+            width: 40,
+            height: 64,
+            pixels: [255, 255, 255, 255].repeat(40 * 64),
+        };
+        // A box at 6,6 of the frame, 10 wide and 40 tall: 6,42 to 16,82 in
+        // the window, its ring 2,38 to 20,86 — whose bottom is under the
+        // agent's line, from 68 down, and is not drawn.
+        let ringed = [Marked {
+            x: 6,
+            y: 6,
+            width: 10,
+            height: 40,
+        }];
+        let window = (40, STRIP_HEIGHT + 64);
+        let canvas = compose(
+            &Scene {
+                agent_said: Some("activated box#3"),
+                marked: &ringed,
+                ..tab_only(window, Scale::ONE, Some(&frame))
+            },
+            &lettering(),
+        );
+        let accent = Some(crate::colours::mark().to_rgba8());
+        let white = Some((255, 255, 255, 255));
+        let line_top = window.1 - crate::place::NOTICE_HEIGHT;
+        assert_eq!(line_top, 68);
+        for (x, y) in [(2, 38), (19, 39), (2, 67), (19, 67)] {
+            assert_eq!(rgba8(&canvas, x, y), accent, "the ring at {x},{y}");
+        }
+        for (x, y) in [(4, 40), (6, 42), (10, 50), (1, 38), (20, 38), (2, 37)] {
+            assert_eq!(rgba8(&canvas, x, y), white, "the page at {x},{y}");
+        }
+        // The agent's line is over it.
+        assert_eq!(
+            rgba8(&canvas, 2, line_top + 2),
+            Some(agent_line().ground.to_rgba8())
+        );
+        // With no frame there is nothing to ring.
+        let bare = compose(
+            &Scene {
+                marked: &ringed,
+                ..tab_only(window, Scale::ONE, None)
+            },
+            &lettering(),
+        );
+        assert_eq!(rgba8(&bare, 2, 38), Some(background().to_rgba8()));
     }
 }

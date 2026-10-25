@@ -259,7 +259,11 @@ fn a_click_on_the_frozen_link_is_decided_as_the_persons_and_said() {
     let said = loop {
         match next(&news).unwrap_or_else(|why| panic!("{why}")) {
             News::Said(said) => break said,
-            News::Painted(_) | News::Strip(_) | News::StripSaid(_) | News::Chosen(_) => {}
+            News::Painted(_)
+            | News::Strip(_)
+            | News::StripSaid(_)
+            | News::Chosen(_)
+            | News::Marked(_) => {}
             News::AgentSaid(said) => panic!("a person's click was told as an agent's: {said}"),
             News::Closed => panic!("the window closed"),
         }
@@ -292,7 +296,11 @@ fn a_click_on_a_forms_button_is_said_as_a_form_sent_not_a_link() {
     let said = loop {
         match next(&news).unwrap_or_else(|why| panic!("{why}")) {
             News::Said(said) => break said,
-            News::Painted(_) | News::Strip(_) | News::StripSaid(_) | News::Chosen(_) => {}
+            News::Painted(_)
+            | News::Strip(_)
+            | News::StripSaid(_)
+            | News::Chosen(_)
+            | News::Marked(_) => {}
             News::AgentSaid(said) => panic!("a person's click was told as an agent's: {said}"),
             News::Closed => panic!("the window closed"),
         }

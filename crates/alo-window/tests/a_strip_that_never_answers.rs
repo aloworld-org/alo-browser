@@ -242,6 +242,7 @@ fn a_strip_whose_renderer_stops_leaves_the_window_composing_and_the_tabs_working
             frame: None,
             sentence: None,
             agent_said: None,
+            marked: &[],
         },
         &lettering,
     );

@@ -2904,3 +2904,14 @@ is no window of ours yet; 642 now owes carrying the line. The screen was
 locked again, so 642 and 643 still wait on it. 624 and 625 build on 623
 and need no screen. 302 queue items are open (623 closed). The next
 unused queue number is 645 and the next unused ADR 0063.
+
+Iteration 385 closed queue item 624 in this engine's window: the box an
+agent's verb acted on is ringed on the frame painted after it, around the
+node's own rectangles read from the same layout, as alo draws focus — two
+pixels of accent, two pixels outside the box (`mark.rs`,
+`conductor/marking.rs`, `showing.rs`, two reference renders). "While it
+runs" is read as the frame that shows it, since nothing can be drawn
+inside the renderer's one exchange. Through Chrome it waits on 642 with
+623's line. The screen was locked again, so 642 and 643 still wait on it;
+625 builds on 623 and needs no screen. 301 queue items are open (624
+closed). The next unused queue number is 645 and the next unused ADR 0063.

@@ -113,6 +113,11 @@
 //! neither is a read. Nothing a page or a renderer says can become one: the
 //! conductor writes it, from what it answered.
 //!
+//! The box the verb acted on is ringed on the frame painted after it (queue
+//! item 624): its rectangles are read from the page's tree once the agent
+//! has been answered, and sent as [`News::Marked`] between the frame and the
+//! sentence ([`marking`]).
+//!
 //! # A page left
 //!
 //! ADR 0039 § 2: closing the window closes every tab, and each tab's page is
@@ -139,6 +144,7 @@
 //! it is dropped: the size that matters is the one the window is now.
 
 mod choosing;
+mod marking;
 pub mod pointing;
 mod strip_pressing;
 
@@ -467,8 +473,15 @@ impl Conducting {
                 vec![News::Closed]
             }
             Order::Agent { caller, ask, reply } => {
+                let before = self.selected_document();
                 let Served { answer, acted } =
                     serve(&mut self.tabs, &mut self.agents, &self.sites, caller, ask);
+                // The box a verb that ran acted on, by the renderer's own
+                // answer, to ring on the frame painted after it (item 624).
+                let node = match &answer {
+                    Answer::Done { outcome, .. } => Some(outcome.node()),
+                    _ => None,
+                };
                 // What the agent is told a verb did, the person watching is
                 // told too, in the same words (item 623) — taken before the
                 // answer goes, and only of a verb that ran.
@@ -479,6 +492,13 @@ impl Conducting {
                 // nothing about what was done or recorded.
                 let _ = reply.send(answer);
                 let mut news = acted.map_or_else(Vec::new, |id| self.acted(id));
+                if let (Some(id), Some(node)) = (acted, node)
+                    && before.is_some_and(|(selected, _)| selected == id)
+                {
+                    let marks =
+                        self.mark(id, node, before.and_then(|(_, document)| document), &news);
+                    news.extend(marks);
+                }
                 news.extend(said.map(News::AgentSaid));
                 news
             }
