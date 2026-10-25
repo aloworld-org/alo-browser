@@ -482,8 +482,14 @@ impl Conducting {
                     serve(&mut self.tabs, &mut self.agents, &self.sites, caller, ask);
                 // The box a verb that ran acted on, by the renderer's own
                 // answer, to ring on the frame painted after it (item 624).
+                // An option chosen is ringed where it is drawn, or else
+                // around its list, the box a person sees (ADR 0064 § 5).
                 let node = match &answer {
-                    Answer::Done { outcome, .. } => Some(outcome.node()),
+                    Answer::Done {
+                        outcome: alo_agent::Outcome::Chosen { node, list, .. },
+                        ..
+                    } => Some(vec![*node, *list]),
+                    Answer::Done { outcome, .. } => Some(vec![outcome.node()]),
                     _ => None,
                 };
                 // What the agent is told a verb did, the person watching is
@@ -502,7 +508,7 @@ impl Conducting {
                 // nothing about what was done or recorded.
                 let _ = reply.send(answer);
                 let mut news = acted.map_or_else(Vec::new, |id| self.acted(id));
-                if let (Some(id), Some(node)) = (acted, node)
+                if let (Some(id), Some(node)) = (acted, &node)
                     && before.is_some_and(|(selected, _)| selected == id)
                 {
                     let marks =

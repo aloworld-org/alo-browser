@@ -131,6 +131,7 @@ The answer is `{"answer":"tree","id":…,"tab":…,"tree":NODE,"v":1}`. `tree` i
 | `rect` | yes | `{"height","width","x","y"}` in CSS pixels, where it was drawn. **Read, never acted on**: no verb takes a position |
 | `pieces` | no | One `rect` per piece, when an inline box was drawn in more than one |
 | `offscreen`, `scrolls` | no | `true` when so |
+| `undrawn` | no | `true` for a node that is not drawn at all — a list's option, which a closed `<select>` holds without drawing (ADR 0064 § 5). Its `rect` is all noughts and means nothing; it is `offscreen` too |
 | `children` | yes | The nodes inside it |
 
 A length is written as the shortest number that reads back as the same 32-bit
@@ -206,6 +207,7 @@ browser's own to show any of it in until item 642.
 | `Followed` | `to` |
 | `TextPut`, `TextCanceled` | `text` |
 | `Scrolled` | `by` |
+| `Chosen` | `list`, the option's list; `chosen`, whether the option is a choice of it after the verb, read from the page — `false` when a toggle in a `multiple` list took it away or the page's listener put the old choice back (ADR 0064 § 3). `node` is the option, which a closed list holds undrawn, so the window rings the list instead. Through Chrome an option is still answered `Activated` until queue item 660 |
 | `Submitted` | `method` (`"GET"`/`"POST"`), `to` |
 | `NotSubmitted` | `invalid`: `[{"control","constraint","message"}]`, where `control` is a node or `null` and `constraint` is the validity name (`valueMissing`, …), or `null` when the renderer gave the words and not the constraint. Through Chrome it is always `null` and `invalid` holds one control, the first, with the words of the bubble Chrome draws beside it (queue item 631) |
 

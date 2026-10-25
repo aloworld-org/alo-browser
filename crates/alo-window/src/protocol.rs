@@ -321,6 +321,11 @@ fn node(node: &SnapshotNode) -> Value {
         let pieces = node.rects.iter().copied().map(rect).collect();
         fields.insert("pieces".to_owned(), Value::Array(pieces));
     }
+    // A list's option is a node and never a place on the screen (ADR 0064
+    // § 5): its `rect` is there, as version 1 promises, and means nothing.
+    if node.rects.is_empty() {
+        fields.insert("undrawn".to_owned(), Value::Bool(true));
+    }
     if node.offscreen {
         fields.insert("offscreen".to_owned(), Value::Bool(true));
     }
@@ -456,6 +461,10 @@ fn outcome(outcome: &Outcome) -> Value {
         }
         Outcome::Scrolled { by, .. } => {
             fields.insert("by".to_owned(), scrolled(*by));
+        }
+        Outcome::Chosen { list, chosen, .. } => {
+            fields.insert("list".to_owned(), id(*list));
+            fields.insert("chosen".to_owned(), Value::Bool(*chosen));
         }
         Outcome::Submitted { method, to, .. } => {
             fields.insert("method".to_owned(), Value::from(method.name()));
@@ -649,6 +658,54 @@ mod tests {
                     .to_owned()
             )
         );
+    }
+
+    #[test]
+    fn an_option_chosen_says_its_list_and_whether_it_is_chosen() {
+        let chosen = |chosen: bool| {
+            outcome(&Outcome::Chosen {
+                node: BoxId::from_wire(43),
+                list: BoxId::from_wire(29),
+                chosen,
+            })
+            .to_string()
+        };
+        assert_eq!(
+            chosen(true),
+            r#"{"chosen":true,"kind":"Chosen","list":29,"node":43}"#
+        );
+        assert_eq!(
+            chosen(false),
+            r#"{"chosen":false,"kind":"Chosen","list":29,"node":43}"#
+        );
+    }
+
+    #[test]
+    fn a_node_that_is_not_drawn_says_so_beside_its_rect() {
+        let option = alo_renderer::SnapshotNode {
+            id: BoxId::from_wire(43),
+            role: Role::Known(KnownRole::Option),
+            name: Some("Huge".to_owned()),
+            states: alo_box::States::default(),
+            placeholder: None,
+            marker: None,
+            rect: alo_layout::Rect::ZERO,
+            rects: Vec::new(),
+            offscreen: true,
+            scrolls: false,
+            children: Vec::new(),
+        };
+        assert_eq!(
+            node(&option).to_string(),
+            r#"{"children":[],"name":"Huge","node":43,"offscreen":true,"rect":{"height":0.0,"width":0.0,"x":0.0,"y":0.0},"role":"option","undrawn":true}"#
+        );
+        let drawn = alo_renderer::SnapshotNode {
+            rects: vec![alo_layout::Rect::new(1.0, 2.0, 3.0, 4.0)],
+            rect: alo_layout::Rect::new(1.0, 2.0, 3.0, 4.0),
+            offscreen: false,
+            ..option
+        };
+        assert!(node(&drawn).get("undrawn").is_none());
     }
 
     #[test]

@@ -331,8 +331,11 @@ impl Tab<'_> {
                 self.date_in(&nodes, node, text)
             }
             Outcome::TextPut { node, text } => self.type_in(node, text),
+            // Never decided here yet: Chrome's reading names no option's
+            // list until item 660 (`ChromeReading::list_of`).
             outcome @ (Outcome::Scrolled { .. }
             | Outcome::TextCanceled { .. }
+            | Outcome::Chosen { .. }
             | Outcome::Submitted { .. }
             | Outcome::NotSubmitted { .. }) => Err(Unacted::Uncarried { outcome }),
         }
@@ -560,6 +563,7 @@ fn about(decided: &Outcome) -> &'static str {
         Outcome::Scrolled { .. } => "the scroll",
         Outcome::Activated { .. }
         | Outcome::Followed { .. }
+        | Outcome::Chosen { .. }
         | Outcome::Submitted { .. }
         | Outcome::NotSubmitted { .. } => "the click",
     }

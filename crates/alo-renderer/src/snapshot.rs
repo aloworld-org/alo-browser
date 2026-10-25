@@ -141,14 +141,19 @@ fn write_node(node: &SnapshotNode, depth: usize, out: &mut String) {
     } else {
         String::new()
     };
-    let _ = writeln!(
-        out,
-        "{node} at ({}, {}) {}×{}{in_pieces}",
-        node.rect.left(),
-        node.rect.top(),
-        node.rect.size.width,
-        node.rect.size.height,
-    );
+    if node.rects.is_empty() {
+        // As the tree writes it: a node with no rectangle is not drawn.
+        let _ = writeln!(out, "{node} not drawn");
+    } else {
+        let _ = writeln!(
+            out,
+            "{node} at ({}, {}) {}×{}{in_pieces}",
+            node.rect.left(),
+            node.rect.top(),
+            node.rect.size.width,
+            node.rect.size.height,
+        );
+    }
     for child in &node.children {
         write_node(child, depth + 1, out);
     }

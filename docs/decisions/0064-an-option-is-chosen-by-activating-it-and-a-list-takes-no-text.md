@@ -203,6 +203,9 @@ other node, never a second tree built for the agent (ADR 0002).
 - *Built in parts (iteration 403).* Item 648 closed on § 4 alone, a list
   taking no text on both renderers; §§ 1, 2, 3 and 5 on this engine's page
   are item 659, and § 6 is item 660. The decision is unchanged.
+- *Iteration 404.* Item 659 built §§ 1, 2, 3 and 5 on this engine's page.
+  The socket's tree gains an additive `undrawn` field, since version 1
+  promises every node a `rect` and an option has none to give.
 
 ## What this does not decide
 

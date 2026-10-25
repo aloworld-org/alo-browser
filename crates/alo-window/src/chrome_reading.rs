@@ -45,7 +45,7 @@
 //! nothing.
 
 use crate::chrome_protocol::Described;
-use alo_agent::{Candidate, Reading};
+use alo_agent::{Candidate, ListOf, Reading};
 use alo_box::BoxId;
 use alo_dom::node::{Attribute, Element};
 use alo_renderer::Snapshot;
@@ -152,6 +152,14 @@ impl Reading for ChromeReading {
 
     fn is_chosen_from(&self, id: BoxId) -> bool {
         self.element(id).is_some_and(alo_dom::field::is_chosen_from)
+    }
+
+    /// Never, yet: through Chrome an option is activated as a click on it,
+    /// as item 621 built, until a click on a drawn option and the choice
+    /// read back from Chrome's tree are measured and built (ADR 0064 § 6,
+    /// queue item 660).
+    fn list_of(&self, _id: BoxId) -> Option<ListOf> {
+        None
     }
 }
 

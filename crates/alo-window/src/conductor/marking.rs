@@ -37,14 +37,16 @@ impl Conducting {
         Some((id, self.tabs.tab(id).and_then(Tab::document)))
     }
 
-    /// After an agent's verb on box `node` in tab `id`, which held document
-    /// `before` when the verb was asked and has just told the window
-    /// `painted`: the box's rectangles over that frame, if there is anything
-    /// to ring.
+    /// After an agent's verb on box `nodes`' first in tab `id`, which held
+    /// document `before` when the verb was asked and has just told the
+    /// window `painted`: the first of `nodes` with a rectangle over that
+    /// frame, if there is anything to ring — an option chosen, and then the
+    /// list it is in, since a closed list's option is not drawn (ADR 0064
+    /// § 5).
     pub(super) fn mark(
         &mut self,
         id: TabId,
-        node: BoxId,
+        nodes: &[BoxId],
         before: Option<DocumentId>,
         painted: &[News],
     ) -> Vec<News> {
@@ -54,15 +56,17 @@ impl Conducting {
         }
         let scale = self.screen.map_or(1.0, Screen::scale);
         match self.tabs.read(id) {
-            Ok(FromRenderer::Tree(snapshot)) => snapshot
-                .nodes()
-                .into_iter()
-                .find(|each| each.id == node)
-                .map(|box_| marked(&box_.rects, scale))
-                .filter(|rings| !rings.is_empty())
-                .map(News::Marked)
-                .into_iter()
-                .collect(),
+            Ok(FromRenderer::Tree(snapshot)) => {
+                let read = snapshot.nodes();
+                nodes
+                    .iter()
+                    .filter_map(|node| read.iter().find(|each| each.id == *node))
+                    .map(|box_| marked(&box_.rects, scale))
+                    .find(|rings| !rings.is_empty())
+                    .map(News::Marked)
+                    .into_iter()
+                    .collect()
+            }
             Ok(other) => vec![News::Said(unexpected(&other))],
             Err(lost) => vec![said_of(&self.tabs, id, &lost)],
         }

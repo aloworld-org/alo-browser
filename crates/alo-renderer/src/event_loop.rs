@@ -81,7 +81,8 @@
 //! The browser's dispatch is queued through [`Held::dispatch`], and an
 //! agent's `Activate` on a page that runs script is one ([`Held::activate`],
 //! [`activated`], item 256), run before the `Act` is answered, and so is its
-//! `PutText` ([`Held::put_text`], `typed.rs`, item 257). So is the page
+//! `PutText` ([`Held::put_text`], `typed.rs`, item 257), and its `Activate`
+//! on a list's option ([`Held::choose`], `chose.rs`, item 659). So is the page
 //! being told whether it can be seen ([`EventLoop::queue_visibility`],
 //! `shown.rs`, item 364), which fires `visibilitychange` only on a change,
 //! and so are `pageshow` at the end of a load and the page's leaving steps
@@ -99,8 +100,10 @@
 //! [`Held::dispatch`]: crate::held::Held::dispatch
 //! [`Held::activate`]: crate::held::Held::activate
 //! [`Held::put_text`]: crate::held::Held::put_text
+//! [`Held::choose`]: crate::held::Held::choose
 
 mod activated;
+mod chose;
 mod crossed;
 mod delivered;
 mod described;
@@ -233,6 +236,9 @@ pub struct Turn {
     /// got — [`None`] if the page stopped before it answered the
     /// `beforeinput`.
     pub typed: Option<Typed>,
+    /// Whether a choosing task chose its option — `false` for any other
+    /// task, and for one the page stopped before it chose (`chose.rs`).
+    pub chose: bool,
     /// What a person's press came to, if this was one and it ran to its
     /// end.
     pub pressed: Option<PressedDown>,
@@ -432,6 +438,32 @@ impl EventLoop {
         })
     }
 
+    /// Queue an agent's `Activate` on the option `option` of the list
+    /// `list`, in the document `cell` holds (ADR 0064 § 2): one task that
+    /// chooses it — or toggles it in a list of several — and, if that
+    /// changed what the list holds, fires `input` and `change` at the list.
+    /// Whether it chose is the task's [`Turn::chose`].
+    ///
+    /// `cell` must be rooted by the caller.
+    ///
+    /// # Errors
+    ///
+    /// As [`EventLoop::queue_dispatch`].
+    pub fn queue_choose(
+        &mut self,
+        cell: Ref,
+        list: NodeId,
+        option: NodeId,
+    ) -> Result<Seq, Unqueued> {
+        if let Some(stopped) = &self.stopped {
+            return Err(Unqueued::Stopped(stopped.clone()));
+        }
+        self.queue_listed(cell, list, &Firing::INPUT, |list| Work::Choose {
+            list,
+            option,
+        })
+    }
+
     /// Queue a person's press of the main button at `at`, over the element
     /// `node` in the document `cell` holds (ADR 0024 § 5): one task that
     /// dispatches a trusted `pointerdown` and, unless a listener cancels it,
@@ -564,6 +596,7 @@ impl EventLoop {
             stopped: None,
             clicked: None,
             typed: None,
+            chose: false,
             pressed: None,
         };
         let outcome = self.perform(&task.work, &mut turn);
@@ -625,6 +658,7 @@ impl EventLoop {
             }
             Work::Moved { list, moving } => self.moved(list, moving, turn),
             Work::PutText { list, text } => self.put_text(list, text, turn),
+            Work::Choose { list, option } => self.choose(list, *option, turn),
             Work::Visibility { list, to } => self.shown(list, *to, turn),
             Work::Leave { list } => self.leave(list, turn),
         }

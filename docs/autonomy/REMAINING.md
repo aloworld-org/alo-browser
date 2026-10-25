@@ -3151,3 +3151,17 @@ draws, a closed list's option refused by name); 658 now depends on 660.
 The screen was locked, so 642 and 643 still wait on it. 300 queue items
 are open (648 closed, 659 and 660 opened). The next unused queue number
 is 661 and the next unused ADR 0065.
+
+Iteration 404 closed queue item 659: an option chosen by activating it on
+this engine's page (ADR 0064 §§ 1, 2, 3 and 5). A `<select>`'s options and
+groups are boxes the box tree makes under the list and outside its
+children, so nothing that lays out or draws meets them and they have no
+rectangle; the agent's tree reads them there, the outline and the socket
+saying they are not drawn. `Activate` on one answers `Chosen`, carried out
+by `alo_dom::choice` — through `apply` on a page without script, and on one
+with script as a task that fires `input` then `change` at the list — and
+whether it is chosen is read from the page afterwards. The window rings the
+list. Chrome's reading names no option's list yet, so through Chrome an
+option is still a click answered `Activated` (660). The screen was locked,
+so 642 and 643 still wait on it. 299 queue items are open (659 closed). The
+next unused queue number is 661 and the next unused ADR 0065.

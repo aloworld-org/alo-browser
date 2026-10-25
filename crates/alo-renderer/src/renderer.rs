@@ -114,6 +114,7 @@ use core::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ask;
+use crate::choose::choose;
 use crate::clock::WallClock;
 use crate::deliver::deliver;
 use crate::easel::Easel;
@@ -142,10 +143,11 @@ use crate::strip_document;
 use crate::submit;
 use crate::transition::{self, Left};
 use crate::view::PageView;
-use alo_agent::{AgentTree, apply, perform};
+use alo_agent::{AgentTree, apply, chosen_after, perform};
 use alo_agent::{Outcome, Target, Verb};
 use alo_bindings::Visibility;
 use alo_bindings::navigating::{self, By, Navigation, NotFollowed};
+use alo_box::BoxTree;
 use alo_dom::{Document, NodeId, Parsing};
 use alo_layout::Size;
 use alo_text::Font;
@@ -415,7 +417,7 @@ impl Renderer {
         }
         let ran = pressed_one
             .as_ref()
-            .and_then(|on| run(held, &outcome, on.node));
+            .and_then(|on| run(held, &outcome, on.node, &drawing.boxes));
         let mut ongoing = held.take_navigation();
         let (outcome, mut issues) = if let Some(ran) = ran {
             match (ran, &pressed_one) {
@@ -456,6 +458,13 @@ impl Renderer {
                 (outcome, ..) => outcome,
             };
             (outcome, Vec::new())
+        };
+        // An option chosen says whether it is chosen now, as the page holds
+        // it after its listeners ran — never as the verb assumed (ADR 0064
+        // § 3).
+        let outcome = match held.document() {
+            Some(document) => chosen_after(document, &drawing.boxes, outcome),
+            None => outcome,
         };
         let (navigation, mut said) = ask::answer(&ongoing);
         issues.append(&mut said);
@@ -884,10 +893,15 @@ impl Renderer {
 }
 
 /// Run `outcome`, the verb decided on `node`, as a task on a page that runs
-/// script: a press ([`crate::press`]) or text put in ([`crate::put`]).
+/// script: a press ([`crate::press`]), text put in ([`crate::put`]) or an
+/// option chosen in the list `boxes` says holds it ([`crate::choose`]).
 /// [`None`] for a page that never ran script, or a verb that is not a task.
-fn run(held: &mut Held, outcome: &Outcome, node: NodeId) -> Option<Ran> {
+fn run(held: &mut Held, outcome: &Outcome, node: NodeId, boxes: &BoxTree) -> Option<Ran> {
     match outcome {
+        Outcome::Chosen { list, .. } => {
+            let list = boxes.get(*list).and_then(|list| list.kind.node())?;
+            choose(held, list, node).map(|issues| Ran::Told(outcome.clone(), issues))
+        }
         Outcome::Activated { .. } | Outcome::Followed { .. } => press(held, node).map(Ran::Pressed),
         Outcome::TextPut { node: id, text } => put(held, node, text).map(|put| {
             let (node, text) = (*id, text.clone());

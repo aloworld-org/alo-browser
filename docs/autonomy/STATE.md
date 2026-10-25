@@ -41216,3 +41216,128 @@ say the same.
 300 queue items are open (648 closed, 659 and 660 opened; counted as
 `- [ ] **` lines). The next unused queue number is **661** and the next
 ADR is **0065**. This is one iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 404 — queue item 659: an option chosen by activating it, on this engine's page
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Owed*, the stage 2 Chrome line), iteration 403's entry,
+the queue's product-path table and items 642, 643, 659 and 660; ADR 0064
+in full; `docs/contracts/agent-socket.md` (ADR 0055, additive only);
+`alo-agent`'s `verb.rs`, `reading.rs`, `apply.rs`, `tree.rs` and
+`name.rs`; `alo-box`'s `tree.rs`, `role.rs`, `state.rs` and
+`semantics.rs`; `alo-dom`'s `value.rs`, `field.rs` and `disabled.rs`;
+`alo-renderer`'s `renderer.rs`, `put.rs`, `held.rs`, `snapshot.rs`,
+`wire.rs` and its event loop's `typed.rs` and `task.rs`; `alo-window`'s
+`protocol.rs`, `asking.rs`, `chrome_act.rs`, `chrome_reading.rs`,
+`mark.rs` and `conductor/marking.rs`. No `AGENTS.md` exists in the
+repository. The feature contract is `docs/features.md`'s Chrome renderer
+line, which promised 659.
+
+**Why 659.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the gate, so 642 and 643 — next by the owner's choice — could
+not be measured. 659 is the first open item of the product path's
+*Owed* whose dependency (648) is done.
+
+**Built.**
+- `alo_dom::choice` (new): `list_of`, `is_chosen` (HTML's selectedness via
+  `value::selected`) and `choose` — the only choice of a list of one, a
+  toggle in `multiple` — answering each `selected` attribute changed.
+- `alo-box`'s `options.rs` (new) says what a `<select>` holds (options and
+  non-empty `<optgroup>`s, less `hidden` ones); the box tree makes a box for
+  each, `display: none`, by `Semantics::of`, with the list as parent and
+  **not among its children** (`BoxTree::undrawn`), so layout, paint and
+  hit-testing never meet one. An option is named by its `label` or
+  collapsed text; `selected` follows HTML's rule for an option of a list;
+  `disabled` includes its list's; `<optgroup>` is a `group`.
+- `alo-agent`: the tree reads undrawn boxes after a box's children and
+  writes `not drawn` for a node with no rectangle; `Reading::list_of`
+  (`ListOf { list, several }`); `perform` answers `Outcome::Chosen { node,
+  list, chosen }` for an option of a list; `apply` carries it;
+  `chosen_after` reads `chosen` from the page.
+- `alo-renderer`: `Work::Choose` and `event_loop/chose.rs` — the option
+  chosen, then `input` and `change` at the list only when what it holds
+  changed — `Held::choose`, `choose.rs` (a stopped page's list still takes
+  the choice), `run` dispatching it, and `chosen_after` after both paths;
+  the boundary's outcome tag 7; the snapshot's outline matches the tree's.
+- `alo-window`: the socket's `Chosen` kind with `list` and `chosen`, an
+  additive `undrawn: true` on a node with no rectangle (version 1 promises
+  every node a `rect`), both in the contract; 624's ring tries the option
+  and then its list; Chrome's reading answers `list_of` with `None` until
+  660, so through Chrome nothing changes.
+
+**Tests.** `alo-agent`'s `an_option_chosen_by_activating_it.rs`: the tree's
+options `not drawn` under their lists; the **layout assertion** — no option
+has a layout box or a rectangle, and the list is laid out to the same
+numbers as an empty one, (8, 25) 139.32813×4; `Large` chosen and sent
+(`size=Large`), choosing it again still chosen; `Onion` added and `Bacon`
+taken away (`toppings=Onion`); an option disabled by itself, its group or
+its list `Disabled` with the change count unchanged; two `Yes` options
+`Ambiguous`, then chosen by id. `alo-renderer`'s `an_agents_choice.rs`,
+each with the collector at every allocation too: the page hears
+`input:size:true change:size:true`, nothing for the choice already held,
+each toggle heard, a `change` listener putting the choice back answered
+`chosen: false`, a disabled option refused unheard, and a page with no
+script chosen through `apply`. Unit tests for `choice.rs`, `options.rs`,
+the box outline, the states (a closed list nobody marked says its first
+option is chosen — the old test's `false` there was the attribute, not
+HTML's rule, and is corrected), the verb's described page, the socket's
+`Chosen` line and `undrawn` node, and the boundary's crossing. Mutations,
+restored from copies and checked with `cmp`: the task never firing
+`input`/`change` fails three renderer tests; dropping `chosen_after` fails
+the listener test (*chosen: true*).
+
+**Gate.** `cargo fmt` clean; clippy first found `match_same_arms`
+(`optgroup` and `fieldset` both `Group`, now one arm) and `too_many_lines`
+in the boundary test (one `Chosen` case kept, not silenced). Then
+`scripts/gate.sh` in the foreground — it ran past the tool's 600 s, so it
+was waited on by an until-loop in the next call and read there: **exit 0,
+"The gate is met." (10 of 10 steps)**, nextest **5,347 tests run, 5,347
+passed** in 570.2 s, no warning, `FAIL`, `LEAK` or `panicked`. The
+author-drawn option fix (below) came after it, so the gate was run again
+the same way: **exit 0, "The gate is met." (10 of 10 steps)**, nextest
+**5,348 tests run, 5,348 passed** in 574.2 s, no `FAIL`, `LEAK` or
+`panicked`. Only this entry's two sentences about that run came after.
+
+**Manual.** Layout assertion: above, in numbers. Reference render: nothing
+drawn changes — the options are never drawn and the list draws as before —
+and no corpus case holds a `<select>`, so no reference moved. One file, one
+responsibility: the choosing rule is `choice.rs`'s, what a list holds
+`options.rs`'s, the task `chose.rs`'s and running it `choose.rs`'s, each
+new; `tree.rs` holds the boxes as it holds every side map. Bytes from
+outside: the boundary's tag 7 is read by the same `Reader`, whose unknown-
+tag and truncation tests run over the new message. No `unsafe`, no stubs,
+no verb taking a coordinate. `alo-os` and `alo-workplace` untouched.
+Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 659 and its *Owed* now names
+660 and 658 for options; the stage 2 Chrome line's `· Built:` gains 659
+(on this engine's page) and `· Owed:` names 660. Not ticked — neither line
+is finished. The queue ticks 659 with a *Done* paragraph; `features.md`,
+`REMAINING.md`, ADR 0064's note, the contract and the changelog say the
+same.
+
+**Unresolved obligations.**
+- 660 (through a list Chrome draws) and 658 (a closed list through a shown
+  Chrome). Until 660, `Activate` on an option through Chrome is a click
+  answered `Activated`.
+- An author's `option { display: block }` inside a `<select>` makes the
+  option a drawn box, as before, and that box is the one read — found
+  after the first gate run and closed before the commit (unit test
+  `an_option_an_author_drew_is_one_box_not_two`, its mutation caught).
+  Chrome ignores that style on a closed list; whether this engine should
+  is not decided.
+- 642 and 643 still wait on the screen in use (locked); 645, 649 and 650
+  are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655).
+- No claim about speed is made.
+
+299 queue items are open (659 closed; counted as `- [ ] **` lines). The
+next unused queue number is **661** and the next ADR is **0065**. This is
+one iteration, not a finished queue or roadmap.

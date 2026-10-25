@@ -362,6 +362,15 @@ pub struct BoxTree {
     /// font (queue item 511). See [`crate::field_size`]. A side map for
     /// [`BoxTree::breaks`]' reason.
     field_sizes: BTreeMap<BoxId, u32>,
+    /// What a box holds that is not drawn, by box: a `<select>`'s options
+    /// and its groups of them, and a group's options (ADR 0064 § 5).
+    ///
+    /// Each is a box with this box as its parent and **not among its
+    /// children**, so layout, paint and hit-testing, which walk children,
+    /// never meet one and it has no rectangle; the agent's tree reads it
+    /// where the document put it. See [`crate::options`]. A side map for
+    /// [`BoxTree::breaks`]' reason.
+    undrawn: BTreeMap<BoxId, Vec<BoxId>>,
 }
 
 impl BoxTree {
@@ -494,6 +503,19 @@ impl BoxTree {
             .copied()
     }
 
+    /// What a box holds that is not drawn, in the document's order: a
+    /// `<select>`'s options and groups of them, and a group's options (ADR
+    /// 0064 § 5). Never among [`BoxTree::children`], so nothing that lays
+    /// out or draws meets them.
+    pub fn undrawn(&self, id: BoxId) -> impl Iterator<Item = BoxId> + '_ {
+        self.undrawn
+            .get(&id)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+            .iter()
+            .copied()
+    }
+
     /// The style a box's **text** is set with.
     ///
     /// A text box came from a text node, and a text node has no style of its
@@ -591,6 +613,7 @@ impl BoxTree {
             toggles: BTreeMap::new(),
             faces: BTreeMap::new(),
             field_sizes: BTreeMap::new(),
+            undrawn: BTreeMap::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -643,9 +666,15 @@ impl BoxTree {
                 write!(out, "anonymous {outside}")?;
             }
         }
+        if node
+            .parent
+            .is_some_and(|parent| self.undrawn(parent).any(|held| held == id))
+        {
+            out.push_str(" · not drawn");
+        }
         out.push('\n');
-        for child in &node.children {
-            self.write_outline(*child, depth + 1, out)?;
+        for child in node.children.iter().copied().chain(self.undrawn(id)) {
+            self.write_outline(child, depth + 1, out)?;
         }
         Ok(())
     }
@@ -810,6 +839,7 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
         toggles: BTreeMap::new(),
         faces: BTreeMap::new(),
         field_sizes: BTreeMap::new(),
+        undrawn: BTreeMap::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -1027,6 +1057,9 @@ fn build_element(
                 Some(slots) => details_children(document, styles, shown, id, &slots, tree),
                 None => build_children(document, styles, shown, id, tree),
             };
+            if let Some(held) = crate::options::of(document, id) {
+                hold_undrawn(document, box_id, &held, &children, tree);
+            }
             // A form control holds what it displays in a box nobody wrote —
             // only while the author has left it a flow container, because
             // making it a flex or grid container replaces that arrangement
@@ -1085,6 +1118,69 @@ fn build_element(
             }
             tree.adopt(box_id, &arranged);
             vec![box_id]
+        }
+    }
+}
+
+/// The boxes of what the list `list` holds that is not drawn (ADR 0064
+/// § 5): one for each option and each group, made as any element's box is
+/// and with `display: none`, which is what each one's style says, held
+/// under the list and outside its children ([`BoxTree::undrawn`]).
+///
+/// An option or a group an author's style drew — `option { display: block }`
+/// — already has a box among `children`, which is the one read; it is not
+/// given a second.
+fn hold_undrawn(
+    document: &Document,
+    list: BoxId,
+    held: &[crate::options::Held],
+    children: &[BoxId],
+    tree: &mut BoxTree,
+) {
+    let drawn: BTreeSet<NodeId> = children
+        .iter()
+        .flat_map(|child| core::iter::once(*child).chain(tree.descendants(*child)))
+        .filter_map(|id| tree.get(id).and_then(|node| node.kind.node()))
+        .collect();
+    let under = |tree: &mut BoxTree, holder: BoxId, node: NodeId| {
+        let semantics = document
+            .element(node)
+            .map_or_else(Semantics::anonymous, |element| {
+                Semantics::of(document, node, element)
+            });
+        let id = tree.push(
+            BoxKind::Element {
+                node,
+                display: Display::None,
+            },
+            semantics,
+        );
+        if let Some(made) = tree.boxes.get_mut(id.0) {
+            made.parent = Some(holder);
+        }
+        tree.undrawn.entry(holder).or_default().push(id);
+        id
+    };
+    for one in held {
+        match one {
+            crate::options::Held::Option(option) if !drawn.contains(option) => {
+                under(tree, list, *option);
+            }
+            crate::options::Held::Group(group, options) if !drawn.contains(group) => {
+                let options: Vec<NodeId> = options
+                    .iter()
+                    .copied()
+                    .filter(|option| !drawn.contains(option))
+                    .collect();
+                if options.is_empty() {
+                    continue;
+                }
+                let group = under(tree, list, *group);
+                for option in options {
+                    under(tree, group, option);
+                }
+            }
+            crate::options::Held::Option(_) | crate::options::Held::Group(..) => {}
         }
     }
 }
@@ -2774,6 +2870,65 @@ mod tests {
         );
         let faces: Vec<Face> = tree.ids().filter_map(|id| tree.face(id)).collect();
         assert_eq!(faces, vec![Face::Field, Face::Button, Face::Field]);
+    }
+
+    #[test]
+    fn a_lists_options_are_held_under_it_and_never_drawn() {
+        let tree = boxes(
+            "<select disabled><option>Small<optgroup label=Big>\
+             <option selected disabled>Huge<option label=XL>Extra</optgroup></select>",
+            "",
+        );
+        let outline = tree.to_outline();
+        let lines: Vec<&str> = outline
+            .lines()
+            .skip_while(|line| !line.contains("combobox"))
+            .collect();
+        assert_eq!(
+            lines,
+            [
+                "    inline flow-root · combobox [disabled]",
+                "      none · option \"Small\" [disabled selected=false] · not drawn",
+                "      none · group \"Big\" · not drawn",
+                "        none · option \"Huge\" [disabled selected=true] · not drawn",
+                "        none · option \"XL\" [disabled selected=false] · not drawn",
+            ],
+            "{outline}",
+        );
+        // Held, and not among anybody's children: nothing that lays out or
+        // draws walks to them.
+        let Some(list) = tree.ids().find(|id| tree.undrawn(*id).next().is_some()) else {
+            panic!("the list holds its options:\n{outline}");
+        };
+        assert_eq!(tree.children(list).count(), 0);
+        let held: Vec<BoxId> = tree.undrawn(list).collect();
+        assert_eq!(held.len(), 2);
+        assert!(
+            tree.ids()
+                .all(|id| tree.children(id).all(|child| !held.contains(&child))),
+        );
+        assert!(
+            held.iter()
+                .all(|id| tree.get(*id).and_then(|node| node.parent) == Some(list))
+        );
+    }
+
+    #[test]
+    fn an_option_an_author_drew_is_one_box_not_two() {
+        let tree = boxes(
+            "<select><option id=a>Drawn<option>Held</select>",
+            "#a { display: block }",
+        );
+        let outline = tree.to_outline();
+        assert_eq!(outline.matches("option \"Drawn\"").count(), 1, "{outline}");
+        assert!(
+            outline.contains("block flow · option \"Drawn\""),
+            "{outline}"
+        );
+        assert!(
+            outline.contains("none · option \"Held\" [selected=false] · not drawn"),
+            "{outline}"
+        );
     }
 
     #[test]

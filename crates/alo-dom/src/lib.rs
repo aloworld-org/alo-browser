@@ -111,6 +111,7 @@
 pub mod activation;
 pub mod body;
 pub mod by_name;
+pub mod choice;
 pub mod constraint;
 pub mod date;
 pub mod declared;

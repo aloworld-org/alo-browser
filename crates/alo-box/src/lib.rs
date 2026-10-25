@@ -44,6 +44,7 @@ mod field_size;
 pub mod invalid;
 pub mod line_break;
 pub mod natural;
+mod options;
 pub mod picture;
 pub mod role;
 pub mod semantics;

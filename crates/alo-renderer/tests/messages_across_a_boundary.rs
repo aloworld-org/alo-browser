@@ -231,6 +231,14 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             },
             vec!["the text: the page cancelled it".to_owned()],
         ),
+        acted(
+            Outcome::Chosen {
+                node: id(43),
+                list: id(29),
+                chosen: false,
+            },
+            vec!["the choice: a listener put it back".to_owned()],
+        ),
         FromRenderer::Failed(Failure::NothingLoaded),
         FromRenderer::Failed(Failure::Unpaintable {
             why: "a window of no size".to_owned(),

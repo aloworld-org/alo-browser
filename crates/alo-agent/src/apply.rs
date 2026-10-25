@@ -50,6 +50,13 @@
 //! behaviour, not a promise a script keeps (ADR 0048 § 4), so it is the
 //! same `alo-dom` rule and the change is reported as the `details`'.
 //!
+//! **Activating a list's option chooses it** — makes it the list's choice,
+//! or toggles it in a list of several — by `alo-dom`'s rule
+//! ([`alo_dom::choice`], ADR 0064 § 2), which the renderer runs on a page
+//! with script before the `input` and `change` it fires. Whether the option
+//! is chosen afterwards is read back from the page ([`chosen_after`]),
+//! never assumed from the verb.
+//!
 //! **Activating a plain button changes nothing** on a page without script,
 //! and that is correct rather than missing: what a button does is run a
 //! script, and there is none. **Activating a submit button changes nothing
@@ -62,8 +69,8 @@
 use crate::verb::Outcome;
 use alo_box::{BoxId, BoxTree};
 use alo_dom::activation::{self, Activation, Follows};
-use alo_dom::field;
 use alo_dom::{Document, NodeId};
+use alo_dom::{choice, field};
 
 /// What changing the document actually did.
 ///
@@ -132,6 +139,13 @@ pub fn apply(document: &mut Document, boxes: &BoxTree, outcome: &Outcome) -> Vec
             }]
         }
         Outcome::Activated { .. } => activate(document, node),
+        Outcome::Chosen { .. } => match choice::choose(document, node) {
+            Some(changed) if !changed.is_empty() => changed
+                .into_iter()
+                .map(|(option, now)| marked(option, "selected", now))
+                .collect(),
+            _ => vec![Change::Nothing],
+        },
         // Where a page goes is the browser process's, and scrolling is a fact
         // about the view rather than about the document.
         // And text a page cancelled is text it did not take; only a page
@@ -144,6 +158,38 @@ pub fn apply(document: &mut Document, boxes: &BoxTree, outcome: &Outcome) -> Vec
         | Outcome::TextCanceled { .. }
         | Outcome::Submitted { .. }
         | Outcome::NotSubmitted { .. } => vec![Change::Nothing],
+    }
+}
+
+/// `outcome` as the page answers it once carried out: an option chosen
+/// says whether it is a choice of its list **now**, read from `document`
+/// (ADR 0064 § 3) — which a page's listener may have changed back. Any
+/// other outcome is as it was.
+pub fn chosen_after(document: &Document, boxes: &BoxTree, outcome: Outcome) -> Outcome {
+    match outcome {
+        Outcome::Chosen { node, list, .. } => Outcome::Chosen {
+            node,
+            list,
+            chosen: source_of(boxes, node)
+                .is_some_and(|option| choice::is_chosen(document, option)),
+        },
+        other => other,
+    }
+}
+
+/// An attribute that says a thing is so by being there, set or taken away.
+fn marked(node: NodeId, attribute: &str, now: bool) -> Change {
+    if now {
+        Change::Set {
+            node,
+            attribute: attribute.to_owned(),
+            value: String::new(),
+        }
+    } else {
+        Change::Removed {
+            node,
+            attribute: attribute.to_owned(),
+        }
     }
 }
 
@@ -187,20 +233,7 @@ fn activate(document: &mut Document, node: NodeId) -> Vec<Change> {
 /// What [`activation::before`] and [`activation::after`] changed, as
 /// [`Change`]s.
 fn changes(done: &Activation, follows: &Follows) -> Vec<Change> {
-    let checked = |node: NodeId, now: bool| {
-        if now {
-            Change::Set {
-                node,
-                attribute: "checked".to_owned(),
-                value: String::new(),
-            }
-        } else {
-            Change::Removed {
-                node,
-                attribute: "checked".to_owned(),
-            }
-        }
-    };
+    let checked = |node: NodeId, now: bool| marked(node, "checked", now);
     let mut changes = match done {
         Activation::Checkbox { node, was } => vec![checked(*node, !was)],
         Activation::Radio {
@@ -223,18 +256,7 @@ fn changes(done: &Activation, follows: &Follows) -> Vec<Change> {
         | Activation::Summary { .. } => Vec::new(),
     };
     if let Follows::Toggled { details, open } = follows {
-        changes.push(if *open {
-            Change::Set {
-                node: *details,
-                attribute: "open".to_owned(),
-                value: String::new(),
-            }
-        } else {
-            Change::Removed {
-                node: *details,
-                attribute: "open".to_owned(),
-            }
-        });
+        changes.push(marked(*details, "open", *open));
     }
     if changes.is_empty() {
         changes.push(Change::Nothing);

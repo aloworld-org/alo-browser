@@ -165,6 +165,24 @@ pub enum Outcome {
         /// What the page would not take.
         text: String,
     },
+    /// An option was activated in its list, which chose it or — in a list
+    /// of several — toggled it (ADR 0064 §§ 1–3).
+    ///
+    /// `chosen` says whether the option is a choice of its list **after**
+    /// the verb, read from the page once it has run
+    /// ([`crate::apply::chosen_after`]), not assumed from what was asked: a
+    /// page's `change` listener may put the old choice back, and the answer
+    /// then says the option is not chosen. An outcome rather than a
+    /// refusal, as [`Outcome::TextCanceled`] is, because the verb was
+    /// carried out and the page answered.
+    Chosen {
+        /// The option.
+        node: BoxId,
+        /// Its list.
+        list: BoxId,
+        /// Whether it is chosen now.
+        chosen: bool,
+    },
     /// Something was scrolled.
     Scrolled {
         /// Which node.
@@ -232,6 +250,7 @@ impl Outcome {
             | Outcome::Followed { node, .. }
             | Outcome::TextPut { node, .. }
             | Outcome::TextCanceled { node, .. }
+            | Outcome::Chosen { node, .. }
             | Outcome::Scrolled { node, .. }
             | Outcome::Submitted { node, .. }
             | Outcome::NotSubmitted { node, .. } => *node,
@@ -251,6 +270,16 @@ impl fmt::Display for Outcome {
             Outcome::TextCanceled { node, text } => {
                 write!(f, "the page cancelled putting {text:?} into {node}")
             }
+            Outcome::Chosen {
+                node,
+                list,
+                chosen: true,
+            } => write!(f, "chose {node} in {list}"),
+            Outcome::Chosen {
+                node,
+                list,
+                chosen: false,
+            } => write!(f, "activated {node}, and it is not chosen in {list}"),
             Outcome::Scrolled { node, by } => write!(f, "scrolled {node} {by}"),
             Outcome::Submitted { node, method, to } => {
                 write!(
@@ -532,6 +561,20 @@ fn activate<R: Reading + ?Sized>(page: &R, node: &Candidate) -> Result<Outcome, 
     if node.states.disabled {
         return Err(Refusal::Disabled { node: node.id });
     }
+    // An option of a list is chosen by activating it: made the list's one
+    // choice, or toggled in a list of several (ADR 0064 §§ 1–2). Whether it
+    // is chosen is said here as HTML's rule would leave it, and read back
+    // from the page by whoever carries the verb out.
+    if role == Role::Known(KnownRole::Option)
+        && let Some(list) = page.list_of(node.id)
+    {
+        let chosen = !list.several || node.states.selected != Some(true);
+        return Ok(Outcome::Chosen {
+            node: node.id,
+            list: list.list,
+            chosen,
+        });
+    }
     // A link goes somewhere, and where it goes is part of what happened.
     if role == Role::Known(KnownRole::Link)
         && let Some(destination) = page.href_of(node.id)
@@ -644,6 +687,7 @@ fn scroll(node: &Candidate, by: ScrollBy) -> Result<Outcome, Refusal> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reading::ListOf;
     use alo_box::States;
 
     #[test]
@@ -865,6 +909,7 @@ mod tests {
         most: Vec<(BoxId, usize)>,
         links: Vec<(BoxId, String)>,
         lists: Vec<BoxId>,
+        options: Vec<(BoxId, ListOf)>,
     }
 
     impl Reading for Described {
@@ -891,6 +936,12 @@ mod tests {
         }
         fn is_chosen_from(&self, id: BoxId) -> bool {
             self.lists.contains(&id)
+        }
+        fn list_of(&self, id: BoxId) -> Option<ListOf> {
+            self.options
+                .iter()
+                .find(|(option, _)| *option == id)
+                .map(|(_, list)| *list)
         }
     }
 
@@ -945,12 +996,40 @@ mod tests {
                         ..States::default()
                     },
                 ),
+                node(13, KnownRole::Option, "Large", States::default()),
+                node(14, KnownRole::ListBox, "Toppings", States::default()),
+                node(
+                    15,
+                    KnownRole::Option,
+                    "Bacon",
+                    States {
+                        selected: Some(true),
+                        ..States::default()
+                    },
+                ),
+                node(16, KnownRole::Option, "Loose", States::default()),
             ],
             dates: vec![id(6)],
             unbuilt: vec![id(7)],
             most: vec![(id(8), 3)],
             links: vec![(id(10), "/next".to_owned())],
-            lists: vec![id(11), id(12)],
+            lists: vec![id(11), id(12), id(14)],
+            options: vec![
+                (
+                    id(13),
+                    ListOf {
+                        list: id(11),
+                        several: false,
+                    },
+                ),
+                (
+                    id(15),
+                    ListOf {
+                        list: id(14),
+                        several: true,
+                    },
+                ),
+            ],
         }
     }
 
@@ -1014,6 +1093,21 @@ mod tests {
         assert_eq!(
             kind(Target::Node(BoxId::from_index_for_tests(2)), Verb::Activate),
             "done: activated box#2 \"Twice\""
+        );
+        // An option of a list is chosen by activating it, and in a list of
+        // several a chosen one is toggled off (ADR 0064 §§ 1–2); an option
+        // of no list the reading knows is activated as any control is.
+        assert_eq!(
+            kind(named("Large"), Verb::Activate),
+            "done: chose box#13 in box#11"
+        );
+        assert_eq!(
+            kind(named("Bacon"), Verb::Activate),
+            "done: activated box#15, and it is not chosen in box#14"
+        );
+        assert_eq!(
+            kind(named("Loose"), Verb::Activate),
+            "done: activated box#16 \"Loose\""
         );
     }
 

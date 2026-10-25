@@ -146,10 +146,12 @@ impl States {
     /// What is true of an element.
     pub fn of(document: &Document, id: NodeId, element: &Element) -> Self {
         Self {
-            disabled: aria_flag(element, "aria-disabled")
-                .unwrap_or_else(|| alo_css::state::is_disabled(document, id, element)),
+            disabled: aria_flag(element, "aria-disabled").unwrap_or_else(|| {
+                alo_css::state::is_disabled(document, id, element)
+                    || in_a_disabled_list(document, id)
+            }),
             checked: checked(document, id, element),
-            selected: selected(element),
+            selected: selected(document, id, element),
             expanded: aria_flag(element, "aria-expanded")
                 .or_else(|| open_flag(document, id, element)),
             pressed: aria_flag(element, "aria-pressed"),
@@ -298,14 +300,33 @@ fn current(element: &Element) -> Option<Current> {
     }
 }
 
-fn selected(element: &Element) -> Option<bool> {
+/// Whether an option is chosen: by HTML's selectedness rule when it is one
+/// of a list's — so a closed list nobody marked says its first option is
+/// chosen, as it is and as its form sends (ADR 0064 § 5) — and by its
+/// `selected` attribute anywhere else.
+fn selected(document: &Document, id: NodeId, element: &Element) -> Option<bool> {
     if let Some(declared) = aria_flag(element, "aria-selected") {
         return Some(declared);
     }
     if element.name.is_html("option") {
+        if alo_dom::choice::list_of(document, id).is_some() {
+            return Some(alo_dom::choice::is_chosen(document, id));
+        }
         return Some(element.attr("selected").is_some());
     }
     None
+}
+
+/// Whether `id` is an option of a disabled list, which cannot be chosen
+/// however the option itself is marked — what Chrome's tree says of every
+/// option of a disabled `<select>` (ADR 0064 § 2). Not `:disabled`, which
+/// HTML keeps to the option and its `<optgroup>`.
+fn in_a_disabled_list(document: &Document, id: NodeId) -> bool {
+    alo_dom::choice::list_of(document, id).is_some_and(|list| {
+        document
+            .element(list)
+            .is_some_and(|element| alo_css::state::is_disabled(document, list, element))
+    })
 }
 
 /// Whether a thing HTML opens is open: a `<dialog>` by its `open`, and a
@@ -481,8 +502,23 @@ mod tests {
             states_of("<select><option id=x selected>a</option></select>", "x").selected,
             Some(true),
         );
+        // A closed list nobody marked has its first option chosen, by
+        // HTML's selectedness rule, and says so (ADR 0064 § 5).
         assert_eq!(
             states_of("<select><option id=x>a</option></select>", "x").selected,
+            Some(true),
+        );
+        assert_eq!(
+            states_of("<select><option>a<option id=x>b</select>", "x").selected,
+            Some(false),
+        );
+        assert_eq!(
+            states_of("<select multiple><option id=x>a</select>", "x").selected,
+            Some(false),
+        );
+        // An option of no list says what its attribute says.
+        assert_eq!(
+            states_of("<datalist><option id=x>a</datalist>", "x").selected,
             Some(false),
         );
         assert_eq!(

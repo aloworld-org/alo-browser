@@ -162,6 +162,9 @@ impl<'a> AgentTree<'a> {
     /// is the children of **every piece**, with the blocks between them in
     /// their places — and everywhere else, a box that belongs to somebody
     /// else's whole is passed over, because it is read there instead.
+    ///
+    /// And after them what it holds that is not drawn — a list's options
+    /// and its groups of them (ADR 0064 § 5) — where the document put them.
     fn parts(&self, id: BoxId) -> Vec<BoxId> {
         let whole = self.boxes.whole_of(id);
         if whole.len() == 1 {
@@ -169,6 +172,7 @@ impl<'a> AgentTree<'a> {
                 .boxes
                 .children(id)
                 .filter(|child| !self.boxes.belongs_to_another(*child))
+                .chain(self.boxes.undrawn(id))
                 .collect();
         }
         let pieces = self.boxes.pieces_of(id);
@@ -391,6 +395,42 @@ impl<'a> AgentTree<'a> {
             .and_then(|node| node.kind.node())
             .and_then(|source| self.document.element(source))
             .and_then(alo_dom::constraint::max_length)
+    }
+
+    /// The list the box `id` is an option of, when it is one of a list's
+    /// options (`alo_dom::choice::list_of`, ADR 0064 § 1): the box of the
+    /// `<select>` that holds it.
+    pub(crate) fn list_of(&self, id: BoxId) -> Option<BoxId> {
+        let source = self.boxes.get(id)?.kind.node()?;
+        let list = alo_dom::choice::list_of(self.document, source)?;
+        let mut current = self.boxes.get(id)?.parent;
+        while let Some(holder) = current {
+            let node = self.boxes.get(holder)?;
+            if node.kind.node() == Some(list) {
+                return Some(holder);
+            }
+            current = node.parent;
+        }
+        None
+    }
+
+    /// Whether the list the box `id` is takes several choices: a
+    /// `<select multiple>`.
+    pub(crate) fn takes_several(&self, id: BoxId) -> bool {
+        self.boxes
+            .get(id)
+            .and_then(|node| node.kind.node())
+            .and_then(|source| self.document.element(source))
+            .is_some_and(|element| element.attr("multiple").is_some())
+    }
+
+    /// Whether the option the box `id` is, is a choice its list holds, as
+    /// the page holds it now (`alo_dom::choice::is_chosen`).
+    pub fn is_chosen(&self, id: BoxId) -> bool {
+        self.boxes
+            .get(id)
+            .and_then(|node| node.kind.node())
+            .is_some_and(|source| alo_dom::choice::is_chosen(self.document, source))
     }
 
     /// Whether the box `id` is a list to choose from, which takes no text
@@ -758,14 +798,21 @@ fn write_node(node: &AgentNode<'_>, depth: usize, out: &mut String) {
         String::new()
     };
     // Writing to a `String` cannot fail.
-    let _ = writeln!(
-        out,
-        "{node} at ({}, {}) {}×{}{in_pieces}",
-        rect.left(),
-        rect.top(),
-        rect.size.width,
-        rect.size.height,
-    );
+    if pieces == 0 {
+        // A list's option is a node an agent can name and never a place on
+        // the screen, and the outline says so rather than inventing one
+        // (ADR 0064 § 5).
+        let _ = writeln!(out, "{node} not drawn");
+    } else {
+        let _ = writeln!(
+            out,
+            "{node} at ({}, {}) {}×{}{in_pieces}",
+            rect.left(),
+            rect.top(),
+            rect.size.width,
+            rect.size.height,
+        );
+    }
     for child in node.children() {
         write_node(&child, depth + 1, out);
     }

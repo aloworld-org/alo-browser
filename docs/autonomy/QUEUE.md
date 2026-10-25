@@ -17014,7 +17014,7 @@ What stage 2's exit gate actually measures: a person using it.
   engine's page (options generate no box) and through Chrome is a click,
   answered `Activated`, that on a closed list finds no box to click.
 
-- [ ] **659. An option chosen by activating it, on this engine's page.**
+- [x] **659. An option chosen by activating it, on this engine's page.**
   *Cut from 648 (iteration 403); ADR 0064 §§ 1, 2, 3 and 5.* An option of
   a `<select>` is `display: none` in the user agent's sheet and generates
   no box, so nothing in this engine's tree can be activated to choose it,
@@ -17034,6 +17034,34 @@ What stage 2's exit gate actually measures: a person using it.
   without script, a toggle in a `multiple` list adds and takes away, a
   disabled option is `Disabled`, and a layout assertion says the closed
   list's options have no box.
+
+  **Done (iteration 404).** `alo-box`'s `options.rs` says what a list
+  holds, and the box tree makes a box for each option and `<optgroup>`
+  under the list and **outside its children** (`BoxTree::undrawn`), so
+  layout, paint and hit-testing never meet one; the agent's tree reads
+  them there, an option named by its `label` or collapsed text, `selected`
+  by HTML's selectedness rule and `disabled` by its own, its group's or its
+  list's. With no rectangle, the outline writes `not drawn` and the
+  socket's tree an additive `undrawn: true`. `alo_dom::choice` is the rule
+  (the only choice of a list of one, a toggle in `multiple`);
+  `Reading::list_of` lets `perform` answer `Outcome::Chosen`; `apply`
+  carries it on a page without script, and on one with script it is a
+  task (`event_loop/chose.rs`) firing `input` then `change` at the list
+  when what it holds changed; `chosen_after` reads the answer from the
+  page afterwards. The boundary's tag 7, the socket's `Chosen` kind with
+  `list` and `chosen`, its row in the contract; the window rings the list
+  when the option has no rectangle. Tests: `alo-agent`'s
+  `an_option_chosen_by_activating_it.rs` (the form sends `size=Large`; a
+  toggle adds `toppings=Onion` and takes away `Bacon`; a disabled option,
+  its group's and its list's are `Disabled` with nothing changed; two
+  options called the same are `Ambiguous` and then chosen by id; the
+  layout assertion — no option laid out, the list at (8, 25) 139.32813×4
+  as an empty list is), and `alo-renderer`'s `an_agents_choice.rs` with
+  and without script, under the collector at every allocation too
+  (`input:size:true change:size:true`, nothing heard for the choice
+  already held, a `change` listener putting it back answered not chosen).
+  Chrome's reading answers `list_of` with nothing until 660, so through
+  Chrome an option is still a click answered `Activated`.
 
 - [ ] **660. An option chosen through a list Chrome draws.** *Cut from 648
   (iteration 403); ADR 0064 § 6.* Through Chrome `Activate` on an option

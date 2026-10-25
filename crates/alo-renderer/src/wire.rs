@@ -572,6 +572,13 @@ impl Writer {
                 writer.text(text);
             }
             Outcome::Submitted { .. } | Outcome::NotSubmitted { .. } => writer.submitted(outcome),
+            // Tagged after the two forms brought (ADR 0064 § 3).
+            Outcome::Chosen { node, list, chosen } => {
+                writer.tag(7);
+                writer.id(*node);
+                writer.id(*list);
+                writer.bool(*chosen);
+            }
         }
     }
 
@@ -906,6 +913,11 @@ impl<'a> Reader<'a> {
             4 => Ok(Outcome::TextCanceled {
                 node: self.id()?,
                 text: self.text()?,
+            }),
+            7 => Ok(Outcome::Chosen {
+                node: self.id()?,
+                list: self.id()?,
+                chosen: self.bool()?,
             }),
             other => self.submitted(other),
         }

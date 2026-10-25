@@ -34,6 +34,17 @@ pub struct Candidate {
     pub scrolls: bool,
 }
 
+/// The list an option belongs to, as a verb weighs choosing it (ADR 0064
+/// § 2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ListOf {
+    /// The list, by the id an agent names it with.
+    pub list: BoxId,
+    /// Whether it takes several choices (`multiple`), in which activating
+    /// an option toggles it, rather than one.
+    pub several: bool,
+}
+
 /// A page, as a verb is decided on it.
 pub trait Reading {
     /// Every node an agent can name, in the order a person meets them.
@@ -51,6 +62,10 @@ pub trait Reading {
     /// Whether `id` is a list to choose from, which takes no text
     /// (`alo_dom::field::is_chosen_from`, ADR 0064 § 4).
     fn is_chosen_from(&self, id: BoxId) -> bool;
+    /// The list `id` is an option of, when activating it chooses in a list
+    /// (`alo_dom::choice::list_of`, ADR 0064 § 1). [`None`] makes it an
+    /// option activated as any other control is.
+    fn list_of(&self, id: BoxId) -> Option<ListOf>;
 }
 
 /// Whether a thing called `held` is the thing called `wanted`: the same
@@ -95,6 +110,13 @@ impl Reading for AgentTree<'_> {
 
     fn is_chosen_from(&self, id: BoxId) -> bool {
         AgentTree::is_chosen_from(self, id)
+    }
+
+    fn list_of(&self, id: BoxId) -> Option<ListOf> {
+        AgentTree::list_of(self, id).map(|list| ListOf {
+            list,
+            several: AgentTree::takes_several(self, list),
+        })
     }
 }
 

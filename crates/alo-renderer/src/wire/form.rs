@@ -92,7 +92,8 @@ impl Writer {
             | Outcome::Followed { .. }
             | Outcome::TextPut { .. }
             | Outcome::Scrolled { .. }
-            | Outcome::TextCanceled { .. } => {}
+            | Outcome::TextCanceled { .. }
+            | Outcome::Chosen { .. } => {}
         }
     }
 

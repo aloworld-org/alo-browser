@@ -500,7 +500,8 @@ fn implicit_role(document: &Document, id: NodeId, element: &Element) -> Role {
             };
         }
         "details" => KnownRole::Details,
-        "fieldset" => KnownRole::Group,
+        // An `<optgroup>` is a group of a list's options (ADR 0064 § 5).
+        "fieldset" | "optgroup" => KnownRole::Group,
         "input" => return input_role(element),
         "a" | "area" => {
             return if element.attr("href").is_some() {

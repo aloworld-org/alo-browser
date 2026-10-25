@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can choose from a drop-down list, on this engine's page.**
+  The options of a `<select>` are now in the tree an agent reads, under
+  their list, saying which is chosen and which cannot be — and that none
+  of them is drawn, rather than inventing a place for it. Activating one
+  chooses it, or in a list that takes several adds or removes it; the page
+  hears `input` then `change` as it does from a person, and the answer,
+  `Chosen`, says whether the option is chosen once the page's listeners
+  have run. The form sends the choice. Through Chrome an option is still
+  clicked as before until queue item 660 (item 659).
+
 - **Typing into a drop-down list is refused, by name.** An agent that put
   text into a `<select>` on this engine's page was told it had, while the
   form went on sending what it sent before; through Chrome it was told

@@ -253,6 +253,22 @@ impl Held {
         self.queue(|page_loop, cell| page_loop.queue_put_text(cell, node, text))
     }
 
+    /// Queue an agent's `Activate` on the option `option` of the list
+    /// `list` as a task on the page's loop — the option chosen, then
+    /// `input` and `change` at the list when that changed what it holds
+    /// (ADR 0064 § 2) — answering which task, or [`None`] on a page that has
+    /// never run script, where nobody listens and `alo-agent`'s `apply`
+    /// chooses it instead.
+    ///
+    /// Nothing runs here: the task runs when the loop reaches it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn choose(&mut self, list: NodeId, option: NodeId) -> Result<Option<Seq>, Unqueued> {
+        self.queue(|page_loop, cell| page_loop.queue_choose(cell, list, option))
+    }
+
     /// Queue the task that tells the page it can or cannot be seen — `to` —
     /// and fires `visibilitychange` at its document if that is a change
     /// (ADR 0039 § 1): which task, or [`None`] on a page that has never run

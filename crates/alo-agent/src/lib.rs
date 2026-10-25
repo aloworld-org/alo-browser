@@ -58,8 +58,8 @@ pub mod reading;
 pub mod tree;
 pub mod verb;
 
-pub use apply::{Change, apply};
+pub use apply::{Change, apply, chosen_after};
 pub use name::accessible_name;
-pub use reading::{Candidate, Reading};
+pub use reading::{Candidate, ListOf, Reading};
 pub use tree::{AgentNode, AgentTree, write_described};
 pub use verb::{Outcome, Refusal, ScrollBy, Target, Verb, perform};

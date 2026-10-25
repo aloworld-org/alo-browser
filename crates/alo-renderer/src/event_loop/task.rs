@@ -100,6 +100,16 @@ pub(super) enum Work {
         /// The text, which is Rust's and needs no root.
         text: String,
     },
+    /// An agent's `Activate` on a list's option (ADR 0064 § 2, queue item
+    /// 659): the option chosen, and an `input` and a `change` fired at the
+    /// list after it when what the list holds changed.
+    Choose {
+        /// The list's wrapper, then the `input` — and, as the task runs, the
+        /// list's wrapper again and the `change` — in one rooted list.
+        list: Root,
+        /// The option, which is the document's and needs no root.
+        option: NodeId,
+    },
     /// A person's main button pressed (ADR 0024 § 5, queue item 535): the
     /// crossing to the element pressed if it is not the one last under the
     /// pointer (queue item 542), a `pointerdown` the browser made, and a
@@ -224,6 +234,7 @@ impl Tasks {
             | Work::Released { list, .. }
             | Work::Moved { list, .. }
             | Work::PutText { list, .. }
+            | Work::Choose { list, .. }
             | Work::Visibility { list, .. }
             | Work::Leave { list } => {
                 engine.objects().heap_mut().release(list);

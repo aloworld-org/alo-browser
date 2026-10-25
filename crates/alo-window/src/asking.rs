@@ -339,6 +339,7 @@ pub fn outcome_kind(outcome: &Outcome) -> &'static str {
         Outcome::Followed { .. } => "Followed",
         Outcome::TextPut { .. } => "TextPut",
         Outcome::TextCanceled { .. } => "TextCanceled",
+        Outcome::Chosen { .. } => "Chosen",
         Outcome::Scrolled { .. } => "Scrolled",
         Outcome::Submitted { .. } => "Submitted",
         Outcome::NotSubmitted { .. } => "NotSubmitted",

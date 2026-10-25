@@ -87,6 +87,24 @@ fn declared_label(document: &Document, id: NodeId, element: &Element) -> Option<
     if let Some(label) = attribute_label(element, "aria-label") {
         return Some(label);
     }
+    // An `<option>` is called by its `label`, or else by its text with white
+    // space stripped and collapsed, as HTML's *label* of an option is and as
+    // Chrome names one; an `<optgroup>` by its `label` (ADR 0064 § 5). Its
+    // text is never a box — a list's options are not drawn — so it is read
+    // here rather than from boxes under it.
+    if element.name.is_html("option") {
+        if let Some(label) = attribute_label(element, "label") {
+            return Some(label);
+        }
+        let text = document.text_content(id);
+        let text = text.split_ascii_whitespace().collect::<Vec<_>>().join(" ");
+        if !text.is_empty() {
+            return Some(text);
+        }
+    }
+    if element.name.is_html("optgroup") {
+        return attribute_label(element, "label");
+    }
     // An `<svg>` is named by its first child `<title>` after anything ARIA
     // says (ADR 0022 § 4), as SVG's accessibility mapping asks. A `<title>`
     // is SVG's `alt`; it is never guessed from the shapes.
