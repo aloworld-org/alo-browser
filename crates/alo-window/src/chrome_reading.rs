@@ -43,18 +43,32 @@
 //! (`alo_dom::field::is_chosen_from`, ADR 0064 § 4) — never answered as
 //! text the page would not take, which would blame a page that cancelled
 //! nothing.
+//!
+//! # An option's list
+//!
+//! Chrome's tree holds a list's options under it — a `listbox`'s as its
+//! children, a closed list's `combobox` under a `MenuListPopup` — and an
+//! `<optgroup>` as a `group` between (ADR 0064, *What was measured*). So the
+//! list an option is chosen in is the nearest `listbox` or `combobox` above
+//! it in the tree ([`ChromeReading::list_above`]), and it is one only when
+//! both elements are described and are HTML's: an `<option>`, in a
+//! `<select>`. A list a page builds of its own — `role=listbox` and
+//! `role=option` on `div`s — is not one, and its option is activated as any
+//! other control is, by a click whose meaning is the page's script.
 
 use crate::chrome_protocol::Described;
 use alo_agent::{Candidate, ListOf, Reading};
-use alo_box::BoxId;
+use alo_box::{BoxId, KnownRole, Role};
 use alo_dom::node::{Attribute, Element};
-use alo_renderer::Snapshot;
+use alo_renderer::{Snapshot, SnapshotNode};
 use std::collections::HashMap;
 
 /// A page in Chrome, as a verb is decided on it.
 #[derive(Debug, Clone, Default)]
 pub struct ChromeReading {
     candidates: Vec<Candidate>,
+    /// Each node's parent in the tree, by id.
+    parents: HashMap<BoxId, BoxId>,
     elements: HashMap<BoxId, Element>,
 }
 
@@ -74,6 +88,7 @@ impl ChromeReading {
                     scrolls: node.scrolls,
                 })
                 .collect(),
+            parents: snapshot.root.as_ref().map(parents_in).unwrap_or_default(),
             elements: HashMap::new(),
         }
     }
@@ -101,6 +116,40 @@ impl ChromeReading {
 
     fn element(&self, id: BoxId) -> Option<&Element> {
         self.elements.get(&id)
+    }
+
+    /// The nearest `listbox` or `combobox` above the node `id` in the tree:
+    /// the list it is chosen in when it is an option of a `<select>`, which
+    /// [`Reading::list_of`] answers once both are described.
+    pub(crate) fn list_above(&self, id: BoxId) -> Option<BoxId> {
+        let roles: HashMap<BoxId, &Role> = self
+            .candidates
+            .iter()
+            .map(|candidate| (candidate.id, &candidate.role))
+            .collect();
+        let mut current = self.parents.get(&id).copied();
+        // A tree read already holds no loop; the bound keeps this from
+        // following one regardless.
+        for _ in 0..self.parents.len() {
+            let above = current?;
+            if matches!(
+                roles.get(&above),
+                Some(Role::Known(KnownRole::ListBox | KnownRole::ComboBox))
+            ) {
+                return Some(above);
+            }
+            current = self.parents.get(&above).copied();
+        }
+        None
+    }
+
+    /// Whether the node `list` was described, and is a `<select>` that
+    /// drops down (`alo_dom::choice::drops_down`): a closed list, whose
+    /// options Chrome does not draw, so a click cannot be aimed at one.
+    pub(crate) fn drops_down(&self, list: BoxId) -> bool {
+        self.element(list).is_some_and(|element| {
+            alo_dom::field::is_chosen_from(element) && alo_dom::choice::drops_down(element)
+        })
     }
 
     /// Whether the node `id` was described, and is a submit button by this
@@ -154,13 +203,37 @@ impl Reading for ChromeReading {
         self.element(id).is_some_and(alo_dom::field::is_chosen_from)
     }
 
-    /// Never, yet: through Chrome an option is activated as a click on it,
-    /// as item 621 built, until a click on a drawn option and the choice
-    /// read back from Chrome's tree are measured and built (ADR 0064 § 6,
-    /// queue item 660).
-    fn list_of(&self, _id: BoxId) -> Option<ListOf> {
-        None
+    /// The `<select>` above the `<option>` `id`, both described (ADR 0064
+    /// § 6, queue item 660).
+    fn list_of(&self, id: BoxId) -> Option<ListOf> {
+        if !self
+            .element(id)
+            .is_some_and(|option| option.name.is_html("option"))
+        {
+            return None;
+        }
+        let list = self.list_above(id)?;
+        let element = self
+            .element(list)
+            .filter(|element| alo_dom::field::is_chosen_from(element))?;
+        Some(ListOf {
+            list,
+            several: alo_dom::choice::takes_several(element),
+        })
     }
+}
+
+/// Each node's parent under `root`, by id.
+fn parents_in(root: &SnapshotNode) -> HashMap<BoxId, BoxId> {
+    let mut parents = HashMap::new();
+    let mut waiting = vec![root];
+    while let Some(node) = waiting.pop() {
+        for child in &node.children {
+            parents.insert(child.id, node.id);
+            waiting.push(child);
+        }
+    }
+    parents
 }
 
 #[cfg(test)]
@@ -289,6 +362,100 @@ mod tests {
             Err(Refusal::Chooses { node: id(3) })
         );
         assert!(!reading.is_chosen_from(id(4)), "a date field is typed into");
+    }
+
+    #[test]
+    fn an_option_is_chosen_in_the_select_above_it() {
+        let id = BoxId::from_wire;
+        let option =
+            |at: usize, name: &str| node(at, Role::Known(KnownRole::Option), name, Vec::new());
+        // As Chrome 155 reads them: a `listbox` with an `<optgroup>`, a
+        // closed list's `combobox` with its `MenuListPopup`, and a list a
+        // page builds of `div`s.
+        let page = Snapshot {
+            root: Some(node(
+                1,
+                Role::Known(KnownRole::Document),
+                "Lists",
+                vec![
+                    node(
+                        2,
+                        Role::Known(KnownRole::ListBox),
+                        "Toppings",
+                        vec![
+                            option(3, "Bacon"),
+                            node(
+                                4,
+                                Role::Known(KnownRole::Group),
+                                "Greens",
+                                vec![option(5, "Onion")],
+                            ),
+                        ],
+                    ),
+                    node(
+                        6,
+                        Role::Known(KnownRole::ComboBox),
+                        "Crust",
+                        vec![node(
+                            7,
+                            Role::Declared("MenuListPopup".into()),
+                            "",
+                            vec![option(8, "Deep")],
+                        )],
+                    ),
+                    node(
+                        9,
+                        Role::Known(KnownRole::ListBox),
+                        "Own",
+                        vec![option(10, "Picked")],
+                    ),
+                ],
+            )),
+        };
+        let reading = ChromeReading::of(&page)
+            .with_element(id(2), &described("SELECT", "select", &[("multiple", "")]))
+            .with_element(id(5), &described("OPTION", "option", &[]))
+            .with_element(id(6), &described("SELECT", "select", &[]))
+            .with_element(id(8), &described("OPTION", "option", &[]))
+            .with_element(id(9), &described("DIV", "div", &[("role", "listbox")]))
+            .with_element(id(10), &described("DIV", "div", &[("role", "option")]));
+        assert_eq!(reading.list_above(id(5)), Some(id(2)), "through its group");
+        assert_eq!(reading.list_above(id(8)), Some(id(6)), "through the popup");
+        assert_eq!(reading.list_above(id(2)), None);
+        assert_eq!(
+            reading.list_of(id(5)),
+            Some(ListOf {
+                list: id(2),
+                several: true
+            })
+        );
+        assert_eq!(
+            reading.list_of(id(8)),
+            Some(ListOf {
+                list: id(6),
+                several: false
+            })
+        );
+        assert!(reading.drops_down(id(6)));
+        assert!(!reading.drops_down(id(2)));
+        assert!(!reading.drops_down(id(9)), "not a <select>");
+        assert_eq!(reading.list_of(id(10)), None, "a page's own list");
+        assert_eq!(reading.list_of(id(3)), None, "an option not described");
+        assert_eq!(
+            perform(&reading, &named("Deep"), &Verb::Activate),
+            Ok(Outcome::Chosen {
+                node: id(8),
+                list: id(6),
+                chosen: true
+            })
+        );
+        assert_eq!(
+            perform(&reading, &named("Picked"), &Verb::Activate),
+            Ok(Outcome::Activated {
+                node: id(10),
+                name: Some("Picked".to_owned())
+            })
+        );
     }
 
     #[test]

@@ -22,7 +22,7 @@
 //! on one that has.
 
 use crate::document::Document;
-use crate::node::NodeId;
+use crate::node::{Element, NodeId};
 use crate::value;
 
 /// The `<select>` whose list of options holds the `<option>` `option`: its
@@ -64,9 +64,7 @@ pub fn is_chosen(document: &Document, option: NodeId) -> bool {
 /// so that the choice stays when another option is added before it.
 pub fn choose(document: &mut Document, option: NodeId) -> Option<Vec<(NodeId, bool)>> {
     let list = list_of(document, option)?;
-    let multiple = document
-        .element(list)
-        .is_some_and(|element| element.attr("multiple").is_some());
+    let multiple = document.element(list).is_some_and(takes_several);
     let marked = |document: &Document, node: NodeId| {
         document
             .element(node)
@@ -87,6 +85,20 @@ pub fn choose(document: &mut Document, option: NodeId) -> Option<Vec<(NodeId, bo
         }
     }
     Some(changed)
+}
+
+/// Whether the `<select>` `list` takes several choices (`multiple`), in
+/// which activating an option toggles it.
+pub fn takes_several(list: &Element) -> bool {
+    list.attr("multiple").is_some()
+}
+
+/// Whether the `<select>` `list` is what HTML calls a *drop-down box*: one
+/// choice, shown one option at a time ([`value::display_size_of`] of 1),
+/// whose options are not drawn until it is opened. Any other list is a
+/// *list box*, which draws its options in the page (ADR 0064 § 6).
+pub fn drops_down(list: &Element) -> bool {
+    !takes_several(list) && value::display_size_of(list) == 1
 }
 
 /// Set or take away the `selected` attribute of `option`.
@@ -120,6 +132,32 @@ mod tests {
             .iter()
             .map(|wanted| is_chosen(document, option(document, wanted)))
             .collect()
+    }
+
+    #[test]
+    fn a_list_drops_down_only_when_it_shows_one_option_and_takes_one() {
+        use crate::node::Attribute;
+        let list = |attributes: &[(&str, &str)]| {
+            Element::html(
+                "select",
+                attributes
+                    .iter()
+                    .map(|(name, value)| Attribute::plain(name, value))
+                    .collect(),
+            )
+        };
+        assert!(drops_down(&list(&[])));
+        assert!(drops_down(&list(&[("size", "1")])));
+        assert!(drops_down(&list(&[("size", "0")])), "no size above nought");
+        assert!(drops_down(&list(&[("size", "three")])));
+        assert!(!drops_down(&list(&[("size", "3")])));
+        assert!(!drops_down(&list(&[("multiple", "")])));
+        assert!(
+            !drops_down(&list(&[("multiple", ""), ("size", "1")])),
+            "a list of several is a list box whatever its size"
+        );
+        assert!(takes_several(&list(&[("multiple", "")])));
+        assert!(!takes_several(&list(&[("size", "3")])));
     }
 
     #[test]

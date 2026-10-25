@@ -206,6 +206,11 @@ other node, never a second tree built for the agent (ADR 0002).
 - *Iteration 404.* Item 659 built §§ 1, 2, 3 and 5 on this engine's page.
   The socket's tree gains an additive `undrawn` field, since version 1
   promises every node a `rect` and an option has none to give.
+- *Iteration 405.* Item 660 built § 6. A closed list's option is
+  answered `NotCarriedOut` on the socket — it is decided, by the same
+  rule on both renderers, and not carried out through Chrome — rather
+  than as a refusal of the shared rule, which this engine's page does
+  not make. Off macOS the click holds Ctrl, unmeasured, as § 6 says.
 
 ## What this does not decide
 

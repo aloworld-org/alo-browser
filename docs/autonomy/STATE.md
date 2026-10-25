@@ -41341,3 +41341,109 @@ same.
 299 queue items are open (659 closed; counted as `- [ ] **` lines). The
 next unused queue number is **661** and the next ADR is **0065**. This is
 one iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 405 — queue item 660: an option chosen through a list Chrome draws
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the product
+path's *Built*/*Owed*, the stage 2 Chrome line), iteration 404's entry,
+the queue's product-path table and items 642, 643, 658 and 660; ADR 0064
+in full; `docs/contracts/agent-socket.md` (ADR 0055, additive only);
+`alo-window`'s `chrome_act.rs`, `chrome_reading.rs`, `chrome_tree.rs`,
+`chrome_protocol.rs` (commands, the key and mouse params, `AxNode`) and
+`chrome_pages.rs`, and `the_verbs_through_chrome.rs`; `alo-agent`'s
+`reading.rs`, `verb.rs` (`activate`, `Outcome::Chosen`) and `tree.rs`;
+`alo-dom`'s `choice.rs`, `value.rs` and `field.rs`. No `AGENTS.md` exists
+in the repository. The feature contract is `docs/features.md`'s Chrome
+renderer line, which promised 660.
+
+**Why 660.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 and 643 — next by the owner's choice —
+could not be measured. 660 is the first open item on the product path's
+*Owed* whose dependency (659) is done; it runs on a headless Chrome.
+
+**Measured first** (a scratch probe, deleted): Chrome 155's tree, read by
+`chrome_tree`, holds a `size=3` list as `listbox` with its options, a
+`multiple` one as `listbox` with an `<optgroup>` as `group` between, and
+a closed one as `combobox` > `MenuListPopup` (not drawn) > options (not
+drawn) — as ADR 0064 measured.
+
+**Built.**
+- `alo_dom::choice::drops_down` (HTML's drop-down box: not `multiple`
+  and a display size of 1) and `takes_several`, asked of an element;
+  `value::display_size_of`, which `display_size` now delegates to.
+  `AgentTree::takes_several` and `choose` ask the same rule.
+- `ChromeReading` keeps each node's parent: `list_above` (the nearest
+  `listbox`/`combobox`), `list_of` (only when both are described as
+  HTML's `<option>` and `<select>`), `drops_down`. The verb describes the
+  list as well as the option.
+- `chrome_choose` (new): a closed list's option is `Unacted::Closed
+  { node, list }` before any input; any other is aimed by `Tab::aim`
+  (split out of `press`, unchanged in what it checks) and clicked with
+  `Command::Mouse`'s new `toggles` in a list of several — `Input`'s
+  command modifier, ⌘ on macOS (Ctrl elsewhere, unmeasured, per ADR
+  0064 § 6) — and `chosen` is read back from Chrome's tree.
+  `chrome_pages` answers `Closed` as `NotCarriedOut`, the contract's row
+  says so, and its `Chosen` row says what Chrome now does.
+
+**Tests.** `an_option_chosen_through_chrome.rs` against Chrome 155: a
+`size` list's `Large` chosen, the page hearing `input:size change:size`
+once (and nothing more for choosing it again), the form sending
+`size=Large`; `Onion` and `Leek` added to a `multiple` list and the form
+sending all three, then on the page anew a third verb taking `Bacon` away
+and `Onion`, `Leek` sent; a disabled option `Disabled`; a closed list's
+`Deep` `Closed` with the page hearing nothing and the form sending
+`crust=Thin`; a `change` listener putting the old choice back answered
+`chosen: false`; a `div` listbox's option `Activated`. (Sending the form
+leaves the frozen page, so the toggle-off is on a page opened anew.) Unit
+tests: `drops_down`/`takes_several`, the reading's lists, the toggling
+click's `modifiers`, `is_selected`. Mutations, restored from a copy and
+checked with `cmp`: a plain click in a list of several — the form sends
+`toppings=Leek` alone; `chosen` assumed `true` rather than read — the
+listener test and the toggle-off fail.
+
+**Gate.** clippy first found `too_many_lines` in `Command::params` and in
+its test — the mouse params moved to their own `mouse` function, as
+`key`'s are, and the click's assertions to a test of their own, not
+silenced — and the integration helpers' `unwrap`/`panic`, rewritten to
+return `Result`. Then `scripts/gate.sh` in the foreground — it ran past
+the tool's 600 s, so it was waited on by an until-loop in the next call
+and read there: **exit 0, "The gate is met." (10 of 10 steps)**, nextest
+**5,356 tests run, 5,356 passed** in 574.5 s, no warning, `FAIL`, `LEAK`
+or `panicked`. Only this entry came after.
+
+**Manual.** Nothing positions, sizes or draws in this engine, so no layout
+assertion or reference render applies, and no reference changed; what is
+measured is Chrome's choice, asserted from the form's own address. One
+file, one responsibility: choosing through Chrome is `chrome_choose.rs`'s,
+the element rule `choice.rs`'s, the reading only asks; `chrome_act.rs`
+dispatches as before. Bytes from outside: Chrome's tree and element are
+parsed by `chrome_protocol` as before, and `list_above` is bounded against
+a looped parent map. No `unsafe`, no stubs, no verb taking a coordinate.
+`alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** The product path's *Built* gains 660 and its *Owed* drops
+it, leaving 658 for options; the stage 2 Chrome line's `· Built:` gains
+660 and `· Owed:` drops it. Not ticked — neither line is finished. The
+queue ticks 660 with a *Done* paragraph; `features.md`, `REMAINING.md`,
+ADR 0064's note, the contract and the changelog say the same.
+
+**Unresolved obligations.**
+- 658 (a closed list through a shown Chrome) waits on the screen in use.
+- Off macOS the toggling click holds Ctrl, which is not measured.
+- An author's `option { display: block }` inside a `<select>` on this
+  engine's page (iteration 404) is still undecided.
+- 642 and 643 still wait on the screen in use (locked); 645, 649 and 650
+  are open.
+- Inherited and unchanged: 604, 605, 606, 616, 618; 591, 601, 607–614;
+  576, 577, 585, 586; 463 and 572 wait on a person; 568–571 on a screen
+  or pages; 560 and 564 on 502 behind 501; 538 waits on a page; item 549
+  is unbuilt. Other suites' short bounds named in iteration 381 are still
+  unaudited. What memory pressure or a crash does to a held service
+  worker is not measured (655).
+- No claim about speed is made.
+
+298 queue items are open (660 closed; counted as `- [ ] **` lines). The
+next unused queue number is **661** and the next ADR is **0065**. This is
+one iteration, not a finished queue or roadmap.

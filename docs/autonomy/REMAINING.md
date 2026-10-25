@@ -3165,3 +3165,14 @@ list. Chrome's reading names no option's list yet, so through Chrome an
 option is still a click answered `Activated` (660). The screen was locked,
 so 642 and 643 still wait on it. 299 queue items are open (659 closed). The
 next unused queue number is 661 and the next unused ADR 0065.
+
+Iteration 405 closed queue item 660: an option chosen through a list Chrome
+draws (ADR 0064 § 6). Chrome's reading finds an option's list as the
+nearest `listbox` or `combobox` above it in Chrome's tree, and it is one
+only when both are described as HTML's `<option>` and `<select>`; a list
+that drops down (`alo_dom::choice::drops_down`) is answered
+`Unacted::Closed` before any input, and any other is chosen in by a click
+at the option's middle, with ⌘ held in a list of several
+(`chrome_choose`), the answer read back from Chrome's tree. The screen was
+locked, so 642 and 643 still wait on it. 298 queue items are open (660
+closed). The next unused queue number is 661 and the next unused ADR 0065.

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can choose from a list Chrome draws.** Through Chrome,
+  activating an option of a list that shows several options at once — one
+  with a `size`, or one that takes several choices — now clicks it as a
+  person does, holding ⌘ in a list of several so the click adds or removes
+  that option rather than dropping every other choice, and answers
+  `Chosen`, read back from Chrome's tree once the page's listeners have
+  run. An option of a closed drop-down list is not pressed at all and is
+  answered `NotCarriedOut` by name, since every key that reaches one
+  chooses other options on the way (item 660).
+
 - **An agent can choose from a drop-down list, on this engine's page.**
   The options of a `<select>` are now in the tree an agent reads, under
   their list, saying which is chosen and which cannot be — and that none

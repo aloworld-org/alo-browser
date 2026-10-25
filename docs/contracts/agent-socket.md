@@ -207,7 +207,7 @@ browser's own to show any of it in until item 642.
 | `Followed` | `to` |
 | `TextPut`, `TextCanceled` | `text` |
 | `Scrolled` | `by` |
-| `Chosen` | `list`, the option's list; `chosen`, whether the option is a choice of it after the verb, read from the page — `false` when a toggle in a `multiple` list took it away or the page's listener put the old choice back (ADR 0064 § 3). `node` is the option, which a closed list holds undrawn, so the window rings the list instead. Through Chrome an option is still answered `Activated` until queue item 660 |
+| `Chosen` | `list`, the option's list; `chosen`, whether the option is a choice of it after the verb, read from the page — `false` when a toggle in a `multiple` list took it away or the page's listener put the old choice back (ADR 0064 § 3). `node` is the option, which a closed list holds undrawn, so the window rings the list instead. Through Chrome a list Chrome draws (a `size`, or `multiple`) is chosen in by a click on the option, with ⌘ held on macOS in a `multiple` one, and `chosen` is read from Chrome's tree (queue item 660); a page's own `role=option` that is not a `<select>`'s is answered `Activated` |
 | `Submitted` | `method` (`"GET"`/`"POST"`), `to` |
 | `NotSubmitted` | `invalid`: `[{"control","constraint","message"}]`, where `control` is a node or `null` and `constraint` is the validity name (`valueMissing`, …), or `null` when the renderer gave the words and not the constraint. Through Chrome it is always `null` and `invalid` holds one control, the first, with the words of the bubble Chrome draws beside it (queue item 631) |
 
@@ -256,7 +256,7 @@ caller must never depend on it.
 | `Ambiguous` | `tab`, `count` | More than one tab is at that address. None is picked for you |
 | `NothingLoaded` | `tab` | |
 | `TabGone` | `tab` | The tab's renderer is gone, or could not answer. `said` says why |
-| `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, the page went elsewhere while the verb was decided, or a date Chrome's date field would not hold as it was written — past `275760-09-13`, or a year of more than four digits that starts with `0` — was not typed (queue item 632). `said` says which |
+| `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, the page went elsewhere while the verb was decided, or a date Chrome's date field would not hold as it was written — past `275760-09-13`, or a year of more than four digits that starts with `0` — was not typed (queue item 632), or an option of a closed `<select>`, which Chrome draws no box for and every key to which chooses options on the way, was not pressed (queue item 660). `said` says which |
 | `TreeTooDeep` | `tab`, `most` | |
 | `TooManyCallers` | `most` | |
 

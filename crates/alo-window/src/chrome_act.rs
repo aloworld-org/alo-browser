@@ -39,6 +39,12 @@
 //!   and an `input` and a `change` as each segment changes the field's
 //!   value. A date Chrome's field would not hold as written is not typed
 //!   at all ([`Unacted::Untypable`]).
+//! - **`activate` on an option of a `<select>`** chooses it, in a list
+//!   Chrome draws — one with a `size`, or `multiple` — by the same click,
+//!   with the platform's toggle held in a list of several; an option of a
+//!   closed list is not pressed at all ([`Unacted::Closed`]), and the
+//!   answer is read back from Chrome's tree ([`crate::chrome_choose`],
+//!   ADR 0064 § 6, item 660).
 //! - **`scroll`** is never decided on Chrome's page: its tree cannot say that
 //!   a box scrolls ([`crate::chrome_tree`]), so every scroll is refused as
 //!   `DoesNotScroll`, by the rule that refuses it on this engine's page.
@@ -115,6 +121,7 @@
 
 use crate::chrome::Failed;
 use crate::chrome_bubble;
+use crate::chrome_choose::Choosing;
 use crate::chrome_date::{self, Digits, Part};
 use crate::chrome_protocol::{self, AxNode, Chord, Command, Digit, Mouse, Within};
 use crate::chrome_reading::ChromeReading;
@@ -123,7 +130,7 @@ use crate::chrome_tree::Unread;
 use crate::chrome_unfocusable::Unfocusable;
 use alo_agent::verb::{Invalid, Target, Verb, find, perform};
 use alo_agent::{Outcome, Reading, Refusal};
-use alo_box::BoxId;
+use alo_box::{BoxId, KnownRole, Role};
 use alo_dom::submission::Method;
 use alo_net::cause::ActionId;
 use alo_url::Url;
@@ -176,6 +183,17 @@ pub enum Unacted {
         /// Why.
         why: chrome_date::Untypable,
     },
+    /// An option of a closed list was to be chosen, and Chrome draws no
+    /// option of a closed list, so there is nothing to press; and every key
+    /// that reaches one passes through options nobody chose, each heard by
+    /// the page as a choice. So nothing was sent (ADR 0064 § 6, queue item
+    /// 660).
+    Closed {
+        /// The option.
+        node: BoxId,
+        /// Its list.
+        list: BoxId,
+    },
     /// It was decided, and is not a thing this path carries out.
     ///
     /// Reached only by an outcome no decision on Chrome's page makes today —
@@ -208,6 +226,10 @@ impl fmt::Display for Unacted {
             ),
             Self::Moved { to: None } => f.write_str(
                 "the page went somewhere else while the verb was decided, so nothing was done",
+            ),
+            Self::Closed { node, list } => write!(
+                f,
+                "{node} is an option of the closed list {list}, which this browser cannot choose in through Chrome yet, so nothing was pressed"
             ),
             Self::Untypable { node, why } => {
                 write!(f, "{why}, so nothing was typed into {node}")
@@ -298,7 +320,16 @@ impl Tab<'_> {
         let aimed = find(&reading, target).map_err(Unacted::Refused)?;
         let dom = dom_of(aimed.id);
         let described = chrome_protocol::described(&self.ask(&Command::Describe { node: dom })?)?;
-        let reading = reading.with_element(aimed.id, &described);
+        let mut reading = reading.with_element(aimed.id, &described);
+        // An option is chosen in its list, whose element says how: one
+        // choice or several, drawn or closed (ADR 0064 § 6).
+        if aimed.role == Role::Known(KnownRole::Option)
+            && let Some(list) = reading.list_above(aimed.id)
+        {
+            let described =
+                chrome_protocol::described(&self.ask(&Command::Describe { node: dom_of(list) })?)?;
+            reading = reading.with_element(list, &described);
+        }
         let decided = perform(&reading, target, verb).map_err(Unacted::Refused)?;
         // Decided, and so heard from here: what the page's script says as
         // the verb is carried out is the answer's `issues`.
@@ -331,11 +362,17 @@ impl Tab<'_> {
                 self.date_in(&nodes, node, text)
             }
             Outcome::TextPut { node, text } => self.type_in(node, text),
-            // Never decided here yet: Chrome's reading names no option's
-            // list until item 660 (`ChromeReading::list_of`).
+            Outcome::Chosen { node, list, .. } => {
+                let choosing = Choosing {
+                    option: node,
+                    list,
+                    closed: reading.drops_down(list),
+                    toggles: reading.list_of(node).is_some_and(|list| list.several),
+                };
+                self.choose(&nodes, choosing)
+            }
             outcome @ (Outcome::Scrolled { .. }
             | Outcome::TextCanceled { .. }
-            | Outcome::Chosen { .. }
             | Outcome::Submitted { .. }
             | Outcome::NotSubmitted { .. }) => Err(Unacted::Uncarried { outcome }),
         }
@@ -350,28 +387,11 @@ impl Tab<'_> {
         pressed: Pressed,
     ) -> Result<Outcome, Unacted> {
         let Pressed { name, to, submits } = pressed;
-        let dom = dom_of(node);
         // What the page asked for before this press is not what it did.
         drop(self.take_requested());
         drop(self.take_within());
         let before = self.address().cloned();
-        self.ask(&Command::ScrollIntoView { node: dom })?;
-        let rect = self
-            .drawn(dom)?
-            .into_iter()
-            .next()
-            .ok_or(Unacted::Undrawn { node })?;
-        let (x, y) = middle(rect.left(), rect.top(), rect.size.width, rect.size.height)
-            .ok_or(Unacted::Undrawn { node })?;
-        let hit = match self.ask(&Command::NodeAt { x, y }) {
-            Ok(result) => Some(chrome_protocol::node_at(&result)?),
-            Err(Failed::Declined(_)) => None,
-            Err(why) => return Err(why.into()),
-        };
-        if !hit.is_some_and(|hit| within(nodes, dom).contains(&hit)) {
-            return Err(Unacted::Covered { node, by: hit });
-        }
-        let (x, y) = (pixels(x), pixels(y));
+        let (x, y) = self.aim(nodes, node)?;
         // A press that may be refused is logged: Chrome tells of a failing
         // control it cannot focus only there. What it logged before is
         // forgotten first, or it would be told of again.
@@ -380,7 +400,7 @@ impl Tab<'_> {
             self.ask(&Command::ForgetTheLog)?;
             self.ask(&Command::TellOfTheLog)?;
         }
-        let clicked = self.click(x, y);
+        let clicked = self.click(x, y, false);
         // No longer, whatever came of the click.
         if submits {
             let off = self.ask(&Command::StopTellingOfTheLog);
@@ -433,12 +453,43 @@ impl Tab<'_> {
         })
     }
 
-    /// A press of the left button at `x`, `y`, answered once the renderer
-    /// has answered a question asked after it — and so after anything the
-    /// click asked for, or logged, was told of on the same channel.
-    fn click(&mut self, x: f64, y: f64) -> Result<(), Unacted> {
+    /// Where a person presses `node`, read in `nodes` before the press: the
+    /// middle of the box, once it is scrolled into the window, and only
+    /// when Chrome says a person pressing there would press `node` or
+    /// something inside it.
+    pub(crate) fn aim(&mut self, nodes: &[AxNode], node: BoxId) -> Result<(f64, f64), Unacted> {
+        let dom = dom_of(node);
+        self.ask(&Command::ScrollIntoView { node: dom })?;
+        let rect = self
+            .drawn(dom)?
+            .into_iter()
+            .next()
+            .ok_or(Unacted::Undrawn { node })?;
+        let (x, y) = middle(rect.left(), rect.top(), rect.size.width, rect.size.height)
+            .ok_or(Unacted::Undrawn { node })?;
+        let hit = match self.ask(&Command::NodeAt { x, y }) {
+            Ok(result) => Some(chrome_protocol::node_at(&result)?),
+            Err(Failed::Declined(_)) => None,
+            Err(why) => return Err(why.into()),
+        };
+        if !hit.is_some_and(|hit| within(nodes, dom).contains(&hit)) {
+            return Err(Unacted::Covered { node, by: hit });
+        }
+        Ok((pixels(x), pixels(y)))
+    }
+
+    /// A press of the left button at `x`, `y` — with the platform's toggle
+    /// held when `toggles` — answered once the renderer has answered a
+    /// question asked after it, and so after anything the click asked for,
+    /// or logged, was told of on the same channel.
+    pub(crate) fn click(&mut self, x: f64, y: f64, toggles: bool) -> Result<(), Unacted> {
         for kind in [Mouse::Moved, Mouse::Pressed, Mouse::Released] {
-            self.ask(&Command::Mouse { kind, x, y })?;
+            self.ask(&Command::Mouse {
+                kind,
+                x,
+                y,
+                toggles,
+            })?;
         }
         self.ask(&Command::Window)?;
         Ok(())
@@ -587,7 +638,7 @@ struct Pressed {
 
 /// The DOM node a node of the tree describes, by Chrome's `backendNodeId`:
 /// the id [`crate::chrome_tree`] gave it.
-fn dom_of(node: BoxId) -> u64 {
+pub(crate) fn dom_of(node: BoxId) -> u64 {
     u64::try_from(node.as_usize()).unwrap_or(u64::MAX)
 }
 

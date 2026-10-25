@@ -50,7 +50,8 @@
 //!   [`chrome_tree`] (item 620), and acted on by [`chrome_act`]: each verb
 //!   decided by `alo-agent` against a [`chrome_reading`] of it, and carried
 //!   out as a real click or real typing (item 621), a date a segment at a
-//!   time as [`chrome_date`] reads them (item 632); a form Chrome would not
+//!   time as [`chrome_date`] reads them (item 632), an option chosen in a
+//!   list Chrome draws by [`chrome_choose`] (item 660); a form Chrome would not
 //!   send is known by the bubble [`chrome_bubble`] reads (item 631) and by
 //!   each control Chrome logs it could not focus, which
 //!   [`chrome_unfocusable`] reads (item 646), and
@@ -97,6 +98,7 @@ pub mod beside;
 pub mod chrome;
 pub mod chrome_act;
 pub mod chrome_bubble;
+pub mod chrome_choose;
 pub mod chrome_date;
 pub mod chrome_gate;
 pub mod chrome_held;

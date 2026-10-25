@@ -421,7 +421,7 @@ impl<'a> AgentTree<'a> {
             .get(id)
             .and_then(|node| node.kind.node())
             .and_then(|source| self.document.element(source))
-            .is_some_and(|element| element.attr("multiple").is_some())
+            .is_some_and(alo_dom::choice::takes_several)
     }
 
     /// Whether the option the box `id` is, is a choice its list holds, as

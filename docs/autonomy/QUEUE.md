@@ -17063,7 +17063,7 @@ What stage 2's exit gate actually measures: a person using it.
   Chrome's reading answers `list_of` with nothing until 660, so through
   Chrome an option is still a click answered `Activated`.
 
-- [ ] **660. An option chosen through a list Chrome draws.** *Cut from 648
+- [x] **660. An option chosen through a list Chrome draws.** *Cut from 648
   (iteration 403); ADR 0064 § 6.* Through Chrome `Activate` on an option
   is a click answered `Activated`, which on a `multiple` list chooses that
   option alone and on a closed list finds no box. Build: a drawn option
@@ -17076,6 +17076,35 @@ What stage 2's exit gate actually measures: a person using it.
   options of a `multiple` list are both sent after two verbs and one is
   taken away by a third, and a closed list's option is refused by name
   with the page hearing nothing.
+
+  *Done (iteration 405).* `ChromeReading` keeps each node's parent and
+  finds an option's list as the nearest `listbox` or `combobox` above it
+  (`list_above`) — through an `<optgroup>`'s `group` and a closed list's
+  `MenuListPopup`, as Chrome 155's tree holds them — and the verb
+  describes that list too, so `list_of` answers only when both are HTML's
+  `<option>` and `<select>`: a page's own `role=option` is still a click
+  answered `Activated`. `alo_dom::choice` gains `drops_down` (HTML's
+  drop-down box: not `multiple`, a display size of 1, by
+  `value::display_size_of` on an element) and `takes_several`.
+  `chrome_choose` carries `Outcome::Chosen` out: a closed list's option
+  is `Unacted::Closed` before any input — `NotCarriedOut` on the socket,
+  by name — and any other is aimed as every press is (`Tab::aim`, split
+  out of `press`) and clicked with `Input`'s command modifier held in a
+  list of several (`Command::Mouse`'s `toggles`, ⌘ on macOS), and
+  `chosen` is read back from Chrome's tree. Tests: `alo-window`'s
+  `an_option_chosen_through_chrome.rs` against Chrome 155 — a `size`
+  list's `Large` chosen, the page hearing `input:size change:size` once
+  (nothing more for choosing it again) and the form sending
+  `size=Large`; `Onion` and `Leek` added to a `multiple` list and all
+  three sent, then on the page anew a third verb taking `Bacon` away and
+  `Onion`, `Leek` sent; a disabled option `Disabled`; a closed list's
+  `Deep` `Closed` with the page hearing nothing and the form sending
+  `crust=Thin`; a `change` listener putting the old choice back answered
+  `chosen: false`; a `div` listbox's option `Activated`. Unit tests for
+  `drops_down`, the reading's `list_above`/`list_of`, the toggling click's
+  modifiers and `is_selected`. Mutations: a plain click in a list of
+  several (the form sends `toppings=Leek` alone), and `chosen` assumed
+  rather than read (the listener test and the toggle-off both fail).
 
 - [ ] **649. What Chrome itself asks for, with no page open.** *Found
   building 635 (iteration 389); ADR 0060 § 2, ADR 0012.* Measured from

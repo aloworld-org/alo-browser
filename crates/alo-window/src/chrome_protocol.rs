@@ -235,6 +235,12 @@ pub enum Command {
         x: f64,
         /// In CSS pixels of the window.
         y: f64,
+        /// Whether the platform's toggle is held as it happens — ⌘ on
+        /// macOS, Ctrl elsewhere — which in a list of several choices
+        /// toggles the option clicked rather than choosing it alone (ADR
+        /// 0064 § 6). Measured on macOS against Chrome 155; elsewhere it is
+        /// Chrome's rule there, measured where it is first run.
+        toggles: bool,
     },
     /// `DOM.focus`: give a node the keyboard, as a person clicking into a
     /// field does.
@@ -416,17 +422,15 @@ impl Command {
                 put("x", Value::from(*x));
                 put("y", Value::from(*y));
             }
-            Self::Mouse { kind, x, y } => {
-                let (kind, button) = match kind {
-                    Mouse::Moved => ("mouseMoved", "none"),
-                    Mouse::Pressed => ("mousePressed", "left"),
-                    Mouse::Released => ("mouseReleased", "left"),
-                };
-                put("type", Value::from(kind));
-                put("x", Value::from(*x));
-                put("y", Value::from(*y));
-                put("button", Value::from(button));
-                put("clickCount", Value::from(1));
+            Self::Mouse {
+                kind,
+                x,
+                y,
+                toggles,
+            } => {
+                for (name, value) in mouse(*kind, (*x, *y), *toggles) {
+                    put(name, value);
+                }
             }
             Self::Key { chord, down } => {
                 for (name, value) in key(*chord, *down) {
@@ -444,18 +448,34 @@ impl Command {
     }
 }
 
+/// The `params` of `Input.dispatchMouseEvent` for `kind` at `x`, `y`, with
+/// the platform's toggle held when `toggles`.
+fn mouse(kind: Mouse, (x, y): (f64, f64), toggles: bool) -> Vec<(&'static str, Value)> {
+    let (kind, button) = match kind {
+        Mouse::Moved => ("mouseMoved", "none"),
+        Mouse::Pressed => ("mousePressed", "left"),
+        Mouse::Released => ("mouseReleased", "left"),
+    };
+    vec![
+        ("type", Value::from(kind)),
+        ("x", Value::from(x)),
+        ("y", Value::from(y)),
+        ("button", Value::from(button)),
+        ("clickCount", Value::from(1)),
+        ("modifiers", Value::from(if toggles { TOGGLE } else { 0 })),
+    ]
+}
+
+/// The platform's command modifier, as `Input` takes modifiers: ⌘ on macOS
+/// is Chrome's 4, Ctrl elsewhere 2. It is the one a shortcut holds, and the
+/// one a click in a list of several holds to toggle an option.
+const TOGGLE: i64 = if cfg!(target_os = "macos") { 4 } else { 2 };
+
 /// The `params` of `Input.dispatchKeyEvent` for `chord`, pressed when
 /// `down` and let go otherwise.
 fn key(chord: Chord, down: bool) -> Vec<(&'static str, Value)> {
     let (key, code, keycode, command, modifiers) = match chord {
-        // ⌘ on macOS is Chrome's modifier 4, Ctrl elsewhere 2.
-        Chord::SelectAll => (
-            "a",
-            "KeyA",
-            65,
-            "selectAll",
-            if cfg!(target_os = "macos") { 4 } else { 2 },
-        ),
+        Chord::SelectAll => ("a", "KeyA", 65, "selectAll", TOGGLE),
         Chord::DeleteBackward => ("Backspace", "Backspace", 8, "deleteBackward", 0),
         Chord::Digit(digit) => return typed(digit, down),
     };
@@ -1908,7 +1928,7 @@ mod tests {
     }
 
     #[test]
-    fn a_verb_is_written_as_the_input_chrome_reads() {
+    fn a_click_is_written_as_the_input_chrome_reads() {
         let at = |command: &Command| {
             String::from_utf8_lossy(&written(9, Some("S"), command)).into_owned()
         };
@@ -1916,26 +1936,49 @@ mod tests {
             at(&Command::Mouse {
                 kind: Mouse::Pressed,
                 x: 35.0,
-                y: 249.0
+                y: 249.0,
+                toggles: false,
             }),
-            r#"{"id":9,"method":"Input.dispatchMouseEvent","params":{"button":"left","clickCount":1,"type":"mousePressed","x":35.0,"y":249.0},"sessionId":"S"}"#
+            r#"{"id":9,"method":"Input.dispatchMouseEvent","params":{"button":"left","clickCount":1,"modifiers":0,"type":"mousePressed","x":35.0,"y":249.0},"sessionId":"S"}"#
+        );
+        let modifier = if cfg!(target_os = "macos") { 4 } else { 2 };
+        assert!(
+            at(&Command::Mouse {
+                kind: Mouse::Pressed,
+                x: 35.0,
+                y: 249.0,
+                toggles: true,
+            })
+            .contains(&format!(
+                r#""clickCount":1,"modifiers":{modifier},"type":"mousePressed""#
+            )),
+            "a click that toggles holds the platform's modifier"
         );
         assert!(
             at(&Command::Mouse {
                 kind: Mouse::Moved,
                 x: 0.0,
-                y: 0.0
+                y: 0.0,
+                toggles: false,
             })
-            .contains(r#""button":"none","clickCount":1,"type":"mouseMoved""#)
+            .contains(r#""button":"none","clickCount":1,"modifiers":0,"type":"mouseMoved""#)
         );
         assert!(
             at(&Command::Mouse {
                 kind: Mouse::Released,
                 x: 0.0,
-                y: 0.0
+                y: 0.0,
+                toggles: false,
             })
             .contains(r#""type":"mouseReleased""#)
         );
+    }
+
+    #[test]
+    fn a_verb_is_written_as_the_input_chrome_reads() {
+        let at = |command: &Command| {
+            String::from_utf8_lossy(&written(9, Some("S"), command)).into_owned()
+        };
         assert_eq!(
             at(&Command::NodeAt { x: 35, y: -2 }),
             r#"{"id":9,"method":"DOM.getNodeForLocation","params":{"x":35,"y":-2},"sessionId":"S"}"#

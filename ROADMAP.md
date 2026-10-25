@@ -242,7 +242,12 @@ about this project (ADR 0058 § 6).
   nodes of the agent's tree under it with no rectangle, `Activate` on one
   choosing it or toggling it in a list of several, the page hearing
   `input` then `change`, and the answer `Chosen`, read from the page after
-  its listeners ran; the form sends it (659, ADR 0064 §§ 1–3 and 5).
+  its listeners ran; the form sends it (659, ADR 0064 §§ 1–3 and 5); and
+  **an option chosen through a list Chrome draws** — a list with a `size`
+  or `multiple` clicked at the option's middle, with ⌘ held in a list of
+  several so the click toggles rather than choosing it alone, the answer
+  `Chosen` read back from Chrome's tree, and a closed list's option not
+  pressed at all and answered `NotCarriedOut` by name (660, ADR 0064 § 6).
 - **Decided:** whose network a page in Chrome uses — Chrome's own, with
   every request held and judged by the browser process before it leaves and
   recorded here, an agent's off-site address refused before Chrome hears of
@@ -260,10 +265,8 @@ about this project (ADR 0058 § 6).
   a list takes no text; and through Chrome a closed list's option is
   refused by name, since every key that reaches it chooses options nobody
   chose on the way (ADR 0064).
-- **Owed:** an option chosen by activating it through a list Chrome
-  draws, a closed list's option refused by name (660) — and a
-  closed list's option through a shown Chrome, measured with the screen in
-  use (658); the
+- **Owed:** a closed list's option through a shown Chrome, measured with
+  the screen in use (658); the
   rest of the agent's work where a person can see it — **a window of ours
   around Chrome's, following it, with 623's and 625's lines and 624's
   ring in it (642)**; a placed window that stays where a
@@ -846,8 +849,10 @@ unreachable without it.
       by the engine's own rule asked of Chrome's element, as on this
       engine's page (item 648, `alo_dom::field::is_chosen_from`), and
       an option chosen by `Activate` answered `Chosen` with the socket's
-      kind for it, on this engine's page so far (item 659,
-      `alo_dom::choice`; Chrome's reading names no option's list yet)
+      kind for it, on this engine's page (item 659, `alo_dom::choice`)
+      and through a list Chrome draws, clicked with ⌘ held in a list of
+      several and read back from Chrome's tree, a closed list's option
+      not pressed and refused by name (item 660, `chrome_choose`)
       · Decided: Chrome's own network carries a page's requests, each held
       and judged by the browser process before it leaves, and trust, cookie
       partitioning, the resolver, the cache and the browser's name are set
@@ -865,9 +870,7 @@ unreachable without it.
       · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650); an option chosen by activating
-      it as ADR 0064 decides through a list Chrome draws (660), and a
-      closed list's option
+      the system's own encrypted DNS (650); a closed list's option
       through a shown Chrome (658), a window of ours around
       Chrome's, carrying the agent's sentence, its refusals and the ring
       around the box it acted on as the engine's window does (642, 623,

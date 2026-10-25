@@ -34,7 +34,7 @@
 
 use crate::document::Document;
 use crate::kind::{self, Kind};
-use crate::node::NodeId;
+use crate::node::{Element, NodeId};
 
 /// The `<input>` states whose value is not read here yet, by the keyword
 /// that names them, when the input holds one. A `range` always holds one.
@@ -168,9 +168,12 @@ pub fn selected(document: &Document, select: NodeId) -> Vec<NodeId> {
 /// that is a number above nought, or else four for one that takes several
 /// and one for one that takes one.
 pub fn display_size(document: &Document, select: NodeId) -> u32 {
-    let Some(element) = document.element(select) else {
-        return 1;
-    };
+    document.element(select).map_or(1, display_size_of)
+}
+
+/// [`display_size`], asked of the `<select>` element itself — as Chrome's
+/// element is, described rather than held in a [`Document`].
+pub fn display_size_of(element: &Element) -> u32 {
     match element
         .attr("size")
         .and_then(|size| size.trim().parse::<u32>().ok())
