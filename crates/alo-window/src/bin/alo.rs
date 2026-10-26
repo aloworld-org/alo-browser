@@ -23,8 +23,10 @@
 //! process (item 627, ADR 0061), and the terminal says where it went. A
 //! frame of ours floats directly above it and follows it as a person moves
 //! and resizes it, standing aside while it is not on the screen (item 642,
-//! ADR 0062). Closing either closes both, and so does this browser's input
-//! ending — Ctrl-D at a terminal.
+//! ADR 0062). The frame says which Chrome draws the page, and what each
+//! agent's verb was answered with or why it was refused (item 679).
+//! Closing either closes both, and so does this browser's input ending —
+//! Ctrl-D at a terminal.
 //!
 //! Either way the terminal says which renderer draws the page: this engine,
 //! or Chrome by the version it gives itself (ADR 0058 § 6). And while it
@@ -157,13 +159,13 @@ fn in_chrome(opening: &Opening) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let (tell, follows) = std::sync::mpsc::channel();
+    let (tell, told) = std::sync::mpsc::channel();
     let started = ChromeServing::start_shown(
         page,
         CHROME_SIZE,
         CHROME_AT,
         opening.agents.clone(),
-        Box::new(move |follow| tell.send(follow).is_ok()),
+        Box::new(move |news| tell.send(news).is_ok()),
     );
     let serving = match started {
         Ok(serving) => serving,
@@ -180,7 +182,7 @@ fn in_chrome(opening: &Opening) -> ExitCode {
         "alo: this browser runs until Chrome's window or the frame above it is closed, \
          or its input ends, Ctrl-D at a terminal"
     );
-    let ran = alo_window::window::frame(follows, orders.clone());
+    let ran = alo_window::window::frame(told, orders.clone(), serving.rendered_by().to_string());
     stop_listening(listening);
     // The frame may have gone before Chrome's window did — a failure, or
     // the program asked to quit — and Chrome is closed with it.

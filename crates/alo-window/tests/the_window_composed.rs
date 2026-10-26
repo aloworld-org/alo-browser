@@ -47,8 +47,11 @@
 //! what the agent did, at one, and at 1.5 a refusal outlasting the verb that
 //! ran after it, above a gone tab's line.
 //!
-//! Item 642 adds the frame of ours around Chrome's window, at two: the
-//! rail's colour edge to edge, until 679 draws in it.
+//! Item 642 adds the frame of ours around Chrome's window, at two, and item
+//! 679 draws in it: which renderer draws the page, alone at two; with what
+//! an agent did beside it, at one; with two refusals after it, at one; and
+//! at 1.5 a refusal outlasting the verb that ran after it. Each is also
+//! checked in numbers, against where `frame_place` puts the lines.
 //!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
@@ -61,11 +64,13 @@ use alo_renderer::host::Gone;
 use alo_renderer::strip::{Condition, Strip, StripTab};
 use alo_renderer::{Frame, FromRenderer, Page, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
-use alo_window::agent_lines::AgentLine;
-use alo_window::compose::{Scene, compose, compose_frame};
+use alo_window::agent_lines::{AgentLine, AgentLines};
+use alo_window::compose::{FrameScene, Scene, compose, compose_frame};
+use alo_window::frame_place::FramePlacement;
 use alo_window::mark::{Marked, marked, ring};
 use alo_window::message::News;
 use alo_window::notice::Lettering;
+use alo_window::pages::RenderedBy;
 use alo_window::place::{PixelRect, Placement, STRIP_HEIGHT, screen, strip_viewport};
 use alo_window::scale::Scale;
 use alo_window::showing::Showing;
@@ -889,9 +894,193 @@ fn the_box_an_agent_acted_on_at_one_and_a_half_is_ringed_three_device_pixels_out
     );
 }
 
+/// What the frame says draws the page: Chrome, by the version it gave
+/// itself on the machine this was measured on — made by the browser's own
+/// type, as the socket's `renderer` answer and the terminal say it.
+fn chromes_sentence() -> String {
+    RenderedBy::Chrome {
+        product: "Chrome/155.0.8059.86".to_owned(),
+    }
+    .to_string()
+}
+
+/// A frame of `window` at `scale` saying `renderer` draws the page, with
+/// `lines`: composed, and where its lines were placed.
+fn frame_of(
+    window: (u32, u32),
+    scale: Scale,
+    renderer: &str,
+    lines: &[AgentLine],
+) -> Result<(Canvas, FramePlacement), String> {
+    let lettering = lettering()?;
+    let scene = FrameScene {
+        window,
+        scale,
+        renderer,
+        agent_lines: lines,
+    };
+    let placed = FramePlacement::of(
+        window,
+        scale,
+        lettering.line_width(renderer, scale),
+        lines.len(),
+    );
+    Ok((compose_frame(&scene, &lettering), placed))
+}
+
+/// That each of `lines` is drawn in `canvas` where `placed` put it: its
+/// ground at its right end and its words in its ink, the rail between —
+/// or the first that is not, in words.
+fn drawn_where_placed(
+    canvas: &Canvas,
+    placed: &FramePlacement,
+    lines: &[AgentLine],
+) -> Result<(), String> {
+    let at = |x, y| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+    let rail = Some(alo_window::colours::rail().to_rgba8());
+    for (line, rect) in lines.iter().zip(placed.agent_lines) {
+        let rect = rect.ok_or_else(|| format!("{:?} was not placed", line.sentence))?;
+        let colours = if line.refused {
+            alo_window::colours::refused_line()
+        } else {
+            alo_window::colours::agent_line()
+        };
+        let right = rect.x + rect.width - 1;
+        let bottom = rect.y + rect.height - 1;
+        if at(right, bottom) != Some(colours.ground.to_rgba8()) {
+            return Err(format!("not the line's ground at the end of {rect:?}"));
+        }
+        if at(rect.x - 1, bottom) != rail {
+            return Err(format!("not the rail in the gap before {rect:?}"));
+        }
+        let inked = (rect.x..=right)
+            .flat_map(|x| (rect.y..=bottom).map(move |y| (x, y)))
+            .any(|(x, y)| at(x, y) == Some(colours.ink.to_rgba8()));
+        if !inked {
+            return Err(format!("no words in {rect:?}"));
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn the_frame_around_chromes_window_at_scale_two() {
-    // A frame of 300 by the strip's 36 points, at two.
-    let canvas = compose_frame((600, STRIP_HEIGHT * 2));
+    // A frame of 500 by the strip's 36 points, at two: the rail, and in it
+    // which renderer draws the page.
+    let renderer = chromes_sentence();
+    assert_eq!(renderer, "Chrome/155.0.8059.86, driven by this browser");
+    let (canvas, placed) = frame_of((1000, STRIP_HEIGHT * 2), Scale::TWO, &renderer, &[])
+        .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(
+        placed.renderer,
+        PixelRect {
+            x: 0,
+            y: 0,
+            width: placed.renderer.width,
+            height: 72
+        }
+    );
+    // Its whole sentence, with room to spare.
+    assert!((500..900).contains(&placed.renderer.width), "{placed:?}");
+    assert_eq!(placed.agent_lines, [None, None, None]);
     assert_eq!(holds("the-frame-around-chrome.png", &canvas), Ok(()));
+}
+
+#[test]
+fn the_frame_says_what_an_agent_did_beside_which_renderer() {
+    let renderer = chromes_sentence();
+    let mut lines = AgentLines::default();
+    lines.did(agents_sentence());
+    let (canvas, placed) = frame_of((1000, STRIP_HEIGHT), Scale::ONE, &renderer, lines.lines())
+        .unwrap_or_else(|why| panic!("{why}"));
+    // The renderer's sentence as wide as it needs, the agent's line the rest
+    // of the band, a pixel of rail between.
+    let needs = placed.renderer.width;
+    assert!((250..400).contains(&needs), "{placed:?}");
+    assert_eq!(
+        placed.agent_lines,
+        [
+            Some(PixelRect {
+                x: needs + 1,
+                y: 0,
+                width: 1000 - needs - 1,
+                height: 36
+            }),
+            None,
+            None
+        ]
+    );
+    assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(
+        holds("the-frame-with-an-agents-sentence.png", &canvas),
+        Ok(())
+    );
+}
+
+#[test]
+fn the_frame_shows_two_refusals_after_what_the_agent_did() {
+    let renderer = chromes_sentence();
+    let (not_found, not_a_field) = refusals();
+    let mut lines = AgentLines::default();
+    lines.did(agents_sentence());
+    lines.refused(not_found);
+    lines.refused(not_a_field);
+    assert_eq!(lines.lines().len(), 3);
+    let (canvas, placed) = frame_of((1200, STRIP_HEIGHT), Scale::ONE, &renderer, lines.lines())
+        .unwrap_or_else(|why| panic!("{why}"));
+    // Three equal shares of what is right of the renderer, a pixel apart,
+    // the last to the frame's edge.
+    let needs = placed.renderer.width;
+    let each = (1200 - needs - 3) / 3;
+    let xs: Vec<_> = placed
+        .agent_lines
+        .iter()
+        .flatten()
+        .map(|rect| (rect.x, rect.width))
+        .collect();
+    assert_eq!(
+        xs,
+        [
+            (needs + 1, each),
+            (needs + 2 + each, each),
+            (needs + 3 + 2 * each, 1200 - (needs + 3 + 2 * each)),
+        ]
+    );
+    assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(holds("the-frame-with-two-refusals.png", &canvas), Ok(()));
+}
+
+#[test]
+fn the_frame_at_one_and_a_half_keeps_a_refusal_past_the_verb_after_it() {
+    let renderer = chromes_sentence();
+    let (not_found, _) = refusals();
+    let mut lines = AgentLines::default();
+    lines.did(activated_sentence());
+    lines.refused(not_found.clone());
+    lines.did(agents_sentence());
+    assert_eq!(
+        lines.lines(),
+        [
+            AgentLine {
+                sentence: not_found,
+                refused: true
+            },
+            AgentLine {
+                sentence: agents_sentence(),
+                refused: false
+            }
+        ]
+    );
+    // 800 points at 1.5, the band 54 device pixels tall.
+    let (canvas, placed) = frame_of((1200, 54), Scale::ONE_AND_A_HALF, &renderer, lines.lines())
+        .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(placed.renderer.height, 54);
+    // Two device pixels of rail between pieces at 1.5.
+    let first = placed.agent_lines[0].unwrap_or_else(|| panic!("{placed:?}"));
+    let second = placed.agent_lines[1].unwrap_or_else(|| panic!("{placed:?}"));
+    assert_eq!(first.x, placed.renderer.width + 2);
+    assert_eq!(second.x, first.x + first.width + 2);
+    assert_eq!(second.x + second.width, 1200);
+    assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(holds("the-frame-at-one-and-a-half.png", &canvas), Ok(()));
 }

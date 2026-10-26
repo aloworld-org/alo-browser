@@ -69,7 +69,10 @@
 //!   ours stands around it is [`chrome_frame`]'s to say, from Chrome's word
 //!   and what [`window_server`] shows on the screen (ADR 0062, item 672),
 //!   and what that frame's window is told as Chrome's moves, hides and
-//!   closes is [`chrome_follow`]'s (item 642).
+//!   closes is [`chrome_follow`]'s (item 642). Everything the frame is told
+//!   is a [`frame_told::ToFrame`] — where to stand, or an agent's line — and
+//!   what it draws, placed by [`frame_place`], is which renderer draws the
+//!   page and those lines (item 679).
 //! - [`pages`] is what [`serving`] asks of the tabs, whichever renderer
 //!   draws them: [`engine_pages`] answers it from this engine's, and
 //!   [`chrome_pages`] from a tab in Chrome, which [`chrome_serving`] holds
@@ -128,6 +131,8 @@ pub mod conductor;
 pub mod cursor;
 pub mod engine_pages;
 pub mod fonts;
+pub mod frame_place;
+pub mod frame_told;
 pub mod hold;
 pub mod inbox;
 pub mod json_depth;

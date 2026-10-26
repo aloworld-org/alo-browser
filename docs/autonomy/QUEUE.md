@@ -56,9 +56,12 @@ ADR 0058 — and nothing else does:
 | ✓ | **624** | the acted-on box, marked — ringed on the frame painted after the verb, in this engine's window; through Chrome it comes with 642 |
 | ✓ | **625** | a refusal shown to the person, not only answered to the agent — in this engine's window; through Chrome it comes with 642 |
 | ✓ | **672** | where a frame of ours stands around Chrome's window — above it, aside, or gone, by Chrome's word and the window server's (cut from 642) |
-| **→** | **642** | **built, not closed (iteration 419): the gate was not met on a machine out of memory** — a window of ours around Chrome's, following it, closing with it and closing it (ADR 0062); what it draws, 623, 624 and 625 on the Chrome path among it, is cut as **679** |
-| | **643** | next after 642, by the owner's choice (2026-10-25): a placed window that stays where a person sees it — Stage Manager's strip |
-| | **679** | what the frame around Chrome's window draws: the strip, the agent's sentence, its refusals and the ring (cut from 642) |
+| ✓ | **642** | a window of ours around Chrome's, following it, closing with it and closing it (ADR 0062); gated 2026-10-26 after a restart |
+| **→** | **679** | **built, not closed (iteration 420): the gate failed on 682, which fails without it** — what the frame around Chrome's window draws: which renderer, and the agent's sentences and refusals |
+| | **682** | the frame's own test reads Chrome's window shown and no frame beside it — flaky at `ced5caa`, found by 679's gate |
+| | **643** | next after 679, by the owner's choice (2026-10-25): a placed window that stays where a person sees it — Stage Manager's strip |
+| | **680** | the box a verb acted on, ringed over a page in Chrome — **needs ADR**: a window of ours over Chrome's page (cut from 679) |
+| | **681** | the page's tab in the frame, drawn outside the browser process (cut from 679) |
 | | **477** | an application somebody can run, on macOS |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -16796,7 +16799,7 @@ What stage 2's exit gate actually measures: a person using it.
   test, which a locked screen cannot do — the path they take is the one
   the input's ending takes.
 
-- [ ] **679. What the frame around Chrome's window draws.** *Cut from 642,
+- [x] **679. What the frame around Chrome's window draws.** *Cut from 642,
   ADR 0062.* The frame stands above Chrome's window, follows it and closes
   with it, and shows only the rail's colour. Owed in it: the strip — the
   page's tab and which renderer draws it (622's sentence, ADR 0058 § 6);
@@ -16813,6 +16816,112 @@ What stage 2's exit gate actually measures: a person using it.
   answered, and a ring is drawn exactly over the box Chrome drew, asserted
   in the window server's numbers, or the ring's window is decided against
   in an ADR.
+  **Done (iteration 420, gated and committed by the owner's session on
+  2026-10-26 once 682 was closed: 5464 tests, 10 of 10 steps).** Its scope
+  is cut — the ring as 680, the page's tab as 681. The frame's band says, from its left edge, which Chrome draws
+  the page — `RenderedBy`'s own wording, the one the socket's `renderer`
+  answer and the terminal use, `Chrome/155.0.8059.86, driven by this
+  browser`, as wide as it needs (`Lettering::line_width`) and cut only by
+  the frame's edge, in `--text-on-rail-muted` on `--bg-rail` — and then
+  each line of what agents did, oldest first, sharing the rest of the band
+  equally a CSS pixel apart, the last reaching the edge
+  (`frame_place.rs`), in the engine window's own colours: a verb that ran
+  on `--accent-soft`, a refusal on `--danger-tint`. The frame has no room
+  below its band as the engine's window has along its bottom, so the lines
+  are side by side rather than stacked; a line too long for its share ends
+  in an ellipsis. Which answers become a line is one rule now,
+  `AgentLine::of`, which the conductor and the thread holding Chrome both
+  answer by: a verb that ran, and a verb refused by the page or by this
+  process; never a read, a read refused or a line that was no request.
+  The thread tells the frame each line after sending the agent its answer
+  (`ToFrame::Agent`, in `frame_told.rs`, beside `ToFrame::Stand`), and the
+  frame keeps them as `AgentLines` and is drawn again
+  (`compose_frame`). Tested: `frame_place.rs`'s placements in numbers at
+  one, 1.5 and two; `AgentLine::of` against each kind of answer; four
+  reference renders in `the_window_composed.rs` — the renderer alone at
+  two, with an agent's sentence at one, with a sentence and two refusals
+  at one, and at 1.5 a refusal outlasting the verb after it — each also
+  checked against where its lines were placed; and
+  `the_agents_lines_told_to_chromes_frame.rs`, a shown Chrome on the
+  frozen `web-a-form` driven by `alo-ask`: a read, a field filled, two
+  refusals of the page's and one of this process's, a read refused and a
+  line that is not JSON tell the frame exactly four lines, each the `said`
+  of the answer the agent got, and nothing for the rest — and with the
+  telling mutated away it fails on an empty list. **Cut:** the ring (680),
+  which is over Chrome's page and needs a window there that ADR 0062 does
+  not decide; and the page's tab (681), whose title is a stranger's string
+  ADR 0024 § 4 keeps out of this process. What the frame draws is not
+  read from the screen by any test: the pixels are the reference renders'
+  and the lines the end-to-end test's, which meet in `compose_frame`.
+  *Closes when* the gate passes on this tree; then this paragraph's head
+  becomes *Done*, the box is ticked, and the product path's row with it.
+
+- [ ] **680. ★ The box a verb acted on, ringed over a page in Chrome.**
+  *Cut from 679, ADR 0062. **needs ADR**.* 624's ring is drawn on the
+  frame this engine painted; through Chrome the page is Chrome's window,
+  so the ring — the node's `rects` from `chrome_tree`'s reading, at
+  Chrome's scroll and scale — has to be drawn over it, by a window of ours
+  over Chrome's page, transparent and taking no pointer. Whether that
+  window exists, how it floats under Stage Manager beside Chrome's and the
+  frame, and what a person's click through it does, are a decision ADR
+  0062 does not make. *Depends on 679. Closes when:* the ADR is accepted,
+  and a ring is drawn exactly over the box Chrome drew, asserted in the
+  window server's numbers — or the ring's window is decided against in it,
+  and what a person is shown instead is said.
+
+- [ ] **681. The page's tab in the frame around Chrome's window.** *Cut
+  from 679, ADR 0024 § 4.* The engine's strip shows a tab's title, drawn
+  by a sandboxed renderer of its own, because a title is a stranger's
+  string and the browser process never shapes one. The frame says which
+  renderer draws the page and what agents did; it does not say which page.
+  The strip's renderer could draw it from Chrome's word for the title and
+  address, as it draws the engine's tabs. *Depends on 679. Closes when:*
+  the frame shows the page's tab, drawn outside the browser process, and
+  following the page's title as it changes, in a reference render and
+  against a shown Chrome whose page retitles itself.
+
+- [x] **682. The frame's own test reads Chrome's window shown and no frame
+  beside it.** *Found by iteration 420's gate.*
+  `the_frame_around_chromes_window.rs`'s `chrome_going_closes_the_frame_and_the_program`
+  failed the gate on 2026-10-26 at 19:59 with *"neither a frame directly
+  above Chrome's window, nor no frame beside none: Seen { chrome: [Bounds {
+  left: 120, top: 80, width: 1200, height: 832 }], frames: [] }"* — two
+  readings 300 ms apart agreeing that the program's Chrome window was on the
+  screen at its place and the frame was not. It is not 679's: **the same
+  file alone, at `ced5caa` without 679's change, failed the same way in one
+  run of three**, and on 679's tree in three of four runs beside other
+  Chrome tests; `the_frame_stands_above_chromes_window_follows_it_and_closes_with_it`
+  failed once beside it with the same words. It passed in the owner's gate
+  at 18:24 that day. Measured as it failed: 8% of memory free, 5.6 of 7.2 GB
+  of swap used, two users logged in, Chrome 155.0.8059.86. Not known: whether
+  the frame was told `Aside` and not yet told `At` again — a reading every
+  fifth of a second plus one `osascript`, against a test that calls two
+  readings 300 ms apart settled — or was told `At` and not yet shown; and
+  whether the window server lists a floating window before its first frame
+  is presented. *Depends on 642. Closes when:* the failure is reproduced on
+  purpose and its cause named, and either the frame is fixed with a test
+  that fails without the fix, or the test's idea of *settled* is shown to be
+  shorter than the frame's own reading and is corrected with that written
+  beside it — never by lengthening a wait to make a failure rarer.
+  **Done (owner's session, 2026-10-26).** *Cause:* the test called two of
+  its readings 300 ms apart *settled*, and the frame is placed by its own
+  reading — `FOLLOW_EVERY` apart, each a question to Chrome and a listing.
+  The question to Chrome is the part the test never makes, and under the
+  evening's memory pressure it was what slowed, so both of the test's
+  readings fell before the frame's first look. *Reproduced on purpose:* a
+  1.5 s pause in `chrome_frame::read` alone failed the test three runs in
+  three with the gate's own words; the same pause in every
+  `window_server::on_the_screen` passed three in three, because it slows
+  the test's readings with the frame's, which is why it is the question to
+  Chrome that matters. *Corrected, written beside `settled`:* a reading
+  that keeps the rule is believed when two agree, and one that breaks it
+  only once it has stood unchanged longer than the frame's longest cycle —
+  `FOLLOW_EVERY`, Chrome's patience `LONGEST_SILENCE`, and the slowest
+  listing the test timed. No wait a passing reading meets was lengthened.
+  After: under the 1.5 s pause both tests in the file passed three runs in
+  three; with the frame never told where to stand the test still failed,
+  at 32 s, with the same words. Six runs unchanged passed on a freed
+  machine. The frame itself is unchanged.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into

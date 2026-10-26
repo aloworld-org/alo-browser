@@ -37,6 +37,10 @@ pub const TEXT_SIZE: f32 = 13.0;
 /// How far its words sit from the window's left edge, in CSS pixels.
 pub const INSET: f32 = 12.0;
 
+/// The widest a line is said to need, in device pixels: 2^24, past any
+/// window, and the most an f32 counts to exactly.
+const WIDEST: f32 = 16_777_216.0;
+
 /// What a sentence too long for the window ends with.
 const ELLIPSIS: &str = "\u{2026}";
 
@@ -64,6 +68,23 @@ impl Lettering {
     /// How wide a run of words is, in device pixels, at `scale`.
     fn width_of(&self, words: &str, scale: Scale) -> f32 {
         shape(words, &self.font, size_at(scale), Direction::LeftToRight).width
+    }
+
+    /// How many whole device pixels across a line saying all of `sentence`
+    /// needs at `scale`: its words and [`INSET`] on either side, so that
+    /// [`Lettering::draw`] given a line that wide cuts nothing.
+    pub fn line_width(&self, sentence: &str, scale: Scale) -> u32 {
+        let wanted = (self.width_of(sentence, scale) + 2.0 * INSET * scale.factor()).ceil();
+        if !wanted.is_finite() {
+            return 0;
+        }
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "whole, and clamped to 0..=2^24, which a u32 holds exactly"
+        )]
+        let whole = wanted.clamp(0.0, WIDEST) as u32;
+        whole
     }
 
     /// As much of `sentence` as fits in `room` device pixels, ending in an

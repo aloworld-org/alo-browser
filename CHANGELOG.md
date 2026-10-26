@@ -6,6 +6,26 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A test of the strip above Chrome's window no longer judges before
+  the strip has had time to appear.** The test looked at the screen twice,
+  a third of a second apart, and if both looks agreed it took them as the
+  final answer. The strip finds Chrome's window by asking Chrome, and on a
+  busy machine that question took longer than a third of a second, so the
+  test sometimes looked before the strip had appeared and failed. Now a
+  look showing a missing or misplaced strip is only counted as a failure
+  if it stays that way for longer than the strip could take to catch up.
+  A strip that never appears still fails the test.
+
+- **The strip above Chrome's window now says what is going on.** With
+  `alo --chrome`, the strip of this browser's above Chrome's window says
+  which Chrome draws the page, by the version Chrome gives itself, and
+  then what an agent just did — the same sentence the agent was answered
+  with — or why its action was refused, in red. Lines are kept as the
+  browser's own window keeps them: a sentence until the next action, a
+  refusal until the second, three at most, side by side. The page's own
+  tab and the ring around what an agent touched are not shown there yet
+  (items 680 and 681).
+
 - **A test of what a page says during an action no longer depends on how
   fast the machine is.** The test has a page write a message one moment
   after a button is clicked, and checks that the message is not counted as

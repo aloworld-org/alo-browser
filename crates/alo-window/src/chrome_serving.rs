@@ -37,6 +37,17 @@
 //! tells the frame [`Follow::Closed`] and ends the thread, and Chrome with
 //! it. Every sender of orders gone ends it too.
 //!
+//! # What the frame says of agents
+//!
+//! What an agent's verb was answered with is told to the frame too
+//! ([`ToFrame::Agent`], queue item 679) — the line [`AgentLine::of`] makes
+//! of the answer this thread just sent, by the rule this engine's conductor
+//! answers by, so a person watching is told the same of the same order
+//! whichever renderer drew the page. Only a shown Chrome's frame is told
+//! where to stand; [`ChromeServing::start_telling`] tells a headless
+//! Chrome's agents' lines to whoever asked for them, and stands nothing
+//! anywhere.
+//!
 //! # What it is not
 //!
 //! Chrome's window. A person's pointer and keys reach the page there
@@ -44,14 +55,17 @@
 //! a pointer, the other tab keys — are not carried out here: Chrome lays
 //! its page out again at the size a person gives its window itself.
 
+use crate::agent_lines::AgentLine;
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
+use crate::asking::Ask;
 use crate::chrome::{Chrome, Failed, Unstarted};
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
 use crate::chrome_pages::ChromePages;
 use crate::chrome_tab::{Tab, Unopened};
 use crate::chrome_window::{self, Placed, Unplaced};
+use crate::frame_told::ToFrame;
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::{Order, TabOrder};
 use crate::pages::RenderedBy;
@@ -112,9 +126,9 @@ impl fmt::Display for Unserved {
 impl std::error::Error for Unserved {}
 
 /// Where the frame of ours around a shown Chrome's window is told what it
-/// is to do: a function that answers whether the frame was still there to
-/// hear it.
-pub type TellFrame = Box<dyn Fn(Follow) -> bool + Send>;
+/// is to do and what agents did: a function that answers whether the frame
+/// was still there to hear it.
+pub type TellFrame = Box<dyn Fn(ToFrame) -> bool + Send>;
 
 /// A tab in Chrome, answering agents.
 #[derive(Debug)]
@@ -156,11 +170,30 @@ impl ChromeServing {
         Self::begin(opening, size, Drawn::Headless, sites, None)
     }
 
+    /// [`ChromeServing::start`], headless, with what each agent's verb was
+    /// answered with told on `frame` as a shown Chrome's frame is told it —
+    /// for a reader of the agent's lines that stands beside no window, such
+    /// as a test of what the frame is told, which then brings no window in
+    /// front of anybody else's.
+    ///
+    /// # Errors
+    ///
+    /// As [`ChromeServing::start`].
+    pub fn start_telling(
+        opening: Opening,
+        size: (u32, u32),
+        sites: AgentSites,
+        frame: TellFrame,
+    ) -> Result<Self, Unserved> {
+        Self::begin(opening, size, Drawn::Headless, sites, Some(frame))
+    }
+
     /// [`ChromeServing::start`], with the machine's Chrome shown: the page
     /// laid out at `size` CSS pixels in a window of Chrome's own, whose top
     /// left corner is put at `left`, `top` on the screen — and the frame of
     /// ours around it told on `frame` where to stand, as Chrome's window
-    /// moves, hides and closes.
+    /// moves, hides and closes, and what each agent's verb was answered
+    /// with.
     ///
     /// # Errors
     ///
@@ -263,7 +296,7 @@ fn serve_in_chrome(
     size: (u32, u32),
     drawn: Drawn,
     sites: &AgentSites,
-    frame: Option<&(dyn Fn(Follow) -> bool + Send)>,
+    frame: Option<&(dyn Fn(ToFrame) -> bool + Send)>,
     inbox: &Receiver<Arrival>,
     tell: &Sender<Result<(String, Option<Placed>), Unserved>>,
 ) -> AgentRecord {
@@ -326,10 +359,17 @@ fn serve_in_chrome(
         for arrival in arrived {
             match arrival {
                 Arrival::Order(Order::Agent { caller, ask, reply }) => {
+                    let a_verb = matches!(ask, Ok(Ask::Act { .. }));
                     let served = serve(&mut pages, &mut record, sites, caller, ask);
+                    let line = AgentLine::of(a_verb, &served.answer);
                     // Nobody to answer is a caller that has gone, which
                     // changes nothing about what was done or recorded.
                     let _ = reply.send(served.answer);
+                    if let (Some(frame), Some(line)) = (frame, line) {
+                        // A frame that has gone is a window closing, whose
+                        // orders say so; nothing here waits for it.
+                        let _ = frame(ToFrame::Agent(line));
+                    }
                 }
                 Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
                     if let Some(follower) = following.as_mut() {
@@ -364,7 +404,7 @@ fn serve_in_chrome(
 
 /// The frame around a shown Chrome's window, and what it was last told.
 struct Follower<'f> {
-    frame: &'f (dyn Fn(Follow) -> bool + Send),
+    frame: &'f (dyn Fn(ToFrame) -> bool + Send),
     told: Following,
     /// When where it stands is next read.
     next: Instant,
@@ -376,7 +416,7 @@ impl Follower<'_> {
         if let Some(changed) = self.told.heard(now) {
             // A frame that has gone is a window closing, whose orders say
             // so; nothing here waits for it.
-            let _ = (self.frame)(changed);
+            let _ = (self.frame)(ToFrame::Stand(changed));
         }
     }
 }

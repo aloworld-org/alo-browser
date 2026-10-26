@@ -42876,11 +42876,165 @@ answer before the restart, with 6,046 MB of memory wired; after it,
 **1.0 s and 2.4 s**, with 1,772 MB wired. The gate was then run on the tree
 unchanged: **5448 tests, 5448 passed (one leaky), 10 of 10 steps.**
 
-One correction to iteration 419's account: it named the window server as
+~~One correction to iteration 419's account: it named the window server as
 holding 8 GB. Measured before the restart, the window server held 10 MB;
-the memory was wired in the kernel, which only a restart releases. The
-conclusion — a person must restart, and the test's patience is not to be
-lengthened — stands unchanged.
+the memory was wired in the kernel, which only a restart releases.~~
+**Withdrawn by the owner's session the same evening: iteration 419 was
+right.** The 10 MB was `ps`'s resident size, which leaves out the window
+server's graphics memory; `top -o mem` read it at 9.5 GB when the machine
+ran out again three hours after the restart, and the same memory is what
+`PhysMem` shows as wired. A logout released it (wired 6.4 GB to 1.5 GB).
+The conclusion — a person must log out or restart, and the test's
+patience is not to be lengthened — stands unchanged.
 
 **What the next iteration should know.** 642 is done. 679 (what the frame
 draws) is next on the product path, then 643 and 477.
+
+## Iteration 420 — queue item 679: what the frame around Chrome's window draws — built, gate not met, halted
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the product path), iteration 419's entry and the owner's closing
+of it, the owner's three commits since (5cc6496, 4748da1, ced5caa —
+ADR 0065), the queue's product path and items 642, 679, 643, 622, 623,
+676–678; ADR 0062 with its addendum, ADR 0058 § 6, ADR 0024 § 4 (by the
+window's and `notice.rs`'s own words); `docs/features.md`'s Chrome and
+agent-socket lines; `compose.rs`, `agent_lines.rs`, `place.rs`,
+`notice.rs`, `colours.rs`, `chrome_follow.rs`, `chrome_serving.rs`,
+`chrome_frame.rs`, `window.rs`, `conductor.rs`, `bin/alo.rs`,
+`.config/nextest.toml`, and the tests that use the frame. No `AGENTS.md`
+exists in the repository. 679's ADR is 0062; its feature contract is
+`docs/features.md`'s second-renderer line.
+
+**Why 679.** Named next by the owner's closing of iteration 419 (679,
+then 643 and 477), on the product path the owner put ahead of file order
+(2026-10-25). `ioreg` showed no `CGSSessionScreenIsLocked`.
+
+**Built (in the working tree, not committed).** Scope cut, depth kept:
+- `agent_lines.rs`: `AgentLine::of(a_verb, &Answer)`, the one rule for
+  which answers become a line — a verb that ran, and a verb refused by the
+  page or by this process; never a read, a read refused or a line that was
+  no request — and `AgentLines::heard`. The conductor now answers by it
+  (its two inline rules replaced; same behaviour, its tests unchanged).
+- `frame_told.rs`: `ToFrame` — `Stand(Follow)` or `Agent(AgentLine)`,
+  everything the frame is told. `TellFrame` takes it.
+- `chrome_serving.rs`: after sending an agent its answer, the thread
+  tells the frame the line `AgentLine::of` makes of it; following still
+  only for a shown Chrome. `ChromeServing::start_telling`: headless, lines
+  told — so a test of what the frame is told brings no window in front.
+- `frame_place.rs`: the band, left to right — the renderer's sentence as
+  wide as `Lettering::line_width` says it needs, cut only by the frame's
+  edge; then the lines oldest first sharing the rest equally, one CSS
+  pixel apart, the last to the edge. The frame has no room below its band,
+  so the lines are side by side, not stacked as in the engine's window.
+- `compose.rs`: `FrameScene` and `compose_frame(scene, lettering)`;
+  `colours.rs`: `renderer_ink` (`--text-on-rail-muted`) and
+  `renderer_line`; `notice.rs`: `Lettering::line_width`.
+- `window.rs`: the frame keeps `AgentLines` and the renderer's sentence,
+  is drawn again on each line; `bin/alo.rs` passes it
+  `RenderedBy`'s wording, the socket's `renderer` answer's own.
+- Cut: **680** (the ring over Chrome's page — needs ADR: a window of ours
+  over the page) and **681** (the page's tab — a title is a stranger's
+  string, ADR 0024 § 4).
+
+**Tests.** `frame_place.rs` 7 (numbers at one, 1.5, two; cut and empty
+frames); `agent_lines.rs` 4 new (`of` for each kind of answer, `heard`);
+`compose.rs` 2 (the frame's rail and renderer, lines in their places and
+colours); `the_window_composed.rs` 4 reference renders —
+`the-frame-around-chrome.png` rewritten (it was the rail alone), and
+`the-frame-with-an-agents-sentence.png`, `the-frame-with-two-refusals.png`,
+`the-frame-at-one-and-a-half.png` new — each checked in numbers against
+`FramePlacement`; looked at, they read as intended.
+`the_agents_lines_told_to_chromes_frame.rs`: a headless Chrome on the
+frozen `web-a-form`, `alo-ask` sending a read, a field filled, two of the
+page's refusals and one of this process's, a read refused and a line not
+JSON — the frame told exactly four lines, each the `said` of the answer
+the agent got. Mutation: with the telling removed (copied, `sed`, restored
+and checked with `cmp`) it fails on an empty list, both before and after
+it moved to headless.
+
+**What passed, and what did not.**
+- `cargo fmt` clean; `cargo clippy --workspace --all-targets
+  --all-features -D warnings` silent; `alo-window --lib` 323 of 323;
+  `the_window_composed` 20 of 20.
+- **`scripts/gate.sh`, on this tree, in the foreground (moved to the
+  background by the tool at 600 s and waited on by an until-loop in the
+  next call), read: exit 1, "The gate is not met" (10 of 10 steps).**
+  Every step but the tests passed. nextest ran 5,446 of 5,464: **5,445
+  passed, 1 failed**, and 18 were not run after it:
+  `the_frame_around_chromes_window::chrome_going_closes_the_frame_and_the_program`,
+  *"neither a frame directly above Chrome's window, nor no frame beside
+  none: Seen { chrome: [Bounds { left: 120, top: 80, width: 1200, height:
+  832 }], frames: [] }"*. My new test, then started shown, ran beside it.
+- So the new test was made headless (`start_telling`) — but that file
+  then failed **alone**, and on this tree in three of four runs beside
+  other Chrome tests.
+- **And it fails without this change.** A worktree at `ced5caa` (its own
+  target directory, removed after): the same file alone, three runs — one
+  failed with the same words, two passed.
+
+**Why this halts.** The gate fails on a test this iteration did not
+cause, which passed in the owner's gate at 18:24 — LOOP.md's halt, word
+for word. Rerunning the gate until a flaky test passes would be inventing
+a way past it, and loosening the test's idea of *settled* is a change to
+642's test, which is another item (opened as **682**, with what is known
+and not known). The machine as it failed: 8% of memory free, 5.6 of
+7.2 GB of swap used, two users logged in, load about 4, Chrome
+155.0.8059.86 — memory was again short, as in iteration 419, which may or
+may not be the cause and is not claimed as it.
+
+**Manual.** Layout assertions in numbers: `frame_place.rs`'s tests and
+each reference test's `FramePlacement` checks. Reference renders: the
+four above. One file, one responsibility: the frame's geometry is
+`frame_place.rs`'s, not `place.rs`'s (another window); what the frame is
+told is `frame_told.rs`'s, not `chrome_follow.rs`'s (which is where it
+stands); the rule for a line is `agent_lines.rs`'s, shared by both
+renderers' threads. `features.md` describes it, marked as not gated.
+The renderer's sentence is Chrome's own product string and this
+process's words, never a page's; no title is shaped here (681). No bytes
+from outside read anew; no `unsafe`, no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` read only (`tokens.css`).
+Nothing pushed. A stray headless Chrome (pid 64305, an orphan from a
+test 47 minutes before this iteration, 32 KB resident) was left alone.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+679 as built with its gate not met (682); the Owed clause names 680 and
+681 in place of 679; the closing paragraph says 642 is closed and 679 is
+built and not committed. The queue leaves 679 open with a *Built … not
+closed* paragraph, opens 680, 681 and 682, and the product path's table
+shows 642 ✓ and 679 →. `features.md` and the changelog describe the
+frame's words. **None of it is committed**: the iteration's changes are
+left in the working tree for the gate to be run on.
+
+**Unresolved obligations.**
+- **682 must be understood first** — why the frame is not listed while
+  its Chrome window is, in that test, at `ced5caa` — and then the gate
+  run on this tree. Met, the tree is one commit:
+  `feat(alo-window): the frame around Chrome's window says which renderer
+  and what the agent did`, and 679 is ticked with *Done* in place of
+  *Built … not closed*.
+- 680 needs an ADR; 681 needs the strip's renderer; 643 and 477 follow.
+- As iteration 419 left them, otherwise unchanged.
+- No claim about speed is made.
+
+306 queue items are open (none closed; 680, 681 and 682 opened; 679 still
+open). The next unused queue number is **683** and the next ADR is
+**0066**. This is one iteration, not a finished queue or roadmap.
+
+LOOP HALT
+
+## Iteration 420, closed — 682 understood, 679 gated
+
+**Written by the owner's session.** The machine ran out again three hours
+after its restart (window server 9.5 GB by `top -o mem`, a bare Chrome
+241 s); a logout freed it (wired 6.4 GB to 1.5 GB). 682 was then
+reproduced on purpose and closed by correcting the test's idea of
+*settled* — its Done paragraph says how, and how it was checked before
+and after. The gate on this tree, with 682's correction: **5464 tests,
+5464 passed, 10 of 10 steps.** 679 is committed and ticked; 682 too.
+
+**What the next iteration should know.** On the product path: 681 (the
+page's tab in the strip), 680 (the ring over Chrome's page, which needs an
+ADR first), then 643 and 477. The window server's memory grows while the
+suite opens and closes real windows; if every Chrome test goes silent,
+measure it with `top -o mem` and halt for a logout. The next unused queue
+number is **683** and the next ADR is **0066**.

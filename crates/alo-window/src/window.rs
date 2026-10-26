@@ -62,6 +62,11 @@
 //! the program is not brought in front as it starts, and the window is
 //! made inactive, so a person's keys go on reaching Chrome's page.
 //!
+//! It draws which renderer draws the page, and what agents' verbs were
+//! answered with (queue item 679, [`crate::compose::compose_frame`]): told
+//! each line by the same thread ([`ToFrame::Agent`]), it keeps them as this
+//! engine's window does ([`AgentLines`]) and is drawn again.
+//!
 //! # No `unsafe`
 //!
 //! Every `winit` function called here — `EventLoop::with_user_event`,
@@ -83,11 +88,13 @@
 //! 0062's consequences); `with_parent_window`, the one `unsafe fn` beside
 //! them, is not called.
 
+use crate::agent_lines::AgentLines;
 use crate::aim::{Aimed, aim, on_page};
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
-use crate::compose::{compose, compose_frame};
+use crate::compose::{FrameScene, compose, compose_frame};
 use crate::cursor::{Cursor, Pressed};
+use crate::frame_told::ToFrame;
 use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
@@ -410,8 +417,9 @@ impl ApplicationHandler<News> for App {
 }
 
 /// Run the frame of ours around Chrome's window until it is told Chrome's
-/// window is gone (ADR 0062, queue item 642): told where to stand on
-/// `follows`, and sending `orders` to the thread holding Chrome.
+/// window is gone (ADR 0062, queue item 642): told where to stand and what
+/// agents did on `told`, saying that `renderer` draws the page, and sending
+/// `orders` to the thread holding Chrome.
 ///
 /// The frame is told on a channel rather than through the event loop,
 /// because the thread holding Chrome starts first. Measured: a program
@@ -425,8 +433,12 @@ impl ApplicationHandler<News> for App {
 ///
 /// What `winit` said, in words, when there could be no event loop or no
 /// window.
-pub fn frame(follows: Receiver<Follow>, orders: Orders) -> Result<(), String> {
-    let mut building = EventLoop::<Follow>::with_user_event();
+pub fn frame(told: Receiver<ToFrame>, orders: Orders, renderer: String) -> Result<(), String> {
+    let Some(lettering) = Lettering::compiled_in() else {
+        let _ = orders.send(Order::CloseEverything);
+        return Err("the frame's own font is not a font".to_owned());
+    };
+    let mut building = EventLoop::<ToFrame>::with_user_event();
     // Chrome's window was just brought in front, and a program that took
     // the screen as it started would send it to Stage Manager's strip.
     #[cfg(target_os = "macos")]
@@ -439,8 +451,8 @@ pub fn frame(follows: Receiver<Follow>, orders: Orders) -> Result<(), String> {
         .name("alo-frame".to_owned())
         .spawn(move || {
             // Ends when the thread holding Chrome does, or the event loop.
-            for follow in follows {
-                if proxy.send_event(follow).is_err() {
+            for news in told {
+                if proxy.send_event(news).is_err() {
                     return;
                 }
             }
@@ -452,6 +464,9 @@ pub fn frame(follows: Receiver<Follow>, orders: Orders) -> Result<(), String> {
     let mut framing = Framing {
         orders,
         told: Follow::Aside,
+        renderer,
+        lines: AgentLines::default(),
+        lettering,
         window: None,
         presenter: None,
         modifiers: ModifiersState::empty(),
@@ -469,8 +484,14 @@ pub fn frame(follows: Receiver<Follow>, orders: Orders) -> Result<(), String> {
 /// The frame's event loop's state.
 struct Framing {
     orders: Orders,
-    /// What the frame was last told.
+    /// Where the frame was last told to stand.
     told: Follow,
+    /// Which renderer draws the page, as the frame says it.
+    renderer: String,
+    /// What agents' verbs were answered with, as long as they are kept.
+    lines: AgentLines,
+    /// The face the frame's words are drawn in.
+    lettering: Lettering,
     window: Option<Rc<Window>>,
     presenter: Option<Presenter<Rc<Window>>>,
     /// The modifier keys held, as the window server last said.
@@ -512,7 +533,15 @@ impl Framing {
             return;
         };
         let size = window.inner_size();
-        let canvas = compose_frame((size.width, size.height));
+        let canvas = compose_frame(
+            &FrameScene {
+                window: (size.width, size.height),
+                scale: Scale::of_screen(window.scale_factor()),
+                renderer: &self.renderer,
+                agent_lines: self.lines.lines(),
+            },
+            &self.lettering,
+        );
         if let Some(presenter) = self.presenter.as_mut()
             && let Err(why) = presenter.show(&canvas)
         {
@@ -539,7 +568,7 @@ fn standing(at: Bounds) -> Option<(LogicalPosition<f64>, LogicalSize<f64>)> {
     ))
 }
 
-impl ApplicationHandler<Follow> for Framing {
+impl ApplicationHandler<ToFrame> for Framing {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -574,7 +603,17 @@ impl ApplicationHandler<Follow> for Framing {
         self.stand();
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, follow: Follow) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, news: ToFrame) {
+        let follow = match news {
+            ToFrame::Stand(follow) => follow,
+            ToFrame::Agent(line) => {
+                self.lines.heard(line);
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+                return;
+            }
+        };
         self.told = follow;
         if follow == Follow::Closed {
             // Chrome's window is gone, or this browser closed it: the

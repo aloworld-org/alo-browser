@@ -23,9 +23,15 @@
 //! Both frames are painted by their renderers at the window's scale, in
 //! device pixels (ADR 0057 § 3, queue item 562), so each of their pixels is
 //! one of the window's: nothing is replicated or stretched here.
+//!
+//! The frame of ours around Chrome's window ([`compose_frame`], queue item
+//! 679) is composed the same way, from what the thread holding Chrome told
+//! it and nothing else: which renderer draws the page, and what agents'
+//! verbs were answered with.
 
 use crate::agent_lines::AgentLine;
-use crate::colours::{agent_line, background, notice_line, rail, refused_line};
+use crate::colours::{agent_line, background, notice_line, rail, refused_line, renderer_line};
+use crate::frame_place::FramePlacement;
 use crate::mark::{self, Marked};
 use crate::notice::Lettering;
 use crate::place::{Contents, PixelRect, Placement};
@@ -104,27 +110,84 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
             lettering.draw(&mut canvas, rect, sentence, scale, colours);
         }
     }
-    for (line, rect) in scene.agent_lines.iter().zip(placed.agent_lines) {
+    draw_agent_lines(
+        &mut canvas,
+        lettering,
+        scene.agent_lines,
+        placed.agent_lines,
+        scale,
+    );
+    canvas
+}
+
+/// Everything the frame of ours around Chrome's window is drawn from (ADR
+/// 0062, queue items 642 and 679).
+#[derive(Debug, Clone, Copy)]
+pub struct FrameScene<'a> {
+    /// The frame's size in device pixels.
+    pub window: (u32, u32),
+    /// How many device pixels one CSS pixel is on its screen.
+    pub scale: Scale,
+    /// Which renderer draws the page, in the one wording there is of it:
+    /// [`crate::pages::RenderedBy`]'s, as the socket's `renderer` answer
+    /// says it.
+    pub renderer: &'a str,
+    /// What agents' verbs were answered with, oldest first, as long as the
+    /// frame keeps them ([`crate::agent_lines::AgentLines`]).
+    pub agent_lines: &'a [AgentLine],
+}
+
+/// The frame's pixels: the rail's colour edge to edge — the band across
+/// the top of this engine's own window, because the frame stands where that
+/// band would be — and in it, as [`FramePlacement`] places them, which
+/// renderer draws the page and then what agents did, a refusal in colours
+/// of its own. A frame of no size is a canvas of no size.
+pub fn compose_frame(scene: &FrameScene<'_>, lettering: &Lettering) -> Canvas {
+    let (width, height) = scene.window;
+    let mut canvas = Canvas::new(width, height, rail());
+    let scale = scene.scale;
+    let placed = FramePlacement::of(
+        scene.window,
+        scale,
+        lettering.line_width(scene.renderer, scale),
+        scene.agent_lines.len(),
+    );
+    lettering.draw(
+        &mut canvas,
+        placed.renderer,
+        scene.renderer,
+        scale,
+        renderer_line(),
+    );
+    draw_agent_lines(
+        &mut canvas,
+        lettering,
+        scene.agent_lines,
+        placed.agent_lines,
+        scale,
+    );
+    canvas
+}
+
+/// Draw each of `lines` into its rectangle, if it was given one, in the
+/// colours of a verb that ran or of a refusal.
+fn draw_agent_lines(
+    canvas: &mut Canvas,
+    lettering: &Lettering,
+    lines: &[AgentLine],
+    rects: impl IntoIterator<Item = Option<PixelRect>>,
+    scale: Scale,
+) {
+    for (line, rect) in lines.iter().zip(rects) {
         let colours = if line.refused {
             refused_line()
         } else {
             agent_line()
         };
         if let Some(rect) = rect {
-            lettering.draw(&mut canvas, rect, &line.sentence, scale, colours);
+            lettering.draw(canvas, rect, &line.sentence, scale, colours);
         }
     }
-    canvas
-}
-
-/// The frame of ours around Chrome's window (ADR 0062, queue item 642), at
-/// `window` device pixels: the band across the top of this engine's own
-/// window before its strip has painted — the rail's colour, edge to edge —
-/// because the frame stands where that band would be. What is drawn in it,
-/// the strip and the agent's lines, is item 679's.
-pub fn compose_frame(window: (u32, u32)) -> Canvas {
-    let (width, height) = window;
-    Canvas::new(width, height, rail())
 }
 
 /// Copy `frame` into `rect` of `canvas`, one of its pixels to each device
@@ -201,18 +264,73 @@ mod tests {
         }
     }
 
+    /// A frame of `window` saying Chrome draws the page, and `lines`.
+    fn framed(window: (u32, u32), scale: Scale, lines: &[AgentLine]) -> FrameScene<'_> {
+        FrameScene {
+            window,
+            scale,
+            renderer: "Chrome/155.0.8059.86, driven by this browser",
+            agent_lines: lines,
+        }
+    }
+
     #[test]
-    fn the_frame_around_chromes_window_is_the_rail_edge_to_edge() {
+    fn the_frame_around_chromes_window_is_the_rail_and_says_which_renderer() {
+        let lettering = lettering();
         // A frame of 1200 by 36 points at two.
-        let canvas = compose_frame((2400, 72));
+        let scene = framed((2400, 72), Scale::TWO, &[]);
+        let canvas = compose_frame(&scene, &lettering);
         assert_eq!((canvas.width(), canvas.height()), (2400, 72));
+        let needs = lettering.line_width(scene.renderer, Scale::TWO);
+        assert!((400..1200).contains(&needs), "{needs}");
+        // Past the renderer's sentence, the rail edge to edge.
         for y in 0..72 {
-            for x in 0..2400 {
+            for x in needs..2400 {
                 assert_eq!(rgba8(&canvas, x, y), Some(rail().to_rgba8()), "at {x},{y}");
             }
         }
-        let nothing = compose_frame((0, 0));
+        // Its words are in it, and only in it.
+        let inked = |x0: u32, x1: u32| {
+            (0..72).any(|y| (x0..x1).any(|x| rgba8(&canvas, x, y) != Some(rail().to_rgba8())))
+        };
+        assert!(inked(0, needs));
+        let nothing = compose_frame(&framed((0, 0), Scale::TWO, &[]), &lettering);
         assert_eq!((nothing.width(), nothing.height()), (0, 0));
+    }
+
+    #[test]
+    fn the_frames_lines_are_drawn_where_they_are_placed_in_their_colours() {
+        let lettering = lettering();
+        let lines = [
+            AgentLine {
+                sentence: "nothing on the page is \"A pony\"".to_owned(),
+                refused: true,
+            },
+            AgentLine {
+                sentence: "activated box#6".to_owned(),
+                refused: false,
+            },
+        ];
+        let scene = framed((1200, 36), Scale::ONE, &lines);
+        let canvas = compose_frame(&scene, &lettering);
+        let placed = FramePlacement::of(
+            (1200, 36),
+            Scale::ONE,
+            lettering.line_width(scene.renderer, Scale::ONE),
+            2,
+        );
+        let [Some(refused), Some(ran), None] = placed.agent_lines else {
+            panic!("two lines are placed: {placed:?}");
+        };
+        // The ground of each, under its rule, at its right end.
+        let ground = |rect: PixelRect| rgba8(&canvas, rect.x + rect.width - 1, rect.height - 2);
+        assert_eq!(ground(refused), Some(refused_line().ground.to_rgba8()));
+        assert_eq!(ground(ran), Some(agent_line().ground.to_rgba8()));
+        // The gap between them, and before the first, is the rail.
+        for x in [refused.x - 1, ran.x - 1] {
+            assert_eq!(rgba8(&canvas, x, 20), Some(rail().to_rgba8()), "at {x}");
+        }
+        assert_eq!(ran.x + ran.width, 1200);
     }
 
     #[test]

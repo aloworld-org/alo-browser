@@ -189,22 +189,29 @@ about this project (ADR 0058 § 6).
   resized, hidden while it is not on the screen, closing when it closes
   and closing it when ours is closed or the program's input ends,
   asserted in the window server's numbers on the real program (642,
-  `chrome_follow.rs`, `window.rs`'s `frame` — built, its gate not yet
-  met); and **the running browser asked which
+  `chrome_follow.rs`, `window.rs`'s `frame`, gated 2026-10-26); and
+  **what that window says** — which Chrome draws the page, in the one
+  wording the socket's `renderer` answer has, and then each verb's
+  sentence and each refusal, the line the conductor's own rule makes of
+  the answer this process sent, side by side in the band, oldest first,
+  as long as the engine's window keeps them (679, `frame_place.rs`,
+  `compose_frame`, `frame_told.rs` — built, its gate not yet met: the gate
+  failed on the frame's own test, which fails without it, 682); and
+  **the running browser asked which
   renderer draws a tab** — the socket's `renderer` ask, sent by a person
   with `alo-ask`, answered by the browser process and never the page: this
   engine, or Chrome by the version it gives itself, kept to the sites as a
   read is and recorded (622); and **the agent's sentence where a person
   can read it**, in this engine's window — each verb's `said`, word for
   word, in a line of the browser's own, which no page can read or forge
-  (623; through Chrome it waits on what the frame draws, 679); and **the box
+  (623; through Chrome in the frame above Chrome's window, 679); and **the box
   an agent acted on, ringed** on the frame painted after the verb — the
   node's own rectangles read from the same layout, drawn as alo draws focus
-  (624; through Chrome, 679); and **a refusal where a person can read it**,
+  (624; through Chrome owed as 680); and **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
   kept until the second verb that runs after it, two refusals in a row two
-  lines (625; through Chrome, 679); and **a form Chrome would not send,
+  lines (625; through Chrome in the frame, 679); and **a form Chrome would not send,
   answered as the engine answers it** — `NotSubmitted`, naming the control
   Chrome stopped at and the words of the bubble it draws there, read from
   its tree, which a page cannot forge (631; the first control and no
@@ -284,21 +291,26 @@ about this project (ADR 0058 § 6).
   chose on the way (ADR 0064).
 - **Owed:** a closed list's option through a shown Chrome, measured with
   the screen in use (658); the
-  rest of the agent's work where a person can see it — **what the frame
-  of ours draws: the strip, 623's and 625's lines and 624's ring, which is
-  over Chrome's page rather than above it (679)**; a placed window
+  rest of the agent's work where a person can see it — **the ring around
+  the box a verb acted on through Chrome, which is over Chrome's page
+  rather than above it and so needs a window of ours there, undecided
+  (680)**, and the page's tab in the frame, whose title is a stranger's
+  string ADR 0024 § 4 keeps out of this process (681); a placed window
   that stays where a
   person sees it, which Stage Manager's strip does not promise (643); an
   application somebody can run (477).
 
-642 is still the one to watch, and is built but not closed. A frame of
-ours above Chrome's window that follows it, stands aside when it is not on
-the screen and closes with it was built and seen working on 2026-10-26
-(iteration 419) — ADR 0061's riskiest step, without its decision being
-sent back — but the gate was not met: every failure was a Chrome silent for
-thirty seconds on a machine whose window server held 8 GB of its 8 and
-whose swap was nearly full, so nothing of it is committed and it is not
-ticked. What the frame shows is still only the rail's colour (679).
+642 is closed: a frame of ours above Chrome's window that follows it,
+stands aside when it is not on the screen and closes with it was built on
+2026-10-26 (iteration 419) and gated that day once the machine was
+restarted — ADR 0061's riskiest step, without its decision being sent
+back. And the frame says something, built and not yet gated (679,
+iteration 420): which Chrome draws the page, and what each agent's verb was
+answered with or why it was refused, told by the thread holding Chrome from
+the answers it sent. Its gate failed on the frame's own test, which fails
+in one run of three without the change (682), so it is not committed and
+not ticked. What it does not show is the ring over Chrome's page (680,
+which needs a decision) and the page's own tab (681).
 
 ---
 
@@ -892,11 +904,11 @@ unreachable without it.
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); a closed list's option
-      through a shown Chrome (658), the window of ours around
-      Chrome's carrying the agent's sentence, its refusals and the ring
-      around the box it acted on as the engine's window does (679, 623,
-      625, 624) — the window itself stands and follows (642) — and one
-      that stays where a person sees it (643)
+      through a shown Chrome (658), the ring around the box an agent
+      acted on through Chrome (680, 624) and the page's tab in the
+      frame (681) — the frame itself stands, follows, and carries the
+      agent's sentence and its refusals (642, 679) — and a window that
+      stays where a person sees it (643)
 
 ### The network
 

@@ -151,6 +151,7 @@ mod marking;
 pub mod pointing;
 mod strip_pressing;
 
+use crate::agent_lines::AgentLine;
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
 use crate::asking::{Answer, Ask};
@@ -494,16 +495,10 @@ impl Conducting {
                 };
                 // What the agent is told a verb did, the person watching is
                 // told too, in the same words (item 623) — taken before the
-                // answer goes, and only of a verb that ran.
-                let said = matches!(answer, Answer::Done { .. })
-                    .then(|| answer.said())
-                    .flatten();
-                // And why a verb was refused, whoever refused it — the page,
-                // or this process before any page was asked (item 625). A
-                // read refused, or a line that was not a request, is not.
-                let refused = (a_verb && matches!(answer, Answer::Refused(_)))
-                    .then(|| answer.said())
-                    .flatten();
+                // answer goes; and why a verb was refused, whoever refused
+                // it (item 625). A read, or a line that was not a request,
+                // is not a line.
+                let line = AgentLine::of(a_verb, &answer);
                 // Nobody to answer is a caller that has gone, which changes
                 // nothing about what was done or recorded.
                 let _ = reply.send(answer);
@@ -515,8 +510,13 @@ impl Conducting {
                         self.mark(id, node, before.and_then(|(_, document)| document), &news);
                     news.extend(marks);
                 }
-                news.extend(said.map(News::AgentSaid));
-                news.extend(refused.map(News::AgentRefused));
+                news.extend(line.map(|line| {
+                    if line.refused {
+                        News::AgentRefused(line.sentence)
+                    } else {
+                        News::AgentSaid(line.sentence)
+                    }
+                }));
                 news
             }
         }

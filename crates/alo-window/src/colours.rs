@@ -76,6 +76,13 @@ pub fn mark() -> Rgba {
     Rgba::from_rgba8(0xe7, 0x6f, 0x51, 0xff)
 }
 
+/// The words saying which renderer draws the page, in the frame around
+/// Chrome's window (queue item 679): `--text-on-rail-muted`, the colour
+/// alo's rail gives what is there to be read and is not the point.
+pub fn renderer_ink() -> Rgba {
+    Rgba::from_rgba8(0xae, 0xb8, 0xbe, 0xff)
+}
+
 /// The three colours one of the browser's own lines is drawn in.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LineColours {
@@ -105,6 +112,17 @@ pub fn agent_line() -> LineColours {
     }
 }
 
+/// The line saying which renderer draws the page, on the rail's own
+/// ground with no rule, because it stands on nothing that needs a line
+/// between.
+pub fn renderer_line() -> LineColours {
+    LineColours {
+        ground: rail(),
+        ink: renderer_ink(),
+        rule: rail(),
+    }
+}
+
 /// The line saying why an agent's verb was refused.
 pub fn refused_line() -> LineColours {
     LineColours {
@@ -130,6 +148,7 @@ mod tests {
             agent_ink(),
             refused_ground(),
             refused_ink(),
+            renderer_ink(),
             mark(),
         ] {
             assert!((colour.alpha - 1.0).abs() < f32::EPSILON);
