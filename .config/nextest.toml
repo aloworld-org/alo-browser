@@ -1,0 +1,23 @@
+# How many tests that start a Chrome may run at once.
+#
+# **Every test still runs, and is judged exactly as before.** This decides
+# only how many Chromes are alive at the same moment, never which tests run
+# or what they must show, so it makes the gate no weaker.
+#
+# Why: on 2026-10-26 the gate failed three times in one day — at 10:01, 18:37
+# and 19:07 — and every failure was a Chrome that "said nothing for 30000 ms"
+# in a test the change under judgement did not touch. A Chrome started on its
+# own answered in 2 s. Run eight at a time — one per core, nextest's default
+# — beside an editor and a person's own Chrome, an 8 GB machine ran out of
+# memory and swapped, and some Chrome missed its thirty seconds. Lengthening
+# that wait would hide a slow browser behind a patient test; the wait is the
+# contract. So the Chromes take turns instead.
+#
+# A test that starts a Chrome must be in this group: put "chrome" in its
+# file's name, or add the file below by name.
+[test-groups]
+chrome = { max-threads = 2 }
+
+[[profile.default.overrides]]
+filter = 'package(alo-window) & (binary(~chrome) | binary(=a_window_given_less_room_than_asked) | binary(=a_tab_whose_page_closes_under_a_question))'
+test-group = 'chrome'
