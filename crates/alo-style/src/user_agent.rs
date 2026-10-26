@@ -206,14 +206,16 @@ select { border: 1px solid #767676 }
  * passes it, where it can be scrolled to: Chrome 155's computed `white-space:
  * pre-wrap` and `overflow: auto`, measured (queue item 663). An author's
  * `overflow: visible` computes `auto` all the same (`crate::text_area`).
- * Chrome's `overflow-wrap: break-word` is not here, because nothing in this
- * engine reads it yet (queue item 666). */
+ * A word too long for its line is cut onto the next rather than run past
+ * its edge: Chrome 155's computed `overflow-wrap: break-word` (queue item
+ * 666), which `alo_layout::overflow_wrap` reads. */
 textarea {
   width: 20ch;
   height: 3em;
   padding: 2px;
   border: 1px solid #767676;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
   overflow: auto;
 }
 /* What is written on a button sits in the middle of it, across and down —

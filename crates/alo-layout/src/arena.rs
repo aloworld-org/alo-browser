@@ -463,14 +463,39 @@ impl<M: MeasureText> Arena<'_, M> {
                     // The line builder knows which runs may wrap, and keeps
                     // `nowrap` on one line however little room it is given.
                     let width = width_to_fit(known, room, true);
-                    let size = crate::engine::measure_inline(
-                        self.boxes,
-                        self.styles,
-                        id,
-                        width,
-                        self.measure,
-                    )
-                    .size;
+                    // Asked how narrow it can be, rather than given a width
+                    // of nought: a cut `overflow-wrap: break-word` makes is
+                    // not counted then (`crate::overflow_wrap`).
+                    let narrowest =
+                        known.width.is_none() && room.width == AvailableSpace::MinContent;
+                    let lay_out = |width: Option<f32>, narrowest: bool| {
+                        crate::engine::measure_inline(
+                            self.boxes,
+                            self.styles,
+                            id,
+                            width,
+                            narrowest,
+                            self.measure,
+                        )
+                    };
+                    let laid_out = lay_out(width, narrowest);
+                    // Shrinking to fit the room, a box is never narrower
+                    // than its min-content width (CSS Sizing 3 § 5.1), which
+                    // a word `break-word` cut is in whole. A width of its
+                    // own is handed over as the room, so it is asked too.
+                    let shrinks = known.width.is_none() && style.size.width.is_auto();
+                    let size = match room.width {
+                        AvailableSpace::Definite(room) if shrinks && laid_out.cut_uncounted => {
+                            let least = lay_out(Some(0.0), true).size.width;
+                            let least = layout_unit::rounded_up(least, self.scale());
+                            if least > room {
+                                lay_out(Some(least), false).size
+                            } else {
+                                laid_out.size
+                            }
+                        }
+                        _ => laid_out.size,
+                    };
                     // Its lines' width rounded up onto the grid, as a run of
                     // text's is (ADR 0054 § 4).
                     TaffySize {

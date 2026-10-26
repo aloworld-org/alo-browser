@@ -47,6 +47,9 @@ pub struct TextStyle {
     /// newline is a break it **must** take, and whether it may break anywhere
     /// at all.
     pub white_space: alo_box::WhiteSpace,
+    /// Whether a word too wide for its line is cut between its clusters
+    /// ([`crate::overflow_wrap`]).
+    pub overflow_wrap: crate::overflow_wrap::OverflowWrap,
     /// Its `line-height` in CSS pixels, as a line box uses it — on the grid
     /// of 1/64 px that [`crate::line_height`] places it on — or [`None`] for
     /// `normal`.
@@ -74,6 +77,7 @@ impl Default for TextStyle {
             italic: false,
             letter_spacing: 0.0,
             white_space: alo_box::WhiteSpace::Normal,
+            overflow_wrap: crate::overflow_wrap::OverflowWrap::Normal,
             line_height: None,
             scale: 1.0,
         }

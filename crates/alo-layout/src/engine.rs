@@ -364,18 +364,21 @@ pub(crate) fn measure_inline(
     styles: &StyleTree,
     id: BoxId,
     available_width: Option<f32>,
+    narrowest: bool,
     measure: &impl MeasureText,
 ) -> InlineLayout {
     let mut issues = Vec::new();
     let mut items = collect_inline_items(boxes, styles, id, available_width, measure, &mut issues);
     items.retain(|item| !is_a_placeholder(boxes, item));
-    inline::lay_out_aligned(
-        &items,
-        available_width,
+    let (alignment, strut) = (
         alignment_of(boxes, styles, id),
-        &text_style_for(boxes, styles, id),
-        measure,
-    )
+        text_style_for(boxes, styles, id),
+    );
+    if narrowest {
+        inline::lay_out_narrowest(&items, alignment, &strut, measure)
+    } else {
+        inline::lay_out_aligned(&items, available_width, alignment, &strut, measure)
+    }
 }
 
 /// Whether an item is the run of a field's `::placeholder`.

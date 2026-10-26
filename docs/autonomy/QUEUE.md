@@ -7197,7 +7197,10 @@ The long pole, and the thing most of section E is unreachable without.
   the first case broke mid-word between the two boxes instead. *Closes
   when:* a frozen page's word across two boxes, or text after an unbreakable
   space, starts the next line where Chrome's does, which needs the builder
-  to return to the last allowed break on its line.
+  to return to the last allowed break on its line. Under `overflow-wrap:
+  break-word` (item 666) Chrome 155 does the same — `xx
+  aaa<span>bbbbbbbbbb</span>` in 50 px is `xx ` · `aaabb` · … — where this
+  engine keeps `xx aaa` and cuts the span's word after it.
 
 - [ ] **448. An ellipsis after a space that is a text box of its own.**
   *Cut from 442. Feature: `docs/features.md` stage 1, text. Waits for a
@@ -17024,7 +17027,7 @@ What stage 2's exit gate actually measures: a person using it.
   as Chrome's sheet makes it, and is answered `Scrolled` with its
   scrolling area in numbers, with a reference render of it drawn.
 
-- [ ] **666. A long word breaks inside a `<textarea>`.** *Cut from 663
+- [x] **666. A long word breaks inside a `<textarea>`.** *Cut from 663
   (iteration 410).* Chrome 155 computes `overflow-wrap: break-word` for a
   `<textarea>`, so a word longer than its line breaks onto the next:
   `<textarea cols=4 rows=2>` holding 24 `a`s and `bb` has a
@@ -17036,6 +17039,46 @@ What stage 2's exit gate actually measures: a person using it.
   separately) breaks a word that does not fit its line, the engine's
   sheet gives it to a `<textarea>`, and that textarea's lines are
   Chrome's in numbers.
+  **Done (iteration 411).** Measured against Chrome 155.0.8059.86,
+  headless, with the corpus's `DejaVu Sans`: a word that does not fit
+  goes to the next line by the break before it and is cut there between
+  clusters, as many a line as fit and at least one, what is left of it
+  sharing its line with what follows; after another box's text with no
+  break before it, it is cut where it stands; under `nowrap` it is not
+  cut; a cut `break-word` makes is not counted in a min-content width
+  and one `anywhere` makes is; a definite width of nought is cut a letter
+  a line under both. `alo-layout`'s new `overflow_wrap.rs` reads the
+  property (inherited, listed for `alo-layout` in `alo-css`) and says
+  where a word is cut; the line builder cuts it (`inline.rs`'s
+  `cut_word`), is told when it is laying out for a min-content width
+  (`lay_out_narrowest`, asked by the arena for `MinContent` rather than a
+  width of nought), and says when it made a cut the min-content width
+  does not count, so that a box shrinking to fit is never narrower than
+  the word. The engine's sheet gives a `<textarea>` `overflow-wrap:
+  break-word`. `cases/a-word-cut-to-its-line` holds sixteen boxes and two
+  textareas, and `alo-corpus`'s `a_word_cut_to_its_line.rs` asserts every
+  line's text, where its last letter ends and every border box against
+  Chrome's numbers to 1/64 px, and the textareas' scrolling areas
+  (Chrome's `scrollHeight` 120 and `scrollWidth` 50 under the sheet, 60
+  and 235 under `normal`). Its `render.png` is the reference render;
+  Chrome's screenshot of the same bytes differs from it in 66 pixels of
+  letters' edges by more than a quarter. No other case moved. Unit tests:
+  `overflow_wrap.rs` (six) and four in `inline.rs`. Cut: `word-wrap`,
+  item 668. The case's `xx aaa<span>bbbbbbbbbb</span>` arrangement is
+  item 452's under `overflow-wrap` too (Chrome moves `aaa` to the next
+  line, this engine cuts after it), and is left out of the case.
+
+- [ ] **668. `word-wrap`, `overflow-wrap`'s legacy name.** *Cut from 666
+  (iteration 411).* CSS Text 3 keeps `word-wrap` as an alias of
+  `overflow-wrap`, and Chrome 155 computes `word-wrap: break-word` as
+  `overflow-wrap: break-word` (measured: 24 `a`s in a box 50 wide are
+  six lines). This engine's cascade has no aliases and reads only
+  `overflow-wrap`, so a page writing the old name gets words that run
+  past their box. Law 1 refuses legacy that exists for broken pages;
+  whether an alias every engine still maps is that, or one line in the
+  cascade, is undecided. *Depends on nothing. Waits for a page.* *Closes
+  when:* a frozen page that writes `word-wrap` is cut as Chrome cuts it,
+  or the refusal is written down where the cascade's aliases are.
 
 - [ ] **667. An inline block of `overflow: clip` stands on its first
   line.** *Found building 663 (iteration 410).* Chrome 155 stands a

@@ -1,0 +1,65 @@
+/* A word too wide for its line is cut between its letters where
+   `overflow-wrap` says: queue item 666, by the rules measured in Chrome 155
+   (crates/alo-layout/src/overflow_wrap.rs). Every box is 50 wide unless it
+   says otherwise, lines are 20 tall, and the page is a grid of four
+   columns 60 wide.
+   - #break-word, #anywhere: 24 `a`s and `bb`, five letters a line.
+   - #normal: the same, not cut, running past its box.
+   - #after-a-word: `ab cccccccccccc dd`: the word goes to the next line
+     first, and is cut only there; what is left of it shares its line.
+   - #narrowest-break-word, #narrowest-anywhere: `width: min-content`. A cut
+     `break-word` makes is not counted, so the box is the long word wide;
+     one `anywhere` makes is, so it is the widest letter wide.
+   - #nowrap: no cut where a line may not wrap.
+   - #pre-wrap: kept spaces hang after what is left of the word.
+   - #across-a-box: `aaa<span>bbbbbbbbbb</span>`, one word: cut where it
+     stands, after the `aaa`.
+   - #after-a-picture: an inline block after `ab`, then the word.
+   - #full-stop, #spaced: a full stop, and letters 2 px apart.
+   - #nought: a definite width of nought is cut a letter a line.
+   - #item-break-word, #item-anywhere: a flex item's automatic minimum is
+     its min-content width, so only `anywhere` lets it shrink to 50.
+   - #shrunk: an inline block shrinks to fit its min-content width.
+   - #text-area: a `<textarea>` cuts its words, which is Chrome's sheet's
+     `overflow-wrap: break-word`; #text-area-normal does not. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 16px;
+  display: grid;
+  grid-template-columns: 60px 60px 60px 60px;
+  column-gap: 4px;
+  row-gap: 4px;
+  align-items: start;
+}
+div {
+  width: 50px;
+  line-height: 20px;
+  background: #dde2ee;
+}
+.bw { overflow-wrap: break-word }
+.aw { overflow-wrap: anywhere }
+.narrowest { width: min-content }
+.nowrap { white-space: nowrap }
+.pre-wrap { white-space: pre-wrap }
+.spaced { letter-spacing: 2px }
+.nought { width: 0 }
+.s { color: #1d4ed8 }
+.ib { display: inline-block; width: 10px; height: 5px; background: #c81e1e }
+.row { display: flex; background: #f3e1c1 }
+.room { background: #f3e1c1 }
+.row > div { width: auto }
+.shrunk { display: inline-block; width: auto }
+textarea {
+  width: 50px;
+  height: 60px;
+  padding: 0;
+  border: 0;
+  font-family: sans-serif;
+  font-size: 16px;
+  line-height: 20px;
+  background: #e3efd9;
+  resize: none;
+}
+.normal { overflow-wrap: normal }

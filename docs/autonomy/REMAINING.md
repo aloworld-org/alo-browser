@@ -3221,3 +3221,14 @@ empty. Cut from it: 665 (a list box's options), 666 (`overflow-wrap` in a
 The screen was locked, so 642, 643 and 658 still wait on it. 300 queue items
 are open (663 closed, 665, 666 and 667 opened). The next unused queue number
 is 668 and the next unused ADR 0065.
+
+Iteration 411 closed queue item 666: `overflow-wrap: break-word` and
+`anywhere` cut a word too wide for its line between its clusters where
+nothing else lets the line break, as Chrome 155 cuts it, a `break-word`
+cut left out of a box's min-content width and an `anywhere` one counted,
+and the engine's sheet gives a `<textarea>` `break-word`; every line and
+box of the new `a-word-cut-to-its-line` case is Chrome's to 1/64 px. Cut
+from it: 668 (`word-wrap`). The screen was locked, so 642, 643 and 658
+still wait on it, and 665 waits on 521. 300 queue items are open (666
+closed, 668 opened). The next unused queue number is 669 and the next
+unused ADR 0065.

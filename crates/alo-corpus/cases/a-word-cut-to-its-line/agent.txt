@@ -1,0 +1,23 @@
+document at (0, 0) 268×632
+  text "aaaaaaaaaaaaaaaaaaaaaaaa bb" at (8, 8) 49.03125×119 in 6 pieces
+  text "ab cccccccccccc dd" at (72, 8) 43.984375×79 in 4 pieces
+  text "aaaaaaaaaaaaaaaaaaaaaaaa bb" at (136, 8) 49.03125×119 in 6 pieces
+  text "aaaaaaaaaaaaaaaaaaaaaaaa bb" at (200, 8) 235.3125×39 in 2 pieces
+  text "ab cccccccccccc" at (8, 132) 105.5625×39 in 2 pieces
+  text "ab cccccccccccc" at (72, 132) 10.15625×279 in 14 pieces
+  text "aaaaaaaaaaaaaaaa" at (136, 132) 156.875×19
+  text "aaaaaaaaaaaa bb" at (200, 132) 49.03125×79 in 4 pieces
+  text "aaa" at (8, 416) 29.421875×19
+  text "bbbbbbbbbb" at (8, 416) 49.734375×59 in 3 pieces
+  text "ab" at (72, 416) 19.96875×19
+  text "cccccccccccc" at (72, 436) 43.984375×59 in 3 pieces
+  text "cccccccccccc." at (136, 416) 43.984375×59 in 3 pieces
+  text "cccccccccccc" at (200, 416) 43.1875×59 in 3 pieces
+  text "abc" at (8, 500) 10.15625×59 in 3 pieces
+  text "cccccccccccc" at (72, 500) 105.5625×19
+  text "cccccccccccc" at (136, 500) 43.984375×59 in 3 pieces
+  text "ab cccccccccccc" at (200, 500) 105.5625×39 in 2 pieces
+  textbox at (8, 564) 50×60
+    text "aaaaaaaaaaaaaaaaaaaaaaaa bb" at (8, 564) 49.03125×119 in 6 pieces
+  textbox at (72, 564) 50×60
+    text "aaaaaaaaaaaaaaaaaaaaaaaa bb" at (72, 564) 235.3125×39 in 2 pieces

@@ -1,0 +1,47 @@
+block flow · document
+  block grid · generic
+    block flow · generic
+      text "aaaaaaaaaaaaaaaaaaaaaaaa bb"
+    block flow · generic
+      text "ab cccccccccccc dd"
+    block flow · generic
+      text "aaaaaaaaaaaaaaaaaaaaaaaa bb"
+    block flow · generic
+      text "aaaaaaaaaaaaaaaaaaaaaaaa bb"
+    block flow · generic
+      text "ab cccccccccccc"
+    block flow · generic
+      text "ab cccccccccccc"
+    block flow · generic
+      text "aaaaaaaaaaaaaaaa"
+    block flow · generic
+      text "aaaaaaaaaaaa  bb"
+    block flow · generic
+      text "aaa"
+      inline flow · generic
+        text "bbbbbbbbbb"
+    block flow · generic
+      text "ab"
+      inline flow-root · generic
+      text "cccccccccccc"
+    block flow · generic
+      text "cccccccccccc."
+    block flow · generic
+      text "cccccccccccc"
+    block flow · generic
+      text "abc"
+    block flex · generic
+      block flow · generic
+        text "cccccccccccc"
+    block flex · generic
+      block flow · generic
+        text "cccccccccccc"
+    block flow · generic
+      inline flow-root · generic
+        text "ab cccccccccccc"
+    inline flow-root · textbox
+      anonymous block
+        text "aaaaaaaaaaaaaaaaaaaaaaaa bb"
+    inline flow-root · textbox
+      anonymous block
+        text "aaaaaaaaaaaaaaaaaaaaaaaa bb"

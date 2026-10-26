@@ -41925,3 +41925,124 @@ same.
 300 queue items are open (663 closed, 665, 666 and 667 opened). The next
 unused queue number is **668** and the next ADR is **0065**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 411 — queue item 666: a word too wide for its line is cut where `overflow-wrap` says
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the two
+paths; the agent's gate's *Built*/*Owed*), `REMAINING.md`'s continuation
+order, iteration 410's entry, the queue's product path and items 642, 643,
+658, 665 (and 521, which it depends on), 666, 667, 664 and 452; ADR 0033 § 4
+(a property names the crates that read it), ADR 0054 § 4 (a run's width on
+the grid); `docs/features.md`'s `white-space` and form-control lines;
+`docs/conformance.md`; `alo-layout`'s `inline.rs`, `soft_wrap.rs`,
+`text_run.rs`, `measure.rs`, `text_style.rs`, `arena.rs` and `engine.rs`,
+`alo-text`'s `line.rs`, `linebreak.rs` and `cluster.rs`, `alo-style`'s
+`user_agent.rs` and `inheritance.rs`, `alo-css`'s `properties.rs`. No
+`AGENTS.md` exists in the repository. 666 names no ADR of its own; its
+feature contract is `docs/features.md` stage 1, text.
+
+**Why 666.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and before the commit, so 642 (the owner's next choice), 643 and 658 could
+not be measured, and 477 needs a second Mac. 665 depends on 521, which is
+open. 666 is the next open item in the queue's order, and depends on
+nothing.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop, `DejaVu Sans` from the `dejavu` crate via `@font-face` on every
+element, a `Range` around each character for where lines break and end.
+Under `break-word` and `anywhere` a word that does not fit goes to the next
+line by the break before it and is cut there between clusters, as many a
+line as fit and at least one, what is left sharing its line with what
+follows (`ab ` · `ccccc` · `ccccc` · `cc dd`); after another box's text with
+no break before it it is cut where it stands (`aaabb` · `bbbb` · `bbbb`);
+under `nowrap` it is not cut; kept spaces hang after the rest. A
+`width: min-content` box, a flex item's automatic minimum and a shrinking
+inline block are the word wide under `break-word` (105.5625) and a letter
+wide under `anywhere` (650 units); a definite width of nought is cut a
+letter a line under both. `word-wrap: break-word` computes as
+`overflow-wrap: break-word`. A `<textarea>` computes `break-word`
+(`scrollHeight` 120 and `scrollWidth` 50 for 24 `a`s and `bb` in a box of
+50 by 60, 60 and 235 under an author's `normal`). Chrome also moves `aaa` in
+`xx aaa<span>bbbbbbbbbb</span>` back to the break after `xx` (item 452's
+rule, noted there).
+
+**Built.** `alo-layout`'s new `overflow_wrap.rs`: the property's values,
+whether a value cuts when the lines are laid out for a min-content width,
+and `cut`, which says where the rest of a word is cut from its clusters'
+ends. `TextStyle` carries `overflow_wrap`, read in `text_style.rs` (the
+property is already inherited; `alo-css` lists it for `alo-layout`). The
+line builder's `cut_word` cuts a word still too wide after the break
+before it, from one `cluster_ends` shaping of the word, placing each
+piece on the grid as any piece is. `lay_out_narrowest` lays lines out for
+a min-content width, and the arena asks it for `MinContent` instead of a
+width of nought. `InlineLayout::cut_uncounted` says a `break-word` cut was
+made, and the arena then keeps a box whose width is `auto` and shrinks to
+its room no narrower than its min-content width (the inline block case).
+The engine's sheet gives `textarea` `overflow-wrap: break-word`.
+
+**Tests.** `overflow_wrap.rs` (six), `inline.rs` (four: cut under both
+values and not under `normal` or `nowrap`; cut where it stands after
+another box's text; the narrowest lines not counting a `break-word` cut;
+kept spaces after a cut word). `alo-corpus`'s new
+`cases/a-word-cut-to-its-line` (sixteen boxes and two textareas in a grid
+of four columns) and `a_word_cut_to_its_line.rs`: every line's text and
+where its last letter ends, and every border box, Chrome's to 1/64 px; the
+textareas' scrolling areas Chrome's 120 by 50 and 60 by 235. Mutations,
+restored from copies and checked with `cmp`: the sheet's `overflow-wrap`
+taken out (the textarea test fails), the shrink-to-fit floor taken out
+(the case test fails at `#shrunk`), `break-word` counted in a min-content
+width (the case test fails).
+
+**Gate.** `cargo clippy --workspace --all-targets --all-features` clean
+(it caught a fourth `bool` in the builder, now `overflow_wrap::Cutting`).
+Then `scripts/gate.sh` in the foreground — it ran past the tool's 600 s, was
+waited on by an until-loop in the next call and read there: **exit 0, "The
+gate is met." (10 of 10 steps)**, nextest **5,407 tests run, 5,407 passed**
+in 578.1 s, no `FAIL`, `LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the case test above, every box
+and line against Chrome's. Reference render: the new case's `render.png`,
+written by `ALO_UPDATE_REFERENCES=1`; no other case's references moved
+(`git status` showed only the new case, before and after the shrink-to-fit
+change). Chrome's screenshot of the same bytes (antialiased, not committed)
+differs from it in 66 pixels of letters' edges by more than 64 levels and
+is otherwise the same picture. One file, one responsibility: what
+`overflow-wrap` says and where a word is cut is `overflow_wrap.rs`'s; laying
+the pieces down is the builder's, as every other break is. No bytes from
+outside read anew beyond CSS values the parser already reads; a hostile
+word of any length is shaped once for its clusters. No `unsafe`, no stubs,
+no verb taking a coordinate. `alo-os` and `alo-workplace` untouched.
+Nothing pushed.
+
+**Roadmap.** The agent's gate's `· Built:` gains 666 (a `<textarea>` cuts
+a long word, so it is not scrolled across to it). Not ticked — the line
+waits on a person; its `· Owed:` did not name 666 and is unchanged. The
+queue ticks 666 with a *Done* paragraph and opens 668; `features.md` gains
+an `overflow-wrap` line, and `conformance.md`, `REMAINING.md` and the
+changelog say the same.
+
+**Unresolved obligations.**
+- 668: `word-wrap`, the legacy name, is not read.
+- 452: a word across two boxes does not move whole to an earlier break,
+  under `overflow-wrap` too.
+- A text box measured on its own by `alo-text`'s `TextMeasurer::measure` at
+  a width (`NodeKind::Text`) does not read `overflow-wrap`; bare text in a
+  flex or grid container is wrapped in an anonymous box and laid out by the
+  line builder, so no case reaches it.
+- 665: a list box draws no options (waits on 521); 667: an inline block of
+  `overflow: clip` on its first line; 664: `text-overflow` on a box whose
+  `overflow` the viewport takes; 523: the textarea's `cols` and `rows`.
+- CSS's computed `overflow` (`visible` to `auto` beside a scrolling axis)
+  is still not applied to what `taffy` is given (iteration 408's note).
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 649 and 650 are open.
+- Inherited and unchanged: off macOS the toggling click holds Ctrl,
+  unmeasured; an author's `option { display: block }` is undecided; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; item 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (666 closed, 668 opened). The next unused queue
+number is **669** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.

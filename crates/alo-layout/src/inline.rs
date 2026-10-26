@@ -135,6 +135,7 @@
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::layout_unit;
 use crate::measure::{MeasureText, TextStyle};
+use crate::overflow_wrap::{Cut, Cutting};
 use crate::soft_wrap::SoftWrap;
 use crate::text_run::TextRun;
 use crate::vertical_align::{Edge, LineAlign, Parent};
@@ -333,6 +334,10 @@ pub struct InlineLayout {
     pub anchors: Vec<Anchor>,
     /// How big the whole thing is.
     pub size: Size,
+    /// Whether a word was cut that the box's min-content width does not
+    /// count cut: under `overflow-wrap: break-word` ([`crate::overflow_wrap`]).
+    /// A box that shrinks to fit is then never narrower than that word.
+    pub cut_uncounted: bool,
 }
 
 impl InlineLayout {
@@ -444,8 +449,34 @@ pub fn lay_out_aligned(
     strut: &TextStyle,
     measurer: &impl MeasureText,
 ) -> InlineLayout {
+    lay_out_lines(items, available_width, false, alignment, strut, measurer)
+}
+
+/// The same, in no room at all, to find how narrow the lines can be: their
+/// min-content width (CSS Sizing 3 § 5.1). Every break is taken but a cut
+/// `overflow-wrap: break-word` would make ([`crate::overflow_wrap`]), which
+/// is why this is not [`lay_out_aligned`] given a width of nought: a box of
+/// that definite width is cut a letter a line.
+pub fn lay_out_narrowest(
+    items: &[InlineItem],
+    alignment: TextAlignment,
+    strut: &TextStyle,
+    measurer: &impl MeasureText,
+) -> InlineLayout {
+    lay_out_lines(items, Some(0.0), true, alignment, strut, measurer)
+}
+
+fn lay_out_lines(
+    items: &[InlineItem],
+    available_width: Option<f32>,
+    narrowest: bool,
+    alignment: TextAlignment,
+    strut: &TextStyle,
+    measurer: &impl MeasureText,
+) -> InlineLayout {
     let mut builder = Builder::new(available_width, strut, measurer);
     builder.alignment = alignment;
+    builder.cutting.narrowest = narrowest;
     for item in items {
         match item {
             InlineItem::Text {
@@ -508,6 +539,10 @@ struct Builder<'a, M: MeasureText> {
     waiting: Vec<(BoxId, f32)>,
     /// The anchors of the lines already finished.
     anchors: Vec<Anchor>,
+    /// Whether the lines are laid out for the box's min-content width, and
+    /// whether a word has been cut that it does not count cut
+    /// ([`crate::overflow_wrap`]).
+    cutting: Cutting,
     /// Whether the block's `white-space` lets its lines wrap: what decides
     /// a break when nothing nearer does.
     strut_wraps: bool,
@@ -621,6 +656,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             strut_reach,
             waiting: Vec::new(),
             anchors: Vec::new(),
+            cutting: Cutting::default(),
             strut_wraps,
             wrap: SoftWrap::start(strut_wraps),
             tail: String::new(),
@@ -831,6 +867,22 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             {
                 self.end_line();
             }
+            // A word still too wide is cut where `overflow-wrap` says, and
+            // what is left of it is laid down as the piece.
+            let rest = if visible.is_empty() {
+                start
+            } else {
+                self.cut_word(box_id, text, offset, start..start + visible.len(), style)
+            };
+            let (piece, visible, width) = if rest == start {
+                (piece, visible, width)
+            } else {
+                start = rest;
+                let piece = text.get(start..end).unwrap_or_default();
+                let visible = piece.trim_end_matches(SPACES);
+                let width = self.measurer.measure(visible, style, None).width;
+                (piece, visible, width)
+            };
             if visible.is_empty() {
                 // Whitespace of its own — the space between two `<a>`s, which
                 // arrives as a text box in its own right. It draws nothing, and
@@ -853,6 +905,68 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             self.place_text(box_id, offset + start..offset + end, width, placed, style);
             self.laid(piece, style);
             start = end;
+        }
+    }
+
+    /// Cut the word `text[word]` of `box_id`'s text, which starts at
+    /// `offset` in the box's own, at its clusters, laying down each piece
+    /// but the last on a line of its own, where it does not fit its line
+    /// and `overflow-wrap` lets a line break inside it
+    /// ([`crate::overflow_wrap`]). Where the rest starts.
+    fn cut_word(
+        &mut self,
+        box_id: BoxId,
+        text: &str,
+        offset: usize,
+        word: Range<usize>,
+        style: &TextStyle,
+    ) -> usize {
+        let Some(available) = self.available_width else {
+            return word.start;
+        };
+        if !Self::may_wrap(style) || !style.overflow_wrap.cuts(self.cutting.narrowest) {
+            return word.start;
+        }
+        let Some(letters) = text.get(word.clone()) else {
+            return word.start;
+        };
+        let clusters = self.measurer.cluster_ends(letters, style);
+        let (mut at, mut along) = (0usize, 0.0f32);
+        loop {
+            let run = TextRun::for_piece(
+                self.run,
+                box_id,
+                offset + word.start + at,
+                self.pen,
+                style.scale,
+            );
+            let fits = |width: f32| run.reach(width) <= available + 0.001;
+            let empty = self.holds_nothing();
+            match crate::overflow_wrap::cut(&clusters, (at, along), fits, empty) {
+                // Before the word only where what came before lets a line
+                // break.
+                Cut::Before if self.wrap.allows() => self.end_line(),
+                Cut::Fits | Cut::Before => return word.start + at,
+                Cut::After(end, reached) => {
+                    let piece = word.start + at..word.start + end;
+                    let Some(letters) = text.get(piece.clone()) else {
+                        return word.start + at;
+                    };
+                    let width = self.measurer.measure(letters, style, None).width;
+                    self.content = true;
+                    self.place_text(
+                        box_id,
+                        offset + piece.start..offset + piece.end,
+                        width,
+                        width,
+                        style,
+                    );
+                    self.laid(letters, style);
+                    self.end_line();
+                    self.cutting.uncounted |= !style.overflow_wrap.cuts(true);
+                    (at, along) = (end, reached);
+                }
+            }
         }
     }
 
@@ -1275,6 +1389,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             lines: self.lines,
             anchors: self.anchors,
             size: Size::new(width, height),
+            cut_uncounted: self.cutting.uncounted,
         }
     }
 }
@@ -3025,5 +3140,142 @@ mod tests {
         let layout = lay_out(&items, Some(20.0), &BlockFont);
         assert_eq!(lines_of(&layout), [vec!["2@8"]]);
         assert_eq!(blanks_of(&layout), [vec!["1@0+8"]]);
+    }
+
+    /// What each line holds of a text box's text, by its pieces' bytes.
+    fn texts_of<'t>(layout: &InlineLayout, text: &'t str) -> Vec<Vec<&'t str>> {
+        layout
+            .lines
+            .iter()
+            .map(|line| {
+                line.fragments
+                    .iter()
+                    .filter_map(|fragment| fragment.text.clone().and_then(|at| text.get(at)))
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn wrapped(
+        index: usize,
+        text: &str,
+        wrap: OverflowWrap,
+        white_space: WhiteSpace,
+    ) -> InlineItem {
+        InlineItem::Text {
+            box_id: box_id(index),
+            text: text.to_owned(),
+            style: TextStyle {
+                overflow_wrap: wrap,
+                white_space,
+                ..TextStyle::default()
+            },
+        }
+    }
+
+    use crate::overflow_wrap::OverflowWrap;
+    use alo_box::WhiteSpace;
+
+    #[test]
+    fn a_word_too_wide_is_cut_only_where_overflow_wrap_says() {
+        // Eight pixels a letter in 40: five letters a line.
+        let text = "ab cccccccccccc dd";
+        for wrap in [OverflowWrap::BreakWord, OverflowWrap::Anywhere] {
+            let items = [wrapped(1, text, wrap, WhiteSpace::Normal)];
+            let layout = lay_out(&items, Some(40.0), &BlockFont);
+            assert_eq!(
+                texts_of(&layout, text),
+                [vec!["ab "], vec!["ccccc"], vec!["ccccc"], vec!["cc dd"]],
+                "{wrap:?}"
+            );
+            assert!(
+                layout.lines.iter().all(|line| line.width <= 40.0),
+                "{wrap:?}: {:?}",
+                layout.lines
+            );
+        }
+        let items = [wrapped(1, text, OverflowWrap::Normal, WhiteSpace::Normal)];
+        assert_eq!(
+            texts_of(&lay_out(&items, Some(40.0), &BlockFont), text),
+            [vec!["ab "], vec!["cccccccccccc "], vec!["dd"]]
+        );
+        // Not where a line may not wrap.
+        let items = [wrapped(1, text, OverflowWrap::Anywhere, WhiteSpace::NoWrap)];
+        assert_eq!(
+            texts_of(&lay_out(&items, Some(40.0), &BlockFont), text).len(),
+            1
+        );
+    }
+
+    #[test]
+    fn a_word_after_another_boxs_text_is_cut_where_it_stands() {
+        // `aaa<span>bbbbbbbbbb</span>` is one word: two `b`s fit beside the
+        // `aaa` and it is cut there, as Chrome cuts it.
+        let items = [
+            wrapped(1, "aaa", OverflowWrap::BreakWord, WhiteSpace::Normal),
+            wrapped(2, "bbbbbbbbbb", OverflowWrap::BreakWord, WhiteSpace::Normal),
+        ];
+        let layout = lay_out(&items, Some(40.0), &BlockFont);
+        assert_eq!(
+            lines_of(&layout),
+            [vec!["1@0", "2@24"], vec!["2@0"], vec!["2@0"]]
+        );
+        let of_the_span: Vec<Option<std::ops::Range<usize>>> = layout
+            .fragments()
+            .filter(|fragment| fragment.box_id == box_id(2))
+            .map(|fragment| fragment.text.clone())
+            .collect();
+        assert_eq!(of_the_span, [Some(0..2), Some(2..7), Some(7..10)]);
+    }
+
+    #[test]
+    fn the_narrowest_lines_do_not_count_a_break_word_cut() {
+        let text = "ab cccccccccccc";
+        let narrowest = |wrap| {
+            let items = [wrapped(1, text, wrap, WhiteSpace::Normal)];
+            lay_out_narrowest(
+                &items,
+                TextAlignment::Start,
+                &TextStyle::default(),
+                &BlockFont,
+            )
+        };
+        let whole = narrowest(OverflowWrap::BreakWord);
+        assert!((whole.size.width - 96.0).abs() < 1e-4, "{:?}", whole.size);
+        assert!(!whole.cut_uncounted);
+        let letters = narrowest(OverflowWrap::Anywhere);
+        assert!(
+            (letters.size.width - 8.0).abs() < 1e-4,
+            "{:?}",
+            letters.size
+        );
+        assert_eq!(letters.lines.len(), 14);
+        // A definite width of nought is cut a letter a line under either.
+        let items = [wrapped(
+            1,
+            text,
+            OverflowWrap::BreakWord,
+            WhiteSpace::Normal,
+        )];
+        let nought = lay_out(&items, Some(0.0), &BlockFont);
+        assert_eq!(nought.lines.len(), 14);
+        assert!(nought.cut_uncounted, "a cut its min-content does not count");
+        let items = [wrapped(1, text, OverflowWrap::Anywhere, WhiteSpace::Normal)];
+        assert!(!lay_out(&items, Some(0.0), &BlockFont).cut_uncounted);
+    }
+
+    #[test]
+    fn spaces_kept_after_a_cut_word_hang_with_what_is_left_of_it() {
+        let text = "aaaaaaaaaaaa  bb";
+        let items = [wrapped(
+            1,
+            text,
+            OverflowWrap::BreakWord,
+            WhiteSpace::PreWrap,
+        )];
+        assert_eq!(
+            texts_of(&lay_out(&items, Some(40.0), &BlockFont), text),
+            [vec!["aaaaa"], vec!["aaaaa"], vec!["aa "], vec!["bb"]]
+        );
     }
 }

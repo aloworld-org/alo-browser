@@ -143,6 +143,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("min-width", &[Layout]),
     ("opacity", &[Paint, Svg]),
     ("overflow", &[Style, Layout, Paint]),
+    ("overflow-wrap", &[Layout]),
     ("overflow-x", &[Style, Layout, Paint]),
     ("overflow-y", &[Style, Layout, Paint]),
     ("padding", &[Layout]),

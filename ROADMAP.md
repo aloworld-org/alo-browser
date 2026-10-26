@@ -2448,7 +2448,8 @@ disappeared behind the larger.
       viewport takes neither scrolls nor clips (queue item 662). A
       `<textarea>` keeps its lines and is a scroll container, as Chrome
       155 computes it, so one holding more than it shows is scrolled (queue
-      item 663).
+      item 663), and cuts a word too long for its line onto the next, so
+      it is not scrolled across to it (queue item 666).
       · Owed: a list box that shows its options and scrolls to the rest
       (665), `text-overflow` on a box whose `overflow` the viewport takes
       (664); loading where a verb leads, which is

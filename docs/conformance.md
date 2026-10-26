@@ -106,7 +106,9 @@ and `a-text-area`. It keeps its lines (`pre-wrap`) and clips what passes
 its padding box (`overflow: auto`, an author's `visible` included), as
 Chrome 155 computes it (663), so `web-a-form` filled stands its label on
 the textarea's bottom edge, at the baseline it has empty, as Chrome does;
-a long word in it does not break yet (666). Its box is still `20ch` by `3em`, where Chrome's is
+a long word in it is cut onto its next line, Chrome's `overflow-wrap:
+break-word` (666), as is any box's under `break-word` or `anywhere`, every
+line and box of `a-word-cut-to-its-line` Chrome 155's to its 1/64 px. Its box is still `20ch` by `3em`, where Chrome's is
 `cols` and `rows` (523), so `web-a-form`'s is 10 px taller than
 Chrome's, and Chrome's resize grip is not drawn (522). A `<select>` is
 still a square solid pixel with no chevron (521), and a list box draws

@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A word too long for its line is cut onto the next where the page
+  asks.** `overflow-wrap: break-word` and `anywhere` were not read, so a
+  long word — a link, an address, a run of letters — ran past its box on
+  one line, and in a `<textarea>`, whose own sheet asks for
+  `break-word`, it was cut off at the edge and had to be scrolled across
+  to. Such a word now goes to the next line and is cut there between its
+  letters, as many a line as fit, as Chrome 155 cuts it; a box that
+  shrinks to fit its text stays as wide as the word under `break-word`
+  and may shrink to a letter under `anywhere`, as Chrome's does (item
+  666). The legacy name `word-wrap` is item 668.
+
 - **A `<textarea>` keeps its lines, and scrolls to the ones it cannot
   show.** Lines written into a `<textarea>` were run together into one,
   and nothing past its edge was cut off or could be scrolled to, so an

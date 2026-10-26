@@ -59,6 +59,7 @@ pub(crate) mod line_width;
 pub(crate) mod marker;
 pub mod measure;
 pub(crate) mod out_of_flow;
+pub mod overflow_wrap;
 pub mod placement;
 pub mod replaced;
 pub mod scroll_container;
@@ -84,6 +85,7 @@ pub use keyword::{
 pub use legend::Band;
 pub use line_height::used_line_height;
 pub use measure::{BlockFont, MeasureText, NoText, ScaledFont, TextStyle};
+pub use overflow_wrap::OverflowWrap;
 pub use placement::{GridLine, GridPlacement};
 pub use sizing::{AutoLength, MaxSizing, Sizing};
 pub use style::LayoutStyle;
