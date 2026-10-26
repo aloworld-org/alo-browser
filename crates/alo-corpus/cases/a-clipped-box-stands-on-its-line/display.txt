@@ -1,0 +1,77 @@
+fill box#1 rgb(255 255 255) at (8, 8) 284×599
+fill box#3 rgb(238 238 238) at (8, 8) 284×40
+text box#5 "Ab" rgb(0 0 0) 16px at (8, 43)
+fill box#6 rgb(204 204 221) at (29, 8) 30×40
+clip box#6 to (29, 8) 30×40
+text box#7 "ab" rgb(0 0 0) 16px at (29.109375, 23)
+text box#7 "cd" rgb(0 0 0) 16px at (29.109375, 43)
+unclip
+fill box#9 rgb(238 238 238) at (8, 58) 284×40
+text box#11 "Ab" rgb(0 0 0) 16px at (8, 93)
+fill box#12 rgb(204 204 221) at (29, 58) 30×40
+clip box#12 to (29, 58) 30×40
+text box#13 "ab" rgb(0 0 0) 16px at (29.109375, 73)
+text box#13 "cd" rgb(0 0 0) 16px at (29.109375, 93)
+unclip
+fill box#15 rgb(238 238 238) at (8, 108) 284×40
+text box#17 "Ab" rgb(0 0 0) 16px at (8, 143)
+fill box#18 rgb(204 204 221) at (29, 108) 30×40
+clip box#18 to (29, 108) 30×40
+text box#19 "ab" rgb(0 0 0) 16px at (29.109375, 123)
+text box#19 "cd" rgb(0 0 0) 16px at (29.109375, 143)
+unclip
+fill box#21 rgb(238 238 238) at (8, 158) 284×40
+text box#23 "Ab" rgb(0 0 0) 16px at (8, 193)
+fill box#24 rgb(204 204 221) at (29, 158) 30×20
+clip box#24 to (29, 158) 30×20
+text box#25 "ab" rgb(0 0 0) 16px at (29.109375, 173)
+text box#25 "cd" rgb(0 0 0) 16px at (29.109375, 193)
+unclip
+fill box#27 rgb(238 238 238) at (8, 208) 284×52
+text box#29 "Ab" rgb(0 0 0) 16px at (8, 246)
+fill box#30 rgb(204 204 221) at (29, 208) 36×46
+clip box#30 to (29, 208) 36×46
+text box#31 "ab" rgb(0 0 0) 16px at (32.109375, 226)
+text box#31 "cd" rgb(0 0 0) 16px at (32.109375, 246)
+unclip
+fill box#33 rgb(238 238 238) at (8, 270) 284×40
+text box#35 "Ab" rgb(0 0 0) 16px at (8, 295)
+fill box#36 rgb(204 204 221) at (29, 270) 30×40
+clip box#36 to (29, 270) 30×40
+text box#38 "ab" rgb(0 0 0) 16px at (29.109375, 295)
+unclip
+fill box#40 rgb(238 238 238) at (8, 320) 284×40
+text box#42 "Ab" rgb(0 0 0) 16px at (8, 355)
+fill box#43 rgb(204 204 221) at (29, 320) 30×40
+text box#45 "ab" rgb(0 0 0) 16px at (29.109375, 335)
+clip box#46 to (29, 340) 30×20
+text box#47 "cd" rgb(0 0 0) 16px at (29.109375, 355)
+unclip
+fill box#49 rgb(238 238 238) at (8, 370) 284×45
+text box#51 "Ab" rgb(0 0 0) 16px at (8, 410)
+fill box#52 rgb(204 204 221) at (29, 370) 30×40
+clip box#52 to (29, 370) 30×40
+text box#53 "ab" rgb(0 0 0) 16px at (29.109375, 385)
+text box#53 "cd" rgb(0 0 0) 16px at (29.109375, 405)
+unclip
+fill box#55 rgb(238 238 238) at (8, 425) 284×45
+text box#57 "Ab" rgb(0 0 0) 16px at (8, 465)
+fill box#58 rgb(204 204 221) at (29, 425) 30×40
+clip box#58 to (29, 425) 30×40
+text box#59 "ab" rgb(0 0 0) 16px at (29.109375, 440)
+text box#59 "cd" rgb(0 0 0) 16px at (29.109375, 460)
+unclip
+fill box#61 rgb(238 238 238) at (8, 480) 284×56
+text box#63 "Ab" rgb(0 0 0) 16px at (8, 518)
+fill box#64 rgb(0 0 0) at (29, 480) 86×56
+clip box#64 to (30, 481) 84×54
+text box#65 "Ring" rgb(0 0 0) 16px at (32.109375, 498)
+text box#65 "twice" rgb(0 0 0) 16px at (32.109375, 518)
+unclip
+fill box#68 rgb(238 238 238) at (8, 546) 284×61
+text box#70 "Ab" rgb(0 0 0) 16px at (8, 602)
+fill box#71 rgb(0 0 0) at (29, 546) 86×56
+clip box#71 to (30, 547) 84×54
+text box#72 "Ring" rgb(0 0 0) 16px at (32.109375, 564)
+text box#72 "twice" rgb(0 0 0) 16px at (32.109375, 584)
+unclip

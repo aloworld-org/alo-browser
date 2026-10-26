@@ -145,7 +145,7 @@ value's, an inline-block on its last line of text — and an `<input>` with
 nothing typed in it on the line it would hold, its strut's baseline, so it
 stands where it will once typed into (item 384; an empty button and
 `<textarea>` do not, and a `<textarea>` written in does not either, being a
-scroll container, item 663) — and on its bottom margin edge when it has no line or its `overflow` is not `visible`, which is where an
+scroll container, item 663) — and on its bottom margin edge when it has no line or is a scroll container (`hidden`, `scroll` or `auto` on an axis; under `clip` it keeps its line, as Chrome 155's does, every row of `a-clipped-box-stands-on-its-line` Chrome's to its 1/64 px, item 667, and an empty `<textarea>` under `clip` does not yet, 669), which is where an
 image and an SVG stand. A **checkbox and a radio** stand on their bottom
 *border* edge, as Chrome 154 stands them, below the user-agent sheet's 3
 pixels of margin (item 443). Chrome ignores an author's padding and border

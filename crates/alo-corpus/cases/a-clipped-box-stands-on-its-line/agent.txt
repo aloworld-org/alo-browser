@@ -1,0 +1,26 @@
+document at (0, 0) 300×617
+  text "Ab" at (8, 28) 21.109375×19
+  text "ab cd" at (29.109375, 8) 19.96875×39 in 2 pieces
+  text "Ab" at (8, 78) 21.109375×19
+  text "ab cd" at (29.109375, 58) 19.96875×39 in 2 pieces
+  text "Ab" at (8, 128) 21.109375×19
+  text "ab cd" at (29.109375, 108) 19.96875×39 in 2 pieces
+  text "Ab" at (8, 178) 21.109375×19
+  text "ab cd" at (29.109375, 158) 19.96875×39 in 2 pieces
+  text "Ab" at (8, 231) 21.109375×19
+  text "ab cd" at (32.109375, 211) 19.96875×39 in 2 pieces
+  text "Ab" at (8, 280) 21.109375×19
+  text "ab" at (29.109375, 280) 22.25×19
+  text "Ab" at (8, 340) 21.109375×19
+  text "ab" at (29.109375, 320) 19.96875×19
+  text "cd" at (29.109375, 340) 18.953125×19
+  text "Ab" at (8, 395) 21.109375×19
+  text "ab cd" at (29.109375, 370) 19.96875×39 in 2 pieces
+  text "Ab" at (8, 450) 21.109375×19
+  text "ab cd" at (29.109375, 425) 19.96875×39 in 2 pieces
+  text "Ab" at (8, 503) 21.109375×19
+  textbox at (29.109375, 480) 86×56
+    text "Ring twice" at (32.109375, 483) 48.171875×39 in 2 pieces
+  text "Ab" at (8, 587) 21.109375×19
+  textbox at (29.109375, 546) 86×56
+    text "Ring twice" at (32.109375, 549) 48.171875×39 in 2 pieces

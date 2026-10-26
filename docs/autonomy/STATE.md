@@ -42046,3 +42046,102 @@ changelog say the same.
 300 queue items are open (666 closed, 668 opened). The next unused queue
 number is **669** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 412 — queue item 667: a box under `overflow: clip` stands on its line
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the agent's gate and the Forms line), the queue's product path and
+items 665, 666, 667, 668 and 664, iteration 411's entry; `docs/features.md`'s
+inline-block baseline and form-control lines; `docs/conformance.md`;
+`alo-layout`'s `baseline.rs`, `scroll_container.rs` and `engine.rs`'s empty
+field's line; `alo-style`'s user-agent sheet for a `<textarea>`; queue items
+510, 522 and 525 for the textarea's picture. No `AGENTS.md` exists in the
+repository. 667 names no ADR; its feature contract is `docs/features.md`
+stage 1, "An inline-block's baseline is its last line's".
+
+**Why 667.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start and
+after the gate, so 642 (the owner's next choice), 643 and 658 could not be
+measured, and 477 needs a second Mac. 665 depends on 521, which is open;
+668 waits for a page. 667 is the next open item in the queue's order and
+depends on nothing.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill loop,
+`DejaVu Sans` from the `dejavu` crate via `@font-face` on every element, the
+case's sheet linked after the doctype, `getBoundingClientRect` in
+sixty-fourths. A box under `overflow: clip`, `overflow-x: clip` or
+`overflow-y: clip` beside `visible` stands on its last line as under
+`visible`, and still does when its height cuts that line off (the label
+hangs below the box); an `inline-flex` under `clip` stands on its item's
+line; a block under `clip` inside an `inline-block` is searched into. Under
+`overflow-x: clip; overflow-y: hidden` (computed `hidden`/`hidden`) it stands
+on its bottom margin edge, as does a `<textarea>` under `overflow-x: clip`
+beside its sheet's `auto` (computed `hidden`/`auto`). A `<textarea>` under
+`clip` stands on its last line — and an *empty* one under `clip` stands on
+a line too (cut to 669). A block under `hidden` inside an `inline-block`
+put the box on its bottom edge in this probe, which this engine's refusal
+already gives.
+
+**Built.** `baseline.rs` refuses a box only when it is a scroll container by
+its style — `scroll_container.rs`'s `scrolls_by_its_style`, now
+`pub(crate)`: `hidden`, `scroll` or `auto` on an axis — where it refused
+every `overflow` but `visible`. The module comment says what was measured.
+
+**Tests.** `numbers.rs`'s `an_inline_block_under_clip_stands_on_its_last_line`
+(four `clip` forms, the cut-off line, `clip` beside `hidden`, `inline-flex`
+and a block under `clip` inside). `alo-corpus`'s new
+`cases/a-clipped-box-stands-on-its-line` (eleven rows, a label beside a box)
+and `a_clipped_box_stands_on_its_line.rs`: each row's top and height, the
+label's top and the box's border box, Chrome's to 1/64 px. Mutation: the
+old rule put back (restored from a copy, checked with `cmp`) fails the case
+test at `#clip`, its row 45 tall where Chrome's is 40.
+
+**Gate.** `cargo clippy --workspace --all-targets --all-features` clean, and
+`alo-layout`'s `--lib` tests passed. Then `scripts/gate.sh` in the
+foreground — it ran past the tool's 600 s, was waited on by an until-loop
+in the next call and read there: **exit 0, "The gate is met." (10 of 10
+steps)**, nextest **5,409 tests run, 5,409 passed** in 579.3 s, no `FAIL`,
+`LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the two tests above. Reference
+render: the new case's `render.png`, written by `ALO_UPDATE_REFERENCES=1`
+after a run without it showed only the new case missing its files — no
+other case's references moved (one other case writes `overflow: clip`,
+`clips-on-device-pixels`, and is unchanged). Chrome's screenshot of the same
+bytes (antialiased, not committed) puts every box and label in the same
+place; it differs in letters' edges, in the textareas' white fill (525: a
+page's border takes the field's picture away here) and in the resize grip
+of the `auto` one (522). One file, one responsibility: what makes a scroll
+container stays `scroll_container.rs`'s, and `baseline.rs` asks it rather
+than restating it. No bytes from outside read anew. No `unsafe`, no stubs,
+no verb taking a coordinate. `alo-os` and `alo-workplace` untouched.
+Nothing pushed.
+
+**Roadmap.** No line moved, and that is the answer: 667 corrects a rule
+within stage 1's ticked **Layout** line (where an atomic inline box
+stands), and changes no verb, scroll or form behaviour the agent's gate or
+the Forms line names — a `<textarea>` under `clip` was already not a scroll
+container. Not ticked anywhere. The queue ticks 667 with a *Done* paragraph
+and opens 669; `features.md`, `conformance.md`, `REMAINING.md` and the
+changelog say the same.
+
+**Unresolved obligations.**
+- 669: an empty `<textarea>` under `clip` stands on its bottom edge, where
+  Chrome stands it on a line.
+- 668: `word-wrap` waits for a page; 452: a word across two boxes; 665 waits
+  on 521; 664: `text-overflow` on a box whose `overflow` the viewport takes;
+  523: the textarea's `cols` and `rows`; 522 and 525 as above.
+- CSS's computed `overflow` (`visible` to `auto` beside a scrolling axis)
+  is still not applied to what `taffy` is given (iteration 408's note); the
+  baseline test reads either axis, so it does not depend on it.
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 649 and 650 are open.
+- Inherited and unchanged: off macOS the toggling click holds Ctrl,
+  unmeasured; an author's `option { display: block }` is undecided; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; item 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (667 closed, 669 opened). The next unused queue
+number is **670** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.

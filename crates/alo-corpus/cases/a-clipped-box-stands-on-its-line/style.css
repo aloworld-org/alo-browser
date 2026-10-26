@@ -1,0 +1,41 @@
+/* An inline block under `overflow: clip` is no scroll container, so it
+   stands on its last line, as under `visible`: queue item 667, measured in
+   Chrome 155 (crates/alo-layout/src/baseline.rs). Every row is a label,
+   "Ab", beside one box 30 wide holding two lines of 20.
+   - #clip, #clip-x, #clip-y: `clip` on both axes, or on one beside
+     `visible`: the label stands on the box's second line.
+   - #cut-off: 20 tall, so its second line is cut off; it stands on that
+     line all the same, and the label hangs below the box.
+   - #edged: padding and a bottom margin under `clip`.
+   - #flex: an `inline-flex` under `clip` stands on its item's line.
+   - #inside: a block under `clip` inside an inline block is searched into.
+   - #hidden, #clip-hidden: `hidden` makes a scroll container, which stands
+     on its bottom margin edge, and `clip` beside it computes as `hidden`.
+   - #text-area: a `<textarea>` under `clip` stands on its last line;
+     #text-area-auto, under `overflow-x: clip` beside the sheet's `auto`,
+     is a scroll container and stands on its bottom edge. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 16px;
+  line-height: 20px;
+}
+.row {
+  margin-bottom: 10px;
+  background: #eeeeee;
+}
+.b {
+  display: inline-block;
+  width: 30px;
+  background: #ccccdd;
+}
+textarea {
+  width: 80px;
+  height: 50px;
+  padding: 2px;
+  border: 1px solid #000000;
+  font-size: 16px;
+  line-height: 20px;
+  margin: 0;
+}

@@ -17080,7 +17080,7 @@ What stage 2's exit gate actually measures: a person using it.
   when:* a frozen page that writes `word-wrap` is cut as Chrome cuts it,
   or the refusal is written down where the cascade's aliases are.
 
-- [ ] **667. An inline block of `overflow: clip` stands on its first
+- [x] **667. An inline block of `overflow: clip` stands on its first
   line.** *Found building 663 (iteration 410).* Chrome 155 stands a
   `<textarea style="overflow: clip">` holding "Ring twice" beside a label
   on its first line (the label's top 1 px below the box's), where under
@@ -17091,6 +17091,45 @@ What stage 2's exit gate actually measures: a person using it.
   an `inline-block` `div` and a `<textarea>` under `overflow: clip` (and
   `overflow-x: clip` beside `visible`) are measured in Chrome and stand
   where Chrome stands them, in numbers.
+  **Done (iteration 412).** Measured against Chrome 155.0.8059.86,
+  headless, with the corpus's `DejaVu Sans`: `clip` makes no scroll
+  container, and the box stands on its *last* line, as under `visible`
+  (the title's "first" was a one-line textarea's, where they are one) —
+  under `overflow: clip`, `overflow-x: clip` or `overflow-y: clip` beside
+  `visible`, and when its height cuts that line off; an `inline-flex`
+  under `clip` stands on its first item's line, and a block under `clip`
+  inside an `inline-block` is searched into. Under `overflow-x: clip;
+  overflow-y: hidden` (computed `hidden` on both) it stands on its bottom
+  margin edge, as a `<textarea>` under `overflow-x: clip` beside its
+  sheet's `auto` does. `alo-layout`'s `baseline.rs` now refuses only a
+  box `scroll_container.rs`'s `scrolls_by_its_style` calls a scroll
+  container, where it refused every `overflow` but `visible`.
+  `cases/a-clipped-box-stands-on-its-line` holds eleven rows, a label
+  beside a box, and `alo-corpus`'s `a_clipped_box_stands_on_its_line.rs`
+  asserts each row's top and height, the label's top and the box's border
+  box against Chrome's to 1/64 px; with the old rule put back it fails
+  (`#clip`'s row 45 tall, Chrome's 40). `numbers.rs`'s
+  `an_inline_block_under_clip_stands_on_its_last_line` pins the same with
+  the test font. The case's `render.png` is the reference render; Chrome's
+  screenshot of it differs only in letters' edges, the textareas' white
+  (525) and the grip (522). No other case moved. Cut: an empty
+  `<textarea>` under `clip`, item 669.
+
+- [ ] **669. An empty `<textarea>` under `overflow: clip` stands on a
+  line.** *Cut from 667 (iteration 412).* Chrome 155 stands an empty
+  `<textarea style="overflow: clip">` beside a label exactly where it
+  stands one holding "Ring twice": on the baseline of the line it would
+  hold (label and box tops level, with a 16 px label of line 20 beside a
+  13.33 px textarea of padding 2 and border 1). Here an empty textarea
+  records no line (`engine.rs`'s `record_an_empty_field` is for a
+  one-line field only), so under `clip` it stands on its bottom margin
+  edge. Under the sheet's `auto` it is a scroll container and the answer
+  is the same either way. *Depends on nothing. Feature:
+  `docs/features.md` stage 1, the inline-block baseline line. Needs
+  measuring:* where the empty line stands in a textarea of `normal` line
+  height, and whether an empty `<button>` does likewise. *Closes when:* an
+  empty `<textarea>` under `clip` stands where Chrome stands it, in
+  numbers, in a corpus case.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of

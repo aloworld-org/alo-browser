@@ -8,9 +8,20 @@
 //! line box in normal flow** — a button on its label's, a text field on its
 //! value's, an inline-block of text on its last line's — so a button beside a
 //! sentence reads as part of it rather than standing a descent above it. Only
-//! when there is no such line, or the box's own `overflow` is not `visible`,
-//! is the baseline its **bottom margin edge**, which is also where a picture
-//! and an SVG stand: they have no lines at all.
+//! when there is no such line, or the box is a scroll container, is the
+//! baseline its **bottom margin edge**, which is also where a picture and an
+//! SVG stand: they have no lines at all.
+//!
+//! **`overflow: clip` makes no scroll container, and keeps the line.**
+//! Measured against Chrome 155 (queue item 667): an `inline-block` of two
+//! lines under `overflow: clip`, `overflow-x: clip` or `overflow-y: clip`
+//! beside `visible` stands on its last line, as under `visible` — even when
+//! its height cuts that line off, so the line it stands on is one nobody
+//! sees; an `inline-flex` under `clip` stands on its first item's, and a
+//! block under `clip` inside an `inline-block` is searched into. Under
+//! `hidden`, `scroll` or `auto` on either axis — `overflow-x: clip;
+//! overflow-y: hidden` among them — the box stands on its bottom margin
+//! edge. The test is [`crate::scroll_container`]'s, on the box's style.
 //!
 //! An **`inline-flex`** box stands on its *first* baseline, which CSS
 //! Flexbox 1 § 8.5 takes from its items: the first item's own first
@@ -30,7 +41,10 @@
 //! `<textarea>` with lines in it stands on its bottom margin edge as well,
 //! because it is a scroll container (`overflow: auto`): Chrome 155 stands
 //! one holding "Ring twice" beside a label exactly where it stands an empty
-//! one, under `auto` and `hidden` (queue item 663, measured).
+//! one, under `auto` and `hidden` (queue item 663, measured). Under `clip` it
+//! is no scroll container and stands on its last line (item 667); an empty
+//! one under `clip` stands on a line in Chrome too, and here on its bottom
+//! edge still (item 669).
 //!
 //! A **checkbox and a radio** have no line and stand on their bottom
 //! *border* edge instead, which is where Chrome 154 stands them: with the
@@ -58,13 +72,15 @@
 //!   whose last child is one — whose last baseline is its last item's;
 //! - a **row of flex items any of which is aligned on its baseline**, where
 //!   the container's baseline is the line those items share (item 396);
-//! - a **scroll container**, whose baseline browsers do not agree on.
+//! - a **scroll container**, whose baseline browsers do not agree on
+//!   (a box under `clip` is not one, above).
 //!
 //! `order` is not read by this engine, so "the first item" is the first in
 //! document order, which is where `order` would leave it.
 
 use crate::engine;
-use crate::keyword::{Alignment, FlexDirection, Overflow, Positioning};
+use crate::keyword::{Alignment, FlexDirection, Positioning};
+use crate::scroll_container;
 use crate::style::{self, LayoutStyle};
 use crate::tree::BoxGeometry;
 use alo_box::{BoxId, BoxTree, Inside};
@@ -166,8 +182,7 @@ impl LaidOut<'_> {
         }
         let held = self.style_of(id);
         if let Some(held) = &held
-            && (held.overflow.horizontal != Overflow::Visible
-                || held.overflow.vertical != Overflow::Visible)
+            && scroll_container::scrolls_by_its_style(held)
         {
             return Found::Refused;
         }

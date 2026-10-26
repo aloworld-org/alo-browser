@@ -1,0 +1,63 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "ab cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "ab cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "ab cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "ab cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "ab cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flex · generic
+        inline flow · generic
+          text "ab"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        block flow · generic
+          text "ab"
+        block flow · generic
+          text "cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "ab cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "ab cd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring\ntwice"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring\ntwice"

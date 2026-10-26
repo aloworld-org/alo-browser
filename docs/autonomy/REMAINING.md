@@ -3232,3 +3232,13 @@ from it: 668 (`word-wrap`). The screen was locked, so 642, 643 and 658
 still wait on it, and 665 waits on 521. 300 queue items are open (666
 closed, 668 opened). The next unused queue number is 669 and the next
 unused ADR 0065.
+
+Iteration 412 closed queue item 667: an inline block under `overflow: clip`
+— on both axes, or on one beside `visible` — is no scroll container and
+stands on its last line, as Chrome 155 stands it, even a line its height
+cuts off; only `hidden`, `scroll` or `auto` on an axis puts it on its bottom
+edge. Every row of the new `a-clipped-box-stands-on-its-line` case is
+Chrome's to 1/64 px. Cut from it: 669 (an empty `<textarea>` under `clip`).
+The screen was locked, so 642, 643 and 658 still wait on it; 665 waits on
+521 and 668 on a page. 300 queue items are open (667 closed, 669 opened).
+The next unused queue number is 670 and the next unused ADR 0065.

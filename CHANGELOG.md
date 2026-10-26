@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box that clips its content still lines up with the text beside
+  it.** An inline block under `overflow: clip` stood on its bottom edge,
+  as a box that scrolls does, so the label beside it dropped to the
+  bottom of the box and its row grew by a descent. `clip` makes nothing
+  scrollable, and Chrome 155 stands such a box on its last line of text,
+  as it would under `visible` — a `<textarea>` under `clip` included —
+  and now this engine does too (item 667). An empty `<textarea>` under
+  `clip` is item 669.
+
 - **A word too long for its line is cut onto the next where the page
   asks.** `overflow-wrap: break-word` and `anywhere` were not read, so a
   long word — a link, an address, a run of letters — ran past its box on

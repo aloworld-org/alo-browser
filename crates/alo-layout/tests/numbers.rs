@@ -2333,6 +2333,69 @@ fn an_inline_block_with_no_line_or_hidden_overflow_stands_on_its_bottom_edge() {
     assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 24.0));
 }
 
+/// Item 667: `overflow: clip` makes no scroll container, so a box under it
+/// stands on its last line as under `visible`, as Chrome 155 stands it; only
+/// `hidden`, `scroll` or `auto` on an axis puts it on its bottom edge.
+#[test]
+fn an_inline_block_under_clip_stands_on_its_last_line() {
+    // Two lines in a box 16 wide: the second's baseline is 28 down, so the
+    // text beside it is at 16 and the line 32.
+    let html = "<body><div id=w><span id=t>ab </span><span id=i>cd ef</span></div></body>";
+    for overflow in [
+        "overflow: clip",
+        "overflow-x: clip",
+        "overflow-y: clip",
+        "overflow: clip; height: 16px",
+    ] {
+        let css = format!("#i {{ display: inline-block; width: 16px; {overflow} }}");
+        let (boxes, layout) = lay_out_measured(html, &css, Size::new(400.0, 300.0), &ScaledFont);
+        assert_eq!(
+            rect_of(&boxes, &layout, "t", html),
+            Rect::new(0.0, 16.0, 24.0, 16.0),
+            "{overflow}"
+        );
+        assert!(
+            close(rect_of(&boxes, &layout, "w", html).size.height, 32.0),
+            "{overflow}"
+        );
+    }
+    // Cut off at 16, the box still stands on the line it cut off.
+    let css = "#i { display: inline-block; width: 16px; overflow: clip; height: 16px }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 16.0, 16.0)
+    );
+
+    // `clip` beside `hidden` computes as `hidden`: a scroll container, on its
+    // bottom edge at 32, so the text is at 20 and the line 36.
+    let css = "#i { display: inline-block; width: 16px; overflow-x: clip; overflow-y: hidden }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 20.0, 24.0, 16.0)
+    );
+
+    // An `inline-flex` under `clip` stands on its centred item's line, 12
+    // down in 40, and a block under `clip` inside an `inline-block` is
+    // searched into for the last line.
+    let css = "#i { display: inline-flex; height: 40px; align-items: center; overflow: clip }";
+    let html_flex = "<body><div id=w><span id=t>ab </span><a id=i><b>cd</b></a></div></body>";
+    let (boxes, layout) = lay_out_measured(html_flex, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_flex),
+        Rect::new(0.0, 12.0, 24.0, 16.0)
+    );
+    let css = "#i { display: inline-block } p { margin: 0 } #e { overflow: clip }";
+    let html_inside = "<body><div id=w><span id=t>ab </span>\
+                       <span id=i><p>cd</p><p id=e>ef</p></span></div></body>";
+    let (boxes, layout) = lay_out_measured(html_inside, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_inside),
+        Rect::new(0.0, 16.0, 24.0, 16.0)
+    );
+}
+
 /// Item 395: an `inline-flex` box stands on its first item's first baseline
 /// (CSS Flexbox 1 § 8.5), not on its bottom edge. alo Sites' menu links are
 /// `inline-flex` and 44 tall with their text centred, and standing on their

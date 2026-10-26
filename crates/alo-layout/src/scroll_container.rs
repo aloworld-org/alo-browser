@@ -84,8 +84,9 @@ fn is_a_scroll_container(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> bool
 }
 
 /// Whether `overflow` makes a box a scroll container: `hidden`, `scroll` or
-/// `auto` on either axis.
-fn scrolls_by_its_style(style: &LayoutStyle) -> bool {
+/// `auto` on either axis. `clip` is not, on either axis or both, and neither
+/// is `visible`; [`crate::baseline`] asks the same of an atomic inline.
+pub(crate) fn scrolls_by_its_style(style: &LayoutStyle) -> bool {
     let scrolls = |overflow: Overflow| {
         matches!(
             overflow,
