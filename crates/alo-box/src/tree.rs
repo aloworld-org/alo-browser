@@ -1648,9 +1648,19 @@ fn given_to(document: &Document, styles: &StyleTree, element: NodeId, value: &st
 ///
 /// `white-space` inherits and a text node has no style of its own, so the
 /// answer comes from the element holding it — the same walk a text box's font
-/// takes, and for the same reason.
+/// takes, and for the same reason. A `<textarea>`'s text keeps every space and
+/// newline whatever that says ([`WhiteSpace::in_a_text_area`]).
 fn white_space_of(document: &Document, styles: &StyleTree, id: NodeId) -> WhiteSpace {
-    white_space_at(styles, document, document.parent(id))
+    let holder = document.parent(id);
+    let white_space = white_space_at(styles, document, holder);
+    if holder
+        .and_then(|holder| document.element(holder))
+        .is_some_and(|element| element.name.is_html("textarea"))
+    {
+        white_space.in_a_text_area()
+    } else {
+        white_space
+    }
 }
 
 /// The `white-space` of an element, inherited from the nearest ancestor that
@@ -2608,6 +2618,35 @@ mod tests {
         // text field still shows nothing.
         assert!(shown("<input type=time>").is_empty());
         assert!(shown("<input>").is_empty());
+    }
+
+    /// Queue item 673: a `<textarea>` keeps every space and newline of its
+    /// text whatever its `white-space` says, as Chrome 155 does, while a box
+    /// under the same value collapses them as it always has.
+    #[test]
+    fn a_text_area_keeps_its_text_whatever_its_white_space() {
+        let texts = |html: &str, css: &str| -> Vec<String> {
+            let tree = boxes(html, css);
+            let Some(root) = tree.root() else {
+                return Vec::new();
+            };
+            tree.descendants(root)
+                .into_iter()
+                .filter_map(|id| tree.get(id).and_then(BoxNode::text).map(str::to_owned))
+                .collect()
+        };
+        for value in ["normal", "nowrap", "pre-line", "pre", "pre-wrap"] {
+            let css = format!("textarea, p {{ white-space: {value} }}");
+            assert_eq!(
+                texts("<textarea>ab   c\n  d</textarea>", &css),
+                ["ab   c\n  d"],
+                "{value}"
+            );
+        }
+        let css = "p { white-space: normal }";
+        assert_eq!(texts("<p>ab   c\n  d</p>", css), ["ab c d"]);
+        let css = "p { white-space: pre-line }";
+        assert_eq!(texts("<p>ab   c\n  d</p>", css), ["ab c\nd"]);
     }
 
     /// The hints a document's fields show, in order: the text of every box

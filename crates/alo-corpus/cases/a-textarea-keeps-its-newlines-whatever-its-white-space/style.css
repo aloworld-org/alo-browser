@@ -1,0 +1,34 @@
+/* A `<textarea>` keeps every space and newline of its text whatever its
+   `white-space` says, and wraps only where that says it may: queue item 673,
+   measured in Chrome 155 (crates/alo-box/src/whitespace.rs,
+   `WhiteSpace::in_a_text_area`). Every row is a label, "Ab", beside one
+   textarea, under `normal`, `nowrap`, `pre-line`, `pre` and `pre-wrap` in
+   turn, under `overflow: clip` (where the label stands on its last line)
+   and `auto` (how far it scrolls).
+   - newline: `a`, a newline and `b` are two lines under every value.
+   - spaces: `ab`, six spaces and `c` are nine characters, wider than the
+     box, so they wrap onto a second line where wrapping is allowed and run
+     past the edge on one line where it is not.
+   - words: `Ring Ring Ring` is three lines, or one line past the edge.
+   - indent: `a`, a newline, ten spaces and `b` — the spaces a line begins
+     with are kept, and are a line of their own where it wraps. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 16px;
+  line-height: 20px;
+}
+.row {
+  margin-bottom: 10px;
+  background: #eeeeee;
+}
+.sized {
+  width: 80px;
+  height: 50px;
+  padding: 2px;
+  border: 1px solid #000000;
+  font-size: 16px;
+  line-height: 20px;
+  margin: 0;
+}

@@ -10582,6 +10582,11 @@ The long pole, and the thing most of section E is unreachable without.
   line — Chrome 155 makes `<div style="white-space: pre-wrap"> </div>`
   20 tall and `a`, a newline and two spaces two lines, and this engine
   0 and one — and a frozen page's blank line of code.
+  *Seen again (iteration 417, item 673):* a `<textarea>` of `pre-wrap`
+  80 px wide holding `a`, a newline, ten spaces and `b` is three lines in
+  Chrome 155 — the spaces, wider than the line, hang on one of their own
+  and `b` goes to a third — and two here, so that row was left out of
+  `cases/a-textarea-keeps-its-newlines-whatever-its-white-space`.
 
 - [x] **412. A monospace face in the corpus.** *Opened by
   `alo-sites-rich-blocks` (iteration 264); `alo-downloads` has said the
@@ -17235,7 +17240,7 @@ What stage 2's exit gate actually measures: a person using it.
   with no newline after it is still no line there. Cut: a textarea keeps
   its newlines whatever its `white-space`, item 673.
 
-- [ ] **673. A `<textarea>` keeps its newlines whatever its
+- [x] **673. A `<textarea>` keeps its newlines whatever its
   `white-space`.** *Cut from 670 (iteration 416).* Measured against
   Chrome 155.0.8059.86 with `DejaVu Sans`: a `<textarea style="overflow:
   clip">` 80 by 50 with a line of 20 holding `a`, a newline and `b`
@@ -17250,6 +17255,54 @@ What stage 2's exit gate actually measures: a person using it.
   `docs/features.md` stage 1, forms and `white-space`. Closes when:* a
   textarea under each `white-space` holds Chrome's lines, measured and
   asserted in numbers, in a corpus case.
+  **Done (iteration 417).** Measured against Chrome 155.0.8059.86,
+  headless, the labels in `DejaVu Sans` and the textareas in `DejaVu Sans
+  Mono` loaded before measuring, three runs alike: in a textarea **every
+  space, tab and newline is kept under every `white-space`** —
+  `getComputedStyle` still reads the author's `normal`, `nowrap` or
+  `pre-line` — and **it wraps only where that value says**: `ab`, six
+  spaces and `c` are two lines under `normal`, `pre-line` and `pre-wrap`
+  and one line 88.7 px past the left padding under `nowrap` and `pre`
+  (`scrollWidth` 89); `Ring Ring Ring` three lines or one (137); ten
+  spaces opening a line are kept (108). Built: `alo-box`'s
+  `WhiteSpace::in_a_text_area` (`pre-wrap` where the value wraps, `pre`
+  where it does not), used by `tree.rs`'s `white_space_of` for a
+  textarea's text and by `alo-layout`'s `text_style_for` for that text
+  and the inside holding its lines, never its `::placeholder`; the
+  computed style is left as Chrome computes it.
+  `cases/a-textarea-keeps-its-newlines-whatever-its-white-space` holds 34
+  rows, each `white-space` under `clip` and `auto`, and
+  `a_textarea_keeps_its_newlines_whatever_its_white_space.rs` asserts
+  each row's top and height, the label's top and the textarea's border
+  box against Chrome's to 1/64 px, and each scrolling textarea's height
+  against its `scrollHeight` and its lines' reach across against its
+  `scrollWidth`. Unit tests in `whitespace.rs` and `tree.rs`. Each reader
+  put back (restored from a copy, checked with `cmp`) fails the case —
+  the box tree's at `normal-newline-clip` (label 11, Chrome's 31) and
+  layout's at `nowrap-indent-auto` (117.6 across, Chrome's 108). No other
+  case moved. Chrome's screenshot of the same bytes puts every line and
+  label in the same place and differs in the textareas' white (525) and
+  grips (522). Not in the case, each for a reason: a textarea's
+  scrolling area across holds its right padding here and not in Chrome
+  (item 674, opened); ten kept spaces wrapped onto a line of their own
+  are a line in Chrome and none here (411's, told so); this engine has no
+  tab stops anywhere, so a tab is not asserted, and no page has asked.
+
+- [ ] **674. A `<textarea>` scrolls across no further than its lines.**
+  *Cut from 673 (iteration 417).* Measured against Chrome 155.0.8059.86
+  with `DejaVu Sans Mono`: a `<textarea style="white-space: nowrap;
+  overflow: auto">` 80 wide with 2 px of padding holding `ab`, six spaces
+  and `c` (86.70 px of line) has a `scrollWidth` of 89, `Ring Ring Ring`
+  (134.86) 137 and `a`, a newline, ten spaces and `b` (105.96) 108 — its
+  left padding and its lines, rounded, and **no padding after them**.
+  This engine's scrolling area is 2 px wider in each (90.70, 138.86,
+  109.96): it adds the inline-end padding, as CSS Overflow 3 asks of a
+  block container and as this engine does for every box. Whether Chrome
+  adds it for a `div` under `overflow: auto` and only leaves it out for a
+  textarea's inner editor is unmeasured, and decides where the rule
+  goes. *Depends on nothing. Feature: `docs/features.md` stage 1, forms
+  and overflow. Closes when:* a textarea's scrolling area across is
+  Chrome's, and a `div`'s is still Chrome's, in numbers, in a corpus case.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of

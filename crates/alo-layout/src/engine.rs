@@ -686,10 +686,24 @@ fn added(left: Edges, right: Edges) -> Edges {
 /// inherits everything from the element that holds it, so that is the element
 /// to ask. Passing this to the measurer per box rather than once per document
 /// is what makes a heading and a caption on the same page different sizes.
+///
+/// A `<textarea>`'s text, and the inside that holds its lines, keep every
+/// space and newline whatever its `white-space` says, as the box tree kept
+/// them (`alo_box::WhiteSpace::in_a_text_area`); its `::placeholder` is a
+/// hint with a style of its own, and is left to it.
 fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
-    boxes
+    let mut style = boxes
         .nearest_style(styles, id)
-        .map_or_else(TextStyle::default, text_style_of)
+        .map_or_else(TextStyle::default, text_style_of);
+    let in_a_text_area = holds_a_text_areas_lines(boxes, id)
+        || boxes
+            .get(id)
+            .and_then(|node| node.parent)
+            .is_some_and(|parent| holds_a_text_areas_lines(boxes, parent));
+    if in_a_text_area && !boxes.is_placeholder(id) {
+        style.white_space = style.white_space.in_a_text_area();
+    }
+    style
 }
 
 /// Whether an inline-level box is laid out on its own rather than joining the

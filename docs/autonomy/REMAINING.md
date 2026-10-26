@@ -3285,3 +3285,14 @@ it: 673 (a textarea keeps its newlines whatever its `white-space`). The
 screen was locked, so 642, 643 and 658 still wait on it; 665 waits on 521
 and 668 on a page. 300 queue items are open (670 closed, 673 opened). The
 next unused queue number is 674 and the next unused ADR 0065.
+
+Iteration 417 closed queue item 673: a `<textarea>` keeps every space and
+newline of its text whatever its `white-space`, and wraps only where that
+value says, as Chrome 155 does — `alo-box`'s `WhiteSpace::in_a_text_area`,
+read by the box tree and by layout. Every row of the new
+`a-textarea-keeps-its-newlines-whatever-its-white-space` case is Chrome's
+to 1/64 px. Cut from it: 674 (a textarea's scrolling area across holds no
+right padding in Chrome). The screen was locked, so 642, 643 and 658 still
+wait on it; 665 waits on 521 and 668 on a page. 300 queue items are open
+(673 closed, 674 opened). The next unused queue number is 675 and the next
+unused ADR 0065.

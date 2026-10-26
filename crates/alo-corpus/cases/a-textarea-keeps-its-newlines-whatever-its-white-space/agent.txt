@@ -1,0 +1,103 @@
+document at (0, 0) 300×2358
+  text "Ab" at (8, 31) 21.109375×19
+  textbox at (29.109375, 8) 86×56
+    text "a b" at (32.109375, 11) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 115) 21.109375×19
+  textbox at (29.109375, 74) 86×56
+    text "a b" at (32.109375, 77) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 168) 21.109375×19
+  textbox at (29.109375, 145) 86×56
+    text "ab c" at (32.109375, 148) 19.265625×39 in 2 pieces
+  text "Ab" at (8, 252) 21.109375×19
+  textbox at (29.109375, 211) 86×56
+    text "ab c" at (32.109375, 214) 19.265625×39 in 2 pieces
+  text "Ab" at (8, 325) 21.109375×19
+  textbox at (29.109375, 282) 86×56
+    text "Ring Ring Ring" at (32.109375, 285) 38.53125×59 in 3 pieces
+  text "Ab" at (8, 396) 21.109375×19
+  textbox at (29.109375, 355) 86×56
+    text "Ring Ring Ring" at (32.109375, 358) 38.53125×59 in 3 pieces
+  text "Ab" at (8, 449) 21.109375×19
+  textbox at (29.109375, 426) 86×56
+    text "a b" at (32.109375, 429) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 533) 21.109375×19
+  textbox at (29.109375, 492) 86×56
+    text "a b" at (32.109375, 495) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 566) 21.109375×19
+  textbox at (29.109375, 563) 86×56
+    text "ab c" at (32.109375, 566) 86.703125×19
+  text "Ab" at (8, 670) 21.109375×19
+  textbox at (29.109375, 629) 86×56
+    text "ab c" at (32.109375, 632) 86.703125×19
+  text "Ab" at (8, 703) 21.109375×19
+  textbox at (29.109375, 700) 86×56
+    text "Ring Ring Ring" at (32.109375, 703) 134.85938×19
+  text "Ab" at (8, 807) 21.109375×19
+  textbox at (29.109375, 766) 86×56
+    text "Ring Ring Ring" at (32.109375, 769) 134.85938×19
+  text "Ab" at (8, 860) 21.109375×19
+  textbox at (29.109375, 837) 86×56
+    text "a b" at (32.109375, 840) 105.96875×39 in 2 pieces
+  text "Ab" at (8, 944) 21.109375×19
+  textbox at (29.109375, 903) 86×56
+    text "a b" at (32.109375, 906) 105.96875×39 in 2 pieces
+  text "Ab" at (8, 997) 21.109375×19
+  textbox at (29.109375, 974) 86×56
+    text "a b" at (32.109375, 977) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 1081) 21.109375×19
+  textbox at (29.109375, 1040) 86×56
+    text "a b" at (32.109375, 1043) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 1134) 21.109375×19
+  textbox at (29.109375, 1111) 86×56
+    text "ab c" at (32.109375, 1114) 19.265625×39 in 2 pieces
+  text "Ab" at (8, 1218) 21.109375×19
+  textbox at (29.109375, 1177) 86×56
+    text "ab c" at (32.109375, 1180) 19.265625×39 in 2 pieces
+  text "Ab" at (8, 1291) 21.109375×19
+  textbox at (29.109375, 1248) 86×56
+    text "Ring Ring Ring" at (32.109375, 1251) 38.53125×59 in 3 pieces
+  text "Ab" at (8, 1362) 21.109375×19
+  textbox at (29.109375, 1321) 86×56
+    text "Ring Ring Ring" at (32.109375, 1324) 38.53125×59 in 3 pieces
+  text "Ab" at (8, 1415) 21.109375×19
+  textbox at (29.109375, 1392) 86×56
+    text "a b" at (32.109375, 1395) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 1499) 21.109375×19
+  textbox at (29.109375, 1458) 86×56
+    text "a b" at (32.109375, 1461) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 1532) 21.109375×19
+  textbox at (29.109375, 1529) 86×56
+    text "ab c" at (32.109375, 1532) 86.703125×19
+  text "Ab" at (8, 1636) 21.109375×19
+  textbox at (29.109375, 1595) 86×56
+    text "ab c" at (32.109375, 1598) 86.703125×19
+  text "Ab" at (8, 1669) 21.109375×19
+  textbox at (29.109375, 1666) 86×56
+    text "Ring Ring Ring" at (32.109375, 1669) 134.85938×19
+  text "Ab" at (8, 1773) 21.109375×19
+  textbox at (29.109375, 1732) 86×56
+    text "Ring Ring Ring" at (32.109375, 1735) 134.85938×19
+  text "Ab" at (8, 1826) 21.109375×19
+  textbox at (29.109375, 1803) 86×56
+    text "a b" at (32.109375, 1806) 105.96875×39 in 2 pieces
+  text "Ab" at (8, 1910) 21.109375×19
+  textbox at (29.109375, 1869) 86×56
+    text "a b" at (32.109375, 1872) 105.96875×39 in 2 pieces
+  text "Ab" at (8, 1963) 21.109375×19
+  textbox at (29.109375, 1940) 86×56
+    text "a b" at (32.109375, 1943) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 2047) 21.109375×19
+  textbox at (29.109375, 2006) 86×56
+    text "a b" at (32.109375, 2009) 9.640625×39 in 2 pieces
+  text "Ab" at (8, 2100) 21.109375×19
+  textbox at (29.109375, 2077) 86×56
+    text "ab c" at (32.109375, 2080) 19.265625×39 in 2 pieces
+  text "Ab" at (8, 2184) 21.109375×19
+  textbox at (29.109375, 2143) 86×56
+    text "ab c" at (32.109375, 2146) 19.265625×39 in 2 pieces
+  text "Ab" at (8, 2257) 21.109375×19
+  textbox at (29.109375, 2214) 86×56
+    text "Ring Ring Ring" at (32.109375, 2217) 38.53125×59 in 3 pieces
+  text "Ab" at (8, 2328) 21.109375×19
+  textbox at (29.109375, 2287) 86×56
+    text "Ring Ring Ring" at (32.109375, 2290) 38.53125×59 in 3 pieces

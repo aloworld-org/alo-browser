@@ -42510,3 +42510,111 @@ changelog say the same.
 300 queue items are open (670 closed, 673 opened). The next unused queue
 number is **674** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 417 — queue item 673: a `<textarea>` keeps its newlines whatever its `white-space`
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the product path), iterations 415 and 416's entries, the queue's
+product path and items 642, 643, 673, 664, 670 and 411;
+`docs/features.md`'s inline-block baseline and `white-space` lines;
+`docs/conformance.md`; `alo-box`'s `whitespace.rs` and `tree.rs`
+(`white_space_of`, `control_content`, `build_children`); `alo-layout`'s
+`text_style.rs` and `engine.rs` (`text_style_for`,
+`holds_a_text_areas_lines`); `alo-style`'s `text_area.rs` and the
+textarea rule in `user_agent.rs`. No `AGENTS.md` exists in the
+repository. 673 names no ADR; its feature contract is `docs/features.md`
+stage 1, forms and `white-space`.
+
+**Why 673.** 642 is marked next by the owner, but `ioreg` read
+`CGSSessionScreenIsLocked = true` at the start and again after the gate,
+and 642's closing condition is a person's moves read from the window
+server; 643 and 658 likewise, and 477 needs a second Mac. 673 is the
+first open item after 670 in the file and depends on nothing.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop, the labels in `DejaVu Sans` and the textareas in `DejaVu Sans Mono`
+from the `dejavu` crate via `@font-face`, measured after
+`document.fonts.load(...)` and `document.fonts.ready`, the sheet after
+the doctype; three runs alike, twice (a first 60-row probe, then the
+case's own 34 rows). In a textarea every space, tab and newline is kept
+under `normal`, `nowrap`, `pre-line`, `pre` and `pre-wrap` alike, while
+`getComputedStyle` reads the author's value; it wraps under `normal`,
+`pre-line` and `pre-wrap` and not under `nowrap` or `pre`. Under `nowrap`
+and `pre` its `scrollWidth` is its left padding and its line, rounded,
+with no right padding (89, 137, 108).
+
+**Built.** `alo-box`'s `WhiteSpace::in_a_text_area`: `pre-wrap` where
+the value wraps, `pre` where it does not. `tree.rs`'s `white_space_of`
+applies it to a textarea's text; `alo-layout`'s `text_style_for` to that
+text and the inside holding its lines, never its `::placeholder`. The
+computed style is left as Chrome computes it, so nothing reading
+`white-space` from a style is told something Chrome would not say.
+
+**Tests.** `whitespace.rs` unit test
+`a_text_area_keeps_its_text_and_wraps_where_the_page_says`; `tree.rs`
+`a_text_area_keeps_its_text_whatever_its_white_space` (a `<p>` beside it
+still collapses); `alo-corpus`'s new
+`cases/a-textarea-keeps-its-newlines-whatever-its-white-space` (34 rows)
+and `a_textarea_keeps_its_newlines_whatever_its_white_space.rs`: each
+row's top and height, the label's top and the textarea's border box,
+Chrome's to 1/64 px; each scrolling textarea's scrolling height equal to
+Chrome's `scrollHeight` and its lines' reach across within half a pixel
+of `scrollWidth`. Mutations, each restored from a copy and checked with
+`cmp`: the box tree's rule taken out fails the case (`normal-newline-clip`
+label 11, Chrome's 31) and the `tree.rs` unit test; layout's taken out
+fails the case (`nowrap-indent-auto` 117.6 across, Chrome's 108).
+
+**Gate.** `cargo fmt --check` clean; `cargo clippy --workspace
+--all-targets --all-features -D warnings` silent (after a `#[must_use]`
+and digit separators in the test's numbers); `alo-box --lib` 163 and
+`alo-layout --lib` 275 passed. A first `alo-corpus` run showed only the
+new case missing its files — **no other case's reference moved**. Then
+`scripts/gate.sh` on the final tree, started in the foreground, past the
+tool's 600 s, waited on by an until-loop on its log and read there:
+**exit 0, "The gate is met." (10 of 10 steps)**, nextest **5,436 tests
+run, 5,436 passed** in 546 s, no `FAIL`, `LEAK` or `panicked`. Only this
+entry came after.
+
+**Manual.** Layout assertions in numbers: the tests above. Reference
+render: the new case's `render.png`, written by `ALO_UPDATE_REFERENCES=1`
+after the run that showed only it missing. Chrome's screenshot of the
+same bytes (antialiased, not committed) puts every line, box and label in
+the same place; it differs in the textareas' white fill (525) and resize
+grips (522). One file, one responsibility: what a `white-space` value
+keeps stays `whitespace.rs`'s, which text is a textarea's stays the box
+tree's and layout's own readers'. No bytes from outside read anew. No
+`unsafe`, no stubs, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed. Temporary probe pages and a
+temporary listing test (removed before the gate) were outside the commit.
+
+**Roadmap.** No line moved, and that is the answer: 673 corrects how a
+textarea's text is kept and laid out within stage 1's ticked **Layout**
+and **Text** lines; it changes no verb, grant or anything the product
+path or the agent's gate names. Not ticked anywhere. The queue ticks 673
+with a *Done* paragraph, opens 674, and tells 411 of the wrapped line of
+spaces seen here; `features.md`, `conformance.md`, `REMAINING.md` and the
+changelog say the same.
+
+**Unresolved obligations.**
+- 674: a textarea's scrolling area across holds its right padding here
+  and not in Chrome; whether a `div`'s does in Chrome is unmeasured.
+- 411: a line of only kept spaces with no newline after it — and ten
+  kept spaces wrapped onto a line of their own in a textarea — is no line
+  here.
+- This engine has no tab stops anywhere; Chrome keeps a textarea's tabs,
+  and no page has asked. Not opened as an item.
+- 642 (the frame's window), 643 and 658 wait on an unlocked screen; 477
+  on a second Mac.
+- 439, 668, 452, 665, 664, 523, 522, 525 as iteration 413 left them;
+  CSS's computed `overflow` beside a scrolling axis still not given to
+  `taffy` (iteration 408).
+- 649 and 650 are open. Inherited and unchanged: off macOS the toggling
+  click holds Ctrl, unmeasured; `option { display: block }` undecided;
+  604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (673 closed, 674 opened). The next unused queue
+number is **675** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.

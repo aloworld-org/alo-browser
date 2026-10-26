@@ -85,6 +85,24 @@ impl WhiteSpace {
         !matches!(self, WhiteSpace::Pre | WhiteSpace::NoWrap)
     }
 
+    /// How a `<textarea>`'s own text is treated under this `white-space`:
+    /// its spaces and newlines are all kept, and it wraps where this says.
+    ///
+    /// Chrome 155 computes the author's value — `getComputedStyle` reads
+    /// `normal` — yet in a textarea under `normal`, `nowrap` and `pre-line`
+    /// a newline still ends a line and a run of spaces still takes its room,
+    /// while `nowrap` and `pre` still never wrap (queue item 673). What a
+    /// person types into a field is kept as they typed it; only whether it
+    /// wraps is the page's to choose.
+    #[must_use]
+    pub fn in_a_text_area(self) -> Self {
+        if self.wraps() {
+            WhiteSpace::PreWrap
+        } else {
+            WhiteSpace::Pre
+        }
+    }
+
     /// The text as it should be measured and drawn.
     ///
     /// Leading and trailing whitespace is **kept as a single space** rather
@@ -206,6 +224,22 @@ mod tests {
         // is the whole reason "AllDue" is not what that renders as.
         assert_eq!(WhiteSpace::Normal.apply(" "), " ");
         assert_eq!(WhiteSpace::Normal.apply("\n   "), " ");
+    }
+
+    #[test]
+    fn a_text_area_keeps_its_text_and_wraps_where_the_page_says() {
+        use WhiteSpace::{NoWrap, Normal, Pre, PreLine, PreWrap};
+        for (given, used) in [
+            (Normal, PreWrap),
+            (NoWrap, Pre),
+            (PreLine, PreWrap),
+            (Pre, Pre),
+            (PreWrap, PreWrap),
+        ] {
+            assert_eq!(given.in_a_text_area(), used, "{given}");
+            assert_eq!(used.wraps(), given.wraps(), "{given}");
+            assert_eq!(used.apply("ab   c\n  d"), "ab   c\n  d", "{given}");
+        }
     }
 
     #[test]

@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A `<textarea>` keeps the lines and spaces it is given, whatever the
+  page's `white-space`.** A page that set `white-space: normal` or
+  `nowrap` on a textarea had its newlines collapsed into spaces and its
+  runs of spaces into one here, so a multi-line message showed as one
+  line; Chrome 155 keeps them all and only lets the page say whether long
+  lines wrap, and now so does this engine (item 673). How far such a
+  textarea scrolls sideways is still 2 px more than Chrome's (item 674).
+
 - **A `<textarea>` whose text ends in a newline holds the empty line
   after it, and a blank line in kept white space is a line.** Chrome 155
   gives a textarea ending in a newline one more line than the same text
