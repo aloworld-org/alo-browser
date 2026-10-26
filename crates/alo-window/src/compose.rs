@@ -117,6 +117,16 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     canvas
 }
 
+/// The frame of ours around Chrome's window (ADR 0062, queue item 642), at
+/// `window` device pixels: the band across the top of this engine's own
+/// window before its strip has painted — the rail's colour, edge to edge —
+/// because the frame stands where that band would be. What is drawn in it,
+/// the strip and the agent's lines, is item 679's.
+pub fn compose_frame(window: (u32, u32)) -> Canvas {
+    let (width, height) = window;
+    Canvas::new(width, height, rail())
+}
+
 /// Copy `frame` into `rect` of `canvas`, one of its pixels to each device
 /// pixel, from its top-left corner.
 ///
@@ -189,6 +199,20 @@ mod tests {
             };
             assert_eq!(rgba8(&canvas, 3, y), Some(expected.to_rgba8()), "at y {y}");
         }
+    }
+
+    #[test]
+    fn the_frame_around_chromes_window_is_the_rail_edge_to_edge() {
+        // A frame of 1200 by 36 points at two.
+        let canvas = compose_frame((2400, 72));
+        assert_eq!((canvas.width(), canvas.height()), (2400, 72));
+        for y in 0..72 {
+            for x in 0..2400 {
+                assert_eq!(rgba8(&canvas, x, y), Some(rail().to_rgba8()), "at {x},{y}");
+            }
+        }
+        let nothing = compose_frame((0, 0));
+        assert_eq!((nothing.width(), nothing.height()), (0, 0));
     }
 
     #[test]

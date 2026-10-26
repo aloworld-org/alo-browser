@@ -21,23 +21,39 @@
 //! process (ADR 0061, item 627, [`crate::chrome_window`]) — which is what a
 //! person running `alo --chrome` looks at.
 //!
+//! # The frame that follows Chrome's window
+//!
+//! A shown Chrome's window has a frame of ours around it (ADR 0062, item
+//! 642), and this thread is the one that can ask Chrome where its window
+//! is. So between orders — every [`FOLLOW_EVERY`] when nothing arrives —
+//! it reads where the frame stands ([`chrome_frame::read`]) and tells the
+//! frame's window what changed ([`Following`]). A reading that finds
+//! Chrome's window gone tells the frame [`Follow::Closed`] and ends the
+//! thread: a person closing Chrome's window closes ours.
+//!
+//! The other way, ours closed — [`Order::CloseEverything`], or the one
+//! browser key that closes a tab, ⌘W, since closing the last tab closes
+//! the window (ADR 0024 § 6) — closes Chrome's page, which is its window,
+//! tells the frame [`Follow::Closed`] and ends the thread, and Chrome with
+//! it. Every sender of orders gone ends it too.
+//!
 //! # What it is not
 //!
-//! A window of ours. Chrome's window is Chrome's: a person's pointer and
-//! keys reach the page there without passing this process, and no window
-//! of ours follows it yet (item 642). So the window's orders — a resize, a
-//! pointer, a tab key — are not carried out here, and nothing on this path
-//! sends one. Closing is: [`Order::CloseEverything`], or every sender of
-//! orders gone, closes the tab and Chrome with it.
+//! Chrome's window. A person's pointer and keys reach the page there
+//! without passing this process, so the window's other orders — a resize,
+//! a pointer, the other tab keys — are not carried out here: Chrome lays
+//! its page out again at the size a person gives its window itself.
 
 use crate::agent_record::AgentRecord;
 use crate::agent_sites::AgentSites;
 use crate::chrome::{Chrome, Failed, Unstarted};
+use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
+use crate::chrome_frame;
 use crate::chrome_pages::ChromePages;
 use crate::chrome_tab::{Tab, Unopened};
 use crate::chrome_window::{self, Placed, Unplaced};
 use crate::inbox::{self, Arrival, Orders, arrivals};
-use crate::message::Order;
+use crate::message::{Order, TabOrder};
 use crate::pages::RenderedBy;
 use crate::serving::serve;
 use alo_url::Url;
@@ -45,6 +61,7 @@ use core::fmt;
 use std::io::ErrorKind;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 /// The page a tab in Chrome is opened at.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +111,11 @@ impl fmt::Display for Unserved {
 
 impl std::error::Error for Unserved {}
 
+/// Where the frame of ours around a shown Chrome's window is told what it
+/// is to do: a function that answers whether the frame was still there to
+/// hear it.
+pub type TellFrame = Box<dyn Fn(Follow) -> bool + Send>;
+
 /// A tab in Chrome, answering agents.
 #[derive(Debug)]
 pub struct ChromeServing {
@@ -131,12 +153,14 @@ impl ChromeServing {
     /// [`Unserved`], when Chrome does not start, say which it is, or open
     /// the page — Chrome is closed again — or no thread could be started.
     pub fn start(opening: Opening, size: (u32, u32), sites: AgentSites) -> Result<Self, Unserved> {
-        Self::begin(opening, size, Drawn::Headless, sites)
+        Self::begin(opening, size, Drawn::Headless, sites, None)
     }
 
     /// [`ChromeServing::start`], with the machine's Chrome shown: the page
     /// laid out at `size` CSS pixels in a window of Chrome's own, whose top
-    /// left corner is put at `left`, `top` on the screen.
+    /// left corner is put at `left`, `top` on the screen — and the frame of
+    /// ours around it told on `frame` where to stand, as Chrome's window
+    /// moves, hides and closes.
     ///
     /// # Errors
     ///
@@ -147,8 +171,15 @@ impl ChromeServing {
         size: (u32, u32),
         (left, top): (i32, i32),
         sites: AgentSites,
+        frame: TellFrame,
     ) -> Result<Self, Unserved> {
-        Self::begin(opening, size, Drawn::Shown { left, top }, sites)
+        Self::begin(
+            opening,
+            size,
+            Drawn::Shown { left, top },
+            sites,
+            Some(frame),
+        )
     }
 
     /// Start a Chrome drawing as `drawn` says, on a thread of its own.
@@ -157,6 +188,7 @@ impl ChromeServing {
         size: (u32, u32),
         drawn: Drawn,
         sites: AgentSites,
+        frame: Option<TellFrame>,
     ) -> Result<Self, Unserved> {
         let (orders, results, inbox) = inbox::inbox();
         // Nothing here makes a request of this engine's network: no results
@@ -165,7 +197,17 @@ impl ChromeServing {
         let (tell, started) = channel();
         let thread = std::thread::Builder::new()
             .name("alo-chrome".to_owned())
-            .spawn(move || serve_in_chrome(opening, size, drawn, &sites, &inbox, &tell))
+            .spawn(move || {
+                serve_in_chrome(
+                    opening,
+                    size,
+                    drawn,
+                    &sites,
+                    frame.as_deref(),
+                    &inbox,
+                    &tell,
+                )
+            })
             .map_err(|why| Unserved::NoThread(why.kind()))?;
         match started.recv() {
             Ok(Ok((product, placed))) => Ok(Self {
@@ -214,12 +256,14 @@ impl ChromeServing {
 }
 
 /// Start Chrome, open the page, say whether that worked — and which Chrome
-/// it is — on `tell`, and answer agents until told to close.
+/// it is — on `tell`, and answer agents until told to close, telling
+/// `frame`, if there is one, where the frame around Chrome's window stands.
 fn serve_in_chrome(
     opening: Opening,
     size: (u32, u32),
     drawn: Drawn,
     sites: &AgentSites,
+    frame: Option<&(dyn Fn(Follow) -> bool + Send)>,
     inbox: &Receiver<Arrival>,
     tell: &Sender<Result<(String, Option<Placed>), Unserved>>,
 ) -> AgentRecord {
@@ -267,7 +311,18 @@ fn serve_in_chrome(
     if tell.send(Ok((product, placed))).is_err() {
         return record;
     }
-    while let Some(arrived) = arrivals(inbox, None) {
+    // Only a shown Chrome has a window to follow; a headless one waits on
+    // its orders alone.
+    let mut following = frame.filter(|_| placed.is_some()).map(|frame| Follower {
+        frame,
+        told: Following::default(),
+        next: Instant::now(),
+    });
+    loop {
+        let until = following.as_ref().map(|follower| follower.next);
+        let Some(arrived) = arrivals(inbox, until) else {
+            return record;
+        };
         for arrival in arrived {
             match arrival {
                 Arrival::Order(Order::Agent { caller, ask, reply }) => {
@@ -276,12 +331,52 @@ fn serve_in_chrome(
                     // changes nothing about what was done or recorded.
                     let _ = reply.send(served.answer);
                 }
-                Arrival::Order(Order::CloseEverything) | Arrival::Abandoned => return record,
-                // The window's, which nothing on this path sends; and the
-                // network thread's, of which there is none.
+                Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
+                    if let Some(follower) = following.as_mut() {
+                        // A Chrome that does not close its page is closed
+                        // with this thread, its window with it.
+                        let _ = chrome_window::close(pages.tab_mut());
+                        follower.tell(Follow::Closed);
+                    }
+                    return record;
+                }
+                Arrival::Abandoned => return record,
+                // The window's other orders, which Chrome's own window
+                // carries out itself; and the network thread's, of which
+                // there is none.
                 Arrival::Order(_) | Arrival::Exchanged(_) | Arrival::NetworkGone => {}
             }
         }
+        if let Some(follower) = following.as_mut()
+            && Instant::now() >= follower.next
+        {
+            let now = Follow::of(&chrome_frame::read(pages.tab_mut()));
+            follower.tell(now);
+            if now == Follow::Closed {
+                return record;
+            }
+            follower.next = Instant::now()
+                .checked_add(FOLLOW_EVERY)
+                .unwrap_or_else(Instant::now);
+        }
     }
-    record
+}
+
+/// The frame around a shown Chrome's window, and what it was last told.
+struct Follower<'f> {
+    frame: &'f (dyn Fn(Follow) -> bool + Send),
+    told: Following,
+    /// When where it stands is next read.
+    next: Instant,
+}
+
+impl Follower<'_> {
+    /// Tell the frame `now`, if it is not what it was told last.
+    fn tell(&mut self, now: Follow) {
+        if let Some(changed) = self.told.heard(now) {
+            // A frame that has gone is a window closing, whose orders say
+            // so; nothing here waits for it.
+            let _ = (self.frame)(changed);
+        }
+    }
 }

@@ -64,6 +64,12 @@ impl<'c> ChromePages<'c> {
     pub fn tab(&self) -> &Tab<'c> {
         &self.tab
     }
+
+    /// The tab, to be read or closed as a window — never to carry out a
+    /// verb, which goes through [`Pages`].
+    pub fn tab_mut(&mut self) -> &mut Tab<'c> {
+        &mut self.tab
+    }
 }
 
 impl Pages for ChromePages<'_> {

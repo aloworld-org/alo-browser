@@ -42724,3 +42724,163 @@ the same.
 300 queue items are open (674 closed, 675 opened). The next unused queue
 number is **676** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 419 — queue item 642: a window of ours around Chrome's — built, gate not met, halted
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the product path), iteration 418's entry and the owner's commit
+after it (items 676–678), the queue's product path and items 642, 643,
+477 and 672; ADR 0061, ADR 0062 with its addendum, ADR 0024 § 1;
+`docs/features.md`'s Chrome line; `chrome_frame.rs`, `window_server.rs`,
+`chrome_serving.rs`, `chrome_window.rs`, `window.rs`, `present.rs`,
+`compose.rs`, `bin/alo.rs` and the tests of the program and the frame. No
+`AGENTS.md` exists in the repository. 642's feature contract is
+`docs/features.md`'s second renderer line; its ADRs are 0061 and 0062.
+
+**Why 642.** Next by the owner's choice (2026-10-25). `ioreg` showed no
+`CGSSessionScreenIsLocked` at the start, so the screen was in use.
+
+**Measured first.** Chrome 155.0.8059.86: a page in the `--app` window
+calling `window.moveTo(300, 260)` moves it and Chrome's word reads
+300,260; `window.resizeTo(700, 500)` gives a window of 700×500 and a page
+of 700×468; `window.close()` is refused (not a window a script opened).
+And: with a `winit` event loop built but not yet running, starting and
+placing Chrome took about fifteen seconds and the window server's listing
+as long; with Chrome started before the event loop exists, neither waits.
+
+**Built (in the working tree, not committed).**
+- `chrome_follow.rs`: `Follow` (`At(bounds)`, `Aside`, `Closed`), what
+  a reading of `chrome_frame::read` tells the frame — a reading that
+  failed stands aside — and `Following`, telling only what changed;
+  `FOLLOW_EVERY` 200 ms.
+- `chrome_serving.rs`: a shown Chrome's thread reads the frame between
+  orders and tells it; `CloseEverything` or ⌘W's `CloseSelected` closes
+  Chrome's page and tells `Closed`; a reading finding the window closed
+  ends the thread. `start_shown` takes the frame's `TellFrame`.
+- `window.rs`: `frame`, the floating window — borderless,
+  `AlwaysOnTop`, inactive, not resizable, started with
+  `with_activate_ignoring_other_apps(false)`; stands, hides or exits as
+  told; ⌘W and `CloseRequested` are sent as orders. Every new `winit`
+  call checked safe in 0.30.13's source; `with_parent_window`, the one
+  `unsafe fn` beside them, is not called.
+- `compose.rs`: `compose_frame`, the rail's colour edge to edge.
+- `bin/alo.rs`: `alo --chrome` starts Chrome, then runs the frame; its
+  input ending (a thread of its own) closes everything; `CHROME_AT` is
+  120,80 so the frame clears the menu bar.
+- `chrome_pages.rs`: `tab_mut`, to read or close the tab as a window.
+- Tests: `chrome_follow.rs` unit tests (4); `compose.rs`'s
+  `the_frame_around_chromes_window_is_the_rail_edge_to_edge`; the
+  reference render `the-frame-around-chrome.png` in
+  `the_window_composed.rs`; and `the_frame_around_chromes_window.rs`, the
+  real program run as a process, the page moving its own window, both
+  windows read from the window server: the rule in every settled reading,
+  the page's tree laid out at 700×468 after the resize, the input ending
+  leaving neither window nor Chrome, Chrome ended leaving no frame.
+
+**What passed, and what did not.**
+- `cargo fmt` clean; `cargo clippy --workspace --all-targets
+  --all-features -D warnings` silent (after one `unnecessary_wraps` in a
+  test helper); `alo-window --lib` 311 of 311; `the_window_composed` 17
+  of 17.
+- `the_frame_around_chromes_window.rs` passed **once each**, alone: the
+  frame stood above Chrome's window at 300,260 1200×832 and then at
+  300,260 700×500, the tree read 700×468, and both windows went at the
+  input's end (100.8 s); Chrome ended closed the frame and the program
+  (45.6 s). Every other run of either failed before the page loaded,
+  `Chrome said nothing for 30000 ms`.
+- **`scripts/gate.sh`, on this tree, in the foreground of its own
+  `nohup`, waited on by its PID and read: exit 1, "The gate is not met"
+  (10 of 10 steps).** fmt and clippy passed; nextest ran 5,319 of 5,448,
+  **7 failed and the run was cancelled**, every one a Chrome silent for
+  30 s (`Failed(Silent { waited: 30s })` or `Chrome said nothing for
+  30000 ms`), in `a_frame_beside_chromes_window`,
+  `a_page_chrome_tells_of_after_what_it_asks_for` (3) and
+  `a_page_from_the_network_in_chrome` (3) — tests that hold Chrome and its
+  tab directly and touch nothing this change touches.
+- Then `alo-window` alone at `-j 2 --no-fail-fast`: **453 run, 428
+  passed, 25 failed**, the same silence every time, headless Chromes
+  among them (`a_headless_chrome_has_no_window_to_place`,
+  `an_agent_outside_the_browser`'s three) and this item's two tests and
+  `the_program_told_to_use_chrome`'s three with them.
+
+**Why that is the machine.** The window server held **8,060 MB on an
+8 GB machine** after 5 h 30 of uptime, and swap went from 7.4 of 8 GB to
+9.0 of 10 GB during the iteration. A bare Chrome with none of this
+browser's code — `python3` holding its pipe and asking `Browser.getVersion`
+— answered in 40.4 s, 42.9 s and then 1.8 s; `--headless --dump-dom` took
+27.5 s and then 2.6 s. `chrome_over_a_pipe`, untouched, passed serially
+but took 23 s to its version. So every Chrome on this machine is starting
+at the edge of the 30 s the tab waits, and a gate that starts dozens of
+them cannot pass here today. That is not a test to loosen: the patience
+is the contract, and law 3 says a slow pixel is a task, not a reason.
+
+**Manual.** Layout assertions in numbers: the window server's bounds in
+`the_frame_around_chromes_window.rs`; `chrome_frame`'s are 672's.
+Reference render: `the-frame-around-chrome.png`. One file, one
+responsibility: what the frame is told is `chrome_follow.rs`'s; the
+window is `window.rs`'s, as ADR 0062's consequences require of the one
+file naming `winit`. No bytes from outside read anew; no `unsafe`, no
+stubs, no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. Nothing pushed. Temporary probes (an `alo-window` example and
+scratch pages) removed or outside the tree.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+642 as built with its gate not met, its Owed clause and the stage 2 line
+name 679 for what the frame draws, and the closing paragraph says why
+642 is not closed. The queue leaves 642 open with a *Built … not closed*
+paragraph and opens **679** (what the frame draws: the strip, 623's
+sentence, 625's refusals, 624's ring — which needs a window over the
+page, undecided); 477 records that an application opened with no input
+would close as it opened. `features.md` and the changelog describe the
+built frame. **None of it is committed**: the iteration's changes are
+left in the working tree for the gate to be run on.
+
+**Unresolved obligations.**
+- **A person has to free the machine's memory** — log out or restart,
+  which ends the window server's 8 GB — and then run `scripts/gate.sh`
+  on this tree. Met, the tree is one commit:
+  `feat(alo-window): a window of ours around Chrome's, following it`,
+  and 642 is ticked with a *Done* paragraph in place of *Built … not
+  closed*. Not met for a reason of the change's, the change is fixed.
+- 679 (what the frame draws) is opened; 643 (Stage Manager's strip) and
+  477 (an application, which must decide how input closes it) follow.
+- A person's ⌘W in the frame and the program's Quit are not driven by a
+  test (a locked screen cannot); they take the path the input's ending
+  takes.
+- As iteration 418 left them: 675; 658 on an unlocked screen; 411, 439,
+  668, 452, 665, 664, 523, 522, 525; 649 and 650; 604, 605, 606, 616,
+  618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572 on a person;
+  568–571 on a screen or pages; 560 and 564 on 502 behind 501; 538 on a
+  page; 549 unbuilt; 655 unmeasured; 676–678 as the owner wrote them
+  (676 needs an ADR).
+- No claim about speed is made.
+
+303 queue items are open (none closed, 679 opened, 642 still open). The
+next unused queue number is **680** and the next ADR is **0065**. This is
+one iteration, not a finished queue or roadmap.
+
+The loop halts because the gate fails for a reason this iteration did not
+cause: every Chrome on the machine is starting at the edge of its thirty
+seconds while the window server holds the machine's memory. Taking the
+next item would meet the same gate, and committing this one would be
+committing what the gate did not pass.
+
+LOOP HALT
+
+## Iteration 419, closed — item 642 gated after the machine was freed
+
+**Written by the owner's session.** Iteration 419 built 642 and halted with
+its work in the tree, asking for exactly this: free the machine's memory,
+then run the gate on this tree. A bare headless Chrome took **69.2 s** to
+answer before the restart, with 6,046 MB of memory wired; after it,
+**1.0 s and 2.4 s**, with 1,772 MB wired. The gate was then run on the tree
+unchanged: **5448 tests, 5448 passed (one leaky), 10 of 10 steps.**
+
+One correction to iteration 419's account: it named the window server as
+holding 8 GB. Measured before the restart, the window server held 10 MB;
+the memory was wired in the kernel, which only a restart releases. The
+conclusion — a person must restart, and the test's patience is not to be
+lengthened — stands unchanged.
+
+**What the next iteration should know.** 642 is done. 679 (what the frame
+draws) is next on the product path, then 643 and 477.

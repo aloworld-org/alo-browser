@@ -47,6 +47,9 @@
 //! what the agent did, at one, and at 1.5 a refusal outlasting the verb that
 //! ran after it, above a gone tab's line.
 //!
+//! Item 642 adds the frame of ours around Chrome's window, at two: the
+//! rail's colour edge to edge, until 679 draws in it.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
 
@@ -59,7 +62,7 @@ use alo_renderer::strip::{Condition, Strip, StripTab};
 use alo_renderer::{Frame, FromRenderer, Page, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::agent_lines::AgentLine;
-use alo_window::compose::{Scene, compose};
+use alo_window::compose::{Scene, compose, compose_frame};
 use alo_window::mark::{Marked, marked, ring};
 use alo_window::message::News;
 use alo_window::notice::Lettering;
@@ -884,4 +887,11 @@ fn the_box_an_agent_acted_on_at_one_and_a_half_is_ringed_three_device_pixels_out
         holds("the-acted-on-box-at-one-and-a-half.png", &canvas),
         Ok(())
     );
+}
+
+#[test]
+fn the_frame_around_chromes_window_at_scale_two() {
+    // A frame of 300 by the strip's 36 points, at two.
+    let canvas = compose_frame((600, STRIP_HEIGHT * 2));
+    assert_eq!(holds("the-frame-around-chrome.png", &canvas), Ok(()));
 }

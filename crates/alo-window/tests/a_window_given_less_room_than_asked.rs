@@ -91,8 +91,15 @@ fn a_page_given_less_room_than_asked_is_laid_out_at_it_and_reached() -> Result<(
         url: ADDRESS.to_owned(),
         page: PAGE.as_bytes().to_vec(),
     };
-    let serving = ChromeServing::start_shown(opening, ASKED, CHROME_AT, AgentSites::Every)
-        .map_err(|why| format!("refused where it should have run: {why}"))?;
+    // No frame of ours here: what it is told is `the_frame_around_chromes_window.rs`'s.
+    let serving = ChromeServing::start_shown(
+        opening,
+        ASKED,
+        CHROME_AT,
+        AgentSites::Every,
+        Box::new(|_| true),
+    )
+    .map_err(|why| format!("refused where it should have run: {why}"))?;
     let placed = *serving.placed().ok_or("a shown Chrome has a window")?;
 
     // Less room than was asked, said as such, and a page still.

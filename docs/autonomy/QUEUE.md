@@ -56,8 +56,9 @@ ADR 0058 — and nothing else does:
 | ✓ | **624** | the acted-on box, marked — ringed on the frame painted after the verb, in this engine's window; through Chrome it comes with 642 |
 | ✓ | **625** | a refusal shown to the person, not only answered to the agent — in this engine's window; through Chrome it comes with 642 |
 | ✓ | **672** | where a frame of ours stands around Chrome's window — above it, aside, or gone, by Chrome's word and the window server's (cut from 642) |
-| **→** | **642** | **next, by the owner's choice (2026-10-25)**: a window of ours around Chrome's, following it (ADR 0061's frame) — and with it 623, 624 and 625 on the Chrome path |
-| | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
+| **→** | **642** | **built, not closed (iteration 419): the gate was not met on a machine out of memory** — a window of ours around Chrome's, following it, closing with it and closing it (ADR 0062); what it draws, 623, 624 and 625 on the Chrome path among it, is cut as **679** |
+| | **643** | next after 642, by the owner's choice (2026-10-25): a placed window that stays where a person sees it — Stage Manager's strip |
+| | **679** | what the frame around Chrome's window draws: the strip, the agent's sentence, its refusals and the ring (cut from 642) |
 | | **477** | an application somebody can run, on macOS |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -16689,7 +16690,7 @@ What stage 2's exit gate actually measures: a person using it.
   browser which renderer it uses is still 622's — today only the terminal
   says it, as the program starts.
 
-- [ ] **642. ★ A window of ours around Chrome's.** *ADR 0061, cut from
+- [x] **642. ★ A window of ours around Chrome's.** *ADR 0061, cut from
   627.* Chrome's window is placed and brought in front by this process, and
   nothing of ours is around it: no strip of tabs, no line where 623's
   sentence goes, and nothing that moves when a person moves or resizes
@@ -16754,6 +16755,64 @@ What stage 2's exit gate actually measures: a person using it.
   input — and Chrome put low enough that there is room above it, since
   `CHROME_AT`'s top of 60 leaves 24 points above it for a frame of 36 under
   a menu bar measured at 34.
+
+  ***Done (iteration 419; gated 2026-10-26 18:24), its drawing cut as
+  679.*** Built in iteration 419 and left uncommitted because the gate
+  could not pass on a machine out of memory: every failure was a Chrome
+  silent for 30 s, in tests this change does not touch, and a bare Chrome
+  with none of this browser's code took 69.2 s to answer. The iteration
+  refused to lengthen the wait and halted for a person instead. After a
+  restart a bare Chrome answered in 1.0 to 2.4 s, and the gate was run on
+  this same tree unchanged: **5448 tests, 5448 passed, 10 of 10 steps.**
+  `alo --chrome` runs
+  a floating window of ours — `window::frame`, in `window.rs`, the one
+  file naming `winit` — borderless, `WindowLevel::AlwaysOnTop`, made
+  inactive and started without bringing the program in front, so a
+  person's keys stay with Chrome's page. The thread holding Chrome reads
+  `chrome_frame::read` every fifth of a second between orders and tells
+  the frame only what changed (`chrome_follow.rs`: `Follow::At`, `Aside`
+  — a reading that failed stands aside too — and `Closed`); the frame
+  stands at those bounds, hides, or closes. Closing it, ⌘W in it, or the
+  program's input ending closes Chrome's page and then the frame; Chrome's
+  window closed or Chrome gone closes the frame and the program.
+  `CHROME_AT` is 120,80, so the frame's 36 points are clear of the menu
+  bar. **Measured, and built from it:** a program whose `winit` event loop
+  existed but was not running while Chrome started had Chrome's window
+  placed fifteen seconds late and the window server's listing as slow, so
+  Chrome is started and placed before the event loop exists and the
+  frame's news waits on a channel until it does. Tested in numbers from the
+  window server, the real program run as a process
+  (`the_frame_around_chromes_window.rs`): the page moves and resizes its
+  own window with `moveTo` and `resizeTo`, which Chrome reports as it does
+  a person's drag, and in every settled reading the frame is listed
+  exactly above Chrome's window and as wide, or neither is listed; the
+  input ending leaves neither window nor Chrome; Chrome ended leaves no
+  frame and the program exits. The page laid out again at the new size is
+  Chrome's own, measured in iteration 415 and asserted in
+  `a_frame_beside_chromes_window.rs`. **Not done here:** what the frame
+  draws — it is the rail's colour edge to edge (`compose_frame`), and the
+  strip, 623's sentence, 624's ring and 625's refusals are **679**; a
+  person's ⌘W in the frame and the program's Quit are not driven by a
+  test, which a locked screen cannot do — the path they take is the one
+  the input's ending takes.
+
+- [ ] **679. What the frame around Chrome's window draws.** *Cut from 642,
+  ADR 0062.* The frame stands above Chrome's window, follows it and closes
+  with it, and shows only the rail's colour. Owed in it: the strip — the
+  page's tab and which renderer draws it (622's sentence, ADR 0058 § 6);
+  623's line, the sentence each verb an agent ran was answered with,
+  written by this process from `chrome_serving`'s answers as the conductor
+  writes it from its own; 625's refusals, each a line of its own, kept as
+  `agent_lines.rs` keeps them; and 624's ring around the box a verb acted
+  on, which is over Chrome's page rather than above it — the node's
+  `rects` from `chrome_tree`'s reading, at Chrome's scroll and scale — and
+  so needs a window of ours over the page, transparent and taking no
+  pointer, which is a decision ADR 0062 does not make. *Depends on 642.
+  Closes when:* the frame's pixels are a reference render of each — a
+  strip, a sentence, two refusals — composed from what `chrome_serving`
+  answered, and a ring is drawn exactly over the box Chrome drew, asserted
+  in the window server's numbers, or the ring's window is decided against
+  in an ADR.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into
@@ -18402,6 +18461,12 @@ person unblocks this stage or does not.
   developer account and matter when handing this to strangers, not colleagues.
 
   *No longer blocked. **296 closed 2026-10-12 at 21:02**, so nothing holds this.*
+
+  *Owed from 642 (iteration 419):* `alo --chrome` closes when its input
+  ends, which is Ctrl-D at a terminal and the way its tests close it — and
+  an application opened from the Finder is given no input at all, so it
+  would close as it opened. The bundle decides how a program a person
+  opened without a terminal is closed by its input, if at all.
 
 - [ ] **478. Opened without macOS explaining itself.** *macOS only; alo OS
   installs from a source instead, which is 483.* A Developer ID

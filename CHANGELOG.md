@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`alo --chrome` puts a window of its own above Chrome's, and keeps
+  it there.** A strip of this browser's now floats directly above the
+  window Chrome draws the page in, as wide as it, and follows it when a
+  person — or the page — moves or resizes Chrome's window; it hides while
+  Chrome's window is not on the screen, such as in Stage Manager's strip,
+  and it never takes the keyboard from the page. Closing Chrome's window
+  closes it and the browser; closing it, ⌘W in it, or Ctrl-D at the
+  terminal closes Chrome's window (item 642). It shows nothing yet but
+  its colour: the tab, the agent's sentence and its refusals are item 679.
+
 - **A `<textarea>` scrolls sideways exactly as far as Chrome's.** A
   textarea holding a line longer than itself scrolled until its right
   padding showed after the line's end; Chrome 155 stops at the line's

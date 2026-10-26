@@ -47,6 +47,21 @@
 //! privileged process (ADR 0024 § 4). A tab's title is the tab strip's, which
 //! is rendered in a sandboxed renderer of its own.
 //!
+//! # The frame around Chrome's window
+//!
+//! ADR 0062, queue item 642. [`frame`] runs a second kind of window, for
+//! `alo --chrome`: a strip of ours that **floats** — above ordinary
+//! windows, so that Stage Manager does not put it in its strip when
+//! Chrome's comes in front — has no title bar and is never resized by a
+//! person, and stands where it is told ([`Follow`]), by the thread that
+//! holds Chrome and reads where Chrome's window is. Told to stand aside it
+//! is hidden; told Chrome's window is gone it closes. Closing it — or ⌘W
+//! in it, the browser's key for closing the tab, which is the only one —
+//! is sent to that thread, which closes Chrome's window and then tells
+//! the frame to close. It is made without taking the screen from Chrome:
+//! the program is not brought in front as it starts, and the window is
+//! made inactive, so a person's keys go on reaching Chrome's page.
+//!
 //! # No `unsafe`
 //!
 //! Every `winit` function called here — `EventLoop::with_user_event`,
@@ -59,28 +74,40 @@
 //! function in `winit` 0.30.13's source, which the commits adding them
 //! checked (ADR 0024 § 1's stop rule). The pointer adds no call: it reads
 //! the fields of `WindowEvent::CursorMoved`, `CursorLeft` and `MouseInput`,
-//! and `ModifiersState::is_empty`, a safe `bitflags` function.
+//! and `ModifiersState::is_empty`, a safe `bitflags` function. The frame
+//! adds `WindowAttributes::with_decorations`, `with_window_level`,
+//! `with_visible`, `with_resizable` and `with_active`,
+//! `Window::set_outer_position`, `request_inner_size` and `set_visible`, and
+//! on macOS `EventLoopBuilderExtMacOS::with_activate_ignoring_other_apps`,
+//! each a safe function in 0.30.13's source as checked by item 642 (ADR
+//! 0062's consequences); `with_parent_window`, the one `unsafe fn` beside
+//! them, is not called.
 
 use crate::aim::{Aimed, aim, on_page};
-use crate::compose::compose;
+use crate::chrome_follow::Follow;
+use crate::chrome_protocol::Bounds;
+use crate::compose::{compose, compose_frame};
 use crate::cursor::{Cursor, Pressed};
 use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
 use crate::notice::Lettering;
-use crate::place::{Placement, screen};
+use crate::place::{Placement, STRIP_HEIGHT, screen};
 use crate::present::Presenter;
 use crate::scale::Scale;
 use crate::showing::Showing;
 use alo_renderer::Visibility;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, KeyEvent, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{self as winit_keys, ModifiersState, NamedKey};
+#[cfg(target_os = "macos")]
+use winit::platform::macos::EventLoopBuilderExtMacOS;
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-use winit::window::{Window, WindowAttributes, WindowId};
+use winit::window::{Window, WindowAttributes, WindowId, WindowLevel};
 
 /// How big a new window is, in the window server's logical points.
 const FIRST_SIZE: (f64, f64) = (1000.0, 700.0);
@@ -377,6 +404,215 @@ impl ApplicationHandler<News> for App {
                 }
             }
             WindowEvent::CloseRequested => self.close(event_loop),
+            _ => {}
+        }
+    }
+}
+
+/// Run the frame of ours around Chrome's window until it is told Chrome's
+/// window is gone (ADR 0062, queue item 642): told where to stand on
+/// `follows`, and sending `orders` to the thread holding Chrome.
+///
+/// The frame is told on a channel rather than through the event loop,
+/// because the thread holding Chrome starts first. Measured: a program
+/// whose event loop existed but was not yet running while Chrome started
+/// took fifteen seconds to have Chrome's window placed, and the window
+/// server's listing as long to read, against a moment with no event loop
+/// at all — so Chrome is started and placed before there is one, and what
+/// it said meanwhile waits on the channel.
+///
+/// # Errors
+///
+/// What `winit` said, in words, when there could be no event loop or no
+/// window.
+pub fn frame(follows: Receiver<Follow>, orders: Orders) -> Result<(), String> {
+    let mut building = EventLoop::<Follow>::with_user_event();
+    // Chrome's window was just brought in front, and a program that took
+    // the screen as it started would send it to Stage Manager's strip.
+    #[cfg(target_os = "macos")]
+    building.with_activate_ignoring_other_apps(false);
+    let event_loop = building
+        .build()
+        .map_err(|why| format!("no event loop: {why}"))?;
+    let proxy = event_loop.create_proxy();
+    let forwarding = std::thread::Builder::new()
+        .name("alo-frame".to_owned())
+        .spawn(move || {
+            // Ends when the thread holding Chrome does, or the event loop.
+            for follow in follows {
+                if proxy.send_event(follow).is_err() {
+                    return;
+                }
+            }
+        });
+    if let Err(why) = forwarding {
+        let _ = orders.send(Order::CloseEverything);
+        return Err(format!("no thread to tell the frame where to stand: {why}"));
+    }
+    let mut framing = Framing {
+        orders,
+        told: Follow::Aside,
+        window: None,
+        presenter: None,
+        modifiers: ModifiersState::empty(),
+        failed: None,
+    };
+    event_loop
+        .run_app(&mut framing)
+        .map_err(|why| format!("the event loop stopped: {why}"))?;
+    match framing.failed {
+        Some(why) => Err(why),
+        None => Ok(()),
+    }
+}
+
+/// The frame's event loop's state.
+struct Framing {
+    orders: Orders,
+    /// What the frame was last told.
+    told: Follow,
+    window: Option<Rc<Window>>,
+    presenter: Option<Presenter<Rc<Window>>>,
+    /// The modifier keys held, as the window server last said.
+    modifiers: ModifiersState,
+    /// Why the frame had to stop, if it did.
+    failed: Option<String>,
+}
+
+impl Framing {
+    /// Put the window where it was last told, or hide it.
+    fn stand(&self) {
+        let Some(window) = &self.window else {
+            return;
+        };
+        match self.told {
+            Follow::At(at) => {
+                let Some((position, size)) = standing(at) else {
+                    // Somewhere no window of ours can be put is somewhere
+                    // a person cannot see it beside Chrome's.
+                    window.set_visible(false);
+                    return;
+                };
+                window.set_outer_position(position);
+                // `winit` answers the size it took at once, or `None` when
+                // the window server will say it in a resize; either way
+                // the frame is drawn at what its window is.
+                let _ = window.request_inner_size(size);
+                window.set_visible(true);
+                window.request_redraw();
+            }
+            Follow::Aside => window.set_visible(false),
+            Follow::Closed => {}
+        }
+    }
+
+    /// Draw the frame at its window's size.
+    fn draw(&mut self) {
+        let Some(window) = &self.window else {
+            return;
+        };
+        let size = window.inner_size();
+        let canvas = compose_frame((size.width, size.height));
+        if let Some(presenter) = self.presenter.as_mut()
+            && let Err(why) = presenter.show(&canvas)
+        {
+            self.failed = Some(why);
+        }
+    }
+
+    /// Send the thread holding Chrome `order`, and leave the event loop
+    /// at once if nobody is there to close Chrome's window and say so.
+    fn send(&self, order: Order, event_loop: &ActiveEventLoop) {
+        if self.orders.send(order).is_err() {
+            event_loop.exit();
+        }
+    }
+}
+
+/// Where a window of `winit`'s goes to stand at `at`, in the screen's
+/// points — or [`None`] for bounds past what a window can be put at.
+fn standing(at: Bounds) -> Option<(LogicalPosition<f64>, LogicalSize<f64>)> {
+    let side = |points: i64| i32::try_from(points).ok().map(f64::from);
+    Some((
+        LogicalPosition::new(side(at.left)?, side(at.top)?),
+        LogicalSize::new(side(at.width)?, side(at.height)?),
+    ))
+}
+
+impl ApplicationHandler<Follow> for Framing {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
+            return;
+        }
+        let attributes = WindowAttributes::default()
+            .with_title("alo")
+            .with_decorations(false)
+            .with_window_level(WindowLevel::AlwaysOnTop)
+            .with_resizable(false)
+            .with_active(false)
+            .with_visible(false)
+            .with_inner_size(LogicalSize::new(FIRST_SIZE.0, f64::from(STRIP_HEIGHT)));
+        let window = match event_loop.create_window(attributes) {
+            Ok(window) => Rc::new(window),
+            Err(why) => {
+                self.failed = Some(format!("no frame: {why}"));
+                let _ = self.orders.send(Order::CloseEverything);
+                event_loop.exit();
+                return;
+            }
+        };
+        match Presenter::over(Rc::clone(&window)) {
+            Ok(presenter) => self.presenter = Some(presenter),
+            Err(why) => {
+                self.failed = Some(why);
+                let _ = self.orders.send(Order::CloseEverything);
+                event_loop.exit();
+                return;
+            }
+        }
+        self.window = Some(window);
+        self.stand();
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, follow: Follow) {
+        self.told = follow;
+        if follow == Follow::Closed {
+            // Chrome's window is gone, or this browser closed it: the
+            // frame has nothing left to stand beside.
+            self.presenter = None;
+            self.window = None;
+            event_loop.exit();
+            return;
+        }
+        self.stand();
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        match event {
+            WindowEvent::Resized(PhysicalSize { .. }) | WindowEvent::ScaleFactorChanged { .. } => {
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
+            WindowEvent::RedrawRequested => {
+                self.draw();
+                if self.failed.is_some() {
+                    self.send(Order::CloseEverything, event_loop);
+                }
+            }
+            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
+            WindowEvent::KeyboardInput {
+                event,
+                is_synthetic: false,
+                ..
+            } => {
+                if let Some(order) =
+                    pressed(&event, self.modifiers).and_then(|press| keys::order(&press))
+                {
+                    self.send(order, event_loop);
+                }
+            }
+            WindowEvent::CloseRequested => self.send(Order::CloseEverything, event_loop),
             _ => {}
         }
     }

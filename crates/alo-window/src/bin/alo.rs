@@ -20,9 +20,11 @@
 //! Chrome installed on the machine draw the page instead (ADR 0058, queue
 //! item 641), behind the same socket, the same grants and the same record.
 //! Chrome shows it in a window of its own, placed on the screen by this
-//! process (item 627, ADR 0061), and the terminal says where it went. No
-//! window of ours goes around it yet (item 642), so this browser runs until
-//! its input ends — Ctrl-D at a terminal — and then closes Chrome.
+//! process (item 627, ADR 0061), and the terminal says where it went. A
+//! frame of ours floats directly above it and follows it as a person moves
+//! and resizes it, standing aside while it is not on the screen (item 642,
+//! ADR 0062). Closing either closes both, and so does this browser's input
+//! ending — Ctrl-D at a terminal.
 //!
 //! Either way the terminal says which renderer draws the page: this engine,
 //! or Chrome by the version it gives itself (ADR 0058 § 6). And while it
@@ -37,6 +39,8 @@ use alo_renderer::tab::Tabs;
 use alo_window::beside::renderer_beside;
 use alo_window::chrome_serving::ChromeServing;
 use alo_window::conductor::{Conductor, Fonts};
+use alo_window::inbox::Orders;
+use alo_window::message::Order;
 use alo_window::opening::{CHROME_AT, CHROME_SIZE, Opening, Renderer};
 use alo_window::pages::RenderedBy;
 use std::process::ExitCode;
@@ -140,8 +144,9 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
     }
 }
 
-/// Open the page in the machine's Chrome, answer agents about it, and run
-/// until this program's input ends.
+/// Open the page in the machine's Chrome with a frame of ours around its
+/// window, answer agents about it, and run until either window is closed
+/// or this program's input ends.
 fn in_chrome(opening: &Opening) -> ExitCode {
     // Read before Chrome is started, so a file that is not there is said
     // without starting it.
@@ -152,14 +157,52 @@ fn in_chrome(opening: &Opening) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let serving =
-        match ChromeServing::start_shown(page, CHROME_SIZE, CHROME_AT, opening.agents.clone()) {
-            Ok(serving) => serving,
-            Err(why) => {
-                eprintln!("alo: {why}");
-                return ExitCode::FAILURE;
-            }
-        };
+    let (tell, follows) = std::sync::mpsc::channel();
+    let started = ChromeServing::start_shown(
+        page,
+        CHROME_SIZE,
+        CHROME_AT,
+        opening.agents.clone(),
+        Box::new(move |follow| tell.send(follow).is_ok()),
+    );
+    let serving = match started {
+        Ok(serving) => serving,
+        Err(why) => {
+            eprintln!("alo: {why}");
+            return ExitCode::FAILURE;
+        }
+    };
+    say_where_chrome_is(&serving);
+    let orders = serving.orders();
+    let listening = listen(&orders, &opening.agents);
+    close_when_input_ends(orders.clone());
+    eprintln!(
+        "alo: this browser runs until Chrome's window or the frame above it is closed, \
+         or its input ends, Ctrl-D at a terminal"
+    );
+    let ran = alo_window::window::frame(follows, orders.clone());
+    stop_listening(listening);
+    // The frame may have gone before Chrome's window did — a failure, or
+    // the program asked to quit — and Chrome is closed with it.
+    let _ = orders.send(Order::CloseEverything);
+    drop(orders);
+    let finished = serving.records().is_some();
+    match ran {
+        Err(why) => {
+            eprintln!("alo: {why}");
+            ExitCode::FAILURE
+        }
+        Ok(()) if !finished => {
+            eprintln!("alo: Chrome's thread did not finish");
+            ExitCode::FAILURE
+        }
+        Ok(()) => ExitCode::SUCCESS,
+    }
+}
+
+/// Say on the terminal which Chrome draws the page, and where its window
+/// went.
+fn say_where_chrome_is(serving: &ChromeServing) {
     eprintln!("alo: pages are drawn by {}", serving.rendered_by());
     if let Some(placed) = serving.placed() {
         let at = placed.window.bounds;
@@ -172,21 +215,24 @@ fn in_chrome(opening: &Opening) -> ExitCode {
             eprintln!("alo: {unlike}");
         }
     }
-    let listening = listen(&serving.orders(), &opening.agents);
-    eprintln!("alo: this browser runs until its input ends, Ctrl-D at a terminal");
-    let waited = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
-    stop_listening(listening);
-    let finished = serving.records().is_some();
-    match waited {
-        Err(why) => {
-            eprintln!("alo: this browser's input could not be read, and it has closed: {why}");
-            ExitCode::FAILURE
-        }
-        Ok(_) if !finished => {
-            eprintln!("alo: Chrome's thread did not finish");
-            ExitCode::FAILURE
-        }
-        Ok(_) => ExitCode::SUCCESS,
+}
+
+/// Close Chrome's window and the frame once this program's input ends, on
+/// a thread of its own: Ctrl-D at a terminal, or the end of what a program
+/// that started this one sends it.
+fn close_when_input_ends(orders: Orders) {
+    let watched = std::thread::Builder::new()
+        .name("alo-input".to_owned())
+        .spawn(move || {
+            let read = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
+            if let Err(why) = read {
+                eprintln!("alo: this browser's input could not be read, and it closes: {why}");
+            }
+            // Chrome's thread gone is the browser already closing.
+            let _ = orders.send(Order::CloseEverything);
+        });
+    if let Err(why) = watched {
+        eprintln!("alo: this browser's input is not watched, and Ctrl-D will not close it: {why}");
     }
 }
 

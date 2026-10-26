@@ -53,13 +53,14 @@ pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-s
 pub const CHROME_SIZE: (u32, u32) = (1200, 800);
 
 /// Where the top left corner of Chrome's window is put on the screen, in
-/// the screen's points: clear of the menu bar, and leaving the whole window
-/// — [`CHROME_SIZE`] and a title bar — on either of this machine's screens,
-/// 1710 by 1107 points and 1920 by 1080. A screen that gives the window
-/// less room than that — a locked session's did, holding the page at 1200
-/// by 571 — has the page laid out at what it gives, and `alo` says so and
-/// runs (queue item 671).
-pub const CHROME_AT: (i32, i32) = (120, 60);
+/// the screen's points: low enough that the frame of ours above it — the
+/// strip's 36 points (item 642) — is clear of a menu bar measured at 34,
+/// with ten to spare, and leaving the whole window — [`CHROME_SIZE`] and a
+/// title bar — on either of this machine's screens, 1710 by 1107 points and
+/// 1920 by 1080. A screen that gives the window less room than that — a
+/// locked session's did, holding the page at 1200 by 571 — has the page
+/// laid out at what it gives, and `alo` says so and runs (queue item 671).
+pub const CHROME_AT: (i32, i32) = (120, 80);
 
 /// Which renderer a person asked to draw the page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

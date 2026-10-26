@@ -3308,3 +3308,12 @@ padding is added to its children's spill here, and only to its children's
 boxes and its own lines in Chrome). The screen was locked, so 642, 643 and
 658 still wait on it. 300 queue items are open (674 closed, 675 opened).
 The next unused queue number is 676 and the next unused ADR 0065.
+
+Iteration 419 built queue item 642 — a floating window of ours above
+Chrome's that follows it, stands aside and closes with it, `alo --chrome`
+running it — and did not close it: the gate was not met, every failure a
+Chrome silent for 30 s while the window server held 8 GB of the machine's
+8. Nothing is committed; the work is in the working tree. Cut from it: 679
+(what the frame draws). 303 queue items are open. The next unused queue
+number is 680 and the next unused ADR 0065. LOOP HALT, for a person to
+free the machine's memory and run the gate on this tree.
