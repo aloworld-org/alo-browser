@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A `<textarea>` whose text ends in a newline holds the empty line
+  after it, and a blank line in kept white space is a line.** Chrome 155
+  gives a textarea ending in a newline one more line than the same text
+  in a box — the one a caret goes to — stands it on that line and
+  scrolls to it; this engine held a line short (item 670). And under
+  `pre` or `pre-wrap` a newline on a line holding nothing made no line,
+  so the blank line between two paragraphs of code was dropped; it is a
+  line now, as in Chrome. A textarea still collapses its newlines under
+  `white-space: normal`, where Chrome keeps them (item 673).
+
 - **The browser knows where its frame goes around Chrome's window.** When
   Chrome draws the page, a window of ours is to stand above Chrome's —
   where the tabs and the agent's sentence go. Now the browser can say

@@ -10573,6 +10573,15 @@ The long pole, and the thing most of section E is unreachable without.
   have no blank line. *Closes when:* a frozen page's blank line of code is
   a line of its own, in numbers, and a line of only kept spaces is as
   tall as its strut.
+  *Partly built (iteration 416, by item 670).* A kept newline now ends
+  its line even holding nothing, so `a`, two newlines and `b` are three
+  lines and a line of only kept spaces before a newline is a line — Chrome
+  155's heights, asserted in `numbers.rs` and in
+  `cases/a-textarea-ending-in-a-newline-holds-a-last-line`'s `#box-blank`.
+  *Still owed:* a line of only kept spaces with no newline after it is no
+  line — Chrome 155 makes `<div style="white-space: pre-wrap"> </div>`
+  20 tall and `a`, a newline and two spaces two lines, and this engine
+  0 and one — and a frozen page's blank line of code.
 
 - [x] **412. A monospace face in the corpus.** *Opened by
   `alo-sites-rich-blocks` (iteration 264); `alo-downloads` has said the
@@ -17174,7 +17183,7 @@ What stage 2's exit gate actually measures: a person using it.
   grip (522) and the corpus's monospace face. No other case moved. Cut: a
   `<textarea>` whose text ends in a newline, item 670.
 
-- [ ] **670. A `<textarea>` whose text ends in a newline holds a last,
+- [x] **670. A `<textarea>` whose text ends in a newline holds a last,
   empty, line.** *Cut from 669 (iteration 413).* Measured against Chrome
   155.0.8059.86 with the corpus's `DejaVu Sans`: a `<textarea
   style="overflow: clip">` 80 by 50 with a line of 20 holding `Ring` and
@@ -17193,6 +17202,54 @@ What stage 2's exit gate actually measures: a person using it.
   when:* a textarea ending in a newline holds Chrome's last empty line,
   stands on it under `clip` and scrolls to it under `auto`, in numbers,
   in a corpus case.
+  **Done (iteration 416).** Measured against Chrome 155.0.8059.86,
+  headless, `DejaVu Sans` loaded before measuring, three runs alike. A
+  textarea holding `Ring` and a newline, or a newline alone, stands on a
+  second line (label 23 px down); `Ring` and two newlines, or two lines
+  and a newline, on a third (43); under `auto` the scroll height of four
+  lines and a newline is 104 where four lines are 84. An `inline-block`
+  of `pre-wrap` is no taller for a last newline, and **every kept newline
+  ends a line, one holding nothing among them** — `a`, two newlines and
+  `b` are 60 tall, a newline alone 20, `a` and two newlines 40. That
+  second rule was broken here too: `inline.rs`'s `end_line` dropped a line
+  holding nothing, newline or not, since it was first written, though
+  `break_line` and the module's own account said otherwise — so the
+  textarea's two-newline rows needed it. Built in `alo-layout`'s
+  `inline.rs`: a kept newline ends its line even holding nothing
+  (`end_this_line(true)`), and the new `lay_out_a_text_area` lays out a
+  textarea's lines with one more after a kept newline the text ends in;
+  `engine.rs` uses it for a textarea's inside (`holds_a_text_areas_lines`)
+  both where the box is measured and where its lines are placed.
+  `cases/a-textarea-ending-in-a-newline-holds-a-last-line` holds ten rows
+  and `alo-corpus`'s `a_textarea_ending_in_a_newline_holds_a_last_line.rs`
+  asserts each row's top and height, the label's top and the box's
+  border box against Chrome's to 1/64 px, and each scrolling textarea's
+  scrolling area against Chrome's `scrollHeight`. `numbers.rs` pins both
+  rules beside the test font and `inline.rs`'s unit tests pin the line
+  counts. Each rule put back (restored from a copy, checked with `cmp`)
+  fails its tests — the case at `#ring-newline` (label 77, Chrome's 97)
+  and at `#newline` (143, Chrome's 163). No other case moved. Chrome's
+  screenshot of the same bytes puts every box and label in the same place
+  and differs in the textareas' white (525), their grips (522) and the
+  face. Of 411 this builds the newline half; a line of only kept spaces
+  with no newline after it is still no line there. Cut: a textarea keeps
+  its newlines whatever its `white-space`, item 673.
+
+- [ ] **673. A `<textarea>` keeps its newlines whatever its
+  `white-space`.** *Cut from 670 (iteration 416).* Measured against
+  Chrome 155.0.8059.86 with `DejaVu Sans`: a `<textarea style="overflow:
+  clip">` 80 by 50 with a line of 20 holding `a`, a newline and `b`
+  stands on its second line (label 23 px down) under `white-space:
+  normal`, `nowrap`, `pre-line` and `pre-wrap` alike, and holding `Ring`
+  and a newline it stands on a second line under each of them and `pre`
+  — so a newline in a textarea is a line's end whatever the author's
+  `white-space` says. Here `normal` and `nowrap` collapse it to a space,
+  as they would in any box, so such a textarea holds a line fewer. Whether
+  Chrome keeps runs of spaces under `normal` too, and whether it wraps
+  under `nowrap` and `pre`, is unmeasured. *Depends on nothing. Feature:
+  `docs/features.md` stage 1, forms and `white-space`. Closes when:* a
+  textarea under each `white-space` holds Chrome's lines, measured and
+  asserted in numbers, in a corpus case.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of

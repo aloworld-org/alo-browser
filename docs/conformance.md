@@ -145,7 +145,7 @@ value's, an inline-block on its last line of text — and an `<input>` with
 nothing typed in it on the line it would hold, its strut's baseline, so it
 stands where it will once typed into (item 384; an empty button and
 `<textarea>` do not, and a `<textarea>` written in does not either, being a
-scroll container, item 663) — and on its bottom margin edge when it has no line or is a scroll container (`hidden`, `scroll` or `auto` on an axis; under `clip` it keeps its line, as Chrome 155's does, every row of `a-clipped-box-stands-on-its-line` Chrome's to its 1/64 px, item 667, and an empty `<textarea>` under `clip` on the line it would hold, every row of `an-empty-clipped-textarea-stands-on-a-line` Chrome's to its 1/64 px, item 669; a `<textarea>` ending in a newline does not yet hold Chrome's last empty line, 670), which is where an
+scroll container, item 663) — and on its bottom margin edge when it has no line or is a scroll container (`hidden`, `scroll` or `auto` on an axis; under `clip` it keeps its line, as Chrome 155's does, every row of `a-clipped-box-stands-on-its-line` Chrome's to its 1/64 px, item 667, and an empty `<textarea>` under `clip` on the line it would hold, every row of `an-empty-clipped-textarea-stands-on-a-line` Chrome's to its 1/64 px, item 669; a `<textarea>` ending in a newline on the last, empty line it holds after it, every row of `a-textarea-ending-in-a-newline-holds-a-last-line` Chrome's to its 1/64 px, item 670; under `white-space: normal` or `nowrap` it does not yet keep its newlines, as Chrome's does, 673), which is where an
 image and an SVG stand. A **checkbox and a radio** stand on their bottom
 *border* edge, as Chrome 154 stands them, below the user-agent sheet's 3
 pixels of margin (item 443). Chrome ignores an author's padding and border
@@ -694,7 +694,11 @@ the queue: a word that runs across two boxes and does not fit overflows
 where it stands, where Chrome moves it whole to the next line if there was
 an earlier break on its line (452); an inline box's trailing space at the
 end of a line still widens the box (450); and an inline box that opens just
-before a break keeps an empty piece on the line before (451).
+before a break keeps an empty piece on the line before (451). **A kept
+newline ends a line even holding nothing** (queue item 670): `a`, two
+newlines and `b` are three lines, as Chrome 155 lays them out, where until
+then the blank line between them was dropped. A line of only kept spaces
+with no newline after it is still no line, where Chrome's is (411).
 
 **A `<br>` ends its line**, as HTML's rendering section says, even under
 `nowrap`. Two in a row leave a blank line, one at the end of a paragraph adds

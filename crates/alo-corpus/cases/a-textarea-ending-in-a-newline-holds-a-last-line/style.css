@@ -1,0 +1,41 @@
+/* A `<textarea>` whose text ends in a newline holds one line more than the
+   same text in a box — the empty one a caret goes to after it — and stands
+   on it and scrolls to it: queue item 670, measured in Chrome 155
+   (crates/alo-layout/src/inline.rs, `lay_out_a_text_area`). Every row is a
+   label, "Ab", beside one box.
+   - #ring: holding a line, it stands on it.
+   - #ring-newline, #newline: a line and a newline, or a newline alone (two
+     written, the parser dropping the first), stand on a second line.
+   - #two-newlines, #two-lines-newline: on a third.
+   - #box-newline, #box-blank, #box-alone: an `inline-block` of `pre-wrap`
+     is no taller for a last newline, and every kept newline ends a line,
+     one holding nothing among them: `a`, two newlines and `b` are three.
+   - #four, #four-newline: under the sheet's `auto` a textarea is a scroll
+     container, and the newline adds a line to how far it scrolls. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 16px;
+  line-height: 20px;
+}
+.row {
+  margin-bottom: 10px;
+  background: #eeeeee;
+}
+.sized {
+  width: 80px;
+  height: 50px;
+  padding: 2px;
+  border: 1px solid #000000;
+  font-size: 16px;
+  line-height: 20px;
+  margin: 0;
+}
+.kept {
+  display: inline-block;
+  white-space: pre-wrap;
+  width: 80px;
+  padding: 2px;
+  border: 1px solid #000000;
+}

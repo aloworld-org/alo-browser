@@ -374,7 +374,9 @@ pub(crate) fn measure_inline(
         alignment_of(boxes, styles, id),
         text_style_for(boxes, styles, id),
     );
-    if narrowest {
+    if holds_a_text_areas_lines(boxes, id) {
+        inline::lay_out_a_text_area(&items, available_width, narrowest, &strut, measure)
+    } else if narrowest {
         inline::lay_out_narrowest(&items, alignment, &strut, measure)
     } else {
         inline::lay_out_aligned(&items, available_width, alignment, &strut, measure)
@@ -805,13 +807,19 @@ fn place_inline_content(
         // the same one `measure_inline` sized this box with — two different
         // struts would give the box one height and its lines another.
         let strut = text_style_for(boxes, styles, id);
-        let layout = inline::lay_out_aligned(
-            &items,
-            room,
-            alignment_of(boxes, styles, id),
-            &strut,
-            measure,
-        );
+        // A `<textarea>`'s text ending in a newline holds a last, empty line
+        // after it, which it stands on and scrolls to (queue item 670).
+        let layout = if holds_a_text_areas_lines(boxes, id) {
+            inline::lay_out_a_text_area(&items, room, false, &strut, measure)
+        } else {
+            inline::lay_out_aligned(
+                &items,
+                room,
+                alignment_of(boxes, styles, id),
+                &strut,
+                measure,
+            )
+        };
 
         let down = lines_start_down(boxes, styles, id, content, layout.size.height, measure);
         let origin = Point::new(content.origin.x, content.origin.y + down);

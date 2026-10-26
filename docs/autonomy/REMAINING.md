@@ -3273,3 +3273,15 @@ the window server's (`chrome_frame.rs`), the window server read through
 642 is next: the window standing there. 300 queue items are open (672
 opened and closed). The next unused queue number is 673 and the next
 unused ADR 0065.
+
+Iteration 416 closed queue item 670: a `<textarea>` whose text ends in a
+kept newline holds a last, empty line after it, stands on it under
+`overflow: clip` and scrolls to it under `auto`, as Chrome 155 does; and a
+kept newline ends a line even holding nothing, so a blank line in `pre` or
+`pre-wrap` is a line (the newline half of 411). Every row of the new
+`a-textarea-ending-in-a-newline-holds-a-last-line` case is Chrome's to
+1/64 px, and its scrolling textareas scroll as far as Chrome's. Cut from
+it: 673 (a textarea keeps its newlines whatever its `white-space`). The
+screen was locked, so 642, 643 and 658 still wait on it; 665 waits on 521
+and 668 on a page. 300 queue items are open (670 closed, 673 opened). The
+next unused queue number is 674 and the next unused ADR 0065.

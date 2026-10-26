@@ -1882,6 +1882,86 @@ fn an_empty_field_stands_where_its_text_will() {
     assert_eq!(button, Rect::new(16.0, 4.0, 50.0, 10.0), "{button:?}");
 }
 
+/// Every kept newline ends a line, a line holding nothing among them: `a`,
+/// two newlines and `b` are three lines, a newline alone is one, and text
+/// ending in a newline is no taller for it — Chrome 155's heights for an
+/// `inline-block` of `pre-wrap` with a line of 20 (queue item 670). Until
+/// then a line holding nothing was no line, newline or not.
+#[test]
+fn a_kept_newline_ends_a_line_holding_nothing() {
+    let css = "#w { font-size: 16px; line-height: 20px; white-space: pre-wrap; width: 80px }";
+    for (text, tall) in [
+        ("a\nb", 40.0),
+        ("a\n\nb", 60.0),
+        ("\n", 20.0),
+        ("a\n\n", 40.0),
+        ("Ring\n", 20.0),
+        ("\n\n\n", 60.0),
+        ("a\n  \nb", 60.0),
+    ] {
+        let html = format!("<body><div id=w>{text}</div></body>");
+        let (boxes, layout) = lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
+        let block = rect_of(&boxes, &layout, "w", &html);
+        assert!(close(block.size.height, tall), "{text:?}: {block:?}");
+    }
+}
+
+/// A `<textarea>`'s text ending in a newline holds one line more than the
+/// same text in a box — the empty one a caret goes to after it — and the
+/// textarea stands on it and scrolls to it (queue item 670, measured in
+/// Chrome 155).
+#[test]
+fn a_text_areas_text_ending_in_a_newline_holds_a_last_empty_line() {
+    let css = "#w, textarea { font-size: 16px; line-height: 20px } \
+               textarea { padding: 5px; border: 0; width: 40px; height: 30px }";
+    // Under `clip` it stands on its last line: one holding `cd` stands on
+    // its first, 19 down, so the text beside it has its top at 7; holding
+    // `cd` and a newline, or a newline alone (two written, the parser
+    // dropping the first), on the second, 39 down, so the text is at 27;
+    // and `cd` and two newlines on the third, 59 down, the text at 47.
+    for (text, top) in [
+        ("cd", 7.0),
+        ("cd\n", 27.0),
+        ("\n\n", 27.0),
+        ("cd\n\n", 47.0),
+    ] {
+        let html = format!(
+            "<body><div id=w><span id=s>ab</span>\
+             <textarea id=f style='overflow: clip'>{text}</textarea></div></body>"
+        );
+        let (boxes, layout) = lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
+        assert_eq!(
+            rect_of(&boxes, &layout, "s", &html),
+            Rect::new(0.0, top, 16.0, 16.0),
+            "{text:?}"
+        );
+        // The textarea is its own 40 by 30 whatever it holds.
+        assert_eq!(
+            rect_of(&boxes, &layout, "f", &html).size,
+            Size::new(50.0, 40.0),
+            "{text:?}"
+        );
+    }
+
+    // Under `auto` its scrolling area reaches the last line and its padding
+    // below, as Chrome's `scrollHeight` does: four lines are 80 inside 10 of
+    // padding, and four and a newline 100.
+    for (text, reach) in [("a\nb\nc\nd", 90.0), ("a\nb\nc\nd\n", 110.0)] {
+        let html = format!("<body><div id=w><textarea id=f>{text}</textarea></div></body>");
+        let (boxes, layout) = lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
+        let geometry = geometry_of(&boxes, &layout, "f", &html);
+        assert!(
+            close(geometry.reach.height, reach),
+            "{text:?}: {geometry:?}"
+        );
+    }
+
+    // A `<div>` of `pre-wrap` holding the same is no taller for the newline.
+    let html = "<body><div id=w style='white-space: pre-wrap'>cd\n</div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 20.0));
+}
+
 #[test]
 fn a_date_or_a_time_holds_its_line_a_pixel_inside_a_text_fields() {
     // Chrome 154 holds a date or a time in segments with a pixel of padding

@@ -99,7 +99,17 @@
 //! break with nothing before it on its line makes the line anyway, which is
 //! why two in a row leave a blank line; one with nothing after it starts no
 //! line at all, which is why a paragraph ending in a `<br>` is no taller for
-//! it. That is the rule a kept newline in `white-space: pre` follows too.
+//! it. That is the rule a kept newline in `white-space: pre` follows too:
+//! `a`, two newlines and `b` are three lines, a newline alone is one, and
+//! text ending in a newline is no taller for it (Chrome 155, queue item 670).
+//!
+//! # A `<textarea>` keeps the line after its last newline
+//!
+//! Text ending in a newline in a `<textarea>` holds one line more than the
+//! same text in a box: the empty one a caret goes to after it. Chrome 155
+//! stands such a textarea on that line and scrolls to it (queue item 670,
+//! measured), so [`lay_out_a_text_area`] lays it out where
+//! [`lay_out_aligned`] would not.
 //!
 //! # Where two boxes meet, what came before decides
 //!
@@ -449,7 +459,15 @@ pub fn lay_out_aligned(
     strut: &TextStyle,
     measurer: &impl MeasureText,
 ) -> InlineLayout {
-    lay_out_lines(items, available_width, false, alignment, strut, measurer)
+    lay_out_lines(
+        items,
+        available_width,
+        false,
+        alignment,
+        strut,
+        LastNewline::EndsItsLine,
+        measurer,
+    )
 }
 
 /// The same, in no room at all, to find how narrow the lines can be: their
@@ -463,7 +481,52 @@ pub fn lay_out_narrowest(
     strut: &TextStyle,
     measurer: &impl MeasureText,
 ) -> InlineLayout {
-    lay_out_lines(items, Some(0.0), true, alignment, strut, measurer)
+    lay_out_lines(
+        items,
+        Some(0.0),
+        true,
+        alignment,
+        strut,
+        LastNewline::EndsItsLine,
+        measurer,
+    )
+}
+
+/// The lines of a `<textarea>`'s text, starting at the start of each line:
+/// as [`lay_out_aligned`] lays them out, or in no room at all when
+/// `narrowest` is asked for as [`lay_out_narrowest`] does — except that text
+/// ending in a kept newline holds a last, empty line after it (queue item
+/// 670). See the module's own account.
+pub fn lay_out_a_text_area(
+    items: &[InlineItem],
+    available_width: Option<f32>,
+    narrowest: bool,
+    strut: &TextStyle,
+    measurer: &impl MeasureText,
+) -> InlineLayout {
+    let room = if narrowest {
+        Some(0.0)
+    } else {
+        available_width
+    };
+    lay_out_lines(
+        items,
+        room,
+        narrowest,
+        TextAlignment::Start,
+        strut,
+        LastNewline::OpensALine,
+        measurer,
+    )
+}
+
+/// What a kept newline at the very end of the text makes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LastNewline {
+    /// Nothing: it ends the line it is on, and no line comes after it.
+    EndsItsLine,
+    /// A last, empty line after it, as a `<textarea>`'s does.
+    OpensALine,
 }
 
 fn lay_out_lines(
@@ -472,11 +535,13 @@ fn lay_out_lines(
     narrowest: bool,
     alignment: TextAlignment,
     strut: &TextStyle,
+    last_newline: LastNewline,
     measurer: &impl MeasureText,
 ) -> InlineLayout {
     let mut builder = Builder::new(available_width, strut, measurer);
     builder.alignment = alignment;
     builder.cutting.narrowest = narrowest;
+    builder.last_newline = last_newline;
     for item in items {
         match item {
             InlineItem::Text {
@@ -556,6 +621,10 @@ struct Builder<'a, M: MeasureText> {
     /// was not it, whose advance is rounded onto the grid whole
     /// ([`crate::text_run`]).
     run: Option<TextRun>,
+    /// What a kept newline the text ends in makes.
+    last_newline: LastNewline,
+    /// Whether the last thing laid down was a kept newline.
+    after_a_newline: bool,
 }
 
 /// The white space a piece of text may end in, after which a line may break
@@ -661,6 +730,8 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             wrap: SoftWrap::start(strut_wraps),
             tail: String::new(),
             run: None,
+            last_newline: LastNewline::EndsItsLine,
+            after_a_newline: false,
         }
     }
 
@@ -778,21 +849,26 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 self.add_run(box_id, text, at..at + piece.len(), style);
                 at += piece.len();
             }
+            self.after_a_newline = text.ends_with('\n');
             return;
+        }
+        if !text.is_empty() {
+            self.after_a_newline = false;
         }
         self.add_run(box_id, text, 0..text.len(), style);
     }
 
     /// End this line because the text said to, rather than because it is full.
     ///
-    /// A forced break makes a line even when there is nothing on it: two
+    /// A kept newline makes a line even when there is nothing on it: two
     /// newlines in a row are a blank line, and a page that quietly dropped it
-    /// would be a page missing a paragraph's worth of space.
+    /// would be a page missing a paragraph's worth of space. Until queue item
+    /// 670 this said so and did not do it — a line holding nothing was no
+    /// line, newline or not — so a `pre` block of two paragraphs drew them
+    /// with no line between.
     fn break_line(&mut self) {
-        if self.holds_nothing() {
-            self.content = true;
-        }
-        self.end_line();
+        self.content = true;
+        self.end_this_line(true);
     }
 
     /// A `<br>`: stand on this line as a piece of text with no width, then
@@ -832,6 +908,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         // A break is content even alone on its line: `<br><br>` is a blank
         // line, and `<p><br></p>` is a paragraph one line tall.
         self.content = true;
+        self.after_a_newline = false;
         self.end_line();
     }
 
@@ -1204,6 +1281,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let wraps = self.open.last().map_or(self.strut_wraps, |held| held.wraps);
         self.wrap.atomic(self.open.len(), wraps);
         self.content = true;
+        self.after_a_newline = false;
         // Placed only once it is known which line it is on: a `top` box's
         // group belongs to the line.
         let place = self.place_at(self.open.len(), align, baseline, height - baseline);
@@ -1231,8 +1309,14 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// Finish the line being built: put every fragment on the baseline, and
     /// start a new one.
     fn end_line(&mut self) {
+        self.end_this_line(false);
+    }
+
+    /// The same, where `kept` says the line is one even holding nothing:
+    /// one a kept newline ends, or a `<textarea>`'s last.
+    fn end_this_line(&mut self, kept: bool) {
         let top = self.lines.last().map_or(0.0, |line| line.top + line.height);
-        if self.holds_nothing() || !self.content {
+        if !kept && (self.holds_nothing() || !self.content) {
             // A box out of flow on a line that does not exist stands where
             // the line would have: at its top, aligned as a line of nothing.
             let room = self.available_width.unwrap_or(0.0).max(0.0);
@@ -1379,7 +1463,8 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     }
 
     fn finish(mut self) -> InlineLayout {
-        self.end_line();
+        let last = self.after_a_newline && self.last_newline == LastNewline::OpensALine;
+        self.end_this_line(last);
         // Anything still open was never closed, which is the caller's mistake
         // rather than the line's; it keeps the piece `end_line` gave it.
         self.open.clear();
@@ -1648,6 +1733,78 @@ mod tests {
         let layout = lay_out(&[text(1, "one"), line_break(2)], Some(1000.0), &BlockFont);
         assert_eq!(layout.lines.len(), 1);
         assert!((layout.size.height - 16.0).abs() < 0.001);
+    }
+
+    /// One `pre-wrap` run of `text`, as box 1.
+    fn kept(text: &str) -> [InlineItem; 1] {
+        [InlineItem::Text {
+            box_id: box_id(1),
+            text: text.to_owned(),
+            style: TextStyle {
+                white_space: alo_box::WhiteSpace::PreWrap,
+                ..TextStyle::default()
+            },
+        }]
+    }
+
+    #[test]
+    fn a_kept_newline_ends_a_line_holding_nothing() {
+        // Chrome 155's line counts for a `pre-wrap` box (queue item 670).
+        for (text, lines) in [
+            ("Ring", 1_u16),
+            ("Ring\n", 1),
+            ("\n", 1),
+            ("a\n\nb", 3),
+            ("a\n\n", 2),
+            ("\n\n\n", 3),
+        ] {
+            let layout = lay_out(&kept(text), Some(1000.0), &BlockFont);
+            assert_eq!(layout.lines.len(), usize::from(lines), "{text:?}");
+            let tops: Vec<f32> = layout.lines.iter().map(|line| line.top).collect();
+            let even: Vec<f32> = (0..lines).map(|at| 16.0 * f32::from(at)).collect();
+            assert_eq!(tops, even, "{text:?}: each line the strut's 16");
+        }
+        // A blank line draws nothing.
+        let layout = lay_out(&kept("a\n\nb"), Some(1000.0), &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["1@0"], vec![], vec!["1@0"]]);
+    }
+
+    #[test]
+    fn a_text_areas_last_newline_opens_a_line() {
+        // One line more than a box holds, when and only when the text ends
+        // in a kept newline (queue item 670).
+        let strut = TextStyle::default();
+        for (text, lines) in [
+            ("Ring", 1),
+            ("Ring\n", 2),
+            ("\n", 2),
+            ("Ring\n\n", 3),
+            ("a\nb", 2),
+            ("", 0),
+        ] {
+            for narrowest in [false, true] {
+                let layout =
+                    lay_out_a_text_area(&kept(text), Some(1000.0), narrowest, &strut, &BlockFont);
+                assert_eq!(layout.lines.len(), lines, "{text:?}, narrowest {narrowest}");
+            }
+        }
+        let layout = lay_out_a_text_area(&kept("Ring\n"), Some(1000.0), false, &strut, &BlockFont);
+        assert_eq!(lines_of(&layout), [vec!["1@0"], vec![]]);
+        assert!((layout.size.height - 32.0).abs() < 0.001);
+
+        // A newline collapsed to a space is no newline, and a `<br>` or an
+        // atomic box after the newline is what the text ends in instead.
+        let collapsed = lay_out_a_text_area(&[text(1, "Ring\n")], None, false, &strut, &BlockFont);
+        assert_eq!(collapsed.lines.len(), 1);
+        let [ring] = kept("Ring\n");
+        let items = [ring, line_break(2)];
+        assert_eq!(
+            lay_out_a_text_area(&items, None, false, &strut, &BlockFont)
+                .lines
+                .len(),
+            2,
+            "the break ends the second line and starts no third",
+        );
     }
 
     #[test]

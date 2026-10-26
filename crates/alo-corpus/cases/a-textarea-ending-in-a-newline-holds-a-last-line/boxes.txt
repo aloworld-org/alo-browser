@@ -1,0 +1,59 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring\n"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "\n"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring\n\n"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring\ntwo\n"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "Ring\n"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "a\n\nb"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · generic
+        text "\n"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "a\nb\nc\nd"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "a\nb\nc\nd\n"

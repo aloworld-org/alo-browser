@@ -42390,3 +42390,123 @@ temporary aside test, so `activateTarget` does not win focus from it
 300 queue items are open (672 opened and closed). The next unused queue
 number is **673** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 416 — queue item 670: a `<textarea>` ending in a newline holds a last, empty line
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the Layout and Text lines), iterations 413–415's entries, the
+queue's product path and items 642, 643, 670, 411 and 669;
+`docs/features.md`'s inline-block baseline and `white-space` lines;
+`docs/conformance.md`; `alo-layout`'s `inline.rs` (`add_text`,
+`break_line`, `end_line`, `finish`) and `engine.rs` (`measure_inline`,
+`place_inline_content`, `record_an_empty_field`); `alo-box`'s
+`control_content`. No `AGENTS.md` exists in the repository. 670 names no
+ADR; its feature contract is `docs/features.md` stage 1, the inline-block
+baseline line and forms.
+
+**Why 670.** 642 is marked next by the owner, but `ioreg` read
+`CGSSessionScreenIsLocked = true` at the start and again after the gate,
+and 642's closing condition is asserted from the window server with a
+person's moves — not measurable on a locked screen; 643 and 658 likewise,
+and 477 needs a second Mac. 665 depends on 521 (open), 668 waits for a
+page, 664 is next after 670 in the file. 670 depends on nothing.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop, `DejaVu Sans` from the `dejavu` crate via `@font-face`, measured
+after `document.fonts.load(...)` and `document.fonts.ready`, the case's
+sheet linked after the doctype; three runs alike. A textarea 80 by 50,
+line 20, under `clip`: `Ring` stands on its first line (label 3 down),
+`Ring` and a newline or a newline alone on a second (23), `Ring` and two
+newlines or two lines and a newline on a third (43). Under `auto`,
+`scrollHeight` 84 for four lines and 104 for four and a newline. A
+`pre-wrap` `inline-block` is no taller for a last newline (`Ring\n` 20),
+and every kept newline ends a line holding nothing: `a\n\nb` 60, `\n` 20,
+`a\n\n` 40, `\n\n\n` 60. **That second rule was broken here**, though
+`break_line`'s comment and the module's account claimed it: `end_line`
+has dropped a line holding nothing since it was first written (commit
+868a02a), so `a\n\nb` was two lines — item 411, open since iteration 264
+waiting for a page. Chrome's two-newline textarea rows needed it, so it
+is built here. Also measured: a textarea keeps its newlines under
+`white-space: normal`, `nowrap` and `pre-line` (cut to 673), and a line of
+only kept spaces with no newline after it is a line (`<div pre-wrap> </div>`
+20 tall) — 411's remainder, not built.
+
+**Built.** `inline.rs`: `break_line` ends its line even holding nothing
+(`end_this_line(true)`); the new `lay_out_a_text_area` lays a textarea's
+lines out with one more, empty, after a kept newline the text ends in
+(`LastNewline::OpensALine`, `after_a_newline` tracked by `add_text` and
+cleared by an atomic box or a `<br>`). `engine.rs` uses it for a
+textarea's inside (`holds_a_text_areas_lines`) where the box is measured
+and where its lines are placed, so the box, its baseline and its scrolling
+area agree. The module's account says both rules.
+
+**Tests.** `inline.rs` unit tests `a_kept_newline_ends_a_line_holding_nothing`
+and `a_text_areas_last_newline_opens_a_line` (line counts, tops, a
+collapsed newline and a trailing `<br>`); `numbers.rs`
+`a_kept_newline_ends_a_line_holding_nothing` (Chrome's seven heights) and
+`a_text_areas_text_ending_in_a_newline_holds_a_last_empty_line` (where
+the label stands, the box's size, the scroll reach 90 and 110 beside the
+test font); `alo-corpus`'s new
+`cases/a-textarea-ending-in-a-newline-holds-a-last-line` (ten rows) and
+`a_textarea_ending_in_a_newline_holds_a_last_line.rs`: each row's top and
+height, the label's top and the box's border box, Chrome's to 1/64 px,
+and each scrolling textarea's scrolling area equal to Chrome's
+`scrollHeight`. Mutations, each restored from a copy and checked with
+`cmp`: the textarea's last line never opened fails the unit test and the
+case (`#ring-newline` label 77, Chrome's 97); the old `break_line` fails
+both unit tests, both `numbers.rs` tests and the case (`#newline` 143,
+Chrome's 163).
+
+**Gate.** `cargo fmt --check` clean (after `cargo fmt` on the new test);
+`cargo clippy --workspace --all-targets --all-features -D warnings`
+silent (after a `usize as f32` cast in a test was made a `u16`);
+`alo-layout --lib` 275 passed. A first `alo-corpus` run showed only the
+new case missing its files — **no other case's reference moved**, the
+corpus having no blank kept line before. Then `scripts/gate.sh` on the
+final tree, in the foreground, past the tool's 600 s, waited on by an
+until-loop on its log and read there: **exit 0, "The gate is met." (10 of
+10 steps)**, nextest **5,432 tests run, 5,432 passed** in 543.7 s, no
+`FAIL`, `LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the tests above. Reference
+render: the new case's `render.png`, written by `ALO_UPDATE_REFERENCES=1`
+after the run that showed only it missing. Chrome's screenshot of the
+same bytes (antialiased, not committed) puts every box and label in the
+same place; it differs in the textareas' white fill (525), their resize
+grips (522) and the face (the probe forced `DejaVu Sans` everywhere). One
+file, one responsibility: what makes a line stays `inline.rs`'s, and which
+box's lines are a textarea's stays `engine.rs`'s. No bytes from outside
+read anew. No `unsafe`, no stubs, no verb taking a coordinate. `alo-os`
+and `alo-workplace` untouched. Nothing pushed. Temporary probe pages and
+a temporary unit test (removed, file restored from a copy) were outside
+the commit.
+
+**Roadmap.** No line moved, and that is the answer: 670 corrects where a
+textarea stands and how far it scrolls within stage 1's ticked **Layout**
+line, and the blank-line rule within its ticked **Text** line's line
+breaking; neither changes a verb, a grant or anything the product path or
+the agent's gate names. Not ticked anywhere. The queue ticks 670 with a
+*Done* paragraph, tells 411 what is built and what is still owed, and
+opens 673; `features.md`, `conformance.md`, `REMAINING.md` and the
+changelog say the same.
+
+**Unresolved obligations.**
+- 673: a textarea keeps its newlines under `white-space: normal` and
+  `nowrap` in Chrome; here they collapse.
+- 411: a line of only kept spaces with no newline after it is no line
+  here (Chrome: 20 tall), and no frozen page's code has a blank line yet.
+- 642 (the frame's window), 643 and 658 wait on an unlocked screen; 477
+  on a second Mac.
+- 439, 668, 452, 665, 664, 523, 522, 525 as iteration 413 left them;
+  CSS's computed `overflow` beside a scrolling axis still not given to
+  `taffy` (iteration 408).
+- 649 and 650 are open. Inherited and unchanged: off macOS the toggling
+  click holds Ctrl, unmeasured; `option { display: block }` undecided;
+  604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (670 closed, 673 opened). The next unused queue
+number is **674** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.
