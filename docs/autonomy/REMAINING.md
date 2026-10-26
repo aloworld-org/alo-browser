@@ -3262,3 +3262,14 @@ screen and its socket answers; `a_window_given_less_room_than_asked.rs`
 forces it by asking a page taller than any screen. The screen was locked,
 so 642, 643 and 658 still wait on it. 300 queue items are open (671
 closed). The next unused queue number is 672 and the next unused ADR 0065.
+
+Iteration 415 closed queue item 672, cut from 642 with the screen in use:
+Chrome's word for its window follows a person's drag and resize as they
+happen, and a person clicking a floating window of ours leaves Chrome's on
+the screen (five of five), so ADR 0062 stands. Where the frame stands —
+above Chrome's window, aside, or gone — is decided from Chrome's word and
+the window server's (`chrome_frame.rs`), the window server read through
+`osascript` because the crate needs `unsafe` of ours (`window_server.rs`).
+642 is next: the window standing there. 300 queue items are open (672
+opened and closed). The next unused queue number is 673 and the next
+unused ADR 0065.

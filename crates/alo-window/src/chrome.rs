@@ -148,6 +148,9 @@ pub enum Failed {
     /// ([`crate::chrome_hold`]). Boxed, so that every other failure, which
     /// a tree's reading carries down each level it recurses, stays small.
     Unheld(Box<Unheld>),
+    /// The tab's page was closed and Chrome detached its session, which
+    /// answers nothing sent through it after (item 672).
+    Detached,
 }
 
 impl fmt::Display for Failed {
@@ -166,6 +169,9 @@ impl fmt::Display for Failed {
             Self::Declined(why) => why.fmt(f),
             Self::Unwritten(kind) => write!(f, "Chrome could not be written to: {kind}"),
             Self::Unheld(why) => why.fmt(f),
+            Self::Detached => {
+                f.write_str("the tab's page was closed, and Chrome answers nothing of it")
+            }
         }
     }
 }
@@ -294,7 +300,8 @@ impl Chrome {
         self
     }
 
-    /// Chrome's process id, for a test that wants to see it gone.
+    /// Chrome's process id, for a test that wants to see it gone — and the
+    /// owner the window server names a shown Chrome's window by.
     pub fn process(&self) -> u32 {
         self.child.id()
     }

@@ -65,7 +65,9 @@
 //!   new document owed by [`chrome_owed`] until Chrome names the document
 //!   that asked (item 647). A Chrome started shown draws its one
 //!   page in a window of its own, which [`chrome_window`] sizes around the
-//!   page and places on the screen (ADR 0061, item 627).
+//!   page and places on the screen (ADR 0061, item 627); where a frame of
+//!   ours stands around it is [`chrome_frame`]'s to say, from Chrome's word
+//!   and what [`window_server`] shows on the screen (ADR 0062, item 672).
 //! - [`pages`] is what [`serving`] asks of the tabs, whichever renderer
 //!   draws them: [`engine_pages`] answers it from this engine's, and
 //!   [`chrome_pages`] from a tab in Chrome, which [`chrome_serving`] holds
@@ -100,6 +102,7 @@ pub mod chrome_act;
 pub mod chrome_bubble;
 pub mod chrome_choose;
 pub mod chrome_date;
+pub mod chrome_frame;
 pub mod chrome_gate;
 pub mod chrome_held;
 pub mod chrome_hold;
@@ -141,3 +144,4 @@ pub mod showing;
 #[cfg(unix)]
 pub mod socket_place;
 pub mod window;
+pub mod window_server;

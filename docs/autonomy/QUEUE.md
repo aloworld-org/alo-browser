@@ -55,6 +55,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **623** | the agent's sentence, where a person can read it — in this engine's window; through Chrome it comes with 642 |
 | ✓ | **624** | the acted-on box, marked — ringed on the frame painted after the verb, in this engine's window; through Chrome it comes with 642 |
 | ✓ | **625** | a refusal shown to the person, not only answered to the agent — in this engine's window; through Chrome it comes with 642 |
+| ✓ | **672** | where a frame of ours stands around Chrome's window — above it, aside, or gone, by Chrome's word and the window server's (cut from 642) |
 | **→** | **642** | **next, by the owner's choice (2026-10-25)**: a window of ours around Chrome's, following it (ADR 0061's frame) — and with it 623, 624 and 625 on the Chrome path |
 | | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
@@ -16726,6 +16727,19 @@ What stage 2's exit gate actually measures: a person using it.
   *And (iteration 386):* 625's refusals, each its own line, kept as
   `agent_lines.rs` keeps them — written from `chrome_serving`'s refused
   answers to a verb.
+  *Measured and cut (iteration 415):* with the screen in use, Chrome's
+  word follows a person's drag and resize as they happen, and a person
+  clicking a floating window of ours leaves Chrome's on the screen (five of
+  five), so ADR 0062 stands. Where the frame stands is **672**, built:
+  `chrome_frame::read` answers `Beside` with the frame's bounds, `Aside` or
+  `Closed`, and `chrome_window::close` closes Chrome's window. What is left
+  here is the window itself: a floating `winit` window in `window.rs`
+  following `chrome_frame`'s readings from `chrome_serving`'s thread,
+  closing when Chrome's closes and closing Chrome's when a person closes
+  it, `alo --chrome` running its event loop rather than waiting on its
+  input — and Chrome put low enough that there is room above it, since
+  `CHROME_AT`'s top of 60 leaves 24 points above it for a frame of 36 under
+  a menu bar measured at 34.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into
@@ -17902,6 +17916,80 @@ What stage 2's exit gate actually measures: a person using it.
   exactly when the page is shorter than 800. Mutation: the old exact-size
   rule put back fails the new test (*"refused where it should have run …
   1200×1041"*). A window a person resizes afterwards is still 642's.
+
+- [x] **672. Where a frame of ours stands around Chrome's window.** *Cut
+  from 642 (iteration 415); ADR 0062 §§ 2–4, ADR 0061.* 642 is a window of
+  ours that follows Chrome's, and before any window can follow, something
+  has to say where it goes and when: ADR 0062 decides it is put **by
+  Chrome's word** and shown **only while the window server lists Chrome's
+  window on the screen at those bounds**, and nothing yet reads the window
+  server outside a test, or decides from the two. *Depends on 627. Closes
+  when:* where the frame stands — directly above Chrome's window, aside, or
+  gone — is decided from both witnesses by a function tested in numbers,
+  the window server is read without `unsafe` of ours as ADR 0062 § 3's stop
+  rule says, and a real shown Chrome put, moved, resized and closed is read
+  at each step with the window server's numbers asserted.
+
+  **Done (iteration 415).** *Measured first, with the screen in use*, as
+  ADR 0062 § 4 asked (Chrome 155.0.8059.86, macOS 26.5.2, Stage Manager
+  on, a temporary floating `winit` window of ours at 200,100 1000×40 above
+  Chrome's): a person's drag of Chrome's title bar — `cliclick`, thirty
+  steps of five points a tenth of a second apart — was followed by
+  `Browser.getWindowForTarget` at every reading, about a third of a second
+  apart, to the point, and the window server agreed (300,240 → 350,290);
+  a drag of its corner was followed the same way, and the page was laid out
+  again at each size, 940×552 down to 900×520 in ten steps, by Chrome's
+  word and the page's own `innerWidth`; **a person clicking the floating
+  window of ours made our process frontmost and left Chrome's window on
+  the screen at its bounds, in five runs of five** — so ADR 0062 is not
+  reopened; and a person's ⌘W in Chrome's window closed its page, the next
+  reading over the tab's session declined (`Session with given id not
+  found`) and the window server listed nothing. Stage Manager off was not
+  measured: it is the owner's setting, and not this loop's to change.
+  *The crate, checked:* `objc2-core-graphics` 0.3.2's
+  `CGWindowListCopyWindowInfo` is safe, but its untyped `CFArray` has a
+  safe `get` only once `cast_unchecked` (an `unsafe fn`) has typed it, the
+  `kCGWindow…` keys are `extern` statics, and
+  `CGRectMakeWithDictionaryRepresentation` takes a raw pointer — so, by
+  the ADR's stop rule, **`window_server.rs` asks the same function through
+  `osascript`**, the process passed as an argument rather than written
+  into the script, no title read (a title is the page's string), and what
+  it prints refused whole unless every line is seven numbers.
+  **`chrome_frame.rs`** decides: `Beside` at Chrome's left, `FRAME_HEIGHT`
+  (the strip's 36) above its top, as wide as it is, when an ordinary window
+  of Chrome's own process is listed at exactly Chrome's bounds; `Aside`
+  when it is minimised or full-screen by Chrome's word, or listed anywhere
+  else or nowhere; `Closed` when a declined reading is followed by Chrome's
+  own list not holding the page — never decided from an error's words — or
+  Chrome's pipe has closed. `chrome_window::close` closes Chrome's window
+  as a person does, which 642's "closing ours closes both" needs.
+  **Tests:** unit tests for the rule, every wrong window (another
+  process's, a floating one, a fraction of a point, a point off) and the
+  reader's refusals; `a_frame_beside_chromes_window.rs` puts, moves and
+  resizes a real shown Chrome and asserts at each step either the frame
+  directly above the bounds the window server shows, or aside with none
+  shown there — the rule, not that the window is in front (643) — and then
+  closes it and asserts `Closed` and nothing of Chrome's on the screen.
+  Beside in 3 of 3 alone; a temporary test that brought Terminal in front
+  read `Aside` with Chrome's window in the strip at 16,626 93×102, and
+  `Beside` again once Chrome was brought back. Mutations: the frame put at
+  Chrome's top, and a closed page read as held, each fail the integration
+  test; restored from copies and checked with `cmp`. **Found by the
+  gate, and fixed:** the second gate run failed the new test with
+  *"Chrome said nothing for 30000 ms"* — reproduced one run in four under
+  96 busy processes — because a reading sent through the tab's session as
+  its page closed was never answered, where without load it was declined.
+  A tab now hears Chrome detach its own session
+  (`Target.detachedFromTarget`) and answers `Failed::Detached` at once,
+  for a question in flight and for every one after, which the frame reads
+  as `Closed`. `a_tab_whose_page_closes_under_a_question.rs` makes the
+  order rather than waiting for load: this test's own program run again
+  as Chrome's far side takes the tab's next command through its session
+  and sends `Page.close` in its place, so the question is never answered;
+  the tab says the page was closed in half a second, and with the fix
+  mutated away it fails with *"Chrome said nothing for 20000 ms"* (the
+  test's patience), restored and checked with `cmp`. **Not built:** the
+  window standing there, which is 642's.
 
 ## K. ★ The agent, on somebody else's pages
 

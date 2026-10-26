@@ -164,6 +164,10 @@ pub struct Tab<'c> {
     /// address it last moved to within it — or [`None`], for an address
     /// that is not one this browser reads.
     address: Option<Url>,
+    /// Whether Chrome has detached the tab's own session: its page was
+    /// closed, by a person closing its window or by this process, and
+    /// nothing sent through the session is answered after (item 672).
+    detached: bool,
 }
 
 /// The most moves within its document a page's frame is remembered to have
@@ -362,6 +366,7 @@ impl<'c> Tab<'c> {
             hearing: Vec::new(),
             sockets: Vec::new(),
             address: alo_url::parse(url).ok(),
+            detached: false,
         };
         // Only now, so that the tab itself is not held.
         tab.chrome.ask(None, &Command::HoldNewTabs { hold: true })?;
@@ -534,6 +539,12 @@ impl<'c> Tab<'c> {
         self.chrome.is_shown()
     }
 
+    /// The process of the Chrome this tab is in: the owner the window
+    /// server names its window by (item 672).
+    pub(crate) fn chrome_process(&self) -> u32 {
+        self.chrome.process()
+    }
+
     /// The tab, by its target id in Chrome.
     pub(crate) fn target(&self) -> &str {
         &self.target
@@ -549,7 +560,7 @@ impl<'c> Tab<'c> {
     /// meanwhile, as [`Tab::ask`] does.
     pub(crate) fn ask_chrome(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
         let asked = self.chrome.send(None, command)?;
-        self.answer_to(asked)
+        self.answer_to(asked, false)
     }
 
     /// Go to the page, and wait for its own loader's `load`.
@@ -614,14 +625,29 @@ impl<'c> Tab<'c> {
 
     /// Send `command` through this tab's session and wait for its result,
     /// answering every request paused meanwhile.
+    ///
+    /// A session Chrome has detached answers nothing: measured under load
+    /// against Chrome 155, a command sent through it as its page closed
+    /// was never answered, where without load it was declined. So once
+    /// Chrome has said the session is detached — before this is sent, or
+    /// while its answer is waited for — this is [`Failed::Detached`] at
+    /// once rather than after Chrome's whole patience.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed::Detached`], or another [`Failed`].
     pub(crate) fn ask(&mut self, command: &Command) -> Result<Vec<u8>, Failed> {
+        if self.detached {
+            return Err(Failed::Detached);
+        }
         let asked = self.chrome.send(Some(&self.session), command)?;
-        self.answer_to(asked)
+        self.answer_to(asked, true)
     }
 
     /// Wait for the result of the command sent as `asked`, answering every
-    /// request paused meanwhile.
-    fn answer_to(&mut self, asked: u64) -> Result<Vec<u8>, Failed> {
+    /// request paused meanwhile — or, for a command sent `through_session`,
+    /// until Chrome says the tab's session is detached.
+    fn answer_to(&mut self, asked: u64, through_session: bool) -> Result<Vec<u8>, Failed> {
         let until = Instant::now() + self.chrome.patience();
         loop {
             match self.next(until)? {
@@ -631,9 +657,28 @@ impl<'c> Tab<'c> {
                 Some(Message::Skipped { id: Some(id), .. }) if id == asked => {
                     return Err(Failed::TooLong);
                 }
+                _ if through_session && self.detached => return Err(Failed::Detached),
                 _ => {}
             }
         }
+    }
+
+    /// Whether Chrome has detached the tab's own session, its page closed.
+    pub(crate) fn is_detached(&self) -> bool {
+        self.detached
+    }
+
+    /// A session detached, as `Target.detachedFromTarget` tells of it —
+    /// told through Chrome's own session when `told_to_chrome`: a held
+    /// target's, forgotten, or the tab's own, which answers nothing after.
+    fn detached_from(&mut self, told_to_chrome: bool, params: &[u8]) -> Result<(), Failed> {
+        let gone = chrome_protocol::detached(params).map_err(Failed::Malformed)?;
+        if told_to_chrome && gone == self.session {
+            self.detached = true;
+        }
+        self.holding.forget(&gone);
+        self.hearing.retain(|heard| *heard != gone);
+        Ok(())
     }
 
     /// From now until [`Tab::heard`], hear what the page's script says, each
@@ -869,9 +914,7 @@ impl<'c> Tab<'c> {
                 session,
                 params,
             } if method == "Target.detachedFromTarget" && (session.is_none() || held.is_some()) => {
-                let gone = chrome_protocol::detached(&params).map_err(Failed::Malformed)?;
-                self.holding.forget(&gone);
-                self.hearing.retain(|heard| *heard != gone);
+                self.detached_from(session.is_none(), &params)?;
                 Ok(None)
             }
             Message::Reply { id, result, .. } if self.awaits(id) => {

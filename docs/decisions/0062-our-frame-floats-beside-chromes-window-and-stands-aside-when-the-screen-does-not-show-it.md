@@ -152,3 +152,38 @@ The screen was locked while all of the above was measured
   measurements in § 4 may send it back here.
 - Anything about the engine path, whose window is one window and is
   unaffected.
+
+## Addendum, 2026-10-26 — § 4 measured, and § 3's stop rule taken
+
+Not a change to the decision. Iteration 415 measured what § 4 left open,
+with the screen in use (`CGSSessionScreenIsLocked` absent), Chrome
+155.0.8059.86, macOS 26.5.2 and Stage Manager on, Chrome's window placed at
+200,140 and a floating `winit` window of ours at 200,100 1000×40:
+
+- **A person's drag is followed.** `cliclick` dragging Chrome's title bar
+  in thirty steps of five points, a tenth of a second apart, was read by
+  `Browser.getWindowForTarget` at every reading — about a third of a second
+  apart — to the point, and the window server listed the same. Dragging the
+  corner was followed the same way, and the page was laid out again at each
+  size: 940×552 to 900×520 in ten steps, by Chrome's word and by the page's
+  own `innerWidth` and `innerHeight`.
+- **A person clicking the frame does not send Chrome's window to the
+  strip.** Five runs of five: a click on ours made our process frontmost,
+  and Chrome's window stayed on the screen at its bounds for the three
+  seconds it was watched. So the decision is not reopened.
+- **A person closing Chrome's window** (⌘W) closed its page: the next
+  reading through the tab's session was declined and the window server
+  listed nothing of Chrome's.
+- **Stage Manager off** was not measured. It is the owner's setting, and an
+  iteration does not change a person's system to measure it.
+
+**§ 3's stop rule was taken.** In `objc2-core-graphics` 0.3.2,
+`CGWindowListCopyWindowInfo` is safe, but it answers an untyped `CFArray`
+whose safe `get` exists only for an array of a known type — made one by
+`cast_unchecked`, an `unsafe fn` — the `kCGWindow…` keys are `extern`
+statics, which only `unsafe` reads, and `CGRectMakeWithDictionaryRepresentation`
+takes a raw pointer. So the window server is read through `osascript`
+(`crates/alo-window/src/window_server.rs`), and no crate was added to the
+gate's list. Where the frame stands, from the two witnesses, is
+`crates/alo-window/src/chrome_frame.rs` (queue item 672).
+

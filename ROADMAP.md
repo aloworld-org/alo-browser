@@ -176,7 +176,14 @@ about this project (ADR 0058 § 6).
   numbers (627, `chrome_window.rs`) — and a window the screen gives less
   room than asked used at what it was given and said so, rather than
   refused, so the browser starts on a small or locked screen and an agent
-  still reaches it (671); and **the running browser asked which
+  still reaches it (671); and **where a frame of ours stands around
+  Chrome's window** — directly above it, as wide as it is, by Chrome's
+  word, and only while the window server shows Chrome's window at exactly
+  those bounds; aside while it is in Stage Manager's strip, minimised or
+  behind another application; gone with it when it closes — read through
+  `osascript`, since the crate's reading needs `unsafe` of ours, and
+  asserted in the window server's numbers (672, `chrome_frame.rs`,
+  `window_server.rs`); and **the running browser asked which
   renderer draws a tab** — the socket's `renderer` ask, sent by a person
   with `alo-ask`, answered by the browser process and never the page: this
   engine, or Chrome by the version it gives itself, kept to the sites as a
@@ -271,8 +278,9 @@ about this project (ADR 0058 § 6).
 - **Owed:** a closed list's option through a shown Chrome, measured with
   the screen in use (658); the
   rest of the agent's work where a person can see it — **a window of ours
-  around Chrome's, following it, with 623's and 625's lines and 624's
-  ring in it (642)**; a placed window that stays where a
+  standing where 672 says, following it, closing with it and closing it,
+  with 623's and 625's lines and 624's ring in it (642)**; a placed window
+  that stays where a
   person sees it, which Stage Manager's strip does not promise (643); an
   application somebody can run (477).
 
@@ -280,9 +288,12 @@ about this project (ADR 0058 § 6).
 but nothing of ours is around it — no tabs, nowhere for the agent's sentence
 — and ADR 0061 names a window of ours tracking another program's as the
 riskiest thing on this path, which may send the decision back. ADR 0062 has
-decided the frame's window from what Stage Manager was measured to do; a
-person's drag and a click on the frame are still to be measured, and either
-could send it back.
+decided the frame's window from what Stage Manager was measured to do, and
+on 2026-10-26, with the screen in use, neither open question sent it back:
+Chrome's word follows a person's drag and resize as it happens, and a
+person clicking a floating window of ours leaves Chrome's on the screen
+(five runs of five). Where the frame stands is built (672); the window
+standing there is what is left.
 
 ---
 

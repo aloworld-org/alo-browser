@@ -42279,3 +42279,114 @@ reasoning, and that is lost rather than hidden. Item 642 is marked next by
 the owner, and the condition that had blocked it — *"642, 643 and 658 wait
 on the screen in use (locked)"* — no longer holds: the session is unlocked,
 the display is awake and held awake, and the screen saver is set to never.
+
+## Iteration 415 — item 672, where a frame of ours stands around Chrome's window (cut from 642)
+
+**Read first.** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 414's
+entry (642 marked next by the owner; the screen in use again), the queue's
+product-path table and 642's entry, ADRs 0061 and 0062, and `features.md`'s
+Chrome section. No `AGENTS.md` exists in this checkout. The screen was in
+use (`CGSSessionScreenIsLocked` absent), so ADR 0062 § 4's measurements,
+required "before building", were taken first.
+
+**Measured** (Chrome 155.0.8059.86, macOS 26.5.2, Stage Manager on; a
+temporary `winit` example, removed again): a person's drag of Chrome's
+title bar and of its corner is followed by `Browser.getWindowForTarget` at
+every reading and agrees with the window server, the page laid out again at
+each size; **a click on a floating window of ours left Chrome's on the
+screen in five runs of five**, so ADR 0062 is not reopened; ⌘W in Chrome's
+window closes its page and its session. Stage Manager off was not measured
+— the owner's setting is not this loop's to change. ADR 0062 has an
+addendum saying so.
+
+**Cut, as LOOP.md step 3 asks, by scope and not depth.** 642 is the window
+of ours; it cannot follow anything until something says where it goes and
+when. That is **672**, opened and closed here: `window_server.rs` reads a
+process's on-screen windows through `osascript` — `objc2-core-graphics`
+0.3.2 needs `cast_unchecked`, `extern` statics and a raw pointer to read
+them, so ADR 0062 § 3's stop rule was taken and no crate was added to the
+gate's list — refusing a printed listing whole unless every line is a
+window; `chrome_frame.rs` decides `Beside` (36 points above Chrome's
+window, as wide), `Aside` or `Closed` from Chrome's word and the window
+server's; `chrome_window::close` closes Chrome's window;
+`chrome_protocol::holds` reads whether Chrome still holds a target.
+
+**Found by the gate.** The first gate run was met (5,425 of 5,425). A test
+was then hardened (its title bar read from the window less its page, since
+a locked screen may give less than asked — item 671) and the gate run again
+rather than its first answer cited: it **failed**, the new
+`a_frame_beside_chromes_window` test waiting 30 s after closing the page
+(*"Chrome said nothing for 30000 ms"*). Reproduced one run in four under 96
+`yes` processes: a reading sent through the tab's session as the page
+closed is never answered. **Fixed in `chrome_tab.rs`:** the tab hears
+Chrome detach its own session and answers the new `Failed::Detached` at
+once. A loaded before/after was weak evidence (the fix mutated away still
+passed six loaded runs), so the order was made instead:
+`a_tab_whose_page_closes_under_a_question.rs` runs its own program as
+Chrome's far side, which swaps the tab's next session command for
+`Page.close`; it passes in 0.5 s, and with the fix mutated away fails with
+*"Chrome said nothing for 20000 ms"*. Six loaded runs of the frame test
+passed with the fix.
+
+**Gate.** `cargo fmt --check` clean; `cargo clippy --workspace
+--all-targets --all-features -D warnings` silent; `alo-window --lib` 306
+passed. Then `scripts/gate.sh` on the final tree, started in the
+foreground, past the tool's 600 s, waited on by an until-loop on its log
+and read there: **exit 0, "The gate is met." (10 of 10 steps)**, nextest
+**5,426 tests run, 5,426 passed** in 546 s, no `FAIL`, `LEAK` or
+`panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the frame's bounds — Chrome's
+left, top less 36, width, 36 — asserted against the window server's own
+bounds at three placements, and in unit tests for every wrong window.
+Reference render: none, and none is owed — nothing here draws a pixel; the
+window that will is 642's and owes one. Real readings beyond the suite:
+`Beside` 3 of 3 with Chrome in front; a temporary test that brought
+Terminal in front read `Aside` with Chrome's window in the strip at 16,626
+93×102 and `Beside` again when Chrome was brought back (removed again).
+Mutations, each restored from a copy and checked with `cmp`: the frame put
+on Chrome's top, a closed page read as held, and the detach flag never set
+— each fails a test. One file, one responsibility: reading the window
+server (`window_server.rs`) and deciding the frame (`chrome_frame.rs`) are
+separate files; `chrome_tab.rs` gains knowing its own session is gone,
+which is the tab's. Bytes from outside: `osascript`'s output is refused,
+not panicked on, for truncated, extra, signed, fractional, overflowing,
+non-numeric, non-UTF-8 and over-long input. No `unsafe`, no stubs, no verb
+taking a coordinate. `alo-os` and `alo-workplace` untouched. Nothing
+pushed. A temporary probe example and two temporary tests were removed
+before the gate.
+
+**Roadmap.** The product path's line gains a Built clause for 672 and its
+Owed clause names what is left of 642; the paragraph under it says the
+two open measurements did not send ADR 0062 back. Not ticked. Queue: 672
+ticked with its *Done* paragraph, 642 told what is built and what is left,
+the product-path table gains 672. `features.md`, `REMAINING.md` and the
+changelog say the same.
+
+**What the next iteration should know.** 642 is next and is now the window
+alone: a floating `winit` window in `window.rs`, following
+`chrome_frame::read` from `chrome_serving`'s thread, `alo --chrome`
+running an event loop instead of waiting on its input, closing when
+Chrome's window closes and closing it (`chrome_window::close`) when a
+person closes ours — and Chrome placed low enough for a 36-point frame
+above it (`CHROME_AT`'s top of 60 under a 34-point menu bar leaves 24).
+Its window owes a reference render. Terminal was left frontmost by the
+temporary aside test, so `activateTarget` does not win focus from it
+(643): the frame test then reads `Aside`, which it asserts as the rule.
+
+**Unresolved obligations.**
+- 642 (the frame's window), 643 (a placed window that stays in front),
+  477; 658 can now be measured with the screen in use.
+- 670, 439, 668, 452, 665, 664, 523, 522, 525 as iteration 413 left them;
+  CSS's computed `overflow` beside a scrolling axis still not given to
+  `taffy` (iteration 408).
+- 649 and 650 are open. Inherited and unchanged: off macOS the toggling
+  click holds Ctrl, unmeasured; `option { display: block }` undecided;
+  604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (672 opened and closed). The next unused queue
+number is **673** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.

@@ -1535,6 +1535,27 @@ pub const MOST_TARGETS: usize = 4096;
 /// [`MOST_TARGETS`] of them, or one without a `targetId`, a `type` and an
 /// `attached`.
 pub fn pages(result: &[u8]) -> Result<Vec<String>, Malformed> {
+    Ok(targets(result)?
+        .into_iter()
+        .filter(|(_, kind, attached)| kind == "page" && !attached)
+        .map(|(id, _, _)| id)
+        .collect())
+}
+
+/// Whether Chrome still holds the target `target`, of whatever kind, from a
+/// reply's `result` to `Target.getTargets`: a tab whose page a person has
+/// closed is not held (item 672).
+///
+/// # Errors
+///
+/// [`Malformed`], as [`pages`].
+pub fn holds(result: &[u8], target: &str) -> Result<bool, Malformed> {
+    Ok(targets(result)?.iter().any(|(id, _, _)| id == target))
+}
+
+/// Every target in a reply's `result` to `Target.getTargets`: its id, its
+/// type and whether something is attached to it.
+fn targets(result: &[u8]) -> Result<Vec<(String, String, bool)>, Malformed> {
     let bad = Malformed::BadField {
         field: "targetInfos",
     };
@@ -1544,7 +1565,7 @@ pub fn pages(result: &[u8]) -> Result<Vec<String>, Malformed> {
     if targets.len() > MOST_TARGETS {
         return Err(bad);
     }
-    let mut pages = Vec::new();
+    let mut read = Vec::new();
     for target in &targets {
         let Value::Object(info) = target else {
             return Err(bad);
@@ -1555,11 +1576,9 @@ pub fn pages(result: &[u8]) -> Result<Vec<String>, Malformed> {
             .get("attached")
             .and_then(Value::as_bool)
             .ok_or(Malformed::BadField { field: "attached" })?;
-        if kind == "page" && !attached {
-            pages.push(id);
-        }
+        read.push((id, kind, attached));
     }
-    Ok(pages)
+    Ok(read)
 }
 
 /// Where a window is on the screen, in the screen's own points — what
@@ -2863,6 +2882,23 @@ mod tests {
             vec![r#"{"targetId":"P","type":"page","attached":true}"#; MOST_TARGETS + 1].join(",")
         );
         assert_eq!(pages(many.as_bytes()), bad("targetInfos"));
+    }
+
+    #[test]
+    fn a_target_is_held_while_it_is_listed_whatever_its_kind() {
+        let listed = br#"{"targetInfos":[
+            {"targetId":"U","type":"browser_ui","attached":false},
+            {"targetId":"A","type":"page","attached":true}]}"#;
+        assert_eq!(holds(listed, "A"), Ok(true), "a tab attached to");
+        assert_eq!(holds(listed, "U"), Ok(true));
+        assert_eq!(holds(listed, "P"), Ok(false), "a tab closed");
+        assert_eq!(holds(br#"{"targetInfos":[]}"#, "A"), Ok(false));
+        assert_eq!(holds(br"{}", "A"), bad("targetInfos"));
+        assert_eq!(
+            holds(br#"{"targetInfos":[{"targetId":"A","type":"page"}]}"#, "A"),
+            bad("attached"),
+            "refused whole, not believed for the one asked about"
+        );
     }
 
     #[test]

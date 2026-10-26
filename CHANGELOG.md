@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser knows where its frame goes around Chrome's window.** When
+  Chrome draws the page, a window of ours is to stand above Chrome's —
+  where the tabs and the agent's sentence go. Now the browser can say
+  where that is, and when: directly above Chrome's window while the screen
+  shows it there, out of the way while it is shrunk into Stage Manager's
+  strip, minimised or behind another program, and gone when it closes. It
+  follows Chrome's window as a person drags or resizes it, measured on a
+  screen in use, and asks macOS itself whether the window can be seen. The
+  window that stands there is next (items 672 and 642).
+
+- **A page in Chrome that closes while the browser is asking about it no
+  longer hangs it for thirty seconds.** Chrome answers nothing about a
+  page once it has closed, and on a busy machine a question sent just as
+  the page closed was waited on until the browser gave up on Chrome. The
+  browser now notices Chrome letting go of the page and says at once that
+  it was closed (item 672).
+
 - **`alo --chrome` runs on a screen that gives its window less room than
   it asked.** It asked Chrome for a page 1200 by 800 and stopped with an
   error when the window was given less — as a locked screen gave it, 1200

@@ -51,8 +51,9 @@
 //!
 //! A frame of ours around it. ADR 0061 accepts two windows, one of ours
 //! tracking Chrome's, as the riskiest thing on the product path; this places
-//! Chrome's and says where it is, and a window of ours following it is item
-//! 642.
+//! Chrome's and says where it is, [`crate::chrome_frame`] says where a frame
+//! of ours stands around it (item 672), and the window of ours standing
+//! there is item 642.
 
 use crate::chrome::{Chrome, Failed};
 use crate::chrome_protocol::{self, Bounds, ChromeWindow, Command};
@@ -320,6 +321,23 @@ pub fn bring_to_front(tab: &mut Tab<'_>) -> Result<(), Unplaced> {
     }
     let target = tab.target().to_owned();
     tab.ask_chrome(&Command::Activate { target })?;
+    Ok(())
+}
+
+/// Close the window of `tab`: its one page, as a person closing it does
+/// (item 672). What the tab is asked after this is declined, and
+/// [`crate::chrome_frame::read`] says the window is closed.
+///
+/// # Errors
+///
+/// [`Unplaced::Headless`] before anything is written to Chrome, or
+/// [`Unplaced::Failed`].
+pub fn close(tab: &mut Tab<'_>) -> Result<(), Unplaced> {
+    if !tab.is_shown() {
+        return Err(Unplaced::Headless);
+    }
+    let target = tab.target().to_owned();
+    tab.ask_chrome(&Command::CloseTarget { target })?;
     Ok(())
 }
 
