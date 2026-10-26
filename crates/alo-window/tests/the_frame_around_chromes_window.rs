@@ -33,6 +33,8 @@
 
 #![cfg(target_os = "macos")]
 
+use alo_window::chrome::LONGEST_SILENCE;
+use alo_window::chrome_follow::FOLLOW_EVERY;
 use alo_window::chrome_frame::FRAME_HEIGHT;
 use alo_window::chrome_protocol::Bounds;
 use alo_window::window_server::{self, Listed};
@@ -209,20 +211,50 @@ fn seen(chrome: u32, ours: u32) -> Result<Seen, String> {
 /// Read until two readings a moment apart agree, so a frame still
 /// catching up with a window that just moved is read again rather than
 /// believed — or the last reading, when they never do within [`SETTLE`].
+///
+/// Two readings agreeing is not the frame having looked. The frame is
+/// placed by its own reading — [`FOLLOW_EVERY`] apart, each one question
+/// to Chrome and one listing — and the question to Chrome is the part
+/// this test never makes: under memory pressure on 2026-10-26 it was what
+/// slowed, so two of this test's readings 300 ms apart both fell before
+/// the frame's first look and read *Chrome's window shown, no frame*
+/// (item 682; made to fail three runs in three by a 1.5 s pause in the
+/// frame's reading alone, and not by the same pause in every listing,
+/// which slows this test's readings with the frame's). So a reading that
+/// keeps the rule is believed when two agree, and one that breaks it only
+/// once it has stood unchanged longer than the frame's longest cycle: the
+/// wait between readings, Chrome's patience for the question
+/// ([`LONGEST_SILENCE`]), and a listing as slow as the slowest this test
+/// timed. A frame that never comes still fails, by that bound.
 fn settled(chrome: u32, ours: u32) -> Result<(Seen, bool), String> {
     let until = Instant::now() + SETTLE;
-    let mut last = seen(chrome, ours)?;
+    let mut slowest = Duration::ZERO;
+    let mut since = Instant::now();
+    let mut last = timed(chrome, ours, &mut slowest)?;
     loop {
         std::thread::sleep(Duration::from_millis(300));
-        let now = seen(chrome, ours)?;
+        let now = timed(chrome, ours, &mut slowest)?;
         if now == last {
-            return Ok((now, true));
+            let frames_longest = FOLLOW_EVERY + LONGEST_SILENCE + slowest;
+            if the_rule_holds(&now).is_ok() || since.elapsed() > frames_longest {
+                return Ok((now, true));
+            }
+        } else {
+            if Instant::now() >= until {
+                return Ok((now, false));
+            }
+            since = Instant::now();
+            last = now;
         }
-        if Instant::now() >= until {
-            return Ok((now, false));
-        }
-        last = now;
     }
+}
+
+/// One reading, with `slowest` raised to how long it took if it was longer.
+fn timed(chrome: u32, ours: u32, slowest: &mut Duration) -> Result<Seen, String> {
+    let began = Instant::now();
+    let reading = seen(chrome, ours)?;
+    *slowest = (*slowest).max(began.elapsed());
+    Ok(reading)
 }
 
 /// The rule, on one settled reading: Chrome's window seen and the frame
