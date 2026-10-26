@@ -18237,6 +18237,15 @@ What stage 2's exit gate actually measures: a person using it.
   page that keeps working for a known time; a page that never settles is
   refused by kind with the wait in it; and `when` absent behaves exactly as
   version 1 does today, so no caller changes.
+  ***Decided (2026-10-26): ADR 0065.*** Not watching: the tree is exposed once,
+  when asked, to a caller the grants allow; only *when* within a bounded wait
+  changes. **Settled** is decided on this process's own records, so it means
+  the same through Chrome and on the engine: nothing of the page's owed (from
+  the holds ADR 0060 keeps, or the renderer's own report of what it owes) and
+  the tree identical in two reads 500 ms apart. Chrome's `networkIdle` may wake
+  it sooner and never decides. Not settled in 10 s is refused as `NotSettled`,
+  saying whether the page was still owed or still changing, with no tree. Quiet
+  and ceiling are not the caller's in this version.
 
 - [ ] **677. ★ A verb says what it changed.** An agent that acts must re-read
   the whole tree to learn what its own action did, compare two trees itself,
