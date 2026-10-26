@@ -42254,3 +42254,28 @@ same.
 300 queue items are open (669 closed, 670 opened). The next unused queue
 number is **671** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 414 — item 671, and a journal entry its iteration never wrote
+
+**Written by the owner's session, not by the iteration**, and it says so
+because a journal entry is a record of what an iteration did and this one
+did not get to write its own. The Mac was restarted at 03:40 on 2026-10-26
+while iteration 414 was running: the screen had been black for hours — a
+screen saver set to start after two minutes, over a display set to sleep
+after two — and nothing else would bring the session's windows back. The
+loop was stopped cleanly first and the tree was recorded before the restart.
+
+**What was already finished and is committed here.** Item 671: `alo
+--chrome` is given less room than it asks for and lays the page out at what
+the window holds rather than stopping with an error. Its new test,
+`a_window_given_less_room_than_asked.rs`, and the four in
+`the_program_told_to_use_chrome` all pass; the queue is ticked with its own
+*Done* paragraph, and `CHANGELOG.md`, `ROADMAP.md`, `features.md` and
+`REMAINING.md` say the same. The full gate was run on it before this commit.
+
+**What the next iteration should know.** Nothing of 671 is owed. What is
+missing is only the account iteration 414 would have given of its own
+reasoning, and that is lost rather than hidden. Item 642 is marked next by
+the owner, and the condition that had blocked it — *"642, 643 and 658 wait
+on the screen in use (locked)"* — no longer holds: the session is unlocked,
+the display is awake and held awake, and the screen saver is set to never.

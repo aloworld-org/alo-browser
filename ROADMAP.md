@@ -173,7 +173,10 @@ about this project (ADR 0058 § 6).
   shown in `--app` mode, its window sized so the page is laid out at the
   size asked and placed on the screen by this process, answered by where it
   went and brought in front, `alo --chrome` saying on the terminal where in
-  numbers (627, `chrome_window.rs`); and **the running browser asked which
+  numbers (627, `chrome_window.rs`) — and a window the screen gives less
+  room than asked used at what it was given and said so, rather than
+  refused, so the browser starts on a small or locked screen and an agent
+  still reaches it (671); and **the running browser asked which
   renderer draws a tab** — the socket's `renderer` ask, sent by a person
   with `alo-ask`, answered by the browser process and never the page: this
   engine, or Chrome by the version it gives itself, kept to the sites as a
@@ -794,7 +797,9 @@ unreachable without it.
       the program a person starts, naming the Chrome that draws it on the
       terminal (item 641, `opening::Renderer`), and showing the page in
       Chrome's own window, sized around the page and placed by this
-      process (item 627, `chrome_window.rs`, ADR 0061), and the running
+      process (item 627, `chrome_window.rs`, ADR 0061) — at the size the
+      screen gives it when that is less than asked, said on the terminal
+      (item 671, `Placed::unlike`) — and the running
       browser answering a person who asks which renderer draws a tab, over
       the socket with `alo-ask` (item 622, the `renderer` ask), and a
       form Chrome would not send answered `NotSubmitted`, with the control

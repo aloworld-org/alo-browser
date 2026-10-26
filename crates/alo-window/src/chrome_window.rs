@@ -23,6 +23,19 @@
 //! bounds that were asked for. A frame that follows Chrome's window follows
 //! that.
 //!
+//! # Less room than was asked
+//!
+//! A window manager is allowed to give a window less than it is asked for,
+//! and does: on 2026-10-26, with the session locked, Chrome's window held
+//! the page at 1200×571 where 1200×800 was asked, and the same window on
+//! the same checkout held 1200×800 minutes later with the screen shown. A
+//! laptop's screen, a dock or Stage Manager does the same. So [`fit`]
+//! answers the size the page was given whenever it is a size at all, and
+//! what differs from what was asked is said by [`Placed::unlike`] rather
+//! than refused (queue item 671): the page is laid out at what the screen
+//! has room for, and Chrome reads it and lays it out at that, as it would
+//! for a window a person made smaller.
+//!
 //! # In front, not in a strip
 //!
 //! A window put on the screen is not yet a window a person sees. Measured
@@ -70,6 +83,50 @@ pub struct Placed {
     pub page: (f64, f64),
 }
 
+impl Placed {
+    /// How the page inside the window differs from the `asked` size, or
+    /// [`None`] when it is that size exactly.
+    pub fn unlike(&self, asked: (u32, u32)) -> Option<Unlike> {
+        // In whole pixels, each side exactly: a page is laid out at the size
+        // asked or it is not, and a fraction of one is not it.
+        let same = page_whole(self.page) == Some((i64::from(asked.0), i64::from(asked.1)));
+        (!same).then_some(Unlike {
+            asked,
+            page: self.page,
+        })
+    }
+}
+
+/// A page laid out at a size other than the one asked, because its window
+/// was given more or less room than it asked for: what is said, plainly,
+/// rather than refused.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Unlike {
+    /// What was asked, in CSS pixels.
+    pub asked: (u32, u32),
+    /// What the page is laid out at, in CSS pixels.
+    pub page: (f64, f64),
+}
+
+impl Unlike {
+    /// Whether the page was given less room than asked, either way.
+    pub fn is_less(&self) -> bool {
+        self.page.0 < f64::from(self.asked.0) || self.page.1 < f64::from(self.asked.1)
+    }
+}
+
+impl fmt::Display for Unlike {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let given = if self.is_less() { "less" } else { "more" };
+        write!(
+            f,
+            "Chrome's window was given {given} room than the {}×{} CSS pixels asked, and the \
+             page is laid out at the {}×{} it holds",
+            self.asked.0, self.asked.1, self.page.0, self.page.1
+        )
+    }
+}
+
 /// Why Chrome's window was not put where it was asked.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Unplaced {
@@ -84,9 +141,10 @@ pub enum Unplaced {
         /// What was asked, in CSS pixels.
         height: u32,
     },
-    /// The window was sized for the page, and the page inside it is not the
-    /// size asked — a screen too small for it, or a system that overruled
-    /// the size.
+    /// The window was sized for the page, and holds a page of no size: one
+    /// side nothing, or not a whole number of CSS pixels up to [`LARGEST`].
+    /// A page of a size other than the one asked is not this, but
+    /// [`Placed::unlike`].
     NotFitted {
         /// What was asked, in CSS pixels.
         asked: (u32, u32),
@@ -114,7 +172,8 @@ impl fmt::Display for Unplaced {
             ),
             Self::NotFitted { asked, placed } => write!(
                 f,
-                "Chrome's window holds the page at {}×{} CSS pixels, not the {}×{} asked",
+                "Chrome's window holds the page at {}×{} CSS pixels, which is no size a page is \
+                 laid out at, where {}×{} was asked",
                 placed.page.0, placed.page.1, asked.0, asked.1
             ),
             Self::Unsettled { placed } => {
@@ -165,17 +224,20 @@ pub(crate) fn page_of_the_window(chrome: &mut Chrome) -> Result<String, Failed> 
 }
 
 /// Size the window of `tab` so the page inside it is laid out `width` by
-/// `height` CSS pixels, where it already is on the screen.
+/// `height` CSS pixels, where it already is on the screen — and where it
+/// went, the page at the size the window was given.
 ///
 /// The title bar is not assumed: the window is sized to the page, the
 /// difference between the window and the page inside it read, and the
-/// window sized again by that much.
+/// window sized again by that much. A screen that gives the window less
+/// room than that, or a system that makes it larger, is answered as it
+/// went, and [`Placed::unlike`] says how it differs.
 ///
 /// # Errors
 ///
 /// [`Unplaced::Headless`] or [`Unplaced::Unsized`] before anything is
-/// written to Chrome; [`Unplaced::NotFitted`] when the page is not then the
-/// size asked; or [`Unplaced::Unsettled`] or [`Unplaced::Failed`].
+/// written to Chrome; [`Unplaced::NotFitted`] when the window then holds a
+/// page of no size; or [`Unplaced::Unsettled`] or [`Unplaced::Failed`].
 pub fn fit(tab: &mut Tab<'_>, width: u32, height: u32) -> Result<Placed, Unplaced> {
     if !tab.is_shown() {
         return Err(Unplaced::Headless);
@@ -209,7 +271,7 @@ pub fn fit(tab: &mut Tab<'_>, width: u32, height: u32) -> Result<Placed, Unplace
         }
         _ => sized,
     };
-    if page_whole(fitted.page) == Some((wide, tall)) {
+    if page_whole(fitted.page).is_some_and(|(wide, tall)| wide > 0 && tall > 0) {
         Ok(fitted)
     } else {
         Err(Unplaced::NotFitted {
@@ -330,6 +392,55 @@ mod tests {
         assert_eq!(page_whole((-1.0, 800.0)), None);
         assert_eq!(page_whole((f64::NAN, 800.0)), None);
         assert_eq!(page_whole((f64::INFINITY, 800.0)), None);
+    }
+
+    fn placed(page: (f64, f64)) -> Placed {
+        Placed {
+            window: ChromeWindow {
+                id: 1,
+                bounds: Bounds {
+                    left: 120,
+                    top: 60,
+                    width: 1200,
+                    height: 603,
+                },
+                state: chrome_protocol::WindowState::Normal,
+            },
+            page,
+        }
+    }
+
+    #[test]
+    fn a_page_of_the_size_asked_is_like_it() {
+        assert_eq!(placed((1200.0, 800.0)).unlike((1200, 800)), None);
+    }
+
+    #[test]
+    fn a_page_given_less_room_is_said_plainly() {
+        let short = placed((1200.0, 571.0)).unlike((1200, 800));
+        assert_eq!(
+            short,
+            Some(Unlike {
+                asked: (1200, 800),
+                page: (1200.0, 571.0)
+            })
+        );
+        let short = short.expect("unlike");
+        assert!(short.is_less());
+        assert_eq!(
+            short.to_string(),
+            "Chrome's window was given less room than the 1200×800 CSS pixels asked, and the \
+             page is laid out at the 1200×571 it holds"
+        );
+        let narrow = placed((900.0, 800.0)).unlike((1200, 800)).expect("unlike");
+        assert!(narrow.is_less(), "narrower and as tall is less");
+        let larger = placed((500.0, 300.0)).unlike((300, 200)).expect("unlike");
+        assert!(!larger.is_less());
+        assert_eq!(
+            larger.to_string(),
+            "Chrome's window was given more room than the 300×200 CSS pixels asked, and the \
+             page is laid out at the 500×300 it holds"
+        );
     }
 
     #[test]

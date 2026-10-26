@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`alo --chrome` runs on a screen that gives its window less room than
+  it asked.** It asked Chrome for a page 1200 by 800 and stopped with an
+  error when the window was given less — as a locked screen gave it, 1200
+  by 571 — so it never said where an agent could reach it. A window
+  manager is allowed to give less; now the page is laid out at what the
+  window holds, the terminal says so plainly, and the agent socket opens
+  as before (item 671).
+
 - **An empty `<textarea>` that clips its content lines up with the text
   beside it.** With nothing typed in it, a `<textarea>` under `overflow:
   clip` stood on its bottom edge, so the label beside it dropped to the

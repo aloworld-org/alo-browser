@@ -73,7 +73,9 @@
 //! a new one — a new tab would open in a window of Chrome's with a tab strip
 //! — and is laid out at the size asked by sizing the window around it
 //! ([`crate::chrome_window::fit`]) instead of being told a size to pretend
-//! it has. Closing the tab closes the window.
+//! it has — or at the size the screen gives the window, when that is less,
+//! which is used rather than refused (queue item 671). Closing the tab
+//! closes the window.
 //!
 //! # Waiting for the page, not the blank one before it
 //!
@@ -205,8 +207,10 @@ pub enum Unopened {
     /// The agent that named it may not reach it, or what it named is not an
     /// address; nothing was written to Chrome.
     Refused(Refused),
-    /// A shown Chrome's window could not be sized to hold the page at the
-    /// size asked ([`crate::chrome_window::fit`]).
+    /// A shown Chrome's window could not be sized to hold a page at all
+    /// ([`crate::chrome_window::fit`]): a size of nothing was asked, or the
+    /// window was given room for none. Room for less than was asked is not
+    /// this; the page is opened at it.
     Unfitted(Box<Unplaced>),
 }
 

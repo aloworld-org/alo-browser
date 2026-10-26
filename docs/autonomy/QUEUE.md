@@ -17864,7 +17864,7 @@ What stage 2's exit gate actually measures: a person using it.
   the page hearing one `input` and one `change` for the option asked, in
   a test, or ADR 0064 says why it stays refused.
 
-- [ ] **671. A window smaller than was asked for is not a reason to refuse to
+- [x] **671. A window smaller than was asked for is not a reason to refuse to
   run.** `alo --chrome` asks Chrome for a page area and stops with an error
   when it is given less: on 2026-10-26 at 02:45 Chrome's window held the page
   at **1200×571** where 1200×800 was asked, so the program never reached the
@@ -17883,6 +17883,25 @@ What stage 2's exit gate actually measures: a person using it.
   terminal and used, the agent socket is still opened and answered, and a test
   fixes the available area small enough to force it rather than waiting for a
   screen to misbehave.
+
+  **Done (iteration 414).** `chrome_window::fit` answers the size the
+  window was given whenever it holds a page of a whole size, and refuses
+  (`NotFitted`) only a window holding a page of no size; `Placed::unlike`
+  says how the page differs from what was asked, and `alo --chrome` prints
+  it — *"Chrome's window was given less room than the 1200×800 CSS pixels
+  asked, and the page is laid out at the 1200×571 it holds"* — and runs on,
+  its socket opened. Measured on macOS 26 with Chrome 155 (session
+  locked): a window is cut to the screen's height and **not to its
+  width** — asked 8000×6000 it held the page at 8000×1041 — so the new
+  `a_window_given_less_room_than_asked.rs` asks 1200×6000 through
+  `ChromeServing::start_shown`, as `alo --chrome` does, and asserts the
+  page 1200 wide and shorter than asked, the sentence word for word, the
+  window the page and a title bar, and `tabs` and `read` answered down the
+  socket through `alo-ask` with the document's box at the size given. The
+  program's own test reads the page size it says and requires the sentence
+  exactly when the page is shorter than 800. Mutation: the old exact-size
+  rule put back fails the new test (*"refused where it should have run …
+  1200×1041"*). A window a person resizes afterwards is still 642's.
 
 ## K. ★ The agent, on somebody else's pages
 

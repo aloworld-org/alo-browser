@@ -3254,3 +3254,11 @@ Cut from it: 670 (a `<textarea>` ending in a newline holds a last empty
 line). The screen was locked, so 642, 643 and 658 still wait on it; 665
 waits on 521 and 668 on a page. 300 queue items are open (669 closed, 670
 opened). The next unused queue number is 671 and the next unused ADR 0065.
+
+Iteration 414 closed queue item 671: a shown Chrome's window given less
+room than asked is used at what it holds and said on the terminal
+(`Placed::unlike`), not refused, so `alo --chrome` runs on a locked or small
+screen and its socket answers; `a_window_given_less_room_than_asked.rs`
+forces it by asking a page taller than any screen. The screen was locked,
+so 642, 643 and 658 still wait on it. 300 queue items are open (671
+closed). The next unused queue number is 672 and the next unused ADR 0065.

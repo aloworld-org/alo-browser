@@ -168,6 +168,9 @@ fn in_chrome(opening: &Opening) -> ExitCode {
              the page laid out at {}×{} in it",
             at.left, at.top, at.width, at.height, placed.page.0, placed.page.1
         );
+        if let Some(unlike) = placed.unlike(CHROME_SIZE) {
+            eprintln!("alo: {unlike}");
+        }
     }
     let listening = listen(&serving.orders(), &opening.agents);
     eprintln!("alo: this browser runs until its input ends, Ctrl-D at a terminal");

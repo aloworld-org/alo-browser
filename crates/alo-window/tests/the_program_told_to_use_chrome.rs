@@ -217,6 +217,45 @@ fn chromes_own_name() -> Result<String, String> {
         .map_err(|why| why.to_string())
 }
 
+/// The page's size `alo` said it laid the page out at, from what it said:
+/// Chrome's window where this program put it and as tall as the page and a
+/// title bar, the page laid out at the size it gives Chrome — or, on a
+/// screen that gives the window less room than that, at the size it was
+/// given, said plainly (queue item 671). A locked session's screen gave
+/// 1200×571.
+fn page_said(said: &[String]) -> Result<(u32, u32), String> {
+    let (left, top) = CHROME_AT;
+    let (width, asked) = CHROME_SIZE;
+    let window =
+        format!("alo: Chrome shows the page in a window of its own at {left},{top}, {width}×");
+    let shown = said
+        .iter()
+        .find_map(|line| line.strip_prefix(&window)?.strip_suffix(" in it"))
+        .ok_or_else(|| format!("no window was said: {said:?}"))?;
+    let page = format!(" on the screen, the page laid out at {width}×");
+    let (tall, height) = shown
+        .split_once(&page)
+        .ok_or_else(|| format!("no page was said: {shown}"))?;
+    let (Ok(tall), Ok(height)) = (tall.parse::<u32>(), height.parse::<u32>()) else {
+        return Err(format!("{shown} is not a window's height and a page's"));
+    };
+    assert!(
+        (height + 1..=height + 64).contains(&tall),
+        "the page and a title bar: {tall}"
+    );
+    assert!((1..=asked).contains(&height), "{height}");
+    let less = format!(
+        "alo: Chrome's window was given less room than the {width}×{asked} CSS pixels asked, \
+         and the page is laid out at the {width}×{height} it holds"
+    );
+    assert_eq!(
+        said.contains(&less),
+        height < asked,
+        "less room is said when, and only when, it was given: {said:?}"
+    );
+    Ok((width, height))
+}
+
 #[test]
 fn the_program_opens_a_page_in_chrome_and_an_agent_reaches_it() -> Result<(), String> {
     let product = chromes_own_name()?;
@@ -232,24 +271,7 @@ fn the_program_opens_a_page_in_chrome_and_an_agent_reaches_it() -> Result<(), St
         "{said:?}"
     );
     assert!(product.contains("Chrome/"), "{product}");
-    // Chrome's window, where this program put it and as tall as the page
-    // and a title bar, the page laid out at the size it gives Chrome.
-    let (left, top) = CHROME_AT;
-    let (width, height) = CHROME_SIZE;
-    let window =
-        format!("alo: Chrome shows the page in a window of its own at {left},{top}, {width}×");
-    let page = format!(" on the screen, the page laid out at {width}×{height} in it");
-    let shown = said
-        .iter()
-        .find_map(|line| line.strip_prefix(&window)?.strip_suffix(&page))
-        .ok_or_else(|| format!("no window was said: {said:?}"))?;
-    let tall: u32 = shown
-        .parse()
-        .map_err(|_| format!("{shown} is not a height"))?;
-    assert!(
-        (height + 1..=height + 64).contains(&tall),
-        "the page and a title bar: {tall}"
-    );
+    let (width, height) = page_said(&said)?;
     assert_eq!(
         socket,
         alo_window::socket_place::socket_under(&runtime),
