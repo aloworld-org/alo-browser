@@ -17115,7 +17115,7 @@ What stage 2's exit gate actually measures: a person using it.
   (525) and the grip (522). No other case moved. Cut: an empty
   `<textarea>` under `clip`, item 669.
 
-- [ ] **669. An empty `<textarea>` under `overflow: clip` stands on a
+- [x] **669. An empty `<textarea>` under `overflow: clip` stands on a
   line.** *Cut from 667 (iteration 412).* Chrome 155 stands an empty
   `<textarea style="overflow: clip">` beside a label exactly where it
   stands one holding "Ring twice": on the baseline of the line it would
@@ -17130,6 +17130,55 @@ What stage 2's exit gate actually measures: a person using it.
   height, and whether an empty `<button>` does likewise. *Closes when:* an
   empty `<textarea>` under `clip` stands where Chrome stands it, in
   numbers, in a corpus case.
+  **Done (iteration 413).** Measured against Chrome 155.0.8059.86,
+  headless, with the corpus's `DejaVu Sans` loaded before measuring (a
+  first probe that measured before the font arrived gave other numbers):
+  an empty `<textarea>` under `overflow: clip` stands level with one
+  holding a line — the label beside it 3 px below the box's top in each
+  — at a `line-height` of 20 and of `normal`, with the engine's sheet's
+  font, padding and border, under 10 px of top padding, and with a
+  `placeholder`; under the sheet's `auto` it stands on its bottom margin
+  edge. The line it stands on is its first, at the top of its content
+  box. An empty `<button>` does not: Chrome stands it on its content
+  box's bottom whatever its `overflow`, which is item 439's. `alo-layout`'s
+  `engine.rs` `record_an_empty_field` now records, for a `<textarea>`'s
+  inside (`holds_a_text_areas_lines`), the strut line at the top of its
+  content box, as it records a one-line field's centred; `baseline.rs`
+  and `alo-box`'s `Purpose::Control` say so.
+  `cases/an-empty-clipped-textarea-stands-on-a-line` holds nine rows, a
+  label beside a textarea, and `alo-corpus`'s
+  `an_empty_clipped_textarea_stands_on_a_line.rs` asserts each row's top
+  and height, the label's top and the textarea's border box against
+  Chrome's to 1/64 px; the sheet-font rows are given Chrome's size of
+  two rows (160 by 30), since this engine's own is item 523's. With the
+  old rule put back the case fails (`#clip`'s row 61 tall, Chrome's 56)
+  and so does `numbers.rs`'s `an_empty_field_stands_where_its_text_will`,
+  which now pins a `<textarea>` under `clip`, empty and filled, beside
+  the test font. The case's `render.png` is the reference render;
+  Chrome's screenshot of the same bytes puts every box and label in the
+  same place and differs in the textareas' white (525), the `auto` one's
+  grip (522) and the corpus's monospace face. No other case moved. Cut: a
+  `<textarea>` whose text ends in a newline, item 670.
+
+- [ ] **670. A `<textarea>` whose text ends in a newline holds a last,
+  empty, line.** *Cut from 669 (iteration 413).* Measured against Chrome
+  155.0.8059.86 with the corpus's `DejaVu Sans`: a `<textarea
+  style="overflow: clip">` 80 by 50 with a line of 20 holding `Ring` and
+  a newline stands beside a label on a second line — the label 23 px
+  below the box's top, where holding `Ring` it is 3 — and one holding a
+  single newline (two written, the first dropped) does likewise; an
+  `inline-block` `div` of `white-space: pre-wrap` holding `Ring` and a
+  newline is one line, 20 tall. So a textarea's text ending in a newline
+  has one more line than the same text in a box, which is the line a
+  caret goes to after it; this engine lays out such a textarea's text as
+  any `pre-wrap` box's, one line, and stands it on that. It also moves
+  where the last line is, and so a textarea's scrolling area. *Depends on
+  nothing. Feature: `docs/features.md` stage 1, the inline-block baseline
+  line and forms. Needs measuring:* the `scrollHeight` of a textarea
+  ending in a newline beside one that does not, under `auto`. *Closes
+  when:* a textarea ending in a newline holds Chrome's last empty line,
+  stands on it under `clip` and scrolls to it under `auto`, in numbers,
+  in a corpus case.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of

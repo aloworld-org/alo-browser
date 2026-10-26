@@ -145,9 +145,12 @@ pub enum Purpose {
         ///
         /// Such a field stands on the baseline of the line it holds **even
         /// when nothing is typed in it**, so that it does not move when
-        /// something is. A button and a `<textarea>` are not, and with
-        /// nothing in them they stand on their bottom margin edge as any
-        /// box with no line does.
+        /// something is, and that line is centred in it. A `<textarea>` is
+        /// not one line and holds its lines from its top; empty, it stands
+        /// on its first, where a scroll container does not stand it on its
+        /// bottom margin edge (queue item 669). A button is neither, and
+        /// with nothing in it stands on its bottom margin edge as any box
+        /// with no line does.
         one_line: bool,
         /// Whether it is at least one line tall. Every control is **even
         /// when it holds nothing**, except a `<button>` element, which is

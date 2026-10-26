@@ -42145,3 +42145,112 @@ changelog say the same.
 300 queue items are open (667 closed, 669 opened). The next unused queue
 number is **670** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 413 — queue item 669: an empty `<textarea>` under `overflow: clip` stands on a line
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the Layout line), the queue's product path and items 669, 670's
+neighbours 664, 665, 668 and 439, iteration 412's entry; `docs/features.md`'s
+inline-block baseline line; `docs/conformance.md`; `alo-layout`'s
+`baseline.rs` and `engine.rs` (`record_an_empty_field`, `record_lines`,
+`lines_start_down`); `alo-box`'s `Purpose::Control` and `control_content`.
+No `AGENTS.md` exists in the repository. 669 names no ADR; its feature
+contract is `docs/features.md` stage 1, "An inline-block's baseline is its
+last line's".
+
+**Why 669.** `ioreg` read `CGSSessionScreenIsLocked = true` at the start
+and after the gate, so 642 (the owner's next choice), 643 and 658 could not
+be measured, and 477 needs a second Mac. 665 depends on 521, which is open;
+668 waits for a page. 669 is the next open item in the queue's order and
+depends on nothing.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop, `DejaVu Sans` from the `dejavu` crate via `@font-face` on every
+element, the case's sheet linked after the doctype, `getBoundingClientRect`
+in sixty-fourths. **The first probe measured before the font had loaded**
+(`document.fonts.status` was `loading` in one of two runs) and gave other
+numbers; the measurement now waits on `document.fonts.load(...)` and
+`document.fonts.ready`, and three runs agreed; measured again with the
+textareas in `DejaVu Sans Mono` (the face their computed `monospace` takes
+in the corpus), every number was the same. An empty `<textarea>` under
+`clip` stands level with one holding a line (the label 3 px below the box's
+top in both) at a `line-height` of 20 and of `normal`; at the sheet's font,
+padding and border, sized 160 by 30; under 10 px of top padding (the label
+12 below); with a `placeholder`. Under the sheet's `auto` it stands on its
+bottom margin edge. An empty `<button>`, under `visible` or `clip`, stands
+on its content box's bottom — item 439's, already queued — not on a line.
+A textarea holding `Ring` and a newline, or a single newline, stands on a
+second line (label 23 below), where a `pre-wrap` `div` holding the same is
+one line: cut to 670.
+
+**Built.** `engine.rs`'s `record_an_empty_field` records, for a
+`<textarea>`'s inside (`holds_a_text_areas_lines`: a control that is
+neither centred nor one line), the strut line at the top of its content
+box, as it records a one-line field's line centred. `baseline.rs`'s module
+comment and `alo-box`'s `Purpose::Control::one_line` doc say so. The
+baseline search still refuses a scroll container before it reaches the
+inside, so a textarea under `auto` is unchanged.
+
+**Tests.** `numbers.rs`'s `an_empty_field_stands_where_its_text_will` pins
+a `<textarea>` under `clip`, empty and filled, standing on its first line
+(the line 30, the text beside it at 7). `alo-corpus`'s new
+`cases/an-empty-clipped-textarea-stands-on-a-line` (nine rows, a label
+beside a textarea) and `an_empty_clipped_textarea_stands_on_a_line.rs`:
+each row's top and height, the label's top and the textarea's border box,
+Chrome's to 1/64 px. Mutation: the old rule put back (restored from a copy,
+checked with `cmp`) fails both — the case at `#clip`, its row 61 tall where
+Chrome's is 56.
+
+**Gate.** `cargo fmt --check` clean; `cargo clippy --workspace
+--all-targets --all-features` with no warning or error; `alo-layout` and
+`alo-box` `--lib` tests passed. Then `scripts/gate.sh` in the foreground —
+it ran past the tool's 600 s, was waited on by an until-loop on its log in
+the next call and read there: **exit 0, "The gate is met." (10 of 10
+steps)**, nextest **5,410 tests run, 5,410 passed** in 582.7 s, no `FAIL`,
+`LEAK` or `panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the two tests above. Reference
+render: the new case's `render.png`, written by `ALO_UPDATE_REFERENCES=1`
+after a run without it showed only the new case missing its files — no
+other case's references moved. Chrome's screenshot of the same bytes
+(antialiased, not committed) puts every box and label in the same place;
+it differs in the textareas' white fill (525), the `auto` one's resize grip
+(522), and the face of the textareas' text (the corpus's monospace, where
+the probe forced `DejaVu Sans` everywhere). One file, one responsibility:
+where an empty field's line stands stays `engine.rs`'s, beside the
+one-line field's, and `baseline.rs` still only reads recorded lines. No
+bytes from outside read anew. No `unsafe`, no stubs, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** No line moved, and that is the answer: 669 corrects a rule
+within stage 1's ticked **Layout** line (where an atomic inline box
+stands), and changes no verb, scroll or form behaviour the agent's gate or
+the Forms line names — an empty `<textarea>` under `clip` was already no
+scroll container, and under the sheet's `auto` nothing changed. Not ticked
+anywhere. The queue ticks 669 with a *Done* paragraph and opens 670;
+`features.md`, `conformance.md`, `REMAINING.md` and the changelog say the
+same.
+
+**Unresolved obligations.**
+- 670: a `<textarea>` whose text ends in a newline holds a last, empty
+  line in Chrome; here it does not, so it stands and scrolls a line short.
+- 439: an empty `<button>` stands on its content box's bottom in Chrome,
+  here on its bottom margin edge (re-measured this iteration, unchanged).
+- 668 waits for a page; 452: a word across two boxes; 665 waits on 521;
+  664: `text-overflow` on a box whose `overflow` the viewport takes; 523:
+  the textarea's `cols` and `rows` (the case sizes its sheet-font rows by
+  hand for it); 522 and 525 as above.
+- CSS's computed `overflow` (`visible` to `auto` beside a scrolling axis)
+  is still not applied to what `taffy` is given (iteration 408's note).
+- 642, 643 and 658 wait on the screen in use (locked); 477 on a second Mac.
+- 649 and 650 are open.
+- Inherited and unchanged: off macOS the toggling click holds Ctrl,
+  unmeasured; an author's `option { display: block }` is undecided; 604,
+  605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and 572
+  wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; item 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (669 closed, 670 opened). The next unused queue
+number is **671** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.

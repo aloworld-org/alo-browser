@@ -37,14 +37,14 @@
 //! holding only its strut, so that it does not drop when somebody types. The
 //! engine records that line for it as it records any other; browsers agree on
 //! it, and an empty `<input>` beside a label is the commonest thing on a form.
-//! A button and a `<textarea>` with nothing in them get no such line. A
-//! `<textarea>` with lines in it stands on its bottom margin edge as well,
-//! because it is a scroll container (`overflow: auto`): Chrome 155 stands
-//! one holding "Ring twice" beside a label exactly where it stands an empty
-//! one, under `auto` and `hidden` (queue item 663, measured). Under `clip` it
-//! is no scroll container and stands on its last line (item 667); an empty
-//! one under `clip` stands on a line in Chrome too, and here on its bottom
-//! edge still (item 669).
+//! An empty `<textarea>` gets one too, its first line's, at the top of its
+//! content box — but under the sheet's `overflow: auto` it is a scroll
+//! container and stands on its bottom margin edge, empty or not: Chrome 155
+//! stands one holding "Ring twice" beside a label exactly where it stands an
+//! empty one, under `auto` and `hidden` (queue item 663, measured). Under
+//! `clip` it is no scroll container and stands on its last line (item 667),
+//! and an empty one on the line it would hold, level with one holding a line
+//! (item 669, measured). A button with nothing in it gets no line.
 //!
 //! A **checkbox and a radio** have no line and stand on their bottom
 //! *border* edge instead, which is where Chrome 154 stands them: with the

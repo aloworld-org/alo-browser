@@ -1,0 +1,51 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Ring"
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block
+          text "Hi" · ::placeholder
+    block flow · generic
+      inline flow · generic
+        text "Ab"
+      inline flow-root · textbox
+        anonymous block

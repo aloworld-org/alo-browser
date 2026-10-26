@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An empty `<textarea>` that clips its content lines up with the text
+  beside it.** With nothing typed in it, a `<textarea>` under `overflow:
+  clip` stood on its bottom edge, so the label beside it dropped to the
+  foot of the box. Chrome 155 stands it on the line it would hold, level
+  with one that holds a line of text, and now this engine does too (item
+  669). A `<textarea>` whose text ends in a newline holds one more, empty,
+  line in Chrome; that is item 670.
+
 - **A box that clips its content still lines up with the text beside
   it.** An inline block under `overflow: clip` stood on its bottom edge,
   as a box that scrolls does, so the label beside it dropped to the

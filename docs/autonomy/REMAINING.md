@@ -3242,3 +3242,15 @@ Chrome's to 1/64 px. Cut from it: 669 (an empty `<textarea>` under `clip`).
 The screen was locked, so 642, 643 and 658 still wait on it; 665 waits on
 521 and 668 on a page. 300 queue items are open (667 closed, 669 opened).
 The next unused queue number is 670 and the next unused ADR 0065.
+
+Iteration 413 closed queue item 669: an empty `<textarea>` records the line
+it would hold, at the top of its content box, so under `overflow: clip` —
+no scroll container — it stands level with one holding a line, as Chrome
+155 stands it, at a `line-height` of 20 and of `normal`, at the sheet's
+font and padding and under more; under the sheet's `auto` it stands on its
+bottom margin edge as before. Every row of the new
+`an-empty-clipped-textarea-stands-on-a-line` case is Chrome's to 1/64 px.
+Cut from it: 670 (a `<textarea>` ending in a newline holds a last empty
+line). The screen was locked, so 642, 643 and 658 still wait on it; 665
+waits on 521 and 668 on a page. 300 queue items are open (669 closed, 670
+opened). The next unused queue number is 671 and the next unused ADR 0065.

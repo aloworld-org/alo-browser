@@ -784,7 +784,7 @@ fn place_inline_content(
     issues: &mut Vec<StyleIssue>,
 ) {
     if boxes.children(id).next().is_none() {
-        // Nothing under it: only an empty one-line field has a line to record.
+        // Nothing under it: only an empty field has a line to record.
         record_an_empty_field(boxes, styles, id, measure, out);
         return;
     }
@@ -991,11 +991,18 @@ fn centres_its_lines(boxes: &BoxTree, id: BoxId) -> bool {
     )
 }
 
-/// Record the line a one-line field with nothing typed in it would hold: the
-/// baseline of a line holding only its strut, where a line it held would
-/// start ([`field_line_offset`]), so that it stands where its text will and
-/// does not drop when it is typed into. See `crate::baseline`. Any other box
-/// with no line records none.
+/// Record the line a field with nothing typed in it would hold: the baseline
+/// of a line holding only its strut, where a line it held would start, so
+/// that it stands where its text will and does not drop when it is typed
+/// into. See `crate::baseline`.
+///
+/// A one-line field's line is centred in it ([`field_line_offset`]); a
+/// `<textarea>`'s first line starts at the top of its content box. Chrome 155
+/// stands an empty `<textarea>` under `overflow: clip` level with one holding
+/// a line, at a `line-height` of 20 and of `normal`, at the sheet's size and
+/// under padding (queue item 669, measured). Under the sheet's `auto` it is a
+/// scroll container and the line is never asked for. Any other box with no
+/// line records none — an empty `<button>` among them.
 fn record_an_empty_field(
     boxes: &BoxTree,
     styles: &StyleTree,
@@ -1003,14 +1010,19 @@ fn record_an_empty_field(
     measure: &impl MeasureText,
     out: &mut Placed,
 ) {
-    if !holds_one_line(boxes, id) {
+    let one_line = holds_one_line(boxes, id);
+    if !one_line && !holds_a_text_areas_lines(boxes, id) {
         return;
     }
     let Some(content) = out.geometry.get(&id).copied().map(BoxGeometry::content_box) else {
         return;
     };
     let strut = text_style_for(boxes, styles, id);
-    let down = field_line_offset(boxes, styles, id, content, measure);
+    let down = if one_line {
+        field_line_offset(boxes, styles, id, content, measure)
+    } else {
+        0.0
+    };
     out.lines.insert(
         id,
         baseline::Lines::one(
@@ -1026,6 +1038,22 @@ fn holds_one_line(boxes: &BoxTree, id: BoxId) -> bool {
         boxes.get(id).map(|node| &node.kind),
         Some(BoxKind::Anonymous {
             purpose: alo_box::Purpose::Control { one_line: true, .. },
+            ..
+        })
+    )
+}
+
+/// Whether this box is the inside of a `<textarea>`: a field that is not one
+/// line, which holds its lines from its top. See `alo_box::Purpose`.
+fn holds_a_text_areas_lines(boxes: &BoxTree, id: BoxId) -> bool {
+    matches!(
+        boxes.get(id).map(|node| &node.kind),
+        Some(BoxKind::Anonymous {
+            purpose: alo_box::Purpose::Control {
+                centred: false,
+                one_line: false,
+                ..
+            },
             ..
         })
     )

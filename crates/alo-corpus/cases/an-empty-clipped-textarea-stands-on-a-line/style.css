@@ -1,0 +1,38 @@
+/* An empty `<textarea>` under `overflow: clip` is no scroll container, so
+   it stands on the line it would hold, exactly where it stands holding
+   text: queue item 669, measured in Chrome 155
+   (crates/alo-layout/src/engine.rs, `record_an_empty_field`). Every row is
+   a label, "Ab", beside one textarea.
+   - #clip, #clip-filled: 80 by 50 with a line of 20, empty and holding a
+     line: the label stands level with both.
+   - #normal, #normal-filled: the same with `line-height: normal`.
+   - #plain, #plain-filled: the engine's sheet's font, padding and border,
+     sized as Chrome sizes a textarea of two rows (item 523 is that size).
+   - #padded: ten pixels of padding above the empty line.
+   - #hinted: a placeholder changes nothing.
+   - #auto: under the sheet's `auto` it is a scroll container and stands on
+     its bottom margin edge, empty as filled. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 16px;
+  line-height: 20px;
+}
+.row {
+  margin-bottom: 10px;
+  background: #eeeeee;
+}
+.sized {
+  width: 80px;
+  height: 50px;
+  padding: 2px;
+  border: 1px solid #000000;
+  font-size: 16px;
+  line-height: 20px;
+  margin: 0;
+}
+.own {
+  width: 160px;
+  height: 30px;
+}

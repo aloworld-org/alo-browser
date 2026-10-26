@@ -1831,9 +1831,9 @@ fn an_empty_field_stands_where_its_text_will() {
     let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
     assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 30.0));
 
-    // A `<textarea>` with nothing in it has no line, and stands on its
-    // bottom margin edge: 30 above the baseline, and the strut's 6 below
-    // it, so the line is 36 and the text's top at 18.
+    // A `<textarea>` under the sheet's `auto` is a scroll container, and
+    // stands on its bottom margin edge: 30 above the baseline, and the
+    // strut's 6 below it, so the line is 36 and the text's top at 18.
     let css = "#w, textarea, button { font-size: 16px; line-height: 20px } \
                textarea, button { padding: 5px; border: 0; width: 40px; height: auto }";
     let html = "<body><div id=w><span id=s>ab</span><textarea id=f></textarea></div></body>";
@@ -1844,6 +1844,25 @@ fn an_empty_field_stands_where_its_text_will() {
         rect_of(&boxes, &layout, "s", html),
         Rect::new(0.0, 18.0, 16.0, 16.0)
     );
+
+    // Under `overflow: clip` it is none, and stands on its first line, empty
+    // or holding one, as a field does (item 669): its line starts at its
+    // top, five of padding, so the baseline is 19 down, the line 30 and the
+    // text's top at 7.
+    for area in [
+        "<textarea id=f style='overflow: clip'></textarea>",
+        "<textarea id=f style='overflow: clip'>cd</textarea>",
+    ] {
+        let html = format!("<body><div id=w><span id=s>ab</span>{area}</div></body>");
+        let (boxes, layout) = lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
+        let block = rect_of(&boxes, &layout, "w", &html);
+        assert!(close(block.size.height, 30.0), "{area}: {block:?}");
+        assert_eq!(
+            rect_of(&boxes, &layout, "s", &html),
+            Rect::new(0.0, 7.0, 16.0, 16.0),
+            "{area}"
+        );
+    }
 
     // A `<button>` with nothing in it is only its padding, 10 tall, as
     // Chrome 154 draws it (queue item 437), not a line and its padding. It
