@@ -150,7 +150,7 @@ fn only_what_was_said_while_a_verb_ran_is_heard() {
 <button>Later</button><button>Now</button><script>
 console.log('loaded');
 const later = document.body.firstChild;
-later.addEventListener('click', () => setTimeout(() => console.log('after the click'), 100));
+later.addEventListener('click', () => setTimeout(() => console.log('after the click'), 2000));
 later.nextSibling.addEventListener('click', () => console.log('now'));
 </script>";
     let mut chrome = Chrome::start().unwrap();
@@ -160,7 +160,16 @@ later.nextSibling.addEventListener('click', () => console.log('now'));
         Vec::<String>::new(),
         "what the page said as it loaded is not the verb's"
     );
-    std::thread::sleep(std::time::Duration::from_millis(400));
+    // The page says "after the click" two seconds after it, and this waits
+    // four, so it is said between the two verbs. Both are instruments, not
+    // the claim: the claim is that what is said after a verb has been
+    // answered is not that verb's. They were 100 ms and 400 ms until
+    // 2026-10-26, when the full gate counted "after the click" as the click's
+    // own — a click there took longer than 100 ms to be answered, so the
+    // page spoke while it was still running and was heard, correctly by the
+    // rule and wrongly by the test. The test measured the machine. Two
+    // seconds is far longer than any verb takes here.
+    std::thread::sleep(std::time::Duration::from_secs(4));
     assert_eq!(
         split(&heard(&mut tab, "Now", &Verb::Activate).unwrap())
             .into_iter()

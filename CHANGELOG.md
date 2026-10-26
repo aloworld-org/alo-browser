@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A test of what a page says during an action no longer depends on how
+  fast the machine is.** The test has a page write a message one moment
+  after a button is clicked, and checks that the message is not counted as
+  part of the click. That moment was a tenth of a second, and when the
+  whole set of tests was running at once a click took longer than that, so
+  the message arrived while the click was still being handled and was
+  counted with it. The test was measuring the machine. The page now waits
+  two seconds, far longer than any click takes. Nothing about what is
+  checked has changed.
+
 - **`alo --chrome` puts a window of its own above Chrome's, and keeps
   it there.** A strip of this browser's now floats directly above the
   window Chrome draws the page in, as wide as it, and follows it when a
