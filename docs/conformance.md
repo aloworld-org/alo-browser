@@ -702,8 +702,13 @@ with no newline after it is still no line, where Chrome's is (411). **A
 `<textarea>` keeps every space and newline of its text whatever its
 `white-space`** (queue item 673), and wraps only where that value says, as
 Chrome 155 does while `getComputedStyle` still reads the author's value;
-its scrolling area across still holds its right padding, where Chrome's
-`scrollWidth` does not (674).
+**its scrolling area across is its left padding and its lines, with no
+right padding after them** (queue item 674), as Chrome 155's `scrollWidth`
+is, while a `div` holding the same line still adds its right padding, as
+Chrome's does. A box's end padding is still added to what spills out of its
+children, where Chrome adds it only to its children's boxes and its own
+lines: a `div` holding a `div` whose line spills scrolls 2 px further than
+Chrome's at 2 px of padding (675).
 
 **A `<br>` ends its line**, as HTML's rendering section says, even under
 `nowrap`. Two in a row leave a blank line, one at the end of a paragraph adds

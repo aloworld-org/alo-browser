@@ -12,7 +12,7 @@
 //! (measured once both had loaded, three runs alike), 2026-10-26: in
 //! sixty-fourths of a pixel, each row's top and height, where the label
 //! beside the textarea starts down, and the textarea's border box; and in
-//! pixels, how far each scrolling textarea's lines reach across and how far
+//! pixels, how far each scrolling textarea scrolls across and how far
 //! it scrolls down. Until
 //! item 673 a textarea under `normal` or `nowrap` collapsed its newlines
 //! and spaces as any box would, and one under `pre-line` its spaces, so it
@@ -237,10 +237,9 @@ const ROWS: [Row; 34] = [
 
 /// Each scrolling textarea's `scrollWidth` and `scrollHeight` in Chrome
 /// 155, which it gives in whole pixels. Across, that is the widest of its
-/// padding box and its left padding with the room its lines take — Chrome
-/// adds no padding after them, where this engine's scrolling area does
-/// (queue item 674), so it is the lines' room that is asserted here. Down,
-/// it is its lines with its padding above and below.
+/// padding box and its left padding with the room its lines take, with no
+/// padding after them (queue item 674). Down, it is its lines with its
+/// padding above and below.
 const SCROLLED: [(&str, f64, f64); 17] = [
     ("normal-newline-auto", 84.0, 54.0),
     ("normal-spaces-auto", 84.0, 54.0),
@@ -345,30 +344,14 @@ fn each_scrolling_textarea_scrolls_as_far_as_chromes() {
     for (id, across, down) in SCROLLED {
         let held = box_of(&rendering, id).expect("the textarea has a box");
         let geometry = drawing.layout.get(held).expect("the textarea is laid out");
-        // Its padding box: inside its border of 1, 84 wide.
-        let padding_left = geometry.border_box.origin.x + 1.0;
-        let padding_width = geometry.border_box.size.width - 2.0;
-        let lines_end = drawing
-            .boxes
-            .descendants(held)
-            .into_iter()
-            .filter(|each| {
-                drawing
-                    .boxes
-                    .get(*each)
-                    .and_then(|node| node.text())
-                    .is_some()
-            })
-            .flat_map(|each| drawing.layout.fragments(each).iter())
-            .map(|piece| piece.rect.origin.x + piece.rect.size.width)
-            .fold(padding_left, f32::max);
-        let ours = (lines_end - padding_left).max(padding_width);
+        let area = geometry.scrolling_area();
         // Chrome gives a whole pixel, so ours is within half of one of it.
         assert!(
-            (f64::from(ours) - across).abs() <= 0.5,
-            "{id}: its lines reach {ours} across, Chrome's {across}"
+            (f64::from(area.width) - across).abs() <= 0.5,
+            "{id}: it scrolls {} across, Chrome's {across}",
+            area.width
         );
-        let height = geometry.scrolling_area().height;
+        let height = area.height;
         assert!(
             near(height, down),
             "{id}: it scrolls {height} tall, Chrome's {down}"

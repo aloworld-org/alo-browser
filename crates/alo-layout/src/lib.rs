@@ -47,6 +47,7 @@ pub(crate) mod baseline;
 pub mod border_style;
 pub(crate) mod containing;
 pub mod ellipsis;
+pub(crate) mod end_padding;
 pub mod engine;
 pub(crate) mod field_width;
 pub mod geometry;

@@ -42618,3 +42618,109 @@ changelog say the same.
 300 queue items are open (673 closed, 674 opened). The next unused queue
 number is **675** and the next ADR is **0065**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 418 — queue item 674: a `<textarea>` scrolls across no further than its lines
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the product path), iteration 417's entry, the queue's product path
+and items 642, 643, 673, 674; `docs/features.md`'s inline-block baseline
+line; `docs/conformance.md`'s `white-space` paragraph; `alo-layout`'s
+`tree.rs` (`BoxGeometry::reach`, `scrolling_area`), `engine.rs`
+(`read_back`, `reach_of_the_initial_block`, `holds_a_text_areas_lines`)
+and `taffy` 0.14's block layout, where a scroll container's end padding is
+added. No `AGENTS.md` exists in the repository. 674 names no ADR; its
+feature contract is `docs/features.md` stage 1, forms and overflow.
+
+**Why 674.** 642 is marked next by the owner, but `ioreg` read
+`CGSSessionScreenIsLocked = true` at the start; 642, 643 and 658 close on
+a person's moves read from the window server, and 477 needs a second Mac.
+674 is the first open item after 673 and depends on nothing.
+
+**Measured.** Chrome 155.0.8059.86, headless, `--dump-dom` with a kill
+loop, `DejaVu Sans` and `DejaVu Sans Mono` from the `dejavu` crate via
+`@font-face`, measured after `document.fonts.load(...)`, the sheet after
+the doctype; three runs alike, three times (a first probe of textareas and
+`div`s, a second of nested `div`s, then the case's own 30 boxes). A `div`
+adds its inline-end padding to its own lines and its children's boxes and
+**not to what spills out of a child**: `Ring Ring Ring` on its own line
+139, in a `div` inside it 137, a block 130 wide in a `div` inside it 132.
+A textarea is the second shape — Chrome's inner box — so 89, 137, 108 at
+2 px of padding; 92, 137, 108 with 10 on the right; 100, 145, 116 at 10.
+
+**Built.** `alo-layout`'s new `end_padding.rs`: `text_areas` takes a
+textarea's end padding off the lines spilling out of its inner box and
+leaves it on the inner box, after every box of a layout is read back and
+before the document's reach is taken. `holds_a_text_areas_lines` is now
+`pub(crate)` for it.
+
+**Found by the gate, fixed before the commit.** The first version walked
+every box of the document. `lay_out_subtree` runs once per atomic inline
+in a line, so `what_a_pages_markup_says`' page of 2,500,000 `<img>`s
+became quadratic: the first gate sat 27 minutes in that one test, which
+`sample` showed inside `end_padding::text_areas`. It now walks only the
+boxes the layout just placed; that test passes in 382 s alone, and a
+10-second `sample` of it 150 s in puts 31 of 7,339 samples in the pass.
+
+**Tests.** `end_padding.rs` unit tests
+`lines_spilling_out_of_the_inner_box_are_not_padded` and
+`the_inner_box_itself_is_padded`; `alo-corpus`'s new
+`cases/a-textarea-scrolls-across-no-further-than-its-lines` (30 boxes) and
+`a_textarea_scrolls_across_no_further_than_its_lines.rs`: each border box
+against Chrome's to 1/64 px, each scrolling width within half a pixel of
+`scrollWidth`, each scrolling height against `scrollHeight`. Item 673's
+test now asserts its textareas' scrolling width directly rather than their
+lines' reach. Mutation, restored from a copy and checked with `cmp`: the
+call taken out fails both cases (`textarea-even-spaces-nowrap` 90.70,
+Chrome's 89; `nowrap-spaces-auto` 90.70, Chrome's 89).
+
+**Gate.** `cargo fmt` clean; `cargo clippy --workspace --all-targets
+--all-features -D warnings` silent (after digit separators in the test's
+numbers); `alo-layout --lib` passed. A first `alo-corpus` run showed only
+the new case missing its files — **no other case's reference moved**. The
+first two gate runs gave no verdict: one was killed with the shell waiting
+on it, and the second was stopped by hand on finding the quadratic pass
+above. Then `scripts/gate.sh` on the final tree, started in the
+foreground in its own session, past the tool's 600 s, waited on by its
+PID and read there: **exit 0, "The gate is met." (10 of 10 steps)**,
+nextest **5,440 tests run, 5,440 passed** in 575 s, no `FAIL`, `LEAK` or
+`panicked`. Only this entry came after.
+
+**Manual.** Layout assertions in numbers: the tests above. Reference
+render: the new case's `render.png`, written by `ALO_UPDATE_REFERENCES=1`
+after the run that showed only it missing. Chrome's screenshot of the same
+bytes (not committed) puts every line and box in the same place and
+differs in the textareas' resize grips (522). One file, one
+responsibility: what a scroll container's end padding is added to is
+`end_padding.rs`'s alone; `engine.rs` only calls it. No bytes from outside
+read anew. No `unsafe`, no stubs, no verb taking a coordinate. `alo-os`
+and `alo-workplace` untouched. Nothing pushed. Temporary probe pages and a
+temporary `alo-corpus` example (removed before the gate) were outside the
+commit.
+
+**Roadmap.** No line moved, and that is the answer: 674 corrects how far a
+textarea scrolls within stage 1's ticked **Layout** line; it changes no
+verb, grant or anything the product path or the agent's gate names. Not
+ticked anywhere. The queue ticks 674 with a *Done* paragraph and opens
+675; `features.md`, `conformance.md`, `REMAINING.md` and the changelog say
+the same.
+
+**Unresolved obligations.**
+- 675: a box's end padding is added to its children's spill here, and only
+  to its children's boxes and its own lines in Chrome (a `div` in a `div`,
+  138.86 against 137); margins, flex and grid items, floats, positioned
+  boxes and the block axis unmeasured.
+- 642 (the frame's window), 643 and 658 wait on an unlocked screen; 477 on
+  a second Mac.
+- 411 (a line of only kept spaces), 439, 668, 452, 665, 664, 523, 522,
+  525 as iterations 413 and 417 left them; CSS's computed `overflow`
+  beside a scrolling axis still not given to `taffy` (iteration 408).
+- 649 and 650 are open. Inherited and unchanged: off macOS the toggling
+  click holds Ctrl, unmeasured; `option { display: block }` undecided;
+  604, 605, 606, 616, 618; 591, 601, 607–614; 576, 577, 585, 586; 463 and
+  572 wait on a person; 568–571 on a screen or pages; 560 and 564 on 502
+  behind 501; 538 waits on a page; 549 is unbuilt; 655 unmeasured.
+- No claim about speed is made.
+
+300 queue items are open (674 closed, 675 opened). The next unused queue
+number is **676** and the next ADR is **0065**. This is one iteration, not
+a finished queue or roadmap.

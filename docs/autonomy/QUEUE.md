@@ -17288,7 +17288,7 @@ What stage 2's exit gate actually measures: a person using it.
   are a line in Chrome and none here (411's, told so); this engine has no
   tab stops anywhere, so a tab is not asserted, and no page has asked.
 
-- [ ] **674. A `<textarea>` scrolls across no further than its lines.**
+- [x] **674. A `<textarea>` scrolls across no further than its lines.**
   *Cut from 673 (iteration 417).* Measured against Chrome 155.0.8059.86
   with `DejaVu Sans Mono`: a `<textarea style="white-space: nowrap;
   overflow: auto">` 80 wide with 2 px of padding holding `ab`, six spaces
@@ -17303,6 +17303,56 @@ What stage 2's exit gate actually measures: a person using it.
   goes. *Depends on nothing. Feature: `docs/features.md` stage 1, forms
   and overflow. Closes when:* a textarea's scrolling area across is
   Chrome's, and a `div`'s is still Chrome's, in numbers, in a corpus case.
+  **Done (iteration 418).** Measured against Chrome 155.0.8059.86,
+  headless, `DejaVu Sans Mono` loaded before measuring, three runs alike:
+  **a `div` adds its inline-end padding to its own lines and its
+  children's boxes, and not to what spills out of a child** — under 2 px
+  of padding, `Ring Ring Ring` (134.86 px) on the `div`'s own line scrolls
+  139, the same line in a `div` inside it 137, and a block 130 wide inside
+  a `div` inside it 132 where one of its own gives 134. A textarea is the
+  second of these: Chrome lays its text out in an inner box as wide as its
+  content box, so its lines spill out of that box unpadded — 89, 137 and
+  108 at 2 px; 92, 137 and 108 at 2 px with 10 on the right; 100, 145 and
+  116 at 10 px — while its `scrollHeight` keeps its bottom padding, the
+  inner box being as tall as its lines. Built: `alo-layout`'s
+  `end_padding.rs`, which takes a textarea's end padding off the lines
+  spilling out of its inner box and leaves it on the inner box, run after
+  every box is read back from `taffy` and before the document's reach is
+  taken. `cases/a-textarea-scrolls-across-no-further-than-its-lines` holds
+  30 boxes — each text in a textarea under `nowrap` and `pre` and in a
+  `div` under `pre`, and a `div` holding a block 130 wide, under each of
+  three paddings — and
+  `a_textarea_scrolls_across_no_further_than_its_lines.rs` asserts each
+  border box against Chrome's to 1/64 px, each scrolling width within half
+  a pixel of `scrollWidth` and each scrolling height against
+  `scrollHeight`. Item 673's case now asserts its textareas' scrolling
+  width directly. Unit tests in `end_padding.rs`. The call taken out
+  (restored from a copy, checked with `cmp`) fails both cases
+  (`textarea-even-spaces-nowrap` 90.70 across, Chrome's 89). No other
+  case moved. Chrome's screenshot of the same bytes puts every line and
+  box in the same place and differs in the textareas' resize grips (522).
+  Not in the case, for a reason: a `div` holding a `div` whose line
+  spills scrolls 138.86 across here and 137 in Chrome, and a block inside
+  a block 134 here and 132 in Chrome (item 675, opened).
+
+- [ ] **675. A box's end padding is added to its children's boxes, not to
+  what spills out of them.** *Cut from 674 (iteration 418).* Measured
+  against Chrome 155.0.8059.86 with `DejaVu Sans Mono`: a `div` 80 wide
+  with `overflow: auto` and 2 px of padding holding a `div` that holds
+  `Ring Ring Ring` under `white-space: pre` has a `scrollWidth` of 137,
+  and one holding a `div` that holds a block 130 wide 132; with 10 px of
+  padding 145 and 140. This engine says 138.86, 134, 154.86 and 150: it
+  rents CSS Overflow 3 § 2.2's end padding from `taffy`, which adds it to
+  the whole of a scroll container's in-flow overflow, a child's spill
+  included. Chrome adds it to the box's own lines and its children's
+  boxes and takes a child's spill as it is; under `overflow: clip` on the
+  child the spill is gone (84). Unmeasured: whether a child's margin, a
+  flex or grid container's items, a float, a positioned box and the block
+  axis follow the same rule. *Depends on nothing. Feature:
+  `docs/features.md` stage 1, overflow. Closes when:* a block, flex and
+  grid container's scrolling area, each holding a child whose content
+  spills, is Chrome's in numbers in a corpus case, and every case's
+  scrolling areas stay Chrome's.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of

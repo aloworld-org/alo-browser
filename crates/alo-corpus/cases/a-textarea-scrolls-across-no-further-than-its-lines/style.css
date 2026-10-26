@@ -1,0 +1,38 @@
+/* A `<textarea>` scrolls across as far as its left padding and its lines,
+   and no further: queue item 674, measured in Chrome 155
+   (crates/alo-layout/src/end_padding.rs). Chrome lays a textarea's text out
+   in an inner box as wide as its content box, and pads that box rather than
+   the lines spilling out of it; a `div` holding the same line pads the line.
+   Each textarea and `div` is 80 wide and 50 tall with a border of 1, under
+   three paddings — 2 px all round, 2 px but 10 on the right, and 10 px all
+   round — holding:
+   - spaces: `ab`, six spaces and `c`, a little wider than the box;
+   - words: `Ring Ring Ring`, well past it;
+   - indent: `a`, a newline, ten spaces and `b`.
+   Each textarea is under `nowrap` and `pre`, which a textarea keeps alike
+   (item 673), and each `div` under `pre`; the last `div` of each padding
+   holds a block 130 wide, padded after. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 16px;
+  line-height: 20px;
+}
+textarea,
+.box {
+  display: block;
+  width: 80px;
+  height: 50px;
+  border: 1px solid #000000;
+  margin: 0 0 6px 0;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 16px;
+  line-height: 20px;
+}
+.wide {
+  width: 130px;
+  height: 10px;
+  background: #cccccc;
+}

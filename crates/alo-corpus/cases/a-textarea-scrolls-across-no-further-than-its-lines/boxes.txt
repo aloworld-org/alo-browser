@@ -1,0 +1,80 @@
+block flow · document
+  block flow · generic
+    block flow · textbox
+      anonymous block
+        text "ab      c"
+    block flow · textbox
+      anonymous block
+        text "ab      c"
+    block flow · generic
+      text "ab      c"
+    block flow · textbox
+      anonymous block
+        text "Ring Ring Ring"
+    block flow · textbox
+      anonymous block
+        text "Ring Ring Ring"
+    block flow · generic
+      text "Ring Ring Ring"
+    block flow · textbox
+      anonymous block
+        text "a\n          b"
+    block flow · textbox
+      anonymous block
+        text "a\n          b"
+    block flow · generic
+      text "a\n          b"
+    block flow · generic
+      block flow · generic
+    block flow · textbox
+      anonymous block
+        text "ab      c"
+    block flow · textbox
+      anonymous block
+        text "ab      c"
+    block flow · generic
+      text "ab      c"
+    block flow · textbox
+      anonymous block
+        text "Ring Ring Ring"
+    block flow · textbox
+      anonymous block
+        text "Ring Ring Ring"
+    block flow · generic
+      text "Ring Ring Ring"
+    block flow · textbox
+      anonymous block
+        text "a\n          b"
+    block flow · textbox
+      anonymous block
+        text "a\n          b"
+    block flow · generic
+      text "a\n          b"
+    block flow · generic
+      block flow · generic
+    block flow · textbox
+      anonymous block
+        text "ab      c"
+    block flow · textbox
+      anonymous block
+        text "ab      c"
+    block flow · generic
+      text "ab      c"
+    block flow · textbox
+      anonymous block
+        text "Ring Ring Ring"
+    block flow · textbox
+      anonymous block
+        text "Ring Ring Ring"
+    block flow · generic
+      text "Ring Ring Ring"
+    block flow · textbox
+      anonymous block
+        text "a\n          b"
+    block flow · textbox
+      anonymous block
+        text "a\n          b"
+    block flow · generic
+      text "a\n          b"
+    block flow · generic
+      block flow · generic

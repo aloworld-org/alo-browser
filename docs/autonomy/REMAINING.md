@@ -3296,3 +3296,15 @@ right padding in Chrome). The screen was locked, so 642, 643 and 658 still
 wait on it; 665 waits on 521 and 668 on a page. 300 queue items are open
 (673 closed, 674 opened). The next unused queue number is 675 and the next
 unused ADR 0065.
+
+Iteration 418 closed queue item 674: a `<textarea>` scrolls across as far
+as its left padding and its lines and no further, as Chrome 155's
+`scrollWidth` does — Chrome pads its inner box, not the lines spilling out
+of it (`alo-layout`'s `end_padding.rs`). Every box of the new
+`a-textarea-scrolls-across-no-further-than-its-lines` case stands where
+Chrome's does to 1/64 px and scrolls as far as Chrome's, the `div`s beside
+the textareas still padded after their lines. Cut from it: 675 (a box's end
+padding is added to its children's spill here, and only to its children's
+boxes and its own lines in Chrome). The screen was locked, so 642, 643 and
+658 still wait on it. 300 queue items are open (674 closed, 675 opened).
+The next unused queue number is 676 and the next unused ADR 0065.

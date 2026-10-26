@@ -45,6 +45,7 @@ use crate::auto_repeat::Axis;
 use crate::baseline;
 use crate::containing::{self, Containing};
 use crate::ellipsis::{self, Ellipses};
+use crate::end_padding;
 use crate::field_width;
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::inline::{self, Fragment, InlineItem, InlineLayout};
@@ -273,6 +274,11 @@ fn lay_out_subtree(
             reading.read_back(*id, Origins::ZERO);
         }
     }
+    // Before a textarea's reach is read into the document's: Chrome pads
+    // its inner box, not the lines spilling out of it (queue item 674).
+    end_padding::text_areas(boxes, &mut placed.geometry, |id| {
+        holds_a_text_areas_lines(boxes, id)
+    });
     reach_of_the_initial_block(&built, root, &mut placed.geometry);
     // Before anything is placed inside a box, and after every box has a
     // rectangle: a fieldset's legend sits in its block-start border rather
@@ -1067,7 +1073,7 @@ fn holds_one_line(boxes: &BoxTree, id: BoxId) -> bool {
 
 /// Whether this box is the inside of a `<textarea>`: a field that is not one
 /// line, which holds its lines from its top. See `alo_box::Purpose`.
-fn holds_a_text_areas_lines(boxes: &BoxTree, id: BoxId) -> bool {
+pub(crate) fn holds_a_text_areas_lines(boxes: &BoxTree, id: BoxId) -> bool {
     matches!(
         boxes.get(id).map(|node| &node.kind),
         Some(BoxKind::Anonymous {
