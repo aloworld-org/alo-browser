@@ -18151,6 +18151,68 @@ What stage 2's exit gate actually measures: a person using it.
   test's patience), restored and checked with `cmp`. **Not built:** the
   window standing there, which is 642's.
 
+- [ ] **676. ★ A read that is answered when the page has settled.** *ADR 0002's
+  surface. **needs ADR**.* `docs/contracts/agent-socket.md` says plainly that
+  version 1 does not **watch**: *"There is no subscription. A caller asks and
+  is answered."* That is the right rule and this item does not break it — but
+  the consequence today is that an agent which has just acted **cannot tell
+  when the page has finished reacting.** It sleeps a guessed number of
+  milliseconds and reads again, which is exactly the guessing this browser
+  exists to refuse, moved one level up. An agent that fills a field, waits
+  200 ms and reads a tree the page is still rebuilding has read a lie, and
+  nothing in the protocol told it so.
+  The shape that keeps ADR 0002: **still one ask, still one answer** —
+  `{"v":1,"ask":"read","tab":ADDRESS,"when":"settled"}`. The browser answers
+  when the page has stopped changing, and if it never does, it refuses by
+  kind (`NotSettled`, with how long it waited) rather than answering a tree
+  it does not trust. No subscription, no stream, no callback: the caller is
+  still asking a question and getting one answer to it.
+  What "settled" means has to be **decided, not guessed**, which is why this
+  needs an ADR. Chrome offers real signals — `Page.lifecycleEvent` with
+  `networkIdle` and `networkAlmostIdle`, `Page.frameStoppedLoading` — and our
+  own engine has its own task queue and knows when it is empty. The two must
+  mean the same thing to an agent or the answer depends on the renderer, which
+  ADR 0058 § 6 forbids in substance even where it allows it in rendering.
+  *Depends on 630. Closes when:* the ADR is accepted; `read … "when":"settled"`
+  is answered after the page is quiet on both renderers, asserted against a
+  page that keeps working for a known time; a page that never settles is
+  refused by kind with the wait in it; and `when` absent behaves exactly as
+  version 1 does today, so no caller changes.
+
+- [ ] **677. ★ A verb says what it changed.** An agent that acts must re-read
+  the whole tree to learn what its own action did, compare two trees itself,
+  and hope nothing else moved meanwhile. The browser already knows: it decided
+  the verb, carried it into the document, and drew the page again (`renderer.rs`
+  — *decide, change, draw again*). What it knows it does not say.
+  An `act` answer gains `changed`: the nodes whose name, states or text differ
+  from the tree the verb was decided against, each by `node` and what differs.
+  **Not a tree, and not a stream** — the boxes that are not the same any more,
+  which is the smallest true answer to *what did I just do*. A verb that
+  changed nothing says `"changed":[]`, which is itself worth knowing: a click
+  that moved nothing is a click that probably missed its meaning.
+  This is also the honest answer to item 500, which says a box's id is good
+  only for the tree it was read from: if the browser says which ids moved, an
+  agent does not have to discover it by diffing.
+  *Depends on 630. Closes when:* `put_text` reports the field's own box and
+  nothing else; a verb that makes a page add or remove boxes reports those;
+  a verb that changes nothing reports an empty list; and the same order driven
+  through both renderers reports the same changes, differing only as item 630
+  says the two trees may.
+
+- [ ] **678. The record can be read back by the person it was kept for.**
+  `agent_record.rs` writes what an agent read and changed, on whose approval,
+  with a cause on every request — and **nothing reads it out.** A record a
+  person cannot read is a promise made to an auditor who does not exist. The
+  designer's state 06 (*"What happened, and what did not"*) is a view of
+  exactly this, so the data has to be askable before that screen can be built.
+  `{"v":1,"ask":"record"}` over the socket, and the same for the window to
+  draw: what was read, what was changed, what was refused, under whose grant,
+  in order, with the renderer each was done through.
+  *Depends on 634. Closes when:* a run that fills a form and is refused once
+  answers a record naming both, the refusal included — **a record that only
+  lists what succeeded is a record of nothing** — and the window can be given
+  the same without reaching into the browser process's memory.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
