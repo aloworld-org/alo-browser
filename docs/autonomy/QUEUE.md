@@ -17864,6 +17864,26 @@ What stage 2's exit gate actually measures: a person using it.
   the page hearing one `input` and one `change` for the option asked, in
   a test, or ADR 0064 says why it stays refused.
 
+- [ ] **671. A window smaller than was asked for is not a reason to refuse to
+  run.** `alo --chrome` asks Chrome for a page area and stops with an error
+  when it is given less: on 2026-10-26 at 02:45 Chrome's window held the page
+  at **1200×571** where 1200×800 was asked, so the program never reached the
+  line that says where an agent can reach it, and
+  `a_file_named_is_opened_in_chrome_at_its_address` failed and stopped the
+  loop. The same test passes on the same checkout minutes later, because what
+  changed was the screen, not the code: that night the session was **locked**,
+  and a window server with nothing on show does not offer the same usable
+  area as one a person is looking at.
+  **A window manager is allowed to give less than it is asked.** A smaller
+  page area is a fact to report and lay the page out at, as item 643 already
+  says for a window a person moves; refusing to run makes the browser's own
+  startup depend on how much screen there happens to be, which is also what
+  will happen on a laptop, under Stage Manager, or beside a dock. *Depends on
+  nothing. Closes when:* a page area smaller than asked is said plainly on the
+  terminal and used, the agent socket is still opened and answered, and a test
+  fixes the available area small enough to force it rather than waiting for a
+  screen to misbehave.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
