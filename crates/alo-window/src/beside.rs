@@ -49,6 +49,17 @@ pub fn chrome_places(home: Option<&Path>) -> Vec<PathBuf> {
     places
 }
 
+/// The Chrome installed on this machine: the first place its installer puts
+/// it, for the person whose home is `HOME`, that holds a program.
+///
+/// # Errors
+///
+/// [`NotInstalled`], naming every place looked at, when none does.
+pub fn chrome_on_this_machine() -> Result<PathBuf, NotInstalled> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    chrome_in(&chrome_places(home.as_deref()))
+}
+
 /// The first of `places` that holds a program.
 ///
 /// # Errors

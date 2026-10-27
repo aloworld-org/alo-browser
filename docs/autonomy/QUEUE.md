@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); unbuilt |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); owed: the bundle assembled (687), the profile Quit leaves (688), the icon (689), and another Mac |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -13687,6 +13687,9 @@ What stage 2's exit gate actually measures: a person using it.
   body's when the root has none, paint the whole canvas. Not measured in
   Chrome here. *Closes when:* a frozen page with a background on its body
   or root alone is drawn as Chrome draws it, with a reference render.
+  *A page now (iteration 427):* `the-applications-page-without-chrome`,
+  the page a Mac with no Chrome is shown by this engine, has its
+  background on `body` alone and is pinned white below 646 px.
 
 - [ ] **540. A shape inside an `<svg>` is found as itself.** *Found
   building 298 (iteration 322). Feature: `docs/features.md` stage 2, SVG.
@@ -18804,6 +18807,28 @@ person unblocks this stage or does not.
   stands. 685 is folded into this item. The closing condition is
   unchanged, with the journal saying which renderer drew the page.
 
+  ***Built, its first part (iteration 427): `alo` inside the
+  application.*** `bundle.rs` knows the program is at
+  `NAME.app/Contents/MacOS/` by where it is, when `Contents/Resources`
+  holds `page.html`; with nothing named it opens that page in the
+  machine's Chrome as `--chrome` would, or, with no Chrome where its
+  installer puts it, `without-chrome.html` in this engine, saying so on
+  the terminal; inside the application its input is not watched. The two
+  pages are corpus cases (`the-applications-page`,
+  `the-applications-page-without-chrome`, 1200×800, rendered and
+  committed). `the_application_opens_its_own_page` starts the real
+  programs copied into `alo browser.app` with no arguments and `/dev/null`
+  for input, reads the page at its address inside the application through
+  `alo-ask`, finds the program running 4 s after its input ended, and
+  after a `SIGKILL` finds Chrome and the strip's renderer gone. **Measured
+  by hand:** a probe bundle opened by `open -n` drew the page in Chrome
+  with the frame above it; AppleScript's `quit` ended `alo`, Chrome and
+  the renderer within a second — ADR 0068 § 2's *Quit leaves no Chrome* —
+  and left Chrome's profile (67 MB) and the socket. **Cut, not built:**
+  the bundle assembled, sealed and checked by a command (687), Chrome's
+  profile left by Quit (688), and the icon (689). Not ticked: 477 closes
+  on another Mac.
+
 - [ ] **684. A page opened from the Finder.** *ADR 0067 § 4.* A `.html`
   file opened with the application reaches it as an Apple Event
   (`application:openURLs:`), heard only by an application delegate, which
@@ -18826,6 +18851,40 @@ person unblocks this stage or does not.
   ***Folded into 477 by ADR 0068 (owner, 2026-10-27).*** The application
   draws with the machine's Chrome on the bundle's own page, so it needs
   neither 119 nor 684 to have a page. Not ticked: it is done when 477 is.
+
+- [ ] **687. The application assembled by a documented command.** *ADR
+  0067 § 6; cut from 477 (iteration 427).* A Rust program that makes
+  `alo browser.app` from `cargo build --release`'s `alo`, `alo-render` and
+  `alo-ask` (saying so rather than calling `cargo`), the corpus's
+  `the-applications-page` and `the-applications-page-without-chrome` as
+  `Contents/Resources/page.html` and `without-chrome.html`, and an
+  `Info.plist` as ADR 0067 § 6 lists it (`org.aloworld.Browser`, version
+  `0.0.0`, no document types); seals it with `codesign -s -` and checks it
+  with `codesign --verify`. *Depends on 477's first part (done).*
+  *Closes when:* the command makes a bundle that `codesign --verify`
+  accepts, a test reads its `Info.plist` and files, and the bundle opened
+  by `open` answers `alo-ask` with the page drawn by Chrome.
+
+- [ ] **688. Chrome's profile left behind by Quit.** *Found building 477
+  (iteration 427), measured.* Quit ends `alo` inside AppKit before its
+  destructors (ADR 0067 § 1), so the private profile each Chrome is given
+  (`chrome_profile.rs`) stays in the person's `TMPDIR`: 67 MB after one
+  page, and whatever a session's sites stored in it. ADR 0068 § 2 asks
+  only that no Chrome be left running, which holds; a profile is a
+  session's data on a disk, ADR 0011's ground. *Needs design:* removed by
+  the next start (a profile whose `alo` is not running), or Quit heard
+  before AppKit ends the process (an application delegate, `unsafe`, as
+  684). *Depends on nothing.* *Closes when:* a quit application leaves no
+  profile of its own, asserted where `the_application_opens_its_own_page`
+  now asserts one is left.
+
+- [ ] **689. The application's icon, drawn by this engine.** *ADR 0067
+  § 6; cut from 477 (iteration 427).* A page in this repository drawn by
+  this engine at the sizes an `.icns` holds, each a committed reference
+  compared by the gate, packed as PNG into an `.icns` by our own code and
+  named by `CFBundleIconFile`. *Depends on 687.* *Closes when:* the
+  assembled bundle carries the `.icns`, its pictures equal the committed
+  references, and the Finder shows it (a screen capture in the journal).
 
 - [ ] **686. A Chrome silent for 30 s in the gate, and nowhere else.**
   Iteration 426's gate (no code changed; ADR 0067 and its documents only)

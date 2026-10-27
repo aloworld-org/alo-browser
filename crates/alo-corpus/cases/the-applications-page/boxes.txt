@@ -1,0 +1,25 @@
+block flow · document
+  block flow · generic
+    block flow · main
+      block flow · heading [level=1]
+        text "alo browser"
+      block flow · paragraph
+        text "This page is drawn by this Mac's Chrome, driven by alo browser."
+      block flow · heading [level=2]
+        text "What this is"
+      block flow · paragraph
+        text " A browser an agent reads rather than photographs. An agent asks alo browser for this page as a tree of what it is — a heading, a paragraph, a link — and acts on it by name, under the sites a person lets it reach. Every request the page makes is held to alo browser's rules and kept in its record. "
+      block flow · paragraph
+        text " The frame above this window says which renderer draws the page, and what each agent asked for and was answered. "
+      block flow · heading [level=2]
+        text "What it is not yet"
+      block flow · paragraph
+        text " There is no address bar, so a person cannot go anywhere from here. An agent opens other pages through "
+        inline flow · generic
+          text "alo-ask"
+        text ", which is inside the application at "
+        inline flow · generic
+          text "Contents/MacOS/alo-ask"
+        text ". "
+      block flow · paragraph
+        text "Closing this window, or quitting, closes alo browser."

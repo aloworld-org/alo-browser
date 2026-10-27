@@ -229,6 +229,13 @@ about this project (ADR 0058 § 6).
   refused, so shown Chromes take turns in the suite and the window
   server's bounds are asserted equal to Chrome's, and a test sends one
   Chrome's window into the strip on purpose and brings it back (643); and
+  **`alo` inside the macOS application** — at `NAME.app/Contents/MacOS/`
+  with nothing named it opens the application's own page in the
+  machine's Chrome, its input not watched, or on a Mac with no Chrome
+  draws a page saying so with this engine; started as macOS starts an
+  application it runs on after its input has ended, and ended it leaves
+  no Chrome running, measured by a real Quit as well (477's first part);
+  and
   **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
@@ -320,10 +327,12 @@ about this project (ADR 0058 § 6).
 - **Owed:** a closed list's option through a shown Chrome, measured with
   the screen in use (658); the
   rest of the agent's work where a person can see it — an
-  application somebody can run (477), decided in ADRs 0067 and 0068 and
-  unbuilt, closing only on a Mac that never built it, with Chrome from the
-  application (685) folded into it; and a page opened from the Finder
-  (684, needs an ADR for its `unsafe`).
+  application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
+  inside it built, closing only on a Mac that never built it, with Chrome
+  from the application (685) folded into it — still owed the bundle
+  assembled by a command (687), Chrome's profile that Quit leaves (688)
+  and the icon (689); and a page opened from the Finder (684, needs an
+  ADR for its `unsafe`).
 
 642 is closed: a frame of ours above Chrome's window that follows it,
 stands aside when it is not on the screen and closes with it was built on
@@ -338,7 +347,8 @@ The box an agent acted on is marked over Chrome's page by Chrome itself
 engine's own window draw their words with the machine's fonts (683), and
 a placed window is in front where the window server lists it at Chrome's
 bounds, unless something brought in front after it sends it to Stage
-Manager's strip (643).
+Manager's strip (643). And `alo` copied into an application opens that application's
+page in Chrome when macOS starts it with nothing (477's first part).
 
 ---
 

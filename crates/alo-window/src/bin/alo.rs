@@ -30,6 +30,13 @@
 //! Closing either closes both, and so does this browser's input ending —
 //! Ctrl-D at a terminal.
 //!
+//! Inside the macOS application, `alo browser.app` (queue item 477, ADRs
+//! 0067 and 0068), nothing named opens the application's own page in the
+//! machine's Chrome as `--chrome` would — or, on a Mac with no Chrome, in
+//! this engine, on a page that says so ([`alo_window::bundle`]). There its
+//! input is not watched: macOS gives an application `/dev/null`, which ends
+//! as it is read, and it is closed by its windows or by Quit instead.
+//!
 //! Either way the terminal says which renderer draws the page: this engine,
 //! or Chrome by the version it gives itself (ADR 0058 § 6). And while it
 //! runs, a person asks it which renderer draws a tab with `alo-ask` and the
@@ -40,7 +47,8 @@ use alo_net::Pool;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
-use alo_window::beside::renderer_beside;
+use alo_window::beside::{chrome_on_this_machine, renderer_beside};
+use alo_window::bundle::Bundle;
 use alo_window::chrome_serving::ChromeServing;
 use alo_window::conductor::{Conductor, Fonts};
 use alo_window::inbox::Orders;
@@ -50,17 +58,37 @@ use alo_window::pages::RenderedBy;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    let opening = match Opening::from_arguments(std::env::args().skip(1)) {
+    let asked = match Opening::from_arguments(std::env::args().skip(1)) {
         Ok(opening) => opening,
         Err(why) => {
             eprintln!("alo: {why}");
             return ExitCode::from(2);
         }
     };
+    let bundle = std::env::current_exe()
+        .ok()
+        .and_then(|program| Bundle::around(&program));
+    let opening = match &bundle {
+        Some(bundle) => in_the_application(bundle, &asked),
+        None => asked,
+    };
     match opening.renderer {
         Renderer::ThisEngine => in_this_engine(&opening),
-        Renderer::Chrome => in_chrome(&opening),
+        Renderer::Chrome => in_chrome(&opening, bundle.is_none()),
     }
+}
+
+/// What the application opens when it was asked for `asked`, saying on the
+/// terminal when the machine has no Chrome and this engine draws its page.
+fn in_the_application(bundle: &Bundle, asked: &Opening) -> Opening {
+    let chrome = chrome_on_this_machine();
+    let opening = bundle.opening(asked.clone(), chrome.is_ok());
+    if let Err(none) = chrome
+        && opening != *asked
+    {
+        eprintln!("alo: {none}, so this browser's own engine draws the application's page");
+    }
+    opening
 }
 
 /// Open a window whose page this engine draws, and run until it closes.
@@ -135,8 +163,8 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
 
 /// Open the page in the machine's Chrome with a frame of ours around its
 /// window, answer agents about it, and run until either window is closed
-/// or this program's input ends.
-fn in_chrome(opening: &Opening) -> ExitCode {
+/// or — when `watching` its input — that input ends.
+fn in_chrome(opening: &Opening, watching: bool) -> ExitCode {
     // Read before Chrome is started, so a file that is not there is said
     // without starting it.
     let page = match opening.chrome_page() {
@@ -171,11 +199,18 @@ fn in_chrome(opening: &Opening) -> ExitCode {
     say_where_chrome_is(&serving);
     let orders = serving.orders();
     let listening = listen(&orders, &opening.agents);
-    close_when_input_ends(orders.clone());
-    eprintln!(
-        "alo: this browser runs until Chrome's window or the frame above it is closed, \
-         or its input ends, Ctrl-D at a terminal"
-    );
+    if watching {
+        close_when_input_ends(orders.clone());
+        eprintln!(
+            "alo: this browser runs until Chrome's window or the frame above it is closed, \
+             or its input ends, Ctrl-D at a terminal"
+        );
+    } else {
+        eprintln!(
+            "alo: this browser runs until Chrome's window or the frame above it is closed, \
+             or it is quit"
+        );
+    }
     let ran = alo_window::window::frame(
         told,
         orders.clone(),

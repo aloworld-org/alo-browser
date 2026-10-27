@@ -55,7 +55,7 @@
 //! 620 and 633) and closes; the verbs are carried out through it
 //! ([`crate::chrome_act`], item 621).
 
-use crate::beside::{NotInstalled, chrome_in, chrome_places, is_program};
+use crate::beside::{NotInstalled, chrome_on_this_machine, is_program};
 use crate::chrome_held::{Taker, Untaken, held};
 use crate::chrome_hold::Unheld;
 use crate::chrome_profile::new_profile;
@@ -184,9 +184,7 @@ impl Chrome {
     /// [`Unstarted::NotInstalled`] when it is not at any place its installer
     /// puts it, or another [`Unstarted`].
     pub fn start() -> Result<Self, Unstarted> {
-        let home = std::env::var_os("HOME").map(PathBuf::from);
-        let program =
-            chrome_in(&chrome_places(home.as_deref())).map_err(Unstarted::NotInstalled)?;
+        let program = chrome_on_this_machine().map_err(Unstarted::NotInstalled)?;
         Self::start_at(&program)
     }
 
@@ -197,9 +195,7 @@ impl Chrome {
     ///
     /// As [`Chrome::start`].
     pub fn start_shown() -> Result<Self, Unstarted> {
-        let home = std::env::var_os("HOME").map(PathBuf::from);
-        let program =
-            chrome_in(&chrome_places(home.as_deref())).map_err(Unstarted::NotInstalled)?;
+        let program = chrome_on_this_machine().map_err(Unstarted::NotInstalled)?;
         Self::launch(&program, true)
     }
 

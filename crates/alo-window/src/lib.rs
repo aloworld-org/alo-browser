@@ -105,6 +105,7 @@ pub mod agents;
 pub mod aim;
 pub mod asking;
 pub mod beside;
+pub mod bundle;
 #[cfg(unix)]
 pub mod chrome;
 pub mod chrome_act;

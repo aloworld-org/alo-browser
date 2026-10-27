@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`alo` knows when it is inside the Mac application.** Copied into
+  `alo browser.app` and started the way macOS starts an application —
+  with nothing named and no input — it now opens the application's own
+  page in the Mac's Chrome and keeps running, instead of an empty tab or
+  closing at once. On a Mac without Chrome it draws a page saying so with
+  this engine. Quitting it leaves no Chrome running; it does still leave
+  Chrome's profile in the temporary folder, which is written down to fix.
+  The application itself is not assembled by a command yet.
+
 - **The Mac application will open Chrome, not this engine.** Decided by
   the owner (ADR 0068): double-clicking alo browser opens the Mac's own
   Chrome, with this browser's agent connection, rules, record and strip

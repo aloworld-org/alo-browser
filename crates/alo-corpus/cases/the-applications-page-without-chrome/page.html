@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alo browser</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #f4f1ec;
+        color: #102a43;
+        font-family: system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        padding: 64px 96px;
+      }
+      main {
+        max-width: 640px;
+      }
+      h1 {
+        font-size: 32px;
+        font-weight: 600;
+        line-height: 1.25;
+        margin-bottom: 8px;
+      }
+      .drawn {
+        color: #e76f51;
+        font-weight: 600;
+        margin-bottom: 32px;
+      }
+      h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      p {
+        margin-bottom: 16px;
+      }
+      p.last {
+        margin-bottom: 32px;
+      }
+      code {
+        font-family: monospace;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>alo browser</h1>
+      <p class="drawn">Chrome was not found on this Mac, so this page is drawn by alo browser's own engine.</p>
+      <h2>What this is</h2>
+      <p>
+        A browser an agent reads rather than photographs. An agent asks alo
+        browser for this page as a tree of what it is — a heading, a paragraph,
+        a link — and acts on it by name, under the sites a person lets it reach.
+      </p>
+      <p class="last">
+        alo browser's own engine draws alo's own interface. The web is drawn by
+        Chrome, and alo browser looks for it only where Chrome's installer puts
+        it: in Applications, or in the Applications folder of your home.
+      </p>
+      <h2>What it is not yet</h2>
+      <p>
+        There is no address bar, so a person cannot go anywhere from here. An
+        agent reaches this page through <code>alo-ask</code>, which is inside
+        the application at <code>Contents/MacOS/alo-ask</code>.
+      </p>
+      <p>Closing this window, or quitting, closes alo browser.</p>
+    </main>
+  </body>
+</html>

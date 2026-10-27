@@ -43579,3 +43579,106 @@ folded into 477. The loop was stopped during its baseline gate, before a
 worker started, so that 477 is not built to the superseded decision.
 **Next:** 477, built by ADR 0067 as ADR 0068 changes it. The next unused
 queue number is **687** and the next ADR is **0069**.
+
+## Iteration 427 — queue item 477, its first part: `alo` inside the application — built; 477 open
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, the owner's entry of 2026-10-27 and iteration 426's, the queue's
+product path and items 477, 684–686; ADRs 0067 and 0068 (the decision this
+builds), 0058 and 0059 § 4; `docs/features.md`'s 477 line (its feature
+contract); `alo.rs`, `opening.rs`, `beside.rs`, `chrome.rs`,
+`socket_place.rs`, `alo-ask.rs`, `the_program_told_to_use_chrome.rs`, the
+corpus's `case.rs` and `check.rs`, `.config/nextest.toml`. No `AGENTS.md`
+exists in the repository.
+
+**Why 477, and why a part.** → on the product path, decided by ADRs 0067
+and 0068 and depending on nothing open. Whole, it is `alo`'s behaviour in
+a bundle, the two pages, an assembling program with its `Info.plist` and
+seal, an icon drawn by this engine and packed into an `.icns`, and a
+closing that only another Mac can give. Cut by scope, not depth: this
+iteration builds `alo` inside the application and its pages; the rest is
+687, 688 and 689. Screen unlocked (`IOConsoleLocked` false), macOS
+26.5.2, Chrome 156.0.8078.48.
+
+**Built.** `bundle.rs`: a program at `NAME.app/Contents/MacOS/` whose
+`Contents/Resources` holds `page.html` is in the application — known by
+where it is, never the environment or the directory. With nothing named
+it opens that page in Chrome as `--chrome` would; with no Chrome where its
+installer puts it (`beside::chrome_on_this_machine`, now shared with
+`chrome.rs`), `without-chrome.html` in this engine, said on the terminal;
+`--scale` or `--frozen-fonts` with nothing named keep the empty tab, since
+the application's page would say Chrome draws it. Inside the application
+`alo --chrome` does not watch its input and says it runs until a window
+closes "or it is quit". The pages are corpus cases,
+`the-applications-page` and `the-applications-page-without-chrome`, at
+1200×800 (the size Chrome lays it out at), markup we wrote with an inline
+sheet so Chrome, given only the page, styles it as this engine does.
+
+**Measured by hand** (a probe bundle in the scratchpad, never committed,
+identifier `org.aloworld.BrowserProbe477`): opened by `open -n` it was
+running 8 s later with Chrome as its child; `alo-ask` found the page at
+its address inside the bundle, `renderer` answered Chrome/156.0.8078.48;
+a screen capture showed the page in Chrome's window with the frame above
+it naming the tab and the renderer. AppleScript `quit` ended `alo`, Chrome
+and the strip's renderer within a second — ADR 0068 § 2's *Quit leaves no
+Chrome* holds, because Chrome ends when its pipe closes — and left
+Chrome's profile (67 MB, removed by hand) and the socket (which the next
+start removes, as ADR 0067 § 1 found). macOS showed a notice, *"alo
+probe" was prevented from modifying apps on your Mac*; what it tried to
+modify was not found, and the page, frame and socket were unaffected.
+
+**Tests.** `bundle.rs`'s five unit tests (in a bundle or not; what is
+opened with Chrome, without it, and with a page or this engine's options
+named). `the_application_opens_its_own_page` (shown, added to nextest's
+`threads-required = 2` list): the real `alo` and `alo-render` copied into
+`alo browser.app` with the corpus's pages, started with no arguments,
+`/dev/null` for input and `/` for directory; Chrome named on the
+terminal; still running 4 s after its input ended; one tab, the page's
+`file:` address with the space as `%20`; the heading at 96,64 640×40, as
+the corpus case's `agent.txt` has it; renderer Chrome; after `SIGKILL`
+(stricter than Quit) Chrome and the renderer gone from the process table;
+the profile asserted left (688) and removed. **Mutation:** watching input
+inside the application (copied, edited, restored with `cp`, `cmp`) fails
+it at "alo closed with its input".
+
+**The gate.** First run, in the foreground (moved to the background at
+600 s; read by an until-loop): **exit 1**, 5422 of 5423 run passed, the
+one failure this iteration's own new test — it asserted Chrome's node
+number for the heading (3), and Chrome numbered it 4. Node numbers are
+Chrome's to choose; the assertion now passes over the number and keeps
+the name and box. 3 of 3 alone after. Second run, detached with `nohup`
+and read by until-loops: **5492 tests, 5492 passed, 10 of 10 steps, "The
+gate is met.", exit 0.**
+
+**Manual.** Layout in numbers: the heading's box through Chrome in the
+test, and every box of both pages in the corpus's `layout.txt` and
+`agent.txt`. Reference renders: both pages' `render.png`, committed and
+compared by the corpus test. They pin item 559 as it is: the background
+is on `body` alone and this engine paints it only over the body's box, so
+both renders are white below 622 and 646 px where Chrome fills the
+window; 559 now has its page. One file, one responsibility: the
+application's rule is `bundle.rs`'s, where Chrome is installed stays in
+`beside.rs`, the test file holds one test of one program. Features,
+roadmap, queue and changelog updated. No `unsafe`, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+`alo` inside the macOS application (477's first part); its Owed clause
+names 687, 688 and 689 beside 477's other Mac; the closing paragraph says
+it. The queue keeps 477 open with a Built paragraph, and its table row
+says what is owed.
+
+**Unresolved obligations.**
+- 477 closes only on a Mac that never built it, opened by double-clicking.
+- 687: the bundle assembled, sealed and checked by a command — next on
+  the product path.
+- 688: Chrome's profile left in `TMPDIR` by Quit (67 MB per session).
+- 689: the icon.
+- The no-Chrome path is run only through `bundle.rs`'s unit tests and the
+  corpus render: this Mac has Chrome, and where `alo` looks for it is
+  fixed by design, not by the environment.
+- The macOS notice about modifying apps is not explained.
+- No claim about speed is made.
+
+The next unused queue number is **690** and the next ADR is **0069**.
+This is one iteration, not a finished queue or roadmap.
