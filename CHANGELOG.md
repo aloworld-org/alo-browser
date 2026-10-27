@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The check of the build loop no longer depends on how the loop was
+  started.** Starting the loop with a worker named
+  (`ALO_LOOP_WORKER=claude`) made the loop's own check run with that name
+  set, and the check's first case, which expects none, failed. The check now
+  clears those settings before it starts.
+
 - **A test of the strip above Chrome's window no longer judges before
   the strip has had time to appear.** The test looked at the screen twice,
   a third of a second apart, and if both looks agreed it took them as the

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Supervisor regressions with an isolated git repository and a fake worker.
 set -euo pipefail
+# Each case sets what it means to: a value the caller's own environment holds
+# would change the case under test. The loop started as
+# `ALO_LOOP_WORKER=claude scripts/loop.sh` runs its gate with that set, and the
+# first case, which expects no worker named, then ran the claude stub instead.
+unset ALO_LOOP_WORKER ALO_LOOP_PUSH ALO_LOOP_LOG
 cd "$(dirname "$0")/.."
 source_script="$PWD/scripts/loop.sh"
 fixture="$(mktemp -d)"
