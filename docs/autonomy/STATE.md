@@ -43393,3 +43393,76 @@ product path's table moves → to 643.
 
 The next unused queue number is **684** and the next ADR is **0067**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 425 — queue item 643: a placed window that stays where a person sees it — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path and stage 2 browser line, iteration 424's entry, the queue's product
+path and item 643; `docs/features.md`'s second-renderer line (643's
+feature contract; ADRs 0061 and 0062 decide the window and the window
+server's witness, and no new decision was needed); `chrome_window.rs`,
+`window_server.rs`, `a_page_in_chromes_own_window.rs`,
+`the_box_marked_through_chrome.rs` and `.config/nextest.toml`. No
+`AGENTS.md` exists in the repository.
+
+**Why 643.** Next on the product path (→ in the queue's table), its
+dependency 627 done. Screen unlocked (`IOConsoleLocked` No), Stage
+Manager on, macOS 26.5.2, Chrome 156.0.8078.48.
+
+**Found.** A temporary test in the scratchpad's copy (never committed)
+placed a shown Chrome's window and read the window server after each step.
+`Target.activateTarget` brought the window out of the strip, at Chrome's
+bounds by the first reading, after Finder and Terminal were activated by
+`osascript`, after a `cliclick` click on Terminal, while Shift was pressed
+in Terminal every 20 ms, and after a second shown Chrome was brought in
+front; System Events' and `NSRunningApplication`'s activation did the
+same. Two Chromes brought in front in turns left the last one asked in
+front. So macOS did not refuse the activation: the window in the strip
+was always one another window was brought in front of after it — the
+competing windows, which iteration 423 already made take turns. The
+original "editor frontmost throughout" did not reproduce unlocked;
+iteration 382 saw activation ignored while locked, which is the one
+condition not measured here.
+
+**Built.** `a_page_in_chromes_own_window` asserts the window server
+lists the window at exactly Chrome's bounds (title and opacity as before),
+waited on at most 10 s. `a_chrome_window_brought_in_front_of_another`
+(shown, added to the `threads-required = 2` list) makes the cause happen
+on purpose: a second Chrome's window brought in front sends the first's
+into the strip while Chrome's word for its bounds stays the same, and the
+first brought in front again comes out at its bounds as the second goes
+in; with Stage Manager off it asserts each behind at its bounds instead.
+`chrome_window.rs`'s module documentation says what was measured.
+**Mutation:** `bring_to_front` sending nothing (copied, edited, restored
+with `cp`, checked with `cmp`) fails the new test at "the first, in front
+again", listed at 9,651 116×117.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read its log: **5486 tests,
+5486 passed, 10 of 10 steps, "The gate is met.", exit 0.**
+
+**Manual.** Layout assertions in numbers: the window's bounds by the
+window server, equal to Chrome's, in both tests. No reference render: no
+pixel of ours changed, and the window server's bounds are the witness
+(ADR 0062). One file, one responsibility: placing stays in
+`chrome_window.rs`, the new test file holds one test of one cause.
+Features, roadmap, queue and changelog updated. No `unsafe`, no verb
+taking a coordinate. `alo-os` and `alo-workplace` untouched. Nothing
+pushed. The orphaned headless Chrome from 2026-10-26 is still running and
+was left alone.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+643; its Owed clause and the stage 2 browser line no longer list it; the
+closing paragraph says a placed window is in front at Chrome's bounds.
+The queue ticks 643 with its Done paragraph, and the product path's
+table moves → to 477.
+
+**Unresolved obligations.**
+- Activation while the session is locked is not measured.
+- A person bringing another application in front sends Chrome's window
+  to the strip; that is theirs, and nothing here undoes it.
+- 477 is next on the product path.
+- No claim about speed is made.
+
+The next unused queue number is **684** and the next ADR is **0067**.
+This is one iteration, not a finished queue or roadmap.

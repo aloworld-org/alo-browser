@@ -19,16 +19,13 @@
 //! `osascript`: the Chrome this test started has one window on the screen,
 //! titled by the page and opaque.
 //!
-//! Not where. Chrome's word for its bounds is not the screen's: with Stage
-//! Manager on, a window that is not in front is shrunk into its strip —
-//! the window server lists it at 16,773 and 97×115 while Chrome says
-//! 160,120 and 900×632. Alone, a window placed is in front and the window
-//! server lists it at Chrome's bounds exactly (`alo --chrome`, iteration
-//! 380's run); with the suite's other shown Chromes bringing their own
-//! windows in front, this one was left in the strip in one run in four for
-//! thirty seconds of being brought in front again. So the bounds the window
-//! server gives are not asserted here, and whether a placed window stays
-//! where a person sees it is owed (item 643).
+//! And where: the window server lists it at Chrome's bounds exactly. With
+//! Stage Manager on, a window that is not in front is shrunk into its strip
+//! — listed at 16,773 and 97×115 while Chrome says 160,120 and 900×632 —
+//! and the window that sends it there is the one brought in front after it
+//! (item 643, `a_chrome_window_brought_in_front_of_another`). So this test
+//! shows its window with no other Chrome's beside it (`.config/nextest.toml`)
+//! and waits, at most [`AT_MOST`], for the window server to finish moving it.
 
 use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
@@ -36,6 +33,8 @@ use alo_window::chrome::Chrome;
 use alo_window::chrome_protocol::WindowState;
 use alo_window::chrome_tab::{Tab, Unopened};
 use alo_window::chrome_window::{self, LARGEST, Placed, Unplaced};
+#[cfg(target_os = "macos")]
+use std::time::{Duration, Instant};
 
 /// Where the page says it was taken from. Frozen: nothing reaches a server.
 const ADDRESS: &str = "https://example.com/window.html";
@@ -47,6 +46,13 @@ const PAGE: &str = "<!doctype html><title>Window</title><h1>Window</h1>\
 
 /// The size the page is asked for at, in CSS pixels.
 const SIZE: (u32, u32) = (900, 600);
+
+/// The longest the window server is waited on to list the window where
+/// Chrome put it. Measured on 2026-10-27, a window brought out of Stage
+/// Manager's strip was listed at its bounds at the first reading after, and
+/// one sent into it had shrunk within 700 ms.
+#[cfg(target_os = "macos")]
+const AT_MOST: Duration = Duration::from_secs(10);
 
 /// The windows the window server lists for the process `pid` that are on
 /// the screen, a line each: title, then bounds as [`bounds`] writes them,
@@ -77,6 +83,20 @@ fn on_the_screen(pid: u32) -> Result<Vec<String>, String> {
         .filter(|line| !line.is_empty())
         .map(str::to_owned)
         .collect())
+}
+
+/// What the window server lists for the process `pid` once it is `wanted`,
+/// or what it listed last when [`AT_MOST`] has passed first.
+#[cfg(target_os = "macos")]
+fn once_listed(pid: u32, wanted: &[String]) -> Result<Vec<String>, String> {
+    let until = Instant::now() + AT_MOST;
+    loop {
+        let listed = on_the_screen(pid)?;
+        if listed.as_slice() == wanted || Instant::now() > until {
+            return Ok(listed);
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
 }
 
 /// A page's size as text, so it is compared whole rather than as floats.
@@ -128,13 +148,13 @@ fn a_page_is_laid_out_in_its_window_at_the_size_asked_and_placed() -> Result<(),
     );
     #[cfg(target_os = "macos")]
     {
-        let listed = on_the_screen(process)?;
-        let [window] = listed.as_slice() else {
-            return Err(format!("not one window on the screen: {listed:?}"));
-        };
-        assert!(
-            window.starts_with("Window ") && window.ends_with(" 1"),
-            "the window server's own word: {window}"
+        // One window on the screen, titled by the page, opaque, and where
+        // Chrome says it is: in front, not in Stage Manager's strip.
+        let wanted = vec![format!("Window {} 1", bounds(&moved))];
+        assert_eq!(
+            once_listed(process, &wanted)?,
+            wanted,
+            "the window server's own word"
         );
     }
 

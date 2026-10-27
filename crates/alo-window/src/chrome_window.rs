@@ -47,6 +47,15 @@
 //! a window that is in front; whether it stays there is the person's, and
 //! another program's, to decide.
 //!
+//! macOS honours that activation. Measured on 2026-10-27 against Chrome 156
+//! on macOS 26.5 (item 643): the window came out of the strip after Finder
+//! or Terminal was activated by a script, after a click on Terminal, while
+//! keys were pressed there, and after another shown Chrome was brought in
+//! front. The window found in the strip is always the one another window
+//! was brought in front of afterwards — so two shown Chromes must not take
+//! turns at the front if both are to be seen, and the tests show one at a
+//! time.
+//!
 //! # What it is not yet
 //!
 //! A frame of ours around it. ADR 0061 accepts two windows, one of ours

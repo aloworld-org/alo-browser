@@ -223,7 +223,13 @@ about this project (ADR 0058 § 6).
   word in it was blank, in this engine's window and in the frame's tab;
   the feature is on, a test font with one variation past the old bound is
   drawn and moved by every one, and each of the machine's generics draws
-  ink, captured on the screen (683); and **a refusal where a person can read it**,
+  ink, captured on the screen (683); and **a placed window that stays in
+  front** — the window Stage Manager's strip took was always one another
+  window was brought in front of after it, never an activation macOS
+  refused, so shown Chromes take turns in the suite and the window
+  server's bounds are asserted equal to Chrome's, and a test sends one
+  Chrome's window into the strip on purpose and brings it back (643); and
+  **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
   kept until the second verb that runs after it, two refusals in a row two
@@ -307,9 +313,7 @@ about this project (ADR 0058 § 6).
   chose on the way (ADR 0064).
 - **Owed:** a closed list's option through a shown Chrome, measured with
   the screen in use (658); the
-  rest of the agent's work where a person can see it — a placed window
-  that stays where a
-  person sees it, which Stage Manager's strip does not promise (643); an
+  rest of the agent's work where a person can see it — an
   application somebody can run (477).
 
 642 is closed: a frame of ours above Chrome's window that follows it,
@@ -322,7 +326,10 @@ or why it was refused, told by the thread holding Chrome from the answers
 it sent; and it shows the page's tab, drawn outside this process (681).
 The box an agent acted on is marked over Chrome's page by Chrome itself
 (680, ADR 0066), not by the frame. Run on this machine, the tab and this
-engine's own window draw their words with the machine's fonts (683).
+engine's own window draw their words with the machine's fonts (683), and
+a placed window is in front where the window server lists it at Chrome's
+bounds, unless something brought in front after it sends it to Stage
+Manager's strip (643).
 
 ---
 
@@ -919,9 +926,10 @@ unreachable without it.
       through a shown Chrome (658) — the frame itself stands, follows, and
       draws its words with the machine's own fonts (683), and
       carries the page's tab, the agent's sentence and its refusals (642,
-      679, 681), and Chrome marks the box a verb acted on (680) — and a
-      window that
-      stays where a person sees it (643)
+      679, 681), and Chrome marks the box a verb acted on (680), and a
+      placed window is in front at Chrome's bounds by the window server's
+      word, the strip taking only a window another was brought in front of
+      (643)
 
 ### The network
 

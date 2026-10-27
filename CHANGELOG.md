@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Chrome's window is checked to be where a person sees it.** On a Mac
+  with Stage Manager on, a window that is not in front shrinks into the
+  strip at the screen's edge. It was not known whether macOS was
+  refusing to bring Chrome's window back; measured, it never was — the
+  window in the strip was always one another window had been brought in
+  front of afterwards, which in the tests was another Chrome. The tests
+  now check the window is on the screen exactly where Chrome says, and
+  one test sends a window into the strip on purpose and brings it back.
+
 - **Words are drawn with this machine's own fonts.** Without
   `--frozen-fonts`, text in the Mac's own `sans-serif` (San Francisco)
   was blank — in this browser's window, its tabs, and the tab in the

@@ -62,8 +62,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **681** | the page's tab in the frame, drawn by a tab strip's renderer of its own and following the page's title (iteration 421) |
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
-| **→** | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
-| | **477** | an application somebody can run, on macOS |
+| ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
+| **→** | **477** | an application somebody can run, on macOS |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -17088,7 +17088,7 @@ What stage 2's exit gate actually measures: a person using it.
   opened again: the serif drew in New York's display cut, because no
   variable font is set on its `opsz`.
 
-- [ ] **643. A placed window that stays where a person sees it.** *Cut from
+- [x] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into
   its strip: the window server lists Chrome's at 16,773 and 97×115 while
   Chrome says 160,120 and 900×632. `chrome_window::place` brings the window
@@ -17102,6 +17102,29 @@ What stage 2's exit gate actually measures: a person using it.
   front with the window server's bounds asserted equal to Chrome's under
   the suite's concurrency, or what a person must do is said where they read
   it rather than assumed.
+  ***Done (iteration 425).*** **Activation was honoured; the competing
+  windows were the cause.** Measured on 2026-10-27, Chrome 156.0.8078.48,
+  macOS 26.5.2, Stage Manager on, screen unlocked, through a scratchpad
+  probe reading the window server after every step:
+  `Target.activateTarget` brought a placed window out of the strip, at
+  Chrome's bounds by the first reading, after Finder or Terminal was
+  activated by `osascript`, after a `cliclick` click on Terminal, while
+  Shift was pressed and released in Terminal every 20 ms, and after a
+  second shown Chrome was brought in front; two Chromes brought in front
+  in turns, 120 ms apart, left the last one asked in front. Every window
+  found in the strip was one another window had been brought in front of
+  after it. The original run's "the editor frontmost throughout" did not
+  reproduce with the screen unlocked; iteration 382 saw activation
+  ignored while the session is locked, and that is the one condition not
+  measured here. Shown Chromes already took turns (`threads-required =
+  2`, iteration 423). Built: `a_page_in_chromes_own_window` asserts the
+  window server lists the window at exactly Chrome's bounds, waited on at
+  most 10 s; `a_chrome_window_brought_in_front_of_another` (shown, so it
+  takes both turns) sends one Chrome's window into the strip with a
+  second, Chrome's word unchanged, and brings it back, the second going in
+  — or, with Stage Manager off, each behind at its bounds. Mutation:
+  `bring_to_front` sending nothing fails it at "the first, in front
+  again", the window server listing it at 9,651 116×117.
 
 - [x] **644. A renderer left stopped, and the one test that stops one.**
   *Numbered 643 by mistake when it was written, and renumbered within the
