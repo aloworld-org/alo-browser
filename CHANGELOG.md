@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The Mac application is made by a command.** After `cargo build
+  --release`, `target/release/alo-bundle` makes `alo browser.app` beside
+  the programs: `alo`, its renderer and `alo-ask`, the application's own
+  pages and its `Info.plist`, sealed ad hoc and checked by `codesign`.
+  Opened with `open`, it shows its page in the Mac's Chrome. It has no
+  icon yet, is not notarised, and still leaves Chrome's profile behind
+  when quit.
+
 - **`alo` knows when it is inside the Mac application.** Copied into
   `alo browser.app` and started the way macOS starts an application —
   with nothing named and no input — it now opens the application's own

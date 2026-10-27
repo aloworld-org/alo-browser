@@ -43682,3 +43682,88 @@ says what is owed.
 
 The next unused queue number is **690** and the next ADR is **0069**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 428 — queue item 687: the application assembled by a documented command — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, iteration 427's entry and the owner's of 2026-10-27, the queue's
+product path and items 477, 684–689; ADRs 0067 (§§ 1, 4 and 6 above all)
+and 0068; `docs/features.md`'s 477 line; `bundle.rs`, `beside.rs`,
+`alo.rs`, `alo-ask.rs`, `the_application_opens_its_own_page.rs`,
+`scripts/gate.sh`'s steps, `.config/nextest.toml`. No `AGENTS.md` exists.
+
+**Why 687.** First open item on the product path whose dependencies are
+done (477's first part, iteration 427); 688 needs design, 689 depends on
+this, 684 needs an ADR, 686 is off the path.
+
+**Built.** `alo-bundle [--programs DIR] [--into DIR]` in `alo-window`,
+both directories the one it is in unless named: after `cargo build
+--release`, `target/release/alo-bundle` makes `target/release/alo
+browser.app`. It builds nothing and names a missing program with the
+`cargo` command. Three files, one reason each: `bundle_made.rs` puts the
+programs, the two corpus pages (compiled in with `include_str!`, so they
+are the bytes whose renders are committed) and the plist together under a
+directory of its own beside the destination, removed on drop unless moved
+into place; `info_plist.rs` writes the property list — ADR 0067 § 6's keys
+plus `CFBundleExecutable`, `CFBundleInfoDictionaryVersion` and
+`CFBundleDevelopmentRegion`, and **no `CFBundleIconFile`**, because the
+icon is 689 and naming a file not there would be the lie § 4 refuses for
+document types; `bundle_seal.rs` signs `alo-render` and `alo-ask` as
+nested code, then the whole, with `/usr/bin/codesign -s - --force`, and
+checks with `--verify --deep --strict`. An application already at the
+destination is refused, never replaced.
+
+**Tests.** Unit: the plist's keys and refusals, escaping; the application
+whole, nothing half-made on a missing program or a drop, one already there
+kept; the refusals' words. Integration, `the_application_assembled` (no
+Chrome, so in no nextest group): the real command on the programs the test
+was built with; the file list exactly; `plutil -extract` reads the
+identifier, executable, names, type and both versions, and nothing for
+`CFBundleDocumentTypes` or `CFBundleIconFile`; both pages byte for byte
+against the corpus; `codesign` accepts the seal on its own; a second run
+exits 2 and leaves the first valid; a page changed after sealing is
+refused ("a sealed resource is missing or invalid"); programs not built
+are named, exit 2, nothing made. **Mutation:** the whole-bundle signature
+skipped (copied, edited, restored with `cp`, `cmp`) fails it with
+`codesign`'s "code has no resources but signature indicates they must be
+present" — ADR 0067 § 1's measurement — and nothing was left behind.
+
+**Measured by hand** (the release build, into the scratchpad; screen
+unlocked, macOS 26.5.2, Chrome 156.0.8078.48): `codesign -dv` says
+`Identifier=org.aloworld.Browser`, `Signature=adhoc`, sealed resources 4
+files; `plutil -lint` OK. Opened by `open -n`, `alo-ask` (no socket named,
+so the one under `TMPDIR`) was answered 3 s later: one tab, the page's
+`file:` address inside the bundle; `read` the heading "alo browser" at
+96,64 640×40; `renderer` Chrome/156.0.8078.48, driven by this browser.
+Chrome and the strip's `alo-render` were `alo`'s children. A screen
+capture showed the page in Chrome's window with the frame above naming the
+tab and Chrome. The macOS notice of iteration 427 appeared again, now as
+*"alo browser" was prevented from modifying apps on your Mac*; still not
+explained. AppleScript `quit` by `org.aloworld.Browser` left no `alo`,
+renderer or Chrome running; the 67 MB profile was left (688) and removed
+by hand.
+
+**The gate.** Detached with `nohup`, read by until-loops in the next two
+calls: **5502 tests run, 5502 passed, 10 of 10 steps, "The gate is met.",
+exit 0.**
+
+**Manual.** Nothing is laid out or drawn by this change: the two pages'
+layout and renders are the corpus cases already committed and compared,
+and the test asserts the application carries exactly those bytes; no new
+layout assertion or reference render applies. One file, one
+responsibility, as above; `bundle.rs` (what `alo` does inside) is
+unchanged. Features, roadmap (Built and Owed clauses moved, nothing
+ticked), queue (687 ticked with a Done paragraph, 477's row moved) and
+changelog updated. No `unsafe`, no verb taking a coordinate, no rented
+crate added. `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Unresolved obligations.**
+- 477 still closes only on a Mac that never built it, opened by
+  double-clicking.
+- 688 (the profile Quit leaves) needs design; 689 (the icon) is now
+  unblocked and adds `CFBundleIconFile` with its file.
+- The macOS "prevented from modifying apps" notice is not explained.
+- No claim about speed is made.
+
+The next unused queue number is **690** and the next ADR is **0069**.
+This is one iteration, not a finished queue or roadmap.

@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); owed: the bundle assembled (687), the profile Quit leaves (688), the icon (689), and another Mac |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); owed: the profile Quit leaves (688), the icon (689), and another Mac |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18852,7 +18852,7 @@ person unblocks this stage or does not.
   draws with the machine's Chrome on the bundle's own page, so it needs
   neither 119 nor 684 to have a page. Not ticked: it is done when 477 is.
 
-- [ ] **687. The application assembled by a documented command.** *ADR
+- [x] **687. The application assembled by a documented command.** *ADR
   0067 § 6; cut from 477 (iteration 427).* A Rust program that makes
   `alo browser.app` from `cargo build --release`'s `alo`, `alo-render` and
   `alo-ask` (saying so rather than calling `cargo`), the corpus's
@@ -18864,6 +18864,25 @@ person unblocks this stage or does not.
   *Closes when:* the command makes a bundle that `codesign --verify`
   accepts, a test reads its `Info.plist` and files, and the bundle opened
   by `open` answers `alo-ask` with the page drawn by Chrome.
+  ***Done (iteration 428).*** `alo-bundle [--programs DIR] [--into DIR]`
+  (`bundle_made.rs`, `info_plist.rs`, `bundle_seal.rs`), both directories
+  its own unless named, so `cargo build --release` then
+  `target/release/alo-bundle` makes `target/release/alo browser.app`. The
+  pages are the corpus's, compiled into the command; the application is
+  made under a directory of its own beside where it goes, sealed there —
+  `alo-render` and `alo-ask` signed as nested code, then the whole — checked
+  with `codesign --verify --deep --strict`, and moved into place, so a
+  refusal leaves nothing; one already there is refused, not replaced. The
+  `Info.plist` has § 6's keys plus `CFBundleExecutable`,
+  `CFBundleInfoDictionaryVersion` and `CFBundleDevelopmentRegion`, and no
+  `CFBundleIconFile` until 689 gives it a file. `the_application_assembled`
+  reads it back with `plutil`, the pages byte for byte against the corpus,
+  the seal with `codesign`, and a page changed after sealing refused.
+  **Measured by hand:** the release build opened by `open` answered
+  `alo-ask` in 3 s with one tab, its page's heading at 96,64 640×40, and
+  `renderer` Chrome/156.0.8078.48; a screen capture showed the page in
+  Chrome under the frame; AppleScript's `quit` by identifier left no `alo`,
+  renderer or Chrome running, and left the 67 MB profile (688).
 
 - [ ] **688. Chrome's profile left behind by Quit.** *Found building 477
   (iteration 427), measured.* Quit ends `alo` inside AppKit before its

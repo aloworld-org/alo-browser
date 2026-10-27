@@ -235,7 +235,11 @@ about this project (ADR 0058 § 6).
   draws a page saying so with this engine; started as macOS starts an
   application it runs on after its input has ended, and ended it leaves
   no Chrome running, measured by a real Quit as well (477's first part);
-  and
+  and **the application made by a command** — `alo-bundle`, after `cargo
+  build --release`, puts the three programs, the two pages the corpus
+  renders and an `Info.plist` naming `org.aloworld.Browser` into `alo
+  browser.app`, seals it ad hoc and has `codesign` check it; opened by
+  `open` it drew its page in Chrome and answered `alo-ask` (687); and
   **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
@@ -329,9 +333,9 @@ about this project (ADR 0058 § 6).
   rest of the agent's work where a person can see it — an
   application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
   inside it built, closing only on a Mac that never built it, with Chrome
-  from the application (685) folded into it — still owed the bundle
-  assembled by a command (687), Chrome's profile that Quit leaves (688)
-  and the icon (689); and a page opened from the Finder (684, needs an
+  from the application (685) folded into it, and assembled by a command
+  (687) — still owed Chrome's profile that Quit leaves (688) and the icon
+  (689); and a page opened from the Finder (684, needs an
   ADR for its `unsafe`).
 
 642 is closed: a frame of ours above Chrome's window that follows it,
@@ -348,7 +352,8 @@ engine's own window draw their words with the machine's fonts (683), and
 a placed window is in front where the window server lists it at Chrome's
 bounds, unless something brought in front after it sends it to Stage
 Manager's strip (643). And `alo` copied into an application opens that application's
-page in Chrome when macOS starts it with nothing (477's first part).
+page in Chrome when macOS starts it with nothing (477's first part), and
+`alo-bundle` makes that application, sealed and checked (687).
 
 ---
 

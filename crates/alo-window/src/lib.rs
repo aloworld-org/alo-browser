@@ -27,6 +27,10 @@
 //!   browser's own (item 529), read by the event loop before anything else.
 //! - [`opening`] is what a person named on the command line, [`fonts`] the
 //!   fonts renderers start with, and [`beside`] where the renderer program is.
+//!   Inside the macOS application, [`bundle`] decides what is opened with
+//!   nothing named (item 477); `alo-bundle` makes that application, put
+//!   together by [`bundle_made`] with the [`info_plist`] it says of itself
+//!   and sealed by [`bundle_seal`] (item 687).
 //! - [`agents`] is the socket an agent outside the browser speaks to (ADR
 //!   0055), at a place [`socket_place`] makes private; [`protocol`] reads and
 //!   writes its lines, one of the two files that name `serde_json`, into what
@@ -106,6 +110,8 @@ pub mod aim;
 pub mod asking;
 pub mod beside;
 pub mod bundle;
+pub mod bundle_made;
+pub mod bundle_seal;
 #[cfg(unix)]
 pub mod chrome;
 pub mod chrome_act;
@@ -143,6 +149,7 @@ pub mod frame_strip;
 pub mod frame_told;
 pub mod hold;
 pub mod inbox;
+pub mod info_plist;
 pub mod json_depth;
 pub mod keys;
 pub mod mark;
