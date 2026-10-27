@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067** (this engine's programs in a bundle, opening a page of its own); unbuilt |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18773,6 +18773,63 @@ person unblocks this stage or does not.
   an application opened from the Finder is given no input at all, so it
   would close as it opened. The bundle decides how a program a person
   opened without a terminal is closed by its input, if at all.
+
+  ***Decided, ADR 0067 (iteration 426).*** Measured first: an application
+  macOS opens is given no arguments (a file opened with it arrives as an
+  Apple Event, which only an application delegate hears), its input is
+  `/dev/null`, its directory `/`, and its `TMPDIR` the person's; `alo` and
+  `alo-render` copied into a bundle ran from the Finder and drew a page
+  under the renderer's sandbox; `alo --chrome` opened that way had ended
+  two seconds later. So the application, `alo browser.app`
+  (`org.aloworld.Browser`), holds **this engine's** `alo`, `alo-render`
+  and `alo-ask`, and no Chrome; started from inside a bundle with no page
+  named, `alo` opens **a page of the bundle's own** in
+  `Contents/Resources`, markup we wrote with a committed render; it is
+  closed by its window or by Quit, never by its input — which answers the
+  note above; it declares no document types; its icon is drawn by this
+  engine, committed as references and packed into an `.icns` by our own
+  code; it is sealed ad hoc with `codesign -s -`; it is made by a Rust
+  program from the release programs built beside it. The closing
+  condition is unchanged, and not met from this machine alone. Cut from it,
+  as their own items: a page opened from the Finder (684) and Chrome from
+  the application (685).
+
+- [ ] **684. A page opened from the Finder.** *ADR 0067 § 4.* A `.html`
+  file opened with the application reaches it as an Apple Event
+  (`application:openURLs:`), heard only by an application delegate, which
+  `winit` 0.30 leaves to the program to register through `objc2` — `unsafe`
+  code. *Needs ADR* (law 4): the boundary, its reason, and whether it is
+  ours or offered upstream to `winit`. Until it is built the bundle
+  declares no document types. *Depends on 477. Closes when:* a page
+  double-clicked in the Finder, with the application chosen to open it,
+  is drawn in a tab of it, and the bundle declares `.html` only then.
+
+- [ ] **685. Chrome from the application.** *ADR 0067 § 2.* The
+  application draws with this engine, because it is the one renderer it
+  carries and a double-click names no page for Chrome and gives `alo
+  --chrome` an input that has already ended (measured). Starting the
+  machine's Chrome from it needs a way for a person to name a page — the
+  address bar (119) or a page opened from the Finder (684) — and `--chrome`
+  closed by its windows alone when it has no input to watch. *Needs
+  design:* which renderer a double-click gets is then a choice, and a
+  person's. *Depends on 477, and on 119 or 684.*
+
+- [ ] **686. A Chrome silent for 30 s in the gate, and nowhere else.**
+  Iteration 426's gate (no code changed; ADR 0067 and its documents only)
+  failed one test of 5,486:
+  `a_page_chrome_tells_of_after_what_it_asks_for::a_new_pages_sheet_chrome_pauses_before_the_page_is_its_own`,
+  `Failed(Silent { waited: 30s })` at line 475, 61.4 s, test 5437 of
+  5486, beside `a_few_million_pictures…` (then past 300 s). The machine was
+  not short as in iterations 419–420: window server 409 MB, load about 2.
+  **Not reproduced:** the file alone 3 of 3, under 96 `yes` 12 of 12, and
+  beside `a_few_million_pictures…` 8 of 8 (free memory down to 75 MB at
+  one reading). This file failed the same way in iteration 420's gate,
+  when memory was short. *Closes when:* the cause is found and named — a
+  Chrome that started late, or this test's own wait — and the gate passes
+  with whatever that finding needs, the test's patience not loosened to
+  hide it (law 3). *Depends on nothing.* Whether the gate is run again on
+  iteration 426's tree, or this is taken first, is the owner's to say
+  (LOOP.md: a gate failing for a reason the iteration did not cause halts).
 
 - [ ] **478. Opened without macOS explaining itself.** *macOS only; alo OS
   installs from a source instead, which is 483.* A Developer ID

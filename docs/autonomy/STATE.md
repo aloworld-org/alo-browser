@@ -43466,3 +43466,102 @@ table moves → to 477.
 
 The next unused queue number is **684** and the next ADR is **0067**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 426 — queue item 477's decision: ADR 0067, the macOS application — decided, gate not met, halted
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states, the product path, stage 4), iteration 425's entry, the queue's
+product path, items 477, 478, 479, 483 and 119; ADRs 0058, 0059 and 0061
+(with its addenda), 0066 for the shape of a decision iteration;
+`docs/features.md`'s stage 4 section (477 had no line in it);
+`alo.rs`, `beside.rs`, `opening.rs`, `socket_place.rs`, `agents.rs`,
+`alo-net`'s `pool.rs`, `alo-ask.rs` and `docs/contracts/agent-socket.md`;
+`winit` 0.30.13's `platform/macos.rs`. No `AGENTS.md` exists in the
+repository.
+
+**Why 477, and why a decision.** Next on the product path (→), depending
+on nothing open. But it named no ADR and no feature contract, and it
+asked for two things that cannot both hold: a page "named on the command
+line" and a page shown when "opened by double-clicking". 642's note on it
+asked how an application opened without a terminal is closed by its
+input. LOOP.md stage 2 § 4: a decision is its own iteration. Screen
+unlocked (`IOConsoleLocked` false), macOS 26.5.2, Mac15,13 (Apple M3).
+
+**Measured** (probe bundles in the scratchpad only, never in the
+repository): an application opened by `open`, by the Finder, or with a
+`.html` file by `open -a` is given **no arguments** (the file comes as an
+Apple Event), input `/dev/null`, directory `/`, and the person's
+`TMPDIR`; `alo` and `alo-render` from `target/debug` in a bundle, opened
+by the Finder, showed one window with an `about:blank` tab, answered
+`alo-ask`'s `tabs`, and, handed a page with `open -a … --args`, drew it
+under the renderer's sandbox (seen in a screen capture); `alo --chrome`
+opened by `open -W` had ended 2 s later; Quit ended `alo` and both
+renderers within 4 s and left the socket file (removed by the next start
+as unanswered); the unsealed bundle fails `codesign --verify`, sealed ad
+hoc it is valid on disk, `spctl` rejects both. `winit` 0.30 hears no
+opened documents; an application delegate through `objc2` is `unsafe`.
+
+**Decided — ADR 0067, accepted.** `alo browser.app`,
+`org.aloworld.Browser`: this engine's `alo`, `alo-render` and `alo-ask`,
+no Chrome; a page of the bundle's own opened when none is named; closed
+by its window or Quit, never by its input; no document types; an icon
+drawn by this engine, committed and packed by our code; sealed ad hoc; a
+Rust program assembles it. 477 stays open, decided and unbuilt, with its
+closing condition unchanged. Cut as items of their own: **684** (a page
+opened from the Finder, needs an ADR for its `unsafe`) and **685**
+(Chrome from the application). Features, roadmap (Decided and Owed, not
+ticked), queue (477's Decided paragraph; the product path's row) and
+changelog updated.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read its log: **exit 1, "The
+gate is not met" (10 of 10 steps).** fmt and clippy passed; nextest ran
+5,438 of 5,486, **5,437 passed, 1 failed**, the run cancelled:
+`a_page_chrome_tells_of_after_what_it_asks_for::a_new_pages_sheet_chrome_pauses_before_the_page_is_its_own`,
+`Failed(Silent { waited: 30s })` at its line 475. This iteration changed
+no code — one ADR and five documents. The machine was not short (window
+server 409 MB, load about 2; the orphaned headless Chrome pid 64305 from
+2026-10-26 still running, left alone, as in passing gates before). Not
+reproduced: the file alone 3 of 3; under 96 `yes` 12 of 12; beside
+`a_few_million_pictures…`, which was running when it failed, 8 of 8.
+Opened as **686**.
+
+**Why this halts.** LOOP.md: the gate fails for a reason the iteration
+did not cause. Rerunning it until it passes would be inventing a way past
+it (iteration 420's words), and the test's patience is not loosened. So
+**nothing is committed**: ADR 0067 and its documents are left in the
+working tree for the gate to be run on.
+
+**Manual.** No code changed, so no layout assertion or reference render
+applies; the measurements are written in the ADR with how they were
+taken. One file, one responsibility: the decision is its own file. No
+`unsafe` (the ADR refuses the one that 684 would need until its own
+ADR), no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. Nothing pushed. Probe bundles, processes and the extra test
+runs were stopped; the scratchpad is outside the tree.
+
+**Roadmap.** Moved, not ticked: the product path's Decided clause names
+ADR 0067, its Owed clause says 477 is decided and unbuilt and names 684
+and 685. `features.md` gains 477's line, marked decided, not built.
+
+**Unresolved obligations.**
+- **The gate on this tree.** Met, it is one commit:
+  `docs(decisions): ADR 0067, the macOS application is this engine's
+  programs in a bundle`. Not met again on 686's test, 686 is taken first.
+- 477 is then built by ADR 0067, and closes only on another Mac.
+- No claim about speed is made.
+
+The next unused queue number is **687** and the next ADR is **0068**.
+This is one iteration, not a finished queue or roadmap.
+
+LOOP HALT
+
+## Iteration 426, closed — ADR 0067 gated
+
+**Written by the owner's session.** The orphaned headless Chrome (pid
+64305, started 2026-10-26 18:59 by a test whose process was gone) was
+stopped, and the gate run once on this tree unchanged: **5486 tests, 5486
+passed, 10 of 10 steps.** ADR 0067 and its documents are one commit. 686
+stays open as found — one silence in 23 reruns that never repeated is not
+understood by passing once more. Next: 686 is not on the product path, so
+the loop takes 477's build by ADR 0067, as iteration 426 left it.

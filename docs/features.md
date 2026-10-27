@@ -946,6 +946,7 @@ about".
 
 - [4] Extensions — and the decision, in an ADR, whether that means the WebExtensions API or something narrower we can actually secure
 - [4] Sync, self-hosted: bookmarks, history, tabs and passwords, end-to-end encrypted, on the customer's own server
+- [4] **An application somebody can run, on macOS** (queue item 477, unblocked by the owner as an exception to this stage's gate). **Decided, not built** (ADR 0067): `alo browser.app`, `org.aloworld.Browser`, holding this engine's `alo`, `alo-render` and `alo-ask` and no Chrome; opened from the Finder with nothing named it opens a page of its own from `Contents/Resources`, drawn by this engine with a committed render; closed by its window or Quit, never by its input; no document types declared until a page opened from the Finder is built (684); an icon this engine drew; sealed ad hoc, not notarised (478); made by a Rust program from the release programs. Chrome from it is 685
 - [4] Updates that are signed, staged and reversible
 - [4] A mobile port
 - [4] Crash handling that helps us fix it without becoming telemetry

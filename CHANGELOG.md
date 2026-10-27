@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **What the Mac application will be is decided (ADR 0067).** Nothing is
+  built yet. An application opened from the Finder is given no page and
+  no input, so it will hold this engine's own programs rather than
+  starting Chrome, and open a page of its own that it carries inside it.
+  It closes with its window or with Quit. Opening an `.html` file from
+  the Finder, and starting Chrome from the application, are written down
+  as work of their own.
+
 - **Chrome's window is checked to be where a person sees it.** On a Mac
   with Stage Manager on, a window that is not in front shrinks into the
   strip at the screen's edge. It was not known whether macOS was

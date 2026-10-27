@@ -310,11 +310,18 @@ about this project (ADR 0058 § 6).
   a list of several toggles it, answered by what the list holds after;
   a list takes no text; and through Chrome a closed list's option is
   refused by name, since every key that reaches it chooses options nobody
-  chose on the way (ADR 0064).
+  chose on the way (ADR 0064); and what the application on macOS is —
+  this engine's own programs in a bundle, `alo browser.app`, opening a page
+  of its own when the Finder opens it with nothing, closed by its window or
+  Quit and never by its input, and starting no Chrome, since it carries
+  none and a double-click names no page for one (ADR 0067).
 - **Owed:** a closed list's option through a shown Chrome, measured with
   the screen in use (658); the
   rest of the agent's work where a person can see it — an
-  application somebody can run (477).
+  application somebody can run (477), decided in ADR 0067 and unbuilt,
+  closing only on a Mac that never built it; a page opened from the
+  Finder (684, needs an ADR for its `unsafe`); and Chrome from the
+  application (685).
 
 642 is closed: a frame of ours above Chrome's window that follows it,
 stands aside when it is not on the screen and closes with it was built on
