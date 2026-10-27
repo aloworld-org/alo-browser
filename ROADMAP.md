@@ -345,8 +345,10 @@ about this project (ADR 0058 § 6).
   inside it built, closing only on a Mac that never built it, with Chrome
   from the application (685) folded into it, and assembled by a command
   (687), with its icon (689), and leaving no profile when quit (688);
-  what a killed browser left, removed at the next start (690, needs
-  design); and a page opened from the Finder (684, needs an ADR for its
+  what a killed browser left, removed at the next start (690, decided
+  in ADR 0069 — a lock each profile holds while its browser lives, and a
+  start removing only profiles whose lock nobody holds — and not built);
+  and a page opened from the Finder (684, needs an ADR for its
   `unsafe`).
 
 642 is closed: a frame of ours above Chrome's window that follows it,

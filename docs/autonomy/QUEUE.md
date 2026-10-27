@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); **quit, it leaves no profile or socket** (688, iteration 430); owed: another Mac |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); **quit, it leaves no profile or socket** (688, iteration 430); **a killed browser's profile, removed at the next start — decided, ADR 0069** (690, iteration 431, not built); owed: another Mac |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18922,6 +18922,16 @@ person unblocks this stage or does not.
   *Depends on nothing.* *Closes when:* a start after a browser was
   killed removes that browser's profile and no running browser's, in a
   test that kills one.
+  ***Decided (iteration 431), ADR 0069; not built.*** Each profile holds
+  `alo.lock`, locked by the browser that made it (made as `alo.making`,
+  locked, renamed) and let go only as the profile is removed or the
+  browser dies; making a profile sweeps the temporary directory for
+  `alo-chrome-*` directories of the same owner, not links, whose
+  `alo.lock` it can lock, and removes them, saying how many. Profiles
+  with no `alo.lock` — every one made before this — are left. Measured
+  first: a `SIGKILL`ed holder's `flock` is let go, a rename keeps it,
+  two opens in one process refuse each other, Chrome does not inherit it.
+  `std` only, no `unsafe`. Buildable next.
 
 - [x] **689. The application's icon, drawn by this engine.** *ADR 0067
   § 6; cut from 477 (iteration 427).* A page in this repository drawn by

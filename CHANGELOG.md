@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: what a killed browser left gets cleaned up the next time
+  it starts.** A browser that is force-quit, crashes or loses power never
+  gets to remove the private Chrome profile it made, so profiles of up
+  to 67 MB pile up in the temporary folder. ADR 0069 decides how a start
+  removes them safely: each profile holds a lock for as long as its
+  browser lives, and a start removes only this user's profiles whose lock
+  nobody holds, and says how many. Not built yet.
+
 - **Quitting the Mac application leaves nothing behind.** ⌘Q or Quit
   from the Dock used to end the program before it tidied up, so the
   private Chrome profile it made — tens of megabytes, and whatever the

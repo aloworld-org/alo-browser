@@ -43941,3 +43941,71 @@ untouched. Nothing pushed.
 
 The next unused queue number is **691** and the next ADR is **0069**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 431 — queue item 690: what a killed browser left — decided, ADR 0069; not built
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its head
+and the product path's Built and Owed clauses), iteration 430, the
+queue's product path and items 477, 658, 684, 688 and 690; ADRs 0068
+(with its amendment of 27 October), 0067 and 0011; `docs/features.md`'s
+477 line (the feature contract); `chrome_profile.rs`, `chrome.rs`'s
+profile and `Drop`, `chrome_over_a_pipe.rs`'s bounds. No `AGENTS.md`
+exists in the repository.
+
+**Why 690, and why a decision.** The product path's open items: 477
+closes only on a Mac that never built it; 684 depends on 477 and needs an
+ADR for `unsafe`; 658 waits on a measurement of Chrome's native menu. 690
+depends on nothing but was marked *needs design* — how a start knows a
+profile is a dead browser's, when the PID in its name can be reused,
+without touching another person's files. LOOP.md: a decision is its own
+iteration, before any code depends on it, as iteration 426 did for 477.
+So this iteration is ADR 0069 and its documents, and no code.
+
+**Measured first** (macOS 26.5.2, Rust 1.97.1, a probe program in the
+scratchpad, `std::fs::File::try_lock`): another process's `try_lock` is
+refused with `WouldBlock` while the holder lives and succeeds once it is
+`SIGKILL`ed; a lock kept through a rename is held under the new name; two
+opens in one process refuse each other; a child spawned by the holder
+does not keep the lock. The fifteen `alo-chrome-*` profiles in `TMPDIR`
+(8 KB to 68,580 KB, fourteen of 26 October, one of 27 October) have no
+`alo.lock`; thirteen no longer hold Chrome's `SingletonLock` and two do,
+so Chrome's lock is no evidence either way. They were read, not touched.
+
+**Decided (ADR 0069).** Each profile holds `alo.lock`, made as
+`alo.making`, locked, then renamed, and kept by the `Chrome` value until
+after the directory is removed. Making a profile sweeps the temporary
+directory: `alo-chrome-*` entries that are directories, not links, owned
+by the same user as the profile just made (no `getuid`, no `unsafe`),
+whose `alo.lock` is a file and whose lock `try_lock` takes — then removed
+while holding it. A removal that fails is left for the next start.
+Removals are answered and `alo` says how many on its terminal. Profiles
+with no `alo.lock`, every one made before this, are left; so is anything
+outside the temporary directory. `std` only.
+
+**The gate.** Started in the foreground, moved to the background by the
+tool at 600 s, read by an until-loop in the next call: **5515 tests run,
+5515 passed, 10 of 10 steps, "The gate is met.", exit 0.**
+
+**Manual.** No code changed, so no layout assertion, reference render or
+one-file-one-responsibility judgement applies; the ADR names which file
+gets which part (`chrome_profile.rs` the lock and the sweep, `chrome.rs`
+the handle, `alo.rs` the sentence). Features (477's line), roadmap (Owed
+clause: 690 decided, not built — nothing ticked), queue (690's Decided
+paragraph, left open; the product path's 477 row) and changelog updated.
+No `unsafe`, no verb taking a coordinate, no rented crate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: the product path line's Owed clause.
+
+**Unresolved obligations.**
+- 690 is decided and not built; it is the next buildable product-path
+  item, closing on a test that kills a browser.
+- 477 still closes only on a Mac that never built it, opened by
+  double-clicking; 684 needs an ADR; 658 waits on its measurement with the
+  screen in use.
+- The fifteen lockless profiles stay in `TMPDIR`, ADR 0069 leaving them
+  to a person.
+- No claim about speed is made.
+
+The next unused queue number is **691** and the next ADR is **0070**.
+This is one iteration, not a finished queue or roadmap.
