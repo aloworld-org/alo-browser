@@ -43565,3 +43565,17 @@ passed, 10 of 10 steps.** ADR 0067 and its documents are one commit. 686
 stays open as found — one silence in 23 reruns that never repeated is not
 understood by passing once more. Next: 686 is not on the product path, so
 the loop takes 477's build by ADR 0067, as iteration 426 left it.
+
+## Owner's decision, 2026-10-27 — the application draws with Chrome
+
+**Written by the owner's session.** Asked whether the application should
+open this engine or Chrome, the owner answered: *"Our engine should be in
+chrome."* Recorded as **ADR 0068**, which supersedes ADR 0067 § 2 and the
+renderer of § 3: `alo browser.app` runs `alo --chrome` on the bundle's own
+page, its input not watched inside a bundle, closed by Chrome's window, the
+frame or Quit — Quit leaving no Chrome, measured by the build rather than
+assumed — and this engine only on a Mac with no Chrome, saying so. 685 is
+folded into 477. The loop was stopped during its baseline gate, before a
+worker started, so that 477 is not built to the superseded decision.
+**Next:** 477, built by ADR 0067 as ADR 0068 changes it. The next unused
+queue number is **687** and the next ADR is **0069**.

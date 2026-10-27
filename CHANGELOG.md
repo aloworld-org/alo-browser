@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The Mac application will open Chrome, not this engine.** Decided by
+  the owner (ADR 0068): double-clicking alo browser opens the Mac's own
+  Chrome, with this browser's agent connection, rules, record and strip
+  around it, on a page the application carries. Only a Mac without Chrome
+  gets this engine instead, and the page says so. Not built yet.
+
 - **What the Mac application will be is decided (ADR 0067).** Nothing is
   built yet. An application opened from the Finder is given no page and
   no input, so it will hold this engine's own programs rather than

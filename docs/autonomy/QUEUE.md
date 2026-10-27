@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067** (this engine's programs in a bundle, opening a page of its own); unbuilt |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); unbuilt |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18794,6 +18794,16 @@ person unblocks this stage or does not.
   as their own items: a page opened from the Finder (684) and Chrome from
   the application (685).
 
+  ***Changed by the owner the same day, ADR 0068:*** *"Our engine should be
+  in chrome."* The application runs `alo --chrome` on the bundle's own page
+  — the page named, so `--chrome`'s need for one is met — with its input
+  not watched inside a bundle, closed by Chrome's window, the frame, or
+  Quit; Quit leaves no Chrome running (measured by the build, not assumed,
+  and asserted in the process table); on a Mac with no Chrome it draws the
+  same page with this engine, saying so. Everything else of ADR 0067
+  stands. 685 is folded into this item. The closing condition is
+  unchanged, with the journal saying which renderer drew the page.
+
 - [ ] **684. A page opened from the Finder.** *ADR 0067 § 4.* A `.html`
   file opened with the application reaches it as an Apple Event
   (`application:openURLs:`), heard only by an application delegate, which
@@ -18813,6 +18823,9 @@ person unblocks this stage or does not.
   closed by its windows alone when it has no input to watch. *Needs
   design:* which renderer a double-click gets is then a choice, and a
   person's. *Depends on 477, and on 119 or 684.*
+  ***Folded into 477 by ADR 0068 (owner, 2026-10-27).*** The application
+  draws with the machine's Chrome on the bundle's own page, so it needs
+  neither 119 nor 684 to have a page. Not ticked: it is done when 477 is.
 
 - [ ] **686. A Chrome silent for 30 s in the gate, and nowhere else.**
   Iteration 426's gate (no code changed; ADR 0067 and its documents only)

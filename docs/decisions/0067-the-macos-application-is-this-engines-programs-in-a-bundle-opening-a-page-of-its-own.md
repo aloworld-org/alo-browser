@@ -1,6 +1,6 @@
 # ADR 0067 — The macOS application is this engine's programs in a bundle, opening a page of its own
 
-**Status:** accepted
+**Status:** accepted — § 2, and the renderer of § 3, superseded by ADR 0068 the same day: the application draws with the machine's Chrome
 **Date:** 2026-10-27
 **Context:** queue item 477 (an application somebody can run, on macOS),
 and the note item 642 left on it; ADR 0024 § 1 (`alo` is the browser a

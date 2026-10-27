@@ -313,15 +313,17 @@ about this project (ADR 0058 § 6).
   chose on the way (ADR 0064); and what the application on macOS is —
   this engine's own programs in a bundle, `alo browser.app`, opening a page
   of its own when the Finder opens it with nothing, closed by its window or
-  Quit and never by its input, and starting no Chrome, since it carries
-  none and a double-click names no page for one (ADR 0067).
+  Quit and never by its input (ADR 0067) — and, by the owner's change the
+  same day, drawing that page in the machine's own Chrome driven as `alo
+  --chrome` drives it, this engine only on a Mac with no Chrome, saying so
+  (ADR 0068).
 - **Owed:** a closed list's option through a shown Chrome, measured with
   the screen in use (658); the
   rest of the agent's work where a person can see it — an
-  application somebody can run (477), decided in ADR 0067 and unbuilt,
-  closing only on a Mac that never built it; a page opened from the
-  Finder (684, needs an ADR for its `unsafe`); and Chrome from the
-  application (685).
+  application somebody can run (477), decided in ADRs 0067 and 0068 and
+  unbuilt, closing only on a Mac that never built it, with Chrome from the
+  application (685) folded into it; and a page opened from the Finder
+  (684, needs an ADR for its `unsafe`).
 
 642 is closed: a frame of ours above Chrome's window that follows it,
 stands aside when it is not on the screen and closes with it was built on
