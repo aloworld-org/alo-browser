@@ -213,7 +213,11 @@ about this project (ADR 0058 § 6).
   (623; through Chrome in the frame above Chrome's window, 679); and **the box
   an agent acted on, ringed** on the frame painted after the verb — the
   node's own rectangles read from the same layout, drawn as alo draws focus
-  (624; through Chrome owed as 680, decided in ADR 0066 as Chrome's own highlight); and **a refusal where a person can read it**,
+  (624); through Chrome, **marked by Chrome** — its own highlight of the
+  node the verb's outcome names, the border in alo's accent and its label
+  naming the box by name and role, taken away by a refusal and replaced by
+  the next verb's, seen on the screen in Chrome's window's own pixels
+  (680, ADR 0066, `chrome_mark.rs`); and **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
   kept until the second verb that runs after it, two refusals in a row two
@@ -297,10 +301,7 @@ about this project (ADR 0058 § 6).
   chose on the way (ADR 0064).
 - **Owed:** a closed list's option through a shown Chrome, measured with
   the screen in use (658); the
-  rest of the agent's work where a person can see it — **the ring around
-  the box a verb acted on through Chrome, decided in ADR 0066 — Chrome's
-  own `Overlay.highlightNode` on the node, with its label, and no window
-  of ours over the page — and unbuilt (680)**; words drawn with this machine's own fonts, which the engine
+  rest of the agent's work where a person can see it — words drawn with this machine's own fonts, which the engine
   draws none of in its window or the frame's tab while the frozen fonts
   draw them (683); a placed window
   that stays where a
@@ -315,8 +316,8 @@ back. And the frame says something (679, gated once 682 was closed):
 which Chrome draws the page, and what each agent's verb was answered with
 or why it was refused, told by the thread holding Chrome from the answers
 it sent; and it shows the page's tab, drawn outside this process (681).
-What it does not show is the box an agent acted on, marked over Chrome's
-page (680, decided in ADR 0066 and not yet built); and run on this machine, the tab draws no words, as this
+The box an agent acted on is marked over Chrome's page by Chrome itself
+(680, ADR 0066), not by the frame. Run on this machine, the tab draws no words, as this
 engine's own window draws none with the machine's fonts (683).
 
 ---
@@ -911,11 +912,11 @@ unreachable without it.
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); a closed list's option
-      through a shown Chrome (658), the ring around the box an agent
-      acted on through Chrome (680, 624; decided, ADR 0066) and words drawn with the
+      through a shown Chrome (658) and words drawn with the
       machine's own fonts (683) — the frame itself stands, follows, and
       carries the page's tab, the agent's sentence and its refusals (642,
-      679, 681) — and a window that
+      679, 681), and Chrome marks the box a verb acted on (680) — and a
+      window that
       stays where a person sees it (643)
 
 ### The network

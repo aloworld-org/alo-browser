@@ -60,8 +60,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **679** | what the frame around Chrome's window draws: which renderer, and the agent's sentences and refusals; gated once 682 was closed |
 | ✓ | **682** | the frame's own test reads Chrome's window shown and no frame beside it — its idea of *settled* corrected |
 | ✓ | **681** | the page's tab in the frame, drawn by a tab strip's renderer of its own and following the page's title (iteration 421) |
-| **→** | **680** | the box a verb acted on, marked over a page in Chrome — **decided, ADR 0066**: Chrome's own highlight of the node and its label, no window of ours over the page (cut from 679) |
-| | **683** | words drawn with this machine's own fonts — the engine draws none, in its window or the frame's tab (found by 681's screen check) |
+| ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
+| **→** | **683** | words drawn with this machine's own fonts — the engine draws none, in its window or the frame's tab (found by 681's screen check) |
 | | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
 
@@ -16857,7 +16857,7 @@ What stage 2's exit gate actually measures: a person using it.
   *Closes when* the gate passes on this tree; then this paragraph's head
   becomes *Done*, the box is ticked, and the product path's row with it.
 
-- [ ] **680. ★ The box a verb acted on, ringed over a page in Chrome.**
+- [x] **680. ★ The box a verb acted on, ringed over a page in Chrome.**
   *Cut from 679, ADR 0062. **needs ADR**.* 624's ring is drawn on the
   frame this engine painted; through Chrome the page is Chrome's window,
   so the ring — the node's `rects` from `chrome_tree`'s reading, at
@@ -16888,6 +16888,51 @@ What stage 2's exit gate actually measures: a person using it.
   the node's border box from `DOM.getBoxModel` marked and the label
   present, a refused verb leaves no mark, and the navigation and
   replacement questions ADR 0066 leaves open are measured and answered.
+  **Done (iteration 423).** `chrome_mark.rs`: once the agent has been
+  answered and the frame told its line, the thread holding a **shown**
+  Chrome decides from the answer, by the conductor's rule
+  (`Marking::of`): a verb that ran marks the node its outcome names — an
+  option chosen, or else its list — the first of them Chrome says it drew
+  (`DOM.getContentQuads`); a verb refused, by the page or by this
+  process, takes any mark away; a read leaves it. A verb that took the tab
+  to another document (the document Chrome named before the verb, caught
+  up first, differs after), or whose node Chrome drew nowhere, takes it
+  away too. The mark is `Overlay.highlightNode` by `backendNodeId` with
+  its border in `colours::mark()`, every other region clear, and
+  `showInfo` and `showAccessibilityInfo`; `Overlay.hideHighlight` takes
+  it away; `DOM.getDocument` then `Overlay.enable` are sent once, before
+  the first mark, and nothing is sent to unmark a page never marked
+  (`Marker`). A headless Chrome is never marked. A mark Chrome does not
+  draw changes nothing the agent was told. `ChromeServing::process`
+  names Chrome's process, the owner the window server lists its window
+  by. Tested: the commands as written (`chrome_protocol`), `Marking::of`
+  for a verb, an option chosen, a refused verb and a refused read; and
+  `the_box_marked_through_chrome.rs`, a shown Chrome placed as `alo
+  --chrome` places it, on a frozen page of four grey-bordered boxes and a
+  swatch of alo's accent, driven by `alo-ask`, its window captured by the
+  window server's number (`screencapture -l`) after each answer: the boxes
+  read by the agent where the page put them; Alpha activated → each side
+  of its border the swatch's colour as this screen shows it (216,118,89
+  here, both the page's and Chrome's), Chrome's label beside it, the rest
+  grey; Beta activated → Beta marked, Alpha grey again (**one mark
+  replaces another**); a refused verb → nothing marked, no label; Again
+  activated, which reloads its page eight seconds later → marked, then
+  on the page loaded again **no mark for two seconds of captures: Chrome
+  takes it away itself when the page goes to another document on its
+  own**; a link followed in place → no mark on the page it went to. With
+  the marker mutated away it fails at "Alpha marked"; with a refusal's
+  unmarking mutated away, at "no mark after a refusal" (each copied,
+  `sed`, restored with `cp` and checked with `cmp`). In the gate it first
+  failed: another test's shown Chrome, placed at the same spot, stood in
+  front of its window and Stage Manager took it into its strip, where a
+  capture is not the page (643). So every test that shows Chrome's window
+  now takes both of the `chrome` group's turns (`threads-required = 2` in
+  `.config/nextest.toml`): every test still runs and is judged as before,
+  and no other Chrome runs beside a shown one. **Measured, not
+  assumed:** Chrome puts its label below a box near the top of the page
+  and above one lower down, about 190 by 120 CSS pixels. **Not checked:** a
+  node in a frame, which this test's page has none of; and not decided,
+  how long a person wants the label (ADR 0066 leaves that to them).
 
 - [x] **681. The page's tab in the frame around Chrome's window.** *Cut
   from 679, ADR 0024 § 4.* The engine's strip shows a tab's title, drawn

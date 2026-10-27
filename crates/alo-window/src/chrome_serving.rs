@@ -56,6 +56,13 @@
 //! Chrome's agents' lines to whoever asked for them, and stands nothing
 //! anywhere.
 //!
+//! # The box a verb acted on
+//!
+//! A shown Chrome is asked, after the agent has been answered and the frame
+//! told, to mark the box the verb acted on over its page — Chrome's own
+//! highlight of the node, never a window of ours ([`Marker`], ADR 0066,
+//! queue item 680). A headless one is not: nobody would see it.
+//!
 //! # What it is not
 //!
 //! Chrome's window. A person's pointer and keys reach the page there
@@ -64,12 +71,13 @@
 //! its page out again at the size a person gives its window itself.
 
 use crate::agent_lines::AgentLine;
-use crate::agent_record::AgentRecord;
+use crate::agent_record::{AgentRecord, Caller};
 use crate::agent_sites::AgentSites;
-use crate::asking::Ask;
+use crate::asking::{Answer, Ask, Refused};
 use crate::chrome::{Chrome, Failed, Unstarted};
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
+use crate::chrome_mark::{Marker, Marking};
 use crate::chrome_named::{self, Naming};
 use crate::chrome_pages::ChromePages;
 use crate::chrome_protocol::Named;
@@ -147,6 +155,7 @@ pub struct ChromeServing {
     thread: JoinHandle<AgentRecord>,
     rendered_by: RenderedBy,
     placed: Option<Placed>,
+    process: u32,
 }
 
 /// Where Chrome draws the page.
@@ -253,11 +262,16 @@ impl ChromeServing {
             })
             .map_err(|why| Unserved::NoThread(why.kind()))?;
         match started.recv() {
-            Ok(Ok((product, placed))) => Ok(Self {
+            Ok(Ok(Started {
+                product,
+                placed,
+                process,
+            })) => Ok(Self {
                 orders,
                 thread,
                 rendered_by: RenderedBy::Chrome { product },
                 placed,
+                process,
             }),
             Ok(Err(why)) => {
                 let _ = thread.join();
@@ -282,6 +296,12 @@ impl ChromeServing {
         self.placed.as_ref()
     }
 
+    /// Chrome's own process: the owner the window server names a shown
+    /// Chrome's window by ([`crate::window_server::on_the_screen`]).
+    pub fn process(&self) -> u32 {
+        self.process
+    }
+
     /// Where to send it orders: what [`crate::agents::Listening::at`] sends
     /// agents' requests to.
     pub fn orders(&self) -> Orders {
@@ -298,6 +318,16 @@ impl ChromeServing {
     }
 }
 
+/// What the thread holding Chrome says once the page is open.
+struct Started {
+    /// Which Chrome, as it says itself.
+    product: String,
+    /// Where its window went, when it is shown.
+    placed: Option<Placed>,
+    /// Its process.
+    process: u32,
+}
+
 /// Start Chrome, open the page, say whether that worked — and which Chrome
 /// it is — on `tell`, and answer agents until told to close, telling
 /// `frame`, if there is one, where the frame around Chrome's window stands.
@@ -308,7 +338,7 @@ fn serve_in_chrome(
     sites: &AgentSites,
     frame: Option<&(dyn Fn(ToFrame) -> bool + Send)>,
     inbox: &Receiver<Arrival>,
-    tell: &Sender<Result<(String, Option<Placed>), Unserved>>,
+    tell: &Sender<Result<Started, Unserved>>,
 ) -> AgentRecord {
     let mut record = AgentRecord::new();
     let started = match drawn {
@@ -350,8 +380,16 @@ fn serve_in_chrome(
             }
         },
     };
+    let mut marker = placed.is_some().then(Marker::default);
     let mut pages = ChromePages::of(tab, product.clone());
-    if tell.send(Ok((product, placed))).is_err() {
+    if tell
+        .send(Ok(Started {
+            product,
+            placed,
+            process: pages.tab().chrome_process(),
+        }))
+        .is_err()
+    {
         return record;
     }
     // Only a shown Chrome has a window to follow; a headless one waits on
@@ -370,17 +408,14 @@ fn serve_in_chrome(
         for arrival in arrived {
             match arrival {
                 Arrival::Order(Order::Agent { caller, ask, reply }) => {
-                    let a_verb = matches!(ask, Ok(Ask::Act { .. }));
-                    let served = serve(&mut pages, &mut record, sites, caller, ask);
-                    let line = AgentLine::of(a_verb, &served.answer);
-                    // Nobody to answer is a caller that has gone, which
-                    // changes nothing about what was done or recorded.
-                    let _ = reply.send(served.answer);
-                    if let (Some(frame), Some(line)) = (frame, line) {
-                        // A frame that has gone is a window closing, whose
-                        // orders say so; nothing here waits for it.
-                        let _ = frame(ToFrame::Agent(line));
+                    Serving {
+                        pages: &mut pages,
+                        record: &mut record,
+                        sites,
+                        frame,
+                        marker: marker.as_mut(),
                     }
+                    .answer(caller, ask, &reply);
                 }
                 Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
                     if let Some(follower) = following.as_mut() {
@@ -410,6 +445,50 @@ fn serve_in_chrome(
             follower.next = Instant::now()
                 .checked_add(FOLLOW_EVERY)
                 .unwrap_or_else(Instant::now);
+        }
+    }
+}
+
+/// What an agent's ask is answered with, and by whom it is heard.
+struct Serving<'s, 'c> {
+    pages: &'s mut ChromePages<'c>,
+    record: &'s mut AgentRecord,
+    sites: &'s AgentSites,
+    /// The frame told what agents did, if there is one.
+    frame: Option<&'s (dyn Fn(ToFrame) -> bool + Send)>,
+    /// The mark over a shown Chrome's page, which a headless one has none of.
+    marker: Option<&'s mut Marker>,
+}
+
+impl Serving<'_, '_> {
+    /// Serve `ask` from `caller`, answer it on `reply`, tell the frame the
+    /// line it makes, and mark the box a verb acted on.
+    fn answer(&mut self, caller: Caller, ask: Result<Ask, Refused>, reply: &Sender<Answer>) {
+        let a_verb = matches!(ask, Ok(Ask::Act { .. }));
+        // The document the verb is asked of, as Chrome last said, for a
+        // mark only on the page it was done to.
+        let before = self.marker.as_ref().and_then(|_| {
+            // Unreadable, the next ask of the tab says so.
+            let _ = self.pages.tab_mut().catch_up();
+            self.pages.tab().document()
+        });
+        let served = serve(self.pages, self.record, self.sites, caller, ask);
+        let line = AgentLine::of(a_verb, &served.answer);
+        let marking = Marking::of(a_verb, &served.answer);
+        // Nobody to answer is a caller that has gone, which changes nothing
+        // about what was done or recorded.
+        let _ = reply.send(served.answer);
+        if let (Some(frame), Some(line)) = (self.frame, line) {
+            // A frame that has gone is a window closing, whose orders say
+            // so; nothing here waits for it.
+            let _ = frame(ToFrame::Agent(line));
+        }
+        if let Some(marker) = self.marker.as_mut() {
+            // A mark is downstream of the verb, which has been answered: one
+            // Chrome would not draw is a mark a person does not see, and
+            // Chrome gone is said by the next reading of where its window
+            // is.
+            let _ = marker.mark(self.pages.tab_mut(), &marking, before);
         }
     }
 }

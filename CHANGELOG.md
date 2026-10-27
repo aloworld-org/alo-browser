@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **What an agent touched in a page shown by Chrome is now marked on
+  the page.** After an agent acts on something, Chrome highlights it —
+  its border in alo's accent colour, with Chrome's own label giving its
+  name and role. The next action moves the mark; a refused action
+  removes it, and so does the page going somewhere else. It is Chrome's
+  highlight, not this browser's ring, and it does not look like it
+  (ADR 0066).
+
 - **Decided how a person will see what an agent touched in a page shown
   by Chrome.** Chrome itself will highlight the element, with its own
   label giving the element's name and role, rather than this browser

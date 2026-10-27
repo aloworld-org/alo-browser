@@ -21,3 +21,15 @@ chrome = { max-threads = 2 }
 [[profile.default.overrides]]
 filter = 'package(alo-window) & (binary(~chrome) | binary(=a_window_given_less_room_than_asked) | binary(=a_tab_whose_page_closes_under_a_question))'
 test-group = 'chrome'
+
+# A test that shows Chrome's window takes both turns, so no other Chrome
+# runs beside it: one shown Chrome brought in front sends another's window
+# into Stage Manager's strip (item 643), where the window server lists it
+# shrunk and a capture of it is not the page. Found on 2026-10-27, when
+# `the_box_marked_through_chrome` read the screen for seventeen seconds
+# while another test's shown Chrome stood in front of its window.
+#
+# A test that shows Chrome's window is in this list by its file's name.
+[[profile.default.overrides]]
+filter = 'package(alo-window) & (binary(=a_frame_beside_chromes_window) | binary(=a_page_in_chromes_own_window) | binary(=a_window_given_less_room_than_asked) | binary(=the_pages_tab_in_chromes_frame) | binary(=the_frame_around_chromes_window) | binary(=the_program_told_to_use_chrome) | binary(=the_box_marked_through_chrome))'
+threads-required = 2

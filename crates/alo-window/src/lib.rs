@@ -74,7 +74,9 @@
 //!   what Chrome calls the page, which [`chrome_named`] reads (item 681) —
 //!   and what it draws, placed by [`frame_place`], is the page's tab, drawn
 //!   by a tab strip's renderer of its own that [`frame_strip`] holds (item
-//!   681), which renderer draws the page, and those lines (item 679).
+//!   681), which renderer draws the page, and those lines (item 679). The
+//!   box an agent's verb acted on is marked over Chrome's page by Chrome
+//!   itself, as [`chrome_mark`] asks it to (item 680, ADR 0066).
 //! - [`pages`] is what [`serving`] asks of the tabs, whichever renderer
 //!   draws them: [`engine_pages`] answers it from this engine's, and
 //!   [`chrome_pages`] from a tab in Chrome, which [`chrome_serving`] holds
@@ -114,6 +116,7 @@ pub mod chrome_frame;
 pub mod chrome_gate;
 pub mod chrome_held;
 pub mod chrome_hold;
+pub mod chrome_mark;
 pub mod chrome_named;
 pub mod chrome_owed;
 pub mod chrome_pages;

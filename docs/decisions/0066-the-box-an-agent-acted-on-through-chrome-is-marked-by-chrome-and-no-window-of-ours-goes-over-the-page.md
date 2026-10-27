@@ -160,3 +160,30 @@ agent surface's own vocabulary, which is the point of the mark.
   window can be measured again; this decides on what exists.
 - What an agent is told: a mark is downstream of the verb and changes no
   verb's outcome by one bit, as § 3 of ADR 0061 already says.
+
+## Addendum, 2026-10-27 — built, and two of the open questions measured
+
+Built by item 680 (`chrome_mark.rs`), as § 3 says, for a shown Chrome
+only. Measured on Chrome 156.0.8078.48, macOS 26.5.2, by
+`the_box_marked_through_chrome.rs`, which captures Chrome's window by the
+window server's number (`screencapture -l`) rather than a region, so a
+window in front of it changes nothing:
+
+- **One mark replaces another.** With one box marked, highlighting
+  another left the first in its own grey, with no `hideHighlight`
+  between. So this decision's "the next verb's mark replaces the last"
+  is Chrome's, and nothing of ours is needed for it.
+- **A page going to another document on its own takes the mark away.**
+  A box marked on a page that reloaded itself eight seconds later was
+  unmarked on the page loaded again, through two seconds of captures.
+  Nothing of ours is sent for that. A verb that itself takes the tab to
+  another document is unmarked by us (the document before and after
+  differ), and was seen unmarked.
+- **The label moves.** Under a box near the top of the page, above one
+  lower down; about 190 by 120 CSS pixels either way, so it covers what
+  is there.
+- **Chrome's accent is the page's.** The border Chrome drew and a swatch
+  the page filled with the same `#e76f51` captured as the same pixel
+  (216,118,89 on this screen).
+
+Still open: a node in a frame, and how long a person wants the label.

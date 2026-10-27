@@ -43218,3 +43218,93 @@ table shows it **decided** and still →.
 
 The next unused queue number is **684** and the next ADR is **0067**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 423 — queue item 680: the box a verb acted on, marked over a page in Chrome — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path and stage 2 browser line, iteration 422's entry, the queue's product
+path and items 679, 680 and 681; ADR 0066 in full (680's decision) and
+the addendum it gave ADR 0061; `docs/features.md`'s second-renderer
+line (680's feature contract); `mark.rs` and `conductor/marking.rs` (the
+engine's ring, whose rule this follows), `chrome_serving.rs`,
+`chrome_pages.rs`, `chrome_tab.rs`'s `ask` and `drawn`,
+`chrome_protocol.rs`'s `Command`, `colours.rs`, `window_server.rs` and
+`.config/nextest.toml`. No `AGENTS.md` exists in the repository.
+
+**Why 680.** Next on the product path (→ in the queue's table), its ADR
+accepted in iteration 422, its dependency 679 done. `ioreg` showed the
+screen unlocked; Chrome 156.0.8078.48.
+
+**Built.** `chrome_mark.rs`: `Marking::of` decides from the answer by the
+conductor's rule — a verb that ran marks the node its outcome names (an
+option chosen, or else its list), a verb refused takes the mark away, a
+read leaves it — and `Marker` carries it out on a **shown** Chrome only:
+the first of the nodes Chrome says it drew is highlighted with
+`Overlay.highlightNode` (border `colours::mark()`, other regions clear,
+`showInfo`, `showAccessibilityInfo`), `Overlay.hideHighlight` takes it
+away, `DOM.getDocument` and `Overlay.enable` go once before the first
+mark; a verb whose tab went to another document (the document before,
+caught up, against after) is unmarked. `chrome_serving.rs` sends it after
+the agent is answered and the frame told — the agent arm now a `Serving`
+of its own, and what the thread says on starting a `Started` — and
+`ChromeServing::process` names Chrome's process. Four commands in
+`chrome_protocol.rs`; `params` kept under its length by moving the fetch
+patterns and the fulfilment into helpers, as `mouse` already was.
+
+**Measured on the screen** (`the_box_marked_through_chrome.rs`: a shown
+Chrome, its window captured by the window server's number with
+`screencapture -l`, a frozen page with an accent swatch as the colour's
+reference): the acted-on box's border all four sides the accent (216,118,89
+on this screen, Chrome's and the page's alike) with the label's letters
+beside it; the next verb's mark replaces the last with no hide between;
+a refusal leaves nothing; a page reloading itself after a mark is left
+unmarked (Chrome's doing); a link followed in place leaves nothing. The
+label sits below a box near the top and above one lower down, about
+190×120 CSS pixels. Both ADR 0066 open questions this item had to answer
+— navigation and replacement — are answered in its addendum.
+
+**Mutations.** The marker removed: fails at "Alpha marked". A refusal's
+unmarking removed: fails at "no mark after a refusal". Each copied,
+`sed`, restored with `cp`, checked with `cmp`, rebuilt.
+
+**The gate.** Run three times in the foreground (each moved to the
+background at 600 s and read by an until-loop in the next call). First:
+**not met** — `serde_json` named in the new test, outside its boundary,
+and the test failing at "Again marked". The test now reads the answers
+as text, as its sibling does. Second: **not met** — the same step again;
+synthetic load (96 `yes`) did not reproduce it, `cargo nextest run -p
+alo-window` did: for seventeen seconds the capture was not the page,
+because another test's shown Chrome, placed at the same spot, stood in
+front and Stage Manager took this window into its strip (643). Fixed in
+`.config/nextest.toml`: every test that shows Chrome's window takes both
+of the `chrome` group's turns (`threads-required = 2`), so it runs with
+no other Chrome beside it — every test still runs and is judged as
+before, nothing is skipped, and at most two Chromes still run at once.
+The crate's suite then passed twice (488 of 488, the new test in 15.6 s),
+and the third gate: **5483 tests, 5483 passed, 10 of 10 steps, "The gate
+is met.", exit 0.**
+
+**Manual.** The mark is Chrome's drawing, so its reference is the
+screen's pixels, asserted in numbers per box side and label region
+rather than a committed raster: Chrome's own screenshot does not carry
+it (ADR 0066 § 1), and a screen capture depends on this screen's colour
+profile, which is why the swatch is the reference. No layout of ours
+changed. One file, one responsibility: deciding and sending the mark is
+`chrome_mark.rs`; the protocol's words stay in `chrome_protocol.rs`.
+Features, roadmap, queue, changelog and ADR 0066's addendum updated. No
+`unsafe`; no verb takes a coordinate (the mark names a node, after the
+verb). `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: the browser's stage 2 line and the
+product path's Built clause say the box is marked through Chrome by
+Chrome (680); the Owed clauses no longer list 680.
+
+**Unresolved obligations.**
+- A node in a frame is not checked (the test page has none).
+- How long a person wants Chrome's label is theirs to say (ADR 0066).
+- 683 (no words with the machine's fonts) is next on the product path,
+  then 643 and 477.
+- No claim about speed is made.
+
+The next unused queue number is **684** and the next ADR is **0067**.
+This is one iteration, not a finished queue or roadmap.

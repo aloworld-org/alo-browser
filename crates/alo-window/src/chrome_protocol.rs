@@ -298,6 +298,25 @@ pub enum Command {
         /// Where.
         bounds: Bounds,
     },
+    /// `DOM.getDocument`: the page's document, read so that Chrome's DOM
+    /// domain is on, which [`Command::ShowMarks`] needs first. Its answer
+    /// is not read.
+    ReadDocument,
+    /// `Overlay.enable`: let Chrome draw a mark over its page
+    /// ([`Command::Mark`], ADR 0066).
+    ShowMarks,
+    /// `Overlay.highlightNode`: mark a node over the page, as ADR 0066 § 3
+    /// says — its border in `border`, its other regions clear, and Chrome's
+    /// label naming it, with the accessibility part. Drawn by Chrome in its
+    /// own compositor, against the node, and never told to the page.
+    Mark {
+        /// The node, by Chrome's `backendNodeId`.
+        node: u64,
+        /// The border's colour: red, green and blue, opaque.
+        border: (u8, u8, u8),
+    },
+    /// `Overlay.hideHighlight`: take any mark away.
+    Unmark,
 }
 
 impl Command {
@@ -341,6 +360,10 @@ impl Command {
             Self::WindowOf { .. } => "Browser.getWindowForTarget",
             Self::Activate { .. } => "Target.activateTarget",
             Self::PlaceWindow { .. } => "Browser.setWindowBounds",
+            Self::ReadDocument => "DOM.getDocument",
+            Self::ShowMarks => "Overlay.enable",
+            Self::Mark { .. } => "Overlay.highlightNode",
+            Self::Unmark => "Overlay.hideHighlight",
         }
     }
 
@@ -365,7 +388,10 @@ impl Command {
             | Self::ReadTree
             | Self::Window
             | Self::LetGo
-            | Self::Targets => {}
+            | Self::Targets
+            | Self::ReadDocument
+            | Self::ShowMarks
+            | Self::Unmark => {}
             Self::CreateTarget { url } | Self::Navigate { url } => {
                 put("url", Value::from(url.as_str()));
             }
@@ -383,11 +409,7 @@ impl Command {
                 put("bounds", bounds.written());
             }
             Self::TellOfStages => put("enabled", Value::Bool(true)),
-            Self::PauseEveryRequest => {
-                let mut every = Map::new();
-                every.insert("urlPattern".to_owned(), Value::from("*"));
-                put("patterns", Value::Array(vec![Value::Object(every)]));
-            }
+            Self::PauseEveryRequest => put("patterns", every_request()),
             Self::LayOutAt { width, height } => {
                 put("width", Value::from(*width));
                 put("height", Value::from(*height));
@@ -396,13 +418,9 @@ impl Command {
                 put("mobile", Value::Bool(false));
             }
             Self::Fulfil { request, body } => {
-                put("requestId", Value::from(request.as_str()));
-                put("responseCode", Value::from(200));
-                let mut header = Map::new();
-                header.insert("name".to_owned(), Value::from("Content-Type"));
-                header.insert("value".to_owned(), Value::from("text/html; charset=utf-8"));
-                put("responseHeaders", Value::Array(vec![Value::Object(header)]));
-                put("body", Value::from(base64(body)));
+                for (name, value) in fulfilled(request, body) {
+                    put(name, value);
+                }
             }
             Self::Continue { request } => put("requestId", Value::from(request.as_str())),
             Self::Refuse { request } => {
@@ -414,6 +432,10 @@ impl Command {
             | Self::ScrollIntoView { node }
             | Self::Focus { node } => put("backendNodeId", Value::from(*node)),
             Self::DescribeValue { object } => put("objectId", Value::from(object.as_str())),
+            Self::Mark { node, border } => {
+                put("backendNodeId", Value::from(*node));
+                put("highlightConfig", marked(*border));
+            }
             Self::ReadNode { node } => {
                 put("backendNodeId", Value::from(*node));
                 put("fetchRelatives", Value::Bool(false));
@@ -446,6 +468,43 @@ impl Command {
         }
         params
     }
+}
+
+/// The `patterns` of `Fetch.enable` that pause every request.
+fn every_request() -> Value {
+    let mut every = Map::new();
+    every.insert("urlPattern".to_owned(), Value::from("*"));
+    Value::Array(vec![Value::Object(every)])
+}
+
+/// The `params` of `Fetch.fulfillRequest` answering `request` with `body`,
+/// as HTML.
+fn fulfilled(request: &str, body: &[u8]) -> Vec<(&'static str, Value)> {
+    let mut header = Map::new();
+    header.insert("name".to_owned(), Value::from("Content-Type"));
+    header.insert("value".to_owned(), Value::from("text/html; charset=utf-8"));
+    vec![
+        ("requestId", Value::from(request)),
+        ("responseCode", Value::from(200)),
+        ("responseHeaders", Value::Array(vec![Value::Object(header)])),
+        ("body", Value::from(base64(body))),
+    ]
+}
+
+/// How Chrome is asked to mark a node: the border in `border`, every other
+/// region left out and so clear, and its label shown with the accessibility
+/// part — the node's name and role (ADR 0066 § 1).
+fn marked((red, green, blue): (u8, u8, u8)) -> Value {
+    let mut colour = Map::new();
+    for (name, value) in [("r", red), ("g", green), ("b", blue)] {
+        colour.insert(name.to_owned(), Value::from(value));
+    }
+    colour.insert("a".to_owned(), Value::from(1));
+    let mut config = Map::new();
+    config.insert("borderColor".to_owned(), Value::Object(colour));
+    config.insert("showInfo".to_owned(), Value::Bool(true));
+    config.insert("showAccessibilityInfo".to_owned(), Value::Bool(true));
+    Value::Object(config)
 }
 
 /// The `params` of `Input.dispatchMouseEvent` for `kind` at `x`, `y`, with
@@ -1999,6 +2058,31 @@ mod tests {
             written(7, Some("S"), &Command::WhereDrawn { node: 62 }),
             br#"{"id":7,"method":"DOM.getContentQuads","params":{"backendNodeId":62},"sessionId":"S"}"#
         );
+    }
+
+    #[test]
+    fn a_mark_is_written_as_chromes_overlay_reads_it() {
+        assert_eq!(
+            written(
+                8,
+                Some("S"),
+                &Command::Mark {
+                    node: 62,
+                    border: (0xe7, 0x6f, 0x51)
+                }
+            ),
+            br#"{"id":8,"method":"Overlay.highlightNode","params":{"backendNodeId":62,"highlightConfig":{"borderColor":{"a":1,"b":81,"g":111,"r":231},"showAccessibilityInfo":true,"showInfo":true}},"sessionId":"S"}"#
+        );
+        for (command, method) in [
+            (Command::ReadDocument, "DOM.getDocument"),
+            (Command::ShowMarks, "Overlay.enable"),
+            (Command::Unmark, "Overlay.hideHighlight"),
+        ] {
+            assert_eq!(
+                String::from_utf8_lossy(&written(9, Some("S"), &command)),
+                format!(r#"{{"id":9,"method":"{method}","params":{{}},"sessionId":"S"}}"#)
+            );
+        }
     }
 
     #[test]
