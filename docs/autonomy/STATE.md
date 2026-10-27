@@ -43038,3 +43038,106 @@ ADR first), then 643 and 477. The window server's memory grows while the
 suite opens and closes real windows; if every Chrome test goes silent,
 measure it with `top -o mem` and halt for a logout. The next unused queue
 number is **683** and the next ADR is **0066**.
+
+## Iteration 421 — queue item 681: the page's tab in the frame around Chrome's window — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the product path), iteration 420's entry and the owner's closing
+of it, the owner's commit since (6734ea0, the loop's own test), the
+queue's product path and items 679–682, 643; ADR 0024 (§§ 2 and 4: the
+event loop never waits on a renderer; the strip is a document rendered in
+a sandboxed renderer of its own, a title a text node, never shaped in the
+browser process) and ADR 0062 with its addendum; `docs/features.md`'s
+second-renderer line; `strip.rs`, `strip_document.rs`, `strip.css`,
+`tab/strip_of.rs`, `conductor.rs`'s strip, `chrome_serving.rs`,
+`chrome_frame.rs`, `chrome_follow.rs`, `chrome_protocol.rs`'s targets,
+`frame_place.rs`, `frame_told.rs`, `compose.rs`, `window.rs`'s frame,
+`bin/alo.rs`, `.config/nextest.toml`, and the tests that use the frame.
+No `AGENTS.md` exists in the repository. 681's ADR is 0024 § 4 (cut from
+679 under ADR 0062); its feature contract is `docs/features.md`'s
+second-renderer line.
+
+**Why 681.** Named first on the product path by the owner's closing of
+iteration 420 (681, then 680, which needs an ADR, then 643 and 477).
+`ioreg` showed no `CGSSessionScreenIsLocked`; the window server held
+400 MB.
+
+**Built.**
+- `chrome_protocol::named` and `Named`: a target's `title` and `url` from
+  `Target.getTargets`, read as a stranger's words, the whole list refused
+  if any target in it is malformed, each cut to `LONGEST_TITLE`.
+- `chrome_named.rs`: `read(tab)` and `Naming`, which tells only a change.
+- `chrome_serving.rs`: the follow cycle reads the name after telling the
+  frame where to stand and tells `ToFrame::Named` on a change.
+- `frame_told.rs`: `Named`, `Strip(Frame)`, `StripSaid(String)`.
+- `frame_strip.rs`: `strip_of` (one selected tab, 216 × 36 CSS pixels —
+  one tab of `strip.css` and its padding — at the frame's scale) and
+  `FrameStrip`, a thread holding a tab strip's renderer through
+  `Tabs::over`, painting the newest strip sent and none twice, telling the
+  frame what it painted or why not in the conductor's words
+  (`strip_unexpected`, now `pub(crate)`). Finished after the event loop.
+- `frame_place.rs`: the band is the tab, the renderer, the lines, a CSS
+  pixel apart. `compose.rs`: the tab copied one to one; a strip's sentence
+  in its place. `window.rs`: the frame keeps the name, sends strips on a
+  name or a scale change, draws what was painted; its title stays "alo".
+- `bin/alo.rs`: the renderer lookup shared by both paths, checked before
+  Chrome starts.
+
+**Tests.** Unit: `chrome_protocol` 2, `chrome_named` 1, `frame_strip` 3,
+`frame_place` 3, `compose` 2. Reference renders, in numbers and looked at:
+`the-frame-with-the-pages-tab.png` (two) and
+`…-at-one-and-a-half.png` (with a verb's line and a refusal); the four
+earlier frame references unchanged. `the_pages_tab_in_chromes_frame.rs`:
+a shown Chrome on a page titled "First" that retitles itself to `Second
+<b>&amp;</b>` tells the frame exactly those two names; a `FrameStrip` over
+the real `alo-render` paints for each what the engine paints here, the two
+differ, and the same strip sent again is not painted. Mutation: with the
+reading replaced by nothing (copied, `sed`, restored, checked with `cmp`)
+it fails on an empty list. 682's test now counts two questions to Chrome
+in the frame's cycle (`LONGEST_SILENCE * 2`), written beside it — the
+frame's cycle really did gain a question; no wait a passing reading meets
+was lengthened.
+
+**The gate.** First run, in the foreground (moved to the background by
+the tool at 600 s, waited on by an until-loop in the next call): exit 1 —
+all 5478 tests passed, **clippy failed** on the new test
+(`similar_names`, a binding `names` beside `named`), written after my last
+clippy run. Renamed, not silenced. Second run, the same way, on this
+tree: **5478 tests, 5478 passed, 10 of 10 steps, "The gate is met."**
+
+**Manual.** Layout assertions in numbers: `frame_place.rs`'s tests and
+both references' checks. Reference renders: the two above. One file, one
+responsibility: Chrome's word for the name is `chrome_named.rs`'s, the
+strip's thread `frame_strip.rs`'s, the band's geometry `frame_place.rs`'s.
+Features, roadmap, queue and changelog updated. The title enters this
+process as text and leaves it as data to the strip's renderer; nothing
+here shapes it. New bytes from outside — Chrome's target list — are
+tested malformed and oversized, refused rather than panicked on. No
+`unsafe`, no stubs, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**On the screen.** `alo --chrome` on a retitling page, the frame captured
+with `screencapture -l` (Chrome had updated itself to 156.0.8078.48): the
+tab first in the band, the renderer's sentence after it — **and no words
+in the tab**, before or after the retitle. Not this item's: `alo` (this
+engine) on the same page with the machine's fonts draws no strip title
+and no heading either, and with `--frozen-fonts` draws both.
+`from_this_machine` maps `system-ui`/`sans-serif` to `.SF NS` first.
+Opened as **683**; the cause is not known and is not claimed. So what a
+person running `alo --chrome` here sees today is an empty tab.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+681 (and records 679 as gated); its Owed clause names 683 in place of
+681; the closing paragraph and the browser line in stage 2 say the same.
+The queue ticks 681 with its Done paragraph, opens 683, and the product
+path's table shows 679, 682 and 681 ✓ and 680 →.
+
+**Unresolved obligations.**
+- 683: words with the machine's fonts — the tab in the frame is empty on
+  this machine until it is fixed.
+- 680 needs an ADR as its own iteration; then 643 and 477.
+- An agent reading the frame's tab waits with 531 (the engine's strip).
+- No claim about speed is made.
+
+The next unused queue number is **684** and the next ADR is **0066**.
+This is one iteration, not a finished queue or roadmap.

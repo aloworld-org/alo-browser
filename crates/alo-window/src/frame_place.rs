@@ -16,7 +16,12 @@
 //! window, and it has no room below the band the way this engine's window
 //! has room along its bottom. So everything is in the band, side by side:
 //!
-//! - **first, which renderer draws the page** — ADR 0058 § 6, *"somewhere a
+//! - **first, the page's tab** (queue item 681) — the strip its own
+//!   renderer painted ([`crate::frame_strip`]), as wide as it was painted,
+//!   or, when that renderer has said why it painted nothing, that sentence
+//!   as wide as it needs — where a tab is in this engine's window, at the
+//!   left of the band; nothing, until there is one;
+//! - **then which renderer draws the page** — ADR 0058 § 6, *"somewhere a
 //!   person can read, the product says what is rendering"* — as wide as its
 //!   sentence needs, and cut only by the frame's own edge, so no agent's
 //!   line can push it out of sight;
@@ -39,8 +44,11 @@ pub const GAP: u32 = 1;
 /// Where the renderer's sentence and the agents' lines go in the frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FramePlacement {
-    /// The sentence saying which renderer draws the page, from the frame's
-    /// left edge, the band's whole height.
+    /// The page's tab, from the frame's left edge, the band's whole
+    /// height: empty when there is no tab to show.
+    pub strip: PixelRect,
+    /// The sentence saying which renderer draws the page, after the tab,
+    /// the band's whole height.
     pub renderer: PixelRect,
     /// The lines saying what agents did (queue items 623 and 625), oldest
     /// first. Entry `i` is the `i`th, and there is none past the last, nor
@@ -50,27 +58,42 @@ pub struct FramePlacement {
 
 impl FramePlacement {
     /// Where things go in a frame of `window` device pixels at `scale`,
-    /// whose renderer's sentence needs `renderer` device pixels across, for
-    /// `lines` agents' lines — of which at most [`MOST_AGENT_LINES`] are
-    /// placed.
-    pub fn of(window: (u32, u32), scale: Scale, renderer: u32, lines: usize) -> Self {
+    /// whose page's tab is `strip` device pixels across — nought for none —
+    /// and whose renderer's sentence needs `renderer`, for `lines` agents'
+    /// lines — of which at most [`MOST_AGENT_LINES`] are placed.
+    pub fn of(window: (u32, u32), scale: Scale, strip: u32, renderer: u32, lines: usize) -> Self {
         let (width, height) = window;
-        let renderer = PixelRect {
+        let gap = scale.device(GAP);
+        let strip = PixelRect {
             x: 0,
             y: 0,
-            width: renderer.min(width),
+            width: strip.min(width),
+            height,
+        };
+        let after_strip = if strip.width == 0 {
+            0
+        } else {
+            strip.width.saturating_add(gap).min(width)
+        };
+        let renderer = PixelRect {
+            x: after_strip,
+            y: 0,
+            width: renderer.min(width.saturating_sub(after_strip)),
             height,
         };
         let mut agent_lines = [None; MOST_AGENT_LINES];
         let count = u32::try_from(lines.min(MOST_AGENT_LINES)).unwrap_or(0);
-        let gap = scale.device(GAP);
-        let start = renderer.width.saturating_add(gap);
+        let start = renderer
+            .x
+            .saturating_add(renderer.width)
+            .saturating_add(gap);
         let room = width
             .saturating_sub(start)
             .saturating_sub(gap.saturating_mul(count.saturating_sub(1)));
         let each = room.checked_div(count).unwrap_or(0);
         if each == 0 || height == 0 {
             return Self {
+                strip,
                 renderer,
                 agent_lines,
             };
@@ -91,6 +114,7 @@ impl FramePlacement {
             x = x.saturating_add(each).saturating_add(gap);
         }
         Self {
+            strip,
             renderer,
             agent_lines,
         }
@@ -112,14 +136,14 @@ mod tests {
 
     #[test]
     fn with_no_lines_the_band_holds_the_renderers_sentence_alone() {
-        let placed = FramePlacement::of((2400, 72), Scale::TWO, 600, 0);
+        let placed = FramePlacement::of((2400, 72), Scale::TWO, 0, 600, 0);
         assert_eq!(placed.renderer, rect(0, 600, 72));
         assert_eq!(placed.agent_lines, [None; MOST_AGENT_LINES]);
     }
 
     #[test]
     fn one_line_takes_all_the_band_right_of_the_renderer() {
-        let placed = FramePlacement::of((2400, 72), Scale::TWO, 600, 1);
+        let placed = FramePlacement::of((2400, 72), Scale::TWO, 0, 600, 1);
         assert_eq!(placed.renderer, rect(0, 600, 72));
         // Two device pixels of gap at two.
         assert_eq!(placed.agent_lines, [Some(rect(602, 1798, 72)), None, None]);
@@ -128,7 +152,7 @@ mod tests {
     #[test]
     fn three_lines_share_what_is_left_and_the_last_reaches_the_edge() {
         // 1200 - 315 - 1 = 884 left at one, less two gaps: 882, 294 each.
-        let placed = FramePlacement::of((1200, 36), Scale::ONE, 315, 3);
+        let placed = FramePlacement::of((1200, 36), Scale::ONE, 0, 315, 3);
         assert_eq!(
             placed.agent_lines,
             [
@@ -138,7 +162,7 @@ mod tests {
             ]
         );
         // 883 left: the pixel a share cannot divide goes to the last.
-        let placed = FramePlacement::of((1201, 36), Scale::ONE, 315, 3);
+        let placed = FramePlacement::of((1201, 36), Scale::ONE, 0, 315, 3);
         assert_eq!(placed.agent_lines[2], Some(rect(906, 295, 36)));
         for line in placed.agent_lines.into_iter().flatten() {
             assert!(line.x + line.width <= 1201);
@@ -149,7 +173,7 @@ mod tests {
     fn at_one_and_a_half_the_gap_is_two_device_pixels() {
         // One CSS pixel is two device pixels at 1.5 (`Scale::device`).
         // 901 - 402 - 2 = 497 left, 248 each and the odd pixel last.
-        let placed = FramePlacement::of((901, 54), Scale::ONE_AND_A_HALF, 400, 2);
+        let placed = FramePlacement::of((901, 54), Scale::ONE_AND_A_HALF, 0, 400, 2);
         assert_eq!(placed.renderer, rect(0, 400, 54));
         assert_eq!(
             placed.agent_lines,
@@ -159,29 +183,66 @@ mod tests {
 
     #[test]
     fn more_lines_than_are_kept_are_placed_as_the_most_that_are() {
-        let most = FramePlacement::of((1200, 36), Scale::ONE, 315, MOST_AGENT_LINES);
+        let most = FramePlacement::of((1200, 36), Scale::ONE, 0, 315, MOST_AGENT_LINES);
         assert_eq!(
-            FramePlacement::of((1200, 36), Scale::ONE, 315, MOST_AGENT_LINES + 4),
+            FramePlacement::of((1200, 36), Scale::ONE, 0, 315, MOST_AGENT_LINES + 4),
             most
         );
     }
 
     #[test]
     fn a_frame_narrower_than_the_renderers_sentence_holds_only_it_cut() {
-        let placed = FramePlacement::of((300, 36), Scale::ONE, 315, 2);
+        let placed = FramePlacement::of((300, 36), Scale::ONE, 0, 315, 2);
         assert_eq!(placed.renderer, rect(0, 300, 36));
         assert_eq!(placed.agent_lines, [None; MOST_AGENT_LINES]);
         // Room for less than a pixel each is no room.
-        let placed = FramePlacement::of((318, 36), Scale::ONE, 315, 3);
+        let placed = FramePlacement::of((318, 36), Scale::ONE, 0, 315, 3);
+        assert_eq!(placed.agent_lines, [None; MOST_AGENT_LINES]);
+    }
+
+    #[test]
+    fn the_pages_tab_comes_first_and_the_renderer_after_it_a_gap_apart() {
+        // A tab of 216 by 36 at two, 432 device pixels: the renderer's
+        // sentence two device pixels after it, one line after that.
+        let placed = FramePlacement::of((2400, 72), Scale::TWO, 432, 600, 1);
+        assert_eq!(placed.strip, rect(0, 432, 72));
+        assert_eq!(placed.renderer, rect(434, 600, 72));
+        assert_eq!(placed.agent_lines, [Some(rect(1036, 1364, 72)), None, None]);
+        // At 1.5 the tab is 324 across and a gap is two.
+        let placed = FramePlacement::of((1200, 54), Scale::ONE_AND_A_HALF, 324, 400, 0);
+        assert_eq!(placed.strip, rect(0, 324, 54));
+        assert_eq!(placed.renderer, rect(326, 400, 54));
+    }
+
+    #[test]
+    fn with_no_tab_the_renderer_starts_at_the_left_edge() {
+        let placed = FramePlacement::of((1200, 36), Scale::ONE, 0, 315, 1);
+        assert!(placed.strip.is_empty());
+        assert_eq!(placed.renderer, rect(0, 315, 36));
+        assert_eq!(placed.agent_lines[0], Some(rect(316, 884, 36)));
+    }
+
+    #[test]
+    fn a_frame_narrower_than_its_tab_holds_only_the_tab_cut() {
+        let placed = FramePlacement::of((200, 36), Scale::ONE, 216, 315, 2);
+        assert_eq!(placed.strip, rect(0, 200, 36));
+        assert!(placed.renderer.is_empty(), "{placed:?}");
+        assert_eq!(placed.renderer.x + placed.renderer.width, 200);
+        assert_eq!(placed.agent_lines, [None; MOST_AGENT_LINES]);
+        // Room for a gap and a little of the renderer's sentence.
+        let placed = FramePlacement::of((300, 36), Scale::ONE, 216, 315, 1);
+        assert_eq!(placed.renderer, rect(217, 83, 36));
         assert_eq!(placed.agent_lines, [None; MOST_AGENT_LINES]);
     }
 
     #[test]
     fn a_frame_of_no_size_places_nothing_with_size() {
-        let placed = FramePlacement::of((0, 0), Scale::ONE, 315, 2);
+        let placed = FramePlacement::of((0, 0), Scale::ONE, 0, 315, 2);
         assert!(placed.renderer.is_empty());
+        let tabbed = FramePlacement::of((0, 0), Scale::ONE, 216, 315, 2);
+        assert!(tabbed.strip.is_empty() && tabbed.renderer.is_empty());
         assert_eq!(placed.agent_lines, [None; MOST_AGENT_LINES]);
-        let flat = FramePlacement::of((1200, 0), Scale::ONE, 315, 2);
+        let flat = FramePlacement::of((1200, 0), Scale::ONE, 0, 315, 2);
         assert_eq!(flat.agent_lines, [None; MOST_AGENT_LINES]);
     }
 }

@@ -195,8 +195,14 @@ about this project (ADR 0058 § 6).
   sentence and each refusal, the line the conductor's own rule makes of
   the answer this process sent, side by side in the band, oldest first,
   as long as the engine's window keeps them (679, `frame_place.rs`,
-  `compose_frame`, `frame_told.rs` — built, its gate not yet met: the gate
-  failed on the frame's own test, which fails without it, 682); and
+  `compose_frame`, `frame_told.rs`, gated 2026-10-26 once 682 was
+  closed); and **the page's tab in that window**, first in the band —
+  what Chrome calls the page, read from its list of targets in the frame's
+  own cycle and told only as it changes, drawn by a tab strip's renderer
+  of this engine's own on a thread that is never waited on, so a title
+  holding markup is its characters and is never shaped in this process,
+  asserted against a shown Chrome whose page retitles itself and in two
+  reference renders (681, `chrome_named.rs`, `frame_strip.rs`); and
   **the running browser asked which
   renderer draws a tab** — the socket's `renderer` ask, sent by a person
   with `alo-ask`, answered by the browser process and never the page: this
@@ -294,8 +300,9 @@ about this project (ADR 0058 § 6).
   rest of the agent's work where a person can see it — **the ring around
   the box a verb acted on through Chrome, which is over Chrome's page
   rather than above it and so needs a window of ours there, undecided
-  (680)**, and the page's tab in the frame, whose title is a stranger's
-  string ADR 0024 § 4 keeps out of this process (681); a placed window
+  (680)**; words drawn with this machine's own fonts, which the engine
+  draws none of in its window or the frame's tab while the frozen fonts
+  draw them (683); a placed window
   that stays where a
   person sees it, which Stage Manager's strip does not promise (643); an
   application somebody can run (477).
@@ -304,13 +311,13 @@ about this project (ADR 0058 § 6).
 stands aside when it is not on the screen and closes with it was built on
 2026-10-26 (iteration 419) and gated that day once the machine was
 restarted — ADR 0061's riskiest step, without its decision being sent
-back. And the frame says something, built and not yet gated (679,
-iteration 420): which Chrome draws the page, and what each agent's verb was
-answered with or why it was refused, told by the thread holding Chrome from
-the answers it sent. Its gate failed on the frame's own test, which fails
-in one run of three without the change (682), so it is not committed and
-not ticked. What it does not show is the ring over Chrome's page (680,
-which needs a decision) and the page's own tab (681).
+back. And the frame says something (679, gated once 682 was closed):
+which Chrome draws the page, and what each agent's verb was answered with
+or why it was refused, told by the thread holding Chrome from the answers
+it sent; and it shows the page's tab, drawn outside this process (681).
+What it does not show is the ring over Chrome's page (680, which needs a
+decision); and run on this machine, the tab draws no words, as this
+engine's own window draws none with the machine's fonts (683).
 
 ---
 
@@ -905,9 +912,10 @@ unreachable without it.
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); a closed list's option
       through a shown Chrome (658), the ring around the box an agent
-      acted on through Chrome (680, 624) and the page's tab in the
-      frame (681) — the frame itself stands, follows, and carries the
-      agent's sentence and its refusals (642, 679) — and a window that
+      acted on through Chrome (680, 624) and words drawn with the
+      machine's own fonts (683) — the frame itself stands, follows, and
+      carries the page's tab, the agent's sentence and its refusals (642,
+      679, 681) — and a window that
       stays where a person sees it (643)
 
 ### The network

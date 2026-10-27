@@ -909,8 +909,10 @@ fn said_of(tabs: &Tabs, id: TabId, lost: &Lost) -> News {
 }
 
 /// An answer the strip's renderer gave to being drawn that was not the one
-/// asked for, in words: a claim by name, since it answers no press.
-fn strip_unexpected(answer: &FromRenderer) -> String {
+/// asked for, in words: a claim by name, since it answers no press. The
+/// frame around Chrome's window says the same of its own strip's renderer
+/// ([`crate::frame_strip`]).
+pub(crate) fn strip_unexpected(answer: &FromRenderer) -> String {
     unasked(answer).map_or_else(
         || "the tab strip's renderer answered something it was not asked".to_owned(),
         |refused| refused.to_string(),

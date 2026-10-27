@@ -23,8 +23,10 @@
 //! process (item 627, ADR 0061), and the terminal says where it went. A
 //! frame of ours floats directly above it and follows it as a person moves
 //! and resizes it, standing aside while it is not on the screen (item 642,
-//! ADR 0062). The frame says which Chrome draws the page, and what each
-//! agent's verb was answered with or why it was refused (item 679).
+//! ADR 0062). The frame shows the page's tab, drawn by a tab strip's
+//! renderer of this engine's from what Chrome calls the page (item 681),
+//! and says which Chrome draws the page, and what each agent's verb was
+//! answered with or why it was refused (item 679).
 //! Closing either closes both, and so does this browser's input ending —
 //! Ctrl-D at a terminal.
 //!
@@ -72,20 +74,10 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let renderer = match std::env::current_exe() {
-        Ok(program) => renderer_beside(&program),
-        Err(why) => {
-            eprintln!("alo: where this program is cannot be found: {why}");
-            return ExitCode::FAILURE;
-        }
+    let renderers = match renderers(opening.fonts) {
+        Ok(renderers) => renderers,
+        Err(failed) => return failed,
     };
-    if !renderer.is_file() {
-        eprintln!(
-            "alo: there is no renderer at {}; build it with `cargo build -p alo-renderer`",
-            renderer.display()
-        );
-        return ExitCode::FAILURE;
-    }
     // A session's pool: what it caches and records is in memory and goes
     // with the process (ADR 0011, ADR 0012 § 6).
     let network = match Pool::from_this_machine() {
@@ -96,11 +88,6 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
         }
     };
     eprintln!("alo: pages are drawn by {}", RenderedBy::ThisEngine);
-    let renderers = Renderers::running(renderer, &[]);
-    let renderers = match opening.fonts {
-        Fonts::AsAsked => renderers.with_machine(alo_renderer::fonts::from_this_machine()),
-        Fonts::AsStarted => renderers.with_machine(alo_window::fonts::frozen()),
-    };
 
     let mut conductor = None;
     let mut refused = None;
@@ -159,6 +146,13 @@ fn in_chrome(opening: &Opening) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // The page's tab in the frame is drawn by a tab strip's renderer of
+    // this engine's, never in this process (item 681): one that is not
+    // there is said before Chrome is started.
+    let strips = match renderers(opening.fonts) {
+        Ok(renderers) => renderers,
+        Err(failed) => return failed,
+    };
     let (tell, told) = std::sync::mpsc::channel();
     let started = ChromeServing::start_shown(
         page,
@@ -182,7 +176,12 @@ fn in_chrome(opening: &Opening) -> ExitCode {
         "alo: this browser runs until Chrome's window or the frame above it is closed, \
          or its input ends, Ctrl-D at a terminal"
     );
-    let ran = alo_window::window::frame(told, orders.clone(), serving.rendered_by().to_string());
+    let ran = alo_window::window::frame(
+        told,
+        orders.clone(),
+        serving.rendered_by().to_string(),
+        strips,
+    );
     stop_listening(listening);
     // The frame may have gone before Chrome's window did — a failure, or
     // the program asked to quit — and Chrome is closed with it.
@@ -200,6 +199,30 @@ fn in_chrome(opening: &Opening) -> ExitCode {
         }
         Ok(()) => ExitCode::SUCCESS,
     }
+}
+
+/// The renderers this program starts — the renderer built beside it, with
+/// the fonts asked for — or, said on the terminal, why there can be none.
+fn renderers(fonts: Fonts) -> Result<Renderers, ExitCode> {
+    let renderer = match std::env::current_exe() {
+        Ok(program) => renderer_beside(&program),
+        Err(why) => {
+            eprintln!("alo: where this program is cannot be found: {why}");
+            return Err(ExitCode::FAILURE);
+        }
+    };
+    if !renderer.is_file() {
+        eprintln!(
+            "alo: there is no renderer at {}; build it with `cargo build -p alo-renderer`",
+            renderer.display()
+        );
+        return Err(ExitCode::FAILURE);
+    }
+    let renderers = Renderers::running(renderer, &[]);
+    Ok(match fonts {
+        Fonts::AsAsked => renderers.with_machine(alo_renderer::fonts::from_this_machine()),
+        Fonts::AsStarted => renderers.with_machine(alo_window::fonts::frozen()),
+    })
 }
 
 /// Say on the terminal which Chrome draws the page, and where its window

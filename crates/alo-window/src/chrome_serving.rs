@@ -37,6 +37,14 @@
 //! tells the frame [`Follow::Closed`] and ends the thread, and Chrome with
 //! it. Every sender of orders gone ends it too.
 //!
+//! # What the frame shows of the page
+//!
+//! In the same cycle, after where the frame stands, this thread reads what
+//! Chrome calls the page and where it is ([`chrome_named::read`]) and tells
+//! the frame when that changes ([`ToFrame::Named`], queue item 681), so the
+//! frame's tab follows a page that retitles itself or goes somewhere. A
+//! reading that fails tells nothing, and the frame keeps the name it has.
+//!
 //! # What the frame says of agents
 //!
 //! What an agent's verb was answered with is told to the frame too
@@ -62,7 +70,9 @@ use crate::asking::Ask;
 use crate::chrome::{Chrome, Failed, Unstarted};
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
+use crate::chrome_named::{self, Naming};
 use crate::chrome_pages::ChromePages;
+use crate::chrome_protocol::Named;
 use crate::chrome_tab::{Tab, Unopened};
 use crate::chrome_window::{self, Placed, Unplaced};
 use crate::frame_told::ToFrame;
@@ -349,6 +359,7 @@ fn serve_in_chrome(
     let mut following = frame.filter(|_| placed.is_some()).map(|frame| Follower {
         frame,
         told: Following::default(),
+        named: Naming::default(),
         next: Instant::now(),
     });
     loop {
@@ -395,6 +406,7 @@ fn serve_in_chrome(
             if now == Follow::Closed {
                 return record;
             }
+            follower.name(chrome_named::read(pages.tab_mut()).ok().flatten());
             follower.next = Instant::now()
                 .checked_add(FOLLOW_EVERY)
                 .unwrap_or_else(Instant::now);
@@ -406,6 +418,8 @@ fn serve_in_chrome(
 struct Follower<'f> {
     frame: &'f (dyn Fn(ToFrame) -> bool + Send),
     told: Following,
+    /// What it was last told the page is called.
+    named: Naming,
     /// When where it stands is next read.
     next: Instant,
 }
@@ -417,6 +431,15 @@ impl Follower<'_> {
             // A frame that has gone is a window closing, whose orders say
             // so; nothing here waits for it.
             let _ = (self.frame)(ToFrame::Stand(changed));
+        }
+    }
+
+    /// Tell the frame what the page is called, if a reading said and it
+    /// is not what it was told last.
+    fn name(&mut self, now: Option<Named>) {
+        if let Some(changed) = self.named.heard(now) {
+            // As above: nothing here waits for a frame that has gone.
+            let _ = (self.frame)(ToFrame::Named(changed));
         }
     }
 }

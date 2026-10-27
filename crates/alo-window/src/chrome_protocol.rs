@@ -1537,8 +1537,8 @@ pub const MOST_TARGETS: usize = 4096;
 pub fn pages(result: &[u8]) -> Result<Vec<String>, Malformed> {
     Ok(targets(result)?
         .into_iter()
-        .filter(|(_, kind, attached)| kind == "page" && !attached)
-        .map(|(id, _, _)| id)
+        .filter(|held| held.kind == "page" && !held.attached)
+        .map(|held| held.id)
         .collect())
 }
 
@@ -1550,12 +1550,61 @@ pub fn pages(result: &[u8]) -> Result<Vec<String>, Malformed> {
 ///
 /// [`Malformed`], as [`pages`].
 pub fn holds(result: &[u8], target: &str) -> Result<bool, Malformed> {
-    Ok(targets(result)?.iter().any(|(id, _, _)| id == target))
+    Ok(targets(result)?.iter().any(|held| held.id == target))
+}
+
+/// What a page is called and where it is, by Chrome's word: what the tab
+/// in the frame around Chrome's window shows (queue item 681).
+///
+/// Both are a stranger's strings — a page chose its title, and its
+/// address is wherever it went — so they are kept as text, cut to
+/// `alo-renderer`'s [`LONGEST_TITLE`](alo_renderer::strip::LONGEST_TITLE)
+/// as every title this browser keeps is, and only ever drawn by the tab
+/// strip's own renderer (ADR 0024 § 4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Named {
+    /// Its title, as Chrome gives it: the document's, or its address when
+    /// it has none.
+    pub title: String,
+    /// Its address.
+    pub address: String,
+}
+
+/// What Chrome calls the target `target` and where it is, from a reply's
+/// `result` to `Target.getTargets` — or [`None`] when it holds no such
+/// target.
+///
+/// # Errors
+///
+/// [`Malformed`], as [`pages`], and for the target asked about without a
+/// `title` or a `url`.
+pub fn named(result: &[u8], target: &str) -> Result<Option<Named>, Malformed> {
+    let Some(held) = targets(result)?.into_iter().find(|held| held.id == target) else {
+        return Ok(None);
+    };
+    let title = held.title.ok_or(Malformed::BadField { field: "title" })?;
+    let address = held.url.ok_or(Malformed::BadField { field: "url" })?;
+    Ok(Some(Named {
+        title: alo_renderer::strip::longest(&title).to_owned(),
+        address: alo_renderer::strip::longest(&address).to_owned(),
+    }))
+}
+
+/// One target in a reply to `Target.getTargets`.
+struct Held {
+    id: String,
+    kind: String,
+    attached: bool,
+    /// Its `title`, if it was given as text.
+    title: Option<String>,
+    /// Its `url`, if it was given as text.
+    url: Option<String>,
 }
 
 /// Every target in a reply's `result` to `Target.getTargets`: its id, its
-/// type and whether something is attached to it.
-fn targets(result: &[u8]) -> Result<Vec<(String, String, bool)>, Malformed> {
+/// type, whether something is attached to it, and its title and address
+/// where they were given.
+fn targets(result: &[u8]) -> Result<Vec<Held>, Malformed> {
     let bad = Malformed::BadField {
         field: "targetInfos",
     };
@@ -1576,7 +1625,13 @@ fn targets(result: &[u8]) -> Result<Vec<(String, String, bool)>, Malformed> {
             .get("attached")
             .and_then(Value::as_bool)
             .ok_or(Malformed::BadField { field: "attached" })?;
-        read.push((id, kind, attached));
+        read.push(Held {
+            id,
+            kind,
+            attached,
+            title: words(info.get("title"), "title").ok(),
+            url: words(info.get("url"), "url").ok(),
+        });
     }
     Ok(read)
 }
@@ -2899,6 +2954,55 @@ mod tests {
             bad("attached"),
             "refused whole, not believed for the one asked about"
         );
+    }
+
+    #[test]
+    fn a_target_is_named_by_its_title_and_address_as_chrome_gives_them() {
+        let listed = br#"{"targetInfos":[
+            {"targetId":"U","type":"browser_ui","attached":false},
+            {"targetId":"A","type":"page","attached":true,
+             "title":"Invoices </title><b>","url":"https://example.com/a"}]}"#;
+        assert_eq!(
+            named(listed, "A"),
+            Ok(Some(Named {
+                title: "Invoices </title><b>".to_owned(),
+                address: "https://example.com/a".to_owned(),
+            })),
+            "a title is text, whatever it holds"
+        );
+        assert_eq!(named(listed, "P"), Ok(None), "a tab closed");
+        assert_eq!(
+            named(listed, "U"),
+            bad("title"),
+            "the one asked about has no title"
+        );
+        let no_url =
+            br#"{"targetInfos":[{"targetId":"A","type":"page","attached":true,"title":"T"}]}"#;
+        assert_eq!(named(no_url, "A"), bad("url"));
+        let a_number = br#"{"targetInfos":[{"targetId":"A","type":"page","attached":true,"title":7,"url":""}]}"#;
+        assert_eq!(named(a_number, "A"), bad("title"));
+        assert_eq!(
+            named(
+                br#"{"targetInfos":[{"targetId":"A","type":"page","attached":true,"title":"T","url":""},{"targetId":"B"}]}"#,
+                "A"
+            ),
+            bad("type"),
+            "refused whole, not believed for the one asked about"
+        );
+    }
+
+    #[test]
+    fn a_title_longer_than_a_strip_draws_is_kept_to_it_at_a_character() {
+        use alo_renderer::strip::LONGEST_TITLE;
+        let long = "é".repeat(LONGEST_TITLE + 5);
+        let listed = format!(
+            r#"{{"targetInfos":[{{"targetId":"A","type":"page","attached":true,"title":"{long}","url":"{long}"}}]}}"#
+        );
+        let Ok(Some(read)) = named(listed.as_bytes(), "A") else {
+            panic!("not named");
+        };
+        assert_eq!(read.title, "é".repeat(LONGEST_TITLE));
+        assert_eq!(read.address, "é".repeat(LONGEST_TITLE));
     }
 
     #[test]

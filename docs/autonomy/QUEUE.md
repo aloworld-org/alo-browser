@@ -57,11 +57,12 @@ ADR 0058 — and nothing else does:
 | ✓ | **625** | a refusal shown to the person, not only answered to the agent — in this engine's window; through Chrome it comes with 642 |
 | ✓ | **672** | where a frame of ours stands around Chrome's window — above it, aside, or gone, by Chrome's word and the window server's (cut from 642) |
 | ✓ | **642** | a window of ours around Chrome's, following it, closing with it and closing it (ADR 0062); gated 2026-10-26 after a restart |
-| **→** | **679** | **built, not closed (iteration 420): the gate failed on 682, which fails without it** — what the frame around Chrome's window draws: which renderer, and the agent's sentences and refusals |
-| | **682** | the frame's own test reads Chrome's window shown and no frame beside it — flaky at `ced5caa`, found by 679's gate |
-| | **643** | next after 679, by the owner's choice (2026-10-25): a placed window that stays where a person sees it — Stage Manager's strip |
-| | **680** | the box a verb acted on, ringed over a page in Chrome — **needs ADR**: a window of ours over Chrome's page (cut from 679) |
-| | **681** | the page's tab in the frame, drawn outside the browser process (cut from 679) |
+| ✓ | **679** | what the frame around Chrome's window draws: which renderer, and the agent's sentences and refusals; gated once 682 was closed |
+| ✓ | **682** | the frame's own test reads Chrome's window shown and no frame beside it — its idea of *settled* corrected |
+| ✓ | **681** | the page's tab in the frame, drawn by a tab strip's renderer of its own and following the page's title (iteration 421) |
+| **→** | **680** | the box a verb acted on, ringed over a page in Chrome — **needs ADR**: a window of ours over Chrome's page (cut from 679) |
+| | **683** | words drawn with this machine's own fonts — the engine draws none, in its window or the frame's tab (found by 681's screen check) |
+| | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -16869,7 +16870,7 @@ What stage 2's exit gate actually measures: a person using it.
   window server's numbers — or the ring's window is decided against in it,
   and what a person is shown instead is said.
 
-- [ ] **681. The page's tab in the frame around Chrome's window.** *Cut
+- [x] **681. The page's tab in the frame around Chrome's window.** *Cut
   from 679, ADR 0024 § 4.* The engine's strip shows a tab's title, drawn
   by a sandboxed renderer of its own, because a title is a stranger's
   string and the browser process never shapes one. The frame says which
@@ -16879,6 +16880,58 @@ What stage 2's exit gate actually measures: a person using it.
   the frame shows the page's tab, drawn outside the browser process, and
   following the page's title as it changes, in a reference render and
   against a shown Chrome whose page retitles itself.
+  **Done (iteration 421).** The thread holding a shown Chrome reads what
+  Chrome calls the page and where it is — `Target.getTargets`, the tab's
+  own target, its `title` and `url` read as a stranger's words, the whole
+  list refused if any target in it is malformed, each cut to the strip's
+  `LONGEST_TITLE` (`chrome_protocol::named`, `chrome_named.rs`) — in the
+  same cycle as where the frame stands, after the frame is told that, and
+  tells the frame `ToFrame::Named` only when it changes (`Naming`). The
+  frame makes of it a strip of one selected tab, 216 CSS pixels wide —
+  one tab of `strip.css`, its 200 of basis and the strip's 8 of padding
+  either side — and 36 tall, at its own scale (`frame_strip::strip_of`),
+  and hands it to a thread of its own (`FrameStrip`) holding a tab strip's
+  renderer of this engine's — `Tabs::over` the renderers `alo` starts,
+  sandboxed at the strip's own site, never waited on by the event loop,
+  painting only the newest strip sent and none twice — which tells the
+  frame the frame painted (`ToFrame::Strip`), or why none was, in the
+  conductor's words for its own strip (`ToFrame::StripSaid`). The band is
+  now the tab, then which renderer, then the lines, a CSS pixel apart
+  (`FramePlacement::of` takes the tab's width); a sentence of the strip's
+  stands in the tab's place, there being no room below the band for both.
+  The window's own title stays "alo". The frame's thread is finished
+  after its event loop, its renderer stopped with it. `alo --chrome` finds
+  the renderer beside it before starting Chrome. Tested: `chrome_protocol`
+  (a title holding markup read as text, a target not held, a missing or
+  non-text title or address, a malformed neighbour refusing the whole
+  list, a title past the bound cut at a character); `Naming`;
+  `frame_strip::strip_of`; `frame_place.rs` with a tab at two, 1.5, cut
+  and absent; `compose.rs` (the tab one to one, a clear pixel showing the
+  rail, the renderer's sentence moved past it; a strip's sentence in the
+  tab's place); two reference renders in `the_window_composed.rs`,
+  `the-frame-with-the-pages-tab.png` at two and
+  `the-frame-with-the-pages-tab-at-one-and-a-half.png` with a verb's line
+  and a refusal, each checked in numbers — the tab's frame one to one at
+  the band's left, the renderer's sentence a gap after it — and looked at;
+  and `the_pages_tab_in_chromes_frame.rs`: a shown Chrome placed as `alo
+  --chrome` places it, on a page titled "First" that retitles itself to
+  `Second <b>&amp;</b>`, tells the frame exactly those two names in order,
+  and a `FrameStrip` over the real `alo-render` paints for each exactly
+  what the engine paints of that strip in the test's own process, the two
+  differing, and nothing for the same strip sent again. With the reading
+  mutated away (copied, `sed`, restored and checked with `cmp`) it fails
+  on an empty list. 682's test counts the frame's cycle as two questions
+  to Chrome now, `LONGEST_SILENCE` each, with that written beside it.
+  **Seen on the screen**, `alo --chrome` on a retitling page, the frame
+  captured with `screencapture -l` (Chrome 156.0.8078.48, which updated
+  itself since 155): the tab is drawn first in the band, the renderer's
+  sentence after it — **and the tab has no words**, before and after the
+  retitle. That is not this item's: this engine's own window, on the same
+  page with the machine's fonts, draws neither the strip's title nor the
+  page's heading, and with `--frozen-fonts` draws both. Opened as **683**.
+  Not done here: an agent reading the frame's tab (the engine's strip is
+  not read by agents either, 531), and a press on it, which has nothing
+  to choose between with one tab.
 
 - [x] **682. The frame's own test reads Chrome's window shown and no frame
   beside it.** *Found by iteration 420's gate.*
@@ -16922,6 +16975,23 @@ What stage 2's exit gate actually measures: a person using it.
   three; with the frame never told where to stand the test still failed,
   at 32 s, with the same words. Six runs unchanged passed on a freed
   machine. The frame itself is unchanged.
+
+- [ ] **683. Words drawn with this machine's own fonts.** *Found by
+  681's screen check, iteration 421, 2026-10-27.* `alo` on a page with a
+  heading, with no `--frozen-fonts`, shows the strip's tab and the page
+  with no words at all; with `--frozen-fonts` both are drawn — and so does
+  the frame's tab under `alo --chrome`, which can only use the machine's
+  (the frozen fonts are refused beside `--chrome`). Known: on this machine
+  (macOS 26.5.2) `fonts::from_this_machine` maps `system-ui` and
+  `sans-serif` first to `.SF NS`, then `Geneva`, `serif` to `.New York` and
+  `monospace` to `.SF NS Mono`, then `Monaco`, sending about 74 MB of
+  faces. Not known: whether `.SF NS` is a face the engine loads and draws
+  no glyphs of — a variable font, or one whose outlines it does not read
+  — or the faces never reach the renderer, nor when this began; no test
+  draws with the machine's fonts. *Depends on nothing. Closes when:* the
+  cause is reproduced in a test that draws words with a face this machine
+  has and fails without the fix, and `alo` shows a page's words and its
+  tab's title with the machine's fonts, captured on the screen.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into

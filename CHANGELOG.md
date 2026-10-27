@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The strip above Chrome's window now shows the page's tab.** With
+  `alo --chrome`, the strip begins with a tab carrying the page's title,
+  as this browser's own window shows its tabs, and the tab changes when
+  the page changes its title. The title is drawn by this browser's own
+  sandboxed tab-strip renderer, never by the browser's main process, so
+  a title written to look like markup is shown as the characters it is.
+  On the machine this was built on, the tab shows no words yet: with the
+  machine's own fonts this browser's engine draws no text at all, in its
+  own window too. That is a separate fault and is listed to be fixed.
+
 - **The check of the build loop no longer depends on how the loop was
   started.** Starting the loop with a worker named
   (`ALO_LOOP_WORKER=claude`) made the loop's own check run with that name

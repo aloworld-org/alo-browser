@@ -53,6 +53,15 @@
 //! at 1.5 a refusal outlasting the verb that ran after it. Each is also
 //! checked in numbers, against where `frame_place` puts the lines.
 //!
+//! Item 681 puts the page's tab first in that frame, as the frame's own
+//! strip's renderer paints it — drawn here by the engine from
+//! `alo-renderer`'s template and stylesheet, for the strip
+//! `frame_strip::strip_of` makes of what Chrome calls the page, with a
+//! title holding markup that is drawn as the characters it is: at two
+//! beside which renderer, and at 1.5 with an agent's line and a refusal.
+//! Each is checked in numbers too: the tab's frame one to one at the band's
+//! left, and the renderer's sentence a gap after it.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
 
@@ -65,8 +74,10 @@ use alo_renderer::strip::{Condition, Strip, StripTab};
 use alo_renderer::{Frame, FromRenderer, Page, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::agent_lines::{AgentLine, AgentLines};
+use alo_window::chrome_protocol::Named;
 use alo_window::compose::{FrameScene, Scene, compose, compose_frame};
 use alo_window::frame_place::FramePlacement;
+use alo_window::frame_strip::{FRAME_STRIP_WIDTH, strip_of as frames_strip};
 use alo_window::mark::{Marked, marked, ring};
 use alo_window::message::News;
 use alo_window::notice::Lettering;
@@ -916,12 +927,15 @@ fn frame_of(
     let scene = FrameScene {
         window,
         scale,
+        strip: None,
+        strip_sentence: None,
         renderer,
         agent_lines: lines,
     };
     let placed = FramePlacement::of(
         window,
         scale,
+        0,
         lettering.line_width(renderer, scale),
         lines.len(),
     );
@@ -1083,4 +1097,124 @@ fn the_frame_at_one_and_a_half_keeps_a_refusal_past_the_verb_after_it() {
     assert_eq!(second.x + second.width, 1200);
     assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
     assert_eq!(holds("the-frame-at-one-and-a-half.png", &canvas), Ok(()));
+}
+
+/// What Chrome calls the page in the frame's references: a title holding
+/// markup, which a tab shows as the characters it is.
+fn invoices() -> Named {
+    Named {
+        title: "Invoices <b>2026</b>".to_owned(),
+        address: "https://example.com/invoices".to_owned(),
+    }
+}
+
+/// The page's tab as the frame's strip's renderer paints it on a screen of
+/// `scale` — the engine, from `alo-renderer`'s own template and
+/// stylesheet, with the corpus's fonts.
+fn the_frames_tab(scale: f32) -> Result<Frame, String> {
+    let mut renderer = Renderer::new(fonts());
+    let strip = frames_strip(&invoices(), scale);
+    match renderer.handle(ToRenderer::Strip(Box::new(strip))) {
+        FromRenderer::Loaded { .. } => {}
+        other => return Err(format!("the strip was not built: {other:?}")),
+    }
+    match renderer.handle(ToRenderer::Paint) {
+        FromRenderer::Painted(frame) => Ok(frame),
+        other => Err(format!("the strip was not painted: {other:?}")),
+    }
+}
+
+/// A frame of `window` at `scale` showing `tab`, saying which renderer
+/// draws the page, with `lines`: composed, and where its pieces were
+/// placed.
+fn frame_with_tab(
+    window: (u32, u32),
+    scale: Scale,
+    tab: &Frame,
+    lines: &[AgentLine],
+) -> Result<(Canvas, FramePlacement), String> {
+    let lettering = lettering()?;
+    let renderer = chromes_sentence();
+    let scene = FrameScene {
+        window,
+        scale,
+        strip: Some(tab),
+        strip_sentence: None,
+        renderer: &renderer,
+        agent_lines: lines,
+    };
+    let placed = FramePlacement::of(
+        window,
+        scale,
+        tab.width,
+        lettering.line_width(&renderer, scale),
+        lines.len(),
+    );
+    Ok((compose_frame(&scene, &lettering), placed))
+}
+
+/// The first device pixel of `tab` that `canvas` does not show one to one
+/// at the band's left, if any.
+fn tab_one_to_one(canvas: &Canvas, tab: &Frame) -> Option<(u32, u32)> {
+    (0..tab.height)
+        .flat_map(|y| (0..tab.width).map(move |x| (x, y)))
+        .find(|(x, y)| {
+            // A strip is opaque, so blending over the rail leaves it as it
+            // was painted.
+            canvas.at(*x, *y).map(alo_value::Rgba::to_rgba8) != tab.at(*x, *y)
+        })
+}
+
+#[test]
+fn the_frame_shows_the_pages_tab_before_which_renderer_at_scale_two() {
+    let tab = the_frames_tab(2.0).unwrap_or_else(|why| panic!("{why}"));
+    // One tab of the stylesheet's, at two.
+    assert_eq!((tab.width, tab.height), (FRAME_STRIP_WIDTH * 2, 72));
+    let (canvas, placed) =
+        frame_with_tab((1400, 72), Scale::TWO, &tab, &[]).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(
+        placed.strip,
+        PixelRect {
+            x: 0,
+            y: 0,
+            width: 432,
+            height: 72
+        }
+    );
+    // Two device pixels of rail, then the renderer's whole sentence.
+    assert_eq!(placed.renderer.x, 434);
+    assert!((500..900).contains(&placed.renderer.width), "{placed:?}");
+    assert_eq!(tab_one_to_one(&canvas, &tab), None);
+    let rail = Some(alo_window::colours::rail().to_rgba8());
+    for y in 0..72 {
+        assert_eq!(canvas.at(432, y).map(alo_value::Rgba::to_rgba8), rail);
+        assert_eq!(canvas.at(433, y).map(alo_value::Rgba::to_rgba8), rail);
+    }
+    assert_eq!(holds("the-frame-with-the-pages-tab.png", &canvas), Ok(()));
+}
+
+#[test]
+fn the_frame_at_one_and_a_half_shows_the_tab_then_the_renderer_then_the_lines() {
+    let tab = the_frames_tab(1.5).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!((tab.width, tab.height), (324, 54));
+    let (not_found, _) = refusals();
+    let mut lines = AgentLines::default();
+    lines.did(agents_sentence());
+    lines.refused(not_found);
+    // 1000 points at 1.5.
+    let (canvas, placed) = frame_with_tab((1500, 54), Scale::ONE_AND_A_HALF, &tab, lines.lines())
+        .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(placed.strip.width, 324);
+    assert_eq!(placed.renderer.x, 326);
+    let first = placed.agent_lines[0].unwrap_or_else(|| panic!("{placed:?}"));
+    assert_eq!(first.x, placed.renderer.x + placed.renderer.width + 2);
+    assert_eq!(tab_one_to_one(&canvas, &tab), None);
+    assert_eq!(drawn_where_placed(&canvas, &placed, lines.lines()), Ok(()));
+    assert_eq!(
+        holds(
+            "the-frame-with-the-pages-tab-at-one-and-a-half.png",
+            &canvas
+        ),
+        Ok(())
+    );
 }

@@ -67,6 +67,14 @@
 //! each line by the same thread ([`ToFrame::Agent`]), it keeps them as this
 //! engine's window does ([`AgentLines`]) and is drawn again.
 //!
+//! And it draws the page's tab (queue item 681). Told what Chrome calls the
+//! page ([`ToFrame::Named`]), it hands a strip of that one tab to a tab
+//! strip's renderer of its own, on a thread of its own
+//! ([`crate::frame_strip`]), and draws what that renderer painted when it
+//! is told it ([`ToFrame::Strip`]) — never the title itself, which is a
+//! stranger's string this process does not shape (ADR 0024 § 4). The
+//! window's own title stays "alo".
+//!
 //! # No `unsafe`
 //!
 //! Every `winit` function called here — `EventLoop::with_user_event`,
@@ -92,8 +100,10 @@ use crate::agent_lines::AgentLines;
 use crate::aim::{Aimed, aim, on_page};
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
+use crate::chrome_protocol::Named;
 use crate::compose::{FrameScene, compose, compose_frame};
 use crate::cursor::{Cursor, Pressed};
+use crate::frame_strip::{FrameStrip, strip_of};
 use crate::frame_told::ToFrame;
 use crate::inbox::Orders;
 use crate::keys::{self, Held, Key, Modifier, Press};
@@ -103,7 +113,8 @@ use crate::place::{Placement, STRIP_HEIGHT, screen};
 use crate::present::Presenter;
 use crate::scale::Scale;
 use crate::showing::Showing;
-use alo_renderer::Visibility;
+use alo_renderer::host::Renderers;
+use alo_renderer::{Frame, Visibility};
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use winit::application::ApplicationHandler;
@@ -417,9 +428,10 @@ impl ApplicationHandler<News> for App {
 }
 
 /// Run the frame of ours around Chrome's window until it is told Chrome's
-/// window is gone (ADR 0062, queue item 642): told where to stand and what
-/// agents did on `told`, saying that `renderer` draws the page, and sending
-/// `orders` to the thread holding Chrome.
+/// window is gone (ADR 0062, queue item 642): told where to stand, what
+/// agents did and what the page is called on `told`, saying that
+/// `renderer` draws the page, sending `orders` to the thread holding
+/// Chrome, and having the page's tab drawn by a renderer of `strips`'.
 ///
 /// The frame is told on a channel rather than through the event loop,
 /// because the thread holding Chrome starts first. Measured: a program
@@ -433,7 +445,12 @@ impl ApplicationHandler<News> for App {
 ///
 /// What `winit` said, in words, when there could be no event loop or no
 /// window.
-pub fn frame(told: Receiver<ToFrame>, orders: Orders, renderer: String) -> Result<(), String> {
+pub fn frame(
+    told: Receiver<ToFrame>,
+    orders: Orders,
+    renderer: String,
+    strips: Renderers,
+) -> Result<(), String> {
     let Some(lettering) = Lettering::compiled_in() else {
         let _ = orders.send(Order::CloseEverything);
         return Err("the frame's own font is not a font".to_owned());
@@ -447,6 +464,17 @@ pub fn frame(told: Receiver<ToFrame>, orders: Orders, renderer: String) -> Resul
         .build()
         .map_err(|why| format!("no event loop: {why}"))?;
     let proxy = event_loop.create_proxy();
+    let painted = event_loop.create_proxy();
+    let strip = match FrameStrip::start(
+        strips,
+        Box::new(move |news| painted.send_event(news).is_ok()),
+    ) {
+        Ok(strip) => strip,
+        Err(why) => {
+            let _ = orders.send(Order::CloseEverything);
+            return Err(format!("no thread to draw the page's tab: {why}"));
+        }
+    };
     let forwarding = std::thread::Builder::new()
         .name("alo-frame".to_owned())
         .spawn(move || {
@@ -466,17 +494,26 @@ pub fn frame(told: Receiver<ToFrame>, orders: Orders, renderer: String) -> Resul
         told: Follow::Aside,
         renderer,
         lines: AgentLines::default(),
+        named: None,
+        strip: Some(strip),
+        tab: None,
+        tab_said: None,
         lettering,
         window: None,
         presenter: None,
         modifiers: ModifiersState::empty(),
         failed: None,
     };
-    event_loop
+    let ran = event_loop
         .run_app(&mut framing)
-        .map_err(|why| format!("the event loop stopped: {why}"))?;
+        .map_err(|why| format!("the event loop stopped: {why}"));
+    // Outside the event loop, so a renderer still painting is waited for
+    // here and never there; its renderer is stopped with it.
+    let finished = framing.strip.take().is_none_or(FrameStrip::finish);
+    ran?;
     match framing.failed {
         Some(why) => Err(why),
+        None if !finished => Err("the thread drawing the page's tab did not finish".to_owned()),
         None => Ok(()),
     }
 }
@@ -490,6 +527,14 @@ struct Framing {
     renderer: String,
     /// What agents' verbs were answered with, as long as they are kept.
     lines: AgentLines,
+    /// What Chrome last called the page, and where it is.
+    named: Option<Named>,
+    /// The thread drawing the page's tab; [`None`] once finished.
+    strip: Option<FrameStrip>,
+    /// The page's tab, as its renderer last painted it.
+    tab: Option<Frame>,
+    /// Why the strip's renderer painted no tab, since it last painted one.
+    tab_said: Option<String>,
     /// The face the frame's words are drawn in.
     lettering: Lettering,
     window: Option<Rc<Window>>,
@@ -527,6 +572,19 @@ impl Framing {
         }
     }
 
+    /// Have the page's tab drawn for what Chrome last called the page, at
+    /// the frame's scale — which its strip's thread does only when that is
+    /// a different strip from the last.
+    fn draw_tab(&mut self) {
+        let (Some(window), Some(named), Some(strip)) =
+            (&self.window, &self.named, self.strip.as_mut())
+        else {
+            return;
+        };
+        let scale = Scale::of_screen(window.scale_factor());
+        strip.draw(strip_of(named, scale.factor()));
+    }
+
     /// Draw the frame at its window's size.
     fn draw(&mut self) {
         let Some(window) = &self.window else {
@@ -537,6 +595,8 @@ impl Framing {
             &FrameScene {
                 window: (size.width, size.height),
                 scale: Scale::of_screen(window.scale_factor()),
+                strip: self.tab.as_ref(),
+                strip_sentence: self.tab_said.as_deref(),
                 renderer: &self.renderer,
                 agent_lines: self.lines.lines(),
             },
@@ -546,6 +606,13 @@ impl Framing {
             && let Err(why) = presenter.show(&canvas)
         {
             self.failed = Some(why);
+        }
+    }
+
+    /// Have the frame drawn again.
+    fn redraw(&self) {
+        if let Some(window) = &self.window {
+            window.request_redraw();
         }
     }
 
@@ -601,6 +668,8 @@ impl ApplicationHandler<ToFrame> for Framing {
         }
         self.window = Some(window);
         self.stand();
+        // A name told before there was a window is drawn now there is.
+        self.draw_tab();
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, news: ToFrame) {
@@ -608,9 +677,23 @@ impl ApplicationHandler<ToFrame> for Framing {
             ToFrame::Stand(follow) => follow,
             ToFrame::Agent(line) => {
                 self.lines.heard(line);
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
+                self.redraw();
+                return;
+            }
+            ToFrame::Named(named) => {
+                self.named = Some(named);
+                self.draw_tab();
+                return;
+            }
+            ToFrame::Strip(tab) => {
+                self.tab = Some(tab);
+                self.tab_said = None;
+                self.redraw();
+                return;
+            }
+            ToFrame::StripSaid(said) => {
+                self.tab_said = Some(said);
+                self.redraw();
                 return;
             }
         };
@@ -629,9 +712,10 @@ impl ApplicationHandler<ToFrame> for Framing {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::Resized(PhysicalSize { .. }) | WindowEvent::ScaleFactorChanged { .. } => {
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
+                // A frame moved to a screen of another scale has its tab
+                // painted again at it.
+                self.draw_tab();
+                self.redraw();
             }
             WindowEvent::RedrawRequested => {
                 self.draw();

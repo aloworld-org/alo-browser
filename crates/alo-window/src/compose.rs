@@ -24,10 +24,10 @@
 //! device pixels (ADR 0057 § 3, queue item 562), so each of their pixels is
 //! one of the window's: nothing is replicated or stretched here.
 //!
-//! The frame of ours around Chrome's window ([`compose_frame`], queue item
-//! 679) is composed the same way, from what the thread holding Chrome told
-//! it and nothing else: which renderer draws the page, and what agents'
-//! verbs were answered with.
+//! The frame of ours around Chrome's window ([`compose_frame`], queue items
+//! 679 and 681) is composed the same way, from what it was told and nothing
+//! else: the page's tab as its strip's renderer painted it, which renderer
+//! draws the page, and what agents' verbs were answered with.
 
 use crate::agent_lines::AgentLine;
 use crate::colours::{agent_line, background, notice_line, rail, refused_line, renderer_line};
@@ -128,6 +128,12 @@ pub struct FrameScene<'a> {
     pub window: (u32, u32),
     /// How many device pixels one CSS pixel is on its screen.
     pub scale: Scale,
+    /// The page's tab, as the frame's strip's renderer last painted it
+    /// (queue item 681), if it ever did.
+    pub strip: Option<&'a Frame>,
+    /// Why the strip's renderer painted no tab, if it said so since it
+    /// last painted one: shown in the tab's place.
+    pub strip_sentence: Option<&'a str>,
     /// Which renderer draws the page, in the one wording there is of it:
     /// [`crate::pages::RenderedBy`]'s, as the socket's `renderer` answer
     /// says it.
@@ -139,19 +145,38 @@ pub struct FrameScene<'a> {
 
 /// The frame's pixels: the rail's colour edge to edge — the band across
 /// the top of this engine's own window, because the frame stands where that
-/// band would be — and in it, as [`FramePlacement`] places them, which
-/// renderer draws the page and then what agents did, a refusal in colours
-/// of its own. A frame of no size is a canvas of no size.
+/// band would be — and in it, as [`FramePlacement`] places them, the
+/// page's tab, which renderer draws the page and then what agents did, a
+/// refusal in colours of its own. A frame of no size is a canvas of no
+/// size.
+///
+/// The tab is the strip's renderer's frame, one of its pixels to each
+/// device pixel; when that renderer has since said why it painted none,
+/// the sentence stands in the tab's place, as a gone tab's does in this
+/// engine's window — there is no room below the band to keep both.
 pub fn compose_frame(scene: &FrameScene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, rail());
     let scale = scene.scale;
+    let strip = match (scene.strip_sentence, scene.strip) {
+        (Some(sentence), _) => lettering.line_width(sentence, scale),
+        (None, Some(frame)) => frame.width,
+        (None, None) => 0,
+    };
     let placed = FramePlacement::of(
         scene.window,
         scale,
+        strip,
         lettering.line_width(scene.renderer, scale),
         scene.agent_lines.len(),
     );
+    match (scene.strip_sentence, scene.strip) {
+        (Some(sentence), _) => {
+            lettering.draw(&mut canvas, placed.strip, sentence, scale, notice_line());
+        }
+        (None, Some(frame)) => copy(&mut canvas, frame, placed.strip),
+        (None, None) => {}
+    }
     lettering.draw(
         &mut canvas,
         placed.renderer,
@@ -269,9 +294,74 @@ mod tests {
         FrameScene {
             window,
             scale,
+            strip: None,
+            strip_sentence: None,
             renderer: "Chrome/155.0.8059.86, driven by this browser",
             agent_lines: lines,
         }
+    }
+
+    #[test]
+    fn the_pages_tab_is_drawn_first_one_to_one_and_the_renderer_after_it() {
+        let lettering = lettering();
+        // A painted tab of four by two device pixels, one of them clear.
+        let mut painted = Canvas::new(4, 2, Rgba::from_rgba8(0, 0, 0, 0));
+        painted.fill_rect(0, 0, 4, 1, Rgba::from_rgba8(10, 20, 30, 255));
+        painted.fill_rect(0, 1, 3, 1, Rgba::from_rgba8(10, 20, 30, 255));
+        let tab = Frame::from_canvas(&painted);
+        let scene = FrameScene {
+            strip: Some(&tab),
+            ..framed((1200, 36), Scale::ONE, &[])
+        };
+        let canvas = compose_frame(&scene, &lettering);
+        for (x, y) in [(0, 0), (3, 0), (0, 1)] {
+            assert_eq!(rgba8(&canvas, x, y), Some((10, 20, 30, 255)), "at {x},{y}");
+        }
+        // Its clear pixel shows the rail, and so does all below it.
+        assert_eq!(rgba8(&canvas, 3, 1), Some(rail().to_rgba8()));
+        assert_eq!(rgba8(&canvas, 0, 2), Some(rail().to_rgba8()));
+        // The renderer's sentence starts a gap after it.
+        let placed = FramePlacement::of(
+            (1200, 36),
+            Scale::ONE,
+            4,
+            lettering.line_width(scene.renderer, Scale::ONE),
+            0,
+        );
+        assert_eq!(placed.renderer.x, 5);
+        assert_eq!(rgba8(&canvas, 4, 20), Some(rail().to_rgba8()), "the gap");
+        let alone = compose_frame(&framed((1200, 36), Scale::ONE, &[]), &lettering);
+        let shifted = (0..36).all(|y| {
+            (0..placed.renderer.width).all(|x| rgba8(&alone, x, y) == rgba8(&canvas, x + 5, y))
+        });
+        assert!(shifted, "the same sentence, moved past the tab");
+    }
+
+    #[test]
+    fn a_strip_that_said_why_it_painted_nothing_says_it_in_the_tabs_place() {
+        let lettering = lettering();
+        let tab = Frame::from_canvas(&Canvas::new(4, 2, Rgba::from_rgba8(10, 20, 30, 255)));
+        let sentence = "the tab strip could not be drawn";
+        let scene = FrameScene {
+            strip: Some(&tab),
+            strip_sentence: Some(sentence),
+            ..framed((1200, 36), Scale::ONE, &[])
+        };
+        let canvas = compose_frame(&scene, &lettering);
+        let needs = lettering.line_width(sentence, Scale::ONE);
+        // The sentence's ground under its rule, not the old tab, at its
+        // left edge.
+        assert_eq!(rgba8(&canvas, 0, 0), Some(notice_line().rule.to_rgba8()));
+        assert_eq!(rgba8(&canvas, 0, 1), Some(notice_line().ground.to_rgba8()));
+        assert_eq!(
+            rgba8(&canvas, needs - 1, 35),
+            Some(notice_line().ground.to_rgba8())
+        );
+        assert_eq!(
+            rgba8(&canvas, needs, 20),
+            Some(rail().to_rgba8()),
+            "the gap"
+        );
     }
 
     #[test]
@@ -316,6 +406,7 @@ mod tests {
         let placed = FramePlacement::of(
             (1200, 36),
             Scale::ONE,
+            0,
             lettering.line_width(scene.renderer, Scale::ONE),
             2,
         );

@@ -214,7 +214,9 @@ fn seen(chrome: u32, ours: u32) -> Result<Seen, String> {
 ///
 /// Two readings agreeing is not the frame having looked. The frame is
 /// placed by its own reading — [`FOLLOW_EVERY`] apart, each one question
-/// to Chrome and one listing — and the question to Chrome is the part
+/// to Chrome and one listing, and since item 681 a second question, what
+/// Chrome calls the page, after the frame is told where to stand and
+/// before the next reading — and the questions to Chrome are the part
 /// this test never makes: under memory pressure on 2026-10-26 it was what
 /// slowed, so two of this test's readings 300 ms apart both fell before
 /// the frame's first look and read *Chrome's window shown, no frame*
@@ -223,7 +225,7 @@ fn seen(chrome: u32, ours: u32) -> Result<Seen, String> {
 /// which slows this test's readings with the frame's). So a reading that
 /// keeps the rule is believed when two agree, and one that breaks it only
 /// once it has stood unchanged longer than the frame's longest cycle: the
-/// wait between readings, Chrome's patience for the question
+/// wait between readings, Chrome's patience for each of its two questions
 /// ([`LONGEST_SILENCE`]), and a listing as slow as the slowest this test
 /// timed. A frame that never comes still fails, by that bound.
 fn settled(chrome: u32, ours: u32) -> Result<(Seen, bool), String> {
@@ -235,7 +237,7 @@ fn settled(chrome: u32, ours: u32) -> Result<(Seen, bool), String> {
         std::thread::sleep(Duration::from_millis(300));
         let now = timed(chrome, ours, &mut slowest)?;
         if now == last {
-            let frames_longest = FOLLOW_EVERY + LONGEST_SILENCE + slowest;
+            let frames_longest = FOLLOW_EVERY + LONGEST_SILENCE * 2 + slowest;
             if the_rule_holds(&now).is_ok() || since.elapsed() > frames_longest {
                 return Ok((now, true));
             }
