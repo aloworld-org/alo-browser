@@ -139,6 +139,7 @@ pub mod chrome_tree;
 pub mod chrome_unfocusable;
 pub mod chrome_window;
 pub mod chrome_wire;
+pub mod closing;
 pub mod colours;
 pub mod compose;
 pub mod conductor;

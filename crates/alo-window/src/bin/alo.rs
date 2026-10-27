@@ -50,6 +50,7 @@ use alo_renderer::tab::Tabs;
 use alo_window::beside::{chrome_on_this_machine, renderer_beside};
 use alo_window::bundle::Bundle;
 use alo_window::chrome_serving::ChromeServing;
+use alo_window::closing::Closing;
 use alo_window::conductor::{Conductor, Fonts};
 use alo_window::inbox::Orders;
 use alo_window::message::Order;
@@ -211,24 +212,29 @@ fn in_chrome(opening: &Opening, watching: bool) -> ExitCode {
              or it is quit"
         );
     }
-    let ran = alo_window::window::frame(
-        told,
-        orders.clone(),
-        serving.rendered_by().to_string(),
-        strips,
-    );
-    stop_listening(listening);
-    // The frame may have gone before Chrome's window did — a failure, or
-    // the program asked to quit — and Chrome is closed with it.
-    let _ = orders.send(Order::CloseEverything);
-    drop(orders);
-    let finished = serving.records().is_some();
+    let rendered_by = serving.rendered_by().to_string();
+    // Whether the thread holding Chrome finished, once it has been waited for.
+    let finished = std::cell::Cell::new(false);
+    let frame_orders = orders.clone();
+    // Run as the frame's event loop ends, which is also as the program is
+    // quit: `AppKit` then ends the process without returning here (item
+    // 688), so nothing that has to happen may be left for after `frame`.
+    let closing = Closing::of(|| {
+        stop_listening(listening);
+        // The frame may have gone before Chrome's window did — a failure,
+        // or the program quit — and Chrome is closed with it, waited for,
+        // and its profile removed.
+        let _ = orders.send(Order::CloseEverything);
+        drop(orders);
+        finished.set(serving.records().is_some());
+    });
+    let ran = alo_window::window::frame(told, frame_orders, rendered_by, strips, closing);
     match ran {
         Err(why) => {
             eprintln!("alo: {why}");
             ExitCode::FAILURE
         }
-        Ok(()) if !finished => {
+        Ok(()) if !finished.get() => {
             eprintln!("alo: Chrome's thread did not finish");
             ExitCode::FAILURE
         }

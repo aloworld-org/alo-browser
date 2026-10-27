@@ -43849,3 +43849,95 @@ pushed.
 
 The next unused queue number is **690** and the next ADR is **0069**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 430 — queue item 688: Chrome's profile left behind by Quit — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, iterations 427–429, the queue's product path and items 477, 658,
+684–689; ADRs 0067 (§§ 1 and 5) and 0068 (§ 2 above all); `docs/
+features.md`'s 477 line (the feature contract); `chrome_profile.rs`,
+`chrome.rs`'s `Drop`, `chrome_serving.rs`'s `records`, `agents.rs`'s
+`stop`, `window.rs`'s `frame` and `Framing`, `alo.rs`'s `in_chrome`,
+`the_application_opens_its_own_page.rs`; `winit` 0.30.13's macOS
+`app_state.rs`. No `AGENTS.md` exists in the repository.
+
+**Why 688.** The product path's remaining items: 477 closes only on
+another Mac; 684 needs an ADR for `unsafe`; 658 waits on a measurement;
+688 was marked *needs design* between two ways — removing a dead
+browser's profile at the next start, or an application delegate of our
+own (`unsafe`). Reading `winit`'s source found a third that needs no
+design of that size: `winit` is already the delegate, and its
+`applicationWillTerminate:` calls `internal_exit`, which sends
+`LoopExiting` — the handler's `exiting` — before `AppKit` ends the
+process. The policy itself was already decided (ADR 0067 § 5: the day
+this browser leaves anything on a disk, Quit runs the shutdown the
+window does), so the item was buildable, and the mechanism is recorded
+as ADR 0068's amendment of 27 October rather than decided silently in
+code. Screen unlocked, macOS 26.5.2, Chrome 156.0.8078.48.
+
+**Measured first, by hand.** The debug `alo` and `alo-render` copied
+into a probe `alo browser.app` (no `Info.plist`) in the scratchpad,
+started with `/dev/null` for input; `osascript -e 'tell application
+"<path>" to quit'` reached it by path (`lsappinfo` knew it with no
+identifier). With the change, `alo` ended, no Chrome was left and no
+`alo-chrome-<its pid>-*` profile.
+
+**Built.** `closing.rs`: a `Closing`, one shutdown run at most once —
+when first asked, or as it is dropped unrun. `window::frame` takes one
+and `Framing` runs it in `ApplicationHandler::exiting`; a frame refused
+before its event loop runs it as it returns. `alo.rs`'s `in_chrome`
+moves everything that followed the frame — stopping the socket (which
+removes its file), `Order::CloseEverything`, and waiting for the thread
+holding Chrome, whose `Chrome` drop closes Chrome and removes the
+profile — into that closing, and reads whether the thread finished from
+a `Cell` after. No `unsafe`, no new `winit` call (`exiting` is a method
+of ours; `window.rs`'s list of calls says so).
+
+**Tests.** `closing.rs`'s two unit tests (once however often asked; run
+as dropped). `the_application_opens_its_own_page` now asserts the
+profile and socket exist while open, **quits** the application by the
+Apple Event `osascript` sends instead of `SIGKILL`, waits up to 30 s for
+`alo` to end, finds every process it started gone, and asserts no
+profile and no socket left. **Mutation:** `exiting` not running the
+closing (copied, edited, restored with `cp`, `cmp`) fails it with
+"Chrome's profile was left". The `SIGKILL` assertion is gone from this
+test; Chrome ending with its pipe stays asserted by
+`chrome_over_a_pipe.rs`. `the_program_told_to_use_chrome` (4) and
+`the_frame_around_chromes_window` (2), whose shutdown path moved, pass.
+
+**Measured by hand, the real application.** `cargo build --release`,
+`alo-bundle --into` the scratchpad, `open -n`: Chrome and the strip's
+renderer `alo`'s children, the profile 11 MB, `alo-ask` answered one tab
+at the page's address in the bundle. `tell application id
+"org.aloworld.Browser" to quit`: 3 s later no `alo`, no driven Chrome,
+no profile, no socket. The fifteen `alo-chrome-*` profiles already in
+`TMPDIR` (fourteen of 26 October, one of 07:41 today, all before this
+session) are not this iteration's and were left; they are 690's kind.
+
+**The gate.** Started in the foreground, moved to the background by the
+tool at 600 s, read by an until-loop in the next call: **5515 tests run,
+5515 passed, 10 of 10 steps, "The gate is met.", exit 0.**
+
+**Manual.** Nothing is laid out or drawn by this change: no layout
+assertion or reference render applies (the application's page keeps its
+corpus case). One file, one responsibility: running a shutdown once is
+`closing.rs`'s; `window.rs` stays the one file naming `winit`; `alo.rs`
+says what its shutdown is. Features (477's line), roadmap (Built clause
+names 688, Owed names 690, closing paragraph — nothing ticked), queue
+(688 ticked with a Done paragraph, 477's row moved, 690 written),
+ADR 0068's amendment and the changelog updated. No verb taking a
+coordinate, no rented crate added. `alo-os` and `alo-workplace`
+untouched. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: the product path line's Built clause.
+
+**Unresolved obligations.**
+- 477 still closes only on a Mac that never built it, opened by
+  double-clicking.
+- 690 (a killed browser's profile, at the next start) needs design; 684
+  needs an ADR; 658 waits on its measurement with the screen in use.
+- The macOS "prevented from modifying apps" notice is not explained.
+- No claim about speed is made.
+
+The next unused queue number is **691** and the next ADR is **0069**.
+This is one iteration, not a finished queue or roadmap.

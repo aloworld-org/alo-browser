@@ -94,13 +94,17 @@
 //! on macOS `EventLoopBuilderExtMacOS::with_activate_ignoring_other_apps`,
 //! each a safe function in 0.30.13's source as checked by item 642 (ADR
 //! 0062's consequences); `with_parent_window`, the one `unsafe fn` beside
-//! them, is not called.
+//! them, is not called. Quitting the program adds no call either: the
+//! frame's shutdown is run in `ApplicationHandler::exiting`, a method of
+//! ours that `winit`'s own application delegate calls from
+//! `applicationWillTerminate:` (item 688).
 
 use crate::agent_lines::AgentLines;
 use crate::aim::{Aimed, aim, on_page};
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
+use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
 use crate::cursor::{Cursor, Pressed};
 use crate::frame_strip::{FrameStrip, strip_of};
@@ -431,7 +435,13 @@ impl ApplicationHandler<News> for App {
 /// window is gone (ADR 0062, queue item 642): told where to stand, what
 /// agents did and what the page is called on `told`, saying that
 /// `renderer` draws the page, sending `orders` to the thread holding
-/// Chrome, and having the page's tab drawn by a renderer of `strips`'.
+/// Chrome, and having the page's tab drawn by a renderer of `strips`' —
+/// and running `closing` as the event loop ends, however it ends.
+///
+/// `closing` is run in the handler's `exiting`, because quitting the program
+/// ends the process there and never returns from the event loop (queue item
+/// 688, [`crate::closing`]); a frame refused before its event loop began
+/// runs it as it returns.
 ///
 /// The frame is told on a channel rather than through the event loop,
 /// because the thread holding Chrome starts first. Measured: a program
@@ -450,6 +460,7 @@ pub fn frame(
     orders: Orders,
     renderer: String,
     strips: Renderers,
+    closing: Closing<'_>,
 ) -> Result<(), String> {
     let Some(lettering) = Lettering::compiled_in() else {
         let _ = orders.send(Order::CloseEverything);
@@ -491,6 +502,7 @@ pub fn frame(
     }
     let mut framing = Framing {
         orders,
+        closing,
         told: Follow::Aside,
         renderer,
         lines: AgentLines::default(),
@@ -519,8 +531,10 @@ pub fn frame(
 }
 
 /// The frame's event loop's state.
-struct Framing {
+struct Framing<'a> {
     orders: Orders,
+    /// What the program does as it ends, run as the event loop does.
+    closing: Closing<'a>,
     /// Where the frame was last told to stand.
     told: Follow,
     /// Which renderer draws the page, as the frame says it.
@@ -545,7 +559,7 @@ struct Framing {
     failed: Option<String>,
 }
 
-impl Framing {
+impl Framing<'_> {
     /// Put the window where it was last told, or hide it.
     fn stand(&self) {
         let Some(window) = &self.window else {
@@ -635,7 +649,7 @@ fn standing(at: Bounds) -> Option<(LogicalPosition<f64>, LogicalSize<f64>)> {
     ))
 }
 
-impl ApplicationHandler<ToFrame> for Framing {
+impl ApplicationHandler<ToFrame> for Framing<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -738,6 +752,12 @@ impl ApplicationHandler<ToFrame> for Framing {
             WindowEvent::CloseRequested => self.send(Order::CloseEverything, event_loop),
             _ => {}
         }
+    }
+
+    /// The event loop is ending — returning, or the program quit, when
+    /// `AppKit` ends the process once this returns (item 688).
+    fn exiting(&mut self, _: &ActiveEventLoop) {
+        self.closing.run();
     }
 }
 

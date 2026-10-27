@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Quitting the Mac application leaves nothing behind.** ⌘Q or Quit
+  from the Dock used to end the program before it tidied up, so the
+  private Chrome profile it made — tens of megabytes, and whatever the
+  session's sites stored — stayed in the temporary folder, and so did the
+  socket agents reach it at. Quit now closes Chrome, waits for it, and
+  removes both before the program ends, and a test quits the application
+  and checks that neither is there.
+
 - **The Mac application has an icon, drawn by this engine.** A terracotta
   tile with "alo" on it, alo's own colours, laid out as a page and drawn
   by this engine at every size macOS asks for, from 16 to 1,024 pixels.

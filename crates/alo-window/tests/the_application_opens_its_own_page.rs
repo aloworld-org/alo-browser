@@ -16,13 +16,12 @@
 //! on the terminal with the way it is closed, and is still running after
 //! its input has ended. An agent, through `alo-ask`, finds the page at its
 //! `file:` address inside the application and is told Chrome draws it.
-//! Then the program is ended with nothing of it run — `SIGKILL`, stricter
-//! than Quit, which ends it inside `AppKit` before its destructors (ADR 0067
-//! § 1) — and nothing it started is left running: Chrome ends when its
-//! pipe closes, and the tab strip's renderer when its own does.
-//!
-//! Chrome's profile *is* left behind, which is queue item 688; the test
-//! removes it, having asserted it was there.
+//! Then the application is **quit** as the Dock and ⌘Q quit it, by the
+//! Apple Event `osascript` sends it, which ends the process inside `AppKit`
+//! without returning from its event loop (ADR 0067 § 1). Nothing it started
+//! is left running, and nothing it made is left on the disk: not Chrome's
+//! profile, which Quit used to leave (queue item 688), and not the socket
+//! an agent reached it at.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -69,6 +68,30 @@ fn application() -> Result<(PathBuf, PathBuf), String> {
             .map_err(|why| format!("{case} could not be copied: {why}"))?;
     }
     Ok((root, contents))
+}
+
+/// How long Quit is given to end the program: Chrome is asked to close and
+/// waited for first, which takes about a second (ADR 0068 § 2).
+const QUIT_WITHIN: Duration = Duration::from_secs(30);
+
+/// Quit the application at `application`, as the Dock and ⌘Q do.
+fn quit(application: &Path) -> Result<(), String> {
+    let path = application
+        .to_str()
+        .ok_or("not a path AppleScript can name")?;
+    let asked = Command::new("/usr/bin/osascript")
+        .arg("-e")
+        .arg(format!("tell application {path:?} to quit"))
+        .output()
+        .map_err(|why| format!("osascript did not run: {why}"))?;
+    if asked.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "the application was not quit: {}",
+            String::from_utf8_lossy(&asked.stderr)
+        ))
+    }
 }
 
 /// What a process says on its terminal, a line at a time.
@@ -291,11 +314,22 @@ fn the_application_opens_its_page_in_chrome_and_quitting_leaves_nothing_running(
         "no tab strip renderer among {children:?}"
     );
 
-    started
-        .0
-        .kill()
-        .map_err(|why| format!("alo could not be killed: {why}"))?;
-    let _ = started.0.wait();
+    assert!(profile.is_dir(), "{}", profile.display());
+    assert!(socket.exists(), "{}", socket.display());
+
+    quit(&root.join("alo browser.app"))?;
+    let until = Instant::now() + QUIT_WITHIN;
+    let ended = loop {
+        match started.0.try_wait() {
+            Ok(None) if Instant::now() < until => std::thread::sleep(Duration::from_millis(50)),
+            Ok(ended) => break ended,
+            Err(why) => return Err(format!("alo could not be waited for: {why}")),
+        }
+    };
+    assert!(
+        ended.is_some(),
+        "alo was still running {QUIT_WITHIN:?} after it was quit"
+    );
     let until = Instant::now() + AT_MOST;
     let mut left: Vec<_> = children.iter().map(|(pid, _)| *pid).collect();
     while !left.is_empty() && Instant::now() < until {
@@ -307,9 +341,16 @@ fn the_application_opens_its_page_in_chrome_and_quitting_leaves_nothing_running(
         "still running after the program ended: {left:?} of {children:?}"
     );
 
-    // Item 688: the profile is left behind by a program that ends this way.
-    assert!(profile.is_dir(), "{}", profile.display());
+    // Item 688: nothing of the session is left on the disk.
+    let profile_left = profile.exists();
+    let socket_left = socket.exists();
     let _ = std::fs::remove_dir_all(&profile);
     let _ = std::fs::remove_dir_all(&root);
+    assert!(
+        !profile_left,
+        "Chrome's profile was left: {}",
+        profile.display()
+    );
+    assert!(!socket_left, "the socket was left: {}", socket.display());
     Ok(())
 }

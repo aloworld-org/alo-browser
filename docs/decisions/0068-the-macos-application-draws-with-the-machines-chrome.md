@@ -80,3 +80,31 @@ person changes is a first-run or settings item (479), not this.
 - `alo` gains: inside a bundle with no page named, `--chrome` on the
   bundle's page; inside a bundle, input not watched; no Chrome found,
   this engine on the same page, saying so.
+
+## Amendment — 27 October 2026: how Quit is heard, measured (queue item 688)
+
+§ 2's *Quit leaves no Chrome* was measured in iteration 427 and held:
+Chrome ends when its pipe closes. What Quit **did** leave was Chrome's
+private profile — 67 MB after one page — and the socket, because the
+shutdown that closes Chrome, waits for it and removes them was written
+after the frame's event loop, and Quit never returns from it. ADR 0067
+§ 5 already said the day this browser leaves anything on a disk, Quit
+runs the shutdown the window does; a profile is that day.
+
+Item 688 named two ways: remove a dead browser's profile at the next
+start, or hear Quit through an application delegate of our own, which
+is `unsafe` code. **Neither is taken.** `winit` 0.30.13 is already the
+application's delegate, and its `applicationWillTerminate:` ends the
+event loop the way the loop would end itself, calling the handler's
+`exiting` before `AppKit` ends the process. So the shutdown is handed to
+the frame and run in `exiting` (`closing.rs`), once, whichever way the
+program ends. Measured on macOS 26.5.2 with Chrome 156.0.8078.48: quit by
+the Apple Event the Dock and ⌘Q send, the application closed Chrome and
+left neither the profile nor the socket; with `exiting` not running the
+shutdown, the profile was left. No `unsafe` of ours, no new call into
+`winit`.
+
+What this does not cover, and says so: a browser **killed** — `SIGKILL`,
+a crash, the machine losing power — runs nothing, and leaves its profile
+as before. Chrome still ends with its pipe. Removing what a dead browser
+left, at the next start, is queue item 690.

@@ -244,6 +244,12 @@ about this project (ADR 0058 § 6).
   out at each size an `.icns` holds, 16 to 1,024 pixels, every picture a
   reference the gate compares, packed by our own code into the `.icns`
   `CFBundleIconFile` names, and shown by the Finder (689); and
+  **an application that, quit, leaves nothing behind** — the shutdown
+  that closes Chrome, waits for it and removes its profile and the
+  socket run as the frame's event loop ends, which `winit`'s own
+  application delegate does on `applicationWillTerminate:` before
+  `AppKit` ends the process, asserted by quitting the application with
+  the Apple Event the Dock sends (688, `closing.rs`); and
   **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
@@ -338,9 +344,10 @@ about this project (ADR 0058 § 6).
   application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
   inside it built, closing only on a Mac that never built it, with Chrome
   from the application (685) folded into it, and assembled by a command
-  (687), with its icon (689) — still owed Chrome's profile that Quit
-  leaves (688); and a page opened from the Finder (684, needs an
-  ADR for its `unsafe`).
+  (687), with its icon (689), and leaving no profile when quit (688);
+  what a killed browser left, removed at the next start (690, needs
+  design); and a page opened from the Finder (684, needs an ADR for its
+  `unsafe`).
 
 642 is closed: a frame of ours above Chrome's window that follows it,
 stands aside when it is not on the screen and closes with it was built on
@@ -358,7 +365,8 @@ bounds, unless something brought in front after it sends it to Stage
 Manager's strip (643). And `alo` copied into an application opens that application's
 page in Chrome when macOS starts it with nothing (477's first part), and
 `alo-bundle` makes that application, sealed and checked (687), with an
-icon this engine drew (689).
+icon this engine drew (689), and quitting it leaves no Chrome, profile or
+socket behind (688).
 
 ---
 

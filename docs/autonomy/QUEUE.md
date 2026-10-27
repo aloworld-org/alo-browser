@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); owed: the profile Quit leaves (688), and another Mac |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); **quit, it leaves no profile or socket** (688, iteration 430); owed: another Mac |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18884,7 +18884,7 @@ person unblocks this stage or does not.
   Chrome under the frame; AppleScript's `quit` by identifier left no `alo`,
   renderer or Chrome running, and left the 67 MB profile (688).
 
-- [ ] **688. Chrome's profile left behind by Quit.** *Found building 477
+- [x] **688. Chrome's profile left behind by Quit.** *Found building 477
   (iteration 427), measured.* Quit ends `alo` inside AppKit before its
   destructors (ADR 0067 § 1), so the private profile each Chrome is given
   (`chrome_profile.rs`) stays in the person's `TMPDIR`: 67 MB after one
@@ -18896,6 +18896,32 @@ person unblocks this stage or does not.
   684). *Depends on nothing.* *Closes when:* a quit application leaves no
   profile of its own, asserted where `the_application_opens_its_own_page`
   now asserts one is left.
+  ***Done (iteration 430), by neither way named.*** `winit` 0.30.13 is
+  already the application's delegate, and on `applicationWillTerminate:`
+  it calls the handler's `exiting` before `AppKit` ends the process. So
+  `alo --chrome`'s shutdown — the socket stopped and removed, Chrome told
+  to close, waited for and its profile removed — is a `Closing`
+  (`closing.rs`) handed to the frame and run in `exiting`, once, however
+  the program ends; a frame refused before its loop runs it as it
+  returns. No `unsafe` of ours (ADR 0068's amendment of 27 October).
+  `the_application_opens_its_own_page` now quits the application by the
+  Apple Event `osascript` sends, as the Dock and ⌘Q do, and asserts no
+  process left, no profile and no socket. **Mutation:** `exiting` not
+  running the closing fails it at "Chrome's profile was left". **Measured
+  by hand:** the release `alo-bundle`'s application opened by `open`,
+  quit by identifier, left no `alo`, Chrome, profile (11 MB while open)
+  or socket. A browser killed still leaves its profile: 690.
+
+- [ ] **690. What a killed browser left, removed at the next start.**
+  *Cut from 688 (iteration 430); ADR 0068's amendment of 27 October.* A
+  browser ended by `SIGKILL`, a crash or the power runs nothing, so its
+  Chrome's profile (`alo-chrome-PID-…` in `TMPDIR`) stays; this machine
+  held fifteen on 27 October, fourteen of them from the day before. *Needs design:* how a start
+  knows a profile is a dead browser's and not a running one's — the PID
+  in its name can be reused — without touching another person's files.
+  *Depends on nothing.* *Closes when:* a start after a browser was
+  killed removes that browser's profile and no running browser's, in a
+  test that kills one.
 
 - [x] **689. The application's icon, drawn by this engine.** *ADR 0067
   § 6; cut from 477 (iteration 427).* A page in this repository drawn by
