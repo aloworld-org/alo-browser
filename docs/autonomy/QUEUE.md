@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); owed: the profile Quit leaves (688), the icon (689), and another Mac |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); owed: the profile Quit leaves (688), and another Mac |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18897,13 +18897,29 @@ person unblocks this stage or does not.
   profile of its own, asserted where `the_application_opens_its_own_page`
   now asserts one is left.
 
-- [ ] **689. The application's icon, drawn by this engine.** *ADR 0067
+- [x] **689. The application's icon, drawn by this engine.** *ADR 0067
   § 6; cut from 477 (iteration 427).* A page in this repository drawn by
   this engine at the sizes an `.icns` holds, each a committed reference
   compared by the gate, packed as PNG into an `.icns` by our own code and
   named by `CFBundleIconFile`. *Depends on 687.* *Closes when:* the
   assembled bundle carries the `.icns`, its pictures equal the committed
   references, and the Finder shows it (a screen capture in the journal).
+  ***Done (iteration 429).*** The corpus case `the-applications-icon` is
+  one page, every length in `vmin`: a terracotta tile on Apple's grid (824
+  of 1,024, 100 in) with "alo" in cream, alo's own colours.
+  `the_applications_icon.rs` lays it out in a window 16, 32, 64, 128, 256,
+  512 and 1,024 pixels a side, asserts the tile's box at each in numbers,
+  draws its display list onto a transparent picture, and compares each
+  with `icon-N.png`. `icns.rs` writes Apple's container (and reads it
+  back); `bundle_icon.rs` takes the seven references in as the command is
+  compiled and puts them in ten entries — `icp4`, `icp5`, `ic11`–`ic14`,
+  `ic07`–`ic10`, the types that hold a PNG; `iconutil` writes the two
+  smallest in its own format, and reads these back as the same sizes. The
+  bundle carries `Contents/Resources/icon.icns` and `CFBundleIconFile`
+  names it. `the_application_assembled` asserts every entry is its
+  reference byte for byte and that `iconutil` reads back all ten sizes.
+  **Measured by hand:** the release `alo-bundle` made the application;
+  the Finder, in icon view, showed it with this icon.
 
 - [ ] **686. A Chrome silent for 30 s in the gate, and nowhere else.**
   Iteration 426's gate (no code changed; ADR 0067 and its documents only)

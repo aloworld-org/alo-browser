@@ -1,0 +1,5 @@
+block flow · document → 1024×0 at (0, 0)
+  block flow · generic → 1024×0 at (0, 0)
+    block flex · generic → 824×824 at (100, 100)
+      inline flow · generic → 515.46875×320 at (254.26563, 352)
+        text "alo" → 515.46875×372 at (254.26563, 326)

@@ -110,6 +110,7 @@ pub mod aim;
 pub mod asking;
 pub mod beside;
 pub mod bundle;
+pub mod bundle_icon;
 pub mod bundle_made;
 pub mod bundle_seal;
 #[cfg(unix)]
@@ -148,6 +149,7 @@ pub mod frame_place;
 pub mod frame_strip;
 pub mod frame_told;
 pub mod hold;
+pub mod icns;
 pub mod inbox;
 pub mod info_plist;
 pub mod json_depth;

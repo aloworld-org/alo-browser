@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The Mac application has an icon, drawn by this engine.** A terracotta
+  tile with "alo" on it, alo's own colours, laid out as a page and drawn
+  by this engine at every size macOS asks for, from 16 to 1,024 pixels.
+  Each size is a picture the tests compare, and `alo-bundle` puts those
+  same pictures into the application, so the Finder shows the icon.
+
 - **The Mac application is made by a command.** After `cargo build
   --release`, `target/release/alo-bundle` makes `alo browser.app` beside
   the programs: `alo`, its renderer and `alo-ask`, the application's own

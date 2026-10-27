@@ -8,8 +8,11 @@
 //! The real command, given the programs this test was built with, makes
 //! `alo browser.app` in a directory of the test's own. What it holds is read
 //! back file by file: the three programs, the two pages byte for byte as
-//! the corpus has them, and an `Info.plist` that Apple's own `plutil` reads
-//! the identifier, the program and the version out of. `codesign` checks
+//! the corpus has them, an `Info.plist` that Apple's own `plutil` reads
+//! the identifier, the program, the version and the icon out of, and an
+//! `.icns` whose every picture is the corpus's reference byte for byte and
+//! which Apple's own `iconutil` reads back as an icon of every size (queue
+//! item 689). `codesign` checks
 //! the seal on its own, strictly; and a page changed after sealing is
 //! refused by it, so the seal covers what the application carries. Made a
 //! second time into the same place, it is refused and the first left as it
@@ -84,6 +87,80 @@ fn checked(application: &Path) -> Result<(bool, String), String> {
     ))
 }
 
+/// Assert the `.icns` at `icon` holds each picture of the corpus case
+/// `the-applications-icon` byte for byte, in the entry for its size, and
+/// that `iconutil` reads it back as an icon set of every size.
+fn the_icon_is_the_corpus_pictures(cases: &Path, icon: &Path) -> Result<(), String> {
+    let icns = std::fs::read(icon).map_err(|why| format!("the icon: {why}"))?;
+    let read = alo_window::icns::entries(&icns).ok_or("the icon is not an .icns")?;
+    let held: Vec<(String, u32)> = alo_window::bundle_icon::ENTRIES
+        .iter()
+        .map(|(kind, side)| (String::from_utf8_lossy(kind).into_owned(), *side))
+        .collect();
+    assert_eq!(
+        held,
+        [
+            ("icp4", 16),
+            ("icp5", 32),
+            ("ic11", 32),
+            ("ic12", 64),
+            ("ic07", 128),
+            ("ic13", 256),
+            ("ic08", 256),
+            ("ic14", 512),
+            ("ic09", 512),
+            ("ic10", 1024),
+        ]
+        .map(|(kind, side)| (kind.to_owned(), side))
+    );
+    assert_eq!(read.len(), held.len());
+    for ((kind, bytes), (wanted, side)) in read.iter().zip(&held) {
+        assert_eq!(String::from_utf8_lossy(kind), *wanted);
+        let reference = cases
+            .join("the-applications-icon")
+            .join(format!("icon-{side}.png"));
+        let drawn = std::fs::read(&reference).map_err(|why| format!("{side}: {why}"))?;
+        assert!(
+            *bytes == drawn.as_slice(),
+            "{wanted} is not icon-{side}.png"
+        );
+    }
+
+    // Read back outside the application, whose seal is checked after.
+    let set = directory("read back")?.join("icon.iconset");
+    let ran = Command::new("/usr/bin/iconutil")
+        .args(["-c", "iconset"])
+        .arg(icon)
+        .arg("-o")
+        .arg(&set)
+        .output()
+        .map_err(|why| format!("iconutil did not run: {why}"))?;
+    assert!(
+        ran.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ran.stderr)
+    );
+    let mut sizes = Vec::new();
+    for points in [16, 32, 128, 256, 512] {
+        for (scale, suffix) in [(1, ""), (2, "@2x")] {
+            let picture = set.join(format!("icon_{points}x{points}{suffix}.png"));
+            let png = std::fs::read(&picture).map_err(|why| format!("{points}{suffix}: {why}"))?;
+            let width = png
+                .get(16..20)
+                .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
+                .map(u32::from_be_bytes);
+            sizes.push((points, scale, width));
+        }
+    }
+    if let Some(own) = set.parent() {
+        let _ = std::fs::remove_dir_all(own);
+    }
+    for (points, scale, width) in sizes {
+        assert_eq!(width, Some(points * scale), "{points} points at {scale}");
+    }
+    Ok(())
+}
+
 #[test]
 fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(), String> {
     let root = directory("made")?;
@@ -106,6 +183,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             "alo browser.app/Contents/MacOS/alo",
             "alo browser.app/Contents/MacOS/alo-ask",
             "alo browser.app/Contents/MacOS/alo-render",
+            "alo browser.app/Contents/Resources/icon.icns",
             "alo browser.app/Contents/Resources/page.html",
             "alo browser.app/Contents/Resources/without-chrome.html",
             "alo browser.app/Contents/_CodeSignature/CodeResources",
@@ -118,6 +196,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
     for (key, value) in [
         ("CFBundleIdentifier", "org.aloworld.Browser"),
         ("CFBundleExecutable", "alo"),
+        ("CFBundleIconFile", "icon.icns"),
         ("CFBundleName", "alo browser"),
         ("CFBundleDisplayName", "alo browser"),
         ("CFBundlePackageType", "APPL"),
@@ -126,9 +205,11 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
     ] {
         assert_eq!(read_by_plutil(&list, key)?, value, "{key}");
     }
-    for refused in ["CFBundleDocumentTypes", "CFBundleIconFile"] {
-        assert_eq!(read_by_plutil(&list, refused)?, "", "{refused}");
-    }
+    assert_eq!(
+        read_by_plutil(&list, "CFBundleDocumentTypes")?,
+        "",
+        "item 684"
+    );
 
     let cases = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases");
     for (case, name) in [
@@ -144,6 +225,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             .map_err(|why| format!("{name}: {why}"))?;
         assert!(corpus == carried, "{name} is not {case}'s page");
     }
+    the_icon_is_the_corpus_pictures(&cases, &contents.join("Resources/icon.icns"))?;
     for program in ["alo", "alo-render", "alo-ask"] {
         assert!(
             alo_window::beside::is_program(&contents.join("MacOS").join(program)),

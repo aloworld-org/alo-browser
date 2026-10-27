@@ -6,8 +6,9 @@
 //! command that makes it (queue item 687; ADR 0067 § 6).
 //!
 //! `alo browser.app` holds `alo`, `alo-render` and `alo-ask` in
-//! `Contents/MacOS`, the application's two pages in `Contents/Resources`,
-//! and its [`crate::info_plist`]. The pages are the corpus cases
+//! `Contents/MacOS`, the application's two pages and its icon
+//! ([`crate::bundle_icon`], item 689) in `Contents/Resources`, and its
+//! [`crate::info_plist`]. The pages are the corpus cases
 //! `the-applications-page` and `the-applications-page-without-chrome`, taken
 //! into the command as it is compiled, so the pages an application carries
 //! are the bytes whose renders are committed — never a copy that drifted.
@@ -54,6 +55,8 @@ pub enum NotMade {
     NoProgram(PathBuf),
     /// An application is already where this one would go.
     AlreadyThere(PathBuf),
+    /// The icon's pictures could not be put in an `.icns`.
+    Icon(crate::icns::TooLarge),
     /// The disk refused: what was being done, and its words.
     Disk(String, String),
 }
@@ -71,6 +74,7 @@ impl fmt::Display for NotMade {
                 "{} is already there, and is not replaced: remove it first",
                 application.display()
             ),
+            Self::Icon(why) => write!(f, "{}: {why}", crate::bundle_icon::FILE),
             Self::Disk(doing, why) => write!(f, "{doing}: {why}"),
         }
     }
@@ -168,11 +172,16 @@ fn put_together(programs: &Path, application: &Path) -> Result<(), NotMade> {
             )
         })?;
     }
-    let mut files: Vec<(PathBuf, String)> = pages()
+    let icon = crate::bundle_icon::icns().map_err(NotMade::Icon)?;
+    let mut files: Vec<(PathBuf, Vec<u8>)> = pages()
         .iter()
-        .map(|(name, markup)| (resources.join(name), (*markup).to_owned()))
+        .map(|(name, markup)| (resources.join(name), markup.as_bytes().to_vec()))
         .collect();
-    files.push((contents.join("Info.plist"), crate::info_plist::text()));
+    files.push((resources.join(crate::bundle_icon::FILE), icon));
+    files.push((
+        contents.join("Info.plist"),
+        crate::info_plist::text().into_bytes(),
+    ));
     for (path, text) in files {
         std::fs::write(&path, text).map_err(|why| {
             NotMade::Disk(
@@ -238,6 +247,10 @@ mod tests {
                 "{name}"
             );
         }
+        assert_eq!(
+            std::fs::read(contents.join("Resources/icon.icns")).ok(),
+            crate::bundle_icon::icns().ok()
+        );
         let left: Vec<_> = std::fs::read_dir(&root)
             .map(|entries| {
                 entries

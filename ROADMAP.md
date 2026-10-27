@@ -240,6 +240,10 @@ about this project (ADR 0058 § 6).
   renders and an `Info.plist` naming `org.aloworld.Browser` into `alo
   browser.app`, seals it ad hoc and has `codesign` check it; opened by
   `open` it drew its page in Chrome and answered `alo-ask` (687); and
+  **the application's icon, drawn by this engine** — a page of ours laid
+  out at each size an `.icns` holds, 16 to 1,024 pixels, every picture a
+  reference the gate compares, packed by our own code into the `.icns`
+  `CFBundleIconFile` names, and shown by the Finder (689); and
   **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
@@ -334,8 +338,8 @@ about this project (ADR 0058 § 6).
   application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
   inside it built, closing only on a Mac that never built it, with Chrome
   from the application (685) folded into it, and assembled by a command
-  (687) — still owed Chrome's profile that Quit leaves (688) and the icon
-  (689); and a page opened from the Finder (684, needs an
+  (687), with its icon (689) — still owed Chrome's profile that Quit
+  leaves (688); and a page opened from the Finder (684, needs an
   ADR for its `unsafe`).
 
 642 is closed: a frame of ours above Chrome's window that follows it,
@@ -353,7 +357,8 @@ a placed window is in front where the window server lists it at Chrome's
 bounds, unless something brought in front after it sends it to Stage
 Manager's strip (643). And `alo` copied into an application opens that application's
 page in Chrome when macOS starts it with nothing (477's first part), and
-`alo-bundle` makes that application, sealed and checked (687).
+`alo-bundle` makes that application, sealed and checked (687), with an
+icon this engine drew (689).
 
 ---
 

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alo browser's icon</title>
+    <!--
+      The macOS application's icon (queue item 689; ADR 0067 § 6), drawn by
+      this engine at each size an .icns holds: a window as wide as it is
+      tall, 16 to 1,024 pixels a side, so every length is in vmin and the
+      icon is the same drawing at each. The tile stands on Apple's grid for
+      a Mac icon, 824 of 1,024 with 100 around it, and the colours are
+      alo's own (alo-workplace's tokens.css): terracotta, cream and navy.
+      Nothing is behind the tile, so the icon is drawn onto a transparent
+      picture and its corners are the Finder's to show through.
+    -->
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      .tile {
+        position: absolute;
+        left: 9.765625vmin;
+        top: 9.765625vmin;
+        width: 80.46875vmin;
+        height: 80.46875vmin;
+        border-radius: 18.06640625vmin;
+        background: linear-gradient(to bottom, #ea8368, #b84a32);
+        box-shadow: 0 0.9765625vmin 1.953125vmin rgba(16, 42, 67, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .name {
+        color: #f8f6f2;
+        font-family: sans-serif;
+        font-size: 31.25vmin;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.9765625vmin;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tile"><span class="name">alo</span></div>
+  </body>
+</html>

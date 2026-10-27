@@ -1,0 +1,5 @@
+block flow · document
+  block flow · generic
+    block flex · generic
+      inline flow · generic
+        text "alo"

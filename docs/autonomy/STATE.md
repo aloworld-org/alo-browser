@@ -43767,3 +43767,85 @@ crate added. `alo-os` and `alo-workplace` untouched. Nothing pushed.
 
 The next unused queue number is **690** and the next ADR is **0069**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 429 — queue item 689: the application's icon, drawn by this engine — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, iterations 427 and 428, the queue's product path and items 477,
+684–689; ADRs 0067 (§ 6 above all) and 0068; `docs/features.md`'s 477
+line; `bundle_made.rs`, `info_plist.rs`, `the_application_assembled.rs`,
+the corpus's `check.rs`, `rendering.rs` and `corpus.rs`, the renderer's
+`pipeline.rs`. No `AGENTS.md` exists in the repository.
+
+**Why 689.** First open item on the product path whose dependency (687)
+is done; 688 needs design, 684 needs an ADR, 686 is off the path and
+iterations 427–428's gates passed.
+
+**Built.** The corpus case `the-applications-icon`: one page of ours,
+every length in `vmin`, a terracotta tile on Apple's grid for a Mac icon
+(824 of 1,024, 100 in, radius 185) with "alo" in cream and a navy shadow
+— alo-workplace's `tokens.css` colours. `the_applications_icon.rs` lays it
+out in windows 16, 32, 64, 128, 256, 512 and 1,024 pixels a side, paints
+each display list onto a **transparent** picture (nothing is behind the
+tile) and compares it with `icon-N.png`. `icns.rs` writes Apple's
+container (and reads one back, refusing a wrong header, a cut entry or a
+whole over 4 GiB); `bundle_icon.rs` takes the seven references in with
+`include_bytes!` and puts them in ten entries, `icp4`, `icp5`, `ic11`,
+`ic12`, `ic07`, `ic13`, `ic08`, `ic14`, `ic09`, `ic10` — the types that
+hold a PNG. Measured first: `iconutil` itself writes the 16 and 32 at one
+as `ic04`/`ic05` in its own ARGB format, and reads `icp4`/`icp5` PNGs
+back as 16 and 32. `alo-bundle` writes `Contents/Resources/icon.icns`;
+`CFBundleIconFile` names it; `NotMade::Icon` says when it cannot be made.
+
+**Tests.** Layout in numbers: the tile's border box at every size is
+100/1024 of the side in and 824/1024 wide, and the name's box is centred
+on it within 0.01 px. The corners are alpha 0 and the tile's top middle
+255 at every size; at 1,024 every opaque pixel of the icon equals the
+corpus's own white-ground render, so the icon is the page. Unit tests:
+the container byte for byte, read back, refusals; every picture a PNG as
+wide as it says, every entry holding a drawn picture. Integration,
+`the_application_assembled`: `icon.icns` in the file list, every entry
+its reference byte for byte, `iconutil -c iconset` reading back all ten
+sizes at the right widths (outside the bundle, whose seal is checked
+after), `CFBundleIconFile` read by `plutil`. **Mutation:** entry lengths
+written without their own eight bytes (copied, edited, restored with
+`cp`, `cmp`) fails it with "the icon is not an .icns".
+
+**The gate.** First run, foreground: **exit 1** — the one failure this
+iteration's own test, which had only been run in update mode: a pixel at
+the shadow's farthest reach has an alpha rounding to 0 and keeps navy's
+channels on the canvas, while a PNG read back holds it as (0,0,0,0). The
+icon is now the drawing *as its PNG holds it* (encoded and read back),
+said in the test; it passed against the references unchanged, then the
+references were rewritten so their bytes hold true transparency (visible
+pixels identical). Second run, started in the foreground and moved to
+the background by the tool at 600 s, read by an until-loop in the next
+call: **5513 tests run, 5513 passed, 10 of 10 steps, "The gate is met.",
+exit 0.**
+
+**Measured by hand** (screen unlocked, macOS 26.5.2): `cargo build
+--release`, `alo-bundle --into` the scratchpad; `codesign --verify --deep
+--strict` accepted it; the Finder, in icon view, showed *alo browser*
+with the terracotta "alo" tile (screen capture taken, kept in the
+scratchpad, not committed). That bundle was made before the references
+were rewritten; its visible pixels are the same.
+
+**Manual.** Layout assertion in numbers and reference renders, above
+(the case's `render.png`, `layout.txt` and the seven icons committed and
+compared). One file, one responsibility: the container is `icns.rs`'s,
+which pictures go where is `bundle_icon.rs`'s, putting files together
+stays `bundle_made.rs`'s. Features, roadmap (Built and Owed clauses moved,
+nothing ticked), queue (689 ticked with a Done paragraph, 477's row
+moved) and changelog updated. No `unsafe`, no verb taking a coordinate,
+no rented crate added. `alo-os` and `alo-workplace` read only. Nothing
+pushed.
+
+**Unresolved obligations.**
+- 477 still closes only on a Mac that never built it, opened by
+  double-clicking.
+- 688 (the profile Quit leaves) needs design; 684 needs an ADR.
+- The macOS "prevented from modifying apps" notice is not explained.
+- No claim about speed is made.
+
+The next unused queue number is **690** and the next ADR is **0069**.
+This is one iteration, not a finished queue or roadmap.

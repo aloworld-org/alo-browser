@@ -9,9 +9,9 @@
 //! opens without — which program it runs and which version of the format
 //! this is. **No `CFBundleDocumentTypes`**: the application opens no file
 //! the Finder hands it until item 684 is built, and saying it did would be
-//! lying to the Finder (ADR 0067 § 4). **No `CFBundleIconFile` yet**: the
-//! icon is item 689, and naming a file the bundle does not hold is the same
-//! lie.
+//! lying to the Finder (ADR 0067 § 4). `CFBundleIconFile` names the icon
+//! this engine drew, [`crate::bundle_icon::FILE`] (item 689), which the
+//! bundle holds.
 //!
 //! It is written as Apple's XML property list, a format small enough that
 //! a few lines of ours write it; every value is a string, escaped.
@@ -30,11 +30,12 @@ pub const EXECUTABLE: &str = "alo";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Each key of the property list and its value, in the order written.
-pub fn entries() -> [(&'static str, &'static str); 9] {
+pub fn entries() -> [(&'static str, &'static str); 10] {
     [
         ("CFBundleDevelopmentRegion", "en"),
         ("CFBundleDisplayName", NAME),
         ("CFBundleExecutable", EXECUTABLE),
+        ("CFBundleIconFile", crate::bundle_icon::FILE),
         ("CFBundleIdentifier", IDENTIFIER),
         ("CFBundleInfoDictionaryVersion", "6.0"),
         ("CFBundleName", NAME),
@@ -84,6 +85,7 @@ mod tests {
             ("CFBundleDisplayName", "alo browser"),
             ("CFBundlePackageType", "APPL"),
             ("CFBundleExecutable", "alo"),
+            ("CFBundleIconFile", "icon.icns"),
             ("CFBundleShortVersionString", "0.0.0"),
             ("CFBundleVersion", "0.0.0"),
         ] {
@@ -93,7 +95,6 @@ mod tests {
             );
         }
         assert!(!text.contains("CFBundleDocumentTypes"), "item 684");
-        assert!(!text.contains("CFBundleIconFile"), "item 689");
         assert!(text.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"));
         assert!(text.ends_with("</dict>\n</plist>\n"));
         assert_eq!(text.matches("<key>").count(), entries().len());
