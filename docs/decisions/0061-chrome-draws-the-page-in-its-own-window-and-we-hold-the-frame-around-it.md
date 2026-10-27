@@ -183,3 +183,14 @@ screen together, since two programs are two applications and Stage Manager
 shows one at a time. **ADR 0062** decides the frame is a floating window,
 put by Chrome's word and shown only while the window server lists Chrome's
 window on the screen there.
+
+## Addendum, 2026-10-27 — § 3 measured again, in ADR 0066
+
+Not a change to the decision. Queue item 680 was written proposing a
+window of ours over Chrome's page for the mark, missing § 3. **ADR 0066**
+measured both on Chrome 156 and keeps § 3: `Overlay.highlightNode` follows
+the node, takes no pointer and tells the page nothing, but fills only the
+box's own regions — so a borderless box's border draws nothing — and its
+label, which names the box by name and role, is the part seen on every
+box. A window of ours would hide the page, since `softbuffer` presents
+every pixel opaque on macOS.

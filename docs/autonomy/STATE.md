@@ -43141,3 +43141,80 @@ path's table shows 679, 682 and 681 ✓ and 680 →.
 
 The next unused queue number is **684** and the next ADR is **0066**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 422 — queue item 680's decision: ADR 0066, the mark through Chrome is Chrome's — decided, not built
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the three
+states; the product path), iteration 421's entry, the queue's product
+path and items 680, 681, 683, 643 and 624; ADRs 0061 (with both
+addenda), 0062 (with its addendum), 0002's rule as `mark.rs` and the
+gate state it; `docs/features.md`'s second-renderer line; `mark.rs`,
+`colours.rs`, `chrome_follow.rs`'s `FOLLOW_EVERY`, `window.rs`'s window
+level, and `softbuffer` 0.4.8's macOS presenter (`src/backends/cg.rs`).
+No `AGENTS.md` exists in the repository. 680's ADR is the one this
+iteration writes; its feature contract is `docs/features.md`'s
+second-renderer line.
+
+**Why 680.** Next on the product path by the owner's order (681, then
+680, which needs an ADR, then 643 and 477), and LOOP.md § 4 of stage 2:
+a decision is its own iteration. 683 (no words with the machine's fonts)
+depends on nothing and was not taken: the owner's order names 680 first.
+`ioreg` showed no `CGSSessionScreenIsLocked`; the window server held
+412 MB.
+
+**Found.** 680 was written proposing a window of ours over Chrome's page
+when ADR 0061 § 3 had already given the mark to Chrome's `Overlay`
+domain. So the ADR measured both rather than choosing by taste.
+
+**Measured** (Chrome 156.0.8078.48, macOS 26.5.2, Stage Manager on; a
+temporary Node CDP probe in the scratchpad, never in the repository; the
+viewport captured with `screencapture -R` and compared in device pixels):
+`highlightNode` with only `borderColor` drew a bordered button's border
+in the accent and **not one pixel** on a borderless accent button; it
+moved 100 device pixels with `scrollTo(0, 50)` and followed the page
+moving the box; a press on the marked button ran its handler; a press
+elsewhere removed the mark (one run); no mutation, no event, nine
+elements before and after; absent from `Page.captureScreenshot`;
+answered in 3 ms. With `showInfo` and `showAccessibilityInfo` its label
+named the borderless button "Submit order", "button", and followed a
+scroll. `highlightRect` drew at twice the place and size asked at scale
+2, four device pixels thick, and does not follow the page. `softbuffer`
+0.4.8 presents with `CGImageAlphaInfo::NoneSkipFirst`: every pixel
+opaque.
+
+**Decided — ADR 0066, accepted.** Through Chrome the box is marked by
+Chrome: `highlightNode` on the node the verb's outcome names, border in
+alo's accent, other regions clear, the label shown; a refused verb hides
+it; no window of ours over the page. It does not look like alo's ring,
+and the ADR says so (ADR 0058 § 6). Left open and named there:
+navigation, one mark replacing another unprompted, how long the label
+should cover its neighbours, two Chromes and frames. ADR 0061 gains an
+addendum pointing here.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5478 tests, 5478
+passed, 10 of 10 steps, "The gate is met.", exit 0.**
+
+**Manual.** No code changed, so no layout assertion or reference render
+applies; the measurements were of Chrome on this screen and are written
+in the ADR with the probe's setup. One file, one responsibility: the
+decision is its own file. Features, roadmap, queue and changelog
+updated. No `unsafe`, no verb taking a coordinate (the mark takes a node
+id). `alo-os` and `alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: the product path's Owed clause and the
+stage 2 browser line say 680 is decided in ADR 0066 and unbuilt; the
+closing paragraph says the same. 680 stays open in the queue with its
+Decided paragraph and its new closing condition; the product path's
+table shows it **decided** and still →.
+
+**Unresolved obligations.**
+- 680 is decided, not built: the next iteration on the product path
+  builds it (`chrome_serving.rs` sends `Overlay.highlightNode` /
+  `hideHighlight` after answering) and closes it on the screen's pixels.
+- 683: no words with the machine's fonts.
+- 643 and 477 follow.
+- No claim about speed is made.
+
+The next unused queue number is **684** and the next ADR is **0067**.
+This is one iteration, not a finished queue or roadmap.

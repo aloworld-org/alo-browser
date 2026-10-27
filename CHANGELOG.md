@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided how a person will see what an agent touched in a page shown
+  by Chrome.** Chrome itself will highlight the element, with its own
+  label giving the element's name and role, rather than this browser
+  laying a window of its own over the page: such a window would cover
+  the page instead of showing through, and would lag behind the page
+  when it scrolls. It will not look like this browser's own ring. Not
+  built yet (ADR 0066).
+
 - **The strip above Chrome's window now shows the page's tab.** With
   `alo --chrome`, the strip begins with a tab carrying the page's title,
   as this browser's own window shows its tabs, and the tab changes when

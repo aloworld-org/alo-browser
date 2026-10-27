@@ -60,7 +60,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **679** | what the frame around Chrome's window draws: which renderer, and the agent's sentences and refusals; gated once 682 was closed |
 | ✓ | **682** | the frame's own test reads Chrome's window shown and no frame beside it — its idea of *settled* corrected |
 | ✓ | **681** | the page's tab in the frame, drawn by a tab strip's renderer of its own and following the page's title (iteration 421) |
-| **→** | **680** | the box a verb acted on, ringed over a page in Chrome — **needs ADR**: a window of ours over Chrome's page (cut from 679) |
+| **→** | **680** | the box a verb acted on, marked over a page in Chrome — **decided, ADR 0066**: Chrome's own highlight of the node and its label, no window of ours over the page (cut from 679) |
 | | **683** | words drawn with this machine's own fonts — the engine draws none, in its window or the frame's tab (found by 681's screen check) |
 | | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
@@ -16869,6 +16869,25 @@ What stage 2's exit gate actually measures: a person using it.
   and a ring is drawn exactly over the box Chrome drew, asserted in the
   window server's numbers — or the ring's window is decided against in it,
   and what a person is shown instead is said.
+  **Decided (iteration 422): ADR 0066 — the window is decided against.**
+  ADR 0061 § 3 had already given the mark to Chrome's `Overlay` domain,
+  which this item's first wording missed. Measured on Chrome 156: Chrome's
+  `highlightNode` follows the node as the page scrolls and moves it,
+  takes no pointer (a press on the marked button ran its handler), tells
+  the page nothing, and is absent from `Page.captureScreenshot` — but it
+  fills the box's own regions only, so a borderless box's border draws
+  nothing, and alo's ring two pixels outside is not something it can
+  draw; its label, with the accessibility part, names every box by name
+  and role. A window of ours would hide the page — `softbuffer` 0.4.8
+  presents every pixel opaque on macOS — and would trail every scroll by
+  `FOLLOW_EVERY`. **What a person is shown instead:** Chrome's highlight
+  of the node the verb's outcome names, its border in alo's accent, its
+  other regions clear, and Chrome's label; a refused verb hides it; the
+  next verb's replaces it. *Now closes when:* after a verb through a
+  shown Chrome, the screen — the captured window's device pixels — shows
+  the node's border box from `DOM.getBoxModel` marked and the label
+  present, a refused verb leaves no mark, and the navigation and
+  replacement questions ADR 0066 leaves open are measured and answered.
 
 - [x] **681. The page's tab in the frame around Chrome's window.** *Cut
   from 679, ADR 0024 § 4.* The engine's strip shows a tab's title, drawn
