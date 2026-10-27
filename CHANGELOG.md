@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Words are drawn with this machine's own fonts.** Without
+  `--frozen-fonts`, text in the Mac's own `sans-serif` (San Francisco)
+  was blank — in this browser's window, its tabs, and the tab in the
+  strip above Chrome's window. The font parser this browser uses gave up
+  on any letter with more than 32 variations, and San Francisco's
+  letters have more; it is now built to hold as many as the font format
+  allows.
+
 - **What an agent touched in a page shown by Chrome is now marked on
   the page.** After an agent acts on something, Chrome highlights it —
   its border in alo's accent colour, with Chrome's own label giving its

@@ -160,13 +160,16 @@ fn fvar() -> Vec<u8> {
     out.0
 }
 
-/// One glyph's variation data: move its first point sideways at the heavy end
-/// of the axis, and say nothing about any other point.
+/// One glyph's variation data: `tuples` tuples, each moving its first point
+/// sideways by `moved` at the heavy end of the axis and saying nothing about
+/// any other point.
 ///
 /// The first point rather than all of them because a delta has to be written
 /// per point, and one is enough to prove the outline was read at an instance —
 /// the parser interpolates the rest, which is what a real font relies on too.
-fn one_glyphs_variation() -> Vec<u8> {
+/// Every tuple peaks at the same place, so at the heavy end each applies in
+/// full and the point moves by their sum.
+fn one_glyphs_variation(tuples: u16, moved: i16) -> Vec<u8> {
     /// A peak on the axis, embedded here rather than shared, with the point
     /// numbers written in this tuple rather than beside it.
     const EMBEDDED_PEAK_AND_PRIVATE_POINTS: u16 = 0x8000 | 0x2000;
@@ -180,23 +183,27 @@ fn one_glyphs_variation() -> Vec<u8> {
         .byte(0) // a run of one, written as a byte
         .byte(0); // point zero
     // Its delta along x: one delta, written as a word.
-    serialized.byte(0x40).signed(MOVED);
+    serialized.byte(0x40).signed(moved);
     // And along y: one delta, and it is zero.
     serialized.byte(0x80);
 
     let mut out = Written::default();
-    out.short(1) // one tuple
-        .short(4 + 6); // where its data starts: past this and one header
-    out.short(u16::try_from(serialized.0.len()).unwrap_or(u16::MAX))
-        .short(EMBEDDED_PEAK_AND_PRIVATE_POINTS)
-        .signed(HIGHEST);
-    out.0.extend_from_slice(&serialized.0);
+    out.short(tuples) // how many tuples
+        .short(4 + 6 * tuples); // where their data starts: past this and the headers
+    for _ in 0..tuples {
+        out.short(u16::try_from(serialized.0.len()).unwrap_or(u16::MAX))
+            .short(EMBEDDED_PEAK_AND_PRIVATE_POINTS)
+            .signed(HIGHEST);
+    }
+    for _ in 0..tuples {
+        out.0.extend_from_slice(&serialized.0);
+    }
     out.0
 }
 
 /// A `gvar` table giving every glyph the same variation.
-fn gvar(glyphs: usize) -> Vec<u8> {
-    let one = one_glyphs_variation();
+fn gvar(glyphs: usize, tuples: u16, moved: i16) -> Vec<u8> {
+    let one = one_glyphs_variation(tuples, moved);
     let offsets = glyphs + 1;
     let array = 20 + 4 * offsets;
 
@@ -218,10 +225,10 @@ fn gvar(glyphs: usize) -> Vec<u8> {
 }
 
 /// A real font made variable, with an axis that moves its outlines.
-fn variable() -> Vec<u8> {
+fn variable(tuples: u16, moved: i16) -> Vec<u8> {
     let base = dejavu::sans::regular().to_vec();
     let glyphs = glyph_count(&base);
-    let with_outlines = carrying(base, SPARE_FOR_GVAR, b"gvar", &gvar(glyphs));
+    let with_outlines = carrying(base, SPARE_FOR_GVAR, b"gvar", &gvar(glyphs, tuples, moved));
     carrying(with_outlines, SPARE_FOR_FVAR, b"fvar", &fvar())
 }
 
@@ -230,8 +237,13 @@ fn variable() -> Vec<u8> {
 ///
 /// [`None`] rather than a panic, because this is not a test function and the
 /// lints hold it to what any other code is held to.
-fn loaded() -> Option<Font> {
-    Font::load("Continuum", Weight::new(400), Slant::Normal, variable())
+fn loaded(tuples: u16, moved: i16) -> Option<Font> {
+    Font::load(
+        "Continuum",
+        Weight::new(400),
+        Slant::Normal,
+        variable(tuples, moved),
+    )
 }
 
 /// Where the pen is first put down when this letter is drawn at a weight.
@@ -239,7 +251,12 @@ fn loaded() -> Option<Font> {
 /// The first point of the outline is the one this font states a delta for, so
 /// it is the one whose movement is arithmetic rather than interpolation.
 fn first_point_of(character: char, weight: u16) -> Option<(f32, f32)> {
-    let font = loaded()?.at_weight(Weight::new(weight));
+    first_point_in(&loaded(1, MOVED)?, character, weight)
+}
+
+/// The same, in a font of one's choosing.
+fn first_point_in(font: &Font, character: char, weight: u16) -> Option<(f32, f32)> {
+    let font = font.at_weight(Weight::new(weight));
     let run = shape(&character.to_string(), &font, SIZE, Direction::LeftToRight);
     let id = run.glyphs.first().map(|glyph| glyph.glyph_id)?;
     let glyph = outline(&font, id, SIZE)?;
@@ -270,6 +287,50 @@ fn a_letter_drawn_at_two_weights_is_two_shapes() {
         "and it should not have moved up or down: {} against {}",
         light.1,
         heavy.1,
+    );
+}
+
+/// Queue item 683. A real variable font varies a letter along several axes, at
+/// several places on each, and every one of those is a tuple: this machine's
+/// `.SF NS` has more than thirty-two on nearly every letter. The parser, built
+/// without `gvar-alloc`, held at most thirty-two and gave **no outline at all**
+/// for a glyph with more — at every weight, the default instance included — so
+/// every word drawn in the machine's `sans-serif` was blank.
+///
+/// Thirty-three tuples is one past that, and each moves the first point the
+/// same small way, so the letter has to be drawn at the default instance and
+/// moved by all thirty-three at the heavy end.
+#[test]
+fn a_letter_with_more_variations_than_fit_on_the_stack_is_still_drawn() {
+    const TUPLES: u16 = 33;
+    const EACH: i16 = 10;
+    let font = loaded(TUPLES, EACH).expect("the font this test builds");
+
+    let light = first_point_in(&font, 'H', 400).expect("an H at the default instance");
+    let heavy = first_point_in(&font, 'H', 900).expect("an H at the heavy end");
+    let plain = first_point_in(
+        &Font::load(
+            "DejaVu Sans",
+            Weight::NORMAL,
+            Slant::Normal,
+            dejavu::sans::regular().to_vec(),
+        )
+        .expect("the font this repository is tested with"),
+        'H',
+        400,
+    )
+    .expect("an H in the font this one was built from");
+
+    // At the default instance no tuple applies, so the letter is the face's own.
+    assert!(
+        (light.0 - plain.0).abs() < 0.01 && (light.1 - plain.1).abs() < 0.01,
+        "at its default the letter should be the face it was built from: {light:?} against {plain:?}",
+    );
+    let expected = f32::from(EACH) * f32::from(TUPLES) * SIZE / UNITS_PER_EM;
+    assert!(
+        (heavy.0 - light.0 - expected).abs() < 0.01,
+        "the outline should have moved {expected}, every tuple's share, and moved {}",
+        heavy.0 - light.0,
     );
 }
 

@@ -435,7 +435,10 @@ impl fmt::Debug for Font {
 
 /// `ttf-parser` is the font parser `rustybuzz` itself is built on, so reading a
 /// face here and shaping with it later are the same parse of the same bytes.
-use rustybuzz::ttf_parser;
+/// Named directly rather than through `rustybuzz`'s re-export so that this
+/// crate's own build carries the workspace's `gvar-alloc` (queue item 683):
+/// the lockfile holds one `ttf-parser`, so the two names are one crate.
+use ttf_parser;
 
 /// The family a font file states about **itself**.
 ///

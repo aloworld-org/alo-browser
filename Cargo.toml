@@ -49,7 +49,16 @@ cssparser = "0.37"
 selectors = "0.40"
 precomputed-hash = "0.1"
 rustybuzz = "0.20"
-ttf-parser = "0.25"
+# Font outlines, rented (ADR 0001), with `gvar-alloc` on. Without it the parser
+# holds a glyph's variation tuples on the stack, thirty-two at most, and refuses
+# any glyph with more: no outline at all, at any weight, the default instance
+# included. This machine's own `sans-serif`, `.SF NS` (four axes), has more on
+# nearly every letter, so every word drawn with it was blank (queue item 683).
+# On the heap the bound is the format's own — a 12-bit count, 4095 tuples, a few
+# hundred kilobytes for a hostile font's worst glyph — and the parse is
+# otherwise the same. `alo-text` names the crate too, so that shaping and
+# measuring with `rustybuzz`'s copy of it get the feature in every build.
+ttf-parser = { version = "0.25", features = ["gvar-alloc"] }
 tiny-skia = "0.12"
 png = "0.18"
 url = "2.5"

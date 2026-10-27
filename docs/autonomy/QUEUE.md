@@ -61,8 +61,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **682** | the frame's own test reads Chrome's window shown and no frame beside it — its idea of *settled* corrected |
 | ✓ | **681** | the page's tab in the frame, drawn by a tab strip's renderer of its own and following the page's title (iteration 421) |
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
-| **→** | **683** | words drawn with this machine's own fonts — the engine draws none, in its window or the frame's tab (found by 681's screen check) |
-| | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
+| ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
+| **→** | **643** | a placed window that stays where a person sees it — Stage Manager's strip |
 | | **477** | an application somebody can run, on macOS |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -1330,6 +1330,10 @@ wrong, which is the argument for the fourth.
   Closes when:* `font-stretch: condensed` on a family with a `wdth` axis is
   narrower text in a layout assertion, and a font whose axis is not in the
   property's scale is left alone the way `Skia.ttf`'s is.
+  *Seen on the screen by 683 (iteration 424):* with this machine's fonts,
+  `.New York` — the machine's `serif` — has an `opsz` axis left at its
+  default, so an 18px paragraph is drawn in its display cut; `.SF NS` has
+  one too. What Chrome sets it to at a size is not measured.
 
 - [x] **193. What a generic family means on this machine.** Cut from 170, and
   it is the gap that item made visible. `FontDatabase::map_generic` exists and
@@ -17040,7 +17044,7 @@ What stage 2's exit gate actually measures: a person using it.
   at 32 s, with the same words. Six runs unchanged passed on a freed
   machine. The frame itself is unchanged.
 
-- [ ] **683. Words drawn with this machine's own fonts.** *Found by
+- [x] **683. Words drawn with this machine's own fonts.** *Found by
   681's screen check, iteration 421, 2026-10-27.* `alo` on a page with a
   heading, with no `--frozen-fonts`, shows the strip's tab and the page
   with no words at all; with `--frozen-fonts` both are drawn — and so does
@@ -17056,6 +17060,33 @@ What stage 2's exit gate actually measures: a person using it.
   cause is reproduced in a test that draws words with a face this machine
   has and fails without the fix, and `alo` shows a page's words and its
   tab's title with the machine's fonts, captured on the screen.
+  ***Done (iteration 424).*** **The faces reached the renderer; their
+  letters had no outline.** `.SF NS` is a variable font of four axes
+  (`wdth`, `opsz`, `GRAD`, `wght`), and `ttf-parser` 0.25.1, built
+  without its `gvar-alloc` feature, holds a glyph's variation tuples on
+  the stack, thirty-two at most, and returns no outline at all for a
+  glyph with more — before any coordinate is looked at, so at every
+  weight, the default instance included. Found with a copy of the parser
+  instrumented in the scratchpad: `outline_glyph` on `.SF NS`'s `H` gave
+  `None` at `gvar.rs:1914` (`tuples.reserve`), while its `glyf` alone
+  gave thirteen segments; `.New York`, `.SF NS Mono` and `Geneva` drew.
+  **The fix:** the workspace's `ttf-parser` is built with `gvar-alloc`,
+  which holds them on the heap to the format's 12-bit bound, 4095; and
+  `alo-text` names `ttf-parser` itself, the one copy in the lockfile, so
+  a build of that crate alone carries the feature too. **Tests:**
+  `alo-paint`'s `a_letter_at_a_weight.rs` builds a font with 33
+  variations per letter and asserts its `H` drawn at its default as the
+  face it was built from and moved by all 33 at the heavy end; and
+  `alo-renderer`'s `a_font_a_renderer_was_handed.rs` loads a page in
+  each of this machine's generic families through the boundary and
+  asserts ink. Without the feature both fail — the first at "an H at the
+  default instance", the second at its ink. **On the screen:** `alo` on
+  a page with a heading, without `--frozen-fonts`, drew its tab's title,
+  the heading in `sans-serif`, a serif paragraph and monospace; `alo
+  --chrome` on it drew the tab's title in the frame (Chrome
+  156.0.8078.48). Not this item's, and written into 197 rather than
+  opened again: the serif drew in New York's display cut, because no
+  variable font is set on its `opsz`.
 
 - [ ] **643. A placed window that stays where a person sees it.** *Cut from
   627.* With Stage Manager on, a window that is not in front is shrunk into

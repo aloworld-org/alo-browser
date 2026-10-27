@@ -13,6 +13,11 @@ alo-layout = { path = "../alo-layout" }
 alo-value = { path = "../alo-value" }
 encoding_rs.workspace = true
 rustybuzz.workspace = true
+# The parser `rustybuzz` is built on, the same one, named so that it carries the
+# workspace's `gvar-alloc` in a build of this crate alone: phantom points, and so
+# an advance in a font with no `HVAR`, come out of `gvar` too (queue item 683).
+# `font.rs` reads faces with it directly; the lockfile holds one copy.
+ttf-parser.workspace = true
 unicode-linebreak.workspace = true
 unicode-script.workspace = true
 

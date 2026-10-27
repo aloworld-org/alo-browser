@@ -43308,3 +43308,88 @@ Chrome (680); the Owed clauses no longer list 680.
 
 The next unused queue number is **684** and the next ADR is **0067**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 424 — queue item 683: words drawn with this machine's own fonts — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path and stage 2 browser line, iteration 423's entry, the queue's product
+path and items 683 and 197; `docs/features.md`'s second-renderer line
+(683's feature contract — the item is a defect found on the product path,
+and no ADR decides it; ADR 0001 rents the outline parser and ADR 0010 has
+the browser process hand fonts over); `alo-renderer`'s `fonts.rs`,
+`face.rs` and `wire.rs`'s font message, `alo-paint`'s `glyph.rs`,
+`alo-text`'s `font.rs`, the gate's boundary list, and `ttf-parser`
+0.25.1's `gvar.rs` and changelog. No `AGENTS.md` exists in the repository.
+
+**Why 683.** Next on the product path (→ in the queue's table), depending
+on nothing. Screen unlocked; Chrome 156.0.8078.48.
+
+**Found.** The faces reached the renderer whole (one message each, well
+under the wire's 64 MiB). Their letters had no outline: a probe outlining
+`H` gave a blank glyph for `.SF NS` and a drawn one for `.New York`,
+`.SF NS Mono` and `Geneva`. A copy of the parser instrumented in the
+scratchpad (never in the repository) put the `None` at `gvar.rs:1914`:
+without the `gvar-alloc` feature a glyph's variation tuples are held on
+the stack, at most 32, and a glyph with more is refused before any
+coordinate is read — so at every weight, the default included. `.SF NS`
+(four axes, a 6.7 MB `gvar`) has more on nearly every letter; its `glyf`
+alone drew the `H` in thirteen segments.
+
+**Built.** The workspace's `ttf-parser` with `features = ["gvar-alloc"]`,
+bounded by the format's 12-bit count (4095 tuples). `alo-text` now names
+`ttf-parser` itself — the one copy in the lockfile, the same one
+`rustybuzz` re-exports — so a build of that crate alone carries the
+feature for phantom points; `font.rs` stays the only file in it naming the
+crate. No engine code changed beyond that import.
+
+**Tests.** `alo-paint/tests/a_letter_at_a_weight.rs`'s font builder takes
+a tuple count: a font with 33 variations per letter has its `H` drawn at
+the default as the face it was built from, and moved 33 × 10 units at the
+heavy end. `alo-renderer/tests/a_font_a_renderer_was_handed.rs` loads a
+page in each of this machine's generics through the boundary and asserts
+more than 200 pixels of ink. **Mutations:** the feature removed from
+`Cargo.toml` (copied, `sed`, restored with `cp`, checked with `cmp`, the
+renderer rebuilt): the first fails at "an H at the default instance", the
+second at its ink assertion.
+
+**On the screen.** `alo` (no `--frozen-fonts`) on a page with a heading,
+the window captured with `screencapture -l`: the tab's title, the heading
+in `sans-serif`, a `serif` paragraph and `monospace` all drawn. `alo
+--chrome` on it (stdin held open; with none it exits at once, by design):
+the frame's tab drew the page's title, beside the renderer's sentence.
+The serif is New York's display cut — `opsz` is never set — and that is
+197's, written there rather than opened again.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5485 tests, 5485
+passed, 10 of 10 steps, "The gate is met.", exit 0.** Clippy had caught a
+helper taking a `Font` by value first; fixed before the gate.
+
+**Manual.** Layout assertions in numbers: the outline's first point, to
+0.01 px, at both instances. Reference renders: the corpus draws with the
+frozen DejaVu faces, which have no `gvar`, and every committed reference
+still matches in the gate; the machine's fonts differ by machine, so their
+evidence is the ink assertion and the screen capture, not a committed
+raster. One file, one responsibility: the parser's configuration is the
+manifest's, the font's reading stays in `font.rs` and `glyph.rs`. Hostile
+bytes: a page's `@font-face` may now ask for up to 4095 tuples per glyph,
+a bounded heap allocation of a few hundred kilobytes, refused by the
+parser past that rather than panicking. Features, roadmap, queue and
+changelog updated. No `unsafe`, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed. A headless Chrome from
+2026-10-26 18:59 (orphaned, its parent gone) was seen running and left
+alone: not this iteration's.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+683; its Owed clause and the stage 2 browser line no longer list it; the
+closing paragraph says the tab and the engine's window draw words with
+the machine's fonts. The queue ticks 683 with its Done paragraph, and the
+product path's table moves → to 643.
+
+**Unresolved obligations.**
+- `opsz` (and the other non-weight axes) unset: 197.
+- 643 is next on the product path, then 477.
+- No claim about speed is made.
+
+The next unused queue number is **684** and the next ADR is **0067**.
+This is one iteration, not a finished queue or roadmap.

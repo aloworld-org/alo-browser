@@ -430,3 +430,76 @@ fn a_page_is_drawn_with_a_font_that_came_from_this_machine() {
         Ok(FromRenderer::Painted(_))
     ));
 }
+
+/// Queue item 683: a page in each of this machine's generic families has
+/// **ink** — not only a frame. The test above asked for a paint and believed
+/// it, and on this machine every word in `sans-serif` was being drawn blank:
+/// its `.SF NS` is a variable font with more variations per letter than the
+/// rented parser held without `gvar-alloc`, so no letter had an outline. A
+/// frame came back, the right size, white.
+///
+/// Every generic rather than the first face, because the generic is what a
+/// page — and alo's own interface — actually asks for, and which family it
+/// lands on is this machine's to say.
+#[test]
+fn a_page_in_each_of_this_machines_generic_families_is_drawn_with_ink() {
+    let machine = fonts::from_this_machine();
+    if machine.faces.is_empty() {
+        return;
+    }
+    let generics: Vec<String> = machine
+        .generics
+        .named()
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    assert!(
+        !generics.is_empty(),
+        "this machine has fonts and no generic means any of them"
+    );
+    let mut renderers = Renderers::running(RENDERER, &[]).with_machine(machine);
+    let site = Site::of(&url("https://example.com/"));
+    for generic in generics {
+        let loaded = renderers.ask(
+            &site,
+            &ToRenderer::Load(Box::new(Page {
+                url: alo_url::Url::about_blank(),
+                html: "<p>Hamburgefonstiv</p>".to_owned(),
+                sheets: vec![format!(
+                    "p {{ font-family: {generic}; font-size: 24px; color: black; margin: 8px }}"
+                )],
+                viewport: Size {
+                    width: 300.0,
+                    height: 60.0,
+                },
+                scale: 1.0,
+                visibility: alo_renderer::Visibility::Visible,
+                scheme: ColorScheme::Light,
+                policies: Vec::new(),
+                watching: Vec::new(),
+                user_agent: alo_net::user_agent::user_agent(),
+                platform: alo_net::user_agent::platform().to_owned(),
+            })),
+        );
+        assert!(
+            matches!(loaded, Ok(FromRenderer::Loaded { .. })),
+            "{generic}: {loaded:?}"
+        );
+        let painted = renderers.ask(&site, &ToRenderer::Paint);
+        let Ok(FromRenderer::Painted(frame)) = painted else {
+            panic!("{generic}: no frame: {painted:?}");
+        };
+        // Black letters on a white page: a pixel with every channel under half
+        // is ink. Fifteen letters at 24px are hundreds of them; none is a page
+        // drawn without words.
+        let ink = frame
+            .pixels
+            .chunks_exact(4)
+            .filter(|pixel| pixel.iter().take(3).all(|channel| *channel < 128))
+            .count();
+        assert!(
+            ink > 200,
+            "{generic}: the words were drawn with {ink} pixels of ink"
+        );
+    }
+}
