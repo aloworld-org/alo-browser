@@ -30,7 +30,7 @@
 use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
 use alo_window::chrome::Chrome;
-use alo_window::chrome_protocol::WindowState;
+use alo_window::chrome_protocol::{Bounds, WindowState};
 use alo_window::chrome_tab::{Tab, Unopened};
 use alo_window::chrome_window::{self, LARGEST, Placed, Unplaced};
 #[cfg(target_os = "macos")]
@@ -97,6 +97,59 @@ fn once_listed(pid: u32, wanted: &[String]) -> Result<Vec<String>, String> {
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+/// Every screen's bounds, in the window server's points from the top left
+/// of the main screen as Chrome's bounds are: `NSScreen`'s frames, which
+/// count up from the main screen's bottom, turned over.
+#[cfg(target_os = "macos")]
+fn screens() -> Result<Option<Vec<Bounds>>, String> {
+    const SCREENS: &str = "ObjC.import('AppKit');\
+        var all = $.NSScreen.screens, lines = [];\
+        for (var i = 0; i < all.count; i++) { var f = all.objectAtIndex(i).frame;\
+          lines.push([f.origin.x, f.origin.y, f.size.width, f.size.height].map(Math.round).join(' ')); }\
+        lines.join('\\n')";
+    let listed = std::process::Command::new("osascript")
+        .args(["-l", "JavaScript", "-e", SCREENS])
+        .output()
+        .map_err(|why| format!("osascript did not run: {why}"))?;
+    if !listed.status.success() {
+        return Err(String::from_utf8_lossy(&listed.stderr).into_owned());
+    }
+    let mut frames = Vec::new();
+    for line in String::from_utf8_lossy(&listed.stdout).lines() {
+        let numbers = line
+            .split(' ')
+            .map(|number| {
+                number
+                    .parse::<i64>()
+                    .map_err(|_| format!("not a screen: {line}"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        match numbers.as_slice() {
+            &[x, y, width, height] => frames.push((x, y, width, height)),
+            _ => return Err(format!("not a screen: {line}")),
+        }
+    }
+    // The first is the main screen, whose top is the window server's 0.
+    let main_height = frames.first().ok_or("no screen at all")?.3;
+    Ok(Some(
+        frames
+            .into_iter()
+            .map(|(x, y, width, height)| Bounds {
+                left: x,
+                top: main_height - y - height,
+                width,
+                height,
+            })
+            .collect(),
+    ))
+}
+
+/// Where the screens are is read only on macOS.
+#[cfg(not(target_os = "macos"))]
+fn screens() -> Result<Option<Vec<Bounds>>, String> {
+    Ok(None)
 }
 
 /// A page's size as text, so it is compared whole rather than as floats.
@@ -186,11 +239,26 @@ fn a_place_the_system_overrules_is_answered_with_where_the_window_went() -> Resu
     let mut tab = Tab::open_frozen(&mut chrome, ADDRESS, PAGE.as_bytes().to_vec(), SIZE)
         .map_err(|why| why.to_string())?;
     // Far above and to the left of every screen: macOS pulls a window back
-    // under the menu bar and onto the screen.
+    // until part of it is on a screen. Which screen is the desk's: with two
+    // more screens left of the laptop and one standing above its top edge,
+    // it went to -3747,-50 (2026-10-27), on that screen and above the
+    // laptop's, so this asks the screens rather than assuming the laptop's.
     let went = chrome_window::place(&mut tab, -5000, -5000).map_err(|why| why.to_string())?;
+    let window = went.window.bounds;
+    let on_a_screen = match screens()? {
+        Some(screens) => screens.iter().any(|screen| {
+            window.left < screen.left + screen.width
+                && screen.left < window.left + window.width
+                && window.top < screen.top + screen.height
+                && screen.top < window.top + window.height
+        }),
+        // Where the screens are is read only on macOS; elsewhere the main
+        // screen is taken to be the top-left one.
+        None => window.top >= 0,
+    };
     assert!(
-        went.window.bounds.left > -5000 && went.window.bounds.top >= 0,
-        "pulled back onto the screen: {}",
+        window.left > -5000 && window.top > -5000 && on_a_screen,
+        "pulled back onto a screen: {}",
         bounds(&went)
     );
     assert_eq!(

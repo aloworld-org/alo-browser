@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A test of where macOS puts a window no longer assumes the laptop's
+  screen is the top-left one.** The test sends Chrome's window far off the
+  screen and checks that macOS brings it back. It checked that the window
+  came back below the laptop screen's top edge, but with other screens
+  beside the laptop, one standing higher, macOS rightly brought it back onto
+  that one, and the test failed. It now asks macOS where every screen is
+  and checks that the window is on one of them.
+
 - **Decided: what a killed browser left gets cleaned up the next time
   it starts.** A browser that is force-quit, crashes or loses power never
   gets to remove the private Chrome profile it made, so profiles of up

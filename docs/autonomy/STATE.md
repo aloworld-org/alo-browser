@@ -44009,3 +44009,18 @@ No `unsafe`, no verb taking a coordinate, no rented crate. `alo-os` and
 
 The next unused queue number is **691** and the next ADR is **0070**.
 This is one iteration, not a finished queue or roadmap.
+
+## The supervisor's verification of 2026-10-27 10:13, closed
+
+**Written by the owner's session.** The supervisor's gate after iteration
+5 of that run failed one test,
+`a_page_in_chromes_own_window::a_place_the_system_overrules_is_answered_with_where_the_window_went`:
+a window sent to -5000,-5000 came back at -3747,-50, which the test read
+as not pulled back because its top was above the laptop screen's. This
+desk has two more screens left of the laptop, one at -3000,-80 and
+1080×1920 in the window server's points, and the window overlapped it —
+macOS did what the test meant to assert. The test now reads every
+screen's bounds (`NSScreen` through `osascript`) and asserts the window on
+one of them; elsewhere it keeps the old assumption. Gate on that tree:
+**5515 tests, 5515 passed, 10 of 10 steps.** ADR 0069's commit, held back
+by the failed verification, is pushed with it.
