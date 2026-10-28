@@ -14,12 +14,17 @@
 # contract. So the Chromes take turns instead.
 #
 # A test that starts a Chrome must be in this group: put "chrome" in its
-# file's name, or add the file below by name.
+# file's name, or add the file below by name. That includes a test that
+# starts one only through the application: on 2026-10-28
+# `the_application_opens_its_own_page`, in no group, ran beside
+# `a_closed_list_chosen_through_a_shown_chrome`, brought its own Chrome in
+# front mid-walk, and the menu chose an option nobody asked for — two runs
+# of three beside it, none of three alone.
 [test-groups]
 chrome = { max-threads = 2 }
 
 [[profile.default.overrides]]
-filter = 'package(alo-window) & (binary(~chrome) | binary(=a_window_given_less_room_than_asked) | binary(=a_tab_whose_page_closes_under_a_question))'
+filter = 'package(alo-window) & (binary(~chrome) | binary(=a_window_given_less_room_than_asked) | binary(=a_tab_whose_page_closes_under_a_question) | binary(=the_application_opens_its_own_page))'
 test-group = 'chrome'
 
 # A test that shows Chrome's window takes both turns, so no other Chrome
