@@ -334,6 +334,7 @@ fn scroll_containers_held<M: MeasureText>(
         end_padding::Held {
             id,
             in_flow,
+            moved: style_of(id).map_or((0.0, 0.0), moved_by),
             spills: (
                 !scrolls && overflow.x == taffy::Overflow::Visible,
                 !scrolls && overflow.y == taffy::Overflow::Visible,
@@ -385,6 +386,40 @@ fn scroll_containers_held<M: MeasureText>(
             end_padding::Container { id, held: inside }
         })
         .collect()
+}
+
+/// How far `position: relative` moved a box across and down from where it
+/// stood, as `taffy` moves it: `left` over `right`, `top` over `bottom`.
+///
+/// Only an offset in pixels is known here. A percentage, or a calculation
+/// holding one, is resolved by `taffy` against a basis each of its
+/// algorithms finds for itself — a block's content box, a flex container's
+/// if it is definite, a grid item's area — which a box's geometry does not
+/// hold, so a box moved by one is taken as standing where it was moved to
+/// (queue item 695).
+fn moved_by(style: &Style) -> (f32, f32) {
+    if style.position != Position::Relative {
+        return (0.0, 0.0);
+    }
+    let pixels = |side: LengthPercentageAuto| {
+        let raw = side.into_raw();
+        (raw.tag() == taffy::CompactLength::LENGTH_TAG).then(|| raw.value())
+    };
+    let (left, right) = (pixels(style.inset.left), pixels(style.inset.right));
+    let (top, bottom) = (pixels(style.inset.top), pixels(style.inset.bottom));
+    // An axis whose winning side is not in pixels is not known: neither side
+    // is used, rather than the losing one standing in for it.
+    let axis = |start: Option<f32>, start_auto: bool, end: Option<f32>| {
+        if start_auto {
+            end.map(|end| -end)
+        } else {
+            start
+        }
+    };
+    (
+        axis(left, style.inset.left.is_auto(), right).unwrap_or(0.0),
+        axis(top, style.inset.top.is_auto(), bottom).unwrap_or(0.0),
+    )
 }
 
 /// Whether a box is the inner box this engine builds inside a control.

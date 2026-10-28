@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box with a scroll bar scrolls as far as Chrome's when a box inside
+  it is moved by `position: relative`.** The moved box's margin was
+  padded where it had been moved to, so a box whose child was moved 60
+  pixels right scrolled 2 to 10 pixels further than Chrome 156. Now the
+  padding goes where the child stood before it moved, and the moved box
+  is reached as it is, across and down, in block, flex and grid layout
+  (item 693). A child moved by a percentage is not yet (item 695).
+
 - **A box with a scroll bar scrolls exactly as far as Chrome's when what
   it holds spills out.** A scrolling box added its padding after
   whatever spilled out of the boxes inside it, so one holding a line too

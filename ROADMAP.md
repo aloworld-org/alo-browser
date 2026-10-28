@@ -2569,9 +2569,10 @@ disappeared behind the larger.
       container's scrolling area pads its children's margin boxes and not
       what spills out of them, as Chrome 156 measures it across and down,
       so a box whose child's line spills is answered as Chrome would
-      scroll it (queue item 675).
-      · Owed: a box moved by `position: relative` and a grid's tracks in
-      a scrolling area (693, 694); a list box that shows its options and scrolls to the rest
+      scroll it (queue item 675), and pads a child moved by `position:
+      relative` where it stood (queue item 693).
+      · Owed: a box moved by a percentage and a grid's tracks in a
+      scrolling area (695, 694); a list box that shows its options and scrolls to the rest
       (665), `text-overflow` on a box whose `overflow` the viewport takes
       (664); loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that

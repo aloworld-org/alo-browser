@@ -1,0 +1,44 @@
+/* A child moved by `position: relative` in a scroll container is padded
+   where it stood and taken unpadded where it was moved to: queue item 693,
+   measured in Chrome 156 (crates/alo-layout/src/end_padding.rs).
+   Each box is 80 wide and 50 tall with a border of 1 and `overflow: auto`,
+   under three paddings — 2 px all round, 2 px but 10 on the right, and 10 px
+   all round — and a block, a flex or a grid container, holding a child 60
+   by 20 (100 by 20 for the two moved back), `position: relative`, moved:
+   - left: 60 px right, by `left`;
+   - top: 60 px down, by `top`;
+   - both: 60 px right and 60 down;
+   - right: 60 px right, by a negative `right`;
+   - bottom: 60 px down, by a negative `bottom`;
+   - negleft: 30 px left;
+   - negtop: 30 px up;
+   - margin: 60 px right, with 30 px of margin after it;
+   - leftwins: `left: 60px` and `right: 60px`, where `left` wins.
+   One column for each padding. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+}
+.column {
+  width: 120px;
+}
+.box {
+  width: 80px;
+  height: 50px;
+  border: 1px solid #000000;
+  margin: 0 0 6px 0;
+  overflow: auto;
+}
+.in,
+.back {
+  position: relative;
+  flex: none;
+  width: 60px;
+  height: 20px;
+  background: #cccccc;
+}
+.back {
+  width: 100px;
+}

@@ -44,10 +44,13 @@
 //!
 //! [`scroll_containers`] corrects every other scroll container holding a
 //! child in flow. One holding only lines keeps `taffy`'s answer, which pads
-//! them as Chrome does. Two things Chrome counts are not here, because what
-//! they need is not in a box's geometry: a child moved by `position:
-//! relative` is padded where it stood before it moved and taken as it is
-//! where it was moved to (queue item 693), and a grid's tracks are padded
+//! them as Chrome does. A child moved by `position: relative` is
+//! padded where it stood before it moved and taken as it is where it was
+//! moved to (queue item 693): in Chrome 156 a child 60 wide moved 60 right
+//! scrolls 122 at 2 px of padding and at 10 on the right, 130 at 10 px; one
+//! 100 wide moved 30 left 104, 112 and 120; the same down, and in a flex
+//! and a grid container alike. One thing Chrome counts is not here, because
+//! what it needs is not in a box's geometry: a grid's tracks are padded
 //! (queue item 694).
 
 use crate::geometry::{Rect, Size};
@@ -97,6 +100,10 @@ pub(crate) struct Held {
     /// container's own content and is padded; a box positioned against the
     /// container is not.
     pub(crate) in_flow: bool,
+    /// How far `position: relative` moved it across and down: its margin box
+    /// is padded where it stood before it moved, and its border box is taken
+    /// where it was moved to.
+    pub(crate) moved: (f32, f32),
     /// Whether what spills out of it reaches the container, across and
     /// down: not out of a scroll container, nor across or down out of a box
     /// that clips that axis.
@@ -169,9 +176,16 @@ fn reach_of(outer: BoxGeometry, held: impl Iterator<Item = (BoxGeometry, Held)>)
             down = down.max(bottom);
         }
         // Its margin box, padded, even with no width or height: Chrome pads
-        // a child 60 wide and 0 tall with 30 px of margin after it to 94.
+        // a child 60 wide and 0 tall with 30 px of margin after it to 94 —
+        // and where it stood before `position: relative` moved it.
         if held.in_flow {
             let margin_box = margin_box(inner);
+            let margin_box = Rect::new(
+                margin_box.origin.x - held.moved.0,
+                margin_box.origin.y - held.moved.1,
+                margin_box.size.width,
+                margin_box.size.height,
+            );
             across = across.max(margin_box.right() - from.x + outer.padding.right);
             down = down.max(margin_box.bottom() - from.y + outer.padding.bottom);
         }
@@ -299,6 +313,7 @@ mod tests {
         Held {
             id: BoxId::from_index_for_tests(1),
             in_flow: true,
+            moved: (0.0, 0.0),
             spills: (spills, spills),
         }
     }
@@ -360,6 +375,42 @@ mod tests {
         pulled.margin.right = -20.0;
         let reach = reach_of(container(2.0), [(pulled, in_flow(true))].into_iter());
         assert!(near(reach, 102.0, 24.0), "{reach:?}");
+    }
+
+    #[test]
+    fn a_moved_child_is_padded_where_it_stood() {
+        // Chrome 156: a child 60 wide moved 60 right scrolls 122 at 2 px and
+        // at 10 px on the right — its moved border box, not padded.
+        for right in [2.0, 10.0] {
+            let moved = BoxGeometry {
+                border_box: Rect::new(71.0, 11.0, 60.0, 20.0),
+                ..child(60.0, 20.0, Size::new(60.0, 20.0))
+            };
+            let held = Held {
+                moved: (60.0, 0.0),
+                ..in_flow(true)
+            };
+            let reach = reach_of(container(right), [(moved, held)].into_iter());
+            assert!(near(reach, 122.0, 24.0), "{right}: {reach:?}");
+        }
+    }
+
+    #[test]
+    fn a_child_moved_back_is_padded_where_it_stood() {
+        // A child 100 wide moved 30 left and 30 up: 104 and 104 across at
+        // 2 px, its box before it moved, padded; 112 with 10 on the right.
+        for right in [2.0, 10.0] {
+            let moved = BoxGeometry {
+                border_box: Rect::new(-19.0, -19.0, 100.0, 20.0),
+                ..child(100.0, 20.0, Size::new(100.0, 20.0))
+            };
+            let held = Held {
+                moved: (-30.0, -30.0),
+                ..in_flow(true)
+            };
+            let reach = reach_of(container(right), [(moved, held)].into_iter());
+            assert!(near(reach, 102.0 + right, 24.0), "{right}: {reach:?}");
+        }
     }
 
     #[test]

@@ -709,12 +709,17 @@ Chrome's does. **A scroll container's end padding is added to its own
 content and not to what spills out of its children** (queue item 675): its
 in-flow children's margin boxes are padded, and their border boxes, what
 spills out of them and a box positioned against it are not, across and down,
-in a block, flex and grid container alike, as Chrome 156 scrolls them. Two
-things Chrome pads are still padded as `taffy` pads them: a child moved by
-`position: relative`, which Chrome pads where it stood before it moved, so
-such a box scrolls 2 px further than Chrome's at 2 px of padding (693); and a
-grid's tracks, which Chrome pads and this engine does not count, so a grid
-whose column passes its box scrolls 40 px short of Chrome's (694).
+in a block, flex and grid container alike, as Chrome 156 scrolls them. **A
+child moved by `position: relative` is padded where it stood before it
+moved, and taken unpadded where it was moved to** (queue item 693), in a
+block, flex and grid container, across and down, moved forward or back, as
+Chrome 156 scrolls it. Two things are still not Chrome's: a child moved by a
+percentage, or a `calc()` holding one, is padded where it was moved to, so
+it scrolls 2 px further than Chrome's at 2 px of padding (695); and a grid's
+tracks, which Chrome pads and this engine does not count, so a grid whose
+column passes its box scrolls 40 px short of Chrome's (694). A positioned
+child is drawn outside the scroll container that holds it where Chrome
+clips it (538): the scrolling area is Chrome's, the picture is not.
 
 **A `<br>` ends its line**, as HTML's rendering section says, even under
 `nowrap`. Two in a row leave a blank line, one at the end of a paragraph adds

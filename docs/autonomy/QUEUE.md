@@ -13626,7 +13626,11 @@ What stage 2's exit gate actually measures: a person using it.
   style="position:absolute;left:50px;top:50px;width:100px;height:100px">`,
   finds the inner box at (75, 75) and the root at (125, 75); this engine
   finds the outer box and the inner one, because that is how it draws
-  them. *Closes when:* a frozen page with such boxes is drawn as Chrome
+  them. **A page now** (iteration 438):
+  `cases/a-moved-box-is-padded-where-it-stood`, whose children moved by
+  `position: relative` are drawn outside the `overflow: auto` boxes
+  holding them — 3,030 pixels differ from Chrome 156's screenshot of the
+  same bytes, every one of them that. *Closes when:* a frozen page with such boxes is drawn as Chrome
   draws it, with a reference render, and the pointer finds Chrome's
   elements at those points.
 
@@ -17748,7 +17752,7 @@ What stage 2's exit gate actually measures: a person using it.
   pixels (576). Not in the case, for a reason: a child moved by
   `position: relative` (693) and a grid's tracks (694).
 
-- [ ] **693. A child moved by `position: relative`, in a scrolling area.**
+- [x] **693. A child moved by `position: relative`, in a scrolling area.**
   *Cut from 675 (iteration 437).* Measured against Chrome 156.0.8078.73:
   a box 80 wide under `overflow: auto` holding a child 60 wide moved 60
   right by `position: relative; left: 60px` has a `scrollWidth` of 122 at
@@ -17764,6 +17768,51 @@ What stage 2's exit gate actually measures: a person using it.
   flex and grid container holding a child moved by `position: relative`
   scrolls as far as Chrome's, across and down, in numbers in a corpus
   case.
+  **Done (iteration 438).** Measured against Chrome 156.0.8078.73,
+  headless, three runs alike, a box 80 by 50 under `overflow: auto` at
+  2 px, 2 px with 10 on the right, and 10 px of padding, as a block, a
+  flex and a grid container, holding a child 60 by 20 (100 by 20 moved
+  back) under `position: relative`: **Chrome pads the child's margin box
+  where it stood before it moved, and takes its border box where it was
+  moved to unpadded, across and down alike, in all three.** Moved 60
+  right by `left` or by `right: -60px`, 122, 122 and 130; 60 down by
+  `top` or `bottom: -60px`, 82, 82 and 90 down; both, both; 30 left or
+  up a child 100 wide, 104, 112 and 120 (where it stood, padded); 60
+  right with 30 px of margin after it, 122 (the margin box padded where
+  it stood gives 94); `left: 60px; right: 60px`, `left` wins, 122.
+  Built: `end_padding::Held` carries how far the box was moved, and
+  `reach_of` pads its margin box shifted back by it; `engine.rs`'s
+  `moved_by` reads it from `taffy`'s style as `taffy` applies it, `left`
+  over `right` and `top` over `bottom`, for an offset in pixels.
+  `cases/a-moved-box-is-padded-where-it-stood` holds 81 boxes in three
+  columns, one per padding, and `a_moved_box_is_padded_where_it_stood.rs`
+  asserts each border box to 1/64 px and each scrolling area within half
+  a pixel of Chrome's; two unit tests in `end_padding.rs`. The offset
+  taken out (restored from a copy, checked with `cmp`) fails the case
+  (`block-left-even` 124 across, Chrome's 122). Every other case's
+  scrolling areas, at scales 1 and 2, are unchanged. Chrome's screenshot
+  of the same bytes differs from the render in 3,030 of 856,000 pixels,
+  every one a moved child drawn outside the scroll container holding it
+  where Chrome clips it — item 538, which this case is now a page for.
+  Not in it, for a reason: a percentage offset (695).
+
+- [ ] **695. A child moved by a percentage, in a scrolling area.** *Cut
+  from 693 (iteration 438).* Measured against Chrome 156.0.8078.73: in
+  the box of item 693, a child 60 wide moved by `left: 50%` stands 40 px
+  right (half of the container's content box) and the box scrolls 102 at
+  2 px of padding, 102 with 10 on the right, 110 at 10 px; by `top: 50%`
+  25 down (half of its 50) with `scrollHeight` 54, 54 and 70 — alike in a
+  block, flex and grid container. This engine pads such a child where it
+  was moved to (104 at 2 px): `engine.rs`'s `moved_by` knows only an
+  offset in pixels, because `taffy` resolves a percentage against a
+  basis each of its algorithms finds — a block's content box, its height
+  only where definite; a flex container's content box where definite; a
+  grid item's area — and a box's geometry does not say which. Unmeasured:
+  a percentage `top` in a container whose height is not definite, and a
+  `calc()` holding a percentage. *Depends on nothing. Feature:
+  `docs/features.md` stage 1, overflow. Closes when:* a block, flex and
+  grid container holding a child moved by a percentage scrolls as far as
+  Chrome's, across and down, in numbers in a corpus case.
 
 - [ ] **694. A grid's tracks, in its scrolling area.** *Cut from 675
   (iteration 437).* Measured against Chrome 156.0.8078.73: a grid 80

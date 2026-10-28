@@ -44578,3 +44578,90 @@ and its Owed clause names 693 and 694.
 
 The next unused queue number is **695** and the next ADR is **0073**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 438 — queue item 693: a child moved by `position: relative` is padded where it stood — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s stage 2
+agent-surface line, iteration 437's entry, queue items 693, 694, 664 and
+538; `docs/features.md`'s overflow line (693's contract); ADR 0004 (we own
+the layout tree, `taffy` the algorithms); `end_padding.rs`, `engine.rs`'s
+`scroll_containers_held` and `box_model_into`; `taffy` 0.14's relative
+offsets in `block.rs`, `flexbox.rs` and `grid/alignment.rs`;
+`alo-paint`'s `build.rs` (`Builder::paint`). No `AGENTS.md` exists.
+
+**Why 693.** The product path has nothing buildable (477 closes only on a
+Mac that never built it; 684 depends on 477 and needs an ADR). On the
+engine path the first open item after 675 is 693, which depends on
+nothing.
+
+**Measured.** Chrome 156.0.8078.73, headless, `--dump-dom` with a kill
+loop, the sheet after the doctype, three runs alike, no text in the
+probes. Chrome pads a moved child's margin box **where it stood** and
+takes its border box **where it was moved to**, unpadded, across and
+down, in block, flex and grid containers alike: 122/122/130 moved 60
+right by `left` or `right: -60px`, 82/82/90 down by `top` or
+`bottom: -60px`, 104/112/120 for a child 100 wide moved 30 back, 122 with
+30 px of margin after a moved child, `left` over `right`. This engine said
+124/132/140 for the first. A percentage (`left: 50%` → 40 px, 102/102/110;
+`top: 50%` → 25 px) is measured but not built (695).
+
+**Built.** `end_padding::Held::moved`, and `reach_of` pads the margin box
+shifted back by it. `engine.rs`'s `moved_by` reads the offset from
+`taffy`'s style as `taffy` applies it — `left` over `right`, `top` over
+`bottom` — for offsets in pixels; an axis whose winning side is a
+percentage or `calc()` is left unmoved (today's behaviour, item 695). The
+case `a-moved-box-is-padded-where-it-stood`: 81 boxes in three columns,
+one per padding, each border box asserted to 1/64 px and each scrolling
+area within half a pixel of Chrome's by
+`a_moved_box_is_padded_where_it_stood.rs`; two unit tests in
+`end_padding.rs`.
+
+**Cut, not built** (cut scope, not depth): a child moved by a percentage
+(**695**) — `taffy` resolves it against a basis each algorithm finds for
+itself (a block's content box, its height only where definite; a flex
+container's where definite; a grid item's area), which a box's geometry
+does not hold.
+
+**Checks.** The offset taken out (`moved: (0.0, 0.0)`, restored from a
+copy, `cmp`): the case fails, `block-left-even` 124 across against
+Chrome's 122. Every scroll container's scrolling area in all 113 cases at
+scales 1 and 2, dumped before and after by a temporary test (removed):
+147 lines differ, every one in the new case. Corpus references: only the
+new case's files written. Chrome's screenshot of the case's bytes against
+our render: 3,030 of 856,000 pixels differ by more than 64, **every one**
+our grey moved child drawn outside the `overflow: auto` box holding it
+(checked: none inside any box's padding box, all ours `#cccccc`). That is
+item 538 — a positioned box's layer lifted out of every clip between it
+and its stacking context — pre-existing and in paint, not this change;
+538 was "waits for a page" and is now told this case is one.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5556 tests, 5556
+passed, 10 of 10 steps, "The gate is met.", exit 0.** `cargo fmt` and
+`cargo clippy --workspace --all-targets` clean before it (clippy first
+caught nine long literals in the new test, separated).
+
+**Manual.** Layout assertion in numbers: the case's test. Reference
+render: the case's `render.png`, compared with Chrome's above — it
+carries 538's known difference, written down in the queue and in
+`docs/conformance.md`. One file, one responsibility: the rule stays
+`end_padding.rs`'s; reading an offset from `taffy`'s style is the
+engine's, which is the one place that names `taffy`'s style. Documentation
+in the change: features, conformance, queue, roadmap, changelog. No
+`unsafe`, no new rented crate, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. The probes' profiles were removed. Nothing
+pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's agent-surface line gains that a
+child moved by `position: relative` is padded where it stood (693); its
+Owed clause names 695 and 694.
+
+**Unresolved obligations.**
+- 695 opened above; 694 still open.
+- 538 now has a page (this case) and is unbuilt: the render is Chrome's
+  inside every box and not outside them.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **696** and the next ADR is **0073**.
+This is one iteration, not a finished queue or roadmap.
