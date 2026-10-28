@@ -49,6 +49,7 @@ use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
 use alo_window::beside::{chrome_on_this_machine, renderer_beside};
 use alo_window::bundle::Bundle;
+use alo_window::chrome_profile::Swept;
 use alo_window::chrome_serving::ChromeServing;
 use alo_window::closing::Closing;
 use alo_window::conductor::{Conductor, Fonts};
@@ -270,6 +271,7 @@ fn renderers(fonts: Fonts) -> Result<Renderers, ExitCode> {
 /// went.
 fn say_where_chrome_is(serving: &ChromeServing) {
     eprintln!("alo: pages are drawn by {}", serving.rendered_by());
+    say_what_was_swept(serving.swept());
     if let Some(placed) = serving.placed() {
         let at = placed.window.bounds;
         eprintln!(
@@ -280,6 +282,26 @@ fn say_where_chrome_is(serving: &ChromeServing) {
         if let Some(unlike) = placed.unlike(CHROME_SIZE) {
             eprintln!("alo: {unlike}");
         }
+    }
+}
+
+/// Say what starting Chrome removed of the profiles killed browsers left,
+/// once and only when there was any (ADR 0069 § 3): somebody's data gone
+/// from a disk is not removed silently.
+fn say_what_was_swept(swept: &Swept) {
+    let profiles = |count: usize| match count {
+        1 => "1 Chrome profile a killed browser".to_owned(),
+        count => format!("{count} Chrome profiles killed browsers"),
+    };
+    if !swept.removed.is_empty() {
+        eprintln!("alo: removed {} left", profiles(swept.removed.len()));
+    }
+    if let Some((first, why)) = swept.unremoved.first() {
+        eprintln!(
+            "alo: {} left could not be removed, and the next start tries again — {}: {why}",
+            profiles(swept.unremoved.len()),
+            first.display()
+        );
     }
 }
 

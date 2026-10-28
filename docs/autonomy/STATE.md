@@ -44024,3 +44024,115 @@ screen's bounds (`NSScreen` through `osascript`) and asserts the window on
 one of them; elsewhere it keeps the old assumption. Gate on that tree:
 **5515 tests, 5515 passed, 10 of 10 steps.** ADR 0069's commit, held back
 by the failed verification, is pushed with it.
+
+## Iteration 432 — queue item 690: what a killed browser left, removed at the next start — built, gate not met, halted
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its head,
+the product path's Built and Owed clauses), iterations 430 and 431 and the
+owner's verification of 27 October, the queue's product path and item 690,
+ADR 0069, `docs/features.md`'s 477 line (the feature contract),
+`chrome_profile.rs`, `chrome.rs`, `chrome_serving.rs`, `alo.rs`,
+`chrome_over_a_pipe.rs`, `nextest.toml`. No `AGENTS.md` exists.
+
+**Why 690.** Decided in iteration 431 and the next buildable
+product-path item; it depends on nothing.
+
+**Built** (in the working tree, uncommitted). `chrome_profile.rs`:
+`new_profile` answers a `Profile` — the directory, its `alo.lock` held
+(`alo.making` made, locked, renamed), and the `Swept` its making found —
+which removes itself as it is dropped and lets go of its lock after.
+The sweep is ADR 0069 § 2's: `alo-chrome-*` entries, not links, a
+directory of the same owner as the profile just made, whose `alo.lock`
+is a file whose lock `try_lock` takes; removed holding it; a removal
+whose directory is already gone is left uncounted. **Found building it,
+and recorded as ADR 0069's amendment of 28 October:** `remove_dir_all`
+may remove `alo.lock` before failing on something else, leaving a
+lockless remainder § 2 never touches again. A profile is now removed with
+`alo.lock` last, and an empty one put back if only the directory's own
+removal fails. `chrome.rs` holds the `Profile` (removed after Chrome is
+waited for) and answers `swept()`; `chrome_serving.rs` carries it to
+`ChromeServing::swept` (and `named_chrome`, split out so
+`serve_in_chrome` stays under clippy's line limit); `alo.rs` says
+`removed N Chrome profiles killed browsers left`, and what it could not.
+
+**Tests.** Nine unit tests in `chrome_profile.rs` and
+`tests/a_killed_browsers_chrome_profile.rs` (a "chrome" file, so in
+nextest's Chrome group): three copies of the test binary each holding a
+real headless Chrome, with `TMPDIR` set for them alone to a directory of
+the test's own; one `SIGKILL`ed, its Chrome waited for to end and its
+profile found left; one living; the third's start removes the first's
+profile and only it, then the living one closes and removes its own. All
+pass (lib 366 of 366; the file in 2.3 s). **Mutations** (copied, edited,
+restored by `cp`, `cmp`): no sweep, no lock taken, `remove_dir_all` in
+place of lock-last, `metadata` in place of `symlink_metadata` — each
+fails a test. **Not asserted:** a directory of another user's being left,
+which needs a second account. **Measured by hand:** `alo --chrome` with
+two dead profiles and a lockless one planted in a scratch `TMPDIR` said
+`alo: removed 2 Chrome profiles killed browsers left` (Chrome
+156.0.8078.73), left the lockless one, and removed its own as its input
+ended.
+
+**The gate — not met, and not run in full.** `cargo fmt` clean. `cargo
+clippy --workspace --all-targets` fails on exactly one finding, twice:
+`incompatible_msrv` — `File::try_lock` is stable since 1.89 and the
+workspace declares `rust-version = "1.85"`. ADR 0069 chose `try_lock`
+and named 1.89 without noticing the declared minimum. The full
+`scripts/gate.sh` was not started, since its clippy step fails for
+certain on this tree.
+
+**Why this halts rather than raising the minimum.** Measured with
+`rust-version` set to 1.89 temporarily (restored by `cp`, `cmp`):
+clippy then fires `collapsible_if` 28 times (let-chains, 1.88) and
+`manual_is_multiple_of` twice, in `alo-js`, `alo-net` and `alo-dom`, and
+the crates depending on them were not compiled past that. So moving the
+minimum is a workspace-wide change of the toolchain everybody building
+this needs — iteration 144 worked around the same minimum rather than
+raise it — and LOOP.md's "a decision is its own iteration" and "a
+decision is needed that is not ours" both apply. Keeping 1.85 instead
+means a lock outside `std`: a rented crate or `unsafe`, each a decision
+too. Opened as **691, needs decision**. Nothing was weakened: no lint
+allowed, no `#[expect]`, no test disabled.
+
+**Manual.** No layout or drawing changes: no layout assertion or
+reference render applies. One file, one responsibility: the lock and the
+sweep are `chrome_profile.rs`'s, as ADR 0069 assigns; `alo.rs` says the
+sentence. No `unsafe`, no rented crate, no verb taking a coordinate.
+`alo-os` and `alo-workplace` untouched. Nothing pushed, nothing
+committed.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+690 as built, not gated, waiting on 691; the Owed clause and the closing
+paragraph say the same. The queue leaves 690 open with a *Built … not
+closed* paragraph and opens 691; `features.md` and the changelog say
+built, not gated.
+
+**Unresolved obligations.**
+- **691 must be decided first** — by the owner: raise the workspace's
+  minimum Rust to 1.89 (and make the workspace clippy clean at it, as its
+  own change), or keep 1.85 and give ADR 0069 another lock. Then the
+  gate is run on this tree, and it is one commit, `feat(alo-window): a
+  killed browser's Chrome profile is removed at the next start`, with
+  690 ticked *Done*.
+- The fifteen lockless profiles in `TMPDIR` stay, as ADR 0069 decides.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR;
+  658 waits on its measurement with the screen in use.
+- No claim about speed is made.
+
+The next unused queue number is **692** and the next ADR is **0070**.
+This is one iteration, not a finished queue or roadmap.
+
+LOOP HALT
+
+## Iteration 432, closed — 691 decided, 690 gated
+
+**Written by the owner's session.** 691 decided as ADR 0070: the
+workspace's minimum Rust is 1.89, since 1.85 was edition 2024's first and
+never chosen for anybody, and the alternatives were a rented crate or
+`unsafe`. `cargo clippy --fix` applied what 1.89's lints found in
+`alo-js`, `alo-net`, `alo-dom`, `alo-paint` and `alo-text`'s tests; the
+test of 690 that played a browser had one `unwrap`, now a line it says.
+The gate on the whole tree: **5522 tests, 5522 passed, 10 of 10 steps.**
+Two commits: the minimum and what it found, then 690 as iteration 432
+named it. **Next:** the product path's 477 is owed only another Mac;
+the loop takes the next item by LOOP.md. The next unused queue number is
+**692** and the next ADR is **0071**.

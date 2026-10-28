@@ -80,6 +80,7 @@ use crate::chrome_frame;
 use crate::chrome_mark::{Marker, Marking};
 use crate::chrome_named::{self, Naming};
 use crate::chrome_pages::ChromePages;
+use crate::chrome_profile::Swept;
 use crate::chrome_protocol::Named;
 use crate::chrome_tab::{Tab, Unopened};
 use crate::chrome_window::{self, Placed, Unplaced};
@@ -156,6 +157,7 @@ pub struct ChromeServing {
     rendered_by: RenderedBy,
     placed: Option<Placed>,
     process: u32,
+    swept: Swept,
 }
 
 /// Where Chrome draws the page.
@@ -266,12 +268,14 @@ impl ChromeServing {
                 product,
                 placed,
                 process,
+                swept,
             })) => Ok(Self {
                 orders,
                 thread,
                 rendered_by: RenderedBy::Chrome { product },
                 placed,
                 process,
+                swept,
             }),
             Ok(Err(why)) => {
                 let _ = thread.join();
@@ -302,6 +306,13 @@ impl ChromeServing {
         self.process
     }
 
+    /// What starting its Chrome removed of the profiles killed browsers
+    /// left, and what it could not — which `alo` says on the terminal
+    /// (ADR 0069 § 3).
+    pub fn swept(&self) -> &Swept {
+        &self.swept
+    }
+
     /// Where to send it orders: what [`crate::agents::Listening::at`] sends
     /// agents' requests to.
     pub fn orders(&self) -> Orders {
@@ -326,6 +337,20 @@ struct Started {
     placed: Option<Placed>,
     /// Its process.
     process: u32,
+    /// What its start removed of killed browsers' profiles.
+    swept: Swept,
+}
+
+/// Start a Chrome drawing as `drawn` says, and ask it which it is: its
+/// product, as it says itself.
+fn named_chrome(drawn: Drawn) -> Result<(Chrome, String), Unserved> {
+    let mut chrome = match drawn {
+        Drawn::Headless => Chrome::start(),
+        Drawn::Shown { .. } => Chrome::start_shown(),
+    }
+    .map_err(Unserved::Unstarted)?;
+    let product = chrome.version().map_err(Unserved::Unnamed)?.product;
+    Ok((chrome, product))
 }
 
 /// Start Chrome, open the page, say whether that worked — and which Chrome
@@ -341,24 +366,14 @@ fn serve_in_chrome(
     tell: &Sender<Result<Started, Unserved>>,
 ) -> AgentRecord {
     let mut record = AgentRecord::new();
-    let started = match drawn {
-        Drawn::Headless => Chrome::start(),
-        Drawn::Shown { .. } => Chrome::start_shown(),
-    };
-    let mut chrome = match started {
-        Ok(chrome) => chrome,
+    let (mut chrome, product) = match named_chrome(drawn) {
+        Ok(named) => named,
         Err(why) => {
-            let _ = tell.send(Err(Unserved::Unstarted(why)));
+            let _ = tell.send(Err(why));
             return record;
         }
     };
-    let product = match chrome.version() {
-        Ok(version) => version.product,
-        Err(why) => {
-            let _ = tell.send(Err(Unserved::Unnamed(why)));
-            return record;
-        }
-    };
+    let swept = chrome.swept().clone();
     let opened = match opening {
         Opening::Frozen { url, page } => Tab::open_frozen(&mut chrome, &url, page, size),
         Opening::Network(address) => Tab::open(&mut chrome, &address, size),
@@ -387,6 +402,7 @@ fn serve_in_chrome(
             product,
             placed,
             process: pages.tab().chrome_process(),
+            swept,
         }))
         .is_err()
     {

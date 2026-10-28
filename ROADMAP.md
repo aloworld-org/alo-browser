@@ -249,7 +249,14 @@ about this project (ADR 0058 § 6).
   socket run as the frame's event loop ends, which `winit`'s own
   application delegate does on `applicationWillTerminate:` before
   `AppKit` ends the process, asserted by quitting the application with
-  the Apple Event the Dock sends (688, `closing.rs`); and
+  the Apple Event the Dock sends (688, `closing.rs`); and **what a
+  killed browser left, removed at the next start** — each profile's
+  `alo.lock` locked while its browser lives and removed last, and each
+  Chrome started removing this user's profiles nobody holds, `alo`
+  saying how many, asserted by killing a browser that holds a real
+  Chrome beside one still living (690, ADR 0069, `chrome_profile.rs`;
+  built and not gated, since `File::try_lock` is newer than the
+  workspace's minimum Rust, 691); and
   **a refusal where a person can read it**,
   in this engine's window — each verb refused leaves its own sentence, the
   refusal's `said`, in a line of the browser's own in its own colours,
@@ -344,10 +351,9 @@ about this project (ADR 0058 § 6).
   application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
   inside it built, closing only on a Mac that never built it, with Chrome
   from the application (685) folded into it, and assembled by a command
-  (687), with its icon (689), and leaving no profile when quit (688);
-  what a killed browser left, removed at the next start (690, decided
-  in ADR 0069 — a lock each profile holds while its browser lives, and a
-  start removing only profiles whose lock nobody holds — and not built);
+  (687), with its icon (689), leaving no profile when quit (688) and
+  none a killed browser left past the next start (690, built, its gate
+  waiting on 691, the workspace's minimum Rust);
   and a page opened from the Finder (684, needs an ADR for its
   `unsafe`).
 
@@ -368,7 +374,8 @@ Manager's strip (643). And `alo` copied into an application opens that applicati
 page in Chrome when macOS starts it with nothing (477's first part), and
 `alo-bundle` makes that application, sealed and checked (687), with an
 icon this engine drew (689), and quitting it leaves no Chrome, profile or
-socket behind (688).
+socket behind (688); what a killed one left being removed when the next
+starts is built and not yet gated (690, waiting on 691).
 
 ---
 

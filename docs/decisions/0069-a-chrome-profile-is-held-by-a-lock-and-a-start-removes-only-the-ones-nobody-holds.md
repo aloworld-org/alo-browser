@@ -134,3 +134,19 @@ reported, and Chrome starts.
   `alo.lock` as well; the test is changed with the code, not before.
 - No `unsafe`, no rented crate, no new dependency: `File::try_lock`,
   `symlink_metadata`, `MetadataExt::uid` and `remove_dir_all` are `std`.
+
+## Amendment, 28 October 2026 — the lock file is removed last
+
+Found building it (iteration 432). `remove_dir_all` on a profile may
+take `alo.lock` out before it fails on something else in it — a
+directory that may not be emptied, or a Chrome still ending that writes
+a file in after the listing. What is left then has no `alo.lock`, and
+§ 2 never removes a directory without one: the remainder would stay for
+good, against § 2's own "the next start's sweep removes it".
+
+So a profile — swept, or its own as its browser closes — is removed
+with everything in it but `alo.lock` first (`remove_dir_all` for what
+is a directory, never following a link), then `alo.lock`, then the
+directory. If only that last step fails, an empty `alo.lock` is put
+back, which nobody holds, so the next sweep finds it. Asserted by a
+profile emptied inside a directory it may not be removed from.

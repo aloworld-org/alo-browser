@@ -36,7 +36,10 @@
 //! not, then waited for, and its profile is removed. When the browser process
 //! ends without dropping it — killed, or crashed — the pipe closes with it,
 //! and Chrome ends when its pipe closes: both are asserted by
-//! `tests/chrome_over_a_pipe.rs`.
+//! `tests/chrome_over_a_pipe.rs`. The profile such a browser left is removed
+//! by the next Chrome started, since nobody holds its lock any more
+//! ([`crate::chrome_profile`], ADR 0069): what that start removed is
+//! [`Chrome::swept`], asserted by `tests/a_killed_browsers_chrome_profile.rs`.
 //!
 //! # Headless, or shown in a window of its own
 //!
@@ -58,13 +61,13 @@
 use crate::beside::{NotInstalled, chrome_on_this_machine, is_program};
 use crate::chrome_held::{Taker, Untaken, held};
 use crate::chrome_hold::Unheld;
-use crate::chrome_profile::new_profile;
+use crate::chrome_profile::{Profile, Swept, new_profile};
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_record::Record;
 use crate::chrome_wire::{self, Frame, Frames, MOST_MESSAGE, Unframed};
 use core::fmt;
 use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, ChildStdin, Command as Process, Stdio};
 use std::time::{Duration, Instant};
 
@@ -95,7 +98,9 @@ pub struct Chrome {
     arrived: Taker<Result<Message, Failed>>,
     asked: u64,
     patience: Duration,
-    profile: PathBuf,
+    /// Removed, and its lock let go, as this value's fields are dropped —
+    /// after [`Drop::drop`] has waited for Chrome to end.
+    profile: Profile,
     /// Whether it draws in a window of its own on the screen.
     shown: bool,
     /// What its tabs asked for, and what caused each (ADR 0060 § 2).
@@ -219,7 +224,7 @@ impl Chrome {
         }
         let profile = new_profile().map_err(|why| Unstarted::NoProfile(why.kind()))?;
         let mut user_data = std::ffi::OsString::from("--user-data-dir=");
-        user_data.push(&profile);
+        user_data.push(profile.path());
         let spawned = Process::new("/bin/sh")
             .arg("-c")
             .arg(STARTER)
@@ -242,7 +247,6 @@ impl Chrome {
         let mut child = match spawned {
             Ok(child) => child,
             Err(why) => {
-                let _ = std::fs::remove_dir_all(&profile);
                 return Err(Unstarted::Unspawned(why.kind()));
             }
         };
@@ -250,7 +254,6 @@ impl Chrome {
         let (Some(to), Some(from)) = (to, from) else {
             let _ = child.kill();
             let _ = child.wait();
-            let _ = std::fs::remove_dir_all(&profile);
             return Err(Unstarted::Unspawned(ErrorKind::BrokenPipe));
         };
         let (tell, arrived) = held(HELD_MESSAGES, HELD_BYTES);
@@ -305,7 +308,13 @@ impl Chrome {
     /// The profile Chrome was started on, for a test that wants to see it
     /// removed.
     pub fn profile(&self) -> &Path {
-        &self.profile
+        self.profile.path()
+    }
+
+    /// What starting it removed of the profiles killed browsers left, and
+    /// what it could not (ADR 0069).
+    pub fn swept(&self) -> &Swept {
+        self.profile.swept()
     }
 
     /// Whether it draws in a window of its own on the screen
@@ -460,6 +469,6 @@ impl Drop for Chrome {
         }
         let _ = self.child.kill();
         let _ = self.child.wait();
-        let _ = std::fs::remove_dir_all(&self.profile);
+        // The profile is removed as the fields are dropped, after this.
     }
 }

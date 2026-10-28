@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Building alo browser now needs Rust 1.89 or later** (ADR 0070). The
+  minimum was 1.85, which nobody had chosen. 1.89 brings the file lock that
+  lets the browser clean up after a copy of itself that was killed.
+
+- **What a killed browser left is cleaned up the next time it starts.**
+  A browser that is force-quit, crashes or loses power never removes the
+  private Chrome profile it made. Now each profile is locked for as long
+  as its browser lives, and every time a Chrome is started the browser
+  removes this user's profiles whose lock nobody holds — only a dead
+  browser's — and says on the terminal how many. A living browser's
+  profile is never touched, and profiles made before this change, which
+  have no lock, are left for a person to delete. A test kills a browser
+  running a real Chrome beside one that keeps running, and checks the
+  next start removes the first's profile and only that. *(Built; not
+  yet released past the gate, which waits on a decision about the
+  minimum Rust version this needs.)*
+
 - **A test of where macOS puts a window no longer assumes the laptop's
   screen is the top-left one.** The test sends Chrome's window far off the
   screen and checks that macOS brings it back. It checked that the window

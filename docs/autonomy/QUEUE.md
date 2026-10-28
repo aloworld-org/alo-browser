@@ -63,7 +63,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **680** | the box a verb acted on, marked over a page in Chrome — Chrome's own highlight of the node and its label, no window of ours over the page (ADR 0066, iteration 423) |
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
-| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); **quit, it leaves no profile or socket** (688, iteration 430); **a killed browser's profile, removed at the next start — decided, ADR 0069** (690, iteration 431, not built); owed: another Mac |
+| **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); **quit, it leaves no profile or socket** (688, iteration 430); **a killed browser's profile, removed at the next start** (690, ADR 0069, iteration 432; gated 2026-10-28 once 691 moved the minimum Rust to 1.89, ADR 0070); owed: another Mac |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18912,7 +18912,7 @@ person unblocks this stage or does not.
   quit by identifier, left no `alo`, Chrome, profile (11 MB while open)
   or socket. A browser killed still leaves its profile: 690.
 
-- [ ] **690. What a killed browser left, removed at the next start.**
+- [x] **690. What a killed browser left, removed at the next start.**
   *Cut from 688 (iteration 430); ADR 0068's amendment of 27 October.* A
   browser ended by `SIGKILL`, a crash or the power runs nothing, so its
   Chrome's profile (`alo-chrome-PID-…` in `TMPDIR`) stays; this machine
@@ -18932,6 +18932,67 @@ person unblocks this stage or does not.
   first: a `SIGKILL`ed holder's `flock` is let go, a rename keeps it,
   two opens in one process refuse each other, Chrome does not inherit it.
   `std` only, no `unsafe`. Buildable next.
+  ***Built (iteration 432), not closed: the gate is not met, and waits on
+  691.*** `File::try_lock`, which ADR 0069 chose, is Rust 1.89; the
+  workspace declares `rust-version = "1.85"`, and clippy's
+  `incompatible_msrv` refuses it — the one finding left. The work is in
+  the working tree, uncommitted. `chrome_profile.rs`: `new_profile` answers
+  a `Profile` — the directory, `alo.lock` held (`alo.making` locked, then
+  renamed), and the `Swept` its making found — which removes itself when
+  dropped and lets go of its lock after; `Chrome` holds it, so it is
+  removed after Chrome has been waited for, and answers `swept()`.
+  The sweep is ADR 0069 § 2's, with one thing the ADR did not say and its
+  amendment of 28 October now does: a profile is removed with its
+  `alo.lock` **last**, and put back unlocked if the directory itself
+  cannot then be removed, so a removal that fails part of the way never
+  leaves a lockless remainder no sweep would touch. `ChromeServing`
+  carries the sweep to `alo`, which says `removed N Chrome profiles
+  killed browsers left` and what it could not. **Tests:** nine unit tests
+  (a living lock refuses another open; a dead profile removed and a
+  living one left; a link, a lockless directory, `alo.making`, a lock
+  that is a link or a directory, a plain file and another name all left;
+  a stuck profile said and removed by the next start; an emptied one
+  keeping its lock file; eight starts at once removing a dead one once)
+  and `a_killed_browsers_chrome_profile.rs`: three copies of the test
+  binary holding real Chromes in a `TMPDIR` of the test's own, one
+  `SIGKILL`ed, one living, the third's start removing the first's profile
+  and only it. **Mutations:** no sweep, no lock, `remove_dir_all` for the
+  lock-last removal, links followed — each fails a test. **Measured by
+  hand:** `alo --chrome` with two dead profiles and a lockless one planted
+  in its `TMPDIR` said `removed 2 Chrome profiles killed browsers left`,
+  left the lockless one, and removed its own as its input ended. Not
+  asserted: a directory of another user's being left, which needs a
+  second account to make. Once 691 is decided and the gate met on this
+  tree, it is one commit, `feat(alo-window): a killed browser's Chrome
+  profile is removed at the next start`, and 690 is ticked *Done*.
+  **Done (gated by the owner's session, 2026-10-28):** 691 decided by ADR
+  0070 (the minimum is 1.89), the workspace clippy clean at it, the test's
+  one `unwrap` in the browser it plays said as a line instead; **5522
+  tests, 5522 passed, 10 of 10 steps.**
+
+- [x] **691. The workspace's minimum Rust, and whether it moves for
+  `File::try_lock`.** *Found by 690 (iteration 432).* `Cargo.toml` has
+  declared `rust-version = "1.85"` since the first commit, and iteration
+  144 worked around it rather than raise it; ADR 0069 chose
+  `File::try_lock` (1.89) without noticing. Raising it is not one line:
+  measured at 1.89 (the toolchain here is 1.97.1), clippy then fires
+  `collapsible_if` 28 times — let-chains, stable in 1.88 — and
+  `manual_is_multiple_of` twice, in `alo-js` (20), `alo-net` (8) and
+  `alo-dom` (2), with the crates that depend on them not yet compiled
+  past that. *Needs decision:* raise the minimum to 1.89 (and fix what its
+  lints then find, across the workspace, as its own change), or keep 1.85
+  and give ADR 0069 another lock — `std` before 1.89 has none the kernel
+  lets go of at a process's death, so that means a rented crate or
+  `unsafe`, each a decision of its own. Whose it is: the owner's, since
+  it sets what toolchain everybody building this needs. *Depends on
+  nothing. Closes when:* the decision is recorded (an ADR, or an
+  amendment of 0069) and, if it moves the minimum, the workspace is clippy
+  clean at it — after which 690's tree is gated.
+  **Done (owner's session, 2026-10-28): ADR 0070, the minimum is 1.89.**
+  1.85 was edition 2024's first Rust, never a choice for anybody, and the
+  toolchain here is 1.97.1. `cargo clippy --fix` applied the let-chains and
+  `is_multiple_of` across `alo-js`, `alo-net`, `alo-dom`, `alo-paint` and
+  `alo-text`'s tests; the workspace is clippy clean with nothing allowed.
 
 - [x] **689. The application's icon, drawn by this engine.** *ADR 0067
   § 6; cut from 477 (iteration 427).* A page in this repository drawn by
