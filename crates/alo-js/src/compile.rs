@@ -294,10 +294,10 @@ impl Compiler {
         // "hoisted" means for one.
         let declared = hoist::functions(&program.body);
         for function in &declared {
-            if let Some(name) = &function.name {
-                if !names.contains(name) {
-                    names.push(name.clone());
-                }
+            if let Some(name) = &function.name
+                && !names.contains(name)
+            {
+                names.push(name.clone());
             }
         }
         for name in &names {
@@ -1512,12 +1512,12 @@ impl Compiler {
                 // A name that resolves to nothing is `"undefined"` rather than
                 // a `ReferenceError`, and that is the only reason this is not
                 // an ordinary evaluation followed by an instruction.
-                if let ExpressionKind::Name(name) = &argument.kind {
-                    if self.resolve(name, at)? == Where::Global {
-                        let text = self.text(name)?;
-                        self.chunk.emit(Op::TypeOfGlobal(text), at);
-                        return Ok(());
-                    }
+                if let ExpressionKind::Name(name) = &argument.kind
+                    && self.resolve(name, at)? == Where::Global
+                {
+                    let text = self.text(name)?;
+                    self.chunk.emit(Op::TypeOfGlobal(text), at);
+                    return Ok(());
                 }
                 self.expression(argument)?;
                 self.chunk.emit(Op::TypeOf, at);

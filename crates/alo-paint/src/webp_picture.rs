@@ -165,13 +165,13 @@ fn frame_agreed(frame: &[u8]) -> Result<(), PictureError> {
             return Ok(());
         };
         agreed_size(width.into(), height.into())?;
-        if let Some((frame_width, frame_height)) = declared {
-            if (u32::from(width), u32::from(height)) != (frame_width, frame_height) {
-                return Err(PictureError::Unreadable(format!(
-                    "a WebP frame of {frame_width}×{frame_height} holding a picture of \
+        if let Some((frame_width, frame_height)) = declared
+            && (u32::from(width), u32::from(height)) != (frame_width, frame_height)
+        {
+            return Err(PictureError::Unreadable(format!(
+                "a WebP frame of {frame_width}×{frame_height} holding a picture of \
                      {width}×{height}"
-                )));
-            }
+            )));
         }
     }
     Ok(())

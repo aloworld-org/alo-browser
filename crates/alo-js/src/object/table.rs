@@ -101,11 +101,11 @@ impl Properties {
             self.indexed.insert(at, property);
             return;
         }
-        if let Some(at) = self.at.get(&key).copied() {
-            if let Some(slot) = self.named.get_mut(at) {
-                *slot = Some((key, property));
-                return;
-            }
+        if let Some(at) = self.at.get(&key).copied()
+            && let Some(slot) = self.named.get_mut(at)
+        {
+            *slot = Some((key, property));
+            return;
         }
         self.named.push(Some((key, property)));
         self.at.insert(key, self.named.len().saturating_sub(1));

@@ -493,10 +493,10 @@ impl Reader {
         let number = self.groups;
         self.names.push(name.clone());
         let (body, mut names) = self.closed(start)?;
-        if let Some(name) = name {
-            if !names.insert(name) {
-                return Err(self.wrong(Wrong::RepeatedName, start));
-            }
+        if let Some(name) = name
+            && !names.insert(name)
+        {
+            return Err(self.wrong(Wrong::RepeatedName, start));
         }
         Ok((
             Node::Group {

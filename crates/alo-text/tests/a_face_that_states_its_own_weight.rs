@@ -84,7 +84,7 @@ fn sound() -> Vec<u8> {
 /// table and nothing else.
 fn font_with_os2(table: &[u8]) -> Vec<u8> {
     let mut data = dejavu::sans::regular().to_vec();
-    while data.len() % 4 != 0 {
+    while !data.len().is_multiple_of(4) {
         data.push(0);
     }
     let at = long(data.len());

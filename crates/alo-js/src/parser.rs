@@ -461,14 +461,15 @@ impl<'a> Parser<'a> {
         }
         let token = self.look(goal)?;
         let at = token.start;
-        if let Kind::Name(found) = &token.kind {
-            if found.escaped && found.name == keyword.as_str() {
-                let name = found.name.clone();
-                return Err(SyntaxError::new(
-                    Reason::KeywordWrittenWithAnEscape(name),
-                    at,
-                ));
-            }
+        if let Kind::Name(found) = &token.kind
+            && found.escaped
+            && found.name == keyword.as_str()
+        {
+            let name = found.name.clone();
+            return Err(SyntaxError::new(
+                Reason::KeywordWrittenWithAnEscape(name),
+                at,
+            ));
         }
         Err(SyntaxError::new(
             Reason::Expected {
@@ -739,10 +740,10 @@ impl<'a> Parser<'a> {
         let mut body = Vec::new();
         let mut prologue = true;
         loop {
-            if let Some(closer) = closer {
-                if self.at(OPERAND, closer)? {
-                    break;
-                }
+            if let Some(closer) = closer
+                && self.at(OPERAND, closer)?
+            {
+                break;
             }
             if self.at_end(OPERAND)? {
                 break;

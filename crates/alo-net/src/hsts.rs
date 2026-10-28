@@ -124,20 +124,21 @@ impl Known {
             return false;
         }
         let host = host.to_ascii_lowercase();
-        if let Some(pinned) = self.held.get(&host) {
-            if pinned.until > now {
-                return true;
-            }
+        if let Some(pinned) = self.held.get(&host)
+            && pinned.until > now
+        {
+            return true;
         }
         // A parent that covers its subdomains covers this one. Walked label by
         // label rather than by suffix, because `evil-example.com` ends with
         // `example.com` and is not under it.
         let mut rest = host.as_str();
         while let Some((_, parent)) = rest.split_once('.') {
-            if let Some(pinned) = self.held.get(parent) {
-                if pinned.covers_subdomains && pinned.until > now {
-                    return true;
-                }
+            if let Some(pinned) = self.held.get(parent)
+                && pinned.covers_subdomains
+                && pinned.until > now
+            {
+                return true;
             }
             rest = parent;
         }

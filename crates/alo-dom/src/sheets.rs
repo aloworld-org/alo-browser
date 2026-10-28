@@ -85,10 +85,11 @@ pub fn asked_for(document: &Document) -> Vec<Sheet> {
             .iter()
             .find(|attribute| attribute.name.local.eq_ignore_ascii_case("type"))
             .map(|attribute| attribute.value.trim().to_ascii_lowercase());
-        if let Some(kind) = kind {
-            if !kind.is_empty() && kind != "text/css" {
-                continue;
-            }
+        if let Some(kind) = kind
+            && !kind.is_empty()
+            && kind != "text/css"
+        {
+            continue;
         }
         let text = document.text_content(id);
         if !text.trim().is_empty() {

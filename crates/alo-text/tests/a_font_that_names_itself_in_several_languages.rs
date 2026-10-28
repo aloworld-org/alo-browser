@@ -179,7 +179,7 @@ fn name_table(records: &[Record]) -> Vec<u8> {
 fn font_named_with(bytes: &[u8], records: &[Record]) -> Vec<u8> {
     let table = name_table(records);
     let mut data = bytes.to_vec();
-    while data.len() % 4 != 0 {
+    while !data.len().is_multiple_of(4) {
         data.push(0);
     }
     let at = long(data.len());

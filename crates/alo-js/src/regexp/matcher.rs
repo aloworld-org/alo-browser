@@ -197,10 +197,11 @@ impl<'a> Machine<'a> {
     /// `AdvanceStringIndex`.
     fn advance(&self, index: usize) -> usize {
         let next = index.saturating_add(1);
-        if self.code_points && next < self.input.len() {
-            if let Some((_, after)) = self.read(index, false) {
-                return after;
-            }
+        if self.code_points
+            && next < self.input.len()
+            && let Some((_, after)) = self.read(index, false)
+        {
+            return after;
         }
         next
     }
@@ -653,28 +654,28 @@ impl<'a> Machine<'a> {
         if back {
             let before = pos.checked_sub(1)?;
             let unit = u32::from(*self.input.get(before)?);
-            if self.code_points && is_trail(unit) {
-                if let Some(lead) = before
+            if self.code_points
+                && is_trail(unit)
+                && let Some(lead) = before
                     .checked_sub(1)
                     .and_then(|at| self.input.get(at))
                     .map(|lead| u32::from(*lead))
                     .filter(|lead| is_lead(*lead))
-                {
-                    return Some((combined(lead, unit), before.saturating_sub(1)));
-                }
+            {
+                return Some((combined(lead, unit), before.saturating_sub(1)));
             }
             return Some((unit, before));
         }
         let unit = u32::from(*self.input.get(pos)?);
-        if self.code_points && is_lead(unit) {
-            if let Some(trail) = self
+        if self.code_points
+            && is_lead(unit)
+            && let Some(trail) = self
                 .input
                 .get(pos.saturating_add(1))
                 .map(|trail| u32::from(*trail))
                 .filter(|trail| is_trail(*trail))
-            {
-                return Some((combined(unit, trail), pos.saturating_add(2)));
-            }
+        {
+            return Some((combined(unit, trail), pos.saturating_add(2)));
         }
         Some((unit, pos.saturating_add(1)))
     }

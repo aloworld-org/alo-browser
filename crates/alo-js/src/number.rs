@@ -101,10 +101,10 @@ pub fn scan(source: &str, at: usize) -> Result<(Value, usize), SyntaxError> {
     };
     // `3in x` is not `3 in x`: the grammar forbids a name or a digit straight
     // after a literal, so that one program is not two ways of writing another.
-    if let Some(c) = read::char_at(source, end) {
-        if unicode::starts_a_name(c) || c.is_ascii_digit() {
-            return Err(SyntaxError::new(Reason::NumberFollowedByName, end));
-        }
+    if let Some(c) = read::char_at(source, end)
+        && (unicode::starts_a_name(c) || c.is_ascii_digit())
+    {
+        return Err(SyntaxError::new(Reason::NumberFollowedByName, end));
     }
     Ok((value, end))
 }

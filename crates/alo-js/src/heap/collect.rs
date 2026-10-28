@@ -131,10 +131,10 @@ fn discharge(tracer: &mut Tracer) {
 /// remembered at all.
 fn rescan<T: Trace>(cells: &[Option<T>], tracer: &mut Tracer) {
     for (at, cell) in cells.iter().enumerate() {
-        if let Some(cell) = cell {
-            if tracer.marked_slot(at) {
-                cell.trace(tracer);
-            }
+        if let Some(cell) = cell
+            && tracer.marked_slot(at)
+        {
+            cell.trace(tracer);
         }
     }
 }

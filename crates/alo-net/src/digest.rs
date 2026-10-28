@@ -115,7 +115,7 @@ impl Digest {
 fn decoded(value: &str) -> Option<Vec<u8>> {
     let body = value.trim_end_matches('=');
     let padding = value.len().checked_sub(body.len())?;
-    if padding > 2 || (padding > 0 && value.len() % 4 != 0) {
+    if padding > 2 || (padding > 0 && !value.len().is_multiple_of(4)) {
         return None;
     }
     // A group of one character is six bits, which stands for no whole byte.

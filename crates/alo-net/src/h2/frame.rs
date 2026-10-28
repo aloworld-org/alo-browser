@@ -408,7 +408,7 @@ fn settings(flags: u8, stream: u32, payload: &[u8]) -> Result<Frame, Broken> {
             values: Vec::new(),
         });
     }
-    if payload.len() % 6 != 0 {
+    if !payload.len().is_multiple_of(6) {
         return Err(broken(
             "a SETTINGS frame whose length is not a whole number of settings",
             ErrorCode::FrameSizeError,

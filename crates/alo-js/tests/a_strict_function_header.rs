@@ -174,10 +174,10 @@ fn malformed_and_truncated_headers_return_without_panicking() {
         "function f(\\u{FFFFFF}) { 'use strict'; }",
     ] {
         for end in 0..=source.len() {
-            if let Some(prefix) = source.get(..end) {
-                if let Ok(program) = script(prefix) {
-                    let _ = compile(&program);
-                }
+            if let Some(prefix) = source.get(..end)
+                && let Ok(program) = script(prefix)
+            {
+                let _ = compile(&program);
             }
         }
     }

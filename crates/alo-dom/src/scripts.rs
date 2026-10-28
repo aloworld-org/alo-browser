@@ -144,10 +144,10 @@ pub fn carried(document: &Document) -> Vec<Carried> {
             if let Some(script) = script(document, id, element) {
                 found.push(Carried::Script(script));
             }
-        } else if element.name.is_html("meta") {
-            if let Some(policy) = meta_policy(document, id, element) {
-                found.push(Carried::Policy(policy));
-            }
+        } else if element.name.is_html("meta")
+            && let Some(policy) = meta_policy(document, id, element)
+        {
+            found.push(Carried::Policy(policy));
         }
     }
     found

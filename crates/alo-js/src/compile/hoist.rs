@@ -123,10 +123,10 @@ fn from_declaration(declaration: &Declaration, into: &mut Vec<String>) {
         return;
     }
     for declarator in &declaration.declarators {
-        if let Pattern::Name(name) = &declarator.pattern {
-            if !into.contains(name) {
-                into.push(name.clone());
-            }
+        if let Pattern::Name(name) = &declarator.pattern
+            && !into.contains(name)
+        {
+            into.push(name.clone());
         }
         // A destructuring pattern declares names too, and it is queue item 211:
         // the compiler refuses one rather than reaching here, so there is
@@ -173,10 +173,10 @@ pub fn lexical(statements: &[Statement]) -> Vec<Declared> {
 pub fn functions(statements: &[Statement]) -> Vec<&Function> {
     let mut declared = Vec::new();
     for statement in statements {
-        if let StatementKind::Function(function) = &statement.kind {
-            if function.name.is_some() {
-                declared.push(function.as_ref());
-            }
+        if let StatementKind::Function(function) = &statement.kind
+            && function.name.is_some()
+        {
+            declared.push(function.as_ref());
         }
     }
     declared

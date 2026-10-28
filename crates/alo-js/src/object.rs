@@ -718,10 +718,10 @@ impl Objects {
     ///
     /// Whatever [`Objects::text`] refuses.
     pub fn key(&mut self, units: &[u16]) -> Result<Key, Refused> {
-        if let Some(at) = key::array_index(units) {
-            if let Some(key) = Key::index(at) {
-                return Ok(key);
-            }
+        if let Some(at) = key::array_index(units)
+            && let Some(key) = Key::index(at)
+        {
+            return Ok(key);
         }
         self.names.prune(&self.heap);
         if let Some(held) = self.names.find(&self.heap, units) {
@@ -743,10 +743,10 @@ impl Objects {
     /// [`None`] means no object anywhere has a property of that name, which is
     /// the answer the caller wanted anyway.
     pub fn existing_key(&self, units: &[u16]) -> Option<Key> {
-        if let Some(at) = key::array_index(units) {
-            if let Some(key) = Key::index(at) {
-                return Some(key);
-            }
+        if let Some(at) = key::array_index(units)
+            && let Some(key) = Key::index(at)
+        {
+            return Some(key);
         }
         self.names.find(&self.heap, units).map(Key::text)
     }

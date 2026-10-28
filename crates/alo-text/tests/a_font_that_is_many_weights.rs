@@ -108,7 +108,7 @@ fn glyph_count(data: &[u8]) -> usize {
 /// table in the file by sixteen bytes and this test would then be about whether
 /// it rewrote a font correctly.
 fn carrying(mut data: Vec<u8>, spare: &[u8], tag: &[u8], table: &[u8]) -> Vec<u8> {
-    while data.len() % 4 != 0 {
+    while !data.len().is_multiple_of(4) {
         data.push(0);
     }
     let at = long(data.len());

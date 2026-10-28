@@ -206,13 +206,13 @@ pub fn verdict(asked: &Directives, stored: &Stored, now: SystemTime) -> Verdict 
 
     // Past its life. A request may still be willing — unless the response said
     // it must not be, which is exactly what `must-revalidate` is for.
-    if let Some(tolerance) = asked.max_stale {
-        if !said.says(Flag::MustRevalidate) {
-            let staleness = age.saturating_sub(fresh_for);
-            let allowed = tolerance.map_or(Duration::MAX, Duration::from_secs);
-            if staleness <= allowed {
-                return Verdict::Hit;
-            }
+    if let Some(tolerance) = asked.max_stale
+        && !said.says(Flag::MustRevalidate)
+    {
+        let staleness = age.saturating_sub(fresh_for);
+        let allowed = tolerance.map_or(Duration::MAX, Duration::from_secs);
+        if staleness <= allowed {
+            return Verdict::Hit;
         }
     }
 

@@ -104,7 +104,11 @@ fn box_size(sigma: f32) -> u32 {
         reason = "sigma is clamped to at most 256, so this is a small positive number"
     )]
     let size = ideal as u32;
-    if size % 2 == 0 { size + 1 } else { size }
+    if size.is_multiple_of(2) {
+        size + 1
+    } else {
+        size
+    }
 }
 
 /// The same coverage with blank pixels all round it, so a blur has room.

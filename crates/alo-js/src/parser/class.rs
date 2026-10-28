@@ -75,16 +75,16 @@ impl Parser<'_> {
                 continue;
             }
             let member = self.class_member(heritage.is_some())?;
-            if let ClassMember::Method(method) = &member {
-                if method.kind == MethodKind::Constructor {
-                    if has_a_constructor {
-                        return Err(SyntaxError::new(
-                            Reason::ConstructorIsNotThat,
-                            method.function.start,
-                        ));
-                    }
-                    has_a_constructor = true;
+            if let ClassMember::Method(method) = &member
+                && method.kind == MethodKind::Constructor
+            {
+                if has_a_constructor {
+                    return Err(SyntaxError::new(
+                        Reason::ConstructorIsNotThat,
+                        method.function.start,
+                    ));
                 }
+                has_a_constructor = true;
             }
             members.push(member);
         }

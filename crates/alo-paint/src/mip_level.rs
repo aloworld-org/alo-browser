@@ -196,7 +196,7 @@ fn halving(count: u32, index: u32) -> (Vec<(u32, u64)>, u64) {
     let first = 2 * index;
     if count <= 1 {
         (vec![(0, 1)], 1)
-    } else if count % 2 == 0 {
+    } else if count.is_multiple_of(2) {
         (vec![(first, 1), (first + 1, 1)], 2)
     } else {
         (vec![(first, 1), (first + 1, 2), (first + 2, 1)], 4)

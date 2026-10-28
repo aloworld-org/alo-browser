@@ -140,11 +140,11 @@ impl Resolver {
     /// answer can never smuggle a permission it was granted the first time.
     fn look_up(&mut self, host: &str, port: u16) -> Result<Vec<SocketAddr>, Unresolved> {
         let key = (host.to_ascii_lowercase(), port);
-        if let Some(known) = self.remembered.get(&key) {
-            if known.at.elapsed() < REUSE_FOR {
-                self.reused += 1;
-                return Ok(known.addresses.clone());
-            }
+        if let Some(known) = self.remembered.get(&key)
+            && known.at.elapsed() < REUSE_FOR
+        {
+            self.reused += 1;
+            return Ok(known.addresses.clone());
         }
         self.asked += 1;
         let addresses: Vec<SocketAddr> = (host, port)

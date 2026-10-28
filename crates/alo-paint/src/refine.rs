@@ -339,7 +339,7 @@ mod tests {
         // One tile in four covered: twenty runs a tile row.
         let width = TILE * 80;
         let coverage: Vec<u8> = (0..TILE * 4)
-            .flat_map(|_| (0..width).map(|x| if (x / TILE) % 4 == 0 { 255 } else { 0 }))
+            .flat_map(|_| (0..width).map(|x| if (x / TILE).is_multiple_of(4) { 255 } else { 0 }))
             .collect();
         let few = Plan::of(&coverage, width, TILE * 4, 4);
         let many = Plan::of(&coverage, width, TILE * 4, BUDGET);

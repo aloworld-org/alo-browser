@@ -34,10 +34,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 pub fn parse(text: &str) -> Option<SystemTime> {
     let text = text.trim();
     // `Sun, 06 Nov 1994 08:49:37 GMT` — the only one anything may send.
-    if let Some(rest) = text.split_once(", ").map(|(_, rest)| rest) {
-        if let Some(at) = imf_fixdate(rest).or_else(|| rfc850(rest)) {
-            return Some(at);
-        }
+    if let Some(rest) = text.split_once(", ").map(|(_, rest)| rest)
+        && let Some(at) = imf_fixdate(rest).or_else(|| rfc850(rest))
+    {
+        return Some(at);
     }
     // `Sun Nov  6 08:49:37 1994` — C's `asctime`, no comma anywhere.
     asctime(text)

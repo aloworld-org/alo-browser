@@ -1068,10 +1068,10 @@ impl Parser<'_> {
                     if let Some(arrow) = self.arrow_from_one_name(start, true, allow_in)? {
                         return Ok(Some(arrow));
                     }
-                } else if self.at(OPERAND, Punctuator::LeftParenthesis)? {
-                    if let Some(arrow) = self.arrow_from_a_list(start, true, allow_in)? {
-                        return Ok(Some(arrow));
-                    }
+                } else if self.at(OPERAND, Punctuator::LeftParenthesis)?
+                    && let Some(arrow) = self.arrow_from_a_list(start, true, allow_in)?
+                {
+                    return Ok(Some(arrow));
                 }
             }
             self.back_to(&mark);

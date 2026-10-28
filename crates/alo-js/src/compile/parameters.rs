@@ -38,10 +38,10 @@ pub(super) fn parameter_names(function: &Function) -> Result<Vec<String>, Refusa
             at,
         });
     }
-    if function.strict {
-        if let Some(name) = &function.name {
-            strict_name(name, at)?;
-        }
+    if function.strict
+        && let Some(name) = &function.name
+    {
+        strict_name(name, at)?;
     }
     let mut names: Vec<String> = Vec::new();
     for element in &function.parameters {

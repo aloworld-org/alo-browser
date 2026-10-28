@@ -131,11 +131,11 @@ impl Roots {
 
     /// Keep `held` alive until it is released.
     pub(in crate::heap) fn root(&mut self, held: Ref) -> Root {
-        if let Some(at) = self.spare.pop() {
-            if let Some(slot) = self.held.get_mut(at) {
-                *slot = Some(held);
-                return Root { at };
-            }
+        if let Some(at) = self.spare.pop()
+            && let Some(slot) = self.held.get_mut(at)
+        {
+            *slot = Some(held);
+            return Root { at };
         }
         self.held.push(Some(held));
         Root {

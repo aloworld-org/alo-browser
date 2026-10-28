@@ -152,23 +152,23 @@ impl Compiler {
         }
         self.chunk.count_parameters(names.len());
 
-        if naming == Naming::Itself {
-            if let Some(own) = &function.name {
-                let slot = self.binding(at)?;
-                let assignment = if function.strict {
-                    Assignment::Refused
-                } else {
-                    Assignment::Ignored
-                };
-                if self.scopes.declare(own, slot, assignment).is_err() {
-                    return Err(Refusal::NotAProgram {
-                        why: format!("'{own}' is this function's own name and a parameter of it"),
-                        at,
-                    });
-                }
-                let text = self.text(own)?;
-                self.chunk.name_itself(text, Some(slot));
+        if naming == Naming::Itself
+            && let Some(own) = &function.name
+        {
+            let slot = self.binding(at)?;
+            let assignment = if function.strict {
+                Assignment::Refused
+            } else {
+                Assignment::Ignored
+            };
+            if self.scopes.declare(own, slot, assignment).is_err() {
+                return Err(Refusal::NotAProgram {
+                    why: format!("'{own}' is this function's own name and a parameter of it"),
+                    at,
+                });
             }
+            let text = self.text(own)?;
+            self.chunk.name_itself(text, Some(slot));
         }
 
         match &function.body {

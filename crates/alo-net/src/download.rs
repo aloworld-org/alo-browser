@@ -396,10 +396,8 @@ impl Download {
         // knows where in the coded stream it ends. `crate::connection` undoes
         // them only for a body that arrived whole, which is why this turns on
         // `ended_early` rather than on the header alone.
-        if ended_early {
-            if let Some(coding) = coding_applied(&response.headers) {
-                return Err(Unusable::Coded { coding });
-            }
+        if ended_early && let Some(coding) = coding_applied(&response.headers) {
+            return Err(Unusable::Coded { coding });
         }
 
         match response.status.0 {

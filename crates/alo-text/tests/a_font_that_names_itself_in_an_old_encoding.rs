@@ -123,7 +123,7 @@ fn name_table(records: &[Record]) -> Vec<u8> {
 /// the reading of one table and nothing else.
 fn font_with_name_table(table: &[u8]) -> Vec<u8> {
     let mut data = dejavu::sans::regular().to_vec();
-    while data.len() % 4 != 0 {
+    while !data.len().is_multiple_of(4) {
         data.push(0);
     }
     let at = long(data.len());
