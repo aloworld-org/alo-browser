@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A freshly installed copy no longer leaves a drop-down list's menu
+  open when macOS will not let it choose** (ADR 0072, item 692). Before
+  opening the menu, and before every key, the browser asks macOS whether
+  it may send keys to Chrome — a question that asks the person nothing.
+  When it may not, nothing is clicked, no menu opens, and the agent and
+  the person are told where to allow it: System Settings, Privacy &
+  Security, Accessibility, for the application the browser runs in.
+  Checked by a test that builds a brand-new application macOS has never
+  trusted and runs the browser inside it.
+
 - **Decided: what a freshly installed copy does when macOS will not let it
   choose from a drop-down list in Chrome** (ADR 0072, item 692). Measured:
   macOS silently throws away the arrow keys of an application nobody has

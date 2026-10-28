@@ -44386,3 +44386,104 @@ decided, not built.
 
 The next unused queue number is **693** and the next ADR is **0073**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 436 — queue item 692 built: a closed list's menu is not opened by a browser macOS does not let post keys (ADR 0072)
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, iteration 435's entry, queue items 658 and 692, ADR 0072 whole and
+ADR 0071's amendment line; `docs/features.md`'s second-renderer line
+(692's contract); `chrome_menu.rs`, `chrome_choose.rs`, `chrome_act.rs`,
+`chrome_pages.rs` (how `Unwalked` reaches the socket), `bundle_seal.rs`,
+`info_plist.rs`, the 658 and 690 test files, `.config/nextest.toml`. No
+`AGENTS.md` exists in the repository.
+
+**Why 692.** 435 decided it and left its build owed; the product path's
+other owed items are 477 (closes only on a Mac that never built it) and
+684 (needs an ADR for `unsafe`). Its dependency, 658, is done. The
+session was unlocked (`IOConsoleLocked` false).
+
+**Built.** `chrome_menu::may_post` asks `CGPreflightPostEventAccess`
+through `osascript`, bound with `ObjC.bindFunction`, and reads `allowed`
+or `refused` strictly (`allowed`); the posting script asks the same
+before it reads any window and prints `refused` (`Posted::NotAllowed`).
+`chrome_choose` asks before the click — after the walk is counted, so a
+held option and one with no item answer as before — and answers
+`Unwalked::NotAllowed`; a refusal mid-walk is
+`Unwalked::NoLongerAllowed { posted }`, whose sentence adds that the menu
+may be left open. Both end in `chrome_choose::ALLOWING`, ADR 0072's
+words, and reach the socket as `NotCarriedOut` through the existing arm
+of `chrome_pages`, so the frame draws them as every refusal. Nothing
+calls `CGRequestPostEventAccess`.
+
+**How a fresh bundle is made in a test** (ADR 0072's Consequences left
+it to the build): `a_closed_list_in_a_chrome_macos_does_not_let_us_post_keys_to.rs`
+copies its own test binary into a new `Not Allowed.app` in a temporary
+directory, under `org.aloworld.test.not-allowed-to-post-keys` (never the
+application's identifier) with `LSUIElement`, as 435's probe did, seals
+it with `bundle_seal::seal`, and starts it with `open -W -n --stdout
+--env`. The copy plays the browser and writes lines; the test reads
+them: `may post false`; *Elderberries* refused with the sentence word
+for word; no menu shown within `MENU_PATIENCE`; the page heard nothing,
+not even `focus`; an Escape asked of the posting script answered
+`NotAllowed` by itself. If the identifier is ever allowed, it fails
+saying so. Unit tests: both answers read strictly, and both scripts run
+through `osascript` and agree with each other. The new file is in
+`nextest.toml`'s threads-required=2 list (it shows a Chrome) and, by its
+name, in the `chrome` group.
+
+**Mutations.** The question before the click removed: the copy answered
+`NoLongerAllowed { posted: 0 }`, the menu left on the screen, the page
+hearing `focus` — the test failed (and this showed the script's own
+question working in a really untrusted process). The script's question
+removed: the Escape answered `Gone` — failed. Both restored from copies.
+658's four tests still walk the menu from the terminal's trusted process.
+
+**The gate.** In the foreground both times; the tool moved each to the
+background at 600 s and an until-loop in the next call read it.
+- First run: 5422 of 5423 run passed, "The gate is not met." The failure
+  was 658's `a_closed_list_holding_nothing_is_walked_from_nowhere`,
+  `NeverClosed` (the menu still shown 3 s after Return), while
+  `a_few_million_pictures_say_a_ceilings_worth_and_how_many_more`
+  (391 s, memory-heavy) ran. The gate keeps only 20 lines, so what ran
+  beside it is not known.
+- Investigated, not resolved: alone, 3 of 3 passed; under `yes`×96, 5 of
+  5 (20 tests). Beside the picture test: HEAD's code, 658's file alone,
+  5 of 6 (one *the pointer never reached*); this change, 658's file
+  alone, 12 of 13 (one, the same pointer failure); this change with the
+  new file run after it, 10 of 13 — three failures (two `NeverClosed`,
+  one *Elderberries* `chosen: false`), all in one early batch, and the
+  next 7 such runs all passed. nextest runs the two files one after the
+  other, not together (checked with `--status-level all`), and
+  `Chrome`'s drop waits for its Chrome to exit. So 658's tests are
+  flaky under the picture test's memory pressure with or without this
+  change, and whether the new test's bundle start makes the next test
+  likelier to fail is **not established either way**.
+- Second run: **5542 tests, 5542 passed, 10 of 10 steps, "The gate is
+  met.", exit 0.**
+
+**Manual.** No layout or drawing changed: no layout assertion or
+reference render applies. One file, one responsibility: the question is
+`chrome_menu`'s, as its other `osascript` answers are; the refusal is
+`chrome_choose`'s; the test is one claim. No `unsafe`, no rented crate,
+no verb taking a coordinate. `alo-os` and `alo-workplace` untouched. The
+test's bundle is removed with its directory; nothing is left in the
+temporary directory. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause says 692
+is built and asserted from a new bundle and its Owed clause no longer
+names it; stage 2's browser line names ADR 0072 as built and drops 692
+from Owed. Queue 692 ticked with a Done paragraph; ADR 0072's status says
+built; features and changelog say what a person now gets.
+
+**Unresolved obligations.**
+- 658's menu tests fail now and then beside the 2.5M-picture test (seen:
+  `NeverClosed`, `chosen: false`, *the pointer never reached*). Not a
+  claim this change makes worse or better; worth an item if it recurs —
+  the gate's 20-line log will not say what ran beside it.
+- ADR 0072 § 4: the prompt itself and whether a rebuilt bundle keeps a
+  grant are still not measured.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **693** and the next ADR is **0073**.
+This is one iteration, not a finished queue or roadmap.

@@ -18438,7 +18438,7 @@ What stage 2's exit gate actually measures: a person using it.
   headless Chrome walked, the pointer not read — each fail a test. A
   fresh install's permission to post events is not measured: 692.
 
-- [ ] **692. Whether a fresh install may post the keys a closed list's
+- [x] **692. Whether a fresh install may post the keys a closed list's
   menu is chosen in with, and what it answers when it may not.** *Cut
   from 658 (iteration 434); ADR 0071 §§ 4 and its amendment.* The keys are
   posted with `CGEventPostToPid` from `osascript`, and every measurement
@@ -18465,6 +18465,35 @@ What stage 2's exit gate actually measures: a person using it.
   answers `NotCarriedOut` naming System Settings › Privacy & Security ›
   Accessibility; no verb prompts. The build owes ADR 0072's tests,
   including one run as a fresh bundle.
+
+  **Done (iteration 436).** `chrome_menu::may_post` asks
+  `CGPreflightPostEventAccess` through `osascript`, bound with
+  `ObjC.bindFunction`, and reads `allowed` or `refused` strictly; the
+  posting script asks the same before it reads any window, printing
+  `refused` (`Posted::NotAllowed`). `chrome_choose` asks before the
+  click — after the walk is counted, so a held option and one with no
+  item answer as before — and answers `Unwalked::NotAllowed`; a refusal
+  mid-walk is `Unwalked::NoLongerAllowed { posted }`, whose sentence says
+  the menu may be left open. Both end in ADR 0072's sentence,
+  `chrome_choose::ALLOWING`, and reach the socket as `NotCarriedOut`,
+  drawn in the frame as every refusal is. The new
+  `a_closed_list_in_a_chrome_macos_does_not_let_us_post_keys_to.rs`
+  makes a new application bundle in a temporary directory — a copy of
+  its own test binary as the program, an identifier of its own, sealed
+  by `bundle_seal` — and starts it by `open` with an environment
+  variable that makes the copy play the browser: it reads `may post
+  false`, starts a shown Chrome, asks for *Elderberries* and is refused
+  with the sentence word for word, no menu is shown within the
+  browser's own patience, the page hears nothing (not even `focus`), and
+  an Escape asked of the posting script answers `NotAllowed` by itself.
+  If the identifier were ever allowed, the test fails saying so rather
+  than passing on a walk it never made. Mutations: the question before
+  the click removed — the copy then answered `NoLongerAllowed { posted:
+  0 }` with the menu left on the screen and the page hearing `focus`,
+  failing the test; the script's own question removed — the Escape
+  answered `Gone`, failing it. 658's four tests still walk the menu from
+  the terminal's trusted process. Not measured, still: the prompt, and
+  whether a rebuilt bundle keeps a grant (ADR 0072 § 4).
 
 - [x] **671. A window smaller than was asked for is not a reason to refuse to
   run.** `alo --chrome` asks Chrome for a page area and stops with an error

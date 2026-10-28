@@ -45,6 +45,19 @@
 //! A menu opened again by a key that raced, or left open under a pointer, is
 //! closed with Escape, which chooses nothing ([`close_any`]).
 //!
+//! # And only when macOS lets this browser post keys
+//!
+//! Measured for ADR 0072: a process macOS has not been told to trust — a
+//! freshly installed application, and the `osascript` it starts — has its
+//! posted keys **dropped without a word**, and `CGEventPostToPid` says
+//! nothing of it. So before the click that opens a menu, the browser asks
+//! macOS whether it may post events at all ([`may_post`]), and the posting
+//! script asks again before every key, printing `refused` and posting
+//! nothing when it may not. The question asks the person nothing:
+//! `CGPreflightPostEventAccess`, never `CGRequestPostEventAccess`, which
+//! would put macOS's prompt before them in the middle of an agent's verb
+//! (ADR 0072 § 2.3).
+//!
 //! # Waiting for it
 //!
 //! The menu is shown a moment after the click that opens it, and goes a
@@ -62,8 +75,9 @@
 //! are the script's arguments, never written into its text, and the key is
 //! one of [`Key`]'s, never a number from outside.
 //!
-//! What `osascript` prints is read strictly: `posted`, `gone` or
-//! `pointer`, and anything else is refused.
+//! What `osascript` prints is read strictly: `posted`, `gone`, `pointer`
+//! or `refused`, and `allowed` or `refused` to the question alone; anything
+//! else is refused.
 
 use crate::window_server::{self, Listed, Unlisted};
 use core::fmt;
@@ -74,8 +88,19 @@ use std::time::{Duration, Instant};
 /// server listed a closed list's menu of Chrome 156 (ADR 0071 § 1).
 pub const MENU_LAYER: i64 = 101;
 
-/// The script, in JavaScript for Automation: when a window of the process
-/// in its first argument is on the screen at [`MENU_LAYER`] — the window
+/// The script, in JavaScript for Automation, that asks macOS whether this
+/// process may post events, asking the person nothing, and prints `allowed`
+/// or `refused`. The function is not in the scripting bridge's own list, so
+/// it is bound by its name and its type (ADR 0072 § 1).
+#[cfg(target_os = "macos")]
+const ASKING: &str = "ObjC.import('CoreGraphics');\
+    ObjC.bindFunction('CGPreflightPostEventAccess', ['bool', []]);\
+    $.CGPreflightPostEventAccess() ? 'allowed' : 'refused'";
+
+/// The script, in JavaScript for Automation: when macOS does not let this
+/// process post events, post nothing and print `refused`. Otherwise, when a
+/// window of the process in its first argument is on the screen at
+/// [`MENU_LAYER`] — the window
 /// numbered in its third argument, or, when that is nought, any window
 /// numbered in none of its arguments after it — post the key whose code is
 /// its second argument, pressed then let go, to that process and print
@@ -90,6 +115,8 @@ const POSTING: &str = "ObjC.import('CoreGraphics');\
       var key = Number(argv[1]);\
       var menu = Number(argv[2]);\
       var before = argv.slice(3).map(Number);\
+      ObjC.bindFunction('CGPreflightPostEventAccess', ['bool', []]);\
+      if (!$.CGPreflightPostEventAccess()) { return 'refused'; }\
       var all = ObjC.deepUnwrap(ObjC.castRefToObject(\
         $.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, 0))) || [];\
       var shown = all.find(w => w.kCGWindowOwnerPID === owner\
@@ -149,6 +176,9 @@ pub enum Posted {
     Gone,
     /// The menu was shown with the pointer over it, and nothing was posted.
     UnderPointer,
+    /// macOS does not let this browser post events, and nothing was posted
+    /// (ADR 0072).
+    NotAllowed,
 }
 
 /// Why it is not known whether a key was posted.
@@ -161,7 +191,7 @@ pub enum Unposted {
         /// What it wrote to its error output, cut short.
         said: String,
     },
-    /// What it printed was none of `posted`, `gone` and `pointer`.
+    /// What it printed was none of the answers it may print.
     Unread,
     /// This system's menus are not ones this browser posts keys to.
     Elsewhere,
@@ -172,7 +202,7 @@ impl fmt::Display for Unposted {
         match self {
             Self::NotRun(kind) => write!(f, "the key could not be posted: {kind}"),
             Self::Refused { said } => write!(f, "posting the key failed: {said}"),
-            Self::Unread => f.write_str("posting the key said neither that it posted nor why not"),
+            Self::Unread => f.write_str("osascript printed none of the answers it may print"),
             Self::Elsewhere => {
                 f.write_str("this system's menus are not ones this browser posts keys to")
             }
@@ -247,9 +277,31 @@ pub fn gone(owner: u32, menu: u64) -> Result<bool, Unlisted> {
     }
 }
 
+/// Whether macOS lets this browser's process post events to another's —
+/// asked without asking the person (ADR 0072 § 2.1).
+///
+/// # Errors
+///
+/// [`Unposted`], when `osascript` could not be run, failed, or printed
+/// something else, or [`Unposted::Elsewhere`] off macOS.
+#[cfg(target_os = "macos")]
+pub fn may_post() -> Result<bool, Unposted> {
+    allowed(&osascript(ASKING, &[])?)
+}
+
+/// No event is posted off macOS (ADR 0071 § 4).
+///
+/// # Errors
+///
+/// [`Unposted::Elsewhere`], always.
+#[cfg(not(target_os = "macos"))]
+pub fn may_post() -> Result<bool, Unposted> {
+    Err(Unposted::Elsewhere)
+}
+
 /// Post `key` to the process `owner` if the window server shows the menu
-/// numbered `menu` now, and the pointer is not over it, and say whether it
-/// did.
+/// numbered `menu` now, the pointer is not over it and macOS lets this
+/// browser post events, and say whether it did.
 ///
 /// # Errors
 ///
@@ -282,9 +334,16 @@ pub fn close_any(owner: u32, before: &[Listed]) -> Result<Posted, Unposted> {
 fn post(owner: u32, key: Key, menu: u64, before: &[Listed]) -> Result<Posted, Unposted> {
     let mut arguments = vec![owner.to_string(), key.code().to_string(), menu.to_string()];
     arguments.extend(before.iter().map(|window| window.number.to_string()));
+    read(&osascript(POSTING, &arguments)?)
+}
+
+/// Run `script`, in JavaScript for Automation, with `arguments`, and say
+/// what it printed.
+#[cfg(target_os = "macos")]
+fn osascript(script: &str, arguments: &[String]) -> Result<Vec<u8>, Unposted> {
     let ran = std::process::Command::new("osascript")
-        .args(["-l", "JavaScript", "-e", POSTING])
-        .args(&arguments)
+        .args(["-l", "JavaScript", "-e", script])
+        .args(arguments)
         .stdin(std::process::Stdio::null())
         .output()
         .map_err(|why| Unposted::NotRun(why.kind()))?;
@@ -294,7 +353,7 @@ fn post(owner: u32, key: Key, menu: u64, before: &[Listed]) -> Result<Posted, Un
             said: said.trim().chars().take(200).collect(),
         });
     }
-    read(&ran.stdout)
+    Ok(ran.stdout)
 }
 
 /// Nothing is posted off macOS: how another system's menus are reached is
@@ -304,12 +363,22 @@ fn post(_owner: u32, _key: Key, _menu: u64, _before: &[Listed]) -> Result<Posted
     Err(Unposted::Elsewhere)
 }
 
-/// What the script printed, read.
+/// What the question printed, read.
+fn allowed(printed: &[u8]) -> Result<bool, Unposted> {
+    match printed {
+        b"allowed\n" => Ok(true),
+        b"refused\n" => Ok(false),
+        _ => Err(Unposted::Unread),
+    }
+}
+
+/// What the posting script printed, read.
 fn read(printed: &[u8]) -> Result<Posted, Unposted> {
     match printed {
         b"posted\n" => Ok(Posted::Posted),
         b"gone\n" => Ok(Posted::Gone),
         b"pointer\n" => Ok(Posted::UnderPointer),
+        b"refused\n" => Ok(Posted::NotAllowed),
         _ => Err(Unposted::Unread),
     }
 }
@@ -352,14 +421,18 @@ mod tests {
     }
 
     #[test]
-    fn only_posted_or_gone_is_read() {
+    fn only_the_scripts_own_answers_are_read() {
         assert_eq!(read(b"posted\n"), Ok(Posted::Posted));
         assert_eq!(read(b"gone\n"), Ok(Posted::Gone));
         assert_eq!(read(b"pointer\n"), Ok(Posted::UnderPointer));
+        assert_eq!(read(b"refused\n"), Ok(Posted::NotAllowed));
         for other in [
             &b""[..],
             b"posted",
             b"gone",
+            b"refused",
+            b"Refused\n",
+            b"allowed\n",
             b"posted\nposted\n",
             b"Posted\n",
             b" gone\n",
@@ -367,6 +440,42 @@ mod tests {
         ] {
             assert_eq!(read(other), Err(Unposted::Unread), "{other:?}");
         }
+    }
+
+    #[test]
+    fn only_allowed_or_refused_answers_the_question() {
+        assert_eq!(allowed(b"allowed\n"), Ok(true));
+        assert_eq!(allowed(b"refused\n"), Ok(false));
+        for other in [
+            &b""[..],
+            b"allowed",
+            b"true\n",
+            b"posted\n",
+            b"allowed\nrefused\n",
+            b" refused\n",
+        ] {
+            assert_eq!(allowed(other), Err(Unposted::Unread), "{other:?}");
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn both_scripts_run_and_answer_in_their_own_words() -> Result<(), Unposted> {
+        // Whatever this process is allowed, the question is answered with
+        // one of its two words, and asks nobody anything; and the posting
+        // script answers it the same way before it reads any window. No
+        // process is numbered nought, so none of its menus is shown.
+        let allowed = may_post()?;
+        let posted = post_while_shown(0, Key::Escape, 1)?;
+        assert_eq!(
+            posted,
+            if allowed {
+                Posted::Gone
+            } else {
+                Posted::NotAllowed
+            }
+        );
+        Ok(())
     }
 
     #[test]

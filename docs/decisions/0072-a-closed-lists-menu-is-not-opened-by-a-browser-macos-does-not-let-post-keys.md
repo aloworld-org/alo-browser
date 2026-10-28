@@ -1,6 +1,6 @@
 # ADR 0072 — A closed list's menu is not opened by a browser macOS does not let post keys
 
-**Status:** accepted
+**Status:** accepted — built (queue item 692, iteration 436)
 **Date:** 2026-10-28
 **Context:** ADR 0071 (a closed list's option through a shown Chrome is
 chosen in the menu by keys posted to Chrome's process) and its § 4

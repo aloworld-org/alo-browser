@@ -31,6 +31,14 @@
 //!   any menu left open with Escape. The page hears one `input` and one
 //!   `change`, for the option chosen.
 //!
+//!   **Only when macOS lets this browser post keys** (ADR 0072): a process
+//!   it has not been told to trust has its keys dropped without a word, so
+//!   the menu would be opened and left open with nothing chosen. So macOS is
+//!   asked first, asking the person nothing, and when it does not let us no
+//!   click is made and the answer, [`Unwalked::NotAllowed`], says where a
+//!   person allows it; asked again before every key, a permission
+//!   withdrawn mid-walk is [`Unwalked::NoLongerAllowed`].
+//!
 //!   The arrows are counted over the menu's items ([`walk`]), as measured
 //!   against Chrome 156 on macOS 26: the menu has an item for every option
 //!   but one whose own `display` computed to `none` — `hidden` is that —
@@ -129,6 +137,11 @@ impl Tab<'_> {
             Some(Walk::Arrows { key, count }) => (key, count),
             None => return Err(unwalked(Unwalked::NoItem)),
         };
+        // Asked before the click, so that a browser whose keys macOS drops
+        // opens no menu it could not close (ADR 0072 § 2.1).
+        if !chrome_menu::may_post().map_err(|why| unwalked(Unwalked::Unposted(why)))? {
+            return Err(unwalked(Unwalked::NotAllowed));
+        }
         let owner = self.chrome_process();
         let before =
             window_server::on_the_screen(owner).map_err(|why| unwalked(Unwalked::Unlisted(why)))?;
@@ -143,6 +156,7 @@ impl Tab<'_> {
                 Ok(Posted::Posted) => continue,
                 Ok(Posted::Gone) => Unwalked::Gone { posted },
                 Ok(Posted::UnderPointer) => Unwalked::UnderPointer { posted },
+                Ok(Posted::NotAllowed) => Unwalked::NoLongerAllowed { posted },
                 Err(why) => Unwalked::Unposted(why),
             };
             // A key that raced the menu's going may have opened it again,
@@ -237,6 +251,17 @@ pub enum Unwalked {
     },
     /// The window server still showed the menu after Return.
     NeverClosed,
+    /// macOS does not let this browser post keys to Chrome, so no click
+    /// was made, no menu opened and no key posted (ADR 0072 § 2.1).
+    NotAllowed,
+    /// macOS stopped letting this browser post keys to Chrome after
+    /// `posted` keys, so no further key was posted, nothing was chosen in
+    /// the menu, and the Escape that would close it could not be posted
+    /// either (ADR 0072 § 2.2).
+    NoLongerAllowed {
+        /// How many keys were posted before.
+        posted: usize,
+    },
     /// The window server could not be read.
     Unlisted(Unlisted),
     /// Whether a key was posted is not known.
@@ -259,11 +284,25 @@ impl fmt::Display for Unwalked {
                 "the pointer was over its menu after {posted} of the keys, so no more were posted and nothing was chosen"
             ),
             Self::NeverClosed => f.write_str("its menu was still shown after Return"),
+            Self::NotAllowed => write!(
+                f,
+                "macOS does not let this browser post keys to Chrome, so its menu was not opened; {ALLOWING}"
+            ),
+            Self::NoLongerAllowed { posted } => write!(
+                f,
+                "macOS stopped letting this browser post keys to Chrome after {posted} of the keys, so no more were posted, nothing was chosen and its menu may be left open; {ALLOWING}"
+            ),
             Self::Unlisted(why) => why.fmt(f),
             Self::Unposted(why) => why.fmt(f),
         }
     }
 }
+
+/// Where a person allows this browser to post keys, as ADR 0072 § 2.1
+/// says it: the application macOS judges is the one the browser runs in —
+/// `alo browser.app`, or the terminal `alo` was run from — which the
+/// browser does not read (§ 4).
+pub const ALLOWING: &str = "a person allows it in System Settings, under Privacy & Security, Accessibility, for the application this browser runs in";
 
 /// An option of a closed list, as its menu has it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -532,6 +571,14 @@ mod tests {
         assert_eq!(
             Unwalked::NoItem.to_string(),
             "its menu has no item for it, so no key was posted"
+        );
+        assert_eq!(
+            Unwalked::NotAllowed.to_string(),
+            "macOS does not let this browser post keys to Chrome, so its menu was not opened; a person allows it in System Settings, under Privacy & Security, Accessibility, for the application this browser runs in"
+        );
+        assert_eq!(
+            Unwalked::NoLongerAllowed { posted: 3 }.to_string(),
+            "macOS stopped letting this browser post keys to Chrome after 3 of the keys, so no more were posted, nothing was chosen and its menu may be left open; a person allows it in System Settings, under Privacy & Security, Accessibility, for the application this browser runs in"
         );
     }
 
