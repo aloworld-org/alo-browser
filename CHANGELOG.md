@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box with a scroll bar scrolls exactly as far as Chrome's when what
+  it holds spills out.** A scrolling box added its padding after
+  whatever spilled out of the boxes inside it, so one holding a line too
+  long for its child scrolled 2 to 10 pixels further than Chrome 156;
+  and it ignored the margin after a child, so one whose child had 30
+  pixels of margin did not scroll to it at all. Now it pads its
+  children's boxes with their margins and takes what spills out of them
+  as it is, in block, flex and grid layout, across and down (item 675).
+  A child moved by `position: relative` and a grid's columns are not yet
+  counted as Chrome counts them (items 693 and 694).
+
 - **A freshly installed copy no longer leaves a drop-down list's menu
   open when macOS will not let it choose** (ADR 0072, item 692). Before
   opening the menu, and before every key, the browser asks macOS whether

@@ -44487,3 +44487,94 @@ built; features and changelog say what a person now gets.
 
 The next unused queue number is **693** and the next ADR is **0073**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 437 — queue item 675: a scroll container pads its children's boxes, not what spills out of them — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s stage 2
+browser line, iteration 436's entry, queue items 674, 675, 664, 665, 668,
+477, 684 and 685; `docs/features.md`'s overflow line (675's contract);
+ADR 0004 (we own the layout tree, `taffy` the algorithms);
+`end_padding.rs`, `engine.rs`'s read-back and build, `tree.rs`,
+`scroll_container.rs`; `taffy` 0.14's `scrollable_overflow.rs`, `leaf.rs`,
+`block.rs`, `flexbox.rs` and `grid/mod.rs`. No `AGENTS.md` exists.
+
+**Why 675.** The product path has nothing buildable: 477 closes only on a
+Mac that never built it, and 684 depends on 477 and needs an ADR. On the
+engine path, iterations 417–418 took the first open item after the last
+one taken; after 674 that is 675, which depends on nothing. (665, before
+it, depends on 521, not done; 668 waits for a page.)
+
+**Measured.** Chrome 156.0.8078.73 (it updated itself from 155),
+headless, `--dump-dom` with a kill loop, `DejaVu Sans Mono` via
+`@font-face` from the `dejavu` crate, measured after
+`document.fonts.load(...)`, the sheet after the doctype; three runs alike
+for each of four probes. Chrome pads a scroll container's in-flow
+children's **margin boxes** and takes their **border boxes**, what spills
+out of them and boxes positioned against it **unpadded**, across and down,
+in block, flex and grid containers alike: 137 for a child's spilling line
+at every padding, 132 for a child holding a block 130 wide, 122 down for a
+child holding a block 120 tall, 94/84 for a child with 30/60 px of margin,
+94 still for one 0 tall, 102 for a child 100 wide with −20 of margin, 120
+by 70 for a positioned box. This engine said 138.86–154.86 for the first
+(padding added to the spill) and 84 for the margin (border box only).
+
+**Built.** `end_padding::scroll_containers` and `reach_of`: a scroll
+container's reach from its children's geometry — margin boxes padded,
+border box and spill (where `taffy`'s own rule lets it out of the child)
+and positioned boxes not; a container with nothing in flow keeps
+`taffy`'s answer, which pads its own lines as Chrome does. `engine.rs`'s
+`scroll_containers_held` gathers them from `taffy`'s styles: what `taffy`
+pads (a node scrolling on either axis), not the document's root and not a
+control (a textarea stays item 674's), positioned boxes grouped once by
+container. The case `a-box-pads-its-childrens-boxes-not-their-spill`: 66
+boxes in three columns, one per padding (a first layout of one column was
+4,460 px tall and the render is cut at 4,096, so it was laid out again and
+Chrome measured again on those bytes: sizes and scrolling areas the
+same). `a_box_pads_its_childrens_boxes_not_their_spill.rs` asserts every
+border box to 1/64 px and every scrolling area within half a pixel of
+Chrome's; ten unit tests in `end_padding.rs`.
+
+**Cut, not built** (cut scope, not depth): a child moved by `position:
+relative` — Chrome 122, this engine 124 at 2 px, unchanged by this — needs
+its insets resolved, which a box's geometry does not hold (**693**); a
+grid's tracks — Chrome 124, this engine 84 — are not in `taffy`'s overflow
+and not read back (**694**). Both are left out of the case and written in
+the queue with their numbers.
+
+**Checks.** The call removed (restored from a copy, `cmp`): the case
+fails, `block-line-even` 138.86 against Chrome's 137. Every scroll
+container's scrolling area in the other 111 cases at scales 1 and 2,
+dumped before and after: identical. Corpus references: only the new
+case's files written. Chrome's screenshot of the case's bytes against our
+render: 340 of 696,000 pixels differ by more than 64, all on the letters
+of the two `Ring Ring` rows (glyph rasterising, item 576); every box in
+the same place.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5552 tests, 5552
+passed, 10 of 10 steps, "The gate is met.", exit 0.** `cargo fmt` and
+`cargo clippy --workspace --all-targets` clean before it.
+
+**Manual.** Layout assertion in numbers: the case's test. Reference
+render: the case's `render.png`, compared with Chrome's above. One file,
+one responsibility: the rule is `end_padding.rs`'s (what a scroll
+container's end padding is added to), gathering from `taffy`'s styles is
+the engine's, as the textarea pass's is. Documentation in the change:
+features, conformance, `tree.rs`'s `overflows`, changelog. No `unsafe`, no
+new rented crate, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. The probes' profiles were removed. Nothing
+pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's agent-surface line gains that a
+scrolling area pads children's margin boxes and not their spill (675),
+and its Owed clause names 693 and 694.
+
+**Unresolved obligations.**
+- 693 and 694, opened above.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- 658's menu tests flake now and then beside the 2.5M-picture test
+  (iteration 436); not seen this run.
+- No claim about speed is made.
+
+The next unused queue number is **695** and the next ADR is **0073**.
+This is one iteration, not a finished queue or roadmap.

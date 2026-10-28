@@ -1,0 +1,13 @@
+document at (0, 0) 400×1732
+  text "Ring Ring Ring" at (11, 11) 134.85938×19
+  text "Ring Ring Ring" at (11, 383) 134.85938×19
+  text "Ring Ring Ring" at (11, 755) 134.85938×19
+  text "Ring Ring Ring" at (11, 1065) 134.85938×19
+  text "Ring Ring Ring" at (131, 11) 134.85938×19
+  text "Ring Ring Ring" at (131, 383) 134.85938×19
+  text "Ring Ring Ring" at (131, 755) 134.85938×19
+  text "Ring Ring Ring" at (131, 1065) 134.85938×19
+  text "Ring Ring Ring" at (259, 19) 134.85938×19
+  text "Ring Ring Ring" at (259, 487) 134.85938×19
+  text "Ring Ring Ring" at (259, 955) 134.85938×19
+  text "Ring Ring Ring" at (259, 1345) 134.85938×19

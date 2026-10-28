@@ -1,0 +1,256 @@
+fill box#1 rgb(255 255 255) at (8, 8) 384×1716
+fill box#5 rgb(0 0 0) at (8, 8) 86×56
+clip box#5 to (9, 9) 84×54
+text box#7 "Ring Ring Ring" rgb(0 0 0) 16px at (11, 26)
+unclip
+fill box#9 rgb(0 0 0) at (8, 70) 86×56
+clip box#9 to (9, 71) 84×54
+fill box#11 rgb(204 204 204) at (11, 73) 130×10
+unclip
+fill box#13 rgb(0 0 0) at (8, 132) 86×56
+clip box#13 to (9, 133) 84×54
+fill box#14 rgb(204 204 204) at (11, 135) 130×10
+unclip
+fill box#16 rgb(0 0 0) at (8, 194) 86×56
+clip box#16 to (9, 195) 84×54
+fill box#18 rgb(204 204 204) at (11, 197) 10×120
+unclip
+fill box#20 rgb(0 0 0) at (8, 256) 86×56
+clip box#20 to (9, 257) 84×54
+clip box#21 to (11, 259) 60×20
+fill box#22 rgb(204 204 204) at (11, 259) 130×10
+unclip
+unclip
+fill box#24 rgb(0 0 0) at (8, 318) 86×56
+clip box#24 to (9, 319) 84×54
+unclip
+fill box#27 rgb(0 0 0) at (8, 380) 86×56
+clip box#27 to (9, 381) 84×54
+text box#29 "Ring Ring Ring" rgb(0 0 0) 16px at (11, 398)
+unclip
+fill box#36 rgb(0 0 0) at (8, 504) 86×56
+clip box#36 to (9, 505) 84×54
+unclip
+fill box#39 rgb(0 0 0) at (8, 566) 86×56
+clip box#39 to (9, 567) 84×54
+unclip
+fill box#42 rgb(0 0 0) at (8, 628) 86×56
+clip box#42 to (9, 629) 84×54
+clip box#43 to (11, 631) 60×20
+fill box#44 rgb(204 204 204) at (11, 631) 130×10
+unclip
+unclip
+fill box#46 rgb(0 0 0) at (8, 690) 86×56
+clip box#46 to (9, 691) 84×54
+unclip
+fill box#49 rgb(0 0 0) at (8, 752) 86×56
+clip box#49 to (9, 753) 84×54
+text box#51 "Ring Ring Ring" rgb(0 0 0) 16px at (11, 770)
+unclip
+fill box#53 rgb(0 0 0) at (8, 814) 86×56
+clip box#53 to (9, 815) 84×54
+fill box#55 rgb(204 204 204) at (11, 817) 130×10
+unclip
+fill box#57 rgb(0 0 0) at (8, 876) 86×56
+clip box#57 to (9, 877) 84×54
+fill box#58 rgb(204 204 204) at (11, 879) 130×10
+unclip
+fill box#60 rgb(0 0 0) at (8, 938) 86×56
+clip box#60 to (9, 939) 84×54
+fill box#62 rgb(204 204 204) at (11, 941) 10×120
+unclip
+fill box#64 rgb(0 0 0) at (8, 1000) 86×56
+clip box#64 to (9, 1001) 84×54
+unclip
+fill box#67 rgb(0 0 0) at (8, 1062) 86×56
+clip box#67 to (9, 1063) 84×54
+text box#69 "Ring Ring Ring" rgb(0 0 0) 16px at (11, 1080)
+unclip
+fill box#71 rgb(0 0 0) at (8, 1124) 86×56
+clip box#71 to (9, 1125) 84×54
+fill box#73 rgb(204 204 204) at (11, 1127) 130×10
+unclip
+fill box#75 rgb(0 0 0) at (8, 1186) 86×56
+clip box#75 to (9, 1187) 84×54
+fill box#76 rgb(204 204 204) at (11, 1189) 130×10
+unclip
+fill box#78 rgb(0 0 0) at (8, 1248) 86×56
+clip box#78 to (9, 1249) 84×54
+fill box#80 rgb(204 204 204) at (11, 1251) 10×120
+unclip
+fill box#82 rgb(0 0 0) at (8, 1310) 86×56
+clip box#82 to (9, 1311) 84×54
+unclip
+fill box#88 rgb(0 0 0) at (128, 8) 94×56
+clip box#88 to (129, 9) 92×54
+text box#90 "Ring Ring Ring" rgb(0 0 0) 16px at (131, 26)
+unclip
+fill box#92 rgb(0 0 0) at (128, 70) 94×56
+clip box#92 to (129, 71) 92×54
+fill box#94 rgb(204 204 204) at (131, 73) 130×10
+unclip
+fill box#96 rgb(0 0 0) at (128, 132) 94×56
+clip box#96 to (129, 133) 92×54
+fill box#97 rgb(204 204 204) at (131, 135) 130×10
+unclip
+fill box#99 rgb(0 0 0) at (128, 194) 94×56
+clip box#99 to (129, 195) 92×54
+fill box#101 rgb(204 204 204) at (131, 197) 10×120
+unclip
+fill box#103 rgb(0 0 0) at (128, 256) 94×56
+clip box#103 to (129, 257) 92×54
+clip box#104 to (131, 259) 60×20
+fill box#105 rgb(204 204 204) at (131, 259) 130×10
+unclip
+unclip
+fill box#107 rgb(0 0 0) at (128, 318) 94×56
+clip box#107 to (129, 319) 92×54
+unclip
+fill box#110 rgb(0 0 0) at (128, 380) 94×56
+clip box#110 to (129, 381) 92×54
+text box#112 "Ring Ring Ring" rgb(0 0 0) 16px at (131, 398)
+unclip
+fill box#119 rgb(0 0 0) at (128, 504) 94×56
+clip box#119 to (129, 505) 92×54
+unclip
+fill box#122 rgb(0 0 0) at (128, 566) 94×56
+clip box#122 to (129, 567) 92×54
+unclip
+fill box#125 rgb(0 0 0) at (128, 628) 94×56
+clip box#125 to (129, 629) 92×54
+clip box#126 to (131, 631) 60×20
+fill box#127 rgb(204 204 204) at (131, 631) 130×10
+unclip
+unclip
+fill box#129 rgb(0 0 0) at (128, 690) 94×56
+clip box#129 to (129, 691) 92×54
+unclip
+fill box#132 rgb(0 0 0) at (128, 752) 94×56
+clip box#132 to (129, 753) 92×54
+text box#134 "Ring Ring Ring" rgb(0 0 0) 16px at (131, 770)
+unclip
+fill box#136 rgb(0 0 0) at (128, 814) 94×56
+clip box#136 to (129, 815) 92×54
+fill box#138 rgb(204 204 204) at (131, 817) 130×10
+unclip
+fill box#140 rgb(0 0 0) at (128, 876) 94×56
+clip box#140 to (129, 877) 92×54
+fill box#141 rgb(204 204 204) at (131, 879) 130×10
+unclip
+fill box#143 rgb(0 0 0) at (128, 938) 94×56
+clip box#143 to (129, 939) 92×54
+fill box#145 rgb(204 204 204) at (131, 941) 10×120
+unclip
+fill box#147 rgb(0 0 0) at (128, 1000) 94×56
+clip box#147 to (129, 1001) 92×54
+unclip
+fill box#150 rgb(0 0 0) at (128, 1062) 94×56
+clip box#150 to (129, 1063) 92×54
+text box#152 "Ring Ring Ring" rgb(0 0 0) 16px at (131, 1080)
+unclip
+fill box#154 rgb(0 0 0) at (128, 1124) 94×56
+clip box#154 to (129, 1125) 92×54
+fill box#156 rgb(204 204 204) at (131, 1127) 130×10
+unclip
+fill box#158 rgb(0 0 0) at (128, 1186) 94×56
+clip box#158 to (129, 1187) 92×54
+fill box#159 rgb(204 204 204) at (131, 1189) 130×10
+unclip
+fill box#161 rgb(0 0 0) at (128, 1248) 94×56
+clip box#161 to (129, 1249) 92×54
+fill box#163 rgb(204 204 204) at (131, 1251) 10×120
+unclip
+fill box#165 rgb(0 0 0) at (128, 1310) 94×56
+clip box#165 to (129, 1311) 92×54
+unclip
+fill box#171 rgb(0 0 0) at (248, 8) 102×72
+clip box#171 to (249, 9) 100×70
+text box#173 "Ring Ring Ring" rgb(0 0 0) 16px at (259, 34)
+unclip
+fill box#175 rgb(0 0 0) at (248, 86) 102×72
+clip box#175 to (249, 87) 100×70
+fill box#177 rgb(204 204 204) at (259, 97) 130×10
+unclip
+fill box#179 rgb(0 0 0) at (248, 164) 102×72
+clip box#179 to (249, 165) 100×70
+fill box#180 rgb(204 204 204) at (259, 175) 130×10
+unclip
+fill box#182 rgb(0 0 0) at (248, 242) 102×72
+clip box#182 to (249, 243) 100×70
+fill box#184 rgb(204 204 204) at (259, 253) 10×120
+unclip
+fill box#186 rgb(0 0 0) at (248, 320) 102×72
+clip box#186 to (249, 321) 100×70
+clip box#187 to (259, 331) 60×20
+fill box#188 rgb(204 204 204) at (259, 331) 130×10
+unclip
+unclip
+fill box#190 rgb(0 0 0) at (248, 398) 102×72
+clip box#190 to (249, 399) 100×70
+unclip
+fill box#193 rgb(0 0 0) at (248, 476) 102×72
+clip box#193 to (249, 477) 100×70
+text box#195 "Ring Ring Ring" rgb(0 0 0) 16px at (259, 502)
+unclip
+fill box#202 rgb(0 0 0) at (248, 632) 102×72
+clip box#202 to (249, 633) 100×70
+unclip
+fill box#205 rgb(0 0 0) at (248, 710) 102×72
+clip box#205 to (249, 711) 100×70
+unclip
+fill box#208 rgb(0 0 0) at (248, 788) 102×72
+clip box#208 to (249, 789) 100×70
+clip box#209 to (259, 799) 60×20
+fill box#210 rgb(204 204 204) at (259, 799) 130×10
+unclip
+unclip
+fill box#212 rgb(0 0 0) at (248, 866) 102×72
+clip box#212 to (249, 867) 100×70
+unclip
+fill box#215 rgb(0 0 0) at (248, 944) 102×72
+clip box#215 to (249, 945) 100×70
+text box#217 "Ring Ring Ring" rgb(0 0 0) 16px at (259, 970)
+unclip
+fill box#219 rgb(0 0 0) at (248, 1022) 102×72
+clip box#219 to (249, 1023) 100×70
+fill box#221 rgb(204 204 204) at (259, 1033) 130×10
+unclip
+fill box#223 rgb(0 0 0) at (248, 1100) 102×72
+clip box#223 to (249, 1101) 100×70
+fill box#224 rgb(204 204 204) at (259, 1111) 130×10
+unclip
+fill box#226 rgb(0 0 0) at (248, 1178) 102×72
+clip box#226 to (249, 1179) 100×70
+fill box#228 rgb(204 204 204) at (259, 1189) 10×120
+unclip
+fill box#230 rgb(0 0 0) at (248, 1256) 102×72
+clip box#230 to (249, 1257) 100×70
+unclip
+fill box#233 rgb(0 0 0) at (248, 1334) 102×72
+clip box#233 to (249, 1335) 100×70
+text box#235 "Ring Ring Ring" rgb(0 0 0) 16px at (259, 1360)
+unclip
+fill box#237 rgb(0 0 0) at (248, 1412) 102×72
+clip box#237 to (249, 1413) 100×70
+fill box#239 rgb(204 204 204) at (259, 1423) 130×10
+unclip
+fill box#241 rgb(0 0 0) at (248, 1490) 102×72
+clip box#241 to (249, 1491) 100×70
+fill box#242 rgb(204 204 204) at (259, 1501) 130×10
+unclip
+fill box#244 rgb(0 0 0) at (248, 1568) 102×72
+clip box#244 to (249, 1569) 100×70
+fill box#246 rgb(204 204 204) at (259, 1579) 10×120
+unclip
+fill box#248 rgb(0 0 0) at (248, 1646) 102×72
+clip box#248 to (249, 1647) 100×70
+unclip
+fill box#33 rgb(0 0 0) at (8, 442) 86×56
+clip box#33 to (9, 443) 84×54
+unclip
+fill box#116 rgb(0 0 0) at (128, 442) 94×56
+clip box#116 to (129, 443) 92×54
+unclip
+fill box#199 rgb(0 0 0) at (248, 554) 102×72
+clip box#199 to (249, 555) 100×70
+unclip

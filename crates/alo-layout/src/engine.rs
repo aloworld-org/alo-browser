@@ -274,11 +274,14 @@ fn lay_out_subtree(
             reading.read_back(*id, Origins::ZERO);
         }
     }
-    // Before a textarea's reach is read into the document's: Chrome pads
-    // its inner box, not the lines spilling out of it (queue item 674).
+    // Before a scroll container's reach is read into the document's: Chrome
+    // pads its own content, not what spills out of what it holds (queue
+    // items 674 and 675).
     end_padding::text_areas(boxes, &mut placed.geometry, |id| {
         holds_a_text_areas_lines(boxes, id)
     });
+    let containers = scroll_containers_held(boxes, &arena, &built, &placed.geometry);
+    end_padding::scroll_containers(&mut placed.geometry, &containers);
     reach_of_the_initial_block(&built, root, &mut placed.geometry);
     // Before anything is placed inside a box, and after every box has a
     // rectangle: a fieldset's legend sits in its block-start border rather
@@ -299,6 +302,100 @@ fn lay_out_subtree(
         spaces: placed.spaces,
         ellipses: placed.ellipses,
     })
+}
+
+/// Each scroll container this layout placed and the boxes it holds, for
+/// [`end_padding::scroll_containers`]: those `taffy` laid out in it, and
+/// those positioned against it from further down.
+///
+/// A scroll container here is what `taffy` pads — a node whose `overflow`
+/// scrolls on either axis. The document's root is left out, its scrolling
+/// area being the viewport's ([`crate::viewport`]), and so is a control,
+/// whose inner box this engine builds and whose padding was measured on its
+/// own: a textarea's by [`end_padding::text_areas`], and a button's and a
+/// field's not at all.
+fn scroll_containers_held<M: MeasureText>(
+    boxes: &BoxTree,
+    arena: &Arena<'_, M>,
+    built: &Built,
+    geometry: &BTreeMap<BoxId, BoxGeometry>,
+) -> Vec<end_padding::Container> {
+    let style_of = |id: BoxId| {
+        built
+            .ours_to_theirs
+            .get(&id)
+            .and_then(|node| arena.style_of(*node))
+    };
+    let held = |id: BoxId, in_flow: bool| {
+        let overflow = style_of(id).map_or(TaffyPoint::<taffy::Overflow>::default(), |style| {
+            style.overflow
+        });
+        let scrolls = overflow.x.is_scroll_container() || overflow.y.is_scroll_container();
+        end_padding::Held {
+            id,
+            in_flow,
+            spills: (
+                !scrolls && overflow.x == taffy::Overflow::Visible,
+                !scrolls && overflow.y == taffy::Overflow::Visible,
+            ),
+        }
+    };
+    // Grouped once: a page can hold a great many boxes of either kind.
+    let mut positioned: BTreeMap<BoxId, Vec<BoxId>> = BTreeMap::new();
+    for (child, displaced) in &built.displaced {
+        if let Some(against) = displaced.against
+            && geometry.contains_key(child)
+        {
+            positioned.entry(against).or_default().push(*child);
+        }
+    }
+    geometry
+        .keys()
+        .copied()
+        .filter(|id| Some(*id) != boxes.root())
+        .filter(|id| {
+            style_of(*id).is_some_and(|style| {
+                style.overflow.x.is_scroll_container() || style.overflow.y.is_scroll_container()
+            })
+        })
+        .filter(|id| {
+            !boxes
+                .children(*id)
+                .any(|child| is_a_controls_inner_box(boxes, child))
+        })
+        .map(|id| {
+            let mut inside: Vec<end_padding::Held> = boxes
+                .children(id)
+                .filter(|child| {
+                    geometry.contains_key(child) && !built.displaced.contains_key(child)
+                })
+                .map(|child| {
+                    let in_flow =
+                        style_of(child).is_some_and(|style| style.position != Position::Absolute);
+                    held(child, in_flow)
+                })
+                .collect();
+            inside.extend(
+                positioned
+                    .get(&id)
+                    .into_iter()
+                    .flatten()
+                    .map(|child| held(*child, false)),
+            );
+            end_padding::Container { id, held: inside }
+        })
+        .collect()
+}
+
+/// Whether a box is the inner box this engine builds inside a control.
+fn is_a_controls_inner_box(boxes: &BoxTree, id: BoxId) -> bool {
+    matches!(
+        boxes.get(id).map(|node| &node.kind),
+        Some(BoxKind::Anonymous {
+            purpose: alo_box::Purpose::Control { .. },
+            ..
+        })
+    )
 }
 
 /// Say which grids `taffy` laid out, in some call, without the template

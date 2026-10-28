@@ -2565,8 +2565,13 @@ disappeared behind the larger.
       `<textarea>` keeps its lines and is a scroll container, as Chrome
       155 computes it, so one holding more than it shows is scrolled (queue
       item 663), and cuts a word too long for its line onto the next, so
-      it is not scrolled across to it (queue item 666).
-      · Owed: a list box that shows its options and scrolls to the rest
+      it is not scrolled across to it (queue item 666). A scroll
+      container's scrolling area pads its children's margin boxes and not
+      what spills out of them, as Chrome 156 measures it across and down,
+      so a box whose child's line spills is answered as Chrome would
+      scroll it (queue item 675).
+      · Owed: a box moved by `position: relative` and a grid's tracks in
+      a scrolling area (693, 694); a list box that shows its options and scrolls to the rest
       (665), `text-overflow` on a box whose `overflow` the viewport takes
       (664); loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that

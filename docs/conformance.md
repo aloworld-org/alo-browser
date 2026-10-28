@@ -705,10 +705,16 @@ Chrome 155 does while `getComputedStyle` still reads the author's value;
 **its scrolling area across is its left padding and its lines, with no
 right padding after them** (queue item 674), as Chrome 155's `scrollWidth`
 is, while a `div` holding the same line still adds its right padding, as
-Chrome's does. A box's end padding is still added to what spills out of its
-children, where Chrome adds it only to its children's boxes and its own
-lines: a `div` holding a `div` whose line spills scrolls 2 px further than
-Chrome's at 2 px of padding (675).
+Chrome's does. **A scroll container's end padding is added to its own
+content and not to what spills out of its children** (queue item 675): its
+in-flow children's margin boxes are padded, and their border boxes, what
+spills out of them and a box positioned against it are not, across and down,
+in a block, flex and grid container alike, as Chrome 156 scrolls them. Two
+things Chrome pads are still padded as `taffy` pads them: a child moved by
+`position: relative`, which Chrome pads where it stood before it moved, so
+such a box scrolls 2 px further than Chrome's at 2 px of padding (693); and a
+grid's tracks, which Chrome pads and this engine does not count, so a grid
+whose column passes its box scrolls 40 px short of Chrome's (694).
 
 **A `<br>` ends its line**, as HTML's rendering section says, even under
 `nowrap`. Two in a row leave a blank line, one at the end of a paragraph adds

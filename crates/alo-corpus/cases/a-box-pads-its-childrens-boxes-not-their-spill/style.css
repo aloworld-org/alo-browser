@@ -1,0 +1,53 @@
+/* A scroll container pads its own content and not what spills out of it:
+   queue item 675, measured in Chrome 156 (crates/alo-layout/src/end_padding.rs).
+   Each box is 80 wide and 50 tall with a border of 1 and `overflow: auto`,
+   under three paddings — 2 px all round, 2 px but 10 on the right, and 10 px
+   all round — and a block, a flex or a grid container, holding:
+   - line: a child 60 wide whose line, `Ring Ring Ring`, spills out of it;
+   - block: a child 60 wide holding a block 130 wide;
+   - own: a block 130 wide of its own;
+   - tall: a child 20 tall holding a block 120 tall;
+   - clip: a child under `overflow: clip` holding a block 130 wide;
+   - margin: a child with 30 px of margin after it and 60 below;
+   - mixed: a line of its own beside a block child;
+   - abs: an absolutely positioned box 120 by 70, the container positioned;
+   - flat: a child 60 wide and 0 tall with 30 px of margin after it;
+   - negative: a child 100 wide with a margin of -20 after it;
+   - scroller: a child under `overflow: auto` holding a block 130 wide.
+   One column for each padding. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 16px;
+  line-height: 20px;
+  display: flex;
+  align-items: flex-start;
+}
+.column {
+  width: 120px;
+}
+.box {
+  width: 80px;
+  height: 50px;
+  border: 1px solid #000000;
+  margin: 0 0 6px 0;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 16px;
+  line-height: 20px;
+}
+.in {
+  width: 60px;
+  height: 20px;
+}
+.wide {
+  width: 130px;
+  height: 10px;
+  background: #cccccc;
+}
+.tall {
+  width: 10px;
+  height: 120px;
+  background: #cccccc;
+}

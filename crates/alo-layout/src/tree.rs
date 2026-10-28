@@ -96,7 +96,9 @@ impl BoxGeometry {
     /// pixels and not by 0.45 at a scale of one, and by 0.25 but not 0.24 at
     /// two, wherever the box is on the page and with or without padding,
     /// across and down alike — its end padding added to what it scrolls to,
-    /// as `taffy` adds it to [`BoxGeometry::reach`] for a block's children.
+    /// as [`BoxGeometry::reach`] holds it: after its own lines and its
+    /// children's margin boxes, and not after what spills out of them
+    /// (`crate::end_padding`).
     pub fn overflows(self, scale: f32) -> bool {
         let room = self.padding_box().size;
         let area = self.scrolling_area();

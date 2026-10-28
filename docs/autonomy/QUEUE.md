@@ -17694,7 +17694,7 @@ What stage 2's exit gate actually measures: a person using it.
   spills scrolls 138.86 across here and 137 in Chrome, and a block inside
   a block 134 here and 132 in Chrome (item 675, opened).
 
-- [ ] **675. A box's end padding is added to its children's boxes, not to
+- [x] **675. A box's end padding is added to its children's boxes, not to
   what spills out of them.** *Cut from 674 (iteration 418).* Measured
   against Chrome 155.0.8059.86 with `DejaVu Sans Mono`: a `div` 80 wide
   with `overflow: auto` and 2 px of padding holding a `div` that holds
@@ -17712,6 +17712,71 @@ What stage 2's exit gate actually measures: a person using it.
   grid container's scrolling area, each holding a child whose content
   spills, is Chrome's in numbers in a corpus case, and every case's
   scrolling areas stay Chrome's.
+  **Done (iteration 437).** Measured against Chrome 156.0.8078.73,
+  headless, `DejaVu Sans Mono` loaded before measuring, three runs alike,
+  a box 80 by 50 under `overflow: auto` at 2 px, 2 px with 10 on the
+  right, and 10 px of padding, as a block, a flex and a grid container:
+  **Chrome pads a scroll container's in-flow children's margin boxes, and
+  takes their border boxes, what spills out of them and a box positioned
+  against it as they are, across and down alike.** A child 60 wide whose
+  line reaches 134.86 scrolls 137 at every padding; a child holding a
+  block 130 wide 132; a block 130 wide of the box's own 134, 142, 150; a
+  child 20 tall holding a block 120 tall 122 down (130 at 10 px); a
+  child with 30 px of margin after it and 60 below 94 and 84, and one 0
+  tall with the same margin still 94; a child 100 wide with −20 after it
+  102 (its border box, unpadded); a box positioned against the
+  container, 120 by 70, 120 and 70; a child under `overflow: clip` or
+  `auto` only its own box. A line in an anonymous block beside a block
+  child is that block's spill: 137. Built: `alo-layout`'s
+  `end_padding::scroll_containers`, which works out the reach of every
+  scroll container holding a child in flow from its children's geometry
+  — margin boxes padded, border boxes and spill (where `taffy`'s own
+  rule lets it out of the child) and positioned boxes not — run after
+  every box is read back from `taffy`, beside item 674's textarea pass;
+  the document's root and controls keep theirs. A container of lines
+  only keeps `taffy`'s answer, which pads them as Chrome does.
+  `cases/a-box-pads-its-childrens-boxes-not-their-spill` holds 66 boxes
+  in three columns, one per padding, and
+  `a_box_pads_its_childrens_boxes_not_their_spill.rs` asserts each border
+  box against Chrome's to 1/64 px and each scrolling width and height
+  within half a pixel of `scrollWidth` and `scrollHeight`. Unit tests in
+  `end_padding.rs`. The call taken out (restored from a copy, checked
+  with `cmp`) fails the case (`block-line-even` 138.86 across, Chrome's
+  137). Every scroll container's scrolling area in the other 111 cases,
+  at scales 1 and 2, is unchanged. Chrome's screenshot of the same bytes
+  puts every box in the same place and differs only in the letters'
+  pixels (576). Not in the case, for a reason: a child moved by
+  `position: relative` (693) and a grid's tracks (694).
+
+- [ ] **693. A child moved by `position: relative`, in a scrolling area.**
+  *Cut from 675 (iteration 437).* Measured against Chrome 156.0.8078.73:
+  a box 80 wide under `overflow: auto` holding a child 60 wide moved 60
+  right by `position: relative; left: 60px` has a `scrollWidth` of 122 at
+  2 px of padding, 122 with 10 on the right and 130 at 10 px — the moved
+  box's border box, unpadded, at 2 + 60 + 60; padded where it stood
+  before it moved, 64, it would give less. This engine says 124, 132 and
+  140: `taffy` places the box where it was moved to, and
+  `end_padding::scroll_containers` pads its margin box there, because a
+  box's geometry does not say how far it was moved — that needs its
+  insets resolved against its containing block. Unmeasured: the block
+  axis, a negative offset, and a flex or grid item. *Depends on nothing.
+  Feature: `docs/features.md` stage 1, overflow. Closes when:* a block,
+  flex and grid container holding a child moved by `position: relative`
+  scrolls as far as Chrome's, across and down, in numbers in a corpus
+  case.
+
+- [ ] **694. A grid's tracks, in its scrolling area.** *Cut from 675
+  (iteration 437).* Measured against Chrome 156.0.8078.73: a grid 80
+  wide under `overflow: auto` with `grid-template-columns: 120px` holding
+  a child 60 wide has a `scrollWidth` of 124 at 2 px of padding, 132
+  with 10 on the right and 140 at 10 px — its column, padded. This engine
+  says 84, 92 and 100: `taffy` does not count a grid's tracks in its
+  scrollable overflow, and its tracks are not read back without
+  `taffy`'s `detailed_layout_info`. Unmeasured: rows, gaps, and implicit
+  tracks. *Depends on nothing. Feature: `docs/features.md` stage 1, grid
+  and overflow. Closes when:* a grid whose explicit columns and rows pass
+  its box scrolls as far as Chrome's, across and down, in numbers in a
+  corpus case.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of
