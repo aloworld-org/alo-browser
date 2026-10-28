@@ -44136,3 +44136,71 @@ Two commits: the minimum and what it found, then 690 as iteration 432
 named it. **Next:** the product path's 477 is owed only another Mac;
 the loop takes the next item by LOOP.md. The next unused queue number is
 **692** and the next ADR is **0071**.
+
+## Iteration 433 — queue item 658's decision: ADR 0071, a closed list's option through a shown Chrome — decided, not built
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, iteration 432's entries, the queue's product path and items 658,
+660 and 684; ADR 0064 (658's decision and § 6), ADR 0062 § 3 (the window
+server through `osascript`), `docs/features.md`'s second-renderer line
+(658's contract), `chrome_choose.rs` and `window_server.rs`. No
+`AGENTS.md` exists in the repository.
+
+**Why 658, and why a decision.** The product path's Owed: 477 closes only
+on another Mac, 684 needs an ADR for `unsafe`, and 658 — depending on 660,
+done — waits only on a measurement with the screen in use. The session was
+unlocked (`IOConsoleLocked` No, no `CGSSessionScreenIsLocked`). What the
+measurement found is a route through the operating system rather than
+Chrome's protocol, which is a choice nobody had made, so LOOP.md's "a
+decision is its own iteration" applies, as for 680 in iteration 422.
+
+**Measured** (Chrome 156.0.8078.73, macOS 26.5.2, Stage Manager on; a
+scratch Node probe over `--remote-debugging-port` against a shown `--app`
+Chrome on its own profile, never committed): CDP's click opens macOS's
+menu, a layer-101 window of Chrome's process; the page goes on (a timer
+every 250 ms, `Runtime.evaluate` answered); `Input.dispatchKeyEvent`
+reaches only the page's list; `CGEventPostToPid` Down, Down, Return —
+from a compiled helper and from `osascript`'s JavaScript — chose two
+down, with one `input` and one `change`; the menu skips a disabled
+option, has no item for a hidden one or a group's label; only Return
+chooses; Finder brought in front closed the menu (`blur`) and the same
+keys then chose **the wrong option**. The menu's highlight could not be
+read through System Events.
+
+**Decided.** ADR 0071: on a shown Chrome only, the click opens the menu,
+the window server witnesses it before every key, arrows counted over the
+menu's items and Return are posted to Chrome's process through
+`osascript`, the answer read back from Chrome's tree; the menu gone
+before any key answers `NotCarriedOut`. Headless and off macOS keep ADR
+0064 § 6's refusal; ADR 0064 carries an amendment line saying so. The
+race between the last reading and a key is named, not closed.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5522 tests, 5522
+passed, 10 of 10 steps, "The gate is met.", exit 0.** No code changed.
+
+**Manual.** No layout or drawing changed: no layout assertion or
+reference render applies. One file, one responsibility: one ADR, one
+decision. No `unsafe`, no rented crate, no verb taking a coordinate (the
+menu is opened at the named list's box, as every `Activate`). `alo-os`
+and `alo-workplace` untouched. The probe's Chromes were closed and their
+profiles are in the scratchpad. An untracked `docs/design/` appeared and
+went during the iteration; not this iteration's, left alone. Nothing
+pushed.
+
+**Roadmap.** Moved, not ticked: the product path's Decided clause names
+ADR 0071, and its Owed clause and the stage 2 browser line say 658 is
+decided and not built. Queue: 658 stays open with a *Decided, not built*
+paragraph. Features and changelog say decided, not built.
+
+**Unresolved obligations.**
+- 658's build: ADR 0071's test against a shown Chrome, and the
+  measurements it leaves to the build — the highlight's start with
+  another option chosen and none, the pointer resting over the menu, a
+  disabled `<optgroup>`, and whether posting events needs a person's
+  permission on a fresh install.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **692** and the next ADR is **0072**.
+This is one iteration, not a finished queue or roadmap.

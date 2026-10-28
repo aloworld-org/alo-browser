@@ -18396,6 +18396,17 @@ What stage 2's exit gate actually measures: a person using it.
   and either a closed list's option is chosen through a shown Chrome with
   the page hearing one `input` and one `change` for the option asked, in
   a test, or ADR 0064 says why it stays refused.
+  ***Decided, not built (iteration 433): ADR 0071.*** Measured with the
+  screen in use against Chrome 156.0.8078.73: CDP's click opens macOS's
+  menu (a layer-101 window of Chrome's process) and the page goes on;
+  CDP's keys reach only the page; keys posted to Chrome's process with
+  `CGEventPostToPid` — from `osascript` too — move the menu's highlight
+  over the options it can highlight and Return chooses, the page hearing
+  one `input` and one `change`; another application brought in front
+  closes the menu, and the same keys then chose the wrong option. ADR
+  0071 lifts the refusal on a shown Chrome only, with the menu witnessed
+  by the window server before every key. The build is this item, and it
+  closes on ADR 0071's test.
 
 - [x] **671. A window smaller than was asked for is not a reason to refuse to
   run.** `alo --chrome` asks Chrome for a page area and stops with an error

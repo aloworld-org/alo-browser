@@ -211,6 +211,11 @@ other node, never a second tree built for the agent (ADR 0002).
   rule on both renderers, and not carried out through Chrome — rather
   than as a refusal of the shared rule, which this engine's page does
   not make. Off macOS the click holds Ctrl, unmeasured, as § 6 says.
+- *Amended by ADR 0071 (2026-10-28, item 658).* A shown Chrome's menu
+  was measured with the screen in use: a closed list's option is chosen
+  there by the click that opens the menu, arrows posted to Chrome's
+  process and Return, each key only while the window server shows the
+  menu. § 6's refusal stands for a headless Chrome and off macOS.
 
 ## What this does not decide
 

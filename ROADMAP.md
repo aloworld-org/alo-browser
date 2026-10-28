@@ -344,9 +344,13 @@ about this project (ADR 0058 § 6).
   Quit and never by its input (ADR 0067) — and, by the owner's change the
   same day, drawing that page in the machine's own Chrome driven as `alo
   --chrome` drives it, this engine only on a Mac with no Chrome, saying so
-  (ADR 0068).
-- **Owed:** a closed list's option through a shown Chrome, measured with
-  the screen in use (658); the
+  (ADR 0068); and how a closed list's option is chosen through a shown
+  Chrome — measured with the screen in use, in macOS's own menu, opened by
+  the click, its highlight moved by arrows posted to Chrome's process and
+  chosen by Return, each key only while the window server shows the menu,
+  headless still refused (ADR 0071).
+- **Owed:** a closed list's option through a shown Chrome, decided in
+  ADR 0071 and not built (658); the
   rest of the agent's work where a person can see it — an
   application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
   inside it built, closing only on a Mac that never built it, with Chrome
@@ -969,7 +973,7 @@ unreachable without it.
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650); a closed list's option
-      through a shown Chrome (658) — the frame itself stands, follows, and
+      through a shown Chrome, decided by ADR 0071 and not built (658) — the frame itself stands, follows, and
       draws its words with the machine's own fonts (683), and
       carries the page's tab, the agent's sentence and its refusals (642,
       679, 681), and Chrome marks the box a verb acted on (680), and a

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: how an agent will choose from a drop-down list in a Chrome a
+  person can see** (ADR 0071). Measured on macOS with the screen in use:
+  the list opens macOS's own menu, the page keeps running, and Chrome's
+  remote-control keys never reach that menu — but keys sent to Chrome's
+  process alone do, and only Return chooses, so the page hears exactly one
+  change. The agent will open the menu, move with arrow keys sent only to
+  Chrome, press Return, and stop and say so the moment the menu is no
+  longer on the screen. Not built yet; until it is, such a choice is still
+  answered as not carried out.
+
 - **Building alo browser now needs Rust 1.89 or later** (ADR 0070). The
   minimum was 1.85, which nobody had chosen. 1.89 brings the file lock that
   lets the browser clean up after a copy of itself that was killed.
