@@ -216,3 +216,12 @@ committed; windows read from the window server by Chrome's process id.
 
   Each guard narrows what § 2 lets through and adds no route; the
   decision is otherwise unchanged.
+
+- *Amended by ADR 0072 (2026-10-28, item 692).* § 4's *Permission* risk
+  is measured: a fresh application's process, and the `osascript` it
+  starts, may not post events, and its keys are dropped without a word —
+  Escape included, so a menu it opened stays open. Before the click and
+  before every key the browser asks macOS whether it may post events,
+  which asks the person nothing, and when it may not opens no menu and
+  posts no key, answering `NotCarriedOut` with where a person allows it.
+  No verb prompts.

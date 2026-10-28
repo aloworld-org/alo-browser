@@ -18453,6 +18453,18 @@ What stage 2's exit gate actually measures: a person using it.
   the first time — and the answer an agent gets, and what a person is
   told, are decided (an ADR if a prompt or a setting is involved) and
   asserted.
+  ***Decided, not built (iteration 435): ADR 0072.*** Measured from a
+  new application bundle sealed as `alo-bundle` seals ours and started by
+  `open`: it and the `osascript` it starts are untrusted
+  (`CGPreflightPostEventAccess` false), and their Down, Return and Escape
+  are dropped silently — the menu stays shown, the page hears nothing,
+  no prompt is shown. So today a fresh install answers `NotCarriedOut`
+  with the menu left open on the screen. Decided: the preflight, read
+  through `osascript` with `ObjC.bindFunction`, before the click and
+  before every key; not allowed opens no menu, posts nothing, and
+  answers `NotCarriedOut` naming System Settings › Privacy & Security ›
+  Accessibility; no verb prompts. The build owes ADR 0072's tests,
+  including one run as a fresh bundle.
 
 - [x] **671. A window smaller than was asked for is not a reason to refuse to
   run.** `alo --chrome` asks Chrome for a page area and stops with an error

@@ -44302,3 +44302,87 @@ built.
 
 The next unused queue number is **693** and the next ADR is **0072**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 435 — queue item 692's decision: ADR 0072, a closed list's menu is not opened by a browser macOS does not let post keys — decided, not built
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, iterations 433 and 434's entries, the queue's product path and items
+692, 684 and 477; ADR 0071 and its amendment (the decision 692 was cut
+from), ADR 0064 § 6, ADR 0062 § 3; `docs/features.md`'s second-renderer
+line (692's contract); `chrome_menu.rs`, `chrome_choose.rs`,
+`.config/nextest.toml`. No `AGENTS.md` exists in the repository.
+
+**Why 692.** The product path's other owed items are 477 (closes only on
+a Mac that never built it) and 684 (needs an ADR for `unsafe`, and
+depends on 477); 692 depends on 658, done. The session was unlocked
+(`IOConsoleLocked` false). Its closing condition says an ADR decides it
+if a prompt or a setting is involved, and one is, so by LOOP.md's "a
+decision is its own iteration" this iteration measures and decides, as
+433 did for 658.
+
+**Measured** (Chrome 156.0.8078.73, macOS 26.5.2, Stage Manager on;
+scratch probes in the scratchpad, never committed): a compiled helper
+running `osascript -l JavaScript` with a `CGEventPostToPid` script, run
+from the terminal and as the executable of a new bundle sealed
+`codesign -s -` and started by `open`, against a shown `--app` Chrome
+whose closed list's menu CDP's click had opened. The fresh bundle and the
+`osascript` it starts are untrusted (`AXIsProcessTrusted`,
+`CGPreflightPostEventAccess`, `CGPreflightListenEventAccess` false); the
+terminal is trusted. The untrusted Down, Down, Return and, separately,
+Escape were dropped without a word — the menu stayed shown, the page
+heard only the click's `focus` — while the terminal's chose *Cherries*
+with one `input` and one `change`. No prompt window appeared in three
+runs (the window server's layer-0 list compared before and after).
+`CGPreflightPostEventAccess` is readable in the script through
+`ObjC.bindFunction`, asking nothing. Not measured: the prompt itself
+(`CGRequestPostEventAccess` would put one before the owner and an entry
+into their settings) and whether a re-sealed build keeps a grant.
+
+**Decided.** ADR 0072: the preflight is read before the click and before
+every key, in the posting script; not allowed opens no menu, posts no key
+and answers `NotCarriedOut` naming System Settings › Privacy & Security ›
+Accessibility, drawn in the frame as every refusal is; no verb prompts.
+ADR 0071 carries an amendment line pointing to it.
+
+**Found by the gate, and fixed in a commit of its own.** The first gate
+run failed one test this iteration did not touch:
+`options_of_a_closed_list_are_chosen_in_its_menu_one_change_each`
+(*Honeydew* not chosen). `the_application_opens_its_own_page` starts a
+shown Chrome through the bundle but was in no `chrome` test group (its
+name lacks "chrome"), so it could run beside 658's menu tests and bring
+its Chrome in front mid-walk. Reproduced: the pair together failed two
+runs of three (*NeverClosed*, a pointer test); the menu file alone passed
+three of three. `nextest.toml`'s own rule says a test that starts a
+Chrome is in the group; the file is added there by name, with why. Every
+test still runs and is judged as before. Then the pair passed three of
+three. Of the other `alo-window` tests that mention Chrome without the
+word in their name, none starts one.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it. First run: 5445 of
+5446 run passed, the failure above, "The gate is not met." After the
+fix: **5539 tests, 5539 passed, 10 of 10 steps, "The gate is met.",
+exit 0.**
+
+**Manual.** No layout or drawing changed: no layout assertion or
+reference render applies. One file, one responsibility: one ADR, one
+decision; the test grouping is `nextest.toml`'s. No `unsafe`, no rented
+crate, no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. The probes' Chromes were closed and their profiles removed;
+the probe bundle stays in the scratchpad. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: the product path's Built clause names
+ADR 0072 as decided, not built, and its Owed clause and the stage 2
+browser line say 692 is decided and owes its build. Queue: 692 stays
+open with a *Decided, not built* paragraph. Features and changelog say
+decided, not built.
+
+**Unresolved obligations.**
+- 692's build: the preflight in `chrome_menu`, the refusal in
+  `chrome_choose`, and ADR 0072's tests — including one run as a fresh
+  application bundle, since the tests' own process is trusted.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **693** and the next ADR is **0073**.
+This is one iteration, not a finished queue or roadmap.

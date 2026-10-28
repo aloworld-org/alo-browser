@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: what a freshly installed copy does when macOS will not let it
+  choose from a drop-down list in Chrome** (ADR 0072, item 692). Measured:
+  macOS silently throws away the arrow keys of an application nobody has
+  allowed — including the Escape that would close the menu — so today
+  such a choice fails with the list's menu left open and no reason given.
+  The browser will instead ask macOS first, which asks the person
+  nothing; if it may not send keys, it opens no menu and tells the agent
+  and the person where to allow it (System Settings, Privacy & Security,
+  Accessibility). It never pops up macOS's permission request in the
+  middle of an agent's action. Not built yet.
+
 - **An agent can choose from a drop-down list in a Chrome a person can
   see** (ADR 0071, item 658). The agent's press opens macOS's own menu,
   arrow keys sent to Chrome alone move through it — skipping what the

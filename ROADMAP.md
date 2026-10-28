@@ -350,9 +350,13 @@ about this project (ADR 0058 § 6).
   chosen by Return, each key only while the window server shows the menu,
   headless still refused (ADR 0071) — built (658, iteration 434), the
   menu witnessed by its window's number and no key posted while the
-  person's pointer is over it (ADR 0071's amendment).
-- **Owed:** whether a fresh install may post the keys a closed list's
-  menu is chosen in with, and what it answers when it may not (692); the
+  person's pointer is over it (ADR 0071's amendment); and what a fresh
+  install answers there — measured, macOS drops an untrusted process's
+  keys without a word, so no menu is opened and no key posted unless
+  macOS says the browser may post them, the agent answered with where a
+  person allows it, and no verb prompts (ADR 0072, decided, not built).
+- **Owed:** that answer built and asserted, including from a fresh
+  application bundle (692); the
   rest of the agent's work where a person can see it — an
   application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
   inside it built, closing only on a Mac that never built it, with Chrome
@@ -976,8 +980,10 @@ unreachable without it.
       · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650); whether a fresh install may
-      post the keys a closed list's menu is chosen in with (692) — the
+      the system's own encrypted DNS (650); a fresh install, which macOS
+      does not let post the keys a closed list's menu is chosen in with,
+      opening no menu and saying where that is allowed (692, decided in
+      ADR 0072, not built) — the
       frame itself stands, follows, and
       draws its words with the machine's own fonts (683), and
       carries the page's tab, the agent's sentence and its refusals (642,
