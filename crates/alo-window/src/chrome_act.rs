@@ -42,9 +42,10 @@
 //! - **`activate` on an option of a `<select>`** chooses it, in a list
 //!   Chrome draws — one with a `size`, or `multiple` — by the same click,
 //!   with the platform's toggle held in a list of several; an option of a
-//!   closed list is not pressed at all ([`Unacted::Closed`]), and the
-//!   answer is read back from Chrome's tree ([`crate::chrome_choose`],
-//!   ADR 0064 § 6, item 660).
+//!   closed list is chosen in the list's menu in a shown Chrome on macOS
+//!   (ADR 0071, item 658) and not pressed at all elsewhere
+//!   ([`Unacted::Closed`]); and the answer is read back from Chrome's tree
+//!   ([`crate::chrome_choose`], ADR 0064 § 6, item 660).
 //! - **`scroll`** is never decided on Chrome's page: its tree cannot say that
 //!   a box scrolls ([`crate::chrome_tree`]), so every scroll is refused as
 //!   `DoesNotScroll`, by the rule that refuses it on this engine's page.
@@ -121,7 +122,7 @@
 
 use crate::chrome::Failed;
 use crate::chrome_bubble;
-use crate::chrome_choose::Choosing;
+use crate::chrome_choose::{Choosing, Unwalked};
 use crate::chrome_date::{self, Digits, Part};
 use crate::chrome_protocol::{self, AxNode, Chord, Command, Digit, Mouse, Within};
 use crate::chrome_reading::ChromeReading;
@@ -183,16 +184,27 @@ pub enum Unacted {
         /// Why.
         why: chrome_date::Untypable,
     },
-    /// An option of a closed list was to be chosen, and Chrome draws no
-    /// option of a closed list, so there is nothing to press; and every key
-    /// that reaches one passes through options nobody chose, each heard by
-    /// the page as a choice. So nothing was sent (ADR 0064 § 6, queue item
-    /// 660).
+    /// An option of a closed list was to be chosen in a headless Chrome, or
+    /// off macOS. Chrome draws no option of a closed list, so there is
+    /// nothing to press; a headless Chrome draws no menu either; and every
+    /// key that reaches a closed list passes through options nobody chose,
+    /// each heard by the page as a choice. So nothing was sent (ADR 0064
+    /// § 6 as amended by ADR 0071, queue items 660 and 658).
     Closed {
         /// The option.
         node: BoxId,
         /// Its list.
         list: BoxId,
+    },
+    /// An option of a closed list was to be chosen in its menu in a shown
+    /// Chrome, and was not (ADR 0071, queue item 658).
+    Unwalked {
+        /// The option.
+        node: BoxId,
+        /// Its list.
+        list: BoxId,
+        /// Why, and how far it got.
+        why: Unwalked,
     },
     /// It was decided, and is not a thing this path carries out.
     ///
@@ -229,7 +241,11 @@ impl fmt::Display for Unacted {
             ),
             Self::Closed { node, list } => write!(
                 f,
-                "{node} is an option of the closed list {list}, which this browser cannot choose in through Chrome yet, so nothing was pressed"
+                "{node} is an option of the closed list {list}, which this browser chooses in only through a shown Chrome on macOS, so nothing was pressed"
+            ),
+            Self::Unwalked { node, list, why } => write!(
+                f,
+                "{node} of the closed list {list} was not chosen in its menu: {why}"
             ),
             Self::Untypable { node, why } => {
                 write!(f, "{why}, so nothing was typed into {node}")

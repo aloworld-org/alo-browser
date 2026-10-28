@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can choose from a drop-down list in a Chrome a person can
+  see** (ADR 0071, item 658). The agent's press opens macOS's own menu,
+  arrow keys sent to Chrome alone move through it — skipping what the
+  menu skips: disabled options and ones a page hides — and Return chooses,
+  so the page hears exactly one change, for the option asked. It stops
+  and says so, choosing nothing, the moment the menu it opened is no
+  longer on the screen or the person's pointer is over it, since either
+  would make the keys choose something else; any menu left open is
+  closed. A Chrome nobody can see still refuses, as before. Whether a
+  freshly installed copy is allowed by macOS to send those keys is not
+  yet known (692).
+
 - **Decided: how an agent will choose from a drop-down list in a Chrome a
   person can see** (ADR 0071). Measured on macOS with the screen in use:
   the list opens macOS's own menu, the page keeps running, and Chrome's

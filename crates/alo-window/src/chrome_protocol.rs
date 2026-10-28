@@ -317,6 +317,25 @@ pub enum Command {
     },
     /// `Overlay.hideHighlight`: take any mark away.
     Unmark,
+    /// `DOM.pushNodesByBackendIdsToFrontend`: the DOM domain's own ids of
+    /// these nodes ([`pushed`]), which [`Command::ComputedStyle`] takes —
+    /// after [`Command::ReadDocument`], which the DOM domain needs first.
+    IdsOf {
+        /// The nodes, by Chrome's `backendNodeId`.
+        nodes: Vec<u64>,
+    },
+    /// `CSS.enable`: let Chrome answer [`Command::ComputedStyle`], which it
+    /// declines while its CSS domain is off (measured against Chrome 156).
+    ReadStyles,
+    /// `CSS.disable`: no longer.
+    StopReadingStyles,
+    /// `CSS.getComputedStyleForNode`: what a node's style computed to
+    /// ([`computed`]).
+    ComputedStyle {
+        /// The node, by the DOM domain's id that [`Command::IdsOf`] read —
+        /// not its `backendNodeId`.
+        node: u64,
+    },
 }
 
 impl Command {
@@ -364,6 +383,10 @@ impl Command {
             Self::ShowMarks => "Overlay.enable",
             Self::Mark { .. } => "Overlay.highlightNode",
             Self::Unmark => "Overlay.hideHighlight",
+            Self::IdsOf { .. } => "DOM.pushNodesByBackendIdsToFrontend",
+            Self::ReadStyles => "CSS.enable",
+            Self::StopReadingStyles => "CSS.disable",
+            Self::ComputedStyle { .. } => "CSS.getComputedStyleForNode",
         }
     }
 
@@ -391,7 +414,11 @@ impl Command {
             | Self::Targets
             | Self::ReadDocument
             | Self::ShowMarks
-            | Self::Unmark => {}
+            | Self::Unmark
+            | Self::ReadStyles
+            | Self::StopReadingStyles => {}
+            Self::IdsOf { nodes } => put("backendNodeIds", Value::from(nodes.clone())),
+            Self::ComputedStyle { node } => put("nodeId", Value::from(*node)),
             Self::CreateTarget { url } | Self::Navigate { url } => {
                 put("url", Value::from(url.as_str()));
             }
@@ -444,18 +471,8 @@ impl Command {
                 put("x", Value::from(*x));
                 put("y", Value::from(*y));
             }
-            Self::Mouse {
-                kind,
-                x,
-                y,
-                toggles,
-            } => {
-                for (name, value) in mouse(*kind, (*x, *y), *toggles) {
-                    put(name, value);
-                }
-            }
-            Self::Key { chord, down } => {
-                for (name, value) in key(*chord, *down) {
+            Self::Mouse { .. } | Self::Key { .. } => {
+                for (name, value) in self.input() {
                     put(name, value);
                 }
             }
@@ -467,6 +484,23 @@ impl Command {
             }
         }
         params
+    }
+}
+
+impl Command {
+    /// The `params` of an input event: a mouse's or a key's, and none for
+    /// any other command.
+    fn input(&self) -> Vec<(&'static str, Value)> {
+        match self {
+            Self::Mouse {
+                kind,
+                x,
+                y,
+                toggles,
+            } => mouse(*kind, (*x, *y), *toggles),
+            Self::Key { chord, down } => key(*chord, *down),
+            _ => Vec::new(),
+        }
     }
 }
 
@@ -1156,6 +1190,65 @@ pub fn node_at(result: &[u8]) -> Result<u64, Malformed> {
         .ok_or(Malformed::BadField {
             field: "backendNodeId",
         })
+}
+
+/// A reply's `result` to `DOM.pushNodesByBackendIdsToFrontend` for
+/// `asked` nodes: the DOM domain's id of each, in the order asked.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `nodeIds` that are whole numbers
+/// other than nought — Chrome's id for a node it did not find — or with
+/// another count of them than was asked.
+pub fn pushed(result: &[u8], asked: usize) -> Result<Vec<u64>, Malformed> {
+    let bad = Malformed::BadField { field: "nodeIds" };
+    let Some(Value::Array(ids)) = object(result)?.get("nodeIds").cloned() else {
+        return Err(bad);
+    };
+    if ids.len() != asked || ids.len() > MOST_NODES {
+        return Err(bad);
+    }
+    ids.iter()
+        .map(|id| id.as_u64().filter(|id| *id != 0).ok_or(bad))
+        .collect()
+}
+
+/// The value the property `name` computed to, from a reply's `result` to
+/// `CSS.getComputedStyleForNode`.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `computedStyle` of at most
+/// [`MOST_ATTRIBUTES`] names and values that are texts, one with no value
+/// for `name`, or one whose value for `name` is over [`MOST_TEXT`]
+/// characters.
+pub fn computed(result: &[u8], name: &str) -> Result<String, Malformed> {
+    let bad = Malformed::BadField {
+        field: "computedStyle",
+    };
+    let Some(Value::Array(properties)) = object(result)?.get("computedStyle").cloned() else {
+        return Err(bad);
+    };
+    if properties.len() > MOST_ATTRIBUTES {
+        return Err(bad);
+    }
+    let mut found = None;
+    for property in &properties {
+        let Value::Object(fields) = property else {
+            return Err(bad);
+        };
+        // A page's own custom properties are listed too, as long as the
+        // page wrote them: only the value asked for is held to a length.
+        let (Some(Value::String(named)), Some(Value::String(_))) =
+            (fields.get("name"), fields.get("value"))
+        else {
+            return Err(bad);
+        };
+        if named == name && found.is_none() {
+            found = Some(text(fields.get("value"), "value")?);
+        }
+    }
+    found.ok_or(bad)
 }
 
 /// A navigation a page asked for, from `Page.frameRequestedNavigation`.
@@ -2083,6 +2176,94 @@ mod tests {
                 format!(r#"{{"id":9,"method":"{method}","params":{{}},"sessionId":"S"}}"#)
             );
         }
+    }
+
+    #[test]
+    fn a_nodes_computed_style_is_asked_for_as_chromes_css_domain_reads_it() {
+        let at = |command: &Command| {
+            String::from_utf8_lossy(&written(9, Some("S"), command)).into_owned()
+        };
+        assert_eq!(
+            at(&Command::IdsOf {
+                nodes: vec![15, 27]
+            }),
+            r#"{"id":9,"method":"DOM.pushNodesByBackendIdsToFrontend","params":{"backendNodeIds":[15,27]},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            at(&Command::ComputedStyle { node: 8 }),
+            r#"{"id":9,"method":"CSS.getComputedStyleForNode","params":{"nodeId":8},"sessionId":"S"}"#
+        );
+        for (command, method) in [
+            (Command::ReadStyles, "CSS.enable"),
+            (Command::StopReadingStyles, "CSS.disable"),
+        ] {
+            assert_eq!(
+                at(&command),
+                format!(r#"{{"id":9,"method":"{method}","params":{{}},"sessionId":"S"}}"#)
+            );
+        }
+    }
+
+    #[test]
+    fn the_ids_pushed_are_read_one_for_each_node_asked() {
+        assert_eq!(pushed(br#"{"nodeIds":[8,11,14]}"#, 3), Ok(vec![8, 11, 14]));
+        assert_eq!(pushed(br#"{"nodeIds":[]}"#, 0), Ok(Vec::new()));
+        let bad = Err(Malformed::BadField { field: "nodeIds" });
+        for (result, asked) in [
+            (&br#"{"nodeIds":[8,11]}"#[..], 3),
+            (br#"{"nodeIds":[8,0,14]}"#, 3),
+            (br#"{"nodeIds":[8,-1]}"#, 2),
+            (br#"{"nodeIds":[8,"11"]}"#, 2),
+            (br#"{"nodeIds":8}"#, 1),
+            (br"{}", 0),
+        ] {
+            assert_eq!(pushed(result, asked), bad, "{result:?}");
+        }
+        assert_eq!(pushed(b"[", 0), Err(Malformed::NotJson));
+    }
+
+    #[test]
+    fn a_computed_value_is_read_by_its_propertys_name() {
+        let style = br#"{"computedStyle":[{"name":"color","value":"rgb(0, 0, 0)"},{"name":"display","value":"none"},{"name":"display","value":"block"}]}"#;
+        assert_eq!(
+            computed(style, "display"),
+            Ok("none".to_owned()),
+            "the first"
+        );
+        let bad = Err(Malformed::BadField {
+            field: "computedStyle",
+        });
+        assert_eq!(computed(style, "float"), bad, "a property not listed");
+        let long = "x".repeat(MOST_TEXT + 1);
+        let others_long = format!(
+            r#"{{"computedStyle":[{{"name":"--a","value":"{long}"}},{{"name":"display","value":"block"}}]}}"#
+        );
+        assert_eq!(
+            computed(others_long.as_bytes(), "display"),
+            Ok("block".to_owned()),
+            "another property's length is the page's"
+        );
+        let asked_long = format!(r#"{{"computedStyle":[{{"name":"display","value":"{long}"}}]}}"#);
+        assert_eq!(
+            computed(asked_long.as_bytes(), "display"),
+            Err(Malformed::TooLong {
+                field: "value",
+                most: MOST_TEXT
+            })
+        );
+        for result in [
+            &br#"{"computedStyle":[{"name":"display"}]}"#[..],
+            br#"{"computedStyle":[{"name":"color","value":1},{"name":"display","value":"none"}]}"#,
+            br#"{"computedStyle":["display"]}"#,
+            br#"{"computedStyle":{}}"#,
+        ] {
+            assert_eq!(computed(result, "display"), bad, "{result:?}");
+        }
+        let many = format!(
+            r#"{{"computedStyle":[{}]}}"#,
+            vec![r#"{"name":"display","value":"block"}"#; MOST_ATTRIBUTES + 1].join(",")
+        );
+        assert_eq!(computed(many.as_bytes(), "display"), bad, "too many");
     }
 
     #[test]

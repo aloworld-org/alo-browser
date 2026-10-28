@@ -127,6 +127,7 @@ pub mod chrome_gate;
 pub mod chrome_held;
 pub mod chrome_hold;
 pub mod chrome_mark;
+pub mod chrome_menu;
 pub mod chrome_named;
 pub mod chrome_owed;
 pub mod chrome_pages;

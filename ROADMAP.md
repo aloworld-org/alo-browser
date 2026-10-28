@@ -348,9 +348,11 @@ about this project (ADR 0058 § 6).
   Chrome — measured with the screen in use, in macOS's own menu, opened by
   the click, its highlight moved by arrows posted to Chrome's process and
   chosen by Return, each key only while the window server shows the menu,
-  headless still refused (ADR 0071).
-- **Owed:** a closed list's option through a shown Chrome, decided in
-  ADR 0071 and not built (658); the
+  headless still refused (ADR 0071) — built (658, iteration 434), the
+  menu witnessed by its window's number and no key posted while the
+  person's pointer is over it (ADR 0071's amendment).
+- **Owed:** whether a fresh install may post the keys a closed list's
+  menu is chosen in with, and what it answers when it may not (692); the
   rest of the agent's work where a person can see it — an
   application somebody can run (477), decided in ADRs 0067 and 0068, `alo`
   inside it built, closing only on a Mac that never built it, with Chrome
@@ -968,12 +970,15 @@ unreachable without it.
       amendment), and so does a request it names no id for, which is the
       page the frame left (ADR 0060's second amendment, 657); and an
       option of a `<select>` chosen by activating it, a list taking no
-      text, and a closed list's option refused through Chrome (ADR 0064)
+      text, and a closed list's option refused through a headless Chrome
+      (ADR 0064) and chosen in its menu through a shown one (ADR 0071,
+      658)
       · Owed: what Chrome itself asks Google for, with no page
       open, outside the gate and the record (649); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650); a closed list's option
-      through a shown Chrome, decided by ADR 0071 and not built (658) — the frame itself stands, follows, and
+      the system's own encrypted DNS (650); whether a fresh install may
+      post the keys a closed list's menu is chosen in with (692) — the
+      frame itself stands, follows, and
       draws its words with the machine's own fonts (683), and
       carries the page's tab, the agent's sentence and its refusals (642,
       679, 681), and Chrome marks the box a verb acted on (680), and a

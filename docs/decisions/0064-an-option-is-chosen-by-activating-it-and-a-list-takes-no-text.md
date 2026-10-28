@@ -215,7 +215,10 @@ other node, never a second tree built for the agent (ADR 0002).
   was measured with the screen in use: a closed list's option is chosen
   there by the click that opens the menu, arrows posted to Chrome's
   process and Return, each key only while the window server shows the
-  menu. § 6's refusal stands for a headless Chrome and off macOS.
+  menu. § 6's refusal stands for a headless Chrome and off macOS. Built
+  in iteration 434 (item 658), with the menu witnessed by its window's
+  number and no key posted under the person's pointer (ADR 0071's
+  amendment).
 
 ## What this does not decide
 

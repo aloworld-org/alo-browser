@@ -185,7 +185,7 @@ fn an_option_of_a_closed_list_is_not_pressed_and_the_page_hears_nothing() {
     assert_eq!(
         refused.unwrap_err().to_string(),
         format!(
-            "{deep} is an option of the closed list {crust}, which this browser cannot choose in through Chrome yet, so nothing was pressed"
+            "{deep} is an option of the closed list {crust}, which this browser chooses in only through a shown Chrome on macOS, so nothing was pressed"
         )
     );
     assert_eq!(heard(&mut tab).unwrap(), "Heard:");

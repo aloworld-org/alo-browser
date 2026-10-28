@@ -44204,3 +44204,101 @@ paragraph. Features and changelog say decided, not built.
 
 The next unused queue number is **692** and the next ADR is **0072**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 434 — queue item 658 built: a closed list's option chosen in its menu through a shown Chrome (ADR 0071)
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s product
+path, iteration 433's entry, the queue's product path and item 658; ADR
+0071 (the decision this builds), ADR 0064 § 6 and its amendments, ADR 0062
+§ 3 (the window server through `osascript`); `docs/features.md`'s second
+renderer line; `chrome_choose.rs`, `chrome_act.rs`, `window_server.rs`,
+`chrome_protocol.rs`. No `AGENTS.md` exists in the repository.
+
+**Why 658.** Iteration 433 decided it; the product path's other owed
+items are 477 (only another Mac closes it) and 684 (needs an ADR). The
+session was unlocked (`IOConsoleLocked` false).
+
+**Built.** `chrome_choose`: a closed list on a shown Chrome on macOS takes
+ADR 0071's route; headless and elsewhere keep `Unacted::Closed`, its
+sentence now saying so. The arrows are counted by `walk` over the menu's
+items, read by `in_menu`: tree order, `disabled` and `selected` from
+Chrome's tree, and each option's own computed `display` over Chrome's CSS
+domain (`DOM.getDocument`, `DOM.pushNodesByBackendIdsToFrontend`,
+`CSS.enable`, `CSS.getComputedStyleForNode`, `CSS.disable` — four new
+`Command`s and two strict readers, `pushed` and `computed`, in
+`chrome_protocol`). New `chrome_menu` (ADR 0071's "file of its own beside
+`window_server.rs`"): `menu_of`, the waits `shown`/`gone`/`closed`, and
+`post_while_shown`/`close_any`, one `osascript` call that reads the window
+server and the pointer and posts the key to Chrome's process only while
+the witnessed menu is shown and the pointer is not over it. A refusal is
+`Unacted::Unwalked` (`NoItem`, `NeverShown`, `Gone`, `UnderPointer`,
+`NeverClosed`, `Unlisted`, `Unposted`), `NotCarriedOut` on the socket,
+and closes any menu left open with Escape.
+
+**Measured** (Chrome 156.0.8078.73, macOS 26.5.2, Stage Manager on, scratch
+probes never committed): the highlight starts at the chosen item; with
+none chosen, or one it cannot reach, one Down goes to the first item and
+one Up to the last; it stops at the ends. A `display: none` option has no
+item, `hidden` included; one in a `display: none` group has one, as does a
+`visibility: hidden` one; Chrome's tree tells none of these apart.
+**Two guards the first build lacked, found by measuring:** (1) with Finder
+brought in front the menu closed and the next Down reopened it as a window
+with **another number** — the any-new-menu guard walked on and chose
+*Number 38* for *Honeydew*; the witness is now the window's number. (2) A
+pointer resting where the menu opens, or moved into it, moves the
+highlight — three Downs meant for *Dates* chose *Elderberries* or *Figs*;
+no key is posted while the pointer is in the menu's bounds. Both are
+written into ADR 0071 as an amendment, as narrowings of § 2.3 on risks § 4
+assigned to the build; **the owner may want to read that amendment**,
+since it is a decision recorded inside a build iteration. Not measured: a
+fresh install's permission — the posting process here is
+Accessibility-trusted (`AXIsProcessTrusted` true). Opened as **692**.
+
+**Tests.** Unit: `walk` (counts measured above, held, no item, from
+nowhere), `options_of` (tree order through groups), `menu_of`, the
+script's printout read strictly, the key codes, `pushed`, `computed`
+(another property's length is the page's; the asked value bounded), the
+four commands' wire form. Integration, against a shown Chrome, new
+`a_closed_list_chosen_through_a_shown_chrome.rs` (in nextest's shown
+list): options several down, up, and past an undisplayed one each heard as
+one `input` and one `change`; held posts nothing; an undisplayed option
+refused `NoItem`; a list holding nothing walked from nowhere; Finder in
+front mid-walk answered `Gone` with nothing heard; the pointer moved into
+the menu mid-walk answered `UnderPointer`, nothing heard, the menu closed.
+Each test moves the pointer to Chrome's title bar first and puts it back.
+With 660's file, 8 of 8 in four separate runs. **Mutations** (copied,
+edited, restored by `cp`, `cmp`): display ignored, any new menu taken for
+the witnessed one, the walk from nowhere off by one, a headless Chrome
+walked, the pointer not read — each fails a test.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5539 tests, 5539
+passed, 10 of 10 steps, "The gate is met.", exit 0.**
+
+**Manual.** No layout or drawing of this engine's changed: no layout
+assertion or reference render applies (what Chrome's menu chooses is
+asserted from the page's own record of `input` and `change`). One file,
+one responsibility: the menu's witness and keys moved into `chrome_menu`
+when `chrome_choose` grew them, leaving the verb and the count there; the
+protocol's commands and readers in `chrome_protocol`. No `unsafe`, no
+rented crate, no script put into a page, no verb taking a coordinate (the
+menu is opened at the named list's box; the pointer is read, never
+moved, by the browser). `alo-os` and `alo-workplace` untouched. Nothing
+pushed.
+
+**Roadmap.** Moved, not ticked: the product path's Decided clause says
+658 is built with its two guards; its Owed clause and the stage 2 browser
+line name 692 in 658's place. Queue: 658 ticked *Done* with its paragraph;
+692 opened. Features, ADR 0064's amendment line and the changelog say
+built.
+
+**Unresolved obligations.**
+- 692: what a fresh, untrusted install does when it posts the keys.
+- The race ADR 0071 § 4 names is narrowed to one script's two statements,
+  not closed; a pointer moving through the menu between two keys and out
+  again is not caught.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **693** and the next ADR is **0072**.
+This is one iteration, not a finished queue or roadmap.

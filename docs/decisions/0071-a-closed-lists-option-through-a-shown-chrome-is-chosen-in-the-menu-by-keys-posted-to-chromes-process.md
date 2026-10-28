@@ -167,3 +167,52 @@ committed; windows read from the window server by Chrome's process id.
   race is not narrow in practice and the route is reopened.
 - **If macOS asks a person's permission** in a way the browser cannot
   explain at the moment it is asked, the route costs more than it gives.
+
+## Amendments
+
+- *Iteration 434 (2026-10-28, item 658), built — what the build measured,
+  and the two guards it narrowed § 2.3 by.* Against Chrome 156.0.8078.73
+  on macOS 26.5.2, Stage Manager on, the screen in use:
+  - **The highlight starts at the option the list holds**, measured with
+    the first, fifth and last item chosen. With none chosen, or one the
+    highlight cannot reach — disabled, `hidden`, in a disabled group or
+    `display: none` — it starts nowhere: one Down goes to the first item
+    and one Up to the last. It stops at either end. § 2.5's count follows
+    that.
+  - **Which options have items is decided by each one's own computed
+    `display`**, not by its `hidden` attribute: an option a style sheet
+    makes `display: none` has no item, one in a group whose `display` is
+    `none` has one, and so does one whose `visibility` is `hidden`.
+    Chrome's tree says none of this — it lists a `hidden` option and an
+    undisplayed one exactly as a shown one — so each option's computed
+    style is read over Chrome's CSS domain (`CSS.getComputedStyleForNode`,
+    the domain enabled for the reading and disabled after). That is the
+    protocol's reading of a node, not script in the page. An option in a
+    disabled group is `disabled` in Chrome's tree, as § 2.5 took it.
+  - **The menu is witnessed by its window's number.** § 2.3's "a window
+    at layer 101 that was not there before the click" was built first and
+    failed ADR 0071's own test: with Finder brought in front the menu
+    closed, the next Down reached the focused list and **opened the menu
+    again**, as a window with another number and its highlight back at
+    the chosen option, and the walk went on in it and chose *Number 38*
+    where *Honeydew* was asked. So a key is posted only while the window
+    numbered as the one witnessed after the click is shown.
+  - **And never while the pointer is over the menu.** A pointer resting
+    where the menu opens, or moved there while it is open, puts the
+    highlight on the item under it — from *Apples*, three Downs meant
+    for *Dates* chose *Elderberries* or *Figs*. So the same script reads
+    the pointer and posts nothing while it is inside the menu's window,
+    answering `NotCarriedOut`. A person whose pointer is in the menu is
+    choosing in it.
+  - The reading and the key are **one `osascript` call**, not a reading
+    followed by a posting; the race § 4 names is narrowed to the script's
+    two statements. Any menu left open by a refusal — under the pointer,
+    or opened again by a key that raced — is closed with Escape, which
+    chooses nothing.
+  - **Not measured: a fresh install's permission.** The process posting
+    here is already trusted by Accessibility (`AXIsProcessTrusted` true),
+    so what macOS does to a key posted by an untrusted one is not known.
+    Opened as queue item 692.
+
+  Each guard narrows what § 2 lets through and adds no route; the
+  decision is otherwise unchanged.

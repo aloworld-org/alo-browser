@@ -18381,7 +18381,7 @@ What stage 2's exit gate actually measures: a person using it.
   measured), and a living page's request with none would be the page
   left's until the next navigation (none seen).
 
-- [ ] **658. An option of a closed list, through a shown Chrome.** *Cut
+- [x] **658. An option of a closed list, through a shown Chrome.** *Cut
   from 648 (iteration 402); ADR 0064 § 6.* A closed `<select>`'s option
   has no box in Chrome, and on macOS the only key that changes a closed
   list headless is type-ahead, which chooses each option it passes and
@@ -18407,6 +18407,52 @@ What stage 2's exit gate actually measures: a person using it.
   0071 lifts the refusal on a shown Chrome only, with the menu witnessed
   by the window server before every key. The build is this item, and it
   closes on ADR 0071's test.
+
+  **Done (iteration 434).** `chrome_choose` takes ADR 0071's route on a
+  shown Chrome on macOS and keeps `Unacted::Closed` headless and
+  elsewhere; `chrome_menu` posts each key through one `osascript` call
+  that reads the window server and the pointer first. The arrows are
+  counted over the menu's items (`walk`): each option's own computed
+  `display` read over Chrome's CSS domain, `disabled` and `selected` from
+  its tree, the highlight starting at the chosen item or, with none,
+  nowhere. Two guards were measured into it and written into ADR 0071's
+  amendment: the menu is witnessed by **its window's number** — a key
+  that reached the list after Finder came in front opened the menu again
+  as another window, and the first build walked on in it and chose
+  *Number 38* — and **no key is posted while the pointer is over the
+  menu**, which moves its highlight (three Downs meant for *Dates* chose
+  *Elderberries*). A refusal is `Unacted::Unwalked`, `NotCarriedOut` on
+  the socket, and closes any menu left open with Escape. The new
+  `a_closed_list_chosen_through_a_shown_chrome.rs`, against a shown
+  Chrome: *Elderberries* two down past a disabled, a `hidden` option and
+  a disabled group; *Dates* one up; *Honeydew* past an undisplayed option,
+  with *Ice* after it so a count over the undisplayed one would not stop
+  at the end; each heard as one `input` and one `change` for the option
+  asked; *Honeydew* again posts nothing; *Grapes*, undisplayed, refused
+  `NoItem`; a list holding nothing walked from nowhere; Finder brought in
+  front mid-walk on a list of forty-five items answered `Gone`, the page hearing
+  nothing; and the pointer moved into the menu mid-walk answered
+  `UnderPointer`, the page hearing nothing and the menu closed. 8 of 8 with
+  660's file, three runs. Mutations — the display ignored, any new menu
+  taken for the witnessed one, the walk from nowhere off by one, a
+  headless Chrome walked, the pointer not read — each fail a test. A
+  fresh install's permission to post events is not measured: 692.
+
+- [ ] **692. Whether a fresh install may post the keys a closed list's
+  menu is chosen in with, and what it answers when it may not.** *Cut
+  from 658 (iteration 434); ADR 0071 §§ 4 and its amendment.* The keys are
+  posted with `CGEventPostToPid` from `osascript`, and every measurement
+  so far was made by a process Accessibility already trusts
+  (`AXIsProcessTrusted` true). Whether macOS drops an untrusted process's
+  keys silently, refuses them, or asks the person — and at what moment —
+  is not known, so neither is what the agent is answered. Today a key
+  that never arrives leaves the menu open after Return, answered
+  `NotCarriedOut` (*its menu was still shown after Return*). *Depends on
+  658. Closes when:* it is measured from a process macOS has not been
+  told to trust — a new user account, or the application bundle run for
+  the first time — and the answer an agent gets, and what a person is
+  told, are decided (an ADR if a prompt or a setting is involved) and
+  asserted.
 
 - [x] **671. A window smaller than was asked for is not a reason to refuse to
   run.** `alo --chrome` asks Chrome for a page area and stops with an error
