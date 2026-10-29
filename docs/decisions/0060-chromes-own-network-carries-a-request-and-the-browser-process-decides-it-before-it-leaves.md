@@ -178,7 +178,7 @@ renderer is in use (item 622) so that a person can tell which list applies.
 |---|---|---|
 | **Trust** (`alo-net`'s `Trust`) | the roots `alo-net` is given | Chrome's own certificate verifier and roots |
 | **Cookies partitioned** (ADR 0007) | two keys, ours | Chrome's jar and Chrome's third-party policy, in a profile that ends with the process |
-| **The machine's resolver** (ADR 0008) | the system's, never silently replaced | the system's nameservers, asked by Chrome's own DNS client, with Chrome's own encrypted DNS turned off in the profile it is given — Chrome 155 starts in *automatic* secure DNS, which upgrades a resolver it recognises on its own, and is pinned off (item 635, amended 25 October) |
+| **The machine's resolver** (ADR 0008) | the system's, never silently replaced | the system's resolver, `getaddrinfo`, for every name — Chrome's own DNS client switched off (item 650, fourth amendment) and Chrome's own encrypted DNS turned off in the profile it is given — Chrome 155 starts in *automatic* secure DNS, which upgrades a resolver it recognises on its own, and is pinned off (item 635, amended 25 October) |
 | **The cache** (ADR 0011) | partitioned, never written when it must not outlive the session | Chrome's, in the same profile, so nothing outlives the session; a person's own profile, if ever, is a decision of its own |
 | **The browser's name** (ADR 0030) | `alo/<major>.<minor>` | Chrome's own string (8) — a page deciding what it may send is told the engine that will render it, which is the truth; sending ours over Chrome's rendering would claim an engine that is not there |
 | **CORS, mixed content, CSP** | `alo-net`'s | Chrome's, which applies them even to bytes handed to it (5) |
@@ -318,3 +318,48 @@ never shows, and a browser-level `Fetch` does not see it either. ADR 0073
 decides that Chrome is started with the switches that stop it, measured,
 and names the two kinds that still leave (`ListAccounts` and an on-demand
 component install) as not decided, as § 2 names a WebSocket (item 649).
+
+## Fourth amendment, 2026-10-29 — every name asked of the system's resolver
+
+§ 4's resolver row read *the system's nameservers, asked by Chrome's own
+DNS client*. That is not the system's resolver: on macOS the system's
+resolver also carries a VPN's scoped resolvers (`/etc/resolver/<domain>`)
+and the system's own encrypted DNS, and Chrome's client honours them only
+as far as it reads the same configuration (item 650).
+
+Measured against Chrome 156.0.8078.73 the same day, from its net log, on
+this machine (resolver its router, `192.168.178.1`): as started by item
+649, Chrome looked up `accounts.google.com`, `update.googleapis.com` and
+`edgedl.me.gvt1.com` with its own client — `HOST_RESOLVER_DNS_TASK`, DNS
+transactions to the router, asking for `HTTPS` records beside `A`. With
+`--disable-features=…,AsyncDns`, every lookup was a
+`HOST_RESOLVER_SYSTEM_TASK` — `getaddrinfo` — and there was no DNS
+transaction at all, the same addresses answered. Chrome 156 reads only the
+**last** `--disable-features` it is given: a second switch carrying
+`AsyncDns` alone turned ADR 0073's features back on, so it is one more
+name in the same switch.
+
+**Decided:** Chrome is started with its own DNS client off, and every name
+is asked of the system's resolver — ADR 0008's default, by construction
+rather than by agreement. Asserted by
+`tests/chromes_resolver_is_the_machines.rs`, which fails with the switch
+taken out (six lookups by Chrome's own client, eighteen transactions).
+
+**What it costs.** Chrome asks no `HTTPS` records any more: what such a
+record would have told it — a server's encrypted client hello
+configuration, an upgrade to `https` before the first request — it does
+not learn from DNS, as any program asking `getaddrinfo` does not. ADR 0008
+already chose the machine's resolver over a browser's own; this is that
+choice's price, named.
+
+**Not measured here.** A scoped resolver and the system's own encrypted
+DNS: setting either up needs an administrator, which a test does not have.
+They are the system's resolver's to honour, and every name now goes to it;
+that each is honoured is measured by item 698. A `.local` name: Chrome
+asked the system's resolver for one even with its own client on, but the
+machine's own `.local` name — answered with `127.0.0.1` among others by
+`dscacheutil`, `curl` and Python's `getaddrinfo` in milliseconds — was
+unanswered in Chrome after 9 s with its own client on, 12 s with its
+sandbox off, and 25 s with its own client off, a retry at 6 s each time;
+this Mac's network settings do not deny Chrome multicast. Why is item 697.
+

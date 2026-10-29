@@ -166,3 +166,12 @@ itself holds and refuses — not a number assumed empty.
   them, each uncaused — ADR 0012 § 2's uncaused line, multiplied.
 - **Preferences written into the profile**: measured to change nothing for
   the two that are left (§ 1, 3).
+
+## Amendment, 2026-10-29 — one more name in the same switch
+
+The features switch in § 2 now also carries `AsyncDns`, Chrome's own DNS
+client, for ADR 0008's reason rather than this ADR's (ADR 0060's fourth
+amendment, item 650). It is the same switch because Chrome 156 reads only
+the last `--disable-features` it is given: measured, a second one turned
+the features above back on. Nothing in § 1 or § 2 changes, and
+`tests/what_chrome_asks_for_of_its_own.rs` passed with it.

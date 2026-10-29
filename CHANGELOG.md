@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The Chrome behind the browser asks the machine for every name.**
+  Chrome used to look names up with a DNS client of its own, which asks
+  the network's nameservers directly and can pass over what the machine
+  was set up to do — a VPN's own names, the system's encrypted DNS. It
+  is now started with that client off, so every name goes through the
+  system's resolver, and a test reads Chrome's own network log and fails
+  if Chrome looks one up any other way (item 650). Not yet working: a
+  `.local` name, which Chrome on this Mac does not resolve even though
+  the system does (item 697).
+
 - **The Chrome behind the browser no longer asks Google for things of its
   own, but two, and the browser says which.** A Chrome started by this
   browser is now started with switches that stop its updates, downloads,

@@ -31,7 +31,9 @@
 //! cookies and sessions are not this browser's to hand a renderer, and
 //! Chrome refuses to be driven on its default profile anyway. It is empty
 //! but for the one file [`crate::chrome_profile`] writes first, which keeps
-//! Chrome on the machine's resolver (ADR 0008, item 635).
+//! Chrome's own encrypted DNS off (ADR 0008, item 635). Its own DNS client is
+//! switched off too ([`FEATURES_OFF`], item 650), so every name it looks up
+//! is asked of the machine's resolver.
 //!
 //! # Its own traffic, switched off
 //!
@@ -103,13 +105,27 @@ pub const HELD_BYTES: usize = 2 * MOST_MESSAGE;
 /// the scheduled ones, and the features AI-mode eligibility, the search
 /// engine's preconnect, network time, on-device model fetches and Safe
 /// Browsing's real-time keys. Two requests still leave, named by the ADR
-/// and by `tests/what_chrome_asks_for_of_its_own.rs`.
-const OWN_TRAFFIC_OFF: [&str; 3] = [
+/// and by `tests/what_chrome_asks_for_of_its_own.rs`. The features are in
+/// [`FEATURES_OFF`].
+const OWN_TRAFFIC_OFF: [&str; 2] = [
     "--disable-background-networking",
     "--disable-component-update",
-    "--disable-features=AimEnabled,PreconnectToSearch,NetworkTimeServiceQuerying,\
-     OptimizationHints,OptGuideOnDeviceModel,SafeBrowsingHashPrefixRealTimeLookups",
 ];
+
+/// Every feature of Chrome's switched off, as the one switch it must be:
+/// Chrome 156 reads only the last `--disable-features` it is given, so a
+/// second would turn the first's back on (measured, item 650).
+///
+/// All but the last are ADR 0073 § 2's, with [`OWN_TRAFFIC_OFF`]. The last,
+/// `AsyncDns`, is Chrome's own DNS client: with it, Chrome asks the
+/// machine's nameservers itself, beside whatever else the system's resolver
+/// would have done — a VPN's scoped resolvers, the system's own encrypted
+/// DNS; without it, Chrome asks every name of `getaddrinfo`, which is the
+/// system's resolver (ADR 0008, ADR 0060's fourth amendment). Asserted by
+/// `tests/chromes_resolver_is_the_machines.rs`.
+const FEATURES_OFF: &str = "--disable-features=AimEnabled,PreconnectToSearch,\
+     NetworkTimeServiceQuerying,OptimizationHints,OptGuideOnDeviceModel,\
+     SafeBrowsingHashPrefixRealTimeLookups,AsyncDns";
 
 /// The shell's whole script: move the pipes to 3 and 4, then become Chrome.
 const STARTER: &str = r#"exec "$0" "$@" 3<&0 4>&1 0</dev/null 1>/dev/null"#;
@@ -256,6 +272,7 @@ impl Chrome {
             .arg(user_data)
             .args(["--no-first-run", "--no-default-browser-check"])
             .args(OWN_TRAFFIC_OFF)
+            .arg(FEATURES_OFF)
             // Measured against Chrome 155: `--app=about:blank` is passed
             // over, and a window with a tab strip opens on the new-tab page;
             // `data:,` is taken as the application, and is empty.

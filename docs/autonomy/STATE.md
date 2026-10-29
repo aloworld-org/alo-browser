@@ -45059,3 +45059,97 @@ Queue: 649 ticked with a *Built* paragraph.
 
 The next unused queue number is **697** and the next ADR is **0074**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 444 — queue item 650: every name Chrome looks up asked of the system's resolver; `.local` and an administrator's resolvers cut
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s head and
+stage 2 second-renderer line, iteration 443's entry and 389's (635, which
+cut 650); queue items 650, 696 and 635; ADR 0008 whole (650's decision),
+ADR 0060 § 4 and its amendments, ADR 0073 § 2; `docs/features.md`'s
+second-renderer line (650's contract); `chrome.rs`, `chrome_profile.rs`,
+`tests/chromes_resolver_is_the_machines.rs` and
+`tests/what_chrome_asks_for_of_its_own.rs`. No `AGENTS.md` exists.
+
+**Why 650.** After 649 the next open item in the file is 696, which needs
+an ADR and the owner's judgement (ADR 0061's window); then 650, whose one
+dependency, 635, is done. Its closing condition admits Chrome "told to use
+the system's resolver, with a test".
+
+**Measured** (Chrome 156.0.8078.73, macOS 26.5.2, headless; scratch probes
+in the scratchpad, never committed; Chrome started with `chrome.rs`'s
+flags, `Local State` pinned off, `--log-net-log`). No root on this
+machine (`sudo -n` refused), so no `/etc/resolver/<domain>` could be made.
+As 649 starts it, Chrome looked up its own two requests' hosts with its
+own client (`HOST_RESOLVER_DNS_TASK`, DNS transactions to the router,
+`HTTPS` and `A` records) and a `.local` name with a system task. With
+`AsyncDns` added to the features switched off, every lookup was a
+`HOST_RESOLVER_SYSTEM_TASK` and no transaction was sent. Given a second
+`--disable-features` carrying `AsyncDns` alone, Chrome took only the last:
+`clients2.google.com`, `www.gstatic.com` and `www.google.com` came back,
+so it is one switch. The machine's own `.local` name is answered with
+`127.0.0.1` among others by `dscacheutil -q host`, `curl` (6 ms) and
+Python's `getaddrinfo` (1–4 ms); Chrome's system task for it retried at
+6 s and was unanswered at 9 s (own client on), 12 s (`--no-sandbox`) and
+25 s (own client off). This Mac's network-extension settings show
+`DenyMulticast` false for Chrome and its helper; mDNSResponder's log was
+not readable. Cause not established.
+
+**Built.** `chrome.rs`: the features ADR 0073 switches off move from
+`OWN_TRAFFIC_OFF` into `FEATURES_OFF`, one `--disable-features` switch
+that also carries `AsyncDns`, with why it must be one. Every Chrome,
+headless and shown, starts with it. `tests/chromes_resolver_is_the_machines.rs`
+gains `chrome_asks_every_name_of_the_systems_resolver_and_none_of_its_own_client`:
+Chrome held until its net log names a lookup (its own two requests, ADR
+0073) and 5 s more, then every event's type — the last `"type":` on its
+line, mapped through the log's own `logEventTypes` and not
+`logSourceType`, which gives `DNS_TRANSACTION` another number — counted:
+system lookups more than none, own-client lookups and transactions none.
+A unit test reads Chrome 156's lines (a source's type, a result's and the
+polled data are not events' types). ADR 0060's resolver row and a fourth
+amendment record the measurement, the decision and its price (no `HTTPS`
+records asked, so no ECH configuration from DNS); ADR 0073 gains a note
+that its switch carries one more name.
+
+**Checks.** `AsyncDns` removed (`chrome.rs` restored from a copy, `cmp`):
+the new test fails with 0 system lookups, 6 own-client, 18 transactions.
+With it, the resolver tests and 649's
+`what_chrome_asks_for_of_its_own.rs` passed on their own and in the gate.
+
+**The gate.** In the foreground into a scratchpad log; the tool moved it
+to the background at 600 s and a foreground until-loop in the next call
+read it: **5575 tests, 5575 passed, 10 of 10 steps, "The gate is met.",
+exit 0.** `cargo fmt` and `cargo clippy -p alo-window --all-targets`
+clean before it.
+
+**Manual.** Nothing here positions, sizes or draws: no layout assertion or
+reference render applies, and no reference changed. One file, one
+responsibility: how Chrome is started stays `chrome.rs`'s; the profile's
+file stays `chrome_profile.rs`'s, its comment pointing to the switch.
+Documentation in the change: both modules' comments, ADR 0060 and 0073,
+features, queue, roadmap, changelog. Bytes from outside: the net log is
+read only by a test. No `unsafe`, no rented crate, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. The probes' Chromes
+and server stopped, their profiles removed. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's second-renderer line gains
+Chrome's own DNS client switched off, every name asked of the system's
+resolver (650); its Owed clause swaps 650 for 697 and 698. Queue: 650
+ticked with a *Done, scope cut* paragraph; 697 (`.local`) and 698 (a
+scoped resolver and the system's encrypted DNS, measured through Chrome,
+which needs an administrator) added.
+
+**Unresolved obligations.**
+- 697: Chrome does not resolve the machine's own `.local` name where the
+  system does; the cause is not known, and a shown Chrome was not
+  measured.
+- 698 needs an administrator on the machine to set up a scoped resolver
+  and an encrypted DNS profile; until then, that each is honoured rests
+  on every name now going to `getaddrinfo`, not on a measurement.
+- The new test's lookups are Chrome's own two requests; if 696 ever stops
+  them, the test needs a lookup of its own.
+- 696 needs an ADR and the owner's judgement; 477 still closes only on a
+  Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **699** and the next ADR is **0074**.
+This is one iteration, not a finished queue or roadmap.

@@ -33,6 +33,11 @@
 //! a default that happened to agree. `--disable-features=DnsOverHttps`, the
 //! flag's name in older Chromes, changed nothing in 155.
 //!
+//! Mode 0 still leaves Chrome asking the machine's nameservers through a DNS
+//! client of its own; that is switched off by a flag rather than this file,
+//! so that every name is asked of the system's resolver ([`crate::chrome`],
+//! item 650).
+//!
 //! Encrypted DNS as somebody's choice — ADR 0008's named setting — is not
 //! built on this path; when it is, it is this file's to write.
 //!

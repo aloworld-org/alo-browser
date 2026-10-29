@@ -18266,7 +18266,7 @@ What stage 2's exit gate actually measures: a person using it.
   being a port this process holds and refuses, asserted from the net
   log as 649's test is.
 
-- [ ] **650. Whether Chrome's own DNS client honours what the system's
+- [x] **650. Whether Chrome's own DNS client honours what the system's
   does.** *Cut from 635 (iteration 389); ADR 0008.* Chrome 155 on macOS
   asks the machine's nameservers itself (its NetLog's DNS transactions to
   `192.168.178.1:53`) rather than through `getaddrinfo`. ADR 0008's list
@@ -18282,6 +18282,54 @@ What stage 2's exit gate actually measures: a person using it.
   resolver of the test's own where one is needed, and Chrome either
   answers what the system does or is told to use the system's resolver,
   with a test.
+  ***Done (iteration 444), scope cut to 697 and 698.*** Chrome is told to
+  use the system's resolver. Measured against Chrome 156.0.8078.73 from
+  its net log: as started by 649, its own lookups were its own client's
+  (`HOST_RESOLVER_DNS_TASK`, DNS transactions to the router, `HTTPS` and
+  `A` records); with `AsyncDns` added to the features switched off, every
+  lookup was a `HOST_RESOLVER_SYSTEM_TASK` — `getaddrinfo` — and no
+  transaction was sent. Chrome reads only the last `--disable-features`,
+  so a second switch turned ADR 0073's features back on (measured:
+  `clients2.google.com`, `www.gstatic.com`, `www.google.com` again);
+  `chrome.rs`'s `FEATURES_OFF` is the one switch.
+  `tests/chromes_resolver_is_the_machines.rs` holds Chrome until it has
+  looked up a name (its own two requests, ADR 0073) and 5 s more, and
+  asserts system lookups and none of its own client's or transactions,
+  reading each event's type through the log's own `logEventTypes`; with
+  `AsyncDns` taken out it fails (6 own-client lookups, 18 transactions).
+  ADR 0060's fourth amendment names the price: no `HTTPS` records asked.
+  `/etc/hosts` was measured read by 635. Cut: the `.local` name, which
+  Chrome's `getaddrinfo` did not answer where the system's did (697), and
+  a scoped resolver and the system's encrypted DNS measured as honoured,
+  which needs an administrator to set up (698).
+
+- [ ] **697. A `.local` name Chrome's lookup does not answer.** *Cut from
+  650 (iteration 444); ADR 0008, ADR 0060's fourth amendment.* The
+  machine's own `.local` name is answered with `127.0.0.1` among others by
+  `dscacheutil -q host`, `curl` and Python's `getaddrinfo` in a few
+  milliseconds. Chrome 156 asks `getaddrinfo` for it too
+  (`HOST_RESOLVER_SYSTEM_TASK`, with its own client on or off) and gets no
+  answer: a retry at 6 s, nothing by 9 s with its own client on, 12 s with
+  `--no-sandbox`, 25 s with its own client off; headless, from a terminal.
+  This Mac's network-extension settings do not deny Chrome or its helper
+  multicast (`DenyMulticast` false). Not measured: a shown Chrome, another
+  machine's `.local` name, and why. *Depends on 650. Closes when:* Chrome's
+  lookup of a `.local` name is measured to answer what `dscacheutil` does,
+  with a test serving a page at the machine's own `.local` name — or the
+  cause is named and the item says what a person must do to allow it, and
+  the application's own page says so.
+
+- [ ] **698. A scoped resolver and the system's encrypted DNS, measured
+  through Chrome.** *Cut from 650 (iteration 444); ADR 0008.* Every name
+  Chrome looks up is now asked of `getaddrinfo`, which is where macOS
+  applies a scoped resolver (`/etc/resolver/<domain>`, a VPN's split DNS)
+  and a DNS settings profile. Neither can be set up without an
+  administrator, so neither was measured. *Depends on 650. Closes when:*
+  on a machine where an administrator has written an `/etc/resolver/<domain>`
+  naming a resolver of the test's own, and separately installed an
+  encrypted DNS profile, Chrome's net log and that resolver show the name
+  answered as `dscacheutil -q host` answers it — recorded in the journal
+  with the machine, the date and who set it up.
 
 - [x] **651. A frame's navigation to a scheme Chrome never pauses.** *Cut
   from 636 (iteration 390); ADR 0060 § 2, ADR 0020.* The tab's own frame

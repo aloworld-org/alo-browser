@@ -982,12 +982,15 @@ unreachable without it.
       692)
       — and Chrome started with its own traffic switched off but for two
       named requests, held by a net-log test and said on the application's
-      own page (ADR 0073, 649)
+      own page (ADR 0073, 649), and its own DNS client switched off so
+      that every name is asked of the system's resolver, held by a
+      net-log test (ADR 0060's fourth amendment, 650)
       · Owed: Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
-      and is 696's, needs ADR; whether Chrome's own DNS
-      client honours what the system's would — scoped resolvers, `.local`,
-      the system's own encrypted DNS (650) — the
+      and is 696's, needs ADR; a `.local` name, which
+      Chrome's lookup does not answer where the system's does (697); a
+      scoped resolver and the system's own encrypted DNS measured through
+      Chrome, which needs an administrator (698) — the
       frame itself stands, follows, and
       draws its words with the machine's own fonts (683), and
       carries the page's tab, the agent's sentence and its refusals (642,
