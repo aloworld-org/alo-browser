@@ -3051,3 +3051,50 @@ fn a_box_moved_by_a_percentage_is_moved_against_its_basis_and_padded_where_it_st
     let (x, y) = moved("g", "grid");
     assert!(close(x, 22.0) && close(y, 17.0), "{x}, {y}");
 }
+
+/// Queue item 694: an empty grid is laid out by the grid algorithm rather
+/// than measured as a leaf, so its tracks size it as Chrome 156 sizes it —
+/// a row 90 tall makes it 90 tall, and columns of 120 and 30, 5 apart, make
+/// it 155 wide where it shrinks to fit.
+#[test]
+fn an_empty_grid_is_as_big_as_its_tracks() {
+    let html = "<div id=rows></div>\
+                <div id=row><div id=columns></div></div>";
+    let css = "#rows { display: grid; grid-template-rows: 90px } \
+               #row { display: flex; align-items: flex-start } \
+               #columns { display: grid; grid-template-columns: 120px 30px; column-gap: 5px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "rows", html),
+        Rect::new(0.0, 0.0, 400.0, 90.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "columns", html),
+        Rect::new(0.0, 90.0, 155.0, 0.0)
+    );
+}
+
+/// Queue item 694: a grid that scrolls pads its tracks and takes its items'
+/// border boxes as they are, their margins counting for nothing, as Chrome
+/// 156 does: a column 120 wide scrolls 124 at 2 px of padding, and so does
+/// an empty grid of it; a child 100 wide with 30 of margin after it, in a
+/// column 40 wide, 102 rather than 134.
+#[test]
+fn a_grid_that_scrolls_pads_its_tracks_not_its_items() {
+    let html = "<div id=wide class=b><div class=in></div></div>\
+                <div id=empty class=b></div>\
+                <div id=spilled class=b><div class=in id=over></div></div>";
+    let css = ".b { display: grid; width: 80px; height: 50px; padding: 2px; overflow: auto; \
+                    grid-template-columns: 120px } \
+               .in { width: 60px; height: 20px } \
+               #spilled { grid-template-columns: 40px } \
+               #over { width: 100px; margin-right: 30px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    for (id, across) in [("wide", 124.0), ("empty", 124.0), ("spilled", 102.0)] {
+        let area = geometry_of(&boxes, &layout, id, html).scrolling_area();
+        assert!(
+            close(area.width, across) && close(area.height, 54.0),
+            "{id}: {area:?}"
+        );
+    }
+}

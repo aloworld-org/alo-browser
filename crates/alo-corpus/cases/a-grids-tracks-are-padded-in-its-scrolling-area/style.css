@@ -1,0 +1,60 @@
+/* A grid that scrolls pads its tracks, not its items: queue item 694,
+   measured in Chrome 156 (crates/alo-layout/src/end_padding.rs). Its
+   scrolling area reaches its last column and its last row with its end
+   padding after them, and each item's border box, and what spills out of
+   it, unpadded; an item's margin box counts for nothing.
+   Each box is 80 wide and 50 tall with a border of 1 and `overflow: auto`,
+   under three paddings — 2 px all round, 2 px but 10 on the right, and 10 px
+   all round — and is a grid holding a child 60 by 20, unless it says:
+   - cols: one column 120 wide;
+   - rows: one row 90 tall;
+   - both: one column 120 wide and one row 90 tall;
+   - gap: two columns 50 wide, 10 apart;
+   - rowgap: two rows 30 tall, 10 apart;
+   - implicit: one column 40 wide, implicit ones 40 wide, the child 20 wide
+     in the third;
+   - autorows: implicit rows 40 tall, the child in the second;
+   - minmax: `minmax(120px, 1fr)`;
+   - percent: one column `150%`;
+   - fr: two columns `1fr`, which fit;
+   - center: one column 120 wide, `justify-content: center`, so it spills
+     out before the box as well as after it;
+   - end: one column 40 wide at the end, the child spilling out of it;
+   - spacebetween: two columns 30 wide, `space-between`, the child 20 wide;
+   - narrow: one column 40 wide, the child spilling out of it;
+   - empty: one column 120 wide and one row 90 tall, and no child;
+   - margin: one column 120 wide, the child with 80 of margin after it;
+   - absolute: one column 120 wide, the child positioned against the box;
+   - sized: one column 120 wide and one row 90 tall, two children in it;
+   - overmargin: one column 40 wide, the child 100 wide with 30 of margin
+     after it;
+   - undermargin: one row 20 tall, the child 60 tall with 40 of margin
+     below it;
+   - nested: a block holding a grid 60 wide and 20 tall that does not
+     scroll, of one column 120 wide and one row 90 tall: its tracks reach
+     nothing, its item stretched across its column does.
+   One column for each padding. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+}
+.column {
+  width: 120px;
+}
+.box {
+  width: 80px;
+  height: 50px;
+  border: 1px solid #000000;
+  margin: 0 0 6px 0;
+  overflow: auto;
+}
+.in {
+  width: 60px;
+  height: 20px;
+  background: #cccccc;
+}
+.g {
+  background: #eeeeee;
+}

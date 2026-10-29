@@ -55,7 +55,7 @@ use alo_value::{FontMetrics, LengthPercentage};
 use std::collections::{BTreeMap, BTreeSet};
 use taffy::util::{MaybeResolve, ResolveOrZero};
 use taffy::{
-    AvailableSpace, Cache, CacheTree, LayoutInput, LayoutOutput, NodeId, RunMode,
+    AvailableSpace, Cache, CacheTree, DetailedGridInfo, LayoutInput, LayoutOutput, NodeId, RunMode,
     Size as TaffySize, SizingMode, Style, TraversePartialTree, compute_block_layout,
     compute_cached_layout, compute_flexbox_layout, compute_grid_layout, compute_hidden_layout,
     compute_leaf_layout, compute_root_layout,
@@ -94,6 +94,10 @@ struct Node {
     /// content box, its height only where definite; a flex container's
     /// content box where definite; a grid item's area.
     basis: TaffySize<Option<f32>>,
+    /// Where a grid's last column and last row end, from its border box's
+    /// top left, when `taffy` last laid it out where it stands — `None` for
+    /// a node that is not a grid, or a grid of no tracks in an axis.
+    tracks: TaffySize<Option<f32>>,
 }
 
 /// Every expression that could not be reduced to a number before layout began.
@@ -214,6 +218,7 @@ impl<'a, M: MeasureText> Arena<'a, M> {
             cache: Cache::new(),
             layout: taffy::Layout::with_order(0),
             basis: TaffySize::NONE,
+            tracks: TaffySize::NONE,
         });
         self.nodes.len() - 1
     }
@@ -267,6 +272,15 @@ impl<'a, M: MeasureText> Arena<'a, M> {
         self.nodes
             .get(node)
             .map_or(TaffySize::NONE, |held| held.basis)
+    }
+
+    /// Where a grid's tracks end across and down, from its border box's top
+    /// left, as `taffy` last placed them: a grid that scrolls pads them,
+    /// and no box's geometry holds them (queue item 694).
+    pub(crate) fn tracks_of(&self, node: usize) -> TaffySize<Option<f32>> {
+        self.nodes
+            .get(node)
+            .map_or(TaffySize::NONE, |held| held.tracks)
     }
 
     /// What an expression `taffy` carries as a handle comes to against a
@@ -411,6 +425,16 @@ impl<M: MeasureText> taffy::LayoutPartialTree for Arena<'_, M> {
                 }
                 (taffy::Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
                 (taffy::Display::Grid, true) => tree.lay_out_grid(node_id, inputs),
+                // An empty grid still has its tracks, which size it and which
+                // a grid that scrolls pads (queue item 694).
+                (taffy::Display::Grid, false)
+                    if matches!(
+                        tree.node(node_id).map(|node| &node.kind),
+                        Some(NodeKind::Empty)
+                    ) =>
+                {
+                    tree.lay_out_grid(node_id, inputs)
+                }
                 // A node with nothing under it is measured rather than laid
                 // out, and what it measures is what it stands for.
                 (_, false) => tree.measure_leaf(node_id, inputs),
@@ -680,6 +704,25 @@ impl<M: MeasureText> taffy::LayoutGridContainer for Arena<'_, M> {
 
     fn get_grid_child_style(&self, child_node_id: NodeId) -> Self::GridItemStyle<'_> {
         self.style(child_node_id)
+    }
+
+    /// Told only by a call that places the grid's items, so what is kept is
+    /// from the last call that placed the grid, as its layout is. A track's
+    /// end is its offset — after the grid's border, padding, gaps and
+    /// content alignment — and its size.
+    fn set_detailed_grid_info(
+        &mut self,
+        node_id: NodeId,
+        detailed_grid_info: DetailedGridInfo<Self::CustomIdent>,
+    ) {
+        let end =
+            |tracks: &[taffy::Line<f32>]| tracks.iter().map(|track| track.end).reduce(f32::max);
+        if let Some(node) = self.node_mut(node_id) {
+            node.tracks = TaffySize {
+                width: end(&detailed_grid_info.columns.positions),
+                height: end(&detailed_grid_info.rows.positions),
+            };
+        }
     }
 }
 

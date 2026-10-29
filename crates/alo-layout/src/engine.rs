@@ -387,9 +387,31 @@ fn scroll_containers_held<M: MeasureText>(
                     .flatten()
                     .map(|child| held(*child, false)),
             );
-            end_padding::Container { id, held: inside }
+            end_padding::Container {
+                id,
+                held: inside,
+                grid: grid_tracks(arena, built, id),
+            }
         })
         .collect()
+}
+
+/// Where a box's grid tracks end, if it is a grid: as `taffy` last placed
+/// them, from its border box's top left (queue item 694).
+fn grid_tracks<M: MeasureText>(
+    arena: &Arena<'_, M>,
+    built: &Built,
+    id: BoxId,
+) -> Option<end_padding::Tracks> {
+    let node = *built.ours_to_theirs.get(&id)?;
+    if arena.style_of(node)?.display != taffy::Display::Grid {
+        return None;
+    }
+    let tracks = arena.tracks_of(node);
+    Some(end_padding::Tracks {
+        across: tracks.width,
+        down: tracks.height,
+    })
 }
 
 /// How far `position: relative` moved a box across and down from where it

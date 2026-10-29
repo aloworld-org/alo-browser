@@ -44747,3 +44747,88 @@ its Owed clause now names 694 alone for scrolling areas.
 
 The next unused queue number is **696** and the next ADR is **0073**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 440 — queue item 694: a grid's tracks, in its scrolling area — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s stage 2
+agent-surface line, iteration 439's entry, queue item 694 and its
+neighbours (695, 693, 664, 665, 668); `docs/features.md`'s overflow line
+(694's contract); ADR 0004 (we own the layout tree, `taffy` the
+algorithms); `arena.rs`, `engine.rs`'s `scroll_containers_held`,
+`end_padding.rs`; `taffy` 0.14's `compute/grid/mod.rs`
+(`set_detailed_grid_info`, called only on a call that places items, and
+`DetailedGridTracksInfo::positions`, from the border box). No `AGENTS.md`
+exists.
+
+**Why 694.** The product path has nothing buildable (477 closes only on a
+Mac that never built it; 684 depends on 477 and needs an ADR). On the
+engine path 665 depends on 521 and 668 waits for a page; 694 depends on
+nothing and was the open item iteration 439 named.
+
+**Measured.** Chrome 156.0.8078.73, headless, `--dump-dom` with a kill
+loop, the case's own sheet linked after the doctype, two runs alike, no
+text. In a box 80 by 50 under `overflow: auto` at 2 px of padding, 10 on
+the right, and 10 px, Chrome pads a grid's **tracks**: one column 120 wide
+scrolls 124/132/140; one row 90 tall 94/94/110; two columns 50 wide 10
+apart 114; implicit columns and rows alike; centred, starting 20 before
+the content box, 104; an empty grid of that column 124 by 94. Its items
+count only by their border boxes and spill, unpadded, their margins not
+at all: 80 of margin after a child in a 120 column, 124 not 144; a child
+100 wide with 30 after it in a 40 column, 102 not 134; 60 tall with 40
+below in a 20 row, 62 not 104. A grid that does not scroll lends its
+tracks to nothing. An empty grid of a row 90 tall is 90 tall, and one of
+120 and 30, 5 apart, 155 wide where it shrinks.
+
+**Built.** `taffy`'s `detailed_layout_info` feature on (`Cargo.toml`, with
+a comment saying why). `arena.rs` implements `set_detailed_grid_info`,
+keeping each grid's last column and row ends from the last call that
+placed it, read by `tracks_of`; and an empty grid is laid out by
+`taffy`'s grid instead of measured as a leaf. `engine.rs`'s
+`grid_tracks` hands them to `end_padding::scroll_containers`, which pads
+a grid's tracks in place of its items' margin boxes, and does so for a
+grid holding nothing. The case `a-grids-tracks-are-padded-in-its-scrolling-area`:
+63 boxes in three columns, each box and its child to 1/64 px and each
+scrolling area within half a pixel of Chrome's, by
+`a_grids_tracks_are_padded_in_its_scrolling_area.rs`; three unit tests in
+`end_padding.rs`; two layout assertions in `alo-layout`'s `numbers.rs`
+(an empty grid's size; a grid's scrolling area).
+
+**Checks.** Tracks never recorded (restored from a copy, `cmp`): the case
+fails, `grid-cols-even` 84 against 124. Margin boxes padded in a grid
+anyway: it fails, `grid-end-even` 104 against 102. Before the empty-grid
+routing, only `grid-empty-even` failed (84 against 124).
+`ALO_UPDATE_REFERENCES=1` over the corpus wrote only the new case's files.
+Chrome's screenshot of the case's bytes (`--hide-scrollbars`, 400 by 1340)
+against our render: **0** of 536,000 pixels differ by more than 64.
+Right-to-left is not covered: nothing in this engine sets a direction.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5566 tests, 5566
+passed, 10 of 10 steps, "The gate is met.", exit 0.** `cargo fmt` and
+`cargo clippy --workspace --all-targets` clean before it (clippy first
+caught a test helper's needless `Option`, removed); `alo-layout`'s lib
+and integration tests run on their own first.
+
+**Manual.** Layout assertions in numbers: the case's test and the two in
+`numbers.rs`. Reference render: the case's `render.png`, compared with
+Chrome's above. One file, one responsibility: the arena keeps what
+`taffy` tells the tree, as it keeps each node's layout and basis; padding
+stays `end_padding.rs`'s; reading a grid's display and handing its tracks
+over is the engine's. `taffy` is still named only in its three files (the
+gate's boundary step). Documentation in the change: features,
+conformance, `end_padding.rs`'s module comment, queue, roadmap,
+changelog. No `unsafe`, no new rented crate (a feature of one already
+rented), no verb taking a coordinate. `alo-os` and `alo-workplace`
+untouched. The probes' profiles were removed. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's agent-surface line gains that a
+scrolling grid pads its tracks rather than its items' margin boxes (694);
+its Owed clause no longer names 694.
+
+**Unresolved obligations.**
+- 538 still has two pages and is unbuilt.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **696** and the next ADR is **0073**.
+This is one iteration, not a finished queue or roadmap.

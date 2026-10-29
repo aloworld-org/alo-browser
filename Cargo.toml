@@ -154,7 +154,9 @@ rustix = { version = "1.1.5", default-features = false, features = ["fs", "std"]
 # Named in one file, `alo-window`'s `protocol.rs`, with every bound in front of
 # it ours.
 serde_json = { version = "1", default-features = false, features = ["std"] }
-taffy = { version = "0.14", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size", "calc"] }
+# `detailed_layout_info` for where a grid's tracks ended up, which a scroll
+# container pads (queue item 694) and no box's geometry holds.
+taffy = { version = "0.14", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size", "calc", "detailed_layout_info"] }
 
 # Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`
 # is forbidden outside a reviewed, named boundary with an ADR. A crate that ever

@@ -719,9 +719,19 @@ resolved it against — a block's or flex container's content box, its height
 only where definite, so `top: 50%` in a box of no definite height is `auto`
 and `bottom` moves it, and a grid item's area, so half of an `auto` row
 (`cases/a-box-moved-by-a-percentage-is-padded-where-it-stood`, 93 boxes and
-their children within 1/64 px of Chrome's). One thing is still not Chrome's: a
-grid's tracks, which Chrome pads and this engine does not count, so a grid whose
-column passes its box scrolls 40 px short of Chrome's (694). A positioned
+their children within 1/64 px of Chrome's). **A grid that scrolls pads its
+tracks, not its items** (queue item 694): its last column and last row,
+wherever its gaps and content alignment put them and implicit ones too, with
+its end padding after them, while its items count only by their border boxes
+and what spills out of them, their margins not at all — so a column 120 wide
+scrolls 124 at 2 px of padding where it scrolled 84, and a child with 30 of
+margin after it in a column 40 wide 102 where it scrolled 134, as Chrome 156
+scrolls them. An empty grid is laid out by its tracks rather than measured as
+nothing, so a row 90 tall makes it 90 tall
+(`cases/a-grids-tracks-are-padded-in-its-scrolling-area`, 63 boxes within
+1/64 px of Chrome's, its render no pixel apart from Chrome's screenshot).
+Right-to-left grids are not covered: nothing in this engine sets a
+direction. A positioned
 child is drawn outside the scroll container that holds it where Chrome
 clips it (538): the scrolling area is Chrome's, the picture is not.
 

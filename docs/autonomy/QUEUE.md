@@ -17846,7 +17846,7 @@ What stage 2's exit gate actually measures: a person using it.
   `taffy` lets `right` win, is not in it: nothing in this engine sets a
   direction.
 
-- [ ] **694. A grid's tracks, in its scrolling area.** *Cut from 675
+- [x] **694. A grid's tracks, in its scrolling area.** *Cut from 675
   (iteration 437).* Measured against Chrome 156.0.8078.73: a grid 80
   wide under `overflow: auto` with `grid-template-columns: 120px` holding
   a child 60 wide has a `scrollWidth` of 124 at 2 px of padding, 132
@@ -17858,6 +17858,25 @@ What stage 2's exit gate actually measures: a person using it.
   and overflow. Closes when:* a grid whose explicit columns and rows pass
   its box scrolls as far as Chrome's, across and down, in numbers in a
   corpus case.
+  ***Done (iteration 440), measured.*** Against Chrome 156.0.8078.73,
+  headless, two runs alike, in a box 80 by 50 under `overflow: auto` at
+  2 px of padding, 10 on the right and 10 px: Chrome pads a grid's
+  **tracks** — its last column and row, after gaps and content alignment
+  (centred, it starts 20 before the content box and scrolls 104), implicit
+  ones too, and with no item at all (124 by 94) — and takes its items'
+  border boxes and their spill unpadded and their margins not at all: a
+  child 100 wide with 30 of margin after it in a column 40 wide scrolls
+  102, not 134; 60 tall with 40 below it in a row 20 tall, 62. A grid that
+  does not scroll lends its tracks to nothing. `taffy`'s
+  `detailed_layout_info` is on, the arena keeps each grid's track ends
+  from the last call that placed it (`set_detailed_grid_info`), and
+  `end_padding.rs` pads them in place of a grid's items' margin boxes; an
+  empty grid is laid out by `taffy`'s grid rather than measured as a leaf,
+  so a row 90 tall makes it 90 tall, as in Chrome. The case
+  `a-grids-tracks-are-padded-in-its-scrolling-area`: 63 boxes, each and
+  its child within 1/64 px of Chrome's and each scrolling area within half
+  a pixel; its render is no pixel apart from Chrome's screenshot.
+  Right-to-left is not covered: nothing in this engine sets a direction.
 
 - [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of

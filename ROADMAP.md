@@ -2571,8 +2571,9 @@ disappeared behind the larger.
       so a box whose child's line spills is answered as Chrome would
       scroll it (queue item 675), and pads a child moved by `position:
       relative` where it stood (queue item 693), by a percentage or a
-      `calc()` holding one as well (queue item 695).
-      · Owed: a grid's tracks in a scrolling area (694); a list box that shows its options and scrolls to the rest
+      `calc()` holding one as well (queue item 695), and pads a grid's
+      tracks rather than its items' margin boxes (queue item 694).
+      · Owed: a list box that shows its options and scrolls to the rest
       (665), `text-overflow` on a box whose `overflow` the viewport takes
       (664); loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that

@@ -51,9 +51,26 @@
 //! 100 wide moved 30 left 104, 112 and 120; the same down, and in a flex
 //! and a grid container alike. A percentage moves it by what `taffy`
 //! resolved it against, which the engine reads back (queue item 695): `left:
-//! 50%` in a box 80 wide is 40, and the box scrolls 102 at 2 px. One thing Chrome counts is not here, because
-//! what it needs is not in a box's geometry: a grid's tracks are padded
-//! (queue item 694).
+//! 50%` in a box 80 wide is 40, and the box scrolls 102 at 2 px.
+//!
+//! A grid is the exception (queue item 694). What Chrome pads in a grid that
+//! scrolls is its **tracks** — its last column and its last row, wherever
+//! the grid's gaps and content alignment put them, implicit tracks too —
+//! and its items count only as they are: their border boxes and what spills
+//! out of them, unpadded, and their margins not at all. Measured headless in
+//! Chrome 156, two runs alike, in a box 80 wide and 50 tall with `overflow:
+//! auto`, at 2 px of padding, at 10 on the right, and at 10 px: one column
+//! 120 wide scrolls 124, 132 and 140; one row 90 tall 94, 94 and 110; two
+//! columns 50 wide 10 apart 114; one column 120 wide centred, which starts
+//! 20 before the content box, 104; an empty grid of that column 124; a
+//! child 60 wide with 80 of margin after it in that column 124, not 144; a
+//! child 100 wide with 30 of margin after it in a column 40 wide 102, its
+//! border box, not 134; and below, a child 60 tall with 40 of margin under
+//! it in a row 20 tall 62, not 104. A grid that does not scroll lends its
+//! tracks to nothing: a grid 60 wide of one column 120 wide, in a block that
+//! scrolls, reaches only as far as the item stretched across that column.
+//! The tracks are where `taffy` placed them, which it tells the tree
+//! (`crate::arena`); a box's geometry does not hold them.
 
 use crate::geometry::{Rect, Size};
 use crate::tree::BoxGeometry;
@@ -117,18 +134,30 @@ pub(crate) struct Held {
 pub(crate) struct Container {
     pub(crate) id: BoxId,
     pub(crate) held: Vec<Held>,
+    /// Where a grid's tracks end, for a container that is a grid: they are
+    /// padded in place of its items' margin boxes.
+    pub(crate) grid: Option<Tracks>,
+}
+
+/// Where a grid's last column ends across and its last row down, from its
+/// border box's top left; `None` in an axis with no track.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Tracks {
+    pub(crate) across: Option<f32>,
+    pub(crate) down: Option<f32>,
 }
 
 /// Work out each container's reach as Chrome does — its children's margin
 /// boxes padded, what they reach and what is positioned against it taken as
 /// it is; see the module's own documentation. A container holding nothing
-/// in flow keeps the reach it has.
+/// in flow keeps the reach it has, unless it is a grid, whose tracks are
+/// padded with or without an item in them.
 pub(crate) fn scroll_containers(
     geometry: &mut BTreeMap<BoxId, BoxGeometry>,
     containers: &[Container],
 ) {
     for container in containers {
-        if !container.held.iter().any(|held| held.in_flow) {
+        if container.grid.is_none() && !container.held.iter().any(|held| held.in_flow) {
             continue;
         }
         let Some(outer) = geometry.get(&container.id).copied() else {
@@ -138,7 +167,7 @@ pub(crate) fn scroll_containers(
             .held
             .iter()
             .filter_map(|held| Some((geometry.get(&held.id).copied()?, *held)));
-        let reach = reach_of(outer, held);
+        let reach = reach_of(outer, held, container.grid);
         if let Some(outer) = geometry.get_mut(&container.id) {
             outer.reach = reach;
         }
@@ -147,10 +176,24 @@ pub(crate) fn scroll_containers(
 
 /// How far a scroll container's content reaches across and down from its
 /// padding box's top left, `held` being the boxes it holds with where they
-/// were placed.
-fn reach_of(outer: BoxGeometry, held: impl Iterator<Item = (BoxGeometry, Held)>) -> Size {
+/// were placed, and `grid` where its tracks end if it is a grid.
+fn reach_of(
+    outer: BoxGeometry,
+    held: impl Iterator<Item = (BoxGeometry, Held)>,
+    grid: Option<Tracks>,
+) -> Size {
     let from = outer.padding_box().origin;
     let (mut across, mut down) = (0.0_f32, 0.0_f32);
+    // A grid's tracks, padded, where its items' margin boxes would be.
+    if let Some(tracks) = grid {
+        let start = outer.border_box.origin;
+        if let Some(end) = tracks.across {
+            across = across.max(start.x + end - from.x + outer.padding.right);
+        }
+        if let Some(end) = tracks.down {
+            down = down.max(start.y + end - from.y + outer.padding.bottom);
+        }
+    }
     for (inner, held) in held {
         // Its border box and what spills out of it, taken as they are. Like
         // `taffy`, nothing is taken from a box neither of which reaches past
@@ -179,8 +222,9 @@ fn reach_of(outer: BoxGeometry, held: impl Iterator<Item = (BoxGeometry, Held)>)
         }
         // Its margin box, padded, even with no width or height: Chrome pads
         // a child 60 wide and 0 tall with 30 px of margin after it to 94 —
-        // and where it stood before `position: relative` moved it.
-        if held.in_flow {
+        // and where it stood before `position: relative` moved it. Not in a
+        // grid, whose tracks are padded instead.
+        if held.in_flow && grid.is_none() {
             let margin_box = margin_box(inner);
             let margin_box = Rect::new(
                 margin_box.origin.x - held.moved.0,
@@ -330,7 +374,7 @@ mod tests {
         // and 137 again with 10 px of padding on the right.
         for right in [2.0, 10.0] {
             let line = child(60.0, 20.0, Size::new(134.859_38, 19.0));
-            let reach = reach_of(container(right), [(line, in_flow(true))].into_iter());
+            let reach = reach_of(container(right), [(line, in_flow(true))].into_iter(), None);
             assert!(near(reach, 136.859_38, 24.0), "{right}: {reach:?}");
         }
     }
@@ -340,7 +384,7 @@ mod tests {
         // A block 130 wide of the container's own: 134, and 142 with 10.
         for right in [2.0, 10.0] {
             let wide = child(130.0, 10.0, Size::new(130.0, 10.0));
-            let reach = reach_of(container(right), [(wide, in_flow(true))].into_iter());
+            let reach = reach_of(container(right), [(wide, in_flow(true))].into_iter(), None);
             assert!(near(reach, 132.0 + right, 14.0), "{right}: {reach:?}");
         }
     }
@@ -349,7 +393,7 @@ mod tests {
     fn down_is_the_same_rule() {
         // A child 20 tall holding a block 120 tall scrolls 122, not 124.
         let tall = child(60.0, 20.0, Size::new(10.0, 120.0));
-        let reach = reach_of(container(2.0), [(tall, in_flow(true))].into_iter());
+        let reach = reach_of(container(2.0), [(tall, in_flow(true))].into_iter(), None);
         assert!(near(reach, 64.0, 122.0), "{reach:?}");
     }
 
@@ -365,7 +409,7 @@ mod tests {
                 bottom: 60.0,
                 left: 0.0,
             };
-            let reach = reach_of(container(2.0), [(spaced, in_flow(true))].into_iter());
+            let reach = reach_of(container(2.0), [(spaced, in_flow(true))].into_iter(), None);
             assert!(near(reach, 94.0, 64.0 + height), "{height}: {reach:?}");
         }
     }
@@ -375,7 +419,7 @@ mod tests {
         // A child 100 wide with −20 after it: 102, its border box.
         let mut pulled = child(100.0, 20.0, Size::new(0.0, 0.0));
         pulled.margin.right = -20.0;
-        let reach = reach_of(container(2.0), [(pulled, in_flow(true))].into_iter());
+        let reach = reach_of(container(2.0), [(pulled, in_flow(true))].into_iter(), None);
         assert!(near(reach, 102.0, 24.0), "{reach:?}");
     }
 
@@ -392,7 +436,7 @@ mod tests {
                 moved: (60.0, 0.0),
                 ..in_flow(true)
             };
-            let reach = reach_of(container(right), [(moved, held)].into_iter());
+            let reach = reach_of(container(right), [(moved, held)].into_iter(), None);
             assert!(near(reach, 122.0, 24.0), "{right}: {reach:?}");
         }
     }
@@ -410,7 +454,7 @@ mod tests {
                 moved: (-30.0, -30.0),
                 ..in_flow(true)
             };
-            let reach = reach_of(container(right), [(moved, held)].into_iter());
+            let reach = reach_of(container(right), [(moved, held)].into_iter(), None);
             assert!(near(reach, 102.0 + right, 24.0), "{right}: {reach:?}");
         }
     }
@@ -418,7 +462,11 @@ mod tests {
     #[test]
     fn a_child_that_cuts_off_its_content_counts_only_its_box() {
         let clipped = child(60.0, 20.0, Size::new(130.0, 20.0));
-        let reach = reach_of(container(2.0), [(clipped, in_flow(false))].into_iter());
+        let reach = reach_of(
+            container(2.0),
+            [(clipped, in_flow(false))].into_iter(),
+            None,
+        );
         assert!(near(reach, 64.0, 24.0), "{reach:?}");
     }
 
@@ -436,8 +484,73 @@ mod tests {
             in_flow: false,
             ..in_flow(true)
         };
-        let reach = reach_of(container(2.0), [(placed, positioned)].into_iter());
+        let reach = reach_of(container(2.0), [(placed, positioned)].into_iter(), None);
         assert!(near(reach, 120.0, 70.0), "{reach:?}");
+    }
+
+    /// A grid's tracks, ending `across` and `down` from its border box's
+    /// top left.
+    fn tracks(across: f32, down: f32) -> Tracks {
+        Tracks {
+            across: Some(across),
+            down: Some(down),
+        }
+    }
+
+    #[test]
+    fn a_grids_tracks_are_padded() {
+        // Chrome 156: one column 120 wide, from 3 px in, scrolls 124 at 2 px
+        // and 132 with 10 on the right; one row 90 tall 94.
+        for right in [2.0, 10.0] {
+            let small = child(60.0, 20.0, Size::new(60.0, 20.0));
+            let reach = reach_of(
+                container(right),
+                [(small, in_flow(true))].into_iter(),
+                Some(tracks(123.0, 93.0)),
+            );
+            assert!(near(reach, 122.0 + right, 94.0), "{right}: {reach:?}");
+        }
+    }
+
+    #[test]
+    fn a_grid_items_margin_box_counts_for_nothing() {
+        // A child 100 wide with 30 of margin after it, in a column 40 wide:
+        // 102, its border box, not 134; and 60 tall with 40 below it in a
+        // row 20 tall, 62, not 104.
+        let mut spaced = child(100.0, 60.0, Size::new(100.0, 60.0));
+        spaced.margin = Edges {
+            top: 0.0,
+            right: 30.0,
+            bottom: 40.0,
+            left: 0.0,
+        };
+        let reach = reach_of(
+            container(2.0),
+            [(spaced, in_flow(true))].into_iter(),
+            Some(tracks(43.0, 23.0)),
+        );
+        assert!(near(reach, 102.0, 62.0), "{reach:?}");
+    }
+
+    #[test]
+    fn an_empty_grid_pads_its_tracks() {
+        // No item at all: its tracks still scroll, 124 by 94.
+        let mut placed = BTreeMap::new();
+        let outer = BoxId::from_index_for_tests(0);
+        placed.insert(outer, container(2.0));
+        scroll_containers(
+            &mut placed,
+            &[Container {
+                id: outer,
+                held: Vec::new(),
+                grid: Some(tracks(123.0, 93.0)),
+            }],
+        );
+        let reach = placed.get(&outer).map(|held| held.reach);
+        assert!(
+            reach.is_some_and(|reach| near(reach, 124.0, 94.0)),
+            "{reach:?}"
+        );
     }
 
     #[test]
@@ -458,6 +571,7 @@ mod tests {
             &[Container {
                 id: outer,
                 held: vec![positioned],
+                grid: None,
             }],
         );
         let kept = placed.get(&outer).map(|held| held.reach);

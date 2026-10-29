@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A grid with a scroll bar scrolls to the end of its columns and
+  rows.** A scrolling grid whose columns were wider than it scrolled
+  only as far as the boxes inside them, so one of a 120-pixel column in
+  an 80-pixel box scrolled 84 pixels where Chrome 156 scrolls 124; and
+  it padded the margin after each box inside, which Chrome does not.
+  Now its last column and last row are reached, with its padding after
+  them, and the boxes in it as they are; and an empty grid is as big as
+  its rows and columns make it (item 694).
+
 - **A box with a scroll bar scrolls as far as Chrome's when a box inside
   it is moved by a percentage.** A child moved by `left: 50%`, `top: 50%`
   or a `calc()` holding a percentage was padded where it had been moved
