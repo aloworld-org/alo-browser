@@ -13630,7 +13630,10 @@ What stage 2's exit gate actually measures: a person using it.
   `cases/a-moved-box-is-padded-where-it-stood`, whose children moved by
   `position: relative` are drawn outside the `overflow: auto` boxes
   holding them — 3,030 pixels differ from Chrome 156's screenshot of the
-  same bytes, every one of them that. *Closes when:* a frozen page with such boxes is drawn as Chrome
+  same bytes, every one of them that; and (iteration 439)
+  `cases/a-box-moved-by-a-percentage-is-padded-where-it-stood`, 1,680 of
+  912,000 pixels, every one outside the padding box of the box holding
+  it. *Closes when:* a frozen page with such boxes is drawn as Chrome
   draws it, with a reference render, and the pointer finds Chrome's
   elements at those points.
 
@@ -17796,7 +17799,7 @@ What stage 2's exit gate actually measures: a person using it.
   where Chrome clips it — item 538, which this case is now a page for.
   Not in it, for a reason: a percentage offset (695).
 
-- [ ] **695. A child moved by a percentage, in a scrolling area.** *Cut
+- [x] **695. A child moved by a percentage, in a scrolling area.** *Cut
   from 693 (iteration 438).* Measured against Chrome 156.0.8078.73: in
   the box of item 693, a child 60 wide moved by `left: 50%` stands 40 px
   right (half of the container's content box) and the box scrolls 102 at
@@ -17813,6 +17816,35 @@ What stage 2's exit gate actually measures: a person using it.
   `docs/features.md` stage 1, overflow. Closes when:* a block, flex and
   grid container holding a child moved by a percentage scrolls as far as
   Chrome's, across and down, in numbers in a corpus case.
+  **Done (iteration 439).** Measured against Chrome 156.0.8078.73,
+  headless, two runs alike: in the box of item 693 (80 by 50 under
+  `overflow: auto`), `left: 50%` moves a child 40, `top: 50%` 25,
+  `right: -50%` and `bottom: -50%` alike, `calc(25% + 10px)` 30 and
+  `calc(50% - 10px)` 15, `left: 50%` over `right: 60px`; the box scrolls
+  102 across at 2 px of padding, 102 with 10 on the right and 110 at 10
+  px — padded where the child stood. In a block or flex container of no
+  definite height `top: 50%` is `auto` (the child does not move, and
+  `bottom: -30px` beside it moves it 30 down, `scrollHeight` 52); in a
+  grid it is half of the item's area — 10 in an `auto` row 20 tall, 20
+  and 15 in a cell 40 by 30, 25 of a track 100 wide for `left: -25%`.
+  Built: `arena.rs` keeps the basis `taffy` hands a node when it is laid
+  out where it stands (its `parent_size`, which is what each algorithm
+  resolves an inset against — a block's content box, its height only
+  where definite; a flex container's content box where definite; a grid
+  item's area), and `engine.rs`'s `moved_by` resolves each side against
+  it as `taffy` does, a side with no basis being `auto`.
+  `cases/a-box-moved-by-a-percentage-is-padded-where-it-stood` holds 93
+  boxes in three columns, and its test asserts each box's border box and
+  its child's to 1/64 px and each scrolling area within half a pixel of
+  Chrome's; `alo-layout`'s `numbers.rs` has a unit test of the three
+  bases. The basis taken out (restored from a copy, checked with `cmp`)
+  fails the case (`block-left-even` 104 across, Chrome's 102). No other
+  case's references moved, and no other case offsets a box by a
+  percentage. Chrome's screenshot of the same bytes differs from the
+  render in 1,680 of 912,000 pixels, every one outside the padding box
+  of the box holding the moved child — item 538. Right-to-left, where
+  `taffy` lets `right` win, is not in it: nothing in this engine sets a
+  direction.
 
 - [ ] **694. A grid's tracks, in its scrolling area.** *Cut from 675
   (iteration 437).* Measured against Chrome 156.0.8078.73: a grid 80

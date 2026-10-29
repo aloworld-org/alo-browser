@@ -49,7 +49,9 @@
 //! moved to (queue item 693): in Chrome 156 a child 60 wide moved 60 right
 //! scrolls 122 at 2 px of padding and at 10 on the right, 130 at 10 px; one
 //! 100 wide moved 30 left 104, 112 and 120; the same down, and in a flex
-//! and a grid container alike. One thing Chrome counts is not here, because
+//! and a grid container alike. A percentage moves it by what `taffy`
+//! resolved it against, which the engine reads back (queue item 695): `left:
+//! 50%` in a box 80 wide is 40, and the box scrolls 102 at 2 px. One thing Chrome counts is not here, because
 //! what it needs is not in a box's geometry: a grid's tracks are padded
 //! (queue item 694).
 

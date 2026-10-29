@@ -1,0 +1,52 @@
+/* A child moved by `position: relative` through a percentage, in a scroll
+   container, is padded where it stood and taken unpadded where it was moved
+   to: queue item 695, measured in Chrome 156 (crates/alo-layout/src/engine.rs,
+   `moved_by`). The percentage is resolved against what `taffy` resolves it
+   against: a block's or a flex container's content box, its height only where
+   definite, and a grid item's area.
+   Each box is 80 wide and 50 tall with a border of 1 and `overflow: auto`,
+   under three paddings — 2 px all round, 2 px but 10 on the right, and 10 px
+   all round — and a block, a flex or a grid container, holding a child 60
+   by 20 (100 by 20 for the one moved back), `position: relative`, moved:
+   - left: `left: 50%`;
+   - top: `top: 50%`;
+   - both: `left: 50%; top: 50%`;
+   - right: `right: -50%`;
+   - bottom: `bottom: -50%`;
+   - negleft: `left: -25%`, the child 100 wide (a grid's track is then 100);
+   - calc: `left: calc(25% + 10px); top: calc(50% - 10px)`;
+   - leftwins: `left: 50%; right: 60px`, where `left` wins;
+   - autotop: `top: 50%` in a box whose height is `auto` — `auto` in a block
+     or flex container, half of its row in a grid;
+   - autobottom: `top: 50%; bottom: -30px` in such a box, `bottom` moving it
+     where `top` is `auto`;
+   - area: `left: 50%; top: 50%` in a grid of one column 40 wide and one row
+     30 tall, half of each.
+   One column for each padding. */
+body {
+  margin: 8px;
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+}
+.column {
+  width: 120px;
+}
+.box {
+  width: 80px;
+  height: 50px;
+  border: 1px solid #000000;
+  margin: 0 0 6px 0;
+  overflow: auto;
+}
+.in,
+.back {
+  position: relative;
+  flex: none;
+  width: 60px;
+  height: 20px;
+  background: #cccccc;
+}
+.back {
+  width: 100px;
+}

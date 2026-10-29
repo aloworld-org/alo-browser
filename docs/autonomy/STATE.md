@@ -44665,3 +44665,85 @@ Owed clause names 695 and 694.
 
 The next unused queue number is **696** and the next ADR is **0073**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 439 — queue item 695: a child moved by a percentage, in a scrolling area — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s stage 2
+agent-surface line, iteration 438's entry, queue items 695, 694, 693, 665,
+668 and 538; `docs/features.md`'s overflow line (695's contract); ADR 0004
+(we own the layout tree, `taffy` the algorithms); `engine.rs`'s
+`moved_by` and `scroll_containers_held`, `arena.rs`, `end_padding.rs`;
+`taffy` 0.14's inset resolution in `block.rs` (its `inset_percentage_basis`
+and the `parent_size` it hands children), `flexbox.rs` (`node_inner_size`)
+and `grid/alignment.rs` (`grid_area_size`). No `AGENTS.md` exists.
+
+**Why 695.** The product path has nothing buildable (477 closes only on a
+Mac that never built it; 684 depends on 477 and needs an ADR). On the
+engine path 665 depends on 521 and 668 waits for a page; 695, the first
+open item after 693, depends on nothing.
+
+**Measured.** Chrome 156.0.8078.73, headless, `--dump-dom` with a kill
+loop, the case's sheet linked after the doctype, two runs alike, no text
+in the probe. In item 693's box (80 by 50, `overflow: auto`): `left: 50%`
+moves a child 40, `top: 50%` 25, negative `right`/`bottom` alike,
+`calc(25% + 10px)` 30, `calc(50% - 10px)` 15, `left` over `right`; the
+box scrolls 102/102/110 across, padded where the child stood. `top: 50%`
+in a block or flex box of no definite height is `auto` (`bottom: -30px`
+then moves it 30, `scrollHeight` 52); in a grid it is half of the item's
+area (10 of an `auto` row 20 tall; 20 and 15 in a 40 by 30 cell; 25 of a
+100-wide track for `left: -25%`). That is the basis `taffy` uses in each
+algorithm.
+
+**Built.** `arena.rs` keeps, per node, the `parent_size` of the last
+`PerformLayout` call that placed it — the basis each of `taffy`'s
+algorithms resolves an inset against — with `basis_of` and `calc` to read
+it. `engine.rs`'s `moved_by` resolves each side against it with `taffy`'s
+own `maybe_resolve`, `left.or(-right)` and `top.or(-bottom)`, so a side
+with no basis is `auto` as in `taffy` and Chrome. The case
+`a-box-moved-by-a-percentage-is-padded-where-it-stood`: 93 boxes in three
+columns, each box's border box and its child's asserted to 1/64 px and
+each scrolling area within half a pixel of Chrome's by
+`a_box_moved_by_a_percentage_is_padded_where_it_stood.rs`; one unit test
+of the three bases in `alo-layout`'s `numbers.rs`.
+
+**Checks.** The basis not recorded (`TaffySize::NONE`, restored from a
+copy, `cmp`): the case fails, `block-left-even` 104 across against
+Chrome's 102. `ALO_UPDATE_REFERENCES=1` over the corpus wrote only the new
+case's files; no other case offsets a box by a percentage or `calc()`
+(grep over every case's page and sheet). Chrome's screenshot of the case's
+bytes against our render: 1,680 of 912,000 pixels differ by more than 64,
+every one our `#cccccc` child drawn outside the padding box of the box
+holding it (checked against Chrome's rectangles) — item 538, written into
+538 as a second page. Right-to-left is not covered: nothing in this
+engine sets `taffy`'s `direction`.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5559 tests, 5559
+passed, 10 of 10 steps, "The gate is met.", exit 0.** `cargo fmt` and
+`cargo clippy --workspace --all-targets` clean before it; `alo-layout`'s
+lib and integration tests run on their own first.
+
+**Manual.** Layout assertion in numbers: the case's test and the unit
+test. Reference render: the case's `render.png`, compared with Chrome's
+above — it carries 538's known difference, written down in the queue and
+`docs/conformance.md`. One file, one responsibility: the arena keeps what
+`taffy` handed each node, which is its remit (it already keeps the layout
+`taffy` hands back); resolving an offset stays `engine.rs`'s `moved_by`;
+padding stays `end_padding.rs`'s. Documentation in the change: features,
+conformance, `end_padding.rs`'s module comment, queue, roadmap,
+changelog. No `unsafe`, no new rented crate, no verb taking a coordinate.
+`alo-os` and `alo-workplace` untouched. The probe's profiles were
+removed. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's agent-surface line gains that a
+child moved by a percentage or `calc()` is padded where it stood (695);
+its Owed clause now names 694 alone for scrolling areas.
+
+**Unresolved obligations.**
+- 694 still open (a grid's tracks in its scrolling area).
+- 538 has two pages now and is unbuilt.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **696** and the next ADR is **0073**.
+This is one iteration, not a finished queue or roadmap.

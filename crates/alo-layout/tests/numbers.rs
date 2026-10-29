@@ -3006,3 +3006,48 @@ fn a_scrolling_area_counts_what_reaches_right_and_down_and_not_left_or_up() {
     assert!(geometry.scrollable.width > 800.0, "{geometry:?}");
     assert!(geometry.scrollable.height > 900.0, "{geometry:?}");
 }
+
+/// Queue item 695: a box moved by `position: relative` through a
+/// percentage is moved by what `taffy` resolves it against — a block's
+/// content box, a flex container's height only where it is definite, and a
+/// grid item's area — and its scroll container is padded where it stood,
+/// as Chrome 156 does.
+#[test]
+fn a_box_moved_by_a_percentage_is_moved_against_its_basis_and_padded_where_it_stood() {
+    let html = "<div id=block class=b><div id=a class=in></div></div>\
+                <div id=flex class=b><div id=f class=in></div></div>\
+                <div id=grid class=b><div id=g class=in></div></div>";
+    let css = ".b { width: 80px; height: 50px; padding: 2px; overflow: auto } \
+               .in { position: relative; flex: none; width: 60px; height: 20px; \
+                     left: 50%; top: 50% } \
+               #flex { display: flex; height: auto } \
+               #f { bottom: -30px } \
+               #grid { display: grid; grid-template-columns: 40px; grid-template-rows: 30px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    let moved = |child: &str, parent: &str| {
+        let child = rect_of(&boxes, &layout, child, html).origin;
+        let parent = rect_of(&boxes, &layout, parent, html).origin;
+        (child.x - parent.x, child.y - parent.y)
+    };
+    // Half of the block's content box, 80 by 50, past its padding.
+    let (x, y) = moved("a", "block");
+    assert!(close(x, 42.0) && close(y, 27.0), "{x}, {y}");
+    // Padded where it stood (64 by 24), unpadded where it went (102 by 47).
+    let area = geometry_of(&boxes, &layout, "block", html).scrolling_area();
+    assert!(
+        close(area.width, 102.0) && close(area.height, 54.0),
+        "{area:?}"
+    );
+    // A flex container of no definite height: `top: 50%` is `auto`, and
+    // `bottom` moves the box down 30 instead.
+    let (x, y) = moved("f", "flex");
+    assert!(close(x, 42.0) && close(y, 32.0), "{x}, {y}");
+    let area = geometry_of(&boxes, &layout, "flex", html).scrolling_area();
+    assert!(
+        close(area.width, 102.0) && close(area.height, 52.0),
+        "{area:?}"
+    );
+    // Half of the grid item's area, 40 by 30.
+    let (x, y) = moved("g", "grid");
+    assert!(close(x, 22.0) && close(y, 17.0), "{x}, {y}");
+}

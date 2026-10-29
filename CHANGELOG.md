@@ -7,6 +7,15 @@ What changed, in words a person outside this repository can read. Newest first.
 ## Unreleased
 
 - **A box with a scroll bar scrolls as far as Chrome's when a box inside
+  it is moved by a percentage.** A child moved by `left: 50%`, `top: 50%`
+  or a `calc()` holding a percentage was padded where it had been moved
+  to, so its box scrolled 2 to 10 pixels further than Chrome 156. Now
+  the percentage is worked out against what Chrome works it out against
+  — the box's content, a grid cell's area, and nothing where a height is
+  not fixed, so `bottom` moves it instead — and the padding goes where
+  the child stood, in block, flex and grid layout (item 695).
+
+- **A box with a scroll bar scrolls as far as Chrome's when a box inside
   it is moved by `position: relative`.** The moved box's margin was
   padded where it had been moved to, so a box whose child was moved 60
   pixels right scrolled 2 to 10 pixels further than Chrome 156. Now the

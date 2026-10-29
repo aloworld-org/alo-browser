@@ -89,6 +89,11 @@ struct Node {
     children: Vec<usize>,
     cache: Cache,
     layout: taffy::Layout,
+    /// What `taffy` resolved this node's percentages against when it was
+    /// last laid out where it stands — its parent's `parent_size`: a block's
+    /// content box, its height only where definite; a flex container's
+    /// content box where definite; a grid item's area.
+    basis: TaffySize<Option<f32>>,
 }
 
 /// Every expression that could not be reduced to a number before layout began.
@@ -208,6 +213,7 @@ impl<'a, M: MeasureText> Arena<'a, M> {
             children,
             cache: Cache::new(),
             layout: taffy::Layout::with_order(0),
+            basis: TaffySize::NONE,
         });
         self.nodes.len() - 1
     }
@@ -252,6 +258,21 @@ impl<'a, M: MeasureText> Arena<'a, M> {
     /// Where a node ended up, relative to the one that holds it.
     pub(crate) fn layout(&self, node: usize) -> Option<taffy::Layout> {
         self.nodes.get(node).map(|held| held.layout)
+    }
+
+    /// What a node's percentages were resolved against when it was placed:
+    /// the basis `taffy` hands each algorithm's children, which a box's
+    /// geometry does not hold (queue item 695).
+    pub(crate) fn basis_of(&self, node: usize) -> TaffySize<Option<f32>> {
+        self.nodes
+            .get(node)
+            .map_or(TaffySize::NONE, |held| held.basis)
+    }
+
+    /// What an expression `taffy` carries as a handle comes to against a
+    /// basis, as `taffy` itself is told when it asks.
+    pub(crate) fn calc(&self, handle: *const (), basis: f32) -> f32 {
+        self.unresolved.resolve(handle, basis)
     }
 
     fn node(&self, id: NodeId) -> Option<&Node> {
@@ -373,6 +394,12 @@ impl<M: MeasureText> taffy::LayoutPartialTree for Arena<'_, M> {
         // whatever this node's own `display` says.
         if inputs.run_mode == RunMode::PerformHiddenLayout {
             return compute_hidden_layout(self, node_id);
+        }
+        // The last call that places a node is the one its layout is from.
+        if inputs.run_mode == RunMode::PerformLayout
+            && let Some(node) = self.node_mut(node_id)
+        {
+            node.basis = inputs.parent_size;
         }
         compute_cached_layout(self, node_id, inputs, |tree, node_id, inputs| {
             let display = tree.style(node_id).display;

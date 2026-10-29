@@ -713,10 +713,14 @@ in a block, flex and grid container alike, as Chrome 156 scrolls them. **A
 child moved by `position: relative` is padded where it stood before it
 moved, and taken unpadded where it was moved to** (queue item 693), in a
 block, flex and grid container, across and down, moved forward or back, as
-Chrome 156 scrolls it. Two things are still not Chrome's: a child moved by a
-percentage, or a `calc()` holding one, is padded where it was moved to, so
-it scrolls 2 px further than Chrome's at 2 px of padding (695); and a grid's
-tracks, which Chrome pads and this engine does not count, so a grid whose
+Chrome 156 scrolls it, and so is **a child moved by a percentage or a
+`calc()` holding one** (queue item 695), resolved against what `taffy`
+resolved it against — a block's or flex container's content box, its height
+only where definite, so `top: 50%` in a box of no definite height is `auto`
+and `bottom` moves it, and a grid item's area, so half of an `auto` row
+(`cases/a-box-moved-by-a-percentage-is-padded-where-it-stood`, 93 boxes and
+their children within 1/64 px of Chrome's). One thing is still not Chrome's: a
+grid's tracks, which Chrome pads and this engine does not count, so a grid whose
 column passes its box scrolls 40 px short of Chrome's (694). A positioned
 child is drawn outside the scroll container that holds it where Chrome
 clips it (538): the scrolling area is Chrome's, the picture is not.
