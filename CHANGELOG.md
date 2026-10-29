@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: what the Chrome behind the browser may ask Google for on its
+  own.** Measured on Chrome 156, a Chrome started as this browser starts
+  it asks Google for about twenty things before any page is open —
+  updates and downloads, a variations seed, account and AI-model checks
+  — none of which the browser sees or records. ADR 0073 decides to start
+  it with switches that, measured, stop all but two of them, and names
+  those two; it is not built yet (item 649). Stopping the last two is
+  measured to work but would show pages in an ordinary Chrome window, so
+  it is left to a decision of its own (item 696).
+
 - **A page's body that hands its `overflow` to the window no longer cuts
   its text short.** A `<body>` given `overflow: hidden` and
   `text-overflow: ellipsis` under a root left at `visible` ended its line

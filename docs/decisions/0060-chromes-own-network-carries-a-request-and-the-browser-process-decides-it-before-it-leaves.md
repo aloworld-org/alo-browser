@@ -309,3 +309,12 @@ whose chain the page it holds leads back through — and nowhere else.
 `networkId` stays the page's, since no such request was measured; and a
 living page's request with none, which Chrome 155 was not seen to make,
 would be written as the page left's until the next navigation.
+
+## Third amendment, 2026-10-29 — what Chrome asks for of its own accord
+
+§ 2 decides every request Chrome can show this process; what Chrome asks
+for itself — updates, a variations seed, account and model checks — it
+never shows, and a browser-level `Fetch` does not see it either. ADR 0073
+decides that Chrome is started with the switches that stop it, measured,
+and names the two kinds that still leave (`ListAccounts` and an on-demand
+component install) as not decided, as § 2 names a WebSocket (item 649).

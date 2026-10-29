@@ -981,7 +981,9 @@ unreachable without it.
       menu opened and the answer saying where that is allowed (ADR 0072,
       692)
       · Owed: what Chrome itself asks Google for, with no page
-      open, outside the gate and the record (649); whether Chrome's own DNS
+      open, outside the gate and the record (649 — decided by ADR 0073,
+      switches that leave two named requests, not built; stopping those
+      two costs the `--app` window and is 696's, needs ADR); whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650) — the
       frame itself stands, follows, and

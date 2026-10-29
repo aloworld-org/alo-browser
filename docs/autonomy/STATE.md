@@ -44910,3 +44910,72 @@ last line (664); its Owed clause no longer names 664.
 
 The next unused queue number is **696** and the next ADR is **0073**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 442 — queue item 649's decision: ADR 0073, Chrome is started with its own traffic switched off, and what still leaves is named — decided, not built
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s head and
+stage 2 second-renderer line, iteration 441's entry and 435's (the
+decide-then-build precedent); queue items 649, 650, 676–678, 686 and the
+product path; ADR 0060 whole, ADR 0012 §§ 1–3, ADR 0008 by way of
+`chrome_profile.rs`; `docs/features.md`'s second-renderer line (649's
+contract); `chrome.rs`'s start and
+`tests/chromes_resolver_is_the_machines.rs`. No `AGENTS.md` exists.
+
+**Why 649.** The product path has nothing buildable (477 closes only on a
+Mac that never built it; 684 depends on 477 and needs an ADR). On the
+engine path the first open item after 664 in the file is 649, which
+depends on 633 (done). Its closing condition admits "the ADR says which
+it sends and why", and what was measured made it a decision: the only
+way found to stop every request of Chrome's own costs ADR 0061's `--app`
+window, and switching updates off costs fresh revocation and Safe
+Browsing lists. By LOOP.md's "a decision is its own iteration", this
+iteration measures and decides, as 435 did for 692.
+
+**Measured** (Chrome 156.0.8078.73, macOS 26.5.2; scratch probes in the
+scratchpad, never committed — a Python driver over
+`--remote-debugging-pipe` on a profile like `chrome.rs`'s, `--log-net-log`,
+a page at a name mapped to a local server, twelve seconds a run). As
+started today Chrome makes about twenty requests of its own, a dozen
+kinds, all to Google. A browser-level `Fetch.enable` pauses none of them.
+The six features and two switches in ADR 0073 § 2 stop all but
+`ListAccounts` and an on-demand install of the on-device models' manifest
+(`ceofaddefefcbblgcgnibnonglccbfja`, identified from the request body and
+the profile's `component_crx_cache`), four runs of four, headless and
+shown. One attribution was corrected by that check: Safe Browsing's OHTTP
+keys need `SafeBrowsingHashPrefixRealTimeLookups`, not background
+networking. Preferences in the profile changed nothing. A dead
+`--proxy-server` plus a page context of `proxyServer: "direct://"` sent
+nothing off the machine in three runs (only the IPv6 reachability UDP
+`connect`, which sends no packet), and a context inheriting the proxy
+failed its page at −130, but shown, that context's page opened in an
+ordinary window with a tab strip and address bar (screenshot read).
+
+**Decided.** ADR 0073: the switches; the two remaining kinds named as not
+decided, as ADR 0060 § 2 names a WebSocket; a net-log test to hold the
+list. ADR 0060 carries a third amendment pointing to it. Stopping the last
+two is cut as **696** (needs ADR, the owner's to weigh, ADR 0061).
+
+**The gate.** In the foreground, detached with `nohup` and waited on by
+an until-loop across two calls: **5569 tests, 5569 passed, 10 of 10
+steps, "The gate is met."**
+
+**Manual.** No code, layout or drawing changed: no layout assertion or
+reference render applies. One file, one responsibility: one ADR, one
+decision. No `unsafe`, no rented crate, no verb taking a coordinate.
+`alo-os` and `alo-workplace` untouched. The probes' Chromes closed and
+their profiles removed. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's second-renderer Owed clause
+says 649 is decided by ADR 0073 and not built, and names 696. Queue: 649
+stays open with a *Decided, not built* paragraph; 696 added. Features and
+changelog say decided, not built.
+
+**Unresolved obligations.**
+- 649's build: the switches in `chrome.rs`, the net-log test over a page
+  from a local server, and the product path naming the two requests.
+- 696 needs an ADR and the owner's judgement.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **697** and the next ADR is **0074**.
+This is one iteration, not a finished queue or roadmap.

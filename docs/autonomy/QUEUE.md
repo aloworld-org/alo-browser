@@ -18221,6 +18221,35 @@ What stage 2's exit gate actually measures: a person using it.
   makes no request the browser process did not let go or set aside by
   name, asserted from its NetLog over a run of a page from a local
   server, or the ADR says which it sends and why.
+  ***Decided (2026-10-29): ADR 0073; not built.*** Measured on Chrome
+  156.0.8078.73: a browser-level `Fetch` sees none of these requests.
+  Chrome is to be started with `--disable-background-networking`,
+  `--disable-component-update` and
+  `--disable-features=AimEnabled,PreconnectToSearch,NetworkTimeServiceQuerying,OptimizationHints,OptGuideOnDeviceModel,SafeBrowsingHashPrefixRealTimeLookups`,
+  after which only `accounts.google.com/ListAccounts` and an on-demand
+  install of the on-device models' manifest
+  (`ceofaddefefcbblgcgnibnonglccbfja`) leave, headless and shown alike;
+  those two are named as not decided. **Owed (the build):** the switches
+  in `chrome.rs`; a test that starts Chrome as the browser does behind a
+  net-log stand-in, loads a page from a local server, and asserts every
+  request in the net log is the page's or one of the two named; the
+  product path saying the two where it says what it cannot enforce.
+
+- [ ] **696. Chrome's own last two requests, stopped — at the price of
+  the `--app` window, or another way.** *Cut from 649 by ADR 0073 § 3.
+  **needs ADR**; the owner's to weigh, since it changes what a person
+  sees (ADR 0061).* Measured: Chrome started with
+  `--proxy-server` at a port nobody answers sends nothing of its own —
+  no lookup, no connection — and a page in a browser context made with
+  `proxyServer: "direct://"` loads directly; with `AimEnabled` and
+  `PreconnectToSearch` off as well nothing at all left the machine in
+  three runs. But a page in that context is shown in an ordinary window
+  with a tab strip and an address bar, not ADR 0061's `--app` window.
+  *Depends on 649. Closes when:* an ADR chooses between that window, a
+  way of keeping `--app` mode that is measured to exist, or ADR 0058
+  § 5's patch set — and the chosen one is built with the dead proxy
+  being a port this process holds and refuses, asserted from the net
+  log as 649's test is.
 
 - [ ] **650. Whether Chrome's own DNS client honours what the system's
   does.** *Cut from 635 (iteration 389); ADR 0008.* Chrome 155 on macOS
