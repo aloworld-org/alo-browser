@@ -44979,3 +44979,83 @@ changelog say decided, not built.
 
 The next unused queue number is **697** and the next ADR is **0074**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 443 — queue item 649 built: Chrome is started with its own traffic switched off, a net-log test holds what still leaves, and the application's page names it
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s head and
+stage 2 second-renderer line, iteration 442's entry; queue items 649 and
+696; ADR 0073 whole (649's decision and contract), ADR 0060's third
+amendment, ADR 0058 § 6; `docs/features.md`'s second-renderer line;
+`chrome.rs`, `tests/chromes_resolver_is_the_machines.rs` and
+`tests/a_page_from_the_network_in_chrome.rs` as the patterns. No
+`AGENTS.md` exists.
+
+**Why 649.** Iteration 442 decided it and left the build owed; nothing
+before it on the product path is buildable (477 closes only on another
+Mac, 684 needs an ADR), and its one dependency, 633, is done.
+
+**Built.** `chrome.rs` starts every Chrome, headless and shown, with
+`OWN_TRAFFIC_OFF` — ADR 0073 § 2's three switches. `alo-window`'s
+`tests/what_chrome_asks_for_of_its_own.rs` starts the installed Chrome
+through a stand-in adding the net log's flags, opens a page (document,
+style sheet, SVG picture) from a local server, holds it 12 s, closes
+Chrome and reads the net log one event to a line, with no JSON crate.
+Every `http(s)`/`ws(s)` address must be the page's, `ListAccounts`, an
+update check whose `X-Goog-Update-AppId` names only the models'
+manifest, the query-less ping after it, or an `edgedl.me.gvt1.com`
+download whose path names that id; every host resolved, connected to or
+verified must be `127.0.0.1` or one of those three. Found while
+building: a request's address is also carried by its stream job's
+source, which has no headers, so components are joined per address
+(each check's `cup2key` query makes its address its own), and the
+header is read from the `CORS_REQUEST` event, which Chrome logs before
+sending — so an offline machine reads it too. Three unit tests hold the
+reader and the refusals (a scheduled update naming several components,
+a check naming none, another component's download, each of the dozen
+kinds ADR 0073 § 1 measured). The application's own page
+(`the-applications-page`) says under *What it is not yet* that the two
+leave unheld and unrecorded, ADR 0073 § 2's product-path clause.
+
+**Checks.** The switches removed (`chrome.rs` restored from a copy,
+`cmp`): the test fails naming twenty-two addresses of Chrome's own —
+variations seed, extension and component updates and downloads, eleven
+model fetches, network time, Safe Browsing's keys, AI-mode, the web
+store verify. With them it passed three runs on its own and in the
+gate. `ALO_UPDATE_REFERENCES=1` over the whole corpus (`--no-fail-fast`,
+the case backed up first) rewrote only `the-applications-page`: the
+new paragraph 640×96 at (96, 518), the page 1200×734 from 622; the
+corpus passed again after. The render was read and the paragraph wraps
+inside `main`.
+
+**The gate.** Run detached with `nohup` (it outlasts one tool call) and
+waited on by until-loops in the foreground across two calls: **5573
+tests, 5573 passed, 10 of 10 steps, "The gate is met.", exit 0.**
+`cargo fmt` and `cargo clippy --workspace --all-targets --all-features`
+clean before it.
+
+**Manual.** Layout assertions in numbers: the corpus case's
+`layout.txt`/`boxes.txt` for the new paragraph. Reference render: the
+case's `render.png`, rewritten and read. One file, one responsibility:
+the switches stay with how `chrome.rs` starts Chrome; reading a net log
+is the test's own. Documentation in the change: `chrome.rs`'s comments,
+ADR 0073's status (built), features, queue, roadmap, changelog. No
+`unsafe`, no rented crate, no verb taking a coordinate. `alo-os` and
+`alo-workplace` untouched. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's second-renderer line gains
+Chrome started with its own traffic off but for two named requests (ADR
+0073, 649); its Owed clause now names the last two requests as 696's.
+Queue: 649 ticked with a *Built* paragraph.
+
+**Unresolved obligations.**
+- A shown Chrome takes the same switches but is not asserted by the
+  test (measured in ADR 0073 § 1 only); a shown variant would join
+  nextest's threads-required=2 list.
+- If Chrome ever redirects the models download to another `gvt1.com`
+  host, the test fails; that is a request to name, not to widen.
+- 696 needs an ADR and the owner's judgement; 650 is open.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **697** and the next ADR is **0074**.
+This is one iteration, not a finished queue or roadmap.

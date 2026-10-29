@@ -18200,7 +18200,7 @@ What stage 2's exit gate actually measures: a person using it.
   several (the form sends `toppings=Leek` alone), and `chosen` assumed
   rather than read (the listener test and the toggle-off both fail).
 
-- [ ] **649. What Chrome itself asks for, with no page open.** *Found
+- [x] **649. What Chrome itself asks for, with no page open.** *Found
   building 635 (iteration 389); ADR 0060 § 2, ADR 0012.* Measured from
   Chrome 155's NetLog, headless, on the profile the browser makes, in the
   three seconds after it starts with nothing but `about:blank` open:
@@ -18234,6 +18234,21 @@ What stage 2's exit gate actually measures: a person using it.
   net-log stand-in, loads a page from a local server, and asserts every
   request in the net log is the page's or one of the two named; the
   product path saying the two where it says what it cannot enforce.
+  ***Built (iteration 443).*** `chrome.rs` starts every Chrome, headless
+  and shown, with `OWN_TRAFFIC_OFF`. `alo-window`'s
+  `tests/what_chrome_asks_for_of_its_own.rs` starts the installed Chrome
+  through a stand-in adding `--log-net-log`, opens a page (document, style
+  sheet, picture) from a local server, holds it 12 s, and reads the net
+  log a line to an event: every `http(s)`/`ws(s)` address must be the
+  page's, `ListAccounts`, an update check whose `X-Goog-Update-AppId`
+  names only `ceofaddefefcbblgcgnibnonglccbfja` (logged before sending,
+  so read offline too), the query-less ping after it, or a download from
+  `edgedl.me.gvt1.com` naming that id; every host resolved or connected
+  to must be `127.0.0.1` or one of those three. Measured: the switches
+  removed, it names twenty-two addresses of Chrome's own and fails. The
+  application's own page (`the-applications-page`) names the two under
+  *What it is not yet*. Not asserted by a test: a shown Chrome, which
+  takes the same switches and was measured in ADR 0073 § 1.
 
 - [ ] **696. Chrome's own last two requests, stopped — at the price of
   the `--app` window, or another way.** *Cut from 649 by ADR 0073 § 3.

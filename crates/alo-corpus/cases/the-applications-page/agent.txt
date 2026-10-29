@@ -1,5 +1,5 @@
-document at (0, 0) 1200×622
-  main at (96, 64) 640×478
+document at (0, 0) 1200×734
+  main at (96, 64) 640×590
     heading "alo browser" [level=1] at (96, 64) 640×40
     paragraph at (96, 112) 640×24
       text "This page is drawn by this Mac's Chrome, driven by alo browser." at (96, 114) 580.46875×19
@@ -15,5 +15,7 @@ document at (0, 0) 1200×622
       text ", which is inside the application at" at (377.42188, 456) 272.95313×19
       text "Contents/MacOS/alo-ask" at (96, 458) 635.3281×40 in 2 pieces
       text "." at (205.57813, 480) 5.09375×19
-    paragraph at (96, 518) 640×24
-      text "Closing this window, or quitting, closes alo browser." at (96, 520) 413.78125×19
+    paragraph at (96, 518) 640×96
+      text "Chrome asks Google for two things of its own that are not held to alo browser's rules or kept in its record: which Google accounts it is signed into, and the list of its on-device models. alo browser starts it with everything else it would ask for of its own switched off." at (96, 520) 635.3594×91 in 4 pieces
+    paragraph at (96, 630) 640×24
+      text "Closing this window, or quitting, closes alo browser." at (96, 632) 413.78125×19

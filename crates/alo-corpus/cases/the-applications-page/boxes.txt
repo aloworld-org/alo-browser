@@ -22,4 +22,6 @@ block flow · document
           text "Contents/MacOS/alo-ask"
         text ". "
       block flow · paragraph
+        text " Chrome asks Google for two things of its own that are not held to alo browser's rules or kept in its record: which Google accounts it is signed into, and the list of its on-device models. alo browser starts it with everything else it would ask for of its own switched off. "
+      block flow · paragraph
         text "Closing this window, or quitting, closes alo browser."

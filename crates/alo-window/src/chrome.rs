@@ -32,6 +32,15 @@
 //! Chrome refuses to be driven on its default profile anyway. It is empty
 //! but for the one file [`crate::chrome_profile`] writes first, which keeps
 //! Chrome on the machine's resolver (ADR 0008, item 635).
+//!
+//! # Its own traffic, switched off
+//!
+//! Chrome started bare asks Google for a dozen things before any page is
+//! open, none of them a tab's and so none paused, judged or recorded. It is
+//! started with the switches that stop them ([`OWN_TRAFFIC_OFF`], ADR 0073,
+//! item 649); two still leave — `accounts.google.com/ListAccounts` and an
+//! on-demand install of the on-device models' manifest — and are named as
+//! not decided, as ADR 0060 § 2 names a WebSocket.
 //! When this handle is dropped Chrome is asked to close, then killed if it has
 //! not, then waited for, and its profile is removed. When the browser process
 //! ends without dropping it — killed, or crashed — the pipe closes with it,
@@ -87,6 +96,20 @@ const HELD_MESSAGES: usize = 256;
 /// item 653): two of the longest message the pipe reads, so one that long
 /// never waits on another that is not.
 pub const HELD_BYTES: usize = 2 * MOST_MESSAGE;
+
+/// What stops the requests Chrome makes of its own accord (ADR 0073 § 2),
+/// each because a measurement stopped something with it: background
+/// networking the variations seed and extension updates, component updates
+/// the scheduled ones, and the features AI-mode eligibility, the search
+/// engine's preconnect, network time, on-device model fetches and Safe
+/// Browsing's real-time keys. Two requests still leave, named by the ADR
+/// and by `tests/what_chrome_asks_for_of_its_own.rs`.
+const OWN_TRAFFIC_OFF: [&str; 3] = [
+    "--disable-background-networking",
+    "--disable-component-update",
+    "--disable-features=AimEnabled,PreconnectToSearch,NetworkTimeServiceQuerying,\
+     OptimizationHints,OptGuideOnDeviceModel,SafeBrowsingHashPrefixRealTimeLookups",
+];
 
 /// The shell's whole script: move the pipes to 3 and 4, then become Chrome.
 const STARTER: &str = r#"exec "$0" "$@" 3<&0 4>&1 0</dev/null 1>/dev/null"#;
@@ -232,6 +255,7 @@ impl Chrome {
             .arg("--remote-debugging-pipe")
             .arg(user_data)
             .args(["--no-first-run", "--no-default-browser-check"])
+            .args(OWN_TRAFFIC_OFF)
             // Measured against Chrome 155: `--app=about:blank` is passed
             // over, and a window with a tab strip opens on the new-tab page;
             // `data:,` is taken as the application, and is empty.

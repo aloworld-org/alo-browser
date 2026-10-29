@@ -1,4 +1,4 @@
-fill box#2 rgb(244 241 236) at (0, 0) 1200×622
+fill box#2 rgb(244 241 236) at (0, 0) 1200×734
 text box#7 "alo browser" rgb(16 42 67) 32px at (96, 95)
 text box#10 "This page is drawn by this Mac's Chrome, driven by alo browser." rgb(231 111 81) 16px at (96, 129)
 text box#13 "What this is" rgb(16 42 67) 18px at (96, 188)
@@ -16,4 +16,8 @@ text box#28 ", which is inside the application at" rgb(16 42 67) 16px at (377.42
 text box#30 "Contents/" rgb(16 42 67) 14px at (655.46875, 471)
 text box#30 "MacOS/alo-ask" rgb(16 42 67) 14px at (96, 495)
 text box#31 "." rgb(16 42 67) 16px at (205.57813, 495)
-text box#34 "Closing this window, or quitting, closes alo browser." rgb(16 42 67) 16px at (96, 535)
+text box#34 "Chrome asks Google for two things of its own that are not held to alo browser's" rgb(16 42 67) 16px at (96, 535)
+text box#34 "rules or kept in its record: which Google accounts it is signed into, and the list" rgb(16 42 67) 16px at (96, 559)
+text box#34 "of its on-device models. alo browser starts it with everything else it would ask" rgb(16 42 67) 16px at (96, 583)
+text box#34 "for of its own switched off." rgb(16 42 67) 16px at (96, 607)
+text box#37 "Closing this window, or quitting, closes alo browser." rgb(16 42 67) 16px at (96, 647)

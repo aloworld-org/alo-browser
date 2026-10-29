@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The Chrome behind the browser no longer asks Google for things of its
+  own, but two, and the browser says which.** A Chrome started by this
+  browser is now started with switches that stop its updates, downloads,
+  variations seed, network time, AI and model checks (ADR 0073). Two
+  requests still leave — which Google accounts it is signed into, and the
+  list of its on-device models — and the application's own page now says
+  so. A test reads Chrome's own network log over a page and fails if
+  Chrome asks for anything else, so a Chrome that updates itself and
+  starts asking for something new is caught here first (item 649).
+
 - **Decided: what the Chrome behind the browser may ask Google for on its
   own.** Measured on Chrome 156, a Chrome started as this browser starts
   it asks Google for about twenty things before any page is open —

@@ -980,10 +980,12 @@ unreachable without it.
       658) — and, where macOS does not let the browser post its keys, no
       menu opened and the answer saying where that is allowed (ADR 0072,
       692)
-      · Owed: what Chrome itself asks Google for, with no page
-      open, outside the gate and the record (649 — decided by ADR 0073,
-      switches that leave two named requests, not built; stopping those
-      two costs the `--app` window and is 696's, needs ADR); whether Chrome's own DNS
+      — and Chrome started with its own traffic switched off but for two
+      named requests, held by a net-log test and said on the application's
+      own page (ADR 0073, 649)
+      · Owed: Chrome's own last two requests, `ListAccounts` and the
+      on-device models' manifest, stopped — which costs the `--app` window
+      and is 696's, needs ADR; whether Chrome's own DNS
       client honours what the system's would — scoped resolvers, `.local`,
       the system's own encrypted DNS (650) — the
       frame itself stands, follows, and

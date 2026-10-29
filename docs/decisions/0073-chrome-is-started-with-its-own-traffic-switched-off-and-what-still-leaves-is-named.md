@@ -1,6 +1,6 @@
 # ADR 0073 — Chrome is started with its own traffic switched off, and what still leaves is named
 
-**Status:** accepted — not built (queue item 649, iteration 442)
+**Status:** accepted — built (queue item 649; decided in iteration 442, built in 443)
 **Date:** 2026-10-29
 **Context:** ADR 0060 (Chrome's own network carries a page's requests and
 the browser process decides each before it leaves), whose § 2 decides every
