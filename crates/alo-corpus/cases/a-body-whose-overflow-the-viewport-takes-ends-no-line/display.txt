@@ -1,0 +1,3 @@
+fill box#0 rgb(255 255 255) at (0, 0) 200×22
+fill box#1 rgb(221 226 238) at (0, 0) 61×22
+text box#2 "aaaa bbbbbbbbb" rgb(0 0 0) 16px at (0, 15)

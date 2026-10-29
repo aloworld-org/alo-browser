@@ -24,6 +24,12 @@
 //!   `clip`, `auto` and `scroll` all do, and on either axis — even
 //!   `overflow-y: clip` alone, which leaves `overflow-x` at `visible` by CSS
 //!   Overflow 3's own rule.
+//! - It is the **used** `overflow` that decides. Under a root of `visible`,
+//!   a `<body style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">`
+//!   61 px wide holding `aaaa bbbbbbbbb` gives its `overflow` to the
+//!   viewport, so its own is `visible`: Chrome 156 draws the whole line,
+//!   past the body's edge, and no "…"; under a root of `auto` the body clips
+//!   and ends it `aaaa …` (queue item 664).
 //! - Only a block container's lines are ended: a run of text beside a block
 //!   is, as an anonymous box of the element around it; a flex container's
 //!   text is a flex item's, and is not.
@@ -407,8 +413,10 @@ pub(crate) fn place(
 }
 
 /// Whether the lines of `id` end in an ellipsis where they overflow:
-/// `text-overflow: ellipsis` on a block container whose `overflow` is not
-/// `visible` on either axis, as Chrome 154 was measured to decide.
+/// `text-overflow: ellipsis` on a block container whose used `overflow` is
+/// not `visible` on either axis, as Chrome 154 was measured to decide — so
+/// not the root's, nor a body's whose `overflow` the viewport takes
+/// ([`crate::viewport`]), whatever their computed `overflow` says.
 ///
 /// The lines of an anonymous box are the element's around it — the run of
 /// text beside a block in a `<div>`, the inside of a field — when that element
@@ -418,17 +426,23 @@ fn ends_its_lines(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> bool {
     let Some(node) = boxes.get(id) else {
         return false;
     };
-    let owner = match node.kind {
-        BoxKind::Element { .. } => Some(node),
-        BoxKind::Anonymous { .. } => node.parent.and_then(|parent| boxes.get(parent)),
+    let owner_id = match node.kind {
+        BoxKind::Element { .. } => Some(id),
+        BoxKind::Anonymous { .. } => node.parent,
         BoxKind::Text { .. } => None,
     };
     // `flow-root` is a block container too: an `inline-block`'s inside.
-    let Some(owner) =
-        owner.filter(|owner| matches!(owner.kind.inside(), Inside::Flow | Inside::FlowRoot))
+    let Some((owner_id, owner)) = owner_id
+        .and_then(|owner_id| boxes.get(owner_id).map(|owner| (owner_id, owner)))
+        .filter(|(_, owner)| matches!(owner.kind.inside(), Inside::Flow | Inside::FlowRoot))
     else {
         return false;
     };
+    // A box whose `overflow` the viewport takes has a used `overflow` of
+    // `visible`, and Chrome 156 ends none of its lines (queue item 664).
+    if crate::viewport::takes_the_overflow_of(boxes, styles, owner_id) {
+        return false;
+    }
     let Some(style) = owner.kind.node().and_then(|element| styles.get(element)) else {
         return false;
     };

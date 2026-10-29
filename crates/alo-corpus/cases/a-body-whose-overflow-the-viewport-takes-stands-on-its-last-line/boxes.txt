@@ -1,0 +1,5 @@
+block flow · document
+  inline flow-root · generic
+    text "one"
+    inline flow · generic · line break
+    text "two "

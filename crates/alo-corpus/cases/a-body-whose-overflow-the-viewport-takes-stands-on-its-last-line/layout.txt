@@ -1,0 +1,5 @@
+block flow · document → 200×50 at (0, 0)
+  inline flow-root · generic → 29.78125×40 at (0, 0)
+    text "one" → 29.78125×19 at (0, 0)
+    inline flow · generic → 0×19 at (29.78125, 0)
+    text "two " → 29.15625×19 at (0, 20)

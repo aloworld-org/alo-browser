@@ -169,3 +169,26 @@ fn the_ellipsis_moves_with_a_box_placed_after_its_lines() {
         );
     }
 }
+
+#[test]
+fn a_body_whose_overflow_the_viewport_takes_ends_no_line() {
+    // Measured against Chrome 156 (queue item 664): under a root of
+    // `visible` the viewport takes the body's `overflow`, so the body's own
+    // is `visible` and its line runs on whole; under a root of `auto` the
+    // body's `hidden` is its own and its line is ended.
+    let html = "<body class=e>aaaaaaaaaa</body>";
+    let body = format!("{ENDS} .e {{ overflow: hidden }}");
+    let (_, _, found) = ellipses(html, &body);
+    assert!(found.is_empty(), "{found:?}");
+    let (_, _, found) = ellipses(html, &format!("html {{ overflow: visible }} {body}"));
+    assert!(found.is_empty(), "{found:?}");
+    let (boxes, _, found) = ellipses(html, &format!("html {{ overflow: auto }} {body}"));
+    let [(id, held)] = found.as_slice() else {
+        panic!("the body ends its line: {found:?}");
+    };
+    assert_eq!(Some(*id), element_with_class(html, &boxes, "e"));
+    let [ellipsis] = held.as_slice() else {
+        panic!("one line: {held:?}");
+    };
+    assert!(close(ellipsis.rect.origin.x, 32.0), "{ellipsis:?}");
+}

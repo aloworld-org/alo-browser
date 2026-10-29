@@ -17878,7 +17878,7 @@ What stage 2's exit gate actually measures: a person using it.
   a pixel; its render is no pixel apart from Chrome's screenshot.
   Right-to-left is not covered: nothing in this engine sets a direction.
 
-- [ ] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
+- [x] **664. `text-overflow` on a box whose `overflow` the viewport takes.**
   *Cut from 662 (iteration 409).* A root, or a body under a root of
   `visible`, has a used `overflow` of `visible` (CSS Overflow 3 § 3.3), and
   layout and paint now treat it so; but `alo-layout`'s `ellipsis.rs` and
@@ -17888,6 +17888,23 @@ What stage 2's exit gate actually measures: a person using it.
   Unmeasured against Chrome. *Depends on nothing. Closes when:* Chrome's
   drawing of such a body is measured and this engine's line is cut, or
   not, as Chrome's is, in numbers and a reference render.
+  ***Done (iteration 441), measured.*** Against Chrome 156.0.8078.73,
+  headless, `DejaVu Sans` by `@font-face`, two runs alike: under a root
+  of `visible`, a body 61 wide of `overflow: hidden; text-overflow:
+  ellipsis; white-space: nowrap` holding `aaaa bbbbbbbbb` draws the whole
+  line past its edge (ink to column 134, `scrollWidth` 136) and no "…";
+  under a root of `auto` it clips and draws `aaaa …`. The baseline
+  rereads `overflow` too, and is used as well: a body of `display:
+  inline-block; overflow: hidden` and two lines 20 tall in a root of
+  `line-height: 40px` makes the root 50 tall, as under `visible`, and 55
+  under a root of `auto`. `ellipsis.rs` and `baseline.rs` now ask
+  `viewport::takes_the_overflow_of` before reading a box's `overflow`.
+  Cases `a-body-whose-overflow-the-viewport-takes-ends-no-line` and
+  `…-stands-on-its-last-line`, each with Chrome's screenshot; their ink
+  is in Chrome's columns and rows (the letters differ, Chrome drawing them
+  heavier on macOS), asserted with the boxes in
+  `a_body_whose_overflow_the_viewport_takes.rs`; a layout test in
+  `alo-layout`'s `tests/ellipsis.rs` under roots of `visible` and `auto`.
 
 - [x] **646. A form Chrome refuses and draws no bubble for.** *Cut from
   631 (iteration 387); ADR 0051 § 6 and its amendment of 25 October.*

@@ -1,0 +1,16 @@
+/* An `inline-block` body whose `overflow` the viewport takes, queue item
+   664. Its used `overflow` is `visible`, so it stands on its last line, not
+   on its bottom margin edge as a box that clips does: Chrome 156 makes the
+   root 50 tall here, as it does under `overflow: visible`, and 55 under a
+   root of `overflow: auto`, where the body's `hidden` is its own
+   (crates/alo-layout/src/baseline.rs). */
+html { background: #ffffff; font-size: 16px; line-height: 40px }
+body {
+  margin: 0;
+  display: inline-block;
+  overflow: hidden;
+  background: #dde2ee;
+  color: #000000;
+  font-size: 16px;
+  line-height: 20px;
+}

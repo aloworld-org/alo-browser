@@ -488,6 +488,11 @@ The root's `overflow` is the viewport's, and so is the body's under a root
 of `visible` (662): neither clips what it holds, and a margin collapses
 through such a body as through one of `visible`;
 `a-body-gives-the-viewport-its-overflow` is Chrome's in every pixel at one.
+Such a body ends no line in "…" and, as an `inline-block`, stands on its
+last line (664): `a-body-whose-overflow-the-viewport-takes-ends-no-line`
+and `…-stands-on-its-last-line` have their ink in the same columns and rows
+as Chrome 156's screenshots, and the latter's root is Chrome's 50 tall; the
+letters themselves differ, Chrome drawing them heavier on macOS.
 An `<svg>` is clipped to its content box on whole device pixels and
 drawn from its border box's corner on one, plus its border and padding as
 laid out; an SVG file in an `<img>` is drawn into its rounded content box,

@@ -1,0 +1,4 @@
+fill box#0 rgb(255 255 255) at (0, 0) 200×50
+fill box#1 rgb(221 226 238) at (0, 0) 30×40
+text box#2 "one" rgb(0 0 0) 16px at (0, 15)
+text box#4 "two" rgb(0 0 0) 16px at (0, 35)

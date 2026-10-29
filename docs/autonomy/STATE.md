@@ -44832,3 +44832,81 @@ its Owed clause no longer names 694.
 
 The next unused queue number is **696** and the next ADR is **0073**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 441 — queue item 664: `text-overflow` on a box whose `overflow` the viewport takes — done
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s head and
+stage 2 agent-surface line, iteration 440's entry, queue item 664 and the
+item it was cut from (662); `docs/features.md`'s `text-overflow` line
+(664's contract); `alo-layout`'s `ellipsis.rs`, `baseline.rs`,
+`viewport.rs`, `scroll_container.rs` and `engine.rs`'s use of
+`takes_the_overflow_of`. 664 implements CSS Overflow 3 § 3.3 as 662 did
+and names no ADR of its own; ADR 0004 (our layout tree) is unchanged. No
+`AGENTS.md` exists.
+
+**Why 664.** The product path has nothing buildable (477 closes only on a
+Mac that never built it; 684 depends on 477 and needs an ADR). On the
+engine path 665 depends on 521 and 668 waits for a page; 664, the first
+open item after 694, depends on nothing.
+
+**Measured.** Chrome 156.0.8078.73, headless, `DejaVu Sans` by
+`@font-face`, the sheet after the doctype, `--dump-dom` with a kill loop
+and screenshots, two runs alike (results read only from runs whose
+`document.fonts.load` had resolved). Under a root of `visible`, a body 61
+by 22 of `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`
+holding `aaaa bbbbbbbbb` draws the whole line past its edge and no "…"
+(`scrollWidth` 136, computed `overflow` still `hidden`); under a root of
+`auto` it clips and draws `aaaa …`. `baseline.rs` rereads `overflow` too,
+so that was measured as well: a body of `display: inline-block;
+overflow: hidden`, two lines of 20, in a root of `line-height: 40px`,
+makes the root 50 tall (as under `visible`) and 55 under a root of
+`auto`; the body is 29.78125 by 40 at the origin in all three.
+
+**Built.** `ellipsis.rs`'s `ends_its_lines` and `baseline.rs`'s search
+ask `viewport::takes_the_overflow_of` before reading a box's `overflow`,
+so both read its used value, as layout and paint already did. Cases
+`a-body-whose-overflow-the-viewport-takes-ends-no-line` and
+`a-body-whose-overflow-the-viewport-takes-stands-on-its-last-line`, each
+with `chrome.png` (Chrome's screenshot of the case's bytes, RGBA);
+`alo-corpus`'s `a_body_whose_overflow_the_viewport_takes.rs` asserts the
+boxes (body 61×22; body 29.78125×40, root 200×50), no ellipsis and no
+clip in the display list, and ink in the same columns and rows as
+Chrome's (1–134 × 3–14; 1–28 × 6–34). `alo-layout`'s `tests/ellipsis.rs`
+gains a body under roots of no `overflow`, `visible` and `auto`.
+
+**Checks.** Each fix removed in turn (restored from a copy, `cmp`):
+without the ellipsis check, the layout test and the first corpus test
+fail; without the baseline check the second fails with the root 55 —
+Chrome's number under a root of `auto`. `ALO_UPDATE_REFERENCES=1` over
+the corpus wrote only the two new cases' files. Pixel for pixel the
+pictures are not Chrome's — 54 and 13 pixels differ by more than 64,
+all in letters, which Chrome on macOS draws heavier — so they are
+compared by their ink's extent.
+
+**The gate.** In the foreground; the tool moved it to the background at
+600 s and an until-loop in the next call read it: **5569 tests, 5569
+passed, 10 of 10 steps, "The gate is met.", exit 0.** `cargo fmt` and
+`cargo clippy --workspace --all-targets` clean before it; `alo-layout`'s
+lib and integration tests run on their own first.
+
+**Manual.** Layout assertions in numbers: the corpus test's boxes and the
+layout test's ellipsis. Reference renders: the two cases' `render.png`,
+beside Chrome's screenshots. One file, one responsibility: whose
+`overflow` the viewport takes stays `viewport.rs`'s, asked by the two
+readers rather than repeated in them. Documentation in the change:
+features, conformance, both modules' comments, queue, roadmap,
+changelog. No `unsafe`, no new rented crate, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched. The probes' profiles
+were removed. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's agent-surface line gains that a
+body whose `overflow` the viewport takes ends no line and stands on its
+last line (664); its Owed clause no longer names 664.
+
+**Unresolved obligations.**
+- 538 still has two pages and is unbuilt.
+- 477 still closes only on a Mac that never built it; 684 needs an ADR.
+- No claim about speed is made.
+
+The next unused queue number is **696** and the next ADR is **0073**.
+This is one iteration, not a finished queue or roadmap.

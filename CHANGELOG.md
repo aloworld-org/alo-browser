@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's body that hands its `overflow` to the window no longer cuts
+  its text short.** A `<body>` given `overflow: hidden` and
+  `text-overflow: ellipsis` under a root left at `visible` ended its line
+  in "…", though the window, not the body, takes that `overflow` and
+  Chrome 156 draws the whole line; and an `inline-block` body like it
+  stood on its bottom edge rather than its last line, making the page 5
+  pixels taller than Chrome's. Now both are drawn as Chrome draws them
+  (item 664).
+
 - **A grid with a scroll bar scrolls to the end of its columns and
   rows.** A scrolling grid whose columns were wider than it scrolled
   only as far as the boxes inside them, so one of a 120-pixel column in

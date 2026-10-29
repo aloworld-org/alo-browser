@@ -21,7 +21,14 @@
 //! block under `clip` inside an `inline-block` is searched into. Under
 //! `hidden`, `scroll` or `auto` on either axis — `overflow-x: clip;
 //! overflow-y: hidden` among them — the box stands on its bottom margin
-//! edge. The test is [`crate::scroll_container`]'s, on the box's style.
+//! edge. The test is [`crate::scroll_container`]'s, on the box's style —
+//! its **used** `overflow`, so a `<body style="display:inline-block;
+//! overflow:hidden">` under a root of `visible`, whose `overflow` the
+//! viewport takes ([`crate::viewport`]), stands on its last line: measured
+//! against Chrome 156, a body of two lines 20 tall in a root of
+//! `line-height: 40px` makes the root 50 tall, as under `visible`, and 55
+//! under a root of `auto`, where the body clips and stands on its bottom
+//! margin edge (queue item 664).
 //!
 //! An **`inline-flex`** box stands on its *first* baseline, which CSS
 //! Flexbox 1 § 8.5 takes from its items: the first item's own first
@@ -83,6 +90,7 @@ use crate::keyword::{Alignment, FlexDirection, Positioning};
 use crate::scroll_container;
 use crate::style::{self, LayoutStyle};
 use crate::tree::BoxGeometry;
+use crate::viewport;
 use alo_box::{BoxId, BoxTree, Inside};
 use alo_style::StyleTree;
 use std::collections::BTreeMap;
@@ -181,8 +189,11 @@ impl LaidOut<'_> {
             return Found::Nothing;
         }
         let held = self.style_of(id);
+        // A body whose `overflow` the viewport takes is `visible` in use, and
+        // stands on its last line (queue item 664).
         if let Some(held) = &held
             && scroll_container::scrolls_by_its_style(held)
+            && !viewport::takes_the_overflow_of(self.boxes, self.styles, id)
         {
             return Found::Refused;
         }

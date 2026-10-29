@@ -2572,10 +2572,11 @@ disappeared behind the larger.
       scroll it (queue item 675), and pads a child moved by `position:
       relative` where it stood (queue item 693), by a percentage or a
       `calc()` holding one as well (queue item 695), and pads a grid's
-      tracks rather than its items' margin boxes (queue item 694).
+      tracks rather than its items' margin boxes (queue item 694). A body
+      whose `overflow` the viewport takes ends no line in "…" and stands
+      on its last line, as Chrome 156 draws it (queue item 664).
       · Owed: a list box that shows its options and scrolls to the rest
-      (665), `text-overflow` on a box whose `overflow` the viewport takes
-      (664); loading where a verb leads, which is
+      (665); loading where a verb leads, which is
       item 85's for every navigation; a box's id kept across a verb that
       adds a box (500); and Windows, which ADR 0055 leaves undecided.
 - [ ] **The person's gate.** A person uses it as their browser for a week and

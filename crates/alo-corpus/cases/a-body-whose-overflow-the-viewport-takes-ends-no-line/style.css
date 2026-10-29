@@ -1,0 +1,18 @@
+/* `text-overflow` on a body whose `overflow` the viewport takes, queue item
+   664. The root's `overflow` is `visible`, so the viewport takes the body's
+   `hidden` and the body's own used `overflow` is `visible`: Chrome 156 ends
+   none of its lines and clips nothing, and "aaaa bbbbbbbbb" runs on past the
+   body's 61 pixels with no "…". Under a root of `auto` the same body clips
+   and its line is "aaaa …" (crates/alo-layout/src/ellipsis.rs). */
+html { background: #ffffff }
+body {
+  margin: 0;
+  width: 61px;
+  height: 22px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #dde2ee;
+  color: #000000;
+  font-size: 16px;
+}
