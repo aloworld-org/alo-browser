@@ -45153,3 +45153,80 @@ which needs an administrator) added.
 
 The next unused queue number is **699** and the next ADR is **0074**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 445 — queue item 697: a `.local` name Chrome's lookup does not answer — the cause named (macOS's Local Network privacy), and the application's page says what to do
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s stage 2
+second-renderer line, iteration 444's entry; queue items 697, 698, 676;
+ADR 0060's fourth amendment and resolver note, ADR 0008 (via 0060);
+`docs/features.md`'s second-renderer line (697's contract); the corpus
+case `the-applications-page` and how `bundle_made.rs` takes it. No
+`AGENTS.md` exists.
+
+**Why 697.** The product path has nothing buildable (477 closes only on a
+Mac that never built it; 684 needs an ADR). After 650 the next open item
+in the file is 697, whose one dependency, 650, is done; its closing
+condition admits "the cause is named and the item says what a person must
+do to allow it, and the application's own page says so". 698 after it
+needs an administrator.
+
+**Measured** (Chrome 156.0.8078.73, macOS 26.5.2, headless; scratch
+probes in the scratchpad, never committed). `python3 -m http.server` on
+0.0.0.0:8697; `curl http://disans-laptop.local:8697/` answered 200 in
+9 ms; Chrome's `--dump-dom` of the same had loaded nothing at 30 s, its
+net log naming the host. With `/usr/bin/log stream` on mDNSResponder
+(zsh's builtin `log` shadows it — that is why 444 found the log
+unreadable): Chrome's helper asks `DNSServiceQueryRecord` for the name,
+and mDNSResponder logs *"Local network access to query(…) policy
+'pending' for (com.google.Chrome.helper)"* and *"Local network alert for
+(com.google.Chrome.helper) query(local)"*, for each retry. The window
+list showed a `UserNotificationCenter` window, captured with
+`screencapture -l`: *"Allow 'Google Chrome Helper' to find devices on
+local networks?"*, Don't Allow / Allow. It was **left unanswered**:
+granting a privacy permission on this machine is the owner's choice.
+
+**Built.** `the-applications-page` gains a paragraph under *What it is
+not yet*: a page at a `.local` name waits until macOS lets Chrome look on
+the local network; choose Allow, or allow it later in System Settings
+under Privacy & Security, Local Network. ADR 0060's resolver note gains
+*Why, found by item 697*. No code changed.
+
+**Checks.** `ALO_UPDATE_REFERENCES=1` over the whole corpus test
+(`--no-fail-fast`, the case backed up first) rewrote only
+`the-applications-page`: the new paragraph 640×96 at (96, 630), the
+closing line moved to (96, 742), the document 1200×846 from 734 (the text
+ends at y 763, inside the 800-px window; only the body's bottom padding
+lies past it). The render was read: the paragraph wraps inside `main`,
+`.local` in the code face.
+
+**The gate.** In the foreground into a scratchpad log; the tool moved it
+to the background at 600 s and a foreground until-loop in the next call
+read it: **5575 tests, 5575 passed, 10 of 10 steps, "The gate is met.",
+exit 0.** `cargo fmt --check` clean before it; no Rust changed, so
+clippy's answer is the gate's.
+
+**Manual.** Layout assertion in numbers: the case's `layout.txt`,
+`boxes.txt` and `agent.txt`. Reference render: the case's `render.png`,
+rewritten and read. One file, one responsibility: the page's text is the
+page's. Documentation in the change: ADR 0060, features, queue, roadmap,
+changelog. No `unsafe`, no rented crate, no verb taking a coordinate.
+`alo-os` and `alo-workplace` untouched. Probe server and Chromes stopped,
+their profiles in the scratchpad. Nothing pushed.
+
+**Roadmap.** Moved, not ticked: stage 2's second-renderer line gains the
+`.local` cause found and said on the application's page (697); its Owed
+clause loses 697. Queue: 697 ticked with a *Done: the cause is named*
+paragraph.
+
+**Unresolved obligations.**
+- The lookup after Allow, and after Don't Allow, is not measured; the
+  alert stays on this Mac's screen for the owner to answer. Until it is
+  answered, every Chrome test that looks up a `.local` name would hang.
+- 698 needs an administrator; 696 needs an ADR and the owner's
+  judgement; 477 still closes only on a Mac that never built it; 684
+  needs an ADR. Next by file order on the engine path is 676 (ADR 0065
+  decided, build owed).
+- No claim about speed is made.
+
+The next unused queue number is **699** and the next ADR is **0074**.
+This is one iteration, not a finished queue or roadmap.

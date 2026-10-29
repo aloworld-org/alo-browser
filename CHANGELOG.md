@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Why a `.local` address does not open, and what to do about it.** A
+  page at a name ending in `.local`, such as the Mac's own name, does not
+  load in the Chrome behind the browser. The cause is macOS's Local Network privacy: it holds Chrome's
+  lookup until somebody answers its question *"Allow 'Google Chrome
+  Helper' to find devices on local networks?"*. The application's own
+  page now says so, and where to allow it later (item 697).
+
 - **The Chrome behind the browser asks the machine for every name.**
   Chrome used to look names up with a DNS client of its own, which asks
   the network's nameservers directly and can pass over what the machine

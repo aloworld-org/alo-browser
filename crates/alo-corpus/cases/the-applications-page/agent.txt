@@ -1,5 +1,5 @@
-document at (0, 0) 1200×734
-  main at (96, 64) 640×590
+document at (0, 0) 1200×846
+  main at (96, 64) 640×702
     heading "alo browser" [level=1] at (96, 64) 640×40
     paragraph at (96, 112) 640×24
       text "This page is drawn by this Mac's Chrome, driven by alo browser." at (96, 114) 580.46875×19
@@ -17,5 +17,9 @@ document at (0, 0) 1200×734
       text "." at (205.57813, 480) 5.09375×19
     paragraph at (96, 518) 640×96
       text "Chrome asks Google for two things of its own that are not held to alo browser's rules or kept in its record: which Google accounts it is signed into, and the list of its on-device models. alo browser starts it with everything else it would ask for of its own switched off." at (96, 520) 635.3594×91 in 4 pieces
-    paragraph at (96, 630) 640×24
-      text "Closing this window, or quitting, closes alo browser." at (96, 632) 413.78125×19
+    paragraph at (96, 630) 640×96
+      text "A page at a name ending in" at (96, 632) 222.15625×19
+      text ".local" at (323.23438, 634) 50.578125×16
+      text ", such as this Mac's own, waits until macOS lets Chrome look on the local network. macOS asks whether to allow “Google Chrome Helper” to find devices on local networks; choose Allow, or allow it later in System Settings, under Privacy & Security, Local Network." at (96, 632) 625.90625×91 in 4 pieces
+    paragraph at (96, 742) 640×24
+      text "Closing this window, or quitting, closes alo browser." at (96, 744) 413.78125×19

@@ -18303,7 +18303,7 @@ What stage 2's exit gate actually measures: a person using it.
   a scoped resolver and the system's encrypted DNS measured as honoured,
   which needs an administrator to set up (698).
 
-- [ ] **697. A `.local` name Chrome's lookup does not answer.** *Cut from
+- [x] **697. A `.local` name Chrome's lookup does not answer.** *Cut from
   650 (iteration 444); ADR 0008, ADR 0060's fourth amendment.* The
   machine's own `.local` name is answered with `127.0.0.1` among others by
   `dscacheutil -q host`, `curl` and Python's `getaddrinfo` in a few
@@ -18318,6 +18318,25 @@ What stage 2's exit gate actually measures: a person using it.
   with a test serving a page at the machine's own `.local` name — or the
   cause is named and the item says what a person must do to allow it, and
   the application's own page says so.
+  ***Done (iteration 445): the cause is named.*** macOS's Local Network
+  privacy. Measured against Chrome 156.0.8078.73, headless, loading
+  `http://disans-laptop.local:8697/` from a local server (`curl` answered
+  in 9 ms; Chrome had loaded nothing at 30 s), with mDNSResponder's log
+  streamed (`/usr/bin/log stream`, not zsh's `log`): Chrome's helper
+  (`Google Chrome H`) asks `DNSServiceQueryRecord` for the name, and
+  mDNSResponder logs *"Local network access to query(…) policy 'pending'
+  for (com.google.Chrome.helper)"* and *"Local network alert for
+  (com.google.Chrome.helper) query(local)"*, each retry the same. The
+  alert was on screen, a `UserNotificationCenter` window: *"Allow 'Google
+  Chrome Helper' to find devices on local networks?"*, Don't Allow or
+  Allow. A process asked from a terminal is not held. What a person must
+  do: choose Allow, or allow it later in System Settings under Privacy &
+  Security, Local Network — said under *What it is not yet* on the
+  application's own page (`the-applications-page`, references rewritten
+  and read). ADR 0060's resolver note records it. **Not measured:** the
+  lookup after Allow and after Don't Allow — answering a privacy alert on
+  this machine is the owner's choice, and it was left unanswered; a shown
+  Chrome asks as the same helper.
 
 - [ ] **698. A scoped resolver and the system's encrypted DNS, measured
   through Chrome.** *Cut from 650 (iteration 444); ADR 0008.* Every name

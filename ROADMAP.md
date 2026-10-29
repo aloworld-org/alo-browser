@@ -984,11 +984,12 @@ unreachable without it.
       named requests, held by a net-log test and said on the application's
       own page (ADR 0073, 649), and its own DNS client switched off so
       that every name is asked of the system's resolver, held by a
-      net-log test (ADR 0060's fourth amendment, 650)
+      net-log test (ADR 0060's fourth amendment, 650), a `.local` name
+      found held by macOS's Local Network privacy until a person allows
+      Chrome, and the application's own page saying so (697)
       · Owed: Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
-      and is 696's, needs ADR; a `.local` name, which
-      Chrome's lookup does not answer where the system's does (697); a
+      and is 696's, needs ADR; a
       scoped resolver and the system's own encrypted DNS measured through
       Chrome, which needs an administrator (698) — the
       frame itself stands, follows, and

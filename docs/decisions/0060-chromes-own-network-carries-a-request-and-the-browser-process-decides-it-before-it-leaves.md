@@ -363,3 +363,15 @@ unanswered in Chrome after 9 s with its own client on, 12 s with its
 sandbox off, and 25 s with its own client off, a retry at 6 s each time;
 this Mac's network settings do not deny Chrome multicast. Why is item 697.
 
+**Why, found by item 697 (29 October 2026).** macOS's Local Network
+privacy. mDNSResponder's own log, read while Chrome 156 looked the name
+up, names the policy for `com.google.Chrome.helper` as *pending* and
+raises an alert for it, which macOS showed as *"Allow 'Google Chrome
+Helper' to find devices on local networks?"*; while it is pending the
+query is held, unanswered. `curl` and Python asked from a terminal are
+not held. Answering the alert was not measured: that is the owner's
+choice for this machine, and it was left unanswered. This is the system resolver doing what the machine was set up
+to do, which ADR 0008 asks for; it is not Chrome's to work around nor
+ours. The application's own page says what a person must do: allow it,
+there or in System Settings under Privacy & Security, Local Network.
+

@@ -1,4 +1,4 @@
-fill box#2 rgb(244 241 236) at (0, 0) 1200×734
+fill box#2 rgb(244 241 236) at (0, 0) 1200×846
 text box#7 "alo browser" rgb(16 42 67) 32px at (96, 95)
 text box#10 "This page is drawn by this Mac's Chrome, driven by alo browser." rgb(231 111 81) 16px at (96, 129)
 text box#13 "What this is" rgb(16 42 67) 18px at (96, 188)
@@ -20,4 +20,10 @@ text box#34 "Chrome asks Google for two things of its own that are not held to a
 text box#34 "rules or kept in its record: which Google accounts it is signed into, and the list" rgb(16 42 67) 16px at (96, 559)
 text box#34 "of its on-device models. alo browser starts it with everything else it would ask" rgb(16 42 67) 16px at (96, 583)
 text box#34 "for of its own switched off." rgb(16 42 67) 16px at (96, 607)
-text box#37 "Closing this window, or quitting, closes alo browser." rgb(16 42 67) 16px at (96, 647)
+text box#37 "A page at a name ending in" rgb(16 42 67) 16px at (96, 647)
+text box#39 ".local" rgb(16 42 67) 14px at (323.23438, 647)
+text box#40 ", such as this Mac's own, waits until macOS" rgb(16 42 67) 16px at (373.8125, 647)
+text box#40 "lets Chrome look on the local network. macOS asks whether to allow “Google" rgb(16 42 67) 16px at (96, 671)
+text box#40 "Chrome Helper” to find devices on local networks; choose Allow, or allow it" rgb(16 42 67) 16px at (96, 695)
+text box#40 "later in System Settings, under Privacy & Security, Local Network." rgb(16 42 67) 16px at (96, 719)
+text box#43 "Closing this window, or quitting, closes alo browser." rgb(16 42 67) 16px at (96, 759)
