@@ -765,7 +765,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   as *navigation Chats* with each chat by its name and state. **The first
   screen is built** (700): the greeting, the one box an agent reads as a
   search with its field and *Go*, a person's sites and the chats waiting on
-  them. Owed: both in the engine's window and pressed (709), going to a website with no model (701), a
+  them. **Both are in the engine's window** (709): `alo --conversation`
+  opens the design's window with the panel down the left, 240 px wide, and
+  the first screen beside it, each painted by its own confined renderer and
+  composed from the frames they last sent, greeting a person with *Hello.*
+  until the browser reads the time of day. Owed: a press on either (710),
+  going to a website with no model (701), a
   page inside the conversation (702), the conversation (703), the agent at
   work (704), its settings (705), the typefaces (706); the answer (707) and
   search results (708) wait on the owner's choice of a model and a search

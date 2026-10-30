@@ -63,14 +63,17 @@ impl Bundle {
     /// What `alo` opens inside this application when it was asked for
     /// `opening`, and whether the machine has a Chrome.
     ///
-    /// A page named is opened as it always is. Nothing named — no page and
-    /// no `--chrome` — opens [`Bundle::page`] in Chrome; with no Chrome,
+    /// A page named is opened as it always is, and so is the conversation
+    /// (`--conversation`, queue item 709), which this engine draws with or
+    /// without a Chrome. Nothing named — no page, no `--chrome` and no
+    /// `--conversation` — opens [`Bundle::page`] in Chrome; with no Chrome,
     /// [`Bundle::page_without_chrome`] in this engine. An option only this
     /// engine uses (`--scale`, `--frozen-fonts`) beside nothing named is a
     /// person asking for this engine from a terminal, and it opens the empty
     /// tab it always has: the application's page would say Chrome draws it.
     pub fn opening(&self, opening: Opening, chrome: bool) -> Opening {
-        let named = opening.page.is_some() || opening.renderer == Renderer::Chrome;
+        let named =
+            opening.page.is_some() || opening.renderer == Renderer::Chrome || opening.conversation;
         if named {
             return opening;
         }
@@ -153,6 +156,19 @@ mod tests {
         unshape(&folder);
         for program in ["/", "alo", "/usr/local/bin/alo", "target/debug/alo"] {
             assert_eq!(Bundle::around(Path::new(program)), None, "{program}");
+        }
+    }
+
+    #[test]
+    fn the_conversation_asked_for_is_opened_as_asked_with_or_without_chrome() {
+        let bundle = Bundle {
+            resources: PathBuf::from("/A.app/Contents/Resources"),
+        };
+        let Some(asked) = opening(&["--conversation"]) else {
+            panic!("an argument");
+        };
+        for chrome in [true, false] {
+            assert_eq!(bundle.opening(asked.clone(), chrome), asked, "{chrome}");
         }
     }
 

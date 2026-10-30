@@ -19,6 +19,16 @@ pub fn background() -> Rgba {
     Rgba::from_rgba8(0xf4, 0xf1, 0xec, 0xff)
 }
 
+/// Behind the chats panel until its renderer has painted, and wherever its
+/// frame does not reach (queue item 709): the design's *Panel*, ADR 0074
+/// § 2 — the one colour here that is the conversation's palette rather than
+/// a token of `tokens.css`, because the panel it stands behind is drawn in
+/// that palette, and the room around it would otherwise be another colour
+/// for the moment before it paints.
+pub fn panel() -> Rgba {
+    Rgba::from_rgba8(0xee, 0xea, 0xe2, 0xff)
+}
+
 /// Behind the tab strip until its renderer has painted, and wherever its
 /// frame does not reach: `--bg-rail`, the strip's own ground, so the band
 /// is the strip's colour from the window's first moment.

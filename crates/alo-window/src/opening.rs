@@ -32,6 +32,13 @@
 //! engine's, so what only this engine's window or renderers use — a scale,
 //! the frozen fonts, a page's sheets — is refused beside it rather than
 //! quietly dropped.
+//!
+//! And it is where a person asks for the browser's own interface as a
+//! conversation (`--conversation`, ADR 0074, queue item 709): the chats
+//! panel and the first screen, in this engine's window. It opens no page
+//! and no tab, so a page, a sheet, Chrome or an agent's site named beside
+//! it is refused rather than quietly dropped; the frozen fonts and a scale
+//! are this engine's window's, and are kept.
 
 use crate::agent_sites::AgentSites;
 use crate::chrome_serving;
@@ -45,7 +52,8 @@ use std::path::{Path, PathBuf};
 
 /// How to use `alo`, as it is said when it was used wrongly.
 pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
-     [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)";
+     [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)\n       \
+     alo --conversation [--frozen-fonts] [--scale FACTOR]";
 
 /// The size, in CSS pixels, a page in Chrome is laid out at: the size ADR
 /// 0061 measured Chrome's frames at. Chrome's window is sized to hold the
@@ -87,6 +95,10 @@ pub struct Opening {
     pub scale: Option<Scale>,
     /// Which renderer draws the page.
     pub renderer: Renderer,
+    /// Whether the window shows the browser's own interface as a
+    /// conversation (ADR 0074) — the chats panel and the first screen —
+    /// rather than a page under a strip of tabs.
+    pub conversation: bool,
 }
 
 impl Opening {
@@ -110,23 +122,30 @@ impl Opening {
     /// then be an address as well as a file — in a window of Chrome's own,
     /// not in this engine's.
     ///
+    /// `--conversation` opens the browser's own interface instead of a page:
+    /// the chats panel and the first screen, drawn by this engine.
+    ///
     /// # Errors
     ///
     /// [`USAGE`] with what was wrong, for an option that is not one, an
     /// `--agent-site` with no address or one that has no site, a `--scale`
     /// with no factor or one that is not measured, or a sheet with no page;
     /// and with `--chrome`, no page, or a scale, the frozen fonts or a sheet
-    /// beside it.
+    /// beside it; and with `--conversation`, a page, a sheet, `--chrome` or
+    /// an agent's site beside it.
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let mut fonts = Fonts::AsAsked;
         let mut files = Vec::new();
         let mut sites = Vec::new();
         let mut scale = None;
         let mut renderer = Renderer::ThisEngine;
+        let mut conversation = false;
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
             if argument == "--chrome" {
                 renderer = Renderer::Chrome;
+            } else if argument == "--conversation" {
+                conversation = true;
             } else if argument == "--frozen-fonts" {
                 fonts = Fonts::AsStarted;
             } else if argument == "--agent-site" {
@@ -155,11 +174,29 @@ impl Opening {
             agents,
             scale,
             renderer,
+            conversation,
         };
-        if renderer == Renderer::Chrome {
+        if conversation {
+            opening.refuse_beside_the_conversation(!sites.is_empty())?;
+        } else if renderer == Renderer::Chrome {
             opening.refuse_beside_chrome()?;
         }
         Ok(opening)
+    }
+
+    /// What `--conversation` cannot be given, or nothing: `agents_named`
+    /// says whether an agent's site was.
+    fn refuse_beside_the_conversation(&self, agents_named: bool) -> Result<(), String> {
+        let refused = if self.renderer == Renderer::Chrome {
+            "--conversation is drawn by this engine, and Chrome draws no part of it yet"
+        } else if self.page.is_some() || !self.sheets.is_empty() {
+            "--conversation opens the browser's own first screen, and no page"
+        } else if agents_named {
+            "--agent-site keeps agents to sites, and the conversation opens none for them to reach"
+        } else {
+            return Ok(());
+        };
+        Err(format!("{refused}\n{USAGE}"))
     }
 
     /// What `--chrome` cannot be given, or nothing.
@@ -453,6 +490,53 @@ mod tests {
     }
 
     #[test]
+    fn the_conversation_is_asked_for_with_this_engines_fonts_and_scale() {
+        let opening = Opening::from_arguments(arguments(&[
+            "--conversation",
+            "--frozen-fonts",
+            "--scale",
+            "2",
+        ]))
+        .expect("these are arguments");
+        assert!(opening.conversation);
+        assert_eq!(opening.fonts, Fonts::AsStarted);
+        assert_eq!(opening.scale, Some(Scale::TWO));
+        assert_eq!(opening.renderer, Renderer::ThisEngine);
+        assert_eq!(opening.page, None);
+        let plain = Opening::from_arguments(arguments(&[])).expect("no arguments is fine");
+        assert!(
+            !plain.conversation,
+            "a window of tabs unless it is asked for"
+        );
+    }
+
+    #[test]
+    fn what_the_conversation_cannot_be_given_is_refused_before_it_opens() {
+        let refused = |words: &[&str]| Opening::from_arguments(arguments(words));
+        for (words, said) in [
+            (
+                &["--conversation", "--chrome", "a.html"][..],
+                "Chrome draws no part of it",
+            ),
+            (
+                &["--chrome", "--conversation"][..],
+                "Chrome draws no part of it",
+            ),
+            (&["--conversation", "a.html"][..], "and no page"),
+            (&["a.html", "b.css", "--conversation"][..], "and no page"),
+            (
+                &["--conversation", "--agent-site", "https://example.com"][..],
+                "opens none for them to reach",
+            ),
+        ] {
+            assert!(
+                refused(words).is_err_and(|why| why.contains(said) && why.contains(USAGE)),
+                "{words:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_frozen_page_is_read_with_its_sheet_and_named_by_its_file() {
         let case = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases/alo-sign-in");
         let opening = Opening {
@@ -462,6 +546,7 @@ mod tests {
             agents: AgentSites::Every,
             scale: None,
             renderer: Renderer::ThisEngine,
+            conversation: false,
         };
         let Ok(Order::Open {
             url,
@@ -486,6 +571,7 @@ mod tests {
             agents: AgentSites::Every,
             scale: None,
             renderer: Renderer::ThisEngine,
+            conversation: false,
         };
         assert!(
             opening

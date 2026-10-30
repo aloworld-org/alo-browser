@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The new interface, in a window.** `alo --conversation` opens the
+  browser's own interface as the owner designed it: the chats panel down the
+  left and the first screen beside it, each drawn by this engine in a
+  locked-down renderer of its own. It holds one new chat and says *Hello.*;
+  pressing a chat or the box does nothing yet (item 710).
+
 - **The new interface's first screen.** What a new chat shows, as the owner
   designed it: a greeting, one box — *Ask anything, search, or type a
   website* — the sites a person keeps, and the chats waiting on them. Drawn

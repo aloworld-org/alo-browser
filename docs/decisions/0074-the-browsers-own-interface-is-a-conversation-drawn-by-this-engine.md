@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel built (queue item 699); the rest queued (700–708)
+**Status:** accepted — the chats panel (699), the first screen (700) and their window (709) built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -121,7 +121,8 @@ wait on them.
 - The agent reads the panel as a `navigation` named *Chats*: a list of links,
   each named by its chat, the open one `aria-current`, one at work
   `aria-busy`, a finished one saying *Done* in words.
-- The panel is not yet in a window: 700 puts it and the first screen into
-  one. A press on it is 700's too, by the strip's road (ADR 0024 § 5).
+- The panel and the first screen are put in a window of their own by 709
+  (`alo --conversation`); a press on either is 710's, by the strip's road
+  (ADR 0024 § 5).
 - `docs/design/shell.md` is the written form of the design and is what these
   items are checked against; the canvas it came from is the owner's.

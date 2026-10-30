@@ -45327,3 +45327,39 @@ greeting's words are the browser process's to choose and nothing chooses
 them yet. No claim about speed is made.
 
 The next unused queue number is **710** and the next ADR is **0075**.
+
+## Iteration 448 — queue item 709: the chats panel and the first screen in a window of their own, `alo --conversation`; a press on them cut to 710
+
+**Built by a delegated agent, reviewed here.** `conversation.rs` (the
+state the browser process holds), `conversation_place.rs` (geometry in
+numbers), `conversation_compose.rs` (the composition function),
+`conversation_drawing.rs` (the thread holding the two confined renderers,
+after `frame_strip.rs`, never waited on); a third event loop in
+`window.rs`, which stays the one file naming `winit`; the `--conversation`
+flag in `opening.rs`, refused beside `--chrome`, a page or `--agent-site`;
+`bin/alo.rs`'s header; `colours::panel`. Other modes unchanged.
+
+**Cut.** A press on either part, *Search chats* and the hide button: 710.
+The greeting is *Hello.*: this engine reads no time zone (ADR 0036 § 3),
+so a greeting by the hour could be wrong.
+
+**Gate.** **5625 tests, 5625 passed, 10 of 10 steps, "The gate is met."**
+The agent had seen `a_closed_list_chosen_through_a_shown_chrome.rs` fail
+with the pointer never reaching its place while the machine was in use;
+in the gate all four of its tests passed, so that was the machine, not
+the change.
+
+**Manual.** Layout assertions in numbers at scales 1, 2 and 1.5 (panel
+(0,0,240,820) and first screen (240,0,1040,820) at 1; an odd device pixel
+at 1.5 is background; a window narrower than the panel is all panel).
+Reference renders `the-conversation.png` and `the-conversation-at-two.png`,
+looked at; two confined renderers paint them pixel for pixel. A screen
+capture of `alo --conversation --frozen-fonts` matched the reference at
+two in all but 102 of 1,049,600 sampled pixels within 4 per channel, the
+display's colour profile. ADR 0074's status and consequences updated.
+
+**Unresolved obligations.** Nothing in the window can be pressed yet
+(710). The greeting by the hour needs the machine's time zone. No claim
+about speed is made.
+
+The next unused queue number is **711** and the next ADR is **0075**.

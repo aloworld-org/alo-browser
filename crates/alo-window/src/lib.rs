@@ -88,6 +88,11 @@
 //!   [`chrome_pages`] from a tab in Chrome, which [`chrome_serving`] holds
 //!   on a thread of its own and answers the agent socket about, through the
 //!   same serving and the same grants (item 630).
+//! - [`conversation`] is the browser's own interface as a conversation
+//!   (ADR 0074, item 709), what `alo --conversation` opens: the chats
+//!   panel and the first screen, each drawn by a confined renderer of its
+//!   own that [`conversation_drawing`] holds, placed by
+//!   [`conversation_place`] and composed by [`conversation_compose`].
 //!
 //! # What it is not yet
 //!
@@ -146,6 +151,10 @@ pub mod closing;
 pub mod colours;
 pub mod compose;
 pub mod conductor;
+pub mod conversation;
+pub mod conversation_compose;
+pub mod conversation_drawing;
+pub mod conversation_place;
 pub mod cursor;
 pub mod engine_pages;
 pub mod fonts;

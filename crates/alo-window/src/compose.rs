@@ -220,7 +220,7 @@ fn draw_agent_lines(
 ///
 /// Blended over what is there rather than written, so a frame with a
 /// transparent pixel shows the window's colour there instead of black.
-fn copy(canvas: &mut Canvas, frame: &Frame, rect: PixelRect) {
+pub(crate) fn copy(canvas: &mut Canvas, frame: &Frame, rect: PixelRect) {
     for y in rect.y..rect.y + rect.height {
         for x in rect.x..rect.x + rect.width {
             let Some((red, green, blue, alpha)) = frame.at(x - rect.x, y - rect.y) else {

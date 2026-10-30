@@ -30,6 +30,14 @@
 //! Closing either closes both, and so does this browser's input ending —
 //! Ctrl-D at a terminal.
 //!
+//! `alo --conversation [--frozen-fonts] [--scale FACTOR]` opens the
+//! browser's own interface as a conversation instead (ADR 0074, queue item
+//! 709): the chats panel down the left and the first screen beside it, each
+//! drawn by a confined renderer of this engine's, in a window of the
+//! design's size. It holds one new chat and greets a person; it opens no
+//! page and no socket, and a press on it is not answered yet (queue item
+//! 710). Closing the window stops both renderers.
+//!
 //! Inside the macOS application, `alo browser.app` (queue item 477, ADRs
 //! 0067 and 0068), nothing named opens the application's own page in the
 //! machine's Chrome as `--chrome` would — or, on a Mac with no Chrome, in
@@ -74,6 +82,9 @@ fn main() -> ExitCode {
         Some(bundle) => in_the_application(bundle, &asked),
         None => asked,
     };
+    if opening.conversation {
+        return in_the_conversation(&opening);
+    }
     match opening.renderer {
         Renderer::ThisEngine => in_this_engine(&opening),
         Renderer::Chrome => in_chrome(&opening, bundle.is_none()),
@@ -160,6 +171,26 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
             ExitCode::FAILURE
         }
         (Ok(()), None) => ExitCode::SUCCESS,
+    }
+}
+
+/// Open the conversation's window — the chats panel and the first screen,
+/// each drawn by a renderer of this engine's — and run until it closes.
+fn in_the_conversation(opening: &Opening) -> ExitCode {
+    let renderers = match renderers(opening.fonts) {
+        Ok(renderers) => renderers,
+        Err(failed) => return failed,
+    };
+    eprintln!(
+        "alo: the browser's own interface is drawn by {}",
+        RenderedBy::ThisEngine
+    );
+    match alo_window::window::conversation(opening.scale, renderers) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(why) => {
+            eprintln!("alo: {why}");
+            ExitCode::FAILURE
+        }
     }
 }
 

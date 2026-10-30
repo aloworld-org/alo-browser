@@ -75,6 +75,21 @@
 //! stranger's string this process does not shape (ADR 0024 § 4). The
 //! window's own title stays "alo".
 //!
+//! # The conversation's window
+//!
+//! ADR 0074, queue item 709. [`conversation`] runs a third kind of window,
+//! for `alo --conversation`: the browser's own interface as the owner's
+//! design draws it, the chats panel down the left and the first screen
+//! beside it, at the design's size. It holds no tabs and no conductor. Each
+//! part is a document of ours drawn by a confined renderer of its own, on
+//! a thread that [`crate::conversation_drawing`] holds; the window sends
+//! that thread what it wants drawn at its size and scale
+//! ([`crate::conversation::Conversation`]) and draws what it is told was
+//! painted ([`crate::conversation_compose`]), never waiting on either
+//! renderer. A person's press on either part is not sent yet (queue item
+//! 710), and no key is the browser's in it, since it has no tab to open or
+//! close.
+//!
 //! # No `unsafe`
 //!
 //! Every `winit` function called here — `EventLoop::with_user_event`,
@@ -106,6 +121,10 @@ use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
 use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
+use crate::conversation::Conversation;
+use crate::conversation_compose::{ConversationScene, compose_conversation};
+use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
+use crate::conversation_place::{panel_viewport, start_viewport};
 use crate::cursor::{Cursor, Pressed};
 use crate::frame_strip::{FrameStrip, strip_of};
 use crate::frame_told::ToFrame;
@@ -133,6 +152,10 @@ use winit::window::{Window, WindowAttributes, WindowId, WindowLevel};
 
 /// How big a new window is, in the window server's logical points.
 const FIRST_SIZE: (f64, f64) = (1000.0, 700.0);
+
+/// How big the conversation's window opens, in logical points: the
+/// design's window, 1280 by 820 (`docs/design/shell.md`).
+const CONVERSATION_SIZE: (f64, f64) = (1280.0, 820.0);
 
 /// Run the window until it is closed and every tab under it is.
 ///
@@ -758,6 +781,222 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
     /// `AppKit` ends the process once this returns (item 688).
     fn exiting(&mut self, _: &ActiveEventLoop) {
         self.closing.run();
+    }
+}
+
+/// Run the conversation's window until it is closed (ADR 0074, queue item
+/// 709): the chats panel and the first screen, each drawn by a renderer of
+/// `renderers`' at a site of its own, laid out at `forced` when a person
+/// named a scale and at its screen's otherwise.
+///
+/// # Errors
+///
+/// What `winit` said, in words, when there could be no event loop or no
+/// window; or that the thread drawing the two parts could not be started,
+/// or did not finish.
+pub fn conversation(forced: Option<Scale>, renderers: Renderers) -> Result<(), String> {
+    let lettering =
+        Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
+    let event_loop = EventLoop::<Drawn>::with_user_event()
+        .build()
+        .map_err(|why| format!("no event loop: {why}"))?;
+    let proxy = event_loop.create_proxy();
+    let drawing = ConversationDrawing::start(
+        renderers,
+        Box::new(move |drawn| proxy.send_event(drawn).is_ok()),
+    )
+    .map_err(|why| format!("no thread to draw the chats panel and the first screen: {why}"))?;
+    let mut conversing = Conversing {
+        forced,
+        conversation: Conversation::default(),
+        drawing: Some(drawing),
+        finished: true,
+        panel: None,
+        panel_said: None,
+        start: None,
+        start_said: None,
+        lettering,
+        window: None,
+        presenter: None,
+        failed: None,
+    };
+    let ran = event_loop
+        .run_app(&mut conversing)
+        .map_err(|why| format!("the event loop stopped: {why}"));
+    // A loop refused before it ran never reached `exiting`.
+    if let Some(drawing) = conversing.drawing.take() {
+        conversing.finished = drawing.finish();
+    }
+    ran?;
+    match conversing.failed {
+        Some(why) => Err(why),
+        None if !conversing.finished => {
+            Err("the thread drawing the chats panel and the first screen did not finish".to_owned())
+        }
+        None => Ok(()),
+    }
+}
+
+/// The conversation's event loop's state.
+struct Conversing {
+    /// The scale a person named, if they named one.
+    forced: Option<Scale>,
+    /// What the browser process holds of the interface.
+    conversation: Conversation,
+    /// The thread drawing the two parts; [`None`] once finished.
+    drawing: Option<ConversationDrawing>,
+    /// Whether that thread finished rather than panicked, once waited for.
+    finished: bool,
+    /// The panel, as its renderer last painted it.
+    panel: Option<Frame>,
+    /// Why the panel's renderer painted nothing, since it last painted.
+    panel_said: Option<String>,
+    /// The first screen, as its renderer last painted it.
+    start: Option<Frame>,
+    /// Why the first screen's renderer painted nothing, since it last
+    /// painted.
+    start_said: Option<String>,
+    /// The face the window's own lines are drawn in.
+    lettering: Lettering,
+    window: Option<Rc<Window>>,
+    presenter: Option<Presenter<Rc<Window>>>,
+    /// Why the window had to stop, if it did.
+    failed: Option<String>,
+}
+
+impl Conversing {
+    /// The window's size in device pixels and its scale, if there is a
+    /// window.
+    fn measured(&self) -> Option<((u32, u32), Scale)> {
+        self.window.as_ref().map(|window| {
+            let size = window.inner_size();
+            let scale = self
+                .forced
+                .unwrap_or_else(|| Scale::of_screen(window.scale_factor()));
+            ((size.width, size.height), scale)
+        })
+    }
+
+    /// Have both parts drawn at the window's size and scale — which the
+    /// drawing thread does only for a part that differs from the last.
+    fn ask_drawn(&mut self) {
+        let Some((window, scale)) = self.measured() else {
+            return;
+        };
+        let Some(drawing) = self.drawing.as_mut() else {
+            return;
+        };
+        drawing.draw(Asked {
+            panel: self
+                .conversation
+                .panel(panel_viewport(window, scale), scale),
+            start: self
+                .conversation
+                .start(start_viewport(window, scale), scale),
+        });
+    }
+
+    /// Draw the window from what it has been told.
+    fn draw(&mut self) {
+        let Some((window, scale)) = self.measured() else {
+            return;
+        };
+        let canvas = compose_conversation(
+            &ConversationScene {
+                window,
+                scale,
+                panel: self.panel.as_ref(),
+                panel_sentence: self.panel_said.as_deref(),
+                start: self.start.as_ref(),
+                start_sentence: self.start_said.as_deref(),
+            },
+            &self.lettering,
+        );
+        if let Some(presenter) = self.presenter.as_mut()
+            && let Err(why) = presenter.show(&canvas)
+        {
+            self.failed = Some(why);
+        }
+    }
+}
+
+impl ApplicationHandler<Drawn> for Conversing {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
+            return;
+        }
+        let attributes = WindowAttributes::default()
+            .with_title("alo")
+            .with_inner_size(LogicalSize::new(CONVERSATION_SIZE.0, CONVERSATION_SIZE.1));
+        let window = match event_loop.create_window(attributes) {
+            Ok(window) => Rc::new(window),
+            Err(why) => {
+                self.failed = Some(format!("no window: {why}"));
+                event_loop.exit();
+                return;
+            }
+        };
+        match Presenter::over(Rc::clone(&window)) {
+            Ok(presenter) => self.presenter = Some(presenter),
+            Err(why) => {
+                self.failed = Some(why);
+                event_loop.exit();
+                return;
+            }
+        }
+        window.request_redraw();
+        self.window = Some(window);
+        self.ask_drawn();
+    }
+
+    fn user_event(&mut self, _: &ActiveEventLoop, drawn: Drawn) {
+        match drawn {
+            Drawn::Painted(Part::Panel, frame) => {
+                self.panel = Some(frame);
+                self.panel_said = None;
+            }
+            Drawn::Painted(Part::Start, frame) => {
+                self.start = Some(frame);
+                self.start_said = None;
+            }
+            Drawn::Said(Part::Panel, said) => self.panel_said = Some(said),
+            Drawn::Said(Part::Start, said) => self.start_said = Some(said),
+        }
+        if let Some(window) = &self.window {
+            window.request_redraw();
+        }
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        match event {
+            WindowEvent::Resized(PhysicalSize { .. }) | WindowEvent::ScaleFactorChanged { .. } => {
+                self.ask_drawn();
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
+            WindowEvent::RedrawRequested => {
+                self.draw();
+                if self.failed.is_some() {
+                    event_loop.exit();
+                }
+            }
+            WindowEvent::CloseRequested => {
+                self.presenter = None;
+                self.window = None;
+                event_loop.exit();
+            }
+            _ => {}
+        }
+    }
+
+    /// The event loop is ending — returning, or the program quit, when
+    /// `AppKit` ends the process once this returns (item 688): the drawing
+    /// thread is stopped here, and its renderers with it.
+    fn exiting(&mut self, _: &ActiveEventLoop) {
+        if let Some(drawing) = self.drawing.take() {
+            self.finished = drawing.finish();
+        }
     }
 }
 

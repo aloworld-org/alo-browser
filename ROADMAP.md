@@ -2316,9 +2316,14 @@ items where being right and being unusable are the same outcome.
       text node, read by an agent as *navigation Chats* with each chat's
       state, in a reference render and a layout assertion of every row;
       and the first screen (700) — the greeting, the one box read as a
-      search, a person's sites and the chats waiting on them, the same way
-      · Owed: both in the engine's window and pressed (709), going to a
-      website (701),
+      search, a person's sites and the chats waiting on them, the same way;
+      and both in the engine's window (709) — `alo --conversation`, the
+      panel 240 CSS px down the left and the first screen beside it, each
+      painted by its own confined renderer and composed as a function of
+      the frames last sent, in reference renders at 1 and 2 and a screen
+      capture of the running window
+      · Owed: a press on either, claimed by place and decided by the
+      browser process (710), going to a website (701),
       a page inside the conversation (702), the conversation (703), the
       agent at work (704), what the agent may do (705), the typefaces (706),
       the answer (707, blocked: a model) and search results (708, blocked: a
