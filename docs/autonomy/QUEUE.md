@@ -78,7 +78,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
 | | **717** | the page as a card, drawn from Chrome's frames |
 | | **718** | a person's pointer and keys forwarded from the card to the page |
-| | **719**–**722** | alo carries its own Chromium (ADR 0077): found first, pinned and checked, kept updated, and later named alo |
+| | **719**–**722** | alo carries its own Chromium and never uses the machine's Chrome (ADR 0077): used, pinned and checked, kept updated, and later named alo |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -19326,12 +19326,16 @@ What stage 2's exit gate actually measures: a person using it.
   test against a local page.
 
 
-- [ ] **719. alo finds its own Chromium first (ADR 0077).** Where the
-  application carries a Chromium in its bundle, `chrome.rs` starts that one;
-  the machine's Chrome only where there is none; and what alo says of its
-  renderer names which (*Chromium 156, carried by alo* or *the machine's
-  Chrome 156*). *Closes when:* a test bundle holding a Chromium starts it
-  and not the machine's Chrome, and one without falls back and says so.
+- [ ] **719. The application uses only its own Chromium (ADR 0077).**
+  `alo browser.app` starts the Chromium inside its own bundle and **never
+  the machine's Chrome**, even when one is installed — the owner's words: *no
+  fall back, as if the user only has alo-browser on his PC*. A bundle with
+  no Chromium, or a damaged one, draws with this engine and says why, as
+  ADR 0068 § 3 does today with no Chrome. What alo says of its renderer
+  names the Chromium it carries and its version. `alo --chrome` from a
+  terminal stays a developer's tool. *Closes when:* a test bundle holding a
+  Chromium starts it — never the machine's Chrome — and one without draws
+  with this engine and says so.
 
 - [ ] **720. Which Chromium alo carries, pinned and checked (ADR 0077).**
   Decide the source in an ADR of its own (an official Chromium release

@@ -12,8 +12,11 @@ Chrome); ADR 0073 (Chrome started with its own traffic switched off); ADR
 ## The decision in one line
 
 alo carries **its own Chromium inside the application** and draws pages with
-it, so a person installs alo and nothing else. The machine's Chrome stops
-being a requirement. Everything else ADR 0058 decided stays: Chromium is a
+it, so a person installs alo and nothing else. **The application never uses
+the machine's Chrome, even when one is installed:** it behaves as it would
+on a computer where alo is the only browser. If its own Chromium is missing
+or damaged it says so and draws with this engine, as ADR 0068 § 3 does on a
+Mac with no Chrome — never with somebody else's browser. Everything else ADR 0058 decided stays: Chromium is a
 renderer we drive over a pipe, behind our tree, our verbs, our grants and
 our record, and it is never linked into our process.
 
@@ -50,7 +53,7 @@ neither, which agrees with that list.
 
 | Item | What |
 |---|---|
-| 719 | alo finds the Chromium inside its own bundle first, the machine's Chrome only where there is none, and says which it is using |
+| 719 | the application starts only the Chromium inside its own bundle — never the machine's Chrome — and says which Chromium it is using |
 | 720 | Which Chromium build, from where: pinned by version and checked by its hash when `alo-bundle` assembles the application, with its licences; the source is decided in this item's ADR |
 | 721 | An updater that brings a new Chromium (and alo) to a person within days of a security release |
 | 722 | Chromium built from source with alo's name and icon — blocked on build machines |
@@ -65,6 +68,11 @@ neither, which agrees with that list.
 ## Consequences
 
 - ADR 0058's *"Chrome is never shipped"* and ADR 0068's *"draws with the
-  machine's Chrome"* are superseded by this for the application; `alo
-  --chrome` from a terminal keeps using the machine's Chrome until 719.
+  machine's Chrome"* are superseded by this for the application, at the
+  owner's word: *no fall back — as if the user only has alo-browser on his
+  PC*. `alo --chrome` run from a terminal is a developer's tool, not the
+  application, and keeps driving the machine's Chrome for this
+  repository's tests.
+- Until 720 puts a Chromium in the application, the application draws with
+  this engine and says so.
 - Nothing is given to anyone outside the owner's machines before 721.
