@@ -78,6 +78,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
 | | **717** | the page as a card, drawn from Chrome's frames |
 | | **718** | a person's pointer and keys forwarded from the card to the page |
+| | **719**–**722** | alo carries its own Chromium (ADR 0077): found first, pinned and checked, kept updated, and later named alo |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -19324,6 +19325,29 @@ What stage 2's exit gate actually measures: a person using it.
   follows it, typing reaches a field, a wheel scrolls the page, each in a
   test against a local page.
 
+
+- [ ] **719. alo finds its own Chromium first (ADR 0077).** Where the
+  application carries a Chromium in its bundle, `chrome.rs` starts that one;
+  the machine's Chrome only where there is none; and what alo says of its
+  renderer names which (*Chromium 156, carried by alo* or *the machine's
+  Chrome 156*). *Closes when:* a test bundle holding a Chromium starts it
+  and not the machine's Chrome, and one without falls back and says so.
+
+- [ ] **720. Which Chromium alo carries, pinned and checked (ADR 0077).**
+  Decide the source in an ADR of its own (an official Chromium release
+  build, a maintained distribution, or our own build), then have
+  `alo-bundle` take that version, check it against a committed hash, put it
+  in `alo browser.app` with its licences, and sign it with the application.
+  *Depends on 719.*
+
+- [ ] **721. An updater (ADR 0077).** A new Chromium, and a new alo, reach a
+  person within days of a security release, checked and signed, with the
+  person told. Nothing is given to anyone outside the owner's machines
+  before this. *needs design: an ADR first.*
+
+- [ ] **722. Chromium with alo's name (ADR 0077).** Built from source with
+  alo's name and icon, so an expanded page's menu bar says *alo*. *blocked:
+  build machines this repository does not have.*
 - [ ] **703. The conversation, a document of ours.** A person's words, the
   agent's words and the steps it took, drawn as the design draws them, in a
   renderer of its own; each message a stranger's string entering as text.
