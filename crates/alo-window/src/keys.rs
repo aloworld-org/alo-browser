@@ -8,10 +8,13 @@
 //! *"The browser's own keys — a new tab, close this one, the next one — are
 //! the browser process's, read before any page sees them, so no page can
 //! take them."* The window's event loop turns what the window server says
-//! into a [`Press`] and asks [`order`] what it means. That is the whole of
-//! the keyboard today: a press that is not one of these goes nowhere, because
-//! a page has no keyboard yet (item 258), and there is no message that could
-//! carry a key to a renderer.
+//! into a [`Press`] and asks [`order`] what it means. In a window of tabs that
+//! is the whole of the keyboard: a press that is not one of these goes
+//! nowhere, because a page has no keyboard yet (item 258), and there is no
+//! message that could carry a key to a renderer. In the conversation's
+//! window a key edits the one box instead ([`crate::typing`], queue item
+//! 701), which the browser process holds; no key goes to a renderer there
+//! either.
 //!
 //! # Which keys
 //!
@@ -91,6 +94,11 @@ impl Held {
         Self(self.0 | modifier.bit())
     }
 
+    /// Whether `modifier` is held, with or without others.
+    pub fn holds(self, modifier: Modifier) -> bool {
+        self.0 & modifier.bit() != 0
+    }
+
     /// Exactly `modifiers`, and nothing else.
     fn exactly(modifiers: &[Modifier]) -> Self {
         modifiers
@@ -107,6 +115,12 @@ pub enum Key {
     Character(String),
     /// Tab.
     Tab,
+    /// Return, or Enter: what chooses in the one box (queue item 701).
+    Return,
+    /// Backspace, which macOS calls Delete: what erases in the one box.
+    Backspace,
+    /// Escape: what empties the one box.
+    Escape,
     /// Any other key.
     Other,
 }
@@ -170,7 +184,7 @@ impl Press {
                 let mut characters = written.chars().flat_map(char::to_lowercase);
                 characters.next() == Some(letter) && characters.next().is_none()
             }
-            Key::Tab | Key::Other => false,
+            Key::Tab | Key::Return | Key::Backspace | Key::Escape | Key::Other => false,
         }
     }
 }
@@ -306,10 +320,13 @@ mod tests {
             assert_eq!(on_a_mac(&Press::character(key)), None, "{key:?}");
             assert_eq!(elsewhere(&Press::character(key)), None, "{key:?}");
         }
-        assert_eq!(
-            on_a_mac(&Press::of(Key::Other).with(Modifier::Command)),
-            None
-        );
+        for key in [Key::Other, Key::Return, Key::Backspace, Key::Escape] {
+            assert_eq!(
+                on_a_mac(&Press::of(key.clone()).with(Modifier::Command)),
+                None
+            );
+            assert_eq!(on_a_mac(&Press::of(key)), None);
+        }
     }
 
     #[test]

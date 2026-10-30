@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Typing a website into the new interface.** In `alo --conversation`,
+  pressing the box lets a person type into it. Under the box the browser
+  offers *Go to the site* first when what is typed is an address such as
+  `example.com`, then *Search for* and *Ask alo about*, which say plainly
+  that they are not set up yet. Backspace erases, Escape empties the box,
+  and Return (or *Go*) chooses: for `example.com` the browser decides to go
+  to `https://example.com/` and says so. Opening that page in Chrome from
+  this window is still to come (item 713). What is typed stays with the
+  browser and the one locked-down renderer that draws the box, and is shown
+  as text however it is written (item 701).
+
 - **Icons in the new interface.** The chats panel has a plus before *New
   chat* and a settings icon before *Settings*; the first screen's *Go*
   button shows an arrow, and *Add a site* a plus. They are simple line

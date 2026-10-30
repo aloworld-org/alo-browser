@@ -87,7 +87,14 @@
 //! ([`crate::conversation::Conversation`]) and draws what it is told was
 //! painted ([`crate::conversation_compose`]), never waiting on either
 //! renderer. No key is the browser's in it, since it has no tab to open or
-//! close.
+//! close: a key going down edits the one box on the first screen instead,
+//! when a press gave it the keyboard ([`crate::typing`],
+//! [`crate::conversation_box`], queue item 701). What is typed is held by
+//! the browser process and sent to the first screen's renderer as data;
+//! when Return or *Go* chooses, what was chosen is said in the first
+//! screen's line — where it was decided to go, which opening in Chrome from
+//! here is queue item 713, or that searching or asking is not set up yet.
+//! The text a key writes is `KeyEvent::text`, a field read like the others.
 //!
 //! A press of the main button with no modifier held is aimed from the same
 //! composition ([`crate::conversation_aim`]) and handed to that thread, in
@@ -131,6 +138,7 @@ use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
 use crate::conversation::{Conversation, Pressed as Decided};
 use crate::conversation_aim;
+use crate::conversation_box::{self, Typed};
 use crate::conversation_compose::{ConversationScene, compose_conversation};
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use crate::conversation_place::{ConversationPlacement, panel_viewport, start_viewport};
@@ -145,6 +153,7 @@ use crate::place::{Placement, STRIP_HEIGHT, screen};
 use crate::present::Presenter;
 use crate::scale::Scale;
 use crate::showing::Showing;
+use crate::typing;
 use alo_renderer::host::Renderers;
 use alo_renderer::{Frame, Visibility};
 use std::rc::Rc;
@@ -963,8 +972,33 @@ impl Conversing {
                 Part::Start => self.start_said = Some(said),
             }
         }
+        let go = pressed == Decided::Go;
         if self.conversation.act(pressed) {
             self.ask_drawn();
+        }
+        if go && let Some(chosen) = self.conversation.chosen() {
+            self.start_said = Some(conversation_box::said(chosen));
+        }
+    }
+
+    /// A key went down: an edit of the one box, if it makes one, drawn
+    /// again when it changed what the box holds, and what it chose said.
+    fn key(&mut self, event: &KeyEvent) {
+        let Some(press) = pressed(event, self.modifiers) else {
+            return;
+        };
+        let Some(edit) = typing::edit(&press, event.text.as_deref()) else {
+            return;
+        };
+        match self.conversation.edit(edit) {
+            Typed::Unchanged => {}
+            Typed::Changed => self.ask_drawn(),
+            Typed::Chose(chosen) => {
+                self.start_said = Some(conversation_box::said(&chosen));
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
         }
     }
 
@@ -1060,6 +1094,13 @@ impl ApplicationHandler<Drawn> for Conversing {
                 button: MouseButton::Left,
                 ..
             } => self.main_button_pressed(),
+            // A key already down as the window gained focus was pressed
+            // somewhere else.
+            WindowEvent::KeyboardInput {
+                event,
+                is_synthetic: false,
+                ..
+            } => self.key(&event),
             _ => {}
         }
     }
@@ -1082,6 +1123,9 @@ fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
     let key = match event.key_without_modifiers() {
         winit_keys::Key::Character(written) => Key::Character(written.to_string()),
         winit_keys::Key::Named(NamedKey::Tab) => Key::Tab,
+        winit_keys::Key::Named(NamedKey::Enter) => Key::Return,
+        winit_keys::Key::Named(NamedKey::Backspace) => Key::Backspace,
+        winit_keys::Key::Named(NamedKey::Escape) => Key::Escape,
         _ => Key::Other,
     };
     let held = [

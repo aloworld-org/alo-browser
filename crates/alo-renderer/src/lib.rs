@@ -118,6 +118,7 @@ mod submit;
 pub mod svg_picture;
 pub mod tab;
 mod transition;
+pub mod typed;
 pub mod view;
 pub mod violations;
 pub mod wire;

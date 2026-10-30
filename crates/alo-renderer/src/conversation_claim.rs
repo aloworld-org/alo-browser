@@ -39,7 +39,10 @@
 //! rows, the room below them — is on nothing, and claims nothing.
 //!
 //! Not drawn, so never claimed: *Search chats* and the button that hides
-//! the panel (queue item 711).
+//! the panel (queue item 711). Drawn but not yet claimed: the offers under
+//! the box for what was typed (queue item 701), a press on which claims
+//! nothing until 714. A box with the keyboard is drawn under a `main` of
+//! class `start focused`; its own class stays `box`.
 
 use crate::hit;
 use crate::pipeline::Drawing;
@@ -250,7 +253,7 @@ mod tests {
                 Waiting::new("Invoice for March", "draft ready to check"),
             ],
             viewport: Size::new(1040.0, 820.0),
-            scale: 1.0,
+            ..Start::default()
         }
     }
 

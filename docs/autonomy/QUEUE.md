@@ -70,7 +70,10 @@ ADR 0058 — and nothing else does:
 | ✓ | **710** | a press on the panel or the first screen, claimed by place and decided by the browser process (iteration 449) |
 | | **711** | *Search chats* and the button that hides the panel (cut from 710) |
 | ✓ | **712** | icons in the panel and the first screen — inline SVG of ours, hidden from an agent (iteration 450) |
-| | **701** | going to a website from the one box, with no model |
+| ✓ | **701** | going to a website from the one box, with no model — typed, offered, and Return deciding where to go (iteration 451) |
+| | **713** | the address chosen from the box opened in the machine's Chrome, from the conversation's window (cut from 701) |
+| | **714** | a press on an offer under the box, claimed and decided (cut from 701) |
+| | **715** | a field's value kept to one line by the engine, as Chrome keeps it (found by 701) |
 | | **702** | where Chrome's window goes when a page opens inside the conversation — measured, then decided |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
@@ -19145,13 +19148,88 @@ What stage 2's exit gate actually measures: a person using it.
   `the-conversation-at-two.png` and `the-panel-after-a-press.png` are
   rewritten with the icons in them.
 
-- [ ] **701. Going to a website from the one box, with no model.** What is
+- [x] **701. Going to a website from the one box, with no model.** What is
   typed is offered as the design's screen 0b offers it: *Go to the site*
   first when it is an address, Return opening it in Chrome as `alo --chrome`
   opens a page today; *Search for* and *Ask alo* offered below it and, until
   708 and 707, saying they are not set up yet rather than pretending.
   *Depends on 700. Closes when:* typing `example.com` and pressing Return
   opens it, and what is typed reaches nothing but the browser process.
+  ***Done (iteration 451), scope cut to 713 and 714.*** A press on the box
+  gives it the keyboard and a press on anything else takes it away; the
+  window reads each key going down (`window.rs`, `KeyEvent::text`) and
+  `alo-window`'s `typing.rs` says what it does to the box — Return chooses,
+  Backspace erases, Escape empties (and, empty, lets the keyboard go), any
+  other key puts in the text it writes less control characters, and
+  nothing held with ⌘ or Ctrl types. What is typed is held by the browser
+  process alone (`conversation_box.rs`, at most 2048 characters) and sent
+  to the first screen's renderer as data — `Start::typed`, `focused` and
+  `offers`, on the wire — never to the panel's. `alo-renderer`'s
+  `typed.rs` decides what it means with `alo-url`: an `http`/`https`
+  address written whole, or a host — `localhost`, four numbers, an IPv6
+  address in brackets, a name with a dot whose last label begins with a
+  letter — with perhaps a port and a path, read as `https://`; never
+  anything with white space, a control character or an `@`, nor another
+  scheme. `start_document.rs` sets the field's `value` as an attribute's
+  value and puts the offers between the box and the groups as a `listbox`
+  named *Suggestions* of `option`s, the first `aria-selected`, *Search for
+  "…"* and *Ask alo about "…"* `aria-disabled` and saying *Not set up yet*;
+  the box's border darkens while it has the keyboard. Return or *Go* on
+  `example.com` decides to go to `https://example.com/`
+  (`Conversation::going`) and the first screen's line says so. In
+  `tests/what_is_typed_on_the_first_screen.rs`: the reference render
+  `start-typed-into.png`; the list at (160, 326) 720 × 170, the three
+  offers 706 × 52 at (167, 333), (167, 385) and (167, 437), the tiles moved
+  to 564, the field's value read as `example.com`; `<b>`, `</script>`, a
+  NUL and 2046 characters staying a value and text, one line inside the
+  field. In `alo-window`: unit tests of the keys, the box and the
+  conversation, and `tests/typing_into_the_one_box.rs` — keys to Return
+  deciding `https://example.com/`, the panel sent the same while typing,
+  and the first screen typed into painted the same by its confined
+  renderer. Found: the engine wraps a long `<input>` value onto lines
+  below the field; the first screen's sheet keeps its field to one line
+  (`white-space: nowrap`, `overflow: hidden`), and the engine's own rule is
+  715. Cut to 713: opening the address in Chrome — `alo --chrome` runs the
+  frame around Chrome's window on a `winit` event loop of its own, and a
+  process has one, so opening it from the conversation's window is its own
+  change. Cut to 714: a press on an offer, which needs a claim, its wire
+  tag and its deciding. Not read yet: an input method's composition, and
+  moving within what is typed (it is edited at its end, and a field
+  longer than the box shows its start).
+
+- [ ] **713. The address chosen from the one box, opened in the machine's
+  Chrome from the conversation's window.** Item 701 decides where to go
+  (`Conversation::going`); this opens it as `alo --chrome ADDRESS` opens a
+  page — the machine's Chrome in a window of its own, placed by us, behind
+  the same grants and the same record (ADRs 0058, 0061, 0068) — from the
+  window `alo --conversation` runs. `alo --chrome`'s frame runs on a
+  `winit` event loop of its own (`window::frame`, ADR 0062) and a process
+  has one, so either the conversation's loop takes the frame's windows
+  too, or the page opens without a frame until 702 decides where Chrome's
+  window goes; decided here, by an ADR if it is a new decision. Chrome is
+  closed, waited for and its profile removed as the conversation's window
+  closes. *Depends on 701. Closes when:* typing `example.com` and pressing
+  Return opens `https://example.com/` in a shown Chrome, in a test in the
+  `chrome` group of `.config/nextest.toml`, and closing the conversation's
+  window closes it.
+
+- [ ] **714. A press on an offer under the one box.** The offers 701 draws
+  under the box are claimed by a press as the rest of the first screen is
+  (`conversation_claim.rs`): an offer by its place among those drawn, a new
+  `Claim` with its wire tag, decided against the offers the first screen
+  last painted (`conversation_decide.rs`) and chosen as Return chooses the
+  first. Until then a press on one claims nothing and takes the keyboard
+  from the box. *Depends on 701. Closes when:* a press on each offer is
+  decided as it, at coordinates from the offers' layout assertions, and a
+  claim about an offer not shown is refused by name.
+
+- [ ] **715. A field's value kept to one line by the engine, as Chrome
+  keeps it.** Found by 701: an `<input type=text>` holding more than its
+  width wraps its value onto lines below the field, over what follows it.
+  Measure what Chrome does — its value on one line, clipped to the field —
+  and make the user agent's sheet or the field's layout do the same, with
+  a layout assertion and a reference render. The first screen's sheet
+  keeps its own field to one line until then. *Depends on nothing.*
 
 - [ ] **702. Where Chrome's window goes when a page opens inside the
   conversation — measured, then decided.** The design opens a page in a card

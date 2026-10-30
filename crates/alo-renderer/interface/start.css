@@ -79,6 +79,10 @@ a {
   color: var(--ink);
   font-family: system-ui, sans-serif;
   font-size: 16px;
+  /* What a person typed stays one line, inside the field, however long
+     it is (queue item 701). */
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .go {
@@ -204,6 +208,58 @@ a {
 }
 
 .wait .said {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* While the box has the keyboard (queue item 701) its border is the quiet
+   text's colour, the line darkened, so a person sees where typing goes. */
+.start.focused .box {
+  border-color: var(--quiet);
+}
+
+/* What is offered for what was typed: a card 720 wide under the box, each
+   offer two lines — what it does, and where it leads or that it is not set
+   up yet — the one Return chooses on the paper's colour. */
+.offers {
+  display: flex;
+  flex-direction: column;
+  width: 720px;
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.offer {
+  display: flex;
+  flex-direction: column;
+  padding: 7px 16px;
+  border-radius: 10px;
+}
+
+.offer.chosen {
+  background: var(--paper);
+}
+
+.offer .what {
+  font-size: 15px;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.offer.unset .what {
+  color: var(--quiet);
+}
+
+.offer .where {
   font-size: 13px;
   line-height: 18px;
   color: var(--quiet);

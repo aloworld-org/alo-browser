@@ -10,7 +10,7 @@
 //! screen, and a press on the other chat is decided as that chat and makes
 //! it current — the panel drawn again and compared with a committed
 //! reference, and the current row's box asserted in numbers; a press on the
-//! box is claimed as the box and changes nothing yet; a lying claim is
+//! box is claimed as the box and gives it the keyboard (item 701); a lying claim is
 //! refused by name; and the same presses through the two **confined**
 //! renderers the window's thread holds, from the window's own aim of a
 //! point in device pixels.
@@ -291,14 +291,14 @@ fn a_press_on_a_chat_makes_it_current_and_the_panel_is_drawn_again() {
 }
 
 #[test]
-fn a_press_on_the_box_is_claimed_as_the_box_and_changes_nothing_yet() {
+fn a_press_on_the_box_is_claimed_as_the_box_and_gives_it_the_keyboard() {
     let mut conversation = Conversation::default();
     let mut here = Here::of(&conversation);
     let before = asked(&conversation);
     // The box 720 × 64 at (160, 254) in the first screen; Go 44 square at
-    // (825, 264).
+    // (825, 264). Go with nothing typed chooses nothing, and Add a site
+    // changes nothing yet.
     for (x, y, decided) in [
-        (400.0, 285.0, Pressed::TheBox),
         (846.0, 285.0, Pressed::Go),
         (215.0, 428.0, Pressed::AddASite),
     ] {
@@ -313,6 +313,15 @@ fn a_press_on_the_box_is_claimed_as_the_box_and_changes_nothing_yet() {
     assert_eq!(pressed, Pressed::Settings);
     assert!(!conversation.act(pressed));
     assert_eq!(asked(&conversation), before, "nothing drawn changed");
+    assert_eq!(conversation.chosen(), None);
+    // The box takes the keyboard, and the first screen is drawn again
+    // showing so; the panel is not.
+    let pressed = here.press(&conversation, Part::Start, 400.0, 285.0);
+    assert_eq!(pressed, Pressed::TheBox);
+    assert!(conversation.act(pressed), "the first screen is drawn again");
+    let after = asked(&conversation);
+    assert!(after.start.focused);
+    assert_eq!(after.panel, before.panel);
 }
 
 #[test]

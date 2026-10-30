@@ -95,6 +95,9 @@
 //!   [`conversation_place`] and composed by [`conversation_compose`]. A
 //!   person's press on either is aimed by [`conversation_aim`], claimed by
 //!   the part's renderer and decided by the browser process (item 710).
+//!   The one box on the first screen is [`conversation_box`]: a person's
+//!   keys, read by [`typing`], edit what it holds, and Return decides to
+//!   go to an address typed (item 701).
 //!
 //! # What it is not yet
 //!
@@ -155,6 +158,7 @@ pub mod compose;
 pub mod conductor;
 pub mod conversation;
 pub mod conversation_aim;
+pub mod conversation_box;
 pub mod conversation_compose;
 pub mod conversation_drawing;
 pub mod conversation_place;
@@ -184,5 +188,6 @@ pub mod serving;
 pub mod showing;
 #[cfg(unix)]
 pub mod socket_place;
+pub mod typing;
 pub mod window;
 pub mod window_server;

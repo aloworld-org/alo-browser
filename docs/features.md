@@ -779,14 +779,25 @@ The reason this exists rather than a faster fork of somebody else's engine.
   one on screen and *New chat* adds a chat, the panel drawn again; a press
   on *Settings*, a site, *Add a site*, a waiting chat, the box or *Go* is
   decided and kept but **does nothing yet** — there is no settings screen,
-  no kept site, no typing in the box, and every chat still shows the first
-  screen. **Icons where the design has them** (712): a plus before *New
+  no kept site, and every chat still shows the first screen. **Icons where the design has them** (712): a plus before *New
   chat* and above *Add a site*, sliders before *Settings*, and an arrow for
   *Go* — simple line drawings in the colour of the words beside them,
   written by us into the interface's own markup and left out of what an
   agent reads, which is still *New chat*, *Settings*, *Add a site* and
-  *Go*. Owed: *Search chats* and the button that hides the panel (711),
-  going to a website with no model (701), a
+  *Go*. **Going to a website from the one box, with no model** (701): a
+  press on the box gives it the keyboard, and what a person types is held
+  by the browser process and sent to the first screen's renderer alone, as
+  the field's value — never as markup, and never to the panel. Under the
+  box the design's screen 0b offers *Go to the site* first when what is
+  typed is an address — `example.com`, `localhost:8080`, `https://…`, read
+  by this repository's own URL parser — then *Search for "…"* and *Ask alo
+  about "…"*, which say they are not set up yet; an agent reads them as a
+  *listbox Suggestions* of options, the first selected. Backspace erases,
+  Escape empties, and Return or *Go* chooses the first: for `example.com`,
+  going to `https://example.com/` is decided, and said in the window.
+  Owed: *Search chats* and the button that hides the panel (711), opening
+  the chosen address in Chrome from this window (713), a press on an offer
+  (714), a field's value kept to one line by the engine (715), a
   page inside the conversation (702), the conversation (703), the agent at
   work (704), its settings (705), the typefaces (706); the answer (707) and
   search results (708) wait on the owner's choice of a model and a search

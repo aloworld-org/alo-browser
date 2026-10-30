@@ -81,7 +81,7 @@ fn screen_0a() -> Start {
             Waiting::new("Invoice for March", "draft ready to check"),
         ],
         viewport: Size::new(WIDTH, HEIGHT),
-        scale: 1.0,
+        ..Start::default()
     }
 }
 
@@ -351,7 +351,7 @@ fn a_hostile_name_stays_text_in_the_tree() {
         sites: vec![KeptSite::new(hostile, "a.example")],
         waiting: vec![Waiting::new(hostile, "ok")],
         viewport: Size::new(WIDTH, HEIGHT),
-        scale: 1.0,
+        ..Start::default()
     });
     assert!(matches!(drawn.answer, FromRenderer::Loaded { .. }));
     let headings = names(&read(&drawn.tree, "heading"));

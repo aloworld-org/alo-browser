@@ -33,12 +33,22 @@
 //! - **New chat** adds a chat with no name yet — the panel calls it *New
 //!   chat* — first among the open ones, and on screen.
 //!
-//! Every other — *Settings*, a kept site, *Add a site*, a waiting chat, the
-//! box, *Go* — is decided and kept as [`Conversation::last_pressed`], and
-//! **changes nothing yet**: there is no settings screen (705), nothing
-//! keeps a site or a waiting chat, and the box takes no typing (701). What
-//! the first screen shows does not follow the chat on screen either, since
-//! every chat today is new and shows the first screen (703).
+//! Queue item 701 adds two more:
+//!
+//! - **The box** takes the keyboard ([`crate::conversation_box`]); what a
+//!   person then types is shown in it, with what is offered for it, and
+//!   the first screen is drawn again. A press on anything else, in either
+//!   part, takes the keyboard from it.
+//! - **Go** chooses what is offered first, as Return does
+//!   ([`Conversation::edit`]): going to a site is decided and kept as
+//!   [`Conversation::going`].
+//!
+//! Every other — *Settings*, a kept site, *Add a site*, a waiting chat — is
+//! decided and kept as [`Conversation::last_pressed`], and **changes
+//! nothing yet**: there is no settings screen (705), and nothing keeps a
+//! site or a waiting chat. What the first screen shows does not follow the
+//! chat on screen either, since every chat today is new and shows the first
+//! screen (703).
 //!
 //! # The greeting
 //!
@@ -49,11 +59,15 @@
 //! the first screen a person sees. So it says [`GREETING`], which is true at
 //! any hour, until the machine's zone is read.
 
+use crate::conversation_box::{TheBox, Typed};
 use crate::scale::Scale;
+use crate::typing::Edit;
 use alo_layout::Size;
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::panel::{Chat, Panel, drawn_order};
 use alo_renderer::start::{KeptSite, Start};
+use alo_renderer::typed::Offer;
+use alo_url::Url;
 
 /// What the first screen says first, at any hour.
 pub const GREETING: &str = "Hello.";
@@ -81,6 +95,11 @@ pub struct Conversation {
     greeting: String,
     /// What the last press on either part came to, if there was one.
     last_pressed: Option<Pressed>,
+    /// The one box: what is typed into it, and whether it has the
+    /// keyboard.
+    the_box: TheBox,
+    /// What was last chosen from what the box offered, if anything was.
+    chosen: Option<Offer>,
 }
 
 impl Default for Conversation {
@@ -91,6 +110,8 @@ impl Default for Conversation {
             next: 1,
             greeting: GREETING.to_owned(),
             last_pressed: None,
+            the_box: TheBox::default(),
+            chosen: None,
         }
     }
 }
@@ -126,21 +147,58 @@ impl Conversation {
     /// whether the panel or the first screen now shows something else, and
     /// so is to be drawn again.
     ///
-    /// A chat becomes the one on screen; *New chat* adds one, on screen.
-    /// Everything else changes nothing yet (see the module's words), and
-    /// neither does a chat this does not hold, which the decision refused
-    /// unless it went between being decided and being acted on.
+    /// A chat becomes the one on screen; *New chat* adds one, on screen;
+    /// the box takes the keyboard, and *Go* chooses what it offers first,
+    /// kept as [`Conversation::chosen`]. A press on anything but the box
+    /// and *Go* takes the keyboard from the box. Everything else changes
+    /// nothing yet (see the module's words), and neither does a chat this
+    /// does not hold, which the decision refused unless it went between
+    /// being decided and being acted on, nor a press refused or unanswered.
     pub fn act(&mut self, pressed: Pressed) -> bool {
         let changed = match &pressed {
-            Pressed::Chat(id) => self.put_on_screen(*id),
+            Pressed::TheBox => self.the_box.focus(),
+            Pressed::Go => {
+                self.chosen = self.the_box.choice();
+                false
+            }
+            Pressed::Refused(_) | Pressed::Failed(_) => false,
+            _ => self.the_box.blur(),
+        };
+        let changed = match &pressed {
+            Pressed::Chat(id) => self.put_on_screen(*id) || changed,
             Pressed::NewChat => {
                 self.new_chat();
                 true
             }
-            _ => false,
+            _ => changed,
         };
         self.last_pressed = Some(pressed);
         changed
+    }
+
+    /// Make a person's `edit` to the box, which changes nothing unless the
+    /// box has the keyboard: what it came to. What is chosen is kept as
+    /// [`Conversation::chosen`].
+    pub fn edit(&mut self, edit: Edit) -> Typed {
+        let typed = self.the_box.edit(edit);
+        if let Typed::Chose(offer) = &typed {
+            self.chosen = Some(offer.clone());
+        }
+        typed
+    }
+
+    /// What was last chosen from what the box offered, by Return or *Go*.
+    pub fn chosen(&self) -> Option<&Offer> {
+        self.chosen.as_ref()
+    }
+
+    /// Where it was decided to go: the address of the site last chosen, if
+    /// what was last chosen was a site. Opening it is queue item 713.
+    pub fn going(&self) -> Option<&Url> {
+        match &self.chosen {
+            Some(Offer::Go(url)) => Some(url),
+            _ => None,
+        }
     }
 
     /// What the last press on either part came to, if there was one.
@@ -187,6 +245,9 @@ impl Conversation {
             waiting: Vec::new(),
             viewport,
             scale: 1.0,
+            typed: self.the_box.typed().to_owned(),
+            focused: self.the_box.focused(),
+            offers: self.the_box.offers(),
         }
         .at_scale(scale.factor())
     }
@@ -288,7 +349,6 @@ mod tests {
             Pressed::Site(KeptSite::new("Mail", "https://mail.example/")),
             Pressed::AddASite,
             Pressed::Waiting(ChatId(0)),
-            Pressed::TheBox,
             Pressed::Go,
             Pressed::Nothing,
             Pressed::Refused(Refusal::Unasked),
@@ -332,5 +392,113 @@ mod tests {
             assert_eq!(panel.scale.to_bits(), scale.factor().to_bits());
             assert_eq!(start.scale.to_bits(), scale.factor().to_bits());
         }
+    }
+
+    /// Type `text` into `conversation`'s box, a key at a time.
+    fn type_in(conversation: &mut Conversation, text: &str) {
+        for letter in text.chars() {
+            let _ = conversation.edit(Edit::Put(letter.to_string()));
+        }
+    }
+
+    #[test]
+    fn a_press_on_the_box_gives_it_the_keyboard_and_typing_reaches_only_the_first_screen() {
+        let mut conversation = Conversation::default();
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        type_in(&mut conversation, "ignored");
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .typed,
+            ""
+        );
+        assert!(conversation.act(Pressed::TheBox), "drawn again, focused");
+        assert!(!conversation.act(Pressed::TheBox), "already focused");
+        type_in(&mut conversation, "example.com");
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert_eq!(start.typed, "example.com");
+        assert!(start.focused);
+        assert_eq!(start.offers, alo_renderer::typed::offers("example.com"));
+        assert_eq!(
+            conversation.panel(Size::new(240.0, 820.0), Scale::ONE),
+            panel,
+            "the panel is sent nothing of it"
+        );
+    }
+
+    #[test]
+    fn typing_example_com_and_return_decides_to_go_to_https_example_com() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        assert_eq!(conversation.going(), None);
+        let typed = conversation.edit(Edit::Choose);
+        assert!(matches!(typed, Typed::Chose(Offer::Go(_))), "{typed:?}");
+        assert_eq!(
+            conversation.going().map(ToString::to_string).as_deref(),
+            Some("https://example.com/")
+        );
+        // What is typed and offered stays as it was.
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .offers
+                .len(),
+            3
+        );
+    }
+
+    #[test]
+    fn go_chooses_as_return_does() {
+        let mut conversation = Conversation::default();
+        assert!(!conversation.act(Pressed::Go));
+        assert_eq!(conversation.chosen(), None, "nothing typed, nothing chosen");
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "localhost:8080");
+        assert!(!conversation.act(Pressed::Go));
+        assert_eq!(
+            conversation.going().map(ToString::to_string).as_deref(),
+            Some("https://localhost:8080/")
+        );
+    }
+
+    #[test]
+    fn return_on_a_question_decides_to_go_nowhere() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "what is x");
+        let typed = conversation.edit(Edit::Choose);
+        assert_eq!(typed, Typed::Chose(Offer::Search("what is x".to_owned())));
+        assert_eq!(conversation.going(), None);
+    }
+
+    #[test]
+    fn a_press_elsewhere_takes_the_keyboard_and_hides_the_offers() {
+        for elsewhere in [Pressed::Nothing, Pressed::Settings, Pressed::AddASite] {
+            let mut conversation = Conversation::default();
+            let _ = conversation.act(Pressed::TheBox);
+            type_in(&mut conversation, "example.com");
+            assert!(conversation.act(elsewhere.clone()), "{elsewhere:?}");
+            let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+            assert!(!start.focused);
+            assert_eq!(start.typed, "example.com", "kept as the field's value");
+            assert!(start.offers.is_empty());
+            type_in(&mut conversation, "x");
+            assert_eq!(
+                conversation
+                    .start(Size::new(1040.0, 820.0), Scale::ONE)
+                    .typed,
+                "example.com"
+            );
+        }
+        // A refused claim leaves the keyboard where it was.
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        assert!(!conversation.act(Pressed::Refused(Refusal::Unasked)));
+        assert!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .focused
+        );
     }
 }

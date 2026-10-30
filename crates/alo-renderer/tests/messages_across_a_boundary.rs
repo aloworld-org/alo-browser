@@ -35,6 +35,7 @@ use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
 use alo_renderer::start::{KeptSite, Start, Waiting};
 use alo_renderer::strip::LONGEST_TITLE;
+use alo_renderer::typed::Offer;
 use alo_renderer::violations::{MOST_OBJECTIONS, Objection};
 use alo_renderer::wire::{
     DEEPEST_TREE, read_from_renderer, read_to_renderer, write_from_renderer, write_to_renderer,
@@ -173,6 +174,13 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             waiting: vec![Waiting::new("Lisbon", "found 3 hotels")],
             viewport: Size::new(1040.0, 820.5),
             scale: 1.5,
+            // What a person typed, hostile, and what was offered for it.
+            typed: "example.com</script>\0<b>".to_owned(),
+            focused: true,
+            offers: alo_renderer::typed::offers("example.com")
+                .into_iter()
+                .chain([Offer::Search("</script>\0<b>".to_owned())])
+                .collect(),
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
@@ -393,6 +401,27 @@ fn a_role_this_engine_does_not_know_crosses_intact() {
     let back =
         read_from_renderer(&write_from_renderer(&message)).unwrap_or_else(|why| panic!("{why}"));
     assert_eq!(back, message);
+}
+
+/// Queue item 701: the first screen is told to offer *Go to the site* only
+/// for a site's address. One for anything else does not survive the wire,
+/// whoever wrote it.
+#[test]
+fn an_offer_to_go_somewhere_that_is_not_a_site_is_refused() {
+    for written in ["file:///etc/passwd", "javascript:alert(1)", "data:,x"] {
+        let Ok(url) = alo_url::parse(written) else {
+            panic!("{written} parses");
+        };
+        let message = ToRenderer::Start(Box::new(Start {
+            offers: vec![Offer::Go(url)],
+            ..Start::default()
+        }));
+        let why = read_to_renderer(&write_to_renderer(&message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains("not a site's"), "{written}: {why:?}");
+    }
 }
 
 // --- What a hostile renderer can put on the pipe -----------------------------

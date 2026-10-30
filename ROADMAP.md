@@ -2331,9 +2331,19 @@ items where being right and being unusable are the same outcome.
       where the design has them (712) — a plus for *New chat* and *Add a
       site*, sliders for *Settings*, an arrow for *Go* — inline SVG of ours,
       in the colour of the words beside them and hidden from an agent, each
-      box asserted in numbers
+      box asserted in numbers; and going to a website from the one box with
+      no model (701) — a press gives the box the keyboard, a person's keys
+      are held by the browser process and sent to the first screen's
+      renderer alone as the field's value, and under the box the design's
+      screen 0b offers *Go to the site* first for an address read by
+      `alo-url`, then *Search for* and *Ask alo about*, each saying it is
+      not set up yet; Return or *Go* decides to go to `https://example.com/`
+      for `example.com`, in a reference render, the offers' boxes in
+      numbers and a hostile typed string staying text
       · Owed: *Search chats* and the button that hides the panel (711),
-      going to a website (701),
+      opening the address chosen in Chrome from the conversation's window
+      (713), a press on an offer (714), a field's value kept to one line by
+      the engine itself (715),
       a page inside the conversation (702), the conversation (703), the
       agent at work (704), what the agent may do (705), the typefaces (706),
       the answer (707, blocked: a model) and search results (708, blocked: a

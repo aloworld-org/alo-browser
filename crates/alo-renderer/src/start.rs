@@ -12,12 +12,22 @@
 //! page's or a person's, and what a waiting chat says is the agent's words
 //! about a page, so each is a stranger's string and goes in as a text node.
 //!
+//! # What is typed
+//!
+//! What a person types into the one box is held by the browser process
+//! and sent here as [`Start::typed`] — the field's value, put into the
+//! document as an attribute's value and never as markup — with whether
+//! the box has the keyboard and what is offered for it
+//! ([`crate::typed`], queue item 701). Nobody else is sent it: not the
+//! chats panel's renderer, and not a page's.
+//!
 //! # Where it is
 //!
 //! At [`site`], a site no page can name, minted fresh as the panel's is.
 
 use crate::site::Site;
 use crate::strip::longest;
+use crate::typed::Offer;
 use alo_layout::Size;
 use alo_url::Url;
 
@@ -50,6 +60,16 @@ pub struct Start {
     pub viewport: Size,
     /// The scale of the screen the window is on (ADR 0057 § 3).
     pub scale: f32,
+    /// What a person has typed into the one box, shown as the field's
+    /// value: a stranger's string, as a site's name is.
+    pub typed: String,
+    /// Whether the box has the keyboard: a person pressed it, and what they
+    /// type goes into it.
+    pub focused: bool,
+    /// What is offered under the box for what is typed, in order, the
+    /// first what Return chooses ([`crate::typed::offers`]); none while
+    /// nothing is typed.
+    pub offers: Vec<Offer>,
 }
 
 /// One site a person keeps on the first screen.
@@ -73,7 +93,7 @@ pub struct Waiting {
 
 impl Default for Start {
     /// A greeting of nothing, no sites, nothing waiting, at no size, on a
-    /// screen of one.
+    /// screen of one, and an empty box without the keyboard.
     fn default() -> Self {
         Self {
             greeting: String::new(),
@@ -81,6 +101,9 @@ impl Default for Start {
             waiting: Vec::new(),
             viewport: Size::default(),
             scale: 1.0,
+            typed: String::new(),
+            focused: false,
+            offers: Vec::new(),
         }
     }
 }

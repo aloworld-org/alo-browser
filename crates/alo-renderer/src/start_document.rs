@@ -18,6 +18,22 @@
 //! *Go*'s arrow and *Add a site*'s plus. A group with nothing in it is not
 //! drawn, except *Your sites*, which always offers *Add a site*.
 //!
+//! # What is typed, and what is offered for it
+//!
+//! Queue item 701. What a person typed is the field's `value`, set as an
+//! attribute's value with `alo-dom`'s operations — so the field shows it
+//! in place of its hint, and an agent reads it as the field's value — and
+//! never parsed. While the box has the keyboard the screen's `main` is
+//! `focused`, which its stylesheet draws as the box's darker border.
+//! What is offered for it ([`crate::typed`]) stands between the box and
+//! the groups: a `listbox` named *Suggestions*, each offer an `option`
+//! named by its words and what they lead to — *Go to the site* and the
+//! address; *Search for "…"* or *Ask alo about "…"* and [`NOT_SET_UP`] —
+//! the first `aria-selected`, being what Return chooses, and each that is
+//! not set up `aria-disabled`. What was typed enters an offer's words as a
+//! text node's data, as every stranger's string here does. Nothing typed,
+//! nothing offered, and no list.
+//!
 //! # The icons are ours too
 //!
 //! Each is an inline `<svg>` in [`TEMPLATE`]. `alo-dom`'s `create_element`
@@ -29,6 +45,7 @@
 //! It runs no script: the template has none and nothing here makes one.
 
 use crate::start::{KeptSite, Start, Waiting};
+use crate::typed::Offer;
 use alo_dom::{Document, NodeId, parse_document};
 
 /// The first screen's markup, compiled in.
@@ -46,11 +63,36 @@ pub const ADD_A_SITE: &str = "Add a site";
 /// What the waiting chats' group is called.
 pub const WAITING: &str = "Pick up where you left off";
 
+/// What the list of offers under the box is called.
+pub const SUGGESTIONS: &str = "Suggestions";
+
+/// What the offer to go to an address says.
+pub const GO_TO_THE_SITE: &str = "Go to the site";
+
+/// What an offer that cannot yet do what it says says under its words.
+pub const NOT_SET_UP: &str = "Not set up yet";
+
+/// The words of the offer to search for `said`.
+pub fn search_for(said: &str) -> String {
+    format!("Search for \u{201c}{said}\u{201d}")
+}
+
+/// The words of the offer to ask alo about `said`.
+pub fn ask_about(said: &str) -> String {
+    format!("Ask alo about \u{201c}{said}\u{201d}")
+}
+
 /// The id of the template's heading, which holds the greeting.
 const GREETING: &str = "greeting";
 
 /// The id of the template's place for the groups.
 const BLOCKS: &str = "blocks";
+
+/// The id of the template's `main`, the whole screen.
+const SCREEN: &str = "start";
+
+/// The id of the template's field.
+const FIELD: &str = "ask";
 
 /// The id of the template's `<template>` holding *Add a site*'s icon.
 const ADD_ICON: &str = "add-icon";
@@ -75,7 +117,20 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
     let greeting = by_id(&document, GREETING)?;
     let words = document.create_text_node(&start.greeting);
     append(&mut document, greeting, words)?;
+    let field = by_id(&document, FIELD)?;
+    if !start.typed.is_empty() {
+        // A stranger's string, entering as an attribute's value.
+        attribute(&mut document, field, "value", &start.typed)?;
+    }
+    let screen = by_id(&document, SCREEN)?;
+    if start.focused {
+        attribute(&mut document, screen, "class", "start focused")?;
+    }
     let blocks = by_id(&document, BLOCKS)?;
+    if !start.offers.is_empty() {
+        let offers = make_offers(&mut document, &start.offers)?;
+        insert_before(&mut document, screen, offers, blocks)?;
+    }
     let icon = take_icon(&document, ADD_ICON)?;
     let sites = make_sites(&mut document, &start.sites, icon)?;
     append(&mut document, blocks, sites)?;
@@ -218,6 +273,52 @@ fn make_waiting(document: &mut Document, waiting: &[Waiting]) -> Result<NodeId, 
     Ok(group)
 }
 
+/// The offers for what was typed: a list named [`SUGGESTIONS`], each offer
+/// an option holding its words and, under them, what it leads to.
+fn make_offers(document: &mut Document, offers: &[Offer]) -> Result<NodeId, Unbuilt> {
+    let list = element(document, "div")?;
+    attribute(document, list, "class", "offers")?;
+    attribute(document, list, "role", "listbox")?;
+    attribute(document, list, "aria-label", SUGGESTIONS)?;
+    for (place, offer) in offers.iter().enumerate() {
+        let chosen = place == 0;
+        let (words, leads_to) = match offer {
+            Offer::Go(url) => (GO_TO_THE_SITE.to_owned(), url.serialised.clone()),
+            Offer::Search(said) => (search_for(said), NOT_SET_UP.to_owned()),
+            Offer::Ask(said) => (ask_about(said), NOT_SET_UP.to_owned()),
+        };
+        let option = element(document, "div")?;
+        let class = match (chosen, offer.is_set_up()) {
+            (true, true) => "offer chosen",
+            (true, false) => "offer chosen unset",
+            (false, true) => "offer",
+            (false, false) => "offer unset",
+        };
+        attribute(document, option, "class", class)?;
+        attribute(document, option, "role", "option")?;
+        attribute(
+            document,
+            option,
+            "aria-selected",
+            if chosen { "true" } else { "false" },
+        )?;
+        if !offer.is_set_up() {
+            attribute(document, option, "aria-disabled", "true")?;
+        }
+        for (class, said) in [("what", words), ("where", leads_to)] {
+            let part = element(document, "span")?;
+            attribute(document, part, "class", class)?;
+            // What was typed, and the address it was read as, entering as
+            // a text node's data.
+            let text = document.create_text_node(&said);
+            append(document, part, text)?;
+            append(document, option, part)?;
+        }
+        append(document, list, option)?;
+    }
+    Ok(list)
+}
+
 /// A group's label: a heading of the second level, with `id`.
 fn make_label(document: &mut Document, id: &str, words: &str) -> Result<NodeId, Unbuilt> {
     let label = element(document, "h2")?;
@@ -244,6 +345,20 @@ fn attribute(
         .set_attribute(node, local, value)
         .ok_or_else(|| Unbuilt {
             why: format!("{local} could not be set on a node that is not an element"),
+        })
+}
+
+fn insert_before(
+    document: &mut Document,
+    parent: NodeId,
+    child: NodeId,
+    before: NodeId,
+) -> Result<(), Unbuilt> {
+    document
+        .insert_before(parent, child, Some(before))
+        .map(|_| ())
+        .map_err(|refused| Unbuilt {
+            why: format!("a node could not be put into the first screen: {refused}"),
         })
 }
 
@@ -370,5 +485,110 @@ mod tests {
             .filter(|&node| matches!(document.kind(node), Some(NodeKind::Text(data)) if data == hostile))
             .count();
         assert_eq!(texts, 4);
+    }
+
+    /// What `typed` makes of the first screen: what the browser process
+    /// sends for it while the box has the keyboard.
+    fn typing(typed: &str) -> Start {
+        Start {
+            typed: typed.to_owned(),
+            focused: true,
+            offers: crate::typed::offers(typed),
+            ..Start::default()
+        }
+    }
+
+    #[test]
+    fn what_is_typed_is_the_fields_value_and_the_offers_stand_under_the_box() {
+        let document = built(&typing("example.com"));
+        let field = by_id(&document, FIELD).ok();
+        assert_eq!(
+            field.and_then(|field| document.attribute_by_name(field, "value")),
+            Some("example.com")
+        );
+        let screen = by_id(&document, SCREEN).ok();
+        assert_eq!(
+            screen.and_then(|screen| document.attribute_by_name(screen, "class")),
+            Some("start focused")
+        );
+        assert_eq!(
+            of_class(&document, "offer chosen"),
+            vec!["Go to the sitehttps://example.com/"]
+        );
+        assert_eq!(
+            of_class(&document, "offer unset"),
+            vec![
+                format!("{}{NOT_SET_UP}", search_for("example.com")),
+                format!("{}{NOT_SET_UP}", ask_about("example.com")),
+            ]
+        );
+        // Between the box and the groups.
+        let offers = document
+            .descendants(document.root())
+            .find(|&node| document.attribute_by_name(node, "class") == Some("offers"));
+        let next = offers.and_then(|offers| document.next_sibling(offers));
+        assert_eq!(next, by_id(&document, BLOCKS).ok());
+    }
+
+    #[test]
+    fn nothing_typed_is_no_value_and_no_list() {
+        let document = built(&Start {
+            focused: true,
+            ..Start::default()
+        });
+        let field = by_id(&document, FIELD).ok();
+        assert_eq!(
+            field.and_then(|field| document.attribute_by_name(field, "value")),
+            None
+        );
+        assert!(of_class(&document, "offers").is_empty());
+        let unfocused = built(&Start::default());
+        let screen = by_id(&unfocused, SCREEN).ok();
+        assert_eq!(
+            screen.and_then(|screen| unfocused.attribute_by_name(screen, "class")),
+            Some("start")
+        );
+    }
+
+    #[test]
+    fn what_is_typed_that_looks_like_markup_stays_a_value_and_text() {
+        for hostile in [
+            "<b>bold</b>",
+            "</script><script>x()</script>",
+            "a\u{0}b",
+            "\" onfocus=\"x()",
+            &"<i>".repeat(crate::typed::LONGEST_TYPED / 3),
+        ] {
+            let document = built(&typing(hostile));
+            let elements: Vec<String> = document
+                .descendants(document.root())
+                .filter_map(|node| document.element(node))
+                .map(|element| element.name.local.to_string())
+                .collect();
+            for made in ["script", "b", "i"] {
+                assert!(!elements.iter().any(|name| name == made), "{made}");
+            }
+            let field = by_id(&document, FIELD).ok();
+            assert_eq!(
+                field.and_then(|field| document.attribute_by_name(field, "value")),
+                Some(hostile)
+            );
+            assert_eq!(
+                document
+                    .element(field.unwrap_or(document.root()))
+                    .map(|field| field.attrs.len()),
+                Some(6),
+                "no attribute added but the value"
+            );
+            let said = hostile.trim();
+            let texts = document
+                .descendants(document.root())
+                .filter(|&node| {
+                    matches!(document.kind(node), Some(NodeKind::Text(data))
+                        if *data == search_for(said) || *data == ask_about(said))
+                })
+                .count();
+            assert_eq!(texts, 2, "{hostile:?}");
+        }
     }
 }

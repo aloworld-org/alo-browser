@@ -93,8 +93,9 @@ pub struct Asked {
 /// What the window hands the thread.
 #[derive(Debug, Clone, PartialEq)]
 enum Work {
-    /// Draw both parts as they are now.
-    Draw(Asked),
+    /// Draw both parts as they are now — boxed, since what is typed and
+    /// offered made it the one large kind of work.
+    Draw(Box<Asked>),
     /// A person pressed this part here, in its CSS pixels.
     Press(Part, Point),
 }
@@ -145,7 +146,7 @@ impl ConversationDrawing {
         if let Some(sender) = &self.asked {
             // A thread that has gone is a window that is closing, which
             // nothing here waits for.
-            let _ = sender.send(Work::Draw(asked.clone()));
+            let _ = sender.send(Work::Draw(Box::new(asked.clone())));
         }
         self.sent = Some(asked);
     }
@@ -213,7 +214,7 @@ fn hold(mut holding: Holding, asking: &Receiver<Work>, tell: &TellConversation) 
             .rposition(|work| matches!(work, Work::Draw(_)));
         for (place, work) in waiting.into_iter().enumerate() {
             let said = match work {
-                Work::Draw(asked) if Some(place) == last_drawing => holding.draw(asked),
+                Work::Draw(asked) if Some(place) == last_drawing => holding.draw(*asked),
                 Work::Draw(_) => Vec::new(),
                 Work::Press(part, at) => holding.press(part, at).into_iter().collect(),
             };

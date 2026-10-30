@@ -35,8 +35,11 @@
 //! 709): the chats panel down the left and the first screen beside it, each
 //! drawn by a confined renderer of this engine's, in a window of the
 //! design's size. It holds one new chat and greets a person; it opens no
-//! page and no socket, and a press on it is not answered yet (queue item
-//! 710). Closing the window stops both renderers.
+//! page and no socket. A press on a chat or *New chat* is answered (queue
+//! item 710), and a press on the box lets a person type into it, with *Go
+//! to the site* offered for an address and Return deciding to go there
+//! (item 701) — said in the window, since opening it in Chrome from here
+//! is item 713. Closing the window stops both renderers.
 //!
 //! Inside the macOS application, `alo browser.app` (queue item 477, ADRs
 //! 0067 and 0068), nothing named opens the application's own page in the

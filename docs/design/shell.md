@@ -65,6 +65,30 @@ picture.
    site the answer drew on says *alo used this*.
 3. The tabs, in order: **Sites · Answer · Images · Videos · News**.
 
+### What is built of it (item 701)
+
+A press on the box gives it the keyboard; a press anywhere else takes it
+away, and while it has it the box's border is the quiet text's colour.
+What a person types is shown as the field's value. Under the box, 8 px
+below it, a white card 720 px wide with a line border, 14 px corners and
+6 px inside holds the offers, each 52 px tall — its words at 15 px, and
+under them at 13 px in quiet text where it leads or *Not set up yet* —
+the one Return chooses on the paper's colour with 10 px corners:
+
+- *Go to the site*, and the address it goes to, first — only when what is
+  typed is an address: `example.com`, `localhost:8080`, `127.0.0.1`,
+  `https://…`; never words with spaces between them, `3.14`, a mail
+  address, or another scheme.
+- *Search for “…”*, then *Ask alo about “…”*, in quiet text, each saying
+  *Not set up yet* until a search provider (708) and a model (707) are
+  chosen.
+
+Backspace erases the last character, Escape empties the box (and, empty,
+lets the keyboard go), and Return or *Go* chooses the first offer. For an
+address, where to go is decided; opening it in Chrome from this window is
+item 713, and a press on an offer is 714. Tab asking the agent waits on
+707. The offers are shown only while the box has the keyboard.
+
 ## The answer
 
 - A one-line answer in the serif, then short points.

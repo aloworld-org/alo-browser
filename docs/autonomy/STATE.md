@@ -45423,3 +45423,45 @@ the agent: the icons drawn, aligned, nothing over text.
 about speed is made.
 
 The next unused queue number is **713** and the next ADR is **0075**.
+
+## Iteration 451 — queue item 701: typing into the one box, and Return deciding where to go; opening Chrome from the conversation cut to 713; an `osascript` argument read as an option, fixed
+
+**Built by a delegated agent, reviewed here.** In `alo --conversation` a
+press on the box gives it the keyboard; what is typed is held by the
+browser process (at most 2048 characters) and sent to the first screen's
+renderer as the field's value, never markup, never to the panel's
+renderer. Offers under the box as screen 0b draws them, read as a
+`listbox` *Suggestions*: *Go to the site* first when what is typed is an
+address (`typed.rs`, decided with `alo-url`), then *Search for* and *Ask
+alo about*, disabled and saying *Not set up yet* (708, 707). Return,
+Backspace, Escape; nothing typed with ⌘ or Ctrl held. Return on
+`example.com` decides `https://example.com/` and says so.
+
+**Cut.** Opening it in Chrome from this window (713: `alo --chrome` runs
+its frame on a `winit` loop of its own, and a process has one); a press on
+an offer (714); the engine wraps a long `<input>` value onto lines below
+the field (715, a defect — `start.css` holds this field to one line
+meanwhile, and Chrome's behaviour is to be measured first).
+
+**Found by the gate, fixed here.** The first gate failed once in
+`a_closed_list_chosen_through_a_shown_chrome.rs` with `osascript: illegal
+option -- 1`: the test passed pointer coordinates after `-e script`, and
+on this Mac's screens left of the main one a coordinate is negative, so
+`-1920` was read as an option. That is why the file failed on and off.
+`--` now ends osascript's options in the test and, as a safeguard, in
+`chrome_menu.rs` (whose arguments are never negative). Measured: with
+`--` a JXA script receives `-1920|5`; without, exit 2.
+
+**Gate.** Rerun after the fix: **5704 tests, 5704 passed, 10 of 10 steps,
+"The gate is met."**
+
+**Manual.** The offers' boxes in numbers (list (160, 326) 720×170, offers
+706×52 at y 333, 385, 437; the tiles moved to 564), claims while the box
+has the keyboard, hostile typed text staying a value. Reference
+`start-typed-into.png`, looked at. No existing reference moved.
+
+**Unresolved obligations.** Nothing opens yet (713); no caret, no editing
+but at the end, no input-method composition. Typing in the running window
+was not tried by hand. No claim about speed is made.
+
+The next unused queue number is **716** and the next ADR is **0075**.

@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel (699), the first screen (700), their window (709) and a press on either (710) built; the rest queued
+**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712) and going to a website from the one box (701, deciding where; opening it is 713) built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -129,5 +129,15 @@ wait on them.
   and the browser process decides it against what the part last painted
   (`conversation_decide.rs`) before acting. *Search chats* and the button
   that hides the panel are 711.
+- What a person types into the one box (701) is held by the browser
+  process (`alo-window`'s `conversation_box.rs`, keys read by `typing.rs`)
+  and sent to the first screen's renderer alone, as data
+  (`Start::typed`), shown as the field's value — an attribute set with
+  `alo-dom`'s operations, never markup. What it means is decided with
+  `alo-url` (`alo-renderer`'s `typed.rs`): *Go to the site* for an
+  address, then *Search for* and *Ask alo about*, saying they are not set
+  up yet until 708 and 707; an agent reads them as a `listbox` of
+  `option`s. Return or *Go* decides where to go; opening it in Chrome from
+  the conversation's window is 713.
 - `docs/design/shell.md` is the written form of the design and is what these
   items are checked against; the canvas it came from is the owner's.
