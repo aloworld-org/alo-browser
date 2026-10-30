@@ -42,6 +42,14 @@ together**:
    theirs (§ 3).
 4. **The agent never searches on its own** (§ 6) — through an API or a page.
 
+**And no search engine of alo's own** — the owner, the same day, after
+weighing what building one takes (crawling, storing and ranking billions of
+pages, kept fresh, against spam): *"Let's use apis."* alo's results come
+from search APIs, the Brave Search API first; an open-source engine is added
+only as another API, once it is maintained and running. Private search of a
+person's own pages, on their own machine, is a separate idea, not decided
+here.
+
 What is left open, and decided when this is built (with the AI, last):
 who pays for the API's queries — the person's own key, or alo, and how;
 which open-source engines are maintained and running, and their API terms; and the order and blend of results when
