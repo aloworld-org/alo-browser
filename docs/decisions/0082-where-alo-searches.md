@@ -26,10 +26,13 @@ together**:
 1. **alo's own results list, drawn as the design draws it, from search APIs:**
    - **Brave Search API** for everyday quality — its own independent index,
      web, images, videos and news (§ 7; about $5 per 1,000 queries when read).
-   - **Open-source engines that offer their results as data**, first
-     **Stract** (independent index, written in Rust), with Mwmbl and
-     Marginalia where they answer — their APIs' terms and limits are to be
-     read before any is called, and none is used against its terms.
+   - **Open-source engines that offer their results as data**, each only
+     once it is confirmed to be **maintained and running**, its API's terms
+     read, and never used against them. Candidates to check: Mwmbl and
+     Marginalia. **Not Stract:** its code (AGPL-3.0, Rust) was archived by its
+     owner on 2 April 2026 and is read-only, and stract.com on 30 October
+     2026 no longer showed a search engine or an API — read from GitHub and
+     the site that day.
 2. **The engine's own page stays** (§§ 1–6): every list ends in *See on …*,
    opening the person's chosen engine — Google, DuckDuckGo, Stract, any of
    § 2's — in the card, free and with no key.
@@ -41,7 +44,7 @@ together**:
 
 What is left open, and decided when this is built (with the AI, last):
 who pays for the API's queries — the person's own key, or alo, and how;
-Stract's and the others' API terms; and the order and blend of results when
+which open-source engines are maintained and running, and their API terms; and the order and blend of results when
 more than one source answers.
 
 ## The question in one line
