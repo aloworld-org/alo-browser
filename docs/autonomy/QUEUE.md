@@ -78,7 +78,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
 | | **717** | the page as a card, drawn from Chrome's frames |
 | | **718** | a person's pointer and keys forwarded from the card to the page |
-| | **719**–**722** | alo carries its own Chromium and never uses the machine's Chrome (ADR 0077): used, pinned and checked, kept updated, and later named alo |
+| | **719**–**724** | alo carries its own Chromium and never uses the machine's Chrome (ADR 0077): used, built by alo from the stable tag on a machine of its own (ADR 0078), kept updated, and named alo |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -19337,12 +19337,25 @@ What stage 2's exit gate actually measures: a person using it.
   Chromium starts it — never the machine's Chrome — and one without draws
   with this engine and says so.
 
-- [ ] **720. Which Chromium alo carries, pinned and checked (ADR 0077).**
-  Decide the source in an ADR of its own (an official Chromium release
-  build, a maintained distribution, or our own build), then have
-  `alo-bundle` take that version, check it against a committed hash, put it
-  in `alo browser.app` with its licences, and sign it with the application.
-  *Depends on 719.*
+- [ ] **720. alo carries the Chromium it built (ADR 0077, ADR 0078).**
+  The owner chose our own build, with no interim build. `alo-bundle` takes
+  the Chromium 724's recipe built on 723's machine — by version, checked
+  against the hash that build recorded — puts it where 719 starts it,
+  ships its licences, and signs it with the application. Checks: no CDM in
+  the bundle, no proprietary codec, and ADR 0073's traffic test run against
+  it. *Depends on 719, 723, 724.*
+
+- [ ] **723. A machine that builds Chromium (ADR 0078).** An Apple-silicon
+  Mac with at least 32 GB of memory and 250 GB free, owned or rented, that
+  this repository's build recipe (724) runs on. This Mac (8 GB, about
+  103 GB free) cannot. *blocked: the owner arranging the machine.*
+
+- [ ] **724. The recipe for alo's Chromium, in this repository (ADR
+  0078).** The stable version it follows, `args.gn` (official, not
+  Chrome-branded, `proprietary_codecs` off, `enable_widevine` off, empty
+  Google API keys), alo's branding files (722's name and icon once made),
+  and a script that fetches that tag, builds, packages and records the
+  version and hash of what it built — reviewed here, run on 723.
 
 - [ ] **721. An updater (ADR 0077).** A new Chromium, and a new alo, reach a
   person within days of a security release, checked and signed, with the
