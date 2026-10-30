@@ -89,6 +89,7 @@ ADR 0058 — and nothing else does:
 | | **733** | a profile's path made again, empty, a second after alo removed it — Chrome and the host alike, swept by the next start (found by 727) |
 | | **728**, **729** | Windows and Linux (728), and what macOS keeps for the host (729) — cut from 725 |
 | | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
+| | **736** | trackers and ads blocked by alo itself, with Brave's `adblock-rust` at the place every request is held |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -19908,6 +19909,22 @@ What stage 2's exit gate actually measures: a person using it.
   The design's tabs in order, *Sites* the first and the default for anything
   typed: each result its site, its title as a link, two lines of
   description. *blocked: the owner has not chosen the search provider.*
+
+- [ ] **736. Trackers and ads blocked by alo itself, with `adblock-rust`.**
+  The owner asked for it on 30 October 2026, after weighing Brave: alo does
+  not fork Brave, but takes Brave's ad and tracker blocker, `adblock-rust`
+  (Rust, MPL-2.0, the engine of Brave's Shields), as a rented crate behind
+  one file, and asks it at the place every request is already held and
+  decided (ADR 0060): a request a list names is refused before it leaves,
+  and recorded with the list rule that refused it, as any refusal is. The
+  lists are public ones (EasyList, EasyPrivacy) under their own licences,
+  carried with the application and updated with it (721), never fetched by
+  a page's load. A site's own rules can switch it off (705). Write the ADR
+  first: which lists, how cosmetic filtering (hiding elements) is or is not
+  done without script of ours in the page, how a breakage is undone, and
+  what the person sees. *Closes when:* a tracker on a local test page is
+  refused and recorded, a page that needs nothing blocked loads unchanged,
+  through Chrome and through the carried CEF host alike.
 
 ## K. ★ The agent, on somebody else's pages
 
