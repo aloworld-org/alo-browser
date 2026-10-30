@@ -12,7 +12,7 @@ block flow · document
       block flow · paragraph
         text " alo browser's own engine draws alo's own interface. The web is drawn by the Chromium alo browser carries inside the application, at "
         inline flow · generic
-          text "Contents/Frameworks/Chromium.app"
+          text "Contents/Frameworks/alo Chromium.app"
         text ". It never uses another browser on this Mac, even one that is installed. "
       block flow · heading [level=2]
         text "What it is not yet"

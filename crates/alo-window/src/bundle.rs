@@ -19,12 +19,13 @@
 //! # Its own Chromium, and never the machine's Chrome
 //!
 //! The application starts only the Chromium at [`CHROMIUM`] inside its own
-//! `Contents` ([`Bundle::chromium`]): `Contents/Frameworks/Chromium.app`,
-//! an application inside the application as macOS keeps helper bundles,
-//! with its program where a Chromium release build puts it,
-//! `Contents/MacOS/Chromium`. It never uses the machine's Chrome, even when
-//! one is installed (ADR 0077): the owner's words, *as if the user only has
-//! alo-browser on his PC*. Which Chromium is put there is queue item 720's.
+//! `Contents` ([`Bundle::chromium`]): `Contents/Frameworks/alo Chromium.app`,
+//! an application inside the application as macOS keeps helper bundles —
+//! alo's own CEF host (ADR 0079), with its program at `Contents/MacOS/alo
+//! Chromium`, its helpers and CEF's framework, put there by `alo-bundle`
+//! (queue item 720, [`crate::bundle_carried`]). It never uses the machine's
+//! Chrome, even when one is installed (ADR 0077): the owner's words, *as if
+//! the user only has alo-browser on his PC*.
 //!
 //! Where the program is decides it, the way [`crate::beside`] finds the
 //! renderer: a program at `NAME.app/Contents/MacOS/` whose
@@ -43,8 +44,9 @@ pub const PAGE: &str = "page.html";
 pub const WITHOUT_CHROME: &str = "without-chrome.html";
 
 /// Where the application carries its own Chromium's program, under its
-/// `Contents` (ADR 0077).
-pub const CHROMIUM: &str = "Frameworks/Chromium.app/Contents/MacOS/Chromium";
+/// `Contents` (ADR 0077): alo's CEF host, named as
+/// [`crate::cef_host::EXECUTABLE`] names it (ADR 0079, queue item 720).
+pub const CHROMIUM: &str = "Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium";
 
 /// The macOS application a program runs inside.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -184,7 +186,7 @@ mod tests {
             Some(
                 programs
                     .with_file_name("Frameworks")
-                    .join("Chromium.app/Contents/MacOS/Chromium")
+                    .join("alo Chromium.app/Contents/MacOS/alo Chromium")
             ),
             "its own Chromium, inside it, whether or not one is there"
         );

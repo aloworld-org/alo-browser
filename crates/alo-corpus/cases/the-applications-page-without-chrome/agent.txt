@@ -8,8 +8,8 @@ document at (0, 0) 1200×670
       text "A browser an agent reads rather than photographs. An agent asks alo browser for this page as a tree of what it is — a heading, a paragraph, a link — and acts on it by name, under the sites a person lets it reach." at (96, 229) 637.21875×67 in 3 pieces
     paragraph at (96, 315) 640×96
       text "alo browser's own engine draws alo's own interface. The web is drawn by the Chromium alo browser carries inside the application, at" at (96, 317) 619.96875×43 in 2 pieces
-      text "Contents/Frameworks/Chromium.app" at (96, 343) 617.5625×40 in 2 pieces
-      text ". It never uses another browser on this Mac, even one that is installed." at (96, 365) 588.34375×43 in 2 pieces
+      text "Contents/Frameworks/alo Chromium.app" at (96, 343) 617.5625×40 in 2 pieces
+      text ". It never uses another browser on this Mac, even one that is installed." at (96, 365) 622.0469×43 in 2 pieces
     heading "What it is not yet" [level=2] at (96, 443) 640×27
     paragraph at (96, 478) 640×72
       text "There is no address bar, so a person cannot go anywhere from here. An agent reaches this page through" at (96, 480) 626.125×43 in 2 pieces

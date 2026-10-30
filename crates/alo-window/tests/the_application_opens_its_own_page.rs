@@ -13,14 +13,19 @@
 //! --chrome` closed as it opened.
 //!
 //! The application carries **a Chromium of its own** at
-//! `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium` (ADR 0077).
-//! Until item 720 puts one there, the test's is this machine's Chrome
-//! cloned whole into that place — `cp -c`, a copy-on-write clone that costs
-//! no disk — with its program reached through a link named `Chromium`
-//! beside it, since a Chrome finds its framework and helpers from the path
-//! it was started at. It speaks the same protocol, and it is a different
-//! program at a different path from the machine's Chrome, which is never
-//! touched.
+//! `Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium` (ADR
+//! 0077). **With a CEF distribution named by `CEF_PATH`** it is the real
+//! one (queue item 720): alo's CEF host is built against it, and the
+//! application is the one `alo-bundle` makes, carrying the host, CEF's
+//! framework and its licences, sealed — run as it is. **Without one** the
+//! host cannot be built, and so that the application's own path is still
+//! run, its Chromium is this machine's Chrome cloned whole into that place
+//! — `cp -c`, a copy-on-write clone that costs no disk — with its program
+//! reached through a link named `alo Chromium` beside it, since a Chrome
+//! finds its framework and helpers from the path it was started at. It
+//! speaks the same protocol, and it is a different program at a different
+//! path from the machine's Chrome, which is never touched. Which of the two
+//! ran is said on the test's error output.
 //!
 //! Here it opens the application's page in that Chromium, says so on the
 //! terminal with the way it is closed, and is still running after its
@@ -32,9 +37,13 @@
 //! Then the application is **quit** as the Dock and ⌘Q quit it, by the
 //! Apple Event `osascript` sends it, which ends the process inside `AppKit`
 //! without returning from its event loop (ADR 0067 § 1). Nothing it started
-//! is left running, and nothing it made is left on the disk: not Chrome's
-//! profile, which Quit used to leave (queue item 688), and not the socket
-//! an agent reached it at.
+//! is left running — no process of any program inside the application,
+//! the Chromium's helpers among them — and nothing it made is left on the
+//! disk: not the Chromium's profile, which Quit used to leave (queue item
+//! 688), and not the socket an agent reached it at. And no program inside
+//! it left a crash report.
+
+#![cfg(target_os = "macos")]
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -47,20 +56,89 @@ use std::time::{Duration, Instant};
 const AT_MOST: Duration = Duration::from_secs(60);
 
 /// Where Chrome's installer puts it on a Mac: what the test's Chromium is
-/// cloned from, and what the application must never start.
+/// cloned from when there is no CEF distribution, and what the application
+/// must never start.
 const MACHINES_CHROME: &str = "/Applications/Google Chrome.app";
+
+/// The CEF distribution `CEF_PATH` names, or why there is none.
+fn distribution() -> Result<PathBuf, String> {
+    let Some(named) = std::env::var_os("CEF_PATH") else {
+        return Err("CEF_PATH is not set".to_owned());
+    };
+    let named = PathBuf::from(named);
+    if named.join(alo_window::cef_host::FRAMEWORK).is_dir()
+        && named.join(alo_window::cef_pin::ARCHIVE_JSON).is_file()
+    {
+        Ok(named)
+    } else {
+        Err(format!(
+            "CEF_PATH names {}, which holds no unpacked CEF distribution",
+            named.display()
+        ))
+    }
+}
+
+/// alo's CEF host built against the distribution at `cef`: its program.
+fn built(cef: &Path) -> Result<PathBuf, String> {
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let target = repository.join("target/alo-cef-host");
+    let status = Command::new(env!("CARGO"))
+        .arg("build")
+        .arg("--locked")
+        .arg("--manifest-path")
+        .arg(repository.join("crates/alo-cef-host/Cargo.toml"))
+        .arg("--target-dir")
+        .arg(&target)
+        .env("CEF_PATH", cef)
+        .status()
+        .map_err(|why| format!("cargo did not start: {why}"))?;
+    if !status.success() {
+        return Err(format!("the host did not build: {status}"));
+    }
+    Ok(target.join("debug/alo-cef-host"))
+}
+
+/// The application `alo-bundle` makes in `root` from the programs this test
+/// was built with, carrying the host built against `cef`: its `Contents`.
+fn made_by_alo_bundle(root: &Path, cef: &Path) -> Result<PathBuf, String> {
+    let host = built(cef)?;
+    let alo = Path::new(env!("CARGO_BIN_EXE_alo"));
+    let programs = alo.parent().ok_or("alo is in no directory")?;
+    let made = Command::new(env!("CARGO_BIN_EXE_alo-bundle"))
+        .arg("--programs")
+        .arg(programs)
+        .arg("--into")
+        .arg(root)
+        .arg("--host")
+        .arg(&host)
+        .env("CEF_PATH", cef)
+        .output()
+        .map_err(|why| format!("alo-bundle did not run: {why}"))?;
+    if !made.status.success() {
+        return Err(format!(
+            "alo-bundle did not make the application: {}",
+            String::from_utf8_lossy(&made.stderr)
+        ));
+    }
+    Ok(root.join("alo browser.app").join("Contents"))
+}
 
 /// Put a Chromium in the application whose `Contents` is `contents`, at
 /// the place it carries one: this machine's Chrome cloned, its program
-/// reached through a link named `Chromium` beside it. The program's path.
+/// reached through a link named `alo Chromium` beside it. The program's
+/// path.
 fn carry_a_chromium(contents: &Path) -> Result<PathBuf, String> {
-    let frameworks = contents.join("Frameworks");
-    std::fs::create_dir_all(&frameworks).map_err(|why| why.to_string())?;
-    let carried = frameworks.join("Chromium.app");
+    let program = contents.join(alo_window::bundle::CHROMIUM);
+    let carried = program
+        .ancestors()
+        .nth(3)
+        .ok_or("the Chromium's place is in no application")?;
+    let frameworks = carried.parent().ok_or("no Frameworks")?;
+    std::fs::create_dir_all(frameworks).map_err(|why| why.to_string())?;
     let cloned = Command::new("/bin/cp")
         .arg("-cR")
         .arg(MACHINES_CHROME)
-        .arg(&carried)
+        .arg(carried)
         .output()
         .map_err(|why| format!("cp did not run: {why}"))?;
     if !cloned.status.success() {
@@ -69,7 +147,6 @@ fn carry_a_chromium(contents: &Path) -> Result<PathBuf, String> {
             String::from_utf8_lossy(&cloned.stderr)
         ));
     }
-    let program = carried.join("Contents/MacOS/Chromium");
     std::os::unix::fs::symlink("Google Chrome", &program)
         .map_err(|why| format!("{} could not be made: {why}", program.display()))?;
     Ok(program)
@@ -112,11 +189,39 @@ fn only_its_own_chromium<'c>(
 /// § 1).
 const STILL_AFTER: Duration = Duration::from_secs(4);
 
-/// The application, made under a directory of this test's own: the
-/// directory, and the application's `Contents`.
-fn application() -> Result<(PathBuf, PathBuf), String> {
+/// The application, made under a directory of this test's own, carrying
+/// a Chromium — CEF's, made by `alo-bundle`, when `CEF_PATH` names a
+/// distribution; this machine's Chrome cloned when not: the directory, the
+/// application's `Contents`, and its Chromium's program.
+fn application() -> Result<(PathBuf, PathBuf, PathBuf), String> {
     let root = std::env::temp_dir().join(format!("alo-application-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).map_err(|why| why.to_string())?;
+    let contents = match distribution() {
+        Ok(cef) => {
+            eprintln!(
+                "the application carries CEF's Chromium, made by alo-bundle against {}",
+                cef.display()
+            );
+            made_by_alo_bundle(&root, &cef)?
+        }
+        Err(why) => {
+            eprintln!(
+                "the application carries this machine's Chrome cloned, not CEF's Chromium: \
+                 {why} (queue item 720)"
+            );
+            let contents = shaped(&root)?;
+            carry_a_chromium(&contents)?;
+            contents
+        }
+    };
+    let carried = contents.join(alo_window::bundle::CHROMIUM);
+    Ok((root, contents, carried))
+}
+
+/// The application shaped by hand under `root`, carrying no Chromium yet:
+/// its `Contents`.
+fn shaped(root: &Path) -> Result<PathBuf, String> {
     let contents = root.join("alo browser.app").join("Contents");
     let programs = contents.join("MacOS");
     let resources = contents.join("Resources");
@@ -141,7 +246,7 @@ fn application() -> Result<(PathBuf, PathBuf), String> {
         std::fs::copy(cases.join(case).join("page.html"), resources.join(name))
             .map_err(|why| format!("{case} could not be copied: {why}"))?;
     }
-    Ok((root, contents))
+    Ok(contents)
 }
 
 /// How long Quit is given to end the program: Chrome is asked to close and
@@ -259,8 +364,30 @@ fn running(pid: u32) -> bool {
         .is_ok_and(|status| status.success())
 }
 
-/// The test's own directory — the application and its cloned Chromium in
-/// it — removed when the test ends however it ends.
+/// Whether any process is running a program inside `application`.
+fn running_inside(application: &Path) -> bool {
+    Command::new("/usr/bin/pgrep")
+        .arg("-f")
+        .arg(application)
+        .output()
+        .is_ok_and(|found| !found.stdout.is_empty())
+}
+
+/// The crash reports macOS keeps for this person, by name.
+fn crash_reports() -> Vec<String> {
+    let Some(home) = std::env::var_os("HOME") else {
+        return Vec::new();
+    };
+    std::fs::read_dir(Path::new(&home).join("Library/Logs/DiagnosticReports"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect()
+}
+
+/// The test's own directory — the application and its Chromium in it —
+/// removed when the test ends however it ends.
 struct RemovedAtTheEnd(PathBuf);
 
 impl Drop for RemovedAtTheEnd {
@@ -332,12 +459,41 @@ fn reads_the_page_in_chrome(socket: &Path, contents: &Path) -> Result<(), String
     Ok(())
 }
 
+/// Assert nothing `alo` started — `children` — is running once it ended,
+/// no program inside `application` is, and no crash report beside
+/// `reports` is any of theirs.
+fn nothing_is_left_running(children: &[(u32, String)], application: &Path, reports: &[String]) {
+    let until = Instant::now() + AT_MOST;
+    let mut left: Vec<_> = children.iter().map(|(pid, _)| *pid).collect();
+    while !left.is_empty() && Instant::now() < until {
+        left.retain(|pid| running(*pid));
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert!(
+        left.is_empty(),
+        "still running after the program ended: {left:?} of {children:?}"
+    );
+    while running_inside(application) && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert!(
+        !running_inside(application),
+        "a program inside the application outlived it"
+    );
+    let reported: Vec<String> = crash_reports()
+        .into_iter()
+        .filter(|report| !reports.contains(report) && report.starts_with("alo"))
+        .collect();
+    assert_eq!(reported, Vec::<String>::new(), "crash reports");
+}
+
 #[test]
 fn the_application_opens_its_page_in_its_own_chromium_and_quitting_leaves_nothing_running()
 -> Result<(), String> {
-    let (root, contents) = application()?;
+    let reports = crash_reports();
+    let (root, contents, carried) = application()?;
     let _removed = RemovedAtTheEnd(root.clone());
-    let carried = carry_a_chromium(&contents)?;
+    let application = root.join("alo browser.app");
     let runtime = root.join("runtime");
     std::fs::create_dir_all(&runtime).map_err(|why| why.to_string())?;
     let mut child = Command::new(contents.join("MacOS").join("alo"))
@@ -402,7 +558,7 @@ fn the_application_opens_its_page_in_its_own_chromium_and_quitting_leaves_nothin
     assert!(profile.is_dir(), "{}", profile.display());
     assert!(socket.exists(), "{}", socket.display());
 
-    quit(&root.join("alo browser.app"))?;
+    quit(&application)?;
     let until = Instant::now() + QUIT_WITHIN;
     let ended = loop {
         match started.0.try_wait() {
@@ -415,16 +571,7 @@ fn the_application_opens_its_page_in_its_own_chromium_and_quitting_leaves_nothin
         ended.is_some(),
         "alo was still running {QUIT_WITHIN:?} after it was quit"
     );
-    let until = Instant::now() + AT_MOST;
-    let mut left: Vec<_> = children.iter().map(|(pid, _)| *pid).collect();
-    while !left.is_empty() && Instant::now() < until {
-        left.retain(|pid| running(*pid));
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    assert!(
-        left.is_empty(),
-        "still running after the program ended: {left:?} of {children:?}"
-    );
+    nothing_is_left_running(&children, &application, &reports);
 
     // Item 688: nothing of the session is left on the disk.
     let profile_left = profile.exists();
@@ -433,7 +580,7 @@ fn the_application_opens_its_page_in_its_own_chromium_and_quitting_leaves_nothin
     let _ = std::fs::remove_dir_all(&root);
     assert!(
         !profile_left,
-        "Chrome's profile was left: {}",
+        "the Chromium's profile was left: {}",
         profile.display()
     );
     assert!(!socket_left, "the socket was left: {}", socket.display());

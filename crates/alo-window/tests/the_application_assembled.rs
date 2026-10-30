@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! `alo-bundle` makes the macOS application, and `codesign` accepts it
-//! (queue item 687; ADR 0067 § 6).
+//! (queue item 687; ADR 0067 § 6) — here with no CEF distribution named, so
+//! carrying no Chromium and saying so (queue item 720; the application
+//! carrying one is `tests/the_application_carrying_its_chromium.rs`).
 //!
 //! The real command, given the programs this test was built with, makes
 //! `alo browser.app` in a directory of the test's own. What it holds is read
@@ -30,7 +32,8 @@ fn directory(name: &str) -> Result<PathBuf, String> {
 }
 
 /// `alo-bundle`, making the application into `into` from the programs this
-/// test was built with.
+/// test was built with, and with no CEF distribution named — so carrying
+/// no Chromium (`tests/the_application_carrying_its_chromium.rs` names one).
 fn assemble(into: &Path) -> Result<Output, String> {
     let alo = Path::new(env!("CARGO_BIN_EXE_alo"));
     let programs = alo.parent().ok_or("alo is in no directory")?;
@@ -39,6 +42,7 @@ fn assemble(into: &Path) -> Result<Output, String> {
         .arg(programs)
         .arg("--into")
         .arg(into)
+        .env_remove("CEF_PATH")
         .output()
         .map_err(|why| format!("alo-bundle did not run: {why}"))
 }
@@ -174,7 +178,9 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
     );
     assert_eq!(
         said,
-        "alo-bundle: made, sealed ad hoc and checked by codesign\n"
+        "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
+         its page with this browser's own engine, and says so\n\
+         alo-bundle: made, sealed ad hoc and checked by codesign\n"
     );
     assert_eq!(
         files_under(&root),
@@ -275,13 +281,16 @@ fn programs_not_built_are_named_and_nothing_is_made() -> Result<(), String> {
         .arg(&root)
         .arg("--into")
         .arg(&root)
+        .env_remove("CEF_PATH")
         .output()
         .map_err(|why| format!("alo-bundle did not run: {why}"))?;
     assert_eq!(made.status.code(), Some(2));
     assert_eq!(
         String::from_utf8_lossy(&made.stderr),
         format!(
-            "alo-bundle: {} is not there: build the programs first, with cargo build --release\n",
+            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
+             its page with this browser's own engine, and says so\n\
+             alo-bundle: {} is not there: build the programs first, with cargo build --release\n",
             root.join("alo").display()
         )
     );

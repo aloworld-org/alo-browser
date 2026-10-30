@@ -217,13 +217,13 @@ mod tests {
     fn the_carried_chromium_missing_is_refused_naming_its_one_place() {
         let refused = NotCarried {
             looked: PathBuf::from(
-                "/A.app/Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium",
+                "/A.app/Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium",
             ),
         };
         assert_eq!(
             refused.to_string(),
             "alo's own Chromium is not in the application: it was looked for at \
-             /A.app/Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium"
+             /A.app/Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium"
         );
     }
 }

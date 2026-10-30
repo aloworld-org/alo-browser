@@ -50,7 +50,8 @@
 //! Inside the macOS application, `alo browser.app` (queue items 477 and
 //! 719, ADRs 0067, 0068 and 0077), nothing named opens the application's own
 //! page as `--chrome` would, but in **the Chromium the application carries**
-//! at `Contents/Frameworks/Chromium.app` — and every Chromium it starts is
+//! at `Contents/Frameworks/alo Chromium.app`, alo's own CEF host (ADR 0079,
+//! queue item 720) — and every Chromium it starts is
 //! that one, never the machine's Chrome, even when one is installed
 //! ([`alo_window::bundle_chromium`]). With none there, or one that cannot be
 //! started, it draws its page with this engine on a page that says so, and

@@ -8,7 +8,9 @@ host program was built the same day **with no `unsafe`** (§ 8b, queue item
 not needed for a headless host; its own shown window (727) found them
 needed after all for a shown host a person uses (§ 8b: 731, 732), and the
 owner allowed it: **ADR 0080**, built the same day (731, 732, and the gate
-reaching the host, 730); the rest is owed by 720, 726, 728 and 729.
+reaching the host, 730); **carried in the application** the same day
+(720, iteration 458: § 8b's last row); the rest is owed by 726, 728, 729
+and, for signing with the owner's Developer ID and notarising, 735.
 
 ## The question in one line
 
@@ -373,6 +375,7 @@ measured on this Mac, against what § 3.2 and § 8 expected:
 | No `NSApplication` of the host's own, for a shown window (727) | **Not enough.** Chromium asks the application object `-isHandlingSendEvent` (`CefAppProtocol`) when a page closes from inside (`Target.closeTarget`, `window.close()`), for a context menu and for a closed list's menu, and AppKit's own does not answer: each crashes the host (`SIGTRAP`, a crash report, macOS's dialog). The menu bar is an empty *alo* menu, so ⌘Q does nothing. Chrome's `BrowserCrApplication`, inside CEF's framework, crashes in `+initialize` when made before CEF starts. So the `unsafe` boundary § 3.2 foresaw is needed for a host a person uses: ADR 0080, queue items 731 and 732. |
 | The host's own application object (ADR 0080, 731, 732) | **Enough, but for one case.** `AloCefHostApplication` (`application_mac.rs`, the host's one `unsafe` file) answers `CefAppProtocol`: a context menu, a closed list's menu, `Target.closeTarget` and a page's `window.close()` leave the host running, with no crash report. Its `-terminate:` closes every page and leaves the message loop, so `Browser.close`, *Quit alo* and ⌘Q (Chrome's Exit command, answered by the host) end it in order — status 0, CEF shut down, Chromium's process-singleton directory removed. The menu bar holds *alo*, *Edit* and *Window*. A page closed while its context menu is still open crashes the host (`SIGSEGV`, freed memory, inside CEF): queue item 734. |
 | Nothing written outside the profile | Not by default. Three things were, and are stopped: Chromium's temporary directories (`MAC_CHROMIUM_TMPDIR` into the profile), a `Chromium Safe Storage` key in the login keychain whose dialog on a rebuilt host held the network (`--use-mock-keychain`), and an application clone under the system's `X/` directory (`MacAppCodeSignClone` added to alo's one `--disable-features`). macOS's own Metal caches and a Notifications registration remain, and are 729's. |
+| Carried inside `alo browser.app` (720) | `alo-bundle` puts the host at `Contents/Frameworks/alo Chromium.app` — an application inside alo's — with CEF's framework, checked against a SHA-256 of our own of it (`cef_pin.rs`, from a copy unpacked afresh from the archive whose SHA-256 matched) before it is copied, and CEF's `LICENSE.txt` and Chromium's `CREDITS.html` in `Contents/Resources/licences`, linked from the application's page. CEF's framework comes signed only by its linker, which `codesign --verify --strict` refuses, so the whole is signed again ad hoc, inside out (libraries, framework, helpers — GPU and renderer with `allow-jit` — host, then alo's application), and `codesign --verify --deep --strict` accepts it. **Measured**: nested so, `cef_initialize` stopped on a failed check (`SIGTRAP`), because CEF looks for its framework and main bundle in the *top-level* application, alo's; the host now names its own bundle and framework (`main_bundle_path`, `framework_dir_path`), and the application `alo-bundle` makes opens its page in it and quits leaving nothing running. 361,036 KiB (about 353 MiB) with release programs, CEF's framework 333,312 KiB of it. |
 | A build that never downloads | `cef-dll-sys` downloads CEF when `CEF_PATH` names none, so the host is a workspace of its own, excluded from the repository's, built only with `CEF_PATH` set; the gate formats it always, and lints and tests it when `CEF_PATH` names a distribution, saying so when it does not (730). |
 
 ## 8. The hands-on probe owed (none of it done)
@@ -457,7 +460,18 @@ measured:
   own command line, so `chrome.rs` starts it unchanged, headless or (once
   727 opens its window) shown.
 - `bundle_chromium.rs` looks for the host and CEF's framework instead of
-  `Contents/Frameworks/Chromium.app`.
+  `Contents/Frameworks/Chromium.app`. — **Done otherwise** (720): the
+  place itself moved, `bundle::CHROMIUM` naming the host's program at
+  `Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium`, so
+  `bundle_chromium.rs` is unchanged; `alo-bundle` checks CEF's framework
+  against its pin when it makes the application, not `alo` when it starts.
+- 720 pins CEF's version and SHA-256 per system — **done for macOS on
+  Apple silicon** (`crates/alo-window/src/cef_pin.rs`): the archive's name,
+  CEF's SHA-1 and our SHA-256 of it as provenance, and our SHA-256s of the
+  framework and the two licence files as what is checked. Other systems
+  are 728's. Signing is ad hoc: this Mac holds no Developer ID
+  Application certificate, so the hardened runtime, the owner's identity
+  and notarisation are 735's, blocked on that certificate.
 
 ## Sources (read 30 October 2026)
 

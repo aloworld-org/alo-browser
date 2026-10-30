@@ -4,7 +4,12 @@
 queue items 719–722. **719 built** (iteration 454): the application starts
 only the Chromium at `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium`
 inside it, never the machine's Chrome, and draws with this engine, saying
-so, when that one is missing or damaged; 720 puts one there
+so, when that one is missing or damaged; **720 built** (iteration 458):
+`alo-bundle` puts CEF's Chromium there, inside alo's own host (ADR 0079),
+the place renamed with it to
+`Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium`, pinned
+by version and by SHA-256s of our own, checked before it is copied, with
+its licences, sealed ad hoc; Developer ID signing and notarisation are 735
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive — *"Chrome is never
 shipped"*, the machine's own Chrome is used); ADR 0059 (the product path);
@@ -77,5 +82,8 @@ neither, which agrees with that list.
   application, and keeps driving the machine's Chrome for this
   repository's tests.
 - Until 720 puts a Chromium in the application, the application draws with
-  this engine and says so.
+  this engine and says so. — **Done** (720, iteration 458): the application
+  `alo-bundle` makes with `CEF_PATH` naming the pinned distribution carries
+  CEF's Chromium; one made without `CEF_PATH` carries none, and both
+  `alo-bundle` and the application say so.
 - Nothing is given to anyone outside the owner's machines before 721.

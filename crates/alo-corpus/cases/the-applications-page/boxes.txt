@@ -12,6 +12,19 @@ block flow · document
       block flow · paragraph
         text " The frame above this window says which renderer draws the page, and what each agent asked for and was answered. "
       block flow · heading [level=2]
+        text "The Chromium it carries"
+      block flow · paragraph
+        text " alo browser carries Chromium inside the application, as the Chromium Embedded Framework builds it, in a program of its own at "
+        inline flow · generic
+          text "Contents/Frameworks/alo Chromium.app"
+        text ", so it needs no other browser on this Mac. Its licences are inside the application too: "
+        inline flow · link
+          text "the Chromium Embedded Framework's licence"
+        text ", and "
+        inline flow · link
+          text "Chromium's credits"
+        text ", which give the licence of every project inside it. "
+      block flow · heading [level=2]
         text "What it is not yet"
       block flow · paragraph
         text " There is no address bar, so a person cannot go anywhere from here. An agent opens other pages through "

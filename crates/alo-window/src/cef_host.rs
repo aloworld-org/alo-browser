@@ -32,11 +32,15 @@
 //! CEF starts it with. The framework is CEF's published build, unchanged,
 //! cloned in (`cp -c`) so a bundle costs no disk beside the distribution.
 //!
-//! # What this is not yet
+//! # Where it is carried
 //!
-//! It is what a test puts together to start the host as `alo-window`
-//! starts Chrome. Carrying it inside `alo browser.app`, sealing it with the
-//! owner's identity and saying CEF's licence are queue item 720's.
+//! `alo-bundle` puts it inside `alo browser.app` at
+//! `Contents/Frameworks/alo Chromium.app`, where the application starts its
+//! Chromium ([`crate::bundle::CHROMIUM`]), once CEF's distribution is
+//! checked against its pin, with CEF's licences beside the application's
+//! page ([`crate::bundle_carried`], queue item 720), and seals it ad hoc,
+//! inside out ([`crate::bundle_seal::seal_carried`]). Sealing it with the
+//! owner's Developer ID and notarising it are queue item 735's.
 
 use crate::info_plist::text_of;
 use core::fmt;

@@ -36,6 +36,18 @@
 //! that clean-up would remove outside the profile is still kept inside it
 //! (`switches.rs`).
 //!
+//! # Its own bundle, inside alo's
+//!
+//! CEF looks for its framework and its main bundle in the **top-level**
+//! application around the program by default. Inside `alo browser.app` the
+//! host is an application within an application
+//! (`Contents/Frameworks/alo Chromium.app`, queue item 720), and the
+//! top-level one is alo's, which holds no framework: measured with CEF
+//! 156.0.14, `cef_initialize` stopped on a failed check (`SIGTRAP`) there,
+//! and started the same host moved out of it. So the browser names both
+//! itself ([`bundle`]): its own application as the main bundle, and the
+//! framework beside its program; CEF hands both to every helper it starts.
+//!
 //! # Refused, not panicked
 //!
 //! The `cef` crate panics when the framework or the sandbox library is not
@@ -58,6 +70,9 @@ pub const UNSTARTED: i32 = 4;
 /// The exit status when the host's application object could not be made.
 pub const NO_APPLICATION: i32 = 6;
 
+/// The framework's directory, as CEF names it.
+const FRAMEWORK_DIRECTORY: &str = "Chromium Embedded Framework.framework";
+
 /// The framework's program, as CEF lays it out.
 const FRAMEWORK: &str = "Chromium Embedded Framework.framework/Chromium Embedded Framework";
 
@@ -74,6 +89,13 @@ pub fn frameworks(program: &Path, role: switches::Role) -> Option<PathBuf> {
         switches::Role::Browser => Some(programs.parent()?.join("Frameworks")),
         switches::Role::Helper => Some(programs.parent()?.parent()?.parent()?.to_path_buf()),
     }
+}
+
+/// The host's own application, around the browser's program at `program`
+/// (`… .app/Contents/MacOS/…`): CEF's main bundle, never the application
+/// the host is carried in.
+pub fn bundle(program: &Path) -> Option<PathBuf> {
+    Some(program.parent()?.parent()?.parent()?.to_path_buf())
 }
 
 /// Run as the helper CEF started: the process's exit status.
@@ -123,10 +145,17 @@ pub fn browser(program: &Path, profile: &Path, page: Option<String>) -> i32 {
         eprintln!("alo's CEF host: no application object of its own: {why:?}");
         return NO_APPLICATION;
     }
+    let Some(bundle) = bundle(program) else {
+        return MISSING;
+    };
+    let framework = frameworks.join(FRAMEWORK_DIRECTORY);
     let profile = CefString::from(profile.to_string_lossy().as_ref());
     let settings = Settings {
         root_cache_path: profile.clone(),
         cache_path: profile,
+        // Its own, not the top-level application's (this file's header).
+        main_bundle_path: CefString::from(bundle.to_string_lossy().as_ref()),
+        framework_dir_path: CefString::from(framework.to_string_lossy().as_ref()),
         // CEF's own log would be `debug.log` in the working directory.
         log_severity: LogSeverity::DISABLE,
         ..Settings::default()
@@ -200,5 +229,18 @@ mod tests {
             frameworks(Path::new("alone"), switches::Role::Browser),
             None
         );
+    }
+
+    #[test]
+    fn the_main_bundle_is_the_hosts_own_inside_alos() {
+        assert_eq!(
+            bundle(Path::new(
+                "/A/alo browser.app/Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium"
+            )),
+            Some(PathBuf::from(
+                "/A/alo browser.app/Contents/Frameworks/alo Chromium.app"
+            ))
+        );
+        assert_eq!(bundle(Path::new("/alone")), None);
     }
 }

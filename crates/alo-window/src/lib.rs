@@ -32,10 +32,11 @@
 //!   Chromium the application carries is started there, never the machine's
 //!   Chrome (item 719, ADR 0077); `alo-bundle` makes that application, put
 //!   together by [`bundle_made`] with the [`info_plist`] it says of itself
-//!   and sealed by [`bundle_seal`] (item 687). The Chromium it is to carry
+//!   and sealed by [`bundle_seal`] (item 687). The Chromium it carries
 //!   is CEF's, loaded by alo's own host program (`crates/alo-cef-host`, ADR
 //!   0079), laid out as an application of its own by [`cef_host`] (item
-//!   725).
+//!   725), checked against its pin by [`cef_pin`] and put in the
+//!   application with its licences by [`bundle_carried`] (item 720).
 //! - [`agents`] is the socket an agent outside the browser speaks to (ADR
 //!   0055), at a place [`socket_place`] makes private; [`protocol`] reads and
 //!   writes its lines, one of the two files that name `serde_json`, into what
@@ -129,11 +130,13 @@ pub mod aim;
 pub mod asking;
 pub mod beside;
 pub mod bundle;
+pub mod bundle_carried;
 pub mod bundle_chromium;
 pub mod bundle_icon;
 pub mod bundle_made;
 pub mod bundle_seal;
 pub mod cef_host;
+pub mod cef_pin;
 #[cfg(unix)]
 pub mod chrome;
 pub mod chrome_act;

@@ -234,9 +234,9 @@ about this project (ADR 0058 § 6).
   machine's Chrome, its input not watched, or on a Mac with no Chrome
   draws a page saying so with this engine (ADR 0077 then took the
   machine's Chrome away from the application: it starts only the
-  Chromium at `Contents/Frameworks/Chromium.app` inside it, and draws
-  with this engine, saying so, when that one is missing or damaged —
-  719); started as macOS starts an
+  Chromium at `Contents/Frameworks/alo Chromium.app` inside it — CEF's,
+  in alo's own host, since 720 — and draws with this engine, saying so,
+  when that one is missing or damaged — 719); started as macOS starts an
   application it runs on after its input has ended, and ended it leaves
   no Chrome running, measured by a real Quit as well (477's first part);
   and **the application made by a command** — `alo-bundle`, after `cargo
@@ -993,7 +993,8 @@ unreachable without it.
       found held by macOS's Local Network privacy until a person allows
       Chrome, and the application's own page saying so (697)
       — and inside the application only the Chromium it carries,
-      `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium`, never the
+      `Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium`
+      (the name 720 gave it), never the
       machine's Chrome even when one is installed, named to the person and
       to an agent as *the Chromium alo carries* (`CarriedChromium`); with
       none there or one that does not answer, the application's page drawn
@@ -1014,8 +1015,16 @@ unreachable without it.
       `Browser.close` end it in order, a menu bar with Quit, Edit and
       Window; the gate formats, lints and tests the host and holds the
       boundary to its file (ADR 0080, 730–732)
-      · Owed: which Chromium the application carries, pinned and checked
-      (720), a page closed with its context menu open (734), Windows and
+      · **the application carries its own Chromium and needs no Chrome**:
+      `alo-bundle` puts the host, CEF's framework and its helpers at
+      `Contents/Frameworks/alo Chromium.app`, CEF 156.0.14 checked against
+      a SHA-256 pinned in this repository before a byte of it is copied,
+      CEF's licence and Chromium's credits carried and linked from the
+      application's page, the whole sealed ad hoc inside out; the
+      application `alo-bundle` makes run in a test, its page drawn by that
+      Chromium (ADR 0079, 720)
+      · Owed: signing with the owner's Developer ID and notarising (735),
+      CEF held to alo's rules, measured (726), a page closed with its context menu open (734), Windows and
       Linux (728), what macOS keeps for it (729), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
       and is 696's, needs ADR; a

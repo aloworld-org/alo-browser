@@ -13,10 +13,12 @@
 //! into the command as it is compiled, so the pages an application carries
 //! are the bytes whose renders are committed — never a copy that drifted.
 //!
-//! It does not yet hold the Chromium the application draws the web with, at
-//! [`crate::bundle::CHROMIUM`] (ADR 0077): which Chromium, from where, is
-//! queue item 720's. Until then the application it makes draws its page
-//! with this engine, on the page that says its own Chromium is missing.
+//! The Chromium the application draws the web with, at
+//! [`crate::bundle::CHROMIUM`] (ADR 0077), is put in after, when there is
+//! one to carry: alo's CEF host with CEF's framework and its licences
+//! ([`crate::bundle_carried`], queue item 720). Without it the application
+//! draws its page with this engine, on the page that says its own Chromium
+//! is missing.
 //!
 //! It is made beside where it is going, under a directory of its own, sealed
 //! there, and moved into place whole: a command that stopped halfway leaves no application a
@@ -103,6 +105,12 @@ impl Made {
     /// The application as it is made, for it to be sealed there.
     pub fn application(&self) -> PathBuf {
         self.making.join(file_name())
+    }
+
+    /// The directory it is made under, outside the application: for what
+    /// sealing it needs written and not carried, removed with it.
+    pub fn making(&self) -> &Path {
+        &self.making
     }
 
     /// Move the application where it goes: its path there.
@@ -300,6 +308,16 @@ mod tests {
         assert!(!THE_PAGE.contains("Mac's Chrome"));
         assert!(!THE_PAGE_WITHOUT_CHROME.contains("Chrome was not found"));
         assert_ne!(THE_PAGE, THE_PAGE_WITHOUT_CHROME);
+        // Item 720: the page links the licences of the Chromium carried,
+        // where the application carries them.
+        for (name, _) in crate::cef_pin::LICENCES {
+            let link = format!("href=\"{}/{name}\"", crate::bundle_carried::LICENCES);
+            assert!(THE_PAGE.contains(&link), "{link}");
+        }
+        assert!(THE_PAGE.contains("<code>Contents/Frameworks/alo Chromium.app</code>"));
+        assert!(
+            THE_PAGE_WITHOUT_CHROME.contains("<code>Contents/Frameworks/alo Chromium.app</code>")
+        );
     }
 
     #[test]

@@ -9,8 +9,8 @@
 //! The real `alo` and `alo-render`, copied into `alo browser.app` shaped as
 //! the application is, are started as macOS starts an application: no
 //! arguments, `/dev/null` for input, `/` for its directory. In the first
-//! test nothing is at `Contents/Frameworks/Chromium.app/Contents/MacOS/
-//! Chromium`; in the second a program is there that ends as it starts, as a
+//! test nothing is at `Contents/Frameworks/alo Chromium.app/Contents/MacOS/
+//! alo Chromium`; in the second a program is there that ends as it starts, as a
 //! Chromium that is damaged would. Either way the machine's Chrome may be
 //! installed — on the Mac this runs on, it is — and is never started: the
 //! owner's words, *as if the user only has alo-browser on his PC*.

@@ -46,6 +46,7 @@
 //! content and the expected value is in a header anybody can read.
 
 use sha2::{Digest as _, Sha256, Sha384, Sha512};
+use std::io::Read;
 
 /// Which digest a hash source names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +91,22 @@ impl Digest {
         }
     }
 
+    /// The digest of everything `content` reads, taken in pieces — for a
+    /// file too large to hold whole, such as the Chromium framework the
+    /// macOS application carries, checked against its pinned SHA-256 (queue
+    /// item 720).
+    ///
+    /// # Errors
+    ///
+    /// What reading `content` failed with.
+    pub fn of_read(self, content: impl Read) -> std::io::Result<Vec<u8>> {
+        match self {
+            Digest::Sha256 => pieces::<Sha256>(content),
+            Digest::Sha384 => pieces::<Sha384>(content),
+            Digest::Sha512 => pieces::<Sha512>(content),
+        }
+    }
+
     /// Whether `expected`, as an author wrote it in a policy, is this digest of
     /// this content.
     ///
@@ -102,6 +119,19 @@ impl Digest {
             return false;
         };
         wanted.len() == self.length() && wanted == self.of(content)
+    }
+}
+
+/// The digest `D` of everything `content` reads, a block at a time.
+fn pieces<D: sha2::Digest>(mut content: impl Read) -> std::io::Result<Vec<u8>> {
+    let mut digest = D::new();
+    let mut block = vec![0u8; 1 << 20];
+    loop {
+        let read = content.read(&mut block)?;
+        if read == 0 {
+            return Ok(digest.finalize().to_vec());
+        }
+        digest.update(block.get(..read).unwrap_or_default());
     }
 }
 
@@ -186,6 +216,25 @@ mod tests {
             "3a81oZNherrMQXNJriBBMRLm+k6JqX6iCp7u5ktV05ohkpkqJ0/BqDa6PCOj/uu9RU1EI2Q86A4qmslPpUyknw==",
             b"abc",
         ));
+    }
+
+    #[test]
+    fn a_digest_read_in_pieces_is_the_digest_of_the_whole() {
+        // More than one block, and not a whole number of them.
+        let content: Vec<u8> = (0..(3 << 20) + 7)
+            .map(|at: u32| at.to_le_bytes()[0])
+            .collect();
+        for digest in [Digest::Sha256, Digest::Sha384, Digest::Sha512] {
+            assert_eq!(
+                digest.of_read(content.as_slice()).ok(),
+                Some(digest.of(&content)),
+                "{digest:?}"
+            );
+        }
+        assert_eq!(
+            Digest::Sha256.of_read(&b"abc"[..]).ok(),
+            Some(Digest::Sha256.of(b"abc"))
+        );
     }
 
     #[test]

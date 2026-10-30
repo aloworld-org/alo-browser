@@ -148,7 +148,7 @@ mod tests {
         let Some(contents) = contents else {
             panic!("no contents");
         };
-        let carried = contents.join("Frameworks/Chromium.app/Contents/MacOS/Chromium");
+        let carried = contents.join("Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium");
         for words in [
             &[][..],
             &["--chrome", "https://example.com/"][..],

@@ -80,7 +80,9 @@ ADR 0058 — and nothing else does:
 | | **718** | a person's pointer and keys forwarded from the card to the page |
 | ✓ | **719** | the application starts only the Chromium it carries, at `Contents/Frameworks/Chromium.app`, never the machine's Chrome, and draws with this engine saying so when it is missing or damaged (ADR 0077, iteration 454) |
 | ✓ | **725** | alo's own CEF host, with no `unsafe`, built against CEF 156.0.14 and started and driven by `alo-window` exactly as Chrome is (ADR 0079, iteration 455) |
-| | **720**, **726** | alo carries CEF's Chromium in the application, held to alo's rules (ADR 0079) |
+| ✓ | **720** | alo carries CEF's Chromium in the application — checked against a pinned SHA-256 before it is copied, its licences linked from the application's page, sealed ad hoc inside out — so the application needs no Chrome (ADR 0079, iteration 458) |
+| | **735** | the application and its Chromium signed with the owner's Developer ID, under the hardened runtime, and notarised — blocked on that certificate (cut from 720) |
+| | **726** | CEF held to alo's rules, measured (ADR 0079) |
 | ✓ | **727** | the host's own window for `--app`: Chrome style with no toolbar, titled by the page, placed by alo over the pipe, typed into, pressed and closed by a person (iteration 456) |
 | ✓ | **731**, **732**, **730** | the host's application object (`CefAppProtocol`, the one `unsafe` boundary ADR 0080 allows), its menu bar and ⌘Q ending it in order, and the gate reaching the host and holding the boundary to its file (iteration 457) |
 | | **734** | a page closed while its context menu is open crashes the host (`SIGSEGV`, found by 731) |
@@ -19388,11 +19390,101 @@ What stage 2's exit gate actually measures: a person using it.
   among what it started. `alo-bundle` puts no Chromium in the application
   yet, so the application it makes draws with this engine until 720.
 
-- [ ] **720. alo carries CEF's Chromium (ADR 0077, ADR 0079).** The
+- [x] **720. alo carries CEF's Chromium (ADR 0077, ADR 0079).** The
   application carries CEF's published build for its system, pinned by
   version and by a SHA-256 of our own (CEF publishes only SHA-1), with its
   licences, inside 725's host where 719 starts it. *Depends on 719, 725,
   726.*
+
+  ***Done (iteration 458).*** `alo-bundle` makes `alo browser.app`
+  carrying alo's CEF host where 719 starts it — **the place moved** to the
+  host's real name, `bundle::CHROMIUM` =
+  `Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium` (one source,
+  tied to `cef_host::EXECUTABLE` by a unit test), the application's two
+  pages and their corpus references redrawn to say so. The CEF build is
+  pinned in `cef_pin.rs` (CEF 156.0.14, Chromium 156.0.8078.48, macOS
+  arm64 *minimal*): the archive's name and CEF's SHA-1, our SHA-256 of the
+  archive as provenance (re-checked against `PROVENANCE.txt`), and — what is
+  checked, since what is carried is the unpacked distribution — our SHA-256
+  of the framework (a listing of each file's SHA-256 and path, in byte
+  order, digested: what `find | LC_ALL=C sort` with `shasum -a 256` gives)
+  and of `LICENSE.txt` and `CREDITS.html`, computed from a copy unpacked
+  afresh from the archive and equal to `CEF_PATH`'s. `alo-net`'s digest
+  gains `of_read`, a SHA-256 read in pieces (`sha2` stays in that one
+  file). **Without `CEF_PATH`** (unset or empty) `alo-bundle` makes the
+  application with no Chromium and says so (719's path; the gate's
+  `the_application_assembled.rs` runs this way, `CEF_PATH` removed); **with
+  it naming anything but the pinned distribution, or with no host built**,
+  it refuses with exit 2 and a sentence — the framework's or a licence's
+  SHA-256 found and pinned, `archive.json` naming another archive, no
+  distribution there, or the host's path with the `cargo` command that
+  builds it — before anything is made. The host is `--host`, or
+  `target/alo-cef-host/<profile>/alo-cef-host` beside the programs'
+  directory. `bundle_carried.rs` lays the host out with
+  `cef_host::assemble` at `Contents/Frameworks/alo Chromium.app` and copies
+  CEF's `LICENSE.txt` and Chromium's `CREDITS.html` to
+  `Contents/Resources/licences/`, which the application's page now links
+  (*The Chromium it carries*). **Sealed ad hoc, inside out**
+  (`bundle_seal::seal_carried`): the framework's three libraries, the
+  framework (CEF ships it only linker-signed, which `codesign --verify
+  --strict` refuses), each helper — GPU and renderer with
+  `com.apple.security.cs.allow-jit`, the others none, as ADR 0079 § 4 — and
+  the host's application, then alo's programs and the application;
+  `codesign --verify --deep --strict` accepts it. No keychain identity
+  was used. **Found and fixed in the host**: nested inside alo's
+  application, `cef_initialize` stopped on a failed check (`SIGTRAP`, a
+  crash report), because CEF looks for its framework and main bundle in
+  the *top-level* application — measured: the same signed host moved out
+  of alo's application started, and one nested in any `.app` did not; so
+  `host.rs` names its own bundle and framework (`main_bundle_path`,
+  `framework_dir_path`; `bundle`, unit-tested). Tests:
+  `tests/the_application_carrying_its_chromium.rs` (with `CEF_PATH`; skipped
+  saying why without) — the host built, `alo-bundle` run: its two lines,
+  the host at `Bundle::chromium()` the host built (equal bytes once both
+  signatures are removed), every helper there, the distribution's framework
+  still at its pin, the carried framework the same files with every
+  non-code file byte for byte and the four code files accepted by
+  `codesign` re-signed, the licences at their pins and linked, the seal
+  accepted deep and strict, the JIT entitlement on GPU and renderer only;
+  and refusals making nothing: a byte added to a framework file, another
+  archive named, no distribution, no host.
+  `tests/the_application_opens_its_own_page.rs` now runs **the application
+  `alo-bundle` made, carrying the real host**, when `CEF_PATH` names a
+  distribution: its page drawn by the carried Chromium (`CarriedChromium`,
+  `Chrome/156…`), the started program by `ps` the host inside the
+  application, no process under the machine's Chrome, and after Quit
+  nothing of the application running (helpers included, `pgrep -f`), no
+  profile, no socket and no new crash report named `alo…`. Without
+  `CEF_PATH` it keeps the cloned machine's Chrome (the link now named `alo
+  Chromium`), so the application's own path is still run where the host
+  cannot be built — said on its error output. **Size**, measured with release programs: 361,036 KiB (`du -sk`, about
+  353 MiB) — CEF's framework 333,312 KiB of it, alo's three programs 18,396,
+  the resources with the licences 5,280, the host and its five helpers
+  about 4,000; `alo-bundle` made it in 2.4 s from the default host path.
+  `cargo nextest run -p alo-window` with `CEF_PATH`: 638 passed, none
+  skipped, no new crash report. **Cut**: signing with
+  the owner's Developer ID, the hardened runtime (under which the JIT
+  entitlement takes effect, and the host's own entitlements are decided)
+  and notarisation (735, blocked); the carried framework's code compared
+  byte for byte after signing (its signature cannot be removed back to the
+  linker's), so the pin is checked on the distribution before it is
+  cloned in; CEF held to alo's rules (726); other systems' pins (728).
+
+- [ ] **735. The application and the Chromium it carries signed for other
+  Macs (cut from 720).** 720 seals `alo browser.app` ad hoc: it opens on
+  the Mac that made it, and `spctl` rejects it. Sign it inside out as ADR
+  0079 § 4 gives CEF's guide — the framework's libraries, the framework,
+  each helper (GPU and renderer with `allow-jit`), the host with its own
+  entitlements (Chromium's `app-entitlements.plist`, each one decided),
+  then alo's programs and the application — with the owner's **Developer
+  ID Application** identity and the hardened runtime (`--options runtime`,
+  same Team ID throughout so library validation passes, no `--deep`);
+  notarise with `notarytool`, staple, and check with `spctl`. Part of
+  478's for the whole application. *blocked: the owner's Developer ID
+  certificate (Apple Developer Program); this Mac holds only an "Apple
+  Development" one.* *Closes when:* `spctl -a -vvv` on a freshly
+  downloaded copy answers *accepted* naming the Developer ID, and the
+  application opens its page in its Chromium there.
 
 - [x] **725. alo's own CEF host program (ADR 0079 § 3, option H).** A small
   Rust program, named alo and signed with the owner's identity, that loads

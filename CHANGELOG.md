@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The application carries its own Chromium, and needs no Chrome.**
+  `alo-bundle` now puts alo's CEF host and CEF's Chromium inside
+  `alo browser.app`, so the application draws the web with the Chromium it
+  carries on a Mac with no Chrome at all. The Chromium is one exact build,
+  CEF 156.0.14 (Chromium 156.0.8078.48), checked against fingerprints kept
+  in this repository before anything of it is copied; a different or
+  altered one is refused. Its licences travel with it, linked from the
+  application's own page. The application is signed by nobody in
+  particular (ad hoc), which is enough to open it on this Mac; signing it
+  with the owner's Apple Developer ID and notarising it, so that other Macs
+  open it without a warning, is waiting for that certificate (items 720,
+  735).
+
 - **alo's CEF host survives menus and quits cleanly.** The host now has
   the application object CEF requires on macOS — the one piece of
   `unsafe` code the owner allowed it, in one file, and only in the host,

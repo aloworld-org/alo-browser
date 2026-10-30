@@ -45637,3 +45637,38 @@ under memory pressure (8 GB, about 5 GB of swap); the owner was told. No
 claim about speed is made.
 
 The next unused queue number is **735** and the next ADR is **0081**.
+
+## Iteration 458 — queue item 720: the application carries alo's own Chromium (CEF), pinned, licensed and sealed; Developer ID signing cut to 735
+
+**Built by a delegated agent, reviewed here.** With `CEF_PATH` set,
+`alo-bundle` puts alo's CEF host at `Contents/Frameworks/alo
+Chromium.app` (`bundle::CHROMIUM`, tied to `cef_host::EXECUTABLE` by a
+test), with CEF's framework and helpers, after checking them against
+`cef_pin.rs` — the archive's name and CEF's SHA-1, our archive SHA-256,
+and our SHA-256 of the framework's byte-sorted file listing and of
+`LICENSE.txt` and `CREDITS.html` — refusing any mismatch before anything
+is made. The licences are in `Contents/Resources/licences/` and linked
+from the application's page. The bundle is sealed ad hoc, inside out,
+with `allow-jit` on the GPU and renderer helpers; `codesign --verify
+--deep --strict` passes. Without `CEF_PATH` the application carries no
+Chromium and says so (719's path). About 353 MiB with release programs.
+
+**Found and fixed.** Nested inside `alo browser.app`, `cef_initialize`
+crashed: CEF looked for its framework in the outer bundle. `host.rs`
+now gives CEF the host's own `main_bundle_path` and
+`framework_dir_path`, with a unit test; no `unsafe` there.
+
+**Gate.** With `CEF_PATH` set: **5737 tests, 5737 passed, 11 of 11
+steps, "The gate is met."** The real application, made by `alo-bundle`,
+was opened and its page drawn by the Chromium it carries, the machine's
+Chrome not started, and quitting left nothing running.
+
+**Cut.** 735: Developer ID signing, the hardened runtime and
+notarization — blocked on the owner's Apple Developer Program
+membership; this Mac has only an *Apple Development* certificate.
+
+**Unresolved obligations.** 726 (CEF held to alo's rules: no CDM, no
+component updater traffic, held requests), 733, 734, 728, 729, 735. No
+claim about speed is made.
+
+The next unused queue number is **736** and the next ADR is **0081**.
