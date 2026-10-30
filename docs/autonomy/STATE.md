@@ -45495,3 +45495,21 @@ opens (716). The page is not inside the conversation (702). No claim about
 speed is made.
 
 The next unused queue number is **717** and the next ADR is **0076**.
+
+## Iteration 453 — queue item 702: where a page opened in the conversation is drawn, measured and decided by the owner (ADR 0076, B)
+
+Measured by a delegated agent on this Mac (Chrome 156.0.8078.76, macOS
+26.5.2, Stage Manager on) with scratch probes, never committed: a placed
+Chrome window and ours are never on screen together under Stage Manager;
+a floating window of ours with a transparent hole shows both but trails
+scroll by about 24 ms, overhangs, floats over other applications and
+breaks ADR 0066; a child window across processes is impossible without
+private calls; Chrome's frames streamed at a card's 880×600 at scale 2
+came at 60 a second, PNG exact, about 24 MiB/s while moving and nothing
+while still, a key to its first frame in about 50 ms, the agent's
+commands slowed from about 1 ms to up to 7 ms median while streaming. The
+owner chose B on 30 October. Items 717 (the card from the stream) and 718
+(a person's input forwarded) queued. No code changed, so no gate was run
+for this entry; every Chrome and profile the probes started was removed.
+
+The next unused queue number is **719** and the next ADR is **0077**.

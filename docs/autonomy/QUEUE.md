@@ -75,7 +75,9 @@ ADR 0058 — and nothing else does:
 | | **714** | a press on an offer under the box, claimed and decided (cut from 701) |
 | | **715** | a field's value kept to one line by the engine, as Chrome keeps it (found by 701) |
 | | **716** | an agent reaching a page the conversation opened in Chrome, over the socket and kept to `--agent-site` (cut from 713) |
-| | **702** | where Chrome's window goes when a page opens inside the conversation — measured, then decided |
+| ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
+| | **717** | the page as a card, drawn from Chrome's frames |
+| | **718** | a person's pointer and keys forwarded from the card to the page |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -19282,7 +19284,7 @@ What stage 2's exit gate actually measures: a person using it.
   of a page opened from the conversation, a site not named is refused by
   name, and the socket follows (or is said to end with) a replaced page.
 
-- [ ] **702. Where Chrome's window goes when a page opens inside the
+- [x] **702. Where Chrome's window goes when a page opens inside the
   conversation — measured, then decided.** The design opens a page in a card
   under the answer, scrolled with it. ADR 0062 measured why ours floats
   beside Chrome's; this places Chrome's window inside a region of ours and
@@ -19291,6 +19293,36 @@ What stage 2's exit gate actually measures: a person using it.
   two placements, then write the ADR. ADR 0066 holds: the page's window is
   over ours, never ours over the page. *Depends on 700. needs design: the
   ADR is this item's first half.*
+  ***Done (iteration 453): measured, and decided by the owner — ADR 0076.***
+  Under Stage Manager a placed Chrome window and ours are never shown
+  together; a floating window of ours with a hole over the card shows both
+  but trails scrolling by about 24 ms and breaks ADR 0066; a child window
+  across processes is impossible without private calls. Chrome's frames
+  streamed into the card measured 60 a second at 1760×1200, PNG exact in
+  colour, about 24 MiB/s while the page moves and nothing while it is
+  still, a key to its first frame in about 50 ms. The owner chose B: the
+  card is drawn from the stream (717), a person's pointer and keys are
+  forwarded to the page (718), and *expand* shows the same tab in Chrome's
+  own window.
+
+- [ ] **717. The page as a card in the conversation, drawn from Chrome's
+  frames (ADR 0076 B).** The tab the conversation opened (713) is streamed
+  as PNG frames (`Page.startScreencast`) and drawn as a picture in a card in
+  the conversation's document, at the card's size and the window's scale;
+  Chrome's own window is parked while the page is a card, and *expand*
+  brings that tab's window over the conversation as ADR 0075 does today.
+  *Depends on 713. Closes when:* a layout assertion of the card's box, a
+  reference render of the card holding a committed frame, a stream that
+  stops when the card is closed, and the agent's pipe measured not to queue
+  behind frames past ADR 0076's numbers.
+
+- [ ] **718. A person's pointer, wheel and keys forwarded from the card to
+  the page (ADR 0076 B, ADR 0024 § 5).** A person's press, wheel and keys
+  over the card reach the page as a person's input at the card's
+  coordinates, mapped to the page's CSS pixels — never as an agent's verb
+  (ADR 0002). *Depends on 717. Closes when:* a press on a link in the card
+  follows it, typing reaches a field, a wheel scrolls the page, each in a
+  test against a local page.
 
 - [ ] **703. The conversation, a document of ours.** A person's words, the
   agent's words and the steps it took, drawn as the design draws them, in a
