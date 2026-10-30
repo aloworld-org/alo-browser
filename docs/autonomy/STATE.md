@@ -45672,3 +45672,30 @@ component updater traffic, held requests), 733, 734, 728, 729, 735. No
 claim about speed is made.
 
 The next unused queue number is **736** and the next ADR is **0081**.
+
+## Iteration 459 — queue item 726: CEF held to alo's rules, measured
+
+**Built by delegated agents, reviewed here.** The first agent was stopped
+part way (an owner's message interrupted the turn); I reported it as
+still running when it was not, and said so to the owner once found. A
+second agent read the partial work, kept all of it (five Chrome tests
+parameterised by `Chromium`, `tests/carried/`, `tests/marked/`, the
+codecs test) and finished the item. Through the carried host, each a
+test that runs with `CEF_PATH`: no WidevineCdm and no component-updater
+request in 90 s — and with only `--disable-component-update` removed on
+a temporary copy, the CDM arrived, so that switch is what stops it; the
+net log shows only the on-device models' manifest, which ADR 0073
+already names, and no ListAccounts; H.264, AAC and HEVC unsupported,
+VP9, AV1 and Opus supported, Chrome on the same page playing H.264;
+ADR 0060's held requests across the page, a cross-site frame, dedicated,
+service and shared workers and new tabs, a WebSocket recorded as Chrome
+records it; the tree, verbs and Chrome's highlight. Screencast is 717's
+(its test must run through the host too); window bounds are 727's test.
+
+**Gate.** With `CEF_PATH` set: **5747 tests, 5747 passed, 11 of 11
+steps, "The gate is met."**
+
+**Unresolved obligations.** 733, 734, 735, 736, 728, 729, 721, 717, 718.
+No claim about speed is made.
+
+The next unused queue number is **737** and the next ADR is **0083**.

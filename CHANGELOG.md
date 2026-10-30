@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The Chromium alo carries is held to alo's rules, and tested to be.**
+  alo's CEF host never fetches Google's Widevine DRM module (it did within
+  a minute when started without alo's settings), asks Google's servers for
+  nothing of its own beyond the one request alo's decisions already name —
+  less than Chrome asks — and plays no patent-encumbered video or audio
+  (H.264, AAC, HEVC), only the open formats (VP9, AV1, Opus). Every request
+  a page, its frames and its workers make is held and decided by alo before
+  it leaves, exactly as through Chrome, and an agent reads, acts on and
+  marks a page through it as it does through Chrome. Each is a test that
+  runs wherever a CEF distribution is at hand (item 726).
+
 - **The application carries its own Chromium, and needs no Chrome.**
   `alo-bundle` now puts alo's CEF host and CEF's Chromium inside
   `alo browser.app`, so the application draws the web with the Chromium it

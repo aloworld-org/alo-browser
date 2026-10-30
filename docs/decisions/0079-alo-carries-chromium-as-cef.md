@@ -9,7 +9,8 @@ not needed for a headless host; its own shown window (727) found them
 needed after all for a shown host a person uses (§ 8b: 731, 732), and the
 owner allowed it: **ADR 0080**, built the same day (731, 732, and the gate
 reaching the host, 730); **carried in the application** the same day
-(720, iteration 458: § 8b's last row); the rest is owed by 726, 728, 729
+(720, iteration 458: § 8b's row "Carried inside"); **held to alo's rules,
+measured** (726, iteration 459: § 8b's rows marked 726); the rest is owed by 728, 729
 and, for signing with the owner's Developer ID and notarising, 735.
 
 ## The question in one line
@@ -377,6 +378,11 @@ measured on this Mac, against what § 3.2 and § 8 expected:
 | Nothing written outside the profile | Not by default. Three things were, and are stopped: Chromium's temporary directories (`MAC_CHROMIUM_TMPDIR` into the profile), a `Chromium Safe Storage` key in the login keychain whose dialog on a rebuilt host held the network (`--use-mock-keychain`), and an application clone under the system's `X/` directory (`MacAppCodeSignClone` added to alo's one `--disable-features`). macOS's own Metal caches and a Notifications registration remain, and are 729's. |
 | Carried inside `alo browser.app` (720) | `alo-bundle` puts the host at `Contents/Frameworks/alo Chromium.app` — an application inside alo's — with CEF's framework, checked against a SHA-256 of our own of it (`cef_pin.rs`, from a copy unpacked afresh from the archive whose SHA-256 matched) before it is copied, and CEF's `LICENSE.txt` and Chromium's `CREDITS.html` in `Contents/Resources/licences`, linked from the application's page. CEF's framework comes signed only by its linker, which `codesign --verify --strict` refuses, so the whole is signed again ad hoc, inside out (libraries, framework, helpers — GPU and renderer with `allow-jit` — host, then alo's application), and `codesign --verify --deep --strict` accepts it. **Measured**: nested so, `cef_initialize` stopped on a failed check (`SIGTRAP`), because CEF looks for its framework and main bundle in the *top-level* application, alo's; the host now names its own bundle and framework (`main_bundle_path`, `framework_dir_path`), and the application `alo-bundle` makes opens its page in it and quits leaving nothing running. 361,036 KiB (about 353 MiB) with release programs, CEF's framework 333,312 KiB of it. |
 | A build that never downloads | `cef-dll-sys` downloads CEF when `CEF_PATH` names none, so the host is a workspace of its own, excluded from the repository's, built only with `CEF_PATH` set; the gate formats it always, and lints and tests it when `CEF_PATH` names a distribution, saying so when it does not (730). |
+| No Widevine CDM, no component updater (726) | **alo's switches stop it.** The host, on an empty profile with alo's switches, held a page for 90 seconds: no `WidevineCdm` in the profile and no update request naming its component. Started without `--disable-component-update` alone (a mutation of the test), it had `WidevineCdm` in its profile within the same 90 seconds. Nothing in the host was needed. `requestMediaKeySystemAccess('com.widevine.alpha', …)` is refused with `NotSupportedError`; Clear Key is granted. |
+| Traffic of its own (726, ADR 0073's net-log test) | **Less than Chrome.** With alo's switches the host asked of its own only for the on-device models' manifest (`ceofaddefefcbblgcgnibnonglccbfja`): two update checks to `update.googleapis.com` naming it, its download from `edgedl.me.gvt1.com` and the ping — what ADR 0073 § 2 names for Chrome. It did not ask for `accounts.google.com/ListAccounts`. Nothing new, so nothing is added to ADR 0073's list. |
+| Codecs (726) | H.264, AAC and HEVC refused by `MediaSource.isTypeSupported` and `canPlayType`; VP9, AV1 and Opus played (`probably`). The machine's Chrome, on the same page, plays H.264. |
+| ADR 0060's held requests (726) | Held through the host as through Chrome: a page from the network, its frame from another site, its dedicated and service workers, a shared worker — each request paused in its own target and let go before the server received it, and recorded as the page's; the shared worker's WebSocket, which Chromium cannot hold, told of in its own target and recorded as not decided, as in Chrome (ADR 0060); a link's and a script's new tab held and closed before it loaded anything, in Chrome style, so CEF's issue #4308 (Alloy style) did not arise. |
+| The agent's surface (726) | The tree an agent reads is the one Chrome gives, node for node; the order placed by verbs comes to what it comes to through this engine; a person's click and typing, never script; Chrome's highlight of the box a verb acted on, on the screen (ADR 0066); window bounds placed over the pipe (727's test). Screencast frames are not sent by alo yet: 717 runs its test through the host too. |
 
 ## 8. The hands-on probe owed (none of it done)
 
@@ -465,6 +471,12 @@ measured:
   `Contents/Frameworks/alo Chromium.app/Contents/MacOS/alo Chromium`, so
   `bundle_chromium.rs` is unchanged; `alo-bundle` checks CEF's framework
   against its pin when it makes the application, not `alo` when it starts.
+- CEF held to alo's rules, measured (726) — **done**: each a test that runs
+  when `CEF_PATH` names a distribution (§ 8b): no Widevine CDM and no
+  component-updater traffic but the models' manifest ADR 0073 names, no
+  patent-encumbered codec, ADR 0060's held requests and the agent's surface
+  through the host as through Chrome. alo's switches were enough; the host
+  and `chrome.rs` are unchanged by it.
 - 720 pins CEF's version and SHA-256 per system — **done for macOS on
   Apple silicon** (`crates/alo-window/src/cef_pin.rs`): the archive's name,
   CEF's SHA-1 and our SHA-256 of it as provenance, and our SHA-256s of the

@@ -34,9 +34,19 @@
 //!
 //! A Chrome that updates itself and starts asking for something new fails
 //! here, and that is the point (ADR 0073 § 2).
+//!
+//! **The Chromium alo carries is held to the same** (queue item 726, ADR
+//! 0079 § 8): alo's own CEF host, on an empty profile, for a minute and a
+//! half, with no Widevine CDM fetched. With no CEF distribution named by
+//! `CEF_PATH`, that test says why on its error output and returns.
 
 #![cfg(unix)]
 
+#[cfg(target_os = "macos")]
+mod carried;
+
+#[cfg(target_os = "macos")]
+use alo_window::beside::Chromium;
 use alo_window::beside::{NotInstalled, chrome_in, chrome_places};
 use alo_window::chrome::Chrome;
 use alo_window::chrome_tab::Tab;
@@ -81,15 +91,15 @@ fn installed() -> Result<PathBuf, NotInstalled> {
     chrome_in(&chrome_places(home.as_deref()))
 }
 
-/// A directory of the test's own holding a program that runs `chrome` with
-/// its net log written to `netlog.json` beside it.
+/// A directory of the test's own, named by `name`, holding a program that
+/// runs `chrome` with its net log written to `netlog.json` beside it.
 struct LoggedChrome {
     directory: PathBuf,
 }
 
 impl LoggedChrome {
-    fn new(chrome: &Path) -> Result<Self, String> {
-        let directory = std::env::temp_dir().join(format!("alo-chrome-own-{}", std::process::id()));
+    fn new(chrome: &Path, name: &str) -> Result<Self, String> {
+        let directory = std::env::temp_dir().join(format!("alo-{name}-own-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::DirBuilder::new()
             .mode(0o700)
@@ -349,21 +359,29 @@ fn refused(address: &str, components: &[String], page: &str) -> Option<String> {
     (!admitted).then(|| format!("{address} (components {components:?})"))
 }
 
-#[test]
-fn chrome_asks_for_nothing_of_its_own_but_the_two_named() {
-    let chrome = installed().unwrap();
-    let logged = LoggedChrome::new(&chrome).unwrap();
-    let (port, log) = serve().unwrap();
+/// What the Chromium at `chromium` asked for of its own, started as the
+/// browser starts it with its net log written, while it held a page of a
+/// server of the test's own for `held` — with the profile it ran on handed
+/// to `before_closing` as that time ends, while it still runs: the net log,
+/// read to its end, and the page's address.
+fn asked_of_its_own(
+    chromium: &Path,
+    name: &str,
+    held: Duration,
+    before_closing: impl FnOnce(&Path) -> Result<(), String>,
+) -> Result<(String, String), String> {
+    let logged = LoggedChrome::new(chromium, name)?;
+    let (port, log) = serve()?;
     let page = format!("http://127.0.0.1:{port}/");
-    let address = alo_url::parse(&format!("{page}page.html")).unwrap();
-    let mut chrome = Chrome::start_at(&logged.program()).unwrap();
+    let address = alo_url::parse(&format!("{page}page.html")).map_err(|why| format!("{why:?}"))?;
+    let mut chrome = Chrome::start_at(&logged.program()).map_err(|why| why.to_string())?;
     {
-        let mut tab = Tab::open(&mut chrome, &address, SIZE).unwrap();
+        let mut tab = Tab::open(&mut chrome, &address, SIZE).map_err(|why| why.to_string())?;
         let awaited = ["/page.html", "/style.css", "/picture.svg"];
         let until = Instant::now() + AT_MOST;
         loop {
             // Each read answers every request paused meanwhile.
-            tab.read().unwrap();
+            tab.read().map_err(|why| why.to_string())?;
             let seen = log.lock().map(|log| log.clone()).unwrap_or_default();
             if awaited
                 .iter()
@@ -371,19 +389,27 @@ fn chrome_asks_for_nothing_of_its_own_but_the_two_named() {
             {
                 break;
             }
-            assert!(Instant::now() < until, "the page asked for only {seen:?}");
+            if Instant::now() >= until {
+                return Err(format!("the page asked for only {seen:?}"));
+            }
             std::thread::sleep(Duration::from_millis(100));
         }
-        let until = Instant::now() + HELD;
+        let until = Instant::now() + held;
         while Instant::now() < until {
-            tab.read().unwrap();
+            tab.read().map_err(|why| why.to_string())?;
             std::thread::sleep(Duration::from_millis(200));
         }
     }
+    before_closing(chrome.profile())?;
     // Closed, so that the net log is written to its end.
     drop(chrome);
-    let text = logged.netlog();
-    let asked = requests(&text);
+    Ok((logged.netlog(), page))
+}
+
+/// That the net log `text` names the page's own three requests, at `page`,
+/// and nothing of `who`'s own but what ADR 0073 lets leave.
+fn only_what_is_named(text: &str, page: &str, who: &str) {
+    let asked = requests(text);
 
     // The reading reads: the page's own three requests are in it.
     for path in ["page.html", "style.css", "picture.svg"] {
@@ -395,19 +421,99 @@ fn chrome_asks_for_nothing_of_its_own_but_the_two_named() {
     }
     let refusals: Vec<String> = asked
         .iter()
-        .filter_map(|(address, components)| refused(address, components, &page))
+        .filter_map(|(address, components)| refused(address, components, page))
         .collect();
     assert!(
         refusals.is_empty(),
-        "Chrome asked of its own for what ADR 0073 does not name: {refusals:#?}"
+        "{who} asked of its own for what ADR 0073 does not name: {refusals:#?}"
     );
-    let unnamed: Vec<String> = hosts(&text)
+    let unnamed: Vec<String> = hosts(text)
         .into_iter()
         .filter(|host| host != "127.0.0.1" && !NAMED_HOSTS.contains(&host.as_str()))
         .collect();
     assert!(
         unnamed.is_empty(),
-        "Chrome reached hosts ADR 0073 does not name: {unnamed:?}"
+        "{who} reached hosts ADR 0073 does not name: {unnamed:?}"
+    );
+}
+
+#[test]
+fn chrome_asks_for_nothing_of_its_own_but_the_two_named() {
+    let chrome = installed().unwrap();
+    let (text, page) = asked_of_its_own(&chrome, "chrome", HELD, |_| Ok(())).unwrap();
+    only_what_is_named(&text, &page, "Chrome");
+}
+
+/// How long alo's CEF host is held open: CEF's own sample, started with
+/// none of alo's switches, fetched the Widevine CDM within a minute (ADR
+/// 0079 § 8a), so half a minute more than that.
+#[cfg(target_os = "macos")]
+const HELD_FOR_A_CDM: Duration = Duration::from_secs(90);
+
+/// The Widevine CDM's component, as the component updater names it.
+#[cfg(target_os = "macos")]
+const WIDEVINE: &str = "oimompecagnajdejgnnjijobebaeigek";
+
+/// Every entry under `directory`, at any depth, named `name`.
+#[cfg(target_os = "macos")]
+fn named_within(directory: &Path, name: &str) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    let mut left = vec![directory.to_path_buf()];
+    while let Some(next) = left.pop() {
+        for entry in std::fs::read_dir(&next).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if entry.file_name().to_string_lossy().contains(name) {
+                found.push(path.clone());
+            }
+            if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                left.push(path);
+            }
+        }
+    }
+    found
+}
+
+/// alo's own CEF host, started as the application starts the Chromium it
+/// carries, on an empty profile, asks for nothing of its own but what ADR
+/// 0073 names for Chrome — and in the minute and a half that CEF's own
+/// sample took to fetch the Widevine CDM, fetches none (queue item 726,
+/// ADR 0079 § 8a): no request names its component, and nothing named
+/// `WidevineCdm` is in the profile.
+///
+/// Measured on this Mac with CEF 156.0.14 (queue item 726): it is alo's
+/// `--disable-component-update` that stops it. Started without that one
+/// switch, the host had put `WidevineCdm` in its profile within these 90
+/// seconds; with alo's switches it asked of its own only for the on-device
+/// models' manifest — two update checks naming it, its download and the
+/// ping — and not for `ListAccounts`, which Chrome asks for.
+#[cfg(target_os = "macos")]
+#[test]
+fn alos_cef_host_asks_for_nothing_of_its_own_and_fetches_no_cdm() {
+    let Some(host) = carried::host("726").unwrap() else {
+        return;
+    };
+    let Chromium::Carried(program) = host.chromium() else {
+        panic!("the host is the Chromium alo carries");
+    };
+    let (text, page) = asked_of_its_own(&program, "cef-host", HELD_FOR_A_CDM, |profile| {
+        let cdms = named_within(profile, "WidevineCdm");
+        if cdms.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("a Widevine CDM in the profile: {cdms:?}"))
+        }
+    })
+    .unwrap();
+    only_what_is_named(&text, &page, "alo's CEF host");
+    let widevine: Vec<(String, Vec<String>)> = requests(&text)
+        .into_iter()
+        .filter(|(address, components)| {
+            address.contains(WIDEVINE) || components.iter().any(|id| id == WIDEVINE)
+        })
+        .collect();
+    assert!(
+        widevine.is_empty(),
+        "the component updater asked for the Widevine CDM: {widevine:?}"
     );
 }
 

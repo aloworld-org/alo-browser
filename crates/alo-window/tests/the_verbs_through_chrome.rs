@@ -14,6 +14,15 @@
 //! and a person's typing, trusted, never script; a click that would land on
 //! something else is not made; and a form is known to have been sent even
 //! when the page was busy with its own work as it went.
+//!
+//! **Through the Chromium alo carries too** (queue item 726, ADR 0079 § 8):
+//! the order, a person's click and typing, and the tabs a page opens are
+//! done again through alo's own CEF host, started as the application starts
+//! it. With no CEF distribution named by `CEF_PATH`, those tests say why on
+//! their error output and return.
+
+#[cfg(target_os = "macos")]
+mod carried;
 
 use alo_agent::verb::{ScrollBy, Target, Verb};
 use alo_agent::{Outcome, Refusal};
@@ -22,6 +31,7 @@ use alo_corpus::{Case, cases_directory, corpus_fonts};
 use alo_dom::submission::Method;
 use alo_layout::Size;
 use alo_renderer::{FromRenderer, Page, Renderer, Snapshot, SnapshotNode, ToRenderer};
+use alo_window::beside::Chromium;
 use alo_window::chrome::Chrome;
 use alo_window::chrome_act::Unacted;
 use alo_window::chrome_tab::Tab;
@@ -163,7 +173,24 @@ fn words_in(node: &SnapshotNode) -> Vec<String> {
 
 #[test]
 fn the_order_placed_through_chrome_comes_to_what_it_comes_to_through_ours() {
-    let ours = through_ours(&the_order()).unwrap();
+    the_order_through(&Chromium::Machines).unwrap();
+}
+
+/// The same order placed through the Chromium alo carries, its CEF host
+/// (queue item 726, ADR 0079 § 8): the same verbs, the same outcomes.
+#[cfg(target_os = "macos")]
+#[test]
+fn the_order_placed_through_alos_cef_host_comes_to_what_it_comes_to_through_ours() {
+    let Some(host) = carried::host("726").unwrap() else {
+        return;
+    };
+    the_order_through(&host.chromium()).unwrap();
+}
+
+/// The order placed on the frozen form through `chromium`, seen to come
+/// to what it comes to through this browser's own engine.
+fn the_order_through(chromium: &Chromium) -> Result<(), String> {
+    let ours = through_ours(&the_order())?;
     assert_eq!(
         ours,
         [
@@ -175,31 +202,32 @@ fn the_order_placed_through_chrome_comes_to_what_it_comes_to_through_ours() {
         ]
     );
 
-    let (_, page) = the_form().unwrap();
-    let mut chrome = Chrome::start().unwrap();
-    let mut tab = Tab::open_frozen(&mut chrome, FORM, page, SIZE).unwrap();
+    let (_, page) = the_form()?;
+    let mut chrome = Chrome::start_from(chromium, false).map_err(|why| why.to_string())?;
+    let mut tab =
+        Tab::open_frozen(&mut chrome, FORM, page, SIZE).map_err(|why| format!("{why:?}"))?;
     let order = the_order();
-    let (sending, filling) = order.split_last().unwrap();
+    let (sending, filling) = order.split_last().ok_or("an empty order")?;
     let mut chromes = Vec::new();
     for (target, verb) in filling {
-        chromes.push(through_chrome(&mut tab, target, verb).unwrap());
+        chromes.push(through_chrome(&mut tab, target, verb)?);
     }
 
     // Read again before it is sent: what was put in is in the fields, as
     // the words they hold, and the size is chosen.
-    let filled = tab.read().unwrap();
+    let filled = tab.read().map_err(|why| format!("{why:?}"))?;
     for (field, text) in [
         (r#"textbox "Customer name:""#, "Ada Lovelace"),
         (r#"textbox "Telephone:""#, "+44 20 7946 0000"),
         (r#"textbox "E-mail address:""#, "ada@example.com"),
     ] {
-        assert_eq!(words_in(node(&filled, field).unwrap()), [text], "{field}");
+        assert_eq!(words_in(node(&filled, field)?), [text], "{field}");
     }
-    node(&filled, r#"radio "Large" [checked=true]"#).unwrap();
-    node(&filled, r#"radio "Small" [checked=false]"#).unwrap();
+    node(&filled, r#"radio "Large" [checked=true]"#)?;
+    node(&filled, r#"radio "Small" [checked=false]"#)?;
 
     let (target, verb) = sending;
-    chromes.push(through_chrome(&mut tab, target, verb).unwrap());
+    chromes.push(through_chrome(&mut tab, target, verb)?);
     assert_eq!(chromes, ours, "the same verbs, the same outcomes");
     // Nothing reached a server: the form's own address was answered with
     // its bytes, and the icon, if Chrome asked for one, was refused.
@@ -212,6 +240,7 @@ fn the_order_placed_through_chrome_comes_to_what_it_comes_to_through_ours() {
         "{:?}",
         tab.refused()
     );
+    Ok(())
 }
 
 #[test]
@@ -345,61 +374,76 @@ fn every_refusal_is_reached_on_chromes_page_and_the_page_hears_none_of_them() {
 
 #[test]
 fn the_page_hears_a_persons_click_and_a_persons_typing() {
-    let mut chrome = Chrome::start().unwrap();
+    a_persons_click_and_typing_through(&Chromium::Machines).unwrap();
+}
+
+/// The same page through the Chromium alo carries, its CEF host (queue
+/// item 726, ADR 0079 § 8): a person's click and typing, never script.
+#[cfg(target_os = "macos")]
+#[test]
+fn through_alos_cef_host_the_page_hears_a_persons_click_and_typing() {
+    let Some(host) = carried::host("726").unwrap() else {
+        return;
+    };
+    a_persons_click_and_typing_through(&host.chromium()).unwrap();
+}
+
+/// The verbs' page opened through `chromium`, and what it hears of a
+/// person's click and typing seen to be a person's.
+fn a_persons_click_and_typing_through(chromium: &Chromium) -> Result<(), String> {
+    let mut chrome = Chrome::start_from(chromium, false).map_err(|why| why.to_string())?;
     let mut tab = Tab::open_frozen(
         &mut chrome,
         "https://example.test/verbs",
         VERBS.as_bytes().to_vec(),
         SIZE,
     )
-    .unwrap();
+    .map_err(|why| format!("{why:?}"))?;
 
     // A button a person could not press, because something lies over it,
     // is not pressed.
     match tab.act(&named("Under"), &Verb::Activate) {
         Err(Unacted::Covered { by: Some(_), .. }) => {}
-        other => panic!("the cover was pressed through: {other:?}"),
+        other => return Err(format!("the cover was pressed through: {other:?}")),
     }
-    assert_eq!(heard(&mut tab).unwrap(), "Heard:");
+    assert_eq!(heard(&mut tab)?, "Heard:");
 
     // Typing, as a person types: the key that selects what is there, then
     // the text, which the page is asked about first.
     assert_eq!(
-        through_chrome(&mut tab, &named("Name"), &put("Ada")).unwrap(),
+        through_chrome(&mut tab, &named("Name"), &put("Ada"))?,
         "put Ada"
     );
-    assert_eq!(heard(&mut tab).unwrap(), "Heard: keydown beforeinput input");
-    let read = tab.read().unwrap();
-    assert_eq!(words_in(node(&read, r#"textbox "Name""#).unwrap()), ["Ada"]);
+    assert_eq!(heard(&mut tab)?, "Heard: keydown beforeinput input");
+    let read = tab.read().map_err(|why| format!("{why:?}"))?;
+    assert_eq!(words_in(node(&read, r#"textbox "Name""#)?), ["Ada"]);
 
     // A page that will not take the text keeps what it had, and says so;
     // the field before it hears its `change` as the keyboard leaves it.
     assert_eq!(
-        through_chrome(&mut tab, &named("Kept"), &put("x")).unwrap(),
+        through_chrome(&mut tab, &named("Kept"), &put("x"))?,
         "cancelled x"
     );
     assert_eq!(
-        heard(&mut tab).unwrap(),
+        heard(&mut tab)?,
         "Heard: keydown beforeinput input change keydown beforeinput"
     );
-    let read = tab.read().unwrap();
-    assert!(words_in(node(&read, r#"textbox "Kept""#).unwrap()).is_empty());
+    let read = tab.read().map_err(|why| format!("{why:?}"))?;
+    assert!(words_in(node(&read, r#"textbox "Kept""#)?).is_empty());
 
     // The empty text empties a field.
-    assert_eq!(
-        through_chrome(&mut tab, &named("Name"), &put("")).unwrap(),
-        "put "
-    );
-    let read = tab.read().unwrap();
-    assert!(words_in(node(&read, r#"textbox "Name""#).unwrap()).is_empty());
-    assert!(!heard(&mut tab).unwrap().contains("(by script)"));
+    assert_eq!(through_chrome(&mut tab, &named("Name"), &put(""))?, "put ");
+    let read = tab.read().map_err(|why| format!("{why:?}"))?;
+    assert!(words_in(node(&read, r#"textbox "Name""#)?).is_empty());
+    assert!(!heard(&mut tab)?.contains("(by script)"));
 
     // A link is followed, to where its author wrote; the frozen page's tab
     // then refuses to go there, as it refuses every address but its own.
     assert_eq!(
-        through_chrome(&mut tab, &named("Next"), &Verb::Activate).unwrap(),
+        through_chrome(&mut tab, &named("Next"), &Verb::Activate)?,
         "followed to /next"
     );
+    Ok(())
 }
 
 /// A form whose button, as it is pressed, queues half a second of the page's
@@ -448,7 +492,25 @@ const OPENS: &str = r#"<!doctype html>
 
 #[test]
 fn a_tab_the_frozen_page_opens_is_closed_before_it_loads_anything() {
-    let mut chrome = Chrome::start().unwrap();
+    a_tab_the_page_opens_closed_through(&Chromium::Machines).unwrap();
+}
+
+/// The same tabs opened through the Chromium alo carries, its CEF host
+/// (queue item 726, ADR 0079 § 8), which holds a new tab in Chrome's own
+/// style, where CEF does not stall it (CEF issue #4308).
+#[cfg(target_os = "macos")]
+#[test]
+fn through_alos_cef_host_a_tab_the_frozen_page_opens_is_closed_before_it_loads() {
+    let Some(host) = carried::host("726").unwrap() else {
+        return;
+    };
+    a_tab_the_page_opens_closed_through(&host.chromium()).unwrap();
+}
+
+/// A link and a script each opening a tab from a frozen page in
+/// `chromium`, and each tab seen closed before it loaded anything.
+fn a_tab_the_page_opens_closed_through(chromium: &Chromium) -> Result<(), String> {
+    let mut chrome = Chrome::start_from(chromium, false).map_err(|why| why.to_string())?;
     {
         let mut tab = Tab::open_frozen(
             &mut chrome,
@@ -456,19 +518,19 @@ fn a_tab_the_frozen_page_opens_is_closed_before_it_loads_anything() {
             OPENS.as_bytes().to_vec(),
             SIZE,
         )
-        .unwrap();
+        .map_err(|why| format!("{why:?}"))?;
         // A link that names another window was activated, not followed, as
         // the engine answers it.
         assert_eq!(
-            through_chrome(&mut tab, &named("Away"), &Verb::Activate).unwrap(),
+            through_chrome(&mut tab, &named("Away"), &Verb::Activate)?,
             "activated Some(\"Away\")"
         );
         assert_eq!(
-            through_chrome(&mut tab, &named("Open"), &Verb::Activate).unwrap(),
+            through_chrome(&mut tab, &named("Open"), &Verb::Activate)?,
             "activated Some(\"Open\")"
         );
         // Read once more, so that Chrome has told of every tab by now.
-        tab.read().unwrap();
+        tab.read().map_err(|why| format!("{why:?}"))?;
         assert_eq!(tab.closed(), 2);
         assert!(
             !tab.refused()
@@ -485,13 +547,14 @@ fn a_tab_the_frozen_page_opens_is_closed_before_it_loads_anything() {
         OPENS.as_bytes().to_vec(),
         SIZE,
     )
-    .unwrap();
+    .map_err(|why| format!("{why:?}"))?;
     assert!(
         tab.read()
-            .unwrap()
+            .map_err(|why| format!("{why:?}"))?
             .nodes()
             .iter()
             .any(|node| node.to_string() == r#"link "Away""#)
     );
     assert_eq!(tab.closed(), 0);
+    Ok(())
 }

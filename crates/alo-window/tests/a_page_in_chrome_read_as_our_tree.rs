@@ -15,11 +15,21 @@
 //! They agree on every role, name and state they both carry. Where they do
 //! not, the difference is written out below rather than accepted silently,
 //! and a difference that stops being one fails this as surely as a new one.
+//!
+//! **Through the Chromium alo carries too** (queue item 726, ADR 0079 § 8):
+//! the form is read again through alo's own CEF host, started as the
+//! application starts it, and answers what ours answers with the same
+//! differences. With no CEF distribution named by `CEF_PATH`, that test
+//! says why on its error output and returns.
+
+#[cfg(target_os = "macos")]
+mod carried;
 
 use alo_box::{KnownRole, Role};
 use alo_corpus::{Case, cases_directory, corpus_fonts};
 use alo_layout::Size;
 use alo_renderer::{FromRenderer, Page, Renderer, Snapshot, ToRenderer};
+use alo_window::beside::Chromium;
 use alo_window::chrome::{Chrome, Failed};
 use alo_window::chrome_tab::{Tab, Unopened};
 
@@ -69,8 +79,13 @@ fn the_form() -> Result<(Case, Vec<u8>), String> {
 
 /// The form read through Chrome, and the addresses it was refused.
 fn read_through_chrome() -> Result<(Snapshot, Vec<String>), String> {
+    read_through(&Chromium::Machines)
+}
+
+/// The form read through `chromium`, and the addresses it was refused.
+fn read_through(chromium: &Chromium) -> Result<(Snapshot, Vec<String>), String> {
     let (_, page) = the_form()?;
-    let mut chrome = Chrome::start().map_err(|why| why.to_string())?;
+    let mut chrome = Chrome::start_from(chromium, false).map_err(|why| why.to_string())?;
     let mut tab = Tab::open_frozen(&mut chrome, FORM, page, SIZE).map_err(|why| why.to_string())?;
     let snapshot = tab.read().map_err(|why| why.to_string())?;
     Ok((snapshot, tab.refused().to_vec()))
@@ -101,8 +116,33 @@ fn read_out(snapshot: &Snapshot) -> Vec<String> {
 #[test]
 fn the_form_read_through_chrome_answers_what_ours_answers() {
     let (chrome, _) = read_through_chrome().unwrap();
-    let ours = read_through_ours().unwrap();
-    let (chrome, ours) = (read_out(&chrome), read_out(&ours));
+    answers_what_ours_answers(&chrome).unwrap();
+}
+
+/// The same form read through the Chromium alo carries, its CEF host
+/// (queue item 726, ADR 0079 § 8): the tree an agent reads of it is
+/// Chrome's, node for node, with the same differences from ours.
+#[cfg(target_os = "macos")]
+#[test]
+fn the_form_read_through_alos_cef_host_answers_what_ours_answers() {
+    let Some(host) = carried::host("726").unwrap() else {
+        return;
+    };
+    let (carried, refused) = read_through(&host.chromium()).unwrap();
+    answers_what_ours_answers(&carried).unwrap();
+    assert!(
+        refused
+            .iter()
+            .all(|url| url == "https://httpbin.org/favicon.ico"),
+        "{refused:?}"
+    );
+}
+
+/// That `chrome`, the form as a Chromium read it, reads as this browser's
+/// own engine reads it but for the differences written down.
+fn answers_what_ours_answers(chrome: &Snapshot) -> Result<(), String> {
+    let ours = read_through_ours()?;
+    let (chrome, ours) = (read_out(chrome), read_out(&ours));
 
     // Every difference is the one written down, and each is still one.
     for line in ONLY_IN_CHROME {
@@ -150,6 +190,7 @@ fn the_form_read_through_chrome_answers_what_ours_answers() {
     ] {
         assert!(shared.iter().any(|line| line == named), "{named}");
     }
+    Ok(())
 }
 
 #[test]

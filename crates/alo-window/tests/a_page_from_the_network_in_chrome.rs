@@ -16,6 +16,16 @@
 //! a request Chrome pauses goes nowhere until it is let go, and the tab
 //! writes a request down as it lets it go, so a request the server received
 //! that the tab did not let go is a request that escaped. None did.
+//!
+//! **Through the Chromium alo carries too** (queue item 726, ADR 0079 § 8):
+//! the page with its frame and workers, and the page with its shared worker
+//! and that worker's WebSocket, are read again through alo's own CEF host,
+//! started as the application starts it, and held to the same rules. With
+//! no CEF distribution named by `CEF_PATH`, those two say why on their
+//! error output and return.
+
+#[cfg(target_os = "macos")]
+mod carried;
 
 use alo_net::Cause;
 use alo_net::activity::Happened;
@@ -24,6 +34,7 @@ use alo_renderer::navigate::Rule;
 use alo_renderer::site::Site;
 use alo_window::agent_sites::AgentSites;
 use alo_window::asking::Refused;
+use alo_window::beside::Chromium;
 use alo_window::chrome::Chrome;
 use alo_window::chrome_gate::Refusal;
 use alo_window::chrome_hold::Kind;
@@ -203,10 +214,31 @@ fn read_until(tab: &mut Tab<'_>, log: &Log, awaited: &[(&str, &str)]) -> Result<
 
 #[test]
 fn a_page_from_the_network_is_read_and_every_request_was_paused_before_it_went() {
-    let (port, log) = serve().unwrap();
-    let mut chrome = Chrome::start().unwrap();
-    let address = alo_url::parse(&format!("http://127.0.0.1:{port}/page.html")).unwrap();
-    let mut tab = Tab::open(&mut chrome, &address, SIZE).unwrap();
+    every_request_paused_before_it_went(&Chromium::Machines).unwrap();
+}
+
+/// The same page through the Chromium alo carries, its CEF host (queue
+/// item 726, ADR 0079 § 8): every request of the page, its frame from the
+/// other site, its dedicated worker and its service worker paused in the
+/// same targets and let go before the server received it.
+#[cfg(target_os = "macos")]
+#[test]
+fn through_alos_cef_host_every_request_was_paused_before_it_went() {
+    let Some(host) = carried::host("726").unwrap() else {
+        return;
+    };
+    every_request_paused_before_it_went(&host.chromium()).unwrap();
+}
+
+/// The page with a frame from the other site and three workers, read
+/// through `chromium`, and every request of it seen paused in the target
+/// that asked for it and let go before the server received it.
+fn every_request_paused_before_it_went(chromium: &Chromium) -> Result<(), String> {
+    let (port, log) = serve().ok_or("no server")?;
+    let mut chrome = Chrome::start_from(chromium, false).map_err(|why| why.to_string())?;
+    let address = alo_url::parse(&format!("http://127.0.0.1:{port}/page.html"))
+        .map_err(|why| format!("{why:?}"))?;
+    let mut tab = Tab::open(&mut chrome, &address, SIZE).map_err(|why| why.to_string())?;
     let awaited = [
         ("127.0.0.1", "/page.html"),
         ("localhost", "/frame.html"),
@@ -216,7 +248,7 @@ fn a_page_from_the_network_is_read_and_every_request_was_paused_before_it_went()
         ("127.0.0.1", "/sw.js"),
         ("127.0.0.1", "/from-service-worker"),
     ];
-    let snapshot = read_until(&mut tab, &log, &awaited).unwrap();
+    let snapshot = read_until(&mut tab, &log, &awaited)?;
     assert!(reads(&snapshot, "From the network"), "{snapshot:?}");
 
     // Every request the server received, the tab let go first: none
@@ -253,17 +285,38 @@ fn a_page_from_the_network_is_read_and_every_request_was_paused_before_it_went()
         "{went:?}"
     );
     assert_eq!(tab.refusals(), &[], "nothing here breaks a rule");
+    Ok(())
 }
 
 #[test]
 fn a_pages_shared_worker_is_held_and_every_request_of_it_paused_before_it_went() {
+    a_shared_worker_held_through(&Chromium::Machines).unwrap();
+}
+
+/// The same shared worker through the Chromium alo carries, its CEF host
+/// (queue item 726, ADR 0079 § 8): held from Chrome's own session, every
+/// request of it paused in its own target, its WebSocket told of and
+/// recorded as not decided, and each the page's in the record.
+#[cfg(target_os = "macos")]
+#[test]
+fn through_alos_cef_host_a_shared_worker_is_held_and_its_requests_paused() {
+    let Some(host) = carried::host("726").unwrap() else {
+        return;
+    };
+    a_shared_worker_held_through(&host.chromium()).unwrap();
+}
+
+/// A page's shared worker, opened through `chromium`, seen held and every
+/// request of it paused before it went, and recorded as the page's.
+fn a_shared_worker_held_through(chromium: &Chromium) -> Result<(), String> {
     // Chrome tells the tab's session nothing of a shared worker, measured
     // against Chrome 155; Chrome's own session is told of it, waiting, and
     // the tab holds it there.
-    let (port, log) = serve().unwrap();
-    let mut chrome = Chrome::start().unwrap();
-    let address = alo_url::parse(&format!("http://127.0.0.1:{port}/shared.html")).unwrap();
-    let mut tab = Tab::open(&mut chrome, &address, SIZE).unwrap();
+    let (port, log) = serve().ok_or("no server")?;
+    let mut chrome = Chrome::start_from(chromium, false).map_err(|why| why.to_string())?;
+    let address = alo_url::parse(&format!("http://127.0.0.1:{port}/shared.html"))
+        .map_err(|why| format!("{why:?}"))?;
+    let mut tab = Tab::open(&mut chrome, &address, SIZE).map_err(|why| why.to_string())?;
     let awaited = [
         ("127.0.0.1", "/shared.js"),
         ("127.0.0.1", "/from-shared"),
@@ -272,7 +325,7 @@ fn a_pages_shared_worker_is_held_and_every_request_of_it_paused_before_it_went()
         ("127.0.0.1", "/on-connect"),
         ("127.0.0.1", "/socket"),
     ];
-    let snapshot = read_until(&mut tab, &log, &awaited).unwrap();
+    let snapshot = read_until(&mut tab, &log, &awaited)?;
     assert!(reads(&snapshot, "Shared"), "{snapshot:?}");
     let went = let_go_first(&tab, &log);
     let paused_in = |path: &str, kind: Kind| {
@@ -334,14 +387,15 @@ fn a_pages_shared_worker_is_held_and_every_request_of_it_paused_before_it_went()
             .filter(|entry| entry.url().to_string() == url)
             .collect();
         let [line] = lines.as_slice() else {
-            panic!("{} lines for {url}", lines.len());
+            return Err(format!("{} lines for {url}", lines.len()));
         };
         assert_eq!(line.happened(), &happened, "{line}");
         let Cause::Document { document } = line.cause() else {
-            panic!("not the page's: {line}");
+            return Err(format!("not the page's: {line}"));
         };
         assert_eq!(record.documents().cause_of(*document), page.as_ref());
     }
+    Ok(())
 }
 
 /// Every request the server received, checked to have been let go by `tab`

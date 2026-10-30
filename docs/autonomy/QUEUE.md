@@ -82,7 +82,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **725** | alo's own CEF host, with no `unsafe`, built against CEF 156.0.14 and started and driven by `alo-window` exactly as Chrome is (ADR 0079, iteration 455) |
 | ✓ | **720** | alo carries CEF's Chromium in the application — checked against a pinned SHA-256 before it is copied, its licences linked from the application's page, sealed ad hoc inside out — so the application needs no Chrome (ADR 0079, iteration 458) |
 | | **735** | the application and its Chromium signed with the owner's Developer ID, under the hardened runtime, and notarised — blocked on that certificate (cut from 720) |
-| | **726** | CEF held to alo's rules, measured (ADR 0079) |
+| ✓ | **726** | CEF held to alo's rules, measured — no Widevine or updater fetching it, nothing of its own beyond ADR 0073's list, no H.264/AAC/HEVC, every request held, the agent's surface through it (ADR 0079, iteration 459) |
 | ✓ | **727** | the host's own window for `--app`: Chrome style with no toolbar, titled by the page, placed by alo over the pipe, typed into, pressed and closed by a person (iteration 456) |
 | ✓ | **731**, **732**, **730** | the host's application object (`CefAppProtocol`, the one `unsafe` boundary ADR 0080 allows), its menu bar and ⌘Q ending it in order, and the gate reaching the host and holding the boundary to its file (iteration 457) |
 | | **734** | a page closed while its context menu is open crashes the host (`SIGSEGV`, found by 731) |
@@ -19328,7 +19328,9 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on 713. Closes when:* a layout assertion of the card's box, a
   reference render of the card holding a committed frame, a stream that
   stops when the card is closed, and the agent's pipe measured not to queue
-  behind frames past ADR 0076's numbers.
+  behind frames past ADR 0076's numbers — through the Chromium alo
+  carries as well as the machine's Chrome (alo sends no screencast yet, so
+  726 left the host's frames to this item; ADR 0079 § 8a saw them arrive).
 
 - [ ] **718. A person's pointer, wheel and keys forwarded from the card to
   the page (ADR 0076 B, ADR 0024 § 5).** A person's press, wheel and keys
@@ -19842,12 +19844,52 @@ What stage 2's exit gate actually measures: a person using it.
   `#[allow(unsafe_code)]` in a workspace crate). `bash -n` clean. The
   whole gate was not run here.
 
-- [ ] **726. CEF held to alo's rules, measured (ADR 0079 § 8).** With 725's
+- [x] **726. CEF held to alo's rules, measured (ADR 0079 § 8).** With 725's
   host and ADR 0073's switches: no WidevineCdm and no component-updater
   traffic (the probe saw both appear without them), no H.264 or AAC, ADR
   0060's held requests across popups, frames, workers and sockets, the
   accessibility tree, input, highlight, window bounds and screencast — each
   a test. *Depends on 725.*
+
+  ***Done (iteration 459).*** Each check is a test that runs when
+  `CEF_PATH` names an unpacked distribution, and otherwise says *skipped*
+  and why on its error output and returns; the host is built and laid out
+  for them by one shared module, `tests/carried/mod.rs`, and the existing
+  Chrome tests are parameterised by `Chromium` rather than copied — what
+  each asserts of the machine's Chrome is unchanged. Measured on this Mac
+  with CEF 156.0.14, against ADR 0073's switches as `chrome.rs` passes
+  them; **nothing in the host or the switches had to change**.
+  **No Widevine, no updater**: `what_chrome_asks_for_of_its_own.rs` holds
+  the host on an empty profile for 90 seconds — no `WidevineCdm` anywhere
+  in the profile, no request naming its component; mutation-checked:
+  without `--disable-component-update` alone the profile held
+  `WidevineCdm` within the same 90 seconds.
+  `tests/alos_cef_host_plays_only_open_codecs_as_chrome.rs`: Widevine
+  refused (`NotSupportedError`) beside Clear Key granted. **No traffic of
+  its own** beyond ADR 0073's list, by the same net-log reading as
+  Chrome's: the on-device models' manifest only — two update checks, its
+  download and the ping — and no `ListAccounts`, so less than Chrome and
+  nothing to name. **Codecs**: H.264, AAC, HEVC refused by
+  `MediaSource.isTypeSupported` and `canPlayType`; VP9, AV1, Opus played;
+  the machine's Chrome on the same page plays H.264, so the reading reads.
+  **ADR 0060's holds** (`a_page_from_the_network_in_chrome.rs`): the page,
+  its frame from the other site, its dedicated and service workers, and a
+  shared worker, every request paused in its own target and let go before
+  the server received it; the shared worker's WebSocket told of and
+  recorded as not decided; each the page's in the record. **Popups**
+  (`the_verbs_through_chrome.rs`): a link's and a script's new tab held
+  and closed before loading anything — CEF #4308 did not arise in Chrome
+  style. **The agent's surface**: the tree read as ours with the same
+  written differences (`a_page_in_chrome_read_as_our_tree.rs`), the order
+  and a person's click and typing through verbs
+  (`the_verbs_through_chrome.rs`), Chrome's highlight of the acted-on box
+  on the screen (`the_box_marked_through_alos_cef_host_as_chrome.rs`, the
+  check moved to `tests/marked/mod.rs` and shared with Chrome's, a shown
+  test in nextest's `threads-required = 2` list); window bounds are 727's
+  test. **Not done here**: screencast frames — alo sends no
+  `Page.startScreencast` yet, so 717 is to run its test through the host
+  too. `cargo nextest run -p alo-window` with `CEF_PATH`: 648 passed,
+  none skipped, no new crash report.
 
 - [ ] **723. Machines that build Chromium, for every system (ADR 0078 and
   its amendments) — before alo is offered widely; CEF comes first (ADR

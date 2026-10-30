@@ -1023,8 +1023,12 @@ unreachable without it.
       application's page, the whole sealed ad hoc inside out; the
       application `alo-bundle` makes run in a test, its page drawn by that
       Chromium (ADR 0079, 720)
+      · CEF held to alo's rules, measured: no Widevine and no updater
+      fetching one, no traffic of its own beyond what ADR 0073 names, no
+      H.264, AAC or HEVC, every request held as in Chrome, and the agent's
+      tree, verbs and highlight through it — each a test (ADR 0079, 726)
       · Owed: signing with the owner's Developer ID and notarising (735),
-      CEF held to alo's rules, measured (726), a page closed with its context menu open (734), Windows and
+      a page closed with its context menu open (734), Windows and
       Linux (728), what macOS keeps for it (729), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
       and is 696's, needs ADR; a
