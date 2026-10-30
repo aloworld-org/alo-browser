@@ -34,7 +34,7 @@ together**:
      2026 no longer showed a search engine or an API — read from GitHub and
      the site that day.
 2. **The engine's own page stays** (§§ 1–6): every list ends in *See on …*,
-   opening the person's chosen engine — Google, DuckDuckGo, Stract, any of
+   opening the person's chosen engine — Google, DuckDuckGo, any of
    § 2's — in the card, free and with no key.
 3. **No search deal, unchanged.** Paying a provider for a service is not a
    deal: alo is never paid by a search company to send people to it, never
