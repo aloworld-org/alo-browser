@@ -217,6 +217,22 @@ What follows from it:
   draws with this engine, saying so (ADR 0077, item 719).
 - The recommendation below is kept as the record of what was weighed.
 
+### Amendment, the same day: every system, not only the Mac
+
+The owner: *"We shall not ship alo-browser to only Mac users but to all."*
+alo is for macOS, Windows and Linux. That settles a question this ADR only
+touched: WebKit — on every Mac already, kept patched by Apple — was weighed
+as an easier engine and set aside, because it is not available on Windows
+and alo would be written again for each system. Chromium runs the same on
+all three, which is why every Chromium-based browser people choose is on it.
+
+So alo's own Chromium is built **for each system**: a Mac build on an
+Apple-silicon Mac, a Linux build on Linux, a Windows build on Windows (or
+cross-built from Linux, which Chromium supports with more setup). Item 723
+becomes build machines for all three; 724's recipe covers all three; 721's
+updater and signing are per system (Apple's notarization, Windows code
+signing, Linux packages).
+
 ## 3. What was recommended (kept for the record)
 
 **(a) Now, on the owner's machine only: Chrome for Testing, pinned.**

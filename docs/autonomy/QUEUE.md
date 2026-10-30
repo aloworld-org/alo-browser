@@ -78,7 +78,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
 | | **717** | the page as a card, drawn from Chrome's frames |
 | | **718** | a person's pointer and keys forwarded from the card to the page |
-| | **719**–**724** | alo carries its own Chromium and never uses the machine's Chrome (ADR 0077): used, built by alo from the stable tag on a machine of its own (ADR 0078), kept updated, and named alo |
+| ✓ | **719** | the application starts only the Chromium it carries, at `Contents/Frameworks/Chromium.app`, never the machine's Chrome, and draws with this engine saying so when it is missing or damaged (ADR 0077, iteration 454) |
+| | **720**–**724** | the Chromium alo carries (ADR 0077): built by alo from the stable tag on a machine of its own (ADR 0078), kept updated, and named alo |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -1084,7 +1085,9 @@ wrong, which is the argument for the fourth.
   unconfined and requires the unconfined run to be **allowed** all four things,
   because a test that passed both ways would be testing nothing.
 
-- [ ] **169. The sandbox, on Linux.** seccomp-bpf, a user namespace and
+- [ ] **169. The sandbox, on Linux.** *(alo ships to Windows and Linux as
+  well as macOS — ADR 0078's amendment — so this is on the road to a
+  release, not after it.)* seccomp-bpf, a user namespace and
   Landlock, as ADR 0010 names them.
   *Depends on 167. Closes when:* the same four probes are refused on Linux, in
   the same test, run on Linux — because a sandbox only ever checked on the
@@ -19326,7 +19329,7 @@ What stage 2's exit gate actually measures: a person using it.
   test against a local page.
 
 
-- [ ] **719. The application uses only its own Chromium (ADR 0077).**
+- [x] **719. The application uses only its own Chromium (ADR 0077).**
   `alo browser.app` starts the Chromium inside its own bundle and **never
   the machine's Chrome**, even when one is installed — the owner's words: *no
   fall back, as if the user only has alo-browser on his PC*. A bundle with
@@ -19337,6 +19340,47 @@ What stage 2's exit gate actually measures: a person using it.
   Chromium starts it — never the machine's Chrome — and one without draws
   with this engine and says so.
 
+  ***Done (iteration 454).*** The application carries its Chromium at
+  `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium` — a helper
+  application inside the application, its program where a Chromium build
+  puts it (`bundle::CHROMIUM`, `Bundle::chromium`); 720 puts alo's own
+  build there. Which Chromium a browser starts is `beside::Chromium`:
+  `Machines` for `alo --chrome` from a terminal and this repository's
+  tests, unchanged; `Carried(path)` inside the application, for its own
+  page, a page named with `--chrome` and an address chosen in the
+  conversation (`ChromeOpener::start`, `window::conversation`).
+  `Chrome::start_from` starts a carried one only at its path, refusing one
+  that is not a program there as `Unstarted::NotCarried` — it never looks
+  for the machine's Chrome. `bundle_chromium::decide` makes the choice:
+  with no Chromium at its place and nothing named, this engine draws
+  `without-chrome.html` and the terminal says *alo's own Chromium is not in
+  the application: it was looked for at …, so this browser's own engine
+  draws the application's page*; `bundle_chromium::undrawn` does the same
+  once a Chromium that is there would not start or answer (*alo's own
+  Chromium at … could not draw the application's page — … — so this
+  browser's own engine draws it*). A page a person named is never quietly
+  redrawn by another renderer; its failure is said. What draws a page is
+  `RenderedBy::Carried`, said *Chrome/156…, the Chromium alo carries,
+  driven by this browser* on the terminal and in the frame, and to an agent
+  as the renderer kind `CarriedChromium` with its product (the socket's
+  contract amended). The application's two pages are reworded and their
+  corpus references redrawn: *This page is drawn by the Chromium alo
+  browser carries* and *alo browser's own Chromium is missing or damaged,
+  so this page is drawn by alo browser's own engine*. Tests: unit tests of
+  the choice in `bundle_chromium.rs` (a bundle carrying one starts only it,
+  for every opening; carrying none, this engine and the sentence; a damaged
+  one, this engine and the sentence; outside a bundle, nothing changes),
+  and in `bundle.rs`, `beside.rs` and `protocol.rs`;
+  `tests/the_application_opens_its_own_page.rs` now carries this machine's
+  Chrome cloned (`cp -c`) into the temporary bundle's Chromium place and
+  asserts by `ps -o comm=` that the Chrome started is the program inside
+  the application and no process it started is under `/Applications/Google
+  Chrome.app`; `tests/the_application_with_no_chrome_of_its_own.rs` starts
+  a bundle with none and one with a damaged program there, each drawn by
+  this engine, saying so on the terminal and to an agent, with no Chrome
+  among what it started. `alo-bundle` puts no Chromium in the application
+  yet, so the application it makes draws with this engine until 720.
+
 - [ ] **720. alo carries the Chromium it built (ADR 0077, ADR 0078).**
   The owner chose our own build, with no interim build. `alo-bundle` takes
   the Chromium 724's recipe built on 723's machine — by version, checked
@@ -19345,17 +19389,21 @@ What stage 2's exit gate actually measures: a person using it.
   the bundle, no proprietary codec, and ADR 0073's traffic test run against
   it. *Depends on 719, 723, 724.*
 
-- [ ] **723. A machine that builds Chromium (ADR 0078).** An Apple-silicon
-  Mac with at least 32 GB of memory and 250 GB free, owned or rented, that
-  this repository's build recipe (724) runs on. This Mac (8 GB, about
-  103 GB free) cannot. *blocked: the owner arranging the machine.*
+- [ ] **723. Machines that build Chromium, for every system (ADR 0078 and
+  its amendment).** alo ships to macOS, Windows and Linux, so Chromium is
+  built for each: an Apple-silicon Mac with at least 32 GB of memory and
+  250 GB free; a Linux machine of the same size; Windows on Windows or
+  cross-built from Linux. Owned or rented, run for every Chromium security
+  release. This Mac (8 GB, about 103 GB free) cannot. *blocked: the owner
+  arranging the machines.*
 
 - [ ] **724. The recipe for alo's Chromium, in this repository (ADR
   0078).** The stable version it follows, `args.gn` (official, not
   Chrome-branded, `proprietary_codecs` off, `enable_widevine` off, empty
   Google API keys), alo's branding files (722's name and icon once made),
   and a script that fetches that tag, builds, packages and records the
-  version and hash of what it built — reviewed here, run on 723.
+  version and hash of what it built, for macOS, Windows and Linux —
+  reviewed here, run on 723.
 
 - [ ] **721. An updater (ADR 0077).** A new Chromium, and a new alo, reach a
   person within days of a security release, checked and signed, with the
