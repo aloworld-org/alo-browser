@@ -341,8 +341,10 @@ fn post(owner: u32, key: Key, menu: u64, before: &[Listed]) -> Result<Posted, Un
 /// what it printed.
 #[cfg(target_os = "macos")]
 fn osascript(script: &str, arguments: &[String]) -> Result<Vec<u8>, Unposted> {
+    // `--` ends osascript's own options, so no argument is ever read as
+    // one: a number written with a minus sign would be.
     let ran = std::process::Command::new("osascript")
-        .args(["-l", "JavaScript", "-e", script])
+        .args(["-l", "JavaScript", "-e", script, "--"])
         .args(arguments)
         .stdin(std::process::Stdio::null())
         .output()

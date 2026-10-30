@@ -78,8 +78,11 @@ const AT_MOST: Duration = Duration::from_secs(10);
 /// Run a script of JavaScript for Automation with `arguments`, and say what
 /// it printed.
 fn automation(script: &str, arguments: &[String]) -> Result<String, String> {
+    // `--` ends osascript's own options: a point on a screen left of or
+    // above the main one is negative, and "-1920" read as an option is
+    // "illegal option -- 1".
     let ran = std::process::Command::new("osascript")
-        .args(["-l", "JavaScript", "-e", script])
+        .args(["-l", "JavaScript", "-e", script, "--"])
         .args(arguments)
         .output()
         .map_err(|why| why.to_string())?;
