@@ -56,6 +56,7 @@ mod form;
 mod panel;
 mod pointer;
 mod sheet;
+mod start;
 mod strip;
 
 pub use fetch::fetched_size;
@@ -271,6 +272,10 @@ impl Writer {
                 self.tag(5);
                 self.text(why);
             }
+            Failure::NoStart { why } => {
+                self.tag(6);
+                self.text(why);
+            }
         }
     }
 
@@ -404,6 +409,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
         ToRenderer::Panel(panel) => {
             writer.tag(14);
             writer.panel(panel);
+        }
+        ToRenderer::Start(start) => {
+            writer.tag(15);
+            writer.start(start);
         }
     }
     writer.out
@@ -1295,6 +1304,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         12 => ToRenderer::Pointer(reader.pointer()?),
         13 => ToRenderer::StripPress(alo_paint::Point::new(reader.float()?, reader.float()?)),
         14 => ToRenderer::Panel(Box::new(reader.panel()?)),
+        15 => ToRenderer::Start(Box::new(reader.start()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1355,6 +1365,9 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                 },
                 4 => Failure::NotTheStrip,
                 5 => Failure::NoPanel {
+                    why: reader.text()?,
+                },
+                6 => Failure::NoStart {
                     why: reader.text()?,
                 },
                 other => return Err(unreadable(format!("a failure tagged {other}"))),

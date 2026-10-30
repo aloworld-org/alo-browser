@@ -32,6 +32,7 @@ use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
 use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
+use alo_renderer::start::{KeptSite, Start, Waiting};
 use alo_renderer::strip::LONGEST_TITLE;
 use alo_renderer::violations::{MOST_OBJECTIONS, Objection};
 use alo_renderer::wire::{
@@ -162,6 +163,17 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             scale: 2.0,
         })),
         ToRenderer::Panel(Box::default()),
+        ToRenderer::Start(Box::new(Start {
+            greeting: "Good morning.".to_owned(),
+            sites: vec![
+                KeptSite::new("Mail", "https://mail.example/"),
+                KeptSite::new("", "a\0b"),
+            ],
+            waiting: vec![Waiting::new("Lisbon", "found 3 hotels")],
+            viewport: Size::new(1040.0, 820.5),
+            scale: 1.5,
+        })),
+        ToRenderer::Start(Box::default()),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -258,6 +270,9 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         }),
         FromRenderer::Failed(Failure::NoStrip {
             why: "the template has no tablist".to_owned(),
+        }),
+        FromRenderer::Failed(Failure::NoStart {
+            why: "the template has no greeting".to_owned(),
         }),
         FromRenderer::Failed(Failure::NoPanel {
             why: "the template has no place for the chats".to_owned(),

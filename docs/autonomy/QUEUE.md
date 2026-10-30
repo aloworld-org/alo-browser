@@ -65,7 +65,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
 | **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); **quit, it leaves no profile or socket** (688, iteration 430); **a killed browser's profile, removed at the next start** (690, ADR 0069, iteration 432; gated 2026-10-28 once 691 moved the minimum Rust to 1.89, ADR 0070); owed: another Mac |
 | ✓ | **699** | the chats panel, a document of ours — the first part of the conversation the browser's own interface becomes (ADR 0074, iteration 446) |
-| | **700** | the first screen and the panel, in a window |
+| ✓ | **700** | the first screen, a document of ours (iteration 447) — in a window with the panel is 709 |
+| | **709** | the panel and the first screen in the engine's window, pressed by a person |
 | | **701** | going to a website from the one box, with no model |
 | | **702** | where Chrome's window goes when a page opens inside the conversation — measured, then decided |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
@@ -18996,7 +18997,7 @@ What stage 2's exit gate actually measures: a person using it.
   Cut to 700: the panel in a window, a press on it, *Search chats* and the
   button that hides it.
 
-- [ ] **700. The first screen, and the panel beside it, in a window.** The
+- [x] **700. The first screen, and the panel beside it, in a window.** The
   window of the design's screen 0a: the chats panel (699) on the left, and
   on the right a greeting, the one box — *Ask anything, search, or type a
   website* — a person's sites and the chats waiting on them; each a document
@@ -19007,6 +19008,28 @@ What stage 2's exit gate actually measures: a person using it.
   on the first screen, a press on a chat says which chat, layout assertions
   and reference renders of both documents, and a screen capture of the
   window.
+  ***Done (iteration 447), scope cut to 709.*** The first screen is a
+  document of ours, as the panel is: `start.rs`, `start_document.rs`,
+  `interface/start.{html,css}`, `ToRenderer::Start` at `alo:new-chat` and
+  its wire form; the greeting, the one box read as a `search` holding a
+  field named *Ask anything, search, or type a website* and *Go*, *Your
+  sites* with *Add a site* last, *Pick up where you left off*; every box in
+  numbers and a reference render in `tests/the_first_screen.rs`. Putting
+  both documents in the window, and a press on them, is 709 — it changes
+  how `compose.rs` and `place.rs` lay the window out, which is its own
+  change.
+
+- [ ] **709. The chats panel and the first screen in the engine's window,
+  pressed by a person.** The window `alo` opens with nothing named shows the
+  panel (699) on the left, 240 px wide, and the first screen (700) beside
+  it, each painted by its own confined renderer and composed as the strip
+  and page are (ADR 0024 § 2): a function from the frames it was last sent.
+  A press on a chat, *New chat*, a site or the box is claimed by place in the
+  renderer that drew it (ADR 0024 § 5) and decided by the browser process.
+  *Search chats* and the button that hides the panel (cut from 699).
+  *Depends on 699, 700. Closes when:* a reference render of the composed
+  window, a press on a chat said by which chat it was, and a screen capture
+  of the running window.
 
 - [ ] **701. Going to a website from the one box, with no model.** What is
   typed is offered as the design's screen 0b offers it: *Go to the site*

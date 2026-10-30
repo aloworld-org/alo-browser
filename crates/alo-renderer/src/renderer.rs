@@ -139,6 +139,8 @@ use crate::scripts;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::show;
 use crate::snapshot::Snapshot;
+use crate::start::Start;
+use crate::start_document;
 use crate::strip::Strip;
 use crate::strip_claim;
 use crate::strip_document;
@@ -277,6 +279,7 @@ impl Renderer {
             ToRenderer::Pointer(pointer) => self.pointer(pointer),
             ToRenderer::StripPress(at) => self.strip_press(at),
             ToRenderer::Panel(panel) => self.panel(&panel),
+            ToRenderer::Start(start) => self.start(&start),
         }
     }
 
@@ -780,6 +783,22 @@ impl Renderer {
                 false,
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoPanel { why: unbuilt.why }),
+        }
+    }
+
+    /// Hold the first screen (ADR 0074, queue item 700), as the panel is
+    /// held.
+    fn start(&mut self, start: &Start) -> FromRenderer {
+        match start_document::build(start) {
+            Ok(document) => self.interface(
+                document,
+                start.viewport,
+                start.scale,
+                crate::start::address(),
+                start_document::SHEET,
+                false,
+            ),
+            Err(unbuilt) => FromRenderer::Failed(Failure::NoStart { why: unbuilt.why }),
         }
     }
 

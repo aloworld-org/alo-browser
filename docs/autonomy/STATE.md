@@ -45290,3 +45290,40 @@ interface, a conversation — Built: the chats panel (699); Owed: 700–708.
 - No claim about speed is made.
 
 The next unused queue number is **709** and the next ADR is **0075**.
+
+## Iteration 447 — queue item 700: the first screen, a document of ours; its place in the window cut to 709
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, ADR 0074, `docs/design/shell.md`,
+iteration 446's entry; `panel.rs`, `panel_document.rs` as the pattern;
+`alo-window`'s `compose.rs` and `place.rs` to size the window's half.
+
+**Cut.** 700 asked for the first screen and the panel *in a window*,
+pressed. The window lays itself out as a strip across the top and a page
+below (`place.rs`, `compose.rs`, the conductor's strip thread); a panel on
+the left is a different layout and a second interface renderer to feed,
+which is its own change. So 700 is the first screen's document, built
+whole, and the window is 709, written into the queue.
+
+**Built.** `start.rs` (the greeting the browser process chooses, kept
+sites, chats waiting), `start_document.rs` (the document from a
+compiled-in template, every name a text node, *Your sites* always ending in
+*Add a site*), `interface/start.{html,css}`, `ToRenderer::Start` at
+`alo:new-chat`, `Failure::NoStart`, `wire/start.rs`; round trips in
+`messages_across_a_boundary.rs`.
+
+**Gate.** **5600 tests, 5600 passed, 10 of 10 steps, "The gate is met."**
+`cargo fmt` and workspace clippy clean before it.
+
+**Manual.** Layout assertion in numbers, reasoned from the stylesheet
+before the first run and matching it on that run: the box (160, 254)
+720×64, *Go* (825, 264) 44×44, the field (183, 266) 632×40, tiles 110×84
+from (160, 386) 122 apart, waiting chats 354×68 at (160, 526) and (526,
+526). Reference render `start-screen.png`, written and looked at. One file,
+one responsibility. Documentation: features, queue, roadmap, changelog. No
+`unsafe`, no rented crate, no verb taking a coordinate.
+
+**Unresolved obligations.** Nothing is in the window yet (709). The
+greeting's words are the browser process's to choose and nothing chooses
+them yet. No claim about speed is made.
+
+The next unused queue number is **710** and the next ADR is **0075**.

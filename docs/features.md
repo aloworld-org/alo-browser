@@ -762,8 +762,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   agent read the same thing. **The chats panel is built** (queue item 699):
   the open chats and the earlier ones, the one on screen, a terracotta dot
   where the agent is at work and *Done* where it finished, read by an agent
-  as *navigation Chats* with each chat by its name and state. Owed: the
-  first screen in a window (700), going to a website with no model (701), a
+  as *navigation Chats* with each chat by its name and state. **The first
+  screen is built** (700): the greeting, the one box an agent reads as a
+  search with its field and *Go*, a person's sites and the chats waiting on
+  them. Owed: both in the engine's window and pressed (709), going to a website with no model (701), a
   page inside the conversation (702), the conversation (703), the agent at
   work (704), its settings (705), the typefaces (706); the answer (707) and
   search results (708) wait on the owner's choice of a model and a search

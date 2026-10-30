@@ -1,0 +1,196 @@
+/* The first screen, after the owner's design (ADR 0074 § 2,
+   docs/design/shell.md): the greeting, the one box, a person's sites and
+   the chats waiting on them, in a column 720 px wide. The values are the
+   palette's, spelled here because no other file is reachable from a
+   renderer. */
+:root {
+  --ink: #1b2433;
+  --paper: #f4f1ec;
+  --surface: #ffffff;
+  --line: #ddd6ca;
+  --line-soft: #e6e0d6;
+  --quiet: #5f5a52;
+  --heading: #6b655c;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 150px;
+}
+
+.hello {
+  font-family: serif;
+  font-size: 40px;
+  line-height: 46px;
+  font-weight: 400;
+}
+
+.sub {
+  margin: 10px 0 28px;
+  color: var(--quiet);
+}
+
+/* The one box: 720 wide and 64 tall, the field and the button that sends
+   what is in it. */
+.box {
+  display: flex;
+  align-items: center;
+  column-gap: 10px;
+  width: 720px;
+  height: 64px;
+  padding: 0 10px 0 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.ask {
+  flex-grow: 1;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+}
+
+.go {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--surface);
+  font-family: system-ui, sans-serif;
+  font-size: 18px;
+}
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+  row-gap: 28px;
+  width: 720px;
+  margin-top: 40px;
+}
+
+.label {
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--heading);
+}
+
+/* A person's sites: six to a row, each a tile with its first letter. */
+.sites {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  list-style-type: none;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  row-gap: 8px;
+  height: 84px;
+  padding: 0 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 12.5px;
+  line-height: 16px;
+  color: #3d3a35;
+}
+
+.tile.add {
+  border-color: var(--line);
+  border-style: dashed;
+  background: transparent;
+  color: var(--quiet);
+}
+
+.letter {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 13px;
+  line-height: 30px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.tile .name {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chats waiting on the person: two to a row. */
+.waiting {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  list-style-type: none;
+}
+
+.wait {
+  display: flex;
+  flex-direction: column;
+  row-gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.wait .name {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wait .said {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

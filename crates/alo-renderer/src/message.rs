@@ -33,6 +33,7 @@ use crate::pointer::Pointer;
 use crate::screen::Screen;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
+use crate::start::Start;
 use crate::strip::Strip;
 use crate::strip_claim::Claim;
 use crate::violations::Objection;
@@ -146,6 +147,10 @@ pub enum ToRenderer {
     /// answers as a load does, with [`FromRenderer::Loaded`]. `Paint` and
     /// `ReadTree` then answer about the panel as they would a page.
     Panel(Box<Panel>),
+    /// Hold the first screen, built from this state (ADR 0074, queue item
+    /// 700): sent only to its own renderer, at a site no page can name
+    /// ([`crate::start::site`]), and held as the chats panel is.
+    Start(Box<Start>),
 }
 
 /// What a renderer answers with.
@@ -372,6 +377,12 @@ pub enum Failure {
         /// What refused, in words.
         why: String,
     },
+    /// The first screen's document could not be built from its template: a
+    /// defect in the renderer's own markup, never in the state it was sent.
+    NoStart {
+        /// What refused, in words.
+        why: String,
+    },
 }
 
 impl fmt::Display for Failure {
@@ -385,6 +396,7 @@ impl fmt::Display for Failure {
             Failure::NoStrip { why } => write!(f, "the tab strip could not be built: {why}"),
             Failure::NotTheStrip => f.write_str("a press on the tab strip, and no strip is held"),
             Failure::NoPanel { why } => write!(f, "the chats panel could not be built: {why}"),
+            Failure::NoStart { why } => write!(f, "the first screen could not be built: {why}"),
         }
     }
 }
@@ -441,6 +453,14 @@ impl fmt::Display for ToRenderer {
                 strip.tabs.len(),
                 strip.viewport.width,
                 strip.viewport.height,
+            ),
+            ToRenderer::Start(start) => write!(
+                f,
+                "hold the first screen, {} sites and {} waiting, at {}×{}",
+                start.sites.len(),
+                start.waiting.len(),
+                start.viewport.width,
+                start.viewport.height,
             ),
             ToRenderer::Panel(panel) => write!(
                 f,
@@ -520,6 +540,9 @@ mod tests {
             // The browser's own chats, which only the panel's renderer is
             // sent.
             ToRenderer::Panel(_) => "the chats panel, as data",
+            // A person's sites and chats, which only the first screen's
+            // renderer is sent.
+            ToRenderer::Start(_) => "the first screen, as data",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }

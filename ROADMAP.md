@@ -2314,8 +2314,11 @@ items where being right and being unusable are the same outcome.
       · Built: the chats panel (699) — a document of ours drawn in a
       confined renderer at `alo:chats`, its chats as data and each name a
       text node, read by an agent as *navigation Chats* with each chat's
-      state, in a reference render and a layout assertion of every row
-      · Owed: the first screen in a window (700), going to a website (701),
+      state, in a reference render and a layout assertion of every row;
+      and the first screen (700) — the greeting, the one box read as a
+      search, a person's sites and the chats waiting on them, the same way
+      · Owed: both in the engine's window and pressed (709), going to a
+      website (701),
       a page inside the conversation (702), the conversation (703), the
       agent at work (704), what the agent may do (705), the typefaces (706),
       the answer (707, blocked: a model) and search results (708, blocked: a

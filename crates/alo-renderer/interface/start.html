@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- The first screen's template (ADR 0074). Compiled into the renderer and
+     never assembled from anything: `start_document.rs` puts the greeting,
+     each of a person's sites and each chat waiting on them in with alo-dom's
+     operations, every name as a text node. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>New chat</title>
+  </head>
+  <body>
+    <main class="start">
+      <h1 id="greeting" class="hello"></h1>
+      <p class="sub">Ask anything, search, or type a website.</p>
+      <div class="box" role="search">
+        <input class="ask" type="text" aria-label="Ask anything, search, or type a website" placeholder="Ask anything, search, or type a website…" />
+        <button class="go" type="button" aria-label="Go">→</button>
+      </div>
+      <div id="blocks" class="blocks"></div>
+    </main>
+  </body>
+</html>

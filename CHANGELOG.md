@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The new interface's first screen.** What a new chat shows, as the owner
+  designed it: a greeting, one box — *Ask anything, search, or type a
+  website* — the sites a person keeps, and the chats waiting on them. Drawn
+  by this engine from data, read by an agent as the search box and lists it
+  is. It is not in the window yet; that is the next step (item 709).
+
 - **The first piece of the browser's new interface: the chats panel.** The
   browser's own interface is becoming a conversation (ADR 0074): a panel of
   chats on the left, the conversation beside it, one box to type into. The
