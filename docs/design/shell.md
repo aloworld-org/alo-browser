@@ -28,7 +28,8 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
 
 - **The mark**, *alo*, in the serif, 22 px, in a row 46 px tall with the
   button that hides the panel.
-- **New chat**, a white button 40 px tall, `⌘T` at its end.
+- **New chat**, a white button 40 px tall, a plus before its words and
+  `⌘T` at its end.
 - **Search chats**, 38 px.
 - **Open** — the chats in use. Each row is 38 px, 13.5 px text, the site
   open in it as a 16 px mark before its name. The chat on screen is white.
@@ -37,10 +38,23 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
   agent.
 - **Earlier** — past chats, in quiet text, without marks. Closing a chat
   never loses it: it moves here.
-- **Settings**, at the foot, under a line.
+- **Settings**, at the foot, under a line, with a settings icon — two
+  lines, a knob on each — before its words.
 
 A group's heading is 11.5 px, capitals, 600, quiet text, 18 px above it and
 6 px below.
+
+### Icons (item 712)
+
+Where the design has an icon it is a simple line drawing: unfilled, stroked
+in the colour of the words it sits with (`currentColor`), round caps and
+joins, about 1.5–1.8 px of stroke, 16 px in the panel and 18 px on the
+first screen. A plus before *New chat*; sliders before *Settings*; an arrow
+in *Go* on the first screen, in place of the "→" it said; a plus above *Add a
+site*, standing as tall as a site's letter so the tiles' words stay level.
+Each is inline SVG written in the interface's own templates, never built
+from anybody's string, and `aria-hidden`: an agent reads the words, not the
+picture.
 
 ## What appears when a person types
 

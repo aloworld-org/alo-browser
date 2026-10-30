@@ -93,6 +93,14 @@ a {
   font-size: 18px;
 }
 
+/* Go's arrow: 18 square, in the middle of the button and in its colour. */
+.go .icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
+}
+
 .blocks {
   display: flex;
   flex-direction: column;
@@ -138,6 +146,15 @@ a {
   border-style: dashed;
   background: transparent;
   color: var(--quiet);
+}
+
+/* Add a site's plus: 18 square with 6 above and below, so it stands as
+   tall as a site's letter and the words under it line up with theirs. */
+.tile.add .icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 6px 0;
 }
 
 .letter {

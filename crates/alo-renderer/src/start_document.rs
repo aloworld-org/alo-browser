@@ -14,8 +14,17 @@
 //! *Go* button; then *Your sites*, a navigation of links, each named by its
 //! site, with *Add a site* last; then *Pick up where you left off*, a list of
 //! links each named by its chat and what is waiting. A site's letter is
-//! decoration, hidden from the tree. A group with nothing in it is not drawn,
-//! except *Your sites*, which always offers *Add a site*.
+//! decoration, hidden from the tree, and so are the icons (queue item 712):
+//! *Go*'s arrow and *Add a site*'s plus. A group with nothing in it is not
+//! drawn, except *Your sites*, which always offers *Add a site*.
+//!
+//! # The icons are ours too
+//!
+//! Each is an inline `<svg>` in [`TEMPLATE`]. `alo-dom`'s `create_element`
+//! makes HTML elements only, so *Add a site*'s plus is not made here: it is
+//! written in the template's `<template id="add-icon">`, parsed with the rest
+//! of the template, and moved from there into its tile. Nothing a person or a
+//! site said reaches an icon.
 //!
 //! It runs no script: the template has none and nothing here makes one.
 
@@ -43,6 +52,9 @@ const GREETING: &str = "greeting";
 /// The id of the template's place for the groups.
 const BLOCKS: &str = "blocks";
 
+/// The id of the template's `<template>` holding *Add a site*'s icon.
+const ADD_ICON: &str = "add-icon";
+
 /// Why the first screen could not be built: an `alo-dom` operation refused,
 /// or the template lacked a place it names. Either is a defect in this file
 /// or its template, never in what the browser process sent.
@@ -64,7 +76,8 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
     let words = document.create_text_node(&start.greeting);
     append(&mut document, greeting, words)?;
     let blocks = by_id(&document, BLOCKS)?;
-    let sites = make_sites(&mut document, &start.sites)?;
+    let icon = take_icon(&document, ADD_ICON)?;
+    let sites = make_sites(&mut document, &start.sites, icon)?;
     append(&mut document, blocks, sites)?;
     if !start.waiting.is_empty() {
         let waiting = make_waiting(&mut document, &start.waiting)?;
@@ -83,9 +96,30 @@ fn by_id(document: &Document, id: &str) -> Result<NodeId, Unbuilt> {
         })
 }
 
+/// The icon the template's `<template>` with `id` holds: its one element,
+/// SVG as the template's parser made it, to be moved where it is drawn.
+fn take_icon(document: &Document, id: &str) -> Result<NodeId, Unbuilt> {
+    let holder = by_id(document, id)?;
+    document
+        .element(holder)
+        .and_then(|holder| holder.template_contents)
+        .and_then(|contents| {
+            document
+                .children(contents)
+                .find(|&child| document.element(child).is_some())
+        })
+        .ok_or_else(|| Unbuilt {
+            why: format!("the first screen's template {id:?} holds no icon"),
+        })
+}
+
 /// *Your sites*: a navigation named by its label, a list of tiles, and *Add
-/// a site* last.
-fn make_sites(document: &mut Document, sites: &[KeptSite]) -> Result<NodeId, Unbuilt> {
+/// a site* last, with `icon`.
+fn make_sites(
+    document: &mut Document,
+    sites: &[KeptSite],
+    icon: NodeId,
+) -> Result<NodeId, Unbuilt> {
     let group = element(document, "nav")?;
     attribute(document, group, "aria-labelledby", "sites-label")?;
     let label = make_label(document, "sites-label", YOUR_SITES)?;
@@ -93,20 +127,27 @@ fn make_sites(document: &mut Document, sites: &[KeptSite]) -> Result<NodeId, Unb
     let list = element(document, "ul")?;
     attribute(document, list, "class", "sites")?;
     for site in sites {
-        let tile = make_tile(document, site.letter().as_deref(), site.label(), false)?;
+        let mark = site.letter().map(Mark::Letter);
+        let tile = make_tile(document, mark, site.label(), false)?;
         append(document, list, tile)?;
     }
-    let add = make_tile(document, None, ADD_A_SITE, true)?;
+    let add = make_tile(document, Some(Mark::Icon(icon)), ADD_A_SITE, true)?;
     append(document, list, add)?;
     append(document, group, list)?;
     Ok(group)
 }
 
-/// One tile, in a list item: a link holding its letter, if it has one, and
+/// What stands above a tile's name: a site's letter, or an icon of ours.
+enum Mark {
+    Letter(String),
+    Icon(NodeId),
+}
+
+/// One tile, in a list item: a link holding its mark, if it has one, and
 /// its name as text.
 fn make_tile(
     document: &mut Document,
-    letter: Option<&str>,
+    mark: Option<Mark>,
     name: &str,
     adds: bool,
 ) -> Result<NodeId, Unbuilt> {
@@ -124,13 +165,17 @@ fn make_tile(
         "href",
         if adds { "#add-a-site" } else { "#site" },
     )?;
-    if let Some(letter) = letter {
-        let mark = element(document, "span")?;
-        attribute(document, mark, "class", "letter")?;
-        attribute(document, mark, "aria-hidden", "true")?;
-        let text = document.create_text_node(letter);
-        append(document, mark, text)?;
-        append(document, tile, mark)?;
+    match mark {
+        Some(Mark::Letter(letter)) => {
+            let mark = element(document, "span")?;
+            attribute(document, mark, "class", "letter")?;
+            attribute(document, mark, "aria-hidden", "true")?;
+            let text = document.create_text_node(&letter);
+            append(document, mark, text)?;
+            append(document, tile, mark)?;
+        }
+        Some(Mark::Icon(icon)) => append(document, tile, icon)?,
+        None => {}
     }
     let said = element(document, "span")?;
     attribute(document, said, "class", "name")?;
@@ -272,6 +317,37 @@ mod tests {
             ]
         );
         assert_eq!(of_class(&document, "label"), vec![YOUR_SITES, WAITING]);
+    }
+
+    #[test]
+    fn add_a_site_holds_the_templates_plus_drawn_as_svg_and_hidden() {
+        let document = built(&Start::default());
+        let tile = document
+            .descendants(document.root())
+            .find(|&node| document.attribute_by_name(node, "class") == Some("tile add"));
+        let icon = tile.and_then(|tile| document.children(tile).next());
+        let name = icon
+            .and_then(|icon| document.element(icon))
+            .map(|icon| &icon.name);
+        assert_eq!(
+            name.map(|name| (&name.ns, name.local.as_ref())),
+            Some((&alo_dom::Namespace::Svg, "svg"))
+        );
+        assert_eq!(
+            icon.and_then(|icon| document.attribute_by_name(icon, "aria-hidden")),
+            Some("true")
+        );
+        // Moved, not copied: the template it was written in is left empty,
+        // and the tile's words are still only its name.
+        let holder = by_id(&document, ADD_ICON).ok();
+        let contents = holder
+            .and_then(|holder| document.element(holder))
+            .and_then(|holder| holder.template_contents);
+        assert_eq!(
+            contents.map(|contents| document.children(contents).count()),
+            Some(0)
+        );
+        assert_eq!(of_class(&document, "tile add"), vec![ADD_A_SITE]);
     }
 
     #[test]

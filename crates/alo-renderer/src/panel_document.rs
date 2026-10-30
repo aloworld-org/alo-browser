@@ -17,7 +17,9 @@
 //! when it is on screen and `aria-busy` while the agent works in it; a chat
 //! the agent finished says [`DONE`] after its name, in words a person and an
 //! agent both read. The site's mark is decoration and is hidden from the
-//! tree: the row is named by its chat, not by a letter.
+//! tree: the row is named by its chat, not by a letter. So are the icons
+//! before *New chat* and *Settings* (queue item 712): inline SVG written in
+//! the template, stroked in `currentColor`, and `aria-hidden`.
 //!
 //! It runs no script: the template has none and nothing here makes one.
 

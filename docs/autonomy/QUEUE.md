@@ -69,6 +69,7 @@ ADR 0058 — and nothing else does:
 | ✓ | **709** | the panel and the first screen in the engine's window — `alo --conversation` (iteration 448); pressed is 710 |
 | ✓ | **710** | a press on the panel or the first screen, claimed by place and decided by the browser process (iteration 449) |
 | | **711** | *Search chats* and the button that hides the panel (cut from 710) |
+| ✓ | **712** | icons in the panel and the first screen — inline SVG of ours, hidden from an agent (iteration 450) |
 | | **701** | going to a website from the one box, with no model |
 | | **702** | where Chrome's window goes when a page opens inside the conversation — measured, then decided |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
@@ -19112,6 +19113,37 @@ What stage 2's exit gate actually measures: a person using it.
   render of the panel with their boxes in numbers, a press on each is
   decided as it, and a press on the hide button lays the window out without
   the panel at one and at two.
+
+- [x] **712. Icons in the browser's own interface, where the design has
+  them.** The owner asked for icons where they are needed: a plus before
+  *New chat* and a settings icon before *Settings* in the chats panel; an
+  arrow for *Go* in place of the "→" it said, and a plus above *Add a site*
+  on the first screen. Each simple stroke icon is inline SVG written in our
+  own compiled-in templates — never built from anybody's string —
+  `aria-hidden`, unfilled and stroked in `currentColor` with round caps and
+  joins, 16 or 18 px, so it takes the colour of what it sits in. *Depends on
+  699, 700. Closes when:* the icons are drawn in the reference renders of
+  both documents and the window, every row, tile and button stays where it
+  is asserted, an agent reads the same names, and at least one icon's box
+  per document is asserted in numbers.
+  ***Done (iteration 450).*** The engine already drew everything the icons
+  need (`alo-svg`: `path`, `circle`, `stroke`, `stroke-linecap`,
+  `stroke-linejoin`, `currentColor`), so nothing was cut. The panel's two
+  are written in `interface/panel.html`, 16 square with 8 before the words
+  (`panel.css`); *Go*'s arrow in `interface/start.html`, 18 square, a block
+  centred in the button. *Add a site*'s plus is written in the template too,
+  in a `<template id="add-icon">`, and moved from there into its tile by
+  `start_document.rs`, because `alo-dom`'s `create_element` makes HTML
+  elements only; it stands 18 square with 6 above and below, as tall as a
+  site's letter, so its words stay level with every other tile's. An agent
+  reads no icon, so they are asserted from the drawing's own boxes: in
+  `tests/the_chats_panel.rs` the plus at (23, 68) and the sliders at
+  (20, 521), each 16 × 16; in `tests/the_first_screen.rs` *Go*'s arrow at
+  (838, 277) and *Add a site*'s plus at (694, 407), each 18 × 18. Every
+  existing row, tile, button and name assertion passes unchanged; the
+  references `panel-chats.png`, `start-screen.png`, `the-conversation.png`,
+  `the-conversation-at-two.png` and `the-panel-after-a-press.png` are
+  rewritten with the icons in them.
 
 - [ ] **701. Going to a website from the one box, with no model.** What is
   typed is offered as the design's screen 0b offers it: *Go to the site*

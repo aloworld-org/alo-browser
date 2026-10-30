@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Icons in the new interface.** The chats panel has a plus before *New
+  chat* and a settings icon before *Settings*; the first screen's *Go*
+  button shows an arrow, and *Add a site* a plus. They are simple line
+  drawings in the colour of the words beside them, drawn by this engine
+  from the interface's own markup. Nothing moved to make room for them, and
+  an agent reads the same names as before (item 712).
+
 - **Pressing the new interface.** In `alo --conversation`, pressing a chat
   in the panel makes it the one on screen, and pressing *New chat* adds a
   chat; the panel is drawn again to show it. Each press is worked out by

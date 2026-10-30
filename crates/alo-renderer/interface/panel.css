@@ -73,6 +73,15 @@ a {
   font-weight: 600;
 }
 
+/* An icon: 16 square, stroked in the colour of the words after it, 8
+   before them. Inside the row's box, so no row moves for it. */
+.icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+
 .keys {
   margin-left: auto;
   font-size: 12px;

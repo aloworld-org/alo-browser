@@ -2327,7 +2327,11 @@ items where being right and being unusable are the same outcome.
       what that part last painted — a chat made current and *New chat*
       added, the panel drawn again in a reference render; *Settings*, a
       site, *Add a site*, a waiting chat, the box and *Go* decided and kept
-      but acting on nothing yet; a lying claim refused by name
+      but acting on nothing yet; a lying claim refused by name; and icons
+      where the design has them (712) — a plus for *New chat* and *Add a
+      site*, sliders for *Settings*, an arrow for *Go* — inline SVG of ours,
+      in the colour of the words beside them and hidden from an agent, each
+      box asserted in numbers
       · Owed: *Search chats* and the button that hides the panel (711),
       going to a website (701),
       a page inside the conversation (702), the conversation (703), the

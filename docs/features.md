@@ -780,7 +780,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   on *Settings*, a site, *Add a site*, a waiting chat, the box or *Go* is
   decided and kept but **does nothing yet** — there is no settings screen,
   no kept site, no typing in the box, and every chat still shows the first
-  screen. Owed: *Search chats* and the button that hides the panel (711),
+  screen. **Icons where the design has them** (712): a plus before *New
+  chat* and above *Add a site*, sliders before *Settings*, and an arrow for
+  *Go* — simple line drawings in the colour of the words beside them,
+  written by us into the interface's own markup and left out of what an
+  agent reads, which is still *New chat*, *Settings*, *Add a site* and
+  *Go*. Owed: *Search chats* and the button that hides the panel (711),
   going to a website with no model (701), a
   page inside the conversation (702), the conversation (703), the agent at
   work (704), its settings (705), the typefaces (706); the answer (707) and

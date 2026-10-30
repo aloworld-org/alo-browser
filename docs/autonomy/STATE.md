@@ -45398,3 +45398,28 @@ chats* and hiding the panel (711). Two blank chats both read *New chat*.
 No claim about speed is made.
 
 The next unused queue number is **712** and the next ADR is **0075**.
+
+## Iteration 450 — queue item 712: icons in the browser's own interface, where the design has them
+
+**Built by a delegated agent, reviewed here.** At the owner's ask: a plus
+before *New chat* and sliders before *Settings* in the panel; an arrow in
+*Go* and a plus above *Add a site* on the first screen. Inline SVG in our
+compiled-in templates, `aria-hidden`, stroked in `currentColor`. `alo-dom`
+makes only HTML elements in code, so *Add a site*'s plus is parsed from a
+`<template>` in `start.html` and moved into its tile by `start_document.rs`;
+nothing a person or site said reaches an icon.
+
+**Gate.** **5667 tests, 5667 passed, 10 of 10 steps, "The gate is met."**
+The agent's run saw the shown-Chrome pointer tests fail while the machine
+was in use; in the gate they passed.
+
+**Manual.** Each icon's box asserted in numbers (New chat's plus (23, 68)
+16×16, Settings' sliders (20, 521), Go's arrow (838, 277) 18×18, Add a
+site's plus (694, 407)); every existing row, tile, name and claim
+assertion unchanged. Five references rewritten and looked at here and by
+the agent: the icons drawn, aligned, nothing over text.
+
+**Unresolved obligations.** Typing reaches nothing yet (701). No claim
+about speed is made.
+
+The next unused queue number is **713** and the next ADR is **0075**.

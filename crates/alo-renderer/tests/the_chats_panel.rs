@@ -90,6 +90,10 @@ struct Drawn {
     tree: Snapshot,
     /// Every text the panel's drawing put down, in order.
     texts: Vec<String>,
+    /// Where each icon was laid out, in document order. The agent does not
+    /// read them — they are `aria-hidden` — so they are found in the
+    /// drawing's own boxes, by the element each box is for.
+    icons: Vec<String>,
 }
 
 fn draw(panel: Panel) -> Drawn {
@@ -117,12 +121,36 @@ fn draw(panel: Panel) -> Drawn {
                 .collect()
         })
         .unwrap_or_default();
+    let icons = icons(&renderer);
     Drawn {
         answer,
         frame,
         tree,
         texts,
+        icons,
     }
+}
+
+/// The border box of every `<svg>` the renderer drew, in the order the
+/// boxes were made, which is the document's.
+fn icons(renderer: &Renderer) -> Vec<String> {
+    let (Some(drawing), Some(document)) = (renderer.rendered(), renderer.document()) else {
+        return Vec::new();
+    };
+    drawing
+        .boxes
+        .ids()
+        .filter(|&id| {
+            drawing
+                .boxes
+                .get(id)
+                .and_then(|made| made.kind.node())
+                .and_then(|node| document.element(node))
+                .is_some_and(|element| element.name.local.as_ref() == "svg")
+        })
+        .filter_map(|id| drawing.layout.get(id))
+        .map(|geometry| units(geometry.border_box))
+        .collect()
 }
 
 /// Every node the agent reads in `role`, in order.
@@ -280,6 +308,16 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
             px(10.0, 330.0, 220.0, 38.0),
             px(10.0, 510.0, 220.0, 38.0),
         ],
+        "{outline}"
+    );
+    // The icons, 16 square, inside rows that did not move for them (item
+    // 712): New chat's plus after its 1 of border and 12 of padding, so 23
+    // in, and centred in the 38 inside the border, 1 + 11 = 12 down;
+    // Settings' sliders after its 10 of padding, 20 in, and centred in its
+    // 38, 11 down.
+    assert_eq!(
+        drawn.icons,
+        vec![px(23.0, 68.0, 16.0, 16.0), px(20.0, 521.0, 16.0, 16.0)],
         "{outline}"
     );
     assert_eq!(holds("panel-chats.png", drawn.frame.as_ref()), Ok(()));

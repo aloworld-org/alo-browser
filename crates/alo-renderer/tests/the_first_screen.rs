@@ -90,6 +90,10 @@ struct Drawn {
     answer: FromRenderer,
     frame: Option<Frame>,
     tree: Snapshot,
+    /// Where each icon was laid out, in document order. The agent does not
+    /// read them — they are `aria-hidden` — so they are found in the
+    /// drawing's own boxes, by the element each box is for.
+    icons: Vec<String>,
 }
 
 fn draw(start: Start) -> Drawn {
@@ -103,11 +107,35 @@ fn draw(start: Start) -> Drawn {
         FromRenderer::Tree(tree) => *tree,
         _ => Snapshot::default(),
     };
+    let icons = icons(&renderer);
     Drawn {
         answer,
         frame,
         tree,
+        icons,
     }
+}
+
+/// The border box of every `<svg>` the renderer drew, in the order the
+/// boxes were made, which is the document's.
+fn icons(renderer: &Renderer) -> Vec<String> {
+    let (Some(drawing), Some(document)) = (renderer.rendered(), renderer.document()) else {
+        return Vec::new();
+    };
+    drawing
+        .boxes
+        .ids()
+        .filter(|&id| {
+            drawing
+                .boxes
+                .get(id)
+                .and_then(|made| made.kind.node())
+                .and_then(|node| document.element(node))
+                .is_some_and(|element| element.name.local.as_ref() == "svg")
+        })
+        .filter_map(|id| drawing.layout.get(id))
+        .map(|geometry| units(geometry.border_box))
+        .collect()
 }
 
 /// Every node the agent reads in `role`, in order.
@@ -283,6 +311,18 @@ fn the_first_screen_is_read_as_a_greeting_a_box_sites_and_chats_waiting() {
             px(160.0, 526.0, 354.0, 68.0),
             px(526.0, 526.0, 354.0, 68.0),
         ],
+        "{outline}"
+    );
+    // The icons, inside boxes that did not move for them (item 712). Go's
+    // arrow, 18 square in the middle of the 44: 13 in and 13 down. Add a
+    // site's plus, 18 square, in the fifth tile at 648: (110 - 18) / 2 =
+    // 46 in; and down, the plus's 6 + 18 + 6 — as tall as a site's 30 of
+    // letter — the 8 of gap and the name's 16 are 54, centred in the 82
+    // inside the tile's border with 14 above, so 1 + 14 + 6 = 21 under the
+    // tile's top, and its words level with every other tile's.
+    assert_eq!(
+        drawn.icons,
+        vec![px(838.0, 277.0, 18.0, 18.0), px(694.0, 407.0, 18.0, 18.0)],
         "{outline}"
     );
     assert_eq!(holds("start-screen.png", drawn.frame.as_ref()), Ok(()));
