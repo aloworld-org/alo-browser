@@ -76,7 +76,7 @@ fn covers(rect: PixelRect, at: (f64, f64)) -> bool {
     clippy::cast_possible_truncation,
     reason = "a point in a window is within an f32's range, and its last bits are below a 64th of a pixel"
 )]
-fn css(scale: Scale, x: f64, y: f64) -> Point {
+pub(crate) fn css(scale: Scale, x: f64, y: f64) -> Point {
     Point::new(scale.css(x) as f32, scale.css(y) as f32)
 }
 

@@ -2321,9 +2321,15 @@ items where being right and being unusable are the same outcome.
       panel 240 CSS px down the left and the first screen beside it, each
       painted by its own confined renderer and composed as a function of
       the frames last sent, in reference renders at 1 and 2 and a screen
-      capture of the running window
-      · Owed: a press on either, claimed by place and decided by the
-      browser process (710), going to a website (701),
+      capture of the running window; and a person's press on either (710),
+      aimed from the window's composition, claimed by its place or kind in
+      the renderer that drew it and decided by the browser process against
+      what that part last painted — a chat made current and *New chat*
+      added, the panel drawn again in a reference render; *Settings*, a
+      site, *Add a site*, a waiting chat, the box and *Go* decided and kept
+      but acting on nothing yet; a lying claim refused by name
+      · Owed: *Search chats* and the button that hides the panel (711),
+      going to a website (701),
       a page inside the conversation (702), the conversation (703), the
       agent at work (704), what the agent may do (705), the typefaces (706),
       the answer (707, blocked: a model) and search results (708, blocked: a

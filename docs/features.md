@@ -769,7 +769,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   opens the design's window with the panel down the left, 240 px wide, and
   the first screen beside it, each painted by its own confined renderer and
   composed from the frames they last sent, greeting a person with *Hello.*
-  until the browser reads the time of day. Owed: a press on either (710),
+  until the browser reads the time of day. **A person's press on either is
+  claimed and decided** (710), as a press on the tab strip is: the window
+  works out which part the point is over and sends it there, the renderer
+  that drew the part says what it was on by its place or kind — *the chat
+  at place 2*, *New chat*, *the box* — and the browser process decides that
+  against what the part last showed, refusing by name a claim about
+  anything it did not show or no longer holds. A chat pressed becomes the
+  one on screen and *New chat* adds a chat, the panel drawn again; a press
+  on *Settings*, a site, *Add a site*, a waiting chat, the box or *Go* is
+  decided and kept but **does nothing yet** — there is no settings screen,
+  no kept site, no typing in the box, and every chat still shows the first
+  screen. Owed: *Search chats* and the button that hides the panel (711),
   going to a website with no model (701), a
   page inside the conversation (702), the conversation (703), the agent at
   work (704), its settings (705), the typefaces (706); the answer (707) and

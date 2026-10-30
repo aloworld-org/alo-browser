@@ -28,34 +28,40 @@
 //! last frame it painted and is told what happened, once, in the words
 //! `alo-renderer` says it in; no fresh process draws it behind the person's
 //! back (ADR 0005).
+//!
+//! # A person's press
+//!
+//! Queue item 710, ADR 0024 § 5. The window decides from its own
+//! composition which part a press is over ([`crate::conversation_aim`]) and
+//! hands it here, in that part's CSS pixels ([`ConversationDrawing::press`]).
+//! The thread sends it to the part's renderer, which claims what it was on
+//! by its place or its kind, and decides the claim (`alo-renderer`'s
+//! `conversation_decide`) against **what that part showed when it last
+//! painted** — the picture the person pressed — and what the browser
+//! process holds now, the last it asked to be drawn. The window is told
+//! what was decided ([`Drawn::Pressed`]) and acts on it
+//! ([`crate::conversation::Conversation::act`]).
+//!
+//! Presses are never dropped or merged, and each is decided after every
+//! drawing asked before it. A press on a part whose renderer had already
+//! gone is not sent, and its line is already said; one whose renderer goes
+//! as it is asked is said as a drawing's would be.
 
+use crate::conversation::{Pressed, Showing};
+use alo_paint::Point;
+use alo_renderer::conversation_decide::{self, decide};
 use alo_renderer::host::{Gone, Renderers};
 use alo_renderer::panel::{self, Panel};
 use alo_renderer::site::Site;
 use alo_renderer::start::{self, Start};
 use alo_renderer::strip_decide::unasked;
 use alo_renderer::{Frame, FromRenderer, ToRenderer};
-use core::fmt;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 
-/// Which part of the conversation's window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Part {
-    /// The chats panel, down the left.
-    Panel,
-    /// The first screen, beside it.
-    Start,
-}
-
-impl fmt::Display for Part {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Part::Panel => "the chats panel",
-            Part::Start => "the first screen",
-        })
-    }
-}
+/// Which part of the conversation's window: the chats panel or the first
+/// screen, as `alo-renderer` names them.
+pub use alo_renderer::conversation_claim::Part;
 
 /// What the window is told of a part.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,6 +70,8 @@ pub enum Drawn {
     Painted(Part, Frame),
     /// Why its renderer painted nothing, in this browser's words.
     Said(Part, String),
+    /// What a person's press on it was decided to be.
+    Pressed(Part, Pressed),
 }
 
 /// How the thread tells the window what was drawn: whether anybody heard.
@@ -76,13 +84,26 @@ pub struct Asked {
     pub panel: Panel,
     /// The first screen.
     pub start: Start,
+    /// What the two show, as the browser process names each thing in them:
+    /// what a press is decided against once they are painted. Never sent
+    /// to a renderer.
+    pub showing: Showing,
+}
+
+/// What the window hands the thread.
+#[derive(Debug, Clone, PartialEq)]
+enum Work {
+    /// Draw both parts as they are now.
+    Draw(Asked),
+    /// A person pressed this part here, in its CSS pixels.
+    Press(Part, Point),
 }
 
 /// A thread holding the panel's renderer and the first screen's.
 #[derive(Debug)]
 pub struct ConversationDrawing {
-    /// Where what is asked is sent; [`None`] once finished.
-    asked: Option<Sender<Asked>>,
+    /// Where work is sent; [`None`] once finished.
+    asked: Option<Sender<Work>>,
     /// What was last sent, so the same is not sent twice.
     sent: Option<Asked>,
     thread: Option<JoinHandle<()>>,
@@ -103,6 +124,7 @@ impl ConversationDrawing {
             panel: Held::at(panel::site()),
             start: Held::at(start::site()),
             drawn: None,
+            painted: Showing::default(),
         };
         let thread = std::thread::Builder::new()
             .name("alo-conversation".to_owned())
@@ -123,9 +145,18 @@ impl ConversationDrawing {
         if let Some(sender) = &self.asked {
             // A thread that has gone is a window that is closing, which
             // nothing here waits for.
-            let _ = sender.send(asked.clone());
+            let _ = sender.send(Work::Draw(asked.clone()));
         }
         self.sent = Some(asked);
+    }
+
+    /// A person pressed `part` at `at`, in its CSS pixels: have it claimed
+    /// and decided. Returns at once: what was decided is told to the window.
+    pub fn press(&mut self, part: Part, at: Point) {
+        if let Some(sender) = &self.asked {
+            // As for a drawing: a thread that has gone is a window closing.
+            let _ = sender.send(Work::Press(part, at));
+        }
     }
 
     /// Stop the thread and wait for it, its renderers stopped with it:
@@ -162,19 +193,34 @@ struct Holding {
     panel: Held,
     start: Held,
     /// What was last drawn, whatever came of it: a part that could not be
-    /// drawn is not asked again until it is a different part.
+    /// drawn is not asked again until it is a different part. What it
+    /// showed is what the browser process holds now.
     drawn: Option<Asked>,
+    /// What each part showed when it last painted: the panel's chats, the
+    /// first screen's sites and waiting chats.
+    painted: Showing,
 }
 
-/// Draw each [`Asked`] `asking` sends, the newest of those waiting, telling
-/// the window what came of each part drawn, until nobody sends any more or
-/// the window has gone. The renderers are stopped as `holding` goes.
-fn hold(mut holding: Holding, asking: &Receiver<Asked>, tell: &TellConversation) {
+/// Do the work `asking` sends, in order — of the drawings waiting, only one
+/// that no later drawing replaces — telling the window what came of each,
+/// until nobody sends any more or the window has gone. The renderers are
+/// stopped as `holding` goes.
+fn hold(mut holding: Holding, asking: &Receiver<Work>, tell: &TellConversation) {
     while let Ok(first) = asking.recv() {
-        let newest = asking.try_iter().last().unwrap_or(first);
-        for drawn in holding.draw(newest) {
-            if !tell(drawn) {
-                return;
+        let waiting: Vec<Work> = core::iter::once(first).chain(asking.try_iter()).collect();
+        let last_drawing = waiting
+            .iter()
+            .rposition(|work| matches!(work, Work::Draw(_)));
+        for (place, work) in waiting.into_iter().enumerate() {
+            let said = match work {
+                Work::Draw(asked) if Some(place) == last_drawing => holding.draw(asked),
+                Work::Draw(_) => Vec::new(),
+                Work::Press(part, at) => holding.press(part, at).into_iter().collect(),
+            };
+            for drawn in said {
+                if !tell(drawn) {
+                    return;
+                }
             }
         }
     }
@@ -186,26 +232,61 @@ impl Holding {
     fn draw(&mut self, asked: Asked) -> Vec<Drawn> {
         let last = self.drawn.take();
         let mut said = Vec::new();
-        if last.as_ref().map(|last| &last.panel) != Some(&asked.panel) {
+        let panel_of = |asked: &Asked| (asked.panel.clone(), asked.showing.chats.clone());
+        if last.as_ref().map(panel_of) != Some(panel_of(&asked)) {
             let work = ToRenderer::Panel(Box::new(asked.panel.clone()));
-            said.extend(drawn(
-                &mut self.renderers,
-                &mut self.panel,
-                Part::Panel,
-                &work,
-            ));
+            let came = drawn(&mut self.renderers, &mut self.panel, Part::Panel, &work);
+            if matches!(came, Some(Drawn::Painted(..))) {
+                self.painted.chats.clone_from(&asked.showing.chats);
+            }
+            said.extend(came);
         }
-        if last.as_ref().map(|last| &last.start) != Some(&asked.start) {
+        let start_of = |asked: &Asked| {
+            (
+                asked.start.clone(),
+                asked.showing.sites.clone(),
+                asked.showing.waiting.clone(),
+            )
+        };
+        if last.as_ref().map(start_of) != Some(start_of(&asked)) {
             let work = ToRenderer::Start(Box::new(asked.start.clone()));
-            said.extend(drawn(
-                &mut self.renderers,
-                &mut self.start,
-                Part::Start,
-                &work,
-            ));
+            let came = drawn(&mut self.renderers, &mut self.start, Part::Start, &work);
+            if matches!(came, Some(Drawn::Painted(..))) {
+                self.painted.sites.clone_from(&asked.showing.sites);
+                self.painted.waiting.clone_from(&asked.showing.waiting);
+            }
+            said.extend(came);
         }
         self.drawn = Some(asked);
         said
+    }
+
+    /// Send a person's press at `at` on `part` to its renderer and decide
+    /// its claim: what the window is told, or nothing when the part's
+    /// renderer had already gone or nothing was ever asked to be drawn.
+    fn press(&mut self, part: Part, at: Point) -> Option<Drawn> {
+        let now = self.drawn.as_ref()?.showing.clone();
+        let held = match part {
+            Part::Panel => &mut self.panel,
+            Part::Start => &mut self.start,
+        };
+        if held.gone.is_some() {
+            return None;
+        }
+        match self
+            .renderers
+            .ask(&held.site, &ToRenderer::ConversationPress(at))
+        {
+            Ok(answer) => Some(Drawn::Pressed(
+                part,
+                decide(answer, part, &self.painted, &now),
+            )),
+            Err(gone) => {
+                let said = gone.to_string();
+                held.gone = Some(gone);
+                Some(Drawn::Said(part, said))
+            }
+        }
     }
 }
 
@@ -234,10 +315,12 @@ fn drawn(
         }
         Ok(other) => Drawn::Said(
             part,
-            unasked(&other).map_or_else(
-                || format!("{part}'s renderer answered something it was not asked"),
-                |refused| refused.to_string(),
-            ),
+            conversation_decide::unasked(&other)
+                .map(|refused| refused.to_string())
+                .or_else(|| unasked(&other).map(|refused| refused.to_string()))
+                .unwrap_or_else(|| {
+                    format!("{part}'s renderer answered something it was not asked")
+                }),
         ),
         Err(gone) => {
             let said = gone.to_string();
@@ -269,6 +352,7 @@ mod tests {
                 viewport: Size::new(300.0, 100.0),
                 ..Start::default()
             },
+            showing: Showing::default(),
         }
     }
 
@@ -278,7 +362,32 @@ mod tests {
             panel: Held::at(panel::site()),
             start: Held::at(start::site()),
             drawn: None,
+            painted: Showing::default(),
         }
+    }
+
+    #[test]
+    fn a_press_before_anything_was_drawn_or_on_a_part_gone_is_not_sent() {
+        let mut holding = holding();
+        assert_eq!(holding.press(Part::Panel, Point::new(1.0, 1.0)), None);
+        let _ = holding.draw(asked("a"));
+        let started = holding.renderers.started();
+        assert_eq!(holding.press(Part::Panel, Point::new(1.0, 1.0)), None);
+        assert_eq!(holding.press(Part::Start, Point::new(1.0, 1.0)), None);
+        assert_eq!(holding.renderers.started(), started, "nothing was started");
+    }
+
+    #[test]
+    fn a_press_on_a_renderer_that_goes_as_it_is_asked_is_said_by_its_part() {
+        let mut holding = holding();
+        let _ = holding.draw(asked("a"));
+        holding.start.gone = None;
+        let said = holding.press(Part::Start, Point::new(1.0, 1.0));
+        assert!(
+            matches!(&said, Some(Drawn::Said(Part::Start, words)) if words.starts_with("the renderer for alo:")),
+            "{said:?}"
+        );
+        assert!(holding.start.gone.is_some());
     }
 
     #[test]

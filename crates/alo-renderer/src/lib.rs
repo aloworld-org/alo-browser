@@ -50,6 +50,8 @@ pub mod answers;
 pub mod ask;
 mod choose;
 pub mod clock;
+pub mod conversation_claim;
+pub mod conversation_decide;
 pub mod crossing;
 pub mod deadline;
 mod deliver;

@@ -51,6 +51,7 @@ use alo_net::csp::{Inline, Placement};
 use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
+mod conversation;
 mod fetch;
 mod form;
 mod panel;
@@ -276,6 +277,7 @@ impl Writer {
                 self.tag(6);
                 self.text(why);
             }
+            Failure::NotTheConversation => self.tag(7),
         }
     }
 
@@ -414,6 +416,11 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(15);
             writer.start(start);
         }
+        ToRenderer::ConversationPress(at) => {
+            writer.tag(16);
+            writer.float(at.x);
+            writer.float(at.y);
+        }
     }
     writer.out
 }
@@ -512,6 +519,10 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         FromRenderer::Claimed(claim) => {
             writer.tag(10);
             writer.claim(claim.as_ref());
+        }
+        FromRenderer::ConversationClaimed(claim) => {
+            writer.tag(11);
+            writer.conversation_claim(claim.as_ref());
         }
     }
     writer.out
@@ -1305,6 +1316,9 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         13 => ToRenderer::StripPress(alo_paint::Point::new(reader.float()?, reader.float()?)),
         14 => ToRenderer::Panel(Box::new(reader.panel()?)),
         15 => ToRenderer::Start(Box::new(reader.start()?)),
+        16 => {
+            ToRenderer::ConversationPress(alo_paint::Point::new(reader.float()?, reader.float()?))
+        }
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1370,6 +1384,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                 6 => Failure::NoStart {
                     why: reader.text()?,
                 },
+                7 => Failure::NotTheConversation,
                 other => return Err(unreadable(format!("a failure tagged {other}"))),
             };
             FromRenderer::Failed(failure)
@@ -1414,6 +1429,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             FromRenderer::Left { issues, fetches }
         }
         10 => FromRenderer::Claimed(reader.claim()?),
+        11 => FromRenderer::ConversationClaimed(reader.conversation_claim()?),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

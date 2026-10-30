@@ -86,9 +86,17 @@
 //! that thread what it wants drawn at its size and scale
 //! ([`crate::conversation::Conversation`]) and draws what it is told was
 //! painted ([`crate::conversation_compose`]), never waiting on either
-//! renderer. A person's press on either part is not sent yet (queue item
-//! 710), and no key is the browser's in it, since it has no tab to open or
+//! renderer. No key is the browser's in it, since it has no tab to open or
 //! close.
+//!
+//! A press of the main button with no modifier held is aimed from the same
+//! composition ([`crate::conversation_aim`]) and handed to that thread, in
+//! the part's CSS pixels, to be claimed by the renderer that drew the part
+//! and decided by the browser process (queue item 710); what was decided is
+//! acted on ([`crate::conversation::Conversation::act`]) and the parts drawn
+//! again when it changed what they show. A refusal, or a renderer that
+//! could not answer, is said in that part's line. Its release, and the
+//! cursor's moves, are nobody's: neither part runs script.
 //!
 //! # No `unsafe`
 //!
@@ -121,10 +129,11 @@ use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
 use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
-use crate::conversation::Conversation;
+use crate::conversation::{Conversation, Pressed as Decided};
+use crate::conversation_aim;
 use crate::conversation_compose::{ConversationScene, compose_conversation};
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
-use crate::conversation_place::{panel_viewport, start_viewport};
+use crate::conversation_place::{ConversationPlacement, panel_viewport, start_viewport};
 use crate::cursor::{Cursor, Pressed};
 use crate::frame_strip::{FrameStrip, strip_of};
 use crate::frame_told::ToFrame;
@@ -818,6 +827,8 @@ pub fn conversation(forced: Option<Scale>, renderers: Renderers) -> Result<(), S
         lettering,
         window: None,
         presenter: None,
+        cursor: None,
+        modifiers: ModifiersState::empty(),
         failed: None,
     };
     let ran = event_loop
@@ -860,6 +871,11 @@ struct Conversing {
     lettering: Lettering,
     window: Option<Rc<Window>>,
     presenter: Option<Presenter<Rc<Window>>>,
+    /// Where the cursor last was, in device pixels, while it is over the
+    /// window.
+    cursor: Option<(f64, f64)>,
+    /// The modifier keys held.
+    modifiers: ModifiersState,
     /// Why the window had to stop, if it did.
     failed: Option<String>,
 }
@@ -893,25 +909,71 @@ impl Conversing {
             start: self
                 .conversation
                 .start(start_viewport(window, scale), scale),
+            showing: self.conversation.showing(),
         });
+    }
+
+    /// What the window is drawn from now, at its size and scale.
+    fn scene(&self) -> Option<ConversationScene<'_>> {
+        let (window, scale) = self.measured()?;
+        Some(ConversationScene {
+            window,
+            scale,
+            panel: self.panel.as_ref(),
+            panel_sentence: self.panel_said.as_deref(),
+            start: self.start.as_ref(),
+            start_sentence: self.start_said.as_deref(),
+        })
+    }
+
+    /// The main button went down with nothing held: a press over a part is
+    /// handed to the thread that holds its renderer, to be claimed and
+    /// decided.
+    fn main_button_pressed(&mut self) {
+        if !self.modifiers.is_empty() {
+            return;
+        }
+        let Some(at) = self.cursor else {
+            return;
+        };
+        let Some(scene) = self.scene() else {
+            return;
+        };
+        let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
+        let Some((part, on)) = conversation_aim::aim(&placed, scene.scale, at) else {
+            return;
+        };
+        if let Some(drawing) = self.drawing.as_mut() {
+            drawing.press(part, on);
+        }
+    }
+
+    /// What a press on `part` was decided to be: acted on, and the parts
+    /// drawn again if it changed what they show; or, refused or unanswered,
+    /// said in the part's line.
+    fn pressed(&mut self, part: Part, pressed: Decided) {
+        let said = match &pressed {
+            Decided::Refused(refusal) => Some(refusal.to_string()),
+            Decided::Failed(failure) => Some(format!("{part} could not answer a press: {failure}")),
+            _ => None,
+        };
+        if let Some(said) = said {
+            match part {
+                Part::Panel => self.panel_said = Some(said),
+                Part::Start => self.start_said = Some(said),
+            }
+        }
+        if self.conversation.act(pressed) {
+            self.ask_drawn();
+        }
     }
 
     /// Draw the window from what it has been told.
     fn draw(&mut self) {
-        let Some((window, scale)) = self.measured() else {
+        let Some(scene) = self.scene() else {
             return;
         };
-        let canvas = compose_conversation(
-            &ConversationScene {
-                window,
-                scale,
-                panel: self.panel.as_ref(),
-                panel_sentence: self.panel_said.as_deref(),
-                start: self.start.as_ref(),
-                start_sentence: self.start_said.as_deref(),
-            },
-            &self.lettering,
-        );
+        let canvas = compose_conversation(&scene, &self.lettering);
         if let Some(presenter) = self.presenter.as_mut()
             && let Err(why) = presenter.show(&canvas)
         {
@@ -961,6 +1023,7 @@ impl ApplicationHandler<Drawn> for Conversing {
             }
             Drawn::Said(Part::Panel, said) => self.panel_said = Some(said),
             Drawn::Said(Part::Start, said) => self.start_said = Some(said),
+            Drawn::Pressed(part, pressed) => self.pressed(part, pressed),
         }
         if let Some(window) = &self.window {
             window.request_redraw();
@@ -986,6 +1049,17 @@ impl ApplicationHandler<Drawn> for Conversing {
                 self.window = None;
                 event_loop.exit();
             }
+            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
+            WindowEvent::CursorMoved {
+                position: PhysicalPosition { x, y },
+                ..
+            } => self.cursor = Some((x, y)),
+            WindowEvent::CursorLeft { .. } => self.cursor = None,
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } => self.main_button_pressed(),
             _ => {}
         }
     }

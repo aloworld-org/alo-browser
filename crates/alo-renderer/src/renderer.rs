@@ -116,6 +116,7 @@ use std::rc::Rc;
 use crate::ask;
 use crate::choose::choose;
 use crate::clock::WallClock;
+use crate::conversation_claim::{self, Part};
 use crate::deliver::deliver;
 use crate::easel::Easel;
 use crate::event_loop::EventLoop;
@@ -184,9 +185,21 @@ pub struct Renderer {
     /// ([`crate::pointed`]): nothing until it sends one, and nothing again
     /// once the page goes.
     pointed: Pointed,
-    /// Whether what it holds is the tab strip ([`ToRenderer::Strip`]), the
-    /// one thing a press on the strip may be answered about.
-    holds_strip: bool,
+    /// Which part of the browser's own interface it holds, if any: the one
+    /// thing a press on that part may be answered about.
+    holds: Holds,
+}
+
+/// Which part of the browser's own interface a renderer holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Holds {
+    /// None: a page, or nothing at all.
+    Nothing,
+    /// The tab strip ([`ToRenderer::Strip`]).
+    Strip,
+    /// A part of the conversation: the chats panel ([`ToRenderer::Panel`])
+    /// or the first screen ([`ToRenderer::Start`]).
+    Conversation(Part),
 }
 
 impl Renderer {
@@ -199,7 +212,7 @@ impl Renderer {
                 Rc::clone(&easel),
             )),
             pointed: Pointed::default(),
-            holds_strip: false,
+            holds: Holds::Nothing,
             easel,
             page: None,
             held: None,
@@ -280,6 +293,7 @@ impl Renderer {
             ToRenderer::StripPress(at) => self.strip_press(at),
             ToRenderer::Panel(panel) => self.panel(&panel),
             ToRenderer::Start(start) => self.start(&start),
+            ToRenderer::ConversationPress(at) => self.conversation_press(at),
         }
     }
 
@@ -544,7 +558,7 @@ impl Renderer {
         self.held = None;
         self.page = None;
         self.pointed = Pointed::default();
-        self.holds_strip = false;
+        self.holds = Holds::Nothing;
         self.easel.borrow_mut().clear();
         left
     }
@@ -763,7 +777,7 @@ impl Renderer {
                 strip.scale,
                 crate::strip::address(),
                 strip_document::SHEET,
-                true,
+                Holds::Strip,
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStrip { why: unbuilt.why }),
         }
@@ -780,7 +794,7 @@ impl Renderer {
                 panel.scale,
                 crate::panel::address(),
                 panel_document::SHEET,
-                false,
+                Holds::Conversation(Part::Panel),
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoPanel { why: unbuilt.why }),
         }
@@ -796,7 +810,7 @@ impl Renderer {
                 start.scale,
                 crate::start::address(),
                 start_document::SHEET,
-                false,
+                Holds::Conversation(Part::Start),
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStart { why: unbuilt.why }),
         }
@@ -805,8 +819,8 @@ impl Renderer {
     /// Hold a part of the browser's own interface — a document built from
     /// state, never from markup (ADR 0024 § 4) — at `address` and `viewport`,
     /// drawn with `sheet`, letting go of whatever was held first, and answer
-    /// as a load does. `strip` says whether a press may then be claimed on
-    /// it as the strip's.
+    /// as a load does. `holds` says which part it is, and so what a press
+    /// on it may be claimed as.
     fn interface(
         &mut self,
         document: alo_dom::Document,
@@ -814,7 +828,7 @@ impl Renderer {
         scale: f32,
         address: Option<alo_url::Url>,
         sheet: &str,
-        strip: bool,
+        holds: Holds,
     ) -> FromRenderer {
         let left = self.let_go();
         let page = Page::new("", viewport)
@@ -829,7 +843,7 @@ impl Renderer {
         self.metas = alo_net::Policies::none();
         self.held = Some(Held::Parsed(document));
         self.page = Some(page);
-        self.holds_strip = strip;
+        self.holds = holds;
         self.draw();
         match self.loaded() {
             FromRenderer::Loaded {
@@ -861,7 +875,7 @@ impl Renderer {
     /// strip runs no script — and a renderer holding a page, or nothing,
     /// answers that it holds no strip.
     fn strip_press(&mut self, at: alo_paint::Point) -> FromRenderer {
-        if !self.holds_strip {
+        if self.holds != Holds::Strip {
             return FromRenderer::Failed(Failure::NotTheStrip);
         }
         self.fresh();
@@ -870,6 +884,23 @@ impl Renderer {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         FromRenderer::Claimed(strip_claim::claimed(drawing, document, at))
+    }
+
+    /// A person pressed the chats panel or the first screen at `at` (ADR
+    /// 0074, queue item 710): what it was on, claimed by its place or its
+    /// kind, from the drawing the person sees
+    /// ([`crate::conversation_claim`]), as a press on the strip is. A
+    /// renderer holding neither part answers that it holds neither.
+    fn conversation_press(&mut self, at: alo_paint::Point) -> FromRenderer {
+        let Holds::Conversation(part) = self.holds else {
+            return FromRenderer::Failed(Failure::NotTheConversation);
+        };
+        self.fresh();
+        let easel = self.easel.borrow();
+        let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        FromRenderer::ConversationClaimed(conversation_claim::claimed(drawing, document, part, at))
     }
 
     /// The same page at another size, or on a screen of another scale: the

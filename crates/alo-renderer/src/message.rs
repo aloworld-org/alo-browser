@@ -23,6 +23,7 @@
 //! format before there is a process to send it to would be inventing.
 
 use crate::ask::Asked;
+use crate::conversation_claim::Claim as ConversationClaim;
 use crate::face::Face;
 use crate::fetch::{FetchAsk, Fetched};
 use crate::frame::Frame;
@@ -151,6 +152,16 @@ pub enum ToRenderer {
     /// 700): sent only to its own renderer, at a site no page can name
     /// ([`crate::start::site`]), and held as the chats panel is.
     Start(Box<Start>),
+    /// A person's main button went down over the chats panel or the first
+    /// screen, here, in its CSS pixels (ADR 0074, ADR 0024 § 5, queue item
+    /// 710): sent only to the renderer that drew the part, only by the
+    /// browser process, and only for a person.
+    ///
+    /// The renderer finds what it was on ([`crate::conversation_claim`])
+    /// and answers with [`FromRenderer::ConversationClaimed`]; nothing is
+    /// dispatched, since neither part runs script. A renderer that holds
+    /// neither answers [`Failure::NotTheConversation`].
+    ConversationPress(Point),
 }
 
 /// What a renderer answers with.
@@ -338,6 +349,17 @@ pub enum FromRenderer {
     /// as that answer, only about a tab it holds, and refuses it by name in
     /// answer to anything else ([`crate::strip_decide`]).
     Claimed(Option<Claim>),
+    /// What a press on the chats panel or the first screen means, as the
+    /// renderer that drew it claims it (ADR 0074, queue item 710): a chat,
+    /// a site or a waiting chat by its place, or one of the rest by its
+    /// kind, or [`None`] for a press on nothing.
+    ///
+    /// **A claim, never a call**, and the answer to
+    /// [`ToRenderer::ConversationPress`] alone: the browser process acts on
+    /// it only as that answer, only about what the part showed, and refuses
+    /// it by name in answer to anything else
+    /// ([`crate::conversation_decide`]).
+    ConversationClaimed(Option<ConversationClaim>),
 }
 
 /// Why a request could not be answered.
@@ -383,6 +405,9 @@ pub enum Failure {
         /// What refused, in words.
         why: String,
     },
+    /// A press on the chats panel or the first screen, sent to a renderer
+    /// that holds neither.
+    NotTheConversation,
 }
 
 impl fmt::Display for Failure {
@@ -397,6 +422,9 @@ impl fmt::Display for Failure {
             Failure::NotTheStrip => f.write_str("a press on the tab strip, and no strip is held"),
             Failure::NoPanel { why } => write!(f, "the chats panel could not be built: {why}"),
             Failure::NoStart { why } => write!(f, "the first screen could not be built: {why}"),
+            Failure::NotTheConversation => {
+                f.write_str("a press on the chats panel or the first screen, and neither is held")
+            }
         }
     }
 }
@@ -447,6 +475,11 @@ impl fmt::Display for ToRenderer {
             ToRenderer::StripPress(at) => {
                 write!(f, "a press on the tab strip at ({}, {})", at.x, at.y)
             }
+            ToRenderer::ConversationPress(at) => write!(
+                f,
+                "a press on the chats panel or the first screen at ({}, {})",
+                at.x, at.y
+            ),
             ToRenderer::Strip(strip) => write!(
                 f,
                 "hold the tab strip, {} open, at {}×{}",
@@ -543,6 +576,9 @@ mod tests {
             // A person's sites and chats, which only the first screen's
             // renderer is sent.
             ToRenderer::Start(_) => "the first screen, as data",
+            // Where a person pressed a part of the conversation, and nothing
+            // about any page.
+            ToRenderer::ConversationPress(_) => "a person's press on the conversation",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -557,6 +593,8 @@ mod tests {
             | FromRenderer::Failed(_) => "what became of it, and nothing about any other request",
             // A place in the strip it was sent, and nothing else.
             FromRenderer::Claimed(_) => "which tab a press was on",
+            // A place or a kind in the part it was sent, and nothing else.
+            FromRenderer::ConversationClaimed(_) => "what in the part a press was on",
         };
 
         assert!(!sent(&ToRenderer::Paint).is_empty());

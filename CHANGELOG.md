@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pressing the new interface.** In `alo --conversation`, pressing a chat
+  in the panel makes it the one on screen, and pressing *New chat* adds a
+  chat; the panel is drawn again to show it. Each press is worked out by
+  the locked-down renderer that drew what was pressed and checked by the
+  browser before anything happens, so a renderer cannot name a chat the
+  person was not shown. Pressing *Settings*, a site, *Add a site*, a
+  waiting chat, the box or *Go* is recognised but does nothing yet (items
+  701, 703, 705). *Search chats* and hiding the panel are still to come
+  (item 711).
+
 - **The new interface, in a window.** `alo --conversation` opens the
   browser's own interface as the owner designed it: the chats panel down the
   left and the first screen beside it, each drawn by this engine in a

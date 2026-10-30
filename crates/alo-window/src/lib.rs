@@ -92,7 +92,9 @@
 //!   (ADR 0074, item 709), what `alo --conversation` opens: the chats
 //!   panel and the first screen, each drawn by a confined renderer of its
 //!   own that [`conversation_drawing`] holds, placed by
-//!   [`conversation_place`] and composed by [`conversation_compose`].
+//!   [`conversation_place`] and composed by [`conversation_compose`]. A
+//!   person's press on either is aimed by [`conversation_aim`], claimed by
+//!   the part's renderer and decided by the browser process (item 710).
 //!
 //! # What it is not yet
 //!
@@ -152,6 +154,7 @@ pub mod colours;
 pub mod compose;
 pub mod conductor;
 pub mod conversation;
+pub mod conversation_aim;
 pub mod conversation_compose;
 pub mod conversation_drawing;
 pub mod conversation_place;

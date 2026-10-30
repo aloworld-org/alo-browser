@@ -67,7 +67,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **699** | the chats panel, a document of ours — the first part of the conversation the browser's own interface becomes (ADR 0074, iteration 446) |
 | ✓ | **700** | the first screen, a document of ours (iteration 447) — in a window with the panel is 709 |
 | ✓ | **709** | the panel and the first screen in the engine's window — `alo --conversation` (iteration 448); pressed is 710 |
-| | **710** | a press on the panel or the first screen, claimed by place and decided by the browser process |
+| ✓ | **710** | a press on the panel or the first screen, claimed by place and decided by the browser process (iteration 449) |
+| | **711** | *Search chats* and the button that hides the panel (cut from 710) |
 | | **701** | going to a website from the one box, with no model |
 | | **702** | where Chrome's window goes when a page opens inside the conversation — measured, then decided |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
@@ -19051,7 +19052,7 @@ What stage 2's exit gate actually measures: a person using it.
   a press on either part, and *Search chats* and the button that hides the
   panel.
 
-- [ ] **710. A press on the chats panel or the first screen, claimed by
+- [x] **710. A press on the chats panel or the first screen, claimed by
   place and decided by the browser process.** A person's press in the
   conversation's window (709) sent, in the part's CSS pixels, to the
   renderer that drew the part it is over, which claims what it was on by
@@ -19065,6 +19066,52 @@ What stage 2's exit gate actually measures: a person using it.
   709. Closes when:* a press on a chat in the window is said by which chat
   it was and makes it current, a lying claim is refused by name, and a
   press on the box is claimed as the box.
+  ***Done (iteration 449), scope cut to 711.*** The window aims a bare
+  press of the main button from its own composition
+  (`alo-window`'s `conversation_aim.rs`: over a part's frame and under no
+  line it is saying, in that part's CSS pixels) and hands it to the thread
+  that holds the two renderers, which sends `ToRenderer::ConversationPress`
+  to the part's own renderer. That renderer claims what the press was on
+  (`alo-renderer`'s `conversation_claim.rs`): the element under the point,
+  as a page's is found, and the nearest pressable thing above it by the
+  class its template or builder set — a chat by its place in the order the
+  panel draws them (`panel::drawn_order`), a site and a waiting chat by
+  theirs, *New chat*, *Settings*, *Add a site*, the box and *Go* by kind —
+  answered as `FromRenderer::ConversationClaimed`, and a renderer holding
+  neither part answers `Failure::NotTheConversation`, as one holding no
+  strip answers `NotTheStrip`. The browser process decides the claim
+  (`conversation_decide.rs`) against what that part showed when it last
+  painted and what it holds now, each chat by an identity of its own
+  (`ChatId`), refusing by name a place not shown, a chat gone since, a
+  claim about what the other part draws, and a claim with no press behind
+  it; then acts (`Conversation::act`): a chat becomes the one on screen and
+  *New chat* adds one, on screen, and the panel is drawn again. *Settings*,
+  a site, *Add a site*, a waiting chat, the box and *Go* are decided and
+  kept as the last press, and change nothing yet: no settings screen
+  (705), no kept site or waiting chat, no typing (701), and every chat
+  shows the first screen (703). Claims at the coordinates
+  `tests/the_chats_panel.rs` and `tests/the_first_screen.rs` assert, the
+  claim and the press on the wire, and a reference render of the panel
+  after *New chat* and then the first chat
+  (`alo-window/tests/a_press_on_the_conversation.rs`), the same presses
+  through two confined renderers painting the same panel. Cut to 711:
+  *Search chats* and the button that hides the panel, each a new part of
+  the panel's document, its layout and its reference render.
+
+- [ ] **711. *Search chats* and the button that hides the panel.** The two
+  parts of the design's chats panel cut from 699, 700, 709 and 710: *Search
+  chats*, 38 px under *New chat*, and the button beside the mark that hides
+  the panel, leaving the conversation the window (`docs/design/shell.md`,
+  *The chats panel*). Each is put into the panel's template and document,
+  laid out to the design and claimed by a press as the rest of the panel is
+  (`conversation_claim.rs`). Searching needs typing, which the window does
+  not yet send to any part (701), so a press on *Search chats* is decided
+  and kept as the box's is until then; hiding the panel changes where
+  `conversation_place.rs` puts the first screen, which is its own layout
+  assertion. *Depends on 710. Closes when:* both are drawn in a reference
+  render of the panel with their boxes in numbers, a press on each is
+  decided as it, and a press on the hide button lays the window out without
+  the panel at one and at two.
 
 - [ ] **701. Going to a website from the one box, with no model.** What is
   typed is offered as the design's screen 0b offers it: *Go to the site*

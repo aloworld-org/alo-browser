@@ -26,6 +26,7 @@ use alo_net::csp::{Inline, Placement};
 use alo_net::referrer::Policy;
 use alo_renderer::Screen;
 use alo_renderer::ask::{Asked, By};
+use alo_renderer::conversation_claim::Claim as ConversationClaim;
 use alo_renderer::frame::Frame;
 use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
@@ -174,6 +175,9 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             scale: 1.5,
         })),
         ToRenderer::Start(Box::default()),
+        // A person's press on a part of the conversation, anywhere in it.
+        ToRenderer::ConversationPress(alo_paint::Point::new(120.0, 153.5)),
+        ToRenderer::ConversationPress(alo_paint::Point::new(-0.25, 1e9)),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -281,6 +285,34 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             answering: vec!["sans-serif".to_owned(), "monospace".to_owned()],
         },
         FromRenderer::UsingGenerics { answering: vec![] },
+    ];
+    for original in messages {
+        let bytes = write_from_renderer(&original);
+        let back = read_from_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+}
+
+/// A press on the chats panel or the first screen, every claim its
+/// renderer can answer with, and the renderer that holds neither part
+/// (queue item 710).
+#[test]
+fn every_claim_on_the_conversation_survives_the_crossing() {
+    let messages = vec![
+        FromRenderer::Failed(Failure::NotTheConversation),
+        // Every claim on a part of the conversation, each place at its
+        // edges, and a press on nothing.
+        FromRenderer::ConversationClaimed(None),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::NewChat)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Chat { at: 0 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Chat { at: usize::MAX })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Settings)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Site { at: 3 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::AddASite)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Waiting { at: 1 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::TheBox)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Go)),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);

@@ -157,6 +157,20 @@ impl Chat {
     }
 }
 
+/// The places in `chats` of each chat, in the order the panel draws them:
+/// the open ones, then the earlier ones, each group in the order sent
+/// ([`crate::panel_document`]). A press on the panel names a chat by its
+/// place in this order ([`crate::conversation_claim`]), and the browser
+/// process reads it back through the same order.
+pub fn drawn_order(chats: &[Chat]) -> Vec<usize> {
+    let places = || chats.iter().enumerate();
+    places()
+        .filter(|(_, chat)| chat.open)
+        .chain(places().filter(|(_, chat)| !chat.open))
+        .map(|(place, _)| place)
+        .collect()
+}
+
 /// What a chat with no name yet is called.
 pub const NEW_CHAT: &str = "New chat";
 
@@ -191,6 +205,18 @@ mod tests {
         assert_eq!(Chat::new(" \n", "").label(), NEW_CHAT);
         let long = Chat::new("é".repeat(LONGEST_TITLE + 3), "");
         assert_eq!(long.label().chars().count(), LONGEST_TITLE);
+    }
+
+    #[test]
+    fn the_panel_draws_the_open_chats_and_then_the_earlier_ones() {
+        let chats = [
+            Chat::new("a", "").earlier(),
+            Chat::new("b", ""),
+            Chat::new("c", "").earlier(),
+            Chat::new("d", ""),
+        ];
+        assert_eq!(drawn_order(&chats), vec![1, 3, 0, 2]);
+        assert_eq!(drawn_order(&[]), Vec::<usize>::new());
     }
 
     #[test]

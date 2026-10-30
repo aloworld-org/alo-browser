@@ -45363,3 +45363,38 @@ display's colour profile. ADR 0074's status and consequences updated.
 about speed is made.
 
 The next unused queue number is **711** and the next ADR is **0075**.
+
+## Iteration 449 — queue item 710: a person's press on the conversation's window, claimed by place and decided by the browser process; *Search chats* and hiding the panel cut to 711
+
+**Built by a delegated agent, reviewed here.** The strip's road (ADR 0024
+§ 5) for the two interface parts: `conversation_aim.rs` says which part a
+point is over in that part's CSS pixels; `ToRenderer::ConversationPress`
+asks the renderer that drew it, which claims by place from its drawing
+(`conversation_claim.rs`) — a chat, site or waiting chat by its place in
+drawn order (`panel::drawn_order`), everything else by a closed list of
+kinds, never by a page's string; `FromRenderer::ConversationClaimed` and
+`Failure::NotTheConversation` cross the wire (`wire/conversation.rs`); and
+`conversation_decide.rs` in the browser process decides against what that
+part last showed and what it holds now, by its own `ChatId`s, refusing a
+place never shown, a chat gone since, a claim about the other part, and
+an answer that is no claim. `renderer.rs`'s `holds_strip` became a private
+`Holds`. A press on a chat makes it current and the panel redraws; *New
+chat* adds one; every other part is decided, kept as the last press, and
+changes nothing yet.
+
+**Gate.** **5666 tests, 5666 passed, 10 of 10 steps, "The gate is met."**
+The agent's run saw the shown-Chrome pointer tests fail while the machine
+was in use; in the gate they passed.
+
+**Manual.** Claims asserted at exact CSS points taken from the panel's
+and first screen's own layout assertions — rows, marks, gaps, corners,
+outside — and in the composed window at 1, with aim at 1, 2 and 1.5.
+Reference render `the-panel-after-a-press.png`, looked at: two *New
+chat* rows, the second current. Two confined renderers paint the same
+panel after the same presses.
+
+**Unresolved obligations.** Typing reaches nothing yet (701); *Search
+chats* and hiding the panel (711). Two blank chats both read *New chat*.
+No claim about speed is made.
+
+The next unused queue number is **712** and the next ADR is **0075**.

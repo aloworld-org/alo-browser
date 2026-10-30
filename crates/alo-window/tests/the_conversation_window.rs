@@ -73,6 +73,7 @@ fn asked(window: (u32, u32), scale: Scale) -> Asked {
     Asked {
         panel: conversation.panel(panel_viewport(window, scale), scale),
         start: conversation.start(start_viewport(window, scale), scale),
+        showing: conversation.showing(),
     }
 }
 
@@ -92,7 +93,7 @@ fn painted(work: ToRenderer) -> Result<Frame, String> {
 /// Both parts as the engine paints them for a window of `window` at
 /// `scale`: the panel's frame, then the first screen's.
 fn parts(window: (u32, u32), scale: Scale) -> Result<(Frame, Frame), String> {
-    let Asked { panel, start } = asked(window, scale);
+    let Asked { panel, start, .. } = asked(window, scale);
     Ok((
         painted(ToRenderer::Panel(Box::new(panel)))?,
         painted(ToRenderer::Start(Box::new(start)))?,
@@ -314,6 +315,9 @@ fn painted_confined(window: (u32, u32), scale: Scale) -> Result<(Frame, Frame), 
             Ok(Drawn::Painted(Part::Panel, frame)) => panel = Some(frame),
             Ok(Drawn::Painted(Part::Start, frame)) => start = Some(frame),
             Ok(Drawn::Said(part, said)) => return Err(format!("{part}: {said}")),
+            Ok(Drawn::Pressed(part, pressed)) => {
+                return Err(format!("{part}: nothing was pressed, and {pressed:?}"));
+            }
             Err(why) => return Err(format!("nothing was painted: {why}")),
         }
     }

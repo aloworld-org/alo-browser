@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel (699), the first screen (700) and their window (709) built; the rest queued
+**Status:** accepted — the chats panel (699), the first screen (700), their window (709) and a press on either (710) built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -123,6 +123,11 @@ wait on them.
   `aria-busy`, a finished one saying *Done* in words.
 - The panel and the first screen are put in a window of their own by 709
   (`alo --conversation`); a press on either is 710's, by the strip's road
-  (ADR 0024 § 5).
+  (ADR 0024 § 5): the window aims it (`conversation_aim.rs`), the part's
+  renderer claims it by place or kind (`conversation_claim.rs`,
+  `ToRenderer::ConversationPress`, `FromRenderer::ConversationClaimed`),
+  and the browser process decides it against what the part last painted
+  (`conversation_decide.rs`) before acting. *Search chats* and the button
+  that hides the panel are 711.
 - `docs/design/shell.md` is the written form of the design and is what these
   items are checked against; the canvas it came from is the owner's.
