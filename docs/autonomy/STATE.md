@@ -45552,3 +45552,46 @@ is made.
 
 The next unused queue number is **725** and the next ADR is **0080**
 (0079 is being drafted).
+
+## Iteration 455 — queue item 725: alo's own CEF host, driven as Chrome is, with no `unsafe` of ours; a profile removed while a helper still writes into it
+
+**Built by a delegated agent, reviewed here.** `crates/alo-cef-host`: a
+small Rust program (`main.rs`, `switches.rs`, and `host.rs`, the one file
+that names `cef`) that loads CEF 156.0.14 (Chromium 156.0.8078.48, the
+macOS arm64 minimal distribution, SHA-1 checked against CEF's index, our
+SHA-256 recorded, kept outside the repository and pointed at by
+`CEF_PATH`), takes alo's profile as its caches, and is started and driven
+by `alo-window` over the DevTools pipe exactly as Chrome is.
+`#![forbid(unsafe_code)]`: CEF needs no `NSApplication` subclass of ours,
+so ADR 0080 was not written. Three writes outside the profile were found
+and stopped (temp directories, a keychain item, a code-signing clone).
+`cef_host.rs` lays out `alo Chromium.app`, named alo. The host is its own
+workspace, excluded from the root's, because `cef-dll-sys` downloads CEF
+at build time without `CEF_PATH`; so the gate's fmt, clippy and tests do
+not build it — item 730 brings it under the gate (a `scripts/` change,
+which strengthens it).
+
+**Found by the gate, fixed here.** The first gate run with `CEF_PATH`
+set failed once at *the profile is gone after close*: the host ends at
+once on `Browser.close`, and a helper still writing put a file back while
+the profile was being removed. `chrome_profile.rs` now retries removal
+for up to `LINGER` (2 s) while the profile stands (`remove_patiently`),
+with a unit test where a thread goes on writing during removal; the CEF
+test passed 6 of 6 under 96 `yes` processes. What is left after the bound
+is still swept at the next start (ADR 0069 § 3). Not shown: that the old
+code fails under that same load — the gate's failure is the evidence.
+
+**Gate.** With `CEF_PATH` set: **5724 tests, 5724 passed, 10 of 10 steps,
+"The gate is met."** Without it the CEF test returns after printing why
+(queue item 725's note); it is not `#[ignore]`d.
+
+**Left on the owner's machine by the agent's first prototype** (said to
+the owner): a *Chromium Safe Storage* keychain item to delete and a
+dialog, which the owner denied.
+
+**Unresolved obligations.** 727 (the host's own window), 728 (Windows
+and Linux), 729 (what macOS keeps for the host), 730 (the gate reaching
+the host), 720 (carried in the application, signed), 726 (rule checks).
+No claim about speed is made.
+
+The next unused queue number is **731** and the next ADR is **0080**.

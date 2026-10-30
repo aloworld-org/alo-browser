@@ -28,6 +28,14 @@ debug = 1
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+# alo's CEF host (queue item 725, ADR 0079 § 3 option H) is built only where
+# a CEF distribution is unpacked and `CEF_PATH` names it: `cef-dll-sys`
+# compiles CEF's C++ wrapper from that distribution, and with no `CEF_PATH`
+# it downloads one at build time, which nothing here may do. So it is its own
+# workspace, with its own lockfile pinning the `cef` crate, built and driven
+# by `alo-window`'s `tests/alos_cef_host_driven_as_chrome.rs` when a
+# distribution is there and skipped, saying why, when it is not.
+exclude = ["crates/alo-cef-host"]
 
 [workspace.package]
 version = "0.0.0"

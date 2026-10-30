@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's own host for CEF's Chromium.** A small Rust program of alo's,
+  `alo-cef-host`, now loads the Chromium Embedded Framework and is started
+  and driven by alo exactly as alo drives Chrome — over its own pipe, on a
+  profile alo gives it and removes after. It has no `unsafe` code, says
+  *alo* as its name, and writes nothing outside that profile: Chromium's
+  temporary files are kept inside it, nothing goes into the login
+  keychain, and no copy of the application is made in the system's
+  folders. It is built only where a CEF distribution is unpacked and
+  `CEF_PATH` names it, and is not yet carried inside `alo browser.app`
+  (item 725).
+
 - **The application uses only its own Chromium.** `alo browser.app` now
   starts only the Chromium it carries inside itself, at
   `Contents/Frameworks/Chromium.app`, and never the Chrome installed on

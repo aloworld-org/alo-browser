@@ -47,13 +47,20 @@ pub fn entries() -> [(&'static str, &'static str); 10] {
 
 /// The property list's text.
 pub fn text() -> String {
+    text_of(&entries())
+}
+
+/// The text of a property list holding `entries`, each key's value a
+/// string, in the order given — the application's own ([`text`]) and its
+/// CEF host's ([`crate::cef_host`]).
+pub fn text_of(entries: &[(&str, &str)]) -> String {
     let mut text = String::from(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
          <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \
          \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
          <plist version=\"1.0\">\n<dict>\n",
     );
-    for (key, value) in entries() {
+    for (key, value) in entries {
         text.push_str("\t<key>");
         text.push_str(&escaped(key));
         text.push_str("</key>\n\t<string>");

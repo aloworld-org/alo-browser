@@ -1000,8 +1000,12 @@ unreachable without it.
       by this engine saying so; asserted by a test bundle holding a cloned
       Chromium, started by its path in the process table, and by bundles
       with none and with a damaged one (ADR 0077, 719)
+      · alo's own CEF host built with no `unsafe`, against CEF 156.0.14,
+      started and driven by `Chrome::start_from` as Chrome is, writing
+      nothing outside its profile (ADR 0079, 725)
       · Owed: which Chromium the application carries, pinned and checked
-      (720), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
+      (720), the host's own `--app` window (727), Windows and Linux (728),
+      what macOS keeps for it (729), the gate reaching it (730), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
       and is 696's, needs ADR; a
       scoped resolver and the system's own encrypted DNS measured through

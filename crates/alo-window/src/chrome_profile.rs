@@ -68,6 +68,7 @@ use std::io::{ErrorKind, Write};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 /// What Chrome finds in its `Local State` the first time it starts: its own
 /// encrypted DNS turned off, so that it asks the machine's resolver and no
@@ -115,7 +116,32 @@ impl Profile {
 impl Drop for Profile {
     fn drop(&mut self) {
         // The lock is let go after this, as the value's fields are dropped.
-        let _ = remove_lock_last(&self.path);
+        let _ = remove_patiently(&self.path, LINGER);
+    }
+}
+
+/// How long a profile's removal goes on trying after the browser process
+/// ended, while something it started is still writing into it.
+///
+/// A Chromium's helper processes can outlive the browser process by a
+/// moment, and one still writing then puts a file back into the profile
+/// while it is being removed, which leaves it standing — measured with
+/// alo's CEF host (queue item 725), which ends at once on `Browser.close`,
+/// under the gate's load and not without it. Two seconds is a bound of
+/// ours, not a measured helper's lifetime; what is still there after it is
+/// left locked-then-released for the next start's sweep (ADR 0069 § 3).
+pub const LINGER: Duration = Duration::from_secs(2);
+
+/// [`remove_lock_last`], tried again while the profile is still there and
+/// `linger` has not passed since the first try.
+fn remove_patiently(profile: &Path, linger: Duration) -> std::io::Result<()> {
+    let until = Instant::now() + linger;
+    loop {
+        let tried = remove_lock_last(profile);
+        if tried.is_ok() || !profile.exists() || Instant::now() >= until {
+            return tried;
+        }
+        std::thread::sleep(Duration::from_millis(25));
     }
 }
 
@@ -308,6 +334,44 @@ fn write_local_state(profile: &Path) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_profile_something_still_writes_into_is_removed_once_it_stops() {
+        let base =
+            std::env::temp_dir().join(format!("alo-profile-linger-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        let profile = base.join("profile");
+        std::fs::create_dir(&profile).unwrap();
+        std::fs::write(profile.join(LOCK_FILE), "").unwrap();
+        // A helper that goes on writing into the profile for a while after
+        // the browser process ended.
+        let writing = profile.clone();
+        let helper = std::thread::spawn(move || {
+            let until = Instant::now() + Duration::from_millis(300);
+            let mut n = 0;
+            while Instant::now() < until {
+                let _ = std::fs::create_dir_all(writing.join("tmp"));
+                let _ = std::fs::write(writing.join("tmp").join(n.to_string()), "x");
+                n += 1;
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
+        std::thread::sleep(Duration::from_millis(20));
+        let removed = remove_patiently(&profile, Duration::from_secs(5));
+        helper.join().unwrap();
+        // The helper may have written once more after the last try; what
+        // matters is that a try after it stopped removed the profile.
+        let removed = if profile.exists() {
+            remove_patiently(&profile, Duration::from_secs(1))
+        } else {
+            removed
+        };
+        assert!(removed.is_ok(), "{removed:?}");
+        assert!(!profile.exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 

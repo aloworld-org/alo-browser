@@ -4,3 +4,7 @@
 # The supervisor's own log. A record of runs on one machine, not source: two
 # people running the loop would otherwise conflict on it every time.
 docs/autonomy/loop.log
+
+# alo's CEF host is its own workspace (root Cargo.toml); its build goes to
+# target/alo-cef-host, and a build run inside it would otherwise land here.
+/crates/alo-cef-host/target

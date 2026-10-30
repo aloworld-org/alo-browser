@@ -79,7 +79,9 @@ ADR 0058 — and nothing else does:
 | | **717** | the page as a card, drawn from Chrome's frames |
 | | **718** | a person's pointer and keys forwarded from the card to the page |
 | ✓ | **719** | the application starts only the Chromium it carries, at `Contents/Frameworks/Chromium.app`, never the machine's Chrome, and draws with this engine saying so when it is missing or damaged (ADR 0077, iteration 454) |
-| | **720**, **725**, **726** | alo carries CEF's Chromium through a host program of its own (ADR 0079) |
+| ✓ | **725** | alo's own CEF host, with no `unsafe`, built against CEF 156.0.14 and started and driven by `alo-window` exactly as Chrome is (ADR 0079, iteration 455) |
+| | **720**, **726** | alo carries CEF's Chromium in the application, held to alo's rules (ADR 0079) |
+| | **727**–**730** | the host's own window for `--app` (727), Windows and Linux (728), what macOS keeps for it (729), and the gate reaching it (730) — cut from 725 |
 | | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
@@ -19388,7 +19390,7 @@ What stage 2's exit gate actually measures: a person using it.
   licences, inside 725's host where 719 starts it. *Depends on 719, 725,
   726.*
 
-- [ ] **725. alo's own CEF host program (ADR 0079 § 3, option H).** A small
+- [x] **725. alo's own CEF host program (ADR 0079 § 3, option H).** A small
   Rust program, named alo and signed with the owner's identity, that loads
   CEF in Chrome-style windows and is started and driven by `alo-window` over
   the DevTools pipe exactly as `chrome.rs` drives Chrome — so alo's own
@@ -19396,6 +19398,115 @@ What stage 2's exit gate actually measures: a person using it.
   `NSApplication` subclass, which in Rust is `unsafe`: that boundary is
   decided in ADR 0080 first, named, reviewed and kept to one file. *needs
   design: ADR 0080 before any `unsafe`.*
+
+  ***Done (iteration 455).*** **No `unsafe`, and so no ADR 0080**: the host
+  makes no `NSApplication` of its own. CEF deliberately does not make
+  Chrome's (`ChromeMainDelegateCef::PreBrowserMain`, branch 8078), so with
+  none made before CEF starts, Chromium uses AppKit's own — measured to
+  work on this Mac for everything alo does: the pipe, `Target.createTarget`,
+  a page from the network read, `--headless` and `Browser.close`; and keys
+  a person types into a shown window (by `System Events`: text, Tab,
+  Space), measured on the scratch prototype the host was written from,
+  which differs only in what it adds to its command line — not yet on the
+  host itself, whose run was taken by a keychain dialog the prototype had
+  left on the screen (727 asserts it).
+  What it costs is an orderly exit: `Browser.close` reaches
+  `-[NSApplication terminate:]`, which ends the process at once (status 0)
+  without CEF's shutdown — harmless for a profile alo throws away, and what
+  that shutdown would have removed is kept inside the profile instead. The
+  host is `crates/alo-cef-host`: `main.rs` (`#![forbid(unsafe_code)]`;
+  which role, starting itself again), `switches.rs` (what it reads and
+  adds; unit-tested) and `host.rs`, **the one file naming the `cef` crate**
+  (`=156.2.0`, locked at `156.2.0+156.0.14` with `cef-dll-sys`, without
+  default features, with `sandbox`). It is one program in two roles — the
+  browser process, and each helper CEF starts with `--type=` (the helpers
+  enter macOS's sandbox through CEF's `libcef_sandbox.dylib`). It takes
+  alo's `--user-data-dir` as CEF's `root_cache_path` and `cache_path`,
+  **refuses to start without an absolute one** (status 2) rather than write
+  to CEF's default `~/Library/Application Support/CEF`, and logs nothing.
+  Measured with CEF 156.0.14, three more things were written outside the
+  profile, and each is stopped: Chromium's temporary directories
+  (`$TMPDIR/<bundle id>.*`, left behind by that exit) go into
+  `<profile>/tmp` through `MAC_CHROMIUM_TMPDIR`; the cookie key Chromium
+  put in the person's login keychain (`Chromium Safe Storage`, whose
+  dialog on a rebuilt host held the network until answered) is kept in the
+  process by `--use-mock-keychain`; and the application clone under the
+  system's `X/<bundle id>.code_sign_clone` is not made, `MacAppCodeSignClone`
+  added to alo's one `--disable-features` (never a second list). Setting a
+  variable is `unsafe` in Rust 2024, so the host starts itself again in its
+  own place (`exec`) with it set and the two switches added — the same
+  process, holding the same descriptors 3 and 4. `--headless` works in CEF
+  (the user agent says `HeadlessChrome`, no window on the screen);
+  `--app=` does not (CEF does not run Chrome's startup code), which is 727.
+  It is **its own workspace**, excluded from the repository's, because
+  `cef-dll-sys` builds CEF's C++ wrapper from the distribution `CEF_PATH`
+  names and downloads one when there is none: so `cargo` in the repository
+  never builds it, and its own `Cargo.lock` pins it. `alo-window`'s
+  `cef_host.rs` lays it out as macOS needs (`alo Chromium.app`, the program
+  `alo Chromium`, helpers `alo Chromium Helper (GPU)` and the rest, CEF's
+  framework cloned in, `CFBundleName` **alo**, `org.aloworld.Browser.Chromium`),
+  writing its `Info.plist` with `info_plist::text_of`, now shared.
+  Tests: unit tests in `switches.rs`, `host.rs`, `cef_host.rs`;
+  `tests/alos_cef_host_driven_as_chrome.rs` builds the host against
+  `CEF_PATH` (no download), assembles it, and starts it with
+  `Chrome::start_from(&Chromium::Carried(…), false)` — `Browser.getVersion`
+  `Chrome/156…` with `HeadlessChrome`, the process table naming the
+  program inside the bundle, a page from the test's own server opened
+  through `Tab::open` and read as our tree with no refusals, the
+  temporary directory inside the profile — then closed: the profile gone,
+  no process of the bundle left, and **nothing new outside the profile** at
+  every place a CEF program was seen to write (CEF's own two directories,
+  the system's per-person temporary, clone and cache directories by the
+  host's identifier, saved window state, the working directory), but for
+  one empty directory macOS's Metal framework makes for any program that
+  draws with the GPU, said and removed (729). Each of the temporary
+  directory and the clone, undone in the host, fails it (mutation-checked).
+  With `CEF_PATH` unset or not naming a distribution, it says why on its
+  error output and returns: **skipped, saying so**, visible with
+  `--no-capture`. Cut: the host's own window for `--app` (727); Windows and
+  Linux (728); what macOS itself keeps for it (729); the gate building,
+  linting and testing it, and naming `cef` among its rented crates (730);
+  carrying it in `alo browser.app`, signing and licences (720); held to
+  ADR 0073 and 0060 (726). Built against CEF 156.0.14 macOS arm64
+  *minimal*, SHA-1 `7359a9d293dd5c480bec3f18b762731b483b0e13` matching
+  `index.json` and the published `.sha1`, SHA-256 of our own
+  `ed994b907ad596ca609a0542a1e2b22aa97e93e98b8141fed4c24aef39b9ccf6`,
+  unpacked outside the repository.
+
+- [ ] **727. The host's own window for `--app` (cut from 725).** Chrome's
+  `--app=URL` is its startup code, which CEF does not run (measured: no
+  target at all), so `Chrome::start_from(&Chromium::Carried(…), true)` —
+  the application's own path (ADR 0075) — finds no window's page. The host
+  opens the `--app` address itself in a Chrome-style `CefWindow` holding a
+  `CefBrowserView` with no toolbar, through the `cef` crate's safe
+  delegates, still with no `unsafe`. *Closes when:* a shown host's tab is
+  its window's page as a shown Chrome's is, asserted as
+  `tests/a_page_in_chromes_own_window.rs` does, and keys a person types
+  reach it with no `NSApplication` of the host's own. *Depends on 725.*
+
+- [ ] **728. The host on Windows and Linux (cut from 725).** CEF publishes
+  both; the host is built for macOS only (`compile_error!` elsewhere), and
+  `alo-window`'s pipe on 3 and 4 is Unix's. *needs design: how alo speaks
+  to Chromium on Windows (ADR 0055 § 1's question).*
+
+- [ ] **729. What macOS itself keeps for the host (cut from 725).**
+  Measured with CEF 156.0.14: headless, an empty `com.apple.metalfe` under
+  the system's per-person cache directory for the host's identifier
+  (macOS's Metal framework, for any program that draws with the GPU); with
+  a window shown, the GPU helper's Metal shader caches there too
+  (`…Chromium.helper/com.apple.metal`, `com.apple.gpuarchiver`, files in
+  them), and a *Notifications* registration for `alo` (a banner; Chromium's
+  alert helper). None is Chromium's own writing and none is in the profile.
+  Decide whether each is acceptable, and stop any that is not.
+  *Depends on 725.*
+
+- [ ] **730. The gate reaching the host (cut from 725).** `scripts/gate.sh`
+  builds, lints and tests only the repository's workspace, which the host
+  is not part of, and does not name `cef` among its rented crates. Owed: a
+  `cef:crates/alo-cef-host/src/host.rs` boundary, and a step that runs
+  `cargo fmt`, `cargo clippy -D warnings` and `cargo test` on
+  `crates/alo-cef-host` with `CEF_PATH` when it names a distribution, and
+  says so when it does not. *blocked: `scripts/` is the owner's to change.*
 
 - [ ] **726. CEF held to alo's rules, measured (ADR 0079 § 8).** With 725's
   host and ADR 0073's switches: no WidevineCdm and no component-updater

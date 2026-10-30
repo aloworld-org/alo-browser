@@ -1,0 +1,51 @@
+[package]
+name = "alo-cef-host"
+description = "alo's own host program for CEF's Chromium: started and driven by the alo browser over the DevTools pipe, as Chrome is."
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MPL-2.0"
+repository = "https://github.com/aloworld-org/alo-browser"
+authors = ["the alo browser authors"]
+publish = false
+
+# Its own workspace, excluded from the repository's (see the root
+# `Cargo.toml`): it builds only against an unpacked CEF distribution named by
+# `CEF_PATH`, so its `Cargo.lock` is its own and pins what it builds with.
+[workspace]
+
+[profile.dev]
+debug = 1
+
+[dependencies]
+# CEF, rented (ADR 0079 § 3 option H, queue item 725), and named in one file,
+# `src/host.rs`. The crate's version is CEF's: `156.2.0+156.0.14` is built for
+# CEF 156.0.14 (Chromium 156.0.8078.48), the distribution the host is built
+# and run against, and `Cargo.lock` holds it and `cef-dll-sys` at that
+# version. Without default features: `build-util` is the crate's own bundling
+# tool, which this does not use, and `resources` its sample's icons. With
+# `sandbox`, so the helpers enter macOS's sandbox through CEF's own
+# `libcef_sandbox.dylib`. Its `unsafe` is the crate's, not ours (ADR 0010):
+# every function `host.rs` calls is a safe one.
+cef = { version = "=156.2.0", default-features = false, features = ["sandbox"] }
+
+# The workspace's lints, which a crate outside the workspace cannot inherit,
+# written out again. All but one: the lint against `unsafe` is forbidden at
+# the top of `src/main.rs` instead, because `scripts/gate.sh` refuses that
+# lint's name in any crate's manifest, forbidding it included.
+[lints.rust]
+missing_docs = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+dbg_macro = "deny"
+must_use_candidate = "allow"
+module_name_repetitions = "allow"
