@@ -191,24 +191,9 @@ pub fn stand(placed: &Placed, owner: u32, listed: &[Listed]) -> Stance {
 /// [`Unread::Unplaced`] when Chrome was not read and still holds the page;
 /// [`Unread::Unlisted`] when the window server was not read.
 pub fn read(tab: &mut Tab<'_>) -> Result<Reading, Unread> {
-    if tab.is_shown() && tab.is_detached() {
-        return Ok(closed(Closed::Page));
-    }
-    let placed = match chrome_window::placed(tab) {
+    let placed = match chromes_word(tab)? {
         Ok(placed) => placed,
-        Err(Unplaced::Headless) => return Err(Unread::Headless),
-        Err(Unplaced::Failed(Failed::Gone)) => return Ok(closed(Closed::Chrome)),
-        Err(Unplaced::Failed(Failed::Detached)) => return Ok(closed(Closed::Page)),
-        Err(Unplaced::Failed(Failed::Declined(declined))) => {
-            return if still_held(tab)? {
-                Err(Unread::Unplaced(Unplaced::Failed(Failed::Declined(
-                    declined,
-                ))))
-            } else {
-                Ok(closed(Closed::Page))
-            };
-        }
-        Err(other) => return Err(Unread::Unplaced(other)),
+        Err(how) => return Ok(closed(how)),
     };
     let owner = tab.chrome_process();
     let listed = window_server::on_the_screen(owner).map_err(Unread::Unlisted)?;
@@ -217,6 +202,41 @@ pub fn read(tab: &mut Tab<'_>) -> Result<Reading, Unread> {
         placed: Some(placed),
         listed,
     })
+}
+
+/// Whether Chrome's window of `tab` is gone, and how, by Chrome's word
+/// alone — the half of [`read`] that asks nothing of the window server, for
+/// a shown Chrome with no frame of ours to stand beside it (ADR 0075):
+/// [`None`] while Chrome still has the window.
+///
+/// # Errors
+///
+/// As [`read`], less [`Unread::Unlisted`]: nothing is listed.
+pub fn gone(tab: &mut Tab<'_>) -> Result<Option<Closed>, Unread> {
+    Ok(chromes_word(tab)?.err())
+}
+
+/// Chrome's word for where its window of `tab` is, or how it is gone.
+fn chromes_word(tab: &mut Tab<'_>) -> Result<Result<Placed, Closed>, Unread> {
+    if tab.is_shown() && tab.is_detached() {
+        return Ok(Err(Closed::Page));
+    }
+    match chrome_window::placed(tab) {
+        Ok(placed) => Ok(Ok(placed)),
+        Err(Unplaced::Headless) => Err(Unread::Headless),
+        Err(Unplaced::Failed(Failed::Gone)) => Ok(Err(Closed::Chrome)),
+        Err(Unplaced::Failed(Failed::Detached)) => Ok(Err(Closed::Page)),
+        Err(Unplaced::Failed(Failed::Declined(declined))) => {
+            if still_held(tab)? {
+                Err(Unread::Unplaced(Unplaced::Failed(Failed::Declined(
+                    declined,
+                ))))
+            } else {
+                Ok(Err(Closed::Page))
+            }
+        }
+        Err(other) => Err(Unread::Unplaced(other)),
+    }
 }
 
 /// A reading of a window that is gone.

@@ -71,9 +71,10 @@ ADR 0058 — and nothing else does:
 | | **711** | *Search chats* and the button that hides the panel (cut from 710) |
 | ✓ | **712** | icons in the panel and the first screen — inline SVG of ours, hidden from an agent (iteration 450) |
 | ✓ | **701** | going to a website from the one box, with no model — typed, offered, and Return deciding where to go (iteration 451) |
-| | **713** | the address chosen from the box opened in the machine's Chrome, from the conversation's window (cut from 701) |
+| ✓ | **713** | the address chosen from the box opened in the machine's Chrome, from the conversation's own process with no frame of ours (ADR 0075, iteration 452) |
 | | **714** | a press on an offer under the box, claimed and decided (cut from 701) |
 | | **715** | a field's value kept to one line by the engine, as Chrome keeps it (found by 701) |
+| | **716** | an agent reaching a page the conversation opened in Chrome, over the socket and kept to `--agent-site` (cut from 713) |
 | | **702** | where Chrome's window goes when a page opens inside the conversation — measured, then decided |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
@@ -19197,7 +19198,7 @@ What stage 2's exit gate actually measures: a person using it.
   moving within what is typed (it is edited at its end, and a field
   longer than the box shows its start).
 
-- [ ] **713. The address chosen from the one box, opened in the machine's
+- [x] **713. The address chosen from the one box, opened in the machine's
   Chrome from the conversation's window.** Item 701 decides where to go
   (`Conversation::going`); this opens it as `alo --chrome ADDRESS` opens a
   page — the machine's Chrome in a window of its own, placed by us, behind
@@ -19212,6 +19213,44 @@ What stage 2's exit gate actually measures: a person using it.
   Return opens `https://example.com/` in a shown Chrome, in a test in the
   `chrome` group of `.config/nextest.toml`, and closing the conversation's
   window closes it.
+  ***Done (iteration 452), scope cut to 716; decided in ADR 0075.*** The
+  page opens from the conversation's own process, with no second event
+  loop and no frame of ours: the window hands the address to a thread of
+  `alo-window`'s `conversation_chrome.rs` (`ChromeOpener`), never waited
+  on, which starts `ChromeServing::start_shown_alone` — `alo --chrome`'s
+  path, so Chrome is started with our switches, `Tab::open` holds and
+  records every request, and the profile is locked and swept — and tells
+  the window `Went::Opening`, `Opened`, `Unopened` or `Closed`, which the
+  first screen's line says in words (*opening … in Chrome, in a window of
+  its own*; *… is open in Chrome's own window — Chrome/156…, driven by
+  this browser*; *… could not be opened: why*; *Chrome's window showing …
+  was closed*). Chrome's `--app` window is put over the first screen —
+  its corner at the conversation window's outer corner plus the panel's
+  240 points (`Window::outer_position`), its page the first screen's size
+  (`Placing::over_the_first_screen`), `alo --chrome`'s place when the
+  window's cannot be read. With no frame to stand, the window server is
+  never asked; Chrome alone is asked once a second whether its window is
+  gone (`chrome_frame::gone`, `WATCH_EVERY`). A second address replaces
+  the first — its Chrome closed, waited for and its profile removed — since
+  one `ChromeServing` holds one tab and nothing yet says which of two
+  windows is which; addresses chosen while Chrome starts are not queued,
+  the newest wins. Closing the window closes that Chrome and removes its
+  profile (`ChromeOpener::finish`, from `exiting`). Unit tests of the
+  transitions and the placement; in the `chrome` group (and the shown
+  Chromes' `threads-required = 2` list),
+  `tests/a_page_chosen_in_the_conversation_opened_in_chrome.rs`: keys type
+  `http://127.0.0.1:PORT/one.html` into the box, Return, opening then
+  opened, Chrome's window at 120,80 900 wide by Chrome's word and the
+  window server's, the server asked for the page and nothing else; a
+  second address replacing the first with its Chrome ended and profile
+  gone; finishing ending the second; and a Chrome killed under it said
+  closed and its profile removed. Run by hand: typed into the running
+  window, Return opened the page over the first screen and the line said
+  so; with Stage Manager on the two windows are not on the screen together
+  (ADR 0062 § 1 again, recorded in ADR 0075 § 3 and left to 702); closing
+  the conversation ended Chrome and removed its profile. Cut to 716: no
+  agent socket is opened for these pages, so `--agent-site` is still
+  refused beside `--conversation`.
 
 - [ ] **714. A press on an offer under the one box.** The offers 701 draws
   under the box are claimed by a press as the rest of the first screen is
@@ -19230,6 +19269,18 @@ What stage 2's exit gate actually measures: a person using it.
   and make the user agent's sheet or the field's layout do the same, with
   a layout assertion and a reference render. The first screen's sheet
   keeps its own field to one line until then. *Depends on nothing.*
+
+- [ ] **716. An agent reaching a page the conversation opened in Chrome.**
+  Cut from 713. `alo --chrome` opens the agent socket (ADR 0055) over the
+  tab it serves and keeps agents to `--agent-site`; a page opened from the
+  conversation (ADR 0075) is held by the same `ChromeServing` but no socket
+  is opened, and `--agent-site` is refused beside `--conversation`. Decide
+  what the socket reaches when a second address replaces the first (the
+  same socket following the new tab, or one per page), open it from the
+  conversation's process, accept `--agent-site` there, and say where it is
+  on the terminal. *Depends on 713. Closes when:* `alo-ask` reads the tree
+  of a page opened from the conversation, a site not named is refused by
+  name, and the socket follows (or is said to end with) a replaced page.
 
 - [ ] **702. Where Chrome's window goes when a page opens inside the
   conversation — measured, then decided.** The design opens a page in a card

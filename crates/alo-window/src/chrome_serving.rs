@@ -31,6 +31,17 @@
 //! Chrome's window gone tells the frame [`Follow::Closed`] and ends the
 //! thread: a person closing Chrome's window closes ours.
 //!
+//! # Shown with no frame of ours
+//!
+//! [`ChromeServing::start_shown_alone`] holds a shown Chrome whose window
+//! has no frame of ours around it, because a window of ours is already the
+//! interface — the conversation's (ADR 0075, queue item 713). Nothing then
+//! stands beside Chrome's window, so the window server is never asked where
+//! it is; only Chrome is, every [`WATCH_EVERY`], and only whether its
+//! window is gone ([`chrome_frame::gone`]), which is told as
+//! [`Follow::Closed`] and ends the thread as above. Its page is not named
+//! to anybody: the conversation draws no stranger's title in this process.
+//!
 //! The other way, ours closed — [`Order::CloseEverything`], or the one
 //! browser key that closes a tab, ⌘W, since closing the last tab closes
 //! the window (ADR 0024 § 6) — closes Chrome's page, which is its window,
@@ -92,9 +103,15 @@ use crate::serving::serve;
 use alo_url::Url;
 use core::fmt;
 use std::io::ErrorKind;
+use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+/// How often a shown Chrome with no frame of ours is asked whether its
+/// window is gone: one reading over the pipe and no window server's, so a
+/// person who closed it is heard within about a second.
+pub const WATCH_EVERY: Duration = Duration::from_secs(1);
 
 /// The page a tab in Chrome is opened at.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,6 +174,7 @@ pub struct ChromeServing {
     rendered_by: RenderedBy,
     placed: Option<Placed>,
     process: u32,
+    profile: PathBuf,
     swept: Swept,
 }
 
@@ -172,6 +190,10 @@ enum Drawn {
         left: i32,
         /// In the screen's points.
         top: i32,
+        /// Whether a frame of ours stands beside its window and follows it
+        /// (ADR 0062), or none does and only its closing is watched for
+        /// (ADR 0075).
+        framed: bool,
     },
 }
 
@@ -230,9 +252,42 @@ impl ChromeServing {
         Self::begin(
             opening,
             size,
-            Drawn::Shown { left, top },
+            Drawn::Shown {
+                left,
+                top,
+                framed: true,
+            },
             sites,
             Some(frame),
+        )
+    }
+
+    /// [`ChromeServing::start_shown`], with no frame of ours around
+    /// Chrome's window (ADR 0075): `told` hears what each agent's verb was
+    /// answered with and, once Chrome's window is gone — closed by a person,
+    /// by this browser, or Chrome itself gone — [`Follow::Closed`], and
+    /// never where to stand or what the page is called.
+    ///
+    /// # Errors
+    ///
+    /// As [`ChromeServing::start_shown`].
+    pub fn start_shown_alone(
+        opening: Opening,
+        size: (u32, u32),
+        (left, top): (i32, i32),
+        sites: AgentSites,
+        told: TellFrame,
+    ) -> Result<Self, Unserved> {
+        Self::begin(
+            opening,
+            size,
+            Drawn::Shown {
+                left,
+                top,
+                framed: false,
+            },
+            sites,
+            Some(told),
         )
     }
 
@@ -268,6 +323,7 @@ impl ChromeServing {
                 product,
                 placed,
                 process,
+                profile,
                 swept,
             })) => Ok(Self {
                 orders,
@@ -275,6 +331,7 @@ impl ChromeServing {
                 rendered_by: RenderedBy::Chrome { product },
                 placed,
                 process,
+                profile,
                 swept,
             }),
             Ok(Err(why)) => {
@@ -304,6 +361,12 @@ impl ChromeServing {
     /// Chrome's window by ([`crate::window_server::on_the_screen`]).
     pub fn process(&self) -> u32 {
         self.process
+    }
+
+    /// Where its Chrome's profile is: removed once Chrome has ended, as
+    /// [`ChromeServing::records`] returns (ADR 0069).
+    pub fn profile(&self) -> &std::path::Path {
+        &self.profile
     }
 
     /// What starting its Chrome removed of the profiles killed browsers
@@ -337,6 +400,8 @@ struct Started {
     placed: Option<Placed>,
     /// Its process.
     process: u32,
+    /// Its profile's directory.
+    profile: PathBuf,
     /// What its start removed of killed browsers' profiles.
     swept: Swept,
 }
@@ -374,6 +439,7 @@ fn serve_in_chrome(
         }
     };
     let swept = chrome.swept().clone();
+    let profile = chrome.profile().to_path_buf();
     let opened = match opening {
         Opening::Frozen { url, page } => Tab::open_frozen(&mut chrome, &url, page, size),
         Opening::Network(address) => Tab::open(&mut chrome, &address, size),
@@ -387,7 +453,7 @@ fn serve_in_chrome(
     };
     let placed = match drawn {
         Drawn::Headless => None,
-        Drawn::Shown { left, top } => match chrome_window::place(&mut tab, left, top) {
+        Drawn::Shown { left, top, .. } => match chrome_window::place(&mut tab, left, top) {
             Ok(placed) => Some(placed),
             Err(why) => {
                 let _ = tell.send(Err(Unserved::Unplaced(why)));
@@ -402,6 +468,7 @@ fn serve_in_chrome(
             product,
             placed,
             process: pages.tab().chrome_process(),
+            profile,
             swept,
         }))
         .is_err()
@@ -410,8 +477,10 @@ fn serve_in_chrome(
     }
     // Only a shown Chrome has a window to follow; a headless one waits on
     // its orders alone.
+    let framed = matches!(drawn, Drawn::Shown { framed: true, .. });
     let mut following = frame.filter(|_| placed.is_some()).map(|frame| Follower {
         frame,
+        framed,
         told: Following::default(),
         named: Naming::default(),
         next: Instant::now(),
@@ -451,16 +520,9 @@ fn serve_in_chrome(
         }
         if let Some(follower) = following.as_mut()
             && Instant::now() >= follower.next
+            && follower.follow(pages.tab_mut()) == Follow::Closed
         {
-            let now = Follow::of(&chrome_frame::read(pages.tab_mut()));
-            follower.tell(now);
-            if now == Follow::Closed {
-                return record;
-            }
-            follower.name(chrome_named::read(pages.tab_mut()).ok().flatten());
-            follower.next = Instant::now()
-                .checked_add(FOLLOW_EVERY)
-                .unwrap_or_else(Instant::now);
+            return record;
         }
     }
 }
@@ -512,6 +574,9 @@ impl Serving<'_, '_> {
 /// The frame around a shown Chrome's window, and what it was last told.
 struct Follower<'f> {
     frame: &'f (dyn Fn(ToFrame) -> bool + Send),
+    /// Whether it is a frame of ours that stands beside Chrome's window, or
+    /// a listener told only that the window is gone (ADR 0075).
+    framed: bool,
     told: Following,
     /// What it was last told the page is called.
     named: Naming,
@@ -520,6 +585,39 @@ struct Follower<'f> {
 }
 
 impl Follower<'_> {
+    /// Read where Chrome's window of `tab` is, tell the frame what changed
+    /// and when to read again: [`Follow::Closed`] once the window is gone.
+    ///
+    /// A frame of ours is told where to stand and what the page is called,
+    /// every [`FOLLOW_EVERY`]; a listener with no frame (ADR 0075) is told
+    /// only that the window is gone, read by Chrome's word alone every
+    /// [`WATCH_EVERY`].
+    fn follow(&mut self, tab: &mut Tab<'_>) -> Follow {
+        let (now, every) = if self.framed {
+            let now = Follow::of(&chrome_frame::read(tab));
+            self.tell(now);
+            if now != Follow::Closed {
+                self.name(chrome_named::read(tab).ok().flatten());
+            }
+            (now, FOLLOW_EVERY)
+        } else {
+            // Unread is a Chrome that still holds the page: the next
+            // reading asks again.
+            let now = match chrome_frame::gone(tab) {
+                Ok(Some(_)) => Follow::Closed,
+                Ok(None) | Err(_) => Follow::Aside,
+            };
+            if now == Follow::Closed {
+                self.tell(now);
+            }
+            (now, WATCH_EVERY)
+        };
+        self.next = Instant::now()
+            .checked_add(every)
+            .unwrap_or_else(Instant::now);
+        now
+    }
+
     /// Tell the frame `now`, if it is not what it was told last.
     fn tell(&mut self, now: Follow) {
         if let Some(changed) = self.told.heard(now) {

@@ -795,9 +795,17 @@ The reason this exists rather than a faster fork of somebody else's engine.
   *listbox Suggestions* of options, the first selected. Backspace erases,
   Escape empties, and Return or *Go* chooses the first: for `example.com`,
   going to `https://example.com/` is decided, and said in the window.
-  Owed: *Search chats* and the button that hides the panel (711), opening
-  the chosen address in Chrome from this window (713), a press on an offer
-  (714), a field's value kept to one line by the engine (715), a
+  **The address chosen, opened in the machine's Chrome** (713, ADR 0075):
+  from the conversation's own process, as `alo --chrome` opens a page —
+  Chrome started with our switches, every request the page makes held to
+  our rules and recorded — in Chrome's own window put over the first
+  screen, with no frame of ours beside it since the conversation is ours.
+  The first screen's line says *opening*, *open*, why it could not be, or
+  that Chrome's window was closed; a second address replaces the first;
+  closing the conversation closes that Chrome and removes its profile.
+  Owed: *Search chats* and the button that hides the panel (711), a press
+  on an offer (714), an agent reaching a page the conversation opened
+  (716), a field's value kept to one line by the engine (715), a
   page inside the conversation (702), the conversation (703), the agent at
   work (704), its settings (705), the typefaces (706); the answer (707) and
   search results (708) wait on the owner's choice of a model and a search

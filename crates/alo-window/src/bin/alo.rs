@@ -38,8 +38,13 @@
 //! page and no socket. A press on a chat or *New chat* is answered (queue
 //! item 710), and a press on the box lets a person type into it, with *Go
 //! to the site* offered for an address and Return deciding to go there
-//! (item 701) — said in the window, since opening it in Chrome from here
-//! is item 713. Closing the window stops both renderers.
+//! (item 701). Going there opens the address in the machine's Chrome, in
+//! Chrome's own window put over the first screen and with no frame of ours
+//! beside it, its every request held to the same rules and recorded as
+//! `--chrome`'s (item 713, ADR 0075); a second address replaces the first,
+//! and the first screen's line says what became of each. No socket is
+//! opened for it. Closing the window stops both renderers and closes that
+//! Chrome, its profile removed.
 //!
 //! Inside the macOS application, `alo browser.app` (queue item 477, ADRs
 //! 0067 and 0068), nothing named opens the application's own page in the

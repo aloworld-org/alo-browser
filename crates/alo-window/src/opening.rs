@@ -35,9 +35,11 @@
 //!
 //! And it is where a person asks for the browser's own interface as a
 //! conversation (`--conversation`, ADR 0074, queue item 709): the chats
-//! panel and the first screen, in this engine's window. It opens no page
-//! and no tab, so a page, a sheet, Chrome or an agent's site named beside
-//! it is refused rather than quietly dropped; the frozen fonts and a scale
+//! panel and the first screen, in this engine's window. It is named no
+//! page and opens no socket — an address chosen in it opens in Chrome
+//! from there (item 713, ADR 0075), reached by no agent — so a page, a
+//! sheet, Chrome or an agent's site named beside it is refused rather than
+//! quietly dropped; the frozen fonts and a scale
 //! are this engine's window's, and are kept.
 
 use crate::agent_sites::AgentSites;
@@ -192,7 +194,8 @@ impl Opening {
         } else if self.page.is_some() || !self.sheets.is_empty() {
             "--conversation opens the browser's own first screen, and no page"
         } else if agents_named {
-            "--agent-site keeps agents to sites, and the conversation opens none for them to reach"
+            "--agent-site keeps agents to sites, and the conversation opens no socket for an \
+             agent to reach its pages by"
         } else {
             return Ok(());
         };
@@ -526,7 +529,7 @@ mod tests {
             (&["a.html", "b.css", "--conversation"][..], "and no page"),
             (
                 &["--conversation", "--agent-site", "https://example.com"][..],
-                "opens none for them to reach",
+                "opens no socket for an agent",
             ),
         ] {
             assert!(

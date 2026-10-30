@@ -92,8 +92,14 @@
 //! [`crate::conversation_box`], queue item 701). What is typed is held by
 //! the browser process and sent to the first screen's renderer as data;
 //! when Return or *Go* chooses, what was chosen is said in the first
-//! screen's line — where it was decided to go, which opening in Chrome from
-//! here is queue item 713, or that searching or asking is not set up yet.
+//! screen's line — where it was decided to go, or that searching or asking
+//! is not set up yet. An address chosen is opened in the machine's Chrome
+//! (queue item 713, ADR 0075) by a thread [`crate::conversation_chrome`]
+//! holds, never waited on: Chrome's own window is put over the first
+//! screen, read from where this window is (`Window::outer_position`), and
+//! what became of it — opening, opened, why not, closed — is said in the
+//! first screen's line as the thread tells it. Closing the window closes
+//! that Chrome, waits for it and removes its profile.
 //! The text a key writes is `KeyEvent::text`, a field read like the others.
 //!
 //! A press of the main button with no modifier held is aimed from the same
@@ -111,8 +117,9 @@
 //! `EventLoopBuilder::build`, `EventLoop::create_proxy`, `EventLoop::run_app`,
 //! `EventLoopProxy::send_event`, `ActiveEventLoop::create_window`,
 //! `ActiveEventLoop::exit`, `Window::inner_size`, `Window::scale_factor`,
-//! `Window::request_redraw`, `Modifiers::state`, `ModifiersState`'s
-//! `super_key`, `control_key`, `shift_key` and `alt_key`, and
+//! `Window::request_redraw`, `Window::outer_position`, `Modifiers::state`,
+//! `ModifiersState`'s `super_key`, `control_key`, `shift_key` and
+//! `alt_key`, and
 //! `KeyEventExtModifierSupplement::key_without_modifiers` — is a safe
 //! function in `winit` 0.30.13's source, which the commits adding them
 //! checked (ADR 0024 § 1's stop rule). The pointer adds no call: it reads
@@ -139,6 +146,7 @@ use crate::compose::{FrameScene, compose, compose_frame};
 use crate::conversation::{Conversation, Pressed as Decided};
 use crate::conversation_aim;
 use crate::conversation_box::{self, Typed};
+use crate::conversation_chrome::{ChromeOpener, Placing, Went};
 use crate::conversation_compose::{ConversationScene, compose_conversation};
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use crate::conversation_place::{ConversationPlacement, panel_viewport, start_viewport};
@@ -815,20 +823,27 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 pub fn conversation(forced: Option<Scale>, renderers: Renderers) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
-    let event_loop = EventLoop::<Drawn>::with_user_event()
+    let event_loop = EventLoop::<Heard>::with_user_event()
         .build()
         .map_err(|why| format!("no event loop: {why}"))?;
     let proxy = event_loop.create_proxy();
     let drawing = ConversationDrawing::start(
         renderers,
-        Box::new(move |drawn| proxy.send_event(drawn).is_ok()),
+        Box::new(move |drawn| proxy.send_event(Heard::Drawn(drawn)).is_ok()),
     )
     .map_err(|why| format!("no thread to draw the chats panel and the first screen: {why}"))?;
+    let proxy = event_loop.create_proxy();
+    let chrome = ChromeOpener::start(Box::new(move |went| {
+        proxy.send_event(Heard::Chrome(went)).is_ok()
+    }))
+    .map_err(|why| format!("no thread to open a page in Chrome: {why}"))?;
     let mut conversing = Conversing {
         forced,
         conversation: Conversation::default(),
         drawing: Some(drawing),
+        chrome: Some(chrome),
         finished: true,
+        chrome_finished: true,
         panel: None,
         panel_said: None,
         start: None,
@@ -844,17 +859,27 @@ pub fn conversation(forced: Option<Scale>, renderers: Renderers) -> Result<(), S
         .run_app(&mut conversing)
         .map_err(|why| format!("the event loop stopped: {why}"));
     // A loop refused before it ran never reached `exiting`.
-    if let Some(drawing) = conversing.drawing.take() {
-        conversing.finished = drawing.finish();
-    }
+    conversing.finish();
     ran?;
     match conversing.failed {
         Some(why) => Err(why),
         None if !conversing.finished => {
             Err("the thread drawing the chats panel and the first screen did not finish".to_owned())
         }
+        None if !conversing.chrome_finished => {
+            Err("the thread holding Chrome for the conversation did not finish".to_owned())
+        }
         None => Ok(()),
     }
+}
+
+/// What the conversation's window hears from the threads it hands work to.
+#[derive(Debug)]
+enum Heard {
+    /// What the drawing thread painted, or why not, or what a press was.
+    Drawn(Drawn),
+    /// What became of an address chosen, from the thread holding Chrome.
+    Chrome(Went),
 }
 
 /// The conversation's event loop's state.
@@ -865,8 +890,14 @@ struct Conversing {
     conversation: Conversation,
     /// The thread drawing the two parts; [`None`] once finished.
     drawing: Option<ConversationDrawing>,
+    /// The thread opening an address chosen in Chrome; [`None`] once
+    /// finished.
+    chrome: Option<ChromeOpener>,
     /// Whether that thread finished rather than panicked, once waited for.
     finished: bool,
+    /// Whether the Chrome thread finished, and every Chrome it held with
+    /// it, once waited for.
+    chrome_finished: bool,
     /// The panel, as its renderer last painted it.
     panel: Option<Frame>,
     /// Why the panel's renderer painted nothing, since it last painted.
@@ -978,6 +1009,43 @@ impl Conversing {
         }
         if go && let Some(chosen) = self.conversation.chosen() {
             self.start_said = Some(conversation_box::said(chosen));
+            self.go();
+        }
+    }
+
+    /// Open where it was decided to go, if anywhere, in Chrome: put over
+    /// the first screen when where this window is can be read, and where
+    /// `alo --chrome` puts it otherwise. Returns at once.
+    fn go(&self) {
+        let Some(url) = self.conversation.going() else {
+            return;
+        };
+        let placing = self
+            .window
+            .as_ref()
+            .and_then(|window| {
+                let outer = window.outer_position().ok()?;
+                let inner = window.inner_size();
+                Some(Placing::over_the_first_screen(
+                    (outer.x, outer.y),
+                    (inner.width, inner.height),
+                    window.scale_factor(),
+                ))
+            })
+            .unwrap_or(Placing::APART);
+        if let Some(chrome) = &self.chrome {
+            chrome.open(url.clone(), placing);
+        }
+    }
+
+    /// Stop both threads and wait for them: the renderers stopped, and the
+    /// Chrome showing a page closed and its profile removed.
+    fn finish(&mut self) {
+        if let Some(drawing) = self.drawing.take() {
+            self.finished = drawing.finish();
+        }
+        if let Some(chrome) = self.chrome.take() {
+            self.chrome_finished = chrome.finish();
         }
     }
 
@@ -995,6 +1063,7 @@ impl Conversing {
             Typed::Changed => self.ask_drawn(),
             Typed::Chose(chosen) => {
                 self.start_said = Some(conversation_box::said(&chosen));
+                self.go();
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
@@ -1016,7 +1085,7 @@ impl Conversing {
     }
 }
 
-impl ApplicationHandler<Drawn> for Conversing {
+impl ApplicationHandler<Heard> for Conversing {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -1045,7 +1114,17 @@ impl ApplicationHandler<Drawn> for Conversing {
         self.ask_drawn();
     }
 
-    fn user_event(&mut self, _: &ActiveEventLoop, drawn: Drawn) {
+    fn user_event(&mut self, _: &ActiveEventLoop, heard: Heard) {
+        let drawn = match heard {
+            Heard::Drawn(drawn) => drawn,
+            Heard::Chrome(went) => {
+                self.start_said = Some(went.said());
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+                return;
+            }
+        };
         match drawn {
             Drawn::Painted(Part::Panel, frame) => {
                 self.panel = Some(frame);
@@ -1107,11 +1186,10 @@ impl ApplicationHandler<Drawn> for Conversing {
 
     /// The event loop is ending — returning, or the program quit, when
     /// `AppKit` ends the process once this returns (item 688): the drawing
-    /// thread is stopped here, and its renderers with it.
+    /// thread is stopped here, and its renderers with it, and the Chrome
+    /// showing a page is closed, waited for and its profile removed.
     fn exiting(&mut self, _: &ActiveEventLoop) {
-        if let Some(drawing) = self.drawing.take() {
-            self.finished = drawing.finish();
-        }
+        self.finish();
     }
 }
 

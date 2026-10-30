@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712) and going to a website from the one box (701, deciding where; opening it is 713) built; the rest queued
+**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075) built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -137,7 +137,11 @@ wait on them.
   `alo-url` (`alo-renderer`'s `typed.rs`): *Go to the site* for an
   address, then *Search for* and *Ask alo about*, saying they are not set
   up yet until 708 and 707; an agent reads them as a `listbox` of
-  `option`s. Return or *Go* decides where to go; opening it in Chrome from
-  the conversation's window is 713.
+  `option`s. Return or *Go* decides where to go, and the address is opened
+  in the machine's Chrome from the conversation's own process (713,
+  `conversation_chrome.rs`), in Chrome's own window put over the first
+  screen with no frame of ours beside it — **ADR 0075**, which says why
+  this mode differs from ADR 0062's and what it costs under Stage Manager.
+  An agent reaching that page is 716.
 - `docs/design/shell.md` is the written form of the design and is what these
   items are checked against; the canvas it came from is the owner's.

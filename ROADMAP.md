@@ -2339,10 +2339,18 @@ items where being right and being unusable are the same outcome.
       `alo-url`, then *Search for* and *Ask alo about*, each saying it is
       not set up yet; Return or *Go* decides to go to `https://example.com/`
       for `example.com`, in a reference render, the offers' boxes in
-      numbers and a hostile typed string staying text
+      numbers and a hostile typed string staying text; and the address
+      chosen opened in the machine's Chrome from the conversation's own
+      process (713, ADR 0075) — through `alo --chrome`'s `ChromeServing`,
+      every request held and recorded, on a thread the window never waits
+      on, in Chrome's `--app` window put over the first screen with no
+      frame of ours, a second address replacing the first, the first
+      screen's line saying opening, opened, why not or closed, and Chrome
+      closed with its profile removed as the window closes, in a shown-Chrome
+      test against a local server
       · Owed: *Search chats* and the button that hides the panel (711),
-      opening the address chosen in Chrome from the conversation's window
-      (713), a press on an offer (714), a field's value kept to one line by
+      a press on an offer (714), an agent reaching a page the conversation
+      opened (716), a field's value kept to one line by
       the engine itself (715),
       a page inside the conversation (702), the conversation (703), the
       agent at work (704), what the agent may do (705), the typefaces (706),

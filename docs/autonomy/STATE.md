@@ -45465,3 +45465,33 @@ but at the end, no input-method composition. Typing in the running window
 was not tried by hand. No claim about speed is made.
 
 The next unused queue number is **716** and the next ADR is **0075**.
+
+## Iteration 452 — queue item 713: a page chosen in the conversation opens in Chrome's own window, driven from the conversation's own process (ADR 0075); an agent's socket for it cut to 716
+
+**Built by a delegated agent, reviewed here.** Return (or *Go*) on an
+address in `alo --conversation` hands the parsed URL to a thread the
+window never waits on, which serves it in a shown Chrome by the same road
+as `alo --chrome` — our switches (ADR 0073), every request held and
+recorded (ADR 0060), the profile lock and sweep (ADR 0069) — with no frame
+of ours, since the conversation window is our interface, and no second
+`winit` loop. The first screen's line says *going*, *opening*, *open in
+Chrome's own window — Chrome/<version>*, or why not, and later that the
+window was closed. A second address replaces the first (one served tab,
+no navigate order); the newest wins while Chrome starts. Closing the
+conversation closes Chrome and removes its profile. ADR 0075 writes this
+down, and ADR 0074 points to it.
+
+**Measured by hand, and not hidden.** With Stage Manager on, Chrome's
+window and the conversation's are never on the screen together: bringing
+one in front sends the other to the strip — ADR 0062 § 1 again, left for
+702. A capture shows the page opened and the conversation in the strip.
+
+**Gate.** **5712 tests, 5712 passed, 10 of 10 steps, "The gate is met."**
+The new shown-Chrome test is in `.config/nextest.toml`'s
+`threads-required = 2` list; nothing else there changed.
+
+**Unresolved obligations.** No agent socket for pages the conversation
+opens (716). The page is not inside the conversation (702). No claim about
+speed is made.
+
+The next unused queue number is **717** and the next ADR is **0076**.

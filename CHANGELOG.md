@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Going to a website from the new interface opens it.** In `alo
+  --conversation`, typing an address and pressing Return now opens the page
+  in the Chrome installed on the machine, in Chrome's own window placed
+  over the conversation's main area, held to the same rules about what it
+  may fetch as `alo --chrome`. The line at the foot of the window says
+  what happened: opening, open (and which Chrome), why it could not be
+  opened — for example when there is no Chrome — or that Chrome's window
+  was closed. A second address replaces the first page rather than opening
+  another window. Closing the conversation closes that Chrome and removes
+  its temporary profile. Only the address leaves the browser (item 713).
+
 - **Typing a website into the new interface.** In `alo --conversation`,
   pressing the box lets a person type into it. Under the box the browser
   offers *Go to the site* first when what is typed is an address such as

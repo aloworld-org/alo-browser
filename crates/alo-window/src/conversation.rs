@@ -193,7 +193,8 @@ impl Conversation {
     }
 
     /// Where it was decided to go: the address of the site last chosen, if
-    /// what was last chosen was a site. Opening it is queue item 713.
+    /// what was last chosen was a site, which the window opens in Chrome
+    /// ([`crate::conversation_chrome`], queue item 713).
     pub fn going(&self) -> Option<&Url> {
         match &self.chosen {
             Some(Offer::Go(url)) => Some(url),

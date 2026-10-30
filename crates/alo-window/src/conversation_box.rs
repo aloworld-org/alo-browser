@@ -23,10 +23,9 @@
 //! Return, or *Go*, chooses what is offered first. For an address that is
 //! *Go to the site*, and choosing it decides to go to the parsed URL —
 //! [`Conversation::going`](crate::conversation::Conversation::going) says
-//! where. Opening that address in the machine's Chrome from this window, as
-//! `alo --chrome` opens one, is queue item 713: `alo --chrome` runs the
-//! frame around Chrome's window on an event loop of its own, and a process
-//! has one. Searching and asking are offered first only for what is not an
+//! where, and the window has it opened in the machine's Chrome
+//! ([`crate::conversation_chrome`], queue item 713), whose thread then
+//! says what became of it in the first screen's line. Searching and asking are offered first only for what is not an
 //! address, and choosing either says it is not set up yet ([`said`]).
 
 use crate::typing::Edit;
@@ -126,9 +125,7 @@ impl TheBox {
 /// chosen.
 pub fn said(chosen: &Offer) -> String {
     match chosen {
-        Offer::Go(url) => format!(
-            "going to {url} is decided; opening it in Chrome from this window is queue item 713"
-        ),
+        Offer::Go(url) => format!("going to {url}"),
         Offer::Search(_) => {
             "searching is not set up yet: no search provider has been chosen (queue item 708)"
                 .to_owned()

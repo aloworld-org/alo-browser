@@ -97,7 +97,9 @@
 //!   the part's renderer and decided by the browser process (item 710).
 //!   The one box on the first screen is [`conversation_box`]: a person's
 //!   keys, read by [`typing`], edit what it holds, and Return decides to
-//!   go to an address typed (item 701).
+//!   go to an address typed (item 701), which [`conversation_chrome`]
+//!   opens in the machine's Chrome, in a window of its own beside no frame
+//!   of ours (item 713, ADR 0075).
 //!
 //! # What it is not yet
 //!
@@ -159,6 +161,7 @@ pub mod conductor;
 pub mod conversation;
 pub mod conversation_aim;
 pub mod conversation_box;
+pub mod conversation_chrome;
 pub mod conversation_compose;
 pub mod conversation_drawing;
 pub mod conversation_place;

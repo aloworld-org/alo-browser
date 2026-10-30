@@ -84,9 +84,26 @@ the one Return chooses on the paper's colour with 10 px corners:
   chosen.
 
 Backspace erases the last character, Escape empties the box (and, empty,
-lets the keyboard go), and Return or *Go* chooses the first offer. For an
-address, where to go is decided; opening it in Chrome from this window is
-item 713, and a press on an offer is 714. Tab asking the agent waits on
+lets the keyboard go), and Return or *Go* chooses the first offer. A press
+on an offer is 714.
+
+### Going there (item 713)
+
+An address chosen opens in the machine's Chrome, in Chrome's own window
+put over the first screen — its title bar over the conversation's, the
+panel left in view — with no frame of ours beside it (ADR 0075). The line
+at the window's foot says what became of it, in these words:
+
+- *opening ADDRESS in Chrome, in a window of its own*
+- *ADDRESS is open in Chrome's own window — Chrome/VERSION, driven by this
+  browser*
+- *ADDRESS could not be opened: WHY* — no Chrome on this machine, Chrome
+  would not start, the page did not load
+- *Chrome's window showing ADDRESS was closed*
+
+A second address replaces the page the first opened. Closing the
+conversation closes Chrome. Where a page goes *inside* the conversation is
+still item 702's. Tab asking the agent waits on
 707. The offers are shown only while the box has the keyboard.
 
 ## The answer

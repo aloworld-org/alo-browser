@@ -12,7 +12,8 @@
 //! renderer as data and nothing of it the panel's; and the first screen
 //! with it drawn the same by the confined renderer the window's thread
 //! holds as by this process. Opening the address in Chrome from this
-//! window is queue item 713.
+//! window is queue item 713's, asserted in
+//! `a_page_chosen_in_the_conversation_opened_in_chrome`.
 
 use alo_renderer::host::Renderers;
 use alo_renderer::typed::{Offer, offers};
@@ -90,8 +91,7 @@ fn typing_example_com_and_return_decides_to_go_to_https_example_com() {
     );
     assert_eq!(
         said(&Offer::Go(url.clone())),
-        "going to https://example.com/ is decided; opening it in Chrome from this window is \
-         queue item 713"
+        "going to https://example.com/"
     );
     // Escape empties the box, and the offers go with what was typed.
     assert_eq!(
