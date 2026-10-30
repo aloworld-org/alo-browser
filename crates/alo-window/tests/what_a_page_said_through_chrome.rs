@@ -21,7 +21,7 @@ use alo_window::chrome::Chrome;
 use alo_window::chrome_pages::{ChromePages, TheTab};
 use alo_window::chrome_tab::Tab;
 use alo_window::chrome_wire::MOST_MESSAGE;
-use alo_window::pages::{Acted, Pages};
+use alo_window::pages::{Acted, Pages, RenderedBy};
 
 /// The size the pages are laid out at.
 const SIZE: (u32, u32) = (600, 400);
@@ -234,7 +234,7 @@ fn an_agent_is_answered_with_what_was_heard() {
     let mut chrome = Chrome::start().unwrap();
     let product = chrome.version().unwrap().product;
     let tab = opened(&mut chrome, THROWS).unwrap();
-    let mut pages = ChromePages::of(tab, product);
+    let mut pages = ChromePages::of(tab, RenderedBy::Chrome { product });
     let Ok((_, Acted::Done { issues, .. })) = pages.act(TheTab, &named("Go"), &Verb::Activate)
     else {
         panic!("not done");

@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Where the renderer programs are: ours beside the browser's own, and
-//! Chrome where Chrome installs itself.
+//! Where the renderer programs are: ours beside the browser's own, Chrome
+//! where Chrome installs itself, and the Chromium the application carries
+//! inside it.
 //!
 //! `alo` and `alo-render` are built into the same directory, and are shipped
 //! that way. Looking beside the running program, rather than on the search
@@ -16,6 +17,17 @@
 //! puts it, never on `PATH`, where anybody who can write one directory on it
 //! could put a program called `google-chrome`. One that is not at any of them
 //! is refused by name, saying where it was looked for ([`NotInstalled`]).
+//!
+//! # The application's own Chromium
+//!
+//! Inside `alo browser.app` it is never that Chrome (ADR 0077, queue item
+//! 719): the application starts only the Chromium at a fixed place in its
+//! own bundle ([`crate::bundle::Bundle::chromium`]), even on a Mac with
+//! Chrome installed, and one that is not there is refused by name as
+//! [`NotCarried`] — never looked for anywhere else. Which of the two a
+//! browser starts is [`Chromium`]: the machine's for `alo --chrome` run from
+//! a terminal, a developer's tool, and for this repository's tests; the
+//! carried one inside the application.
 
 use core::fmt;
 use std::path::{Path, PathBuf};
@@ -26,6 +38,18 @@ pub const RENDERER: &str = "alo-render";
 /// The renderer that belongs with the program at `program`.
 pub fn renderer_beside(program: &Path) -> PathBuf {
     program.with_file_name(RENDERER)
+}
+
+/// Which Chromium a browser starts (ADR 0077).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Chromium {
+    /// The Chrome installed on this machine, where its installer puts it
+    /// ([`chrome_on_this_machine`]): `alo --chrome` run from a terminal, and
+    /// this repository's tests.
+    Machines,
+    /// The Chromium the application carries, at this path — and no other,
+    /// even when the machine has a Chrome installed.
+    Carried(PathBuf),
 }
 
 /// Where Google Chrome's installer puts the program on this kind of machine,
@@ -113,6 +137,25 @@ impl fmt::Display for NotInstalled {
     }
 }
 
+/// The application's own Chromium is not where the application carries
+/// it: a refusal of its own, naming that place, which is the only place it
+/// is looked for (ADR 0077).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NotCarried {
+    /// Where it was looked for.
+    pub looked: PathBuf,
+}
+
+impl fmt::Display for NotCarried {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "alo's own Chromium is not in the application: it was looked for at {}",
+            self.looked.display()
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +211,19 @@ mod tests {
         assert!(!is_program(&directory));
         assert!(!is_program(&source));
         assert_eq!(chrome_in(&[directory, source, shell.clone()]), Ok(shell));
+    }
+
+    #[test]
+    fn the_carried_chromium_missing_is_refused_naming_its_one_place() {
+        let refused = NotCarried {
+            looked: PathBuf::from(
+                "/A.app/Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium",
+            ),
+        };
+        assert_eq!(
+            refused.to_string(),
+            "alo's own Chromium is not in the application: it was looked for at \
+             /A.app/Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium"
+        );
     }
 }

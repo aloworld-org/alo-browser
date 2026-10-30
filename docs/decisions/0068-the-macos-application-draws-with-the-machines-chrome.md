@@ -108,3 +108,18 @@ What this does not cover, and says so: a browser **killed** — `SIGKILL`,
 a crash, the machine losing power — runs nothing, and leaves its profile
 as before. Chrome still ends with its pipe. Removing what a dead browser
 left, at the next start, is queue item 690.
+
+## Amendment — 30 October 2026: superseded for the application by ADR 0077 (queue item 719)
+
+The owner decided that alo carries its own Chromium and that the
+application **never uses the machine's Chrome, even when one is
+installed** (ADR 0077). So § 1's *the machine's own Chrome* and § 3's *a
+Mac with no Chrome* no longer describe the application. It now starts only
+the Chromium at `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium`
+inside itself, for its own page, a page named with `--chrome` and an
+address chosen in the conversation; with none there, or one that does not
+start or answer, it draws its page with this engine, on the page that now
+says its own Chromium is missing or damaged, and says why on its terminal
+— § 3's way, with ADR 0077's reason. §§ 2 and 4, Quit and the rest stand.
+`alo --chrome` run from a terminal is not the application and keeps
+driving the machine's Chrome.

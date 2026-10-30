@@ -1,7 +1,10 @@
 # ADR 0077 — alo is a standalone browser that carries its own Chromium
 
 **Status:** accepted — chosen by the owner on 30 October 2026; built by
-queue items 719–722
+queue items 719–722. **719 built** (iteration 454): the application starts
+only the Chromium at `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium`
+inside it, never the machine's Chrome, and draws with this engine, saying
+so, when that one is missing or damaged; 720 puts one there
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive — *"Chrome is never
 shipped"*, the machine's own Chrome is used); ADR 0059 (the product path);

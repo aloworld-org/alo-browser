@@ -28,6 +28,7 @@
 
 use alo_window::agent_sites::AgentSites;
 use alo_window::agents::Listening;
+use alo_window::beside::Chromium;
 use alo_window::chrome_serving::{ChromeServing, Opening};
 use alo_window::opening::CHROME_AT;
 use std::io::Write;
@@ -93,6 +94,7 @@ fn a_page_given_less_room_than_asked_is_laid_out_at_it_and_reached() -> Result<(
     };
     // No frame of ours here: what it is told is `the_frame_around_chromes_window.rs`'s.
     let serving = ChromeServing::start_shown(
+        Chromium::Machines,
         opening,
         ASKED,
         CHROME_AT,

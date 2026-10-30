@@ -27,7 +27,7 @@ use alo_renderer::strip::Strip;
 use alo_renderer::{Frame, FromRenderer, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::agent_sites::AgentSites;
-use alo_window::beside::renderer_beside;
+use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::chrome_protocol::Named;
 use alo_window::chrome_serving::{ChromeServing, Opening};
 use alo_window::frame_strip::{FrameStrip, strip_of};
@@ -132,6 +132,7 @@ fn painted(told: &Receiver<ToFrame>) -> Result<Frame, String> {
 fn the_frames_tab_follows_the_pages_title_drawn_by_the_strips_renderer() -> Result<(), String> {
     let (tell, told) = channel();
     let serving = ChromeServing::start_shown(
+        Chromium::Machines,
         Opening::Frozen {
             url: ADDRESS.to_owned(),
             page: RETITLING.as_bytes().to_vec(),

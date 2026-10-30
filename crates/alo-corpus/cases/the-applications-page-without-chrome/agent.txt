@@ -1,19 +1,21 @@
-document at (0, 0) 1200×646
-  main at (96, 64) 640×502
+document at (0, 0) 1200×670
+  main at (96, 64) 640×526
     heading "alo browser" [level=1] at (96, 64) 640×40
     paragraph at (96, 112) 640×48
-      text "Chrome was not found on this Mac, so this page is drawn by alo browser's own engine." at (96, 114) 577.5781×43 in 2 pieces
+      text "alo browser's own Chromium is missing or damaged, so this page is drawn by alo browser's own engine." at (96, 114) 612.8594×43 in 2 pieces
     heading "What this is" [level=2] at (96, 192) 640×27
     paragraph at (96, 227) 640×72
       text "A browser an agent reads rather than photographs. An agent asks alo browser for this page as a tree of what it is — a heading, a paragraph, a link — and acts on it by name, under the sites a person lets it reach." at (96, 229) 637.21875×67 in 3 pieces
-    paragraph at (96, 315) 640×72
-      text "alo browser's own engine draws alo's own interface. The web is drawn by Chrome, and alo browser looks for it only where Chrome's installer puts it: in Applications, or in the Applications folder of your home." at (96, 317) 614.8594×67 in 3 pieces
-    heading "What it is not yet" [level=2] at (96, 419) 640×27
-    paragraph at (96, 454) 640×72
-      text "There is no address bar, so a person cannot go anywhere from here. An agent reaches this page through" at (96, 456) 626.125×43 in 2 pieces
-      text "alo-ask" at (311.35938, 482) 59.015625×16
-      text ", which is inside the application at" at (370.375, 480) 272.95313×19
-      text "Contents/MacOS/alo-ask" at (96, 482) 628.28125×40 in 2 pieces
-      text "." at (205.57813, 504) 5.09375×19
-    paragraph at (96, 542) 640×24
-      text "Closing this window, or quitting, closes alo browser." at (96, 544) 413.78125×19
+    paragraph at (96, 315) 640×96
+      text "alo browser's own engine draws alo's own interface. The web is drawn by the Chromium alo browser carries inside the application, at" at (96, 317) 619.96875×43 in 2 pieces
+      text "Contents/Frameworks/Chromium.app" at (96, 343) 617.5625×40 in 2 pieces
+      text ". It never uses another browser on this Mac, even one that is installed." at (96, 365) 588.34375×43 in 2 pieces
+    heading "What it is not yet" [level=2] at (96, 443) 640×27
+    paragraph at (96, 478) 640×72
+      text "There is no address bar, so a person cannot go anywhere from here. An agent reaches this page through" at (96, 480) 626.125×43 in 2 pieces
+      text "alo-ask" at (311.35938, 506) 59.015625×16
+      text ", which is inside the application at" at (370.375, 504) 272.95313×19
+      text "Contents/MacOS/alo-ask" at (96, 506) 628.28125×40 in 2 pieces
+      text "." at (205.57813, 528) 5.09375×19
+    paragraph at (96, 566) 640×24
+      text "Closing this window, or quitting, closes alo browser." at (96, 568) 413.78125×19

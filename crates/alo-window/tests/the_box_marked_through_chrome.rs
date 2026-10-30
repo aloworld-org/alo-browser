@@ -40,6 +40,7 @@ use alo_paint::encode::picture_from_png;
 use alo_value::Rgba;
 use alo_window::agent_sites::AgentSites;
 use alo_window::agents::Listening;
+use alo_window::beside::Chromium;
 use alo_window::chrome_protocol::Bounds;
 use alo_window::chrome_serving::{ChromeServing, Opening};
 use alo_window::opening::CHROME_AT;
@@ -423,6 +424,7 @@ fn until(
 #[test]
 fn the_box_a_verb_acted_on_is_marked_by_chrome_on_the_screen() -> Result<(), String> {
     let serving = ChromeServing::start_shown(
+        Chromium::Machines,
         Opening::Frozen {
             url: ADDRESS.to_owned(),
             page: PAGE.as_bytes().to_vec(),

@@ -24,7 +24,9 @@
 //! does: the one way to see a scale none of this machine's screens has.
 //!
 //! And it is where a person tells `alo` to have the machine's own Chrome draw
-//! the page instead of this engine (`--chrome`, ADR 0058, queue item 641):
+//! the page instead of this engine (`--chrome`, ADR 0058, queue item 641) —
+//! inside the application, the Chromium it carries ([`crate::bundle_chromium`],
+//! ADR 0077):
 //! an `http` or `https` address, opened through Chrome's own network with
 //! every request judged here (ADR 0060), or a page's file, read here and
 //! handed to Chrome as bytes at its `file:` address, as a frozen page is.
@@ -77,7 +79,9 @@ pub const CHROME_AT: (i32, i32) = (120, 80);
 pub enum Renderer {
     /// This browser's own engine, in a window.
     ThisEngine,
-    /// The Chrome installed on this machine, driven over a pipe (ADR 0058).
+    /// A Chromium driven over a pipe (ADR 0058): the Chrome installed on
+    /// this machine, or inside the application only the Chromium it carries
+    /// (ADR 0077).
     Chrome,
 }
 

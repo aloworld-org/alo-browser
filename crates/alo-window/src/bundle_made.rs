@@ -13,6 +13,11 @@
 //! into the command as it is compiled, so the pages an application carries
 //! are the bytes whose renders are committed — never a copy that drifted.
 //!
+//! It does not yet hold the Chromium the application draws the web with, at
+//! [`crate::bundle::CHROMIUM`] (ADR 0077): which Chromium, from where, is
+//! queue item 720's. Until then the application it makes draws its page
+//! with this engine, on the page that says its own Chromium is missing.
+//!
 //! It is made beside where it is going, under a directory of its own, sealed
 //! there, and moved into place whole: a command that stopped halfway leaves no application a
 //! person could open half-made. An application already there is refused,
@@ -28,7 +33,8 @@ use std::path::{Path, PathBuf};
 /// The application's page, the corpus case `the-applications-page`.
 const THE_PAGE: &str = include_str!("../../alo-corpus/cases/the-applications-page/page.html");
 
-/// The page this engine draws on a Mac with no Chrome, the corpus case
+/// The page this engine draws when the application's own Chromium is
+/// missing or damaged (ADR 0077), the corpus case
 /// `the-applications-page-without-chrome`.
 const THE_PAGE_WITHOUT_CHROME: &str =
     include_str!("../../alo-corpus/cases/the-applications-page-without-chrome/page.html");
@@ -286,8 +292,13 @@ mod tests {
 
     #[test]
     fn the_pages_are_the_corpus_cases() {
-        assert!(THE_PAGE.contains("This page is drawn by this Mac's Chrome"));
-        assert!(THE_PAGE_WITHOUT_CHROME.contains("Chrome"));
+        // ADR 0077: the application's page is drawn by the Chromium it
+        // carries, and the other says that Chromium is missing or damaged —
+        // neither speaks of the machine's Chrome.
+        assert!(THE_PAGE.contains("This page is drawn by the Chromium alo browser carries"));
+        assert!(THE_PAGE_WITHOUT_CHROME.contains("own Chromium is missing or damaged"));
+        assert!(!THE_PAGE.contains("Mac's Chrome"));
+        assert!(!THE_PAGE_WITHOUT_CHROME.contains("Chrome was not found"));
         assert_ne!(THE_PAGE, THE_PAGE_WITHOUT_CHROME);
     }
 

@@ -2,17 +2,29 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Whether `alo` runs inside the macOS application, and what it opens there
-//! when a person named nothing (queue item 477; ADR 0067 § 3, ADR 0068).
+//! Whether `alo` runs inside the macOS application, what it opens there
+//! when a person named nothing, and where the application carries its own
+//! Chromium (queue items 477 and 719; ADR 0067 § 3, ADR 0068, ADR 0077).
 //!
 //! An application opened from the Finder is given no arguments, its input
 //! is `/dev/null` and its directory `/` (ADR 0067 § 1, measured). So it
 //! carries a page of its own, in `Contents/Resources`, and opens it when
-//! nothing is named: in the machine's Chrome, driven by this browser, or —
-//! on a Mac with no Chrome where its installer puts it — drawn by this
-//! engine on a second page that says so (ADR 0068 § 3). Both pages are
-//! markup we wrote, kept as the corpus cases `the-applications-page` and
-//! `the-applications-page-without-chrome` with their committed renders.
+//! nothing is named: in the Chromium the application carries, driven by
+//! this browser, or — when that Chromium is not there or cannot be started
+//! — drawn by this engine on a second page that says so (ADR 0068 § 3, as
+//! ADR 0077 changed it). Both pages are markup we wrote, kept as the corpus
+//! cases `the-applications-page` and `the-applications-page-without-chrome`
+//! with their committed renders.
+//!
+//! # Its own Chromium, and never the machine's Chrome
+//!
+//! The application starts only the Chromium at [`CHROMIUM`] inside its own
+//! `Contents` ([`Bundle::chromium`]): `Contents/Frameworks/Chromium.app`,
+//! an application inside the application as macOS keeps helper bundles,
+//! with its program where a Chromium release build puts it,
+//! `Contents/MacOS/Chromium`. It never uses the machine's Chrome, even when
+//! one is installed (ADR 0077): the owner's words, *as if the user only has
+//! alo-browser on his PC*. Which Chromium is put there is queue item 720's.
 //!
 //! Where the program is decides it, the way [`crate::beside`] finds the
 //! renderer: a program at `NAME.app/Contents/MacOS/` whose
@@ -26,12 +38,19 @@ use std::path::{Path, PathBuf};
 /// The file name of the page the application opens in Chrome.
 pub const PAGE: &str = "page.html";
 
-/// The file name of the page this engine draws where there is no Chrome.
+/// The file name of the page this engine draws when the application's own
+/// Chromium is missing or cannot be started.
 pub const WITHOUT_CHROME: &str = "without-chrome.html";
+
+/// Where the application carries its own Chromium's program, under its
+/// `Contents` (ADR 0077).
+pub const CHROMIUM: &str = "Frameworks/Chromium.app/Contents/MacOS/Chromium";
 
 /// The macOS application a program runs inside.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bundle {
+    /// Its `Contents`, holding `Resources` and [`CHROMIUM`].
+    contents: PathBuf,
     /// Its `Contents/Resources`, holding [`PAGE`].
     resources: PathBuf,
 }
@@ -47,37 +66,50 @@ impl Bundle {
             && contents.file_name()? == "Contents"
             && application.extension()? == "app";
         let resources = contents.join("Resources");
-        (named && resources.join(PAGE).is_file()).then_some(Self { resources })
+        (named && resources.join(PAGE).is_file()).then(|| Self {
+            contents: contents.to_path_buf(),
+            resources,
+        })
     }
 
-    /// The page it opens in Chrome.
+    /// The program of the Chromium it carries, the only one it starts
+    /// ([`CHROMIUM`], ADR 0077) — whether or not one is there.
+    pub fn chromium(&self) -> PathBuf {
+        self.contents.join(CHROMIUM)
+    }
+
+    /// The page it opens in its own Chromium.
     pub fn page(&self) -> PathBuf {
         self.resources.join(PAGE)
     }
 
-    /// The page this engine draws on a Mac with no Chrome.
+    /// The page this engine draws when its own Chromium is missing or
+    /// cannot be started.
     pub fn page_without_chrome(&self) -> PathBuf {
         self.resources.join(WITHOUT_CHROME)
     }
 
     /// What `alo` opens inside this application when it was asked for
-    /// `opening`, and whether the machine has a Chrome.
+    /// `opening`, and whether the application's own Chromium is there to
+    /// start — never whether the machine has a Chrome, which inside the
+    /// application is never asked (ADR 0077).
     ///
     /// A page named is opened as it always is, and so is the conversation
     /// (`--conversation`, queue item 709), which this engine draws with or
-    /// without a Chrome. Nothing named — no page, no `--chrome` and no
-    /// `--conversation` — opens [`Bundle::page`] in Chrome; with no Chrome,
-    /// [`Bundle::page_without_chrome`] in this engine. An option only this
-    /// engine uses (`--scale`, `--frozen-fonts`) beside nothing named is a
-    /// person asking for this engine from a terminal, and it opens the empty
-    /// tab it always has: the application's page would say Chrome draws it.
-    pub fn opening(&self, opening: Opening, chrome: bool) -> Opening {
+    /// without a Chromium. Nothing named — no page, no `--chrome` and no
+    /// `--conversation` — opens [`Bundle::page`] in the application's own
+    /// Chromium; with none, [`Bundle::page_without_chrome`] in this engine.
+    /// An option only this engine uses (`--scale`, `--frozen-fonts`) beside
+    /// nothing named is a person asking for this engine from a terminal, and
+    /// it opens the empty tab it always has: the application's page would
+    /// say a Chromium draws it.
+    pub fn opening(&self, opening: Opening, chromium: bool) -> Opening {
         let named =
             opening.page.is_some() || opening.renderer == Renderer::Chrome || opening.conversation;
         if named {
             return opening;
         }
-        if !chrome {
+        if !chromium {
             return Opening {
                 page: Some(self.page_without_chrome()),
                 ..opening
@@ -120,6 +152,14 @@ mod tests {
         }
     }
 
+    /// An application at `/A.app`, as [`Bundle::around`] would find it.
+    fn a_bundle() -> Bundle {
+        Bundle {
+            contents: PathBuf::from("/A.app/Contents"),
+            resources: PathBuf::from("/A.app/Contents/Resources"),
+        }
+    }
+
     fn opening(words: &[&str]) -> Option<Opening> {
         Opening::from_arguments(words.iter().map(|word| (*word).to_owned())).ok()
     }
@@ -138,6 +178,15 @@ mod tests {
         assert_eq!(
             bundle.as_ref().map(Bundle::page_without_chrome),
             Some(resources.join("without-chrome.html"))
+        );
+        assert_eq!(
+            bundle.as_ref().map(Bundle::chromium),
+            Some(
+                programs
+                    .with_file_name("Frameworks")
+                    .join("Chromium.app/Contents/MacOS/Chromium")
+            ),
+            "its own Chromium, inside it, whether or not one is there"
         );
         unshape(&programs);
     }
@@ -160,10 +209,8 @@ mod tests {
     }
 
     #[test]
-    fn the_conversation_asked_for_is_opened_as_asked_with_or_without_chrome() {
-        let bundle = Bundle {
-            resources: PathBuf::from("/A.app/Contents/Resources"),
-        };
+    fn the_conversation_asked_for_is_opened_as_asked_with_or_without_a_chromium() {
+        let bundle = a_bundle();
         let Some(asked) = opening(&["--conversation"]) else {
             panic!("an argument");
         };
@@ -173,10 +220,8 @@ mod tests {
     }
 
     #[test]
-    fn nothing_named_opens_the_applications_page_in_chrome() {
-        let bundle = Bundle {
-            resources: PathBuf::from("/A.app/Contents/Resources"),
-        };
+    fn nothing_named_opens_the_applications_page_in_its_own_chromium() {
+        let bundle = a_bundle();
         let Some(asked) = opening(&["--agent-site", "https://example.com"]) else {
             panic!("these are arguments");
         };
@@ -190,10 +235,8 @@ mod tests {
     }
 
     #[test]
-    fn with_no_chrome_this_engine_draws_the_page_that_says_so() {
-        let bundle = Bundle {
-            resources: PathBuf::from("/A.app/Contents/Resources"),
-        };
+    fn with_no_chromium_of_its_own_this_engine_draws_the_page_that_says_so() {
+        let bundle = a_bundle();
         for words in [&[][..], &["--scale", "2"][..], &["--frozen-fonts"][..]] {
             let Some(asked) = opening(words) else {
                 panic!("these are arguments");
@@ -213,9 +256,7 @@ mod tests {
 
     #[test]
     fn a_page_named_or_this_engines_options_are_kept() {
-        let bundle = Bundle {
-            resources: PathBuf::from("/A.app/Contents/Resources"),
-        };
+        let bundle = a_bundle();
         for words in [
             &["page.html"][..],
             &["--chrome", "https://example.com/"][..],

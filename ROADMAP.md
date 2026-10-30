@@ -111,7 +111,7 @@ and the same record now have two things underneath them:
 
 | | **The product path** | **The engine path** |
 |---|---|---|
-| What renders | the machine's own Chrome, over a pipe | `alo-render`, ours, in Rust |
+| What renders | Chromium, over a pipe — inside the application only the Chromium it carries, never the machine's Chrome (ADR 0077, 719); the machine's Chrome only for `alo --chrome` run from a terminal | `alo-render`, ours, in Rust |
 | What is ours | the tree, the verbs, the grants, the record, the window | all of it |
 | Reaches a browser a person can use in | weeks | years |
 | What it proves | that reading an interface beats photographing it | that a browser need not be written in a language that permits the bug |
@@ -232,7 +232,11 @@ about this project (ADR 0058 § 6).
   **`alo` inside the macOS application** — at `NAME.app/Contents/MacOS/`
   with nothing named it opens the application's own page in the
   machine's Chrome, its input not watched, or on a Mac with no Chrome
-  draws a page saying so with this engine; started as macOS starts an
+  draws a page saying so with this engine (ADR 0077 then took the
+  machine's Chrome away from the application: it starts only the
+  Chromium at `Contents/Frameworks/Chromium.app` inside it, and draws
+  with this engine, saying so, when that one is missing or damaged —
+  719); started as macOS starts an
   application it runs on after its input has ended, and ended it leaves
   no Chrome running, measured by a real Quit as well (477's first part);
   and **the application made by a command** — `alo-bundle`, after `cargo
@@ -344,7 +348,8 @@ about this project (ADR 0058 § 6).
   Quit and never by its input (ADR 0067) — and, by the owner's change the
   same day, drawing that page in the machine's own Chrome driven as `alo
   --chrome` drives it, this engine only on a Mac with no Chrome, saying so
-  (ADR 0068); and how a closed list's option is chosen through a shown
+  (ADR 0068) — superseded for the application by ADR 0077, which has it
+  carry its own Chromium and never use the machine's Chrome; and how a closed list's option is chosen through a shown
   Chrome — measured with the screen in use, in macOS's own menu, opened by
   the click, its highlight moved by arrows posted to Chrome's process and
   chosen by Return, each key only while the window server shows the menu,
@@ -856,7 +861,7 @@ unreachable without it.
       item 86), and a `blob:` taking the origin of whoever created it (queue
       items 72 and 90)
 
-- [ ] **A rented renderer behind the same boundary — the machine's own Chrome, driven over a pipe (ADR 0058)**, so the open web renders while the engine is built
+- [ ] **A rented renderer behind the same boundary — Chromium, driven over a pipe (ADR 0058): the machine's own Chrome from a terminal, and inside the application only the Chromium it carries (ADR 0077)**, so the open web renders while the engine is built
       · Built: the pipe (queue item 619) — `alo-window`'s `chrome.rs` starts
       the Chrome its installer put on the machine (`beside.rs`), headless on
       a private profile, with `--remote-debugging-pipe` and never a port;
@@ -987,7 +992,16 @@ unreachable without it.
       net-log test (ADR 0060's fourth amendment, 650), a `.local` name
       found held by macOS's Local Network privacy until a person allows
       Chrome, and the application's own page saying so (697)
-      · Owed: Chrome's own last two requests, `ListAccounts` and the
+      — and inside the application only the Chromium it carries,
+      `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium`, never the
+      machine's Chrome even when one is installed, named to the person and
+      to an agent as *the Chromium alo carries* (`CarriedChromium`); with
+      none there or one that does not answer, the application's page drawn
+      by this engine saying so; asserted by a test bundle holding a cloned
+      Chromium, started by its path in the process table, and by bundles
+      with none and with a damaged one (ADR 0077, 719)
+      · Owed: which Chromium the application carries, pinned and checked
+      (720), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
       and is 696's, needs ADR; a
       scoped resolver and the system's own encrypted DNS measured through
@@ -2341,7 +2355,8 @@ items where being right and being unusable are the same outcome.
       for `example.com`, in a reference render, the offers' boxes in
       numbers and a hostile typed string staying text; and the address
       chosen opened in the machine's Chrome from the conversation's own
-      process (713, ADR 0075) — through `alo --chrome`'s `ChromeServing`,
+      process (713, ADR 0075) — inside the application, only in the
+      Chromium it carries (719, ADR 0077) — through `alo --chrome`'s `ChromeServing`,
       every request held and recorded, on a thread the window never waits
       on, in Chrome's `--app` window put over the first screen with no
       frame of ours, a second address replacing the first, the first

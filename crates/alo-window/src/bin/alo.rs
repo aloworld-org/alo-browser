@@ -38,7 +38,8 @@
 //! page and no socket. A press on a chat or *New chat* is answered (queue
 //! item 710), and a press on the box lets a person type into it, with *Go
 //! to the site* offered for an address and Return deciding to go there
-//! (item 701). Going there opens the address in the machine's Chrome, in
+//! (item 701). Going there opens the address in the machine's Chrome — or,
+//! inside the application, the Chromium it carries (item 719) — in
 //! Chrome's own window put over the first screen and with no frame of ours
 //! beside it, its every request held to the same rules and recorded as
 //! `--chrome`'s (item 713, ADR 0075); a second address replaces the first,
@@ -46,15 +47,20 @@
 //! opened for it. Closing the window stops both renderers and closes that
 //! Chrome, its profile removed.
 //!
-//! Inside the macOS application, `alo browser.app` (queue item 477, ADRs
-//! 0067 and 0068), nothing named opens the application's own page in the
-//! machine's Chrome as `--chrome` would — or, on a Mac with no Chrome, in
-//! this engine, on a page that says so ([`alo_window::bundle`]). There its
-//! input is not watched: macOS gives an application `/dev/null`, which ends
-//! as it is read, and it is closed by its windows or by Quit instead.
+//! Inside the macOS application, `alo browser.app` (queue items 477 and
+//! 719, ADRs 0067, 0068 and 0077), nothing named opens the application's own
+//! page as `--chrome` would, but in **the Chromium the application carries**
+//! at `Contents/Frameworks/Chromium.app` — and every Chromium it starts is
+//! that one, never the machine's Chrome, even when one is installed
+//! ([`alo_window::bundle_chromium`]). With none there, or one that cannot be
+//! started, it draws its page with this engine on a page that says so, and
+//! says why on the terminal. There its input is not watched: macOS gives an
+//! application `/dev/null`, which ends as it is read, and it is closed by
+//! its windows or by Quit instead.
 //!
 //! Either way the terminal says which renderer draws the page: this engine,
-//! or Chrome by the version it gives itself (ADR 0058 § 6). And while it
+//! or Chrome by the version it gives itself (ADR 0058 § 6), named as the
+//! application's own Chromium when it is. And while it
 //! runs, a person asks it which renderer draws a tab with `alo-ask` and the
 //! socket's `renderer` ask, answered by this process and never by the page
 //! (queue item 622).
@@ -63,10 +69,11 @@ use alo_net::Pool;
 use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
-use alo_window::beside::{chrome_on_this_machine, renderer_beside};
+use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::bundle::Bundle;
+use alo_window::bundle_chromium::{decide, undrawn};
 use alo_window::chrome_profile::Swept;
-use alo_window::chrome_serving::ChromeServing;
+use alo_window::chrome_serving::{ChromeServing, Unserved};
 use alo_window::closing::Closing;
 use alo_window::conductor::{Conductor, Fonts};
 use alo_window::inbox::Orders;
@@ -86,30 +93,31 @@ fn main() -> ExitCode {
     let bundle = std::env::current_exe()
         .ok()
         .and_then(|program| Bundle::around(&program));
-    let opening = match &bundle {
-        Some(bundle) => in_the_application(bundle, &asked),
-        None => asked,
-    };
+    let decided = decide(bundle.as_ref(), asked.clone());
+    if let Some(said) = &decided.said {
+        eprintln!("alo: {said}");
+    }
+    let opening = decided.opening;
     if opening.conversation {
-        return in_the_conversation(&opening);
+        return in_the_conversation(&opening, decided.chromium);
     }
     match opening.renderer {
         Renderer::ThisEngine => in_this_engine(&opening),
-        Renderer::Chrome => in_chrome(&opening, bundle.is_none()),
+        Renderer::Chrome => match in_chrome(&opening, bundle.is_none(), decided.chromium) {
+            Ok(ran) => ran,
+            // The application's own Chromium could not draw its page: this
+            // engine does, never the machine's Chrome (ADR 0077).
+            Err(why) => {
+                if let Some((instead, said)) = undrawn(bundle.as_ref(), &asked, &why) {
+                    eprintln!("alo: {said}");
+                    in_this_engine(&instead)
+                } else {
+                    eprintln!("alo: {why}");
+                    ExitCode::FAILURE
+                }
+            }
+        },
     }
-}
-
-/// What the application opens when it was asked for `asked`, saying on the
-/// terminal when the machine has no Chrome and this engine draws its page.
-fn in_the_application(bundle: &Bundle, asked: &Opening) -> Opening {
-    let chrome = chrome_on_this_machine();
-    let opening = bundle.opening(asked.clone(), chrome.is_ok());
-    if let Err(none) = chrome
-        && opening != *asked
-    {
-        eprintln!("alo: {none}, so this browser's own engine draws the application's page");
-    }
-    opening
 }
 
 /// Open a window whose page this engine draws, and run until it closes.
@@ -183,8 +191,9 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
 }
 
 /// Open the conversation's window — the chats panel and the first screen,
-/// each drawn by a renderer of this engine's — and run until it closes.
-fn in_the_conversation(opening: &Opening) -> ExitCode {
+/// each drawn by a renderer of this engine's — and run until it closes, an
+/// address chosen in it opened in the Chromium `chromium` names.
+fn in_the_conversation(opening: &Opening, chromium: Chromium) -> ExitCode {
     let renderers = match renderers(opening.fonts) {
         Ok(renderers) => renderers,
         Err(failed) => return failed,
@@ -193,7 +202,7 @@ fn in_the_conversation(opening: &Opening) -> ExitCode {
         "alo: the browser's own interface is drawn by {}",
         RenderedBy::ThisEngine
     );
-    match alo_window::window::conversation(opening.scale, renderers) {
+    match alo_window::window::conversation(opening.scale, renderers, chromium) {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {
             eprintln!("alo: {why}");
@@ -202,17 +211,25 @@ fn in_the_conversation(opening: &Opening) -> ExitCode {
     }
 }
 
-/// Open the page in the machine's Chrome with a frame of ours around its
+/// Open the page in the Chromium `chromium` names — the machine's Chrome,
+/// or inside the application its own — with a frame of ours around its
 /// window, answer agents about it, and run until either window is closed
 /// or — when `watching` its input — that input ends.
-fn in_chrome(opening: &Opening, watching: bool) -> ExitCode {
+///
+/// # Errors
+///
+/// Why that Chromium did not start, say which it is, or open the page,
+/// for the caller to say — or, inside the application, to draw its page
+/// with this engine instead. Anything else is said here and ends in the
+/// exit code returned.
+fn in_chrome(opening: &Opening, watching: bool, chromium: Chromium) -> Result<ExitCode, Unserved> {
     // Read before Chrome is started, so a file that is not there is said
     // without starting it.
     let page = match opening.chrome_page() {
         Ok(page) => page,
         Err(why) => {
             eprintln!("alo: {why}");
-            return ExitCode::from(2);
+            return Ok(ExitCode::from(2));
         }
     };
     // The page's tab in the frame is drawn by a tab strip's renderer of
@@ -220,23 +237,18 @@ fn in_chrome(opening: &Opening, watching: bool) -> ExitCode {
     // there is said before Chrome is started.
     let strips = match renderers(opening.fonts) {
         Ok(renderers) => renderers,
-        Err(failed) => return failed,
+        Err(failed) => return Ok(failed),
     };
     let (tell, told) = std::sync::mpsc::channel();
     let started = ChromeServing::start_shown(
+        chromium,
         page,
         CHROME_SIZE,
         CHROME_AT,
         opening.agents.clone(),
         Box::new(move |news| tell.send(news).is_ok()),
     );
-    let serving = match started {
-        Ok(serving) => serving,
-        Err(why) => {
-            eprintln!("alo: {why}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let serving = started?;
     say_where_chrome_is(&serving);
     let orders = serving.orders();
     let listening = listen(&orders, &opening.agents);
@@ -269,7 +281,7 @@ fn in_chrome(opening: &Opening, watching: bool) -> ExitCode {
         finished.set(serving.records().is_some());
     });
     let ran = alo_window::window::frame(told, frame_orders, rendered_by, strips, closing);
-    match ran {
+    Ok(match ran {
         Err(why) => {
             eprintln!("alo: {why}");
             ExitCode::FAILURE
@@ -279,7 +291,7 @@ fn in_chrome(opening: &Opening, watching: bool) -> ExitCode {
             ExitCode::FAILURE
         }
         Ok(()) => ExitCode::SUCCESS,
-    }
+    })
 }
 
 /// The renderers this program starts — the renderer built beside it, with

@@ -148,8 +148,13 @@ float: `23.2`, not `23.200000762939453`.
 ADR 0058 § 6: *somewhere a person can read, the product says what is
 rendering.* This is that place while the browser runs, for a person with
 `alo-ask` as much as for an agent (queue item 622). `renderer`'s `kind` is
-`ThisEngine` or `Chrome`, and a Chrome carries `product`: its product and
-version as it gives them itself. `said` is the same in English.
+`ThisEngine`, `Chrome` — the machine's, driven by `alo --chrome` from a
+terminal — or `CarriedChromium`, the Chromium the macOS application carries
+and the only one it starts (ADR 0077, queue item 719); either of the last
+two carries `product`: its product and version as it gives them itself. A
+Chromium names itself as Chrome does, so `product` alone never says whose
+it is; `kind` does. `said` is the same in English: `Chrome/156.0.8078.76,
+the Chromium alo carries, driven by this browser`.
 
 It is answered by the browser process from what it started, never by the
 page or its renderer, so a tab with nothing loaded in it is answered all the

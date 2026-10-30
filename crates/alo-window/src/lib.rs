@@ -28,7 +28,9 @@
 //! - [`opening`] is what a person named on the command line, [`fonts`] the
 //!   fonts renderers start with, and [`beside`] where the renderer program is.
 //!   Inside the macOS application, [`bundle`] decides what is opened with
-//!   nothing named (item 477); `alo-bundle` makes that application, put
+//!   nothing named (item 477), and [`bundle_chromium`] that only the
+//!   Chromium the application carries is started there, never the machine's
+//!   Chrome (item 719, ADR 0077); `alo-bundle` makes that application, put
 //!   together by [`bundle_made`] with the [`info_plist`] it says of itself
 //!   and sealed by [`bundle_seal`] (item 687).
 //! - [`agents`] is the socket an agent outside the browser speaks to (ADR
@@ -124,6 +126,7 @@ pub mod aim;
 pub mod asking;
 pub mod beside;
 pub mod bundle;
+pub mod bundle_chromium;
 pub mod bundle_icon;
 pub mod bundle_made;
 pub mod bundle_seal;

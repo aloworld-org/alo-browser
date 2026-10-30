@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! The address chosen from the conversation's one box, opened in the
-//! machine's Chrome (queue item 713, ADR 0075).
+//! machine's Chrome (queue item 713, ADR 0075) — or, inside the
+//! application, only in the Chromium the application carries (ADR 0077,
+//! queue item 719), which [`ChromeOpener::start`] is told.
 //!
 //! Return or *Go* on an address decides where to go
 //! ([`crate::conversation::Conversation::going`], item 701). This opens it
@@ -55,6 +57,7 @@
 //! (ADR 0069) before it returns.
 
 use crate::agent_sites::AgentSites;
+use crate::beside::Chromium;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_serving::{ChromeServing, Opening, TellFrame};
@@ -196,15 +199,20 @@ pub struct ChromeOpener {
 
 impl ChromeOpener {
     /// Start a thread that opens each address it is handed in the
-    /// machine's Chrome, shown and with no frame of ours, and tells the
-    /// window what became of it with `tell`. Chrome is not started until an
-    /// address is.
+    /// Chromium `chromium` names — the machine's Chrome, or inside the
+    /// application only its own (ADR 0077) — shown and with no frame of
+    /// ours, and tells the window what became of it with `tell`. Chrome is
+    /// not started until an address is; one that cannot be is said as why
+    /// the address was not opened ([`Went::Unopened`]).
     ///
     /// # Errors
     ///
     /// What the system said when no thread could be started.
-    pub fn start(tell: TellWent) -> std::io::Result<Self> {
-        Self::starting_with(Box::new(in_chrome), tell)
+    pub fn start(chromium: Chromium, tell: TellWent) -> std::io::Result<Self> {
+        Self::starting_with(
+            Box::new(move |url, placing, told| in_chrome(&chromium, url, placing, told)),
+            tell,
+        )
     }
 
     /// [`ChromeOpener::start`], each Chrome started by `starter`.
@@ -339,10 +347,16 @@ fn hold(
     finished
 }
 
-/// Start the machine's Chrome at `url`, shown with no frame of ours and
-/// put as `placing` says, held as `alo --chrome` holds its page.
-fn in_chrome(url: &Url, placing: Placing, told: TellFrame) -> Result<Held, String> {
+/// Start the Chromium `chromium` names at `url`, shown with no frame of
+/// ours and put as `placing` says, held as `alo --chrome` holds its page.
+fn in_chrome(
+    chromium: &Chromium,
+    url: &Url,
+    placing: Placing,
+    told: TellFrame,
+) -> Result<Held, String> {
     let serving = ChromeServing::start_shown_alone(
+        chromium.clone(),
         Opening::Network(url.clone()),
         placing.size,
         placing.at,

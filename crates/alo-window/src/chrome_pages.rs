@@ -51,13 +51,11 @@ pub struct ChromePages<'c> {
 }
 
 impl<'c> ChromePages<'c> {
-    /// `tab`, in the Chrome that says it is `product` — as
+    /// `tab`, in the Chrome that is `rendered_by` — the machine's or the
+    /// application's own, by the product it says it is, as
     /// `Chrome/155.0.8059.86`, from [`crate::chrome::Chrome::version`].
-    pub fn of(tab: Tab<'c>, product: String) -> Self {
-        Self {
-            tab,
-            rendered_by: RenderedBy::Chrome { product },
-        }
+    pub fn of(tab: Tab<'c>, rendered_by: RenderedBy) -> Self {
+        Self { tab, rendered_by }
     }
 
     /// The tab.

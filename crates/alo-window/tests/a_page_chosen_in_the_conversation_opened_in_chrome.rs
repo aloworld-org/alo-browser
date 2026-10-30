@@ -26,6 +26,7 @@
 //!
 //! Never the real network: the address is `http://127.0.0.1:PORT/…`.
 
+use alo_window::beside::Chromium;
 use alo_window::conversation::{Conversation, Pressed};
 use alo_window::conversation_box::Typed;
 use alo_window::conversation_chrome::{ChromeOpener, Placing, Went};
@@ -248,8 +249,11 @@ fn waiting_for(mut done: impl FnMut() -> Result<bool, String>) -> Result<bool, S
 /// An opener, and what it tells the window.
 fn opener() -> Result<(ChromeOpener, Receiver<Went>), String> {
     let (tell, told) = channel();
-    let opener = ChromeOpener::start(Box::new(move |went| tell.send(went).is_ok()))
-        .map_err(|why| why.to_string())?;
+    let opener = ChromeOpener::start(
+        Chromium::Machines,
+        Box::new(move |went| tell.send(went).is_ok()),
+    )
+    .map_err(|why| why.to_string())?;
     Ok((opener, told))
 }
 

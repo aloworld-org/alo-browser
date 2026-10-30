@@ -4,7 +4,7 @@ block flow · document
       block flow · heading [level=1]
         text "alo browser"
       block flow · paragraph
-        text "This page is drawn by this Mac's Chrome, driven by alo browser."
+        text "This page is drawn by the Chromium alo browser carries, driven by alo browser."
       block flow · heading [level=2]
         text "What this is"
       block flow · paragraph
@@ -22,11 +22,11 @@ block flow · document
           text "Contents/MacOS/alo-ask"
         text ". "
       block flow · paragraph
-        text " Chrome asks Google for two things of its own that are not held to alo browser's rules or kept in its record: which Google accounts it is signed into, and the list of its on-device models. alo browser starts it with everything else it would ask for of its own switched off. "
+        text " Chromium may ask Google for two things of its own that are not held to alo browser's rules or kept in its record: which Google accounts it is signed into, and the list of its on-device models. alo browser starts it with everything else it would ask for of its own switched off, and never uses another browser on this Mac, even one that is installed. "
       block flow · paragraph
         text " A page at a name ending in "
         inline flow · generic
           text ".local"
-        text ", such as this Mac's own, waits until macOS lets Chrome look on the local network. macOS asks whether to allow “Google Chrome Helper” to find devices on local networks; choose Allow, or allow it later in System Settings, under Privacy & Security, Local Network. "
+        text ", such as this Mac's own, waits until macOS lets alo browser's Chromium look on the local network. macOS asks whether to allow its helper to find devices on local networks; choose Allow, or allow it later in System Settings, under Privacy & Security, Local Network. "
       block flow · paragraph
         text "Closing this window, or quitting, closes alo browser."

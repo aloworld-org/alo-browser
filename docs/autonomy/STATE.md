@@ -45513,3 +45513,42 @@ owner chose B on 30 October. Items 717 (the card from the stream) and 718
 for this entry; every Chrome and profile the probes started was removed.
 
 The next unused queue number is **719** and the next ADR is **0077**.
+
+## Iteration 454 — queue item 719: the application uses only the Chromium it carries, never the machine's Chrome (ADR 0077)
+
+**Built by a delegated agent, reviewed here.** Inside `alo browser.app`
+the Chromium at `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium`
+(`bundle::CHROMIUM`) is the only one started — `beside::Chromium::Carried`,
+`Chrome::start_from`, refusing with `Unstarted::NotCarried` rather than
+looking elsewhere. With none there, or one that will not start or answer,
+this engine draws the application's page and the terminal and page say
+alo's own Chromium is missing or damaged (`bundle_chromium.rs`). A page a
+person named is never silently drawn by this engine. The renderer is named
+*the Chromium alo carries* (`RenderedBy::Carried`, socket kind
+`CarriedChromium`). `alo --chrome` from a terminal and the tests keep the
+machine's Chrome (`Chromium::Machines`). `alo-bundle` carries no Chromium
+yet (720), so the application draws with this engine until then.
+
+**A slip of mine, said.** Iteration 453's later commit `cc6dfae` (ADR
+0078's amendment) took QUEUE.md whole while this item's agent was
+editing it, so 719's tick and *Done* paragraph were pushed before its
+code. History is not rewritten; this commit brings the code the tick
+describes. Committing only the paths an item touched, as
+`docs/autonomy` memory says, is the rule I broke.
+
+**Tests.** `the_application_opens_its_own_page.rs` now clones the
+machine's Chrome into a temporary bundle's `Chromium.app` and asserts by
+process path that the bundle's copy started and the machine's did not;
+`the_application_with_no_chrome_of_its_own.rs` covers a missing and a
+damaged Chromium. The two application pages' corpus references were
+redrawn and looked at.
+
+**Gate.** **5719 tests, 5719 passed, 10 of 10 steps, "The gate is met."**
+
+**Unresolved obligations.** No Chromium is carried yet (720, waiting on
+the build route: ADR 0078's own build, or CEF under study as ADR 0079).
+`CarriedChromium` is a new value in the socket's v1. No claim about speed
+is made.
+
+The next unused queue number is **725** and the next ADR is **0080**
+(0079 is being drafted).

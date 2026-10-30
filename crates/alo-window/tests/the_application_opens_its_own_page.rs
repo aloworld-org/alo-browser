@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! `alo` inside the macOS application, started the way macOS starts it
-//! (queue item 477; ADR 0067 § 1, ADR 0068).
+//! (queue items 477 and 719; ADR 0067 § 1, ADR 0068, ADR 0077).
 //!
 //! The real `alo` and `alo-render`, copied into `alo browser.app` shaped as
 //! the application is, with the application's page from the corpus in its
@@ -12,10 +12,23 @@
 //! measured. Before this, `alo` given that opened an empty tab, and `alo
 //! --chrome` closed as it opened.
 //!
-//! Here it opens the application's page in the machine's Chrome, says so
-//! on the terminal with the way it is closed, and is still running after
-//! its input has ended. An agent, through `alo-ask`, finds the page at its
-//! `file:` address inside the application and is told Chrome draws it.
+//! The application carries **a Chromium of its own** at
+//! `Contents/Frameworks/Chromium.app/Contents/MacOS/Chromium` (ADR 0077).
+//! Until item 720 puts one there, the test's is this machine's Chrome
+//! cloned whole into that place — `cp -c`, a copy-on-write clone that costs
+//! no disk — with its program reached through a link named `Chromium`
+//! beside it, since a Chrome finds its framework and helpers from the path
+//! it was started at. It speaks the same protocol, and it is a different
+//! program at a different path from the machine's Chrome, which is never
+//! touched.
+//!
+//! Here it opens the application's page in that Chromium, says so on the
+//! terminal with the way it is closed, and is still running after its
+//! input has ended. The Chrome process it started is, by the process
+//! table's own word, the program inside the application, and no process of
+//! the machine's Chrome is among what it started. An agent, through
+//! `alo-ask`, finds the page at its `file:` address inside the application
+//! and is told the Chromium alo carries draws it.
 //! Then the application is **quit** as the Dock and ⌘Q quit it, by the
 //! Apple Event `osascript` sends it, which ends the process inside `AppKit`
 //! without returning from its event loop (ADR 0067 § 1). Nothing it started
@@ -32,6 +45,67 @@ use std::time::{Duration, Instant};
 /// How long the program is waited for to say where an agent reaches it,
 /// and what it started for to end.
 const AT_MOST: Duration = Duration::from_secs(60);
+
+/// Where Chrome's installer puts it on a Mac: what the test's Chromium is
+/// cloned from, and what the application must never start.
+const MACHINES_CHROME: &str = "/Applications/Google Chrome.app";
+
+/// Put a Chromium in the application whose `Contents` is `contents`, at
+/// the place it carries one: this machine's Chrome cloned, its program
+/// reached through a link named `Chromium` beside it. The program's path.
+fn carry_a_chromium(contents: &Path) -> Result<PathBuf, String> {
+    let frameworks = contents.join("Frameworks");
+    std::fs::create_dir_all(&frameworks).map_err(|why| why.to_string())?;
+    let carried = frameworks.join("Chromium.app");
+    let cloned = Command::new("/bin/cp")
+        .arg("-cR")
+        .arg(MACHINES_CHROME)
+        .arg(&carried)
+        .output()
+        .map_err(|why| format!("cp did not run: {why}"))?;
+    if !cloned.status.success() {
+        return Err(format!(
+            "{MACHINES_CHROME} could not be cloned into the application: {}",
+            String::from_utf8_lossy(&cloned.stderr)
+        ));
+    }
+    let program = carried.join("Contents/MacOS/Chromium");
+    std::os::unix::fs::symlink("Google Chrome", &program)
+        .map_err(|why| format!("{} could not be made: {why}", program.display()))?;
+    Ok(program)
+}
+
+/// The path the process table gives the program `pid` runs.
+fn program_of(pid: u32) -> Result<String, String> {
+    let read = Command::new("/bin/ps")
+        .args(["-o", "comm=", "-p", &pid.to_string()])
+        .output()
+        .map_err(|why| format!("ps did not run: {why}"))?;
+    Ok(String::from_utf8_lossy(&read.stdout).trim().to_owned())
+}
+
+/// The Chrome among `children`, a program's processes, checked to be the
+/// program at `carried` inside the application by the process table's word
+/// — and no process among them the machine's Chrome.
+fn only_its_own_chromium<'c>(
+    children: &'c [(u32, String)],
+    carried: &Path,
+) -> Result<&'c (u32, String), String> {
+    let chrome = children
+        .iter()
+        .find(|(_, args)| args.contains("--remote-debugging-pipe"))
+        .ok_or_else(|| format!("no Chrome among {children:?}"))?;
+    let carried = carried.to_str().ok_or("not a path ps can name")?;
+    assert_eq!(program_of(chrome.0)?, carried, "{children:?}");
+    for (child, args) in children {
+        let program = program_of(*child)?;
+        assert!(
+            !program.starts_with(MACHINES_CHROME),
+            "the machine's Chrome was started: {program} ({args})"
+        );
+    }
+    Ok(chrome)
+}
 
 /// How long after its input ended the program is asked to be running still:
 /// `alo --chrome` started this way had ended two seconds later (ADR 0067
@@ -185,6 +259,16 @@ fn running(pid: u32) -> bool {
         .is_ok_and(|status| status.success())
 }
 
+/// The test's own directory — the application and its cloned Chromium in
+/// it — removed when the test ends however it ends.
+struct RemovedAtTheEnd(PathBuf);
+
+impl Drop for RemovedAtTheEnd {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// The program, killed and waited for when the test ends however it ends.
 struct Started(Child);
 
@@ -198,8 +282,8 @@ impl Drop for Started {
 }
 
 /// An agent, through `alo-ask`, finds the application's page as its one tab,
-/// reads it laid out where the corpus case has it, and is told Chrome
-/// draws it.
+/// reads it laid out where the corpus case has it, and is told the
+/// Chromium alo carries draws it.
 fn reads_the_page_in_chrome(socket: &Path, contents: &Path) -> Result<(), String> {
     let page = contents.join("Resources").join("page.html");
     let address = format!(
@@ -235,11 +319,13 @@ fn reads_the_page_in_chrome(socket: &Path, contents: &Path) -> Result<(), String
         "{tree}"
     );
     assert!(
-        tree.contains("This page is drawn by this Mac's Chrome, driven by alo browser."),
+        tree.contains(
+            "This page is drawn by the Chromium alo browser carries, driven by alo browser."
+        ),
         "{tree}"
     );
     assert!(
-        renderer.contains(r#""renderer":{"kind":"Chrome","product":"Chrome/"#),
+        renderer.contains(r#""renderer":{"kind":"CarriedChromium","product":"Chrome/"#),
         "{renderer}"
     );
 
@@ -247,9 +333,11 @@ fn reads_the_page_in_chrome(socket: &Path, contents: &Path) -> Result<(), String
 }
 
 #[test]
-fn the_application_opens_its_page_in_chrome_and_quitting_leaves_nothing_running()
+fn the_application_opens_its_page_in_its_own_chromium_and_quitting_leaves_nothing_running()
 -> Result<(), String> {
     let (root, contents) = application()?;
+    let _removed = RemovedAtTheEnd(root.clone());
+    let carried = carry_a_chromium(&contents)?;
     let runtime = root.join("runtime");
     std::fs::create_dir_all(&runtime).map_err(|why| why.to_string())?;
     let mut child = Command::new(contents.join("MacOS").join("alo"))
@@ -268,7 +356,7 @@ fn the_application_opens_its_page_in_chrome_and_quitting_leaves_nothing_running(
         lines
             .iter()
             .any(|line| line.starts_with("alo: pages are drawn by Chrome/")
-                && line.ends_with(", driven by this browser")),
+                && line.ends_with(", the Chromium alo carries, driven by this browser")),
         "{lines:?}"
     );
 
@@ -297,10 +385,7 @@ fn the_application_opens_its_page_in_chrome_and_quitting_leaves_nothing_running(
 
     // What it started: Chrome, and the tab strip's renderer.
     let children = children_of(pid)?;
-    let chrome = children
-        .iter()
-        .find(|(_, args)| args.contains("--remote-debugging-pipe"))
-        .ok_or_else(|| format!("no Chrome among {children:?}"))?;
+    let chrome = only_its_own_chromium(&children, &carried)?;
     let profile = chrome
         .1
         .split(" --")

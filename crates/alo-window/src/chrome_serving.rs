@@ -5,8 +5,9 @@
 //! The agent socket reaching a tab in Chrome (ADR 0058 § 4, ADR 0055, queue
 //! item 630).
 //!
-//! A thread of its own holds the machine's Chrome and the one tab open in
-//! it, and is sent [`Order::Agent`] as the conductor is — by the same
+//! A thread of its own holds the machine's Chrome — or the Chromium the
+//! application carries, never the machine's, inside the application
+//! ([`Chromium`], ADR 0077) — and the one tab open in it, and is sent [`Order::Agent`] as the conductor is — by the same
 //! [`crate::agents::Listening`], over the same [`Orders`] — so a socket
 //! request reaches a page in Chrome through exactly what it reaches this
 //! engine's through: [`crate::serving`], with its order of judging and the
@@ -85,6 +86,7 @@ use crate::agent_lines::AgentLine;
 use crate::agent_record::{AgentRecord, Caller};
 use crate::agent_sites::AgentSites;
 use crate::asking::{Answer, Ask, Refused};
+use crate::beside::Chromium;
 use crate::chrome::{Chrome, Failed, Unstarted};
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
@@ -210,7 +212,13 @@ impl ChromeServing {
     /// [`Unserved`], when Chrome does not start, say which it is, or open
     /// the page — Chrome is closed again — or no thread could be started.
     pub fn start(opening: Opening, size: (u32, u32), sites: AgentSites) -> Result<Self, Unserved> {
-        Self::begin(opening, size, Drawn::Headless, sites, None)
+        Self::begin(
+            opening,
+            size,
+            (Chromium::Machines, Drawn::Headless),
+            sites,
+            None,
+        )
     }
 
     /// [`ChromeServing::start`], headless, with what each agent's verb was
@@ -228,21 +236,29 @@ impl ChromeServing {
         sites: AgentSites,
         frame: TellFrame,
     ) -> Result<Self, Unserved> {
-        Self::begin(opening, size, Drawn::Headless, sites, Some(frame))
+        Self::begin(
+            opening,
+            size,
+            (Chromium::Machines, Drawn::Headless),
+            sites,
+            Some(frame),
+        )
     }
 
-    /// [`ChromeServing::start`], with the machine's Chrome shown: the page
-    /// laid out at `size` CSS pixels in a window of Chrome's own, whose top
-    /// left corner is put at `left`, `top` on the screen — and the frame of
-    /// ours around it told on `frame` where to stand, as Chrome's window
-    /// moves, hides and closes, and what each agent's verb was answered
-    /// with.
+    /// [`ChromeServing::start`], with the Chromium `chromium` names shown —
+    /// the machine's Chrome, or inside the application only its own (ADR
+    /// 0077): the page laid out at `size` CSS pixels in a window of
+    /// Chrome's own, whose top left corner is put at `left`, `top` on the
+    /// screen — and the frame of ours around it told on `frame` where to
+    /// stand, as Chrome's window moves, hides and closes, and what each
+    /// agent's verb was answered with.
     ///
     /// # Errors
     ///
     /// As [`ChromeServing::start`], and [`Unserved::Unplaced`] when the
     /// window was not put there.
     pub fn start_shown(
+        chromium: Chromium,
         opening: Opening,
         size: (u32, u32),
         (left, top): (i32, i32),
@@ -252,11 +268,14 @@ impl ChromeServing {
         Self::begin(
             opening,
             size,
-            Drawn::Shown {
-                left,
-                top,
-                framed: true,
-            },
+            (
+                chromium,
+                Drawn::Shown {
+                    left,
+                    top,
+                    framed: true,
+                },
+            ),
             sites,
             Some(frame),
         )
@@ -272,6 +291,7 @@ impl ChromeServing {
     ///
     /// As [`ChromeServing::start_shown`].
     pub fn start_shown_alone(
+        chromium: Chromium,
         opening: Opening,
         size: (u32, u32),
         (left, top): (i32, i32),
@@ -281,21 +301,25 @@ impl ChromeServing {
         Self::begin(
             opening,
             size,
-            Drawn::Shown {
-                left,
-                top,
-                framed: false,
-            },
+            (
+                chromium,
+                Drawn::Shown {
+                    left,
+                    top,
+                    framed: false,
+                },
+            ),
             sites,
             Some(told),
         )
     }
 
-    /// Start a Chrome drawing as `drawn` says, on a thread of its own.
+    /// Start the Chromium named, drawing as `drawn` says, on a thread of
+    /// its own.
     fn begin(
         opening: Opening,
         size: (u32, u32),
-        drawn: Drawn,
+        (chromium, drawn): (Chromium, Drawn),
         sites: AgentSites,
         frame: Option<TellFrame>,
     ) -> Result<Self, Unserved> {
@@ -310,7 +334,7 @@ impl ChromeServing {
                 serve_in_chrome(
                     opening,
                     size,
-                    drawn,
+                    (&chromium, drawn),
                     &sites,
                     frame.as_deref(),
                     &inbox,
@@ -320,7 +344,7 @@ impl ChromeServing {
             .map_err(|why| Unserved::NoThread(why.kind()))?;
         match started.recv() {
             Ok(Ok(Started {
-                product,
+                rendered_by,
                 placed,
                 process,
                 profile,
@@ -328,7 +352,7 @@ impl ChromeServing {
             })) => Ok(Self {
                 orders,
                 thread,
-                rendered_by: RenderedBy::Chrome { product },
+                rendered_by,
                 placed,
                 process,
                 profile,
@@ -394,8 +418,8 @@ impl ChromeServing {
 
 /// What the thread holding Chrome says once the page is open.
 struct Started {
-    /// Which Chrome, as it says itself.
-    product: String,
+    /// Which Chrome, as it says itself, and whose it is.
+    rendered_by: RenderedBy,
     /// Where its window went, when it is shown.
     placed: Option<Placed>,
     /// Its process.
@@ -406,16 +430,18 @@ struct Started {
     swept: Swept,
 }
 
-/// Start a Chrome drawing as `drawn` says, and ask it which it is: its
-/// product, as it says itself.
-fn named_chrome(drawn: Drawn) -> Result<(Chrome, String), Unserved> {
-    let mut chrome = match drawn {
-        Drawn::Headless => Chrome::start(),
-        Drawn::Shown { .. } => Chrome::start_shown(),
-    }
-    .map_err(Unserved::Unstarted)?;
+/// Start the Chromium `chromium` names drawing as `drawn` says, and ask it
+/// which it is: its product, as it says itself, and whose it is — the
+/// machine's Chrome, or the application's own (ADR 0077).
+fn named_chrome(chromium: &Chromium, drawn: Drawn) -> Result<(Chrome, RenderedBy), Unserved> {
+    let shown = matches!(drawn, Drawn::Shown { .. });
+    let mut chrome = Chrome::start_from(chromium, shown).map_err(Unserved::Unstarted)?;
     let product = chrome.version().map_err(Unserved::Unnamed)?.product;
-    Ok((chrome, product))
+    let rendered_by = match chromium {
+        Chromium::Machines => RenderedBy::Chrome { product },
+        Chromium::Carried(_) => RenderedBy::Carried { product },
+    };
+    Ok((chrome, rendered_by))
 }
 
 /// Start Chrome, open the page, say whether that worked — and which Chrome
@@ -424,14 +450,14 @@ fn named_chrome(drawn: Drawn) -> Result<(Chrome, String), Unserved> {
 fn serve_in_chrome(
     opening: Opening,
     size: (u32, u32),
-    drawn: Drawn,
+    (chromium, drawn): (&Chromium, Drawn),
     sites: &AgentSites,
     frame: Option<&(dyn Fn(ToFrame) -> bool + Send)>,
     inbox: &Receiver<Arrival>,
     tell: &Sender<Result<Started, Unserved>>,
 ) -> AgentRecord {
     let mut record = AgentRecord::new();
-    let (mut chrome, product) = match named_chrome(drawn) {
+    let (mut chrome, rendered_by) = match named_chrome(chromium, drawn) {
         Ok(named) => named,
         Err(why) => {
             let _ = tell.send(Err(why));
@@ -462,10 +488,10 @@ fn serve_in_chrome(
         },
     };
     let mut marker = placed.is_some().then(Marker::default);
-    let mut pages = ChromePages::of(tab, product.clone());
+    let mut pages = ChromePages::of(tab, rendered_by.clone());
     if tell
         .send(Ok(Started {
-            product,
+            rendered_by,
             placed,
             process: pages.tab().chrome_process(),
             profile,

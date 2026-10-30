@@ -5,7 +5,9 @@
 //! Chrome, started and spoken to over a pipe (ADR 0058 § 3, queue item 619).
 //!
 //! The browser process starts the Chrome already installed on the machine
-//! ([`crate::beside::chrome_places`]) and speaks its DevTools protocol over
+//! ([`crate::beside::chrome_places`]) — or, inside the application, only the
+//! Chromium the application carries ([`Chromium::Carried`], ADR 0077) — and
+//! speaks its DevTools protocol over
 //! the process's own descriptors, with `--remote-debugging-pipe`. **Never a
 //! port**: a page's own script can reach `localhost`, and ADR 0055 § 1
 //! refused a port for the agent's socket for the same reason. Messages are
@@ -69,7 +71,7 @@
 //! 620 and 633) and closes; the verbs are carried out through it
 //! ([`crate::chrome_act`], item 621).
 
-use crate::beside::{NotInstalled, chrome_on_this_machine, is_program};
+use crate::beside::{Chromium, NotCarried, NotInstalled, chrome_on_this_machine, is_program};
 use crate::chrome_held::{Taker, Untaken, held};
 use crate::chrome_hold::Unheld;
 use crate::chrome_profile::{Profile, Swept, new_profile};
@@ -151,6 +153,9 @@ pub struct Chrome {
 pub enum Unstarted {
     /// It is not installed where it was looked for.
     NotInstalled(NotInstalled),
+    /// The application's own Chromium is not where the application carries
+    /// it (ADR 0077).
+    NotCarried(NotCarried),
     /// A profile of its own could not be made.
     NoProfile(ErrorKind),
     /// The program could not be started.
@@ -161,6 +166,7 @@ impl fmt::Display for Unstarted {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotInstalled(why) => why.fmt(f),
+            Self::NotCarried(why) => why.fmt(f),
             Self::NoProfile(kind) => write!(f, "Chrome's profile could not be made: {kind}"),
             Self::Unspawned(kind) => write!(f, "Chrome could not be started: {kind}"),
         }
@@ -228,8 +234,7 @@ impl Chrome {
     /// [`Unstarted::NotInstalled`] when it is not at any place its installer
     /// puts it, or another [`Unstarted`].
     pub fn start() -> Result<Self, Unstarted> {
-        let program = chrome_on_this_machine().map_err(Unstarted::NotInstalled)?;
-        Self::start_at(&program)
+        Self::start_from(&Chromium::Machines, false)
     }
 
     /// Start the Chrome installed on this machine shown, with a window of
@@ -239,8 +244,30 @@ impl Chrome {
     ///
     /// As [`Chrome::start`].
     pub fn start_shown() -> Result<Self, Unstarted> {
-        let program = chrome_on_this_machine().map_err(Unstarted::NotInstalled)?;
-        Self::launch(&program, true)
+        Self::start_from(&Chromium::Machines, true)
+    }
+
+    /// Start the Chromium `chromium` names, headless or `shown`: the
+    /// machine's Chrome where its installer puts it, or the application's
+    /// own at the one place it carries it — never anywhere else (ADR 0077).
+    ///
+    /// # Errors
+    ///
+    /// [`Unstarted::NotInstalled`] when the machine's Chrome is not at any
+    /// place its installer puts it, [`Unstarted::NotCarried`] when the
+    /// application's own is not a program at its place, or another
+    /// [`Unstarted`].
+    pub fn start_from(chromium: &Chromium, shown: bool) -> Result<Self, Unstarted> {
+        let program = match chromium {
+            Chromium::Machines => chrome_on_this_machine().map_err(Unstarted::NotInstalled)?,
+            Chromium::Carried(program) if is_program(program) => program.clone(),
+            Chromium::Carried(program) => {
+                return Err(Unstarted::NotCarried(NotCarried {
+                    looked: program.clone(),
+                }));
+            }
+        };
+        Self::launch(&program, shown)
     }
 
     /// Start the Chrome at `program`.

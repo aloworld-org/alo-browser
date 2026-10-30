@@ -138,6 +138,7 @@
 
 use crate::agent_lines::AgentLines;
 use crate::aim::{Aimed, aim, on_page};
+use crate::beside::Chromium;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
@@ -813,14 +814,19 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// Run the conversation's window until it is closed (ADR 0074, queue item
 /// 709): the chats panel and the first screen, each drawn by a renderer of
 /// `renderers`' at a site of its own, laid out at `forced` when a person
-/// named a scale and at its screen's otherwise.
+/// named a scale and at its screen's otherwise. An address chosen in it
+/// opens in the Chromium `chromium` names (queue items 713 and 719).
 ///
 /// # Errors
 ///
 /// What `winit` said, in words, when there could be no event loop or no
 /// window; or that the thread drawing the two parts could not be started,
 /// or did not finish.
-pub fn conversation(forced: Option<Scale>, renderers: Renderers) -> Result<(), String> {
+pub fn conversation(
+    forced: Option<Scale>,
+    renderers: Renderers,
+    chromium: Chromium,
+) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
     let event_loop = EventLoop::<Heard>::with_user_event()
@@ -833,9 +839,10 @@ pub fn conversation(forced: Option<Scale>, renderers: Renderers) -> Result<(), S
     )
     .map_err(|why| format!("no thread to draw the chats panel and the first screen: {why}"))?;
     let proxy = event_loop.create_proxy();
-    let chrome = ChromeOpener::start(Box::new(move |went| {
-        proxy.send_event(Heard::Chrome(went)).is_ok()
-    }))
+    let chrome = ChromeOpener::start(
+        chromium,
+        Box::new(move |went| proxy.send_event(Heard::Chrome(went)).is_ok()),
+    )
     .map_err(|why| format!("no thread to open a page in Chrome: {why}"))?;
     let mut conversing = Conversing {
         forced,

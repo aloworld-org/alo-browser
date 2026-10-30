@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The application uses only its own Chromium.** `alo browser.app` now
+  starts only the Chromium it carries inside itself, at
+  `Contents/Frameworks/Chromium.app`, and never the Chrome installed on
+  the Mac, even when there is one — for its own page, a page named with
+  `--chrome` and a website chosen in the conversation. With no Chromium
+  there, or one that will not start, it draws its page with its own
+  engine, on a page that says alo's own Chromium is missing or damaged,
+  and says why. What draws a page is named as *the Chromium alo carries*,
+  and an agent asking is told the renderer kind `CarriedChromium`. The
+  application `alo-bundle` makes holds no Chromium yet, so it draws with
+  its own engine until one is put there. `alo --chrome` run from a
+  terminal still drives the machine's Chrome (item 719).
+
 - **Going to a website from the new interface opens it.** In `alo
   --conversation`, typing an address and pressing Return now opens the page
   in the Chrome installed on the machine, in Chrome's own window placed

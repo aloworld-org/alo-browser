@@ -282,8 +282,8 @@ pub fn write(echo: Option<&Echo>, answer: &Answer) -> String {
     written
 }
 
-/// A renderer, as a kind and, for Chrome, the product and version it gives
-/// itself.
+/// A renderer, as a kind and, for Chrome or the application's own Chromium,
+/// the product and version it gives itself.
 fn renderer(rendered_by: &RenderedBy) -> Value {
     let mut fields = Map::new();
     match rendered_by {
@@ -292,6 +292,10 @@ fn renderer(rendered_by: &RenderedBy) -> Value {
         }
         RenderedBy::Chrome { product } => {
             fields.insert("kind".to_owned(), Value::from("Chrome"));
+            fields.insert("product".to_owned(), Value::from(product.as_str()));
+        }
+        RenderedBy::Carried { product } => {
+            fields.insert("kind".to_owned(), Value::from("CarriedChromium"));
             fields.insert("product".to_owned(), Value::from(product.as_str()));
         }
     }
@@ -971,6 +975,14 @@ mod tests {
             "{\"answer\":\"renderer\",\"id\":9,\"renderer\":{\"kind\":\"Chrome\",\
              \"product\":\"Chrome/155.0.8059.86\"},\"said\":\"Chrome/155.0.8059.86, driven by \
              this browser\",\"tab\":\"https://example.com/\",\"v\":1}\n"
+        );
+        assert_eq!(
+            answered(RenderedBy::Carried {
+                product: "Chrome/156.0.8078.76".to_owned()
+            }),
+            "{\"answer\":\"renderer\",\"id\":9,\"renderer\":{\"kind\":\"CarriedChromium\",\
+             \"product\":\"Chrome/156.0.8078.76\"},\"said\":\"Chrome/156.0.8078.76, the Chromium \
+             alo carries, driven by this browser\",\"tab\":\"https://example.com/\",\"v\":1}\n"
         );
     }
 

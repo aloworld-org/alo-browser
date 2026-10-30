@@ -38,6 +38,14 @@ pub enum RenderedBy {
         /// `Chrome/155.0.8059.86`.
         product: String,
     },
+    /// The Chromium the application carries inside it, driven over a pipe
+    /// as the machine's Chrome is — the only one the application ever
+    /// starts (ADR 0077).
+    Carried {
+        /// Its product and version, as it says itself: a Chromium names
+        /// itself as Chrome does, `Chrome/156.0.8078.76`.
+        product: String,
+    },
 }
 
 impl fmt::Display for RenderedBy {
@@ -45,6 +53,12 @@ impl fmt::Display for RenderedBy {
         match self {
             Self::ThisEngine => f.write_str("this browser's engine"),
             Self::Chrome { product } => write!(f, "{product}, driven by this browser"),
+            Self::Carried { product } => {
+                write!(
+                    f,
+                    "{product}, the Chromium alo carries, driven by this browser"
+                )
+            }
         }
     }
 }
