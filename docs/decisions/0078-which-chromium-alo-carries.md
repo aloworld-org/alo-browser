@@ -217,6 +217,14 @@ What follows from it:
   draws with this engine, saying so (ADR 0077, item 719).
 - The recommendation below is kept as the record of what was weighed.
 
+### Amendment: CEF first, this build before alo is offered widely (ADR 0079)
+
+The same day the owner chose ADR 0079: alo carries CEF's published builds
+now, so it is standalone on every system with no build machines, and moves
+to the build this ADR describes **before alo is offered widely**, so
+security fixes reach people the day Chrome's do. Items 723 and 724 stay,
+for that later step.
+
 ### Amendment, the same day: every system, not only the Mac
 
 The owner: *"We shall not ship alo-browser to only Mac users but to all."*

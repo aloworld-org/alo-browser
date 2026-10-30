@@ -79,7 +79,8 @@ ADR 0058 — and nothing else does:
 | | **717** | the page as a card, drawn from Chrome's frames |
 | | **718** | a person's pointer and keys forwarded from the card to the page |
 | ✓ | **719** | the application starts only the Chromium it carries, at `Contents/Frameworks/Chromium.app`, never the machine's Chrome, and draws with this engine saying so when it is missing or damaged (ADR 0077, iteration 454) |
-| | **720**–**724** | the Chromium alo carries (ADR 0077): built by alo from the stable tag on a machine of its own (ADR 0078), kept updated, and named alo |
+| | **720**, **725**, **726** | alo carries CEF's Chromium through a host program of its own (ADR 0079) |
+| | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
@@ -19381,16 +19382,31 @@ What stage 2's exit gate actually measures: a person using it.
   among what it started. `alo-bundle` puts no Chromium in the application
   yet, so the application it makes draws with this engine until 720.
 
-- [ ] **720. alo carries the Chromium it built (ADR 0077, ADR 0078).**
-  The owner chose our own build, with no interim build. `alo-bundle` takes
-  the Chromium 724's recipe built on 723's machine — by version, checked
-  against the hash that build recorded — puts it where 719 starts it,
-  ships its licences, and signs it with the application. Checks: no CDM in
-  the bundle, no proprietary codec, and ADR 0073's traffic test run against
-  it. *Depends on 719, 723, 724.*
+- [ ] **720. alo carries CEF's Chromium (ADR 0077, ADR 0079).** The
+  application carries CEF's published build for its system, pinned by
+  version and by a SHA-256 of our own (CEF publishes only SHA-1), with its
+  licences, inside 725's host where 719 starts it. *Depends on 719, 725,
+  726.*
+
+- [ ] **725. alo's own CEF host program (ADR 0079 § 3, option H).** A small
+  Rust program, named alo and signed with the owner's identity, that loads
+  CEF in Chrome-style windows and is started and driven by `alo-window` over
+  the DevTools pipe exactly as `chrome.rs` drives Chrome — so alo's own
+  process links nothing and holds no `unsafe`. On macOS CEF needs an
+  `NSApplication` subclass, which in Rust is `unsafe`: that boundary is
+  decided in ADR 0080 first, named, reviewed and kept to one file. *needs
+  design: ADR 0080 before any `unsafe`.*
+
+- [ ] **726. CEF held to alo's rules, measured (ADR 0079 § 8).** With 725's
+  host and ADR 0073's switches: no WidevineCdm and no component-updater
+  traffic (the probe saw both appear without them), no H.264 or AAC, ADR
+  0060's held requests across popups, frames, workers and sockets, the
+  accessibility tree, input, highlight, window bounds and screencast — each
+  a test. *Depends on 725.*
 
 - [ ] **723. Machines that build Chromium, for every system (ADR 0078 and
-  its amendment).** alo ships to macOS, Windows and Linux, so Chromium is
+  its amendments) — before alo is offered widely; CEF comes first (ADR
+  0079).** alo ships to macOS, Windows and Linux, so Chromium is
   built for each: an Apple-silicon Mac with at least 32 GB of memory and
   250 GB free; a Linux machine of the same size; Windows on Windows or
   cross-built from Linux. Owned or rented, run for every Chromium security
