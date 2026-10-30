@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! CEF, loaded and run: the one file that names the `cef` crate (ADR 0079
-//! § 3 option H, queue item 725).
+//! CEF, loaded and run: one of the three files that name the `cef` crate,
+//! with [`crate::window`] and [`crate::application_mac`] (ADR 0079 § 3
+//! option H, queue items 725, 727, 731).
 //!
 //! CEF is a library, not a browser: the program that loads it **is**
 //! Chromium's browser process, and the same program started again by CEF
@@ -14,27 +15,25 @@
 //! from its bundle's `Contents/Frameworks`, starts Chromium on the profile
 //! alo gave it, and runs until Chromium ends it ([`browser`]).
 //!
-//! # No window of its own, and no `NSApplication` of its own
+//! # One window of its own, and an `NSApplication` of its own
 //!
-//! The host opens nothing itself. Every window is one alo asks for over the
-//! pipe (`Target.createTarget`), which Chromium opens in Chrome's own style
-//! — CEF's *Chrome style*, the only one in which ADR 0060's held requests
-//! work (CEF issue #4308, ADR 0079 § 3.2) — or holds off the screen under
-//! `--headless`.
+//! The host opens one window itself: the page alo names with `--app=`,
+//! shown as Chrome shows its own `--app` window ([`crate::window`], queue
+//! item 727). Any other is one alo asks for over the pipe
+//! (`Target.createTarget`). Both are Chrome's own style — CEF's *Chrome
+//! style*, the only one in which ADR 0060's held requests work (CEF issue
+//! #4308, ADR 0079 § 3.2) — and `--headless` shows neither.
 //!
-//! CEF's own samples subclass `NSApplication` to implement its
-//! `CefAppProtocol`, which in Rust is `unsafe` (ADR 0079 § 3.2). This host
-//! does not: with no application object made before CEF starts, Chromium
-//! makes `AppKit`'s own, and it was measured to work for what alo does on
-//! this Mac with CEF 156.0.14 — the pipe, `Target.createTarget`, a page
-//! loaded from the network and read, `--headless`, and `Browser.close`;
-//! and keys a person typed into a shown window (by `System Events`), on
-//! the prototype this was written from (queue item 727 asserts it here).
-//! What it costs is an orderly exit: `Browser.close` reaches
-//! `-[NSApplication terminate:]`, whose default ends the process at once,
-//! so the message loop never returns here and Chromium's clean-up never
-//! runs. alo throws the profile away with the browser, and what the
-//! clean-up would have removed outside it is kept inside it instead
+//! Before CEF starts, the host makes its own `NSApplication` subclass the
+//! shared application ([`crate::application_mac`], ADR 0080, queue item
+//! 731), as CEF's own samples do: with `AppKit`'s own, a shown host
+//! crashed on a page closed from inside, a context menu and a closed
+//! list's menu (727). Its `-terminate:` — reached by `Browser.close` and
+//! by Quit in the menu bar ([`crate::menu_mac`], put in place once CEF
+//! has started) — closes every page and leaves the message loop, so CEF
+//! shuts down and [`browser`] returns 0: an orderly exit, where `AppKit`'s
+//! own ended the process at once and Chromium's clean-up never ran. What
+//! that clean-up would remove outside the profile is still kept inside it
 //! (`switches.rs`).
 //!
 //! # Refused, not panicked
@@ -43,7 +42,7 @@
 //! where it looks, so both are looked for first and their absence is said
 //! and the process ends with [`MISSING`].
 
-use crate::switches;
+use crate::{application_mac, menu_mac, switches, window};
 use cef::args::Args;
 use cef::library_loader::LibraryLoader;
 use cef::sandbox::Sandbox;
@@ -55,6 +54,9 @@ pub const MISSING: i32 = 3;
 
 /// The exit status when CEF would not start.
 pub const UNSTARTED: i32 = 4;
+
+/// The exit status when the host's application object could not be made.
+pub const NO_APPLICATION: i32 = 6;
 
 /// The framework's program, as CEF lays it out.
 const FRAMEWORK: &str = "Chromium Embedded Framework.framework/Chromium Embedded Framework";
@@ -97,10 +99,11 @@ pub fn helper(program: &Path) -> i32 {
     cef::execute_process(Some(args.as_main_args()), None, std::ptr::null_mut())
 }
 
-/// Run as the browser process, on `profile`: the process's exit status.
-/// It returns only if CEF would not start; once started, Chromium ends the
-/// process itself.
-pub fn browser(program: &Path, profile: &Path) -> i32 {
+/// Run as the browser process, on `profile`, showing `page` in a window of
+/// its own when alo asked for one (`--app=`, [`crate::window`]): the
+/// process's exit status: 0 once the host has ended in order (Quit,
+/// `Browser.close`), or why it would not start.
+pub fn browser(program: &Path, profile: &Path, page: Option<String>) -> i32 {
     let Some(frameworks) = frameworks(program, switches::Role::Browser) else {
         return MISSING;
     };
@@ -114,6 +117,12 @@ pub fn browser(program: &Path, profile: &Path) -> i32 {
     if code >= 0 {
         return code;
     }
+    // After the framework is loaded, whose protocols the class conforms
+    // to, and before CEF starts, which would make `AppKit`'s own.
+    if let Err(why) = application_mac::install(window::close_all) {
+        eprintln!("alo's CEF host: no application object of its own: {why:?}");
+        return NO_APPLICATION;
+    }
     let profile = CefString::from(profile.to_string_lossy().as_ref());
     let settings = Settings {
         root_cache_path: profile.clone(),
@@ -122,16 +131,18 @@ pub fn browser(program: &Path, profile: &Path) -> i32 {
         log_severity: LogSeverity::DISABLE,
         ..Settings::default()
     };
+    let mut app = window::app(page);
     if cef::initialize(
         Some(args.as_main_args()),
         Some(&settings),
-        None,
+        Some(&mut app),
         std::ptr::null_mut(),
     ) != 1
     {
         eprintln!("alo's CEF host: CEF would not start");
         return UNSTARTED;
     }
+    menu_mac::install();
     cef::run_message_loop();
     cef::shutdown();
     0

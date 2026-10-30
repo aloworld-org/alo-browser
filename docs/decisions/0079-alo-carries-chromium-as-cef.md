@@ -4,8 +4,11 @@
 alo's own Chromium build (ADR 0078) before alo is offered widely.** The
 first part of § 8's probe was done on this Mac the same day (§ 8a); the
 host program was built the same day **with no `unsafe`** (§ 8b, queue item
-725), so the `unsafe` boundary this ADR expected, and ADR 0080 for it, are
-not needed; the rest is owed by 720, 726 and 727–730.
+725), so the `unsafe` boundary this ADR expected, and ADR 0080 for it, were
+not needed for a headless host; its own shown window (727) found them
+needed after all for a shown host a person uses (§ 8b: 731, 732), and the
+owner allowed it: **ADR 0080**, built the same day (731, 732, and the gate
+reaching the host, 730); the rest is owed by 720, 726, 728 and 729.
 
 ## The question in one line
 
@@ -366,9 +369,11 @@ measured on this Mac, against what § 3.2 and § 8 expected:
 | An `NSApplication` subclass, `unsafe` in Rust, one boundary | **Not needed.** CEF deliberately does not make Chrome's application object (`ChromeMainDelegateCef::PreBrowserMain`, branch 8078), and with none made before CEF starts Chromium uses `AppKit`'s own. The pipe, `Target.createTarget`, a page from the network read, `--headless` and `Browser.close` work through it; keys a person types into a shown window worked on the prototype the host was written from (727 asserts it on the host). The cost: `Browser.close` reaches `-[NSApplication terminate:]`, which ends the process at once, so CEF's shutdown never runs. |
 | Profile as `--root-cache-path` / `--cache-path` | The host takes alo's `--user-data-dir` as both, and refuses to start without an absolute one. |
 | `--headless` not a CEF mode | **It is**: the user agent says `HeadlessChrome` and no window reaches the screen. So `Chrome::start_from(&Chromium::Carried(…), false)` drives the host unchanged. |
-| `--app=data:,` not expected to work | Confirmed: no target at all. The host's own window for it is 727. |
+| `--app=data:,` not expected to work | Confirmed: no target at all. **The host opens it itself** (727): a Chrome-style `CefWindow` holding a Chrome-style `CefBrowserView` with no toolbar, titled by the page, which alo sizes and places with `Browser.getWindowForTarget`/`setWindowBounds` as it does Chrome's `--app` window; a person's keys and presses reach the page, and a person's close is heard. |
+| No `NSApplication` of the host's own, for a shown window (727) | **Not enough.** Chromium asks the application object `-isHandlingSendEvent` (`CefAppProtocol`) when a page closes from inside (`Target.closeTarget`, `window.close()`), for a context menu and for a closed list's menu, and AppKit's own does not answer: each crashes the host (`SIGTRAP`, a crash report, macOS's dialog). The menu bar is an empty *alo* menu, so ⌘Q does nothing. Chrome's `BrowserCrApplication`, inside CEF's framework, crashes in `+initialize` when made before CEF starts. So the `unsafe` boundary § 3.2 foresaw is needed for a host a person uses: ADR 0080, queue items 731 and 732. |
+| The host's own application object (ADR 0080, 731, 732) | **Enough, but for one case.** `AloCefHostApplication` (`application_mac.rs`, the host's one `unsafe` file) answers `CefAppProtocol`: a context menu, a closed list's menu, `Target.closeTarget` and a page's `window.close()` leave the host running, with no crash report. Its `-terminate:` closes every page and leaves the message loop, so `Browser.close`, *Quit alo* and ⌘Q (Chrome's Exit command, answered by the host) end it in order — status 0, CEF shut down, Chromium's process-singleton directory removed. The menu bar holds *alo*, *Edit* and *Window*. A page closed while its context menu is still open crashes the host (`SIGSEGV`, freed memory, inside CEF): queue item 734. |
 | Nothing written outside the profile | Not by default. Three things were, and are stopped: Chromium's temporary directories (`MAC_CHROMIUM_TMPDIR` into the profile), a `Chromium Safe Storage` key in the login keychain whose dialog on a rebuilt host held the network (`--use-mock-keychain`), and an application clone under the system's `X/` directory (`MacAppCodeSignClone` added to alo's one `--disable-features`). macOS's own Metal caches and a Notifications registration remain, and are 729's. |
-| A build that never downloads | `cef-dll-sys` downloads CEF when `CEF_PATH` names none, so the host is a workspace of its own, excluded from the repository's, built only with `CEF_PATH` set; the gate does not reach it yet (730). |
+| A build that never downloads | `cef-dll-sys` downloads CEF when `CEF_PATH` names none, so the host is a workspace of its own, excluded from the repository's, built only with `CEF_PATH` set; the gate formats it always, and lints and tests it when `CEF_PATH` names a distribution, saying so when it does not (730). |
 
 ## 8. The hands-on probe owed (none of it done)
 
@@ -437,7 +442,15 @@ measured:
   bundle name and icon; 723 shrinks to ordinary signing and packaging
   machines; 724 becomes the host program and its bundling.
 - A new ADR for the host's `unsafe` boundary on macOS. — **Not needed**
-  (§ 8b): the host has no `unsafe`, and no `NSApplication` of its own.
+  (§ 8b) for a headless host, or a shown one alo only places and reads;
+  **needed** (§ 8b, 727) for a shown host a person uses, which crashes
+  without an application object of its own on a page closed from inside,
+  a context menu and a closed list's menu: ADR 0080, queue items 731 and
+  732, the owner's decision. — **Accepted and built** (ADR 0080, 30
+  October 2026): one file, `crates/alo-cef-host/src/application_mac.rs`,
+  with the lint lifted on that module alone and the gate holding it there
+  (730); alo's own process and every crate of its workspace keep
+  `forbid(unsafe_code)`.
 - `chrome.rs` gains the CEF host's switches beside Chrome's; `alo --chrome`
   and the tests keep the machine's Chrome. — **Not needed** (§ 8b): the
   host reads alo's `--user-data-dir` itself and adds what it needs to its

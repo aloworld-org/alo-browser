@@ -12,9 +12,16 @@
 //! drives Chrome — descriptors 3 and 4 with `--remote-debugging-pipe`, the
 //! profile as `--user-data-dir`, ADR 0073's switches — and every window it
 //! shows is one alo asked for over that pipe. alo's own process links
-//! nothing of Chromium's and holds no `unsafe` (ADR 0058), and neither does
-//! this one: `unsafe` is forbidden here as everywhere in the repository, and
-//! CEF's is the `cef` crate's, behind one file, [`host`].
+//! nothing of Chromium's and holds no `unsafe` (ADR 0058). This one holds
+//! one boundary, which the owner allowed (ADR 0080): on macOS CEF requires
+//! an `NSApplication` subclass of the host's own (`CefAppProtocol`), and
+//! defining one is `unsafe` in Rust. It is [`application_mac`], the one
+//! module the lint below is lifted for; every other module of the host
+//! holds no `unsafe`, and `scripts/gate.sh` refuses it anywhere else.
+//! CEF's own is the `cef` crate's, behind the files that name it: [`host`],
+//! which loads and runs it, [`window`], the window it shows a page in for
+//! `--app=` (queue item 727) and the pages it closes when it ends, and
+//! [`application_mac`].
 //!
 //! It is one program in two roles ([`switches::Role`]): the browser process
 //! alo starts, and each helper CEF starts from the copies of it in the
@@ -26,13 +33,20 @@
 //!
 //! Built on macOS only so far: Windows and Linux are queue item 728.
 
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 #[cfg(not(target_os = "macos"))]
 compile_error!("alo's CEF host is built for macOS only so far (queue item 728)");
 
+#[expect(
+    unsafe_code,
+    reason = "the `NSApplication` subclass CEF requires on macOS, the one boundary ADR 0080 allows"
+)]
+mod application_mac;
 mod host;
+mod menu_mac;
 mod switches;
+mod window;
 
 use std::ffi::OsString;
 use std::os::unix::process::CommandExt;
@@ -82,7 +96,11 @@ fn main() -> ExitCode {
         eprintln!("alo's CEF host: could not start again: {why}");
         return ExitCode::from(NOT_AGAIN);
     }
-    ExitCode::from(host_status(host::browser(&program, &profile)))
+    ExitCode::from(host_status(host::browser(
+        &program,
+        &profile,
+        switches::app(&args),
+    )))
 }
 
 /// A status CEF or the host returned, as a process's exit status: one that

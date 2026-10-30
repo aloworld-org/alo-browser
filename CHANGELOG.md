@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's CEF host survives menus and quits cleanly.** The host now has
+  the application object CEF requires on macOS — the one piece of
+  `unsafe` code the owner allowed it, in one file, and only in the host,
+  never in alo's own process (ADR 0080). Right-click menus, drop-down
+  lists, and pages that close themselves no longer crash it; its menu bar
+  has Quit, Cut, Copy, Paste, Select All and Close Window; and ⌘Q, Quit or
+  alo closing it end it in order, letting Chromium clean up after itself.
+  One crash is left: closing a page while its right-click menu is still
+  open (item 734). The gate now checks the host's formatting, lints and
+  tests it when a CEF distribution is named, and keeps its `unsafe` to
+  that one file (items 730, 731, 732).
+
+- **alo's CEF host shows a page in a window of its own.** Started shown,
+  as alo starts Chrome to show a page, the host now opens the page in a
+  plain window — the system's title bar with its close and minimise
+  buttons and the page's title, no tabs and no address bar — which alo
+  sizes and places on the screen as it does Chrome's. A person's typing
+  and clicks reach the page, and a person closing the window is heard by
+  alo. Not yet fit for people: closing the page from inside, a
+  right-click menu or a drop-down list's menu crash the host, and its menu
+  bar is empty (so ⌘Q does nothing), until it has an application object
+  of its own, which needs a decision about `unsafe` code first (items 727,
+  731, 732).
+
 - **alo's own host for CEF's Chromium.** A small Rust program of alo's,
   `alo-cef-host`, now loads the Chromium Embedded Framework and is started
   and driven by alo exactly as alo drives Chrome — over its own pipe, on a

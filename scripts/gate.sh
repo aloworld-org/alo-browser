@@ -55,7 +55,7 @@ subject
 # looked exactly like a pass. Naming the subject of a verdict, which this gate
 # now does, does not catch that — a truncated log names its subject correctly
 # and then stops. Only a count does.
-STEPS_DECLARED=10
+STEPS_DECLARED=11
 steps_run=0
 step() {
   steps_run=$(( steps_run + 1 ))
@@ -113,7 +113,42 @@ declare -a BOUNDARIES=(
   "raw_window_handle:crates/alo-window/src/present.rs"
   "rustix:crates/alo-storage/src/volume.rs"
   "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs"
+  # alo's CEF host (ADR 0079 § 3, option H), its own workspace: CEF where it
+  # is loaded and run, where the host's windows and pages are, and where its
+  # application object answers CEF's protocols; AppKit only in the
+  # application object and its menu bar (ADR 0080).
+  "cef:crates/alo-cef-host/src/host.rs,crates/alo-cef-host/src/window.rs,crates/alo-cef-host/src/application_mac.rs"
+  "objc2:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs"
+  "objc2_app_kit:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs"
+  "objc2_foundation:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs"
 )
+
+# --- alo's CEF host, and the one `unsafe` boundary it holds -------------------
+#
+# The host (`crates/alo-cef-host`) is its own workspace, outside the
+# repository's, because `cef-dll-sys` downloads CEF when `CEF_PATH` names no
+# unpacked distribution (queue item 725): so the steps above never build it,
+# and the one below does, against `CEF_PATH`, when it names one.
+#
+# ADR 0080 allows it one `unsafe` boundary, on macOS: the `NSApplication`
+# subclass CEF requires, in one file. The `unsafe_code` lint is lifted on that
+# one module, in `main.rs`, which denies it everywhere else; and the `cef`
+# crate's `wrap_*` macros, whose expansion clippy reads, need one clippy lint
+# expected, in `window.rs` alone. Each is checked to be there and nowhere
+# else, and the workspace's crates to write no `unsafe` at all.
+HOST=crates/alo-cef-host
+HOST_UNSAFE="$HOST/src/application_mac.rs"
+HOST_LIFTED="$HOST/src/main.rs"
+HOST_TRANSMUTE="$HOST/src/window.rs"
+# A CEF distribution unpacked where `CEF_PATH` names, as the host's tests look
+# for one: its framework, and the archive's description beside it.
+cef_distribution() {
+  [ -n "${CEF_PATH:-}" ] \
+    && [ -d "$CEF_PATH/Chromium Embedded Framework.framework" ] \
+    && [ -f "$CEF_PATH/archive.json" ]
+}
+# A file's lines as code: comment lines blanked, as for the boundaries.
+code_of() { sed -E 's@^[[:space:]]*(//!|///|//).*$@@' "$1"; }
 
 step "cargo fmt"
 if cargo fmt --all -- --check >/dev/null 2>&1; then
@@ -192,6 +227,44 @@ else
   bad "tests fail"
 fi
 
+step "alo's CEF host — formatted, linted and tested in its own workspace"
+# Formatting needs no CEF, so it is checked on every run. Building needs a
+# distribution, and without one the host is **not built, and this says so**:
+# the steps above never reached it either, so nothing it checked is lost.
+if (cd "$HOST" && cargo fmt -- --check) >/dev/null 2>&1; then
+  good "the CEF host's formatting is clean"
+else
+  (cd "$HOST" && cargo fmt -- --check) || true
+  bad "cargo fmt -- --check in $HOST"
+fi
+if cef_distribution; then
+  HOST_LOG="${TMPDIR:-/tmp}/alo-gate-host.$$.log"
+  if cargo clippy --manifest-path "$HOST/Cargo.toml" --locked --target-dir target/alo-cef-host \
+    --all-targets -- -D warnings > "$HOST_LOG" 2>&1; then
+    if grep -qE '^(error|warning)' "$HOST_LOG"; then
+      cat "$HOST_LOG"
+      bad "clippy said something about the CEF host"
+    else
+      good "clippy is silent about the CEF host, built against $CEF_PATH"
+    fi
+  else
+    tail -n 60 "$HOST_LOG"
+    bad "clippy failed on the CEF host"
+  fi
+  if cargo test --manifest-path "$HOST/Cargo.toml" --locked --target-dir target/alo-cef-host \
+    > "$HOST_LOG" 2>&1; then
+    grep -E '^test result' "$HOST_LOG" || true
+    good "the CEF host's tests pass"
+  else
+    say_why "$HOST_LOG"
+    bad "the CEF host's tests fail"
+  fi
+  rm -f "$HOST_LOG"
+else
+  printf '\033[33mNOT BUILT\033[0m  the CEF host was not built, linted or tested: CEF_PATH names no unpacked CEF distribution (%s)\n' \
+    "${CEF_PATH:-unset}"
+fi
+
 step "no stubs"
 # Law 3 of LOOP.md: built whole. A stub is a promise the gate cannot check.
 if stubs=$(grep -rnE '\b(todo!|unimplemented!|FIXME|XXX)' crates/*/src crates/*/tests 2>/dev/null); then
@@ -209,6 +282,75 @@ if relaxed=$(grep -rn 'unsafe_code' crates/*/Cargo.toml 2>/dev/null); then
   bad "a crate has opted out of the workspace's unsafe ban — it needs an ADR"
 else
   good "unsafe is forbidden everywhere"
+fi
+# Nor in any source of the workspace's crates: an `unsafe` block, function,
+# implementation, trait, extern block or attribute, the lint named at all, or
+# the clippy lint the CEF host's macros need — the compiler already refuses
+# the first two, and this says so without building. The words a page may say
+# (`'unsafe-inline'`) are not Rust's, and are not matched.
+written=""
+while IFS= read -r file; do
+  if found=$(code_of "$file" | grep -nE '(^|[^A-Za-z0-9_])unsafe[[:space:]]*(\{|\(|fn([^A-Za-z0-9_]|$)|impl([^A-Za-z0-9_]|$)|trait([^A-Za-z0-9_]|$)|extern([^A-Za-z0-9_]|$))|unsafe_code|transmute_ptr_to_ptr'); then
+    written="$written$(printf '%s\n' "$found" | sed "s@^@  $file:@")"$'\n'
+  fi
+done < <(find crates -name '*.rs' -not -path '*/target/*' -not -path "$HOST/*")
+if [ -n "$written" ]; then
+  printf '%s' "$written"
+  bad "unsafe is written in a crate of the workspace — it needs an ADR"
+else
+  good "no crate of the workspace writes unsafe"
+fi
+# The host's one boundary (ADR 0080): `unsafe` in the application object's
+# file and no other; the lint named twice in the whole program, both in
+# `main.rs` — denied for all of it, and lifted on the one attribute whose item
+# is that file's module; the clippy lint the `cef` crate's macros need,
+# expected in `window.rs` and nowhere else. Comments may name any of them.
+outside=""
+named=""
+transmuted=""
+while IFS= read -r file; do
+  if [ "$file" != "$HOST_UNSAFE" ] \
+    && found=$(code_of "$file" | grep -nE '(^|[^A-Za-z0-9_])unsafe([^A-Za-z0-9_]|$)'); then
+    outside="$outside$(printf '%s\n' "$found" | sed "s@^@  $file:@")"$'\n'
+  fi
+  if found=$(code_of "$file" | grep -n 'unsafe_code'); then
+    named="$named$(printf '%s\n' "$found" | sed "s@^@$file:@")"$'\n'
+  fi
+  if code_of "$file" | grep -q 'transmute_ptr_to_ptr'; then
+    transmuted="$transmuted $file"
+  fi
+done < <(find "$HOST" -name '*.rs' -not -path '*/target/*' | sort)
+if [ -n "$outside" ]; then
+  printf '%s' "$outside"
+  bad "unsafe is written in the CEF host outside $HOST_UNSAFE (ADR 0080)"
+elif ! code_of "$HOST_UNSAFE" | grep -qE '(^|[^A-Za-z0-9_])unsafe([^A-Za-z0-9_]|$)'; then
+  bad "$HOST_UNSAFE holds no unsafe — ADR 0080 and this check name the wrong file"
+else
+  good "the CEF host writes unsafe only in $HOST_UNSAFE (ADR 0080)"
+fi
+# The item the lint's second naming is an attribute of: the first line after
+# it that is neither the attribute's own nor blank.
+lifted_on=$(code_of "$HOST_LIFTED" | awk '
+  /unsafe_code/ && !/^#!\[(deny|forbid)\(unsafe_code\)\]$/ { after = 1; next }
+  after && /^[[:space:]]*(reason|\)\]|$)/ { next }
+  after { print; exit }')
+denied=$(printf '%s' "$named" | grep -cE "^$HOST_LIFTED:[0-9]+:#!\[(deny|forbid)\(unsafe_code\)\]$" || true)
+in_main=$(printf '%s' "$named" | grep -c "^$HOST_LIFTED:" || true)
+all=$(printf '%s' "$named" | grep -c . || true)
+if [ "$denied" -ne 1 ]; then
+  printf '%s' "$named"
+  bad "$HOST_LIFTED does not deny unsafe_code for the whole CEF host"
+elif [ "$all" -ne 2 ] || [ "$in_main" -ne 2 ] || [ "$lifted_on" != "mod application_mac;" ]; then
+  printf '%s' "$named"
+  bad "unsafe_code may be lifted once in the CEF host, on mod application_mac in $HOST_LIFTED (ADR 0080)"
+else
+  good "the CEF host denies unsafe_code, lifted on mod application_mac alone"
+fi
+if [ "$transmuted" != " $HOST_TRANSMUTE" ]; then
+  printf '  %s\n' $transmuted
+  bad "clippy::transmute_ptr_to_ptr may be expected in $HOST_TRANSMUTE alone (ADR 0080)"
+else
+  good "the cef crate's macros' one clippy lint is expected in $HOST_TRANSMUTE alone"
 fi
 
 step "every source file carries the licence notice"

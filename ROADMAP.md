@@ -1003,9 +1003,20 @@ unreachable without it.
       · alo's own CEF host built with no `unsafe`, against CEF 156.0.14,
       started and driven by `Chrome::start_from` as Chrome is, writing
       nothing outside its profile (ADR 0079, 725)
+      · the host's own window for `--app`, Chrome style with no toolbar,
+      titled by the page, sized and placed by alo over the pipe, typed into
+      and pressed by a person and closed by one, alo hearing it go — but
+      crashing on a page closed from inside, a context menu or a closed
+      list's menu, with an empty menu bar, until it has an application
+      object of its own (ADR 0079, 727)
+      · the host's own application object, its one `unsafe` boundary in one
+      file: menus and pages closed from inside no longer crash it, ⌘Q and
+      `Browser.close` end it in order, a menu bar with Quit, Edit and
+      Window; the gate formats, lints and tests the host and holds the
+      boundary to its file (ADR 0080, 730–732)
       · Owed: which Chromium the application carries, pinned and checked
-      (720), the host's own `--app` window (727), Windows and Linux (728),
-      what macOS keeps for it (729), the gate reaching it (730), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
+      (720), a page closed with its context menu open (734), Windows and
+      Linux (728), what macOS keeps for it (729), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
       and is 696's, needs ADR; a
       scoped resolver and the system's own encrypted DNS measured through

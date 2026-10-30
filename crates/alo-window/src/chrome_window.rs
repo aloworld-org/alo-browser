@@ -364,15 +364,16 @@ pub fn placed(tab: &mut Tab<'_>) -> Result<Placed, Unplaced> {
 }
 
 /// Ask for the window `window` at `bounds`, and where it is once it has
-/// stopped moving.
+/// stopped moving and the page inside it has followed its size.
 fn put(tab: &mut Tab<'_>, window: i64, bounds: Bounds) -> Result<Placed, Unplaced> {
+    let before = read(tab)?;
     tab.ask_chrome(&Command::PlaceWindow { window, bounds })?;
     let until = Instant::now() + tab.patience();
     let mut last = read(tab)?;
     loop {
         std::thread::sleep(STILL_FOR);
         let now = read(tab)?;
-        if now == last {
+        if now == last && followed(&before, &now) {
             return Ok(now);
         }
         if Instant::now() >= until {
@@ -380,6 +381,25 @@ fn put(tab: &mut Tab<'_>, window: i64, bounds: Bounds) -> Result<Placed, Unplace
         }
         last = now;
     }
+}
+
+/// Whether the page inside the window has been laid out again each way the
+/// window was resized since `before`, as it is `now`.
+///
+/// A window's size and the size of the page inside it are read apart, and
+/// the page's may lag. Measured on 2026-10-30 against alo's CEF host
+/// (Chromium 156, queue item 727): in the first seconds after it starts, a
+/// window resized from 900×600 to 900×632 was read at its new size while
+/// the page inside it was still read at its old height for longer than
+/// [`STILL_FOR`], so two readings agreed on a page the window no longer
+/// held. A window resized one way holds a page of another size that way,
+/// so until the page has changed where the window did, it is waited for.
+fn followed(before: &Placed, now: &Placed) -> bool {
+    let (was, is) = (before.window.bounds, now.window.bounds);
+    // Exactly as read: a page laid out again is read as another number.
+    let changed = |was: f64, is: f64| was.to_bits() != is.to_bits();
+    (is.width == was.width || changed(before.page.0, now.page.0))
+        && (is.height == was.height || changed(before.page.1, now.page.1))
 }
 
 /// The window of `tab`, and the page inside it, read once.
@@ -435,6 +455,31 @@ mod tests {
             },
             page,
         }
+    }
+
+    #[test]
+    fn a_page_has_followed_its_window_once_it_changed_where_the_window_did() {
+        let before = placed((900.0, 568.0));
+        let mut taller = before;
+        taller.window.bounds.height = 632;
+        assert!(
+            !followed(&before, &taller),
+            "the window grew, the page not yet"
+        );
+        let mut laid_out = taller;
+        laid_out.page = (900.0, 600.0);
+        assert!(followed(&before, &laid_out));
+        let mut moved = before;
+        moved.window.bounds.left = 160;
+        assert!(
+            followed(&before, &moved),
+            "moved, not resized: nothing to follow"
+        );
+        let mut wider = before;
+        wider.window.bounds.width = 1000;
+        assert!(!followed(&before, &wider));
+        wider.page = (1000.0, 568.0);
+        assert!(followed(&before, &wider));
     }
 
     #[test]

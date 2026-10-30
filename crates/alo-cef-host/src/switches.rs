@@ -32,9 +32,12 @@
 //!
 //! - **Chromium's temporary directories** — the process singleton's socket
 //!   and its fetcher's scratch, `$TMPDIR/<bundle id>.<random>` — which a host
-//!   closed over the pipe leaves behind, because `Browser.close` ends the
+//!   closed over the pipe left behind while `Browser.close` ended the
 //!   process inside `AppKit` (`-[NSApplication terminate:]`, which exits)
-//!   before Chromium's own clean-up runs. On macOS Chromium takes its
+//!   before Chromium's own clean-up ran. The host's own `-terminate:` now
+//!   ends it in order (`application_mac.rs`, queue item 731), and the
+//!   clean-up removes the singleton's directory, but the fetcher's is left
+//!   even so (measured), and a crash leaves both. On macOS Chromium takes its
 //!   temporary directory from `MAC_CHROMIUM_TMPDIR` before the system's
 //!   (`base/files/file_util_apple.mm`), so the host sets it to
 //!   [`temporary`], inside the profile, which alo removes with it.
@@ -102,6 +105,22 @@ pub fn profile(args: &[OsString]) -> Option<PathBuf> {
         .next_back()?;
     let given = PathBuf::from(given);
     given.is_absolute().then_some(given)
+}
+
+/// The page alo asked to be shown in a window of its own: the last
+/// `--app=`, as Chromium takes the last of a switch, unless the host was
+/// also told `--headless`, which shows nothing. Chrome opens it with its
+/// own startup code, which CEF does not run (measured: no target at all),
+/// so the host opens it itself (`window.rs`, queue item 727).
+pub fn app(args: &[OsString]) -> Option<String> {
+    if args.iter().any(|arg| arg == "--headless") {
+        return None;
+    }
+    args.iter()
+        .filter_map(|arg| value_of(arg, "--app="))
+        .next_back()
+        .filter(|page| !page.is_empty())
+        .map(str::to_owned)
 }
 
 /// Where, inside `profile`, the host's temporary files go.
@@ -187,6 +206,23 @@ mod tests {
         assert_eq!(profile(&line(&["--user-data-dir=relative"])), None);
         assert_eq!(profile(&line(&["--user-data-dir="])), None);
         assert_eq!(profile(&line(&["--remote-debugging-pipe"])), None);
+    }
+
+    #[test]
+    fn the_page_shown_is_the_last_app_and_never_a_headless_ones() {
+        assert_eq!(
+            app(&line(&["--remote-debugging-pipe", "--app=data:,"])),
+            Some("data:,".to_owned())
+        );
+        assert_eq!(
+            app(&line(&["--app=https://a.test/", "--app=https://b.test/"])),
+            Some("https://b.test/".to_owned())
+        );
+        assert_eq!(app(&line(&["--headless", "about:blank"])), None);
+        assert_eq!(app(&line(&["--headless", "--app=data:,"])), None);
+        assert_eq!(app(&line(&["--app="])), None);
+        // A page's address that mentions the switch is not the switch.
+        assert_eq!(app(&line(&["https://a.test/?--app=x"])), None);
     }
 
     #[test]

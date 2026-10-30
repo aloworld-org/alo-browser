@@ -81,7 +81,11 @@ ADR 0058 — and nothing else does:
 | ✓ | **719** | the application starts only the Chromium it carries, at `Contents/Frameworks/Chromium.app`, never the machine's Chrome, and draws with this engine saying so when it is missing or damaged (ADR 0077, iteration 454) |
 | ✓ | **725** | alo's own CEF host, with no `unsafe`, built against CEF 156.0.14 and started and driven by `alo-window` exactly as Chrome is (ADR 0079, iteration 455) |
 | | **720**, **726** | alo carries CEF's Chromium in the application, held to alo's rules (ADR 0079) |
-| | **727**–**730** | the host's own window for `--app` (727), Windows and Linux (728), what macOS keeps for it (729), and the gate reaching it (730) — cut from 725 |
+| ✓ | **727** | the host's own window for `--app`: Chrome style with no toolbar, titled by the page, placed by alo over the pipe, typed into, pressed and closed by a person (iteration 456) |
+| ✓ | **731**, **732**, **730** | the host's application object (`CefAppProtocol`, the one `unsafe` boundary ADR 0080 allows), its menu bar and ⌘Q ending it in order, and the gate reaching the host and holding the boundary to its file (iteration 457) |
+| | **734** | a page closed while its context menu is open crashes the host (`SIGSEGV`, found by 731) |
+| | **733** | a profile's path made again, empty, a second after alo removed it — Chrome and the host alike, swept by the next start (found by 727) |
+| | **728**, **729** | Windows and Linux (728), and what macOS keeps for the host (729) — cut from 725 |
 | | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
 | | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
@@ -19473,7 +19477,7 @@ What stage 2's exit gate actually measures: a person using it.
   `ed994b907ad596ca609a0542a1e2b22aa97e93e98b8141fed4c24aef39b9ccf6`,
   unpacked outside the repository.
 
-- [ ] **727. The host's own window for `--app` (cut from 725).** Chrome's
+- [x] **727. The host's own window for `--app` (cut from 725).** Chrome's
   `--app=URL` is its startup code, which CEF does not run (measured: no
   target at all), so `Chrome::start_from(&Chromium::Carried(…), true)` —
   the application's own path (ADR 0075) — finds no window's page. The host
@@ -19483,6 +19487,216 @@ What stage 2's exit gate actually measures: a person using it.
   its window's page as a shown Chrome's is, asserted as
   `tests/a_page_in_chromes_own_window.rs` does, and keys a person types
   reach it with no `NSApplication` of the host's own. *Depends on 725.*
+
+  ***Done (iteration 456).*** The host reads the last `--app=` (none under
+  `--headless`, `switches::app`) and, once CEF's context is up, opens it
+  itself (`crates/alo-cef-host/src/window.rs`, now the second file naming
+  `cef`, beside `host.rs`): a top-level `CefWindow` of CEF's views holding
+  one `CefBrowserView`, both **Chrome style**, with no toolbar (CEF leaves
+  a Chrome-style toolbar for the host to place, the host places none and
+  asks for `ChromeToolbarType::NONE`). What a person sees, measured on
+  this Mac with CEF 156.0.14: a window with rounded corners, a title bar
+  with the system's close and minimise buttons (zoom greyed) and the
+  page's title beside them, left-aligned, set from the page
+  (`on_title_change`), and the page under it — no tab strip, no address
+  bar, no menu button; without `with_standard_window_buttons` it had no
+  buttons at all. The window is shown before the page is put in it, and
+  opens centred at 800×632 until alo sizes it. Its callbacks are built by
+  the `cef` crate's `wrap_*` macros, whose expanded code holds `unsafe`
+  blocks **written in the crate**: `#![forbid(unsafe_code)]` stands (the
+  lint does not report another crate's macro), nothing written in the host
+  is `unsafe`, and the one lint clippy finds in that code,
+  `transmute_ptr_to_ptr`, is expected in `window.rs` alone with its reason
+  — said here so the owner can judge it. Everything else is alo's, over
+  the pipe, as for Chrome's `--app` window, with no change to
+  `chrome.rs`: the window's page is the tab (`page_of_the_window`),
+  `Browser.getWindowForTarget`/`setWindowBounds` size and place it. One
+  change was needed in
+  `chrome_window.rs`, and holds for Chrome too: in the host's first seconds
+  a resized window was read at its new size while the page inside it was
+  read at its old one for longer than the 150 ms two readings must agree
+  for (up to past 1.6 s, measured), so `fit` sized the window by a stale
+  page (1000×600 for 900×600 asked); `put` now also waits until the page
+  has changed each way the window was resized (`followed`, unit-tested).
+  A person closing the window by its close button closes its page first
+  (`can_close` → `try_close_browser`), alo hears the page go (`Closed::Page`)
+  and the window leaves the screen; the host lives on with no window until
+  alo's `Browser.close`, which ends it with status 0. Typed keys (`System
+  Events`, after bringing the host in front as a person does) and a press
+  posted as a mouse posts one (`CGEventPost`) reach the page, with no
+  `NSApplication` of the host's own and `--use-mock-keychain` keeping the
+  keychain's dialog away. **What does not work without one, measured, each
+  a crash** (`-[NSApplication isHandlingSendEvent]: unrecognized selector`,
+  `SIGTRAP`, a report in `~/Library/Logs/DiagnosticReports` and macOS's
+  *quit unexpectedly* dialog): a page closed from inside —
+  `Target.closeTarget`, so `chrome_window::close`, and a page's own
+  `window.close()` — a context menu, even one CEF's `on_before_context_menu`
+  emptied, and a closed list's menu (`<select>`). The menu bar holds only
+  an empty *alo* menu, so ⌘Q and ⌘W do nothing. Chrome's own
+  `BrowserCrApplication`, which CEF's framework carries, cannot stand in:
+  made the shared application before CEF starts (one Objective-C message,
+  tried only in a scratch copy of the host) it crashes in its
+  `+initialize`. A `Tab` dropped asks its page closed without waiting and
+  its handle then sends `Browser.close`, which ended the host first in
+  three runs of three — a race won, not a guarantee, so the product paths
+  that already pass `Chromium::Carried` (the application's page, `--chrome`,
+  the conversation's opener, 719) start, show and place a page with the
+  host, but are not fit for a person until 731; no wiring changed, and
+  where the application carries the host is 720's. Tests:
+  `switches.rs` (`the_page_shown_is_the_last_app_and_never_a_headless_ones`),
+  `chrome_window.rs` (`a_page_has_followed_its_window_once_it_changed_where_the_window_did`),
+  and `tests/alos_cef_host_shows_a_page_as_chrome_does.rs` (in the
+  `threads-required = 2` list): the carried host started shown by
+  `Chrome::start_from(&Chromium::Carried(…), true)` — `Chrome/156`, not
+  `HeadlessChrome`, one window listed — and ended by its handle, gone with
+  its profile; then shown again on a page of the test's own server, laid
+  out at 900×600 in a window 900 wide with a title bar of 1 to 64 points,
+  placed at 120,80 and 160,120 exactly by Chromium's word and the window
+  server's (titled by the page, opaque), read as our tree at 900×600 with
+  no refusals, typed into (`Typed alo`) and pressed (`Pressed by a person`,
+  `isTrusted`) as read back from the window server's title, and closed by
+  its close button — `Closed::Page`, nothing on the screen; the host gone,
+  its profile removed, nothing of the bundle running, **no new crash
+  report**, nothing written outside the profile but macOS's own GPU caches
+  (729), said and removed. Mutation-checked: without the standard window
+  buttons, and without the title set from the page, it fails; a normal
+  toolbar asked for left the window unchanged, which is why the docs say
+  the host places none. Skipped, saying why, without `CEF_PATH`. Cut: the
+  host's application object (731), its menu bar (732), and a profile's
+  path made again after it was removed (733).
+
+- [x] **731. The host's application object (cut from 727).** A shown
+  host crashes wherever Chromium asks the application object
+  `-isHandlingSendEvent` (CEF's `CefAppProtocol`, Chromium's
+  `CrAppProtocol`/`CrAppControlProtocol`): measured, a page closed from
+  inside (`Target.closeTarget`, so `chrome_window::close`; a page's
+  `window.close()`), a context menu (emptied or not) and a closed list's
+  menu — each `SIGTRAP`, a crash report and macOS's dialog. AppKit's own
+  `NSApplication` does not answer it, and Chrome's `BrowserCrApplication`
+  in CEF's framework crashes in `+initialize` when made before CEF starts.
+  The host needs an `NSApplication` subclass of its own implementing the
+  three protocols' methods, made the shared application before
+  `cef::initialize` — `objc2::define_class!` and a message, which is
+  `unsafe` in Rust: one named file, its own boundary in the host's
+  manifest, reviewed, as ADR 0079 § 3.2 foresaw. *needs design: ADR 0080
+  before any `unsafe` (the owner's decision).* *Closes when:*
+  `chrome_window::close` on a shown host, a context menu opened and
+  dismissed, and a closed list's menu chosen through it each leave the
+  host running and make no crash report, asserted beside 727's test.
+  *Depends on 727.*
+
+  ***Done (iteration 457).*** With the owner's "Yes" to **ADR 0080**
+  (30 October 2026): `crates/alo-cef-host/src/application_mac.rs`, the
+  host's one `unsafe` boundary — `AloCefHostApplication`, an
+  `NSApplication` subclass defined with `objc2::define_class!`,
+  conforming to `CrAppProtocol`, `CrAppControlProtocol` and
+  `CefAppProtocol` as the `cef` crate declares them, answering
+  `-isHandlingSendEvent`/`-setHandlingSendEvent:` from an `AtomicBool`,
+  wrapping `-sendEvent:` as CEF's samples do, and overriding
+  `-terminate:` — made the shared application (`+sharedApplication` sent
+  to the class) after CEF's framework is loaded and before `cef::initialize`,
+  refusing to start (status 6) when another object was made first.
+  `main.rs` now **denies** `unsafe_code` for the whole program and lifts it
+  with `#[expect]` on `mod application_mac;` alone. **`-terminate:` ends the
+  host in order**: `window::close_all` closes every page the host has open —
+  its own and every one Chromium opens of its own, which now get the host's
+  client through `default_client` and are counted by a life-span handler —
+  and leaves the message loop once the last is closed, so `cef::shutdown`
+  runs and the host returns status 0; `Browser.close` reaches it, so alo's
+  ordinary close is now orderly too (measured: Chromium's process-singleton
+  directory, left in `<profile>/tmp` by the old exit, is removed; its URL
+  fetcher's directory is left either way). ⌘Q is taken by the page's
+  window as Chrome's Exit command (`IDC_EXIT`), which left the host neither
+  ended nor able to end (measured: `Browser.close` after it no longer left
+  the loop), so the host's command handler answers it with `close_all`.
+  Measured on this Mac with CEF 156.0.14 by a scratch driver over the pipe,
+  each ending with status 0 and no crash report: `Browser.close`;
+  `Target.closeTarget`; a context menu dismissed with Escape (posted to the
+  host's process) and then `Browser.close`; a closed list's menu opened by
+  a click; ⌘W; ⌘Q; and *Quit alo* clicked in the menu bar. **Not fixed,
+  found**: a page closed while its context menu is still open — by alo or
+  by a person's close button — ends the host with `SIGSEGV` inside CEF's
+  framework reading freed memory (`0xcdcd…`); `Target.closeTarget` is not
+  obeyed while the menu is open, in Chrome 156 too, but Chrome's
+  `Browser.close` in that state did not crash (734). Tests:
+  `tests/alos_cef_host_shows_a_page_as_chrome_does.rs`, beside 727's
+  phases: a shown host on a frozen page lives through a context menu opened
+  by a posted right click and dismissed with Escape, a closed list's option
+  chosen by `Activate` through its menu (`Outcome::Chosen`, the page hearing
+  `change:Dates`), and a page closed by `chrome_window::close` —
+  `Closed::Page`, the window off the screen, the host still running —
+  then ended by alo; another host's page closes itself by `window.close()`
+  from a person's press, and ⌘Q with no window ends it; a third, typed into,
+  ends on ⌘Q with the page's window in front (732's checks between). Each
+  ⌘Q: the process ends, the pipe is closed, and the singleton directory is
+  gone from the profile. No new crash report across the run.
+  Mutation-checked: without the application object installed the test
+  fails (no context menu is ever shown — the host crashed, as in 727); with
+  `IDC_EXIT` left to Chrome it fails (⌘Q did not end the host). Passed six
+  runs running and in `cargo nextest run -p alo-window`; in one run of the
+  eleven that reached it, the closed list's option was not chosen
+  (`NeverClosed`), not reproduced since. Cut: a page closed with its
+  context menu open (734).
+
+- [x] **732. The host's menu bar (cut from 727).** A shown host's menu bar
+  holds only an empty *alo* menu (measured by `System Events`): ⌘Q and ⌘W
+  do nothing, and there is no Edit menu for ⌘C, ⌘V or ⌘A to go through.
+  Chrome builds its menus in its application controller, which CEF does
+  not make. Decide what alo's carried Chromium's window offers — Quit
+  ending only the host and alo hearing it, Close Window as a person's
+  close, Edit's commands — and build it in the host; an `NSMenu` is
+  AppKit, so it rides on 731's boundary. *needs design: with ADR 0080.*
+  *Depends on 731.*
+
+  ***Done (iteration 457).*** `crates/alo-cef-host/src/menu_mac.rs`, with
+  no `unsafe` (each item's selector is chosen in `application_mac.rs` from
+  a closed list, `Action`), put in place once CEF has started: **alo** —
+  *Quit alo* (⌘Q, `terminate:`, ending only the host in order, alo hearing
+  its pipe close); **Edit** — *Cut*, *Copy*, *Paste*, *Select All* (⌘X, ⌘C,
+  ⌘V, ⌘A, sent up the responder chain to the focused page); **Window** —
+  *Close Window* (⌘W, `performClose:`, as the close button: the page is
+  asked first and alo hears it go). macOS adds its own items after the
+  host's (Writing Tools, AutoFill, Start Dictation, Emoji & Symbols in
+  Edit; Close All in Window) and the *Apple* menu, measured by `System
+  Events`. Tested beside 731: the menu bar reads `Apple, alo, Edit,
+  Window` with the host's items first in each; a person types `alo`, ⌘A,
+  ⌘C, → and ⌘V, and the page is titled `Typed aloalo`; ⌘Q ends the host.
+  Keys with ⌘ are typed by `System Events` only once the host is checked
+  to be the application in front, in the same script — a ⌘Q posted to the
+  host's process alone was measured to do nothing, and one typed blindly
+  could quit another application. Not measured: whether ⌘C and ⌘V go
+  through the *Edit* menu or Chrome's own shortcuts, which the page's
+  window sees first; what a person gets is the same.
+
+- [ ] **733. A profile's path made again after it was removed (found by
+  727).** About a second after alo removes a Chromium's profile, the same
+  path is made again holding an empty `Dictionaries` directory and an
+  empty `chrome_debug.log`: measured on 2026-10-30 by watching the
+  temporary directory while `tests/alos_cef_host_shows_a_page_as_chrome_does.rs`
+  ran (the first host's profile, made again as the second started), and
+  found the same in profiles left by seven other test binaries of one
+  `cargo test -p alo-window` run, the machine's Chrome's among them, and
+  by 725's runs. Each is swept by the next Chromium started (ADR 0069), so
+  nothing grows, but no test sees it: every one asserts the profile gone
+  at once. Find which process writes it (a helper outliving the browser,
+  most likely), and either wait for it or keep it from writing, with a
+  test that looks again after the bundle's processes are gone.
+  *Depends on nothing.*
+
+- [ ] **734. A page closed while its context menu is open crashes the host
+  (found by 731).** Measured on this Mac with CEF 156.0.14 and the host's
+  own application object: a context menu left open (Escape not reaching
+  it), and then the page closed — by `Target.closeTarget` (not obeyed while
+  the menu is open, as in Chrome 156) and `Browser.close`, by
+  `Browser.close` alone, or by a person's close button — ends the host with
+  `SIGSEGV` on its main thread inside CEF's framework, from a task the run
+  loop ran, reading `0xcdcdcdcdcdcdcdcd` (freed memory), after the page's
+  `on_before_close`. Chrome 156 closed by `Browser.close` in the same state
+  ended with status 0. A context menu dismissed first leaves the host
+  ending in order. Find whose it is — CEF's Chrome-style context menu, or
+  the host's window closing under it (`on_browser_destroyed`) — and close
+  the menu first or report it to CEF, with a test that leaves a menu open
+  and closes the page. *Depends on 731.*
 
 - [ ] **728. The host on Windows and Linux (cut from 725).** CEF publishes
   both; the host is built for macOS only (`compile_error!` elsewhere), and
@@ -19500,13 +19714,40 @@ What stage 2's exit gate actually measures: a person using it.
   Decide whether each is acceptable, and stop any that is not.
   *Depends on 725.*
 
-- [ ] **730. The gate reaching the host (cut from 725).** `scripts/gate.sh`
+- [x] **730. The gate reaching the host (cut from 725).** `scripts/gate.sh`
   builds, lints and tests only the repository's workspace, which the host
   is not part of, and does not name `cef` among its rented crates. Owed: a
-  `cef:crates/alo-cef-host/src/host.rs` boundary, and a step that runs
+  `cef` boundary naming `crates/alo-cef-host/src/host.rs` and
+  `crates/alo-cef-host/src/window.rs` (727 added the second), and a step that runs
   `cargo fmt`, `cargo clippy -D warnings` and `cargo test` on
   `crates/alo-cef-host` with `CEF_PATH` when it names a distribution, and
   says so when it does not. *blocked: `scripts/` is the owner's to change.*
+
+  ***Done (iteration 457)***, with the owner's leave for ADR 0080's
+  checks. `scripts/gate.sh` gains **a step** (eleven, not ten): the host's
+  `cargo fmt -- --check` on every run; and, when `CEF_PATH` names an
+  unpacked distribution (its framework and `archive.json`, as the host's
+  tests look), `cargo clippy --all-targets -- -D warnings` and `cargo test`
+  on the host's own workspace (`--locked`, `target/alo-cef-host`). Without
+  one it prints `NOT BUILT` and why, and fails nothing. **The `unsafe`
+  step is strengthened**, its manifest check unchanged: no workspace crate
+  writes an `unsafe` block, function, implementation, trait, extern block
+  or attribute, names the `unsafe_code` lint or `transmute_ptr_to_ptr`
+  (CSP's `'unsafe-inline'` is not matched); in the host, `unsafe` is
+  written only in `application_mac.rs` (and is there), `unsafe_code` is
+  named exactly twice, both in `main.rs` — `#![deny(unsafe_code)]` and
+  the attribute whose item is `mod application_mac;` — and
+  `transmute_ptr_to_ptr` only in `window.rs`. **Boundaries** gain `cef`
+  (`host.rs`, `window.rs`, `application_mac.rs`) and `objc2`,
+  `objc2_app_kit`, `objc2_foundation` (`application_mac.rs`,
+  `menu_mac.rs`). Every other step is unchanged for the workspace.
+  Exercised by running those parts of the gate alone: clean on this tree,
+  with and without `CEF_PATH`; and each refusal seen to fire on a copy of
+  the sources (`unsafe` in `host.rs`, the lint lifted in `menu_mac.rs`,
+  `deny` weakened to `warn`, the lift moved to another module, the clippy
+  lint in `switches.rs`, an `unsafe fn` and a multi-line
+  `#[allow(unsafe_code)]` in a workspace crate). `bash -n` clean. The
+  whole gate was not run here.
 
 - [ ] **726. CEF held to alo's rules, measured (ADR 0079 § 8).** With 725's
   host and ADR 0073's switches: no WidevineCdm and no component-updater

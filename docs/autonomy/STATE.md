@@ -45595,3 +45595,45 @@ the host), 720 (carried in the application, signed), 726 (rule checks).
 No claim about speed is made.
 
 The next unused queue number is **731** and the next ADR is **0080**.
+
+## Iterations 456–457 — queue items 727, 731, 732, 730: the CEF host's own window, its one `unsafe` boundary (ADR 0080, the owner's "Yes"), its menu bar, and the gate reaching it
+
+**Built by delegated agents, reviewed here.** 727: the host opens
+`--app=` in a Chrome-style CEF window of its own (title bar, close and
+minimise, the page's title, no tabs or address bar), placed by alo as
+Chrome's is; `chrome_window::put` now also waits until the page has
+followed a resize (`followed`), which applies to Chrome too. Without an
+`NSApplication` subclass the host crashed on a context menu, a `<select>`
+menu and a page closing itself, so the owner was asked and said **Yes**
+to ADR 0080: one reviewed `unsafe` boundary in the host only —
+`application_mac.rs`, an `objc2::define_class!` subclass answering
+CEF's protocols and routing `terminate:` to an orderly close — plus the
+`cef` crate's `wrap_*` macros in `window.rs` with one
+`#![expect(clippy::transmute_ptr_to_ptr)]`, both named and reasoned in
+the ADR. alo's own crates stay `forbid(unsafe_code)`. 731 built; 732: a
+menu bar (alo, Edit, Window; ⌘Q, ⌘W, Cut/Copy/Paste/Select All).
+730: `scripts/gate.sh` gains a step (10 → 11) running the host's fmt
+always and clippy and tests when `CEF_PATH` names a distribution, and
+its `unsafe` step is strengthened — no `unsafe`, `unsafe_code` or
+`transmute_ptr_to_ptr` anywhere in the workspace, and in the host only
+in the files ADR 0080 names. Nothing loosened: the one removed line is
+the step count.
+
+**Found by the gate, fixed here.** Twice the gate failed at
+`the_box_marked_through_chrome`, which passed alone: the new shown-host
+test presses with the real pointer and left it resting where the next
+test's Chrome window opens, over a link. The owner confirmed nobody was
+at the Mac. The test now records the pointer and puts it back when it
+ends (`PointerPutBack`); both tests passed in order. A leftover *alo
+quit unexpectedly* dialog from the agent's crash probing was closed.
+
+**Gate.** With `CEF_PATH` set: **5726 tests, 5726 passed, 11 of 11
+steps, "The gate is met."**
+
+**Unresolved obligations.** 733 (a profile path recreated about a second
+after removal, swept at next start), 734 (closing a page while its
+context menu is open crashes CEF), 720, 726, 728, 729. The machine is
+under memory pressure (8 GB, about 5 GB of swap); the owner was told. No
+claim about speed is made.
+
+The next unused queue number is **735** and the next ADR is **0081**.

@@ -18,21 +18,36 @@ publish = false
 debug = 1
 
 [dependencies]
-# CEF, rented (ADR 0079 § 3 option H, queue item 725), and named in one file,
-# `src/host.rs`. The crate's version is CEF's: `156.2.0+156.0.14` is built for
+# CEF, rented (ADR 0079 § 3 option H, queue items 725, 727 and 731), and named
+# in three files, `src/host.rs`, `src/window.rs` and `src/application_mac.rs`
+# (`scripts/gate.sh` holds the list). The crate's version is CEF's:
+# `156.2.0+156.0.14` is built for
 # CEF 156.0.14 (Chromium 156.0.8078.48), the distribution the host is built
 # and run against, and `Cargo.lock` holds it and `cef-dll-sys` at that
 # version. Without default features: `build-util` is the crate's own bundling
 # tool, which this does not use, and `resources` its sample's icons. With
 # `sandbox`, so the helpers enter macOS's sandbox through CEF's own
 # `libcef_sandbox.dylib`. Its `unsafe` is the crate's, not ours (ADR 0010):
-# every function `host.rs` calls is a safe one.
+# every function of CEF's the host calls is a safe one, and the callbacks
+# `window.rs` gives CEF are built by the crate's own `wrap_*` macros, whose
+# `unsafe` is written in the crate (`window.rs` says what that means).
 cef = { version = "=156.2.0", default-features = false, features = ["sandbox"] }
 
+# AppKit, through `objc2`, for the one `unsafe` boundary ADR 0080 allows the
+# host: `src/application_mac.rs`, the `NSApplication` subclass CEF requires
+# on macOS (`CefAppProtocol`), and `src/menu_mac.rs`, the menu bar, which
+# holds none. The versions are the ones the `cef` crate itself builds
+# against (`objc2` 0.6), and `Cargo.lock` holds them. Without default
+# features, with only the classes the two files use.
+objc2 = "0.6.3"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSEvent", "NSMenu", "NSMenuItem", "NSResponder"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"] }
+
 # The workspace's lints, which a crate outside the workspace cannot inherit,
-# written out again. All but one: the lint against `unsafe` is forbidden at
-# the top of `src/main.rs` instead, because `scripts/gate.sh` refuses that
-# lint's name in any crate's manifest, forbidding it included.
+# written out again. All but one: the lint against `unsafe` is denied at the
+# top of `src/main.rs` instead, and lifted there on the one module ADR 0080
+# allows, because `scripts/gate.sh` refuses that lint's name in any crate's
+# manifest, denying it included, and checks where the source names it.
 [lints.rust]
 missing_docs = "deny"
 
