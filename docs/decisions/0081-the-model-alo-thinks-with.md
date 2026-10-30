@@ -4,6 +4,16 @@
 is connected **last**, after the rest of the conversation is built; this ADR
 is written now so that choice is ready when that time comes, and so nothing
 built before it closes a door it needs.
+
+**Owner's note, 30 October 2026:** alo's searches (ADR 0082) — and, the owner
+expects, its AI — are paid for by **a monthly subscription**. That changes
+this ADR's recommended *bring-your-own-key, no server* default when it is
+decided: alo paying the providers means the provider keys cannot ship inside
+the application, so requests go through a service of alo's own that holds
+them, checks the subscription, and must keep no record of what was asked
+(ROADMAP: no telemetry of any kind). That service, accounts, billing and the
+price are their own decisions, written when this ADR is.
+
 **Date:** 2026-10-30
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
 coordinate; the agent never receives a screenshot); ADR 0052 (the agent's

@@ -51,7 +51,10 @@ person's own pages, on their own machine, is a separate idea, not decided
 here.
 
 What is left open, and decided when this is built (with the AI, last):
-who pays for the API's queries — the person's own key, or alo, and how;
+who pays for the API's queries — **decided by the owner the same day: a
+monthly subscription**, so alo pays the API and the person needs no key of
+their own (the price, a free allowance, and how a subscription is sold and
+checked are open; see ADR 0081's note on what a subscription needs);
 which open-source engines are maintained and running, and their API terms; and the order and blend of results when
 more than one source answers.
 
