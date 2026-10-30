@@ -53,6 +53,7 @@ use alo_text::{Slant, Weight};
 
 mod fetch;
 mod form;
+mod panel;
 mod pointer;
 mod sheet;
 mod strip;
@@ -266,6 +267,10 @@ impl Writer {
                 self.text(why);
             }
             Failure::NotTheStrip => self.tag(4),
+            Failure::NoPanel { why } => {
+                self.tag(5);
+                self.text(why);
+            }
         }
     }
 
@@ -287,6 +292,37 @@ impl Writer {
         for child in &node.children {
             self.node(child);
         }
+    }
+}
+
+impl Writer {
+    /// A page to load: where it is, its markup and sheets, how it is seen,
+    /// and the policies and the browser it is told of.
+    fn page(&mut self, page: &Page) {
+        self.text(&page.url.serialised);
+        self.text(&page.html);
+        self.number(page.sheets.len() as u64);
+        for sheet in &page.sheets {
+            self.text(sheet);
+        }
+        self.float(page.viewport.width);
+        self.float(page.viewport.height);
+        self.float(page.scale);
+        self.tag(match page.scheme {
+            ColorScheme::Light => 0,
+            ColorScheme::Dark => 1,
+        });
+        self.number(page.policies.len() as u64);
+        for policy in &page.policies {
+            self.text(policy);
+        }
+        self.number(page.watching.len() as u64);
+        for policy in &page.watching {
+            self.text(policy);
+        }
+        self.text(&page.user_agent);
+        self.text(&page.platform);
+        self.visibility(page.visibility);
     }
 }
 
@@ -314,30 +350,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
         }
         ToRenderer::Load(page) => {
             writer.tag(0);
-            writer.text(&page.url.serialised);
-            writer.text(&page.html);
-            writer.number(page.sheets.len() as u64);
-            for sheet in &page.sheets {
-                writer.text(sheet);
-            }
-            writer.float(page.viewport.width);
-            writer.float(page.viewport.height);
-            writer.float(page.scale);
-            writer.tag(match page.scheme {
-                ColorScheme::Light => 0,
-                ColorScheme::Dark => 1,
-            });
-            writer.number(page.policies.len() as u64);
-            for policy in &page.policies {
-                writer.text(policy);
-            }
-            writer.number(page.watching.len() as u64);
-            for policy in &page.watching {
-                writer.text(policy);
-            }
-            writer.text(&page.user_agent);
-            writer.text(&page.platform);
-            writer.visibility(page.visibility);
+            writer.page(page);
         }
         ToRenderer::Resize(screen) => {
             writer.tag(1);
@@ -387,6 +400,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(13);
             writer.float(at.x);
             writer.float(at.y);
+        }
+        ToRenderer::Panel(panel) => {
+            writer.tag(14);
+            writer.panel(panel);
         }
     }
     writer.out
@@ -1277,6 +1294,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         11 => ToRenderer::Strip(Box::new(reader.strip()?)),
         12 => ToRenderer::Pointer(reader.pointer()?),
         13 => ToRenderer::StripPress(alo_paint::Point::new(reader.float()?, reader.float()?)),
+        14 => ToRenderer::Panel(Box::new(reader.panel()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1336,6 +1354,9 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                     why: reader.text()?,
                 },
                 4 => Failure::NotTheStrip,
+                5 => Failure::NoPanel {
+                    why: reader.text()?,
+                },
                 other => return Err(unreadable(format!("a failure tagged {other}"))),
             };
             FromRenderer::Failed(failure)

@@ -754,6 +754,21 @@ The reason this exists rather than a faster fork of somebody else's engine.
 
 ## The browser itself — stage 2
 
+- [2] **The browser's own interface is a conversation** (ADR 0074, the design
+  in `docs/design/shell.md`). A panel of chats, a conversation that holds
+  results, answers, the pages a person opens and what the agent is doing,
+  and one box to type into — each part a document of ours drawn by this
+  engine in a confined renderer, as the tab strip is, so a person and an
+  agent read the same thing. **The chats panel is built** (queue item 699):
+  the open chats and the earlier ones, the one on screen, a terracotta dot
+  where the agent is at work and *Done* where it finished, read by an agent
+  as *navigation Chats* with each chat by its name and state. Owed: the
+  first screen in a window (700), going to a website with no model (701), a
+  page inside the conversation (702), the conversation (703), the agent at
+  work (704), its settings (705), the typefaces (706); the answer (707) and
+  search results (708) wait on the owner's choice of a model and a search
+  provider.
+
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item
   296): `alo PAGE.html STYLE.css` opens a window with one tab showing the

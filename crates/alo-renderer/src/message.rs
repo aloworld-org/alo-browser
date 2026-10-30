@@ -28,6 +28,7 @@ use crate::fetch::{FetchAsk, Fetched};
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::page::Page;
+use crate::panel::Panel;
 use crate::pointer::Pointer;
 use crate::screen::Screen;
 use crate::sheet::{SheetAnswer, SheetAsk};
@@ -134,6 +135,17 @@ pub enum ToRenderer {
     /// the strip runs no script. A renderer that holds no strip answers
     /// [`Failure::NotTheStrip`].
     StripPress(Point),
+    /// Hold the chats panel, built from this state (ADR 0074, queue item
+    /// 699).
+    ///
+    /// Sent only to the panel's own renderer, at a site no page can name
+    /// ([`crate::panel::site`]). It is data, never markup, as the strip's
+    /// state is: the renderer builds the panel's document from its
+    /// compiled-in template, each chat's name a text node
+    /// ([`crate::panel_document`]), lets go of anything it held first, and
+    /// answers as a load does, with [`FromRenderer::Loaded`]. `Paint` and
+    /// `ReadTree` then answer about the panel as they would a page.
+    Panel(Box<Panel>),
 }
 
 /// What a renderer answers with.
@@ -354,6 +366,12 @@ pub enum Failure {
     },
     /// A press on the tab strip, sent to a renderer that holds no strip.
     NotTheStrip,
+    /// The chats panel's document could not be built from its template: a
+    /// defect in the renderer's own markup, never in the state it was sent.
+    NoPanel {
+        /// What refused, in words.
+        why: String,
+    },
 }
 
 impl fmt::Display for Failure {
@@ -366,6 +384,7 @@ impl fmt::Display for Failure {
             Failure::Unpaintable { why } => write!(f, "nothing could be painted: {why}"),
             Failure::NoStrip { why } => write!(f, "the tab strip could not be built: {why}"),
             Failure::NotTheStrip => f.write_str("a press on the tab strip, and no strip is held"),
+            Failure::NoPanel { why } => write!(f, "the chats panel could not be built: {why}"),
         }
     }
 }
@@ -422,6 +441,13 @@ impl fmt::Display for ToRenderer {
                 strip.tabs.len(),
                 strip.viewport.width,
                 strip.viewport.height,
+            ),
+            ToRenderer::Panel(panel) => write!(
+                f,
+                "hold the chats panel of {}, at {}×{}",
+                panel.chats.len(),
+                panel.viewport.width,
+                panel.viewport.height,
             ),
         }
     }
@@ -491,6 +517,9 @@ mod tests {
             ToRenderer::Strip(_) => "the tab strip, as data",
             // Where a person pressed the strip, and nothing about any page.
             ToRenderer::StripPress(_) => "a person's press on the strip",
+            // The browser's own chats, which only the panel's renderer is
+            // sent.
+            ToRenderer::Panel(_) => "the chats panel, as data",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -538,6 +567,15 @@ mod tests {
             ToRenderer::Strip(Box::new(strip)).to_string(),
             "hold the tab strip, 1 open, at 640×40",
         );
+        let panel = Panel {
+            chats: vec![crate::panel::Chat::new("a", "b")],
+            viewport: Size::new(240.0, 640.0),
+            scale: 1.0,
+        };
+        assert_eq!(
+            ToRenderer::Panel(Box::new(panel)).to_string(),
+            "hold the chats panel of 1, at 240×640",
+        );
     }
 
     #[test]
@@ -556,6 +594,13 @@ mod tests {
             }
             .to_string(),
             "the tab strip could not be built: no tablist",
+        );
+        assert_eq!(
+            Failure::NoPanel {
+                why: "no place".to_owned(),
+            }
+            .to_string(),
+            "the chats panel could not be built: no place",
         );
     }
 }

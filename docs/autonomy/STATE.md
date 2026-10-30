@@ -45230,3 +45230,63 @@ paragraph.
 
 The next unused queue number is **699** and the next ADR is **0074**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 446 — queue item 699: the chats panel, the first part of the conversation the browser's own interface becomes (ADR 0074); a name read from content leaves out what is hidden
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, ADR 0024 §§ 4–5, ADR 0002,
+ADR 0052, ADR 0061, 0062, 0066, 0068; `strip.rs`, `strip_document.rs`,
+`wire/strip.rs` and `tests/the_tab_strip.rs` as the pattern; the owner's
+design canvas (30 October). No `AGENTS.md` exists.
+
+**Why 699, and why it is new.** The owner settled the browser's own
+interface as a conversation on 30 October and asked for it to be built.
+ADR 0074 writes the decision and `docs/design/shell.md` the design in
+words and numbers; queue items 699–708 are its parts, 707 and 708 blocked
+on the owner's choice of a model and a search provider. 699 is the part
+with no dependency.
+
+**Built.** `panel.rs` (the state: chats, open or earlier, current, what
+the agent is doing), `panel_document.rs` (the document from a compiled-in
+template with `alo-dom`'s operations, each name and site letter a text
+node), `interface/panel.{html,css}` (the design's palette and sizes),
+`ToRenderer::Panel` and `Failure::NoPanel`, `wire/panel.rs`, and the
+renderer holding it at `alo:chats` through `interface()`, which the strip
+now shares. `write_to_renderer` passed clippy's line limit, so a page's
+encoding moved to `Writer::page` rather than allowing the lint.
+
+**Found and fixed.** A name taken from content read `aria-hidden` text:
+the agent read *"E Charging my EV"* and *"New chat ⌘T"*. Chrome
+156.0.8078.76's accessibility tree, read headless over CDP from a scratch
+probe (never committed), names them *Charging my EV*, *New chat*, *Invoice
+for March Done*, *Save*, an all-hidden link nothing, and reads
+`aria-hidden=false` text as any other. `alo-agent`'s `name.rs` now skips a
+hidden box under the one being named; `a_name_leaves_out_what_is_hidden.rs`
+holds Chrome's names.
+
+**Gate.** Detached with nohup and waited on: **5591 tests, 5591 passed, 10
+of 10 steps, "The gate is met."** `cargo fmt` and workspace clippy clean
+before it.
+
+**Manual.** Layout assertion in numbers: every link's box in
+`the_chats_panel.rs` — New chat (10, 56) 220×40, rows 38 tall 2 apart from
+134, the second group's from 290, Settings (10, 510) — each reasoned from
+the stylesheet before the run and matching it. Reference render:
+`panel-chats.png`, written and looked at. One file, one responsibility:
+state, document, wire and test each their own file; `renderer.rs` gains
+the shared holding of an interface document, which is what it already did
+for the strip. Documentation: ADR 0074, `docs/design/shell.md`, features,
+queue, roadmap, changelog. No `unsafe`, no rented crate, no verb taking a
+coordinate. `alo-os` and `alo-workplace` untouched.
+
+**Roadmap.** A new line under *The browser itself*: the browser's own
+interface, a conversation — Built: the chats panel (699); Owed: 700–708.
+
+**Unresolved obligations.**
+- The panel is not in a window (700), takes no press (700), and has no
+  *Search chats* or hide button (cut to 700).
+- The design's typefaces are not carried (706); the stylesheet asks for
+  `system-ui` and `serif`.
+- Where Chrome's window goes inside the conversation is unmeasured (702).
+- No claim about speed is made.
+
+The next unused queue number is **709** and the next ADR is **0075**.

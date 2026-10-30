@@ -126,6 +126,8 @@ use crate::generic::Generics;
 use crate::held::Held;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
+use crate::panel::Panel;
+use crate::panel_document;
 use crate::pipeline::Drawing;
 use crate::pointed::Pointed;
 use crate::pointer::{Pointer, Went};
@@ -274,6 +276,7 @@ impl Renderer {
             ToRenderer::Strip(strip) => self.strip(&strip),
             ToRenderer::Pointer(pointer) => self.pointer(pointer),
             ToRenderer::StripPress(at) => self.strip_press(at),
+            ToRenderer::Panel(panel) => self.panel(&panel),
         }
     }
 
@@ -750,17 +753,55 @@ impl Renderer {
     /// nothing. A page held before it is left first, and what it said comes
     /// first, as a load's does.
     fn strip(&mut self, strip: &Strip) -> FromRenderer {
+        match strip_document::build(strip) {
+            Ok(document) => self.interface(
+                document,
+                strip.viewport,
+                strip.scale,
+                crate::strip::address(),
+                strip_document::SHEET,
+                true,
+            ),
+            Err(unbuilt) => FromRenderer::Failed(Failure::NoStrip { why: unbuilt.why }),
+        }
+    }
+
+    /// Hold the chats panel (ADR 0074, queue item 699), as the strip is
+    /// held: its document built from the state it was sent, at its own
+    /// address, with its own sheet.
+    fn panel(&mut self, panel: &Panel) -> FromRenderer {
+        match panel_document::build(panel) {
+            Ok(document) => self.interface(
+                document,
+                panel.viewport,
+                panel.scale,
+                crate::panel::address(),
+                panel_document::SHEET,
+                false,
+            ),
+            Err(unbuilt) => FromRenderer::Failed(Failure::NoPanel { why: unbuilt.why }),
+        }
+    }
+
+    /// Hold a part of the browser's own interface — a document built from
+    /// state, never from markup (ADR 0024 § 4) — at `address` and `viewport`,
+    /// drawn with `sheet`, letting go of whatever was held first, and answer
+    /// as a load does. `strip` says whether a press may then be claimed on
+    /// it as the strip's.
+    fn interface(
+        &mut self,
+        document: alo_dom::Document,
+        viewport: alo_layout::Size,
+        scale: f32,
+        address: Option<alo_url::Url>,
+        sheet: &str,
+        strip: bool,
+    ) -> FromRenderer {
         let left = self.let_go();
-        let document = match strip_document::build(strip) {
-            Ok(document) => document,
-            Err(unbuilt) => {
-                return FromRenderer::Failed(Failure::NoStrip { why: unbuilt.why });
-            }
-        };
-        let page = Page::new("", strip.viewport)
-            .at_scale(strip.scale)
-            .at(crate::strip::address().unwrap_or_else(alo_url::Url::about_blank))
-            .with_sheet(strip_document::SHEET);
+        let page = Page::new("", viewport)
+            .at_scale(scale)
+            .at(address.unwrap_or_else(alo_url::Url::about_blank))
+            .with_sheet(sheet);
         self.easel.borrow_mut().begin(&page);
         self.view = Rc::new(PageView::at(
             Screen::new(page.viewport).at_scale(page.scale),
@@ -769,7 +810,7 @@ impl Renderer {
         self.metas = alo_net::Policies::none();
         self.held = Some(Held::Parsed(document));
         self.page = Some(page);
-        self.holds_strip = true;
+        self.holds_strip = strip;
         self.draw();
         match self.loaded() {
             FromRenderer::Loaded {

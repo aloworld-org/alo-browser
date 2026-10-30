@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- The chats panel's template (ADR 0074). Compiled into the renderer and
+     never assembled from anything: `panel_document.rs` puts each group and
+     each chat into #chats with alo-dom's operations, and a chat's name and
+     site in as text nodes. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chats</title>
+  </head>
+  <body>
+    <nav class="panel" aria-label="Chats">
+      <div class="head"><span class="mark" aria-hidden="true">alo</span></div>
+      <a class="new" href="#new-chat">New chat<span class="keys" aria-hidden="true">⌘T</span></a>
+      <div id="chats" class="groups"></div>
+      <div class="foot"><a class="settings" href="#settings">Settings</a></div>
+    </nav>
+  </body>
+</html>

@@ -30,6 +30,7 @@ use alo_renderer::frame::Frame;
 use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
+use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
 use alo_renderer::strip::LONGEST_TITLE;
 use alo_renderer::violations::{MOST_OBJECTIONS, Objection};
@@ -149,6 +150,18 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             ("monospace".to_owned(), "Menlo".to_owned()),
         ])),
         ToRenderer::UseGenerics(Generics::new()),
+        // Every way a chat can be, and a name a page could have written.
+        ToRenderer::Panel(Box::new(Panel {
+            chats: vec![
+                Chat::new("Charging my EV", "evhomeguide.org").current(),
+                Chat::new("<b>a\0b</b>", "").doing(Doing::Working),
+                Chat::new("Invoice", "books.example").doing(Doing::Done),
+                Chat::new("Earlier", "").earlier(),
+            ],
+            viewport: Size::new(240.0, 560.5),
+            scale: 2.0,
+        })),
+        ToRenderer::Panel(Box::default()),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -245,6 +258,9 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         }),
         FromRenderer::Failed(Failure::NoStrip {
             why: "the template has no tablist".to_owned(),
+        }),
+        FromRenderer::Failed(Failure::NoPanel {
+            why: "the template has no place for the chats".to_owned(),
         }),
         FromRenderer::UsingGenerics {
             answering: vec!["sans-serif".to_owned(), "monospace".to_owned()],

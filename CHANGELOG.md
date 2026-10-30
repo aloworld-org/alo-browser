@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The first piece of the browser's new interface: the chats panel.** The
+  browser's own interface is becoming a conversation (ADR 0074): a panel of
+  chats on the left, the conversation beside it, one box to type into. The
+  panel is built — the open chats and the earlier ones, which one is on
+  screen, a dot where the agent is at work and *Done* where it finished —
+  drawn by this engine from data, so a chat's name is never markup, and read
+  by an agent as the list of chats it is. It is not in the window yet (item
+  700). While building it, an agent was found reading hidden decoration into
+  names — *"E Charging my EV"* for a link a person sees as *Charging my EV* —
+  which is fixed, matching Chrome.
+
 - **Why a `.local` address does not open, and what to do about it.** A
   page at a name ending in `.local`, such as the Mac's own name, does not
   load in the Chrome behind the browser. The cause is macOS's Local Network privacy: it holds Chrome's

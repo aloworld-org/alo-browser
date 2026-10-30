@@ -1,0 +1,180 @@
+/* The chats panel, after the owner's design (ADR 0074 § 2,
+   docs/design/shell.md). The values are the palette's, spelled here because
+   no other file is reachable from a renderer. Terracotta is kept for one
+   thing: a chat where the agent is at work. */
+:root {
+  --ink: #1b2433;
+  --panel: #eeeae2;
+  --surface: #ffffff;
+  --line: #ddd6ca;
+  --line-soft: #e1dace;
+  --quiet: #5f5a52;
+  --heading: #6b655c;
+  --acting: #b5573a;
+  --done: #2f6b5e;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--panel);
+  color: #3d3a35;
+  font-family: system-ui, sans-serif;
+  font-size: 13.5px;
+  line-height: 18px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 6px 10px 12px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  height: 46px;
+  padding-left: 8px;
+  margin-bottom: 4px;
+}
+
+.mark {
+  font-family: serif;
+  font-size: 22px;
+  line-height: 26px;
+  color: var(--ink);
+}
+
+.new {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.keys {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--heading);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.group {
+  margin: 18px 0 6px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--heading);
+}
+
+.chats {
+  display: flex;
+  flex-direction: column;
+  row-gap: 2px;
+  list-style-type: none;
+}
+
+/* A chat's row: its site's mark, its name cut to the row, and what is
+   happening in it. */
+.chat {
+  display: flex;
+  align-items: center;
+  column-gap: 10px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+}
+
+.chat[aria-current="page"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.earlier .chat {
+  color: var(--quiet);
+}
+
+.site {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--ink);
+  font-size: 9px;
+  line-height: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* A name is the person's words or a page's title, and as long as they
+   were: one line, cut with an ellipsis where the row ends. */
+.name {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.working {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--acting);
+}
+
+.done {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--done);
+}
+
+.foot {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.settings {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+}

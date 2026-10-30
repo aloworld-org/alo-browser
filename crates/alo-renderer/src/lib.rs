@@ -80,6 +80,8 @@ pub mod message;
 pub mod navigate;
 pub mod objected;
 pub mod page;
+pub mod panel;
+pub mod panel_document;
 pub mod pictures;
 pub mod pipe;
 pub mod pipeline;

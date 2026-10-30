@@ -64,6 +64,11 @@ ADR 0058 — and nothing else does:
 | ✓ | **683** | words drawn with this machine's own fonts — the rented outline parser's `gvar-alloc` (iteration 424) |
 | ✓ | **643** | a placed window that stays where a person sees it — the strip takes only a window another was brought in front of (iteration 425) |
 | **→** | **477** | an application somebody can run, on macOS — **decided, ADR 0067 as changed by ADR 0068**: the bundle runs the machine's Chrome behind our surface on a page of its own, this engine only where there is no Chrome (685 folded in); **`alo` inside the application built** (iteration 427); **assembled by `alo-bundle`** (687, iteration 428); **its icon drawn by this engine** (689, iteration 429); **quit, it leaves no profile or socket** (688, iteration 430); **a killed browser's profile, removed at the next start** (690, ADR 0069, iteration 432; gated 2026-10-28 once 691 moved the minimum Rust to 1.89, ADR 0070); owed: another Mac |
+| ✓ | **699** | the chats panel, a document of ours — the first part of the conversation the browser's own interface becomes (ADR 0074, iteration 446) |
+| | **700** | the first screen and the panel, in a window |
+| | **701** | going to a website from the one box, with no model |
+| | **702** | where Chrome's window goes when a page opens inside the conversation — measured, then decided |
+| | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -18971,6 +18976,91 @@ What stage 2's exit gate actually measures: a person using it.
   answers a record naming both, the refusal included — **a record that only
   lists what succeeded is a record of nothing** — and the window can be given
   the same without reaching into the browser process's memory.
+
+- [x] **699. The chats panel, a document of ours (ADR 0074).** The left of
+  the browser's own interface as the owner's design draws it: the mark,
+  *New chat*, the open chats and the earlier ones, each with the site open
+  in it and what the agent is doing there, and *Settings*. Built as the tab
+  strip is (ADR 0024 § 4): state as data (`panel.rs`), a document from a
+  compiled-in template with `alo-dom`'s operations (`panel_document.rs`), a
+  confined renderer at `alo:chats`, and its wire form. *Closes when:* a
+  reference render; every row's box in numbers; the agent reading
+  *navigation Chats*, each chat by its name, the current one `current`, one
+  at work `busy`, a finished one *Done* in words; hostile names staying
+  text; the same panel through a confined renderer.
+  ***Done (iteration 446).*** All of that, in
+  `alo-renderer/tests/the_chats_panel.rs`. Building it found that a name
+  read from content took in `aria-hidden` text — *"E Charging my EV"*, *"New
+  chat ⌘T"* — which Chrome 156 leaves out; fixed in `alo-agent`'s
+  `name.rs`, with Chrome's names in `a_name_leaves_out_what_is_hidden.rs`.
+  Cut to 700: the panel in a window, a press on it, *Search chats* and the
+  button that hides it.
+
+- [ ] **700. The first screen, and the panel beside it, in a window.** The
+  window of the design's screen 0a: the chats panel (699) on the left, and
+  on the right a greeting, the one box — *Ask anything, search, or type a
+  website* — a person's sites and the chats waiting on them; each a document
+  of ours in a renderer of its own (ADR 0074). A press on a chat or *New
+  chat* is claimed by place, as the strip's is (ADR 0024 § 5, 539), and
+  decided by the browser process. *Search chats* and the button that hides
+  the panel, cut from 699. *Depends on 699. Closes when:* the window opens
+  on the first screen, a press on a chat says which chat, layout assertions
+  and reference renders of both documents, and a screen capture of the
+  window.
+
+- [ ] **701. Going to a website from the one box, with no model.** What is
+  typed is offered as the design's screen 0b offers it: *Go to the site*
+  first when it is an address, Return opening it in Chrome as `alo --chrome`
+  opens a page today; *Search for* and *Ask alo* offered below it and, until
+  708 and 707, saying they are not set up yet rather than pretending.
+  *Depends on 700. Closes when:* typing `example.com` and pressing Return
+  opens it, and what is typed reaches nothing but the browser process.
+
+- [ ] **702. Where Chrome's window goes when a page opens inside the
+  conversation — measured, then decided.** The design opens a page in a card
+  under the answer, scrolled with it. ADR 0062 measured why ours floats
+  beside Chrome's; this places Chrome's window inside a region of ours and
+  follows the conversation as it scrolls. Measure how fast a placed window
+  follows, what Stage Manager does with it, and what a person sees between
+  two placements, then write the ADR. ADR 0066 holds: the page's window is
+  over ours, never ours over the page. *Depends on 700. needs design: the
+  ADR is this item's first half.*
+
+- [ ] **703. The conversation, a document of ours.** A person's words, the
+  agent's words and the steps it took, drawn as the design draws them, in a
+  renderer of its own; each message a stranger's string entering as text.
+  *Depends on 700.*
+
+- [ ] **704. The agent at work, shown as the design shows it.** The split
+  view with the page large and the agent's column beside it, the panel a
+  rail; one line per step in a person's words, with why when it chose; the
+  terracotta outline and *click anywhere to take over*; *Stop*; asking before
+  paying, sending or deleting (ADR 0052's person's gate, given a face);
+  saying when it is stuck, with choices; never typing a password. *Depends
+  on 702 and 703, and on what the agent's record says (678).*
+
+- [ ] **705. What the agent may do, as a settings screen.** The design's
+  screen 19 over `alo-grants`: reading, filling and clicking on every site;
+  paying always asked; sending and deleting asked unless a person says
+  otherwise; signing in always the person's; a site's own rules. *Depends on
+  700.*
+
+- [ ] **706. The design's typefaces, rented.** Instrument Sans and
+  Newsreader, both under the SIL Open Font License, carried by the
+  application and handed to the interface's renderers, so the stylesheets
+  stop asking for `system-ui` and `serif`. *Closes when:* the interface's
+  reference renders are drawn in them and the licence is in the bundle.
+
+- [ ] **707. The answer, written by a model, every claim tied to its source.**
+  The design's Answer tab: a one-line answer, short points, a number after
+  each sentence a source supports, the exact line on hover, *N sources*
+  counting only the sources used, and *I couldn't find a reliable answer*
+  when that is the truth. *blocked: the owner has not chosen the model.*
+
+- [ ] **708. Search results — sites first, then images, videos and news.**
+  The design's tabs in order, *Sites* the first and the default for anything
+  typed: each result its site, its title as a link, two lines of
+  description. *blocked: the owner has not chosen the search provider.*
 
 ## K. ★ The agent, on somebody else's pages
 

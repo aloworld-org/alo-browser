@@ -2310,6 +2310,16 @@ items where being right and being unusable are the same outcome.
 
 ### The browser itself
 
+- [ ] The browser's own interface, a conversation (ADR 0074, `docs/design/shell.md`)
+      · Built: the chats panel (699) — a document of ours drawn in a
+      confined renderer at `alo:chats`, its chats as data and each name a
+      text node, read by an agent as *navigation Chats* with each chat's
+      state, in a reference render and a layout assertion of every row
+      · Owed: the first screen in a window (700), going to a website (701),
+      a page inside the conversation (702), the conversation (703), the
+      agent at work (704), what the agent may do (705), the typefaces (706),
+      the answer (707, blocked: a model) and search results (708, blocked: a
+      search provider)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions

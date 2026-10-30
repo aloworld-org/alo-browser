@@ -249,6 +249,17 @@ fn gather_in(
         alo_box::Inside::Flow | alo_box::Inside::FlowRoot
     );
     for child in boxes.children(id) {
+        // `aria-hidden` is not read, so it is not read into a name either:
+        // a link's icon or a key it can be pressed with is not what it is
+        // called, as Chrome 156 names it (queue item 699). Only what is under
+        // the box being named is left out — a hidden `<label>` still names
+        // its field, as a hidden thing pointed at by name still does.
+        if boxes
+            .get(child)
+            .is_some_and(|child| child.semantics.states.hidden)
+        {
+            continue;
+        }
         gather_in(boxes, child, lines, leaving_out, out);
     }
     if apart {
