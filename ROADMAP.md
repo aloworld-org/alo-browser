@@ -2390,15 +2390,24 @@ items where being right and being unusable are the same outcome.
       frame of ours, a second address replacing the first, the first
       screen's line saying opening, opened, why not or closed, and Chrome
       closed with its profile removed as the window closes, in a shown-Chrome
-      test against a local server
+      test against a local server; and search results as the design's All
+      tab (708, ADR 0083) — the Brave Search API asked by the browser
+      process with the words alone, the key read from the keychain at run
+      time and never said, the answer read by name and refused without a
+      panic, the tab row and top three sites drawn as text in a reference
+      render and a layout assertion, 401/429/5xx said in words, a title
+      opening its page in the card, through the window's own road against a
+      local server
       · Owed: *Search chats* and the button that hides the panel (711),
       a press on an offer (714), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
       a page inside the conversation (702), the conversation (703), the
       agent at work (704), what the agent may do (705), the typefaces (706),
-      the answer (707, blocked: a model) and search results (708, blocked: a
-      search provider)
+      the answer and All's short answer (707, blocked: a model), images
+      (743), the Sites tab (744), Videos (745), News (746), a site's own
+      mark (747), the key in release (748, the owner's decision), why a card
+      closed said rather than wiped (749)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions
