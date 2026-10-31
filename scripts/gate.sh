@@ -268,7 +268,9 @@ fi
 
 step "no stubs"
 # Law 3 of LOOP.md: built whole. A stub is a promise the gate cannot check.
-if stubs=$(grep -rnE '\b(todo!|unimplemented!|FIXME|XXX)' crates/*/src crates/*/tests 2>/dev/null); then
+# Binary files are skipped (-I): a reference picture cannot hold a stub, and
+# its compressed bytes once spelt XXX by chance (queue item 711).
+if stubs=$(grep -rnIE '\b(todo!|unimplemented!|FIXME|XXX)' crates/*/src crates/*/tests 2>/dev/null); then
   echo "$stubs"
   bad "a stub or an unfinished note is in the tree"
 else
