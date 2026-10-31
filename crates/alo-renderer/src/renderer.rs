@@ -294,6 +294,7 @@ impl Renderer {
             ToRenderer::Panel(panel) => self.panel(&panel),
             ToRenderer::Start(start) => self.start(&start),
             ToRenderer::ConversationPress(at) => self.conversation_press(at),
+            ToRenderer::ConversationReach => self.conversation_reach(),
         }
     }
 
@@ -812,8 +813,7 @@ impl Renderer {
                 (
                     start_document::SHEET,
                     start
-                        .card
-                        .as_ref()
+                        .card()
                         .and_then(crate::card_document::frame)
                         .into_iter()
                         .collect(),
@@ -911,6 +911,23 @@ impl Renderer {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         FromRenderer::ConversationClaimed(conversation_claim::claimed(drawing, document, part, at))
+    }
+
+    /// How far the first screen's conversation reaches either side of its
+    /// newest turn's top, measured from the drawing it holds (queue item
+    /// 703, [`crate::conversation_scroll`]): what the browser process keeps
+    /// a person's wheel inside. A renderer holding anything but the first
+    /// screen answers that it holds no conversation.
+    fn conversation_reach(&mut self) -> FromRenderer {
+        if self.holds != Holds::Conversation(Part::Start) {
+            return FromRenderer::Failed(Failure::NotTheConversation);
+        }
+        self.fresh();
+        let easel = self.easel.borrow();
+        let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        FromRenderer::ConversationReached(crate::conversation_scroll::reach_of(drawing, document))
     }
 
     /// The same page at another size, or on a screen of another scale: the

@@ -32,6 +32,7 @@ use alo_renderer::frame::frame_to_png;
 use alo_renderer::generic::Generics;
 use alo_renderer::host::Renderers;
 use alo_renderer::start::{self, Start};
+use alo_renderer::turn::Turn;
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use std::path::{Path, PathBuf};
@@ -230,10 +231,10 @@ fn with_a_card(frame: Option<Vec<u8>>) -> Start {
     Start {
         greeting: "Hello.".to_owned(),
         viewport: Size::new(WIDTH, HEIGHT),
-        card: Some(match frame {
+        turns: vec![Turn::Page(match frame {
             Some(png) => card.holding(png),
             None => card,
-        }),
+        })],
         ..Start::default()
     }
 }
@@ -345,7 +346,7 @@ fn the_page_box_the_browser_computes_is_the_one_laid_out() -> Result<(), String>
         let mut renderer = Renderer::new(fonts());
         let _ = renderer.handle(ToRenderer::Start(Box::new(start)));
         let viewport = Size::new(width, height);
-        let computed = card_place::page_box(viewport);
+        let computed = card_place::page_box(viewport, 0.0);
         assert_eq!(
             boxes_of(&renderer, "page"),
             vec![units(computed)],
@@ -422,9 +423,16 @@ fn an_agent_reads_the_card_as_a_region_named_by_its_address() -> Result<(), Stri
     let drawn = draw(with_a_card(Some(frame()?)));
     let outline = drawn.tree.to_outline();
     let some = |name: &str| Some(name.to_owned());
+    // The conversation, its one turn named by what the person said — here
+    // the address typed — and in it the card, named by its address (queue
+    // item 703).
     assert_eq!(
         names(&read(&drawn.tree, "region")),
-        vec![some("127.0.0.1:8765/card.html")],
+        vec![
+            some("Conversation"),
+            some("127.0.0.1:8765/card.html"),
+            some("127.0.0.1:8765/card.html")
+        ],
         "{outline}"
     );
     assert_eq!(
@@ -452,9 +460,12 @@ fn an_agent_reads_the_card_as_a_region_named_by_its_address() -> Result<(), Stri
     assert!(read(&drawn.tree, "heading").is_empty(), "{outline}");
     assert_eq!(read(&drawn.tree, "search").len(), 1, "{outline}");
     // In order: what the person said, then the card, then the box.
+    let card = outline
+        .rfind("region \"127.0.0.1:8765/card.html\"")
+        .unwrap_or(0);
     assert!(
-        outline.find("paragraph").unwrap_or(usize::MAX) < outline.find("region").unwrap_or(0)
-            && outline.find("region").unwrap_or(usize::MAX) < outline.find("search").unwrap_or(0),
+        outline.find("paragraph").unwrap_or(usize::MAX) < card
+            && card < outline.find("search").unwrap_or(0),
         "{outline}"
     );
     Ok(())
@@ -474,7 +485,7 @@ fn a_press_on_each_button_claims_it_and_on_a_greyed_one_or_the_page_nothing() ->
     assert_eq!(pressed(card(), 500.0, 400.0), nothing, "the page is 718's");
     assert_eq!(pressed(card(), 500.0, 120.0), nothing, "the address");
     let mut open = with_a_card(Some(frame()?));
-    if let Some(card) = open.card.as_mut() {
+    if let Some(Turn::Page(card)) = open.turns.last_mut() {
         card.back = true;
         card.forward = true;
     }

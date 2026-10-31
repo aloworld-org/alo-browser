@@ -3,20 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! A search's results, built into the first screen's document as the
-//! design's All tab (queue item 708, ADR 0083), the way a card is
-//! ([`crate::card_document`]): the tab row is the template's `<template
-//! id="results">`, ours and fixed, and what the person said and every
-//! site's name, address, title and description enter it as text nodes.
-//!
-//! # What changes on the screen
-//!
-//! As with a card, the screen is a conversation: the greeting, its line and
-//! the groups are not built, and a column 880 wide stands above the one
-//! box, holding what the person said, then the results.
+//! design's All tab (queue item 708, ADR 0083), in a turn of the
+//! conversation ([`crate::conversation_document`]): the tab row is ours and
+//! fixed, made with `alo-dom`'s operations, and every site's name, address,
+//! title and description enters it as a text node.
 //!
 //! # What an agent reads
 //!
-//! ADR 0002: what the person said, as a paragraph; then a `region` named
+//! ADR 0002: a `region` named
 //! *Search results*, holding a `tablist` named *Kinds of result* — *All*
 //! selected, the rest disabled — then each site as an `article`: its name
 //! and address as text, its title as a heading holding a link, and its
@@ -33,8 +27,8 @@
 //! opens. The link's `href` is a name of ours, [`TITLE_HREF`], never the
 //! site's address: nothing a stranger wrote is an attribute here.
 
-use crate::results::{Found, Results};
-use crate::start_document::{Unbuilt, append, attribute, by_id, element, insert_before};
+use crate::results::{Found, Results, TABS};
+use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
 
 /// What a site's title links to in this document: a name of ours.
@@ -43,66 +37,58 @@ pub const TITLE_HREF: &str = "#found";
 /// What *More sites ›* says.
 pub const MORE_SITES: &str = "More sites \u{203a}";
 
-/// The id of the template's `<template>` holding the results.
-const RESULTS: &str = "results";
+/// What the results are named, to an agent.
+pub const REGION: &str = "Search results";
 
-/// Put `results` into `document`, the first screen's, above `before` — the
-/// one box — inside `screen`, its `main`, taking the screen's greeting, its
-/// line and `blocks` out.
+/// What the tab row is named, to an agent.
+pub const KINDS: &str = "Kinds of result";
+
+/// The results for `results`, as the All tab draws them, for the
+/// conversation to put in its turn ([`crate::conversation_document`]).
+///
+/// Made with `alo-dom`'s operations rather than moved out of a template,
+/// since a conversation holds as many as it holds searches and a
+/// template's contents can be moved out once: the region named
+/// [`REGION`], its tab row — [`TABS`] in order, *All* chosen and the rest
+/// disabled — then the sites.
 ///
 /// # Errors
 ///
-/// [`Unbuilt`] if the template lacks the results or a place in them, or
-/// `alo-dom` refused an operation, which no results can cause.
-pub fn put(
-    document: &mut Document,
-    results: &Results,
-    screen: NodeId,
-    before: NodeId,
-    blocks: NodeId,
-) -> Result<(), Unbuilt> {
-    let sub = document
-        .children(screen)
-        .find(|&child| document.attribute_by_name(child, "class") == Some("sub"));
-    for gone in [Some(by_id(document, "greeting")?), sub, Some(blocks)]
-        .into_iter()
-        .flatten()
-    {
-        document
-            .remove_child(screen, gone)
-            .map_err(|refused| Unbuilt {
-                why: format!("a node could not be taken out of the first screen: {refused}"),
-            })?;
+/// [`Unbuilt`] if `alo-dom` refused an operation, which no results can
+/// cause.
+pub fn make(document: &mut Document, results: &Results) -> Result<NodeId, Unbuilt> {
+    let made = element(document, "section")?;
+    attribute(document, made, "class", "results")?;
+    attribute(document, made, "aria-label", REGION)?;
+    let row = element(document, "div")?;
+    attribute(document, row, "class", "rtabs")?;
+    attribute(document, row, "role", "tablist")?;
+    attribute(document, row, "aria-label", KINDS)?;
+    for (place, name) in TABS.into_iter().enumerate() {
+        let chosen = place == 0;
+        let tab = element(document, "button")?;
+        attribute(document, tab, "class", if chosen { "rt on" } else { "rt" })?;
+        attribute(document, tab, "type", "button")?;
+        attribute(document, tab, "role", "tab")?;
+        attribute(
+            document,
+            tab,
+            "aria-selected",
+            if chosen { "true" } else { "false" },
+        )?;
+        if !chosen {
+            attribute(document, tab, "disabled", "")?;
+        }
+        let words = document.create_text_node(name);
+        append(document, tab, words)?;
+        append(document, row, tab)?;
     }
-    let thread = element(document, "div")?;
-    attribute(document, thread, "class", "thread searched")?;
-    let said = element(document, "p")?;
-    attribute(document, said, "class", "you")?;
-    // A stranger's string, entering as a text node's data.
-    let words = document.create_text_node(&results.said);
-    append(document, said, words)?;
-    append(document, thread, said)?;
-    let made = take_results(document)?;
-    append(document, thread, made)?;
-    insert_before(document, screen, thread, before)?;
-    fill(document, made, results)
-}
-
-/// The results the template's `<template id="results">` holds, moved out
-/// of it.
-fn take_results(document: &Document) -> Result<NodeId, Unbuilt> {
-    let holder = by_id(document, RESULTS)?;
-    document
-        .element(holder)
-        .and_then(|holder| holder.template_contents)
-        .and_then(|contents| {
-            document
-                .children(contents)
-                .find(|&child| document.element(child).is_some())
-        })
-        .ok_or_else(|| Unbuilt {
-            why: "the first screen's template holds no results".to_owned(),
-        })
+    append(document, made, row)?;
+    let list = element(document, "div")?;
+    attribute(document, list, "class", "res")?;
+    append(document, made, list)?;
+    fill(document, made, results)?;
+    Ok(made)
 }
 
 /// The sites, or the sentence said in their place, then *More sites ›*.
@@ -199,7 +185,7 @@ mod tests {
     fn built(results: Results) -> Document {
         build(&Start {
             greeting: "Hello.".to_owned(),
-            results: Some(results),
+            turns: vec![crate::turn::Turn::Searched(results)],
             ..Start::default()
         })
         .unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why))

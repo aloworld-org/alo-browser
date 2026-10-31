@@ -59,12 +59,20 @@
 //! results' place. One thing stands under what the person said: a card or
 //! results.
 //!
+//! Queue item 703 makes the conversation keep every turn: each chat holds
+//! its own ([`crate::conversation_thread`]) — a search and a page opened
+//! each a turn under the last, a card put away as its address when
+//! anything newer comes — and the first screen shows the turns of the chat
+//! on screen, scrolled as a person's wheel scrolled them
+//! ([`Conversation::scroll`]). *New chat* starts with none; a chat pressed
+//! in the panel shows its own. A press on a site's title or a page shown
+//! earlier, in any turn, opens it as a new turn, its bubble the words it
+//! was drawn with ([`Conversation::choose_found`]).
+//!
 //! Every other — *Settings*, a kept site, *Add a site*, a waiting chat — is
 //! decided and kept as [`Conversation::last_pressed`], and **changes
 //! nothing yet**: there is no settings screen (705), and nothing keeps a
-//! site or a waiting chat. What the first screen shows does not follow the
-//! chat on screen either, since every chat today is new and shows the first
-//! screen (703).
+//! site or a waiting chat.
 //!
 //! # The greeting
 //!
@@ -77,11 +85,13 @@
 
 use crate::conversation_box::{TheBox, Typed};
 use crate::conversation_search::Searched;
+use crate::conversation_thread::Thread;
 use crate::scale::Scale;
 use crate::typing::Edit;
 use alo_layout::Size;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_decide::{Decided, Shown};
+use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::panel::{Chat, Panel, drawn_order};
 use alo_renderer::results::{self, Results, SetUp};
 use alo_renderer::start::{KeptSite, Start};
@@ -103,7 +113,7 @@ pub type Showing = Shown<ChatId, KeptSite>;
 pub type Pressed = Decided<ChatId, KeptSite>;
 
 /// The conversation interface, as the browser process holds it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Conversation {
     /// Every chat, in the order the browser process keeps them, each with
     /// its identity.
@@ -122,16 +132,15 @@ pub struct Conversation {
     /// What the box held when it was last chosen from: what the person
     /// said, which a card answers.
     said: String,
-    /// The page opened from the conversation, shown as a card (ADR 0076 B,
-    /// queue item 717), if one is.
-    card: Option<Card>,
+    /// Each chat's turns and how far they are scrolled (queue item 703),
+    /// by the chat's identity: the live card, if any, is the newest turn of
+    /// the chat on screen (ADR 0076 B, queue item 717).
+    threads: Vec<(ChatId, Thread)>,
     /// Whether the card's page has the keyboard (queue item 718): given it
     /// by a press on the page, taken by a press anywhere else.
     card_keys: bool,
     /// Whether searching can be done (queue item 708).
     search: SetUp,
-    /// The newest search's results, shown as the All tab, if there are any.
-    results: Option<Results>,
     /// How many searches were chosen: the newest one's number.
     searches: u64,
 }
@@ -147,10 +156,9 @@ impl Default for Conversation {
             the_box: TheBox::default(),
             chosen: None,
             said: String::new(),
-            card: None,
+            threads: vec![(ChatId(0), Thread::default())],
             card_keys: false,
             search: SetUp::Not(String::new()),
-            results: None,
             searches: 0,
         }
     }
@@ -180,13 +188,8 @@ impl Conversation {
                 .collect(),
             sites: Vec::new(),
             waiting: Vec::new(),
-            card: self.card.is_some(),
-            found: self
-                .results
-                .iter()
-                .flat_map(Results::on_all)
-                .map(|found| found.url.clone())
-                .collect(),
+            card: self.card().is_some(),
+            found: self.thread().map(Thread::links).unwrap_or_default(),
         }
     }
 
@@ -261,8 +264,10 @@ impl Conversation {
             Some(Offer::Go(_)) => self.the_box.empty(),
             Some(Offer::Search(words)) if self.search == SetUp::Ready => {
                 self.searches += 1;
-                self.results = Some(Results::searching(words.clone()));
-                self.card = None;
+                let words = words.clone();
+                if let Some(thread) = self.thread_mut() {
+                    thread.search(words);
+                }
                 self.card_keys = false;
                 let _ = self.the_box.empty();
                 true
@@ -285,7 +290,7 @@ impl Conversation {
     /// The search under way, if the newest is: its number and its words,
     /// which the window hands the searcher.
     pub fn searching(&self) -> Option<(u64, &str)> {
-        match (&self.chosen, &self.results) {
+        match (&self.chosen, self.results()) {
             (
                 Some(Offer::Search(_)),
                 Some(Results {
@@ -303,26 +308,24 @@ impl Conversation {
         if searched.number != self.searches {
             return false;
         }
-        match self.results.as_mut() {
-            Some(results) if results.said == searched.words => {
-                results.showing = searched.showing;
-                true
-            }
-            _ => false,
-        }
+        self.thread_mut()
+            .is_some_and(|thread| thread.searched(&searched.words, searched.showing))
     }
 
-    /// A search's results, if they are shown.
+    /// The newest search's results in the chat on screen, if a turn holds
+    /// any.
     pub fn results(&self) -> Option<&Results> {
-        self.results.as_ref()
+        self.thread().and_then(Thread::results)
     }
 
     /// A person pressed the title of the site found at `url` (queue item
-    /// 708): it is chosen as an address from the box is, and opens as a
-    /// card under what the person searched for.
+    /// 708), or a page shown earlier at it (703), in any turn: it is chosen
+    /// as an address from the box is, and opens as a new turn whose bubble
+    /// is the words it was drawn with — the site's title, or what was said
+    /// for the page.
     pub fn choose_found(&mut self, url: alo_url::Url) {
-        if let Some(results) = &self.results {
-            self.said.clone_from(&results.said);
+        if let Some(said) = self.thread().and_then(|thread| thread.said_for(&url)) {
+            self.said = said;
         }
         self.chosen = Some(Offer::Go(url));
     }
@@ -361,20 +364,43 @@ impl Conversation {
         if !self.chats.iter().any(|(each, _)| *each == id) || self.on_screen() == Some(id) {
             return false;
         }
+        // One page is open at a time, and it was the chat before's.
+        let _ = self.close_card();
         for (each, chat) in &mut self.chats {
             chat.current = *each == id;
         }
         true
     }
 
-    /// Add a chat with no name yet, first, on screen.
+    /// The turns of the chat on screen, if one is.
+    pub fn thread(&self) -> Option<&Thread> {
+        let id = self.on_screen()?;
+        self.threads
+            .iter()
+            .find(|(each, _)| *each == id)
+            .map(|(_, thread)| thread)
+    }
+
+    /// The turns of the chat on screen, to change.
+    fn thread_mut(&mut self) -> Option<&mut Thread> {
+        let id = self.on_screen()?;
+        self.threads
+            .iter_mut()
+            .find(|(each, _)| *each == id)
+            .map(|(_, thread)| thread)
+    }
+
+    /// Add a chat with no name yet, first, on screen, with no turns: the
+    /// live card, which was the chat before's, put away.
     fn new_chat(&mut self) {
+        let _ = self.close_card();
         for (_, chat) in &mut self.chats {
             chat.current = false;
         }
         let id = ChatId(self.next);
         self.next += 1;
         self.chats.insert(0, (id, Chat::new("", "").current()));
+        self.threads.push((id, Thread::default()));
     }
 
     /// The first screen as it is now, laid out at `viewport` on a screen of
@@ -389,21 +415,25 @@ impl Conversation {
             typed: self.the_box.typed().to_owned(),
             focused: self.the_box.focused(),
             offers: self.the_box.offers(),
-            card: self.card.clone(),
-            results: self.results.clone(),
+            turns: self
+                .thread()
+                .map(|thread| thread.turns().to_vec())
+                .unwrap_or_default(),
+            down: self.thread().map_or(0.0, Thread::down),
             search: self.search.clone(),
         }
         .at_scale(scale.factor())
     }
 
     /// Show the page at `url` as a card, answering what the person last
-    /// chose from the box, with no frame yet (queue item 717): in place of
-    /// any card shown, since one page is open at a time (ADR 0075 § 4).
+    /// chose, with no frame yet (queue item 717), as a new turn (703): any
+    /// card shown put away as its address first, since one page is open at
+    /// a time (ADR 0075 § 4).
     pub fn open_card(&mut self, url: Url) {
-        self.card = Some(Card::new(self.said.clone(), url));
-        // One thing under what the person said: the page, in place of the
-        // results it was chosen from (queue item 708).
-        self.results = None;
+        let said = self.said.clone();
+        if let Some(thread) = self.thread_mut() {
+            thread.open_card(said, url);
+        }
         self.card_keys = false;
     }
 
@@ -412,7 +442,7 @@ impl Conversation {
     /// again for it, which it is when the box had it. Nothing changes with
     /// no card.
     pub fn press_the_page(&mut self) -> bool {
-        if self.card.is_none() {
+        if self.card().is_none() {
             return false;
         }
         self.card_keys = true;
@@ -423,7 +453,7 @@ impl Conversation {
     /// since a press on the page, until a press anywhere else or the card
     /// goes.
     pub fn keys_to_the_card(&self) -> bool {
-        self.card_keys && self.card.is_some()
+        self.card_keys && self.card().is_some()
     }
 
     /// The card's page is now at `url` — it followed a link, was sent
@@ -435,7 +465,7 @@ impl Conversation {
         if !matches!(url.scheme.as_str(), "http" | "https") {
             return false;
         }
-        match self.card.as_mut() {
+        match self.thread_mut().and_then(Thread::card_mut) {
             Some(card) if card.url != url => {
                 card.url = url;
                 true
@@ -447,7 +477,7 @@ impl Conversation {
     /// The card holds `frame`, Chrome's newest of its page, a PNG's bytes:
     /// whether there is a card to hold it.
     pub fn framed(&mut self, frame: Vec<u8>) -> bool {
-        match self.card.as_mut() {
+        match self.thread_mut().and_then(Thread::card_mut) {
             Some(card) => {
                 card.frame = Some(frame);
                 true
@@ -456,27 +486,59 @@ impl Conversation {
         }
     }
 
-    /// No card: its page was closed, or never opened. Whether one was
-    /// shown.
+    /// No live card: its page was closed, and the card put away as the
+    /// address it was last at (queue item 703). Whether one was shown.
     pub fn close_card(&mut self) -> bool {
         self.card_keys = false;
-        self.card.take().is_some()
+        self.thread_mut().is_some_and(Thread::put_away_card)
     }
 
-    /// No card, because its page could not be opened or went on its own
-    /// (queue item 749): the box takes the keyboard, so the next address
+    /// No live card, because its page could not be opened, for `why` — said
+    /// in its turn's place — or went on its own, `why` then [`None`] and the
+    /// card put away as its address (queue items 749, 703): the box takes
+    /// the keyboard, so the next address
     /// typed reaches it. Pressing a site's title had taken the keyboard from
     /// the box, a card with no picture yet cannot be pressed for it, and the
     /// card's failing gave it to nothing: typed by hand, the next address
     /// went nowhere. Whether the first screen shows something else.
-    pub fn card_failed(&mut self) -> bool {
-        let closed = self.close_card();
+    pub fn card_failed(&mut self, why: Option<String>) -> bool {
+        let closed = match why {
+            Some(why) => {
+                self.card_keys = false;
+                self.thread_mut()
+                    .is_some_and(|thread| thread.card_failed(why))
+            }
+            None => self.close_card(),
+        };
         self.the_box.focus() || closed
     }
 
-    /// The page shown as a card, if one is.
+    /// The page shown live as a card, if the chat on screen's newest turn is
+    /// one.
     pub fn card(&self) -> Option<&Card> {
-        self.card.as_ref()
+        self.thread().and_then(Thread::card)
+    }
+
+    /// A person's wheel turned `by` CSS pixels down over the conversation,
+    /// laid out at `viewport` (queue item 703): whether it scrolled.
+    pub fn scroll(&mut self, by: f32, viewport: Size) -> bool {
+        self.thread_mut()
+            .is_some_and(|thread| thread.scroll(by, viewport))
+    }
+
+    /// The first screen's renderer measured `drawn` turns of the chat on
+    /// screen to reach as `reach` says, laid out at `viewport`: whether
+    /// keeping inside it scrolled the conversation.
+    pub fn reached(&mut self, reach: Reach, drawn: usize, viewport: Size) -> bool {
+        self.thread_mut()
+            .is_some_and(|thread| thread.reached(reach, drawn, viewport))
+    }
+
+    /// Whether the first screen is a conversation: the chat on screen holds
+    /// a turn.
+    pub fn conversing(&self) -> bool {
+        self.thread()
+            .is_some_and(|thread| !thread.turns().is_empty())
     }
 }
 
@@ -486,6 +548,7 @@ mod tests {
     use alo_renderer::conversation_decide::Refusal;
     use alo_renderer::message::Failure;
     use alo_renderer::panel::{Doing, NEW_CHAT};
+    use alo_renderer::turn::Turn;
 
     /// The labels of the panel's chats, in order, and which is on screen.
     fn rows(conversation: &Conversation) -> (Vec<String>, Vec<bool>) {
@@ -532,7 +595,7 @@ mod tests {
         assert!(!conversation.framed(vec![1]), "no card to hold a frame");
         conversation.open_card(url.clone());
         let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
-        let card = start.card.unwrap();
+        let card = start.card().cloned().unwrap();
         assert_eq!(card.said, "example.com");
         assert_eq!(card.url, url);
         assert_eq!(card.frame, None);
@@ -551,8 +614,20 @@ mod tests {
         assert_eq!(
             conversation
                 .start(Size::new(1040.0, 820.0), Scale::ONE)
-                .card,
+                .card()
+                .cloned(),
             None
+        );
+        // Closed, the card is kept as the address its page was at (queue
+        // item 703).
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .turns,
+            vec![Turn::Visited {
+                said: "example.com".to_owned(),
+                url
+            }]
         );
     }
 
@@ -639,6 +714,70 @@ mod tests {
     }
 
     #[test]
+    fn each_chat_keeps_its_own_turns_and_a_new_one_starts_empty() {
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let first = conversation.on_screen();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        let _ = conversation.edit(Edit::Choose);
+        conversation.open_card(alo_url::parse("https://example.com/").unwrap());
+        assert!(conversation.conversing());
+        // New chat: empty, the card put away in the chat it was in.
+        assert!(conversation.act(Pressed::NewChat));
+        assert!(!conversation.conversing());
+        assert_eq!(conversation.card(), None);
+        assert!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .turns
+                .is_empty()
+        );
+        let Some(first) = first else {
+            panic!("a chat was on screen");
+        };
+        assert!(conversation.act(Pressed::Chat(first)));
+        let turns = conversation
+            .start(Size::new(1040.0, 820.0), Scale::ONE)
+            .turns;
+        assert!(
+            matches!(turns.as_slice(), [Turn::Visited { said, .. }] if said == "example.com"),
+            "{turns:?}"
+        );
+    }
+
+    #[test]
+    fn a_page_not_opened_says_why_in_its_turn_and_one_gone_leaves_its_address() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "a.example");
+        let _ = conversation.edit(Edit::Choose);
+        conversation.open_card(alo_url::parse("https://a.example/").unwrap());
+        let _ = conversation.act(Pressed::Nothing);
+        assert!(
+            conversation.card_failed(Some("https://a.example/ could not be opened: no".into()))
+        );
+        assert!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .focused,
+            "the box given the keyboard"
+        );
+        conversation.open_card(alo_url::parse("https://b.example/").unwrap());
+        assert!(conversation.card_failed(None));
+        let turns = conversation
+            .start(Size::new(1040.0, 820.0), Scale::ONE)
+            .turns;
+        assert!(
+            matches!(
+                turns.as_slice(),
+                [Turn::Failed { why, .. }, Turn::Visited { .. }] if why.ends_with(": no")
+            ),
+            "{turns:?}"
+        );
+    }
+
+    #[test]
     fn a_chat_it_does_not_hold_changes_nothing() {
         let mut conversation = Conversation::default();
         let before = conversation.clone();
@@ -716,7 +855,10 @@ mod tests {
         let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
         assert_eq!(start.typed, "", "the box is emptied");
         assert_eq!(start.search, SetUp::Ready);
-        assert_eq!(start.results, Some(Results::searching("ev charger")));
+        assert_eq!(
+            start.turns,
+            vec![Turn::Searched(Results::searching("ev charger"))]
+        );
         assert_eq!(conversation.searching(), Some((1, "ev charger")));
         // An older search's answer is not shown; the newest's is.
         let answer = |number| Searched {
@@ -747,17 +889,32 @@ mod tests {
             ],
             "what the All tab shows, which a press is decided against"
         );
-        // A title pressed is chosen as an address is, under the words.
+        // A title pressed is chosen as an address is, and opens as a new
+        // turn whose bubble is the title (queue item 703); the results stay.
         let two = alo_url::parse("https://two.example/").unwrap();
         let _ = conversation.act(Pressed::Found(two.clone()));
         assert_eq!(conversation.going(), Some(&two));
-        conversation.open_card(two);
+        conversation.open_card(two.clone());
         assert_eq!(
             conversation.card().map(|card| card.said.as_str()),
-            Some("ev charger")
+            Some("A site")
         );
-        assert_eq!(conversation.results(), None, "the card in its place");
-        assert!(conversation.showing().found.is_empty());
+        assert!(conversation.results().is_some(), "the results kept");
+        assert_eq!(conversation.showing().found.len(), 3);
+        // A newer page puts the card away as its address, pressable too.
+        let one = alo_url::parse("https://one.example/").unwrap();
+        let _ = conversation.act(Pressed::Found(one.clone()));
+        conversation.open_card(one);
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert_eq!(start.turns.len(), 3);
+        assert_eq!(
+            start.turns.get(1),
+            Some(&Turn::Visited {
+                said: "A site".to_owned(),
+                url: two
+            })
+        );
+        assert_eq!(conversation.showing().found.len(), 4);
     }
 
     #[test]
@@ -778,7 +935,7 @@ mod tests {
         let _ = unset.edit(Edit::Choose);
         let start = unset.start(Size::new(1040.0, 820.0), Scale::ONE);
         assert_eq!(start.typed, "what is x");
-        assert_eq!(start.results, None);
+        assert!(start.turns.is_empty());
         assert_eq!(unset.searching(), None);
     }
 
@@ -893,7 +1050,8 @@ mod tests {
         assert!(!conversation.moved_card(url("about:blank")));
         let card = conversation
             .start(Size::new(1040.0, 820.0), Scale::ONE)
-            .card
+            .card()
+            .cloned()
             .unwrap();
         assert_eq!(
             card.url.to_string(),

@@ -422,6 +422,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.float(at.x);
             writer.float(at.y);
         }
+        ToRenderer::ConversationReach => writer.tag(17),
     }
     writer.out
 }
@@ -525,6 +526,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.tag(11);
             writer.conversation_claim(claim.as_ref());
         }
+        FromRenderer::ConversationReached(reach) => writer.conversation_reached(*reach),
     }
     writer.out
 }
@@ -1320,6 +1322,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         16 => {
             ToRenderer::ConversationPress(alo_paint::Point::new(reader.float()?, reader.float()?))
         }
+        17 => ToRenderer::ConversationReach,
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1431,6 +1434,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
         }
         10 => FromRenderer::Claimed(reader.claim()?),
         11 => FromRenderer::ConversationClaimed(reader.conversation_claim()?),
+        12 => FromRenderer::ConversationReached(reader.conversation_reached()?),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

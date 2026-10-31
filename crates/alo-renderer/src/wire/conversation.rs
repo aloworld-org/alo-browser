@@ -12,11 +12,24 @@
 //! its place as a number. The place is any number a renderer chose, and is
 //! read as one; whether anything was there is the browser process's to
 //! decide ([`crate::conversation_decide`]), not the reader's to assume.
+//!
+//! How far the first screen's conversation reaches (queue item 703) comes
+//! back as two lengths, read as finite ones from nothing to the most a
+//! conversation reaches, whatever a renderer wrote
+//! ([`crate::conversation_scroll::Reach::bounded`]).
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::conversation_claim::Claim;
+use crate::conversation_scroll::Reach;
 
 impl Writer {
+    /// How far the conversation reaches, as its tag and two lengths.
+    pub(super) fn conversation_reached(&mut self, reach: Reach) {
+        self.tag(12);
+        self.float(reach.earlier);
+        self.float(reach.newest);
+    }
+
     /// A press's claim: whether it was on anything, then what, then the
     /// place of a thing claimed by its place.
     pub(super) fn conversation_claim(&mut self, claim: Option<&Claim>) {
@@ -48,6 +61,16 @@ impl Writer {
 }
 
 impl Reader<'_> {
+    /// How far the conversation reaches, as
+    /// [`Writer::conversation_reached`] wrote it after its tag.
+    pub(super) fn conversation_reached(&mut self) -> Result<Reach, Unreadable> {
+        Ok(Reach {
+            earlier: self.float()?,
+            newest: self.float()?,
+        }
+        .bounded())
+    }
+
     /// A press's claim, as [`Writer::conversation_claim`] wrote it: a tag
     /// nobody knows is refused, and so is a place no `usize` holds.
     pub(super) fn conversation_claim(&mut self) -> Result<Option<Claim>, Unreadable> {

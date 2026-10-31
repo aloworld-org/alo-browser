@@ -513,3 +513,14 @@ this ADR decided:
   clipped away is not the page's to be pressed
   (`card_place::seen_page_box`). Scrolling is 703's.
 
+## Built (31 October 2026, queue item 703): a card among turns
+
+The conversation keeps every turn and scrolls (ADR 0085), which changes
+nothing this ADR decided: one Chrome, one live card, and that card is
+always the newest turn. An earlier card is kept as its address, not a
+picture of its last frame. The page box moves with the conversation by
+the browser process's own offset (`card_place::page_box(viewport, down)`),
+clipped to the room above and below, so a press, drag or wheel on the page
+still lands where it is drawn — tested through the machine's Chrome and
+alo's CEF host at an offset of 120.
+

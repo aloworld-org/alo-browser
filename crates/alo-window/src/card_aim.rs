@@ -70,40 +70,43 @@ pub enum Turned {
 pub const LINE: f64 = 40.0;
 
 /// What the point `at`, in device pixels, is over in a window placed as
-/// `placed` at `scale`, when the first screen — laid out at
-/// `card_on_screen` while it shows a card's picture, [`None`] otherwise —
-/// holds a card's page: the page, or a part, or [`None`] when it is over
-/// nothing a renderer drew.
+/// `placed` at `scale`, when the first screen — laid out at the viewport
+/// `card_on_screen` names, scrolled as far as it names, while it shows a
+/// card's picture, [`None`] otherwise — holds a card's page: the page, or a
+/// part, or [`None`] when it is over nothing a renderer drew.
 pub fn aim(
     placed: &ConversationPlacement,
     scale: Scale,
-    card_on_screen: Option<Size>,
+    card_on_screen: Option<(Size, f32)>,
     at: (f64, f64),
 ) -> Option<Aimed> {
     let (part, on) = conversation_aim::aim(placed, scale, at)?;
     if part == Part::Start
-        && let Some(viewport) = card_on_screen
-        // Only the part of it seen above the box (queue item 750): a press
-        // on the box under a clipped page is the box's.
-        && seen_page_box(viewport).is_some_and(|seen| seen.contains(alo_layout::Point::new(on.x, on.y)))
+        && let Some((viewport, down)) = card_on_screen
+        // Only the part of it seen in the room (queue items 750, 703): a
+        // press on the box under a clipped page is the box's, and on what
+        // is scrolled above the room is nobody's page.
+        && seen_page_box(viewport, down)
+            .is_some_and(|seen| seen.contains(alo_layout::Point::new(on.x, on.y)))
     {
-        let (x, y) = on_the_page(placed, scale, viewport, at);
+        let (x, y) = on_the_page(placed, scale, (viewport, down), at);
         return Some(Aimed::Page { x, y });
     }
     Some(Aimed::Part(part, on))
 }
 
 /// Where the point `at`, in device pixels, is in the card's page's CSS
-/// pixels, wherever it is — outside the page as well, where a press that
+/// pixels — the first screen laid out at `viewport`, scrolled `down` —
+/// wherever it is — outside the page as well, where a press that
 /// began on the page is dragged and let go, as a page in Chrome's own
 /// window hears it.
 pub fn on_the_page(
     placed: &ConversationPlacement,
     scale: Scale,
-    viewport: Size,
+    (viewport, down): (Size, f32),
     at: (f64, f64),
 ) -> (f64, f64) {
-    let page = page_box(viewport);
+    let page = page_box(viewport, down);
     (
         scale.css(at.0 - f64::from(placed.start.x)) - f64::from(page.left()),
         scale.css(at.1 - f64::from(placed.start.y)) - f64::from(page.top()),
@@ -153,7 +156,7 @@ mod tests {
     #[test]
     fn at_one_the_page_box_is_at_321_145_of_the_window() {
         let (placed, viewport) = the_window(Scale::ONE);
-        let card = Some(viewport);
+        let card = Some((viewport, 0.0));
         // The panel's 240, then the page box at 81, 145 of the first screen.
         assert_eq!(
             aim(&placed, Scale::ONE, card, (321.0, 145.0)),
@@ -172,7 +175,7 @@ mod tests {
     #[test]
     fn at_two_a_device_pixel_is_half_a_css_pixel_of_the_page() {
         let (placed, viewport) = the_window(Scale::TWO);
-        let card = Some(viewport);
+        let card = Some((viewport, 0.0));
         assert_eq!(
             aim(&placed, Scale::TWO, card, (642.0, 290.0)),
             page(0.0, 0.0)
@@ -191,7 +194,7 @@ mod tests {
     fn outside_the_page_box_is_the_parts_and_not_forwarded() {
         for scale in [Scale::ONE, Scale::TWO] {
             let (placed, viewport) = the_window(scale);
-            let card = Some(viewport);
+            let card = Some((viewport, 0.0));
             let device =
                 |x: f64, y: f64| (x * f64::from(scale.factor()), y * f64::from(scale.factor()));
             // Just above the page box: the card's bar, the first screen's.
@@ -236,7 +239,7 @@ mod tests {
                 ..Parts::default()
             },
         );
-        let card = Some(start_viewport(window, Scale::ONE));
+        let card = Some((start_viewport(window, Scale::ONE), 0.0));
         assert_eq!(
             aim(&placed, Scale::ONE, card, (500.0, 595.5)),
             page(179.0, 450.5)
@@ -253,6 +256,46 @@ mod tests {
     }
 
     #[test]
+    fn scrolled_the_page_box_follows_and_a_press_lands_where_it_is_drawn() {
+        for scale in [Scale::ONE, Scale::TWO] {
+            let (placed, viewport) = the_window(scale);
+            let device =
+                |x: f64, y: f64| (x * f64::from(scale.factor()), y * f64::from(scale.factor()));
+            // Scrolled 120 on: the page box from 25 of the first screen, so
+            // the page's (250.5, 100) is drawn at the window's (571.5, 125).
+            let on = Some((viewport, 120.0));
+            assert_eq!(
+                aim(&placed, scale, on, device(571.5, 125.0)),
+                page(250.5, 100.0)
+            );
+            // Its top 15, above the room's 40, are not the page's.
+            assert!(matches!(
+                aim(&placed, scale, on, device(571.5, 30.0)),
+                Some(Aimed::Part(Part::Start, _))
+            ));
+            assert_eq!(
+                aim(&placed, scale, on, device(571.5, 40.0)),
+                page(250.5, 15.0)
+            );
+            // Scrolled 200 back: from 345, its foot under the room's 716
+            // the box's, not the page's.
+            let back = Some((viewport, -200.0));
+            assert_eq!(
+                aim(&placed, scale, back, device(571.5, 445.0)),
+                page(250.5, 100.0)
+            );
+            assert_eq!(
+                aim(&placed, scale, back, device(571.5, 715.5)),
+                page(250.5, 370.5)
+            );
+            assert!(matches!(
+                aim(&placed, scale, back, device(571.5, 716.0)),
+                Some(Aimed::Part(Part::Start, _))
+            ));
+        }
+    }
+
+    #[test]
     fn with_no_card_on_the_screen_the_page_box_is_the_first_screens() {
         let (placed, _) = the_window(Scale::ONE);
         assert_eq!(
@@ -265,11 +308,11 @@ mod tests {
     fn a_drag_is_placed_on_the_page_beyond_its_box_too() {
         let (placed, viewport) = the_window(Scale::TWO);
         assert_eq!(
-            on_the_page(&placed, Scale::TWO, viewport, (0.0, 0.0)),
+            on_the_page(&placed, Scale::TWO, (viewport, 0.0), (0.0, 0.0)),
             (-321.0, -145.0)
         );
         assert_eq!(
-            on_the_page(&placed, Scale::TWO, viewport, (2560.0, 1640.0)),
+            on_the_page(&placed, Scale::TWO, (viewport, 0.0), (2560.0, 1640.0)),
             (959.0, 675.0)
         );
     }

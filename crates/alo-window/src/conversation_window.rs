@@ -77,6 +77,7 @@ use crate::scale::Scale;
 use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
+use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::results::{PROVIDER, Showing};
 
 /// What the conversation's window hears from the threads it hands work to.
@@ -138,6 +139,13 @@ pub struct ConversationWindow {
     /// Whether the main button went down over the card's page and is still
     /// held: its moves and its release are the page's (queue item 718).
     on_the_page: bool,
+    /// How far the conversation was scrolled when the first screen was
+    /// last painted (queue item 703): where the live card's page box was
+    /// drawn, which a press on it is aimed by.
+    drawn_down: f32,
+    /// How far the conversation was scrolled in the frame of the first
+    /// screen about to be told: its drawing thread says so just before it.
+    painting_down: Option<f32>,
     /// The modifier keys held.
     held: Held,
     /// Whether the window has the keyboard, and the front is to be taken
@@ -197,6 +205,8 @@ impl ConversationWindow {
             window: None,
             cursor: None,
             on_the_page: false,
+            drawn_down: 0.0,
+            painting_down: None,
             held: Held::NOTHING,
             front: Front::default(),
             redraw: false,
@@ -296,14 +306,16 @@ impl ConversationWindow {
         })
     }
 
-    /// The first screen's viewport while it shows the card's picture of its
-    /// page, which is when the page can be pressed (queue item 718).
-    fn card_on_screen(&self) -> Option<Size> {
+    /// The first screen's viewport, and how far its conversation was
+    /// scrolled as it was last painted, while it shows the card's picture
+    /// of its page, which is when the page can be pressed (queue items 718,
+    /// 703).
+    fn card_on_screen(&self) -> Option<(Size, f32)> {
         let (window, scale) = self.measured()?;
         self.conversation
             .card()
             .and_then(|card| card.frame.as_ref())
-            .map(|_| start_viewport(window, scale))
+            .map(|_| (start_viewport(window, scale), self.drawn_down))
     }
 
     /// What the point `at`, in device pixels, is over, from the window's
@@ -421,19 +433,35 @@ impl ConversationWindow {
     }
 
     /// A wheel or a trackpad turned: the page's, scrolled, when the cursor
-    /// is over the card's page; nobody's anywhere else, since neither part
-    /// scrolls.
-    pub fn wheeled(&self, turned: Turned) {
+    /// is over the card's page (queue item 718); the conversation's,
+    /// scrolled down as far as the page would be, anywhere else over the
+    /// first screen while it holds a turn (queue item 703), and drawn
+    /// again; nobody's over the panel.
+    pub fn wheeled(&mut self, turned: Turned) {
         let Some(at) = self.cursor else {
             return;
         };
-        let (Some(card_aim::Aimed::Page { x, y }), Some((_, scale))) =
-            (self.aimed(at), self.measured())
-        else {
+        let Some((window, scale)) = self.measured() else {
             return;
         };
         let (right, down) = card_aim::scrolled(turned, scale);
-        self.to_the_page(CardInput::Wheel { x, y, right, down });
+        match self.aimed(at) {
+            Some(card_aim::Aimed::Page { x, y }) => {
+                self.to_the_page(CardInput::Wheel { x, y, right, down });
+            }
+            Some(card_aim::Aimed::Part(Part::Start, _)) if self.conversation.conversing() => {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "a wheel's turn in CSS pixels, far inside an f32's range; what the first screen is laid out in"
+                )]
+                let by = down as f32;
+                if self.conversation.scroll(by, start_viewport(window, scale)) {
+                    self.redraw = true;
+                    self.ask_drawn();
+                }
+            }
+            _ => {}
+        }
     }
 
     /// What a press on `part` was decided to be: acted on, and the parts
@@ -464,7 +492,21 @@ impl ConversationWindow {
         if go && let Some(chosen) = self.conversation.chosen() {
             self.start_said = Some(conversation_box::said(chosen, self.searching()));
             self.go();
-            self.search(had_a_card);
+            self.search();
+        }
+        self.shut_if_put_away(had_a_card);
+    }
+
+    /// Close the live card's page if what was just done put the card away —
+    /// a search after it, *New chat*, another chat (queue items 708, 703) —
+    /// when there was one: one page is open at a time, and it is the
+    /// newest turn's. Opening another address replaces it in Chrome itself.
+    fn shut_if_put_away(&self, had_a_card: bool) {
+        if had_a_card
+            && self.conversation.card().is_none()
+            && let Some(chrome) = &self.chrome
+        {
+            chrome.shut();
         }
     }
 
@@ -482,17 +524,13 @@ impl ConversationWindow {
     }
 
     /// Hand the search just chosen, if one was, to the thread asking the
-    /// provider (queue item 708) — the card it put away closed, its page
-    /// with it, when one was shown. Returns at once.
-    fn search(&mut self, had_a_card: bool) {
+    /// provider (queue item 708). Returns at once.
+    fn search(&mut self) {
         let Some((number, words)) = self.conversation.searching() else {
             return;
         };
         if let Some(searcher) = &self.searcher {
             searcher.search(number, words);
-        }
-        if had_a_card && let Some(chrome) = &self.chrome {
-            chrome.shut();
         }
     }
 
@@ -580,6 +618,7 @@ impl ConversationWindow {
     /// the card shown, given its newest frame or where its page is now, or
     /// taken away, and the first screen's line saying so.
     fn went(&mut self, went: Went) {
+        let said = went.said();
         match &went {
             Went::Framed(_) | Went::Unstreamed(_) | Went::Moved(_) => {}
             // A card put away for a search's results, its page closed
@@ -601,9 +640,15 @@ impl ConversationWindow {
             }
             Went::Framed(png) => self.conversation.framed(png),
             Went::Moved(url) => self.conversation.moved_card(url),
-            Went::Unopened { .. } | Went::Closed(_) => {
+            // A page not opened leaves why in its turn; one that went on
+            // its own leaves its address (queue item 703).
+            Went::Unopened { .. } => {
                 self.front.owed = false;
-                self.conversation.card_failed()
+                self.conversation.card_failed(Some(said))
+            }
+            Went::Closed(_) => {
+                self.front.owed = false;
+                self.conversation.card_failed(None)
             }
             Went::Shut(_) => {
                 self.front.owed = false;
@@ -636,10 +681,33 @@ impl ConversationWindow {
             Heard::Drawn(Drawn::Painted(Part::Start, frame)) => {
                 self.start = Some(frame);
                 self.start_said = None;
+                // Aimed by the offset this frame was drawn at: what its
+                // drawing thread told just before it, or none for a first
+                // screen with no turns (queue item 703).
+                self.drawn_down = self.painting_down.take().unwrap_or(0.0);
             }
             Heard::Drawn(Drawn::Said(Part::Panel, said)) => self.panel_said = Some(said),
             Heard::Drawn(Drawn::Said(Part::Start, said)) => self.start_said = Some(said),
             Heard::Drawn(Drawn::Pressed(part, pressed)) => self.pressed(part, pressed),
+            Heard::Drawn(Drawn::Reached { turns, down, reach }) => self.reached(turns, down, reach),
+        }
+    }
+
+    /// The first screen is about to be told painted with `turns` turns
+    /// scrolled `down`, which reach as `reach` says (queue item 703): the
+    /// live card's page box is aimed where it was drawn once that frame is
+    /// had, and the conversation is kept inside its reach — drawn again if
+    /// that moved it.
+    fn reached(&mut self, turns: usize, down: f32, reach: Reach) {
+        self.painting_down = Some(down);
+        let Some((window, scale)) = self.measured() else {
+            return;
+        };
+        if self
+            .conversation
+            .reached(reach, turns, start_viewport(window, scale))
+        {
+            self.ask_drawn();
         }
     }
 
@@ -658,11 +726,14 @@ impl ConversationWindow {
         let Some(edit) = typing::edit(press, text) else {
             return;
         };
+        // Whether a card was live before the edit, which a search chosen by
+        // Return puts away: asked after it, the card had already gone and
+        // its page was never closed (found by hand, queue item 703).
+        let had_a_card = self.conversation.card().is_some();
         match self.conversation.edit(edit) {
             Typed::Unchanged => {}
             Typed::Changed => self.ask_drawn(),
             Typed::Chose(chosen) => {
-                let had_a_card = self.conversation.card().is_some();
                 // A choice is a decision as a press is: what the last one
                 // came to is no longer said.
                 self.told = None;
@@ -671,7 +742,8 @@ impl ConversationWindow {
                 // drawn so.
                 self.ask_drawn();
                 self.go();
-                self.search(had_a_card);
+                self.search();
+                self.shut_if_put_away(had_a_card);
                 self.redraw = true;
             }
         }
@@ -770,6 +842,31 @@ mod tests {
         assert_eq!(window.told(), None);
         assert_eq!(window.scene().and_then(|scene| scene.start_sentence), None);
         assert!(window.take_said().is_empty());
+        window.finish();
+    }
+
+    #[test]
+    fn a_press_is_aimed_by_the_offset_the_frame_it_lands_on_was_drawn_at() {
+        let mut window = window();
+        let reach = Reach {
+            earlier: 400.0,
+            newest: 626.0,
+        };
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 2,
+            down: -120.0,
+            reach,
+        }));
+        assert_eq!(
+            window.drawn_down.to_bits(),
+            0.0_f32.to_bits(),
+            "not till its frame"
+        );
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, painted())));
+        assert_eq!(window.drawn_down.to_bits(), (-120.0_f32).to_bits());
+        // A frame with no turns, told with no reach, is not scrolled.
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, painted())));
+        assert_eq!(window.drawn_down.to_bits(), 0.0_f32.to_bits());
         window.finish();
     }
 

@@ -50,6 +50,7 @@
 use crate::conversation::{Pressed, Showing};
 use alo_paint::Point;
 use alo_renderer::conversation_decide::{self, decide};
+use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::host::{Gone, Renderers};
 use alo_renderer::panel::{self, Panel};
 use alo_renderer::site::Site;
@@ -64,7 +65,7 @@ use std::thread::JoinHandle;
 pub use alo_renderer::conversation_claim::Part;
 
 /// What the window is told of a part.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Drawn {
     /// Its renderer painted it: in device pixels at the window's scale.
     Painted(Part, Frame),
@@ -72,6 +73,19 @@ pub enum Drawn {
     Said(Part, String),
     /// What a person's press on it was decided to be.
     Pressed(Part, Pressed),
+    /// How far the first screen's conversation reaches, as its renderer
+    /// measured it after painting this many turns (queue item 703): what
+    /// the window keeps a person's wheel inside. Told just before the
+    /// [`Drawn::Painted`] of the frame it was measured in.
+    Reached {
+        /// How many turns were painted.
+        turns: usize,
+        /// How far they were painted scrolled: where the live card's page
+        /// box was drawn ([`alo_renderer::card_place::page_box`]).
+        down: f32,
+        /// How far they reach.
+        reach: Reach,
+    },
 }
 
 /// How the thread tells the window what was drawn: whether anybody heard.
@@ -270,11 +284,46 @@ impl Holding {
                 // And the sites a search's results showed, whose titles a
                 // press claims by place (queue item 708).
                 self.painted.found.clone_from(&asked.showing.found);
+                // How far the turns painted reach, for a person's wheel, and
+                // how far they were scrolled (queue item 703) — told before
+                // the frame, so the window aims a press on it by the offset
+                // it was drawn at from the moment it has it.
+                if asked.start.conversing() {
+                    said.extend(self.reach(asked.start.turns.len(), asked.start.down));
+                }
+                said.extend(came);
+            } else {
+                said.extend(came);
             }
-            said.extend(came);
         }
         self.drawn = Some(asked);
         said
+    }
+
+    /// Ask the first screen's renderer how far the `turns` it just painted,
+    /// scrolled `down`, reach: what the window is told — nothing when it answered anything
+    /// but a reach, which keeps the wheel where it was, or said, when it
+    /// went.
+    fn reach(&mut self, turns: usize, down: f32) -> Option<Drawn> {
+        if self.start.gone.is_some() {
+            return None;
+        }
+        match self
+            .renderers
+            .ask(&self.start.site, &ToRenderer::ConversationReach)
+        {
+            Ok(FromRenderer::ConversationReached(reach)) => Some(Drawn::Reached {
+                turns,
+                down,
+                reach: reach.bounded(),
+            }),
+            Ok(_) => None,
+            Err(gone) => {
+                let said = gone.to_string();
+                self.start.gone = Some(gone);
+                Some(Drawn::Said(Part::Start, said))
+            }
+        }
     }
 
     /// Send a person's press at `at` on `part` to its renderer and decide

@@ -1,0 +1,317 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! One chat's conversation, as the browser process holds it (ADR 0085,
+//! queue item 703): every turn, oldest first, and how far it is scrolled.
+//!
+//! # Turns are appended, never replaced
+//!
+//! Each search and each page opened is a turn under the last
+//! (`alo-renderer`'s `turn`): a search's results fill in when they come, a
+//! page opens as a live card. One page is open at a time, so a card is live
+//! only as the newest turn; when anything newer comes — another page, a
+//! search — or its page is closed or goes on its own, the card is **put
+//! away** as the address it was last at ([`Turn::Visited`]), and a page
+//! that could not be opened leaves why, in words ([`Turn::Failed`]).
+//! Nothing a person asked for is lost (`docs/design/shell.md`).
+//!
+//! # Scrolled
+//!
+//! How far the conversation is scrolled is one number, [`Thread::down`]:
+//! how far the newest turn's top is above the room's top
+//! (`alo-renderer`'s `conversation_scroll`). A new turn puts it at `0`, so
+//! the new turn's top is in view at the room's top. A person's wheel moves
+//! it, kept inside how far the turns reach as the renderer last measured
+//! them ([`Thread::reached`]); until a reach is known for the turns now
+//! held, the wheel does nothing.
+
+use alo_layout::Size;
+use alo_renderer::card::Card;
+use alo_renderer::conversation_scroll::{self, Reach};
+use alo_renderer::results::{self, Results};
+use alo_renderer::turn::Turn;
+use alo_url::Url;
+
+/// One chat's turns, and how far they are scrolled.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Thread {
+    /// Every turn, oldest first.
+    turns: Vec<Turn>,
+    /// How far the newest turn's top is above the room's top, in CSS
+    /// pixels.
+    down: f32,
+    /// How far the turns reach, as the renderer last measured as many turns
+    /// as are held.
+    reach: Option<Reach>,
+}
+
+impl Thread {
+    /// Every turn, oldest first.
+    pub fn turns(&self) -> &[Turn] {
+        &self.turns
+    }
+
+    /// How far the conversation is scrolled.
+    pub fn down(&self) -> f32 {
+        self.down
+    }
+
+    /// How far the turns reach, once the renderer has measured as many as
+    /// are held.
+    pub fn reach(&self) -> Option<Reach> {
+        self.reach
+    }
+
+    /// Append `turn`, the live card put away first, and scroll so its top
+    /// is at the room's top.
+    fn append(&mut self, turn: Turn) {
+        let _ = self.put_away_card();
+        self.turns.push(turn);
+        self.down = 0.0;
+        self.reach = None;
+    }
+
+    /// A search for `said` under way, as a new turn.
+    pub fn search(&mut self, said: String) {
+        self.append(Turn::Searched(Results::searching(said)));
+    }
+
+    /// What came of the search for `words`: shown in the newest turn still
+    /// searching for them. Whether one was.
+    pub fn searched(&mut self, words: &str, showing: results::Showing) -> bool {
+        let waiting = self.turns.iter_mut().rev().find_map(|turn| match turn {
+            Turn::Searched(results)
+                if results.said == words
+                    && matches!(results.showing, results::Showing::Searching) =>
+            {
+                Some(results)
+            }
+            _ => None,
+        });
+        match waiting {
+            Some(results) => {
+                results.showing = showing;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The newest search's results, if a turn holds any.
+    pub fn results(&self) -> Option<&Results> {
+        self.turns.iter().rev().find_map(|turn| match turn {
+            Turn::Searched(results) => Some(results),
+            _ => None,
+        })
+    }
+
+    /// The page at `url` opens as a live card answering `said`: a new turn.
+    pub fn open_card(&mut self, said: String, url: Url) {
+        self.append(Turn::Page(Card::new(said, url)));
+    }
+
+    /// The live card, if the newest turn is one.
+    pub fn card(&self) -> Option<&Card> {
+        self.turns.last().and_then(Turn::card)
+    }
+
+    /// The live card, to change, if the newest turn is one.
+    pub fn card_mut(&mut self) -> Option<&mut Card> {
+        match self.turns.last_mut() {
+            Some(Turn::Page(card)) => Some(card),
+            _ => None,
+        }
+    }
+
+    /// The live card put away as the address it was last at: whether there
+    /// was one.
+    pub fn put_away_card(&mut self) -> bool {
+        let Some(turn) = self.turns.last_mut() else {
+            return false;
+        };
+        let Turn::Page(card) = turn else {
+            return false;
+        };
+        *turn = Turn::Visited {
+            said: std::mem::take(&mut card.said),
+            url: card.url.clone(),
+        };
+        true
+    }
+
+    /// The live card's page could not be opened, for `why`: the turn says so
+    /// in its place. Whether there was a live card.
+    pub fn card_failed(&mut self, why: String) -> bool {
+        let Some(turn) = self.turns.last_mut() else {
+            return false;
+        };
+        let Turn::Page(card) = turn else {
+            return false;
+        };
+        *turn = Turn::Failed {
+            said: std::mem::take(&mut card.said),
+            why,
+        };
+        true
+    }
+
+    /// What the person said for the link at `url`, as a turn draws it:
+    /// a site's title among a search's results, or what was said for a page
+    /// shown earlier — the newest such, if several hold it.
+    pub fn said_for(&self, url: &Url) -> Option<String> {
+        self.turns.iter().rev().find_map(|turn| match turn {
+            Turn::Searched(results) => results
+                .on_all()
+                .iter()
+                .find(|found| found.url == *url)
+                .map(|found| found.title.clone()),
+            Turn::Visited { said, url: at } if at == url => Some(said.clone()),
+            _ => None,
+        })
+    }
+
+    /// Every link the turns draw, in the order they draw them: what a
+    /// press on a title is decided against.
+    pub fn links(&self) -> Vec<Url> {
+        self.turns.iter().flat_map(Turn::links).cloned().collect()
+    }
+
+    /// The renderer measured `drawn` turns to reach as `reach` says, in a
+    /// first screen laid out at `viewport`: kept, when as many turns are
+    /// held now, and how far it is scrolled kept inside it. Whether that
+    /// moved it.
+    pub fn reached(&mut self, reach: Reach, drawn: usize, viewport: Size) -> bool {
+        if drawn != self.turns.len() {
+            // Measured before the newest turn came: not these turns' reach.
+            return false;
+        }
+        self.reach = Some(reach.bounded());
+        let kept = conversation_scroll::clamped(self.down, reach, viewport);
+        let moved = kept.to_bits() != self.down.to_bits();
+        self.down = kept;
+        moved
+    }
+
+    /// A person's wheel turned `by` CSS pixels down over the conversation,
+    /// in a first screen laid out at `viewport`: scrolled that far, inside
+    /// how far it reaches. Whether it moved.
+    pub fn scroll(&mut self, by: f32, viewport: Size) -> bool {
+        let Some(reach) = self.reach else {
+            return false;
+        };
+        let kept = conversation_scroll::clamped(self.down + by, reach, viewport);
+        let moved = kept.to_bits() != self.down.to_bits();
+        self.down = kept;
+        moved
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alo_renderer::results::{Found, Showing};
+
+    fn url(address: &str) -> Url {
+        alo_url::parse(address).unwrap_or_else(|_| Url::about_blank())
+    }
+
+    const VIEWPORT: Size = Size {
+        width: 1040.0,
+        height: 820.0,
+    };
+
+    #[test]
+    fn turns_are_appended_and_a_live_card_is_put_away_by_anything_newer() {
+        let mut thread = Thread::default();
+        thread.open_card("example.com".to_owned(), url("https://example.com/"));
+        assert!(thread.card().is_some());
+        thread.search("ev chargers".to_owned());
+        assert_eq!(thread.card(), None);
+        assert_eq!(
+            thread.turns().first(),
+            Some(&Turn::Visited {
+                said: "example.com".to_owned(),
+                url: url("https://example.com/"),
+            })
+        );
+        assert!(thread.searched(
+            "ev chargers",
+            Showing::Found(vec![Found::new("Chargers", url("https://a.example/"), "")])
+        ));
+        assert!(
+            !thread.searched("ev chargers", Showing::Found(Vec::new())),
+            "answered"
+        );
+        assert_eq!(
+            thread.said_for(&url("https://a.example/")).as_deref(),
+            Some("Chargers")
+        );
+        assert_eq!(
+            thread.said_for(&url("https://example.com/")).as_deref(),
+            Some("example.com")
+        );
+        assert_eq!(
+            thread.links(),
+            vec![url("https://example.com/"), url("https://a.example/")]
+        );
+        thread.open_card("Chargers".to_owned(), url("https://a.example/"));
+        assert!(thread.card_failed("https://a.example/ could not be opened: no".to_owned()));
+        assert!(
+            matches!(thread.turns().last(), Some(Turn::Failed { said, .. }) if said == "Chargers")
+        );
+        assert!(!thread.put_away_card(), "no live card");
+        assert_eq!(thread.turns().len(), 3);
+    }
+
+    #[test]
+    fn a_wheel_scrolls_inside_the_reach_and_a_new_turn_scrolls_to_its_top() {
+        let mut thread = Thread::default();
+        thread.search("a".to_owned());
+        assert!(!thread.scroll(-100.0, VIEWPORT), "no reach yet");
+        thread.search("b".to_owned());
+        let reach = Reach {
+            earlier: 489.0,
+            newest: 457.0,
+        };
+        assert!(!thread.reached(reach, 1, VIEWPORT), "one turn's reach");
+        assert!(!thread.scroll(-100.0, VIEWPORT), "not these turns'");
+        assert!(!thread.reached(reach, 2, VIEWPORT));
+        assert!(thread.scroll(-100.0, VIEWPORT));
+        assert_eq!(thread.down().to_bits(), (-100.0_f32).to_bits());
+        assert!(thread.scroll(-1000.0, VIEWPORT));
+        assert_eq!(
+            thread.down().to_bits(),
+            (-489.0_f32).to_bits(),
+            "the first turn's top"
+        );
+        assert!(!thread.scroll(-1.0, VIEWPORT), "no further");
+        assert!(thread.scroll(5000.0, VIEWPORT));
+        assert_eq!(
+            thread.down().to_bits(),
+            0.0_f32.to_bits(),
+            "the newest fits"
+        );
+        thread.scroll(-200.0, VIEWPORT);
+        thread.search("c".to_owned());
+        assert_eq!(
+            thread.down().to_bits(),
+            0.0_f32.to_bits(),
+            "the new turn at the top"
+        );
+        assert!(
+            !thread.scroll(-10.0, VIEWPORT),
+            "its reach not measured yet"
+        );
+        // A shorter window: the reach measured again keeps it inside.
+        let _ = thread.reached(reach, 3, VIEWPORT);
+        let _ = thread.scroll(-300.0, VIEWPORT);
+        assert!(!thread.reached(reach, 3, Size::new(1040.0, 520.0)));
+        let tall = Reach {
+            earlier: 100.0,
+            newest: 457.0,
+        };
+        assert!(thread.reached(tall, 3, VIEWPORT), "kept inside");
+        assert_eq!(thread.down().to_bits(), (-100.0_f32).to_bits());
+    }
+}

@@ -141,8 +141,32 @@ or why: the key refused (401, 403), too many searches or the allowance used
 up (429), Brave unable to answer (5xx), unreachable, or its answer
 unreadable. The line at the window's foot says the same, and how many sites
 were found. **No short answer is drawn** until a model is chosen (707), and
-nothing in its place. A press on a site's title opens it as a card, under
-the same words, in the results' place.
+nothing in its place. A press on a site's title opens it as a card, in a
+turn of its own under the results, its bubble the title (703).
+
+### The conversation (item 703, ADR 0085)
+
+Every search and every page opened is **a turn under the last**: the
+person's words as their bubble at the column's right, then what came back.
+Nothing is replaced. Within a turn the bubble and what follows are 16 apart
+(20 for results); turns are **32 apart**. Each chat keeps its own turns;
+*New chat* starts empty.
+
+- **A page** is a live card only as the newest turn. When anything newer
+  comes, or it is closed, or its page goes, it is kept as **its address**:
+  a white line 44 tall, rounded 12, ringed in the line's colour, 16 inside,
+  13 px — the host 600 in the ink, then the rest in quiet text. Pressing it
+  opens the page again as a new turn.
+- **A page that could not be opened** says why in its turn's place, 14.5 on
+  23 in quiet text.
+- **Scrolling.** A new turn's top stands at the room's top, 40 down. The
+  wheel or trackpad over the conversation scrolls it — back as far as the
+  first turn's top, on as far as the newest turn's foot at the room's foot
+  — 40 a line, a trackpad's own pixels; over a live card's page the wheel
+  is the page's. The room runs from 40 down to 24 over the box; nothing is
+  drawn above it, under the box or over it.
+- The agent's own words and its steps are turns too, when there is an agent
+  to say them (704, 707).
 
 ## The answer
 

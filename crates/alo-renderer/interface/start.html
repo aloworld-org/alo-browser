@@ -3,7 +3,9 @@
      never assembled from anything: `start_document.rs` puts the greeting,
      each of a person's sites and each chat waiting on them in with alo-dom's
      operations, every name as a text node; what a person typed as the
-     field's value, and what is offered for it under the box. -->
+     field's value, and what is offered for it under the box. A
+     conversation's turns are made by `conversation_document.rs`, the same
+     way. -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -20,19 +22,12 @@
       <div id="blocks" class="blocks"></div>
     </main>
     <!-- A page opened from the conversation, as a card (ADR 0076 B, queue
-         item 717): moved into the screen by `card_document.rs`, which puts
+         item 717): moved into the newest turn by `card_document.rs` — only
+         the newest turn is ever a live card (queue item 703) — which puts
          what the person said and the page's address in as text nodes and
          the picture of the page, Chrome's last frame, as the `<img>`'s
          picture. Its buttons and their icons are ours and fixed. -->
     <template id="card"><section class="card" aria-labelledby="card-address"><div class="bar"><button class="ibtn back" type="button" aria-label="Back"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.5 6.5 9 11 13.5" /></svg></button><button class="ibtn forward" type="button" aria-label="Forward"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5 11.5 9 7 13.5" /></svg></button><p id="card-address" class="url"></p><button class="ibtn expand" type="button" aria-label="Expand to the whole window"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.5h4v4M7.5 14.5h-4v-4M14.5 3.5 10 8M3.5 14.5 8 10" /></svg></button><button class="ibtn close" type="button" aria-label="Close"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5l9 9M13.5 4.5l-9 9" /></svg></button></div><div class="page"></div></section></template>
-    <!-- A search's results, as the design's All tab draws them (queue item
-         708, ADR 0083): moved into the screen by `results_document.rs`,
-         which puts what the person said and every site's name, address,
-         title and description in as text nodes. The tabs are ours and
-         fixed; All is chosen, and the rest, not built yet, are disabled, as
-         is More sites. No short answer is drawn: that waits on a model
-         (queue item 707). -->
-    <template id="results"><section class="results" aria-label="Search results"><div class="rtabs" role="tablist" aria-label="Kinds of result"><button class="rt on" type="button" role="tab" aria-selected="true">All</button><button class="rt" type="button" role="tab" aria-selected="false" disabled="">Answer</button><button class="rt" type="button" role="tab" aria-selected="false" disabled="">Sites</button><button class="rt" type="button" role="tab" aria-selected="false" disabled="">Images</button><button class="rt" type="button" role="tab" aria-selected="false" disabled="">Videos</button><button class="rt" type="button" role="tab" aria-selected="false" disabled="">News</button></div><div class="res"></div></section></template>
     <!-- The icon *Add a site* is drawn with: moved into its tile by
          `start_document.rs`, because alo-dom's operations make HTML
          elements and an icon is SVG. Ours and fixed, like the rest. -->

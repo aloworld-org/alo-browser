@@ -32,6 +32,7 @@ use alo_renderer::host::Renderers;
 use alo_renderer::results::{Found, Results, SetUp, Showing};
 use alo_renderer::results_document::MORE_SITES;
 use alo_renderer::start::{self, Start};
+use alo_renderer::turn::Turn;
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use std::path::{Path, PathBuf};
@@ -310,10 +311,10 @@ fn with(showing: Showing) -> Start {
     Start {
         greeting: "Hello.".to_owned(),
         viewport: Size::new(WIDTH, HEIGHT),
-        results: Some(Results {
+        turns: vec![Turn::Searched(Results {
             said: SAID.to_owned(),
             showing,
-        }),
+        })],
         search: SetUp::Ready,
         ..Start::default()
     }
@@ -336,7 +337,7 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     // its right, 42 tall; 20 under it the results. The thread clipping them
     // is 32 wider either side and reaches down to 24 above the box (queue
     // item 750).
-    assert_eq!(at("thread searched"), vec![px(48.0, 40.0, 944.0, 676.0)]);
+    assert_eq!(at("thread"), vec![px(48.0, 40.0, 944.0, 676.0)]);
     assert!(
         at("you")
             .first()
@@ -426,7 +427,7 @@ fn with_results_the_box_is_pinned_24_above_the_windows_foot() {
         let top = height - 24.0 - 56.0;
         assert_eq!(at("box"), vec![px(80.0, top, 880.0, 56.0)], "at {height}");
         assert_eq!(
-            at("thread searched"),
+            at("thread"),
             vec![px(48.0, 40.0, 944.0, top - 24.0 - 40.0)],
             "at {height}"
         );
@@ -527,9 +528,11 @@ fn an_agent_reads_the_results_as_a_region_of_tabs_and_articles() {
     let drawn = draw(found());
     let outline = drawn.tree.to_outline();
     let some = |name: &str| Some(name.to_owned());
+    // The conversation, its one turn named by what the person said, and in
+    // it the results (queue item 703).
     assert_eq!(
         names(&read(&drawn.tree, "region")),
-        vec![some("Search results")],
+        vec![some("Conversation"), some(SAID), some("Search results")],
         "{outline}"
     );
     assert_eq!(
@@ -576,9 +579,10 @@ fn an_agent_reads_the_results_as_a_region_of_tabs_and_articles() {
             .all(|heading| heading.name.as_deref() != Some("Short answer"))
     );
     // In order: what the person said, the results, then the box.
+    let results = outline.find("region \"Search results\"").unwrap_or(0);
     assert!(
-        outline.find("paragraph").unwrap_or(usize::MAX) < outline.find("region").unwrap_or(0)
-            && outline.find("region").unwrap_or(usize::MAX) < outline.find("search").unwrap_or(0),
+        outline.find("paragraph").unwrap_or(usize::MAX) < results
+            && results < outline.find("search").unwrap_or(0),
         "{outline}"
     );
 }

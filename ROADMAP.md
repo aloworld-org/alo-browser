@@ -2405,19 +2405,29 @@ items where being right and being unusable are the same outcome.
       Instrument Sans and Newsreader under the OFL, compiled in and handed to
       the interface's renderers alone, their licences in the application,
       and a run of text drawn in the font layout measured it in (706, ADR
-      0084)
+      0084); the conversation keeping every turn, per chat, and scrolling
+      (703, ADR 0085) — each search and page opened a turn under the last,
+      an earlier card kept as its address and pressable, a page not opened
+      saying why in its turn, the wheel scrolling from the newest turn's
+      top inside the reach the renderer measures while a press on a live
+      card's page lands where it is drawn, in layout assertions, four
+      reference renders and tests through the window's own road and both
+      Chromiums
       · Owed: a card drawn from the page's first paint rather than its
       load (751), *Search chats* and the button that hides the panel (711),
       a press on an offer (714), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
-      a page inside the conversation (702), the conversation (703), the
-      agent at work (704), what the agent may do (705), Newsreader's
+      a page inside the conversation (702), the agent's words and steps as
+      turns, with the agent at work (704), a positioned box clipped by an
+      `overflow` box (753), scrolling from the keyboard (754), a sign of more
+      above (755), a wheel's lines smoothed (756), chats kept across
+      launches (757), a chat named by its words (758), the offers' room
+      known to the aim (759), what the agent may do (705), Newsreader's
       optical size (752),
       the answer and All's short answer (707, blocked: a model), images
       (743), the Sites tab (744), Videos (745), News (746), a site's own
-      mark (747), the key in release (748, the owner's decision), why a card
-      closed said rather than wiped (749)
+      mark (747), the key in release (748, the owner's decision)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions

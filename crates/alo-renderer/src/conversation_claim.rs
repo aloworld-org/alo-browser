@@ -48,7 +48,11 @@
 //! A search's results (queue item 708) are pressed the same way: a site's
 //! title is claimed by its place among the titles drawn, and nothing else
 //! of them — its name, address, description, the tabs, *More sites ›* —
-//! claims anything.
+//! claims anything. A conversation of many turns (queue item 703) draws
+//! every search's titles, and each page shown earlier as a link of the
+//! same class, so each is claimed by its place among all of them, in the
+//! order drawn, oldest turn first; what is scrolled out of the room is
+//! clipped, and a press there finds nothing to claim.
 //!
 //! Not drawn, so never claimed: *Search chats* and the button that hides
 //! the panel (queue item 711). Drawn but not yet claimed: the offers under

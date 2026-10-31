@@ -162,6 +162,13 @@ pub enum ToRenderer {
     /// dispatched, since neither part runs script. A renderer that holds
     /// neither answers [`Failure::NotTheConversation`].
     ConversationPress(Point),
+    /// Say how far the first screen's conversation reaches either side of
+    /// its newest turn's top, as it was last laid out (queue item 703):
+    /// answered with [`FromRenderer::ConversationReached`], measured from
+    /// the drawing ([`crate::conversation_scroll::reach_of`]). Sent only to
+    /// the first screen's renderer; any other answers
+    /// [`Failure::NotTheConversation`].
+    ConversationReach,
 }
 
 /// What a renderer answers with.
@@ -360,6 +367,14 @@ pub enum FromRenderer {
     /// it by name in answer to anything else
     /// ([`crate::conversation_decide`]).
     ConversationClaimed(Option<ConversationClaim>),
+    /// How far the first screen's conversation reaches, in answer to
+    /// [`ToRenderer::ConversationReach`] alone (queue item 703).
+    ///
+    /// **A claim about lengths, and nothing more**: the browser process
+    /// keeps a person's wheel inside it, read as finite lengths
+    /// ([`crate::conversation_scroll::Reach::bounded`]), and never takes
+    /// from it where a live card's page is.
+    ConversationReached(crate::conversation_scroll::Reach),
 }
 
 /// Why a request could not be answered.
@@ -480,6 +495,9 @@ impl fmt::Display for ToRenderer {
                 "a press on the chats panel or the first screen at ({}, {})",
                 at.x, at.y
             ),
+            ToRenderer::ConversationReach => {
+                f.write_str("say how far the first screen's conversation reaches")
+            }
             ToRenderer::Strip(strip) => write!(
                 f,
                 "hold the tab strip, {} open, at {}×{}",
@@ -579,6 +597,8 @@ mod tests {
             // Where a person pressed a part of the conversation, and nothing
             // about any page.
             ToRenderer::ConversationPress(_) => "a person's press on the conversation",
+            // Nothing: a question about the part it holds.
+            ToRenderer::ConversationReach => "nothing but the question",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -595,6 +615,8 @@ mod tests {
             FromRenderer::Claimed(_) => "which tab a press was on",
             // A place or a kind in the part it was sent, and nothing else.
             FromRenderer::ConversationClaimed(_) => "what in the part a press was on",
+            // Two lengths of the part it was sent, and nothing else.
+            FromRenderer::ConversationReached(_) => "how far the conversation reaches",
         };
 
         assert!(!sent(&ToRenderer::Paint).is_empty());

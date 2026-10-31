@@ -184,6 +184,7 @@ pub mod conversation_compose;
 pub mod conversation_drawing;
 pub mod conversation_place;
 pub mod conversation_search;
+pub mod conversation_thread;
 pub mod conversation_window;
 pub mod cursor;
 pub mod engine_pages;

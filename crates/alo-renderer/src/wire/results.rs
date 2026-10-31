@@ -6,8 +6,9 @@
 //! first screen's state ([`super::start`]).
 //!
 //! Read by a confined renderer as the rest of the first screen is: whether
-//! searching is set up and why not, then whether there are results, what
-//! the person said, and where the search is, by a closed list of tags.
+//! searching is set up and why not; and, for each turn of the conversation
+//! that is a search ([`super::start`], queue item 703), what the person said
+//! and where the search is, by a closed list of tags.
 //! Every site's title, name and description is text that stays text; its
 //! address is read back with the URL parser and refused unless it is a
 //! site's, so a renderer is never told to draw a link to anything else, and
@@ -17,8 +18,8 @@ use super::{Reader, Unreadable, Writer, unreadable};
 use crate::results::{Found, MOST_FOUND, Results, SetUp, Showing};
 
 impl Writer {
-    /// Whether searching is set up, then the results, if there are any.
-    pub(super) fn results(&mut self, search: &SetUp, results: Option<&Results>) {
+    /// Whether searching is set up, and why not.
+    pub(super) fn search_set_up(&mut self, search: &SetUp) {
         match search {
             SetUp::Ready => self.tag(0),
             SetUp::Not(why) => {
@@ -26,11 +27,10 @@ impl Writer {
                 self.text(why);
             }
         }
-        let Some(results) = results else {
-            self.bool(false);
-            return;
-        };
-        self.bool(true);
+    }
+
+    /// A search's results: what the person said, then where the search is.
+    pub(super) fn results(&mut self, results: &Results) {
         self.text(&results.said);
         match &results.showing {
             Showing::Searching => self.tag(0),
@@ -53,17 +53,17 @@ impl Writer {
 }
 
 impl Reader<'_> {
-    /// Whether searching is set up, and the results, as
-    /// [`Writer::results`] wrote them.
-    pub(super) fn results(&mut self) -> Result<(SetUp, Option<Results>), Unreadable> {
-        let search = match self.tag()? {
+    /// Whether searching is set up, as [`Writer::search_set_up`] wrote it.
+    pub(super) fn search_set_up(&mut self) -> Result<SetUp, Unreadable> {
+        Ok(match self.tag()? {
             0 => SetUp::Ready,
             1 => SetUp::Not(self.text()?),
             other => return Err(unreadable(format!("searching set up as {other}"))),
-        };
-        if !self.bool()? {
-            return Ok((search, None));
-        }
+        })
+    }
+
+    /// A search's results, as [`Writer::results`] wrote them.
+    pub(super) fn results(&mut self) -> Result<Results, Unreadable> {
         let said = self.text()?;
         let showing = match self.tag()? {
             0 => Showing::Searching,
@@ -98,6 +98,6 @@ impl Reader<'_> {
             2 => Showing::Unanswered(self.text()?),
             other => return Err(unreadable(format!("results tagged {other}"))),
         };
-        Ok((search, Some(Results { said, showing })))
+        Ok(Results { said, showing })
     }
 }

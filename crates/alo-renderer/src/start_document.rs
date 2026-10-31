@@ -33,12 +33,15 @@
 //! about "…"* and [`NOT_SET_UP`] — the first `aria-selected`, being what
 //! Return chooses, and each that is not set up `aria-disabled`.
 //!
-//! # A search's results
+//! What was typed enters an offer's words as a text node's data, as every
+//! stranger's string here does. Nothing typed, nothing offered, and no
+//! list.
 //!
-//! Queue item 708: with results, the screen is a conversation, as with a
-//! card — the person's line, then the All tab ([`crate::results_document`]). What was typed enters an offer's words as a
-//! text node's data, as every stranger's string here does. Nothing typed,
-//! nothing offered, and no list.
+//! # A conversation
+//!
+//! Queue items 708, 717 and 703: once the chat on screen holds a turn — a
+//! search, a page — the screen is a conversation, every turn of it built by
+//! [`crate::conversation_document`], with the box at the window's foot.
 //!
 //! # The icons are ours too
 //!
@@ -153,10 +156,10 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
     } else {
         Some(make_offers(&mut document, &start.offers, &start.search)?)
     };
-    if start.card.is_some() || start.results.is_some() {
-        // A conversation rather than a greeting (queue items 717, 708):
-        // the box at the window's foot, and what is offered for what was
-        // typed just above it (queue item 750).
+    if start.conversing() {
+        // A conversation rather than a greeting (queue items 717, 708,
+        // 703): the box at the window's foot, and what is offered for what
+        // was typed just above it (queue item 750).
         let class = if start.focused {
             "start conversing focused"
         } else {
@@ -164,11 +167,7 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
         };
         attribute(&mut document, screen, "class", class)?;
         let the_box = by_id(&document, BOX)?;
-        if let Some(card) = &start.card {
-            crate::card_document::put(&mut document, card, screen, the_box, blocks)?;
-        } else if let Some(results) = &start.results {
-            crate::results_document::put(&mut document, results, screen, the_box, blocks)?;
-        }
+        crate::conversation_document::put(&mut document, start, screen, the_box, blocks)?;
         if let Some(offers) = offers {
             insert_before(&mut document, screen, offers, the_box)?;
         }
@@ -591,10 +590,10 @@ mod tests {
         // Queue item 750: the box is at the window's foot, so what is offered
         // goes between the conversation and the box.
         let mut start = typing("example.com");
-        start.card = Some(crate::card::Card::new(
+        start.turns = vec![crate::turn::Turn::Page(crate::card::Card::new(
             "en.wikipedia.org",
             alo_url::parse("https://en.wikipedia.org/").unwrap(),
-        ));
+        ))];
         let document = built(&start);
         let class = |class: &str| {
             document

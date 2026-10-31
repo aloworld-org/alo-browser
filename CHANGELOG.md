@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The conversation keeps everything you asked for, and scrolls.** Each
+  search and each page you open is added under the last instead of
+  replacing it, so earlier results stay where you can read them. Scroll
+  back with the wheel or trackpad over the conversation — over a page in a
+  card, the wheel still scrolls the page. A page you opened earlier is kept
+  as its address, which you can press to open it again; a page that could
+  not be opened says why where it would have been. *New chat* starts
+  empty, and each chat in the panel keeps its own conversation while alo is
+  open. A press on a card's page lands on what is drawn there however far
+  the conversation is scrolled (item 703).
+- **Fixed: a search typed while a page was open left that page running.**
+  Searching with Return closed the card on screen but not the page behind
+  it, which went on loading and drawing out of sight until alo quit. It is
+  now closed (item 703).
+
 - **The interface is set in its own typefaces.** The chats panel, the
   first screen, search results and the card are drawn in Instrument Sans,
   with the mark *alo* and the greeting in Newsreader, as the design is.

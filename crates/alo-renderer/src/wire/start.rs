@@ -17,17 +17,25 @@
 //! is refused, so a renderer is never told to draw *Go to the site* for
 //! anything else.
 //!
-//! Then the page shown as a card, if there is one (queue item 717): its
-//! address read back and refused unless it is a site's, as an offer's is,
-//! and its frame refused unless its bytes begin as a PNG's — decoded, in
-//! this confined process, only by the picture readers every `<img>` goes
-//! through.
+//! Then whether searching is set up, and the conversation's turns, oldest
+//! first (queue item 703), each by a closed list of tags, at most
+//! [`MOST_TURNS`] of them: a search's results ([`super::results`]); the page
+//! shown as a card (queue item 717), its address read back and refused
+//! unless it is a site's, as an offer's is, its frame refused unless its
+//! bytes begin as a PNG's — decoded, in this confined process, only by the
+//! picture readers every `<img>` goes through — and refused anywhere but
+//! as the newest turn, since one page is open at a time; a page shown
+//! earlier, its address refused unless it is a site's; and a failure, in
+//! words. Then how far the conversation is scrolled, a finite number.
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::card::Card;
+use crate::conversation_scroll::MOST;
 use crate::start::{KeptSite, Start, Waiting};
+use crate::turn::{MOST_TURNS, Turn};
 use crate::typed::Offer;
 use alo_layout::geometry::Size;
+use alo_url::Url;
 
 /// What every PNG begins with.
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
@@ -70,20 +78,38 @@ impl Writer {
                 }
             }
         }
-        self.card(start.card.as_ref());
-        self.results(&start.search, start.results.as_ref());
+        self.search_set_up(&start.search);
+        self.number(start.turns.len() as u64);
+        for turn in &start.turns {
+            match turn {
+                Turn::Searched(results) => {
+                    self.tag(0);
+                    self.results(results);
+                }
+                Turn::Page(card) => {
+                    self.tag(1);
+                    self.card(card);
+                }
+                Turn::Visited { said, url } => {
+                    self.tag(2);
+                    self.text(said);
+                    self.text(&url.serialised);
+                }
+                Turn::Failed { said, why } => {
+                    self.tag(3);
+                    self.text(said);
+                    self.text(why);
+                }
+            }
+        }
+        self.float(start.down);
     }
 
-    /// The page shown as a card, if one is (queue item 717): what the
-    /// person said, the page's address, whether there is anywhere to go back
-    /// or forward to, and the last frame Chrome drew of it, a PNG's bytes,
-    /// if one has arrived.
-    fn card(&mut self, card: Option<&Card>) {
-        let Some(card) = card else {
-            self.bool(false);
-            return;
-        };
-        self.bool(true);
+    /// The page shown as a card (queue item 717): what the person said, the
+    /// page's address, whether there is anywhere to go back or forward to,
+    /// and the last frame Chrome drew of it, a PNG's bytes, if one has
+    /// arrived.
+    fn card(&mut self, card: &Card) {
         self.text(&card.said);
         self.text(&card.url.serialised);
         self.bool(card.back);
@@ -130,8 +156,48 @@ impl Reader<'_> {
         for _ in 0..self.count()? {
             offers.push(self.offer()?);
         }
-        let card = self.card()?;
-        let (search, results) = self.results()?;
+        let search = self.search_set_up()?;
+        let count = self.count()?;
+        if count > MOST_TURNS {
+            return Err(unreadable(format!(
+                "a conversation of {count} turns, and at most {MOST_TURNS} are drawn"
+            )));
+        }
+        let mut turns = Vec::with_capacity(count);
+        for place in 0..count {
+            let turn = match self.tag()? {
+                0 => Turn::Searched(self.results()?),
+                1 if place + 1 == count => Turn::Page(self.card()?),
+                1 => {
+                    return Err(unreadable(
+                        "a page shown live in a turn that is not the newest",
+                    ));
+                }
+                2 => {
+                    let said = self.text()?;
+                    Turn::Visited {
+                        said,
+                        url: self
+                            .site("a page shown earlier at an address that is not a site's")?,
+                    }
+                }
+                3 => {
+                    let said = self.text()?;
+                    Turn::Failed {
+                        said,
+                        why: self.text()?,
+                    }
+                }
+                other => return Err(unreadable(format!("a turn tagged {other}"))),
+            };
+            turns.push(turn);
+        }
+        let down = self.float()?;
+        if down.abs() > MOST {
+            return Err(unreadable(
+                "a conversation scrolled further than any reaches",
+            ));
+        }
         Ok(Start {
             greeting,
             sites,
@@ -141,26 +207,19 @@ impl Reader<'_> {
             typed,
             focused,
             offers,
-            card,
-            results,
+            turns,
+            down,
             search,
         })
     }
 
-    /// The card, as [`Writer::card`] wrote it. An address that is not a
+    /// A card, as [`Writer::card`] wrote it. An address that is not a
     /// site's is refused, as one offered is, and so is a frame that is not
     /// a PNG: a renderer is told to draw only Chrome's pictures of a site
     /// there, and only in the one format Chrome is asked for (ADR 0076 B).
-    fn card(&mut self) -> Result<Option<Card>, Unreadable> {
-        if !self.bool()? {
-            return Ok(None);
-        }
+    fn card(&mut self) -> Result<Card, Unreadable> {
         let said = self.text()?;
-        let written = self.text()?;
-        let url = alo_url::parse(&written)
-            .ok()
-            .filter(|url| matches!(url.scheme.as_str(), "http" | "https"))
-            .ok_or_else(|| unreadable("a card for an address that is not a site's"))?;
+        let url = self.site("a card for an address that is not a site's")?;
         let back = self.bool()?;
         let forward = self.bool()?;
         let frame = if self.bool()? {
@@ -172,13 +231,23 @@ impl Reader<'_> {
         } else {
             None
         };
-        Ok(Some(Card {
+        Ok(Card {
             said,
             url,
             back,
             forward,
             frame,
-        }))
+        })
+    }
+
+    /// An address, read back with the URL parser, refused as `refused` says
+    /// unless it is a site's.
+    fn site(&mut self, refused: &str) -> Result<Url, Unreadable> {
+        let written = self.text()?;
+        alo_url::parse(&written)
+            .ok()
+            .filter(|url| matches!(url.scheme.as_str(), "http" | "https"))
+            .ok_or_else(|| unreadable(refused))
     }
 
     /// One thing offered under the box: a tag nobody knows is refused, and

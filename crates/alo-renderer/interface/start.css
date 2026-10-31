@@ -283,17 +283,22 @@ a {
    window table): the screen is the window's height, the box 880 wide and
    56 tall, 24 above the window's foot, and the conversation above it with
    24 between. What does not fit in that room is clipped above the box,
-   never drawn over or under it: the conversation does not scroll yet
-   (queue item 703). What is offered for what was typed goes just above the
-   box, so the box stays where it is while a person types. */
+   never drawn over or under it, and scrolled into it (queue item 703).
+   What is offered for what was typed goes just above the box, so the box
+   stays where it is while a person types. */
 .start.conversing {
   height: 100%;
   padding: 40px 0 24px;
 }
 
 /* The clip is 32 wider than the column either side, so the card's shadow
-   is not cut at its sides; the column stays where it was. */
+   is not cut at its sides; the column stays where it was. Its own stacking
+   context, so the turns, positioned to be scrolled, are painted inside its
+   clip: this engine paints a positioned box with the stacking context it
+   belongs to, past the clip of a box that is not one (queue item 753). */
 .start.conversing .thread {
+  position: relative;
+  z-index: 0;
   width: 944px;
   padding: 0 32px;
   flex-grow: 1;
@@ -327,8 +332,67 @@ a {
 .thread {
   display: flex;
   flex-direction: column;
-  row-gap: 16px;
   width: 880px;
+}
+
+/* The conversation's turns (queue item 703, ADR 0085). The newest stands
+   with its top at the room's top, moved up by how far the browser process
+   scrolled — a `top` set on .turns as a number of its own — and the
+   earlier turns stand above it, oldest first, 32 apart and 32 over it, so
+   where the newest is never depends on how tall the earlier ones are. */
+.turns {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.earlier {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  row-gap: 32px;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  row-gap: 16px;
+}
+
+/* A page shown earlier: its address on a white line, the host bold in the
+   ink, then the rest in the quiet colour — a link that opens it again. */
+.visit {
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 42px;
+  color: var(--quiet);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visit .title {
+  color: var(--quiet);
+}
+
+.visit .host {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* What was chosen and could not be done, and why, in quiet words. */
+.failed {
+  font-size: 14.5px;
+  line-height: 23px;
+  color: var(--quiet);
 }
 
 .you {
@@ -418,7 +482,7 @@ a {
    22 apart, each its mark, name and address on a line of 13, its title a
    link of 18 on 25, and two lines of its description of 14.5 on 23; then
    More sites. No short answer is drawn: it waits on a model (item 707). */
-.thread.searched {
+.turn.searched {
   row-gap: 20px;
 }
 

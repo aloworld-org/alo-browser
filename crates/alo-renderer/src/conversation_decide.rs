@@ -50,8 +50,9 @@ pub struct Shown<C, S> {
     pub waiting: Vec<C>,
     /// Whether the first screen shows a page as a card (queue item 717).
     pub card: bool,
-    /// The addresses of the sites a search's results show on the All tab,
-    /// in order (queue item 708).
+    /// The addresses of the links the conversation draws, in order (queue
+    /// items 708, 703): every search's sites on the All tab and every page
+    /// shown earlier, oldest turn first.
     pub found: Vec<Url>,
 }
 
@@ -95,8 +96,8 @@ pub enum Decided<C, S> {
     Expand,
     /// The card's *Close*.
     CloseTheCard,
-    /// The title of a site a search found, at this address (queue item
-    /// 708).
+    /// The title of a site a search found, or a page shown earlier, at this
+    /// address (queue items 708, 703).
     Found(Url),
     /// The press was on nothing, and nothing is done.
     Nothing,

@@ -8,17 +8,15 @@
 //! the template's `<template id="card">`, ours and fixed, and what the
 //! person said and the page's address enter it as text nodes.
 //!
-//! # What changes on the screen
+//! # Where it stands
 //!
-//! With a card, the screen is a conversation rather than a greeting: the
-//! greeting, the line under it and the groups of sites and waiting chats
-//! are not built, and a column 880 wide stands above the one box, holding
-//! what the person said, then the card. The screen's `main` is of class
-//! `start conversing`, which its sheet draws closer to the top.
+//! In the newest turn of the conversation, under what the person said
+//! ([`crate::conversation_document`]): only the newest turn is ever a live
+//! card, so there is one card, and one `card-address`, in a document.
 //!
 //! # What an agent reads
 //!
-//! ADR 0002: what the person said, as a paragraph; then a `region` named by
+//! ADR 0002: a `region` named by
 //! the page's address — the bar's own words, which it is labelled by —
 //! holding *Back*, *Forward*, *Expand to the whole window* and *Close* as
 //! buttons, *Back* and *Forward* disabled when there is nowhere to go; then
@@ -37,7 +35,7 @@
 
 use crate::card::{Card, FRAME_SRC};
 use crate::resource::Resource;
-use crate::start_document::{Unbuilt, append, attribute, by_id, element, insert_before};
+use crate::start_document::{Unbuilt, append, attribute, by_id, element};
 use alo_dom::{Document, NodeId};
 
 /// What the picture of the page is named, to an agent.
@@ -49,46 +47,18 @@ const CARD: &str = "card";
 /// The id of the card's address, which names it.
 const ADDRESS: &str = "card-address";
 
-/// Put `card` into `document`, the first screen's, above `before` — the one
-/// box — inside `screen`, its `main`, taking the screen's greeting, its line
-/// and `blocks` out.
+/// The card for `card`, made from the template's `<template id="card">`
+/// and filled — its address, its buttons' states and its picture — for the
+/// conversation to put in its turn ([`crate::conversation_document`]).
 ///
 /// # Errors
 ///
 /// [`Unbuilt`] if the template lacks the card or a place in it, or
 /// `alo-dom` refused an operation, which no card can cause.
-pub fn put(
-    document: &mut Document,
-    card: &Card,
-    screen: NodeId,
-    before: NodeId,
-    blocks: NodeId,
-) -> Result<(), Unbuilt> {
-    let sub = document
-        .children(screen)
-        .find(|&child| document.attribute_by_name(child, "class") == Some("sub"));
-    for gone in [Some(by_id(document, "greeting")?), sub, Some(blocks)]
-        .into_iter()
-        .flatten()
-    {
-        document
-            .remove_child(screen, gone)
-            .map_err(|refused| Unbuilt {
-                why: format!("a node could not be taken out of the first screen: {refused}"),
-            })?;
-    }
-    let thread = element(document, "div")?;
-    attribute(document, thread, "class", "thread")?;
-    let said = element(document, "p")?;
-    attribute(document, said, "class", "you")?;
-    // A stranger's string, entering as a text node's data.
-    let words = document.create_text_node(&card.said);
-    append(document, said, words)?;
-    append(document, thread, said)?;
+pub fn make(document: &mut Document, card: &Card) -> Result<NodeId, Unbuilt> {
     let made = take_card(document)?;
-    append(document, thread, made)?;
-    insert_before(document, screen, thread, before)?;
-    fill(document, made, card)
+    fill(document, made, card)?;
+    Ok(made)
 }
 
 /// The picture the card's `<img>` names, if it holds a frame: what the
@@ -117,7 +87,12 @@ fn take_card(document: &Document) -> Result<NodeId, Unbuilt> {
 
 /// The card's address, its buttons' states and its picture.
 fn fill(document: &mut Document, made: NodeId, card: &Card) -> Result<(), Unbuilt> {
-    let address = by_id(document, ADDRESS)?;
+    let address = document
+        .descendants(made)
+        .find(|&node| document.attribute_by_name(node, "id") == Some(ADDRESS))
+        .ok_or_else(|| Unbuilt {
+            why: format!("the card's template has no element with the id {ADDRESS:?}"),
+        })?;
     let (host, rest) = card.address();
     for (class, words) in [("host", host), ("path", rest)] {
         if words.is_empty() {
@@ -173,7 +148,7 @@ mod tests {
     fn built(card: Card) -> Document {
         build(&Start {
             greeting: "Hello.".to_owned(),
-            card: Some(card),
+            turns: vec![crate::turn::Turn::Page(card)],
             ..Start::default()
         })
         .unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why))

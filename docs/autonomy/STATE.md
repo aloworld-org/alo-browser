@@ -46081,3 +46081,106 @@ touches; swap was 5.6 of 6 GB. Alone it passed in 0.9 s. Rerun, unchanged:
 and clippy were clean before it.
 
 The next unused queue number is **753** and the next ADR is **0085**.
+
+## Iteration 466 — queue item 703: the conversation keeps every turn, and scrolls (ADR 0085)
+
+**Built by a delegated agent.** Item 703 for the turns that exist: a
+person's words, a search's results, a page live as a card, a page shown
+earlier, and an honest failure. **The agent's words and steps are not
+built** — they wait on a model (707, the owner's choice) and on the agent's
+record given a face (704); 704's entry now says they are turns. Nothing
+stands in for them.
+
+**Decided (ADR 0085).** Every search and page opened is a turn appended
+under the last, per chat (`alo-window`'s `conversation_thread.rs`); *New
+chat* starts empty, a chat pressed shows its own. A page opened from a link
+gets the link's words as its bubble. Only the newest turn is a live card; an
+earlier card becomes **its address**, a link that opens it again — not a
+still of its frame, since every frame resends the whole first screen
+(§ 2). Drawn by **the first screen's renderer**, not one of its own (§ 4).
+**Scrolled from the newest turn's top** (`Start::down`): the newest turn at
+`40 − down`, the earlier above it (`bottom: 100%`), so the live card's page
+box is `card_place::page_box(viewport, down)` — the browser's own number,
+never a renderer's word. The renderer answers how far the turns reach
+(`ToRenderer::ConversationReach` tag 17, `FromRenderer::ConversationReached`
+tag 12, bounded lengths); the window keeps the wheel inside it. The drawing
+thread tells the reach and offset just before the frame, and the window aims
+a press by the offset of the frame it lands on.
+
+**Found on the way.**
+- `alo-paint` paints a positioned box past the clip of an `overflow: hidden`
+  ancestor that is not a stacking context — queued as **753**; the thread is
+  given `position: relative; z-index: 0`, which no existing reference moved.
+- A template's contents move out once, so the results' tab row is now made
+  with `alo-dom`'s operations (`results_document::make`), and the card's
+  address is found inside the card before it is put in the document.
+- Offers above the box shorten the room without the aim knowing — **759**.
+- **By hand:** a search typed with Return while a card was live put the card
+  away but never closed its Chromium (the window asked for a live card after
+  the edit had removed it; the same order since 708). Fixed; the Chrome test
+  now types a search over a live card and waits for `Went::Shut`, and with
+  the old order fails there.
+
+**Tests.** `alo-renderer/tests/a_conversation_of_turns.rs` (two and three
+turns in numbers — search 457, failure 81, card 626, 32 apart, the newest at
+40; scrolled back 602 every class moved by exactly 602 with thread and box
+unmoved; paper above the room, at 728 over the box, the box white, paper
+under it; the page box at 120, −200, 37.5; the reach; claims by place
+scrolled and none outside the room; agent regions and links; hostile words
+as text; a confined renderer the same, a panel's refusing to measure).
+References written new, each looked at, then run without update mode:
+`conversation-of-three-turns.png`, `conversation-scrolled-back.png`,
+`conversation-a-page-shown-earlier.png`, `conversation-scrolled-at-two.png`
+(2080 × 1640). **No existing reference moved** (card, results, start, panel,
+window). Assertions moved deliberately: the agent's regions now include
+*Conversation* and the turn; the 708 Chrome test's card is now under the
+results with the title as its bubble. Unit tests in `turn`,
+`conversation_scroll`, `conversation_document`, `card_place`, `card_aim`
+(scrolled, at one and two), `conversation_thread`, `conversation`,
+`conversation_window`; the wire's turns and refusals. Through the window's
+own road: `alo-window/tests/a_conversation_scrolled_in_the_window.rs` (local
+provider, no Chromium); `tests/a_conversation_scrolled_through_chrome.rs`
+(machine's Chrome and alo's CEF host, in `.config/nextest.toml`'s
+shown-Chrome list) — a press on the card's page scrolled 120 lands at the
+page's (250, 100); with the offset removed from the aim it lands at
+(250, 220) and fails.
+
+**By hand** (`alo browser.app --conversation`, screenshots in the session's
+scratchpad `handrun6/`; screen unlocked, alo frontmost and the window at
+215,90 1280×852 checked before every press, wheel and key; the pointer put
+back with `=`). Two real searches. `02-first-search.png` the first
+results; `03-wikipedia-card.png` `en.wikipedia.org` as the newest turn;
+`04-scrolled-back-over-the-card.png` nine wheel lines back beside the card,
+the results above it and the card clipped over the box;
+`05-second-search.png` the second search at the room's top;
+`06-scrolled-back-to-the-page-line.png` back to the first turn, the
+Wikipedia card kept as its address line; `07-earlier-title-opened.png` the
+first search's YouTube title pressed, a new turn whose bubble is the title,
+the card live; `08-card-scrolled-120.png` the live card scrolled back with
+the conversation. One stray System Events key code 0 was sent after the last
+wheel by a mistake of mine; nothing visible changed. ⌘Q left no alo or alo
+Chromium process. The Chromium left running after the typed search was seen
+here (above) and fixed after the run; not run by hand again.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0024 § 5,
+0074 (table and status), 0076 (Built section), 0083, 0084, 0085 (new);
+`docs/design/shell.md` gains *The conversation*.
+
+**Cut:** 753 (engine clip), 754 (keyboard scrolling), 755 (a sign of more
+above, needs design), 756 (smoothing a wheel's lines), 757 (chats across
+launches, needs ADR), 758 (a chat named by its words), 759 (offers' room and
+the aim).
+
+**Roadmap:** the conversation line's *Built* gains 703; *Owed* swaps 703
+for the agent's turns (704) and 753–759, and drops 749, which was done.
+
+**Gate.** With `CEF_PATH` set, three runs. The first failed one test,
+`alos_cef_host_shows_a_page_as_chrome_does` (*chosen through the list's
+menu*: `NeverClosed`), beside the 2.5M-picture test, as the notes record of
+that menu test; swap was 5.5 of 6 GB; alone it passed. The second: **5892
+tests run, 5892 passed, "The gate is met." (11 of 11 steps)**. The by-hand
+fix followed, and the gate was run again after it: **5892 tests run, 5892
+passed, 11 of 11 steps, "The gate is met."** `--lib` tests and clippy were
+clean before each.
+
+The next unused queue number is **760** and the next ADR is **0086**.

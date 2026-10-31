@@ -21,14 +21,23 @@
 //! ([`crate::typed`], queue item 701). Nobody else is sent it: not the
 //! chats panel's renderer, and not a page's.
 //!
+//! # A conversation
+//!
+//! Once a person has searched or opened a page, the screen is a
+//! conversation (queue item 703, ADR 0085): every turn of the chat on
+//! screen, oldest first ([`Start::turns`], [`crate::turn`]), scrolled as the
+//! browser process says ([`Start::down`], [`crate::conversation_scroll`]),
+//! with the box at the window's foot.
+//!
 //! # Where it is
 //!
 //! At [`site`], a site no page can name, minted fresh as the panel's is.
 
 use crate::card::Card;
-use crate::results::{Results, SetUp};
+use crate::results::SetUp;
 use crate::site::Site;
 use crate::strip::longest;
+use crate::turn::Turn;
 use crate::typed::Offer;
 use alo_layout::Size;
 use alo_url::Url;
@@ -72,14 +81,14 @@ pub struct Start {
     /// first what Return chooses ([`crate::typed::offers`]); none while
     /// nothing is typed.
     pub offers: Vec<Offer>,
-    /// The page opened from the conversation, shown as a card in it (ADR
-    /// 0076 B, queue item 717) — in place of the greeting and the groups —
-    /// or none.
-    pub card: Option<Card>,
-    /// A search's results, shown in the conversation as the design's All
-    /// tab (queue item 708) — in place of the greeting and the groups — or
-    /// none. A card, when there is one, is shown instead.
-    pub results: Option<Results>,
+    /// The conversation's turns, oldest first (queue item 703): with any,
+    /// they stand in place of the greeting and the groups. Only the newest
+    /// may be a live card ([`Turn::Page`]).
+    pub turns: Vec<Turn>,
+    /// How far the conversation is scrolled, in CSS pixels: how far the
+    /// newest turn's top is above the room's top — below `0` back up into
+    /// the earlier turns ([`crate::conversation_scroll`]).
+    pub down: f32,
     /// Whether searching is set up, which the box's offer to search says.
     pub search: SetUp,
 }
@@ -105,8 +114,8 @@ pub struct Waiting {
 
 impl Default for Start {
     /// A greeting of nothing, no sites, nothing waiting, at no size, on a
-    /// screen of one, an empty box without the keyboard, no card, no
-    /// results, and searching not set up, for no reason given.
+    /// screen of one, an empty box without the keyboard, no turns, not
+    /// scrolled, and searching not set up, for no reason given.
     fn default() -> Self {
         Self {
             greeting: String::new(),
@@ -117,8 +126,8 @@ impl Default for Start {
             typed: String::new(),
             focused: false,
             offers: Vec::new(),
-            card: None,
-            results: None,
+            turns: Vec::new(),
+            down: 0.0,
             search: SetUp::Not(String::new()),
         }
     }
@@ -131,6 +140,17 @@ impl Start {
     pub fn at_scale(mut self, scale: f32) -> Self {
         self.scale = alo_value::device_scale(scale);
         self
+    }
+
+    /// Whether the screen is a conversation rather than a greeting: it
+    /// holds a turn.
+    pub fn conversing(&self) -> bool {
+        !self.turns.is_empty()
+    }
+
+    /// The page shown live as a card, if the newest turn is one.
+    pub fn card(&self) -> Option<&Card> {
+        self.turns.last().and_then(Turn::card)
     }
 }
 

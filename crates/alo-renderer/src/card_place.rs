@@ -18,12 +18,17 @@
 //! this to the layout the engine computes, at more than one width, so the
 //! sheet and this cannot drift apart unnoticed.
 //!
-//! The first screen does not scroll yet. When a conversation holds more than
-//! one card (703), where each is moves with the conversation, and this is
-//! where that is decided. Until then, the conversation is clipped above the
-//! box, which is pinned at the window's foot (queue item 750): what of the
-//! page box is under that edge is not seen, and is not the page's to be
-//! pressed ([`seen_page_box`]).
+//! # Scrolled
+//!
+//! The conversation scrolls (queue item 703, ADR 0085), and only the newest
+//! turn is ever a live card, so the page box is where it would be with the
+//! newest turn's top at the room's top, moved up by how far the browser
+//! process scrolled it ([`crate::conversation_scroll`]): its own number, so
+//! where a press lands on the page is still its own arithmetic. The
+//! conversation is clipped to the room, from [`TOP`] down to the gap over
+//! the box, which is pinned at the window's foot (queue item 750): what of
+//! the page box is outside the room is not seen, and is not the page's to
+//! be pressed ([`seen_page_box`]).
 
 use crate::card::PAGE_SIZE;
 use alo_layout::{Rect, Size};
@@ -32,8 +37,9 @@ use alo_layout::{Rect, Size};
 /// design's 880.
 pub const COLUMN: f32 = 880.0;
 
-/// How far down the column begins: `.start.conversing`'s padding.
-const TOP: f32 = 40.0;
+/// How far down the column begins, and the room the conversation is seen
+/// in with it: `.start.conversing`'s padding.
+pub const TOP: f32 = 40.0;
 
 /// How tall the person's line is: its 22 of one line, nowrap, and its 10
 /// above and below.
@@ -71,22 +77,24 @@ pub fn room_bottom(viewport: Size) -> f32 {
 }
 
 /// The part of the card's page box that is seen on a first screen laid out
-/// at `viewport` — all of it when the window is tall enough, its top part
-/// when the conversation is clipped above the box — or [`None`] when none
-/// of it is.
-pub fn seen_page_box(viewport: Size) -> Option<Rect> {
-    let page = page_box(viewport);
-    let seen = (room_bottom(viewport) - page.top()).min(page.size.height);
-    (seen > 0.0).then(|| Rect::new(page.left(), page.top(), page.size.width, seen))
+/// at `viewport` and scrolled `down` — all of it when it is inside the room,
+/// what is inside when the room clips it above or below — or [`None`] when
+/// none of it is.
+pub fn seen_page_box(viewport: Size, down: f32) -> Option<Rect> {
+    let page = page_box(viewport, down);
+    let top = page.top().max(TOP);
+    let bottom = page.bottom().min(room_bottom(viewport));
+    (bottom > top).then(|| Rect::new(page.left(), top, page.size.width, bottom - top))
 }
 
 /// The card's page box on a first screen laid out at `viewport`, in its CSS
-/// pixels: [`PAGE_SIZE`], inside the card's border, under its bar.
-pub fn page_box(viewport: Size) -> Rect {
+/// pixels, the conversation scrolled `down`: [`PAGE_SIZE`], inside the
+/// card's border, under its bar, the card being the newest turn.
+pub fn page_box(viewport: Size, down: f32) -> Rect {
     let (width, height) = PAGE_SIZE;
     Rect::new(
         (viewport.width - COLUMN) / 2.0 + BORDER,
-        TOP + SAID + GAP + BORDER + BAR,
+        TOP + SAID + GAP + BORDER + BAR - down,
         length(width),
         length(height),
     )
@@ -114,7 +122,7 @@ mod tests {
     #[test]
     fn at_the_designs_width_the_page_box_is_at_81_145() {
         assert_eq!(
-            sides(page_box(Size::new(1040.0, 820.0))),
+            sides(page_box(Size::new(1040.0, 820.0), 0.0)),
             sides(Rect::new(81.0, 145.0, 878.0, 520.0))
         );
     }
@@ -127,26 +135,53 @@ mod tests {
             740.0_f32.to_bits()
         );
         assert_eq!(
-            seen_page_box(Size::new(1040.0, 820.0)).map(sides),
+            seen_page_box(Size::new(1040.0, 820.0), 0.0).map(sides),
             Some(sides(Rect::new(81.0, 145.0, 878.0, 520.0)))
         );
         // At 700 it ends at 596: the page's lowest 69 are clipped.
         assert_eq!(
-            seen_page_box(Size::new(1040.0, 700.0)).map(sides),
+            seen_page_box(Size::new(1040.0, 700.0), 0.0).map(sides),
             Some(sides(Rect::new(81.0, 145.0, 878.0, 451.0)))
         );
         // At 240 none of it is seen.
-        assert_eq!(seen_page_box(Size::new(1040.0, 240.0)), None);
+        assert_eq!(seen_page_box(Size::new(1040.0, 240.0), 0.0), None);
+    }
+
+    #[test]
+    fn scrolled_the_page_box_moves_by_exactly_as_much_and_is_seen_inside_the_room() {
+        let viewport = Size::new(1040.0, 820.0);
+        // Scrolled 120 on: up by 120, its top 15 above the room's 40 not
+        // seen.
+        assert_eq!(
+            sides(page_box(viewport, 120.0)),
+            sides(Rect::new(81.0, 25.0, 878.0, 520.0))
+        );
+        assert_eq!(
+            seen_page_box(viewport, 120.0).map(sides),
+            Some(sides(Rect::new(81.0, 40.0, 878.0, 505.0)))
+        );
+        // Scrolled 200 back: down by 200, its foot past the room's 716.
+        assert_eq!(
+            sides(page_box(viewport, -200.0)),
+            sides(Rect::new(81.0, 345.0, 878.0, 520.0))
+        );
+        assert_eq!(
+            seen_page_box(viewport, -200.0).map(sides),
+            Some(sides(Rect::new(81.0, 345.0, 878.0, 371.0)))
+        );
+        // Scrolled past it either way, none of it.
+        assert_eq!(seen_page_box(viewport, 700.0), None);
+        assert_eq!(seen_page_box(viewport, -700.0), None);
     }
 
     #[test]
     fn it_is_centred_whatever_the_width_and_as_far_down() {
         assert_eq!(
-            sides(page_box(Size::new(1400.0, 900.0))),
+            sides(page_box(Size::new(1400.0, 900.0), 0.0)),
             sides(Rect::new(261.0, 145.0, 878.0, 520.0))
         );
         assert_eq!(
-            sides(page_box(Size::new(1041.0, 820.0))),
+            sides(page_box(Size::new(1041.0, 820.0), 0.0)),
             sides(Rect::new(81.5, 145.0, 878.0, 520.0))
         );
     }

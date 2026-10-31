@@ -858,7 +858,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   title as a link, two lines of description — then *More sites ›*; Brave's
   `<strong>` is taken out and its entities read, and every string enters as
   text. An answer refused, 401, 429, 5xx or no connection is said in words
-  where the sites would be. A press on a title opens it in the card. In a
+  where the sites would be. A press on a title opens it in the card, a turn
+  under the results (703). In a
   layout assertion and two reference renders
   (`tests/a_searchs_results_on_the_all_tab.rs`), and through the window's
   own road against a local server answering in Brave's shape
@@ -880,7 +881,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
   person's words with results or a card, the box is 880 × 56, 24 above the
   window's foot, what is offered just above it, and the conversation above
   that, clipped above the box where it does not fit — never under it, and
-  a press there is never the card's page's; scrolling is 703's. In layout
+  a press there is never the card's page's; it scrolls (703). In layout
   assertions at several heights and the four reference renders of a card
   and of results (`tests/a_page_as_a_card.rs`,
   `tests/a_searchs_results_on_the_all_tab.rs`).
@@ -898,12 +899,35 @@ The reason this exists rather than a faster fork of somebody else's engine.
   byte for byte (`tests/the_application_assembled.rs`); every reference
   render of the interface redrawn in them. Owed: Newsreader's optical size
   set by the text's size (752).
+  **The conversation keeps every turn, and scrolls** (703, ADR 0085):
+  each search and each page opened — from the box, a site's title or a
+  page shown earlier — is a turn under the last, the person's words its
+  bubble (a link's own words when one was pressed); each chat keeps its
+  own, and *New chat* starts empty. Only the newest turn is a live card;
+  an earlier one is kept as its address, a link that opens it again, and a
+  page not opened says why in its turn. Drawn by the first screen's
+  renderer as a region *Conversation*, each turn a region named by what was
+  said. Scrolled from the newest turn's top, which a new turn puts at the
+  room's top: a wheel or trackpad over the conversation scrolls it inside
+  how far the turns reach, as the renderer measures it, while over a live
+  card's page it scrolls the page; the card's page box moves by the
+  browser process's own offset, so a press lands where the page is drawn,
+  and what is outside the room is clipped and pressed by nobody. In layout
+  assertions of two and three turns, scrolled and not, at one and two, and
+  four reference renders (`alo-renderer/tests/a_conversation_of_turns.rs`);
+  through the window's own road against a local provider
+  (`alo-window/tests/a_conversation_scrolled_in_the_window.rs`) and through
+  both Chromiums (`tests/a_conversation_scrolled_through_chrome.rs`). Owed:
+  the agent's words and steps as turns (704, 707), scrolling from the
+  keyboard (754), a sign of more above (755), smoothing a wheel's lines
+  (756), chats kept across launches (757), a chat named by its words (758),
+  the offers' room known to the aim (759), and a positioned box clipped by
+  an `overflow` box in the engine (753).
   Owed: *Search chats* and the button that hides the panel (711), a press
   on an offer (714), an agent reaching a page the conversation opened
-  (716), a field's value kept to one line by the engine (715), the
-  conversation (703), the agent at
-  work (704), its settings (705); the answer (707)
-  waits on the owner's choice of a model.
+  (716), a field's value kept to one line by the engine (715), the agent
+  at work (704), its settings (705); the answer (707) waits on the owner's
+  choice of a model.
 
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item

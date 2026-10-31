@@ -20187,10 +20187,132 @@ What stage 2's exit gate actually measures: a person using it.
 - [ ] **722. Chromium with alo's name (ADR 0077).** Built from source with
   alo's name and icon, so an expanded page's menu bar says *alo*. *blocked:
   build machines this repository does not have.*
-- [ ] **703. The conversation, a document of ours.** A person's words, the
+- [x] **703. The conversation, a document of ours.** A person's words, the
   agent's words and the steps it took, drawn as the design draws them, in a
   renderer of its own; each message a stranger's string entering as text.
   *Depends on 700.*
+  ***Done (iteration 466), for the turns that exist; decided in ADR 0085;
+  scope cut to 753–759; the agent's words and steps left to 704 and 707.***
+  The conversation keeps every turn, oldest first, per chat
+  (`alo-window`'s `conversation_thread.rs`): each search and each page
+  opened — from the box, a site's title or a page shown earlier — is a turn
+  appended under the last, its bubble what the person said or the words
+  the link was drawn with. *New chat* starts empty; a chat pressed in the
+  panel shows its own. Four turns exist (`alo-renderer`'s `turn.rs`): a
+  search's results, a live card (only ever the newest turn, refused
+  anywhere else on the wire), a page shown earlier, and a failure in words.
+  **An earlier card becomes its address**, a line that is a link opening
+  it again as a new turn — not a still of its frame, since every frame of
+  the live card resends the whole first screen (ADR 0085 § 2). **Drawn by
+  the first screen's renderer**, not one of its own: one column, the box
+  and the turns, at a site no page can name (§ 4). Built into the document
+  by `conversation_document.rs`: a `region` *Conversation*, each turn a
+  `region` named by what was said. **Scrolled** from the newest turn's top
+  (`Start::down`, `conversation_scroll.rs`): the newest turn stands at the
+  room's top moved up by the browser process's own number, the earlier
+  ones above it, so the live card's page box is `card_place::page_box`
+  moved by it — never a renderer's word — and clipped to the room above
+  and below (`seen_page_box`). The renderer answers how far the turns
+  reach (`ToRenderer::ConversationReach`, wire tag 17;
+  `FromRenderer::ConversationReached`, tag 12, bounded lengths); the
+  window keeps a wheel inside it. A wheel over the conversation scrolls it
+  (40 a line, a trackpad's pixels over the scale), over the card's page
+  still the page's, over the panel nobody's; a new turn scrolls to its
+  top. The drawing thread tells the reach and the offset painted just
+  before the frame, and the window aims a press by the frame's offset.
+  The results' tab row is made with `alo-dom`'s operations, since a
+  template's contents move out once. **Found and worked around:** a
+  positioned box painted past an `overflow: hidden` clip that is not a
+  stacking context (753); the thread is given one. **Tests:**
+  `alo-renderer/tests/a_conversation_of_turns.rs` — two turns and three,
+  each box in numbers, the newest at 40; scrolled back 602 every box moved
+  by exactly 602, the thread and box unmoved, the clip held above (paper
+  at 20) and over the box (paper at 728, the box white at 768, paper at
+  810); the page box at 120, −200 and 37.5 where `card_place` puts it;
+  the reach; titles of an earlier turn and a page shown earlier claimed by
+  place, scrolled, and nothing claimed outside the room; the agent's
+  regions and links; hostile words as text; references
+  `conversation-of-three-turns.png`, `conversation-scrolled-back.png`,
+  `conversation-a-page-shown-earlier.png`, `conversation-scrolled-at-two.png`
+  (2080 × 1640); the same frame and reach through a confined renderer, and
+  a panel's renderer refusing to measure. `card_place`, `card_aim`
+  (scrolled, at one and two), `conversation_scroll`, `turn`,
+  `conversation_document`, `conversation_thread`, `conversation`,
+  `conversation_window` unit tests; the wire's turns and refusals in
+  `messages_across_a_boundary.rs`. Through the window's own road,
+  `alo-window/tests/a_conversation_scrolled_in_the_window.rs`: two searches
+  against a local provider, a wheel over the panel doing nothing and over
+  the conversation scrolling back 120 and then to the first turn, a
+  trackpad's pixels, the first search's title pressed where it is now
+  drawn opening a new turn that, with no Chromium, says why, and markup
+  typed kept as its characters. Through the machine's Chrome and alo's CEF
+  host, `tests/a_conversation_scrolled_through_chrome.rs` (in the
+  shown-Chrome lists): a title opening a live card under the results, a
+  wheel over its bar scrolling back 120 and a press on its page landing at
+  the page's (250, 100) as the page says — with the offset left out of the
+  aim it says (250, 220) — a wheel over the page scrolling the page 120 and
+  not the conversation, and the first title, scrolled back to, putting the
+  card away as its address and opening its page as the newest turn.
+  Existing assertions moved: the agent now reads *Conversation* and the
+  turn's region around the results and the card; a title's page opens
+  under the results rather than in their place, its bubble the title.
+  **Found by hand and fixed:** a search typed with Return while a card was
+  live put the card away and never closed its Chromium — the window asked
+  whether a card was live only after the edit had put it away (the same
+  order since 708). Asked before; the Chrome test types a search over a
+  live card and waits for its page to be closed, and with the old order
+  fails there.
+  **Not built here:** the agent's words and steps — no model (707) and no
+  face for the record (704); nothing stands in for them.
+
+- [ ] **753. A positioned box clipped by an `overflow` box that is not a
+  stacking context.** Found by 703. `alo-paint`'s `build.rs` hands a
+  positioned box's layer up to the stacking context it belongs to, which
+  draws it outside the `PushClip` of any `overflow: hidden` ancestor
+  between them; CSS Overflow 3 § 3 clips every descendant whose containing
+  block chain passes through the clipping box (a relative child always, an
+  absolute one when something positioned sits between). 703 gives its clip
+  a stacking context and is unaffected. *Closes when:* a corpus case of a
+  relatively and an absolutely positioned child of an unpositioned
+  `overflow: hidden` box draws as Chrome draws it, measured, and the
+  hit-test finds nothing outside the clip.
+
+- [ ] **754. Scrolling the conversation from the keyboard.** Cut from 703.
+  Page Up, Page Down, Home, End and space, while the box is empty or
+  nothing has the keyboard, scroll the conversation by a room less a line,
+  or to its ends; never while the card's page has the keyboard (718).
+  *Depends on 703.*
+
+- [ ] **755. A sign that the conversation goes on above or below.** Cut
+  from 703. Nothing shows that earlier turns are scrolled out of the room:
+  a scroll bar, a fade at the room's edges, or *Back to the newest*, as the
+  owner chooses; and what an agent reads of how far it is scrolled.
+  *needs design.*
+
+- [ ] **756. A wheel's lines scrolled smoothly.** Cut from 703. A mouse's
+  wheel scrolls 40 a line at once; a trackpad's pixels and its momentum
+  arrive as the system sends them and are followed as they come. Animate a
+  line's 40 over the display's frames as Chrome does, measured against it.
+  *Depends on 703.*
+
+- [ ] **757. Chats kept across launches.** Cut from 703. Each chat's turns
+  live while the window does; closing alo loses them. Where they are kept,
+  encrypted or not, what a page shown earlier keeps of itself, and what is
+  never written (a key, a frame), decided in an ADR first. *needs ADR.*
+
+- [ ] **758. A chat named by what was said in it.** Cut from 703. Every
+  chat in the panel is *New chat*; one holding turns is named by its first
+  words, or the agent's name for it when there is one (704), and moves to
+  *Earlier* as the design says when it is closed. *Depends on 703.*
+
+- [ ] **759. The room the offers take above the box, known to the aim.**
+  Found by 703. While the box offers what is typed in a conversation, the
+  offers stand above the box (750) and the conversation's room is shorter
+  by them, but `card_place::seen_page_box` measures the room from the
+  viewport alone, so a press on an offer standing over the card's page box
+  is aimed at the page. Compute the offers' height in the browser process
+  from how many are offered, or keep the room whole while offering, and
+  test a press on an offer over a card. *Depends on 703.*
 
 - [ ] **704. The agent at work, shown as the design shows it.** The split
   view with the page large and the agent's column beside it, the panel a
@@ -20198,7 +20320,10 @@ What stage 2's exit gate actually measures: a person using it.
   terracotta outline and *click anywhere to take over*; *Stop*; asking before
   paying, sending or deleting (ADR 0052's person's gate, given a face);
   saying when it is stuck, with choices; never typing a password. *Depends
-  on 702 and 703, and on what the agent's record says (678).*
+  on 702 and 703, and on what the agent's record says (678).* Since 703:
+  the agent's words and its steps are **turns** of the conversation
+  (`alo-renderer`'s `turn.rs`, ADR 0085 § 1) — this item adds them, as the
+  model's answer (707) adds the short answer and the Answer tab.
 
 - [ ] **705. What the agent may do, as a settings screen.** The design's
   screen 19 over `alo-grants`: reading, filling and clicking on every site;

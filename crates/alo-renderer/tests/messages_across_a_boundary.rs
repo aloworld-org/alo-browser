@@ -36,6 +36,7 @@ use alo_renderer::results::{Found, Results, SetUp, Showing};
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
 use alo_renderer::start::{KeptSite, Start, Waiting};
 use alo_renderer::strip::LONGEST_TITLE;
+use alo_renderer::turn::{MOST_TURNS, Turn};
 use alo_renderer::typed::Offer;
 use alo_renderer::violations::{MOST_OBJECTIONS, Objection};
 use alo_renderer::wire::{
@@ -182,8 +183,8 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 .into_iter()
                 .chain([Offer::Search("</script>\0<b>".to_owned())])
                 .collect(),
-            card: None,
-            results: None,
+            turns: Vec::new(),
+            down: 0.0,
             search: SetUp::Not("no key\0<b>".to_owned()),
         })),
         ToRenderer::Start(Box::default()),
@@ -206,7 +207,7 @@ fn a_searchs_results_survive_the_crossing() {
     let messages = vec![
         // Strangers' strings in every field.
         ToRenderer::Start(Box::new(Start {
-            results: Some(Results {
+            turns: vec![Turn::Searched(Results {
                 said: "</p><script>".to_owned(),
                 showing: Showing::Found(vec![
                     Found::new(
@@ -217,21 +218,21 @@ fn a_searchs_results_survive_the_crossing() {
                     )
                     .named("Fish\u{202e}"),
                 ]),
-            }),
+            })],
             search: SetUp::Ready,
             ..Start::default()
         })),
         ToRenderer::Start(Box::new(Start {
-            results: Some(Results::searching("x")),
+            turns: vec![Turn::Searched(Results::searching("x"))],
             ..Start::default()
         })),
         ToRenderer::Start(Box::new(Start {
-            results: Some(Results {
+            turns: vec![Turn::Searched(Results {
                 said: "x".to_owned(),
                 showing: Showing::Unanswered(
                     "Brave Search could not answer just now (500).".to_owned(),
                 ),
-            }),
+            })],
             ..Start::default()
         })),
     ];
@@ -359,7 +360,7 @@ fn a_first_screen_holding_a_card_survives_the_crossing() {
         // A page shown as a card, with somewhere to go back to and a frame
         // (queue item 717), and one before its first frame.
         ToRenderer::Start(Box::new(Start {
-            card: Some(
+            turns: Some(
                 alo_renderer::card::Card::new(
                     "example.com</p>\0",
                     alo_url::parse("https://example.com/a?b#c")
@@ -369,15 +370,17 @@ fn a_first_screen_holding_a_card_survives_the_crossing() {
             )
             .map(|mut card| {
                 card.back = true;
-                card
-            }),
+                Turn::Page(card)
+            })
+            .into_iter()
+            .collect(),
             ..Start::default()
         })),
         ToRenderer::Start(Box::new(Start {
-            card: Some(alo_renderer::card::Card::new(
+            turns: vec![Turn::Page(alo_renderer::card::Card::new(
                 "",
                 alo_url::parse("http://127.0.0.1:8765/").unwrap_or_else(|_| panic!("parses")),
-            )),
+            ))],
             ..Start::default()
         })),
     ];
@@ -387,6 +390,152 @@ fn a_first_screen_holding_a_card_survives_the_crossing() {
             .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
         assert_eq!(back, original, "{original:?} changed on the way across");
     }
+}
+
+/// Queue item 703: a conversation of every kind of turn, oldest first,
+/// scrolled either way, crosses as it was sent; and asking how far it
+/// reaches, and the answer, do too.
+#[test]
+fn a_conversation_of_turns_and_its_reach_survive_the_crossing() {
+    let site =
+        |written: &str| alo_url::parse(written).unwrap_or_else(|_| panic!("{written} parses"));
+    let turns = vec![
+        Turn::Searched(Results::searching("</p>\0")),
+        Turn::Visited {
+            said: "<b>said</b>".to_owned(),
+            url: site("https://a.example/b?c#d"),
+        },
+        Turn::Failed {
+            said: "b.example".to_owned(),
+            why: "https://b.example/ could not be opened: no\0Chrome".to_owned(),
+        },
+        Turn::Page(
+            alo_renderer::card::Card::new("c.example", site("https://c.example/"))
+                .holding(b"\x89PNG\r\n\x1a\n".to_vec()),
+        ),
+    ];
+    for down in [0.0, -1234.5, 0.015_625, 99_999.0] {
+        let original = ToRenderer::Start(Box::new(Start {
+            turns: turns.clone(),
+            down,
+            ..Start::default()
+        }));
+        let back = read_to_renderer(&write_to_renderer(&original))
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+    let asked = ToRenderer::ConversationReach;
+    assert_eq!(read_to_renderer(&write_to_renderer(&asked)), Ok(asked));
+    let reached = FromRenderer::ConversationReached(alo_renderer::conversation_scroll::Reach {
+        earlier: 1462.0,
+        newest: 626.0,
+    });
+    assert_eq!(
+        read_from_renderer(&write_from_renderer(&reached)),
+        Ok(reached)
+    );
+}
+
+/// Queue item 703: a live card anywhere but the newest turn, a page shown
+/// earlier somewhere not a site, more turns than are drawn, an unknown turn
+/// and a conversation scrolled past any reach are refused by name; and a
+/// renderer's reach past the most is read as the most.
+#[test]
+fn a_conversation_the_renderer_should_not_draw_is_refused() {
+    let site =
+        |written: &str| alo_url::parse(written).unwrap_or_else(|_| panic!("{written} parses"));
+    let card = || {
+        Turn::Page(alo_renderer::card::Card::new(
+            "a",
+            site("https://a.example/"),
+        ))
+    };
+    let start = |turns: Vec<Turn>, down: f32| {
+        ToRenderer::Start(Box::new(Start {
+            turns,
+            down,
+            ..Start::default()
+        }))
+    };
+    let refused = |message: &ToRenderer| {
+        read_to_renderer(&write_to_renderer(message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default()
+    };
+    let earlier = start(vec![card(), Turn::Searched(Results::searching("x"))], 0.0);
+    assert!(
+        refused(&earlier).contains("not the newest"),
+        "{}",
+        refused(&earlier)
+    );
+    let visited = start(
+        vec![Turn::Visited {
+            said: "x".to_owned(),
+            url: site("file:///etc/passwd"),
+        }],
+        0.0,
+    );
+    assert!(
+        refused(&visited).contains("not a site's"),
+        "{}",
+        refused(&visited)
+    );
+    let many = start(
+        vec![Turn::Searched(Results::searching("x")); MOST_TURNS + 1],
+        0.0,
+    );
+    assert!(refused(&many).contains("at most 500"), "{}", refused(&many));
+    assert!(
+        read_to_renderer(&write_to_renderer(&start(
+            vec![Turn::Searched(Results::searching("x")); MOST_TURNS],
+            0.0
+        )))
+        .is_ok()
+    );
+    let far = start(vec![card()], 2.0e6);
+    assert!(
+        refused(&far).contains("scrolled further"),
+        "{}",
+        refused(&far)
+    );
+    // A turn tagged as nothing this engine draws: the tag after the turns'
+    // count, rewritten.
+    let mut bytes = write_to_renderer(&start(
+        vec![Turn::Failed {
+            said: String::new(),
+            why: String::new(),
+        }],
+        0.0,
+    ));
+    let tag = bytes
+        .len()
+        .checked_sub(4 + 2 * 8 + 1)
+        .unwrap_or_else(|| panic!("a turn was written"));
+    let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
+    if let Some(written) = bytes.get_mut(tag) {
+        *written = 9;
+    }
+    let why = read_to_renderer(&bytes)
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("a turn tagged 9"), "{why}");
+    // A renderer's lengths, read inside the most.
+    let reached = FromRenderer::ConversationReached(alo_renderer::conversation_scroll::Reach {
+        earlier: 5.0e7,
+        newest: -3.0,
+    });
+    let Ok(FromRenderer::ConversationReached(read)) =
+        read_from_renderer(&write_from_renderer(&reached))
+    else {
+        panic!("a reach crosses");
+    };
+    assert_eq!(
+        read.earlier.to_bits(),
+        alo_renderer::conversation_scroll::MOST.to_bits()
+    );
+    assert_eq!(read.newest.to_bits(), 0.0_f32.to_bits());
 }
 
 /// A press on the chats panel or the first screen, every claim its
@@ -523,7 +672,9 @@ fn a_card_for_somewhere_not_a_site_or_holding_anything_but_a_png_is_refused() {
     let card = |written: &str, frame: &[u8]| {
         let url = alo_url::parse(written).unwrap_or_else(|_| panic!("{written} parses"));
         ToRenderer::Start(Box::new(Start {
-            card: Some(alo_renderer::card::Card::new("a", url).holding(frame.to_vec())),
+            turns: vec![Turn::Page(
+                alo_renderer::card::Card::new("a", url).holding(frame.to_vec()),
+            )],
             ..Start::default()
         }))
     };
@@ -550,10 +701,10 @@ fn a_site_found_somewhere_not_a_site_or_too_many_is_refused() {
     let found = |written: &str, count: usize| {
         let url = alo_url::parse(written).unwrap_or_else(|_| panic!("{written} parses"));
         ToRenderer::Start(Box::new(Start {
-            results: Some(Results {
+            turns: vec![Turn::Searched(Results {
                 said: "x".to_owned(),
                 showing: Showing::Found(vec![Found::new("t", url, "d"); count]),
-            }),
+            })],
             ..Start::default()
         }))
     };

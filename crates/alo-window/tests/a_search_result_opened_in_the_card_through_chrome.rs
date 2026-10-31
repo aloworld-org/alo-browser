@@ -8,7 +8,8 @@
 //! to the title where a person sees it, the main button pressed and
 //! released, the first screen's confined renderer claiming the title by its
 //! place, the browser process deciding it against what was painted, and the
-//! machine's Chrome opening the page as a card.
+//! machine's Chrome opening the page as a card, a turn of its own under
+//! the results (queue item 703).
 //!
 //! Never the real API, and never the network: the provider and the page are
 //! a server on `127.0.0.1`, the provider's answer written by hand.
@@ -244,13 +245,12 @@ fn a_search_results_title_pressed_opens_its_page_in_the_card_through_chrome() ->
     assert_eq!(window.told(), None, "the press on the title was refused");
     let card = window.conversation().card().cloned().ok_or("no card")?;
     assert_eq!(card.url.to_string(), page);
-    assert_eq!(
-        card.said, "a page",
-        "the card answers what was searched for"
-    );
+    // A new turn under the results, its bubble the title pressed (queue
+    // item 703); the results kept above it.
+    assert_eq!(card.said, "The page found", "the card answers the title");
     assert!(
-        window.conversation().results().is_none(),
-        "the card stands in the results' place"
+        window.conversation().results().is_some(),
+        "the results kept as the turn before"
     );
     window.finish();
     match window.unfinished() {
