@@ -64,6 +64,11 @@ fn fonts() -> FontDatabase {
     for (generic, family) in generics() {
         database.map_generic(generic, family);
     }
+    // The design's typefaces, as the browser process hands them to the
+    // interface's renderers (ADR 0084).
+    for font in alo_renderer::typefaces::fonts() {
+        database.add(font);
+    }
     database
 }
 
@@ -255,7 +260,7 @@ fn renderers() -> Renderers {
             .collect(),
     );
     Renderers::running(env!("CARGO_BIN_EXE_alo-render"), &[])
-        .with_fonts(faces)
+        .with_fonts([faces, alo_renderer::typefaces::faces()].concat())
         .with_generics(generics)
 }
 
@@ -343,12 +348,12 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     // The tab row: 42 tall with its line, each tab 42 and 1 over the line,
     // so the chosen tab's 2 of ink stand on it; 4 between tabs.
     assert_eq!(at("rtabs"), vec![px(80.0, 102.0, 880.0, 42.0)]);
-    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 48.4375, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.546_875, 42.0)]);
     let tabs = at("rt");
     assert_eq!(tabs.len(), 5);
     assert!(
         tabs.first()
-            .is_some_and(|answer| answer.starts_with("(132.4375, 102)")),
+            .is_some_and(|answer| answer.starts_with("(129.54688, 102)")),
         "{tabs:?}"
     );
     // 20 under the row the sites, 4 inside their list; each site its line
@@ -401,7 +406,7 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     );
     // More sites, 20 under the last site; and the box, 880 × 56, 24 above
     // the window's foot: 820 - 24 - 56 = 740 (queue item 750).
-    assert_eq!(at("more"), vec![px(80.0, 477.0, 93.125, 20.0)]);
+    assert_eq!(at("more"), vec![px(80.0, 477.0, 75.6875, 20.0)]);
     assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
 }
 

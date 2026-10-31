@@ -81,6 +81,24 @@ impl Face {
         })
     }
 
+    /// A face described by the font itself: the family from its `name`
+    /// table, the weight and the slant from its `OS/2`
+    /// ([`alo_text::family_in`], [`alo_text::style_in`]).
+    ///
+    /// [`None`] for bytes that are not a font this engine can read, that are
+    /// larger than one may be, or that **state no family** — a font nothing
+    /// could ask for by name. The one road for a face read off this
+    /// machine's disk (`crate::fonts::from_file`) and for one the application
+    /// carries (`crate::typefaces`), so the two are filed by the same rule.
+    pub fn described(bytes: Vec<u8>) -> Option<Self> {
+        if bytes.len() > LARGEST_FONT {
+            return None;
+        }
+        let family = alo_text::family_in(&bytes)?;
+        let style = alo_text::style_in(&bytes)?;
+        Self::new(family, style.weight, style.slant, bytes)
+    }
+
     /// The weight as the text engine wants it.
     pub fn weight(&self) -> Weight {
         Weight::new(self.weight)

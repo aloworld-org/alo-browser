@@ -218,9 +218,7 @@ pub fn from_file(path: &Path) -> Option<Face> {
     }
     // The font's own answers, never the filename. Two tables and two questions:
     // what a page asks for by name, and which face of it to draw with.
-    let family = alo_text::family_in(&bytes)?;
-    let style = alo_text::style_in(&bytes)?;
-    Face::new(family, style.weight, style.slant, bytes)
+    Face::described(bytes)
 }
 
 /// Read a directory's fonts, keeping the ones worth keeping.

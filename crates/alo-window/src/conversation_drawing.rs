@@ -113,12 +113,18 @@ pub struct ConversationDrawing {
 impl ConversationDrawing {
     /// Start a thread that draws what it is asked in renderers of
     /// `renderers`', one for each part at a site of its own, and tells the
-    /// window what came of it with `tell`.
+    /// window what came of it with `tell`. The renderers are handed the
+    /// interface's typefaces as well as `renderers`' fonts
+    /// ([`crate::fonts::for_the_interface`]).
     ///
     /// # Errors
     ///
     /// What the system said when no thread could be started.
     pub fn start(renderers: Renderers, tell: TellConversation) -> std::io::Result<Self> {
+        // Both parts are the interface, so their renderers are handed the
+        // design's typefaces beside whatever fonts they were given (ADR 0084).
+        let faces = crate::fonts::for_the_interface(renderers.fonts());
+        let renderers = renderers.with_fonts(faces);
         let (asked, asking) = channel();
         let holding = Holding {
             renderers,

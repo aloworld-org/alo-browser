@@ -302,6 +302,20 @@ pub fn outlined_glyphs_at(
     glyphs
 }
 
+/// How far the pen moves over a run [`outlined_glyphs_at`] draws: the sum of
+/// the advances it puts each glyph at, so the next run drawn after it starts
+/// where this one ended ([`crate::ink_runs`]).
+pub fn run_width_at(text: &str, font: &Font, size: f32, scale: f32, letter_spacing: f32) -> f32 {
+    alo_text::spaced(
+        shape_at(text, font, size, scale, Direction::LeftToRight),
+        letter_spacing,
+    )
+    .glyphs
+    .iter()
+    .map(|glyph| glyph.advance)
+    .sum()
+}
+
 /// Put a coverage mask onto the canvas, filled, inside whatever clip is in
 /// force.
 fn draw_coverage(

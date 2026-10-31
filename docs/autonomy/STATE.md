@@ -45996,3 +45996,88 @@ steps, "The gate is met."** on the first run. `--lib` tests of `alo-window`
 and `alo-renderer` and clippy were clean before it.
 
 The next unused queue number is **752** and the next ADR is **0084**.
+
+## Iteration 465 — queue item 706: the design's typefaces, rented (ADR 0084)
+
+**Built.** Instrument Sans and Newsreader, the variable files and their
+`OFL.txt` as `github.com/google/fonts` publishes them (commit `6c1dbe2`;
+blobs matching the contents API; SHA-256 in ADR 0084), unmodified, in
+`crates/alo-renderer/interface/fonts/` (646 KB of font). Variable rather than
+static, because the engine already sets `wght` in measuring, shaping and
+outlining (`Font::at_weight`); read in the code, not assumed. Other axes stay
+at the file's defaults — Newsreader's `opsz` at 18 where Chrome sets it to
+the size, cut to **752**. Compiled into `alo-renderer` (`typefaces.rs`), each
+filed by what the font says it is (`Face::described`, now also the road for a
+face off the disk; Newsreader's legacy family is *Newsreader 16pt*, its
+typographic one *Newsreader*). Handed as bytes to the conversation's
+renderers alone, where they start (`alo-window`'s `fonts::for_the_interface`
+in `ConversationDrawing::start`), after the machine's or `--frozen-fonts`'
+faces; never to a page's renderer (rendering and fingerprinting, ADR 0084
+§ 3). `panel.css` and `start.css` ask for `"Instrument Sans", system-ui,
+sans-serif` and `Newsreader, serif`; `strip.css` left on `system-ui`.
+`alo-bundle` writes both licences into `Contents/Resources/licences`, beside
+CEF's, in every application.
+
+**Found on the way.** Instrument Sans has no `⌘`: *New chat*'s `⌘T` drew a
+missing glyph's box. Layout measured each run in the font that had its
+characters (`alo_text::split`) but paint drew a whole piece in the chain's
+first font. `alo-paint`'s new `ink_runs.rs` draws the runs layout measured,
+each starting where the last ended (`render::run_width_at`); characters no
+font has stay with their neighbour in the first font, so no corpus render
+moved (all `alo-paint` and `alo-corpus` tests unchanged). Multi-run pieces
+cast their shadows under all their letters.
+
+**Tests.** `typefaces.rs` (the two faces, their `wght` ranges 400–700 and
+200–800, 600 set as 600, each licence the OFL 1.1 with its copyright);
+`tests/the_interfaces_typefaces.rs` (the mark and greeting Newsreader 400, a
+chat Instrument Sans 400, the current chat and *New chat* 600, `⌘` in the
+fallback and `T` in Instrument Sans; a renderer not handed them draws the
+generics); `ink_runs.rs` (one font one run; a character the first face lacks
+in the face that has it, the next run at the first's end in 64ths; what
+nothing has stays put); `fonts.rs` (interface handed frozen + two, once; a
+page's fonts never hold them); `bundle_made.rs` and
+`tests/the_application_assembled.rs` (the licences in the made application,
+listed and byte for byte). Every interface test's font database gained the
+two faces as the browser process hands them.
+
+**Layout numbers moved, deliberately.** The person's line on the card
+`(736.34375, 40)` → `(766.8125, 40)`; the All tab 48.4375 → 45.546875 wide
+and the next tab at 132.4375 → 129.54688; *More sites ›* 93.125 → 75.6875.
+Checked against HarfBuzz at `wght` 600 (`All` 17.542 px; ours 17.546875,
+the 1/64 grid) — the small surplus over raw HarfBuzz on *More sites ›* is the
+engine's existing one, as with DejaVu (93.1 vs 93.125). No tolerance changed.
+
+**References.** Backed up first (scratchpad `refs-before-706/`), rewritten
+with `--no-fail-fast`, rerun without update mode, each looked at:
+`panel-chats`, `start-screen`, `start-typed-into`, `all-tab-with-results`,
+`all-tab-not-answered`, `card-before-a-frame`, `card-holding-a-frame`
+(`alo-renderer`), `the-conversation`, `the-conversation-at-two`,
+`the-panel-after-a-press` (`alo-window`, through the real confined renderers
+and the pipe). The card's page, Chrome's frame, is unchanged.
+
+**By hand** (scratchpad `handrun5/`; screen checked unlocked, alo checked
+frontmost and the window at 215,90 1280×852 before every press and key, the
+pointer put back with `=` on both axes). The window opened on the side
+display at 967 wide and was moved by System Events. `01-first-screen.png`:
+the mark and *Hello.* in Newsreader, everything else Instrument Sans, `⌘`
+from the machine's font. `02-typed.png`, and `03-results.png` after one
+real search: the tabs, the three sites and their titles in Instrument Sans.
+`cliclick kp:return` did not reach the box; System Events' key code 36 did
+(as the notes say). ⌘Q left no alo, renderer or alo Chromium process.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0010, 0030, 0054,
+0067, 0074 (§ 3 Built), 0084 (new). `docs/design/shell.md` gains
+*Typefaces*.
+
+**Roadmap:** the conversation line's *Built* gains 706; *Owed* swaps 706 for
+752.
+
+**Gate.** With `CEF_PATH` set, the first run failed one test,
+`an_option_chosen_through_chrome`'s `an_option_of_a_list_with_a_size_…`:
+"Chrome said nothing for 30000 ms", the machine's Chrome, nothing this change
+touches; swap was 5.6 of 6 GB. Alone it passed in 0.9 s. Rerun, unchanged:
+**5862 tests run, 5862 passed, 11 of 11 steps, "The gate is met."**
+`--lib` tests of `alo-paint`, `alo-renderer`, `alo-window` and `alo-text`
+and clippy were clean before it.
+
+The next unused queue number is **753** and the next ADR is **0085**.

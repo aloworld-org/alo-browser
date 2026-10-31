@@ -13,6 +13,12 @@
 //! into the command as it is compiled, so the pages an application carries
 //! are the bytes whose renders are committed — never a copy that drifted.
 //!
+//! The interface's typefaces are compiled into `alo` (queue item 706, ADR
+//! 0084), and their licences are carried beside it, as the SIL Open Font
+//! License asks: `Contents/Resources/licences/OFL-InstrumentSans.txt` and
+//! `OFL-Newsreader.txt`, the files published with the fonts
+//! (`alo-renderer`'s `typefaces::LICENCES`).
+//!
 //! The Chromium the application draws the web with, at
 //! [`crate::bundle::CHROMIUM`] (ADR 0077), is put in after, when there is
 //! one to carry: alo's CEF host with CEF's framework and its licences
@@ -169,7 +175,8 @@ fn put_together(programs: &Path, application: &Path) -> Result<(), NotMade> {
     let contents = application.join("Contents");
     let held = contents.join("MacOS");
     let resources = contents.join("Resources");
-    for directory in [&held, &resources] {
+    let licences = resources.join(crate::bundle_carried::LICENCES);
+    for directory in [&held, &resources, &licences] {
         std::fs::create_dir_all(directory).map_err(|why| {
             NotMade::Disk(
                 format!("{} could not be made", directory.display()),
@@ -192,6 +199,11 @@ fn put_together(programs: &Path, application: &Path) -> Result<(), NotMade> {
         .map(|(name, markup)| (resources.join(name), markup.as_bytes().to_vec()))
         .collect();
     files.push((resources.join(crate::bundle_icon::FILE), icon));
+    files.extend(
+        alo_renderer::typefaces::LICENCES
+            .iter()
+            .map(|(name, text)| (licences.join(name), text.as_bytes().to_vec())),
+    );
     files.push((
         contents.join("Info.plist"),
         crate::info_plist::text().into_bytes(),
@@ -265,6 +277,13 @@ mod tests {
             std::fs::read(contents.join("Resources/icon.icns")).ok(),
             crate::bundle_icon::icns().ok()
         );
+        for (name, text) in alo_renderer::typefaces::LICENCES {
+            assert_eq!(
+                std::fs::read_to_string(contents.join("Resources/licences").join(name)).ok(),
+                Some(text.to_owned()),
+                "{name}, the licence of a typeface `alo` carries"
+            );
+        }
         let left: Vec<_> = std::fs::read_dir(&root)
             .map(|entries| {
                 entries

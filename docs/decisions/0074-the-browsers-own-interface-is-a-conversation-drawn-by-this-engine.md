@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075) built; the rest queued
+**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075) and the typefaces (706, ADR 0084) built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -61,7 +61,7 @@ can name, as `strip.rs` and `strip_document.rs` do:
 | The conversation | a person's words, the agent's words and its steps | 703 |
 | The agent at work | the split view, its steps, *Stop*, *Take over*, asking before paying | 704 |
 | What the agent may do | the settings screen, over `alo-grants` | 705 |
-| The typefaces | Instrument Sans and Newsreader, rented under the OFL | 706 |
+| The typefaces | Instrument Sans and Newsreader, rented under the OFL | **706, built** (ADR 0084) |
 | The answer | written by a model, every claim tied to its quoted source | 707, blocked |
 | Search results | the All tab's sites, from the Brave Search API (ADR 0083) | **708, built**; images, the other tabs and a site's mark 743–747 |
 
@@ -97,6 +97,14 @@ item 706. Until
 then the stylesheets ask for `system-ui, sans-serif` and `serif`, and the
 layout assertions are made with the corpus's faces, as every interface test
 here already is.
+
+**Built by 706 (ADR 0084).** Both files are compiled into the program,
+handed as bytes to the conversation's renderers alone — never a page's —
+and asked for first by the panel's and the first screen's stylesheets,
+`"Instrument Sans", system-ui, sans-serif` and `Newsreader, serif`; their
+licences are in the application's `Contents/Resources/licences`. The
+interface's tests and reference renders are drawn in them, the corpus's
+faces kept after them for what they lack.
 
 ## 4. What is not decided here
 

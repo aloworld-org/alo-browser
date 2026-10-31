@@ -62,6 +62,7 @@ pub mod fill_rule;
 mod gif_picture;
 pub mod glyph;
 pub mod hit;
+pub mod ink_runs;
 mod jpeg_picture;
 pub mod mip_level;
 pub mod mitre;

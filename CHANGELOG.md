@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The interface is set in its own typefaces.** The chats panel, the
+  first screen, search results and the card are drawn in Instrument Sans,
+  with the mark *alo* and the greeting in Newsreader, as the design is.
+  Both are under the SIL Open Font License; they are built into alo, so
+  nothing is downloaded, and their licences are in the application, in
+  `Contents/Resources/licences`. Web pages never see them, so a page looks
+  the same in alo as anywhere else and cannot tell alo apart by its fonts.
+  A character the interface's typeface lacks — the `⌘` in *New chat*'s
+  `⌘T`, or a site's name in Greek — is now drawn in the next font that has
+  it rather than as an empty box (item 706).
+
 - **Fixed: pages that replace themselves as they load never opened in the
   card.** Reddit first answers with a short check that sends the browser
   on to the page itself before it finishes loading; alo waited for that

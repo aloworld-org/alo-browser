@@ -25,10 +25,13 @@ body {
   height: 100%;
 }
 
+/* The design's typefaces, Instrument Sans and Newsreader, handed to this
+   renderer by the browser process (ADR 0084); the generics after each are
+   for a renderer that was not handed them. */
 body {
   background: var(--panel);
   color: #3d3a35;
-  font-family: system-ui, sans-serif;
+  font-family: "Instrument Sans", system-ui, sans-serif;
   font-size: 13.5px;
   line-height: 18px;
 }
@@ -54,7 +57,7 @@ a {
 }
 
 .mark {
-  font-family: serif;
+  font-family: Newsreader, serif;
   font-size: 22px;
   line-height: 26px;
   color: var(--ink);

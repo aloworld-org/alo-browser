@@ -55,7 +55,10 @@ read at that size, and `em` is not. Of 2,922 runs of text measured at
 fractional sizes in three faces, 2,916 are Chrome's width and all are
 Chrome's height. The six that are not lie within 0.03 of a unit of a grid
 line, a sum this engine's shaper ends a hair on the other side of from
-Chrome's (queue item 527).
+Chrome's (queue item 527). A character the first font lacks is measured
+and drawn in the next font of its `font-family` — then of the machine — that
+has it, as a browser falls back glyph by glyph; until queue item 706 it was
+measured there and drawn in the first font, as a missing glyph's box.
 
 Lines are real too: text wraps between words across inline boxes, everything on
 a line sits on one baseline, and a link broken over two lines is two rectangles.

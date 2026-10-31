@@ -20206,11 +20206,31 @@ What stage 2's exit gate actually measures: a person using it.
   otherwise; signing in always the person's; a site's own rules. *Depends on
   700.*
 
-- [ ] **706. The design's typefaces, rented.** Instrument Sans and
+- [x] **706. The design's typefaces, rented.** Instrument Sans and
   Newsreader, both under the SIL Open Font License, carried by the
   application and handed to the interface's renderers, so the stylesheets
   stop asking for `system-ui` and `serif`. *Closes when:* the interface's
   reference renders are drawn in them and the licence is in the bundle.
+  ***Done (iteration 465); decided in ADR 0084; Newsreader's optical size
+  cut to 752.*** The variable files and their `OFL.txt` from
+  `github.com/google/fonts` (`6c1dbe2`), unmodified, in
+  `crates/alo-renderer/interface/fonts/`, compiled in (`typefaces.rs`),
+  filed by what each font says it is (`Face::described`), and handed to
+  the conversation's renderers alone (`alo-window`'s
+  `fonts::for_the_interface` in `ConversationDrawing::start`) — never a
+  page's. `panel.css` and `start.css` ask for `"Instrument Sans",
+  system-ui, sans-serif` and `Newsreader, serif`; `strip.css` is left on
+  `system-ui` (not in the design; ADR 0074 § 2). Instrument Sans has no
+  `⌘`, and paint drew a piece in its chain's first font while layout had
+  measured each run in the font that has its characters: `alo-paint`'s
+  `ink_runs.rs` draws the runs layout measured (no corpus render moved).
+  `alo-bundle` writes both licences to `Contents/Resources/licences`.
+  Tests: the faces and their axes (`typefaces.rs`), the family and weight
+  the shaper chose for the mark, the greeting, a chat, *New chat*, `⌘` and
+  `T` (`tests/the_interfaces_typefaces.rs`), runs in their fonts
+  (`ink_runs.rs`), the licences in the application byte for byte
+  (`the_application_assembled.rs`, `bundle_made.rs`). Ten references
+  redrawn; three layout numbers moved by the new face's widths.
 
 - [ ] **707. The answer, written by a model, every claim tied to its source.**
   The design's Answer tab: a one-line answer, short points, a number after
@@ -20434,6 +20454,16 @@ What stage 2's exit gate actually measures: a person using it.
   meanwhile, and decide what a card whose page never loads becomes.
   *Depends on 749. Closes when:* a local page whose `load` is held shows a
   frame in the card before it loads, through both programs.
+
+- [ ] **752. A variable font's optical size set by the text's size.** Cut
+  from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a
+  browser sets `opsz` to the font size (`font-optical-sizing: auto`); this
+  engine sets only `wght`, so the greeting at 40 px and the mark at 22 px
+  are drawn with the 18-point cut's proportions. Set `opsz` from the size a
+  run is set at, in measuring, shaping and outlining alike, and read
+  `font-optical-sizing: none`. *Closes when:* Newsreader at 40 px is the
+  canvas's in a reference render and a run's advance at `opsz` 40 is
+  Chrome's, in numbers.
 
 - [ ] **736. Trackers and ads blocked by alo itself, with `adblock-rust`.**
   The owner asked for it on 30 October 2026, after weighing Brave: alo does

@@ -14,7 +14,8 @@
 //! the identifier, the program, the version and the icon out of, and an
 //! `.icns` whose every picture is the corpus's reference byte for byte and
 //! which Apple's own `iconutil` reads back as an icon of every size (queue
-//! item 689). `codesign` checks
+//! item 689), and the licences of the typefaces `alo` carries byte for byte
+//! as published with the fonts (queue item 706). `codesign` checks
 //! the seal on its own, strictly; and a page changed after sealing is
 //! refused by it, so the seal covers what the application carries. Made a
 //! second time into the same place, it is refused and the first left as it
@@ -45,6 +46,23 @@ fn assemble(into: &Path) -> Result<Output, String> {
         .env_remove("CEF_PATH")
         .output()
         .map_err(|why| format!("alo-bundle did not run: {why}"))
+}
+
+/// The licences of the typefaces `alo` carries (item 706, ADR 0084), in the
+/// application's `Contents` at `contents`: the files published beside the
+/// fonts, byte for byte.
+fn the_typefaces_licences_are_the_published_ones(contents: &Path) -> Result<(), String> {
+    let fonts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-renderer/interface/fonts");
+    for name in ["OFL-InstrumentSans.txt", "OFL-Newsreader.txt"] {
+        let published = std::fs::read(fonts.join(name)).map_err(|why| format!("{name}: {why}"))?;
+        let carried = std::fs::read(contents.join("Resources/licences").join(name))
+            .map_err(|why| format!("{name}: {why}"))?;
+        assert!(
+            published == carried,
+            "{name} is not the licence published with its font"
+        );
+    }
+    Ok(())
 }
 
 /// Every file under `root`, relative to it, in order.
@@ -190,6 +208,8 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             "alo browser.app/Contents/MacOS/alo-ask",
             "alo browser.app/Contents/MacOS/alo-render",
             "alo browser.app/Contents/Resources/icon.icns",
+            "alo browser.app/Contents/Resources/licences/OFL-InstrumentSans.txt",
+            "alo browser.app/Contents/Resources/licences/OFL-Newsreader.txt",
             "alo browser.app/Contents/Resources/page.html",
             "alo browser.app/Contents/Resources/without-chrome.html",
             "alo browser.app/Contents/_CodeSignature/CodeResources",
@@ -232,6 +252,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
         assert!(corpus == carried, "{name} is not {case}'s page");
     }
     the_icon_is_the_corpus_pictures(&cases, &contents.join("Resources/icon.icns"))?;
+    the_typefaces_licences_are_the_published_ones(&contents)?;
     for program in ["alo", "alo-render", "alo-ask"] {
         assert!(
             alo_window::beside::is_program(&contents.join("MacOS").join(program)),

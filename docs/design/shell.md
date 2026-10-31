@@ -181,6 +181,16 @@ is 718).
   asked first. It never picks something it was not asked for.
 - Done: one line, *Done in 6 steps*, the result in full, and what to do next.
 
+## Typefaces
+
+**Instrument Sans** for every word of the interface, at 400, 500 and 600;
+**Newsreader** — *the serif* in this file — for the mark *alo* and the
+greeting, at 400. Both under the SIL Open Font License, compiled into the
+application and handed to the interface's renderers alone (item 706, ADR
+0084); a stylesheet asks for each first and keeps `system-ui, sans-serif`
+or `serif` after it. Newsreader's optical size follows the text's size in
+the canvas; here it is the file's 18 until item 752.
+
 ## Colours
 
 ADR 0074 § 2 is the palette. The rule that matters most: **terracotta means

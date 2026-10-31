@@ -12,6 +12,10 @@
 //! families — so a frozen page in the window is the page in the corpus, pixel
 //! for pixel, and a capture of the window can be compared with a reference
 //! rather than eyeballed.
+//!
+//! The interface's renderers — the chats panel's and the first screen's —
+//! are handed the design's own typefaces as well ([`for_the_interface`],
+//! queue item 706, ADR 0084), and only they: a page's renderer never is.
 
 use alo_renderer::face::Face;
 use alo_renderer::fonts::Machine;
@@ -53,9 +57,58 @@ pub fn frozen() -> Machine {
     Machine { faces, generics }
 }
 
+/// The faces an interface renderer is handed: `faces`, then the design's
+/// typefaces (`alo-renderer`'s `typefaces`) that are not among them already.
+///
+/// Called where the conversation's renderers start
+/// ([`crate::conversation_drawing::ConversationDrawing::start`]), and nowhere
+/// a page's renderers start: the typefaces are the interface's, so no page is
+/// drawn in them and none can find from its fonts that it is in this
+/// browser.
+pub fn for_the_interface(faces: &[Face]) -> Vec<Face> {
+    let mut handed = faces.to_vec();
+    for face in alo_renderer::typefaces::faces() {
+        if !handed.contains(&face) {
+            handed.push(face);
+        }
+    }
+    handed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_renderer::typefaces::{INSTRUMENT_SANS, NEWSREADER};
+
+    fn families(faces: &[Face]) -> Vec<&str> {
+        faces.iter().map(|face| face.family.as_str()).collect()
+    }
+
+    #[test]
+    fn the_interface_is_handed_the_frozen_faces_then_the_designs_two() {
+        let handed = for_the_interface(&frozen().faces);
+        assert_eq!(
+            families(&handed),
+            vec![
+                "DejaVu Sans",
+                "DejaVu Sans",
+                "DejaVu Serif",
+                "DejaVu Sans Mono",
+                "DejaVu Sans Mono",
+                INSTRUMENT_SANS,
+                NEWSREADER
+            ]
+        );
+        // Handed twice over is handed once.
+        assert_eq!(for_the_interface(&handed), handed);
+    }
+
+    #[test]
+    fn a_pages_fonts_never_hold_the_designs_typefaces() {
+        let page = families(&frozen().faces).join(", ");
+        assert!(!page.contains(INSTRUMENT_SANS), "{page}");
+        assert!(!page.contains(NEWSREADER), "{page}");
+    }
 
     #[test]
     fn the_frozen_faces_are_the_corpus_five() {

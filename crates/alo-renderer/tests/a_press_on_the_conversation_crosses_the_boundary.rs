@@ -162,7 +162,7 @@ fn renderers() -> Renderers {
         ("serif".to_owned(), "DejaVu Serif".to_owned()),
     ]);
     Renderers::running(env!("CARGO_BIN_EXE_alo-render"), &[])
-        .with_fonts(faces)
+        .with_fonts([faces, alo_renderer::typefaces::faces()].concat())
         .with_generics(generics)
 }
 

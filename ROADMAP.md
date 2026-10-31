@@ -2401,14 +2401,19 @@ items where being right and being unusable are the same outcome.
       the card, and a card that fails said in the line and on the terminal
       with the box given the keyboard back (749); the box pinned 24 above
       the window's foot once the conversation holds something, the
-      conversation clipped above it (750)
+      conversation clipped above it (750); the design's typefaces,
+      Instrument Sans and Newsreader under the OFL, compiled in and handed to
+      the interface's renderers alone, their licences in the application,
+      and a run of text drawn in the font layout measured it in (706, ADR
+      0084)
       · Owed: a card drawn from the page's first paint rather than its
       load (751), *Search chats* and the button that hides the panel (711),
       a press on an offer (714), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
       a page inside the conversation (702), the conversation (703), the
-      agent at work (704), what the agent may do (705), the typefaces (706),
+      agent at work (704), what the agent may do (705), Newsreader's
+      optical size (752),
       the answer and All's short answer (707, blocked: a model), images
       (743), the Sites tab (744), Videos (745), News (746), a site's own
       mark (747), the key in release (748, the owner's decision), why a card

@@ -32,7 +32,9 @@ use core::fmt;
 use std::path::{Path, PathBuf};
 
 /// The directory in the application's `Contents/Resources` holding the
-/// licence files of the Chromium it carries, beside its page.
+/// licence files of the Chromium it carries, beside its page — and those of
+/// the interface's typefaces, which every application carries
+/// ([`crate::bundle_made`]).
 pub const LICENCES: &str = "licences";
 
 /// The command that builds the host, said when it is not there.

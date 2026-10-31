@@ -64,6 +64,11 @@ fn fonts() -> FontDatabase {
     for (generic, family) in generics() {
         database.map_generic(generic, family);
     }
+    // The design's typefaces, as the browser process hands them to the
+    // interface's renderers (ADR 0084).
+    for font in alo_renderer::typefaces::fonts() {
+        database.add(font);
+    }
     database
 }
 
@@ -282,7 +287,7 @@ fn the_card_is_laid_out_as_the_design_draws_it() -> Result<(), String> {
     assert!(
         at("you")
             .first()
-            .is_some_and(|you| you.starts_with("(736.34375, 40)") && you.ends_with("×42")),
+            .is_some_and(|you| you.starts_with("(766.8125, 40)") && you.ends_with("×42")),
         "{:?}",
         at("you")
     );
@@ -494,7 +499,7 @@ fn renderers() -> Renderers {
             .collect(),
     );
     Renderers::running(env!("CARGO_BIN_EXE_alo-render"), &[])
-        .with_fonts(faces)
+        .with_fonts([faces, alo_renderer::typefaces::faces()].concat())
         .with_generics(generics)
 }
 

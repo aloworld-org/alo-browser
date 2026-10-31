@@ -73,37 +73,96 @@ impl Decorations {
 }
 
 /// One piece of text as it is drawn, for the lines that step aside for its
-/// letters.
+/// letters: one run, or — where its first font lacks some of its characters
+/// — the runs layout measured it in, each in its own font
+/// ([`crate::ink_runs`]).
 struct Letters<'a> {
-    text: &'a str,
-    font: &'a alo_text::Font,
+    runs: Vec<Inked<'a>>,
     size: f32,
     letter_spacing: f32,
+}
+
+/// One run of a piece of text, in its font.
+struct Inked<'a> {
+    text: &'a str,
+    font: alo_text::Font,
     /// Where the pen starts, on the baseline.
     origin: (f32, f32),
     oblique: f32,
 }
 
-impl Letters<'_> {
-    /// The letters as a text item of `id`'s, in `color`, casting `shadows`.
-    fn item(&self, id: BoxId, color: Rgba, shadows: Vec<TextShadow>) -> DisplayItem {
-        DisplayItem::Text {
-            box_id: id,
-            text: self.text.to_owned(),
-            origin: self.origin,
-            font: self.font.clone(),
-            oblique: self.oblique,
-            size: self.size,
-            letter_spacing: self.letter_spacing,
-            color,
-            shadows,
+impl<'a> Letters<'a> {
+    /// `text` in one font, at `pen`'s size and spacing.
+    fn one(text: &'a str, pen: &Pen, origin: (f32, f32)) -> Self {
+        Self {
+            runs: vec![Inked {
+                text,
+                font: pen.font.clone(),
+                origin,
+                oblique: pen.oblique,
+            }],
+            size: pen.size,
+            letter_spacing: pen.letter_spacing,
         }
     }
 
+    /// `text` as the runs it was measured in, the first at `origin`, each
+    /// leaned as far as its own face has to be for `request`.
+    fn measured(
+        text: &'a str,
+        pen: &Pen,
+        origin: (f32, f32),
+        fonts: &FontDatabase,
+        request: &FontRequest,
+        scale: f32,
+    ) -> Self {
+        let setting = crate::ink_runs::Setting {
+            fonts,
+            request,
+            first: &pen.font,
+            size: pen.size,
+            scale,
+            letter_spacing: pen.letter_spacing,
+        };
+        Self {
+            runs: crate::ink_runs::runs(text, origin, setting)
+                .into_iter()
+                .map(|run| Inked {
+                    oblique: crate::synthesis::oblique_for(request.slant, run.font.slant()),
+                    text: run.text,
+                    font: run.font,
+                    origin: run.origin,
+                })
+                .collect(),
+            size: pen.size,
+            letter_spacing: pen.letter_spacing,
+        }
+    }
+
+    /// The letters as text items of `id`'s, one per run, in `color`, each
+    /// casting `shadows`.
+    fn items(&self, id: BoxId, color: Rgba, shadows: &[TextShadow]) -> Vec<DisplayItem> {
+        self.runs
+            .iter()
+            .map(|run| DisplayItem::Text {
+                box_id: id,
+                text: run.text.to_owned(),
+                origin: run.origin,
+                font: run.font.clone(),
+                oblique: run.oblique,
+                size: self.size,
+                letter_spacing: self.letter_spacing,
+                color,
+                shadows: shadows.to_vec(),
+            })
+            .collect()
+    }
+
     /// The letters' shadows, furthest back first, each as its own item:
-    /// the same run [`crate::render`] outlines for a text item, moved by the
-    /// shadow's offset. For text whose lines go between its shadows and its
-    /// letters, which one text item cannot hold.
+    /// the same runs [`crate::render`] outlines for the text items, moved by
+    /// the shadow's offset. For text whose lines go between its shadows and
+    /// its letters, or whose runs are more than one, which one text item
+    /// cannot hold: every shadow of the piece is under all of its letters.
     fn shadow_items(&self, id: BoxId, shadows: &[TextShadow], scale: f32) -> Vec<DisplayItem> {
         let mut run = Path::new();
         for glyph in self.shapes(scale) {
@@ -124,17 +183,22 @@ impl Letters<'_> {
     /// Each glyph's shape where it is drawn on a screen at `scale`, leaned as
     /// the text is: the same shapes `crate::render` fills.
     fn shapes(&self, scale: f32) -> Vec<crate::path::Path> {
-        crate::render::outlined_glyphs_at(
-            self.text,
-            self.font,
-            self.size,
-            scale,
-            self.letter_spacing,
-            self.origin,
-        )
-        .iter()
-        .map(|glyph| crate::synthesis::leaned(glyph, self.oblique, self.origin.1))
-        .collect()
+        self.runs
+            .iter()
+            .flat_map(|run| {
+                crate::render::outlined_glyphs_at(
+                    run.text,
+                    &run.font,
+                    self.size,
+                    scale,
+                    self.letter_spacing,
+                    run.origin,
+                )
+                .iter()
+                .map(|glyph| crate::synthesis::leaned(glyph, run.oblique, run.origin.1))
+                .collect::<Vec<_>>()
+            })
+            .collect()
     }
 }
 
@@ -798,15 +862,10 @@ impl Builder<'_> {
             shadows: self.text_shadows_of(id),
         };
         self.draw_spaces(id, &decorations, &pen, out);
-        let Pen {
-            font,
-            oblique,
-            size,
-            letter_spacing,
-            color,
-            ascender,
-        } = pen;
+        let (font, size, color, ascender) = (&pen.font, pen.size, pen.color, pen.ascender);
         let scale = self.styles.scale();
+        let request = self.font_request(id);
+        let fonts = self.context.fonts;
 
         let fragments = self.layout.fragments(id);
         if fragments.is_empty() {
@@ -830,14 +889,7 @@ impl Builder<'_> {
                     size,
                 };
                 let origin = (geometry.border_box.left(), baseline);
-                let letters = Letters {
-                    text: trimmed,
-                    font: &font,
-                    size,
-                    letter_spacing,
-                    origin,
-                    oblique,
-                };
+                let letters = Letters::measured(trimmed, &pen, origin, fonts, &request, scale);
                 Self::between_lines(id, &decorations, piece, &letters, color, scale, out);
             }
             return;
@@ -876,14 +928,7 @@ impl Builder<'_> {
                 width: cut.map_or(fragment.rect.size.width + fragment.space, |cut| cut.width),
                 size,
             };
-            let letters = Letters {
-                text: trimmed,
-                font: &font,
-                size,
-                letter_spacing,
-                origin,
-                oblique,
-            };
+            let letters = Letters::measured(trimmed, &pen, origin, fonts, &request, scale);
             Self::between_lines(id, &decorations, piece, &letters, color, scale, out);
         }
     }
@@ -904,14 +949,14 @@ impl Builder<'_> {
         out: &mut Vec<DisplayItem>,
     ) {
         let beneath = Self::decorations_at(decorations, true, piece, letters, scale);
-        let item = if beneath.is_empty() {
-            letters.item(id, color, decorations.shadows.clone())
+        let items = if beneath.is_empty() && letters.runs.len() < 2 {
+            letters.items(id, color, &decorations.shadows)
         } else {
             out.extend(letters.shadow_items(id, &decorations.shadows, scale));
-            letters.item(id, color, Vec::new())
+            letters.items(id, color, &[])
         };
         Self::draw_lines(id, &beneath, &decorations.shadows, out);
-        out.push(item);
+        out.extend(items);
         let after = Self::decorations_at(decorations, false, piece, letters, scale);
         Self::draw_lines(id, &after, &decorations.shadows, out);
     }
@@ -976,14 +1021,7 @@ impl Builder<'_> {
                 width: space.rect.size.width + space.space,
                 size,
             };
-            let letters = Letters {
-                text: "",
-                font: &pen.font,
-                size,
-                letter_spacing: pen.letter_spacing,
-                origin: (space.rect.left(), space.rect.top() + ascender),
-                oblique: pen.oblique,
-            };
+            let letters = Letters::one("", pen, (space.rect.left(), space.rect.top() + ascender));
             for beneath in [true, false] {
                 let pieces = Self::decorations_at(decorations, beneath, piece, &letters, scale);
                 Self::draw_lines(id, &pieces, &decorations.shadows, out);

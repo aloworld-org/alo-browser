@@ -884,11 +884,25 @@ The reason this exists rather than a faster fork of somebody else's engine.
   assertions at several heights and the four reference renders of a card
   and of results (`tests/a_page_as_a_card.rs`,
   `tests/a_searchs_results_on_the_all_tab.rs`).
+  **The design's typefaces** (706, ADR 0084): Instrument Sans and
+  Newsreader, as Google Fonts publishes them under the OFL, compiled into
+  `alo-renderer` (`typefaces.rs`, `interface/fonts/`) and handed as bytes
+  to the conversation's renderers alone — never to a page's — so the
+  panel's and the first screen's stylesheets ask for them first; their
+  licences are in the application's `Contents/Resources/licences`. Each
+  is a variable font set to the weight asked for. A piece of text is drawn
+  in the fonts layout measured its runs in (`alo-paint`'s `ink_runs.rs`),
+  so a `⌘` neither face has is drawn by the next font that has one. The
+  family and weight the shaper chose, asserted by name
+  (`tests/the_interfaces_typefaces.rs`); the licences in the application,
+  byte for byte (`tests/the_application_assembled.rs`); every reference
+  render of the interface redrawn in them. Owed: Newsreader's optical size
+  set by the text's size (752).
   Owed: *Search chats* and the button that hides the panel (711), a press
   on an offer (714), an agent reaching a page the conversation opened
   (716), a field's value kept to one line by the engine (715), the
   conversation (703), the agent at
-  work (704), its settings (705), the typefaces (706); the answer (707)
+  work (704), its settings (705); the answer (707)
   waits on the owner's choice of a model.
 
 - [2] A window, tabs, and a tab strip.

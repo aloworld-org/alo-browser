@@ -57,6 +57,11 @@ fn fonts() -> FontDatabase {
     database.map_generic("system-ui", "DejaVu Sans");
     database.map_generic("sans-serif", "DejaVu Sans");
     database.map_generic("serif", "DejaVu Serif");
+    // The design's typefaces, as the browser process hands them to the
+    // interface's renderers (ADR 0084).
+    for font in alo_renderer::typefaces::fonts() {
+        database.add(font);
+    }
     database
 }
 

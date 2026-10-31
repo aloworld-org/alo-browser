@@ -157,6 +157,10 @@ Its input is not watched. `alo` never watched it; only `--chrome` does.
 - **The fonts are the machine's.** Every Mac has its own San Francisco, New
   York and Menlo, which `alo` uses since 683; `--frozen-fonts`' DejaVu
   faces are in the program already. The bundle carries no font file.
+  *Since queue item 706 (ADR 0084)* `alo` also carries the interface's two
+  typefaces, compiled in like the `DejaVu` faces, and the bundle their
+  licences in `Contents/Resources/licences`; a page is still drawn in the
+  machine's fonts.
 - **The icon is drawn by this engine**, from a page in this repository, at
   the sizes an `.icns` holds, and those pictures are committed references
   compared by the gate like any other render. The `.icns` holds them as
