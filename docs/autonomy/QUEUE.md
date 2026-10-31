@@ -19506,7 +19506,7 @@ What stage 2's exit gate actually measures: a person using it.
   composition (741). Not run by hand in the real window: the window's
   event handlers call what the test calls, and are not themselves tested.
 
-- [ ] **737. The card's *Back* and *Forward*, read and followed.** Cut from
+- [x] **737. The card's *Back* and *Forward*, read and followed.** Cut from
   717. The card draws both, disabled whenever the browser process says
   there is nowhere to go — which, reading no history, is always. Read the
   tab's history (`Page.getNavigationHistory`, after each navigation the tab
@@ -19515,6 +19515,37 @@ What stage 2's exit gate actually measures: a person using it.
   person's, never an agent's verb. *Depends on 717. Closes when:* a page
   that follows a link shows *Back* enabled, a press on it goes back and
   *Forward* is then enabled, each in a test against a local page.
+  ***Done (iteration 472).*** The tab counts its own frame's commits and
+  moves within its document (`Tab::navigations`); each pass of the thread
+  holding the card, while it streams, reads the session history only when
+  that count changed (`chrome_history::Told`, `Command::ReadHistory`,
+  `chrome_protocol::history` — entry ids and `currentIndex` only, never a
+  page's address or title) and tells where the card can go when that
+  changed (`chrome_card::tell_travel`, `ToFrame::Travel` →
+  `Work::Told` → `Went::Travel` → `Conversation::card_travel`, setting
+  `Card::back`/`forward`, which the renderer already drew and claimed).
+  A press decided *Back* or *Forward* (`ConversationWindow::card_pressed`
+  → `ChromeOpener::travel` → `CardOrder::Travel(Way)`) reads the history
+  again and goes to the entry next to the page as Chrome holds it then
+  (`Command::GoToEntry`, `Page.navigateToHistoryEntry`), as Chrome's own
+  buttons do. **Found:** the shown window's page starts at `data:,`, a
+  committed entry, so *Back* was enabled on the card's first page; the
+  entry current before the card's page is gone to is read in
+  `Tab::open_as_a_card` (`Tab::before`) and never the card's (with it not
+  excluded, the test fails at the first page told `back: true`). The
+  opener's four card tellings (stream stopped, moved, loading, travel)
+  became one `Work::Told`. **Tests:** through the window's own road, the
+  machine's Chrome and alo's CEF host
+  (`tests/the_cards_back_and_forward_through_chrome.rs`, in the shown-Chrome
+  lists): the first page told neither way and a press on the greyed *Back*
+  decided nothing; the link followed, *Back* enabled; *Back* pressed —
+  decided *Back*, so drawn enabled — back at the first page, loaded, with
+  *Forward* enabled; *Forward* pressed, at the link's page again. Mutation:
+  a decided *Back* not carried out fails at *back at the first page*. Unit
+  tests in `chrome_history.rs` (4), `chrome_protocol.rs`,
+  `conversation.rs`, `conversation_chrome.rs`, `conversation_window.rs`.
+  **By hand** (`handrun12/`): `en.wikipedia.org` both greyed, *Talk*
+  followed and *Back* dark, *Back* and then *Forward* each went.
 
 - [ ] **738. A card's frames at the conversation window's scale.** Found by
   717: Chrome's parked window streams at the scale of the display macOS

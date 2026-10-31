@@ -76,6 +76,7 @@ use crate::agent_sites::AgentSites;
 use crate::beside::Chromium;
 use crate::card_input::CardInput;
 use crate::chrome_follow::Follow;
+use crate::chrome_history::{Travel, Way};
 use crate::chrome_protocol::Bounds;
 use crate::chrome_screencast::Frame as CastFrame;
 use crate::chrome_serving::{ChromeServing, Opening, TellFrame};
@@ -178,6 +179,9 @@ pub enum Went {
     /// changes while it streams: a card opens at its page's commit and is
     /// streamed from its first paint, before it has loaded (queue item 751).
     Loading(bool),
+    /// Where the page shown as a card can go back or forward to, told as
+    /// that changes while it streams (queue item 737).
+    Travel(Travel),
 }
 
 impl Went {
@@ -202,6 +206,13 @@ impl Went {
             Self::Moved(url) => format!("the card's page is now at {url}"),
             Self::Loading(true) => "the card's page is loading".to_owned(),
             Self::Loading(false) => "the card's page has loaded".to_owned(),
+            Self::Travel(travel) => match (travel.back, travel.forward) {
+                (true, true) => "the card's page can go back and forward",
+                (true, false) => "the card's page can go back",
+                (false, true) => "the card's page can go forward",
+                (false, false) => "the card's page can go neither back nor forward",
+            }
+            .to_owned(),
         }
     }
 }
@@ -274,20 +285,19 @@ enum Work {
     Stream(Option<Streamed>),
     /// Send the page shown as a card a person's input over it.
     Input(CardInput),
+    /// Go back or forward from the page shown as a card, as a person
+    /// pressed.
+    Travel(Way),
     /// Close the page shown as a card.
     Shut,
     /// The Chrome started at the open this numbers said its window is gone.
     Gone(u64),
     /// The Chrome started at the open this numbers streamed a frame.
     Framed(u64, CastFrame),
-    /// The Chrome started at the open this numbers stopped streaming.
-    Unstreamed(u64, Uncast),
-    /// The page of the Chrome started at the open this numbers is now at
-    /// this address.
-    Moved(u64, Url),
-    /// The page of the Chrome started at the open this numbers is loading,
-    /// or is not.
-    Loading(u64, bool),
+    /// What the Chrome started at the open this numbers told of its card,
+    /// to tell the window as it is: the stream stopped, where its page is
+    /// now, whether it is loading, and where it can go back or forward to.
+    Told(u64, Went),
     /// The window is closing: close Chrome and end.
     Finish,
 }
@@ -356,6 +366,13 @@ impl ChromeOpener {
     /// agent's — nothing an agent sends reaches this.
     pub fn person(&self, input: CardInput) {
         self.send(Work::Input(input));
+    }
+
+    /// Go back or forward from the page shown as a card, if one is, as a
+    /// person pressed its *Back* or *Forward* (queue item 737): a person's,
+    /// never an agent's — nothing an agent sends reaches this.
+    pub fn travel(&self, way: Way) {
+        self.send(Work::Travel(way));
     }
 
     /// Close the page shown as a card: its stream stopped, its Chrome
@@ -463,6 +480,7 @@ fn hold(
                     streamed.map_or(CardOrder::Unstream, Streamed::order),
                 ),
                 Work::Input(input) => ask_of(open.as_ref(), CardOrder::Input(input)),
+                Work::Travel(way) => ask_of(open.as_ref(), CardOrder::Travel(way)),
                 Work::Framed(number, frame) => {
                     // Decoded here, off the thread an agent's commands wait
                     // on; one that is not base64 is not shown.
@@ -473,19 +491,9 @@ fn hold(
                         let _ = tell(Went::Framed(png));
                     }
                 }
-                Work::Unstreamed(number, uncast) => {
+                Work::Told(number, went) => {
                     if open.as_ref().is_some_and(|open| open.number == number) {
-                        let _ = tell(Went::Unstreamed(uncast));
-                    }
-                }
-                Work::Moved(number, url) => {
-                    if open.as_ref().is_some_and(|open| open.number == number) {
-                        let _ = tell(Went::Moved(url));
-                    }
-                }
-                Work::Loading(number, loading) => {
-                    if open.as_ref().is_some_and(|open| open.number == number) {
-                        let _ = tell(Went::Loading(loading));
+                        let _ = tell(went);
                     }
                 }
                 Work::Open(url, streamed) if Some(place) == newest => {
@@ -529,9 +537,10 @@ fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
         let _ = match told {
             ToFrame::Stand(Follow::Closed) => again.send(Work::Gone(number)),
             ToFrame::Cast(frame) => again.send(Work::Framed(number, frame)),
-            ToFrame::Uncast(uncast) => again.send(Work::Unstreamed(number, uncast)),
-            ToFrame::Moved(url) => again.send(Work::Moved(number, url)),
-            ToFrame::Loading(loading) => again.send(Work::Loading(number, loading)),
+            ToFrame::Uncast(uncast) => again.send(Work::Told(number, Went::Unstreamed(uncast))),
+            ToFrame::Moved(url) => again.send(Work::Told(number, Went::Moved(url))),
+            ToFrame::Loading(loading) => again.send(Work::Told(number, Went::Loading(loading))),
+            ToFrame::Travel(travel) => again.send(Work::Told(number, Went::Travel(travel))),
             _ => Ok(()),
         };
         true
@@ -784,6 +793,9 @@ mod tests {
         opener.stream(None);
         opener.stream(Some(Streamed::at(Scale::ONE)));
         opener.expand(Placing::APART);
+        // A person's Back and Forward (queue item 737).
+        opener.travel(Way::Back);
+        opener.travel(Way::Forward);
         // Frames told by Chrome's thread reach the window; a frame of a
         // Chrome since replaced would not.
         let frame = did.lock().unwrap().told.remove(0);
@@ -812,6 +824,15 @@ mod tests {
             assert_eq!(next(&told), Went::Loading(loading));
         }
         assert_eq!(Went::Loading(true).said(), "the card's page is loading");
+        // And where it can go back or forward to (queue item 737).
+        let back = Travel {
+            back: true,
+            forward: false,
+        };
+        assert!(frame(ToFrame::Travel(back)));
+        let travelled = next(&told);
+        assert_eq!(travelled, Went::Travel(back));
+        assert_eq!(travelled.said(), "the card's page can go back");
         opener.shut();
         let shut = next(&told);
         assert_eq!(shut, Went::Shut(url("https://example.com/")));
@@ -839,12 +860,15 @@ mod tests {
                     at: CHROME_AT,
                     size: CHROME_SIZE
                 },
+                CardOrder::Travel(Way::Back),
+                CardOrder::Travel(Way::Forward),
             ]
         );
         assert_eq!(did.lock().unwrap().closed, vec!["https://example.com/"]);
         // Nothing open: nothing asked, nothing said.
         opener.shut();
         opener.expand(Placing::APART);
+        opener.travel(Way::Back);
         assert!(opener.finish());
         assert!(told.try_recv().is_err());
     }

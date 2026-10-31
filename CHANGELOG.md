@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Back and Forward on a page in the conversation.** The card's *Back*
+  and *Forward* buttons used to be greyed always. Now, once you follow a
+  link in the card, *Back* takes you to the page before, and *Forward*
+  then takes you on again — each pressable only when there is somewhere to
+  go. The blank page the card's window starts at is never one of them
+  (item 737).
 - **A page in the conversation shows as soon as it starts to draw.** A
   page opened in the conversation used to stay a white card until it had
   finished loading, and one that never finished within thirty seconds was

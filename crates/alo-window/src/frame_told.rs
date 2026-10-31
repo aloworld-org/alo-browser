@@ -27,6 +27,7 @@
 
 use crate::agent_lines::AgentLine;
 use crate::chrome_follow::Follow;
+use crate::chrome_history::Travel;
 use crate::chrome_protocol::Named;
 use crate::chrome_screencast::Frame as CastFrame;
 use alo_renderer::Frame;
@@ -62,6 +63,10 @@ pub enum ToFrame {
     /// loading: told as it changes, the page streamed from its navigation's
     /// commit (queue item 751).
     Loading(bool),
+    /// Where the card streamed of the page can go back or forward to: told
+    /// as that changes while it streams, read from the tab's session
+    /// history after each navigation (queue item 737).
+    Travel(Travel),
 }
 
 /// What a stream of frames came to, told as it stops.

@@ -184,6 +184,15 @@ pub struct Tab<'c> {
     /// What Chrome has told of the tab's own frame's documents: whether the
     /// page has committed and loaded (queue item 751).
     loading: Loading,
+    /// How many times the tab's own frame has committed a document or moved
+    /// within one since the tab was opened: each a change of its session
+    /// history (queue item 737).
+    navigations: u64,
+    /// The entry of the session history the tab's window held before it was
+    /// sent to a card's page — the shown window's own `data:,` — which is
+    /// not the card's to go back to (queue item 737); [`None`] for every
+    /// other tab, and for a window that held none.
+    before: Option<i64>,
 }
 
 /// How long opening a tab waits for its page.
@@ -434,6 +443,8 @@ impl<'c> Tab<'c> {
             detached: false,
             casting: Casting::default(),
             loading: Loading::default(),
+            navigations: 0,
+            before: None,
         };
         // Only now, so that the tab itself is not held.
         tab.chrome.ask(None, &Command::HoldNewTabs { hold: true })?;
@@ -453,6 +464,13 @@ impl<'c> Tab<'c> {
         }
         if tab.is_from_the_network() {
             tab.ask(&Command::TellOfSockets)?;
+        }
+        if until == Until::Committed {
+            // Read before the card's page is gone to, so that what the
+            // window held is never the card's to go back to.
+            let history = tab.ask(&Command::ReadHistory)?;
+            let history = chrome_protocol::history(&history).map_err(Failed::Malformed)?;
+            tab.before = history.entries.get(history.current).copied();
         }
         tab.go(until)?;
         Ok(tab)
@@ -670,6 +688,20 @@ impl<'c> Tab<'c> {
                 _ => {}
             }
         }
+    }
+
+    /// How many times the tab's own frame has committed a document or moved
+    /// within one, as Chrome last said: a count that changes whenever its
+    /// session history may have (queue item 737).
+    pub fn navigations(&self) -> u64 {
+        self.navigations
+    }
+
+    /// The entry of the session history the window held before a card's
+    /// page was gone to, read as the card's tab was opened
+    /// ([`Tab::open_as_a_card`]): not the card's to go back to.
+    pub fn before(&self) -> Option<i64> {
+        self.before
     }
 
     /// Whether the page is still loading: the newest document its own frame
@@ -1331,6 +1363,7 @@ impl<'c> Tab<'c> {
         }
         if own {
             self.address = alo_url::parse(&committed.url).ok();
+            self.navigations += 1;
         }
         Ok(())
     }
@@ -1410,6 +1443,7 @@ impl<'c> Tab<'c> {
         let within = chrome_protocol::within(params).map_err(Failed::Malformed)?;
         if within.frame == self.target {
             self.address = alo_url::parse(&within.url).ok();
+            self.navigations += 1;
             // The first of a task's moves are the ones a press asks after: a
             // link's own comes before anything a script did in its task.
             if self.within.len() < MOST_WITHIN {

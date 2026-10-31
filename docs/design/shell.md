@@ -288,6 +288,11 @@ the address gives it the room. A page that never loads stays a card saying
 *Loading* until a person closes it; nothing closes it for them (ADR 0089,
 item 751).
 
+*Back* and *Forward* are the page's own session history, as Chrome holds it:
+each is drawn dark and pressable only when there is a page of the card's
+that way, and greyed otherwise. The blank page the card's window began at is
+not the card's, so a card's first page has *Back* greyed (item 737).
+
 ## The agent at work
 
 - The window splits: the page large on the left, the agent's column on the

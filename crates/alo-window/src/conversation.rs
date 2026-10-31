@@ -96,6 +96,7 @@
 //! the first screen a person sees. So it says [`GREETING`], which is true at
 //! any hour, until the machine's zone is read.
 
+use crate::chrome_history::Travel;
 use crate::conversation_box::{TheBox, Typed};
 use crate::conversation_find::FindChats;
 use crate::conversation_place::Side;
@@ -704,6 +705,20 @@ impl Conversation {
         match self.thread_mut().and_then(Thread::card_mut) {
             Some(card) if card.loading != loading => {
                 card.loading = loading;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The card's page can go back or forward as `travel` says (queue item
+    /// 737): the card's *Back* and *Forward* are pressable only where there
+    /// is somewhere to go. Whether the card shows something else for it.
+    pub fn card_travel(&mut self, travel: Travel) -> bool {
+        match self.thread_mut().and_then(Thread::card_mut) {
+            Some(card) if (card.back, card.forward) != (travel.back, travel.forward) => {
+                card.back = travel.back;
+                card.forward = travel.forward;
                 true
             }
             _ => false,
@@ -1518,6 +1533,23 @@ mod tests {
         // A link followed: loading again until it has.
         assert!(conversation.card_loading(true));
         assert_eq!(loading(&conversation), Some(true));
+    }
+
+    #[test]
+    fn the_cards_back_and_forward_are_where_its_page_can_go() {
+        let mut conversation = Conversation::default();
+        let travel = |back, forward| Travel { back, forward };
+        assert!(!conversation.card_travel(travel(true, false)), "no card");
+        conversation.open_card(alo_url::parse("https://example.com/").unwrap());
+        let shown =
+            |conversation: &Conversation| conversation.card().map(|card| (card.back, card.forward));
+        assert_eq!(shown(&conversation), Some((false, false)), "a new card");
+        assert!(!conversation.card_travel(travel(false, false)), "unchanged");
+        assert!(conversation.card_travel(travel(true, false)));
+        assert_eq!(shown(&conversation), Some((true, false)));
+        assert!(conversation.card_travel(travel(false, true)));
+        assert_eq!(shown(&conversation), Some((false, true)));
+        assert!(!conversation.card_travel(travel(false, true)));
     }
 
     #[test]

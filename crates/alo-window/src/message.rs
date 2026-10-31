@@ -19,6 +19,7 @@
 use crate::agent_record::Caller;
 use crate::asking::{Answer, Ask, Refused};
 use crate::card_input::CardInput;
+use crate::chrome_history::Way;
 use crate::mark::Marked;
 use alo_paint::Point;
 use alo_renderer::pointer::Pointer;
@@ -106,6 +107,11 @@ pub enum CardOrder {
     /// card (queue item 718, ADR 0024 § 5): only the conversation's window
     /// sends one, for a person, and nothing an agent sends becomes one.
     Input(CardInput),
+    /// Go back or forward through the page's session history, as a person
+    /// pressed the card's *Back* or *Forward* (queue item 737): only the
+    /// conversation's window sends one, for a person, and no agent verb
+    /// becomes one.
+    Travel(Way),
 }
 
 /// What a person asked of the tabs (ADR 0024 §§ 5, 6).

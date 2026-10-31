@@ -326,13 +326,15 @@ fn float(count: usize) -> f64 {
 /// second, and what they came to said.
 fn streamed(told: &Receiver<ToFrame>, who: &str) {
     let (frames, other) = frames_within(told, WATCHED);
-    // Where the page is, told as it is first streamed (queue item 742), and
-    // whether it is loading (queue item 751), are the card's own business;
-    // nothing else is told.
+    // Where the page is, told as it is first streamed (queue item 742),
+    // whether it is loading (queue item 751), and where it can go back or
+    // forward to (queue item 737), are the card's own business; nothing
+    // else is told.
     assert!(
-        other
-            .iter()
-            .all(|news| matches!(news, ToFrame::Moved(_) | ToFrame::Loading(_))),
+        other.iter().all(|news| matches!(
+            news,
+            ToFrame::Moved(_) | ToFrame::Loading(_) | ToFrame::Travel(_)
+        )),
         "told something else: {other:?}"
     );
     let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();

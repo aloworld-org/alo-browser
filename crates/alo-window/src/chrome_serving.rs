@@ -102,6 +102,7 @@ use crate::chrome::{Chrome, Failed, Unstarted};
 use crate::chrome_card;
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
+use crate::chrome_history;
 use crate::chrome_mark::{Marker, Marking};
 use crate::chrome_named::{self, Naming};
 use crate::chrome_pages::ChromePages;
@@ -569,6 +570,8 @@ fn serve_in_chrome(
     let mut told_where = None;
     // And whether it was last told to be loading (queue item 751).
     let mut told_loading = None;
+    // And where it can go back or forward to (queue item 737).
+    let mut told_travel = chrome_history::Told::default();
     loop {
         let until = chrome_card::until(
             pages.tab(),
@@ -620,6 +623,7 @@ fn serve_in_chrome(
         chrome_card::tell_loading(pages.tab(), &mut told_loading, frame);
         chrome_card::tell_newest(pages.tab_mut(), frame);
         chrome_card::tell_where(pages.tab(), &mut told_where, frame);
+        chrome_card::tell_travel(pages.tab_mut(), &mut told_travel, frame);
         if let Some(follower) = following.as_mut()
             && Instant::now() >= follower.next
             && follower.follow(pages.tab_mut()) == Follow::Closed

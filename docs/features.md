@@ -820,7 +820,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
   and the Chromium alo carries: about 60 frames a second, 20–23 MiB a
   second of noise-heavy frames, and an agent's read of the page no slower
   while it streams (`tests/a_page_as_a_card_through_chrome.rs`). Owed:
-  *Back* and *Forward* read and followed (737), frames at the conversation's
+  frames at the conversation's
   scale when the parked window lands by a display of another (738), what
   the Dock, ⌘-Tab and Stage Manager do with a parked Chrome (739).
   **A person's pointer, wheel and keys on the card** (718, ADR 0024 § 5):
@@ -863,6 +863,19 @@ The reason this exists rather than a faster fork of somebody else's engine.
   *Loading* once the picture is answered
   (`tests/a_card_drawn_before_its_page_loads_through_chrome.rs`). Every
   other tab — an agent's, `alo --chrome`'s — is still opened loaded.
+  **The card's *Back* and *Forward*** (737): after each commit or move
+  within its document of the page's own frame, the thread holding the card
+  reads the tab's session history (`Page.getNavigationHistory`) and tells
+  the conversation where the card can go as that changes; each button is
+  pressable only then. A press is carried out as Chrome's own buttons are
+  (`Page.navigateToHistoryEntry`, the entry next to the page as Chrome holds
+  it when the press arrives), a person's and never an agent's verb. The
+  shown window's own `data:,`, read before the card's page is gone to, is
+  never the card's to go back to. Through the machine's Chrome and the
+  Chromium alo carries, a local page whose link is followed shows *Back*
+  enabled, *Back* pressed returns to it with *Forward* enabled, and
+  *Forward* goes on again
+  (`tests/the_cards_back_and_forward_through_chrome.rs`).
   **Search results, as the All tab** (708, ADR 0083): words chosen from
   the box are searched with the Brave Search API by a thread of the browser
   process, through `alo-net`, with the words alone in the address and a key

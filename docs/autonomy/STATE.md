@@ -46599,3 +46599,64 @@ row for the card.
 the card says nothing until the new document commits).
 
 The next unused queue number is **771** and the next ADR is **0090**.
+
+## Iteration 472 — queue item 737: the card's *Back* and *Forward*, read and followed
+
+**Why.** The card drew *Back* and *Forward* greyed always: nothing read
+where its page could go, and a press on either, decided, was dropped.
+
+**Built.** `chrome_history.rs` (new): `Travel { back, forward }`, `Way`,
+the card's entries being those after the window's own (`entry`, `travel`),
+`Told` (the history read only when `Tab::navigations` changed, told only
+when where the card can go changed) and `go` (read again, then
+`Page.navigateToHistoryEntry` to the entry next to the page). The protocol
+gains `Command::ReadHistory`, `Command::GoToEntry` and the reader
+`history` (ids and `currentIndex` only); its cast and layout params moved to
+`Command::drawing` (clippy's line count). `Tab` counts its own frame's
+commits and moves within its document and, for a card, reads the entry its
+window held before the card's page was gone to (`Tab::before`: the shown
+window's `data:,`, a committed entry, which made *Back* go to a blank page).
+`chrome_card::tell_travel` each pass while streaming, `CardOrder::Travel`
+carried out; `ToFrame::Travel` → `Work::Told` (the opener's four card
+tellings folded into one) → `Went::Travel` → `Conversation::card_travel`;
+`ConversationWindow::card_pressed` sends a decided *Back*/*Forward* to
+`ChromeOpener::travel`. No agent verb reaches it (ADR 0002). No ADR: an
+implementation of what ADR 0076 B and 717 decided.
+
+**Tests.** `tests/the_cards_back_and_forward_through_chrome.rs` (new; in
+`nextest.toml`'s shown-Chrome list), through the window's own road, the
+machine's Chrome and alo's CEF host: first page told neither way and a
+press on its greyed *Back* decided nothing; link followed, *Back* enabled;
+*Back* decided and carried out, first page loaded with *Forward* enabled;
+*Forward*, the link's page again. Mutations: the window's entry counted as
+the card's fails at the first page (told `back: true`), through both;
+*Back* decided but not carried out fails at *back at the first page*.
+`a_page_as_a_card_through_chrome` and `the_agents_lines_told_to_chromes_frame`
+accept `ToFrame::Travel` (the first failed the first gate run through the
+CEF host). Unit tests: `chrome_history.rs` (4), `chrome_protocol.rs`
+(`the_session_history_is_read_and_an_entry_gone_to`), `conversation.rs`,
+`conversation_chrome.rs`, `conversation_window.rs`.
+
+**Gate: met** (second run; the first failed on the test above). Pointer at
+(1400,1000) during it. **Summary [768.282s] 6020 tests run: 6020 passed (6
+slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+
+**By hand** (screen unlocked; release build, CEF host built, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, `alo browser.app/Contents/MacOS/alo
+--conversation`; screenshots in the session scratchpad `handrun12/`; the
+pointer saved and put back at 570,562 around every press).
+`en.wikipedia.org` typed: `01-wikipedia.png`, the main page, both buttons
+greyed; its *Talk* link pressed: `02-link-followed.png`, `Talk:Main_Page`,
+*Back* dark and *Forward* greyed; *Back*: `03-back.png`, `Main_Page`, *Back*
+greyed and *Forward* dark; *Forward*: `04-forward.png`, `Talk:Main_Page`,
+*Back* dark. ⌘Q left no alo, alo-render or alo Chromium process.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0076, 0089;
+`docs/design/shell.md` says when the buttons are pressable;
+`docs/conformance.md` gains a row.
+
+**Roadmap:** the conversation line's *Built* gains 737.
+
+**Cut:** none. 770 (*Loading* from a navigation's start) left queued.
+
+The next unused queue number is **771** and the next ADR is **0090**.

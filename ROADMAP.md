@@ -2438,7 +2438,11 @@ items where being right and being unusable are the same outcome.
       emoji's sequence kept in one face (ADR 0088); a card drawn from its
       page's first paint (751, ADR 0089) — opened at its navigation's
       commit, saying *Loading* until its page has loaded, and kept as a card
-      when it never does, through the window's own road and both Chromiums
+      when it never does, through the window's own road and both Chromiums;
+      the card's *Back* and *Forward* (737) — read from the tab's session
+      history after each navigation, the window's own blank page never the
+      card's, and followed as Chrome's own buttons are, through the window's
+      own road and both Chromiums
       · Owed: the rail's chats (760), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),

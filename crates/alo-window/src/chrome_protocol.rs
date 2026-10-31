@@ -380,6 +380,16 @@ pub enum Command {
     },
     /// `Page.stopScreencast`: stream no more.
     StopCasting,
+    /// `Page.getNavigationHistory`: the tab's session history, and which of
+    /// its entries the page is (queue item 737). Read by [`history`].
+    ReadHistory,
+    /// `Page.navigateToHistoryEntry`: go to the entry of the tab's session
+    /// history numbered `entry`, as the browser's own *Back* and *Forward*
+    /// do — not the page's script.
+    GoToEntry {
+        /// The entry's `id`, as [`history`] read it.
+        entry: i64,
+    },
 }
 
 impl Command {
@@ -434,6 +444,8 @@ impl Command {
             Self::Cast { .. } => "Page.startScreencast",
             Self::FrameSeen { .. } => "Page.screencastFrameAck",
             Self::StopCasting => "Page.stopScreencast",
+            Self::ReadHistory => "Page.getNavigationHistory",
+            Self::GoToEntry { .. } => "Page.navigateToHistoryEntry",
         }
     }
 
@@ -464,13 +476,9 @@ impl Command {
             | Self::Unmark
             | Self::ReadStyles
             | Self::StopReadingStyles
-            | Self::StopCasting => {}
-            Self::Cast { width, height } => {
-                put("format", Value::from("png"));
-                put("maxWidth", Value::from(*width));
-                put("maxHeight", Value::from(*height));
-                put("everyNthFrame", Value::from(1));
-            }
+            | Self::StopCasting
+            | Self::ReadHistory => {}
+            Self::GoToEntry { entry } => put("entryId", Value::from(*entry)),
             Self::FrameSeen { frame } => put("sessionId", Value::from(*frame)),
             Self::IdsOf { nodes } => put("backendNodeIds", Value::from(nodes.clone())),
             Self::ComputedStyle { node } => put("nodeId", Value::from(*node)),
@@ -492,12 +500,10 @@ impl Command {
             }
             Self::TellOfStages => put("enabled", Value::Bool(true)),
             Self::PauseEveryRequest => put("patterns", every_request()),
-            Self::LayOutAt { width, height } => {
-                put("width", Value::from(*width));
-                put("height", Value::from(*height));
-                // Nought is Chrome's word for "the screen's own".
-                put("deviceScaleFactor", Value::from(0));
-                put("mobile", Value::Bool(false));
+            Self::LayOutAt { .. } | Self::Cast { .. } => {
+                self.drawing()
+                    .into_iter()
+                    .for_each(|(name, value)| put(name, value));
             }
             Self::Fulfil { request, body } => {
                 for (name, value) in fulfilled(request, body) {
@@ -543,6 +549,28 @@ impl Command {
 }
 
 impl Command {
+    /// The `params` of a command saying how the page is drawn: the size it
+    /// is laid out at, or the frames streamed of it — and none for any
+    /// other.
+    fn drawing(&self) -> Vec<(&'static str, Value)> {
+        match self {
+            Self::LayOutAt { width, height } => vec![
+                ("width", Value::from(*width)),
+                ("height", Value::from(*height)),
+                // Nought is Chrome's word for "the screen's own".
+                ("deviceScaleFactor", Value::from(0)),
+                ("mobile", Value::Bool(false)),
+            ],
+            Self::Cast { width, height } => vec![
+                ("format", Value::from("png")),
+                ("maxWidth", Value::from(*width)),
+                ("maxHeight", Value::from(*height)),
+                ("everyNthFrame", Value::from(1)),
+            ],
+            _ => Vec::new(),
+        }
+    }
+
     /// The `params` of an input event: a mouse's or a key's, and none for
     /// any other command.
     fn input(&self) -> Vec<(&'static str, Value)> {
@@ -998,6 +1026,48 @@ pub fn navigated(result: &[u8]) -> Result<Result<String, String>, Malformed> {
         None => text(fields.get("loaderId"), "loaderId").map(Ok),
         reason => text(reason, "errorText").map(Err),
     }
+}
+
+/// A tab's session history, as `Page.getNavigationHistory` answers it:
+/// only what *Back* and *Forward* need, never an entry's address or title,
+/// which the pages chose (queue item 737).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct History {
+    /// Which of [`History::entries`] the page is.
+    pub current: usize,
+    /// Every entry's `id`, oldest first.
+    pub entries: Vec<i64>,
+}
+
+/// A reply's `result` to `Page.getNavigationHistory`, read.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no whole `currentIndex` naming one of
+/// its `entries`, or an entry with no whole `id`.
+pub fn history(result: &[u8]) -> Result<History, Malformed> {
+    let fields = object(result)?;
+    let Some(Value::Array(listed)) = fields.get("entries") else {
+        return Err(Malformed::BadField { field: "entries" });
+    };
+    let entries = listed
+        .iter()
+        .map(|entry| {
+            entry
+                .get("id")
+                .and_then(Value::as_i64)
+                .ok_or(Malformed::BadField { field: "id" })
+        })
+        .collect::<Result<Vec<i64>, Malformed>>()?;
+    let current = fields
+        .get("currentIndex")
+        .and_then(Value::as_u64)
+        .and_then(|index| usize::try_from(index).ok())
+        .filter(|index| *index < entries.len())
+        .ok_or(Malformed::BadField {
+            field: "currentIndex",
+        })?;
+    Ok(History { current, entries })
 }
 
 /// A stage of a frame's document, from a `Page.lifecycleEvent`.
@@ -2289,6 +2359,44 @@ mod tests {
 
     fn bad<T>(field: &'static str) -> Result<T, Malformed> {
         Err(Malformed::BadField { field })
+    }
+
+    #[test]
+    fn the_session_history_is_read_and_an_entry_gone_to() {
+        assert_eq!(
+            written(6, Some("S"), &Command::ReadHistory),
+            br#"{"id":6,"method":"Page.getNavigationHistory","params":{},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            written(7, Some("S"), &Command::GoToEntry { entry: 12 }),
+            br#"{"id":7,"method":"Page.navigateToHistoryEntry","params":{"entryId":12},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            history(
+                br#"{"currentIndex":1,"entries":[{"id":3,"url":"data:,","title":""},{"id":9,"url":"http://a/","userTypedURL":"http://a/","title":"A","transitionType":"typed"}]}"#
+            ),
+            Ok(History {
+                current: 1,
+                entries: vec![3, 9]
+            })
+        );
+        assert_eq!(
+            history(br#"{"currentIndex":0,"entries":[]}"#),
+            bad("currentIndex")
+        );
+        assert_eq!(
+            history(br#"{"currentIndex":2,"entries":[{"id":1},{"id":2}]}"#),
+            bad("currentIndex")
+        );
+        assert_eq!(
+            history(br#"{"currentIndex":-1,"entries":[{"id":1}]}"#),
+            bad("currentIndex")
+        );
+        assert_eq!(
+            history(br#"{"currentIndex":0,"entries":[{"id":"1"}]}"#),
+            bad("id")
+        );
+        assert_eq!(history(br#"{"currentIndex":0}"#), bad("entries"));
     }
 
     #[test]

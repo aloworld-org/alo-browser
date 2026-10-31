@@ -28,6 +28,13 @@
 //!   changes while it streams ([`tell_loading`], [`ToFrame::Loading`],
 //!   queue item 751): the page is streamed from its navigation's commit,
 //!   so the card says *loading* until its newest document has loaded.
+//! - **Where it can go**: told to the conversation whenever that changes
+//!   while it streams ([`tell_travel`], [`ToFrame::Travel`], queue item
+//!   737), read from the tab's session history after each navigation
+//!   ([`crate::chrome_history`]), so the card's *Back* and *Forward* are
+//!   pressable only when there is somewhere to go.
+//! - **Back and Forward**: a person's press on either, carried out as
+//!   Chrome's own buttons are ([`crate::chrome_history::go`]).
 //! - **Input**: a person's press, drag, release, wheel or key over the card's
 //!   page, sent to the page as a person's (queue item 718,
 //!   [`crate::chrome_card_input`]).
@@ -43,6 +50,7 @@
 //! tab, which still answers its agents.
 
 use crate::chrome_card_input;
+use crate::chrome_history::{self, Told};
 use crate::chrome_tab::Tab;
 use crate::chrome_window;
 use crate::frame_told::{ToFrame, Uncast};
@@ -78,6 +86,11 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>) {
                 .and_then(|_| chrome_window::place(tab, at.0, at.1));
         }
         CardOrder::Input(input) => chrome_card_input::forward(tab, &input),
+        // Declined, the page stays where it is, and the card says so by
+        // its address not moving.
+        CardOrder::Travel(way) => {
+            let _ = chrome_history::go(tab, way);
+        }
     }
 }
 
@@ -150,6 +163,24 @@ pub fn tell_loading(tab: &Tab<'_>, told: &mut Option<bool>, tell: TellCard<'_>) 
     *told = Some(now);
     // Nobody to hear it is a conversation that has gone.
     let _ = tell(ToFrame::Loading(now));
+}
+
+/// Tell `tell` where `tab`'s page can go back or forward to, if it streams
+/// and that is not what `told` last told (queue item 737): the session
+/// history is asked of Chrome only when the tab's own frame has navigated
+/// since it was last read. Chrome declining, or gone, tells nothing: it is
+/// asked again at the next pass, and the next ask of the tab says it gone.
+pub fn tell_travel(tab: &mut Tab<'_>, told: &mut Told, tell: TellCard<'_>) {
+    if !tab.casting().is_on() {
+        return;
+    }
+    let Some(tell) = tell else {
+        return;
+    };
+    if let Ok(Some(travel)) = told.changed(tab) {
+        // Nobody to hear it is a conversation that has gone.
+        let _ = tell(ToFrame::Travel(travel));
+    }
 }
 
 /// Tell `tell` the newest frame `tab` read since it was last asked, if it

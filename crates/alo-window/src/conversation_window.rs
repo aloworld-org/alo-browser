@@ -65,6 +65,7 @@
 use crate::card_aim::{self, Turned};
 use crate::card_input::{CardInput, Went as Button};
 use crate::card_keys;
+use crate::chrome_history::Way;
 use crate::conversation::{Conversation, Pressed as Decided};
 use crate::conversation_box::{self, Typed};
 use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
@@ -635,7 +636,8 @@ impl ConversationWindow {
 
     /// What the card's buttons were decided to be, carried out by the
     /// thread holding its Chrome. *Back* and *Forward* are claimed only when
-    /// there is somewhere to go, which nothing yet reads (queue item 737).
+    /// there is somewhere to go, as the tab's session history last said
+    /// (queue item 737), and are a person's: nothing an agent sends is one.
     fn card_pressed(&self, pressed: &Decided) {
         let Some(chrome) = &self.chrome else {
             return;
@@ -643,6 +645,8 @@ impl ConversationWindow {
         match pressed {
             Decided::Expand => chrome.expand(self.over_the_first_screen()),
             Decided::CloseTheCard => chrome.shut(),
+            Decided::Back => chrome.travel(Way::Back),
+            Decided::Forward => chrome.travel(Way::Forward),
             _ => {}
         }
     }
@@ -667,7 +671,11 @@ impl ConversationWindow {
         let said = went.said();
         match &went {
             // Each is shown by the card itself.
-            Went::Framed(_) | Went::Unstreamed(_) | Went::Moved(_) | Went::Loading(_) => {}
+            Went::Framed(_)
+            | Went::Unstreamed(_)
+            | Went::Moved(_)
+            | Went::Loading(_)
+            | Went::Travel(_) => {}
             // A card put away for a search's results, its page closed
             // after: the line says the search (queue item 708).
             Went::Shut(_) if self.conversation.card().is_none() => {}
@@ -688,6 +696,7 @@ impl ConversationWindow {
             Went::Framed(png) => self.conversation.framed(png),
             Went::Moved(url) => self.conversation.moved_card(url),
             Went::Loading(loading) => self.conversation.card_loading(loading),
+            Went::Travel(travel) => self.conversation.card_travel(travel),
             // A page not opened leaves why in its turn; one that went on
             // its own leaves its address (queue item 703).
             Went::Unopened { .. } => {
@@ -836,6 +845,7 @@ impl ConversationWindow {
 mod tests {
     use super::*;
     use crate::beside::Chromium;
+    use crate::chrome_history::Travel;
     use crate::conversation_chrome::Shown;
     use crate::conversation_place::start_viewport;
     use crate::keys::Key;
@@ -1121,6 +1131,34 @@ mod tests {
             window.conversation().card().map(|card| card.url.clone()),
             Some(talk)
         );
+        window.finish();
+    }
+
+    #[test]
+    fn the_card_is_told_where_its_page_can_go_and_the_line_keeps_what_it_said() {
+        let mut window = window();
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(&mut window, "example.com");
+        let url = window.conversation().going().cloned().unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        let opening = window.start_said.clone();
+        let _ = window.take_redraw();
+        window.heard(Heard::Chrome(Went::Travel(Travel {
+            back: true,
+            forward: false,
+        })));
+        assert_eq!(
+            window
+                .conversation()
+                .card()
+                .map(|card| (card.back, card.forward)),
+            Some((true, false))
+        );
+        assert!(window.take_redraw(), "the card is drawn again");
+        assert_eq!(window.start_said, opening);
+        // A press on Back, decided, is carried out and refuses nothing.
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Back)));
+        assert_eq!(window.told(), None);
         window.finish();
     }
 
