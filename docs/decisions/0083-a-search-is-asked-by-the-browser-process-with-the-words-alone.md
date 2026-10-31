@@ -141,7 +141,10 @@ line at the window's foot.
 - The short answer at the top of All waits on the model (707, ADR 0081).
   Nothing stands in its place.
 - The Answer, Sites, Images, Videos and News tabs are drawn, disabled, and
-  claim nothing; *More sites ›* likewise. A site's favicon is not fetched —
+  claim nothing; *More sites ›* likewise. *(Since built: the row of images,
+  the Images tab, the Sites tab and More sites ›, by queue items 743 and
+  744 — what a search's images cost and where their pictures come from is
+  ADR 0086.)* A site's favicon is not fetched —
   it would be one more request to Brave per result, of a picture — so a site
   shows its letter on one of four tints. Queued: images (743), the Sites tab
   and *More sites ›* (744), Videos (745), News (746), a site's own mark

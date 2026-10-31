@@ -32,7 +32,9 @@ use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
 use alo_renderer::panel::{Chat, Doing, Panel};
-use alo_renderer::results::{Found, Results, SetUp, Showing};
+use alo_renderer::results::{
+    Found, Images, LARGEST_THUMBNAIL, MOST_IMAGES, Pictured, Results, SetUp, Showing, Tab,
+};
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
 use alo_renderer::start::{KeptSite, Start, Waiting};
 use alo_renderer::strip::LONGEST_TITLE;
@@ -234,9 +236,9 @@ fn a_searchs_results_survive_the_crossing() {
     let messages = vec![
         // Strangers' strings in every field.
         ToRenderer::Start(Box::new(Start {
-            turns: vec![Turn::Searched(Results {
-                said: "</p><script>".to_owned(),
-                showing: Showing::Found(vec![
+            turns: vec![Turn::Searched(Results::of(
+                "</p><script>".to_owned(),
+                Showing::Found(vec![
                     Found::new(
                         "<b>Fish &amp; chips</b>\0",
                         alo_url::parse("https://fish.example/a?b#c")
@@ -245,7 +247,7 @@ fn a_searchs_results_survive_the_crossing() {
                     )
                     .named("Fish\u{202e}"),
                 ]),
-            })],
+            ))],
             search: SetUp::Ready,
             ..Start::default()
         })),
@@ -254,12 +256,10 @@ fn a_searchs_results_survive_the_crossing() {
             ..Start::default()
         })),
         ToRenderer::Start(Box::new(Start {
-            turns: vec![Turn::Searched(Results {
-                said: "x".to_owned(),
-                showing: Showing::Unanswered(
-                    "Brave Search could not answer just now (500).".to_owned(),
-                ),
-            })],
+            turns: vec![Turn::Searched(Results::of(
+                "x".to_owned(),
+                Showing::Unanswered("Brave Search could not answer just now (500).".to_owned()),
+            ))],
             ..Start::default()
         })),
     ];
@@ -594,6 +594,11 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::SearchChats)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::HideThePanel)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::ShowThePanel)),
+        // Queue items 743 and 744.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Tab { at: 5 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::MoreSites { at: 0 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::SeeAllImages { at: 1 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Image { at: usize::MAX })),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -733,10 +738,10 @@ fn a_site_found_somewhere_not_a_site_or_too_many_is_refused() {
     let found = |written: &str, count: usize| {
         let url = alo_url::parse(written).unwrap_or_else(|_| panic!("{written} parses"));
         ToRenderer::Start(Box::new(Start {
-            turns: vec![Turn::Searched(Results {
-                said: "x".to_owned(),
-                showing: Showing::Found(vec![Found::new("t", url, "d"); count]),
-            })],
+            turns: vec![Turn::Searched(Results::of(
+                "x".to_owned(),
+                Showing::Found(vec![Found::new("t", url, "d"); count]),
+            ))],
             ..Start::default()
         }))
     };
@@ -758,6 +763,148 @@ fn a_site_found_somewhere_not_a_site_or_too_many_is_refused() {
         assert!(why.contains(refusal), "{why:?}");
     }
     assert!(read_to_renderer(&write_to_renderer(&found("https://example.com/", 20))).is_ok());
+}
+
+/// Queue items 743 and 744: a search's images — asked, found with and
+/// without thumbnails, not answered — and the tab shown cross as they were
+/// sent.
+#[test]
+fn a_searchs_images_and_tab_survive_the_crossing() {
+    let site = |written: &str| alo_url::parse(written).unwrap_or_else(|_| panic!("{written}"));
+    let sites = || Showing::Found(vec![Found::new("t", site("https://a.example/"), "d")]);
+    let found = Images::Found(vec![
+        Pictured::new(
+            "</a><img src=x>\u{202e}",
+            site("https://p.example/a"),
+            "p.example",
+        )
+        .holding(b"\x89PNG\r\n\x1a\nand the rest".to_vec()),
+        Pictured::new("no picture", site("http://q.example/"), ""),
+        Pictured::new("a JPEG", site("https://r.example/"), "r").holding(vec![0xff, 0xd8, 0xff, 0]),
+    ]);
+    for results in [
+        Results::of("x", sites()).with_images(Images::Asking),
+        Results::of("x", sites()).with_images(found.clone()),
+        Results::of("x", sites()).with_images(found).on(Tab::Images),
+        Results::of("x", sites()).on(Tab::Sites),
+        Results::of("x", sites())
+            .with_images(Images::Unanswered(
+                "Brave Search could not answer (503).".to_owned(),
+            ))
+            .on(Tab::Images),
+    ] {
+        let original = ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Searched(results)],
+            ..Start::default()
+        }));
+        let back = read_to_renderer(&write_to_renderer(&original))
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+}
+
+/// Queue item 743: an image is drawn only for a page at a site's address,
+/// no more than one search holds, each thumbnail a picture this engine
+/// reads and no larger than a thumbnail is, all of them within one first
+/// screen's budget; and a tab is shown only when it can be (744).
+#[test]
+fn images_that_should_not_be_drawn_are_refused() {
+    let site = |written: &str| alo_url::parse(written).unwrap_or_else(|_| panic!("{written}"));
+    let sending = |results: Results| {
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Searched(results)],
+            ..Start::default()
+        }))
+    };
+    let png = |bytes: usize| {
+        let mut picture = b"\x89PNG\r\n\x1a\n".to_vec();
+        picture.resize(bytes, 0);
+        picture
+    };
+    let with = |images: Vec<Pictured>| {
+        sending(
+            Results::of(
+                "x",
+                Showing::Found(vec![Found::new("t", site("https://a.example/"), "")]),
+            )
+            .with_images(Images::Found(images))
+            .on(Tab::Images),
+        )
+    };
+    let one =
+        |page: &str, picture: Vec<u8>| vec![Pictured::new("t", site(page), "").holding(picture)];
+    for (message, refusal) in [
+        (with(one("javascript:x()", png(20))), "not a site's"),
+        (
+            with(one("https://p.example/", b"<svg>".to_vec())),
+            "not a picture",
+        ),
+        (
+            with(one("https://p.example/", png(LARGEST_THUMBNAIL + 1))),
+            "at most 262144",
+        ),
+        (
+            with(vec![
+                Pictured::new("t", site("https://p.example/"), "");
+                MOST_IMAGES + 1
+            ]),
+            "at most 20",
+        ),
+        (
+            sending(
+                Results::of(
+                    "x",
+                    Showing::Found(vec![Found::new("t", site("https://a.example/"), "")]),
+                )
+                .on(Tab::Images),
+            ),
+            "which they cannot be",
+        ),
+        (
+            sending(Results::searching("x").on(Tab::Sites)),
+            "which they cannot be",
+        ),
+    ] {
+        let why = read_to_renderer(&write_to_renderer(&message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains(refusal), "{refusal}: {why:?}");
+    }
+    // Two searches of twenty thumbnails at the largest are more than one
+    // first screen carries.
+    let heavy = || {
+        Turn::Searched(
+            Results::of(
+                "x",
+                Showing::Found(vec![Found::new("t", site("https://a.example/"), "")]),
+            )
+            .with_images(Images::Found(
+                (0..MOST_IMAGES)
+                    .map(|_| {
+                        Pictured::new("t", site("https://p.example/"), "")
+                            .holding(png(LARGEST_THUMBNAIL))
+                    })
+                    .collect(),
+            ))
+            .on(Tab::Images),
+        )
+    };
+    let flood = ToRenderer::Start(Box::new(Start {
+        turns: vec![heavy()],
+        ..Start::default()
+    }));
+    let why = read_to_renderer(&write_to_renderer(&flood))
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("bytes of pictures"), "{why:?}");
+    // Within the budget, as the browser process trims it, it crosses.
+    let trimmed = ToRenderer::Start(Box::new(Start {
+        turns: alo_renderer::results::within_budget(&[heavy(), heavy()]),
+        ..Start::default()
+    }));
+    assert!(read_to_renderer(&write_to_renderer(&trimmed)).is_ok());
 }
 
 // --- What a hostile renderer can put on the pipe -----------------------------

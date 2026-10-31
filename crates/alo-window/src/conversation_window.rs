@@ -71,7 +71,7 @@ use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::ConversationScene;
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use crate::conversation_place::{ConversationPlacement, panel_viewport_as, start_viewport_as};
-use crate::conversation_search::{Searched, Searcher};
+use crate::conversation_search::{Came, Searched, Searcher};
 use crate::keys::{Held, Press};
 use crate::scale::Scale;
 use crate::typing;
@@ -503,7 +503,10 @@ impl ConversationWindow {
             self.panel_said = Some(told.clone());
         }
         self.redraw = true;
-        let go = matches!(pressed, Decided::Go | Decided::Found(_) | Decided::Offer(_));
+        let go = matches!(
+            pressed,
+            Decided::Go | Decided::Found(_) | Decided::Offer(_) | Decided::Image(_)
+        );
         let had_a_card = self.conversation.card().is_some();
         self.card_pressed(&pressed);
         if self.conversation.act(pressed) {
@@ -555,23 +558,29 @@ impl ConversationWindow {
     }
 
     /// What came of a search: shown when it is the newest, and the first
-    /// screen's line saying so.
+    /// screen's line saying so. Its images (queue item 743) are drawn when
+    /// they come, the line left saying what the sites came to.
     fn searched(&mut self, searched: Searched) {
-        let line = match &searched.showing {
-            Showing::Found(found) if found.is_empty() => format!(
-                "{PROVIDER} found no sites for \u{201c}{}\u{201d}",
-                searched.words
-            ),
-            Showing::Found(found) => format!(
-                "{PROVIDER} found {} sites for \u{201c}{}\u{201d}",
-                found.len(),
-                searched.words
-            ),
-            Showing::Unanswered(why) => why.clone(),
-            Showing::Searching => return,
+        let line = match &searched.came {
+            Came::Sites { showing, .. } => match showing {
+                Showing::Found(found) if found.is_empty() => Some(format!(
+                    "{PROVIDER} found no sites for \u{201c}{}\u{201d}",
+                    searched.words
+                )),
+                Showing::Found(found) => Some(format!(
+                    "{PROVIDER} found {} sites for \u{201c}{}\u{201d}",
+                    found.len(),
+                    searched.words
+                )),
+                Showing::Unanswered(why) => Some(why.clone()),
+                Showing::Searching => return,
+            },
+            Came::Images(_) => None,
         };
         if self.conversation.searched(searched) {
-            self.start_said = Some(line);
+            if let Some(line) = line {
+                self.start_said = Some(line);
+            }
             self.ask_drawn();
         }
     }
@@ -1055,11 +1064,11 @@ mod tests {
             window.scene().and_then(|scene| scene.start_sentence),
             Some("searching Brave Search for \u{201c}what is x\u{201d}")
         );
-        window.heard(Heard::Searched(Searched {
-            number: 1,
-            words: "what is x".to_owned(),
-            showing: Showing::Unanswered(crate::brave_search::unanswered(429)),
-        }));
+        window.heard(Heard::Searched(Searched::sites(
+            1,
+            "what is x",
+            Showing::Unanswered(crate::brave_search::unanswered(429)),
+        )));
         assert_eq!(
             window.scene().and_then(|scene| scene.start_sentence),
             Some(crate::brave_search::unanswered(429).as_str())

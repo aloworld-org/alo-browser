@@ -99,7 +99,7 @@
 use crate::conversation_box::{TheBox, Typed};
 use crate::conversation_find::FindChats;
 use crate::conversation_place::Side;
-use crate::conversation_search::Searched;
+use crate::conversation_search::{Came, Searched};
 use crate::conversation_thread::Thread;
 use crate::scale::Scale;
 use crate::typing::Edit;
@@ -239,6 +239,17 @@ impl Conversation {
             found: self.thread().map(Thread::links).unwrap_or_default(),
             offers: self.the_box.offers(),
             hidden: self.hidden,
+            tabs: self
+                .on_this_chat(Thread::tabs)
+                .into_iter()
+                .map(|(id, (turn, tab))| (id, turn, tab))
+                .collect(),
+            more: self.on_this_chat(Thread::more_sites),
+            see_all: self.on_this_chat(Thread::see_all),
+            pictured: self
+                .thread()
+                .map(Thread::pictured_pages)
+                .unwrap_or_default(),
         }
     }
 
@@ -288,6 +299,21 @@ impl Conversation {
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
+            }
+            // An image opens its page as a site's title does (queue item
+            // 743); a tab, or *More sites ›* or *See all images*, shows
+            // that tab of the search pressed (743, 744).
+            Pressed::Image(url) => {
+                self.choose_image(url.clone());
+                changed
+            }
+            Pressed::Tab { chat, turn, tab } => {
+                let shown = self
+                    .threads
+                    .iter_mut()
+                    .find(|(each, _)| each == chat)
+                    .is_some_and(|(_, thread)| thread.show_tab(*turn, *tab));
+                shown || changed
             }
             Pressed::NewChat => {
                 self.new_chat();
@@ -372,20 +398,39 @@ impl Conversation {
                 Some(Results {
                     said,
                     showing: results::Showing::Searching,
+                    ..
                 }),
             ) => Some((self.searches, said.as_str())),
             _ => None,
         }
     }
 
-    /// What came of a search: shown, if it is the newest and its results
-    /// are still shown. Whether the first screen shows something else.
+    /// What came of a search: its sites shown, if it is the newest and its
+    /// results are still shown; its images (queue item 743) shown in the
+    /// turn still asking for them, of any chat, whichever search is newest,
+    /// since a turn asking would otherwise ask for ever. Whether the first
+    /// screen shows something else.
     pub fn searched(&mut self, searched: Searched) -> bool {
-        if searched.number != self.searches {
-            return false;
+        match searched.came {
+            Came::Sites { showing, images } => {
+                if searched.number != self.searches {
+                    return false;
+                }
+                self.thread_mut()
+                    .is_some_and(|thread| thread.searched(&searched.words, showing, images))
+            }
+            Came::Images(images) => {
+                let on_screen = self.on_screen();
+                let mut shown = false;
+                for (id, thread) in &mut self.threads {
+                    if thread.pictured(&searched.words, images.clone()) {
+                        shown = shown || Some(*id) == on_screen;
+                        break;
+                    }
+                }
+                shown
+            }
         }
-        self.thread_mut()
-            .is_some_and(|thread| thread.searched(&searched.words, searched.showing))
     }
 
     /// The newest search's results in the chat on screen, if a turn holds
@@ -401,6 +446,16 @@ impl Conversation {
     /// for the page.
     pub fn choose_found(&mut self, url: alo_url::Url) {
         if let Some(said) = self.thread().and_then(|thread| thread.said_for(&url)) {
+            self.said = said;
+        }
+        self.chosen = Some(Offer::Go(url));
+    }
+
+    /// A person pressed an image found on the page at `url` (queue item
+    /// 743): its page is chosen as a site's title's is, and opens as a new
+    /// turn whose bubble is the image's title.
+    pub fn choose_image(&mut self, url: alo_url::Url) {
+        if let Some(said) = self.thread().and_then(|thread| thread.said_for_image(&url)) {
             self.said = said;
         }
         self.chosen = Some(Offer::Go(url));
@@ -457,6 +512,15 @@ impl Conversation {
             .map(|(_, thread)| thread)
     }
 
+    /// What `of` lists of the chat on screen's turns, each named with the
+    /// chat: what a press on a tab is decided against (queue item 744).
+    fn on_this_chat<T>(&self, of: impl Fn(&Thread) -> Vec<T>) -> Vec<(ChatId, T)> {
+        match (self.on_screen(), self.thread()) {
+            (Some(id), Some(thread)) => of(thread).into_iter().map(|each| (id, each)).collect(),
+            _ => Vec::new(),
+        }
+    }
+
     /// The turns of the chat on screen, to change.
     fn thread_mut(&mut self) -> Option<&mut Thread> {
         let id = self.on_screen()?;
@@ -491,9 +555,11 @@ impl Conversation {
             typed: self.the_box.typed().to_owned(),
             focused: self.the_box.focused(),
             offers: self.the_box.offers(),
+            // Only the pictures each tab draws, the newest turns' first,
+            // within the first screen's budget (queue item 743).
             turns: self
                 .thread()
-                .map(|thread| thread.turns().to_vec())
+                .map(|thread| results::within_budget(thread.turns()))
                 .unwrap_or_default(),
             down: self.thread().map_or(0.0, Thread::down),
             search: self.search.clone(),
@@ -920,6 +986,83 @@ mod tests {
     }
 
     #[test]
+    fn a_searchs_images_a_tab_and_an_image_are_pressed_as_the_browser_holds_them() {
+        use alo_renderer::results::{Images, Pictured, Tab};
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "ev");
+        let _ = conversation.edit(Edit::Choose);
+        let chat = conversation.on_screen().unwrap();
+        let sites = Searched {
+            number: 1,
+            words: "ev".to_owned(),
+            came: Came::Sites {
+                showing: results::Showing::Found(vec![found("https://one.example/"); 4]),
+                images: Images::Asking,
+            },
+        };
+        assert!(conversation.searched(sites));
+        let pictures: Vec<Pictured> = (0..6)
+            .map(|n| {
+                Pictured::new(
+                    format!("Picture {n}"),
+                    alo_url::parse(&format!("https://p{n}.example/")).unwrap(),
+                    "",
+                )
+                .holding(vec![0x89, b'P', b'N', b'G', n])
+            })
+            .collect();
+        // Images come for any search still asking, even once a newer one
+        // was numbered.
+        let images = Searched {
+            number: 7,
+            words: "ev".to_owned(),
+            came: Came::Images(Images::Found(pictures)),
+        };
+        assert!(conversation.searched(images));
+        let shown = conversation.showing();
+        assert_eq!(
+            shown.tabs,
+            vec![
+                (chat, 0, Tab::All),
+                (chat, 0, Tab::Sites),
+                (chat, 0, Tab::Images)
+            ]
+        );
+        assert_eq!(shown.more, vec![(chat, 0)]);
+        assert_eq!(shown.see_all, vec![(chat, 0)]);
+        assert_eq!(shown.pictured.len(), 5);
+        // Only the five pictures All draws are sent.
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        let Some(Turn::Searched(sent)) = start.turns.first() else {
+            panic!("no search sent");
+        };
+        assert_eq!(sent.picture_bytes(), 25);
+        // A tab pressed shows it; an image pressed opens its page with its
+        // title as what was said.
+        assert!(conversation.act(Pressed::Tab {
+            chat,
+            turn: 0,
+            tab: Tab::Images
+        }));
+        assert_eq!(conversation.showing().pictured.len(), 6);
+        let page = alo_url::parse("https://p5.example/").unwrap();
+        let _ = conversation.act(Pressed::Image(page.clone()));
+        assert_eq!(conversation.going(), Some(&page));
+        conversation.open_card(page);
+        assert_eq!(
+            conversation.card().map(|card| card.said.as_str()),
+            Some("Picture 5")
+        );
+        assert!(!conversation.act(Pressed::Tab {
+            chat: ChatId(99),
+            turn: 0,
+            tab: Tab::All
+        }));
+    }
+
+    #[test]
     fn a_search_set_up_shows_its_results_under_what_was_said_and_empties_the_box() {
         let mut conversation = Conversation::default();
         conversation.set_search(SetUp::Ready);
@@ -938,15 +1081,17 @@ mod tests {
         );
         assert_eq!(conversation.searching(), Some((1, "ev charger")));
         // An older search's answer is not shown; the newest's is.
-        let answer = |number| Searched {
-            number,
-            words: "ev charger".to_owned(),
-            showing: results::Showing::Found(vec![
-                found("https://one.example/"),
-                found("https://two.example/"),
-                found("https://three.example/"),
-                found("https://four.example/"),
-            ]),
+        let answer = |number| {
+            Searched::sites(
+                number,
+                "ev charger",
+                results::Showing::Found(vec![
+                    found("https://one.example/"),
+                    found("https://two.example/"),
+                    found("https://three.example/"),
+                    found("https://four.example/"),
+                ]),
+            )
         };
         assert!(!conversation.searched(answer(0)));
         assert!(conversation.searched(answer(1)));

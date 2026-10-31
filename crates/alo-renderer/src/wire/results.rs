@@ -13,9 +13,22 @@
 //! address is read back with the URL parser and refused unless it is a
 //! site's, so a renderer is never told to draw a link to anything else, and
 //! more sites than [`MOST_FOUND`] are refused.
+//!
+//! Then where the search for images is (queue item 743), by a closed list
+//! of tags: each image's title and site as text, the page it was found on
+//! refused unless it is a site's, and its thumbnail, if one is sent,
+//! refused larger than [`LARGEST_THUMBNAIL`] or unless its bytes begin as a
+//! picture this engine reads — decoded, in this confined process, only by
+//! the picture readers every `<img>` goes through; more images than
+//! [`MOST_IMAGES`] are refused. Then the tab shown (744), by a tag, refused
+//! unless it can be chosen ([`Results::open`]).
 
 use super::{Reader, Unreadable, Writer, unreadable};
-use crate::results::{Found, MOST_FOUND, Results, SetUp, Showing};
+use crate::results::{
+    Found, Images, LARGEST_THUMBNAIL, MOST_FOUND, MOST_IMAGES, Pictured, Results, SetUp, Showing,
+    Tab,
+};
+use alo_paint::picture::Format;
 
 impl Writer {
     /// Whether searching is set up, and why not.
@@ -46,6 +59,40 @@ impl Writer {
             }
             Showing::Unanswered(why) => {
                 self.tag(2);
+                self.text(why);
+            }
+        }
+        self.images(&results.images);
+        self.tag(match results.tab {
+            Tab::All => 0,
+            Tab::Sites => 1,
+            Tab::Images => 2,
+        });
+    }
+
+    /// Where a search for images is, and each image found.
+    fn images(&mut self, images: &Images) {
+        match images {
+            Images::NotAsked => self.tag(0),
+            Images::Asking => self.tag(1),
+            Images::Found(found) => {
+                self.tag(2);
+                self.number(found.len() as u64);
+                for image in found {
+                    self.text(&image.title);
+                    self.text(&image.page.serialised);
+                    self.text(&image.source);
+                    match &image.picture {
+                        Some(bytes) => {
+                            self.bool(true);
+                            self.bytes(bytes);
+                        }
+                        None => self.bool(false),
+                    }
+                }
+            }
+            Images::Unanswered(why) => {
+                self.tag(3);
                 self.text(why);
             }
         }
@@ -98,6 +145,77 @@ impl Reader<'_> {
             2 => Showing::Unanswered(self.text()?),
             other => return Err(unreadable(format!("results tagged {other}"))),
         };
-        Ok(Results { said, showing })
+        let images = self.images()?;
+        let tab = match self.tag()? {
+            0 => Tab::All,
+            1 => Tab::Sites,
+            2 => Tab::Images,
+            other => return Err(unreadable(format!("results shown on a tab tagged {other}"))),
+        };
+        let results = Results {
+            said,
+            showing,
+            images,
+            tab,
+        };
+        if !results.open(tab) {
+            return Err(unreadable(format!(
+                "results shown on {tab:?}, which they cannot be"
+            )));
+        }
+        Ok(results)
+    }
+
+    /// Where a search for images is, as [`Writer::images`] wrote it.
+    fn images(&mut self) -> Result<Images, Unreadable> {
+        Ok(match self.tag()? {
+            0 => Images::NotAsked,
+            1 => Images::Asking,
+            2 => {
+                let count = self.count()?;
+                if count > MOST_IMAGES {
+                    return Err(unreadable(format!(
+                        "{count} images found, and at most {MOST_IMAGES} are shown"
+                    )));
+                }
+                let mut found = Vec::with_capacity(count);
+                for _ in 0..count {
+                    let title = self.text()?;
+                    let written = self.text()?;
+                    let page = alo_url::parse(&written)
+                        .ok()
+                        .filter(|url| matches!(url.scheme.as_str(), "http" | "https"))
+                        .ok_or_else(|| {
+                            unreadable("an image found on a page that is not a site's")
+                        })?;
+                    let source = self.text()?;
+                    let picture = if self.bool()? {
+                        let bytes = self.bytes()?;
+                        if bytes.len() > LARGEST_THUMBNAIL {
+                            return Err(unreadable(format!(
+                                "a thumbnail of {} bytes, and at most {LARGEST_THUMBNAIL} are \
+                                 drawn",
+                                bytes.len()
+                            )));
+                        }
+                        if Format::of(&bytes).is_none() {
+                            return Err(unreadable("a thumbnail that is not a picture"));
+                        }
+                        Some(bytes)
+                    } else {
+                        None
+                    };
+                    found.push(Pictured {
+                        title,
+                        page,
+                        source,
+                        picture,
+                    });
+                }
+                Images::Found(found)
+            }
+            3 => Images::Unanswered(self.text()?),
+            other => return Err(unreadable(format!("images tagged {other}"))),
+        })
     }
 }

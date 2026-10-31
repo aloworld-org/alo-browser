@@ -282,6 +282,12 @@ impl Holding {
                 asked.showing.card,
                 asked.showing.found.clone(),
                 asked.showing.offers.clone(),
+                (
+                    asked.showing.tabs.clone(),
+                    asked.showing.more.clone(),
+                    asked.showing.see_all.clone(),
+                    asked.showing.pictured.clone(),
+                ),
             )
         };
         if last.as_ref().map(start_of) != Some(start_of(&asked)) {
@@ -300,6 +306,13 @@ impl Holding {
                 // And what it offered for what was typed, which a press
                 // claims by place (queue item 714).
                 self.painted.offers.clone_from(&asked.showing.offers);
+                // And the search results' open tabs, *More sites ›*, *See
+                // all images* and images, each claimed by place (queue
+                // items 743, 744).
+                self.painted.tabs.clone_from(&asked.showing.tabs);
+                self.painted.more.clone_from(&asked.showing.more);
+                self.painted.see_all.clone_from(&asked.showing.see_all);
+                self.painted.pictured.clone_from(&asked.showing.pictured);
                 // How far the turns painted reach, for a person's wheel, and
                 // how far they were scrolled (queue item 703) — told before
                 // the frame, so the window aims a press on it by the offset

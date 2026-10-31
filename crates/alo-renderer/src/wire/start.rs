@@ -26,11 +26,14 @@
 //! picture readers every `<img>` goes through — and refused anywhere but
 //! as the newest turn, since one page is open at a time; a page shown
 //! earlier, its address refused unless it is a site's; and a failure, in
-//! words. Then how far the conversation is scrolled, a finite number.
+//! words. A search's thumbnails together weigh at most
+//! [`MOST_PICTURE_BYTES`] (queue item 743). Then how far the conversation
+//! is scrolled, a finite number.
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::card::Card;
 use crate::conversation_scroll::MOST;
+use crate::results::MOST_PICTURE_BYTES;
 use crate::start::{KeptSite, Start, Waiting};
 use crate::turn::{MOST_TURNS, Turn};
 use crate::typed::Offer;
@@ -191,6 +194,19 @@ impl Reader<'_> {
                 other => return Err(unreadable(format!("a turn tagged {other}"))),
             };
             turns.push(turn);
+        }
+        let pictures: usize = turns
+            .iter()
+            .map(|turn| match turn {
+                Turn::Searched(results) => results.picture_bytes(),
+                _ => 0,
+            })
+            .sum();
+        if pictures > MOST_PICTURE_BYTES {
+            return Err(unreadable(format!(
+                "a first screen of {pictures} bytes of pictures, and at most \
+                 {MOST_PICTURE_BYTES} are drawn"
+            )));
         }
         let down = self.float()?;
         if down.abs() > MOST {

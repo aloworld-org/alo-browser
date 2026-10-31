@@ -20505,7 +20505,7 @@ What stage 2's exit gate actually measures: a person using it.
   *rust borrow checker* drew three sites; a title pressed opened the card
   at its address, though the page (`www.reddit.com`) never drew (749).
 
-- [ ] **743. The row of images on All, and the Images tab.** Cut from 708.
+- [x] **743. The row of images on All, and the Images tab.** Cut from 708.
   Brave's image search (`/res/v1/images/search`, the same words alone),
   asked by the browser process; on All a row of five under the sites with
   *See all images*, and the Images tab a grid. Each thumbnail is a picture
@@ -20513,12 +20513,134 @@ What stage 2's exit gate actually measures: a person using it.
   every `<img>` is; what each costs per search, and whether a thumbnail
   comes from Brave's proxy or the site, decided in the ADR the item opens
   with. *Depends on 708.*
+  ***Built (iteration 468), with 744 — ticked once the gate was met (STATE, iteration 468); decided in ADR 0086; scope cut to 761
+  and 762; found 763.*** **Cost:** the image search is a second paid
+  request, asked only once the web search has found a site and only when
+  no newer search waits (`conversation_search.rs`); one request serves the
+  row and the grid. **Pictures:** only from Brave's own proxy
+  (`imgs.search.brave.com`; a test's provider names its own,
+  `Provider::with_images`) — `properties.url`, the site's own picture, is
+  never read — fetched by the browser process on the search's thread
+  (`search_thumbnails.rs`) with `Accept: image/*` and no key, cookie or
+  `Referer`, no redirect followed, at most twenty of at most 256 KiB, and
+  only bytes that begin as a picture this engine reads; never decoded
+  there. Sent to the first screen's renderer as data under names of ours
+  (`alo:thumbnail-TURN-IMAGE`, `images_document::pictures`) and decoded
+  there by the picture readers every `<img>` goes through; only the
+  pictures the tab draws, and at most 2 MiB per first screen, newest turns
+  first (`results::within_budget`), the wire refusing more, a thumbnail
+  over 256 KiB, one not a picture, more than twenty images, and an image
+  on a page that is not a site's. Brave's image answer read in
+  `search_protocol.rs` (`read_images`): refused whole by name
+  (`NotImages`, `NoResults`, `ResultsNotAList`, size and nesting), an image
+  with no title or page, or a page not a site's, left out and named; a
+  thumbnail not at a site's address leaves it pictureless. **Drawn**
+  (`images_document.rs`, `start.css`): All's row 20 under the sites —
+  *IMAGES* and *See all images*, five tiles 168 × 84, 10 apart — then *More
+  sites ›*; the Images tab a grid of four 208-wide cells, tiles 150 tall,
+  each title and site under it. A picture is laid out the tile's width at
+  its own proportions, centred and clipped (no `object-fit` in the engine);
+  with none, the tile holds the title; one that does not decode is the
+  tile's colour. The canvas's *Photos*/*Diagrams* filters are not drawn:
+  Brave does not say which an image is. **Pressed:** an image, in the row or
+  the grid, claimed by its place among the images drawn (`Claim::Image`,
+  wire tag 20) and decided against what was painted (`Shown::pictured`,
+  `Decided::Image`), opens its page in the card as a title does, its bubble
+  the image's title; *See all images* (`Claim::SeeAllImages`, tag 19)
+  opens the Images tab. **Tests:**
+  `alo-renderer/tests/a_searchs_images_and_sites.rs` — the row at (80, 454)
+  880 × 110, tiles at 80, 258, 436, 614, 792, a 4:3 picture 168 × 126 at
+  459, 2:1 the tile, a square 168 at 438, undecodable bytes 0 tall and said
+  as one issue, *More sites ›* at 584; the grid (80, 164) 880 × 408, cells
+  208 × 194 at 80/304/528/752 and 164/378, pictures 208 × 156 at 161 and
+  208 × 104 at 187; the Sites tab's six sites 74 tall at 168 + 96n;
+  references `all-tab-with-images.png`, `images-tab.png`, `sites-tab.png`,
+  each looked at, then run without update mode; pixels of each picture,
+  its band at the tile's middle and the tile's colour where none decodes;
+  the agent reading a region *Images*, links named by titles, the open tabs
+  not disabled; a hostile title as text; every press claimed by place, a
+  disabled tab and the gap between tiles nothing; the same drawn by a
+  confined renderer. `alo-window/tests/a_searchs_thumbnails_fetched_and_bounded.rs`:
+  thirty images against a local proxy — twenty kept, a picture kept as it
+  arrived, one over 256 KiB, one not a picture, a 404 and a 302 left out
+  and named, undecodable bytes kept (only the renderer decodes), one named
+  at another server never asked, nor the server a redirect pointed at, and
+  every thumbnail asked with `Accept: image/*` and no key, cookie or
+  `Referer`. Unit tests of the image answer (malformed, truncated at every
+  byte, too deep, too large, sixty kept as twenty), the request (the words
+  alone, the key in its header), the budget, the tabs, the thread, the
+  conversation, the decision and the wire.
 
-- [ ] **744. The Sites tab, and *More sites ›*.** Cut from 708. The tab
+- [x] **744. The Sites tab, and *More sites ›*.** Cut from 708. The tab
   shows every site of the search, not only All's three, and *More sites ›*
   opens it; a further page is asked only when Brave says more are
   available (`query.more_results_available`, `offset`). The tab row's
   press becomes a claim (*All* back too). *Depends on 708.*
+  ***Built (iteration 468), with 743 — ticked once the gate was met (STATE, iteration 468); ADR 0086 § 1; the further page cut to
+  761.*** The Sites tab is every site the web search returned — Brave's
+  default and most, twenty, so no `count` is sent and nothing more is paid
+  — each drawn as All draws its three. A turn's tab is the browser
+  process's, kept with its results (`results::Tab`, wire-tagged and
+  refused unless it can be chosen: Sites once sites were found, Images
+  once images were asked for). Every open tab is of the class `rt` (`rt
+  on` when shown), a disabled one `rt off`, so a press is claimed by its
+  place among the open tabs drawn (`Claim::Tab`, tag 17) and decided
+  against the chat, turn and tab painted (`Shown::tabs`, `Decided::Tab`) —
+  *All* back too; *More sites ›* (`Claim::MoreSites`, tag 18) opens the
+  Sites tab. What each list holds is computed once, in `alo-renderer`
+  (`Results::open_tabs`, `draws_more_sites`, `draws_see_all`,
+  `drawn_sites`, `drawn_images`), and read by both the document and the
+  browser process. Answer, Videos and News stay disabled. Through the
+  window's own road, `alo-window/tests/images_and_sites_pressed_in_the_window.rs`:
+  a search against a local provider and proxy draws the sites then the
+  row, its pictures where the layout assertion puts them, the provider
+  asked the words alone twice with the key and each thumbnail without it;
+  *More sites ›* pressed shows six sites, the sixth's mark painted at 648;
+  the Images tab pressed paints the grid; the second image pressed opens
+  its page as a turn whose bubble is `A <b>wall</b> charger & its cable`
+  — markup as its characters — and, with no Chromium, says why. Without
+  the drawing thread keeping the painted tabs, *More sites ›* is refused
+  as *0 were shown*. Existing assertions moved: All's Sites tab is open
+  and *More sites ›* enabled and claimed (`a_searchs_results_on_the_all_tab.rs`).
+
+- [ ] **761. The Sites tab's further pages.** Cut from 744. The canvas's
+  *Show more sites* under the Sites tab: when Brave's answer says
+  `query.more_results_available`, a press asks `offset` 1 (then 2, at most
+  9) of the same words — a third paid request per press (ADR 0086 § 1) —
+  and appends what comes, each site drawn as the rest. Needs the answer's
+  `more_results_available` read, the thread's work to carry an offset, and
+  a turn's sites to grow past twenty. *Depends on 744.*
+
+- [ ] **762. A response's body bounded per request in `alo-net`.** Cut
+  from 743 (ADR 0086 § 3). A thumbnail is read whole by `alo-net` — up to
+  its own most and the pool's patience — before it can be weighed against
+  256 KiB. A request should be able to say the most it will read, so a
+  proxy answering a gigabyte is cut at the bound, not after it. *Depends
+  on nothing.*
+
+- [ ] **763. A press on a relatively positioned box in the conversation
+  finds the box behind it.** Found by 743: a tile of the row with
+  `position: relative` — inside the conversation's thread, which is
+  `position: relative; z-index: 0; overflow: hidden`, inside a grid — was
+  not found by `hit::element_at`; the press landed on the grid behind it,
+  with or without the tile's own `overflow: hidden`. Not yet reduced to a
+  page of its own; perhaps the hit test's walk of a stacking context's
+  positioned descendants, or the turns' `top` offset. The tiles are not
+  positioned. *Closes when:* a reduced case in `where_a_pointer_falls.rs`
+  and the hit test fixed. *Depends on nothing.*
+
+- [ ] **764. A marked-box test that reads the page wherever the capture
+  grows.** Found by 743's gate: `tests/marked/mod.rs` finds the page's
+  origin in `screencapture -l`'s picture once, from the first capture.
+  With the pointer resting over the page's *Onward* link, Chrome shows its
+  link status bubble, a child window 1 pt outside the window's frame, and
+  the capture grows by two device pixels on the left and at the foot, so
+  every later sample is two pixels off and *the page … never seen*. Find
+  the origin in every capture (from the window's own bounds within its
+  child windows' union), never by widening a tolerance, or move the
+  pointer off the window before the test begins. *Closes when:* both
+  marked-box tests pass with the pointer resting on the link.
+  *Depends on nothing.*
 
 - [ ] **745. The Videos tab.** Cut from 708. Brave's video search
   (`/res/v1/videos/search`), the words alone; each video its picture,

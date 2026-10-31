@@ -619,3 +619,142 @@ a {
   line-height: 23px;
   color: var(--quiet);
 }
+
+/* All's row of images (queue item 743, the canvas's `.imh` and `.imgs`):
+   20 under the sites, a heading of 11.5 in capitals and See all images,
+   8 over five tiles 84 tall, 10 apart, each rounded 10 in #e9e3d8. A
+   picture fills its tile's width at its own proportions, centred up and
+   down and clipped by the tile; with none, the image's title stands in it
+   in quiet words of 11.5 on 15. */
+.imh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.imn {
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b655c;
+}
+
+.seeall {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.imgs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  column-gap: 10px;
+}
+
+.im {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 84px;
+  padding: 0 12px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #e9e3d8;
+  color: var(--quiet);
+  font-size: 11.5px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.im.held {
+  padding: 0;
+}
+
+/* The title of an image whose picture is drawn: its name to an agent, and
+   not drawn — a clear pixel at the tile's left edge that takes no room.
+   The tile is not positioned: a press on a relatively positioned box in
+   the conversation finds the box behind it (queue item 763). */
+.sr {
+  flex-shrink: 0;
+  width: 1px;
+  height: 1px;
+  margin-right: -1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.thumb {
+  display: block;
+  flex-shrink: 0;
+  width: 100%;
+  height: auto;
+}
+
+/* The Images tab's grid (the canvas's `.grid`): four columns, 16 apart
+   and 20 between rows; each tile 150 tall, rounded 10, then its title of
+   13 on 18, 500, on one line, and its site of 12 in quiet words with its
+   mark 14 square. The canvas's filters (Photos, Diagrams) are not drawn:
+   the provider does not say which an image is. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 20px;
+}
+
+.pic {
+  display: block;
+  min-width: 0;
+  color: var(--ink);
+}
+
+.img {
+  display: flex;
+  align-items: center;
+  height: 150px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #e9e3d8;
+}
+
+.cap {
+  margin-top: 8px;
+}
+
+.ct {
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs {
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--quiet);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.fav.small {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  font-size: 8px;
+  line-height: 14px;
+}

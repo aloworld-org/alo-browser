@@ -47,8 +47,11 @@
 //!
 //! A search's results (queue item 708) are pressed the same way: a site's
 //! title is claimed by its place among the titles drawn, and nothing else
-//! of them — its name, address, description, the tabs, *More sites ›* —
-//! claims anything. A conversation of many turns (queue item 703) draws
+//! of a site — its name, address, description — claims anything. An open
+//! tab is claimed by its place among every open tab drawn, a disabled one
+//! claiming nothing; *More sites ›* and *See all images* each by its place
+//! among those drawn; and an image, in All's row or the Images tab's grid,
+//! by its place among every image drawn (queue items 743, 744). A conversation of many turns (queue item 703) draws
 //! every search's titles, and each page shown earlier as a link of the
 //! same class, so each is claimed by its place among all of them, in the
 //! order drawn, oldest turn first; what is scrolled out of the room is
@@ -151,6 +154,30 @@ pub enum Claim {
     HideThePanel,
     /// The rail's button that shows the panel again.
     ShowThePanel,
+    /// The open tab at this place among every open tab of the search
+    /// results drawn, counting from zero, oldest turn first (queue item
+    /// 744).
+    Tab {
+        /// Its place.
+        at: usize,
+    },
+    /// The *More sites ›* at this place among those drawn.
+    MoreSites {
+        /// Its place.
+        at: usize,
+    },
+    /// The *See all images* at this place among those drawn (queue item
+    /// 743).
+    SeeAllImages {
+        /// Its place.
+        at: usize,
+    },
+    /// The image at this place among every image drawn, in All's rows and
+    /// the Images tab's grids.
+    Image {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -173,7 +200,11 @@ impl Claim {
             | Claim::Expand
             | Claim::CloseTheCard
             | Claim::Found { .. }
-            | Claim::Offer { .. } => Part::Start,
+            | Claim::Offer { .. }
+            | Claim::Tab { .. }
+            | Claim::MoreSites { .. }
+            | Claim::SeeAllImages { .. }
+            | Claim::Image { .. } => Part::Start,
         }
     }
 }
@@ -198,6 +229,10 @@ impl fmt::Display for Claim {
             Claim::SearchChats => f.write_str("Search chats"),
             Claim::HideThePanel => f.write_str("the button that hides the panel"),
             Claim::ShowThePanel => f.write_str("the button that shows the panel"),
+            Claim::Tab { at } => write!(f, "the open tab of the results at place {at}"),
+            Claim::MoreSites { at } => write!(f, "the More sites at place {at}"),
+            Claim::SeeAllImages { at } => write!(f, "the See all images at place {at}"),
+            Claim::Image { at } => write!(f, "the image found at place {at}"),
         }
     }
 }
@@ -243,6 +278,19 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             (&["ibtn close"], Pressable::One(Claim::CloseTheCard)),
             // A site's title among a search's results (queue item 708).
             (&["title"], Pressable::Placed(|at| Claim::Found { at })),
+            // An open tab of the results, *More sites ›*, *See all images*
+            // and an image (queue items 743, 744); a disabled tab is of the
+            // class `rt off`, and claims nothing.
+            (&["rt", "rt on"], Pressable::Placed(|at| Claim::Tab { at })),
+            (&["more"], Pressable::Placed(|at| Claim::MoreSites { at })),
+            (
+                &["seeall"],
+                Pressable::Placed(|at| Claim::SeeAllImages { at }),
+            ),
+            (
+                &["im", "im held", "pic"],
+                Pressable::Placed(|at| Claim::Image { at }),
+            ),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).
             (

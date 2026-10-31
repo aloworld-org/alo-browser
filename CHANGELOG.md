@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Images in your search results, and every site.** Under the top sites,
+  the *All* tab now shows a row of five images with *See all images*, and
+  the *Images* tab shows them all as a grid, each with its title and site;
+  pressing an image opens the page it was found on. *More sites ›* and the
+  *Sites* tab show every site the search found, not only the top three, and
+  the tabs can be pressed to switch. Pictures come only from Brave's own
+  image service, never from the sites that hold them, and are checked
+  before they are shown. Answer, Videos and News are not there yet (items
+  743, 744).
 - **Press a suggestion to choose it.** The suggestions under the box —
   *Go to the site*, *Search for*, *Ask alo about* — can now be pressed, not
   only chosen with Return, and the one you press is the one chosen. While

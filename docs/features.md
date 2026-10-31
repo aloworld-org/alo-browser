@@ -865,9 +865,27 @@ The reason this exists rather than a faster fork of somebody else's engine.
   own road against a local server answering in Brave's shape
   (`tests/searching_from_the_one_box.rs`,
   `tests/a_search_result_opened_in_the_card_through_chrome.rs`). Owed: the
-  short answer at the top (707), images (743), the Sites tab and *More
-  sites ›* (744), Videos (745), News (746), a site's own mark (747), how
-  the key is carried in release (748).
+  short answer at the top (707), Videos (745), News (746), a site's own
+  mark (747), how the key is carried in release (748).
+  **Images, the Images tab and the Sites tab** (743, 744, ADR 0086): once a
+  web search finds sites, the same words alone are asked of Brave's image
+  search — a second paid request, asked only then and only when no newer
+  search waits — and each thumbnail is fetched by the browser process from
+  Brave's own image proxy alone, at most twenty of at most 256 KiB each,
+  only bytes that begin as a picture, never decoded there: the confined
+  renderer decodes them as every `<img>`, a first screen carrying at most
+  2 MiB of them. All draws a row of five under its sites with *See all
+  images*; the Images tab a grid of four columns, each tile its picture at
+  its own proportions, its title and site; the Sites tab every site found
+  (up to Brave's twenty). Open tabs, *More sites ›* and *See all images*
+  are pressed to switch, each claimed by its place; an image pressed opens
+  its page in the card. In layout assertions and three reference renders
+  (`alo-renderer/tests/a_searchs_images_and_sites.rs`), a fetch bounded
+  against a local proxy (`alo-window/tests/a_searchs_thumbnails_fetched_and_bounded.rs`)
+  and through the window's own road
+  (`alo-window/tests/images_and_sites_pressed_in_the_window.rs`). Owed: the
+  Sites tab's further pages (761); the canvas's *Photos* and *Diagrams*
+  filters are not drawn, since Brave does not say which an image is.
   **A card that fails says why, and a page that replaces itself opens**
   (749): a page that replaces itself before its `load` — reddit's
   challenge — was waited on by its first loader, which never loads, for

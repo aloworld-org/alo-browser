@@ -81,6 +81,7 @@ pub mod generic;
 pub mod held;
 pub mod hit;
 pub mod host;
+pub mod images_document;
 pub mod inline_style;
 pub mod linked;
 pub mod message;

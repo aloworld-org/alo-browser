@@ -214,6 +214,7 @@ pub mod scale;
 pub mod search_key;
 pub mod search_protocol;
 pub mod search_text;
+pub mod search_thumbnails;
 pub mod serving;
 pub mod showing;
 #[cfg(unix)]

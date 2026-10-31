@@ -275,9 +275,9 @@ fn searched() -> Turn {
     let site = |title: &str, address: &str, description: &str, name: &str| {
         Found::new(title, url(address), description).named(name)
     };
-    Turn::Searched(Results {
-        said: SAID.to_owned(),
-        showing: Showing::Found(vec![
+    Turn::Searched(Results::of(
+        SAID.to_owned(),
+        Showing::Found(vec![
             site(
                 "Installing a charger at home: what to expect",
                 "https://evhomeguide.org/installing-a-charger",
@@ -294,7 +294,7 @@ fn searched() -> Turn {
             ),
             site("Chargers near you", "https://chips.example/", "", "Chips"),
         ]),
-    })
+    ))
 }
 
 /// A page opened from the first site, and closed: kept as its address.
@@ -601,10 +601,7 @@ fn every_turns_words_stay_text_through_the_drawing() {
     let hostile = "<b>bold</b></p><script>x()</script>";
     let drawn = draw(conversation(
         vec![
-            Turn::Searched(Results {
-                said: hostile.to_owned(),
-                showing: Showing::Found(Vec::new()),
-            }),
+            Turn::Searched(Results::of(hostile.to_owned(), Showing::Found(Vec::new()))),
             Turn::Failed {
                 said: hostile.to_owned(),
                 why: hostile.to_owned(),

@@ -29,7 +29,7 @@
 use alo_layout::Size;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_scroll::{self, Reach};
-use alo_renderer::results::{self, Results};
+use alo_renderer::results::{self, Images, Results, Tab};
 use alo_renderer::turn::Turn;
 use alo_url::Url;
 
@@ -77,9 +77,10 @@ impl Thread {
         self.append(Turn::Searched(Results::searching(said)));
     }
 
-    /// What came of the search for `words`: shown in the newest turn still
-    /// searching for them. Whether one was.
-    pub fn searched(&mut self, words: &str, showing: results::Showing) -> bool {
+    /// What came of the search for `words`: its sites, shown in the newest
+    /// turn still searching for them, and where the search for its images
+    /// starts (queue item 743). Whether one was.
+    pub fn searched(&mut self, words: &str, showing: results::Showing, images: Images) -> bool {
         let waiting = self.turns.iter_mut().rev().find_map(|turn| match turn {
             Turn::Searched(results)
                 if results.said == words
@@ -92,10 +93,100 @@ impl Thread {
         match waiting {
             Some(results) => {
                 results.showing = showing;
+                results.images = images;
                 true
             }
             None => false,
         }
+    }
+
+    /// What came of the search for images of `words`: shown in the newest
+    /// turn still asking for them. Whether one was.
+    pub fn pictured(&mut self, words: &str, images: Images) -> bool {
+        let asking = self.turns.iter_mut().rev().find_map(|turn| match turn {
+            Turn::Searched(results)
+                if results.said == words && matches!(results.images, Images::Asking) =>
+            {
+                Some(results)
+            }
+            _ => None,
+        });
+        match asking {
+            Some(results) => {
+                results.images = images;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Show the search's results in the turn at `turn` on `tab` (queue items
+    /// 743, 744): whether that changed anything, which it does not when the
+    /// turn is no search's, the tab cannot be chosen, or is already shown.
+    pub fn show_tab(&mut self, turn: usize, tab: Tab) -> bool {
+        match self.turns.get_mut(turn) {
+            Some(Turn::Searched(results)) if results.open(tab) && results.tab != tab => {
+                results.tab = tab;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Every open tab the turns draw, in the order drawn: each turn's place
+    /// and the tab.
+    pub fn tabs(&self) -> Vec<(usize, Tab)> {
+        self.searches()
+            .flat_map(|(turn, results)| results.open_tabs().into_iter().map(move |tab| (turn, tab)))
+            .collect()
+    }
+
+    /// The place of every turn drawing *More sites ›*, in order.
+    pub fn more_sites(&self) -> Vec<usize> {
+        self.searches()
+            .filter(|(_, results)| results.draws_more_sites())
+            .map(|(turn, _)| turn)
+            .collect()
+    }
+
+    /// The place of every turn drawing *See all images*, in order.
+    pub fn see_all(&self) -> Vec<usize> {
+        self.searches()
+            .filter(|(_, results)| results.draws_see_all())
+            .map(|(turn, _)| turn)
+            .collect()
+    }
+
+    /// The page of every image the turns draw, in order.
+    pub fn pictured_pages(&self) -> Vec<Url> {
+        self.turns
+            .iter()
+            .flat_map(Turn::pictured)
+            .cloned()
+            .collect()
+    }
+
+    /// The title of the image found on the page at `url`, as a turn draws
+    /// it: the newest such.
+    pub fn said_for_image(&self, url: &Url) -> Option<String> {
+        self.searches().rev().find_map(|(_, results)| {
+            results
+                .drawn_images()
+                .iter()
+                .find(|image| image.page == *url)
+                .map(|image| image.title.clone())
+        })
+    }
+
+    /// Each turn that is a search, with its place.
+    fn searches(&self) -> impl DoubleEndedIterator<Item = (usize, &Results)> {
+        self.turns
+            .iter()
+            .enumerate()
+            .filter_map(|(place, turn)| match turn {
+                Turn::Searched(results) => Some((place, results)),
+                _ => None,
+            })
     }
 
     /// The newest search's results, if a turn holds any.
@@ -162,7 +253,7 @@ impl Thread {
     pub fn said_for(&self, url: &Url) -> Option<String> {
         self.turns.iter().rev().find_map(|turn| match turn {
             Turn::Searched(results) => results
-                .on_all()
+                .drawn_sites()
                 .iter()
                 .find(|found| found.url == *url)
                 .map(|found| found.title.clone()),
@@ -210,10 +301,64 @@ impl Thread {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alo_renderer::results::{Found, Showing};
+    use alo_renderer::results::{Found, Pictured, Showing};
 
     fn url(address: &str) -> Url {
         alo_url::parse(address).unwrap_or_else(|_| Url::about_blank())
+    }
+
+    #[test]
+    fn images_fill_in_after_the_sites_and_a_tab_is_shown_only_when_it_can_be() {
+        let mut thread = Thread::default();
+        thread.search("ev".to_owned());
+        assert!(thread.tabs() == vec![(0, Tab::All)], "searching: All alone");
+        assert!(
+            !thread.pictured("ev", Images::Found(Vec::new())),
+            "not asking yet"
+        );
+        let sites: Vec<Found> = (0..5)
+            .map(|n| Found::new(format!("S{n}"), url(&format!("https://s{n}.example/")), ""))
+            .collect();
+        assert!(thread.searched("ev", Showing::Found(sites), Images::Asking));
+        assert_eq!(
+            thread.tabs(),
+            vec![(0, Tab::All), (0, Tab::Sites), (0, Tab::Images)]
+        );
+        assert_eq!(thread.more_sites(), vec![0]);
+        assert!(thread.see_all().is_empty(), "no row while asking");
+        let images: Vec<Pictured> = (0..7)
+            .map(|n| Pictured::new(format!("I{n}"), url(&format!("https://p{n}.example/")), ""))
+            .collect();
+        assert!(!thread.pictured("other words", Images::Found(images.clone())));
+        assert!(thread.pictured("ev", Images::Found(images)));
+        assert!(
+            !thread.pictured("ev", Images::Found(Vec::new())),
+            "answered"
+        );
+        assert_eq!(thread.see_all(), vec![0]);
+        assert_eq!(thread.pictured_pages().len(), 5, "All's row");
+        assert_eq!(thread.links().len(), 3, "All's three");
+        assert_eq!(
+            thread
+                .said_for_image(&url("https://p2.example/"))
+                .as_deref(),
+            Some("I2")
+        );
+        assert!(thread.show_tab(0, Tab::Sites));
+        assert!(!thread.show_tab(0, Tab::Sites), "already shown");
+        assert_eq!(thread.links().len(), 5, "every site on Sites");
+        assert!(thread.pictured_pages().is_empty() && thread.more_sites().is_empty());
+        assert!(thread.show_tab(0, Tab::Images));
+        assert_eq!(thread.pictured_pages().len(), 7, "every image on Images");
+        assert!(thread.links().is_empty());
+        assert!(!thread.show_tab(1, Tab::All), "no turn there");
+        thread.open_card("a".to_owned(), url("https://a.example/"));
+        assert!(!thread.show_tab(1, Tab::All), "a card is no search");
+        assert!(thread.show_tab(0, Tab::All));
+        // A search not answered opens no other tab.
+        thread.search("x".to_owned());
+        assert!(thread.searched("x", Showing::Unanswered("no".to_owned()), Images::NotAsked));
+        assert!(!thread.show_tab(2, Tab::Sites) && !thread.show_tab(2, Tab::Images));
     }
 
     const VIEWPORT: Size = Size {
@@ -237,10 +382,11 @@ mod tests {
         );
         assert!(thread.searched(
             "ev chargers",
-            Showing::Found(vec![Found::new("Chargers", url("https://a.example/"), "")])
+            Showing::Found(vec![Found::new("Chargers", url("https://a.example/"), "")]),
+            Images::NotAsked
         ));
         assert!(
-            !thread.searched("ev chargers", Showing::Found(Vec::new())),
+            !thread.searched("ev chargers", Showing::Found(Vec::new()), Images::NotAsked),
             "answered"
         );
         assert_eq!(

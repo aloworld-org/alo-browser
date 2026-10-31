@@ -147,16 +147,23 @@ person's words — in the 880 column, 40 below the top, 20 apart — stands the
 
 - **The tab row**, 42 tall over a line of `#E1DACE`: each tab 14 across
   inside, 14 px quiet text; *All* in the ink, 600, underlined 2 px in the
-  ink over the line. The others are drawn disabled until each is built
-  (743–746).
+  ink over the line. Sites opens once sites are found and Images once
+  images are asked for (743, 744); Answer, Videos and News are drawn
+  disabled until each is built (707, 745, 746).
 - **The top three sites**, 20 under the row, 22 apart: a line of 13 px —
   the site's letter, white on one of four tints in an 18 square rounded 5;
   its name in the ink, 600; its address, `host › path`, in quiet text —
   then its title, 18 on 25, 600, in the link colour `#22406E`, one line;
   then two lines of its description, 14.5 on 23 in `#4A463F`, 740 wide at
   most, cut off after the second.
-- ***More sites ›***, 14 px, 600, 20 under the last site (disabled until
-  744).
+- **A row of images** (743), 20 under the last site, once they have come:
+  a heading of 11.5 px, 600, in capitals, `#6B655C` — *Images* — with *See
+  all images*, 13 px, 500, in the ink at its right; 8 under it five tiles
+  84 tall, 10 apart, rounded 10, in `#E9E3D8`, each its picture the tile's
+  width at its own proportions, centred and clipped by the tile, or with
+  none its title in quiet words of 11.5 on 15.
+- ***More sites ›***, 14 px, 600, 20 under the row (or the last site),
+  opening the Sites tab (744).
 
 While it searches, and when nothing is found or the search is not answered,
 one sentence of 14.5 on 23 in quiet text stands where the sites would be —
@@ -167,6 +174,22 @@ unreadable. The line at the window's foot says the same, and how many sites
 were found. **No short answer is drawn** until a model is chosen (707), and
 nothing in its place. A press on a site's title opens it as a card, in a
 turn of its own under the results, its bubble the title (703).
+
+### The Sites and Images tabs (items 743, 744, ADR 0086)
+
+A press on an open tab shows it in that turn. **Sites** is every site the
+search found — up to Brave's twenty — each as All draws its three, with
+nothing under them; a further page (*Show more sites*) is item 761.
+**Images** is a grid of four columns, 16 apart and 20 between rows: each
+tile 150 tall, rounded 10, in `#E9E3D8`, holding its picture as the row
+does; 8 under it the image's title, 13 on 18, 500, on one line, and its
+site, 12 px in quiet words after its letter on a 14 square rounded 4. The
+canvas's *All · Photos · Diagrams* filters are not drawn: the provider does
+not say which an image is. While the images are asked for, or none came,
+one sentence stands where the grid would be. A press on an image, in the
+row or the grid, opens the page it was found on as a card, its bubble the
+image's title. Pictures come only from Brave's own image proxy, and are
+decoded only by the renderer that draws them (ADR 0086 § 3–4).
 
 ### The conversation (item 703, ADR 0085)
 

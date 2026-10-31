@@ -138,7 +138,7 @@ fn make_turn(
     append(document, said, words)?;
     append(document, made, said)?;
     let reply = match turn {
-        Turn::Searched(results) => crate::results_document::make(document, results)?,
+        Turn::Searched(results) => crate::results_document::make(document, results, place)?,
         Turn::Page(card) if newest => crate::card_document::make(document, card)?,
         Turn::Page(Card { url, .. }) | Turn::Visited { url, .. } => make_visited(document, url)?,
         Turn::Failed { why, .. } => {
@@ -210,14 +210,14 @@ mod tests {
 
     fn three() -> Vec<Turn> {
         vec![
-            Turn::Searched(Results {
-                said: "ev chargers".to_owned(),
-                showing: Showing::Found(vec![Found::new(
+            Turn::Searched(Results::of(
+                "ev chargers".to_owned(),
+                Showing::Found(vec![Found::new(
                     "Chargers",
                     url("https://a.example/"),
                     "About them.",
                 )]),
-            }),
+            )),
             Turn::Visited {
                 said: "Chargers".to_owned(),
                 url: url("https://a.example/b?c"),

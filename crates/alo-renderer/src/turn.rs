@@ -9,8 +9,9 @@
 //! the person said, then what came back of it. Four things come back today,
 //! each a variant here:
 //!
-//! - **A search's results** ([`Turn::Searched`]), as the All tab draws them
-//!   (queue item 708).
+//! - **A search's results** ([`Turn::Searched`]), on the tab the browser
+//!   process chose for them — All, Sites or Images (queue items 708, 743,
+//!   744).
 //! - **A page, live** ([`Turn::Page`]), as a card holding Chrome's newest
 //!   frame of it (ADR 0076 B). One page is open at a time, so only **the
 //!   newest turn** may be one; the wire refuses a card anywhere else.
@@ -77,13 +78,31 @@ impl Turn {
     }
 
     /// The addresses a press on the turn's links opens, in the order they
-    /// are drawn: the sites its results show on All, or the page it shows
-    /// as a line. A live card's page is pressed as the page, never as a link.
+    /// are drawn: the sites its results show on the tab shown, or the page
+    /// it shows as a line. A live card's page is pressed as the page, never
+    /// as a link.
     pub fn links(&self) -> Vec<&Url> {
         match self {
-            Turn::Searched(results) => results.on_all().iter().map(|found| &found.url).collect(),
+            Turn::Searched(results) => results
+                .drawn_sites()
+                .iter()
+                .map(|found| &found.url)
+                .collect(),
             Turn::Visited { url, .. } => vec![url],
             Turn::Page(_) | Turn::Failed { .. } => Vec::new(),
+        }
+    }
+
+    /// The pages a press on the turn's images opens, in the order they are
+    /// drawn: the images its results show on the tab shown (queue item 743).
+    pub fn pictured(&self) -> Vec<&Url> {
+        match self {
+            Turn::Searched(results) => results
+                .drawn_images()
+                .iter()
+                .map(|image| &image.page)
+                .collect(),
+            Turn::Page(_) | Turn::Visited { .. } | Turn::Failed { .. } => Vec::new(),
         }
     }
 

@@ -46259,3 +46259,105 @@ chats and hiding the panel*.
 *Owed* drops 711, 714 and 759 and gains 760.
 
 The next unused queue number is **761** and the next ADR is **0086**.
+
+## Iteration 468 — queue items 743 and 744: a search's images, the Images tab, the Sites tab and More sites (ADR 0086)
+
+**Built.** Once a web search finds sites, the browser process asks Brave's
+image search the same words alone — a second paid request, only then and
+only when no newer search waits (ADR 0086 § 1; considered: images only on
+the Images tab, half the cost and no row on All; both at once, paying for
+images of failed searches) — and fetches each thumbnail from Brave's own
+proxy alone (`search_thumbnails.rs`): `Accept: image/*`, no key, cookie or
+`Referer`, no redirect, at most twenty of at most 256 KiB, only bytes that
+begin as a picture. Never decoded in the browser process: sent to the
+first screen's renderer as pictures under names of ours
+(`alo:thumbnail-TURN-IMAGE`) and decoded there as every `<img>`; only the
+pictures a tab draws, at most 2 MiB per first screen, newest turns first
+(`results::within_budget`), the wire refusing past each bound. The window
+is told the sites first (`Came::Sites`, images `Asking`), then the images
+(`Came::Images`), which fill the turn still asking for them in any chat.
+Drawn (`images_document.rs`): All's row of five under the sites with *See
+all images*, the Images tab a grid of four with each title and site, the
+Sites tab every site (Brave's twenty; no `count` sent). A turn's tab is
+the browser process's (`results::Tab`); open tabs, *More sites ›*, *See
+all images* and images are claimed by place (wire tags 17–20) and decided
+against what was painted (`Shown::tabs`, `more`, `see_all`, `pictured`;
+`Decided::Tab`, `Decided::Image`), what each list holds computed once in
+`alo-renderer` and read by both sides. An image opens its page in the
+card, its bubble its title.
+
+**Tests.** Layout assertions in numbers, three new references written,
+each looked at, then run without update mode
+(`alo-renderer/tests/a_searchs_images_and_sites.rs`:
+`all-tab-with-images.png`, `images-tab.png`, `sites-tab.png`); the image
+answer's parse (malformed, every truncation, too deep, too large, sixty
+kept as twenty); thumbnails bounded against a local proxy
+(`alo-window/tests/a_searchs_thumbnails_fetched_and_bounded.rs`); the
+window's own road (`alo-window/tests/images_and_sites_pressed_in_the_window.rs`):
+search, row painted, *More sites ›*, Sites painted, Images pressed, an image
+pressed opening a turn whose bubble keeps `<b>` as characters. Without the
+drawing thread keeping the painted tabs, that test fails (*0 were shown*).
+Assertions moved deliberately: All's Sites tab open, *More sites ›*
+enabled and claimed, the All tab claimed (`a_searchs_results_on_the_all_tab.rs`,
+its reference unchanged pixel for pixel).
+
+**Gate: not met, for two untouched screen-reading tests.** Run twice into
+the same log: `fmt`, `clippy` silent, then **5913/5944 tests run: 5912
+passed (5 slow), 1 failed** — `the_box_marked_through_alos_cef_host_as_chrome`
+(*the page loaded again: never seen*), the run stopping there; *"The gate
+is not met." (11 of 11 steps)*. A whole run with `--no-fail-fast`: **5944
+tests run: 5942 passed (6 slow), 2 failed** — that test and its sibling
+`the_box_marked_through_chrome` (*the page the link went to: never seen*).
+Both fail alone, and **both fail alone on HEAD (16a30e7) with this change
+stashed** — a shown Chromium's next document never reaches the screen. The
+machine: swap 5.9 of 7 GiB used, and a persistent macOS notification
+*"Not Allowed" was prevented from modifying apps on your Mac* (Privacy &
+Security) at the screen's top right since before the first run. Not
+worked around; it needs the owner's look at the machine. `--lib` tests and
+clippy clean before the gate.
+
+**Gate: met, after the cause was found.** The two screen-reading tests
+failed because the pointer rested at (570,562), over the page's *Onward*
+link: Chrome's link status bubble, a child window 1 pt outside the
+window's frame, grew `screencapture -l`'s picture by two device pixels,
+and `tests/marked/mod.rs` finds the page's origin once, from the first
+capture. Not the machine's memory, Stage Manager or the notification. With
+the pointer moved aside the gate ran: **5944 tests run: 5944 passed (6
+slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*. 743 and 744
+ticked. The helper reading a capture whose size moved is owed as 764.
+
+**By hand** (`alo browser.app --conversation`, rebuilt and bundled anew;
+screenshots in the session's scratchpad `handrun8/`; screen unlocked, alo
+frontmost and the window at 215,90 1280×852 checked before every press and
+key, the pointer put back with `=`). One real search, *home ev charger
+installation*: `02-all-with-images.png` three sites, then IMAGES with *See
+all images* and five real thumbnails from Brave's proxy, then *More sites
+›*; `03-sites-tab.png` *More sites ›* pressed — Sites chosen, five sites
+seen (the rest under the room); `04-images-tab.png` the Images tab pressed
+— a grid of twelve seen, each picture at its own proportions in its tile,
+its title and site under it. Seen: Brave gave one image an empty title, so
+its caption is its site alone; IMDb's title holds a character the
+interface's face lacks, drawn as a box. Not tried by hand: an image
+pressed (no second page opened, to keep to one search); it is tested
+through the window's road. ⌘Q left no alo or alo Chromium process.
+
+**Found.** A press on a `position: relative` tile inside the conversation
+lands on the grid behind it (`hit::element_at`); the tiles are not
+positioned, and the defect is 763. The engine reads no `object-fit`, so a
+picture is the tile's width at its own proportions, centred and clipped;
+and no static position for an absolutely positioned box in a flex
+container that is not its containing block, so an image's hidden title is
+an in-flow clear pixel instead.
+
+**Cut:** 761 (the Sites tab's further pages, `offset`), 762 (a response's
+body bounded per request in `alo-net`). The canvas's *Photos*/*Diagrams*
+filters are not drawn: Brave does not say which an image is.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0005,
+0024 § 5, 0082 § 0, 0083, 0085 § 2, and 0086 (new); `docs/design/shell.md`
+gains *The Sites and Images tabs*.
+
+**Roadmap:** the conversation line's *Built* gains 743 and 744; *Owed*
+drops them and gains 761, 762 and 763.
+
+The next unused queue number is **765** and the next ADR is **0087**.

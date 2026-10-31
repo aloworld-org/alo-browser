@@ -823,6 +823,7 @@ impl Renderer {
                         .card()
                         .and_then(crate::card_document::frame)
                         .into_iter()
+                        .chain(crate::images_document::pictures(start))
                         .collect(),
                 ),
                 Holds::Conversation(Part::Start),
@@ -833,8 +834,9 @@ impl Renderer {
 
     /// Hold a part of the browser's own interface — a document built from
     /// state, never from markup (ADR 0024 § 4) — at `address` and `viewport`,
-    /// drawn with `sheet` and the `pictures` its `<img>`s name (only the
-    /// card's frame, queue item 717), letting go of whatever was held first, and answer
+    /// drawn with `sheet` and the `pictures` its `<img>`s name (the card's
+    /// frame, queue item 717, and a search's thumbnails, 743), letting go of
+    /// whatever was held first, and answer
     /// as a load does. `holds` says which part it is, and so what a press
     /// on it may be claimed as.
     fn interface(

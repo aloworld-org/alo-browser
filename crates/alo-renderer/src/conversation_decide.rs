@@ -34,6 +34,7 @@
 
 use crate::conversation_claim::{Claim, Part};
 use crate::message::{Failure, FromRenderer};
+use crate::results::Tab;
 use crate::typed::Offer;
 use alo_url::Url;
 use core::fmt;
@@ -62,6 +63,15 @@ pub struct Shown<C, S> {
     /// *Search chats*, the button that hides it and *Settings* are drawn
     /// only while it is not, and *Show the panel* only while it is.
     pub hidden: bool,
+    /// Every open tab of the search results drawn, in order (queue item
+    /// 744): the chat, the turn's place in it, and the tab.
+    pub tabs: Vec<(C, usize, Tab)>,
+    /// Every *More sites ›* drawn, in order: the chat and the turn's place.
+    pub more: Vec<(C, usize)>,
+    /// Every *See all images* drawn, in order (queue item 743).
+    pub see_all: Vec<(C, usize)>,
+    /// The pages every image drawn was found on, in order.
+    pub pictured: Vec<Url>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -75,6 +85,10 @@ impl<C, S> Default for Shown<C, S> {
             found: Vec::new(),
             offers: Vec::new(),
             hidden: false,
+            tabs: Vec::new(),
+            more: Vec::new(),
+            see_all: Vec::new(),
+            pictured: Vec::new(),
         }
     }
 }
@@ -118,6 +132,20 @@ pub enum Decided<C, S> {
     HideThePanel,
     /// The rail's button that shows the panel again.
     ShowThePanel,
+    /// This tab of the search results in this chat's turn at this place —
+    /// pressed, or opened by *More sites ›* or *See all images* (queue
+    /// items 743, 744).
+    Tab {
+        /// The chat.
+        chat: C,
+        /// The turn's place in it.
+        turn: usize,
+        /// The tab.
+        tab: Tab,
+    },
+    /// An image a search found, on the page at this address (queue item
+    /// 743): opened as a site's title is.
+    Image(Url),
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -139,6 +167,14 @@ pub enum Listed {
     Found,
     /// What was offered for what was typed (queue item 714).
     Offers,
+    /// The open tabs of a search's results (queue item 744).
+    Tabs,
+    /// The *More sites ›* drawn.
+    MoreSites,
+    /// The *See all images* drawn (queue item 743).
+    SeeAllImages,
+    /// The images a search found.
+    Images,
 }
 
 impl fmt::Display for Listed {
@@ -149,6 +185,10 @@ impl fmt::Display for Listed {
             Listed::Waiting => "waiting chat",
             Listed::Found => "site found",
             Listed::Offers => "offer",
+            Listed::Tabs => "open tab",
+            Listed::MoreSites => "More sites",
+            Listed::SeeAllImages => "See all images",
+            Listed::Images => "image found",
         })
     }
 }
@@ -302,6 +342,28 @@ where
             .map_or_else(Decided::Refused, Decided::Found),
         Claim::Offer { at } => held(Listed::Offers, at, &painted.offers, &now.offers)
             .map_or_else(Decided::Refused, Decided::Offer),
+        Claim::Tab { at } => held(Listed::Tabs, at, &painted.tabs, &now.tabs).map_or_else(
+            Decided::Refused,
+            |(chat, turn, tab)| Decided::Tab { chat, turn, tab },
+        ),
+        Claim::MoreSites { at } => held(Listed::MoreSites, at, &painted.more, &now.more)
+            .map_or_else(Decided::Refused, |(chat, turn)| Decided::Tab {
+                chat,
+                turn,
+                tab: Tab::Sites,
+            }),
+        Claim::SeeAllImages { at } => {
+            held(Listed::SeeAllImages, at, &painted.see_all, &now.see_all).map_or_else(
+                Decided::Refused,
+                |(chat, turn)| Decided::Tab {
+                    chat,
+                    turn,
+                    tab: Tab::Images,
+                },
+            )
+        }
+        Claim::Image { at } => held(Listed::Images, at, &painted.pictured, &now.pictured)
+            .map_or_else(Decided::Refused, Decided::Image),
     }
 }
 
@@ -363,7 +425,86 @@ mod tests {
             found: Vec::new(),
             offers: Vec::new(),
             hidden: false,
+            ..Shown::default()
         }
+    }
+
+    #[test]
+    fn a_tab_more_sites_see_all_and_an_image_are_decided_by_their_place() {
+        let image = alo_url::parse("https://pictures.example/a").unwrap();
+        let with = Shown {
+            tabs: vec![(10, 0, Tab::All), (10, 0, Tab::Sites), (10, 2, Tab::All)],
+            more: vec![(10, 0)],
+            see_all: vec![(10, 2)],
+            pictured: vec![image.clone()],
+            ..painted()
+        };
+        let decided = |claim| decide(claimed(claim), Part::Start, &with, &with);
+        assert_eq!(
+            decided(Claim::Tab { at: 1 }),
+            Decided::Tab {
+                chat: 10,
+                turn: 0,
+                tab: Tab::Sites
+            }
+        );
+        assert_eq!(
+            decided(Claim::MoreSites { at: 0 }),
+            Decided::Tab {
+                chat: 10,
+                turn: 0,
+                tab: Tab::Sites
+            }
+        );
+        assert_eq!(
+            decided(Claim::SeeAllImages { at: 0 }),
+            Decided::Tab {
+                chat: 10,
+                turn: 2,
+                tab: Tab::Images
+            }
+        );
+        assert_eq!(decided(Claim::Image { at: 0 }), Decided::Image(image));
+        assert_eq!(
+            decided(Claim::Tab { at: 3 }),
+            Decided::Refused(Refusal::NotShown {
+                listed: Listed::Tabs,
+                at: 3,
+                shown: 3
+            })
+        );
+        assert_eq!(
+            decided(Claim::Image { at: 1 }),
+            Decided::Refused(Refusal::NotShown {
+                listed: Listed::Images,
+                at: 1,
+                shown: 1
+            })
+        );
+        // Another chat on screen since: the tab painted is not there now.
+        let now = Shown {
+            tabs: vec![(11, 0, Tab::All)],
+            ..painted()
+        };
+        assert_eq!(
+            decide(claimed(Claim::Tab { at: 0 }), Part::Start, &with, &now),
+            Decided::Refused(Refusal::Gone {
+                listed: Listed::Tabs,
+                at: 0
+            })
+        );
+        assert_eq!(
+            decide(
+                claimed(Claim::MoreSites { at: 0 }),
+                Part::Panel,
+                &with,
+                &with
+            ),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Panel,
+                claim: Claim::MoreSites { at: 0 }
+            })
+        );
     }
 
     #[test]

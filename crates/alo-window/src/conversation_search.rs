@@ -27,6 +27,18 @@
 //! is free are not all asked: only the newest is, so a person who searched
 //! twice quickly is not made to wait for, nor pay for, the first.
 //!
+//! # Images (queue item 743, ADR 0086)
+//!
+//! When a web search finds sites and the provider asks images, the window
+//! is told the sites at once, with the images being asked ([`Came::Sites`]);
+//! then the same words alone are asked of the image search, each
+//! thumbnail fetched from the provider's own proxy
+//! ([`crate::search_thumbnails`]), and the window is told the images
+//! ([`Came::Images`]). A search that found no sites, or was not answered,
+//! asks no images: a second paid request for a search that drew nothing is
+//! not made. If a newer search is waiting once the sites are told, its
+//! images are not asked, and the window is told so in words.
+//!
 //! # Connections kept
 //!
 //! The thread keeps one `alo-net` pool, trusting what this machine trusts,
@@ -34,9 +46,11 @@
 //! one's connection. Nothing of it is written to a disk.
 
 use crate::brave_search::{self, Provider};
+use crate::search_thumbnails;
 use alo_net::Pool;
 use alo_net::cause::Identities;
-use alo_renderer::results::{SetUp, Showing};
+use alo_renderer::results::{Images, PROVIDER, SetUp, Showing};
+use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -52,8 +66,40 @@ pub struct Searched {
     pub number: u64,
     /// The words searched for.
     pub words: String,
-    /// What it came to: sites found, or why not.
-    pub showing: Showing,
+    /// What came.
+    pub came: Came,
+}
+
+/// What came of a search: first its sites, then, when they are asked, its
+/// images.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Came {
+    /// The sites found, or why not; and where the search for images starts:
+    /// [`Images::Asking`] when they will follow, [`Images::NotAsked`] when
+    /// they will not.
+    Sites {
+        /// Sites found, or why not.
+        showing: Showing,
+        /// Where the search for images starts.
+        images: Images,
+    },
+    /// The images found, each holding its thumbnail if one was kept, or why
+    /// not.
+    Images(Images),
+}
+
+impl Searched {
+    /// The sites a search came to, with no images to follow.
+    pub fn sites(number: u64, words: impl Into<String>, showing: Showing) -> Self {
+        Self {
+            number,
+            words: words.into(),
+            came: Came::Sites {
+                showing,
+                images: Images::NotAsked,
+            },
+        }
+    }
 }
 
 /// How the thread tells the window what came of a search: whether anybody
@@ -134,11 +180,11 @@ impl Searcher {
                 let _ = asked.send(Work::Search(number, words.to_owned()));
             }
             (None, SetUp::Not(why), Some(tell)) => {
-                let _ = tell(Searched {
+                let _ = tell(Searched::sites(
                     number,
-                    words: words.to_owned(),
-                    showing: Showing::Unanswered(not_set_up(why)),
-                });
+                    words,
+                    Showing::Unanswered(not_set_up(why)),
+                ));
             }
             _ => {}
         }
@@ -179,36 +225,100 @@ pub fn not_set_up(why: &str) -> String {
 fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
     let mut pool: Option<Pool> = None;
     let mut identities = Identities::default();
-    while let Ok(first) = asking.recv() {
-        let waiting: Vec<Work> = core::iter::once(first).chain(asking.try_iter()).collect();
+    // Work that arrived while a search's images were being decided on.
+    let mut pending: VecDeque<Work> = VecDeque::new();
+    loop {
+        let first = match pending.pop_front() {
+            Some(work) => work,
+            None => match asking.recv() {
+                Ok(work) => work,
+                Err(_) => return,
+            },
+        };
+        let waiting: Vec<Work> = core::iter::once(first)
+            .chain(pending.drain(..))
+            .chain(asking.try_iter())
+            .collect();
         if waiting.iter().any(|work| matches!(work, Work::Finish)) {
             return;
         }
         let Some(Work::Search(number, words)) = waiting.into_iter().last() else {
             continue;
         };
-        let showing = match pool.as_mut() {
-            Some(pool) => brave_search::search(provider, pool, &mut identities, &words),
-            None => match Pool::from_this_machine() {
-                Ok(made) => brave_search::search(
-                    provider,
-                    pool.insert(made.patient_for(PATIENCE)),
-                    &mut identities,
-                    &words,
-                ),
-                Err(why) => Showing::Unanswered(format!(
-                    "Brave Search could not be reached: this Mac's certificates could not be \
-                     read ({why})"
-                )),
+        if pool.is_none() {
+            match Pool::from_this_machine() {
+                Ok(made) => pool = Some(made.patient_for(PATIENCE)),
+                Err(why) => {
+                    let why = format!(
+                        "{PROVIDER} could not be reached: this Mac's certificates could not be \
+                         read ({why})"
+                    );
+                    if !tell(Searched::sites(number, words, Showing::Unanswered(why))) {
+                        return;
+                    }
+                    continue;
+                }
+            }
+        }
+        let Some(pool) = pool.as_mut() else {
+            continue;
+        };
+        let showing = brave_search::search(provider, pool, &mut identities, &words);
+        let images_follow = provider.asks_images()
+            && matches!(&showing, Showing::Found(found) if !found.is_empty());
+        let sites = Searched {
+            number,
+            words: words.clone(),
+            came: Came::Sites {
+                showing,
+                images: if images_follow {
+                    Images::Asking
+                } else {
+                    Images::NotAsked
+                },
             },
+        };
+        if !tell(sites) {
+            return;
+        }
+        if !images_follow {
+            continue;
+        }
+        // Newest wins: a search waiting now is asked before these images,
+        // which are then not asked at all.
+        pending.extend(asking.try_iter());
+        let images = if pending.is_empty() {
+            images(provider, pool, &mut identities, &words)
+        } else {
+            Images::Unanswered(format!(
+                "{PROVIDER} was not asked for images of \u{201c}{words}\u{201d}: a newer search \
+                 came first."
+            ))
         };
         if !tell(Searched {
             number,
             words,
-            showing,
+            came: Came::Images(images),
         }) {
             return;
         }
+    }
+}
+
+/// Ask `provider` for images of `words`, and fetch each thumbnail from its
+/// proxy: the images found, or why not.
+fn images(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+) -> Images {
+    let Some(from) = provider.thumbnails() else {
+        return Images::NotAsked;
+    };
+    match brave_search::images(provider, pool, identities, words) {
+        Ok(found) => Images::Found(search_thumbnails::fetch(pool, identities, from, found).images),
+        Err(why) => Images::Unanswered(why),
     }
 }
 
@@ -232,15 +342,15 @@ mod tests {
         searcher.search(3, "x");
         assert_eq!(
             told.try_recv().ok(),
-            Some(Searched {
-                number: 3,
-                words: "x".to_owned(),
-                showing: Showing::Unanswered(
+            Some(Searched::sites(
+                3,
+                "x",
+                Showing::Unanswered(
                     "Searching is not set up yet: no Brave Search key in this Mac's keychain \
                      (alo-brave-search)."
                         .to_owned()
                 ),
-            })
+            ))
         );
         assert!(searcher.finish());
     }

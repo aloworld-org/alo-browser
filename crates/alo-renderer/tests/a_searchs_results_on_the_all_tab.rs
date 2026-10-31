@@ -12,9 +12,11 @@
 //! not answered, `references/all-tab-not-answered.png`; the agent reading
 //! the results as a region with a tab list and articles; every string a
 //! stranger's — a title holding `<b>` and `&amp;` stays those characters;
-//! a press on each title claimed by its place and on anything else of the
-//! results as nothing; and the same results through the real, confined
-//! renderer.
+//! a press on each title claimed by its place, on the tab shown and *More
+//! sites ›* by theirs (queue item 744), and on anything else of the results
+//! as nothing; and the same results through the real, confined renderer.
+//! The row of images, the Sites tab and the Images tab are
+//! `a_searchs_images_and_sites.rs`'s.
 //!
 //! The sites here are written by hand for this test, never captured from
 //! the provider.
@@ -311,10 +313,7 @@ fn with(showing: Showing) -> Start {
     Start {
         greeting: "Hello.".to_owned(),
         viewport: Size::new(WIDTH, HEIGHT),
-        turns: vec![Turn::Searched(Results {
-            said: SAID.to_owned(),
-            showing,
-        })],
+        turns: vec![Turn::Searched(Results::of(SAID, showing))],
         search: SetUp::Ready,
         ..Start::default()
     }
@@ -350,8 +349,11 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     // so the chosen tab's 2 of ink stand on it; 4 between tabs.
     assert_eq!(at("rtabs"), vec![px(80.0, 102.0, 880.0, 42.0)]);
     assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.546_875, 42.0)]);
-    let tabs = at("rt");
-    assert_eq!(tabs.len(), 5);
+    // Sites is open once sites are found (queue item 744); Answer, Images
+    // — no images were asked for here — Videos and News are disabled.
+    assert_eq!(at("rt").len(), 1);
+    let tabs = at("rt off");
+    assert_eq!(tabs.len(), 4);
     assert!(
         tabs.first()
             .is_some_and(|answer| answer.starts_with("(129.54688, 102)")),
@@ -549,8 +551,8 @@ fn an_agent_reads_the_results_as_a_region_of_tabs_and_articles() {
     let disabled: Vec<bool> = tabs.iter().map(|tab| tab.states.disabled).collect();
     assert_eq!(
         disabled,
-        vec![false, true, true, true, true, true],
-        "{outline}"
+        vec![false, true, false, true, true, true],
+        "Sites open; Images not, since no images were asked for: {outline}"
     );
     assert!(outline.contains("tab \"All\" [selected=true]"), "{outline}");
     assert_eq!(read(&drawn.tree, "article").len(), 3, "{outline}");
@@ -568,8 +570,8 @@ fn an_agent_reads_the_results_as_a_region_of_tabs_and_articles() {
         .filter(|button| button.name.as_deref() == Some(MORE_SITES))
         .collect();
     assert!(
-        more.first().is_some_and(|more| more.states.disabled),
-        "{outline}"
+        more.first().is_some_and(|more| !more.states.disabled),
+        "More sites opens the Sites tab (queue item 744): {outline}"
     );
     // No short answer, and nothing in its place (queue item 707).
     assert!(!outline.to_lowercase().contains("answer\" at"), "{outline}");
@@ -607,9 +609,19 @@ fn a_press_on_each_title_claims_it_by_place_and_on_the_rest_nothing() {
     assert_eq!(pressed(found(), 150.0, 177.0), nothing, "a site's name");
     assert_eq!(pressed(found(), 300.0, 240.0), nothing, "a description");
     assert_eq!(pressed(found(), 800.0, 202.5), nothing, "past the title");
-    assert_eq!(pressed(found(), 100.0, 123.0), nothing, "the All tab");
+    // The tab shown, and More sites, are claimed by their places (queue
+    // item 744); a tab disabled is nothing.
+    assert_eq!(
+        pressed(found(), 100.0, 123.0),
+        claimed(Claim::Tab { at: 0 }),
+        "the All tab"
+    );
     assert_eq!(pressed(found(), 170.0, 123.0), nothing, "a tab not built");
-    assert_eq!(pressed(found(), 120.0, 487.0), nothing, "More sites");
+    assert_eq!(
+        pressed(found(), 120.0, 487.0),
+        claimed(Claim::MoreSites { at: 0 }),
+        "More sites"
+    );
     assert_eq!(pressed(found(), 800.0, 60.0), nothing, "what was said");
 }
 

@@ -23,12 +23,22 @@
 //! nothing else: no page, renderer, agent, argument or environment variable
 //! can change where a search goes.
 //!
+//! # Images (queue item 743, ADR 0086)
+//!
+//! Once a web search has found sites, the same words alone are asked of
+//! [`IMAGES_ENDPOINT`] ([`images`]), and each image's thumbnail is fetched
+//! only from Brave's own image proxy, [`THUMBNAILS`]
+//! ([`crate::search_thumbnails`]): showing the results contacts no site but
+//! Brave's. A test's provider names its own two addresses
+//! ([`Provider::with_images`]); one made with [`Provider::at`] alone asks
+//! no images.
+//!
 //! # What the person is told
 //!
 //! ADR 0083 § 5's sentences, by status ([`unanswered`]). None says the key.
 
 use crate::search_key::Key;
-use crate::search_protocol;
+use crate::search_protocol::{self, ImageFound};
 use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request};
 use alo_renderer::results::{PROVIDER, Showing};
@@ -37,11 +47,20 @@ use alo_url::Url;
 /// Where a web search is asked.
 pub const ENDPOINT: &str = "https://api.search.brave.com/res/v1/web/search";
 
+/// Where an image search is asked (queue item 743).
+pub const IMAGES_ENDPOINT: &str = "https://api.search.brave.com/res/v1/images/search";
+
+/// Brave's own image proxy: the one place a thumbnail is fetched from.
+pub const THUMBNAILS: &str = "https://imgs.search.brave.com/";
+
 /// Where searches go and with what key.
 #[derive(Debug, Clone)]
 pub struct Provider {
     /// The web search's address, with no query.
     endpoint: Url,
+    /// The image search's address, with no query, and the one origin its
+    /// thumbnails are fetched from: [`None`] where images are not asked.
+    images: Option<(Url, Url)>,
     /// The key.
     key: Key,
 }
@@ -53,7 +72,7 @@ impl Provider {
     ///
     /// Only if the URL parser stopped reading [`ENDPOINT`], which a test pins.
     pub fn brave(key: Key) -> Result<Self, String> {
-        Self::at(ENDPOINT, key)
+        Self::at(ENDPOINT, key)?.with_images(IMAGES_ENDPOINT, THUMBNAILS)
     }
 
     /// A provider answering at `endpoint` in Brave's shape, asked with
@@ -63,11 +82,33 @@ impl Provider {
     ///
     /// When `endpoint` is not an `http` or `https` address.
     pub fn at(endpoint: &str, key: Key) -> Result<Self, String> {
-        let endpoint = alo_url::parse(endpoint)
-            .ok()
-            .filter(|url| matches!(url.scheme.as_str(), "http" | "https"))
-            .ok_or_else(|| format!("{endpoint} is not a search provider's address"))?;
-        Ok(Self { endpoint, key })
+        let endpoint = site(endpoint)?;
+        Ok(Self {
+            endpoint,
+            images: None,
+            key,
+        })
+    }
+
+    /// The same provider, asking image searches at `endpoint` and fetching
+    /// thumbnails only from the origin of `thumbnails` (queue item 743).
+    ///
+    /// # Errors
+    ///
+    /// When either is not an `http` or `https` address.
+    pub fn with_images(mut self, endpoint: &str, thumbnails: &str) -> Result<Self, String> {
+        self.images = Some((site(endpoint)?, site(thumbnails)?));
+        Ok(self)
+    }
+
+    /// Whether images are asked of this provider.
+    pub fn asks_images(&self) -> bool {
+        self.images.is_some()
+    }
+
+    /// The one origin thumbnails are fetched from, where images are asked.
+    pub fn thumbnails(&self) -> Option<&Url> {
+        self.images.as_ref().map(|(_, thumbnails)| thumbnails)
     }
 
     /// The request for a search of `words`, made as the person's in `tab`.
@@ -76,8 +117,37 @@ impl Provider {
     ///
     /// When the words make no address, which percent-encoding rules out.
     pub fn request(&self, words: &str, identities: &mut Identities) -> Result<Request, String> {
+        self.asking(&self.endpoint, words, identities)
+    }
+
+    /// The request for an image search of `words`, made as the person's,
+    /// where images are asked: the words alone, as a web search's.
+    ///
+    /// # Errors
+    ///
+    /// When images are not asked of this provider, or the words make no
+    /// address.
+    pub fn images_request(
+        &self,
+        words: &str,
+        identities: &mut Identities,
+    ) -> Result<Request, String> {
+        let (endpoint, _) = self
+            .images
+            .as_ref()
+            .ok_or_else(|| format!("{PROVIDER} is not asked for images here"))?;
+        self.asking(endpoint, words, identities)
+    }
+
+    /// `endpoint` asked for `words` alone, with the key.
+    fn asking(
+        &self,
+        endpoint: &Url,
+        words: &str,
+        identities: &mut Identities,
+    ) -> Result<Request, String> {
         let query = alo_url::form::urlencoded([("q", words.trim())]);
-        let url = alo_url::with_query(&self.endpoint, &query)
+        let url = alo_url::with_query(endpoint, &query)
             .map_err(|why| format!("the search could not be addressed: {why}"))?;
         let mut request = Request::get(
             url,
@@ -110,6 +180,38 @@ pub fn search(
         Ok(response) => Showing::Unanswered(unanswered(response.status.0)),
         Err(why) => Showing::Unanswered(format!("{PROVIDER} could not be reached: {why}")),
     }
+}
+
+/// Ask `provider` for images of `words` through `pool`: the images found,
+/// each with its thumbnail's address, or why they were not, in a sentence a
+/// person reads.
+///
+/// # Errors
+///
+/// That sentence: not asked here, a status that is not 200, no connection,
+/// or an answer that could not be read.
+pub fn images(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+) -> Result<Vec<ImageFound>, String> {
+    let request = provider.images_request(words, identities)?;
+    match pool.fetch(&request) {
+        Ok(response) if response.status.0 == 200 => search_protocol::read_images(&response.body)
+            .map(|read| read.found)
+            .map_err(|why| format!("{PROVIDER}'s answer could not be read: {why}")),
+        Ok(response) => Err(unanswered(response.status.0)),
+        Err(why) => Err(format!("{PROVIDER} could not be reached: {why}")),
+    }
+}
+
+/// `written`, if it is an `http` or `https` address.
+fn site(written: &str) -> Result<Url, String> {
+    alo_url::parse(written)
+        .ok()
+        .filter(|url| matches!(url.scheme.as_str(), "http" | "https"))
+        .ok_or_else(|| format!("{written} is not a search provider's address"))
 }
 
 /// What an answer of 200 with `body` comes to.
@@ -151,6 +253,45 @@ mod tests {
         assert!(Provider::at("http://127.0.0.1:9/res/v1/web/search", key()).is_ok());
         assert!(Provider::at("file:///etc/passwd", key()).is_err());
         assert!(Provider::at("not an address", key()).is_err());
+        assert!(brave.asks_images());
+        assert_eq!(
+            brave.thumbnails().map(ToString::to_string).as_deref(),
+            Some(THUMBNAILS)
+        );
+        let at = Provider::at("http://127.0.0.1:9/res/v1/web/search", key()).unwrap();
+        assert!(!at.asks_images() && at.thumbnails().is_none());
+        assert!(
+            at.images_request("x", &mut Identities::default()).is_err(),
+            "no image search where none is named"
+        );
+        assert!(at.clone().with_images("javascript:x", THUMBNAILS).is_err());
+    }
+
+    #[test]
+    fn an_image_search_carries_the_words_alone_and_the_key_in_its_header() {
+        let brave = Provider::brave(key()).unwrap();
+        let request = brave
+            .images_request(" ev charger ", &mut Identities::default())
+            .unwrap();
+        assert_eq!(
+            request.url.to_string(),
+            "https://api.search.brave.com/res/v1/images/search?q=ev+charger"
+        );
+        let headers: Vec<(String, String)> = request
+            .headers
+            .iter()
+            .map(|header| (header.name.clone(), header.value.clone()))
+            .collect();
+        assert_eq!(
+            headers,
+            vec![
+                ("Accept".to_owned(), "application/json".to_owned()),
+                (
+                    "X-Subscription-Token".to_owned(),
+                    "test-key-not-real".to_owned()
+                ),
+            ]
+        );
     }
 
     #[test]

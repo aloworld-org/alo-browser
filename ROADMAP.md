@@ -2416,7 +2416,13 @@ items where being right and being unusable are the same outcome.
       and chosen as Return chooses (714), with the offers' room above the
       box known to the aim (759); *Search chats* filtering the panel's
       chats by name as a person types, and the button that hides the panel
-      to the design's rail and its way back (711)
+      to the design's rail and its way back (711); a search's images and
+      every site (743, 744, ADR 0086) — the image search asked only after
+      sites are found, each thumbnail fetched from Brave's proxy alone,
+      bounded and decoded only in the confined renderer, All's row of five,
+      the Images tab's grid and the Sites tab drawn in layout assertions and
+      three reference renders, tabs, *More sites ›*, *See all images* and
+      images pressed through the window's own road
       · Owed: a card drawn from the page's first paint rather than its
       load (751), the rail's chats (760), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
@@ -2428,8 +2434,10 @@ items where being right and being unusable are the same outcome.
       launches (757), a chat named by its words (758), what the agent may
       do (705), Newsreader's
       optical size (752),
-      the answer and All's short answer (707, blocked: a model), images
-      (743), the Sites tab (744), Videos (745), News (746), a site's own
+      the answer and All's short answer (707, blocked: a model), the Sites
+      tab's further pages (761), a response's body bounded per request
+      (762), a press on a relatively positioned box in the conversation
+      (763), Videos (745), News (746), a site's own
       mark (747), the key in release (748, the owner's decision)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
