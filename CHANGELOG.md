@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Search works in a release without setting anything up.** alo's
+  application now carries the Brave Search key inside itself, put there
+  when the application is made (`alo-bundle --keys-from keychain`), so
+  searching works on any Mac it is copied to. A build run from a terminal
+  still reads the key from this Mac's keychain, as before. The key is
+  scrambled so it is not found by accident, but anyone with the
+  application can still read it out — a key that leaks is replaced by a
+  new release. If Brave refuses the key, alo now says whether it was the
+  keychain's or the one the application carries (ADR 0091).
 - **A sharp page in the conversation on a Retina display.** A page opened
   in the conversation was drawn blurred on a Retina display when another
   display at standard resolution was attached, because the hidden window

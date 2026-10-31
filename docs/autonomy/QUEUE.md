@@ -20879,13 +20879,35 @@ What stage 2's exit gate actually measures: a person using it.
   then. *Closes when:* a reduced corpus case of rounded pictures is
   Chrome's at one and two. *Depends on nothing.*
 
-- [ ] **748. How alo carries the search key in release (ADR 0083 § 1).**
+- [x] **748. How alo carries the search key in release (ADR 0083 § 1).**
   Cut from 708. The owner's stated direction is to ship the application
   with the key; the risk is that anyone with the application can read the
   key out and spend alo's quota. The alternative is a small server of
   alo's own holding the key, which fits the subscription of ADR 0082 § 0.
   *needs the owner's decision, before release.* Until then the key is read
   from the keychain at run time, and never put in the binary.
+  ***Done (iteration 474), with a cut to 773.*** **Decided** by the owner,
+  31 October 2026: *"The ai and search apis will be shipped inside the
+  app"* — ADR 0091 records it, its risk (anyone with the application can
+  read the key out; masking slows but does not stop it; revoking breaks
+  every copy), rotation by a release and per-release keys if cheap; ADR
+  0083 § 1 and ADR 0081's owner's note say *Decided by ADR 0091* (the AI
+  provider stays open). **Built:** a small carrier with named slots
+  (`carried_keys.rs`, one slot, `search`), one masked file per slot at
+  `Contents/Resources/keys/SLOT`, put in by `alo-bundle --keys-from
+  keychain|DIRECTORY` before the seal (`bundle_keys.rs`), the keychain read
+  through `keychain.rs`; the browser process reads the application's key
+  first and the keychain's otherwise (`search_key::for_this_application`),
+  a damaged carried key said and never swapped; a refusal (401/403) says
+  which key. Packaged, never compiled in; no key in the repository or a
+  test. **Tests:** unit tests in `carried_keys.rs`, `bundle_keys.rs`,
+  `keychain.rs`, `search_key.rs`, `brave_search.rs`;
+  `tests/the_application_carrying_its_keys.rs` (a fake key from a directory:
+  carried, not plain in the file or any program, sealed, read back as
+  carried into the request's header, a changed key refused by `codesign`
+  and said; a missing key refuses and makes nothing). **By hand:** a release
+  made with `--keys-from keychain`, checked without printing it, ran with
+  the keychain unreachable and searched (`handrun14/`).
 
 - [x] **749. Why a card closed is wiped before anybody reads it (found by
   708 by hand).** In the real application a search result's title on
@@ -21055,6 +21077,16 @@ What stage 2's exit gate actually measures: a person using it.
   card's frames stay at their first scale. *Depends on 738. Closes when:*
   a card opened at one and moved to two streams at two, or the decision
   not to is an ADR, tested through both programs.
+
+- [ ] **773. The AI provider's slot among the carried keys.** Cut from 748.
+  ADR 0091 carries the providers' keys inside the application, but defines
+  only the `search` slot: a slot names the keychain item its key is taken
+  from, which is the provider's. Once ADR 0081 chooses the provider, add its
+  slot to `carried_keys::Slot` (its keychain service, its file name, its
+  words), read by the browser process alone where the AI is asked. *Depends
+  on ADR 0081's decision (707, 704). Closes when:* an application made with
+  `--keys-from` carries the AI key in its own slot, a test with a fake key
+  reads it back, and no AI call is wired by this item alone.
 
 - [ ] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a

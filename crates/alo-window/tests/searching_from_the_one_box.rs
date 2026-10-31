@@ -38,7 +38,7 @@ use alo_window::conversation_search::Searcher;
 use alo_window::conversation_window::{ConversationWindow, Heard, Measured};
 use alo_window::keys::{Key, Press};
 use alo_window::scale::Scale;
-use alo_window::search_key::Key as SearchKey;
+use alo_window::search_key::{Held, Key as SearchKey};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -334,7 +334,7 @@ fn words_typed_and_return_are_searched_and_drawn_as_the_all_tab() -> Result<(), 
         // The box keeps the keyboard after a search: typed into again.
         assert!(start(&driven.window).focused);
         driven.type_and_return(words);
-        let expected = unanswered(status);
+        let expected = unanswered(status, Held::Keychain);
         driven.until(&format!("{status} said"), |driven| {
             driven.line().as_deref() == Some(expected.as_str())
         })?;

@@ -46744,3 +46744,74 @@ ADR 0090 new; ADR 0076's 717 *Built* points at it.
 new scale after it opened (772).
 
 The next unused queue number is **773** and the next ADR is **0091**.
+
+## Iteration 474 — queue item 748 and ADR 0091: the search key carried inside the application
+
+**Why.** The owner decided, 31 October 2026: *"The ai and search apis will
+be shipped inside the app"* — ADR 0083 § 1's option 1 for search, and the
+same carrying for the AI provider's key (the provider itself still ADR
+0081's, undecided; no AI call wired).
+
+**Decided** (ADR 0091): each provider's key is carried in a named slot,
+one masked file per slot at `Contents/Resources/keys/SLOT`, put in by
+`alo-bundle` from outside the repository before the seal and read by the
+browser process alone. The risk is written plainly: anyone with the
+application can read the key out, masking is not protection, and revoking
+a key breaks every copy carrying it; a key is rotated by a release, and
+per-release keys are taken if the provider makes them cheap. ADR 0083 § 1
+and ADR 0081's owner's note say *Decided by ADR 0091* (key carrying only).
+
+**Built.** `keychain.rs` (a generic password through `/usr/bin/security`,
+split out of `search_key.rs`); `carried_keys.rs` (the slots — `search`
+only; the AI slot cut to 773 because a slot names its provider's keychain
+item — the file's form, `alo carried key 1\n` then the key XOR an
+xorshift64 stream seeded by the slot's name, and reading a damaged file as
+a sentence); `bundle_keys.rs` (`--keys-from keychain|DIRECTORY`, every slot
+taken before anything is made, a missing one refused by name);
+`search_key::for_this_application` (the carried key first, a damaged one
+said and never swapped for the keychain's, otherwise the keychain as
+before); `Key` knows where it was held, and a 401/403 says *The key this
+application carries may have been revoked: a newer alo carries a new one.*
+for a carried key. Packaged, not compiled in: an `option_env!` would have
+left the key's value in `cargo`'s dependency files under `target/`.
+Without `--keys-from`, `alo-bundle` says the application carries no keys.
+
+**Tests.** Unit tests in `keychain.rs`, `carried_keys.rs`, `bundle_keys.rs`,
+`search_key.rs`, `brave_search.rs`; `tests/the_application_carrying_its_keys.rs`
+(a fake key from a directory: carried, not plain in its file or any of the
+three programs, sealed, read back by the browser's own reading as carried
+and sent in the one header, a changed key refused by `codesign` and said;
+no key given refuses and makes nothing); `the_application_assembled.rs` and
+`the_application_carrying_its_chromium.rs` assert the new *no keys* line.
+No test reads the real keychain item.
+
+**By hand** (screen unlocked; `handrun14/` in the session scratchpad): a
+release made as ADR 0091 § 4 says, `--keys-from keychain`. Checked without
+printing the key: `grep -rqaF` found it in no file of the application and
+in none of the release programs; the carried file, unmasked by a script,
+equals the keychain's key; `codesign --verify --deep --strict` accepted
+it. Opened with `open -n --env USER=alo-no-such-person-748 … --args
+--conversation`, so the keychain read had no item (`security` exit 44 for
+that account): *rust ownership* searched and drew Brave's real results
+(`01-opened.png`, `02-searched.png`), so the carried key was the one used.
+Neither the app's stdout nor stderr held the key. ⌘Q left no alo, alo-render
+or alo Chromium process. Seen and not investigated: on that 967-pixel-wide
+window the results column was drawn shifted left under the panel, its first
+characters cut off — the first screen's layout, not this change.
+
+**Gate: met** (second run). The first run failed one test outside this
+change, `a_closed_list_chosen_through_a_shown_chrome`'s
+`a_menu_the_pointer_is_moved_over_chooses_nothing_and_is_closed`, which
+passed alone under nextest and in the second run (658's known flake, as in
+iteration 473). Pointer at (1400,1000) before each. **Summary [781.981s]
+6037 tests run: 6037 passed (6 slow), 0 skipped** — *"The gate is met."
+(11 of 11 steps)*. Neither gate log holds either key.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0081, 0082, 0083,
+0067, 0079; ADR 0091 new.
+
+**Roadmap:** the conversation line's owed list gains 773; 748 built.
+
+**Cut:** the AI provider's slot among the carried keys (773).
+
+The next unused queue number is **774** and the next ADR is **0092**.

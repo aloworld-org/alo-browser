@@ -187,6 +187,30 @@ fn the_icon_is_the_corpus_pictures(cases: &Path, icon: &Path) -> Result<(), Stri
     Ok(())
 }
 
+/// Assert what Apple's own `plutil` reads out of the application's
+/// `Info.plist` at `list`: its identifier, program, icon, names, kind and
+/// version, and no document types (item 684).
+fn the_list_names_the_application(list: &Path) -> Result<(), String> {
+    for (key, value) in [
+        ("CFBundleIdentifier", "org.aloworld.Browser"),
+        ("CFBundleExecutable", "alo"),
+        ("CFBundleIconFile", "icon.icns"),
+        ("CFBundleName", "alo browser"),
+        ("CFBundleDisplayName", "alo browser"),
+        ("CFBundlePackageType", "APPL"),
+        ("CFBundleShortVersionString", env!("CARGO_PKG_VERSION")),
+        ("CFBundleVersion", env!("CARGO_PKG_VERSION")),
+    ] {
+        assert_eq!(read_by_plutil(list, key)?, value, "{key}");
+    }
+    assert_eq!(
+        read_by_plutil(list, "CFBundleDocumentTypes")?,
+        "",
+        "item 684"
+    );
+    Ok(())
+}
+
 #[test]
 fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(), String> {
     let root = directory("made")?;
@@ -202,6 +226,8 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
         said,
         "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
          its page with this browser's own engine, and says so\n\
+         alo-bundle: --keys-from is not named, so the application carries no keys: it \
+         searches with this Mac's keychain's when it runs\n\
          alo-bundle: made, sealed ad hoc and checked by codesign\n"
     );
     assert_eq!(
@@ -223,24 +249,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
     );
 
     let contents = application.join("Contents");
-    let list = contents.join("Info.plist");
-    for (key, value) in [
-        ("CFBundleIdentifier", "org.aloworld.Browser"),
-        ("CFBundleExecutable", "alo"),
-        ("CFBundleIconFile", "icon.icns"),
-        ("CFBundleName", "alo browser"),
-        ("CFBundleDisplayName", "alo browser"),
-        ("CFBundlePackageType", "APPL"),
-        ("CFBundleShortVersionString", env!("CARGO_PKG_VERSION")),
-        ("CFBundleVersion", env!("CARGO_PKG_VERSION")),
-    ] {
-        assert_eq!(read_by_plutil(&list, key)?, value, "{key}");
-    }
-    assert_eq!(
-        read_by_plutil(&list, "CFBundleDocumentTypes")?,
-        "",
-        "item 684"
-    );
+    the_list_names_the_application(&contents.join("Info.plist"))?;
 
     let cases = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases");
     for (case, name) in [
@@ -316,6 +325,8 @@ fn programs_not_built_are_named_and_nothing_is_made() -> Result<(), String> {
         format!(
             "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
              its page with this browser's own engine, and says so\n\
+             alo-bundle: --keys-from is not named, so the application carries no keys: it \
+             searches with this Mac's keychain's when it runs\n\
              alo-bundle: {} is not there: build the programs first, with cargo build --release\n",
             root.join("alo").display()
         )

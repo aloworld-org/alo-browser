@@ -14,6 +14,13 @@ them, checks the subscription, and must keep no record of what was asked
 (ROADMAP: no telemetry of any kind). That service, accounts, billing and the
 price are their own decisions, written when this ADR is.
 
+**Decided by ADR 0091 (31 October 2026), for the key-carrying point only:**
+the owner then decided *"The ai and search apis will be shipped inside the
+app"* — the providers' keys are carried inside the application, which
+supersedes this note's *cannot ship inside the application*. The provider
+itself is still open here, and no AI slot is defined until it is chosen
+(queue item 773).
+
 **Date:** 2026-10-30
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
 coordinate; the agent never receives a screenshot); ADR 0052 (the agent's

@@ -100,7 +100,7 @@ fn main() -> ExitCode {
     }
     let opening = decided.opening;
     if opening.conversation {
-        return in_the_conversation(&opening, decided.chromium);
+        return in_the_conversation(&opening, decided.chromium, bundle.as_ref());
     }
     match opening.renderer {
         Renderer::ThisEngine => in_this_engine(&opening),
@@ -193,8 +193,9 @@ fn in_this_engine(opening: &Opening) -> ExitCode {
 
 /// Open the conversation's window — the chats panel and the first screen,
 /// each drawn by a renderer of this engine's — and run until it closes, an
-/// address chosen in it opened in the Chromium `chromium` names.
-fn in_the_conversation(opening: &Opening, chromium: Chromium) -> ExitCode {
+/// address chosen in it opened in the Chromium `chromium` names, searching
+/// with the key the application `bundle` carries, or this Mac's keychain's.
+fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bundle>) -> ExitCode {
     let renderers = match renderers(opening.fonts) {
         Ok(renderers) => renderers,
         Err(failed) => return failed,
@@ -203,10 +204,11 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium) -> ExitCode {
         "alo: the browser's own interface is drawn by {}",
         RenderedBy::ThisEngine
     );
-    // The search provider's key, read from this Mac's keychain at run time
-    // and never said (ADR 0083 § 1); with none, searching says why it is
-    // not set up.
-    let search = alo_window::search_key::for_this_person()
+    // The search provider's key, carried inside the application in a
+    // release (ADR 0091) or read from this Mac's keychain at run time (ADR
+    // 0083 § 1), and never said; with none, searching says why it is not
+    // set up. Read here, by the browser process alone.
+    let search = alo_window::search_key::for_this_application(bundle)
         .and_then(alo_window::brave_search::Provider::brave);
     match alo_window::window::conversation(opening.scale, renderers, chromium, search) {
         Ok(()) => ExitCode::SUCCESS,

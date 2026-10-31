@@ -906,8 +906,16 @@ The reason this exists rather than a faster fork of somebody else's engine.
   own road against a local server answering in Brave's shape
   (`tests/searching_from_the_one_box.rs`,
   `tests/a_search_result_opened_in_the_card_through_chrome.rs`). Owed: the
-  short answer at the top (707), how the key is carried in release (748).
-  *(A site's own mark since built, 747.)*
+  short answer at the top (707), the AI provider's carried key (773).
+  *(A site's own mark since built, 747.)* **The key in release** (748, ADR
+  0091 — the owner: *"The ai and search apis will be shipped inside the
+  app"*): `alo-bundle --keys-from keychain` puts the search key, taken from
+  this Mac's keychain, inside the application at
+  `Contents/Resources/keys/search`, masked (not protected) and sealed; the
+  browser process reads the application's key first and the keychain's
+  otherwise; a damaged carried key is said, and a refused one says which
+  key. Never compiled in, never in the repository or a test
+  (`tests/the_application_carrying_its_keys.rs`, with a fake key).
   **Images, the Images tab and the Sites tab** (743, 744, ADR 0086): once a
   web search finds sites, the same words alone are asked of Brave's image
   search — a second paid request, asked only then and only when no newer

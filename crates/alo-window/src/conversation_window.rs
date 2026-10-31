@@ -1095,18 +1095,24 @@ mod tests {
         window.heard(Heard::Searched(Searched::sites(
             1,
             "what is x",
-            Showing::Unanswered(crate::brave_search::unanswered(429)),
+            Showing::Unanswered(crate::brave_search::unanswered(
+                429,
+                crate::search_key::Held::Keychain,
+            )),
         )));
         assert_eq!(
             window.scene().and_then(|scene| scene.start_sentence),
-            Some(crate::brave_search::unanswered(429).as_str())
+            Some(crate::brave_search::unanswered(429, crate::search_key::Held::Keychain).as_str())
         );
         assert_eq!(
             window
                 .conversation()
                 .results()
                 .map(|results| results.showing.clone()),
-            Some(Showing::Unanswered(crate::brave_search::unanswered(429)))
+            Some(Showing::Unanswered(crate::brave_search::unanswered(
+                429,
+                crate::search_key::Held::Keychain
+            )))
         );
         window.finish();
         assert_eq!(window.unfinished(), None);

@@ -46,7 +46,7 @@
 //!
 //! ADR 0083 § 5's sentences, by status ([`unanswered`]). None says the key.
 
-use crate::search_key::Key;
+use crate::search_key::{Held, Key};
 use crate::search_protocol::{self, ImageFound, VideoFound};
 use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request};
@@ -265,7 +265,7 @@ pub fn search(
     match pool.fetch(&request) {
         Ok(response) if response.status.0 == 200 => answered_with_marks(&response.body),
         Ok(response) => (
-            Showing::Unanswered(unanswered(response.status.0)),
+            Showing::Unanswered(unanswered(response.status.0, provider.key.held())),
             Vec::new(),
         ),
         Err(why) => (
@@ -294,7 +294,7 @@ pub fn images(
         Ok(response) if response.status.0 == 200 => search_protocol::read_images(&response.body)
             .map(|read| read.found)
             .map_err(|why| format!("{PROVIDER}'s answer could not be read: {why}")),
-        Ok(response) => Err(unanswered(response.status.0)),
+        Ok(response) => Err(unanswered(response.status.0, provider.key.held())),
         Err(why) => Err(format!("{PROVIDER} could not be reached: {why}")),
     }
 }
@@ -314,7 +314,7 @@ pub fn videos(
     words: &str,
 ) -> Result<Vec<VideoFound>, String> {
     let request = provider.videos_request(words, identities)?;
-    answer_of(pool, &request, |body| {
+    answer_of(pool, &request, provider.key.held(), |body| {
         search_protocol::read_videos(body).map(|read| read.found)
     })
 }
@@ -334,22 +334,24 @@ pub fn news(
     words: &str,
 ) -> Result<(Vec<Story>, Vec<Option<Url>>), String> {
     let request = provider.news_request(words, identities)?;
-    answer_of(pool, &request, |body| {
+    answer_of(pool, &request, provider.key.held(), |body| {
         search_protocol::read_news(body).map(|read| (read.found, read.marks))
     })
 }
 
 /// `request` fetched through `pool`, and its body of 200 read by `read`:
-/// what was read, or why not, in a sentence a person reads.
+/// what was read, or why not, in a sentence a person reads — of a key
+/// `held` there.
 fn answer_of<T>(
     pool: &mut Pool,
     request: &Request,
+    held: Held,
     read: impl FnOnce(&[u8]) -> Result<T, search_protocol::Unread>,
 ) -> Result<T, String> {
     match pool.fetch(request) {
         Ok(response) if response.status.0 == 200 => read(&response.body)
             .map_err(|why| format!("{PROVIDER}'s answer could not be read: {why}")),
-        Ok(response) => Err(unanswered(response.status.0)),
+        Ok(response) => Err(unanswered(response.status.0, held)),
         Err(why) => Err(format!("{PROVIDER} could not be reached: {why}")),
     }
 }
@@ -379,18 +381,24 @@ pub fn answered_with_marks(body: &[u8]) -> (Showing, Vec<Option<Url>>) {
     }
 }
 
-/// What a person is told when the answer's status is `status`, not 200.
-pub fn unanswered(status: u16) -> String {
-    match status {
-        401 | 403 => format!(
+/// What a person is told when the answer's status is `status`, not 200,
+/// to a search asked with a key `held` there: a key refused is looked for
+/// where it is held.
+pub fn unanswered(status: u16, held: Held) -> String {
+    match (status, held) {
+        (401 | 403, Held::Keychain) => format!(
             "{PROVIDER} refused alo's key ({status}). The key in this Mac's keychain may be wrong \
              or revoked."
         ),
-        429 => format!(
+        (401 | 403, Held::Carried) => format!(
+            "{PROVIDER} refused alo's key ({status}). The key this application carries may have \
+             been revoked: a newer alo carries a new one."
+        ),
+        (429, _) => format!(
             "{PROVIDER} says alo has searched too often, or its allowance is used up ({status}). \
              Try again later."
         ),
-        500..=599 => format!("{PROVIDER} could not answer just now ({status})."),
+        (500..=599, _) => format!("{PROVIDER} could not answer just now ({status})."),
         _ => format!("{PROVIDER} answered {status}, which alo does not read."),
     }
 }
@@ -540,11 +548,21 @@ mod tests {
             (422, "answered 422, which alo does not read"),
             (302, "answered 302"),
         ] {
-            let said = unanswered(status);
-            assert!(said.contains(says), "{status}: {said}");
-            assert!(said.starts_with("Brave Search"), "{said}");
-            assert!(!said.contains("test-key"), "{said}");
+            for held in [Held::Keychain, Held::Carried] {
+                let said = unanswered(status, held);
+                assert!(said.contains(says), "{status}: {said}");
+                assert!(said.starts_with("Brave Search"), "{said}");
+                assert!(!said.contains("test-key"), "{said}");
+            }
         }
+        assert!(unanswered(401, Held::Keychain).ends_with("keychain may be wrong or revoked."));
+        assert!(unanswered(403, Held::Carried).ends_with(
+            "this application carries may have been revoked: a newer alo carries a new one."
+        ));
+        assert_eq!(
+            unanswered(429, Held::Keychain),
+            unanswered(429, Held::Carried)
+        );
     }
 
     #[test]

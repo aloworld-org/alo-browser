@@ -80,6 +80,12 @@ impl Bundle {
         self.contents.join(CHROMIUM)
     }
 
+    /// Its `Contents/Resources`, holding its pages and the keys it carries
+    /// ([`crate::carried_keys`], ADR 0091).
+    pub fn resources(&self) -> &Path {
+        &self.resources
+    }
+
     /// The page it opens in its own Chromium.
     pub fn page(&self) -> PathBuf {
         self.resources.join(PAGE)

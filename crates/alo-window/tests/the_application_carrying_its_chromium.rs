@@ -274,6 +274,8 @@ fn the_application_carries_cefs_chromium_checked_against_its_pin_and_sealed() ->
         said,
         format!(
             "alo-bundle: carries {}, checked against its pinned SHA-256\n\
+             alo-bundle: --keys-from is not named, so the application carries no keys: it \
+             searches with this Mac's keychain's when it runs\n\
              alo-bundle: made, sealed ad hoc and checked by codesign\n",
             cef_pin::VERSION
         )

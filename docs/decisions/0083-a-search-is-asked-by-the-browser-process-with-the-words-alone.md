@@ -39,6 +39,12 @@ framework's own tool is the boundary.
 
 ### In release — left open for the owner, decided before release
 
+**Decided by ADR 0091** (the owner, 31 October 2026: *"The ai and search
+apis will be shipped inside the app"*): option 1, the key carried inside the
+application, put in by `alo-bundle --keys-from` from outside the repository
+and read by the browser process alone (queue item 748). The risk below
+stands, written plainly there too.
+
 ADR 0082 § 0: in release alo pays the API through a subscription, so no
 person brings a key of their own. Two ways to do that are on the table:
 
@@ -59,6 +65,8 @@ person brings a key of their own. Two ways to do that are on the table:
 
 **Not decided here.** The owner chooses before release, in an ADR of its
 own; until then this item reads the key from the keychain at run time.
+*(Chosen: ADR 0091. A development build still reads the keychain at run
+time; a release carries the key.)*
 
 ## 2. Which process asks
 
@@ -153,4 +161,5 @@ line at the window's foot.
   site's own mark, by queue item 747 — fetched from Brave's image proxy
   alone, at no paid request, never from the site, ADR 0088 §§ 6–8.)*
 - How the key is carried in release — inside the application, or by a
-  server of alo's own (§ 1): the owner's, undecided.
+  server of alo's own (§ 1): the owner's, undecided. *(Since decided:
+  inside the application, ADR 0091, built by queue item 748.)*
