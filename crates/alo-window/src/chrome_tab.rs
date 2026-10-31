@@ -774,8 +774,10 @@ impl<'c> Tab<'c> {
 
     /// Stream the page as PNG frames, each at most `width` by `height`
     /// device pixels (ADR 0076 B, queue item 717): every frame told of from
-    /// now on is answered as it is read, here or while any command waits,
-    /// and the newest kept for [`Tab::take_frame`].
+    /// now on is answered, here or while any command waits — once its bytes
+    /// have taken their time at the stream's budget
+    /// ([`crate::chrome_screencast::STREAM_BUDGET`], ADR 0090) — and the
+    /// newest kept for [`Tab::take_frame`].
     ///
     /// # Errors
     ///
@@ -797,10 +799,48 @@ impl<'c> Tab<'c> {
         if !self.casting.is_on() {
             return Ok(());
         }
+        // A frame still owed an answer is answered first, so Chrome is left
+        // owing nothing.
+        for owed in self.casting.owed() {
+            self.answer_frame(Some(owed))?;
+        }
         let stopped = self.ask(&Command::StopCasting).map(drop);
-        // Whatever Chrome answered, nothing more is kept.
+        // Whatever Chrome answered, nothing more is kept — and a frame read
+        // while it stopped is answered too.
         self.casting.stop();
+        for owed in self.casting.owed() {
+            self.answer_frame(Some(owed))?;
+        }
         stopped
+    }
+
+    /// Answer the frame Chrome told of under `frame`, if there is one: its
+    /// reply is nobody's to wait for.
+    fn answer_frame(&mut self, frame: Option<i64>) -> Result<(), Failed> {
+        if let Some(frame) = frame {
+            let id = self
+                .chrome
+                .send(Some(&self.session), &Command::FrameSeen { frame })?;
+            self.casting.answering(id);
+        }
+        Ok(())
+    }
+
+    /// The next message from Chrome, waited for until `until` — every
+    /// frame streamed and owed an answer by now answered first, whatever is
+    /// waited for: between orders, and while an agent's command waits.
+    fn receive(&mut self, until: Instant) -> Result<Message, Failed> {
+        self.answer_due()?;
+        self.chrome.receive(until)
+    }
+
+    /// Answer every frame owed an answer by now.
+    fn answer_due(&mut self) -> Result<(), Failed> {
+        let now = Instant::now();
+        while let Some(due) = self.casting.due(now) {
+            self.answer_frame(Some(due))?;
+        }
+        Ok(())
     }
 
     /// The newest frame read since this was last asked, if the page is
@@ -831,12 +871,10 @@ impl<'c> Tab<'c> {
                 params,
             } if method == "Page.screencastFrame" && *session == self.session => {
                 let frame = chrome_protocol::cast_frame(params).map_err(Failed::Malformed)?;
-                let id = self.chrome.send(
-                    Some(&self.session),
-                    &Command::FrameSeen { frame: frame.frame },
-                )?;
-                self.casting.answering(id);
-                self.casting.read(frame.data);
+                let earlier = self.casting.read(frame.frame, frame.data, Instant::now());
+                self.answer_frame(earlier)?;
+                // A frame read after the stream stopped is due at once.
+                self.answer_due()?;
                 Ok(true)
             }
             Message::Reply { id, .. } => Ok(self.casting.answered(*id)),
@@ -995,7 +1033,7 @@ impl<'c> Tab<'c> {
     /// The next message for this tab that is not about a paused request or a
     /// held target — those are answered here — or [`None`] for one that was.
     fn next(&mut self, until: Instant) -> Result<Option<Message>, Failed> {
-        let message = self.chrome.receive(until)?;
+        let message = self.receive(until)?;
         // A frame streamed, and a stage of the page's documents.
         if self.cast_in(&message)? || self.staged_in(&message)? {
             return Ok(None);

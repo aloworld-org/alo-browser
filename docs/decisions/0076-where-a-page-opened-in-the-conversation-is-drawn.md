@@ -383,7 +383,10 @@ CEF host (Chromium 156.0.8078.48), in `alo-window`'s
 - **A parked window streams** at about 60 frames a second, as B4 found —
   at the scale of the display macOS clamps it by. On this Mac, with two
   displays at one beside the Retina one, frames asked at 1756 × 1040 came
-  at 878 × 520. Queue item 738.
+  at 878 × 520. Queue item 738; decided by ADR 0090 — the card's Chromium
+  is told the conversation's scale, and its stream paced — which also
+  measured that no parked window is off every display: the window server
+  leaves a strip of it on one (queue item 771).
 - **The agent's pipe, B2's question, through this browser's own reading of
   it.** A page whose moving noise makes each PNG about B's size (338–387 KiB,
   20–23 MiB a second): an agent's read of the page's tree through the

@@ -114,6 +114,7 @@ use crate::frame_told::ToFrame;
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::{Order, TabOrder};
 use crate::pages::RenderedBy;
+use crate::scale::Scale;
 use crate::serving::serve;
 use alo_url::Url;
 use core::fmt;
@@ -213,6 +214,10 @@ enum Drawn {
         /// where it is put — parked off every display while its page is a
         /// card in the conversation (ADR 0076 B4, queue item 717).
         front: bool,
+        /// The scale its window is drawn at wherever it is — a card's, the
+        /// conversation's (ADR 0090, queue item 738) — or, with none, its
+        /// display's.
+        scale: Option<Scale>,
     },
 }
 
@@ -292,6 +297,7 @@ impl ChromeServing {
                     top,
                     framed: true,
                     front: true,
+                    scale: None,
                 },
             ),
             sites,
@@ -326,6 +332,7 @@ impl ChromeServing {
                     top,
                     framed: false,
                     front: true,
+                    scale: None,
                 },
             ),
             sites,
@@ -348,6 +355,11 @@ impl ChromeServing {
     /// not once it has loaded ([`Tab::open_as_a_card`], queue item 751), so
     /// a slow page is streamed from its first paint.
     ///
+    /// The Chromium is told `scale`, the conversation's window's, and draws
+    /// the page at it wherever its parked window is (ADR 0090, queue item
+    /// 738): the window server parks a window by a display of its own
+    /// choosing, which is the conversation's only by chance.
+    ///
     /// # Errors
     ///
     /// As [`ChromeServing::start_shown`].
@@ -355,6 +367,7 @@ impl ChromeServing {
         chromium: Chromium,
         opening: Opening,
         size: (u32, u32),
+        scale: Scale,
         sites: AgentSites,
         told: TellFrame,
     ) -> Result<Self, Unserved> {
@@ -369,6 +382,7 @@ impl ChromeServing {
                     top,
                     framed: false,
                     front: false,
+                    scale: Some(scale),
                 },
             ),
             sites,
@@ -496,8 +510,14 @@ struct Started {
 /// which it is: its product, as it says itself, and whose it is — the
 /// machine's Chrome, or the application's own (ADR 0077).
 fn named_chrome(chromium: &Chromium, drawn: Drawn) -> Result<(Chrome, RenderedBy), Unserved> {
-    let shown = matches!(drawn, Drawn::Shown { .. });
-    let mut chrome = Chrome::start_from(chromium, shown).map_err(Unserved::Unstarted)?;
+    let chrome = match drawn {
+        Drawn::Shown {
+            scale: Some(scale), ..
+        } => Chrome::start_shown_at(chromium, scale),
+        Drawn::Shown { .. } => Chrome::start_from(chromium, true),
+        Drawn::Headless => Chrome::start_from(chromium, false),
+    };
+    let mut chrome = chrome.map_err(Unserved::Unstarted)?;
     let product = chrome.version().map_err(Unserved::Unnamed)?.product;
     let rendered_by = match chromium {
         Chromium::Machines => RenderedBy::Chrome { product },

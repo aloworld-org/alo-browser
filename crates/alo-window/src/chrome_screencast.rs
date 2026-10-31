@@ -7,18 +7,31 @@
 //!
 //! Chrome is asked to stream (`Page.startScreencast`, PNG, at most the
 //! card's size times the window's scale) and tells of each frame as an
-//! event on the tab's session. **Every frame is answered at once**
-//! (`Page.screencastFrameAck`), as it is read, wherever the tab reads it —
-//! between two orders, or while an agent's command waits for its answer —
-//! because Chrome sends no more until it is, and an unanswered stream would
-//! stall rather than queue. Of the frames read, **only the newest is kept**:
-//! a card shows one picture, and one older than another that has arrived is
+//! event on the tab's session. **Every frame is answered**
+//! (`Page.screencastFrameAck`), wherever the tab reads it — between two
+//! orders, or while an agent's command waits for its answer — because
+//! Chrome sends no more until it is, and an unanswered stream would stall
+//! rather than queue. Of the frames read, **only the newest is kept**: a
+//! card shows one picture, and one older than another that has arrived is
 //! never worth drawing.
 //!
 //! The pipe the frames come down is the agent's ([`crate::chrome`]), so
 //! what an agent waits for is queued behind them: ADR 0076 B2 measured a few
 //! milliseconds a command at the card's size, and
 //! `tests/a_page_as_a_card_through_chrome.rs` holds the agent's reads to it.
+//!
+//! # Paced to the stream ADR 0076 measured
+//!
+//! Each frame is answered once its bytes have taken their time at
+//! [`STREAM_BUDGET`] — the PNG stream ADR 0076 B measured and accepted —
+//! after it was read, or after the frame before it was due, whichever is
+//! later, and not before (ADR 0090, queue item 738): Chrome keeps more than
+//! one frame in flight, so each is owed in turn ([`MOST_OWED`]). A card at
+//! one makes frames of about a third of a megabyte, answered within a 60 Hz
+//! display's frame as before; at two a page of noise makes them four times
+//! as large, and answered at once they came at 70–80 MiB a second and made
+//! the agent's commands wait behind them (measured). Paced, the stream
+//! carries no more than the budget down the agent's pipe.
 //!
 //! # Stopping
 //!
@@ -36,7 +49,19 @@
 //! the first screen's renderer to be read, as every picture is, in its
 //! confined process.
 
-use std::time::Instant;
+use std::collections::VecDeque;
+use std::time::{Duration, Instant};
+
+/// The most a stream is let carry down the agent's pipe, in bytes a second:
+/// 24 MiB, ADR 0076 B1's PNG stream of a card at two (24.0–24.6 MiB a
+/// second, 1760 × 1200), which ADR 0076 accepted and B2 bounded the agent's
+/// waits by. A frame is answered no sooner than its bytes take at this.
+pub const STREAM_BUDGET: u64 = 24 * 1024 * 1024;
+
+/// The most frames owed an answer at once: past it the oldest is answered
+/// at once. Chrome was measured keeping two in flight; this is never
+/// reached by a Chrome that waits for its answers.
+pub const MOST_OWED: usize = 8;
 
 /// What every PNG begins with.
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
@@ -102,6 +127,9 @@ pub struct Casting {
     after: u64,
     /// The commands answering frames, by id, whose replies are nobody's.
     answering: Vec<u64>,
+    /// The frames read and not yet answered — by the id Chrome told each
+    /// under — and when each is to be ([`STREAM_BUDGET`]), in order.
+    owed: VecDeque<(i64, Instant)>,
 }
 
 impl Casting {
@@ -122,16 +150,48 @@ impl Casting {
         self.on
     }
 
-    /// A frame told of with `data`, base64 as Chrome sent it, read: kept as
-    /// the newest while streaming, counted after.
-    pub fn read(&mut self, data: String) {
-        if !self.on {
+    /// The frame told of under `frame` with `data`, base64 as Chrome sent
+    /// it, read at `now`: kept as the newest while streaming, and owed an
+    /// answer once its bytes have taken their time at [`STREAM_BUDGET`]
+    /// from now or from when the frame owed before it is due, whichever is
+    /// later; counted after, and owed one at once. Past [`MOST_OWED`], the
+    /// oldest owed is to be answered now, and is said.
+    pub fn read(&mut self, frame: i64, data: String, now: Instant) -> Option<i64> {
+        if self.on {
+            let bytes = decoded_length(&data);
+            self.frames = self.frames.saturating_add(1);
+            self.bytes = self.bytes.saturating_add(bytes);
+            self.newest = Some((data, now));
+            let from = self.owed.back().map_or(now, |(_, due)| (*due).max(now));
+            self.owed
+                .push_back((frame, from.checked_add(paced(bytes)).unwrap_or(from)));
+        } else {
             self.after = self.after.saturating_add(1);
-            return;
+            self.owed.push_back((frame, now));
         }
-        self.frames = self.frames.saturating_add(1);
-        self.bytes = self.bytes.saturating_add(decoded_length(&data));
-        self.newest = Some((data, Instant::now()));
+        (self.owed.len() > MOST_OWED)
+            .then(|| self.owed.pop_front().map(|(oldest, _)| oldest))
+            .flatten()
+    }
+
+    /// The oldest frame owed an answer by `now`, if one is: no longer owed.
+    pub fn due(&mut self, now: Instant) -> Option<i64> {
+        let (frame, due) = *self.owed.front()?;
+        (due <= now).then(|| {
+            self.owed.pop_front();
+            frame
+        })
+    }
+
+    /// Every frame owed an answer, whenever each is due: no longer owed —
+    /// for a stream being stopped, which leaves Chrome owed nothing.
+    pub fn owed(&mut self) -> Vec<i64> {
+        self.owed.drain(..).map(|(frame, _)| frame).collect()
+    }
+
+    /// When the oldest frame owed an answer is due, if one is.
+    pub fn next_due(&self) -> Option<Instant> {
+        self.owed.front().map(|(_, due)| *due)
     }
 
     /// The newest frame read since this was last asked, if one was, its
@@ -182,6 +242,13 @@ impl Casting {
     pub fn after_stopping(&self) -> u64 {
         self.after
     }
+}
+
+/// How long `bytes` of a frame take at [`STREAM_BUDGET`].
+pub fn paced(bytes: u64) -> Duration {
+    // Whole microseconds: at most a microsecond short, which no display
+    // frame sees.
+    Duration::from_micros(bytes.saturating_mul(1_000_000) / STREAM_BUDGET)
 }
 
 /// The size a PNG's header states, in pixels: [`None`] for bytes that are
@@ -317,36 +384,47 @@ mod tests {
         assert_eq!(png_size(&header(1, 1)[..20]), None);
     }
 
+    /// `casting` reads `data` as frame 1, now, answering any owed at once.
+    fn read(casting: &mut Casting, data: String) {
+        let _ = casting.read(1, data, Instant::now());
+    }
+
     #[test]
     fn only_the_newest_frame_is_kept_and_none_after_stopping() {
         let mut casting = Casting::default();
-        casting.read(encoded(&header(2, 2)));
+        read(&mut casting, encoded(&header(2, 2)));
         assert_eq!(casting.take(), Ok(None), "nothing kept before streaming");
         assert_eq!(casting.after_stopping(), 1);
         casting.start();
         assert!(casting.is_on());
         for width in [1, 2, 3] {
-            casting.read(encoded(&header(width, 9)));
+            read(&mut casting, encoded(&header(width, 9)));
         }
         let taken = casting.take().ok().flatten();
         assert_eq!(taken.map(|frame| frame.size), Some((3, 9)));
         assert_eq!(casting.take(), Ok(None));
         assert_eq!(casting.read_so_far(), (3, 3 * 29), "a header is 29 bytes");
-        casting.read("not base64! not base64! not base64!".to_owned());
+        read(
+            &mut casting,
+            "not base64! not base64! not base64!".to_owned(),
+        );
         assert_eq!(casting.take(), Err(Unkept::NotBase64));
-        casting.read(encoded(b"GIF89a, and enough more to be 24 bytes"));
+        read(
+            &mut casting,
+            encoded(b"GIF89a, and enough more to be 24 bytes"),
+        );
         assert_eq!(casting.take(), Err(Unkept::NotAPng));
-        casting.read(encoded(b"short"));
+        read(&mut casting, encoded(b"short"));
         assert_eq!(casting.take(), Err(Unkept::NotAPng));
         let whole = [header(6, 7), b"and the rest".to_vec()].concat();
-        casting.read(encoded(&whole));
+        read(&mut casting, encoded(&whole));
         let taken = casting.take().ok().flatten();
         assert_eq!(taken.as_ref().map(|frame| frame.size), Some((6, 7)));
         assert_eq!(taken.map(|frame| frame.png()), Some(Ok(whole)));
-        casting.read(encoded(&header(4, 4)));
+        read(&mut casting, encoded(&header(4, 4)));
         casting.stop();
         assert_eq!(casting.take(), Ok(None), "a frame not taken is dropped");
-        casting.read(encoded(&header(5, 5)));
+        read(&mut casting, encoded(&header(5, 5)));
         assert_eq!(casting.take(), Ok(None));
         assert_eq!(casting.after_stopping(), 2);
     }
@@ -360,5 +438,63 @@ mod tests {
         assert!(!casting.answered(9));
         assert!(!casting.answered(5));
         assert!(casting.answered(4));
+    }
+
+    #[test]
+    fn a_frame_is_answered_once_its_bytes_have_taken_their_time() {
+        assert_eq!(paced(STREAM_BUDGET), Duration::from_secs(1));
+        assert_eq!(paced(0), Duration::ZERO);
+        // A card's frame at one, ADR 0076 B's size: answered within a 60 Hz
+        // display's frame, as before the pace.
+        assert!(paced(387 * 1024) < Duration::from_micros(16_667));
+        // A frame of noise at two, as measured: about eighteen a second.
+        assert_eq!(paced(1_370 * 1024), Duration::from_micros(55_745));
+
+        let mut casting = Casting::default();
+        casting.start();
+        let now = Instant::now();
+        let frame = || encoded(&[header(2, 2), vec![0; 3 * 1024 * 1024]].concat());
+        let took = paced(decoded_length(&frame()));
+        assert_eq!(casting.read(7, frame(), now), None);
+        assert_eq!(casting.next_due(), Some(now + took));
+        assert_eq!(casting.due(now), None, "not yet");
+        let short = (now + took).checked_sub(Duration::from_micros(1)).unwrap();
+        assert_eq!(casting.due(short), None);
+        assert_eq!(casting.due(now + took), Some(7));
+        assert_eq!(casting.due(now + took), None, "answered once");
+        assert_eq!(casting.next_due(), None);
+
+        // Two in flight at once: the second is due after the first's time
+        // and its own, so the two take the budget's time together.
+        assert_eq!(casting.read(8, frame(), now), None);
+        assert_eq!(casting.read(9, frame(), now), None);
+        assert_eq!(casting.due(now + took), Some(8));
+        assert_eq!(casting.due(now + took), None);
+        assert_eq!(casting.next_due(), Some(now + took + took));
+        assert_eq!(casting.due(now + took + took), Some(9));
+    }
+
+    #[test]
+    fn frames_owed_are_answered_as_the_stream_stops_or_too_many_wait() {
+        let mut casting = Casting::default();
+        casting.start();
+        let now = Instant::now();
+        let large = || encoded(&[header(2, 2), vec![0; 1024 * 1024]].concat());
+        assert_eq!(casting.read(1, large(), now), None);
+        assert_eq!(casting.read(2, large(), now), None);
+        assert_eq!(casting.owed(), [1, 2], "a stream stopping owes nothing");
+        assert!(casting.owed().is_empty());
+        for frame in 1..=8 {
+            assert_eq!(casting.read(frame, large(), now), None);
+        }
+        assert_eq!(casting.read(9, large(), now), Some(1), "past the most owed");
+        assert_eq!(casting.owed().len(), MOST_OWED);
+        assert_eq!(casting.read(10, large(), now), None);
+        casting.stop();
+        // In flight as it stopped: owed at once, after the one before it.
+        assert_eq!(casting.read(11, large(), now), None);
+        assert_eq!(casting.owed(), [10, 11]);
+        assert_eq!(casting.read(12, large(), now), None);
+        assert_eq!(casting.due(now), Some(12), "after stopping, due at once");
     }
 }

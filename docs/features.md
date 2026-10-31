@@ -863,6 +863,20 @@ The reason this exists rather than a faster fork of somebody else's engine.
   *Loading* once the picture is answered
   (`tests/a_card_drawn_before_its_page_loads_through_chrome.rs`). Every
   other tab — an agent's, `alo --chrome`'s — is still opened loaded.
+  **A card's frames at the window's scale** (738, ADR 0090): the card's
+  Chromium is started told the conversation window's scale
+  (`--force-device-scale-factor`), so its page is drawn and streamed at it
+  wherever the window server keeps the parked window — which on a Mac with
+  a display at one beside a Retina one was by the display at one, and the
+  card blurred. Each frame is answered once its bytes have taken their time
+  at 24 MiB a second, ADR 0076's measured stream, so frames four times the
+  pixels never make an agent's commands wait. Through the machine's Chrome
+  and the Chromium alo carries, a card at two streams every frame at
+  1756 × 1040 parked by a display at one, within the budget, an agent's
+  read unchanged; a card at one streams at 878 × 520
+  (`tests/a_page_as_a_card_through_chrome.rs`). A conversation moved to a
+  display of another scale keeps its card's first scale (772); the parked
+  window is not off every display (771).
   **The card's *Back* and *Forward*** (737): after each commit or move
   within its document of the page's own frame, the thread holding the card
   reads the tab's session history (`Page.getNavigationHistory`) and tells

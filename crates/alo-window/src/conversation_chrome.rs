@@ -243,17 +243,21 @@ struct Held {
     card: Box<dyn Fn(CardOrder) + Send>,
 }
 
-/// How a Chrome is started at an address: the machine's, or a test's.
-type Starter = Box<dyn FnMut(&Url, TellFrame) -> Result<Held, String> + Send>;
+/// How a Chrome is started at an address and a scale: the machine's, or a
+/// test's.
+type Starter = Box<dyn FnMut(&Url, Scale, TellFrame) -> Result<Held, String> + Send>;
 
 /// The largest each frame of a card's page is streamed at, in device
-/// pixels: the card's page box at the window's scale (ADR 0076 B).
+/// pixels: the card's page box at the window's scale (ADR 0076 B) — and that
+/// scale, which a card's Chromium is started at (ADR 0090).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Streamed {
     /// In device pixels.
     pub width: u32,
     /// In device pixels.
     pub height: u32,
+    /// The window's scale.
+    pub scale: Scale,
 }
 
 impl Streamed {
@@ -262,6 +266,7 @@ impl Streamed {
         Self {
             width: scale.device(PAGE_SIZE.0).max(1),
             height: scale.device(PAGE_SIZE.1).max(1),
+            scale,
         }
     }
 
@@ -324,7 +329,7 @@ impl ChromeOpener {
     /// What the system said when no thread could be started.
     pub fn start(chromium: Chromium, tell: TellWent) -> std::io::Result<Self> {
         Self::starting_with(
-            Box::new(move |url, told| in_chrome(&chromium, url, told)),
+            Box::new(move |url, scale, told| in_chrome(&chromium, url, scale, told)),
             tell,
         )
     }
@@ -503,7 +508,7 @@ fn hold(
                     opened += 1;
                     let _ = tell(Went::Opening(url.clone()));
                     let number = opened;
-                    match starter(&url, heard_from(again.clone(), number)) {
+                    match starter(&url, streamed.scale, heard_from(again.clone(), number)) {
                         Ok(held) => {
                             let _ = tell(Went::Opened {
                                 url: url.clone(),
@@ -555,13 +560,20 @@ fn ask_of(open: Option<&Open>, order: CardOrder) {
 }
 
 /// Start the Chromium `chromium` names at `url`, its window parked off
-/// every display while its page is a card (ADR 0076 B4), held as `alo
+/// every display while its page is a card (ADR 0076 B4) and its page drawn
+/// at the window's `scale` wherever that is (ADR 0090), held as `alo
 /// --chrome` holds its page.
-fn in_chrome(chromium: &Chromium, url: &Url, told: TellFrame) -> Result<Held, String> {
+fn in_chrome(
+    chromium: &Chromium,
+    url: &Url,
+    scale: Scale,
+    told: TellFrame,
+) -> Result<Held, String> {
     let serving = ChromeServing::start_as_a_card(
         chromium.clone(),
         Opening::Network(url.clone()),
         PAGE_SIZE,
+        scale,
         // No socket is opened for the conversation's pages (queue item
         // 716): no agent reaches this tab, so it is kept to no site of its
         // own.
@@ -611,19 +623,22 @@ mod tests {
         told: Vec<TellFrame>,
         /// What each card was asked, by its address.
         asked: Vec<(String, CardOrder)>,
+        /// The scale each was started at.
+        scales: Vec<Scale>,
     }
 
     /// A starter that refuses `refused` and starts anything else, writing
     /// down what it did in `did`.
     fn starter(did: &Arc<Mutex<Did>>, refused: &'static str) -> Starter {
         let did = Arc::clone(did);
-        Box::new(move |url, told| {
+        Box::new(move |url, scale, told| {
             let address = url.to_string();
             if address == refused {
                 return Err("Chrome is not installed on this machine".to_owned());
             }
             let mut doing = did.lock().unwrap();
             doing.started.push(address.clone());
+            doing.scales.push(scale);
             doing.told.push(told);
             let closing = Arc::clone(&did);
             let asking = Arc::clone(&did);
@@ -661,6 +676,7 @@ mod tests {
     const STREAMED: Streamed = Streamed {
         width: 1756,
         height: 1040,
+        scale: Scale::TWO,
     };
 
     fn next(told: &Receiver<Went>) -> Went {
@@ -879,10 +895,32 @@ mod tests {
             Streamed::at(Scale::ONE),
             Streamed {
                 width: 878,
-                height: 520
+                height: 520,
+                scale: Scale::ONE,
             }
         );
         assert_eq!(Streamed::at(Scale::of_screen(2.0)), STREAMED);
+    }
+
+    #[test]
+    fn a_cards_chromium_is_started_at_the_scale_it_is_streamed_at() {
+        let did = Arc::new(Mutex::new(Did::default()));
+        let (opener, told) = opener(&did, "");
+        let until_opened = |address: &str| {
+            let address = url(address);
+            while !matches!(next(&told), Went::Opened { url, .. } if url == address) {}
+        };
+        opener.open(url("https://two.example/"), STREAMED);
+        until_opened("https://two.example/");
+        opener.open(url("https://one.example/"), Streamed::at(Scale::ONE));
+        until_opened("https://one.example/");
+        assert!(opener.finish());
+        let did = did.lock().unwrap();
+        assert_eq!(
+            did.started,
+            ["https://two.example/", "https://one.example/"]
+        );
+        assert_eq!(did.scales, [Scale::TWO, Scale::ONE]);
     }
 
     #[test]

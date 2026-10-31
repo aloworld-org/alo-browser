@@ -46660,3 +46660,87 @@ greyed and *Forward* dark; *Forward*: `04-forward.png`, `Talk:Main_Page`,
 **Cut:** none. 770 (*Loading* from a navigation's start) left queued.
 
 The next unused queue number is **771** and the next ADR is **0090**.
+
+## Iteration 473 — queue item 738: a card's frames at the conversation window's scale
+
+**Why.** A card's frames came at the scale of the display the window server
+parked Chromium's window by: on this Mac, a display at one, so a card on the
+Retina display was drawn enlarged and blurred.
+
+**Measured** (Chrome 156.0.8078.76, alo's CEF host with Chromium
+156.0.8078.48; three displays — the Retina one at two at the origin, one at
+one left of it, a portrait one at one left of that; a Node client in the
+session scratchpad `m738/`): no place asked puts a shown window off every
+display. `PARKED` (−20000, 0) lands at −3725, 0 — 153 points of it on the
+portrait display, seen in a screenshot of a live card — through both
+programs; right of the Retina display it lands at 1670 with 40 points on
+it; the window draws at the scale of the display it is left on. One display
+was reasoned, not measured. Emulation at two changes `devicePixelRatio` and
+not the frame (878 × 520); `--force-device-scale-factor=2` parked by a
+display at one streams 1756 × 1040 frames identical to a Retina window's,
+through both. 717's 55 ms was the frames' size: PNG of noise at two made
+`Runtime.evaluate` wait 57 ms (Chrome) and 66 ms (host) at the median,
+parked by either display; answering each frame 25–33 ms after it came, none.
+
+**Decided (ADR 0090).** The card's Chromium is started at the conversation
+window's scale; its stream is paced — each frame answered once its bytes
+have taken their time at 24 MiB a second (ADR 0076 B1's PNG stream at two)
+after it came or after the one before was due.
+
+**Built.** `chrome::scaled` and `Chrome::start_shown_at` (the switch added
+to the launch); `Drawn::Shown::scale` and `ChromeServing::start_as_a_card`'s
+`scale`; `Streamed::scale` carried to the opener's starter
+(`conversation_chrome.rs`); `chrome_screencast.rs`'s `STREAM_BUDGET`,
+`paced`, `MOST_OWED` and `Casting`'s owed frames (`read` with the frame's id
+and time, `due`, `owed`, `next_due`); `Tab::receive` answers what is due
+before every read of the pipe, `uncast` answers everything owed before and
+after the stop. First built answering a frame still owed when the next
+came: Chromium keeps two in flight, so nothing was paced (measured 53–58
+frames a second at 70 MiB/s) — owed in turn, cumulatively, since.
+
+**Tests.** `a_page_as_a_card_through_chrome.rs`, through the machine's
+Chrome and alo's CEF host: a card started at two, parked by a display at
+one, every frame 1756 × 1040 (Chrome 21.3 a second, 25.0 MiB/s; host 18.4,
+25.1), within the budget (15% slack) and B2's growth (agent's read Chrome
+0.90 → 0.98 ms median, 0.98 → 1.14 p90; host 0.98 → 0.90, 1.13 → 1.06); a
+card at one, asked two, every frame 878 × 520; the module's words on
+*parked* corrected (left of the main display, not of every one). Unpaced at
+two the host's p90 went 1.01 → 18.9 ms, past the test's 17. Mutations: the
+switch not passed fails at the frames' size, the pace removed fails at the
+budget (67.6 and 77.5 MiB/s), each through both. Unit tests: `chrome.rs`
+(`a_scale_is_told_as_chromium_reads_it`), `chrome_screencast.rs`
+(`a_frame_is_answered_once_its_bytes_have_taken_their_time`,
+`frames_owed_are_answered_as_the_stream_stops_or_too_many_wait`),
+`conversation_chrome.rs`
+(`a_cards_chromium_is_started_at_the_scale_it_is_streamed_at`).
+
+**Gate: met** (second run). The first failed one test outside this change,
+`a_closed_list_chosen_through_a_shown_chrome`'s
+`a_menu_the_pointer_is_moved_over_chooses_nothing_and_is_closed` (the
+menu still listed after the move), which passed alone under nextest and in
+the second run — 658's known flake beside the many-pictures test. Pointer at
+(1400,1000) before each. **Summary [780.799s] 6024 tests run: 6024 passed
+(6 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+
+**By hand** (screen unlocked; the conversation moved onto the Retina display
+at 120,60, 967 × 852; screenshots in the session scratchpad `handrun13/`;
+the pointer saved and put back at 570,562 around every press).
+`en.wikipedia.org` typed into the box: HEAD's build (the `.app` made at
+22:15 for 737) drew the card blurred (`before-01-wikipedia.png`,
+`before-01-crop.png`); after a release build, the CEF host built, the old
+`.app` removed and `alo-bundle` run, this change's drew it sharp
+(`after-01-wikipedia.png`, `after-01-crop.png`; mean |Laplacian| of the same
+crop 8.2 → 18.1), its Chromium's command line holding
+`--force-device-scale-factor=2`; the parked window's strip of the page on
+the portrait display (`after-parked-strip.png`). ⌘Q each time left no alo,
+alo-render or alo Chromium process.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0057, 0076, 0079;
+ADR 0090 new; ADR 0076's 717 *Built* points at it.
+
+**Roadmap:** the conversation line's *Built* gains 738.
+
+**Cut:** the parked window off every display (771); a card's frames at a
+new scale after it opened (772).
+
+The next unused queue number is **773** and the next ADR is **0091**.

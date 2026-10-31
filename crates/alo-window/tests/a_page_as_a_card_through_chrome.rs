@@ -12,15 +12,24 @@
 //! window parked off every display (ADR 0076 B4), its page laid out at the
 //! card's page box, 878 × 520. Then, each asserted:
 //!
-//! - **The window is parked**: by Chromium's word, left of every display,
-//!   and the window server lists no window of it on the screen there.
-//! - **Frames stream at the card's size times the scale**: the conversation
-//!   asks for 1756 × 1040 (the card at two), and every frame told is a PNG
-//!   of the page box at the scale of the display the parked window is by —
-//!   one, on this Mac with two displays at one beside its own (queue item
-//!   738) — which this engine's picture reader reads, at about sixty a second while
-//!   the page moves. What arrived is said on the error output: frames a
-//!   second, bytes a second.
+//! - **The window is parked**: by Chromium's word, left of the main
+//!   display, and the window server lists no window of it right of the
+//!   main display's left edge. Measured for 738: the window server keeps a
+//!   strip of it on the leftmost display, 153 points of it on this Mac's
+//!   portrait display at one — not off every display (queue item 771).
+//! - **Frames stream at the card's size times the window's scale**,
+//!   wherever the window is parked (ADR 0090, queue item 738): the card's
+//!   Chromium is started at two, the conversation asks for 1756 × 1040, and
+//!   every frame told is a PNG of the page box at two — though the window
+//!   is parked by a display at one on this Mac, where before 738 every
+//!   frame came at 878 × 520 — which this engine's picture reader reads.
+//!   A card started at one is streamed at one though two is asked. What
+//!   arrived is said on the error output: frames a second, bytes a second.
+//! - **The stream is paced to ADR 0076 B's**: each frame is answered once
+//!   its bytes have taken their time at `STREAM_BUDGET`, so a page of noise
+//!   at two, whose frames are four times B's, streams no more bytes a
+//!   second than B's stream did (with slack for the timing of a debug
+//!   build), at more than ten frames a second.
 //! - **The agent's pipe does not queue behind the frames past ADR 0076
 //!   B2's numbers.** An agent's reads of the page's tree through the socket
 //!   (`alo-ask`'s protocol, ADR 0055), timed with no stream and then while
@@ -48,11 +57,12 @@ use alo_window::agent_sites::AgentSites;
 use alo_window::agents::Listening;
 use alo_window::beside::Chromium;
 use alo_window::chrome_protocol::Bounds;
-use alo_window::chrome_screencast::png_size;
+use alo_window::chrome_screencast::{STREAM_BUDGET, png_size};
 use alo_window::chrome_serving::{ChromeServing, Opening};
 use alo_window::chrome_window::PARKED;
 use alo_window::frame_told::{ToFrame, Uncast};
 use alo_window::message::{CardOrder, Order};
+use alo_window::scale::Scale;
 use alo_window::window_server;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -68,6 +78,11 @@ const PAGE: (u32, u32) = alo_renderer::card::PAGE_SIZE;
 
 /// What the conversation asks for: the page box at two, ADR 0076 B's size.
 const ASKED: (u32, u32) = (1756, 1040);
+
+/// How far past [`STREAM_BUDGET`] a stream's bytes a second may be measured,
+/// as a share of it: the first and last frames' arrival times bound the
+/// span, read by a debug build beside the gate.
+const OVER_THE_BUDGET: f64 = 0.15;
 
 /// How long a stream is watched to count its frames.
 const WATCHED: Duration = Duration::from_secs(3);
@@ -166,7 +181,7 @@ struct Card {
 
 /// `chromium` started holding the test's page as the conversation holds a
 /// card's.
-fn card(chromium: &Chromium, port: u16) -> Result<Card, String> {
+fn card(chromium: &Chromium, port: u16, scale: Scale) -> Result<Card, String> {
     let address = format!("http://127.0.0.1:{port}/card.html");
     let url = alo_url::parse(&address).map_err(|why| format!("{why:?}"))?;
     let (tell, told) = channel();
@@ -174,6 +189,7 @@ fn card(chromium: &Chromium, port: u16) -> Result<Card, String> {
         chromium.clone(),
         Opening::Network(url),
         PAGE,
+        scale,
         AgentSites::Every,
         Box::new(move |news| tell.send(news).is_ok()),
     )
@@ -292,8 +308,8 @@ fn listed_at(process: u32, bounds: Bounds) -> Result<bool, String> {
     }
 }
 
-/// The card's window parked: left of every display, by Chromium's word, and
-/// not listed on the screen anywhere a person sees.
+/// The card's window parked: left of the main display, by Chromium's word
+/// and the window server's (see the module's words on what is not checked).
 fn parked(serving: &ChromeServing, who: &str) -> Result<(), String> {
     let process = serving.process();
     let window = serving
@@ -321,9 +337,10 @@ fn float(count: usize) -> f64 {
     f64::from(u32::try_from(count).unwrap_or(u32::MAX))
 }
 
-/// The frames told within [`WATCHED`] of a stream asked for at [`ASKED`]:
-/// each a PNG of the page box at the screen's scale, at least twenty a
-/// second, and what they came to said.
+/// The frames told within [`WATCHED`] of a stream asked for at [`ASKED`]
+/// of a card started at two: each a PNG of the page box at two, more than
+/// ten a second and no more bytes a second than the budget, and what they
+/// came to said.
 fn streamed(told: &Receiver<ToFrame>, who: &str) {
     let (frames, other) = frames_within(told, WATCHED);
     // Where the page is, told as it is first streamed (queue item 742),
@@ -339,10 +356,8 @@ fn streamed(told: &Receiver<ToFrame>, who: &str) {
     );
     let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();
     assert!(
-        sizes
-            .iter()
-            .all(|size| *size == Some(PAGE) || *size == Some(ASKED)),
-        "{who}'s frames are not the page box at the screen's scale: {:?}",
+        sizes.iter().all(|size| *size == Some(ASKED)),
+        "{who}'s frames are not the page box at the window's scale, two: {:?}",
         sizes.iter().take(3).collect::<Vec<_>>()
     );
     // Each is a picture this engine reads, as the card's renderer reads it,
@@ -361,6 +376,9 @@ fn streamed(told: &Receiver<ToFrame>, who: &str) {
         _ => Duration::ZERO,
     };
     let rate = float(frames.len().saturating_sub(1)) / span.as_secs_f64().max(0.001);
+    // Every frame but the first came within the span.
+    let carried: usize = frames.iter().skip(1).map(|(_, png)| png.len()).sum();
+    let carried = float(carried) / span.as_secs_f64().max(0.001);
     eprintln!(
         "{who}: {} frames of {:?} in {:.2} s — {rate:.1} a second, {:.1} MiB a second, \
          {:.0} KiB a frame",
@@ -371,8 +389,15 @@ fn streamed(told: &Receiver<ToFrame>, who: &str) {
         float(bytes) / float(frames.len().max(1)) / 1024.0
     );
     assert!(
-        rate >= 20.0,
+        rate >= 10.0,
         "{who} streamed only {rate:.1} frames a second of a page that moves"
+    );
+    let budget = float(usize::try_from(STREAM_BUDGET).unwrap_or(usize::MAX));
+    assert!(
+        carried <= budget * (1.0 + OVER_THE_BUDGET),
+        "{who} streamed {:.1} MiB a second, past the budget of {:.1}",
+        carried / 1_048_576.0,
+        budget / 1_048_576.0
     );
 }
 
@@ -409,7 +434,7 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         serving,
         told,
         address,
-    } = card(chromium, port)?;
+    } = card(chromium, port, Scale::TWO)?;
     parked(&serving, who)?;
 
     // The agent's reads with no stream.
@@ -497,10 +522,11 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
 }
 
 /// The card expanded: the same tab in Chromium's own window, at the place
-/// and size asked, the stream stopped.
+/// and size asked, the stream stopped — a card started at one, whose frames
+/// come at one though two is asked.
 fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
     let port = serve()?;
-    let Card { serving, told, .. } = card(chromium, port)?;
+    let Card { serving, told, .. } = card(chromium, port, Scale::ONE)?;
     let orders = serving.orders();
     orders
         .send(Order::Card(CardOrder::Stream {
@@ -510,6 +536,12 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         .map_err(|_| "the card's thread has gone")?;
     let (frames, _) = frames_within(&told, Duration::from_secs(1));
     assert!(!frames.is_empty(), "{who} streamed nothing");
+    let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();
+    assert!(
+        sizes.iter().all(|size| *size == Some(PAGE)),
+        "{who}'s frames of a card at one are not the page box at one: {:?}",
+        sizes.iter().take(3).collect::<Vec<_>>()
+    );
     orders
         .send(Order::Card(CardOrder::Expand {
             at: (120, 80),

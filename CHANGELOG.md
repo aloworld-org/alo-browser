@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A sharp page in the conversation on a Retina display.** A page opened
+  in the conversation was drawn blurred on a Retina display when another
+  display at standard resolution was attached, because the hidden window
+  it is drawn from sat by that other display. Now the page is drawn at the
+  conversation window's own resolution wherever that hidden window is. A
+  page that changes nearly everything it shows every frame may now show as
+  few as twenty frames a second at Retina resolution, so that an agent
+  working beside it is never kept waiting (ADR 0090).
 - **Back and Forward on a page in the conversation.** The card's *Back*
   and *Forward* buttons used to be greyed always. Now, once you follow a
   link in the card, *Back* takes you to the page before, and *Forward*

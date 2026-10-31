@@ -78,9 +78,10 @@ use crate::chrome_profile::{Profile, Swept, new_profile};
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_record::Record;
 use crate::chrome_wire::{self, Frame, Frames, MOST_MESSAGE, Unframed};
+use crate::scale::Scale;
 use core::fmt;
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command as Process, Stdio};
 use std::time::{Duration, Instant};
 
@@ -89,6 +90,14 @@ use std::time::{Duration, Instant};
 /// second on this machine; a cold start of a large program on a loaded one
 /// is given thirty.
 pub const LONGEST_SILENCE: Duration = Duration::from_secs(30);
+
+/// The switch telling Chromium to draw at `scale` whatever display its
+/// window is on: Chromium's own, which its CEF reads as Chrome does
+/// (measured, ADR 0090) — `--force-device-scale-factor=2`, the factor
+/// written as the shortest number that reads back as it.
+pub fn scaled(scale: Scale) -> String {
+    format!("--force-device-scale-factor={}", scale.factor())
+}
 
 /// How many messages read from Chrome are held for an answer to be found
 /// among. Past this the reader waits, and so does Chrome's writing: a far
@@ -247,6 +256,18 @@ impl Chrome {
         Self::start_from(&Chromium::Machines, true)
     }
 
+    /// [`Chrome::start_from`], shown, its every window drawn at `scale`
+    /// whatever display it is on (`--force-device-scale-factor`, ADR 0090):
+    /// for a page shown as a card, whose window is parked by whichever
+    /// display the window server chooses (queue item 738).
+    ///
+    /// # Errors
+    ///
+    /// As [`Chrome::start_from`].
+    pub fn start_shown_at(chromium: &Chromium, scale: Scale) -> Result<Self, Unstarted> {
+        Self::launch(&Self::program(chromium)?, true, Some(scale))
+    }
+
     /// Start the Chromium `chromium` names, headless or `shown`: the
     /// machine's Chrome where its installer puts it, or the application's
     /// own at the one place it carries it — never anywhere else (ADR 0077).
@@ -258,16 +279,19 @@ impl Chrome {
     /// application's own is not a program at its place, or another
     /// [`Unstarted`].
     pub fn start_from(chromium: &Chromium, shown: bool) -> Result<Self, Unstarted> {
-        let program = match chromium {
-            Chromium::Machines => chrome_on_this_machine().map_err(Unstarted::NotInstalled)?,
-            Chromium::Carried(program) if is_program(program) => program.clone(),
-            Chromium::Carried(program) => {
-                return Err(Unstarted::NotCarried(NotCarried {
-                    looked: program.clone(),
-                }));
-            }
-        };
-        Self::launch(&program, shown)
+        Self::launch(&Self::program(chromium)?, shown, None)
+    }
+
+    /// The program `chromium` names: the machine's Chrome where its
+    /// installer puts it, or the application's own at its one place.
+    fn program(chromium: &Chromium) -> Result<PathBuf, Unstarted> {
+        match chromium {
+            Chromium::Machines => chrome_on_this_machine().map_err(Unstarted::NotInstalled),
+            Chromium::Carried(program) if is_program(program) => Ok(program.clone()),
+            Chromium::Carried(program) => Err(Unstarted::NotCarried(NotCarried {
+                looked: program.clone(),
+            })),
+        }
     }
 
     /// Start the Chrome at `program`.
@@ -278,11 +302,12 @@ impl Chrome {
     /// Chrome that is not there is never mistaken for one that would not
     /// answer; or another [`Unstarted`].
     pub fn start_at(program: &Path) -> Result<Self, Unstarted> {
-        Self::launch(program, false)
+        Self::launch(program, false, None)
     }
 
-    /// Start the Chrome at `program`, headless or `shown`.
-    fn launch(program: &Path, shown: bool) -> Result<Self, Unstarted> {
+    /// Start the Chrome at `program`, headless or `shown` — at `scale`
+    /// whatever display it is on, or with none, at its display's.
+    fn launch(program: &Path, shown: bool, scale: Option<Scale>) -> Result<Self, Unstarted> {
         if !is_program(program) {
             return Err(Unstarted::NotInstalled(NotInstalled {
                 looked: vec![program.to_path_buf()],
@@ -308,6 +333,7 @@ impl Chrome {
             } else {
                 &["--headless", "about:blank"][..]
             })
+            .args(scale.map(scaled))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -538,5 +564,24 @@ impl Drop for Chrome {
         let _ = self.child.kill();
         let _ = self.child.wait();
         // The profile is removed as the fields are dropped, after this.
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_scale_is_told_as_chromium_reads_it() {
+        assert_eq!(scaled(Scale::ONE), "--force-device-scale-factor=1");
+        assert_eq!(scaled(Scale::TWO), "--force-device-scale-factor=2");
+        assert_eq!(
+            scaled(Scale::ONE_AND_A_HALF),
+            "--force-device-scale-factor=1.5"
+        );
+        assert_eq!(
+            scaled(Scale::of_screen(3.0)),
+            "--force-device-scale-factor=3"
+        );
     }
 }

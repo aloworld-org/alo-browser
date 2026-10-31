@@ -2442,7 +2442,11 @@ items where being right and being unusable are the same outcome.
       the card's *Back* and *Forward* (737) — read from the tab's session
       history after each navigation, the window's own blank page never the
       card's, and followed as Chrome's own buttons are, through the window's
-      own road and both Chromiums
+      own road and both Chromiums; a card's frames at the window's scale
+      (738, ADR 0090) — its Chromium started at the conversation's scale
+      wherever its window is parked, and its stream paced to ADR 0076's
+      24 MiB a second so the agent's pipe waits for none of it, through both
+      Chromiums
       · Owed: the rail's chats (760), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),

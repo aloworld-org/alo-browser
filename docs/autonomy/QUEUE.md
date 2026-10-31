@@ -19547,7 +19547,7 @@ What stage 2's exit gate actually measures: a person using it.
   **By hand** (`handrun12/`): `en.wikipedia.org` both greyed, *Talk*
   followed and *Back* dark, *Back* and then *Forward* each went.
 
-- [ ] **738. A card's frames at the conversation window's scale.** Found by
+- [x] **738. A card's frames at the conversation window's scale.** Found by
   717: Chrome's parked window streams at the scale of the display macOS
   clamps it by. On this Mac, with two displays at one beside the Retina
   one, a card asked 1756 × 1040 got 878 × 520 and is drawn enlarged on the
@@ -19557,6 +19557,46 @@ What stage 2's exit gate actually measures: a person using it.
   shown Chrome on the Retina display streaming PNG at two delayed every
   command about 55 ms (measured with a Node client, 717). *Depends on 717.
   needs measurement first.*
+  ***Done (iteration 473), ADR 0090, with cuts to 771 and 772.***
+  **Measured** (Chrome 156.0.8078.76 and alo's CEF host, three displays:
+  the Retina one at two, one at one left of it and a portrait one at one
+  left of that): no place asked puts a shown window off every display —
+  `PARKED` lands at −3725, 0 with 153 points on the portrait display, and
+  a window asked right of the Retina display at 1670 with 40 points on it;
+  the window draws at the scale of the display it is left on. With one
+  display, reasoned and not measured: on that display, the conversation's.
+  `Emulation.setDeviceMetricsOverride` at two makes `devicePixelRatio` two
+  and the frame still 878 × 520; started with
+  `--force-device-scale-factor=2`, a window parked by a display at one
+  streams 1756 × 1040 frames identical to a Retina window's, through both
+  programs. The 55 ms was the frames' size, not the display: PNG at two
+  of a page of noise delayed `Runtime.evaluate` 57 ms at the median
+  (Chrome) and 66 (host) whether parked by the Retina display or told two;
+  each frame answered 25–33 ms after it came, none. **Decided (ADR
+  0090):** the card's Chromium is started at the conversation window's
+  scale (`Chrome::start_shown_at`, `chrome::scaled`,
+  `ChromeServing::start_as_a_card`'s `scale`, `Streamed::scale`), parked
+  as before; and every frame is answered once its bytes have taken their
+  time at 24 MiB a second — ADR 0076 B1's PNG stream at two — after it
+  came or after the one before was due (`chrome_screencast::STREAM_BUDGET`,
+  `paced`, `Casting`'s owed frames, `Tab::receive`/`answer_due`; all owed
+  answered before a stop). **Tests** through the machine's Chrome and alo's
+  CEF host (`a_page_as_a_card_through_chrome.rs`): a card at two, parked by
+  a display at one here, every frame 1756 × 1040 — Chrome 21.2 a second at
+  24.9 MiB/s, the host 18.4 at 25.0 — held to the budget (15% slack) and to
+  B2's growth: an agent's read 0.91 → 0.97 ms median, 1.34 → 1.21 p90
+  (Chrome), 0.94 → 0.98 and 1.08 → 1.11 (host); a card at one, asked two,
+  every frame 878 × 520. Mutations: the switch not passed fails at the
+  frames' size, the pace taken out fails at the budget (67.6 and 77.5
+  MiB/s), each through both. Unit tests: `chrome.rs` (the switch),
+  `chrome_screencast.rs` (2: paced, owed in turn, answered at a stop or past
+  `MOST_OWED`), `conversation_chrome.rs` (each card started at its scale).
+  **By hand** (`handrun13/`): `en.wikipedia.org` in a card, the
+  conversation on the Retina display — HEAD's build blurred, this one's
+  sharp (mean |Laplacian| of the same crop 8.2 → 18.1), its Chromium
+  started with `--force-device-scale-factor=2`. **Cut:** the parked window
+  is not off every display (771); a card keeps the scale it opened at when
+  the conversation moves to a display of another (772).
 
 - [ ] **739. What the Dock, ⌘-Tab and Stage Manager do with a parked
   Chrome.** ADR 0076 left it to the item that builds B; 717 built B and did
@@ -20987,6 +21027,34 @@ What stage 2's exit gate actually measures: a person using it.
   navigation that never commits. *Depends on 751. Closes when:* a link
   pressed in the card to a page whose server waits says *Loading* before
   the page commits, through both programs.
+
+- [ ] **771. A parked card's window really off every display.** Found by
+  738. ADR 0076 B4 parks Chromium's window at −20000 and says Chrome
+  clamped it off every display; measured on this Mac with three displays,
+  the window server moves it back until a strip is on one — `PARKED` lands
+  at −3725, 0 with 153 points of the card's live page on the leftmost
+  (portrait) display, seen in a screenshot of a real card
+  (`en.wikipedia.org`), and with one display it would be on the person's
+  own. The 717 test's `parked` checks only that the window is left of the
+  main display. Measure what keeps a window streaming and unseen (the
+  window's alpha, minimised as B4 measured streaming, ordered out, a
+  window level, CEF's own hidden views) through both programs, and choose
+  — an amendment to ADR 0076 B4 if it changes the decision. *Depends on
+  717, 738; beside 739. Closes when:* a parked card's window is on no
+  display by the window server's list against every display's bounds,
+  and still streams, through both programs.
+
+- [ ] **772. A card's frames at a new scale after it opened.** Cut from
+  738. A card's Chromium is started at the conversation window's scale
+  (ADR 0090) and keeps it: the window dragged from a display at one to
+  the Retina display streams frames at one, enlarged and blurred, until
+  the next card (from two to one, Chromium makes them smaller and they
+  stay sharp). Measure whether anything a running Chromium takes changes
+  the scale it draws at, and otherwise decide whether a new scale is worth
+  a new Chromium for the same address (losing the page's state) or a
+  card's frames stay at their first scale. *Depends on 738. Closes when:*
+  a card opened at one and moved to two streams at two, or the decision
+  not to is an ADR, tested through both programs.
 
 - [ ] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a
