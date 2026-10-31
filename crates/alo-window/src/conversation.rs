@@ -181,7 +181,7 @@ impl Conversation {
             Pressed::Go => {
                 self.chosen = self.the_box.choice();
                 self.said = self.the_box.typed().to_owned();
-                false
+                self.gone_from_the_box()
             }
             Pressed::Refused(_) | Pressed::Failed(_) => false,
             _ => self.the_box.blur(),
@@ -211,8 +211,18 @@ impl Conversation {
         if let Typed::Chose(offer) = &typed {
             self.chosen = Some(offer.clone());
             self.said = self.the_box.typed().to_owned();
+            let _ = self.gone_from_the_box();
         }
         typed
+    }
+
+    /// What was chosen was a site, which opens as a card under what the
+    /// person said: the box is emptied, so it offers nothing more, since
+    /// the person's line above the card holds the address (queue item
+    /// 742). Whether that changed the box. Searching and asking, not set
+    /// up yet, leave what was typed where it was.
+    fn gone_from_the_box(&mut self) -> bool {
+        matches!(self.chosen, Some(Offer::Go(_))) && self.the_box.empty()
     }
 
     /// What was last chosen from what the box offered, by Return or *Go*.
@@ -307,6 +317,24 @@ impl Conversation {
     /// goes.
     pub fn keys_to_the_card(&self) -> bool {
         self.card_keys && self.card.is_some()
+    }
+
+    /// The card's page is now at `url` — it followed a link, was sent
+    /// somewhere, or moved within its document (queue item 742): whether
+    /// the card shows another address for it. An address that is not a
+    /// site's is not one a card shows, and the card keeps the last it
+    /// showed.
+    pub fn moved_card(&mut self, url: Url) -> bool {
+        if !matches!(url.scheme.as_str(), "http" | "https") {
+            return false;
+        }
+        match self.card.as_mut() {
+            Some(card) if card.url != url => {
+                card.url = url;
+                true
+            }
+            _ => false,
+        }
     }
 
     /// The card holds `frame`, Chrome's newest of its page, a PNG's bytes:
@@ -428,13 +456,13 @@ mod tests {
                 .start(Size::new(1040.0, 820.0), Scale::ONE)
                 .focused
         );
-        // Typing does not reach the box.
+        // Typing does not reach the box, emptied as the site was gone to.
         type_in(&mut conversation, "x");
         assert_eq!(
             conversation
                 .start(Size::new(1040.0, 820.0), Scale::ONE)
                 .typed,
-            "example.com"
+            ""
         );
         assert!(!conversation.press_the_page(), "already the page's");
         // A refused press leaves it where it was; the card's bar takes it.
@@ -597,14 +625,13 @@ mod tests {
             conversation.going().map(ToString::to_string).as_deref(),
             Some("https://example.com/")
         );
-        // What is typed and offered stays as it was.
-        assert_eq!(
-            conversation
-                .start(Size::new(1040.0, 820.0), Scale::ONE)
-                .offers
-                .len(),
-            3
-        );
+        // Gone to, the box is emptied and offers nothing, keeping the
+        // keyboard (queue item 742): the person's line above the card holds
+        // the address.
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert_eq!(start.typed, "");
+        assert!(start.offers.is_empty());
+        assert!(start.focused);
     }
 
     #[test]
@@ -614,7 +641,16 @@ mod tests {
         assert_eq!(conversation.chosen(), None, "nothing typed, nothing chosen");
         let _ = conversation.act(Pressed::TheBox);
         type_in(&mut conversation, "localhost:8080");
-        assert!(!conversation.act(Pressed::Go));
+        assert!(
+            conversation.act(Pressed::Go),
+            "the box emptied is drawn again"
+        );
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .typed,
+            ""
+        );
         assert_eq!(
             conversation.going().map(ToString::to_string).as_deref(),
             Some("https://localhost:8080/")
@@ -629,6 +665,40 @@ mod tests {
         let typed = conversation.edit(Edit::Choose);
         assert_eq!(typed, Typed::Chose(Offer::Search("what is x".to_owned())));
         assert_eq!(conversation.going(), None);
+        // Not gone anywhere, what was typed stays.
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .typed,
+            "what is x"
+        );
+    }
+
+    #[test]
+    fn the_card_shows_where_its_page_is_now() {
+        let mut conversation = Conversation::default();
+        let url = |text: &str| alo_url::parse(text).unwrap();
+        assert!(
+            !conversation.moved_card(url("https://example.com/b")),
+            "no card"
+        );
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        let _ = conversation.edit(Edit::Choose);
+        conversation.open_card(url("https://example.com/"));
+        assert!(conversation.moved_card(url("https://example.com/wiki/Talk:Main_Page")));
+        assert!(!conversation.moved_card(url("https://example.com/wiki/Talk:Main_Page")));
+        // Not a site's address: the card keeps the last it showed.
+        assert!(!conversation.moved_card(url("about:blank")));
+        let card = conversation
+            .start(Size::new(1040.0, 820.0), Scale::ONE)
+            .card
+            .unwrap();
+        assert_eq!(
+            card.url.to_string(),
+            "https://example.com/wiki/Talk:Main_Page"
+        );
+        assert_eq!(card.said, "example.com", "what the person said stays");
     }
 
     #[test]

@@ -166,7 +166,8 @@ fn the_frame_is_told_each_verbs_answer_and_nothing_else() -> Result<(), String> 
             | ToFrame::Strip(_)
             | ToFrame::StripSaid(_)
             | ToFrame::Cast(_)
-            | ToFrame::Uncast(_) => None,
+            | ToFrame::Uncast(_)
+            | ToFrame::Moved(_) => None,
         })
         .collect();
     // One a verb, in the words each was answered with.

@@ -84,6 +84,14 @@ impl TheBox {
         std::mem::replace(&mut self.focused, false)
     }
 
+    /// Empty the box, keeping the keyboard where it is: whether anything
+    /// was typed.
+    pub fn empty(&mut self) -> bool {
+        let typed = !self.typed.is_empty();
+        self.typed.clear();
+        typed
+    }
+
     /// What the first offer is, if anything is offered: what Return and
     /// *Go* choose.
     pub fn choice(&self) -> Option<Offer> {

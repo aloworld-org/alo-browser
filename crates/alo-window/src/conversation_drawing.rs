@@ -198,7 +198,7 @@ struct Holding {
     /// showed is what the browser process holds now.
     drawn: Option<Asked>,
     /// What each part showed when it last painted: the panel's chats, the
-    /// first screen's sites and waiting chats.
+    /// first screen's sites, waiting chats and whether it showed a card.
     painted: Showing,
 }
 
@@ -247,6 +247,7 @@ impl Holding {
                 asked.start.clone(),
                 asked.showing.sites.clone(),
                 asked.showing.waiting.clone(),
+                asked.showing.card,
             )
         };
         if last.as_ref().map(start_of) != Some(start_of(&asked)) {
@@ -255,6 +256,10 @@ impl Holding {
             if matches!(came, Some(Drawn::Painted(..))) {
                 self.painted.sites.clone_from(&asked.showing.sites);
                 self.painted.waiting.clone_from(&asked.showing.waiting);
+                // Whether the picture the person pressed held a card: never
+                // kept, every press on the card's bar was refused as a press
+                // on no card (queue item 742).
+                self.painted.card = asked.showing.card;
             }
             said.extend(came);
         }

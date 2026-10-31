@@ -17,7 +17,8 @@
 //!
 //! To the conversation, which shows a page as a card rather than beside a
 //! frame (ADR 0076 B, queue item 717), the same thread tells the frames
-//! it streams of the page and that the stream stopped.
+//! it streams of the page and that the stream stopped, and where the page
+//! is now when its own frame goes somewhere (queue item 742).
 //!
 //! And by the thread holding the frame's tab strip
 //! ([`crate::frame_strip`]), what the strip's own renderer painted of that
@@ -29,6 +30,7 @@ use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Named;
 use crate::chrome_screencast::Frame as CastFrame;
 use alo_renderer::Frame;
+use alo_url::Url;
 
 /// What the frame around Chrome's window is told.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,6 +54,10 @@ pub enum ToFrame {
     /// The stream stopped, Chrome having answered that it did: what was
     /// read while it ran, and what Chrome had in flight, read after.
     Uncast(Uncast),
+    /// The page streamed for the conversation's card is now at this
+    /// address, by its own frame's commit or move within its document
+    /// (queue item 742).
+    Moved(Url),
 }
 
 /// What a stream of frames came to, told as it stops.

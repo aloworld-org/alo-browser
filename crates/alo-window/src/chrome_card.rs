@@ -21,6 +21,9 @@
 //!   put where it is asked and brought in front, as ADR 0075 placed it over
 //!   the conversation.
 //!
+//! - **Where the page is**: told to the conversation whenever the page's
+//!   own frame goes somewhere while it streams ([`tell_where`],
+//!   [`ToFrame::Moved`], queue item 742), so the card's address follows it.
 //! - **Input**: a person's press, drag, release, wheel or key over the card's
 //!   page, sent to the page as a person's (queue item 718,
 //!   [`crate::chrome_card_input`]).
@@ -40,6 +43,7 @@ use crate::chrome_tab::Tab;
 use crate::chrome_window;
 use crate::frame_told::{ToFrame, Uncast};
 use crate::message::CardOrder;
+use alo_url::Url;
 use std::time::{Duration, Instant};
 
 /// How often a streamed tab is read between orders, for frames to answer
@@ -101,6 +105,27 @@ pub fn until(tab: &Tab<'_>, until: Option<Instant>) -> Option<Instant> {
     }
     let soon = Instant::now() + CAST_EVERY;
     Some(until.map_or(soon, |until| until.min(soon)))
+}
+
+/// Tell `tell` where `tab`'s page is now, if it streams and that is not
+/// `told`, the address it last told (queue item 742): the tab follows its
+/// own frame's commits and moves within its document as it reads Chrome
+/// ([`Tab::address`]), so this asks Chrome nothing. Only a streamed page
+/// is a card's, and a card covered is told where its page went once it is
+/// streamed again.
+pub fn tell_where(tab: &Tab<'_>, told: &mut Option<Url>, tell: TellCard<'_>) {
+    if !tab.casting().is_on() {
+        return;
+    }
+    let (Some(now), Some(tell)) = (tab.address(), tell) else {
+        return;
+    };
+    if told.as_ref() == Some(now) {
+        return;
+    }
+    *told = Some(now.clone());
+    // Nobody to hear it is a conversation that has gone.
+    let _ = tell(ToFrame::Moved(now.clone()));
 }
 
 /// Tell `tell` the newest frame `tab` read since it was last asked, if it

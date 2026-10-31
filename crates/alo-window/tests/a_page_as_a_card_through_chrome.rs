@@ -326,7 +326,12 @@ fn float(count: usize) -> f64 {
 /// second, and what they came to said.
 fn streamed(told: &Receiver<ToFrame>, who: &str) {
     let (frames, other) = frames_within(told, WATCHED);
-    assert!(other.is_empty(), "told something else: {other:?}");
+    // Where the page is, told as it is first streamed (queue item 742), is
+    // the card's own business; nothing else is told.
+    assert!(
+        other.iter().all(|news| matches!(news, ToFrame::Moved(_))),
+        "told something else: {other:?}"
+    );
     let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();
     assert!(
         sizes

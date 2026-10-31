@@ -105,6 +105,14 @@
 //! waits for it and removes its profile.
 //! The text a key writes is `KeyEvent::text`, a field read like the others.
 //!
+//! What the window does with each of these is not here: this file reads
+//! the event and hands it, as this browser's own value, to
+//! [`ConversationWindow`] (`crate::conversation_window`), which a test
+//! drives through the same functions (queue item 742). This file then does
+//! what that asks of the window — draw again, say a refused press on the
+//! terminal, and take the front back from a card's Chromium that took it
+//! as it showed its parked window (`Window::focus_window`).
+//!
 //! A press of the main button with no modifier held is aimed from the same
 //! composition ([`crate::conversation_aim`]) and handed to that thread, in
 //! the part's CSS pixels, to be claimed by the renderer that drew the part
@@ -134,7 +142,8 @@
 //! `EventLoopBuilder::build`, `EventLoop::create_proxy`, `EventLoop::run_app`,
 //! `EventLoopProxy::send_event`, `ActiveEventLoop::create_window`,
 //! `ActiveEventLoop::exit`, `Window::inner_size`, `Window::scale_factor`,
-//! `Window::request_redraw`, `Window::outer_position`, `Modifiers::state`,
+//! `Window::request_redraw`, `Window::outer_position`, `Window::has_focus`,
+//! `Window::focus_window` (queue item 742), `Modifiers::state`,
 //! `ModifiersState`'s `super_key`, `control_key`, `shift_key` and
 //! `alt_key`, and
 //! `KeyEventExtModifierSupplement::key_without_modifiers` — is a safe
@@ -157,21 +166,16 @@
 use crate::agent_lines::AgentLines;
 use crate::aim::{Aimed, aim, on_page};
 use crate::beside::Chromium;
-use crate::card_aim::{self, Turned};
-use crate::card_input::{CardInput, Went as Button};
-use crate::card_keys;
+use crate::card_aim::Turned;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
 use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
-use crate::conversation::{Conversation, Pressed as Decided};
-
-use crate::conversation_box::{self, Typed};
-use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
-use crate::conversation_compose::{ConversationScene, compose_conversation};
-use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
-use crate::conversation_place::{ConversationPlacement, panel_viewport, start_viewport};
+use crate::conversation_chrome::ChromeOpener;
+use crate::conversation_compose::compose_conversation;
+use crate::conversation_drawing::ConversationDrawing;
+use crate::conversation_window::{ConversationWindow, Heard, Measured};
 use crate::cursor::{Cursor, Pressed};
 use crate::frame_strip::{FrameStrip, strip_of};
 use crate::frame_told::ToFrame;
@@ -183,8 +187,6 @@ use crate::place::{Placement, STRIP_HEIGHT, screen};
 use crate::present::Presenter;
 use crate::scale::Scale;
 use crate::showing::Showing;
-use crate::typing;
-use alo_layout::Size;
 use alo_renderer::host::Renderers;
 use alo_renderer::{Frame, Visibility};
 use std::rc::Rc;
@@ -783,7 +785,7 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
                 return;
             }
             // `alo --chrome`'s page is never a card (queue item 717).
-            ToFrame::Cast(_) | ToFrame::Uncast(_) => return,
+            ToFrame::Cast(_) | ToFrame::Uncast(_) | ToFrame::Moved(_) => return,
         };
         self.told = follow;
         if follow == Follow::Closed {
@@ -869,21 +871,10 @@ pub fn conversation(
     )
     .map_err(|why| format!("no thread to open a page in Chrome: {why}"))?;
     let mut conversing = Conversing {
-        forced,
-        conversation: Conversation::default(),
-        drawing: Some(drawing),
-        chrome: Some(chrome),
-        finished: true,
-        chrome_finished: true,
-        panel: None,
-        panel_said: None,
-        start: None,
-        start_said: None,
+        state: ConversationWindow::new(forced, drawing, chrome),
         lettering,
         window: None,
         presenter: None,
-        cursor: None,
-        on_the_page: false,
         modifiers: ModifiersState::empty(),
         failed: None,
     };
@@ -891,64 +882,25 @@ pub fn conversation(
         .run_app(&mut conversing)
         .map_err(|why| format!("the event loop stopped: {why}"));
     // A loop refused before it ran never reached `exiting`.
-    conversing.finish();
+    conversing.state.finish();
     ran?;
-    match conversing.failed {
-        Some(why) => Err(why),
-        None if !conversing.finished => {
-            Err("the thread drawing the chats panel and the first screen did not finish".to_owned())
-        }
-        None if !conversing.chrome_finished => {
-            Err("the thread holding Chrome for the conversation did not finish".to_owned())
-        }
-        None => Ok(()),
+    match (conversing.failed, conversing.state.unfinished()) {
+        (Some(why), _) => Err(why),
+        (None, Some(unfinished)) => Err(unfinished.to_owned()),
+        (None, None) => Ok(()),
     }
 }
 
-/// What the conversation's window hears from the threads it hands work to.
-#[derive(Debug)]
-enum Heard {
-    /// What the drawing thread painted, or why not, or what a press was.
-    Drawn(Drawn),
-    /// What became of an address chosen, from the thread holding Chrome.
-    Chrome(Went),
-}
-
-/// The conversation's event loop's state.
+/// The conversation's event loop's state: the window, and what it holds
+/// short of the window server ([`ConversationWindow`]), which every event
+/// is handed to as this browser's own value.
 struct Conversing {
-    /// The scale a person named, if they named one.
-    forced: Option<Scale>,
-    /// What the browser process holds of the interface.
-    conversation: Conversation,
-    /// The thread drawing the two parts; [`None`] once finished.
-    drawing: Option<ConversationDrawing>,
-    /// The thread opening an address chosen in Chrome; [`None`] once
-    /// finished.
-    chrome: Option<ChromeOpener>,
-    /// Whether that thread finished rather than panicked, once waited for.
-    finished: bool,
-    /// Whether the Chrome thread finished, and every Chrome it held with
-    /// it, once waited for.
-    chrome_finished: bool,
-    /// The panel, as its renderer last painted it.
-    panel: Option<Frame>,
-    /// Why the panel's renderer painted nothing, since it last painted.
-    panel_said: Option<String>,
-    /// The first screen, as its renderer last painted it.
-    start: Option<Frame>,
-    /// Why the first screen's renderer painted nothing, since it last
-    /// painted.
-    start_said: Option<String>,
+    /// Everything but the window itself.
+    state: ConversationWindow,
     /// The face the window's own lines are drawn in.
     lettering: Lettering,
     window: Option<Rc<Window>>,
     presenter: Option<Presenter<Rc<Window>>>,
-    /// Where the cursor last was, in device pixels, while it is over the
-    /// window.
-    cursor: Option<(f64, f64)>,
-    /// Whether the main button went down over the card's page and is still
-    /// held: its moves and its release are the page's (queue item 718).
-    on_the_page: bool,
     /// The modifier keys held.
     modifiers: ModifiersState,
     /// Why the window had to stop, if it did.
@@ -956,329 +908,42 @@ struct Conversing {
 }
 
 impl Conversing {
-    /// The window's size in device pixels and its scale, if there is a
-    /// window.
-    fn measured(&self) -> Option<((u32, u32), Scale)> {
-        self.window.as_ref().map(|window| {
+    /// Tell the state where the window is now.
+    fn measure(&mut self) {
+        if let Some(window) = &self.window {
             let size = window.inner_size();
-            let scale = self
-                .forced
-                .unwrap_or_else(|| Scale::of_screen(window.scale_factor()));
-            ((size.width, size.height), scale)
-        })
-    }
-
-    /// Have both parts drawn at the window's size and scale — which the
-    /// drawing thread does only for a part that differs from the last.
-    fn ask_drawn(&mut self) {
-        let Some((window, scale)) = self.measured() else {
-            return;
-        };
-        let Some(drawing) = self.drawing.as_mut() else {
-            return;
-        };
-        drawing.draw(Asked {
-            panel: self
-                .conversation
-                .panel(panel_viewport(window, scale), scale),
-            start: self
-                .conversation
-                .start(start_viewport(window, scale), scale),
-            showing: self.conversation.showing(),
-        });
-    }
-
-    /// What the window is drawn from now, at its size and scale.
-    fn scene(&self) -> Option<ConversationScene<'_>> {
-        let (window, scale) = self.measured()?;
-        Some(ConversationScene {
-            window,
-            scale,
-            panel: self.panel.as_ref(),
-            panel_sentence: self.panel_said.as_deref(),
-            start: self.start.as_ref(),
-            start_sentence: self.start_said.as_deref(),
-        })
-    }
-
-    /// The first screen's viewport while it shows the card's picture of its
-    /// page, which is when the page can be pressed (queue item 718).
-    fn card_on_screen(&self) -> Option<Size> {
-        let (window, scale) = self.measured()?;
-        self.conversation
-            .card()
-            .and_then(|card| card.frame.as_ref())
-            .map(|_| start_viewport(window, scale))
-    }
-
-    /// What the point `at`, in device pixels, is over, from the window's
-    /// own composition: the card's page, a part, or nothing.
-    fn aimed(&self, at: (f64, f64)) -> Option<card_aim::Aimed> {
-        let scene = self.scene()?;
-        let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
-        card_aim::aim(&placed, scene.scale, self.card_on_screen(), at)
-    }
-
-    /// Where the point `at` is on the card's page, wherever it is, while
-    /// the card's picture is on the screen.
-    fn on_the_card(&self, at: (f64, f64)) -> Option<(f64, f64)> {
-        let scene = self.scene()?;
-        let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
-        Some(card_aim::on_the_page(
-            &placed,
-            scene.scale,
-            self.card_on_screen()?,
-            at,
-        ))
-    }
-
-    /// Send the card's page a person's `input`, through the thread holding
-    /// its Chrome.
-    fn to_the_page(&self, input: CardInput) {
-        if let Some(chrome) = &self.chrome {
-            chrome.person(input);
-        }
-    }
-
-    /// The main button went down with nothing held: a press over the card's
-    /// page is the page's, sent to it, and gives it the keyboard (queue
-    /// item 718); a press over a part is handed to the thread that holds
-    /// its renderer, to be claimed and decided.
-    fn main_button_pressed(&mut self) {
-        if !self.modifiers.is_empty() {
-            return;
-        }
-        let Some(at) = self.cursor else {
-            return;
-        };
-        match self.aimed(at) {
-            Some(card_aim::Aimed::Page { x, y }) => {
-                self.on_the_page = true;
-                if self.conversation.press_the_page() {
-                    self.ask_drawn();
-                }
-                self.to_the_page(CardInput::Pointer {
-                    went: Button::Pressed,
-                    x,
-                    y,
-                });
-            }
-            Some(card_aim::Aimed::Part(part, on)) => {
-                if let Some(drawing) = self.drawing.as_mut() {
-                    drawing.press(part, on);
-                }
-            }
-            None => {}
-        }
-    }
-
-    /// The cursor moved to `at`: the page's, as a drag, while a press on
-    /// it is held.
-    fn moved(&mut self, at: (f64, f64)) {
-        self.cursor = Some(at);
-        if !self.on_the_page {
-            return;
-        }
-        match self.on_the_card(at) {
-            Some((x, y)) => self.to_the_page(CardInput::Pointer {
-                went: Button::Dragged,
-                x,
-                y,
-            }),
-            // The card went while the button was held.
-            None => self.on_the_page = false,
-        }
-    }
-
-    /// The main button came up: the page's, where the cursor is, after a
-    /// press on it.
-    fn main_button_released(&mut self) {
-        if !std::mem::replace(&mut self.on_the_page, false) {
-            return;
-        }
-        if let Some((x, y)) = self.cursor.and_then(|at| self.on_the_card(at)) {
-            self.to_the_page(CardInput::Pointer {
-                went: Button::Released,
-                x,
-                y,
+            self.state.measured_as(Measured {
+                size: (size.width, size.height),
+                scale_factor: window.scale_factor(),
+                outer: window
+                    .outer_position()
+                    .ok()
+                    .map(|PhysicalPosition { x, y }| (x, y)),
             });
         }
     }
 
-    /// A wheel or a trackpad turned: the page's, scrolled, when the cursor
-    /// is over the card's page; nobody's anywhere else, since neither part
-    /// scrolls.
-    fn wheeled(&self, delta: MouseScrollDelta) {
-        let Some(at) = self.cursor else {
-            return;
-        };
-        let (Some(card_aim::Aimed::Page { x, y }), Some((_, scale))) =
-            (self.aimed(at), self.measured())
-        else {
-            return;
-        };
-        let turned = match delta {
-            MouseScrollDelta::LineDelta(across, down) => Turned::Lines { across, down },
-            MouseScrollDelta::PixelDelta(PhysicalPosition { x, y }) => {
-                Turned::Pixels { across: x, down: y }
+    /// Do what the state asked of the window since it was last asked: say
+    /// its lines on the terminal, take the front back, draw again.
+    fn follow(&mut self) {
+        for said in self.state.take_said() {
+            eprintln!("alo: {said}");
+        }
+        let front = self.state.take_front();
+        let redraw = self.state.take_redraw();
+        if let Some(window) = &self.window {
+            if front {
+                window.focus_window();
             }
-        };
-        let (right, down) = card_aim::scrolled(turned, scale);
-        self.to_the_page(CardInput::Wheel { x, y, right, down });
-    }
-
-    /// What a press on `part` was decided to be: acted on, and the parts
-    /// drawn again if it changed what they show; or, refused or unanswered,
-    /// said in the part's line.
-    fn pressed(&mut self, part: Part, pressed: Decided) {
-        let said = match &pressed {
-            Decided::Refused(refusal) => Some(refusal.to_string()),
-            Decided::Failed(failure) => Some(format!("{part} could not answer a press: {failure}")),
-            _ => None,
-        };
-        if let Some(said) = said {
-            match part {
-                Part::Panel => self.panel_said = Some(said),
-                Part::Start => self.start_said = Some(said),
-            }
-        }
-        let go = pressed == Decided::Go;
-        self.card_pressed(&pressed);
-        if self.conversation.act(pressed) {
-            self.ask_drawn();
-        }
-        if go && let Some(chosen) = self.conversation.chosen() {
-            self.start_said = Some(conversation_box::said(chosen));
-            self.go();
-        }
-    }
-
-    /// Open where it was decided to go, if anywhere, in Chrome, as a card in
-    /// the conversation streamed at the window's scale (ADR 0076 B, queue
-    /// item 717). Returns at once.
-    fn go(&self) {
-        let Some(url) = self.conversation.going() else {
-            return;
-        };
-        let Some((_, scale)) = self.measured() else {
-            return;
-        };
-        if let Some(chrome) = &self.chrome {
-            chrome.open(url.clone(), Streamed::at(scale));
-        }
-    }
-
-    /// Where Chrome's own window goes when a card is expanded: over the
-    /// first screen when where this window is can be read, and where `alo
-    /// --chrome` puts it otherwise (ADR 0075 § 3).
-    fn over_the_first_screen(&self) -> Placing {
-        self.window
-            .as_ref()
-            .and_then(|window| {
-                let outer = window.outer_position().ok()?;
-                let inner = window.inner_size();
-                Some(Placing::over_the_first_screen(
-                    (outer.x, outer.y),
-                    (inner.width, inner.height),
-                    window.scale_factor(),
-                ))
-            })
-            .unwrap_or(Placing::APART)
-    }
-
-    /// What the card's buttons were decided to be, carried out by the
-    /// thread holding its Chrome. *Back* and *Forward* are claimed only when
-    /// there is somewhere to go, which nothing yet reads (queue item 737).
-    fn card_pressed(&self, pressed: &Decided) {
-        let Some(chrome) = &self.chrome else {
-            return;
-        };
-        match pressed {
-            Decided::Expand => chrome.expand(self.over_the_first_screen()),
-            Decided::CloseTheCard => chrome.shut(),
-            _ => {}
-        }
-    }
-
-    /// Stream the card's page while the window can be seen, at its scale,
-    /// and not while it cannot (ADR 0076: only while the card is on the
-    /// screen).
-    fn stream(&self, seen: bool) {
-        let (Some(chrome), Some((_, scale))) = (&self.chrome, self.measured()) else {
-            return;
-        };
-        if self.conversation.card().is_some() {
-            chrome.stream(seen.then(|| Streamed::at(scale)));
-        }
-    }
-
-    /// What became of an address chosen, from the thread holding Chrome:
-    /// the card shown, given its newest frame, or taken away, and the first
-    /// screen's line saying so.
-    fn went(&mut self, went: Went) {
-        match &went {
-            Went::Framed(_) | Went::Unstreamed(_) => {}
-            other => self.start_said = Some(other.said()),
-        }
-        let changed = match went {
-            Went::Opening(url) => {
-                self.conversation.open_card(url);
-                true
-            }
-            Went::Framed(png) => self.conversation.framed(png),
-            Went::Unopened { .. } | Went::Closed(_) | Went::Shut(_) => {
-                self.conversation.close_card()
-            }
-            Went::Opened { .. } | Went::Unstreamed(_) => false,
-        };
-        if changed {
-            self.ask_drawn();
-        }
-    }
-
-    /// Stop both threads and wait for them: the renderers stopped, and the
-    /// Chrome showing a page closed and its profile removed.
-    fn finish(&mut self) {
-        if let Some(drawing) = self.drawing.take() {
-            self.finished = drawing.finish();
-        }
-        if let Some(chrome) = self.chrome.take() {
-            self.chrome_finished = chrome.finish();
-        }
-    }
-
-    /// A key went down: an edit of the one box, if it makes one, drawn
-    /// again when it changed what the box holds, and what it chose said.
-    fn key(&mut self, event: &KeyEvent) {
-        let Some(press) = pressed(event, self.modifiers) else {
-            return;
-        };
-        if self.conversation.keys_to_the_card() {
-            // The card's page has the keyboard (queue item 718).
-            if let Some(key) = card_keys::key(&press, event.text.as_deref()) {
-                self.to_the_page(CardInput::Key(key));
-            }
-            return;
-        }
-        let Some(edit) = typing::edit(&press, event.text.as_deref()) else {
-            return;
-        };
-        match self.conversation.edit(edit) {
-            Typed::Unchanged => {}
-            Typed::Changed => self.ask_drawn(),
-            Typed::Chose(chosen) => {
-                self.start_said = Some(conversation_box::said(&chosen));
-                self.go();
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
+            if redraw {
+                window.request_redraw();
             }
         }
     }
 
     /// Draw the window from what it has been told.
     fn draw(&mut self) {
-        let Some(scene) = self.scene() else {
+        let Some(scene) = self.state.scene() else {
             return;
         };
         let canvas = compose_conversation(&scene, &self.lettering);
@@ -1315,54 +980,35 @@ impl ApplicationHandler<Heard> for Conversing {
             }
         }
         window.request_redraw();
+        self.state.focused(window.has_focus());
         self.window = Some(window);
-        self.ask_drawn();
+        self.measure();
+        self.state.ask_drawn();
     }
 
     fn user_event(&mut self, _: &ActiveEventLoop, heard: Heard) {
-        let drawn = match heard {
-            Heard::Drawn(drawn) => drawn,
-            Heard::Chrome(went) => {
-                self.went(went);
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
-                return;
-            }
-        };
-        match drawn {
-            Drawn::Painted(Part::Panel, frame) => {
-                self.panel = Some(frame);
-                self.panel_said = None;
-            }
-            Drawn::Painted(Part::Start, frame) => {
-                self.start = Some(frame);
-                self.start_said = None;
-            }
-            Drawn::Said(Part::Panel, said) => self.panel_said = Some(said),
-            Drawn::Said(Part::Start, said) => self.start_said = Some(said),
-            Drawn::Pressed(part, pressed) => self.pressed(part, pressed),
-        }
-        if let Some(window) = &self.window {
-            window.request_redraw();
-        }
+        self.measure();
+        self.state.heard(heard);
+        self.follow();
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        self.measure();
         match event {
             WindowEvent::Resized(PhysicalSize { .. }) | WindowEvent::ScaleFactorChanged { .. } => {
                 if matches!(event, WindowEvent::ScaleFactorChanged { .. }) {
                     // A new scale is frames of another size.
-                    self.stream(true);
+                    self.state.seen(true);
                 }
-                self.ask_drawn();
+                self.state.ask_drawn();
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
             }
             // Covered or minimised, the card is off the screen, and its
             // page is not streamed (ADR 0076).
-            WindowEvent::Occluded(hidden) => self.stream(!hidden),
+            WindowEvent::Occluded(hidden) => self.state.seen(!hidden),
+            WindowEvent::Focused(focused) => self.state.focused(focused),
             WindowEvent::RedrawRequested => {
                 self.draw();
                 if self.failed.is_some() {
@@ -1374,32 +1020,45 @@ impl ApplicationHandler<Heard> for Conversing {
                 self.window = None;
                 event_loop.exit();
             }
-            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers.state();
+                self.state.held(held(self.modifiers));
+            }
             WindowEvent::CursorMoved {
                 position: PhysicalPosition { x, y },
                 ..
-            } => self.moved((x, y)),
-            WindowEvent::CursorLeft { .. } => self.cursor = None,
+            } => self.state.moved((x, y)),
+            WindowEvent::CursorLeft { .. } => self.state.cursor_left(),
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 ..
-            } => self.main_button_pressed(),
+            } => self.state.main_button_pressed(),
             WindowEvent::MouseInput {
                 state: ElementState::Released,
                 button: MouseButton::Left,
                 ..
-            } => self.main_button_released(),
-            WindowEvent::MouseWheel { delta, .. } => self.wheeled(delta),
+            } => self.state.main_button_released(),
+            WindowEvent::MouseWheel { delta, .. } => self.state.wheeled(match delta {
+                MouseScrollDelta::LineDelta(across, down) => Turned::Lines { across, down },
+                MouseScrollDelta::PixelDelta(PhysicalPosition { x, y }) => {
+                    Turned::Pixels { across: x, down: y }
+                }
+            }),
             // A key already down as the window gained focus was pressed
             // somewhere else.
             WindowEvent::KeyboardInput {
                 event,
                 is_synthetic: false,
                 ..
-            } => self.key(&event),
+            } => {
+                if let Some(press) = pressed(&event, self.modifiers) {
+                    self.state.key(&press, event.text.as_deref());
+                }
+            }
             _ => {}
         }
+        self.follow();
     }
 
     /// The event loop is ending — returning, or the program quit, when
@@ -1407,8 +1066,21 @@ impl ApplicationHandler<Heard> for Conversing {
     /// thread is stopped here, and its renderers with it, and the Chrome
     /// showing a page is closed, waited for and its profile removed.
     fn exiting(&mut self, _: &ActiveEventLoop) {
-        self.finish();
+        self.state.finish();
     }
+}
+
+/// The modifier keys `modifiers` holds, as the browser names them.
+fn held(modifiers: ModifiersState) -> Held {
+    [
+        (modifiers.super_key(), Modifier::Command),
+        (modifiers.control_key(), Modifier::Control),
+        (modifiers.shift_key(), Modifier::Shift),
+        (modifiers.alt_key(), Modifier::Option),
+    ]
+    .into_iter()
+    .filter(|(down, _)| *down)
+    .fold(Held::NOTHING, |held, (_, modifier)| held.with(modifier))
 }
 
 /// A key going down, as the browser reads one; [`None`] for a key coming up.
@@ -1424,18 +1096,9 @@ fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
         winit_keys::Key::Named(NamedKey::Escape) => Key::Escape,
         _ => Key::Other,
     };
-    let held = [
-        (modifiers.super_key(), Modifier::Command),
-        (modifiers.control_key(), Modifier::Control),
-        (modifiers.shift_key(), Modifier::Shift),
-        (modifiers.alt_key(), Modifier::Option),
-    ]
-    .into_iter()
-    .filter(|(down, _)| *down)
-    .fold(Held::NOTHING, |held, (_, modifier)| held.with(modifier));
     Some(Press {
         key,
-        held,
+        held: held(modifiers),
         repeat: event.repeat,
     })
 }

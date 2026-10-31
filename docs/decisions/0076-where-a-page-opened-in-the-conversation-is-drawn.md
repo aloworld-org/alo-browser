@@ -455,3 +455,32 @@ address, and a frame streamed after showed it; three notches down
 scrolled the page 120. Still not done: the pointer's moves with no button
 held, other buttons, double clicks and a key or press to the glass (740);
 the arrows and the page's own shortcuts (741).
+
+## Built (31 October 2026, queue item 742): run by hand
+
+Items 717 and 718 were run in the real window for the first time, and what
+it found changes nothing this ADR decided:
+
+- **A parked window still takes the front.** B4 parks Chrome's window off
+  every display, and it is never *brought* in front; but showing a window
+  at all makes its program the active one. Measured by hand through alo's
+  CEF host on macOS 26.5: Return made *alo Chromium* frontmost within
+  0.6 s, the conversation's window lost the keyboard and, under Stage
+  Manager, went into the strip. CEF's views cannot show a
+  window without activating its program (CEF 156 has no inactive show
+  state). So the conversation's window takes the front back
+  (`Window::focus_window`) as soon as it loses it while the card's
+  Chromium starts, and once more when the card is open if it has not had
+  it back. Polled every ~80 ms afterwards, *alo browser* never left the
+  front. A person who brings another program in front in those seconds
+  has it taken back too. What the Dock and ⌘-Tab do with the parked
+  program is still 739's.
+- **The card follows its page.** The tab already follows its main frame's
+  `Page.frameNavigated` and `Page.navigatedWithinDocument`; while it
+  streams, a change is told to the conversation, and the card's address —
+  host bold, then path, as text nodes — is where the page is now.
+- **Expand under Stage Manager.** Chrome's window put over the first
+  screen and brought in front sends the conversation's window into the
+  strip, as A2 measured of any two windows, and a person brings it back
+  from there; closing Chrome's window closes the card. Not changed here.
+

@@ -45793,3 +45793,53 @@ Chrome's `favicon.ico` caused by the agent's action — not code this item
 touched; it passed five runs alone and in the second gate.
 
 The next unused queue number is **742** and the next ADR is **0083**.
+
+## Iteration 462 — queue item 742: what running the card by hand found
+
+**Built by a delegated agent.** Items 717 and 718 were run in the real
+window for the first time (`alo browser.app --conversation`,
+`en.wikipedia.org`, presses with `cliclick`, the front read with
+`lsappinfo`), and four defects were found and fixed: *Expand* and *Close*
+did nothing — the drawing thread never kept that the painted first screen
+held a card, so every claim on the card's bar was refused `NoCard`, and the
+refusal was cleared by the card's next frame; the card's address did not
+follow the page; Return left the address and its offers in the box; and
+the card's Chromium took the front as it showed its parked window.
+
+**The window's own road, tested.** What the conversation's window does with
+an event is now `conversation_window.rs`, which names no `winit` type;
+`window.rs` reads each event, hands it there, and does what it asks (draw,
+say on the terminal, `Window::focus_window`). The new test
+(`tests/the_cards_buttons_pressed_in_the_window_through_chrome.rs`, Chrome
+and alo's CEF host) drives that road through the confined renderers and
+presses *Expand* and *Close* at the points a person sees them; with the
+card not kept, it fails on *Expand was refused*; with the address not
+told, on the address not following. A refused press now stays in the first
+screen's line until the next press, and is said on the terminal.
+
+**By hand again** (screenshots in the session's scratchpad): the card's bar
+followed *Talk* to `en.wikipedia.org/wiki/Talk:Main_Page`; the box was
+empty with no offers after Return; *Close* closed the card and its
+Chromium; *Expand* put the host's window at 455,90, 1040 × 852 over the
+first screen (Stage Manager sent alo's window to the strip, as ADR 0076 A2
+found); *alo browser* stayed frontmost in every poll after Return. One
+run was void: alo's window opened on another display behind VS Code and
+the typing went there; it was redone with alo checked in front first.
+
+**Gate.** With `CEF_PATH` set: **5808 tests run, 5808 passed, 11 of 11
+steps, "The gate is met."** Three earlier runs were not met: the existing
+card test saw the new `ToFrame::Moved` it did not expect (it now accepts
+it), the item-713 test pressed Escape on a box already emptied (it now
+asserts the box empty instead), and the new test asked for the front with
+no focus lost (it now says the window lost the keyboard as the card's
+Chromium opens, as the window server would). One run failed
+`a_card_streamed_read_stopped_and_closed_through_alos_cef_host`'s
+B2 timing (streaming median 52 ms against 4 idle) under swap; run alone it
+failed two of three times on this checkout **and** on `a51228a` in a
+worktree, the host's streaming median now ~12–14 ms where 717 measured
+0.96 — the machine's state today, not this change, and worth watching.
+
+**Left open.** 738 (frames at one on the Retina window — soft text), 739
+(the Dock and ⌘-Tab with a parked Chromium). No claim about speed is made.
+
+The next unused queue number is **743** and the next ADR is **0083**.

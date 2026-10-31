@@ -130,13 +130,6 @@ fn type_and_return(conversation: &mut Conversation, text: &str) -> Typed {
     edit(&Press::of(Key::Return), None).map_or(Typed::Unchanged, |edit| conversation.edit(edit))
 }
 
-/// Empty the box, as Escape does.
-fn escape(conversation: &mut Conversation) {
-    if let Some(edit) = edit(&Press::of(Key::Escape), None) {
-        let _ = conversation.edit(edit);
-    }
-}
-
 /// What the opener tells next, within [`AT_MOST`], passing over the
 /// frames it streams.
 fn next(told: &Receiver<Went>) -> Result<Went, String> {
@@ -336,7 +329,14 @@ fn an_address_typed_and_returned_opens_in_chrome_and_a_second_replaces_it() -> R
 
     // A second address replaces the first: its Chrome is closed, waited for
     // and its profile removed before the second is started.
-    escape(&mut conversation);
+    // The box was emptied as the first was gone to (queue item 742), and
+    // keeps the keyboard.
+    assert_eq!(
+        conversation
+            .start(alo_layout::Size::new(1040.0, 820.0), Scale::ONE)
+            .typed,
+        ""
+    );
     let two = format!("http://127.0.0.1:{port}/two.html");
     let (second, second_profile) = go(&mut conversation, &two, &opener, &told)?;
     assert_ne!(first, second, "a Chrome of its own");

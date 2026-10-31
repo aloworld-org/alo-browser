@@ -164,6 +164,9 @@ pub enum Went {
     /// The stream of frames stopped, Chrome having answered that it did, or
     /// not: what it came to.
     Unstreamed(Uncast),
+    /// The page shown as a card is now at this address: it followed a link,
+    /// was sent somewhere, or moved within its document (queue item 742).
+    Moved(Url),
 }
 
 impl Went {
@@ -185,6 +188,7 @@ impl Went {
             Self::Unstreamed(_) => {
                 "Chrome did not say it had stopped streaming the card's page".to_owned()
             }
+            Self::Moved(url) => format!("the card's page is now at {url}"),
         }
     }
 }
@@ -265,6 +269,9 @@ enum Work {
     Framed(u64, CastFrame),
     /// The Chrome started at the open this numbers stopped streaming.
     Unstreamed(u64, Uncast),
+    /// The page of the Chrome started at the open this numbers is now at
+    /// this address.
+    Moved(u64, Url),
     /// The window is closing: close Chrome and end.
     Finish,
 }
@@ -455,6 +462,11 @@ fn hold(
                         let _ = tell(Went::Unstreamed(uncast));
                     }
                 }
+                Work::Moved(number, url) => {
+                    if open.as_ref().is_some_and(|open| open.number == number) {
+                        let _ = tell(Went::Moved(url));
+                    }
+                }
                 Work::Open(url, streamed) if Some(place) == newest => {
                     if let Some(replaced) = open.take() {
                         finished &= (replaced.held.close)();
@@ -497,6 +509,7 @@ fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
             ToFrame::Stand(Follow::Closed) => again.send(Work::Gone(number)),
             ToFrame::Cast(frame) => again.send(Work::Framed(number, frame)),
             ToFrame::Uncast(uncast) => again.send(Work::Unstreamed(number, uncast)),
+            ToFrame::Moved(url) => again.send(Work::Moved(number, url)),
             _ => Ok(()),
         };
         true
@@ -762,6 +775,14 @@ mod tests {
         assert_eq!(
             unstreamed.said(),
             "the card's page is no longer streamed, after 3 frames"
+        );
+        // Where the page went is told the window (queue item 742).
+        assert!(frame(ToFrame::Moved(url("https://example.com/two"))));
+        let moved = next(&told);
+        assert_eq!(moved, Went::Moved(url("https://example.com/two")));
+        assert_eq!(
+            moved.said(),
+            "the card's page is now at https://example.com/two"
         );
         opener.shut();
         let shut = next(&told);

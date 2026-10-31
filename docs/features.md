@@ -837,6 +837,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`tests/a_persons_input_on_a_card_reaches_chromes_page.rs`). Owed: hover,
   other buttons, double clicks and a key to the glass (740); the arrows,
   the page's shortcuts and an input method (741).
+  **What running the card by hand found** (742): the window's own road —
+  every event read by `window.rs` handed, as this browser's value, to
+  `conversation_window.rs`, which a test drives whole through confined
+  renderers and Chrome — presses *Expand* and *Close* and both work (the
+  first screen painted with a card is now kept so, where every press on
+  the card's bar was refused); a refused press stays said in the first
+  screen's line and on the terminal; the card's address follows its page
+  (`Page.frameNavigated`/`navigatedWithinDocument` on the main frame, told
+  as the page streams); Return on an address empties the box and its
+  offers; the window takes the front back from the card's Chromium, which
+  macOS makes frontmost as it shows its parked window
+  (`tests/the_cards_buttons_pressed_in_the_window_through_chrome.rs`).
   Owed: *Search chats* and the button that hides the panel (711), a press
   on an offer (714), an agent reaching a page the conversation opened
   (716), a field's value kept to one line by the engine (715), the

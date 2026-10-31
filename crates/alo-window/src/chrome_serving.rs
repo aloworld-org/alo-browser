@@ -564,6 +564,8 @@ fn serve_in_chrome(
         named: Naming::default(),
         next: Instant::now(),
     });
+    // Where the card's page was last told to be (queue item 742).
+    let mut told_where = None;
     loop {
         let until = chrome_card::until(
             pages.tab(),
@@ -611,6 +613,7 @@ fn serve_in_chrome(
             }
         }
         chrome_card::tell_newest(pages.tab_mut(), frame);
+        chrome_card::tell_where(pages.tab(), &mut told_where, frame);
         if let Some(follower) = following.as_mut()
             && Instant::now() >= follower.next
             && follower.follow(pages.tab_mut()) == Follow::Closed

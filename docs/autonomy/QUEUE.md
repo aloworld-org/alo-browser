@@ -76,8 +76,9 @@ ADR 0058 — and nothing else does:
 | | **715** | a field's value kept to one line by the engine, as Chrome keeps it (found by 701) |
 | | **716** | an agent reaching a page the conversation opened in Chrome, over the socket and kept to `--agent-site` (cut from 713) |
 | ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
-| | **717** | the page as a card, drawn from Chrome's frames |
-| | **718** | a person's pointer and keys forwarded from the card to the page |
+| ✓ | **717** | the page as a card, drawn from Chrome's frames (iteration 460) |
+| ✓ | **718** | a person's pointer and keys forwarded from the card to the page (iteration 461) |
+| ✓ | **742** | what running the card by hand found: *Expand* and *Close* refused in the real window, the address not following the page, the box kept after Return, the front taken by the parked Chromium (iteration 462) |
 | ✓ | **719** | the application starts only the Chromium it carries, at `Contents/Frameworks/Chromium.app`, never the machine's Chrome, and draws with this engine saying so when it is missing or damaged (ADR 0077, iteration 454) |
 | ✓ | **725** | alo's own CEF host, with no `unsafe`, built against CEF 156.0.14 and started and driven by `alo-window` exactly as Chrome is (ADR 0079, iteration 455) |
 | ✓ | **720** | alo carries CEF's Chromium in the application — checked against a pinned SHA-256 before it is copied, its licences linked from the application's page, sealed ad hoc inside out — so the application needs no Chrome (ADR 0079, iteration 458) |
@@ -19516,6 +19517,95 @@ What stage 2's exit gate actually measures: a person using it.
   server's `Ime` events). *Depends on 718. Closes when:* an arrow moves the
   caret in a field, ⌘A then typing replaces a field's text and a pasted
   text arrives, each in a test against a local page through both programs.
+
+- [x] **742. What running the card by hand found.** Items 717 and 718 were
+  closed by tests that handed the opener its orders and the renderer's
+  claims directly; neither was run in the real window. Run by hand
+  (`alo browser.app --conversation` on this Mac, `en.wikipedia.org`,
+  presses with `cliclick`, keys with System Events, the front read with
+  `lsappinfo`), four things were wrong. *Depends on 717 and 718. Closes
+  when:* each is fixed, tested through the functions the window's own
+  events call, through the machine's Chrome and alo's CEF host, and run by
+  hand again.
+  ***Done (iteration 462).*** The conversation's window was split: what it
+  does with an event is now `conversation_window.rs`
+  (`ConversationWindow`, naming no `winit` type), and `window.rs` only
+  reads each event and hands it there, then does what it asks — draw
+  again, say a line on the terminal, take the front back. The test drives
+  that whole road — the cursor moved to a point of the design's window,
+  the main button pressed and released, keys read as the window reads
+  them, every thread's news given back as the event loop gives it —
+  through the two confined renderers and the Chromium
+  (`alo-window/tests/the_cards_buttons_pressed_in_the_window_through_chrome.rs`,
+  in the shown-Chrome lists of `.config/nextest.toml`). Each defect:
+  1. ***Expand* and *Close* did nothing.** Cause: the drawing thread kept
+     what the first screen showed when it painted — its sites and waiting
+     chats — but never whether it showed a card
+     (`conversation_drawing.rs`, `Holding::draw`), so `Shown::card` stayed
+     false and every claim on the card's bar was decided
+     `Refusal::NoCard`. The refusal was put in the first screen's line,
+     which the card's next frame — sixteen milliseconds later — cleared;
+     nothing reached the terminal. Fixed: the painted card is kept (and a
+     change of it alone draws the part again); a refused or unanswered
+     press is kept (`ConversationWindow::told`) until the next press is
+     decided, drawn in the first screen's line when no renderer has
+     anything to say there, and said on the terminal (`alo: …`). Tests:
+     the integration test presses *Expand* at (1137, 121.5) and *Close* at
+     (1175, 121.5) of the window at one, asserts nothing was refused, the
+     window server lists the tab's window at ADR 0075's place over the
+     first screen, and the card is closed with its Chrome; with the fix
+     removed it fails on *Expand was refused*. A unit test holds a refusal
+     in the line through a frame of the card and clears it at the next
+     press.
+  2. **The card's address did not follow the page.** Cause: nothing told
+     the conversation where the page went. The tab already followed its
+     main frame (`Tab::address`, from `Page.frameNavigated` and
+     `Page.navigatedWithinDocument`); now the thread holding it tells a
+     change while it streams (`chrome_card::tell_where`,
+     `ToFrame::Moved`), the opener tells the window (`Went::Moved`), and
+     the card takes it if it is a site's address
+     (`Conversation::moved_card`); it is drawn as before, host bold then
+     path, as text nodes. Tests: the integration test presses a link in
+     the card's page and waits for the card's address to be
+     `/wiki/Talk:Two` (with the telling removed it does not come); unit
+     tests in `conversation.rs`, `conversation_chrome.rs` and
+     `conversation_window.rs`.
+  3. **The box kept the address after Return, its offers under it.**
+     Cause: choosing kept what was typed, and the window did not draw the
+     first screen again after Return. Fixed: going to a site empties the
+     box, keeping its keyboard (`Conversation::gone_from_the_box`,
+     `TheBox::empty`), and the part is drawn again; searching and asking,
+     not set up, keep what was typed. Tests: unit tests in
+     `conversation.rs` and `conversation_window.rs`, and the integration
+     test asserts the box empty and nothing offered after Return.
+  4. **Return made *alo Chromium* the frontmost application.** Cause: the
+     card's Chromium shows its parked window, and showing a window
+     activates its program — measured through the CEF host the
+     application carries (CEF views' `Window::show`; the machine's Chrome
+     was not run by hand); CEF 156 has no inactive show state and
+     nothing over the pipe activated it (`put_at` never asks
+     `Target.activateTarget`). Measured by hand: frontmost within 0.6 s,
+     and under Stage Manager the conversation's window went into the
+     strip. Fixed: the window takes the front back (`Window::focus_window`)
+     as soon as it loses it while a card's Chromium starts, and once more
+     when the card is open if it has not had it back
+     (`ConversationWindow::take_front`). Tested by a unit test of when it
+     is asked, and the integration test asserts it is asked once the window
+     is told, as the window server tells it, that it lost the keyboard while
+     the card's Chromium started; the front
+     itself is checked by hand, since a test process is not a program
+     with a window in front: polling `lsappinfo front` every ~80 ms for
+     ten seconds after Return, before the fix *alo* (the host) was
+     frontmost from 0.6 s on; with the first fix (taken back only on
+     `Opened`) for 3.1 s; with the fix as built, never seen.
+  **Left open:** 738 — frames still come at one on the Retina window
+  (parked by a display at one), so the card's text is soft; neither
+  parking on the window's display nor `--force-device-scale-factor` falls
+  out simply, and a shown Retina stream slowed commands ~55 ms (ADR 0076
+  B2 note). 739 — the Dock and ⌘-Tab still list the card's Chromium.
+  *Expand* under Stage Manager sends the conversation's window into the
+  strip, as ADR 0076 A2 measured; the card's *Close* is then under
+  Chrome's window, which a person closes by its own button.
 
 
 - [x] **719. The application uses only its own Chromium (ADR 0077).**

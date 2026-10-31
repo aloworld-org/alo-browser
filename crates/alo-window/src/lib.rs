@@ -182,6 +182,7 @@ pub mod conversation_chrome;
 pub mod conversation_compose;
 pub mod conversation_drawing;
 pub mod conversation_place;
+pub mod conversation_window;
 pub mod cursor;
 pub mod engine_pages;
 pub mod fonts;

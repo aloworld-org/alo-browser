@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The card works when pressed in the real window.** Run by hand, *Expand*
+  and *Close* on the card did nothing: the browser never noted that the
+  picture you pressed held a card, so it refused both, and the refusal was
+  wiped by the card's next frame before anyone could read it. Both now
+  work, and a refused press stays in the first screen's line and is said on
+  the terminal. The card's address now follows the page — follow a link and
+  the bar says where you are, host in bold, then the path. After Return the
+  box is emptied and the *Go to the site* offer goes, since the line above
+  the card already says what you typed. And the hidden Chromium that draws
+  the card no longer keeps the front of the screen: alo takes it straight
+  back, so its window keeps the keyboard. Each is tested through the same
+  functions the window's own events call, through Chrome and through the
+  Chromium alo carries (item 742).
 - **A page in a card can be used, not only looked at.** Pressing a link in
   the card follows it, clicking a field and typing types into it, and a
   wheel or trackpad over the page scrolls it — through Chrome and through
