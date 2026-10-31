@@ -45,6 +45,11 @@
 //! a person's pointer reaching the page is queue item 718's, and is never
 //! a claim.
 //!
+//! A search's results (queue item 708) are pressed the same way: a site's
+//! title is claimed by its place among the titles drawn, and nothing else
+//! of them — its name, address, description, the tabs, *More sites ›* —
+//! claims anything.
+//!
 //! Not drawn, so never claimed: *Search chats* and the button that hides
 //! the panel (queue item 711). Drawn but not yet claimed: the offers under
 //! the box for what was typed (queue item 701), a press on which claims
@@ -116,6 +121,12 @@ pub enum Claim {
     Expand,
     /// The card's *Close*.
     CloseTheCard,
+    /// The title of the site at this place among a search's results, as
+    /// the All tab draws them, counting from zero (queue item 708).
+    Found {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -131,7 +142,8 @@ impl Claim {
             | Claim::Back
             | Claim::Forward
             | Claim::Expand
-            | Claim::CloseTheCard => Part::Start,
+            | Claim::CloseTheCard
+            | Claim::Found { .. } => Part::Start,
         }
     }
 }
@@ -151,6 +163,7 @@ impl fmt::Display for Claim {
             Claim::Forward => f.write_str("the card's Forward"),
             Claim::Expand => f.write_str("the card's Expand to the whole window"),
             Claim::CloseTheCard => f.write_str("the card's Close"),
+            Claim::Found { at } => write!(f, "the title of the site found at place {at}"),
         }
     }
 }
@@ -186,6 +199,8 @@ fn pressables(part: Part) -> &'static [(&'static str, Pressable)] {
             ("ibtn forward", Pressable::One(Claim::Forward)),
             ("ibtn expand", Pressable::One(Claim::Expand)),
             ("ibtn close", Pressable::One(Claim::CloseTheCard)),
+            // A site's title among a search's results (queue item 708).
+            ("title", Pressable::Placed(|at| Claim::Found { at })),
         ],
     }
 }

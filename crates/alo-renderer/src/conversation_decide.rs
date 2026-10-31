@@ -34,6 +34,7 @@
 
 use crate::conversation_claim::{Claim, Part};
 use crate::message::{Failure, FromRenderer};
+use alo_url::Url;
 use core::fmt;
 
 /// What a part showed when it was painted, in the order it drew each list,
@@ -49,6 +50,9 @@ pub struct Shown<C, S> {
     pub waiting: Vec<C>,
     /// Whether the first screen shows a page as a card (queue item 717).
     pub card: bool,
+    /// The addresses of the sites a search's results show on the All tab,
+    /// in order (queue item 708).
+    pub found: Vec<Url>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -59,6 +63,7 @@ impl<C, S> Default for Shown<C, S> {
             sites: Vec::new(),
             waiting: Vec::new(),
             card: false,
+            found: Vec::new(),
         }
     }
 }
@@ -90,6 +95,9 @@ pub enum Decided<C, S> {
     Expand,
     /// The card's *Close*.
     CloseTheCard,
+    /// The title of a site a search found, at this address (queue item
+    /// 708).
+    Found(Url),
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -107,6 +115,8 @@ pub enum Listed {
     Sites,
     /// The first screen's waiting chats.
     Waiting,
+    /// The sites a search found (queue item 708).
+    Found,
 }
 
 impl fmt::Display for Listed {
@@ -115,6 +125,7 @@ impl fmt::Display for Listed {
             Listed::Chats => "chat",
             Listed::Sites => "site",
             Listed::Waiting => "waiting chat",
+            Listed::Found => "site found",
         })
     }
 }
@@ -240,6 +251,8 @@ where
             .map_or_else(Decided::Refused, Decided::Site),
         Claim::Waiting { at } => held(Listed::Waiting, at, &painted.waiting, &now.waiting)
             .map_or_else(Decided::Refused, Decided::Waiting),
+        Claim::Found { at } => held(Listed::Found, at, &painted.found, &now.found)
+            .map_or_else(Decided::Refused, Decided::Found),
     }
 }
 
@@ -281,7 +294,49 @@ mod tests {
             sites: vec!["mail", "bank"],
             waiting: vec![12],
             card: false,
+            found: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_site_found_is_decided_by_its_place_and_refused_past_it_or_gone() {
+        let at = |address: &str| alo_url::parse(address).unwrap();
+        let with = Shown {
+            found: vec![at("https://one.example/"), at("https://two.example/")],
+            ..painted()
+        };
+        assert_eq!(
+            decide(claimed(Claim::Found { at: 1 }), Part::Start, &with, &with),
+            Decided::Found(at("https://two.example/"))
+        );
+        assert_eq!(
+            decide(claimed(Claim::Found { at: 2 }), Part::Start, &with, &with),
+            Decided::Refused(Refusal::NotShown {
+                listed: Listed::Found,
+                at: 2,
+                shown: 2
+            })
+        );
+        // Another search since: what was at the place has gone.
+        assert_eq!(
+            decide(
+                claimed(Claim::Found { at: 0 }),
+                Part::Start,
+                &with,
+                &painted()
+            ),
+            Decided::Refused(Refusal::Gone {
+                listed: Listed::Found,
+                at: 0
+            })
+        );
+        assert_eq!(
+            decide(claimed(Claim::Found { at: 0 }), Part::Panel, &with, &with),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Panel,
+                claim: Claim::Found { at: 0 }
+            })
+        );
     }
 
     fn claimed(claim: Claim) -> FromRenderer {

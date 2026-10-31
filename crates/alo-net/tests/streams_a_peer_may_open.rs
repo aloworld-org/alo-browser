@@ -547,3 +547,38 @@ fn a_block_after_an_interim_one_is_still_the_answer_rather_than_trailers() {
         "the answer after an early hint was refused as trailers: {answer:?}"
     );
 }
+
+/// Found by queue item 708: a body longer than a stream's first window,
+/// 65,535, given room back as it is taken, arrives whole. Room made back
+/// for the connection alone left the stream's own window at nothing, and
+/// the next frame was refused *against a window of 0*.
+#[test]
+fn a_body_longer_than_the_first_window_arrives_once_room_is_made_back() {
+    let (mut session, id) = with_one_open();
+    let frame = 16_384;
+    let mut taken = 0usize;
+    for _ in 0..12 {
+        let arrived = session.arrived(data(id, frame, false));
+        assert!(arrived.is_ok(), "refused after {taken} bytes: {arrived:?}");
+        taken += frame;
+        session.receiving_widened(id, u32::try_from(frame).unwrap_or(0));
+    }
+    assert!(taken > 65_535 * 3);
+    assert_eq!(
+        session.stream(id).map(|s| s.receiving.room()),
+        Some(65_535),
+        "the stream's window is back where it began"
+    );
+    assert!(session.arrived(data(id, 10, true)).is_ok());
+    // Without room made back, the stream's window still holds.
+    let (mut held, id) = with_one_open();
+    for _ in 0..3 {
+        assert!(held.arrived(data(id, frame, false)).is_ok());
+    }
+    let over = held.arrived(data(id, frame, false));
+    assert!(
+        over.as_ref()
+            .is_err_and(|why| why.why.contains("window of 16383")),
+        "{over:?}"
+    );
+}

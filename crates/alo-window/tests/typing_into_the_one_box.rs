@@ -90,7 +90,10 @@ fn typing_example_com_and_return_decides_to_go_to_https_example_com() {
         Some("https://example.com/")
     );
     assert_eq!(
-        said(&Offer::Go(url.clone())),
+        said(
+            &Offer::Go(url.clone()),
+            &alo_renderer::results::SetUp::Ready
+        ),
         "going to https://example.com/"
     );
     // Escape empties the box, and the offers go with what was typed.

@@ -193,14 +193,23 @@ impl Session {
         }
     }
 
-    /// Room made back, because bytes that were held have been taken away.
+    /// Room made back on `stream` and on the connection, because bytes that
+    /// were held have been taken away — what the `WINDOW_UPDATE`s sent for
+    /// both say to the peer.
     ///
     /// The other half of `arrived`: a window that only ever shrank would stop a
     /// large page half way through, and every client that has ever done this
     /// wrong has done it by forgetting this call rather than by getting the
-    /// arithmetic wrong.
-    pub fn receiving_widened(&mut self, by: u32) {
+    /// arithmetic wrong. **Both windows**: widening only the connection's left
+    /// every stream's own at its first 65,535, so any body longer than that —
+    /// found by queue item 708, Brave's answer to a search — was refused
+    /// with *bytes arrived against a window of 0* although the peer had been
+    /// given room for them.
+    pub fn receiving_widened(&mut self, stream: u32, by: u32) {
         let _ = self.receiving.widen(by, false);
+        if let Some(known) = self.streams.get_mut(&stream) {
+            let _ = known.receiving.widen(by, false);
+        }
     }
 
     /// One stream, if it is still remembered.

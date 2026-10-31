@@ -63,7 +63,7 @@ can name, as `strip.rs` and `strip_document.rs` do:
 | What the agent may do | the settings screen, over `alo-grants` | 705 |
 | The typefaces | Instrument Sans and Newsreader, rented under the OFL | 706 |
 | The answer | written by a model, every claim tied to its quoted source | 707, blocked |
-| Search results | sites, images, videos and news, sites first | 708, blocked |
+| Search results | the All tab's sites, from the Brave Search API (ADR 0083) | **708, built**; images, the other tabs and a site's mark 743–747 |
 
 ## 2. The colours
 
@@ -82,6 +82,7 @@ renderer reaches no other file, as `strip.css` says of its own):
 | Acting text | `#7A3A24` | words on the acting colour's tint |
 | Done | `#2F6B5E` | a finished task's tick |
 | Source highlight | `#FCE9A8` | the line of a page an answer used |
+| Link | `#22406E` | a search result's title (the canvas of 31 October 2026; item 708) |
 
 Every text colour is at least 4.5:1 against what it is drawn on. The strip
 keeps its own rail colours until the strip is folded into the panel; nothing
@@ -108,8 +109,8 @@ what a person sees between two placements. ADR 0066 holds either way: the
 page's window is over ours, never ours over the page. Item 702 measures it
 and decides in an ADR of its own. Until then a page opens as it does today.
 
-**The model and the search provider.** The owner's to choose; 707 and 708
-wait on them.
+**The model.** The owner's to choose; 707 waits on it. The search
+provider was chosen (ADR 0082 § 0) and is asked as ADR 0083 says (708).
 
 ## Consequences
 

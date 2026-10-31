@@ -28,9 +28,15 @@
 //! What is offered for it ([`crate::typed`]) stands between the box and
 //! the groups: a `listbox` named *Suggestions*, each offer an `option`
 //! named by its words and what they lead to — *Go to the site* and the
-//! address; *Search for "…"* or *Ask alo about "…"* and [`NOT_SET_UP`] —
-//! the first `aria-selected`, being what Return chooses, and each that is
-//! not set up `aria-disabled`. What was typed enters an offer's words as a
+//! address; *Search for "…"* and where it goes, *Brave Search*, or
+//! [`NOT_SET_UP`] and why ([`searched_with`], queue item 708); *Ask alo
+//! about "…"* and [`NOT_SET_UP`] — the first `aria-selected`, being what
+//! Return chooses, and each that is not set up `aria-disabled`.
+//!
+//! # A search's results
+//!
+//! Queue item 708: with results, the screen is a conversation, as with a
+//! card — the person's line, then the All tab ([`crate::results_document`]). What was typed enters an offer's words as a
 //! text node's data, as every stranger's string here does. Nothing typed,
 //! nothing offered, and no list.
 //!
@@ -44,6 +50,7 @@
 //!
 //! It runs no script: the template has none and nothing here makes one.
 
+use crate::results::{PROVIDER, SetUp};
 use crate::start::{KeptSite, Start, Waiting};
 use crate::typed::Offer;
 use alo_dom::{Document, NodeId, parse_document};
@@ -75,6 +82,17 @@ pub const NOT_SET_UP: &str = "Not set up yet";
 /// The words of the offer to search for `said`.
 pub fn search_for(said: &str) -> String {
     format!("Search for \u{201c}{said}\u{201d}")
+}
+
+/// What the offer to search says under its words: where the search goes
+/// when it is set up, and that it is not and why, when it is not (queue
+/// item 708).
+pub fn searched_with(search: &SetUp) -> String {
+    match search {
+        SetUp::Ready => PROVIDER.to_owned(),
+        SetUp::Not(why) if why.trim().is_empty() => NOT_SET_UP.to_owned(),
+        SetUp::Not(why) => format!("{NOT_SET_UP} \u{2014} {why}"),
+    }
 }
 
 /// The words of the offer to ask alo about `said`.
@@ -131,7 +149,7 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
     }
     let blocks = by_id(&document, BLOCKS)?;
     if !start.offers.is_empty() {
-        let offers = make_offers(&mut document, &start.offers)?;
+        let offers = make_offers(&mut document, &start.offers, &start.search)?;
         insert_before(&mut document, screen, offers, blocks)?;
     }
     if let Some(card) = &start.card {
@@ -144,6 +162,18 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
         attribute(&mut document, screen, "class", class)?;
         let the_box = by_id(&document, BOX)?;
         return crate::card_document::put(&mut document, card, screen, the_box, blocks)
+            .map(|()| document);
+    }
+    if let Some(results) = &start.results {
+        // A search's results, as the All tab (queue item 708).
+        let class = if start.focused {
+            "start conversing focused"
+        } else {
+            "start conversing"
+        };
+        attribute(&mut document, screen, "class", class)?;
+        let the_box = by_id(&document, BOX)?;
+        return crate::results_document::put(&mut document, results, screen, the_box, blocks)
             .map(|()| document);
     }
     let icon = take_icon(&document, ADD_ICON)?;
@@ -290,20 +320,26 @@ fn make_waiting(document: &mut Document, waiting: &[Waiting]) -> Result<NodeId, 
 
 /// The offers for what was typed: a list named [`SUGGESTIONS`], each offer
 /// an option holding its words and, under them, what it leads to.
-fn make_offers(document: &mut Document, offers: &[Offer]) -> Result<NodeId, Unbuilt> {
+fn make_offers(
+    document: &mut Document,
+    offers: &[Offer],
+    search: &SetUp,
+) -> Result<NodeId, Unbuilt> {
     let list = element(document, "div")?;
     attribute(document, list, "class", "offers")?;
     attribute(document, list, "role", "listbox")?;
     attribute(document, list, "aria-label", SUGGESTIONS)?;
     for (place, offer) in offers.iter().enumerate() {
         let chosen = place == 0;
+        let set_up =
+            offer.is_set_up() || (matches!(offer, Offer::Search(_)) && *search == SetUp::Ready);
         let (words, leads_to) = match offer {
             Offer::Go(url) => (GO_TO_THE_SITE.to_owned(), url.serialised.clone()),
-            Offer::Search(said) => (search_for(said), NOT_SET_UP.to_owned()),
+            Offer::Search(said) => (search_for(said), searched_with(search)),
             Offer::Ask(said) => (ask_about(said), NOT_SET_UP.to_owned()),
         };
         let option = element(document, "div")?;
-        let class = match (chosen, offer.is_set_up()) {
+        let class = match (chosen, set_up) {
             (true, true) => "offer chosen",
             (true, false) => "offer chosen unset",
             (false, true) => "offer",
@@ -317,7 +353,7 @@ fn make_offers(document: &mut Document, offers: &[Offer]) -> Result<NodeId, Unbu
             "aria-selected",
             if chosen { "true" } else { "false" },
         )?;
-        if !offer.is_set_up() {
+        if !set_up {
             attribute(document, option, "aria-disabled", "true")?;
         }
         for (class, said) in [("what", words), ("where", leads_to)] {

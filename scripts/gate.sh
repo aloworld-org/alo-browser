@@ -78,9 +78,10 @@ good() { printf '\033[32mok\033[0m    %s\n' "$1"; }
 # text is read, and `selectors` wherever a selector is built or run. What holds
 # for both is that no type of theirs appears in `alo-css`'s public API.
 #
-# `serde_json` is two files because there are two protocols, each read from a
-# stranger: the agent's lines on its socket, and Chrome's messages on its pipe
-# (ADR 0058). Each is a reason to change of its own, so neither is the other's.
+# `serde_json` is three files because there are three protocols, each read
+# from a stranger: the agent's lines on its socket, Chrome's messages on its
+# pipe (ADR 0058), and the search provider's answers (ADR 0083). Each is a
+# reason to change of its own, so none is another's.
 #
 # Prose may say the name anywhere — comments are stripped before this looks.
 declare -a BOUNDARIES=(
@@ -112,7 +113,7 @@ declare -a BOUNDARIES=(
   "softbuffer:crates/alo-window/src/present.rs"
   "raw_window_handle:crates/alo-window/src/present.rs"
   "rustix:crates/alo-storage/src/volume.rs"
-  "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs"
+  "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs"
   # alo's CEF host (ADR 0079 § 3, option H), its own workspace: CEF where it
   # is loaded and run, where the host's windows and pages are, and where its
   # application object answers CEF's protocols; AppKit only in the

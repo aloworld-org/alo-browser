@@ -25,10 +25,14 @@
 //! [`Conversation::going`](crate::conversation::Conversation::going) says
 //! where, and the window has it opened in the machine's Chrome
 //! ([`crate::conversation_chrome`], queue item 713), whose thread then
-//! says what became of it in the first screen's line. Searching and asking are offered first only for what is not an
-//! address, and choosing either says it is not set up yet ([`said`]).
+//! says what became of it in the first screen's line. Searching and
+//! asking are offered first only for what is not an address. Choosing a
+//! search that is set up has the window ask for it
+//! ([`crate::conversation_search`], queue item 708); choosing one that is
+//! not, or asking, says it is not set up yet and why ([`said`]).
 
 use crate::typing::Edit;
+use alo_renderer::results::{PROVIDER, SetUp};
 use alo_renderer::typed::{LONGEST_TYPED, Offer, offers};
 
 /// The one box.
@@ -130,15 +134,18 @@ impl TheBox {
 }
 
 /// What the window says, in the first screen's line, when `chosen` was
-/// chosen.
-pub fn said(chosen: &Offer) -> String {
-    match chosen {
-        Offer::Go(url) => format!("going to {url}"),
-        Offer::Search(_) => {
-            "searching is not set up yet: no search provider has been chosen (queue item 708)"
-                .to_owned()
+/// chosen, searching being as `search` says (queue item 708).
+pub fn said(chosen: &Offer, search: &SetUp) -> String {
+    match (chosen, search) {
+        (Offer::Go(url), _) => format!("going to {url}"),
+        (Offer::Search(words), SetUp::Ready) => {
+            format!("searching {PROVIDER} for \u{201c}{words}\u{201d}")
         }
-        Offer::Ask(_) => {
+        (Offer::Search(_), SetUp::Not(why)) if why.trim().is_empty() => {
+            "searching is not set up yet".to_owned()
+        }
+        (Offer::Search(_), SetUp::Not(why)) => format!("searching is not set up yet: {why}"),
+        (Offer::Ask(_), _) => {
             "asking alo is not set up yet: no model has been chosen (queue item 707)".to_owned()
         }
     }
@@ -187,10 +194,18 @@ mod tests {
         let _ = put(&mut the_box, "what is x");
         let chosen = the_box.edit(Edit::Choose);
         assert_eq!(chosen, Typed::Chose(Offer::Search("what is x".to_owned())));
+        let missing = SetUp::Not("no Brave Search key in this Mac's keychain".to_owned());
         if let Typed::Chose(offer) = chosen {
-            assert!(said(&offer).contains("not set up yet"));
+            assert_eq!(
+                said(&offer, &missing),
+                "searching is not set up yet: no Brave Search key in this Mac's keychain"
+            );
+            assert_eq!(
+                said(&offer, &SetUp::Ready),
+                "searching Brave Search for \u{201c}what is x\u{201d}"
+            );
         }
-        assert!(said(&Offer::Ask(String::new())).contains("not set up yet"));
+        assert!(said(&Offer::Ask(String::new()), &SetUp::Ready).contains("not set up yet"));
         // Nothing typed is nothing to choose.
         assert_eq!(focused().edit(Edit::Choose), Typed::Unchanged);
     }

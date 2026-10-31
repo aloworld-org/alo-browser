@@ -790,8 +790,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   the field's value — never as markup, and never to the panel. Under the
   box the design's screen 0b offers *Go to the site* first when what is
   typed is an address — `example.com`, `localhost:8080`, `https://…`, read
-  by this repository's own URL parser — then *Search for "…"* and *Ask alo
-  about "…"*, which say they are not set up yet; an agent reads them as a
+  by this repository's own URL parser — then *Search for "…"* (708, below)
+  and *Ask alo about "…"*, which says it is not set up yet; an agent reads them as a
   *listbox Suggestions* of options, the first selected. Backspace erases,
   Escape empties, and Return or *Go* chooses the first: for `example.com`,
   going to `https://example.com/` is decided, and said in the window.
@@ -849,13 +849,30 @@ The reason this exists rather than a faster fork of somebody else's engine.
   offers; the window takes the front back from the card's Chromium, which
   macOS makes frontmost as it shows its parked window
   (`tests/the_cards_buttons_pressed_in_the_window_through_chrome.rs`).
+  **Search results, as the All tab** (708, ADR 0083): words chosen from
+  the box are searched with the Brave Search API by a thread of the browser
+  process, through `alo-net`, with the words alone in the address and a key
+  read at run time from this Mac's keychain and never said; with no key the
+  offer says *Not set up yet* and why. Under the person's words the All
+  tab draws its tab row and the top three sites — letter, name, address,
+  title as a link, two lines of description — then *More sites ›*; Brave's
+  `<strong>` is taken out and its entities read, and every string enters as
+  text. An answer refused, 401, 429, 5xx or no connection is said in words
+  where the sites would be. A press on a title opens it in the card. In a
+  layout assertion and two reference renders
+  (`tests/a_searchs_results_on_the_all_tab.rs`), and through the window's
+  own road against a local server answering in Brave's shape
+  (`tests/searching_from_the_one_box.rs`,
+  `tests/a_search_result_opened_in_the_card_through_chrome.rs`). Owed: the
+  short answer at the top (707), images (743), the Sites tab and *More
+  sites ›* (744), Videos (745), News (746), a site's own mark (747), how
+  the key is carried in release (748).
   Owed: *Search chats* and the button that hides the panel (711), a press
   on an offer (714), an agent reaching a page the conversation opened
   (716), a field's value kept to one line by the engine (715), the
   conversation (703), the agent at
-  work (704), its settings (705), the typefaces (706); the answer (707) and
-  search results (708) wait on the owner's choice of a model and a search
-  provider.
+  work (704), its settings (705), the typefaces (706); the answer (707)
+  waits on the owner's choice of a model.
 
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item

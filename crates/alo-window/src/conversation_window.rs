@@ -28,6 +28,14 @@
 //! card sixteen milliseconds later. Run by hand, nothing said why. So the
 //! road is here, where a test runs it whole.
 //!
+//! # A search
+//!
+//! Queue item 708: words chosen from the box are handed to a thread that
+//! asks the search provider ([`crate::conversation_search`]), given with
+//! [`ConversationWindow::with_search`]; what comes back is
+//! [`Heard::Searched`], drawn as the All tab and said in the first screen's
+//! line. A press on a site's title opens it as a card, as an address does.
+//!
 //! # A refusal is never silent
 //!
 //! What a press came to when it was refused, or its part's renderer could
@@ -61,11 +69,13 @@ use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::ConversationScene;
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use crate::conversation_place::{ConversationPlacement, panel_viewport, start_viewport};
+use crate::conversation_search::{Searched, Searcher};
 use crate::keys::{Held, Press};
 use crate::scale::Scale;
 use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
+use alo_renderer::results::{PROVIDER, Showing};
 
 /// What the conversation's window hears from the threads it hands work to.
 #[derive(Debug)]
@@ -74,6 +84,9 @@ pub enum Heard {
     Drawn(Drawn),
     /// What became of an address chosen, from the thread holding Chrome.
     Chrome(Went),
+    /// What came of a search, from the thread asking the search provider
+    /// (queue item 708).
+    Searched(Searched),
 }
 
 /// Where the window is, as the window server gives it.
@@ -98,6 +111,9 @@ pub struct ConversationWindow {
     /// The thread opening an address chosen in Chrome; [`None`] once
     /// finished.
     chrome: Option<ChromeOpener>,
+    /// The thread asking the search provider (queue item 708); [`None`]
+    /// when the window was given none, or once finished.
+    searcher: Option<Searcher>,
     /// How the two threads ended, once waited for.
     ended: Ended,
     /// The panel, as its renderer last painted it.
@@ -139,6 +155,8 @@ struct Ended {
     /// Whether the Chrome thread finished, and every Chrome it held with
     /// it.
     chrome: bool,
+    /// Whether the search thread finished.
+    search: bool,
 }
 
 /// The window and the front of the screen.
@@ -163,9 +181,11 @@ impl ConversationWindow {
             conversation: Conversation::default(),
             drawing: Some(drawing),
             chrome: Some(chrome),
+            searcher: None,
             ended: Ended {
                 drawing: true,
                 chrome: true,
+                search: true,
             },
             panel: None,
             panel_said: None,
@@ -180,6 +200,17 @@ impl ConversationWindow {
             redraw: false,
             said: Vec::new(),
         }
+    }
+
+    /// The same window, searching what is chosen from the box through
+    /// `searcher` (queue item 708), whose being set up or not the box's
+    /// offer to search says. A window given none says searching is not set
+    /// up.
+    #[must_use]
+    pub fn with_search(mut self, searcher: Searcher) -> Self {
+        self.conversation.set_search(searcher.set_up().clone());
+        self.searcher = Some(searcher);
+        self
     }
 
     /// What the browser process holds of the interface.
@@ -420,14 +451,58 @@ impl ConversationWindow {
             }
         }
         self.redraw = true;
-        let go = pressed == Decided::Go;
+        let go = matches!(pressed, Decided::Go | Decided::Found(_));
+        let had_a_card = self.conversation.card().is_some();
         self.card_pressed(&pressed);
         if self.conversation.act(pressed) {
             self.ask_drawn();
         }
         if go && let Some(chosen) = self.conversation.chosen() {
-            self.start_said = Some(conversation_box::said(chosen));
+            self.start_said = Some(conversation_box::said(chosen, self.searching()));
             self.go();
+            self.search(had_a_card);
+        }
+    }
+
+    /// Whether searching is set up, as the conversation holds it.
+    fn searching(&self) -> &alo_renderer::results::SetUp {
+        self.conversation.search_set_up()
+    }
+
+    /// Hand the search just chosen, if one was, to the thread asking the
+    /// provider (queue item 708) — the card it put away closed, its page
+    /// with it, when one was shown. Returns at once.
+    fn search(&mut self, had_a_card: bool) {
+        let Some((number, words)) = self.conversation.searching() else {
+            return;
+        };
+        if let Some(searcher) = &self.searcher {
+            searcher.search(number, words);
+        }
+        if had_a_card && let Some(chrome) = &self.chrome {
+            chrome.shut();
+        }
+    }
+
+    /// What came of a search: shown when it is the newest, and the first
+    /// screen's line saying so.
+    fn searched(&mut self, searched: Searched) {
+        let line = match &searched.showing {
+            Showing::Found(found) if found.is_empty() => format!(
+                "{PROVIDER} found no sites for \u{201c}{}\u{201d}",
+                searched.words
+            ),
+            Showing::Found(found) => format!(
+                "{PROVIDER} found {} sites for \u{201c}{}\u{201d}",
+                found.len(),
+                searched.words
+            ),
+            Showing::Unanswered(why) => why.clone(),
+            Showing::Searching => return,
+        };
+        if self.conversation.searched(searched) {
+            self.start_said = Some(line);
+            self.ask_drawn();
         }
     }
 
@@ -495,6 +570,9 @@ impl ConversationWindow {
     fn went(&mut self, went: Went) {
         match &went {
             Went::Framed(_) | Went::Unstreamed(_) | Went::Moved(_) => {}
+            // A card put away for a search's results, its page closed
+            // after: the line says the search (queue item 708).
+            Went::Shut(_) if self.conversation.card().is_none() => {}
             other => self.start_said = Some(other.said()),
         }
         let changed = match went {
@@ -527,6 +605,7 @@ impl ConversationWindow {
         self.redraw = true;
         match heard {
             Heard::Chrome(went) => self.went(went),
+            Heard::Searched(searched) => self.searched(searched),
             Heard::Drawn(Drawn::Painted(Part::Panel, frame)) => {
                 self.panel = Some(frame);
                 self.panel_said = None;
@@ -560,10 +639,13 @@ impl ConversationWindow {
             Typed::Unchanged => {}
             Typed::Changed => self.ask_drawn(),
             Typed::Chose(chosen) => {
-                self.start_said = Some(conversation_box::said(&chosen));
-                // The box, emptied when a site was chosen, drawn so.
+                let had_a_card = self.conversation.card().is_some();
+                self.start_said = Some(conversation_box::said(&chosen, self.searching()));
+                // The box, emptied when a site or a search was chosen,
+                // drawn so.
                 self.ask_drawn();
                 self.go();
+                self.search(had_a_card);
                 self.redraw = true;
             }
         }
@@ -578,6 +660,9 @@ impl ConversationWindow {
         if let Some(chrome) = self.chrome.take() {
             self.ended.chrome = chrome.finish();
         }
+        if let Some(searcher) = self.searcher.take() {
+            self.ended.search = searcher.finish();
+        }
     }
 
     /// Why the window's threads did not end well, once [`finish`]ed: the
@@ -589,6 +674,8 @@ impl ConversationWindow {
             Some("the thread drawing the chats panel and the first screen did not finish")
         } else if !self.ended.chrome {
             Some("the thread holding Chrome for the conversation did not finish")
+        } else if !self.ended.search {
+            Some("the thread searching for the conversation did not finish")
         } else {
             None
         }
@@ -719,6 +806,57 @@ mod tests {
         }));
         assert!(!window.take_front());
         window.finish();
+    }
+
+    #[test]
+    fn a_search_not_set_up_says_why_and_one_set_up_says_what_came_back() {
+        let (tell, told) = std::sync::mpsc::channel();
+        let searcher = Searcher::start(
+            Err("no Brave Search key in this Mac's keychain (alo-brave-search)".to_owned()),
+            Box::new(move |searched| tell.send(searched).is_ok()),
+        )
+        .unwrap();
+        let mut unset = window().with_search(searcher);
+        unset.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(&mut unset, "what is x");
+        assert_eq!(
+            unset.scene().and_then(|scene| scene.start_sentence),
+            Some(
+                "searching is not set up yet: no Brave Search key in this Mac's keychain (alo-brave-search)"
+            )
+        );
+        assert!(told.try_recv().is_err(), "nothing searched");
+        unset.finish();
+
+        // Set up, as the conversation holds it, and answered.
+        let mut window = window();
+        window
+            .conversation
+            .set_search(alo_renderer::results::SetUp::Ready);
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(&mut window, "what is x");
+        assert_eq!(
+            window.scene().and_then(|scene| scene.start_sentence),
+            Some("searching Brave Search for \u{201c}what is x\u{201d}")
+        );
+        window.heard(Heard::Searched(Searched {
+            number: 1,
+            words: "what is x".to_owned(),
+            showing: Showing::Unanswered(crate::brave_search::unanswered(429)),
+        }));
+        assert_eq!(
+            window.scene().and_then(|scene| scene.start_sentence),
+            Some(crate::brave_search::unanswered(429).as_str())
+        );
+        assert_eq!(
+            window
+                .conversation()
+                .results()
+                .map(|results| results.showing.clone()),
+            Some(Showing::Unanswered(crate::brave_search::unanswered(429)))
+        );
+        window.finish();
+        assert_eq!(window.unfinished(), None);
     }
 
     #[test]

@@ -248,6 +248,7 @@ impl Holding {
                 asked.showing.sites.clone(),
                 asked.showing.waiting.clone(),
                 asked.showing.card,
+                asked.showing.found.clone(),
             )
         };
         if last.as_ref().map(start_of) != Some(start_of(&asked)) {
@@ -260,6 +261,9 @@ impl Holding {
                 // kept, every press on the card's bar was refused as a press
                 // on no card (queue item 742).
                 self.painted.card = asked.showing.card;
+                // And the sites a search's results showed, whose titles a
+                // press claims by place (queue item 708).
+                self.painted.found.clone_from(&asked.showing.found);
             }
             said.extend(came);
         }

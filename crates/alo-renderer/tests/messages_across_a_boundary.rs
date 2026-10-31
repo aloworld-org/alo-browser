@@ -32,6 +32,7 @@ use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
 use alo_renderer::panel::{Chat, Doing, Panel};
+use alo_renderer::results::{Found, Results, SetUp, Showing};
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
 use alo_renderer::start::{KeptSite, Start, Waiting};
 use alo_renderer::strip::LONGEST_TITLE;
@@ -182,11 +183,57 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 .chain([Offer::Search("</script>\0<b>".to_owned())])
                 .collect(),
             card: None,
+            results: None,
+            search: SetUp::Not("no key\0<b>".to_owned()),
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
         ToRenderer::ConversationPress(alo_paint::Point::new(120.0, 153.5)),
         ToRenderer::ConversationPress(alo_paint::Point::new(-0.25, 1e9)),
+    ];
+    for original in messages {
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+}
+
+/// Queue item 708: a search's results, each state a search can be in,
+/// cross as they were sent.
+#[test]
+fn a_searchs_results_survive_the_crossing() {
+    let messages = vec![
+        // Strangers' strings in every field.
+        ToRenderer::Start(Box::new(Start {
+            results: Some(Results {
+                said: "</p><script>".to_owned(),
+                showing: Showing::Found(vec![
+                    Found::new(
+                        "<b>Fish &amp; chips</b>\0",
+                        alo_url::parse("https://fish.example/a?b#c")
+                            .unwrap_or_else(|_| alo_url::Url::about_blank()),
+                        "two <strong>lines</strong>",
+                    )
+                    .named("Fish\u{202e}"),
+                ]),
+            }),
+            search: SetUp::Ready,
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            results: Some(Results::searching("x")),
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            results: Some(Results {
+                said: "x".to_owned(),
+                showing: Showing::Unanswered(
+                    "Brave Search could not answer just now (500).".to_owned(),
+                ),
+            }),
+            ..Start::default()
+        })),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -365,6 +412,7 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Forward)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Expand)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::CloseTheCard)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Found { at: 2 })),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -493,6 +541,40 @@ fn a_card_for_somewhere_not_a_site_or_holding_anything_but_a_png_is_refused() {
             .unwrap_or_default();
         assert!(why.contains(refusal), "{message:?}: {why:?}");
     }
+}
+
+/// Queue item 708: a site found is drawn as a link only for a site's
+/// address, and no more sites than one page of results holds cross.
+#[test]
+fn a_site_found_somewhere_not_a_site_or_too_many_is_refused() {
+    let found = |written: &str, count: usize| {
+        let url = alo_url::parse(written).unwrap_or_else(|_| panic!("{written} parses"));
+        ToRenderer::Start(Box::new(Start {
+            results: Some(Results {
+                said: "x".to_owned(),
+                showing: Showing::Found(vec![Found::new("t", url, "d"); count]),
+            }),
+            ..Start::default()
+        }))
+    };
+    for (message, refusal) in [
+        (found("file:///etc/passwd", 1), "not a site's"),
+        (found("javascript:alert(1)", 1), "not a site's"),
+        (
+            found(
+                "https://example.com/",
+                alo_renderer::results::MOST_FOUND + 1,
+            ),
+            "at most 20",
+        ),
+    ] {
+        let why = read_to_renderer(&write_to_renderer(&message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains(refusal), "{why:?}");
+    }
+    assert!(read_to_renderer(&write_to_renderer(&found("https://example.com/", 20))).is_ok());
 }
 
 // --- What a hostile renderer can put on the pipe -----------------------------

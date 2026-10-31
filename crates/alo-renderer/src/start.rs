@@ -26,6 +26,7 @@
 //! At [`site`], a site no page can name, minted fresh as the panel's is.
 
 use crate::card::Card;
+use crate::results::{Results, SetUp};
 use crate::site::Site;
 use crate::strip::longest;
 use crate::typed::Offer;
@@ -75,6 +76,12 @@ pub struct Start {
     /// 0076 B, queue item 717) — in place of the greeting and the groups —
     /// or none.
     pub card: Option<Card>,
+    /// A search's results, shown in the conversation as the design's All
+    /// tab (queue item 708) — in place of the greeting and the groups — or
+    /// none. A card, when there is one, is shown instead.
+    pub results: Option<Results>,
+    /// Whether searching is set up, which the box's offer to search says.
+    pub search: SetUp,
 }
 
 /// One site a person keeps on the first screen.
@@ -98,7 +105,8 @@ pub struct Waiting {
 
 impl Default for Start {
     /// A greeting of nothing, no sites, nothing waiting, at no size, on a
-    /// screen of one, an empty box without the keyboard, and no card.
+    /// screen of one, an empty box without the keyboard, no card, no
+    /// results, and searching not set up, for no reason given.
     fn default() -> Self {
         Self {
             greeting: String::new(),
@@ -110,6 +118,8 @@ impl Default for Start {
             focused: false,
             offers: Vec::new(),
             card: None,
+            results: None,
+            search: SetUp::Not(String::new()),
         }
     }
 }

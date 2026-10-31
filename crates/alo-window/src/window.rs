@@ -92,8 +92,8 @@
 //! [`crate::conversation_box`], queue item 701). What is typed is held by
 //! the browser process and sent to the first screen's renderer as data;
 //! when Return or *Go* chooses, what was chosen is said in the first
-//! screen's line — where it was decided to go, or that searching or asking
-//! is not set up yet. An address chosen is opened in the machine's Chrome
+//! screen's line — where it was decided to go, what is searched for, or
+//! that searching or asking is not set up yet. An address chosen is opened in the machine's Chrome
 //! (queue item 713, ADR 0075) by a thread [`crate::conversation_chrome`]
 //! holds, never waited on, and shown as a card in the first screen drawn
 //! from the frames Chrome streams (queue item 717, ADR 0076 B), streamed
@@ -102,7 +102,9 @@
 //! (`Window::outer_position`), and *Close* closes the page. What became of
 //! it — opening, opened, why not, closed — is said in the first screen's
 //! line as the thread tells it. Closing the window closes that Chrome,
-//! waits for it and removes its profile.
+//! waits for it and removes its profile. Words chosen are searched by a
+//! third thread, [`crate::conversation_search`], with the key read from
+//! this Mac's keychain (queue item 708, ADR 0083), and drawn as the All tab.
 //! The text a key writes is `KeyEvent::text`, a field read like the others.
 //!
 //! What the window does with each of these is not here: this file reads
@@ -166,6 +168,7 @@
 use crate::agent_lines::AgentLines;
 use crate::aim::{Aimed, aim, on_page};
 use crate::beside::Chromium;
+use crate::brave_search::Provider;
 use crate::card_aim::Turned;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
@@ -175,6 +178,7 @@ use crate::compose::{FrameScene, compose, compose_frame};
 use crate::conversation_chrome::ChromeOpener;
 use crate::conversation_compose::compose_conversation;
 use crate::conversation_drawing::ConversationDrawing;
+use crate::conversation_search::Searcher;
 use crate::conversation_window::{ConversationWindow, Heard, Measured};
 use crate::cursor::{Cursor, Pressed};
 use crate::frame_strip::{FrameStrip, strip_of};
@@ -841,7 +845,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// 709): the chats panel and the first screen, each drawn by a renderer of
 /// `renderers`' at a site of its own, laid out at `forced` when a person
 /// named a scale and at its screen's otherwise. An address chosen in it
-/// opens in the Chromium `chromium` names (queue items 713 and 719).
+/// opens in the Chromium `chromium` names (queue items 713 and 719), and
+/// words chosen are searched with `search`, or said not set up and why
+/// (queue item 708).
 ///
 /// # Errors
 ///
@@ -852,6 +858,7 @@ pub fn conversation(
     forced: Option<Scale>,
     renderers: Renderers,
     chromium: Chromium,
+    search: Result<Provider, String>,
 ) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
@@ -870,8 +877,14 @@ pub fn conversation(
         Box::new(move |went| proxy.send_event(Heard::Chrome(went)).is_ok()),
     )
     .map_err(|why| format!("no thread to open a page in Chrome: {why}"))?;
+    let proxy = event_loop.create_proxy();
+    let searcher = Searcher::start(
+        search,
+        Box::new(move |searched| proxy.send_event(Heard::Searched(searched)).is_ok()),
+    )
+    .map_err(|why| format!("no thread to search with: {why}"))?;
     let mut conversing = Conversing {
-        state: ConversationWindow::new(forced, drawing, chrome),
+        state: ConversationWindow::new(forced, drawing, chrome).with_search(searcher),
         lettering,
         window: None,
         presenter: None,

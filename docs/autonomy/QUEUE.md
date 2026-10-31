@@ -20212,12 +20212,142 @@ What stage 2's exit gate actually measures: a person using it.
   The design's Answer tab: a one-line answer, short points, a number after
   each sentence a source supports, the exact line on hover, *N sources*
   counting only the sources used, and *I couldn't find a reliable answer*
-  when that is the truth. *blocked: the owner has not chosen the model.*
+  when that is the truth. Since 31 October 2026 also **the short answer at
+  the top of All** (`shell.md` item 2): two or three sentences on the
+  page's ground with their source numbers, *Full answer ›* and how many
+  sites it drew on, and *alo used this* on those sites — cut from 708,
+  which draws nothing in its place. *blocked: the owner has not chosen the
+  model.*
 
-- [ ] **708. Search results — sites first, then images, videos and news.**
-  The design's tabs in order, *Sites* the first and the default for anything
-  typed: each result its site, its title as a link, two lines of
-  description. *blocked: the owner has not chosen the search provider.*
+- [x] **708. Search results, as the design's All tab, from the Brave Search
+  API.** The owner chose the provider (ADR 0082 § 0: the Brave Search API)
+  and, on 31 October 2026, the design: every search opens on an **All**
+  tab, the tabs in order All · Answer · Sites · Images · Videos · News
+  (`docs/design/shell.md`, items 2–3). Choosing *Search for "…"* asks the
+  Brave Search web endpoint from the browser process — never a renderer —
+  and draws, under the person's words, the tab row and the top sites, each
+  its mark or letter, name and address, its title as a link and two lines
+  of description, then *More sites ›*. With no key it stays *Not set up
+  yet* and says why. *Depends on 701 and 717. Closes when:* the request
+  carries the words alone, a parse of Brave's answer refuses malformed
+  fields by name, the results are asserted in numbers and in a reference
+  render, a test through the window's own road types words, presses Return
+  and sees the sites, and 401, 429 and 500 are said in honest words.
+  ***Done (iteration 463); decided in ADR 0083; scope cut to 743–748.*** The
+  key is read at run time from this Mac's login keychain (service
+  `alo-brave-search`, account `$USER`) by `/usr/bin/security`
+  (`alo-window`'s `search_key.rs`), held by a type whose `Debug` never says
+  it, and never in the binary, the repository, a log or a sentence; how it
+  is carried in release — shipped inside the application, the owner's
+  stated direction, or a small server of alo's own — is left to the owner
+  before release, with the risk of the first written down (ADR 0083 § 1).
+  The search is a thread of the browser process (`conversation_search.rs`,
+  newest wins, never waited on) through `alo-net`'s `Pool` over `rustls`
+  (`brave_search.rs`): `GET …/res/v1/web/search?q=WORDS` and nothing else
+  in the address, `X-Subscription-Token`, `Accept: application/json`, and
+  `alo-net`'s own `Host`, `User-Agent` and `Accept-Encoding`; no cookie, no
+  `Referer`. The endpoint is fixed; a test gives another by a Rust
+  constructor (`Provider::at`) no page, argument or environment can reach.
+  The answer is read in `search_protocol.rs`, the third file `serde_json`
+  may be named in (`scripts/gate.sh`'s boundary list): size and nesting
+  bounded first; the whole answer refused by name (`Unread`: not JSON, not
+  an object, not a search, `web` or `web.results` malformed), a result
+  lacking a title or a site's url left out and named (`LeftOut`), at most
+  twenty kept. Brave's `<strong>` is taken out and its entities read
+  (`search_text.rs`), anything else — `<b>` — staying its characters; every
+  string enters the first screen's document as a text node
+  (`alo-renderer`'s `results.rs`, `results_document.rs`, `wire/results.rs`,
+  the template's `<template id="results">` and `start.css`). The box's
+  offer says *Brave Search* under *Search for "…"* when set up; Return
+  empties the box, the line says *searching Brave Search for "…"*, then
+  how many sites were found or why not: 401/403 *refused alo's key*, 429
+  *searched too often, or its allowance is used up*, 5xx *could not answer
+  just now*, no connection, an unreadable answer, nothing found — none
+  saying the key. A press on a site's title is claimed by its place
+  (`Claim::Found`, wire tag 12), decided against what was painted
+  (`Decided::Found`, `Shown::found`) and opened in the card as an address
+  is (717/718/742's road), the card taking the results' place under the
+  same words. Tests: `alo-renderer`'s
+  `tests/a_searchs_results_on_the_all_tab.rs` — the column at (80, 40)
+  880 × 457, the tab row (80, 102) 880 × 42, the sites at 168, 287 and
+  406, 97 tall, 22 apart, descriptions 740 × 46, *More sites ›* at 477,
+  the box at 521; reference renders `all-tab-with-results.png` and
+  `all-tab-not-answered.png`; an agent reading a region of a tab list and
+  articles, a title of `<b>Fish &amp; chips</b>` staying those characters;
+  each title claimed by place and the rest nothing; the same through a
+  confined renderer. Unit tests of the parse (malformed, truncated at every
+  byte, ten thousand deep), the text, the request, the statuses, the key,
+  the wire and the decision. `alo-window`'s
+  `tests/searching_from_the_one_box.rs`, through the window's own road
+  against a local server answering hand-written replies in Brave's shape:
+  words typed and Return, the sites found and painted, the provider asked
+  the words alone with the key in its header; 401, 429 and 500 said.
+  `tests/a_search_result_opened_in_the_card_through_chrome.rs`: a title
+  pressed where a person sees it opens its page in the card through the
+  machine's Chrome (with the painted sites not kept, *refused*). Cut: the
+  short answer at the top of All waits on the model (707) — **nothing is
+  drawn in its place**; the row of images (743), the Sites tab and *More
+  sites ›* (744), Videos (745), News (746), a site's own mark (747), how the
+  key is carried in release (748). Those tabs and *More sites ›* are drawn
+  disabled and claim nothing. **Found by hand:** the first real search was
+  refused *2252 bytes arrived against a window of 0* — `alo-net`'s HTTP/2
+  client made room back on the connection's window but never on the
+  stream's own, so every HTTP/2 body past 65,535 bytes failed; fixed
+  (`Session::receiving_widened(stream, by)`), tested in
+  `alo-net/tests/streams_a_peer_may_open.rs`. Run by hand after it:
+  *rust borrow checker* drew three sites; a title pressed opened the card
+  at its address, though the page (`www.reddit.com`) never drew (749).
+
+- [ ] **743. The row of images on All, and the Images tab.** Cut from 708.
+  Brave's image search (`/res/v1/images/search`, the same words alone),
+  asked by the browser process; on All a row of five under the sites with
+  *See all images*, and the Images tab a grid. Each thumbnail is a picture
+  fetched by the browser process and decoded in the confined renderer, as
+  every `<img>` is; what each costs per search, and whether a thumbnail
+  comes from Brave's proxy or the site, decided in the ADR the item opens
+  with. *Depends on 708.*
+
+- [ ] **744. The Sites tab, and *More sites ›*.** Cut from 708. The tab
+  shows every site of the search, not only All's three, and *More sites ›*
+  opens it; a further page is asked only when Brave says more are
+  available (`query.more_results_available`, `offset`). The tab row's
+  press becomes a claim (*All* back too). *Depends on 708.*
+
+- [ ] **745. The Videos tab.** Cut from 708. Brave's video search
+  (`/res/v1/videos/search`), the words alone; each video its picture,
+  title, length and site, opening in the card. *Depends on 708, 743.*
+
+- [ ] **746. The News tab.** Cut from 708. Brave's news search
+  (`/res/v1/news/search`), the words alone; each story its site, age and
+  title, opening in the card. *Depends on 708.*
+
+- [ ] **747. A site's own mark in the results.** Cut from 708: a site shows
+  its letter on one of four tints, where the design shows its mark. Brave
+  names a favicon for each result (`meta_url.favicon`, served through its
+  own image proxy); fetching it is one more request per site, of a picture,
+  so what is sent and to whom goes in ADR 0083 first. *Depends on 708.*
+
+- [ ] **748. How alo carries the search key in release (ADR 0083 § 1).**
+  Cut from 708. The owner's stated direction is to ship the application
+  with the key; the risk is that anyone with the application can read the
+  key out and spend alo's quota. The alternative is a small server of
+  alo's own holding the key, which fits the subscription of ADR 0082 § 0.
+  *needs the owner's decision, before release.* Until then the key is read
+  from the keychain at run time, and never put in the binary.
+
+- [ ] **749. Why a card closed is wiped before anybody reads it (found by
+  708 by hand).** In the real application a search result's title on
+  `www.reddit.com` opened a card that stayed white for at least eighteen
+  seconds and then closed, the first screen back to its greeting; the next
+  address chosen in that session did not open, while in a fresh session
+  `en.wikipedia.org` opened in the card at once. Why is not known: the
+  first screen's line is cleared whenever the first screen paints
+  (`ConversationWindow::heard`, `Drawn::Painted`), and closing the card
+  paints it, so *could not be opened: WHY* is never seen, nor said on the
+  terminal. Keep what became of a card as a refused press is kept (742) —
+  in the line until the next choice, and on the terminal — then run the
+  same page by hand again and say why it closed, and why the address after
+  it was not opened. *Depends on 717 and 708.*
 
 - [ ] **736. Trackers and ads blocked by alo itself, with `adblock-rust`.**
   The owner asked for it on 30 October 2026, after weighing Brave: alo does

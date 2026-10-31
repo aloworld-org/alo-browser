@@ -86,9 +86,10 @@ the one Return chooses on the paper's colour with 10 px corners:
   typed is an address: `example.com`, `localhost:8080`, `127.0.0.1`,
   `https://…`; never words with spaces between them, `3.14`, a mail
   address, or another scheme.
-- *Search for “…”*, then *Ask alo about “…”*, in quiet text, each saying
-  *Not set up yet* until a search provider (708) and a model (707) are
-  chosen.
+- *Search for “…”*, saying *Brave Search* under it when a key is held,
+  and otherwise, in quiet text, *Not set up yet — why* (708); then *Ask
+  alo about “…”*, in quiet text, saying *Not set up yet* until a model is
+  chosen (707).
 
 Backspace erases the last character, Escape empties the box (and, empty,
 lets the keyboard go), and Return or *Go* chooses the first offer. A press
@@ -112,6 +113,36 @@ A second address replaces the page the first opened. Closing the
 conversation closes Chrome. Where a page goes *inside* the conversation is
 still item 702's. Tab asking the agent waits on
 707. The offers are shown only while the box has the keyboard.
+
+### Searching (item 708)
+
+Return or *Go* on words searches them with the Brave Search API (ADR 0082
+§ 0, ADR 0083): the box empties and keeps the keyboard, and under the
+person's words — in the 880 column, 40 below the top, 20 apart — stands the
+**All** tab as the canvas of 31 October 2026 draws it:
+
+- **The tab row**, 42 tall over a line of `#E1DACE`: each tab 14 across
+  inside, 14 px quiet text; *All* in the ink, 600, underlined 2 px in the
+  ink over the line. The others are drawn disabled until each is built
+  (743–746).
+- **The top three sites**, 20 under the row, 22 apart: a line of 13 px —
+  the site's letter, white on one of four tints in an 18 square rounded 5;
+  its name in the ink, 600; its address, `host › path`, in quiet text —
+  then its title, 18 on 25, 600, in the link colour `#22406E`, one line;
+  then two lines of its description, 14.5 on 23 in `#4A463F`, 740 wide at
+  most, cut off after the second.
+- ***More sites ›***, 14 px, 600, 20 under the last site (disabled until
+  744).
+
+While it searches, and when nothing is found or the search is not answered,
+one sentence of 14.5 on 23 in quiet text stands where the sites would be —
+*Searching Brave Search for “…”…*, *Brave Search found no sites for “…”.*,
+or why: the key refused (401, 403), too many searches or the allowance used
+up (429), Brave unable to answer (5xx), unreachable, or its answer
+unreadable. The line at the window's foot says the same, and how many sites
+were found. **No short answer is drawn** until a model is chosen (707), and
+nothing in its place. A press on a site's title opens it as a card, under
+the same words, in the results' place.
 
 ## The answer
 

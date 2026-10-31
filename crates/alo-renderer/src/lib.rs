@@ -96,6 +96,8 @@ mod press;
 mod put;
 pub mod renderer;
 pub mod resource;
+pub mod results;
+pub mod results_document;
 mod run_to;
 pub mod said;
 pub mod sandbox;

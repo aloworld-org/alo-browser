@@ -45843,3 +45843,80 @@ worktree, the host's streaming median now ~12–14 ms where 717 measured
 (the Dock and ⌘-Tab with a parked Chromium). No claim about speed is made.
 
 The next unused queue number is **743** and the next ADR is **0083**.
+
+## Iteration 463 — queue item 708: search results as the design's All tab, from the Brave Search API (ADR 0083)
+
+**Built by a delegated agent.** The owner chose the provider (ADR 0082
+§ 0) and, on 31 October 2026, the design: every search opens on **All**.
+Choosing *Search for "…"* now asks `https://api.search.brave.com/res/v1/web/search`
+from the browser process — a thread of its own (`conversation_search.rs`),
+through `alo-net`'s `Pool` (`brave_search.rs`) — with `q` and nothing else
+in the address, the key as `X-Subscription-Token`, and `alo-net`'s own
+`Host`, `User-Agent`, `Accept-Encoding`. The key is read at run time from
+this Mac's login keychain by `/usr/bin/security` (`search_key.rs`), held by a
+type that never says it, never in the binary or the repository; with none
+the offer says *Not set up yet — no Brave Search key in this Mac's keychain
+(alo-brave-search)*. The answer is read in `search_protocol.rs`, a third
+`serde_json` file added to the gate's boundary list (ADR 0083 § 4); Brave's
+`<strong>` is taken out and entities read (`search_text.rs`). The All tab
+(`alo-renderer`'s `results.rs`, `results_document.rs`, `wire/results.rs`,
+`<template id="results">`, `start.css`) draws the tab row — All chosen, the
+rest disabled — the top three sites and *More sites ›* (disabled), every
+string a text node. 401/403, 429, 5xx, no connection and an unreadable
+answer are said in words. A press on a title is `Claim::Found` (tag 12),
+decided against what was painted, and opens in the card. The owner's note
+mid-item — *"we shall need to ship the application with the keys"* — is
+recorded in ADR 0083 § 1 with its risk and the server alternative, left
+open (748); the build reads the keychain.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0001, 0002, 0005,
+0030, 0074, 0076, 0082, 0083 (new), `docs/design/shell.md`. Layout
+assertion and reference renders (`all-tab-with-results.png`,
+`all-tab-not-answered.png`) in `tests/a_searchs_results_on_the_all_tab.rs`;
+the window's own road in `tests/searching_from_the_one_box.rs` (local
+server in Brave's shape, 401/429/500) and
+`tests/a_search_result_opened_in_the_card_through_chrome.rs` (in the
+shown-Chrome lists; with the painted sites not kept it fails on *refused*).
+No test touches the network or the real API.
+
+**Cut.** The short answer at the top of All is 707's (nothing drawn in its
+place); 743 images, 744 the Sites tab and *More sites ›*, 745 Videos, 746
+News, 747 a site's own mark, 748 how the key is carried in release (the
+owner's decision). ADR 0074's palette gains the design's link colour
+`#22406E`.
+
+**Roadmap:** the conversation line's *Built* clause gains 708; its *Owed*
+names 707 and 743–748.
+
+
+**Gate (first).** With `CEF_PATH` set: 5843 tests run, 5843 passed, 11
+of 11 steps, "The gate is met." — before the fix below; run again after it.
+
+**By hand** (`alo browser.app --conversation`, the real key from the
+keychain, two real searches; screenshots in the session's scratchpad
+`handrun3/`, alo checked frontmost before every press and key, the pointer
+put back). The first search drew the All tab's row and *Brave Search could
+not be reached: 2252 bytes arrived against a window of 0* — the honest
+words, and a real defect in `alo-net`: its HTTP/2 client made room back on
+the connection's receiving window and never on the stream's own, so any
+HTTP/2 body past 65,535 bytes was refused (no earlier caller had read one
+over HTTP/2 that large). Fixed in `h2/session.rs`
+(`receiving_widened(stream, by)`), with a test in
+`tests/streams_a_peer_may_open.rs`. The second search, *rust borrow
+checker*, drew three sites (Reddit, YouTube, Reddit) with letters, names,
+addresses, titles cut with an ellipsis and two-line descriptions, entities
+read (*Zeta's*). Pressing the first title opened a card at its
+`www.reddit.com` address, which stayed white and then closed; the next
+address in that session did not open. A fresh session opened
+`en.wikipedia.org` in the card at once. Cause unknown, because the reason
+is wiped from the line by the next paint — queued as **749**. ⌘Q left no
+alo or alo Chromium process.
+
+**Gate (after the fix).** With `CEF_PATH` set: **5844 tests run, 5844
+passed, 11 of 11 steps, "The gate is met."** One run before it was not
+met: `a_closed_list_chosen_through_a_shown_chrome`'s
+`options_of_a_closed_list_are_chosen_in_its_menu_one_change_each` failed
+once (the gate's log keeps no reason); it passed four of four alone and in
+the next full run. No code it runs was changed here.
+
+The next unused queue number is **750** and the next ADR is **0084**.

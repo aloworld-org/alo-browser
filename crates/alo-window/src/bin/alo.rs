@@ -203,7 +203,12 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium) -> ExitCode {
         "alo: the browser's own interface is drawn by {}",
         RenderedBy::ThisEngine
     );
-    match alo_window::window::conversation(opening.scale, renderers, chromium) {
+    // The search provider's key, read from this Mac's keychain at run time
+    // and never said (ADR 0083 § 1); with none, searching says why it is
+    // not set up.
+    let search = alo_window::search_key::for_this_person()
+        .and_then(alo_window::brave_search::Provider::brave);
+    match alo_window::window::conversation(opening.scale, renderers, chromium, search) {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {
             eprintln!("alo: {why}");

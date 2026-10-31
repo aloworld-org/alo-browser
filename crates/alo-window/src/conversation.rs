@@ -50,6 +50,15 @@
 //! ([`Conversation::keys_to_the_card`], [`crate::card_keys`]) and none to
 //! the box. One thing has the keyboard at a time, as in any window.
 //!
+//! Queue item 708 adds searching: Return or *Go* on words, when searching
+//! is set up ([`Conversation::set_search`]), shows the search's results
+//! under what the person said — searching until the provider answers
+//! ([`Conversation::searched`], newest only) — and empties the box; and a
+//! press on a site's title among them chooses its address as the box
+//! would ([`Conversation::choose_found`]), the card then taking the
+//! results' place. One thing stands under what the person said: a card or
+//! results.
+//!
 //! Every other — *Settings*, a kept site, *Add a site*, a waiting chat — is
 //! decided and kept as [`Conversation::last_pressed`], and **changes
 //! nothing yet**: there is no settings screen (705), and nothing keeps a
@@ -67,12 +76,14 @@
 //! any hour, until the machine's zone is read.
 
 use crate::conversation_box::{TheBox, Typed};
+use crate::conversation_search::Searched;
 use crate::scale::Scale;
 use crate::typing::Edit;
 use alo_layout::Size;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::panel::{Chat, Panel, drawn_order};
+use alo_renderer::results::{self, Results, SetUp};
 use alo_renderer::start::{KeptSite, Start};
 use alo_renderer::typed::Offer;
 use alo_url::Url;
@@ -117,6 +128,12 @@ pub struct Conversation {
     /// Whether the card's page has the keyboard (queue item 718): given it
     /// by a press on the page, taken by a press anywhere else.
     card_keys: bool,
+    /// Whether searching can be done (queue item 708).
+    search: SetUp,
+    /// The newest search's results, shown as the All tab, if there are any.
+    results: Option<Results>,
+    /// How many searches were chosen: the newest one's number.
+    searches: u64,
 }
 
 impl Default for Conversation {
@@ -132,6 +149,9 @@ impl Default for Conversation {
             said: String::new(),
             card: None,
             card_keys: false,
+            search: SetUp::Not(String::new()),
+            results: None,
+            searches: 0,
         }
     }
 }
@@ -161,6 +181,12 @@ impl Conversation {
             sites: Vec::new(),
             waiting: Vec::new(),
             card: self.card.is_some(),
+            found: self
+                .results
+                .iter()
+                .flat_map(Results::on_all)
+                .map(|found| found.url.clone())
+                .collect(),
         }
     }
 
@@ -179,9 +205,8 @@ impl Conversation {
         let changed = match &pressed {
             Pressed::TheBox => self.the_box.focus(),
             Pressed::Go => {
-                self.chosen = self.the_box.choice();
-                self.said = self.the_box.typed().to_owned();
-                self.gone_from_the_box()
+                let choice = self.the_box.choice();
+                self.chose(choice)
             }
             Pressed::Refused(_) | Pressed::Failed(_) => false,
             _ => self.the_box.blur(),
@@ -193,6 +218,10 @@ impl Conversation {
         }
         let changed = match &pressed {
             Pressed::Chat(id) => self.put_on_screen(*id) || changed,
+            Pressed::Found(url) => {
+                self.choose_found(url.clone());
+                changed
+            }
             Pressed::NewChat => {
                 self.new_chat();
                 true
@@ -209,20 +238,93 @@ impl Conversation {
     pub fn edit(&mut self, edit: Edit) -> Typed {
         let typed = self.the_box.edit(edit);
         if let Typed::Chose(offer) = &typed {
-            self.chosen = Some(offer.clone());
-            self.said = self.the_box.typed().to_owned();
-            let _ = self.gone_from_the_box();
+            let _ = self.chose(Some(offer.clone()));
         }
         typed
     }
 
-    /// What was chosen was a site, which opens as a card under what the
-    /// person said: the box is emptied, so it offers nothing more, since
-    /// the person's line above the card holds the address (queue item
-    /// 742). Whether that changed the box. Searching and asking, not set
-    /// up yet, leave what was typed where it was.
-    fn gone_from_the_box(&mut self) -> bool {
-        matches!(self.chosen, Some(Offer::Go(_))) && self.the_box.empty()
+    /// `choice` was chosen from the box: kept as [`Conversation::chosen`],
+    /// with what the box held as what the person said. Whether the first
+    /// screen shows something else for it.
+    ///
+    /// A site opens as a card under what the person said, and a search
+    /// that is set up (queue item 708) is shown under it as its results,
+    /// searching until they come: either way the box is emptied, so it
+    /// offers nothing more, since the person's line holds what they typed
+    /// (queue item 742). A search puts away a card that was shown, whose
+    /// page the window then closes. Searching not set up, and asking, leave
+    /// what was typed where it was.
+    fn chose(&mut self, choice: Option<Offer>) -> bool {
+        self.chosen = choice;
+        self.said = self.the_box.typed().to_owned();
+        match &self.chosen {
+            Some(Offer::Go(_)) => self.the_box.empty(),
+            Some(Offer::Search(words)) if self.search == SetUp::Ready => {
+                self.searches += 1;
+                self.results = Some(Results::searching(words.clone()));
+                self.card = None;
+                self.card_keys = false;
+                let _ = self.the_box.empty();
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether searching can be done is now `search`, as the searcher says
+    /// (queue item 708): the box's offer to search says so.
+    pub fn set_search(&mut self, search: SetUp) {
+        self.search = search;
+    }
+
+    /// Whether searching can be done, and why not.
+    pub fn search_set_up(&self) -> &SetUp {
+        &self.search
+    }
+
+    /// The search under way, if the newest is: its number and its words,
+    /// which the window hands the searcher.
+    pub fn searching(&self) -> Option<(u64, &str)> {
+        match (&self.chosen, &self.results) {
+            (
+                Some(Offer::Search(_)),
+                Some(Results {
+                    said,
+                    showing: results::Showing::Searching,
+                }),
+            ) => Some((self.searches, said.as_str())),
+            _ => None,
+        }
+    }
+
+    /// What came of a search: shown, if it is the newest and its results
+    /// are still shown. Whether the first screen shows something else.
+    pub fn searched(&mut self, searched: Searched) -> bool {
+        if searched.number != self.searches {
+            return false;
+        }
+        match self.results.as_mut() {
+            Some(results) if results.said == searched.words => {
+                results.showing = searched.showing;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// A search's results, if they are shown.
+    pub fn results(&self) -> Option<&Results> {
+        self.results.as_ref()
+    }
+
+    /// A person pressed the title of the site found at `url` (queue item
+    /// 708): it is chosen as an address from the box is, and opens as a
+    /// card under what the person searched for.
+    pub fn choose_found(&mut self, url: alo_url::Url) {
+        if let Some(results) = &self.results {
+            self.said.clone_from(&results.said);
+        }
+        self.chosen = Some(Offer::Go(url));
     }
 
     /// What was last chosen from what the box offered, by Return or *Go*.
@@ -288,6 +390,8 @@ impl Conversation {
             focused: self.the_box.focused(),
             offers: self.the_box.offers(),
             card: self.card.clone(),
+            results: self.results.clone(),
+            search: self.search.clone(),
         }
         .at_scale(scale.factor())
     }
@@ -297,6 +401,9 @@ impl Conversation {
     /// any card shown, since one page is open at a time (ADR 0075 § 4).
     pub fn open_card(&mut self, url: Url) {
         self.card = Some(Card::new(self.said.clone(), url));
+        // One thing under what the person said: the page, in place of the
+        // results it was chosen from (queue item 708).
+        self.results = None;
         self.card_keys = false;
     }
 
@@ -579,6 +686,89 @@ mod tests {
             assert_eq!(panel.scale.to_bits(), scale.factor().to_bits());
             assert_eq!(start.scale.to_bits(), scale.factor().to_bits());
         }
+    }
+
+    fn found(address: &str) -> alo_renderer::results::Found {
+        alo_renderer::results::Found::new("A site", alo_url::parse(address).unwrap(), "Of it.")
+    }
+
+    #[test]
+    fn a_search_set_up_shows_its_results_under_what_was_said_and_empties_the_box() {
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "ev charger");
+        assert_eq!(
+            conversation.edit(Edit::Choose),
+            Typed::Chose(Offer::Search("ev charger".to_owned()))
+        );
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert_eq!(start.typed, "", "the box is emptied");
+        assert_eq!(start.search, SetUp::Ready);
+        assert_eq!(start.results, Some(Results::searching("ev charger")));
+        assert_eq!(conversation.searching(), Some((1, "ev charger")));
+        // An older search's answer is not shown; the newest's is.
+        let answer = |number| Searched {
+            number,
+            words: "ev charger".to_owned(),
+            showing: results::Showing::Found(vec![
+                found("https://one.example/"),
+                found("https://two.example/"),
+                found("https://three.example/"),
+                found("https://four.example/"),
+            ]),
+        };
+        assert!(!conversation.searched(answer(0)));
+        assert!(conversation.searched(answer(1)));
+        assert_eq!(conversation.searching(), None, "answered");
+        let shown: Vec<String> = conversation
+            .showing()
+            .found
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(
+            shown,
+            vec![
+                "https://one.example/",
+                "https://two.example/",
+                "https://three.example/"
+            ],
+            "what the All tab shows, which a press is decided against"
+        );
+        // A title pressed is chosen as an address is, under the words.
+        let two = alo_url::parse("https://two.example/").unwrap();
+        let _ = conversation.act(Pressed::Found(two.clone()));
+        assert_eq!(conversation.going(), Some(&two));
+        conversation.open_card(two);
+        assert_eq!(
+            conversation.card().map(|card| card.said.as_str()),
+            Some("ev charger")
+        );
+        assert_eq!(conversation.results(), None, "the card in its place");
+        assert!(conversation.showing().found.is_empty());
+    }
+
+    #[test]
+    fn a_search_puts_a_card_away_and_one_not_set_up_keeps_what_was_typed() {
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        conversation.open_card(alo_url::parse("https://example.com/").unwrap());
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "what is x");
+        let _ = conversation.edit(Edit::Choose);
+        assert_eq!(conversation.card(), None);
+        assert!(conversation.results().is_some());
+
+        let mut unset = Conversation::default();
+        unset.set_search(SetUp::Not("no key".to_owned()));
+        let _ = unset.act(Pressed::TheBox);
+        type_in(&mut unset, "what is x");
+        let _ = unset.edit(Edit::Choose);
+        let start = unset.start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert_eq!(start.typed, "what is x");
+        assert_eq!(start.results, None);
+        assert_eq!(unset.searching(), None);
     }
 
     /// Type `text` into `conversation`'s box, a key at a time.

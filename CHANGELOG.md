@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Searching works, and opens on the All tab.** Type words that are not
+  an address and press Return: alo asks the Brave Search API and shows,
+  under what you typed, the tab row and the top three sites — each its
+  letter, name and address, its title as a link and two lines of what it
+  is about — then *More sites ›*. Press a title and the page opens in the
+  card. Only your words are sent, by the browser itself, never by a page;
+  the key is read from this Mac's keychain while alo runs and is never
+  shown. Without a key the offer says *Not set up yet* and why; when Brave
+  refuses the key, says you have searched too often, or fails, you are told
+  so in plain words. The short answer above the sites waits on the choice
+  of a model, and nothing pretends to be one; images, the other tabs and
+  site icons come next (item 708, ADR 0083).
+- **Fixed: large answers over HTTP/2 were refused.** alo's own network code
+  gave the server room for more of a response on the connection but not on
+  the response itself, so anything over 64 KiB sent over HTTP/2 failed
+  part-way with *bytes arrived against a window of 0*. Found by the first
+  real search (item 708).
 - **The card works when pressed in the real window.** Run by hand, *Expand*
   and *Close* on the card did nothing: the browser never noted that the
   picture you pressed held a card, so it refused both, and the refusal was

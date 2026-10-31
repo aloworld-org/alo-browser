@@ -370,3 +370,148 @@ a {
   width: 100%;
   height: 100%;
 }
+
+/* A search's results, as the design's All tab draws them (queue item 708,
+   the owner's canvas of 31 October 2026): the person's line, then 20 under
+   it the tab row — each tab 42 tall, 14 across inside, All in the ink, 600,
+   underlined 2 in the ink over the row's line — then 20 under it the sites,
+   22 apart, each its mark, name and address on a line of 13, its title a
+   link of 18 on 25, and two lines of its description of 14.5 on 23; then
+   More sites. No short answer is drawn: it waits on a model (item 707). */
+.thread.searched {
+  row-gap: 20px;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  row-gap: 20px;
+}
+
+.rtabs {
+  display: flex;
+  column-gap: 4px;
+  border-bottom: 1px solid #e1dace;
+}
+
+.rt {
+  height: 42px;
+  margin-bottom: -1px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--quiet);
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.rt.on {
+  border-bottom-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.res {
+  display: flex;
+  flex-direction: column;
+  row-gap: 22px;
+  padding-top: 4px;
+}
+
+.src {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.src .name {
+  flex-shrink: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.src .addr {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A site's mark: its letter, white on one of the design's four tints. */
+.fav {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  color: var(--surface);
+  font-size: 10px;
+  line-height: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.fav.tint0 {
+  background: #2f6b5e;
+}
+
+.fav.tint1 {
+  background: #3e5c8a;
+}
+
+.fav.tint2 {
+  background: #5a6b8a;
+}
+
+.fav.tint3 {
+  background: #6b655c;
+}
+
+.t {
+  margin-bottom: 4px;
+  font-size: 18px;
+  line-height: 25px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A title is the design's link colour, #22406e, 9.2:1 on the paper. */
+.title {
+  color: #22406e;
+}
+
+.d {
+  max-width: 740px;
+  max-height: 46px;
+  overflow: hidden;
+  font-size: 14.5px;
+  line-height: 23px;
+  color: #4a463f;
+}
+
+.more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+/* Where the sites would be: searching, nothing found, or why not. */
+.note {
+  font-size: 14.5px;
+  line-height: 23px;
+  color: var(--quiet);
+}

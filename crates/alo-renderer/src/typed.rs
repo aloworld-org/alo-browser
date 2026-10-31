@@ -33,9 +33,11 @@
 //!
 //! Nothing with white space or a control character in it is an address:
 //! `what is x` is a question. Searching and asking are always offered for
-//! anything typed, since either can be what a person meant, and each says
-//! it is not set up yet until a search provider and a model are chosen
-//! (queue items 708 and 707) — offered, so the screen is the design's, and
+//! anything typed, since either can be what a person meant. Asking says it
+//! is not set up yet until a model is chosen (queue item 707); searching
+//! goes to the Brave Search API when the browser process holds a key, and
+//! says it is not set up and why when it does not (queue item 708,
+//! [`crate::results::SetUp`]) — offered, so the screen is the design's, and
 //! saying so, rather than pretending.
 
 use alo_url::Url;
@@ -51,8 +53,8 @@ pub const LONGEST_TYPED: usize = 2048;
 pub enum Offer {
     /// *Go to the site*: open this address.
     Go(Url),
-    /// *Search for "…"*, with what was typed, trimmed. Not set up yet
-    /// (queue item 708).
+    /// *Search for "…"*, with what was typed, trimmed: set up when the
+    /// browser process says so (queue item 708, [`crate::results::SetUp`]).
     Search(String),
     /// *Ask alo about "…"*, with what was typed, trimmed. Not set up yet
     /// (queue item 707).
@@ -60,8 +62,9 @@ pub enum Offer {
 }
 
 impl Offer {
-    /// Whether choosing it can do what it says today. Only going to a site
-    /// can; searching and asking wait on what the owner has not chosen.
+    /// Whether choosing it can do what it says whatever else holds: going to
+    /// a site always can; asking waits on a model (707); searching can when
+    /// the first screen is told it is set up (708), which this does not know.
     pub fn is_set_up(&self) -> bool {
         matches!(self, Offer::Go(_))
     }

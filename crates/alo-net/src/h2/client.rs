@@ -249,7 +249,7 @@ pub fn exchange_however_it_ends(
                 // the server stops sending half way through a large page.
                 let widen = u32::try_from(data.len()).unwrap_or(0);
                 let room = make_room_back(wire, stream, widen);
-                speaking.session.receiving_widened(widen);
+                speaking.session.receiving_widened(stream, widen);
                 if end_stream {
                     // The response is whole, so a window that could not be
                     // widened cannot make it less so. What it does mean is a

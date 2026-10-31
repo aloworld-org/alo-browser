@@ -71,6 +71,7 @@ impl Writer {
             }
         }
         self.card(start.card.as_ref());
+        self.results(&start.search, start.results.as_ref());
     }
 
     /// The page shown as a card, if one is (queue item 717): what the
@@ -130,6 +131,7 @@ impl Reader<'_> {
             offers.push(self.offer()?);
         }
         let card = self.card()?;
+        let (search, results) = self.results()?;
         Ok(Start {
             greeting,
             sites,
@@ -140,6 +142,8 @@ impl Reader<'_> {
             focused,
             offers,
             card,
+            results,
+            search,
         })
     }
 
