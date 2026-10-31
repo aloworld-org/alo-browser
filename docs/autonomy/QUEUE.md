@@ -19319,7 +19319,7 @@ What stage 2's exit gate actually measures: a person using it.
   forwarded to the page (718), and *expand* shows the same tab in Chrome's
   own window.
 
-- [ ] **717. The page as a card in the conversation, drawn from Chrome's
+- [x] **717. The page as a card in the conversation, drawn from Chrome's
   frames (ADR 0076 B).** The tab the conversation opened (713) is streamed
   as PNG frames (`Page.startScreencast`) and drawn as a picture in a card in
   the conversation's document, at the card's size and the window's scale;
@@ -19331,6 +19331,78 @@ What stage 2's exit gate actually measures: a person using it.
   behind frames past ADR 0076's numbers — through the Chromium alo
   carries as well as the machine's Chrome (alo sends no screencast yet, so
   726 left the host's frames to this item; ADR 0079 § 8a saw them arrive).
+  ***Done (iteration 460), with cuts to 737, 738 and 739.*** The address
+  Return chooses opens in Chrome as a card (`ChromeServing::start_as_a_card`):
+  Chrome's window parked off every display (`chrome_window::PARKED`, put
+  without being brought in front), its page laid out at the card's page box,
+  878 × 520 (`alo_renderer::card::PAGE_SIZE`). The conversation asks for a
+  stream at that box times the window's scale (`Order::Card`,
+  `CardOrder::Stream`, `conversation_chrome::Streamed`); `Tab::cast` sends
+  `Page.startScreencast` (PNG), and every `Page.screencastFrame` is answered
+  (`Page.screencastFrameAck`) as `Tab::next` reads it, wherever it is read —
+  between orders the thread holding Chrome reads the pipe every 4 ms while
+  streaming (`chrome_card::CAST_EVERY`) — and only the newest is kept
+  (`chrome_screencast.rs`). A frame's half megabyte of base64 is never
+  parsed as JSON (`chrome_cast_wire.rs` takes it out before the rest is
+  parsed, a NUL is found by the standard library's search) and never
+  decoded on the pipe's thread: the opener's thread decodes it and tells
+  the window `Went::Framed`; before that, through a debug build, an agent's
+  read waited 16–100 ms behind frames, measured. The window keeps the card
+  in `Conversation` and sends it with the first screen (`Start::card`,
+  `wire/start.rs`, its address refused unless a site's and its frame unless
+  a PNG); the renderer builds it from the template's `<template id="card">`
+  (`card_document.rs`) — the person's line, then the card: bar with *Back*,
+  *Forward*, the address as text (host bold, then path), *Expand to the
+  whole window*, *Close*, 18 px stroke icons; the page as an `<img>` whose
+  picture is the frame, lent to the drawing (`Easel::lend`) and read by the
+  one picture path every `<img>` takes, in the confined renderer — and
+  stops drawing the greeting and groups. The design's tokens: white card,
+  `#ddd6ca` ring, 14 rounded, its two shadows, 46 bar with its `#eee8de`
+  line, 36 square buttons radius 8 in `#3d3a35`, greyed `#bdb6aa`; nothing
+  of the search-engine page. **Found and fixed in the engine:** a picture
+  ignored a clip, so the frame's square corners covered the card's rounded
+  ones; a picture under a clip now keeps only what the clip lets through
+  (`alo-paint`'s `clipped_picture.rs`, conformance amended; not measured
+  against Chrome). Presses: *Expand*, *Close*, *Back* and *Forward* are
+  claims of their own (wire tags 8–11), decided only while a card was
+  painted and is held (`Refusal::NoCard`); a greyed button and the picture
+  claim nothing. *Expand* stops the stream and puts the same tab's window
+  where ADR 0075 put it, brought in front; *Close* (`ChromeOpener::shut`,
+  `Went::Shut`) stops the stream — Chrome answering `Page.stopScreencast`
+  before its page goes — and closes the page; the window covered or
+  minimised stops the stream and shown again restarts it (`Occluded`), as
+  does a change of scale. **Closing conditions**, each a test: the card's
+  boxes in numbers (`alo-renderer/tests/a_page_as_a_card.rs`: card 880 × 568
+  at 80,98, bar 878 × 46, page box 878 × 520 at 81,145, buttons 36 square at
+  87, 125, 879, 917 and 103.5 down, address 706 wide, icons); a reference
+  render, `card-holding-a-frame.png`, of the card holding
+  `references/card-frame.png` — a frame Chrome 156.0.8078.76 streamed of a
+  page of the test's own at 878 × 520 — with the header's `#1d4ed8` there one
+  for one and the card's corner clipping it, and `card-before-a-frame.png`;
+  the same card by the confined renderer; the agent reading a region named
+  by the address, *Back* and *Forward* disabled, *Expand to the whole
+  window*, *Close*, and the image. Through the machine's Chrome **and** alo's
+  CEF host (`alo-window/tests/a_page_as_a_card_through_chrome.rs`, in the
+  shown-Chrome lists of `.config/nextest.toml`): the window parked; frames of
+  a page whose noise makes each about ADR 0076 B's size, ~60 a second —
+  Chrome 60.1 a second, 20.0 MiB/s, 338 KiB a frame; the host 60.0, 22.8
+  MiB/s, 387 KiB — each read by the engine's picture reader; an agent's
+  read through the socket, 40 with no stream and 40 streaming, held to
+  twice ADR 0076 B2's growth (12.7 ms at the median, 17 at p90) and
+  measured at none: Chrome median 0.95 → 0.99 ms, p90 1.04 → 1.37; the
+  host 0.96 → 0.96, p90 1.07 → 1.27; *Unstream* and closing each answered
+  by Chrome, no frame told after, 0 read after it said it stopped; *Expand*
+  at 120,80 900 wide by the window server. Item 713's test opens its pages as
+  cards and expands the first. **Cut:** reading history and following
+  *Back* and *Forward* (737) — drawn, disabled while nowhere to go, which
+  is always for now; frames come at the scale of the display the parked
+  window is clamped by — on this Mac, with two displays at one to the side,
+  878 × 520 though 1756 × 1040 was asked (738); what the Dock, ⌘-Tab and
+  Stage Manager do with a parked Chrome, which ADR 0076 left to this item
+  (739). Not run by hand in the real window. Measured on the way, with a
+  Node client: a *shown* Chrome on the Retina display streaming PNG at two
+  delayed every command 55 ms, where parked by a display at one it delayed
+  none — 738's to keep in mind.
 
 - [ ] **718. A person's pointer, wheel and keys forwarded from the card to
   the page (ADR 0076 B, ADR 0024 § 5).** A person's press, wheel and keys
@@ -19339,6 +19411,34 @@ What stage 2's exit gate actually measures: a person using it.
   (ADR 0002). *Depends on 717. Closes when:* a press on a link in the card
   follows it, typing reaches a field, a wheel scrolls the page, each in a
   test against a local page.
+
+- [ ] **737. The card's *Back* and *Forward*, read and followed.** Cut from
+  717. The card draws both, disabled whenever the browser process says
+  there is nowhere to go — which, reading no history, is always. Read the
+  tab's history (`Page.getNavigationHistory`, after each navigation the tab
+  tells of) into `Card::back` and `Card::forward`, and carry out a press on
+  either (`Decided::Back`/`Forward`, already claimed and decided) as a
+  person's, never an agent's verb. *Depends on 717. Closes when:* a page
+  that follows a link shows *Back* enabled, a press on it goes back and
+  *Forward* is then enabled, each in a test against a local page.
+
+- [ ] **738. A card's frames at the conversation window's scale.** Found by
+  717: Chrome's parked window streams at the scale of the display macOS
+  clamps it by. On this Mac, with two displays at one beside the Retina
+  one, a card asked 1756 × 1040 got 878 × 520 and is drawn enlarged on the
+  Retina display. Measure where a parked window lands with one display and
+  with several, and decide how frames are had at the window's scale (parking
+  by the conversation's display, or Chrome told the scale), mindful that a
+  shown Chrome on the Retina display streaming PNG at two delayed every
+  command about 55 ms (measured with a Node client, 717). *Depends on 717.
+  needs measurement first.*
+
+- [ ] **739. What the Dock, ⌘-Tab and Stage Manager do with a parked
+  Chrome.** ADR 0076 left it to the item that builds B; 717 built B and did
+  not measure it. A person may find Chrome's application in the Dock or ⌘-Tab
+  and bring a window off every display to the front. Measure it, and answer
+  it — hiding the application, or another way — by an ADR if it is a new
+  decision. *Depends on 717.*
 
 
 - [x] **719. The application uses only its own Chromium (ADR 0077).**

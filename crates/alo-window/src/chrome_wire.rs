@@ -160,9 +160,14 @@ impl<R: Read> Frames<R> {
     }
 }
 
-/// Where the first NUL in `bytes` is.
+/// Where the first NUL in `bytes` is — found by the standard library's own
+/// search for one, which is built optimised even in a debug build, where a
+/// byte-by-byte search of a streamed frame's half megabyte was the reading
+/// thread's largest cost (queue item 717).
 fn nul_in(bytes: &[u8]) -> Option<usize> {
-    bytes.iter().position(|&byte| byte == 0)
+    core::ffi::CStr::from_bytes_until_nul(bytes)
+        .ok()
+        .map(|before| before.to_bytes().len())
 }
 
 /// Write one message and the NUL that ends it.

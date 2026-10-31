@@ -161,9 +161,12 @@ fn the_frame_is_told_each_verbs_answer_and_nothing_else() -> Result<(), String> 
         .iter()
         .filter_map(|news| match news {
             ToFrame::Agent(line) => Some(line),
-            ToFrame::Stand(_) | ToFrame::Named(_) | ToFrame::Strip(_) | ToFrame::StripSaid(_) => {
-                None
-            }
+            ToFrame::Stand(_)
+            | ToFrame::Named(_)
+            | ToFrame::Strip(_)
+            | ToFrame::StripSaid(_)
+            | ToFrame::Cast(_)
+            | ToFrame::Uncast(_) => None,
         })
         .collect();
     // One a verb, in the words each was answered with.

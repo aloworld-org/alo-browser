@@ -13,12 +13,18 @@
     <main id="start" class="start">
       <h1 id="greeting" class="hello"></h1>
       <p class="sub">Ask anything, search, or type a website.</p>
-      <div class="box" role="search">
+      <div id="the-box" class="box" role="search">
         <input id="ask" class="ask" type="text" aria-label="Ask anything, search, or type a website" placeholder="Ask anything, search, or type a website…" />
         <button class="go" type="button" aria-label="Go"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9h11M10 4.5 14.5 9 10 13.5" /></svg></button>
       </div>
       <div id="blocks" class="blocks"></div>
     </main>
+    <!-- A page opened from the conversation, as a card (ADR 0076 B, queue
+         item 717): moved into the screen by `card_document.rs`, which puts
+         what the person said and the page's address in as text nodes and
+         the picture of the page, Chrome's last frame, as the `<img>`'s
+         picture. Its buttons and their icons are ours and fixed. -->
+    <template id="card"><section class="card" aria-labelledby="card-address"><div class="bar"><button class="ibtn back" type="button" aria-label="Back"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.5 6.5 9 11 13.5" /></svg></button><button class="ibtn forward" type="button" aria-label="Forward"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5 11.5 9 7 13.5" /></svg></button><p id="card-address" class="url"></p><button class="ibtn expand" type="button" aria-label="Expand to the whole window"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.5h4v4M7.5 14.5h-4v-4M14.5 3.5 10 8M3.5 14.5 8 10" /></svg></button><button class="ibtn close" type="button" aria-label="Close"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5l9 9M13.5 4.5l-9 9" /></svg></button></div><div class="page"></div></section></template>
     <!-- The icon *Add a site* is drawn with: moved into its tile by
          `start_document.rs`, because alo-dom's operations make HTML
          elements and an icon is SVG. Ours and fixed, like the rest. -->

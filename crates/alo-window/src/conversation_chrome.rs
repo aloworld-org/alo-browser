@@ -12,9 +12,23 @@
 //! as `alo --chrome ADDRESS` opens a page — through
 //! [`ChromeServing`], so Chrome is started with our switches, every request
 //! the page makes is held to our rules before it leaves and recorded (ADRs
-//! 0058, 0060, 0073), and the page is drawn in Chrome's own `--app` window,
-//! put on the screen by this process (ADR 0061) — from the conversation's
-//! own process, with no second event loop.
+//! 0058, 0060, 0073) — from the conversation's own process, with no second
+//! event loop.
+//!
+//! # A card in the conversation
+//!
+//! Queue item 717, ADR 0076 B: the page is shown **as a card in the
+//! conversation**, drawn by this engine from the PNG frames Chrome streams
+//! of it ([`ChromeServing::start_as_a_card`], [`crate::chrome_card`]).
+//! Chrome's own window is parked off every display, its page laid out at
+//! the card's page box; the frames are asked for at that box times the
+//! window's scale ([`Streamed`]), and each newest one is told to the window
+//! as [`Went::Framed`], decoded on this thread — never on the one an
+//! agent's commands wait on. The window asks for the stream again or no
+//! more as it is shown or covered ([`ChromeOpener::stream`]); *Expand*
+//! shows the same tab in Chrome's own window where ADR 0075 placed it
+//! ([`ChromeOpener::expand`]); *Close* closes the page
+//! ([`ChromeOpener::shut`], [`Went::Shut`]).
 //!
 //! # Never waited on
 //!
@@ -38,8 +52,8 @@
 //!
 //! A second address chosen **replaces** the first: the Chrome showing it is
 //! closed, waited for and its profile removed, and a new one opens the new
-//! address. A conversation shows one page until item 702 decides where a
-//! page goes inside it, and one [`ChromeServing`] holds one tab, with the
+//! address. A conversation shows one card until a conversation holds
+//! pages (703), and one [`ChromeServing`] holds one tab, with the
 //! agent's record and grants for that tab; two would be two windows a
 //! person did not ask for, with nothing of ours saying which is which.
 //! Addresses chosen while a Chrome is still starting are not queued: the
@@ -60,11 +74,14 @@ use crate::agent_sites::AgentSites;
 use crate::beside::Chromium;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
+use crate::chrome_screencast::Frame as CastFrame;
 use crate::chrome_serving::{ChromeServing, Opening, TellFrame};
 use crate::conversation_place::PANEL_WIDTH;
-use crate::frame_told::ToFrame;
+use crate::frame_told::{ToFrame, Uncast};
+use crate::message::CardOrder;
 use crate::opening::{CHROME_AT, CHROME_SIZE};
 use crate::scale::Scale;
+use alo_renderer::card::PAGE_SIZE;
 use alo_url::Url;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -135,18 +152,36 @@ pub enum Went {
     /// Chrome's window showing it was closed — by a person, or Chrome
     /// itself gone — and the Chrome showing it with it.
     Closed(Url),
+    /// The card showing it was closed by a person, and its Chrome with it
+    /// (queue item 717).
+    Shut(Url),
+    /// The newest frame Chrome streamed of the page shown as a card: a PNG's
+    /// bytes (ADR 0076 B, queue item 717).
+    Framed(Vec<u8>),
+    /// The stream of frames stopped, Chrome having answered that it did, or
+    /// not: what it came to.
+    Unstreamed(Uncast),
 }
 
 impl Went {
     /// What the first screen's line says of it, in plain words.
     pub fn said(&self) -> String {
         match self {
-            Self::Opening(url) => format!("opening {url} in Chrome, in a window of its own"),
+            Self::Opening(url) => format!("opening {url} in Chrome, to be shown in a card"),
             Self::Opened { url, shown } => {
-                format!("{url} is open in Chrome's own window — {}", shown.by)
+                format!("{url} is open in a card — {}", shown.by)
             }
             Self::Unopened { url, why } => format!("{url} could not be opened: {why}"),
             Self::Closed(url) => format!("Chrome's window showing {url} was closed"),
+            Self::Shut(url) => format!("{url} was closed"),
+            Self::Framed(_) => "Chrome drew the page again".to_owned(),
+            Self::Unstreamed(uncast) if uncast.answered => format!(
+                "the card's page is no longer streamed, after {} frames",
+                uncast.frames
+            ),
+            Self::Unstreamed(_) => {
+                "Chrome did not say it had stopped streaming the card's page".to_owned()
+            }
         }
     }
 }
@@ -173,17 +208,58 @@ pub type TellWent = Box<dyn Fn(Went) -> bool + Send>;
 struct Held {
     shown: Shown,
     close: Box<dyn FnOnce() -> bool + Send>,
+    /// How what the conversation asks of the card reaches its Chrome.
+    card: Box<dyn Fn(CardOrder) + Send>,
 }
 
 /// How a Chrome is started at an address: the machine's, or a test's.
-type Starter = Box<dyn FnMut(&Url, Placing, TellFrame) -> Result<Held, String> + Send>;
+type Starter = Box<dyn FnMut(&Url, TellFrame) -> Result<Held, String> + Send>;
+
+/// The largest each frame of a card's page is streamed at, in device
+/// pixels: the card's page box at the window's scale (ADR 0076 B).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Streamed {
+    /// In device pixels.
+    pub width: u32,
+    /// In device pixels.
+    pub height: u32,
+}
+
+impl Streamed {
+    /// The card's page box, [`PAGE_SIZE`], on a screen of `scale`.
+    pub fn at(scale: Scale) -> Self {
+        Self {
+            width: scale.device(PAGE_SIZE.0).max(1),
+            height: scale.device(PAGE_SIZE.1).max(1),
+        }
+    }
+
+    /// What Chrome's thread is asked: to stream at this size.
+    fn order(self) -> CardOrder {
+        CardOrder::Stream {
+            width: self.width,
+            height: self.height,
+        }
+    }
+}
 
 /// What the window hands the thread.
 enum Work {
-    /// Open this address, put as this says.
-    Open(Url, Placing),
+    /// Open this address as a card, streamed at this size.
+    Open(Url, Streamed),
+    /// Show the page in Chrome's own window, put as this says.
+    Expand(Placing),
+    /// Stream the card again at this size — it is back on the screen, or
+    /// the window's scale changed — or, with nothing, no more.
+    Stream(Option<Streamed>),
+    /// Close the page shown as a card.
+    Shut,
     /// The Chrome started at the open this numbers said its window is gone.
     Gone(u64),
+    /// The Chrome started at the open this numbers streamed a frame.
+    Framed(u64, CastFrame),
+    /// The Chrome started at the open this numbers stopped streaming.
+    Unstreamed(u64, Uncast),
     /// The window is closing: close Chrome and end.
     Finish,
 }
@@ -210,7 +286,7 @@ impl ChromeOpener {
     /// What the system said when no thread could be started.
     pub fn start(chromium: Chromium, tell: TellWent) -> std::io::Result<Self> {
         Self::starting_with(
-            Box::new(move |url, placing, told| in_chrome(&chromium, url, placing, told)),
+            Box::new(move |url, told| in_chrome(&chromium, url, told)),
             tell,
         )
     }
@@ -228,13 +304,36 @@ impl ChromeOpener {
         })
     }
 
-    /// Open `url`, its window put as `placing` says, replacing whatever was
-    /// open. Returns at once: what became of it is told to the window.
-    pub fn open(&self, url: Url, placing: Placing) {
+    /// Open `url` as a card in the conversation, its frames streamed at
+    /// `streamed`, replacing whatever was open. Returns at once: what became
+    /// of it, and each frame, is told to the window.
+    pub fn open(&self, url: Url, streamed: Streamed) {
+        self.send(Work::Open(url, streamed));
+    }
+
+    /// Show the page open as a card in Chrome's own window, put as
+    /// `placing` says (ADR 0075's placement), its stream stopped.
+    pub fn expand(&self, placing: Placing) {
+        self.send(Work::Expand(placing));
+    }
+
+    /// Stream the card's page at `streamed` — back on the screen, or at a
+    /// new scale — or, with [`None`], no more: the card is off the screen.
+    pub fn stream(&self, streamed: Option<Streamed>) {
+        self.send(Work::Stream(streamed));
+    }
+
+    /// Close the page shown as a card: its stream stopped, its Chrome
+    /// closed, waited for and its profile removed, and [`Went::Shut`] told.
+    pub fn shut(&self) {
+        self.send(Work::Shut);
+    }
+
+    fn send(&self, work: Work) {
         if let Some(sender) = &self.asked {
             // A thread that has gone is a window that is closing, which
             // nothing here waits for.
-            let _ = sender.send(Work::Open(url, placing));
+            let _ = sender.send(work);
         }
     }
 
@@ -290,6 +389,10 @@ fn hold(
         let newest = waiting
             .iter()
             .rposition(|work| matches!(work, Work::Open(..)));
+        // Of the frames waiting, only the newest is worth telling.
+        let newest_frame = waiting
+            .iter()
+            .rposition(|work| matches!(work, Work::Framed(..)));
         for (place, work) in waiting.into_iter().enumerate() {
             match work {
                 Work::Finish => {
@@ -307,27 +410,52 @@ fn hold(
                         let _ = tell(Went::Closed(gone.url));
                     }
                 }
-                Work::Open(url, placing) if Some(place) == newest => {
+                Work::Shut => {
+                    if let Some(shut) = open.take() {
+                        finished &= (shut.held.close)();
+                        let _ = tell(Went::Shut(shut.url));
+                    }
+                }
+                Work::Expand(placing) => ask_of(
+                    open.as_ref(),
+                    CardOrder::Expand {
+                        at: placing.at,
+                        size: placing.size,
+                    },
+                ),
+                Work::Stream(streamed) => ask_of(
+                    open.as_ref(),
+                    streamed.map_or(CardOrder::Unstream, Streamed::order),
+                ),
+                Work::Framed(number, frame) => {
+                    // Decoded here, off the thread an agent's commands wait
+                    // on; one that is not base64 is not shown.
+                    if Some(place) == newest_frame
+                        && open.as_ref().is_some_and(|open| open.number == number)
+                        && let Ok(png) = frame.png()
+                    {
+                        let _ = tell(Went::Framed(png));
+                    }
+                }
+                Work::Unstreamed(number, uncast) => {
+                    if open.as_ref().is_some_and(|open| open.number == number) {
+                        let _ = tell(Went::Unstreamed(uncast));
+                    }
+                }
+                Work::Open(url, streamed) if Some(place) == newest => {
                     if let Some(replaced) = open.take() {
                         finished &= (replaced.held.close)();
                     }
                     opened += 1;
                     let _ = tell(Went::Opening(url.clone()));
                     let number = opened;
-                    let gone = again.clone();
-                    let told: TellFrame = Box::new(move |told| {
-                        if told == ToFrame::Stand(Follow::Closed) {
-                            // Nobody to hear it is a thread that has ended.
-                            let _ = gone.send(Work::Gone(number));
-                        }
-                        true
-                    });
-                    match starter(&url, placing, told) {
+                    match starter(&url, heard_from(again.clone(), number)) {
                         Ok(held) => {
                             let _ = tell(Went::Opened {
                                 url: url.clone(),
                                 shown: held.shown.clone(),
                             });
+                            (held.card)(streamed.order());
                             open = Some(Open { number, url, held });
                         }
                         Err(why) => {
@@ -347,19 +475,36 @@ fn hold(
     finished
 }
 
-/// Start the Chromium `chromium` names at `url`, shown with no frame of
-/// ours and put as `placing` says, held as `alo --chrome` holds its page.
-fn in_chrome(
-    chromium: &Chromium,
-    url: &Url,
-    placing: Placing,
-    told: TellFrame,
-) -> Result<Held, String> {
-    let serving = ChromeServing::start_shown_alone(
+/// How the Chrome started at the open `number` tells the thread what
+/// became of its window and what it streamed, sent on `again`.
+fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
+    Box::new(move |told| {
+        // Nobody to hear any of it is a thread that has ended.
+        let _ = match told {
+            ToFrame::Stand(Follow::Closed) => again.send(Work::Gone(number)),
+            ToFrame::Cast(frame) => again.send(Work::Framed(number, frame)),
+            ToFrame::Uncast(uncast) => again.send(Work::Unstreamed(number, uncast)),
+            _ => Ok(()),
+        };
+        true
+    })
+}
+
+/// Ask `order` of the card open, if one is.
+fn ask_of(open: Option<&Open>, order: CardOrder) {
+    if let Some(open) = open {
+        (open.held.card)(order);
+    }
+}
+
+/// Start the Chromium `chromium` names at `url`, its window parked off
+/// every display while its page is a card (ADR 0076 B4), held as `alo
+/// --chrome` holds its page.
+fn in_chrome(chromium: &Chromium, url: &Url, told: TellFrame) -> Result<Held, String> {
+    let serving = ChromeServing::start_as_a_card(
         chromium.clone(),
         Opening::Network(url.clone()),
-        placing.size,
-        placing.at,
+        PAGE_SIZE,
         // No socket is opened for the conversation's pages (queue item
         // 716): no agent reaches this tab, so it is kept to no site of its
         // own.
@@ -374,6 +519,7 @@ fn in_chrome(
         window: serving.placed().map(|placed| placed.window.bounds),
     };
     let orders = serving.orders();
+    let card = serving.orders();
     Ok(Held {
         shown,
         close: Box::new(move || {
@@ -381,6 +527,10 @@ fn in_chrome(
             let _ = orders.send(crate::message::Order::CloseEverything);
             drop(orders);
             serving.records().is_some()
+        }),
+        card: Box::new(move |order| {
+            // As above: a thread gone is a Chrome closing.
+            let _ = card.send(crate::message::Order::Card(order));
         }),
     })
 }
@@ -402,13 +552,15 @@ mod tests {
         started: Vec<String>,
         closed: Vec<String>,
         told: Vec<TellFrame>,
+        /// What each card was asked, by its address.
+        asked: Vec<(String, CardOrder)>,
     }
 
     /// A starter that refuses `refused` and starts anything else, writing
     /// down what it did in `did`.
     fn starter(did: &Arc<Mutex<Did>>, refused: &'static str) -> Starter {
         let did = Arc::clone(did);
-        Box::new(move |url, _, told| {
+        Box::new(move |url, told| {
             let address = url.to_string();
             if address == refused {
                 return Err("Chrome is not installed on this machine".to_owned());
@@ -417,6 +569,8 @@ mod tests {
             doing.started.push(address.clone());
             doing.told.push(told);
             let closing = Arc::clone(&did);
+            let asking = Arc::clone(&did);
+            let asked_of = address.clone();
             Ok(Held {
                 shown: Shown {
                     by: "Chrome/156.0.0.0, driven by this browser".to_owned(),
@@ -427,6 +581,9 @@ mod tests {
                 close: Box::new(move || {
                     closing.lock().unwrap().closed.push(address);
                     true
+                }),
+                card: Box::new(move |order| {
+                    asking.lock().unwrap().asked.push((asked_of.clone(), order));
                 }),
             })
         })
@@ -443,6 +600,12 @@ mod tests {
         (opener, told)
     }
 
+    /// A card's page box at two.
+    const STREAMED: Streamed = Streamed {
+        width: 1756,
+        height: 1040,
+    };
+
     fn next(told: &Receiver<Went>) -> Went {
         told.recv_timeout(Duration::from_secs(10)).unwrap()
     }
@@ -451,12 +614,12 @@ mod tests {
     fn an_address_chosen_is_said_opening_then_opened() {
         let did = Arc::new(Mutex::new(Did::default()));
         let (opener, told) = opener(&did, "");
-        opener.open(url("https://example.com/"), Placing::APART);
+        opener.open(url("https://example.com/"), STREAMED);
         let opening = next(&told);
         assert_eq!(opening, Went::Opening(url("https://example.com/")));
         assert_eq!(
             opening.said(),
-            "opening https://example.com/ in Chrome, in a window of its own"
+            "opening https://example.com/ in Chrome, to be shown in a card"
         );
         let open = next(&told);
         assert!(
@@ -464,7 +627,7 @@ mod tests {
         );
         assert_eq!(
             open.said(),
-            "https://example.com/ is open in Chrome's own window — \
+            "https://example.com/ is open in a card — \
              Chrome/156.0.0.0, driven by this browser"
         );
         assert!(opener.finish());
@@ -481,7 +644,7 @@ mod tests {
     fn an_address_that_cannot_be_opened_is_said_why() {
         let did = Arc::new(Mutex::new(Did::default()));
         let (opener, told) = opener(&did, "https://nochrome.example/");
-        opener.open(url("https://nochrome.example/"), Placing::APART);
+        opener.open(url("https://nochrome.example/"), STREAMED);
         let _ = next(&told);
         let unopened = next(&told);
         assert_eq!(
@@ -497,9 +660,9 @@ mod tests {
     fn a_second_address_replaces_the_first() {
         let did = Arc::new(Mutex::new(Did::default()));
         let (opener, told) = opener(&did, "");
-        opener.open(url("https://one.example/"), Placing::APART);
+        opener.open(url("https://one.example/"), STREAMED);
         let _ = (next(&told), next(&told));
-        opener.open(url("https://two.example/"), Placing::APART);
+        opener.open(url("https://two.example/"), STREAMED);
         assert_eq!(next(&told), Went::Opening(url("https://two.example/")));
         assert_eq!(
             did.lock().unwrap().closed,
@@ -523,7 +686,7 @@ mod tests {
     fn chromes_window_closed_by_a_person_is_said_and_chrome_closed() {
         let did = Arc::new(Mutex::new(Did::default()));
         let (opener, told) = opener(&did, "");
-        opener.open(url("https://example.com/"), Placing::APART);
+        opener.open(url("https://example.com/"), STREAMED);
         let _ = (next(&told), next(&told));
         // Only a window gone is heard; where to stand is never told here.
         let window = did.lock().unwrap().told.remove(0);
@@ -555,13 +718,85 @@ mod tests {
             "https://b.example/",
             "https://c.example/",
         ] {
-            asked.send(Work::Open(url(each), Placing::APART)).unwrap();
+            asked.send(Work::Open(url(each), STREAMED)).unwrap();
         }
         asked.send(Work::Finish).unwrap();
         let tell: TellWent = Box::new(move |went| tell.send(went).is_ok());
         assert!(hold(starter(&did, ""), &asking, &asked, &tell));
         assert_eq!(did.lock().unwrap().started, vec!["https://c.example/"]);
         assert_eq!(next(&told), Went::Opening(url("https://c.example/")));
+    }
+
+    #[test]
+    fn a_card_is_streamed_as_it_opens_expanded_restreamed_and_shut() {
+        let did = Arc::new(Mutex::new(Did::default()));
+        let (opener, told) = opener(&did, "");
+        opener.open(url("https://example.com/"), STREAMED);
+        let _ = (next(&told), next(&told));
+        opener.stream(None);
+        opener.stream(Some(Streamed::at(Scale::ONE)));
+        opener.expand(Placing::APART);
+        // Frames told by Chrome's thread reach the window; a frame of a
+        // Chrome since replaced would not.
+        let frame = did.lock().unwrap().told.remove(0);
+        assert!(frame(ToFrame::Uncast(Uncast {
+            frames: 3,
+            bytes: 9,
+            after: 0,
+            answered: true
+        })));
+        let unstreamed = next(&told);
+        assert_eq!(
+            unstreamed.said(),
+            "the card's page is no longer streamed, after 3 frames"
+        );
+        opener.shut();
+        let shut = next(&told);
+        assert_eq!(shut, Went::Shut(url("https://example.com/")));
+        assert_eq!(shut.said(), "https://example.com/ was closed");
+        let asked: Vec<CardOrder> = did
+            .lock()
+            .unwrap()
+            .asked
+            .iter()
+            .map(|(_, order)| *order)
+            .collect();
+        assert_eq!(
+            asked,
+            vec![
+                CardOrder::Stream {
+                    width: 1756,
+                    height: 1040
+                },
+                CardOrder::Unstream,
+                CardOrder::Stream {
+                    width: 878,
+                    height: 520
+                },
+                CardOrder::Expand {
+                    at: CHROME_AT,
+                    size: CHROME_SIZE
+                },
+            ]
+        );
+        assert_eq!(did.lock().unwrap().closed, vec!["https://example.com/"]);
+        // Nothing open: nothing asked, nothing said.
+        opener.shut();
+        opener.expand(Placing::APART);
+        assert!(opener.finish());
+        assert!(told.try_recv().is_err());
+    }
+
+    #[test]
+    fn a_card_is_streamed_at_its_page_box_times_the_scale() {
+        assert_eq!(
+            Streamed::at(Scale::ONE),
+            Streamed {
+                width: 878,
+                height: 520
+            }
+        );
+        assert_eq!(Streamed::at(Scale::of_screen(2.0)), STREAMED);
     }
 
     #[test]

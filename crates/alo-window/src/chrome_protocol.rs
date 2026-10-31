@@ -336,6 +336,24 @@ pub enum Command {
         /// not its `backendNodeId`.
         node: u64,
     },
+    /// `Page.startScreencast`: stream the page's frames as PNG, each at most
+    /// `width` by `height` device pixels, every frame (ADR 0076 B, queue
+    /// item 717). Each is told of as `Page.screencastFrame` ([`cast_frame`])
+    /// and must be answered with [`Command::FrameSeen`] before more come.
+    Cast {
+        /// The widest a frame may be, in device pixels.
+        width: u32,
+        /// The tallest, in device pixels.
+        height: u32,
+    },
+    /// `Page.screencastFrameAck`: the frame told of under `frame` was
+    /// taken.
+    FrameSeen {
+        /// The frame's `sessionId`, as [`cast_frame`] read it.
+        frame: i64,
+    },
+    /// `Page.stopScreencast`: stream no more.
+    StopCasting,
 }
 
 impl Command {
@@ -387,6 +405,9 @@ impl Command {
             Self::ReadStyles => "CSS.enable",
             Self::StopReadingStyles => "CSS.disable",
             Self::ComputedStyle { .. } => "CSS.getComputedStyleForNode",
+            Self::Cast { .. } => "Page.startScreencast",
+            Self::FrameSeen { .. } => "Page.screencastFrameAck",
+            Self::StopCasting => "Page.stopScreencast",
         }
     }
 
@@ -416,7 +437,15 @@ impl Command {
             | Self::ShowMarks
             | Self::Unmark
             | Self::ReadStyles
-            | Self::StopReadingStyles => {}
+            | Self::StopReadingStyles
+            | Self::StopCasting => {}
+            Self::Cast { width, height } => {
+                put("format", Value::from("png"));
+                put("maxWidth", Value::from(*width));
+                put("maxHeight", Value::from(*height));
+                put("everyNthFrame", Value::from(1));
+            }
+            Self::FrameSeen { frame } => put("sessionId", Value::from(*frame)),
             Self::IdsOf { nodes } => put("backendNodeIds", Value::from(nodes.clone())),
             Self::ComputedStyle { node } => put("nodeId", Value::from(*node)),
             Self::CreateTarget { url } | Self::Navigate { url } => {
@@ -750,6 +779,10 @@ impl fmt::Display for Malformed {
 ///
 /// [`Malformed`], for anything that is not a message the protocol describes.
 pub fn read(message: &[u8]) -> Result<Message, Malformed> {
+    // A streamed frame's picture is not parsed as JSON (queue item 717).
+    if let Some(frame) = crate::chrome_cast_wire::read(message) {
+        return Ok(frame);
+    }
     let fields = object(message)?;
     let session = match fields.get("sessionId") {
         None => None,
@@ -2049,6 +2082,63 @@ fn text(value: Option<&Value>, field: &'static str) -> Result<String, Malformed>
     Ok(text.clone())
 }
 
+/// A frame Chrome streamed of a page, from a `Page.screencastFrame` event
+/// (ADR 0076 B, queue item 717).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CastFrame {
+    /// The picture, as Chrome sent it: base64 of the format it was asked
+    /// for — PNG — and as long as the message it came in.
+    pub data: String,
+    /// What the frame is answered by ([`Command::FrameSeen`]).
+    pub frame: i64,
+}
+
+/// A `Page.screencastFrame` event's `params`, read.
+///
+/// # Errors
+///
+/// [`Malformed`], for params with no `data` text or no whole `sessionId`.
+pub fn cast_frame(params: &[u8]) -> Result<CastFrame, Malformed> {
+    if let Some(read) = cast_frame_as_written(params) {
+        return Ok(read);
+    }
+    let fields = object(params)?;
+    Ok(CastFrame {
+        data: words(fields.get("data"), "data")?,
+        frame: fields
+            .get("sessionId")
+            .and_then(Value::as_i64)
+            .ok_or(Malformed::BadField { field: "sessionId" })?,
+    })
+}
+
+/// A frame's `params` read without parsing half a megabyte of JSON a second
+/// time: [`read`] wrote them again with `serde_json`, which puts an object's
+/// keys in order, so a frame's are `{"data":"…","metadata":{…},"sessionId":N}`
+/// — `data` first, its text with no quote or backslash in it when it is
+/// base64, and `sessionId` last, a whole number. Anything else is
+/// [`None`], and read the long way.
+fn cast_frame_as_written(params: &[u8]) -> Option<CastFrame> {
+    let rest = params.strip_prefix(br#"{"data":""#)?;
+    let end = rest
+        .iter()
+        .position(|&byte| byte == b'"' || byte == b'\\')?;
+    if rest.get(end) != Some(&b'"') {
+        return None;
+    }
+    let data = core::str::from_utf8(rest.get(..end)?).ok()?;
+    let tail = params.strip_suffix(b"}")?;
+    let at = tail
+        .windows(13)
+        .rposition(|key| key == br#","sessionId":"#)?;
+    let number = core::str::from_utf8(tail.get(at + 13..)?).ok()?;
+    let frame = number.parse::<i64>().ok()?;
+    Some(CastFrame {
+        data: data.to_owned(),
+        frame,
+    })
+}
+
 /// A text that is a page's words — a name, a value, an address — and so as
 /// long as the page made it, bounded by the message it came in rather than
 /// by [`MOST_TEXT`].
@@ -2065,6 +2155,49 @@ mod tests {
 
     fn bad<T>(field: &'static str) -> Result<T, Malformed> {
         Err(Malformed::BadField { field })
+    }
+
+    #[test]
+    fn a_stream_of_frames_is_asked_for_answered_and_stopped_as_chrome_reads_it() {
+        assert_eq!(
+            written(3, Some("S"), &Command::Cast { width: 1756, height: 1040 }),
+            br#"{"id":3,"method":"Page.startScreencast","params":{"everyNthFrame":1,"format":"png","maxHeight":1040,"maxWidth":1756},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            written(4, Some("S"), &Command::FrameSeen { frame: 7 }),
+            br#"{"id":4,"method":"Page.screencastFrameAck","params":{"sessionId":7},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            written(5, Some("S"), &Command::StopCasting),
+            br#"{"id":5,"method":"Page.stopScreencast","params":{},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            cast_frame(br#"{"data":"iVBO","metadata":{},"sessionId":2}"#),
+            Ok(CastFrame {
+                data: "iVBO".to_owned(),
+                frame: 2
+            })
+        );
+        // Read as written, and the long way when it is not.
+        assert_eq!(
+            cast_frame(br#"{"sessionId":2,"data":"iVBO","metadata":{}}"#),
+            Ok(CastFrame {
+                data: "iVBO".to_owned(),
+                frame: 2
+            })
+        );
+        assert_eq!(
+            cast_frame(br#"{"data":"a\"b","metadata":{},"sessionId":3}"#),
+            Ok(CastFrame {
+                data: "a\"b".to_owned(),
+                frame: 3
+            })
+        );
+        assert_eq!(cast_frame(br#"{"sessionId":2}"#), bad("data"));
+        assert_eq!(
+            cast_frame(br#"{"data":"x","sessionId":"2"}"#),
+            bad("sessionId")
+        );
     }
 
     #[test]

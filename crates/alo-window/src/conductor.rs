@@ -472,6 +472,9 @@ impl Conducting {
             Order::Tabs(order) => self.tab_order(order),
             Order::Pointer(pointer) => self.pointed(pointer),
             Order::StripPressed(at) => self.strip_pressed(at),
+            // A tab of this engine's is never shown as a card (queue item
+            // 717): only a tab in Chrome is streamed.
+            Order::Card(_) => Vec::new(),
             Order::CloseEverything => {
                 self.close_everything();
                 vec![News::Closed]

@@ -770,8 +770,12 @@ the two axes, because a blur radius is one number. A picture under a
 rotation, skew or mirror is drawn turned with its box and its outline is
 smooth, but it is sampled nearest-neighbour, so the stripes *inside* a turned
 picture have stepped edges (613) — an upright one drawn larger or smaller
-is filtered as Chrome filters it (594, 179); and a picture ignores a clip in force,
-so one inside `overflow: hidden` is drawn whole. A picture is read as PNG,
+is filtered as Chrome filters it (594, 179); and a picture inside a clip in force —
+`overflow: hidden`, rounded corners — keeps only what the clip lets through
+(item 717; `alo-paint`'s `clipped_picture.rs`), as a fill does, its edge
+softened by the clip's coverage. That is not measured against Chrome; the
+conversation's card, its one use so far, is compared with alo's own
+reference render. A picture is read as PNG,
 JPEG, GIF or WebP. An animated GIF or WebP is drawn as its first frame and
 does not move. AVIF is refused and the `<img>` keeps the box its style asked
 for, as with any picture that did not arrive. An inline `<svg>` is one box

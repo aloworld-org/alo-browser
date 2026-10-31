@@ -267,3 +267,106 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* A page opened from the conversation (ADR 0076 B, queue item 717), after
+   the design's card: the person's line, then the card under it, in a
+   column 880 px wide, centred, with the box below them. The card is white,
+   ringed in the line's colour and rounded 14; its bar 46 tall holds Back,
+   Forward, the address — the host bold in the ink, then the path in the
+   quiet colour — Expand and Close, each 36 square with an 18 px icon; its
+   page, 520 tall, is Chrome's last frame of the page, drawn as a picture
+   and clipped by the card's corners. */
+.start.conversing {
+  padding-top: 40px;
+}
+
+.start.conversing .box {
+  margin-top: 24px;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  row-gap: 16px;
+  width: 880px;
+}
+
+.you {
+  align-self: flex-end;
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: #e9e3d8;
+  font-size: 15px;
+  line-height: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(27, 36, 51, 0.05), 0 10px 28px rgba(27, 36, 51, 0.07);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  column-gap: 2px;
+  height: 46px;
+  padding: 0 6px;
+  border-bottom: 1px solid #eee8de;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+}
+
+.ibtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #3d3a35;
+}
+
+/* Nowhere to go: greyed, and not a thing a press claims. */
+.ibtn.off {
+  color: #bdb6aa;
+}
+
+.ibtn .icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
+}
+
+.url {
+  flex-grow: 1;
+  min-width: 0;
+  margin-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.url .host {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.page {
+  height: 520px;
+  overflow: hidden;
+}
+
+.shot {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

@@ -303,8 +303,32 @@ pub fn place(tab: &mut Tab<'_>, left: i32, top: i32) -> Result<Placed, Unplaced>
     if !tab.is_shown() {
         return Err(Unplaced::Headless);
     }
+    let placed = put_at(tab, left, top)?;
+    bring_to_front(tab)?;
+    Ok(placed)
+}
+
+/// Where a window is parked while its page is a card in the conversation
+/// (ADR 0076 B4): far left of every display, in the screen's points.
+/// Chrome 156 clamped a window asked for at −20000 to −3727, off every
+/// display, and went on painting and streaming its page there.
+pub const PARKED: (i32, i32) = (-20_000, 0);
+
+/// Put the window of `tab` with its top left corner at `left`, `top`, at
+/// the size it already is, **without** bringing it in front — where it went,
+/// which a system that clamps a window off its displays may not be where it
+/// was asked ([`PARKED`]).
+///
+/// # Errors
+///
+/// [`Unplaced::Headless`] before anything is written to Chrome, or
+/// [`Unplaced::Unsettled`] or [`Unplaced::Failed`].
+pub fn put_at(tab: &mut Tab<'_>, left: i32, top: i32) -> Result<Placed, Unplaced> {
+    if !tab.is_shown() {
+        return Err(Unplaced::Headless);
+    }
     let now = read(tab)?;
-    let placed = put(
+    put(
         tab,
         now.window.id,
         Bounds {
@@ -312,9 +336,7 @@ pub fn place(tab: &mut Tab<'_>, left: i32, top: i32) -> Result<Placed, Unplaced>
             top: i64::from(top),
             ..now.window.bounds
         },
-    )?;
-    bring_to_front(tab)?;
-    Ok(placed)
+    )
 }
 
 /// Bring the window of `tab` in front of every other window, out of Stage

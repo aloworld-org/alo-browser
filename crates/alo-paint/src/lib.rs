@@ -47,6 +47,7 @@ pub mod border;
 pub mod build;
 pub mod canvas;
 pub mod centre_line;
+pub mod clipped_picture;
 pub mod contour;
 pub mod control;
 pub mod corner;

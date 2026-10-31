@@ -61,6 +61,10 @@ pub enum Order {
     /// The window was closed: close every tab, and say [`News::Closed`] when
     /// they are.
     CloseEverything,
+    /// What the conversation asks of the page it shows as a card (ADR 0076
+    /// B, queue item 717): carried out only by a tab in Chrome
+    /// ([`crate::chrome_serving`]); this engine's tabs are never a card.
+    Card(CardOrder),
     /// An agent outside the browser asked something (ADR 0055): answer it on
     /// `reply`, and record it, whatever it came to.
     Agent {
@@ -70,6 +74,32 @@ pub enum Order {
         ask: Result<Ask, Refused>,
         /// Where the answer goes.
         reply: Sender<Answer>,
+    },
+}
+
+/// What the conversation asks of a page it shows as a card (ADR 0076 B,
+/// queue item 717).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardOrder {
+    /// Stream the page as PNG frames, each at most this many device pixels
+    /// each way: the card's page box times the window's scale.
+    Stream {
+        /// In device pixels.
+        width: u32,
+        /// In device pixels.
+        height: u32,
+    },
+    /// Stream no more: the card is off the screen.
+    Unstream,
+    /// Show the page in Chrome's own window over the conversation, as ADR
+    /// 0075 placed it — the same tab, nothing reloaded — its window's top
+    /// left corner at `at` in the screen's points and its page `size` CSS
+    /// pixels; the stream stops, since the card is covered.
+    Expand {
+        /// In the screen's points.
+        at: (i32, i32),
+        /// In CSS pixels.
+        size: (u32, u32),
     },
 }
 

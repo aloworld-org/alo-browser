@@ -34,6 +34,10 @@ impl Writer {
             Claim::Waiting { at } => (5, Some(at)),
             Claim::TheBox => (6, None),
             Claim::Go => (7, None),
+            Claim::Back => (8, None),
+            Claim::Forward => (9, None),
+            Claim::Expand => (10, None),
+            Claim::CloseTheCard => (11, None),
         };
         self.tag(tag);
         if let Some(at) = at {
@@ -58,6 +62,10 @@ impl Reader<'_> {
             5 => Claim::Waiting { at: self.place()? },
             6 => Claim::TheBox,
             7 => Claim::Go,
+            8 => Claim::Back,
+            9 => Claim::Forward,
+            10 => Claim::Expand,
+            11 => Claim::CloseTheCard,
             other => return Err(unreadable(format!("a claim tagged {other}"))),
         };
         Ok(Some(claim))

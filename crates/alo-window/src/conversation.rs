@@ -63,6 +63,7 @@ use crate::conversation_box::{TheBox, Typed};
 use crate::scale::Scale;
 use crate::typing::Edit;
 use alo_layout::Size;
+use alo_renderer::card::Card;
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::panel::{Chat, Panel, drawn_order};
 use alo_renderer::start::{KeptSite, Start};
@@ -100,6 +101,12 @@ pub struct Conversation {
     the_box: TheBox,
     /// What was last chosen from what the box offered, if anything was.
     chosen: Option<Offer>,
+    /// What the box held when it was last chosen from: what the person
+    /// said, which a card answers.
+    said: String,
+    /// The page opened from the conversation, shown as a card (ADR 0076 B,
+    /// queue item 717), if one is.
+    card: Option<Card>,
 }
 
 impl Default for Conversation {
@@ -112,6 +119,8 @@ impl Default for Conversation {
             last_pressed: None,
             the_box: TheBox::default(),
             chosen: None,
+            said: String::new(),
+            card: None,
         }
     }
 }
@@ -140,6 +149,7 @@ impl Conversation {
                 .collect(),
             sites: Vec::new(),
             waiting: Vec::new(),
+            card: self.card.is_some(),
         }
     }
 
@@ -159,6 +169,7 @@ impl Conversation {
             Pressed::TheBox => self.the_box.focus(),
             Pressed::Go => {
                 self.chosen = self.the_box.choice();
+                self.said = self.the_box.typed().to_owned();
                 false
             }
             Pressed::Refused(_) | Pressed::Failed(_) => false,
@@ -183,6 +194,7 @@ impl Conversation {
         let typed = self.the_box.edit(edit);
         if let Typed::Chose(offer) = &typed {
             self.chosen = Some(offer.clone());
+            self.said = self.the_box.typed().to_owned();
         }
         typed
     }
@@ -249,8 +261,39 @@ impl Conversation {
             typed: self.the_box.typed().to_owned(),
             focused: self.the_box.focused(),
             offers: self.the_box.offers(),
+            card: self.card.clone(),
         }
         .at_scale(scale.factor())
+    }
+
+    /// Show the page at `url` as a card, answering what the person last
+    /// chose from the box, with no frame yet (queue item 717): in place of
+    /// any card shown, since one page is open at a time (ADR 0075 § 4).
+    pub fn open_card(&mut self, url: Url) {
+        self.card = Some(Card::new(self.said.clone(), url));
+    }
+
+    /// The card holds `frame`, Chrome's newest of its page, a PNG's bytes:
+    /// whether there is a card to hold it.
+    pub fn framed(&mut self, frame: Vec<u8>) -> bool {
+        match self.card.as_mut() {
+            Some(card) => {
+                card.frame = Some(frame);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// No card: its page was closed, or never opened. Whether one was
+    /// shown.
+    pub fn close_card(&mut self) -> bool {
+        self.card.take().is_some()
+    }
+
+    /// The page shown as a card, if one is.
+    pub fn card(&self) -> Option<&Card> {
+        self.card.as_ref()
     }
 }
 
@@ -294,6 +337,40 @@ mod tests {
         assert!(start.sites.is_empty());
         assert!(start.waiting.is_empty());
         assert_eq!(start.viewport, Size::new(1040.0, 820.0));
+    }
+
+    #[test]
+    fn a_page_opened_is_a_card_answering_what_was_said_until_it_closes() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        let _ = conversation.edit(Edit::Put("example.com".to_owned()));
+        assert!(matches!(conversation.edit(Edit::Choose), Typed::Chose(_)));
+        let url = conversation.going().cloned().unwrap();
+        assert!(!conversation.framed(vec![1]), "no card to hold a frame");
+        conversation.open_card(url.clone());
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        let card = start.card.unwrap();
+        assert_eq!(card.said, "example.com");
+        assert_eq!(card.url, url);
+        assert_eq!(card.frame, None);
+        assert!(
+            conversation.showing().card,
+            "a press on its buttons is decided"
+        );
+        assert!(conversation.framed(vec![1, 2]));
+        assert_eq!(
+            conversation.card().and_then(|card| card.frame.clone()),
+            Some(vec![1, 2])
+        );
+        assert!(conversation.close_card());
+        assert!(!conversation.close_card());
+        assert!(!conversation.showing().card);
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .card,
+            None
+        );
     }
 
     #[test]

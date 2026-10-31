@@ -181,6 +181,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 .into_iter()
                 .chain([Offer::Search("</script>\0<b>".to_owned())])
                 .collect(),
+            card: None,
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
@@ -302,6 +303,45 @@ fn every_message_from_a_renderer_survives_the_crossing() {
     }
 }
 
+/// The first screen holding a page as a card (queue item 717): what the
+/// person said, hostile, the address, somewhere to go back to and a frame;
+/// and a card before its first frame.
+#[test]
+fn a_first_screen_holding_a_card_survives_the_crossing() {
+    let messages = vec![
+        // A page shown as a card, with somewhere to go back to and a frame
+        // (queue item 717), and one before its first frame.
+        ToRenderer::Start(Box::new(Start {
+            card: Some(
+                alo_renderer::card::Card::new(
+                    "example.com</p>\0",
+                    alo_url::parse("https://example.com/a?b#c")
+                        .unwrap_or_else(|_| panic!("parses")),
+                )
+                .holding(b"\x89PNG\r\n\x1a\nthe rest".to_vec()),
+            )
+            .map(|mut card| {
+                card.back = true;
+                card
+            }),
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            card: Some(alo_renderer::card::Card::new(
+                "",
+                alo_url::parse("http://127.0.0.1:8765/").unwrap_or_else(|_| panic!("parses")),
+            )),
+            ..Start::default()
+        })),
+    ];
+    for original in messages {
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+}
+
 /// A press on the chats panel or the first screen, every claim its
 /// renderer can answer with, and the renderer that holds neither part
 /// (queue item 710).
@@ -321,6 +361,10 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Waiting { at: 1 })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::TheBox)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Go)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Back)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Forward)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Expand)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::CloseTheCard)),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -421,6 +465,33 @@ fn an_offer_to_go_somewhere_that_is_not_a_site_is_refused() {
             .map(|why| why.why)
             .unwrap_or_default();
         assert!(why.contains("not a site's"), "{written}: {why:?}");
+    }
+}
+
+/// Queue item 717: a card is drawn only for a site's address, and its
+/// frame only when it is a PNG — the one format Chrome is asked for.
+#[test]
+fn a_card_for_somewhere_not_a_site_or_holding_anything_but_a_png_is_refused() {
+    let card = |written: &str, frame: &[u8]| {
+        let url = alo_url::parse(written).unwrap_or_else(|_| panic!("{written} parses"));
+        ToRenderer::Start(Box::new(Start {
+            card: Some(alo_renderer::card::Card::new("a", url).holding(frame.to_vec())),
+            ..Start::default()
+        }))
+    };
+    let png = b"\x89PNG\r\n\x1a\n";
+    for (message, refusal) in [
+        (card("file:///etc/passwd", png), "not a site's"),
+        (card("javascript:alert(1)", png), "not a site's"),
+        (card("https://example.com/", b"GIF89a"), "not a PNG"),
+        (card("https://example.com/", b"<svg/>"), "not a PNG"),
+        (card("https://example.com/", b""), "not a PNG"),
+    ] {
+        let why = read_to_renderer(&write_to_renderer(&message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains(refusal), "{message:?}: {why:?}");
     }
 }
 

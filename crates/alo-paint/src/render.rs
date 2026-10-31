@@ -23,6 +23,7 @@
 
 use crate::blur::blurred;
 use crate::canvas::Canvas;
+use crate::clipped_picture::draw_clipped_picture;
 use crate::coverage::Coverage;
 use crate::display::{DisplayItem, DisplayList};
 use crate::drawn_picture::draw_picture;
@@ -61,7 +62,19 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
             DisplayItem::Area { .. } => {}
             DisplayItem::Picture { rect, picture, .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
-                draw_picture(target, picture, *rect, current, &mut uploads);
+                // Inside a clip, only what the clip lets through is kept
+                // (queue item 717).
+                match clips.last() {
+                    None => draw_picture(target, picture, *rect, current, &mut uploads),
+                    Some(clip) => draw_clipped_picture(
+                        target,
+                        picture,
+                        *rect,
+                        current,
+                        &mut uploads,
+                        &|x, y| clip.at(x, y),
+                    ),
+                }
             }
             DisplayItem::PushTransform { matrix, .. } => {
                 // The inner transform happens first, in the coordinates the

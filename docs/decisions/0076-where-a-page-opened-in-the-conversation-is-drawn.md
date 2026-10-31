@@ -1,6 +1,6 @@
 # ADR 0076 — Where a page opened in the conversation is drawn
 
-**Status:** accepted — B, chosen by the owner on 30 October 2026; built by queue items 717 and 718
+**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive); ADR 0059 (the
 product path and the engine path); ADR 0061 (Chrome draws the page in its own
@@ -372,3 +372,39 @@ Why:
 - How the agent's steps appear on a card (items 703, 704).
 - Whether the engine path ever draws a page somebody else wrote; that is the
   stages' business, not this ADR's.
+
+## Built (31 October 2026, queue item 717)
+
+The card is built as this ADR decided, and changes nothing it decided. What
+building it measured, through the machine's Chrome 156.0.8078.76 and alo's
+CEF host (Chromium 156.0.8078.48), in `alo-window`'s
+`tests/a_page_as_a_card_through_chrome.rs`:
+
+- **A parked window streams** at about 60 frames a second, as B4 found —
+  at the scale of the display macOS clamps it by. On this Mac, with two
+  displays at one beside the Retina one, frames asked at 1756 × 1040 came
+  at 878 × 520. Queue item 738.
+- **The agent's pipe, B2's question, through this browser's own reading of
+  it.** A page whose moving noise makes each PNG about B's size (338–387 KiB,
+  20–23 MiB a second): an agent's read of the page's tree through the
+  socket took a median of 0.95 ms with no stream and 0.99 ms streaming
+  through Chrome, 0.96 and 0.96 through the host. Not at first: reading each
+  frame's half megabyte as JSON, and decoding it on the thread that reads
+  the agent's answers, made a read wait 16–100 ms in a debug build. So a
+  frame's picture is taken out before the rest of its message is parsed,
+  and decoded on another thread (`chrome_cast_wire.rs`,
+  `chrome_screencast.rs`).
+- **PNG on a shown Chrome at two costs Chrome itself.** Measured with a Node
+  client, not this browser: Chrome's window shown on the Retina display,
+  streaming PNG at 1756 × 1040, answered every command about 55 ms late
+  (`Accessibility.getFullAXTree` and `Runtime.evaluate` alike); the same
+  window parked by a display at one, none late. B2 measured JPEG only. Not
+  a decision changed here; it is 738's to keep in mind if frames are had at
+  two.
+- **Stopping is answered.** Closing the card, or the card going off the
+  screen, sends `Page.stopScreencast` and waits for Chrome's answer; no
+  frame was told after it, and none was read after Chrome said it had
+  stopped.
+
+Still not measured: what the Dock, ⌘-Tab and Stage Manager do with a parked
+Chrome (queue item 739); a key to the glass (718).

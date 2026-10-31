@@ -94,6 +94,9 @@ const SCREEN: &str = "start";
 /// The id of the template's field.
 const FIELD: &str = "ask";
 
+/// The id of the template's one box, around the field and *Go*.
+const BOX: &str = "the-box";
+
 /// The id of the template's `<template>` holding *Add a site*'s icon.
 const ADD_ICON: &str = "add-icon";
 
@@ -131,6 +134,18 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
         let offers = make_offers(&mut document, &start.offers)?;
         insert_before(&mut document, screen, offers, blocks)?;
     }
+    if let Some(card) = &start.card {
+        // A conversation rather than a greeting (queue item 717).
+        let class = if start.focused {
+            "start conversing focused"
+        } else {
+            "start conversing"
+        };
+        attribute(&mut document, screen, "class", class)?;
+        let the_box = by_id(&document, BOX)?;
+        return crate::card_document::put(&mut document, card, screen, the_box, blocks)
+            .map(|()| document);
+    }
     let icon = take_icon(&document, ADD_ICON)?;
     let sites = make_sites(&mut document, &start.sites, icon)?;
     append(&mut document, blocks, sites)?;
@@ -142,7 +157,7 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
 }
 
 /// The template's element with `id`.
-fn by_id(document: &Document, id: &str) -> Result<NodeId, Unbuilt> {
+pub(crate) fn by_id(document: &Document, id: &str) -> Result<NodeId, Unbuilt> {
     document
         .descendants(document.root())
         .find(|&node| document.attribute_by_name(node, "id") == Some(id))
@@ -329,13 +344,13 @@ fn make_label(document: &mut Document, id: &str, words: &str) -> Result<NodeId, 
     Ok(label)
 }
 
-fn element(document: &mut Document, local: &str) -> Result<NodeId, Unbuilt> {
+pub(crate) fn element(document: &mut Document, local: &str) -> Result<NodeId, Unbuilt> {
     document.create_element(local).map_err(|refused| Unbuilt {
         why: format!("a <{local}> could not be made: {refused}"),
     })
 }
 
-fn attribute(
+pub(crate) fn attribute(
     document: &mut Document,
     node: NodeId,
     local: &str,
@@ -348,7 +363,7 @@ fn attribute(
         })
 }
 
-fn insert_before(
+pub(crate) fn insert_before(
     document: &mut Document,
     parent: NodeId,
     child: NodeId,
@@ -362,7 +377,11 @@ fn insert_before(
         })
 }
 
-fn append(document: &mut Document, parent: NodeId, child: NodeId) -> Result<(), Unbuilt> {
+pub(crate) fn append(
+    document: &mut Document,
+    parent: NodeId,
+    child: NodeId,
+) -> Result<(), Unbuilt> {
     document
         .append_child(parent, child)
         .map(|_| ())

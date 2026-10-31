@@ -45699,3 +45699,48 @@ steps, "The gate is met."**
 No claim about speed is made.
 
 The next unused queue number is **737** and the next ADR is **0083**.
+
+## Iteration 460 — queue item 717: the page as a card in the conversation, drawn from Chrome's frames (ADR 0076 B)
+
+**Built by a delegated agent.** Return on an address now opens the page as
+a card under what the person typed: Chrome started as for 713, its window
+parked off every display (`ChromeServing::start_as_a_card`), its page at
+the card's page box, 878 × 520; the page streamed as PNG frames at that
+box times the window's scale, every frame answered as it is read and the
+newest drawn by this engine as the picture in the card
+(`chrome_screencast.rs`, `chrome_card.rs`, `card.rs`, `card_document.rs`).
+The card is the owner's design tokens (white, `#ddd6ca` ring, 14 rounded,
+46 bar, 18 px stroke icons, host bold then path, 880 column) with the bar
+of `docs/design/shell.md`: *Back*, *Forward*, the address, *Expand to the
+whole window*, *Close* — the search-engine page's wording left out, as the
+owner corrected mid-item. *Expand* shows the same tab in Chrome's own
+window where ADR 0075 put it; *Close* stops the stream, Chrome answering,
+and closes the page; the window covered stops it.
+
+**Found and fixed.** (1) A picture ignored a clip, so the frame's square
+corners drew over the card's rounded ones: a picture under a clip now keeps
+only what the clip lets through (`alo-paint`'s `clipped_picture.rs`;
+conformance amended, not measured against Chrome). (2) Through a debug
+build an agent's read waited 16–100 ms behind frames: the reading thread
+parsed each frame's half megabyte as JSON and wrote it again, and the
+serving thread decoded it. A frame's picture is now taken out before its
+message is parsed (`chrome_cast_wire.rs`), a NUL found by the standard
+library's search, and the picture decoded on the opener's thread. The
+agent's read is then as fast streaming as not.
+
+**Measured** (`tests/a_page_as_a_card_through_chrome.rs`, Chrome
+156.0.8078.76 and alo's CEF host, CEF 156.0.14): about 60 frames a second
+of 338–387 KiB, 20–23 MiB/s; an agent's read median 0.95 → 0.99 ms
+(Chrome) and 0.96 → 0.96 ms (host) without and with the stream; no frame
+after a stop, which Chrome answered. Frames came at 878 × 520 though
+1756 × 1040 was asked: the parked window is by a display at one (738). A
+Node client found a shown Chrome on the Retina display, streaming PNG at
+two, answered every command ~55 ms late, and none late when parked at one.
+
+**Cut.** 737 (*Back*/*Forward* read and followed), 738 (frames at the
+window's scale), 739 (the Dock, ⌘-Tab and Stage Manager with a parked
+Chrome). Not run by hand in the real window.
+
+**Gate.** With `CEF_PATH` set: **5781 tests, 5781 passed, 11 of 11 steps, "The gate is met."**
+
+The next unused queue number is **740** and the next ADR is **0083**.

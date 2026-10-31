@@ -52,6 +52,7 @@ use crate::linked::Linked;
 use crate::objected::Objected;
 use crate::page::Page;
 use crate::pipeline::{Drawing, draw};
+use crate::resource::Resource;
 use crate::screen::Screen;
 
 /// What a page is drawn with, and what it was last drawn as.
@@ -86,6 +87,10 @@ pub struct Easel {
     drawn: Option<(Rc<Drawing>, u64)>,
     /// How many times a page has been drawn, for a test that asks how often.
     draws: u64,
+    /// The pictures a document of the browser's own interface is drawn with,
+    /// handed in with it rather than fetched: the card's frame of a page
+    /// Chrome draws (queue item 717). A page a stranger wrote has none.
+    lent: Vec<Resource>,
 }
 
 impl core::fmt::Debug for Easel {
@@ -116,6 +121,7 @@ impl Easel {
             restyle: false,
             drawn: None,
             draws: 0,
+            lent: Vec::new(),
         }
     }
 
@@ -132,6 +138,15 @@ impl Easel {
         self.objected = Objected::new();
         self.restyle = false;
         self.drawn = None;
+        self.lent = Vec::new();
+    }
+
+    /// The pictures the page on it is drawn with from now on, handed in
+    /// rather than fetched — only ever a document of the browser's own,
+    /// whose `<img>`s name them (queue item 717).
+    pub(crate) fn lend(&mut self, pictures: Vec<Resource>) {
+        self.lent = pictures;
+        self.restyle = true;
     }
 
     /// The page is shown on a screen of `scale` from now on (ADR 0057 § 3):
@@ -153,6 +168,7 @@ impl Easel {
         self.objected = Objected::new();
         self.restyle = false;
         self.drawn = None;
+        self.lent = Vec::new();
     }
 
     /// The page holds `under` from now on: its headers' policies and every
@@ -181,7 +197,7 @@ impl Easel {
             Screen::new(viewport).at_scale(self.scale),
             &self.fonts,
             &linked,
-            &[],
+            &self.lent,
             &judged,
         );
         self.drawn = Some((Rc::new(drawing), document.change_count()));

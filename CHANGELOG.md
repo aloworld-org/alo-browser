@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page opened from the conversation is a card in it.** Typing an
+  address and pressing Return now shows the page inside the conversation,
+  under what you typed, in a white card with Back, Forward, the address,
+  Expand and Close — drawn by alo's own engine from the pictures Chrome
+  streams of the page, sixty a second while it moves and none while it is
+  still. Chrome's own window stays out of sight until you press Expand,
+  which shows the same page, nothing reloaded, over the conversation.
+  Close stops the pictures and closes the page. An agent's questions about
+  the page are answered as fast while it streams as when it does not,
+  through Chrome and through the Chromium alo carries. A picture inside a
+  box with rounded, clipped corners is now clipped by them too (item 717).
+
 - **The Chromium alo carries is held to alo's rules, and tested to be.**
   alo's CEF host never fetches Google's Widevine DRM module (it did within
   a minute when started without alo's settings), asks Google's servers for

@@ -16,11 +16,21 @@
 //! the URL parser, and one that is not a site's — no `http` or `https` —
 //! is refused, so a renderer is never told to draw *Go to the site* for
 //! anything else.
+//!
+//! Then the page shown as a card, if there is one (queue item 717): its
+//! address read back and refused unless it is a site's, as an offer's is,
+//! and its frame refused unless its bytes begin as a PNG's — decoded, in
+//! this confined process, only by the picture readers every `<img>` goes
+//! through.
 
 use super::{Reader, Unreadable, Writer, unreadable};
+use crate::card::Card;
 use crate::start::{KeptSite, Start, Waiting};
 use crate::typed::Offer;
 use alo_layout::geometry::Size;
+
+/// What every PNG begins with.
+const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 
 impl Writer {
     /// The first screen: its size and scale, its greeting, then each site
@@ -60,6 +70,30 @@ impl Writer {
                 }
             }
         }
+        self.card(start.card.as_ref());
+    }
+
+    /// The page shown as a card, if one is (queue item 717): what the
+    /// person said, the page's address, whether there is anywhere to go back
+    /// or forward to, and the last frame Chrome drew of it, a PNG's bytes,
+    /// if one has arrived.
+    fn card(&mut self, card: Option<&Card>) {
+        let Some(card) = card else {
+            self.bool(false);
+            return;
+        };
+        self.bool(true);
+        self.text(&card.said);
+        self.text(&card.url.serialised);
+        self.bool(card.back);
+        self.bool(card.forward);
+        match &card.frame {
+            Some(png) => {
+                self.bool(true);
+                self.bytes(png);
+            }
+            None => self.bool(false),
+        }
     }
 }
 
@@ -95,6 +129,7 @@ impl Reader<'_> {
         for _ in 0..self.count()? {
             offers.push(self.offer()?);
         }
+        let card = self.card()?;
         Ok(Start {
             greeting,
             sites,
@@ -104,7 +139,42 @@ impl Reader<'_> {
             typed,
             focused,
             offers,
+            card,
         })
+    }
+
+    /// The card, as [`Writer::card`] wrote it. An address that is not a
+    /// site's is refused, as one offered is, and so is a frame that is not
+    /// a PNG: a renderer is told to draw only Chrome's pictures of a site
+    /// there, and only in the one format Chrome is asked for (ADR 0076 B).
+    fn card(&mut self) -> Result<Option<Card>, Unreadable> {
+        if !self.bool()? {
+            return Ok(None);
+        }
+        let said = self.text()?;
+        let written = self.text()?;
+        let url = alo_url::parse(&written)
+            .ok()
+            .filter(|url| matches!(url.scheme.as_str(), "http" | "https"))
+            .ok_or_else(|| unreadable("a card for an address that is not a site's"))?;
+        let back = self.bool()?;
+        let forward = self.bool()?;
+        let frame = if self.bool()? {
+            let png = self.bytes()?;
+            if !png.starts_with(PNG_SIGNATURE) {
+                return Err(unreadable("a card's frame that is not a PNG"));
+            }
+            Some(png)
+        } else {
+            None
+        };
+        Ok(Some(Card {
+            said,
+            url,
+            back,
+            forward,
+            frame,
+        }))
     }
 
     /// One thing offered under the box: a tag nobody knows is refused, and

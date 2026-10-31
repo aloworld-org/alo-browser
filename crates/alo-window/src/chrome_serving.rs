@@ -43,6 +43,17 @@
 //! [`Follow::Closed`] and ends the thread as above. Its page is not named
 //! to anybody: the conversation draws no stranger's title in this process.
 //!
+//! # Shown as a card in the conversation
+//!
+//! [`ChromeServing::start_as_a_card`] holds a shown Chrome whose window is
+//! parked off every display, its page laid out at the card's size, and
+//! streams the page's frames when the conversation asks
+//! ([`crate::message::Order::Card`], [`crate::chrome_card`], ADR 0076 B,
+//! queue item 717). While it streams, this thread reads Chrome every
+//! [`chrome_card::CAST_EVERY`] between orders, answering every frame and telling the
+//! newest; the stream is stopped, and Chrome's answer heard, before the
+//! page is closed.
+//!
 //! The other way, ours closed — [`Order::CloseEverything`], or the one
 //! browser key that closes a tab, ⌘W, since closing the last tab closes
 //! the window (ADR 0024 § 6) — closes Chrome's page, which is its window,
@@ -88,6 +99,7 @@ use crate::agent_sites::AgentSites;
 use crate::asking::{Answer, Ask, Refused};
 use crate::beside::Chromium;
 use crate::chrome::{Chrome, Failed, Unstarted};
+use crate::chrome_card;
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
 use crate::chrome_mark::{Marker, Marking};
@@ -196,6 +208,10 @@ enum Drawn {
         /// (ADR 0062), or none does and only its closing is watched for
         /// (ADR 0075).
         framed: bool,
+        /// Whether its window is brought in front of every other, or left
+        /// where it is put — parked off every display while its page is a
+        /// card in the conversation (ADR 0076 B4, queue item 717).
+        front: bool,
     },
 }
 
@@ -274,6 +290,7 @@ impl ChromeServing {
                     left,
                     top,
                     framed: true,
+                    front: true,
                 },
             ),
             sites,
@@ -307,6 +324,45 @@ impl ChromeServing {
                     left,
                     top,
                     framed: false,
+                    front: true,
+                },
+            ),
+            sites,
+            Some(told),
+        )
+    }
+
+    /// [`ChromeServing::start_shown_alone`], for a page the conversation
+    /// shows as a card (ADR 0076 B, queue item 717): laid out at `size` CSS
+    /// pixels — the card's page box — in Chrome's own window, which is
+    /// parked off every display ([`chrome_window::PARKED`]) and never
+    /// brought in front until the card is expanded
+    /// ([`crate::message::CardOrder::Expand`]). Nothing is streamed until
+    /// the conversation asks ([`crate::message::CardOrder::Stream`]); what
+    /// is streamed, and that it stopped, is told on `told` beside what
+    /// [`ChromeServing::start_shown_alone`] tells.
+    ///
+    /// # Errors
+    ///
+    /// As [`ChromeServing::start_shown`].
+    pub fn start_as_a_card(
+        chromium: Chromium,
+        opening: Opening,
+        size: (u32, u32),
+        sites: AgentSites,
+        told: TellFrame,
+    ) -> Result<Self, Unserved> {
+        let (left, top) = chrome_window::PARKED;
+        Self::begin(
+            opening,
+            size,
+            (
+                chromium,
+                Drawn::Shown {
+                    left,
+                    top,
+                    framed: false,
+                    front: false,
                 },
             ),
             sites,
@@ -477,15 +533,12 @@ fn serve_in_chrome(
             return record;
         }
     };
-    let placed = match drawn {
-        Drawn::Headless => None,
-        Drawn::Shown { left, top, .. } => match chrome_window::place(&mut tab, left, top) {
-            Ok(placed) => Some(placed),
-            Err(why) => {
-                let _ = tell.send(Err(Unserved::Unplaced(why)));
-                return record;
-            }
-        },
+    let placed = match placing(&mut tab, drawn) {
+        Ok(placed) => placed,
+        Err(why) => {
+            let _ = tell.send(Err(Unserved::Unplaced(why)));
+            return record;
+        }
     };
     let mut marker = placed.is_some().then(Marker::default);
     let mut pages = ChromePages::of(tab, rendered_by.clone());
@@ -512,8 +565,12 @@ fn serve_in_chrome(
         next: Instant::now(),
     });
     loop {
-        let until = following.as_ref().map(|follower| follower.next);
+        let until = chrome_card::until(
+            pages.tab(),
+            following.as_ref().map(|follower| follower.next),
+        );
         let Some(arrived) = arrivals(inbox, until) else {
+            chrome_card::stop(pages.tab_mut(), frame);
             return record;
         };
         for arrival in arrived {
@@ -528,7 +585,13 @@ fn serve_in_chrome(
                     }
                     .answer(caller, ask, &reply);
                 }
+                Arrival::Order(Order::Card(order)) => {
+                    chrome_card::carry_out(pages.tab_mut(), order, frame);
+                }
                 Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
+                    // A stream is stopped, and Chrome's word on it heard,
+                    // before its page goes.
+                    chrome_card::stop(pages.tab_mut(), frame);
                     if let Some(follower) = following.as_mut() {
                         // A Chrome that does not close its page is closed
                         // with this thread, its window with it.
@@ -537,19 +600,39 @@ fn serve_in_chrome(
                     }
                     return record;
                 }
-                Arrival::Abandoned => return record,
+                Arrival::Abandoned => {
+                    chrome_card::stop(pages.tab_mut(), frame);
+                    return record;
+                }
                 // The window's other orders, which Chrome's own window
                 // carries out itself; and the network thread's, of which
                 // there is none.
                 Arrival::Order(_) | Arrival::Exchanged(_) | Arrival::NetworkGone => {}
             }
         }
+        chrome_card::tell_newest(pages.tab_mut(), frame);
         if let Some(follower) = following.as_mut()
             && Instant::now() >= follower.next
             && follower.follow(pages.tab_mut()) == Follow::Closed
         {
             return record;
         }
+    }
+}
+
+/// Put a shown Chrome's window where `drawn` says — in front of every other
+/// window, or parked where nobody sees it while its page is a card — and
+/// where it went; nothing for a headless one.
+fn placing(tab: &mut Tab<'_>, drawn: Drawn) -> Result<Option<Placed>, Unplaced> {
+    match drawn {
+        Drawn::Headless => Ok(None),
+        Drawn::Shown {
+            left,
+            top,
+            front: true,
+            ..
+        } => chrome_window::place(tab, left, top).map(Some),
+        Drawn::Shown { left, top, .. } => chrome_window::put_at(tab, left, top).map(Some),
     }
 }
 

@@ -804,10 +804,30 @@ The reason this exists rather than a faster fork of somebody else's engine.
   The first screen's line says *opening*, *open*, why it could not be, or
   that Chrome's window was closed; a second address replaces the first;
   closing the conversation closes that Chrome and removes its profile.
+  **The page as a card in the conversation** (717, ADR 0076 B): Chrome's
+  window is parked off every display and the page is streamed as PNG
+  frames (`Page.startScreencast`) at the card's page box, 878 × 520, times
+  the window's scale, every frame answered as it is read; the newest is
+  drawn by this engine as a picture in a card under what the person said —
+  the design's white card, 14 rounded and ringed, its bar holding *Back*,
+  *Forward*, the address (host bold, then path), *Expand to the whole
+  window* and *Close*, the picture clipped by the card's corners. An agent
+  reads the card as a region named by its address, its buttons by name.
+  *Expand* shows the same tab in Chrome's own window over the first screen
+  (ADR 0075's placement), its stream stopped; *Close* stops the stream —
+  Chrome answering before its page goes — and closes the page; a window
+  covered or minimised stops it too. Measured through the machine's Chrome
+  and the Chromium alo carries: about 60 frames a second, 20–23 MiB a
+  second of noise-heavy frames, and an agent's read of the page no slower
+  while it streams (`tests/a_page_as_a_card_through_chrome.rs`). Owed:
+  *Back* and *Forward* read and followed (737), frames at the conversation's
+  scale when the parked window lands by a display of another (738), what
+  the Dock, ⌘-Tab and Stage Manager do with a parked Chrome (739), a
+  person's pointer and keys on the card (718).
   Owed: *Search chats* and the button that hides the panel (711), a press
   on an offer (714), an agent reaching a page the conversation opened
-  (716), a field's value kept to one line by the engine (715), a
-  page inside the conversation (702), the conversation (703), the agent at
+  (716), a field's value kept to one line by the engine (715), the
+  conversation (703), the agent at
   work (704), its settings (705), the typefaces (706); the answer (707) and
   search results (708) wait on the owner's choice of a model and a search
   provider.

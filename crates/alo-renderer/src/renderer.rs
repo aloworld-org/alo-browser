@@ -776,7 +776,7 @@ impl Renderer {
                 strip.viewport,
                 strip.scale,
                 crate::strip::address(),
-                strip_document::SHEET,
+                (strip_document::SHEET, Vec::new()),
                 Holds::Strip,
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStrip { why: unbuilt.why }),
@@ -793,7 +793,7 @@ impl Renderer {
                 panel.viewport,
                 panel.scale,
                 crate::panel::address(),
-                panel_document::SHEET,
+                (panel_document::SHEET, Vec::new()),
                 Holds::Conversation(Part::Panel),
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoPanel { why: unbuilt.why }),
@@ -809,7 +809,15 @@ impl Renderer {
                 start.viewport,
                 start.scale,
                 crate::start::address(),
-                start_document::SHEET,
+                (
+                    start_document::SHEET,
+                    start
+                        .card
+                        .as_ref()
+                        .and_then(crate::card_document::frame)
+                        .into_iter()
+                        .collect(),
+                ),
                 Holds::Conversation(Part::Start),
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStart { why: unbuilt.why }),
@@ -818,7 +826,8 @@ impl Renderer {
 
     /// Hold a part of the browser's own interface — a document built from
     /// state, never from markup (ADR 0024 § 4) — at `address` and `viewport`,
-    /// drawn with `sheet`, letting go of whatever was held first, and answer
+    /// drawn with `sheet` and the `pictures` its `<img>`s name (only the
+    /// card's frame, queue item 717), letting go of whatever was held first, and answer
     /// as a load does. `holds` says which part it is, and so what a press
     /// on it may be claimed as.
     fn interface(
@@ -827,7 +836,7 @@ impl Renderer {
         viewport: alo_layout::Size,
         scale: f32,
         address: Option<alo_url::Url>,
-        sheet: &str,
+        (sheet, pictures): (&str, Vec<crate::resource::Resource>),
         holds: Holds,
     ) -> FromRenderer {
         let left = self.let_go();
@@ -836,6 +845,7 @@ impl Renderer {
             .at(address.unwrap_or_else(alo_url::Url::about_blank))
             .with_sheet(sheet);
         self.easel.borrow_mut().begin(&page);
+        self.easel.borrow_mut().lend(pictures);
         self.view = Rc::new(PageView::at(
             Screen::new(page.viewport).at_scale(page.scale),
             Rc::clone(&self.easel),

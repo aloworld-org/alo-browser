@@ -38,6 +38,13 @@
 //! press anywhere else — the mark, a group's heading, the gap between two
 //! rows, the room below them — is on nothing, and claims nothing.
 //!
+//! A page shown as a card (queue item 717) is pressed the same way: its
+//! *Back*, *Forward*, *Expand to the whole window* and *Close*, each one of
+//! the closed list, and a greyed *Back* or *Forward* — nowhere to go — on
+//! nothing. A press on the card's picture of the page claims nothing:
+//! a person's pointer reaching the page is queue item 718's, and is never
+//! a claim.
+//!
 //! Not drawn, so never claimed: *Search chats* and the button that hides
 //! the panel (queue item 711). Drawn but not yet claimed: the offers under
 //! the box for what was typed (queue item 701), a press on which claims
@@ -100,6 +107,15 @@ pub enum Claim {
     TheBox,
     /// The box's *Go*.
     Go,
+    /// The card's *Back*, when there is somewhere to go back to (queue item
+    /// 717).
+    Back,
+    /// The card's *Forward*, when there is somewhere to go forward to.
+    Forward,
+    /// The card's *Expand to the whole window*.
+    Expand,
+    /// The card's *Close*.
+    CloseTheCard,
 }
 
 impl Claim {
@@ -111,7 +127,11 @@ impl Claim {
             | Claim::AddASite
             | Claim::Waiting { .. }
             | Claim::TheBox
-            | Claim::Go => Part::Start,
+            | Claim::Go
+            | Claim::Back
+            | Claim::Forward
+            | Claim::Expand
+            | Claim::CloseTheCard => Part::Start,
         }
     }
 }
@@ -127,6 +147,10 @@ impl fmt::Display for Claim {
             Claim::Waiting { at } => write!(f, "the waiting chat at place {at}"),
             Claim::TheBox => f.write_str("the box"),
             Claim::Go => f.write_str("Go"),
+            Claim::Back => f.write_str("the card's Back"),
+            Claim::Forward => f.write_str("the card's Forward"),
+            Claim::Expand => f.write_str("the card's Expand to the whole window"),
+            Claim::CloseTheCard => f.write_str("the card's Close"),
         }
     }
 }
@@ -156,6 +180,12 @@ fn pressables(part: Part) -> &'static [(&'static str, Pressable)] {
             ("go", Pressable::One(Claim::Go)),
             ("ask", Pressable::One(Claim::TheBox)),
             ("box", Pressable::One(Claim::TheBox)),
+            // A greyed Back or Forward is of the class `ibtn back off`, and
+            // claims nothing (queue item 717).
+            ("ibtn back", Pressable::One(Claim::Back)),
+            ("ibtn forward", Pressable::One(Claim::Forward)),
+            ("ibtn expand", Pressable::One(Claim::Expand)),
+            ("ibtn close", Pressable::One(Claim::CloseTheCard)),
         ],
     }
 }

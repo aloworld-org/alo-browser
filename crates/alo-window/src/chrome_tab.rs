@@ -95,6 +95,7 @@ use crate::chrome_protocol::{
 };
 use crate::chrome_record::{Causes, Hop, purpose_of};
 use crate::chrome_said::Heard;
+use crate::chrome_screencast::{Casting, Frame as CastFrame};
 use crate::chrome_tree::{self, Unread};
 use crate::chrome_unfocusable::{self, Unfocusable};
 use crate::chrome_window::{self, Unplaced};
@@ -168,6 +169,10 @@ pub struct Tab<'c> {
     /// closed, by a person closing its window or by this process, and
     /// nothing sent through the session is answered after (item 672).
     detached: bool,
+    /// The page streamed as frames, for the conversation's card (ADR 0076
+    /// B, queue item 717): every frame answered as it is read, the newest
+    /// kept.
+    casting: Casting,
 }
 
 /// The most moves within its document a page's frame is remembered to have
@@ -367,6 +372,7 @@ impl<'c> Tab<'c> {
             sockets: Vec::new(),
             address: alo_url::parse(url).ok(),
             detached: false,
+            casting: Casting::default(),
         };
         // Only now, so that the tab itself is not held.
         tab.chrome.ask(None, &Command::HoldNewTabs { hold: true })?;
@@ -663,6 +669,78 @@ impl<'c> Tab<'c> {
         }
     }
 
+    /// Stream the page as PNG frames, each at most `width` by `height`
+    /// device pixels (ADR 0076 B, queue item 717): every frame told of from
+    /// now on is answered as it is read, here or while any command waits,
+    /// and the newest kept for [`Tab::take_frame`].
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome declines or does not answer.
+    pub fn cast(&mut self, width: u32, height: u32) -> Result<(), Failed> {
+        self.ask(&Command::Cast { width, height })?;
+        self.casting.start();
+        Ok(())
+    }
+
+    /// Stream no more, once Chrome has answered that it stopped: a frame it
+    /// had in flight is still answered and counted, and never kept. Nothing
+    /// is asked of a tab not streaming.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome declines or does not answer.
+    pub fn uncast(&mut self) -> Result<(), Failed> {
+        if !self.casting.is_on() {
+            return Ok(());
+        }
+        let stopped = self.ask(&Command::StopCasting).map(drop);
+        // Whatever Chrome answered, nothing more is kept.
+        self.casting.stop();
+        stopped
+    }
+
+    /// The newest frame read since this was last asked, if the page is
+    /// streamed and one was — after taking what Chrome has sent already
+    /// ([`Tab::catch_up`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome has gone or what it sent cannot be read.
+    pub fn take_frame(&mut self) -> Result<Option<CastFrame>, Failed> {
+        self.catch_up()?;
+        // A frame that is not base64 of a PNG was answered, and is not shown.
+        Ok(self.casting.take().ok().flatten())
+    }
+
+    /// The stream, as the tab keeps it: whether it is on, and what was read.
+    pub fn casting(&self) -> &Casting {
+        &self.casting
+    }
+
+    /// Whether `message` is a frame streamed of the page — answered, and
+    /// kept if it is the newest — or the reply to such an answer.
+    fn cast_in(&mut self, message: &Message) -> Result<bool, Failed> {
+        match message {
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if method == "Page.screencastFrame" && *session == self.session => {
+                let frame = chrome_protocol::cast_frame(params).map_err(Failed::Malformed)?;
+                let id = self.chrome.send(
+                    Some(&self.session),
+                    &Command::FrameSeen { frame: frame.frame },
+                )?;
+                self.casting.answering(id);
+                self.casting.read(frame.data);
+                Ok(true)
+            }
+            Message::Reply { id, .. } => Ok(self.casting.answered(*id)),
+            _ => Ok(false),
+        }
+    }
+
     /// Whether Chrome has detached the tab's own session, its page closed.
     pub(crate) fn is_detached(&self) -> bool {
         self.detached
@@ -815,6 +893,9 @@ impl<'c> Tab<'c> {
     /// held target — those are answered here — or [`None`] for one that was.
     fn next(&mut self, until: Instant) -> Result<Option<Message>, Failed> {
         let message = self.chrome.receive(until)?;
+        if self.cast_in(&message)? {
+            return Ok(None);
+        }
         let held = self.held_by(&message);
         // What a page's script said, what Chrome logged of it, and a request
         // a renderer of the tab told of — what a line owed waits for.

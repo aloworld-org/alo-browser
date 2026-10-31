@@ -47,6 +47,8 @@ pub struct Shown<C, S> {
     pub sites: Vec<S>,
     /// The first screen's waiting chats, in order.
     pub waiting: Vec<C>,
+    /// Whether the first screen shows a page as a card (queue item 717).
+    pub card: bool,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -56,6 +58,7 @@ impl<C, S> Default for Shown<C, S> {
             chats: Vec::new(),
             sites: Vec::new(),
             waiting: Vec::new(),
+            card: false,
         }
     }
 }
@@ -79,6 +82,14 @@ pub enum Decided<C, S> {
     TheBox,
     /// The box's *Go*.
     Go,
+    /// The card's *Back* (queue item 717).
+    Back,
+    /// The card's *Forward*.
+    Forward,
+    /// The card's *Expand to the whole window*.
+    Expand,
+    /// The card's *Close*.
+    CloseTheCard,
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -134,6 +145,12 @@ pub enum Refusal {
         /// What it claimed.
         claim: Claim,
     },
+    /// The renderer claimed a button of a card the first screen did not
+    /// show when it was painted, or no longer shows (queue item 717).
+    NoCard {
+        /// What it claimed.
+        claim: Claim,
+    },
     /// A claim that answered no press.
     Unasked,
     /// The part's renderer answered a press with something that is not a
@@ -160,6 +177,11 @@ impl fmt::Display for Refusal {
             Refusal::NotDrawnThere { part, claim } => write!(
                 f,
                 "{part}'s renderer claimed {claim}, which {part} does not draw, {refused}"
+            ),
+            Refusal::NoCard { claim } => write!(
+                f,
+                "a renderer claimed {claim}, and the first screen shows no page as a card, \
+                 {refused}"
             ),
             Refusal::Unasked => write!(
                 f,
@@ -203,6 +225,15 @@ where
         Claim::AddASite => Decided::AddASite,
         Claim::TheBox => Decided::TheBox,
         Claim::Go => Decided::Go,
+        Claim::Back | Claim::Forward | Claim::Expand | Claim::CloseTheCard
+            if !(painted.card && now.card) =>
+        {
+            Decided::Refused(Refusal::NoCard { claim })
+        }
+        Claim::Back => Decided::Back,
+        Claim::Forward => Decided::Forward,
+        Claim::Expand => Decided::Expand,
+        Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::Chat { at } => held(Listed::Chats, at, &painted.chats, &now.chats)
             .map_or_else(Decided::Refused, Decided::Chat),
         Claim::Site { at } => held(Listed::Sites, at, &painted.sites, &now.sites)
@@ -249,6 +280,7 @@ mod tests {
             chats: vec![10, 11, 12],
             sites: vec!["mail", "bank"],
             waiting: vec![12],
+            card: false,
         }
     }
 
@@ -258,6 +290,48 @@ mod tests {
 
     fn decided(claim: Claim, part: Part) -> Decided<u32, &'static str> {
         decide(claimed(claim), part, &painted(), &painted())
+    }
+
+    #[test]
+    fn a_cards_buttons_are_decided_only_while_a_card_was_painted_and_is_held() {
+        let with = Shown {
+            card: true,
+            ..painted()
+        };
+        for (claim, as_it) in [
+            (Claim::Back, Decided::Back),
+            (Claim::Forward, Decided::Forward),
+            (Claim::Expand, Decided::Expand),
+            (Claim::CloseTheCard, Decided::CloseTheCard),
+        ] {
+            assert_eq!(decide(claimed(claim), Part::Start, &with, &with), as_it);
+            let refused = Decided::Refused(Refusal::NoCard { claim });
+            // Never painted, or closed since.
+            assert_eq!(
+                decide(claimed(claim), Part::Start, &painted(), &with),
+                refused
+            );
+            assert_eq!(
+                decide(claimed(claim), Part::Start, &with, &painted()),
+                refused
+            );
+            // And never from the panel, which draws no card.
+            assert_eq!(
+                decide(claimed(claim), Part::Panel, &with, &with),
+                Decided::Refused(Refusal::NotDrawnThere {
+                    part: Part::Panel,
+                    claim
+                })
+            );
+        }
+        assert_eq!(
+            Refusal::NoCard {
+                claim: Claim::CloseTheCard
+            }
+            .to_string(),
+            "a renderer claimed the card's Close, and the first screen shows no page as a \
+             card, and nothing was done"
+        );
     }
 
     #[test]

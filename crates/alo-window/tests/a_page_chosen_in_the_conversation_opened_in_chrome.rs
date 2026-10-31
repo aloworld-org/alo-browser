@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Queue item 713, ADR 0075: the address chosen from the conversation's one
-//! box, opened in the machine's Chrome.
+//! box, opened in the machine's Chrome — since queue item 717 (ADR 0076 B)
+//! as a card in the conversation, drawn from Chrome's frames.
 //!
 //! A person's keys, read as the conversation's window reads them, type an
 //! address of a server of this test's own into the box a press gave the
@@ -14,9 +15,11 @@
 //! what became of it: opening, then opened, in the first screen's words.
 //! Then, each asserted:
 //!
-//! - Chrome's window is where it was put, by Chrome's word and, on macOS,
-//!   the window server's; the server was asked for the page and nothing
-//!   else a person typed.
+//! - Chrome's window is parked off every display, by Chrome's word, and the
+//!   page's frames reach the window as PNGs; *expand* puts the same tab's
+//!   window where it is asked, by Chrome's word and, on macOS, the window
+//!   server's, its stream stopped and Chrome saying so; the server was asked
+//!   for the page and nothing else a person typed.
 //! - A second address chosen replaces the first: its Chrome is closed and
 //!   its profile removed before the second is opened.
 //! - The conversation's window closing closes the Chrome showing a page,
@@ -29,8 +32,9 @@
 use alo_window::beside::Chromium;
 use alo_window::conversation::{Conversation, Pressed};
 use alo_window::conversation_box::Typed;
-use alo_window::conversation_chrome::{ChromeOpener, Placing, Went};
+use alo_window::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use alo_window::keys::{Key, Press};
+use alo_window::scale::Scale;
 use alo_window::typing::edit;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -43,7 +47,8 @@ use std::time::{Duration, Instant};
 /// the thirty seconds Chrome itself is given to answer.
 const AT_MOST: Duration = Duration::from_secs(90);
 
-/// Where Chrome's window is put, and the page's size.
+/// Where Chrome's window is put when the card is expanded, and the page's
+/// size.
 const PLACING: Placing = Placing {
     at: (120, 80),
     size: (900, 600),
@@ -132,10 +137,27 @@ fn escape(conversation: &mut Conversation) {
     }
 }
 
-/// What the opener tells next, within [`AT_MOST`].
+/// What the opener tells next, within [`AT_MOST`], passing over the
+/// frames it streams.
 fn next(told: &Receiver<Went>) -> Result<Went, String> {
-    told.recv_timeout(AT_MOST)
-        .map_err(|why| format!("the opener said nothing more: {why}"))
+    loop {
+        match told.recv_timeout(AT_MOST) {
+            Ok(Went::Framed(_)) => {}
+            Ok(went) => return Ok(went),
+            Err(why) => return Err(format!("the opener said nothing more: {why}")),
+        }
+    }
+}
+
+/// The next frame the opener tells of, within [`AT_MOST`]: a PNG's bytes.
+fn framed(told: &Receiver<Went>) -> Result<Vec<u8>, String> {
+    loop {
+        match told.recv_timeout(AT_MOST) {
+            Ok(Went::Framed(png)) => return Ok(png),
+            Ok(_) => {}
+            Err(why) => return Err(format!("no frame of the page came: {why}")),
+        }
+    }
 }
 
 /// Whether the process `id` runs.
@@ -172,10 +194,10 @@ fn go(
     if url.to_string() != typed {
         return Err(format!("{typed} was read as {url}"));
     }
-    opener.open(url.clone(), PLACING);
+    opener.open(url.clone(), Streamed::at(Scale::ONE));
     let opening = next(told)?;
     if opening != Went::Opening(url.clone())
-        || opening.said() != format!("opening {typed} in Chrome, in a window of its own")
+        || opening.said() != format!("opening {typed} in Chrome, to be shown in a card")
     {
         return Err(format!("not said to be opening: {opening:?}"));
     }
@@ -190,9 +212,13 @@ fn go(
         return Err(format!("not said to be drawn by Chrome: {}", shown.by));
     }
     let window = shown.window.ok_or("a shown Chrome's window was not read")?;
-    // Put where it was asked, an app window with no sides.
-    if (window.left, window.top, window.width) != (120, 80, 900) {
-        return Err(format!("Chrome's window is at {window:?}"));
+    // Parked left of every display while the page is a card.
+    if window.left + window.width > 0 {
+        return Err(format!("Chrome's window is not parked: {window:?}"));
+    }
+    let png = framed(told)?;
+    if !png.starts_with(b"\x89PNG\r\n\x1a\n") {
+        return Err("a frame of the page is not a PNG".to_owned());
     }
     if !runs(shown.process)? || !shown.profile.is_dir() {
         return Err(format!(
@@ -201,13 +227,36 @@ fn go(
             shown.profile.display()
         ));
     }
-    #[cfg(target_os = "macos")]
-    on_the_screen_at(shown.process, window)?;
     Ok((shown.process, shown.profile))
 }
 
+/// The card expanded: its stream stopped, Chrome saying so, and the same
+/// tab's window over the conversation where it was asked.
+fn expand(opener: &ChromeOpener, told: &Receiver<Went>, process: u32) -> Result<(), String> {
+    opener.expand(PLACING);
+    match next(told)? {
+        Went::Unstreamed(uncast) if uncast.answered && uncast.frames > 0 => {}
+        other => return Err(format!("the stream did not stop as it expanded: {other:?}")),
+    }
+    #[cfg(target_os = "macos")]
+    on_the_screen_at(
+        process,
+        alo_window::chrome_protocol::Bounds {
+            left: 120,
+            top: 80,
+            width: 900,
+            // The page's 600 and Chrome's title bar, as fitted.
+            height: 0,
+        },
+    )?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = process;
+    Ok(())
+}
+
 /// Wait, at most ten seconds, for the window server to list an ordinary
-/// window of `process` on the screen at `bounds`.
+/// window of `process` on the screen with its corner and width at
+/// `bounds`'.
 #[cfg(target_os = "macos")]
 fn on_the_screen_at(
     process: u32,
@@ -217,10 +266,12 @@ fn on_the_screen_at(
     loop {
         let listed =
             alo_window::window_server::on_the_screen(process).map_err(|why| why.to_string())?;
-        if listed
-            .iter()
-            .any(|window| window.layer == 0 && window.bounds == Some(bounds))
-        {
+        if listed.iter().any(|window| {
+            window.layer == 0
+                && window.bounds.is_some_and(|at| {
+                    (at.left, at.top, at.width) == (bounds.left, bounds.top, bounds.width)
+                })
+        }) {
             return Ok(());
         }
         if Instant::now() > until {
@@ -269,6 +320,7 @@ fn an_address_typed_and_returned_opens_in_chrome_and_a_second_replaces_it() -> R
 
     let one = format!("http://127.0.0.1:{port}/one.html");
     let (first, first_profile) = go(&mut conversation, &one, &opener, &told)?;
+    expand(&opener, &told, first)?;
     let asked: Vec<String> = asked_for.lock().map_err(|why| why.to_string())?.clone();
     assert_eq!(
         asked.first().map(String::as_str),
@@ -308,10 +360,12 @@ fn an_address_typed_and_returned_opens_in_chrome_and_a_second_replaces_it() -> R
         "the second Chrome {second} has ended and {} is removed",
         second_profile.display()
     );
-    assert!(
-        told.try_recv().is_err(),
-        "nothing said as the window closed"
-    );
+    // A frame streamed before it closed may still be waiting; nothing else.
+    let said: Vec<Went> = told
+        .try_iter()
+        .filter(|went| !matches!(went, Went::Framed(_) | Went::Unstreamed(_)))
+        .collect();
+    assert!(said.is_empty(), "said as the window closed: {said:?}");
     Ok(())
 }
 

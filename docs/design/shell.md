@@ -120,7 +120,9 @@ Clicking a source opens the page in a card under the answer, scrolled to the
 line the answer used, highlighted, with *alo used the highlighted part of this
 page* above it. The card has back, forward, *1 of 3 sources ‹ ›*, expand and
 close. It is a real page: a person scrolls, follows links and fills it in.
-Where Chrome's window goes to make this so is item 702's to measure.
+How: ADR 0076 B — the card is drawn by this engine from Chrome's frames,
+Chrome's window parked until *Expand* (built by 717; a person's input on it
+is 718).
 
 ## The agent at work
 

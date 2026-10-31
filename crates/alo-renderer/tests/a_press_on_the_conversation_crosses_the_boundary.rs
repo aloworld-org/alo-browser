@@ -53,6 +53,10 @@ fn a_press_and_every_claim_survive_the_crossing() {
         claimed(Claim::Waiting { at: 2 }),
         claimed(Claim::TheBox),
         claimed(Claim::Go),
+        claimed(Claim::Back),
+        claimed(Claim::Forward),
+        claimed(Claim::Expand),
+        claimed(Claim::CloseTheCard),
         FromRenderer::ConversationClaimed(None),
         FromRenderer::Failed(Failure::NotTheConversation),
     ] {
@@ -94,8 +98,12 @@ fn a_claim_written_by_hand_is_read_and_a_strange_one_is_refused() {
         "a presence of 2"
     );
     assert!(
-        read_from_renderer(&[CLAIMED, 1, 8]).is_err(),
-        "a claim tagged 8"
+        read_from_renderer(&[CLAIMED, 1, 12]).is_err(),
+        "a claim tagged 12"
+    );
+    assert_eq!(
+        read_from_renderer(&[CLAIMED, 1, 11]),
+        Ok(claimed(Claim::CloseTheCard))
     );
     assert!(
         read_from_renderer(&[CLAIMED, 1, 255]).is_err(),

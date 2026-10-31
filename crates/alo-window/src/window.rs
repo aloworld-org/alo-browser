@@ -95,11 +95,14 @@
 //! screen's line — where it was decided to go, or that searching or asking
 //! is not set up yet. An address chosen is opened in the machine's Chrome
 //! (queue item 713, ADR 0075) by a thread [`crate::conversation_chrome`]
-//! holds, never waited on: Chrome's own window is put over the first
-//! screen, read from where this window is (`Window::outer_position`), and
-//! what became of it — opening, opened, why not, closed — is said in the
-//! first screen's line as the thread tells it. Closing the window closes
-//! that Chrome, waits for it and removes its profile.
+//! holds, never waited on, and shown as a card in the first screen drawn
+//! from the frames Chrome streams (queue item 717, ADR 0076 B), streamed
+//! only while this window can be seen; *Expand* puts Chrome's own window
+//! over the first screen, read from where this window is
+//! (`Window::outer_position`), and *Close* closes the page. What became of
+//! it — opening, opened, why not, closed — is said in the first screen's
+//! line as the thread tells it. Closing the window closes that Chrome,
+//! waits for it and removes its profile.
 //! The text a key writes is `KeyEvent::text`, a field read like the others.
 //!
 //! A press of the main button with no modifier held is aimed from the same
@@ -147,7 +150,7 @@ use crate::compose::{FrameScene, compose, compose_frame};
 use crate::conversation::{Conversation, Pressed as Decided};
 use crate::conversation_aim;
 use crate::conversation_box::{self, Typed};
-use crate::conversation_chrome::{ChromeOpener, Placing, Went};
+use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::{ConversationScene, compose_conversation};
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use crate::conversation_place::{ConversationPlacement, panel_viewport, start_viewport};
@@ -760,6 +763,8 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
                 self.redraw();
                 return;
             }
+            // `alo --chrome`'s page is never a card (queue item 717).
+            ToFrame::Cast(_) | ToFrame::Uncast(_) => return,
         };
         self.told = follow;
         if follow == Follow::Closed {
@@ -1011,6 +1016,7 @@ impl Conversing {
             }
         }
         let go = pressed == Decided::Go;
+        self.card_pressed(&pressed);
         if self.conversation.act(pressed) {
             self.ask_drawn();
         }
@@ -1020,15 +1026,26 @@ impl Conversing {
         }
     }
 
-    /// Open where it was decided to go, if anywhere, in Chrome: put over
-    /// the first screen when where this window is can be read, and where
-    /// `alo --chrome` puts it otherwise. Returns at once.
+    /// Open where it was decided to go, if anywhere, in Chrome, as a card in
+    /// the conversation streamed at the window's scale (ADR 0076 B, queue
+    /// item 717). Returns at once.
     fn go(&self) {
         let Some(url) = self.conversation.going() else {
             return;
         };
-        let placing = self
-            .window
+        let Some((_, scale)) = self.measured() else {
+            return;
+        };
+        if let Some(chrome) = &self.chrome {
+            chrome.open(url.clone(), Streamed::at(scale));
+        }
+    }
+
+    /// Where Chrome's own window goes when a card is expanded: over the
+    /// first screen when where this window is can be read, and where `alo
+    /// --chrome` puts it otherwise (ADR 0075 § 3).
+    fn over_the_first_screen(&self) -> Placing {
+        self.window
             .as_ref()
             .and_then(|window| {
                 let outer = window.outer_position().ok()?;
@@ -1039,9 +1056,56 @@ impl Conversing {
                     window.scale_factor(),
                 ))
             })
-            .unwrap_or(Placing::APART);
-        if let Some(chrome) = &self.chrome {
-            chrome.open(url.clone(), placing);
+            .unwrap_or(Placing::APART)
+    }
+
+    /// What the card's buttons were decided to be, carried out by the
+    /// thread holding its Chrome. *Back* and *Forward* are claimed only when
+    /// there is somewhere to go, which nothing yet reads (queue item 737).
+    fn card_pressed(&self, pressed: &Decided) {
+        let Some(chrome) = &self.chrome else {
+            return;
+        };
+        match pressed {
+            Decided::Expand => chrome.expand(self.over_the_first_screen()),
+            Decided::CloseTheCard => chrome.shut(),
+            _ => {}
+        }
+    }
+
+    /// Stream the card's page while the window can be seen, at its scale,
+    /// and not while it cannot (ADR 0076: only while the card is on the
+    /// screen).
+    fn stream(&self, seen: bool) {
+        let (Some(chrome), Some((_, scale))) = (&self.chrome, self.measured()) else {
+            return;
+        };
+        if self.conversation.card().is_some() {
+            chrome.stream(seen.then(|| Streamed::at(scale)));
+        }
+    }
+
+    /// What became of an address chosen, from the thread holding Chrome:
+    /// the card shown, given its newest frame, or taken away, and the first
+    /// screen's line saying so.
+    fn went(&mut self, went: Went) {
+        match &went {
+            Went::Framed(_) | Went::Unstreamed(_) => {}
+            other => self.start_said = Some(other.said()),
+        }
+        let changed = match went {
+            Went::Opening(url) => {
+                self.conversation.open_card(url);
+                true
+            }
+            Went::Framed(png) => self.conversation.framed(png),
+            Went::Unopened { .. } | Went::Closed(_) | Went::Shut(_) => {
+                self.conversation.close_card()
+            }
+            Went::Opened { .. } | Went::Unstreamed(_) => false,
+        };
+        if changed {
+            self.ask_drawn();
         }
     }
 
@@ -1125,7 +1189,7 @@ impl ApplicationHandler<Heard> for Conversing {
         let drawn = match heard {
             Heard::Drawn(drawn) => drawn,
             Heard::Chrome(went) => {
-                self.start_said = Some(went.said());
+                self.went(went);
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
@@ -1153,11 +1217,18 @@ impl ApplicationHandler<Heard> for Conversing {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::Resized(PhysicalSize { .. }) | WindowEvent::ScaleFactorChanged { .. } => {
+                if matches!(event, WindowEvent::ScaleFactorChanged { .. }) {
+                    // A new scale is frames of another size.
+                    self.stream(true);
+                }
                 self.ask_drawn();
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
             }
+            // Covered or minimised, the card is off the screen, and its
+            // page is not streamed (ADR 0076).
+            WindowEvent::Occluded(hidden) => self.stream(!hidden),
             WindowEvent::RedrawRequested => {
                 self.draw();
                 if self.failed.is_some() {
