@@ -43,7 +43,9 @@
 //! is decided — drawn in the first screen's line when no renderer has
 //! anything to say there — and said on the terminal. A frame of the card
 //! drawn sixty times a second does not clear it, as it clears why a part
-//! painted nothing.
+//! painted nothing. So is why a card could not be opened, or why its page
+//! went on its own (queue item 749): closing the card paints the first
+//! screen again, which wiped the reason before anybody read it.
 //!
 //! # The front, taken back
 //!
@@ -439,16 +441,18 @@ impl ConversationWindow {
     /// kept to say until the next press is decided, and said on the
     /// terminal.
     fn pressed(&mut self, part: Part, pressed: Decided) {
-        self.told = match &pressed {
-            Decided::Refused(refusal) => Some(refusal.to_string()),
-            Decided::Failed(failure) => Some(format!("{part} could not answer a press: {failure}")),
-            _ => None,
-        };
-        if let Some(told) = &self.told {
-            self.said.push(told.clone());
-            if part == Part::Panel {
-                self.panel_said = Some(told.clone());
+        self.told = None;
+        match &pressed {
+            Decided::Refused(refusal) => self.tell(refusal.to_string()),
+            Decided::Failed(failure) => {
+                self.tell(format!("{part} could not answer a press: {failure}"));
             }
+            _ => {}
+        }
+        if part == Part::Panel
+            && let Some(told) = &self.told
+        {
+            self.panel_said = Some(told.clone());
         }
         self.redraw = true;
         let go = matches!(pressed, Decided::Go | Decided::Found(_));
@@ -462,6 +466,14 @@ impl ConversationWindow {
             self.go();
             self.search(had_a_card);
         }
+    }
+
+    /// Keep `told` — what a press came to when refused, or why a card
+    /// failed — in the first screen's line until the next press is decided
+    /// or something else is chosen, and say it on the terminal.
+    fn tell(&mut self, told: String) {
+        self.said.push(told.clone());
+        self.told = Some(told);
     }
 
     /// Whether searching is set up, as the conversation holds it.
@@ -573,6 +585,13 @@ impl ConversationWindow {
             // A card put away for a search's results, its page closed
             // after: the line says the search (queue item 708).
             Went::Shut(_) if self.conversation.card().is_none() => {}
+            // A card that could not be opened, or whose page went on its
+            // own, is kept as a refused press is (queue item 749): closing
+            // the card paints the first screen, which clears its line.
+            failed @ (Went::Unopened { .. } | Went::Closed(_)) => {
+                self.start_said = None;
+                self.tell(failed.said());
+            }
             other => self.start_said = Some(other.said()),
         }
         let changed = match went {
@@ -582,7 +601,11 @@ impl ConversationWindow {
             }
             Went::Framed(png) => self.conversation.framed(png),
             Went::Moved(url) => self.conversation.moved_card(url),
-            Went::Unopened { .. } | Went::Closed(_) | Went::Shut(_) => {
+            Went::Unopened { .. } | Went::Closed(_) => {
+                self.front.owed = false;
+                self.conversation.card_failed()
+            }
+            Went::Shut(_) => {
                 self.front.owed = false;
                 self.conversation.close_card()
             }
@@ -640,6 +663,9 @@ impl ConversationWindow {
             Typed::Changed => self.ask_drawn(),
             Typed::Chose(chosen) => {
                 let had_a_card = self.conversation.card().is_some();
+                // A choice is a decision as a press is: what the last one
+                // came to is no longer said.
+                self.told = None;
                 self.start_said = Some(conversation_box::said(&chosen, self.searching()));
                 // The box, emptied when a site or a search was chosen,
                 // drawn so.
@@ -743,6 +769,68 @@ mod tests {
         window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Nothing)));
         assert_eq!(window.told(), None);
         assert_eq!(window.scene().and_then(|scene| scene.start_sentence), None);
+        assert!(window.take_said().is_empty());
+        window.finish();
+    }
+
+    #[test]
+    fn a_card_that_fails_or_closes_on_its_own_says_why_until_the_next_press() {
+        let failures: [fn(alo_url::Url) -> Went; 2] = [
+            |url| Went::Unopened {
+                url,
+                why: "Chrome did not answer within 30 s".to_owned(),
+            },
+            Went::Closed,
+        ];
+        for failed in failures {
+            let mut window = window();
+            window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+            type_and_return(&mut window, "example.com");
+            let url = window.conversation().going().cloned().unwrap();
+            window.heard(Heard::Chrome(Went::Opening(url.clone())));
+            // A press elsewhere, as on a site's title, takes the keyboard
+            // from the box.
+            window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Nothing)));
+            let focused = |window: &ConversationWindow| {
+                let (size, scale) = window.measured().unwrap();
+                window
+                    .conversation()
+                    .start(start_viewport(size, scale), scale)
+                    .focused
+            };
+            assert!(!focused(&window));
+            let failed = failed(url);
+            let why = failed.said();
+            window.heard(Heard::Chrome(failed));
+            assert!(window.conversation().card().is_none(), "the card closed");
+            assert!(focused(&window), "the box has the keyboard back");
+            assert_eq!(window.take_said(), vec![why.clone()], "on the terminal");
+            // Closing the card paints the first screen again.
+            window.heard(Heard::Drawn(Drawn::Painted(Part::Start, painted())));
+            assert_eq!(
+                window.scene().and_then(|scene| scene.start_sentence),
+                Some(why.as_str()),
+                "still said in the first screen's line"
+            );
+            // The next address typed, with no press first, is gone to; and
+            // choosing it clears what was said.
+            type_and_return(&mut window, "example.org");
+            assert_eq!(
+                window.conversation().going().map(ToString::to_string),
+                Some("https://example.org/".to_owned()),
+                "the next address typed is gone to"
+            );
+            assert_eq!(window.told(), None);
+            window.finish();
+        }
+        // Closed by the person, it is not a failure, and not kept.
+        let mut window = window();
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(&mut window, "example.com");
+        let url = window.conversation().going().cloned().unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url.clone())));
+        window.heard(Heard::Chrome(Went::Shut(url)));
+        assert_eq!(window.told(), None);
         assert!(window.take_said().is_empty());
         window.finish();
     }

@@ -148,33 +148,34 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
         attribute(&mut document, screen, "class", "start focused")?;
     }
     let blocks = by_id(&document, BLOCKS)?;
-    if !start.offers.is_empty() {
-        let offers = make_offers(&mut document, &start.offers, &start.search)?;
+    let offers = if start.offers.is_empty() {
+        None
+    } else {
+        Some(make_offers(&mut document, &start.offers, &start.search)?)
+    };
+    if start.card.is_some() || start.results.is_some() {
+        // A conversation rather than a greeting (queue items 717, 708):
+        // the box at the window's foot, and what is offered for what was
+        // typed just above it (queue item 750).
+        let class = if start.focused {
+            "start conversing focused"
+        } else {
+            "start conversing"
+        };
+        attribute(&mut document, screen, "class", class)?;
+        let the_box = by_id(&document, BOX)?;
+        if let Some(card) = &start.card {
+            crate::card_document::put(&mut document, card, screen, the_box, blocks)?;
+        } else if let Some(results) = &start.results {
+            crate::results_document::put(&mut document, results, screen, the_box, blocks)?;
+        }
+        if let Some(offers) = offers {
+            insert_before(&mut document, screen, offers, the_box)?;
+        }
+        return Ok(document);
+    }
+    if let Some(offers) = offers {
         insert_before(&mut document, screen, offers, blocks)?;
-    }
-    if let Some(card) = &start.card {
-        // A conversation rather than a greeting (queue item 717).
-        let class = if start.focused {
-            "start conversing focused"
-        } else {
-            "start conversing"
-        };
-        attribute(&mut document, screen, "class", class)?;
-        let the_box = by_id(&document, BOX)?;
-        return crate::card_document::put(&mut document, card, screen, the_box, blocks)
-            .map(|()| document);
-    }
-    if let Some(results) = &start.results {
-        // A search's results, as the All tab (queue item 708).
-        let class = if start.focused {
-            "start conversing focused"
-        } else {
-            "start conversing"
-        };
-        attribute(&mut document, screen, "class", class)?;
-        let the_box = by_id(&document, BOX)?;
-        return crate::results_document::put(&mut document, results, screen, the_box, blocks)
-            .map(|()| document);
     }
     let icon = take_icon(&document, ADD_ICON)?;
     let sites = make_sites(&mut document, &start.sites, icon)?;
@@ -583,6 +584,33 @@ mod tests {
             .find(|&node| document.attribute_by_name(node, "class") == Some("offers"));
         let next = offers.and_then(|offers| document.next_sibling(offers));
         assert_eq!(next, by_id(&document, BLOCKS).ok());
+    }
+
+    #[test]
+    fn in_a_conversation_the_offers_stand_above_the_box() {
+        // Queue item 750: the box is at the window's foot, so what is offered
+        // goes between the conversation and the box.
+        let mut start = typing("example.com");
+        start.card = Some(crate::card::Card::new(
+            "en.wikipedia.org",
+            alo_url::parse("https://en.wikipedia.org/").unwrap(),
+        ));
+        let document = built(&start);
+        let class = |class: &str| {
+            document
+                .descendants(document.root())
+                .find(|&node| document.attribute_by_name(node, "class") == Some(class))
+        };
+        let offers = class("offers");
+        assert!(offers.is_some());
+        assert_eq!(
+            class("thread").and_then(|thread| document.next_sibling(thread)),
+            offers
+        );
+        assert_eq!(
+            offers.and_then(|offers| document.next_sibling(offers)),
+            by_id(&document, BOX).ok()
+        );
     }
 
     #[test]

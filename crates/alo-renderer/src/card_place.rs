@@ -20,7 +20,10 @@
 //!
 //! The first screen does not scroll yet. When a conversation holds more than
 //! one card (703), where each is moves with the conversation, and this is
-//! where that is decided.
+//! where that is decided. Until then, the conversation is clipped above the
+//! box, which is pinned at the window's foot (queue item 750): what of the
+//! page box is under that edge is not seen, and is not the page's to be
+//! pressed ([`seen_page_box`]).
 
 use crate::card::PAGE_SIZE;
 use alo_layout::{Rect, Size};
@@ -44,6 +47,38 @@ const BORDER: f32 = 1.0;
 
 /// The card's bar, its line under it included.
 const BAR: f32 = 46.0;
+
+/// The box's height once the conversation holds something: the design's 56.
+pub const BOX_HEIGHT: f32 = 56.0;
+
+/// How far above the window's foot the box is: the design's 24.
+pub const FOOT: f32 = 24.0;
+
+/// The gap between the conversation and the box: the box's `margin-top`.
+const ABOVE_THE_BOX: f32 = 24.0;
+
+/// Where the box's top is on a first screen laid out at `viewport` that holds
+/// a conversation (queue item 750): [`FOOT`] and [`BOX_HEIGHT`] above its
+/// foot.
+pub fn box_top(viewport: Size) -> f32 {
+    viewport.height - FOOT - BOX_HEIGHT
+}
+
+/// How far down the conversation is seen on a first screen laid out at
+/// `viewport`: what is lower is clipped, above the box and the gap over it.
+pub fn room_bottom(viewport: Size) -> f32 {
+    box_top(viewport) - ABOVE_THE_BOX
+}
+
+/// The part of the card's page box that is seen on a first screen laid out
+/// at `viewport` — all of it when the window is tall enough, its top part
+/// when the conversation is clipped above the box — or [`None`] when none
+/// of it is.
+pub fn seen_page_box(viewport: Size) -> Option<Rect> {
+    let page = page_box(viewport);
+    let seen = (room_bottom(viewport) - page.top()).min(page.size.height);
+    (seen > 0.0).then(|| Rect::new(page.left(), page.top(), page.size.width, seen))
+}
 
 /// The card's page box on a first screen laid out at `viewport`, in its CSS
 /// pixels: [`PAGE_SIZE`], inside the card's border, under its bar.
@@ -82,6 +117,26 @@ mod tests {
             sides(page_box(Size::new(1040.0, 820.0))),
             sides(Rect::new(81.0, 145.0, 878.0, 520.0))
         );
+    }
+
+    #[test]
+    fn the_page_box_is_seen_down_to_the_room_above_the_box() {
+        // At the design's 820 the room ends at 716, under the page's 665.
+        assert_eq!(
+            box_top(Size::new(1040.0, 820.0)).to_bits(),
+            740.0_f32.to_bits()
+        );
+        assert_eq!(
+            seen_page_box(Size::new(1040.0, 820.0)).map(sides),
+            Some(sides(Rect::new(81.0, 145.0, 878.0, 520.0)))
+        );
+        // At 700 it ends at 596: the page's lowest 69 are clipped.
+        assert_eq!(
+            seen_page_box(Size::new(1040.0, 700.0)).map(sides),
+            Some(sides(Rect::new(81.0, 145.0, 878.0, 451.0)))
+        );
+        // At 240 none of it is seen.
+        assert_eq!(seen_page_box(Size::new(1040.0, 240.0)), None);
     }
 
     #[test]

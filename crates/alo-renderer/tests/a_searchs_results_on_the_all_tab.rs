@@ -328,8 +328,10 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     );
     let at = |class: &str| boxes_of(&renderer, class);
     // The column, 880 wide, centred in 1040, 40 down; the person's line at
-    // its right, 42 tall; 20 under it the results.
-    assert_eq!(at("thread searched"), vec![px(80.0, 40.0, 880.0, 457.0)]);
+    // its right, 42 tall; 20 under it the results. The thread clipping them
+    // is 32 wider either side and reaches down to 24 above the box (queue
+    // item 750).
+    assert_eq!(at("thread searched"), vec![px(48.0, 40.0, 944.0, 676.0)]);
     assert!(
         at("you")
             .first()
@@ -397,9 +399,57 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
         at("d"),
         vec![px(80.0, 219.0, 740.0, 46.0), px(80.0, 338.0, 740.0, 46.0)]
     );
-    // More sites, 20 under the last site; and the box 24 under the column.
+    // More sites, 20 under the last site; and the box, 880 × 56, 24 above
+    // the window's foot: 820 - 24 - 56 = 740 (queue item 750).
     assert_eq!(at("more"), vec![px(80.0, 477.0, 93.125, 20.0)]);
-    assert_eq!(at("box"), vec![px(160.0, 521.0, 720.0, 64.0)]);
+    assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
+}
+
+/// Queue item 750: with results under the person's words, the box is
+/// pinned 24 above the window's foot at the design's 56 — its top the
+/// viewport's height less 24 less 56 — however tall the window, the results
+/// where they were above it; and in a window too short for them, they are
+/// clipped above the box, never drawn over or under it.
+#[test]
+fn with_results_the_box_is_pinned_24_above_the_windows_foot() {
+    for height in [820.0, 1000.0, 520.0] {
+        let mut start = found();
+        start.viewport = Size::new(WIDTH, height);
+        let mut renderer = Renderer::new(fonts());
+        let _ = renderer.handle(ToRenderer::Start(Box::new(start)));
+        let at = |class: &str| boxes_of(&renderer, class);
+        let top = height - 24.0 - 56.0;
+        assert_eq!(at("box"), vec![px(80.0, top, 880.0, 56.0)], "at {height}");
+        assert_eq!(
+            at("thread searched"),
+            vec![px(48.0, 40.0, 944.0, top - 24.0 - 40.0)],
+            "at {height}"
+        );
+        // The results keep their place and size, whatever room there is.
+        assert_eq!(
+            at("results"),
+            vec![px(80.0, 102.0, 880.0, 395.0)],
+            "at {height}"
+        );
+    }
+    // At 520 the room ends at 416, so the third site's mark, 406 to 424, is
+    // drawn above that edge and clipped under it; and the box, at 440, is
+    // drawn whole.
+    let mut start = found();
+    start.viewport = Size::new(WIDTH, 520.0);
+    let drawn = draw(start);
+    let frame = drawn.frame.as_ref();
+    assert!(frame.is_some(), "nothing was painted");
+    if let Some(frame) = frame {
+        let paper = Some([0xf4, 0xf1, 0xec, 0xff]);
+        assert_ne!(pixel(frame, 85, 410), paper, "the mark above the edge");
+        assert_eq!(pixel(frame, 85, 420), paper, "the mark under the edge");
+        assert_eq!(
+            pixel(frame, 500, 470),
+            Some([0xff, 0xff, 0xff, 0xff]),
+            "the box"
+        );
+    }
 }
 
 #[test]

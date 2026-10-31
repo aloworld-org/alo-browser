@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Fixed: pages that replace themselves as they load never opened in the
+  card.** Reddit first answers with a short check that sends the browser
+  on to the page itself before it finishes loading; alo waited for that
+  first page to finish, which it never does, for thirty seconds, then
+  closed the card without saying why — and the box no longer had the
+  keyboard, so the next address typed went nowhere. alo now follows the
+  page to where it went, a card that fails says why in the first screen's
+  line and on the terminal until your next press, and the box takes the
+  keyboard back (item 749).
+- **The box stays at the foot of the window in a conversation.** Once the
+  conversation holds your words with results or a page, the box is 56 px
+  tall and as wide as the column, 24 px above the window's foot, with the
+  conversation above it; suggestions for what you type open just above
+  it. A conversation taller than the room is cut off above the box until
+  it can scroll (item 750).
 - **Searching works, and opens on the All tab.** Type words that are not
   an address and press Return: alo asks the Brave Search API and shows,
   under what you typed, the tab row and the top three sites — each its

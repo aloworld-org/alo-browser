@@ -463,6 +463,17 @@ impl Conversation {
         self.card.take().is_some()
     }
 
+    /// No card, because its page could not be opened or went on its own
+    /// (queue item 749): the box takes the keyboard, so the next address
+    /// typed reaches it. Pressing a site's title had taken the keyboard from
+    /// the box, a card with no picture yet cannot be pressed for it, and the
+    /// card's failing gave it to nothing: typed by hand, the next address
+    /// went nowhere. Whether the first screen shows something else.
+    pub fn card_failed(&mut self) -> bool {
+        let closed = self.close_card();
+        self.the_box.focus() || closed
+    }
+
     /// The page shown as a card, if one is.
     pub fn card(&self) -> Option<&Card> {
         self.card.as_ref()

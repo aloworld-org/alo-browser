@@ -2397,8 +2397,13 @@ items where being right and being unusable are the same outcome.
       panic, the tab row and top three sites drawn as text in a reference
       render and a layout assertion, 401/429/5xx said in words, a title
       opening its page in the card, through the window's own road against a
-      local server
-      · Owed: *Search chats* and the button that hides the panel (711),
+      local server; a page that replaces itself before it loads opened in
+      the card, and a card that fails said in the line and on the terminal
+      with the box given the keyboard back (749); the box pinned 24 above
+      the window's foot once the conversation holds something, the
+      conversation clipped above it (750)
+      · Owed: a card drawn from the page's first paint rather than its
+      load (751), *Search chats* and the button that hides the panel (711),
       a press on an offer (714), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),

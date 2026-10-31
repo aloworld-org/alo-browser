@@ -91,7 +91,11 @@ ADR 0058 — and nothing else does:
 | | **728**, **729** | Windows and Linux (728), and what macOS keeps for the host (729) — cut from 725 |
 | | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
 | | **736** | trackers and ads blocked by alo itself, with Brave's `adblock-rust` at the place every request is held |
-| | **707**, **708** | the answer and the search results — blocked on the owner's choice of model and search provider |
+| | **707** | the answer — blocked on the owner's choice of model |
+| ✓ | **708** | search results as the design's All tab, from the Brave Search API (ADR 0083, iteration 463) |
+| ✓ | **749** | a card that fails says why and gives the box the keyboard back; a page that replaces itself before it loads opens (iteration 464) |
+| ✓ | **750** | the box 24 above the window's foot once the conversation holds something, the conversation clipped above it (iteration 464) |
+| | **751** | a card drawn from its page's first paint, not its load (cut from 749) |
 
 **627 was the one to watch, and is closed with its scope cut** (iteration
 380): a page in Chrome is now drawn in a window a person can see, placed by
@@ -20335,7 +20339,7 @@ What stage 2's exit gate actually measures: a person using it.
   *needs the owner's decision, before release.* Until then the key is read
   from the keychain at run time, and never put in the binary.
 
-- [ ] **749. Why a card closed is wiped before anybody reads it (found by
+- [x] **749. Why a card closed is wiped before anybody reads it (found by
   708 by hand).** In the real application a search result's title on
   `www.reddit.com` opened a card that stayed white for at least eighteen
   seconds and then closed, the first screen back to its greeting; the next
@@ -20348,6 +20352,88 @@ What stage 2's exit gate actually measures: a person using it.
   in the line until the next choice, and on the terminal — then run the
   same page by hand again and say why it closed, and why the address after
   it was not opened. *Depends on 717 and 708.*
+  ***Done (iteration 464), with a cut to 751.*** **Made visible:** a card
+  said unopened, or whose page went on its own (`Went::Unopened`,
+  `Went::Closed`), is kept as a refused press is
+  (`ConversationWindow::tell`) — in the first screen's line until the next
+  press is decided or something else is chosen, and on the terminal as
+  `alo: …`. Run by hand it said: *https://www.reddit.com/r/rust could not
+  be opened: Chrome said nothing for 30000 ms*. **The cause:** the card's
+  tab is opened as `alo --chrome` opens one, waiting for its page's `load`
+  before anything is streamed (the white card), and waited for the loader
+  `Page.navigate` named. Reddit first answers a JavaScript challenge that
+  replaces itself (`location.replace` to `?solution=…&js_challenge=1`)
+  before its own `load`; the first loader never loads, and the tab waited
+  out Chrome's thirty seconds. Measured with a Node CDP client through the
+  machine's Chrome and alo's CEF host: the second loader's `load` 0.2–0.4 s
+  in, the first's never. No crash report. **Fixed:** `Tab::go` waits for
+  the `load` of the newest document the tab's own frame began
+  (`Page.lifecycleEvent` `init` on the tab's frame;
+  `chrome_protocol::stage` now names the frame). **The next address:** a
+  press on a site's title takes the keyboard from the box, a card with no
+  picture cannot be pressed for it, and its failing gave it to nothing —
+  the earlier run's screenshot after the failure shows the box unfocused
+  and empty, and by hand a press on the card's bar, the card failing, then
+  typing, reached nothing. Fixed: a card that fails gives the box the
+  keyboard (`Conversation::card_failed`). **Tests:** unit tests in
+  `conversation_window.rs` (said, kept through a paint, the box given the
+  keyboard back, the next address typed with no press gone to) and
+  `chrome_protocol.rs`; through the window's own road, the machine's Chrome
+  and alo's CEF host, against a local server
+  (`tests/a_card_whose_page_replaces_itself_through_chrome.rs`, in the
+  shown-Chrome lists): `/challenge.html`, its `load` held by a picture never
+  answered, replaces itself with `/real.html`, and the card shows a frame of
+  `/real.html` — with `go` waiting for the first loader again it fails *a
+  page that replaced itself was said unopened: … Chrome said nothing for
+  30000 ms*; `/never.html` never loads, a press on the card's bar takes the
+  box's keyboard, the card is said unopened, kept in the line and said on
+  the terminal, and the next address typed with no press opens. **By hand
+  again** (`/private/tmp/claude-501/-Users-disanssebowabasalidde-Documents-GitHub-alo-browser/3ada16d8-ec43-4118-adcd-325f6218aae0/scratchpad/handrun4/`, `11`–`15`): `www.reddit.com/r/rust` drew in the card
+  at the challenge's onward address (cookie banner and all, `12-reddit-12s.png`),
+  `en.wikipedia.org` then opened in the same session (`13-wiki-next.png`),
+  and the original search's first title, the comments page, drew
+  (`15-reddit-title.png`). Before the fix: `02-crop.png` (the reason kept in
+  the line), `09-crop.png` (typed, unfocused, nothing). **Cut:** the card is
+  still white until the page loads (751).
+
+- [x] **750. The box at the window's foot once the conversation holds
+  something.** Asked by the owner on 31 October 2026, after a search: the
+  box sat under the results at about 521 of an 852 window.
+  `docs/design/shell.md`'s window table puts it 56 tall, 880 wide, 24 above
+  the window's foot (64 on the first screen). *Closes when:* a layout
+  assertion of the box's top at the viewport's height less 24 less 56 with
+  results, at two heights, and the reference renders updated.
+  ***Done (iteration 464).*** `.start.conversing` is the window's height;
+  its thread grows into the room and clips what does not fit (32 wider than
+  the column either side, so the card's shadow is not cut), 24 above the
+  box; the box is 880 × 56, 24 above the foot. What is offered for what is
+  typed stands just above the box while conversing (`start_document.rs`),
+  so the box does not move as a person types. The greeting's first screen
+  is unchanged. The browser process knows the room without asking a
+  renderer (`card_place::box_top`, `room_bottom`, `seen_page_box`): a
+  press on a part of the page box clipped away is the first screen's, not
+  the page's (`card_aim.rs`). Tests: the results' box at (80, 740) 880 × 56
+  at 820, at 1000 and at 520, the thread down to 24 above it, the results
+  unmoved, and at 520 the third site's mark clipped at 416 with the box
+  whole (`tests/a_searchs_results_on_the_all_tab.rs`); the card's box and
+  thread held to `card_place` at four sizes (`tests/a_page_as_a_card.rs`);
+  the offers' place; the aim in a 700-tall window. References
+  `card-before-a-frame.png`, `card-holding-a-frame.png`,
+  `all-tab-with-results.png`, `all-tab-not-answered.png` rewritten — the
+  card and results pixel for pixel where they were, the box moved. By hand
+  (`14-results.png`, `15-reddit-title.png`): the box at the foot under the
+  results and under the card. Not done: scrolling a conversation taller
+  than the room (703).
+
+- [ ] **751. A card drawn from its page's first paint, not its load.** Cut
+  from 749. The card's tab is opened as `alo --chrome` opens one, and
+  streams only once the page has loaded: a slow page is a white card for
+  as long as it loads (reddit by hand ~1–4 s), and one whose `load` never
+  comes within Chrome's thirty seconds is said unopened though it may have
+  drawn. Stream from the navigation's commit, say *loading* on the card
+  meanwhile, and decide what a card whose page never loads becomes.
+  *Depends on 749. Closes when:* a local page whose `load` is held shows a
+  frame in the card before it loads, through both programs.
 
 - [ ] **736. Trackers and ads blocked by alo itself, with `adblock-rust`.**
   The owner asked for it on 30 October 2026, after weighing Brave: alo does

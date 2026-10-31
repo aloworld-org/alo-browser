@@ -27,7 +27,7 @@ use crate::conversation_place::ConversationPlacement;
 use crate::scale::Scale;
 use alo_layout::Size;
 use alo_paint::Point;
-use alo_renderer::card_place::page_box;
+use alo_renderer::card_place::{page_box, seen_page_box};
 
 /// What a point of the conversation's window is over.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -83,7 +83,9 @@ pub fn aim(
     let (part, on) = conversation_aim::aim(placed, scale, at)?;
     if part == Part::Start
         && let Some(viewport) = card_on_screen
-        && page_box(viewport).contains(alo_layout::Point::new(on.x, on.y))
+        // Only the part of it seen above the box (queue item 750): a press
+        // on the box under a clipped page is the box's.
+        && seen_page_box(viewport).is_some_and(|seen| seen.contains(alo_layout::Point::new(on.x, on.y)))
     {
         let (x, y) = on_the_page(placed, scale, viewport, at);
         return Some(Aimed::Page { x, y });
@@ -218,6 +220,36 @@ mod tests {
             // Outside the window: nothing.
             assert_eq!(aim(&placed, scale, card, device(-1.0, 300.0)), None);
         }
+    }
+
+    #[test]
+    fn in_a_short_window_the_page_clipped_above_the_box_is_not_the_pages() {
+        // 700 tall at one: the box's top at 620, the room ending at 596, the
+        // page box's lowest 69 clipped (queue item 750).
+        let window = (1280, 700);
+        let placed = ConversationPlacement::of(
+            window,
+            Scale::ONE,
+            Parts {
+                panel: Some((240, 700)),
+                start: Some((1040, 700)),
+                ..Parts::default()
+            },
+        );
+        let card = Some(start_viewport(window, Scale::ONE));
+        assert_eq!(
+            aim(&placed, Scale::ONE, card, (500.0, 595.5)),
+            page(179.0, 450.5)
+        );
+        assert_eq!(
+            aim(&placed, Scale::ONE, card, (500.0, 596.0)),
+            Some(Aimed::Part(Part::Start, Point::new(260.0, 596.0)))
+        );
+        // The box itself, over where the page box would go on.
+        assert_eq!(
+            aim(&placed, Scale::ONE, card, (500.0, 640.0)),
+            Some(Aimed::Part(Part::Start, Point::new(260.0, 640.0)))
+        );
     }
 
     #[test]

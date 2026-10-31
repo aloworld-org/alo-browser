@@ -867,6 +867,23 @@ The reason this exists rather than a faster fork of somebody else's engine.
   short answer at the top (707), images (743), the Sites tab and *More
   sites ›* (744), Videos (745), News (746), a site's own mark (747), how
   the key is carried in release (748).
+  **A card that fails says why, and a page that replaces itself opens**
+  (749): a page that replaces itself before its `load` — reddit's
+  challenge — was waited on by its first loader, which never loads, for
+  Chrome's whole thirty seconds, and the card closed; the tab now waits for
+  the newest document its own frame began. A card that fails to open, or
+  whose page goes on its own, keeps why in the first screen's line until
+  the next press or choice and says it on the terminal, and gives the box
+  the keyboard back, so the next address typed opens
+  (`tests/a_card_whose_page_replaces_itself_through_chrome.rs`).
+  **The box at the window's foot** (750): once the conversation holds the
+  person's words with results or a card, the box is 880 × 56, 24 above the
+  window's foot, what is offered just above it, and the conversation above
+  that, clipped above the box where it does not fit — never under it, and
+  a press there is never the card's page's; scrolling is 703's. In layout
+  assertions at several heights and the four reference renders of a card
+  and of results (`tests/a_page_as_a_card.rs`,
+  `tests/a_searchs_results_on_the_all_tab.rs`).
   Owed: *Search chats* and the button that hides the panel (711), a press
   on an offer (714), an agent reaching a page the conversation opened
   (716), a field's value kept to one line by the engine (715), the

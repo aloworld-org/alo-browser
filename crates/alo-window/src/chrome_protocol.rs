@@ -1000,18 +1000,31 @@ pub fn navigated(result: &[u8]) -> Result<Result<String, String>, Malformed> {
     }
 }
 
-/// A `Page.lifecycleEvent`'s `params`: the loader it belongs to, and the
-/// stage — `load` among them — it tells of.
+/// A stage of a frame's document, from a `Page.lifecycleEvent`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stage {
+    /// The frame's id: a tab's own frame has the tab's id.
+    pub frame: String,
+    /// The loader of the document it belongs to.
+    pub loader: String,
+    /// The stage — `init` as a document begins, `load` among the rest.
+    pub name: String,
+}
+
+/// A `Page.lifecycleEvent`'s `params`: the frame and the loader it belongs
+/// to, and the stage — `load` among them — it tells of.
 ///
 /// # Errors
 ///
-/// [`Malformed`], for params without a `loaderId` and a `name`.
-pub fn stage(params: &[u8]) -> Result<(String, String), Malformed> {
+/// [`Malformed`], for params without a `frameId`, a `loaderId` and a
+/// `name`.
+pub fn stage(params: &[u8]) -> Result<Stage, Malformed> {
     let fields = object(params)?;
-    Ok((
-        text(fields.get("loaderId"), "loaderId")?,
-        text(fields.get("name"), "name")?,
-    ))
+    Ok(Stage {
+        frame: text(fields.get("frameId"), "frameId")?,
+        loader: text(fields.get("loaderId"), "loaderId")?,
+        name: text(fields.get("name"), "name")?,
+    })
 }
 
 /// A request Chrome has paused, from a `Fetch.requestPaused` event.
@@ -2957,7 +2970,11 @@ mod tests {
         );
         assert_eq!(
             stage(br#"{"frameId":"F","loaderId":"L","name":"load","timestamp":1.5}"#),
-            Ok(("L".to_owned(), "load".to_owned()))
+            Ok(Stage {
+                frame: "F".to_owned(),
+                loader: "L".to_owned(),
+                name: "load".to_owned()
+            })
         );
         assert_eq!(
             paused(
@@ -3158,8 +3175,9 @@ mod tests {
         assert_eq!(session(br#"{"sessionId":null}"#), bad("sessionId"));
         assert_eq!(navigated(br#"{"errorText":3}"#), bad("errorText"));
         assert_eq!(navigated(br#"{"frameId":"F"}"#), bad("loaderId"));
-        assert_eq!(stage(br#"{"loaderId":"L"}"#), bad("name"));
-        assert_eq!(stage(br#"{"name":"load"}"#), bad("loaderId"));
+        assert_eq!(stage(br#"{"frameId":"F","loaderId":"L"}"#), bad("name"));
+        assert_eq!(stage(br#"{"frameId":"F","name":"load"}"#), bad("loaderId"));
+        assert_eq!(stage(br#"{"loaderId":"L","name":"load"}"#), bad("frameId"));
         assert_eq!(paused(br#"{"requestId":"R"}"#), bad("request"));
         assert_eq!(paused(br#"{"requestId":"R","request":{}}"#), bad("url"));
         assert_eq!(paused(br#"{"request":{"url":"u"}}"#), bad("requestId"));

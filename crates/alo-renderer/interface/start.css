@@ -276,12 +276,49 @@ a {
    quiet colour — Expand and Close, each 36 square with an 18 px icon; its
    page, 520 tall, is Chrome's last frame of the page, drawn as a picture
    and clipped by the card's corners. */
+/* Once the conversation holds something (queue item 750, the design's
+   window table): the screen is the window's height, the box 880 wide and
+   56 tall, 24 above the window's foot, and the conversation above it with
+   24 between. What does not fit in that room is clipped above the box,
+   never drawn over or under it: the conversation does not scroll yet
+   (queue item 703). What is offered for what was typed goes just above the
+   box, so the box stays where it is while a person types. */
 .start.conversing {
-  padding-top: 40px;
+  height: 100%;
+  padding: 40px 0 24px;
+}
+
+/* The clip is 32 wider than the column either side, so the card's shadow
+   is not cut at its sides; the column stays where it was. */
+.start.conversing .thread {
+  width: 944px;
+  padding: 0 32px;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.start.conversing .thread > * {
+  flex-shrink: 0;
 }
 
 .start.conversing .box {
+  flex-shrink: 0;
+  width: 880px;
+  height: 56px;
   margin-top: 24px;
+}
+
+.start.conversing .offers {
+  flex-shrink: 0;
+  width: 880px;
+  margin-top: 24px;
+}
+
+.start.conversing .offers + .box {
+  margin-top: 8px;
 }
 
 .thread {

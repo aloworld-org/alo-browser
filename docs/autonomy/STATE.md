@@ -45920,3 +45920,79 @@ once (the gate's log keeps no reason); it passed four of four alone and in
 the next full run. No code it runs was changed here.
 
 The next unused queue number is **750** and the next ADR is **0084**.
+
+## Iteration 464 — queue items 749 and 750: a card that fails, and the box at the window's foot
+
+**Built by a delegated agent.** Item 749, then item 750, which the owner
+asked for mid-iteration and which is in the same change.
+
+**749 — made visible.** A card said unopened, or whose page went on its own,
+is now kept as a refused press is: in the first screen's line until the next
+press is decided or something else is chosen, and on the terminal as
+`alo: …`. Run by hand it said *https://www.reddit.com/r/rust could not be
+opened: Chrome said nothing for 30000 ms*.
+
+**749 — the cause.** The card's tab waits for its page's `load` before
+anything is streamed (so the card is white meanwhile), and `Tab::go` waited
+for the loader `Page.navigate` named. Reddit first answers a JavaScript
+challenge that replaces itself (`location.replace` to
+`?solution=…&js_challenge=1`) before its own `load`; the first loader never
+loads, so the tab waited out Chrome's thirty seconds. Measured with a Node
+CDP client through the machine's Chrome and alo's CEF host: the second
+loader loaded 0.2–0.4 s in. No crash report, no screencast fault. Fixed:
+`go` waits for the newest document the tab's own frame began
+(`Page.lifecycleEvent` `init`; `chrome_protocol::stage` names its frame).
+This is shared with `alo --chrome` and an agent's `open`, which gain the
+same.
+
+**749 — the next address.** Not a broken opener: by hand a typed reddit
+address that failed was followed by `en.wikipedia.org` opening fine. A press
+on a site's title takes the keyboard from the box, a white card cannot be
+pressed for it, and the card failing gave it to nothing — the earlier run's
+screenshot after the failure shows the box unfocused and empty, and by hand
+a press on the card's bar, the failure, then typing reached nothing. Fixed:
+a failed card gives the box the keyboard (`Conversation::card_failed`).
+
+**750.** Once the conversation holds something, the first screen is the
+window's height, the box 880 × 56, 24 above the foot, the thread above it
+clipped 24 over the box (32 wider than the column so the card's shadow is
+not cut), offers just above the box while conversing. `card_place` gains
+`box_top`, `room_bottom` and `seen_page_box`, so a press on a clipped part
+of the page box is never the page's. Scrolling stays 703's. Item 708's
+recorded number for the box (521 under the results) and its by-hand
+description (*the box under the results*) are superseded by this.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0024 § 5,
+0076 (Built section added), 0083, `docs/design/shell.md`'s window table.
+Layout assertions in numbers (results at 820, 1000 and 520; the card's box
+and thread held to `card_place` at four sizes); four reference renders
+rewritten after back-up and looked at — the card and results unmoved, the
+box moved. Through the window's own road, the machine's Chrome and alo's CEF
+host: `tests/a_card_whose_page_replaces_itself_through_chrome.rs` (in the
+shown-Chrome lists); with `go` waiting for the first loader again it fails
+with reddit's exact message.
+
+**By hand** (screenshots in the session's scratchpad `handrun4/`; alo
+checked frontmost and the screen unlocked before every press and key, the
+pointer put back — an early restore of a negative position drifted it,
+since `cliclick` reads a leading `-` as relative; fixed with `=`; two real
+searches). Before the fix: the reason kept in the line (`02-crop.png`),
+the next address typed unfocused reaching nothing (`09-crop.png`). After:
+`www.reddit.com/r/rust` drawn in the card at the challenge's onward address
+(`12-reddit-12s.png`), `en.wikipedia.org` next in the same session
+(`13-wiki-next.png`), the box at the foot under the results
+(`14-results.png`) and the original search's first title — the comments
+page that failed this morning — drawn (`15-reddit-title.png`). The window
+opened once on the side display at 967 wide and was moved back by System
+Events before pressing. ⌘Q left no alo or alo Chromium process.
+
+**Cut.** 751: the card is still white until its page loads.
+
+**Roadmap:** the conversation line's *Built* clause gains 749 and 750; its
+*Owed* gains 751.
+
+**Gate.** With `CEF_PATH` set: **5851 tests run, 5851 passed, 11 of 11
+steps, "The gate is met."** on the first run. `--lib` tests of `alo-window`
+and `alo-renderer` and clippy were clean before it.
+
+The next unused queue number is **752** and the next ADR is **0084**.

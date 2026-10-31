@@ -569,7 +569,14 @@ impl<'c> Tab<'c> {
         self.answer_to(asked, false)
     }
 
-    /// Go to the page, and wait for its own loader's `load`.
+    /// Go to the page, and wait for the `load` of the document its own
+    /// frame holds: the loader the navigation began, or the newest its frame
+    /// began after it.
+    ///
+    /// A page may replace itself before it has loaded — a script's
+    /// `location.replace`, as `www.reddit.com`'s challenge does — and the
+    /// first loader then never loads. Queue item 749 found the card waiting
+    /// out Chrome's whole patience for it, and closing.
     fn go(&mut self) -> Result<(), Unopened> {
         let asked = self.chrome.send(
             Some(&self.session),
@@ -579,10 +586,12 @@ impl<'c> Tab<'c> {
         )?;
         let until = Instant::now() + self.chrome.patience();
         let mut going = None;
+        // The newest document the tab's own frame began, by its loader.
+        let mut newest: Option<String> = None;
         let mut loaded = HashSet::new();
         loop {
             if let Some(going) = &going
-                && loaded.contains(going)
+                && loaded.contains(newest.as_ref().unwrap_or(going))
             {
                 return Ok(());
             }
@@ -598,9 +607,13 @@ impl<'c> Tab<'c> {
                     }
                 }
                 Some(Message::Event { method, params, .. }) if method == "Page.lifecycleEvent" => {
-                    let (by, stage) = chrome_protocol::stage(&params).map_err(Failed::Malformed)?;
-                    if stage == "load" {
-                        loaded.insert(by);
+                    let stage = chrome_protocol::stage(&params).map_err(Failed::Malformed)?;
+                    match stage.name.as_str() {
+                        "init" if stage.frame == self.target => newest = Some(stage.loader),
+                        "load" => {
+                            loaded.insert(stage.loader);
+                        }
+                        _ => {}
                     }
                 }
                 _ => {}

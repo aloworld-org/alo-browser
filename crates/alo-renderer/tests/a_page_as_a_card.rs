@@ -274,7 +274,10 @@ fn the_card_is_laid_out_as_the_design_draws_it() -> Result<(), String> {
     // The column, 880 wide, centred in 1040, 40 down: the person's line at
     // its right, 10 + 22 + 10 = 42 tall; 16 under it the card, 880 wide and
     // its border, its 46 of bar and its 520 of page: 1 + 46 + 520 + 1 = 568.
-    assert_eq!(at("thread"), vec![px(80.0, 40.0, 880.0, 626.0)]);
+    // The thread clipping it is 32 wider either side, for the card's shadow,
+    // and reaches down to 24 above the box (queue item 750): 820 - 24 - 56
+    // - 24 - 40 = 676.
+    assert_eq!(at("thread"), vec![px(48.0, 40.0, 944.0, 676.0)]);
     assert_eq!(at("you").len(), 1);
     assert!(
         at("you")
@@ -313,8 +316,9 @@ fn the_card_is_laid_out_as_the_design_draws_it() -> Result<(), String> {
             px(926.0, 112.5, 18.0, 18.0),
         ])
     );
-    // And the one box, 24 under the column.
-    assert_eq!(at("box"), vec![px(160.0, 690.0, 720.0, 64.0)]);
+    // And the one box, 880 × 56, 24 above the window's foot (queue item
+    // 750): 820 - 24 - 56 = 740.
+    assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
     Ok(())
 }
 
@@ -335,10 +339,34 @@ fn the_page_box_the_browser_computes_is_the_one_laid_out() -> Result<(), String>
         start.focused = focused;
         let mut renderer = Renderer::new(fonts());
         let _ = renderer.handle(ToRenderer::Start(Box::new(start)));
-        let computed = card_place::page_box(Size::new(width, height));
+        let viewport = Size::new(width, height);
+        let computed = card_place::page_box(viewport);
         assert_eq!(
             boxes_of(&renderer, "page"),
             vec![units(computed)],
+            "at {width} × {height}"
+        );
+        // The box at the window's foot, and the room the conversation is
+        // clipped to, as the browser process computes them (queue item 750).
+        let column = (width - card_place::COLUMN) / 2.0;
+        assert_eq!(
+            boxes_of(&renderer, "box"),
+            vec![px(
+                column,
+                card_place::box_top(viewport),
+                card_place::COLUMN,
+                card_place::BOX_HEIGHT
+            )],
+            "at {width} × {height}"
+        );
+        assert_eq!(
+            boxes_of(&renderer, "thread"),
+            vec![px(
+                column - 32.0,
+                40.0,
+                card_place::COLUMN + 64.0,
+                card_place::room_bottom(viewport) - 40.0
+            )],
             "at {width} × {height}"
         );
     }

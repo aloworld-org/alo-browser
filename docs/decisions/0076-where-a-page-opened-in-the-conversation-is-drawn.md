@@ -484,3 +484,32 @@ it found changes nothing this ADR decided:
   strip, as A2 measured of any two windows, and a person brings it back
   from there; closing Chrome's window closes the card. Not changed here.
 
+## Built (31 October 2026, queue items 749 and 750): a card that fails, and the box under it
+
+Run by hand again, a search's title on `www.reddit.com` opened a card that
+stayed white and closed with nothing said. What it found changes nothing
+this ADR decided:
+
+- **The card waits for its page's `load`, and a page may replace itself
+  first.** The thread holding the card's tab opens the page as `alo
+  --chrome` does, and streams only once it has loaded. Reddit first
+  answers a challenge whose script goes on to the page itself
+  (`location.replace`) before the challenge's own `load`; the tab waited for
+  the loader `Page.navigate` named, which never loads, for Chrome's whole
+  thirty seconds — measured through the machine's Chrome and alo's CEF
+  host alike, the second loader loading 0.2 s in. The tab now waits for the
+  newest document its own frame began (`Tab::go`, `Page.lifecycleEvent`'s
+  `init` on the tab's frame). The card is still white until the page has
+  loaded; streaming from its first paint is queue item 751.
+- **Why a card failed is kept.** Closing the card painted the first
+  screen, which cleared its line; the reason is now kept as a refused
+  press is (742), and said on the terminal. A card that fails gives the box
+  the keyboard back: a press on the title had taken it, a card with no
+  picture cannot be pressed for it, and the next address typed by hand
+  went nowhere.
+- **The box at the window's foot.** Once the conversation holds
+  something, the box is the design's 880 × 56, 24 above the window's foot,
+  and the conversation above it is clipped there; the part of the page box
+  clipped away is not the page's to be pressed
+  (`card_place::seen_page_box`). Scrolling is 703's.
+
