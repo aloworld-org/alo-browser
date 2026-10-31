@@ -407,4 +407,51 @@ CEF host (Chromium 156.0.8078.48), in `alo-window`'s
   stopped.
 
 Still not measured: what the Dock, ⌘-Tab and Stage Manager do with a parked
-Chrome (queue item 739); a key to the glass (718).
+Chrome (queue item 739); a key to the glass (718, now 740).
+
+## Built (31 October 2026, queue item 718): a person's input on the card
+
+A person's press, drag, release, wheel and keys over the card's page reach
+the page as B3 measured they could: Chrome's `Input` domain, sent by the
+thread holding the card's tab, at the point in the page's CSS pixels. As
+this ADR and ADR 0024 § 5 decided, and nothing changed:
+
+- **The browser process decides the point from its own composition.** The
+  card's page box is computed from the first screen's viewport
+  (`alo-renderer`'s `card_place.rs` — the 880 column centred, the person's
+  line, the card's border and bar), never read from the renderer, and the
+  renderer's card test holds it to the layout the engine computes at four
+  sizes; the conversation's window maps a point of the window in device
+  pixels to the page's CSS pixels (`alo-window`'s `card_aim.rs`). Chrome
+  lays the page out at the page box's size, so one CSS pixel of the first
+  screen is one of the page's at any scale. Anywhere outside the box — the
+  bar, what the person said, the box, the panel — is the part's, claimed
+  and decided as before.
+- **Never an agent's verb (ADR 0002).** The window alone makes a person's
+  input (`card_input.rs`), handed to the thread holding Chrome as
+  `CardOrder::Input`; an agent's request is `Order::Agent`, which carries
+  no point and becomes none.
+- **The keyboard, decided here.** A press on the card's page gives the page
+  the keyboard and takes it from the box; a press anywhere else in either
+  part — the card's bar too — gives it back to the part, the box when it is
+  the box that was pressed; a refused claim leaves it where it was; the card
+  closing takes it. One thing has the keyboard at a time, as in any window.
+  While the page has it, a key that writes text is sent as `keyDown` with
+  that text, Return with `"\r"`, Backspace (with Chrome's `deleteBackward`),
+  Tab and Escape as `rawKeyDown`, each then `keyUp` (`card_keys.rs`,
+  `chrome_protocol.rs`). Nothing held with ⌘ or Ctrl reaches the page: those
+  are the browser's keys and the system's. This is the ordinary rule of a
+  window with two places to type, and ADR 0024 § 5 left focus to the item
+  that builds it, so it is recorded here rather than as an ADR of its own.
+- **A wheel** scrolls the page by Chrome's own 40 CSS pixels a line, a
+  trackpad by the device pixels it moved over the scale.
+
+Tested through the machine's Chrome and alo's CEF host, from the window's
+own aim of each point (`alo-window`'s
+`tests/a_persons_input_on_a_card_reaches_chromes_page.rs`): a press in a
+field and `Ada Lx`, Backspace, left the field's value `Ada L`, as the page
+said it; a press on a link followed it, the page it led to said its
+address, and a frame streamed after showed it; three notches down
+scrolled the page 120. Still not done: the pointer's moves with no button
+held, other buttons, double clicks and a key or press to the glass (740);
+the arrows and the page's own shortcuts (741).

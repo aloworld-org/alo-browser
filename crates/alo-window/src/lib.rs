@@ -135,6 +135,9 @@ pub mod bundle_chromium;
 pub mod bundle_icon;
 pub mod bundle_made;
 pub mod bundle_seal;
+pub mod card_aim;
+pub mod card_input;
+pub mod card_keys;
 pub mod cef_host;
 pub mod cef_pin;
 #[cfg(unix)]
@@ -142,6 +145,7 @@ pub mod chrome;
 pub mod chrome_act;
 pub mod chrome_bubble;
 pub mod chrome_card;
+pub mod chrome_card_input;
 pub mod chrome_cast_wire;
 pub mod chrome_choose;
 pub mod chrome_date;

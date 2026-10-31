@@ -45744,3 +45744,52 @@ Chrome). Not run by hand in the real window.
 **Gate.** With `CEF_PATH` set: **5781 tests, 5781 passed, 11 of 11 steps, "The gate is met."**
 
 The next unused queue number is **740** and the next ADR is **0083**.
+
+## Iteration 461 — queue item 718: a person's press, keys and wheel on the card reach the page (ADR 0076 B, ADR 0024 § 5)
+
+**Built by a delegated agent.** A person's press, drag, release, wheel and
+keys over the card's picture of its page now reach the page in Chrome as a
+person's input, at the page's CSS pixels. The browser process computes the
+card's page box from the first screen's viewport alone
+(`alo-renderer/src/card_place.rs`), held to the engine's own layout of the
+card at four sizes, and aims a point of the conversation's window at it
+from its own composition (`alo-window/src/card_aim.rs`) — never from where
+a renderer says the box is. The window hands each to the opener
+(`ChromeOpener::person`, `CardOrder::Input`, `card_input.rs`), and the
+thread holding the card's tab sends Chrome's `Input` domain
+(`chrome_card_input.rs`, `chrome_protocol.rs`; `Mouse::Dragged`,
+`Command::Wheel`, `Command::Typed`). Never an agent's verb: only the window
+makes a `CardInput` (ADR 0002).
+
+**The keyboard, decided** (ADR 0076's second *Built* section, no ADR of its
+own): a press on the card's page gives the page the keyboard and takes it
+from the box; a press claimed anywhere else in either part, the card's bar
+too, takes it back; the card closing takes it. While the page has it, text,
+Return, Backspace, Tab and Escape go to the page (`card_keys.rs`), none to
+the box, and nothing with ⌘ or Ctrl held.
+
+**Tested** (`tests/a_persons_input_on_a_card_reaches_chromes_page.rs`,
+Chrome 156.0.8078.76 and alo's CEF host), from the window's own aim of
+points of the design's window at one and its own reading of keys, against
+a page that tells the test's server what its script reads: `Ada Lx`,
+Backspace, left the field's value `Ada L`; a press on the link followed it,
+the page said its new `location` and a frame showed it; three notches down
+scrolled the page to `scrollY` 120. The page box's offset removed, the test
+failed. Unit tests for the mapping at one and two, outside the box, the
+wheel, each key, each message and the keyboard's owner.
+
+**Cut.** 740 (hover moves, other buttons, double clicks, a modifier with a
+press, the pointer's shape, a press or key to the glass); 741 (arrows and
+other keys that write nothing, the page's ⌘/Ctrl shortcuts, an input
+method). Not run by hand in the real window.
+
+**Gate.** With `CEF_PATH` set: **5802 tests run, 5802 passed, 11 of 11
+steps, "The gate is met."** The first run was not met on two counts: the
+person's keys were first written in a file of their own naming `serde_json`,
+which ADR 0001 allows only in `protocol.rs` and `chrome_protocol.rs` — moved
+into `chrome_protocol.rs`; and `every_request_of_a_page_in_chrome_recorded`'s
+`an_agents_activate_that_navigates_names_the_action_as_its_cause` saw
+Chrome's `favicon.ico` caused by the agent's action — not code this item
+touched; it passed five runs alone and in the second gate.
+
+The next unused queue number is **742** and the next ADR is **0083**.

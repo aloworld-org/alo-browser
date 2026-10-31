@@ -21,6 +21,10 @@
 //!   put where it is asked and brought in front, as ADR 0075 placed it over
 //!   the conversation.
 //!
+//! - **Input**: a person's press, drag, release, wheel or key over the card's
+//!   page, sent to the page as a person's (queue item 718,
+//!   [`crate::chrome_card_input`]).
+//!
 //! Closing the card is closing the page, as the window's closing is
 //! ([`crate::message::Order::CloseEverything`]): the stream is stopped
 //! first ([`stop`]), so Chrome answers `Page.stopScreencast` before its page
@@ -31,6 +35,7 @@
 //! not move is said by the next reading of where it is. Neither ends the
 //! tab, which still answers its agents.
 
+use crate::chrome_card_input;
 use crate::chrome_tab::Tab;
 use crate::chrome_window;
 use crate::frame_told::{ToFrame, Uncast};
@@ -64,6 +69,7 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>) {
             let _ = chrome_window::fit(tab, size.0, size.1)
                 .and_then(|_| chrome_window::place(tab, at.0, at.1));
         }
+        CardOrder::Input(input) => chrome_card_input::forward(tab, &input),
     }
 }
 

@@ -43,6 +43,13 @@
 //!   ([`Conversation::edit`]): going to a site is decided and kept as
 //!   [`Conversation::going`].
 //!
+//! Queue item 718 adds the card's page: a press on it gives **the page** the
+//! keyboard ([`Conversation::press_the_page`]) and takes it from the box,
+//! and a press anywhere else in either part — the card's bar too — takes it
+//! from the page. While the page has it, a person's keys go to the page
+//! ([`Conversation::keys_to_the_card`], [`crate::card_keys`]) and none to
+//! the box. One thing has the keyboard at a time, as in any window.
+//!
 //! Every other — *Settings*, a kept site, *Add a site*, a waiting chat — is
 //! decided and kept as [`Conversation::last_pressed`], and **changes
 //! nothing yet**: there is no settings screen (705), and nothing keeps a
@@ -107,6 +114,9 @@ pub struct Conversation {
     /// The page opened from the conversation, shown as a card (ADR 0076 B,
     /// queue item 717), if one is.
     card: Option<Card>,
+    /// Whether the card's page has the keyboard (queue item 718): given it
+    /// by a press on the page, taken by a press anywhere else.
+    card_keys: bool,
 }
 
 impl Default for Conversation {
@@ -121,6 +131,7 @@ impl Default for Conversation {
             chosen: None,
             said: String::new(),
             card: None,
+            card_keys: false,
         }
     }
 }
@@ -175,6 +186,11 @@ impl Conversation {
             Pressed::Refused(_) | Pressed::Failed(_) => false,
             _ => self.the_box.blur(),
         };
+        if !matches!(pressed, Pressed::Refused(_) | Pressed::Failed(_)) {
+            // A press on either part, the card's bar among them, is not on
+            // its page.
+            self.card_keys = false;
+        }
         let changed = match &pressed {
             Pressed::Chat(id) => self.put_on_screen(*id) || changed,
             Pressed::NewChat => {
@@ -271,6 +287,26 @@ impl Conversation {
     /// any card shown, since one page is open at a time (ADR 0075 § 4).
     pub fn open_card(&mut self, url: Url) {
         self.card = Some(Card::new(self.said.clone(), url));
+        self.card_keys = false;
+    }
+
+    /// A person pressed the card's page (queue item 718): the page has the
+    /// keyboard, and the box no longer — whether the first screen is drawn
+    /// again for it, which it is when the box had it. Nothing changes with
+    /// no card.
+    pub fn press_the_page(&mut self) -> bool {
+        if self.card.is_none() {
+            return false;
+        }
+        self.card_keys = true;
+        self.the_box.blur()
+    }
+
+    /// Whether a person's keys go to the card's page rather than the box:
+    /// since a press on the page, until a press anywhere else or the card
+    /// goes.
+    pub fn keys_to_the_card(&self) -> bool {
+        self.card_keys && self.card.is_some()
     }
 
     /// The card holds `frame`, Chrome's newest of its page, a PNG's bytes:
@@ -288,6 +324,7 @@ impl Conversation {
     /// No card: its page was closed, or never opened. Whether one was
     /// shown.
     pub fn close_card(&mut self) -> bool {
+        self.card_keys = false;
         self.card.take().is_some()
     }
 
@@ -371,6 +408,50 @@ mod tests {
                 .card,
             None
         );
+    }
+
+    #[test]
+    fn a_press_on_the_page_gives_it_the_keyboard_until_a_press_elsewhere() {
+        let mut conversation = Conversation::default();
+        assert!(!conversation.press_the_page(), "no card, no page to press");
+        assert!(!conversation.keys_to_the_card());
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        assert!(matches!(conversation.edit(Edit::Choose), Typed::Chose(_)));
+        let url = conversation.going().cloned().unwrap();
+        conversation.open_card(url.clone());
+        assert!(!conversation.keys_to_the_card(), "the box keeps it");
+        assert!(conversation.press_the_page(), "the box drawn again");
+        assert!(conversation.keys_to_the_card());
+        assert!(
+            !conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .focused
+        );
+        // Typing does not reach the box.
+        type_in(&mut conversation, "x");
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .typed,
+            "example.com"
+        );
+        assert!(!conversation.press_the_page(), "already the page's");
+        // A refused press leaves it where it was; the card's bar takes it.
+        let _ = conversation.act(Pressed::Refused(Refusal::Unasked));
+        assert!(conversation.keys_to_the_card());
+        let _ = conversation.act(Pressed::Nothing);
+        assert!(!conversation.keys_to_the_card());
+        // The box takes it back from the page.
+        let _ = conversation.press_the_page();
+        let _ = conversation.act(Pressed::TheBox);
+        assert!(!conversation.keys_to_the_card());
+        // The card closed takes it.
+        let _ = conversation.press_the_page();
+        assert!(conversation.close_card());
+        assert!(!conversation.keys_to_the_card());
+        conversation.open_card(url);
+        assert!(!conversation.keys_to_the_card(), "a new card has not it");
     }
 
     #[test]

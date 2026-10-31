@@ -25,6 +25,7 @@ use alo_layout::{Rect, Size};
 use alo_paint::{Point, from_png};
 use alo_renderer::card::{Card, PAGE_SIZE};
 use alo_renderer::card_document::PICTURED;
+use alo_renderer::card_place;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::face::Face;
 use alo_renderer::frame::frame_to_png;
@@ -314,6 +315,33 @@ fn the_card_is_laid_out_as_the_design_draws_it() -> Result<(), String> {
     );
     // And the one box, 24 under the column.
     assert_eq!(at("box"), vec![px(160.0, 690.0, 720.0, 64.0)]);
+    Ok(())
+}
+
+/// Queue item 718: the page box the browser process computes for itself
+/// (`card_place::page_box`), to send a person's input to the page, is the
+/// one the engine lays out — at the design's width and at others, wider
+/// and narrower, and with the box given the keyboard.
+#[test]
+fn the_page_box_the_browser_computes_is_the_one_laid_out() -> Result<(), String> {
+    for (width, height, focused) in [
+        (WIDTH, HEIGHT, false),
+        (1400.0, 900.0, false),
+        (1041.0, 700.0, true),
+        (900.0, 820.0, false),
+    ] {
+        let mut start = with_a_card(Some(frame()?));
+        start.viewport = Size::new(width, height);
+        start.focused = focused;
+        let mut renderer = Renderer::new(fonts());
+        let _ = renderer.handle(ToRenderer::Start(Box::new(start)));
+        let computed = card_place::page_box(Size::new(width, height));
+        assert_eq!(
+            boxes_of(&renderer, "page"),
+            vec![units(computed)],
+            "at {width} × {height}"
+        );
+    }
     Ok(())
 }
 

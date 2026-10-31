@@ -28,7 +28,9 @@
 //! more as it is shown or covered ([`ChromeOpener::stream`]); *Expand*
 //! shows the same tab in Chrome's own window where ADR 0075 placed it
 //! ([`ChromeOpener::expand`]); *Close* closes the page
-//! ([`ChromeOpener::shut`], [`Went::Shut`]).
+//! ([`ChromeOpener::shut`], [`Went::Shut`]). A person's press, drag,
+//! release, wheel and keys over the card's page are sent to it
+//! ([`ChromeOpener::person`], queue item 718).
 //!
 //! # Never waited on
 //!
@@ -72,6 +74,7 @@
 
 use crate::agent_sites::AgentSites;
 use crate::beside::Chromium;
+use crate::card_input::CardInput;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_screencast::Frame as CastFrame;
@@ -252,6 +255,8 @@ enum Work {
     /// Stream the card again at this size — it is back on the screen, or
     /// the window's scale changed — or, with nothing, no more.
     Stream(Option<Streamed>),
+    /// Send the page shown as a card a person's input over it.
+    Input(CardInput),
     /// Close the page shown as a card.
     Shut,
     /// The Chrome started at the open this numbers said its window is gone.
@@ -321,6 +326,13 @@ impl ChromeOpener {
     /// new scale — or, with [`None`], no more: the card is off the screen.
     pub fn stream(&self, streamed: Option<Streamed>) {
         self.send(Work::Stream(streamed));
+    }
+
+    /// Send the page shown as a card, if one is, a person's `input` over
+    /// it, as the window aimed it (queue item 718): a person's, never an
+    /// agent's — nothing an agent sends reaches this.
+    pub fn person(&self, input: CardInput) {
+        self.send(Work::Input(input));
     }
 
     /// Close the page shown as a card: its stream stopped, its Chrome
@@ -427,6 +439,7 @@ fn hold(
                     open.as_ref(),
                     streamed.map_or(CardOrder::Unstream, Streamed::order),
                 ),
+                Work::Input(input) => ask_of(open.as_ref(), CardOrder::Input(input)),
                 Work::Framed(number, frame) => {
                     // Decoded here, off the thread an agent's commands wait
                     // on; one that is not base64 is not shown.
@@ -759,7 +772,7 @@ mod tests {
             .unwrap()
             .asked
             .iter()
-            .map(|(_, order)| *order)
+            .map(|(_, order)| order.clone())
             .collect();
         assert_eq!(
             asked,

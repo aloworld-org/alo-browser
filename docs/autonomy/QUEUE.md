@@ -19404,13 +19404,68 @@ What stage 2's exit gate actually measures: a person using it.
   delayed every command 55 ms, where parked by a display at one it delayed
   none — 738's to keep in mind.
 
-- [ ] **718. A person's pointer, wheel and keys forwarded from the card to
+- [x] **718. A person's pointer, wheel and keys forwarded from the card to
   the page (ADR 0076 B, ADR 0024 § 5).** A person's press, wheel and keys
   over the card reach the page as a person's input at the card's
   coordinates, mapped to the page's CSS pixels — never as an agent's verb
   (ADR 0002). *Depends on 717. Closes when:* a press on a link in the card
   follows it, typing reaches a field, a wheel scrolls the page, each in a
   test against a local page.
+  ***Done (iteration 461), with cuts to 740 and 741.*** The browser process
+  computes the card's page box from the first screen's viewport alone
+  (`alo-renderer`'s `card_place::page_box`: the 880 column centred, 40 down,
+  the person's line of 42, 16 of gap, the card's border and 46 of bar —
+  878 × 520 at 81, 145 at the design's 1040), held to the engine's own
+  layout of the card at 1040 × 820, 1400 × 900, 1041 × 700 with the box
+  focused, and 900 × 820 (`tests/a_page_as_a_card.rs`); it never reads
+  where the box is from the renderer. The conversation's window aims a
+  point of the window from its own composition (`card_aim.rs`): over the
+  first screen's frame, in the page box, while the card shows a frame, it
+  is the page's, in the page's CSS pixels (device pixels over the scale,
+  less the page box's corner); anywhere else it is the part's as before.
+  A press there is sent as the pointer arriving and the main button going
+  down, the moves while it is held as drags, and the release wherever it
+  comes (`card_input.rs`, `Order::Card(CardOrder::Input)`,
+  `ChromeOpener::person`, `chrome_card_input.rs`, `Input.dispatchMouseEvent`
+  with a new `Mouse::Dragged`); a wheel over the page box as Chrome's
+  `mouseWheel`, 40 CSS pixels a line and a trackpad's device pixels over
+  the scale (`card_aim::scrolled`, `Command::Wheel`). **The keyboard,
+  decided:** a press on the card's page gives the page the keyboard and
+  takes it from the box (`Conversation::press_the_page`); any press
+  claimed on either part, the card's bar among them, takes it back; a
+  refused or unanswered claim leaves it; the card closing or a new one
+  opening takes it. While the page has it every key goes to the page and
+  none to the box (`Conversation::keys_to_the_card`, `card_keys.rs`): text
+  as `keyDown` with its text and `keyUp`, Return with `"\r"`, Backspace
+  (`deleteBackward`), Tab and Escape as `rawKeyDown`, Shift and ⌥ carried
+  (`chrome_protocol.rs`, `Command::Typed`); nothing with ⌘ or Ctrl held.
+  Recorded in ADR 0076's second *Built* section, not an ADR of its own: it
+  is ADR 0024 § 5's rule, focus left to the item that builds it. Nothing an
+  agent sends becomes any of these (ADR 0002): only the window makes a
+  `CardInput`, and an agent's request is `Order::Agent`. **Closing
+  conditions**, through the machine's Chrome **and** alo's CEF host, each a
+  test from the window's own aim of a point of the design's window at one
+  and the window's own reading of keys, against a page of the test's own
+  server that tells the server what its script reads
+  (`alo-window/tests/a_persons_input_on_a_card_reaches_chromes_page.rs`, in
+  the shown-Chrome lists of `.config/nextest.toml`): a press in the field
+  gave the card the keyboard and `Ada Lx`, Backspace left its value
+  `Ada L`, the box untouched; a press on the link followed it — the page it
+  led to said its `location`, and a frame streamed after showed its colour
+  where the link was; three notches down scrolled the page, `scrollY` 120.
+  The offset to the page box removed, the test failed (the press landed on
+  the link). Unit tests: window → page box → CSS px at one and two, the
+  edges and outside the box not the page's, a drag beyond the box, the
+  wheel's sums (`card_aim.rs`); each key (`card_keys.rs`); each message as
+  Chrome reads it (`chrome_protocol.rs`); the commands for each input
+  (`chrome_card_input.rs`); the keyboard's owner (`conversation.rs`).
+  **Cut:** the pointer's moves with no button held (hover), the other
+  buttons, double and triple clicks, a modifier held with a press, the
+  pointer's shape, and a press or key measured to the glass (740); the
+  arrows, Home, End and the other keys that write nothing, the page's own
+  ⌘/Ctrl shortcuts (copy, paste, select all, undo) and an input method's
+  composition (741). Not run by hand in the real window: the window's
+  event handlers call what the test calls, and are not themselves tested.
 
 - [ ] **737. The card's *Back* and *Forward*, read and followed.** Cut from
   717. The card draws both, disabled whenever the browser process says
@@ -19439,6 +19494,28 @@ What stage 2's exit gate actually measures: a person using it.
   and bring a window off every display to the front. Measure it, and answer
   it — hiding the application, or another way — by an ADR if it is a new
   decision. *Depends on 717.*
+
+- [ ] **740. The rest of a person's pointer on the card.** Cut from 718,
+  which sends a press of the main button, its drags and its release, and a
+  wheel. Send the pointer's moves over the card's page with no button held,
+  so a page's hover shows (coalesced, newest only, so moves never queue on
+  the pipe an agent's commands use); the other buttons; how many presses
+  came in quick succession (`clickCount`, a double click selecting a word);
+  a modifier held with a press; and show the pointer's shape the page asks
+  for. Measure a key and a press to the glass, which ADR 0076 B3 estimated
+  at 60–80 ms. *Depends on 718. Closes when:* a hover style shows in a
+  frame, a double click selects a word, each in a test against a local
+  page through both programs, and the time to the glass is said.
+
+- [ ] **741. The rest of a person's keys on the card.** Cut from 718, which
+  sends text, Return, Backspace, Tab and Escape. Send the arrows, Home,
+  End, Page Up and Down, Delete and the function keys (the window reads
+  none of them apart yet, `keys::Key::Other`); decide which ⌘/Ctrl keys are
+  the page's — copy, paste, select all, undo — and which stay the
+  browser's and the system's; and an input method's composition (the window
+  server's `Ime` events). *Depends on 718. Closes when:* an arrow moves the
+  caret in a field, ⌘A then typing replaces a field's text and a pasted
+  text arrives, each in a test against a local page through both programs.
 
 
 - [x] **719. The application uses only its own Chromium (ADR 0077).**

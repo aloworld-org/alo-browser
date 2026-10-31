@@ -114,6 +114,20 @@
 //! could not answer, is said in that part's line. Its release, and the
 //! cursor's moves, are nobody's: neither part runs script.
 //!
+//! **Over the card's page** (queue item 718, ADR 0024 § 5) a point is the
+//! page's, not a part's: the window decides it from its own composition and
+//! the page box it computes ([`crate::card_aim`]) while the card shows its
+//! picture, and sends the press — then the moves while it is held, and the
+//! release wherever it comes — to the page in the page's CSS pixels, as a
+//! person's input through the thread holding its Chrome
+//! ([`crate::card_input`], [`ChromeOpener::person`]). The press gives the
+//! card's page the keyboard and takes it from the box; a press anywhere
+//! else takes it back ([`Conversation::press_the_page`]). While the page
+//! has it, every key goes to the page as [`crate::card_keys`] says, and
+//! none to the box. A wheel or a trackpad turned over the card's page
+//! scrolls the page; anywhere else it is nobody's, since neither part
+//! scrolls. Nothing an agent sends becomes any of these (ADR 0002).
+//!
 //! # No `unsafe`
 //!
 //! Every `winit` function called here — `EventLoop::with_user_event`,
@@ -126,7 +140,8 @@
 //! `KeyEventExtModifierSupplement::key_without_modifiers` — is a safe
 //! function in `winit` 0.30.13's source, which the commits adding them
 //! checked (ADR 0024 § 1's stop rule). The pointer adds no call: it reads
-//! the fields of `WindowEvent::CursorMoved`, `CursorLeft` and `MouseInput`,
+//! the fields of `WindowEvent::CursorMoved`, `CursorLeft`, `MouseInput` and
+//! `MouseWheel`,
 //! and `ModifiersState::is_empty`, a safe `bitflags` function. The frame
 //! adds `WindowAttributes::with_decorations`, `with_window_level`,
 //! `with_visible`, `with_resizable` and `with_active`,
@@ -142,13 +157,16 @@
 use crate::agent_lines::AgentLines;
 use crate::aim::{Aimed, aim, on_page};
 use crate::beside::Chromium;
+use crate::card_aim::{self, Turned};
+use crate::card_input::{CardInput, Went as Button};
+use crate::card_keys;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
 use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
 use crate::conversation::{Conversation, Pressed as Decided};
-use crate::conversation_aim;
+
 use crate::conversation_box::{self, Typed};
 use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::{ConversationScene, compose_conversation};
@@ -166,13 +184,14 @@ use crate::present::Presenter;
 use crate::scale::Scale;
 use crate::showing::Showing;
 use crate::typing;
+use alo_layout::Size;
 use alo_renderer::host::Renderers;
 use alo_renderer::{Frame, Visibility};
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
-use winit::event::{ElementState, KeyEvent, MouseButton, WindowEvent};
+use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{self as winit_keys, ModifiersState, NamedKey};
 #[cfg(target_os = "macos")]
@@ -864,6 +883,7 @@ pub fn conversation(
         window: None,
         presenter: None,
         cursor: None,
+        on_the_page: false,
         modifiers: ModifiersState::empty(),
         failed: None,
     };
@@ -926,6 +946,9 @@ struct Conversing {
     /// Where the cursor last was, in device pixels, while it is over the
     /// window.
     cursor: Option<(f64, f64)>,
+    /// Whether the main button went down over the card's page and is still
+    /// held: its moves and its release are the page's (queue item 718).
+    on_the_page: bool,
     /// The modifier keys held.
     modifiers: ModifiersState,
     /// Why the window had to stop, if it did.
@@ -978,9 +1001,49 @@ impl Conversing {
         })
     }
 
-    /// The main button went down with nothing held: a press over a part is
-    /// handed to the thread that holds its renderer, to be claimed and
-    /// decided.
+    /// The first screen's viewport while it shows the card's picture of its
+    /// page, which is when the page can be pressed (queue item 718).
+    fn card_on_screen(&self) -> Option<Size> {
+        let (window, scale) = self.measured()?;
+        self.conversation
+            .card()
+            .and_then(|card| card.frame.as_ref())
+            .map(|_| start_viewport(window, scale))
+    }
+
+    /// What the point `at`, in device pixels, is over, from the window's
+    /// own composition: the card's page, a part, or nothing.
+    fn aimed(&self, at: (f64, f64)) -> Option<card_aim::Aimed> {
+        let scene = self.scene()?;
+        let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
+        card_aim::aim(&placed, scene.scale, self.card_on_screen(), at)
+    }
+
+    /// Where the point `at` is on the card's page, wherever it is, while
+    /// the card's picture is on the screen.
+    fn on_the_card(&self, at: (f64, f64)) -> Option<(f64, f64)> {
+        let scene = self.scene()?;
+        let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
+        Some(card_aim::on_the_page(
+            &placed,
+            scene.scale,
+            self.card_on_screen()?,
+            at,
+        ))
+    }
+
+    /// Send the card's page a person's `input`, through the thread holding
+    /// its Chrome.
+    fn to_the_page(&self, input: CardInput) {
+        if let Some(chrome) = &self.chrome {
+            chrome.person(input);
+        }
+    }
+
+    /// The main button went down with nothing held: a press over the card's
+    /// page is the page's, sent to it, and gives it the keyboard (queue
+    /// item 718); a press over a part is handed to the thread that holds
+    /// its renderer, to be claimed and decided.
     fn main_button_pressed(&mut self) {
         if !self.modifiers.is_empty() {
             return;
@@ -988,16 +1051,80 @@ impl Conversing {
         let Some(at) = self.cursor else {
             return;
         };
-        let Some(scene) = self.scene() else {
-            return;
-        };
-        let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
-        let Some((part, on)) = conversation_aim::aim(&placed, scene.scale, at) else {
-            return;
-        };
-        if let Some(drawing) = self.drawing.as_mut() {
-            drawing.press(part, on);
+        match self.aimed(at) {
+            Some(card_aim::Aimed::Page { x, y }) => {
+                self.on_the_page = true;
+                if self.conversation.press_the_page() {
+                    self.ask_drawn();
+                }
+                self.to_the_page(CardInput::Pointer {
+                    went: Button::Pressed,
+                    x,
+                    y,
+                });
+            }
+            Some(card_aim::Aimed::Part(part, on)) => {
+                if let Some(drawing) = self.drawing.as_mut() {
+                    drawing.press(part, on);
+                }
+            }
+            None => {}
         }
+    }
+
+    /// The cursor moved to `at`: the page's, as a drag, while a press on
+    /// it is held.
+    fn moved(&mut self, at: (f64, f64)) {
+        self.cursor = Some(at);
+        if !self.on_the_page {
+            return;
+        }
+        match self.on_the_card(at) {
+            Some((x, y)) => self.to_the_page(CardInput::Pointer {
+                went: Button::Dragged,
+                x,
+                y,
+            }),
+            // The card went while the button was held.
+            None => self.on_the_page = false,
+        }
+    }
+
+    /// The main button came up: the page's, where the cursor is, after a
+    /// press on it.
+    fn main_button_released(&mut self) {
+        if !std::mem::replace(&mut self.on_the_page, false) {
+            return;
+        }
+        if let Some((x, y)) = self.cursor.and_then(|at| self.on_the_card(at)) {
+            self.to_the_page(CardInput::Pointer {
+                went: Button::Released,
+                x,
+                y,
+            });
+        }
+    }
+
+    /// A wheel or a trackpad turned: the page's, scrolled, when the cursor
+    /// is over the card's page; nobody's anywhere else, since neither part
+    /// scrolls.
+    fn wheeled(&self, delta: MouseScrollDelta) {
+        let Some(at) = self.cursor else {
+            return;
+        };
+        let (Some(card_aim::Aimed::Page { x, y }), Some((_, scale))) =
+            (self.aimed(at), self.measured())
+        else {
+            return;
+        };
+        let turned = match delta {
+            MouseScrollDelta::LineDelta(across, down) => Turned::Lines { across, down },
+            MouseScrollDelta::PixelDelta(PhysicalPosition { x, y }) => {
+                Turned::Pixels { across: x, down: y }
+            }
+        };
+        let (right, down) = card_aim::scrolled(turned, scale);
+        self.to_the_page(CardInput::Wheel { x, y, right, down });
     }
 
     /// What a press on `part` was decided to be: acted on, and the parts
@@ -1126,6 +1253,13 @@ impl Conversing {
         let Some(press) = pressed(event, self.modifiers) else {
             return;
         };
+        if self.conversation.keys_to_the_card() {
+            // The card's page has the keyboard (queue item 718).
+            if let Some(key) = card_keys::key(&press, event.text.as_deref()) {
+                self.to_the_page(CardInput::Key(key));
+            }
+            return;
+        }
         let Some(edit) = typing::edit(&press, event.text.as_deref()) else {
             return;
         };
@@ -1244,13 +1378,19 @@ impl ApplicationHandler<Heard> for Conversing {
             WindowEvent::CursorMoved {
                 position: PhysicalPosition { x, y },
                 ..
-            } => self.cursor = Some((x, y)),
+            } => self.moved((x, y)),
             WindowEvent::CursorLeft { .. } => self.cursor = None,
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 ..
             } => self.main_button_pressed(),
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => self.main_button_released(),
+            WindowEvent::MouseWheel { delta, .. } => self.wheeled(delta),
             // A key already down as the window gained focus was pressed
             // somewhere else.
             WindowEvent::KeyboardInput {

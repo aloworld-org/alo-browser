@@ -18,6 +18,7 @@
 
 use crate::agent_record::Caller;
 use crate::asking::{Answer, Ask, Refused};
+use crate::card_input::CardInput;
 use crate::mark::Marked;
 use alo_paint::Point;
 use alo_renderer::pointer::Pointer;
@@ -79,7 +80,7 @@ pub enum Order {
 
 /// What the conversation asks of a page it shows as a card (ADR 0076 B,
 /// queue item 717).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CardOrder {
     /// Stream the page as PNG frames, each at most this many device pixels
     /// each way: the card's page box times the window's scale.
@@ -101,6 +102,10 @@ pub enum CardOrder {
         /// In CSS pixels.
         size: (u32, u32),
     },
+    /// Send the page a person's press, drag, release, wheel or key over the
+    /// card (queue item 718, ADR 0024 § 5): only the conversation's window
+    /// sends one, for a person, and nothing an agent sends becomes one.
+    Input(CardInput),
 }
 
 /// What a person asked of the tabs (ADR 0024 §§ 5, 6).

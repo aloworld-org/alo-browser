@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page in a card can be used, not only looked at.** Pressing a link in
+  the card follows it, clicking a field and typing types into it, and a
+  wheel or trackpad over the page scrolls it — through Chrome and through
+  the Chromium alo carries. A press on the page gives it the keyboard until
+  you press anywhere else, such as the box. Only your own pointer and keys
+  do this: nothing an agent asks becomes a press at a point (item 718).
 - **Design: every search opens on an All tab.** A short answer first, on the
   page itself, then the sites, a row of images and more sites; the tabs are
   All · Answer · Sites · Images · Videos · News (`docs/design/shell.md`).

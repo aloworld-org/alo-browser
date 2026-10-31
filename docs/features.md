@@ -822,8 +822,21 @@ The reason this exists rather than a faster fork of somebody else's engine.
   while it streams (`tests/a_page_as_a_card_through_chrome.rs`). Owed:
   *Back* and *Forward* read and followed (737), frames at the conversation's
   scale when the parked window lands by a display of another (738), what
-  the Dock, ⌘-Tab and Stage Manager do with a parked Chrome (739), a
-  person's pointer and keys on the card (718).
+  the Dock, ⌘-Tab and Stage Manager do with a parked Chrome (739).
+  **A person's pointer, wheel and keys on the card** (718, ADR 0024 § 5):
+  the browser process computes the card's page box from the first
+  screen's viewport and aims a point of the window at it from its own
+  composition; a press there, its drags and its release go to the page as
+  Chrome's `Input.dispatchMouseEvent` at the page's CSS pixels, a wheel as
+  its `mouseWheel` (40 a line), and the press gives the page the keyboard
+  until a press anywhere else — text, Return, Backspace, Tab and Escape
+  sent as `Input.dispatchKeyEvent`, nothing with ⌘ or Ctrl held. Never an
+  agent's verb (ADR 0002). Through the machine's Chrome and the Chromium alo
+  carries, a link pressed is followed, typing reaches a field and a wheel
+  scrolls the page
+  (`tests/a_persons_input_on_a_card_reaches_chromes_page.rs`). Owed: hover,
+  other buttons, double clicks and a key to the glass (740); the arrows,
+  the page's shortcuts and an input method (741).
   Owed: *Search chats* and the button that hides the panel (711), a press
   on an offer (714), an agent reaching a page the conversation opened
   (716), a field's value kept to one line by the engine (715), the

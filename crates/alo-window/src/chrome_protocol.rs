@@ -21,6 +21,7 @@
 //! text read from it is bounded ([`MOST_TEXT`]), and anything that is not what
 //! the protocol says is refused as a [`Malformed`] kind, never a panic.
 
+use crate::card_input::{Keyed, PersonsKey};
 use crate::json_depth;
 use core::fmt;
 use serde_json::{Map, Value};
@@ -59,6 +60,9 @@ pub enum Mouse {
     Moved,
     /// The left button goes down.
     Pressed,
+    /// The pointer moves with the left button held: a person's drag over a
+    /// card's page (queue item 718).
+    Dragged,
     /// The left button comes up: with the press before it at the same
     /// point, a click.
     Released,
@@ -261,6 +265,28 @@ pub enum Command {
         /// What arrives.
         text: String,
     },
+    /// `Input.dispatchMouseEvent`, a wheel turned over a point of the page:
+    /// a person's, over a card's page, and never an agent's (queue item
+    /// 718, ADR 0002).
+    Wheel {
+        /// In CSS pixels of the window.
+        x: f64,
+        /// In CSS pixels of the window.
+        y: f64,
+        /// How far right to scroll, in CSS pixels.
+        right: f64,
+        /// How far down to scroll, in CSS pixels.
+        down: f64,
+    },
+    /// `Input.dispatchKeyEvent`: a key a person pressed while a card's page
+    /// had the keyboard, going down or coming up — a person's, never an
+    /// agent's (queue item 718, ADR 0002).
+    Typed {
+        /// Which, and what was held.
+        key: PersonsKey,
+        /// Down, or up.
+        down: bool,
+    },
     /// `Target.setAutoAttach`: be attached to every target that starts from
     /// now on, each held before it loads or runs anything until it is let go
     /// or closed — or, with `hold` false, no longer. Sent to Chrome itself,
@@ -387,9 +413,9 @@ impl Command {
             Self::ReadNode { .. } => "Accessibility.getPartialAXTree",
             Self::ScrollIntoView { .. } => "DOM.scrollIntoViewIfNeeded",
             Self::NodeAt { .. } => "DOM.getNodeForLocation",
-            Self::Mouse { .. } => "Input.dispatchMouseEvent",
+            Self::Mouse { .. } | Self::Wheel { .. } => "Input.dispatchMouseEvent",
             Self::Focus { .. } => "DOM.focus",
-            Self::Key { .. } => "Input.dispatchKeyEvent",
+            Self::Key { .. } | Self::Typed { .. } => "Input.dispatchKeyEvent",
             Self::InsertText { .. } => "Input.insertText",
             Self::HoldNewTabs { .. } => "Target.setAutoAttach",
             Self::LetGo => "Runtime.runIfWaitingForDebugger",
@@ -500,10 +526,10 @@ impl Command {
                 put("x", Value::from(*x));
                 put("y", Value::from(*y));
             }
-            Self::Mouse { .. } | Self::Key { .. } => {
-                for (name, value) in self.input() {
-                    put(name, value);
-                }
+            Self::Mouse { .. } | Self::Key { .. } | Self::Wheel { .. } | Self::Typed { .. } => {
+                self.input()
+                    .into_iter()
+                    .for_each(|(name, value)| put(name, value));
             }
             Self::InsertText { text } => put("text", Value::from(text.as_str())),
             Self::HoldNewTabs { hold } => {
@@ -528,6 +554,8 @@ impl Command {
                 toggles,
             } => mouse(*kind, (*x, *y), *toggles),
             Self::Key { chord, down } => key(*chord, *down),
+            Self::Wheel { x, y, right, down } => persons_wheel((*x, *y), (*right, *down)),
+            Self::Typed { key, down } => persons_key(key, *down),
             _ => Vec::new(),
         }
     }
@@ -576,6 +604,7 @@ fn mouse(kind: Mouse, (x, y): (f64, f64), toggles: bool) -> Vec<(&'static str, V
     let (kind, button) = match kind {
         Mouse::Moved => ("mouseMoved", "none"),
         Mouse::Pressed => ("mousePressed", "left"),
+        Mouse::Dragged => ("mouseMoved", "left"),
         Mouse::Released => ("mouseReleased", "left"),
     };
     vec![
@@ -635,6 +664,98 @@ fn typed(Digit(digit): Digit, down: bool) -> Vec<(&'static str, Value)> {
         fields.push(("text", Value::from(typed)));
     }
     fields
+}
+
+/// How a person's wheel and keys over a card's page are written (queue item
+/// 718): Chrome's `mouseWheel`, and a key as Chrome's own window would hear
+/// it from the system. A key that writes text goes down as `keyDown` with
+/// that text — which is what makes the character, with `keydown`,
+/// `keypress`, `beforeinput` and `input` heard by the page — and comes up as
+/// `keyUp`. Return goes down with its text, `"\r"`, as Chrome's `keyDown`
+/// for it does, so a form hears it; Backspace, Tab and Escape go down as
+/// `rawKeyDown` with no text, Backspace carrying the editing command
+/// `deleteBackward`, since on macOS a key alone does nothing to a field (as
+/// [`Chord::DeleteBackward`] found for an agent's keys). Shift is Chrome's 8
+/// and ⌥ its 1.
+const SHIFT: i64 = 8;
+
+/// Chrome's modifier for ⌥, or Alt.
+const ALT: i64 = 1;
+
+/// The `params` of `Input.dispatchMouseEvent` for a wheel turned at `at`,
+/// scrolling the page `by`, right and down, in CSS pixels.
+fn persons_wheel(at: (f64, f64), by: (f64, f64)) -> Vec<(&'static str, Value)> {
+    vec![
+        ("type", Value::from("mouseWheel")),
+        ("x", Value::from(at.0)),
+        ("y", Value::from(at.1)),
+        ("deltaX", Value::from(by.0)),
+        ("deltaY", Value::from(by.1)),
+        ("button", Value::from("none")),
+        ("modifiers", Value::from(0)),
+    ]
+}
+
+/// The `params` of `Input.dispatchKeyEvent` for `pressed`, going down when
+/// `down` and coming up otherwise.
+fn persons_key(pressed: &PersonsKey, down: bool) -> Vec<(&'static str, Value)> {
+    let modifiers = if pressed.shift { SHIFT } else { 0 } | if pressed.option { ALT } else { 0 };
+    let (key, code, keycode, text, command) = match &pressed.key {
+        Keyed::Text(text) => (
+            text.as_str(),
+            None,
+            keycode_of(text),
+            Some(text.as_str()),
+            None,
+        ),
+        Keyed::Return => ("Enter", Some("Enter"), Some(13), Some("\r"), None),
+        Keyed::Backspace => (
+            "Backspace",
+            Some("Backspace"),
+            Some(8),
+            None,
+            Some("deleteBackward"),
+        ),
+        Keyed::Tab => ("Tab", Some("Tab"), Some(9), None, None),
+        Keyed::Escape => ("Escape", Some("Escape"), Some(27), None, None),
+    };
+    let kind = match (down, text) {
+        (false, _) => "keyUp",
+        (true, Some(_)) => "keyDown",
+        (true, None) => "rawKeyDown",
+    };
+    let mut fields = vec![
+        ("type", Value::from(kind)),
+        ("key", Value::from(key)),
+        ("modifiers", Value::from(modifiers)),
+    ];
+    if let Some(code) = code {
+        fields.push(("code", Value::from(code)));
+    }
+    if let Some(keycode) = keycode {
+        fields.push(("windowsVirtualKeyCode", Value::from(keycode)));
+    }
+    if down {
+        if let Some(text) = text {
+            fields.push(("text", Value::from(text)));
+            fields.push(("unmodifiedText", Value::from(text)));
+        }
+        if let Some(command) = command {
+            fields.push(("commands", Value::Array(vec![Value::from(command)])));
+        }
+    }
+    fields
+}
+
+/// The key code Chrome gives a key that writes `text`, where it is one a
+/// key of an English keyboard writes: a letter's capital, a digit's own, a
+/// space's 32. Any other is sent with none, and Chrome takes its text.
+fn keycode_of(text: &str) -> Option<u32> {
+    let mut letters = text.chars();
+    let (Some(only), None) = (letters.next(), letters.next()) else {
+        return None;
+    };
+    (only.is_ascii_alphanumeric() || only == ' ').then(|| u32::from(only.to_ascii_uppercase()))
 }
 
 /// `command`, written as the message that asks for it under `id`, through
@@ -3727,6 +3848,115 @@ mod tests {
                 what: None,
                 at: Places::default()
             })
+        );
+    }
+
+    fn persons_at(command: &Command) -> String {
+        String::from_utf8_lossy(&written(9, Some("S"), command)).into_owned()
+    }
+
+    fn persons(key: Keyed) -> PersonsKey {
+        PersonsKey {
+            key,
+            shift: false,
+            option: false,
+        }
+    }
+
+    #[test]
+    fn a_wheel_is_written_as_the_input_chrome_reads() {
+        assert_eq!(
+            persons_at(&Command::Wheel {
+                x: 300.5,
+                y: 200.0,
+                right: 0.0,
+                down: 120.0
+            }),
+            r#"{"id":9,"method":"Input.dispatchMouseEvent","params":{"button":"none","deltaX":0.0,"deltaY":120.0,"modifiers":0,"type":"mouseWheel","x":300.5,"y":200.0},"sessionId":"S"}"#
+        );
+    }
+
+    #[test]
+    fn a_letter_goes_down_with_its_text_and_up_without() {
+        let capital = PersonsKey {
+            key: Keyed::Text("A".to_owned()),
+            shift: true,
+            option: false,
+        };
+        assert_eq!(
+            persons_at(&Command::Typed {
+                key: capital.clone(),
+                down: true
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"key":"A","modifiers":8,"text":"A","type":"keyDown","unmodifiedText":"A","windowsVirtualKeyCode":65},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            persons_at(&Command::Typed {
+                key: capital,
+                down: false
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"key":"A","modifiers":8,"type":"keyUp","windowsVirtualKeyCode":65},"sessionId":"S"}"#
+        );
+        // A character no English key writes has no key code.
+        let pi = PersonsKey {
+            key: Keyed::Text("π".to_owned()),
+            shift: false,
+            option: true,
+        };
+        assert_eq!(
+            persons_at(&Command::Typed {
+                key: pi,
+                down: true
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"key":"π","modifiers":1,"text":"π","type":"keyDown","unmodifiedText":"π"},"sessionId":"S"}"#
+        );
+        assert_eq!(keycode_of(" "), Some(32));
+        assert_eq!(keycode_of("7"), Some(55));
+        assert_eq!(keycode_of("ab"), None);
+        assert_eq!(keycode_of("."), None);
+    }
+
+    #[test]
+    fn return_goes_down_with_its_text_and_the_others_raw() {
+        assert_eq!(
+            persons_at(&Command::Typed {
+                key: persons(Keyed::Return),
+                down: true
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Enter","key":"Enter","modifiers":0,"text":"\r","type":"keyDown","unmodifiedText":"\r","windowsVirtualKeyCode":13},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            persons_at(&Command::Typed {
+                key: persons(Keyed::Backspace),
+                down: true
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Backspace","commands":["deleteBackward"],"key":"Backspace","modifiers":0,"type":"rawKeyDown","windowsVirtualKeyCode":8},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            persons_at(&Command::Typed {
+                key: persons(Keyed::Backspace),
+                down: false
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Backspace","key":"Backspace","modifiers":0,"type":"keyUp","windowsVirtualKeyCode":8},"sessionId":"S"}"#
+        );
+        let back_a_field = PersonsKey {
+            key: Keyed::Tab,
+            shift: true,
+            option: false,
+        };
+        assert_eq!(
+            persons_at(&Command::Typed {
+                key: back_a_field,
+                down: true
+            }),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"Tab","key":"Tab","modifiers":8,"type":"rawKeyDown","windowsVirtualKeyCode":9},"sessionId":"S"}"#
+        );
+        assert!(
+            persons_at(&Command::Typed {
+                key: persons(Keyed::Escape),
+                down: true
+            })
+            .contains(r#""code":"Escape","key":"Escape","modifiers":0,"type":"rawKeyDown","windowsVirtualKeyCode":27"#)
         );
     }
 }
