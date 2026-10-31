@@ -157,6 +157,7 @@ pub mod chrome_frame;
 pub mod chrome_gate;
 pub mod chrome_held;
 pub mod chrome_hold;
+pub mod chrome_loading;
 pub mod chrome_mark;
 pub mod chrome_menu;
 pub mod chrome_named;

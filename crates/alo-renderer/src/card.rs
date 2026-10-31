@@ -19,6 +19,11 @@
 //! address the page is at. Each enters the card's document as a text node
 //! ([`crate::card_document`]).
 //!
+//! The card opens as its page's navigation commits, before the page has
+//! loaded, and Chrome's frames are drawn from its first paint; until the
+//! browser process says the page has loaded, the bar says *Loading* after
+//! the address ([`Card::loading`], queue item 751).
+//!
 //! Not here yet, and not drawn: the design's *1 of 3 sources ‹ ›* and *alo
 //! used the highlighted part of this page*, which wait on an answer that
 //! has sources. *Back* and *Forward* are drawn, and disabled whenever the
@@ -51,11 +56,15 @@ pub struct Card {
     /// The last frame Chrome drew of the page: a PNG's bytes, or nothing
     /// before the first has arrived.
     pub frame: Option<Vec<u8>>,
+    /// Whether the page is still loading: the newest document of its own
+    /// frame has not loaded, as the browser process last heard (queue item
+    /// 751).
+    pub loading: bool,
 }
 
 impl Card {
     /// A card for `url`, answering `said`, with nowhere to go back or
-    /// forward to and no frame yet.
+    /// forward to, no frame yet, and its page loading.
     pub fn new(said: impl Into<String>, url: Url) -> Self {
         Self {
             said: said.into(),
@@ -63,7 +72,15 @@ impl Card {
             back: false,
             forward: false,
             frame: None,
+            loading: true,
         }
+    }
+
+    /// The same card, its page loaded.
+    #[must_use]
+    pub fn loaded(mut self) -> Self {
+        self.loading = false;
+        self
     }
 
     /// The same card holding `frame`.
@@ -123,6 +140,9 @@ mod tests {
         let new = card("https://example.com/");
         assert!(!new.back && !new.forward);
         assert_eq!(new.frame, None);
-        assert_eq!(new.holding(vec![1]).frame, Some(vec![1]));
+        assert_eq!(new.clone().holding(vec![1]).frame, Some(vec![1]));
+        // Its page is loading until it is said to have loaded.
+        assert!(new.loading);
+        assert!(!new.holding(vec![1]).loaded().loading);
     }
 }

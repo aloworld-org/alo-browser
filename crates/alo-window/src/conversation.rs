@@ -697,6 +697,19 @@ impl Conversation {
         }
     }
 
+    /// The card's page is `loading`, or has loaded (queue item 751): the
+    /// card says *loading* until it has. Whether the card shows something
+    /// else for it.
+    pub fn card_loading(&mut self, loading: bool) -> bool {
+        match self.thread_mut().and_then(Thread::card_mut) {
+            Some(card) if card.loading != loading => {
+                card.loading = loading;
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// The card holds `frame`, Chrome's newest of its page, a PNG's bytes:
     /// whether there is a card to hold it.
     pub fn framed(&mut self, frame: Vec<u8>) -> bool {
@@ -1486,6 +1499,25 @@ mod tests {
             "https://example.com/wiki/Talk:Main_Page"
         );
         assert_eq!(card.said, "example.com", "what the person said stays");
+    }
+
+    #[test]
+    fn the_card_says_its_page_is_loading_until_it_has_loaded() {
+        let mut conversation = Conversation::default();
+        let url = alo_url::parse("https://example.com/").unwrap();
+        assert!(!conversation.card_loading(false), "no card");
+        conversation.open_card(url);
+        let loading = |conversation: &Conversation| conversation.card().map(|card| card.loading);
+        assert_eq!(loading(&conversation), Some(true), "a new card is loading");
+        assert!(!conversation.card_loading(true), "nothing changed");
+        assert!(conversation.framed(vec![1]));
+        assert_eq!(loading(&conversation), Some(true), "a frame is not a load");
+        assert!(conversation.card_loading(false));
+        assert_eq!(loading(&conversation), Some(false));
+        assert!(!conversation.card_loading(false));
+        // A link followed: loading again until it has.
+        assert!(conversation.card_loading(true));
+        assert_eq!(loading(&conversation), Some(true));
     }
 
     #[test]

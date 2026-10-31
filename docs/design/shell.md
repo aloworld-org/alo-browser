@@ -281,6 +281,13 @@ How: ADR 0076 B — the card is drawn by this engine from Chrome's frames,
 Chrome's window parked until *Expand* (built by 717; a person's input on it
 is 718).
 
+The card opens as its page's navigation commits and shows the page from its
+first paint; until the page has loaded, its bar says **Loading** after the
+address, in the bar's quiet 13 px words, 8 either side, before *Expand* —
+the address gives it the room. A page that never loads stays a card saying
+*Loading* until a person closes it; nothing closes it for them (ADR 0089,
+item 751).
+
 ## The agent at work
 
 - The window splits: the page large on the left, the agent's column on the

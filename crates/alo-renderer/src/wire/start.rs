@@ -110,13 +110,14 @@ impl Writer {
 
     /// The page shown as a card (queue item 717): what the person said, the
     /// page's address, whether there is anywhere to go back or forward to,
-    /// and the last frame Chrome drew of it, a PNG's bytes, if one has
-    /// arrived.
+    /// whether it is still loading (queue item 751), and the last frame
+    /// Chrome drew of it, a PNG's bytes, if one has arrived.
     fn card(&mut self, card: &Card) {
         self.text(&card.said);
         self.text(&card.url.serialised);
         self.bool(card.back);
         self.bool(card.forward);
+        self.bool(card.loading);
         match &card.frame {
             Some(png) => {
                 self.bool(true);
@@ -238,6 +239,7 @@ impl Reader<'_> {
         let url = self.site("a card for an address that is not a site's")?;
         let back = self.bool()?;
         let forward = self.bool()?;
+        let loading = self.bool()?;
         let frame = if self.bool()? {
             let png = self.bytes()?;
             if !png.starts_with(PNG_SIGNATURE) {
@@ -253,6 +255,7 @@ impl Reader<'_> {
             back,
             forward,
             frame,
+            loading,
         })
     }
 

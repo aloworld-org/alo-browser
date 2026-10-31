@@ -2435,9 +2435,11 @@ items where being right and being unusable are the same outcome.
       renders and through the window's own road; emoji drawn in colour from
       Noto Color Emoji, carried under the OFL and handed to the interface's
       renderers alone, a `CBDT`/`sbix` glyph painted as its picture and an
-      emoji's sequence kept in one face (ADR 0088)
-      · Owed: a card drawn from the page's first paint rather than its
-      load (751), the rail's chats (760), an agent reaching a page the conversation
+      emoji's sequence kept in one face (ADR 0088); a card drawn from its
+      page's first paint (751, ADR 0089) — opened at its navigation's
+      commit, saying *Loading* until its page has loaded, and kept as a card
+      when it never does, through the window's own road and both Chromiums
+      · Owed: the rail's chats (760), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
       a page inside the conversation (702), the agent's words and steps as

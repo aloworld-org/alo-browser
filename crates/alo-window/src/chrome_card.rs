@@ -24,6 +24,10 @@
 //! - **Where the page is**: told to the conversation whenever the page's
 //!   own frame goes somewhere while it streams ([`tell_where`],
 //!   [`ToFrame::Moved`], queue item 742), so the card's address follows it.
+//! - **Whether it is loading**: told to the conversation whenever that
+//!   changes while it streams ([`tell_loading`], [`ToFrame::Loading`],
+//!   queue item 751): the page is streamed from its navigation's commit,
+//!   so the card says *loading* until its newest document has loaded.
 //! - **Input**: a person's press, drag, release, wheel or key over the card's
 //!   page, sent to the page as a person's (queue item 718,
 //!   [`crate::chrome_card_input`]).
@@ -126,6 +130,26 @@ pub fn tell_where(tab: &Tab<'_>, told: &mut Option<Url>, tell: TellCard<'_>) {
     *told = Some(now.clone());
     // Nobody to hear it is a conversation that has gone.
     let _ = tell(ToFrame::Moved(now.clone()));
+}
+
+/// Tell `tell` whether `tab`'s page is loading, if it streams and that is
+/// not `told`, what it last told (queue item 751): read from what Chrome
+/// last said of the tab's own frame ([`Tab::is_loading`]), so this asks
+/// Chrome nothing. A card covered is told once it is streamed again.
+pub fn tell_loading(tab: &Tab<'_>, told: &mut Option<bool>, tell: TellCard<'_>) {
+    if !tab.casting().is_on() {
+        return;
+    }
+    let Some(tell) = tell else {
+        return;
+    };
+    let now = tab.is_loading();
+    if *told == Some(now) {
+        return;
+    }
+    *told = Some(now);
+    // Nobody to hear it is a conversation that has gone.
+    let _ = tell(ToFrame::Loading(now));
 }
 
 /// Tell `tell` the newest frame `tab` read since it was last asked, if it

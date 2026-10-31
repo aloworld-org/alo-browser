@@ -24,7 +24,7 @@
 use alo_layout::{Rect, Size};
 use alo_paint::{Point, from_png};
 use alo_renderer::card::{Card, PAGE_SIZE};
-use alo_renderer::card_document::PICTURED;
+use alo_renderer::card_document::{LOADING, PICTURED};
 use alo_renderer::card_place;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::face::Face;
@@ -223,8 +223,15 @@ fn frame() -> Result<Vec<u8>, String> {
 }
 
 /// The first screen with a card for `http://127.0.0.1:8765/card.html`,
-/// answering what the person typed, holding `frame`.
+/// answering what the person typed, holding `frame` — its page loaded when
+/// it holds one, and loading before (queue item 751).
 fn with_a_card(frame: Option<Vec<u8>>) -> Start {
+    let loading = frame.is_none();
+    with_a_card_loading(frame, loading)
+}
+
+/// [`with_a_card`], its page `loading` or loaded.
+fn with_a_card_loading(frame: Option<Vec<u8>>, loading: bool) -> Start {
     let url = alo_url::parse("http://127.0.0.1:8765/card.html")
         .unwrap_or_else(|_| alo_url::Url::about_blank());
     let card = Card::new("127.0.0.1:8765/card.html", url);
@@ -232,8 +239,11 @@ fn with_a_card(frame: Option<Vec<u8>>) -> Start {
         greeting: "Hello.".to_owned(),
         viewport: Size::new(WIDTH, HEIGHT),
         turns: vec![Turn::Page(match frame {
-            Some(png) => card.holding(png),
-            None => card,
+            Some(png) => Card {
+                loading,
+                ..card.holding(png)
+            },
+            None => Card { loading, ..card },
         })],
         ..Start::default()
     }
@@ -489,10 +499,58 @@ fn the_card_holding_chromes_frame_is_drawn_as_the_reference() -> Result<(), Stri
     Ok(())
 }
 
+/// Queue item 751: a card is drawn from its page's first paint, before the
+/// page has loaded, and its bar says *Loading* until it has — after the
+/// address, 8 either side, before *Expand*, which does not move; the
+/// address gives it the room.
+#[test]
+fn a_card_whose_page_is_loading_says_so_in_its_bar() -> Result<(), String> {
+    let mut renderer = Renderer::new(fonts());
+    let _ = renderer.handle(ToRenderer::Start(Box::new(with_a_card_loading(
+        Some(frame()?),
+        true,
+    ))));
+    let at = |class: &str| boxes_of(&renderer, class);
+    // The word, one line of 18 in the bar's middle, ends 8 and the bar's 2
+    // before Expand: 879 - 2 - 8 = 869; the address ends 2 and 8 before
+    // it, 820.78125 - 10 = 810.78125.
+    assert_eq!(at("loading"), vec![px(820.781_25, 112.5, 48.218_75, 18.0)]);
+    assert_eq!(at("url"), vec![px(171.0, 112.5, 639.781_25, 18.0)]);
+    assert_eq!(at("ibtn expand"), vec![px(879.0, 103.5, 36.0, 36.0)]);
+    assert_eq!(at("shot"), vec![px(81.0, 145.0, 878.0, 520.0)]);
+    let drawn = draw(with_a_card_loading(Some(frame()?), true));
+    let some = |name: &str| Some(name.to_owned());
+    assert_eq!(
+        names(&read(&drawn.tree, "image")),
+        vec![some(PICTURED)],
+        "the frame is drawn while it loads"
+    );
+    assert!(
+        drawn.tree.to_outline().contains(LOADING),
+        "{}",
+        drawn.tree.to_outline()
+    );
+    // Loaded, it is gone, and the address has its room back.
+    let mut loaded = Renderer::new(fonts());
+    let _ = loaded.handle(ToRenderer::Start(Box::new(with_a_card_loading(
+        Some(frame()?),
+        false,
+    ))));
+    assert!(boxes_of(&loaded, "loading").is_empty());
+    assert_eq!(
+        boxes_of(&loaded, "url"),
+        vec![px(171.0, 112.5, 706.0, 18.0)]
+    );
+    Ok(())
+}
+
+/// Its page loading, too: the reference shows the bar's *Loading* (queue
+/// item 751).
 #[test]
 fn a_card_before_its_first_frame_is_its_white_page() {
     let drawn = draw(with_a_card(None));
     assert!(read(&drawn.tree, "image").is_empty(), "no picture yet");
+    assert!(drawn.tree.to_outline().contains(LOADING));
     let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));
     assert_eq!(pixel(&frame, 500, 400), Some([0xff, 0xff, 0xff, 0xff]));
     assert_eq!(holds("card-before-a-frame.png", Some(&frame)), Ok(()));

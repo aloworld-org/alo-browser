@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page in the conversation shows as soon as it starts to draw.** A
+  page opened in the conversation used to stay a white card until it had
+  finished loading, and one that never finished within thirty seconds was
+  closed as *could not be opened*. Now the card opens as soon as the page
+  arrives, shows it as it draws, and says *Loading* beside the address
+  until it has loaded; a page that never finishes loading stays open,
+  still saying so, until you close it (ADR 0089).
 - **Emoji, in colour.** Emoji in search results, names and anything else
   the interface shows are now drawn as colour pictures, from the Noto Color
   Emoji font alo carries (under the SIL Open Font License, its licence in

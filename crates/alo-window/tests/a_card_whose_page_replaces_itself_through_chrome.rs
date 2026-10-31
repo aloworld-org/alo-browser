@@ -24,10 +24,12 @@
 //!    press on the card's bar, which claims nothing, does the same); a card
 //!    with no picture cannot be pressed for it; and the card failing gave
 //!    it to nothing, so the next address typed by hand reached nothing.
-//!    Here `/never.html` never loads: the card is said unopened — kept in
-//!    the first screen's line and said on the terminal, not wiped by the
-//!    next paint — the box has the keyboard again, and the next address,
-//!    typed with no press first, opens.
+//!    Here `/never.html` is never answered, so its navigation never
+//!    commits (a page that commits and never loads is a card, queue item
+//!    751, ADR 0089): the card is said unopened — kept in the first
+//!    screen's line and said on the terminal, not wiped by the next paint —
+//!    the box has the keyboard again, and the next address, typed with no
+//!    press first, opens.
 //!
 //! The real pointer is never moved and no key is posted to the system.
 //! Never the real network: every address is `http://127.0.0.1:PORT/…`.
@@ -73,9 +75,6 @@ const CHALLENGE: &str = "<!doctype html><title>Challenge</title>\
 const REAL: &str = "<!doctype html><title>Real</title>\
     <style>body{margin:0;background:#2a9d8f}</style><h1>Real</h1>";
 
-/// A page whose `load` never comes.
-const NEVER: &str = "<!doctype html><title>Never</title><img src=/held alt=\"\">";
-
 /// A server on this machine answering the pages, holding `/held` open
 /// unanswered for as long as the test may run: its port.
 fn serve() -> Result<u16, String> {
@@ -98,14 +97,13 @@ fn serve() -> Result<u16, String> {
                 }
                 let asked = String::from_utf8_lossy(&asked);
                 let (status, body) = match asked.split(' ').nth(1) {
-                    Some("/held") => {
+                    Some("/held" | "/never.html") => {
                         // Never answered while the test runs.
                         std::thread::sleep(AT_MOST * 2);
                         return;
                     }
                     Some("/challenge.html") => ("200 OK", CHALLENGE),
                     Some("/real.html") => ("200 OK", REAL),
-                    Some("/never.html") => ("200 OK", NEVER),
                     _ => ("404 Not Found", ""),
                 };
                 let reply = format!(
@@ -272,8 +270,8 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
         "{who}: a page that replaced itself was said unopened"
     );
 
-    // 2. A page that never loads, the box's keyboard taken by a press on
-    // the card's bar while it waits.
+    // 2. A page never answered, the box's keyboard taken by a press on the
+    // card's bar while it waits.
     let never = format!("http://127.0.0.1:{port}/never.html");
     driven.type_and_return(&never);
     driven.until("the card opening", |driven| {

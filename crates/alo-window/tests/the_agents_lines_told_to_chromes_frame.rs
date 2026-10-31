@@ -104,6 +104,22 @@ fn said(answer: &str) -> Option<String> {
     None
 }
 
+/// The agent's line `news` tells the frame, if it tells one: every other
+/// thing a frame is told named, so that a new one is decided here.
+fn agents_line(news: ToFrame) -> Option<AgentLine> {
+    match news {
+        ToFrame::Agent(line) => Some(line),
+        ToFrame::Stand(_)
+        | ToFrame::Named(_)
+        | ToFrame::Strip(_)
+        | ToFrame::StripSaid(_)
+        | ToFrame::Cast(_)
+        | ToFrame::Uncast(_)
+        | ToFrame::Moved(_)
+        | ToFrame::Loading(_) => None,
+    }
+}
+
 #[test]
 fn the_frame_is_told_each_verbs_answer_and_nothing_else() -> Result<(), String> {
     let page = std::fs::read(case().join("page.html")).map_err(|why| why.to_string())?;
@@ -157,19 +173,7 @@ fn the_frame_is_told_each_verbs_answer_and_nothing_else() -> Result<(), String> 
     let answers = answers?;
     assert_eq!(answers.len(), lines.len(), "{answers:#?}");
 
-    let heard: Vec<AgentLine> = told
-        .iter()
-        .filter_map(|news| match news {
-            ToFrame::Agent(line) => Some(line),
-            ToFrame::Stand(_)
-            | ToFrame::Named(_)
-            | ToFrame::Strip(_)
-            | ToFrame::StripSaid(_)
-            | ToFrame::Cast(_)
-            | ToFrame::Uncast(_)
-            | ToFrame::Moved(_) => None,
-        })
-        .collect();
+    let heard: Vec<AgentLine> = told.iter().filter_map(agents_line).collect();
     // One a verb, in the words each was answered with.
     let expected: Vec<AgentLine> = answers
         .get(1..5)

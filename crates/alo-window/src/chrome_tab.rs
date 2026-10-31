@@ -80,15 +80,23 @@
 //! # Waiting for the page, not the blank one before it
 //!
 //! A tab begins at `about:blank`, whose loading may still be told of after
-//! the tab is attached. So the page is loaded when its **own** loader — the
-//! one `Page.navigate` names — reaches its `load` stage, and a `load` told
-//! of any other is passed over.
+//! the tab is attached. So the page is loaded when the newest document its
+//! own frame began since it was sent there — or the loader `Page.navigate`
+//! names — reaches its `load` stage, and a `load` told of any other is
+//! passed over ([`crate::chrome_loading`]).
+//!
+//! A page opened as the conversation's card is waited for only until its
+//! navigation has **committed** ([`Tab::open_as_a_card`], queue item 751):
+//! it is streamed from its first paint, and whether it has loaded is read
+//! as Chrome goes on telling of it ([`Tab::is_loading`]). Every other tab is
+//! waited for until it has loaded, as an agent reads a page that has.
 
 use crate::agent_sites::AgentSites;
 use crate::asking::Refused;
 use crate::chrome::{Chrome, Failed};
 use crate::chrome_gate::{self, Refusal};
 use crate::chrome_hold::{Holding, Kind, Unheld};
+use crate::chrome_loading::Loading;
 use crate::chrome_owed::{self, Owed};
 use crate::chrome_protocol::{
     self, AxNode, Command, Declined, Malformed, Message, Requested, Within,
@@ -173,6 +181,19 @@ pub struct Tab<'c> {
     /// B, queue item 717): every frame answered as it is read, the newest
     /// kept.
     casting: Casting,
+    /// What Chrome has told of the tab's own frame's documents: whether the
+    /// page has committed and loaded (queue item 751).
+    loading: Loading,
+}
+
+/// How long opening a tab waits for its page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Until {
+    /// Until the newest document of its own frame has loaded.
+    Loaded,
+    /// Until its navigation has committed: the conversation's card, drawn
+    /// from the page's first paint (queue item 751).
+    Committed,
 }
 
 /// The most moves within its document a page's frame is remembered to have
@@ -258,7 +279,7 @@ impl<'c> Tab<'c> {
         page: Vec<u8>,
         size: (u32, u32),
     ) -> Result<Self, Unopened> {
-        Self::begin(chrome, url, Kept::Frozen(page), None, size)
+        Self::begin(chrome, url, (Kept::Frozen(page), Until::Loaded), None, size)
     }
 
     /// Open the page at `address`, an `http` or `https` one, through
@@ -272,7 +293,39 @@ impl<'c> Tab<'c> {
     /// written to Chrome; or an [`Unopened`] as [`Tab::open_frozen`] says.
     pub fn open(chrome: &'c mut Chrome, address: &Url, size: (u32, u32)) -> Result<Self, Unopened> {
         on_the_network(address)?;
-        Self::begin(chrome, &address.to_string(), Kept::Network, None, size)
+        Self::begin(
+            chrome,
+            &address.to_string(),
+            (Kept::Network, Until::Loaded),
+            None,
+            size,
+        )
+    }
+
+    /// Open the page at `address` as [`Tab::open`] does, for the
+    /// conversation's card (ADR 0076 B, queue item 751): waited for only
+    /// until its navigation has committed, so that it is streamed from its
+    /// first paint rather than its `load` — a page whose `load` is held, or
+    /// never comes, still draws in the card. Whether it has loaded since is
+    /// [`Tab::is_loading`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Tab::open`]: a navigation that does not commit within Chrome's
+    /// patience — a server that never answers — is not opened.
+    pub fn open_as_a_card(
+        chrome: &'c mut Chrome,
+        address: &Url,
+        size: (u32, u32),
+    ) -> Result<Self, Unopened> {
+        on_the_network(address)?;
+        Self::begin(
+            chrome,
+            &address.to_string(),
+            (Kept::Network, Until::Committed),
+            None,
+            size,
+        )
     }
 
     /// Open the page at `address`, which an agent named, as [`Tab::open`]
@@ -308,15 +361,22 @@ impl<'c> Tab<'c> {
         }
         on_the_network(&url)?;
         let action = chrome.record_mut().an_action();
-        Self::begin(chrome, &url.to_string(), Kept::Network, Some(action), size)
+        Self::begin(
+            chrome,
+            &url.to_string(),
+            (Kept::Network, Until::Loaded),
+            Some(action),
+            size,
+        )
     }
 
-    /// A tab at `url`, answered from `kept`, loaded: opened as `opening`,
-    /// an agent's ask, or by the person when [`None`].
+    /// A tab at `url`, answered from `kept`, waited for `until` it has
+    /// loaded or committed: opened as `opening`, an agent's ask, or by the
+    /// person when [`None`].
     fn begin(
         chrome: &'c mut Chrome,
         url: &str,
-        kept: Kept,
+        (kept, until): (Kept, Until),
         opening: Option<ActionId>,
         (width, height): (u32, u32),
     ) -> Result<Self, Unopened> {
@@ -373,6 +433,7 @@ impl<'c> Tab<'c> {
             address: alo_url::parse(url).ok(),
             detached: false,
             casting: Casting::default(),
+            loading: Loading::default(),
         };
         // Only now, so that the tab itself is not held.
         tab.chrome.ask(None, &Command::HoldNewTabs { hold: true })?;
@@ -393,7 +454,7 @@ impl<'c> Tab<'c> {
         if tab.is_from_the_network() {
             tab.ask(&Command::TellOfSockets)?;
         }
-        tab.go()?;
+        tab.go(until)?;
         Ok(tab)
     }
 
@@ -569,56 +630,53 @@ impl<'c> Tab<'c> {
         self.answer_to(asked, false)
     }
 
-    /// Go to the page, and wait for the `load` of the document its own
-    /// frame holds: the loader the navigation began, or the newest its frame
-    /// began after it.
+    /// Go to the page, and wait `until` the document its own frame holds —
+    /// the loader the navigation began, or the newest its frame began after
+    /// it ([`crate::chrome_loading`]) — has loaded, or the navigation has
+    /// committed.
     ///
     /// A page may replace itself before it has loaded — a script's
     /// `location.replace`, as `www.reddit.com`'s challenge does — and the
     /// first loader then never loads. Queue item 749 found the card waiting
     /// out Chrome's whole patience for it, and closing.
-    fn go(&mut self) -> Result<(), Unopened> {
+    fn go(&mut self, until: Until) -> Result<(), Unopened> {
+        self.loading.navigating();
         let asked = self.chrome.send(
             Some(&self.session),
             &Command::Navigate {
                 url: self.url.clone(),
             },
         )?;
-        let until = Instant::now() + self.chrome.patience();
-        let mut going = None;
-        // The newest document the tab's own frame began, by its loader.
-        let mut newest: Option<String> = None;
-        let mut loaded = HashSet::new();
+        let by = Instant::now() + self.chrome.patience();
         loop {
-            if let Some(going) = &going
-                && loaded.contains(newest.as_ref().unwrap_or(going))
-            {
+            let done = match until {
+                Until::Loaded => self.loading.loaded(),
+                Until::Committed => self.loading.committed(),
+            };
+            if done {
                 return Ok(());
             }
-            match self.next(until)? {
+            match self.next(by)? {
                 Some(Message::Skipped { id: Some(id), .. }) if id == asked => {
                     return Err(Failed::TooLong.into());
                 }
                 Some(Message::Reply { id, result, .. }) if id == asked => {
                     let result = result.map_err(Failed::Declined)?;
                     match chrome_protocol::navigated(&result).map_err(Failed::Malformed)? {
-                        Ok(by) => going = Some(by),
+                        Ok(loader) => self.loading.navigated(loader),
                         Err(reason) => return Err(Unopened::NotNavigated { reason }),
-                    }
-                }
-                Some(Message::Event { method, params, .. }) if method == "Page.lifecycleEvent" => {
-                    let stage = chrome_protocol::stage(&params).map_err(Failed::Malformed)?;
-                    match stage.name.as_str() {
-                        "init" if stage.frame == self.target => newest = Some(stage.loader),
-                        "load" => {
-                            loaded.insert(stage.loader);
-                        }
-                        _ => {}
                     }
                 }
                 _ => {}
             }
         }
+    }
+
+    /// Whether the page is still loading: the newest document its own frame
+    /// began has not been told to have loaded (queue item 751) — as Chrome
+    /// last said, which is read whenever the tab is ([`Tab::catch_up`]).
+    pub fn is_loading(&self) -> bool {
+        !self.loading.loaded()
     }
 
     /// Take every message Chrome has sent already — answering each request
@@ -906,7 +964,8 @@ impl<'c> Tab<'c> {
     /// held target — those are answered here — or [`None`] for one that was.
     fn next(&mut self, until: Instant) -> Result<Option<Message>, Failed> {
         let message = self.chrome.receive(until)?;
-        if self.cast_in(&message)? {
+        // A frame streamed, and a stage of the page's documents.
+        if self.cast_in(&message)? || self.staged_in(&message)? {
             return Ok(None);
         }
         let held = self.held_by(&message);
@@ -1023,6 +1082,28 @@ impl<'c> Tab<'c> {
                 session: Some(_), ..
             } if held.is_none() => Ok(None),
             other => Ok(Some(other)),
+        }
+    }
+
+    /// Whether `message` is a stage of a document of the tab's, told through
+    /// its own session — kept, for whether its page has committed and
+    /// loaded ([`crate::chrome_loading`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Failed::Malformed`], for a stage that is not one.
+    fn staged_in(&mut self, message: &Message) -> Result<bool, Failed> {
+        match message {
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if *session == self.session && method == "Page.lifecycleEvent" => {
+                let stage = chrome_protocol::stage(params).map_err(Failed::Malformed)?;
+                self.loading.told(&self.target, stage);
+                Ok(true)
+            }
+            _ => Ok(false),
         }
     }
 

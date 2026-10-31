@@ -340,7 +340,12 @@ impl ChromeServing {
     /// ([`crate::message::CardOrder::Expand`]). Nothing is streamed until
     /// the conversation asks ([`crate::message::CardOrder::Stream`]); what
     /// is streamed, and that it stopped, is told on `told` beside what
-    /// [`ChromeServing::start_shown_alone`] tells.
+    /// [`ChromeServing::start_shown_alone`] tells — and, while it streams,
+    /// where its page is and whether it is still loading.
+    ///
+    /// A page from the network returns once its navigation has committed,
+    /// not once it has loaded ([`Tab::open_as_a_card`], queue item 751), so
+    /// a slow page is streamed from its first paint.
     ///
     /// # Errors
     ///
@@ -522,11 +527,7 @@ fn serve_in_chrome(
     };
     let swept = chrome.swept().clone();
     let profile = chrome.profile().to_path_buf();
-    let opened = match opening {
-        Opening::Frozen { url, page } => Tab::open_frozen(&mut chrome, &url, page, size),
-        Opening::Network(address) => Tab::open(&mut chrome, &address, size),
-    };
-    let mut tab = match opened {
+    let mut tab = match open(&mut chrome, opening, size, drawn) {
         Ok(tab) => tab,
         Err(why) => {
             let _ = tell.send(Err(Unserved::Unopened(why)));
@@ -566,6 +567,8 @@ fn serve_in_chrome(
     });
     // Where the card's page was last told to be (queue item 742).
     let mut told_where = None;
+    // And whether it was last told to be loading (queue item 751).
+    let mut told_loading = None;
     loop {
         let until = chrome_card::until(
             pages.tab(),
@@ -612,6 +615,9 @@ fn serve_in_chrome(
                 Arrival::Order(_) | Arrival::Exchanged(_) | Arrival::NetworkGone => {}
             }
         }
+        // Whether the page is loading before the frame drawn of it, so the
+        // first frame is never shown without the card knowing.
+        chrome_card::tell_loading(pages.tab(), &mut told_loading, frame);
         chrome_card::tell_newest(pages.tab_mut(), frame);
         chrome_card::tell_where(pages.tab(), &mut told_where, frame);
         if let Some(follower) = following.as_mut()
@@ -620,6 +626,24 @@ fn serve_in_chrome(
         {
             return record;
         }
+    }
+}
+
+/// Open `opening` in `chrome` at `size`, for a Chrome drawing as `drawn`
+/// says. Only a card's window is parked rather than brought in front, and a
+/// card's page from the network is streamed from its first paint, not its
+/// load (queue item 751): it is waited for only until it commits.
+fn open(
+    chrome: &mut Chrome,
+    opening: Opening,
+    size: (u32, u32),
+    drawn: Drawn,
+) -> Result<Tab<'_>, Unopened> {
+    let a_card = matches!(drawn, Drawn::Shown { front: false, .. });
+    match opening {
+        Opening::Frozen { url, page } => Tab::open_frozen(chrome, &url, page, size),
+        Opening::Network(address) if a_card => Tab::open_as_a_card(chrome, &address, size),
+        Opening::Network(address) => Tab::open(chrome, &address, size),
     }
 }
 

@@ -666,7 +666,8 @@ impl ConversationWindow {
     fn went(&mut self, went: Went) {
         let said = went.said();
         match &went {
-            Went::Framed(_) | Went::Unstreamed(_) | Went::Moved(_) => {}
+            // Each is shown by the card itself.
+            Went::Framed(_) | Went::Unstreamed(_) | Went::Moved(_) | Went::Loading(_) => {}
             // A card put away for a search's results, its page closed
             // after: the line says the search (queue item 708).
             Went::Shut(_) if self.conversation.card().is_none() => {}
@@ -686,6 +687,7 @@ impl ConversationWindow {
             }
             Went::Framed(png) => self.conversation.framed(png),
             Went::Moved(url) => self.conversation.moved_card(url),
+            Went::Loading(loading) => self.conversation.card_loading(loading),
             // A page not opened leaves why in its turn; one that went on
             // its own leaves its address (queue item 703).
             Went::Unopened { .. } => {
@@ -1119,6 +1121,32 @@ mod tests {
             window.conversation().card().map(|card| card.url.clone()),
             Some(talk)
         );
+        window.finish();
+    }
+
+    #[test]
+    fn the_card_is_told_its_page_loaded_and_the_line_keeps_what_it_said() {
+        let mut window = window();
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(&mut window, "example.com");
+        let url = window.conversation().going().cloned().unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        let opening = window.start_said.clone();
+        assert!(opening.is_some());
+        assert_eq!(
+            window.conversation().card().map(|card| card.loading),
+            Some(true)
+        );
+        let _ = window.take_redraw();
+        window.heard(Heard::Chrome(Went::Loading(false)));
+        assert_eq!(
+            window.conversation().card().map(|card| card.loading),
+            Some(false)
+        );
+        assert!(window.take_redraw(), "the card is drawn again");
+        // The card says it; the first screen's line is left as it was.
+        assert_eq!(window.start_said, opening);
+        assert_eq!(window.told(), None);
         window.finish();
     }
 }

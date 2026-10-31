@@ -379,8 +379,9 @@ fn every_message_from_a_renderer_survives_the_crossing() {
 }
 
 /// The first screen holding a page as a card (queue item 717): what the
-/// person said, hostile, the address, somewhere to go back to and a frame;
-/// and a card before its first frame.
+/// person said, hostile, the address, somewhere to go back to, a frame and
+/// its page loaded; and a card before its first frame, loading (queue item
+/// 751).
 #[test]
 fn a_first_screen_holding_a_card_survives_the_crossing() {
     let messages = vec![
@@ -393,7 +394,8 @@ fn a_first_screen_holding_a_card_survives_the_crossing() {
                     alo_url::parse("https://example.com/a?b#c")
                         .unwrap_or_else(|_| panic!("parses")),
                 )
-                .holding(b"\x89PNG\r\n\x1a\nthe rest".to_vec()),
+                .holding(b"\x89PNG\r\n\x1a\nthe rest".to_vec())
+                .loaded(),
             )
             .map(|mut card| {
                 card.back = true;

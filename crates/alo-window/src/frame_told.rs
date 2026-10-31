@@ -58,6 +58,10 @@ pub enum ToFrame {
     /// address, by its own frame's commit or move within its document
     /// (queue item 742).
     Moved(Url),
+    /// Whether the page streamed for the conversation's card is still
+    /// loading: told as it changes, the page streamed from its navigation's
+    /// commit (queue item 751).
+    Loading(bool),
 }
 
 /// What a stream of frames came to, told as it stops.

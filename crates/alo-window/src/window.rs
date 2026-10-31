@@ -789,7 +789,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
                 return;
             }
             // `alo --chrome`'s page is never a card (queue item 717).
-            ToFrame::Cast(_) | ToFrame::Uncast(_) | ToFrame::Moved(_) => return,
+            ToFrame::Cast(_) | ToFrame::Uncast(_) | ToFrame::Moved(_) | ToFrame::Loading(_) => {
+                return;
+            }
         };
         self.told = follow;
         if follow == Follow::Closed {

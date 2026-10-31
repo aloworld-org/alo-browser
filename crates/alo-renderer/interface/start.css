@@ -459,6 +459,13 @@ a {
   text-overflow: ellipsis;
 }
 
+/* While the page is still loading (queue item 751): after the address,
+   in the bar's quiet words, 8 before Expand. */
+.loading {
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
 .url .host {
   font-weight: 600;
   color: var(--ink);

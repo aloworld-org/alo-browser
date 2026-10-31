@@ -46508,3 +46508,94 @@ own mark* and *Emoji*; `docs/conformance.md`'s text paragraph.
 Images grid's marks; 769 a picture rounded by its own `border-radius`.
 
 The next unused queue number is **770** and the next ADR is **0089**.
+
+## Iteration 471 — queue item 751 and ADR 0089: a card drawn from its page's first paint
+
+**Why.** The card's tab was opened as `alo --chrome` opens one: `Tab::go`
+waited for the `load` of the page's newest document before `Went::Opened`
+was told, and only then did the window ask for the stream. A slow page was
+a white card for as long as it loaded, and one whose `load` never came
+within Chrome's thirty seconds was said unopened though it had drawn.
+
+**Built.** `chrome_loading.rs`: what Chrome told of the tab's own frame's
+stages (`Page.lifecycleEvent`), read in `Tab::next` for every message
+(`staged_in`) rather than only while `go` waits — **committed** once
+`Page.navigate` answered with a loader and an `init` of the tab's own frame
+came since it was asked; **loaded** once the newest such document (or,
+before any, the navigation's loader) has its `load` — 749's rule, one
+place. `Tab::go(Until)`: `Tab::open_as_a_card` waits until committed, every
+other opening until loaded; `ChromeServing::start_as_a_card` (the only
+`front: false` opening) chooses it (`chrome_serving::open`). Each pass of
+the thread holding the card, while it streams, tells whether the page is
+loading as it changes, before that pass's frame (`chrome_card::tell_loading`,
+`ToFrame::Loading` → `Work::Loading` → `Went::Loading` →
+`Conversation::card_loading`); it is not said in the first screen's line.
+`Card::loading` (new cards loading; `Card::loaded`), on the wire after
+*Forward*; `card_document.rs` puts `<p class="loading">Loading</p>` between
+the address and *Expand* (`start.css`: no shrink, 8 either side).
+
+**Decided (ADR 0089).** A card opens at its navigation's commit; it says
+*Loading* until its page has loaded; a page that commits and never loads
+stays a card, drawn and saying *Loading*, until a person closes it (no
+timer: Chrome's own tab keeps its spinner). A navigation that never commits
+is still said unopened after Chrome's patience. Rejected: closing at thirty
+seconds as before, dropping *Loading* after a time, opening every tab at
+commit (an agent reads a loaded page), streaming from the navigation's
+start (the page before it).
+
+**Tests.** `tests/a_card_drawn_before_its_page_loads_through_chrome.rs`
+(new; in `nextest.toml`'s shown-Chrome list), through the window's own road
+against a local server, the machine's Chrome and alo's CEF host: `/slow.html`,
+teal, its `load` held by `/held` until the test lets it — a teal frame in
+the card while it says *Loading* and `Went::Loading(true)` was told; still a
+card, still teal and loading 35 s later (past `LONGEST_SILENCE`), never
+unopened; `/held` answered, `Went::Loading(false)` and the card no longer
+loading. Mutation: the card opened with `Tab::open` (at `load`) fails at
+*said unopened* (32 s). 749's test: its second page is now a server that
+never answers (`/never.html`), since a page that commits is a card. Unit
+tests: `chrome_loading.rs` (5), `conversation.rs`
+(`the_card_says_its_page_is_loading_until_it_has_loaded`),
+`conversation_window.rs`
+(`the_card_is_told_its_page_loaded_and_the_line_keeps_what_it_said`),
+`conversation_chrome.rs` (told through the opener), `card_document.rs`
+(`a_page_loading_is_said_after_the_address_until_it_has_loaded`), `card.rs`.
+Layout assertion (`alo-renderer/tests/a_page_as_a_card.rs`,
+`a_card_whose_page_is_loading_says_so_in_its_bar`): *Loading* at
+(820.78125, 112.5) 48.21875 × 18, the address 639.78125 wide, *Expand* at
+879 unmoved, the frame drawn; loaded, no word and the address 706 again.
+Reference `card-before-a-frame.png` rewritten — the bar's *Loading* the only
+change, looked at; `card-holding-a-frame.png` and the conversation
+references unchanged (their cards are loaded). `a_page_as_a_card_through_chrome`
+accepts `ToFrame::Loading` beside `Moved`; `the_agents_lines_told_to_chromes_frame`'s
+exhaustive match moved into a helper (clippy's line count).
+
+**Gate: met.** Clippy and the touched crates' `--lib` tests first; pointer
+moved to (1400,1000) and put back after. **Summary [744.192s] 6011 tests
+run: 6011 passed (6 slow), 0 skipped** — *"The gate is met." (11 of 11
+steps)*.
+
+**By hand** (screen unlocked; release build, CEF host built, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, `alo browser.app/Contents/MacOS/alo
+--conversation`; screenshots in the session scratchpad `handrun11/`; the
+pointer saved and put back at 570,562 around every press). `reddit.com`:
+`01-t1`–`01-t3` (0.5–1.5 s) the card at `reddit.com/`, then at the
+challenge's onward address, white, its bar saying *Loading*
+(`bar-t3.png`); `01-t4` (2 s) Reddit's own placeholders with *Loading* gone;
+then the page with its cookie banner (`02-reddit-loaded.png`).
+`edition.cnn.com` from the box at the foot: `03-t1`–`03-t2` *Loading* over
+white, `03-t3` CNN drawn, loaded. No frame of a real site before its `load`
+was caught at half-second screenshots; the before-load frame is shown by
+the integration test alone. ⌘Q left no alo, alo-render or alo Chromium
+process.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0058, 0076, 0085,
+0089 (new); `docs/design/shell.md`'s *A page inside the conversation* gains
+the *Loading* word and the never-loading card; `docs/conformance.md` gains a
+row for the card.
+
+**Roadmap:** the conversation line's *Built* gains 751; *Owed* drops it.
+
+**Cut, queued:** 770 *Loading* from a navigation's start (a link followed in
+the card says nothing until the new document commits).
+
+The next unused queue number is **771** and the next ADR is **0090**.

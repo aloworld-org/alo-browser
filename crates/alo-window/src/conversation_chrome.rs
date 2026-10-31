@@ -144,7 +144,8 @@ impl Placing {
 pub enum Went {
     /// Chrome is being started at it.
     Opening(Url),
-    /// It is open in Chrome's own window.
+    /// It is open in Chrome's own window: its navigation has committed,
+    /// and it may not have loaded yet (queue item 751).
     Opened {
         /// The address.
         url: Url,
@@ -173,6 +174,10 @@ pub enum Went {
     /// The page shown as a card is now at this address: it followed a link,
     /// was sent somewhere, or moved within its document (queue item 742).
     Moved(Url),
+    /// Whether the page shown as a card is still loading, told as that
+    /// changes while it streams: a card opens at its page's commit and is
+    /// streamed from its first paint, before it has loaded (queue item 751).
+    Loading(bool),
 }
 
 impl Went {
@@ -195,6 +200,8 @@ impl Went {
                 "Chrome did not say it had stopped streaming the card's page".to_owned()
             }
             Self::Moved(url) => format!("the card's page is now at {url}"),
+            Self::Loading(true) => "the card's page is loading".to_owned(),
+            Self::Loading(false) => "the card's page has loaded".to_owned(),
         }
     }
 }
@@ -278,6 +285,9 @@ enum Work {
     /// The page of the Chrome started at the open this numbers is now at
     /// this address.
     Moved(u64, Url),
+    /// The page of the Chrome started at the open this numbers is loading,
+    /// or is not.
+    Loading(u64, bool),
     /// The window is closing: close Chrome and end.
     Finish,
 }
@@ -473,6 +483,11 @@ fn hold(
                         let _ = tell(Went::Moved(url));
                     }
                 }
+                Work::Loading(number, loading) => {
+                    if open.as_ref().is_some_and(|open| open.number == number) {
+                        let _ = tell(Went::Loading(loading));
+                    }
+                }
                 Work::Open(url, streamed) if Some(place) == newest => {
                     if let Some(replaced) = open.take() {
                         finished &= (replaced.held.close)();
@@ -516,6 +531,7 @@ fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
             ToFrame::Cast(frame) => again.send(Work::Framed(number, frame)),
             ToFrame::Uncast(uncast) => again.send(Work::Unstreamed(number, uncast)),
             ToFrame::Moved(url) => again.send(Work::Moved(number, url)),
+            ToFrame::Loading(loading) => again.send(Work::Loading(number, loading)),
             _ => Ok(()),
         };
         true
@@ -790,6 +806,12 @@ mod tests {
             moved.said(),
             "the card's page is now at https://example.com/two"
         );
+        // And whether it is loading (queue item 751).
+        for loading in [true, false] {
+            assert!(frame(ToFrame::Loading(loading)));
+            assert_eq!(next(&told), Went::Loading(loading));
+        }
+        assert_eq!(Went::Loading(true).said(), "the card's page is loading");
         opener.shut();
         let shut = next(&told);
         assert_eq!(shut, Went::Shut(url("https://example.com/")));

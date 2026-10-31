@@ -849,6 +849,20 @@ The reason this exists rather than a faster fork of somebody else's engine.
   offers; the window takes the front back from the card's Chromium, which
   macOS makes frontmost as it shows its parked window
   (`tests/the_cards_buttons_pressed_in_the_window_through_chrome.rs`).
+  **A card drawn from its page's first paint** (751, ADR 0089): the card's
+  tab is waited for only until its navigation commits — Chrome's answer to
+  `Page.navigate` and a document begun in its own frame — and streamed
+  from then, not from its `load`; the bar says *Loading* after the address
+  until the newest document of the page's own frame has loaded, told to the
+  conversation as that changes. A page that never loads stays a card,
+  drawn, pressable and saying *Loading*, until a person closes it; one that
+  never commits is still said unopened after Chrome's thirty seconds.
+  Through the machine's Chrome and the Chromium alo carries, a local page
+  whose `load` waits on a held picture shows a frame of its own colour
+  while loading, is still a card past Chrome's patience, and stops saying
+  *Loading* once the picture is answered
+  (`tests/a_card_drawn_before_its_page_loads_through_chrome.rs`). Every
+  other tab — an agent's, `alo --chrome`'s — is still opened loaded.
   **Search results, as the All tab** (708, ADR 0083): words chosen from
   the box are searched with the Brave Search API by a thread of the browser
   process, through `alo-net`, with the words alone in the address and a key

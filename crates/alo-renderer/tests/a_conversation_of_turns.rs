@@ -313,14 +313,15 @@ fn failed() -> Turn {
     }
 }
 
-/// The newest turn: a page live as a card, holding Chrome's frame.
+/// The newest turn: a page live as a card, holding Chrome's frame, loaded.
 fn live() -> Result<Turn, String> {
     Ok(Turn::Page(
         Card::new(
             "127.0.0.1:8765/card.html",
             url("http://127.0.0.1:8765/card.html"),
         )
-        .holding(frame()?),
+        .holding(frame()?)
+        .loaded(),
     ))
 }
 

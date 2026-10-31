@@ -20,7 +20,9 @@
 //! the page's address — the bar's own words, which it is labelled by —
 //! holding *Back*, *Forward*, *Expand to the whole window* and *Close* as
 //! buttons, *Back* and *Forward* disabled when there is nowhere to go; then
-//! the page, as an image named [`PICTURED`] once a frame has arrived. The
+//! the page, as an image named [`PICTURED`] once a frame has arrived; and,
+//! while the page is still loading, the bar's [`LOADING`] after the address
+//! (queue item 751), a paragraph a person and an agent read alike. The
 //! icons are decoration and hidden from the tree. What the page itself
 //! holds is Chrome's to say, through the agent's socket (ADR 0058), never
 //! read off its picture.
@@ -40,6 +42,10 @@ use alo_dom::{Document, NodeId};
 
 /// What the picture of the page is named, to an agent.
 pub const PICTURED: &str = "The page, as Chrome last drew it";
+
+/// What the bar says after the address while the page is still loading
+/// (queue item 751).
+pub const LOADING: &str = "Loading";
 
 /// The id of the template's `<template>` holding the card.
 const CARD: &str = "card";
@@ -112,6 +118,20 @@ fn fill(document: &mut Document, made: NodeId, card: &Card) -> Result<(), Unbuil
         let button = of_class(document, made, class)?;
         attribute(document, button, "class", &format!("{class} off"))?;
         attribute(document, button, "disabled", "")?;
+    }
+    if card.loading {
+        // After the address, before *Expand*.
+        let bar = of_class(document, made, "bar")?;
+        let expand = of_class(document, made, "ibtn expand")?;
+        let loading = element(document, "p")?;
+        attribute(document, loading, "class", "loading")?;
+        let words = document.create_text_node(LOADING);
+        append(document, loading, words)?;
+        document
+            .insert_before(bar, loading, Some(expand))
+            .map_err(|refused| Unbuilt {
+                why: format!("the card's loading could not be put in its bar: {refused}"),
+            })?;
     }
     if card.frame.is_some() {
         let page = of_class(document, made, "page")?;
@@ -208,6 +228,28 @@ mod tests {
             super::frame(&open).map(|frame| frame.bytes),
             Some(vec![1, 2, 3])
         );
+    }
+
+    #[test]
+    fn a_page_loading_is_said_after_the_address_until_it_has_loaded() {
+        let loading = built(card("a", "https://example.com/"));
+        assert_eq!(of_class(&loading, "loading"), vec![super::LOADING]);
+        let said = loading
+            .descendants(loading.root())
+            .find(|&node| loading.attribute_by_name(node, "class") == Some("loading"));
+        let class_of = |node: Option<alo_dom::NodeId>| {
+            node.and_then(|node| loading.attribute_by_name(node, "class"))
+        };
+        assert_eq!(
+            class_of(said.and_then(|said| loading.previous_sibling(said))),
+            Some("url")
+        );
+        assert_eq!(
+            class_of(said.and_then(|said| loading.next_sibling(said))),
+            Some("ibtn expand")
+        );
+        let loaded = built(card("a", "https://example.com/").holding(vec![1]).loaded());
+        assert!(of_class(&loaded, "loading").is_empty());
     }
 
     #[test]

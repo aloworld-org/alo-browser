@@ -20902,7 +20902,7 @@ What stage 2's exit gate actually measures: a person using it.
   results and under the card. Not done: scrolling a conversation taller
   than the room (703).
 
-- [ ] **751. A card drawn from its page's first paint, not its load.** Cut
+- [x] **751. A card drawn from its page's first paint, not its load.** Cut
   from 749. The card's tab is opened as `alo --chrome` opens one, and
   streams only once the page has loaded: a slow page is a white card for
   as long as it loads (reddit by hand ~1–4 s), and one whose `load` never
@@ -20911,6 +20911,51 @@ What stage 2's exit gate actually measures: a person using it.
   meanwhile, and decide what a card whose page never loads becomes.
   *Depends on 749. Closes when:* a local page whose `load` is held shows a
   frame in the card before it loads, through both programs.
+  ***Done (iteration 471), ADR 0089, with a cut to 770.*** The card's tab
+  is waited for only until its navigation **commits** — Chrome's answer to
+  `Page.navigate` and an `init` of the tab's own frame since it was asked
+  (`chrome_loading.rs`, which also keeps 749's rule of the newest document
+  in one place) — by `Tab::open_as_a_card`, which
+  `ChromeServing::start_as_a_card` alone uses; every other tab still opens
+  loaded. Whether the page is loading is kept as Chrome tells of the tab's
+  own frame's stages (`Tab::is_loading`), told to the conversation as it
+  changes while the card streams, before that pass's frame
+  (`chrome_card::tell_loading`, `ToFrame::Loading`, `Went::Loading`,
+  `Conversation::card_loading`), and drawn as the bar's **Loading** after
+  the address (`Card::loading`, on the wire after *Forward*;
+  `card_document.rs`, `start.css`). **Decided (ADR 0089):** a page that
+  commits and never loads stays a card, drawn and saying *Loading*, until a
+  person closes it; one that never commits is still said unopened after
+  Chrome's patience. **Tests:** through the window's own road, the
+  machine's Chrome and alo's CEF host
+  (`tests/a_card_drawn_before_its_page_loads_through_chrome.rs`, in the
+  shown-Chrome lists): `/slow.html`, teal, its `load` held by a picture the
+  server answers only when let, shows a teal frame while the card says
+  *Loading*, is still a card, still drawn and loading 35 s later, and once
+  the picture is answered is told loaded — with the card opened at `load`
+  as before it fails *said unopened*. 749's test now fails its second page
+  by a server that never answers (a page that commits is a card). Unit
+  tests in `chrome_loading.rs`, `conversation.rs`, `conversation_window.rs`,
+  `conversation_chrome.rs` and `card_document.rs`; a layout assertion of the
+  word (820.78125, 112.5) 48.21875 × 18, the address 639.78125 wide and
+  *Expand* unmoved, and the reference `card-before-a-frame.png` rewritten
+  to show it (`alo-renderer/tests/a_page_as_a_card.rs`). **By hand**
+  (`handrun11/`): `reddit.com` and then `edition.cnn.com` each opened with
+  *Loading* over a white card for about a second and then drew loaded; no
+  frame of a real site before its `load` was caught at half-second
+  screenshots. **Cut:** *Loading* from a followed link's start (770).
+
+- [ ] **770. *Loading* from a navigation's start, not its commit.** Cut
+  from 751. A card says *Loading* once its page's own frame has begun a
+  document that has not loaded; a link followed in the card, or a script's
+  `location`, says nothing between the press and the new document's
+  commit — a slow server's whole wait — where Chrome's own tab turns its
+  spinner from the navigation's start. Read the start
+  (`Page.frameStartedLoading` or `frameRequestedNavigation` on the tab's
+  own frame) and say *Loading* from it, and stop saying it for a
+  navigation that never commits. *Depends on 751. Closes when:* a link
+  pressed in the card to a page whose server waits says *Loading* before
+  the page commits, through both programs.
 
 - [ ] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a
