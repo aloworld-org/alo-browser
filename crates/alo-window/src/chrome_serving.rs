@@ -592,6 +592,8 @@ fn serve_in_chrome(
     let mut told_loading = None;
     // And where it can go back or forward to (queue item 737).
     let mut told_travel = chrome_history::Told::default();
+    // And the size its page was last laid out at (queue item 774).
+    let mut laid_out = size;
     loop {
         let until = chrome_card::until(
             pages.tab(),
@@ -601,7 +603,7 @@ fn serve_in_chrome(
             chrome_card::stop(pages.tab_mut(), frame);
             return record;
         };
-        for arrival in arrived {
+        for arrival in chrome_card::only_the_newest_stream(arrived) {
             match arrival {
                 Arrival::Order(Order::Agent { caller, ask, reply }) => {
                     Serving {
@@ -614,7 +616,7 @@ fn serve_in_chrome(
                     .answer(caller, ask, &reply);
                 }
                 Arrival::Order(Order::Card(order)) => {
-                    chrome_card::carry_out(pages.tab_mut(), order, frame);
+                    chrome_card::carry_out(pages.tab_mut(), order, frame, &mut laid_out);
                 }
                 Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
                     // A stream is stopped, and Chrome's word on it heard,

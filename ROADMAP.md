@@ -2463,10 +2463,16 @@ items where being right and being unusable are the same outcome.
       (763), a news story's photo (765), `COLR` and `SVG` colour glyphs and
       an emoji's shadow (766), CJK in the interface (767), the Images
       grid's marks (768), a picture rounded by its own `border-radius`
-      (769), the AI provider's carried key (773, after ADR 0081). Built
+      (769), the AI provider's carried key (773, after ADR 0081), the panel
+      folding to the rail in a narrow window (775). Built
       since: the key in release (748, ADR 0091) — carried inside the
       application, put in by `alo-bundle --keys-from keychain` from outside
-      the repository, sealed, and read by the browser process alone
+      the repository, sealed, and read by the browser process alone; the
+      conversation in a narrow window (774) — the column the room less 32
+      either side, never under the panel nor past the window's edge, and a
+      card's page laid out in Chrome at the narrower box as the window is
+      resized or the panel hidden, in layout assertions, a reference render
+      and through both Chromiums
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions

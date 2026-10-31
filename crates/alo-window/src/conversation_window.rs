@@ -78,6 +78,7 @@ use crate::scale::Scale;
 use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
+use alo_renderer::card_place;
 use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::results::{PROVIDER, Showing, Tab};
 
@@ -161,6 +162,10 @@ pub struct ConversationWindow {
     redraw: bool,
     /// Lines to say on the terminal.
     said: Vec<String>,
+    /// What the card's page was last asked to be streamed at, while it is
+    /// streamed: a window resized, or its panel hidden or shown, asks again
+    /// when its page box is another size (queue item 774).
+    streaming: Option<Streamed>,
 }
 
 /// How the window's two threads ended.
@@ -218,6 +223,7 @@ impl ConversationWindow {
             front: Front::default(),
             redraw: false,
             said: Vec::new(),
+            streaming: None,
         }
     }
 
@@ -296,6 +302,33 @@ impl ConversationWindow {
                 .start(start_viewport_as(window, scale, side), scale),
             showing: self.conversation.showing(),
         });
+        self.restream();
+    }
+
+    /// The card's page streamed at its page box as the first screen is laid
+    /// out now, if it is streamed at another (queue item 774): the window
+    /// resized, or the panel hidden or shown, makes the column narrower or
+    /// wider, and the card with it.
+    fn restream(&mut self) {
+        let now = self.card_streamed();
+        if self.conversation.card().is_some()
+            && self.streaming.is_some()
+            && now.is_some()
+            && self.streaming != now
+        {
+            self.streaming = now;
+            if let Some(chrome) = &self.chrome {
+                chrome.stream(now);
+            }
+        }
+    }
+
+    /// What the card's page is streamed at as the first screen is laid out
+    /// now: its page box ([`card_place::page_size`]) at the window's scale.
+    fn card_streamed(&self) -> Option<Streamed> {
+        let (_, scale) = self.measured()?;
+        let room = self.start_room()?;
+        Some(Streamed::at(card_place::page_size(room), scale))
     }
 
     /// What the window is drawn from now, at its size and scale: the first
@@ -609,12 +642,13 @@ impl ConversationWindow {
         let Some(url) = self.conversation.going().cloned() else {
             return;
         };
-        let Some((_, scale)) = self.measured() else {
+        let Some(streamed) = self.card_streamed() else {
             return;
         };
         self.front.owed = self.front.focused;
         if let Some(chrome) = &self.chrome {
-            chrome.open(url, Streamed::at(scale));
+            chrome.open(url, streamed);
+            self.streaming = Some(streamed);
         }
     }
 
@@ -652,15 +686,17 @@ impl ConversationWindow {
     }
 
     /// The window can be seen, or cannot: the card's page is streamed at
-    /// the window's scale while it can, and not while it cannot (ADR 0076:
-    /// only while the card is on the screen). A new scale is frames of
-    /// another size, asked for the same way.
-    pub fn seen(&self, seen: bool) {
-        let (Some(chrome), Some((_, scale))) = (&self.chrome, self.measured()) else {
+    /// its page box at the window's scale while it can, and not while it
+    /// cannot (ADR 0076: only while the card is on the screen). A new scale
+    /// is frames of another size, asked for the same way.
+    pub fn seen(&mut self, seen: bool) {
+        let (Some(chrome), Some(streamed)) = (&self.chrome, self.card_streamed()) else {
             return;
         };
         if self.conversation.card().is_some() {
-            chrome.stream(seen.then(|| Streamed::at(scale)));
+            let streaming = seen.then_some(streamed);
+            chrome.stream(streaming);
+            self.streaming = streaming;
         }
     }
 
@@ -1010,6 +1046,58 @@ mod tests {
     }
 
     /// Type `text` into the box and press Return, as the window reads keys.
+    /// Queue item 774: the card's page box follows the column, so a card
+    /// streamed is asked again at its new page box — the page laid out at
+    /// it — as the window narrows or widens or the panel is hidden, at the
+    /// window's scale; never while the window is covered or the card put
+    /// away, and not again for a resize that leaves the page box as it was.
+    #[test]
+    fn a_cards_page_is_streamed_at_its_page_box_as_the_window_narrows_or_the_panel_hides() {
+        let mut window = window();
+        let resize = |window: &mut ConversationWindow, size: (u32, u32), scale_factor: f64| {
+            window.measured_as(Measured {
+                size,
+                scale_factor,
+                outer: Some((0, 0)),
+            });
+            window.ask_drawn();
+        };
+        let page = |window: &ConversationWindow| window.streaming.map(|streamed| streamed.page);
+        let url = alo_url::parse("https://example.com/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        assert_eq!(window.streaming, None, "nothing asked before it is seen");
+        window.seen(true);
+        // The design's window: the whole page box.
+        assert_eq!(window.streaming, Some(Streamed::at((878, 520), Scale::ONE)));
+        // Wider: the column stays 880, nothing asked again.
+        resize(&mut window, (1400, 820), 1.0);
+        assert_eq!(page(&window), Some((878, 520)));
+        // 967 wide: a room of 727, the column 663, the page box 661.
+        resize(&mut window, (967, 820), 1.0);
+        assert_eq!(window.streaming, Some(Streamed::at((661, 520), Scale::ONE)));
+        // The panel hidden: the rail's 64 leaves 903, the page box 837.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Panel,
+            Decided::HideThePanel,
+        )));
+        assert_eq!(page(&window), Some((837, 520)));
+        // Covered, it is not streamed, nor asked again as it is resized.
+        window.seen(false);
+        assert_eq!(window.streaming, None);
+        resize(&mut window, (720, 820), 1.0);
+        assert_eq!(window.streaming, None);
+        // Seen again, at 720 beside the rail: 656, the column 592.
+        window.seen(true);
+        assert_eq!(page(&window), Some((590, 520)));
+        // The card put away, a resize asks nothing.
+        window.heard(Heard::Chrome(Went::Shut(
+            alo_url::parse("https://example.com/").unwrap(),
+        )));
+        resize(&mut window, (1280, 820), 1.0);
+        assert_eq!(page(&window), Some((590, 520)));
+        window.finish();
+    }
+
     fn type_and_return(window: &mut ConversationWindow, text: &str) {
         for letter in text.chars() {
             let written = letter.to_string();

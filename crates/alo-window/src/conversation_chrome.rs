@@ -85,7 +85,6 @@ use crate::frame_told::{ToFrame, Uncast};
 use crate::message::CardOrder;
 use crate::opening::{CHROME_AT, CHROME_SIZE};
 use crate::scale::Scale;
-use alo_renderer::card::PAGE_SIZE;
 use alo_url::Url;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -243,13 +242,14 @@ struct Held {
     card: Box<dyn Fn(CardOrder) + Send>,
 }
 
-/// How a Chrome is started at an address and a scale: the machine's, or a
-/// test's.
-type Starter = Box<dyn FnMut(&Url, Scale, TellFrame) -> Result<Held, String> + Send>;
+/// How a Chrome is started at an address, its page laid out at a card's
+/// page box and drawn at a scale: the machine's, or a test's.
+type Starter = Box<dyn FnMut(&Url, Streamed, TellFrame) -> Result<Held, String> + Send>;
 
 /// The largest each frame of a card's page is streamed at, in device
 /// pixels: the card's page box at the window's scale (ADR 0076 B) — and that
-/// scale, which a card's Chromium is started at (ADR 0090).
+/// scale, which a card's Chromium is started at (ADR 0090), and the page box
+/// itself, which its page is laid out at (queue item 774).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Streamed {
     /// In device pixels.
@@ -258,23 +258,31 @@ pub struct Streamed {
     pub height: u32,
     /// The window's scale.
     pub scale: Scale,
+    /// The card's page box, in CSS pixels
+    /// ([`alo_renderer::card_place::page_size`]):
+    /// [`alo_renderer::card::PAGE_SIZE`] in a window
+    /// wide enough for the design's column, narrower in a narrower one.
+    pub page: (u32, u32),
 }
 
 impl Streamed {
-    /// The card's page box, [`PAGE_SIZE`], on a screen of `scale`.
-    pub fn at(scale: Scale) -> Self {
+    /// The card's page box, `page` CSS pixels, on a screen of `scale`.
+    pub fn at(page: (u32, u32), scale: Scale) -> Self {
         Self {
-            width: scale.device(PAGE_SIZE.0).max(1),
-            height: scale.device(PAGE_SIZE.1).max(1),
+            width: scale.device(page.0).max(1),
+            height: scale.device(page.1).max(1),
             scale,
+            page,
         }
     }
 
-    /// What Chrome's thread is asked: to stream at this size.
+    /// What Chrome's thread is asked: to lay the page out at the page box,
+    /// if it is not already, and stream it at this size.
     fn order(self) -> CardOrder {
         CardOrder::Stream {
             width: self.width,
             height: self.height,
+            page: self.page,
         }
     }
 }
@@ -329,7 +337,7 @@ impl ChromeOpener {
     /// What the system said when no thread could be started.
     pub fn start(chromium: Chromium, tell: TellWent) -> std::io::Result<Self> {
         Self::starting_with(
-            Box::new(move |url, scale, told| in_chrome(&chromium, url, scale, told)),
+            Box::new(move |url, streamed, told| in_chrome(&chromium, url, streamed, told)),
             tell,
         )
     }
@@ -508,7 +516,7 @@ fn hold(
                     opened += 1;
                     let _ = tell(Went::Opening(url.clone()));
                     let number = opened;
-                    match starter(&url, streamed.scale, heard_from(again.clone(), number)) {
+                    match starter(&url, streamed, heard_from(again.clone(), number)) {
                         Ok(held) => {
                             let _ = tell(Went::Opened {
                                 url: url.clone(),
@@ -560,20 +568,20 @@ fn ask_of(open: Option<&Open>, order: CardOrder) {
 }
 
 /// Start the Chromium `chromium` names at `url`, its window parked off
-/// every display while its page is a card (ADR 0076 B4) and its page drawn
-/// at the window's `scale` wherever that is (ADR 0090), held as `alo
-/// --chrome` holds its page.
+/// every display while its page is a card (ADR 0076 B4), its page laid out
+/// at the card's page box and drawn at the window's scale wherever that is
+/// (ADR 0090), as `streamed` says, held as `alo --chrome` holds its page.
 fn in_chrome(
     chromium: &Chromium,
     url: &Url,
-    scale: Scale,
+    streamed: Streamed,
     told: TellFrame,
 ) -> Result<Held, String> {
     let serving = ChromeServing::start_as_a_card(
         chromium.clone(),
         Opening::Network(url.clone()),
-        PAGE_SIZE,
-        scale,
+        streamed.page,
+        streamed.scale,
         // No socket is opened for the conversation's pages (queue item
         // 716): no agent reaches this tab, so it is kept to no site of its
         // own.
@@ -607,6 +615,7 @@ fn in_chrome(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_renderer::card::PAGE_SIZE;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
@@ -625,20 +634,23 @@ mod tests {
         asked: Vec<(String, CardOrder)>,
         /// The scale each was started at.
         scales: Vec<Scale>,
+        /// The page box each was laid out at.
+        pages: Vec<(u32, u32)>,
     }
 
     /// A starter that refuses `refused` and starts anything else, writing
     /// down what it did in `did`.
     fn starter(did: &Arc<Mutex<Did>>, refused: &'static str) -> Starter {
         let did = Arc::clone(did);
-        Box::new(move |url, scale, told| {
+        Box::new(move |url, streamed: Streamed, told| {
             let address = url.to_string();
             if address == refused {
                 return Err("Chrome is not installed on this machine".to_owned());
             }
             let mut doing = did.lock().unwrap();
             doing.started.push(address.clone());
-            doing.scales.push(scale);
+            doing.scales.push(streamed.scale);
+            doing.pages.push(streamed.page);
             doing.told.push(told);
             let closing = Arc::clone(&did);
             let asking = Arc::clone(&did);
@@ -677,6 +689,7 @@ mod tests {
         width: 1756,
         height: 1040,
         scale: Scale::TWO,
+        page: PAGE_SIZE,
     };
 
     fn next(told: &Receiver<Went>) -> Went {
@@ -807,7 +820,9 @@ mod tests {
         opener.open(url("https://example.com/"), STREAMED);
         let _ = (next(&told), next(&told));
         opener.stream(None);
-        opener.stream(Some(Streamed::at(Scale::ONE)));
+        opener.stream(Some(Streamed::at(PAGE_SIZE, Scale::ONE)));
+        // The window made narrower: the page box 661 wide (queue item 774).
+        opener.stream(Some(Streamed::at((661, 520), Scale::ONE)));
         opener.expand(Placing::APART);
         // A person's Back and Forward (queue item 737).
         opener.travel(Way::Back);
@@ -865,12 +880,19 @@ mod tests {
             vec![
                 CardOrder::Stream {
                     width: 1756,
-                    height: 1040
+                    height: 1040,
+                    page: (878, 520)
                 },
                 CardOrder::Unstream,
                 CardOrder::Stream {
                     width: 878,
-                    height: 520
+                    height: 520,
+                    page: (878, 520)
+                },
+                CardOrder::Stream {
+                    width: 661,
+                    height: 520,
+                    page: (661, 520)
                 },
                 CardOrder::Expand {
                     at: CHROME_AT,
@@ -892,14 +914,26 @@ mod tests {
     #[test]
     fn a_card_is_streamed_at_its_page_box_times_the_scale() {
         assert_eq!(
-            Streamed::at(Scale::ONE),
+            Streamed::at(PAGE_SIZE, Scale::ONE),
             Streamed {
                 width: 878,
                 height: 520,
                 scale: Scale::ONE,
+                page: (878, 520),
             }
         );
-        assert_eq!(Streamed::at(Scale::of_screen(2.0)), STREAMED);
+        assert_eq!(Streamed::at(PAGE_SIZE, Scale::of_screen(2.0)), STREAMED);
+        // A narrower page box, in a narrower window (queue item 774), at
+        // one and a half.
+        assert_eq!(
+            Streamed::at((661, 520), Scale::of_screen(1.5)),
+            Streamed {
+                width: 992,
+                height: 780,
+                scale: Scale::of_screen(1.5),
+                page: (661, 520),
+            }
+        );
     }
 
     #[test]
@@ -912,7 +946,10 @@ mod tests {
         };
         opener.open(url("https://two.example/"), STREAMED);
         until_opened("https://two.example/");
-        opener.open(url("https://one.example/"), Streamed::at(Scale::ONE));
+        opener.open(
+            url("https://one.example/"),
+            Streamed::at((661, 520), Scale::ONE),
+        );
         until_opened("https://one.example/");
         assert!(opener.finish());
         let did = did.lock().unwrap();
@@ -921,6 +958,8 @@ mod tests {
             ["https://two.example/", "https://one.example/"]
         );
         assert_eq!(did.scales, [Scale::TWO, Scale::ONE]);
+        // Each laid out at the page box it was opened at (queue item 774).
+        assert_eq!(did.pages, [(878, 520), (661, 520)]);
     }
 
     #[test]

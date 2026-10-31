@@ -13,7 +13,13 @@
 //! - **Stream**: Chrome is asked for PNG frames at most the card's size
 //!   times the window's scale; each is answered as it is read, and the
 //!   newest told to the conversation ([`ToFrame::Cast`]) every
-//!   [`CAST_EVERY`] at most.
+//!   [`CAST_EVERY`] at most. A card whose page box is another size than the
+//!   page is laid out at — the window made narrower or wider, the panel
+//!   hidden or shown (queue item 774) — has Chrome's window fitted to it
+//!   first, so one CSS pixel of the page is still one of the card's. Of
+//!   the streams asked while the thread was busy, only the newest is
+//!   carried out ([`only_the_newest_stream`]): a window dragged narrower
+//!   asks one at every step.
 //! - **Unstream**: Chrome is told to stop, and the conversation what the
 //!   stream came to once Chrome has answered ([`ToFrame::Uncast`]).
 //! - **Expand**: the stream stops — the card is covered — and Chrome's own
@@ -54,7 +60,8 @@ use crate::chrome_history::{self, Told};
 use crate::chrome_tab::Tab;
 use crate::chrome_window;
 use crate::frame_told::{ToFrame, Uncast};
-use crate::message::CardOrder;
+use crate::inbox::Arrival;
+use crate::message::{CardOrder, Order};
 use alo_url::Url;
 use std::time::{Duration, Instant};
 
@@ -66,14 +73,32 @@ pub const CAST_EVERY: Duration = Duration::from_millis(4);
 /// Who is told what the card's tab streamed.
 pub type TellCard<'t> = Option<&'t (dyn Fn(ToFrame) -> bool + Send)>;
 
-/// Carry out `order` on `tab`, telling `tell`.
-pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>) {
+/// Carry out `order` on `tab`, whose page is laid out at `laid_out` CSS
+/// pixels as far as this thread has fitted it, telling `tell`.
+pub fn carry_out(
+    tab: &mut Tab<'_>,
+    order: CardOrder,
+    tell: TellCard<'_>,
+    laid_out: &mut (u32, u32),
+) {
     match order {
-        CardOrder::Stream { width, height } => {
+        CardOrder::Stream {
+            width,
+            height,
+            page,
+        } => {
             if tab.casting().is_on() {
                 // Asked again at another size: stopped and started, since
                 // Chrome takes a stream's size only as it starts.
                 stop(tab, tell);
+            }
+            if *laid_out != page {
+                // Declined, the page keeps its size and its frames are
+                // drawn in the card's box as they come; asked again with
+                // the next stream.
+                if chrome_window::fit(tab, page.0, page.1).is_ok() {
+                    *laid_out = page;
+                }
             }
             // Declined, the card keeps no picture; see the module's words.
             let _ = tab.cast(width, height);
@@ -82,8 +107,10 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>) {
         CardOrder::Expand { at, size } => {
             stop(tab, tell);
             // Said by the next reading of where the window is, if it fails.
-            let _ = chrome_window::fit(tab, size.0, size.1)
-                .and_then(|_| chrome_window::place(tab, at.0, at.1));
+            if chrome_window::fit(tab, size.0, size.1).is_ok() {
+                *laid_out = size;
+                let _ = chrome_window::place(tab, at.0, at.1);
+            }
         }
         CardOrder::Input(input) => chrome_card_input::forward(tab, &input),
         // Declined, the page stays where it is, and the card says so by
@@ -92,6 +119,29 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>) {
             let _ = chrome_history::go(tab, way);
         }
     }
+}
+
+/// `arrived` without each stream a later one in it supersedes: the newest
+/// says the whole of what the card is to be streamed at, so the earlier are
+/// not carried out — a window dragged narrower asks for a stream, and a
+/// page fitted to it, at every step (queue item 774). Everything else is
+/// kept, in its order; a stream stopped after the newest is still stopped.
+pub fn only_the_newest_stream(arrived: Vec<Arrival>) -> Vec<Arrival> {
+    let streams = |arrival: &Arrival| {
+        matches!(
+            arrival,
+            Arrival::Order(Order::Card(CardOrder::Stream { .. }))
+        )
+    };
+    let Some(newest) = arrived.iter().rposition(streams) else {
+        return arrived;
+    };
+    arrived
+        .into_iter()
+        .enumerate()
+        .filter(|(at, arrival)| *at == newest || !streams(arrival))
+        .map(|(_, arrival)| arrival)
+        .collect()
 }
 
 /// Stop `tab`'s stream, if it streams, and tell `tell` what it came to once
@@ -192,5 +242,75 @@ pub fn tell_newest(tab: &mut Tab<'_>, tell: TellCard<'_>) {
     }
     if let (Ok(Some(frame)), Some(tell)) = (tab.take_frame(), tell) {
         let _ = tell(ToFrame::Cast(frame));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::message::TabOrder;
+
+    fn stream(width: u32) -> Arrival {
+        Arrival::Order(Order::Card(CardOrder::Stream {
+            width,
+            height: 520,
+            page: (width, 520),
+        }))
+    }
+
+    /// What each arrival is, in words, to compare.
+    fn named(arrived: &[Arrival]) -> Vec<String> {
+        arrived
+            .iter()
+            .map(|arrival| match arrival {
+                Arrival::Order(Order::Card(CardOrder::Stream { width, .. })) => {
+                    format!("stream {width}")
+                }
+                Arrival::Order(Order::Card(CardOrder::Unstream)) => "unstream".to_owned(),
+                Arrival::Order(Order::Tabs(_)) => "tabs".to_owned(),
+                Arrival::Abandoned => "abandoned".to_owned(),
+                _ => "other".to_owned(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn of_the_streams_asked_while_busy_only_the_newest_is_carried_out() {
+        // A window dragged narrower: a stream at every step.
+        let dragged = vec![
+            stream(878),
+            stream(800),
+            Arrival::Order(Order::Tabs(TabOrder::CloseSelected)),
+            stream(700),
+            stream(661),
+            Arrival::Abandoned,
+        ];
+        assert_eq!(
+            named(&only_the_newest_stream(dragged)),
+            ["tabs", "stream 661", "abandoned"]
+        );
+        // A stream stopped after the newest is still stopped, and one
+        // started again after that is kept as well.
+        let covered = vec![
+            stream(878),
+            Arrival::Order(Order::Card(CardOrder::Unstream)),
+        ];
+        assert_eq!(
+            named(&only_the_newest_stream(covered)),
+            ["stream 878", "unstream"]
+        );
+        let uncovered = vec![
+            Arrival::Order(Order::Card(CardOrder::Unstream)),
+            stream(661),
+        ];
+        assert_eq!(
+            named(&only_the_newest_stream(uncovered)),
+            ["unstream", "stream 661"]
+        );
+        // Nothing streamed, nothing dropped.
+        assert_eq!(
+            named(&only_the_newest_stream(Vec::new())),
+            Vec::<String>::new()
+        );
     }
 }

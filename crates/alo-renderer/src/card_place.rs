@@ -12,11 +12,21 @@
 //! (ADR 0024 § 5): a renderer that said where its page box was could send a
 //! person's press anywhere on the page. So the box is computed here from
 //! the first screen's viewport alone, as the sheet (`interface/start.css`)
-//! lays it out with a card — the column [`COLUMN`] wide, centred; the
+//! lays it out with a card — the column [`column`] wide, centred; the
 //! person's line, one line tall; under it the card, its border and its bar;
-//! then the page box, [`PAGE_SIZE`] — and `alo-renderer`'s card test holds
+//! then the page box, [`page_size`] — and `alo-renderer`'s card test holds
 //! this to the layout the engine computes, at more than one width, so the
 //! sheet and this cannot drift apart unnoticed.
+//!
+//! # Narrow
+//!
+//! The column is the design's [`COLUMN`] where the room allows it and
+//! [`GUTTER`] either side of it, and otherwise the room less a gutter
+//! either side (queue item 774): never under the panel, never past the
+//! window's right edge. So the card's page box is narrower in a narrow
+//! window, and Chrome is asked to lay the page out at that narrower size
+//! ([`page_size`]), one CSS pixel of the page still one of the first
+//! screen's.
 //!
 //! # Scrolled
 //!
@@ -42,9 +52,47 @@
 use crate::card::PAGE_SIZE;
 use alo_layout::{Rect, Size};
 
-/// How wide the column holding what the person said and the card is: the
-/// design's 880.
+/// How wide the column holding what the person said and the card is at
+/// most: the design's 880.
 pub const COLUMN: f32 = 880.0;
+
+/// How far in from either side of the room the column always is: the 32
+/// the conversation's clip is wider than the column either side, so the
+/// card's shadow is not cut (queue items 750, 774).
+pub const GUTTER: f32 = 32.0;
+
+/// How wide the column is on a first screen laid out at `viewport`: the
+/// design's [`COLUMN`], or the room less [`GUTTER`] either side when that is
+/// less (queue item 774), and never less than nothing. The box at the
+/// window's foot and the offers over it are as wide.
+pub fn column(viewport: Size) -> f32 {
+    (viewport.width - 2.0 * GUTTER).clamp(0.0, COLUMN)
+}
+
+/// Where the column's left edge is on a first screen laid out at
+/// `viewport`: the column centred in the room.
+pub fn column_left(viewport: Size) -> f32 {
+    (viewport.width - column(viewport)) / 2.0
+}
+
+/// The size of the card's page box on a first screen laid out at
+/// `viewport`, in CSS pixels: the column less the card's border on each
+/// side, and the design's 520 of page — [`PAGE_SIZE`] wherever the room
+/// holds the whole column. What Chrome lays the page out at while it is a
+/// card, and what its frames are asked for at, times the window's scale
+/// (ADR 0076 B, queue item 774). The first screen's viewport is a whole
+/// number of CSS pixels, so a narrower column is one too; at least one
+/// pixel across, since Chrome lays out no page of none.
+pub fn page_size(viewport: Size) -> (u32, u32) {
+    let inside = (column(viewport) - 2.0 * BORDER).floor().max(1.0);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a whole, positive width of at most the design's 878, exact in a u32"
+    )]
+    let width = inside as u32;
+    (width.min(PAGE_SIZE.0), PAGE_SIZE.1)
+}
 
 /// How far down the column begins, and the room the conversation is seen
 /// in with it: `.start.conversing`'s padding.
@@ -128,12 +176,12 @@ pub fn seen_page_box(viewport: Size, down: f32, offered: usize) -> Option<Rect> 
 }
 
 /// The card's page box on a first screen laid out at `viewport`, in its CSS
-/// pixels, the conversation scrolled `down`: [`PAGE_SIZE`], inside the
+/// pixels, the conversation scrolled `down`: [`page_size`], inside the
 /// card's border, under its bar, the card being the newest turn.
 pub fn page_box(viewport: Size, down: f32) -> Rect {
-    let (width, height) = PAGE_SIZE;
+    let (width, height) = page_size(viewport);
     Rect::new(
-        (viewport.width - COLUMN) / 2.0 + BORDER,
+        column_left(viewport) + BORDER,
         TOP + SAID + GAP + BORDER + BAR - down,
         length(width),
         length(height),
@@ -240,6 +288,53 @@ mod tests {
             seen_page_box(viewport, 0.0, 0)
                 .is_some_and(|seen| seen.contains(alo_layout::Point::new(400.0, 600.0)))
         );
+    }
+
+    #[test]
+    fn in_a_narrow_room_the_column_is_the_room_less_a_gutter_either_side() {
+        // The window 967 wide beside the panel's 240: a room of 727, the
+        // column 663 from 32, and the page box inside its border.
+        let narrow = Size::new(727.0, 820.0);
+        assert_eq!(column(narrow).to_bits(), 663.0_f32.to_bits());
+        assert_eq!(column_left(narrow).to_bits(), 32.0_f32.to_bits());
+        assert_eq!(page_size(narrow), (661, 520));
+        assert_eq!(
+            sides(page_box(narrow, 0.0)),
+            sides(Rect::new(33.0, 145.0, 661.0, 520.0))
+        );
+        // Beside the rail's 64 the same window has 903: 839 from 32.
+        let railed = Size::new(903.0, 820.0);
+        assert_eq!(column(railed).to_bits(), 839.0_f32.to_bits());
+        assert_eq!(page_size(railed), (837, 520));
+        // 720 wide beside the panel: 480, the column 416.
+        let smaller = Size::new(480.0, 820.0);
+        assert_eq!(column(smaller).to_bits(), 416.0_f32.to_bits());
+        assert_eq!(page_size(smaller), (414, 520));
+        // Just wide enough for the design's column and its gutters, and
+        // one short of it.
+        assert_eq!(
+            column(Size::new(944.0, 820.0)).to_bits(),
+            880.0_f32.to_bits()
+        );
+        assert_eq!(page_size(Size::new(944.0, 820.0)), PAGE_SIZE);
+        assert_eq!(
+            column(Size::new(943.0, 820.0)).to_bits(),
+            879.0_f32.to_bits()
+        );
+        assert_eq!(page_size(Size::new(943.0, 820.0)), (877, 520));
+        // A room narrower than the gutters has no column, and a page one
+        // pixel across.
+        assert_eq!(column(Size::new(40.0, 820.0)).to_bits(), 0.0_f32.to_bits());
+        assert_eq!(page_size(Size::new(40.0, 820.0)), (1, 520));
+    }
+
+    #[test]
+    fn at_the_designs_width_and_wider_the_column_is_the_designs() {
+        for width in [1040.0, 1041.0, 1216.0, 1400.0] {
+            let viewport = Size::new(width, 820.0);
+            assert_eq!(column(viewport).to_bits(), COLUMN.to_bits(), "{width}");
+            assert_eq!(page_size(viewport), PAGE_SIZE, "{width}");
+        }
     }
 
     #[test]

@@ -187,7 +187,10 @@ fn go(
     if url.to_string() != typed {
         return Err(format!("{typed} was read as {url}"));
     }
-    opener.open(url.clone(), Streamed::at(Scale::ONE));
+    opener.open(
+        url.clone(),
+        Streamed::at(alo_renderer::card::PAGE_SIZE, Scale::ONE),
+    );
     let opening = next(told)?;
     if opening != Went::Opening(url.clone())
         || opening.said() != format!("opening {typed} in Chrome, to be shown in a card")

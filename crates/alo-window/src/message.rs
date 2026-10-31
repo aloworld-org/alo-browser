@@ -84,12 +84,16 @@ pub enum Order {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CardOrder {
     /// Stream the page as PNG frames, each at most this many device pixels
-    /// each way: the card's page box times the window's scale.
+    /// each way: the card's page box times the window's scale — the page
+    /// laid out at `page` CSS pixels first, the card's page box, when it is
+    /// not already (queue item 774: a narrower window, a narrower card).
     Stream {
         /// In device pixels.
         width: u32,
         /// In device pixels.
         height: u32,
+        /// In CSS pixels.
+        page: (u32, u32),
     },
     /// Stream no more: the card is off the screen.
     Unstream,

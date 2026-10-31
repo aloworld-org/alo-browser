@@ -1,8 +1,9 @@
 /* The first screen, after the owner's design (ADR 0074 § 2,
    docs/design/shell.md): the greeting, the one box, a person's sites and
-   the chats waiting on them, in a column 720 px wide. The values are the
-   palette's, spelled here because no other file is reachable from a
-   renderer. */
+   the chats waiting on them, in a column 720 px wide — or, in a narrower
+   window, as wide as the room less 32 either side (queue item 774). The
+   values are the palette's, spelled here because no other file is
+   reachable from a renderer. */
 :root {
   --ink: #1b2433;
   --paper: #f4f1ec;
@@ -60,12 +61,14 @@ a {
 }
 
 /* The one box: 720 wide and 64 tall, the field and the button that sends
-   what is in it. */
+   what is in it; narrower in a narrow window, 32 in from either side of
+   the room (queue item 774). */
 .box {
   display: flex;
   align-items: center;
   column-gap: 10px;
-  width: 720px;
+  width: calc(100% - 64px);
+  max-width: 720px;
   height: 64px;
   padding: 0 10px 0 22px;
   border: 1px solid var(--line);
@@ -112,7 +115,8 @@ a {
   display: flex;
   flex-direction: column;
   row-gap: 28px;
-  width: 720px;
+  width: calc(100% - 64px);
+  max-width: 720px;
   margin-top: 40px;
 }
 
@@ -231,7 +235,8 @@ a {
 .offers {
   display: flex;
   flex-direction: column;
-  width: 720px;
+  width: calc(100% - 64px);
+  max-width: 720px;
   margin-top: 8px;
   padding: 6px;
   border: 1px solid var(--line);
@@ -295,11 +300,17 @@ a {
    is not cut at its sides; the column stays where it was. Its own stacking
    context, so the turns, positioned to be scrolled, are painted inside its
    clip: this engine paints a positioned box with the stacking context it
-   belongs to, past the clip of a box that is not one (queue item 753). */
+   belongs to, past the clip of a box that is not one (queue item 753).
+   In a window too narrow for 880 and 32 either side, the clip is the
+   room's whole width and the column the room less 32 either side, and
+   the box is as wide as the column (queue item 774): never under the
+   panel, never past the window's edge. `alo-renderer`'s `card_place`
+   computes the same column for the browser process. */
 .start.conversing .thread {
   position: relative;
   z-index: 0;
-  width: 944px;
+  width: 100%;
+  max-width: 944px;
   padding: 0 32px;
   flex-grow: 1;
   flex-shrink: 1;
@@ -314,14 +325,14 @@ a {
 
 .start.conversing .box {
   flex-shrink: 0;
-  width: 880px;
+  max-width: 880px;
   height: 56px;
   margin-top: 24px;
 }
 
 .start.conversing .offers {
   flex-shrink: 0;
-  width: 880px;
+  max-width: 880px;
   margin-top: 24px;
 }
 
@@ -332,7 +343,6 @@ a {
 .thread {
   display: flex;
   flex-direction: column;
-  width: 880px;
 }
 
 /* The conversation's turns (queue item 703, ADR 0085). The newest stands

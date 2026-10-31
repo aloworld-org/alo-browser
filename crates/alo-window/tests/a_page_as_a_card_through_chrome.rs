@@ -43,6 +43,9 @@
 //!   closing send) stops the stream first, Chrome answers
 //!   `Page.stopScreencast`, and **no frame is told after**; the thread ends.
 //!   *Unstream* (the card off the screen) does the same and keeps the page.
+//! - **A narrower card** (queue item 774): a stream asked at a narrower
+//!   page box — a window 967 wide, then 720 — and at the whole one again
+//!   has the page laid out at each first, so every frame is the box asked.
 //! - **Expand** shows the same tab in Chromium's own window, the stream
 //!   stopped, at the place and size asked, by Chromium's word and the window
 //!   server's.
@@ -449,6 +452,7 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         .send(Order::Card(CardOrder::Stream {
             width: ASKED.0,
             height: ASKED.1,
+            page: PAGE,
         }))
         .map_err(|_| "the card's thread has gone")?;
     streamed(&told, who);
@@ -493,6 +497,7 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         .send(Order::Card(CardOrder::Stream {
             width: ASKED.0,
             height: ASKED.1,
+            page: PAGE,
         }))
         .map_err(|_| "the card's thread has gone")?;
     let (again, _) = frames_within(&told, Duration::from_secs(2));
@@ -521,6 +526,37 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Queue item 774: the card's page box made narrower — the window 967
+/// wide beside the panel, then 720 — and wide again: each stream asked at
+/// the new box has its page laid out at it first, so every frame told is
+/// the new box at one.
+fn narrowed(serving: &ChromeServing, told: &Receiver<ToFrame>, who: &str) -> Result<(), String> {
+    let orders = serving.orders();
+    for page in [(661, 520), (414, 520), PAGE] {
+        orders
+            .send(Order::Card(CardOrder::Stream {
+                width: page.0,
+                height: page.1,
+                page,
+            }))
+            .map_err(|_| "the card's thread has gone")?;
+        // The stream at the last size stopped, then frames at the new.
+        let _ = stopped(told)?;
+        let (frames, _) = frames_within(told, Duration::from_secs(2));
+        let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();
+        eprintln!(
+            "{who}: page box {page:?}: frames {:?}",
+            sizes.iter().take(3).collect::<Vec<_>>()
+        );
+        assert!(
+            !sizes.is_empty() && sizes.iter().all(|size| *size == Some(page)),
+            "{who}'s frames of a page box {page:?} are not it: {:?}",
+            sizes.iter().take(3).collect::<Vec<_>>()
+        );
+    }
+    Ok(())
+}
+
 /// The card expanded: the same tab in Chromium's own window, at the place
 /// and size asked, the stream stopped — a card started at one, whose frames
 /// come at one though two is asked.
@@ -532,6 +568,7 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         .send(Order::Card(CardOrder::Stream {
             width: ASKED.0,
             height: ASKED.1,
+            page: PAGE,
         }))
         .map_err(|_| "the card's thread has gone")?;
     let (frames, _) = frames_within(&told, Duration::from_secs(1));
@@ -542,6 +579,7 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         "{who}'s frames of a card at one are not the page box at one: {:?}",
         sizes.iter().take(3).collect::<Vec<_>>()
     );
+    narrowed(&serving, &told, who)?;
     orders
         .send(Order::Card(CardOrder::Expand {
             at: (120, 80),

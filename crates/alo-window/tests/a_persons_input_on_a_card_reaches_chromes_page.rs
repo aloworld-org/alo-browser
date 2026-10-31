@@ -354,7 +354,10 @@ fn opened(chromium: Chromium, who: &str) -> Result<Card<'_>, String> {
         .going()
         .cloned()
         .ok_or("the address is not one to go to")?;
-    opener.open(url.clone(), Streamed::at(Scale::ONE));
+    opener.open(
+        url.clone(),
+        Streamed::at(alo_renderer::card::PAGE_SIZE, Scale::ONE),
+    );
     // As the window does on being told it is opening.
     conversation.open_card(url);
     let mut card = Card {

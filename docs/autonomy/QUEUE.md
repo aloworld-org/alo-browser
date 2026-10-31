@@ -21088,6 +21088,90 @@ What stage 2's exit gate actually measures: a person using it.
   `--keys-from` carries the AI key in its own slot, a test with a fake key
   reads it back, and no AI call is wired by this item alone.
 
+- [x] **774. The conversation's column in a narrow window.** Found by hand
+  in 748's run (`handrun14/02-searched.png`): in a window 967 wide, at one,
+  the person's words, the tab row, the results and the box at the foot
+  were drawn starting under the 240 panel with their first characters cut
+  off, and ran past the window's right edge; at 1280 they were right.
+  *Closes when:* in a narrow window the column is the room right of the
+  panel (or the rail) less its gutters, centred, never under the panel nor
+  past the window's edge; the card's place (`card_place`) and the box
+  follow it; layout assertions at 967 and 720 with the panel and the rail,
+  the card's and the box's geometry in numbers, and a reference render at
+  a narrow width.
+  ***Done (iteration 475), with a cut to 775.*** **The cause:** the
+  stylesheet, not the engine. `.start` centres its children
+  (`align-items: center`), and the conversation's clip was a fixed 944
+  wide (the 880 column and 32 either side for the card's shadow), the box
+  and the offers a fixed 880, the first screen's box, blocks and offers a
+  fixed 720. In a room of 727 (967 less the panel's 240) a 944 box centred
+  overflows by 108 either side — exactly what the screenshot shows — which
+  is what Chrome does too: `center` is unsafe alignment by default. The
+  browser process's own `card_place` assumed the 880 column at every width
+  (its card test even held the overflow at 900). **Fixed:** the clip is
+  `width: 100%; max-width: 944px`, the box and the offers
+  `width: calc(100% - 64px)` up to 880 (720 on the first screen, and its
+  blocks likewise): the column is the design's 880 where the room holds it
+  and 32 either side, and otherwise the room less 32 either side, centred
+  — beside the rail as beside the panel. One rule on each side, held
+  together by tests: `card_place::column`/`column_left`/`page_size`
+  compute the same column for the browser process, and the card's page
+  box, the box and the room are asserted equal to the engine's layout at
+  every narrow room. **The card's page follows:** `Streamed` carries the
+  page box in CSS pixels; a card opens laid out at it, and
+  `CardOrder::Stream` carries it, so Chrome's window is fitted to a new box
+  before the stream restarts (`chrome_card::carry_out`, the size the page
+  was last laid out at kept by the serving thread); the conversation's
+  window asks again whenever its page box changes while the card streams
+  (`ConversationWindow::restream`, on a resize or the panel hidden or
+  shown, never while covered); of the streams waiting on Chrome's thread
+  only the newest is carried out (`chrome_card::only_the_newest_stream`),
+  so a drag is not a queue of fits. **Tests:** `alo-renderer`'s
+  `tests/a_conversation_in_a_narrow_window.rs` — at rooms 727, 903, 480
+  and 656 (967 and 720 wide beside the panel and the rail) the clip
+  (0, 40) room × 676, the person's line, the results, tab row and three
+  sites (32, …) as wide as the column (663, 839, 416, 592), each tab where
+  it is at 1040 (News ending at 444.75), descriptions 740 at most, the box
+  (32, 740) column × 56, nothing of the results outside the column; at
+  1040, 944 and 1216 the column 880; the card, its page box (33, 145)
+  661 × 520 at 727, the box and the room equal to `card_place`'s at the
+  four rooms; the first screen's box and blocks; and a reference render at
+  967, `narrow-all-tab-with-results.png`, written once and then compared
+  without update mode. Unit tests in `card_place.rs` (column 663/839/416,
+  page 661/837/414, 880 from 944, nothing under 64), `card_aim.rs` (a
+  press at 273, 145 of a 967 window is the page's 0, 0; past 934 not the
+  page), `conversation_chrome.rs`, `conversation_window.rs` (a card
+  streamed at 878, then 661 at 967, 837 with the rail, nothing while
+  covered, 590 at 720 with the rail, nothing once put away) and
+  `chrome_card.rs`. Through the machine's Chrome and alo's CEF host
+  (`a_page_as_a_card_through_chrome.rs`): a card streamed at 661, 414
+  and 878 wide sends every frame at the box asked. No existing reference
+  moved; `a_page_as_a_card.rs`'s 900-wide case now asks `card_place` for
+  the column (836 from 32, where it held the overflow before). **By
+  hand** (`handrun15/`): a release with CEF 156.0.14, `--conversation`,
+  967 × 852 at one beside the panel: *rust ownership*'s results from 272
+  to 935 of the window (`02-searched-967.png`); its first title opened in
+  a card 663 wide, the page laid out at 661 (`03-card-967.png`); resized
+  to 760 the card narrowed and the page wrapped again at 454
+  (`04-card-760.png`); the panel hidden, the card 632 wide beside the rail
+  (`05-card-760-rail.png`); a press on the page's next-chapter arrow
+  followed it (`06-pressed-next-in-the-card.png`); the panel shown and
+  *rust borrowing* searched at 760 (`07-searched-760-panel.png`). ⌘Q left
+  no alo process. **Cut:** the panel folding to the rail (775).
+
+- [ ] **775. The panel folds to the rail in a narrow window.** Cut from
+  774. `docs/design/shell.md` says the chats panel collapses to the 64 rail
+  "on a narrow window"; it does not — only *Hide the panel* makes the rail.
+  Under about 720 wide the column beside the panel is narrower than the
+  tab row (All … News end 445 from the column's left), so the row runs
+  past the column into the clip, and the window has no least size. Decide
+  the width at which the panel folds on its own (and whether it unfolds
+  when the window widens, unless a person hid it), and whether the window
+  takes a least size or the tab row scrolls. *Depends on 711, 774. Closes
+  when:* a window narrowed past that width shows the rail with the panel
+  remembered, layout assertions of the rail and the column at that width,
+  and the tab row inside the column at the least width.
+
 - [ ] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a
   browser sets `opsz` to the font size (`font-optical-sizing: auto`); this

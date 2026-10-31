@@ -36,10 +36,12 @@ use alo_url::Url;
 /// page can write into this document, since none is a page's.
 pub const FRAME_SRC: &str = "alo:card-frame";
 
-/// The size of the card's page box, in CSS pixels: the design's 880 column
-/// less the card's border on each side, and its 520 of page. What Chrome
-/// lays the page out at while it is a card, and what its frames are asked
-/// for at, times the window's scale (ADR 0076 B).
+/// The size of the card's page box, in CSS pixels, wherever the window is
+/// wide enough for the design's column: its 880 less the card's border on
+/// each side, and its 520 of page. What Chrome lays the page out at while it
+/// is a card, and what its frames are asked for at, times the window's
+/// scale (ADR 0076 B). In a narrower window the page box is narrower, and
+/// [`crate::card_place::page_size`] says by how much (queue item 774).
 pub const PAGE_SIZE: (u32, u32) = (878, 520);
 
 /// A page shown as a card in the conversation.

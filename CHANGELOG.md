@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The conversation fits a narrow window.** In a window narrower than
+  about 1180 points, the conversation — what you typed, the tabs, the
+  results, a page open in the conversation and the box at the foot — was
+  drawn partly under the chats panel and past the window's right edge,
+  cut off at both sides. Now it narrows to the room beside the panel (or
+  its rail), with a margin either side, and a page open in the
+  conversation is laid out again at the narrower size as you resize the
+  window or hide the panel, so its text wraps rather than being squeezed.
+  The first screen's box and sites narrow the same way.
 - **Search works in a release without setting anything up.** alo's
   application now carries the Brave Search key inside itself, put there
   when the application is made (`alo-bundle --keys-from keychain`), so

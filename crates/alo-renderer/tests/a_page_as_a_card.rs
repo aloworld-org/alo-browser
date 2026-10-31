@@ -364,13 +364,16 @@ fn the_page_box_the_browser_computes_is_the_one_laid_out() -> Result<(), String>
         );
         // The box at the window's foot, and the room the conversation is
         // clipped to, as the browser process computes them (queue item 750).
-        let column = (width - card_place::COLUMN) / 2.0;
+        // At 900 the column is the room less 32 either side (queue item
+        // 774): 836 from 32.
+        let column = card_place::column_left(viewport);
+        let wide = card_place::column(viewport);
         assert_eq!(
             boxes_of(&renderer, "box"),
             vec![px(
                 column,
                 card_place::box_top(viewport),
-                card_place::COLUMN,
+                wide,
                 card_place::BOX_HEIGHT
             )],
             "at {width} × {height}"
@@ -380,7 +383,7 @@ fn the_page_box_the_browser_computes_is_the_one_laid_out() -> Result<(), String>
             vec![px(
                 column - 32.0,
                 40.0,
-                card_place::COLUMN + 64.0,
+                wide + 64.0,
                 card_place::room_bottom(viewport, 0) - 40.0
             )],
             "at {width} × {height}"

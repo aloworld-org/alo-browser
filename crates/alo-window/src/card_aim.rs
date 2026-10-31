@@ -196,6 +196,39 @@ mod tests {
         );
     }
 
+    /// Queue item 774: a window 967 wide at one, the panel shown — a room
+    /// of 727, the column 663 from 32 — has the page box at 33, 145 of the
+    /// first screen, 661 wide: 273 of the window.
+    #[test]
+    fn in_a_window_967_wide_the_page_box_is_at_273_145_of_the_window() {
+        let window = (967, 820);
+        let placed = ConversationPlacement::of(
+            window,
+            Scale::ONE,
+            Parts {
+                panel: Some((240, 820)),
+                start: Some((727, 820)),
+                ..Parts::default()
+            },
+        );
+        let viewport = start_viewport(window, Scale::ONE);
+        assert_eq!(viewport.width.to_bits(), 727.0_f32.to_bits());
+        let card = Some(painted(viewport, 0.0, 0));
+        assert_eq!(
+            aim(&placed, Scale::ONE, card, (273.0, 145.0)),
+            page(0.0, 0.0)
+        );
+        assert_eq!(
+            aim(&placed, Scale::ONE, card, (933.5, 664.5)),
+            page(660.5, 519.5)
+        );
+        // Past its right edge, 934, the card's border: no longer the page.
+        assert!(matches!(
+            aim(&placed, Scale::ONE, card, (934.5, 300.0)),
+            Some(Aimed::Part(Part::Start, _))
+        ));
+    }
+
     #[test]
     fn at_two_a_device_pixel_is_half_a_css_pixel_of_the_page() {
         let (placed, viewport) = the_window(Scale::TWO);

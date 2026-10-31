@@ -19,8 +19,8 @@ they open one.
 |---|---|---|
 | Chats panel | 240 px wide, full height | collapses to a 64 px rail while the agent works, or on a narrow window |
 | Top bar | 52 px tall | the chat's name, *Share* |
-| Conversation | a column 880 px wide, centred in what the panel leaves | |
-| The box | 56 px tall, 880 px wide, 24 px above the window's foot | 64 px tall on the first screen |
+| Conversation | a column 880 px wide, centred in what the panel leaves | narrower in a narrow window: what the panel leaves less 32 px either side (item 774) |
+| The box | 56 px tall, 880 px wide, 24 px above the window's foot | 64 px tall on the first screen; as wide as the column |
 
 ## The chats panel (item 699)
 

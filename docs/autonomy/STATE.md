@@ -46815,3 +46815,76 @@ iteration 473). Pointer at (1400,1000) before each. **Summary [781.981s]
 **Cut:** the AI provider's slot among the carried keys (773).
 
 The next unused queue number is **774** and the next ADR is **0092**.
+
+## Iteration 475 — queue item 774: the conversation's column in a narrow window
+
+**Found by hand** in iteration 474 (`handrun14/02-searched.png`): a window
+967 wide at one drew the conversation — the person's words, the tabs, the
+results and the box — from under the 240 panel, its first characters cut
+off, and past the window's right edge.
+
+**The cause: the stylesheet, not the engine.** `.start` centres its
+children; the conversation's clip was a fixed 944 (the 880 column and 32
+either side for the card's shadow), the box and the offers a fixed 880, the
+first screen's box, blocks and offers a fixed 720. Centred in a room of 727,
+944 overflows 108 either side — Chrome does the same, `center` being unsafe
+alignment. `card_place` (the browser process's own geometry of the card,
+the box and the room) assumed the 880 column at every width, and
+`a_page_as_a_card.rs` held that overflow at 900.
+
+**Fixed.** `start.css`: the clip `width: 100%; max-width: 944px`; the box
+and the offers `width: calc(100% - 64px)` up to 880 while conversing, 720
+on the first screen with its blocks. The column is 880 where the room
+holds it and 32 either side, else the room less 32 either side, centred,
+beside the panel or the rail. `card_place::column`, `column_left`,
+`page_size` and `GUTTER` say the same for the browser process, and tests
+hold the two equal at every narrow room; `PAGE_SIZE` is now the widest
+page box. **The card's page follows the column:** `Streamed` carries the
+page box, a card's Chromium opens laid out at it, `CardOrder::Stream`
+carries it and `chrome_card::carry_out` fits Chrome's window to a new box
+before restarting the stream (the serving thread keeps the size it last
+laid out at; Expand updates it); `ConversationWindow::restream` asks again
+whenever the page box changes while a card streams (resize, panel hidden
+or shown; never while covered or after the card is put away); and
+`chrome_card::only_the_newest_stream` drops streams a later one in the same
+batch supersedes, so a drag is not a queue of fits. No ADR: the gutter is
+the design's existing 32 and nothing else was chosen.
+
+**Tests.** `alo-renderer/tests/a_conversation_in_a_narrow_window.rs` (rooms
+727, 903, 480, 656: clip, person's line, results, tab row, tabs, sites,
+titles, descriptions and box in numbers; 880 at 1040, 944, 1216; the card's
+page box, box and room equal to `card_place`'s; the first screen's 720
+column narrowed; the reference `narrow-all-tab-with-results.png`, written
+once, looked at, then compared without update mode). Unit tests in
+`card_place.rs`, `card_aim.rs`, `conversation_chrome.rs`,
+`conversation_window.rs`, `chrome_card.rs`. Through the machine's Chrome
+and alo's CEF host, `a_page_as_a_card_through_chrome.rs` streams a card at
+661, 414 and 878 wide, every frame the box asked. No existing reference
+moved.
+
+**By hand** (screen unlocked; release build, CEF host built, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, opened with `--conversation`;
+screenshots in the session scratchpad `handrun15/`; pointer saved at
+1400,1000 and put back after each press). At 967 × 852, scale one, beside
+the panel: *rust ownership*'s results from 272 to 935 of the window
+(`02-searched-967.png`); its first title opened in a card 663 wide with the
+page laid out at 661 (`03-card-967.png`); resized to 760 by System Events,
+the card narrowed and the page wrapped again at 454 (`04-card-760.png`);
+the panel hidden, the card 632 wide beside the rail (`05-card-760-rail.png`);
+a press on the page's next-chapter arrow followed it
+(`06-pressed-next-in-the-card.png`); the panel shown and *rust borrowing*
+searched at 760 (`07-searched-760-panel.png`). ⌘Q left no alo, alo-render or
+alo Chromium process.
+
+**Gate: met** (first run). Clippy and both touched crates' `--lib` tests
+first; pointer moved to (1400,1000). **Summary [784.772s] 6047 tests run:
+6047 passed (6 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0076 B, 0085,
+0090; `docs/design/shell.md`'s window table.
+
+**Roadmap:** the conversation line's owed list gains 775; 774 built.
+
+**Cut:** the panel folding to the rail in a narrow window (775).
+
+The next unused queue number is **776** and the next ADR is **0092**.

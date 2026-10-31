@@ -986,6 +986,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   assertions at several heights and the four reference renders of a card
   and of results (`tests/a_page_as_a_card.rs`,
   `tests/a_searchs_results_on_the_all_tab.rs`).
+  **A narrow window** (774): where the room the panel or its rail leaves
+  is too narrow for the 880 column and 32 either side, the column is that
+  room less 32 either side, centred — the person's words, the tabs, the
+  results, a card and the box at the foot are never under the panel nor
+  past the window's edge, and the first screen's 720 column narrows the
+  same way. The browser process computes the same column
+  (`card_place::column`), so a card's page is laid out in Chrome at the
+  narrower box, and again whenever the window is resized or the panel
+  hidden, only the newest of a drag's sizes carried out
+  (`tests/a_conversation_in_a_narrow_window.rs`, a reference render at 967;
+  `a_page_as_a_card_through_chrome.rs` through both Chromiums). Not yet:
+  the panel folding to the rail in a narrow window (775).
   **The design's typefaces** (706, ADR 0084): Instrument Sans and
   Newsreader, as Google Fonts publishes them under the OFL, compiled into
   `alo-renderer` (`typefaces.rs`, `interface/fonts/`) and handed as bytes
