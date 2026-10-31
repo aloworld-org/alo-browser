@@ -591,7 +591,7 @@ impl ConversationWindow {
                 Showing::Unanswered(why) => Some(why.clone()),
                 Showing::Searching => return,
             },
-            Came::Images(_) | Came::Videos(_) | Came::News(_) => None,
+            Came::Images(_) | Came::Marks(_) | Came::Videos(_) | Came::News(_) => None,
         };
         if self.conversation.searched(searched) {
             if let Some(line) = line {

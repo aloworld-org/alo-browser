@@ -140,11 +140,19 @@ impl<'a> Letters<'a> {
     }
 
     /// The letters as text items of `id`'s, one per run, in `color`, each
-    /// casting `shadows`.
-    fn items(&self, id: BoxId, color: Rgba, shadows: &[TextShadow]) -> Vec<DisplayItem> {
-        self.runs
-            .iter()
-            .map(|run| DisplayItem::Text {
+    /// casting `shadows`; and after a run in a face whose glyphs are
+    /// pictures, each of those glyphs as a picture item, set as on a screen
+    /// at `scale` (ADR 0088, [`crate::glyph_picture`]).
+    fn items(
+        &self,
+        id: BoxId,
+        color: Rgba,
+        shadows: &[TextShadow],
+        scale: f32,
+    ) -> Vec<DisplayItem> {
+        let mut items = Vec::with_capacity(self.runs.len());
+        for run in &self.runs {
+            items.push(DisplayItem::Text {
                 box_id: id,
                 text: run.text.to_owned(),
                 origin: run.origin,
@@ -154,8 +162,25 @@ impl<'a> Letters<'a> {
                 letter_spacing: self.letter_spacing,
                 color,
                 shadows: shadows.to_vec(),
-            })
-            .collect()
+            });
+            items.extend(
+                crate::glyph_picture::pictured_glyphs_at(
+                    run.text,
+                    &run.font,
+                    self.size,
+                    scale,
+                    self.letter_spacing,
+                    run.origin,
+                )
+                .into_iter()
+                .map(|(rect, picture)| DisplayItem::Picture {
+                    box_id: id,
+                    rect,
+                    picture,
+                }),
+            );
+        }
+        items
     }
 
     /// The letters' shadows, furthest back first, each as its own item:
@@ -950,10 +975,10 @@ impl Builder<'_> {
     ) {
         let beneath = Self::decorations_at(decorations, true, piece, letters, scale);
         let items = if beneath.is_empty() && letters.runs.len() < 2 {
-            letters.items(id, color, &decorations.shadows)
+            letters.items(id, color, &decorations.shadows, scale)
         } else {
             out.extend(letters.shadow_items(id, &decorations.shadows, scale));
-            letters.items(id, color, &[])
+            letters.items(id, color, &[], scale)
         };
         Self::draw_lines(id, &beneath, &decorations.shadows, out);
         out.extend(items);

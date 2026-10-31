@@ -477,6 +477,17 @@ impl Conversation {
                 }
                 shown
             }
+            Came::Marks(marks) => {
+                let on_screen = self.on_screen();
+                let mut shown = false;
+                for (id, thread) in &mut self.threads {
+                    if thread.marked(&searched.words, &marks) {
+                        shown = shown || Some(*id) == on_screen;
+                        break;
+                    }
+                }
+                shown
+            }
             Came::Videos(videos) => self.further_came(searched.number, |thread, turn| {
                 thread.videos_came(turn, videos)
             }),
@@ -1052,6 +1063,45 @@ mod tests {
 
     fn found(address: &str) -> alo_renderer::results::Found {
         alo_renderer::results::Found::new("A site", alo_url::parse(address).unwrap(), "Of it.")
+    }
+
+    #[test]
+    fn each_sites_mark_is_put_beside_it_once_by_its_place() {
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "ev");
+        let _ = conversation.edit(Edit::Choose);
+        assert!(conversation.searched(Searched::sites(
+            1,
+            "ev",
+            results::Showing::Found(vec![found("https://one.example/"); 3]),
+        )));
+        let marks = |first: u8| Searched {
+            number: 1,
+            words: "ev".to_owned(),
+            came: Came::Marks(vec![Some(vec![first]), None, Some(vec![3])]),
+        };
+        assert!(
+            !conversation.searched(Searched {
+                came: Came::Marks(vec![Some(vec![1])]),
+                ..marks(1)
+            }),
+            "marks for another number of sites are no search's"
+        );
+        assert!(conversation.searched(marks(1)));
+        let held: Vec<Option<Vec<u8>>> =
+            match conversation.results().map(|results| &results.showing) {
+                Some(results::Showing::Found(found)) => {
+                    found.iter().map(|site| site.mark.clone()).collect()
+                }
+                _ => Vec::new(),
+            };
+        assert_eq!(held, vec![Some(vec![1]), None, Some(vec![3])]);
+        assert!(
+            !conversation.searched(marks(9)),
+            "a turn already marked is not marked again"
+        );
     }
 
     #[test]

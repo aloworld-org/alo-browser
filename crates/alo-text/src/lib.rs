@@ -31,6 +31,10 @@
 //!   font whose name nobody can read is a font no page can ask for.
 //! - **Which font, and what to do when it lacks the character**, is ours:
 //!   [`database`]. That is a policy question rather than a physics one.
+//! - **Which characters are meant to be shown as emoji** is Unicode's own
+//!   table (`unicode-properties`), and [`emoji`] is the only file that names
+//!   it; what to do about it — look in a face that draws pictures first — is
+//!   ours, in the same file (ADR 0088).
 //! - **Where a line does break** is ours: [`line`]. Take the last opportunity
 //!   that fits; overflow rather than cut a word in half.
 //! - **Where a line may be cut short** — between clusters, never inside a
@@ -58,6 +62,7 @@
 
 pub mod cluster;
 pub mod database;
+pub mod emoji;
 pub mod face_size;
 pub mod font;
 pub mod line;

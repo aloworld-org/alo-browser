@@ -54,6 +54,9 @@ pub struct Video {
     /// The thumbnail's bytes as they arrived, if one did and was kept:
     /// decoded only by the renderer that draws it.
     pub picture: Option<Vec<u8>>,
+    /// Its site's own mark, as a site found has one
+    /// ([`crate::results::Found::mark`], queue item 747).
+    pub mark: Option<Vec<u8>>,
 }
 
 /// One news story a search found.
@@ -71,6 +74,9 @@ pub struct Story {
     pub age: String,
     /// What the provider says of it, as plain text, perhaps nothing.
     pub description: String,
+    /// Its site's own mark, as a site found has one
+    /// ([`crate::results::Found::mark`], queue item 747).
+    pub mark: Option<Vec<u8>>,
 }
 
 /// Whether `written` is a length as the provider writes one: one to three
@@ -102,6 +108,7 @@ impl Video {
             age: String::new(),
             description: String::new(),
             picture: None,
+            mark: None,
         }
     }
 
@@ -138,6 +145,13 @@ impl Video {
         self
     }
 
+    /// The same video, its site's mark `bytes` (queue item 747).
+    #[must_use]
+    pub fn marked(mut self, bytes: Vec<u8>) -> Self {
+        self.mark = Some(bytes);
+        self
+    }
+
     /// The site it is on: the provider's word for it, or its page's host.
     pub fn site(&self) -> String {
         named_or_host(&self.site, &self.page)
@@ -163,6 +177,7 @@ impl Story {
             site: String::new(),
             age: String::new(),
             description: String::new(),
+            mark: None,
         }
     }
 
@@ -178,6 +193,13 @@ impl Story {
     #[must_use]
     pub fn said_of(mut self, description: impl Into<String>) -> Self {
         self.description = description.into();
+        self
+    }
+
+    /// The same story, its site's mark `bytes` (queue item 747).
+    #[must_use]
+    pub fn marked(mut self, bytes: Vec<u8>) -> Self {
+        self.mark = Some(bytes);
         self
     }
 

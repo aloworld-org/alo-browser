@@ -26,20 +26,26 @@
 //! paragraph. The site's letter is decoration, hidden from the tree. Every
 //! string is a stranger's and enters as a text node.
 
+use crate::marks_document::Beside;
 use crate::results::Results;
 use crate::results_document::TITLE_HREF;
 use crate::results_media::Story;
 use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
 
-/// The News tab, under `made`'s tab row: each story its row, or one
-/// sentence where the stories would be.
+/// The News tab, for the `place`th turn, under `made`'s tab row: each
+/// story its row, or one sentence where the stories would be.
 ///
 /// # Errors
 ///
 /// [`Unbuilt`] if `alo-dom` refused an operation, which no stories can
 /// cause.
-pub fn list(document: &mut Document, made: NodeId, results: &Results) -> Result<(), Unbuilt> {
+pub fn list(
+    document: &mut Document,
+    made: NodeId,
+    results: &Results,
+    place: usize,
+) -> Result<(), Unbuilt> {
     if let Some(note) = results.news_note() {
         let said = element(document, "p")?;
         attribute(document, said, "class", "note")?;
@@ -50,32 +56,30 @@ pub fn list(document: &mut Document, made: NodeId, results: &Results) -> Result<
     }
     let list = element(document, "div")?;
     attribute(document, list, "class", "news")?;
-    for story in results.drawn_stories() {
-        let row = row(document, story)?;
+    for (at, story) in results.drawn_stories().iter().enumerate() {
+        let row = row(document, story, place, at)?;
         append(document, list, row)?;
     }
     append(document, made, list)
 }
 
-/// One story: its site and age, its headline, and what is said of it.
-fn row(document: &mut Document, story: &Story) -> Result<NodeId, Unbuilt> {
+/// One story, the `at`th of the `place`th turn: its site and age, its
+/// headline, and what is said of it.
+fn row(document: &mut Document, story: &Story, place: usize, at: usize) -> Result<NodeId, Unbuilt> {
     let article = element(document, "article")?;
     attribute(document, article, "class", "n")?;
     let source = element(document, "div")?;
     attribute(document, source, "class", "src")?;
-    if let Some(letter) = story.letter() {
-        let mark = element(document, "span")?;
-        attribute(
-            document,
-            mark,
-            "class",
-            &format!("fav tint{}", story.tint()),
-        )?;
-        attribute(document, mark, "aria-hidden", "true")?;
-        let text = document.create_text_node(&letter);
-        append(document, mark, text)?;
-        append(document, source, mark)?;
-    }
+    crate::marks_document::mark(
+        document,
+        source,
+        story
+            .mark
+            .as_deref()
+            .map(|bytes| (bytes, crate::marks_document::src(place, Beside::Story, at))),
+        story.letter(),
+        story.tint(),
+    )?;
     let name = element(document, "span")?;
     attribute(document, name, "class", "name")?;
     // The provider's name for the site, a stranger's string, as text.

@@ -258,6 +258,7 @@ dependencies = [
  "rustybuzz",
  "ttf-parser",
  "unicode-linebreak",
+ "unicode-properties",
  "unicode-script",
 ]
 

@@ -81,6 +81,58 @@ pub fn outline_at(font: &Font, glyph_id: u16, size: f32, scale: f32) -> Option<G
     Some(Glyph { path: builder.path })
 }
 
+/// A glyph that is a picture — a colour emoji in a `CBDT` or `sbix` table —
+/// as the font holds it: the picture's bytes, and where it goes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlyphPicture {
+    /// The picture, as PNG bytes; decoded by whoever draws it.
+    pub png: Vec<u8>,
+    /// Its left edge, from the pen, in CSS pixels.
+    pub left: f32,
+    /// Its top edge, from the baseline, in CSS pixels — negative above it,
+    /// in the screen's direction like every shape here.
+    pub top: f32,
+    /// Its width, in CSS pixels.
+    pub width: f32,
+    /// Its height, in CSS pixels.
+    pub height: f32,
+}
+
+/// The picture a glyph is, in a font whose glyphs are pictures
+/// ([`Font::draws_pictures`]), at the size it is set at on a screen of
+/// `scale` device pixels to the CSS pixel (ADR 0088).
+///
+/// The font's nearest strike to that size, scaled to it: Noto Color Emoji
+/// holds one, 109 pixels to the em, which a 16 px emoji is drawn down from.
+/// [`None`] for a glyph with no picture, a picture that is not a PNG — the
+/// only format either face this engine is handed uses — or a font that
+/// cannot be read.
+pub fn picture_at(font: &Font, glyph_id: u16, size: f32, scale: f32) -> Option<GlyphPicture> {
+    let face = ttf_parser::Face::parse(font.data(), font.index()).ok()?;
+    let set = alo_text::face_size_at(size, scale);
+    // The strike for the device pixels it is shown at, as a browser asks.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a size in device pixels, clamped to what a strike can be"
+    )]
+    let wanted = (set * scale).round().clamp(1.0, f32::from(u16::MAX)) as u16;
+    let image = face.glyph_raster_image(ttf_parser::GlyphId(glyph_id), wanted)?;
+    if image.format != ttf_parser::RasterImageFormat::PNG || image.pixels_per_em == 0 {
+        return None;
+    }
+    let to_css = set / f32::from(image.pixels_per_em);
+    // `y` is the picture's foot, up from the baseline, as a font measures.
+    let height = f32::from(image.height) * to_css;
+    Some(GlyphPicture {
+        png: image.data.to_vec(),
+        left: f32::from(image.x) * to_css,
+        top: -(f32::from(image.y) * to_css) - height,
+        width: f32::from(image.width) * to_css,
+        height,
+    })
+}
+
 /// Turns the font's outline calls into our path, scaled and flipped.
 struct Builder {
     path: Path,

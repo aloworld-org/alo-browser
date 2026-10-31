@@ -1939,3 +1939,57 @@ fn what_came_of_a_submission_survives_the_crossing() {
         "{refused:?}"
     );
 }
+
+/// Queue item 747: each site's, video's and story's mark crosses as it was
+/// sent; one larger than a mark may be, or not a picture, is refused.
+#[test]
+fn a_sites_mark_crosses_and_one_that_is_no_mark_is_refused() {
+    use alo_renderer::results::{LARGEST_MARK, Stories, Videos};
+    use alo_renderer::results_media::{Story, Video};
+    let site = |written: &str| alo_url::parse(written).unwrap_or_else(|_| panic!("{written}"));
+    let png = |bytes: usize| {
+        let mut picture = b"\x89PNG\r\n\x1a\n".to_vec();
+        picture.resize(bytes, 0);
+        picture
+    };
+    let sending = |results: Results| {
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Searched(results)],
+            ..Start::default()
+        }))
+    };
+    let marked = |mark: Vec<u8>| {
+        Results::of(
+            "x",
+            Showing::Found(vec![
+                Found::new("t", site("https://a.example/"), "").marked(mark.clone()),
+                Found::new("u", site("https://b.example/"), ""),
+            ]),
+        )
+        .with_videos(Videos::Found(vec![
+            Video::new("v", site("https://v.example/")).marked(mark.clone()),
+        ]))
+        .with_news(Stories::Found(vec![
+            Story::new("s", site("https://n.example/")).marked(mark),
+        ]))
+    };
+    for tab in [Tab::All, Tab::Videos, Tab::News] {
+        let original = sending(marked(png(LARGEST_MARK)).on(tab));
+        let back = read_to_renderer(&write_to_renderer(&original))
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+    for (mark, refusal) in [
+        (png(LARGEST_MARK + 1), "at most 16384"),
+        (
+            b"<svg></svg>".to_vec(),
+            "a site's mark that is not a picture",
+        ),
+    ] {
+        let why = read_to_renderer(&write_to_renderer(&sending(marked(mark))))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains(refusal), "{refusal}: {why:?}");
+    }
+}

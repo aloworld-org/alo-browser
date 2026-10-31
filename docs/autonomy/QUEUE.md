@@ -20720,11 +20720,93 @@ What stage 2's exit gate actually measures: a person using it.
   thumbnail is (ADR 0087 § 3), carry it as `Story::picture`, count it in
   the first screen's budget, and draw it. *Depends on 746.*
 
-- [ ] **747. A site's own mark in the results.** Cut from 708: a site shows
+- [x] **747. A site's own mark in the results.** Cut from 708: a site shows
   its letter on one of four tints, where the design shows its mark. Brave
   names a favicon for each result (`meta_url.favicon`, served through its
   own image proxy); fetching it is one more request per site, of a picture,
   so what is sent and to whom goes in ADR 0083 first. *Depends on 708.*
+  ***Built (iteration 470) — ticked once the gate was met (STATE, iteration
+  470); decided in ADR 0088 (Part 2), with the interface's emoji (Part 1);
+  scope cut to 766–769.*** **Fetched** by the browser process, on the
+  search's thread, from the provider's image proxy alone
+  (`search_marks.rs`, through `search_thumbnails::picture`): a mark named
+  anywhere else — the site's own `favicon.ico` — is never asked; `Accept:
+  image/*` and no key, cookie or `Referer`, no redirect followed; each
+  distinct address once, at most 20 (`MOST_MARKS`) for one answer, each at
+  most 16 KiB (`LARGEST_MARK`), only bytes that begin as a picture. No paid
+  request. **Read** (`search_protocol.rs`): `meta_url.favicon` beside each
+  web result, video and story by its place, kept only when it is text and a
+  site's address. **When:** a search's sites are told at once with their
+  letters, then their marks fetched and told (`Came::Marks`,
+  `Thread::marked`) before the image search, not when a newer search
+  waits; a video's and a story's with their tab's answer. **Carried** as
+  `Found::mark`, `Video::mark`, `Story::mark`; the wire refuses one over 16
+  KiB or not a picture; sent only for the rows a tab draws (`as_drawn`) and
+  weighed first in the first screen's 2 MiB (`within_budget`). **Drawn**
+  (`marks_document.rs`): the confined renderer reads the bytes as it builds
+  the document (`reads`) — an icon that decodes, at most 256 square, is an
+  `<img>` named `alo:mark-TURN-site|video|story-N` in the letter's 18
+  square rounded 5, which clips it; one that does not read leaves the
+  letter. **Tests:** `alo-renderer/tests/a_sites_own_mark.rs` — the icon at
+  (80, 168) 18 × 18 on All and Sites, the undecodable and the
+  poster-sized (300 square) as letters at 264, 360 and 456, every name at
+  106; videos' icons at (296, 194) and (296, 326), the third's letter at
+  458, names at 320; a story's at (80, 168) and the second's letter at
+  273; references `all-tab-with-marks.png`, `videos-tab-with-marks.png`,
+  `news-tab-with-marks.png`, each looked at, then run without update mode,
+  each icon's two colours the right way up and the paper at its rounded
+  corner; the agent reading no mark; the same through a confined
+  renderer. The wire (`messages_across_a_boundary.rs`); the budget and
+  `as_drawn` (`results.rs`); the read (`search_protocol.rs`); the
+  conversation (`conversation.rs`).
+  `alo-window/tests/a_sites_marks_fetched_and_bounded.rs`: thirty marks
+  against a local proxy — an icon kept as it arrived, one over 16 KiB, one
+  not a picture, a 404 and a 302 left out and named, undecodable bytes
+  kept for the renderer, one at the site itself never asked nor the site a
+  redirect named, an icon two results name asked once, twenty distinct
+  asked and the rest named, every one with `Accept: image/*` and no key,
+  cookie or `Referer`. Through the window's own road
+  (`alo-window/tests/a_sites_mark_in_the_window.rs`): a search's first
+  site's icon painted at its letter's place, the rest keeping their
+  letters, the provider asked the words alone with the key and each icon
+  at the proxy once without it, before the image search.
+
+- [ ] **766. Colour glyphs in `COLR` and `SVG` faces, and an emoji's
+  shadow.** Cut from ADR 0088 § 5. Paint draws a `CBDT` or `sbix` glyph as
+  its picture; a `COLR` v0 face (Windows' Segoe UI Emoji), a `COLR` v1 face
+  (Noto's 5 MB vector build — half the bytes alo carries now) and an `SVG `
+  face are drawn as their outlines in the text's colour. `ttf-parser`
+  walks `COLR` v1's paint graph; drawing it needs linear, radial and sweep
+  gradients, transforms, clips and blending in `alo-paint`. With it: a
+  picture glyph casts its `text-shadow` and a decoration line steps aside
+  for it, which the run's outlines — none, for a picture — decide today.
+  *Closes when:* a `COLR` v1 emoji is drawn as Chrome draws it, in a
+  reference render and against Chrome's pixels. *Depends on nothing.*
+
+- [ ] **767. Chinese, Japanese and Korean in the interface.** Cut from ADR
+  0088 § 5. On macOS the machine scan reads no `.ttc` collection — the CJK
+  faces are collections (`Hiragino Sans GB.ttc`, 23 MB) — and the 24-face
+  cut keeps `LastResort`, which has every code point as its block's box, so
+  a CJK title in the interface is drawn as boxes. Needs a face read out of
+  a collection (`alo-text` loads index 0 only), a chain that tries
+  `LastResort` last, and a bound on what a renderer is handed (a CJK face
+  is 16–25 MB; `LARGEST_FONT` is 16 MiB). *Closes when:* a CJK title is
+  drawn in the machine's CJK face in a test with that face. *Depends on
+  nothing.*
+
+- [ ] **768. The Images grid's marks.** Cut from 747. The grid draws each
+  image's site as its letter on a 14 square. Whether Brave's image results
+  name the site's icon (`meta_url.favicon` beside `source`) is not read;
+  if they do, fetch and draw it as a site's mark is (ADR 0088 §§ 6–8),
+  14 square, rounded 4. *Depends on 747.*
+
+- [ ] **769. A picture rounded by its own `border-radius`.** Found by 747:
+  an `<img>` with `border-radius: 5px` is drawn square — the engine rounds
+  a box's background and clips its children to an `overflow` box's curve,
+  but not a replaced box's own picture, which Chrome clips to the border
+  box's rounded inner edge. The mark is wrapped in a clipping tile until
+  then. *Closes when:* a reduced corpus case of rounded pictures is
+  Chrome's at one and two. *Depends on nothing.*
 
 - [ ] **748. How alo carries the search key in release (ADR 0083 § 1).**
   Cut from 708. The owner's stated direction is to ship the application

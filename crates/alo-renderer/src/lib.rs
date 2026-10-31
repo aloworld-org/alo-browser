@@ -84,6 +84,7 @@ pub mod host;
 pub mod images_document;
 pub mod inline_style;
 pub mod linked;
+pub mod marks_document;
 pub mod message;
 pub mod navigate;
 pub mod news_document;

@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Emoji, in colour.** Emoji in search results, names and anything else
+  the interface shows are now drawn as colour pictures, from the Noto Color
+  Emoji font alo carries (under the SIL Open Font License, its licence in
+  the application), instead of as boxes. Combined emoji — a skin tone, a
+  heart with its selector, people joined into one — are drawn as the one
+  picture they are. Chinese, Japanese and Korean text in the interface on a
+  Mac is still drawn as boxes (ADR 0088).
+- **Each site's own icon in your search results.** Where a site is shown —
+  on *All* and *Sites*, beside a video, beside a news story — its own icon
+  now stands in place of its coloured letter. Icons come only from Brave's
+  own image service, never from the sites themselves, cost nothing more,
+  and are checked before they are shown; a site without one, or whose icon
+  cannot be read, keeps its letter (item 747).
 - **Videos and news in your search results.** The *Videos* and *News* tabs
   now open once a search finds sites. *Videos* lists each video with its
   picture, its length, its title, its site and how old it is; *News* lists

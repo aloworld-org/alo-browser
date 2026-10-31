@@ -218,6 +218,27 @@ on 22. The canvas's photo beside each story is item 765.
 A press on a title or a headline opens its page as a card, its bubble the
 title. A video's picture is not pressed.
 
+### A site's own mark (item 747, ADR 0088)
+
+Where a site, a video's site or a story's site is drawn on All, Sites,
+Videos or News, its **mark** is the site's own icon when one came: drawn
+down into the letter's 18 square, rounded 5, the name where it was. Brave
+names each icon at its own image proxy; the browser process fetches it from
+there alone — never from the site — and the renderer that draws it reads
+it. A search's sites are drawn with their letters first and take their
+marks as they come; a site whose icon is missing, refused or does not read
+keeps its letter on its tint. The Images grid's 14-square marks stay
+letters (768).
+
+### Emoji (ADR 0088)
+
+Neither typeface has an emoji. The interface carries **Noto Color Emoji**
+and draws an emoji in it, in its own colours, wherever a title, a
+description, a name or a person's words hold one; a character such as `©`
+or a digit stays in Instrument Sans. A character neither face nor the
+emoji face has is drawn by the machine's fonts — and, for Chinese,
+Japanese and Korean on a Mac, still as a box (767).
+
 ### The conversation (item 703, ADR 0085)
 
 Every search and every page opened is **a turn under the last**: the
@@ -286,7 +307,8 @@ is 718).
 greeting, at 400. Both under the SIL Open Font License, compiled into the
 application and handed to the interface's renderers alone (item 706, ADR
 0084); a stylesheet asks for each first and keeps `system-ui, sans-serif`
-or `serif` after it. Newsreader's optical size follows the text's size in
+or `serif` after it. Emoji are drawn in **Noto Color Emoji**, carried and
+handed the same way (ADR 0088). Newsreader's optical size follows the text's size in
 the canvas; here it is the file's 18 until item 752.
 
 ## Colours

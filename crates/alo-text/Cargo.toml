@@ -19,6 +19,7 @@ rustybuzz.workspace = true
 # `font.rs` reads faces with it directly; the lockfile holds one copy.
 ttf-parser.workspace = true
 unicode-linebreak.workspace = true
+unicode-properties.workspace = true
 unicode-script.workspace = true
 
 [dev-dependencies]

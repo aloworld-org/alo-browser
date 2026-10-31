@@ -38,6 +38,7 @@
 //! hidden from the tree. Every string is a stranger's and enters as a text
 //! node.
 
+use crate::marks_document::Beside;
 use crate::resource::Resource;
 use crate::results::Results;
 use crate::results_document::TITLE_HREF;
@@ -147,19 +148,16 @@ fn row(document: &mut Document, video: &Video, place: usize, at: usize) -> Resul
     append(document, body, heading)?;
     let meta = element(document, "p")?;
     attribute(document, meta, "class", "m")?;
-    if let Some(letter) = video.letter() {
-        let mark = element(document, "span")?;
-        attribute(
-            document,
-            mark,
-            "class",
-            &format!("fav tint{}", video.tint()),
-        )?;
-        attribute(document, mark, "aria-hidden", "true")?;
-        let text = document.create_text_node(&letter);
-        append(document, mark, text)?;
-        append(document, meta, mark)?;
-    }
+    crate::marks_document::mark(
+        document,
+        meta,
+        video
+            .mark
+            .as_deref()
+            .map(|bytes| (bytes, crate::marks_document::src(place, Beside::Video, at))),
+        video.letter(),
+        video.tint(),
+    )?;
     let site = element(document, "span")?;
     attribute(document, site, "class", "mn")?;
     let said = if video.age.trim().is_empty() {

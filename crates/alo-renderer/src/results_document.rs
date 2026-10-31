@@ -23,8 +23,9 @@
 //! its description as a paragraph; then the row of images; then *More sites
 //! ›*, a button. On Sites every site the same way; on Images the grid. Or,
 //! where they would be, one sentence: searching, nothing found, or why the
-//! search was not answered. A site's letter is decoration, hidden from the
-//! tree.
+//! search was not answered. A site's mark — its icon, or its letter where
+//! it has none ([`crate::marks_document`], queue item 747) — is decoration,
+//! hidden from the tree.
 //!
 //! # A title is a link to its page
 //!
@@ -111,7 +112,7 @@ pub fn make(document: &mut Document, results: &Results, place: usize) -> Result<
         Tab::All | Tab::Sites => sites(document, made, results, place)?,
         Tab::Images => crate::images_document::grid(document, made, results, place)?,
         Tab::Videos => crate::videos_document::list(document, made, results, place)?,
-        Tab::News => crate::news_document::list(document, made, results)?,
+        Tab::News => crate::news_document::list(document, made, results, place)?,
     }
     Ok(made)
 }
@@ -136,8 +137,8 @@ fn sites(
         append(document, list, said)?;
         return Ok(());
     }
-    for found in results.drawn_sites() {
-        let site = make_site(document, found)?;
+    for (at, found) in results.drawn_sites().iter().enumerate() {
+        let site = make_site(document, found, place, at)?;
         append(document, list, site)?;
     }
     if !results.draws_more_sites() {
@@ -153,26 +154,30 @@ fn sites(
     Ok(())
 }
 
-/// One site: its mark, name and address on a line; its title as a link;
-/// its description.
-fn make_site(document: &mut Document, found: &Found) -> Result<NodeId, Unbuilt> {
+/// One site, the `at`th of the `place`th turn: its mark, name and address
+/// on a line; its title as a link; its description.
+fn make_site(
+    document: &mut Document,
+    found: &Found,
+    place: usize,
+    at: usize,
+) -> Result<NodeId, Unbuilt> {
     let article = element(document, "article")?;
     attribute(document, article, "class", "found")?;
     let source = element(document, "div")?;
     attribute(document, source, "class", "src")?;
-    if let Some(letter) = found.letter() {
-        let mark = element(document, "span")?;
-        attribute(
-            document,
-            mark,
-            "class",
-            &format!("fav tint{}", found.tint()),
-        )?;
-        attribute(document, mark, "aria-hidden", "true")?;
-        let text = document.create_text_node(&letter);
-        append(document, mark, text)?;
-        append(document, source, mark)?;
-    }
+    crate::marks_document::mark(
+        document,
+        source,
+        found.mark.as_deref().map(|bytes| {
+            (
+                bytes,
+                crate::marks_document::src(place, crate::marks_document::Beside::Site, at),
+            )
+        }),
+        found.letter(),
+        found.tint(),
+    )?;
     for (class, words) in [("name", found.site()), ("addr", found.address())] {
         let part = element(document, "span")?;
         attribute(document, part, "class", class)?;

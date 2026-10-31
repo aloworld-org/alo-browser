@@ -15,7 +15,8 @@
 //!
 //! The interface's renderers — the chats panel's and the first screen's —
 //! are handed the design's own typefaces as well ([`for_the_interface`],
-//! queue item 706, ADR 0084), and only they: a page's renderer never is.
+//! queue item 706, ADR 0084) and the emoji face (ADR 0088), and only they:
+//! a page's renderer never is.
 
 use alo_renderer::face::Face;
 use alo_renderer::fonts::Machine;
@@ -78,14 +79,14 @@ pub fn for_the_interface(faces: &[Face]) -> Vec<Face> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alo_renderer::typefaces::{INSTRUMENT_SANS, NEWSREADER};
+    use alo_renderer::typefaces::{INSTRUMENT_SANS, NEWSREADER, NOTO_COLOR_EMOJI};
 
     fn families(faces: &[Face]) -> Vec<&str> {
         faces.iter().map(|face| face.family.as_str()).collect()
     }
 
     #[test]
-    fn the_interface_is_handed_the_frozen_faces_then_the_designs_two() {
+    fn the_interface_is_handed_the_frozen_faces_then_the_designs_two_and_emoji() {
         let handed = for_the_interface(&frozen().faces);
         assert_eq!(
             families(&handed),
@@ -96,7 +97,8 @@ mod tests {
                 "DejaVu Sans Mono",
                 "DejaVu Sans Mono",
                 INSTRUMENT_SANS,
-                NEWSREADER
+                NEWSREADER,
+                NOTO_COLOR_EMOJI
             ]
         );
         // Handed twice over is handed once.
@@ -108,6 +110,7 @@ mod tests {
         let page = families(&frozen().faces).join(", ");
         assert!(!page.contains(INSTRUMENT_SANS), "{page}");
         assert!(!page.contains(NEWSREADER), "{page}");
+        assert!(!page.contains(NOTO_COLOR_EMOJI), "{page}");
     }
 
     #[test]

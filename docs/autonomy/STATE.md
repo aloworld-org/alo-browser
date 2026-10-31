@@ -46435,3 +46435,76 @@ News tabs*.
 drops them and gains 765.
 
 The next unused queue number is **766** and the next ADR is **0088**.
+
+## Iteration 470 — queue item 747 and ADR 0088: emoji in colour in the interface, and each site's own mark
+
+**Emoji (ADR 0088, Part 1).** The boxes on Brave's descriptions and an
+IMDb title were `LastResort`: the interface's renderers are handed the
+machine's `.ttf`/`.otf` faces (no `.ttc`, so no Apple Color Emoji and no
+CJK), and `LastResort`, which has every code point as its block's box, is
+among the 24. The interface now carries **Noto Color Emoji** (`CBDT`, OFL
+1.1, `googlefonts/noto-emoji` `v2.051`, commit `8998f5d`, 10,673,480 bytes,
+unmodified; licence `fonts/LICENSE` as `OFL-NotoColorEmoji.txt`, in the
+bundle) compiled into `typefaces.rs` and handed to the interface's
+renderers alone. `alo-text`'s `emoji.rs` (the only file naming
+`unicode-properties`, already in the lockfile through `rustybuzz`): a
+character meant as an emoji (`Emoji_Presentation`, or U+FE0F after it) is
+looked for first in a face that draws pictures, a letter first in one that
+does not (`FontDatabase::font_shown`); a selector, joiner, keycap mark,
+skin tone or tag stays in its base's run. `alo-paint`: `glyph::picture_at`
+reads a `CBDT`/`sbix` glyph's PNG from the nearest strike, and
+`glyph_picture.rs` puts it in the display list as a picture item after its
+run's text item, read by `picture::read`. Rejected: Apple's 192 MB `.ttc`
+handed as bytes; Noto's 5 MB `COLRv1` (needs a gradient/blend painter,
+766); monochrome Noto Emoji; Twemoji (CC-BY, and `COLR`). Pages' renderers
+unchanged (never handed Noto).
+
+**Marks (747, ADR 0088, Part 2).** `meta_url.favicon` read beside each web
+result, video and story; fetched by the browser process from the
+provider's image proxy alone (`search_marks.rs`), never the site, no key,
+cookie or `Referer`, each distinct address once, at most 20 per answer,
+16 KiB each; a search's sites are told with letters, then `Came::Marks`
+before the image search (not when a newer search waits); videos' and
+stories' with their tab's answer. Carried as `Found/Video/Story::mark`,
+refused on the wire over 16 KiB or not a picture, counted in the 2 MiB
+first (`within_budget`), sent only for drawn rows. The confined renderer
+reads the bytes (`marks_document::reads`): decodes and ≤ 256 square → an
+`<img>` in the letter's 18 square, a rounded tile clipping it (the engine
+does not round an `<img>` by its own `border-radius`, 769); otherwise the
+letter.
+
+**Gate: met.** `--lib` tests and clippy first; pointer moved to
+(1400,1000) and put back after. **Summary [676.960s] 6000 tests run: 6000
+passed (6 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+Layout assertions and references: `emoji-in-results.png`
+(`alo-renderer/tests/emoji_in_a_searchs_results.rs` — each run's face by
+name, an emoji two-plug title 44.828125 wide, lines 25 and 23 tall as
+without emoji), `all-tab-with-marks.png`, `videos-tab-with-marks.png`,
+`news-tab-with-marks.png` (`a_sites_own_mark.rs`); each looked at, then
+run without update mode; no other reference moved. Also
+`a_sites_marks_fetched_and_bounded.rs`, `a_sites_mark_in_the_window.rs`
+(the window's own road), wire, protocol, conversation and budget tests.
+
+**By hand** (`alo browser.app --conversation`, rebuilt and bundled with
+CEF 156.0.14; screenshots in the session scratchpad `handrun10/`; screen
+unlocked, alo frontmost and the window at 215,90 1280×852 checked before
+every press and key, the pointer put back). One search, *home ev charger
+installation*, then Videos: three paid requests (web, images, videos).
+`02-all.png`: The Home Depot, IMDb and Arnold Electric each with their own
+icon; IMDb's title *Home (2015) ⭐ 6.5* draws the star in colour (a box
+before). `03-videos-tab.png`: YouTube's icon beside every video; 👉 and ⚡
+in descriptions in colour. ⌘Q left no alo or alo Chromium process. Not
+tried by hand: News, a CJK title.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0005, 0010,
+0083, 0084, 0086, 0087, 0088 (new); `docs/design/shell.md` gains *A site's
+own mark* and *Emoji*; `docs/conformance.md`'s text paragraph.
+
+**Roadmap:** the conversation line's *Built* gains 747 and the emoji;
+*Owed* drops 747 and gains 766–769.
+
+**Cut, queued:** 766 `COLR`/`SVG` colour glyphs and an emoji's shadow;
+767 CJK in the interface (still `LastResort`'s box on macOS); 768 the
+Images grid's marks; 769 a picture rounded by its own `border-radius`.
+
+The next unused queue number is **770** and the next ADR is **0089**.

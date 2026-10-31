@@ -134,6 +134,11 @@ runs layout measured, each in its font, each starting where the one before
 ended, as a browser falls back glyph by glyph. Characters no font has are
 drawn as before, so no corpus render moved.
 
+*(Since: ADR 0088. Neither face has an emoji, and on the machine the
+chain's last resort was `LastResort`'s box; the interface now carries a
+third face, Noto Color Emoji, under the OFL, drawn in colour, and a
+character meant as an emoji is looked for in it first.)*
+
 ## 5. The licence in the bundle
 
 The OFL lets the fonts be "bundled, embedded, redistributed and/or sold

@@ -120,6 +120,33 @@ impl Thread {
         }
     }
 
+    /// Each site's mark, by its place, of the search for `words` (queue
+    /// item 747): put in the newest turn of those words whose sites are as
+    /// many as the marks and hold none yet. Whether one was.
+    pub fn marked(&mut self, words: &str, marks: &[Option<Vec<u8>>]) -> bool {
+        let waiting = self.turns.iter_mut().rev().find_map(|turn| match turn {
+            Turn::Searched(results) if results.said == words => match &mut results.showing {
+                results::Showing::Found(found)
+                    if found.len() == marks.len()
+                        && found.iter().all(|site| site.mark.is_none()) =>
+                {
+                    Some(found)
+                }
+                _ => None,
+            },
+            _ => None,
+        });
+        match waiting {
+            Some(found) => {
+                for (site, mark) in found.iter_mut().zip(marks) {
+                    site.mark.clone_from(mark);
+                }
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Show the search's results in the turn at `turn` on `tab` (queue items
     /// 743, 744): whether that changed anything, which it does not when the
     /// turn is no search's, the tab cannot be chosen, or is already shown.

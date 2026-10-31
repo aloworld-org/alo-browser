@@ -212,6 +212,7 @@ pub mod present;
 pub mod protocol;
 pub mod scale;
 pub mod search_key;
+pub mod search_marks;
 pub mod search_protocol;
 pub mod search_text;
 pub mod search_thumbnails;

@@ -58,7 +58,14 @@ line, a sum this engine's shaper ends a hair on the other side of from
 Chrome's (queue item 527). A character the first font lacks is measured
 and drawn in the next font of its `font-family` — then of the machine — that
 has it, as a browser falls back glyph by glyph; until queue item 706 it was
-measured there and drawn in the first font, as a missing glyph's box.
+measured there and drawn in the first font, as a missing glyph's box. A
+character Unicode means as an emoji is looked for first in a face whose
+glyphs are pictures, a letter first in one whose are not, and a variation
+selector, joiner, skin tone or tag stays in the run of what it modifies; a
+glyph in a `CBDT` or `sbix` face (Noto Color Emoji, Apple Color Emoji) is
+drawn as its colour picture (ADR 0088). **Not yet:** a `COLR` or `SVG`
+face in colour, or an emoji's `text-shadow` (766). A page's renderer is
+handed no such face on macOS, so a page's emoji there are drawn as before.
 
 Lines are real too: text wraps between words across inline boxes, everything on
 a line sits on one baseline, and a link broken over two lines is two rectangles.

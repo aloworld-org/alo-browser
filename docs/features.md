@@ -865,8 +865,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   own road against a local server answering in Brave's shape
   (`tests/searching_from_the_one_box.rs`,
   `tests/a_search_result_opened_in_the_card_through_chrome.rs`). Owed: the
-  short answer at the top (707), a site's own mark (747), how the key is
-  carried in release (748).
+  short answer at the top (707), how the key is carried in release (748).
+  *(A site's own mark since built, 747.)*
   **Images, the Images tab and the Sites tab** (743, 744, ADR 0086): once a
   web search finds sites, the same words alone are asked of Brave's image
   search — a second paid request, asked only then and only when no newer
@@ -903,6 +903,23 @@ The reason this exists rather than a faster fork of somebody else's engine.
   against a local server — each tab asking once, a second opening asking
   nothing (`alo-window/tests/videos_and_news_pressed_in_the_window.rs`).
   Owed: a news story's photo (765).
+  **Each site's own mark** (747, ADR 0088): Brave names each web result's,
+  video's and story's icon at its own image proxy (`meta_url.favicon`); the
+  browser process fetches it from that proxy alone — never the site, no
+  key, cookie or `Referer`, at no paid request — each distinct icon once,
+  at most twenty for one answer and 16 KiB each, a search's after its sites
+  are drawn and before its images, a tab's with its answer. The confined
+  renderer reads it: an icon that decodes, no larger than 256 square, is
+  drawn in the letter's 18 square, rounded 5, on All, Sites, Videos and
+  News; one missing, refused, too large or undecodable leaves the letter.
+  Counted in the first screen's 2 MiB, before the thumbnails. In layout
+  assertions and three reference renders
+  (`alo-renderer/tests/a_sites_own_mark.rs`), the wire
+  (`messages_across_a_boundary.rs`), a fetch bounded against a local proxy
+  (`alo-window/tests/a_sites_marks_fetched_and_bounded.rs`) and through the
+  window's own road (`alo-window/tests/a_sites_mark_in_the_window.rs`).
+  Owed: the Images grid's mark (768); a picture rounded by its own
+  `border-radius` (769).
   **A card that fails says why, and a page that replaces itself opens**
   (749): a page that replaces itself before its `load` — reddit's
   challenge — was waited on by its first loader, which never loads, for
@@ -934,6 +951,19 @@ The reason this exists rather than a faster fork of somebody else's engine.
   byte for byte (`tests/the_application_assembled.rs`); every reference
   render of the interface redrawn in them. Owed: Newsreader's optical size
   set by the text's size (752).
+  **Emoji, in colour** (ADR 0088): the interface carries a third face,
+  Noto Color Emoji (`CBDT`, OFL 1.1, `googlefonts/noto-emoji` `v2.051`),
+  handed to its renderers alone; a character Unicode means as an emoji
+  (`Emoji_Presentation`, or a U+FE0F after it) is looked for first in a
+  face whose glyphs are pictures, a letter first in one whose are not, and
+  a selector, joiner, skin tone or tag stays with what it modifies
+  (`alo-text`'s `emoji.rs`); paint draws a `CBDT` or `sbix` glyph as its
+  picture, drawn down from the face's strike (`alo-paint`'s
+  `glyph_picture.rs`). Its licence is in the application. The face that
+  drew each character, by name, a layout assertion and a reference render
+  (`alo-renderer/tests/emoji_in_a_searchs_results.rs`). Owed: `COLR` and
+  `SVG` colour faces, and an emoji's shadow (766); CJK in the interface,
+  still `LastResort`'s box on macOS (767).
   **The conversation keeps every turn, and scrolls** (703, ADR 0085):
   each search and each page opened — from the box, a site's title or a
   page shown earlier — is a turn under the last, the person's words its

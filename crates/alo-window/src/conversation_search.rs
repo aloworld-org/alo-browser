@@ -39,6 +39,14 @@
 //! not made. If a newer search is waiting once the sites are told, its
 //! images are not asked, and the window is told so in words.
 //!
+//! # Each site's mark (queue item 747, ADR 0088)
+//!
+//! Once the sites are told, each site's icon is fetched from the provider's
+//! image proxy ([`crate::search_marks`]) — never from the site — and the
+//! window is told them ([`Came::Marks`]), before the images are asked; not
+//! when a newer search is waiting. A video's and a story's mark is fetched
+//! with its tab's answer, and told with it.
+//!
 //! # Videos and news (queue items 745, 746, ADR 0087)
 //!
 //! Never asked with a search. When a person opens a turn's Videos or News
@@ -56,10 +64,12 @@
 //! one's connection. Nothing of it is written to a disk.
 
 use crate::brave_search::{self, Provider};
+use crate::search_marks;
 use crate::search_thumbnails;
 use alo_net::Pool;
 use alo_net::cause::Identities;
 use alo_renderer::results::{Images, PROVIDER, SetUp, Showing, Stories, Videos};
+use alo_renderer::results_media::{Story, Video};
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
@@ -96,6 +106,10 @@ pub enum Came {
     /// The images found, each holding its thumbnail if one was kept, or why
     /// not.
     Images(Images),
+    /// Each site's own mark, by the site's place, if one was fetched and
+    /// kept (queue item 747): told after the sites, which are drawn with
+    /// their letters until it comes.
+    Marks(Vec<Option<Vec<u8>>>),
     /// The videos found, asked when a person opened the Videos tab (queue
     /// item 745), each holding its thumbnail if one was kept, or why not.
     Videos(Videos),
@@ -338,22 +352,25 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         let Some(pool) = pool.as_mut() else {
             continue;
         };
-        let showing = brave_search::search(provider, pool, &mut identities, &words);
-        let images_follow = provider.asks_images()
-            && matches!(&showing, Showing::Found(found) if !found.is_empty());
+        let (showing, marks) = brave_search::search(provider, pool, &mut identities, &words);
+        let found_sites = matches!(&showing, Showing::Found(found) if !found.is_empty());
+        let images_follow = provider.asks_images() && found_sites;
+        let images = starting(images_follow);
         let sites = Searched {
             number,
             words: words.clone(),
-            came: Came::Sites {
-                showing,
-                images: if images_follow {
-                    Images::Asking
-                } else {
-                    Images::NotAsked
-                },
-            },
+            came: Came::Sites { showing, images },
         };
         if !tell(sites) {
+            return;
+        }
+        // No sites, no marks: `brave_search::search` names none then.
+        if !tell_marks(
+            (provider, pool, &mut identities),
+            (asking, &mut pending),
+            (number, &words, &marks),
+            tell,
+        ) {
             return;
         }
         if !images_follow {
@@ -362,17 +379,13 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         // Newest wins: a search waiting now is asked before these images,
         // which are then not asked at all. A tab opened meanwhile is not a
         // newer search, and waits for them.
-        pending.extend(asking.try_iter());
-        let newer = pending
-            .iter()
-            .any(|work| matches!(work, Work::Search(..) | Work::Finish));
-        let images = if newer {
+        let images = if newer_waits(asking, &mut pending) {
             Images::Unanswered(format!(
                 "{PROVIDER} was not asked for images of \u{201c}{words}\u{201d}: a newer search \
                  came first."
             ))
         } else {
-            images(provider, pool, &mut identities, &words)
+            asked_images(provider, pool, &mut identities, &words)
         };
         if !tell(Searched {
             number,
@@ -382,6 +395,54 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
             return;
         }
     }
+}
+
+/// Where a search's images start, told with its sites: asking when they
+/// will follow, not asked when they will not.
+fn starting(images_follow: bool) -> Images {
+    if images_follow {
+        Images::Asking
+    } else {
+        Images::NotAsked
+    }
+}
+
+/// Whether a newer search — or the window closing — waits, once what has
+/// arrived on `asking` is kept in `pending`: newest wins, and a tab opened
+/// meanwhile is not a newer search.
+fn newer_waits(asking: &Receiver<Work>, pending: &mut VecDeque<Work>) -> bool {
+    pending.extend(asking.try_iter());
+    pending
+        .iter()
+        .any(|work| matches!(work, Work::Search(..) | Work::Finish))
+}
+
+/// Each site's mark of the search `number` for `words`, fetched from
+/// `provider`'s proxy through `pool` and told to the window — before its
+/// images, a kilobyte each and no paid request — unless none is named, or a
+/// newer search waits (work arriving meanwhile is kept in `pending`).
+/// Whether the window still hears.
+fn tell_marks(
+    (provider, pool, identities): (&Provider, &mut Pool, &mut Identities),
+    (asking, pending): (&Receiver<Work>, &mut VecDeque<Work>),
+    (number, words, marks): (u64, &str, &[Option<alo_url::Url>]),
+    tell: &TellSearched,
+) -> bool {
+    if !marks.iter().any(Option::is_some) {
+        return true;
+    }
+    if newer_waits(asking, pending) {
+        return true;
+    }
+    let marked = search_marks::fetch(pool, identities, provider.thumbnails(), marks);
+    if !marked.marks.iter().any(Option::is_some) {
+        return true;
+    }
+    tell(Searched {
+        number,
+        words: words.to_owned(),
+        came: Came::Marks(marked.marks),
+    })
 }
 
 /// What came of `work`, a tab opened, asked of `provider` through `pool` —
@@ -411,7 +472,17 @@ fn further_answer(
         Work::News(number, words) => {
             let came = Came::News(match pool.as_mut() {
                 Some(pool) => match brave_search::news(provider, pool, identities, &words) {
-                    Ok(found) => Stories::Found(found),
+                    Ok((found, marks)) => {
+                        let marked =
+                            search_marks::fetch(pool, identities, provider.thumbnails(), &marks);
+                        Stories::Found(
+                            found
+                                .into_iter()
+                                .zip(marked.marks.into_iter().chain(core::iter::repeat(None)))
+                                .map(|(story, mark)| Story { mark, ..story })
+                                .collect(),
+                        )
+                    }
                     Err(why) => Stories::Unanswered(why),
                 },
                 None => Stories::Unanswered(unreached()),
@@ -436,16 +507,27 @@ fn videos(
     words: &str,
 ) -> Videos {
     match brave_search::videos(provider, pool, identities, words) {
-        Ok(found) => Videos::Found(
-            search_thumbnails::fetch_videos(pool, identities, provider.thumbnails(), found).videos,
-        ),
+        Ok(found) => {
+            let fetched =
+                search_thumbnails::fetch_videos(pool, identities, provider.thumbnails(), found);
+            let marked =
+                search_marks::fetch(pool, identities, provider.thumbnails(), &fetched.marks);
+            Videos::Found(
+                fetched
+                    .videos
+                    .into_iter()
+                    .zip(marked.marks.into_iter().chain(core::iter::repeat(None)))
+                    .map(|(video, mark)| Video { mark, ..video })
+                    .collect(),
+            )
+        }
         Err(why) => Videos::Unanswered(why),
     }
 }
 
 /// Ask `provider` for images of `words`, and fetch each thumbnail from its
 /// proxy: the images found, or why not.
-fn images(
+fn asked_images(
     provider: &Provider,
     pool: &mut Pool,
     identities: &mut Identities,

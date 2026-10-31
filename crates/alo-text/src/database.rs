@@ -201,6 +201,27 @@ impl FontDatabase {
             .find(|font| font.has_glyph(character))
     }
 
+    /// The first font in the chain that has this character, shown as
+    /// `presentation` asks (ADR 0088): meant as a picture, the first face
+    /// that draws pictures and has it; meant as a letter, the first that does
+    /// not. Either way, the plain chain's answer ([`FontDatabase::font_for`])
+    /// when no such face has it — so a character some font has is never
+    /// left undrawn for being meant otherwise.
+    pub fn font_shown(
+        &self,
+        request: &FontRequest,
+        character: char,
+        presentation: crate::emoji::Presentation,
+    ) -> Option<Font> {
+        let pictures = presentation == crate::emoji::Presentation::Emoji;
+        let chain = self.chain(request);
+        chain
+            .iter()
+            .find(|font| font.draws_pictures() == pictures && font.has_glyph(character))
+            .or_else(|| chain.iter().find(|font| font.has_glyph(character)))
+            .cloned()
+    }
+
     /// The names a family stands for: itself, and whatever a generic name has
     /// been mapped to.
     fn resolve_generic(&self, family: &str) -> Vec<String> {

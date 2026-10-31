@@ -40,6 +40,16 @@
 //!
 //! Titles and descriptions are read as plain text ([`crate::search_text`]).
 //!
+//! # A site's mark (queue item 747, ADR 0088)
+//!
+//! A web result, a video and a story may each name their site's icon at
+//! Brave's image proxy, as `meta_url.favicon` (*"the favicon used for the
+//! URL"*, Brave's reference). It is read beside the result, by its place
+//! ([`Read::marks`], [`VideoFound::mark`], [`ReadNews::marks`]): a
+//! `favicon` missing, not text or not an `http` or `https` address leaves
+//! the site its letter. It is never sent to a renderer; the browser process
+//! fetches it, from the proxy alone ([`crate::search_marks`]).
+//!
 //! # An image search's answer (queue item 743, ADR 0086)
 //!
 //! Of Brave's `ImageSearchApiResponse`, only what the row and the grid draw:
@@ -119,6 +129,9 @@ pub const MOST_NESTING: usize = 32;
 pub struct Read {
     /// The sites, at most [`MOST_FOUND`].
     pub found: Vec<Found>,
+    /// Where Brave says each site's mark is, by the site's place in
+    /// [`Read::found`], if it named one at a site's address.
+    pub marks: Vec<Option<Url>>,
     /// The results left out.
     pub left_out: Vec<LeftOut>,
 }
@@ -320,6 +333,8 @@ pub struct VideoFound {
     pub video: Video,
     /// Its thumbnail's address, if Brave gave one that is a site's.
     pub thumbnail: Option<Url>,
+    /// Its site's mark's address, if Brave gave one that is a site's.
+    pub mark: Option<Url>,
 }
 
 /// What was read of a news search's answer: the stories found, best first,
@@ -328,6 +343,9 @@ pub struct VideoFound {
 pub struct ReadNews {
     /// The stories, at most [`MOST_STORIES`].
     pub found: Vec<Story>,
+    /// Where Brave says each story's site's mark is, by the story's place
+    /// in [`ReadNews::found`], if it named one at a site's address.
+    pub marks: Vec<Option<Url>>,
     /// The stories left out.
     pub left_out: Vec<LeftOut>,
 }
@@ -400,12 +418,14 @@ fn video(result: &Value) -> Result<VideoFound, Missing> {
         .and_then(Value::as_object)
         .and_then(|thumbnail| text(thumbnail, "src"))
         .and_then(site_address);
+    let mark = hostname_or_mark(result, "favicon").and_then(site_address);
     Ok(VideoFound {
         video: Video::new(plain(title), page)
             .lasting(length)
             .from_site(site, age)
             .said_of(description),
         thumbnail,
+        mark,
     })
 }
 
@@ -421,6 +441,7 @@ pub fn read_news(answer: &[u8]) -> Result<ReadNews, Unread> {
     let results = results_of(document, "news", |said| Unread::NotNews { said })?;
     let mut read = ReadNews {
         found: Vec::new(),
+        marks: Vec::new(),
         left_out: Vec::new(),
     };
     for (at, result) in results.iter().enumerate() {
@@ -428,7 +449,10 @@ pub fn read_news(answer: &[u8]) -> Result<ReadNews, Unread> {
             break;
         }
         match story(result) {
-            Ok(found) => read.found.push(found),
+            Ok(found) => {
+                read.marks.push(mark_of(result));
+                read.found.push(found);
+            }
             Err(why) => read.left_out.push(LeftOut { at, why }),
         }
     }
@@ -458,10 +482,24 @@ fn story(result: &Value) -> Result<Story, Missing> {
 
 /// The `hostname` of a result's `meta_url`, if it is text.
 fn hostname(result: &Map<String, Value>) -> Option<&str> {
+    hostname_or_mark(result, "hostname")
+}
+
+/// The text at `key` of a result's `meta_url`, if it is text.
+fn hostname_or_mark<'a>(result: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
     result
         .get("meta_url")
         .and_then(Value::as_object)
-        .and_then(|meta| text(meta, "hostname"))
+        .and_then(|meta| text(meta, key))
+}
+
+/// Where a result's site's mark is (queue item 747): its `meta_url`'s
+/// `favicon`, if that is text and a site's address.
+fn mark_of(result: &Value) -> Option<Url> {
+    result
+        .as_object()
+        .and_then(|result| hostname_or_mark(result, "favicon"))
+        .and_then(site_address)
 }
 
 /// One image result, as an image found.
@@ -523,6 +561,7 @@ pub fn read(answer: &[u8]) -> Result<Read, Unread> {
     let Some(web) = document.get("web") else {
         return Ok(Read {
             found: Vec::new(),
+            marks: Vec::new(),
             left_out: Vec::new(),
         });
     };
@@ -534,6 +573,7 @@ pub fn read(answer: &[u8]) -> Result<Read, Unread> {
         .ok_or(Unread::ResultsNotAList)?;
     let mut read = Read {
         found: Vec::new(),
+        marks: Vec::new(),
         left_out: Vec::new(),
     };
     for (at, result) in results.iter().enumerate() {
@@ -541,7 +581,10 @@ pub fn read(answer: &[u8]) -> Result<Read, Unread> {
             break;
         }
         match site(result) {
-            Ok(found) => read.found.push(found),
+            Ok(found) => {
+                read.marks.push(mark_of(result));
+                read.found.push(found);
+            }
             Err(why) => read.left_out.push(LeftOut { at, why }),
         }
     }
@@ -997,6 +1040,61 @@ mod tests {
         let _ = read_videos(&[0xff, b'{', 0x00]);
         let _ = read_news(
             br#"{"type":"news","results":[{"title":"\ud800","url":"https://a.example/"}]}"#,
+        );
+    }
+
+    #[test]
+    fn each_results_mark_is_read_beside_it_by_its_place() {
+        let web = br#"{ "type": "search", "web": { "results": [
+            { "title": "One", "url": "https://one.example/",
+              "meta_url": { "hostname": "one.example",
+                            "favicon": "https://imgs.search.brave.com/f/one" } },
+            { "title": "No url" },
+            { "title": "Two", "url": "https://two.example/", "meta_url": { "favicon": 7 } },
+            { "title": "Three", "url": "https://three.example/",
+              "meta_url": { "favicon": "data:image/png;base64,AAAA" } },
+            { "title": "Four", "url": "https://four.example/", "meta_url": "x" } ] } }"#;
+        let read = read(web).unwrap();
+        assert_eq!(read.found.len(), 4);
+        let marks: Vec<Option<String>> = read
+            .marks
+            .iter()
+            .map(|mark| mark.as_ref().map(|url| url.serialised.clone()))
+            .collect();
+        assert_eq!(
+            marks,
+            vec![
+                Some("https://imgs.search.brave.com/f/one".to_owned()),
+                None,
+                None,
+                None
+            ],
+            "only a favicon that is text and a site's address is kept"
+        );
+        let videos = br#"{ "type": "videos", "results": [
+            { "title": "V", "url": "https://v.example/",
+              "meta_url": { "favicon": "https://imgs.search.brave.com/f/yt" } } ] }"#;
+        let read = read_videos(videos).unwrap();
+        assert_eq!(
+            read.found
+                .first()
+                .and_then(|found| found.mark.as_ref())
+                .map(|url| url.serialised.as_str()),
+            Some("https://imgs.search.brave.com/f/yt")
+        );
+        let news = br#"{ "type": "news", "results": [
+            { "title": "N", "url": "https://n.example/" },
+            { "title": "M", "url": "https://m.example/",
+              "meta_url": { "favicon": "https://imgs.search.brave.com/f/m" } } ] }"#;
+        let read = read_news(news).unwrap();
+        assert_eq!(read.marks.len(), read.found.len());
+        assert_eq!(
+            read.marks
+                .get(1)
+                .cloned()
+                .flatten()
+                .map(|url| url.serialised),
+            Some("https://imgs.search.brave.com/f/m".to_owned())
         );
     }
 

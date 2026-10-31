@@ -53,7 +53,11 @@ fn assemble(into: &Path) -> Result<Output, String> {
 /// fonts, byte for byte.
 fn the_typefaces_licences_are_the_published_ones(contents: &Path) -> Result<(), String> {
     let fonts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-renderer/interface/fonts");
-    for name in ["OFL-InstrumentSans.txt", "OFL-Newsreader.txt"] {
+    for name in [
+        "OFL-InstrumentSans.txt",
+        "OFL-Newsreader.txt",
+        "OFL-NotoColorEmoji.txt",
+    ] {
         let published = std::fs::read(fonts.join(name)).map_err(|why| format!("{name}: {why}"))?;
         let carried = std::fs::read(contents.join("Resources/licences").join(name))
             .map_err(|why| format!("{name}: {why}"))?;
@@ -210,6 +214,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             "alo browser.app/Contents/Resources/icon.icns",
             "alo browser.app/Contents/Resources/licences/OFL-InstrumentSans.txt",
             "alo browser.app/Contents/Resources/licences/OFL-Newsreader.txt",
+            "alo browser.app/Contents/Resources/licences/OFL-NotoColorEmoji.txt",
             "alo browser.app/Contents/Resources/page.html",
             "alo browser.app/Contents/Resources/without-chrome.html",
             "alo browser.app/Contents/_CodeSignature/CodeResources",

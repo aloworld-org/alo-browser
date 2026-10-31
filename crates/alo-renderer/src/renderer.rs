@@ -825,6 +825,7 @@ impl Renderer {
                         .into_iter()
                         .chain(crate::images_document::pictures(start))
                         .chain(crate::videos_document::pictures(start))
+                        .chain(crate::marks_document::pictures(start))
                         .collect(),
                 ),
                 Holds::Conversation(Part::Start),

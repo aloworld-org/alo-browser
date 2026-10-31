@@ -25,13 +25,15 @@
 //! age and description as text — a length refused unless it is one — its
 //! page refused unless it is a site's, its picture as an image's is, and
 //! more than [`MOST_VIDEOS`] refused; each story's the same, with no
-//! picture, more than [`MOST_STORIES`] refused. Then the tab shown (744),
+//! picture, more than [`MOST_STORIES`] refused. Each site, video and story
+//! carries its site's mark, if one is sent (queue item 747): refused larger
+//! than [`LARGEST_MARK`] or unless it begins as a picture. Then the tab shown (744),
 //! by a tag, refused unless it can be chosen ([`Results::open`]).
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::results::{
-    Found, Images, LARGEST_THUMBNAIL, MOST_FOUND, MOST_IMAGES, Pictured, Results, SetUp, Showing,
-    Stories, Tab, Videos,
+    Found, Images, LARGEST_MARK, LARGEST_THUMBNAIL, MOST_FOUND, MOST_IMAGES, Pictured, Results,
+    SetUp, Showing, Stories, Tab, Videos,
 };
 use crate::results_media::{MOST_STORIES, MOST_VIDEOS, Story, Video, is_length};
 use alo_paint::picture::Format;
@@ -61,6 +63,7 @@ impl Writer {
                     self.text(&site.url.serialised);
                     self.text(&site.description);
                     self.text(&site.name);
+                    self.picture(site.mark.as_ref());
                 }
             }
             Showing::Unanswered(why) => {
@@ -107,6 +110,7 @@ impl Writer {
                     self.text(&video.age);
                     self.text(&video.description);
                     self.picture(video.picture.as_ref());
+                    self.picture(video.mark.as_ref());
                 }
             }
             Videos::Unanswered(why) => {
@@ -130,6 +134,7 @@ impl Writer {
                     self.text(&story.site);
                     self.text(&story.age);
                     self.text(&story.description);
+                    self.picture(story.mark.as_ref());
                 }
             }
             Stories::Unanswered(why) => {
@@ -196,11 +201,13 @@ impl Reader<'_> {
                         })?;
                     let description = self.text()?;
                     let name = self.text()?;
+                    let mark = self.mark()?;
                     found.push(Found {
                         title,
                         url,
                         description,
                         name,
+                        mark,
                     });
                 }
                 Showing::Found(found)
@@ -293,6 +300,27 @@ impl Reader<'_> {
         Ok(Some(bytes))
     }
 
+    /// A site's mark, if one was sent (queue item 747): refused larger than
+    /// [`LARGEST_MARK`] or unless its bytes begin as a picture this engine
+    /// reads. Bytes that begin as one and do not decode are drawn as the
+    /// site's letter.
+    fn mark(&mut self) -> Result<Option<Vec<u8>>, Unreadable> {
+        if !self.bool()? {
+            return Ok(None);
+        }
+        let bytes = self.bytes()?;
+        if bytes.len() > LARGEST_MARK {
+            return Err(unreadable(format!(
+                "a site's mark of {} bytes, and at most {LARGEST_MARK} are drawn",
+                bytes.len()
+            )));
+        }
+        if Format::of(&bytes).is_none() {
+            return Err(unreadable("a site's mark that is not a picture"));
+        }
+        Ok(Some(bytes))
+    }
+
     /// A page a video or story is on, refused unless it is a site's.
     fn page_of(&mut self, what: &str) -> Result<alo_url::Url, Unreadable> {
         let written = self.text()?;
@@ -326,6 +354,7 @@ impl Reader<'_> {
                     let age = self.text()?;
                     let description = self.text()?;
                     let picture = self.picture()?;
+                    let mark = self.mark()?;
                     found.push(Video {
                         title,
                         page,
@@ -334,6 +363,7 @@ impl Reader<'_> {
                         age,
                         description,
                         picture,
+                        mark,
                     });
                 }
                 Videos::Found(found)
@@ -362,12 +392,14 @@ impl Reader<'_> {
                     let site = self.text()?;
                     let age = self.text()?;
                     let description = self.text()?;
+                    let mark = self.mark()?;
                     found.push(Story {
                         title,
                         page,
                         site,
                         age,
                         description,
+                        mark,
                     });
                 }
                 Stories::Found(found)

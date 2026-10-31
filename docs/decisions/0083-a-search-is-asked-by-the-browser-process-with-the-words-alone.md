@@ -149,6 +149,8 @@ line at the window's foot.
   it would be one more request to Brave per result, of a picture — so a site
   shows its letter on one of four tints. Queued: images (743), the Sites tab
   and *More sites ›* (744), Videos (745), News (746), a site's own mark
-  (747), and how the key is carried in release (748).
+  (747), and how the key is carried in release (748). *(Since built: a
+  site's own mark, by queue item 747 — fetched from Brave's image proxy
+  alone, at no paid request, never from the site, ADR 0088 §§ 6–8.)*
 - How the key is carried in release — inside the application, or by a
   server of alo's own (§ 1): the owner's, undecided.

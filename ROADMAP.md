@@ -2427,7 +2427,15 @@ items where being right and being unusable are the same outcome.
       opens it, once for a turn, a video's picture from Brave's proxy alone
       and decoded only in the confined renderer, both drawn as the canvas
       draws them in layout assertions and two reference renders, and asked
-      once through the window's own road
+      once through the window's own road; each site's own mark (747, ADR
+      0088) — its icon fetched from Brave's proxy alone, once each, bounded
+      and counted in the picture budget, read only in the confined renderer
+      and drawn in the letter's place on All, Sites, Videos and News, the
+      letter kept where none reads, in layout assertions, three reference
+      renders and through the window's own road; emoji drawn in colour from
+      Noto Color Emoji, carried under the OFL and handed to the interface's
+      renderers alone, a `CBDT`/`sbix` glyph painted as its picture and an
+      emoji's sequence kept in one face (ADR 0088)
       · Owed: a card drawn from the page's first paint rather than its
       load (751), the rail's chats (760), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
@@ -2442,8 +2450,10 @@ items where being right and being unusable are the same outcome.
       the answer and All's short answer (707, blocked: a model), the Sites
       tab's further pages (761), a response's body bounded per request
       (762), a press on a relatively positioned box in the conversation
-      (763), a news story's photo (765), a site's own
-      mark (747), the key in release (748, the owner's decision)
+      (763), a news story's photo (765), `COLR` and `SVG` colour glyphs and
+      an emoji's shadow (766), CJK in the interface (767), the Images
+      grid's marks (768), a picture rounded by its own `border-radius`
+      (769), the key in release (748, the owner's decision)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
       0024). `winit` and `softbuffer` are rented through safe functions

@@ -15,8 +15,9 @@
 //!
 //! The interface's typefaces are compiled into `alo` (queue item 706, ADR
 //! 0084), and their licences are carried beside it, as the SIL Open Font
-//! License asks: `Contents/Resources/licences/OFL-InstrumentSans.txt` and
-//! `OFL-Newsreader.txt`, the files published with the fonts
+//! License asks: `Contents/Resources/licences/OFL-InstrumentSans.txt`,
+//! `OFL-Newsreader.txt` and `OFL-NotoColorEmoji.txt` (ADR 0088), the files
+//! published with the fonts
 //! (`alo-renderer`'s `typefaces::LICENCES`).
 //!
 //! The Chromium the application draws the web with, at

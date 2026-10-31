@@ -135,6 +135,11 @@ unicode-linebreak = "0.1"
 icu_casemap = "2.1"
 icu_locale_core = { version = "2.1", features = ["alloc"] }
 unicode-script = "0.5"
+# Which characters are meant to be shown as emoji (ADR 0088): Unicode's
+# `Emoji`, `Emoji_Presentation` and `Emoji_Component` (UTS #51), the same
+# crate and version `rustybuzz` already carries, named in one file,
+# `alo-text`'s `emoji.rs`.
+unicode-properties = { version = "0.1", default-features = false, features = ["emoji"] }
 dejavu = "2.37"
 # The window, rented (ADR 0024 § 1). `winit` is the window and its events and
 # `softbuffer` puts CPU-drawn pixels in it; both reach the window server through

@@ -250,21 +250,28 @@ impl Provider {
 }
 
 /// Ask `provider` for `words` through `pool`: the sites found, or why the
-/// search was not answered, in a sentence a person reads.
+/// search was not answered, in a sentence a person reads; and where Brave
+/// says each site's mark is, by the site's place (queue item 747).
 pub fn search(
     provider: &Provider,
     pool: &mut Pool,
     identities: &mut Identities,
     words: &str,
-) -> Showing {
+) -> (Showing, Vec<Option<Url>>) {
     let request = match provider.request(words, identities) {
         Ok(request) => request,
-        Err(why) => return Showing::Unanswered(why),
+        Err(why) => return (Showing::Unanswered(why), Vec::new()),
     };
     match pool.fetch(&request) {
-        Ok(response) if response.status.0 == 200 => answered(&response.body),
-        Ok(response) => Showing::Unanswered(unanswered(response.status.0)),
-        Err(why) => Showing::Unanswered(format!("{PROVIDER} could not be reached: {why}")),
+        Ok(response) if response.status.0 == 200 => answered_with_marks(&response.body),
+        Ok(response) => (
+            Showing::Unanswered(unanswered(response.status.0)),
+            Vec::new(),
+        ),
+        Err(why) => (
+            Showing::Unanswered(format!("{PROVIDER} could not be reached: {why}")),
+            Vec::new(),
+        ),
     }
 }
 
@@ -312,8 +319,9 @@ pub fn videos(
     })
 }
 
-/// Ask `provider` for news of `words` through `pool`: the stories found, or
-/// why they were not, in a sentence a person reads.
+/// Ask `provider` for news of `words` through `pool`: the stories found,
+/// with where Brave says each story's site's mark is by the story's place,
+/// or why they were not, in a sentence a person reads.
 ///
 /// # Errors
 ///
@@ -324,10 +332,10 @@ pub fn news(
     pool: &mut Pool,
     identities: &mut Identities,
     words: &str,
-) -> Result<Vec<Story>, String> {
+) -> Result<(Vec<Story>, Vec<Option<Url>>), String> {
     let request = provider.news_request(words, identities)?;
     answer_of(pool, &request, |body| {
-        search_protocol::read_news(body).map(|read| read.found)
+        search_protocol::read_news(body).map(|read| (read.found, read.marks))
     })
 }
 
@@ -356,9 +364,18 @@ fn site(written: &str) -> Result<Url, String> {
 
 /// What an answer of 200 with `body` comes to.
 pub fn answered(body: &[u8]) -> Showing {
+    answered_with_marks(body).0
+}
+
+/// What an answer of 200 with `body` comes to, and where Brave says each
+/// site's mark is, by the site's place (queue item 747).
+pub fn answered_with_marks(body: &[u8]) -> (Showing, Vec<Option<Url>>) {
     match search_protocol::read(body) {
-        Ok(read) => Showing::Found(read.found),
-        Err(why) => Showing::Unanswered(format!("{PROVIDER}'s answer could not be read: {why}")),
+        Ok(read) => (Showing::Found(read.found), read.marks),
+        Err(why) => (
+            Showing::Unanswered(format!("{PROVIDER}'s answer could not be read: {why}")),
+            Vec::new(),
+        ),
     }
 }
 

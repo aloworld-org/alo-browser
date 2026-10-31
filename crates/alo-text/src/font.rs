@@ -220,6 +220,9 @@ pub struct Font {
     data: Arc<Vec<u8>>,
     index: u32,
     axis: Option<WeightAxis>,
+    /// Whether its glyphs are pictures — a `CBDT` or `sbix` table — rather
+    /// than outlines alone: a colour emoji face (ADR 0088).
+    pictured: bool,
 }
 
 impl Font {
@@ -238,7 +241,10 @@ impl Font {
         let data = Arc::new(data);
         let index = 0;
         // Parsing once here means every later use can assume it parses.
-        let axis = weight_axis_of(&ttf_parser::Face::parse(&data, index).ok()?);
+        let face = ttf_parser::Face::parse(&data, index).ok()?;
+        let axis = weight_axis_of(&face);
+        let tables = face.tables();
+        let pictured = tables.cbdt.is_some() || tables.sbix.is_some();
         Some(Self {
             family: family.into(),
             weight,
@@ -246,6 +252,7 @@ impl Font {
             data,
             index,
             axis,
+            pictured,
         })
     }
 
@@ -313,6 +320,17 @@ impl Font {
     /// Which face within the bytes, for a collection.
     pub fn index(&self) -> u32 {
         self.index
+    }
+
+    /// Whether its glyphs are drawn as pictures — colour bitmaps in a `CBDT`
+    /// or `sbix` table, as Noto Color Emoji's and Apple Color Emoji's are —
+    /// rather than as outlines (ADR 0088).
+    ///
+    /// The fallback chain asks it: a character meant to be shown as an emoji
+    /// is looked for in such a font first ([`crate::emoji`]), and paint draws
+    /// such a glyph's picture where its outline would be.
+    pub fn draws_pictures(&self) -> bool {
+        self.pictured
     }
 
     /// Whether this font has a glyph for a character.

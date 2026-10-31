@@ -50,9 +50,21 @@ pub fn split<'a>(
     let mut start = 0usize;
     let mut current: Option<(Direction, Option<Font>)> = None;
 
-    for (offset, character) in text.char_indices() {
+    let mut characters = text.char_indices().peekable();
+    while let Some((offset, character)) = characters.next() {
+        let next = characters.peek().map(|&(_, next)| next);
+        // What only modifies the character before it — a variation
+        // selector, a joiner, a skin tone — stays in its run, so the face
+        // that drew the emoji is handed the whole sequence (ADR 0088).
+        if crate::emoji::joins_previous(character) && current.is_some() {
+            continue;
+        }
         let direction = direction_of(character);
-        let font = database.font_for(request, character);
+        let font = database.font_shown(
+            request,
+            character,
+            crate::emoji::presentation(character, next),
+        );
         let wanted = (direction, font);
 
         match &current {
@@ -259,6 +271,83 @@ mod tests {
                 direction_of(character),
                 Direction::LeftToRight,
                 "{character:?}",
+            );
+        }
+    }
+
+    /// `DejaVu Sans`, then the interface's emoji face (ADR 0088).
+    fn with_emoji() -> FontDatabase {
+        let mut database = database();
+        if let Some(font) = Font::load(
+            "Noto Color Emoji",
+            Weight::NORMAL,
+            Slant::Normal,
+            include_bytes!("../../alo-renderer/interface/fonts/NotoColorEmoji.ttf").to_vec(),
+        ) {
+            database.add(font);
+        }
+        database
+    }
+
+    fn faces(text: &str) -> Vec<(String, String)> {
+        split(text, &with_emoji(), &FontRequest::family("DejaVu Sans"))
+            .into_iter()
+            .map(|run| {
+                (
+                    run.text.to_owned(),
+                    run.font
+                        .map_or_else(String::new, |font| font.family().to_owned()),
+                )
+            })
+            .collect()
+    }
+
+    fn named(runs: &[(&str, &str)]) -> Vec<(String, String)> {
+        runs.iter()
+            .map(|(text, family)| ((*text).to_owned(), (*family).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn an_emoji_is_drawn_by_the_face_of_pictures_and_a_letter_by_the_text_face() {
+        assert_eq!(
+            faces("a\u{1f600}b"),
+            named(&[
+                ("a", "DejaVu Sans"),
+                ("\u{1f600}", "Noto Color Emoji"),
+                ("b", "DejaVu Sans")
+            ])
+        );
+        // Both faces have `©`, `#` and digits; they are meant as letters.
+        assert_eq!(faces("\u{a9} #1"), named(&[("\u{a9} #1", "DejaVu Sans")]));
+        // `DejaVu Sans` has `☺` and Noto too: meant as a letter, it stays.
+        assert_eq!(faces("\u{263a}"), named(&[("\u{263a}", "DejaVu Sans")]));
+    }
+
+    #[test]
+    fn a_selector_asks_for_the_picture_and_stays_with_what_it_selects() {
+        assert_eq!(
+            faces("\u{2764}\u{fe0f} x"),
+            named(&[
+                ("\u{2764}\u{fe0f}", "Noto Color Emoji"),
+                (" x", "DejaVu Sans")
+            ])
+        );
+        assert_eq!(
+            faces("\u{2764}"),
+            named(&[("\u{2764}", "DejaVu Sans")]),
+            "with no selector a heart is a letter"
+        );
+        // A woman, a joiner and a laptop; a wave in a skin tone; a keycap.
+        for sequence in [
+            "\u{1f469}\u{200d}\u{1f4bb}",
+            "\u{1f44b}\u{1f3fd}",
+            "1\u{fe0f}\u{20e3}",
+        ] {
+            assert_eq!(
+                faces(sequence),
+                named(&[(sequence, "Noto Color Emoji")]),
+                "{sequence:?}"
             );
         }
     }

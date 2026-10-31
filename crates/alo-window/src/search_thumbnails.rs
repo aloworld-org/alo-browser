@@ -70,7 +70,7 @@ pub fn fetch(
             thumbnail,
         } = image;
         if let Some(thumbnail) = thumbnail {
-            match picture(pool, identities, from, &thumbnail) {
+            match picture(pool, identities, from, &thumbnail, LARGEST_THUMBNAIL) {
                 Ok(bytes) => pictured.picture = Some(bytes),
                 Err(why) => fetched.left_out.push((at, why)),
             }
@@ -85,6 +85,9 @@ pub fn fetch(
 pub struct FetchedVideos {
     /// The videos, best first, each holding its thumbnail if it was kept.
     pub videos: Vec<Video>,
+    /// Where each video's site's mark is, by the video's place, for
+    /// [`crate::search_marks`] to fetch.
+    pub marks: Vec<Option<Url>>,
     /// Why each thumbnail left out was, by the video's place.
     pub left_out: Vec<(usize, String)>,
 }
@@ -99,18 +102,23 @@ pub fn fetch_videos(
 ) -> FetchedVideos {
     let mut fetched = FetchedVideos {
         videos: Vec::new(),
+        marks: Vec::new(),
         left_out: Vec::new(),
     };
     for (at, found) in found.into_iter().take(MOST_VIDEOS).enumerate() {
         let VideoFound {
             mut video,
             thumbnail,
+            mark,
         } = found;
+        fetched.marks.push(mark);
         match (from, thumbnail) {
-            (Some(from), Some(thumbnail)) => match picture(pool, identities, from, &thumbnail) {
-                Ok(bytes) => video.picture = Some(bytes),
-                Err(why) => fetched.left_out.push((at, why)),
-            },
+            (Some(from), Some(thumbnail)) => {
+                match picture(pool, identities, from, &thumbnail, LARGEST_THUMBNAIL) {
+                    Ok(bytes) => video.picture = Some(bytes),
+                    Err(why) => fetched.left_out.push((at, why)),
+                }
+            }
             (None, Some(_)) => fetched.left_out.push((
                 at,
                 "no image proxy is named, so no thumbnail was fetched".to_owned(),
@@ -122,23 +130,24 @@ pub fn fetch_videos(
     fetched
 }
 
-/// The bytes of the thumbnail at `thumbnail`, if it is at `from`'s origin,
-/// answered 200, is not larger than [`LARGEST_THUMBNAIL`] and begins as a
-/// picture this engine reads.
+/// The bytes of the picture at `thumbnail` — a thumbnail, or a site's mark
+/// ([`crate::search_marks`]) — if it is at `from`'s origin, answered 200, is
+/// not larger than `largest` and begins as a picture this engine reads.
 ///
 /// # Errors
 ///
 /// Why not, in words.
-fn picture(
+pub(crate) fn picture(
     pool: &mut Pool,
     identities: &mut Identities,
     from: &Url,
     thumbnail: &Url,
+    largest: usize,
 ) -> Result<Vec<u8>, String> {
     let origin = alo_url::reading::origin(thumbnail);
     if origin != alo_url::reading::origin(from) {
         return Err(format!(
-            "a thumbnail at {origin}, which is not the search's image proxy, was not fetched"
+            "a picture at {origin}, which is not the search's image proxy, was not fetched"
         ));
     }
     let mut request = Request::get(
@@ -150,19 +159,19 @@ fn picture(
     request.headers.add("Accept", "image/*");
     let response = pool
         .fetch(&request)
-        .map_err(|why| format!("a thumbnail could not be fetched: {why}"))?;
+        .map_err(|why| format!("a picture could not be fetched: {why}"))?;
     if response.status.0 != 200 {
-        return Err(format!("a thumbnail was answered {}", response.status.0));
+        return Err(format!("a picture was answered {}", response.status.0));
     }
     let bytes = response.body;
-    if bytes.len() > LARGEST_THUMBNAIL {
+    if bytes.len() > largest {
         return Err(format!(
-            "a thumbnail of {} bytes was left out; at most {LARGEST_THUMBNAIL} are kept",
+            "a picture of {} bytes was left out; at most {largest} are kept",
             bytes.len()
         ));
     }
     if Format::of(&bytes).is_none() {
-        return Err("a thumbnail that is not a picture this engine reads was left out".to_owned());
+        return Err("bytes that are not a picture this engine reads were left out".to_owned());
     }
     Ok(bytes)
 }
