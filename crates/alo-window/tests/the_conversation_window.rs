@@ -28,11 +28,12 @@ use alo_renderer::host::Renderers;
 use alo_renderer::{Frame, FromRenderer, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::beside::renderer_beside;
-use alo_window::conversation::Conversation;
+use alo_window::conversation::{Conversation, Pressed};
 use alo_window::conversation_compose::{ConversationScene, compose_conversation};
 use alo_window::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use alo_window::conversation_place::{
-    ConversationPlacement, PANEL_WIDTH, Parts, panel_viewport, start_viewport,
+    ConversationPlacement, PANEL_WIDTH, Parts, RAIL_WIDTH, Side, panel_viewport, panel_viewport_as,
+    start_viewport, start_viewport_as,
 };
 use alo_window::notice::Lettering;
 use alo_window::place::PixelRect;
@@ -124,6 +125,7 @@ fn composed(
             panel_sentence: None,
             start: Some(start),
             start_sentence: None,
+            side: Side::Panel,
         },
         &lettering()?,
     ))
@@ -213,6 +215,7 @@ fn the_window_at(window: (u32, u32), scale: Scale, name: &str) -> Result<(), Str
             panel_sentence: None,
             start: Some(&start),
             start_sentence: None,
+            side: Side::Panel,
         }
         .parts(),
     );
@@ -284,6 +287,74 @@ fn the_panel_and_the_first_screen_in_the_designs_window_at_two() {
     );
     the_window_at(window, Scale::TWO, "the-conversation-at-two.png")
         .unwrap_or_else(|why| panic!("{why}"));
+}
+
+/// Queue item 711: the panel hidden by its button, in the design's window
+/// at `scale` — the rail 64 wide and the first screen in all the rest, each
+/// filling its room one to one — compared with `name`.
+fn the_window_hidden_at(window: (u32, u32), scale: Scale, name: &str) -> Result<(), String> {
+    let mut conversation = Conversation::default();
+    assert!(conversation.act(Pressed::HideThePanel));
+    let side = conversation.side();
+    assert_eq!(side, Side::Rail);
+    let panel = painted(ToRenderer::Panel(Box::new(
+        conversation.panel(panel_viewport_as(window, scale, side), scale),
+    )))?;
+    let start = painted(ToRenderer::Start(Box::new(
+        conversation.start(start_viewport_as(window, scale, side), scale),
+    )))?;
+    let device = |css: u32| scale.device(css);
+    assert_eq!(
+        (panel.width, panel.height),
+        (device(RAIL_WIDTH), device(820))
+    );
+    assert_eq!((start.width, start.height), (device(1216), device(820)));
+    let scene = ConversationScene {
+        window,
+        scale,
+        panel: Some(&panel),
+        panel_sentence: None,
+        start: Some(&start),
+        start_sentence: None,
+        side,
+    };
+    let canvas = compose_conversation(&scene, &lettering()?);
+    let placed = ConversationPlacement::of(window, scale, scene.parts());
+    assert_eq!(
+        placed.panel_room,
+        PixelRect {
+            x: 0,
+            y: 0,
+            width: device(64),
+            height: device(820)
+        }
+    );
+    assert_eq!(
+        placed.start_room,
+        PixelRect {
+            x: device(64),
+            y: 0,
+            width: device(1216),
+            height: device(820)
+        }
+    );
+    assert_eq!(placed.panel, placed.panel_room, "the rail fills its room");
+    assert_eq!(placed.start, placed.start_room, "and the first screen its");
+    assert_eq!(not_one_to_one(&canvas, &panel, placed.panel), None);
+    assert_eq!(not_one_to_one(&canvas, &start, placed.start), None);
+    holds(name, &canvas)
+}
+
+#[test]
+fn the_panel_hidden_is_the_rail_and_the_first_screen_the_rest_at_one_and_two() {
+    the_window_hidden_at(AT_ONE, Scale::ONE, "the-conversation-panel-hidden.png")
+        .unwrap_or_else(|why| panic!("{why}"));
+    the_window_hidden_at(
+        AT_TWO,
+        Scale::TWO,
+        "the-conversation-panel-hidden-at-two.png",
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
 }
 
 /// How long the confined renderers may take to paint both parts.

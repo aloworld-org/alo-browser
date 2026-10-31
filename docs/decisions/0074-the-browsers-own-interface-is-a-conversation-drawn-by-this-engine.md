@@ -1,6 +1,6 @@
 # ADR 0074 — The browser's own interface is a conversation, drawn by this engine
 
-**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075), the typefaces (706, ADR 0084) and the conversation's turns, scrolled (703, ADR 0085) built; the rest queued
+**Status:** accepted — the chats panel (699), the first screen (700), their window (709), a press on either (710), icons (712), going to a website from the one box (701) and opening it in the machine's Chrome (713, ADR 0075), the typefaces (706, ADR 0084), the conversation's turns, scrolled (703, ADR 0085), a press on an offer (714, 759), and *Search chats* and the button that hides the panel (711) built; the rest queued
 **Date:** 2026-10-30
 **Context:** ADR 0024 § 4 (the tab strip is a document of ours, rendered by
 the engine in a sandboxed renderer of its own); ADR 0002 (the layout tree is
@@ -137,7 +137,14 @@ provider was chosen (ADR 0082 § 0) and is asked as ADR 0083 says (708).
   `ToRenderer::ConversationPress`, `FromRenderer::ConversationClaimed`),
   and the browser process decides it against what the part last painted
   (`conversation_decide.rs`) before acting. *Search chats* and the button
-  that hides the panel are 711.
+  that hides the panel are 711, built: what is typed into *Search chats* is
+  held by the browser process (`conversation_find.rs`), which sends the
+  panel only the chats whose names hold it, so which chat a row names stays
+  its own; hidden, the panel is drawn from a template of its own, the rail
+  (`rail_document.rs`), and the window placed beside it
+  (`conversation_place::Side`). A press on an offer for what was typed is
+  714, claimed by its place among those drawn and decided against what the
+  first screen last offered.
 - What a person types into the one box (701) is held by the browser
   process (`alo-window`'s `conversation_box.rs`, keys read by `typing.rs`)
   and sent to the first screen's renderer alone, as data

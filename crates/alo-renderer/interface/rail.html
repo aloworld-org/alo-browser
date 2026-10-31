@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- The chats panel hidden, as the design's rail (ADR 0074, queue item 711).
+     Compiled into the renderer, fixed, and never assembled from anything:
+     `rail_document.rs` parses it as it is and puts nothing into it. The mark,
+     New chat and the button that shows the panel again, each button named in
+     words and its icon hidden from an agent. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chats</title>
+  </head>
+  <body>
+    <nav class="rail" aria-label="Chats">
+      <span class="mark" aria-hidden="true">alo</span>
+      <button class="rbtn new" type="button" aria-label="New chat"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v10M4 9h10" /></svg></button>
+      <span class="sep"></span>
+      <span class="room"></span>
+      <button class="rbtn show" type="button" aria-label="Show the panel"><svg class="icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="13" height="11" rx="2" /><path d="M7 3.5v11" /></svg></button>
+    </nav>
+  </body>
+</html>

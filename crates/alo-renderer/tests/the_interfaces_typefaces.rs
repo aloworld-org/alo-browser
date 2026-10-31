@@ -89,6 +89,7 @@ fn panel() -> ToRenderer {
         ],
         viewport: Size::new(240.0, 560.0),
         scale: 1.0,
+        ..Panel::default()
     }))
 }
 

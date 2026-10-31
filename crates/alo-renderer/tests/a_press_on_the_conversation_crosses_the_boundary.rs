@@ -189,6 +189,7 @@ fn confined_renderers_claim_what_was_pressed_on_each_part() {
             height: 560.0,
         },
         scale: 1.0,
+        ..Panel::default()
     };
     let loaded = renderers.ask(&panel_site, &ToRenderer::Panel(Box::new(panel)));
     assert!(
@@ -209,11 +210,15 @@ fn confined_renderers_claim_what_was_pressed_on_each_part() {
         matches!(loaded, Ok(FromRenderer::Loaded { .. })),
         "{loaded:?}"
     );
-    // New chat at (10, 56), rows 38 tall from 134, 2 apart.
+    // New chat at (10, 56), Search chats at (10, 102) and the button that
+    // hides the panel at (194, 11) (queue item 711), rows 38 tall from 178,
+    // 2 apart.
     for (x, y, claim) in [
         (60.0, 75.0, Claim::NewChat),
-        (120.0, 150.0, Claim::Chat { at: 0 }),
-        (120.0, 190.0, Claim::Chat { at: 1 }),
+        (120.0, 121.0, Claim::SearchChats),
+        (212.0, 29.0, Claim::HideThePanel),
+        (120.0, 194.0, Claim::Chat { at: 0 }),
+        (120.0, 234.0, Claim::Chat { at: 1 }),
         (120.0, 529.0, Claim::Settings),
     ] {
         assert_eq!(
@@ -236,7 +241,7 @@ fn confined_renderers_claim_what_was_pressed_on_each_part() {
             "({x}, {y})"
         );
     }
-    for (site, x, y) in [(&panel_site, 120.0, 172.0), (&start_site, 520.0, 700.0)] {
+    for (site, x, y) in [(&panel_site, 120.0, 216.5), (&start_site, 520.0, 700.0)] {
         assert_eq!(
             press(&mut renderers, site, x, y),
             Ok(FromRenderer::ConversationClaimed(None)),

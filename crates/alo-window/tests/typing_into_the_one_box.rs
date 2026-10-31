@@ -112,7 +112,12 @@ fn what_is_typed_reaches_the_first_screen_and_nothing_of_it_the_panel() {
     let _ = keys(&mut conversation, "</script><b>secret");
     let after = asked(&conversation);
     assert_eq!(after.panel, before.panel, "the panel is sent the same");
-    assert_eq!(after.showing, before.showing);
+    // What the panel is decided against is the same; the first screen's
+    // offers are what a press on one is decided against (queue item 714),
+    // and are never sent to the panel.
+    assert_eq!(after.showing.chats, before.showing.chats);
+    assert_eq!(after.showing.hidden, before.showing.hidden);
+    assert_eq!(after.showing.offers, after.start.offers);
     assert_eq!(after.start.typed, "</script><b>secret");
     assert!(
         !format!("{:?}", after.panel).contains("secret"),

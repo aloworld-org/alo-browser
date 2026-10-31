@@ -96,6 +96,7 @@ mod pointed;
 pub mod pointer;
 mod press;
 mod put;
+pub mod rail_document;
 pub mod renderer;
 pub mod resource;
 pub mod results;

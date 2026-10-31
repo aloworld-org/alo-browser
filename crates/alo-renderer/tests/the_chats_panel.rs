@@ -22,7 +22,7 @@ use alo_renderer::frame::frame_to_png;
 use alo_renderer::generic::Generics;
 use alo_renderer::host::Renderers;
 use alo_renderer::panel::{self, Chat, Doing, Panel};
-use alo_renderer::panel_document::DONE;
+use alo_renderer::panel_document::{self, DONE};
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use std::path::{Path, PathBuf};
@@ -73,6 +73,7 @@ fn panel_of(chats: Vec<Chat>) -> Panel {
         chats,
         viewport: Size::new(WIDTH, HEIGHT),
         scale: 1.0,
+        ..Panel::default()
     }
 }
 
@@ -297,35 +298,227 @@ fn a_panel_of_open_and_earlier_chats_is_read_by_name_with_what_is_happening() {
     );
 
     // In numbers: 6 above and 10 either side; the mark's row of 46 and 4
-    // below it; New chat 40 tall at 56. The first group's heading 18 below
-    // that, 14 tall, 6 above its rows; rows 38 tall and 2 apart, 220 wide.
-    // The second group 18 below the first's last row. Settings at the foot:
-    // 560 less 12 of padding, 38 of row, 8 above it and the line's 1.
+    // below it; New chat 40 tall at 56; Search chats 38 tall, 6 under it, at
+    // 102 (queue item 711). The first group's heading 18 below that, 14
+    // tall, 6 above its rows; rows 38 tall and 2 apart, 220 wide. The second
+    // group 18 below the first's last row. Settings at the foot: 560 less 12
+    // of padding, 38 of row, 8 above it and the line's 1.
     let rects: Vec<String> = links.iter().map(|link| units(link.rect)).collect();
     assert_eq!(
         rects,
         vec![
             px(10.0, 56.0, 220.0, 40.0),
-            px(10.0, 134.0, 220.0, 38.0),
-            px(10.0, 174.0, 220.0, 38.0),
-            px(10.0, 214.0, 220.0, 38.0),
-            px(10.0, 290.0, 220.0, 38.0),
-            px(10.0, 330.0, 220.0, 38.0),
+            px(10.0, 178.0, 220.0, 38.0),
+            px(10.0, 218.0, 220.0, 38.0),
+            px(10.0, 258.0, 220.0, 38.0),
+            px(10.0, 334.0, 220.0, 38.0),
+            px(10.0, 374.0, 220.0, 38.0),
             px(10.0, 510.0, 220.0, 38.0),
         ],
         "{outline}"
     );
-    // The icons, 16 square, inside rows that did not move for them (item
-    // 712): New chat's plus after its 1 of border and 12 of padding, so 23
-    // in, and centred in the 38 inside the border, 1 + 11 = 12 down;
-    // Settings' sliders after its 10 of padding, 20 in, and centred in its
-    // 38, 11 down.
+    // The button that hides the panel, 36 square at the head's end, named
+    // in words; Search chats a search holding a field named so, after its
+    // 12 of padding, 16 of glass and 8 of gap, 20 tall in the middle of 38.
+    let buttons: Vec<(Option<&str>, String)> = read(&drawn.tree, "button")
+        .iter()
+        .map(|button| (button.name.as_deref(), units(button.rect)))
+        .collect();
+    assert_eq!(
+        buttons,
+        vec![(Some("Hide the panel"), px(194.0, 11.0, 36.0, 36.0))],
+        "{outline}"
+    );
+    let searches: Vec<String> = read(&drawn.tree, "search")
+        .iter()
+        .map(|search| units(search.rect))
+        .collect();
+    assert_eq!(searches, vec![px(10.0, 102.0, 220.0, 38.0)], "{outline}");
+    let fields: Vec<(Option<&str>, String)> = read(&drawn.tree, "textbox")
+        .iter()
+        .map(|field| (field.name.as_deref(), units(field.rect)))
+        .collect();
+    assert_eq!(
+        fields,
+        vec![(Some("Search chats"), px(46.0, 111.0, 174.0, 20.0))],
+        "{outline}"
+    );
+    // The icons, inside rows that did not move for them (items 712, 711):
+    // the hide button's 18 square in the middle of its 36, 9 in and down;
+    // New chat's plus after its 1 of border and 12 of padding, so 23 in,
+    // and centred in the 38 inside the border, 1 + 11 = 12 down; Search
+    // chats' glass 12 in and 11 down; Settings' sliders after its 10 of
+    // padding, 20 in, and centred in its 38, 11 down.
     assert_eq!(
         drawn.icons,
-        vec![px(23.0, 68.0, 16.0, 16.0), px(20.0, 521.0, 16.0, 16.0)],
+        vec![
+            px(203.0, 20.0, 18.0, 18.0),
+            px(23.0, 68.0, 16.0, 16.0),
+            px(22.0, 113.0, 16.0, 16.0),
+            px(20.0, 521.0, 16.0, 16.0)
+        ],
         "{outline}"
     );
     assert_eq!(holds("panel-chats.png", drawn.frame.as_ref()), Ok(()));
+}
+
+/// What the field holds, as the agent reads it: the text the field's
+/// value is drawn as, read next after the field.
+fn value(tree: &Snapshot) -> Option<String> {
+    let nodes = tree.nodes();
+    let field = nodes
+        .iter()
+        .position(|node| node.role.as_str() == "textbox")?;
+    nodes
+        .get(field + 1)
+        .filter(|node| node.role.as_str() == "text")
+        .and_then(|node| node.name.clone())
+}
+
+/// The panel with `searched` typed into Search chats, which has the
+/// keyboard, holding the chats of [`five`] the browser process finds for it.
+fn searching(searched: &str) -> Panel {
+    Panel {
+        chats: five()
+            .into_iter()
+            .filter(|chat| panel::matching(chat, searched))
+            .collect(),
+        searched: searched.to_owned(),
+        searching: true,
+        ..panel_of(Vec::new())
+    }
+}
+
+#[test]
+fn search_chats_typed_into_shows_its_words_and_only_the_chats_named_so() {
+    // Queue item 711: "in" is in Charging, Lisbon and Invoice, and in
+    // neither earlier chat, whose group is then not drawn.
+    let drawn = draw(searching("in"));
+    let outline = drawn.tree.to_outline();
+    assert_eq!(value(&drawn.tree).as_deref(), Some("in"), "{outline}");
+    let headings: Vec<Option<&str>> = read(&drawn.tree, "heading")
+        .iter()
+        .map(|node| node.name.as_deref())
+        .collect();
+    assert_eq!(headings, vec![Some("Open")], "{outline}");
+    let links: Vec<(Option<&str>, String)> = read(&drawn.tree, "link")
+        .iter()
+        .map(|link| (link.name.as_deref(), units(link.rect)))
+        .collect();
+    let done = format!("Invoice for March {DONE}");
+    assert_eq!(
+        links,
+        vec![
+            (Some("New chat"), px(10.0, 56.0, 220.0, 40.0)),
+            (Some("Charging my EV"), px(10.0, 178.0, 220.0, 38.0)),
+            (Some("Weekend in Lisbon"), px(10.0, 218.0, 220.0, 38.0)),
+            (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
+            (Some("Settings"), px(10.0, 510.0, 220.0, 38.0)),
+        ],
+        "{outline}"
+    );
+    let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));
+    // With the keyboard, Search chats is white; the panel's grey beside it.
+    assert_eq!(pixel(&frame, 120, 104), Some([0xff, 0xff, 0xff, 0xff]));
+    assert_eq!(pixel(&frame, 5, 104), Some([0xee, 0xea, 0xe2, 0xff]));
+    assert_eq!(holds("panel-searched.png", Some(&frame)), Ok(()));
+
+    // Without it, the field keeps the words, on the panel's grey.
+    let resting = draw(Panel {
+        searching: false,
+        ..searching("in")
+    });
+    assert_eq!(value(&resting.tree).as_deref(), Some("in"));
+    let frame = resting
+        .frame
+        .unwrap_or_else(|| panic!("nothing was painted"));
+    assert_eq!(pixel(&frame, 120, 104), Some([0xee, 0xea, 0xe2, 0xff]));
+}
+
+#[test]
+fn search_chats_finding_nothing_says_so_in_words() {
+    let drawn = draw(searching("zebra"));
+    let outline = drawn.tree.to_outline();
+    assert!(read(&drawn.tree, "heading").is_empty(), "{outline}");
+    let said = panel_document::none_called("zebra");
+    assert_eq!(said, "No chat is called \u{201c}zebra\u{201d}");
+    assert!(
+        drawn.texts.iter().any(|text| text.contains("zebra")),
+        "{:?}",
+        drawn.texts
+    );
+    let paragraphs: Vec<(Option<&str>, String)> = read(&drawn.tree, "paragraph")
+        .iter()
+        .map(|node| (node.name.as_deref(), units(node.rect)))
+        .collect();
+    // 18 under Search chats' foot at 140, one line of 18, 10 in.
+    assert_eq!(
+        paragraphs,
+        vec![(None, px(10.0, 158.0, 220.0, 18.0))],
+        "{outline}"
+    );
+    let texts: Vec<Option<&str>> = drawn
+        .tree
+        .nodes()
+        .into_iter()
+        .filter(|node| node.role.as_str() == "text")
+        .filter_map(|node| node.name.as_deref())
+        .map(Some)
+        .collect();
+    assert!(texts.contains(&Some(said.as_str())), "{outline}");
+}
+
+#[test]
+fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
+    // Queue item 711: 64 wide, the mark 40 tall 10 down, New chat 44 square
+    // 6 under it, centred, and Show the panel at the foot, 12 above it.
+    for (scale, factor, name) in [
+        (1.0, 1, "panel-rail.png"),
+        (2.0, 2, "panel-rail-at-two.png"),
+    ] {
+        let drawn = draw(
+            Panel {
+                hidden: true,
+                viewport: Size::new(64.0, HEIGHT),
+                ..panel_of(five())
+            }
+            .at_scale(scale),
+        );
+        let outline = drawn.tree.to_outline();
+        let navigation = read(&drawn.tree, "navigation");
+        assert_eq!(
+            navigation.first().and_then(|node| node.name.as_deref()),
+            Some("Chats"),
+            "{outline}"
+        );
+        assert!(read(&drawn.tree, "link").is_empty(), "no chat: {outline}");
+        let buttons: Vec<(Option<&str>, String)> = read(&drawn.tree, "button")
+            .iter()
+            .map(|button| (button.name.as_deref(), units(button.rect)))
+            .collect();
+        assert_eq!(
+            buttons,
+            vec![
+                (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
+                (Some("Show the panel"), px(10.0, 504.0, 44.0, 44.0)),
+            ],
+            "{outline}"
+        );
+        assert_eq!(
+            drawn.icons,
+            vec![px(23.0, 69.0, 18.0, 18.0), px(23.0, 517.0, 18.0, 18.0)],
+            "{outline}"
+        );
+        let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));
+        let device = |css: u32| css * factor;
+        assert_eq!((frame.width, frame.height), (device(64), device(560)));
+        // The short line under New chat, 28 wide from 18, at 110.
+        assert_eq!(
+            pixel(&frame, device(32), device(110)),
+            Some([0xe1, 0xda, 0xce, 0xff])
+        );
+        assert_eq!(holds(name, Some(&frame)), Ok(()));
+    }
 }
 
 #[test]
@@ -397,7 +590,7 @@ fn a_long_name_is_cut_by_the_stylesheet_to_its_row() {
         .into_iter()
         .find(|link| link.states.current.is_some())
         .map(|link| units(link.rect));
-    assert_eq!(row, Some(px(10.0, 134.0, 220.0, 38.0)));
+    assert_eq!(row, Some(px(10.0, 178.0, 220.0, 38.0)));
     let xs: Vec<&String> = drawn
         .texts
         .iter()

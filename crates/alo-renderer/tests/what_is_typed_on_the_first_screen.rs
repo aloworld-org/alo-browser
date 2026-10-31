@@ -435,7 +435,7 @@ fn a_hostile_typed_string_stays_a_value_and_text() {
 }
 
 #[test]
-fn a_press_on_the_box_with_the_keyboard_is_the_box_and_on_an_offer_is_nothing_yet() {
+fn a_press_on_the_box_with_the_keyboard_is_the_box_and_on_an_offer_is_that_offer() {
     let mut renderer = Renderer::new(fonts());
     let built = renderer.handle(ToRenderer::Start(Box::new(screen_0b("example.com"))));
     assert!(matches!(built, FromRenderer::Loaded { .. }), "{built:?}");
@@ -444,9 +444,10 @@ fn a_press_on_the_box_with_the_keyboard_is_the_box_and_on_an_offer_is_nothing_ye
         (230.0, 285.0, Some(Claim::TheBox)),
         (165.0, 260.0, Some(Claim::TheBox)),
         (846.0, 285.0, Some(Claim::Go)),
-        // Each offer, and the card's edge: queue item 714.
-        (300.0, 350.0, None),
-        (300.0, 410.0, None),
+        // Each offer by its place, and the card's edge (queue item 714).
+        (300.0, 350.0, Some(Claim::Offer { at: 0 })),
+        (300.0, 410.0, Some(Claim::Offer { at: 1 })),
+        (300.0, 470.0, Some(Claim::Offer { at: 2 })),
         (163.0, 490.0, None),
     ] {
         assert_eq!(

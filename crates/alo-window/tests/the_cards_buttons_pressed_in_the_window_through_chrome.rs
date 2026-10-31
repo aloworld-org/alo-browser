@@ -41,7 +41,7 @@ use alo_renderer::host::Renderers;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::conversation_chrome::{ChromeOpener, Placing, Went};
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
-use alo_window::conversation_place::start_viewport;
+use alo_window::conversation_place::{Side, start_viewport};
 use alo_window::conversation_window::{ConversationWindow, Heard, Measured};
 use alo_window::keys::{Key, Press};
 use alo_window::scale::Scale;
@@ -330,7 +330,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
 
     // 3. Expand, pressed where a person sees it.
     let process = driven.process.ok_or("no Chromium was said to be open")?;
-    let placing = Placing::over_the_first_screen(OUTER, WINDOW, 1.0);
+    let placing = Placing::over_the_first_screen(OUTER, WINDOW, 1.0, Side::Panel);
     driven.click(EXPAND);
     driven.until("Expand decided", |driven| {
         driven.window.told().is_some() || { expanded_at(process, placing).unwrap_or(false) }

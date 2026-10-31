@@ -54,11 +54,18 @@
 //! order drawn, oldest turn first; what is scrolled out of the room is
 //! clipped, and a press there finds nothing to claim.
 //!
-//! Not drawn, so never claimed: *Search chats* and the button that hides
-//! the panel (queue item 711). Drawn but not yet claimed: the offers under
-//! the box for what was typed (queue item 701), a press on which claims
-//! nothing until 714. A box with the keyboard is drawn under a `main` of
-//! class `start focused`; its own class stays `box`.
+//! The offers for what was typed (queue items 701, 714), under the box or
+//! above it in a conversation, are claimed by their place among the offers
+//! drawn, whichever of them Return would choose and whether or not each is
+//! set up: each is of a class `offer` with what marks it after, and is
+//! counted among all of them. A box with the keyboard is drawn under a
+//! `main` of class `start focused`; its own class stays `box`.
+//!
+//! The panel's *Search chats* — its field, its glass, the room around them
+//! — and the button that hides the panel are each one of a kind (queue item
+//! 711); so, once it is hidden, are the rail's *New chat* and *Show the
+//! panel*. The rail draws no chat, and a press on its mark or between its
+//! buttons is on nothing.
 
 use crate::hit;
 use crate::pipeline::Drawing;
@@ -131,13 +138,31 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The offer at this place among those drawn for what was typed,
+    /// counting from zero: the first is what Return chooses (queue item
+    /// 714).
+    Offer {
+        /// Its place.
+        at: usize,
+    },
+    /// The panel's *Search chats* (queue item 711).
+    SearchChats,
+    /// The panel's button that hides it, beside the mark.
+    HideThePanel,
+    /// The rail's button that shows the panel again.
+    ShowThePanel,
 }
 
 impl Claim {
     /// The part that draws what this claims.
     pub fn part(self) -> Part {
         match self {
-            Claim::NewChat | Claim::Chat { .. } | Claim::Settings => Part::Panel,
+            Claim::NewChat
+            | Claim::Chat { .. }
+            | Claim::Settings
+            | Claim::SearchChats
+            | Claim::HideThePanel
+            | Claim::ShowThePanel => Part::Panel,
             Claim::Site { .. }
             | Claim::AddASite
             | Claim::Waiting { .. }
@@ -147,7 +172,8 @@ impl Claim {
             | Claim::Forward
             | Claim::Expand
             | Claim::CloseTheCard
-            | Claim::Found { .. } => Part::Start,
+            | Claim::Found { .. }
+            | Claim::Offer { .. } => Part::Start,
         }
     }
 }
@@ -168,6 +194,10 @@ impl fmt::Display for Claim {
             Claim::Expand => f.write_str("the card's Expand to the whole window"),
             Claim::CloseTheCard => f.write_str("the card's Close"),
             Claim::Found { at } => write!(f, "the title of the site found at place {at}"),
+            Claim::Offer { at } => write!(f, "the offer at place {at}"),
+            Claim::SearchChats => f.write_str("Search chats"),
+            Claim::HideThePanel => f.write_str("the button that hides the panel"),
+            Claim::ShowThePanel => f.write_str("the button that shows the panel"),
         }
     }
 }
@@ -182,29 +212,43 @@ enum Pressable {
 }
 
 /// What each part draws that a press can be on, by its class: each the
-/// whole `class` attribute its template or document builder sets.
-fn pressables(part: Part) -> &'static [(&'static str, Pressable)] {
+/// whole `class` attribute its template or document builder sets, and a
+/// thing claimed by its place counted among every element of any of its
+/// classes.
+fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
     match part {
         Part::Panel => &[
-            ("new", Pressable::One(Claim::NewChat)),
-            ("chat", Pressable::Placed(|at| Claim::Chat { at })),
-            ("settings", Pressable::One(Claim::Settings)),
+            (&["new"], Pressable::One(Claim::NewChat)),
+            (&["chat"], Pressable::Placed(|at| Claim::Chat { at })),
+            (&["settings"], Pressable::One(Claim::Settings)),
+            // Queue item 711: Search chats, the button beside the mark, and
+            // the rail's two buttons once it is hidden.
+            (&["find"], Pressable::One(Claim::SearchChats)),
+            (&["hide"], Pressable::One(Claim::HideThePanel)),
+            (&["rbtn new"], Pressable::One(Claim::NewChat)),
+            (&["rbtn show"], Pressable::One(Claim::ShowThePanel)),
         ],
         Part::Start => &[
-            ("tile", Pressable::Placed(|at| Claim::Site { at })),
-            ("tile add", Pressable::One(Claim::AddASite)),
-            ("wait", Pressable::Placed(|at| Claim::Waiting { at })),
-            ("go", Pressable::One(Claim::Go)),
-            ("ask", Pressable::One(Claim::TheBox)),
-            ("box", Pressable::One(Claim::TheBox)),
+            (&["tile"], Pressable::Placed(|at| Claim::Site { at })),
+            (&["tile add"], Pressable::One(Claim::AddASite)),
+            (&["wait"], Pressable::Placed(|at| Claim::Waiting { at })),
+            (&["go"], Pressable::One(Claim::Go)),
+            (&["ask"], Pressable::One(Claim::TheBox)),
+            (&["box"], Pressable::One(Claim::TheBox)),
             // A greyed Back or Forward is of the class `ibtn back off`, and
             // claims nothing (queue item 717).
-            ("ibtn back", Pressable::One(Claim::Back)),
-            ("ibtn forward", Pressable::One(Claim::Forward)),
-            ("ibtn expand", Pressable::One(Claim::Expand)),
-            ("ibtn close", Pressable::One(Claim::CloseTheCard)),
+            (&["ibtn back"], Pressable::One(Claim::Back)),
+            (&["ibtn forward"], Pressable::One(Claim::Forward)),
+            (&["ibtn expand"], Pressable::One(Claim::Expand)),
+            (&["ibtn close"], Pressable::One(Claim::CloseTheCard)),
             // A site's title among a search's results (queue item 708).
-            ("title", Pressable::Placed(|at| Claim::Found { at })),
+            (&["title"], Pressable::Placed(|at| Claim::Found { at })),
+            // An offer for what was typed, whichever is chosen and whether
+            // it is set up (queue item 714).
+            (
+                &["offer", "offer chosen", "offer unset", "offer chosen unset"],
+                Pressable::Placed(|at| Claim::Offer { at }),
+            ),
         ],
     }
 }
@@ -218,10 +262,13 @@ pub fn claimed(drawing: &Drawing, document: &Document, part: Part, at: Point) ->
     let mut next = Some(found);
     while let Some(node) = next {
         let class = document.attribute_by_name(node, "class");
-        if let Some((class, pressable)) = kinds.iter().find(|(kind, _)| Some(*kind) == class) {
+        if let Some((classes, pressable)) = kinds
+            .iter()
+            .find(|(classes, _)| class.is_some_and(|class| classes.contains(&class)))
+        {
             return match pressable {
                 Pressable::One(claim) => Some(*claim),
-                Pressable::Placed(claim) => place_of(document, node, class).map(claim),
+                Pressable::Placed(claim) => place_of(document, node, classes).map(claim),
             };
         }
         next = document.parent(node);
@@ -229,12 +276,16 @@ pub fn claimed(drawing: &Drawing, document: &Document, part: Part, at: Point) ->
     None
 }
 
-/// The place of `node` among the elements of `document` whose class is
-/// `class`, in document order.
-fn place_of(document: &Document, node: NodeId, class: &str) -> Option<usize> {
+/// The place of `node` among the elements of `document` whose class is one
+/// of `classes`, in document order.
+fn place_of(document: &Document, node: NodeId, classes: &[&str]) -> Option<usize> {
     document
         .descendants(document.root())
-        .filter(|&each| document.attribute_by_name(each, "class") == Some(class))
+        .filter(|&each| {
+            document
+                .attribute_by_name(each, "class")
+                .is_some_and(|class| classes.contains(&class))
+        })
         .position(|each| each == node)
 }
 
@@ -285,6 +336,7 @@ mod tests {
             ],
             viewport: Size::new(240.0, 560.0),
             scale: 1.0,
+            ..Panel::default()
         }
     }
 
@@ -338,27 +390,27 @@ mod tests {
 
     #[test]
     fn a_press_on_a_chat_claims_its_place_in_the_order_drawn() {
-        // Rows 220 × 38 from x 10, at y 134, 174 and 214 under *Open* and
-        // 290 and 330 under *Earlier*, their corners rounded by 9.
-        assert_eq!(on_panel(120.0, 150.0), chat(0));
-        assert_eq!(on_panel(10.0, 153.0), chat(0));
-        assert_eq!(on_panel(229.0, 153.0), chat(0));
-        assert_eq!(on_panel(120.0, 134.0), chat(0));
-        assert_eq!(on_panel(120.0, 171.0), chat(0));
-        assert_eq!(on_panel(120.0, 190.0), chat(1));
-        assert_eq!(on_panel(120.0, 230.0), chat(2));
-        assert_eq!(on_panel(120.0, 300.0), chat(3));
-        assert_eq!(on_panel(120.0, 367.0), chat(4));
+        // Rows 220 × 38 from x 10, at y 178, 218 and 258 under *Open* and
+        // 334 and 374 under *Earlier*, their corners rounded by 9.
+        assert_eq!(on_panel(120.0, 194.0), chat(0));
+        assert_eq!(on_panel(10.0, 197.0), chat(0));
+        assert_eq!(on_panel(229.0, 197.0), chat(0));
+        assert_eq!(on_panel(120.0, 178.0), chat(0));
+        assert_eq!(on_panel(120.0, 215.0), chat(0));
+        assert_eq!(on_panel(120.0, 234.0), chat(1));
+        assert_eq!(on_panel(120.0, 274.0), chat(2));
+        assert_eq!(on_panel(120.0, 344.0), chat(3));
+        assert_eq!(on_panel(120.0, 411.0), chat(4));
     }
 
     #[test]
     fn a_press_on_what_a_row_holds_is_on_the_chat() {
         // The site's mark, 16 square from 20 in; the name after it; the
         // second's dot and the third's *Done* at their rows' ends.
-        assert_eq!(on_panel(27.0, 152.0), chat(0));
-        assert_eq!(on_panel(60.0, 152.0), chat(0));
-        assert_eq!(on_panel(60.0, 192.0), chat(1));
-        assert_eq!(on_panel(210.0, 232.0), chat(2));
+        assert_eq!(on_panel(27.0, 196.0), chat(0));
+        assert_eq!(on_panel(60.0, 196.0), chat(0));
+        assert_eq!(on_panel(60.0, 236.0), chat(1));
+        assert_eq!(on_panel(210.0, 276.0), chat(2));
     }
 
     #[test]
@@ -375,18 +427,25 @@ mod tests {
     #[test]
     fn a_press_on_nothing_in_the_panel_claims_nothing() {
         for (x, y) in [
-            // The mark, and the head's row.
+            // The mark, the head's row, and just outside the button that
+            // hides the panel, 36 square at (194, 11).
             (25.0, 28.0),
-            (200.0, 28.0),
+            (150.0, 28.0),
+            (193.0, 28.0),
+            (212.0, 48.0),
             // Either side of New chat, and the 4 under the head.
             (5.0, 75.0),
             (232.0, 75.0),
             (120.0, 53.0),
-            // A group's heading, the gap between two rows, outside a row's
-            // rounded corner, and the room below the last row.
-            (40.0, 120.0),
-            (120.0, 172.0),
-            (10.0, 134.0),
+            // Under New chat and over Search chats, either side of Search
+            // chats, a group's heading, the gap between two rows, outside
+            // a row's rounded corner, and the room below the last row.
+            (120.0, 99.0),
+            (5.0, 121.0),
+            (232.0, 121.0),
+            (40.0, 165.0),
+            (120.0, 217.0),
+            (10.0, 178.0),
             (120.0, 450.0),
             // Under Settings, and outside the panel.
             (120.0, 552.0),
@@ -483,16 +542,17 @@ mod tests {
             ],
             viewport: Size::new(240.0, 560.0),
             scale: 1.0,
+            ..Panel::default()
         };
         assert_eq!(crate::panel::drawn_order(&panel.chats), vec![1, 3, 0, 2]);
         let mut renderer = holding(ToRenderer::Panel(Box::new(panel)));
         let mut at = |y| renderer.handle(ToRenderer::ConversationPress(Point::new(120.0, y)));
-        assert_eq!(at(150.0), chat(0));
-        assert_eq!(at(190.0), chat(1));
+        assert_eq!(at(194.0), chat(0));
+        assert_eq!(at(234.0), chat(1));
         // The earlier group's heading is 18 below the last open row, so its
-        // rows are at 250 and 290.
-        assert_eq!(at(266.0), chat(2));
-        assert_eq!(at(306.0), chat(3));
+        // rows are at 294 and 334.
+        assert_eq!(at(310.0), chat(2));
+        assert_eq!(at(350.0), chat(3));
     }
 
     #[test]
@@ -506,7 +566,7 @@ mod tests {
         // At two, the same CSS pixels are claimed alike.
         let mut renderer = holding(ToRenderer::Panel(Box::new(five().at_scale(2.0))));
         assert_eq!(
-            renderer.handle(ToRenderer::ConversationPress(Point::new(120.0, 190.0))),
+            renderer.handle(ToRenderer::ConversationPress(Point::new(120.0, 234.0))),
             chat(1)
         );
     }
@@ -514,7 +574,7 @@ mod tests {
     #[test]
     fn a_renderer_holding_neither_part_refuses_the_press() {
         let refused = FromRenderer::Failed(Failure::NotTheConversation);
-        let press = ToRenderer::ConversationPress(Point::new(120.0, 150.0));
+        let press = ToRenderer::ConversationPress(Point::new(120.0, 194.0));
         let mut empty = Renderer::new(fonts());
         assert_eq!(empty.handle(press.clone()), refused);
         let page = crate::page::Page::new(
@@ -544,6 +604,95 @@ mod tests {
     }
 
     #[test]
+    fn search_chats_and_the_button_that_hides_the_panel_are_claimed_as_themselves() {
+        // Search chats 220 × 38 at (10, 102): its glass at 22, its field
+        // from 46, and the room around them.
+        for x in [12.0, 30.0, 100.0, 228.0] {
+            assert_eq!(on_panel(x, 121.0), claim(Claim::SearchChats), "{x}");
+        }
+        assert_eq!(on_panel(120.0, 103.0), claim(Claim::SearchChats));
+        // The button 36 square at (194, 11), and its icon in the middle.
+        assert_eq!(on_panel(212.0, 29.0), claim(Claim::HideThePanel));
+        assert_eq!(on_panel(194.0, 11.0), claim(Claim::HideThePanel));
+        assert_eq!(on_panel(229.0, 46.0), claim(Claim::HideThePanel));
+    }
+
+    /// The panel hidden, as the rail 64 wide.
+    fn on_the_rail(x: f32, y: f32) -> FromRenderer {
+        let rail = Panel {
+            hidden: true,
+            viewport: Size::new(64.0, 560.0),
+            ..five()
+        };
+        holding(ToRenderer::Panel(Box::new(rail)))
+            .handle(ToRenderer::ConversationPress(Point::new(x, y)))
+    }
+
+    #[test]
+    fn the_rails_new_chat_and_show_the_panel_are_claimed_and_nothing_else() {
+        // New chat 44 square at (10, 56); Show the panel at (10, 504).
+        assert_eq!(on_the_rail(32.0, 78.0), claim(Claim::NewChat));
+        assert_eq!(on_the_rail(10.0, 56.0), claim(Claim::NewChat));
+        assert_eq!(on_the_rail(32.0, 526.0), claim(Claim::ShowThePanel));
+        assert_eq!(on_the_rail(53.0, 547.0), claim(Claim::ShowThePanel));
+        for (x, y) in [
+            // The mark, the line, the room, either side of a button, and
+            // where the panel's chats and Search chats would be.
+            (32.0, 30.0),
+            (32.0, 110.0),
+            (32.0, 300.0),
+            (5.0, 78.0),
+            (58.0, 526.0),
+            (32.0, 194.0),
+            (32.0, 121.0),
+        ] {
+            assert_eq!(
+                on_the_rail(x, y),
+                FromRenderer::ConversationClaimed(None),
+                "({x}, {y}) is on nothing"
+            );
+        }
+    }
+
+    /// The first screen of 0a with `typed` typed into the box, which has the
+    /// keyboard, and what is offered for it.
+    fn typed(typed: &str) -> Start {
+        Start {
+            typed: typed.to_owned(),
+            focused: true,
+            offers: crate::typed::offers(typed),
+            ..screen_0a()
+        }
+    }
+
+    #[test]
+    fn a_press_on_an_offer_claims_its_place_among_those_drawn() {
+        // `tests/what_is_typed_on_the_first_screen.rs`: three offers 706 ×
+        // 52 from (167, 333) for an address, the first chosen; two for
+        // words; each claimed wherever in it, its words or what is under
+        // them, chosen or not, set up or not.
+        let mut address = holding(ToRenderer::Start(Box::new(typed("example.com"))));
+        let mut at = |x, y| address.handle(ToRenderer::ConversationPress(Point::new(x, y)));
+        assert_eq!(at(400.0, 359.0), claim(Claim::Offer { at: 0 }));
+        assert_eq!(at(167.0, 359.0), claim(Claim::Offer { at: 0 }));
+        assert_eq!(at(200.0, 345.0), claim(Claim::Offer { at: 0 }));
+        assert_eq!(at(200.0, 372.0), claim(Claim::Offer { at: 0 }));
+        assert_eq!(at(400.0, 411.0), claim(Claim::Offer { at: 1 }));
+        assert_eq!(at(872.0, 463.0), claim(Claim::Offer { at: 2 }));
+        // The card's padding and border around them, and past it.
+        assert_eq!(at(163.0, 400.0), FromRenderer::ConversationClaimed(None));
+        assert_eq!(at(400.0, 329.0), FromRenderer::ConversationClaimed(None));
+        assert_eq!(at(400.0, 492.0), FromRenderer::ConversationClaimed(None));
+        // The box is still the box.
+        assert_eq!(at(400.0, 285.0), claim(Claim::TheBox));
+        let mut words = holding(ToRenderer::Start(Box::new(typed("what is x"))));
+        let mut at = |x, y| words.handle(ToRenderer::ConversationPress(Point::new(x, y)));
+        assert_eq!(at(400.0, 359.0), claim(Claim::Offer { at: 0 }));
+        assert_eq!(at(400.0, 411.0), claim(Claim::Offer { at: 1 }));
+        assert_eq!(at(400.0, 463.0), FromRenderer::ConversationClaimed(None));
+    }
+
+    #[test]
     fn each_claim_and_part_is_said_in_words() {
         assert_eq!(Part::Panel.to_string(), "the chats panel");
         assert_eq!(Part::Start.to_string(), "the first screen");
@@ -551,5 +700,11 @@ mod tests {
         assert_eq!(Claim::TheBox.to_string(), "the box");
         assert_eq!(Claim::Go.part(), Part::Start);
         assert_eq!(Claim::Settings.part(), Part::Panel);
+        assert_eq!(Claim::Offer { at: 1 }.to_string(), "the offer at place 1");
+        assert_eq!(Claim::Offer { at: 1 }.part(), Part::Start);
+        assert_eq!(Claim::SearchChats.to_string(), "Search chats");
+        for claim in [Claim::SearchChats, Claim::HideThePanel, Claim::ShowThePanel] {
+            assert_eq!(claim.part(), Part::Panel);
+        }
     }
 }

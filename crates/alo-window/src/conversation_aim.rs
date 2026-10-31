@@ -70,6 +70,7 @@ mod tests {
                 start: Some((device(1040), device(820))),
                 panel_saying: saying,
                 start_saying: saying,
+                ..Parts::default()
             },
         )
     }

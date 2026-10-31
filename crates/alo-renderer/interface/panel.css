@@ -51,9 +51,30 @@ a {
 .head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   height: 46px;
   padding-left: 8px;
   margin-bottom: 4px;
+}
+
+/* The button that hides the panel (queue item 711): 36 square at the
+   head's end, its 18 px icon — a window with its left side drawn off — in
+   the middle, in the panel's text colour. */
+.hide {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #3d3a35;
+}
+
+.hide .icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
 }
 
 .mark {
@@ -83,6 +104,47 @@ a {
   width: 16px;
   height: 16px;
   margin-right: 8px;
+}
+
+/* Search chats (queue item 711): 38 tall, 6 under New chat, a glass and
+   the field in the quiet colour; white while it has the keyboard, so a
+   person sees where typing goes. */
+.find {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  margin-top: 6px;
+  padding: 0 10px 0 12px;
+  border-radius: 10px;
+  color: var(--quiet);
+}
+
+.panel.searching .find {
+  background: var(--surface);
+}
+
+.find-field {
+  flex-grow: 1;
+  min-width: 0;
+  height: 20px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.find-field::placeholder {
+  color: var(--quiet);
+}
+
+/* When nothing is called what was searched: one line saying so. */
+.none {
+  margin-top: 18px;
+  padding: 0 10px;
+  color: var(--quiet);
 }
 
 .keys {

@@ -371,11 +371,91 @@ fn the_page_box_the_browser_computes_is_the_one_laid_out() -> Result<(), String>
                 column - 32.0,
                 40.0,
                 card_place::COLUMN + 64.0,
-                card_place::room_bottom(viewport) - 40.0
+                card_place::room_bottom(viewport, 0) - 40.0
             )],
             "at {width} × {height}"
         );
     }
+    Ok(())
+}
+
+/// Queue items 759 and 714: what is offered for what was typed stands
+/// above the box over a live card, and the room the browser process
+/// computes for it (`card_place::room_bottom`, `offers_height`) is the one
+/// laid out — for three offers and for two, at more than one height — so a
+/// press on an offer over the card's page is aimed at the offer; and each
+/// offer drawn there is claimed by its place.
+#[test]
+fn offers_over_a_card_take_the_room_the_browser_computes_and_are_claimed_by_place()
+-> Result<(), String> {
+    let mut over_the_page = 0;
+    for (typed, offered) in [("example.com", 3), ("what is x", 2)] {
+        for height in [HEIGHT, 700.0, 1000.0] {
+            let viewport = Size::new(WIDTH, height);
+            let mut start = with_a_card(Some(frame()?));
+            start.viewport = viewport;
+            start.focused = true;
+            start.typed = typed.to_owned();
+            start.offers = alo_renderer::typed::offers(typed);
+            assert_eq!(start.offers.len(), offered);
+            let mut renderer = Renderer::new(fonts());
+            let _ = renderer.handle(ToRenderer::Start(Box::new(start.clone())));
+            let column = (WIDTH - card_place::COLUMN) / 2.0;
+            let card = card_place::offers_height(offered);
+            let box_top = card_place::box_top(viewport);
+            let said = format!("{typed:?} at {height}");
+            assert_eq!(
+                boxes_of(&renderer, "offers"),
+                vec![px(column, box_top - 8.0 - card, card_place::COLUMN, card)],
+                "{said}"
+            );
+            assert_eq!(
+                boxes_of(&renderer, "thread"),
+                vec![px(
+                    column - 32.0,
+                    40.0,
+                    card_place::COLUMN + 64.0,
+                    card_place::room_bottom(viewport, offered) - 40.0
+                )],
+                "{said}"
+            );
+            // The box did not move for them.
+            assert_eq!(
+                boxes_of(&renderer, "box"),
+                vec![px(
+                    column,
+                    box_top,
+                    card_place::COLUMN,
+                    card_place::BOX_HEIGHT
+                )],
+                "{said}"
+            );
+            // Each offer, 52 tall from 7 inside the card's top, claimed by
+            // its place at its middle — over the card's page, which the
+            // room no longer holds there.
+            let page = card_place::page_box(viewport, 0.0);
+            let seen = card_place::seen_page_box(viewport, 0.0, offered);
+            let mut y = box_top - 8.0 - card + 7.0 + 26.0;
+            for at in 0..offered {
+                assert_eq!(
+                    pressed(start.clone(), 400.0, y),
+                    FromRenderer::ConversationClaimed(Some(Claim::Offer { at })),
+                    "{said}: offer {at} at {y}"
+                );
+                let point = alo_layout::Point::new(400.0, y);
+                if page.contains(point) {
+                    over_the_page += 1;
+                    assert!(
+                        !seen.is_some_and(|seen| seen.contains(point)),
+                        "{said}: offer {at} is not the page's"
+                    );
+                }
+                y += 52.0;
+            }
+        }
+    }
+    // Offers stood over the page box where it would have been the page's.
+    assert!(over_the_page >= 6, "{over_the_page}");
     Ok(())
 }
 

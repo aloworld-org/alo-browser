@@ -82,9 +82,11 @@ impl Reach {
 }
 
 /// How tall the room the conversation is seen in is, on a first screen laid
-/// out at `viewport`: from [`TOP`] down to the gap over the box.
+/// out at `viewport`: from [`TOP`] down to the gap over the box. The wheel is
+/// kept inside it as it is with nothing offered: offers over the box come
+/// and go as a person types, and the conversation does not move for them.
 pub fn room(viewport: Size) -> f32 {
-    (room_bottom(viewport) - TOP).max(0.0)
+    (room_bottom(viewport, 0) - TOP).max(0.0)
 }
 
 /// How far the conversation may be scrolled on a first screen laid out at

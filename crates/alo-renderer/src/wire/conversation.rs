@@ -8,7 +8,7 @@
 //! The press goes to a renderer as two finite numbers, as the strip's does.
 //! The claim comes back from the renderer that drew the part, and is read
 //! as anything a renderer says is: whether it was on anything, then what,
-//! by a closed list of tags, then — for a chat, a site, a waiting chat or a site found —
+//! by a closed list of tags, then — for a chat, a site, a waiting chat, a site found or an offer —
 //! its place as a number. The place is any number a renderer chose, and is
 //! read as one; whether anything was there is the browser process's to
 //! decide ([`crate::conversation_decide`]), not the reader's to assume.
@@ -52,6 +52,10 @@ impl Writer {
             Claim::Expand => (10, None),
             Claim::CloseTheCard => (11, None),
             Claim::Found { at } => (12, Some(at)),
+            Claim::Offer { at } => (13, Some(at)),
+            Claim::SearchChats => (14, None),
+            Claim::HideThePanel => (15, None),
+            Claim::ShowThePanel => (16, None),
         };
         self.tag(tag);
         if let Some(at) = at {
@@ -91,6 +95,10 @@ impl Reader<'_> {
             10 => Claim::Expand,
             11 => Claim::CloseTheCard,
             12 => Claim::Found { at: self.place()? },
+            13 => Claim::Offer { at: self.place()? },
+            14 => Claim::SearchChats,
+            15 => Claim::HideThePanel,
+            16 => Claim::ShowThePanel,
             other => return Err(unreadable(format!("a claim tagged {other}"))),
         };
         Ok(Some(claim))

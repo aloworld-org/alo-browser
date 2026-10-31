@@ -46184,3 +46184,78 @@ passed, 11 of 11 steps, "The gate is met."** `--lib` tests and clippy were
 clean before each.
 
 The next unused queue number is **760** and the next ADR is **0086**.
+
+## Iteration 467 — queue items 714, 759 and 711: a press on an offer, the offers' room known to the aim, Search chats and hiding the panel
+
+**Built.** *714:* an offer for what was typed is claimed by its place among
+the offers drawn (`Claim::Offer`, wire tag 13), whichever is chosen and
+whether set up, and decided against the offers the first screen last
+painted (`Shown::offers`): past them `NotShown`, typed on since `Gone`. It
+is chosen as Return chooses the first. *759:* the room is shorter by the
+offers above the box, computed by the browser process
+(`card_place::offers_height` = 14 + 52 n, `room_bottom(viewport, offered)`:
+538 for three at 820, 590 for two); the drawing thread tells how many with
+the reach and the window aims by the frame's (`card_aim::OnScreen`), so a
+press on an offer over a live card's page is the offer's. The wheel's
+bounds keep the whole room. *711:* *Search chats* at (10, 102) 220 × 38
+takes the keyboard (`conversation_find.rs`); keys edit it, and the browser
+process sends the panel only the chats whose names hold it
+(`panel::matching`), saying *No chat is called "…"* for none. The hide
+button 36 square at (194, 11); the rows 44 lower. Hidden, the panel is the
+design's rail, 64 wide (`rail_document.rs`, `interface/rail.*`): the mark,
+*New chat*, *Show the panel*; the first screen laid out at 1216 beside it
+(`conversation_place::Side`), Chrome's expanded window leaving it seen.
+Claims `SearchChats`, `HideThePanel`, `ShowThePanel` (tags 14–16), refused
+as `PanelNotSo` when claimed of the panel shown the other way.
+
+**Tests.** Layout assertions: the panel with Search chats, the hide button
+and icons; Search chats filtered and finding none; the rail at one and two;
+the offers and room over a card at 820, 700 and 1000 with each offer
+claimed there (`a_page_as_a_card.rs`); placement with the rail at one and
+two; the aim with offers at one and two. Claim, decision, wire and
+`Conversation` unit tests. Through the window's own road against a local
+provider: `alo-window/tests/offers_and_the_panel_pressed_in_the_window.rs`
+(offers pressed under and above the box; over a card the same point the
+page's with nothing offered and the offer's while offering — with the
+aim's offer count removed, the test fails; Search chats; the rail at one
+and two). References written new, each looked at, then run without update
+mode: `panel-searched.png`, `panel-rail.png`, `panel-rail-at-two.png`,
+`the-conversation-panel-hidden.png`, `the-conversation-panel-hidden-at-two.png`;
+rewritten with the hide button and Search chats: `panel-chats.png`,
+`the-conversation.png`, `the-conversation-at-two.png`,
+`the-panel-after-a-press.png`. Assertions moved deliberately: an offer
+pressed now claims it (`what_is_typed_on_the_first_screen.rs`); `showing`
+holds the offers (`typing_into_the_one_box.rs`); every panel row
+coordinate 44 lower.
+
+**Gate.** The first run: 5918 tests run, 5918 passed, but "no stubs" failed
+on `the-conversation-at-two.png`, whose compressed bytes happen to spell
+`XXX`. The owner agreed to read text files only (`grep -rnIE`, 9f23674).
+Rerun: **5918 tests run, 5918 passed (6 slow), "The gate is met." (11 of
+11 steps)**. `--lib` tests and clippy clean before it.
+
+**By hand** (`alo browser.app --conversation`, screenshots in the session's
+scratchpad `handrun7/`; screen unlocked, alo frontmost and the window at
+215,90 1280×852 checked before every press and key; the pointer put back
+with `=`). One real search. `02-offers-under-the-box.png` "rust lifetimes"
+typed, its two offers; `03-offer-pressed-search.png` the first offer
+pressed — searched, three sites; `04-offers-above-the-box.png`
+"example.com" typed in the conversation, three offers above the box (not
+chosen; Escape); `05-search-chats-new.png` and `06-search-chats-none.png`
+*Search chats* given the keyboard, white, "new" and then "newz", *No chat is
+called "newz"*, the box untouched; `07-panel-hidden-rail.png` the hide
+button pressed, the rail and the conversation wider; `08-panel-shown-again.png`
+*Show the panel* pressed, the panel back. Not tried by hand: a press on an
+offer over a live card (759), which needs a page opened; it is tested
+through the window's road. ⌘Q left no alo or alo Chromium process.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0024 § 5,
+0074 (status and consequences), 0085; `docs/design/shell.md` gains *Search
+chats and hiding the panel*.
+
+**Cut:** 760 (the rail's chats).
+
+**Roadmap:** the conversation line's *Built* gains 714, 759 and 711;
+*Owed* drops 711, 714 and 759 and gains 760.
+
+The next unused queue number is **761** and the next ADR is **0086**.

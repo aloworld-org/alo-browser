@@ -1,0 +1,79 @@
+/* The chats panel hidden, as the design's rail 64 wide (queue item 711,
+   docs/design/shell.md): the mark, New chat, a short line, and at the foot
+   the button that shows the panel again. The values are the palette's,
+   spelled here because no other file is reachable from a renderer. */
+:root {
+  --ink: #1b2433;
+  --panel: #eeeae2;
+  --line-soft: #e1dace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--panel);
+  color: #3d3a35;
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 13.5px;
+  line-height: 18px;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  row-gap: 6px;
+  height: 100%;
+  padding: 10px 0 12px;
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  font-family: Newsreader, serif;
+  font-size: 22px;
+  line-height: 26px;
+  color: var(--ink);
+}
+
+/* Each button 44 square, rounded 10, its 18 px icon in the middle in the
+   panel's text colour. */
+.rbtn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #3d3a35;
+}
+
+.rbtn .icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
+}
+
+.sep {
+  flex-shrink: 0;
+  width: 28px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line-soft);
+}
+
+/* What is left between the line and the foot. */
+.room {
+  flex-grow: 1;
+}

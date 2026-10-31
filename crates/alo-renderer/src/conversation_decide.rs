@@ -34,6 +34,7 @@
 
 use crate::conversation_claim::{Claim, Part};
 use crate::message::{Failure, FromRenderer};
+use crate::typed::Offer;
 use alo_url::Url;
 use core::fmt;
 
@@ -54,6 +55,13 @@ pub struct Shown<C, S> {
     /// items 708, 703): every search's sites on the All tab and every page
     /// shown earlier, oldest turn first.
     pub found: Vec<Url>,
+    /// What the first screen offered for what was typed, in order, the
+    /// first what Return chooses (queue item 714).
+    pub offers: Vec<Offer>,
+    /// Whether the panel was hidden, drawn as the rail (queue item 711):
+    /// *Search chats*, the button that hides it and *Settings* are drawn
+    /// only while it is not, and *Show the panel* only while it is.
+    pub hidden: bool,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -65,6 +73,8 @@ impl<C, S> Default for Shown<C, S> {
             waiting: Vec::new(),
             card: false,
             found: Vec::new(),
+            offers: Vec::new(),
+            hidden: false,
         }
     }
 }
@@ -99,6 +109,15 @@ pub enum Decided<C, S> {
     /// The title of a site a search found, or a page shown earlier, at this
     /// address (queue items 708, 703).
     Found(Url),
+    /// This offer for what was typed, chosen as Return chooses the first
+    /// (queue item 714).
+    Offer(Offer),
+    /// The panel's *Search chats* (queue item 711).
+    SearchChats,
+    /// The button that hides the panel.
+    HideThePanel,
+    /// The rail's button that shows the panel again.
+    ShowThePanel,
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -118,6 +137,8 @@ pub enum Listed {
     Waiting,
     /// The sites a search found (queue item 708).
     Found,
+    /// What was offered for what was typed (queue item 714).
+    Offers,
 }
 
 impl fmt::Display for Listed {
@@ -127,6 +148,7 @@ impl fmt::Display for Listed {
             Listed::Sites => "site",
             Listed::Waiting => "waiting chat",
             Listed::Found => "site found",
+            Listed::Offers => "offer",
         })
     }
 }
@@ -163,6 +185,15 @@ pub enum Refusal {
         /// What it claimed.
         claim: Claim,
     },
+    /// The renderer claimed a part of the panel it does not draw as it was
+    /// painted, or as it is now: the rail's while it was not hidden, the
+    /// whole panel's while it was (queue item 711).
+    PanelNotSo {
+        /// What it claimed.
+        claim: Claim,
+        /// Whether the panel was hidden, painted or now.
+        hidden: bool,
+    },
     /// A claim that answered no press.
     Unasked,
     /// The part's renderer answered a press with something that is not a
@@ -194,6 +225,15 @@ impl fmt::Display for Refusal {
                 f,
                 "a renderer claimed {claim}, and the first screen shows no page as a card, \
                  {refused}"
+            ),
+            Refusal::PanelNotSo { claim, hidden } => write!(
+                f,
+                "a renderer claimed {claim}, and the chats panel is {}, {refused}",
+                if *hidden {
+                    "hidden to its rail"
+                } else {
+                    "shown whole"
+                }
             ),
             Refusal::Unasked => write!(
                 f,
@@ -231,9 +271,15 @@ where
     if claim.part() != part {
         return Decided::Refused(Refusal::NotDrawnThere { part, claim });
     }
+    if let Some(refusal) = drawn_as_hidden(claim, painted.hidden, now.hidden) {
+        return Decided::Refused(refusal);
+    }
     match claim {
         Claim::NewChat => Decided::NewChat,
         Claim::Settings => Decided::Settings,
+        Claim::SearchChats => Decided::SearchChats,
+        Claim::HideThePanel => Decided::HideThePanel,
+        Claim::ShowThePanel => Decided::ShowThePanel,
         Claim::AddASite => Decided::AddASite,
         Claim::TheBox => Decided::TheBox,
         Claim::Go => Decided::Go,
@@ -254,7 +300,26 @@ where
             .map_or_else(Decided::Refused, Decided::Waiting),
         Claim::Found { at } => held(Listed::Found, at, &painted.found, &now.found)
             .map_or_else(Decided::Refused, Decided::Found),
+        Claim::Offer { at } => held(Listed::Offers, at, &painted.offers, &now.offers)
+            .map_or_else(Decided::Refused, Decided::Offer),
     }
+}
+
+/// Why `claim` is refused for the panel being hidden, or not, when it was
+/// painted (`painted`) or now (`now`) — the rail draws *New chat* and *Show
+/// the panel*, the whole panel everything else of it — or [`None`] when it
+/// is drawn both ways or was drawn as it is and still is. A chat is refused
+/// by its place instead, since the rail is shown none.
+fn drawn_as_hidden(claim: Claim, painted: bool, now: bool) -> Option<Refusal> {
+    let on_the_rail = match claim {
+        Claim::ShowThePanel => true,
+        Claim::SearchChats | Claim::HideThePanel | Claim::Settings => false,
+        _ => return None,
+    };
+    [painted, now]
+        .into_iter()
+        .find(|&hidden| hidden != on_the_rail)
+        .map(|hidden| Refusal::PanelNotSo { claim, hidden })
 }
 
 /// What was at place `at` of `painted`, if it is still in `now`.
@@ -296,7 +361,138 @@ mod tests {
             waiting: vec![12],
             card: false,
             found: Vec::new(),
+            offers: Vec::new(),
+            hidden: false,
         }
+    }
+
+    #[test]
+    fn an_offer_is_decided_by_its_place_among_those_painted_and_refused_past_them_or_gone() {
+        let typed = crate::typed::offers("example.com");
+        let with = Shown {
+            offers: typed.clone(),
+            ..painted()
+        };
+        for (at, offer) in typed.iter().enumerate() {
+            assert_eq!(
+                decide(claimed(Claim::Offer { at }), Part::Start, &with, &with),
+                Decided::Offer(offer.clone()),
+                "{at}"
+            );
+        }
+        assert_eq!(
+            decide(claimed(Claim::Offer { at: 3 }), Part::Start, &with, &with),
+            Decided::Refused(Refusal::NotShown {
+                listed: Listed::Offers,
+                at: 3,
+                shown: 3
+            })
+        );
+        // Typed on since it was painted: what was offered there has gone,
+        // and the offer now at its place is not what was pressed.
+        let on = Shown {
+            offers: crate::typed::offers("example.co"),
+            ..painted()
+        };
+        assert_eq!(
+            decide(claimed(Claim::Offer { at: 0 }), Part::Start, &with, &on),
+            Decided::Refused(Refusal::Gone {
+                listed: Listed::Offers,
+                at: 0
+            })
+        );
+        // Nothing offered when painted: no offer was shown to press.
+        assert_eq!(
+            decide(
+                claimed(Claim::Offer { at: 0 }),
+                Part::Start,
+                &painted(),
+                &with
+            ),
+            Decided::Refused(Refusal::NotShown {
+                listed: Listed::Offers,
+                at: 0,
+                shown: 0
+            })
+        );
+        assert_eq!(
+            decide(claimed(Claim::Offer { at: 0 }), Part::Panel, &with, &with),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Panel,
+                claim: Claim::Offer { at: 0 }
+            })
+        );
+        assert_eq!(
+            Refusal::NotShown {
+                listed: Listed::Offers,
+                at: 5,
+                shown: 2
+            }
+            .to_string(),
+            "a renderer claimed the offer at place 5, and 2 were shown, and nothing was done"
+        );
+    }
+
+    #[test]
+    fn the_panels_buttons_are_decided_only_as_it_was_painted_and_is_held() {
+        let hidden = Shown {
+            hidden: true,
+            ..painted()
+        };
+        let shown = painted();
+        for (claim, as_it) in [
+            (Claim::SearchChats, Decided::SearchChats),
+            (Claim::HideThePanel, Decided::HideThePanel),
+            (Claim::Settings, Decided::Settings),
+        ] {
+            assert_eq!(decide(claimed(claim), Part::Panel, &shown, &shown), as_it);
+            for (painted, now, which) in [(&hidden, &shown, true), (&shown, &hidden, true)] {
+                assert_eq!(
+                    decide(claimed(claim), Part::Panel, painted, now),
+                    Decided::Refused(Refusal::PanelNotSo {
+                        claim,
+                        hidden: which
+                    })
+                );
+            }
+        }
+        assert_eq!(
+            decide(claimed(Claim::ShowThePanel), Part::Panel, &hidden, &hidden),
+            Decided::ShowThePanel
+        );
+        for (painted, now) in [(&shown, &hidden), (&hidden, &shown)] {
+            assert_eq!(
+                decide(claimed(Claim::ShowThePanel), Part::Panel, painted, now),
+                Decided::Refused(Refusal::PanelNotSo {
+                    claim: Claim::ShowThePanel,
+                    hidden: false
+                })
+            );
+        }
+        // New chat is drawn either way.
+        for (painted, now) in [(&shown, &hidden), (&hidden, &hidden)] {
+            assert_eq!(
+                decide(claimed(Claim::NewChat), Part::Panel, painted, now),
+                Decided::NewChat
+            );
+        }
+        // And none of them from the first screen.
+        assert_eq!(
+            decide(claimed(Claim::HideThePanel), Part::Start, &shown, &shown),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Start,
+                claim: Claim::HideThePanel
+            })
+        );
+        assert_eq!(
+            Refusal::PanelNotSo {
+                claim: Claim::SearchChats,
+                hidden: true
+            }
+            .to_string(),
+            "a renderer claimed Search chats, and the chats panel is hidden to its rail, and \
+             nothing was done"
+        );
     }
 
     #[test]

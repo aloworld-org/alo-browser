@@ -16,11 +16,16 @@ use crate::panel::{Chat, Doing, Panel};
 use alo_layout::geometry::Size;
 
 impl Writer {
-    /// The panel: its size and its screen's scale, then each chat in order.
+    /// The panel: its size and its screen's scale, what was searched for
+    /// and whether the search has the keyboard, whether it is hidden as a
+    /// rail, then each chat in order.
     pub(super) fn panel(&mut self, panel: &Panel) {
         self.float(panel.viewport.width);
         self.float(panel.viewport.height);
         self.float(panel.scale);
+        self.text(&panel.searched);
+        self.bool(panel.searching);
+        self.bool(panel.hidden);
         self.number(panel.chats.len() as u64);
         for chat in &panel.chats {
             self.text(&chat.name);
@@ -37,8 +42,9 @@ impl Writer {
 }
 
 impl Reader<'_> {
-    /// The panel: its size and its screen's scale, then each chat in order.
-    /// A scale that is not a number is refused, as a size's is, and one that
+    /// The panel: its size and its screen's scale, what was searched for
+    /// and whether the search has the keyboard, whether it is hidden as a
+    /// rail, then each chat in order. A scale that is not a number is refused, as a size's is, and one that
     /// is not a factor above zero is one (ADR 0057 § 3).
     pub(super) fn panel(&mut self) -> Result<Panel, Unreadable> {
         let viewport = Size {
@@ -46,6 +52,9 @@ impl Reader<'_> {
             height: self.float()?,
         };
         let scale = alo_value::device_scale(self.float()?);
+        let searched = self.text()?;
+        let searching = self.bool()?;
+        let hidden = self.bool()?;
         let how_many = self.count()?;
         let mut chats = Vec::new();
         for _ in 0..how_many {
@@ -71,6 +80,9 @@ impl Reader<'_> {
             chats,
             viewport,
             scale,
+            searched,
+            searching,
+            hidden,
         })
     }
 }

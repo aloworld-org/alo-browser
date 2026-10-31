@@ -234,8 +234,9 @@ fn new_chat_then_the_first() -> Result<(Conversation, Here), String> {
     here.draw(&conversation);
     let made = conversation.on_screen();
     assert_ne!(made, Some(first), "the new chat is on screen");
-    // The first chat is now the second row, 38 tall at (10, 174).
-    let pressed = here.press(&conversation, Part::Panel, 120.0, 190.0);
+    // The first chat is now the second row, 38 tall at (10, 218), under
+    // Search chats (queue item 711).
+    let pressed = here.press(&conversation, Part::Panel, 120.0, 234.0);
     assert_eq!(pressed, Pressed::Chat(first), "said by which chat it was");
     assert!(conversation.act(pressed));
     assert_eq!(conversation.on_screen(), Some(first), "and it is current");
@@ -256,12 +257,12 @@ fn a_press_on_a_chat_makes_it_current_and_the_panel_is_drawn_again() {
             ),
             (
                 Some("New chat".to_owned()),
-                px(10.0, 134.0, 220.0, 38.0),
+                px(10.0, 178.0, 220.0, 38.0),
                 false
             ),
             (
                 Some("New chat".to_owned()),
-                px(10.0, 174.0, 220.0, 38.0),
+                px(10.0, 218.0, 220.0, 38.0),
                 true
             ),
             (
@@ -279,8 +280,8 @@ fn a_press_on_a_chat_makes_it_current_and_the_panel_is_drawn_again() {
         let at = usize::try_from((y * frame.width + x) * 4).unwrap_or(usize::MAX);
         frame.pixels.get(at..at + 4).map(<[u8]>::to_vec)
     };
-    assert_eq!(pixel(14, 193), Some(vec![0xff, 0xff, 0xff, 0xff]));
-    assert_eq!(pixel(14, 153), Some(vec![0xee, 0xea, 0xe2, 0xff]));
+    assert_eq!(pixel(14, 237), Some(vec![0xff, 0xff, 0xff, 0xff]));
+    assert_eq!(pixel(14, 197), Some(vec![0xee, 0xea, 0xe2, 0xff]));
     assert_eq!(
         holds("the-panel-after-a-press.png", &frame),
         Ok(()),
@@ -476,7 +477,7 @@ fn pressed_through_confined_renderers() -> Result<Frame, String> {
         other => return Err(format!("the panel was not drawn again: {other:?}")),
     }
     // The first chat, now the second row.
-    let pressed = press(&mut drawing, &told, (120.0, 190.0))?;
+    let pressed = press(&mut drawing, &told, (120.0, 234.0))?;
     assert_eq!(pressed, Pressed::Chat(first));
     assert!(conversation.act(pressed));
     drawing.draw(asked(&conversation));
@@ -486,7 +487,7 @@ fn pressed_through_confined_renderers() -> Result<Frame, String> {
     };
     // A press between two rows claims nothing.
     assert_eq!(
-        press(&mut drawing, &told, (120.0, 172.0))?,
+        press(&mut drawing, &told, (120.0, 216.5))?,
         Pressed::Nothing
     );
     if !drawing.finish() {

@@ -921,10 +921,34 @@ The reason this exists rather than a faster fork of somebody else's engine.
   the agent's words and steps as turns (704, 707), scrolling from the
   keyboard (754), a sign of more above (755), smoothing a wheel's lines
   (756), chats kept across launches (757), a chat named by its words (758),
-  the offers' room known to the aim (759), and a positioned box clipped by
-  an `overflow` box in the engine (753).
-  Owed: *Search chats* and the button that hides the panel (711), a press
-  on an offer (714), an agent reaching a page the conversation opened
+  and a positioned box clipped by an `overflow` box in the engine (753).
+  **A press on an offer** (714): each offer for what was typed — under the
+  box, or above it in a conversation — is claimed by its place among those
+  drawn and decided against the offers the first screen last painted, a
+  place past them or an offer gone since (typed on) refused by name; it is
+  chosen as Return chooses the first. **The offers' room known to the aim**
+  (759): while offers stand above the box the room is shorter by their card
+  and its gaps (`card_place::offers_height`, `room_bottom`), which the
+  browser process computes from how many it offered, so a press on an offer
+  over a live card's page is the offer's. In layout assertions of the
+  offers over a card at three heights (`tests/a_page_as_a_card.rs`), the
+  aim at one and two (`card_aim.rs`), claim and decision tests, and through
+  the window's own road (`alo-window/tests/offers_and_the_panel_pressed_in_the_window.rs`).
+  **Search chats and hiding the panel** (711): *Search chats*, 38 tall 6
+  under *New chat*, takes the keyboard as the box does
+  (`conversation_find.rs`); while it has it a person's keys edit it, it is
+  drawn white, and the panel shows only the chats whose names hold what is
+  typed — found by the browser process (`panel::matching`), saying *No chat
+  is called "…"* when none is. The button beside the mark hides the panel:
+  it is then the design's rail, 64 wide — the mark, *New chat* and *Show the
+  panel* (`rail_document.rs`) — and the window lays the first screen out
+  in the rest (`conversation_place::Side`). In layout assertions of the
+  panel, the rail at one and two and the window hidden at one and two,
+  reference renders `panel-chats.png`, `panel-searched.png`,
+  `panel-rail.png`, `panel-rail-at-two.png`,
+  `the-conversation-panel-hidden.png` and its twin at two. Owed: the rail's
+  chats (760).
+  Owed: an agent reaching a page the conversation opened
   (716), a field's value kept to one line by the engine (715), the agent
   at work (704), its settings (705); the answer (707) waits on the owner's
   choice of a model.

@@ -477,7 +477,7 @@ fn scrolled_back_every_box_moves_by_exactly_as_much_and_the_clip_holds() -> Resu
         scrolled.at("page"),
         vec![units(card_place::page_box(viewport(), back))]
     );
-    assert_eq!(card_place::seen_page_box(viewport(), back), None);
+    assert_eq!(card_place::seen_page_box(viewport(), back, 0), None);
     let frame = scrolled.frame.as_ref().ok_or("nothing was painted")?;
     // The card's turn starts at 40 + 602 = 642: what was said, at the
     // column's right, then the card at 700, which would run on under the
@@ -717,7 +717,7 @@ fn the_conversation_is_drawn_and_reached_the_same_by_a_confined_renderer() -> Re
         &ToRenderer::Panel(Box::new(alo_renderer::panel::Panel {
             chats: Vec::new(),
             viewport: Size::new(240.0, 820.0),
-            scale: 1.0,
+            ..alo_renderer::panel::Panel::default()
         })),
     );
     assert_eq!(

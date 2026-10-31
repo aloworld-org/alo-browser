@@ -14,7 +14,7 @@
 
 use crate::colours::{background, notice_line, panel};
 use crate::compose::copy;
-use crate::conversation_place::{ConversationPlacement, Parts};
+use crate::conversation_place::{ConversationPlacement, Parts, Side};
 use crate::notice::Lettering;
 use crate::scale::Scale;
 use alo_paint::Canvas;
@@ -36,6 +36,9 @@ pub struct ConversationScene<'a> {
     pub start: Option<&'a Frame>,
     /// What to tell a person about the first screen's renderer, if anything.
     pub start_sentence: Option<&'a str>,
+    /// Whether the panel is shown whole or hidden as its rail (queue item
+    /// 711).
+    pub side: Side,
 }
 
 impl ConversationScene<'_> {
@@ -48,13 +51,14 @@ impl ConversationScene<'_> {
             start: self.start.map(size),
             panel_saying: self.panel_sentence.is_some(),
             start_saying: self.start_sentence.is_some(),
+            side: self.side,
         }
     }
 }
 
 /// The window's pixels.
 ///
-/// The panel's room in the panel's colour and the rest in the paper behind
+/// The panel's room — or the rail's — in the panel's colour and the rest in the paper behind
 /// the conversation, then each frame in its room one to one, then the lines
 /// along the bottom — the first screen's, and the panel's above it. A
 /// window of no size is a canvas of no size.
@@ -113,6 +117,7 @@ mod tests {
             panel_sentence: None,
             start: None,
             start_sentence: None,
+            side: Side::Panel,
         }
     }
 

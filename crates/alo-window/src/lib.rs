@@ -105,7 +105,9 @@
 //!   keys, read by [`typing`], edit what it holds, and Return decides to
 //!   go to an address typed (item 701), which [`conversation_chrome`]
 //!   opens in the machine's Chrome, in a window of its own beside no frame
-//!   of ours (item 713, ADR 0075).
+//!   of ours (item 713, ADR 0075). The panel's *Search chats* is
+//!   [`conversation_find`], edited by the same keys while it has the
+//!   keyboard (item 711).
 //!
 //! # What it is not yet
 //!
@@ -182,6 +184,7 @@ pub mod conversation_box;
 pub mod conversation_chrome;
 pub mod conversation_compose;
 pub mod conversation_drawing;
+pub mod conversation_find;
 pub mod conversation_place;
 pub mod conversation_search;
 pub mod conversation_thread;

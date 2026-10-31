@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Press a suggestion to choose it.** The suggestions under the box —
+  *Go to the site*, *Search for*, *Ask alo about* — can now be pressed, not
+  only chosen with Return, and the one you press is the one chosen. While
+  you type over a page open in the conversation, a press on a suggestion
+  standing over that page goes to the suggestion, not the page (items 714,
+  759).
+- **Search your chats, and hide the panel.** *Search chats* in the panel
+  now filters the open and earlier chats by name as you type. The button
+  beside *alo* hides the panel to a narrow rail, giving the conversation
+  the window; the rail keeps *New chat* and a button to show the panel
+  again (item 711).
+
 - **The conversation keeps everything you asked for, and scrolls.** Each
   search and each page you open is added under the last instead of
   replacing it, so earlier results stay where you can read them. Scroll

@@ -44,12 +44,34 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
 A group's heading is 11.5 px, capitals, 600, quiet text, 18 px above it and
 6 px below.
 
+### Search chats and hiding the panel (item 711)
+
+**Search chats** is 38 tall, 6 under *New chat*, rounded 10: a 16 px glass
+12 in, then the field after 8, 13.5 px, its hint in quiet text. Pressed, it
+takes the keyboard from the box (and the box from it), and is drawn white
+while it has it. What a person types there shows only the chats whose
+names hold it, whatever its case; a group with none found is not drawn,
+and with none at all the panel says *No chat is called "…"* in quiet text,
+18 under the field. Escape empties it, and empty lets the keyboard go.
+
+**The button that hides the panel** stands at the mark's row's end, 36
+square, rounded 8, an 18 px icon — a window with its left side ruled off —
+in the panel's text colour, named *Hide the panel*. Pressed, the panel
+becomes **the rail**, 64 wide, and the conversation takes the rest of the
+window: the mark, 40 tall 10 down; *New chat*, a 44-square button with an
+18 px plus, 6 under it; a 28-wide line 4 above and below; and at the foot,
+12 up, *Show the panel*, 44 square with the same icon, which brings the
+panel back as it was, what was searched kept. The design's rail also holds
+each open chat as its site's mark; that is item 760.
+
 ### Icons (item 712)
 
 Where the design has an icon it is a simple line drawing: unfilled, stroked
 in the colour of the words it sits with (`currentColor`), round caps and
 joins, about 1.5–1.8 px of stroke, 16 px in the panel and 18 px on the
-first screen. A plus before *New chat*; sliders before *Settings*; an arrow
+first screen. A plus before *New chat*; a glass before *Search chats*; sliders before
+*Settings*; the panel's own outline, its left side ruled off, in the button
+that hides it and the rail's that shows it, both 18 px and named in words; an arrow
 in *Go* on the first screen, in place of the "→" it said; a plus above *Add a
 site*, standing as tall as a site's letter so the tiles' words stay level.
 Each is inline SVG written in the interface's own templates, never built
@@ -93,7 +115,9 @@ the one Return chooses on the paper's colour with 10 px corners:
 
 Backspace erases the last character, Escape empties the box (and, empty,
 lets the keyboard go), and Return or *Go* chooses the first offer. A press
-on an offer is 714.
+on any offer chooses that one as Return chooses the first (714); in a
+conversation the offers stand above the box, and a press on one standing
+over a live card's page is the offer's, not the page's (759).
 
 ### Going there (item 713)
 

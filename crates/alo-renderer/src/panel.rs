@@ -51,6 +51,15 @@ pub struct Panel {
     /// The scale of the screen the window is on (ADR 0057 § 3): any finite
     /// factor above zero, and anything else is one.
     pub scale: f32,
+    /// What a person typed into *Search chats* (queue item 711): the
+    /// field's value. The browser process sends only the chats whose names
+    /// hold it ([`matching`]); the panel says so when none does.
+    pub searched: String,
+    /// Whether *Search chats* has the keyboard.
+    pub searching: bool,
+    /// Whether the panel is hidden, drawn as the design's rail 64 wide:
+    /// the mark, *New chat* and *Show the panel* (queue item 711).
+    pub hidden: bool,
 }
 
 /// One chat in the panel.
@@ -89,6 +98,9 @@ impl Default for Panel {
             chats: Vec::new(),
             viewport: Size::default(),
             scale: 1.0,
+            searched: String::new(),
+            searching: false,
+            hidden: false,
         }
     }
 }
@@ -174,6 +186,19 @@ pub fn drawn_order(chats: &[Chat]) -> Vec<usize> {
 /// What a chat with no name yet is called.
 pub const NEW_CHAT: &str = "New chat";
 
+/// Whether `chat` is one *Search chats* finds for `searched` (queue item
+/// 711): every chat when nothing is searched, and otherwise one whose name
+/// as the row shows it holds what was searched, letters compared without
+/// their case and the words' spaces at either end ignored.
+pub fn matching(chat: &Chat, searched: &str) -> bool {
+    let searched = searched.trim();
+    searched.is_empty()
+        || chat
+            .label()
+            .to_lowercase()
+            .contains(&searched.to_lowercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,6 +242,21 @@ mod tests {
         ];
         assert_eq!(drawn_order(&chats), vec![1, 3, 0, 2]);
         assert_eq!(drawn_order(&[]), Vec::<usize>::new());
+    }
+
+    #[test]
+    fn search_chats_finds_a_name_holding_what_was_searched_whatever_its_case() {
+        let lisbon = Chat::new("Weekend in Lisbon", "lisbon.example");
+        assert!(matching(&lisbon, ""));
+        assert!(matching(&lisbon, "  "));
+        assert!(matching(&lisbon, "lisbon"));
+        assert!(matching(&lisbon, " IN LIS "));
+        assert!(!matching(&lisbon, "lisbon.example"), "not by its site");
+        assert!(!matching(&lisbon, "Lisboa"));
+        // A chat with no name is found by what the row calls it.
+        assert!(matching(&Chat::new("", ""), "new"));
+        assert!(matching(&Chat::new("Été", ""), "été"));
+        assert!(matching(&Chat::new("ÉTÉ", ""), "été"));
     }
 
     #[test]

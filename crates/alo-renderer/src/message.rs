@@ -654,6 +654,7 @@ mod tests {
             chats: vec![crate::panel::Chat::new("a", "b")],
             viewport: Size::new(240.0, 640.0),
             scale: 1.0,
+            ..Panel::default()
         };
         assert_eq!(
             ToRenderer::Panel(Box::new(panel)).to_string(),

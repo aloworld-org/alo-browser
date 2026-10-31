@@ -29,6 +29,19 @@ use alo_layout::Size;
 use alo_paint::Point;
 use alo_renderer::card_place::{page_box, seen_page_box};
 
+/// The first screen as it was last painted while it showed the card's
+/// picture of its page: what a point is aimed by.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OnScreen {
+    /// The viewport it was laid out at.
+    pub viewport: Size,
+    /// How far its conversation was scrolled.
+    pub down: f32,
+    /// How many offers for what was typed stood over its box, which the
+    /// room the page is seen in is shorter by (queue item 759).
+    pub offered: usize,
+}
+
 /// What a point of the conversation's window is over.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Aimed {
@@ -70,26 +83,27 @@ pub enum Turned {
 pub const LINE: f64 = 40.0;
 
 /// What the point `at`, in device pixels, is over in a window placed as
-/// `placed` at `scale`, when the first screen — laid out at the viewport
-/// `card_on_screen` names, scrolled as far as it names, while it shows a
-/// card's picture, [`None`] otherwise — holds a card's page: the page, or a
-/// part, or [`None`] when it is over nothing a renderer drew.
+/// `placed` at `scale`, when the first screen — as `card_on_screen` says it
+/// was last painted, while it shows a card's picture, [`None`] otherwise —
+/// holds a card's page: the page, or a part, or [`None`] when it is over
+/// nothing a renderer drew.
 pub fn aim(
     placed: &ConversationPlacement,
     scale: Scale,
-    card_on_screen: Option<(Size, f32)>,
+    card_on_screen: Option<OnScreen>,
     at: (f64, f64),
 ) -> Option<Aimed> {
     let (part, on) = conversation_aim::aim(placed, scale, at)?;
     if part == Part::Start
-        && let Some((viewport, down)) = card_on_screen
+        && let Some(painted) = card_on_screen
         // Only the part of it seen in the room (queue items 750, 703): a
-        // press on the box under a clipped page is the box's, and on what
-        // is scrolled above the room is nobody's page.
-        && seen_page_box(viewport, down)
+        // press on the box under a clipped page is the box's, on an offer
+        // standing over it the offer's (759), and on what is scrolled above
+        // the room nobody's page.
+        && seen_page_box(painted.viewport, painted.down, painted.offered)
             .is_some_and(|seen| seen.contains(alo_layout::Point::new(on.x, on.y)))
     {
-        let (x, y) = on_the_page(placed, scale, (viewport, down), at);
+        let (x, y) = on_the_page(placed, scale, (painted.viewport, painted.down), at);
         return Some(Aimed::Page { x, y });
     }
     Some(Aimed::Part(part, on))
@@ -145,6 +159,16 @@ mod tests {
         (placed, start_viewport(window, scale))
     }
 
+    /// The first screen painted at `viewport`, scrolled `down`, with
+    /// `offered` offers over its box.
+    fn painted(viewport: Size, down: f32, offered: usize) -> OnScreen {
+        OnScreen {
+            viewport,
+            down,
+            offered,
+        }
+    }
+
     #[expect(
         clippy::unnecessary_wraps,
         reason = "compared with what `aim` answers, which is an `Option`"
@@ -156,7 +180,7 @@ mod tests {
     #[test]
     fn at_one_the_page_box_is_at_321_145_of_the_window() {
         let (placed, viewport) = the_window(Scale::ONE);
-        let card = Some((viewport, 0.0));
+        let card = Some(painted(viewport, 0.0, 0));
         // The panel's 240, then the page box at 81, 145 of the first screen.
         assert_eq!(
             aim(&placed, Scale::ONE, card, (321.0, 145.0)),
@@ -175,7 +199,7 @@ mod tests {
     #[test]
     fn at_two_a_device_pixel_is_half_a_css_pixel_of_the_page() {
         let (placed, viewport) = the_window(Scale::TWO);
-        let card = Some((viewport, 0.0));
+        let card = Some(painted(viewport, 0.0, 0));
         assert_eq!(
             aim(&placed, Scale::TWO, card, (642.0, 290.0)),
             page(0.0, 0.0)
@@ -194,7 +218,7 @@ mod tests {
     fn outside_the_page_box_is_the_parts_and_not_forwarded() {
         for scale in [Scale::ONE, Scale::TWO] {
             let (placed, viewport) = the_window(scale);
-            let card = Some((viewport, 0.0));
+            let card = Some(painted(viewport, 0.0, 0));
             let device =
                 |x: f64, y: f64| (x * f64::from(scale.factor()), y * f64::from(scale.factor()));
             // Just above the page box: the card's bar, the first screen's.
@@ -239,7 +263,7 @@ mod tests {
                 ..Parts::default()
             },
         );
-        let card = Some((start_viewport(window, Scale::ONE), 0.0));
+        let card = Some(painted(start_viewport(window, Scale::ONE), 0.0, 0));
         assert_eq!(
             aim(&placed, Scale::ONE, card, (500.0, 595.5)),
             page(179.0, 450.5)
@@ -263,7 +287,7 @@ mod tests {
                 |x: f64, y: f64| (x * f64::from(scale.factor()), y * f64::from(scale.factor()));
             // Scrolled 120 on: the page box from 25 of the first screen, so
             // the page's (250.5, 100) is drawn at the window's (571.5, 125).
-            let on = Some((viewport, 120.0));
+            let on = Some(painted(viewport, 120.0, 0));
             assert_eq!(
                 aim(&placed, scale, on, device(571.5, 125.0)),
                 page(250.5, 100.0)
@@ -279,7 +303,7 @@ mod tests {
             );
             // Scrolled 200 back: from 345, its foot under the room's 716
             // the box's, not the page's.
-            let back = Some((viewport, -200.0));
+            let back = Some(painted(viewport, -200.0, 0));
             assert_eq!(
                 aim(&placed, scale, back, device(571.5, 445.0)),
                 page(250.5, 100.0)
@@ -292,6 +316,42 @@ mod tests {
                 aim(&placed, scale, back, device(571.5, 716.0)),
                 Some(Aimed::Part(Part::Start, _))
             ));
+        }
+    }
+
+    #[test]
+    fn offers_over_the_box_are_the_first_screens_not_the_pages_at_one_and_two() {
+        // Queue item 759: three offers for an address, their card 170 tall
+        // from 562 to 732 of the first screen, the room ending at 538. A
+        // press at 600 — the first offer, over where the page box goes on —
+        // is the first screen's, to be claimed as the offer.
+        for scale in [Scale::ONE, Scale::TWO] {
+            let (placed, viewport) = the_window(scale);
+            let device =
+                |x: f64, y: f64| (x * f64::from(scale.factor()), y * f64::from(scale.factor()));
+            let offering = Some(painted(viewport, 0.0, 3));
+            assert_eq!(
+                aim(&placed, scale, offering, device(640.0, 600.0)),
+                Some(Aimed::Part(Part::Start, Point::new(400.0, 600.0)))
+            );
+            assert_eq!(
+                aim(&placed, scale, offering, device(640.0, 537.5)),
+                page(319.0, 392.5)
+            );
+            assert!(matches!(
+                aim(&placed, scale, offering, device(640.0, 538.0)),
+                Some(Aimed::Part(Part::Start, _))
+            ));
+            // With none offered the same point is the page's.
+            assert_eq!(
+                aim(
+                    &placed,
+                    scale,
+                    Some(painted(viewport, 0.0, 0)),
+                    device(640.0, 600.0)
+                ),
+                page(319.0, 455.0)
+            );
         }
     }
 

@@ -788,13 +788,20 @@ impl Renderer {
     /// held: its document built from the state it was sent, at its own
     /// address, with its own sheet.
     fn panel(&mut self, panel: &Panel) -> FromRenderer {
+        // Hidden, the panel is the rail, with a sheet of its own (queue item
+        // 711).
+        let sheet = if panel.hidden {
+            crate::rail_document::SHEET
+        } else {
+            panel_document::SHEET
+        };
         match panel_document::build(panel) {
             Ok(document) => self.interface(
                 document,
                 panel.viewport,
                 panel.scale,
                 crate::panel::address(),
-                (panel_document::SHEET, Vec::new()),
+                (sheet, Vec::new()),
                 Holds::Conversation(Part::Panel),
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoPanel { why: unbuilt.why }),

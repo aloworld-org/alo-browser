@@ -29,6 +29,15 @@
 //! the box, which is pinned at the window's foot (queue item 750): what of
 //! the page box is outside the room is not seen, and is not the page's to
 //! be pressed ([`seen_page_box`]).
+//!
+//! # While a person types
+//!
+//! What is offered for what was typed stands just above the box while
+//! conversing (queue item 750), and the room is shorter by it: the offers'
+//! card, [`offers_height`] for how many are offered, and the 8 under it and
+//! 24 over it (queue item 759). The browser process knows how many it
+//! offered, so it knows how much shorter, without a renderer saying so; a
+//! press on an offer drawn over the card's page is the offer's.
 
 use crate::card::PAGE_SIZE;
 use alo_layout::{Rect, Size};
@@ -60,8 +69,33 @@ pub const BOX_HEIGHT: f32 = 56.0;
 /// How far above the window's foot the box is: the design's 24.
 pub const FOOT: f32 = 24.0;
 
-/// The gap between the conversation and the box: the box's `margin-top`.
+/// The gap between the conversation and the box: the box's `margin-top`,
+/// or the offers' when they stand between.
 const ABOVE_THE_BOX: f32 = 24.0;
+
+/// How tall one offer is: its two lines, 20 and 18, and 7 above and below.
+const OFFER: f32 = 52.0;
+
+/// The offers' card around them: its 6 inside and its 1 of border, above
+/// and below.
+const OFFERS_FRAME: f32 = 14.0;
+
+/// The gap between the offers and the box under them.
+const OVER_THE_BOX: f32 = 8.0;
+
+/// How tall the offers' card is for `offered` offers, and nothing for none,
+/// when none is drawn.
+pub fn offers_height(offered: usize) -> f32 {
+    if offered == 0 {
+        return 0.0;
+    }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a handful of offers, exact in an f32"
+    )]
+    let offered = offered as f32;
+    OFFERS_FRAME + OFFER * offered
+}
 
 /// Where the box's top is on a first screen laid out at `viewport` that holds
 /// a conversation (queue item 750): [`FOOT`] and [`BOX_HEIGHT`] above its
@@ -71,19 +105,25 @@ pub fn box_top(viewport: Size) -> f32 {
 }
 
 /// How far down the conversation is seen on a first screen laid out at
-/// `viewport`: what is lower is clipped, above the box and the gap over it.
-pub fn room_bottom(viewport: Size) -> f32 {
-    box_top(viewport) - ABOVE_THE_BOX
+/// `viewport`, `offered` offers standing over the box (queue item 759):
+/// what is lower is clipped, above the box and the gap over it, or above
+/// the offers, the gap under them and the gap over them.
+pub fn room_bottom(viewport: Size, offered: usize) -> f32 {
+    if offered == 0 {
+        box_top(viewport) - ABOVE_THE_BOX
+    } else {
+        box_top(viewport) - OVER_THE_BOX - offers_height(offered) - ABOVE_THE_BOX
+    }
 }
 
 /// The part of the card's page box that is seen on a first screen laid out
-/// at `viewport` and scrolled `down` — all of it when it is inside the room,
-/// what is inside when the room clips it above or below — or [`None`] when
-/// none of it is.
-pub fn seen_page_box(viewport: Size, down: f32) -> Option<Rect> {
+/// at `viewport`, scrolled `down` and with `offered` offers over the box —
+/// all of it when it is inside the room, what is inside when the room clips
+/// it above or below — or [`None`] when none of it is.
+pub fn seen_page_box(viewport: Size, down: f32, offered: usize) -> Option<Rect> {
     let page = page_box(viewport, down);
     let top = page.top().max(TOP);
-    let bottom = page.bottom().min(room_bottom(viewport));
+    let bottom = page.bottom().min(room_bottom(viewport, offered));
     (bottom > top).then(|| Rect::new(page.left(), top, page.size.width, bottom - top))
 }
 
@@ -135,16 +175,16 @@ mod tests {
             740.0_f32.to_bits()
         );
         assert_eq!(
-            seen_page_box(Size::new(1040.0, 820.0), 0.0).map(sides),
+            seen_page_box(Size::new(1040.0, 820.0), 0.0, 0).map(sides),
             Some(sides(Rect::new(81.0, 145.0, 878.0, 520.0)))
         );
         // At 700 it ends at 596: the page's lowest 69 are clipped.
         assert_eq!(
-            seen_page_box(Size::new(1040.0, 700.0), 0.0).map(sides),
+            seen_page_box(Size::new(1040.0, 700.0), 0.0, 0).map(sides),
             Some(sides(Rect::new(81.0, 145.0, 878.0, 451.0)))
         );
         // At 240 none of it is seen.
-        assert_eq!(seen_page_box(Size::new(1040.0, 240.0), 0.0), None);
+        assert_eq!(seen_page_box(Size::new(1040.0, 240.0), 0.0, 0), None);
     }
 
     #[test]
@@ -157,7 +197,7 @@ mod tests {
             sides(Rect::new(81.0, 25.0, 878.0, 520.0))
         );
         assert_eq!(
-            seen_page_box(viewport, 120.0).map(sides),
+            seen_page_box(viewport, 120.0, 0).map(sides),
             Some(sides(Rect::new(81.0, 40.0, 878.0, 505.0)))
         );
         // Scrolled 200 back: down by 200, its foot past the room's 716.
@@ -166,12 +206,40 @@ mod tests {
             sides(Rect::new(81.0, 345.0, 878.0, 520.0))
         );
         assert_eq!(
-            seen_page_box(viewport, -200.0).map(sides),
+            seen_page_box(viewport, -200.0, 0).map(sides),
             Some(sides(Rect::new(81.0, 345.0, 878.0, 371.0)))
         );
         // Scrolled past it either way, none of it.
-        assert_eq!(seen_page_box(viewport, 700.0), None);
-        assert_eq!(seen_page_box(viewport, -700.0), None);
+        assert_eq!(seen_page_box(viewport, 700.0, 0), None);
+        assert_eq!(seen_page_box(viewport, -700.0, 0), None);
+    }
+
+    #[test]
+    fn offers_over_the_box_shorten_the_room_by_their_card_and_its_gaps() {
+        let viewport = Size::new(1040.0, 820.0);
+        assert_eq!(offers_height(0).to_bits(), 0.0_f32.to_bits());
+        assert_eq!(offers_height(1).to_bits(), 66.0_f32.to_bits());
+        assert_eq!(offers_height(3).to_bits(), 170.0_f32.to_bits());
+        assert_eq!(room_bottom(viewport, 0).to_bits(), 716.0_f32.to_bits());
+        // Three offers: the box at 740, 8 over it the card's foot at 732,
+        // its top 170 above at 562, and the room 24 above that, at 538.
+        assert_eq!(room_bottom(viewport, 3).to_bits(), 538.0_f32.to_bits());
+        // Two, as for words not an address: 104 + 14 = 118 tall, from 614.
+        assert_eq!(room_bottom(viewport, 2).to_bits(), 590.0_f32.to_bits());
+        // So the card's page box, 145 to 665 unscrolled, is seen down to
+        // 538 only, and a press at 600 is on the offers, not the page.
+        assert_eq!(
+            seen_page_box(viewport, 0.0, 3).map(sides),
+            Some(sides(Rect::new(81.0, 145.0, 878.0, 393.0)))
+        );
+        assert!(
+            seen_page_box(viewport, 0.0, 3)
+                .is_some_and(|seen| !seen.contains(alo_layout::Point::new(400.0, 600.0)))
+        );
+        assert!(
+            seen_page_box(viewport, 0.0, 0)
+                .is_some_and(|seen| seen.contains(alo_layout::Point::new(400.0, 600.0)))
+        );
     }
 
     #[test]

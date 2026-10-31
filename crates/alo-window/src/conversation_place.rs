@@ -17,6 +17,13 @@
 //! cut at its room's edges when it is larger, as it is after a window
 //! shrinks and before the new frame arrives (ADR 0024 § 2). A window
 //! narrower than the panel is all panel.
+//!
+//! # Hidden
+//!
+//! A person may hide the panel (queue item 711): it is then the design's
+//! rail, [`RAIL_WIDTH`] wide, and the first screen has the rest — the
+//! window laid out without the panel, and a way back on the rail. Which it
+//! is is the window's [`Side`].
 
 use crate::place::{NOTICE_HEIGHT, PixelRect};
 use crate::scale::Scale;
@@ -25,29 +32,66 @@ use alo_layout::Size;
 /// How wide the chats panel is, in CSS pixels: the design's 240.
 pub const PANEL_WIDTH: u32 = 240;
 
+/// How wide the panel is hidden, as the design's rail, in CSS pixels: 64.
+pub const RAIL_WIDTH: u32 = 64;
+
+/// What stands down the window's left: the chats panel, or — hidden by a
+/// person — its rail (queue item 711).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Side {
+    /// The whole panel, [`PANEL_WIDTH`] wide.
+    #[default]
+    Panel,
+    /// The rail, [`RAIL_WIDTH`] wide.
+    Rail,
+}
+
+impl Side {
+    /// How wide it is, in CSS pixels.
+    pub fn width(self) -> u32 {
+        match self {
+            Side::Panel => PANEL_WIDTH,
+            Side::Rail => RAIL_WIDTH,
+        }
+    }
+}
+
 /// The size the panel is laid out at in a `window` of device pixels at
-/// `scale`: [`PANEL_WIDTH`], or as much of it as the window has, and the
-/// most whole CSS pixels that fit the window's height.
+/// `scale`, the panel shown whole: see [`panel_viewport_as`].
 pub fn panel_viewport(window: (u32, u32), scale: Scale) -> Size {
+    panel_viewport_as(window, scale, Side::Panel)
+}
+
+/// The size the panel is laid out at in a `window` of device pixels at
+/// `scale`, as `side`: its width, or as much of it as the window has, and
+/// the most whole CSS pixels that fit the window's height.
+pub fn panel_viewport_as(window: (u32, u32), scale: Scale, side: Side) -> Size {
     Size::new(
-        css_length(scale.fitting(panel_room(window, scale))),
+        css_length(scale.fitting(panel_room(window, scale, side))),
         css_length(scale.fitting(window.1)),
     )
 }
 
-/// The size the first screen is laid out at: the most whole CSS pixels
-/// that fit what the panel leaves of the window's width, and its height.
+/// The size the first screen is laid out at, the panel shown whole: see
+/// [`start_viewport_as`].
 pub fn start_viewport(window: (u32, u32), scale: Scale) -> Size {
+    start_viewport_as(window, scale, Side::Panel)
+}
+
+/// The size the first screen is laid out at beside `side`: the most whole
+/// CSS pixels that fit what it leaves of the window's width, and its
+/// height.
+pub fn start_viewport_as(window: (u32, u32), scale: Scale, side: Side) -> Size {
     Size::new(
-        css_length(scale.fitting(window.0 - panel_room(window, scale))),
+        css_length(scale.fitting(window.0 - panel_room(window, scale, side))),
         css_length(scale.fitting(window.1)),
     )
 }
 
-/// How many device pixels across the panel's room is: [`PANEL_WIDTH`] at
-/// the scale, or the whole window when it is narrower.
-fn panel_room(window: (u32, u32), scale: Scale) -> u32 {
-    scale.device(PANEL_WIDTH).min(window.0)
+/// How many device pixels across the panel's room is as `side`: its width
+/// at the scale, or the whole window when it is narrower.
+fn panel_room(window: (u32, u32), scale: Scale, side: Side) -> u32 {
+    scale.device(side.width()).min(window.0)
 }
 
 /// A whole number of CSS pixels as a length.
@@ -71,13 +115,16 @@ pub struct Parts {
     pub panel_saying: bool,
     /// Whether there is a sentence about the first screen.
     pub start_saying: bool,
+    /// Whether the panel is shown whole or hidden as its rail.
+    pub side: Side,
 }
 
 /// Where the panel, the first screen and the lines about them go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConversationPlacement {
-    /// The panel's room down the left, [`PANEL_WIDTH`] at the scale and the
-    /// window's whole height: in the panel's colour until it has painted.
+    /// The panel's room down the left, [`PANEL_WIDTH`] at the scale — or
+    /// [`RAIL_WIDTH`], hidden — and the window's whole height: in the
+    /// panel's colour until it has painted.
     pub panel_room: PixelRect,
     /// The part of it the panel's frame covers, from its top-left corner.
     pub panel: PixelRect,
@@ -102,7 +149,7 @@ impl ConversationPlacement {
     /// window, over the frames rather than pushing them — a frame is a
     /// picture at a size, and moving it would show it at one it was not.
     pub fn of(window: (u32, u32), scale: Scale, parts: Parts) -> Self {
-        let room = panel_room(window, scale);
+        let room = panel_room(window, scale, parts.side);
         let panel_room = PixelRect {
             x: 0,
             y: 0,
@@ -305,6 +352,64 @@ mod tests {
         );
         assert_eq!(short.start_notice, Some(rect(0, 8, 100, 32)));
         assert_eq!(short.panel_notice, Some(rect(0, 0, 100, 8)));
+    }
+
+    #[test]
+    fn hidden_the_panel_is_the_rail_64_wide_and_the_first_screen_the_rest_at_one_and_two() {
+        // Queue item 711: at one, the design's window less the rail.
+        let window = (1280, 820);
+        assert_eq!(
+            panel_viewport_as(window, Scale::ONE, Side::Rail),
+            Size::new(64.0, 820.0)
+        );
+        assert_eq!(
+            start_viewport_as(window, Scale::ONE, Side::Rail),
+            Size::new(1216.0, 820.0)
+        );
+        let placed = ConversationPlacement::of(
+            window,
+            Scale::ONE,
+            Parts {
+                side: Side::Rail,
+                ..painted((64, 820), (1216, 820))
+            },
+        );
+        assert_eq!(placed.panel_room, rect(0, 0, 64, 820));
+        assert_eq!(placed.panel, rect(0, 0, 64, 820));
+        assert_eq!(placed.start_room, rect(64, 0, 1216, 820));
+        assert_eq!(placed.start, rect(64, 0, 1216, 820));
+        // At two, twice the device pixels and the same CSS ones.
+        let window = (2560, 1640);
+        assert_eq!(
+            panel_viewport_as(window, Scale::TWO, Side::Rail),
+            Size::new(64.0, 820.0)
+        );
+        assert_eq!(
+            start_viewport_as(window, Scale::TWO, Side::Rail),
+            Size::new(1216.0, 820.0)
+        );
+        let placed = ConversationPlacement::of(
+            window,
+            Scale::TWO,
+            Parts {
+                side: Side::Rail,
+                ..painted((128, 1640), (2432, 1640))
+            },
+        );
+        assert_eq!(placed.panel_room, rect(0, 0, 128, 1640));
+        assert_eq!(placed.start_room, rect(128, 0, 2432, 1640));
+        assert_eq!(placed.start, rect(128, 0, 2432, 1640));
+        // Shown again, the panel's 240 as before.
+        assert_eq!(
+            start_viewport_as(window, Scale::TWO, Side::Panel),
+            start_viewport(window, Scale::TWO)
+        );
+        assert_eq!(Side::default(), Side::Panel);
+        // A window narrower than the rail is all rail.
+        assert_eq!(
+            start_viewport_as((50, 100), Scale::ONE, Side::Rail),
+            Size::new(0.0, 100.0)
+        );
     }
 
     #[test]

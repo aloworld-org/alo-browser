@@ -83,6 +83,9 @@ pub enum Drawn {
         /// How far they were painted scrolled: where the live card's page
         /// box was drawn ([`alo_renderer::card_place::page_box`]).
         down: f32,
+        /// How many offers for what was typed were painted over the box,
+        /// which the room is shorter by (queue item 759).
+        offered: usize,
         /// How far they reach.
         reach: Reach,
     },
@@ -253,12 +256,21 @@ impl Holding {
     fn draw(&mut self, asked: Asked) -> Vec<Drawn> {
         let last = self.drawn.take();
         let mut said = Vec::new();
-        let panel_of = |asked: &Asked| (asked.panel.clone(), asked.showing.chats.clone());
+        let panel_of = |asked: &Asked| {
+            (
+                asked.panel.clone(),
+                asked.showing.chats.clone(),
+                asked.showing.hidden,
+            )
+        };
         if last.as_ref().map(panel_of) != Some(panel_of(&asked)) {
             let work = ToRenderer::Panel(Box::new(asked.panel.clone()));
             let came = drawn(&mut self.renderers, &mut self.panel, Part::Panel, &work);
             if matches!(came, Some(Drawn::Painted(..))) {
                 self.painted.chats.clone_from(&asked.showing.chats);
+                // Whether it was the rail, which draws its own two buttons
+                // and none of the panel's (queue item 711).
+                self.painted.hidden = asked.showing.hidden;
             }
             said.extend(came);
         }
@@ -269,6 +281,7 @@ impl Holding {
                 asked.showing.waiting.clone(),
                 asked.showing.card,
                 asked.showing.found.clone(),
+                asked.showing.offers.clone(),
             )
         };
         if last.as_ref().map(start_of) != Some(start_of(&asked)) {
@@ -284,12 +297,19 @@ impl Holding {
                 // And the sites a search's results showed, whose titles a
                 // press claims by place (queue item 708).
                 self.painted.found.clone_from(&asked.showing.found);
+                // And what it offered for what was typed, which a press
+                // claims by place (queue item 714).
+                self.painted.offers.clone_from(&asked.showing.offers);
                 // How far the turns painted reach, for a person's wheel, and
                 // how far they were scrolled (queue item 703) — told before
                 // the frame, so the window aims a press on it by the offset
                 // it was drawn at from the moment it has it.
                 if asked.start.conversing() {
-                    said.extend(self.reach(asked.start.turns.len(), asked.start.down));
+                    said.extend(self.reach(
+                        asked.start.turns.len(),
+                        asked.start.down,
+                        asked.start.offers.len(),
+                    ));
                 }
                 said.extend(came);
             } else {
@@ -301,10 +321,10 @@ impl Holding {
     }
 
     /// Ask the first screen's renderer how far the `turns` it just painted,
-    /// scrolled `down`, reach: what the window is told — nothing when it answered anything
-    /// but a reach, which keeps the wheel where it was, or said, when it
-    /// went.
-    fn reach(&mut self, turns: usize, down: f32) -> Option<Drawn> {
+    /// scrolled `down` with `offered` offers over the box, reach: what the
+    /// window is told — nothing when it answered anything but a reach,
+    /// which keeps the wheel where it was, or said, when it went.
+    fn reach(&mut self, turns: usize, down: f32, offered: usize) -> Option<Drawn> {
         if self.start.gone.is_some() {
             return None;
         }
@@ -315,6 +335,7 @@ impl Holding {
             Ok(FromRenderer::ConversationReached(reach)) => Some(Drawn::Reached {
                 turns,
                 down,
+                offered,
                 reach: reach.bounded(),
             }),
             Ok(_) => None,
@@ -412,6 +433,7 @@ mod tests {
                 chats: vec![Chat::new(name, "").current()],
                 viewport: Size::new(240.0, 100.0),
                 scale: 1.0,
+                ..Panel::default()
             },
             start: Start {
                 viewport: Size::new(300.0, 100.0),

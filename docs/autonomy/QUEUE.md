@@ -19124,7 +19124,7 @@ What stage 2's exit gate actually measures: a person using it.
   *Search chats* and the button that hides the panel, each a new part of
   the panel's document, its layout and its reference render.
 
-- [ ] **711. *Search chats* and the button that hides the panel.** The two
+- [x] **711. *Search chats* and the button that hides the panel.** The two
   parts of the design's chats panel cut from 699, 700, 709 and 710: *Search
   chats*, 38 px under *New chat*, and the button beside the mark that hides
   the panel, leaving the conversation the window (`docs/design/shell.md`,
@@ -19138,6 +19138,29 @@ What stage 2's exit gate actually measures: a person using it.
   render of the panel with their boxes in numbers, a press on each is
   decided as it, and a press on the hide button lays the window out without
   the panel at one and at two.
+  ***Done (iteration 467); scope cut to 760.*** Typing reaching parts (701)
+  let *Search chats* filter: a press on it takes the keyboard from the box
+  and the card's page (`alo-window`'s `conversation_find.rs`), keys then
+  edit it, and the browser process sends the panel only the chats whose
+  names hold it (`alo-renderer`'s `panel::matching`), so which chat a row
+  names is its own to say; none found says *No chat is called "…"*. The
+  panel's `Panel` gains `searched`, `searching` and `hidden` (on the wire).
+  Search chats 220 × 38 at (10, 102), its field 174 × 20 at (46, 111); the
+  hide button 36 square at (194, 11); the rows moved 44 down (178, 218, 258,
+  334, 374). Hidden, the panel is the design's rail, 64 wide, from a
+  template of its own (`rail_document.rs`, `interface/rail.*`): the mark,
+  *New chat* 44 square at (10, 56), *Show the panel* at the foot (10, 504 in
+  560); the window lays the first screen out at 1216 beside it
+  (`conversation_place::Side`, `RAIL_WIDTH`), and Chrome's expanded window
+  leaves the rail seen. Claims `SearchChats`, `HideThePanel`,
+  `ShowThePanel` (wire tags 14–16), refused by name as
+  `PanelNotSo` when claimed of the panel shown the other way. References
+  `panel-chats.png` (rewritten), `panel-searched.png`, `panel-rail.png`,
+  `panel-rail-at-two.png`, `the-conversation-panel-hidden.png` and
+  `-at-two.png`; `the-conversation.png`, `-at-two.png` and
+  `the-panel-after-a-press.png` rewritten. Through the window's own road:
+  `alo-window/tests/offers_and_the_panel_pressed_in_the_window.rs`. Cut:
+  the rail's chats (760).
 
 - [x] **712. Icons in the browser's own interface, where the design has
   them.** The owner asked for icons where they are needed: a plus before
@@ -19273,7 +19296,7 @@ What stage 2's exit gate actually measures: a person using it.
   agent socket is opened for these pages, so `--agent-site` is still
   refused beside `--conversation`.
 
-- [ ] **714. A press on an offer under the one box.** The offers 701 draws
+- [x] **714. A press on an offer under the one box.** The offers 701 draws
   under the box are claimed by a press as the rest of the first screen is
   (`conversation_claim.rs`): an offer by its place among those drawn, a new
   `Claim` with its wire tag, decided against the offers the first screen
@@ -19282,6 +19305,17 @@ What stage 2's exit gate actually measures: a person using it.
   from the box. *Depends on 701. Closes when:* a press on each offer is
   decided as it, at coordinates from the offers' layout assertions, and a
   claim about an offer not shown is refused by name.
+  ***Done (iteration 467), with 759.*** `Claim::Offer { at }` (wire tag
+  13), claimed among every element of the offer classes — chosen or not,
+  set up or not — so its place is its place among the offers drawn;
+  `Shown::offers` kept by the drawing thread as the first screen painted
+  them, and decided by `held`: past them `NotShown` (*the offer at place
+  5, and 2 were shown*), typed on since `Gone`. `Decided::Offer` is
+  `Conversation::chose`n as Return chooses the first; the box keeps the
+  keyboard. Tests: claims at the offers' layout coordinates under the box
+  (`conversation_claim`, `what_is_typed_on_the_first_screen.rs`) and above
+  it over a card at three heights (`a_page_as_a_card.rs`); decisions;
+  `Conversation` choosing go, search and ask; the window's own road.
 
 - [ ] **715. A field's value kept to one line by the engine, as Chrome
   keeps it.** Found by 701: an `<input type=text>` holding more than its
@@ -20305,7 +20339,7 @@ What stage 2's exit gate actually measures: a person using it.
   words, or the agent's name for it when there is one (704), and moves to
   *Earlier* as the design says when it is closed. *Depends on 703.*
 
-- [ ] **759. The room the offers take above the box, known to the aim.**
+- [x] **759. The room the offers take above the box, known to the aim.**
   Found by 703. While the box offers what is typed in a conversation, the
   offers stand above the box (750) and the conversation's room is shorter
   by them, but `card_place::seen_page_box` measures the room from the
@@ -20313,6 +20347,30 @@ What stage 2's exit gate actually measures: a person using it.
   is aimed at the page. Compute the offers' height in the browser process
   from how many are offered, or keep the room whole while offering, and
   test a press on an offer over a card. *Depends on 703.*
+  ***Done (iteration 467).*** The offers' height computed in the browser
+  process: `card_place::offers_height(n)` = 14 + 52 n, and
+  `room_bottom(viewport, offered)` the box's top less 8, that and 24
+  (538 for three at 820, 590 for two); `seen_page_box` takes how many were
+  offered. The drawing thread tells how many with the reach
+  (`Drawn::Reached::offered`) and the window aims by the frame's
+  (`card_aim::OnScreen`). The wheel's bounds keep the whole room
+  (`conversation_scroll::room`): the conversation does not move as offers
+  come and go. Tests: the renderer's offers and thread boxes held to these
+  numbers at 820, 700 and 1000 with each offer claimed over the page box;
+  the aim at one and two; through the window's own road, the same point
+  the page's with nothing offered and the offer's while offering (with the
+  aim's offers removed, that test fails).
+
+- [ ] **760. The rail's chats.** Cut from 711. The design's rail (the
+  chats panel hidden) holds each open chat as a 44-square button with its
+  site's mark, 20 square rounded 5 in white on a tint, the one on screen
+  white with a shadow, named by the chat (and what the agent is doing) in
+  words, between the line under *New chat* and the foot. A chat with no
+  site has no mark in the design; what it shows needs design. Each claimed
+  by its place, as a panel's row is, and decided against the rail painted.
+  *Depends on 711. Closes when:* the rail with three chats in a reference
+  render at one and two with each button's box in numbers, and a press on
+  each decided as its chat.
 
 - [ ] **704. The agent at work, shown as the design shows it.** The split
   view with the page large and the agent's column beside it, the panel a

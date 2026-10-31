@@ -21,6 +21,17 @@
 //! before *New chat* and *Settings* (queue item 712): inline SVG written in
 //! the template, stroked in `currentColor`, and `aria-hidden`.
 //!
+//! # Search chats, and hiding the panel
+//!
+//! Queue item 711. *Search chats* is a `search` holding a field named so;
+//! what a person typed into it is the field's `value`, set with `alo-dom`'s
+//! operations and never parsed, and while it has the keyboard the panel's
+//! `nav` is of the class `panel searching`. The chats it is sent are the
+//! ones the browser process found ([`crate::panel::matching`]); when none
+//! is, a line says nobody is called that ([`none_called`]). The button that
+//! hides the panel is a `button` named *Hide the panel*. Hidden, the panel
+//! is the rail, built by [`crate::rail_document`].
+//!
 //! It runs no script: the template has none and nothing here makes one.
 
 use crate::panel::{Chat, Doing, Panel};
@@ -45,6 +56,17 @@ pub const EARLIER: &str = "Earlier";
 /// The id of the template's place for the chats.
 const CHATS: &str = "chats";
 
+/// The id of the template's `nav`, the whole panel.
+const PANEL: &str = "panel";
+
+/// The id of the template's *Search chats* field.
+const FIND: &str = "find";
+
+/// What the panel says when no chat is called what was `searched`.
+pub fn none_called(searched: &str) -> String {
+    format!("No chat is called \u{201c}{}\u{201d}", searched.trim())
+}
+
 /// Why the panel could not be built: an `alo-dom` operation refused, or the
 /// template had no place for the chats. Either is a defect in this file or
 /// its template, never in what the browser process sent.
@@ -63,13 +85,27 @@ pub struct Unbuilt {
 /// [`Unbuilt`] if the template has no place for the chats or `alo-dom`
 /// refused an operation, which no state can cause.
 pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
+    if panel.hidden {
+        return crate::rail_document::build();
+    }
     let mut document = parse_document(TEMPLATE);
-    let place = document
-        .descendants(document.root())
-        .find(|&node| document.attribute_by_name(node, "id") == Some(CHATS))
-        .ok_or_else(|| Unbuilt {
-            why: format!("the panel's template has no element with the id {CHATS:?}"),
-        })?;
+    let place = by_id(&document, CHATS)?;
+    if panel.searching {
+        let nav = by_id(&document, PANEL)?;
+        attribute(&mut document, nav, "class", "panel searching")?;
+    }
+    if !panel.searched.is_empty() {
+        let field = by_id(&document, FIND)?;
+        // A stranger's string, entering as an attribute's value.
+        attribute(&mut document, field, "value", &panel.searched)?;
+        if panel.chats.is_empty() {
+            let none = element(&mut document, "p")?;
+            attribute(&mut document, none, "class", "none")?;
+            let words = document.create_text_node(&none_called(&panel.searched));
+            append(&mut document, none, words)?;
+            append(&mut document, place, none)?;
+        }
+    }
     let open: Vec<&Chat> = panel.chats.iter().filter(|chat| chat.open).collect();
     let earlier: Vec<&Chat> = panel.chats.iter().filter(|chat| !chat.open).collect();
     for (heading, chats, class) in [(OPEN, open, "open"), (EARLIER, earlier, "earlier")] {
@@ -157,6 +193,16 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     Ok(row)
 }
 
+/// The template's element with `id`.
+fn by_id(document: &Document, id: &str) -> Result<NodeId, Unbuilt> {
+    document
+        .descendants(document.root())
+        .find(|&node| document.attribute_by_name(node, "id") == Some(id))
+        .ok_or_else(|| Unbuilt {
+            why: format!("the panel's template has no element with the id {id:?}"),
+        })
+}
+
 fn element(document: &mut Document, local: &str) -> Result<NodeId, Unbuilt> {
     document.create_element(local).map_err(|refused| Unbuilt {
         why: format!("a <{local}> could not be made: {refused}"),
@@ -194,9 +240,82 @@ mod tests {
         let panel = Panel {
             chats,
             viewport: alo_layout::Size::new(240.0, 640.0),
-            scale: 1.0,
+            ..Panel::default()
         };
         build(&panel).unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why))
+    }
+
+    fn of_class(document: &Document, class: &str) -> Vec<NodeId> {
+        document
+            .descendants(document.root())
+            .filter(|&node| document.attribute_by_name(node, "class") == Some(class))
+            .collect()
+    }
+
+    #[test]
+    fn search_chats_holds_what_was_typed_as_its_value_and_says_when_none_is_called_that() {
+        let empty = built(Vec::new());
+        let field = by_id(&empty, FIND).ok();
+        assert_eq!(
+            field.and_then(|field| empty.attribute_by_name(field, "value")),
+            None
+        );
+        assert_eq!(of_class(&empty, "find").len(), 1);
+        assert_eq!(of_class(&empty, "hide").len(), 1);
+        assert!(of_class(&empty, "none").is_empty(), "nothing searched");
+        let nav = by_id(&empty, PANEL).ok();
+        assert_eq!(
+            nav.and_then(|nav| empty.attribute_by_name(nav, "class")),
+            Some("panel")
+        );
+
+        let hostile = "</nav><script>x()</script>";
+        let searching = |chats: Vec<Chat>| {
+            build(&Panel {
+                chats,
+                searched: hostile.to_owned(),
+                searching: true,
+                ..Panel::default()
+            })
+            .unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why))
+        };
+        let none = searching(Vec::new());
+        let field = by_id(&none, FIND).ok();
+        assert_eq!(
+            field.and_then(|field| none.attribute_by_name(field, "value")),
+            Some(hostile)
+        );
+        let nav = by_id(&none, PANEL).ok();
+        assert_eq!(
+            nav.and_then(|nav| none.attribute_by_name(nav, "class")),
+            Some("panel searching")
+        );
+        let said: Vec<String> = of_class(&none, "none")
+            .into_iter()
+            .map(|node| none.text_content(node))
+            .collect();
+        assert_eq!(said, vec![none_called(hostile)]);
+        assert!(!elements(&none).iter().any(|name| name == "script"));
+        // Some found: they are the chats, and no line.
+        let found = searching(vec![Chat::new("a", "").current()]);
+        assert!(of_class(&found, "none").is_empty());
+        assert_eq!(rows(&found).len(), 1);
+    }
+
+    #[test]
+    fn a_hidden_panel_is_the_rail() {
+        let rail = build(&Panel {
+            chats: vec![Chat::new("a", "").current()],
+            hidden: true,
+            searched: "a".to_owned(),
+            ..Panel::default()
+        })
+        .unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why));
+        assert!(rows(&rail).is_empty(), "the rail draws no chat");
+        assert_eq!(of_class(&rail, "rbtn new").len(), 1);
+        assert_eq!(of_class(&rail, "rbtn show").len(), 1);
+        assert!(of_class(&rail, "find").is_empty());
+        assert!(of_class(&rail, "hide").is_empty());
     }
 
     fn elements(document: &Document) -> Vec<String> {

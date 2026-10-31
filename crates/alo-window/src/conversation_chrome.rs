@@ -79,7 +79,7 @@ use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_screencast::Frame as CastFrame;
 use crate::chrome_serving::{ChromeServing, Opening, TellFrame};
-use crate::conversation_place::PANEL_WIDTH;
+use crate::conversation_place::Side;
 use crate::frame_told::{ToFrame, Uncast};
 use crate::message::CardOrder;
 use crate::opening::{CHROME_AT, CHROME_SIZE};
@@ -108,24 +108,30 @@ impl Placing {
     };
 
     /// Over the first screen of the conversation's window, leaving the
-    /// chats panel seen: the window's top left corner where the window
-    /// whose outer top left corner is at `outer` has its first screen
-    /// begin, and the page as large as the first screen — `inner` less the
-    /// panel. `outer` and `inner` are in device pixels, as the window
-    /// server gives them to the window, at a screen's `scale_factor`.
+    /// chats panel seen — `side`, the whole panel or its rail (queue item
+    /// 711): the window's top left corner where the window whose outer top
+    /// left corner is at `outer` has its first screen begin, and the page
+    /// as large as the first screen — `inner` less the panel. `outer` and
+    /// `inner` are in device pixels, as the window server gives them to the
+    /// window, at a screen's `scale_factor`.
     ///
     /// Chrome's title bar then lies over the conversation's, and its page
     /// over the first screen. Where a page goes *inside* the conversation
     /// is item 702's to measure and decide.
-    pub fn over_the_first_screen(outer: (i32, i32), inner: (u32, u32), scale_factor: f64) -> Self {
+    pub fn over_the_first_screen(
+        outer: (i32, i32),
+        inner: (u32, u32),
+        scale_factor: f64,
+        side: Side,
+    ) -> Self {
         let scale = Scale::of_screen(scale_factor);
         let points = |device: i32| {
             let whole = i32::try_from(scale.fitting(device.unsigned_abs())).unwrap_or(i32::MAX);
             if device < 0 { -whole } else { whole }
         };
-        let width = scale.fitting(inner.0).saturating_sub(PANEL_WIDTH).max(1);
+        let width = scale.fitting(inner.0).saturating_sub(side.width()).max(1);
         let height = scale.fitting(inner.1).max(1);
-        let panel = i32::try_from(PANEL_WIDTH).unwrap_or(0);
+        let panel = i32::try_from(side.width()).unwrap_or(0);
         Self {
             at: (points(outer.0).saturating_add(panel), points(outer.1)),
             size: (width, height),
@@ -837,7 +843,7 @@ mod tests {
     fn over_the_first_screen_leaves_the_panel_seen() {
         // The design's window at one, its outer corner at 100,50.
         assert_eq!(
-            Placing::over_the_first_screen((100, 50), (1280, 820), 1.0),
+            Placing::over_the_first_screen((100, 50), (1280, 820), 1.0, Side::Panel),
             Placing {
                 at: (340, 50),
                 size: (1040, 820)
@@ -845,7 +851,7 @@ mod tests {
         );
         // The same window on a Retina screen, in device pixels.
         assert_eq!(
-            Placing::over_the_first_screen((200, 100), (2560, 1640), 2.0),
+            Placing::over_the_first_screen((200, 100), (2560, 1640), 2.0, Side::Panel),
             Placing {
                 at: (340, 50),
                 size: (1040, 820)
@@ -853,13 +859,21 @@ mod tests {
         );
         // On a screen left of the main one, its points are negative.
         assert_eq!(
-            Placing::over_the_first_screen((-3840, 0), (2560, 1640), 2.0).at,
+            Placing::over_the_first_screen((-3840, 0), (2560, 1640), 2.0, Side::Panel).at,
             (-1680, 0)
         );
         // A window narrower than the panel still asks for a page.
         assert_eq!(
-            Placing::over_the_first_screen((0, 0), (100, 100), 1.0).size,
+            Placing::over_the_first_screen((0, 0), (100, 100), 1.0, Side::Panel).size,
             (1, 100)
+        );
+        // The panel hidden, the rail's 64 is left seen (queue item 711).
+        assert_eq!(
+            Placing::over_the_first_screen((200, 100), (2560, 1640), 2.0, Side::Rail),
+            Placing {
+                at: (164, 50),
+                size: (1216, 820)
+            }
         );
     }
 }

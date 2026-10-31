@@ -69,6 +69,19 @@
 //! earlier, in any turn, opens it as a new turn, its bubble the words it
 //! was drawn with ([`Conversation::choose_found`]).
 //!
+//! Queue item 714 adds a press on an offer for what was typed: chosen as
+//! Return chooses the first ([`Conversation::edit`]), whichever it is.
+//!
+//! Queue item 711 adds the panel's *Search chats* and the button that hides
+//! it. *Search chats* takes the keyboard as the box does
+//! ([`crate::conversation_find`]); while it has it a person's keys edit it,
+//! and the panel shows only the chats whose names hold what is typed —
+//! found here, so which chat a press on a row names is still the browser
+//! process's to say. Hiding the panel draws it as the design's rail, and
+//! the window lays the first screen out beside the rail
+//! ([`Conversation::side`]); the rail's *Show the panel* brings it back,
+//! and its *New chat* is the panel's.
+//!
 //! Every other — *Settings*, a kept site, *Add a site*, a waiting chat — is
 //! decided and kept as [`Conversation::last_pressed`], and **changes
 //! nothing yet**: there is no settings screen (705), and nothing keeps a
@@ -84,6 +97,8 @@
 //! any hour, until the machine's zone is read.
 
 use crate::conversation_box::{TheBox, Typed};
+use crate::conversation_find::FindChats;
+use crate::conversation_place::Side;
 use crate::conversation_search::Searched;
 use crate::conversation_thread::Thread;
 use crate::scale::Scale;
@@ -92,7 +107,7 @@ use alo_layout::Size;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::conversation_scroll::Reach;
-use alo_renderer::panel::{Chat, Panel, drawn_order};
+use alo_renderer::panel::{Chat, Panel, drawn_order, matching};
 use alo_renderer::results::{self, Results, SetUp};
 use alo_renderer::start::{KeptSite, Start};
 use alo_renderer::typed::Offer;
@@ -143,6 +158,10 @@ pub struct Conversation {
     search: SetUp,
     /// How many searches were chosen: the newest one's number.
     searches: u64,
+    /// The panel's *Search chats* (queue item 711).
+    find: FindChats,
+    /// Whether a person hid the panel, which is then the rail.
+    hidden: bool,
 }
 
 impl Default for Conversation {
@@ -160,36 +179,66 @@ impl Default for Conversation {
             card_keys: false,
             search: SetUp::Not(String::new()),
             searches: 0,
+            find: FindChats::default(),
+            hidden: false,
         }
     }
 }
 
 impl Conversation {
     /// The chats panel as it is now, laid out at `viewport` on a screen of
-    /// `scale`.
+    /// `scale`: the chats *Search chats* finds, and what is typed into it,
+    /// or — hidden — the rail, which shows no chat (queue item 711).
     pub fn panel(&self, viewport: Size, scale: Scale) -> Panel {
         Panel {
-            chats: self.chats.iter().map(|(_, chat)| chat.clone()).collect(),
+            chats: self.listed().map(|(_, chat)| chat.clone()).collect(),
             viewport,
             scale: 1.0,
+            searched: self.find.typed().to_owned(),
+            searching: self.find.focused(),
+            hidden: self.hidden,
         }
         .at_scale(scale.factor())
+    }
+
+    /// The chats the panel shows, with their identities, in the order the
+    /// browser process keeps them: those whose names hold what *Search
+    /// chats* holds, and none while the panel is hidden.
+    fn listed(&self) -> impl Iterator<Item = &(ChatId, Chat)> {
+        let searched = self.find.typed();
+        self.chats
+            .iter()
+            .filter(move |(_, chat)| !self.hidden && matching(chat, searched))
+    }
+
+    /// What stands down the window's left: the panel, or its rail while a
+    /// person has hidden it (queue item 711).
+    pub fn side(&self) -> Side {
+        if self.hidden { Side::Rail } else { Side::Panel }
+    }
+
+    /// What is typed into *Search chats*, and whether it has the keyboard.
+    pub fn find(&self) -> &FindChats {
+        &self.find
     }
 
     /// What the panel and the first screen show as they are now, each list
     /// in the order its part draws it: what a claim on either is decided
     /// against once they are painted.
     pub fn showing(&self) -> Showing {
-        let chats: Vec<Chat> = self.chats.iter().map(|(_, chat)| chat.clone()).collect();
+        let listed: Vec<&(ChatId, Chat)> = self.listed().collect();
+        let chats: Vec<Chat> = listed.iter().map(|(_, chat)| chat.clone()).collect();
         Shown {
             chats: drawn_order(&chats)
                 .into_iter()
-                .filter_map(|place| self.chats.get(place).map(|(id, _)| *id))
+                .filter_map(|place| listed.get(place).map(|(id, _)| *id))
                 .collect(),
             sites: Vec::new(),
             waiting: Vec::new(),
             card: self.card().is_some(),
             found: self.thread().map(Thread::links).unwrap_or_default(),
+            offers: self.the_box.offers(),
+            hidden: self.hidden,
         }
     }
 
@@ -199,11 +248,15 @@ impl Conversation {
     ///
     /// A chat becomes the one on screen; *New chat* adds one, on screen;
     /// the box takes the keyboard, and *Go* chooses what it offers first,
-    /// kept as [`Conversation::chosen`]. A press on anything but the box
-    /// and *Go* takes the keyboard from the box. Everything else changes
-    /// nothing yet (see the module's words), and neither does a chat this
-    /// does not hold, which the decision refused unless it went between
-    /// being decided and being acted on, nor a press refused or unanswered.
+    /// and an offer itself (queue item 714), kept as
+    /// [`Conversation::chosen`]. *Search chats* takes the keyboard, and the
+    /// button that hides the panel, or the rail's that shows it, does so
+    /// (queue item 711). A press on anything but the box, *Go* and an offer
+    /// takes the keyboard from the box, and on anything but *Search chats*
+    /// from it. Everything else changes nothing yet (see the module's
+    /// words), and neither does a chat this does not hold, which the
+    /// decision refused unless it went between being decided and being
+    /// acted on, nor a press refused or unanswered.
     pub fn act(&mut self, pressed: Pressed) -> bool {
         let changed = match &pressed {
             Pressed::TheBox => self.the_box.focus(),
@@ -211,8 +264,19 @@ impl Conversation {
                 let choice = self.the_box.choice();
                 self.chose(choice)
             }
+            // Chosen as Return chooses the first: the box keeps the
+            // keyboard, emptied when a site or a search was chosen.
+            Pressed::Offer(offer) => {
+                let offer = offer.clone();
+                self.chose(Some(offer))
+            }
             Pressed::Refused(_) | Pressed::Failed(_) => false,
             _ => self.the_box.blur(),
+        };
+        let changed = match &pressed {
+            Pressed::Refused(_) | Pressed::Failed(_) => changed,
+            Pressed::SearchChats => self.find.focus() || changed,
+            _ => self.find.blur() || changed,
         };
         if !matches!(pressed, Pressed::Refused(_) | Pressed::Failed(_)) {
             // A press on either part, the card's bar among them, is not on
@@ -229,16 +293,28 @@ impl Conversation {
                 self.new_chat();
                 true
             }
+            Pressed::HideThePanel => !std::mem::replace(&mut self.hidden, true) || changed,
+            Pressed::ShowThePanel => std::mem::replace(&mut self.hidden, false) || changed,
             _ => changed,
         };
         self.last_pressed = Some(pressed);
         changed
     }
 
-    /// Make a person's `edit` to the box, which changes nothing unless the
-    /// box has the keyboard: what it came to. What is chosen is kept as
+    /// Make a person's `edit` to the box — or to *Search chats*, while it
+    /// has the keyboard — which changes nothing unless one of them has it:
+    /// what it came to. What is chosen is kept as
     /// [`Conversation::chosen`].
     pub fn edit(&mut self, edit: Edit) -> Typed {
+        // *Search chats* has the keyboard (queue item 711): its words, not
+        // the box's.
+        if self.find.focused() {
+            return if self.find.edit(edit) {
+                Typed::Changed
+            } else {
+                Typed::Unchanged
+            };
+        }
         let typed = self.the_box.edit(edit);
         if let Typed::Chose(offer) = &typed {
             let _ = self.chose(Some(offer.clone()));
@@ -446,7 +522,8 @@ impl Conversation {
             return false;
         }
         self.card_keys = true;
-        self.the_box.blur()
+        let searching = self.find.blur();
+        self.the_box.blur() || searching
     }
 
     /// Whether a person's keys go to the card's page rather than the box:
@@ -1088,5 +1165,165 @@ mod tests {
                 .start(Size::new(1040.0, 820.0), Scale::ONE)
                 .focused
         );
+    }
+
+    #[test]
+    fn a_press_on_an_offer_chooses_it_as_return_chooses_the_first() {
+        // Queue item 714: the first offer for an address is going there.
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        let offers = conversation.showing().offers;
+        assert_eq!(offers, alo_renderer::typed::offers("example.com"));
+        let first = offers.first().cloned().unwrap();
+        assert!(conversation.act(Pressed::Offer(first.clone())));
+        assert_eq!(conversation.chosen(), Some(&first));
+        assert_eq!(
+            conversation.going().map(ToString::to_string).as_deref(),
+            Some("https://example.com/")
+        );
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert_eq!(start.typed, "", "emptied, as Return empties it");
+        assert!(start.focused, "and the box keeps the keyboard");
+        assert!(conversation.showing().offers.is_empty());
+
+        // The second, searching, chosen though Return would choose the
+        // first: set up, it searches what was typed.
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        let search = conversation.showing().offers.get(1).cloned().unwrap();
+        assert!(matches!(search, Offer::Search(_)), "{search:?}");
+        assert!(conversation.act(Pressed::Offer(search.clone())));
+        assert_eq!(conversation.chosen(), Some(&search));
+        assert_eq!(conversation.going(), None);
+        assert_eq!(
+            conversation.searching().map(|(_, words)| words.to_owned()),
+            Some("example.com".to_owned())
+        );
+        // Asking, not set up, leaves what was typed where it was.
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "what is x");
+        let ask = conversation.showing().offers.last().cloned().unwrap();
+        assert!(matches!(ask, Offer::Ask(_)), "{ask:?}");
+        assert!(!conversation.act(Pressed::Offer(ask.clone())));
+        assert_eq!(conversation.chosen(), Some(&ask));
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .typed,
+            "what is x"
+        );
+    }
+
+    #[test]
+    fn search_chats_takes_the_keyboard_from_the_box_and_shows_only_the_chats_named_so() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::NewChat);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "abc");
+        let panel =
+            |conversation: &Conversation| conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        assert!(conversation.act(Pressed::SearchChats), "drawn again");
+        assert!(!conversation.act(Pressed::SearchChats), "already had it");
+        assert!(conversation.find().focused());
+        let start = conversation.start(Size::new(1040.0, 820.0), Scale::ONE);
+        assert!(!start.focused, "the box let it go");
+        assert_eq!(start.typed, "abc", "keeping what it held");
+        assert!(panel(&conversation).searching);
+        // Keys now reach Search chats, never the box.
+        type_in(&mut conversation, "NEW");
+        assert_eq!(conversation.find().typed(), "NEW");
+        assert_eq!(panel(&conversation).searched, "NEW");
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .typed,
+            "abc"
+        );
+        // Both chats are called New chat, so both are found; the panel and
+        // what a press on it is decided against agree.
+        assert_eq!(panel(&conversation).chats.len(), 2);
+        assert_eq!(conversation.showing().chats.len(), 2);
+        assert!(matches!(
+            conversation.edit(Edit::Put("x".to_owned())),
+            Typed::Changed
+        ));
+        assert!(panel(&conversation).chats.is_empty(), "none called NEWx");
+        assert!(conversation.showing().chats.is_empty());
+        assert!(matches!(conversation.edit(Edit::Erase), Typed::Changed));
+        assert_eq!(conversation.showing().chats.len(), 2);
+        assert!(matches!(conversation.edit(Edit::Choose), Typed::Unchanged));
+        // A press on the box takes the keyboard back, keeping the words.
+        assert!(conversation.act(Pressed::TheBox));
+        assert!(!conversation.find().focused());
+        assert!(!panel(&conversation).searching);
+        assert_eq!(panel(&conversation).searched, "NEW");
+        type_in(&mut conversation, "d");
+        assert_eq!(
+            conversation
+                .start(Size::new(1040.0, 820.0), Scale::ONE)
+                .typed,
+            "abcd"
+        );
+        // A refused press leaves it where it was.
+        let _ = conversation.act(Pressed::SearchChats);
+        let _ = conversation.act(Pressed::Refused(Refusal::Unasked));
+        assert!(conversation.find().focused());
+        // Escape empties it, and then lets the keyboard go.
+        let _ = conversation.edit(Edit::Clear);
+        assert_eq!(conversation.find().typed(), "");
+        let _ = conversation.edit(Edit::Clear);
+        assert!(!conversation.find().focused());
+    }
+
+    #[test]
+    fn a_chat_found_is_named_by_its_place_among_those_shown() {
+        // Three chats, the newest first; Search chats finding all of them
+        // keeps the order, and a press on a row names the chat drawn there.
+        let mut conversation = Conversation::default();
+        let oldest = conversation.on_screen();
+        let _ = conversation.act(Pressed::NewChat);
+        let _ = conversation.act(Pressed::NewChat);
+        let _ = conversation.act(Pressed::SearchChats);
+        type_in(&mut conversation, "chat");
+        let showing = conversation.showing();
+        assert_eq!(showing.chats.len(), 3);
+        assert_eq!(showing.chats.last().copied(), oldest);
+        let pressed = Pressed::Chat(showing.chats.get(2).copied().unwrap());
+        assert!(conversation.act(pressed));
+        assert_eq!(conversation.on_screen(), oldest);
+        assert!(!conversation.find().focused(), "a chat pressed takes it");
+    }
+
+    #[test]
+    fn hiding_the_panel_makes_it_the_rail_and_showing_it_brings_it_back() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::SearchChats);
+        type_in(&mut conversation, "new");
+        assert_eq!(conversation.side(), Side::Panel);
+        assert!(conversation.act(Pressed::HideThePanel));
+        assert!(!conversation.act(Pressed::HideThePanel), "already hidden");
+        assert_eq!(conversation.side(), Side::Rail);
+        assert!(!conversation.find().focused(), "the rail has no field");
+        let rail = conversation.panel(Size::new(64.0, 820.0), Scale::TWO);
+        assert!(rail.hidden);
+        assert!(rail.chats.is_empty(), "the rail shows no chat");
+        assert!((rail.scale - 2.0).abs() < f32::EPSILON);
+        let showing = conversation.showing();
+        assert!(showing.hidden);
+        assert!(showing.chats.is_empty());
+        // New chat from the rail is New chat.
+        assert!(conversation.act(Pressed::NewChat));
+        assert_eq!(conversation.side(), Side::Rail);
+        assert!(conversation.act(Pressed::ShowThePanel));
+        assert!(!conversation.act(Pressed::ShowThePanel), "already shown");
+        assert_eq!(conversation.side(), Side::Panel);
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        assert!(!panel.hidden);
+        assert_eq!(panel.searched, "new", "what was searched is kept");
+        assert_eq!(panel.chats.len(), 2);
     }
 }

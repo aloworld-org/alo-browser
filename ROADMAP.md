@@ -2412,18 +2412,21 @@ items where being right and being unusable are the same outcome.
       top inside the reach the renderer measures while a press on a live
       card's page lands where it is drawn, in layout assertions, four
       reference renders and tests through the window's own road and both
-      Chromiums
+      Chromiums; a press on an offer, decided against the offers painted
+      and chosen as Return chooses (714), with the offers' room above the
+      box known to the aim (759); *Search chats* filtering the panel's
+      chats by name as a person types, and the button that hides the panel
+      to the design's rail and its way back (711)
       · Owed: a card drawn from the page's first paint rather than its
-      load (751), *Search chats* and the button that hides the panel (711),
-      a press on an offer (714), an agent reaching a page the conversation
+      load (751), the rail's chats (760), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
       a page inside the conversation (702), the agent's words and steps as
       turns, with the agent at work (704), a positioned box clipped by an
       `overflow` box (753), scrolling from the keyboard (754), a sign of more
       above (755), a wheel's lines smoothed (756), chats kept across
-      launches (757), a chat named by its words (758), the offers' room
-      known to the aim (759), what the agent may do (705), Newsreader's
+      launches (757), a chat named by its words (758), what the agent may
+      do (705), Newsreader's
       optical size (752),
       the answer and All's short answer (707, blocked: a model), images
       (743), the Sites tab (744), Videos (745), News (746), a site's own

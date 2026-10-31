@@ -165,6 +165,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             ],
             viewport: Size::new(240.0, 560.5),
             scale: 2.0,
+            ..Panel::default()
         })),
         ToRenderer::Panel(Box::default()),
         ToRenderer::Start(Box::new(Start {
@@ -191,6 +192,32 @@ fn every_message_to_a_renderer_survives_the_crossing() {
         // A person's press on a part of the conversation, anywhere in it.
         ToRenderer::ConversationPress(alo_paint::Point::new(120.0, 153.5)),
         ToRenderer::ConversationPress(alo_paint::Point::new(-0.25, 1e9)),
+    ];
+    for original in messages {
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+}
+
+/// Queue item 711: the panel searched for in words a page could have
+/// written, with the keyboard, and hidden as the rail.
+#[test]
+fn the_panel_searched_and_hidden_survives_the_crossing() {
+    let messages = vec![
+        ToRenderer::Panel(Box::new(Panel {
+            chats: vec![Chat::new("Invoice", "").current()],
+            viewport: Size::new(240.0, 820.0),
+            searched: "</nav><b>in\0</b>".to_owned(),
+            searching: true,
+            ..Panel::default()
+        })),
+        ToRenderer::Panel(Box::new(Panel {
+            viewport: Size::new(64.0, 820.0),
+            hidden: true,
+            ..Panel::default()
+        })),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -562,6 +589,11 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Expand)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::CloseTheCard)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Found { at: 2 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Offer { at: 0 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Offer { at: usize::MAX })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::SearchChats)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::HideThePanel)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::ShowThePanel)),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);

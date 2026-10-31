@@ -199,7 +199,11 @@ fn aimed(conversation: &Conversation, at: (f64, f64)) -> Result<(f64, f64), Stri
     let card = conversation
         .card()
         .and_then(|card| card.frame.as_ref())
-        .map(|_| (viewport, 0.0));
+        .map(|_| card_aim::OnScreen {
+            viewport,
+            down: 0.0,
+            offered: 0,
+        });
     match card_aim::aim(&placed, Scale::ONE, card, at) {
         Some(Aimed::Page { x, y }) => Ok((x, y)),
         other => Err(format!("{at:?} was aimed at {other:?}, not the page")),
