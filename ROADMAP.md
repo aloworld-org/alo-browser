@@ -2422,7 +2422,12 @@ items where being right and being unusable are the same outcome.
       bounded and decoded only in the confined renderer, All's row of five,
       the Images tab's grid and the Sites tab drawn in layout assertions and
       three reference renders, tabs, *More sites ›*, *See all images* and
-      images pressed through the window's own road
+      images pressed through the window's own road; the Videos and News
+      tabs (745, 746, ADR 0087) — each asked of Brave only when a person
+      opens it, once for a turn, a video's picture from Brave's proxy alone
+      and decoded only in the confined renderer, both drawn as the canvas
+      draws them in layout assertions and two reference renders, and asked
+      once through the window's own road
       · Owed: a card drawn from the page's first paint rather than its
       load (751), the rail's chats (760), an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
@@ -2437,7 +2442,7 @@ items where being right and being unusable are the same outcome.
       the answer and All's short answer (707, blocked: a model), the Sites
       tab's further pages (761), a response's body bounded per request
       (762), a press on a relatively positioned box in the conversation
-      (763), Videos (745), News (746), a site's own
+      (763), a news story's photo (765), a site's own
       mark (747), the key in release (748, the owner's decision)
 - [ ] A window, tabs, and a tab strip
       · Built: the window (296, `alo-window`, binary `alo`, decided in ADR

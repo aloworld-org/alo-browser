@@ -147,9 +147,9 @@ person's words — in the 880 column, 40 below the top, 20 apart — stands the
 
 - **The tab row**, 42 tall over a line of `#E1DACE`: each tab 14 across
   inside, 14 px quiet text; *All* in the ink, 600, underlined 2 px in the
-  ink over the line. Sites opens once sites are found and Images once
-  images are asked for (743, 744); Answer, Videos and News are drawn
-  disabled until each is built (707, 745, 746).
+  ink over the line. Sites, Videos and News open once sites are found and
+  Images once images are asked for (743–746); Answer is drawn disabled
+  until it is built (707).
 - **The top three sites**, 20 under the row, 22 apart: a line of 13 px —
   the site's letter, white on one of four tints in an 18 square rounded 5;
   its name in the ink, 600; its address, `host › path`, in quiet text —
@@ -190,6 +190,33 @@ one sentence stands where the grid would be. A press on an image, in the
 row or the grid, opens the page it was found on as a card, its bubble the
 image's title. Pictures come only from Brave's own image proxy, and are
 decoded only by the renderer that draws them (ADR 0086 § 3–4).
+
+### The Videos and News tabs (items 745, 746, ADR 0087)
+
+Neither is asked with a search: Brave is asked for a turn's videos, or its
+news, the first time a person opens that tab, and never again for that
+turn. While asked, or when none came or Brave refused, one sentence stands
+where they would be.
+
+**Videos** is a list, rows 20 apart: each video's picture 200 × 112,
+rounded 10, on `#2A3446`, at its own proportions the tile's width, centred
+and clipped; its length over the picture's bottom right corner, 8 in, white
+11.5 on 15 on black at 72 %, rounded 5, 2 by 6 inside; then 16 beside it
+the title, 17 on 24, 600, in the link colour, one line, 2 down; 4 under it
+the site's letter on its 18 square, then its name and age, 13 px quiet
+text; 6 under that two lines of what is said, 14 on 22 in `#4A463F`. A
+picture comes only from Brave's image proxy, as an image's does. The
+canvas's video playing in a card above the list is the card a title opens;
+its *1 of 6 videos* is not built.
+
+**News** is a list of stories, each 16 above and below — the first 4
+above — over a line of `#E6E0D6`: the site's letter, its name 600 in the
+ink and its age in quiet text on a line of 13; 4 under it the headline, 17
+on 24, 600, in the link colour; 4 under that two lines of what is said, 14
+on 22. The canvas's photo beside each story is item 765.
+
+A press on a title or a headline opens its page as a card, its bubble the
+title. A video's picture is not pressed.
 
 ### The conversation (item 703, ADR 0085)
 

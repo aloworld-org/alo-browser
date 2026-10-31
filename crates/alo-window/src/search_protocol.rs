@@ -59,10 +59,49 @@
 //! fetch; a `source` that is not text is none. At most [`MOST_IMAGES`] are
 //! kept. The original picture's own address (`properties.url`) is never
 //! read: alo does not fetch from the site that holds it.
+//!
+//! # A video search's answer (queue item 745, ADR 0087)
+//!
+//! Of Brave's `VideoSearchApiResponse`, only what the Videos tab draws:
+//!
+//! ```json
+//! { "type": "videos",
+//!   "results": [ { "title": "…", "url": "https://… (the page)",
+//!                  "description": "…", "age": "…",
+//!                  "video": { "duration": "04:05", "publisher": "…", "creator": "…" },
+//!                  "meta_url": { "hostname": "…" },
+//!                  "thumbnail": { "src": "https://imgs.search.brave.com/…" } } ] }
+//! ```
+//!
+//! Refused whole as an image search's answer is, its `type` `videos`
+//! ([`Unread::NotVideos`]). A video with no `title` or `url` as text, or a
+//! `url` not a site's, is left out and named; a `duration` that is not a
+//! length ([`alo_renderer::results_media::is_length`]) is none; the site is
+//! the `publisher`, else the `meta_url`'s `hostname`, else none; a
+//! `thumbnail.src` not a site's address leaves it with no picture to fetch.
+//! At most [`MOST_VIDEOS`] are kept.
+//!
+//! # A news search's answer (queue item 746, ADR 0087)
+//!
+//! Of Brave's `NewsSearchApiResponse`, only what the News tab draws:
+//!
+//! ```json
+//! { "type": "news",
+//!   "results": [ { "title": "…", "url": "https://…", "description": "…",
+//!                  "age": "2 days ago", "profile": { "name": "…" },
+//!                  "meta_url": { "hostname": "…" } } ] }
+//! ```
+//!
+//! Refused whole by the same names, its `type` `news` ([`Unread::NotNews`]);
+//! a story with no `title` or `url`, or a `url` not a site's, is left out
+//! and named; the site is the `profile`'s `name`, else the `meta_url`'s
+//! `hostname`. A story's `thumbnail` is not read (queue item 765). At most
+//! [`MOST_STORIES`] are kept.
 
 use crate::json_depth;
 use crate::search_text::plain;
 use alo_renderer::results::{Found, MOST_FOUND, MOST_IMAGES, Pictured};
+use alo_renderer::results_media::{MOST_STORIES, MOST_VIDEOS, Story, Video};
 use alo_url::Url;
 use core::fmt;
 use serde_json::{Map, Value};
@@ -112,6 +151,17 @@ pub enum Unread {
         /// What its `type` was, if it was text.
         said: Option<String>,
     },
+    /// A video search's answer whose `type` is not `videos`, or is
+    /// missing.
+    NotVideos {
+        /// What its `type` was, if it was text.
+        said: Option<String>,
+    },
+    /// A news search's answer whose `type` is not `news`, or is missing.
+    NotNews {
+        /// What its `type` was, if it was text.
+        said: Option<String>,
+    },
     /// Its `web` is not an object.
     WebNotAnObject,
     /// Its `web` has no `results`.
@@ -142,6 +192,14 @@ impl fmt::Display for Unread {
             Unread::NotImages { said: None } => {
                 f.write_str("it does not say it is an image search")
             }
+            Unread::NotVideos { said: Some(said) } => {
+                write!(f, "its type is {said:?}, not \"videos\"")
+            }
+            Unread::NotVideos { said: None } => f.write_str("it does not say it is a video search"),
+            Unread::NotNews { said: Some(said) } => {
+                write!(f, "its type is {said:?}, not \"news\"")
+            }
+            Unread::NotNews { said: None } => f.write_str("it does not say it is a news search"),
             Unread::WebNotAnObject => f.write_str("its web results are not an object"),
             Unread::NoResults => f.write_str("its web results hold no list of results"),
             Unread::ResultsNotAList => f.write_str("its web results are not a list"),
@@ -241,6 +299,169 @@ pub fn read_images(answer: &[u8]) -> Result<ReadImages, Unread> {
         }
     }
     Ok(read)
+}
+
+/// What was read of a video search's answer: the videos found, best
+/// first, and every one left out, with why (queue item 745).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadVideos {
+    /// The videos, at most [`MOST_VIDEOS`], each with the address of its
+    /// thumbnail if Brave gave one.
+    pub found: Vec<VideoFound>,
+    /// The videos left out.
+    pub left_out: Vec<LeftOut>,
+}
+
+/// One video a video search found, as read, and where Brave says its
+/// thumbnail is — which the browser process alone fetches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VideoFound {
+    /// The video, with no picture yet.
+    pub video: Video,
+    /// Its thumbnail's address, if Brave gave one that is a site's.
+    pub thumbnail: Option<Url>,
+}
+
+/// What was read of a news search's answer: the stories found, best first,
+/// and every one left out, with why (queue item 746).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadNews {
+    /// The stories, at most [`MOST_STORIES`].
+    pub found: Vec<Story>,
+    /// The stories left out.
+    pub left_out: Vec<LeftOut>,
+}
+
+/// The results of an answer of `kind`, once it is known to be one: refused
+/// whole by `refused` when its `type` is not `kind`, by name when it holds
+/// no list of results.
+fn results_of<'a>(
+    document: &'a Map<String, Value>,
+    kind: &str,
+    refused: fn(Option<String>) -> Unread,
+) -> Result<&'a Vec<Value>, Unread> {
+    match document.get("type").and_then(Value::as_str) {
+        Some(said) if said == kind => {}
+        said => return Err(refused(said.map(str::to_owned))),
+    }
+    document
+        .get("results")
+        .ok_or(Unread::NoResults)?
+        .as_array()
+        .ok_or(Unread::ResultsNotAList)
+}
+
+/// Read `answer`, the body of Brave's answer to a video search (queue item
+/// 745).
+///
+/// # Errors
+///
+/// [`Unread`], naming what the whole answer lacked.
+pub fn read_videos(answer: &[u8]) -> Result<ReadVideos, Unread> {
+    let value = parsed(answer)?;
+    let document = value.as_object().ok_or(Unread::NotAnObject)?;
+    let results = results_of(document, "videos", |said| Unread::NotVideos { said })?;
+    let mut read = ReadVideos {
+        found: Vec::new(),
+        left_out: Vec::new(),
+    };
+    for (at, result) in results.iter().enumerate() {
+        if read.found.len() >= MOST_VIDEOS {
+            break;
+        }
+        match video(result) {
+            Ok(found) => read.found.push(found),
+            Err(why) => read.left_out.push(LeftOut { at, why }),
+        }
+    }
+    Ok(read)
+}
+
+/// One video result, as a video found.
+fn video(result: &Value) -> Result<VideoFound, Missing> {
+    let result = result.as_object().ok_or(Missing::NotAnObject)?;
+    let title = text(result, "title").ok_or(Missing::Title)?;
+    let page = text(result, "url").ok_or(Missing::Url)?;
+    let page = site_address(page).ok_or(Missing::NotASite)?;
+    let about = result.get("video").and_then(Value::as_object);
+    let length = about
+        .and_then(|about| text(about, "duration"))
+        .unwrap_or_default();
+    let site = about
+        .and_then(|about| text(about, "publisher"))
+        .filter(|publisher| !publisher.trim().is_empty())
+        .or_else(|| hostname(result))
+        .map(plain)
+        .unwrap_or_default();
+    let age = text(result, "age").map(plain).unwrap_or_default();
+    let description = text(result, "description").map(plain).unwrap_or_default();
+    let thumbnail = result
+        .get("thumbnail")
+        .and_then(Value::as_object)
+        .and_then(|thumbnail| text(thumbnail, "src"))
+        .and_then(site_address);
+    Ok(VideoFound {
+        video: Video::new(plain(title), page)
+            .lasting(length)
+            .from_site(site, age)
+            .said_of(description),
+        thumbnail,
+    })
+}
+
+/// Read `answer`, the body of Brave's answer to a news search (queue item
+/// 746).
+///
+/// # Errors
+///
+/// [`Unread`], naming what the whole answer lacked.
+pub fn read_news(answer: &[u8]) -> Result<ReadNews, Unread> {
+    let value = parsed(answer)?;
+    let document = value.as_object().ok_or(Unread::NotAnObject)?;
+    let results = results_of(document, "news", |said| Unread::NotNews { said })?;
+    let mut read = ReadNews {
+        found: Vec::new(),
+        left_out: Vec::new(),
+    };
+    for (at, result) in results.iter().enumerate() {
+        if read.found.len() >= MOST_STORIES {
+            break;
+        }
+        match story(result) {
+            Ok(found) => read.found.push(found),
+            Err(why) => read.left_out.push(LeftOut { at, why }),
+        }
+    }
+    Ok(read)
+}
+
+/// One news result, as a story found.
+fn story(result: &Value) -> Result<Story, Missing> {
+    let result = result.as_object().ok_or(Missing::NotAnObject)?;
+    let title = text(result, "title").ok_or(Missing::Title)?;
+    let page = text(result, "url").ok_or(Missing::Url)?;
+    let page = site_address(page).ok_or(Missing::NotASite)?;
+    let site = result
+        .get("profile")
+        .and_then(Value::as_object)
+        .and_then(|profile| text(profile, "name"))
+        .filter(|name| !name.trim().is_empty())
+        .or_else(|| hostname(result))
+        .map(plain)
+        .unwrap_or_default();
+    let age = text(result, "age").map(plain).unwrap_or_default();
+    let description = text(result, "description").map(plain).unwrap_or_default();
+    Ok(Story::new(plain(title), page)
+        .from_site(site, age)
+        .said_of(description))
+}
+
+/// The `hostname` of a result's `meta_url`, if it is text.
+fn hostname(result: &Map<String, Value>) -> Option<&str> {
+    result
+        .get("meta_url")
+        .and_then(Value::as_object)
+        .and_then(|meta| text(meta, "hostname"))
 }
 
 /// One image result, as an image found.
@@ -577,6 +798,206 @@ mod tests {
             let _ = read_images(IMAGES.as_bytes().get(..end).unwrap_or_default());
         }
         let _ = read_images(&[0xff, b'{', 0x00]);
+    }
+
+    /// A video search's answer in Brave's shape, written by hand.
+    const VIDEOS: &str = r#"{
+      "type": "videos",
+      "query": { "original": "ev charger" },
+      "results": [
+        { "type": "video_result", "title": "Fitting a <strong>charger</strong> &amp; more",
+          "url": "https://www.youtube.example/watch?v=abc", "description": "Start to finish.",
+          "age": "2 days ago",
+          "video": { "duration": "04:05", "views": 1200, "creator": "Home Energy",
+                     "publisher": "YouTube" },
+          "meta_url": { "hostname": "www.youtube.example" },
+          "thumbnail": { "src": "https://imgs.search.brave.com/v/abc", "original": "https://i.ytimg.example/a.jpg" } },
+        { "title": "No publisher", "url": "https://vimeo.example/1",
+          "video": { "duration": "PT4M" }, "meta_url": { "hostname": "vimeo.example" } },
+        { "title": "Nothing else", "url": "https://plain.example/v",
+          "video": "x", "thumbnail": { "src": "javascript:x()" }, "age": 3 },
+        { "title": "Not a site", "url": "file:///etc/passwd" },
+        { "url": "https://untitled.example/" },
+        { "title": "No page" },
+        7
+      ]
+    }"#;
+
+    #[test]
+    fn a_video_answer_is_read_as_videos_with_their_lengths_and_thumbnails() {
+        let read = read_videos(VIDEOS.as_bytes()).unwrap();
+        let videos: Vec<&Video> = read.found.iter().map(|found| &found.video).collect();
+        assert_eq!(videos.len(), 3);
+        let first = &videos[0];
+        assert_eq!(first.title, "Fitting a charger & more");
+        assert_eq!(first.length, "04:05");
+        assert_eq!(first.site, "YouTube", "the publisher, not the creator");
+        assert_eq!(first.age, "2 days ago");
+        assert_eq!(first.description, "Start to finish.");
+        assert_eq!(first.picture, None);
+        assert_eq!(
+            read.found[0]
+                .thumbnail
+                .as_ref()
+                .map(ToString::to_string)
+                .as_deref(),
+            Some("https://imgs.search.brave.com/v/abc"),
+            "the proxy's thumbnail, never the original"
+        );
+        assert_eq!(videos[1].length, "", "a duration not a length is none");
+        assert_eq!(
+            videos[1].site, "vimeo.example",
+            "the hostname with no publisher"
+        );
+        assert_eq!(videos[2].site, "");
+        assert_eq!(videos[2].age, "", "an age not text is none");
+        assert!(
+            read.found[1..]
+                .iter()
+                .all(|found| found.thumbnail.is_none())
+        );
+        let left: Vec<String> = read.left_out.iter().map(ToString::to_string).collect();
+        assert_eq!(
+            left,
+            vec![
+                "the result at 3 is not at a site's address",
+                "the result at 4 has no title",
+                "the result at 5 has no url",
+                "the result at 6 is not an object",
+            ]
+        );
+    }
+
+    /// A news search's answer in Brave's shape, written by hand.
+    const NEWS: &str = r#"{
+      "type": "news",
+      "query": { "original": "ev charger" },
+      "results": [
+        { "type": "news_result", "title": "More electricians &#x27;trained&#x27;",
+          "url": "https://energy.example/a", "description": "Waiting times are <strong>shorter</strong>.",
+          "age": "2 days ago", "page_age": "2026-10-29T08:00:00",
+          "profile": { "name": "Consumer energy report", "url": "https://energy.example" },
+          "meta_url": { "hostname": "energy.example" },
+          "thumbnail": { "src": "https://imgs.search.brave.com/n/a" } },
+        { "title": "Only a hostname", "url": "https://daily.example/b",
+          "profile": { "name": "  " }, "meta_url": { "hostname": "daily.example" } },
+        { "title": "Bare", "url": "http://bare.example/", "profile": 1, "age": null },
+        { "title": "Not a site", "url": "mailto:a@b.example" },
+        { "title": 4, "url": "https://four.example/" },
+        []
+      ]
+    }"#;
+
+    #[test]
+    fn a_news_answer_is_read_as_stories_with_their_sites_and_ages() {
+        let read = read_news(NEWS.as_bytes()).unwrap();
+        let titles: Vec<&str> = read
+            .found
+            .iter()
+            .map(|story| story.title.as_str())
+            .collect();
+        assert_eq!(
+            titles,
+            vec!["More electricians 'trained'", "Only a hostname", "Bare"]
+        );
+        let first = &read.found[0];
+        assert_eq!(first.site, "Consumer energy report");
+        assert_eq!(first.age, "2 days ago");
+        assert_eq!(first.description, "Waiting times are shorter.");
+        assert_eq!(first.page.to_string(), "https://energy.example/a");
+        assert_eq!(
+            read.found[1].site, "daily.example",
+            "an empty name, then the hostname"
+        );
+        assert_eq!(
+            (read.found[2].site.as_str(), read.found[2].age.as_str()),
+            ("", "")
+        );
+        let left: Vec<String> = read.left_out.iter().map(ToString::to_string).collect();
+        assert_eq!(
+            left,
+            vec![
+                "the result at 3 is not at a site's address",
+                "the result at 4 has no title",
+                "the result at 5 is not an object",
+            ]
+        );
+    }
+
+    #[test]
+    fn video_and_news_answers_are_refused_whole_by_name_and_never_panic() {
+        assert_eq!(
+            read_videos(br#"{"type":"news","results":[]}"#).err(),
+            Some(Unread::NotVideos {
+                said: Some("news".to_owned())
+            })
+        );
+        assert_eq!(
+            read_news(br#"{"type":"videos","results":[]}"#).err(),
+            Some(Unread::NotNews {
+                said: Some("videos".to_owned())
+            })
+        );
+        assert_eq!(
+            read_videos(b"{}").err(),
+            Some(Unread::NotVideos { said: None })
+        );
+        assert_eq!(read_news(b"{}").err(), Some(Unread::NotNews { said: None }));
+        assert_eq!(
+            read_videos(br#"{"type":"videos"}"#).err(),
+            Some(Unread::NoResults)
+        );
+        assert_eq!(
+            read_news(br#"{"type":"news","results":{}}"#).err(),
+            Some(Unread::ResultsNotAList)
+        );
+        assert_eq!(read_news(b"[]").err(), Some(Unread::NotAnObject));
+        assert!(matches!(read_videos(b"<html>"), Err(Unread::NotJson(_))));
+        let deep = format!("{}{}", "[".repeat(200), "]".repeat(200));
+        assert_eq!(
+            read_news(deep.as_bytes()).err(),
+            Some(Unread::TooDeep { depth: 200 })
+        );
+        let large = vec![b' '; LARGEST + 1];
+        assert_eq!(
+            read_videos(&large).err(),
+            Some(Unread::TooLarge { bytes: LARGEST + 1 })
+        );
+        assert_eq!(
+            Unread::NotVideos { said: None }.to_string(),
+            "it does not say it is a video search"
+        );
+        assert_eq!(
+            Unread::NotNews {
+                said: Some("x".to_owned())
+            }
+            .to_string(),
+            "its type is \"x\", not \"news\""
+        );
+        let many = |kind: &str| {
+            let each: Vec<String> = (0..60)
+                .map(|n| format!(r#"{{"title":"{n}","url":"https://s{n}.example/"}}"#))
+                .collect();
+            format!(r#"{{"type":"{kind}","results":[{}]}}"#, each.join(","))
+        };
+        assert_eq!(
+            read_videos(many("videos").as_bytes()).unwrap().found.len(),
+            MOST_VIDEOS
+        );
+        assert_eq!(
+            read_news(many("news").as_bytes()).unwrap().found.len(),
+            MOST_STORIES
+        );
+        for end in 0..VIDEOS.len() {
+            let _ = read_videos(VIDEOS.as_bytes().get(..end).unwrap_or_default());
+        }
+        for end in 0..NEWS.len() {
+            let _ = read_news(NEWS.as_bytes().get(..end).unwrap_or_default());
+        }
+        let _ = read_videos(&[0xff, b'{', 0x00]);
+        let _ = read_news(
+            br#"{"type":"news","results":[{"title":"\ud800","url":"https://a.example/"}]}"#,
+        );
     }
 
     #[test]

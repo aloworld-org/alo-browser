@@ -33,15 +33,25 @@
 //! ([`Provider::with_images`]); one made with [`Provider::at`] alone asks
 //! no images.
 //!
+//! # Videos and news (queue items 745, 746, ADR 0087)
+//!
+//! Asked only when a person opens the Videos or News tab of a turn, once
+//! for that turn: the same words alone, of [`VIDEOS_ENDPOINT`] or
+//! [`NEWS_ENDPOINT`] ([`videos`], [`news`]). A video's thumbnail is fetched
+//! as an image's is, only from [`THUMBNAILS`]. A test's provider names its
+//! own addresses ([`Provider::with_videos`], [`Provider::with_news`]); one
+//! that names none is not asked, and says so.
+//!
 //! # What the person is told
 //!
 //! ADR 0083 § 5's sentences, by status ([`unanswered`]). None says the key.
 
 use crate::search_key::Key;
-use crate::search_protocol::{self, ImageFound};
+use crate::search_protocol::{self, ImageFound, VideoFound};
 use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request};
 use alo_renderer::results::{PROVIDER, Showing};
+use alo_renderer::results_media::Story;
 use alo_url::Url;
 
 /// Where a web search is asked.
@@ -49,6 +59,12 @@ pub const ENDPOINT: &str = "https://api.search.brave.com/res/v1/web/search";
 
 /// Where an image search is asked (queue item 743).
 pub const IMAGES_ENDPOINT: &str = "https://api.search.brave.com/res/v1/images/search";
+
+/// Where a video search is asked (queue item 745).
+pub const VIDEOS_ENDPOINT: &str = "https://api.search.brave.com/res/v1/videos/search";
+
+/// Where a news search is asked (queue item 746).
+pub const NEWS_ENDPOINT: &str = "https://api.search.brave.com/res/v1/news/search";
 
 /// Brave's own image proxy: the one place a thumbnail is fetched from.
 pub const THUMBNAILS: &str = "https://imgs.search.brave.com/";
@@ -61,6 +77,12 @@ pub struct Provider {
     /// The image search's address, with no query, and the one origin its
     /// thumbnails are fetched from: [`None`] where images are not asked.
     images: Option<(Url, Url)>,
+    /// The video search's address, with no query: [`None`] where videos
+    /// are not asked.
+    videos: Option<Url>,
+    /// The news search's address, with no query: [`None`] where news is
+    /// not asked.
+    news: Option<Url>,
     /// The key.
     key: Key,
 }
@@ -72,7 +94,10 @@ impl Provider {
     ///
     /// Only if the URL parser stopped reading [`ENDPOINT`], which a test pins.
     pub fn brave(key: Key) -> Result<Self, String> {
-        Self::at(ENDPOINT, key)?.with_images(IMAGES_ENDPOINT, THUMBNAILS)
+        Self::at(ENDPOINT, key)?
+            .with_images(IMAGES_ENDPOINT, THUMBNAILS)?
+            .with_videos(VIDEOS_ENDPOINT)?
+            .with_news(NEWS_ENDPOINT)
     }
 
     /// A provider answering at `endpoint` in Brave's shape, asked with
@@ -86,6 +111,8 @@ impl Provider {
         Ok(Self {
             endpoint,
             images: None,
+            videos: None,
+            news: None,
             key,
         })
     }
@@ -99,6 +126,65 @@ impl Provider {
     pub fn with_images(mut self, endpoint: &str, thumbnails: &str) -> Result<Self, String> {
         self.images = Some((site(endpoint)?, site(thumbnails)?));
         Ok(self)
+    }
+
+    /// The same provider, asking video searches at `endpoint` (queue item
+    /// 745); their thumbnails come from the origin [`Provider::with_images`]
+    /// names, or none are fetched.
+    ///
+    /// # Errors
+    ///
+    /// When it is not an `http` or `https` address.
+    pub fn with_videos(mut self, endpoint: &str) -> Result<Self, String> {
+        self.videos = Some(site(endpoint)?);
+        Ok(self)
+    }
+
+    /// The same provider, asking news searches at `endpoint` (queue item
+    /// 746).
+    ///
+    /// # Errors
+    ///
+    /// When it is not an `http` or `https` address.
+    pub fn with_news(mut self, endpoint: &str) -> Result<Self, String> {
+        self.news = Some(site(endpoint)?);
+        Ok(self)
+    }
+
+    /// The request for a video search of `words`, where videos are asked.
+    ///
+    /// # Errors
+    ///
+    /// When videos are not asked of this provider, or the words make no
+    /// address.
+    pub fn videos_request(
+        &self,
+        words: &str,
+        identities: &mut Identities,
+    ) -> Result<Request, String> {
+        let endpoint = self
+            .videos
+            .as_ref()
+            .ok_or_else(|| format!("{PROVIDER} is not asked for videos here"))?;
+        self.asking(endpoint, words, identities)
+    }
+
+    /// The request for a news search of `words`, where news is asked.
+    ///
+    /// # Errors
+    ///
+    /// When news is not asked of this provider, or the words make no
+    /// address.
+    pub fn news_request(
+        &self,
+        words: &str,
+        identities: &mut Identities,
+    ) -> Result<Request, String> {
+        let endpoint = self
+            .news
+            .as_ref()
+            .ok_or_else(|| format!("{PROVIDER} is not asked for news here"))?;
+        self.asking(endpoint, words, identities)
     }
 
     /// Whether images are asked of this provider.
@@ -206,6 +292,60 @@ pub fn images(
     }
 }
 
+/// Ask `provider` for videos of `words` through `pool`: the videos found,
+/// each with its thumbnail's address, or why they were not, in a sentence a
+/// person reads.
+///
+/// # Errors
+///
+/// That sentence: not asked here, a status that is not 200, no connection,
+/// or an answer that could not be read.
+pub fn videos(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+) -> Result<Vec<VideoFound>, String> {
+    let request = provider.videos_request(words, identities)?;
+    answer_of(pool, &request, |body| {
+        search_protocol::read_videos(body).map(|read| read.found)
+    })
+}
+
+/// Ask `provider` for news of `words` through `pool`: the stories found, or
+/// why they were not, in a sentence a person reads.
+///
+/// # Errors
+///
+/// That sentence: not asked here, a status that is not 200, no connection,
+/// or an answer that could not be read.
+pub fn news(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+) -> Result<Vec<Story>, String> {
+    let request = provider.news_request(words, identities)?;
+    answer_of(pool, &request, |body| {
+        search_protocol::read_news(body).map(|read| read.found)
+    })
+}
+
+/// `request` fetched through `pool`, and its body of 200 read by `read`:
+/// what was read, or why not, in a sentence a person reads.
+fn answer_of<T>(
+    pool: &mut Pool,
+    request: &Request,
+    read: impl FnOnce(&[u8]) -> Result<T, search_protocol::Unread>,
+) -> Result<T, String> {
+    match pool.fetch(request) {
+        Ok(response) if response.status.0 == 200 => read(&response.body)
+            .map_err(|why| format!("{PROVIDER}'s answer could not be read: {why}")),
+        Ok(response) => Err(unanswered(response.status.0)),
+        Err(why) => Err(format!("{PROVIDER} could not be reached: {why}")),
+    }
+}
+
 /// `written`, if it is an `http` or `https` address.
 fn site(written: &str) -> Result<Url, String> {
     alo_url::parse(written)
@@ -292,6 +432,53 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn videos_and_news_are_asked_with_the_words_alone_where_the_provider_names_them() {
+        let brave = Provider::brave(key()).unwrap();
+        let mut identities = Identities::default();
+        let videos = brave
+            .videos_request(" ev charger ", &mut identities)
+            .unwrap();
+        assert_eq!(
+            videos.url.to_string(),
+            "https://api.search.brave.com/res/v1/videos/search?q=ev+charger"
+        );
+        let news = brave.news_request("ev & more", &mut identities).unwrap();
+        assert_eq!(
+            news.url.to_string(),
+            "https://api.search.brave.com/res/v1/news/search?q=ev+%26+more"
+        );
+        for request in [videos, news] {
+            let headers: Vec<(String, String)> = request
+                .headers
+                .iter()
+                .map(|header| (header.name.clone(), header.value.clone()))
+                .collect();
+            assert_eq!(
+                headers,
+                vec![
+                    ("Accept".to_owned(), "application/json".to_owned()),
+                    (
+                        "X-Subscription-Token".to_owned(),
+                        "test-key-not-real".to_owned()
+                    ),
+                ]
+            );
+            assert!(matches!(request.cause, Cause::Person { .. }));
+        }
+        let at = Provider::at("http://127.0.0.1:9/res/v1/web/search", key()).unwrap();
+        assert_eq!(
+            at.videos_request("x", &mut identities).err().as_deref(),
+            Some("Brave Search is not asked for videos here")
+        );
+        assert_eq!(
+            at.news_request("x", &mut identities).err().as_deref(),
+            Some("Brave Search is not asked for news here")
+        );
+        assert!(at.clone().with_videos("ftp://x.example/").is_err());
+        assert!(at.with_news("not an address").is_err());
     }
 
     #[test]

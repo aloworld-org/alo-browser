@@ -78,8 +78,9 @@ impl Turn {
     }
 
     /// The addresses a press on the turn's links opens, in the order they
-    /// are drawn: the sites its results show on the tab shown, or the page
-    /// it shows as a line. A live card's page is pressed as the page, never
+    /// are drawn: the sites its results show on the tab shown — or, on
+    /// Videos and News, each video's and story's page (queue items 745,
+    /// 746) — or the page it shows as a line. A live card's page is pressed as the page, never
     /// as a link.
     pub fn links(&self) -> Vec<&Url> {
         match self {
@@ -87,6 +88,8 @@ impl Turn {
                 .drawn_sites()
                 .iter()
                 .map(|found| &found.url)
+                .chain(results.drawn_videos().iter().map(|video| &video.page))
+                .chain(results.drawn_stories().iter().map(|story| &story.page))
                 .collect(),
             Turn::Visited { url, .. } => vec![url],
             Turn::Page(_) | Turn::Failed { .. } => Vec::new(),

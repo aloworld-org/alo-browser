@@ -3,20 +3,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! A search's results, built into the first screen's document on the tab
-//! the browser process chose — the design's **All**, **Sites** or
-//! **Images** (queue items 708, 743, 744; ADR 0083, ADR 0086) — in a turn
+//! the browser process chose — the design's **All**, **Sites**, **Images**,
+//! **Videos** or **News** (queue items 708, 743–746; ADR 0083, ADR 0086,
+//! ADR 0087) — in a turn
 //! of the conversation ([`crate::conversation_document`]): the tab row is
 //! ours and fixed, made with `alo-dom`'s operations, and every site's name,
 //! address, title and description enters it as a text node. The images —
 //! All's row and the Images tab's grid — are built by
-//! [`crate::images_document`].
+//! [`crate::images_document`]; the videos by [`crate::videos_document`] and
+//! the news by [`crate::news_document`].
 //!
 //! # What an agent reads
 //!
 //! ADR 0002: a `region` named *Search results*, holding a `tablist` named
-//! *Kinds of result* — the tab shown selected, All always open, Sites once
-//! sites were found, Images once images were asked for, and Answer, Videos
-//! and News disabled — then, on All, each of the top sites as an `article`:
+//! *Kinds of result* — the tab shown selected, All always open, Sites,
+//! Videos and News once sites were found, Images once images were asked
+//! for, and Answer disabled — then, on All, each of the top sites as an `article`:
 //! its name and address as text, its title as a heading holding a link, and
 //! its description as a paragraph; then the row of images; then *More sites
 //! ›*, a button. On Sites every site the same way; on Images the grid. Or,
@@ -108,6 +110,8 @@ pub fn make(document: &mut Document, results: &Results, place: usize) -> Result<
     match results.tab {
         Tab::All | Tab::Sites => sites(document, made, results, place)?,
         Tab::Images => crate::images_document::grid(document, made, results, place)?,
+        Tab::Videos => crate::videos_document::list(document, made, results, place)?,
+        Tab::News => crate::news_document::list(document, made, results)?,
     }
     Ok(made)
 }
@@ -251,11 +255,15 @@ mod tests {
         );
         assert_eq!(of_class(&document, "more"), vec![super::MORE_SITES]);
         assert_eq!(of_class(&document, "rt on"), vec!["All"]);
-        assert_eq!(of_class(&document, "rt"), vec!["Sites"], "Sites is open");
+        assert_eq!(
+            of_class(&document, "rt"),
+            vec!["Sites", "Videos", "News"],
+            "Sites, Videos and News are open"
+        );
         assert_eq!(
             of_class(&document, "rt off"),
-            vec!["Answer", "Images", "Videos", "News"],
-            "no images were asked for, and the rest are not built"
+            vec!["Answer", "Images"],
+            "no images were asked for, and Answer is not built"
         );
         assert!(of_class(&document, "note").is_empty());
     }

@@ -141,7 +141,8 @@ Sites tab, *See all images* its Images tab. An image, in the row or the
 grid, is claimed by its place among the images drawn and opens **its page**
 (`url`, the page it was found on) in the card, as a site's title does, its
 bubble the image's title. Answer, Videos and News stay disabled and claim
-nothing (707, 745, 746).
+nothing (707, 745, 746). *(Since built: Videos and News, by queue items 745
+and 746 — asked only when their tab is opened, ADR 0087.)*
 
 ## Consequences
 

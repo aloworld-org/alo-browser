@@ -907,6 +907,151 @@ fn images_that_should_not_be_drawn_are_refused() {
     assert!(read_to_renderer(&write_to_renderer(&trimmed)).is_ok());
 }
 
+/// Queue items 745 and 746: a search's videos and news — asked, found,
+/// not answered — and their tabs cross as they were sent.
+#[test]
+fn a_searchs_videos_and_news_survive_the_crossing() {
+    use alo_renderer::results::{Stories, Videos};
+    use alo_renderer::results_media::{Story, Video};
+    let site = |written: &str| alo_url::parse(written).unwrap_or_else(|_| panic!("{written}"));
+    let sites = || Showing::Found(vec![Found::new("t", site("https://a.example/"), "d")]);
+    let videos = Videos::Found(vec![
+        Video::new("</a><img src=x>\u{202e}", site("https://v.example/w?v=1"))
+            .lasting("1:02:03")
+            .from_site("YouTube", "2 days ago")
+            .said_of("<b>said</b>")
+            .holding(b"\x89PNG\r\n\x1a\nand the rest".to_vec()),
+        Video::new("no picture", site("http://w.example/")),
+    ]);
+    let news = Stories::Found(vec![
+        Story::new("<script>x()</script>", site("https://n.example/a"))
+            .from_site("Daily", "1 week ago")
+            .said_of("d"),
+    ]);
+    for results in [
+        Results::of("x", sites())
+            .with_videos(Videos::Asking)
+            .on(Tab::Videos),
+        Results::of("x", sites())
+            .with_videos(videos.clone())
+            .on(Tab::Videos),
+        Results::of("x", sites())
+            .with_news(news.clone())
+            .on(Tab::News),
+        Results::of("x", sites())
+            .with_news(Stories::Asking)
+            .on(Tab::News),
+        Results::of("x", sites())
+            .with_videos(videos)
+            .with_news(news)
+            .on(Tab::Sites),
+        Results::of("x", sites())
+            .with_news(Stories::Unanswered(
+                "Brave Search could not answer (503).".to_owned(),
+            ))
+            .on(Tab::News),
+    ] {
+        let original = ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Searched(results)],
+            ..Start::default()
+        }));
+        let back = read_to_renderer(&write_to_renderer(&original))
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+}
+
+/// Queue items 745 and 746: a video or story is drawn only for a page at a
+/// site's address, no more than one search holds, a video's length only a
+/// length and its picture only a picture no larger than a thumbnail; and
+/// Videos or News shown only once sites were found.
+#[test]
+fn videos_and_news_that_should_not_be_drawn_are_refused() {
+    use alo_renderer::results::{Stories, Videos};
+    use alo_renderer::results_media::{MOST_STORIES, MOST_VIDEOS, Story, Video};
+    let site = |written: &str| alo_url::parse(written).unwrap_or_else(|_| panic!("{written}"));
+    let found = || Showing::Found(vec![Found::new("t", site("https://a.example/"), "")]);
+    let sending = |results: Results| {
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Searched(results)],
+            ..Start::default()
+        }))
+    };
+    let videos = |each: Vec<Video>| {
+        sending(
+            Results::of("x", found())
+                .with_videos(Videos::Found(each))
+                .on(Tab::Videos),
+        )
+    };
+    let mut long = Video::new("t", site("https://v.example/"));
+    long.length = "4m05s".to_owned();
+    let mut big = b"\x89PNG\r\n\x1a\n".to_vec();
+    big.resize(LARGEST_THUMBNAIL + 1, 0);
+    for (message, refusal) in [
+        (
+            videos(vec![Video::new("t", site("javascript:x()"))]),
+            "a video found on a page that is not a site's",
+        ),
+        (videos(vec![long]), "a video whose length is not a length"),
+        (
+            videos(vec![
+                Video::new("t", site("https://v.example/")).holding(b"<svg>".to_vec()),
+            ]),
+            "not a picture",
+        ),
+        (
+            videos(vec![
+                Video::new("t", site("https://v.example/")).holding(big),
+            ]),
+            "at most 262144",
+        ),
+        (
+            videos(vec![
+                Video::new("t", site("https://v.example/"));
+                MOST_VIDEOS + 1
+            ]),
+            "21 videos found, and at most 20",
+        ),
+        (
+            sending(
+                Results::of("x", found())
+                    .with_news(Stories::Found(vec![Story::new("t", site("file:///x"))]))
+                    .on(Tab::News),
+            ),
+            "a news story found on a page that is not a site's",
+        ),
+        (
+            sending(
+                Results::of("x", found())
+                    .with_news(Stories::Found(vec![
+                        Story::new(
+                            "t",
+                            site("https://n.example/")
+                        );
+                        MOST_STORIES + 1
+                    ]))
+                    .on(Tab::News),
+            ),
+            "21 news stories found, and at most 20",
+        ),
+        (
+            sending(Results::searching("x").on(Tab::Videos)),
+            "which they cannot be",
+        ),
+        (
+            sending(Results::of("x", Showing::Found(Vec::new())).on(Tab::News)),
+            "which they cannot be",
+        ),
+    ] {
+        let why = read_to_renderer(&write_to_renderer(&message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains(refusal), "{refusal}: {why:?}");
+    }
+}
+
 // --- What a hostile renderer can put on the pipe -----------------------------
 
 /// The line the decoder is built around. Four bytes saying "a gigabyte

@@ -46361,3 +46361,77 @@ gains *The Sites and Images tabs*.
 drops them and gains 761, 762 and 763.
 
 The next unused queue number is **765** and the next ADR is **0087**.
+
+## Iteration 469 — queue items 764, 745 and 746: the marked-box test reads every capture, and the Videos and News tabs (ADR 0087)
+
+**764.** `crates/alo-window/tests/marked/mod.rs` now finds the page in
+every capture. `screencapture -l` takes a window with its child windows,
+and Chrome's link status bubble (listed at 119,731 174 × 22 beside the
+window at 120,80 600 × 672) is one: each capture is taken between two
+listings of the process's on-screen windows, and kept only when the
+listings agree and the picture is exactly the union of the window and the
+windows overlapping it, at the screen's whole scale; the page's corner is
+the window's place in that union. A capture that disagrees is taken again;
+no tolerance was widened. With the pointer at (570,562), over *Onward*:
+both `the_box_marked` tests **failed with the old helper** (*the page the
+link went to: never seen*), and **passed three runs in three** with the
+new. The item served no roadmap line: it is how a test reads the screen,
+not something the browser does.
+
+**745 and 746 (ADR 0087, new).** Videos and News open once a search found
+sites, and each is asked of Brave — the words alone, a paid request — only
+when a person opens the tab, once for the turn whatever comes; never with
+a search. The conversation numbers each ask (`Further`,
+`Conversation::take_asks`), the window hands it to the search thread
+(`Searcher::videos`, `Searcher::news`), and the answer comes back under
+that number to the chat and turn that opened it. The thread asks every tab
+opened, in order, before the newest search. Brave's answers read in
+`search_protocol.rs` (`read_videos`, `read_news`, refused by `NotVideos`,
+`NotNews` and the shared names; a duration that is not a length is none).
+A video's thumbnail comes from Brave's proxy alone, fetched as an image's
+is (`search_thumbnails::fetch_videos`), sent as `alo:video-TURN-N`,
+decoded only in the confined renderer and counted in the first screen's
+2 MiB. `results::Asked<T>` now holds images, videos and news alike
+(`Images`, `Videos`, `Stories`); `results_media.rs`, `videos_document.rs`
+and `news_document.rs` are new. Drawn as the canvas boards (the newest
+copies, `canvas-live/project/Videos.dc.html` — the named project folder
+holds only `News.dc.html`): the video tile 200 × 112 with its length over
+the corner in one grid cell, nothing positioned (763); a story 16 above
+and below over its line. A title or headline is a `title` and opens in the
+card; a video's picture claims nothing. **Cut:** a news story's photo,
+765.
+
+**Gate: met.** `--lib` tests and clippy first; the pointer moved to
+(1400,1000) and put back after. **Summary [659.265s] 5970 tests run: 5970
+passed (6 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+Layout assertions and references `videos-tab.png`, `news-tab.png` in
+`alo-renderer/tests/a_searchs_videos_and_news.rs`, each looked at, then
+run without update mode; no other reference moved. Existing assertions
+moved because Videos and News are now open: `a_searchs_images_and_sites.rs`
+(tab counts, the agent's disabled tabs, a press at Videos now
+`Tab { at: 3 }`) and `a_searchs_results_on_the_all_tab.rs`.
+
+**By hand** (`alo browser.app --conversation`, rebuilt and bundled anew;
+screenshots in the session's scratchpad `handrun9/`; screen unlocked, alo
+frontmost and the window at 215,90 1280×852 checked before every press and
+key, the pointer put back with `=`). One real search, *home ev charger
+installation*, then Videos and News: three paid requests (the image search
+is ADR 0086's, a fourth, asked with the search as before).
+`02-all.png` the All tab with three sites and five images;
+`03-videos-tab.png` Videos — real YouTube thumbnails from Brave's proxy,
+each length over its corner (17:52, 16:57, 06:21, 08:44), title, *YouTube ·
+date* and two lines, the fifth running under the room; `04-news-tab.png`
+News — four stories, each site, age (*· 3 days ago*, *· 7 hours ago*) and
+headline. Seen: Brave writes a video's site as YouTube and its age as a
+date; a description's emoji is drawn as a box (the face lacks it). Not
+tried by hand: a title pressed (it is tested through the window's road).
+⌘Q left no alo or alo Chromium process.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0002, 0005,
+0083, 0086 and 0087 (new); `docs/design/shell.md` gains *The Videos and
+News tabs*.
+
+**Roadmap:** the conversation line's *Built* gains 745 and 746; *Owed*
+drops them and gains 765.
+
+The next unused queue number is **766** and the next ADR is **0088**.

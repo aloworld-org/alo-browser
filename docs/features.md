@@ -865,8 +865,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   own road against a local server answering in Brave's shape
   (`tests/searching_from_the_one_box.rs`,
   `tests/a_search_result_opened_in_the_card_through_chrome.rs`). Owed: the
-  short answer at the top (707), Videos (745), News (746), a site's own
-  mark (747), how the key is carried in release (748).
+  short answer at the top (707), a site's own mark (747), how the key is
+  carried in release (748).
   **Images, the Images tab and the Sites tab** (743, 744, ADR 0086): once a
   web search finds sites, the same words alone are asked of Brave's image
   search — a second paid request, asked only then and only when no newer
@@ -886,6 +886,23 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`alo-window/tests/images_and_sites_pressed_in_the_window.rs`). Owed: the
   Sites tab's further pages (761); the canvas's *Photos* and *Diagrams*
   filters are not drawn, since Brave does not say which an image is.
+  **The Videos and News tabs** (745, 746, ADR 0087): opened once a search
+  found sites, and each asked of Brave — the same words alone, a paid
+  request — only when a person opens the tab, once for a turn, whatever
+  comes; never with a search. Videos draws each video as the canvas does:
+  its picture 200 × 112 (from Brave's image proxy alone, fetched and
+  bounded as an image's thumbnail is and decoded only in the confined
+  renderer), its length over the picture's corner, its title, its site and
+  age, and two lines of what is said; News each story's site and age, its
+  headline and two lines. A title or headline pressed opens its page in the
+  card. Brave's answers are read and refused by name (`NotVideos`,
+  `NotNews`), a duration that is not a length kept as none. In layout
+  assertions and two reference renders
+  (`alo-renderer/tests/a_searchs_videos_and_news.rs`), the wire
+  (`messages_across_a_boundary.rs`), and through the window's own road
+  against a local server — each tab asking once, a second opening asking
+  nothing (`alo-window/tests/videos_and_news_pressed_in_the_window.rs`).
+  Owed: a news story's photo (765).
   **A card that fails says why, and a page that replaces itself opens**
   (749): a page that replaces itself before its `load` — reddit's
   challenge — was waited on by its first loader, which never loads, for

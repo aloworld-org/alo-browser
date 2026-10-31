@@ -196,20 +196,74 @@ fn window_of(serving: &ChromeServing, bounds: Bounds) -> Result<u64, String> {
 struct Screen {
     /// The window, by the window server's number.
     window: u64,
-    /// Where the page's top left corner is in a capture, in its pixels.
-    page_left: f64,
-    page_top: f64,
-    /// Device pixels to a CSS pixel.
-    scale: f64,
+    /// The process that owns it, whose other windows are listed with it.
+    owner: u32,
+    /// Where the window is, in the screen's points.
+    bounds: Bounds,
+    /// Device pixels to a point, and so to a CSS pixel: whole, as a Mac's
+    /// screens are.
+    scale: u32,
     /// The page's size, in CSS pixels.
     page: (f64, f64),
     /// Where captures are written.
     file: PathBuf,
 }
 
+/// One capture of the window, and where the page is in it.
+///
+/// `screencapture -l` takes a window with its child windows, so its picture
+/// is the union of their bounds, not the window's own: Chrome's link status
+/// bubble, shown while the pointer rests on a link, is a child window a
+/// point outside the window's frame at its bottom left, and while it shows
+/// the picture is two device pixels wider and taller and the page two to
+/// the right (queue item 764). So the page's place is found anew in every
+/// capture, from the window's bounds within that union.
+struct Captured {
+    canvas: Canvas,
+    /// Where the page's top left corner is in the capture, in its pixels.
+    page_left: f64,
+    page_top: f64,
+}
+
+/// The union of `bounds` and every other window of its process on the
+/// screen that overlaps it: what `screencapture -l` takes of the window.
+fn with_children(bounds: Bounds, listed: &[window_server::Listed]) -> Bounds {
+    let overlaps = |other: &Bounds| {
+        other.left < bounds.left + bounds.width
+            && bounds.left < other.left + other.width
+            && other.top < bounds.top + bounds.height
+            && bounds.top < other.top + other.height
+    };
+    let (mut left, mut top) = (bounds.left, bounds.top);
+    let (mut right, mut bottom) = (bounds.left + bounds.width, bounds.top + bounds.height);
+    for other in listed.iter().filter_map(|window| window.bounds) {
+        if overlaps(&other) {
+            left = left.min(other.left);
+            top = top.min(other.top);
+            right = right.max(other.left + other.width);
+            bottom = bottom.max(other.top + other.height);
+        }
+    }
+    Bounds {
+        left,
+        top,
+        width: right - left,
+        height: bottom - top,
+    }
+}
+
 impl Screen {
-    /// The window as it is now, in its own device pixels.
-    fn capture(&self) -> Result<Canvas, String> {
+    /// The window's union with its children, as the window server lists
+    /// them now.
+    fn union(&self) -> Result<Bounds, String> {
+        let listed = window_server::on_the_screen(self.owner)
+            .map_err(|why| format!("the window server was not read: {why}"))?;
+        Ok(with_children(self.bounds, &listed))
+    }
+
+    /// The window as it is now, in its own device pixels, title bar and
+    /// child windows and all.
+    fn picture(&self) -> Result<Canvas, String> {
         let window = self.window.to_string();
         let file = self.file.to_string_lossy().into_owned();
         let done = Command::new("screencapture")
@@ -223,14 +277,90 @@ impl Screen {
         picture_from_png(&bytes).map_err(|why| format!("an unreadable capture: {why:?}"))
     }
 
-    /// The pixel at the page's CSS point `x`, `y`, in `canvas` — none
+    /// A picture of the window, and the union the window server listed of
+    /// it and its children both before the picture and after it — or none
+    /// when the two listings differ, a child window having come or gone.
+    fn listed_picture(&self) -> Result<Option<(Canvas, Bounds)>, String> {
+        let before = self.union()?;
+        let canvas = self.picture()?;
+        let after = self.union()?;
+        Ok((before == after).then_some((canvas, after)))
+    }
+
+    /// The screen's scale: a picture's width and height each the same whole
+    /// multiple of the union it was listed with.
+    fn find_scale(&mut self) -> Result<(), String> {
+        let until = Instant::now() + AT_MOST;
+        loop {
+            if let Some((canvas, union)) = self.listed_picture()? {
+                let (width, height) = (i64::from(canvas.width()), i64::from(canvas.height()));
+                if union.width > 0
+                    && width % union.width == 0
+                    && union.height * (width / union.width) == height
+                {
+                    self.scale = u32::try_from(width / union.width)
+                        .map_err(|_| format!("a scale of {}", width / union.width))?;
+                    return Ok(());
+                }
+            }
+            if Instant::now() > until {
+                return Err("no picture of the window a whole multiple of its union".to_owned());
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    /// A capture whose size is exactly the union the window server listed
+    /// both before it and after it, at the screen's scale, and the page's
+    /// place in it. A capture taken while a child window came or went —
+    /// listed one way and pictured another — is taken again, never read
+    /// with the page guessed at.
+    fn capture(&self) -> Result<Captured, String> {
+        let until = Instant::now() + AT_MOST;
+        let scale = i64::from(self.scale);
+        loop {
+            let listed = self.listed_picture()?;
+            if let Some((canvas, union)) = listed {
+                if i64::from(canvas.width()) == union.width * scale
+                    && i64::from(canvas.height()) == union.height * scale
+                {
+                    #[expect(
+                        clippy::cast_precision_loss,
+                        reason = "a window's bounds in device pixels are far below 2^52"
+                    )]
+                    let device = |points: i64| (points * scale) as f64;
+                    let page_left = device(self.bounds.left - union.left);
+                    let page_top = device(self.bounds.top + self.bounds.height - union.top)
+                        - self.page.1 * f64::from(self.scale);
+                    return Ok(Captured {
+                        canvas,
+                        page_left,
+                        page_top,
+                    });
+                }
+                if Instant::now() > until {
+                    return Err(format!(
+                        "no capture the size of the window's union with its children: \
+                         {}x{} against {union:?} at {scale} device pixels a point",
+                        canvas.width(),
+                        canvas.height()
+                    ));
+                }
+            } else if Instant::now() > until {
+                return Err("the window's children never stood still for a capture".to_owned());
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    /// The pixel at the page's CSS point `x`, `y`, in a capture — none
     /// outside the page, where the title bar is.
-    fn at(&self, canvas: &Canvas, x: f64, y: f64) -> Option<Rgba> {
+    fn at(&self, captured: &Captured, x: f64, y: f64) -> Option<Rgba> {
         if x < 0.0 || y < 0.0 || x >= self.page.0 || y >= self.page.1 {
             return None;
         }
         let device = |page: f64, css: f64| {
-            let point = (page + css * self.scale).floor();
+            let point = (page + css * f64::from(self.scale)).floor();
             (point >= 0.0 && point < f64::from(u32::MAX)).then_some(point)
         };
         #[expect(
@@ -239,10 +369,10 @@ impl Screen {
             reason = "floored and checked to be within a u32"
         )]
         let (x, y) = (
-            device(self.page_left, x)? as u32,
-            device(self.page_top, y)? as u32,
+            device(captured.page_left, x)? as u32,
+            device(captured.page_top, y)? as u32,
         );
-        canvas.at(x, y)
+        captured.canvas.at(x, y)
     }
 }
 
@@ -287,17 +417,17 @@ const LABELLED: f64 = 130.0;
 const BOXES: [BoxAt; 4] = [ALPHA, BETA, AGAIN, ONWARD];
 
 impl Screen {
-    fn see(&self, canvas: &Canvas, accent: Rgba) -> Seen {
+    fn see(&self, captured: &Captured, accent: Rgba) -> Seen {
         let mut swatch = 0;
         while self
-            .at(canvas, f64::from(swatch) + 0.5, 20.0)
+            .at(captured, f64::from(swatch) + 0.5, 20.0)
             .is_some_and(|pixel| same(pixel, accent))
         {
             swatch += 1;
         }
         let borders = BOXES
             .iter()
-            .map(|at| border_of(*at).map(|(x, y)| self.at(canvas, x, y)))
+            .map(|at| border_of(*at).map(|(x, y)| self.at(captured, x, y)))
             .collect();
         let labels = BOXES
             .iter()
@@ -311,7 +441,7 @@ impl Screen {
                     }
                     let mut x = at.left;
                     while x < at.left + 200.0 {
-                        if self.at(canvas, x, y).is_some_and(|pixel| {
+                        if self.at(captured, x, y).is_some_and(|pixel| {
                             let (red, green, blue, _) = pixel.to_rgba8();
                             u32::from(red) + u32::from(green) + u32::from(blue) < 300
                         }) {
@@ -438,22 +568,17 @@ fn check(
     let file = std::env::temp_dir().join(format!("alo-marked-{}.png", std::process::id()));
     let mut screen = Screen {
         window,
-        page_left: 0.0,
-        page_top: 0.0,
-        scale: 1.0,
+        owner: serving.process(),
+        bounds,
+        scale: 1,
         page,
         file,
     };
+    // The screen's scale, from a picture of the window and its children
+    // and the union the window server lists of them; every capture after
+    // is held to it.
+    screen.find_scale()?;
     let first = screen.capture()?;
-    // The capture is the window in its device pixels; the page fills it
-    // below the title bar.
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "a window's width in points is far below 2^52"
-    )]
-    let scale = f64::from(first.width()) / bounds.width as f64;
-    screen.scale = scale;
-    screen.page_top = f64::from(first.height()) - page.1 * scale;
     let accent = screen.at(&first, 20.0, 20.0).ok_or("no swatch")?;
     let grey = screen
         .at(&first, ALPHA.left + 3.0, ALPHA.top + 20.0)

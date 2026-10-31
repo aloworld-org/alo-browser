@@ -39,6 +39,16 @@
 //! not made. If a newer search is waiting once the sites are told, its
 //! images are not asked, and the window is told so in words.
 //!
+//! # Videos and news (queue items 745, 746, ADR 0087)
+//!
+//! Never asked with a search. When a person opens a turn's Videos or News
+//! tab, the window hands the thread that turn's words ([`Searcher::videos`],
+//! [`Searcher::news`]) under a number of its own, once for the turn; the
+//! thread asks the provider the words alone — and, for videos, fetches each
+//! thumbnail from its proxy — and tells the window [`Came::Videos`] or
+//! [`Came::News`] under that number. Unlike a search, a newer one does not
+//! pass over them: a person opened the tab, and is looking at it.
+//!
 //! # Connections kept
 //!
 //! The thread keeps one `alo-net` pool, trusting what this machine trusts,
@@ -49,7 +59,7 @@ use crate::brave_search::{self, Provider};
 use crate::search_thumbnails;
 use alo_net::Pool;
 use alo_net::cause::Identities;
-use alo_renderer::results::{Images, PROVIDER, SetUp, Showing};
+use alo_renderer::results::{Images, PROVIDER, SetUp, Showing, Stories, Videos};
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
@@ -86,6 +96,12 @@ pub enum Came {
     /// The images found, each holding its thumbnail if one was kept, or why
     /// not.
     Images(Images),
+    /// The videos found, asked when a person opened the Videos tab (queue
+    /// item 745), each holding its thumbnail if one was kept, or why not.
+    Videos(Videos),
+    /// The news found, asked when a person opened the News tab (queue item
+    /// 746), or why not.
+    News(Stories),
 }
 
 impl Searched {
@@ -110,6 +126,10 @@ pub type TellSearched = Box<dyn Fn(Searched) -> bool + Send>;
 enum Work {
     /// Search for these words, numbered so.
     Search(u64, String),
+    /// Ask for videos of these words, numbered so (queue item 745).
+    Videos(u64, String),
+    /// Ask for news of these words, numbered so (queue item 746).
+    News(u64, String),
     /// The window is closing: end.
     Finish,
 }
@@ -190,6 +210,43 @@ impl Searcher {
         }
     }
 
+    /// Ask for videos of `words`, numbered `number`, as a person opened a
+    /// turn's Videos tab (queue item 745). Returns at once: what came of it
+    /// is told to the window as [`Came::Videos`].
+    pub fn videos(&self, number: u64, words: &str) {
+        self.further(Work::Videos(number, words.to_owned()), number, words);
+    }
+
+    /// Ask for news of `words`, numbered `number`, as a person opened a
+    /// turn's News tab (queue item 746). Returns at once: what came of it is
+    /// told to the window as [`Came::News`].
+    pub fn news(&self, number: u64, words: &str) {
+        self.further(Work::News(number, words.to_owned()), number, words);
+    }
+
+    /// Hand the thread `work`; with no thread, tell the window at once that
+    /// it was not asked, and why.
+    fn further(&self, work: Work, number: u64, words: &str) {
+        match (&self.asked, &self.set_up, &self.tell) {
+            (Some(asked), _, _) => {
+                let _ = asked.send(work);
+            }
+            (None, SetUp::Not(why), Some(tell)) => {
+                let why = not_set_up(why);
+                let came = match work {
+                    Work::News(..) => Came::News(Stories::Unanswered(why)),
+                    _ => Came::Videos(Videos::Unanswered(why)),
+                };
+                let _ = tell(Searched {
+                    number,
+                    words: words.to_owned(),
+                    came,
+                });
+            }
+            _ => {}
+        }
+    }
+
     /// Stop the thread, after the search it is asking, and wait for it:
     /// whether it ended rather than panicked.
     pub fn finish(mut self) -> bool {
@@ -242,7 +299,25 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         if waiting.iter().any(|work| matches!(work, Work::Finish)) {
             return;
         }
-        let Some(Work::Search(number, words)) = waiting.into_iter().last() else {
+        // Every tab opened is asked, in the order opened; of the searches,
+        // only the newest.
+        let mut newest = None;
+        let mut further = Vec::new();
+        for work in waiting {
+            match work {
+                Work::Search(number, words) => newest = Some((number, words)),
+                Work::Videos(..) | Work::News(..) => further.push(work),
+                Work::Finish => {}
+            }
+        }
+        for work in further {
+            if let Some(answer) = further_answer(provider, &mut pool, &mut identities, work)
+                && !tell(answer)
+            {
+                return;
+            }
+        }
+        let Some((number, words)) = newest else {
             continue;
         };
         if pool.is_none() {
@@ -285,15 +360,19 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
             continue;
         }
         // Newest wins: a search waiting now is asked before these images,
-        // which are then not asked at all.
+        // which are then not asked at all. A tab opened meanwhile is not a
+        // newer search, and waits for them.
         pending.extend(asking.try_iter());
-        let images = if pending.is_empty() {
-            images(provider, pool, &mut identities, &words)
-        } else {
+        let newer = pending
+            .iter()
+            .any(|work| matches!(work, Work::Search(..) | Work::Finish));
+        let images = if newer {
             Images::Unanswered(format!(
                 "{PROVIDER} was not asked for images of \u{201c}{words}\u{201d}: a newer search \
                  came first."
             ))
+        } else {
+            images(provider, pool, &mut identities, &words)
         };
         if !tell(Searched {
             number,
@@ -302,6 +381,65 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         }) {
             return;
         }
+    }
+}
+
+/// What came of `work`, a tab opened, asked of `provider` through `pool` —
+/// made from this machine's certificates if it is not yet — or [`None`]
+/// for work that is not a tab's.
+fn further_answer(
+    provider: &Provider,
+    pool: &mut Option<Pool>,
+    identities: &mut Identities,
+    work: Work,
+) -> Option<Searched> {
+    if pool.is_none() {
+        *pool = Pool::from_this_machine()
+            .ok()
+            .map(|made| made.patient_for(PATIENCE));
+    }
+    let unreached =
+        || format!("{PROVIDER} could not be reached: this Mac's certificates could not be read");
+    let (number, words, came) = match work {
+        Work::Videos(number, words) => {
+            let came = Came::Videos(match pool.as_mut() {
+                Some(pool) => videos(provider, pool, identities, &words),
+                None => Videos::Unanswered(unreached()),
+            });
+            (number, words, came)
+        }
+        Work::News(number, words) => {
+            let came = Came::News(match pool.as_mut() {
+                Some(pool) => match brave_search::news(provider, pool, identities, &words) {
+                    Ok(found) => Stories::Found(found),
+                    Err(why) => Stories::Unanswered(why),
+                },
+                None => Stories::Unanswered(unreached()),
+            });
+            (number, words, came)
+        }
+        Work::Search(..) | Work::Finish => return None,
+    };
+    Some(Searched {
+        number,
+        words,
+        came,
+    })
+}
+
+/// Ask `provider` for videos of `words`, and fetch each thumbnail from its
+/// image proxy: the videos found, or why not.
+fn videos(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+) -> Videos {
+    match brave_search::videos(provider, pool, identities, words) {
+        Ok(found) => Videos::Found(
+            search_thumbnails::fetch_videos(pool, identities, provider.thumbnails(), found).videos,
+        ),
+        Err(why) => Videos::Unanswered(why),
     }
 }
 
@@ -351,6 +489,32 @@ mod tests {
                         .to_owned()
                 ),
             ))
+        );
+        searcher.videos(4, "y");
+        searcher.news(5, "z");
+        let told: Vec<Searched> = told.try_iter().collect();
+        assert_eq!(
+            told,
+            vec![
+                Searched {
+                    number: 4,
+                    words: "y".to_owned(),
+                    came: Came::Videos(Videos::Unanswered(
+                        "Searching is not set up yet: no Brave Search key in this Mac's \
+                         keychain (alo-brave-search)."
+                            .to_owned()
+                    )),
+                },
+                Searched {
+                    number: 5,
+                    words: "z".to_owned(),
+                    came: Came::News(Stories::Unanswered(
+                        "Searching is not set up yet: no Brave Search key in this Mac's \
+                         keychain (alo-brave-search)."
+                            .to_owned()
+                    )),
+                },
+            ]
         );
         assert!(searcher.finish());
     }

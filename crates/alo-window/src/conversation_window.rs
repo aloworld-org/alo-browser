@@ -78,7 +78,7 @@ use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
 use alo_renderer::conversation_scroll::Reach;
-use alo_renderer::results::{PROVIDER, Showing};
+use alo_renderer::results::{PROVIDER, Showing, Tab};
 
 /// What the conversation's window hears from the threads it hands work to.
 #[derive(Debug)]
@@ -512,6 +512,7 @@ impl ConversationWindow {
         if self.conversation.act(pressed) {
             self.ask_drawn();
         }
+        self.ask_further();
         if go && let Some(chosen) = self.conversation.chosen() {
             self.start_said = Some(conversation_box::said(chosen, self.searching()));
             self.go();
@@ -557,6 +558,21 @@ impl ConversationWindow {
         }
     }
 
+    /// Hand each tab just opened whose results are to be asked for — Videos
+    /// or News, once for a turn (queue items 745, 746) — to the thread
+    /// asking the provider. Returns at once.
+    fn ask_further(&mut self) {
+        for further in self.conversation.take_asks() {
+            if let Some(searcher) = &self.searcher {
+                match further.tab {
+                    Tab::Videos => searcher.videos(further.number, &further.words),
+                    Tab::News => searcher.news(further.number, &further.words),
+                    Tab::All | Tab::Sites | Tab::Images => {}
+                }
+            }
+        }
+    }
+
     /// What came of a search: shown when it is the newest, and the first
     /// screen's line saying so. Its images (queue item 743) are drawn when
     /// they come, the line left saying what the sites came to.
@@ -575,7 +591,7 @@ impl ConversationWindow {
                 Showing::Unanswered(why) => Some(why.clone()),
                 Showing::Searching => return,
             },
-            Came::Images(_) => None,
+            Came::Images(_) | Came::Videos(_) | Came::News(_) => None,
         };
         if self.conversation.searched(searched) {
             if let Some(line) = line {

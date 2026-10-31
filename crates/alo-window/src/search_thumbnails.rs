@@ -29,13 +29,18 @@
 //!
 //! An image whose thumbnail is left out is still shown, as its title in
 //! its tile; why each was left out is kept in words ([`Fetched::left_out`]).
+//!
+//! A video's thumbnail (queue item 745, ADR 0087) is fetched the same way,
+//! by the same rules, from the same proxy ([`fetch_videos`]); a video whose
+//! thumbnail is left out is drawn with its tile's colour.
 
-use crate::search_protocol::ImageFound;
+use crate::search_protocol::{ImageFound, VideoFound};
 use alo_net::Pool;
 use alo_net::Request;
 use alo_net::cause::{Cause, Identities};
 use alo_paint::picture::Format;
 use alo_renderer::results::{LARGEST_THUMBNAIL, MOST_IMAGES, Pictured};
+use alo_renderer::results_media::{MOST_VIDEOS, Video};
 use alo_url::Url;
 
 /// What came of fetching a search's thumbnails.
@@ -71,6 +76,48 @@ pub fn fetch(
             }
         }
         fetched.images.push(pictured);
+    }
+    fetched
+}
+
+/// What came of fetching a search's video thumbnails.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FetchedVideos {
+    /// The videos, best first, each holding its thumbnail if it was kept.
+    pub videos: Vec<Video>,
+    /// Why each thumbnail left out was, by the video's place.
+    pub left_out: Vec<(usize, String)>,
+}
+
+/// Fetch the thumbnail of each of `found` — at most [`MOST_VIDEOS`] —
+/// through `pool`, from `from`'s origin alone; with no `from`, none.
+pub fn fetch_videos(
+    pool: &mut Pool,
+    identities: &mut Identities,
+    from: Option<&Url>,
+    found: Vec<VideoFound>,
+) -> FetchedVideos {
+    let mut fetched = FetchedVideos {
+        videos: Vec::new(),
+        left_out: Vec::new(),
+    };
+    for (at, found) in found.into_iter().take(MOST_VIDEOS).enumerate() {
+        let VideoFound {
+            mut video,
+            thumbnail,
+        } = found;
+        match (from, thumbnail) {
+            (Some(from), Some(thumbnail)) => match picture(pool, identities, from, &thumbnail) {
+                Ok(bytes) => video.picture = Some(bytes),
+                Err(why) => fetched.left_out.push((at, why)),
+            },
+            (None, Some(_)) => fetched.left_out.push((
+                at,
+                "no image proxy is named, so no thumbnail was fetched".to_owned(),
+            )),
+            (_, None) => {}
+        }
+        fetched.videos.push(video);
     }
     fetched
 }

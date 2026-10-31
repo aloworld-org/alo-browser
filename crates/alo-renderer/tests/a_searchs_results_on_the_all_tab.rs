@@ -349,11 +349,12 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     // so the chosen tab's 2 of ink stand on it; 4 between tabs.
     assert_eq!(at("rtabs"), vec![px(80.0, 102.0, 880.0, 42.0)]);
     assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.546_875, 42.0)]);
-    // Sites is open once sites are found (queue item 744); Answer, Images
-    // — no images were asked for here — Videos and News are disabled.
-    assert_eq!(at("rt").len(), 1);
+    // Sites, Videos and News are open once sites are found (queue items
+    // 744–746); Answer and Images — no images were asked for here — are
+    // disabled.
+    assert_eq!(at("rt").len(), 3);
     let tabs = at("rt off");
-    assert_eq!(tabs.len(), 4);
+    assert_eq!(tabs.len(), 2);
     assert!(
         tabs.first()
             .is_some_and(|answer| answer.starts_with("(129.54688, 102)")),
@@ -551,8 +552,8 @@ fn an_agent_reads_the_results_as_a_region_of_tabs_and_articles() {
     let disabled: Vec<bool> = tabs.iter().map(|tab| tab.states.disabled).collect();
     assert_eq!(
         disabled,
-        vec![false, true, false, true, true, true],
-        "Sites open; Images not, since no images were asked for: {outline}"
+        vec![false, true, false, true, false, false],
+        "Sites, Videos and News open; Images not, since no images were asked for: {outline}"
     );
     assert!(outline.contains("tab \"All\" [selected=true]"), "{outline}");
     assert_eq!(read(&drawn.tree, "article").len(), 3, "{outline}");

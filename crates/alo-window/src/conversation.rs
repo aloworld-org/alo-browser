@@ -162,6 +162,27 @@ pub struct Conversation {
     find: FindChats,
     /// Whether a person hid the panel, which is then the rail.
     hidden: bool,
+    /// How many tabs were asked for (queue items 745, 746): the newest
+    /// one's number.
+    further: u64,
+    /// The tabs opened whose results are to be asked for, not yet handed to
+    /// the searcher.
+    to_ask: Vec<Further>,
+    /// The tabs asked for and not yet answered: each one's number, and the
+    /// chat and turn it was opened in.
+    asked: Vec<(u64, ChatId, usize)>,
+}
+
+/// A tab opened whose results are to be asked of the provider — Videos or
+/// News, once for a turn (queue items 745, 746, ADR 0087).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Further {
+    /// The number its answer comes back under.
+    pub number: u64,
+    /// The turn's words, asked alone.
+    pub words: String,
+    /// Which tab: [`results::Tab::Videos`] or [`results::Tab::News`].
+    pub tab: results::Tab,
 }
 
 impl Default for Conversation {
@@ -181,6 +202,9 @@ impl Default for Conversation {
             searches: 0,
             find: FindChats::default(),
             hidden: false,
+            further: 0,
+            to_ask: Vec::new(),
+            asked: Vec::new(),
         }
     }
 }
@@ -307,12 +331,23 @@ impl Conversation {
                 self.choose_image(url.clone());
                 changed
             }
+            // Videos and News are asked for the first time either is shown
+            // in a turn, and never again (745, 746, ADR 0087).
             Pressed::Tab { chat, turn, tab } => {
-                let shown = self
-                    .threads
-                    .iter_mut()
-                    .find(|(each, _)| each == chat)
-                    .is_some_and(|(_, thread)| thread.show_tab(*turn, *tab));
+                let Some((_, thread)) = self.threads.iter_mut().find(|(each, _)| each == chat)
+                else {
+                    return self.pressed(pressed, changed);
+                };
+                let shown = thread.show_tab(*turn, *tab);
+                if shown && let Some(words) = thread.ask_for(*turn, *tab) {
+                    self.further += 1;
+                    self.asked.push((self.further, *chat, *turn));
+                    self.to_ask.push(Further {
+                        number: self.further,
+                        words,
+                        tab: *tab,
+                    });
+                }
                 shown || changed
             }
             Pressed::NewChat => {
@@ -323,8 +358,20 @@ impl Conversation {
             Pressed::ShowThePanel => std::mem::replace(&mut self.hidden, false) || changed,
             _ => changed,
         };
+        self.pressed(pressed, changed)
+    }
+
+    /// Keep `pressed` as the last pressed, and say whether it `changed`
+    /// what is shown.
+    fn pressed(&mut self, pressed: Pressed, changed: bool) -> bool {
         self.last_pressed = Some(pressed);
         changed
+    }
+
+    /// The tabs opened whose results are now to be asked for, each once:
+    /// the window hands them to the searcher.
+    pub fn take_asks(&mut self) -> Vec<Further> {
+        std::mem::take(&mut self.to_ask)
     }
 
     /// Make a person's `edit` to the box — or to *Search chats*, while it
@@ -430,7 +477,29 @@ impl Conversation {
                 }
                 shown
             }
+            Came::Videos(videos) => self.further_came(searched.number, |thread, turn| {
+                thread.videos_came(turn, videos)
+            }),
+            Came::News(news) => {
+                self.further_came(searched.number, |thread, turn| thread.news_came(turn, news))
+            }
         }
+    }
+
+    /// What came of the tab asked for under `number`, put in the turn it was
+    /// opened in by `put`, in whichever chat: whether the chat on screen now
+    /// shows something else.
+    fn further_came(&mut self, number: u64, put: impl FnOnce(&mut Thread, usize) -> bool) -> bool {
+        let Some(at) = self.asked.iter().position(|(each, _, _)| *each == number) else {
+            return false;
+        };
+        let (_, chat, turn) = self.asked.remove(at);
+        let on_screen = self.on_screen() == Some(chat);
+        self.threads
+            .iter_mut()
+            .find(|(each, _)| *each == chat)
+            .is_some_and(|(_, thread)| put(thread, turn))
+            && on_screen
     }
 
     /// The newest search's results in the chat on screen, if a turn holds
@@ -1027,7 +1096,9 @@ mod tests {
             vec![
                 (chat, 0, Tab::All),
                 (chat, 0, Tab::Sites),
-                (chat, 0, Tab::Images)
+                (chat, 0, Tab::Images),
+                (chat, 0, Tab::Videos),
+                (chat, 0, Tab::News)
             ]
         );
         assert_eq!(shown.more, vec![(chat, 0)]);
@@ -1060,6 +1131,91 @@ mod tests {
             turn: 0,
             tab: Tab::All
         }));
+    }
+
+    #[test]
+    fn videos_and_news_are_asked_once_for_a_turn_when_their_tab_is_opened() {
+        use alo_renderer::results::{Images, Stories, Tab, Videos};
+        use alo_renderer::results_media::{Story, Video};
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "ev");
+        let _ = conversation.edit(Edit::Choose);
+        let chat = conversation.on_screen().unwrap();
+        assert!(conversation.searched(Searched {
+            number: 1,
+            words: "ev".to_owned(),
+            came: Came::Sites {
+                showing: results::Showing::Found(vec![found("https://one.example/"); 4]),
+                images: Images::NotAsked,
+            },
+        }));
+        assert!(conversation.take_asks().is_empty(), "never with a search");
+        let tab = |tab| Pressed::Tab { chat, turn: 0, tab };
+        assert!(conversation.act(tab(Tab::Videos)));
+        let asks = conversation.take_asks();
+        assert_eq!(
+            asks,
+            vec![Further {
+                number: 1,
+                words: "ev".to_owned(),
+                tab: Tab::Videos
+            }]
+        );
+        assert!(conversation.take_asks().is_empty(), "handed once");
+        // Away and back: not asked again, asking or answered.
+        assert!(conversation.act(tab(Tab::All)));
+        assert!(conversation.act(tab(Tab::Videos)));
+        assert!(conversation.take_asks().is_empty());
+        assert!(conversation.act(tab(Tab::News)));
+        assert_eq!(
+            conversation.take_asks(),
+            vec![Further {
+                number: 2,
+                words: "ev".to_owned(),
+                tab: Tab::News
+            }]
+        );
+        // An answer under a number nobody asked under is nothing.
+        assert!(!conversation.searched(Searched {
+            number: 9,
+            words: "ev".to_owned(),
+            came: Came::Videos(Videos::Found(Vec::new())),
+        }));
+        let video = Video::new("A video", alo_url::parse("https://v.example/w").unwrap());
+        assert!(conversation.searched(Searched {
+            number: 1,
+            words: "ev".to_owned(),
+            came: Came::Videos(Videos::Found(vec![video])),
+        }));
+        let story = Story::new("A story", alo_url::parse("https://n.example/s").unwrap());
+        assert!(conversation.searched(Searched {
+            number: 2,
+            words: "ev".to_owned(),
+            came: Came::News(Stories::Unanswered("no".to_owned())),
+        }));
+        assert!(
+            !conversation.searched(Searched {
+                number: 2,
+                words: "ev".to_owned(),
+                came: Came::News(Stories::Found(vec![story])),
+            }),
+            "answered once"
+        );
+        assert!(conversation.act(tab(Tab::Videos)));
+        assert!(conversation.take_asks().is_empty());
+        // A video's title pressed opens its page, its title what was said.
+        let shown = conversation.showing();
+        let page = alo_url::parse("https://v.example/w").unwrap();
+        assert_eq!(shown.found, vec![page.clone()]);
+        let _ = conversation.act(Pressed::Found(page.clone()));
+        assert_eq!(conversation.going(), Some(&page));
+        conversation.open_card(page);
+        assert_eq!(
+            conversation.card().map(|card| card.said.as_str()),
+            Some("A video")
+        );
     }
 
     #[test]

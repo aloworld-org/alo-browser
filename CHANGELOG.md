@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Videos and news in your search results.** The *Videos* and *News* tabs
+  now open once a search finds sites. *Videos* lists each video with its
+  picture, its length, its title, its site and how old it is; *News* lists
+  each story's site, age and headline. Pressing a title opens it in the
+  conversation. Each is asked of Brave only when you open its tab, once
+  for that search, so a search you never look further into costs nothing
+  more; pictures come only from Brave's own image service (items 745, 746).
+- **A test that reads Chrome's window from the screen no longer misreads
+  it** when the pointer rests on a link and Chrome shows the link's address
+  at the window's corner (item 764).
 - **Images in your search results, and every site.** Under the top sites,
   the *All* tab now shows a row of five images with *See all images*, and
   the *Images* tab shows them all as a grid, each with its title and site;

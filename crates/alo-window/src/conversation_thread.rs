@@ -29,7 +29,7 @@
 use alo_layout::Size;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_scroll::{self, Reach};
-use alo_renderer::results::{self, Images, Results, Tab};
+use alo_renderer::results::{self, Images, Results, Stories, Tab, Videos};
 use alo_renderer::turn::Turn;
 use alo_url::Url;
 
@@ -127,6 +127,53 @@ impl Thread {
         match self.turns.get_mut(turn) {
             Some(Turn::Searched(results)) if results.open(tab) && results.tab != tab => {
                 results.tab = tab;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The words to ask the provider for `tab`'s results of the search in
+    /// the turn at `turn`, when that tab is Videos or News and has never
+    /// been asked for — which it then is (queue items 745, 746, ADR 0087):
+    /// once for a turn, whatever comes of it.
+    pub fn ask_for(&mut self, turn: usize, tab: Tab) -> Option<String> {
+        let Some(Turn::Searched(results)) = self.turns.get_mut(turn) else {
+            return None;
+        };
+        if !results.open(tab) {
+            return None;
+        }
+        match tab {
+            Tab::Videos if matches!(results.videos, Videos::NotAsked) => {
+                results.videos = Videos::Asking;
+            }
+            Tab::News if matches!(results.news, Stories::NotAsked) => {
+                results.news = Stories::Asking;
+            }
+            _ => return None,
+        }
+        Some(results.said.clone())
+    }
+
+    /// What came of asking for the videos of the search in the turn at
+    /// `turn`: shown, if it is still asking. Whether it was.
+    pub fn videos_came(&mut self, turn: usize, videos: Videos) -> bool {
+        match self.turns.get_mut(turn) {
+            Some(Turn::Searched(results)) if matches!(results.videos, Videos::Asking) => {
+                results.videos = videos;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// What came of asking for the news of the search in the turn at
+    /// `turn`: shown, if it is still asking. Whether it was.
+    pub fn news_came(&mut self, turn: usize, news: Stories) -> bool {
+        match self.turns.get_mut(turn) {
+            Some(Turn::Searched(results)) if matches!(results.news, Stories::Asking) => {
+                results.news = news;
                 true
             }
             _ => false,
@@ -256,7 +303,21 @@ impl Thread {
                 .drawn_sites()
                 .iter()
                 .find(|found| found.url == *url)
-                .map(|found| found.title.clone()),
+                .map(|found| found.title.clone())
+                .or_else(|| {
+                    results
+                        .drawn_videos()
+                        .iter()
+                        .find(|video| video.page == *url)
+                        .map(|video| video.title.clone())
+                })
+                .or_else(|| {
+                    results
+                        .drawn_stories()
+                        .iter()
+                        .find(|story| story.page == *url)
+                        .map(|story| story.title.clone())
+                }),
             Turn::Visited { said, url: at } if at == url => Some(said.clone()),
             _ => None,
         })
@@ -322,7 +383,13 @@ mod tests {
         assert!(thread.searched("ev", Showing::Found(sites), Images::Asking));
         assert_eq!(
             thread.tabs(),
-            vec![(0, Tab::All), (0, Tab::Sites), (0, Tab::Images)]
+            vec![
+                (0, Tab::All),
+                (0, Tab::Sites),
+                (0, Tab::Images),
+                (0, Tab::Videos),
+                (0, Tab::News)
+            ]
         );
         assert_eq!(thread.more_sites(), vec![0]);
         assert!(thread.see_all().is_empty(), "no row while asking");
@@ -365,6 +432,49 @@ mod tests {
         width: 1040.0,
         height: 820.0,
     };
+
+    #[test]
+    fn videos_and_news_are_asked_for_once_and_shown_only_while_asked() {
+        use alo_renderer::results::{Stories, Videos};
+        use alo_renderer::results_media::Video;
+        let mut thread = Thread::default();
+        thread.search("ev".to_owned());
+        assert_eq!(thread.ask_for(0, Tab::Videos), None, "no sites yet");
+        let sites = vec![Found::new("S", url("https://s.example/"), "")];
+        assert!(thread.searched("ev", Showing::Found(sites), Images::NotAsked));
+        assert!(
+            !thread.videos_came(0, Videos::Found(Vec::new())),
+            "never asked"
+        );
+        assert_eq!(thread.ask_for(0, Tab::Videos), Some("ev".to_owned()));
+        assert_eq!(thread.ask_for(0, Tab::Videos), None, "once");
+        assert_eq!(thread.ask_for(0, Tab::Images), None, "not a tab asked so");
+        assert_eq!(thread.ask_for(1, Tab::News), None, "no turn there");
+        let video = Video::new("V", url("https://v.example/"));
+        assert!(thread.videos_came(0, Videos::Found(vec![video])));
+        assert!(
+            !thread.videos_came(0, Videos::Found(Vec::new())),
+            "answered"
+        );
+        assert_eq!(
+            thread.ask_for(0, Tab::Videos),
+            None,
+            "answered, never again"
+        );
+        assert_eq!(thread.ask_for(0, Tab::News), Some("ev".to_owned()));
+        assert!(thread.news_came(0, Stories::Unanswered("no".to_owned())));
+        assert_eq!(
+            thread.ask_for(0, Tab::News),
+            None,
+            "unanswered, never again"
+        );
+        assert!(thread.show_tab(0, Tab::Videos));
+        assert_eq!(thread.links(), vec![url("https://v.example/")]);
+        assert_eq!(
+            thread.said_for(&url("https://v.example/")).as_deref(),
+            Some("V")
+        );
+    }
 
     #[test]
     fn turns_are_appended_and_a_live_card_is_put_away_by_anything_newer() {

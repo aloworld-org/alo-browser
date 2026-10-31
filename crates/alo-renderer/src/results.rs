@@ -29,10 +29,13 @@
 //! # The other tabs
 //!
 //! [`Tab`]: **Sites**, every site the search found, and **Images**, a grid
-//! of every image found, each its picture, title and site (ADR 0086).
-//! Answer (707), Videos (745) and News (746) are drawn disabled, and claim
-//! nothing. Which tab a search shows is the browser process's, kept with
-//! its results; a press on a tab is claimed and decided as a title is.
+//! of every image found, each its picture, title and site (ADR 0086);
+//! **Videos**, each its picture, length, title and site, and **News**, each
+//! story's site, age and title (queue items 745, 746, ADR 0087), each asked
+//! of the provider only when a person opens its tab, once for a turn.
+//! Answer (707) is drawn disabled, and claims nothing. Which tab a search
+//! shows is the browser process's, kept with its results; a press on a tab
+//! is claimed and decided as a title is.
 //!
 //! # The pictures
 //!
@@ -44,6 +47,7 @@
 //! in one first screen, the newest turns' first ([`Results::drawn_images`],
 //! [`within_budget`]).
 
+use crate::results_media::{Story, Video};
 use crate::turn::Turn;
 use alo_url::Url;
 
@@ -78,7 +82,8 @@ pub const LARGEST_THUMBNAIL: usize = 256 * 1024;
 /// card, so what its pictures weigh is paid again each time.
 pub const MOST_PICTURE_BYTES: usize = 2 * 1024 * 1024;
 
-/// A tab of a search's results that is built (queue items 708, 743, 744).
+/// A tab of a search's results that is built (queue items 708, 743, 744,
+/// 745, 746).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Tab {
     /// The top sites and a row of images.
@@ -88,6 +93,10 @@ pub enum Tab {
     Sites,
     /// Every image found, as a grid.
     Images,
+    /// Every video found, as a list.
+    Videos,
+    /// Every news story found, as a list.
+    News,
 }
 
 impl Tab {
@@ -97,12 +106,14 @@ impl Tab {
             Tab::All => 0,
             Tab::Sites => 2,
             Tab::Images => 3,
+            Tab::Videos => 4,
+            Tab::News => 5,
         }
     }
 
     /// The tab at `place` among [`TABS`], if it is built.
     pub fn at(place: usize) -> Option<Self> {
-        [Tab::All, Tab::Sites, Tab::Images]
+        [Tab::All, Tab::Sites, Tab::Images, Tab::Videos, Tab::News]
             .into_iter()
             .find(|tab| tab.place() == place)
     }
@@ -128,22 +139,55 @@ pub struct Results {
     pub images: Images,
     /// Which tab is shown (queue item 744).
     pub tab: Tab,
+    /// Where the search for videos is (queue item 745): asked only once a
+    /// person opens the Videos tab.
+    pub videos: Videos,
+    /// Where the search for news is (queue item 746): asked only once a
+    /// person opens the News tab.
+    pub news: Stories,
 }
 
-/// Where a search for images is.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum Images {
-    /// Not asked: the search found no sites, or is still under way, or
-    /// images are not searched where it went (ADR 0086 § 1).
-    #[default]
+/// Where a further search of a search's words is — for its images, its
+/// videos or its news.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Asked<T> {
+    /// Not asked: for images, the search found no sites, or is still under
+    /// way, or images are not searched where it went (ADR 0086 § 1); for
+    /// videos and news, nobody has opened the tab (ADR 0087).
     NotAsked,
     /// Asked, and not yet answered.
     Asking,
-    /// Answered: the images found, best first — perhaps none.
-    Found(Vec<Pictured>),
+    /// Answered: what was found, best first — perhaps nothing.
+    Found(Vec<T>),
     /// Not answered, and why, in a sentence a person reads.
     Unanswered(String),
 }
+
+impl<T> Default for Asked<T> {
+    /// Not asked.
+    fn default() -> Self {
+        Self::NotAsked
+    }
+}
+
+impl<T> Asked<T> {
+    /// What was found, best first: nothing until it is answered.
+    pub fn found(&self) -> &[T] {
+        match self {
+            Asked::Found(found) => found,
+            Asked::NotAsked | Asked::Asking | Asked::Unanswered(_) => &[],
+        }
+    }
+}
+
+/// Where a search for images is.
+pub type Images = Asked<Pictured>;
+
+/// Where a search for videos is (queue item 745).
+pub type Videos = Asked<Video>;
+
+/// Where a search for news is (queue item 746).
+pub type Stories = Asked<Story>;
 
 /// One image a search found.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -197,6 +241,8 @@ impl Results {
             showing,
             images: Images::NotAsked,
             tab: Tab::All,
+            videos: Videos::NotAsked,
+            news: Stories::NotAsked,
         }
     }
 
@@ -214,12 +260,28 @@ impl Results {
         self
     }
 
-    /// Whether `tab` can be chosen: All always; Sites once sites were
-    /// found; Images once images were asked for.
+    /// The same results, with `videos`.
+    #[must_use]
+    pub fn with_videos(mut self, videos: Videos) -> Self {
+        self.videos = videos;
+        self
+    }
+
+    /// The same results, with `news`.
+    #[must_use]
+    pub fn with_news(mut self, news: Stories) -> Self {
+        self.news = news;
+        self
+    }
+
+    /// Whether `tab` can be chosen: All always; Sites, Videos and News
+    /// once sites were found — a search that drew nothing pays for nothing
+    /// more (ADR 0087); Images once images were asked for.
     pub fn open(&self, tab: Tab) -> bool {
+        let found = matches!(&self.showing, Showing::Found(found) if !found.is_empty());
         match tab {
             Tab::All => true,
-            Tab::Sites => matches!(&self.showing, Showing::Found(found) if !found.is_empty()),
+            Tab::Sites | Tab::Videos | Tab::News => found,
             Tab::Images => !matches!(self.images, Images::NotAsked),
         }
     }
@@ -266,8 +328,38 @@ impl Results {
                 .get(..IMAGES_ON_ALL.min(found.len()))
                 .unwrap_or_default(),
             Tab::Images => found,
-            Tab::All | Tab::Sites => &[],
+            Tab::All | Tab::Sites | Tab::Videos | Tab::News => &[],
         }
+    }
+
+    /// The videos the tab shown draws, best first: every one on Videos,
+    /// none elsewhere.
+    pub fn drawn_videos(&self) -> &[Video] {
+        match self.tab {
+            Tab::Videos => self.videos.found(),
+            _ => &[],
+        }
+    }
+
+    /// The news stories the tab shown draws, best first: every one on
+    /// News, none elsewhere.
+    pub fn drawn_stories(&self) -> &[Story] {
+        match self.tab {
+            Tab::News => self.news.found(),
+            _ => &[],
+        }
+    }
+
+    /// What the Videos tab says where the videos would be, when there are
+    /// none to show.
+    pub fn videos_note(&self) -> Option<String> {
+        asked_note(&self.videos, &self.said, "videos")
+    }
+
+    /// What the News tab says where the stories would be, when there are
+    /// none to show.
+    pub fn news_note(&self) -> Option<String> {
+        asked_note(&self.news, &self.said, "news")
     }
 
     /// What the Images tab says where the images would be, when there are
@@ -306,19 +398,33 @@ impl Results {
                 }
             }
         }
+        if self.tab != Tab::Videos
+            && let Videos::Found(found) = &mut sent.videos
+        {
+            for video in found.iter_mut() {
+                video.picture = None;
+            }
+        }
         sent
     }
 
     /// The bytes of every picture these results carry.
     pub fn picture_bytes(&self) -> usize {
-        match &self.images {
-            Images::Found(found) => found
-                .iter()
-                .filter_map(|image| image.picture.as_ref())
-                .map(Vec::len)
-                .sum(),
-            _ => 0,
-        }
+        let images: usize = self
+            .images
+            .found()
+            .iter()
+            .filter_map(|image| image.picture.as_ref())
+            .map(Vec::len)
+            .sum();
+        let videos: usize = self
+            .videos
+            .found()
+            .iter()
+            .filter_map(|video| video.picture.as_ref())
+            .map(Vec::len)
+            .sum();
+        images + videos
     }
 
     /// The sites All shows, best first: at most [`ON_ALL`].
@@ -439,15 +545,34 @@ impl Pictured {
     }
 }
 
+/// What a tab says where what it shows would be, when there is none: that
+/// it was not asked, is being asked, found nothing, or why it was not
+/// answered — of the search for `said`, for `what` (`videos`, `news`).
+fn asked_note<T>(asked: &Asked<T>, said: &str, what: &str) -> Option<String> {
+    match asked {
+        Asked::NotAsked => Some(format!(
+            "{PROVIDER} was not asked for {what} of \u{201c}{said}\u{201d}."
+        )),
+        Asked::Asking => Some(format!(
+            "Searching {PROVIDER} for {what} of \u{201c}{said}\u{201d}\u{2026}"
+        )),
+        Asked::Found(found) if found.is_empty() => Some(format!(
+            "{PROVIDER} found no {what} for \u{201c}{said}\u{201d}."
+        )),
+        Asked::Found(_) => None,
+        Asked::Unanswered(why) => Some(why.clone()),
+    }
+}
+
 /// The first letter or digit of `name`, as a capital.
-fn letter(name: &str) -> Option<String> {
+pub(crate) fn letter(name: &str) -> Option<String> {
     name.chars()
         .find(|c| c.is_alphanumeric())
         .map(|first| first.to_uppercase().collect())
 }
 
 /// One of four tints, the same for a host every time.
-fn tint(url: &Url) -> usize {
+pub(crate) fn tint(url: &Url) -> usize {
     let host = alo_url::reading::host(url);
     let sum = host
         .bytes()
@@ -473,14 +598,22 @@ pub fn within_budget(turns: &[Turn]) -> Vec<Turn> {
         let Turn::Searched(results) = turn else {
             continue;
         };
+        let mut keep = |picture: &mut Option<Vec<u8>>| {
+            let weighs = picture.as_ref().map_or(0, Vec::len);
+            if weighs > left {
+                *picture = None;
+            } else {
+                left -= weighs;
+            }
+        };
         if let Images::Found(found) = &mut results.images {
             for image in found.iter_mut() {
-                let weighs = image.picture.as_ref().map_or(0, Vec::len);
-                if weighs > left {
-                    image.picture = None;
-                } else {
-                    left -= weighs;
-                }
+                keep(&mut image.picture);
+            }
+        }
+        if let Videos::Found(found) = &mut results.videos {
+            for video in found.iter_mut() {
+                keep(&mut video.picture);
             }
         }
     }
@@ -551,6 +684,75 @@ mod tests {
             );
         }
         assert_eq!(Tab::at(1), None, "Answer is not built");
+        assert!(all.open(Tab::Videos) && all.open(Tab::News));
+        assert!(!searching.open(Tab::Videos) && !searching.open(Tab::News));
+        let unanswered = Results::of("x", Showing::Unanswered("no".to_owned()));
+        assert!(!unanswered.open(Tab::Videos) && !unanswered.open(Tab::News));
+        let nothing = Results::of("x", Showing::Found(Vec::new()));
+        assert!(!nothing.open(Tab::Videos), "a search that found nothing");
+    }
+
+    fn video(n: u8, bytes: usize) -> Video {
+        Video::new(
+            format!("{n}"),
+            alo_url::parse("https://v.example/").unwrap(),
+        )
+        .holding(vec![n; bytes])
+    }
+
+    #[test]
+    fn videos_and_stories_are_drawn_only_on_their_own_tabs_and_say_why_when_none() {
+        let story = Story::new("S", alo_url::parse("https://n.example/").unwrap());
+        let results = with_images(2, 10)
+            .with_videos(Videos::Found((0..3).map(|n| video(n, 7)).collect()))
+            .with_news(Stories::Found(vec![story]));
+        assert!(results.drawn_videos().is_empty() && results.drawn_stories().is_empty());
+        let videos = results.clone().on(Tab::Videos);
+        assert_eq!(videos.drawn_videos().len(), 3);
+        assert!(videos.drawn_images().is_empty() && videos.drawn_sites().is_empty());
+        assert_eq!(videos.as_drawn().picture_bytes(), 21, "the videos alone");
+        assert_eq!(results.as_drawn().picture_bytes(), 20, "All's row alone");
+        let news = results.on(Tab::News);
+        assert_eq!(news.drawn_stories().len(), 1);
+        assert_eq!(news.as_drawn().picture_bytes(), 0);
+        let mut asked = Results::of("ev", Showing::Found(vec![found("https://a.example/")]));
+        assert_eq!(
+            asked.videos_note().as_deref(),
+            Some("Brave Search was not asked for videos of \u{201c}ev\u{201d}.")
+        );
+        asked.videos = Videos::Asking;
+        assert_eq!(
+            asked.videos_note().as_deref(),
+            Some("Searching Brave Search for videos of \u{201c}ev\u{201d}\u{2026}")
+        );
+        asked.news = Stories::Found(Vec::new());
+        assert_eq!(
+            asked.news_note().as_deref(),
+            Some("Brave Search found no news for \u{201c}ev\u{201d}.")
+        );
+        asked.news = Stories::Unanswered("Brave Search could not answer just now (502).".into());
+        assert_eq!(
+            asked.news_note().as_deref(),
+            Some("Brave Search could not answer just now (502).")
+        );
+        // Videos' pictures count against the first screen's budget too.
+        let heavy = || {
+            Turn::Searched(
+                with_images(0, 0)
+                    .with_videos(Videos::Found(
+                        (0..20).map(|n| video(n, 50 * 1024)).collect(),
+                    ))
+                    .on(Tab::Videos),
+            )
+        };
+        let weights: Vec<usize> = within_budget(&[heavy(), heavy(), heavy()])
+            .iter()
+            .map(|turn| match turn {
+                Turn::Searched(results) => results.picture_bytes(),
+                _ => 0,
+            })
+            .collect();
+        assert_eq!(weights, vec![0, 1_024_000, 1_024_000]);
     }
 
     #[test]

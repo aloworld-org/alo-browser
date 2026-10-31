@@ -144,7 +144,8 @@ line at the window's foot.
   claim nothing; *More sites ›* likewise. *(Since built: the row of images,
   the Images tab, the Sites tab and More sites ›, by queue items 743 and
   744 — what a search's images cost and where their pictures come from is
-  ADR 0086.)* A site's favicon is not fetched —
+  ADR 0086; Videos and News by 745 and 746, asked only when their tab is
+  opened, ADR 0087.)* A site's favicon is not fetched —
   it would be one more request to Brave per result, of a picture — so a site
   shows its letter on one of four tints. Queued: images (743), the Sites tab
   and *More sites ›* (744), Videos (745), News (746), a site's own mark

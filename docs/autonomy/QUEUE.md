@@ -20629,7 +20629,7 @@ What stage 2's exit gate actually measures: a person using it.
   positioned. *Closes when:* a reduced case in `where_a_pointer_falls.rs`
   and the hit test fixed. *Depends on nothing.*
 
-- [ ] **764. A marked-box test that reads the page wherever the capture
+- [x] **764. A marked-box test that reads the page wherever the capture
   grows.** Found by 743's gate: `tests/marked/mod.rs` finds the page's
   origin in `screencapture -l`'s picture once, from the first capture.
   With the pointer resting over the page's *Onward* link, Chrome shows its
@@ -20641,14 +20641,84 @@ What stage 2's exit gate actually measures: a person using it.
   pointer off the window before the test begins. *Closes when:* both
   marked-box tests pass with the pointer resting on the link.
   *Depends on nothing.*
+  ***Built (iteration 469) — ticked once the gate was met (STATE, iteration 469).*** `tests/marked/mod.rs` finds the page in
+  every capture: each is taken between two listings of Chrome's windows
+  on the screen (`window_server::on_the_screen`), the window's union with
+  every window of its process that overlaps it — what `screencapture -l`
+  takes, the link bubble at 119,731 174 × 22 beside the window at 120,80
+  600 × 672 — and kept only when both listings agree and the picture is
+  exactly that union at the screen's whole scale; the page's corner is
+  the window's place within it. A capture taken while a child window came
+  or went is taken again; nothing is widened. The scale is found once, a
+  whole multiple of the union both ways. With the pointer at (570,562),
+  over *Onward*: both tests failed with the old helper (*the page the link
+  went to: never seen*) and passed three runs in three with the new.
 
-- [ ] **745. The Videos tab.** Cut from 708. Brave's video search
+- [x] **745. The Videos tab.** Cut from 708. Brave's video search
   (`/res/v1/videos/search`), the words alone; each video its picture,
   title, length and site, opening in the card. *Depends on 708, 743.*
+  ***Built (iteration 469), with 746 — ticked once the gate was met (STATE, iteration 469); decided in ADR 0087; a story's
+  photo cut to 765.*** **Cost:** asked only when a person opens a turn's
+  Videos tab, once for the turn whatever comes (`Thread::ask_for`, *not
+  asked* to *asking*; `Conversation::take_asks`, handed to the search
+  thread under a number of the conversation's, `Searcher::videos`, and
+  answered by that number, `Came::Videos`); never with a search; the tab
+  open, as Sites is, once sites were found. **Read**
+  (`search_protocol::read_videos`): `type` `videos` or refused whole
+  (`NotVideos`, and the shared refusals); a video with no title or page,
+  or a page not a site's, left out and named; `video.duration` kept only
+  when it is a length (`results_media::is_length`); the site the
+  publisher, else `meta_url.hostname`; at most twenty. **Pictures:**
+  `thumbnail.src` at the proxy alone (`search_thumbnails::fetch_videos`,
+  the same rules as an image's), sent as `alo:video-TURN-N`, decoded only
+  in the confined renderer, counted in the first screen's 2 MiB
+  (`results::within_budget`). **Drawn** (`videos_document.rs`,
+  `start.css`): rows 20 apart, the picture 200 × 112 rounded 10 on
+  `#2A3446`, its length over the corner in one grid cell with it — nothing
+  positioned (763) — then the title, site and age, and two lines of
+  description. **Pressed:** a title is of the class `title` and opens its
+  page in the card, its bubble the title (`Turn::links`,
+  `Thread::said_for`); the picture claims nothing. **Tests:**
+  `alo-renderer/tests/a_searchs_videos_and_news.rs` — rows at 164, 296,
+  428, 880 × 112; tiles 200 × 112; a 16:9 picture 200 × 112.5 at 163.75,
+  4:3 200 × 150 at 277; lengths 19 tall, right at 272, foot at 268; the
+  body at 296, title 2 down, site 30 down, description 54 down; reference
+  `videos-tab.png`, looked at, then run without update mode; the agent
+  reading each title as a link and length, site and age as text; hostile
+  strings as text; a press on each title claimed by its place, on a
+  picture, length or site nothing; the same through a confined renderer.
+  Wire round trips and refusals (`messages_across_a_boundary.rs`); unit
+  tests of the answer (malformed, truncated at every byte, too deep, too
+  large, sixty kept as twenty), the request, the thread, the conversation
+  and the budget. Through the window's own road
+  (`alo-window/tests/videos_and_news_pressed_in_the_window.rs`): a search
+  asks web and images and neither videos nor news; Videos pressed asks the
+  video search once, the words alone with the key, then each thumbnail
+  without it and none named elsewhere, and paints both pictures; All then
+  Videos again asks nothing.
 
-- [ ] **746. The News tab.** Cut from 708. Brave's news search
+- [x] **746. The News tab.** Cut from 708. Brave's news search
   (`/res/v1/news/search`), the words alone; each story its site, age and
   title, opening in the card. *Depends on 708.*
+  ***Built (iteration 469), with 745 — ticked once the gate was met (STATE, iteration 469); ADR 0087.*** Asked as Videos is,
+  only when a person opens the turn's News tab, once
+  (`Searcher::news`, `Came::News`). Read (`search_protocol::read_news`):
+  `type` `news` or refused whole (`NotNews`); the site `profile.name`,
+  else `meta_url.hostname`; the age as Brave writes it; at most twenty.
+  Drawn (`news_document.rs`): each story 16 above and below, the first 4,
+  over a line of `#E6E0D6` — its site's mark, name and age, its headline
+  17 on 24, two lines of description; the canvas's photo cut to 765.
+  Tests: rows (80, 164) 93, (80, 257) 105, (80, 362) 83 tall; the line
+  under the first painted at 256; reference `news-tab.png`; through the
+  window's road News asked once, painted, opened again asking nothing, and
+  its first headline pressed opening its page as a turn whose bubble is
+  `Chargers <b>&</b> cables, explained` — markup as its characters.
+
+- [ ] **765. A news story's photo.** Cut from 746. The canvas draws a
+  photo 132 × 88, rounded 10, on `#E9E3D8`, 20 beside each story's text.
+  Brave names one (`thumbnail.src`, its proxy): fetch it as a video's
+  thumbnail is (ADR 0087 § 3), carry it as `Story::picture`, count it in
+  the first screen's budget, and draw it. *Depends on 746.*
 
 - [ ] **747. A site's own mark in the results.** Cut from 708: a site shows
   its letter on one of four tints, where the design shows its mark. Brave

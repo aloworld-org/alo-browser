@@ -382,10 +382,11 @@ fn the_all_tabs_row_of_images_is_laid_out_as_the_design_draws_it() {
     );
     assert_eq!(at("more"), vec![px(80.0, 584.0, 75.6875, 20.0)]);
     assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
-    // The tabs: All shown, Sites and Images open, the rest disabled.
+    // The tabs: All shown, Sites, Images, Videos and News open (queue
+    // items 744–746), Answer disabled.
     assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.546_875, 42.0)]);
-    assert_eq!(at("rt").len(), 2);
-    assert_eq!(at("rt off").len(), 3);
+    assert_eq!(at("rt").len(), 4);
+    assert_eq!(at("rt off").len(), 1);
 }
 
 #[test]
@@ -546,7 +547,7 @@ fn an_agent_reads_the_images_as_links_named_by_their_titles() {
         .collect();
     assert_eq!(
         disabled,
-        vec![false, true, false, false, true, true],
+        vec![false, true, false, false, false, false],
         "{outline}"
     );
     let buttons = read(&drawn.tree, "button");
@@ -636,14 +637,14 @@ fn a_press_on_an_image_a_tab_more_sites_or_see_all_is_claimed_by_its_place() {
             nothing.clone(),
             claimed(Claim::Tab { at: 1 }),
             claimed(Claim::Tab { at: 2 }),
-            nothing.clone(),
+            claimed(Claim::Tab { at: 3 }),
             claimed(Claim::MoreSites { at: 0 }),
             claimed(Claim::SeeAllImages { at: 0 }),
             nothing.clone(),
             nothing.clone(),
         ],
-        "the images, All, Answer (disabled), Sites, Images, Videos (disabled), More sites, \
-         See all images, the row's heading, between two tiles"
+        "the images, All, Answer (disabled), Sites, Images, Videos (open since 745), More \
+         sites, See all images, the row's heading, between two tiles"
     );
     // On the grid, the tile and the caption are the image's.
     assert_eq!(
