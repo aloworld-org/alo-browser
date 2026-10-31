@@ -60,10 +60,17 @@ picture.
 
 1. **A website** (`evhomeguide.org`): *Go to the site* is offered first and
    Return opens it, with no model involved. Tab asks the agent instead.
-2. **Anything else**: the **Sites** tab first — each result its site's mark,
-   name and address, the page's title as a link, a two-line description. A
-   site the answer drew on says *alo used this*.
-3. The tabs, in order: **Sites · Answer · Images · Videos · News**.
+2. **Anything else**: the **All** tab first, as a search page does it — a
+   short answer from the model, two or three sentences straight on the page's
+   ground (no box), with its source numbers, *Full answer ›* (the Answer tab)
+   and how many sites it drew on, a line under it; then the top sites from
+   the search API (ADR 0082), each its site's mark, name and address, the
+   page's title as a link and a two-line description; then a row of images
+   with *See all images*; then *More sites ›*. A site the answer drew on says
+   *alo used this*. The owner chose this on 31 October 2026.
+3. The tabs, in order: **All · Answer · Sites · Images · Videos · News**. The
+   Answer tab holds the full answer and its sources; each other tab one kind
+   of result.
 
 ### What is built of it (item 701)
 

@@ -6,6 +6,9 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Design: every search opens on an All tab.** A short answer first, on the
+  page itself, then the sites, a row of images and more sites; the tabs are
+  All · Answer · Sites · Images · Videos · News (`docs/design/shell.md`).
 - **A page opened from the conversation is a card in it.** Typing an
   address and pressing Return now shows the page inside the conversation,
   under what you typed, in a white card with Back, Forward, the address,
