@@ -21,7 +21,9 @@
 //! CEF's own is the `cef` crate's, behind the files that name it: [`host`],
 //! which loads and runs it, [`window`], the window it shows a page in for
 //! `--app=` (queue item 727) and the pages it closes when it ends, and
-//! [`application_mac`].
+//! [`application_mac`]. A window holding a page alo shows as a card opens
+//! unseen and parked, and is seen once alo puts it where a person is to see
+//! it ([`parked`], [`unseen_mac`], queue item 771).
 //!
 //! It is one program in two roles ([`switches::Role`]): the browser process
 //! alo starts, and each helper CEF starts from the copies of it in the
@@ -45,7 +47,9 @@ compile_error!("alo's CEF host is built for macOS only so far (queue item 728)")
 mod application_mac;
 mod host;
 mod menu_mac;
+mod parked;
 mod switches;
+mod unseen_mac;
 mod window;
 
 use std::ffi::OsString;
@@ -100,6 +104,7 @@ fn main() -> ExitCode {
         &program,
         &profile,
         switches::app(&args),
+        switches::card(&args),
     )))
 }
 

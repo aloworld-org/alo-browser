@@ -394,6 +394,7 @@ mod tests {
             number,
             owner: 7,
             layer,
+            alpha: 255,
             bounds: None,
         }
     }

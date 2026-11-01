@@ -117,10 +117,11 @@ declare -a BOUNDARIES=(
   # alo's CEF host (ADR 0079 § 3, option H), its own workspace: CEF where it
   # is loaded and run, where the host's windows and pages are, and where its
   # application object answers CEF's protocols; AppKit only in the
-  # application object and its menu bar (ADR 0080).
+  # application object, its menu bar (ADR 0080) and where a card's window is
+  # made transparent (queue item 771).
   "cef:crates/alo-cef-host/src/host.rs,crates/alo-cef-host/src/window.rs,crates/alo-cef-host/src/application_mac.rs"
-  "objc2:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs"
-  "objc2_app_kit:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs"
+  "objc2:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs"
+  "objc2_app_kit:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs"
   "objc2_foundation:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs"
 )
 

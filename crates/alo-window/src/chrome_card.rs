@@ -8,7 +8,9 @@
 //!
 //! The card is drawn by this engine from the frames Chrome streams of the
 //! page ([`crate::chrome_screencast`]), while Chrome's own window is parked
-//! off every display ([`crate::chrome_window::PARKED`], ADR 0076 B4). So:
+//! ([`crate::chrome_window::PARKED`], ADR 0076 B4) — drawn fully
+//! transparent there by the Chromium alo carries, which the window server
+//! lists on no display (queue item 771). So:
 //!
 //! - **Stream**: Chrome is asked for PNG frames at most the card's size
 //!   times the window's scale; each is answered as it is read, and the
@@ -16,16 +18,17 @@
 //!   [`CAST_EVERY`] at most. A card whose page box is another size than the
 //!   page is laid out at — the window made narrower or wider, the panel
 //!   hidden or shown (queue item 774) — has Chrome's window fitted to it
-//!   first, so one CSS pixel of the page is still one of the card's. Of
-//!   the streams asked while the thread was busy, only the newest is
-//!   carried out ([`only_the_newest_stream`]): a window dragged narrower
-//!   asks one at every step.
+//!   first — at [`crate::chrome_window::PARKED`] while it is parked, so it
+//!   stays parked — so one CSS pixel of the page is still one of the
+//!   card's. Of the streams asked while the thread was busy, only the
+//!   newest is carried out ([`only_the_newest_stream`]): a window dragged
+//!   narrower asks one at every step.
 //! - **Unstream**: Chrome is told to stop, and the conversation what the
 //!   stream came to once Chrome has answered ([`ToFrame::Uncast`]).
 //! - **Expand**: the stream stops — the card is covered — and Chrome's own
-//!   window, the same tab with nothing reloaded, is given the size asked,
-//!   put where it is asked and brought in front, as ADR 0075 placed it over
-//!   the conversation.
+//!   window, the same tab with nothing reloaded, is given the size asked
+//!   where it is asked, and brought in front, as ADR 0075 placed it over
+//!   the conversation; the Chromium alo carries draws it opaque from then.
 //!
 //! - **Where the page is**: told to the conversation whenever the page's
 //!   own frame goes somewhere while it streams ([`tell_where`],
@@ -75,14 +78,29 @@ pub const CAST_EVERY: Duration = Duration::from_millis(4);
 /// Who is told what the card's tab streamed.
 pub type TellCard<'t> = Option<&'t (dyn Fn(ToFrame) -> bool + Send)>;
 
-/// Carry out `order` on `tab`, whose page is laid out at `laid_out` CSS
-/// pixels as far as this thread has fitted it, telling `tell`.
-pub fn carry_out(
-    tab: &mut Tab<'_>,
-    order: CardOrder,
-    tell: TellCard<'_>,
-    laid_out: &mut (u32, u32),
-) {
+/// What the thread holding a card's tab has made of its window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Fitted {
+    /// The size, in CSS pixels, the page was last laid out at as far as
+    /// this thread has fitted it (queue item 774).
+    pub page: (u32, u32),
+    /// Whether the window is still parked, the card not yet expanded: a
+    /// parked window is fitted at [`chrome_window::PARKED`], so that it
+    /// stays parked (queue item 771).
+    pub parked: bool,
+}
+
+impl Fitted {
+    /// A card's window as the thread holding it starts: its page laid out
+    /// at `page`, and parked.
+    pub fn parked(page: (u32, u32)) -> Self {
+        Self { page, parked: true }
+    }
+}
+
+/// Carry out `order` on `tab`, whose window is as `fitted` says, telling
+/// `tell`.
+pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted: &mut Fitted) {
     match order {
         CardOrder::Stream {
             width,
@@ -94,12 +112,17 @@ pub fn carry_out(
                 // Chrome takes a stream's size only as it starts.
                 stop(tab, tell);
             }
-            if *laid_out != page {
+            if fitted.page != page {
                 // Declined, the page keeps its size and its frames are
                 // drawn in the card's box as they come; asked again with
                 // the next stream.
-                if chrome_window::fit(tab, page.0, page.1).is_ok() {
-                    *laid_out = page;
+                let fit = if fitted.parked {
+                    chrome_window::fit_at(tab, page.0, page.1, chrome_window::PARKED)
+                } else {
+                    chrome_window::fit(tab, page.0, page.1)
+                };
+                if fit.is_ok() {
+                    fitted.page = page;
                 }
             }
             // Declined, the card keeps no picture; see the module's words.
@@ -109,9 +132,12 @@ pub fn carry_out(
         CardOrder::Expand { at, size } => {
             stop(tab, tell);
             // Said by the next reading of where the window is, if it fails.
-            if chrome_window::fit(tab, size.0, size.1).is_ok() {
-                *laid_out = size;
+            // Fitted where it is going, never grown where it was parked
+            // first, onto the display holding its strip.
+            if chrome_window::fit_at(tab, size.0, size.1, at).is_ok() {
+                fitted.page = size;
                 let _ = chrome_window::place(tab, at.0, at.1);
+                fitted.parked = false;
             }
         }
         CardOrder::Input(input) => chrome_card_input::forward(tab, &input),

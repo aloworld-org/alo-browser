@@ -1,6 +1,6 @@
 # ADR 0076 — Where a page opened in the conversation is drawn
 
-**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718
+**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below)
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive); ADR 0059 (the
 product path and the engine path); ADR 0061 (Chrome draws the page in its own
@@ -527,3 +527,150 @@ clipped to the room above and below, so a press, drag or wheel on the page
 still lands where it is drawn — tested through the machine's Chrome and
 alo's CEF host at an offset of 120.
 
+
+## Amended (1 November 2026, queue item 771): B4's parked window is not off every display
+
+B4 measured a window asked at `left: -20000` "clamped to −3727, off every
+display". On a Mac with more than one display that is not so: ADR 0090
+measured the window server moving a shown window back until a strip of it is
+on a display, and a screenshot of a real card (`en.wikipedia.org`) showed
+153 points of the live page on the leftmost display. With one display it
+would be on the person's own (reasoned, not measured: no display could be
+removed here). So B4's park, as built, **leaves a strip of the card's page
+on a screen**. This amendment says what keeps a window streaming and yet
+unseen, and decides.
+
+### Measured
+
+macOS 26.5, Stage Manager on, three displays — the built-in Retina display
+at two at the origin (1710 × 1107 points), a 1920 × 1080 display at one left
+of it, a portrait 1080 × 1920 display at one left of that (−3000, −80).
+Google Chrome 156.0.8078.76 and alo's CEF host (CEF 156.0.14, Chromium
+156.0.8078.48), each shown with `--app=data:,`, its window put at
+`left: -20000` 878 × 552, its page one of a box turning and a field of noise
+moved every frame, streamed as PNG at 878 × 520 and each frame answered at
+once. Read for each: frames a second, `requestAnimationFrame`s a second,
+`Runtime.evaluate("1")` thirty times, `document.visibilityState`, a press
+sent by `Input.dispatchMouseEvent` on a button (did its `click` run), and
+the window server's list of every window of the process
+(`CGWindowListCopyWindowInfo`: on screen, alpha, bounds, against every
+display's bounds). A Node client of the scratchpad's, and a scratch build of
+the host whose window was treated as an environment variable said; neither
+program's source was read.
+
+| what was done to the parked window | program | frames/s | rAF/s | evaluate median / p90 | visibility | press lands | the window server |
+|---|---|---|---|---|---|---|---|
+| nothing (B4 as built) | Chrome | 69.8 | 60.5 | 0.30 / 6.7 ms | visible | yes | on screen, alpha 1, 153 × 552 of it on the portrait display |
+| nothing (B4 as built) | host | 69.8 | 60.6 | 0.28 / 10.6 ms | visible | yes | the same |
+| another program in front, Stage Manager | both | 69.2–69.6 | 60 | 0.3 / 7–10 ms | visible | yes | at times its thumbnail in the strip, 47 × 58 at −2984, 866, on the portrait display |
+| `windowState: minimized` | both | 68.7–69.7 | 60 | 0.3 / 1.3–8 ms | visible | yes | **not minimised**: Chromium said `normal` after, and the window was listed in Stage Manager's strip |
+| its application hidden (`NSRunningApplication.hide`) | Chrome | **0** | **0** | 1.4–1.8 / 1.6–2.2 ms | **hidden** | yes | off screen |
+| the same, with `--disable-backgrounding-occluded-windows`, `--disable-renderer-backgrounding` and `MacWebContentsOcclusion` off | Chrome | **0** | **0** | — | hidden | yes | off screen |
+| ordered out (`orderOut:`) | host | **0** | 1 | 1.4–1.6 ms | visible | yes | off screen, left at −20000 |
+| a hidden target (`Target.createTarget` `hidden`) | Chrome | **0** | — | — | — | — | no window |
+| a background tab (`background: true`) | Chrome | 0.5 | — | — | **hidden** | — | its window on a display |
+| started with `--window-position=-20000,0` | Chrome | 69.7 | 60.5 | 0.29 / 8.8 ms | visible | yes | **wholly on** the portrait display, −2887 |
+| `alphaValue` 0, set after it was shown | host | 69.6 | 60.4 | — | visible | yes | alpha back to 1 — Chromium put back the alpha it was shown with |
+| **`alphaValue` 0, set before it was shown** | host | **69.0–70.6** | **60** | **0.26–0.38 / 1.6–11.8 ms** | visible | **yes** | **on screen, alpha 0**; a screenshot of the strip shows only the desktop |
+| the same, a person's click on the strip (`cliclick` at −2950, 300) | host | | | | | **reached the page** (`mousedown` 1) | |
+| **the same with `ignoresMouseEvents`** | host | | | | | **did not**: the click went to the desktop | |
+| then *Expand* (`Browser.setWindowBounds` 120, 80, `Target.activateTarget`), alpha 1 and the pointer taken again | host | | | | | a person's click on the page reached it | on screen at 120, 80, alpha 1 |
+
+Where the window server leaves a window asked far off (both programs alike,
+every width): asked at −20000 it keeps **153 points** on the leftmost display
+(878 wide at −3725, 600 at −3447, 400 at −3247, 250 at −3097); asked right of
+the Retina display, 40 points; asked below the display at one, moved up onto
+it. A parked window fitted to a narrower card and then a wider one where it
+was grew rightwards onto the display: fitted 414 and then 878 wide, it was at
+−3261, **761 points of it on the display** (found by the 717 test).
+
+A card's page may move its own `--app` window: `moveTo(200, 200)` from the
+page put the host's parked window wholly on the portrait display (queue item
+778).
+
+### Decided
+
+1. **The Chromium alo carries draws a card's window fully transparent and
+   letting the pointer through, until the card is expanded.** alo starts a
+   card's host with `--alo-card` (`chrome::CARD`, `chrome::as_a_card`); the
+   host makes the window's `alphaValue` 0 and `ignoresMouseEvents` true
+   before it is first shown (`unseen_mac.rs`, safe `objc2-app-kit` calls, no
+   `unsafe`), and makes it opaque and taking the pointer again, for good,
+   once alo puts it where a person is to see it after it was parked — its
+   centre on a display (`parked.rs`: `Stage` opened → parked → seen;
+   `placed`). Where it was shown and first fitted, both on a display, do
+   not count; *Expand* does. The window stays parked where B4 parks it,
+   streaming at sixty frames a second, its page `visible`, taking every
+   input alo sends, and the agent's reads unchanged; the window server
+   lists it with alpha 0, and nothing of it is in a screenshot of any
+   display.
+2. **A parked window is fitted at `PARKED`**, never where the window server
+   left it (`chrome_window::fit_at`, `chrome_card::Fitted`), and *Expand*
+   fits the window where it is going, so a parked window is never grown
+   onto a display on the way — through both programs.
+3. **The machine's Chrome is left as it was.** Nothing public that was
+   measured makes another program's window unseen and still streaming:
+   hiding its application, ordering it out, a hidden target or a
+   background tab stops its frames; minimising it does not happen under
+   Stage Manager; Chrome puts a window started off every display wholly on
+   one. Its window keeps B4's strip — 153 points on this Mac. The machine's
+   Chrome draws cards only for `alo --chrome` run from a terminal and for
+   this repository's tests; the application carries its own Chromium
+   (ADR 0077) and never starts the machine's.
+
+### Rejected
+
+- **Hiding the application** — it stops the frames (above), and a person's
+  ⌘-Tab shows it again.
+- **Minimising** — not done under Stage Manager, which the owner runs; and
+  where it is done, the Dock shows a picture of the window.
+- **Ordering out, a hidden target, a background tab** — no frames.
+- **A place off every display** — there is none for a shown window.
+- **Seen when activated** — CEF 156 activates the host as it shows the
+  window (ADR 0076's 742 section), and macOS gives activation when it
+  chooses, so which activation is *Expand*'s cannot be told; the window's
+  place can.
+- **Transparent alone** — a person's click on the strip reached the page.
+
+### What it costs
+
+- **A card's page that moves its own window** (`moveTo`) onto a display is
+  taken as placed, and seen: the host cannot tell a page's move from
+  alo's. It could before this amendment too, opaque. Queue item 778.
+- **A conversation more than half off every display**, expanded: the window
+  is placed where the conversation is, its centre on no display, and stays
+  transparent. Not measured.
+- **The narrowest card**: a parked window of 306 points or less would have
+  its centre on the display holding its 153-point strip; the narrowest card
+  the conversation draws is about 470 (a 600-point window's column of 472
+  less the card's border).
+- **⌘-Tab, the Dock and Mission Control** still show *alo Chromium*, and
+  bring nothing visible to the front while it is parked — queue item 739's,
+  measured by neither this item nor B4. Making the host an accessory
+  application while it holds a parked card (`NSApp.setActivationPolicy`)
+  would take it out of both; not tried.
+- **Through the machine's Chrome, a strip stays on a display.**
+
+### Built and tested
+
+`crates/alo-cef-host`: `switches::CARD`/`card`, `parked.rs` (`Stage`,
+`placed`, 5 unit tests), `unseen_mac.rs`, `window.rs`'s `Framed` (unseen
+before showing, `on_window_bounds_changed`), named in `scripts/gate.sh`'s
+list of where `objc2` and `objc2_app_kit` may be named. `alo-window`:
+`chrome::CARD`, `as_a_card`; `chrome_window::fit_at`; `chrome_card::Fitted`;
+`window_server::Listed::alpha`, `displays`, `seen`. The 717 test
+(`a_page_as_a_card_through_chrome.rs`) now asserts, through alo's CEF host,
+that **no window of the host's process the window server lists on the screen
+is drawn on any display**, read against every display's bounds — before the
+page streams, and again after it has streamed and been fitted at 661, 414 and
+878 — that it streams (1756 × 1040, 18.4 a second, 25.0 MiB a second) with
+the agent's reads at 0.94 → 0.98 ms median, 0.99 → 1.12 p90, and that
+*Expand* shows it opaque at 120, 80; through the machine's Chrome, only that
+it is left of the main display. The person's input reaching a parked card's
+page through the host is 718's test, unchanged and passing. Mutations: the
+switch not passed, a parked card fitted where it is, and the window made seen
+where it was first fitted each fail the parked check through the host. By
+hand (session scratchpad `handrun18/`): `en.wikipedia.org` in a card, every
+display captured — the portrait display's corner where the strip was shows
+the desktop only — and *Talk* pressed in the card followed, the card at
+`Talk:Main_Page`.

@@ -323,6 +323,12 @@ The page in the card is as sharp as the window it is in: its frames are
 drawn at the conversation window's scale, two on a Retina display, wherever
 Chrome's parked window is (ADR 0090, item 738).
 
+Nothing of the parked window is seen: the window server keeps a strip of it
+on a display, so the Chromium alo carries draws it fully transparent and
+lets a person's pointer through it until *Expand* shows it (ADR 0076 B4's
+amendment, item 771). Through the machine's Chrome, run from a terminal,
+the strip stays.
+
 *Back* and *Forward* are the page's own session history, as Chrome holds it:
 each is drawn dark and pressable only when there is a page of the card's
 that way, and greyed otherwise. The blank page the card's window began at is

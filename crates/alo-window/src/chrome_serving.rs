@@ -343,8 +343,10 @@ impl ChromeServing {
     /// [`ChromeServing::start_shown_alone`], for a page the conversation
     /// shows as a card (ADR 0076 B, queue item 717): laid out at `size` CSS
     /// pixels — the card's page box — in Chrome's own window, which is
-    /// parked off every display ([`chrome_window::PARKED`]) and never
-    /// brought in front until the card is expanded
+    /// parked ([`chrome_window::PARKED`]) — drawn transparent there by the
+    /// Chromium alo carries, which is told it holds a card
+    /// ([`crate::chrome::CARD`], queue item 771) — and never brought in
+    /// front until the card is expanded
     /// ([`crate::message::CardOrder::Expand`]). Nothing is streamed until
     /// the conversation asks ([`crate::message::CardOrder::Stream`]); what
     /// is streamed, and that it stopped, is told on `told` beside what
@@ -592,8 +594,9 @@ fn serve_in_chrome(
     let mut told_loading = None;
     // And where it can go back or forward to (queue item 737).
     let mut told_travel = chrome_history::Told::default();
-    // And the size its page was last laid out at (queue item 774).
-    let mut laid_out = size;
+    // And the size its page was last laid out at (queue item 774), and
+    // whether its window is still parked (queue item 771).
+    let mut fitted = chrome_card::Fitted::parked(size);
     loop {
         let until = chrome_card::until(
             pages.tab(),
@@ -616,7 +619,7 @@ fn serve_in_chrome(
                     .answer(caller, ask, &reply);
                 }
                 Arrival::Order(Order::Card(order)) => {
-                    chrome_card::carry_out(pages.tab_mut(), order, frame, &mut laid_out);
+                    chrome_card::carry_out(pages.tab_mut(), order, frame, &mut fitted);
                 }
                 Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
                     // A stream is stopped, and Chrome's word on it heard,

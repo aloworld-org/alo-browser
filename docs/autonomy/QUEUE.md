@@ -19603,7 +19603,12 @@ What stage 2's exit gate actually measures: a person using it.
   not measure it. A person may find Chrome's application in the Dock or ⌘-Tab
   and bring a window off every display to the front. Measure it, and answer
   it — hiding the application, or another way — by an ADR if it is a new
-  decision. *Depends on 717.*
+  decision. *Depends on 717.* Noted by 771: alo's own Chromium now draws a
+  parked card's window transparent and letting the pointer through, so
+  ⌘-Tab or the Dock bring nothing visible to the front; *alo Chromium*
+  still shows in both. Hiding the application stops a card's frames
+  (measured, 771); making the host an accessory application while it holds
+  a parked card (`NSApp.setActivationPolicy`) was not tried.
 
 - [ ] **740. The rest of a person's pointer on the card.** Cut from 718,
   which sends a press of the main button, its drags and its release, and a
@@ -21109,6 +21114,49 @@ What stage 2's exit gate actually measures: a person using it.
   717, 738; beside 739. Closes when:* a parked card's window is on no
   display by the window server's list against every display's bounds,
   and still streams, through both programs.
+  ***Built for the Chromium alo carries (iteration 478, ADR 0076 B4
+  amended); not closed — through the machine's Chrome measured not
+  possible by public means, and left to the owner.*** **Measured** (both
+  programs, three displays): the parked window streams 69–70 frames a
+  second at 153 points on the portrait display; hiding its application,
+  ordering it out (host), a hidden target or a background tab stop its
+  frames (0 a second, the page `hidden` or no rAF); `windowState:
+  minimized` is not carried out under Stage Manager (Chromium says
+  `normal`, the window in the strip); started with `--window-position`
+  off every display, Chrome shows it wholly on one; the host's
+  `alphaValue` 0 set *before* showing streams at 69–71 a second, the page
+  `visible`, `Input` presses landing, evaluate 0.26–0.38 ms median, the
+  window server listing it with alpha 0 and a screenshot of its strip the
+  desktop only (set after showing, Chromium put alpha 1 back); transparent
+  alone a person's click on the strip reached the page, with
+  `ignoresMouseEvents` it went to the desktop. **Built:** `--alo-card`
+  (`chrome::CARD`, `as_a_card`, the carried Chromium only); the host's
+  `switches::card`, `parked.rs` (`Stage` opened → parked → seen, `placed`:
+  centre on a display), `unseen_mac.rs` (safe `objc2-app-kit`, no
+  `unsafe`), `window.rs` (unseen before shown; seen once placed after
+  parked, for good); a parked window fitted at `PARKED`
+  (`chrome_window::fit_at`, `chrome_card::Fitted` — fitted where it was, a
+  window narrowed and widened again grew 761 points onto the display, both
+  programs) and *Expand* fitted where it goes; `window_server`'s `alpha`,
+  `displays`, `seen`. **Tests:** the 717 test asserts through the host no
+  window of the process drawn on any display, against every display's
+  bounds, before streaming and after streaming and fitting at 661, 414 and
+  878, still streaming (1756 × 1040, 18.4 a second) and the agent's reads
+  0.94 → 0.98 ms; *Expand* opaque at 120, 80; through Chrome, left of the
+  main display only. 718's input test, 737's, 751's, 749's, 770's and the
+  card buttons' through both programs pass (19 of 19). Mutations: the
+  switch not passed (both host tests fail at *seen on a display*), a
+  parked card fitted where it is (fails at −3261 after narrowing), seen
+  where first fitted (fails at the first park). **By hand**
+  (`handrun18/`): `en.wikipedia.org` in a card, the host started with
+  `--alo-card`, its window listed at −3725 alpha 0; every display captured
+  and the portrait display's corner where the strip was is sky; *Talk*
+  pressed in the card followed. **What remains:** through the machine's
+  Chrome (`alo --chrome` from a terminal, and tests — the application
+  never starts it), the strip stays; the owner may close this item with
+  that measured and decided (ADR 0076 B4's amendment, § 3), or ask for
+  a headless card for `alo --chrome`. **Cut:** a card's page moving its own
+  window into view (778).
 
 - [ ] **772. A card's frames at a new scale after it opened.** Cut from
   738. A card's Chromium is started at the conversation window's scale
@@ -21285,6 +21333,18 @@ What stage 2's exit gate actually measures: a person using it.
   the likely answer — and make the host do it. *Depends on 770. Closes
   when:* a `mailto:` link pressed in the card leaves the card at its page,
   drawn, through both programs.
+
+- [ ] **778. A card's page moving its own window into view.** Cut from
+  771. A page in a card may move its `--app` window: measured through alo's
+  CEF host, `moveTo(200, 200)` from the page put the parked, transparent
+  window wholly on the portrait display, and the host — which cannot tell
+  a page's move from alo's *Expand* — drew it opaque there, the page
+  seen. It could do the same before 771, opaque all along. Measure what
+  stops a card's page moving or resizing its window (a CEF or Chromium
+  switch, the host refusing a move it did not see alo ask for, alo
+  parking it again), through both programs. *Depends on 771. Closes
+  when:* a card's page calling `moveTo` and `resizeTo` leaves its window
+  where alo parked it, unseen, in a test through both programs.
 
 - [ ] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a

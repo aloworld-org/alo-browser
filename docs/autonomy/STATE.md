@@ -47061,3 +47061,90 @@ tests run: 6068 passed (6 slow), 0 skipped** — *"The gate is met." (11 of
 error page over the person's page, where Chrome leaves the page (777).
 
 The next unused queue number is **778** and the next ADR is **0092**.
+
+---
+
+## Iteration 478 — queue item 771: a parked card's window unseen (ADR 0076 B4 amended)
+
+**Measured** (macOS 26.5, Stage Manager on, three displays: Retina at two at
+the origin, 1920 × 1080 at one left of it, portrait 1080 × 1920 at one left
+of that; Chrome 156.0.8078.76 and alo's CEF host, CEF 156.0.14; a Node
+client and a scratch build of the host, session scratchpad `m771/`). The
+parked window streams 69–70 frames a second with 153 points of its page on
+the portrait display, through both. Hiding the application
+(`NSRunningApplication.hide`, with or without the occlusion switches),
+ordering it out (host), a hidden target and a background tab stop the
+frames; `windowState: minimized` is not carried out under Stage Manager;
+Chrome started with `--window-position=-20000,0` shows the window wholly on
+a display. The host's `alphaValue` 0 set before showing streams at 69–71 a
+second, `visible`, `Input` presses landing, the agent's evaluate unchanged,
+the window listed with alpha 0 and its strip's screenshot the desktop only;
+set after showing, Chromium put alpha 1 back. Transparent alone, a person's
+click on the strip reached the page; with `ignoresMouseEvents` it went to
+the desktop. The window server keeps 153 points of any width on the left;
+a parked window narrowed and widened where it was grew 761 points onto the
+display (both programs, found by the 717 test). A card's page's
+`moveTo(200,200)` brought the host's window wholly onto a display, seen
+(cut, 778).
+
+**Built.** alo's CEF host: `--alo-card` (`switches::card`); `parked.rs`
+(`Stage` opened → parked → seen, `placed`: the window's centre on a
+display); `unseen_mac.rs` (alpha 0 and the pointer let through, safe
+`objc2-app-kit` calls, no `unsafe`); `window.rs` makes a card's window
+unseen before it is shown and seen once placed after it was parked, for
+good; `Cargo.toml`'s AppKit features; `scripts/gate.sh` names
+`unseen_mac.rs` among where `objc2`/`objc2_app_kit` may be named.
+`alo-window`: `chrome::CARD`, `as_a_card` (the carried Chromium only);
+`chrome_window::fit_at`; `chrome_card::Fitted` (a parked window fitted at
+`PARKED`, *Expand* fitted where it goes); `window_server`'s `alpha`,
+`displays`, `seen`. ADR 0076 amended (*Amended … queue item 771*), not a
+new ADR: the decision is B4's park, refined.
+
+**Tests.** `a_page_as_a_card_through_chrome.rs`: through the host, no
+window of the process the window server lists on the screen is drawn on
+any display, against every display's bounds — before streaming, and after
+streaming and fitting at 661, 414 and 878 — still streaming 1756 × 1040 at
+18.4 a second, 25.0 MiB a second, the agent's read 0.94 → 0.98 ms median;
+*Expand* listed opaque at 120, 80 (found once two readings agree, since it
+is now fitted where it goes); through Chrome, left of the main display
+only. Every card test through both programs passes (19 of 19), 718's input
+test among them. Unit tests: `parked.rs` (5), `switches.rs` (1), `chrome.rs`
+(1), `window_server.rs` (2 new, the listing's tests rewritten for opacity).
+**Mutations:** the switch not passed — both host card tests fail at *seen
+on a display* (alpha 255 at −3725); a parked card fitted where it is — fails
+after narrowing (−3261); seen where first fitted — fails at the first park.
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys, `--conversation`; session
+scratchpad `handrun18/`; pointer at 1400,1000, saved and put back around
+each press). `en.wikipedia.org` typed and Return: the card drawn
+(`02-display-1.png`); its Chromium started with `--force-device-scale-factor=2
+--alo-card`, its window listed at −3725, 0 with alpha 0; every display
+captured (`02-display-1/2/3.png`) and the portrait display's corner where
+the strip had been is sky only (`02-display-2-strip-crop.png`, no pixel
+brighter than 89,160,208). *Talk* pressed in the card: the card at
+`Talk:Main_Page`, *Back* enabled (`03-talk-pressed.png`), the corner still
+sky (`03-display-2-strip-crop.png`). ⌘Q left no alo, alo-render or alo
+Chromium process. The first keystrokes went nowhere until the box was
+pressed. One display was not measured.
+
+**Gate: met** (second run). The first failed one test,
+`alos_cef_host_shows_a_page_as_chrome_does`'s closed list's menu
+(`NeverClosed`), running beside the 2.5-million-picture test — the 658
+family's flake; alone it passed twice. **Summary [819.730s] 6071 tests run:
+6071 passed (6 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+
+**Not closed.** 771's closing condition asks for both programs; through
+the machine's Chrome nothing public measured hides the window and keeps it
+streaming, so its strip stays (`alo --chrome` and tests only — the
+application never starts the machine's Chrome). 771 is left open for the
+owner: close it with that decided (ADR 0076 B4's amendment, § 3), or ask
+for a headless card for `alo --chrome`.
+
+**Also found on the way:** a probe's `cliclick c:-2950,300` read the
+negative number as relative and clicked near −1550, 1079 on the display at
+one; absolute negatives need `=` (`c:=-2950,300`).
+
+**Cut:** a card's page moving its own window into view (778).
+
+The next unused queue number is **779** and the next ADR is **0092**.

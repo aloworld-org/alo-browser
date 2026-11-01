@@ -157,3 +157,10 @@ alo starts and drives over a pipe, and this boundary is in it alone.
   are queue item 728.
 - The `cef` and `objc2` crates' own `unsafe` is theirs (ADR 0010), not
   reviewed here.
+
+**Amended 1 November 2026 (queue item 771, ADR 0076 B4's amendment):**
+`objc2` and `objc2_app_kit` may also be named in
+`crates/alo-cef-host/src/unseen_mac.rs`, which makes a card's window
+transparent and passes the pointer through until it is placed on a display.
+It makes safe `objc2-app-kit` calls only and holds no `unsafe`; the gate's
+boundary list names it beside the two files above.

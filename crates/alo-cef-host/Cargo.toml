@@ -35,13 +35,15 @@ cef = { version = "=156.2.0", default-features = false, features = ["sandbox"] }
 
 # AppKit, through `objc2`, for the one `unsafe` boundary ADR 0080 allows the
 # host: `src/application_mac.rs`, the `NSApplication` subclass CEF requires
-# on macOS (`CefAppProtocol`), and `src/menu_mac.rs`, the menu bar, which
-# holds none. The versions are the ones the `cef` crate itself builds
+# on macOS (`CefAppProtocol`); and `src/menu_mac.rs`, the menu bar, and
+# `src/unseen_mac.rs`, a card's window made transparent (queue item 771),
+# which hold none. The versions are the ones the `cef` crate itself builds
 # against (`objc2` 0.6), and `Cargo.lock` holds them. Without default
-# features, with only the classes the two files use.
+# features, with only the classes the three files use — and
+# `objc2-core-foundation`, for the `CGFloat` a window's transparency is.
 objc2 = "0.6.3"
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSEvent", "NSMenu", "NSMenuItem", "NSResponder"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSEvent", "NSMenu", "NSMenuItem", "NSResponder", "NSView", "NSWindow", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString"] }
 
 # The workspace's lints, which a crate outside the workspace cannot inherit,
 # written out again. All but one: the lint against `unsafe` is denied at the

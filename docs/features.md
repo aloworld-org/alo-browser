@@ -823,6 +823,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
   frames at the conversation's
   scale when the parked window lands by a display of another (738), what
   the Dock, ⌘-Tab and Stage Manager do with a parked Chrome (739).
+  **The parked window unseen** (771, ADR 0076 B4's amendment): the window
+  server keeps a strip of a parked window on a display (153 points on this
+  Mac's leftmost), so the Chromium alo carries, started with `--alo-card`,
+  draws a card's window fully transparent and letting the pointer through
+  until the card is expanded — on no display by the window server's list,
+  still streaming and taking input — and a parked window is fitted where it
+  is parked. Through the machine's Chrome the strip stays (nothing public
+  hides it and keeps it drawing, measured). Owed: a card's page moving its
+  own window into view (778).
   **A person's pointer, wheel and keys on the card** (718, ADR 0024 § 5):
   the browser process computes the card's page box from the first
   screen's viewport and aims a point of the window at it from its own

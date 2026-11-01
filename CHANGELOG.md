@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page open in the conversation no longer shows a strip of itself at
+  the edge of a screen.** The page in a card is drawn from a window of
+  Chromium's kept out of the way; on a Mac with more than one display,
+  macOS kept a strip of that window — 153 points of the live page — on the
+  leftmost one, and with one display it would have been on yours. The
+  Chromium alo carries now draws that window fully transparent, and lets
+  your clicks through to whatever is under it, until you expand the card,
+  when it shows as before. The page keeps streaming into the card and
+  takes your clicks and keys there. Run from a terminal with the machine's
+  own Chrome (`alo --chrome`), the strip remains: nothing Chrome offers
+  hides a window and keeps it drawing. A card made narrower and wider again
+  no longer grows that window onto a display.
+
 - **A page in the conversation says *Loading* from the moment you follow a
   link.** A link pressed in a page open in the conversation, its *Back* or
   *Forward*, or the page sending itself elsewhere, said nothing until the

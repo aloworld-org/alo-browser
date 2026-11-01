@@ -99,6 +99,25 @@ pub fn scaled(scale: Scale) -> String {
     format!("--force-device-scale-factor={}", scale.factor())
 }
 
+/// The switch alo's CEF host is started with when its window holds a page
+/// shown as a card (ADR 0076 B4 as amended, queue item 771): the host opens
+/// the window unseen — fully transparent, letting the pointer through — and
+/// makes it seen once it is put where a person is to see it, which is
+/// *Expand* (`crates/alo-cef-host`'s `parked.rs`). The host's own; the
+/// machine's Chrome is never given it, having no such thing to do.
+pub const CARD: &str = "--alo-card";
+
+/// What a card's Chromium is started with beside every Chromium's
+/// switches: the conversation window's `scale` ([`scaled`], ADR 0090), and
+/// for the Chromium alo carries, [`CARD`].
+pub fn as_a_card(chromium: &Chromium, scale: Scale) -> Vec<String> {
+    let mut added = vec![scaled(scale)];
+    if matches!(chromium, Chromium::Carried(_)) {
+        added.push(CARD.to_owned());
+    }
+    added
+}
+
 /// How many messages read from Chrome are held for an answer to be found
 /// among. Past this the reader waits, and so does Chrome's writing: a far
 /// side telling of events nobody asked for is held back, never stored.
@@ -259,13 +278,15 @@ impl Chrome {
     /// [`Chrome::start_from`], shown, its every window drawn at `scale`
     /// whatever display it is on (`--force-device-scale-factor`, ADR 0090):
     /// for a page shown as a card, whose window is parked by whichever
-    /// display the window server chooses (queue item 738).
+    /// display the window server chooses (queue item 738) — and, for the
+    /// Chromium alo carries, unseen until the card is expanded ([`CARD`],
+    /// queue item 771).
     ///
     /// # Errors
     ///
     /// As [`Chrome::start_from`].
     pub fn start_shown_at(chromium: &Chromium, scale: Scale) -> Result<Self, Unstarted> {
-        Self::launch(&Self::program(chromium)?, true, Some(scale))
+        Self::launch(&Self::program(chromium)?, true, &as_a_card(chromium, scale))
     }
 
     /// Start the Chromium `chromium` names, headless or `shown`: the
@@ -279,7 +300,7 @@ impl Chrome {
     /// application's own is not a program at its place, or another
     /// [`Unstarted`].
     pub fn start_from(chromium: &Chromium, shown: bool) -> Result<Self, Unstarted> {
-        Self::launch(&Self::program(chromium)?, shown, None)
+        Self::launch(&Self::program(chromium)?, shown, &[])
     }
 
     /// The program `chromium` names: the machine's Chrome where its
@@ -302,12 +323,12 @@ impl Chrome {
     /// Chrome that is not there is never mistaken for one that would not
     /// answer; or another [`Unstarted`].
     pub fn start_at(program: &Path) -> Result<Self, Unstarted> {
-        Self::launch(program, false, None)
+        Self::launch(program, false, &[])
     }
 
-    /// Start the Chrome at `program`, headless or `shown` — at `scale`
-    /// whatever display it is on, or with none, at its display's.
-    fn launch(program: &Path, shown: bool, scale: Option<Scale>) -> Result<Self, Unstarted> {
+    /// Start the Chrome at `program`, headless or `shown`, with the switches
+    /// `added` after every Chromium's ([`as_a_card`]'s for a card).
+    fn launch(program: &Path, shown: bool, added: &[String]) -> Result<Self, Unstarted> {
         if !is_program(program) {
             return Err(Unstarted::NotInstalled(NotInstalled {
                 looked: vec![program.to_path_buf()],
@@ -333,7 +354,7 @@ impl Chrome {
             } else {
                 &["--headless", "about:blank"][..]
             })
-            .args(scale.map(scaled))
+            .args(added)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -582,6 +603,23 @@ mod tests {
         assert_eq!(
             scaled(Scale::of_screen(3.0)),
             "--force-device-scale-factor=3"
+        );
+    }
+
+    #[test]
+    fn a_cards_chromium_is_told_its_scale_and_only_alos_own_that_it_is_a_card() {
+        assert_eq!(
+            as_a_card(&Chromium::Machines, Scale::TWO),
+            ["--force-device-scale-factor=2"]
+        );
+        assert_eq!(
+            as_a_card(
+                &Chromium::Carried(PathBuf::from(
+                    "/A/alo Chromium.app/Contents/MacOS/alo Chromium"
+                )),
+                Scale::ONE
+            ),
+            ["--force-device-scale-factor=1", "--alo-card"]
         );
     }
 }

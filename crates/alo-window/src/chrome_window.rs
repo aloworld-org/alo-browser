@@ -249,6 +249,36 @@ pub(crate) fn page_of_the_window(chrome: &mut Chrome) -> Result<String, Failed> 
 /// written to Chrome; [`Unplaced::NotFitted`] when the window then holds a
 /// page of no size; or [`Unplaced::Unsettled`] or [`Unplaced::Failed`].
 pub fn fit(tab: &mut Tab<'_>, width: u32, height: u32) -> Result<Placed, Unplaced> {
+    fit_where(tab, width, height, None)
+}
+
+/// [`fit`], with the window's top left corner asked at `left`, `top` with
+/// each size it is given, in one command each — so a parked window
+/// ([`PARKED`]) fitted to a card is never anywhere else on the way: fitted
+/// where it is, a parked window made wider grows rightwards from where the
+/// window server left it, onto the display that holds its strip (measured,
+/// queue item 771: fitted 414 wide and then 878, 761 points of it were on
+/// the display).
+///
+/// # Errors
+///
+/// As [`fit`].
+pub fn fit_at(
+    tab: &mut Tab<'_>,
+    width: u32,
+    height: u32,
+    (left, top): (i32, i32),
+) -> Result<Placed, Unplaced> {
+    fit_where(tab, width, height, Some((i64::from(left), i64::from(top))))
+}
+
+/// [`fit`] at `place`, or where the window already is.
+fn fit_where(
+    tab: &mut Tab<'_>,
+    width: u32,
+    height: u32,
+    place: Option<(i64, i64)>,
+) -> Result<Placed, Unplaced> {
     if !tab.is_shown() {
         return Err(Unplaced::Headless);
     }
@@ -257,9 +287,10 @@ pub fn fit(tab: &mut Tab<'_>, width: u32, height: u32) -> Result<Placed, Unplace
     }
     let (wide, tall) = (i64::from(width), i64::from(height));
     let first = read(tab)?;
+    let (left, top) = place.unwrap_or((first.window.bounds.left, first.window.bounds.top));
     let at = |width, height| Bounds {
-        left: first.window.bounds.left,
-        top: first.window.bounds.top,
+        left,
+        top,
         width,
         height,
     };
@@ -309,9 +340,15 @@ pub fn place(tab: &mut Tab<'_>, left: i32, top: i32) -> Result<Placed, Unplaced>
 }
 
 /// Where a window is parked while its page is a card in the conversation
-/// (ADR 0076 B4): far left of every display, in the screen's points.
-/// Chrome 156 clamped a window asked for at −20000 to −3727, off every
-/// display, and went on painting and streaming its page there.
+/// (ADR 0076 B4): asked far left of every display, in the screen's points.
+/// The window server does not leave it there: it moves a shown window back
+/// until a strip of it is on a display — 153 points on the leftmost of
+/// this Mac's three, at −3725 (measured, queue items 738 and 771), and on
+/// the person's own with one. So the Chromium alo carries is also told the
+/// window holds a card ([`crate::chrome::CARD`]) and draws it fully
+/// transparent until it is expanded (ADR 0076 B4 as amended); the
+/// machine's Chrome, which nothing public makes unseen while it streams,
+/// leaves that strip on a display.
 pub const PARKED: (i32, i32) = (-20_000, 0);
 
 /// Put the window of `tab` with its top left corner at `left`, `top`, at

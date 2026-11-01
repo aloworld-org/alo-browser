@@ -122,10 +122,11 @@ pub fn helper(program: &Path) -> i32 {
 }
 
 /// Run as the browser process, on `profile`, showing `page` in a window of
-/// its own when alo asked for one (`--app=`, [`crate::window`]): the
+/// its own when alo asked for one (`--app=`, [`crate::window`]) — opened
+/// unseen and parked when it is a `card`'s ([`crate::parked`]): the
 /// process's exit status: 0 once the host has ended in order (Quit,
 /// `Browser.close`), or why it would not start.
-pub fn browser(program: &Path, profile: &Path, page: Option<String>) -> i32 {
+pub fn browser(program: &Path, profile: &Path, page: Option<String>, card: bool) -> i32 {
     let Some(frameworks) = frameworks(program, switches::Role::Browser) else {
         return MISSING;
     };
@@ -160,7 +161,7 @@ pub fn browser(program: &Path, profile: &Path, page: Option<String>) -> i32 {
         log_severity: LogSeverity::DISABLE,
         ..Settings::default()
     };
-    let mut app = window::app(page);
+    let mut app = window::app(page, card);
     if cef::initialize(
         Some(args.as_main_args()),
         Some(&settings),

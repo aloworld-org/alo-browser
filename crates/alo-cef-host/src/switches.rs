@@ -7,9 +7,11 @@
 //!
 //! `alo-window` starts the host exactly as it starts Chrome (`chrome.rs`):
 //! `--remote-debugging-pipe`, `--user-data-dir=PROFILE`, ADR 0073's
-//! switches, and `--headless about:blank` or `--app=data:,`. Chromium reads
-//! all of them itself; the host reads only three things, and none of them is
-//! a decision Chromium would make differently.
+//! switches, and `--headless about:blank` or `--app=data:,` — and, for a
+//! page shown as a card, [`CARD`], the one switch that is alo's and not
+//! Chromium's. Chromium reads all the others itself; the host reads only
+//! four things, and none of them is a decision Chromium would make
+//! differently.
 //!
 //! # Whose process this is
 //!
@@ -123,6 +125,19 @@ pub fn app(args: &[OsString]) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// The switch alo starts the host with when its window holds a page shown
+/// as a card in the conversation (ADR 0076 B4 as amended, queue item 771):
+/// the window opens unseen and parked, and is seen once alo puts it where a
+/// person is to see it (`parked.rs`). Chromium does not know it, and passes
+/// over it.
+pub const CARD: &str = "--alo-card";
+
+/// Whether the host's window holds a card: [`CARD`] given, and a window
+/// shown at all ([`app`]).
+pub fn card(args: &[OsString]) -> bool {
+    app(args).is_some() && args.iter().any(|arg| arg == CARD)
+}
+
 /// Where, inside `profile`, the host's temporary files go.
 pub fn temporary(profile: &Path) -> PathBuf {
     profile.join(TEMPORARY)
@@ -223,6 +238,16 @@ mod tests {
         assert_eq!(app(&line(&["--app="])), None);
         // A page's address that mentions the switch is not the switch.
         assert_eq!(app(&line(&["https://a.test/?--app=x"])), None);
+    }
+
+    #[test]
+    fn a_card_is_said_by_its_switch_and_only_for_a_window_shown() {
+        assert!(card(&line(&["--app=data:,", "--alo-card"])));
+        assert!(!card(&line(&["--app=data:,"])));
+        assert!(!card(&line(&["--headless", "about:blank", "--alo-card"])));
+        // A page's address that mentions the switch is not the switch.
+        assert!(!card(&line(&["--app=https://a.test/?--alo-card"])));
+        assert!(!card(&line(&["--app=data:,", "--alo-card=1"])));
     }
 
     #[test]

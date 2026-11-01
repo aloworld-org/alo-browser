@@ -291,6 +291,7 @@ mod tests {
             number: 4211,
             owner,
             layer,
+            alpha: 255,
             bounds,
         }
     }

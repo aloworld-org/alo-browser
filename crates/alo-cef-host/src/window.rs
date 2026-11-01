@@ -31,6 +31,24 @@
 //! window is shown before its page is put in it, so the page is laid out
 //! at the window's size from the start.
 //!
+//! # A card's window: unseen and parked
+//!
+//! Started for a page alo shows as a card in its conversation
+//! ([`crate::switches::card`], ADR 0076 B4 as amended, queue item 771), the
+//! window is made **unseen** — fully transparent, letting a person's
+//! pointer through (`unseen_mac.rs`) — before it is first shown, so it is
+//! never drawn. alo fits it to the card where it was shown, then parks it
+//! far left of every display, and the window server moves it back until a
+//! strip of it is on one; the page goes on painting and streaming, and
+//! takes the input alo sends it. The window is made seen once, and for
+//! good, when alo puts it where a person is to see it after it was parked —
+//! its centre on a display ([`crate::parked::placed`], [`Stage`]), which is
+//! *Expand* — so a person who then drags it partly off a display keeps
+//! seeing it. Where it was shown and fitted does not count: the window
+//! server shows a window wholly on a display, wherever it was asked to be
+//! (measured: a window put at −20000 before it was shown was shown wholly
+//! on the leftmost display).
+//!
 //! # Closed
 //!
 //! A person closing the window — its close button, or ⌘W
@@ -89,18 +107,20 @@
               code is the crate's, expanded here, and no code of ours transmutes"
 )]
 
+use crate::parked::Stage;
 use cef::{
     App, Browser, BrowserProcessHandler, BrowserSettings, BrowserView, BrowserViewDelegate,
-    CefString, ChromeToolbarType, Client, CommandHandler, DisplayHandler, ImplApp, ImplBrowser,
-    ImplBrowserHost, ImplBrowserProcessHandler, ImplBrowserView, ImplBrowserViewDelegate,
-    ImplClient, ImplCommandHandler, ImplDisplayHandler, ImplLifeSpanHandler, ImplPanel,
-    ImplPanelDelegate, ImplView, ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler,
-    RuntimeStyle, Size, View, Window, WindowDelegate, WindowOpenDisposition, WrapApp,
-    WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient, WrapCommandHandler,
-    WrapDisplayHandler, WrapLifeSpanHandler, WrapWindowDelegate, browser_view_create,
-    browser_view_get_for_browser, window_create_top_level, wrap_app, wrap_browser_process_handler,
-    wrap_browser_view_delegate, wrap_client, wrap_command_handler, wrap_display_handler,
-    wrap_life_span_handler, wrap_window_delegate,
+    CefString, ChromeToolbarType, Client, CommandHandler, Display, DisplayHandler, ImplApp,
+    ImplBrowser, ImplBrowserHost, ImplBrowserProcessHandler, ImplBrowserView,
+    ImplBrowserViewDelegate, ImplClient, ImplCommandHandler, ImplDisplay, ImplDisplayHandler,
+    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplView, ImplViewDelegate, ImplWindow,
+    ImplWindowDelegate, LifeSpanHandler, Rect, RuntimeStyle, Size, View, Window, WindowDelegate,
+    WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient,
+    WrapCommandHandler, WrapDisplayHandler, WrapLifeSpanHandler, WrapWindowDelegate,
+    browser_view_create, browser_view_get_for_browser, display_get_alls, display_get_count,
+    window_create_top_level, wrap_app, wrap_browser_process_handler, wrap_browser_view_delegate,
+    wrap_client, wrap_command_handler, wrap_display_handler, wrap_life_span_handler,
+    wrap_window_delegate,
 };
 use std::cell::{Cell, RefCell};
 // The reference count the macros' code keeps, by its trait.
@@ -115,19 +135,21 @@ const OPENED: Size = Size {
 };
 
 /// The host's application: the browser process's handler, opening `page`
-/// once CEF is ready, when there is one.
-pub fn app(page: Option<String>) -> App {
-    Host::new(page)
+/// once CEF is ready, when there is one — unseen and parked when it is a
+/// `card`'s.
+pub fn app(page: Option<String>, card: bool) -> App {
+    Host::new(page, card)
 }
 
 wrap_app! {
     struct Host {
         page: Option<String>,
+        card: bool,
     }
 
     impl App {
         fn browser_process_handler(&self) -> Option<BrowserProcessHandler> {
-            Some(Opener::new(self.page.clone()))
+            Some(Opener::new(self.page.clone(), self.card))
         }
     }
 }
@@ -135,12 +157,13 @@ wrap_app! {
 wrap_browser_process_handler! {
     struct Opener {
         page: Option<String>,
+        card: bool,
     }
 
     impl BrowserProcessHandler {
         fn on_context_initialized(&self) {
             if let Some(page) = &self.page {
-                open(page);
+                open(page, self.card);
             }
         }
 
@@ -154,8 +177,9 @@ wrap_browser_process_handler! {
 }
 
 /// Open `page` in a window of its own, Chrome style, with no toolbar —
-/// or say why not, and open nothing.
-fn open(page: &str) {
+/// unseen and parked when it is a `card`'s — or say why not, and open
+/// nothing.
+fn open(page: &str, card: bool) {
     let mut client = Page::new();
     let mut viewed = Viewed::new();
     let Some(view) = browser_view_create(
@@ -169,7 +193,8 @@ fn open(page: &str) {
         eprintln!("alo's CEF host: CEF made no view for the page");
         return;
     };
-    let mut framed = Framed::new(view);
+    let stage = card.then_some(Stage::Opened);
+    let mut framed = Framed::new(view, std::rc::Rc::new(Cell::new(stage)));
     if window_create_top_level(Some(&mut framed)).is_none() {
         eprintln!("alo's CEF host: CEF made no window for the page");
     }
@@ -316,9 +341,37 @@ wrap_browser_view_delegate! {
     }
 }
 
+/// Where every display is, as CEF gives them: in the screen's points, the
+/// main display's top left corner at the origin, as a window's bounds are.
+fn displays() -> Vec<crate::parked::Area> {
+    // CEF fills as many as the list holds, so it is made as long as CEF
+    // says there are.
+    let mut all: Vec<Option<Display>> = std::iter::repeat_with(|| None)
+        .take(display_get_count())
+        .collect();
+    display_get_alls(Some(&mut all));
+    all.iter()
+        .flatten()
+        .map(|display| area(&display.bounds()))
+        .collect()
+}
+
+/// A rectangle of CEF's as the host's own.
+fn area(rect: &Rect) -> crate::parked::Area {
+    crate::parked::Area {
+        left: rect.x,
+        top: rect.y,
+        width: rect.width,
+        height: rect.height,
+    }
+}
+
 wrap_window_delegate! {
     struct Framed {
         view: BrowserView,
+        // Where a card's window is in its life — unseen until it is seen
+        // (the module's words) — or nothing for a window that is no card's.
+        stage: std::rc::Rc<Cell<Option<Stage>>>,
     }
 
     impl ViewDelegate {}
@@ -330,6 +383,10 @@ wrap_window_delegate! {
             let Some(window) = window else {
                 return;
             };
+            if self.stage.get().is_some() {
+                // Unseen before it is ever shown, so it is never drawn.
+                crate::unseen_mac::unseen(window.window_handle(), true);
+            }
             window.center_window(Some(&OPENED));
             window.show();
             window.add_child_view(Some(&mut View::from(&self.view)));
@@ -342,6 +399,20 @@ wrap_window_delegate! {
             match self.view.browser().and_then(|browser| browser.host()) {
                 Some(host) => host.try_close_browser(),
                 None => 1,
+            }
+        }
+
+        fn on_window_bounds_changed(&self, window: Option<&mut Window>, new_bounds: Option<&Rect>) {
+            let (Some(window), Some(bounds)) = (window, new_bounds) else {
+                return;
+            };
+            let Some(stage) = self.stage.get() else {
+                return;
+            };
+            let after = stage.after(crate::parked::placed(area(bounds), &displays()));
+            self.stage.set(Some(after));
+            if stage != Stage::Seen && after == Stage::Seen {
+                crate::unseen_mac::unseen(window.window_handle(), false);
             }
         }
 

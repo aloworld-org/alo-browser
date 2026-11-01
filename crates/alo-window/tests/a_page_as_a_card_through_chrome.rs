@@ -13,10 +13,15 @@
 //! card's page box, 878 × 520. Then, each asserted:
 //!
 //! - **The window is parked**: by Chromium's word, left of the main
-//!   display, and the window server lists no window of it right of the
-//!   main display's left edge. Measured for 738: the window server keeps a
-//!   strip of it on the leftmost display, 153 points of it on this Mac's
-//!   portrait display at one — not off every display (queue item 771).
+//!   display. Through alo's CEF host it is **on no display** (ADR 0076 B4
+//!   as amended, queue item 771): every window of the host's process the
+//!   window server lists on the screen is drawn fully transparent or meets
+//!   no display, against every display's bounds — though the window server
+//!   keeps a strip of a parked window on one, 153 points of it on this
+//!   Mac's portrait display — and so still after the page has streamed and
+//!   been fitted to a narrower card. Through the machine's Chrome, which no
+//!   public means makes unseen and streaming (measured, the amendment),
+//!   only no window of it right of the main display's left edge.
 //! - **Frames stream at the card's size times the window's scale**,
 //!   wherever the window is parked (ADR 0090, queue item 738): the card's
 //!   Chromium is started at two, the conversation asks for 1756 × 1040, and
@@ -47,8 +52,8 @@
 //!   page box — a window 967 wide, then 720 — and at the whole one again
 //!   has the page laid out at each first, so every frame is the box asked.
 //! - **Expand** shows the same tab in Chromium's own window, the stream
-//!   stopped, at the place and size asked, by Chromium's word and the window
-//!   server's.
+//!   stopped, at the place and size asked, drawn opaque, by Chromium's word
+//!   and the window server's.
 //!
 //! Never the real network: the page is `http://127.0.0.1:PORT/card.html`.
 
@@ -312,8 +317,11 @@ fn listed_at(process: u32, bounds: Bounds) -> Result<bool, String> {
 }
 
 /// The card's window parked: left of the main display, by Chromium's word
-/// and the window server's (see the module's words on what is not checked).
-fn parked(serving: &ChromeServing, who: &str) -> Result<(), String> {
+/// — and, through alo's CEF host (`unseen`), on no display by the window
+/// server's: no window of the process it lists on the screen is drawn on
+/// any display. Through the machine's Chrome, only left of the main
+/// display (see the module's words).
+fn parked(serving: &ChromeServing, who: &str, unseen: bool) -> Result<(), String> {
     let process = serving.process();
     let window = serving
         .placed()
@@ -324,15 +332,36 @@ fn parked(serving: &ChromeServing, who: &str) -> Result<(), String> {
         "{who}'s window was not parked: {window:?}"
     );
     let shown = window_server::on_the_screen(process).map_err(|why| why.to_string())?;
-    assert!(
-        shown
-            .iter()
-            .filter(|listed| listed.layer == 0)
-            .all(|listed| listed.bounds.is_none_or(|bounds| bounds.left < 0)),
-        "{who}'s window is on a display: {shown:?}"
-    );
+    if unseen {
+        let displays = window_server::displays().map_err(|why| why.to_string())?;
+        assert!(!displays.is_empty(), "the window server listed no display");
+        assert!(
+            shown.iter().any(|listed| listed.layer == 0),
+            "{who}'s window is not on the screen at all, where it would not stream"
+        );
+        assert!(
+            shown
+                .iter()
+                .all(|listed| !window_server::seen(listed, &displays)),
+            "{who}'s window is seen on a display: {shown:?}, the displays {displays:?}"
+        );
+    } else {
+        assert!(
+            shown
+                .iter()
+                .filter(|listed| listed.layer == 0)
+                .all(|listed| listed.bounds.is_none_or(|bounds| bounds.left < 0)),
+            "{who}'s window is on a display: {shown:?}"
+        );
+    }
 
     Ok(())
+}
+
+/// Whether `chromium` is the one alo carries, whose card's window is
+/// unseen while parked (ADR 0076 B4 as amended).
+fn carried(chromium: &Chromium) -> bool {
+    matches!(chromium, Chromium::Carried(_))
 }
 
 /// A number of frames or bytes, as a float, for what is said of them.
@@ -438,7 +467,7 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         told,
         address,
     } = card(chromium, port, Scale::TWO)?;
-    parked(&serving, who)?;
+    parked(&serving, who, carried(chromium))?;
 
     // The agent's reads with no stream.
     let path = socket(who)?;
@@ -580,6 +609,8 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         sizes.iter().take(3).collect::<Vec<_>>()
     );
     narrowed(&serving, &told, who)?;
+    // Streamed, and fitted to narrower cards and back, still parked.
+    parked(&serving, who, carried(chromium))?;
     orders
         .send(Order::Card(CardOrder::Expand {
             at: (120, 80),
@@ -588,20 +619,29 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         .map_err(|_| "the card's thread has gone")?;
     let (_, unstreamed) = stopped(&told)?;
     assert!(unstreamed.answered);
-    // An app window with no sides: its page's width is the window's.
+    // An app window with no sides: its page's width is the window's. It is
+    // fitted where it is going, sized and then sized again by its title
+    // bar, so it is found once two readings in turn agree.
     let process = serving.process();
     let until = Instant::now() + Duration::from_secs(20);
-    let mut found = None;
+    let (mut found, mut before) = (None, None);
     while found.is_none() && Instant::now() < until {
         let listed = window_server::on_the_screen(process).map_err(|why| why.to_string())?;
-        found = listed
+        let now = listed
             .into_iter()
-            .filter(|window| window.layer == 0)
+            .filter(|window| window.layer == 0 && window.alpha == u8::MAX)
             .filter_map(|window| window.bounds)
             .find(|bounds| (bounds.left, bounds.top, bounds.width) == (120, 80, 900));
+        found = now.filter(|_| now == before);
+        before = now;
         std::thread::sleep(Duration::from_millis(100));
     }
-    let bounds = found.ok_or_else(|| format!("{who}'s window is not over the conversation"))?;
+    let bounds = found.ok_or_else(|| {
+        format!(
+            "{who}'s window is not over the conversation, opaque: {:?}",
+            window_server::on_the_screen(process)
+        )
+    })?;
     assert!(listed_at(process, bounds)?);
     let (after, _) = frames_within(&told, Duration::from_millis(500));
     assert!(after.is_empty(), "{who} streamed an expanded page");
