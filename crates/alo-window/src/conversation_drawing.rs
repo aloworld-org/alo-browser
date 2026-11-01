@@ -54,6 +54,7 @@ use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::host::{Gone, Renderers};
 use alo_renderer::panel::{self, Panel};
 use alo_renderer::site::Site;
+use alo_renderer::split_place::Stands;
 use alo_renderer::start::{self, Start};
 use alo_renderer::strip_decide::unasked;
 use alo_renderer::{Frame, FromRenderer, ToRenderer};
@@ -86,6 +87,9 @@ pub enum Drawn {
         /// How many offers for what was typed were painted over the box,
         /// which the room is shorter by (queue item 759).
         offered: usize,
+        /// Where the live card was painted: in the conversation, or in the
+        /// split view while alo's agent works on it (queue item 819).
+        stands: Stands,
         /// How far they reach.
         reach: Reach,
     },
@@ -339,8 +343,8 @@ impl Holding {
                 if asked.start.conversing() {
                     said.extend(self.reach(
                         asked.start.turns.len(),
-                        asked.start.down,
-                        asked.start.offers.len(),
+                        (asked.start.down, asked.start.offers.len()),
+                        asked.start.stands(),
                     ));
                 }
                 said.extend(came);
@@ -353,10 +357,16 @@ impl Holding {
     }
 
     /// Ask the first screen's renderer how far the `turns` it just painted,
-    /// scrolled `down` with `offered` offers over the box, reach: what the
+    /// scrolled `down` with `offered` offers over the box, the live card
+    /// standing as `stands`, reach: what the
     /// window is told — nothing when it answered anything but a reach,
     /// which keeps the wheel where it was, or said, when it went.
-    fn reach(&mut self, turns: usize, down: f32, offered: usize) -> Option<Drawn> {
+    fn reach(
+        &mut self,
+        turns: usize,
+        (down, offered): (f32, usize),
+        stands: Stands,
+    ) -> Option<Drawn> {
         if self.start.gone.is_some() {
             return None;
         }
@@ -368,6 +378,7 @@ impl Holding {
                 turns,
                 down,
                 offered,
+                stands,
                 reach: reach.bounded(),
             }),
             Ok(_) => None,

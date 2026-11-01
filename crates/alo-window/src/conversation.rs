@@ -274,10 +274,20 @@ impl Conversation {
     }
 
     /// What stands down the window's left: the panel, or its rail while a
-    /// person has hidden it (queue item 711) or the window is too narrow
-    /// for it (queue item 775).
+    /// person has hidden it (queue item 711), the window is too narrow for
+    /// it (queue item 775) or alo's agent is at work (queue item 819).
     pub fn side(&self) -> Side {
-        self.fold.side()
+        self.fold.side_at_work(self.at_work())
+    }
+
+    /// Whether alo's agent is at work on the card's page — acting, or
+    /// asking the person — as the card the first screen draws says: the
+    /// panel is then the rail, and the first screen the split view where
+    /// it is wide enough (queue item 819).
+    pub fn at_work(&self) -> bool {
+        self.card()
+            .and_then(|card| card.agent.as_ref())
+            .is_some_and(alo_renderer::agent_work::AtWork::is_working)
     }
 
     /// Whether the panel is folded, and why: what a person chose kept
@@ -560,10 +570,17 @@ impl Conversation {
             .iter_mut()
             .find(|(id, _)| Some(*id) == on)
             .and_then(|(_, thread)| thread.card_mut());
-        match card {
+        let started = match card {
             Some(card) => self.work.start(card, asked),
             None => false,
+        };
+        if started {
+            // The panel is the rail for the run (queue item 819): *Search
+            // chats* is not drawn, so it lets the keyboard go; what was
+            // typed in it is kept.
+            let _ = self.find.blur();
         }
+        started
     }
 
     /// The run of the agent started and not yet handed to the window, once:

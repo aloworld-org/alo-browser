@@ -17,6 +17,12 @@
 //! else — the card's bar, what the person said, the box, the panel — is
 //! the part's, aimed as before.
 //!
+//! While alo's agent works on the card, the first screen may be the split
+//! view, the page box large on its left
+//! ([`alo_renderer::split_place::page_box`], queue item 819): the box a
+//! point is aimed by is where the card stood in the picture pressed
+//! ([`OnScreen::stands`]), never where it is about to stand.
+//!
 //! The card's page is pressed only while the first screen shows its
 //! picture: before a frame has arrived the page box is the card's white,
 //! and there is nothing a person can see to press.
@@ -27,7 +33,7 @@ use crate::conversation_place::ConversationPlacement;
 use crate::scale::Scale;
 use alo_layout::Size;
 use alo_paint::Point;
-use alo_renderer::card_place::{page_box, seen_page_box};
+use alo_renderer::split_place::Stands;
 
 /// The first screen as it was last painted while it showed the card's
 /// picture of its page: what a point is aimed by.
@@ -40,6 +46,9 @@ pub struct OnScreen {
     /// How many offers for what was typed stood over its box, which the
     /// room the page is seen in is shorter by (queue item 759).
     pub offered: usize,
+    /// Where the card stood: in the conversation, or in the split view
+    /// (queue item 819).
+    pub stands: Stands,
 }
 
 /// What a point of the conversation's window is over.
@@ -100,27 +109,28 @@ pub fn aim(
         // press on the box under a clipped page is the box's, on an offer
         // standing over it the offer's (759), and on what is scrolled above
         // the room nobody's page.
-        && seen_page_box(painted.viewport, painted.down, painted.offered)
+        && painted
+            .stands
+            .seen_page_box(painted.viewport, painted.down, painted.offered)
             .is_some_and(|seen| seen.contains(alo_layout::Point::new(on.x, on.y)))
     {
-        let (x, y) = on_the_page(placed, scale, (painted.viewport, painted.down), at);
+        let (x, y) = on_the_page(placed, scale, painted, at);
         return Some(Aimed::Page { x, y });
     }
     Some(Aimed::Part(part, on))
 }
 
 /// Where the point `at`, in device pixels, is in the card's page's CSS
-/// pixels — the first screen laid out at `viewport`, scrolled `down` —
-/// wherever it is — outside the page as well, where a press that
-/// began on the page is dragged and let go, as a page in Chrome's own
-/// window hears it.
+/// pixels — the first screen `painted` as it was last painted — wherever it
+/// is — outside the page as well, where a press that began on the page is
+/// dragged and let go, as a page in Chrome's own window hears it.
 pub fn on_the_page(
     placed: &ConversationPlacement,
     scale: Scale,
-    (viewport, down): (Size, f32),
+    painted: OnScreen,
     at: (f64, f64),
 ) -> (f64, f64) {
-    let page = page_box(viewport, down);
+    let page = painted.stands.page_box(painted.viewport, painted.down);
     (
         scale.css(at.0 - f64::from(placed.start.x)) - f64::from(page.left()),
         scale.css(at.1 - f64::from(placed.start.y)) - f64::from(page.top()),
@@ -166,6 +176,7 @@ mod tests {
             viewport,
             down,
             offered,
+            stands: Stands::InTheConversation,
         }
     }
 
@@ -401,13 +412,132 @@ mod tests {
     fn a_drag_is_placed_on_the_page_beyond_its_box_too() {
         let (placed, viewport) = the_window(Scale::TWO);
         assert_eq!(
-            on_the_page(&placed, Scale::TWO, (viewport, 0.0), (0.0, 0.0)),
+            on_the_page(&placed, Scale::TWO, painted(viewport, 0.0, 0), (0.0, 0.0)),
             (-321.0, -145.0)
         );
         assert_eq!(
-            on_the_page(&placed, Scale::TWO, (viewport, 0.0), (2560.0, 1640.0)),
+            on_the_page(
+                &placed,
+                Scale::TWO,
+                painted(viewport, 0.0, 0),
+                (2560.0, 1640.0)
+            ),
             (959.0, 675.0)
         );
+    }
+
+    /// A `window` of device pixels at `scale`, the panel the rail as it is
+    /// while the agent works, both parts painted to fill their rooms, and
+    /// the first screen painted as the split view (queue item 819).
+    fn split(window: (u32, u32), scale: Scale) -> (ConversationPlacement, Option<OnScreen>) {
+        let rail = scale.device(crate::conversation_place::RAIL_WIDTH);
+        let placed = ConversationPlacement::of(
+            window,
+            scale,
+            Parts {
+                panel: Some((rail, window.1)),
+                start: Some((window.0 - rail, window.1)),
+                side: crate::conversation_place::Side::Rail,
+                ..Parts::default()
+            },
+        );
+        let viewport = crate::conversation_place::start_viewport_as(
+            window,
+            scale,
+            crate::conversation_place::Side::Rail,
+        );
+        let on = OnScreen {
+            stands: Stands::Split,
+            ..painted(viewport, 0.0, 0)
+        };
+        (placed, Some(on))
+    }
+
+    /// Queue item 819: in the design's window, 1280 × 820, the split view
+    /// beside the rail's 64 has the page box at 17, 63 of the first screen,
+    /// 798 × 740 — 81, 63 of the window — at one and at two.
+    #[test]
+    fn split_in_the_designs_window_the_page_box_is_at_81_63_and_798_by_740() {
+        for scale in [Scale::ONE, Scale::TWO] {
+            let (placed, on) = split((scale.device(1280), scale.device(820)), scale);
+            let device =
+                |x: f64, y: f64| (x * f64::from(scale.factor()), y * f64::from(scale.factor()));
+            assert_eq!(aim(&placed, scale, on, device(81.0, 63.0)), page(0.0, 0.0));
+            assert_eq!(
+                aim(&placed, scale, on, device(878.5, 802.5)),
+                page(797.5, 739.5)
+            );
+            // Its right edge, 879, is the card's border; the column from
+            // 896 the first screen's; the rail the panel's.
+            for (x, y) in [(879.0, 300.0), (80.5, 300.0), (500.0, 62.5), (500.0, 803.0)] {
+                assert!(
+                    matches!(
+                        aim(&placed, scale, on, device(x, y)),
+                        Some(Aimed::Part(Part::Start, _))
+                    ),
+                    "{x}, {y}"
+                );
+            }
+            assert_eq!(
+                aim(&placed, scale, on, device(1000.0, 768.0)),
+                Some(Aimed::Part(Part::Start, Point::new(936.0, 768.0)))
+            );
+            assert!(matches!(
+                aim(&placed, scale, on, device(30.0, 300.0)),
+                Some(Aimed::Part(Part::Panel, _))
+            ));
+            // A drag beyond it, placed on the page all the same.
+            if let Some(on) = on {
+                assert_eq!(
+                    on_the_page(&placed, scale, on, device(0.0, 0.0)),
+                    (-81.0, -63.0)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn split_neither_scrolled_nor_offers_move_or_clip_the_page_box() {
+        let (placed, on) = split((1280, 820), Scale::ONE);
+        let moved = on.map(|on| OnScreen {
+            down: 300.0,
+            offered: 3,
+            ..on
+        });
+        assert_eq!(
+            aim(&placed, Scale::ONE, moved, (500.0, 700.0)),
+            page(419.0, 637.0)
+        );
+    }
+
+    /// 1680 × 1050, beside the rail: the page box 1198 × 970.
+    #[test]
+    fn split_in_a_wide_window_the_page_box_is_1198_by_970() {
+        let (placed, on) = split((1680, 1050), Scale::ONE);
+        assert_eq!(aim(&placed, Scale::ONE, on, (81.0, 63.0)), page(0.0, 0.0));
+        assert_eq!(
+            aim(&placed, Scale::ONE, on, (1278.5, 1032.5)),
+            page(1197.5, 969.5)
+        );
+        assert!(matches!(
+            aim(&placed, Scale::ONE, on, (1279.0, 500.0)),
+            Some(Aimed::Part(Part::Start, _))
+        ));
+    }
+
+    /// The least window it splits in, 1202 beside the rail: the page box
+    /// 720 wide, ending at the window's 801.
+    #[test]
+    fn split_at_the_least_width_the_page_box_is_720_wide() {
+        let (placed, on) = split((1202, 820), Scale::ONE);
+        assert_eq!(
+            aim(&placed, Scale::ONE, on, (800.5, 400.0)),
+            page(719.5, 337.0)
+        );
+        assert!(matches!(
+            aim(&placed, Scale::ONE, on, (801.0, 400.0)),
+            Some(Aimed::Part(Part::Start, _))
+        ));
     }
 
     #[test]

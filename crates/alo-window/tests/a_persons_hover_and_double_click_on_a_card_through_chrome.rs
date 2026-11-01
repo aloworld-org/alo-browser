@@ -221,9 +221,10 @@ impl Card<'_> {
                 viewport,
                 down: 0.0,
                 offered: 0,
+                stands: alo_renderer::split_place::Stands::InTheConversation,
             })?;
         Some(OnThePage {
-            at: card_aim::on_the_page(&placed, Scale::ONE, (painted.viewport, painted.down), at),
+            at: card_aim::on_the_page(&placed, Scale::ONE, painted, at),
             over: matches!(
                 card_aim::aim(&placed, Scale::ONE, Some(painted), at),
                 Some(Aimed::Page { .. })

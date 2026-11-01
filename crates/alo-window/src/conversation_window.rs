@@ -85,9 +85,9 @@ use crate::scale::Scale;
 use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
-use alo_renderer::card_place;
 use alo_renderer::conversation_scroll::{self, Reach};
 use alo_renderer::results::{PROVIDER, SetUp, Showing, Tab};
+use alo_renderer::split_place::Stands;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -163,10 +163,14 @@ pub struct ConversationWindow {
     /// screen was last painted (queue item 759): the room the live card's
     /// page is seen in was shorter by them.
     drawn_offered: usize,
-    /// How far the conversation was scrolled, and how many offers stood
-    /// over the box, in the frame of the first screen about to be told: its
-    /// drawing thread says so just before it.
-    painting_down: Option<(f32, usize)>,
+    /// Where the live card stood when the first screen was last painted:
+    /// in the conversation, or in the split view while alo's agent works on
+    /// it (queue item 819) — where a press on its page is aimed.
+    drawn_stands: Stands,
+    /// How far the conversation was scrolled, how many offers stood over
+    /// the box, and where the live card stood, in the frame of the first
+    /// screen about to be told: its drawing thread says so just before it.
+    painting_down: Option<(f32, usize, Stands)>,
     /// The modifier keys held.
     held: Held,
     /// Whether the window has the keyboard, and the front is to be taken
@@ -258,6 +262,7 @@ impl ConversationWindow {
             pointer: CardPointer::default(),
             drawn_down: 0.0,
             drawn_offered: 0,
+            drawn_stands: Stands::InTheConversation,
             painting_down: None,
             held: Held::NOTHING,
             front: Front::default(),
@@ -320,6 +325,13 @@ impl ConversationWindow {
         {
             run.stop();
             self.unmark();
+        }
+        // The run over, the panel is what the person chose again, and what
+        // was said of it coming back is no longer so (queue item 819).
+        if !self.conversation.at_work()
+            && self.told.as_deref() == Some(conversation_fold::at_work().as_str())
+        {
+            self.told = None;
         }
     }
 
@@ -549,11 +561,16 @@ impl ConversationWindow {
     }
 
     /// What the card's page is streamed at as the first screen is laid out
-    /// now: its page box ([`card_place::page_size`]) at the window's scale.
+    /// now: its page box at the window's scale — in the conversation
+    /// ([`alo_renderer::card_place::page_size`]), or in the split view while
+    /// alo's agent works on it ([`alo_renderer::split_place::page_size`],
+    /// queue item 819), so Chrome lays the page out at the split's size for
+    /// the run and at the conversation's once it ends.
     fn card_streamed(&self) -> Option<Streamed> {
         let (_, scale) = self.measured()?;
         let room = self.start_room()?;
-        Some(Streamed::at(card_place::page_size(room), scale))
+        let stands = Stands::of(room, self.conversation.card());
+        Some(Streamed::at(stands.page_size(room), scale))
     }
 
     /// What the window is drawn from now, at its size and scale: the first
@@ -593,6 +610,7 @@ impl ConversationWindow {
                 viewport,
                 down: self.drawn_down,
                 offered: self.drawn_offered,
+                stands: self.drawn_stands,
             })
     }
 
@@ -629,12 +647,7 @@ impl ConversationWindow {
         let scene = self.scene()?;
         let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
         let painted = self.card_on_screen()?;
-        Some(card_aim::on_the_page(
-            &placed,
-            scene.scale,
-            (painted.viewport, painted.down),
-            at,
-        ))
+        Some(card_aim::on_the_page(&placed, scene.scale, painted, at))
     }
 
     /// Send the card's page a person's `input`, through the thread holding
@@ -775,7 +788,10 @@ impl ConversationWindow {
             Some(card_aim::Aimed::Page { x, y }) => {
                 self.to_the_page(CardInput::Wheel { x, y, right, down });
             }
-            Some(card_aim::Aimed::Part(Part::Start, _)) if self.conversation.conversing() => {
+            // The split view scrolls nothing of its own (queue item 819).
+            Some(card_aim::Aimed::Part(Part::Start, _))
+                if self.conversation.conversing() && self.drawn_stands != Stands::Split =>
+            {
                 // A person scrolling is followed, not the agent.
                 self.following = false;
                 #[expect(
@@ -835,6 +851,10 @@ impl ConversationWindow {
         // item 775).
         if show && self.conversation.fold().narrow() {
             self.tell(conversation_fold::too_narrow());
+        } else if show && self.conversation.at_work() {
+            // And while alo's agent works, until the run ends (queue item
+            // 819).
+            self.tell(conversation_fold::at_work());
         }
         self.ask_further();
         if go && let Some(chosen) = self.conversation.chosen() {
@@ -1107,8 +1127,10 @@ impl ConversationWindow {
                 // Aimed by the offset this frame was drawn at: what its
                 // drawing thread told just before it, or none for a first
                 // screen with no turns (queue item 703).
-                (self.drawn_down, self.drawn_offered) =
-                    self.painting_down.take().unwrap_or((0.0, 0));
+                (self.drawn_down, self.drawn_offered, self.drawn_stands) = self
+                    .painting_down
+                    .take()
+                    .unwrap_or((0.0, 0, Stands::InTheConversation));
             }
             Heard::Drawn(Drawn::Said(Part::Panel, said)) => self.panel_said = Some(said),
             Heard::Drawn(Drawn::Said(Part::Start, said)) => self.start_said = Some(said),
@@ -1117,19 +1139,27 @@ impl ConversationWindow {
                 turns,
                 down,
                 offered,
+                stands,
                 reach,
-            }) => self.reached(turns, (down, offered), reach),
+            }) => self.reached(turns, (down, offered, stands), reach),
         }
     }
 
     /// The first screen is about to be told painted with `turns` turns
-    /// scrolled `down`, with `offered` offers over the box, which reach as
-    /// `reach` says (queue items 703, 759): the live card's page box is
+    /// scrolled `down`, with `offered` offers over the box and the live card
+    /// standing as the third of `painting` says, which reach as `reach` says
+    /// (queue items 703, 759, 819): the live card's page box is
     /// aimed where it was drawn, in the room it was seen in, once that frame
     /// is had, and the conversation is kept inside its reach — drawn again
     /// if that moved it, or placed the sign of more above or below anew.
-    fn reached(&mut self, turns: usize, (down, offered): (f32, usize), reach: Reach) {
-        self.painting_down = Some((down, offered));
+    fn reached(&mut self, turns: usize, painting: (f32, usize, Stands), reach: Reach) {
+        self.painting_down = Some(painting);
+        if painting.2 == Stands::Split {
+            // The split view draws no conversation (queue item 819): what
+            // it reaches, measured on nothing, is not the conversation's,
+            // and it is kept where a person left it for when the run ends.
+            return;
+        }
         let Some(room) = self.start_room() else {
             return;
         };
@@ -1371,6 +1401,7 @@ mod tests {
             turns: 2,
             down: -120.0,
             offered: 2,
+            stands: Stands::InTheConversation,
             reach,
         }));
         assert_eq!(
@@ -1401,6 +1432,7 @@ mod tests {
             turns: 2,
             down: 0.0,
             offered: 0,
+            stands: Stands::InTheConversation,
             reach: Reach {
                 earlier: 900.0,
                 newest: 1000.0,
@@ -1491,6 +1523,7 @@ mod tests {
             turns: 2,
             down: 0.0,
             offered: 0,
+            stands: Stands::InTheConversation,
             reach: Reach {
                 earlier: 900.0,
                 newest: 1000.0,
@@ -1781,6 +1814,188 @@ mod tests {
         assert_eq!(side(&window), Some(Side::Panel));
         assert_eq!(page(&window), Some((454, 520)));
         assert_eq!(window.told(), None, "no longer so, no longer said");
+        window.finish();
+    }
+
+    /// A card open on example.com in `window`, seen, and asking alo set up
+    /// with no model behind it: a run started is the conversation's alone,
+    /// which is all the window's layout follows.
+    fn a_card_alo_can_be_asked_about(window: &mut ConversationWindow) {
+        window.conversation.set_agent(SetUp::Ready);
+        let url = alo_url::parse("https://example.com/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        window.seen(true);
+    }
+
+    /// Ask alo `asked` on the card, as Return on words does while it is open.
+    fn ask_alo(window: &mut ConversationWindow, asked: &str) {
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(window, asked);
+        assert!(window.conversation().at_work(), "{asked} started a run");
+    }
+
+    /// *Stop* pressed on the run at work: the run ends.
+    fn stop(window: &mut ConversationWindow) {
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Stop(1))));
+        assert!(!window.conversation().at_work(), "stopped");
+    }
+
+    /// Queue item 819: while alo's agent works on the card the panel is the
+    /// rail and the card's page is streamed at the split view's page box —
+    /// 798 × 740 in the design's window, 1198 × 970 in a wide one, 720 ×
+    /// 740 at the least it splits in — and back at the conversation's once
+    /// the run ends; one pixel narrower than the least, it is the
+    /// conversation's page box all along, the panel still the rail.
+    #[test]
+    fn while_alo_works_the_page_is_streamed_at_the_split_views_page_box_and_after_at_the_cards() {
+        use crate::conversation_place::Side;
+        let side = |window: &ConversationWindow| window.scene().map(|scene| scene.side);
+        let page = |window: &ConversationWindow| window.streaming.map(|streamed| streamed.page);
+        for (size, split, after) in [
+            ((1280, 820), (798, 740), (878, 520)),
+            ((1680, 1050), (1198, 970), (878, 520)),
+            ((1202, 820), (720, 740), (878, 520)),
+            ((1201, 820), (878, 520), (878, 520)),
+        ] {
+            let mut window = window();
+            window.measured_as(Measured {
+                size,
+                scale_factor: 1.0,
+                outer: Some((0, 0)),
+            });
+            a_card_alo_can_be_asked_about(&mut window);
+            assert_eq!(side(&window), Some(Side::Panel), "{size:?}");
+            ask_alo(&mut window, "find the contact page");
+            assert_eq!(side(&window), Some(Side::Rail), "{size:?}");
+            assert_eq!(
+                window.streaming,
+                Some(Streamed::at(split, Scale::ONE)),
+                "{size:?}"
+            );
+            stop(&mut window);
+            assert_eq!(side(&window), Some(Side::Panel), "{size:?}");
+            // Beside the panel again: the column 880 wide from 1040 of room
+            // and more, and at 1201 and 1202 too.
+            assert_eq!(page(&window), Some(after), "{size:?}");
+            window.finish();
+        }
+    }
+
+    /// At two the same window asks Chrome for twice the device pixels of the
+    /// same page box.
+    #[test]
+    fn at_two_the_split_views_page_box_is_twice_the_device_pixels() {
+        let drawing = ConversationDrawing::start(
+            Renderers::running("/nonexistent/alo-render", &[]),
+            Box::new(|_| true),
+        )
+        .unwrap();
+        let chrome = ChromeOpener::start(Chromium::Machines, Box::new(|_| true)).unwrap();
+        let mut window = ConversationWindow::new(Some(Scale::TWO), drawing, chrome);
+        window.measured_as(Measured {
+            size: (2560, 1640),
+            scale_factor: 2.0,
+            outer: Some((0, 0)),
+        });
+        a_card_alo_can_be_asked_about(&mut window);
+        ask_alo(&mut window, "find it");
+        assert_eq!(window.streaming, Some(Streamed::at((798, 740), Scale::TWO)));
+        assert_eq!(
+            window
+                .streaming
+                .map(|streamed| (streamed.width, streamed.height)),
+            Some((1596, 1480))
+        );
+        window.finish();
+    }
+
+    /// Queue item 819: the run folds the panel to the rail without writing
+    /// over what a person chose. Shown before a run, it is shown after it;
+    /// hidden before, hidden after; hidden during it, hidden after; *Show
+    /// the panel* pressed during it is kept, said, and the panel is back as
+    /// the run ends, the line with it gone.
+    #[test]
+    fn a_persons_panel_choice_is_kept_across_a_run() {
+        use crate::conversation_place::Side;
+        let side = |window: &ConversationWindow| window.scene().map(|scene| scene.side);
+        let press = |window: &mut ConversationWindow, pressed: Decided| {
+            window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, pressed)));
+        };
+        let mut window = window();
+        a_card_alo_can_be_asked_about(&mut window);
+        // Shown before: shown after.
+        ask_alo(&mut window, "one");
+        stop(&mut window);
+        assert_eq!(side(&window), Some(Side::Panel));
+        // Hidden during the run: hidden after it.
+        ask_alo(&mut window, "two");
+        press(&mut window, Decided::HideThePanel);
+        assert_eq!(side(&window), Some(Side::Rail));
+        stop(&mut window);
+        assert_eq!(side(&window), Some(Side::Rail));
+        assert!(window.conversation().fold().hidden());
+        // Hidden before: the rail through the run and after it.
+        ask_alo(&mut window, "three");
+        stop(&mut window);
+        assert_eq!(side(&window), Some(Side::Rail));
+        // Shown during the run: still the rail, said why; the panel back as
+        // it ends, and the line gone.
+        ask_alo(&mut window, "four");
+        let _ = window.take_said();
+        press(&mut window, Decided::ShowThePanel);
+        assert_eq!(side(&window), Some(Side::Rail));
+        let said = conversation_fold::at_work();
+        assert_eq!(window.told(), Some(said.as_str()));
+        assert_eq!(window.take_said(), vec![said]);
+        assert!(!window.conversation().fold().hidden(), "the choice kept");
+        stop(&mut window);
+        assert_eq!(side(&window), Some(Side::Panel));
+        assert_eq!(window.told(), None, "no longer so, no longer said");
+        window.finish();
+    }
+
+    /// Queue item 819: a press on the split view's page box is aimed at the
+    /// page where the split view drew it — 81, 63 of the design's window —
+    /// once the first screen painted it so, and taking over ends the run.
+    #[test]
+    fn a_press_on_the_split_views_page_is_the_pages_and_takes_over() {
+        let mut window = window();
+        a_card_alo_can_be_asked_about(&mut window);
+        window.heard(Heard::Chrome(Went::Framed(vec![1])));
+        ask_alo(&mut window, "find it");
+        // Painted as the split view: the drawing thread says so before the
+        // frame.
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 1,
+            down: 0.0,
+            offered: 0,
+            stands: Stands::Split,
+            reach: Reach {
+                earlier: 0.0,
+                newest: 0.0,
+            },
+        }));
+        // Beside the rail, the first screen 1216 × 820.
+        let whole = Frame {
+            width: 1216,
+            height: 820,
+            pixels: vec![0; 1216 * 820 * 4],
+        };
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, whole)));
+        assert_eq!(window.drawn_stands, Stands::Split);
+        assert_eq!(
+            window.aimed((81.0, 63.0)),
+            Some(card_aim::Aimed::Page { x: 0.0, y: 0.0 })
+        );
+        // Where the conversation's page box was, (321, 145) beside the
+        // panel, is the split's page too, at its own place.
+        assert_eq!(
+            window.aimed((321.0, 145.0)),
+            Some(card_aim::Aimed::Page { x: 240.0, y: 82.0 })
+        );
+        window.moved((400.0, 400.0));
+        window.main_button_pressed();
+        assert!(!window.conversation().at_work(), "taken over");
         window.finish();
     }
 

@@ -403,10 +403,10 @@ now**, 28 tall, 8 apart. Stuck: why, then each choice as a button. Done:
 the page stops it and gives the person the page. It never types a
 password: the card refuses it, for any agent. Nothing of Chrome's is
 drawn over the card's page — no inspector highlight, no tooltip (822);
-alo's own ring on a card is 823. Not built yet: the split
-view below, a sentence of plan and the next steps greyed, carrying on
-after taking over, what, when, where and how much before paying (819);
-an agent opening its own page (821). **Each run is kept** with the page it
+alo's own ring on a card is 823. Not built yet: a sentence of plan and
+the next steps greyed (824), carrying on after taking over (825), what,
+when, where and how much before paying, and *Confirm and pay* (826); an
+agent opening its own page (821). **Each run is kept** with the page it
 worked on (820): once the page is shown earlier, under its line, what the
 person asked as their bubble, then what alo did on a white box rounded 12,
 14 by 16 inside — its steps in the quiet colour, 6 apart, why under a step
@@ -415,10 +415,53 @@ or why it was stuck or stopped; nothing on it pressable. A text typed that
 the person did not say is never kept: that step reads *Typed into a
 field*.
 
+### The split view (item 819)
+
+**While the agent acts or asks, the window splits.** The panel is the
+rail for the run, at any width; the first screen beside it is no longer
+the conversation but **the page, large, on the left** — the card with its
+bar, 16 in from the screen's top, left and foot and from the column, its
+page box the rest of the card under the bar, outlined in terracotta — and
+**the agent's column, 384 wide its rule included, on the right**: white,
+ruled off on its left in the line's colour, 16 inside it and 24 above its
+foot. In it, from the top, the working line with *Stop* (its words on two
+lines of 18 in the column, 8 inside above and below), what was asked, the
+steps — each line wrapping rather than cut, the newest kept seen and the
+oldest clipped above when they do not fit — then the question with
+*Allow* and *Not now*; at least 16 under them, the offers and the box, 56
+tall, at the column's foot, where the conversation's box is. The
+conversation's earlier turns are not drawn while it works.
+
+| The window, beside the rail | The page box | The column |
+|---|---|---|
+| 1280 × 820 (the design's) | (17, 63) 798 × 740 — 878 × 520 in the conversation | (832, 0) 384 × 820 |
+| 1680 × 1050 | 1198 × 970 | (1232, 0) 384 × 1050 |
+| 1202 × 820 (the least) | 720 × 740 | (754, 0) 384 × 820 |
+| 1201 and narrower | the conversation's: the column under the page, as above | — |
+
+**Its least width is a page box 720 wide** — a window of 1202 beside the
+rail: past any phone's width, so a site lays the page out as for a tablet
+or a desktop while alo works on it, and the split never makes the page
+more than 158 narrower than the conversation's 878. Chrome is told the
+split's page box as the run starts and the conversation's as it ends,
+through the road a resize takes (item 774), and a press is aimed at the
+page box where the picture pressed drew it.
+
+**The panel's own choice is kept.** The run never writes over what a
+person chose: a panel shown before it is shown after it, one hidden stays
+hidden; *Hide the panel* or *Show the panel* pressed during the run is
+kept for after it, and *Show* says *alo is working on this page: the
+panel comes back when it has finished* until it does.
+
+**When the run ends** — done, stuck, stopped, or a press on the page
+taking over — the window is the conversation again, the panel what the
+person chose, and what the run ended with is drawn under the page in the
+card, stuck's choices with it, as before the split.
+
 ### As designed
 
 - The window splits: the page large on the left, the agent's column on the
-  right (384 px), the panel a rail.
+  right (384 px), the panel a rail (built, item 819).
 - First a sentence of plan, then **one line per step, as it happens**, in a
   person's words — *"Choosing Saturday, 10:00"* — with why, when it chose:
   *"8:00 is taken, so this is the earliest free morning slot"*. The next

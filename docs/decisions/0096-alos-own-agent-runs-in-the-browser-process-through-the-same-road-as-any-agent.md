@@ -1,6 +1,6 @@
 # ADR 0096 — alo's own agent runs in the browser process, through the same road as any agent
 
-**Status:** accepted — built by queue item 704 (1 November 2026)
+**Status:** accepted — built by queue item 704 (1 November 2026); amended by item 819 (the split view, below)
 **Date:** 2026-11-01
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
 coordinate; no screenshot to the agent); ADR 0052 (the agent's gate and the
@@ -193,11 +193,10 @@ first*, and with no key why, as the answer does.
 
 ## 8. What is not here
 
-- **The split view** (`shell.md`: the page large on the left, the agent's
-  column 384 wide on the right, the panel a rail): the column stands under
-  the page, inside the card, in the conversation's 880 — item 819.
+- ~~**The split view**~~ — built 1 November 2026 (item 819, the amendment
+  below).
 - **A sentence of plan, and the next steps greyed**: the model chooses one
-  step at a time and is not asked for a plan — item 819.
+  step at a time and is not asked for a plan — item 824.
 - ~~**The run as turns of the conversation, kept in the chat's file**~~ —
   built 1 November 2026 (item 820, ADR 0092's amendment): each run kept
   with its page in words, never a text typed that the person did not say,
@@ -207,8 +206,47 @@ first*, and with no key why, as the answer does.
 - **An agent that opens its own page**: alo works only on the page open as
   a card — item 821.
 - **Taking over and carrying on** from what the page then shows: a press on
-  the page stops the run; asking again starts a new one — item 819.
+  the page stops the run; asking again starts a new one — item 825.
 - **What, when, where and how much** in a payment's question, and *Confirm
-  and pay*: the question names what is pressed and where — item 819.
+  and pay*: the question names what is pressed and where — item 826.
 - **Settings for what alo may do** — item 705; **the record read back** —
   item 678.
+
+## Amendment — 1 November 2026: the split view (item 819)
+
+What the person sees (§ 7) changes shape while a run is at work; what the
+run reads, sends, asks and refuses (§§ 1–6) does not.
+
+- **While the run acts or asks, the window splits** (`alo-renderer`'s
+  `split_place.rs`, `split_document.rs`, `interface/start.css` *The split
+  view*): the panel is the rail, and the first screen the card's page
+  large on the left and the agent's column, 384 wide, on the right — the
+  working line with *Stop*, what was asked, the steps, the question with
+  *Allow* and *Not now*, and the box at its foot. Where the card stands is
+  one function of the first screen's viewport and the live card,
+  `split_place::Stands::of`, which the renderer lays out by and the browser
+  process aims and streams by, so the two cannot disagree. The
+  conversation's earlier turns are not drawn while it works; an agent
+  reading the screen reads the card's region and a `complementary` named
+  *alo beside the page* holding the region *alo at work* (ADR 0002).
+- **Its least width**: a page box 720 wide (a first screen of 1138, a
+  window of 1202 beside the rail). Narrower, the column stands under the
+  page in the card as § 7 has it, the panel still the rail.
+- **What it costs the page**: in the design's window the page box is
+  798 × 740 for the run where the conversation's is 878 × 520 — 80
+  narrower and 220 taller. Chrome is told the split's page box when the
+  run starts and the conversation's when it ends, through the road a
+  resize takes (queue item 774: `ConversationWindow::restream`,
+  `CardOrder::Stream`, the parked window fitted before the stream
+  restarts); a person's press is aimed at the page box where the picture
+  pressed drew it (`card_aim::OnScreen::stands`, told by the drawing
+  thread with the frame), never where it is about to be.
+- **The person's choice of panel is kept** (`conversation_fold::Fold::
+  side_at_work`): the run folds the panel without writing over a hide or a
+  show, before it or during it; *Show the panel* pressed during it is said
+  to come back when alo has finished, and does.
+- **The run's end** — done, stuck, stopped, taken over — is the
+  conversation again, and what it ended with is drawn under the page as
+  § 7 has it: a stuck run has ended, so its choices are pressed there.
+- **Cut**: a plan and the next steps greyed (824); carrying on after
+  taking over (825); a payment's details and *Confirm and pay* (826).

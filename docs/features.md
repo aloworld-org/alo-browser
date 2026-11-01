@@ -1294,11 +1294,23 @@ The reason this exists rather than a faster fork of somebody else's engine.
   three references (`alo-renderer/tests/the_agent_at_work.rs`), the run
   against a fake card and a fake model (`conversation_agent.rs`), and the
   window's own road through both Chromiums against a local model
-  (`alo-window/tests/the_agent_at_work_on_a_card_through_chrome.rs`). Cut:
-  the split view, a plan and the next steps greyed, taking over and
-  carrying on, a payment's details (819); the run kept as turns in the
-  chat's file (820); an agent opening its own page (821); its settings
-  (705). **Nothing of Chrome's over a card** (822, ADR 0066 amended): a card's
+  (`alo-window/tests/the_agent_at_work_on_a_card_through_chrome.rs`).
+  **The split view** (819, ADR 0096 amended): while the agent acts or asks
+  the panel is the rail — a person's own hide or show kept for after the
+  run (`conversation_fold.rs`) — and the first screen is the page large on
+  the left and the agent's column 384 wide on the right, the box at its
+  foot (`split_place.rs`, `split_document.rs`): the page box 798 × 740 in
+  the design's 1280 × 820 window (878 × 520 in the conversation), 1198 ×
+  970 at 1680 × 1050, told to Chrome through the restream road and aimed
+  at by `card_aim` where it was painted; from a page box of 720 (a window
+  of 1202 beside the rail), the column under the page as before below it.
+  Layout in numbers at 1216, 1616, 1138 and 1137 and the reference
+  `split-view-asking.png` (`alo-renderer/tests/the_split_view.rs`); frames
+  streamed at 798 × 740 while it works and 878 × 520 after through both
+  Chromiums. Cut: a plan and the next steps greyed (824), carrying on
+  after taking over (825), a payment's details before *Confirm and pay*
+  (826); the run kept as turns in the chat's file (820); an agent opening
+  its own page (821); its settings (705). **Nothing of Chrome's over a card** (822, ADR 0066 amended): a card's
   page is never marked by Chrome's `Overlay.highlightNode` — whose tooltip
   the stream carried into the conversation — a verb takes any mark away,
   a card expanded into Chrome's window is marked as before, and

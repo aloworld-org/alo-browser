@@ -22440,7 +22440,7 @@ What stage 2's exit gate actually measures: a person using it.
   retention is by OpenAI's prior approval (ADR 0081 § 0). *needs the
   owner: a request to OpenAI.*
 
-- [ ] **819. The agent at work as the split view (cut from 704).**
+- [x] **819. The agent at work as the split view (cut from 704).**
   `shell.md`: the window splits, the page large on the left and the
   agent's column 384 wide on the right, the panel a rail; a sentence of
   plan first and the next steps greyed; *click anywhere to take over*
@@ -22451,6 +22451,54 @@ What stage 2's exit gate actually measures: a person using it.
   naming what is pressed and where. Measure what the split costs the page
   (Chrome told a narrower size while it works) and decide. *Depends on
   704. needs design for the plan.*
+  ***Done (1 November 2026, ADR 0096 amended); a plan cut to 824, carrying
+  on after taking over to 825, a payment's details to 826.*** **Decided:**
+  while the agent acts or asks the panel is the rail at any width and,
+  where the page box would be at least **720** wide (a first screen of
+  1138, a window of **1202** beside the rail), the first screen is the
+  split view: the card 16 in from the screen's top, left and foot, its
+  page box **(17, 63) 798 × 740** in the design's 1280 × 820 (where the
+  conversation's is 878 × 520: 80 narrower, 220 taller), 1198 × 970 at
+  1680 × 1050, 720 × 740 at 1202; the agent's column **384** wide its
+  rule included at the right edge, 16 inside and 24 above its foot, the
+  box (56) at its foot at 740. Narrower than 1202 the column stays under
+  the page (704's), the panel still the rail. The run ends — done, stuck,
+  stopped, taken over — on the conversation again; a stuck run's choices
+  are pressed under the page there. **Built:** `alo-renderer`'s
+  `split_place.rs` (`Stands::of`, one function the renderer lays out by
+  and the browser process aims and streams by; `page_size`, `page_box`,
+  `column`), `split_document.rs` (the card without its column —
+  `card_document::make_beside` — and an `aside` *alo beside the page*
+  holding the agent, the offers and the box), `start.css` *The split
+  view*; `alo-window`'s `conversation_fold::Fold::side_at_work` (the rail
+  for the run, never written over a person's hide or show; *Show* during a
+  run says it comes back, and the line goes as the run ends),
+  `Conversation::at_work`/`side`, `card_aim::OnScreen::stands`,
+  `Drawn::Reached::stands` (where the frame about to be told drew the
+  card), `ConversationWindow::card_streamed` (Chrome told the split's page
+  box through 774's restream road), and no conversation scroll by wheel or
+  measure while split. **Tests:** `the_split_view.rs` (8: layout in
+  numbers at 1216 × 820, 1616 × 1050, 1138 and 1137 — page boxes equal to
+  `split_place`'s and, at 1137, `card_place`'s; twenty steps, the newest
+  whole at 686 and the box clear at 740; *Stop*, *Allow*, *Not now* and
+  the box claimed in the column; the tree; the reference
+  `split-view-asking.png`, run once without update mode, written, looked
+  at, compared); unit tests in `split_place.rs` (6), `split_document.rs`
+  (3), `card_aim.rs` (4: 81, 63 of the design's window at one and two,
+  1198 × 970, 720 at 1202, scrolling and offers ignored),
+  `conversation_fold.rs` (1), `conversation_window.rs` (4: streamed at
+  798 × 740, 1198 × 970, 720 × 740 and 878 × 520 at 1201, back to 878 ×
+  520 after; 1596 × 1480 device at two; the panel's choice kept across
+  four runs; a press on the split's page box the page's, taking over);
+  through both Chromiums (`the_agent_at_work_on_a_card_through_chrome.rs`):
+  the rail while it works, the card's frames at 798 × 740, *Allow*, *Not
+  now* and *Stop* found and pressed in the column, the page taken over on
+  the split's page box, then the panel back and frames at 878 × 520. No
+  704 or 820 reference moved (they are laid out at 1040, under 1138).
+  **Mutations:** the page size not following the split — two unit tests
+  and the Chrome test fail; the run hiding the panel as a person would —
+  the choice test fails; no rail while at work — four fail; the aim
+  ignoring where the frame drew the card — the press test fails.
 
 - [x] **820. The agent's run kept as turns of the chat (cut from 704).**
   ADR 0085 § 1 and ADR 0092: a run is drawn on its live card and goes when
@@ -22501,6 +22549,48 @@ What stage 2's exit gate actually measures: a person using it.
   against — `Page.screencastFrame`'s metadata carries the frame's scroll
   offset — and taken away with the next frame that moves it. *Depends on
   822, 624.*
+
+- [ ] **824. A plan and the next steps greyed (cut from 819).**
+  `shell.md`: first a sentence of plan, then one line per step, the next
+  steps shown greyed so a person knows where it will stop. The model
+  chooses one step at a time (ADR 0096 § 2) and is asked for no plan.
+  Extend each verb's function with `plan` (a sentence, at most 160
+  characters, sent once) and `next` (at most 4 lines of at most 160
+  characters, the steps it expects after this one), both `strict` and
+  nullable; carry them as `AtWork::plan`/`AtWork::next` (wire, 4 and 160
+  bounded, refused past them); draw the plan under what was asked and the
+  next steps after the newest in the greyed colour (`#bdb6aa`) in both
+  the column under the page and the split view's; never kept with the run
+  (820). *Depends on 819. Closes when:* layout in numbers and a reference,
+  the protocol's parse refusing past the bounds, and through both
+  Chromiums against a local model that gives a plan and one that gives
+  none.
+
+- [ ] **825. Carrying on after taking over (cut from 819).** `shell.md`:
+  *click anywhere to take over* — the agent pauses and carries on from
+  whatever the page then shows. A press on the page now stops the run
+  (ADR 0096 § 4). Decide: the run held rather than ended (its thread
+  waiting, at most 10 minutes, the window's split view gone and the
+  column under the page saying *Paused — the page is yours* with *Carry
+  on* and *Stop*), *Carry on* reading the page anew and telling the model
+  the person acted on it in between (never what they typed), the step and
+  token limits counted across the pause. *Depends on 819. Closes when:*
+  through both Chromiums: taken over, the page pressed by the person,
+  *Carry on*, and the run finishing from the page as it then was; the
+  pause ended by its limit and by *Stop*.
+
+- [ ] **826. A payment's details before *Confirm and pay* (cut from
+  819).** `shell.md`: it stops before paying with what, when, where and
+  how much, and *Confirm and pay* / *Not now*. The person's gate
+  (`agent_gate.rs`) asks *Press "Pay" on example.com? It pays.* Decide
+  what is read off the tree for each (the form's fields and their values,
+  a price-like text nearest the button — a currency sign or code and a
+  number — the site's host), never sent to the model for this, what is
+  said when one cannot be read (*the amount is not on the page*), and
+  *Confirm and pay* in place of *Allow* for a paying press only.
+  *Depends on 819, 705. Closes when:* a frozen checkout page's question
+  in numbers and words, a reference of the question, and through both
+  Chromiums the payment held until *Confirm and pay*.
 
 ## K. ★ The agent, on somebody else's pages
 

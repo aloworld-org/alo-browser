@@ -688,6 +688,121 @@ a {
   color: var(--quiet);
 }
 
+/* The split view (queue item 819, docs/design/shell.md, *The agent at
+   work*): while alo's agent works on the card, the first screen is the
+   page large on the left — the card 16 in from the screen's top, left and
+   foot and from the column, its page box the rest of the card under its
+   bar — and the agent's column, 384 wide its border included, on the
+   right, white, ruled off by the line's colour, 16 inside it and 24 above
+   its foot: the agent at work, then at least 16 under it the offers and
+   the box, 56 tall, at its foot. `alo-renderer`'s `split_place` computes the same page box for
+   the browser process. Its steps keep their newest seen: past the room,
+   the oldest are clipped above. */
+.start.split {
+  flex-direction: row;
+  align-items: stretch;
+  height: 100%;
+  padding: 0;
+}
+
+.beside-page {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 0;
+  padding: 16px;
+}
+
+.beside-page .card {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.beside-page .bar {
+  flex-shrink: 0;
+}
+
+.beside-page .page {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  height: auto;
+}
+
+.beside {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 384px;
+  padding: 16px 16px 24px;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.beside .agent {
+  flex-shrink: 1;
+  min-height: 0;
+  margin-bottom: 16px;
+  padding: 0;
+  border-top: 0;
+  overflow: hidden;
+}
+
+.beside .agent > * {
+  flex-shrink: 0;
+}
+
+.beside .agent > .steps {
+  flex-shrink: 1;
+  min-height: 0;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.beside .step {
+  flex-shrink: 0;
+}
+
+/* The column is narrower than the card: the working line, what was asked
+   and each step wrap rather than being cut, the working line 8 inside
+   above and below its two lines of 18. */
+.beside .working {
+  height: auto;
+  min-height: 36px;
+  padding: 8px 4px 8px 12px;
+}
+
+.beside .working .said,
+.beside .asked,
+.beside .step .line,
+.beside .step .why {
+  white-space: normal;
+}
+
+.beside .offers {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: none;
+  margin-top: auto;
+}
+
+.beside .box {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: none;
+  height: 56px;
+  margin-top: auto;
+}
+
+.beside .offers + .box {
+  margin-top: 8px;
+}
+
 /* A search's results, as the design's All tab draws them (queue item 708,
    the owner's canvas of 31 October 2026): the person's line, then 20 under
    it the tab row — each tab 42 tall, 14 across inside, All in the ink, 600,

@@ -48373,3 +48373,78 @@ process left; the pointer back at 1400, 1000; neither key in any hand-run
 file.
 
 The next unused queue number is **824** and the next ADR is **0097**.
+
+---
+
+## 2026-11-01 — item 819: the agent at work as the split view
+
+**Decided** (ADR 0096 amended, `shell.md` *The split view*): while alo's
+agent acts or asks, the panel is the rail at any width — never written
+over a person's hide or show (`Fold::side_at_work`) — and, where the page
+box would be at least 720 wide (a first screen of 1138, a window of 1202
+beside the rail), the first screen is the split view: the card 16 in, its
+page box (17, 63) **798 × 740** in the design's 1280 × 820 (the
+conversation's is 878 × 520), 1198 × 970 at 1680 × 1050, 720 × 740 at
+1202; the agent's column 384 at the right edge, the box at its foot at
+740. Narrower, 704's column under the page, the panel still the rail. The
+run's end — done, stuck, stopped, taken over — is the conversation again.
+
+**Built:** `alo-renderer`: `split_place.rs` (`Stands::of`, the one
+function the renderer lays out by and the browser process aims and
+streams by), `split_document.rs`, `card_document::make_beside`,
+`conversation_document::take_the_greeting` (shared), `Start::stands`,
+`start.css` *The split view* (lines wrap in the column, the newest step
+kept seen). `alo-window`: `Conversation::at_work`, `Fold::side_at_work`
+and `conversation_fold::at_work()` (said when *Show* is pressed during a
+run, gone as it ends), `card_aim::OnScreen::stands` (`on_the_page` takes
+the `OnScreen`), `Drawn::Reached::stands`, `ConversationWindow`'s
+`drawn_stands`, `card_streamed` by `Stands`, no conversation scroll or
+measure while split.
+
+**Tests:** `the_split_view.rs` (8; reference `split-view-asking.png` run
+once without update mode, written, looked at, compared); unit tests in
+`split_place` (6), `split_document` (3), `card_aim` (4), `conversation_fold`
+(1), `conversation_window` (4); `the_agent_at_work_on_a_card_through_chrome.rs`
+through both Chromiums now asserts the rail, frames at 798 × 740 while it
+works and 878 × 520 after, *Allow*/*Not now*/*Stop* in the column and the
+take-over on the split's page box (a press after a run waits for the
+conversation's frame: the split's last frame is what a person sees until
+then, and a press there is on the page). Three window tests building an
+`OnScreen` updated. No 704 or 820 reference moved (laid out at 1040).
+**Mutations:** the page size ignoring the split (two unit tests and the
+Chrome test fail), the run hiding the panel (the choice test), no rail
+while at work (four tests), the aim ignoring the painted split (the press
+test).
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached with `setsid`, waited on by its PID). **Summary [1141.737s] 6332
+tests run: 6332 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is
+met." (11 of 11 steps)*.
+
+**By hand** (screen unlocked; release built, CEF host built, the old
+`.app` removed, `alo-bundle --keys-from keychain` carrying both keys;
+`--conversation --chats handrun30/chats`, the directory made by alo,
+`0700`; the window moved from another display to 120, 80 and sized 1280 ×
+820 inside by AppleScript; keys and presses from a private event source
+with no flags; screenshots in `handrun30/`): `https://en.wikipedia.org` as
+a card (`01-wikipedia`); *Search Wikipedia for "Kampala" and open the
+article* — the window split at once: the rail, the page large with
+Wikipedia laid out at the new width, the column with the working line,
+what was asked and the steps (`03-split-at-work`); held — *Press "Search"
+on en.wikipedia.org? It sends the form on this page.* with *Allow* and
+*Not now* in the column (`04-asks`); *Allow* pressed in the column, *Done
+in 4 steps*, the panel back and the conversation with the article and the
+steps under it (`05-conversation-after`). A second run, *Open the History
+section of this article*, split again (`06-second-run`) and was done in 2
+steps before my press on the page, so **taking over was not seen by
+hand** (it is through both Chromiums). Usage: 8 steps, **148,136 tokens
+in, 235 out, ≈ $0.15** at Terra's prices; no search. Quit by AppleScript
+(`quit` to `org.aloworld.Browser`; a first `quit` by the process's name did
+nothing); no alo, renderer or Chromium process left; the pointer back at
+1400, 1000; neither key in any hand-run file. Seen: the box's hint is cut
+in the column (*Ask anything, search, or type a webs…*).
+
+**Cut:** a plan and the next steps greyed (824), carrying on after taking
+over (825), a payment's details and *Confirm and pay* (826).
+
+The next unused queue number is **827** and the next ADR is **0097**.

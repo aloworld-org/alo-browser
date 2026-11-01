@@ -27,7 +27,8 @@
 //! conversation (queue item 703, ADR 0085): every turn of the chat on
 //! screen, oldest first ([`Start::turns`], [`crate::turn`]), scrolled as the
 //! browser process says ([`Start::down`], [`crate::conversation_scroll`]),
-//! with the box at the window's foot.
+//! with the box at the window's foot — or, while alo's agent works on the
+//! live card, the split view ([`Start::stands`], queue item 819).
 //!
 //! # Where it is
 //!
@@ -37,6 +38,7 @@ use crate::card::Card;
 use crate::conversation_scroll::Bar;
 use crate::results::SetUp;
 use crate::site::Site;
+use crate::split_place::Stands;
 use crate::strip::longest;
 use crate::turn::Turn;
 use crate::typed::Offer;
@@ -163,6 +165,13 @@ impl Start {
     /// The page shown live as a card, if the newest turn is one.
     pub fn card(&self) -> Option<&Card> {
         self.turns.last().and_then(Turn::card)
+    }
+
+    /// Where the live card stands: in the conversation, or — while alo's
+    /// agent works on it in a first screen wide enough — in the split view
+    /// (queue item 819, [`crate::split_place`]).
+    pub fn stands(&self) -> Stands {
+        Stands::of(self.viewport, self.card())
     }
 }
 

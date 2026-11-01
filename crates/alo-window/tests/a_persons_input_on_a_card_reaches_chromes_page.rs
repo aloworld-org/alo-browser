@@ -204,6 +204,7 @@ fn aimed(conversation: &Conversation, at: (f64, f64)) -> Result<(f64, f64), Stri
             viewport,
             down: 0.0,
             offered: 0,
+            stands: alo_renderer::split_place::Stands::InTheConversation,
         });
     match card_aim::aim(&placed, Scale::ONE, card, at) {
         Some(Aimed::Page { x, y }) => Ok((x, y)),

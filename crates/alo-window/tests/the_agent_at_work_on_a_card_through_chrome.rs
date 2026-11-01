@@ -33,7 +33,14 @@
 //!    person's, nothing more is done.
 //! 6. **The step limit**: twenty presses, then it stops and says so.
 //! 7. **A provider error** is said, and nothing is done.
-//! 8. **Every run kept as turns of the chat** (queue item 820): the chat's
+//! 8. **The split view** (queue item 819): while it works the panel is
+//!    the rail, the first screen the split view, and the card's page
+//!    streamed at the split's page box, 798 × 740 — Chrome told the new
+//!    size and every frame at it — and once the run ends, the panel back
+//!    and the page streamed at the conversation's 878 × 520 again. *Allow*,
+//!    *Not now* and *Stop* are found and pressed in the agent's column, and
+//!    the page taken over by a press on the split's page box.
+//! 9. **Every run kept as turns of the chat** (queue item 820): the chat's
 //!    file, read back, holds each run with the page it worked on — what
 //!    was asked, its steps in words, how it ended — and never the text it
 //!    typed into the password field, which the person did not say, nor
@@ -52,6 +59,7 @@ use alo_renderer::agent_ran::{Ended, Ran, TYPED};
 use alo_renderer::agent_work::Now;
 use alo_renderer::card_place;
 use alo_renderer::host::Renderers;
+use alo_renderer::split_place;
 use alo_renderer::turn::Turn;
 use alo_window::agent_sites::AgentSites;
 use alo_window::beside::{Chromium, renderer_beside};
@@ -62,6 +70,7 @@ use alo_window::conversation_agent::{Agent, MOST_STEPS, TellAgent};
 use alo_window::conversation_agents::relay;
 use alo_window::conversation_chrome::{ChromeOpener, Went};
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
+use alo_window::conversation_place::Side;
 use alo_window::conversation_window::{ConversationWindow, Heard, Measured};
 use alo_window::keys::{Key, Press};
 use alo_window::openai_answer::Provider;
@@ -84,6 +93,28 @@ const WINDOW: (u32, u32) = (1280, 820);
 
 /// The panel's width at one: where the first screen begins.
 const PANEL: f64 = 240.0;
+
+/// The rail's width at one: where the first screen begins while the agent
+/// works (queue item 819).
+const RAIL: f64 = 64.0;
+
+/// The first screen beside the rail in the design's window: the split
+/// view's, 1216 × 820.
+const SPLIT_ROOM: (u32, u32) = (1216, 820);
+
+/// Where the inside of the agent's column begins in the split view: its
+/// left edge, 832, its border and 16 ([`split_place::column`], held to it
+/// below).
+const COLUMN_INSIDE: u16 = 849;
+
+/// Where the box's top is at the foot of the agent's column: 24 and 56
+/// above the first screen's foot ([`card_place::box_top`], held to it
+/// below).
+const SPLIT_BOX_TOP: u16 = 740;
+
+/// The split view's page box in it, in CSS pixels
+/// ([`split_place::page_size`], held to it below).
+const SPLIT_PAGE: (u32, u32) = (798, 740);
 
 /// The box on the first screen with nothing in it, at one.
 const THE_BOX: (f64, f64) = (640.0, 285.0);
@@ -438,6 +469,15 @@ impl Driven {
     /// A press on the box at `at`, until it has the keyboard: the press is
     /// claimed by the first screen's renderer, which may be painting.
     fn press_the_box(&mut self, at: (f64, f64)) -> Result<(), String> {
+        // The conversation painted beside the panel, 1040 wide: after a
+        // run, the split view's last frame is still on the screen until
+        // the conversation is painted again, and a press there is on the
+        // page (queue item 819).
+        self.until("the conversation painted beside the panel", |driven| {
+            driven
+                .start_frame()
+                .is_some_and(|frame| frame.width == 1040)
+        })?;
         self.press(at);
         self.until("the box given the keyboard", |driven| {
             driven
@@ -500,20 +540,28 @@ impl Driven {
         self.window.scene()?.start
     }
 
+    /// The first screen's last frame, if it was painted as the split view
+    /// beside the rail (queue item 819): 1216 wide, where beside the panel
+    /// it is 1040.
+    fn split_frame(&self) -> Option<&Frame> {
+        self.start_frame()
+            .filter(|frame| (frame.width, frame.height) == SPLIT_ROOM)
+    }
+
     /// Where *Allow* is on the screen now, found as a person finds it: the
-    /// ink of its face, in the column's left 300, above the box.
+    /// ink of its face, in the agent's column's left 300, above the box.
     fn allow(&self) -> Option<(f64, f64)> {
-        let frame = self.start_frame()?;
-        let from = u32::from(LEFT);
+        let frame = self.split_frame()?;
+        let from = u32::from(COLUMN_INSIDE);
         let to = from + 300;
-        for y in 40..u32::from(ROOM_BOTTOM).min(frame.height) {
+        for y in 0..u32::from(SPLIT_BOX_TOP).min(frame.height) {
             let mut run = 0;
             for x in from..to.min(frame.width) {
                 if pixel(frame, x, y) == Some(INK) {
                     run += 1;
                     if run >= 45 {
                         let centre = f64::from(x) - 22.0;
-                        return Some((PANEL + centre, f64::from(y) + 13.0));
+                        return Some((RAIL + centre, f64::from(y) + 13.0));
                     }
                 } else {
                     run = 0;
@@ -561,29 +609,44 @@ impl Driven {
     }
 
     /// Where *Stop* is on the screen now: at the end of the tinted line
-    /// that says the agent is at work.
+    /// that says the agent is at work, at the top of the agent's column,
+    /// 4 in from the column's 351 inside it and 55 wide.
     fn stop(&self) -> Option<(f64, f64)> {
-        let frame = self.start_frame()?;
-        let x = u32::from(LEFT) + 300;
+        let frame = self.split_frame()?;
+        let x = 855;
         let rows: Vec<u32> = (0..frame.height)
             .filter(|&y| pixel(frame, x, y) == Some(TINT))
             .collect();
         let (first, last) = (rows.first()?, rows.last()?);
+        Some((RAIL + 1168.0, f64::from(first + last) / 2.0))
+    }
+
+    /// The middle of the card's page as the split view shows it.
+    fn page(&self) -> Option<(f64, f64)> {
+        self.split_frame()?;
+        let page = split_place::page_box(split_room());
         Some((
-            PANEL + f64::from(LEFT) + 831.0,
-            f64::from(first + last) / 2.0,
+            RAIL + f64::from(page.left() + page.size.width / 2.0),
+            f64::from(page.top() + page.size.height / 2.0),
         ))
     }
 
-    /// The middle of the card's page as it is seen now.
-    fn page(&self) -> Option<(f64, f64)> {
-        let down = self.window.conversation().thread()?.down();
-        let seen = card_place::seen_page_box(Size::new(1040.0, 820.0), down, 0)?;
-        Some((
-            PANEL + f64::from(seen.left() + seen.size.width / 2.0),
-            f64::from(seen.top() + seen.size.height / 2.0),
-        ))
+    /// The size of the card's newest frame, in device pixels.
+    fn card_frame_size(&self) -> Option<(u32, u32)> {
+        let png = self.window.conversation().card()?.frame.clone()?;
+        let canvas = alo_paint::encode::picture_from_png(&png).ok()?;
+        Some((canvas.width(), canvas.height()))
     }
+
+    /// What stands down the window's left now.
+    fn side(&self) -> Option<Side> {
+        self.window.scene().map(|scene| scene.side)
+    }
+}
+
+/// The first screen beside the rail in the design's window, as a size.
+fn split_room() -> Size {
+    Size::new(1216.0, 820.0)
 }
 
 /// The colour of the pixel at `x`, `y` of `frame`.
@@ -703,6 +766,12 @@ fn fills_presses_and_asks_before_sending(
         Scripted::Done("Sent your name, Ada."),
     ]);
     driven.ask("Send my name Ada through the form")?;
+    // The split view (queue item 819): the panel the rail, and Chrome told
+    // the split's page box, its frames at it.
+    assert_eq!(driven.side(), Some(Side::Rail), "{who}");
+    driven.until("the page streamed at the split view's page box", |driven| {
+        driven.card_frame_size() == Some(SPLIT_PAGE)
+    })?;
     driven.until("the agent asking before Send", |driven| {
         matches!(driven.now(), Some(Now::Asking { .. }))
     })?;
@@ -734,6 +803,12 @@ fn fills_presses_and_asks_before_sending(
     driven.press(allow);
     driven.until("the run done", |driven| {
         matches!(driven.now(), Some(Now::Done { .. }))
+    })?;
+    // The run over: the panel back, and Chrome told the conversation's page
+    // box again (queue item 819).
+    assert_eq!(driven.side(), Some(Side::Panel), "{who}");
+    driven.until("the page streamed at the card's page box again", |driven| {
+        driven.card_frame_size() == Some((878, 520))
     })?;
     let sent: Vec<String> = asked
         .lock()
@@ -910,6 +985,15 @@ fn its_limits_are_said(driven: &mut Driven, model: &Model, asked: &Asked) -> Res
 }
 
 fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
+    assert_eq!(split_place::page_size(split_room()), SPLIT_PAGE);
+    assert_eq!(
+        (split_place::column(split_room()).left() + 17.0).to_bits(),
+        f32::from(COLUMN_INSIDE).to_bits()
+    );
+    assert_eq!(
+        card_place::box_top(split_room()).to_bits(),
+        f32::from(SPLIT_BOX_TOP).to_bits()
+    );
     let room = Size::new(1040.0, 820.0);
     assert_eq!(
         card_place::column_left(room).to_bits(),

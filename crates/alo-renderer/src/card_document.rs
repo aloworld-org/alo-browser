@@ -24,7 +24,8 @@
 //! while the page is still loading, the bar's [`LOADING`] after the address
 //! (queue item 751), a paragraph a person and an agent read alike; and,
 //! once a person asked alo to work on the page, the agent's column under
-//! it ([`crate::agent_document`], queue item 704). The
+//! it ([`crate::agent_document`], queue item 704) — or, in the split view,
+//! beside it ([`crate::split_document`], queue item 819). The
 //! icons are decoration and hidden from the tree. What the page itself
 //! holds is Chrome's to say, through the agent's socket (ADR 0058), never
 //! read off its picture.
@@ -66,8 +67,31 @@ const ADDRESS: &str = "card-address";
 /// `alo-dom` refused an operation, which no card can cause.
 pub fn make(document: &mut Document, card: &Card) -> Result<NodeId, Unbuilt> {
     let made = take_card(document)?;
-    fill(document, made, card)?;
+    fill(document, made, card, Column::Under)?;
     Ok(made)
+}
+
+/// The card for `card` as the split view draws it (queue item 819,
+/// [`crate::split_document`]): as [`make`] makes it, outlined while the
+/// agent works, but without the agent's column under its page, which the
+/// split view stands beside it.
+///
+/// # Errors
+///
+/// As [`make`].
+pub fn make_beside(document: &mut Document, card: &Card) -> Result<NodeId, Unbuilt> {
+    let made = take_card(document)?;
+    fill(document, made, card, Column::Beside)?;
+    Ok(made)
+}
+
+/// Where the agent's column goes for a card it works on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Column {
+    /// Under the page, inside the card (queue item 704).
+    Under,
+    /// Beside the card, in the split view's column: not in the card.
+    Beside,
 }
 
 /// The picture the card's `<img>` names, if it holds a frame: what the
@@ -95,7 +119,7 @@ fn take_card(document: &Document) -> Result<NodeId, Unbuilt> {
 }
 
 /// The card's address, its buttons' states and its picture.
-fn fill(document: &mut Document, made: NodeId, card: &Card) -> Result<(), Unbuilt> {
+fn fill(document: &mut Document, made: NodeId, card: &Card, column: Column) -> Result<(), Unbuilt> {
     let address = document
         .descendants(made)
         .find(|&node| document.attribute_by_name(node, "id") == Some(ADDRESS))
@@ -153,8 +177,10 @@ fn fill(document: &mut Document, made: NodeId, card: &Card) -> Result<(), Unbuil
             let ring = agent_document::ring(document)?;
             append(document, page, ring)?;
         }
-        let column = agent_document::make(document, work)?;
-        append(document, made, column)?;
+        if column == Column::Under {
+            let under = agent_document::make(document, work)?;
+            append(document, made, under)?;
+        }
     }
     Ok(())
 }

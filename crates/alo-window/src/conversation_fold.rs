@@ -3,11 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Whether the chats panel stands whole or folded to its rail, and the
-//! least window the conversation is laid out in (queue items 711, 775).
+//! least window the conversation is laid out in (queue items 711, 775,
+//! 819).
 //!
 //! The design (`docs/design/shell.md`, *The window*) folds the panel to its
-//! 64 px rail on a narrow window. Two things fold it, and they are kept
-//! apart, because only one of them is a person's:
+//! 64 px rail on a narrow window and while the agent works. Three things
+//! fold it, and they are kept apart, because only one of them is a
+//! person's:
 //!
 //! - **A person hid it**, with the button at the mark's end: hidden until
 //!   they press the rail's *Show the panel*, at any width.
@@ -15,6 +17,13 @@
 //!   panel folds on its own, and it unfolds on its own as the window is
 //!   widened past it again — unless a person hid it meanwhile, which is
 //!   remembered and kept.
+//! - **alo's agent is at work** on the card's page (queue item 819): the
+//!   rail for the run, at any width, so the split view has the room
+//!   ([`Fold::side_at_work`]). Nothing a person chose is written over: a
+//!   panel shown before the run is shown again once it ends, a panel hidden
+//!   before it stays hidden, and *Hide* or *Show the panel* pressed during
+//!   it is kept for after it — the window saying so, as for a narrow
+//!   window ([`at_work`]).
 //!
 //! # Why 760
 //!
@@ -63,6 +72,13 @@ pub fn too_narrow() -> String {
     format!("The window is too narrow for the panel: it comes back at {FOLD_WIDTH} wide")
 }
 
+/// What the window says when *Show the panel* is pressed while alo's agent
+/// works on the card (queue item 819): why it is still the rail, and when
+/// it is not.
+pub fn at_work() -> String {
+    "alo is working on this page: the panel comes back when it has finished".to_owned()
+}
+
 /// Whether the panel is folded, and why.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Fold {
@@ -81,6 +97,14 @@ impl Fold {
         } else {
             Side::Panel
         }
+    }
+
+    /// What stands down the window's left while alo's agent is `working` on
+    /// the card's page or not (queue item 819): the rail for the run, and
+    /// otherwise [`Self::side`] — what a person chose and the window's width
+    /// say, which the run never changed.
+    pub fn side_at_work(self, working: bool) -> Side {
+        if working { Side::Rail } else { self.side() }
     }
 
     /// Whether a person hid the panel, whatever the window's width.
@@ -175,6 +199,32 @@ mod tests {
         assert!(!fold.hidden(), "but the choice is kept");
         assert!(fold.fit(760), "and it comes back at 760");
         assert_eq!(fold.side(), Side::Panel);
+    }
+
+    /// Queue item 819: the rail while the agent works, and back to what the
+    /// person chose and the width say once it ends — whatever was chosen
+    /// before or during the run.
+    #[test]
+    fn the_agent_at_work_folds_the_panel_and_keeps_what_a_person_chose() {
+        // Shown before the run: the rail during it, the panel after it.
+        let mut fold = Fold::default();
+        assert_eq!(fold.side_at_work(true), Side::Rail);
+        assert_eq!(fold.side_at_work(false), Side::Panel);
+        assert!(!fold.hidden(), "the run chose nothing for the person");
+        // Hidden during the run: still the rail after it.
+        assert!(fold.hide());
+        assert_eq!(fold.side_at_work(true), Side::Rail);
+        assert_eq!(fold.side_at_work(false), Side::Rail);
+        assert!(fold.hidden());
+        // Hidden before, shown during: the panel after it.
+        assert!(fold.show());
+        assert_eq!(fold.side_at_work(true), Side::Rail);
+        assert_eq!(fold.side_at_work(false), Side::Panel);
+        // Narrow: the rail after it too, unless widened.
+        let _ = fold.fit(700);
+        assert_eq!(fold.side_at_work(false), Side::Rail);
+        let _ = fold.fit(1280);
+        assert_eq!(fold.side_at_work(false), Side::Panel);
     }
 
     #[test]

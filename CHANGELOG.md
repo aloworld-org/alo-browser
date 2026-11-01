@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **While alo works on a page, the page gets the room.** Ask alo to do
+  something on the page open in the conversation and the window splits:
+  the page large on the left, laid out at its new size, and what alo is
+  doing in a column 384 wide on the right — what you asked, each step,
+  its question with *Allow* and *Not now*, and *Stop*, with the box at its
+  foot. The chats panel folds to its rail for the run and comes back as
+  you left it when alo has finished; hiding or showing it meanwhile is
+  kept for after. In a window narrower than 1202 (the page would be
+  narrower than 720) the column stays under the page as before.
 - **What alo did on a page stays in the conversation.** Each time you ask
   alo to work on a page, what you asked, every step it took and how it
   ended now stay under the page in the chat — after the page is closed,

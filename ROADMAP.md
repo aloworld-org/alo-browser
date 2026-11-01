@@ -2493,7 +2493,8 @@ items where being right and being unusable are the same outcome.
       the engine itself (715),
       a page inside the conversation (702), the agent at work on a card's
       page — its column, outline, Stop and the person's gate, never a
-      password (704, ADR 0096) — the split view and a plan (819), an agent opening its own page (821),
+      password (704, ADR 0096), the split view while it works (819) — a plan and the next steps (824),
+      carrying on after taking over (825), a payment's details (826), an agent opening its own page (821),
       alo's own ring on a card (823), scrolling from the keyboard (754), a sign of more
       above (755), a wheel's lines smoothed (756), chats kept across
       launches (757), a chat named by its words (758), what the agent may

@@ -71,19 +71,7 @@ pub fn put(
     before: NodeId,
     blocks: NodeId,
 ) -> Result<(), Unbuilt> {
-    let sub = document
-        .children(screen)
-        .find(|&child| document.attribute_by_name(child, "class") == Some("sub"));
-    for gone in [Some(by_id(document, "greeting")?), sub, Some(blocks)]
-        .into_iter()
-        .flatten()
-    {
-        document
-            .remove_child(screen, gone)
-            .map_err(|refused| Unbuilt {
-                why: format!("a node could not be taken out of the first screen: {refused}"),
-            })?;
-    }
+    take_the_greeting(document, screen, blocks)?;
     let thread = element(document, "section")?;
     attribute(document, thread, "class", "thread")?;
     attribute(document, thread, "aria-label", CONVERSATION)?;
@@ -113,6 +101,35 @@ pub fn put(
         append_bar(document, thread, bar, room(start.viewport))?;
     }
     insert_before(document, screen, thread, before)
+}
+
+/// Take the first screen's greeting, the line under it and `blocks` out of
+/// `screen`, its `main`: a conversation, or the split view (queue item
+/// 819), stands in their place.
+///
+/// # Errors
+///
+/// [`Unbuilt`] if the template lacks the greeting, or `alo-dom` refused to
+/// take a node out.
+pub(crate) fn take_the_greeting(
+    document: &mut Document,
+    screen: NodeId,
+    blocks: NodeId,
+) -> Result<(), Unbuilt> {
+    let sub = document
+        .children(screen)
+        .find(|&child| document.attribute_by_name(child, "class") == Some("sub"));
+    for gone in [Some(by_id(document, "greeting")?), sub, Some(blocks)]
+        .into_iter()
+        .flatten()
+    {
+        document
+            .remove_child(screen, gone)
+            .map_err(|refused| Unbuilt {
+                why: format!("a node could not be taken out of the first screen: {refused}"),
+            })?;
+    }
+    Ok(())
 }
 
 /// The sign that the conversation goes on above or below a room `room`

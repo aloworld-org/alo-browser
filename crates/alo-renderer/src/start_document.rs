@@ -56,6 +56,7 @@
 //! It runs no script: the template has none and nothing here makes one.
 
 use crate::results::{PROVIDER, SetUp};
+use crate::split_place::Stands;
 use crate::start::{KeptSite, Start, Waiting};
 use crate::typed::Offer;
 use alo_dom::{Document, NodeId, parse_document};
@@ -180,13 +181,22 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
         // A conversation rather than a greeting (queue items 717, 708,
         // 703): the box at the window's foot, and what is offered for what
         // was typed just above it (queue item 750).
-        let class = if start.focused {
-            "start conversing focused"
-        } else {
-            "start conversing"
+        let split = start.stands() == Stands::Split;
+        let class = match (split, start.focused) {
+            (true, true) => "start split focused",
+            (true, false) => "start split",
+            (false, true) => "start conversing focused",
+            (false, false) => "start conversing",
         };
         attribute(&mut document, screen, "class", class)?;
         let the_box = by_id(&document, BOX)?;
+        if split {
+            // The agent at work in the split view (queue item 819): the
+            // page beside its column, the offers and the box at the
+            // column's foot.
+            crate::split_document::put(&mut document, start, screen, (the_box, blocks), offers)?;
+            return Ok(document);
+        }
         crate::conversation_document::put(&mut document, start, screen, the_box, blocks)?;
         if let Some(offers) = offers {
             insert_before(&mut document, screen, offers, the_box)?;

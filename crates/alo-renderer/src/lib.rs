@@ -128,6 +128,8 @@ pub mod sheet_owed;
 mod show;
 pub mod site;
 pub mod snapshot;
+pub mod split_document;
+pub mod split_place;
 pub mod start;
 pub mod start_document;
 pub mod strip;
