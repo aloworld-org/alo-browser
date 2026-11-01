@@ -169,7 +169,11 @@ mod tests {
             Some(sent(Went::Hovered, 10.0, -3.0)),
             "once off it, where it is, so the page's hover ends"
         );
-        assert_eq!(pointer.moved(Some(off(10.0, -9.0))), None, "and then nothing");
+        assert_eq!(
+            pointer.moved(Some(off(10.0, -9.0))),
+            None,
+            "and then nothing"
+        );
         assert_eq!(
             pointer.moved(Some(over(10.0, 1.0))),
             Some(sent(Went::Hovered, 10.0, 1.0))
