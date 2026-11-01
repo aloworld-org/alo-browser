@@ -20400,33 +20400,98 @@ What stage 2's exit gate actually measures: a person using it.
   `overflow: hidden` box draws as Chrome draws it, measured, and the
   hit-test finds nothing outside the clip.
 
-- [ ] **754. Scrolling the conversation from the keyboard.** Cut from 703.
+- [x] **754. Scrolling the conversation from the keyboard.** Cut from 703.
   Page Up, Page Down, Home, End and space, while the box is empty or
   nothing has the keyboard, scroll the conversation by a room less a line,
   or to its ends; never while the card's page has the keyboard (718).
   *Depends on 703.*
+  ***Done (iteration 485), ADR 0093 § 1; keys glided cut to 792.*** The
+  window reads Space, Page Up, Page Down, Home and End apart (`keys.rs`);
+  `conversation_keys.rs` decides how far — Page Down and space a room less
+  a line (636 at 820 tall), Page Up and Shift-space back, Home the first
+  turn's top, End the newest turn's foot, never with ⌘, ⌃ or ⌥ — and
+  `Conversation::keys_scroll` when: a conversation, not the card's page's
+  keyboard, not *Search chats*', not the box's while it holds words. Space
+  still types a space, and a card's page still gets it. **Tests:**
+  `conversation_keys` (3), `conversation` (every holder of the keyboard),
+  `conversation_window` (each key in numbers, ⌘-End nothing, the box's
+  space), `typing` and `card_keys` (Space types; paging keys type nothing),
+  and End and Home through the window's own road
+  (`a_conversation_scrolled_in_the_window.rs`). Mutations: the box's words
+  ignored — 2 tests fail; a whole room — 2 fail.
 
-- [ ] **755. A sign that the conversation goes on above or below.** Cut
+- [x] **755. A sign that the conversation goes on above or below.** Cut
   from 703. Nothing shows that earlier turns are scrolled out of the room:
   a scroll bar, a fade at the room's edges, or *Back to the newest*, as the
   owner chooses; and what an agent reads of how far it is scrolled.
   *needs design.*
+  ***Done (iteration 485), ADR 0093 § 2 — the look chosen here, for the
+  owner to confirm (793).*** A bar in the room's right gutter, 6 wide, 13
+  in, `#cbc3b6`, as long and as far down as the room is in the
+  conversation, on device pixels, never under 32, only while the turns do
+  not fit — placed by the browser process (`conversation_scroll::bar`) and
+  sent as `Start::bar`, refused past any room on the wire; an agent reads an
+  image named *The conversation goes on above and below; scrolled 50% of
+  the way down*. A fade was refused: over the turns' edges it would take
+  presses from the titles under it. **Tests:** the numbers
+  (`conversation_scroll`), the box at three offsets and at two
+  ((973, 358, 6, 358) at 0), its pixels, the agent's reading, a press on it
+  claiming nothing, references `conversation-goes-on-above-and-below.png`
+  and `conversation-goes-on-at-two.png`
+  (`alo-renderer/tests/a_sign_that_the_conversation_goes_on.rs`), the wire
+  both ways, and the sign above and below through the window's own road.
+  Mutations: `below` at the end — the agent's test fails; 12 in — 2 fail.
 
-- [ ] **756. A wheel's lines scrolled smoothly.** Cut from 703. A mouse's
+- [x] **756. A wheel's lines scrolled smoothly.** Cut from 703. A mouse's
   wheel scrolls 40 a line at once; a trackpad's pixels and its momentum
   arrive as the system sends them and are followed as they come. Animate a
   line's 40 over the display's frames as Chrome does, measured against it.
   *Depends on 703.*
+  ***Done (iteration 485), ADR 0093 § 3; the display's own refresh cut to
+  794.*** Measured against Chrome 156.0.8078.76 (posted line `CGEvent`s,
+  `scrollY` each frame, at one and two): ease-in-out over `14 − |Δ device
+  px| ÷ 60` sixtieths, 6 to 12, on device pixels; a notch mid-glide
+  retargets at its speed (first control point `(0.42, 0.42 s)`), within 1.5
+  px of every frame where starting from rest misses by 8.
+  `conversation_glide.rs`; the thread glides lines and follows pixels, the
+  window steps it at each sixtieth (`about_to_wait`). **Tests:** durations,
+  one line within half a pixel of Chrome's 12 frames, two lines within 1.5,
+  the window's glide, retarget, trackpad and clamp; the window's and
+  Chrome's integration tests let a glide run out. Mutations: no speed kept,
+  ÷ 120, a jump — each fails.
 
-- [ ] **757. Chats kept across launches.** Cut from 703. Each chat's turns
+- [x] **757. Chats kept across launches.** Cut from 703. Each chat's turns
   live while the window does; closing alo loses them. Where they are kept,
   encrypted or not, what a page shown earlier keeps of itself, and what is
   never written (a key, a frame), decided in an ADR first. *needs ADR.*
+  ***Done (iteration 485), ADR 0092; deleting cut to 789, encryption to
+  790.*** `chat-N.json` per chat in
+  `~/Library/Application Support/org.aloworld.Browser/Chats` (0700/0600),
+  or `--chats DIR`; JSON `"alo chat"` version 1 of words and addresses,
+  written to `.writing`, fsynced, renamed, the directory fsynced, when the
+  kept form changes and as the window closes; a live card kept as its
+  address, a search under way read as not answered, a tab asking as never
+  asked. Read back under *Earlier*, newest first, numbered past every file;
+  pressed, open again. A file that does not read is said with its path and
+  why and left untouched, its number never reused. **Tests:**
+  `chat_record` (3), `chat_store` (5, a temporary directory),
+  `conversation` (keeping and numbering), `opening` (`--chats`), and two
+  launches on one directory through the window's own road
+  (`tests/chats_kept_across_launches.rs`). Mutations: never written, a
+  damaged file not said, an earlier chat not reopened — each fails.
 
-- [ ] **758. A chat named by what was said in it.** Cut from 703. Every
+- [x] **758. A chat named by what was said in it.** Cut from 703. Every
   chat in the panel is *New chat*; one holding turns is named by its first
   words, or the agent's name for it when there is one (704), and moves to
   *Earlier* as the design says when it is closed. *Depends on 703.*
+  ***Done (iteration 485) for its first words, ADR 0092 § 5; closing cut
+  to 791; the agent's name waits on 704.*** `chat_name.rs`: the first
+  turn's words, white space run together, whole words up to 48 characters,
+  `…` after; named once, kept with the chat, found by *Search chats*.
+  **Tests:** `chat_name` (3), `conversation` (named, never renamed, found),
+  the panel's names through two launches; `offers_and_the_panel_pressed_in_the_window.rs`
+  now finds its chat by *E* (it is *lifetimes*, no longer *New chat*).
+  Mutation: never named — fails.
 
 - [x] **759. The room the offers take above the box, known to the aim.**
   Found by 703. While the box offers what is typed in a conversation, the
@@ -21586,6 +21651,41 @@ What stage 2's exit gate actually measures: a person using it.
   Closes when:* the decision to leave it is written in ADR 0076 B4, or a
   card through the machine's Chrome is out of the Dock and ⌘-Tab in a
   test.
+
+- [ ] **789. Deleting a chat.** Cut from 757. The panel has no way to
+  delete a chat; its file stays in alo's directory until removed by hand
+  (ADR 0092 § 4). Design the control (a row's menu, or a key), remove the
+  file, and say so; decide whether a deleted chat can be brought back.
+  *needs design. Closes when:* a chat deleted in the panel is gone from it
+  and its file gone, in a test on a temporary directory.
+
+- [ ] **790. Chats encrypted at rest.** Cut from 757. Kept chats are plain
+  JSON, `0600`, protected by the account and FileVault, not from another
+  program running as the same person (ADR 0092 § 2). Whether to encrypt
+  them under a key in the keychain — and what a lost key costs — is the
+  owner's. *needs owner decision.*
+
+- [ ] **791. Closing a chat to *Earlier*.** Cut from 758. The design moves
+  a closed chat to *Earlier*; there is no control to close one while alo
+  runs. *needs design. Closes when:* a chat closed in the panel is drawn
+  under *Earlier*, in a test.
+
+- [ ] **792. Keyboard scrolls glided as Chrome's.** Cut from 754. A key's
+  scroll is made at once; Chrome 156 glides Page Down over ~130 ms on a
+  curve not fitted here (its Home and End did not move a page under posted
+  `CGEvent`s without the function-key flags). Measure and glide them.
+  *Depends on 754, 756.*
+
+- [ ] **793. The sign of more: the owner's look, and a bar to drag.** Cut
+  from 755. The bar's look is this item's choice, not the owner's; and it
+  is pressed by nobody — dragging it, or pressing above or below it, as a
+  scroll bar does, is not built. *needs design.*
+
+- [ ] **794. A glide stepped at the display's own refresh.** Cut from 756.
+  The window steps a wheel's glide on a 60 Hz timer; on a 120 Hz display
+  Chrome steps twice as often along the same curve. Step it at the
+  display's frames (a `CADisplayLink`-like tick, or `winit`'s redraw at
+  vsync), measured. *Depends on 756.*
 
 - [x] **778. A card's page moving its own window into view.** Cut from
   771. A page in a card may move its `--app` window: measured through alo's

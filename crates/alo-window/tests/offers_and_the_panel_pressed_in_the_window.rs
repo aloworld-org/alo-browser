@@ -362,8 +362,10 @@ fn search_chats(driven: &mut Driven) -> Result<(), String> {
         driven.window.conversation().find().focused()
     })?;
     assert!(!driven.the_box().1, "the box let it go");
-    driven.type_in("NEW");
-    assert_eq!(driven.window.conversation().find().typed(), "NEW");
+    // The chat is named by its first words, "lifetimes" (queue item 758):
+    // "E" finds it, and a new chat after it.
+    driven.type_in("E");
+    assert_eq!(driven.window.conversation().find().typed(), "E");
     assert_eq!(driven.the_box().0, "", "nothing typed reached the box");
     assert_eq!(driven.window.conversation().showing().chats.len(), 1);
     driven.type_in("x");

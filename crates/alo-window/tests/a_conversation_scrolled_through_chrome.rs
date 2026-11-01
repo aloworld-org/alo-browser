@@ -254,12 +254,16 @@ impl Driven {
 
     /// A wheel turned `lines` toward the person — back up the conversation
     /// — with the cursor at `at`.
+    /// Over the conversation the lines are glided (queue item 756), and the
+    /// glide is let run to its end.
     fn wheel(&mut self, at: (f64, f64), lines: f32) {
         self.window.moved(at);
         self.window.wheeled(Turned::Lines {
             across: 0.0,
             down: lines,
         });
+        self.window
+            .glide(std::time::Instant::now() + std::time::Duration::from_secs(1));
     }
 
     fn thread(&self) -> Thread {

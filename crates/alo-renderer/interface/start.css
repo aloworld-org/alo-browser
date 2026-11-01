@@ -12,6 +12,7 @@
   --line-soft: #e6e0d6;
   --quiet: #5f5a52;
   --heading: #6b655c;
+  --bar: #cbc3b6;
 }
 
 * {
@@ -321,6 +322,20 @@ a {
 
 .start.conversing .thread > * {
   flex-shrink: 0;
+}
+
+/* The sign that the conversation goes on above or below the room (queue
+   item 755, ADR 0093 § 2): a bar 6 wide, rounded, centred in the clip's
+   right gutter of 32, as long against the room as the room is against the
+   whole conversation and as far down it as the conversation is scrolled —
+   its top and height numbers of the browser process's, set on it. Drawn
+   only while the turns do not fit the room; it is pressed by nobody. */
+.start.conversing .thread > .goes-on {
+  position: absolute;
+  right: 13px;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--bar);
 }
 
 .start.conversing .box {

@@ -2414,7 +2414,12 @@ items where being right and being unusable are the same outcome.
       top inside the reach the renderer measures while a press on a live
       card's page lands where it is drawn, in layout assertions, four
       reference renders and tests through the window's own road and both
-      Chromiums; a press on an offer, decided against the offers painted
+      Chromiums; chats kept across launches, a file each in words, read back
+      under *Earlier*, a damaged one said and left, each named by its first
+      words (757, 758, ADR 0092); the conversation scrolled by Page Up, Page
+      Down, space, Home and End, a bar in its gutter saying it goes on and
+      how far, and a wheel's lines glided as Chrome 156 glides them, measured
+      (754, 755, 756, ADR 0093); a press on an offer, decided against the offers painted
       and chosen as Return chooses (714), with the offers' room above the
       box known to the aim (759); *Search chats* filtering the panel's
       chats by name as a person types, and the button that hides the panel

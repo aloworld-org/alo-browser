@@ -99,10 +99,13 @@
 //! the first screen a person sees. So it says [`GREETING`], which is true at
 //! any hour, until the machine's zone is read.
 
+use crate::chat_name;
+use crate::chat_store::Kept;
 use crate::chrome_history::Travel;
 use crate::conversation_box::{TheBox, Typed};
 use crate::conversation_find::FindChats;
 use crate::conversation_fold::Fold;
+use crate::conversation_keys::Scroll;
 use crate::conversation_place::Side;
 use crate::conversation_search::{Came, Searched};
 use crate::conversation_thread::Thread;
@@ -117,14 +120,24 @@ use alo_renderer::results::{self, Results, SetUp};
 use alo_renderer::start::{KeptSite, Start};
 use alo_renderer::typed::Offer;
 use alo_url::Url;
+use std::time::Instant;
 
 /// What the first screen says first, at any hour.
 pub const GREETING: &str = "Hello.";
 
 /// A chat, as the browser process knows it: a number it gave the chat
-/// when it was made, never reused, and never sent to a renderer.
+/// when it was made, never reused — across launches too, since the chats
+/// kept are numbered by it (ADR 0092) — and never sent to a renderer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChatId(u64);
+
+impl ChatId {
+    /// Its number: what its kept file is named by
+    /// ([`crate::chat_store::file_of`]).
+    pub fn number(self) -> u64 {
+        self.0
+    }
+}
 
 /// What the parts showed, as the browser process names each thing in them.
 pub type Showing = Shown<ChatId, KeptSite>;
@@ -448,6 +461,7 @@ impl Conversation {
                 if let Some(thread) = self.thread_mut() {
                     thread.search(words);
                 }
+                self.name_on_screen();
                 self.card_keys = false;
                 let _ = self.the_box.empty();
                 true
@@ -610,6 +624,9 @@ impl Conversation {
         let _ = self.close_card();
         for (each, chat) in &mut self.chats {
             chat.current = *each == id;
+            // A chat from before, pressed, is in use again: drawn under
+            // *Open* (queue item 757, `docs/design/shell.md`).
+            chat.open |= *each == id;
         }
         true
     }
@@ -654,6 +671,75 @@ impl Conversation {
         self.threads.push((id, Thread::default()));
     }
 
+    /// Name the chat on screen by the first words said in it (queue item
+    /// 758, [`chat_name`]), once it holds a turn, if it has no name yet.
+    fn name_on_screen(&mut self) {
+        let Some(id) = self.on_screen() else {
+            return;
+        };
+        let Some(named) = self
+            .thread()
+            .and_then(|thread| thread.turns().first())
+            .map(|first| chat_name::of(first.said()))
+        else {
+            return;
+        };
+        if let Some((_, chat)) = self.chats.iter_mut().find(|(each, _)| *each == id)
+            && chat.name.is_empty()
+        {
+            chat.name = named;
+        }
+    }
+
+    /// The same conversation, holding the chats `kept` from before (queue
+    /// item 757, ADR 0092), newest first, each under *Earlier* with its
+    /// name and turns, after the new chat on screen — numbered past
+    /// `highest`, the highest number any chat's file holds, so that no chat
+    /// made now is written over one kept.
+    #[must_use]
+    pub fn keeping(mut self, kept: Vec<Kept>, highest: Option<u64>) -> Self {
+        let past = highest.map_or(0, |highest| highest.saturating_add(1));
+        let mut next = self.next.max(past);
+        // The chats made so far hold no turn: numbered past the kept.
+        for (id, _) in &mut self.chats {
+            if id.0 < past {
+                let to = ChatId(next);
+                next += 1;
+                for (each, _) in &mut self.threads {
+                    if each == id {
+                        *each = to;
+                    }
+                }
+                *id = to;
+            }
+        }
+        self.next = next;
+        for one in kept {
+            let id = ChatId(one.number);
+            if self.chats.iter().any(|(each, _)| *each == id) {
+                continue;
+            }
+            self.chats
+                .push((id, Chat::new(one.record.name, "").earlier()));
+            self.threads.push((id, Thread::kept(one.record.turns)));
+        }
+        self
+    }
+
+    /// Every chat that holds a turn, with its name and turns: what is kept
+    /// of the conversation across launches (queue item 757).
+    pub fn to_keep(&self) -> impl Iterator<Item = (ChatId, &str, &Thread)> {
+        self.threads
+            .iter()
+            .filter(|(_, thread)| !thread.turns().is_empty())
+            .filter_map(|(id, thread)| {
+                self.chats
+                    .iter()
+                    .find(|(each, _)| each == id)
+                    .map(|(_, chat)| (*id, chat.name.as_str(), thread))
+            })
+    }
+
     /// The first screen as it is now, laid out at `viewport` on a screen of
     /// `scale`.
     pub fn start(&self, viewport: Size, scale: Scale) -> Start {
@@ -673,6 +759,9 @@ impl Conversation {
                 .map(|thread| results::within_budget(thread.turns()))
                 .unwrap_or_default(),
             down: self.thread().map_or(0.0, Thread::down),
+            bar: self
+                .thread()
+                .and_then(|thread| thread.bar(viewport, scale.factor())),
             search: self.search.clone(),
         }
         .at_scale(scale.factor())
@@ -687,6 +776,7 @@ impl Conversation {
         if let Some(thread) = self.thread_mut() {
             thread.open_card(said, url);
         }
+        self.name_on_screen();
         self.card_keys = false;
     }
 
@@ -805,6 +895,46 @@ impl Conversation {
     pub fn scroll(&mut self, by: f32, viewport: Size) -> bool {
         self.thread_mut()
             .is_some_and(|thread| thread.scroll(by, viewport))
+    }
+
+    /// Whether a person's paging keys scroll the conversation now (queue
+    /// item 754, [`crate::conversation_keys`]): it holds a turn, and nothing
+    /// holding the keyboard would take them — neither the card's page,
+    /// nor *Search chats*, nor the box while it holds what was typed.
+    pub fn keys_scroll(&self) -> bool {
+        self.conversing()
+            && !self.keys_to_the_card()
+            && !self.find.focused()
+            && (!self.the_box.focused() || self.the_box.typed().is_empty())
+    }
+
+    /// Scroll as a person's key asked, laid out at `viewport` (queue item
+    /// 754): whether it scrolled.
+    pub fn scroll_by_key(&mut self, scroll: Scroll, viewport: Size) -> bool {
+        self.thread_mut().is_some_and(|thread| match scroll {
+            Scroll::By(by) => thread.scroll(by, viewport),
+            Scroll::ToFirst => thread.scroll_to_end(true, viewport),
+            Scroll::ToNewest => thread.scroll_to_end(false, viewport),
+        })
+    }
+
+    /// A wheel's lines turned `by` CSS pixels down over the conversation
+    /// `now`, laid out at `viewport` on a screen of `scale` (queue item
+    /// 756): whether a glide is under way for them.
+    pub fn glide_lines(&mut self, by: f32, viewport: Size, now: Instant, scale: f32) -> bool {
+        self.thread_mut()
+            .is_some_and(|thread| thread.glide_lines(by, viewport, now, scale))
+    }
+
+    /// Whether the chat on screen's conversation is gliding.
+    pub fn gliding(&self) -> bool {
+        self.thread().is_some_and(Thread::gliding)
+    }
+
+    /// The chat on screen's glide moved on to `now`: whether it scrolled.
+    pub fn glide(&mut self, now: Instant, viewport: Size, scale: f32) -> bool {
+        self.thread_mut()
+            .is_some_and(|thread| thread.glide(now, viewport, scale))
     }
 
     /// The first screen's renderer measured `drawn` turns of the chat on
@@ -1025,6 +1155,188 @@ mod tests {
             matches!(turns.as_slice(), [Turn::Visited { said, .. }] if said == "example.com"),
             "{turns:?}"
         );
+    }
+
+    #[test]
+    fn the_paging_keys_scroll_only_while_nothing_holding_the_keyboard_would_take_them() {
+        let viewport = Size::new(1040.0, 820.0);
+        let down = |conversation: &Conversation| conversation.thread().map(|t| t.down().to_bits());
+        let mut conversation = Conversation::default();
+        assert!(!conversation.keys_scroll(), "nothing to scroll");
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "a");
+        let _ = conversation.edit(Edit::Choose);
+        type_in(&mut conversation, "b");
+        let _ = conversation.edit(Edit::Choose);
+        assert!(
+            !conversation.scroll_by_key(Scroll::ToFirst, viewport),
+            "no reach yet"
+        );
+        let reach = Reach {
+            earlier: 900.0,
+            newest: 1000.0,
+        };
+        let _ = conversation.reached(reach, 2, viewport);
+        // The box has the keyboard, empty: the keys are the conversation's.
+        assert!(conversation.keys_scroll());
+        assert!(conversation.scroll_by_key(Scroll::By(-636.0), viewport));
+        assert_eq!(down(&conversation), Some((-636.0_f32).to_bits()));
+        assert!(conversation.scroll_by_key(Scroll::By(-636.0), viewport));
+        assert_eq!(
+            down(&conversation),
+            Some((-900.0_f32).to_bits()),
+            "the first turn's top"
+        );
+        assert!(
+            !conversation.scroll_by_key(Scroll::ToFirst, viewport),
+            "already there"
+        );
+        assert!(conversation.scroll_by_key(Scroll::ToNewest, viewport));
+        assert_eq!(
+            down(&conversation),
+            Some(324.0_f32.to_bits()),
+            "the newest turn's foot at the room's foot: 1000 less 676"
+        );
+        assert!(conversation.scroll_by_key(Scroll::ToFirst, viewport));
+        // Words in the box: its keys are its own.
+        type_in(&mut conversation, "x");
+        assert!(!conversation.keys_scroll());
+        let _ = conversation.edit(Edit::Erase);
+        assert!(conversation.keys_scroll(), "empty again");
+        // Nothing has the keyboard: the conversation's.
+        let _ = conversation.act(Pressed::Nothing);
+        assert!(conversation.keys_scroll());
+        // *Search chats* keeps its own.
+        let _ = conversation.act(Pressed::SearchChats);
+        assert!(!conversation.keys_scroll());
+        let _ = conversation.act(Pressed::Nothing);
+        // The card's page keeps every key while it has the keyboard.
+        conversation.open_card(alo_url::parse("https://example.com/").unwrap());
+        let _ = conversation.press_the_page();
+        assert!(conversation.keys_to_the_card());
+        assert!(!conversation.keys_scroll());
+        let _ = conversation.act(Pressed::Nothing);
+        assert!(
+            conversation.keys_scroll(),
+            "a press elsewhere takes it from the page"
+        );
+    }
+
+    #[test]
+    fn a_chat_is_named_by_the_first_words_said_in_it_and_never_renamed() {
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        assert_eq!(rows(&conversation).0, vec![NEW_CHAT.to_owned()]);
+        type_in(&mut conversation, "  ev   chargers near me ");
+        let _ = conversation.edit(Edit::Choose);
+        assert_eq!(
+            rows(&conversation).0,
+            vec!["ev chargers near me".to_owned()]
+        );
+        // A later turn does not rename it.
+        type_in(&mut conversation, "heat pumps");
+        let _ = conversation.edit(Edit::Choose);
+        assert_eq!(conversation.thread().map(|t| t.turns().len()), Some(2));
+        assert_eq!(
+            rows(&conversation).0,
+            vec!["ev chargers near me".to_owned()]
+        );
+        // A new chat is *New chat* until it holds a turn: here a page
+        // opened from the box, named by the address typed.
+        assert!(conversation.act(Pressed::NewChat));
+        assert_eq!(
+            rows(&conversation).0,
+            vec![NEW_CHAT.to_owned(), "ev chargers near me".to_owned()]
+        );
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        let _ = conversation.edit(Edit::Choose);
+        assert_eq!(rows(&conversation).0[0], NEW_CHAT, "chosen, not yet open");
+        conversation.open_card(alo_url::parse("https://example.com/").unwrap());
+        assert_eq!(
+            rows(&conversation).0,
+            vec!["example.com".to_owned(), "ev chargers near me".to_owned()]
+        );
+        // *Search chats* finds a chat by its name.
+        let _ = conversation.act(Pressed::SearchChats);
+        for letter in "CHARGERS".chars() {
+            let _ = conversation.edit(Edit::Put(letter.to_string()));
+        }
+        assert_eq!(
+            rows(&conversation).0,
+            vec!["ev chargers near me".to_owned()]
+        );
+    }
+
+    #[test]
+    fn chats_kept_from_before_are_earlier_numbered_past_and_open_once_pressed() {
+        use crate::chat_record::Record;
+        let visited = |said: &str| Turn::Visited {
+            said: said.to_owned(),
+            url: alo_url::parse("https://a.example/").unwrap(),
+        };
+        let kept = vec![
+            Kept {
+                number: 9,
+                record: Record {
+                    name: "newer".to_owned(),
+                    turns: vec![visited("b"), visited("c")],
+                },
+            },
+            Kept {
+                number: 4,
+                record: Record {
+                    name: "older".to_owned(),
+                    turns: vec![visited("a")],
+                },
+            },
+        ];
+        // A damaged file numbered 11 holds the number past them.
+        let mut conversation = Conversation::default().keeping(kept, Some(11));
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        let shown: Vec<(&str, bool, bool)> = panel
+            .chats
+            .iter()
+            .map(|chat| (chat.label(), chat.open, chat.current))
+            .collect();
+        assert_eq!(
+            shown,
+            vec![
+                (NEW_CHAT, true, true),
+                ("newer", false, false),
+                ("older", false, false)
+            ]
+        );
+        assert_eq!(conversation.on_screen().map(ChatId::number), Some(12));
+        assert!(!conversation.conversing(), "a new chat on screen");
+        // Only chats holding turns are kept, by their numbers.
+        let to_keep: Vec<(u64, &str, usize)> = conversation
+            .to_keep()
+            .map(|(id, name, thread)| (id.number(), name, thread.turns().len()))
+            .collect();
+        assert_eq!(to_keep, vec![(9, "newer", 2), (4, "older", 1)]);
+        // Pressed, an earlier chat is on screen and open, its turns shown
+        // from the newest's top.
+        let showing = conversation.showing();
+        let older = showing.chats.get(2).copied().expect("drawn third");
+        assert!(conversation.act(Pressed::Chat(older)));
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        assert!(
+            panel
+                .chats
+                .iter()
+                .any(|chat| chat.label() == "older" && chat.open && chat.current)
+        );
+        assert_eq!(
+            conversation.thread().map(Thread::down).map(f32::to_bits),
+            Some(0)
+        );
+        assert_eq!(conversation.thread().map(|t| t.turns().len()), Some(1));
+        // New chats are numbered past every kept one.
+        assert!(conversation.act(Pressed::NewChat));
+        assert_eq!(conversation.on_screen().map(ChatId::number), Some(13));
     }
 
     #[test]

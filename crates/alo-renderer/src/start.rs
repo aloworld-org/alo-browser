@@ -34,6 +34,7 @@
 //! At [`site`], a site no page can name, minted fresh as the panel's is.
 
 use crate::card::Card;
+use crate::conversation_scroll::Bar;
 use crate::results::SetUp;
 use crate::site::Site;
 use crate::strip::longest;
@@ -89,6 +90,11 @@ pub struct Start {
     /// newest turn's top is above the room's top — below `0` back up into
     /// the earlier turns ([`crate::conversation_scroll`]).
     pub down: f32,
+    /// The sign that the conversation goes on above or below the room, and
+    /// how far down it is scrolled (queue item 755), placed by the browser
+    /// process from its own numbers; none while the turns fit, or before
+    /// their reach is measured.
+    pub bar: Option<Bar>,
     /// Whether searching is set up, which the box's offer to search says.
     pub search: SetUp,
 }
@@ -128,6 +134,7 @@ impl Default for Start {
             offers: Vec::new(),
             turns: Vec::new(),
             down: 0.0,
+            bar: None,
             search: SetUp::Not(String::new()),
         }
     }

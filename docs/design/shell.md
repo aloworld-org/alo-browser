@@ -38,7 +38,12 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
   name; one it finished has a green tick, and both say so in words to an
   agent.
 - **Earlier** — past chats, in quiet text, without marks. Closing a chat
-  never loses it: it moves here.
+  never loses it: it moves here (closing is item 791). The chats kept from
+  before alo was last closed are here, newest first; pressed, one is on
+  screen and under *Open* again (item 757, ADR 0092).
+- **A chat's name** is the first words said in it — up to 48 characters,
+  whole words, `…` when there was more — and *New chat* until something is
+  said (item 758).
 - **Settings**, at the foot, under a line, with a settings icon — two
   lines, a knob on each — before its words.
 
@@ -285,7 +290,19 @@ Nothing is replaced. Within a turn the bubble and what follows are 16 apart
   first turn's top, on as far as the newest turn's foot at the room's foot
   — 40 a line, a trackpad's own pixels; over a live card's page the wheel
   is the page's. The room runs from 40 down to 24 over the box; nothing is
-  drawn above it, under the box or over it.
+  drawn above it, under the box or over it. **A wheel's notch glides** its
+  40 over a fifth of a second on ease-in-out, shorter for more at once, as
+  Chrome does (item 756, ADR 0093 § 3); a trackpad is followed as it moves.
+- **Keys** (item 754): Page Down and space go on by the room less a line,
+  Page Up and Shift-space back by as much, Home to the first turn's top and
+  End to the newest turn's foot — while the box is empty or nothing has the
+  keyboard; never while words are in the box, *Search chats* has it, or a
+  card's page has it.
+- **A sign that it goes on** (item 755): while the turns do not fit the
+  room, a bar 6 wide, rounded 3, `#cbc3b6`, stands 13 in from the clip's
+  right edge, in the gutter beside the column — as long against the room as
+  the room is against the whole conversation, never under 32, and as far
+  down it as the conversation is scrolled. Nothing presses it yet (793).
 - The agent's own words and its steps are turns too, when there is an agent
   to say them (704, 707).
 

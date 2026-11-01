@@ -43,7 +43,7 @@
 //! [`crate::results_document::TITLE_HREF`], never the page's address.
 
 use crate::card::Card;
-use crate::conversation_scroll::{EARLIER, NEWEST};
+use crate::conversation_scroll::{Bar, EARLIER, NEWEST, room};
 use crate::results_document::TITLE_HREF;
 use crate::start::Start;
 use crate::start_document::{Unbuilt, append, attribute, by_id, element, insert_before};
@@ -107,7 +107,29 @@ pub fn put(
         append(document, turns, made)?;
     }
     append(document, thread, turns)?;
+    if let Some(bar) = start.bar {
+        append_bar(document, thread, bar, room(start.viewport))?;
+    }
     insert_before(document, screen, thread, before)
+}
+
+/// The sign that the conversation goes on above or below a room `room`
+/// tall (queue item 755): a bar in the room's right gutter, placed by the
+/// browser process's numbers, and read by an agent as an image named by
+/// which way it goes on and how far down it is scrolled.
+fn append_bar(document: &mut Document, thread: NodeId, bar: Bar, room: f32) -> Result<(), Unbuilt> {
+    let sign = element(document, "div")?;
+    attribute(document, sign, "class", "goes-on")?;
+    attribute(document, sign, "role", "image")?;
+    attribute(document, sign, "aria-label", &bar.said(room))?;
+    // Numbers of the browser process's, never a string of anybody's.
+    attribute(
+        document,
+        sign,
+        "style",
+        &format!("top: {}px; height: {}px", bar.top, bar.length),
+    )?;
+    append(document, thread, sign)
 }
 
 /// One turn, the `place`th of the conversation: a region named by what the

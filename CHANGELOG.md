@@ -6,6 +6,38 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Chats are kept when alo is closed.** Every chat that holds something —
+  its searches, the pages opened in it, what could not be opened — is
+  written to a file of its own on this Mac, in
+  `~/Library/Application Support/org.aloworld.Browser/Chats`, and is under
+  *Earlier* in the panel the next time alo opens; pressed, it is shown
+  again and is in use once more. What is kept is words and addresses: no
+  picture, no page's frame, nothing typed and not sent, and nothing leaves
+  the machine. A page that was open is kept as its address. A file that
+  cannot be read is left as it is and said, never silently dropped.
+  `alo --conversation --chats DIR` keeps them somewhere else.
+
+- **The conversation scrolls from the keyboard.** Page Down and the space
+  bar go on by a screenful less a line, Page Up and Shift-space go back,
+  Home goes to the first thing said and End to the end — whenever the box
+  is empty or nothing else has the keyboard; while words are being typed,
+  or a page in a card has the keyboard, the keys are theirs.
+
+- **A bar shows that the conversation goes on.** When a conversation is
+  taller than the window, a thin bar at its right says how much of it is in
+  view and how far down it is, and an agent reading the window is told
+  which way it goes on and how far it is scrolled.
+
+- **A mouse wheel scrolls the conversation smoothly.** Each notch glides
+  there over about a fifth of a second, as Chrome does, measured against
+  Chrome 156; a notch while gliding goes on as fast as it was going. A
+  trackpad is followed as it moves, as before.
+
+- **A chat is named by what was said in it.** Instead of *New chat* for
+  every chat, a chat is called by the first words said in it — up to 48
+  characters, whole words, with `…` when there was more — and *Search
+  chats* finds it by them.
+
 - **A page open in the conversation no longer shows up as a second
   application.** While a page is shown as a card, the Chromium alo carries
   is no longer in the Dock or the ⌘-Tab switcher, and Stage Manager no

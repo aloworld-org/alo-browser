@@ -57,7 +57,7 @@ use std::path::{Path, PathBuf};
 /// How to use `alo`, as it is said when it was used wrongly.
 pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
      [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)\n       \
-     alo --conversation [--frozen-fonts] [--scale FACTOR]";
+     alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR]";
 
 /// The size, in CSS pixels, a page in Chrome is laid out at: the size ADR
 /// 0061 measured Chrome's frames at. Chrome's window is sized to hold the
@@ -105,6 +105,11 @@ pub struct Opening {
     /// conversation (ADR 0074) — the chats panel and the first screen —
     /// rather than a page under a strip of tabs.
     pub conversation: bool,
+    /// Where the conversation's chats are kept across launches, when a
+    /// person named somewhere (`--chats DIR`, queue item 757): an absolute
+    /// path. [`None`] keeps them in alo's own directory
+    /// ([`crate::chat_store::for_this_person`]).
+    pub chats: Option<PathBuf>,
 }
 
 impl Opening {
@@ -130,6 +135,9 @@ impl Opening {
     ///
     /// `--conversation` opens the browser's own interface instead of a page:
     /// the chats panel and the first screen, drawn by this engine.
+    /// `--chats DIR` beside it keeps its chats in that directory, an
+    /// absolute path, rather than alo's own (ADR 0092 § 1): what a hand run
+    /// or a test that must not touch a person's chats names.
     ///
     /// # Errors
     ///
@@ -138,7 +146,8 @@ impl Opening {
     /// with no factor or one that is not measured, or a sheet with no page;
     /// and with `--chrome`, no page, or a scale, the frozen fonts or a sheet
     /// beside it; and with `--conversation`, a page, a sheet, `--chrome` or
-    /// an agent's site beside it.
+    /// an agent's site beside it; and `--chats` with no directory, one that
+    /// is not an absolute path, or without `--conversation`.
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let mut fonts = Fonts::AsAsked;
         let mut files = Vec::new();
@@ -146,6 +155,7 @@ impl Opening {
         let mut scale = None;
         let mut renderer = Renderer::ThisEngine;
         let mut conversation = false;
+        let mut chats = None;
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
             if argument == "--chrome" {
@@ -159,6 +169,17 @@ impl Opening {
                     return Err(format!("--agent-site names no address\n{USAGE}"));
                 };
                 sites.push(address);
+            } else if argument == "--chats" {
+                let Some(directory) = arguments.next().map(PathBuf::from) else {
+                    return Err(format!("--chats names no directory\n{USAGE}"));
+                };
+                if !directory.is_absolute() {
+                    return Err(format!(
+                        "--chats {} is not an absolute path\n{USAGE}",
+                        directory.display()
+                    ));
+                }
+                chats = Some(directory);
             } else if argument == "--scale" {
                 let Some(factor) = arguments.next() else {
                     return Err(format!("--scale names no factor\n{USAGE}"));
@@ -181,7 +202,14 @@ impl Opening {
             scale,
             renderer,
             conversation,
+            chats,
         };
+        if !conversation && opening.chats.is_some() {
+            return Err(format!(
+                "--chats names where the conversation's chats are kept, and is given only with \
+                 --conversation\n{USAGE}"
+            ));
+        }
         if conversation {
             opening.refuse_beside_the_conversation(!sites.is_empty())?;
         } else if renderer == Renderer::Chrome {
@@ -510,6 +538,11 @@ mod tests {
         assert_eq!(opening.scale, Some(Scale::TWO));
         assert_eq!(opening.renderer, Renderer::ThisEngine);
         assert_eq!(opening.page, None);
+        assert_eq!(opening.chats, None, "kept in alo's own directory");
+        let elsewhere =
+            Opening::from_arguments(arguments(&["--conversation", "--chats", "/tmp/kept chats"]))
+                .expect("these are arguments");
+        assert_eq!(elsewhere.chats, Some(PathBuf::from("/tmp/kept chats")));
         let plain = Opening::from_arguments(arguments(&[])).expect("no arguments is fine");
         assert!(
             !plain.conversation,
@@ -535,6 +568,18 @@ mod tests {
                 &["--conversation", "--agent-site", "https://example.com"][..],
                 "opens no socket for an agent",
             ),
+            (
+                &["--conversation", "--chats"][..],
+                "--chats names no directory",
+            ),
+            (
+                &["--conversation", "--chats", "kept/here"][..],
+                "is not an absolute path",
+            ),
+            (
+                &["--chats", "/tmp/kept"][..],
+                "is given only with --conversation",
+            ),
         ] {
             assert!(
                 refused(words).is_err_and(|why| why.contains(said) && why.contains(USAGE)),
@@ -554,6 +599,7 @@ mod tests {
             scale: None,
             renderer: Renderer::ThisEngine,
             conversation: false,
+            chats: None,
         };
         let Ok(Order::Open {
             url,
@@ -579,6 +625,7 @@ mod tests {
             scale: None,
             renderer: Renderer::ThisEngine,
             conversation: false,
+            chats: None,
         };
         assert!(
             opening

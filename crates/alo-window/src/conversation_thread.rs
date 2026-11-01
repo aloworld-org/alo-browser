@@ -26,12 +26,14 @@
 //! them ([`Thread::reached`]); until a reach is known for the turns now
 //! held, the wheel does nothing.
 
+use crate::conversation_glide::Glide;
 use alo_layout::Size;
 use alo_renderer::card::Card;
-use alo_renderer::conversation_scroll::{self, Reach};
+use alo_renderer::conversation_scroll::{self, Bar, Reach};
 use alo_renderer::results::{self, Images, Results, Stories, Tab, Videos};
 use alo_renderer::turn::Turn;
 use alo_url::Url;
+use std::time::Instant;
 
 /// One chat's turns, and how far they are scrolled.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -44,9 +46,35 @@ pub struct Thread {
     /// How far the turns reach, as the renderer last measured as many turns
     /// as are held.
     reach: Option<Reach>,
+    /// A wheel's lines under way, glided as Chrome glides them (queue item
+    /// 756): what moves [`Thread::down`] at each frame until it ends.
+    glide: Option<Glide>,
 }
 
 impl Thread {
+    /// A chat's turns kept from before (queue item 757, ADR 0092): scrolled
+    /// to the newest turn's top, how far they reach not yet measured. None
+    /// is a live card — no page is open in a chat read back — so one given
+    /// is put away as its address.
+    pub fn kept(turns: Vec<Turn>) -> Self {
+        let turns = turns
+            .into_iter()
+            .map(|turn| match turn {
+                Turn::Page(card) => Turn::Visited {
+                    said: card.said,
+                    url: card.url,
+                },
+                other => other,
+            })
+            .collect();
+        Self {
+            turns,
+            down: 0.0,
+            reach: None,
+            glide: None,
+        }
+    }
+
     /// Every turn, oldest first.
     pub fn turns(&self) -> &[Turn] {
         &self.turns
@@ -70,6 +98,7 @@ impl Thread {
         self.turns.push(turn);
         self.down = 0.0;
         self.reach = None;
+        self.glide = None;
     }
 
     /// A search for `said` under way, as a new turn.
@@ -372,6 +401,31 @@ impl Thread {
         moved
     }
 
+    /// Scrolled as far as it goes back — the first turn's top at the room's
+    /// top — or, not `back`, on — the newest turn's foot at the room's foot
+    /// — in a first screen laid out at `viewport` (queue item 754). Whether
+    /// it moved; until a reach is known for the turns now held, it does not.
+    pub fn scroll_to_end(&mut self, back: bool, viewport: Size) -> bool {
+        let Some(reach) = self.reach else {
+            return false;
+        };
+        let (least, most) = conversation_scroll::bounds(reach, viewport);
+        let kept = if back { least } else { most };
+        self.glide = None;
+        let moved = kept.to_bits() != self.down.to_bits();
+        self.down = kept;
+        moved
+    }
+
+    /// The sign that the turns go on above or below the room of a first
+    /// screen laid out at `viewport` on a screen of `scale`, and how far
+    /// they are scrolled (queue item 755): none until their reach is
+    /// measured, or while they fit.
+    pub fn bar(&self, viewport: Size, scale: f32) -> Option<Bar> {
+        self.reach
+            .and_then(|reach| conversation_scroll::bar(self.down, reach, viewport, scale))
+    }
+
     /// A person's wheel turned `by` CSS pixels down over the conversation,
     /// in a first screen laid out at `viewport`: scrolled that far, inside
     /// how far it reaches. Whether it moved.
@@ -379,7 +433,52 @@ impl Thread {
         let Some(reach) = self.reach else {
             return false;
         };
+        // Followed as it comes: a glide under way ends here.
+        self.glide = None;
         let kept = conversation_scroll::clamped(self.down + by, reach, viewport);
+        let moved = kept.to_bits() != self.down.to_bits();
+        self.down = kept;
+        moved
+    }
+
+    /// A wheel's lines turned `by` CSS pixels down over the conversation
+    /// `now`, on a first screen laid out at `viewport` on a screen of
+    /// `scale` (queue item 756): glided there, inside how far it reaches —
+    /// on from the end of a glide under way, as fast as it was going.
+    /// Whether a glide is under way for it.
+    pub fn glide_lines(&mut self, by: f32, viewport: Size, now: Instant, scale: f32) -> bool {
+        let Some(reach) = self.reach else {
+            return false;
+        };
+        let from = self.glide.map_or(self.down, |glide| glide.end());
+        let to = conversation_scroll::clamped(from + by, reach, viewport);
+        self.glide = match self.glide {
+            Some(glide) => Some(glide.to(to, now, scale)),
+            None if to.to_bits() != self.down.to_bits() => {
+                Some(Glide::new(self.down, to, now, scale))
+            }
+            None => None,
+        };
+        self.glide.is_some()
+    }
+
+    /// Whether a wheel's lines are being glided.
+    pub fn gliding(&self) -> bool {
+        self.glide.is_some()
+    }
+
+    /// The glide under way moved on to where it stands `now`, inside how
+    /// far the turns reach, and ended once its time is up. Whether that
+    /// moved the conversation.
+    pub fn glide(&mut self, now: Instant, viewport: Size, scale: f32) -> bool {
+        let (Some(glide), Some(reach)) = (self.glide, self.reach) else {
+            self.glide = None;
+            return false;
+        };
+        let kept = conversation_scroll::clamped(glide.at(now, scale), reach, viewport);
+        if glide.done(now) {
+            self.glide = None;
+        }
         let moved = kept.to_bits() != self.down.to_bits();
         self.down = kept;
         moved

@@ -108,6 +108,89 @@ pub fn clamped(down: f32, reach: Reach, viewport: Size) -> f32 {
     }
 }
 
+/// The narrowest a sign of how far the conversation is scrolled is drawn
+/// down the room, however long the conversation: a thumb a person can see.
+pub const BAR_LEAST: f32 = 32.0;
+
+/// The sign that the conversation goes on above or below the room (queue
+/// item 755, ADR 0093 § 2): a bar down the room's right gutter, as long
+/// against the room as the room is against the whole conversation, and as
+/// far down it as the conversation is scrolled. Computed by the browser
+/// process from its own numbers ([`bar`]), and sent to be drawn; never a
+/// renderer's word.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Bar {
+    /// How far below the room's top it starts, in CSS pixels.
+    pub top: f32,
+    /// How long it is, in CSS pixels.
+    pub length: f32,
+    /// Whether the conversation goes on above the room: it is scrolled on
+    /// from the first turn's top.
+    pub above: bool,
+    /// Whether it goes on below: it is scrolled back from the newest turn's
+    /// foot.
+    pub below: bool,
+}
+
+impl Bar {
+    /// How far down the conversation it is scrolled, from `0` at the first
+    /// turn's top to `100` at the newest turn's foot, as a whole number.
+    pub fn percent(self, room: f32) -> u32 {
+        let travel = room - self.length;
+        if travel <= 0.0 || !travel.is_finite() {
+            return 0;
+        }
+        let along = (self.top / travel).clamp(0.0, 1.0);
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a fraction clamped to 0..=1, times 100, rounded: 0 to 100"
+        )]
+        let percent = (along * 100.0).round() as u32;
+        percent
+    }
+
+    /// What an agent reads of it: which way the conversation goes on, and
+    /// how far down it is scrolled.
+    pub fn said(self, room: f32) -> String {
+        let goes = match (self.above, self.below) {
+            (true, true) => "above and below",
+            (true, false) => "above",
+            (false, true) => "below",
+            (false, false) => "nowhere else",
+        };
+        format!(
+            "The conversation goes on {goes}; scrolled {}% of the way down",
+            self.percent(room)
+        )
+    }
+}
+
+/// The bar for a conversation scrolled `down` on a first screen laid out at
+/// `viewport` on a screen of `scale`, whose turns reach as `reach` says —
+/// its top and length each on a device pixel, as Chrome puts a scroll bar's
+/// thumb — or none when the turns fit the room, and there is nowhere else
+/// to go.
+pub fn bar(down: f32, reach: Reach, viewport: Size, scale: f32) -> Option<Bar> {
+    let scale = alo_value::device_scale(scale);
+    let on_a_pixel = |length: f32| (length * scale).round() / scale;
+    let room = room(viewport);
+    let (least, most) = bounds(reach, viewport);
+    let travel = most - least;
+    if room <= 0.0 || travel < 1.0 || !travel.is_finite() {
+        return None;
+    }
+    let down = clamped(down, reach, viewport);
+    let length = (room * room / (room + travel)).clamp(BAR_LEAST.min(room), room);
+    let along = (down - least) / travel;
+    Some(Bar {
+        top: on_a_pixel(along * (room - length)),
+        length: on_a_pixel(length),
+        above: down > least,
+        below: down < most,
+    })
+}
+
 /// How far the turns of `document`, drawn as `drawing`, reach: the
 /// earlier turns' box, with the gap under it, and the newest turn's —
 /// nothing for a first screen with no turns.
@@ -174,6 +257,79 @@ mod tests {
         assert_eq!(
             clamped(f32::NAN, reach, viewport).to_bits(),
             0.0_f32.to_bits()
+        );
+    }
+
+    #[test]
+    fn the_bar_is_as_long_as_the_room_is_against_the_whole_and_as_far_down_as_it_is_scrolled() {
+        let viewport = Size::new(1040.0, 820.0);
+        // Room 676; the earlier turns 900 above, the newest 1000 tall: it
+        // scrolls from -900 to 324, 1224 in all, the whole 1900.
+        let reach = Reach {
+            earlier: 900.0,
+            newest: 1000.0,
+        };
+        // 676 × 676 / 1900 is 240.51 long; at the newest turn's top, 900 of
+        // 1224 down: 320.21 of the 435.49 it travels. Each on a device pixel.
+        let at = |down: f32| bar(down, reach, viewport, 1.0).expect("a bar");
+        let newest = at(0.0);
+        assert_eq!(
+            (newest.top.to_bits(), newest.length.to_bits()),
+            (320.0_f32.to_bits(), 241.0_f32.to_bits()),
+            "{newest:?}"
+        );
+        assert!(newest.above && newest.below);
+        let at_two = bar(0.0, reach, viewport, 2.0).expect("a bar");
+        assert_eq!(
+            (at_two.top.to_bits(), at_two.length.to_bits()),
+            (320.0_f32.to_bits(), 240.5_f32.to_bits()),
+            "{at_two:?}"
+        );
+        let first = at(-900.0);
+        assert_eq!(
+            first.top.to_bits(),
+            0.0_f32.to_bits(),
+            "the first turn's top"
+        );
+        assert!(!first.above && first.below);
+        let last = at(324.0);
+        assert_eq!(
+            (last.top + last.length).to_bits(),
+            676.0_f32.to_bits(),
+            "at the room's foot"
+        );
+        assert!(last.above && !last.below);
+        // Past either end, kept at it.
+        assert_eq!(at(-5000.0), first);
+        assert_eq!(first.percent(676.0), 0);
+        assert_eq!(last.percent(676.0), 100);
+        assert_eq!(newest.percent(676.0), 74);
+        assert_eq!(
+            newest.said(676.0),
+            "The conversation goes on above and below; scrolled 74% of the way down"
+        );
+        assert_eq!(
+            first.said(676.0),
+            "The conversation goes on below; scrolled 0% of the way down"
+        );
+        // Turns that fit draw none; a long one is never shorter than 32.
+        let fits = Reach {
+            earlier: 0.0,
+            newest: 600.0,
+        };
+        assert_eq!(bar(0.0, fits, viewport, 1.0), None);
+        let long = Reach {
+            earlier: 100_000.0,
+            newest: 600.0,
+        };
+        assert_eq!(
+            bar(0.0, long, viewport, 1.0).map(|bar| bar.length.to_bits()),
+            Some(BAR_LEAST.to_bits())
+        );
+        assert_eq!(
+            bar(0.0, reach, Size::new(1040.0, 100.0), 1.0),
+            None,
+            "no room"
         );
     }
 

@@ -121,6 +121,18 @@ pub enum Key {
     Backspace,
     /// Escape: what empties the one box.
     Escape,
+    /// The space bar: a space in the one box, and in a conversation with
+    /// nothing else holding the keyboard, a room on down — with Shift, back
+    /// up (queue item 754).
+    Space,
+    /// Page Up: a room back up the conversation (queue item 754).
+    PageUp,
+    /// Page Down: a room on down the conversation (queue item 754).
+    PageDown,
+    /// Home: the conversation's first turn (queue item 754).
+    Home,
+    /// End: the newest turn's foot (queue item 754).
+    End,
     /// Any other key.
     Other,
 }
@@ -184,7 +196,16 @@ impl Press {
                 let mut characters = written.chars().flat_map(char::to_lowercase);
                 characters.next() == Some(letter) && characters.next().is_none()
             }
-            Key::Tab | Key::Return | Key::Backspace | Key::Escape | Key::Other => false,
+            Key::Tab
+            | Key::Return
+            | Key::Backspace
+            | Key::Escape
+            | Key::Space
+            | Key::PageUp
+            | Key::PageDown
+            | Key::Home
+            | Key::End
+            | Key::Other => false,
         }
     }
 }

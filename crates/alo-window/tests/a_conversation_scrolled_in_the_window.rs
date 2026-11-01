@@ -268,29 +268,37 @@ fn found(driven: &Driven) -> bool {
     )
 }
 
+/// A wheel's `lines` turned with the cursor where it is, and its glide
+/// (queue item 756) let run to its end.
+fn wheel(driven: &mut Driven, lines: f32) {
+    driven.window.wheeled(Turned::Lines {
+        across: 0.0,
+        down: lines,
+    });
+    driven.window.glide(Instant::now() + Duration::from_secs(1));
+}
+
 /// Step 2: over the panel a wheel does nothing; over the conversation,
-/// three lines back is 120 back, thirty more as far as the first turn,
+/// three lines back is 120 back, glided there, thirty more as far as the first turn,
 /// whose first mark, `first`, is then drawn at the top; a trackpad's pixels
 /// move it by as many.
 fn scroll_back(driven: &mut Driven, reach: Reach, first: [u8; 4]) -> Result<(), String> {
     // 2. Over the panel a wheel does nothing; over the conversation, three
     //    lines back is 120 back, and thirty more as far as the first turn.
     driven.window.moved((100.0, 400.0));
-    driven.window.wheeled(Turned::Lines {
-        across: 0.0,
-        down: 3.0,
-    });
+    wheel(driven, 3.0);
+    assert!(!driven.window.gliding());
     assert_eq!(driven.thread().down().to_bits(), 0.0_f32.to_bits());
     driven.window.moved((640.0, 400.0));
     driven.window.wheeled(Turned::Lines {
         across: 0.0,
         down: 3.0,
     });
+    assert!(driven.window.gliding(), "glided, not jumped");
+    driven.window.glide(Instant::now() + Duration::from_secs(1));
+    assert!(!driven.window.gliding());
     assert_eq!(driven.thread().down().to_bits(), (-120.0_f32).to_bits());
-    driven.window.wheeled(Turned::Lines {
-        across: 0.0,
-        down: 30.0,
-    });
+    wheel(driven, 30.0);
     assert_eq!(
         driven.thread().down().to_bits(),
         (-reach.earlier).to_bits(),
@@ -322,6 +330,40 @@ fn scroll_back(driven: &mut Driven, reach: Reach, first: [u8; 4]) -> Result<(), 
             .is_some_and(|colour| colour == first)
     })?;
     Ok(())
+}
+
+/// Queue items 754 and 755: at the first turn's top the sign says the
+/// conversation goes on below and nowhere above; End, with the box empty and
+/// holding the keyboard, goes to the newest turn's foot, and the sign says
+/// above; Home comes back, the first search's mark drawn at the top again.
+fn keys_and_the_sign(driven: &mut Driven, reach: Reach, first: [u8; 4]) -> Result<(), String> {
+    let sign = |driven: &Driven| {
+        driven
+            .window
+            .conversation()
+            .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
+            .bar
+    };
+    let at_first = sign(driven).ok_or("a sign of more below")?;
+    assert!(!at_first.above && at_first.below, "{at_first:?}");
+    assert_eq!(at_first.top.to_bits(), 0.0_f32.to_bits());
+    driven.window.key(&Press::of(Key::End), None);
+    let room = 676.0_f32;
+    assert_eq!(
+        driven.thread().down().to_bits(),
+        (reach.newest - room).max(0.0).to_bits(),
+        "the newest turn's foot at the room's foot"
+    );
+    let at_end = sign(driven).ok_or("a sign of more above")?;
+    assert!(at_end.above && !at_end.below, "{at_end:?}");
+    driven.window.key(&Press::of(Key::Home), None);
+    assert_eq!(driven.thread().down().to_bits(), (-reach.earlier).to_bits());
+    driven.until("the first search drawn at the top again", |driven| {
+        driven
+            .painted()
+            .and_then(|frame| pixel(&frame, 81, 177))
+            .is_some_and(|colour| colour == first)
+    })
 }
 
 #[test]
@@ -367,6 +409,7 @@ fn two_searches_scrolled_back_and_an_earlier_title_pressed_open_a_new_turn() -> 
     assert!(reach.earlier > 32.0, "{reach:?}");
 
     scroll_back(&mut driven, reach, first)?;
+    keys_and_the_sign(&mut driven, reach, first)?;
 
     // 3. The first search's first title, where it is drawn now: claimed,
     //    and opened as a new turn whose bubble is the title, scrolled to its

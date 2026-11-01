@@ -65,6 +65,8 @@
 use crate::card_aim::{self, Turned};
 use crate::card_input::{CardInput, Went as Button};
 use crate::card_keys;
+use crate::chat_record;
+use crate::chat_store::{ChatStore, Opened};
 use crate::chrome_history::Way;
 use crate::conversation::{Conversation, Pressed as Decided};
 use crate::conversation_box::{self, Typed};
@@ -72,6 +74,7 @@ use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::ConversationScene;
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use crate::conversation_fold;
+use crate::conversation_keys;
 use crate::conversation_place::{ConversationPlacement, panel_viewport_as, start_viewport_as};
 use crate::conversation_search::{Came, Searched, Searcher};
 use crate::keys::{Held, Press};
@@ -80,8 +83,10 @@ use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
 use alo_renderer::card_place;
-use alo_renderer::conversation_scroll::Reach;
+use alo_renderer::conversation_scroll::{self, Reach};
 use alo_renderer::results::{PROVIDER, Showing, Tab};
+use std::collections::HashMap;
+use std::time::Instant;
 
 /// What the conversation's window hears from the threads it hands work to.
 #[derive(Debug)]
@@ -167,6 +172,14 @@ pub struct ConversationWindow {
     /// streamed: a window resized, or its panel hidden or shown, asks again
     /// when its page box is another size (queue item 774).
     streaming: Option<Streamed>,
+    /// Where the chats are kept across launches (queue item 757, ADR
+    /// 0092), when the window was given somewhere.
+    store: Option<ChatStore>,
+    /// What was last written, or read, of each chat kept, by its number:
+    /// a chat is written again only when this differs.
+    written: HashMap<u64, String>,
+    /// Why a chat was last not written, said once until it changes.
+    unkept: Option<String>,
 }
 
 /// How the window's two threads ended.
@@ -225,6 +238,67 @@ impl ConversationWindow {
             redraw: false,
             said: Vec::new(),
             streaming: None,
+            store: None,
+            written: HashMap::new(),
+            unkept: None,
+        }
+    }
+
+    /// The same window, keeping its chats in `store` (queue item 757, ADR
+    /// 0092) and holding those `opened` there from before, under
+    /// *Earlier*: each file that could not be read said, with why, on the
+    /// terminal and in the first screen's line, and left as it is.
+    #[must_use]
+    pub fn with_chats(mut self, store: ChatStore, opened: Opened) -> Self {
+        for kept in &opened.chats {
+            self.written.insert(
+                kept.number,
+                chat_record::write(&kept.record.name, &kept.record.turns),
+            );
+        }
+        for damaged in &opened.unread {
+            self.tell(damaged.said());
+        }
+        self.conversation =
+            std::mem::take(&mut self.conversation).keeping(opened.chats, opened.highest);
+        self.store = Some(store);
+        self
+    }
+
+    /// The same window, keeping no chats, because of `why`: said on the
+    /// terminal and in the first screen's line, so that nobody believes a
+    /// chat kept that is not.
+    #[must_use]
+    pub fn keeping_nothing(mut self, why: &str) -> Self {
+        self.tell(format!("chats are not kept: {why}"));
+        self
+    }
+
+    /// Write every chat whose kept form changed since it was last written
+    /// (queue item 757): a chat that cannot be written is said once, until
+    /// why changes, and tried again at its next change.
+    fn keep(&mut self) {
+        let Some(store) = &self.store else {
+            return;
+        };
+        let mut failed = None;
+        for (id, name, thread) in self.conversation.to_keep() {
+            let written = chat_record::write(name, thread.turns());
+            if self.written.get(&id.number()) == Some(&written) {
+                continue;
+            }
+            match store.write(id.number(), &written) {
+                Ok(()) => {
+                    self.written.insert(id.number(), written);
+                }
+                Err(why) => failed = Some(why),
+            }
+        }
+        if let Some(why) = failed
+            && self.unkept.as_ref() != Some(&why)
+        {
+            self.tell(format!("a chat is not kept: {why}"));
+            self.unkept = Some(why);
         }
     }
 
@@ -389,6 +463,25 @@ impl ConversationWindow {
             })
     }
 
+    /// Whether the conversation is gliding a wheel's lines (queue item 756):
+    /// the event loop is then to call [`Self::glide`] at each of the
+    /// display's frames until it is not.
+    pub fn gliding(&self) -> bool {
+        self.conversation.gliding()
+    }
+
+    /// The glide under way moved on to `now`, and the first screen drawn
+    /// again if that scrolled it.
+    pub fn glide(&mut self, now: Instant) {
+        let (Some((_, scale)), Some(room)) = (self.measured(), self.start_room()) else {
+            return;
+        };
+        if self.conversation.glide(now, room, scale.factor()) {
+            self.redraw = true;
+            self.ask_drawn();
+        }
+    }
+
     /// What the point `at`, in device pixels, is over, from the window's
     /// own composition: the card's page, a part, or nothing.
     fn aimed(&self, at: (f64, f64)) -> Option<card_aim::Aimed> {
@@ -510,6 +603,14 @@ impl ConversationWindow {
     /// first screen while it holds a turn (queue item 703), and drawn
     /// again; nobody's over the panel.
     pub fn wheeled(&mut self, turned: Turned) {
+        self.wheeled_at(turned, Instant::now());
+    }
+
+    /// A wheel or a trackpad turned `now`, as [`Self::wheeled`]: over the
+    /// conversation, a wheel's lines glided as Chrome glides them, from
+    /// `now` (queue item 756), and a trackpad's pixels followed as they
+    /// come.
+    pub fn wheeled_at(&mut self, turned: Turned, now: Instant) {
         let Some(at) = self.cursor else {
             return;
         };
@@ -527,7 +628,14 @@ impl ConversationWindow {
                     reason = "a wheel's turn in CSS pixels, far inside an f32's range; what the first screen is laid out in"
                 )]
                 let by = down as f32;
-                if self.conversation.scroll(by, room) {
+                let moved = match turned {
+                    Turned::Lines { .. } => {
+                        self.conversation.glide_lines(by, room, now, scale.factor())
+                            && self.conversation.glide(now, room, scale.factor())
+                    }
+                    Turned::Pixels { .. } => self.conversation.scroll(by, room),
+                };
+                if moved {
                     self.redraw = true;
                     self.ask_drawn();
                 }
@@ -578,6 +686,7 @@ impl ConversationWindow {
             self.search();
         }
         self.shut_if_put_away(had_a_card);
+        self.keep();
     }
 
     /// Close the live card's page if what was just done put the card away —
@@ -658,6 +767,8 @@ impl ConversationWindow {
             }
             self.ask_drawn();
         }
+        // A turn of a chat not on screen may have changed too.
+        self.keep();
     }
 
     /// Open where it was decided to go, if anywhere, in Chrome, as a card in
@@ -730,6 +841,7 @@ impl ConversationWindow {
     /// taken away, and the first screen's line saying so.
     fn went(&mut self, went: Went) {
         let said = went.said();
+        let framed = matches!(went, Went::Framed(_));
         match &went {
             // Each is shown by the card itself.
             Went::Framed(_)
@@ -783,6 +895,10 @@ impl ConversationWindow {
         };
         if changed {
             self.ask_drawn();
+            // A frame is a picture, never kept: what else changed may be.
+            if !framed {
+                self.keep();
+            }
         }
     }
 
@@ -822,13 +938,23 @@ impl ConversationWindow {
     /// `reach` says (queue items 703, 759): the live card's page box is
     /// aimed where it was drawn, in the room it was seen in, once that frame
     /// is had, and the conversation is kept inside its reach — drawn again
-    /// if that moved it.
+    /// if that moved it, or placed the sign of more above or below anew.
     fn reached(&mut self, turns: usize, (down, offered): (f32, usize), reach: Reach) {
         self.painting_down = Some((down, offered));
         let Some(room) = self.start_room() else {
             return;
         };
-        if self.conversation.reached(reach, turns, room) {
+        let scale = self.measured().map_or(1.0, |(_, scale)| scale.factor());
+        let bar = |window: &Self| {
+            window
+                .conversation
+                .thread()
+                .and_then(|thread| thread.bar(room, scale))
+        };
+        let before = bar(self);
+        // Kept inside the reach, or the sign of more above or below placed
+        // by it for the first time or anew (queue item 755): drawn again.
+        if self.conversation.reached(reach, turns, room) || bar(self) != before {
             self.ask_drawn();
         }
     }
@@ -842,6 +968,18 @@ impl ConversationWindow {
             // The card's page has the keyboard (queue item 718).
             if let Some(key) = card_keys::key(press, text) {
                 self.to_the_page(CardInput::Key(key));
+            }
+            return;
+        }
+        // The paging keys scroll the conversation while nothing holding the
+        // keyboard would take them (queue item 754).
+        if self.conversation.keys_scroll()
+            && let Some(room) = self.start_room()
+            && let Some(scroll) = conversation_keys::scroll(press, conversation_scroll::room(room))
+        {
+            if self.conversation.scroll_by_key(scroll, room) {
+                self.redraw = true;
+                self.ask_drawn();
             }
             return;
         }
@@ -867,6 +1005,7 @@ impl ConversationWindow {
                 self.search();
                 self.shut_if_put_away(had_a_card);
                 self.redraw = true;
+                self.keep();
             }
         }
     }
@@ -874,6 +1013,8 @@ impl ConversationWindow {
     /// Stop both threads and wait for them: the renderers stopped, and the
     /// Chrome showing a page closed and its profile removed.
     pub fn finish(&mut self) {
+        // The last of what is kept written, the live card's address with it.
+        self.keep();
         if let Some(drawing) = self.drawing.take() {
             self.ended.drawing = drawing.finish();
         }
@@ -909,6 +1050,7 @@ mod tests {
     use crate::chrome_history::Travel;
     use crate::conversation_chrome::Shown;
     use crate::conversation_place::start_viewport;
+    use crate::conversation_thread::Thread;
     use crate::keys::Key;
     use alo_renderer::conversation_claim::Claim;
     use alo_renderer::conversation_decide::Refusal;
@@ -996,6 +1138,157 @@ mod tests {
         window.heard(Heard::Drawn(Drawn::Painted(Part::Start, painted())));
         assert_eq!(window.drawn_down.to_bits(), 0.0_f32.to_bits());
         assert_eq!(window.drawn_offered, 0);
+        window.finish();
+    }
+
+    #[test]
+    fn a_wheels_lines_are_glided_as_chromes_and_a_trackpads_pixels_followed() {
+        use std::time::Duration;
+        let mut window = window();
+        let url = |address: &str| alo_url::parse(address).unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url("https://a.example/"))));
+        window.heard(Heard::Chrome(Went::Opening(url("https://b.example/"))));
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 2,
+            down: 0.0,
+            offered: 0,
+            reach: Reach {
+                earlier: 900.0,
+                newest: 1000.0,
+            },
+        }));
+        let sized = |width: u32, height: u32| Frame {
+            width,
+            height,
+            pixels: vec![0; usize::try_from(width * height * 4).unwrap()],
+        };
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Panel, sized(240, 820))));
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, sized(1040, 820))));
+        window.moved((640.0, 400.0));
+        let down = |window: &ConversationWindow| {
+            window
+                .conversation()
+                .thread()
+                .map(|thread| thread.down().to_bits())
+        };
+        let ms = Duration::from_millis;
+        let start = Instant::now();
+        // One line back: glided over 200 ms, not jumped.
+        window.wheeled_at(
+            Turned::Lines {
+                across: 0.0,
+                down: 1.0,
+            },
+            start,
+        );
+        assert!(window.gliding());
+        assert_eq!(down(&window), Some(0.0_f32.to_bits()), "not yet moved");
+        window.glide(start + ms(100));
+        assert_eq!(down(&window), Some((-20.0_f32).to_bits()), "half way");
+        // A second line half way: on to 80 back, from where it stands.
+        window.wheeled_at(
+            Turned::Lines {
+                across: 0.0,
+                down: 1.0,
+            },
+            start + ms(100),
+        );
+        window.glide(start + ms(150));
+        let moving = window.conversation().thread().map_or(0.0, Thread::down);
+        assert!(moving < -20.0 && moving > -80.0, "{moving}");
+        window.glide(start + ms(301));
+        assert_eq!(down(&window), Some((-80.0_f32).to_bits()));
+        assert!(!window.gliding(), "ended");
+        // A trackpad's pixels mid-glide: followed at once, and the glide
+        // ended.
+        window.wheeled_at(
+            Turned::Lines {
+                across: 0.0,
+                down: -1.0,
+            },
+            start + ms(400),
+        );
+        assert!(window.gliding());
+        window.wheeled_at(
+            Turned::Pixels {
+                across: 0.0,
+                down: 10.0,
+            },
+            start + ms(450),
+        );
+        assert!(!window.gliding());
+        assert_eq!(down(&window), Some((-90.0_f32).to_bits()));
+        // Never past the first turn's top.
+        window.wheeled_at(
+            Turned::Lines {
+                across: 0.0,
+                down: 100.0,
+            },
+            start + ms(500),
+        );
+        window.glide(start + ms(1000));
+        assert_eq!(down(&window), Some((-900.0_f32).to_bits()));
+        window.finish();
+    }
+
+    #[test]
+    fn the_paging_keys_scroll_the_conversation_a_room_less_a_line_and_to_its_ends() {
+        use crate::keys::{Modifier, Press};
+        let mut window = window();
+        let url = |address: &str| alo_url::parse(address).unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url("https://a.example/"))));
+        window.heard(Heard::Chrome(Went::Opening(url("https://b.example/"))));
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 2,
+            down: 0.0,
+            offered: 0,
+            reach: Reach {
+                earlier: 900.0,
+                newest: 1000.0,
+            },
+        }));
+        let down = |window: &ConversationWindow| {
+            window
+                .conversation()
+                .thread()
+                .map(|thread| thread.down().to_bits())
+        };
+        let _ = window.take_redraw();
+        // The room at 820 is 676: a page is 636.
+        window.key(&Press::of(Key::PageUp), None);
+        assert_eq!(down(&window), Some((-636.0_f32).to_bits()));
+        assert!(window.take_redraw());
+        window.key(&Press::of(Key::PageUp).repeating(), None);
+        assert_eq!(down(&window), Some((-900.0_f32).to_bits()));
+        window.key(&Press::of(Key::End), None);
+        assert_eq!(down(&window), Some(324.0_f32.to_bits()));
+        window.key(&Press::of(Key::Home), None);
+        assert_eq!(down(&window), Some((-900.0_f32).to_bits()));
+        window.key(&Press::of(Key::Space), Some(" "));
+        assert_eq!(down(&window), Some((-264.0_f32).to_bits()));
+        window.key(&Press::of(Key::Space).with(Modifier::Shift), Some(" "));
+        assert_eq!(down(&window), Some((-900.0_f32).to_bits()));
+        window.key(&Press::of(Key::PageDown), None);
+        assert_eq!(down(&window), Some((-264.0_f32).to_bits()));
+        // ⌘ with one is not a scroll.
+        window.key(&Press::of(Key::End).with(Modifier::Command), None);
+        assert_eq!(down(&window), Some((-264.0_f32).to_bits()));
+        // The box given the keyboard, empty: still the conversation's; with
+        // a word in it, a space is a space.
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        window.key(&Press::of(Key::PageDown), None);
+        assert_eq!(down(&window), Some(324.0_f32.to_bits()));
+        window.key(&Press::character("a"), Some("a"));
+        window.key(&Press::of(Key::Space), Some(" "));
+        window.key(&Press::of(Key::Home), None);
+        assert_eq!(down(&window), Some(324.0_f32.to_bits()), "the box's keys");
+        assert_eq!(
+            window
+                .conversation()
+                .start(start_viewport((1280, 820), Scale::ONE), Scale::ONE)
+                .typed,
+            "a "
+        );
         window.finish();
     }
 

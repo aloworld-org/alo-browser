@@ -59,8 +59,8 @@ pub fn edit(press: &Press, written: Option<&str>) -> Option<Edit> {
         Key::Return => Some(Edit::Choose),
         Key::Backspace => Some(Edit::Erase),
         Key::Escape => Some(Edit::Clear),
-        Key::Tab => None,
-        Key::Character(_) | Key::Other => {
+        Key::Tab | Key::PageUp | Key::PageDown | Key::Home | Key::End => None,
+        Key::Character(_) | Key::Space | Key::Other => {
             let text: String = written?.chars().filter(|each| !each.is_control()).collect();
             (!text.is_empty()).then_some(Edit::Put(text))
         }
@@ -153,5 +153,14 @@ mod tests {
         );
         // Markup is characters like any others.
         assert_eq!(typed("<"), Some(Edit::Put("<".to_owned())));
+        // The space bar, read apart since queue item 754, still types a
+        // space; the paging keys type nothing, whatever text comes with them.
+        assert_eq!(
+            edit(&Press::of(Key::Space), Some(" ")),
+            Some(Edit::Put(" ".to_owned()))
+        );
+        for key in [Key::PageUp, Key::PageDown, Key::Home, Key::End] {
+            assert_eq!(edit(&Press::of(key), Some("\u{f72c}")), None);
+        }
     }
 }

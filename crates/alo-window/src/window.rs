@@ -172,6 +172,7 @@ use crate::aim::{Aimed, aim, on_page};
 use crate::beside::Chromium;
 use crate::brave_search::Provider;
 use crate::card_aim::Turned;
+use crate::chat_store::ChatStore;
 use crate::chrome_follow::Follow;
 use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
@@ -181,6 +182,7 @@ use crate::conversation_chrome::ChromeOpener;
 use crate::conversation_compose::compose_conversation;
 use crate::conversation_drawing::ConversationDrawing;
 use crate::conversation_fold::LEAST_SIZE;
+use crate::conversation_glide::FRAME;
 use crate::conversation_search::Searcher;
 use crate::conversation_window::{ConversationWindow, Heard, Measured};
 use crate::cursor::{Cursor, Pressed};
@@ -196,12 +198,14 @@ use crate::scale::Scale;
 use crate::showing::Showing;
 use alo_renderer::host::Renderers;
 use alo_renderer::{Frame, Visibility};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
+use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{self as winit_keys, ModifiersState, NamedKey};
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
@@ -856,7 +860,9 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// named a scale and at its screen's otherwise. An address chosen in it
 /// opens in the Chromium `chromium` names (queue items 713 and 719), and
 /// words chosen are searched with `search`, or said not set up and why
-/// (queue item 708).
+/// (queue item 708). Its chats are kept in the directory `chats` names,
+/// read from it as the window opens (queue item 757, ADR 0092), or, with
+/// none or one that cannot be opened, not kept, and said so.
 ///
 /// # Errors
 ///
@@ -868,6 +874,7 @@ pub fn conversation(
     renderers: Renderers,
     chromium: Chromium,
     search: Result<Provider, String>,
+    chats: Result<PathBuf, String>,
 ) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
@@ -892,8 +899,15 @@ pub fn conversation(
         Box::new(move |searched| proxy.send_event(Heard::Searched(searched)).is_ok()),
     )
     .map_err(|why| format!("no thread to search with: {why}"))?;
+    let state = ConversationWindow::new(forced, drawing, chrome).with_search(searcher);
+    // Where the chats are kept across launches (queue item 757, ADR 0092),
+    // read before the window opens; with nowhere, said, and none kept.
+    let state = match chats.and_then(|directory| ChatStore::open(&directory)) {
+        Ok((store, opened)) => state.with_chats(store, opened),
+        Err(why) => state.keeping_nothing(&why),
+    };
     let mut conversing = Conversing {
-        state: ConversationWindow::new(forced, drawing, chrome).with_search(searcher),
+        state,
         lettering,
         window: None,
         presenter: None,
@@ -1086,6 +1100,20 @@ impl ApplicationHandler<Heard> for Conversing {
         self.follow();
     }
 
+    /// Nothing more to hear for now: while a wheel's lines are glided
+    /// (queue item 756), move the glide on and wake again a frame later;
+    /// otherwise wait for the next event.
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.state.gliding() {
+            let now = Instant::now();
+            self.state.glide(now);
+            self.follow();
+            event_loop.set_control_flow(ControlFlow::WaitUntil(now + FRAME));
+        } else {
+            event_loop.set_control_flow(ControlFlow::Wait);
+        }
+    }
+
     /// The event loop is ending — returning, or the program quit, when
     /// `AppKit` ends the process once this returns (item 688): the drawing
     /// thread is stopped here, and its renderers with it, and the Chrome
@@ -1119,6 +1147,11 @@ fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
         winit_keys::Key::Named(NamedKey::Enter) => Key::Return,
         winit_keys::Key::Named(NamedKey::Backspace) => Key::Backspace,
         winit_keys::Key::Named(NamedKey::Escape) => Key::Escape,
+        winit_keys::Key::Named(NamedKey::Space) => Key::Space,
+        winit_keys::Key::Named(NamedKey::PageUp) => Key::PageUp,
+        winit_keys::Key::Named(NamedKey::PageDown) => Key::PageDown,
+        winit_keys::Key::Named(NamedKey::Home) => Key::Home,
+        winit_keys::Key::Named(NamedKey::End) => Key::End,
         _ => Key::Other,
     };
     Some(Press {

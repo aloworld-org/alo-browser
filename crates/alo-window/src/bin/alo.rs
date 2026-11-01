@@ -30,9 +30,9 @@
 //! Closing either closes both, and so does this browser's input ending —
 //! Ctrl-D at a terminal.
 //!
-//! `alo --conversation [--frozen-fonts] [--scale FACTOR]` opens the
-//! browser's own interface as a conversation instead (ADR 0074, queue item
-//! 709): the chats panel down the left and the first screen beside it, each
+//! `alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR]`
+//! opens the browser's own interface as a conversation instead (ADR 0074,
+//! queue item 709): the chats panel down the left and the first screen beside it, each
 //! drawn by a confined renderer of this engine's, in a window of the
 //! design's size. It holds one new chat and greets a person; it opens no
 //! page and no socket. A press on a chat or *New chat* is answered (queue
@@ -210,7 +210,16 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     // set up. Read here, by the browser process alone.
     let search = alo_window::search_key::for_this_application(bundle)
         .and_then(alo_window::brave_search::Provider::brave);
-    match alo_window::window::conversation(opening.scale, renderers, chromium, search) {
+    // Where its chats are kept (queue item 757, ADR 0092): the directory a
+    // person named, or alo's own; said, so a hand run knows which it wrote.
+    let chats = opening
+        .chats
+        .clone()
+        .map_or_else(alo_window::chat_store::for_this_person, Ok);
+    if let Ok(directory) = &chats {
+        eprintln!("alo: chats are kept in {}", directory.display());
+    }
+    match alo_window::window::conversation(opening.scale, renderers, chromium, search, chats) {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {
             eprintln!("alo: {why}");

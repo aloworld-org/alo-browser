@@ -149,6 +149,9 @@ pub mod card_keys;
 pub mod carried_keys;
 pub mod cef_host;
 pub mod cef_pin;
+pub mod chat_name;
+pub mod chat_record;
+pub mod chat_store;
 #[cfg(unix)]
 pub mod chrome;
 pub mod chrome_act;
@@ -195,6 +198,8 @@ pub mod conversation_compose;
 pub mod conversation_drawing;
 pub mod conversation_find;
 pub mod conversation_fold;
+pub mod conversation_glide;
+pub mod conversation_keys;
 pub mod conversation_place;
 pub mod conversation_search;
 pub mod conversation_thread;

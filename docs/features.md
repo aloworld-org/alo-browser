@@ -1128,10 +1128,32 @@ The reason this exists rather than a faster fork of somebody else's engine.
   through the window's own road against a local provider
   (`alo-window/tests/a_conversation_scrolled_in_the_window.rs`) and through
   both Chromiums (`tests/a_conversation_scrolled_through_chrome.rs`). Owed:
-  the agent's words and steps as turns (704, 707), scrolling from the
-  keyboard (754), a sign of more above (755), smoothing a wheel's lines
-  (756), chats kept across launches (757), a chat named by its words (758),
-  and a positioned box clipped by an `overflow` box in the engine (753).
+  the agent's words and steps as turns (704, 707), and a positioned box
+  clipped by an `overflow` box in the engine (753).
+  **Chats kept across launches, named by their first words** (757, 758,
+  ADR 0092): every chat holding a turn is written to a file of its own in
+  alo's directory on this Mac (`~/Library/Application Support/
+  org.aloworld.Browser/Chats`, or `--chats DIR`), only this user's, whole
+  or not at all, in words and addresses — no picture, frame, key or typed
+  text — and read back under *Earlier*, newest first, a live card as its
+  address and a search under way as not answered; a file that does not
+  read is said and left as it is. A chat is named by the first words said
+  in it, up to 48 characters. In the format's and the store's unit tests in
+  a temporary directory, and two launches through the window's own road
+  (`alo-window/tests/chats_kept_across_launches.rs`). Owed: deleting a chat
+  (789), encrypted at rest (790), closing one to *Earlier* (791).
+  **The conversation scrolled by keys, a sign of more, a wheel glided** (754,
+  755, 756, ADR 0093): Page Down and space a room less a line on, Page Up
+  and Shift-space back, Home and End to the ends, while the box is empty or
+  nothing has the keyboard; a bar in the room's right gutter as long and as
+  far down as the room is in the conversation, placed by the browser
+  process and read by an agent as which way it goes on and how far
+  scrolled, in numbers and two reference renders
+  (`alo-renderer/tests/a_sign_that_the_conversation_goes_on.rs`); a wheel's
+  lines glided on ease-in-out over `14 − |Δ device px| ÷ 60` sixtieths
+  (6–12), retargeted at its speed, measured against Chrome 156's frames.
+  Owed: keys glided (792), a bar to drag and the owner's look (793), the
+  glide at the display's own refresh (794).
   **A press on an offer** (714): each offer for what was typed — under the
   box, or above it in a conversation — is claimed by its place among those
   drawn and decided against the offers the first screen last painted, a

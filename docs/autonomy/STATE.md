@@ -47445,3 +47445,118 @@ passed (7 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
 (788).
 
 The next unused queue number is **789** and the next ADR is **0092**.
+
+## Iteration 485 — queue items 757, 758, 754, 755 and 756: chats kept and named, the conversation scrolled by keys, a sign of more, a wheel's lines glided (ADRs 0092, 0093)
+
+Batched under one gate, at the owner's asking; each item built with its own
+tests and docs.
+
+**757 — chats kept across launches (ADR 0092).** **Decided:** a file per
+chat, `chat-N.json`, in `~/Library/Application Support/org.aloworld.Browser/Chats`
+(made 0700, files 0600; `--chats DIR` names another, absolute), JSON
+`"alo chat"` version 1 of words and addresses — a search's sites, images,
+videos and news as text, a page as what was said and its address (a live
+card as the address it becomes), a failure and why; never a picture's
+bytes, a frame, a key, typed text or the offset. Written atomically
+(`.writing`, fsync, rename, directory fsync) when the kept form changes and
+as the window closes; nothing leaves the machine, and reading asks nothing
+of the network. Read back under *Earlier*, newest first, numbered past every
+file; pressed, on screen and open again. A file that does not read is said
+— path and why, on the terminal and in the first screen's line — left
+untouched, its number never reused. Not encrypted by alo (790). **Built:**
+`chat_record.rs`, `chat_store.rs`, `Conversation::keeping`/`to_keep`,
+`Thread::kept`, `ConversationWindow::with_chats`/`keeping_nothing`/`keep`,
+`--chats`, `alo` saying where chats are kept. **Tests:** `chat_record` 3,
+`chat_store` 5 (a temporary directory: modes 0700/0600, newest first, a
+damaged file said and untouched, refusals), `conversation` (keeping,
+numbering past 11 to 12 and 13, reopening), `opening` (`--chats` and its
+refusals), and `tests/chats_kept_across_launches.rs` — two launches on one
+temporary directory through the window's own road: two chats, files of words
+and addresses with no picture, the second launch's panel *New chat* then
+*lifetimes*, *rust borrow checker* under *Earlier*, a damaged `chat-5.json`
+said and untouched, the new chat numbered 6, the older chat pressed and its
+newest turn's first mark drawn at (81, 177). Mutations: never written,
+damaged not said, an earlier chat not reopened — each fails. **Cut:** 789,
+790.
+
+**758 — a chat named by what was said in it.** **Built:** `chat_name.rs`:
+the first turn's words, white space run together, whole words to 48
+characters and `…`, a single long word cut at a character; named once and
+kept. **Tests:** `chat_name` 3, `conversation` (named, never renamed, a page
+opened named by its address, *Search chats* finding it). **Moved:**
+`offers_and_the_panel_pressed_in_the_window.rs` searched the panel for
+*NEW*; its chat is now *lifetimes*, so it searches *E*. Mutation: never
+named — fails. **Cut:** closing a chat to *Earlier* (791); an agent's name
+waits on 704.
+
+**754 — the conversation from the keyboard (ADR 0093 § 1).** Page Down and
+space a room less a line (636 at 820), Page Up and Shift-space back, Home
+and End to the ends, while the box is empty or nothing has the keyboard —
+never the card's page's, *Search chats*' or a box holding words; ⌘/⌃/⌥ not.
+The window reads Space, Page Up, Page Down, Home and End apart; Space still
+types and reaches a card's page. **Tests:** `conversation_keys` 3,
+`conversation`, `conversation_window` (each key in numbers), `typing`,
+`card_keys`, End and Home through the window's own road. Mutations: two,
+each fails. **Cut:** keys glided (792).
+
+**755 — a sign that it goes on (ADR 0093 § 2; the look is this item's
+choice, 793).** A bar in the room's right gutter, 6 wide, 13 in, `#cbc3b6`,
+as long and as far down as the room is in the conversation, on device
+pixels, from the browser process's numbers (`Start::bar` on the wire,
+refused past any room); an agent reads *The conversation goes on above and
+below; scrolled 50% of the way down*. **Tests:**
+`alo-renderer/tests/a_sign_that_the_conversation_goes_on.rs` (box
+(973, 358, 6, 358) at 0, (973, 199, 6, 358) half way, (973, 40, 6, 358) at
+the first turn; (973, 358.5, 6, 357.5) at two; its colour and not past it;
+the reading; a press claims nothing), references
+`conversation-goes-on-above-and-below.png` and `conversation-goes-on-at-two.png`
+(looked at; run once without update mode before writing them: failed only
+as absent), `conversation_scroll`'s numbers, the wire both ways. **Moved:**
+`messages_across_a_boundary.rs` counts one more byte back from a first
+screen's end (the bar's flag).
+
+**756 — a wheel's lines glided (ADR 0093 § 3).** Measured against Google
+Chrome 156.0.8078.76 on this Mac: posted line `CGEvent`s over a 40 000-tall
+page, `scrollY` at every frame, at scales one and two. Ease-in-out over
+`14 − |Δ device px| ÷ 60` sixtieths (6–12), on device pixels; a notch
+mid-glide retargets at its speed. `conversation_glide.rs`; lines glided,
+pixels followed; the window steps it each sixtieth in `about_to_wait`.
+**Tests:** durations; one line at two within 0.5 px of Chrome's 12 frames;
+two lines within 1.5 (from rest, > 4 off); the window's glide, retarget,
+trackpad and clamp. **Moved:** the window's and Chrome's conversation tests
+let a glide run out before asserting. Mutations: no speed kept, ÷ 120, a
+jump — each fails. **Cut:** stepping at the display's refresh (794).
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys carried — searching with
+this Mac's keychain key; `--conversation --chats` a scratch directory
+`handrun22/chats`, so nothing was written under `~/Library/Application
+Support/org.aloworld.Browser`, which still does not exist; screenshots in
+the session scratchpad `handrun22/`; pointer back at 1400, 1000): three
+searches in one chat, named *home ev charger installation* in the panel
+(`01`, `02`); the bar in the gutter as the conversation grew; Page Up and
+Home (posted with the function-key flag a keyboard sends) scrolled it
+(`03`, `04`), End to the newest (`09`); a three-line wheel moved it 120 and
+back (`06`, `08`; a frame mid-glide was not caught by screenshots, so the
+glide itself was not seen); *New chat* and two searches, named *rust
+borrow checker* (`10`); ⌘Q; the two files of words, no `picture` or `mark`
+key; relaunched, both chats under *Earlier* (`11`), the older one pressed
+and shown with its three searches, sites by letter and images by title
+(`12`); ⌘Q, no alo process left. **Went wrong on the way:** a first click at
+a negative x went to `cliclick`'s relative mode and typed the first search
+into whatever was at (−907, 528) on the other display (no window there,
+so the desktop); later `cliclick` typing stopped mid-word and then reached
+nothing while posted `CGEvent`s did — the rest was done with posted events.
+`cliclick kp:page-up` (no function-key flag) did not scroll; the same key
+posted with it did. A `--chats` directory that already exists keeps its own
+mode (it was 0755 here, made beforehand); alo makes only a missing one 0700.
+
+**Gate: met** (first run, CEF 156.0.14, pointer moved aside). **Summary
+[858.459s] 6127 tests run: 6127 passed (6 slow), 0 skipped** — *"The gate is
+met." (11 of 11 steps)*.
+
+**Cut:** deleting a chat (789), chats encrypted at rest (790), closing a
+chat to *Earlier* (791), keyboard scrolls glided (792), the sign's look and
+a bar to drag (793), the glide at the display's own refresh (794).
+
+The next unused queue number is **795** and the next ADR is **0094**.

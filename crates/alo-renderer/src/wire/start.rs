@@ -32,7 +32,7 @@
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::card::Card;
-use crate::conversation_scroll::MOST;
+use crate::conversation_scroll::{Bar, MOST};
 use crate::results::MOST_PICTURE_BYTES;
 use crate::start::{KeptSite, Start, Waiting};
 use crate::turn::{MOST_TURNS, Turn};
@@ -106,6 +106,17 @@ impl Writer {
             }
         }
         self.float(start.down);
+        // The sign of more above or below (queue item 755).
+        match start.bar {
+            Some(bar) => {
+                self.bool(true);
+                self.float(bar.top);
+                self.float(bar.length);
+                self.bool(bar.above);
+                self.bool(bar.below);
+            }
+            None => self.bool(false),
+        }
     }
 
     /// The page shown as a card (queue item 717): what the person said, the
@@ -215,6 +226,7 @@ impl Reader<'_> {
                 "a conversation scrolled further than any reaches",
             ));
         }
+        let bar = self.bar()?;
         Ok(Start {
             greeting,
             sites,
@@ -226,8 +238,30 @@ impl Reader<'_> {
             offers,
             turns,
             down,
+            bar,
             search,
         })
+    }
+
+    /// The sign of more above or below (queue item 755), if one was
+    /// written: placed no further than any room.
+    fn bar(&mut self) -> Result<Option<Bar>, Unreadable> {
+        if !self.bool()? {
+            return Ok(None);
+        }
+        let top = self.float()?;
+        let length = self.float()?;
+        if !(0.0..=MOST).contains(&top) || !(0.0..=MOST).contains(&length) {
+            return Err(unreadable(
+                "a sign of more above or below placed further than any room",
+            ));
+        }
+        Ok(Some(Bar {
+            top,
+            length,
+            above: self.bool()?,
+            below: self.bool()?,
+        }))
     }
 
     /// A card, as [`Writer::card`] wrote it. An address that is not a

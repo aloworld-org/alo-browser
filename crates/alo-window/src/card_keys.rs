@@ -40,7 +40,9 @@ pub fn key(press: &Press, written: Option<&str>) -> Option<PersonsKey> {
         Key::Backspace => Keyed::Backspace,
         Key::Tab => Keyed::Tab,
         Key::Escape => Keyed::Escape,
-        Key::Character(_) | Key::Other => {
+        // Not carried yet, as the arrows are not (queue item 741).
+        Key::PageUp | Key::PageDown | Key::Home | Key::End => return None,
+        Key::Character(_) | Key::Space | Key::Other => {
             let text: String = written?.chars().filter(|each| !each.is_control()).collect();
             if text.is_empty() {
                 return None;
@@ -148,5 +150,14 @@ mod tests {
         assert_eq!(key(&Press::of(Key::Other), None), None);
         assert_eq!(key(&Press::character("\u{0}"), Some("\u{0}")), None);
         assert_eq!(key(&Press::character("\u{7f}"), Some("\u{7f}")), None);
+        // The paging keys are not carried yet (queue item 741); the space
+        // bar, read apart since queue item 754, still sends its space.
+        for paging in [Key::PageUp, Key::PageDown, Key::Home, Key::End] {
+            assert_eq!(key(&Press::of(paging), Some("\u{f72c}")), None);
+        }
+        assert_eq!(
+            key(&Press::of(Key::Space), Some(" ")).map(|sent| sent.key),
+            Some(Keyed::Text(" ".to_owned()))
+        );
     }
 }

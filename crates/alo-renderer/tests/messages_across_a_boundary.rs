@@ -27,6 +27,7 @@ use alo_net::referrer::Policy;
 use alo_renderer::Screen;
 use alo_renderer::ask::{Asked, By};
 use alo_renderer::conversation_claim::Claim as ConversationClaim;
+use alo_renderer::conversation_scroll::Bar;
 use alo_renderer::frame::Frame;
 use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
@@ -188,6 +189,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 .collect(),
             turns: Vec::new(),
             down: 0.0,
+            bar: None,
             search: SetUp::Not("no key\0<b>".to_owned()),
         })),
         ToRenderer::Start(Box::default()),
@@ -443,10 +445,28 @@ fn a_conversation_of_turns_and_its_reach_survive_the_crossing() {
                 .holding(b"\x89PNG\r\n\x1a\n".to_vec()),
         ),
     ];
-    for down in [0.0, -1234.5, 0.015_625, 99_999.0] {
+    // With the sign of more above or below (queue item 755), each way.
+    let bars = [
+        None,
+        Some(Bar {
+            top: 240.515_63,
+            length: 32.0,
+            above: true,
+            below: false,
+        }),
+        Some(Bar {
+            top: 0.0,
+            length: 675.5,
+            above: false,
+            below: true,
+        }),
+        None,
+    ];
+    for (down, bar) in [0.0, -1234.5, 0.015_625, 99_999.0].into_iter().zip(bars) {
         let original = ToRenderer::Start(Box::new(Start {
             turns: turns.clone(),
             down,
+            bar,
             ..Start::default()
         }));
         let back = read_to_renderer(&write_to_renderer(&original))
@@ -463,6 +483,41 @@ fn a_conversation_of_turns_and_its_reach_survive_the_crossing() {
         read_from_renderer(&write_from_renderer(&reached)),
         Ok(reached)
     );
+}
+
+/// Queue item 755: a sign of more above or below placed past any room, or
+/// before it, is refused by name.
+#[test]
+fn a_sign_of_more_placed_past_any_room_is_refused() {
+    let card = Turn::Page(alo_renderer::card::Card::new(
+        "a",
+        alo_url::parse("https://a.example/").unwrap_or_else(|_| panic!("parses")),
+    ));
+    let refused = |message: &ToRenderer| {
+        read_to_renderer(&write_to_renderer(message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default()
+    };
+    // A sign of more above or below placed past any room, or before it
+    // (queue item 755).
+    for (top, length) in [(2.0e6, 32.0), (-1.0, 32.0), (0.0, 2.0e6), (0.0, -0.5)] {
+        let placed = ToRenderer::Start(Box::new(Start {
+            turns: vec![card.clone()],
+            bar: Some(Bar {
+                top,
+                length,
+                above: true,
+                below: true,
+            }),
+            ..Start::default()
+        }));
+        assert!(
+            refused(&placed).contains("further than any room"),
+            "{top} {length}: {}",
+            refused(&placed)
+        );
+    }
 }
 
 /// Queue item 703: a live card anywhere but the newest turn, a page shown
@@ -529,7 +584,8 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         refused(&far)
     );
     // A turn tagged as nothing this engine draws: the tag after the turns'
-    // count, rewritten.
+    // count, rewritten — back past the bar's flag (none), the offset, the
+    // failure's two empty strings and the tag itself.
     let mut bytes = write_to_renderer(&start(
         vec![Turn::Failed {
             said: String::new(),
@@ -539,7 +595,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
     ));
     let tag = bytes
         .len()
-        .checked_sub(4 + 2 * 8 + 1)
+        .checked_sub(1 + 4 + 2 * 8 + 1)
         .unwrap_or_else(|| panic!("a turn was written"));
     let _ = bytes.get(tag).map(|written| assert_eq!(*written, 3));
     if let Some(written) = bytes.get_mut(tag) {
