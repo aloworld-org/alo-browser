@@ -248,9 +248,15 @@ unclip
 fill box#33 rgb(0 0 0) at (8, 442) 86×56
 clip box#33 to (9, 443) 84×54
 unclip
+clip box#33 to (9, 443) 84×54
+unclip
 fill box#116 rgb(0 0 0) at (128, 442) 94×56
 clip box#116 to (129, 443) 92×54
 unclip
+clip box#116 to (129, 443) 92×54
+unclip
 fill box#199 rgb(0 0 0) at (248, 554) 102×72
+clip box#199 to (249, 555) 100×70
+unclip
 clip box#199 to (249, 555) 100×70
 unclip

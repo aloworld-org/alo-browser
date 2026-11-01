@@ -38,9 +38,15 @@
 //! cannot be under way after it: a search still searching is read as
 //! unanswered, saying why ([`NOT_ANSWERED`]), and a tab's results still
 //! being asked for as never asked, so opening the tab asks again (ADR 0087).
+//! A search's sites past its first page are the further pages a person
+//! asked for (queue item 761), counted again from how many there are; no
+//! further page is offered for a chat read back, since whether there is
+//! one is the provider's to say, and more than [`MOST_SITES`] are not read.
 //! Nothing read asks anything of the network.
 
-use alo_renderer::results::{Asked, Found, Pictured, Results, Showing, Tab};
+use alo_renderer::results::{
+    Asked, Found, MOST_FOUND, MOST_SITES, Pictured, Results, Showing, Tab,
+};
 use alo_renderer::results_media::{self, Story, Video};
 use alo_renderer::turn::{MOST_TURNS, Turn};
 use alo_url::Url;
@@ -197,7 +203,8 @@ fn video(video: &Video) -> Value {
     ])
 }
 
-/// A news story found, in words and its page's address; its mark never.
+/// A news story found, in words and its page's address; its photo and
+/// mark never.
 fn story(story: &Story) -> Value {
     object([
         ("title", Value::from(story.title.as_str())),
@@ -329,7 +336,21 @@ fn read_searched(object: &Map<String, Value>) -> Result<Results, Unread> {
         }
         _ => return Err(missing("sites")),
     };
+    if let Showing::Found(found) = &showing
+        && found.len() > MOST_SITES
+    {
+        return Err(Unread(format!(
+            "it holds {} sites for one search, more than the {MOST_SITES} a search holds",
+            found.len()
+        )));
+    }
     let mut results = Results::of(said, showing);
+    // Sites past a first page were further pages a person asked for (queue
+    // item 761): as many as they fill. Whether more could be asked is the
+    // provider's to say, and is not kept: none is offered.
+    if let Showing::Found(found) = &results.showing {
+        results.pages.added = found.len().saturating_sub(1) / MOST_FOUND;
+    }
     results.images = read_asked(object, "images", read_image)?;
     results.videos = read_asked(object, "videos", read_video)?;
     results.news = read_asked(object, "news", read_story)?;
@@ -526,6 +547,45 @@ mod tests {
         assert_eq!(
             write(&read.name, &read.turns),
             write("ev chargers", &read.turns)
+        );
+    }
+
+    #[test]
+    fn a_searchs_further_pages_are_read_back_as_pages_with_none_offered() {
+        let sites = |count: usize| {
+            Showing::Found(
+                (0..count)
+                    .map(|n| Found::new("S", url(&format!("https://s{n}.example/")), ""))
+                    .collect(),
+            )
+        };
+        let mut paged = Results::of("ev", sites(45)).on(Tab::Sites);
+        paged.pages.added = 2;
+        paged.pages.next = alo_renderer::results::Next::Offered;
+        let kept = read(write("ev", &[Turn::Searched(paged)]).as_bytes()).expect("read");
+        let Some(Turn::Searched(results)) = kept.turns.first() else {
+            panic!("{kept:?}");
+        };
+        assert_eq!(results.showing, sites(45));
+        assert_eq!(results.tab, Tab::Sites);
+        // 45 sites fill two pages past the first; no more is offered.
+        assert_eq!(results.pages.added, 2);
+        assert_eq!(results.pages.next, alo_renderer::results::Next::None);
+        let one = read(write("ev", &[Turn::Searched(Results::of("ev", sites(20)))]).as_bytes())
+            .expect("read");
+        assert!(
+            matches!(one.turns.first(), Some(Turn::Searched(r)) if r.pages.added == 0),
+            "{one:?}"
+        );
+        let too_many = write(
+            "ev",
+            &[Turn::Searched(Results::of("ev", sites(MOST_SITES + 1)))],
+        );
+        assert!(
+            read(too_many.as_bytes())
+                .err()
+                .is_some_and(|Unread(why)| why.contains("201 sites")),
+            "more than a search holds is not read"
         );
     }
 

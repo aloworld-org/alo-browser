@@ -161,7 +161,7 @@ pub fn shape_at(text: &str, font: &Font, size: f32, scale: f32, direction: Direc
     // The font's own face, which for a variable font is the *instance* it was
     // set to rather than the one its `OS/2` names. Built there rather than here
     // so that measuring and shaping cannot disagree about which weight this is.
-    let Some(face) = font.shaper() else {
+    let Some(face) = font.shaper(size) else {
         return ShapedRun::empty();
     };
     let metrics = font.metrics_at(size, scale);

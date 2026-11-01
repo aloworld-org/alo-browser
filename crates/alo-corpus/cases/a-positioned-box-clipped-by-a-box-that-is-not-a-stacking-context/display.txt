@@ -1,0 +1,14 @@
+fill box#1 rgb(255 255 255) at (0, 20) 240×80
+fill box#3 rgb(233 227 216) at (20, 20) 120×80
+clip box#3 to (20, 20) 120×80
+unclip
+clip box#3 to (20, 20) 120×80
+fill box#5 rgb(29 78 216) at (100, 30) 80×30
+unclip
+clip box#3 to (20, 20) 120×80
+fill box#7 rgb(240 192 32) at (20, 50) 120×10
+unclip
+clip box#3 to (20, 20) 120×80
+fill box#8 rgb(47 107 94) at (110, 70) 60×40
+unclip
+fill box#10 rgb(230 57 70) at (10, 90) 100×40

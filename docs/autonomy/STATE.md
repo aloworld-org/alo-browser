@@ -47560,3 +47560,136 @@ chat to *Earlier* (791), keyboard scrolls glided (792), the sign's look and
 a bar to drag (793), the glide at the display's own refresh (794).
 
 The next unused queue number is **795** and the next ADR is **0094**.
+
+## Iteration 486 — queue items 765, 761, 752, 767, 753 and 763: a story's photo, more sites a page at a time, Newsreader's optical size, CJK in the interface, a positioned box clipped and found in tree order
+
+Batched under one gate, at the owner's asking; each item built with its own
+tests and docs, in that order. No new ADR: 0084, 0086, 0087 and 0088 amended.
+
+**765 — a news story's photo (ADR 0087 § 3).** Brave's `thumbnail.src` read
+beside each story (`StoryFound`, never `original`), fetched from the image
+proxy alone by `search_thumbnails::fetch_stories` exactly as a video's
+thumbnail (twenty, 256 KiB, a picture's first bytes, no key, cookie or
+`Referer`), then the marks; `Story::picture` on the wire, sent only on News
+and weighed after the marks; never written to a chat's file. Drawn as the
+canvas's `.th`: 132 × 88, rounded 10, on `#E9E3D8`, 20 beside the story,
+the photo its width and centred; no photo → the site's letter (11.5,
+`#3D3A35`), no letter → the tile alone. **Tests:** unit (the tile, letter
+and names; the budget, 17 of 20 photos of 120 KiB kept after the marks);
+rows 109/121/121, tiles at (828, 168/289/410), photos 74.25 and 99 tall;
+`news-tab.png` and `news-tab-with-marks.png` redrawn (each story now as tall
+as its tile, so the second story's mark moved from 273 to 289); the fetch
+against a local proxy; through the window's road the one photo asked after
+the news search, the other (named elsewhere) never, painted at (850, 190).
+**Mutations:** no pictures handed to the drawing — the reference fails; the
+budget not weighing photos — the unit test fails.
+
+**761 — *Show more sites* (ADR 0086 § 1).** `query.more_results_available`
+read (only `true`); `Provider::page_request` asks `q` and `offset` 1–9 and
+nothing else; the thread's `Work::Page` fetches each new site's mark and
+tells `Came::Page`; `Results::pages` (`Pages`, `Next`) offers, asks one at a
+time, appends to at most 200, says why a page was not answered and offers
+it again; the button `.morebtn` (canvas: 40 tall, 16 in, rounded 10, white
+on `#DDD6CA`), *Showing more sites…* disabled while asked;
+`Claim::ShowMoreSites`, decided by place and refused once asking. A chat
+read back counts its pages and offers none. **Found by the window test:**
+the painted `Shown` did not keep `show_more`, so every press was refused as
+*0 were shown* — fixed in `conversation_drawing.rs`. **Tests:** unit
+(results, conversation, protocol, request, chat record, decision); the
+button at (80, 360) 138.97 × 40, disabled 168.34 wide, under a sentence at
+(80, 405); `sites-tab-show-more.png`; the wire; through the window's road
+two presses one `offset=1` request, a 503 said and the same offset asked
+again, a page saying no more ends it at six sites. **Mutations:** a press
+allowed while asking — two unit tests fail; the offset always 1 — the
+window test fails.
+
+**752 — Newsreader's optical size (ADR 0084).** `opsz` set to the run's CSS
+pixels clamped to the axis in metrics, shaping and outlines
+(`Font::optical_size`, `variations`, `face_at`, `shaper(size)`, `alo-paint`'s
+`outline_at`); `font-optical-sizing` read by layout and paint and listed in
+`properties.rs`. **Measured** in Chrome 156.0.8078.76 (headless, the same
+file as a web font, after `document.fonts.load`; its source not read):
+glyph advances at `opsz` 40 within half a font unit, at 72 exact; with
+`none` every run of the greeting within the layout unit at six sizes; with
+`auto` within it to 22 px and within 0.125 at 40 and 90. **Cut, each
+measured:** 795 — `rustybuzz` gives a varied advance in whole units (Chrome
+keeps the fraction; also true of every `wght` not a master); 796 — it
+applies a kerning pair without its variation (`iv` −14 at 18 and 0 at 72 in
+HarfBuzz 11.2.1 and Chrome, −14 at both here); 797 — older than this item,
+a line measured word by word loses the kerning across a space (the
+greeting's box 365.42 where Chrome's is 363.83). **References moved, each
+looked at:** the mark at 22 barely, the greeting at 40 finer and wider —
+`panel-chats`, `panel-rail`, `panel-rail-at-two`, `panel-searched`,
+`start-screen`, `start-typed-into`, and `alo-window`'s `the-conversation`
+(at one and two, and with the panel hidden), `the-panel-after-a-press`,
+`the-panel-folded-at-759`; every changed pixel inside the mark's or the
+greeting's box. New: `a-typeface-at-its-optical-size.png`. **Mutations:**
+paint outlining at the weight alone, and `none` unread — the page test
+fails.
+
+**767 — CJK in the interface (ADR 0088 § 5).** `font_collection::face_of`
+copies one face's tables out of a `ttcf` file into a font of its own,
+reading only the face, refusing too many faces or tables or more than 16
+MiB; `cjk_faces` names Hiragino Sans W3, Hiragino Sans GB W3 and Apple SD
+Gothic Neo Regular (7.3, 11.6 and 3.2 MB here, each checked by family);
+`alo` hands them to the conversation's renderers only, not under
+`--frozen-fonts`; `Font::is_last_resort` (every map `cmap` format 13) and
+`FontDatabase::chain` ask a last resort after every face. **Tests** on two
+faces made with `fontTools` for them (`tests/fonts/cjk-test.ttf`, 896 bytes;
+`last-resort-test.ttf`, 708) and a collection made in the test: the face
+read out whole; the title's runs in *alo CJK Test*; its box (80, 192)
+78.28125 × 21; ink and hole pixels; `cjk-in-the-interface.png`; with no
+CJK face, the last resort. **Mutation:** the chain not putting the last
+resort last — the title is the box.
+
+**753 and 763 — a positioned box clipped and found (CSS Overflow 3 § 3).**
+Reduced 763 to a page: a positioned box was numbered for painting after its
+subtree had been painted, so a relatively positioned tile inside positioned
+turns was painted, and found, under them (and, with no `z-index` on the
+thread, under the thread). `build.rs` now numbers each layer before painting
+what it holds, and wraps each layer passing up through a clipping box that
+is no stacking context in that clip when its containing block chain passes
+through it (`clipped_by`). **Tests:** `where_a_pointer_falls.rs`, six points
+as Chrome 156's `elementFromPoint` finds them and seven boxes in numbers;
+the new case `a-positioned-box-clipped-by-a-box-that-is-not-a-stacking-context`,
+Chrome 156's screenshot in every pixel, its boxes, eight points as Chrome
+finds them. **References moved:** the corpus cases
+`a-moved-box-is-padded-where-it-stood` and
+`a-box-moved-by-a-percentage-is-padded-where-it-stood` now clip their
+relatively positioned children — compared with Chrome 156 screenshots taken
+now, 63,572 and 19,620 pixels differed before and none after;
+`a-box-pads-its-childrens-boxes-not-their-spill`,
+`a-grids-tracks-are-padded-in-its-scrolling-area` and
+`pictures-sized-on-a-line` changed only in `display.txt` order or clips.
+**Mutations:** the old numbering, no clip, and an absolute box always
+clipped — each fails its test.
+
+**Gate: met** (first run; CEF 156.0.14; pointer at 1400, 1000). **Summary
+[873.624s] 6156 tests run: 6156 passed (6 slow, 2 leaky), 0 skipped** —
+*"The gate is met." (11 of 11 steps)*.
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys carried — searching with
+this Mac's keychain key; `--conversation --chats` the scratch directory
+`handrun23/chats`; screenshots in the session scratchpad `handrun23/`):
+the greeting at its optical size (`01`); *electric car news* searched
+(`02`); News opened — photos beside the stories, a story with none showing
+its site's letter *T* on the tile (`04`; after a first look at `03` still
+searching — the photos are fetched one after another, and the tab took
+between 7 and 22 s to fill, not timed closer); Sites, End, *Show more
+sites* pressed: *Showing more sites…* (`06`), then more sites appended and
+the button again (`07`); *東京 天気* typed and searched: the box, the
+offers, the bubble and every result's title and description drawn in CJK
+faces, no box (`10`–`12`); ⌘Q, no alo process left; the pointer back at
+1400, 1000. **Went wrong on the way:** a first attempt to type the CJK
+words with posted key events (after a posted End carrying the function-key
+flag, from an event source sharing the system's state) did not reach alo:
+macOS opened a Quick Note in Notes and sent alo's window to Stage Manager's
+strip. The note was empty and was closed with ⌘W (Notes, launched by it,
+was left running, showing its *What's New* sheet); typing again from a
+private event source with no modifier flags reached alo's box.
+
+**Cut:** a varied advance's fraction (795), a kerning pair's variation
+(796), kerning across a space on a line measured word by word (797).
+
+The next unused queue number is **798** and the next ADR is **0094**.

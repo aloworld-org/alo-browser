@@ -21,7 +21,9 @@
 //! for, and Answer disabled — then, on All, each of the top sites as an `article`:
 //! its name and address as text, its title as a heading holding a link, and
 //! its description as a paragraph; then the row of images; then *More sites
-//! ›*, a button. On Sites every site the same way; on Images the grid. Or,
+//! ›*, a button. On Sites every site the same way, then *Show more sites*, a
+//! button, when the provider offers more (queue item 761); on Images the
+//! grid. Or,
 //! where they would be, one sentence: searching, nothing found, or why the
 //! search was not answered. A site's mark — its icon, or its letter where
 //! it has none ([`crate::marks_document`], queue item 747) — is decoration,
@@ -41,9 +43,12 @@
 //! `rt off`, so a press is claimed by the place of an open tab among every
 //! open tab drawn, and the browser process holds which search and which
 //! tab each place was. *More sites ›* is claimed by its place among the
-//! *More sites ›* drawn, and opens that search's Sites tab.
+//! *More sites ›* drawn, and opens that search's Sites tab. *Show more
+//! sites* (`morebtn`) is claimed by its place among those drawn, and asks
+//! that search's next page; while it is asked the button is `morebtn off`,
+//! disabled, and claims nothing.
 
-use crate::results::{Found, Results, TABS, Tab};
+use crate::results::{Found, Next, Results, SHOW_MORE, SHOWING_MORE, TABS, Tab};
 use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
 
@@ -141,6 +146,9 @@ fn sites(
         let site = make_site(document, found, place, at)?;
         append(document, list, site)?;
     }
+    if results.draws_show_more() {
+        show_more(document, list, results)?;
+    }
     if !results.draws_more_sites() {
         return Ok(());
     }
@@ -152,6 +160,35 @@ fn sites(
     append(document, more, words)?;
     append(document, made, more)?;
     Ok(())
+}
+
+/// *Show more sites* under the Sites tab's sites (queue item 761), in
+/// `list`: why the last further page was not answered, if it was not; then
+/// the button — disabled, saying so, while a page is being asked.
+fn show_more(document: &mut Document, list: NodeId, results: &Results) -> Result<(), Unbuilt> {
+    if let Next::Unanswered(why) = &results.pages.next {
+        let said = element(document, "p")?;
+        attribute(document, said, "class", "note")?;
+        // The provider's refusal, in words, as a text node's data.
+        let text = document.create_text_node(why);
+        append(document, said, text)?;
+        append(document, list, said)?;
+    }
+    let asking = matches!(results.pages.next, Next::Asking);
+    let button = element(document, "button")?;
+    attribute(
+        document,
+        button,
+        "class",
+        if asking { "morebtn off" } else { "morebtn" },
+    )?;
+    attribute(document, button, "type", "button")?;
+    if asking {
+        attribute(document, button, "disabled", "")?;
+    }
+    let words = document.create_text_node(if asking { SHOWING_MORE } else { SHOW_MORE });
+    append(document, button, words)?;
+    append(document, list, button)
 }
 
 /// One site, the `at`th of the `place`th turn: its mark, name and address

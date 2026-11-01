@@ -1,6 +1,6 @@
 # ADR 0084 — The interface's typefaces are compiled in, and handed to its renderers alone
 
-**Status:** accepted — built by queue item 706 (31 October 2026)
+**Status:** accepted — built by queue item 706 (31 October 2026); Newsreader's optical size set by 752 (1 November 2026)
 **Date:** 2026-10-31
 **Context:** ADR 0074 § 3 (the design is set in Instrument Sans and
 Newsreader; carrying them is its own change, item 706); ADR 0010 (a renderer
@@ -65,6 +65,17 @@ text (`font-optical-sizing: auto`). So the greeting at 40 px is drawn with
 the 18-point cut's proportions, a little heavier in its thin strokes than
 the canvas. That is queue item 752's, and is the one way these faces are
 drawn differently from the canvas.
+
+**Since 752 (1 November 2026)** a face's `opsz` is set to the CSS pixels a
+run is set at, clamped to the axis (6–72 for Newsreader), in measuring,
+shaping and outlining alike (`Font::optical_size`, `Font::variations`),
+and `font-optical-sizing: none` leaves it at the face's default — as
+Chrome 156.0.8078.76 does, measured on this Mac (its source not read): the
+greeting at 40 is `opsz` 40, the mark at 22 is 22. Each glyph's advance at
+40 is Chrome's to half a font unit (the rented shaper's advances are whole
+units, 795), and a run's width Chrome's to its layout unit unless a
+kerning pair in it varies along the axis (796); a line measured word by
+word loses the kerning across a space at every size (797).
 
 Only the upright files are carried: the design uses no italic, and a slant
 a page of ours never asks for is 700 KB nobody draws.
@@ -172,4 +183,6 @@ MPL 2.0, does not cover those four files; the OFL does.
 - Every reference render of the panel, the first screen, the results and
   the card was redrawn in the two faces, and the layout assertions whose
   numbers are text widths were moved, each by what the new face measures.
-- Newsreader's optical size is queue item 752.
+- Newsreader's optical size was queue item 752, built: every reference
+  holding the mark or the greeting was redrawn (the mark at 22 barely, the
+  greeting at 40 wider and finer).

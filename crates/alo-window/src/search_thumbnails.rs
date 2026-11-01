@@ -32,15 +32,17 @@
 //!
 //! A video's thumbnail (queue item 745, ADR 0087) is fetched the same way,
 //! by the same rules, from the same proxy ([`fetch_videos`]); a video whose
-//! thumbnail is left out is drawn with its tile's colour.
+//! thumbnail is left out is drawn with its tile's colour. So is a news
+//! story's photo (queue item 765, [`fetch_stories`]); a story whose photo
+//! is left out is drawn with its site's letter on its tile.
 
-use crate::search_protocol::{ImageFound, VideoFound};
+use crate::search_protocol::{ImageFound, StoryFound, VideoFound};
 use alo_net::Pool;
 use alo_net::Request;
 use alo_net::cause::{Cause, Identities};
 use alo_paint::picture::Format;
 use alo_renderer::results::{LARGEST_THUMBNAIL, MOST_IMAGES, Pictured};
-use alo_renderer::results_media::{MOST_VIDEOS, Video};
+use alo_renderer::results_media::{MOST_STORIES, MOST_VIDEOS, Story, Video};
 use alo_url::Url;
 
 /// What came of fetching a search's thumbnails.
@@ -132,6 +134,57 @@ pub fn fetch_videos(
             (_, None) => {}
         }
         fetched.videos.push(video);
+    }
+    fetched
+}
+
+/// What came of fetching a news search's photos (queue item 765).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FetchedStories {
+    /// The stories, best first, each holding its photo if it was kept.
+    pub stories: Vec<Story>,
+    /// Where each story's site's mark is, by the story's place, for
+    /// [`crate::search_marks`] to fetch.
+    pub marks: Vec<Option<Url>>,
+    /// Why each photo left out was, by the story's place.
+    pub left_out: Vec<(usize, String)>,
+}
+
+/// Fetch the photo of each of `found` — at most [`MOST_STORIES`] — through
+/// `pool`, from `from`'s origin alone, as a video's thumbnail is; with no
+/// `from`, none.
+pub fn fetch_stories(
+    pool: &mut Pool,
+    identities: &mut Identities,
+    from: Option<&Url>,
+    found: Vec<StoryFound>,
+) -> FetchedStories {
+    let mut fetched = FetchedStories {
+        stories: Vec::new(),
+        marks: Vec::new(),
+        left_out: Vec::new(),
+    };
+    for (at, found) in found.into_iter().take(MOST_STORIES).enumerate() {
+        let StoryFound {
+            mut story,
+            thumbnail,
+            mark,
+        } = found;
+        fetched.marks.push(mark);
+        match (from, thumbnail) {
+            (Some(from), Some(thumbnail)) => {
+                match picture(pool, identities, from, &thumbnail, LARGEST_THUMBNAIL) {
+                    Ok(bytes) => story.picture = Some(bytes),
+                    Err(why) => fetched.left_out.push((at, why)),
+                }
+            }
+            (None, Some(_)) => fetched.left_out.push((
+                at,
+                "no image proxy is named, so no photo was fetched".to_owned(),
+            )),
+            (_, None) => {}
+        }
+        fetched.stories.push(story);
     }
     fetched
 }

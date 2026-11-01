@@ -1368,6 +1368,9 @@ wrong, which is the argument for the fourth.
   `.New York` — the machine's `serif` — has an `opsz` axis left at its
   default, so an 18px paragraph is drawn in its display cut; `.SF NS` has
   one too. What Chrome sets it to at a size is not measured.
+  *Since 752 (iteration 486):* `opsz` is set to a run's size, and
+  `font-optical-sizing` read, for every face — measured against Chrome
+  for Newsreader only; `wdth`, `slnt` and `ital` remain.
 
 - [x] **193. What a generic family means on this machine.** Cut from 170, and
   it is the gap that item made visible. `FontDatabase::map_generic` exists and
@@ -20388,7 +20391,7 @@ What stage 2's exit gate actually measures: a person using it.
   **Not built here:** the agent's words and steps — no model (707) and no
   face for the record (704); nothing stands in for them.
 
-- [ ] **753. A positioned box clipped by an `overflow` box that is not a
+- [x] **753. A positioned box clipped by an `overflow` box that is not a
   stacking context.** Found by 703. `alo-paint`'s `build.rs` hands a
   positioned box's layer up to the stacking context it belongs to, which
   draws it outside the `PushClip` of any `overflow: hidden` ancestor
@@ -20399,6 +20402,15 @@ What stage 2's exit gate actually measures: a person using it.
   relatively and an absolutely positioned child of an unpositioned
   `overflow: hidden` box draws as Chrome draws it, measured, and the
   hit-test finds nothing outside the clip.
+  ***Built (iteration 486) — ticked once the gate was met (STATE, iteration
+  486).*** `build.rs` wraps each layer passing up through a clipping box
+  that is no stacking context in its clip when the layer's containing block
+  chain passes through it (`clipped_by`: relative always, absolute when a
+  positioned box at or inside holds it, fixed never).
+  `cases/a-positioned-box-clipped-by-a-box-that-is-not-a-stacking-context`:
+  Chrome 156's screenshot in every pixel, the boxes in numbers, eight points
+  found as its `elementFromPoint` finds them. Two older cases now Chrome's
+  in every pixel (63,572 and 19,620 differed).
 
 - [x] **754. Scrolling the conversation from the keyboard.** Cut from 703.
   Page Up, Page Down, Home, End and space, while the box is empty or
@@ -20757,13 +20769,25 @@ What stage 2's exit gate actually measures: a person using it.
   as *0 were shown*. Existing assertions moved: All's Sites tab is open
   and *More sites ›* enabled and claimed (`a_searchs_results_on_the_all_tab.rs`).
 
-- [ ] **761. The Sites tab's further pages.** Cut from 744. The canvas's
+- [x] **761. The Sites tab's further pages.** Cut from 744. The canvas's
   *Show more sites* under the Sites tab: when Brave's answer says
   `query.more_results_available`, a press asks `offset` 1 (then 2, at most
   9) of the same words — a third paid request per press (ADR 0086 § 1) —
   and appends what comes, each site drawn as the rest. Needs the answer's
   `more_results_available` read, the thread's work to carry an offset, and
   a turn's sites to grow past twenty. *Depends on 744.*
+  ***Built (iteration 486) — ticked once the gate was met (STATE, iteration
+  486); ADR 0086 § 1 amended.*** `Read::more` (only `true`);
+  `Provider::page_request` (`q` and `offset` 1–9 alone) and
+  `brave_search::page`; `Work::Page`/`Came::Page` with each site's mark;
+  `Results::pages` (`Pages`, `Next`), `ask_more`, `more_came`, at most 200
+  sites; *Show more sites* (`.morebtn`, disabled `morebtn off` while
+  asked, a note when not answered); `Claim::ShowMoreSites`,
+  `Decided::ShowMoreSites`, `Shown::show_more` kept as painted; a chat
+  read back counts its pages and offers none. Tests: the button at (80,
+  360) 138.97 × 40, `sites-tab-show-more.png`; through the window's road,
+  two presses one request (`offset=1`), a 503 said and asked again, a page
+  saying no more ends it.
 
 - [ ] **762. A response's body bounded per request in `alo-net`.** Cut
   from 743 (ADR 0086 § 3). A thumbnail is read whole by `alo-net` — up to
@@ -20772,7 +20796,7 @@ What stage 2's exit gate actually measures: a person using it.
   proxy answering a gigabyte is cut at the bound, not after it. *Depends
   on nothing.*
 
-- [ ] **763. A press on a relatively positioned box in the conversation
+- [x] **763. A press on a relatively positioned box in the conversation
   finds the box behind it.** Found by 743: a tile of the row with
   `position: relative` — inside the conversation's thread, which is
   `position: relative; z-index: 0; overflow: hidden`, inside a grid — was
@@ -20782,6 +20806,15 @@ What stage 2's exit gate actually measures: a person using it.
   positioned descendants, or the turns' `top` offset. The tiles are not
   positioned. *Closes when:* a reduced case in `where_a_pointer_falls.rs`
   and the hit test fixed. *Depends on nothing.*
+  ***Built (iteration 486) — ticked once the gate was met (STATE, iteration
+  486).*** Reduced: a positioned box inside a positioned box was numbered
+  for painting after it (the order taken after its subtree was painted),
+  so the turns and their row were painted over the tile, and found over
+  it. `alo-paint`'s `build.rs` now numbers each layer before painting what
+  it holds — tree order. `where_a_pointer_falls.rs`'s
+  `a_positioned_box_inside_a_positioned_box_is_found_over_it`, with and
+  without the thread's `z-index`, Chrome 156's `elementFromPoint` at six
+  points and the boxes in numbers.
 
 - [x] **764. A marked-box test that reads the page wherever the capture
   grows.** Found by 743's gate: `tests/marked/mod.rs` finds the page's
@@ -20868,11 +20901,21 @@ What stage 2's exit gate actually measures: a person using it.
   its first headline pressed opening its page as a turn whose bubble is
   `Chargers <b>&</b> cables, explained` — markup as its characters.
 
-- [ ] **765. A news story's photo.** Cut from 746. The canvas draws a
+- [x] **765. A news story's photo.** Cut from 746. The canvas draws a
   photo 132 × 88, rounded 10, on `#E9E3D8`, 20 beside each story's text.
   Brave names one (`thumbnail.src`, its proxy): fetch it as a video's
   thumbnail is (ADR 0087 § 3), carry it as `Story::picture`, count it in
   the first screen's budget, and draw it. *Depends on 746.*
+  ***Built (iteration 486) — ticked once the gate was met (STATE, iteration
+  486); ADR 0087 § 3 amended.*** `StoryFound` read with its `thumbnail.src`
+  (never `original`); `search_thumbnails::fetch_stories` from the proxy
+  alone, bounded as a video's; `Story::picture` on the wire, sent only on
+  News, weighed after the marks; `news_document`'s tile (`.th`, `.thimg`,
+  the site's letter `.thl` with no photo, the tile's colour with no
+  letter). Tests: rows 109/121/121 tall, tiles at (828, 168/289/410) 132 ×
+  88, photos 74.25 and 99 tall centred; `news-tab.png`,
+  `news-tab-with-marks.png`; the fetch against a local proxy; through the
+  window's road, the photo asked after the news search and painted.
 
 - [x] **747. A site's own mark in the results.** Cut from 708: a site shows
   its letter on one of four tints, where the design shows its mark. Brave
@@ -20974,7 +21017,7 @@ What stage 2's exit gate actually measures: a person using it.
   layers?) and draw it. *Depends on 766. Closes when:* an emoji's shadow
   and an underline under it are Chrome's in a reference render.
 
-- [ ] **767. Chinese, Japanese and Korean in the interface.** Cut from ADR
+- [x] **767. Chinese, Japanese and Korean in the interface.** Cut from ADR
   0088 § 5. On macOS the machine scan reads no `.ttc` collection — the CJK
   faces are collections (`Hiragino Sans GB.ttc`, 23 MB) — and the 24-face
   cut keeps `LastResort`, which has every code point as its block's box, so
@@ -20984,6 +21027,16 @@ What stage 2's exit gate actually measures: a person using it.
   is 16–25 MB; `LARGEST_FONT` is 16 MiB). *Closes when:* a CJK title is
   drawn in the machine's CJK face in a test with that face. *Depends on
   nothing.*
+  ***Built (iteration 486) — ticked once the gate was met (STATE, iteration
+  486); ADR 0088 § 5 amended.*** `font_collection::face_of` (a face's tables
+  copied into a font of its own, bounded), `cjk_faces::of_this_machine`
+  (Hiragino Sans, Hiragino Sans GB, Apple SD Gothic Neo, each checked by
+  family), `fonts::with_cjk` for the conversation's renderers only;
+  `Font::is_last_resort` (every map `cmap` format 13) asked last by
+  `FontDatabase::chain`. Tests on faces made for them (`tests/fonts/`) and
+  a collection made in the test: the title in the CJK face, its box (80,
+  192) 78.28125 × 21, its pixels, `cjk-in-the-interface.png`; without the
+  face, the last resort. Pages are still handed no CJK face.
 
 - [x] **768. The Images grid's marks.** Cut from 747. The grid draws each
   image's site as its letter on a 14 square. Whether Brave's image results
@@ -21687,6 +21740,38 @@ What stage 2's exit gate actually measures: a person using it.
   display's frames (a `CADisplayLink`-like tick, or `winit`'s redraw at
   vsync), measured. *Depends on 756.*
 
+- [ ] **795. A varied glyph's advance kept to its fraction.** Cut from 752.
+  The rented shaper (`rustybuzz` 0.20.1) gives a glyph's advance at a
+  variable font's instance in whole font units, where Chrome 156 keeps the
+  fraction `HVAR` interpolates to: Newsreader's `o` at `opsz` 40 is 21.24
+  here and Chrome's canvas 21.2311, up to 0.01 px a glyph at 40 px, and so
+  for every `wght` that is not a master (Instrument Sans at 500 and 600,
+  everywhere in the interface). `ttf-parser`'s `hvar` table gives the
+  delta as an `f32`; a run's advance could be the shaper's less its rounded
+  advance plus the exact one. Every interface reference moves a little;
+  measure each against Chrome. *Closes when:* Newsreader's glyphs at `opsz`
+  40 and Instrument Sans' at 600 are Chrome's canvas advances to 1e-3.
+
+- [ ] **796. A kerning pair's variation along an axis.** Cut from 752.
+  `rustybuzz` 0.20.1 applies a `GPOS` pair's value without its variation:
+  Newsreader kerns `iv` −14 units at `opsz` 18 and 0 at 72 (HarfBuzz
+  11.2.1's `hb-shape --variations=opsz=72`, and Chrome 156), and this engine
+  kerns it −14 at both — 0.52 px at 72 px; `, ` and ` A` differ likewise.
+  The shaper is rented: whether a newer `rustybuzz`, its successor
+  `harfrust`, or a fix offered upstream is the answer is an ADR's.
+  *Closes when:* `iv` at 72 is Chrome's 60.671875 in a test, and no other
+  run's width moves but by its own varied pairs.
+
+- [ ] **797. Kerning across a space on a line measured word by word.** Cut
+  from 752, older than it. Inline layout measures a line's words apart
+  (`Good `, `afternoon, `, `Ada.`) and sums them, so a kerning pair across a
+  space is lost: Newsreader kerns ` A` −0.63 at `opsz` 18 and −1.48 at 40,
+  and the greeting's box at 40 is 365.42 here (350.92 with `none`) where
+  Chrome's is 363.83 (349.53) — Chrome shapes the run whole. Measure a
+  line's text as one run where it is one, and where it breaks, as Chrome
+  does at a break. *Closes when:* the greeting's box at 40 is Chrome's to
+  its layout unit, with and without optical sizing, in a layout assertion.
+
 - [x] **778. A card's page moving its own window into view.** Cut from
   771. A page in a card may move its `--app` window: measured through alo's
   CEF host, `moveTo(200, 200)` from the page put the parked, transparent
@@ -21711,7 +21796,7 @@ What stage 2's exit gate actually measures: a person using it.
   streamed; expanded, opaque at 200, 200. Mutations: never refused — fails
   (opaque at −2320, 200, 400 × 300); always refused — fails after *Expand*.
 
-- [ ] **752. A variable font's optical size set by the text's size.** Cut
+- [x] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a
   browser sets `opsz` to the font size (`font-optical-sizing: auto`); this
   engine sets only `wght`, so the greeting at 40 px and the mark at 22 px
@@ -21720,6 +21805,18 @@ What stage 2's exit gate actually measures: a person using it.
   `font-optical-sizing: none`. *Closes when:* Newsreader at 40 px is the
   canvas's in a reference render and a run's advance at `opsz` 40 is
   Chrome's, in numbers.
+  ***Built (iteration 486) — ticked once the gate was met (STATE, iteration
+  486); ADR 0084 amended.*** `opsz` set to the run's CSS pixels, clamped
+  (`Font::optical_size`, `variations`), in metrics, the shaper and
+  `alo-paint`'s outlines; `font-optical-sizing` read by layout and paint
+  (`OpticalSizing`, `FontRequest::optical_sizing`, `TextStyle::optical_sizing`).
+  Chrome 156.0.8078.76 measured: each glyph at `opsz` 40 within half a font
+  unit, at 72 exact; runs with `none` within the layout unit at six sizes;
+  with `auto` within it where no kerning pair varies. Residuals cut, each
+  measured: 795 (whole-unit advances), 796 (kerning variation), 797
+  (kerning across a space, older than this item). Reference
+  `a-typeface-at-its-optical-size.png`; the greeting's and the mark's
+  references redrawn.
 
 - [ ] **736. Trackers and ads blocked by alo itself, with `adblock-rust`.**
   The owner asked for it on 30 October 2026, after weighing Brave: alo does

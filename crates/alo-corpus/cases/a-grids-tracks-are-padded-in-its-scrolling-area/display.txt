@@ -233,15 +233,21 @@ fill box#199 rgb(0 0 0) at (248, 1568) 102×72
 clip box#199 to (249, 1569) 100×70
 fill box#200 rgb(238 238 238) at (259, 1579) 60×20
 unclip
-fill box#53 rgb(204 204 204) at (9, 1001) 60×20
 fill box#52 rgb(0 0 0) at (8, 1000) 86×56
 clip box#52 to (9, 1001) 84×54
 unclip
-fill box#120 rgb(204 204 204) at (129, 1001) 60×20
+clip box#52 to (9, 1001) 84×54
+fill box#53 rgb(204 204 204) at (9, 1001) 60×20
+unclip
 fill box#119 rgb(0 0 0) at (128, 1000) 94×56
 clip box#119 to (129, 1001) 92×54
 unclip
-fill box#187 rgb(204 204 204) at (249, 1257) 60×20
+clip box#119 to (129, 1001) 92×54
+fill box#120 rgb(204 204 204) at (129, 1001) 60×20
+unclip
 fill box#186 rgb(0 0 0) at (248, 1256) 102×72
 clip box#186 to (249, 1257) 100×70
+unclip
+clip box#186 to (249, 1257) 100×70
+fill box#187 rgb(204 204 204) at (249, 1257) 60×20
 unclip

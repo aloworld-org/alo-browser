@@ -1,0 +1,13 @@
+/* Queue item 753: an unpositioned box with `overflow: hidden` — no
+   stacking context — holding three positioned boxes. CSS Overflow 3 § 3
+   clips each whose containing block chain passes through it: the
+   relatively positioned one, and the absolutely positioned one inside a
+   positioned box inside it; not the absolutely positioned one whose
+   containing block is the page's. Colours only, so Chrome's picture can be
+   compared pixel for pixel. */
+body { margin: 0; background: #ffffff }
+.clip { margin: 20px; width: 120px; height: 80px; overflow: hidden; background: #e9e3d8 }
+.relative { position: relative; left: 80px; top: 10px; width: 80px; height: 30px; background: #1d4ed8 }
+.holder { position: relative; height: 10px; background: #f0c020 }
+.held { position: absolute; left: 90px; top: 20px; width: 60px; height: 40px; background: #2f6b5e }
+.free { position: absolute; left: 10px; top: 90px; width: 100px; height: 40px; background: #e63946 }

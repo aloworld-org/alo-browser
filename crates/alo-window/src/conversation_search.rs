@@ -53,10 +53,21 @@
 //! Never asked with a search. When a person opens a turn's Videos or News
 //! tab, the window hands the thread that turn's words ([`Searcher::videos`],
 //! [`Searcher::news`]) under a number of its own, once for the turn; the
-//! thread asks the provider the words alone — and, for videos, fetches each
-//! thumbnail from its proxy — and tells the window [`Came::Videos`] or
+//! thread asks the provider the words alone — and fetches each video's
+//! thumbnail, or each story's photo (queue item 765), from its proxy — and
+//! tells the window [`Came::Videos`] or
 //! [`Came::News`] under that number. Unlike a search, a newer one does not
 //! pass over them: a person opened the tab, and is looking at it.
+//!
+//! # A further page of sites (queue item 761, ADR 0086 § 1)
+//!
+//! Asked only when a person presses *Show more sites* under a turn's Sites
+//! tab, where the provider said `more_results_available`: the window hands
+//! the thread the turn's words and the next `offset` ([`Searcher::page`]),
+//! one at a time for a turn, at most nine; the thread asks the web search
+//! again — a paid request — then each new site's mark from the proxy, and
+//! tells [`Came::Page`]. Like a tab opened, a newer search does not pass
+//! over it.
 //!
 //! # Connections kept
 //!
@@ -69,7 +80,9 @@ use crate::search_marks;
 use crate::search_thumbnails;
 use alo_net::Pool;
 use alo_net::cause::Identities;
-use alo_renderer::results::{Images, PROVIDER, Pictured, SetUp, Showing, Stories, Videos};
+use alo_renderer::results::{
+    Found, Images, PROVIDER, Page, Pictured, SetUp, Showing, Stories, Videos,
+};
 use alo_renderer::results_media::{Story, Video};
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -103,6 +116,8 @@ pub enum Came {
         showing: Showing,
         /// Where the search for images starts.
         images: Images,
+        /// Whether the provider offers a further page (queue item 761).
+        more: bool,
     },
     /// The images found, each holding its thumbnail if one was kept, or why
     /// not.
@@ -117,6 +132,10 @@ pub enum Came {
     /// The news found, asked when a person opened the News tab (queue item
     /// 746), or why not.
     News(Stories),
+    /// A further page of sites, asked when a person pressed *Show more
+    /// sites* (queue item 761): its sites, each with its mark if one was
+    /// fetched, and whether the provider offers more; or why not.
+    Page(Page),
 }
 
 impl Searched {
@@ -128,6 +147,7 @@ impl Searched {
             came: Came::Sites {
                 showing,
                 images: Images::NotAsked,
+                more: false,
             },
         }
     }
@@ -145,6 +165,9 @@ enum Work {
     Videos(u64, String),
     /// Ask for news of these words, numbered so (queue item 746).
     News(u64, String),
+    /// Ask for the further page at this offset of these words' sites,
+    /// numbered so (queue item 761).
+    Page(u64, String, usize),
     /// The window is closing: end.
     Finish,
 }
@@ -239,6 +262,14 @@ impl Searcher {
         self.further(Work::News(number, words.to_owned()), number, words);
     }
 
+    /// Ask for the further page at `offset` of the sites of `words`,
+    /// numbered `number`, as a person pressed *Show more sites* (queue item
+    /// 761): a paid request. Returns at once: what came of it is told to
+    /// the window as [`Came::Page`].
+    pub fn page(&self, number: u64, words: &str, offset: usize) {
+        self.further(Work::Page(number, words.to_owned(), offset), number, words);
+    }
+
     /// Hand the thread `work`; with no thread, tell the window at once that
     /// it was not asked, and why.
     fn further(&self, work: Work, number: u64, words: &str) {
@@ -250,6 +281,7 @@ impl Searcher {
                 let why = not_set_up(why);
                 let came = match work {
                     Work::News(..) => Came::News(Stories::Unanswered(why)),
+                    Work::Page(..) => Came::Page(Err(why)),
                     _ => Came::Videos(Videos::Unanswered(why)),
                 };
                 let _ = tell(Searched {
@@ -321,7 +353,7 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         for work in waiting {
             match work {
                 Work::Search(number, words) => newest = Some((number, words)),
-                Work::Videos(..) | Work::News(..) => further.push(work),
+                Work::Videos(..) | Work::News(..) | Work::Page(..) => further.push(work),
                 Work::Finish => {}
             }
         }
@@ -353,14 +385,18 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
         let Some(pool) = pool.as_mut() else {
             continue;
         };
-        let (showing, marks) = brave_search::search(provider, pool, &mut identities, &words);
-        let found_sites = matches!(&showing, Showing::Found(found) if !found.is_empty());
+        let answered = brave_search::search(provider, pool, &mut identities, &words);
+        let marks = answered.marks;
+        let found_sites = matches!(&answered.showing, Showing::Found(found) if !found.is_empty());
         let images_follow = provider.asks_images() && found_sites;
-        let images = starting(images_follow);
         let sites = Searched {
             number,
             words: words.clone(),
-            came: Came::Sites { showing, images },
+            came: Came::Sites {
+                showing: answered.showing,
+                images: starting(images_follow),
+                more: answered.more,
+            },
         };
         if !tell(sites) {
             return;
@@ -446,9 +482,9 @@ fn tell_marks(
     })
 }
 
-/// What came of `work`, a tab opened, asked of `provider` through `pool` —
-/// made from this machine's certificates if it is not yet — or [`None`]
-/// for work that is not a tab's.
+/// What came of `work`, a tab opened or a further page pressed for, asked
+/// of `provider` through `pool` — made from this machine's certificates if
+/// it is not yet — or [`None`] for work that is neither.
 fn further_answer(
     provider: &Provider,
     pool: &mut Option<Pool>,
@@ -472,21 +508,15 @@ fn further_answer(
         }
         Work::News(number, words) => {
             let came = Came::News(match pool.as_mut() {
-                Some(pool) => match brave_search::news(provider, pool, identities, &words) {
-                    Ok((found, marks)) => {
-                        let marked =
-                            search_marks::fetch(pool, identities, provider.thumbnails(), &marks);
-                        Stories::Found(
-                            found
-                                .into_iter()
-                                .zip(marked.marks.into_iter().chain(core::iter::repeat(None)))
-                                .map(|(story, mark)| Story { mark, ..story })
-                                .collect(),
-                        )
-                    }
-                    Err(why) => Stories::Unanswered(why),
-                },
+                Some(pool) => news(provider, pool, identities, &words),
                 None => Stories::Unanswered(unreached()),
+            });
+            (number, words, came)
+        }
+        Work::Page(number, words, offset) => {
+            let came = Came::Page(match pool.as_mut() {
+                Some(pool) => page(provider, pool, identities, &words, offset),
+                None => Err(unreached()),
             });
             (number, words, came)
         }
@@ -523,6 +553,56 @@ fn videos(
             )
         }
         Err(why) => Videos::Unanswered(why),
+    }
+}
+
+/// Ask `provider` for the further page at `offset` of `words`' sites, and
+/// fetch each site's mark from its image proxy, as a first page's are
+/// (queue item 761): the sites and whether more are offered, or why not.
+fn page(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+    offset: usize,
+) -> Page {
+    let answered = brave_search::page(provider, pool, identities, words, offset);
+    let found = match answered.showing {
+        Showing::Found(found) => found,
+        Showing::Unanswered(why) => return Err(why),
+        Showing::Searching => Vec::new(),
+    };
+    let marked = search_marks::fetch(pool, identities, provider.thumbnails(), &answered.marks);
+    Ok((
+        found
+            .into_iter()
+            .zip(marked.marks.into_iter().chain(core::iter::repeat(None)))
+            .map(|(site, mark)| Found { mark, ..site })
+            .collect(),
+        answered.more,
+    ))
+}
+
+/// Ask `provider` for news of `words`, and fetch each story's photo (queue
+/// item 765) and then each site's mark from its image proxy: the stories
+/// found, or why not.
+fn news(provider: &Provider, pool: &mut Pool, identities: &mut Identities, words: &str) -> Stories {
+    match brave_search::news(provider, pool, identities, words) {
+        Ok(found) => {
+            let fetched =
+                search_thumbnails::fetch_stories(pool, identities, provider.thumbnails(), found);
+            let marked =
+                search_marks::fetch(pool, identities, provider.thumbnails(), &fetched.marks);
+            Stories::Found(
+                fetched
+                    .stories
+                    .into_iter()
+                    .zip(marked.marks.into_iter().chain(core::iter::repeat(None)))
+                    .map(|(story, mark)| Story { mark, ..story })
+                    .collect(),
+            )
+        }
+        Err(why) => Stories::Unanswered(why),
     }
 }
 

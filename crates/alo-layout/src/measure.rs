@@ -64,6 +64,11 @@ pub struct TextStyle {
     /// (ADR 0057 § 2). It changes how much room a line takes, never how wide
     /// the text is.
     pub scale: f32,
+    /// Whether a face with an optical size axis is set to the text's size —
+    /// `font-optical-sizing: auto`, the initial value — or left at its own
+    /// default (`none`), queue item 752. It changes the face's proportions,
+    /// so what the text measures.
+    pub optical_sizing: bool,
 }
 
 impl Default for TextStyle {
@@ -80,6 +85,7 @@ impl Default for TextStyle {
             overflow_wrap: crate::overflow_wrap::OverflowWrap::Normal,
             line_height: None,
             scale: 1.0,
+            optical_sizing: true,
         }
     }
 }

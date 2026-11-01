@@ -16,7 +16,8 @@ use alo_style::ComputedStyle;
 
 /// The font a style's text is set in.
 ///
-/// Only the style's font size, family, weight and slant choose the face;
+/// Only the style's font size, family, weight and slant choose the face, and
+/// its size and `font-optical-sizing` set its optical size (queue item 752);
 /// the rest says how the text is laid out in it.
 pub fn text_style_of(style: &ComputedStyle) -> TextStyle {
     TextStyle {
@@ -61,5 +62,10 @@ pub fn text_style_of(style: &ComputedStyle) -> TextStyle {
             .unwrap_or_default(),
         line_height: crate::line_height::used_line_height(style),
         scale: style.metrics().scale(),
+        // `none` alone turns it off; `auto` and anything unread are the
+        // initial value (queue item 752).
+        optical_sizing: !style
+            .get("font-optical-sizing")
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("none")),
     }
 }

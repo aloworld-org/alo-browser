@@ -32,6 +32,6 @@ picture box#46 20×20 at (17, 273) 26×7
 picture box#47 40×20 at (46, 268) 60×12
 picture box#48 20×20 at (109, 263) 18×12
 text box#49 "x" rgb(17 17 17) 16px at (126.65625, 280.29688)
-picture box#41 20×20 at (77, 192) 31×9
 picture box#39 20×20 at (7, 189) 30×20
 picture box#40 40×20 at (7, 209) 60×12
+picture box#41 20×20 at (77, 192) 31×9

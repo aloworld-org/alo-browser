@@ -200,6 +200,19 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         Ok(renderers) => renderers,
         Err(failed) => return failed,
     };
+    // The machine's Chinese, Japanese and Korean faces, read out of their
+    // collections, for the interface's renderers alone (queue item 767);
+    // under `--frozen-fonts`, none, so the window is the corpus.
+    let renderers = match opening.fonts {
+        Fonts::AsAsked => {
+            let faces = alo_window::fonts::with_cjk(
+                renderers.fonts(),
+                alo_renderer::cjk_faces::of_this_machine(),
+            );
+            renderers.with_fonts(faces)
+        }
+        Fonts::AsStarted => renderers,
+    };
     eprintln!(
         "alo: the browser's own interface is drawn by {}",
         RenderedBy::ThisEngine

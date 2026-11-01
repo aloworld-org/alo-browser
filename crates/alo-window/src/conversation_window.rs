@@ -727,15 +727,17 @@ impl ConversationWindow {
     }
 
     /// Hand each tab just opened whose results are to be asked for — Videos
-    /// or News, once for a turn (queue items 745, 746) — to the thread
-    /// asking the provider. Returns at once.
+    /// or News, once for a turn (queue items 745, 746) — and each further
+    /// page of sites pressed for (761) to the thread asking the provider.
+    /// Returns at once.
     fn ask_further(&mut self) {
         for further in self.conversation.take_asks() {
             if let Some(searcher) = &self.searcher {
                 match further.tab {
                     Tab::Videos => searcher.videos(further.number, &further.words),
                     Tab::News => searcher.news(further.number, &further.words),
-                    Tab::All | Tab::Sites | Tab::Images => {}
+                    Tab::Sites => searcher.page(further.number, &further.words, further.offset),
+                    Tab::All | Tab::Images => {}
                 }
             }
         }
@@ -759,7 +761,9 @@ impl ConversationWindow {
                 Showing::Unanswered(why) => Some(why.clone()),
                 Showing::Searching => return,
             },
-            Came::Images(_) | Came::Marks(_) | Came::Videos(_) | Came::News(_) => None,
+            Came::Images(_) | Came::Marks(_) | Came::Videos(_) | Came::News(_) | Came::Page(_) => {
+                None
+            }
         };
         if self.conversation.searched(searched) {
             if let Some(line) = line {

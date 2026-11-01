@@ -31,7 +31,8 @@
 //! [`Tab`]: **Sites**, every site the search found, and **Images**, a grid
 //! of every image found, each its picture, title and site (ADR 0086);
 //! **Videos**, each its picture, length, title and site, and **News**, each
-//! story's site, age and title (queue items 745, 746, ADR 0087), each asked
+//! story's site, age, title and photo (queue items 745, 746, 765, ADR
+//! 0087), each asked
 //! of the provider only when a person opens its tab, once for a turn.
 //! Answer (707) is drawn disabled, and claims nothing. Which tab a search
 //! shows is the browser process's, kept with its results; a press on a tab
@@ -39,8 +40,8 @@
 //!
 //! # The pictures
 //!
-//! Each image's picture is a thumbnail the browser process fetched from the
-//! provider's own image proxy and bounded ([`LARGEST_THUMBNAIL`]); it is
+//! Each image's picture — as each video's and each story's (765) — is a
+//! thumbnail the browser process fetched from the provider's own image proxy and bounded ([`LARGEST_THUMBNAIL`]); it is
 //! carried here as the bytes that arrived, and decoded only in the confined
 //! renderer, by the picture readers every `<img>` goes through. Only the
 //! pictures a tab draws are sent, and at most [`MOST_PICTURE_BYTES`] of them
@@ -56,9 +57,24 @@ use alo_url::Url;
 /// which the first screen does not do.
 pub const ON_ALL: usize = 3;
 
-/// The most sites a search's results are kept with: Brave's own most for
-/// one page of web results.
+/// The most sites one page of a search's results holds: Brave's own most
+/// for one page of web results.
 pub const MOST_FOUND: usize = 20;
+
+/// The most further pages of a search's sites a person can ask for, one
+/// press each (queue item 761): Brave's own most `offset`, 9.
+pub const MOST_PAGES: usize = 9;
+
+/// The most sites one search's results hold: its first page and every
+/// further page a person asked for.
+pub const MOST_SITES: usize = MOST_FOUND * (MOST_PAGES + 1);
+
+/// What *Show more sites* says (queue item 761), the owner's canvas's
+/// words.
+pub const SHOW_MORE: &str = "Show more sites";
+
+/// What *Show more sites* says while the further page is being asked.
+pub const SHOWING_MORE: &str = "Showing more sites\u{2026}";
 
 /// The tabs of a search's results, in the design's order.
 pub const TABS: [&str; 6] = ["All", "Answer", "Sites", "Images", "Videos", "News"];
@@ -155,7 +171,43 @@ pub struct Results {
     /// Where the search for news is (queue item 746): asked only once a
     /// person opens the News tab.
     pub news: Stories,
+    /// Where the further pages of its sites are (queue item 761): asked
+    /// one at a time, each only when a person presses *Show more sites*.
+    pub pages: Pages,
 }
+
+/// Where a search's further pages of sites are (queue item 761, ADR 0086
+/// § 1): how many were added, and whether another can be asked.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Pages {
+    /// How many further pages were added, at most [`MOST_PAGES`]: the next
+    /// is asked at `offset` this plus one.
+    pub added: usize,
+    /// Where the next is.
+    pub next: Next,
+}
+
+/// Where a search's next further page of sites is.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum Next {
+    /// None is offered: the provider did not say more are available, or
+    /// [`MOST_PAGES`] were added.
+    #[default]
+    None,
+    /// The provider said more are available (`more_results_available`):
+    /// *Show more sites* is drawn, and a press asks for them.
+    Offered,
+    /// A press asked for them, and they have not come: nothing more can be
+    /// asked until they do.
+    Asking,
+    /// They were asked and not answered, and why, in a sentence a person
+    /// reads: said, and *Show more sites* drawn again for a person to try.
+    Unanswered(String),
+}
+
+/// What came of asking for a further page of a search's sites: the sites,
+/// and whether the provider says there are more; or why not.
+pub type Page = Result<(Vec<Found>, bool), String>;
 
 /// Where a further search of a search's words is — for its images, its
 /// videos or its news.
@@ -262,7 +314,69 @@ impl Results {
             tab: Tab::All,
             videos: Videos::NotAsked,
             news: Stories::NotAsked,
+            pages: Pages::default(),
         }
+    }
+
+    /// The same results, `more` further pages offered by the provider
+    /// (queue item 761).
+    #[must_use]
+    pub fn offering_more(mut self, more: bool) -> Self {
+        self.pages.next = if more { Next::Offered } else { Next::None };
+        self
+    }
+
+    /// Whether *Show more sites* is drawn: on Sites, under sites found,
+    /// when the provider offered more, or a further page asked was not
+    /// answered — enabled — or while one is being asked — disabled.
+    pub fn draws_show_more(&self) -> bool {
+        self.tab == Tab::Sites
+            && self.note().is_none()
+            && self.pages.added < MOST_PAGES
+            && !matches!(self.pages.next, Next::None)
+    }
+
+    /// Whether *Show more sites* can be pressed: drawn, and nothing being
+    /// asked.
+    pub fn can_show_more(&self) -> bool {
+        self.draws_show_more() && !matches!(self.pages.next, Next::Asking)
+    }
+
+    /// Ask for the next further page of sites, if it can be — one at a
+    /// time, at most [`MOST_PAGES`]: the `offset` to ask, which is then
+    /// being asked.
+    pub fn ask_more(&mut self) -> Option<usize> {
+        if !self.can_show_more() {
+            return None;
+        }
+        self.pages.next = Next::Asking;
+        Some(self.pages.added + 1)
+    }
+
+    /// What came of the further page being asked: its sites appended, up
+    /// to [`MOST_SITES`], and *Show more sites* offered again if the
+    /// provider says there are more; or why not, said. Whether a page was
+    /// being asked.
+    pub fn more_came(&mut self, page: Page) -> bool {
+        if !matches!(self.pages.next, Next::Asking) {
+            return false;
+        }
+        match page {
+            Ok((sites, more)) => {
+                if let Showing::Found(found) = &mut self.showing {
+                    let room = MOST_SITES.saturating_sub(found.len());
+                    found.extend(sites.into_iter().take(room));
+                }
+                self.pages.added += 1;
+                self.pages.next = if more && self.pages.added < MOST_PAGES {
+                    Next::Offered
+                } else {
+                    Next::None
+                };
+            }
+            Err(why) => self.pages.next = Next::Unanswered(why),
+        }
+        true
     }
 
     /// The same results, with `images`.
@@ -440,6 +554,7 @@ impl Results {
             && let Stories::Found(found) = &mut sent.news
         {
             for story in found.iter_mut() {
+                story.picture = None;
                 story.mark = None;
             }
         }
@@ -481,7 +596,8 @@ impl Results {
         sites + videos + stories + images
     }
 
-    /// The bytes of every image's and video's thumbnail these results carry.
+    /// The bytes of every image's and video's thumbnail and story's photo
+    /// these results carry.
     fn thumbnail_bytes(&self) -> usize {
         let images: usize = self
             .images
@@ -497,7 +613,14 @@ impl Results {
             .filter_map(|video| video.picture.as_ref())
             .map(Vec::len)
             .sum();
-        images + videos
+        let stories: usize = self
+            .news
+            .found()
+            .iter()
+            .filter_map(|story| story.picture.as_ref())
+            .map(Vec::len)
+            .sum();
+        images + videos + stories
     }
 
     /// The sites All shows, best first: at most [`ON_ALL`].
@@ -727,6 +850,11 @@ pub fn within_budget(turns: &[Turn]) -> Vec<Turn> {
                 keep(&mut video.picture);
             }
         }
+        if let Stories::Found(found) = &mut results.news {
+            for story in found.iter_mut() {
+                keep(&mut story.picture);
+            }
+        }
     }
     sent
 }
@@ -737,6 +865,59 @@ mod tests {
 
     fn found(address: &str) -> Found {
         Found::new("A page", alo_url::parse(address).unwrap(), "Said of it.")
+    }
+
+    #[test]
+    fn further_pages_are_asked_one_at_a_time_appended_and_at_most_nine() {
+        let page = |n: usize| -> Vec<Found> {
+            (0..MOST_FOUND)
+                .map(|at| found(&format!("https://p{n}-{at}.example/")))
+                .collect()
+        };
+        let mut results = Results::of("ev", Showing::Found(page(0)));
+        assert!(!results.draws_show_more(), "not offered");
+        assert_eq!(results.ask_more(), None);
+        results = results.offering_more(true);
+        assert!(!results.draws_show_more(), "drawn only on Sites");
+        results = results.on(Tab::Sites);
+        assert!(results.draws_show_more() && results.can_show_more());
+        assert_eq!(results.ask_more(), Some(1));
+        // One at a time: drawn, but not pressed again while asked.
+        assert!(results.draws_show_more() && !results.can_show_more());
+        assert_eq!(results.ask_more(), None);
+        assert!(results.more_came(Ok((page(1), true))));
+        assert!(!results.more_came(Ok((page(9), true))), "nothing was asked");
+        assert_eq!(results.drawn_sites().len(), 40);
+        assert_eq!(results.pages.added, 1);
+        // A page not answered says why and is offered again, at the same
+        // offset.
+        assert_eq!(results.ask_more(), Some(2));
+        assert!(results.more_came(Err("Brave Search could not answer (503).".to_owned())));
+        assert_eq!(
+            results.pages.next,
+            Next::Unanswered("Brave Search could not answer (503).".to_owned())
+        );
+        assert!(results.can_show_more());
+        for offset in 2..=MOST_PAGES {
+            assert_eq!(results.ask_more(), Some(offset));
+            assert!(results.more_came(Ok((page(offset), true))));
+        }
+        // Nine further pages, two hundred sites: no more, though offered.
+        assert_eq!(results.drawn_sites().len(), MOST_SITES);
+        assert!(!results.draws_show_more());
+        assert_eq!(results.ask_more(), None);
+        // The provider saying there are no more ends it at once.
+        let mut ended = Results::of("ev", Showing::Found(page(0)))
+            .offering_more(true)
+            .on(Tab::Sites);
+        assert_eq!(ended.ask_more(), Some(1));
+        assert!(ended.more_came(Ok((page(1), false))));
+        assert!(!ended.draws_show_more());
+        // A search not answered offers nothing.
+        let refused = Results::of("ev", Showing::Unanswered("no".to_owned()))
+            .offering_more(true)
+            .on(Tab::Sites);
+        assert!(!refused.draws_show_more());
     }
 
     #[test]
@@ -846,6 +1027,58 @@ mod tests {
             alo_url::parse("https://v.example/").unwrap(),
         )
         .holding(vec![n; bytes])
+    }
+
+    #[test]
+    fn a_storys_photo_is_sent_only_on_news_and_weighed_after_the_marks() {
+        let story = |n: u8, bytes: usize| {
+            Story::new(
+                format!("{n}"),
+                alo_url::parse("https://n.example/").unwrap(),
+            )
+            .holding(vec![n; bytes])
+            .marked(vec![n; 3])
+        };
+        let results = with_images(0, 0).with_news(Stories::Found(vec![story(1, 40), story(2, 9)]));
+        assert_eq!(results.picture_bytes(), 40 + 9 + 2 * 3);
+        assert_eq!(results.as_drawn().picture_bytes(), 0, "All draws no story");
+        assert_eq!(results.clone().on(Tab::News).as_drawn().picture_bytes(), 55);
+        // Twenty photos of 120 KiB on each of two News turns: the newest
+        // turn keeps its marks and the photos that fit after them, and the
+        // older only its marks.
+        let heavy = || {
+            Turn::Searched(
+                with_images(0, 0)
+                    .with_news(Stories::Found(
+                        (0..20).map(|n| story(n, 120 * 1024)).collect(),
+                    ))
+                    .on(Tab::News),
+            )
+        };
+        let sent = within_budget(&[heavy(), heavy()]);
+        let kept: Vec<usize> = sent
+            .iter()
+            .map(|turn| match turn {
+                Turn::Searched(results) => results
+                    .drawn_stories()
+                    .iter()
+                    .filter(|story| story.picture.is_some())
+                    .count(),
+                _ => 0,
+            })
+            .collect();
+        // 2 MiB less the newest's 60 bytes of marks holds 17 photos
+        // (2,088,960 bytes); 8,132 are left, under one photo.
+        assert_eq!(kept, vec![0, 17]);
+        assert!(
+            sent.iter()
+                .map(|turn| match turn {
+                    Turn::Searched(results) => results.picture_bytes(),
+                    _ => 0,
+                })
+                .sum::<usize>()
+                <= MOST_PICTURE_BYTES
+        );
     }
 
     #[test]

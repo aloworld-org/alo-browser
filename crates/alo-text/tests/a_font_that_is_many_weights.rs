@@ -347,6 +347,7 @@ fn one_file_answers_a_request_for_every_weight_it_covers() {
             families: vec!["Continuum".to_owned()],
             weight: Weight::new(wanted),
             slant: Slant::Normal,
+            ..FontRequest::default()
         };
         let given = database
             .chain(&request)
@@ -366,6 +367,7 @@ fn one_file_answers_a_request_for_every_weight_it_covers() {
         families: vec!["Continuum".to_owned()],
         weight: Weight::new(1000),
         slant: Slant::Normal,
+        ..FontRequest::default()
     };
     let given = database
         .chain(&request)
@@ -397,6 +399,7 @@ fn a_variable_face_is_preferred_to_a_static_one_at_the_wrong_weight() {
         families: vec!["Continuum".to_owned()],
         weight: Weight::new(HEAVIEST),
         slant: Slant::Normal,
+        ..FontRequest::default()
     };
     let given = database
         .chain(&request)
@@ -421,6 +424,7 @@ fn width_at(font: &Font, weight: u16) -> f32 {
         families: vec![font.family().to_owned()],
         weight: Weight::new(weight),
         slant: Slant::Normal,
+        ..FontRequest::default()
     };
     measure_unwrapped(TEXT, &database, &request, SIZE).width()
 }

@@ -15,7 +15,10 @@
 //! reading the row and the grid as links named by their titles; every
 //! title a stranger's string; a press on each image, open tab, *More sites
 //! ›* and *See all images* claimed by its place, and on a disabled tab
-//! nothing; and the same through the real, confined renderer.
+//! nothing; and the same through the real, confined renderer. And the
+//! Sites tab's *Show more sites* (queue item 761): laid out, its reference
+//! `sites-tab-show-more.png`, disabled while asked, a sentence when not
+//! answered, claimed by its place.
 //!
 //! The thumbnails are made here, by hand, as flat pictures of known sizes;
 //! the images and sites are written by hand, never captured.
@@ -31,7 +34,7 @@ use alo_renderer::face::Face;
 use alo_renderer::frame::frame_to_png;
 use alo_renderer::generic::Generics;
 use alo_renderer::host::Renderers;
-use alo_renderer::results::{Found, Images, Pictured, Results, SetUp, Showing, Tab};
+use alo_renderer::results::{Found, Images, Next, Pictured, Results, SetUp, Showing, Tab};
 use alo_renderer::start::{self, Start};
 use alo_renderer::turn::Turn;
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
@@ -327,6 +330,9 @@ fn with(results: Results) -> Start {
 /// The tile's own colour, where no picture is drawn.
 const TILE: [u8; 4] = [0xe9, 0xe3, 0xd8, 0xff];
 
+/// The paper.
+const PAPER: [u8; 4] = [0xf4, 0xf1, 0xec, 0xff];
+
 fn laid_out(start: Start) -> Renderer {
     let mut renderer = Renderer::new(fonts());
     let answer = renderer.handle(ToRenderer::Start(Box::new(start)));
@@ -438,6 +444,91 @@ fn the_sites_tab_shows_every_site_and_no_row_of_images() {
     assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
     let drawn = draw(with(results(Tab::Sites)));
     assert_eq!(holds("sites-tab.png", drawn.frame.as_ref()), Ok(()));
+}
+
+/// Two sites on Sites, the provider offering more, and `next` where the
+/// next further page is (queue item 761).
+fn offering(next: Next) -> Start {
+    let mut results = Results::of(SAID, Showing::Found(sites(2)))
+        .offering_more(true)
+        .on(Tab::Sites);
+    results.pages.next = next;
+    with(results)
+}
+
+#[test]
+fn the_sites_tab_offers_more_sites_under_its_sites() {
+    let renderer = laid_out(offering(Next::Offered));
+    let at = |class: &str| boxes_of(&renderer, class);
+    assert_eq!(
+        at("found"),
+        [168.0, 264.0]
+            .map(|top| px(80.0, top, 880.0, 74.0))
+            .to_vec()
+    );
+    // 22 under the second site (264 + 74 + 22 = 360): the canvas's
+    // `.morebtn`, 40 tall, at the column's left, as wide as its words and
+    // 16 and a line of 1 each side.
+    // Its words are 104.96875 wide at 14: 138.96875 in all.
+    assert_eq!(at("morebtn"), vec![px(80.0, 360.0, 138.968_75, 40.0)]);
+    assert!(at("note").is_empty());
+    let drawn = draw(offering(Next::Offered));
+    let frame = drawn.frame.as_ref();
+    if let Some(frame) = frame {
+        // White inside its line of #ddd6ca, and the paper past its rounded
+        // corner.
+        assert_eq!(pixel(frame, 90, 364), Some([0xff, 0xff, 0xff, 0xff]));
+        assert_eq!(pixel(frame, 100, 360), Some([0xdd, 0xd6, 0xca, 0xff]));
+        assert_eq!(pixel(frame, 80, 360), Some(PAPER));
+    }
+    assert_eq!(holds("sites-tab-show-more.png", frame), Ok(()));
+    // An agent reads it as a button by its words.
+    let buttons = names(&read(&drawn.tree, "button"));
+    assert!(
+        buttons.contains(&Some("Show more sites".to_owned())),
+        "{buttons:?}"
+    );
+
+    // While its page is asked: disabled, saying so, in the same place.
+    let asking = laid_out(offering(Next::Asking));
+    assert_eq!(boxes_of(&asking, "morebtn"), Vec::<String>::new());
+    assert_eq!(
+        boxes_of(&asking, "morebtn off"),
+        vec![px(80.0, 360.0, 168.343_75, 40.0)]
+    );
+    // Not answered: why, on a line of 23, then the button again, 22 under
+    // it.
+    let unanswered = laid_out(offering(Next::Unanswered(
+        "Brave Search could not answer just now (503).".to_owned(),
+    )));
+    assert_eq!(
+        boxes_of(&unanswered, "note"),
+        vec![px(80.0, 360.0, 880.0, 23.0)]
+    );
+    assert_eq!(
+        boxes_of(&unanswered, "morebtn"),
+        vec![px(80.0, 405.0, 138.968_75, 40.0)]
+    );
+    // None offered, or on All: no button.
+    let mut none = Results::of(SAID, Showing::Found(sites(2))).on(Tab::Sites);
+    assert!(boxes_of(&laid_out(with(none.clone())), "morebtn").is_empty());
+    none = none.offering_more(true).on(Tab::All);
+    assert!(boxes_of(&laid_out(with(none)), "morebtn").is_empty());
+}
+
+#[test]
+fn a_press_on_show_more_sites_is_claimed_by_its_place_and_while_asked_nothing() {
+    let claimed = |claim| FromRenderer::ConversationClaimed(Some(claim));
+    let nothing = FromRenderer::ConversationClaimed(None);
+    assert_eq!(
+        claims(offering(Next::Offered), &[(120.0, 380.0), (300.0, 380.0)]),
+        vec![claimed(Claim::ShowMoreSites { at: 0 }), nothing.clone()],
+        "the button; beside it, nothing"
+    );
+    assert_eq!(
+        claims(offering(Next::Asking), &[(120.0, 380.0)]),
+        vec![nothing]
+    );
 }
 
 #[test]

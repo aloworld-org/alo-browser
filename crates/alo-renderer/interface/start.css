@@ -300,8 +300,8 @@ a {
 /* The clip is 32 wider than the column either side, so the card's shadow
    is not cut at its sides; the column stays where it was. Its own stacking
    context, so the turns, positioned to be scrolled, are painted inside its
-   clip: this engine paints a positioned box with the stacking context it
-   belongs to, past the clip of a box that is not one (queue item 753).
+   clip — which, since queue item 753, a clip that is no stacking context
+   would hold them in too; the context keeps them under the box's own.
    In a window too narrow for 880 and 32 either side, the clip is the
    room's whole width and the column the room less 32 either side, and
    the box is as wide as the column (queue item 774): never under the
@@ -653,6 +653,27 @@ a {
   font-weight: 600;
 }
 
+/* *Show more sites* under the Sites tab's sites (queue item 761), the
+   canvas's `.morebtn`: 40 tall, 16 in at each side, rounded 10, white with
+   a line of #ddd6ca, 14 in ink; while a further page is asked, disabled and
+   quiet. */
+.morebtn {
+  align-self: flex-start;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid #ddd6ca;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.morebtn.off {
+  color: var(--quiet);
+}
+
 /* Where the sites would be: searching, nothing found, or why not. */
 .note {
   font-size: 14.5px;
@@ -720,8 +741,8 @@ a {
 
 /* The title of an image whose picture is drawn: its name to an agent, and
    not drawn — a clear pixel at the tile's left edge that takes no room.
-   The tile is not positioned: a press on a relatively positioned box in
-   the conversation finds the box behind it (queue item 763). */
+   The tile is not positioned, which it need not now be: a press on a
+   relatively positioned box finds it since queue item 763. */
 .sr {
   flex-shrink: 0;
   width: 1px;
@@ -826,7 +847,8 @@ a {
    over its bottom right corner, 8 in, white 11.5 on a dark rounded 5; then
    16 beside it the title, its site and age on a line of 13 with the mark,
    and what is said of it. The tile is one grid cell holding the picture
-   and the length both, so nothing is positioned (queue item 763). */
+   and the length both, so nothing is positioned (written so before queue
+   item 763 made a positioned box in the conversation found by a press). */
 .vids {
   display: flex;
   flex-direction: column;
@@ -902,16 +924,56 @@ a {
 
 /* The News tab (queue item 746, the canvas's `.n`): each story 16 above
    and below — the first 4 above — over a line of #e6e0d6: its site's mark,
-   name and age on a line of 13, its headline, and what is said of it. The
-   canvas's photo beside it is not drawn (queue item 765). */
+   name and age on a line of 13, its headline, and what is said of it; 20
+   beside it its photo (765), the canvas's `.th`: 132 × 88, rounded 10, on
+   #e9e3d8 — one grid cell, the photo 132 wide centred in it, or the site's
+   letter where the canvas writes its placeholder, 11.5 in #3d3a35. */
 .news {
   display: flex;
   flex-direction: column;
 }
 
 .n {
+  display: flex;
+  column-gap: 20px;
   padding: 16px 0;
   border-bottom: 1px solid #e6e0d6;
+}
+
+.nb {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.th {
+  display: grid;
+  grid-template-columns: 132px;
+  grid-template-rows: 88px;
+  flex-shrink: 0;
+  width: 132px;
+  height: 88px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #e9e3d8;
+}
+
+.thimg {
+  display: block;
+  grid-row: 1;
+  grid-column: 1;
+  align-self: center;
+  width: 132px;
+  height: auto;
+}
+
+.thl {
+  grid-row: 1;
+  grid-column: 1;
+  align-self: center;
+  justify-self: center;
+  color: #3d3a35;
+  font-size: 11.5px;
+  line-height: 15px;
 }
 
 .n:first-child {

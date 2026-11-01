@@ -11,7 +11,7 @@
 //! replacing anything.
 
 use crate::database::FontDatabase;
-use crate::font::{FontRequest, Slant, Weight};
+use crate::font::{FontRequest, OpticalSizing, Slant, Weight};
 use crate::line::lay_out_at;
 use crate::room::LineRoom;
 use alo_layout::{MeasureText, Size, TextStyle};
@@ -48,6 +48,11 @@ impl<'a> TextMeasurer<'a> {
                 Slant::Italic
             } else {
                 Slant::Normal
+            },
+            optical_sizing: if style.optical_sizing {
+                OpticalSizing::Auto
+            } else {
+                OpticalSizing::None
             },
         }
     }

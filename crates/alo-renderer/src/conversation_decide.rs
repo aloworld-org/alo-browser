@@ -70,6 +70,9 @@ pub struct Shown<C, S> {
     pub more: Vec<(C, usize)>,
     /// Every *See all images* drawn, in order (queue item 743).
     pub see_all: Vec<(C, usize)>,
+    /// Every *Show more sites* that can be pressed, in order (queue item
+    /// 761): the chat and the turn's place.
+    pub show_more: Vec<(C, usize)>,
     /// The pages every image drawn was found on, in order.
     pub pictured: Vec<Url>,
 }
@@ -88,6 +91,7 @@ impl<C, S> Default for Shown<C, S> {
             tabs: Vec::new(),
             more: Vec::new(),
             see_all: Vec::new(),
+            show_more: Vec::new(),
             pictured: Vec::new(),
         }
     }
@@ -146,6 +150,14 @@ pub enum Decided<C, S> {
     /// An image a search found, on the page at this address (queue item
     /// 743): opened as a site's title is.
     Image(Url),
+    /// *Show more sites* under the Sites tab of this chat's turn at this
+    /// place (queue item 761): its next page asked.
+    ShowMoreSites {
+        /// The chat.
+        chat: C,
+        /// The turn's place in it.
+        turn: usize,
+    },
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -173,6 +185,8 @@ pub enum Listed {
     MoreSites,
     /// The *See all images* drawn (queue item 743).
     SeeAllImages,
+    /// The *Show more sites* that can be pressed (queue item 761).
+    ShowMoreSites,
     /// The images a search found.
     Images,
 }
@@ -188,6 +202,7 @@ impl fmt::Display for Listed {
             Listed::Tabs => "open tab",
             Listed::MoreSites => "More sites",
             Listed::SeeAllImages => "See all images",
+            Listed::ShowMoreSites => "Show more sites",
             Listed::Images => "image found",
         })
     }
@@ -362,6 +377,16 @@ where
                 },
             )
         }
+        Claim::ShowMoreSites { at } => held(
+            Listed::ShowMoreSites,
+            at,
+            &painted.show_more,
+            &now.show_more,
+        )
+        .map_or_else(Decided::Refused, |(chat, turn)| Decided::ShowMoreSites {
+            chat,
+            turn,
+        }),
         Claim::Image { at } => held(Listed::Images, at, &painted.pictured, &now.pictured)
             .map_or_else(Decided::Refused, Decided::Image),
     }
@@ -427,6 +452,41 @@ mod tests {
             hidden: false,
             ..Shown::default()
         }
+    }
+
+    #[test]
+    fn show_more_sites_is_decided_by_its_place_and_refused_while_asked() {
+        // *Show more sites* (761): by its place, and refused once its page
+        // is being asked — no longer among those that can be pressed.
+        let showing = Shown {
+            show_more: vec![(10, 0), (11, 4)],
+            ..painted()
+        };
+        assert_eq!(
+            decide(
+                claimed(Claim::ShowMoreSites { at: 1 }),
+                Part::Start,
+                &showing,
+                &showing
+            ),
+            Decided::ShowMoreSites { chat: 11, turn: 4 }
+        );
+        let asking = Shown {
+            show_more: vec![(11, 4)],
+            ..painted()
+        };
+        assert_eq!(
+            decide(
+                claimed(Claim::ShowMoreSites { at: 0 }),
+                Part::Start,
+                &showing,
+                &asking
+            ),
+            Decided::Refused(Refusal::Gone {
+                listed: Listed::ShowMoreSites,
+                at: 0
+            })
+        );
     }
 
     #[test]

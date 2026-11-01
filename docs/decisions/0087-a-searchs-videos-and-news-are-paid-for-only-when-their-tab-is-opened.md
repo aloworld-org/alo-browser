@@ -1,6 +1,6 @@
 # ADR 0087 — A search's videos and news are paid for only when their tab is opened
 
-**Status:** accepted — built by queue items 745 and 746 (31 October 2026)
+**Status:** accepted — built by queue items 745 and 746 (31 October 2026); § 3 amended by 765 (1 November 2026)
 **Date:** 2026-10-31
 **Context:** ADR 0086 (a search's images cost a second request, asked with
 every search that finds sites); ADR 0083 (a search is asked by the browser
@@ -67,8 +67,18 @@ the confined renderer that draws them, and counted against the first
 screen's 2 MiB of pictures. A video with no picture kept is drawn with its
 tile's colour.
 
-**A news story's photo is not fetched** in this item: the canvas shows one
-beside each story; it is queued as 765, by the same rules when built.
+**A news story's photo is fetched by the same rules** (queue item 765, 1
+November 2026): `thumbnail.src` at the proxy alone, never `original`; at
+most twenty, each at most 256 KiB and only bytes that begin as a picture;
+no key, cookie or `Referer`; asked after the news search and before the
+stories' marks, at no paid request; decoded only by the confined renderer,
+sent only while News is shown and weighed in the first screen's 2 MiB after
+the marks. Drawn as the canvas's `.th`: 132 × 88, rounded 10, on `#E9E3D8`,
+20 beside the story's text, the photo its width and centred, clipped by the
+tile. With no photo kept the tile holds the site's letter where the canvas
+writes its placeholder (11.5, `#3D3A35`); with no letter it is its colour
+alone; a photo kept that does not decode leaves the tile its colour, as a
+video's. Never written to a chat's file (ADR 0092).
 
 ## 4. What is read, and what is drawn
 
@@ -110,4 +120,4 @@ by a length would be a wrong name.
   `conversation_search.rs` (work for a tab), `conversation_thread.rs` and
   `conversation.rs` (asked once for a turn, answered by number),
   `conversation_window.rs` (handed to the thread).
-- Cut, queued: a news story's photo (765).
+- Built since: a news story's photo (765, § 3).

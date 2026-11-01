@@ -24,17 +24,20 @@
 //! and news (746) are, by the same tags: each video's title, length, site,
 //! age and description as text — a length refused unless it is one — its
 //! page refused unless it is a site's, its picture as an image's is, and
-//! more than [`MOST_VIDEOS`] refused; each story's the same, with no
-//! picture, more than [`MOST_STORIES`] refused. Each site, video and story
+//! more than [`MOST_VIDEOS`] refused; each story's the same, its photo as
+//! a video's picture is (765), more than [`MOST_STORIES`] refused. Each site, video and story
 //! — and each image, after its thumbnail (768) — carries its site's mark,
 //! if one is sent (queue item 747): refused larger
 //! than [`LARGEST_MARK`] or unless it begins as a picture. Then the tab shown (744),
-//! by a tag, refused unless it can be chosen ([`Results::open`]).
+//! by a tag, refused unless it can be chosen ([`Results::open`]). Then its
+//! further pages of sites (761): how many were added, refused past
+//! [`MOST_PAGES`], and where the next is, by a tag; the sites refused if
+//! more than a first page and each added one hold ([`MOST_FOUND`] each).
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::results::{
-    Found, Images, LARGEST_MARK, LARGEST_THUMBNAIL, MOST_FOUND, MOST_IMAGES, Pictured, Results,
-    SetUp, Showing, Stories, Tab, Videos,
+    Found, Images, LARGEST_MARK, LARGEST_THUMBNAIL, MOST_FOUND, MOST_IMAGES, MOST_PAGES,
+    MOST_SITES, Next, Pages, Pictured, Results, SetUp, Showing, Stories, Tab, Videos,
 };
 use crate::results_media::{MOST_STORIES, MOST_VIDEOS, Story, Video, is_length};
 use alo_paint::picture::Format;
@@ -82,6 +85,21 @@ impl Writer {
             Tab::Videos => 3,
             Tab::News => 4,
         });
+        self.pages(&results.pages);
+    }
+
+    /// Where a search's further pages of sites are (queue item 761).
+    fn pages(&mut self, pages: &Pages) {
+        self.number(pages.added as u64);
+        match &pages.next {
+            Next::None => self.tag(0),
+            Next::Offered => self.tag(1),
+            Next::Asking => self.tag(2),
+            Next::Unanswered(why) => {
+                self.tag(3);
+                self.text(why);
+            }
+        }
     }
 
     /// A picture's bytes, if one is held.
@@ -135,6 +153,7 @@ impl Writer {
                     self.text(&story.site);
                     self.text(&story.age);
                     self.text(&story.description);
+                    self.picture(story.picture.as_ref());
                     self.picture(story.mark.as_ref());
                 }
             }
@@ -186,9 +205,9 @@ impl Reader<'_> {
             0 => Showing::Searching,
             1 => {
                 let count = self.count()?;
-                if count > MOST_FOUND {
+                if count > MOST_SITES {
                     return Err(unreadable(format!(
-                        "{count} sites found, and at most {MOST_FOUND} are shown"
+                        "{count} sites found, and at most {MOST_SITES} are shown"
                     )));
                 }
                 let mut found = Vec::with_capacity(count);
@@ -228,6 +247,16 @@ impl Reader<'_> {
             4 => Tab::News,
             other => return Err(unreadable(format!("results shown on a tab tagged {other}"))),
         };
+        let pages = self.pages()?;
+        if let Showing::Found(found) = &showing {
+            let most = MOST_FOUND * (pages.added + 1);
+            if found.len() > most {
+                return Err(unreadable(format!(
+                    "{} sites found, and at most {most} are shown",
+                    found.len()
+                )));
+            }
+        }
         let results = Results {
             said,
             showing,
@@ -235,6 +264,7 @@ impl Reader<'_> {
             tab,
             videos,
             news,
+            pages,
         };
         if !results.open(tab) {
             return Err(unreadable(format!(
@@ -242,6 +272,27 @@ impl Reader<'_> {
             )));
         }
         Ok(results)
+    }
+
+    /// Where a search's further pages are, as [`Writer::pages`] wrote them.
+    fn pages(&mut self) -> Result<Pages, Unreadable> {
+        let added = self.number()?;
+        if added > MOST_PAGES as u64 {
+            return Err(unreadable(format!(
+                "{added} further pages of sites, and at most {MOST_PAGES} are asked"
+            )));
+        }
+        let next = match self.tag()? {
+            0 => Next::None,
+            1 => Next::Offered,
+            2 => Next::Asking,
+            3 => Next::Unanswered(self.text()?),
+            other => return Err(unreadable(format!("a next page tagged {other}"))),
+        };
+        Ok(Pages {
+            added: usize::try_from(added).unwrap_or(MOST_PAGES),
+            next,
+        })
     }
 
     /// Where a search for images is, as [`Writer::images`] wrote it.
@@ -396,6 +447,7 @@ impl Reader<'_> {
                     let site = self.text()?;
                     let age = self.text()?;
                     let description = self.text()?;
+                    let picture = self.picture()?;
                     let mark = self.mark()?;
                     found.push(Story {
                         title,
@@ -403,6 +455,7 @@ impl Reader<'_> {
                         site,
                         age,
                         description,
+                        picture,
                         mark,
                     });
                 }

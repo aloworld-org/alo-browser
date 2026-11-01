@@ -110,6 +110,11 @@ impl FontDatabase {
     /// The fallback fonts are set too, not only the family that matched: a page
     /// asking for bold and falling through to a variable font for one character
     /// should get that character bold.
+    ///
+    /// After the families asked for, every other face in the order it was
+    /// added, and a last resort ([`Font::is_last_resort`]) after them all
+    /// (queue item 767), wherever it was added: a face asked for by name is
+    /// asked in its place, last resort or not.
     pub fn chain(&self, request: &FontRequest) -> Vec<Font> {
         let mut order: Vec<usize> = Vec::new();
         for family in &request.families {
@@ -121,15 +126,24 @@ impl FontDatabase {
                 }
             }
         }
-        for index in 0..self.fonts.len() {
-            if !order.contains(&index) {
-                order.push(index);
+        // Every other face, in the order it was added — but a last resort
+        // after all of them (queue item 767): it has a glyph for every
+        // character, its block's box, so a face after it would never be
+        // asked for one.
+        for last in [false, true] {
+            for (index, font) in self.fonts.iter().enumerate() {
+                if font.is_last_resort() == last && !order.contains(&index) {
+                    order.push(index);
+                }
             }
         }
         order
             .iter()
             .filter_map(|index| self.fonts.get(*index))
-            .map(|font| font.at_weight(request.weight))
+            .map(|font| {
+                font.at_weight(request.weight)
+                    .sized_optically(request.optical_sizing)
+            })
             .collect()
     }
 
@@ -369,6 +383,7 @@ mod tests {
             families: vec!["DejaVu Sans".to_owned()],
             weight: Weight::BOLD,
             slant: Slant::Normal,
+            ..FontRequest::default()
         };
         assert_eq!(
             names(&database.chain(&bold)).first().map(String::as_str),
@@ -379,6 +394,7 @@ mod tests {
             families: vec!["DejaVu Sans".to_owned()],
             weight: Weight::NORMAL,
             slant: Slant::Italic,
+            ..FontRequest::default()
         };
         let chosen = database.chain(&italic);
         assert_eq!(chosen.first().map(Font::slant), Some(Slant::Italic));
@@ -391,6 +407,7 @@ mod tests {
             families: vec!["DejaVu Sans".to_owned()],
             weight: Weight::new(500),
             slant: Slant::Normal,
+            ..FontRequest::default()
         };
         assert_eq!(
             names(&database.chain(&request)).first().map(String::as_str),

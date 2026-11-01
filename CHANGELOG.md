@@ -6,6 +6,35 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box moved with `position` stays inside a box that clips it.** A
+  relatively positioned box inside an `overflow: hidden` or scrolling box is
+  cut off at that box's edge, as browsers cut it, and an absolutely
+  positioned one is when it is held inside; a click past the edge no longer
+  lands on what was cut away.
+- **A press on a positioned box inside another finds it.** A box moved with
+  `position: relative` inside another positioned box was painted, and
+  clicked, under its parent's content; it is now on top, as in Chrome.
+
+- **Chinese, Japanese and Korean in alo's own interface.** A search
+  result's title in Chinese, Japanese or Korean is drawn in this Mac's own
+  Hiragino and Apple SD Gothic Neo faces, read out of the collections macOS
+  keeps them in, where it used to be a row of boxes.
+
+- **Large headings in Newsreader are drawn in its display cut.** The
+  greeting and the mark are set at the optical size their size calls for,
+  as Chrome sets them, so the greeting is finer and a little wider; a page
+  can turn that off with `font-optical-sizing: none`.
+
+- **More sites, a page at a time.** Under the Sites tab, when Brave says
+  there are more, *Show more sites* asks for the next twenty and adds them
+  to the list — each press one more paid search, only when you press it,
+  and at most nine further pages.
+
+- **A news story shows its photo.** On the News tab each story has its
+  photo beside it, rounded, fetched from Brave's own image proxy as a
+  video's picture is and never from the news site; a story with no photo
+  shows its site's first letter on the tile instead.
+
 - **Chats are kept when alo is closed.** Every chat that holds something —
   its searches, the pages opened in it, what could not be opened — is
   written to a file of its own on this Mac, in

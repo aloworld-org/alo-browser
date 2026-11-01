@@ -25,15 +25,21 @@
 //!   more thumbnails than that;
 //! - every thumbnail is asked with `Accept: image/*` and no key, cookie or
 //!   `Referer`.
+//!
+//! And of a news search's photos (queue item 765), by the same rules: one
+//! kept as it arrived, one too large and one at the other server left out
+//! (the other server never asked), a story with no photo kept with none,
+//! no more than twenty stories, and with no proxy named nothing asked.
 
 use alo_net::Pool;
 use alo_net::cause::Identities;
 use alo_net::tls::Trust;
 use alo_paint::canvas::Canvas;
 use alo_renderer::results::{LARGEST_THUMBNAIL, MOST_IMAGES, Pictured};
+use alo_renderer::results_media::{MOST_STORIES, Story};
 use alo_value::Rgba;
-use alo_window::search_protocol::ImageFound;
-use alo_window::search_thumbnails::fetch;
+use alo_window::search_protocol::{ImageFound, StoryFound};
+use alo_window::search_thumbnails::{fetch, fetch_stories};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::mpsc::{Sender, channel};
@@ -208,5 +214,92 @@ fn thumbnails_come_only_from_the_proxy_bounded_in_size_and_count() -> Result<(),
         asked_elsewhere.try_iter().next().is_none(),
         "the other server was never asked"
     );
+    Ok(())
+}
+
+/// A story on a page of its own, its photo at `thumbnail`.
+fn story(n: usize, thumbnail: Option<alo_url::Url>) -> Result<StoryFound, String> {
+    Ok(StoryFound {
+        story: Story::new(
+            format!("Story {n}"),
+            url(&format!("https://n{n}.example/"))?,
+        ),
+        thumbnail,
+        mark: None,
+    })
+}
+
+#[test]
+fn a_storys_photo_comes_only_from_the_proxy_bounded_as_a_thumbnail() -> Result<(), String> {
+    let (told_elsewhere, asked_elsewhere) = channel();
+    let elsewhere = serve(told_elsewhere, 1)?;
+    let (told, asked) = channel();
+    let proxy = serve(told, elsewhere)?;
+    let at = |path: &str| url(&format!("http://127.0.0.1:{proxy}{path}"));
+    let mut stories = vec![
+        story(0, Some(at("/photo.png")?))?,
+        story(1, Some(at("/large.png")?))?,
+        story(
+            2,
+            Some(url(&format!("http://127.0.0.1:{elsewhere}/photo.png"))?),
+        )?,
+        story(3, None)?,
+    ];
+    for n in 4..25 {
+        stories.push(story(n, Some(at(&format!("/many-{n}.png"))?))?);
+    }
+    let mut pool = Pool::with_trust(Trust::of(&[])?).patient_for(Duration::from_secs(10));
+    let fetched = fetch_stories(
+        &mut pool,
+        &mut Identities::default(),
+        Some(&at("/")?),
+        stories,
+    );
+    assert_eq!(fetched.stories.len(), MOST_STORIES, "twenty kept of 25");
+    let held: Vec<bool> = fetched
+        .stories
+        .iter()
+        .map(|story| story.picture.is_some())
+        .collect();
+    let mut expected = vec![true, false, false, false];
+    expected.extend(vec![true; MOST_STORIES - 4]);
+    assert_eq!(held, expected);
+    assert_eq!(
+        fetched
+            .stories
+            .first()
+            .and_then(|story| story.picture.clone()),
+        Some(picture()),
+        "the bytes as they arrived"
+    );
+    let places: Vec<usize> = fetched.left_out.iter().map(|(at, _)| *at).collect();
+    assert_eq!(places, vec![1, 2]);
+    let heads: Vec<String> = asked.try_iter().collect();
+    assert_eq!(heads.len(), 2 + (MOST_STORIES - 4), "none past twenty");
+    for head in &heads {
+        let lower = head.to_lowercase();
+        assert!(lower.contains("accept: image/*"), "{head}");
+        for never in ["x-subscription-token", "cookie", "referer"] {
+            assert!(!lower.contains(never), "{never}: {head}");
+        }
+    }
+    assert!(asked_elsewhere.try_iter().next().is_none());
+
+    // With no proxy named, nothing is asked and each photo is left out.
+    let unproxied = fetch_stories(
+        &mut pool,
+        &mut Identities::default(),
+        None,
+        vec![story(0, Some(at("/photo.png")?))?, story(1, None)?],
+    );
+    assert_eq!(unproxied.stories.len(), 2);
+    assert!(
+        unproxied
+            .stories
+            .iter()
+            .all(|story| story.picture.is_none())
+    );
+    assert_eq!(unproxied.left_out.len(), 1);
+    assert!(asked.try_iter().next().is_none(), "nothing asked");
     Ok(())
 }

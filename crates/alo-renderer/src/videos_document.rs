@@ -18,9 +18,9 @@
 //! the document ([`pictures`]), decoded in this confined process by the
 //! picture readers every `<img>` goes through. The tile is a grid of one
 //! cell holding the picture and the length both, so the length stands over
-//! the picture with nothing positioned (a press on a positioned box in the
-//! conversation finds the box behind it, queue item 763). With no picture
-//! the tile is its colour.
+//! the picture with nothing positioned (written so while a press on a
+//! positioned box in the conversation found the box behind it, before queue
+//! item 763). With no picture the tile is its colour.
 //!
 //! # A press
 //!

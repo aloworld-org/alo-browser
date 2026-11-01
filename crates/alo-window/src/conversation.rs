@@ -193,15 +193,20 @@ pub struct Conversation {
 }
 
 /// A tab opened whose results are to be asked of the provider — Videos or
-/// News, once for a turn (queue items 745, 746, ADR 0087).
+/// News, once for a turn (queue items 745, 746, ADR 0087) — or a further
+/// page of a turn's sites, pressed for (761).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Further {
     /// The number its answer comes back under.
     pub number: u64,
     /// The turn's words, asked alone.
     pub words: String,
-    /// Which tab: [`results::Tab::Videos`] or [`results::Tab::News`].
+    /// Which tab: [`results::Tab::Videos`], [`results::Tab::News`], or
+    /// [`results::Tab::Sites`] for a further page.
     pub tab: results::Tab,
+    /// The further page asked, 1 to [`results::MOST_PAGES`], for Sites; 0
+    /// for Videos and News.
+    pub offset: usize,
 }
 
 impl Default for Conversation {
@@ -314,6 +319,7 @@ impl Conversation {
                 .collect(),
             more: self.on_this_chat(Thread::more_sites),
             see_all: self.on_this_chat(Thread::see_all),
+            show_more: self.on_this_chat(Thread::show_more),
             pictured: self
                 .thread()
                 .map(Thread::pictured_pages)
@@ -390,9 +396,30 @@ impl Conversation {
                         number: self.further,
                         words,
                         tab: *tab,
+                        offset: 0,
                     });
                 }
                 shown || changed
+            }
+            // *Show more sites*: the turn's next page asked, one at a time
+            // (761) — a paid request, made only for this press.
+            Pressed::ShowMoreSites { chat, turn } => {
+                let Some((_, thread)) = self.threads.iter_mut().find(|(each, _)| each == chat)
+                else {
+                    return self.pressed(pressed, changed);
+                };
+                let Some((words, offset)) = thread.ask_page(*turn) else {
+                    return self.pressed(pressed, changed);
+                };
+                self.further += 1;
+                self.asked.push((self.further, *chat, *turn));
+                self.to_ask.push(Further {
+                    number: self.further,
+                    words,
+                    tab: results::Tab::Sites,
+                    offset,
+                });
+                true
             }
             Pressed::NewChat => {
                 self.new_chat();
@@ -504,12 +531,16 @@ impl Conversation {
     /// screen shows something else.
     pub fn searched(&mut self, searched: Searched) -> bool {
         match searched.came {
-            Came::Sites { showing, images } => {
+            Came::Sites {
+                showing,
+                images,
+                more,
+            } => {
                 if searched.number != self.searches {
                     return false;
                 }
                 self.thread_mut()
-                    .is_some_and(|thread| thread.searched(&searched.words, showing, images))
+                    .is_some_and(|thread| thread.searched(&searched.words, showing, images, more))
             }
             Came::Images(images) => {
                 let on_screen = self.on_screen();
@@ -538,6 +569,9 @@ impl Conversation {
             }),
             Came::News(news) => {
                 self.further_came(searched.number, |thread, turn| thread.news_came(turn, news))
+            }
+            Came::Page(page) => {
+                self.further_came(searched.number, |thread, turn| thread.page_came(turn, page))
             }
         }
     }
@@ -1489,6 +1523,7 @@ mod tests {
             came: Came::Sites {
                 showing: results::Showing::Found(vec![found("https://one.example/"); 4]),
                 images: Images::Asking,
+                more: false,
             },
         };
         assert!(conversation.searched(sites));
@@ -1554,6 +1589,65 @@ mod tests {
     }
 
     #[test]
+    fn show_more_sites_asks_the_next_page_once_per_press_and_appends_it() {
+        use alo_renderer::results::{Images, Tab};
+        let mut conversation = Conversation::default();
+        conversation.set_search(SetUp::Ready);
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "ev");
+        let _ = conversation.edit(Edit::Choose);
+        let chat = conversation.on_screen().unwrap();
+        assert!(conversation.searched(Searched {
+            number: 1,
+            words: "ev".to_owned(),
+            came: Came::Sites {
+                showing: results::Showing::Found(vec![found("https://one.example/"); 20]),
+                images: Images::NotAsked,
+                more: true,
+            },
+        }));
+        let more = Pressed::ShowMoreSites { chat, turn: 0 };
+        // Offered, but drawn only on Sites: nothing to press on All.
+        assert!(conversation.showing().show_more.is_empty());
+        assert!(conversation.act(Pressed::Tab {
+            chat,
+            turn: 0,
+            tab: Tab::Sites
+        }));
+        assert_eq!(conversation.showing().show_more, vec![(chat, 0)]);
+        assert!(conversation.act(more.clone()));
+        assert_eq!(
+            conversation.take_asks(),
+            vec![Further {
+                number: 1,
+                words: "ev".to_owned(),
+                tab: Tab::Sites,
+                offset: 1
+            }]
+        );
+        // One at a time: a second press while it is asked asks nothing, and
+        // the button is no longer one to press.
+        assert!(!conversation.act(more.clone()));
+        assert!(conversation.take_asks().is_empty());
+        assert!(conversation.showing().show_more.is_empty());
+        let page = vec![found("https://two.example/"); 20];
+        assert!(conversation.searched(Searched {
+            number: 1,
+            words: "ev".to_owned(),
+            came: Came::Page(Ok((page, true))),
+        }));
+        assert_eq!(
+            conversation.results().map(|r| r.drawn_sites().len()),
+            Some(40)
+        );
+        assert!(conversation.act(more));
+        assert_eq!(
+            conversation.take_asks().first().map(|ask| ask.offset),
+            Some(2)
+        );
+    }
+
+    #[test]
     fn videos_and_news_are_asked_once_for_a_turn_when_their_tab_is_opened() {
         use alo_renderer::results::{Images, Stories, Tab, Videos};
         use alo_renderer::results_media::{Story, Video};
@@ -1569,6 +1663,7 @@ mod tests {
             came: Came::Sites {
                 showing: results::Showing::Found(vec![found("https://one.example/"); 4]),
                 images: Images::NotAsked,
+                more: false,
             },
         }));
         assert!(conversation.take_asks().is_empty(), "never with a search");
@@ -1580,7 +1675,8 @@ mod tests {
             vec![Further {
                 number: 1,
                 words: "ev".to_owned(),
-                tab: Tab::Videos
+                tab: Tab::Videos,
+                offset: 0
             }]
         );
         assert!(conversation.take_asks().is_empty(), "handed once");
@@ -1594,7 +1690,8 @@ mod tests {
             vec![Further {
                 number: 2,
                 words: "ev".to_owned(),
-                tab: Tab::News
+                tab: Tab::News,
+                offset: 0
             }]
         );
         // An answer under a number nobody asked under is nothing.

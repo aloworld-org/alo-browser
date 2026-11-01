@@ -68,6 +68,37 @@ pub enum Slant {
 /// written out in two places is two chances to write it differently.
 pub const WEIGHT_AXIS: [u8; 4] = *b"wght";
 
+/// The four bytes OpenType files an optical size axis under (queue item
+/// 752): the size, in points, a face's proportions are drawn for. Shared
+/// with `alo-paint` as [`WEIGHT_AXIS`] is, for its reason.
+pub const OPTICAL_AXIS: [u8; 4] = *b"opsz";
+
+/// Whether a run's optical size follows the size it is set at — CSS's
+/// `font-optical-sizing` (CSS Fonts 4 § 5.5), queue item 752.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OpticalSizing {
+    /// `auto`, the initial value: a face with an `opsz` axis is set to the
+    /// run's size, as Chrome sets it — the CSS pixels it is set at, clamped
+    /// to the axis.
+    #[default]
+    Auto,
+    /// `none`: the face's own default optical size, whatever the size.
+    None,
+}
+
+impl OpticalSizing {
+    /// `font-optical-sizing`'s value as written: `none` is none, and
+    /// anything else — `auto`, or a value this engine does not read — the
+    /// initial `auto`.
+    pub fn parse(value: &str) -> Self {
+        if value.trim().eq_ignore_ascii_case("none") {
+            Self::None
+        } else {
+            Self::Auto
+        }
+    }
+}
+
 /// The weights a variable font can be set to.
 ///
 /// A variable font is one file holding a continuum rather than a face, and
@@ -151,6 +182,8 @@ pub struct FontRequest {
     pub weight: Weight,
     /// Upright or slanted.
     pub slant: Slant,
+    /// Whether its optical size follows its size (queue item 752).
+    pub optical_sizing: OpticalSizing,
 }
 
 impl FontRequest {
@@ -220,12 +253,22 @@ pub struct Font {
     data: Arc<Vec<u8>>,
     index: u32,
     axis: Option<WeightAxis>,
+    /// The sizes its `opsz` axis reaches, lightest first, when it has one
+    /// (queue item 752).
+    optical: Option<(f32, f32)>,
+    /// Whether a run's size sets that axis: `font-optical-sizing`.
+    optical_sizing: OpticalSizing,
     /// Whether its glyphs are pictures — a `CBDT` or `sbix` table — rather
     /// than outlines alone: a colour emoji face (ADR 0088).
     pictured: bool,
     /// Whether it holds a `COLR` table: some of its glyphs are layers of
     /// outlines, each in a colour of its own (queue item 766).
     layered: bool,
+    /// Whether it is a last resort: its every character map is `cmap`
+    /// format 13, the one OpenType defines for a face that maps whole ranges
+    /// to one glyph each — Apple's `LastResort`, whose glyph for a character
+    /// is its block's box (queue item 767).
+    last_resort: bool,
 }
 
 impl Font {
@@ -246,9 +289,20 @@ impl Font {
         // Parsing once here means every later use can assume it parses.
         let face = ttf_parser::Face::parse(&data, index).ok()?;
         let axis = weight_axis_of(&face);
+        let optical = optical_axis_of(&face);
         let tables = face.tables();
         let pictured = tables.cbdt.is_some() || tables.sbix.is_some();
         let layered = tables.colr.is_some();
+        let last_resort = tables.cmap.is_some_and(|cmap| {
+            let mut subtables = cmap.subtables.into_iter().peekable();
+            subtables.peek().is_some()
+                && subtables.all(|subtable| {
+                    matches!(
+                        subtable.format,
+                        ttf_parser::cmap::Format::ManyToOneRangeMappings(..)
+                    )
+                })
+        });
         Some(Self {
             family: family.into(),
             weight,
@@ -256,8 +310,11 @@ impl Font {
             data,
             index,
             axis,
+            optical,
+            optical_sizing: OpticalSizing::Auto,
             pictured,
             layered,
+            last_resort,
         })
     }
 
@@ -303,6 +360,47 @@ impl Font {
         }
     }
 
+    /// This font, its optical size following a run's size or not, as
+    /// `font-optical-sizing` says (queue item 752).
+    #[must_use]
+    pub fn sized_optically(&self, sizing: OpticalSizing) -> Self {
+        Self {
+            optical_sizing: sizing,
+            ..self.clone()
+        }
+    }
+
+    /// The sizes this font's `opsz` axis reaches, when it has one.
+    pub fn optical_axis(&self) -> Option<(f32, f32)> {
+        self.optical
+    }
+
+    /// The coordinate this font's `opsz` axis is set to for a run set at
+    /// `size` CSS pixels (queue item 752): the size itself, clamped to the
+    /// axis, as Chrome 156 sets it — measured against it, not read from its
+    /// source; [`None`] with no axis, or with `font-optical-sizing: none`,
+    /// when the face is its own default.
+    pub fn optical_size(&self, size: f32) -> Option<f32> {
+        match self.optical_sizing {
+            OpticalSizing::Auto => self.optical.map(|(least, most)| size.clamp(least, most)),
+            OpticalSizing::None => None,
+        }
+    }
+
+    /// Every axis this font is set to for a run at `size` CSS pixels, with
+    /// its coordinate: its weight, and its optical size. What `alo-paint`
+    /// outlines a glyph at, so that it is drawn as it was measured.
+    pub fn variations(&self, size: f32) -> Vec<([u8; 4], f32)> {
+        self.variable_weight()
+            .map(|weight| (WEIGHT_AXIS, weight))
+            .into_iter()
+            .chain(
+                self.optical_size(size)
+                    .map(|optical| (OPTICAL_AXIS, optical)),
+            )
+            .collect()
+    }
+
     /// The coordinate this font's weight axis is set to, when it has one.
     ///
     /// `alo-paint` reads outlines with the parser **it** is allowed to name, so
@@ -346,6 +444,16 @@ impl Font {
         self.layered
     }
 
+    /// Whether it is a last resort (queue item 767): a face whose character
+    /// maps are all `cmap` format 13, mapping whole ranges of characters to
+    /// one glyph — as Apple's `LastResort` maps every character of a block
+    /// to the box that names it. It has a glyph for everything and draws
+    /// nothing of any of them, so a fallback chain asks it after every
+    /// other face ([`crate::FontDatabase::chain`]).
+    pub fn is_last_resort(&self) -> bool {
+        self.last_resort
+    }
+
     /// Whether this font has a glyph for a character.
     ///
     /// This is the question the fallback chain asks, and it is asked of the
@@ -366,8 +474,9 @@ impl Font {
     /// The same, on a screen of `scale` device pixels to the CSS pixel,
     /// whose hundredths the face's size is cut to ([`crate::face_size_at`]).
     pub fn metrics_at(&self, size: f32, scale: f32) -> FaceMetrics {
+        let face = self.face_at(size);
         let size = crate::face_size_at(size, scale);
-        let Some(face) = self.face() else {
+        let Some(face) = face else {
             return FaceMetrics {
                 ascender: size * 0.8,
                 descender: size * 0.2,
@@ -432,19 +541,39 @@ impl Font {
         Some(face)
     }
 
+    /// The parsed face at this font's instance **for a run at `size`** CSS
+    /// pixels: its weight, and its optical size (queue item 752), since an
+    /// `MVAR` table may move a metric along `opsz` as `HVAR` moves an
+    /// advance.
+    fn face_at(&self, size: f32) -> Option<ttf_parser::Face<'_>> {
+        let mut face = ttf_parser::Face::parse(&self.data, self.index).ok()?;
+        for (axis, value) in self.variations(size) {
+            let _ = face.set_variation(ttf_parser::Tag::from_bytes(&axis), value);
+        }
+        Some(face)
+    }
+
     /// The shaper's face, at this font's instance.
     ///
     /// In this file rather than in [`crate::shape`] because it is the same
     /// sentence as [`Font::face`]: *which instance of these bytes this font
     /// is*. Two files parsing the same bytes and setting the axis separately is
     /// how a line comes to be measured at one weight and drawn at another.
-    pub(crate) fn shaper(&self) -> Option<rustybuzz::Face<'_>> {
+    ///
+    /// For a run at `size` CSS pixels, which sets an optical size axis
+    /// (queue item 752) as [`Font::face_at`] does.
+    pub(crate) fn shaper(&self, size: f32) -> Option<rustybuzz::Face<'_>> {
         let mut face = rustybuzz::Face::from_slice(&self.data, self.index)?;
-        if let Some(value) = self.variable_weight() {
-            face.set_variations(&[rustybuzz::Variation {
-                tag: ttf_parser::Tag::from_bytes(&WEIGHT_AXIS),
+        let variations: Vec<rustybuzz::Variation> = self
+            .variations(size)
+            .into_iter()
+            .map(|(axis, value)| rustybuzz::Variation {
+                tag: ttf_parser::Tag::from_bytes(&axis),
                 value,
-            }]);
+            })
+            .collect();
+        if !variations.is_empty() {
+            face.set_variations(&variations);
         }
         Some(face)
     }
@@ -832,6 +961,17 @@ fn weight_axis_of(face: &ttf_parser::Face<'_>) -> Option<WeightAxis> {
     (lightest < heaviest).then_some(WeightAxis { lightest, heaviest })
 }
 
+/// The sizes a face's `opsz` axis reaches, lightest first, when it has one
+/// that reaches more than one (queue item 752).
+fn optical_axis_of(face: &ttf_parser::Face<'_>) -> Option<(f32, f32)> {
+    let wanted = ttf_parser::Tag::from_bytes(&OPTICAL_AXIS);
+    let axis = face
+        .variation_axes()
+        .into_iter()
+        .find(|axis| axis.tag == wanted)?;
+    (axis.min_value < axis.max_value).then_some((axis.min_value, axis.max_value))
+}
+
 /// The lightest weight CSS has a name for: `font-weight: thin`.
 ///
 /// A bound on what counts as an axis written in CSS's scale, and not a bound on
@@ -875,6 +1015,27 @@ mod tests {
 
     fn close(left: f32, right: f32) -> bool {
         (left - right).abs() < 0.01
+    }
+
+    #[test]
+    fn a_face_with_no_optical_axis_is_set_to_its_weight_alone() {
+        // Queue item 752: DejaVu Sans has no `opsz`, so no size sets one,
+        // and its variations are none at any size.
+        let font = dejavu();
+        assert_eq!(font.optical_axis(), None);
+        assert_eq!(font.optical_size(40.0), None);
+        assert!(font.variations(40.0).is_empty());
+        assert_eq!(FontRequest::default().optical_sizing, OpticalSizing::Auto);
+        assert_eq!(OpticalSizing::parse(" NONE "), OpticalSizing::None);
+        for auto in ["auto", "", "inherit", "12"] {
+            assert_eq!(OpticalSizing::parse(auto), OpticalSizing::Auto, "{auto}");
+        }
+        // Set to none, it is still the same font, and measures the same.
+        let none = font.sized_optically(OpticalSizing::None);
+        assert!(close(
+            none.metrics(40.0).zero_width,
+            font.metrics(40.0).zero_width
+        ));
     }
 
     #[test]

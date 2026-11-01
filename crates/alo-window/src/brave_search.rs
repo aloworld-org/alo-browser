@@ -47,11 +47,10 @@
 //! ADR 0083 § 5's sentences, by status ([`unanswered`]). None says the key.
 
 use crate::search_key::{Held, Key};
-use crate::search_protocol::{self, ImageFound, VideoFound};
+use crate::search_protocol::{self, ImageFound, StoryFound, VideoFound};
 use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request};
-use alo_renderer::results::{PROVIDER, Showing};
-use alo_renderer::results_media::Story;
+use alo_renderer::results::{MOST_PAGES, PROVIDER, Showing};
 use alo_url::Url;
 
 /// Where a web search is asked.
@@ -206,6 +205,32 @@ impl Provider {
         self.asking(&self.endpoint, words, identities)
     }
 
+    /// The request for the further page at `offset` (1 to
+    /// [`alo_renderer::results::MOST_PAGES`]) of a search of `words` (queue
+    /// item 761, ADR 0086 § 1): the words and the offset, nothing else.
+    ///
+    /// # Errors
+    ///
+    /// When the offset is not one a person can ask, or the words make no
+    /// address.
+    pub fn page_request(
+        &self,
+        words: &str,
+        offset: usize,
+        identities: &mut Identities,
+    ) -> Result<Request, String> {
+        if !(1..=MOST_PAGES).contains(&offset) {
+            return Err(format!(
+                "a further page at {offset} is not one alo asks; it asks 1 to {MOST_PAGES}"
+            ));
+        }
+        let query = alo_url::form::urlencoded([
+            ("q", words.trim()),
+            ("offset", offset.to_string().as_str()),
+        ]);
+        self.keyed(&self.endpoint, &query, identities)
+    }
+
     /// The request for an image search of `words`, made as the person's,
     /// where images are asked: the words alone, as a web search's.
     ///
@@ -233,7 +258,17 @@ impl Provider {
         identities: &mut Identities,
     ) -> Result<Request, String> {
         let query = alo_url::form::urlencoded([("q", words.trim())]);
-        let url = alo_url::with_query(endpoint, &query)
+        self.keyed(endpoint, &query, identities)
+    }
+
+    /// `endpoint` asked with `query`, with the key.
+    fn keyed(
+        &self,
+        endpoint: &Url,
+        query: &str,
+        identities: &mut Identities,
+    ) -> Result<Request, String> {
+        let url = alo_url::with_query(endpoint, query)
             .map_err(|why| format!("the search could not be addressed: {why}"))?;
         let mut request = Request::get(
             url,
@@ -249,29 +284,67 @@ impl Provider {
     }
 }
 
-/// Ask `provider` for `words` through `pool`: the sites found, or why the
-/// search was not answered, in a sentence a person reads; and where Brave
-/// says each site's mark is, by the site's place (queue item 747).
+/// What a web search's answer came to: the sites found, or why not; where
+/// Brave says each site's mark is, by the site's place (queue item 747);
+/// and whether it offers a further page (queue item 761).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Answered {
+    /// The sites found, or why the search was not answered.
+    pub showing: Showing,
+    /// Where each site's mark is, by its place.
+    pub marks: Vec<Option<Url>>,
+    /// Whether Brave says more are there to ask for.
+    pub more: bool,
+}
+
+impl Answered {
+    /// Not answered, and `why`.
+    fn not(why: String) -> Self {
+        Self {
+            showing: Showing::Unanswered(why),
+            marks: Vec::new(),
+            more: false,
+        }
+    }
+}
+
+/// Ask `provider` for `words` through `pool`: what came of it
+/// ([`Answered`]), a search not answered saying why in a sentence a person
+/// reads.
 pub fn search(
     provider: &Provider,
     pool: &mut Pool,
     identities: &mut Identities,
     words: &str,
-) -> (Showing, Vec<Option<Url>>) {
-    let request = match provider.request(words, identities) {
-        Ok(request) => request,
-        Err(why) => return (Showing::Unanswered(why), Vec::new()),
-    };
-    match pool.fetch(&request) {
+) -> Answered {
+    match provider.request(words, identities) {
+        Ok(request) => asked(provider, pool, &request),
+        Err(why) => Answered::not(why),
+    }
+}
+
+/// Ask `provider` for the further page at `offset` of `words` through
+/// `pool` (queue item 761): a paid request, made only for a person's press
+/// on *Show more sites*. What came of it, as a first page's.
+pub fn page(
+    provider: &Provider,
+    pool: &mut Pool,
+    identities: &mut Identities,
+    words: &str,
+    offset: usize,
+) -> Answered {
+    match provider.page_request(words, offset, identities) {
+        Ok(request) => asked(provider, pool, &request),
+        Err(why) => Answered::not(why),
+    }
+}
+
+/// What `request`, a web search of `provider`'s, came to through `pool`.
+fn asked(provider: &Provider, pool: &mut Pool, request: &Request) -> Answered {
+    match pool.fetch(request) {
         Ok(response) if response.status.0 == 200 => answered_with_marks(&response.body),
-        Ok(response) => (
-            Showing::Unanswered(unanswered(response.status.0, provider.key.held())),
-            Vec::new(),
-        ),
-        Err(why) => (
-            Showing::Unanswered(format!("{PROVIDER} could not be reached: {why}")),
-            Vec::new(),
-        ),
+        Ok(response) => Answered::not(unanswered(response.status.0, provider.key.held())),
+        Err(why) => Answered::not(format!("{PROVIDER} could not be reached: {why}")),
     }
 }
 
@@ -320,8 +393,8 @@ pub fn videos(
 }
 
 /// Ask `provider` for news of `words` through `pool`: the stories found,
-/// with where Brave says each story's site's mark is by the story's place,
-/// or why they were not, in a sentence a person reads.
+/// each with where Brave says its photo and its site's mark are, or why
+/// they were not, in a sentence a person reads.
 ///
 /// # Errors
 ///
@@ -332,10 +405,10 @@ pub fn news(
     pool: &mut Pool,
     identities: &mut Identities,
     words: &str,
-) -> Result<(Vec<Story>, Vec<Option<Url>>), String> {
+) -> Result<Vec<StoryFound>, String> {
     let request = provider.news_request(words, identities)?;
     answer_of(pool, &request, provider.key.held(), |body| {
-        search_protocol::read_news(body).map(|read| (read.found, read.marks))
+        search_protocol::read_news(body).map(|read| read.found)
     })
 }
 
@@ -366,18 +439,19 @@ fn site(written: &str) -> Result<Url, String> {
 
 /// What an answer of 200 with `body` comes to.
 pub fn answered(body: &[u8]) -> Showing {
-    answered_with_marks(body).0
+    answered_with_marks(body).showing
 }
 
-/// What an answer of 200 with `body` comes to, and where Brave says each
-/// site's mark is, by the site's place (queue item 747).
-pub fn answered_with_marks(body: &[u8]) -> (Showing, Vec<Option<Url>>) {
+/// What an answer of 200 with `body` comes to, with where Brave says each
+/// site's mark is (queue item 747) and whether it offers more (761).
+pub fn answered_with_marks(body: &[u8]) -> Answered {
     match search_protocol::read(body) {
-        Ok(read) => (Showing::Found(read.found), read.marks),
-        Err(why) => (
-            Showing::Unanswered(format!("{PROVIDER}'s answer could not be read: {why}")),
-            Vec::new(),
-        ),
+        Ok(read) => Answered {
+            showing: Showing::Found(read.found),
+            marks: read.marks,
+            more: read.more,
+        },
+        Err(why) => Answered::not(format!("{PROVIDER}'s answer could not be read: {why}")),
     }
 }
 
@@ -457,6 +531,54 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn a_further_page_is_asked_with_the_words_and_its_offset_alone() {
+        let brave = Provider::brave(key()).unwrap();
+        let mut identities = Identities::default();
+        let first = brave
+            .page_request(" ev charger ", 1, &mut identities)
+            .unwrap();
+        assert_eq!(
+            first.url.to_string(),
+            "https://api.search.brave.com/res/v1/web/search?q=ev+charger&offset=1"
+        );
+        let last = brave
+            .page_request("ev & more", MOST_PAGES, &mut identities)
+            .unwrap();
+        assert_eq!(
+            last.url.to_string(),
+            "https://api.search.brave.com/res/v1/web/search?q=ev+%26+more&offset=9"
+        );
+        let headers: Vec<(String, String)> = last
+            .headers
+            .iter()
+            .map(|header| (header.name.clone(), header.value.clone()))
+            .collect();
+        assert_eq!(
+            headers,
+            vec![
+                ("Accept".to_owned(), "application/json".to_owned()),
+                (
+                    "X-Subscription-Token".to_owned(),
+                    "test-key-not-real".to_owned()
+                ),
+            ]
+        );
+        for never in [0, MOST_PAGES + 1] {
+            assert!(
+                brave.page_request("ev", never, &mut identities).is_err(),
+                "offset {never}"
+            );
+        }
+        // Brave's word for more, read from a first page's answer.
+        let offered = answered_with_marks(
+            br#"{"type":"search","query":{"more_results_available":true},
+                 "web":{"type":"search","results":[{"title":"A","url":"https://a.example/"}]}}"#,
+        );
+        assert!(offered.more);
+        assert!(!answered_with_marks(br#"{"type":"search"}"#).more);
     }
 
     #[test]

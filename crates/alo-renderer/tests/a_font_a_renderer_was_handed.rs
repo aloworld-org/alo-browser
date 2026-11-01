@@ -351,6 +351,7 @@ fn a_face_is_weighed_by_the_font_and_never_by_its_filename() {
         families: vec!["DejaVu Sans".to_owned()],
         weight,
         slant: Slant::Normal,
+        ..alo_text::FontRequest::default()
     };
     let bold = alo_text::measure_unwrapped("Invoices", &database, &asking(Weight::BOLD), 16.0);
     let normal = alo_text::measure_unwrapped("Invoices", &database, &asking(Weight::NORMAL), 16.0);

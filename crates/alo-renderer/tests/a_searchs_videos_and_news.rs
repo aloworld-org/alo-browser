@@ -292,7 +292,8 @@ fn three() -> Vec<Video> {
     ]
 }
 
-/// Three stories, each its site, age and headline, two said of.
+/// Three stories, each its site, age and headline, two said of; the first
+/// a 16:9 photo, the second a 4:3 photo, the third none (queue item 765).
 fn stories() -> Vec<Story> {
     vec![
         Story::new(
@@ -300,13 +301,15 @@ fn stories() -> Vec<Story> {
             url("https://news0.example/a"),
         )
         .from_site("Consumer energy report", "2 days ago")
-        .said_of("Waiting times for a survey are getting shorter in many areas."),
+        .said_of("Waiting times for a survey are getting shorter in many areas.")
+        .holding(flat(480, 270, (0x2f, 0x6b, 0x5e))),
         Story::new(
             "What to ask before you book a charger installation",
             url("https://news1.example/b"),
         )
         .from_site("Daily Driver", "1 week ago")
-        .said_of("Five questions about cables and fuse boxes to settle first."),
+        .said_of("Five questions about cables and fuse boxes to settle first.")
+        .holding(flat(480, 360, (0x8a, 0x5a, 0x3e))),
         Story::new(
             "New shared chargers planned for blocks of flats",
             url("https://news2.example/c"),
@@ -341,6 +344,8 @@ fn laid_out(start: Start) -> Renderer {
 /// The paper, and a video tile's own colour where no picture is drawn.
 const PAPER: [u8; 4] = [0xf4, 0xf1, 0xec, 0xff];
 const TILE: [u8; 4] = [0x2a, 0x34, 0x46, 0xff];
+/// A story's photo's tile where no photo is drawn (queue item 765).
+const PHOTO_TILE: [u8; 4] = [0xe9, 0xe3, 0xd8, 0xff];
 
 #[test]
 fn the_videos_tab_is_a_list_of_pictures_lengths_and_titles() {
@@ -437,27 +442,52 @@ fn the_videos_tab_is_drawn_as_the_reference() {
 }
 
 #[test]
-fn the_news_tab_is_a_list_of_sites_ages_and_headlines() {
+fn the_news_tab_is_a_list_of_sites_ages_headlines_and_photos() {
     let renderer = laid_out(with(results(Tab::News)));
     let at = |class: &str| boxes_of(&renderer, class);
     assert_eq!(at("rt on"), vec![px(428.781_25, 102.0, 63.953_125, 42.0)]);
     // Each story 16 above and below — the first 4 above — over a line of
-    // 1: 4 + 18 + 4 + 24 + 4 + 22 + 16 + 1 = 93 for the first, 105 for the
-    // second, and 83 for the third, which has nothing said of it.
-    assert_eq!(at("news"), vec![px(80.0, 164.0, 880.0, 281.0)]);
+    // 1, and as tall as its photo's tile, 88, which is taller than what is
+    // told of it (18 + 4 + 24 + 4 + 22 = 72, or 50 with nothing said):
+    // 4 + 88 + 16 + 1 = 109 for the first, 16 + 88 + 16 + 1 = 121 for the
+    // others (queue item 765).
+    assert_eq!(at("news"), vec![px(80.0, 164.0, 880.0, 351.0)]);
     assert_eq!(
         at("n"),
         vec![
-            px(80.0, 164.0, 880.0, 93.0),
-            px(80.0, 257.0, 880.0, 105.0),
-            px(80.0, 362.0, 880.0, 83.0),
+            px(80.0, 164.0, 880.0, 109.0),
+            px(80.0, 273.0, 880.0, 121.0),
+            px(80.0, 394.0, 880.0, 121.0),
         ]
     );
+    let tops = [168.0, 289.0, 410.0];
+    // What is told of it fills the row but for the tile and the 20 before
+    // it: 880 − 132 − 20 = 728.
+    assert_eq!(
+        at("nb"),
+        tops.map(|top| px(80.0, top, 728.0, 88.0)).to_vec()
+    );
+    assert_eq!(
+        at("th"),
+        tops.map(|top| px(828.0, top, 132.0, 88.0)).to_vec(),
+        "each tile 132 × 88 at the row's right, a photo or not"
+    );
+    // A photo the tile's width at its own proportions, centred up and
+    // down: 16:9 is 74.25 tall, 6.875 below the tile's top; 4:3 is 99,
+    // 5.5 above and below.
+    assert_eq!(
+        at("thimg"),
+        vec![
+            px(828.0, 174.875, 132.0, 74.25),
+            px(828.0, 283.5, 132.0, 99.0)
+        ]
+    );
+    // The third has no photo: its site's letter, centred on the tile.
+    let letter = at("thl");
+    assert_eq!(letter.len(), 1);
     assert_eq!(
         at("src"),
-        [168.0, 273.0, 378.0]
-            .map(|top| px(80.0, top, 880.0, 18.0))
-            .to_vec()
+        tops.map(|top| px(80.0, top, 728.0, 18.0)).to_vec()
     );
     // The site's name 8 after its mark, and its age 8 after the name.
     assert_eq!(
@@ -471,21 +501,28 @@ fn the_news_tab_is_a_list_of_sites_ages_and_headlines() {
     assert_eq!(at("age").len(), 2, "the third has no age");
     assert_eq!(
         at("nt"),
-        [190.0, 295.0, 400.0]
-            .map(|top| px(80.0, top, 880.0, 24.0))
-            .to_vec()
+        tops.map(|top| px(80.0, top + 22.0, 728.0, 24.0)).to_vec()
     );
     assert_eq!(
         at("vd"),
-        vec![px(80.0, 218.0, 740.0, 22.0), px(80.0, 323.0, 740.0, 22.0)]
+        vec![px(80.0, 218.0, 728.0, 22.0), px(80.0, 339.0, 728.0, 22.0)]
     );
-    assert!(at("vpic").is_empty(), "no photo beside a story (765)");
+    assert!(at("vpic").is_empty(), "no video's tile on News");
     let drawn = draw(with(results(Tab::News)));
     let frame = drawn.frame.as_ref();
     if let Some(frame) = frame {
         // The line under the first story, #e6e0d6, across the column.
-        assert_eq!(pixel(frame, 500, 256), Some([0xe6, 0xe0, 0xd6, 0xff]));
-        assert_eq!(pixel(frame, 500, 255), Some(PAPER));
+        assert_eq!(pixel(frame, 500, 272), Some([0xe6, 0xe0, 0xd6, 0xff]));
+        assert_eq!(pixel(frame, 500, 271), Some(PAPER));
+        // The first photo, its colour and its white band, and the tile's
+        // own colour in the 6.875 above it.
+        assert_eq!(pixel(frame, 850, 190), Some([0x2f, 0x6b, 0x5e, 0xff]));
+        assert_eq!(pixel(frame, 850, 211), Some([0xff, 0xff, 0xff, 0xff]));
+        assert_eq!(pixel(frame, 850, 170), Some(PHOTO_TILE));
+        // The third tile is its colour where its letter is not.
+        assert_eq!(pixel(frame, 840, 420), Some(PHOTO_TILE));
+        // Rounded 10: the tile's very corner is the paper.
+        assert_eq!(pixel(frame, 828, 410), Some(PAPER));
     }
     assert_eq!(holds("news-tab.png", frame), Ok(()));
 }
@@ -652,17 +689,22 @@ fn a_press_on_a_title_is_claimed_by_its_place_and_on_a_picture_nothing() {
             with(results(Tab::News)),
             &[
                 (200.0, 202.0),
-                (200.0, 307.0),
-                (200.0, 412.0),
-                (200.0, 177.0)
+                (200.0, 323.0),
+                (200.0, 444.0),
+                (200.0, 177.0),
+                (900.0, 200.0),
+                (900.0, 450.0)
             ]
         ),
         vec![
             claimed(Claim::Found { at: 0 }),
             claimed(Claim::Found { at: 1 }),
             claimed(Claim::Found { at: 2 }),
+            nothing.clone(),
+            nothing.clone(),
             nothing,
-        ]
+        ],
+        "three headlines; a site, a photo and a letter's tile claim nothing"
     );
 }
 

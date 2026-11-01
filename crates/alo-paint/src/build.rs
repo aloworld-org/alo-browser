@@ -14,10 +14,21 @@
 //!
 //! Shadows, then backgrounds and borders, then content; parents before
 //! children; positioned boxes after everything in the flow, ordered by
-//! `z-index` and, where two agree, by which came first. That is the small,
-//! honest part of CSS's stacking model: enough for an interface, and short of
-//! the full painting order, which `docs/features.md` reaches for with
-//! transforms and opacity.
+//! `z-index` and, where two agree, in tree order — a positioned box before
+//! the positioned boxes it holds (queue item 763). That is the small, honest
+//! part of CSS's stacking model: enough for an interface, and short of the
+//! full painting order, which `docs/features.md` reaches for with transforms
+//! and opacity.
+//!
+//! # A clip and the positioned boxes inside it
+//!
+//! A positioned box is painted with the stacking context it belongs to,
+//! which may be past a box that clips (`overflow` not `visible`) and is no
+//! stacking context. It is still clipped by that box when its containing
+//! block chain passes through it — CSS Overflow 3 § 3: a relatively
+//! positioned box always, an absolutely positioned one when a positioned box
+//! at or inside the clipping box holds it, a fixed one never — so its layer
+//! carries that clip with it (queue item 753).
 
 use crate::background::{self, Backdrop};
 use crate::banded;
@@ -37,7 +48,7 @@ use crate::toggle;
 use alo_box::{BoxId, BoxKind, BoxTree};
 use alo_layout::{LayoutTree, Rect};
 use alo_style::StyleTree;
-use alo_text::{FontDatabase, FontRequest, Slant, Weight};
+use alo_text::{FontDatabase, FontRequest, OpticalSizing, Slant, Weight};
 use alo_value::{DrawnShadow, Rgba};
 
 /// How one box's text is set, read once for all of its pieces.
@@ -307,7 +318,13 @@ struct Builder<'a> {
 /// One positioned box's subtree, waiting for a stacking context to place it.
 struct Layer {
     z: i32,
+    /// Where it comes in the tree, counted as each positioned box is
+    /// reached on the way down: an ancestor before what it holds (queue
+    /// item 763).
     order: usize,
+    /// The positioned box it is, whose containing block decides which
+    /// clips it passes through (queue item 753).
+    root: BoxId,
     items: Vec<DisplayItem>,
 }
 
@@ -354,17 +371,22 @@ impl Builder<'_> {
         let mut flow = Vec::new();
         let mut escaped: Vec<Layer> = Vec::new();
         for child in children {
+            // Numbered before what it holds is painted, so that a positioned
+            // box is stacked under the positioned boxes inside it — tree
+            // order, as CSS paints layers of one `z-index` (queue item 763).
+            let layer = self.layer_of(child).map(|z| {
+                let order = self.next_order;
+                self.next_order += 1;
+                (z, order)
+            });
             let painted = self.paint(child);
-            match self.layer_of(child) {
-                Some(z) => {
-                    let order = self.next_order;
-                    self.next_order += 1;
-                    escaped.push(Layer {
-                        z,
-                        order,
-                        items: painted.items,
-                    });
-                }
+            match layer {
+                Some((z, order)) => escaped.push(Layer {
+                    z,
+                    order,
+                    root: child,
+                    items: painted.items,
+                }),
                 None => flow.extend(painted.items),
             }
             escaped.extend(painted.escaped);
@@ -393,6 +415,24 @@ impl Builder<'_> {
             escaped = Vec::new();
         } else {
             items.extend(flow);
+            // A clip that is no stacking context still clips the layers
+            // passing up through it whose containing block is inside it
+            // (CSS Overflow 3 § 3, queue item 753): each is wrapped in it
+            // here, and painted where its stacking context puts it.
+            if let Some(path) = &clip {
+                for layer in &mut escaped {
+                    if self.clipped_by(layer.root, id) {
+                        layer.items.insert(
+                            0,
+                            DisplayItem::PushClip {
+                                box_id: id,
+                                path: path.clone(),
+                            },
+                        );
+                        layer.items.push(DisplayItem::PopClip);
+                    }
+                }
+            }
         }
         if clip.is_some() {
             items.push(DisplayItem::PopClip);
@@ -434,6 +474,35 @@ impl Builder<'_> {
             return false;
         };
         self.is_positioned(id) && style.number("z-index").is_some()
+    }
+
+    /// Whether the positioned box `root` is clipped by the `overflow` of
+    /// its ancestor `clipping` (CSS Overflow 3 § 3, queue item 753): when its
+    /// containing block chain passes through it. A relatively or stickily
+    /// positioned box's always does; an absolutely positioned one's when a
+    /// positioned box — `clipping` itself, or one inside it — holds it; a
+    /// fixed one's never, its containing block being the viewport.
+    fn clipped_by(&self, root: BoxId, clipping: BoxId) -> bool {
+        let position = self
+            .style_of(root)
+            .and_then(|style| style.get("position"))
+            .map(str::to_ascii_lowercase);
+        match position.as_deref() {
+            Some("absolute") => {}
+            Some("fixed") => return false,
+            _ => return true,
+        }
+        let mut next = self.boxes.get(root).and_then(|node| node.parent);
+        while let Some(ancestor) = next {
+            if self.is_positioned(ancestor) {
+                return true;
+            }
+            if ancestor == clipping {
+                return false;
+            }
+            next = self.boxes.get(ancestor).and_then(|node| node.parent);
+        }
+        false
     }
 
     /// Whether a box is taken out of the flow's paint order.
@@ -1523,6 +1592,11 @@ impl Builder<'_> {
                 Some(value) if value.eq_ignore_ascii_case("oblique") => Slant::Italic,
                 _ => Slant::Normal,
             },
+            // Drawn at the optical size it was measured at (queue item 752).
+            optical_sizing: style
+                .get("font-optical-sizing")
+                .map(OpticalSizing::parse)
+                .unwrap_or_default(),
         }
     }
 

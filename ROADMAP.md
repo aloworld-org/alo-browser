@@ -2483,20 +2483,26 @@ items where being right and being unusable are the same outcome.
       opened (716), a field's value kept to one line by
       the engine itself (715),
       a page inside the conversation (702), the agent's words and steps as
-      turns, with the agent at work (704), a positioned box clipped by an
-      `overflow` box (753), scrolling from the keyboard (754), a sign of more
+      turns, with the agent at work (704), scrolling from the keyboard (754), a sign of more
       above (755), a wheel's lines smoothed (756), chats kept across
       launches (757), a chat named by its words (758), what the agent may
-      do (705), Newsreader's
-      optical size (752),
-      the answer and All's short answer (707, blocked: a model), the Sites
-      tab's further pages (761), a response's body bounded per request
-      (762), a press on a relatively positioned box in the conversation
-      (763), a news story's photo (765), `COLR` version 1 and `SVG` colour
-      glyphs (785), an emoji's shadow (786), CJK in the interface (767), a rounded picture at fractions of a pixel (783),
+      do (705),
+      the answer and All's short answer (707, blocked: a model), a response's
+      body bounded per request (762), `COLR` version 1 and `SVG` colour
+      glyphs (785), an emoji's shadow (786), a rounded picture at fractions of a pixel (783),
+      a varied glyph's advance to its fraction (795), a kerning pair's
+      variation along an axis (796), kerning across a space on a line
+      measured word by word (797),
       an SVG's drawing rounded (784), the AI provider's carried key (773, after ADR 0081), the panel
       shown over the conversation in a narrow window (776). Built
-      since: the key in release (748, ADR 0091) — carried inside the
+      since: a news story's photo (765, ADR 0087 § 3); the Sites tab's
+      *Show more sites*, a paid page a press, one at a time (761, ADR 0086
+      § 1); Newsreader at its optical size, `font-optical-sizing` read (752);
+      Chinese, Japanese and Korean in the interface, a face read out of a
+      collection and `LastResort` asked last (767, ADR 0088 § 5); a
+      positioned box clipped by an `overflow` box that is no stacking
+      context, and positioned boxes painted and found in tree order (753,
+      763); the key in release (748, ADR 0091) — carried inside the
       application, put in by `alo-bundle --keys-from keychain` from outside
       the repository, sealed, and read by the browser process alone; the
       conversation in a narrow window (774) — the column the room less 32

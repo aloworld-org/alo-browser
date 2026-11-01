@@ -64,7 +64,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **An inline box's own border and padding**: horizontal ones take room on the line, vertical ones draw without changing its height, and a box that wraps is one rectangle per line with its start border on the first piece and its end border on the last
 - [1] An *empty* piece of such a break keeps its border, and costs no line when it has none — CSS's zero-height line box
 - [1] **Flexbox and grid**, on `taffy` behind our own boundary. One file may name it. **An `auto-fill` or `auto-fit` repetition whose track size is a calculation** (queue item 422, ADR 0047), such as alo Sites' blog grid's `minmax(min(100%, 18rem), 1fr)`, which `taffy` throws away whole: where the grid's size in that axis is definite the calculation is resolved against its content box and handed to `taffy` as the length it comes to, so the blog cards are two columns of 368 as in Chrome (`alo-layout`'s `auto_repeat.rs`, deleted the day `taffy` counts a calculation). Not yet: a grid sized by its content is measured with its template discarded and said once per grid and axis (424), and an auto repetition of a track that is not fixed, such as `repeat(auto-fit, 1fr)`, is accepted when CSS makes it invalid (425). Opened by `alo-sites-blog-index`
-- [1] Absolute and relative positioning, `z-index`, stacking
+- [1] Absolute and relative positioning, `z-index`, stacking — positioned boxes of one `z-index` in tree order (queue item 763), and each clipped by the `overflow` boxes its containing block chain passes through, stacking context or not (queue item 753, CSS Overflow 3 § 3)
 - [1] **An absolutely positioned box is blockified** (CSS Display § 2.7): an inline with `position: absolute` is block-level, sits in no line and is placed at its offsets, shrunk to what it holds, as alo Sites' skip link is at `left: -999rem` (queue item 352). **Written in a line, it stays in the line and takes no room** (queue item 354): it does not break the inline box it is in, the line goes on as if it were not there, and each axis whose insets are both `auto` puts it where the line would have — the pen, moved with the line by `text-align`, and the line's top (CSS 2 § 10.3.7) — its margin going from there; an inset places that axis against its containing block. alo Sites' blog cards' `Read article<span class="sr-only">` is one link on one line with the `<span>` at its end, as in Chrome. Opened by `alo-sites-blog-index`. Not yet (423): a containing block inside the lines — the block holding them, or an inline box — is no box the engine places against; the box is placed against the page instead, and that is recorded
 - [1] **An absolute box is placed against its containing block** (CSS 2 § 10.1, queue item 355): the padding box of its nearest ancestor that is positioned or transformed, or with none the initial containing block — the viewport's size at the top of the page, whatever its parent's margins did. An axis with both insets `auto` keeps the box where it would have been in its parent, and what is placed against the page counts in the page's scrolling area. Opened by alo Sites' footer, whose skip link sat 48 down with `body`. Not yet (399): the static position in a flex or grid container further in counts the box as empty, and is recorded; a box in an atomic inline box with nothing positioned between is placed against that box, and is recorded; and `filter`, `perspective`, `will-change`, `contain` and `container-type`, none of them read, make no containing block
 - [1] Overflow and scrolling regions
@@ -97,6 +97,8 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] `text-transform` (queue item 441, built in iteration 283, ADR 0049): `uppercase` and `lowercase` applied when a text box is built, after white space is collapsed, so layout, paint and the agent read one text; Unicode's full case mapping, language-sensitive by the nearest `lang` (Turkish, Azeri, Lithuanian and Greek tailored), rented from ICU4X's `icu_casemap` behind `alo-box`'s `case.rs`. A field's text, its hint (by its `::placeholder` style), a broken picture's `alt` and a marker (by its `::marker` style, which the user-agent sheet makes `none`) are cased too. An agent reads drawn text and names from content and `<label>`s as drawn, and attributes and a field's value as written, as Chrome's accessibility tree does. Waiting: a name from `aria-labelledby` as drawn (446), `capitalize` (444), `full-width`, `full-size-kana` and `math-auto` (445), drawn as written and recorded until then
 - [1] **`text-overflow: ellipsis`** (queue item 442, built in iteration 284): a line wider than a block container whose used `overflow` is not `visible` ends in "…" inside its content box — whole clusters and whole atomic boxes hidden from the end, a space before the cut kept, the first thing on a line kept however narrow the box, the "…" straight after what is left in the block's font, colour and shadow on the line's baseline, an underline under what was kept and not under the "…" (`alo-layout`'s `ellipsis.rs`, rules measured in Chrome 154). Only what is drawn changes: every box and line keeps its numbers, and an agent reads the whole text. Only lines that overflow are ended, a wrapped box's too. A string and two values are refused and recorded, as Chrome refuses them. The root, and a body whose `overflow` the viewport takes, are `visible` in use: a body of `overflow: hidden` under a root of `visible` ends no line and stands, as an `inline-block`, on its last line, as Chrome 156 does (664). Corpus cases `alo-agenda-calendars`, `text-overflow-ellipsis` and the two `a-body-whose-overflow-the-viewport-takes-…`. Not yet: an atomic box in a `nowrap` line wraps rather than staying to be hidden (447), and a "…" after a space that is a text box of its own stands before the space (448); right to left waits for bidirectional text
 - [2] **A variable font is one file and many weights**: the `wght` axis read as the range it covers rather than the one instance `OS/2` names, so one file answers a request for 400 and one for 700 — and is shaped, measured and outlined at the weight it was set to
+- [2] **Chinese, Japanese and Korean in the interface** (queue item 767, ADR 0088 § 5): one face read out of a `.ttc` collection by the browser process, its tables copied into a font of its own (`alo-renderer`'s `font_collection.rs`, bounded); the interface's renderers handed this Mac's Hiragino Sans, Hiragino Sans GB and Apple SD Gothic Neo after every other face; a last resort — a face whose maps are all `cmap` format 13, as `LastResort`'s are — asked after every face in any renderer. A CJK title drawn in a CJK face read out of a collection made in the test, not the last resort's box (`alo-renderer/tests/cjk_in_the_interface.rs`, reference `cjk-in-the-interface.png`). Pages are handed no CJK face yet
+- [2] **A variable font's optical size follows the text's size** (queue item 752): a face with an `opsz` axis is measured, shaped and outlined at the CSS pixels its run is set at, clamped to the axis, and `font-optical-sizing: none` leaves it at its default — Newsreader's advances at `opsz` 40 Chrome 156's to half a font unit, its runs Chrome's to the layout unit with `none` and with `auto` but for kerning pairs that vary (`alo-renderer/tests/a_typeface_at_its_optical_size.rs`, reference `a-typeface-at-its-optical-size.png`). Owed: a varied advance's fraction (795), a kerning pair's variation (796), kerning across a space (797)
 - [2] Web fonts as pages actually ship them: WOFF2, the rest of a variable font's axes, and loading that does not flash
 - [2] **Input methods.** A browser that cannot take Japanese or Chinese input is not a browser in those countries
 - [2] `contenteditable`, which every rich text box on the web is built on
@@ -989,9 +991,19 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`alo-renderer/tests/a_searchs_images_and_sites.rs`), a fetch bounded
   against a local proxy (`alo-window/tests/a_searchs_thumbnails_fetched_and_bounded.rs`)
   and through the window's own road
-  (`alo-window/tests/images_and_sites_pressed_in_the_window.rs`). Owed: the
-  Sites tab's further pages (761); the canvas's *Photos* and *Diagrams*
-  filters are not drawn, since Brave does not say which an image is.
+  (`alo-window/tests/images_and_sites_pressed_in_the_window.rs`).
+  **The Sites tab's further pages** (761, ADR 0086 § 1): *Show more sites*
+  under the sites when Brave's answer says `query.more_results_available`;
+  each press — only a person's — asks the web search again at the next
+  `offset` (1 to 9, a paid request each), one at a time (disabled while
+  asked), appends what comes with each site's mark, and offers more only
+  if Brave says so; a page not answered says why and can be pressed for
+  again. In layout assertions and the reference `sites-tab-show-more.png`
+  (`alo-renderer/tests/a_searchs_images_and_sites.rs`), the wire, and
+  through the window's own road against a local server
+  (`alo-window/tests/more_sites_pressed_in_the_window.rs`). Owed: the
+  canvas's *Photos* and *Diagrams* filters are not drawn, since Brave does
+  not say which an image is.
   **The Videos and News tabs** (745, 746, ADR 0087): opened once a search
   found sites, and each asked of Brave — the same words alone, a paid
   request — only when a person opens the tab, once for a turn, whatever
@@ -1008,7 +1020,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`messages_across_a_boundary.rs`), and through the window's own road
   against a local server — each tab asking once, a second opening asking
   nothing (`alo-window/tests/videos_and_news_pressed_in_the_window.rs`).
-  Owed: a news story's photo (765).
+  **A news story's photo** (765, ADR 0087 § 3): Brave's `thumbnail.src`
+  for each story, fetched from its image proxy alone as a video's thumbnail
+  is (at most twenty, each at most 256 KiB, only bytes that begin as a
+  picture, no key, cookie or `Referer`), never written to a chat's file,
+  counted in the first screen's 2 MiB after the marks, and drawn 20 beside
+  the story's text in the canvas's tile — 132 × 88, rounded 10, on
+  `#E9E3D8`, the photo its width and centred; with no photo kept the tile
+  holds the site's letter, with no letter it is its colour alone.
   **Each site's own mark** (747, ADR 0088): Brave names each web result's,
   video's and story's icon at its own image proxy (`meta_url.favicon`); the
   browser process fetches it from that proxy alone — never the site, no

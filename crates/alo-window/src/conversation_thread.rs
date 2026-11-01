@@ -30,7 +30,7 @@ use crate::conversation_glide::Glide;
 use alo_layout::Size;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_scroll::{self, Bar, Reach};
-use alo_renderer::results::{self, Images, Results, Stories, Tab, Videos};
+use alo_renderer::results::{self, Images, Next, Page, Results, Stories, Tab, Videos};
 use alo_renderer::turn::Turn;
 use alo_url::Url;
 use std::time::Instant;
@@ -107,9 +107,16 @@ impl Thread {
     }
 
     /// What came of the search for `words`: its sites, shown in the newest
-    /// turn still searching for them, and where the search for its images
-    /// starts (queue item 743). Whether one was.
-    pub fn searched(&mut self, words: &str, showing: results::Showing, images: Images) -> bool {
+    /// turn still searching for them, where the search for its images
+    /// starts (queue item 743), and whether the provider offers `more`
+    /// further pages (761). Whether one was.
+    pub fn searched(
+        &mut self,
+        words: &str,
+        showing: results::Showing,
+        images: Images,
+        more: bool,
+    ) -> bool {
         let waiting = self.turns.iter_mut().rev().find_map(|turn| match turn {
             Turn::Searched(results)
                 if results.said == words
@@ -123,6 +130,7 @@ impl Thread {
             Some(results) => {
                 results.showing = showing;
                 results.images = images;
+                results.pages.next = if more { Next::Offered } else { Next::None };
                 true
             }
             None => false,
@@ -210,6 +218,36 @@ impl Thread {
             _ => return None,
         }
         Some(results.said.clone())
+    }
+
+    /// The words and the `offset` to ask for the next further page of the
+    /// sites of the search in the turn at `turn` (queue item 761), when its
+    /// *Show more sites* can be pressed — which it then cannot, until what
+    /// is asked comes: one at a time, at most nine.
+    pub fn ask_page(&mut self, turn: usize) -> Option<(String, usize)> {
+        let Some(Turn::Searched(results)) = self.turns.get_mut(turn) else {
+            return None;
+        };
+        let offset = results.ask_more()?;
+        Some((results.said.clone(), offset))
+    }
+
+    /// What came of asking for a further page of the sites of the search in
+    /// the turn at `turn`: appended, if it is still asking. Whether it was.
+    pub fn page_came(&mut self, turn: usize, page: Page) -> bool {
+        match self.turns.get_mut(turn) {
+            Some(Turn::Searched(results)) => results.more_came(page),
+            _ => false,
+        }
+    }
+
+    /// The place of every turn drawing a *Show more sites* that can be
+    /// pressed, in order (queue item 761).
+    pub fn show_more(&self) -> Vec<usize> {
+        self.searches()
+            .filter(|(_, results)| results.can_show_more())
+            .map(|(turn, _)| turn)
+            .collect()
     }
 
     /// What came of asking for the videos of the search in the turn at
@@ -506,7 +544,7 @@ mod tests {
         let sites: Vec<Found> = (0..5)
             .map(|n| Found::new(format!("S{n}"), url(&format!("https://s{n}.example/")), ""))
             .collect();
-        assert!(thread.searched("ev", Showing::Found(sites), Images::Asking));
+        assert!(thread.searched("ev", Showing::Found(sites), Images::Asking, false));
         assert_eq!(
             thread.tabs(),
             vec![
@@ -550,7 +588,12 @@ mod tests {
         assert!(thread.show_tab(0, Tab::All));
         // A search not answered opens no other tab.
         thread.search("x".to_owned());
-        assert!(thread.searched("x", Showing::Unanswered("no".to_owned()), Images::NotAsked));
+        assert!(thread.searched(
+            "x",
+            Showing::Unanswered("no".to_owned()),
+            Images::NotAsked,
+            false
+        ));
         assert!(!thread.show_tab(2, Tab::Sites) && !thread.show_tab(2, Tab::Images));
     }
 
@@ -567,7 +610,7 @@ mod tests {
         thread.search("ev".to_owned());
         assert_eq!(thread.ask_for(0, Tab::Videos), None, "no sites yet");
         let sites = vec![Found::new("S", url("https://s.example/"), "")];
-        assert!(thread.searched("ev", Showing::Found(sites), Images::NotAsked));
+        assert!(thread.searched("ev", Showing::Found(sites), Images::NotAsked, false));
         assert!(
             !thread.videos_came(0, Videos::Found(Vec::new())),
             "never asked"
@@ -619,10 +662,16 @@ mod tests {
         assert!(thread.searched(
             "ev chargers",
             Showing::Found(vec![Found::new("Chargers", url("https://a.example/"), "")]),
-            Images::NotAsked
+            Images::NotAsked,
+            false
         ));
         assert!(
-            !thread.searched("ev chargers", Showing::Found(Vec::new()), Images::NotAsked),
+            !thread.searched(
+                "ev chargers",
+                Showing::Found(Vec::new()),
+                Images::NotAsked,
+                false
+            ),
             "answered"
         );
         assert_eq!(

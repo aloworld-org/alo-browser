@@ -121,6 +121,7 @@ fn a_bold_face_is_chosen_when_bold_is_asked_for_and_is_not_the_same_width() {
             families: vec!["DejaVu Sans".to_owned()],
             weight: Weight::BOLD,
             slant: Slant::Normal,
+            ..FontRequest::default()
         },
         16.0,
     );

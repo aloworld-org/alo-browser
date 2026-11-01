@@ -1,6 +1,6 @@
 # ADR 0088 — Emoji are drawn in colour from a face alo carries, and a site's mark comes only from Brave's proxy
 
-**Status:** accepted — built with queue item 747 (31 October 2026)
+**Status:** accepted — built with queue item 747 (31 October 2026); § 5's CJK built by 767 (1 November 2026)
 **Date:** 2026-10-31
 **Context:** ADR 0084 (the interface's typefaces are compiled in and handed
 to its renderers alone; § 4, a character neither has); ADR 0010 (a renderer
@@ -163,6 +163,29 @@ is text in the tree; its picture is paint.
   the interface is still `LastResort`'s box. Queued (767): reading a
   collection's face, and a chain that tries `LastResort` last. A face
   carried for CJK is 16–20 MB a weight and is not proposed.
+  *Since queue item 767 (1 November 2026):* **the browser process reads one
+  face out of a collection** (`alo-renderer`'s `font_collection.rs`): the
+  face's table directory written anew with each table's place in a file of
+  its own, each table copied byte for byte, padded to four — nothing in a
+  table read or changed — reading the file only where the face is, and
+  refusing by name a collection of more than 256 faces, a face of more than
+  128 tables or one larger than `LARGEST_FONT` (16 MiB) before anything
+  that size is made. **The interface's two renderers are handed three, after
+  every other face** (`cjk_faces.rs`, `alo-window`'s `fonts::with_cjk`, only
+  when fonts are the machine's, never under `--frozen-fonts`): Hiragino Sans
+  W3 (Japanese, 7.3 MB of a 7.9 MB file), Hiragino Sans GB W3 (Chinese,
+  11.6 MB of 23.5 MB), Apple SD Gothic Neo Regular (Korean, 3.2 MB of 55.4
+  MB) — 22 MB a renderer, each checked to state the family it is listed
+  under. A page's renderer is handed none of them: its fonts stay the
+  machine's two dozen and what it names. **A last resort is asked last**
+  (`alo-text`'s `Font::is_last_resort`, `FontDatabase::chain`): a face whose
+  character maps are all `cmap` format 13 — the format OpenType defines for
+  mapping whole ranges to one glyph, `LastResort`'s — is tried after every
+  face not asked for by name, in every renderer, pages' too: there it only
+  lets a face that sorted after `LastResort` draw what it has. Which of the
+  three draws a Han character all three have is the first's, Japanese; what
+  Chrome chooses by a person's language is not measured. A title at 600 is
+  drawn in the W3 face, which has no bolder instance handed.
 - **A `COLR` or `SVG` face is drawn as its outlines**, in the text's colour,
   where it has them (Segoe UI Emoji's base glyphs). Queued with `COLR`
   v1 (766). *Since queue item 766 (1 November 2026)* a `COLR` **version

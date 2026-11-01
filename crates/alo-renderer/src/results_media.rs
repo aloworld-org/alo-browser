@@ -18,7 +18,8 @@
 //! ([`crate::results::LARGEST_THUMBNAIL`]), and carried here as the bytes
 //! that arrived — decoded only in the confined renderer that draws it.
 //!
-//! A news story's photo is not fetched (queue item 765).
+//! A news story's photo (queue item 765) is fetched, bounded and carried
+//! the same way, from the same proxy, by the same rules.
 
 use alo_url::Url;
 
@@ -74,6 +75,9 @@ pub struct Story {
     pub age: String,
     /// What the provider says of it, as plain text, perhaps nothing.
     pub description: String,
+    /// Its photo's bytes as they arrived, if one did and was kept (queue
+    /// item 765): decoded only by the renderer that draws it.
+    pub picture: Option<Vec<u8>>,
     /// Its site's own mark, as a site found has one
     /// ([`crate::results::Found::mark`], queue item 747).
     pub mark: Option<Vec<u8>>,
@@ -177,8 +181,16 @@ impl Story {
             site: String::new(),
             age: String::new(),
             description: String::new(),
+            picture: None,
             mark: None,
         }
+    }
+
+    /// The same story, its photo `bytes` (queue item 765).
+    #[must_use]
+    pub fn holding(mut self, bytes: Vec<u8>) -> Self {
+        self.picture = Some(bytes);
+        self
     }
 
     /// The same story, from the site called `site`, `age` old.

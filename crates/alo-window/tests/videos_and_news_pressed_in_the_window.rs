@@ -25,8 +25,10 @@
 //!    the videos are painted, each picture where the renderer's layout
 //!    assertion puts it.
 //! 3. All and Videos again ask nothing more; the News tab asks the news
-//!    search once, and its stories are painted; All and News again ask
-//!    nothing more.
+//!    search once, then the one story's photo at the proxy with none
+//!    (queue item 765), and its stories are painted, the photo where the
+//!    renderer's layout assertion puts it; All and News again ask nothing
+//!    more.
 //! 4. A story's headline pressed opens its page as a new turn, its bubble
 //!    the headline — markup in it still those characters — which, with no
 //!    Chromium, says why.
@@ -118,16 +120,23 @@ fn videos(port: u16) -> String {
     format!(r#"{{"type":"videos","results":[{}]}}"#, each.join(","))
 }
 
+/// The colour of the one story's photo served (queue item 765).
+const PHOTO: (u8, u8, u8) = (0x2f, 0x6b, 0x5e);
+
 /// The news search's answer: two stories, the first's headline holding
-/// markup.
-fn news() -> String {
-    r#"{"type":"news","results":[
-        {"type":"news_result","title":"Chargers <b>&amp;</b> cables, explained",
+/// markup and its photo at the proxy on `port`, the second's photo named
+/// elsewhere.
+fn news(port: u16) -> String {
+    format!(
+        r#"{{"type":"news","results":[
+        {{"type":"news_result","title":"Chargers <b>&amp;</b> cables, explained",
          "url":"https://news0.example/a","description":"One line of it.","age":"2 days ago",
-         "profile":{"name":"Consumer energy report"},"meta_url":{"hostname":"news0.example"}},
-        {"title":"A second story","url":"https://news1.example/b","age":"1 week ago",
-         "description":"One line of it.","meta_url":{"hostname":"news1.example"}}]}"#
-        .to_owned()
+         "profile":{{"name":"Consumer energy report"}},"meta_url":{{"hostname":"news0.example"}},
+         "thumbnail":{{"src":"http://127.0.0.1:{port}/sthumb/0.png","original":"https://news0.example/o.jpg"}}}},
+        {{"title":"A second story","url":"https://news1.example/b","age":"1 week ago",
+         "description":"One line of it.","meta_url":{{"hostname":"news1.example"}},
+         "thumbnail":{{"src":"http://localhost:9/photo.png"}}}}]}}"#
+    )
 }
 
 /// A flat picture 480 × 270 in `colour`, as a PNG.
@@ -164,7 +173,8 @@ fn provide(asked: Sender<String>) -> Result<u16, String> {
                     .strip_prefix("/vthumb/")
                     .and_then(|rest| rest.strip_suffix(".png"))
                     .and_then(|n| n.parse::<usize>().ok())
-                    .and_then(|n| COLOURS.get(n).copied());
+                    .and_then(|n| COLOURS.get(n).copied())
+                    .or_else(|| (target == "/sthumb/0.png").then_some(PHOTO));
                 let json = |body: String| ("200 OK", "application/json", body.into_bytes());
                 let (status, kind, body) = match (target.as_str(), picture) {
                     ("/res/v1/web/search?q=home+ev+charger", _) => json(sites()),
@@ -172,7 +182,7 @@ fn provide(asked: Sender<String>) -> Result<u16, String> {
                         json(r#"{"type":"images","results":[]}"#.to_owned())
                     }
                     ("/res/v1/videos/search?q=home+ev+charger", _) => json(videos(port)),
-                    ("/res/v1/news/search?q=home+ev+charger", _) => json(news()),
+                    ("/res/v1/news/search?q=home+ev+charger", _) => json(news(port)),
                     (_, Some(colour)) => ("200 OK", "image/png", thumbnail(colour)),
                     _ => ("500 Internal Server Error", "text/plain", Vec::new()),
                 };
@@ -464,8 +474,10 @@ fn videos_pressed(driven: &mut Driven, asking: &Receiver<String>) -> Result<(), 
 
 fn news_pressed(driven: &mut Driven, asking: &Receiver<String>) -> Result<(), String> {
     // 3. All and Videos again ask nothing; News asks once — the videos'
-    //    answer is not asked again before it — and paints its stories, the
-    //    line under the first at 256; All and News again ask nothing.
+    //    answer is not asked again before it — then the first story's photo
+    //    from the proxy and none from elsewhere (765), and paints its
+    //    stories, the line under the first at 272 and its photo in its tile
+    //    at (828, 168) 132 × 88; All and News again ask nothing.
     driven.click(tab(ALL));
     driven.until("All shown again", |driven| {
         driven
@@ -483,7 +495,8 @@ fn news_pressed(driven: &mut Driven, asking: &Receiver<String>) -> Result<(), St
         driven
             .results()
             .is_some_and(|results| matches!(results.news, Stories::Found(_)))
-            && driven.painted_at((500, 256), [0xe6, 0xe0, 0xd6, 0xff])
+            && driven.painted_at((500, 272), [0xe6, 0xe0, 0xd6, 0xff])
+            && driven.painted_at((850, 190), painted(PHOTO))
     })?;
     driven.click(tab(ALL));
     driven.until("All shown once more", |driven| {
@@ -496,14 +509,18 @@ fn news_pressed(driven: &mut Driven, asking: &Receiver<String>) -> Result<(), St
         driven
             .results()
             .is_some_and(|results| results.tab == Tab::News)
-            && driven.painted_at((500, 256), [0xe6, 0xe0, 0xd6, 0xff])
+            && driven.painted_at((500, 272), [0xe6, 0xe0, 0xd6, 0xff])
+            && driven.painted_at((850, 190), painted(PHOTO))
     })?;
     // The thread asks in the order tabs were opened, so a second ask for
     // the videos, opened before News, would have come before News's answer.
     assert_eq!(
         lines(asking),
-        vec!["GET /res/v1/news/search?q=home+ev+charger HTTP/1.1"],
-        "News once; Videos and News never again"
+        vec![
+            "GET /res/v1/news/search?q=home+ev+charger HTTP/1.1",
+            "GET /sthumb/0.png HTTP/1.1",
+        ],
+        "News once, then the one photo at the proxy; Videos and News never again"
     );
     let results = driven.results().ok_or("no results")?;
     assert_eq!(
@@ -517,6 +534,15 @@ fn news_pressed(driven: &mut Driven, asking: &Receiver<String>) -> Result<(), St
             ("Consumer energy report", "2 days ago"),
             ("news1.example", "1 week ago")
         ]
+    );
+    assert_eq!(
+        results
+            .news
+            .found()
+            .iter()
+            .map(|story| story.picture.is_some())
+            .collect::<Vec<_>>(),
+        vec![true, false]
     );
     Ok(())
 }

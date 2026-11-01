@@ -549,3 +549,56 @@ fn below_and_beside_every_box_is_the_root_and_outside_the_window_nothing() {
     );
     assert!(wrong.is_empty(), "{wrong:#?}");
 }
+
+/// Queue item 763, reduced from the conversation: a tile `position:
+/// relative` in a row inside turns `position: relative; top: 10px`, inside
+/// a thread `position: relative; overflow: hidden` — with `z-index: 0`, and
+/// without — inside a grid. A positioned box was numbered for painting
+/// after the positioned boxes inside it, so the turns and their row were
+/// painted over the tile, and without the `z-index` the thread over all of
+/// them: a press found the row, or the thread. Measured in Chrome
+/// 156.0.8078.76 (`elementFromPoint`, the grids 400 wide), 1 November 2026.
+#[test]
+fn a_positioned_box_inside_a_positioned_box_is_found_over_it() {
+    let page = page(
+        "<div id=grid style='display:grid;width:400px;height:200px'>\
+         <div id=thread style='position:relative;z-index:0;overflow:hidden'>\
+         <div id=turns style='position:relative;top:10px'>\
+         <div id=row style='display:flex;background:#eee'>\
+         <div id=tile style='position:relative;width:100px;height:50px;background:red'></div>\
+         <div id=other style='width:100px;height:50px'></div></div></div></div></div>\
+         <div id=grid2 style='display:grid;width:400px;height:100px'>\
+         <div id=thread2 style='position:relative;overflow:hidden'>\
+         <div id=turns2 style='position:relative;top:10px'>\
+         <div id=row2 style='display:flex'>\
+         <div id=tile2 style='position:relative;width:100px;height:50px;background:blue'>\
+         </div></div></div></div></div>",
+    );
+    for (id, rect) in [
+        ("tile", (0.0, 10.0, 100.0, 50.0)),
+        ("other", (100.0, 10.0, 100.0, 50.0)),
+        ("row", (0.0, 10.0, 400.0, 50.0)),
+        ("turns", (0.0, 10.0, 400.0, 50.0)),
+        ("thread", (0.0, 0.0, 400.0, 200.0)),
+        ("tile2", (0.0, 210.0, 100.0, 50.0)),
+        ("thread2", (0.0, 200.0, 400.0, 100.0)),
+    ] {
+        assert!(
+            same(&pieces(&page, id), &[rect]),
+            "{id}: {:?}",
+            pieces(&page, id)
+        );
+    }
+    let wrong = found(
+        &page,
+        &[
+            (50.0, 35.0, "tile"),
+            (150.0, 35.0, "other"),
+            (50.0, 5.0, "thread"),
+            (50.0, 235.0, "tile2"),
+            (150.0, 235.0, "row2"),
+            (50.0, 205.0, "thread2"),
+        ],
+    );
+    assert!(wrong.is_empty(), "{wrong:#?}");
+}

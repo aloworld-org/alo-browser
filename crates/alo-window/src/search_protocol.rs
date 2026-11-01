@@ -16,6 +16,7 @@
 //!
 //! ```json
 //! { "type": "search",
+//!   "query": { "more_results_available": true },
 //!   "web": { "type": "search",
 //!            "results": [ { "title": "…", "url": "https://…",
 //!                           "description": "…",
@@ -24,7 +25,9 @@
 //!
 //! Everything else Brave sends is left unread. A document with no `web` is
 //! one with no web results, which Brave leaves out rather than sending
-//! empty.
+//! empty. `query.more_results_available` says whether a further page can
+//! be asked (queue item 761, [`Read::more`]): only `true` is more; missing,
+//! or anything else, is none.
 //!
 //! # What is refused, by name
 //!
@@ -46,7 +49,7 @@
 //! site's icon at
 //! Brave's image proxy, as `meta_url.favicon` (*"the favicon used for the
 //! URL"*, Brave's reference). It is read beside the result, by its place
-//! ([`Read::marks`], [`VideoFound::mark`], [`ReadNews::marks`]): a
+//! ([`Read::marks`], [`VideoFound::mark`], [`StoryFound::mark`]): a
 //! `favicon` missing, not text or not an `http` or `https` address leaves
 //! the site its letter. It is never sent to a renderer; the browser process
 //! fetches it, from the proxy alone ([`crate::search_marks`]).
@@ -101,13 +104,16 @@
 //! { "type": "news",
 //!   "results": [ { "title": "…", "url": "https://…", "description": "…",
 //!                  "age": "2 days ago", "profile": { "name": "…" },
-//!                  "meta_url": { "hostname": "…" } } ] }
+//!                  "meta_url": { "hostname": "…" },
+//!                  "thumbnail": { "src": "https://imgs.search.brave.com/…" } } ] }
 //! ```
 //!
 //! Refused whole by the same names, its `type` `news` ([`Unread::NotNews`]);
 //! a story with no `title` or `url`, or a `url` not a site's, is left out
 //! and named; the site is the `profile`'s `name`, else the `meta_url`'s
-//! `hostname`. A story's `thumbnail` is not read (queue item 765). At most
+//! `hostname`. A story's photo is its `thumbnail`'s `src` (queue item 765),
+//! read as a video's is: missing, not text or not a site's address leaves it
+//! with no photo to fetch, and `thumbnail.original` is never read. At most
 //! [`MOST_STORIES`] are kept.
 
 use crate::json_depth;
@@ -134,6 +140,9 @@ pub struct Read {
     /// Where Brave says each site's mark is, by the site's place in
     /// [`Read::found`], if it named one at a site's address.
     pub marks: Vec<Option<Url>>,
+    /// Whether Brave says a further page of sites is there to ask for
+    /// (`query.more_results_available`, queue item 761): only `true` is.
+    pub more: bool,
     /// The results left out.
     pub left_out: Vec<LeftOut>,
 }
@@ -346,13 +355,24 @@ pub struct VideoFound {
 /// and every one left out, with why (queue item 746).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadNews {
-    /// The stories, at most [`MOST_STORIES`].
-    pub found: Vec<Story>,
-    /// Where Brave says each story's site's mark is, by the story's place
-    /// in [`ReadNews::found`], if it named one at a site's address.
-    pub marks: Vec<Option<Url>>,
+    /// The stories, at most [`MOST_STORIES`], each with where Brave says
+    /// its photo and its site's mark are.
+    pub found: Vec<StoryFound>,
     /// The stories left out.
     pub left_out: Vec<LeftOut>,
+}
+
+/// One story a news search found, as read, and where Brave says its photo
+/// (queue item 765) and its site's mark are — which the browser process
+/// alone fetches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoryFound {
+    /// The story, with no photo yet.
+    pub story: Story,
+    /// Its photo's address, if Brave gave one that is a site's.
+    pub thumbnail: Option<Url>,
+    /// Its site's mark's address, if Brave gave one that is a site's.
+    pub mark: Option<Url>,
 }
 
 /// The results of an answer of `kind`, once it is known to be one: refused
@@ -418,11 +438,7 @@ fn video(result: &Value) -> Result<VideoFound, Missing> {
         .unwrap_or_default();
     let age = text(result, "age").map(plain).unwrap_or_default();
     let description = text(result, "description").map(plain).unwrap_or_default();
-    let thumbnail = result
-        .get("thumbnail")
-        .and_then(Value::as_object)
-        .and_then(|thumbnail| text(thumbnail, "src"))
-        .and_then(site_address);
+    let thumbnail = thumbnail_of(result);
     let mark = hostname_or_mark(result, "favicon").and_then(site_address);
     Ok(VideoFound {
         video: Video::new(plain(title), page)
@@ -446,7 +462,6 @@ pub fn read_news(answer: &[u8]) -> Result<ReadNews, Unread> {
     let results = results_of(document, "news", |said| Unread::NotNews { said })?;
     let mut read = ReadNews {
         found: Vec::new(),
-        marks: Vec::new(),
         left_out: Vec::new(),
     };
     for (at, result) in results.iter().enumerate() {
@@ -454,10 +469,7 @@ pub fn read_news(answer: &[u8]) -> Result<ReadNews, Unread> {
             break;
         }
         match story(result) {
-            Ok(found) => {
-                read.marks.push(mark_of(result));
-                read.found.push(found);
-            }
+            Ok(found) => read.found.push(found),
             Err(why) => read.left_out.push(LeftOut { at, why }),
         }
     }
@@ -465,7 +477,7 @@ pub fn read_news(answer: &[u8]) -> Result<ReadNews, Unread> {
 }
 
 /// One news result, as a story found.
-fn story(result: &Value) -> Result<Story, Missing> {
+fn story(result: &Value) -> Result<StoryFound, Missing> {
     let result = result.as_object().ok_or(Missing::NotAnObject)?;
     let title = text(result, "title").ok_or(Missing::Title)?;
     let page = text(result, "url").ok_or(Missing::Url)?;
@@ -480,9 +492,23 @@ fn story(result: &Value) -> Result<Story, Missing> {
         .unwrap_or_default();
     let age = text(result, "age").map(plain).unwrap_or_default();
     let description = text(result, "description").map(plain).unwrap_or_default();
-    Ok(Story::new(plain(title), page)
-        .from_site(site, age)
-        .said_of(description))
+    Ok(StoryFound {
+        story: Story::new(plain(title), page)
+            .from_site(site, age)
+            .said_of(description),
+        thumbnail: thumbnail_of(result),
+        mark: hostname_or_mark(result, "favicon").and_then(site_address),
+    })
+}
+
+/// Where a result's picture is: its `thumbnail`'s `src`, if that is text
+/// and a site's address — never its `original`.
+fn thumbnail_of(result: &Map<String, Value>) -> Option<Url> {
+    result
+        .get("thumbnail")
+        .and_then(Value::as_object)
+        .and_then(|thumbnail| text(thumbnail, "src"))
+        .and_then(site_address)
 }
 
 /// The `hostname` of a result's `meta_url`, if it is text.
@@ -514,11 +540,7 @@ fn image(result: &Value) -> Result<ImageFound, Missing> {
     let page = text(result, "url").ok_or(Missing::Url)?;
     let page = site_address(page).ok_or(Missing::NotASite)?;
     let source = text(result, "source").map(plain).unwrap_or_default();
-    let thumbnail = result
-        .get("thumbnail")
-        .and_then(Value::as_object)
-        .and_then(|thumbnail| text(thumbnail, "src"))
-        .and_then(site_address);
+    let thumbnail = thumbnail_of(result);
     let mark = hostname_or_mark(result, "favicon").and_then(site_address);
     Ok(ImageFound {
         pictured: Pictured::new(plain(title), page, source),
@@ -565,10 +587,17 @@ pub fn read(answer: &[u8]) -> Result<Read, Unread> {
             });
         }
     }
+    let more = document
+        .get("query")
+        .and_then(Value::as_object)
+        .and_then(|query| query.get("more_results_available"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let Some(web) = document.get("web") else {
         return Ok(Read {
             found: Vec::new(),
             marks: Vec::new(),
+            more,
             left_out: Vec::new(),
         });
     };
@@ -581,6 +610,7 @@ pub fn read(answer: &[u8]) -> Result<Read, Unread> {
     let mut read = Read {
         found: Vec::new(),
         marks: Vec::new(),
+        more,
         left_out: Vec::new(),
     };
     for (at, result) in results.iter().enumerate() {
@@ -680,6 +710,32 @@ mod tests {
                 "the result at 5 is not an object",
                 "the result at 6 has no title",
             ]
+        );
+    }
+
+    #[test]
+    fn more_is_only_brave_saying_true() {
+        let with = |query: &str| {
+            read(
+                format!(r#"{{"type":"search","query":{query},"web":{{"results":[]}}}}"#).as_bytes(),
+            )
+            .map(|read| read.more)
+        };
+        assert_eq!(with(r#"{"more_results_available":true}"#), Ok(true));
+        for not in [
+            r#"{"more_results_available":false}"#,
+            r#"{"more_results_available":"true"}"#,
+            r#"{"more_results_available":1}"#,
+            r#"{"original":"x"}"#,
+            "[true]",
+            "null",
+        ] {
+            assert_eq!(with(not), Ok(false), "{not}");
+        }
+        // With no web results at all, more is still read.
+        assert!(
+            read(br#"{"type":"search","query":{"more_results_available":true}}"#)
+                .is_ok_and(|read| read.more && read.found.is_empty())
         );
     }
 
@@ -928,10 +984,12 @@ mod tests {
           "age": "2 days ago", "page_age": "2026-10-29T08:00:00",
           "profile": { "name": "Consumer energy report", "url": "https://energy.example" },
           "meta_url": { "hostname": "energy.example" },
-          "thumbnail": { "src": "https://imgs.search.brave.com/n/a" } },
+          "thumbnail": { "src": "https://imgs.search.brave.com/n/a", "original": "https://energy.example/a.jpg" } },
         { "title": "Only a hostname", "url": "https://daily.example/b",
-          "profile": { "name": "  " }, "meta_url": { "hostname": "daily.example" } },
-        { "title": "Bare", "url": "http://bare.example/", "profile": 1, "age": null },
+          "profile": { "name": "  " }, "meta_url": { "hostname": "daily.example" },
+          "thumbnail": { "src": "data:image/jpeg;base64,AAAA" } },
+        { "title": "Bare", "url": "http://bare.example/", "profile": 1, "age": null,
+          "thumbnail": 3 },
         { "title": "Not a site", "url": "mailto:a@b.example" },
         { "title": 4, "url": "https://four.example/" },
         []
@@ -944,23 +1002,36 @@ mod tests {
         let titles: Vec<&str> = read
             .found
             .iter()
-            .map(|story| story.title.as_str())
+            .map(|found| found.story.title.as_str())
             .collect();
         assert_eq!(
             titles,
             vec!["More electricians 'trained'", "Only a hostname", "Bare"]
         );
-        let first = &read.found[0];
+        let photos: Vec<Option<&str>> = read
+            .found
+            .iter()
+            .map(|found| found.thumbnail.as_ref().map(|url| url.serialised.as_str()))
+            .collect();
+        assert_eq!(
+            photos,
+            vec![Some("https://imgs.search.brave.com/n/a"), None, None],
+            "the proxy's photo, never the original; none not at a site"
+        );
+        let first = &read.found[0].story;
         assert_eq!(first.site, "Consumer energy report");
         assert_eq!(first.age, "2 days ago");
         assert_eq!(first.description, "Waiting times are shorter.");
         assert_eq!(first.page.to_string(), "https://energy.example/a");
         assert_eq!(
-            read.found[1].site, "daily.example",
+            read.found[1].story.site, "daily.example",
             "an empty name, then the hostname"
         );
         assert_eq!(
-            (read.found[2].site.as_str(), read.found[2].age.as_str()),
+            (
+                read.found[2].story.site.as_str(),
+                read.found[2].story.age.as_str()
+            ),
             ("", "")
         );
         let left: Vec<String> = read.left_out.iter().map(ToString::to_string).collect();
@@ -1094,15 +1165,12 @@ mod tests {
             { "title": "M", "url": "https://m.example/",
               "meta_url": { "favicon": "https://imgs.search.brave.com/f/m" } } ] }"#;
         let read = read_news(news).unwrap();
-        assert_eq!(read.marks.len(), read.found.len());
-        assert_eq!(
-            read.marks
-                .get(1)
-                .cloned()
-                .flatten()
-                .map(|url| url.serialised),
-            Some("https://imgs.search.brave.com/f/m".to_owned())
-        );
+        let marks: Vec<Option<&str>> = read
+            .found
+            .iter()
+            .map(|found| found.mark.as_ref().map(|url| url.serialised.as_str()))
+            .collect();
+        assert_eq!(marks, vec![None, Some("https://imgs.search.brave.com/f/m")]);
     }
 
     #[test]

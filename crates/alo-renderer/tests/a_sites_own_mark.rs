@@ -424,7 +424,9 @@ fn a_video_and_a_story_are_marked_by_their_sites_icon() {
     let renderer = laid_out(with(results(Tab::News)));
     let at = |class: &str| boxes_of(&renderer, class);
     assert_eq!(at("fav icon"), vec![px(80.0, 168.0, 18.0, 18.0)]);
-    assert_eq!(at("fav tint1"), vec![px(80.0, 273.0, 18.0, 18.0)]);
+    // The second story 16 under the first's row, which is as tall as its
+    // photo's tile (4 + 88 + 16 + 1 = 109, queue item 765).
+    assert_eq!(at("fav tint1"), vec![px(80.0, 289.0, 18.0, 18.0)]);
 }
 
 /// An icon drawn: its 18 square's corner, its top half's colour and its

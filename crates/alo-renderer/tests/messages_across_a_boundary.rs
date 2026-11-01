@@ -273,6 +273,64 @@ fn a_searchs_results_survive_the_crossing() {
     }
 }
 
+/// Queue item 761: a search's further pages of sites cross as they were
+/// sent — how many were added and where the next is — and sites past what
+/// those pages hold, or more pages than can be asked, are refused.
+#[test]
+fn a_searchs_further_pages_cross_and_too_many_are_refused() {
+    use alo_renderer::results::{MOST_FOUND, MOST_PAGES, Next, Tab};
+    let sites = |count: usize| {
+        Showing::Found(
+            (0..count)
+                .map(|n| {
+                    Found::new(
+                        "t",
+                        alo_url::parse(&format!("https://s{n}.example/"))
+                            .unwrap_or_else(|_| alo_url::Url::about_blank()),
+                        "",
+                    )
+                })
+                .collect(),
+        )
+    };
+    let paged = |count: usize, added: usize, next: Next| {
+        let mut results = Results::of("ev", sites(count)).on(Tab::Sites);
+        results.pages.added = added;
+        results.pages.next = next;
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Searched(results)],
+            ..Start::default()
+        }))
+    };
+    for original in [
+        paged(45, 2, Next::Offered),
+        paged(60, 2, Next::Asking),
+        paged(21, 1, Next::Unanswered("<b>503</b>".to_owned())),
+        paged(MOST_FOUND * (MOST_PAGES + 1), MOST_PAGES, Next::None),
+    ] {
+        let back = read_to_renderer(&write_to_renderer(&original))
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+    for (message, refusal) in [
+        (
+            paged(41, 1, Next::Offered),
+            "41 sites found, and at most 40",
+        ),
+        (
+            paged(20, MOST_PAGES + 1, Next::None),
+            "10 further pages of sites, and at most 9",
+        ),
+        (paged(201, MOST_PAGES, Next::None), "at most 200"),
+    ] {
+        let why = read_to_renderer(&write_to_renderer(&message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains(refusal), "{refusal}: {why:?}");
+    }
+}
+
 #[test]
 fn every_message_from_a_renderer_survives_the_crossing() {
     // An act's objections cross in
@@ -657,6 +715,7 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::MoreSites { at: 0 })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::SeeAllImages { at: 1 })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Image { at: usize::MAX })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::ShowMoreSites { at: 3 })),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -984,7 +1043,9 @@ fn a_searchs_videos_and_news_survive_the_crossing() {
     let news = Stories::Found(vec![
         Story::new("<script>x()</script>", site("https://n.example/a"))
             .from_site("Daily", "1 week ago")
-            .said_of("d"),
+            .said_of("d")
+            .holding(b"\xff\xd8\xffa photo".to_vec()),
+        Story::new("no photo", site("https://m.example/")),
     ]);
     for results in [
         Results::of("x", sites())
@@ -1019,7 +1080,7 @@ fn a_searchs_videos_and_news_survive_the_crossing() {
     }
 }
 
-/// Queue items 745 and 746: a video or story is drawn only for a page at a
+/// Queue items 745, 746 and 765: a video or story is drawn only for a page at a
 /// site's address, no more than one search holds, a video's length only a
 /// length and its picture only a picture no larger than a thumbnail; and
 /// Videos or News shown only once sites were found.
@@ -1078,6 +1139,16 @@ fn videos_and_news_that_should_not_be_drawn_are_refused() {
                     .on(Tab::News),
             ),
             "a news story found on a page that is not a site's",
+        ),
+        (
+            sending(
+                Results::of("x", found())
+                    .with_news(Stories::Found(vec![
+                        Story::new("t", site("https://n.example/")).holding(b"<html>".to_vec()),
+                    ]))
+                    .on(Tab::News),
+            ),
+            "a thumbnail that is not a picture",
         ),
         (
             sending(

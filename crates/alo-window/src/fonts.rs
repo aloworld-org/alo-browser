@@ -76,6 +76,23 @@ pub fn for_the_interface(faces: &[Face]) -> Vec<Face> {
     handed
 }
 
+/// `faces`, then each of `cjk` — the machine's Chinese, Japanese and Korean
+/// faces, read out of their collections (`alo-renderer`'s `cjk_faces`,
+/// queue item 767) — that is not among them already: what the
+/// conversation's renderers are started with, never a page's. After the
+/// rest, so a face a family names is asked first, and before nothing but a
+/// last resort, which every renderer asks after all (`alo-text`'s
+/// `FontDatabase::chain`).
+pub fn with_cjk(faces: &[Face], cjk: Vec<Face>) -> Vec<Face> {
+    let mut handed = faces.to_vec();
+    for face in cjk {
+        if !handed.contains(&face) {
+            handed.push(face);
+        }
+    }
+    handed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,6 +120,21 @@ mod tests {
         );
         // Handed twice over is handed once.
         assert_eq!(for_the_interface(&handed), handed);
+    }
+
+    #[test]
+    fn the_cjk_faces_follow_the_rest_once() {
+        let machine = frozen();
+        let cjk: Vec<Face> = frozen().faces.into_iter().skip(2).take(1).collect();
+        // One already handed is handed once; a new one after the rest.
+        assert_eq!(with_cjk(&machine.faces, cjk.clone()), machine.faces);
+        let serif = cjk.first().cloned().map(|face| Face {
+            family: "alo CJK Test".to_owned(),
+            ..face
+        });
+        let handed = with_cjk(&machine.faces, serif.clone().into_iter().collect());
+        assert_eq!(handed.len(), machine.faces.len() + 1);
+        assert_eq!(handed.last(), serif.as_ref());
     }
 
     #[test]

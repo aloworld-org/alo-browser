@@ -172,6 +172,12 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The *Show more sites* at this place among those that can be pressed
+    /// (queue item 761).
+    ShowMoreSites {
+        /// Its place.
+        at: usize,
+    },
     /// The image at this place among every image drawn, in All's rows and
     /// the Images tab's grids.
     Image {
@@ -204,6 +210,7 @@ impl Claim {
             | Claim::Tab { .. }
             | Claim::MoreSites { .. }
             | Claim::SeeAllImages { .. }
+            | Claim::ShowMoreSites { .. }
             | Claim::Image { .. } => Part::Start,
         }
     }
@@ -232,6 +239,7 @@ impl fmt::Display for Claim {
             Claim::Tab { at } => write!(f, "the open tab of the results at place {at}"),
             Claim::MoreSites { at } => write!(f, "the More sites at place {at}"),
             Claim::SeeAllImages { at } => write!(f, "the See all images at place {at}"),
+            Claim::ShowMoreSites { at } => write!(f, "the Show more sites at place {at}"),
             Claim::Image { at } => write!(f, "the image found at place {at}"),
         }
     }
@@ -286,6 +294,12 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             (
                 &["seeall"],
                 Pressable::Placed(|at| Claim::SeeAllImages { at }),
+            ),
+            // *Show more sites* (queue item 761); while its page is asked
+            // it is `morebtn off`, and claims nothing.
+            (
+                &["morebtn"],
+                Pressable::Placed(|at| Claim::ShowMoreSites { at }),
             ),
             (
                 &["im", "im held", "pic"],

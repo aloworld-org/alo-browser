@@ -1,6 +1,6 @@
 # ADR 0086 — A search's images cost a second request, and come only from Brave
 
-**Status:** accepted — built by queue items 743 and 744 (31 October 2026)
+**Status:** accepted — built by queue items 743 and 744 (31 October 2026); § 1's further pages built by 761 (1 November 2026)
 **Date:** 2026-10-31
 **Context:** ADR 0083 (a search is asked by the browser process, with the
 words alone); ADR 0082 § 0 (the Brave Search API; alo pays it through a
@@ -42,7 +42,26 @@ five) and the Images tab (its first twenty) — the tab costs nothing more.
   sites unasked (`count` defaults to its most, 20), and All draws three of
   them. *More sites ›* shows the rest. A further page — `offset`, asked
   only when Brave says `query.more_results_available` — is a third request
-  per press, and is cut to its own item (761).
+  per press, built by 761 (below).
+- **A further page of sites (761, 1 November 2026).** Under the Sites
+  tab's sites, when the web search's answer says
+  `query.more_results_available` (only `true` is more), *Show more sites*
+  is drawn (the canvas's `.morebtn`). **Only a person's press asks**: never
+  on a search, an agent's reading, a tab opened or a chat read back. Each
+  press asks the web search again — `GET …/web/search?q=WORDS&offset=N`,
+  the words and the offset alone, nothing else of § 2 changed — **one paid
+  request per press**, `offset` 1 for the first, then 2, at most 9 (Brave's
+  own most: two hundred sites in all). **One at a time:** while a page is
+  asked the button is disabled (*Showing more sites…*), claims nothing,
+  and a press the browser process decides against a frame that still
+  showed it is refused as gone; the thread asks it in the order pressed,
+  before any newer search, as a tab opened is. What comes is appended,
+  each new site's mark fetched from the proxy as a first page's are (no
+  paid request), and the button offered again only if that answer says
+  more. A page not answered says why above the button, and a press asks
+  the same offset again — a person choosing to pay again. A chat read back
+  (ADR 0092) keeps its pages' sites and offers none: whether more are there
+  is Brave's to say, and asking would be paying for a press nobody made.
 
 **Considered and not chosen:**
 
@@ -155,7 +174,8 @@ and 746 — asked only when their tab is opened, ADR 0087.)*
 - `alo-renderer`: `results.rs` (`Tab`, `Images`, `Pictured`, the budget),
   `images_document.rs` (new: the row, the grid, their pictures),
   `results_document.rs` (the tab shown), the claims and the wire.
-- Cut, each queued: the Sites tab's further pages (761); a bound on a
+- Built since: the Sites tab's further pages (761, § 1). Cut, each
+  queued: a bound on a
   response's body set per request in `alo-net` (762). Found on the way: a
   press on a relatively positioned box inside the conversation finds the box
   behind it (763); the tiles are not positioned.
