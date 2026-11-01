@@ -288,6 +288,7 @@ impl Holding {
                     asked.showing.see_all.clone(),
                     asked.showing.pictured.clone(),
                     asked.showing.show_more.clone(),
+                    asked.showing.full_answer.clone(),
                 ),
             )
         };
@@ -316,6 +317,10 @@ impl Holding {
                 self.painted.pictured.clone_from(&asked.showing.pictured);
                 // And each *Show more sites* that can be pressed (761).
                 self.painted.show_more.clone_from(&asked.showing.show_more);
+                // And each *Full answer ›* (queue item 707).
+                self.painted
+                    .full_answer
+                    .clone_from(&asked.showing.full_answer);
                 // How far the turns painted reach, for a person's wheel, and
                 // how far they were scrolled (queue item 703) — told before
                 // the frame, so the window aims a press on it by the offset

@@ -9,7 +9,7 @@
 //! ([`crate::carried_keys::Slot::ALL`]) from this Mac's login keychain —
 //! the item the slot names, for the person running it — before anything is
 //! made; `alo-bundle --keys-from DIRECTORY` takes each from the file in
-//! `DIRECTORY` named as the slot is (`search`), which is how a test gives a
+//! `DIRECTORY` named as the slot is (`search`, `answer`), which is how a test gives a
 //! fake key and how a release machine without the keychain item would.
 //! A slot with no key is refused, saying which, and nothing is made: a key
 //! asked for is never quietly left out. Without `--keys-from` the
@@ -170,9 +170,13 @@ mod tests {
     fn a_directorys_keys_are_taken_put_in_and_read_back_as_carried() {
         let given = directory("given");
         std::fs::write(given.join("search"), format!("{NOT_A_KEY}\n")).unwrap();
+        // The answer's slot is taken too (queue item 773): missing, refused.
+        let said = taken(&Source::Directory(given.clone())).unwrap_err();
+        assert!(said.starts_with("no OpenAI key at "), "{said}");
+        std::fs::write(given.join("answer"), "not-a-real-answer-key-0987").unwrap();
         let taken = taken(&Source::Directory(given.clone())).unwrap();
-        assert_eq!(format!("{taken:?}"), r#"["search"]"#);
-        assert_eq!(taken.said(), "the Brave Search key");
+        assert_eq!(format!("{taken:?}"), r#"["search", "answer"]"#);
+        assert_eq!(taken.said(), "the Brave Search key, the OpenAI key");
 
         let application = directory("made").join("alo browser.app");
         let resources = application.join("Contents").join("Resources");
@@ -183,6 +187,11 @@ mod tests {
             .unwrap();
         assert_eq!(read.header_value(), NOT_A_KEY);
         assert_eq!(read.held(), Held::Carried);
+        let answer = carried_keys::read(&resources, Slot::Answer)
+            .unwrap()
+            .unwrap();
+        assert_eq!(answer.header_value(), "not-a-real-answer-key-0987");
+        assert_eq!(answer.held(), Held::Carried);
         let file = std::fs::read(carried_keys::path(&resources, Slot::Search)).unwrap();
         assert!(
             !file

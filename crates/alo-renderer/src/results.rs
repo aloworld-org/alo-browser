@@ -18,13 +18,16 @@
 //!
 //! # What All shows
 //!
-//! The tab row, *All* chosen; the top [`ON_ALL`] sites, each its mark — the
-//! first letter of its name — its name and address, its title as a link and
-//! two lines of its description; then a row of [`IMAGES_ON_ALL`] images
-//! with *See all images* (queue item 743), once the images have come; then
-//! *More sites ›*, which opens the Sites tab (744). The short answer the
-//! design puts first waits on the model (queue item 707) and is not drawn,
-//! nor anything in its place.
+//! The tab row, *All* chosen; the short answer, once one is asked for
+//! (queue item 707): two or three sentences with their sources' numbers,
+//! *Full answer ›* and how many sites it drew on — or, where it would be,
+//! that it is being written, that no reliable answer was found, or why it
+//! was not answered; then the top [`ON_ALL`] sites, each its mark — the
+//! first letter of its name — its name and address, *alo used this* when
+//! the answer drew on it, its title as a link and two lines of its
+//! description; then a row of [`IMAGES_ON_ALL`] images with *See all
+//! images* (queue item 743), once the images have come; then *More sites
+//! ›*, which opens the Sites tab (744).
 //!
 //! # The other tabs
 //!
@@ -34,7 +37,8 @@
 //! story's site, age, title and photo (queue items 745, 746, 765, ADR
 //! 0087), each asked
 //! of the provider only when a person opens its tab, once for a turn.
-//! Answer (707) is drawn disabled, and claims nothing. Which tab a search
+//! **Answer** (707), once an answer was asked for: the answer written in
+//! full and its sources ([`crate::results_answer`]). Which tab a search
 //! shows is the browser process's, kept with its results; a press on a tab
 //! is claimed and decided as a title is.
 //!
@@ -48,6 +52,7 @@
 //! in one first screen, the newest turns' first ([`Results::drawn_images`],
 //! [`within_budget`]).
 
+use crate::results_answer::{Answer, MOST_SOURCES};
 use crate::results_media::{Story, Video};
 use crate::turn::Turn;
 use alo_url::Url;
@@ -109,12 +114,15 @@ pub const MOST_MARKS: usize = 20;
 pub const MOST_PICTURE_BYTES: usize = 2 * 1024 * 1024;
 
 /// A tab of a search's results that is built (queue items 708, 743, 744,
-/// 745, 746).
+/// 745, 746, 707).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Tab {
     /// The top sites and a row of images.
     #[default]
     All,
+    /// The answer written from the sites found, in full, and its sources
+    /// (queue item 707).
+    Answer,
     /// Every site found.
     Sites,
     /// Every image found, as a grid.
@@ -130,6 +138,7 @@ impl Tab {
     pub fn place(self) -> usize {
         match self {
             Tab::All => 0,
+            Tab::Answer => 1,
             Tab::Sites => 2,
             Tab::Images => 3,
             Tab::Videos => 4,
@@ -139,9 +148,16 @@ impl Tab {
 
     /// The tab at `place` among [`TABS`], if it is built.
     pub fn at(place: usize) -> Option<Self> {
-        [Tab::All, Tab::Sites, Tab::Images, Tab::Videos, Tab::News]
-            .into_iter()
-            .find(|tab| tab.place() == place)
+        [
+            Tab::All,
+            Tab::Answer,
+            Tab::Sites,
+            Tab::Images,
+            Tab::Videos,
+            Tab::News,
+        ]
+        .into_iter()
+        .find(|tab| tab.place() == place)
     }
 }
 
@@ -174,6 +190,9 @@ pub struct Results {
     /// Where the further pages of its sites are (queue item 761): asked
     /// one at a time, each only when a person presses *Show more sites*.
     pub pages: Pages,
+    /// Where its answer is (queue item 707): asked of the model once its
+    /// sites are found.
+    pub answer: Answer,
 }
 
 /// Where a search's further pages of sites are (queue item 761, ADR 0086
@@ -315,6 +334,7 @@ impl Results {
             videos: Videos::NotAsked,
             news: Stories::NotAsked,
             pages: Pages::default(),
+            answer: Answer::NotAsked,
         }
     }
 
@@ -386,6 +406,13 @@ impl Results {
         self
     }
 
+    /// The same results, its answer where `answer` says (queue item 707).
+    #[must_use]
+    pub fn with_answer(mut self, answer: Answer) -> Self {
+        self.answer = answer;
+        self
+    }
+
     /// The same results, on `tab`.
     #[must_use]
     pub fn on(mut self, tab: Tab) -> Self {
@@ -409,11 +436,13 @@ impl Results {
 
     /// Whether `tab` can be chosen: All always; Sites, Videos and News
     /// once sites were found — a search that drew nothing pays for nothing
-    /// more (ADR 0087); Images once images were asked for.
+    /// more (ADR 0087); Images once images were asked for; Answer once an
+    /// answer was asked for (queue item 707).
     pub fn open(&self, tab: Tab) -> bool {
         let found = matches!(&self.showing, Showing::Found(found) if !found.is_empty());
         match tab {
             Tab::All => true,
+            Tab::Answer => found && !matches!(self.answer, Answer::NotAsked),
             Tab::Sites | Tab::Videos | Tab::News => found,
             Tab::Images => !matches!(self.images, Images::NotAsked),
         }
@@ -431,6 +460,23 @@ impl Results {
     /// Whether *More sites ›* is drawn: on All, under sites found.
     pub fn draws_more_sites(&self) -> bool {
         self.tab == Tab::All && self.note().is_none()
+    }
+
+    /// Whether *Full answer ›* is drawn: under All's short answer, once it
+    /// is written (queue item 707).
+    pub fn draws_full_answer(&self) -> bool {
+        self.tab == Tab::All && self.note().is_none() && matches!(self.answer, Answer::Written(_))
+    }
+
+    /// The sources given to the model: the first [`MOST_SOURCES`] sites
+    /// found, best first, each numbered by its place counted from one.
+    pub fn sources(&self) -> &[Found] {
+        match &self.showing {
+            Showing::Found(found) => found
+                .get(..MOST_SOURCES.min(found.len()))
+                .unwrap_or_default(),
+            Showing::Searching | Showing::Unanswered(_) => &[],
+        }
     }
 
     /// Whether *See all images* is drawn: over All's row, when it holds
@@ -461,7 +507,7 @@ impl Results {
                 .get(..IMAGES_ON_ALL.min(found.len()))
                 .unwrap_or_default(),
             Tab::Images => found,
-            Tab::All | Tab::Sites | Tab::Videos | Tab::News => &[],
+            Tab::All | Tab::Answer | Tab::Sites | Tab::Videos | Tab::News => &[],
         }
     }
 
@@ -1012,7 +1058,23 @@ mod tests {
                 Tab::at(place).map(|_| place)
             );
         }
-        assert_eq!(Tab::at(1), None, "Answer is not built");
+        assert_eq!(
+            Tab::at(1),
+            Some(Tab::Answer),
+            "Answer, second (queue item 707)"
+        );
+        assert!(!all.open(Tab::Answer), "no answer asked for");
+        let answering = all
+            .clone()
+            .with_answer(crate::results_answer::Answer::Asking);
+        assert!(answering.open(Tab::Answer));
+        assert!(answering.clone().on(Tab::Answer).drawn_sites().is_empty());
+        assert!(
+            !Results::of("x", Showing::Found(Vec::new()))
+                .with_answer(crate::results_answer::Answer::Asking)
+                .open(Tab::Answer),
+            "never on a search that found nothing"
+        );
         assert!(all.open(Tab::Videos) && all.open(Tab::News));
         assert!(!searching.open(Tab::Videos) && !searching.open(Tab::News));
         let unanswered = Results::of("x", Showing::Unanswered("no".to_owned()));

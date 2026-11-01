@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A search now comes with an answer, and every sentence says where it
+  came from.** Once a search finds sites, alo asks OpenAI's
+  `gpt-6.1-terra` to answer the question from what Brave Search said of the
+  first eight sites — and nothing else. Two or three sentences stand at the
+  top of All, each followed by the numbers of the sites that say it, with
+  *Full answer ›* and how many sites it drew on, and each site it used says
+  *alo used this*; the Answer tab holds the answer in one line, short
+  points, its sources by name, and what was sent to write it. When the
+  sites do not answer the question, it says *I couldn't find a reliable
+  answer* rather than making one up; an answer citing a site it was not
+  given is refused, and a missing key, a refusal or no connection is said
+  in words where the answer would be. Your question and those sites' words
+  go to OpenAI, with nothing else about you or your machine, and OpenAI is
+  asked to store no response; alo keeps no record of it. The OpenAI key is
+  carried inside the application, as the search key is.
 - **A page in a card no longer shows a link's address at the screen's edge.**
   With the pointer over a link in a page shown as a card, alo's Chromium
   drew the link's address in a little bar of its own at the edge of the

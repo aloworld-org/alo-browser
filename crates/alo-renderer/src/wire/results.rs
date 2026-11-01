@@ -33,12 +33,19 @@
 //! further pages of sites (761): how many were added, refused past
 //! [`MOST_PAGES`], and where the next is, by a tag; the sites refused if
 //! more than a first page and each added one hold ([`MOST_FOUND`] each).
+//! Then its answer (queue item 707), by a tag: a written one's line, its
+//! sentences and its points as text, each with the numbers of the sources
+//! it cites — refused unless every number is one of the sites found that
+//! were given as sources ([`Written::check`]), so a renderer never draws a
+//! citation of a site it was not shown; an answer of any kind refused
+//! where no sites were found.
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::results::{
     Found, Images, LARGEST_MARK, LARGEST_THUMBNAIL, MOST_FOUND, MOST_IMAGES, MOST_PAGES,
     MOST_SITES, Next, Pages, Pictured, Results, SetUp, Showing, Stories, Tab, Videos,
 };
+use crate::results_answer::{Answer, Cited, MOST_POINTS, MOST_SENTENCES, MOST_SOURCES, Written};
 use crate::results_media::{MOST_STORIES, MOST_VIDEOS, Story, Video, is_length};
 use alo_paint::picture::Format;
 
@@ -84,8 +91,37 @@ impl Writer {
             Tab::Images => 2,
             Tab::Videos => 3,
             Tab::News => 4,
+            Tab::Answer => 5,
         });
         self.pages(&results.pages);
+        self.answer(&results.answer);
+    }
+
+    /// Where a search's answer is (queue item 707).
+    fn answer(&mut self, answer: &Answer) {
+        match answer {
+            Answer::NotAsked => self.tag(0),
+            Answer::Asking => self.tag(1),
+            Answer::Written(written) => {
+                self.tag(2);
+                self.text(&written.line);
+                for claims in [&written.sentences, &written.points] {
+                    self.number(claims.len() as u64);
+                    for cited in claims {
+                        self.text(&cited.text);
+                        self.number(cited.sources.len() as u64);
+                        for &number in &cited.sources {
+                            self.number(number as u64);
+                        }
+                    }
+                }
+            }
+            Answer::NotFound => self.tag(3),
+            Answer::Unanswered(why) => {
+                self.tag(4);
+                self.text(why);
+            }
+        }
     }
 
     /// Where a search's further pages of sites are (queue item 761).
@@ -245,9 +281,23 @@ impl Reader<'_> {
             2 => Tab::Images,
             3 => Tab::Videos,
             4 => Tab::News,
+            5 => Tab::Answer,
             other => return Err(unreadable(format!("results shown on a tab tagged {other}"))),
         };
         let pages = self.pages()?;
+        let answer = self.answer()?;
+        let given = match &showing {
+            Showing::Found(found) => found.len().min(MOST_SOURCES),
+            Showing::Searching | Showing::Unanswered(_) => 0,
+        };
+        if given == 0 && !matches!(answer, Answer::NotAsked) {
+            return Err(unreadable("an answer to a search that found no sites"));
+        }
+        if let Answer::Written(written) = &answer {
+            written
+                .check(given)
+                .map_err(|why| unreadable(format!("an answer refused: {why}")))?;
+        }
         if let Showing::Found(found) = &showing {
             let most = MOST_FOUND * (pages.added + 1);
             if found.len() > most {
@@ -265,6 +315,7 @@ impl Reader<'_> {
             videos,
             news,
             pages,
+            answer,
         };
         if !results.open(tab) {
             return Err(unreadable(format!(
@@ -272,6 +323,56 @@ impl Reader<'_> {
             )));
         }
         Ok(results)
+    }
+
+    /// Where a search's answer is, as [`Writer::answer`] wrote it: counts
+    /// bounded as they are read, what they say checked by the caller
+    /// against the sites found.
+    fn answer(&mut self) -> Result<Answer, Unreadable> {
+        Ok(match self.tag()? {
+            0 => Answer::NotAsked,
+            1 => Answer::Asking,
+            2 => {
+                let line = self.text()?;
+                let sentences = self.claims(MOST_SENTENCES, "sentences")?;
+                let points = self.claims(MOST_POINTS, "points")?;
+                Answer::Written(Written {
+                    line,
+                    sentences,
+                    points,
+                })
+            }
+            3 => Answer::NotFound,
+            4 => Answer::Unanswered(self.text()?),
+            other => return Err(unreadable(format!("an answer tagged {other}"))),
+        })
+    }
+
+    /// An answer's sentences or points, at most `most` of them.
+    fn claims(&mut self, most: usize, what: &str) -> Result<Vec<Cited>, Unreadable> {
+        let count = self.count()?;
+        if count > most {
+            return Err(unreadable(format!(
+                "an answer of {count} {what}, and at most {most} are drawn"
+            )));
+        }
+        let mut claims = Vec::with_capacity(count);
+        for _ in 0..count {
+            let text = self.text()?;
+            let cited = self.count()?;
+            if cited > MOST_SOURCES {
+                return Err(unreadable(format!(
+                    "a sentence citing {cited} sources, and at most {MOST_SOURCES} are given"
+                )));
+            }
+            let mut sources = Vec::with_capacity(cited);
+            for _ in 0..cited {
+                let number = self.number()?;
+                sources.push(usize::try_from(number).unwrap_or(usize::MAX));
+            }
+            claims.push(Cited { text, sources });
+        }
+        Ok(claims)
     }
 
     /// Where a search's further pages are, as [`Writer::pages`] wrote them.

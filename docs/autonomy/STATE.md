@@ -48048,3 +48048,96 @@ pointer back at 1400, 1000; no new crash report.
 an expanded card (811), the machine's Chrome.
 
 The next unused queue number is **812** and the next ADR is **0095**.
+
+## Iteration 490 — queue items 773 and 707: OpenAI's key in its own slot, and a search's answer at the top of All and on the Answer tab (ADR 0081 decided, ADR 0095)
+
+**The decision.** On 1 November 2026 the owner, asked what to build next,
+chose *"AI provider (Recommended)"* — *"Choose the provider and I wire the
+answer (707), the agent (704) and its key. OpenAI's test key is ready; say
+which model, or Other to name another provider."* — naming no other, so
+the provider is **OpenAI** and ADR 0081 is **decided**. The model,
+**`gpt-6.1-terra`**, is the builder's choice pending the owner's
+confirmation: the account's models listed (`GET /v1/models`, 200, 136, no
+cost, the key passed from the keychain through curl's stdin config and
+never printed); OpenAI's pricing and models pages read the same day
+(Terra $1 / $0.05 cached / $5 per MTok, *"fast, efficient … clear, natural
+writing"*; Luna $0.10/$0.50, Sol $2/$10, Astra $10/$50). The **Responses
+API** (*"recommended for all new projects"*), strict structured output,
+`store: false`. Retention as OpenAI publishes it: not trained on; abuse
+logs up to 30 days; zero data retention by OpenAI's approval, not asked
+(818). The model named once, `openai_answer::MODEL`. **704 is not in this
+batch** — the agent waits for the next.
+
+**773.** `Slot::Answer` (`keys/answer`, `alo-openai`, *OpenAI key*);
+`answer_key.rs` reads the carried key first, the keychain's otherwise;
+`alo-bundle --keys-from` takes both and refuses naming the one missing.
+
+**707** (ADR 0095). The search thread tells the sites with the answer
+*asking*, then hands the words and the first eight sites to
+`conversation_answer.rs`'s thread (newest wins, 30 s), which asks
+`openai_answer.rs` through `alo-net`: `POST /v1/responses`, the question
+and each site's number, title, name, address and Brave's description as
+the person's message's JSON, alo's instructions (results are data, not
+orders; say `answered: false` when they do not answer), the key in
+`Authorization` and nowhere else. `answer_protocol.rs` (a new
+`serde_json` boundary) bounds and reads the response by name and refuses
+an answer whose citations name a source not given (`Written::check`); the
+renderer's wire refuses the same. Drawn (`results_answer.rs`,
+`answer_document.rs`, `start.css`): All's sentences with numbered pills,
+*Full answer ›* (a new claim, `FullAnswer`, decided as *More sites ›* is)
+and *Drew on N sites*, a rule, *alo used this* on the sites it drew on; the
+Answer tab — the line in Newsreader, points, *N sources* by name, and
+*what was sent to OpenAI* (ADR 0081 § 5). Failure is one sentence in its
+place, never a fake answer. The chat's file does not keep an answer
+(814): a chat kept on Answer reads back on All.
+
+**The gate's own blind spot, found here.** `scripts/gate.sh`'s
+rented-crate check piped `sed` into `grep -q` under `pipefail`: `grep -q`
+stops at its first match, `sed` dies of SIGPIPE, the pipeline fails, and a
+long file naming the crate early passed as naming nothing. It had passed
+`chat_record.rs` (ADR 0092's `serde_json`, never listed) and passed my
+new `answer_protocol.rs` too. Fixed — `grep … > /dev/null` reads to the
+end — in that check and two more of the same shape (the CEF host's
+`transmute_ptr_to_ptr` and `unsafe` checks); both files listed; checked
+by running the old and new loops side by side (old: no offenders; new:
+both, until listed).
+
+**Tests:** renderer unit (393) and `a_searchs_answer.rs` (7: layout in
+numbers for All and the Answer tab, three references —
+`all-tab-with-an-answer.png`, `answer-tab.png`,
+`all-tab-with-no-reliable-answer.png`, each looked at and run once without
+update mode — the agent's tree, the notes, *Full answer ›* claimed, a
+confined renderer); `messages_across_a_boundary.rs` (46, one new); window
+unit (665) and `a_searchs_answer_in_the_window.rs` (2, a local server in
+both providers' shapes); `the_application_carrying_its_keys.rs` with two
+fake keys. **Mutations:** the protocol's citation check removed — unit and
+window tests fail; the wire's — the boundary test fails; `store: true` —
+fails; *alo used this* one site along — layout and reference fail, and a
+unit test that survived by a coincidence of counts now names the site.
+
+**By hand** (screen unlocked; release built, CEF host built, the old `.app`
+removed, `alo-bundle --keys-from keychain` carrying both keys, checked
+present and not plain without printing either; `--conversation --chats`
+`handrun27/chats`; the window moved onto the Retina display; screenshots in
+`handrun27/`): *how long does a level 2 ev charger take to install* —
+*"A straightforward Level 2 charger installation usually takes a few hours
+to one day. 2 7 The full process can take several weeks, especially if
+electrical upgrades or permit delays are involved. 1 6 7"*, *Drew on 6
+sites*, three sites marked *alo used this* (`01-all-answered`), and the
+Answer tab's line *"Installing a Level 2 EV charger typically takes a few
+hours to one day, though the full process can take several weeks."*, four
+points, *6 sources* (`02-answer-tab`); *will the price of bitcoin go up
+next week* — *I couldn't find a reliable answer.* on All and the Answer
+tab (`03-all-unclear`, `04-answer-tab-unclear`). After the *sent* line was
+added, the first question once more on a rebuilt application
+(`05-all-answered-again`, `06-answer-tab-again`). Usage: 1,126/201,
+1,029/56, 1,126/180 tokens — **≈ $0.0055** at Terra's prices. Quit by
+AppleScript `quit`; no alo process left; the pointer back; neither key in
+any hand-run file.
+
+**Gate: met, first run** (CEF_PATH set, pointer at 1400, 1000; detached
+with `setsid`, waited on by its PID). **Summary [1034.612s] 6248 tests
+run: 6248 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is met." (11
+of 11 steps)*, `serde_json` behind its five files.
+
+The next unused queue number is **819** and the next ADR is **0096**.

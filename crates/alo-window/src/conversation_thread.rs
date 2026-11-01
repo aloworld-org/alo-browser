@@ -31,6 +31,7 @@ use alo_layout::Size;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_scroll::{self, Bar, Reach};
 use alo_renderer::results::{self, Images, Next, Page, Results, Stories, Tab, Videos};
+use alo_renderer::results_answer::Answer;
 use alo_renderer::turn::Turn;
 use alo_url::Url;
 use std::time::Instant;
@@ -108,14 +109,15 @@ impl Thread {
 
     /// What came of the search for `words`: its sites, shown in the newest
     /// turn still searching for them, where the search for its images
-    /// starts (queue item 743), and whether the provider offers `more`
-    /// further pages (761). Whether one was.
+    /// starts (queue item 743), whether the provider offers `more` further
+    /// pages (761), and where its answer starts (707). Whether one was.
     pub fn searched(
         &mut self,
         words: &str,
         showing: results::Showing,
         images: Images,
         more: bool,
+        answer: Answer,
     ) -> bool {
         let waiting = self.turns.iter_mut().rev().find_map(|turn| match turn {
             Turn::Searched(results)
@@ -131,10 +133,40 @@ impl Thread {
                 results.showing = showing;
                 results.images = images;
                 results.pages.next = if more { Next::Offered } else { Next::None };
+                results.answer = answer;
                 true
             }
             None => false,
         }
+    }
+
+    /// What came of asking for the answer to `words` (queue item 707):
+    /// shown in the newest turn still asking for it. Whether one was.
+    pub fn answered(&mut self, words: &str, answer: Answer) -> bool {
+        let asking = self.turns.iter_mut().rev().find_map(|turn| match turn {
+            Turn::Searched(results)
+                if results.said == words && matches!(results.answer, Answer::Asking) =>
+            {
+                Some(results)
+            }
+            _ => None,
+        });
+        match asking {
+            Some(results) => {
+                results.answer = answer;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The place of every turn drawing *Full answer ›*, in order (queue
+    /// item 707).
+    pub fn full_answers(&self) -> Vec<usize> {
+        self.searches()
+            .filter(|(_, results)| results.draws_full_answer())
+            .map(|(turn, _)| turn)
+            .collect()
     }
 
     /// What came of the search for images of `words`: shown in the newest
@@ -544,7 +576,13 @@ mod tests {
         let sites: Vec<Found> = (0..5)
             .map(|n| Found::new(format!("S{n}"), url(&format!("https://s{n}.example/")), ""))
             .collect();
-        assert!(thread.searched("ev", Showing::Found(sites), Images::Asking, false));
+        assert!(thread.searched(
+            "ev",
+            Showing::Found(sites),
+            Images::Asking,
+            false,
+            Answer::NotAsked
+        ));
         assert_eq!(
             thread.tabs(),
             vec![
@@ -592,7 +630,8 @@ mod tests {
             "x",
             Showing::Unanswered("no".to_owned()),
             Images::NotAsked,
-            false
+            false,
+            Answer::NotAsked
         ));
         assert!(!thread.show_tab(2, Tab::Sites) && !thread.show_tab(2, Tab::Images));
     }
@@ -610,7 +649,13 @@ mod tests {
         thread.search("ev".to_owned());
         assert_eq!(thread.ask_for(0, Tab::Videos), None, "no sites yet");
         let sites = vec![Found::new("S", url("https://s.example/"), "")];
-        assert!(thread.searched("ev", Showing::Found(sites), Images::NotAsked, false));
+        assert!(thread.searched(
+            "ev",
+            Showing::Found(sites),
+            Images::NotAsked,
+            false,
+            Answer::NotAsked
+        ));
         assert!(
             !thread.videos_came(0, Videos::Found(Vec::new())),
             "never asked"
@@ -663,14 +708,16 @@ mod tests {
             "ev chargers",
             Showing::Found(vec![Found::new("Chargers", url("https://a.example/"), "")]),
             Images::NotAsked,
-            false
+            false,
+            Answer::NotAsked
         ));
         assert!(
             !thread.searched(
                 "ev chargers",
                 Showing::Found(Vec::new()),
                 Images::NotAsked,
-                false
+                false,
+                Answer::NotAsked
             ),
             "answered"
         );

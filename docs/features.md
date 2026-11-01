@@ -996,8 +996,28 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`tests/a_searchs_results_on_the_all_tab.rs`), and through the window's
   own road against a local server answering in Brave's shape
   (`tests/searching_from_the_one_box.rs`,
-  `tests/a_search_result_opened_in_the_card_through_chrome.rs`). Owed: the
-  short answer at the top (707), the AI provider's carried key (773).
+  `tests/a_search_result_opened_in_the_card_through_chrome.rs`). **The
+  answer** (707, 773; ADR 0081 decided — OpenAI — and ADR 0095): once a
+  search finds sites, a thread of the browser process asks OpenAI's
+  Responses API (`gpt-6.1-terra`, named in one place) to answer from the
+  person's words and the first eight sites' titles, names, addresses and
+  descriptions alone, `store: false`, as strict structured output; every
+  number cited is checked against the sources given and an answer citing
+  any other is refused, `answered: false` is *I couldn't find a reliable
+  answer*, and no key, a status, no connection or an unreadable answer is
+  said where it would be. All draws two or three sentences with their
+  sources' numbers, *Full answer ›* and *Drew on N sites* over the sites,
+  each one used saying *alo used this*; the Answer tab the line in the
+  serif, the points, *N sources* by name and what was sent. The key is the
+  application's answer slot (`Contents/Resources/keys/answer`, keychain
+  `alo-openai`). In layout assertions and three reference renders
+  (`alo-renderer`'s `tests/a_searchs_answer.rs`), on the wire
+  (`messages_across_a_boundary.rs`), and through the window's own road
+  against a local server answering in OpenAI's shape
+  (`tests/a_searchs_answer_in_the_window.rs`). Owed: the exact line on
+  hover (812), a source opened as a card at the line (813), the answer kept
+  in a chat (814), streaming (815), richer grounding (816), an evaluation
+  (817), zero data retention (818).
   *(A site's own mark since built, 747.)* **The key in release** (748, ADR
   0091 — the owner: *"The ai and search apis will be shipped inside the
   app"*): `alo-bundle --keys-from keychain` puts the search key, taken from
@@ -1242,8 +1262,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   by it, and after page two replaces it reads two and is told one is no
   tab open (`tests/an_agent_reaching_a_page_the_conversation_opened_through_chrome.rs`).
   A field's value is kept to one line by the engine (715). Owed: the agent
-  at work (704), its settings (705); the answer (707) waits on the owner's
-  choice of a model.
+  at work (704), its settings (705); the answer is built (707, ADR 0095),
+  and the agent will be asked of the same provider (ADR 0081).
 
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item

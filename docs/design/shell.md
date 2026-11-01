@@ -141,8 +141,8 @@ the one Return chooses on the paper's colour with 10 px corners:
   address, or another scheme.
 - *Search for “…”*, saying *Brave Search* under it when a key is held,
   and otherwise, in quiet text, *Not set up yet — why* (708); then *Ask
-  alo about “…”*, in quiet text, saying *Not set up yet* until a model is
-  chosen (707).
+  alo about “…”*, in quiet text, saying *Not set up yet* until the agent
+  is built (704); a search's own answer is drawn with its results (707).
 
 Backspace erases the last character, Escape empties the box (and, empty,
 lets the keyboard go), and Return or *Go* chooses the first offer. A press
@@ -179,8 +179,8 @@ person's words — in the 880 column, 40 below the top, 20 apart — stands the
 - **The tab row**, 42 tall over a line of `#E1DACE`: each tab 14 across
   inside, 14 px quiet text; *All* in the ink, 600, underlined 2 px in the
   ink over the line. Sites, Videos and News open once sites are found and
-  Images once images are asked for (743–746); Answer is drawn disabled
-  until it is built (707).
+  Images once images are asked for (743–746); Answer once an answer is
+  asked for (707).
 - **The top three sites**, 20 under the row, 22 apart: a line of 13 px —
   the site's letter, white on one of four tints in an 18 square rounded 5;
   its name in the ink, 600; its address, `host › path`, in quiet text —
@@ -202,8 +202,8 @@ one sentence of 14.5 on 23 in quiet text stands where the sites would be —
 or why: the key refused (401, 403), too many searches or the allowance used
 up (429), Brave unable to answer (5xx), unreachable, or its answer
 unreadable. The line at the window's foot says the same, and how many sites
-were found. **No short answer is drawn** until a model is chosen (707), and
-nothing in its place. A press on a site's title opens it as a card, in a
+were found. Once sites are found, the short answer stands between the tab
+row and the sites (707, *The answer* below). A press on a site's title opens it as a card, in a
 turn of its own under the results, its bubble the title (703).
 
 ### The Sites and Images tabs (items 743, 744, ADR 0086)
@@ -307,6 +307,35 @@ Nothing is replaced. Within a turn the bubble and what follows are 16 apart
   to say them (704, 707).
 
 ## The answer
+
+### What is built of it (items 707 and 773, ADR 0095)
+
+Once a search finds sites, the browser process asks OpenAI's
+`gpt-6.1-terra` (ADR 0081) for an answer from the person's words and what
+Brave said of the first eight sites — nothing else, no page fetched — and
+checks every source number it cites against those eight before anything is
+drawn. **On All**, 20 under the tab row: the sentences, 16 on 26 in the ink,
+760 wide at most, each followed by its sources' numbers — each a pill 16
+tall, rounded 8, 10.5 px, 600, on `#E9E3D8`; 10 under them *Full answer ›*,
+13 px, 600, opening the Answer tab, and *Drew on N sites* in quiet text; 20
+under that a line of `#E1DACE`, then the sites, 20 under it. A site the
+answer drew on says *alo used this* after its address: 11.5 px, 600,
+`#2F6B5E` on `#E3ECE8`, 6 inside either side, rounded 8. **The Answer tab**:
+the answer in one line in the serif, 22 on 30; 14 under it the points, 15 on
+24, 20 in with their bullets, 6 apart; 14 under them a line of `#E1DACE`
+and 14 under it *N sources*, 13 px, 600, counting only those cited, then
+each on a line of 13 — its number, its site's name in the ink, 600, its
+address, its page's title in the link colour, cut at the line's end — 8
+apart; 14 under them one quiet line of 12.5 on 18 saying what was sent to
+OpenAI. Where there is no answer, one sentence of 14.5 on 23 in quiet text
+stands in its place on both: *alo is writing an answer from these sites…*,
+*I couldn't find a reliable answer.* and where the sites are, or why — no
+key, the key refused, too many requests, OpenAI unable to answer,
+unreachable, an answer unreadable or citing a site it was not given. Not
+built yet: the exact line on hover (812), a source opened as a card at the
+line it was used for (813), streaming (815).
+
+### As designed
 
 - A one-line answer in the serif, then short points.
 - A small number after each sentence a source supports. Hovering it shows the

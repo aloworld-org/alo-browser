@@ -178,6 +178,12 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The *Full answer ›* at this place among those drawn, under All's
+    /// short answer (queue item 707).
+    FullAnswer {
+        /// Its place.
+        at: usize,
+    },
     /// The image at this place among every image drawn, in All's rows and
     /// the Images tab's grids.
     Image {
@@ -211,6 +217,7 @@ impl Claim {
             | Claim::MoreSites { .. }
             | Claim::SeeAllImages { .. }
             | Claim::ShowMoreSites { .. }
+            | Claim::FullAnswer { .. }
             | Claim::Image { .. } => Part::Start,
         }
     }
@@ -240,6 +247,7 @@ impl fmt::Display for Claim {
             Claim::MoreSites { at } => write!(f, "the More sites at place {at}"),
             Claim::SeeAllImages { at } => write!(f, "the See all images at place {at}"),
             Claim::ShowMoreSites { at } => write!(f, "the Show more sites at place {at}"),
+            Claim::FullAnswer { at } => write!(f, "the Full answer at place {at}"),
             Claim::Image { at } => write!(f, "the image found at place {at}"),
         }
     }
@@ -301,6 +309,8 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
                 &["morebtn"],
                 Pressable::Placed(|at| Claim::ShowMoreSites { at }),
             ),
+            // *Full answer ›* under All's short answer (queue item 707).
+            (&["full"], Pressable::Placed(|at| Claim::FullAnswer { at })),
             (
                 &["im", "im held", "pic"],
                 Pressable::Placed(|at| Claim::Image { at }),

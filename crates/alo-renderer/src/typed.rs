@@ -34,7 +34,8 @@
 //! Nothing with white space or a control character in it is an address:
 //! `what is x` is a question. Searching and asking are always offered for
 //! anything typed, since either can be what a person meant. Asking says it
-//! is not set up yet until a model is chosen (queue item 707); searching
+//! is not set up yet until the agent is built (queue item 704; a search's
+//! own answer is 707's, drawn with its results); searching
 //! goes to the Brave Search API when the browser process holds a key, and
 //! says it is not set up and why when it does not (queue item 708,
 //! [`crate::results::SetUp`]) — offered, so the screen is the design's, and
@@ -57,13 +58,13 @@ pub enum Offer {
     /// browser process says so (queue item 708, [`crate::results::SetUp`]).
     Search(String),
     /// *Ask alo about "…"*, with what was typed, trimmed. Not set up yet
-    /// (queue item 707).
+    /// (queue item 704).
     Ask(String),
 }
 
 impl Offer {
     /// Whether choosing it can do what it says whatever else holds: going to
-    /// a site always can; asking waits on a model (707); searching can when
+    /// a site always can; asking waits on the agent (704); searching can when
     /// the first screen is told it is set up (708), which this does not know.
     pub fn is_set_up(&self) -> bool {
         matches!(self, Offer::Go(_))

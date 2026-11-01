@@ -62,6 +62,7 @@ impl Writer {
             Claim::SeeAllImages { at } => (19, Some(at)),
             Claim::Image { at } => (20, Some(at)),
             Claim::ShowMoreSites { at } => (21, Some(at)),
+            Claim::FullAnswer { at } => (22, Some(at)),
         };
         self.tag(tag);
         if let Some(at) = at {
@@ -110,6 +111,7 @@ impl Reader<'_> {
             19 => Claim::SeeAllImages { at: self.place()? },
             20 => Claim::Image { at: self.place()? },
             21 => Claim::ShowMoreSites { at: self.place()? },
+            22 => Claim::FullAnswer { at: self.place()? },
             other => return Err(unreadable(format!("a claim tagged {other}"))),
         };
         Ok(Some(claim))

@@ -11,16 +11,19 @@
 //! address, title and description enters it as a text node. The images —
 //! All's row and the Images tab's grid — are built by
 //! [`crate::images_document`]; the videos by [`crate::videos_document`] and
-//! the news by [`crate::news_document`].
+//! the news by [`crate::news_document`]; the answer — All's short one and
+//! the Answer tab — by [`crate::answer_document`] (queue item 707).
 //!
 //! # What an agent reads
 //!
 //! ADR 0002: a `region` named *Search results*, holding a `tablist` named
 //! *Kinds of result* — the tab shown selected, All always open, Sites,
 //! Videos and News once sites were found, Images once images were asked
-//! for, and Answer disabled — then, on All, each of the top sites as an `article`:
-//! its name and address as text, its title as a heading holding a link, and
-//! its description as a paragraph; then the row of images; then *More sites
+//! for, Answer once an answer was asked for — then, on All, the answer
+//! once asked for, then each of the top sites as an `article`: its name and
+//! address as text, *alo used this* when the answer drew on it, its title
+//! as a heading holding a link, and its description as a paragraph; then
+//! the row of images; then *More sites
 //! ›*, a button. On Sites every site the same way, then *Show more sites*, a
 //! button, when the provider offers more (queue item 761); on Images the
 //! grid. Or,
@@ -49,6 +52,7 @@
 //! disabled, and claims nothing.
 
 use crate::results::{Found, Next, Results, SHOW_MORE, SHOWING_MORE, TABS, Tab};
+use crate::results_answer::USED;
 use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
 
@@ -114,7 +118,12 @@ pub fn make(document: &mut Document, results: &Results, place: usize) -> Result<
     }
     append(document, made, row)?;
     match results.tab {
-        Tab::All | Tab::Sites => sites(document, made, results, place)?,
+        Tab::All => {
+            crate::answer_document::short(document, made, results)?;
+            sites(document, made, results, place)?;
+        }
+        Tab::Sites => sites(document, made, results, place)?,
+        Tab::Answer => crate::answer_document::full(document, made, results)?,
         Tab::Images => crate::images_document::grid(document, made, results, place)?,
         Tab::Videos => crate::videos_document::list(document, made, results, place)?,
         Tab::News => crate::news_document::list(document, made, results, place)?,
@@ -143,7 +152,7 @@ fn sites(
         return Ok(());
     }
     for (at, found) in results.drawn_sites().iter().enumerate() {
-        let site = make_site(document, found, place, at)?;
+        let site = make_site(document, found, place, at, results.answer.used(at))?;
         append(document, list, site)?;
     }
     if results.draws_show_more() {
@@ -192,12 +201,14 @@ fn show_more(document: &mut Document, list: NodeId, results: &Results) -> Result
 }
 
 /// One site, the `at`th of the `place`th turn: its mark, name and address
-/// on a line; its title as a link; its description.
+/// on a line, and *alo used this* when the answer drew on it (`used`); its
+/// title as a link; its description.
 fn make_site(
     document: &mut Document,
     found: &Found,
     place: usize,
     at: usize,
+    used: bool,
 ) -> Result<NodeId, Unbuilt> {
     let article = element(document, "article")?;
     attribute(document, article, "class", "found")?;
@@ -221,6 +232,13 @@ fn make_site(
         // The provider's name for the site and its address, as text.
         let text = document.create_text_node(&words);
         append(document, part, text)?;
+        append(document, source, part)?;
+    }
+    if used {
+        let part = element(document, "span")?;
+        attribute(document, part, "class", "used")?;
+        let words = document.create_text_node(USED);
+        append(document, part, words)?;
         append(document, source, part)?;
     }
     append(document, article, source)?;

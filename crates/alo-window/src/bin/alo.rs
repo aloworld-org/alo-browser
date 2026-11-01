@@ -227,6 +227,11 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     // set up. Read here, by the browser process alone.
     let search = alo_window::search_key::for_this_application(bundle)
         .and_then(alo_window::brave_search::Provider::brave);
+    // The model's key, read the same way, by the browser process alone (ADR
+    // 0091, queue item 773): with none, a search's answer says why it is
+    // not set up where the answer would be.
+    let answer = alo_window::answer_key::for_this_application(bundle)
+        .and_then(alo_window::openai_answer::Provider::openai);
     // Where its chats are kept (queue item 757, ADR 0092): the directory a
     // person named, or alo's own; said, so a hand run knows which it wrote.
     let chats = opening
@@ -255,7 +260,7 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         opening.scale,
         renderers,
         chromium,
-        search,
+        (search, answer),
         chats,
         (reaching, closing),
     ) {

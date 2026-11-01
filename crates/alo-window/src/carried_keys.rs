@@ -16,10 +16,10 @@
 //!
 //! # A slot
 //!
-//! One today: [`Slot::Search`], the Brave Search API's key (ADR 0082 § 0,
-//! ADR 0083). The AI provider's slot is not defined until ADR 0081 chooses
-//! the provider (queue item 773): a slot names where its key is taken from,
-//! and that is the provider's.
+//! Two: [`Slot::Search`], the Brave Search API's key (ADR 0082 § 0, ADR
+//! 0083); and [`Slot::Answer`], `OpenAI`'s API key, which writes a search's
+//! answer (ADR 0081, decided 1 November 2026; queue item 773). A slot names
+//! where its key is taken from, which is its provider's keychain item.
 //!
 //! # Masked, and not protected
 //!
@@ -29,7 +29,7 @@
 //! has the application can read the key out of it (ADR 0091 § 2). It keeps
 //! the key from being found by accident, nothing more.
 
-use crate::search_key::{Key, SERVICE};
+use crate::search_key::{self, Key};
 use std::path::{Path, PathBuf};
 
 /// The directory under `Contents/Resources` that holds the carried keys.
@@ -47,16 +47,20 @@ const LONGEST: usize = 1024;
 pub enum Slot {
     /// The search provider's key: the Brave Search API's (ADR 0082 § 0).
     Search,
+    /// The model provider's key: `OpenAI`'s, which writes a search's answer
+    /// (ADR 0081, queue items 773 and 707).
+    Answer,
 }
 
 impl Slot {
     /// Every slot, in the order they are taken.
-    pub const ALL: [Self; 1] = [Self::Search];
+    pub const ALL: [Self; 2] = [Self::Search, Self::Answer];
 
     /// Its file's name under [`DIRECTORY`].
     pub fn name(self) -> &'static str {
         match self {
             Self::Search => "search",
+            Self::Answer => "answer",
         }
     }
 
@@ -64,7 +68,8 @@ impl Slot {
     /// application is made, and a development build's read at run time.
     pub fn service(self) -> &'static str {
         match self {
-            Self::Search => SERVICE,
+            Self::Search => search_key::SERVICE,
+            Self::Answer => crate::answer_key::SERVICE,
         }
     }
 
@@ -72,6 +77,7 @@ impl Slot {
     pub fn what(self) -> &'static str {
         match self {
             Self::Search => "Brave Search key",
+            Self::Answer => "OpenAI key",
         }
     }
 }
@@ -263,9 +269,47 @@ mod tests {
     }
 
     #[test]
-    fn the_search_slot_is_taken_from_the_search_keys_item() {
-        assert_eq!(Slot::ALL, [Slot::Search]);
+    fn each_slot_is_taken_from_its_providers_item() {
+        assert_eq!(Slot::ALL, [Slot::Search, Slot::Answer]);
         assert_eq!(Slot::Search.service(), "alo-brave-search");
         assert_eq!(Slot::Search.name(), "search");
+        assert_eq!(Slot::Answer.service(), "alo-openai");
+        assert_eq!(Slot::Answer.name(), "answer");
+        assert_eq!(Slot::Answer.what(), "OpenAI key");
+    }
+
+    #[test]
+    fn two_slots_are_masked_apart_and_neither_reads_the_others_file() {
+        let search = masked(Slot::Search, &key());
+        let answer = masked(Slot::Answer, &key());
+        assert_ne!(search, answer, "the same key masked alike in two slots");
+        assert_eq!(
+            unmasked(Slot::Answer, &answer).map(|key| key.header_value().to_owned()),
+            Some(NOT_A_KEY.to_owned())
+        );
+        // Unmasked by the other slot's stream, it is not this key.
+        assert_ne!(
+            unmasked(Slot::Search, &answer).map(|key| key.header_value().to_owned()),
+            Some(NOT_A_KEY.to_owned())
+        );
+        let resources = directory("two");
+        write(&resources, Slot::Answer, &key()).unwrap();
+        assert_eq!(
+            read(&resources, Slot::Search),
+            Ok(None),
+            "only answer carried"
+        );
+        assert_eq!(
+            read(&resources, Slot::Answer)
+                .unwrap()
+                .map(|key| key.header_value().to_owned()),
+            Some(NOT_A_KEY.to_owned())
+        );
+        std::fs::write(path(&resources, Slot::Answer), b"damaged").unwrap();
+        assert_eq!(
+            read(&resources, Slot::Answer),
+            Err("the OpenAI key this application carries could not be read (keys/answer)".into())
+        );
+        let _ = std::fs::remove_dir_all(&resources);
     }
 }

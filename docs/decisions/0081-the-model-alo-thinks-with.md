@@ -1,9 +1,9 @@
 # ADR 0081 — The model alo thinks with
 
-**Status:** proposed — awaiting the owner's choice. The owner has said the AI
-is connected **last**, after the rest of the conversation is built; this ADR
-is written now so that choice is ready when that time comes, and so nothing
-built before it closes a door it needs.
+**Status:** decided — 1 November 2026: **OpenAI**, by the owner's choice;
+the model, **`gpt-6.1-terra`**, is the builder's choice pending the owner's
+confirmation (§ 0). Built for the answer by queue items 773 and 707 (ADR
+0095); the agent (704) is not yet asked of any model.
 
 **Owner's note, 30 October 2026:** alo's searches (ADR 0082) — and, the owner
 expects, its AI — are paid for by **a monthly subscription**. That changes
@@ -17,9 +17,9 @@ price are their own decisions, written when this ADR is.
 **Decided by ADR 0091 (31 October 2026), for the key-carrying point only:**
 the owner then decided *"The ai and search apis will be shipped inside the
 app"* — the providers' keys are carried inside the application, which
-supersedes this note's *cannot ship inside the application*. The provider
-itself is still open here, and no AI slot is defined until it is chosen
-(queue item 773).
+supersedes this note's *cannot ship inside the application*. *(The provider
+was then chosen on 1 November, § 0, and its key's slot built by queue item
+773.)*
 
 **Date:** 2026-10-30
 **Context:** ADR 0002 (the layout tree is the agent's tree; no verb takes a
@@ -30,6 +30,115 @@ work*); ADR 0077–0079 (alo carries CEF's Chromium, on macOS, Windows and
 Linux); ADR 0082 (where alo searches); `docs/contracts/agent-socket.md`
 (`read` and `act`); `ROADMAP.md`, *Not built, and not by accident* (no
 telemetry of any kind); queue items 704 and 707
+
+## 0. Decided — 1 November 2026
+
+### The owner's choice
+
+Asked *"What should I build next?"*, the owner chose **"AI provider
+(Recommended)"**, whose description was: *"Choose the provider and I wire
+the answer (707), the agent (704) and its key. OpenAI's test key is ready;
+say which model, or Other to name another provider."* No other provider was
+named, so **the provider is OpenAI**. No model was named.
+
+This supersedes § 4's recommendation (Anthropic's Claude, with the person's
+own key): the owner chose OpenAI, and ADR 0091 had already put alo's own
+keys inside the application. What follows of §§ 1–5 is the proposal as it
+was written on 30 October, kept as the record of what was weighed; § 5,
+*what must hold, whatever is chosen*, still holds.
+
+### The model: `gpt-6.1-terra` — the builder's choice, pending the owner's
+
+The account's models were listed (`GET https://api.openai.com/v1/models`,
+200, 136 models, 1 November 2026, at no cost); among them `gpt-6-astra`,
+`gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`, the `gpt-5.6`
+`sol`/`terra`/`luna`, `gpt-5.5`, `gpt-5.4-mini`/`-nano`. OpenAI's prices,
+standard tier, per million tokens, prompts of at most 272K tokens, read on
+1 November 2026 [5]:
+
+| Model | Input | Cached input | Output | OpenAI's own words [13] |
+|---|---|---|---|---|
+| `gpt-6-astra` | $10.00 | $1.00 | $50.00 | *"Our most capable model for the most demanding work."* |
+| `gpt-6.1-sol` | $2.00 | $0.10 | $10.00 | *"Near-Astra performance for complex work at a lower cost."* |
+| **`gpt-6.1-terra`** | **$1.00** | **$0.05** | **$5.00** | *"A fast, efficient model for visual reasoning, precise computer use, and clear, natural writing."* |
+| `gpt-6-luna` | $0.10 | $0.01 | $0.50 | *"Our most efficient model for focused, high-volume tasks."* |
+| `gpt-5.6-luna` | $0.20 | $0.02 | $1.20 | |
+| `gpt-5.4-mini` | $0.75 | $0.075 | $4.50 | |
+
+Chosen by three criteria, in this order:
+
+1. **Quality of a short, grounded answer that cites correctly.** The answer
+   must say only what eight short descriptions say, cite the right ones,
+   and say *I couldn't find a reliable answer* when they do not answer.
+   Terra is described for *"clear, natural writing"* and sits a tier above
+   Luna, the tier built for *"focused, high-volume tasks"*, where a wrong
+   citation is likeliest; Astra and Sol are for *"complex"* and *"the most
+   demanding"* work, which a two-sentence answer from eight descriptions is
+   not. Terra and Luna also take `reasoning.effort` down to `none`; alo asks
+   `low`.
+2. **Latency.** A person is waiting under their results. Terra is OpenAI's
+   *"fast, efficient"* model, and an answer is about 1,100 tokens in and
+   200 out. Not measured beyond the hand run (each answer was drawn within
+   the 12 and 14 seconds waited before the screenshot).
+3. **Price per answer.** Measured from `usage` on the hand run: 1,126 in and
+   201 out — 1,126 × $1 + 201 × $5, ÷ 10⁶ = **$0.0021**; 1,029 in and 56
+   out = **$0.0013**; the first question again, 1,126 in and 180 out =
+   **$0.0020** — the three, $0.0055. Luna would be a tenth of that and Sol
+   twice; at 300 answers a month, Terra is about $0.60 a person.
+
+**Not measured:** Terra against Luna and Sol on alo's own material — the
+evaluation § 4 asks for (queue item 817). Until then the choice is the
+builder's reading of OpenAI's descriptions and prices, and **the owner
+confirms or changes it**; the model is named in one place,
+`crates/alo-window/src/openai_answer.rs`'s `MODEL`, and changing it is
+changing that line (and the sentence a 404 says, which names it).
+
+### The API: the Responses API, with strict structured output
+
+OpenAI's migration guide, read 1 November 2026: *"While Chat Completions
+remains supported, Responses is recommended for all new projects."* [14] So
+alo asks `POST /v1/responses`, its instructions in `instructions`, the
+question and the sites in the person's message, and the answer as **strict
+structured output** (`text.format` of type `json_schema`): whether it
+answered, a line, sentences and points, each with the numbers of its
+sources. alo checks every number against the sources it gave and refuses an
+answer citing any other (ADR 0095 § 4) — citations checked by construction,
+which § 1 B found no OpenAI feature to give, built by alo instead.
+
+### What leaves the machine, to whom, and what is kept
+
+- **To OpenAI**, at `api.openai.com`: the person's words, and the title,
+  site name, address and Brave's description of the first eight sites
+  Brave found — text Brave already returned for that search. No page is
+  fetched; nothing of the person or the machine is sent (ADR 0095 § 3).
+- **OpenAI's terms**, read 1 November 2026 [6]: data sent to the API *"is
+  not used to train or improve OpenAI models"* unless a customer opts in;
+  *"abuse monitoring logs are generated for all API feature usage and
+  retained for up to 30 days"* (longer where the law requires); the
+  Responses API *"has a 30 day Application State retention period by
+  default, or when the `store` parameter is set to `true`"* — **alo sends
+  `store: false`**. **Zero data retention**, which keeps content out of the
+  abuse monitoring logs, is *"subject to prior approval by OpenAI"*; alo has
+  not asked (queue item 818, the owner's). So today what alo sends may be
+  kept by OpenAI for up to 30 days, for abuse monitoring, and is not
+  trained on.
+- **alo keeps nothing** and sends no telemetry: it counts nothing and
+  records nothing beyond the terminal's line on the person's own machine
+  (who answered, from how many sites, the tokens `usage` reports). The
+  answer is not written to the chat's file in this cut (814).
+
+### The key
+
+Carried in the application's **answer slot**, taken from the keychain item
+`alo-openai` as the application is made (ADR 0091; queue item 773), and read
+by the browser process alone.
+
+### Still open
+
+- The owner's confirmation of `gpt-6.1-terra`.
+- The agent (704): which model drives it is decided with it, under this
+  provider.
+- The evaluation of § 4 (817) and zero data retention (818).
 
 ## The question in one line
 
@@ -416,6 +525,13 @@ measurements there.
 12. Secondary write-ups on small models' tool calling (BFCL) —
     https://llm-stats.com/leaderboards/best-ai-for-tool-calling,
     https://localaimaster.com/blog/best-ollama-models-tool-calling
+13. OpenAI, *Models* (read 1 November 2026) —
+    https://developers.openai.com/api/docs/models
+14. OpenAI, *Migrate to the Responses API* (read 1 November 2026) —
+    https://developers.openai.com/api/docs/guides/migrate-to-responses
+
+Sources [5] and [6] were read again on 1 November 2026 for § 0; neither page
+shows a date of its own.
 
 [skill]: Anthropic's `claude-api` reference as carried by Claude Code
 (cached 2026-10-06): forced `tool_choice` refused on the 5.5 models; 512-token

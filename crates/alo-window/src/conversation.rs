@@ -320,6 +320,7 @@ impl Conversation {
             more: self.on_this_chat(Thread::more_sites),
             see_all: self.on_this_chat(Thread::see_all),
             show_more: self.on_this_chat(Thread::show_more),
+            full_answer: self.on_this_chat(Thread::full_answers),
             pictured: self
                 .thread()
                 .map(Thread::pictured_pages)
@@ -535,12 +536,27 @@ impl Conversation {
                 showing,
                 images,
                 more,
+                answer,
             } => {
                 if searched.number != self.searches {
                     return false;
                 }
-                self.thread_mut()
-                    .is_some_and(|thread| thread.searched(&searched.words, showing, images, more))
+                self.thread_mut().is_some_and(|thread| {
+                    thread.searched(&searched.words, showing, images, more, answer)
+                })
+            }
+            // Its answer (queue item 707), shown in the turn still asking for
+            // it, of any chat, as its images are.
+            Came::Answer { answer, .. } => {
+                let on_screen = self.on_screen();
+                let mut shown = false;
+                for (id, thread) in &mut self.threads {
+                    if thread.answered(&searched.words, answer.clone()) {
+                        shown = shown || Some(*id) == on_screen;
+                        break;
+                    }
+                }
+                shown
             }
             Came::Images(images) => {
                 let on_screen = self.on_screen();
@@ -1524,6 +1540,7 @@ mod tests {
                 showing: results::Showing::Found(vec![found("https://one.example/"); 4]),
                 images: Images::Asking,
                 more: false,
+                answer: alo_renderer::results_answer::Answer::NotAsked,
             },
         };
         assert!(conversation.searched(sites));
@@ -1604,6 +1621,7 @@ mod tests {
                 showing: results::Showing::Found(vec![found("https://one.example/"); 20]),
                 images: Images::NotAsked,
                 more: true,
+                answer: alo_renderer::results_answer::Answer::NotAsked,
             },
         }));
         let more = Pressed::ShowMoreSites { chat, turn: 0 };
@@ -1664,6 +1682,7 @@ mod tests {
                 showing: results::Showing::Found(vec![found("https://one.example/"); 4]),
                 images: Images::NotAsked,
                 more: false,
+                answer: alo_renderer::results_answer::Answer::NotAsked,
             },
         }));
         assert!(conversation.take_asks().is_empty(), "never with a search");

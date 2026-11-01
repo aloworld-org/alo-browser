@@ -273,6 +273,108 @@ fn a_searchs_results_survive_the_crossing() {
     }
 }
 
+/// Queue item 707: a search's answer crosses as it was sent, in each state
+/// and on each tab; an answer citing a site it was not given, an answer to
+/// a search that found nothing, too many sentences, and a claim on *Full
+/// answer ›* tagged as nobody knows, are refused.
+#[test]
+fn a_searchs_answer_crosses_and_one_citing_a_site_not_given_is_refused() {
+    use alo_renderer::results_answer::{Answer, Cited, MOST_SENTENCES, Written};
+    let sites = |count: usize| {
+        Showing::Found(
+            (0..count)
+                .map(|n| {
+                    Found::new(
+                        "t",
+                        alo_url::parse(&format!("https://s{n}.example/"))
+                            .unwrap_or_else(|_| alo_url::Url::about_blank()),
+                        "",
+                    )
+                })
+                .collect(),
+        )
+    };
+    let written = |cites: usize| {
+        Answer::Written(Written {
+            line: "</p><script>".to_owned(),
+            sentences: vec![Cited::new("<b>one</b>\0", [1, cites])],
+            points: vec![Cited::new("two", [cites])],
+        })
+    };
+    let start = |showing: Showing, answer: Answer, tab: Tab| {
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Searched(
+                Results::of("ev", showing).with_answer(answer).on(tab),
+            )],
+            ..Start::default()
+        }))
+    };
+    for original in [
+        start(sites(3), Answer::Asking, Tab::All),
+        start(sites(3), Answer::Asking, Tab::Answer),
+        start(sites(3), written(3), Tab::Answer),
+        start(sites(20), written(8), Tab::All),
+        start(sites(1), Answer::NotFound, Tab::All),
+        start(
+            sites(1),
+            Answer::Unanswered("<b>401</b>".to_owned()),
+            Tab::Answer,
+        ),
+        start(sites(0), Answer::NotAsked, Tab::All),
+    ] {
+        let back = read_to_renderer(&write_to_renderer(&original))
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+    let mut many = Written {
+        line: "x".to_owned(),
+        sentences: vec![Cited::new("x", [1]); MOST_SENTENCES + 1],
+        points: Vec::new(),
+    };
+    for (message, refusal) in [
+        (
+            start(sites(3), written(4), Tab::All),
+            "cites source 4, and it was given 3",
+        ),
+        (
+            start(sites(20), written(9), Tab::All),
+            "cites source 9, and it was given 8",
+        ),
+        (
+            start(sites(0), Answer::Asking, Tab::All),
+            "an answer to a search that found no sites",
+        ),
+        (
+            start(sites(3), Answer::NotAsked, Tab::Answer),
+            "results shown on Answer, which they cannot be",
+        ),
+        (
+            start(sites(3), Answer::Written(many.clone()), Tab::All),
+            "an answer of 4 sentences, and at most 3 are drawn",
+        ),
+    ] {
+        let why = read_to_renderer(&write_to_renderer(&message))
+            .err()
+            .map(|why| why.why)
+            .unwrap_or_default();
+        assert!(why.contains(refusal), "{refusal}: {why:?}");
+    }
+    many.sentences.clear();
+    let why = read_to_renderer(&write_to_renderer(&start(
+        sites(3),
+        Answer::Written(many),
+        Tab::All,
+    )))
+    .err()
+    .map(|why| why.why)
+    .unwrap_or_default();
+    assert!(why.contains("the answer has no sentence"), "{why:?}");
+    // A press on Full answer crosses back by its place.
+    let claimed = FromRenderer::ConversationClaimed(Some(ConversationClaim::FullAnswer { at: 2 }));
+    let back = read_from_renderer(&write_from_renderer(&claimed));
+    assert_eq!(back.ok(), Some(claimed));
+}
+
 /// Queue item 761: a search's further pages of sites cross as they were
 /// sent — how many were added and where the next is — and sites past what
 /// those pages hold, or more pages than can be asked, are refused.

@@ -69,13 +69,24 @@
 //! tells [`Came::Page`]. Like a tab opened, a newer search does not pass
 //! over it.
 //!
+//! # Its answer (queue item 707, ADR 0095)
+//!
+//! When a web search finds sites and the window gave this thread an
+//! [`Answerer`], the sites are told with the answer being asked
+//! ([`Came::Sites`]'s `answer`), and then the words and the first sites are
+//! handed to the answer's own thread, which asks the model and tells the
+//! window [`Came::Answer`] — so a search's marks and images are never kept
+//! waiting for a model. A search that found no sites asks no answer.
+//!
 //! # Connections kept
 //!
 //! The thread keeps one `alo-net` pool, trusting what this machine trusts,
 //! for as long as the window is open, so a second search reuses the first
 //! one's connection. Nothing of it is written to a disk.
 
+use crate::answer_protocol::Spent;
 use crate::brave_search::{self, Provider};
+use crate::conversation_answer::Answerer;
 use crate::search_marks;
 use crate::search_thumbnails;
 use alo_net::Pool;
@@ -83,6 +94,7 @@ use alo_net::cause::Identities;
 use alo_renderer::results::{
     Found, Images, PROVIDER, Page, Pictured, SetUp, Showing, Stories, Videos,
 };
+use alo_renderer::results_answer::Answer;
 use alo_renderer::results_media::{Story, Video};
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -118,6 +130,17 @@ pub enum Came {
         images: Images,
         /// Whether the provider offers a further page (queue item 761).
         more: bool,
+        /// Where its answer starts (queue item 707): [`Answer::Asking`] when
+        /// it will follow, [`Answer::NotAsked`] when it will not.
+        answer: Answer,
+    },
+    /// The search's answer, written by the model from its sites, or why
+    /// not (queue item 707); and what it cost, if the provider said.
+    Answer {
+        /// The answer, or why there is none.
+        answer: Answer,
+        /// What it cost.
+        spent: Option<Spent>,
     },
     /// The images found, each holding its thumbnail if one was kept, or why
     /// not.
@@ -148,6 +171,7 @@ impl Searched {
                 showing,
                 images: Images::NotAsked,
                 more: false,
+                answer: Answer::NotAsked,
             },
         }
     }
@@ -201,6 +225,21 @@ impl Searcher {
     ///
     /// What the system said when no thread could be started.
     pub fn start(provider: Result<Provider, String>, tell: TellSearched) -> std::io::Result<Self> {
+        Self::answering(provider, None, tell)
+    }
+
+    /// Start a thread asking `provider`, as [`Searcher::start`] does, and
+    /// handing each search that found sites to `answerer`, if there is one,
+    /// for its answer (queue item 707).
+    ///
+    /// # Errors
+    ///
+    /// What the system said when no thread could be started.
+    pub fn answering(
+        provider: Result<Provider, String>,
+        answerer: Option<Answerer>,
+        tell: TellSearched,
+    ) -> std::io::Result<Self> {
         let provider = match provider {
             Ok(provider) => provider,
             Err(why) => {
@@ -215,7 +254,7 @@ impl Searcher {
         let (asked, asking) = channel();
         let thread = std::thread::Builder::new()
             .name("alo-conversation-search".to_owned())
-            .spawn(move || ask(&provider, &asking, &tell))?;
+            .spawn(move || ask(&provider, &asking, &tell, answerer.as_ref()))?;
         Ok(Self {
             set_up: SetUp::Ready,
             asked: Some(asked),
@@ -325,8 +364,14 @@ pub fn not_set_up(why: &str) -> String {
 }
 
 /// Ask `provider` for each search `asking` sends — of those waiting, only
-/// the newest — telling the window what came of each, until told to finish.
-fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
+/// the newest — telling the window what came of each, and handing each that
+/// found sites to `answerer` for its answer, until told to finish.
+fn ask(
+    provider: &Provider,
+    asking: &Receiver<Work>,
+    tell: &TellSearched,
+    answers: Option<&Answerer>,
+) {
     let mut pool: Option<Pool> = None;
     let mut identities = Identities::default();
     // Work that arrived while a search's images were being decided on.
@@ -386,19 +431,16 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
             continue;
         };
         let answered = brave_search::search(provider, pool, &mut identities, &words);
-        let marks = answered.marks;
+        let marks = answered.marks.clone();
         let found_sites = matches!(&answered.showing, Showing::Found(found) if !found.is_empty());
         let images_follow = provider.asks_images() && found_sites;
-        let sites = Searched {
-            number,
-            words: words.clone(),
-            came: Came::Sites {
-                showing: answered.showing,
-                images: starting(images_follow),
-                more: answered.more,
-            },
-        };
-        if !tell(sites) {
+        if !tell_sites(
+            (number, &words),
+            answered,
+            images_follow,
+            answers.filter(|_| found_sites),
+            tell,
+        ) {
             return;
         }
         // No sites, no marks: `brave_search::search` names none then.
@@ -432,6 +474,45 @@ fn ask(provider: &Provider, asking: &Receiver<Work>, tell: &TellSearched) {
             return;
         }
     }
+}
+
+/// Tell the window the sites the search `number` for `words` came to,
+/// where its images start, and — when `answers` is given — that its answer
+/// is asked, then hand the words and the sites to `answers`' own thread
+/// (queue item 707): never before the sites are told. Whether the window
+/// still hears.
+fn tell_sites(
+    (number, words): (u64, &str),
+    answered: brave_search::Answered,
+    images_follow: bool,
+    answers: Option<&Answerer>,
+    tell: &TellSearched,
+) -> bool {
+    let sources = match (&answered.showing, answers) {
+        (Showing::Found(found), Some(_)) => found.clone(),
+        _ => Vec::new(),
+    };
+    let sites = Searched {
+        number,
+        words: words.to_owned(),
+        came: Came::Sites {
+            showing: answered.showing,
+            images: starting(images_follow),
+            more: answered.more,
+            answer: if answers.is_some() {
+                Answer::Asking
+            } else {
+                Answer::NotAsked
+            },
+        },
+    };
+    if !tell(sites) {
+        return false;
+    }
+    if let Some(answers) = answers {
+        answers.ask(number, words, &sources);
+    }
+    true
 }
 
 /// Where a search's images start, told with its sites: asking when they

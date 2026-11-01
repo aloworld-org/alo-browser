@@ -40,7 +40,9 @@ a subscription, and what a subscription needs — stands.
   Today there is one slot, `search` (the Brave Search API's key). The AI
   slot is **not defined** until ADR 0081 names the provider — a slot names
   the keychain item its key is taken from, and that is the provider's
-  (queued, 773).
+  (queued, 773). *(Since built, 1 November 2026: the `answer` slot, OpenAI's
+  key from the keychain item `alo-openai`, read by the browser process
+  alone — queue item 773, ADR 0095 § 2. `--keys-from` takes both.)*
 - **The browser process alone reads it**, as the conversation opens
   (`search_key::for_this_application`), and hands it to the one request
   header that carries it, as before (ADR 0083 §§ 2–3). No renderer, no

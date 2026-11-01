@@ -878,7 +878,10 @@ pub fn conversation(
     forced: Option<Scale>,
     renderers: Renderers,
     chromium: Chromium,
-    search: Result<Provider, String>,
+    (search, answer): (
+        Result<Provider, String>,
+        Result<crate::openai_answer::Provider, String>,
+    ),
     chats: Result<PathBuf, String>,
     (reaching, closing): (Reaching, Closing<'_>),
 ) -> Result<(), String> {
@@ -900,9 +903,18 @@ pub fn conversation(
         Box::new(move |went| proxy.send_event(Heard::Chrome(went)).is_ok()),
     )
     .map_err(|why| format!("no thread to open a page in Chrome: {why}"))?;
+    // A search's answer, asked on a thread of its own once its sites have
+    // come (queue item 707), told to the window as a search's news is.
     let proxy = event_loop.create_proxy();
-    let searcher = Searcher::start(
+    let answerer = crate::conversation_answer::Answerer::start(
+        answer,
+        Box::new(move |searched| proxy.send_event(Heard::Searched(searched)).is_ok()),
+    )
+    .map_err(|why| format!("no thread to answer with: {why}"))?;
+    let proxy = event_loop.create_proxy();
+    let searcher = Searcher::answering(
         search,
+        Some(answerer),
         Box::new(move |searched| proxy.send_event(Heard::Searched(searched)).is_ok()),
     )
     .map_err(|why| format!("no thread to search with: {why}"))?;

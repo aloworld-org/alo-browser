@@ -147,7 +147,9 @@ line at the window's foot.
 ## 6. What is not here
 
 - The short answer at the top of All waits on the model (707, ADR 0081).
-  Nothing stands in its place.
+  Nothing stands in its place. *(Since built: ADR 0095, queue item 707 —
+  OpenAI, from the results' own words; the search's request is unchanged,
+  the words alone.)*
 - The Answer, Sites, Images, Videos and News tabs are drawn, disabled, and
   claim nothing; *More sites ›* likewise. *(Since built: the row of images,
   the Images tab, the Sites tab and More sites ›, by queue items 743 and

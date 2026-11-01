@@ -70,6 +70,7 @@ use crate::chat_record;
 use crate::chat_store::{ChatStore, Opened};
 use crate::chrome_history::Way;
 use crate::conversation::{Conversation, Pressed as Decided};
+use crate::conversation_answer;
 use crate::conversation_box::{self, Typed};
 use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::ConversationScene;
@@ -757,7 +758,7 @@ impl ConversationWindow {
                     Tab::Videos => searcher.videos(further.number, &further.words),
                     Tab::News => searcher.news(further.number, &further.words),
                     Tab::Sites => searcher.page(further.number, &further.words, further.offset),
-                    Tab::All | Tab::Images => {}
+                    Tab::All | Tab::Answer | Tab::Images => {}
                 }
             }
         }
@@ -781,6 +782,13 @@ impl ConversationWindow {
                 Showing::Unanswered(why) => Some(why.clone()),
                 Showing::Searching => return,
             },
+            Came::Answer { answer, spent } => {
+                // Said on the terminal, with what it cost, never on the
+                // first screen's line, which keeps what the sites came to.
+                self.said
+                    .extend(conversation_answer::said(&searched.words, answer, *spent));
+                None
+            }
             Came::Images(_) | Came::Marks(_) | Came::Videos(_) | Came::News(_) | Came::Page(_) => {
                 None
             }

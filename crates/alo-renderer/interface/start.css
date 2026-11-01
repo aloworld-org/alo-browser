@@ -513,7 +513,8 @@ a {
    underlined 2 in the ink over the row's line — then 20 under it the sites,
    22 apart, each its mark, name and address on a line of 13, its title a
    link of 18 on 25, and two lines of its description of 14.5 on 23; then
-   More sites. No short answer is drawn: it waits on a model (item 707). */
+   More sites. The short answer, once asked for, stands between the row and
+   the sites (item 707, below). */
 .turn.searched {
   row-gap: 20px;
 }
@@ -678,6 +679,166 @@ a {
 .note {
   font-size: 14.5px;
   line-height: 23px;
+  color: var(--quiet);
+}
+
+/* The short answer at the top of All (queue item 707, shell.md item 2):
+   two or three sentences of 16 on 26 straight on the paper, no box, each
+   followed by its sources' numbers; 10 under them *Full answer ›*, 13 px,
+   600, and how many sites it drew on in quiet text; a line of #e1dace 20
+   under it all. A number is 16 tall, rounded 8, 10.5 px, 600, in the ink
+   on #e9e3d8, 4 inside either side. Where there is no answer to draw, one
+   sentence of 14.5 on 23 in quiet text stands in its place. */
+.ans {
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e1dace;
+}
+
+.ansp {
+  max-width: 760px;
+  font-size: 16px;
+  line-height: 26px;
+  color: var(--ink);
+}
+
+.cite {
+  display: inline-block;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #e9e3d8;
+  color: var(--ink);
+  font-size: 10.5px;
+  line-height: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.ansf {
+  display: flex;
+  align-items: center;
+  column-gap: 14px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+}
+
+.full {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.ansnote {
+  font-size: 14.5px;
+  line-height: 23px;
+  color: var(--quiet);
+}
+
+/* A site the answer drew on says so on its line, after its address: 11.5
+   px, 600, in #2f6b5e on #e3ece8, 6 inside either side, rounded 8. */
+.used {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #e3ece8;
+  color: #2f6b5e;
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+/* The Answer tab (queue item 707, shell.md *The answer*): the answer in one
+   line in the serif, 22 on 30; under it the short points, 15 on 24, 20 in
+   from the left with their bullets; then, over a line of #e1dace and 14
+   under it, *N sources* in the ink, 13 px, 600, and each source
+   cited on a line of 13: its number, its site's name in the ink, 600, its
+   address, and its page's title in the link colour, cut off at the line's
+   end. */
+.answer {
+  display: flex;
+  flex-direction: column;
+  row-gap: 14px;
+  padding-top: 4px;
+}
+
+.ansline {
+  max-width: 760px;
+  font-family: Newsreader, serif;
+  font-size: 22px;
+  line-height: 30px;
+  color: var(--ink);
+}
+
+.pts {
+  max-width: 760px;
+  padding-left: 20px;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--ink);
+}
+
+.pt {
+  margin-bottom: 6px;
+}
+
+.srcs {
+  display: flex;
+  flex-direction: column;
+  row-gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #e1dace;
+}
+
+.srch {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.srci {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sname {
+  flex-shrink: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.saddr {
+  flex-shrink: 0;
+}
+
+.stitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #22406e;
+}
+
+/* What was sent to have the answer written, and to whom (ADR 0081 § 5):
+   one quiet line of 12.5 on 18 under the sources. */
+.sent {
+  font-size: 12.5px;
+  line-height: 18px;
   color: var(--quiet);
 }
 

@@ -21,6 +21,10 @@
 //!   becomes when anything newer comes (ADR 0085 § 2).
 //! - **A page that could not be opened** — what was said, and why not.
 //!
+//! **Not written yet:** a search's answer (queue item 707) — a chat read
+//! back shows its sites with no answer, and the Answer tab is not open; a
+//! chat kept on it is read back on All (queue item 814).
+//!
 //! **Never written:** a picture's bytes — a thumbnail, a site's mark, a
 //! card's frame — nor anything typed and not yet chosen, how far the chat
 //! was scrolled, a provider's key, or anything of a Chromium's profile.
@@ -136,6 +140,7 @@ fn turn(turn: &Turn) -> Value {
 fn tab_name(tab: Tab) -> &'static str {
     match tab {
         Tab::All => "all",
+        Tab::Answer => "answer",
         Tab::Sites => "sites",
         Tab::Images => "images",
         Tab::Videos => "videos",
@@ -356,6 +361,7 @@ fn read_searched(object: &Map<String, Value>) -> Result<Results, Unread> {
     results.news = read_asked(object, "news", read_story)?;
     let tab = match object.get("tab").and_then(Value::as_str) {
         Some("all") => Tab::All,
+        Some("answer") => Tab::Answer,
         Some("sites") => Tab::Sites,
         Some("images") => Tab::Images,
         Some("videos") => Tab::Videos,
@@ -368,6 +374,9 @@ fn read_searched(object: &Map<String, Value>) -> Result<Results, Unread> {
     let unasked = match tab {
         Tab::Videos => matches!(results.videos, Asked::NotAsked),
         Tab::News => matches!(results.news, Asked::NotAsked),
+        // A search's answer is not kept (queue item 814): its tab is not
+        // shown, and cannot be chosen.
+        Tab::Answer => true,
         Tab::All | Tab::Sites | Tab::Images => false,
     };
     if results.open(tab) && !unasked {
@@ -609,6 +618,29 @@ mod tests {
         let kept = read(write("x", &[Turn::Searched(asking)]).as_bytes()).expect("read");
         assert!(
             matches!(kept.turns.first(), Some(Turn::Searched(r)) if r.tab == Tab::All && r.videos == Asked::NotAsked)
+        );
+    }
+
+    #[test]
+    fn a_searchs_answer_is_not_kept_and_its_tab_is_read_back_as_all() {
+        use alo_renderer::results_answer::{Answer, Cited, Written};
+        let answered = a_search()
+            .with_answer(Answer::Written(Written {
+                line: "A secret only the model wrote.".to_owned(),
+                sentences: vec![Cited::new("A secret only the model wrote.", [1])],
+                points: Vec::new(),
+            }))
+            .on(Tab::Answer);
+        let written = write("x", &[Turn::Searched(answered)]);
+        assert!(!written.contains("secret"), "{written}");
+        assert!(written.contains("\"tab\":\"answer\""), "{written}");
+        let kept = read(written.as_bytes()).expect("read");
+        assert!(
+            matches!(
+                kept.turns.first(),
+                Some(Turn::Searched(r)) if r.tab == Tab::All && r.answer == Answer::NotAsked
+            ),
+            "{kept:?}"
         );
     }
 

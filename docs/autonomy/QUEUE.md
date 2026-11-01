@@ -20776,7 +20776,7 @@ What stage 2's exit gate actually measures: a person using it.
   (`the_application_assembled.rs`, `bundle_made.rs`). Ten references
   redrawn; three layout numbers moved by the new face's widths.
 
-- [ ] **707. The answer, written by a model, every claim tied to its source.**
+- [x] **707. The answer, written by a model, every claim tied to its source.**
   The design's Answer tab: a one-line answer, short points, a number after
   each sentence a source supports, the exact line on hover, *N sources*
   counting only the sources used, and *I couldn't find a reliable answer*
@@ -20786,6 +20786,46 @@ What stage 2's exit gate actually measures: a person using it.
   sites it drew on, and *alo used this* on those sites — cut from 708,
   which draws nothing in its place. *blocked: the owner has not chosen the
   model.*
+  ***Done (iteration 490), with cuts to 812–818.*** **The provider**: the
+  owner chose *"AI provider (Recommended)"* on 1 November 2026, naming no
+  other, so OpenAI — ADR 0081 **decided**; the model `gpt-6.1-terra` is the
+  builder's choice, pending the owner's confirmation, by OpenAI's own
+  descriptions and prices read that day (the account's models listed at no
+  cost), named once (`openai_answer::MODEL`). **How it is asked**: ADR 0095
+  — the browser process, on a thread of its own (`conversation_answer.rs`),
+  once a search's sites are told and only then, newest wins, through
+  `alo-net` (`openai_answer.rs`): `POST /v1/responses` with the person's
+  words and the first eight sites' titles, names, addresses and Brave's
+  descriptions alone (no page fetched), `store: false`, strict structured
+  output, the key in `Authorization`; read in `answer_protocol.rs`, the
+  boundary file (`serde_json`), size and nesting bounded, every field by
+  name. **Checked by construction**: an answer citing a source it was not
+  given is refused whole (`Written::check`), on the browser's side and the
+  renderer's wire; `answered: false` is *I couldn't find a reliable answer*;
+  no key, 401/403/404/429/5xx, no connection, a refusal, an unreadable
+  answer each said in words where the answer would be. **Drawn**
+  (`results_answer.rs`, `answer_document.rs`, `start.css`): All's two or
+  three sentences with their numbers, *Full answer ›* (claimed by place,
+  opening the Answer tab) and *Drew on N sites*, a rule, and *alo used this*
+  on the sites it drew on; the Answer tab's line in the serif, points, *N
+  sources* by name and what was sent to whom; the tab open once an answer is
+  asked for. **Tests**: unit (`results_answer`, `answer_document`,
+  `answer_protocol`, `openai_answer`, `conversation_answer`, `chat_record`,
+  `carried_keys`, `bundle_keys`); `a_searchs_answer.rs` (layout in numbers,
+  three references, the agent's tree, the notes, the press, a confined
+  renderer); `messages_across_a_boundary.rs` (crossing, and a citation not
+  given refused); `a_searchs_answer_in_the_window.rs` (a local server in
+  OpenAI's and Brave's shapes: what is sent, drawn, *Full answer ›*, no
+  reliable answer, a lying citation refused, 401, no sites no request, no
+  key nothing sent). **Mutations**: the protocol's check removed — the unit
+  and window tests fail; the wire's — the boundary test fails; `store:
+  true` — fails; *alo used this* one site along — the layout and reference
+  tests fail, and the unit test, which passed by a coincidence of counts,
+  now says which site. **By hand** (`handrun27/`): two real questions
+  answered and drawn, one honestly not. **Cut:** the exact line on hover
+  (812), a source opened at its line (813), the answer kept in a chat
+  (814), streaming (815), richer grounding (816), an evaluation (817), zero
+  data retention (818).
 
 - [x] **708. Search results, as the design's All tab, from the Brave Search
   API.** The owner chose the provider (ADR 0082 § 0: the Brave Search API)
@@ -21710,7 +21750,7 @@ What stage 2's exit gate actually measures: a person using it.
   alpha 0, no tile in the strip (`02-retina-strip.png`). A Mac with one
   display is reasoned, not measured.
 
-- [ ] **773. The AI provider's slot among the carried keys.** Cut from 748.
+- [x] **773. The AI provider's slot among the carried keys.** Cut from 748.
   ADR 0091 carries the providers' keys inside the application, but defines
   only the `search` slot: a slot names the keychain item its key is taken
   from, which is the provider's. Once ADR 0081 chooses the provider, add its
@@ -21719,6 +21759,18 @@ What stage 2's exit gate actually measures: a person using it.
   on ADR 0081's decision (707, 704). Closes when:* an application made with
   `--keys-from` carries the AI key in its own slot, a test with a fake key
   reads it back, and no AI call is wired by this item alone.
+  ***Done (iteration 490), with 707.*** `carried_keys::Slot::Answer`: file
+  `keys/answer`, service `alo-openai`, *OpenAI key*, masked by its own
+  stream; `answer_key.rs` reads the application's first and the keychain's
+  otherwise, a damaged one said and never swapped; `alo-bundle --keys-from`
+  takes both slots and refuses, naming which, when either is missing.
+  **Tests**: unit (`carried_keys` — two slots apart, a damaged answer key
+  said; `bundle_keys`; `answer_key`); `the_application_carrying_its_keys.rs`
+  with two fake keys — both carried, neither plain in its file nor any
+  program, sealed, the answer key read back as carried into the one
+  `Authorization` header, a directory missing the answer key refused.
+  **By hand**: a release made with `--keys-from keychain` carried both,
+  checked without printing either.
 
 - [x] **774. The conversation's column in a narrow window.** Found by hand
   in 748's run (`handrun14/02-searched.png`): in a window 967 wide, at one,
@@ -22296,6 +22348,51 @@ What stage 2's exit gate actually measures: a person using it.
   style, and decide whether alo shows it — in the card's bar while parked,
   in the expanded window — or the bubble is had back once expanded.
   *Depends on 808.*
+
+- [ ] **812. The exact line an answer's sentence rests on, on hover (cut
+  from 707).** `shell.md`: hovering a source's number shows the site, the
+  page and the exact line, beside the answer, never over it. The sources
+  707 gives the model are Brave's descriptions, so today the line is the
+  description itself; decide whether a sentence carries its own quoted
+  line (checked to be a substring of what was given, as ADR 0081 § 1 A
+  asks), and draw it beside the answer on hover. *Depends on 707.*
+
+- [ ] **813. A source opened as a card at the line the answer used (cut
+  from 707).** `shell.md`, *A page inside the conversation*: a press on a
+  source opens its page in a card under the answer, scrolled to the line
+  used and highlighted, with *alo used the highlighted part of this page*
+  and *1 of 3 sources ‹ ›*. *Depends on 707, 812, 717.*
+
+- [ ] **814. A search's answer kept in its chat (cut from 707).** ADR
+  0092's file keeps a search's sites, images, videos and news, and not its
+  answer: a chat read back shows no answer and its Answer tab closed.
+  Write the line, sentences, points and their numbers, read them back
+  checked as the wire checks them, and never ask the model again for a
+  chat read back. *Depends on 707, 757.*
+
+- [ ] **815. An answer drawn as it is written (cut from 707).** The answer
+  is drawn whole when it comes; the Responses API can stream. Measure how
+  long a person waits today, and whether streaming a structured answer
+  (its sentences as they complete, each checked) is worth the parser it
+  needs. *Depends on 707.*
+
+- [ ] **816. Richer grounding for an answer (cut from 707).** The model is
+  given Brave's titles and descriptions alone. Brave can add extra snippets
+  (a parameter, which ADR 0083 § 3 keeps out: the words alone), and a
+  page's own text would need alo to fetch it. Each sends more to OpenAI and
+  costs more; *needs the owner's decision* (ADR 0095 § 7).
+
+- [ ] **817. The model measured on alo's own material (cut from 707, ADR
+  0081 § 4).** Fifty questions with known answers over frozen results,
+  scored for correct citations, *I couldn't find a reliable answer* when it
+  is right, latency and cost from `usage`, on `gpt-6.1-terra`, `gpt-6-luna`
+  and `gpt-6.1-sol` — so the owner confirms the model on numbers.
+  *Depends on 707. Costs real requests; the owner's to approve.*
+
+- [ ] **818. Zero data retention at OpenAI (cut from 707).** What alo sends
+  is kept in OpenAI's abuse-monitoring logs for up to 30 days; zero data
+  retention is by OpenAI's prior approval (ADR 0081 § 0). *needs the
+  owner: a request to OpenAI.*
 
 ## K. ★ The agent, on somebody else's pages
 

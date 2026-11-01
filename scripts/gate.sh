@@ -78,10 +78,11 @@ good() { printf '\033[32mok\033[0m    %s\n' "$1"; }
 # text is read, and `selectors` wherever a selector is built or run. What holds
 # for both is that no type of theirs appears in `alo-css`'s public API.
 #
-# `serde_json` is three files because there are three protocols, each read
-# from a stranger: the agent's lines on its socket, Chrome's messages on its
-# pipe (ADR 0058), and the search provider's answers (ADR 0083). Each is a
-# reason to change of its own, so none is another's.
+# `serde_json` is five files: four protocols, each read from a stranger — the
+# agent's lines on its socket, Chrome's messages on its pipe (ADR 0058), the
+# search provider's answers (ADR 0083) and the model's (ADR 0095) — and the
+# chats kept on the machine as JSON (ADR 0092). Each is a reason to change of
+# its own, so none is another's.
 #
 # Prose may say the name anywhere — comments are stripped before this looks.
 declare -a BOUNDARIES=(
@@ -113,7 +114,7 @@ declare -a BOUNDARIES=(
   "softbuffer:crates/alo-window/src/present.rs"
   "raw_window_handle:crates/alo-window/src/present.rs"
   "rustix:crates/alo-storage/src/volume.rs"
-  "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs"
+  "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs,crates/alo-window/src/answer_protocol.rs,crates/alo-window/src/chat_record.rs"
   # Brave's matcher of filter lists (ADR 0094): asked of every request a page
   # in Chromium makes, in one file of the browser process.
   "adblock:crates/alo-window/src/blocking.rs"
@@ -325,14 +326,15 @@ while IFS= read -r file; do
   if found=$(code_of "$file" | grep -n 'unsafe_code'); then
     named="$named$(printf '%s\n' "$found" | sed "s@^@$file:@")"$'\n'
   fi
-  if code_of "$file" | grep -q 'transmute_ptr_to_ptr'; then
+  # Never `grep -q` after a pipe: see the boundary check's note on SIGPIPE.
+  if code_of "$file" | grep 'transmute_ptr_to_ptr' > /dev/null; then
     transmuted="$transmuted $file"
   fi
 done < <(find "$HOST" -name '*.rs' -not -path '*/target/*' | sort)
 if [ -n "$outside" ]; then
   printf '%s' "$outside"
   bad "unsafe is written in the CEF host outside $HOST_UNSAFE (ADR 0080)"
-elif ! code_of "$HOST_UNSAFE" | grep -qE '(^|[^A-Za-z0-9_])unsafe([^A-Za-z0-9_]|$)'; then
+elif ! code_of "$HOST_UNSAFE" | grep -E '(^|[^A-Za-z0-9_])unsafe([^A-Za-z0-9_]|$)' > /dev/null; then
   bad "$HOST_UNSAFE holds no unsafe — ADR 0080 and this check name the wrong file"
 else
   good "the CEF host writes unsafe only in $HOST_UNSAFE (ADR 0080)"
@@ -395,8 +397,14 @@ for entry in "${BOUNDARIES[@]}"; do
     # What counts as naming it is a path — `crate::Thing` or `use crate` — and
     # not a field that happens to share the word, which is why `rule.selectors`
     # is not a boundary violation.
+    #
+    # `grep` reads the whole file, never `-q`: under `pipefail`, a `-q` that
+    # stops at its first match leaves `sed` writing to a closed pipe, the
+    # pipeline fails with SIGPIPE, and a long file naming the crate early
+    # was passed as naming nothing (found by queue item 707: chat_record.rs).
     if sed -E 's@^[[:space:]]*(//!|///|//).*$@@' "$file" \
-      | grep -qE "(^|[^A-Za-z0-9_.])${crate}::|^[[:space:]]*use[[:space:]]+${crate}[[:space:]{:;]"; then
+      | grep -E "(^|[^A-Za-z0-9_.])${crate}::|^[[:space:]]*use[[:space:]]+${crate}[[:space:]{:;]" \
+        > /dev/null; then
       offenders="$offenders $file"
     fi
   done < <(find crates -name '*.rs' -not -path '*/target/*')

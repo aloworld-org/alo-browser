@@ -75,6 +75,9 @@ pub struct Shown<C, S> {
     pub show_more: Vec<(C, usize)>,
     /// The pages every image drawn was found on, in order.
     pub pictured: Vec<Url>,
+    /// Every *Full answer ›* drawn, in order (queue item 707): the chat and
+    /// the turn's place.
+    pub full_answer: Vec<(C, usize)>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -93,6 +96,7 @@ impl<C, S> Default for Shown<C, S> {
             see_all: Vec::new(),
             show_more: Vec::new(),
             pictured: Vec::new(),
+            full_answer: Vec::new(),
         }
     }
 }
@@ -189,6 +193,8 @@ pub enum Listed {
     ShowMoreSites,
     /// The images a search found.
     Images,
+    /// The *Full answer ›* drawn (queue item 707).
+    FullAnswer,
 }
 
 impl fmt::Display for Listed {
@@ -204,6 +210,7 @@ impl fmt::Display for Listed {
             Listed::SeeAllImages => "See all images",
             Listed::ShowMoreSites => "Show more sites",
             Listed::Images => "image found",
+            Listed::FullAnswer => "Full answer",
         })
     }
 }
@@ -389,6 +396,17 @@ where
         }),
         Claim::Image { at } => held(Listed::Images, at, &painted.pictured, &now.pictured)
             .map_or_else(Decided::Refused, Decided::Image),
+        Claim::FullAnswer { at } => held(
+            Listed::FullAnswer,
+            at,
+            &painted.full_answer,
+            &now.full_answer,
+        )
+        .map_or_else(Decided::Refused, |(chat, turn)| Decided::Tab {
+            chat,
+            turn,
+            tab: Tab::Answer,
+        }),
     }
 }
 

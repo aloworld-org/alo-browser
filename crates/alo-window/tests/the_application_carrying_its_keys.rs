@@ -2,29 +2,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! `alo-bundle --keys-from` puts the keys a release searches with inside the
-//! application, sealed, and the browser in it searches with the one it
-//! carries (queue item 748, ADR 0091).
+//! `alo-bundle --keys-from` puts the keys a release searches and answers
+//! with inside the application, sealed, and the browser in it searches and
+//! asks for answers with the ones it carries (queue items 748 and 773, ADR
+//! 0091).
 //!
 //! The real command, given the programs this test was built with and a
-//! directory holding a fake key — never the keychain, so no real key is
-//! ever in a test — makes `alo browser.app` with no Chromium. The key is at
-//! `Contents/Resources/keys/search`, not plain there nor in any program the
-//! application holds; `codesign` accepts the seal, and refuses it once the
-//! key's file is changed. The browser's own reading of the application it
-//! is in finds the key carried, and a search request made with it carries
-//! it in its one header. A directory with no key refuses, and nothing is
-//! made.
+//! directory holding two fake keys — never the keychain, so no real key is
+//! ever in a test — makes `alo browser.app` with no Chromium. The keys are
+//! at `Contents/Resources/keys/search` and `…/keys/answer`, neither plain
+//! there nor in any program the application holds; `codesign` accepts the
+//! seal, and refuses it once a key's file is changed. The browser's own
+//! reading of the application it is in finds each key carried, and a search
+//! request, and a request for an answer, made with them carry each in its
+//! one header. A directory missing either key refuses, saying which, and
+//! nothing is made. No request is sent anywhere.
 
 use alo_net::cause::Identities;
+use alo_window::answer_key;
 use alo_window::brave_search::Provider;
 use alo_window::bundle::Bundle;
+use alo_window::openai_answer;
 use alo_window::search_key::{Held, for_this_application};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 /// A key no provider has ever issued.
 const NOT_A_KEY: &str = "not-a-real-key-for-the-bundle-test-89";
+
+/// A second, for the answer's slot (queue item 773).
+const NOT_AN_ANSWER_KEY: &str = "not-a-real-answer-key-for-the-bundle-test-73";
 
 /// A directory of this test's own, empty.
 fn directory(name: &str) -> Result<PathBuf, String> {
@@ -69,11 +76,13 @@ fn sealed(application: &Path) -> Result<bool, String> {
 }
 
 #[test]
-fn the_application_carries_its_search_key_sealed_and_searches_with_it() -> Result<(), String> {
+fn the_application_carries_its_keys_sealed_and_asks_with_them() -> Result<(), String> {
     let root = directory("made")?;
     let keys = root.join("keys given");
     std::fs::create_dir_all(&keys).map_err(|why| why.to_string())?;
     std::fs::write(keys.join("search"), format!("{NOT_A_KEY}\n")).map_err(|why| why.to_string())?;
+    std::fs::write(keys.join("answer"), format!("{NOT_AN_ANSWER_KEY}\n"))
+        .map_err(|why| why.to_string())?;
     let into = root.join("into");
     std::fs::create_dir_all(&into).map_err(|why| why.to_string())?;
 
@@ -85,23 +94,35 @@ fn the_application_carries_its_search_key_sealed_and_searches_with_it() -> Resul
         format!(
             "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
              its page with this browser's own engine, and says so\n\
-             alo-bundle: carries the Brave Search key, taken from {}\n\
+             alo-bundle: carries the Brave Search key, the OpenAI key, taken from {}\n\
              alo-bundle: made, sealed ad hoc and checked by codesign\n",
             keys.display()
         )
     );
-    assert!(!said.contains(NOT_A_KEY));
-    assert!(!String::from_utf8_lossy(&made.stdout).contains(NOT_A_KEY));
+    for key in [NOT_A_KEY, NOT_AN_ANSWER_KEY] {
+        assert!(!said.contains(key));
+        assert!(!String::from_utf8_lossy(&made.stdout).contains(key));
+    }
 
     let application = into.join("alo browser.app");
     let contents = application.join("Contents");
     let carried = contents.join("Resources/keys/search");
     let file = std::fs::read(&carried).map_err(|why| format!("the key's file: {why}"))?;
     assert!(!holds(&file, NOT_A_KEY), "the key is plain in its file");
+    let answer_file = std::fs::read(contents.join("Resources/keys/answer"))
+        .map_err(|why| format!("the answer key's file: {why}"))?;
+    assert!(
+        !holds(&answer_file, NOT_AN_ANSWER_KEY),
+        "the answer key is plain in its file"
+    );
     for program in ["alo", "alo-render", "alo-ask"] {
         let bytes = std::fs::read(contents.join("MacOS").join(program))
             .map_err(|why| format!("{program}: {why}"))?;
         assert!(!holds(&bytes, NOT_A_KEY), "{program} holds the key");
+        assert!(
+            !holds(&bytes, NOT_AN_ANSWER_KEY),
+            "{program} holds the answer key"
+        );
     }
     assert!(sealed(&application)?, "the seal");
 
@@ -119,6 +140,24 @@ fn the_application_carries_its_search_key_sealed_and_searches_with_it() -> Resul
         .map(|header| header.value.as_str())
         .collect();
     assert_eq!(tokens, [NOT_A_KEY]);
+
+    // And the answer's key, in its own slot, in its one header (773).
+    let answering = answer_key::for_this_application(Some(&bundle))?;
+    assert_eq!(answering.held(), Held::Carried);
+    assert!(!format!("{answering:?}").contains(NOT_AN_ANSWER_KEY));
+    let request = openai_answer::Provider::openai(answering)?.request(
+        "words",
+        &[],
+        &mut Identities::default(),
+    );
+    let bearers: Vec<&str> = request
+        .headers
+        .iter()
+        .filter(|header| header.name == "Authorization")
+        .map(|header| header.value.as_str())
+        .collect();
+    assert_eq!(bearers, [format!("Bearer {NOT_AN_ANSWER_KEY}").as_str()]);
+    assert!(!holds(&request.body, NOT_AN_ANSWER_KEY));
 
     // The key changed after the seal: known to be.
     std::fs::write(&carried, b"alo carried key 1\nchanged").map_err(|why| why.to_string())?;
@@ -150,6 +189,20 @@ fn a_key_not_given_is_refused_and_nothing_is_made() -> Result<(), String> {
              its page with this browser's own engine, and says so\n\
              alo-bundle: no Brave Search key at {} for the application to carry\n",
             keys.join("search").display()
+        )
+    );
+
+    // The search key alone: the answer's is missing, and said.
+    std::fs::write(keys.join("search"), NOT_A_KEY).map_err(|why| why.to_string())?;
+    let made = assemble(&into, &keys)?;
+    assert_eq!(made.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8_lossy(&made.stderr),
+        format!(
+            "alo-bundle: CEF_PATH is not set, so the application carries no Chromium: it draws \
+             its page with this browser's own engine, and says so\n\
+             alo-bundle: no OpenAI key at {} for the application to carry\n",
+            keys.join("answer").display()
         )
     );
     let left: Vec<_> = std::fs::read_dir(&into)
