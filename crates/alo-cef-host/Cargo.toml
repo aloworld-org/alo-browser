@@ -35,9 +35,11 @@ cef = { version = "=156.2.0", default-features = false, features = ["sandbox"] }
 
 # AppKit, through `objc2`, for the one `unsafe` boundary ADR 0080 allows the
 # host: `src/application_mac.rs`, the `NSApplication` subclass CEF requires
-# on macOS (`CefAppProtocol`); and `src/menu_mac.rs`, the menu bar, and
+# on macOS (`CefAppProtocol`); and `src/menu_mac.rs`, the menu bar,
 # `src/unseen_mac.rs`, a card's window made transparent (queue item 771),
-# which hold none. The versions are the ones the `cef` crate itself builds
+# and `src/dismissed_mac.rs`, a context menu dismissed before its page closes
+# (queue item 734, `NSGraphicsContext` and `NSGeometry` for the Escape it
+# posts), which hold none. The versions are the ones the `cef` crate itself builds
 # against (`objc2` 0.6), and `Cargo.lock` holds them. Without default
 # features, with only the classes the three files use — and
 # `objc2-core-foundation`, for the `CGFloat` a window's transparency is, and
@@ -45,8 +47,8 @@ cef = { version = "=156.2.0", default-features = false, features = ["sandbox"] }
 # host kept out of the Dock, ⌘-Tab and Stage Manager's strip until it is
 # seen, queue items 781 and 739).
 objc2 = "0.6.3"
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSEvent", "NSMenu", "NSMenuItem", "NSResponder", "NSRunningApplication", "NSView", "NSWindow", "objc2-core-foundation"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSEvent", "NSGraphicsContext", "NSMenu", "NSMenuItem", "NSResponder", "NSRunningApplication", "NSView", "NSWindow", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSGeometry", "NSString"] }
 
 # The workspace's lints, which a crate outside the workspace cannot inherit,
 # written out again. All but one: the lint against `unsafe` is denied at the

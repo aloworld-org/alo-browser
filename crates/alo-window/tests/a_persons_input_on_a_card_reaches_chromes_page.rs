@@ -39,8 +39,9 @@ mod carried;
 
 use alo_window::beside::Chromium;
 use alo_window::card_aim::{self, Aimed, Turned};
-use alo_window::card_input::{CardInput, Went as Button};
+use alo_window::card_input::CardInput;
 use alo_window::card_keys;
+use alo_window::card_pointer::CardPointer;
 use alo_window::conversation::{Conversation, Pressed};
 use alo_window::conversation_box::Typed;
 use alo_window::conversation_chrome::{ChromeOpener, Streamed, Went};
@@ -219,8 +220,11 @@ fn click(
 ) -> Result<(), String> {
     let (x, y) = aimed(conversation, on_the_window(on))?;
     let _ = conversation.press_the_page();
-    for went in [Button::Pressed, Button::Released] {
-        opener.person(CardInput::Pointer { went, x, y });
+    // Counted and released as the window counts and releases them.
+    let mut pointer = CardPointer::default();
+    opener.person(pointer.pressed(Instant::now(), (x, y)));
+    if let Some(released) = pointer.released(Some((x, y))) {
+        opener.person(released);
     }
     Ok(())
 }

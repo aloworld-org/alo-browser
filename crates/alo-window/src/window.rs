@@ -189,7 +189,7 @@ use crate::cursor::{Cursor, Pressed};
 use crate::frame_strip::{FrameStrip, strip_of};
 use crate::frame_told::ToFrame;
 use crate::inbox::Orders;
-use crate::keys::{self, Held, Key, Modifier, Press};
+use crate::keys::{self, Arrow, Held, Key, Modifier, Press};
 use crate::message::{News, Order};
 use crate::notice::Lettering;
 use crate::place::{Placement, STRIP_HEIGHT, screen};
@@ -1136,6 +1136,36 @@ fn held(modifiers: ModifiersState) -> Held {
     .fold(Held::NOTHING, |held, (_, modifier)| held.with(modifier))
 }
 
+/// Which function key `named` is, by its number, if it is one of the twenty
+/// a keyboard of a Mac's has at most.
+fn function(named: NamedKey) -> Option<u8> {
+    [
+        NamedKey::F1,
+        NamedKey::F2,
+        NamedKey::F3,
+        NamedKey::F4,
+        NamedKey::F5,
+        NamedKey::F6,
+        NamedKey::F7,
+        NamedKey::F8,
+        NamedKey::F9,
+        NamedKey::F10,
+        NamedKey::F11,
+        NamedKey::F12,
+        NamedKey::F13,
+        NamedKey::F14,
+        NamedKey::F15,
+        NamedKey::F16,
+        NamedKey::F17,
+        NamedKey::F18,
+        NamedKey::F19,
+        NamedKey::F20,
+    ]
+    .iter()
+    .position(|each| *each == named)
+    .and_then(|at| u8::try_from(at + 1).ok())
+}
+
 /// A key going down, as the browser reads one; [`None`] for a key coming up.
 fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
     if event.state != ElementState::Pressed {
@@ -1152,6 +1182,12 @@ fn pressed(event: &KeyEvent, modifiers: ModifiersState) -> Option<Press> {
         winit_keys::Key::Named(NamedKey::PageDown) => Key::PageDown,
         winit_keys::Key::Named(NamedKey::Home) => Key::Home,
         winit_keys::Key::Named(NamedKey::End) => Key::End,
+        winit_keys::Key::Named(NamedKey::ArrowLeft) => Key::Arrow(Arrow::Left),
+        winit_keys::Key::Named(NamedKey::ArrowRight) => Key::Arrow(Arrow::Right),
+        winit_keys::Key::Named(NamedKey::ArrowUp) => Key::Arrow(Arrow::Up),
+        winit_keys::Key::Named(NamedKey::ArrowDown) => Key::Arrow(Arrow::Down),
+        winit_keys::Key::Named(NamedKey::Delete) => Key::Delete,
+        winit_keys::Key::Named(named) => function(named).map_or(Key::Other, Key::Function),
         _ => Key::Other,
     };
     Some(Press {

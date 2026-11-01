@@ -224,6 +224,9 @@ pub fn next(sent: &Request, got: &Response) -> Result<Next, Refusal> {
         // Set here and nowhere else: what a policy ignores about a redirected
         // request is not something the request's maker gets to say.
         redirected: true,
+        // The asker's bound holds along the chain: a hop is not a way to be
+        // read whole (queue item 762).
+        most: sent.most,
     })))
 }
 

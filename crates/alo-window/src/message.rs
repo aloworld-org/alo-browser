@@ -114,9 +114,10 @@ pub enum CardOrder {
         /// In CSS pixels.
         size: (u32, u32),
     },
-    /// Send the page a person's press, drag, release, wheel or key over the
-    /// card (queue item 718, ADR 0024 § 5): only the conversation's window
-    /// sends one, for a person, and nothing an agent sends becomes one.
+    /// Send the page a person's hover, press, drag, release, wheel or key
+    /// over the card (queue items 718, 740 and 741, ADR 0024 § 5): only the
+    /// conversation's window sends one, for a person, and nothing an agent
+    /// sends becomes one.
     Input(CardInput),
     /// Go back or forward through the page's session history, as a person
     /// pressed the card's *Back* or *Forward* (queue item 737): only the

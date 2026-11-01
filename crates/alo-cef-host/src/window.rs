@@ -96,12 +96,18 @@
 //! closed list's menu each crashed a shown host (`SIGTRAP`, measured,
 //! 727). They no longer do (731).
 //!
-//! **What still crashes it, measured:** a page closed while its context
-//! menu is still open — by alo (`Target.closeTarget` then `Browser.close`),
-//! or by a person's close button — ends the host with `SIGSEGV` inside
-//! CEF's framework, reading memory already freed (`0xcdcd…`), once the
-//! page is gone. A context menu dismissed first (Escape) leaves the host
-//! running and ending in order. Queue item 734.
+//! # Never closed under a context menu
+//!
+//! A page closed while its context menu was still shown — by alo
+//! (`Browser.close`, or `Target.closeTarget` then `Browser.close`), or by a
+//! person's close button — ended the host with `SIGSEGV` inside CEF's
+//! framework, reading memory already freed (`0xcdcd…`), once the page was
+//! gone (measured, queue item 734). Every page's client counts the menus
+//! CEF shows ([`Menus`]); a close asked while one is shown — [`close_all`],
+//! or a window's `can_close` — is owed instead, the menu dismissed as a
+//! person's Escape dismisses it (`dismissed_mac.rs`), and the close carried
+//! out in a task of its own once CEF says the menu is gone, or after
+//! [`GIVE_UP_AFTER`] milliseconds whatever it says (`after_menus.rs`).
 
 //! # The `cef` crate's own `unsafe`, in its macros
 //!
@@ -124,21 +130,25 @@
               code is the crate's, expanded here, and no code of ours transmutes"
 )]
 
+use crate::after_menus::{Closing, GIVE_UP_AFTER, Now, Owed};
 use crate::parked::Stage;
 use cef::{
     App, Browser, BrowserProcessHandler, BrowserSettings, BrowserView, BrowserViewDelegate,
-    CefString, ChromeToolbarType, Client, CommandHandler, Display, DisplayHandler, Frame, ImplApp,
-    ImplBrowser, ImplBrowserHost, ImplBrowserProcessHandler, ImplBrowserView,
-    ImplBrowserViewDelegate, ImplClient, ImplCommandHandler, ImplDisplay, ImplDisplayHandler,
-    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplRequest, ImplRequestHandler, ImplView,
-    ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, Rect, Request,
-    RequestHandler, RuntimeStyle, Size, View, Window, WindowDelegate, WindowOpenDisposition,
-    WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient, WrapCommandHandler,
-    WrapDisplayHandler, WrapLifeSpanHandler, WrapRequestHandler, WrapWindowDelegate,
-    browser_view_create, browser_view_get_for_browser, display_get_alls, display_get_count,
-    window_create_top_level, wrap_app, wrap_browser_process_handler, wrap_browser_view_delegate,
-    wrap_client, wrap_command_handler, wrap_display_handler, wrap_life_span_handler,
-    wrap_request_handler, wrap_window_delegate,
+    CefString, ChromeToolbarType, Client, CommandHandler, ContextMenuHandler, ContextMenuParams,
+    Display, DisplayHandler, Frame, ImplApp, ImplBrowser, ImplBrowserHost,
+    ImplBrowserProcessHandler, ImplBrowserView, ImplBrowserViewDelegate, ImplClient,
+    ImplCommandHandler, ImplContextMenuHandler, ImplDisplay, ImplDisplayHandler,
+    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplRequest, ImplRequestHandler, ImplTask,
+    ImplView, ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, MenuModel, Rect,
+    Request, RequestHandler, RuntimeStyle, Size, Task, ThreadId, View, Window, WindowDelegate,
+    WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient,
+    WrapCommandHandler, WrapContextMenuHandler, WrapDisplayHandler, WrapLifeSpanHandler,
+    WrapRequestHandler, WrapTask, WrapWindowDelegate, browser_view_create,
+    browser_view_get_for_browser, display_get_alls, display_get_count, post_delayed_task,
+    post_task, window_create_top_level, wrap_app, wrap_browser_process_handler,
+    wrap_browser_view_delegate, wrap_client, wrap_command_handler, wrap_context_menu_handler,
+    wrap_display_handler, wrap_life_span_handler, wrap_request_handler, wrap_task,
+    wrap_window_delegate,
 };
 use std::cell::{Cell, RefCell};
 use std::os::raw::c_int;
@@ -244,6 +254,92 @@ wrap_client! {
         fn request_handler(&self) -> Option<RequestHandler> {
             Some(Kept::new())
         }
+
+        fn context_menu_handler(&self) -> Option<ContextMenuHandler> {
+            Some(Menus::new())
+        }
+    }
+}
+
+wrap_context_menu_handler! {
+    struct Menus {}
+
+    impl ContextMenuHandler {
+        fn on_before_context_menu(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            _params: Option<&mut ContextMenuParams>,
+            _model: Option<&mut MenuModel>,
+        ) {
+            // Shown as Chromium shows it; counted, so no page closes under
+            // it (`after_menus.rs`, queue item 734).
+            CLOSING.with_borrow_mut(Closing::shown);
+        }
+
+        fn on_context_menu_dismissed(&self, _browser: Option<&mut Browser>, _frame: Option<&mut Frame>) {
+            let owed = CLOSING.with_borrow_mut(Closing::dismissed);
+            // Carried out in a task of its own, once the menu's own has
+            // returned, never inside it.
+            if !owed.is_empty() {
+                let _ = post_task(ThreadId::UI, Some(&mut Carried::new(owed)));
+            }
+        }
+    }
+}
+
+wrap_task! {
+    struct Carried {
+        owed: Owed,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            carry_out(&self.owed);
+        }
+    }
+}
+
+wrap_task! {
+    struct GivenUp {}
+
+    impl Task {
+        fn execute(&self) {
+            let owed = CLOSING.with_borrow_mut(Closing::given_up);
+            carry_out(&owed);
+        }
+    }
+}
+
+/// A close owed while a menu was shown, carried out: every page closed, or
+/// each window a person asked to close closed as its close button would.
+fn carry_out(owed: &Owed) {
+    if owed.all {
+        close_all();
+    }
+    for identifier in &owed.windows {
+        let browser = OPEN.with_borrow(|open| {
+            open.iter()
+                .find(|browser| browser.identifier() == *identifier)
+                .cloned()
+        });
+        if let Some(window) = browser
+            .and_then(|mut browser| browser_view_get_for_browser(Some(&mut browser)))
+            .and_then(|view| view.window())
+            .filter(|window| window.is_closed() == 0)
+        {
+            window.close();
+        }
+    }
+}
+
+/// `now` said a close is owed while a menu is shown: on the first owed,
+/// the menu is dismissed, and the close waits for it at most
+/// [`GIVE_UP_AFTER`].
+fn wait_for_the_menu(now: Now) {
+    if now == (Now::Owed { first: true }) {
+        let _ = crate::dismissed_mac::escape();
+        let _ = post_delayed_task(ThreadId::UI, Some(&mut GivenUp::new()), GIVE_UP_AFTER);
     }
 }
 
@@ -304,6 +400,10 @@ thread_local! {
     /// Whether the host is ending: once every page is closed, the message
     /// loop is left.
     static ENDING: Cell<bool> = const { Cell::new(false) };
+
+    /// What waits for a context menu to go before it closes (queue item
+    /// 734).
+    static CLOSING: RefCell<Closing> = RefCell::new(Closing::default());
 }
 
 wrap_life_span_handler! {
@@ -339,6 +439,13 @@ wrap_life_span_handler! {
 /// so `host.rs` shuts CEF down and the process ends with status 0.
 pub fn close_all() {
     ENDING.set(true);
+    // Never under a context menu shown: it is dismissed first, and this is
+    // done again once it has gone (queue item 734).
+    let now = CLOSING.with_borrow_mut(Closing::close_all);
+    if now != Now::Close {
+        wait_for_the_menu(now);
+        return;
+    }
     let open = OPEN.with_borrow(Clone::clone);
     if open.is_empty() {
         cef::quit_message_loop();
@@ -468,12 +575,19 @@ wrap_window_delegate! {
         }
 
         fn can_close(&self, _window: Option<&mut Window>) -> ::std::os::raw::c_int {
+            let Some(browser) = self.view.browser() else {
+                return 1;
+            };
+            // Never under a context menu shown: it is dismissed first, and
+            // the window closed again once it has gone (queue item 734).
+            let now = CLOSING.with_borrow_mut(|closing| closing.close_window(browser.identifier()));
+            if now != Now::Close {
+                wait_for_the_menu(now);
+                return 0;
+            }
             // Its page is asked first, as Chrome asks one, and the window
             // closes once the page has.
-            match self.view.browser().and_then(|browser| browser.host()) {
-                Some(host) => host.try_close_browser(),
-                None => 1,
-            }
+            browser.host().map_or(1, |host| host.try_close_browser())
         }
 
         fn on_window_bounds_changed(&self, window: Option<&mut Window>, new_bounds: Option<&Rect>) {

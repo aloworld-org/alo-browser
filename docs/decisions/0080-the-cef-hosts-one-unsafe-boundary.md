@@ -139,14 +139,17 @@ alo starts and drives over a pipe, and this boundary is in it alone.
 
 ## What is not measured, or not fixed
 
-- **A page closed while its context menu is still open** crashes the host
+- **A page closed while its context menu is still open** crashed the host
   with `SIGSEGV` inside CEF's framework, reading freed memory
-  (`0xcdcd…`), once the page is gone — closed by alo (`Target.closeTarget`
+  (`0xcdcd…`), once the page was gone — closed by alo (`Target.closeTarget`
   is not obeyed while the menu is open, in Chrome too; the
-  `Browser.close` after it crashes) or by a person's close button.
+  `Browser.close` after it crashed) or by a person's close button.
   Measured three ways on this Mac with CEF 156.0.14; Chrome 156 closed by
-  `Browser.close` in the same state did not crash. Whether it is CEF's or
-  this host's is not known: queue item 734.
+  `Browser.close` in the same state did not crash. **No longer** (queue
+  item 734, the third amendment below): the host dismisses the menu
+  before it closes a page. Whose the fault is inside CEF's framework is
+  still not known — its symbols are stripped — and it is not reported to
+  CEF yet.
 - Whether ⌘C and ⌘V reach the page through the *Edit* menu or through
   Chrome's own shortcuts, which the page's window sees first, is not
   measured; what a person gets is.
@@ -175,3 +178,31 @@ feature). Both are safe `objc2-app-kit` calls; the file still holds no
 is unchanged. `window.rs`'s new display-handler callback
 (`OnContentsBoundsChange`) is built by the `cef` crate's `wrap_*` macro, as
 its other callbacks are.
+
+**Amended 1 November 2026 (queue item 734):** `objc2`, `objc2_app_kit` and
+`objc2_foundation` may also be named in
+`crates/alo-cef-host/src/dismissed_mac.rs`, which dismisses a context menu
+before its page is closed by putting Escape in the application's own queue
+of events (`NSEvent`'s `keyEventWithType:…`, `NSApplication`'s
+`-postEvent:atStart:`; the manifest names `objc2-app-kit`'s
+`NSGraphicsContext` and `objc2-foundation`'s `NSGeometry` features for
+them). Both are calls `objc2-app-kit` declares safe; the file holds no
+`unsafe`, `application_mac.rs` is unchanged, and the gate's boundary list
+names the new file beside the others. **Why:** measured on this Mac with CEF
+156.0.14, a page closed while its context menu was shown — `Browser.close`,
+`Target.closeTarget` then `Browser.close`, or the window's close button —
+ended the host with `SIGSEGV` on its main thread, in a task the outer run
+loop ran after the page's `on_before_close`, and CEF never said the menu
+was dismissed; with the window left open as its page went it crashed the
+same, so it is not the host's window closing under the menu. Every page's
+client now counts the menus CEF says it shows (`on_before_context_menu`,
+`on_context_menu_dismissed`), and a close asked while one is shown is owed
+(`after_menus.rs`): the menu is dismissed, and the close carried out in a
+CEF task of its own once CEF says it is gone — or after a second, whatever
+it says. Tested through the host,
+`crates/alo-window/tests/alos_cef_host_closed_under_a_context_menu_as_chrome.rs`:
+a menu opened by a person's right click and left open, then each of the
+three closes — the host ends with status 0, its profile removed, no crash
+report. With the Escape not posted the test fails (a crash report, after
+the second's wait).
+

@@ -155,6 +155,14 @@ pub struct Request {
     /// `connect-src https://a.example/api/` can still move what it serves
     /// within its own site.
     pub redirected: bool,
+    /// The most bytes of its response's body this request reads (queue item
+    /// 762, ADR 0086 § 3): [`crate::body::LARGEST_BODY`] unless the asker
+    /// said fewer ([`Request::reading_at_most`]), and never more than it,
+    /// whatever is written here ([`Request::most`]). A body said to be
+    /// longer is refused before a byte of it is read; one that goes on past
+    /// it is cut there — the connection given up, never read to its end —
+    /// and so is what its codings undo to.
+    pub most: u64,
 }
 
 impl Request {
@@ -189,7 +197,24 @@ impl Request {
             headers: Headers::new(),
             body: Vec::new(),
             redirected: false,
+            most: crate::body::LARGEST_BODY,
         }
+    }
+
+    /// The same request, reading at most `bytes` of its response's body —
+    /// never more than [`crate::body::LARGEST_BODY`], whatever is asked: a
+    /// thumbnail that may be 256 KiB is cut at 256 KiB, not read whole and
+    /// then weighed.
+    #[must_use]
+    pub fn reading_at_most(mut self, bytes: u64) -> Self {
+        self.most = bytes.min(crate::body::LARGEST_BODY);
+        self
+    }
+
+    /// The most bytes of its response's body this request reads: what it
+    /// says, never more than [`crate::body::LARGEST_BODY`].
+    pub fn most(&self) -> u64 {
+        self.most.min(crate::body::LARGEST_BODY)
     }
 
     /// A request that sends something: a form, or what a script handed to

@@ -108,10 +108,29 @@ pub fn read(source: &mut impl Read, framing: Framing) -> Result<Vec<u8>, Malform
 /// The bytes and the reason are both returned rather than one or the other,
 /// because a caller that has to choose gets to decide *knowing what it has*.
 pub fn read_what_arrived(source: &mut impl Read, framing: Framing) -> (Vec<u8>, Option<Malformed>) {
+    read_at_most(source, framing, LARGEST_BODY)
+}
+
+/// [`read_what_arrived`], reading at most `most` bytes of the body — the
+/// request's own bound (queue item 762, [`crate::Request::reading_at_most`]).
+///
+/// A body said to be longer is refused before a byte of it is read, and
+/// one that goes on past it is cut there: at most one byte past `most` is
+/// ever read, which is how a body exactly `most` long is told from a
+/// longer one. Either is said ([`beyond`]), as a body that stopped is; a
+/// caller that reads the bytes regardless ([`crate::download`]) never asks
+/// for less than [`LARGEST_BODY`].
+pub fn read_at_most(
+    source: &mut impl Read,
+    framing: Framing,
+    most: u64,
+) -> (Vec<u8>, Option<Malformed>) {
+    let most = most.min(LARGEST_BODY);
     match framing {
         Framing::Empty => (Vec::new(), None),
+        Framing::Exactly(length) if length > most => (Vec::new(), Some(beyond(length, most))),
         Framing::Exactly(length) => read_exactly(source, length),
-        Framing::Chunked => read_chunked(source),
+        Framing::Chunked => read_chunked(source, most),
         Framing::UntilClose => {
             let mut out = Vec::new();
             // Never short: this framing cannot tell a finished body from a
@@ -119,14 +138,27 @@ pub fn read_what_arrived(source: &mut impl Read, framing: Framing) -> (Vec<u8>, 
             // that knows a length from somewhere else — a `Content-Range`, say
             // — is the one that can notice, and does.
             let why = source
-                .take(LARGEST_BODY)
+                .take(most.saturating_add(1))
                 .read_to_end(&mut out)
                 .err()
                 .map(|why| Malformed {
                     why: why.to_string(),
                 });
+            if out.len() as u64 > most {
+                out.truncate(usize::try_from(most).unwrap_or(usize::MAX));
+                return (out, Some(beyond(most.saturating_add(1), most)));
+            }
             (out, why)
         }
+    }
+}
+
+/// Why a body of at least `length` bytes was not read past `most`.
+pub fn beyond(length: u64, most: u64) -> Malformed {
+    Malformed {
+        why: format!(
+            "a body of {length} bytes or more, which is more than the {most} this request reads"
+        ),
     }
 }
 
@@ -154,10 +186,10 @@ fn read_exactly(source: &mut impl Read, length: u64) -> (Vec<u8>, Option<Malform
     }
 }
 
-/// Chunks, each announcing its own length.
-fn read_chunked(source: &mut impl Read) -> (Vec<u8>, Option<Malformed>) {
+/// Chunks, each announcing its own length, adding up to at most `most`.
+fn read_chunked(source: &mut impl Read, most: u64) -> (Vec<u8>, Option<Malformed>) {
     let mut out: Vec<u8> = Vec::new();
-    match chunks_into(source, &mut out) {
+    match chunks_into(source, &mut out, most) {
         Ok(()) => (out, None),
         Err(why) => (out, Some(why)),
     }
@@ -167,7 +199,7 @@ fn read_chunked(source: &mut impl Read) -> (Vec<u8>, Option<Malformed>) {
 ///
 /// Appending as it goes rather than at the end is what lets a body that stops
 /// half way keep the chunks that did arrive.
-fn chunks_into(source: &mut impl Read, out: &mut Vec<u8>) -> Result<(), Malformed> {
+fn chunks_into(source: &mut impl Read, out: &mut Vec<u8>, most: u64) -> Result<(), Malformed> {
     loop {
         let line = read_chunk_line(source)?;
         // A chunk line may carry extensions after a semicolon; nothing reads
@@ -193,9 +225,15 @@ fn chunks_into(source: &mut impl Read, out: &mut Vec<u8>) -> Result<(), Malforme
             while !read_chunk_line(source)?.is_empty() {}
             return Ok(());
         }
-        if out.len() as u64 + size > LARGEST_BODY {
-            return Err(Malformed {
-                why: "the chunks add up to more than this engine holds".to_owned(),
+        if out.len() as u64 + size > most {
+            // Refused before the chunk is read: a bound below the engine's
+            // own is the request's (queue item 762).
+            return Err(if most < LARGEST_BODY {
+                beyond(out.len() as u64 + size, most)
+            } else {
+                Malformed {
+                    why: "the chunks add up to more than this engine holds".to_owned(),
+                }
             });
         }
         // Straight into `out`, so that a chunk which stops half way leaves the

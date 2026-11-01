@@ -6,6 +6,26 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A search's pictures stop downloading at their size limit.** A thumbnail
+  or a site's icon that turns out larger than alo keeps is now cut off as
+  soon as it passes the limit, instead of being downloaded whole and thrown
+  away — and an answer over HTTP/2 has a limit at all.
+- **A closed Chromium's files stay gone.** It is now checked that once alo
+  closes its Chromium — its own or the Mac's Chrome — nothing of it comes
+  back into the temporary directory afterwards.
+- **Closing a page with its right-click menu open no longer crashes alo's
+  Chromium.** The menu is closed first, as pressing Escape would, and the
+  page and its window then close as they should.
+- **Hover and double clicks on a page shown as a card.** Moving the pointer
+  over a page in the conversation's card now hovers what is under it, as in
+  Chrome — a link's or a button's hover style shows, and goes when the
+  pointer leaves — and a double click selects the word under it.
+- **The arrows, the page's own shortcuts and the paging keys on a card.** On
+  a card's page the arrows move the caret (by a word with ⌥, to the line's
+  end with ⌘), ⌦ deletes forward, ⌘A, ⌘C, ⌘X, ⌘V and ⌘Z select, copy, cut,
+  paste and undo in the page, Page Up, Page Down, Home and End scroll it,
+  and the function keys reach it; ⌘Q, ⌘W and the browser's other keys stay
+  the browser's.
 - **A box moved with `position` stays inside a box that clips it.** A
   relatively positioned box inside an `overflow: hidden` or scrolling box is
   cut off at that box's edge, as browsers cut it, and an absolutely

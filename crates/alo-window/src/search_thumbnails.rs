@@ -18,8 +18,10 @@
 //!   `alo-net` sends with every request; no key, no cookie, no `Referer`.
 //! - **Bounded.** At most [`MOST_IMAGES`] — the read already keeps no more —
 //!   and each at most [`LARGEST_THUMBNAIL`] bytes; a larger answer is left
-//!   out. `alo-net` reads a body whole before it is weighed (bounded by its
-//!   own most and by the pool's patience).
+//!   out, and **cut at that bound** (queue item 762): the request reads no
+//!   more of the body than that ([`alo_net::Request::reading_at_most`]), so
+//!   an answer said to be larger is not read at all, and one that goes on
+//!   is given up where it passes it.
 //! - **Only a picture.** Bytes that do not begin as a picture this engine
 //!   reads ([`Format::of`]) are left out. They are never decoded here: the
 //!   bytes are a stranger's, and are decoded only in the confined renderer
@@ -216,6 +218,8 @@ pub(crate) fn picture(
         },
     );
     request.headers.add("Accept", "image/*");
+    // Cut at the bound, never read whole and weighed after (queue item 762).
+    let request = request.reading_at_most(u64::try_from(largest).unwrap_or(u64::MAX));
     let response = pool
         .fetch(&request)
         .map_err(|why| format!("a picture could not be fetched: {why}"))?;

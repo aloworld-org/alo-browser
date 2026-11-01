@@ -105,8 +105,12 @@ through `alo-net`'s pool (`search_thumbnails.rs`):
 - **Bounded:** at most twenty, one after another; each at most 256 KiB
   (`LARGEST_THUMBNAIL`), larger left out; and only bytes that begin as a
   picture this engine reads (PNG, JPEG, GIF, WebP, by their signature).
-  `alo-net` reads a body whole before it can be weighed — bounded by its own
-  most and the pool's patience — and a bound set per request is queued (762).
+  **Cut at the bound** (queue item 762): each request says the most of its
+  body it reads (`Request::reading_at_most`), so an answer said to be
+  larger is refused before a byte of its body is read, one that goes on —
+  chunked, or until the connection closes, or over HTTP/2 — is given up as
+  it passes 256 KiB, and a compressed one is refused once it undoes to
+  more. A mark is bounded the same at its own most.
 
 What Brave keeps of a thumbnail request is Brave's; it is the same company
 that was just sent the words.

@@ -21,8 +21,10 @@
 //! text read from it is bounded ([`MOST_TEXT`]), and anything that is not what
 //! the protocol says is refused as a [`Malformed`] kind, never a panic.
 
-use crate::card_input::{Keyed, PersonsKey};
+use crate::card_input::{Editing, Keyed, PersonsKey};
 use crate::json_depth;
+use crate::key_bindings;
+use crate::keys::{self, Arrow, Modifier};
 use core::fmt;
 use serde_json::{Map, Value};
 
@@ -278,6 +280,22 @@ pub enum Command {
         /// How far down to scroll, in CSS pixels.
         down: f64,
     },
+    /// `Input.dispatchMouseEvent`: a person's pointer over a card's page —
+    /// moved, or its main button going down, dragged or coming up, the
+    /// `clicks`th of a quick succession — a person's, never an agent's
+    /// (queue items 718 and 740, ADR 0002): the point is the person's
+    /// pointer, never one an agent named.
+    Pointed {
+        /// Which.
+        kind: Mouse,
+        /// In CSS pixels of the page.
+        x: f64,
+        /// In CSS pixels of the page.
+        y: f64,
+        /// Which press of a quick succession a press or a release is,
+        /// counted from one; nought for a move.
+        clicks: u32,
+    },
     /// `Input.dispatchKeyEvent`: a key a person pressed while a card's page
     /// had the keyboard, going down or coming up — a person's, never an
     /// agent's (queue item 718, ADR 0002).
@@ -423,7 +441,9 @@ impl Command {
             Self::ReadNode { .. } => "Accessibility.getPartialAXTree",
             Self::ScrollIntoView { .. } => "DOM.scrollIntoViewIfNeeded",
             Self::NodeAt { .. } => "DOM.getNodeForLocation",
-            Self::Mouse { .. } | Self::Wheel { .. } => "Input.dispatchMouseEvent",
+            Self::Mouse { .. } | Self::Wheel { .. } | Self::Pointed { .. } => {
+                "Input.dispatchMouseEvent"
+            }
             Self::Focus { .. } => "DOM.focus",
             Self::Key { .. } | Self::Typed { .. } => "Input.dispatchKeyEvent",
             Self::InsertText { .. } => "Input.insertText",
@@ -532,7 +552,11 @@ impl Command {
                 put("x", Value::from(*x));
                 put("y", Value::from(*y));
             }
-            Self::Mouse { .. } | Self::Key { .. } | Self::Wheel { .. } | Self::Typed { .. } => {
+            Self::Mouse { .. }
+            | Self::Key { .. }
+            | Self::Wheel { .. }
+            | Self::Typed { .. }
+            | Self::Pointed { .. } => {
                 self.input()
                     .into_iter()
                     .for_each(|(name, value)| put(name, value));
@@ -584,6 +608,7 @@ impl Command {
             Self::Key { chord, down } => key(*chord, *down),
             Self::Wheel { x, y, right, down } => persons_wheel((*x, *y), (*right, *down)),
             Self::Typed { key, down } => persons_key(key, *down),
+            Self::Pointed { kind, x, y, clicks } => persons_pointer(*kind, (*x, *y), *clicks),
             _ => Vec::new(),
         }
     }
@@ -724,28 +749,87 @@ fn persons_wheel(at: (f64, f64), by: (f64, f64)) -> Vec<(&'static str, Value)> {
     ]
 }
 
+/// The `params` of `Input.dispatchMouseEvent` for a person's pointer over
+/// a card's page (queue item 740): as an agent's [`mouse`], but with the
+/// press's count — so a second press soon after the first at one place is
+/// heard as a double click, a word selected and `dblclick` sent — and, for
+/// a move with no button held, no count at all. Never a modifier: a press
+/// with one held is not sent (queue item 798).
+fn persons_pointer(kind: Mouse, at: (f64, f64), clicks: u32) -> Vec<(&'static str, Value)> {
+    let mut fields = mouse(kind, at, false);
+    for (name, value) in &mut fields {
+        if *name == "clickCount" {
+            *value = Value::from(clicks);
+        }
+    }
+    fields
+}
+
+/// Chrome's modifiers for `held`, as `Input` takes them: ⌥ or Alt 1, Ctrl
+/// 2, ⌘ or Meta 4, Shift 8.
+fn modifiers_of(held: keys::Held) -> i64 {
+    [
+        (Modifier::Option, ALT),
+        (Modifier::Control, CONTROL),
+        (Modifier::Command, META),
+        (Modifier::Shift, SHIFT),
+    ]
+    .into_iter()
+    .filter(|(modifier, _)| held.holds(*modifier))
+    .fold(0, |all, (_, bit)| all | bit)
+}
+
+/// Chrome's modifier for Ctrl.
+const CONTROL: i64 = 2;
+
+/// Chrome's modifier for ⌘, which it calls Meta.
+const META: i64 = 4;
+
 /// The `params` of `Input.dispatchKeyEvent` for `pressed`, going down when
 /// `down` and coming up otherwise.
 fn persons_key(pressed: &PersonsKey, down: bool) -> Vec<(&'static str, Value)> {
-    let modifiers = if pressed.shift { SHIFT } else { 0 } | if pressed.option { ALT } else { 0 };
-    let (key, code, keycode, text, command) = match &pressed.key {
-        Keyed::Text(text) => (
-            text.as_str(),
-            None,
-            keycode_of(text),
-            Some(text.as_str()),
-            None,
+    let modifiers = modifiers_of(pressed.held);
+    // A key that writes nothing, named as its code is: Chrome's `key`,
+    // `code` and Windows key code for it.
+    let named =
+        |key: &str, keycode: u32| (key.to_owned(), Some(key.to_owned()), Some(keycode), None);
+    let (key, code, keycode, text) = match &pressed.key {
+        Keyed::Text(text) => (text.clone(), None, keycode_of(text), Some(text.as_str())),
+        Keyed::Return => (
+            "Enter".to_owned(),
+            Some("Enter".to_owned()),
+            Some(13),
+            Some("\r"),
         ),
-        Keyed::Return => ("Enter", Some("Enter"), Some(13), Some("\r"), None),
-        Keyed::Backspace => (
-            "Backspace",
-            Some("Backspace"),
-            Some(8),
-            None,
-            Some("deleteBackward"),
-        ),
-        Keyed::Tab => ("Tab", Some("Tab"), Some(9), None, None),
-        Keyed::Escape => ("Escape", Some("Escape"), Some(27), None, None),
+        Keyed::Editing(editing) => {
+            // The letter of its shortcut, as the key a person pressed.
+            let letter = match editing {
+                Editing::SelectAll => 'A',
+                Editing::Copy => 'C',
+                Editing::Cut => 'X',
+                Editing::Paste => 'V',
+                Editing::Undo | Editing::Redo => 'Z',
+            };
+            (
+                letter.to_ascii_lowercase().to_string(),
+                Some(format!("Key{letter}")),
+                Some(u32::from(letter)),
+                None,
+            )
+        }
+        Keyed::Function(number) => named(&format!("F{number}"), 111 + u32::from(*number)),
+        Keyed::Backspace => named("Backspace", 8),
+        Keyed::Tab => named("Tab", 9),
+        Keyed::Escape => named("Escape", 27),
+        Keyed::PageUp => named("PageUp", 33),
+        Keyed::PageDown => named("PageDown", 34),
+        Keyed::End => named("End", 35),
+        Keyed::Home => named("Home", 36),
+        Keyed::Arrow(Arrow::Left) => named("ArrowLeft", 37),
+        Keyed::Arrow(Arrow::Up) => named("ArrowUp", 38),
+        Keyed::Arrow(Arrow::Right) => named("ArrowRight", 39),
+        Keyed::Arrow(Arrow::Down) => named("ArrowDown", 40),
+        Keyed::Delete => named("Delete", 46),
     };
     let kind = match (down, text) {
         (false, _) => "keyUp",
@@ -768,7 +852,7 @@ fn persons_key(pressed: &PersonsKey, down: bool) -> Vec<(&'static str, Value)> {
             fields.push(("text", Value::from(text)));
             fields.push(("unmodifiedText", Value::from(text)));
         }
-        if let Some(command) = command {
+        if let Some(command) = key_bindings::command(&pressed.key, pressed.held) {
             fields.push(("commands", Value::Array(vec![Value::from(command)])));
         }
     }
@@ -4069,9 +4153,132 @@ mod tests {
     fn persons(key: Keyed) -> PersonsKey {
         PersonsKey {
             key,
-            shift: false,
-            option: false,
+            held: keys::Held::NOTHING,
         }
+    }
+
+    #[test]
+    fn a_persons_pointer_is_written_with_its_count_and_no_modifier() {
+        let pointed = |kind, clicks| {
+            persons_at(&Command::Pointed {
+                kind,
+                x: 120.5,
+                y: 40.0,
+                clicks,
+            })
+        };
+        assert_eq!(
+            pointed(Mouse::Moved, 0),
+            r#"{"id":9,"method":"Input.dispatchMouseEvent","params":{"button":"none","clickCount":0,"modifiers":0,"type":"mouseMoved","x":120.5,"y":40.0},"sessionId":"S"}"#,
+            "a hover"
+        );
+        assert_eq!(
+            pointed(Mouse::Pressed, 2),
+            r#"{"id":9,"method":"Input.dispatchMouseEvent","params":{"button":"left","clickCount":2,"modifiers":0,"type":"mousePressed","x":120.5,"y":40.0},"sessionId":"S"}"#,
+            "the second press of a double click"
+        );
+        assert!(
+            pointed(Mouse::Released, 2)
+                .contains(r#""button":"left","clickCount":2,"modifiers":0,"type":"mouseReleased""#)
+        );
+        assert!(
+            pointed(Mouse::Dragged, 0)
+                .contains(r#""button":"left","clickCount":0,"modifiers":0,"type":"mouseMoved""#)
+        );
+    }
+
+    #[test]
+    fn the_keys_that_write_nothing_go_down_raw_with_their_code_and_macs_command() {
+        let down = |key: Keyed, held: keys::Held| {
+            persons_at(&Command::Typed {
+                key: PersonsKey { key, held },
+                down: true,
+            })
+        };
+        assert_eq!(
+            down(Keyed::Arrow(Arrow::Left), keys::Held::NOTHING),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"ArrowLeft","commands":["moveLeft"],"key":"ArrowLeft","modifiers":0,"type":"rawKeyDown","windowsVirtualKeyCode":37},"sessionId":"S"}"#
+        );
+        assert!(
+            down(
+                Keyed::Arrow(Arrow::Right),
+                keys::Held::NOTHING.with(Modifier::Command).with(Modifier::Shift)
+            )
+            .contains(r#""code":"ArrowRight","commands":["moveToRightEndOfLineAndModifySelection"],"key":"ArrowRight","modifiers":12,"type":"rawKeyDown","windowsVirtualKeyCode":39"#)
+        );
+        assert!(
+            down(Keyed::Delete, keys::Held::NOTHING)
+                .contains(r#""code":"Delete","commands":["deleteForward"],"key":"Delete","modifiers":0,"type":"rawKeyDown","windowsVirtualKeyCode":46"#)
+        );
+        assert!(
+            down(Keyed::PageDown, keys::Held::NOTHING)
+                .contains(r#""code":"PageDown","commands":["scrollPageDown"],"key":"PageDown""#)
+        );
+        assert!(
+            down(Keyed::Function(5), keys::Held::NOTHING)
+                .contains(r#""code":"F5","key":"F5","modifiers":0,"type":"rawKeyDown","windowsVirtualKeyCode":116"#),
+            "a function key carries no command"
+        );
+        let up = persons_at(&Command::Typed {
+            key: persons(Keyed::Arrow(Arrow::Up)),
+            down: false,
+        });
+        assert_eq!(
+            up,
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"ArrowUp","key":"ArrowUp","modifiers":0,"type":"keyUp","windowsVirtualKeyCode":38},"sessionId":"S"}"#,
+            "coming up, no command"
+        );
+    }
+
+    #[test]
+    fn the_pages_shortcuts_go_down_as_their_letter_with_command_and_their_editing() {
+        let held = keys::Held::NOTHING.with(Modifier::Command);
+        let down = |editing| {
+            persons_at(&Command::Typed {
+                key: PersonsKey {
+                    key: Keyed::Editing(editing),
+                    held,
+                },
+                down: true,
+            })
+        };
+        assert_eq!(
+            down(Editing::SelectAll),
+            r#"{"id":9,"method":"Input.dispatchKeyEvent","params":{"code":"KeyA","commands":["selectAll"],"key":"a","modifiers":4,"type":"rawKeyDown","windowsVirtualKeyCode":65},"sessionId":"S"}"#
+        );
+        for (editing, letter, command) in [
+            (Editing::Copy, "C", "copy"),
+            (Editing::Cut, "X", "cut"),
+            (Editing::Paste, "V", "paste"),
+            (Editing::Undo, "Z", "undo"),
+            (Editing::Redo, "Z", "redo"),
+        ] {
+            assert!(
+                down(editing).contains(&format!(
+                    r#""code":"Key{letter}","commands":["{command}"],"key":"{}","modifiers":4"#,
+                    letter.to_ascii_lowercase()
+                )),
+                "{editing:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_persons_modifiers_are_chromes_bits() {
+        assert_eq!(modifiers_of(keys::Held::NOTHING), 0);
+        assert_eq!(modifiers_of(keys::Held::NOTHING.with(Modifier::Option)), 1);
+        assert_eq!(modifiers_of(keys::Held::NOTHING.with(Modifier::Control)), 2);
+        assert_eq!(modifiers_of(keys::Held::NOTHING.with(Modifier::Command)), 4);
+        assert_eq!(modifiers_of(keys::Held::NOTHING.with(Modifier::Shift)), 8);
+        assert_eq!(
+            modifiers_of(
+                keys::Held::NOTHING
+                    .with(Modifier::Shift)
+                    .with(Modifier::Command)
+                    .with(Modifier::Option)
+            ),
+            13
+        );
     }
 
     #[test]
@@ -4091,8 +4298,7 @@ mod tests {
     fn a_letter_goes_down_with_its_text_and_up_without() {
         let capital = PersonsKey {
             key: Keyed::Text("A".to_owned()),
-            shift: true,
-            option: false,
+            held: keys::Held::NOTHING.with(Modifier::Shift),
         };
         assert_eq!(
             persons_at(&Command::Typed {
@@ -4111,8 +4317,7 @@ mod tests {
         // A character no English key writes has no key code.
         let pi = PersonsKey {
             key: Keyed::Text("π".to_owned()),
-            shift: false,
-            option: true,
+            held: keys::Held::NOTHING.with(Modifier::Option),
         };
         assert_eq!(
             persons_at(&Command::Typed {
@@ -4152,8 +4357,7 @@ mod tests {
         );
         let back_a_field = PersonsKey {
             key: Keyed::Tab,
-            shift: true,
-            option: false,
+            held: keys::Held::NOTHING.with(Modifier::Shift),
         };
         assert_eq!(
             persons_at(&Command::Typed {

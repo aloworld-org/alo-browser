@@ -1029,8 +1029,12 @@ unreachable without it.
       fetching one, no traffic of its own beyond what ADR 0073 names, no
       H.264, AAC or HEVC, every request held as in Chrome, and the agent's
       tree, verbs and highlight through it — each a test (ADR 0079, 726)
+      · a page closed with its context menu open ends the host in order,
+      the menu dismissed first, where it crashed it (734); a closed
+      Chromium's profile stays removed, the host's GPU process measured to
+      remake it only when the host ended at once (733; a killed one's, 804)
       · Owed: signing with the owner's Developer ID and notarising (735),
-      a page closed with its context menu open (734), Windows and
+      Windows and
       Linux (728), what macOS keeps for it (729), an updater (721) and Chromium with alo's name (722); Chrome's own last two requests, `ListAccounts` and the
       on-device models' manifest, stopped — which costs the `--app` window
       and is 696's, needs ADR; a
@@ -2487,15 +2491,17 @@ items where being right and being unusable are the same outcome.
       above (755), a wheel's lines smoothed (756), chats kept across
       launches (757), a chat named by its words (758), what the agent may
       do (705),
-      the answer and All's short answer (707, blocked: a model), a response's
-      body bounded per request (762), `COLR` version 1 and `SVG` colour
+      the answer and All's short answer (707, blocked: a model), `COLR` version 1 and `SVG` colour
       glyphs (785), an emoji's shadow (786), a rounded picture at fractions of a pixel (783),
       a varied glyph's advance to its fraction (795), a kerning pair's
       variation along an axis (796), kerning across a space on a line
       measured word by word (797),
       an SVG's drawing rounded (784), the AI provider's carried key (773, after ADR 0081), the panel
       shown over the conversation in a narrow window (776). Built
-      since: a news story's photo (765, ADR 0087 § 3); the Sites tab's
+      since: a response's body bounded per request, a search's pictures
+      cut at their bound and an HTTP/2 body bounded at all (762, ADR 0086
+      § 3); a person's hover, double clicks, arrows, shortcuts and paging
+      keys on a card's page, through both Chromiums (740, 741); a news story's photo (765, ADR 0087 § 3); the Sites tab's
       *Show more sites*, a paid page a press, one at a time (761, ADR 0086
       § 1); Newsreader at its optical size, `font-optical-sizing` read (752);
       Chinese, Japanese and Korean in the interface, a face read out of a

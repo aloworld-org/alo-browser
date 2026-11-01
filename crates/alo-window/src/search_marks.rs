@@ -18,7 +18,8 @@
 //!   always sends; no key, no cookie, no `Referer`; no redirect followed.
 //! - **Bounded.** Each distinct icon is fetched once, however many results
 //!   name it — a tab of one site's videos is one icon — and at most
-//!   [`MOST_MARKS`] for one answer; each at most [`LARGEST_MARK`] bytes and
+//!   [`MOST_MARKS`] for one answer; each at most [`LARGEST_MARK`] bytes —
+//!   the request cut there, never read past it (queue item 762) — and
 //!   only bytes that begin as a picture. A mark costs no paid request: the
 //!   proxy needs no key.
 //! - **Never decoded here.** The bytes are a stranger's, decoded only in the

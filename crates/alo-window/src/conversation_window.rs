@@ -63,8 +63,9 @@
 //! the two apart.
 
 use crate::card_aim::{self, Turned};
-use crate::card_input::{CardInput, Went as Button};
+use crate::card_input::CardInput;
 use crate::card_keys;
+use crate::card_pointer::{CardPointer, OnThePage};
 use crate::chat_record;
 use crate::chat_store::{ChatStore, Opened};
 use crate::chrome_history::Way;
@@ -144,9 +145,10 @@ pub struct ConversationWindow {
     /// Where the cursor last was, in device pixels, while it is over the
     /// window.
     cursor: Option<(f64, f64)>,
-    /// Whether the main button went down over the card's page and is still
-    /// held: its moves and its release are the page's (queue item 718).
-    on_the_page: bool,
+    /// The pointer over the card's page, as far as the page has been told:
+    /// a press held on it, whose moves and release are the page's (queue
+    /// item 718), whether it is hovered, and the presses counted (740).
+    pointer: CardPointer,
     /// How far the conversation was scrolled when the first screen was
     /// last painted (queue item 703): where the live card's page box was
     /// drawn, which a press on it is aimed by.
@@ -229,7 +231,7 @@ impl ConversationWindow {
             told: None,
             window: None,
             cursor: None,
-            on_the_page: false,
+            pointer: CardPointer::default(),
             drawn_down: 0.0,
             drawn_offered: 0,
             painting_down: None,
@@ -527,16 +529,27 @@ impl ConversationWindow {
         }
     }
 
-    /// The cursor left the window.
+    /// The cursor left the window: a hover on the card's page ended (queue
+    /// item 740).
     pub fn cursor_left(&mut self) {
         self.cursor = None;
+        if let Some(input) = self.pointer.left() {
+            self.to_the_page(input);
+        }
     }
 
-    /// The main button went down with nothing held: a press over the card's
-    /// page is the page's, sent to it, and gives it the keyboard (queue
-    /// item 718); a press over a part is handed to the thread that holds
-    /// its renderer, to be claimed and decided.
+    /// The main button went down: see [`Self::main_button_pressed_at`].
     pub fn main_button_pressed(&mut self) {
+        self.main_button_pressed_at(Instant::now());
+    }
+
+    /// The main button went down `now` with nothing held: a press over the
+    /// card's page is the page's, counted with the presses before it, sent
+    /// to it, and gives it the keyboard (queue items 718, 740); a press
+    /// over a part is handed to the thread that holds its renderer, to be
+    /// claimed and decided. A press with a modifier held is nobody's yet
+    /// (queue item 798).
+    pub fn main_button_pressed_at(&mut self, now: Instant) {
         if self.held != Held::NOTHING {
             return;
         }
@@ -545,15 +558,11 @@ impl ConversationWindow {
         };
         match self.aimed(at) {
             Some(card_aim::Aimed::Page { x, y }) => {
-                self.on_the_page = true;
                 if self.conversation.press_the_page() {
                     self.ask_drawn();
                 }
-                self.to_the_page(CardInput::Pointer {
-                    went: Button::Pressed,
-                    x,
-                    y,
-                });
+                let pressed = self.pointer.pressed(now, (x, y));
+                self.to_the_page(pressed);
             }
             Some(card_aim::Aimed::Part(part, on)) => {
                 if let Some(drawing) = self.drawing.as_mut() {
@@ -564,36 +573,26 @@ impl ConversationWindow {
         }
     }
 
-    /// The cursor moved to `at`: the page's, as a drag, while a press on
-    /// it is held.
+    /// The cursor moved to `at`: the page's — as a drag while a press on it
+    /// is held, as a hover while it is over the page box, and once more as
+    /// it leaves it (queue items 718, 740).
     pub fn moved(&mut self, at: (f64, f64)) {
         self.cursor = Some(at);
-        if !self.on_the_page {
-            return;
-        }
-        match self.on_the_card(at) {
-            Some((x, y)) => self.to_the_page(CardInput::Pointer {
-                went: Button::Dragged,
-                x,
-                y,
-            }),
-            // The card went while the button was held.
-            None => self.on_the_page = false,
+        let on = self.on_the_card(at).map(|on| OnThePage {
+            at: on,
+            over: matches!(self.aimed(at), Some(card_aim::Aimed::Page { .. })),
+        });
+        if let Some(input) = self.pointer.moved(on) {
+            self.to_the_page(input);
         }
     }
 
     /// The main button came up: the page's, where the cursor is, after a
     /// press on it.
     pub fn main_button_released(&mut self) {
-        if !std::mem::replace(&mut self.on_the_page, false) {
-            return;
-        }
-        if let Some((x, y)) = self.cursor.and_then(|at| self.on_the_card(at)) {
-            self.to_the_page(CardInput::Pointer {
-                went: Button::Released,
-                x,
-                y,
-            });
+        let at = self.cursor.and_then(|at| self.on_the_card(at));
+        if let Some(input) = self.pointer.released(at) {
+            self.to_the_page(input);
         }
     }
 
@@ -867,6 +866,8 @@ impl ConversationWindow {
         }
         let changed = match went {
             Went::Opening(url) => {
+                // Another page: nothing held, hovered or counted on it.
+                self.pointer.forget();
                 self.conversation.open_card(url);
                 true
             }

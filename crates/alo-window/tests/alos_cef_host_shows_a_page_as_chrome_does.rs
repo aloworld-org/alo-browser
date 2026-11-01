@@ -52,8 +52,9 @@
 //! typed only once the host is checked to be the application in front, in
 //! the same script, so that a ⌘Q never reaches another application.
 //!
-//! Not asserted, because it still crashes the host (queue item 734): a
-//! page closed while its context menu is open.
+//! A page closed while its context menu is open, which crashed the host,
+//! is asserted apart: `tests/alos_cef_host_closed_under_a_context_menu_as_chrome.rs`
+//! (queue item 734).
 //!
 //! # When there is no CEF distribution here
 //!

@@ -133,8 +133,30 @@ pub enum Key {
     Home,
     /// End: the newest turn's foot (queue item 754).
     End,
+    /// An arrow: the caret moved in a card's page's field, or its page
+    /// scrolled (queue item 741).
+    Arrow(Arrow),
+    /// The forward delete — ⌦, or fn-Delete on a Mac's own keyboard — which
+    /// erases what is after the caret in a card's page's field (queue item
+    /// 741).
+    Delete,
+    /// A function key, by its number from one (queue item 741).
+    Function(u8),
     /// Any other key.
     Other,
+}
+
+/// Which arrow.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Arrow {
+    /// ←.
+    Left,
+    /// →.
+    Right,
+    /// ↑.
+    Up,
+    /// ↓.
+    Down,
 }
 
 /// Whose keys: macOS's, where the browser's keys are ⌘'s, or everybody
@@ -205,6 +227,9 @@ impl Press {
             | Key::PageDown
             | Key::Home
             | Key::End
+            | Key::Arrow(_)
+            | Key::Delete
+            | Key::Function(_)
             | Key::Other => false,
         }
     }

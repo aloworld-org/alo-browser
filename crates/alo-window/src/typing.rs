@@ -59,7 +59,16 @@ pub fn edit(press: &Press, written: Option<&str>) -> Option<Edit> {
         Key::Return => Some(Edit::Choose),
         Key::Backspace => Some(Edit::Erase),
         Key::Escape => Some(Edit::Clear),
-        Key::Tab | Key::PageUp | Key::PageDown | Key::Home | Key::End => None,
+        // Nothing moves within what is typed yet, and a function key types
+        // nothing (queue item 741 reads them apart for a card's page).
+        Key::Tab
+        | Key::PageUp
+        | Key::PageDown
+        | Key::Home
+        | Key::End
+        | Key::Arrow(_)
+        | Key::Delete
+        | Key::Function(_) => None,
         Key::Character(_) | Key::Space | Key::Other => {
             let text: String = written?.chars().filter(|each| !each.is_control()).collect();
             (!text.is_empty()).then_some(Edit::Put(text))
@@ -159,7 +168,15 @@ mod tests {
             edit(&Press::of(Key::Space), Some(" ")),
             Some(Edit::Put(" ".to_owned()))
         );
-        for key in [Key::PageUp, Key::PageDown, Key::Home, Key::End] {
+        for key in [
+            Key::PageUp,
+            Key::PageDown,
+            Key::Home,
+            Key::End,
+            Key::Arrow(crate::keys::Arrow::Left),
+            Key::Delete,
+            Key::Function(5),
+        ] {
             assert_eq!(edit(&Press::of(key), Some("\u{f72c}")), None);
         }
     }

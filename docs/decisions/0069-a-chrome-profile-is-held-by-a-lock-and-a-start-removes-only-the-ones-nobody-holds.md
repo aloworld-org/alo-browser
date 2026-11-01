@@ -150,3 +150,19 @@ is a directory, never following a link), then `alo.lock`, then the
 directory. If only that last step fails, an empty `alo.lock` is put
 back, which nobody holds, so the next sweep finds it. Asserted by a
 profile emptied inside a directory it may not be removed from.
+
+**Noted 1 November 2026 (queue item 733):** a profile can be made again
+after it is removed — by a helper that outlives its Chromium. Measured with
+alo's CEF host made to end at once (as it did before ADR 0080): its GPU
+process, the last helper running, made the removed profile's path again as
+it ended, 1.6 s after `Browser.close`, holding an empty `Dictionaries` and an
+empty `chrome_debug.log`, and **no `alo.lock`** — so § 2's sweep never
+removes it. Twenty such directories, all of 30 October before the host
+ended in order, are still in this Mac's temporary directory. A Chromium
+that ends in order (the machine's Chrome; the host since ADR 0080) waits
+for its helpers, and none has been made since; asserted by
+`crates/alo-window/tests/a_chromiums_profile_stays_removed_as_chrome.rs`,
+which looks again once no process names the profile. A Chromium killed or
+crashed can still leave one, and what § 2 does with a lockless directory
+holding only those two empty entries is queue item 804's.
+

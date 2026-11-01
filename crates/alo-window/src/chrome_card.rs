@@ -50,9 +50,10 @@
 //!   pressable only when there is somewhere to go.
 //! - **Back and Forward**: a person's press on either, carried out as
 //!   Chrome's own buttons are ([`crate::chrome_history::go`]).
-//! - **Input**: a person's press, drag, release, wheel or key over the card's
-//!   page, sent to the page as a person's (queue item 718,
-//!   [`crate::chrome_card_input`]).
+//! - **Input**: a person's hover, press, drag, release, wheel or key over
+//!   the card's page, sent to the page as a person's (queue items 718 and
+//!   740, [`crate::chrome_card_input`]); of the pointer's moves waiting,
+//!   only the newest of each run ([`only_the_newest_moves`]).
 //!
 //! Closing the card is closing the page, as the window's closing is
 //! ([`crate::message::Order::CloseEverything`]): the stream is stopped
@@ -226,6 +227,24 @@ pub fn only_the_newest_stream(arrived: Vec<Arrival>) -> Vec<Arrival> {
         .collect()
 }
 
+/// Of `arrived`, what is to be carried out: only the newest stream
+/// ([`only_the_newest_stream`]) and only the newest of each run of a
+/// person's moves ([`only_the_newest_moves`]).
+pub fn to_carry_out(arrived: Vec<Arrival>) -> Vec<Arrival> {
+    only_the_newest_moves(only_the_newest_stream(arrived))
+}
+
+/// `arrived` without each of a person's pointer moves over the card's page
+/// that a newer one of the same kind supersedes, before any other input of
+/// theirs (queue item 740, [`crate::card_moves`]): moves never queue on
+/// the pipe an agent's commands use. Everything else is kept, in its order.
+pub fn only_the_newest_moves(arrived: Vec<Arrival>) -> Vec<Arrival> {
+    crate::card_moves::newest(arrived, |arrival| match arrival {
+        Arrival::Order(Order::Card(CardOrder::Input(input))) => Some(input),
+        _ => None,
+    })
+}
+
 /// Stop `tab`'s stream, if it streams, and tell `tell` what it came to once
 /// Chrome has answered — or that it did not.
 pub fn stop(tab: &mut Tab<'_>, tell: TellCard<'_>) {
@@ -394,6 +413,51 @@ mod tests {
         assert_eq!(
             named(&only_the_newest_stream(Vec::new())),
             Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn of_a_persons_moves_waiting_only_the_newest_of_each_run_is_sent() {
+        use crate::card_input::{CardInput, Went};
+        let input = |went, x| {
+            Arrival::Order(Order::Card(CardOrder::Input(CardInput::Pointer {
+                went,
+                x,
+                y: 0.0,
+            })))
+        };
+        let said = |arrived: &[Arrival]| -> Vec<String> {
+            arrived
+                .iter()
+                .map(|arrival| match arrival {
+                    Arrival::Order(Order::Card(CardOrder::Input(CardInput::Pointer {
+                        went,
+                        x,
+                        ..
+                    }))) => format!("{went:?} {x}"),
+                    other => named(core::slice::from_ref(other)).concat(),
+                })
+                .collect()
+        };
+        let arrived = vec![
+            input(Went::Hovered, 1.0),
+            stream(878),
+            input(Went::Hovered, 2.0),
+            input(Went::Hovered, 3.0),
+            input(Went::Pressed { clicks: 1 }, 3.0),
+            input(Went::Dragged, 4.0),
+            input(Went::Dragged, 5.0),
+            input(Went::Released { clicks: 1 }, 5.0),
+        ];
+        assert_eq!(
+            said(&only_the_newest_moves(arrived)),
+            [
+                "stream 878",
+                "Hovered 3",
+                "Pressed { clicks: 1 } 3",
+                "Dragged 5",
+                "Released { clicks: 1 } 5"
+            ]
         );
     }
 }

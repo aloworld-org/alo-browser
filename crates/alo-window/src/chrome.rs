@@ -585,8 +585,19 @@ fn weight(next: &Result<Message, Failed>) -> usize {
     owned.saturating_add(core::mem::size_of::<Result<Message, Failed>>())
 }
 
-impl Drop for Chrome {
-    fn drop(&mut self) {
+impl Chrome {
+    /// Close Chrome as dropping it does — `Browser.close`, then its pipe
+    /// closed — and wait for it to end, as long as it is given to answer:
+    /// how it ended, or [`None`] when it had not and was killed. For a test
+    /// that wants to see it end in order rather than crash (queue item
+    /// 734); its profile is removed as it is dropped.
+    pub fn close(mut self) -> Option<std::process::ExitStatus> {
+        self.ended()
+    }
+
+    /// Ask Chrome to close, close its pipe and wait for it as long as it is
+    /// given to answer: how it ended by itself, if it did.
+    fn ended(&mut self) -> Option<std::process::ExitStatus> {
         if let Some(mut to) = self.to.take() {
             let _ =
                 chrome_wire::write(&mut to, &chrome_protocol::written(0, None, &Command::Close));
@@ -594,10 +605,23 @@ impl Drop for Chrome {
             // command ends at its pipe closing.
         }
         let until = Instant::now() + self.patience;
-        while matches!(self.child.try_wait(), Ok(None)) && Instant::now() < until {
-            std::thread::sleep(Duration::from_millis(10));
+        loop {
+            match self.child.try_wait() {
+                Ok(Some(status)) => return Some(status),
+                Ok(None) if Instant::now() < until => {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                _ => return None,
+            }
         }
-        let _ = self.child.kill();
+    }
+}
+
+impl Drop for Chrome {
+    fn drop(&mut self) {
+        if self.ended().is_none() {
+            let _ = self.child.kill();
+        }
         let _ = self.child.wait();
         // The profile is removed as the fields are dropped, after this.
     }

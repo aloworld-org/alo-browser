@@ -13,14 +13,19 @@
 //! ([`crate::chrome_card_input`]). **Only the window makes one**, for a
 //! person: an agent's request is an [`crate::message::Order::Agent`], which
 //! carries no point and becomes none (ADR 0002), and no verb an agent can
-//! send is turned into any of these.
+//! send is turned into any of these. A coordinate here is only ever a
+//! person's pointer, translated by [`crate::card_aim`] — never one an agent
+//! named.
+
+use crate::keys::{Arrow, Held};
 
 /// A person's input over the card's page.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CardInput {
-    /// The main button, at a point of the page in its CSS pixels.
+    /// The pointer, or the main button, at a point of the page in its CSS
+    /// pixels.
     Pointer {
-        /// What the button did.
+        /// What the pointer or the button did.
         went: Went,
         /// From the page's left edge, in its CSS pixels.
         x: f64,
@@ -42,16 +47,45 @@ pub enum CardInput {
     Key(PersonsKey),
 }
 
-/// What the main button did over the page.
+impl CardInput {
+    /// Whether this is the pointer moving, with no button held or with the
+    /// main button held from a press on the page: what a newer move of the
+    /// same kind says the whole of (queue item 740,
+    /// [`crate::card_moves`]).
+    pub fn moving(&self) -> Option<Went> {
+        match self {
+            Self::Pointer {
+                went: went @ (Went::Hovered | Went::Dragged),
+                ..
+            } => Some(*went),
+            _ => None,
+        }
+    }
+}
+
+/// What the pointer, or the main button, did over the page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Went {
-    /// It went down over the page.
-    Pressed,
+    /// The pointer moved with no button held (queue item 740): over the
+    /// page, so the page's hover follows it; or off it, once, so the
+    /// page's hover ends.
+    Hovered,
+    /// It went down over the page, the `clicks`th press in quick
+    /// succession at that place ([`crate::card_clicks`]): two a double
+    /// click, three a triple.
+    Pressed {
+        /// How many, counted from one.
+        clicks: u32,
+    },
     /// The pointer moved while it was held, from a press over the page.
     Dragged,
     /// It came up, after a press over the page — wherever the pointer then
-    /// is.
-    Released,
+    /// is — as the press's `clicks`th, which is how the page hears a double
+    /// click.
+    Released {
+        /// The press's.
+        clicks: u32,
+    },
 }
 
 /// A key a person pressed, as the page is sent it.
@@ -59,10 +93,9 @@ pub enum Went {
 pub struct PersonsKey {
     /// Which.
     pub key: Keyed,
-    /// Whether Shift was held.
-    pub shift: bool,
-    /// Whether ⌥, or Alt, was held.
-    pub option: bool,
+    /// The modifier keys held as it went down: Shift and ⌥ with any key,
+    /// and ⌘ or Ctrl only with the keys [`crate::card_keys`] gives the page.
+    pub held: Held,
 }
 
 /// Which key, as the page is sent it.
@@ -80,4 +113,43 @@ pub enum Keyed {
     Tab,
     /// Escape.
     Escape,
+    /// An arrow (queue item 741): the caret moved in a field — with Shift
+    /// the selection grown, with ⌥ by a word, with ⌘ to the line's end or
+    /// the field's — or the page scrolled.
+    Arrow(Arrow),
+    /// Home: the page scrolled to its top, as Chrome's own window on a Mac
+    /// does with it, in a field too (queue item 741).
+    Home,
+    /// End: to its foot.
+    End,
+    /// Page Up: a page back up.
+    PageUp,
+    /// Page Down: a page on down.
+    PageDown,
+    /// The forward delete: what is after the caret erased.
+    Delete,
+    /// A function key, by its number from one: heard by the page's script,
+    /// as in Chrome's own window, where the system has not taken it.
+    Function(u8),
+    /// One of the page's own editing shortcuts, with ⌘ on a Mac and Ctrl
+    /// elsewhere (queue item 741): the page's to carry out, never the
+    /// browser's.
+    Editing(Editing),
+}
+
+/// The page's own editing shortcuts (queue item 741, [`crate::card_keys`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Editing {
+    /// ⌘A: everything in the field, or on the page, selected.
+    SelectAll,
+    /// ⌘C: what is selected copied.
+    Copy,
+    /// ⌘X: what is selected cut.
+    Cut,
+    /// ⌘V: what was copied pasted.
+    Paste,
+    /// ⌘Z: the last edit undone.
+    Undo,
+    /// ⌘⇧Z, or Ctrl+Y elsewhere: it done again.
+    Redo,
 }

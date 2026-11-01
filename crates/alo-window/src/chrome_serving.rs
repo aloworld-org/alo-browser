@@ -611,7 +611,7 @@ fn serve_in_chrome(
             chrome_card::stop(pages.tab_mut(), frame);
             return record;
         };
-        for arrival in chrome_card::only_the_newest_stream(arrived) {
+        for arrival in chrome_card::to_carry_out(arrived) {
             match arrival {
                 Arrival::Order(Order::Agent { caller, ask, reply }) => {
                     Serving {

@@ -244,6 +244,9 @@ pub fn exchange_however_it_ends(
                 if on != stream {
                     continue;
                 }
+                // At most what the request reads (queue item 762).
+                let so_far = answer.body.len() + data.len();
+                within_the_bound(wire, speaking, stream, so_far, request)?;
                 answer.took_body(&data)?;
                 // Room made back as the body is taken, or the window closes and
                 // the server stops sending half way through a large page.
@@ -303,6 +306,40 @@ pub fn exchange_however_it_ends(
             body: answer.body,
         },
         short,
+    })
+}
+
+/// Whether a body of `so_far` bytes on `stream` is still within what
+/// `request` reads (queue item 762, [`Request::most`]): past it, the stream
+/// is given up there — its server told with `RST_STREAM` (`CANCEL`) — and
+/// nothing more of it read.
+///
+/// # Errors
+///
+/// [`Broken`], not fatal to the connection, when it is past.
+fn within_the_bound(
+    wire: &mut impl Write,
+    speaking: &mut Speaking,
+    stream: u32,
+    so_far: usize,
+    request: &Request,
+) -> Result<(), Broken> {
+    let so_far = u64::try_from(so_far).unwrap_or(u64::MAX);
+    if so_far <= request.most() {
+        return Ok(());
+    }
+    let _ = write_all(
+        wire,
+        &frame::write(&Frame::ResetStream {
+            stream,
+            error: ErrorCode::Cancel,
+        }),
+    );
+    speaking.session.gave_up_on(stream);
+    Err(Broken {
+        why: crate::body::beyond(so_far, request.most()).why,
+        error: ErrorCode::Cancel,
+        fatal: false,
     })
 }
 

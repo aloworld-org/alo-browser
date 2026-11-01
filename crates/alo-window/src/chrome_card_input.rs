@@ -10,11 +10,16 @@
 //! window reaches the page — never a verb of an agent's (ADR 0002), which
 //! names a box and never a point:
 //!
+//! - **A hover** is the pointer moving with no button held (queue item
+//!   740): Chrome's `mouseMoved` with no button, so the page's `:hover`
+//!   and `mouseover` follow it; one at a point outside the page ends them.
 //! - **A press** is the pointer arriving over the point and the main button
-//!   going down there; **a drag** the pointer moving with it held; **the
-//!   release** the button coming up wherever the pointer then is. With the
-//!   press and the release at one point, the page hears a click, and a link
-//!   pressed is followed.
+//!   going down there, as the press's count of a quick succession
+//!   (`clickCount`); **a drag** the pointer moving with it held; **the
+//!   release** the button coming up wherever the pointer then is, as the
+//!   press's count. With the press and the release at one point, the page
+//!   hears a click, and a link pressed is followed; a second soon after is
+//!   a double click, and selects the word under it.
 //! - **A wheel** is Chrome's `mouseWheel` at the point, the page scrolled
 //!   by the CSS pixels the window measured.
 //! - **A key** goes down and comes up ([`crate::chrome_protocol::Command::Typed`]).
@@ -29,17 +34,16 @@ use crate::chrome_tab::Tab;
 
 /// What Chrome is asked, in order, for `input`.
 pub fn commands(input: &CardInput) -> Vec<Command> {
-    let mouse = |kind, x, y| Command::Mouse {
-        kind,
-        x,
-        y,
-        toggles: false,
-    };
+    let pointed = |kind, x, y, clicks| Command::Pointed { kind, x, y, clicks };
     match input {
         CardInput::Pointer { went, x, y } => match went {
-            Went::Pressed => vec![mouse(Mouse::Moved, *x, *y), mouse(Mouse::Pressed, *x, *y)],
-            Went::Dragged => vec![mouse(Mouse::Dragged, *x, *y)],
-            Went::Released => vec![mouse(Mouse::Released, *x, *y)],
+            Went::Hovered => vec![pointed(Mouse::Moved, *x, *y, 0)],
+            Went::Pressed { clicks } => vec![
+                pointed(Mouse::Moved, *x, *y, 0),
+                pointed(Mouse::Pressed, *x, *y, *clicks),
+            ],
+            Went::Dragged => vec![pointed(Mouse::Dragged, *x, *y, 0)],
+            Went::Released { clicks } => vec![pointed(Mouse::Released, *x, *y, *clicks)],
         },
         CardInput::Wheel { x, y, right, down } => vec![Command::Wheel {
             x: *x,
@@ -71,14 +75,15 @@ pub fn forward(tab: &mut Tab<'_>, input: &CardInput) {
 mod tests {
     use super::*;
     use crate::card_input::{Keyed, PersonsKey};
+    use crate::keys::Held;
 
     #[test]
-    fn a_press_arrives_then_goes_down_and_a_release_comes_up() {
-        let mouse = |kind| Command::Mouse {
+    fn a_press_arrives_then_goes_down_and_a_release_comes_up_as_its_count() {
+        let pointed = |kind, clicks| Command::Pointed {
             kind,
             x: 250.5,
             y: 100.0,
-            toggles: false,
+            clicks,
         };
         let at = |went| CardInput::Pointer {
             went,
@@ -86,11 +91,26 @@ mod tests {
             y: 100.0,
         };
         assert_eq!(
-            commands(&at(Went::Pressed)),
-            vec![mouse(Mouse::Moved), mouse(Mouse::Pressed)]
+            commands(&at(Went::Pressed { clicks: 1 })),
+            vec![pointed(Mouse::Moved, 0), pointed(Mouse::Pressed, 1)]
         );
-        assert_eq!(commands(&at(Went::Dragged)), vec![mouse(Mouse::Dragged)]);
-        assert_eq!(commands(&at(Went::Released)), vec![mouse(Mouse::Released)]);
+        assert_eq!(
+            commands(&at(Went::Pressed { clicks: 2 })),
+            vec![pointed(Mouse::Moved, 0), pointed(Mouse::Pressed, 2)]
+        );
+        assert_eq!(
+            commands(&at(Went::Dragged)),
+            vec![pointed(Mouse::Dragged, 0)]
+        );
+        assert_eq!(
+            commands(&at(Went::Released { clicks: 2 })),
+            vec![pointed(Mouse::Released, 2)]
+        );
+        assert_eq!(
+            commands(&at(Went::Hovered)),
+            vec![pointed(Mouse::Moved, 0)],
+            "a hover is a move with no button"
+        );
     }
 
     #[test]
@@ -111,8 +131,7 @@ mod tests {
         );
         let key = PersonsKey {
             key: Keyed::Text("a".to_owned()),
-            shift: false,
-            option: false,
+            held: Held::NOTHING,
         };
         assert_eq!(
             commands(&CardInput::Key(key.clone())),

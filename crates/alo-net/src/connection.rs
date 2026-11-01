@@ -268,7 +268,9 @@ pub fn exchange_however_it_ends(
 
     let head = read_past_anything_interim(connection)?;
     let framing = Framing::of(head.status, &head.headers)?;
-    let (body, short) = body::read_what_arrived(connection, framing);
+    // At most what the request reads (queue item 762): a body said to be
+    // longer is not read at all, and one that goes on is cut at the bound.
+    let (body, short) = body::read_at_most(connection, framing, request.most());
     // **The codings come off only when the body is whole.** Half a gzip is not
     // half a page: undoing a coding on a truncated body either fails or yields
     // a prefix nothing could tell from a finished one, and the second is worse.
@@ -290,7 +292,9 @@ pub fn exchange_however_it_ends(
         // before it was framed would be a body framed against a length
         // describing something else.
         let applied = crate::decompress::what_was_applied(&head.headers)?;
-        crate::decompress::undo(body, &applied)?
+        // And what it undoes to, bounded the same: a few kilobytes on the
+        // wire must not become the gigabyte the request refused.
+        crate::decompress::undo_within(body, &applied, request.most())?
     };
 
     Ok(Exchanged {

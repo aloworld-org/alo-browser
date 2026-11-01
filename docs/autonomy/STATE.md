@@ -47693,3 +47693,142 @@ private event source with no modifier flags reached alo's box.
 (796), kerning across a space on a line measured word by word (797).
 
 The next unused queue number is **798** and the next ADR is **0094**.
+
+## Iteration 487 — queue items 740, 741, 734, 733 and 762: a person's hover, double clicks, arrows and shortcuts on a card; a page closed under its context menu; a profile that stays removed; a body read at most what its request asks
+
+Batched under one gate, at the owner's asking; each item built with its own
+tests and docs, in that order. No new ADR: 0080 amended (734), 0069 noted
+(733), 0086 § 3 amended (762).
+
+**740 — the rest of a person's pointer on the card.** The window's pointer
+over the card is one value, `card_pointer::CardPointer`, asked of every
+move, press, release and the cursor leaving (`conversation_window.rs`), and
+driven the same by the test: a move with no button held over the page box
+a **hover** (`Went::Hovered`, Chrome's `mouseMoved` with no button), one
+more off the box — or the cursor leaving the window — ending it. **Moves
+coalesced** (`card_moves::newest`) in the opener's thread and the card's
+Chromium's (`chrome_card::to_carry_out`): a move is dropped when the
+person's next input is a move alike, so none queues on the agent's pipe.
+**Presses counted** (`card_clicks`: 500 ms, 4 CSS px — macOS's default and
+Chromium's own off macOS; this Mac's person set 0.15 s, not read, 800) as
+`clickCount` on the press and its release (`Command::Pointed`, apart from
+an agent's `Mouse`). **Tests:** unit (count, pointer, coalescing, the
+serving thread's, protocol, commands);
+`a_persons_hover_and_double_click_on_a_card_through_chrome.rs` through the
+machine's Chrome 156.0.8078.76 and alo's CEF host — a `:hover` colour in a
+frame, ended on the bar (`mouseleave`), a double click selecting `bravo`
+(`dblclick`). **Measured to the frame told to the window:** hover 8 / 12 ms,
+a press after a quiet half second 112 / 110 ms, a key 13 / 7 ms (Chrome /
+host); the glass not measured (801). **Mutations:** presses not counted,
+hovers dropped, the hover not ended — each fails. **Cut:** other buttons
+and a press with a modifier (798, needs design: Chromium would open a
+context menu in a parked window, a tab, a window, a download), the pointer's
+shape (799, needs design), the person's own double-click interval (800), to
+the glass (801).
+
+**741 — the rest of a person's keys on the card.** The window reads the
+arrows, ⌦ and F1–F20 apart (`keys::Key::Arrow`, `Delete`, `Function`); the
+box types none. While the card has the keyboard the arrows, Home, End, the
+page keys, ⌦ and the function keys are sent with Shift and ⌥; **decided:**
+⌘A, ⌘C, ⌘X, ⌘V, ⌘Z and ⌘⇧Z (Ctrl elsewhere, with Ctrl+Y) are the page's,
+and on a Mac ⌘ with an arrow or Backspace; every other ⌘ or Ctrl key stays
+the browser's and the system's, and on a Mac every Ctrl key (803). Each key
+carries its `key`, `code`, Windows key code, Chrome's modifier bits and, on
+macOS, its standard key binding's editing command (`key_bindings.rs`).
+**Measured** in Chrome 156: ⌘A with no command selected nothing; the
+arrows and ⌦ worked with none. **Tests:** unit (keys on a Mac and
+elsewhere, bindings, protocol, the box); `a_persons_keys_on_a_card_through_chrome.rs`
+through both — `abc` ← ← `X` → `aXbc`, ⌦ → `aXc`, ⌘A `new` → `new`, ⌘A ⌘C → ⌘V
+→ `newnew`, F5 heard, Page Down scrolling (452 / 382) and Home back to 0;
+the pasteboard's text read before and written back after. **Mutations:**
+the shortcuts' commands left out (`aXnewc`); the arrows not sent. **Cut:**
+an input method (802, needs design), Ctrl's text bindings on a Mac (803).
+
+**734 — a page closed under its context menu.** Reproduced by a new test:
+`SIGSEGV` at `0xcdcd…` in a task of the outer run loop. Traced: CEF said
+`on_before_context_menu`, `close_all` ran, `on_before_close` came, and
+`on_context_menu_dismissed` never did; with `on_browser_destroyed` leaving
+the window open it crashed the same — so not the host's window closing
+under it; the menu outlives its page inside CEF (symbols stripped; not
+reported to CEF). **Fixed in the host:** menus counted per client
+(`window.rs`'s `Menus`); a close while one is shown — `close_all` or a
+window's `can_close` — owed (`after_menus.rs`), the menu dismissed by Escape
+put in the application's own event queue (`dismissed_mac.rs`, safe
+`objc2-app-kit` calls only; gate boundaries and ADR 0080 amended), and the
+close carried out in a CEF task once the menu is gone, or after a second.
+**Test:** `alos_cef_host_closed_under_a_context_menu_as_chrome.rs` — a menu
+left open, then `Browser.close`; `Target.closeTarget` then `Browser.close`;
+the close button — each status 0 (the new `Chrome::close`), no crash report
+in ten seconds, the profile removed. **Mutation:** no Escape — a crash
+report. 731's test still passes.
+
+**733 — a profile's path made again.** Whose: the host's **GPU process**,
+outliving a host that ended at once — measured with `-terminate:` given
+`exit(0)`: the one helper left as alo removed the profile at 50 ms, the path
+there again at 1.6 s with `Dictionaries` and `chrome_debug.log`. Already
+kept from writing since the host ends in order (731): the twenty remade
+directories in this Mac's temporary directory are all of 30 October 12:55
+to 13:24, none since. **Test:** `a_chromiums_profile_stays_removed_as_chrome.rs`
+— the machine's Chrome and the host, headless and shown, closed as alo
+closes them: status 0, no process naming the profile, gone, and gone three
+seconds after. **Mutation:** the host ending at once — the profile is there
+with exactly those two. **Cut:** a killed or crashed Chromium's remade,
+lockless profile, which ADR 0069's sweep never removes (804, needs design).
+
+**762 — a body read at most what its request asks.** `Request::most` and
+`reading_at_most` (never past 256 MiB, carried along redirects); HTTP/1.1
+refuses a length past it before reading, chunks before the chunk that
+passes, a body until close at one byte past; HTTP/2 resets the stream
+(`CANCEL`) — **an HTTP/2 body had no bound at all before** — and gzip's
+undoing is bounded the same. `search_thumbnails::picture` asks it, so
+thumbnails and marks are cut at their bounds. **Tests:** against counting
+servers — 128 MiB said up front, a gigabyte chunked and until close, 16 MiB
+over HTTP/2, each stopped near the bound; exactly at it read whole; the
+frozen 8 KiB bomb refused; the readers taking one byte past at most; a
+thumbnail of 128 MiB left out with the proxy having written 256 KiB / ~1 MiB,
+a mark likewise. **Mutations:** the thumbnail unbounded — 128 MiB written;
+the HTTP/2 bound off — 16 MiB read.
+
+**Shown-Chrome lists:** four new test binaries added to `.config/nextest.toml`'s
+`threads-required = 2` override (each named with *chrome*, so in the
+group).
+
+**Gate: met** on the second run (CEF 156.0.14; pointer at 1400, 1000).
+**Summary [941.238s] 6192 tests run: 6192 passed (7 slow, 1 leaky), 0
+skipped** — *"The gate is met." (11 of 11 steps)*. The first run failed one
+test of the 658 family,
+`a_closed_list_chosen_through_a_shown_chrome::a_menu_the_pointer_is_moved_over_chooses_nothing_and_is_closed`
+(the menu still shown after the refusal), beside the 2.5M-picture test, and
+stopped the run with 119 tests not run. Run alone it failed two of three
+and then passed four of four; the same test built from `HEAD` (no change of
+this iteration) failed one of four alone — a flake older than this work,
+not touched by it.
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys carried;
+`--conversation --chats` the scratch directory `handrun24/chats`;
+screenshots in the session scratchpad `handrun24/`): `en.wikipedia.org/wiki/Cat`
+opened in a card (`02`); the pointer over *carnivorous* underlined it and
+began Wikipedia's preview (`03-hover-crop` beside `02-card-crop`); a wheel
+of five lines scrolled the page (`04`); a drag selected *Advances in
+archaeology and genetics* (`05-drag-crop`); in Wikipedia's search field
+`kitten`, ← ←, `X` gave `kittXen` (`07-arrows-crop`), ⌘A selected it
+(`15-select-all-crop`) and `dog` replaced it (`16-replaced`). ⌘Q, no alo
+process left, the pointer back at 1400, 1000, no new crash report. **Went
+wrong on the way:** (1) a ⌘A posted as virtual key 0 was ⌘Q — this Mac's
+layout is ABC-AZERTY, where that key is Q — and alo quit in order (the
+system log: `performKeyEquivalent:`, `terminate:`), with the card holding
+the keyboard, as decided; the `dog` typed after went to the Finder, in
+front then, and did nothing visible. alo was started again and the run
+redone with the key at Q's place (12) for A. (2) Right after a card
+opened, a first press on Wikipedia's search button took its hover but not
+the press, and the keys went to the box (`13-replaced-small`: `kittendog`
+in the box); a press on the page first, then on the button, worked. Not
+diagnosed: queue item 805.
+
+**Not done here:** IME (802), Ctrl's text bindings (803), other buttons and
+modifiers with a press (798), the pointer's shape (799), the double-click
+interval (800), the glass (801), a killed Chromium's remade profile (804),
+the first press lost (805).
+
+The next unused queue number is **806** and the next ADR is **0094**.

@@ -451,7 +451,15 @@ fn hold(
     let mut opened = 0u64;
     let mut finished = true;
     while let Ok(first) = asking.recv() {
-        let waiting: Vec<Work> = core::iter::once(first).chain(asking.try_iter()).collect();
+        // Of a person's pointer moves waiting, only the newest of each run
+        // (queue item 740): each says the whole of where the pointer is.
+        let waiting = crate::card_moves::newest(
+            core::iter::once(first).chain(asking.try_iter()).collect(),
+            |work| match work {
+                Work::Input(input) => Some(input),
+                _ => None,
+            },
+        );
         let newest = waiting
             .iter()
             .rposition(|work| matches!(work, Work::Open(..)));

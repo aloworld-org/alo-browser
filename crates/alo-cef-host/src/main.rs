@@ -40,11 +40,13 @@
 #[cfg(not(target_os = "macos"))]
 compile_error!("alo's CEF host is built for macOS only so far (queue item 728)");
 
+mod after_menus;
 #[expect(
     unsafe_code,
     reason = "the `NSApplication` subclass CEF requires on macOS, the one boundary ADR 0080 allows"
 )]
 mod application_mac;
+mod dismissed_mac;
 mod handed;
 mod host;
 mod menu_mac;
