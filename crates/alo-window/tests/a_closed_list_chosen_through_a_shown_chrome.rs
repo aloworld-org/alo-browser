@@ -14,13 +14,18 @@
 //! chosen, and nothing is posted. A list holding no option is walked from
 //! nowhere. A menu closed by another application brought in front before
 //! Return is answered as not chosen, the page hearing no `change`; and so
-//! is one the pointer is moved over, which is then closed.
+//! is one the pointer is moved over, which is then closed, and one walked
+//! while the pointer moves anywhere else (queue item 809).
 //!
-//! The pointer moves a menu's highlight, so each test first moves it to
-//! the top of Chrome's window, where no menu of the page opens, and puts
-//! it back where it was at the end.
+//! The pointer moves a menu's highlight, wherever it is moved, so each test
+//! first moves it to the top of Chrome's window, where no menu of the page
+//! opens, waits until the window server has it there and it has been still
+//! for as long as the walk asks (`pointer`, queue item 809), and puts it
+//! back where it was however the test ends.
 
 #![cfg(target_os = "macos")]
+
+mod pointer;
 
 use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
@@ -75,56 +80,6 @@ fn long_list() -> String {
 /// The longest the menu is waited for in the test's own thread.
 const AT_MOST: Duration = Duration::from_secs(10);
 
-/// Run a script of JavaScript for Automation with `arguments`, and say what
-/// it printed.
-fn automation(script: &str, arguments: &[String]) -> Result<String, String> {
-    // `--` ends osascript's own options: a point on a screen left of or
-    // above the main one is negative, and "-1920" read as an option is
-    // "illegal option -- 1".
-    let ran = std::process::Command::new("osascript")
-        .args(["-l", "JavaScript", "-e", script, "--"])
-        .args(arguments)
-        .output()
-        .map_err(|why| why.to_string())?;
-    if ran.status.success() {
-        Ok(String::from_utf8_lossy(&ran.stdout).trim().to_owned())
-    } else {
-        Err(String::from_utf8_lossy(&ran.stderr).into_owned())
-    }
-}
-
-/// Where the pointer is, in the screen's points.
-fn pointer() -> Result<(f64, f64), String> {
-    let at = automation(
-        "ObjC.import('CoreGraphics');\
-         var at = $.CGEventGetLocation($.CGEventCreate($())); at.x + ' ' + at.y",
-        &[],
-    )?;
-    let (x, y) = at.split_once(' ').ok_or(format!("no pointer in {at:?}"))?;
-    let number = |text: &str| text.parse::<f64>().map_err(|why| why.to_string());
-    Ok((number(x)?, number(y)?))
-}
-
-/// Move the pointer to `x`, `y`, in the screen's points, as a mouse does,
-/// and wait until it is there.
-fn move_pointer((x, y): (f64, f64)) -> Result<(), String> {
-    automation(
-        "ObjC.import('CoreGraphics'); function run(argv) {\
-           $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent($(),\
-             $.kCGEventMouseMoved, {x: Number(argv[0]), y: Number(argv[1])},\
-             $.kCGMouseButtonLeft)); }",
-        &[x.to_string(), y.to_string()],
-    )?;
-    let deadline = Instant::now() + AT_MOST;
-    while pointer()? != (x, y) {
-        if Instant::now() >= deadline {
-            return Err(format!("the pointer never reached {x}, {y}"));
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    }
-    Ok(())
-}
-
 /// The page at `address` in the shown Chrome `chrome`, and where the pointer
 /// was before it was moved to the top of Chrome's window.
 fn open<'c>(
@@ -140,12 +95,12 @@ fn open<'c>(
         .into_iter()
         .find_map(|window| window.bounds.filter(|_| window.layer == 0))
         .ok_or("Chrome's window is not on the screen")?;
-    let was = pointer()?;
+    let was = pointer::at()?;
     #[expect(
         clippy::cast_precision_loss,
         reason = "a window's bounds are a few thousand points"
     )]
-    move_pointer((
+    pointer::move_to((
         (window.left + window.width - 40) as f64,
         (window.top + 8) as f64,
     ))?;
@@ -206,6 +161,7 @@ fn choose(tab: &mut Tab<'_>, option: &str) -> Result<(), String> {
 fn options_of_a_closed_list_are_chosen_in_its_menu_one_change_each() -> Result<(), String> {
     let mut chrome = Chrome::start_shown().map_err(|why| why.to_string())?;
     let (mut tab, was) = open(&mut chrome, "https://example.test/fruit", FRUIT)?;
+    let _put_back = pointer::PutBack(was);
     // Two down from Apples, past Bananas, disabled, and Cherries, hidden.
     choose(&mut tab, "Elderberries")?;
     assert_eq!(
@@ -237,7 +193,7 @@ fn options_of_a_closed_list_are_chosen_in_its_menu_one_change_each() -> Result<(
         heard(&mut tab)?,
         "Heard: input:Elderberries change:Elderberries input:Dates change:Dates input:Honeydew change:Honeydew"
     );
-    move_pointer(was)
+    Ok(())
 }
 
 #[test]
@@ -245,10 +201,11 @@ fn a_closed_list_holding_nothing_is_walked_from_nowhere() -> Result<(), String> 
     let mut chrome = Chrome::start_shown().map_err(|why| why.to_string())?;
     let nothing = FRUIT.replace("const heard", "list.selectedIndex = -1;\nconst heard");
     let (mut tab, was) = open(&mut chrome, "https://example.test/fruit", &nothing)?;
+    let _put_back = pointer::PutBack(was);
     // Highlighting nothing, Down goes to Apples first: two to Dates.
     choose(&mut tab, "Dates")?;
     assert_eq!(heard(&mut tab)?, "Heard: input:Dates change:Dates");
-    move_pointer(was)
+    Ok(())
 }
 
 #[test]
@@ -256,6 +213,7 @@ fn a_menu_closed_by_another_application_before_return_chooses_nothing() -> Resul
     let mut chrome = Chrome::start_shown().map_err(|why| why.to_string())?;
     let owner = chrome.process();
     let (mut tab, was) = open(&mut chrome, "https://example.test/fruit", &long_list())?;
+    let _put_back = pointer::PutBack(was);
     let (honeydew, fruit) = (id_of(&mut tab, "Honeydew")?, id_of(&mut tab, "Fruit")?);
     let before = window_server::on_the_screen(owner).map_err(|why| why.to_string())?;
     // Once the menu is shown, Finder is brought in front, as a person
@@ -289,7 +247,7 @@ fn a_menu_closed_by_another_application_before_return_chooses_nothing() -> Resul
         }
     }
     assert_eq!(heard(&mut tab)?, "Heard:", "no change, and no input");
-    move_pointer(was)
+    Ok(())
 }
 
 #[test]
@@ -297,6 +255,7 @@ fn a_menu_the_pointer_is_moved_over_chooses_nothing_and_is_closed() -> Result<()
     let mut chrome = Chrome::start_shown().map_err(|why| why.to_string())?;
     let owner = chrome.process();
     let (mut tab, was) = open(&mut chrome, "https://example.test/fruit", &long_list())?;
+    let _put_back = pointer::PutBack(was);
     let (honeydew, fruit) = (id_of(&mut tab, "Honeydew")?, id_of(&mut tab, "Fruit")?);
     let before = window_server::on_the_screen(owner).map_err(|why| why.to_string())?;
     let witness = before.clone();
@@ -310,7 +269,7 @@ fn a_menu_the_pointer_is_moved_over_chooses_nothing_and_is_closed() -> Result<()
             clippy::cast_precision_loss,
             reason = "a window's bounds are a few thousand points"
         )]
-        move_pointer((
+        pointer::move_to((
             (bounds.left + bounds.width / 2) as f64,
             (bounds.top + bounds.height / 2) as f64,
         ))
@@ -335,5 +294,57 @@ fn a_menu_the_pointer_is_moved_over_chooses_nothing_and_is_closed() -> Result<()
     assert_eq!(heard(&mut tab)?, "Heard:", "no change, and no input");
     let now = window_server::on_the_screen(owner).map_err(|why| why.to_string())?;
     assert_eq!(chrome_menu::menu_of(&before, &now), None, "closed: {now:?}");
-    move_pointer(was)
+    Ok(())
+}
+
+#[test]
+fn a_menu_walked_while_the_pointer_moves_elsewhere_chooses_nothing_and_is_closed()
+-> Result<(), String> {
+    let mut chrome = Chrome::start_shown().map_err(|why| why.to_string())?;
+    let owner = chrome.process();
+    let (mut tab, was) = open(&mut chrome, "https://example.test/fruit", &long_list())?;
+    let _put_back = pointer::PutBack(was);
+    let (honeydew, fruit) = (id_of(&mut tab, "Honeydew")?, id_of(&mut tab, "Fruit")?);
+    let before = window_server::on_the_screen(owner).map_err(|why| why.to_string())?;
+    let window = before
+        .iter()
+        .find_map(|window| window.bounds.filter(|_| window.layer == 0))
+        .ok_or("Chrome's window is not on the screen")?;
+    let witness = before.clone();
+    // Once the menu is shown, the pointer is moved along the top of
+    // Chrome's window, a hundred points from where it rested — nowhere
+    // near the menu — as a person's hand on the mouse does mid-verb: the
+    // menu's highlight moves with it (queue item 809).
+    let elsewhere = std::thread::spawn(move || -> Result<(), String> {
+        menu(owner, &witness)?;
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a window's bounds are a few thousand points"
+        )]
+        pointer::move_to((
+            (window.left + window.width - 140) as f64,
+            (window.top + 8) as f64,
+        ))
+    });
+    let acted = tab.act(&Target::Named("Honeydew".to_owned()), &Verb::Activate);
+    elsewhere
+        .join()
+        .map_err(|_| "the moving thread panicked".to_owned())??;
+    match acted {
+        Err(Unacted::Unwalked {
+            node,
+            list,
+            why: Unwalked::PointerMoving { posted },
+        }) if node == honeydew && list == fruit && posted < 44 => {}
+        other => {
+            return Err(format!(
+                "not refused as moving: {other:?}; {}",
+                heard(&mut tab)?
+            ));
+        }
+    }
+    assert_eq!(heard(&mut tab)?, "Heard:", "no change, and no input");
+    let now = window_server::on_the_screen(owner).map_err(|why| why.to_string())?;
+    assert_eq!(chrome_menu::menu_of(&before, &now), None, "closed: {now:?}");
+    Ok(())
 }

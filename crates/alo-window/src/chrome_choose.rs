@@ -26,7 +26,8 @@
 //!   every press makes, at the list's middle, opens the menu; arrows walk
 //!   its highlight, which chooses nothing; Return chooses. Each key is
 //!   posted to Chrome's process only while the window server shows the
-//!   menu and the pointer is not over it ([`crate::chrome_menu`]), and the
+//!   menu, the pointer is not over it and has not just moved
+//!   ([`crate::chrome_menu`]), and the
 //!   verb answers [`Unacted::Unwalked`] the moment either fails, closing
 //!   any menu left open with Escape. The page hears one `input` and one
 //!   `change`, for the option chosen.
@@ -156,6 +157,7 @@ impl Tab<'_> {
                 Ok(Posted::Posted) => continue,
                 Ok(Posted::Gone) => Unwalked::Gone { posted },
                 Ok(Posted::UnderPointer) => Unwalked::UnderPointer { posted },
+                Ok(Posted::Moving) => Unwalked::PointerMoving { posted },
                 Ok(Posted::NotAllowed) => Unwalked::NoLongerAllowed { posted },
                 Err(why) => Unwalked::Unposted(why),
             };
@@ -249,6 +251,14 @@ pub enum Unwalked {
         /// How many keys were posted before.
         posted: usize,
     },
+    /// The pointer had moved, anywhere on the screen, less than
+    /// [`chrome_menu::AT_REST`] before a key, after `posted` keys — and a
+    /// move of the pointer moves a menu's highlight (queue item 809) — so no
+    /// further key was posted, and nothing chosen in it.
+    PointerMoving {
+        /// How many keys were posted before.
+        posted: usize,
+    },
     /// The window server still showed the menu after Return.
     NeverClosed,
     /// macOS does not let this browser post keys to Chrome, so no click
@@ -282,6 +292,10 @@ impl fmt::Display for Unwalked {
             Self::UnderPointer { posted } => write!(
                 f,
                 "the pointer was over its menu after {posted} of the keys, so no more were posted and nothing was chosen"
+            ),
+            Self::PointerMoving { posted } => write!(
+                f,
+                "the pointer was moving after {posted} of the keys, so no more were posted and nothing was chosen"
             ),
             Self::NeverClosed => f.write_str("its menu was still shown after Return"),
             Self::NotAllowed => write!(

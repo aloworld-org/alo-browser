@@ -49,6 +49,11 @@
 //! (measured: a window put at −20000 before it was shown was shown wholly
 //! on the leftmost display).
 //!
+//! Nor does a card's page show a window of Chromium's own beside it while
+//! it is unseen (queue item 808): its browser is made with no status
+//! bubble ([`settings`]), and a permission prompt is dismissed unshown
+//! until the card is seen ([`Stage::prompts`]).
+//!
 //! A card's page cannot move its window while it is unseen: a page's own
 //! `moveTo` or `resizeTo` — which CEF hands the page's display handler
 //! (`OnContentsBoundsChange`) before carrying it out — is refused until the
@@ -138,17 +143,19 @@ use cef::{
     Display, DisplayHandler, Frame, ImplApp, ImplBrowser, ImplBrowserHost,
     ImplBrowserProcessHandler, ImplBrowserView, ImplBrowserViewDelegate, ImplClient,
     ImplCommandHandler, ImplContextMenuHandler, ImplDisplay, ImplDisplayHandler,
-    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplRequest, ImplRequestHandler, ImplTask,
-    ImplView, ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, MenuModel, Rect,
-    Request, RequestHandler, RuntimeStyle, Size, Task, ThreadId, View, Window, WindowDelegate,
+    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplPermissionHandler,
+    ImplPermissionPromptCallback, ImplRequest, ImplRequestHandler, ImplTask, ImplView,
+    ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, MenuModel,
+    PermissionHandler, PermissionPromptCallback, PermissionRequestResult, Rect, Request,
+    RequestHandler, RuntimeStyle, Size, State, Task, ThreadId, View, Window, WindowDelegate,
     WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient,
     WrapCommandHandler, WrapContextMenuHandler, WrapDisplayHandler, WrapLifeSpanHandler,
-    WrapRequestHandler, WrapTask, WrapWindowDelegate, browser_view_create,
+    WrapPermissionHandler, WrapRequestHandler, WrapTask, WrapWindowDelegate, browser_view_create,
     browser_view_get_for_browser, display_get_alls, display_get_count, post_delayed_task,
     post_task, window_create_top_level, wrap_app, wrap_browser_process_handler,
     wrap_browser_view_delegate, wrap_client, wrap_command_handler, wrap_context_menu_handler,
-    wrap_display_handler, wrap_life_span_handler, wrap_request_handler, wrap_task,
-    wrap_window_delegate,
+    wrap_display_handler, wrap_life_span_handler, wrap_permission_handler, wrap_request_handler,
+    wrap_task, wrap_window_delegate,
 };
 use std::cell::{Cell, RefCell};
 use std::os::raw::c_int;
@@ -218,7 +225,7 @@ fn open(page: &str, card: bool) {
     let Some(view) = browser_view_create(
         Some(&mut client),
         Some(&CefString::from(page)),
-        Some(&BrowserSettings::default()),
+        Some(&settings(card)),
         None,
         None,
         Some(&mut viewed),
@@ -229,6 +236,28 @@ fn open(page: &str, card: bool) {
     let mut framed = Framed::new(view, stage);
     if window_create_top_level(Some(&mut framed)).is_none() {
         eprintln!("alo's CEF host: CEF made no window for the page");
+    }
+}
+
+/// The settings a page's browser is made with: for a `card`'s, **no
+/// status bubble**. Measured through this host (queue item 808): the pointer
+/// over a link of a parked card's page showed Chromium's status bubble — the
+/// link's address — as a window of its own, opaque, at the parked window's
+/// bottom left corner (1669, 565, 292 × 22, then 511 wide), its first 41
+/// points on the display the window was parked by. The parked window's
+/// transparency is its own and not its bubble's, and Chromium fades the
+/// bubble in and out by its own transparency each time it shows it, so the
+/// bubble is not made for a card at all — for the card's life, since a
+/// browser's settings are made once: an expanded card shows no address
+/// under a link either. Every other page keeps Chromium's own.
+fn settings(card: bool) -> BrowserSettings {
+    BrowserSettings {
+        chrome_status_bubble: if card {
+            State::DISABLED
+        } else {
+            State::DEFAULT
+        },
+        ..BrowserSettings::default()
     }
 }
 
@@ -257,6 +286,43 @@ wrap_client! {
 
         fn context_menu_handler(&self) -> Option<ContextMenuHandler> {
             Some(Menus::new())
+        }
+
+        fn permission_handler(&self) -> Option<PermissionHandler> {
+            Some(Asked::new(std::rc::Rc::clone(&self.stage)))
+        }
+    }
+}
+
+wrap_permission_handler! {
+    struct Asked {
+        // Where its window is, when it is a card's (`Framed`'s own).
+        stage: std::rc::Rc<Cell<Option<Stage>>>,
+    }
+
+    impl PermissionHandler {
+        fn on_show_permission_prompt(
+            &self,
+            _browser: Option<&mut Browser>,
+            _prompt_id: u64,
+            _requesting_origin: Option<&CefString>,
+            _requested_permissions: u32,
+            callback: Option<&mut PermissionPromptCallback>,
+        ) -> ::std::os::raw::c_int {
+            // A page's permission prompt is a window of Chromium's own
+            // beside the page's, opaque (measured: 320 × 266 at the parked
+            // window's top left corner, queue item 808). While the card is
+            // unseen it is never shown: dismissed, as a person closing it
+            // unanswered does, which grants nothing and keeps nothing.
+            // Otherwise Chromium shows it, as Chrome does.
+            let unseen = self.stage.get().is_some_and(|stage| !stage.prompts());
+            match callback {
+                Some(callback) if unseen => {
+                    callback.cont(PermissionRequestResult::DISMISS);
+                    1
+                }
+                _ => 0,
+            }
         }
     }
 }
@@ -612,5 +678,21 @@ wrap_window_delegate! {
         fn window_runtime_style(&self) -> RuntimeStyle {
             RuntimeStyle::CHROME
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_cards_browser_has_no_status_bubble_and_every_other_has_chromiums() {
+        assert_eq!(settings(true).chrome_status_bubble, State::DISABLED);
+        assert_eq!(settings(false).chrome_status_bubble, State::DEFAULT);
+        // Nothing else is changed from CEF's own.
+        assert_eq!(
+            settings(true).chrome_zoom_bubble,
+            BrowserSettings::default().chrome_zoom_bubble
+        );
     }
 }

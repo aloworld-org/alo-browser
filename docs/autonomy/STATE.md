@@ -47976,3 +47976,75 @@ site's switch (807), the parked card's bubble (808), a press with a
 modifier (798).
 
 The next unused queue number is **809** and the next ADR is **0095**.
+
+## Iteration 489 — queue items 809 and 808: the closed-list menu tests' flakes, two real causes (ADR 0071 amended); no window a parked card's Chromium opens seen (ADR 0076 B4's third amendment)
+
+**809.** The closed-list menu tests had failed in four gate runs of six.
+Reproduced **idle, not under load**: `a_closed_list_chosen_through_a_shown_chrome`
+failed in 4 runs of 30 (a menu left open after the pointer moved over it)
+plus 1 of 8 (*the pointer never reached 1400, 1000*), and in 0 of 30 under
+`yes` ×96 — the slower `osascript` hid both causes. Neither is contention
+with another test, so nothing moved in `nextest.toml` for it. (1) An event
+posted by an `osascript` that ends at once is sometimes lost: a pointer
+move at the HID tap in 23 of 300 (0 of 300 with the script alive 0.1 s
+more); a key into the menu in 5 walks of 40 with nothing else moving (0 of
+79 once the posting script asks the window server for its windows after
+the key — an Escape left a menu open in 4 of 30 before, 0 of 30 after);
+key posts to an ordinary application lost none of 400. (2) The pointer
+moved anywhere — along the top of Chrome's window, nowhere near the menu —
+moves the menu's highlight: 7 of 30 walks chose what was asked. **Built:**
+`chrome_menu`'s posting script asks the window server after the key, and
+posts only once the pointer has been still for `AT_REST` (0.5 s), else
+`moving` → `Unwalked::PointerMoving`; the three test files that move the
+real pointer share `tests/pointer/mod.rs`, whose move waits inside its own
+script until the window server has the pointer there and it has been still
+that long, and is put back however a test ends. A new test walks a menu
+while the pointer moves elsewhere and is refused as moving, nothing heard,
+the menu closed. **After:** the file 0 failed of 30 runs idle (150 tests);
+both CEF host tests 3 of 3. **Mutation:** the stillness guard removed —
+the new test failed 3 of 3, once choosing *Dates* for *Honeydew*. A first
+fix that only re-posted Escape until the menu went was measured and
+dropped once the round trip after the key was found: one Escape closed it
+in 30 of 30.
+
+**808.** Measured through alo's CEF host, the card parked by the display at
+two (1670, 34, 878 × 552), a person's input over the pipe: over a link the
+status bubble (opaque, 1669, 565, 292 then 511 × 22, on the Retina display);
+a `title` held 2.4 s and a press in a `datalist` field nothing; a press on
+a closed list its native menu, moved onto the display by macOS (cut to
+810); a press asking `getCurrentPosition` the permission prompt (opaque,
+320 × 266 at 1710, 66, off the display only by where the park is).
+**Built:** a card's browser has `chrome_status_bubble` disabled, for its
+life (an expanded card shows no address: 811); its permission prompt is
+dismissed unshown until the card is seen (`OnShowPermissionPrompt`,
+`Stage::prompts`). No new file names `cef` or `objc2`; no `unsafe`.
+**Tests:** host unit tests (26); `a_parked_cards_own_windows_unseen_through_chrome.rs`
+(added to `nextest.toml`'s threads-required list) — over a link and after
+the press, nine readings each over 2.4 s, no window but the card's own and
+none on any display, `mouseover` and `unplaced-1` heard, ~155 frames.
+**Mutations:** the bubble on — fails (1669, 565 seen); the prompt shown —
+fails (a window beside the card's). The machine's Chrome half is cut as
+779/787/788 were.
+
+**Gate: met, first run** (CEF_PATH set, pointer at 1400, 1000). **Summary
+[1009.275s] 6216 tests run: 6216 passed (6 slow, 1 leaky), 0 skipped** —
+*"The gate is met." (11 of 11 steps)*, the CEF host formatted, linted and
+tested.
+
+**By hand** (screen unlocked; release build, CEF host built, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys carried; `--conversation
+--chats` the scratch directory `handrun26/chats`; screenshots in the
+session scratchpad `handrun26/`; the window opened on the Retina display):
+`www.theguardian.com/international` in a card (`02-news`); the pointer
+rested on the consent dialog's *sign in* link (`03-*`), then, after *Accept
+all*, on a headline, which the card drew underlined as hovered
+(`05-headline-crop`): each time the window server listed only the host's
+card window (1670, 34, 878 × 552, layer 3, alpha 0) and the conversation's,
+and the Retina display's right edge showed the desktop (`03-right-edge`,
+`05-right-edge`). Quit by AppleScript `quit`; no alo process left; the
+pointer back at 1400, 1000; no new crash report.
+
+**Not done here:** a parked card's closed list (810), a link's address on
+an expanded card (811), the machine's Chrome.
+
+The next unused queue number is **812** and the next ADR is **0095**.

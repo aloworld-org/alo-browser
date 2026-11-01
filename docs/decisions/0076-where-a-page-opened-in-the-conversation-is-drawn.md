@@ -1,6 +1,6 @@
 # ADR 0076 — Where a page opened in the conversation is drawn
 
-**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below)
+**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below); the windows a parked card's Chromium opens beside it, by queue item 808 (1 November 2026, the third *Amended* below)
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive); ADR 0059 (the
 product path and the engine path); ADR 0061 (Chrome draws the page in its own
@@ -846,6 +846,98 @@ display held no tile of it, ⌘-Tab's switcher showed one *alo*, the Dock one
 *alo*; *Expand* showed the page opaque, the host `Foreground` with its menu
 bar; closing the window and ⌘Q left no alo process. The first build of
 this, accessory without floating, drew a blank card there (`first-try/`).
+
+## Amended (1 November 2026, queue item 808): no window a parked card's Chromium opens is seen
+
+The 771 amendment made the parked window unseen, and the second amendment
+kept it floating and its host an accessory application. Neither reached the
+windows Chromium opens **beside** it: found by hand (iteration 488), the
+pointer over a link in a parked card of `www.theguardian.com/international`
+showed Chromium's status bubble — the link's address — as a window of its
+own, opaque, layer 0, 569 × 22 at 1669, 565, its first 41 points on the
+Retina display.
+
+### Measured
+
+The same Mac, alo's CEF host (CEF 156.0.14), the card started as alo
+starts one and parked by the display at two (1670, 34, 878 × 552, alpha
+0, floating), its page streaming, a person's input sent over the pipe as
+the conversation's window sends it (CDP `Input`), and the window server's
+list of the host's windows read every 400 ms for 2.4 s after each:
+
+| a person's input on the parked card | the window server lists beside the card's own window |
+|---|---|
+| the pointer over a link | **the status bubble**: layer 0, alpha 255, 1669, 565, 292 × 22, grown to 511 × 22 by 1.6 s — on the Retina display |
+| the pointer over an element with a `title`, 2.4 s | nothing (the bubble fading, alpha 0, then gone) |
+| a press in a field with a `datalist` | nothing |
+| a press on a closed list | **its menu**: layer 101, alpha 255, 1637, 341, 67 × 58 — moved onto the display by macOS, and left open |
+| a press on a button calling `getCurrentPosition` | **the permission prompt**: layer 0, alpha 255, 1710, 66, 320 × 266 — just right of the Retina display, so on none here, by chance of where the window server left the park |
+
+Parked left of every display instead (at one, −3725, −50), the bubble was
+at −3726, 481 and the prompt at −3685, −18, on no display — opaque both.
+
+CEF says (`cef_types.h`) that `cef_browser_settings_t.chrome_status_bubble`
+controls whether Chrome style uses the status bubble, and
+(`cef_permission_handler.h`) that `OnShowPermissionPrompt` answered `true`
+with a result given to its callback shows no prompt.
+
+### Decided
+
+1. **A card's browser has no status bubble** (`chrome_status_bubble`
+   disabled, `window.rs`'s `settings`). A browser's settings are made once,
+   so this is for the card's life: an expanded card shows no link's
+   address either (queue item 811). Every other page the host opens keeps
+   Chromium's own.
+2. **A card's permission prompt is dismissed unshown while the card is
+   unseen** (`OnShowPermissionPrompt`, `window.rs`'s `Asked`,
+   `parked::Stage::prompts`): dismissed is what a person closing the prompt
+   unanswered gives — nothing granted, nothing kept; the page hears its
+   ask refused (the measured `getCurrentPosition` heard code 1). Once the
+   card is seen, Chromium shows its prompt, as Chrome does.
+3. **A closed list's menu is not made unseen**: a menu shown transparent
+   would still be open and taking the person's keys, unseen. Where a parked
+   card's list is chosen in is queue item 810.
+
+### Rejected
+
+- **Each window made transparent as Chromium shows it** — not tried.
+  Chromium sets the bubble's own transparency as it fades it (listed at
+  alpha 0 while it went, above), as it put back the parked window's own
+  when that was set after showing (771), so a transparency set from outside
+  would be undone; and learning of each new window as it is shown would
+  take an observer of `AppKit`'s, a class of our own, which is `unsafe`
+  outside ADR 0080's one file (reasoned).
+- **Refusing every permission** (`--deny-permission-prompts`) — it would
+  refuse an expanded card's too, which a person can answer.
+
+### What it costs
+
+- **An expanded card shows no link's address** under the pointer (811).
+- **A permission asked while the card is parked is refused**, and a page
+  that asks once does not ask again when the card is expanded.
+- **Not measured:** a camera's or microphone's ask
+  (`OnRequestMediaAccessPermission`, left to Chromium), a tooltip or a
+  datalist's suggestions shown by a person's own typing, the zoom bubble.
+  Through the machine's Chrome nothing changes (§ 5 of the second
+  amendment).
+
+### Built and tested
+
+`crates/alo-cef-host`: `window.rs` (`settings`, `Asked`, a unit test),
+`parked.rs` (`Stage::prompts`, a unit test); no new file names `cef` or
+`objc2`, no `unsafe`. `alo-window`'s
+`a_parked_cards_own_windows_unseen_through_chrome.rs`, through alo's CEF
+host parked by the display at two: over a link (the page hearing
+`mouseover`) and after a press asking for the person's place (the page
+hearing `unplaced-1`), nine readings each over 2.4 s, no window of the
+host but the card's own and none on any display, about 155 frames streamed
+meanwhile. Mutations: the bubble left on — fails, the bubble at 1669, 565
+on the Retina display; the prompt never dismissed — fails, the prompt
+beside the card's window. By hand (session scratchpad `handrun26/`): the
+Guardian in a card on the Retina display, the pointer resting over *sign
+in* and then over a headline, which the card drew underlined — the window
+server listed only the card's window (1670, 34, alpha 0, floating) and the
+conversation's, and the display's right edge showed the desktop.
 
 ## Note (1 November 2026, queue item 805): the first press on a card is the page's
 

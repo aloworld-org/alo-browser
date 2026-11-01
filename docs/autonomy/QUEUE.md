@@ -22211,7 +22211,7 @@ What stage 2's exit gate actually measures: a person using it.
   the per-site switch with 705 (a value per site held by the browser
   process, asked before the lists). *needs design: the owner's.*
 
-- [ ] **808. A parked card's link bubble seen at the display's edge (found
+- [x] **808. A parked card's link bubble seen at the display's edge (found
   by hand, 736's run).** On 1 November 2026, with
   `www.theguardian.com/international` in a card through alo's CEF host and
   the pointer over a link in it, the host showed Chromium's status bubble
@@ -22224,6 +22224,78 @@ What stage 2's exit gate actually measures: a person using it.
   permission bubble) and keep each unseen while the card is — a CEF
   setting, the host making each transparent as it is shown, or the bubble
   off — through both programs. *Depends on 771, 781.*
+  ***Done (iteration 489), through the Chromium alo carries; the machine's
+  Chrome is left as 779/787/788 leave it, and a closed list's menu is cut
+  to 810.*** Measured through alo's CEF host, the card parked by the display
+  at two (1670, 34), a person's input over the pipe: the pointer over a
+  link — the status bubble, opaque, 1669, 565, 292 then 511 × 22, on the
+  Retina display; a `title` held 2.4 s and a press in a `datalist` field —
+  nothing; a press on a closed list — its menu, moved onto the display by
+  macOS (810); a press asking `getCurrentPosition` — the permission prompt,
+  opaque, 320 × 266 at 1710, 66, off the display only by where the park
+  is. **Built** (ADR 0076's third amendment): a card's browser is made with
+  `chrome_status_bubble` disabled (for its life: an expanded card shows no
+  address, 811), and its permission prompt is dismissed unshown until the
+  card is seen (`OnShowPermissionPrompt`, `Stage::prompts`). **Tests:**
+  unit (the settings; the stages that prompt);
+  `a_parked_cards_own_windows_unseen_through_chrome.rs` through the host —
+  over a link (`mouseover` heard) and after the press (`unplaced-1` heard),
+  nine readings each, no window but the card's own and none on any display,
+  ~155 frames streamed. **Mutations:** the bubble on — fails (1669, 565 on
+  the display); the prompt shown — fails (a window beside the card's).
+  **By hand** (`handrun26/`): the Guardian in a card on the Retina display,
+  the pointer resting on *sign in* and on a headline the card drew
+  hovered — only the card's window (alpha 0) and the conversation's
+  listed; the display's right edge the desktop.
+
+- [x] **809. The shown-Chrome closed-list menu tests flake (found in the
+  gate, four runs of six).** `a_closed_list_chosen_through_a_shown_chrome`
+  (*the pointer never reached 775, 64*; a menu still shown after the
+  pointer moved over it; `chosen: false`) and
+  `alos_cef_host_shows_a_page_as_chrome_does` (`NeverClosed`) failed
+  intermittently, each costing a gate rerun. Find the cause and fix it,
+  never weakening a test. *Depends on 658, 731.*
+  ***Done (iteration 489) — two causes, both real, neither contention.***
+  Reproduced idle, not under load: the file failed in 4 runs of 30 idle
+  (each a menu left open after the pointer moved over it) and 1 of 8 more
+  (*never reached*), and in **0 of 30 under `yes` ×96** — a slower
+  `osascript` hid both. (1) **An event posted by a script that ends at once
+  is sometimes lost**: a pointer move at the HID tap in 23 of 300 (0 of 300
+  with the script living 0.1 s more); a key into a closed list's menu in 5
+  walks of 40, with nothing else moving (0 of 79 once the script asks the
+  window server for its windows after the key, an answer that comes only
+  after what it sent). (2) **The pointer moved anywhere moves the menu's
+  highlight**: walks of 15–20 items with the pointer moved once along the
+  top of Chrome's window, nowhere near the menu, chose what was asked in 7
+  of 30. **Built** (ADR 0071 amended): the posting script waits for the
+  window server after a key; a key is posted only once the pointer has been
+  still for `AT_REST` (0.5 s), else nothing and
+  `Unwalked::PointerMoving`; the tests' pointer moves (`tests/pointer/mod.rs`,
+  shared by the three files that move it) wait inside the posting script
+  until the window server has the pointer there and it has been still that
+  long, and put it back however a test ends. **Tests:** unit (`moving`
+  read); a new `a_menu_walked_while_the_pointer_moves_elsewhere_…`.
+  **Proof:** the file 30 runs idle after — **0 of 30** (150 tests);
+  the CEF host tests 3 of 3. **Mutation:** the stillness guard removed —
+  the new test fails 3 of 3 (once choosing *Dates* for *Honeydew*).
+
+- [ ] **810. A closed list pressed on a parked card opens its menu at the
+  display's edge (cut from 808).** A person's press on a `<select>` in a
+  parked card reaches the page, and Chromium opens the list's native menu
+  where the select is — in the parked window — which macOS moves onto the
+  nearest display (measured 1637, 341, 67 × 58, opaque, left open), away
+  from the card. Decide where a card's list is chosen in — its options
+  drawn by alo over the card, the card expanded, or the menu walked by
+  keys as 658's — and keep the menu off the screen until then. *needs
+  design. Depends on 808, 740.*
+
+- [ ] **811. A link's address on an expanded card (cut from 808).** A
+  card's browser is made with no status bubble (808), for its life, so an
+  expanded card shows no address under a link where Chrome would. Measure
+  whether CEF tells the host the status text (`OnStatusMessage`) in Chrome
+  style, and decide whether alo shows it — in the card's bar while parked,
+  in the expanded window — or the bubble is had back once expanded.
+  *Depends on 808.*
 
 ## K. ★ The agent, on somebody else's pages
 

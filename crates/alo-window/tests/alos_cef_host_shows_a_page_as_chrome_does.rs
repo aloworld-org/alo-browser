@@ -64,6 +64,8 @@
 
 #![cfg(target_os = "macos")]
 
+mod pointer;
+
 use alo_agent::Outcome;
 use alo_agent::verb::{Target, Verb};
 use alo_box::BoxId;
@@ -484,41 +486,6 @@ fn right_press_at(x: i64, y: i64) -> Result<(), String> {
     .map(drop)
 }
 
-/// Where the pointer is, in the screen's points.
-fn pointer() -> Result<(f64, f64), String> {
-    let at = automation(
-        "ObjC.import('CoreGraphics');\
-         var at = $.CGEventGetLocation($.CGEventCreate($())); at.x + ' ' + at.y",
-        &[],
-    )?;
-    let (x, y) = at.split_once(' ').ok_or(format!("no pointer in {at:?}"))?;
-    let number = |text: &str| text.parse::<f64>().map_err(|why| why.to_string());
-    Ok((number(x)?, number(y)?))
-}
-
-/// Where the pointer was, put back there when this is dropped.
-struct PointerPutBack((f64, f64));
-
-impl Drop for PointerPutBack {
-    fn drop(&mut self) {
-        if let Err(why) = move_pointer(self.0) {
-            eprintln!("the pointer could not be put back: {why}");
-        }
-    }
-}
-
-/// Move the pointer to `x`, `y`, in the screen's points, as a mouse does.
-fn move_pointer((x, y): (f64, f64)) -> Result<(), String> {
-    automation(
-        "ObjC.import('CoreGraphics'); function run(argv) {\
-           $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent($(),\
-             $.kCGEventMouseMoved, {x: Number(argv[0]), y: Number(argv[1])},\
-             $.kCGMouseButtonLeft)); }",
-        &[x.to_string(), y.to_string()],
-    )
-    .map(drop)
-}
-
 /// How many menus — windows above the ordinary layer — the process `pid`
 /// has on the screen once there are `wanted`, or when [`AT_MOST`] has
 /// passed first.
@@ -637,7 +604,7 @@ fn through_menus_then_closed_from_inside(carried: &Path) -> Result<(), String> {
         (process, profile) = (chrome.process(), chrome.profile().to_path_buf());
         let (mut tab, placed, title_bar) = menus_page(&mut chrome)?;
         let (left, top) = (placed.window.bounds.left, placed.window.bounds.top);
-        let was = pointer()?;
+        let was = pointer::at()?;
 
         // A context menu, opened by a person's right click on the page and
         // dismissed with Escape: the host lives on, and the page answers.
@@ -654,14 +621,14 @@ fn through_menus_then_closed_from_inside(carried: &Path) -> Result<(), String> {
             clippy::cast_precision_loss,
             reason = "a window's bounds are a few thousand points"
         )]
-        move_pointer(((left + 860) as f64, (top + 8) as f64))?;
+        pointer::move_to(((left + 860) as f64, (top + 8) as f64))?;
         let wanted = Outcome::Chosen {
             node: id_of(&mut tab, "Dates")?,
             list: id_of(&mut tab, "Fruit")?,
             chosen: true,
         };
         let chosen = tab.act(&Target::Named("Dates".to_owned()), &Verb::Activate);
-        move_pointer(was)?;
+        pointer::move_to(was)?;
         assert_eq!(chosen, Ok(wanted), "chosen through the list's menu");
         assert_eq!(heard(&mut tab)?, "Heard: change:Dates");
         assert!(!has_ended(process), "the host lived through a list's menu");
@@ -903,7 +870,7 @@ fn alos_cef_host_shows_a_page_in_its_own_window_placed_and_closed_as_chromes() {
     // test after this one does not find it resting over its window — a
     // pointer left over a link in Chrome's page kept the next shown-Chrome
     // test from seeing its page.
-    let _pointer = pointer().map(PointerPutBack).unwrap();
+    let _pointer = pointer::at().map(pointer::PutBack).unwrap();
     let program = built(&cef).unwrap();
     let scratch = std::env::temp_dir().join(format!("alo-cef-shown-test-{}", std::process::id()));
     let application = scratch.join(format!("{EXECUTABLE}.app"));

@@ -42,8 +42,35 @@
 //! and otherwise nothing is posted and the script says `pointer`. A person
 //! whose pointer is over the menu is choosing in it themselves.
 //!
+//! # And never just after the pointer moved
+//!
+//! Measured for queue item 809 (Chrome 156, macOS 26.5): the pointer moved
+//! **anywhere** while a menu is walked — along the top of Chrome's window,
+//! nowhere near the menu — moves its highlight too, and the arrows then
+//! walk from somewhere else: walking 15 or 20 items with the pointer moved
+//! once, 600 ms into the walk, chose the option asked for in 7 runs of 30.
+//! So a key is posted only once the pointer has been still for
+//! [`AT_REST`] — read in the same script, from the window server's own
+//! count of the time since the pointer last moved — and otherwise nothing
+//! is posted and the script says `moving`. With that, the same moves were
+//! each refused and no run chose an option nobody asked for (10 of 20
+//! refused, 10 chosen before the move).
+//!
 //! A menu opened again by a key that raced, or left open under a pointer, is
 //! closed with Escape, which chooses nothing ([`close_any`]).
+//!
+//! # And there before the script goes
+//!
+//! Measured for queue item 809: an event posted by a script that ended at
+//! once was sometimes lost — the window server takes it from the poster
+//! after the call returns, and drops what a poster that has gone left
+//! behind. A key into a closed list's menu was lost in about one walk in
+//! eight (5 of 40 walks of 15 or 20 keys chose another option; an Escape
+//! posted just after the pointer came over the menu left it open in 4 runs
+//! of 30). So the posting script asks the window server for its list of
+//! windows after the key — a question answered only after what the script
+//! sent before it — and goes only then: no walk of 79 then chose another
+//! option, and no Escape of 30 was lost.
 //!
 //! # And only when macOS lets this browser post keys
 //!
@@ -75,8 +102,8 @@
 //! are the script's arguments, never written into its text, and the key is
 //! one of [`Key`]'s, never a number from outside.
 //!
-//! What `osascript` prints is read strictly: `posted`, `gone`, `pointer`
-//! or `refused`, and `allowed` or `refused` to the question alone; anything
+//! What `osascript` prints is read strictly: `posted`, `gone`, `pointer`,
+//! `moving` or `refused`, and `allowed` or `refused` to the question alone; anything
 //! else is refused.
 
 use crate::window_server::{self, Listed, Unlisted};
@@ -107,14 +134,19 @@ const ASKING: &str = "ObjC.import('CoreGraphics');\
 /// `posted`; otherwise post nothing and print `gone`. No window is
 /// numbered nought. For a window by its number, the pointer is read first,
 /// in the same points as the window's bounds, and over the window nothing is
-/// posted and `pointer` printed.
+/// posted and `pointer` printed; and when the pointer last moved fewer
+/// seconds ago than its fourth argument, nothing is posted and `moving`
+/// printed. The windows before are its arguments after the fourth. A key
+/// posted, the window server is asked for its windows once more before the
+/// script ends, so that the key has been taken from it first.
 #[cfg(target_os = "macos")]
 const POSTING: &str = "ObjC.import('CoreGraphics');\
     function run(argv) {\
       var owner = Number(argv[0]);\
       var key = Number(argv[1]);\
       var menu = Number(argv[2]);\
-      var before = argv.slice(3).map(Number);\
+      var rest = Number(argv[3]);\
+      var before = argv.slice(4).map(Number);\
       ObjC.bindFunction('CGPreflightPostEventAccess', ['bool', []]);\
       if (!$.CGPreflightPostEventAccess()) { return 'refused'; }\
       var all = ObjC.deepUnwrap(ObjC.castRefToObject(\
@@ -127,8 +159,12 @@ const POSTING: &str = "ObjC.import('CoreGraphics');\
       var b = shown.kCGWindowBounds;\
       if (menu !== 0 && at.x >= b.X && at.x < b.X + b.Width\
         && at.y >= b.Y && at.y < b.Y + b.Height) { return 'pointer'; }\
+      if (menu !== 0 && $.CGEventSourceSecondsSinceLastEventType(\
+        $.kCGEventSourceStateCombinedSessionState, $.kCGEventMouseMoved) < rest) {\
+        return 'moving'; }\
       [true, false].forEach(down =>\
         $.CGEventPostToPid(owner, $.CGEventCreateKeyboardEvent($(), key, down)));\
+      $.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, 0);\
       return 'posted';\
     }";
 
@@ -140,6 +176,11 @@ pub const MENU_PATIENCE: Duration = Duration::from_secs(3);
 
 /// How long between two readings of the window server while waiting.
 pub const MENU_POLL: Duration = Duration::from_millis(50);
+
+/// How long the pointer must have been still before a key is posted to a
+/// menu (queue item 809): longer than the time between two keys of a walk,
+/// so that a move made at any point of it is seen before the next key.
+pub const AT_REST: Duration = Duration::from_millis(500);
 
 /// A key a closed list's menu is walked and chosen in with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,6 +217,9 @@ pub enum Posted {
     Gone,
     /// The menu was shown with the pointer over it, and nothing was posted.
     UnderPointer,
+    /// The menu was shown and the pointer had moved less than [`AT_REST`]
+    /// before, and nothing was posted.
+    Moving,
     /// macOS does not let this browser post events, and nothing was posted
     /// (ADR 0072).
     NotAllowed,
@@ -332,7 +376,12 @@ pub fn close_any(owner: u32, before: &[Listed]) -> Result<Posted, Unposted> {
 /// `menu` — or, for nought, any menu not in `before`.
 #[cfg(target_os = "macos")]
 fn post(owner: u32, key: Key, menu: u64, before: &[Listed]) -> Result<Posted, Unposted> {
-    let mut arguments = vec![owner.to_string(), key.code().to_string(), menu.to_string()];
+    let mut arguments = vec![
+        owner.to_string(),
+        key.code().to_string(),
+        menu.to_string(),
+        AT_REST.as_secs_f64().to_string(),
+    ];
     arguments.extend(before.iter().map(|window| window.number.to_string()));
     read(&osascript(POSTING, &arguments)?)
 }
@@ -380,6 +429,7 @@ fn read(printed: &[u8]) -> Result<Posted, Unposted> {
         b"posted\n" => Ok(Posted::Posted),
         b"gone\n" => Ok(Posted::Gone),
         b"pointer\n" => Ok(Posted::UnderPointer),
+        b"moving\n" => Ok(Posted::Moving),
         b"refused\n" => Ok(Posted::NotAllowed),
         _ => Err(Unposted::Unread),
     }
@@ -428,10 +478,13 @@ mod tests {
         assert_eq!(read(b"posted\n"), Ok(Posted::Posted));
         assert_eq!(read(b"gone\n"), Ok(Posted::Gone));
         assert_eq!(read(b"pointer\n"), Ok(Posted::UnderPointer));
+        assert_eq!(read(b"moving\n"), Ok(Posted::Moving));
         assert_eq!(read(b"refused\n"), Ok(Posted::NotAllowed));
         for other in [
             &b""[..],
             b"posted",
+            b"moving",
+            b"Moving\n",
             b"gone",
             b"refused",
             b"Refused\n",

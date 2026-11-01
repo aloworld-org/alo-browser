@@ -225,3 +225,29 @@ committed; windows read from the window server by Chrome's process id.
   which asks the person nothing, and when it may not opens no menu and
   posts no key, answering `NotCarriedOut` with where a person allows it.
   No verb prompts.
+
+- *Amended (2026-11-01, queue item 809): two guards, from the closed-list
+  tests' flakes.* Measured with Chrome 156 on macOS 26.5, idle — the
+  closed-list tests failed in 4 runs of 30 and passed 30 of 30 under
+  `yes` ×96, because a slower `osascript` hid both:
+  - **A key is posted only once the pointer has been still for half a
+    second** (`chrome_menu::AT_REST`), read in the posting script from the
+    window server's time since the pointer last moved; otherwise nothing
+    is posted and the verb answers `Unwalked::PointerMoving`. § 1 found the
+    pointer *over* the menu moves its highlight; moved **anywhere** — along
+    the top of Chrome's window, nowhere near the menu — it moves it too:
+    a walk of 15 or 20 items with the pointer moved once, 600 ms in, chose
+    what was asked in 7 runs of 30, the rest another option or none. A
+    person moving the mouse mid-verb is now answered as one over the menu
+    is: nothing chosen, the menu closed with Escape.
+  - **The posting script waits for the window server before it goes.** An
+    event posted by a script that ends at once was sometimes lost: a key
+    into the menu in about one walk in eight (5 of 40 walks chose another
+    option, the walk otherwise undisturbed; an Escape posted just after the
+    pointer came over the menu left it open in 4 runs of 30), and a pointer
+    move posted at the HID tap in 23 of 300. The script now asks the
+    window server for its windows after the key — answered only after what
+    it sent first — and only then ends: no walk of 79 chose another option,
+    and no Escape of 30 was lost.
+
+  Each narrows what § 2 lets through; no route is added.

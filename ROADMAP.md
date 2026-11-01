@@ -2478,11 +2478,16 @@ items where being right and being unusable are the same outcome.
       moved by alo alone (781, 739, 778, ADR 0076 B4's second amendment) —
       the card's host an accessory application with its unseen window
       floating until *Expand*, and its page's own moves refused, through the
-      Chromium alo carries
+      Chromium alo carries; no window a parked card's Chromium opens seen
+      (808) — no status bubble for a card, a permission prompt dismissed
+      unshown until *Expand*; a closed list's menu walked only while the
+      pointer is still, each key taken before its poster goes (809, ADR
+      0071 amended)
       · Owed: the rail's chats (760), a refused scheme handed on by the
       machine's Chrome (782), a card's new scale through the machine's
       Chrome (780), a page moving its card's window and the Dock and ⌘-Tab
-      through the machine's Chrome (787, 788),
+      through the machine's Chrome (787, 788), a closed list pressed on a
+      parked card (810), a link's address on an expanded card (811),
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),

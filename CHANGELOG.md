@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page in a card no longer shows a link's address at the screen's edge.**
+  With the pointer over a link in a page shown as a card, alo's Chromium
+  drew the link's address in a little bar of its own at the edge of the
+  screen, outside alo's window. A card's page now has no such bar, and a
+  page in a card asking for a permission — where you are, say — is told no
+  rather than showing a prompt nobody can see; once the card is expanded,
+  the page asks as it would in Chrome. An expanded card still shows no
+  link's address.
+- **Choosing in a drop-down list for an agent is steadier.** When an agent
+  picks an option from a page's drop-down list in Chrome, moving the mouse
+  meanwhile now stops the choice — saying so — instead of quietly choosing
+  another option, and a key the choice sends is no longer sometimes lost.
 - **An agent can reach the page open in the conversation.** Started with
   `--conversation`, alo now opens its agent socket too and says where on its
   terminal; an agent (with `alo-ask`, say) reads and acts on the page shown

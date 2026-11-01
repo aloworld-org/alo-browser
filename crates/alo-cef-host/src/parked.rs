@@ -32,7 +32,8 @@
 //! moves it as Chrome lets a page move its own `--app` window. Likewise the
 //! host is an accessory application — out of the Dock, ⌘-Tab and Stage
 //! Manager's strip — until the card is seen ([`Stage::listed`], queue items
-//! 781 and 739).
+//! 781 and 739), and a page's permission prompt is dismissed unshown
+//! ([`Stage::prompts`], queue item 808).
 //!
 //! [`placed`] says when a window is placed: when its centre is on a
 //! display.
@@ -113,6 +114,16 @@ impl Stage {
     /// Dock, ⌘-Tab, Stage Manager — at this stage: only once the card is
     /// seen; until then an accessory application (queue items 781, 739).
     pub fn listed(self) -> bool {
+        self == Self::Seen
+    }
+
+    /// Whether Chromium may show the page's permission prompt — a page
+    /// asking where the person is, say — at this stage: only once the card
+    /// is seen. Shown while it is unseen, the prompt is a window of its own
+    /// beside the parked one, opaque, which the parked window's
+    /// transparency does not reach (queue item 808); so until then it is
+    /// dismissed, as a person closing it unanswered does.
+    pub fn prompts(self) -> bool {
         self == Self::Seen
     }
 }
@@ -248,6 +259,13 @@ mod tests {
         assert!(!Stage::Opened.after(true).listed());
         assert!(!Stage::Opened.after(false).listed());
         assert!(Stage::Parked.after(true).listed());
+    }
+
+    #[test]
+    fn a_cards_page_is_prompted_for_a_permission_only_once_it_is_seen() {
+        assert!(!Stage::Opened.prompts());
+        assert!(!Stage::Parked.prompts());
+        assert!(Stage::Seen.prompts());
     }
 
     #[test]

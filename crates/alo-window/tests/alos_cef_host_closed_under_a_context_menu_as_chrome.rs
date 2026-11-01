@@ -29,6 +29,7 @@
 #![cfg(target_os = "macos")]
 
 mod carried;
+mod pointer;
 
 use alo_window::beside::Chromium;
 use alo_window::cef_host::EXECUTABLE;
@@ -105,37 +106,6 @@ fn close_as_a_person(pid: u32) -> Result<(), String> {
         &[pid.to_string()],
     )
     .map(drop)
-}
-
-/// Where the pointer is, in the screen's points.
-fn pointer() -> Result<(f64, f64), String> {
-    let at = automation(
-        "ObjC.import('CoreGraphics');\
-         var at = $.CGEventGetLocation($.CGEventCreate($())); at.x + ' ' + at.y",
-        &[],
-    )?;
-    let (x, y) = at.split_once(' ').ok_or(format!("no pointer in {at:?}"))?;
-    let number = |text: &str| text.parse::<f64>().map_err(|why| why.to_string());
-    Ok((number(x)?, number(y)?))
-}
-
-/// Where the pointer was, put back there when this is dropped.
-struct PointerPutBack((f64, f64));
-
-impl Drop for PointerPutBack {
-    fn drop(&mut self) {
-        let (x, y) = self.0;
-        let moved = automation(
-            "ObjC.import('CoreGraphics'); function run(argv) {\
-               $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent($(),\
-                 $.kCGEventMouseMoved, {x: Number(argv[0]), y: Number(argv[1])},\
-                 $.kCGMouseButtonLeft)); }",
-            &[x.to_string(), y.to_string()],
-        );
-        if let Err(why) = moved {
-            eprintln!("the pointer could not be put back: {why}");
-        }
-    }
 }
 
 /// How many menus — windows above the ordinary layer — the process `pid`
@@ -251,7 +221,7 @@ fn a_page_closed_under_its_open_context_menu_ends_alos_cef_host_in_order() -> Re
     let Some(host) = carried::host("734")? else {
         return Ok(());
     };
-    let _pointer = pointer().map(PointerPutBack)?;
+    let _pointer = pointer::at().map(pointer::PutBack)?;
     for closing in [
         Closing::Ended,
         Closing::ClosedFromInsideThenEnded,
