@@ -42,7 +42,8 @@
 //!
 //! # A site's mark (queue item 747, ADR 0088)
 //!
-//! A web result, a video and a story may each name their site's icon at
+//! A web result, a video, a story and an image (768) may each name their
+//! site's icon at
 //! Brave's image proxy, as `meta_url.favicon` (*"the favicon used for the
 //! URL"*, Brave's reference). It is read beside the result, by its place
 //! ([`Read::marks`], [`VideoFound::mark`], [`ReadNews::marks`]): a
@@ -58,7 +59,8 @@
 //! { "type": "images",
 //!   "results": [ { "title": "…", "url": "https://… (the page)",
 //!                  "source": "site.example",
-//!                  "thumbnail": { "src": "https://imgs.search.brave.com/…" } } ] }
+//!                  "thumbnail": { "src": "https://imgs.search.brave.com/…" },
+//!                  "meta_url": { "favicon": "https://imgs.search.brave.com/…" } } ] }
 //! ```
 //!
 //! Bounded as a web search's is, and refused whole by the same names — a
@@ -274,6 +276,9 @@ pub struct ImageFound {
     pub pictured: Pictured,
     /// Its thumbnail's address, if Brave gave one that is a site's.
     pub thumbnail: Option<Url>,
+    /// Its site's mark's address, if Brave gave one that is a site's
+    /// (`meta_url.favicon`, queue item 768).
+    pub mark: Option<Url>,
 }
 
 /// Read `answer`, the body of Brave's answer to an image search (queue item
@@ -514,9 +519,11 @@ fn image(result: &Value) -> Result<ImageFound, Missing> {
         .and_then(Value::as_object)
         .and_then(|thumbnail| text(thumbnail, "src"))
         .and_then(site_address);
+    let mark = hostname_or_mark(result, "favicon").and_then(site_address);
     Ok(ImageFound {
         pictured: Pictured::new(plain(title), page, source),
         thumbnail,
+        mark,
     })
 }
 
@@ -1095,6 +1102,29 @@ mod tests {
                 .flatten()
                 .map(|url| url.serialised),
             Some("https://imgs.search.brave.com/f/m".to_owned())
+        );
+    }
+
+    #[test]
+    fn an_images_site_mark_is_read_as_a_sites_is() {
+        let images = br#"{ "type": "images", "results": [
+            { "title": "A", "url": "https://a.example/", "source": "a.example",
+              "meta_url": { "hostname": "a.example",
+                            "favicon": "https://imgs.search.brave.com/f/a" } },
+            { "title": "B", "url": "https://b.example/", "meta_url": { "favicon": 7 } },
+            { "title": "C", "url": "https://c.example/",
+              "meta_url": { "favicon": "javascript:alert(1)" } },
+            { "title": "D", "url": "https://d.example/" } ] }"#;
+        let read = read_images(images).unwrap();
+        let marks: Vec<Option<&str>> = read
+            .found
+            .iter()
+            .map(|found| found.mark.as_ref().map(|url| url.serialised.as_str()))
+            .collect();
+        assert_eq!(
+            marks,
+            [Some("https://imgs.search.brave.com/f/a"), None, None, None],
+            "only a favicon that is text and a site's address is kept"
         );
     }
 

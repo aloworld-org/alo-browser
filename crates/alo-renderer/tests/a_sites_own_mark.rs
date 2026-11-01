@@ -15,6 +15,12 @@
 //! larger than a mark may be, drawn as the letter; the agent reading no
 //! mark at all; and the same through the real, confined renderer.
 //!
+//! Queue item 768: an image on the Images tab's grid is marked the same
+//! way, in the grid's 14 square rounded 4 — its layout in numbers, the
+//! reference `images-tab-with-marks.png`, the letter where the icon does
+//! not read, nothing for an agent, and the same through the confined
+//! renderer.
+//!
 //! The icons are made here, by hand, as small pictures of known colours;
 //! the sites, videos and stories are written by hand, never captured.
 //!
@@ -27,7 +33,9 @@ use alo_renderer::face::Face;
 use alo_renderer::frame::frame_to_png;
 use alo_renderer::generic::Generics;
 use alo_renderer::host::Renderers;
-use alo_renderer::results::{Found, Results, SetUp, Showing, Stories, Tab, Videos};
+use alo_renderer::results::{
+    Found, Images, Pictured, Results, SetUp, Showing, Stories, Tab, Videos,
+};
 use alo_renderer::results_media::{Story, Video};
 use alo_renderer::start::{self, Start};
 use alo_renderer::turn::Turn;
@@ -521,3 +529,105 @@ fn the_marks_are_drawn_the_same_by_a_confined_renderer() {
     }
     renderers.stop_everything();
 }
+
+/// Three images on the grid: the first's site with an icon, the second's
+/// icon not one that decodes, the third's site with none (queue item 768).
+fn images() -> Vec<Pictured> {
+    vec![
+        Pictured::new(
+            "A wall charger in a garage",
+            url("https://charge.example/garage"),
+            "charge.example",
+        )
+        .marked(icon(32, (0x7a, 0x1f, 0x6e), (0x20, 0xb0, 0xf0))),
+        Pictured::new(
+            "A charger's cable",
+            url("https://cables.example/one"),
+            "cables.example",
+        )
+        .marked(undecodable()),
+        Pictured::new("A driveway", url("https://drive.example/"), ""),
+    ]
+}
+
+/// The sites, and the images on the Images tab.
+fn with_images() -> Start {
+    with(
+        Results::of(SAID, Showing::Found(sites()))
+            .with_images(Images::Found(images()))
+            .on(Tab::Images),
+    )
+}
+
+#[test]
+fn an_images_site_is_marked_by_its_icon_in_the_grids_small_square() {
+    let renderer = laid_out(with_images());
+    let at = |class: &str| boxes_of(&renderer, class);
+    let icons = at("fav small icon");
+    assert_eq!(icons, vec![IMAGE_ICON.to_owned()], "the first image's icon");
+    let letters: Vec<String> = (0..4)
+        .flat_map(|tint| at(&format!("fav small tint{tint}")))
+        .collect();
+    assert_eq!(letters, IMAGE_LETTERS.map(str::to_owned).to_vec());
+    // The icon in the 14 square where the letter would be: the same left
+    // as the letters', and as tall as they are.
+    assert!(
+        icons
+            .iter()
+            .chain(&letters)
+            .all(|placed| placed.ends_with(" 14×14")),
+        "{icons:?} {letters:?}"
+    );
+}
+
+/// Where the first image's icon is drawn, and the two letters.
+const IMAGE_ICON: &str = "(80, 343) 14×14";
+const IMAGE_LETTERS: [&str; 2] = ["(304, 343) 14×14", "(528, 343) 14×14"];
+
+#[test]
+fn the_images_tab_with_marks_is_drawn_as_the_reference() {
+    let drawn = draw(with_images());
+    assert!(
+        matches!(&drawn.answer, FromRenderer::Loaded { issues, .. } if issues.is_empty()),
+        "{:?}",
+        drawn.answer
+    );
+    let outline = drawn.tree.to_outline();
+    assert!(read(&drawn.tree, "img").is_empty(), "{outline}");
+    assert!(!outline.contains("alo:mark"), "{outline}");
+    let frame = drawn.frame.as_ref();
+    assert!(frame.is_some(), "nothing was painted");
+    if let Some(frame) = frame {
+        let (left, top) = IMAGE_ICON_AT;
+        assert_eq!(
+            pixel(frame, left + 7, top + 2),
+            Some([0x7a, 0x1f, 0x6e, 0xff])
+        );
+        assert_eq!(
+            pixel(frame, left + 7, top + 11),
+            Some([0x20, 0xb0, 0xf0, 0xff])
+        );
+        assert_ne!(
+            pixel(frame, left, top),
+            Some([0x7a, 0x1f, 0x6e, 0xff]),
+            "the icon is rounded as the letter's tile is"
+        );
+    }
+    assert_eq!(holds("images-tab-with-marks.png", frame), Ok(()));
+    let mut renderers = renderers();
+    let site = start::site();
+    let loaded = renderers.ask(&site, &ToRenderer::Start(Box::new(with_images())));
+    assert!(
+        matches!(&loaded, Ok(FromRenderer::Loaded { .. })),
+        "{loaded:?}"
+    );
+    let painted = renderers.ask(&site, &ToRenderer::Paint);
+    assert_eq!(
+        painted.as_ref().ok(),
+        drawn.frame.map(FromRenderer::Painted).as_ref(),
+        "the confined renderer drew other marks on the grid"
+    );
+}
+
+/// The icon's top left corner, in the frame's pixels.
+const IMAGE_ICON_AT: (u32, u32) = (80, 343);

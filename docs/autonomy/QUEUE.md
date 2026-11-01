@@ -20847,7 +20847,7 @@ What stage 2's exit gate actually measures: a person using it.
   letters, the provider asked the words alone with the key and each icon
   at the proxy once without it, before the image search.
 
-- [ ] **766. Colour glyphs in `COLR` and `SVG` faces, and an emoji's
+- [x] **766. Colour glyphs in `COLR` and `SVG` faces, and an emoji's
   shadow.** Cut from ADR 0088 § 5. Paint draws a `CBDT` or `sbix` glyph as
   its picture; a `COLR` v0 face (Windows' Segoe UI Emoji), a `COLR` v1 face
   (Noto's 5 MB vector build — half the bytes alo carries now) and an `SVG `
@@ -20858,6 +20858,43 @@ What stage 2's exit gate actually measures: a person using it.
   for it, which the run's outlines — none, for a picture — decide today.
   *Closes when:* a `COLR` v1 emoji is drawn as Chrome draws it, in a
   reference render and against Chrome's pixels. *Depends on nothing.*
+  ***Done for `COLR` version 0 (iteration 483), with its closing
+  condition's `COLR` v1, and `SVG ` glyphs, cut to 785 and the shadow to
+  786*** — the owner's batch allowed cutting v1 and SVG as large (a paint
+  graph of gradients, transforms, clips and blending in `alo-paint`).
+  **Built:** `alo-text`'s `Font::draws_layers` (a `COLR` table);
+  `alo-paint`'s `glyph::layers_at` — `ttf-parser`'s `paint_color_glyph`,
+  a painter collecting each outline and solid colour and refusing anything
+  of v1, walked twice with two foregrounds so a `0xFFFF` layer is the
+  text's colour — `glyph_layers.rs` placing a run's layers at their pens,
+  `build.rs` filling them after the run's text item, and
+  `render::outlined_glyphs_at` leaving a layered glyph's own outline out.
+  **Test face:** `alo-paint/tests/fonts/layered.ttf`, 972 bytes, made with
+  `fontTools` for these tests (repository licence), `B` three layers.
+  **Tests:** 4 unit tests (`glyph.rs` 2, `glyph_layers.rs` 2);
+  `alo-renderer/tests/a_glyph_in_layers_of_colour.rs` — `B`'s three fills
+  in numbers and colours, its pixels at one and two with nothing of its
+  own outline, the reference `a-glyph-in-layers-of-colour.png`, and every
+  plain pixel Chrome 156's (`chrome-layers.png`, the same bytes as a web
+  font). Mutations: the own outline not left out — 3 of 4 fail; every layer
+  given a palette colour (no foreground) — all 4 fail.
+
+- [ ] **785. `COLR` version 1 and `SVG ` colour glyphs.** Cut from 766. A
+  `COLR` v1 glyph (Noto's 5 MB vector build) is a paint graph — linear,
+  radial and sweep gradients, transforms, clips, composite modes — and an
+  `SVG ` glyph an SVG document; both are drawn as their outlines in the
+  text's colour (`glyph::layers_at` refuses v1). Build the paint graph in
+  `alo-paint` (`ttf-parser` walks it), then SVG glyphs through `alo-svg`.
+  *Depends on 766. Closes when:* a `COLR` v1 emoji is drawn as Chrome
+  draws it, in a reference render and against Chrome's pixels.
+
+- [ ] **786. A colour glyph's `text-shadow`, and a line stepping aside for
+  it.** Cut from 766. A picture glyph (`CBDT`/`sbix`) and a layered one
+  (`COLR` v0) cast no `text-shadow` and a decoration line does not step
+  aside for them: both are cast by the run's outlines, which such a glyph
+  has none of. Measure what Chrome casts (the picture's alpha? the
+  layers?) and draw it. *Depends on 766. Closes when:* an emoji's shadow
+  and an underline under it are Chrome's in a reference render.
 
 - [ ] **767. Chinese, Japanese and Korean in the interface.** Cut from ADR
   0088 § 5. On macOS the machine scan reads no `.ttc` collection — the CJK
@@ -20870,19 +20907,82 @@ What stage 2's exit gate actually measures: a person using it.
   drawn in the machine's CJK face in a test with that face. *Depends on
   nothing.*
 
-- [ ] **768. The Images grid's marks.** Cut from 747. The grid draws each
+- [x] **768. The Images grid's marks.** Cut from 747. The grid draws each
   image's site as its letter on a 14 square. Whether Brave's image results
   name the site's icon (`meta_url.favicon` beside `source`) is not read;
   if they do, fetch and draw it as a site's mark is (ADR 0088 §§ 6–8),
   14 square, rounded 4. *Depends on 747.*
+  ***Done (iteration 482).*** **Read:** Brave's API reference documents an
+  image result's `meta_url` with `scheme`, `netloc`, `hostname`, `favicon`
+  (*"The favicon used for the URL"*) and `path` — the web result's; no
+  frozen real answer exists here and none was asked for. **Built:**
+  `ImageFound::mark` (`search_protocol::image`), `Fetched::marks`
+  (`search_thumbnails`), fetched by `search_marks::fetch` after the
+  thumbnails (`conversation_search::asked_images`); `Pictured::mark` and
+  `marked`, on the wire after the thumbnail (refused as a site's mark is),
+  weighed with the marks, sent only on the Images tab (`as_drawn`,
+  `within_budget`); `marks_document::small_mark` and `Beside::Image`
+  (`alo:mark-T-image-N`), used by `images_document::cell`. **Tests:** unit
+  tests in `search_protocol.rs` (a favicon read only when text and a
+  site's address) and `results.rs` (sent only on the grid, weighed, kept
+  before thumbnails); `a_sites_own_mark.rs`' two new tests (the icon at
+  (80, 343) 14 × 14, the letters at 304 and 528, the reference
+  `images-tab-with-marks.png`, no `img` for an agent, the confined
+  renderer the same); `images_and_sites_pressed_in_the_window.rs` (the
+  first image's mark fetched from the local proxy after the thumbnails and
+  painted at (87, 350); the second's, named at its site, never asked).
+  Mutations: the grid not given the mark — both renderer tests fail; the
+  wire not carrying it — the confined renderer's frame differs; the thread
+  not attaching it — the window test fails.
 
-- [ ] **769. A picture rounded by its own `border-radius`.** Found by 747:
+- [x] **769. A picture rounded by its own `border-radius`.** Found by 747:
   an `<img>` with `border-radius: 5px` is drawn square — the engine rounds
   a box's background and clips its children to an `overflow` box's curve,
   but not a replaced box's own picture, which Chrome clips to the border
   box's rounded inner edge. The mark is wrapped in a clipping tile until
   then. *Closes when:* a reduced corpus case of rounded pictures is
   Chrome's at one and two. *Depends on nothing.*
+  ***Done (iteration 481), with cuts to 783 and 784.*** **Measured**
+  (Chrome 156.0.8078.76, headless, at eight): 27 black pictures — radii 4,
+  10, 20, 100, 50 %, `12px 4px`, `30px / 10px`; transparent borders 0–3;
+  paddings 0–5; one at quarters of a pixel — are each trimmed to the
+  **content** edge's curve (each radius less the border *and* padding),
+  max coverage error 0.09, where the padding edge's curve misses 14 and the
+  border edge's 20 (not the border box's inner edge this item first
+  said). **Built:** `alo-paint`'s `content_curve.rs` (the corners, 5 unit
+  tests) and `build.rs`'s `picture_of` pushing a clip of the picture's
+  snapped content box so rounded, none when square. 747's clipping tile is
+  gone: the mark is the `<img class="fav icon">` alone, rounded 5 by
+  `.fav`; its three references are unchanged. **Tests:** corpus case
+  `rounded-pictures` (11 pictures, Chrome's screenshots at one and two
+  beside it) and `tests/rounded_pictures.rs` — each picture's rectangle
+  and trim in numbers at one and two (`squared`'s radius under its padding:
+  no trim), every plain pixel Chrome's at both scales, curve pixels within
+  53 for pictures on whole pixels, `render-at-2.png`. Mutations: no trim —
+  the case's three tests and the marks' three references fail; the padding
+  not taken off — the case's three fail. **Found:** at one and two Chrome
+  draws the curve of a picture laid out at fractions of a pixel by a rule
+  of its own (`tenths`' top left fits a radius of 2.5, not 5.25, at one),
+  bounded at 131 and 117 (783).
+
+- [ ] **783. A rounded picture at fractions of a pixel, at one and two.**
+  Cut from 769. A picture laid out at fractions of a pixel is trimmed by
+  Chrome 156 to its content edge's curve exactly at eight, but at one and
+  two its curve fits neither that curve on the picture's snapped box nor
+  on its box as laid out (`rounded-pictures`' `tenths`: a radius of 2.5
+  at one where 5.25 is asked; the probe's 41.5 × 33.25 picture at one fits
+  nothing within 0.7 of a pixel's coverage). The case bounds the
+  difference (131 at one, 117 at two). Fit the rule over many fractional
+  offsets at one, 1.5 and two. *Depends on 769. Closes when:* the case's
+  fractional pictures are within the whole-pixel bound (53).
+
+- [ ] **784. An `<svg>`'s drawing, and an SVG picture's, rounded.** Cut
+  from 769. CSS trims every replaced box's content to its content edge's
+  curve; 769 trims a raster picture's. An `<svg>` with `overflow: hidden`
+  and an `<img>` of an SVG file are still clipped to their square content
+  box (`build.rs`' `drawing_of`). Measure both in Chrome and trim them as
+  it does. *Depends on 769. Closes when:* a corpus case of rounded SVGs is
+  Chrome's in every plain pixel at one and two.
 
 - [x] **748. How alo carries the search key in release (ADR 0083 § 1).**
   Cut from 708. The owner's stated direction is to ship the application
@@ -21386,7 +21486,7 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on 775. Closes when:* a reference render of the sheet at 700,
   its boxes in numbers, and a press outside it decided as closing it.
 
-- [ ] **777. A `mailto:` link in a card through alo's Chromium.** Found by
+- [x] **777. A `mailto:` link in a card through alo's Chromium.** Found by
   770's probe: through the machine's Chrome a `mailto:` link in the card's
   page starts a navigation and stops with nothing committed, the page left
   as it was; through alo's CEF host the same link commits
@@ -21398,6 +21498,31 @@ What stage 2's exit gate actually measures: a person using it.
   the likely answer — and make the host do it. *Depends on 770. Closes
   when:* a `mailto:` link pressed in the card leaves the card at its page,
   drawn, through both programs.
+  ***Done (iteration 480, ADR 0060's fifth amendment), with a cut to
+  782.*** **Decided:** a refusal is no error page — a page asking for a
+  scheme Chromium would hand to another program stays where it was, drawn,
+  and nothing is handed on. alo's CEF host gives every page's client a
+  request handler whose `OnBeforeBrowse` cancels a navigation (any frame)
+  to a scheme outside the sixteen Chromium loads itself (`handed.rs`, which
+  names no `cef`; the handler is in `window.rs`, already on the gate's
+  list); cancelled is `ERR_ABORTED`, which commits nothing. **Tests:**
+  `alo-window`'s `a_mailto_link_in_a_card_through_chrome.rs` through both
+  programs (a teal page whose `mailto:` link turns it orange on click:
+  orange, at its address, not loading, never unopened, for 3 s after);
+  `handed.rs` (4 unit tests). Mutation: the host cancelling nothing — the
+  host's run fails, its frame the white error page.
+
+- [ ] **782. Whether the machine's Chrome hands a refused scheme on.** Cut
+  from 777. A `mailto:` link pressed in a card through the machine's
+  Chrome leaves the page as it was, but whether Chrome's external protocol
+  handler then hands the address to the program the machine names for it
+  (on this Mac, `com.google.chrome` itself) was not measured, and nothing
+  of alo's stands in front of it. Measure it (the shown `--app` window, a
+  link pressed with a user's gesture and a script's `location` without),
+  and decide whether a profile preference or a switch keeps it from
+  handing anything on. *Depends on 777. Closes when:* the hand-off is
+  measured through the machine's Chrome and either prevented, in a test,
+  or written in ADR 0060 as set aside.
 
 - [ ] **779. A parked card's window unseen through the machine's Chrome.**
   Cut from 771. alo's own Chromium makes a parked card's window

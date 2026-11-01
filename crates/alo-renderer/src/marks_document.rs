@@ -5,14 +5,16 @@
 //! A site's mark, built into the first screen's document beside its name
 //! (queue item 747, ADR 0088): the site's own icon where one came and reads
 //! as a picture, and its letter on one of the design's four tints where
-//! none did — on All and Sites, on Videos and on News.
+//! none did — on All and Sites, on Videos and on News, and in the Images
+//! tab's grid, 14 square (queue item 768).
 //!
 //! # The icon
 //!
 //! The browser process fetched it from the provider's image proxy alone and
 //! bounded it ([`crate::results::LARGEST_MARK`]); its bytes are a
 //! stranger's, and are read only here, in the confined renderer. The mark
-//! is an `<img>` in the letter's rounded tile, whose `src` is a name of
+//! is an `<img>` drawn as the letter's tile is, 18 square and rounded by
+//! its own `border-radius` (queue item 769), whose `src` is a name of
 //! ours, [`src`] — the turn's place,
 //! what the row is and its place — never the icon's address, and the bytes
 //! are handed to the drawing as that picture ([`pictures`]), decoded by the
@@ -47,6 +49,8 @@ pub enum Beside {
     Video,
     /// A news story, on News.
     Story,
+    /// An image, on the Images tab's grid (queue item 768).
+    Image,
 }
 
 impl Beside {
@@ -56,6 +60,7 @@ impl Beside {
             Beside::Site => "site",
             Beside::Video => "video",
             Beside::Story => "story",
+            Beside::Image => "image",
         }
     }
 }
@@ -108,6 +113,14 @@ pub fn pictures(start: &Start) -> Vec<Resource> {
                     .map(|story| story.mark.as_ref())
                     .collect(),
             ),
+            (
+                Beside::Image,
+                results
+                    .drawn_images()
+                    .iter()
+                    .map(|image| image.mark.as_ref())
+                    .collect(),
+            ),
         ];
         for (beside, held) in marks {
             for (place, bytes) in held.into_iter().enumerate() {
@@ -133,24 +146,52 @@ pub fn mark(
     letter: Option<String>,
     tint: usize,
 ) -> Result<(), Unbuilt> {
+    marked(document, into, (icon, letter, tint), "fav")
+}
+
+/// [`mark`], in the Images grid's 14 square rounded 4 — `.fav.small` — under
+/// an image (queue item 768).
+///
+/// # Errors
+///
+/// [`Unbuilt`] if `alo-dom` refused an operation, which no mark can cause.
+pub fn small_mark(
+    document: &mut Document,
+    into: NodeId,
+    icon: Option<(&[u8], String)>,
+    letter: Option<String>,
+    tint: usize,
+) -> Result<(), Unbuilt> {
+    marked(document, into, (icon, letter, tint), "fav small")
+}
+
+/// What a mark shows: the icon's bytes and name, if one came; the letter;
+/// its tint.
+type Shown<'a> = (Option<(&'a [u8], String)>, Option<String>, usize);
+
+/// What [`mark`] and [`small_mark`] build, its classes beginning `class`.
+fn marked(
+    document: &mut Document,
+    into: NodeId,
+    (icon, letter, tint): Shown<'_>,
+    class: &str,
+) -> Result<(), Unbuilt> {
     if let Some((_, named)) = icon.filter(|(bytes, _)| reads(bytes)) {
-        // The tile clips the picture to its rounded square: this engine
-        // does not round a picture by its own `border-radius`.
-        let tile = element(document, "span")?;
-        attribute(document, tile, "class", "fav icon")?;
-        attribute(document, tile, "aria-hidden", "true")?;
+        // Rounded by its own `border-radius`, the letter's tile's (queue
+        // item 769): no tile around it to clip it.
         let image = element(document, "img")?;
+        attribute(document, image, "class", &format!("{class} icon"))?;
+        attribute(document, image, "aria-hidden", "true")?;
         attribute(document, image, "src", &named)?;
         attribute(document, image, "alt", "")?;
-        append(document, tile, image)?;
-        append(document, into, tile)?;
+        append(document, into, image)?;
         return Ok(());
     }
     let Some(letter) = letter else {
         return Ok(());
     };
     let made = element(document, "span")?;
-    attribute(document, made, "class", &format!("fav tint{tint}"))?;
+    attribute(document, made, "class", &format!("{class} tint{tint}"))?;
     attribute(document, made, "aria-hidden", "true")?;
     let text = document.create_text_node(&letter);
     append(document, made, text)?;

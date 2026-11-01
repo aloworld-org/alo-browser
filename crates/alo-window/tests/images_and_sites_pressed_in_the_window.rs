@@ -25,7 +25,9 @@
 //!    from the proxy with no key; one named elsewhere was never asked for.
 //! 2. *More sites ›* pressed shows the Sites tab: every site, the sixth's
 //!    mark drawn where the fifth's description ends.
-//! 3. The Images tab pressed shows the grid, its first picture drawn.
+//! 3. The Images tab pressed shows the grid, its first picture drawn, and
+//!    the first image's site's mark — fetched from the proxy, where the
+//!    second's, named at its site, is never asked — in its 14 square (768).
 //! 4. An image pressed opens its page as a new turn, its bubble the image's
 //!    title — markup in it still those characters — which, with no
 //!    Chromium, says why.
@@ -97,8 +99,14 @@ const COLOURS: [(u8, u8, u8); 5] = [
     (0x3d, 0x41, 0x48),
 ];
 
+/// The colour of the first image's site's mark, served at the proxy
+/// (queue item 768).
+const MARK: (u8, u8, u8) = (0x7a, 0x1f, 0x6e);
+
 /// The image search's answer: five images whose thumbnails are at the
-/// proxy on `port`, and a sixth whose thumbnail is named elsewhere.
+/// proxy on `port`, and a sixth whose thumbnail is named elsewhere. The
+/// first names its site's mark at the proxy, the second at the site
+/// itself, which is never asked (queue item 768).
 fn images(port: u16) -> String {
     let mut each: Vec<String> = (0..5)
         .map(|n| {
@@ -111,7 +119,13 @@ fn images(port: u16) -> String {
                 r#"{{"type":"image_result","title":"{title}","url":"https://pictures{n}.example/page",
                     "source":"pictures{n}.example",
                     "thumbnail":{{"src":"http://127.0.0.1:{port}/thumb/{n}.png","width":500,"height":375}},
-                    "properties":{{"url":"https://pictures{n}.example/original.jpg"}}}}"#
+                    "properties":{{"url":"https://pictures{n}.example/original.jpg"}}{}}}"#,
+                match n {
+                    0 => format!(r#","meta_url":{{"favicon":"http://127.0.0.1:{port}/mark/0.png"}}"#),
+                    1 => r#","meta_url":{"favicon":"https://pictures1.example/favicon.ico"}"#
+                        .to_owned(),
+                    _ => String::new(),
+                }
             )
         })
         .collect();
@@ -121,6 +135,12 @@ fn images(port: u16) -> String {
             .to_owned(),
     );
     format!(r#"{{"type":"images","results":[{}]}}"#, each.join(","))
+}
+
+/// The first image's site's mark: 32 square in [`MARK`], as a PNG.
+fn mark() -> Vec<u8> {
+    let canvas = Canvas::new(32, 32, Rgba::from_rgba8(MARK.0, MARK.1, MARK.2, 255));
+    alo_paint::encode::to_png(&canvas).unwrap_or_default()
 }
 
 /// A flat picture 500 × 375 in `colour`, as a PNG.
@@ -165,6 +185,7 @@ fn provide(asked: Sender<String>) -> Result<u16, String> {
                     ("/res/v1/images/search?q=home+ev+charger", _) => {
                         ("200 OK", "application/json", images(port).into_bytes())
                     }
+                    ("/mark/0.png", _) => ("200 OK", "image/png", mark()),
                     (_, Some(colour)) => ("200 OK", "image/png", thumbnail(colour)),
                     _ => ("500 Internal Server Error", "text/plain", Vec::new()),
                 };
@@ -340,6 +361,41 @@ fn the_window(port: u16) -> Result<Driven, String> {
     Ok(driven)
 }
 
+/// What the provider and its proxy were asked, `heads`, as step 1 asks:
+/// the words alone, twice, then each thumbnail and the one mark from the
+/// proxy, none from elsewhere; the key only to the provider, and no
+/// `Referer` or cookie to either.
+fn asked_of_the_proxy(heads: &[String]) -> Result<(), String> {
+    let lines: Vec<&str> = heads
+        .iter()
+        .filter_map(|head| head.lines().next())
+        .collect();
+    let expected = [
+        "GET /res/v1/web/search?q=home+ev+charger HTTP/1.1",
+        "GET /res/v1/images/search?q=home+ev+charger HTTP/1.1",
+        "GET /thumb/0.png HTTP/1.1",
+        "GET /thumb/1.png HTTP/1.1",
+        "GET /thumb/2.png HTTP/1.1",
+        "GET /thumb/3.png HTTP/1.1",
+        "GET /thumb/4.png HTTP/1.1",
+        "GET /mark/0.png HTTP/1.1",
+    ];
+    if lines != expected {
+        return Err(format!("the provider and its proxy were asked {lines:?}"));
+    }
+    for head in heads {
+        let keyed = head.contains(&format!("X-Subscription-Token: {NOT_A_KEY}"));
+        let lower = head.to_lowercase();
+        if keyed != head.contains("/res/v1/")
+            || lower.contains("referer")
+            || lower.contains("cookie")
+        {
+            return Err(format!("asked with what it should not be: {head}"));
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn images_more_sites_and_the_images_tab_pressed_in_the_window() -> Result<(), String> {
     let (asked, asking) = channel();
@@ -374,30 +430,13 @@ fn images_more_sites_and_the_images_tab_pressed_in_the_window() -> Result<(), St
         found.get(5).map(|image| image.picture.is_some()),
         Some(false)
     );
-    let heads: Vec<String> = asking.try_iter().collect();
-    let lines: Vec<&str> = heads
-        .iter()
-        .filter_map(|head| head.lines().next())
-        .collect();
+    let marks: Vec<bool> = found.iter().map(|image| image.mark.is_some()).collect();
     assert_eq!(
-        lines,
-        vec![
-            "GET /res/v1/web/search?q=home+ev+charger HTTP/1.1",
-            "GET /res/v1/images/search?q=home+ev+charger HTTP/1.1",
-            "GET /thumb/0.png HTTP/1.1",
-            "GET /thumb/1.png HTTP/1.1",
-            "GET /thumb/2.png HTTP/1.1",
-            "GET /thumb/3.png HTTP/1.1",
-            "GET /thumb/4.png HTTP/1.1",
-        ],
-        "the words alone, twice, then each thumbnail from the proxy and none from elsewhere"
+        marks,
+        [true, false, false, false, false, false],
+        "the first image's mark from the proxy; the second's, named at its site, never"
     );
-    for head in &heads {
-        let keyed = head.contains(&format!("X-Subscription-Token: {NOT_A_KEY}"));
-        assert_eq!(keyed, head.contains("/res/v1/"), "{head}");
-        assert!(!head.to_lowercase().contains("referer"), "{head}");
-        assert!(!head.to_lowercase().contains("cookie"), "{head}");
-    }
+    asked_of_the_proxy(&asking.try_iter().collect::<Vec<String>>())?;
 
     // 2. More sites, 20 under the row: the Sites tab, every site — the
     //    sixth's mark at (80, 648) in its tint.
@@ -429,6 +468,13 @@ fn images_more_sites_and_the_images_tab_pressed_in_the_window() -> Result<(), St
             .is_some_and(|results| results.tab == Tab::Images)
             && driven.painted_at((90, 175), painted(COLOURS[0]))
     })?;
+    // The first image's site's mark in the grid's 14 square under it, where
+    // the renderer's layout assertion puts it (`a_sites_own_mark.rs`); the
+    // second's site its letter.
+    assert!(
+        driven.painted_at((87, 350), painted(MARK)),
+        "the first image's mark is painted in the grid"
+    );
     assert_eq!(driven.window.conversation().showing().pictured.len(), 6);
 
     // 4. The second image pressed: its page opened as a new turn, its

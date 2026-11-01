@@ -48,6 +48,9 @@ use alo_url::Url;
 pub struct Fetched {
     /// The images, best first, each holding its thumbnail if it was kept.
     pub images: Vec<Pictured>,
+    /// Where each image's site's mark is, by the image's place, for
+    /// [`crate::search_marks`] to fetch (queue item 768).
+    pub marks: Vec<Option<Url>>,
     /// Why each thumbnail left out was, by the image's place.
     pub left_out: Vec<(usize, String)>,
 }
@@ -62,13 +65,16 @@ pub fn fetch(
 ) -> Fetched {
     let mut fetched = Fetched {
         images: Vec::new(),
+        marks: Vec::new(),
         left_out: Vec::new(),
     };
     for (at, image) in found.into_iter().take(MOST_IMAGES).enumerate() {
         let ImageFound {
             mut pictured,
             thumbnail,
+            mark,
         } = image;
+        fetched.marks.push(mark);
         if let Some(thumbnail) = thumbnail {
             match picture(pool, identities, from, &thumbnail, LARGEST_THUMBNAIL) {
                 Ok(bytes) => pictured.picture = Some(bytes),

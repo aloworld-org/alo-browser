@@ -121,6 +121,7 @@ fn found(n: usize, thumbnail: Option<alo_url::Url>) -> Result<ImageFound, String
             "",
         ),
         thumbnail,
+        mark: None,
     })
 }
 

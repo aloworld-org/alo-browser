@@ -289,6 +289,13 @@ pub fn outlined_glyphs_at(
     let mut glyphs = Vec::with_capacity(run.glyphs.len());
     let mut pen = origin;
     for glyph in &run.glyphs {
+        // A glyph drawn in layers of colour is drawn as its layers, never as
+        // its own plain outline (`glyph_layers.rs`, queue item 766).
+        if crate::glyph::layers_at(font, glyph.glyph_id, size, scale).is_some() {
+            glyphs.push(Path::new());
+            pen.0 += glyph.advance;
+            continue;
+        }
         glyphs.push(outline_at(font, glyph.glyph_id, size, scale).map_or_else(
             Path::new,
             |shaped| {

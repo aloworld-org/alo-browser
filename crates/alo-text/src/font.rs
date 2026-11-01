@@ -223,6 +223,9 @@ pub struct Font {
     /// Whether its glyphs are pictures — a `CBDT` or `sbix` table — rather
     /// than outlines alone: a colour emoji face (ADR 0088).
     pictured: bool,
+    /// Whether it holds a `COLR` table: some of its glyphs are layers of
+    /// outlines, each in a colour of its own (queue item 766).
+    layered: bool,
 }
 
 impl Font {
@@ -245,6 +248,7 @@ impl Font {
         let axis = weight_axis_of(&face);
         let tables = face.tables();
         let pictured = tables.cbdt.is_some() || tables.sbix.is_some();
+        let layered = tables.colr.is_some();
         Some(Self {
             family: family.into(),
             weight,
@@ -253,6 +257,7 @@ impl Font {
             index,
             axis,
             pictured,
+            layered,
         })
     }
 
@@ -331,6 +336,14 @@ impl Font {
     /// such a glyph's picture where its outline would be.
     pub fn draws_pictures(&self) -> bool {
         self.pictured
+    }
+
+    /// Whether some of its glyphs may be layers of outlines in colours of
+    /// their own — a `COLR` table, as Windows' Segoe UI Emoji has — rather
+    /// than one outline in the text's colour (queue item 766). Which glyphs
+    /// are is the glyph's to say (`alo-paint`'s `glyph::layers_at`).
+    pub fn draws_layers(&self) -> bool {
+        self.layered
     }
 
     /// Whether this font has a glyph for a character.

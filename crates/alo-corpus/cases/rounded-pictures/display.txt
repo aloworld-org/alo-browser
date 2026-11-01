@@ -1,0 +1,39 @@
+fill box#1 rgb(255 255 255) at (0, 0) 500×0
+clip box#3 to (10, 10) 40×40
+picture box#3 20×20 at (10, 10) 40×40
+unclip
+fill box#5 rgb(29 78 216) at (70, 10) 46×46
+clip box#5 to (73, 13) 40×40
+picture box#5 20×20 at (73, 13) 40×40
+unclip
+fill box#7 rgb(192 57 43) at (130, 10) 50×50
+clip box#7 to (135, 15) 40×40
+picture box#7 20×20 at (135, 15) 40×40
+unclip
+fill box#9 rgb(192 57 43) at (200, 10) 50×50
+picture box#9 20×20 at (205, 15) 40×40
+clip box#11 to (270, 10) 40×40
+picture box#11 20×20 at (270, 10) 40×40
+unclip
+clip box#13 to (330, 10) 40×40
+picture box#13 20×20 at (330, 10) 40×40
+unclip
+fill box#15 rgb(192 57 43) at (390, 10) 50×50
+fill box#15 rgb(29 78 216) at (390, 10) 50×50
+clip box#15 to (395, 15) 40×40
+picture box#15 20×20 at (395, 15) 40×40
+unclip
+clip box#17 to (10, 70) 60×30
+picture box#17 20×20 at (10, 70) 60×30
+unclip
+clip box#19 to (90, 70) 60×44
+picture box#19 20×20 at (90, 70) 60×44
+unclip
+fill box#21 rgb(192 57 43) at (170, 70) 46×38
+clip box#21 to (173, 73) 41×33
+picture box#21 20×20 at (173, 73) 41×33
+unclip
+fill box#23 rgb(29 78 216) at (241, 71) 44×44
+clip box#23 to (243, 73) 40×40
+picture box#23 20×20 at (243, 73) 40×40
+unclip

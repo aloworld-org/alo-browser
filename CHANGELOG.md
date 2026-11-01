@@ -6,6 +6,32 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Emoji in fonts built from coloured layers are drawn in colour.** A
+  font that draws an emoji as layers of coloured shapes — the older colour
+  format Windows' own emoji font uses — had its emoji drawn as plain
+  shapes in the text's colour. They are now drawn in their own colours, as
+  Chrome draws them. Fonts in the newer colour formats (with gradients, or
+  drawings inside the font) are still drawn plain.
+
+- **The Images tab shows each picture's site by its own icon.** Under each
+  picture in the grid, the site it came from is now marked by that site's
+  small icon, as the other tabs mark sites, fetched from the search
+  provider's image service only — never from the site — and its letter
+  where there is none.
+
+- **Pictures with rounded corners are drawn rounded.** A picture whose page
+  gave it rounded corners (`border-radius` on an `<img>`) was drawn with
+  square ones; it is now cut to the curve inside its border and padding,
+  as Chrome cuts it. A site's mark beside a search result is drawn the same
+  as before, now by this rule.
+
+- **An email link on a page open in the conversation no longer replaces
+  the page with an error.** Pressing a `mailto:` link — or any link to an
+  address meant for another program — in a page shown in the
+  conversation drew Chromium's error page where the page had been, when
+  alo used the Chromium it carries. The page now stays as it was, as it
+  does with the machine's own Chrome.
+
 - **A page open in the conversation stays sharp when you move the window
   to another screen.** Dragging alo's window from a screen at ordinary
   resolution to a Retina one left the page in its card drawn at the first

@@ -568,6 +568,8 @@ correctness, not before it.
       measured (`pictures-on-device-pixels`), and since queue item 588
       (iteration 353) a rounded clip inside a border follows its inner
       curve, 60 of 60 clips measured (`rounded-clips-inside-borders`),
+      and since queue item 769 a picture is trimmed to its content edge's
+      curve, 27 of 27 probes at eight (`rounded-pictures`),
       and since queue item 589 (iteration 354) an `<svg>` is clipped and
       drawn on whole device pixels, 1,792 of 1,792 `<svg>`s and 672 of 672
       SVG pictures measured (`svgs-on-device-pixels`), and since queue
@@ -2432,16 +2434,23 @@ items where being right and being unusable are the same outcome.
       and counted in the picture budget, read only in the confined renderer
       and drawn in the letter's place on All, Sites, Videos and News, the
       letter kept where none reads, in layout assertions, three reference
-      renders and through the window's own road; emoji drawn in colour from
+      renders and through the window's own road; the Images grid's marks
+      (768) — an image's site's icon read, fetched and drawn as a site's is,
+      in the grid's 14 square; emoji drawn in colour from
       Noto Color Emoji, carried under the OFL and handed to the interface's
       renderers alone, a `CBDT`/`sbix` glyph painted as its picture and an
-      emoji's sequence kept in one face (ADR 0088); a card drawn from its
+      emoji's sequence kept in one face (ADR 0088); a `COLR` version 0
+      glyph drawn as its layers in their colours (766), as Chrome draws a
+      test face; a card drawn from its
       page's first paint (751, ADR 0089) — opened at its navigation's
       commit, saying *Loading* until its page has loaded, and kept as a card
       when it never does, through the window's own road and both Chromiums;
       *Loading* from a navigation's start (770) — from a link's press, *Back*
       or *Forward* to Chrome's stop, committed or not, as Chrome's own
       spinner turns, through the window's own road and both Chromiums;
+      a `mailto:` link in a card (777, ADR 0060's fifth amendment) — the
+      card left at its page, drawn, through both Chromiums, the Chromium alo
+      carries cancelling a scheme it does not load before it is decided;
       the card's *Back* and *Forward* (737) — read from the tab's session
       history after each navigation, the window's own blank page never the
       card's, and followed as Chrome's own buttons are, through the window's
@@ -2456,7 +2465,8 @@ items where being right and being unusable are the same outcome.
       amendment) — drawn transparent and letting the pointer through by the
       Chromium alo carries until *Expand*, on no display by the window
       server's list while it streams; the machine's Chrome keeps its strip
-      · Owed: the rail's chats (760), a card's new scale through the machine's
+      · Owed: the rail's chats (760), a refused scheme handed on by the
+      machine's Chrome (782), a card's new scale through the machine's
       Chrome (780), a parked card's window in Stage Manager's strip (781),
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
@@ -2471,10 +2481,9 @@ items where being right and being unusable are the same outcome.
       the answer and All's short answer (707, blocked: a model), the Sites
       tab's further pages (761), a response's body bounded per request
       (762), a press on a relatively positioned box in the conversation
-      (763), a news story's photo (765), `COLR` and `SVG` colour glyphs and
-      an emoji's shadow (766), CJK in the interface (767), the Images
-      grid's marks (768), a picture rounded by its own `border-radius`
-      (769), the AI provider's carried key (773, after ADR 0081), the panel
+      (763), a news story's photo (765), `COLR` version 1 and `SVG` colour
+      glyphs (785), an emoji's shadow (786), CJK in the interface (767), a rounded picture at fractions of a pixel (783),
+      an SVG's drawing rounded (784), the AI provider's carried key (773, after ADR 0081), the panel
       shown over the conversation in a narrow window (776). Built
       since: the key in release (748, ADR 0091) — carried inside the
       application, put in by `alo-bundle --keys-from keychain` from outside

@@ -212,6 +212,10 @@ pub struct Pictured {
     /// The thumbnail's bytes as they arrived, if one did and was kept:
     /// decoded only by the renderer that draws it.
     pub picture: Option<Vec<u8>>,
+    /// The site's own mark, as a site found's ([`Found::mark`]): its icon
+    /// from the provider's image proxy, drawn in the grid's 14 square, its
+    /// letter when it does not decode (queue item 768).
+    pub mark: Option<Vec<u8>>,
 }
 
 /// Where a search is.
@@ -411,6 +415,10 @@ impl Results {
                 if !(all || place < drawn) {
                     image.picture = None;
                 }
+                // Its site's mark only on the grid, which draws it.
+                if !all {
+                    image.mark = None;
+                }
             }
         }
         if self.tab != Tab::Videos
@@ -464,7 +472,13 @@ impl Results {
             .iter()
             .map(|story| weigh(&story.mark))
             .sum();
-        sites + videos + stories
+        let images: usize = self
+            .images
+            .found()
+            .iter()
+            .map(|image| weigh(&image.mark))
+            .sum();
+        sites + videos + stories + images
     }
 
     /// The bytes of every image's and video's thumbnail these results carry.
@@ -582,7 +596,15 @@ impl Pictured {
             page,
             source: source.into(),
             picture: None,
+            mark: None,
         }
+    }
+
+    /// The same image, its site's mark `bytes` (queue item 768).
+    #[must_use]
+    pub fn marked(mut self, bytes: Vec<u8>) -> Self {
+        self.mark = Some(bytes);
+        self
     }
 
     /// The same image, its thumbnail `bytes`.
@@ -692,6 +714,11 @@ pub fn within_budget(turns: &[Turn]) -> Vec<Turn> {
         }
         if let Images::Found(found) = &mut results.images {
             for image in found.iter_mut() {
+                keep(&mut image.mark);
+            }
+        }
+        if let Images::Found(found) = &mut results.images {
+            for image in found.iter_mut() {
                 keep(&mut image.picture);
             }
         }
@@ -735,6 +762,43 @@ mod tests {
             "",
         )
         .holding(vec![n; bytes])
+    }
+
+    #[test]
+    fn an_images_mark_is_sent_only_on_the_grid_and_weighed_with_the_marks() {
+        let marked = Results::of("x", Showing::Found(vec![found("https://a.example/"); 4]))
+            .with_images(Images::Found(
+                (0..8).map(|n| image(n, 100).marked(vec![9; 10])).collect(),
+            ));
+        assert_eq!(marked.picture_bytes(), 8 * 100 + 8 * 10);
+        // All's row draws five pictures and no site marks.
+        assert_eq!(marked.as_drawn().picture_bytes(), 5 * 100);
+        assert_eq!(
+            marked.clone().on(Tab::Images).as_drawn().picture_bytes(),
+            8 * 100 + 8 * 10
+        );
+        // A turn's marks are kept before its pictures when the budget is
+        // short: the image marks and none of the thumbnails past it.
+        let large = Results::of("x", Showing::Found(vec![found("https://a.example/"); 4]))
+            .with_images(Images::Found(
+                (0..2)
+                    .map(|n| image(n, MOST_PICTURE_BYTES / 2).marked(vec![9; 10]))
+                    .collect(),
+            ))
+            .on(Tab::Images);
+        let sent = within_budget(&[Turn::Searched(large)]);
+        let Some(Turn::Searched(sent)) = sent.first() else {
+            panic!("one turn is sent");
+        };
+        let images = sent.images.found();
+        assert!(images.iter().all(|image| image.mark.is_some()));
+        assert_eq!(
+            images
+                .iter()
+                .filter(|image| image.picture.is_some())
+                .count(),
+            1
+        );
     }
 
     fn with_images(count: u8, bytes: usize) -> Results {

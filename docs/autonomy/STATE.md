@@ -47218,3 +47218,143 @@ card). ⌘Q left no alo process.
 card's window in Stage Manager's strip (781).
 
 The next unused queue number is **782** and the next ADR is **0092**.
+
+## Iteration 480 — queue item 777: a `mailto:` link in a card through alo's Chromium (ADR 0060 amended)
+
+Built in one batch with 769, 768 and 766 under one gate run (the owner's
+choice; each item's paragraph is its own).
+
+**Decided (ADR 0060's fifth amendment).** A refusal is no error page: a
+page asking for a scheme Chromium would hand to another program stays where
+it was, drawn, as the machine's Chrome leaves it, and nothing is handed on.
+770's probe had the host committing `chrome-error://chromewebdata/` over the
+page 60 ms after the press.
+
+**Built.** `alo-cef-host`'s `handed.rs` — the sixteen schemes Chromium loads
+itself (`LOADED`) and `cancelled(address)`, which names no `cef`; in
+`window.rs`, every page's client now has a request handler (`Kept`) whose
+`on_before_browse` returns 1 for a cancelled address, so CEF answers
+`ERR_ABORTED` and commits nothing. The host's `--app=data:,` and every
+scheme alo's gate judges are untouched. No new `unsafe`, no new file naming
+`cef`, so the gate's boundary list and ADR 0080 are unchanged.
+
+**Tests.** `alo-window`'s `a_mailto_link_in_a_card_through_chrome.rs`
+(added to nextest's shown-Chrome override): a teal page whose `mailto:` link
+turns it orange as it is clicked, opened in the card through the window's
+own road; the link pressed, the card's frame turns orange and, for 3 s
+after, is at its address, orange, not loading, never unopened, the server
+asked for the page once — through the machine's Chrome and the host, both
+passing (26 s). `handed.rs`: 4 unit tests (18 in the host). **Mutation:**
+`cancelled` answering false — the host's run fails with the card's frame
+white (255, 255, 255), the error page, loading `[true, false]`.
+
+**Cut:** whether the machine's Chrome hands a refused scheme to another
+program (782) — a `log stream` for `mailto` during the Chrome run showed
+nothing, which is no measurement.
+
+## Iteration 481 — queue item 769: a picture rounded by its own `border-radius`
+
+Built in the same batch as 777, 768 and 766.
+
+**Measured** (Chrome 156.0.8078.76, headless screenshots at one, two and
+eight, scratchpad `m769/`: `gen.py`, `shot.sh`, `fit.py`, `fitr.py`,
+`fiti.py`, `cmp2.py`). 27 black pictures with radii of 4, 10, 20 and 100,
+50 %, `12px 4px` and `30px / 10px`, transparent borders of 0, 1.5, 2 and 3,
+paddings of 0, 2.25, 3 and 5: every one at eight is the **content** edge's
+curve to 0.09 of a pixel's coverage; the padding edge's curve misses 14 and
+the border edge's 20. So the queue's "the border box's rounded inner edge"
+was wrong: Chrome follows CSS Backgrounds 3 § 5.3.
+
+**Built.** `alo-paint`'s `content_curve.rs` — `of(written, border_box,
+border, padding)`, the radii fitted to the border box less border and
+padding — and `build.rs`'s `picture_of`, which wraps the picture in a
+`PushClip` of its snapped content box so rounded when any corner is left
+(the existing `clipped_picture.rs` draws a picture under a clip). The site
+mark's clipping tile (747) is removed: `marks_document::mark` makes the
+`<img class="fav icon">` alone and `start.css` loses `.fav.icon img` and
+`overflow: hidden`; the three mark references are identical.
+
+**Tests.** New corpus case `rounded-pictures` (11 pictures; `chrome.png`,
+`chrome-at-2.png` frozen as RGBA) and `alo-corpus/tests/rounded_pictures.rs`:
+each picture's rectangle and trim path in numbers at one and two, no trim
+for `squared` (radius 4 under padding 5); plain pixels all Chrome's at one
+(1,226 blends) and two (2,527); curve pixels within 53 on whole-pixel
+pictures, 131/117 on the two at fractions; `render-at-2.png`. 5 unit tests
+in `content_curve.rs`. `corpus.rs` wrote only the new case's references.
+**Mutations:** no trim — the case's 3 tests and `a_sites_own_mark`'s 3
+references fail ("the icon is rounded as the letter's tile is"); padding
+not subtracted — the case's 3 fail.
+
+**Cut:** Chrome's curve for a picture at fractions of a pixel at one and two
+(783); an `<svg>`'s and an SVG picture's drawing rounded (784).
+
+## Iteration 482 — queue item 768: the Images grid's marks
+
+Built in the same batch as 777, 769 and 766.
+
+**Read, not called.** Brave's API reference (image search, response
+schema) documents each image result's `meta_url` with `favicon` (*"The
+favicon used for the URL"*), as a web result's; there is no frozen real
+image answer in the repository, and the real API was not asked.
+
+**Built.** `alo-window`: `ImageFound::mark` read by `search_protocol::image`
+as a site's is; `search_thumbnails::Fetched::marks`; `asked_images` fetches
+them with `search_marks::fetch` (proxy alone, once each, 16 KiB, twenty)
+after the thumbnails and puts each in its `Pictured`. `alo-renderer`:
+`Pictured::mark`/`marked`; the wire carries it after the thumbnail, read by
+the site mark's reader; `mark_bytes` weighs it, `as_drawn` keeps it only on
+the Images tab, `within_budget` keeps marks before thumbnails;
+`marks_document::small_mark` (`.fav.small`, 14 square rounded 4) and
+`Beside::Image`; `images_document::cell` uses it in the caption.
+
+**Tests.** Unit: `an_images_site_mark_is_read_as_a_sites_is`,
+`an_images_mark_is_sent_only_on_the_grid_and_weighed_with_the_marks`.
+`a_sites_own_mark.rs` (9 tests now): the grid's first icon at (80, 343)
+14 × 14 and the letters at (304, 343) and (528, 343); the new reference
+`images-tab-with-marks.png`, its icon's two colours and a rounded corner,
+no `img` for the agent, the confined renderer's frame equal.
+`images_and_sites_pressed_in_the_window.rs`: `/mark/0.png` asked after the
+five thumbnails, the second image's mark (named at its site) never; marks
+`[true, false, false, false, false, false]`; the mark painted at (87, 350).
+`a_searchs_thumbnails_fetched_and_bounded.rs` gives its `ImageFound` no
+mark. **Mutations:** the grid given no mark — 2 renderer tests fail; the
+wire dropping it — the confined frame differs; the thread not attaching it
+— the window test fails.
+
+## Iteration 483 — queue item 766: `COLR` version 0 glyphs in colour
+
+Built in the same batch as 777, 769 and 768. Version 0 only, as the owner's
+batch allowed: `COLR` version 1 and `SVG ` glyphs are cut to 785, a colour
+glyph's shadow and a line stepping aside for it to 786.
+
+**Built.** `alo-text`'s `Font::draws_layers` (the face has a `COLR` table).
+`alo-paint`'s `glyph::layers_at` (in the one file naming `ttf-parser`):
+`Face::paint_color_glyph` with a `Painter` that keeps each outline and its
+solid colour and refuses the glyph on anything version 1 asks (a gradient,
+transform, clip, group); walked twice, told a clear and a white foreground,
+so a layer of palette index `0xFFFF` — the text's colour — is the one whose
+colour followed the foreground. `glyph_layers.rs` places a run's layers at
+their pens; `build.rs`'s text items add each layer as a solid fill, in its
+colour or the text's, after the run's text item; `render.rs`'s
+`outlined_glyphs_at` gives a layered glyph an empty outline, so its own
+plain outline (which a COLR face keeps for programs without colour) is
+never drawn under its layers.
+
+**Test face.** `crates/alo-paint/tests/fonts/layered.ttf`, 972 bytes, made
+in the scratchpad (`m766/make.py`) with `fontTools` `FontBuilder`: plain
+`A` and `C`, `B` with its own plain outline and three `COLR` v0 layers
+(`#e63946`, `#1d4ed8`, and `0xFFFF`). Its first build had every side
+bearing 0, and Chrome placed each layer by its `hmtx` bearing — 4 px left;
+rebuilt with each bearing its glyph's `xMin`.
+
+**Tests.** Unit: `glyph.rs` (B's three layers, colours and bounds; A and a
+face with no colour none), `glyph_layers.rs` (layers at the pen; none for
+DejaVu). `alo-renderer/tests/a_glyph_in_layers_of_colour.rs` (4): B's fills
+in numbers, its pixels at one and two (nothing where only its own outline
+reaches), the reference `a-glyph-in-layers-of-colour.png`, and every pixel
+of the page's four colours equal to Chrome 156.0.8078.76's screenshot of the
+same bytes as a web font (`chrome-layers.png`, >10,000 compared).
+**Mutations:** own outline drawn — 3 of 4 fail; no foreground layer — all
+4 fail.
+
+The next unused queue number is **787** and the next ADR is **0092**.

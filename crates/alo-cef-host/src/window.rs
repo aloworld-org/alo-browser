@@ -49,6 +49,14 @@
 //! (measured: a window put at −20000 before it was shown was shown wholly
 //! on the leftmost display).
 //!
+//! # Never sent to another program
+//!
+//! Every page's client cancels a navigation to a scheme Chromium does not
+//! load itself — a `mailto:` link — before Chromium decides it
+//! ([`crate::handed`], queue item 777, ADR 0060's fifth amendment): the page
+//! stays as it was, where CEF's own answer committed Chrome's error page
+//! over it.
+//!
 //! # Closed
 //!
 //! A person closing the window — its close button, or ⌘W
@@ -110,19 +118,21 @@
 use crate::parked::Stage;
 use cef::{
     App, Browser, BrowserProcessHandler, BrowserSettings, BrowserView, BrowserViewDelegate,
-    CefString, ChromeToolbarType, Client, CommandHandler, Display, DisplayHandler, ImplApp,
+    CefString, ChromeToolbarType, Client, CommandHandler, Display, DisplayHandler, Frame, ImplApp,
     ImplBrowser, ImplBrowserHost, ImplBrowserProcessHandler, ImplBrowserView,
     ImplBrowserViewDelegate, ImplClient, ImplCommandHandler, ImplDisplay, ImplDisplayHandler,
-    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplView, ImplViewDelegate, ImplWindow,
-    ImplWindowDelegate, LifeSpanHandler, Rect, RuntimeStyle, Size, View, Window, WindowDelegate,
-    WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient,
-    WrapCommandHandler, WrapDisplayHandler, WrapLifeSpanHandler, WrapWindowDelegate,
+    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplRequest, ImplRequestHandler, ImplView,
+    ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, Rect, Request,
+    RequestHandler, RuntimeStyle, Size, View, Window, WindowDelegate, WindowOpenDisposition,
+    WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient, WrapCommandHandler,
+    WrapDisplayHandler, WrapLifeSpanHandler, WrapRequestHandler, WrapWindowDelegate,
     browser_view_create, browser_view_get_for_browser, display_get_alls, display_get_count,
     window_create_top_level, wrap_app, wrap_browser_process_handler, wrap_browser_view_delegate,
     wrap_client, wrap_command_handler, wrap_display_handler, wrap_life_span_handler,
-    wrap_window_delegate,
+    wrap_request_handler, wrap_window_delegate,
 };
 use std::cell::{Cell, RefCell};
+use std::os::raw::c_int;
 // The reference count the macros' code keeps, by its trait.
 use cef::rc::Rc as _;
 
@@ -214,6 +224,34 @@ wrap_client! {
 
         fn command_handler(&self) -> Option<CommandHandler> {
             Some(Commanded::new())
+        }
+
+        fn request_handler(&self) -> Option<RequestHandler> {
+            Some(Kept::new())
+        }
+    }
+}
+
+wrap_request_handler! {
+    struct Kept {}
+
+    impl RequestHandler {
+        fn on_before_browse(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            request: Option<&mut Request>,
+            _user_gesture: ::std::os::raw::c_int,
+            _is_redirect: ::std::os::raw::c_int,
+        ) -> ::std::os::raw::c_int {
+            // A scheme Chromium would hand to another program — a link to
+            // `mailto:` — is never asked for: cancelled here, before
+            // Chromium decides it, the frame stays at the page it was at,
+            // where CEF's own answer committed its error page over it
+            // (`handed.rs`, queue item 777). Cancelled, CEF tells
+            // `ERR_ABORTED`, which commits nothing.
+            let address = request.map(|request| CefString::from(&request.url()).to_string());
+            c_int::from(address.is_some_and(|address| crate::handed::cancelled(&address)))
         }
     }
 }

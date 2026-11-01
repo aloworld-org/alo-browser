@@ -149,7 +149,7 @@ the same events, in the same order:
 | a link pressed, a script's `location` | `frameRequestedNavigation`, `frameStartedNavigating` (`differentDocument`), `frameStartedLoading` | `init`, `frameNavigated`, `load`, `frameStoppedLoading` |
 | `Page.navigate`; *Back*/*Forward* by `Page.navigateToHistoryEntry` | **no** `frameRequestedNavigation`; `frameStartedNavigating` (`differentDocument`, `historyDifferentDocument`), `frameStartedLoading` | the same |
 | a `204`; a download; `Page.stopLoading` before the commit; a `mailto:` in Chrome | the same start | `frameStoppedLoading` alone — nothing commits |
-| a refused port; a request failed by the browser process | the same start | `init`, `frameNavigated` to `chrome-error://chromewebdata/`, `load`, `frameStoppedLoading` — Chrome's error page commits (a `mailto:` in the CEF host does the same) |
+| a refused port; a request failed by the browser process | the same start | `init`, `frameNavigated` to `chrome-error://chromewebdata/`, `load`, `frameStoppedLoading` — Chrome's error page commits (a `mailto:` in the CEF host did the same, until item 777 had the host cancel it: ADR 0060's fifth amendment) |
 | `Page.stopLoading` after the commit, a picture held | — | `frameStoppedLoading`, and **no** `load` ever |
 | another navigation begun before the first commits | a second start | the second's commit, `load` and stop; the first never commits |
 | a fragment, `history.pushState` | `frameStartedLoading` alone; a step back to a pushed entry adds `frameStartedNavigating` (`historySameDocument`) | `navigatedWithinDocument`, `frameStoppedLoading`, within 5 ms |

@@ -142,7 +142,9 @@ impl<'a> Letters<'a> {
     /// The letters as text items of `id`'s, one per run, in `color`, each
     /// casting `shadows`; and after a run in a face whose glyphs are
     /// pictures, each of those glyphs as a picture item, set as on a screen
-    /// at `scale` (ADR 0088, [`crate::glyph_picture`]).
+    /// at `scale` (ADR 0088, [`crate::glyph_picture`]) — and after a run in
+    /// a face whose glyphs are layers of colour, each layer as a fill
+    /// ([`crate::glyph_layers`], queue item 766).
     fn items(
         &self,
         id: BoxId,
@@ -177,6 +179,25 @@ impl<'a> Letters<'a> {
                     box_id: id,
                     rect,
                     picture,
+                }),
+            );
+            // A glyph in layers of colour: each layer filled, in its own
+            // colour or the text's (queue item 766).
+            items.extend(
+                crate::glyph_layers::layered_glyphs_at(
+                    run.text,
+                    &run.font,
+                    self.size,
+                    scale,
+                    self.letter_spacing,
+                    run.origin,
+                )
+                .into_iter()
+                .map(|layer| DisplayItem::Fill {
+                    rule: FillRule::NonZero,
+                    box_id: id,
+                    path: layer.path,
+                    paint: Paint::Solid(layer.color.unwrap_or(color)),
                 }),
             );
         }
@@ -1202,6 +1223,11 @@ impl Builder<'_> {
     /// (queue item 587): the content box itself, not the snapped border box
     /// less its border and padding, so a padding of a fraction leaves the
     /// picture's edge on a whole pixel all the same.
+    ///
+    /// Trimmed to its content edge's curve when the box is rounded — its
+    /// own `border-radius` less its border and padding
+    /// ([`crate::content_curve`], queue item 769) — and drawn whole when
+    /// nothing of the curve is left.
     fn picture_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
         let Some(picture) = self.context.pictures.get(&id) else {
             return;
@@ -1209,11 +1235,32 @@ impl Builder<'_> {
         let Some(geometry) = self.layout.get(id) else {
             return;
         };
+        let scale = self.styles.scale();
+        let rect = snap::to_device_pixels(geometry.content_box(), scale);
+        let corners = self.style_of(id).map_or(Corners::SQUARE, |style| {
+            let border_box = snap::to_device_pixels(geometry.border_box, scale);
+            crate::content_curve::of(
+                Corners::of(style, Self::extent_of(border_box)),
+                border_box,
+                geometry.border,
+                geometry.padding,
+            )
+        });
+        let trimmed = !corners.are_square();
+        if trimmed {
+            out.push(DisplayItem::PushClip {
+                box_id: id,
+                path: rounded_rectangle(rect, corners),
+            });
+        }
         out.push(DisplayItem::Picture {
             box_id: id,
-            rect: snap::to_device_pixels(geometry.content_box(), self.styles.scale()),
+            rect,
             picture: std::sync::Arc::clone(picture),
         });
+        if trimmed {
+            out.push(DisplayItem::PopClip);
+        }
     }
 
     /// What an `<svg>` box holds, or an `<img>` showing an SVG file, drawn

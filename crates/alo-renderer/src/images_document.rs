@@ -215,19 +215,19 @@ fn cell(
     append(document, caption, named)?;
     let site = element(document, "span")?;
     attribute(document, site, "class", "cs")?;
-    if let Some(letter) = pictured.letter() {
-        let mark = element(document, "span")?;
-        attribute(
-            document,
-            mark,
-            "class",
-            &format!("fav small tint{}", pictured.tint()),
-        )?;
-        attribute(document, mark, "aria-hidden", "true")?;
-        let text = document.create_text_node(&letter);
-        append(document, mark, text)?;
-        append(document, site, mark)?;
-    }
+    // Its site's icon when one came and reads, else its letter (768).
+    crate::marks_document::small_mark(
+        document,
+        site,
+        pictured.mark.as_deref().map(|bytes| {
+            (
+                bytes,
+                crate::marks_document::src(place, crate::marks_document::Beside::Image, image),
+            )
+        }),
+        pictured.letter(),
+        pictured.tint(),
+    )?;
     let words = document.create_text_node(&pictured.site());
     append(document, site, words)?;
     append(document, caption, site)?;

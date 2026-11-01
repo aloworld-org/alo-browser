@@ -45,6 +45,7 @@ compile_error!("alo's CEF host is built for macOS only so far (queue item 728)")
     reason = "the `NSApplication` subclass CEF requires on macOS, the one boundary ADR 0080 allows"
 )]
 mod application_mac;
+mod handed;
 mod host;
 mod menu_mac;
 mod parked;

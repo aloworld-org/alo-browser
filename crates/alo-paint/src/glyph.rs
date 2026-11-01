@@ -19,6 +19,7 @@
 
 use crate::path::{Path, Point};
 use alo_text::{Font, WEIGHT_AXIS};
+use alo_value::Rgba;
 
 /// The shape of one glyph, at one size, with the pen at the origin.
 ///
@@ -131,6 +132,145 @@ pub fn picture_at(font: &Font, glyph_id: u16, size: f32, scale: f32) -> Option<G
         width: f32::from(image.width) * to_css,
         height,
     })
+}
+
+/// One layer of a glyph drawn in layers of colour — a `COLR` version 0
+/// glyph: an outline, and the colour it is filled in.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlyphLayer {
+    /// The layer's outline, in CSS pixels, the pen at the origin, as a
+    /// [`Glyph`]'s.
+    pub path: Path,
+    /// Its colour, from the font's first palette — or [`None`] for the
+    /// text's own colour, which a layer asks for with palette index
+    /// `0xFFFF`.
+    pub color: Option<Rgba>,
+}
+
+/// The layers a glyph is drawn as, bottom first, in a font whose glyphs may
+/// be layers of colour ([`Font::draws_layers`], queue item 766), at the
+/// size it is set at on a screen of `scale` — or [`None`] for a glyph that
+/// is not, a font that cannot be read, or a glyph of `COLR` version 1,
+/// whose gradients, transforms and clips are not drawn here: such a glyph
+/// is drawn as its outline, as before.
+///
+/// Version 0 only: each layer a glyph's outline filled in one colour of
+/// the font's first palette, or the text's — what Windows' Segoe UI Emoji
+/// is, read through `ttf-parser`'s own `COLR` walk.
+pub fn layers_at(font: &Font, glyph_id: u16, size: f32, scale: f32) -> Option<Vec<GlyphLayer>> {
+    if !font.draws_layers() {
+        return None;
+    }
+    let face = ttf_parser::Face::parse(font.data(), font.index()).ok()?;
+    let id = ttf_parser::GlyphId(glyph_id);
+    if !face.is_color_glyph(id) {
+        return None;
+    }
+    // The text's colour is asked for by a layer's palette index alone,
+    // which the walk does not say: so it is walked twice, told two
+    // different foregrounds, and a layer is the text's where its colour
+    // was each.
+    let walked = |foreground: ttf_parser::RgbaColor| {
+        let mut layers = Layers {
+            font,
+            size,
+            scale,
+            outline: None,
+            found: Vec::new(),
+            refused: false,
+        };
+        face.paint_color_glyph(id, 0, foreground, &mut layers)?;
+        (!layers.refused).then_some(layers.found)
+    };
+    let (first, second) = (walked(CLEAR)?, walked(WHITE)?);
+    Some(
+        first
+            .into_iter()
+            .zip(second)
+            .map(|((path, one), (_, other))| GlyphLayer {
+                path,
+                color: (one != CLEAR || other != WHITE)
+                    .then(|| Rgba::from_rgba8(one.red, one.green, one.blue, one.alpha)),
+            })
+            .collect(),
+    )
+}
+
+/// The two foregrounds [`layers_at`] walks a glyph with.
+const CLEAR: ttf_parser::RgbaColor = ttf_parser::RgbaColor {
+    red: 0,
+    green: 0,
+    blue: 0,
+    alpha: 0,
+};
+
+/// See [`CLEAR`].
+const WHITE: ttf_parser::RgbaColor = ttf_parser::RgbaColor {
+    red: 255,
+    green: 255,
+    blue: 255,
+    alpha: 255,
+};
+
+/// Collects a version 0 glyph's layers as `ttf-parser` walks them — each
+/// outline and the colour it was painted — and anything version 1 asks for
+/// (a gradient, a transform, a clip, a group) refuses the whole glyph.
+struct Layers<'f> {
+    font: &'f Font,
+    size: f32,
+    scale: f32,
+    /// The outline the next paint fills.
+    outline: Option<Path>,
+    found: Vec<(Path, ttf_parser::RgbaColor)>,
+    refused: bool,
+}
+
+impl<'a> ttf_parser::colr::Painter<'a> for Layers<'_> {
+    fn outline_glyph(&mut self, glyph_id: ttf_parser::GlyphId) {
+        self.outline = outline_at(self.font, glyph_id.0, self.size, self.scale)
+            .map(|glyph| glyph.path)
+            .or(Some(Path::new()));
+    }
+
+    fn paint(&mut self, paint: ttf_parser::colr::Paint<'a>) {
+        let ttf_parser::colr::Paint::Solid(color) = paint else {
+            self.refused = true;
+            return;
+        };
+        let Some(path) = self.outline.take() else {
+            self.refused = true;
+            return;
+        };
+        self.found.push((path, color));
+    }
+
+    fn push_clip(&mut self) {
+        self.refused = true;
+    }
+
+    fn push_clip_box(&mut self, _clipbox: ttf_parser::colr::ClipBox) {
+        self.refused = true;
+    }
+
+    fn pop_clip(&mut self) {
+        self.refused = true;
+    }
+
+    fn push_layer(&mut self, _mode: ttf_parser::colr::CompositeMode) {
+        self.refused = true;
+    }
+
+    fn pop_layer(&mut self) {
+        self.refused = true;
+    }
+
+    fn push_transform(&mut self, _transform: ttf_parser::Transform) {
+        self.refused = true;
+    }
+
+    fn pop_transform(&mut self) {
+        self.refused = true;
+    }
 }
 
 /// Turns the font's outline calls into our path, scaled and flipped.
@@ -279,5 +419,77 @@ mod tests {
         // Well past any glyph this face has.
         let glyph = outline(&font, u16::MAX, 100.0).expect("a readable font");
         assert!(glyph.is_blank());
+    }
+
+    /// A face drawn for these tests (queue item 766), its `B` three layers
+    /// of `COLR` version 0 — `alo-renderer`'s
+    /// `tests/a_glyph_in_layers_of_colour.rs` says how it was made.
+    fn layered() -> Font {
+        Font::load(
+            "alo Layered Test",
+            Weight::NORMAL,
+            Slant::Normal,
+            include_bytes!("../tests/fonts/layered.ttf").to_vec(),
+        )
+        .expect("the layered test face")
+    }
+
+    fn id_of(font: &Font, character: char) -> u16 {
+        shape(&character.to_string(), font, 10.0, Direction::LeftToRight)
+            .glyphs
+            .first()
+            .map(|glyph| glyph.glyph_id)
+            .expect("one glyph")
+    }
+
+    fn close(a: f32, b: f32) -> bool {
+        (a - b).abs() < 1e-3
+    }
+
+    #[test]
+    fn a_layered_glyph_is_its_layers_bottom_first_in_the_palettes_colours_or_the_texts() {
+        let font = layered();
+        assert!(font.draws_layers());
+        let layers = layers_at(&font, id_of(&font, 'B'), 10.0, 1.0).expect("B is layered");
+        let colors: Vec<Option<Rgba>> = layers.iter().map(|layer| layer.color).collect();
+        assert_eq!(
+            colors,
+            [
+                Some(Rgba::from_rgba8(0xe6, 0x39, 0x46, 0xff)),
+                Some(Rgba::from_rgba8(0x1d, 0x4e, 0xd8, 0xff)),
+                None,
+            ]
+        );
+        // Each layer's own outline, at 10 px of a 1000-unit em, flipped:
+        // the back 1..9 across and 0..8 up; the middle 3..7 by 2..6; the
+        // foot 1..9 by 0..1.
+        let bounds: Vec<(f32, f32, f32, f32)> = layers
+            .iter()
+            .filter_map(|layer| layer.path.bounds())
+            .collect();
+        let expected = [
+            (1.0, -8.0, 9.0, 0.0),
+            (3.0, -6.0, 7.0, -2.0),
+            (1.0, -1.0, 9.0, 0.0),
+        ];
+        assert_eq!(bounds.len(), 3);
+        for (found, wanted) in bounds.iter().zip(expected) {
+            assert!(
+                close(found.0, wanted.0)
+                    && close(found.1, wanted.1)
+                    && close(found.2, wanted.2)
+                    && close(found.3, wanted.3),
+                "{found:?} where {wanted:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_plain_glyph_and_a_face_with_no_colour_have_no_layers() {
+        let font = layered();
+        assert_eq!(layers_at(&font, id_of(&font, 'A'), 10.0, 1.0), None);
+        let sans = sans();
+        assert!(!sans.draws_layers());
+        assert_eq!(layers_at(&sans, id_of(&sans, 'B'), 10.0, 1.0), None);
     }
 }

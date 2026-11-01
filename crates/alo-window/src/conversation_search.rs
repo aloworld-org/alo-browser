@@ -45,7 +45,8 @@
 //! image proxy ([`crate::search_marks`]) — never from the site — and the
 //! window is told them ([`Came::Marks`]), before the images are asked; not
 //! when a newer search is waiting. A video's and a story's mark is fetched
-//! with its tab's answer, and told with it.
+//! with its tab's answer, and told with it; an image's with the images,
+//! after their thumbnails (queue item 768).
 //!
 //! # Videos and news (queue items 745, 746, ADR 0087)
 //!
@@ -68,7 +69,7 @@ use crate::search_marks;
 use crate::search_thumbnails;
 use alo_net::Pool;
 use alo_net::cause::Identities;
-use alo_renderer::results::{Images, PROVIDER, SetUp, Showing, Stories, Videos};
+use alo_renderer::results::{Images, PROVIDER, Pictured, SetUp, Showing, Stories, Videos};
 use alo_renderer::results_media::{Story, Video};
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -537,7 +538,20 @@ fn asked_images(
         return Images::NotAsked;
     };
     match brave_search::images(provider, pool, identities, words) {
-        Ok(found) => Images::Found(search_thumbnails::fetch(pool, identities, from, found).images),
+        Ok(found) => {
+            let fetched = search_thumbnails::fetch(pool, identities, from, found);
+            // Each image's site's mark, from the proxy alone, as a site's
+            // is (queue item 768, ADR 0088 §§ 6–8).
+            let marked = search_marks::fetch(pool, identities, Some(from), &fetched.marks);
+            Images::Found(
+                fetched
+                    .images
+                    .into_iter()
+                    .zip(marked.marks.into_iter().chain(core::iter::repeat(None)))
+                    .map(|(image, mark)| Pictured { mark, ..image })
+                    .collect(),
+            )
+        }
         Err(why) => Images::Unanswered(why),
     }
 }

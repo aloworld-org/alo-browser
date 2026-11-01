@@ -1,0 +1,29 @@
+/* Pictures rounded by their own `border-radius` (queue item 769). A
+   replaced box's content is trimmed to its content edge's curve: each
+   radius resolved against the border box, fitted to it, then less the
+   border and the padding beside it, never below square — CSS Backgrounds 3
+   § 5.3, and Chrome 156 in 27 of 27 probes at eight. `ringed` has a blue
+   border the picture meets with no white between; `padded` shows the
+   padding's red rounded by the padding edge's curve around the picture's
+   smaller one; `squared`'s radius is less than its padding, so its picture
+   is square. `tenths` and `tenths-ringed` are laid out at fractions of a
+   pixel. `tests/rounded_pictures.rs` says what each is. */
+body { margin: 0; background: #ffffff }
+img { position: absolute; width: 40px; height: 40px }
+.r4 { left: 10px; top: 10px; border-radius: 4px }
+.ringed { left: 70px; top: 10px; border: 3px solid #1d4ed8; border-radius: 10px }
+.padded { left: 130px; top: 10px; padding: 5px; background: #c0392b;
+  border-radius: 20px }
+.squared { left: 200px; top: 10px; padding: 5px; background: #c0392b;
+  border-radius: 4px }
+.circle { left: 270px; top: 10px; border-radius: 50% }
+.ellipse { left: 330px; top: 10px; border-radius: 30px / 10px }
+.uneven { left: 390px; top: 10px; border: 2px solid #1d4ed8; padding: 3px;
+  background: #c0392b; border-radius: 12px 4px }
+.fitted { left: 10px; top: 70px; width: 60px; height: 30px; border-radius: 100px }
+.corners { left: 90px; top: 70px; width: 60px; height: 44px;
+  border-radius: 4px 12px 20px 8px }
+.tenths { left: 170.3px; top: 70.4px; width: 41.5px; height: 33.25px;
+  padding: 2.25px; background: #c0392b; border-radius: 7.5px }
+.tenths-ringed { left: 240.6px; top: 70.7px; width: 40.3px; height: 40.3px;
+  border: 2px solid #1d4ed8; border-radius: 9.5px }

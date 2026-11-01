@@ -110,7 +110,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] One shape type and one rasteriser, so a glyph and the box behind it agree along the edge they share. **A shape's edge pixels are sampled sixteen by sixteen** (queue item 459, `alo-paint`'s `refine.rs`): the rented rasteriser fills it, and every 16-pixel tile an edge passes through is filled again four times larger and averaged, so a small curve is covered as its area says (within 3 of 255 on a dot and a corner rounded 2.5) and alike on both sides, at the cost of the edge's pixels alone. Letters are sampled the same way (queue item 462): against Chrome 154's screenshots of `DejaVu Sans` at 12, 13 and 16 px (`alo-corpus`' `letters-at-three-sizes`), every line is nearer than with the rented four by four, and within a measured bound held by `letters_against_chromes.rs`. What remains is Chrome's own font rasteriser on macOS — it thickens every letter, about an eighth more ink (576), and pulls an `x`'s and a capital's top up to a whole pixel (577)
 - [1] A display list from the box tree
 - [1] **A software rasteriser to a PNG.** Deterministic and diffable, needing no GPU and no window — which is what makes every item testable from the first one
-- [1] Rounded corners, and clipping to them — one question asked twice: what shape is this box. A corner's pixels are covered as its area says (459). **A rounded clip inside a border follows the border's inner curve** (queue item 588): each radius resolved against the border box, fitted to it and less the border beside it, as Chrome 154 was measured clipping 60 of 60 bordered, rounded boxes at one, two and eight; corpus case `rounded-clips-inside-borders`, every plain pixel Chrome's at both scales. **A border whose sides differ fills its rounded corners** (queue item 592): a `solid` border of one colour is one ring, the border box's shape less the padding box's, whatever each side's width, and any other border is drawn side by side, its sides split on the mitre through the border box's corner and the padding box's and carried into a rounded corner as far as its inner curve — as Chrome 154 was measured drawing sixteen such boxes at one, two and eight; corpus case `borders-side-by-side`, every plain pixel Chrome's at both scales, where four rectangles used to give one side a square corner and leave the inside of a rounded one white. Not yet: dashes and dots placed along a rounded corner as Chrome places them (596)
+- [1] Rounded corners, and clipping to them — one question asked twice: what shape is this box. A corner's pixels are covered as its area says (459). **A rounded clip inside a border follows the border's inner curve** (queue item 588): each radius resolved against the border box, fitted to it and less the border beside it, as Chrome 154 was measured clipping 60 of 60 bordered, rounded boxes at one, two and eight; corpus case `rounded-clips-inside-borders`, every plain pixel Chrome's at both scales. **A border whose sides differ fills its rounded corners** (queue item 592): a `solid` border of one colour is one ring, the border box's shape less the padding box's, whatever each side's width, and any other border is drawn side by side, its sides split on the mitre through the border box's corner and the padding box's and carried into a rounded corner as far as its inner curve — as Chrome 154 was measured drawing sixteen such boxes at one, two and eight; corpus case `borders-side-by-side`, every plain pixel Chrome's at both scales, where four rectangles used to give one side a square corner and leave the inside of a rounded one white. Not yet: dashes and dots placed along a rounded corner as Chrome places them (596). **A picture is trimmed to its content edge's curve** (queue item 769): an `<img>` with its own `border-radius` is drawn under a clip of its content box rounded by each radius resolved against the border box, fitted to it, and less the border and the padding beside it, never below square (`alo-paint`'s `content_curve.rs`) — CSS Backgrounds 3 § 5.3, and Chrome 156 in 27 of 27 probes at eight; corpus case `rounded-pictures`, every plain pixel Chrome's at one and two, with each picture's clip asserted in numbers (`tests/rounded_pictures.rs`). Not yet: Chrome's own curve for a picture at fractions of a pixel at one and two (783); an `<svg>`'s or an SVG picture's drawing rounded (784)
 - [1] **Shadows and gradients**: `box-shadow` (with `inset`), `text-shadow`, `linear-gradient`, `radial-gradient` — a shadow is coverage blurred, so what is behind it is not blurred with it. A spread shadow's corners are CSS Backgrounds 3's (queue item 573): a radius at least the spread grows by all of it, a smaller one by the spread times `1 + (r − 1)³` (`r` the radius over the spread), so a square box's shadow is square; each of a corner's two radii on its own, from the radii as fitted to the box, and a shape that shrinks loses the spread from each radius down to square. Chrome 154 was measured drawing exactly that on 82 boxes at eight device pixels to one — 48 outset radius and spread pairs, circular and elliptical, 30 inset or shrinking, and 4 whose radii were fitted first; corpus case `spread-shadow-corners` is its pictures at one and at two wherever both are a plain colour, and its curves' edges within 37 and 43 of 255. Not yet: an inset shadow's corners from the padding box's radii rather than the border box's (585)
 - [2] **A background of several layers** (queue item 313): `background` and `background-image` as a comma list, the colour beneath them all and the first layer written on top. A radial gradient is a `circle` or an `ellipse`, sized by any of the four extent keywords and centred `at` a position of one or two keywords, percentages or pixel lengths. Gradient stops are mixed with their alpha premultiplied, so a fade to `transparent` keeps its colour. A `url()` layer is recorded and the others drawn (its picture is 311); a layer that also says where its picture sits, how big it is or whether it repeats is refused whole and recorded, as are a radial size written as lengths and a position of three or four parts. Opened by `alo-meet-greeting`, whose corner tint it draws
 - [2] **Two-toned borders**: `inset`, `outset`, `groove` and `ridge`, in a darker and a lighter tone of the border's colour, each side mitred so that a corner splits where the tones change, and a groove's halves following a rounded corner (queue item 190), **in Chrome 154's tones** (queue item 508): 0.33 off or on the brightest channel, hue kept, and a colour no brighter than `rgb(32, 32, 32)` drawn lighter instead, so a black `outset` is 168 and 84 as in Chrome, and one brighter than `rgb(235, 235, 235)` its own lighter tone; a button whose page sets its background is Chrome's screenshot on every side to the level (not yet: a mitre's diagonal pixel, 518), and a fieldset's `groove` — the user-agent sheet's, as other browsers draw it — broken by its legend, the legend's part of the line cut out and the corners left whole (queue item 267)
@@ -885,6 +885,17 @@ The reason this exists rather than a faster fork of somebody else's engine.
   while the card is still at the first page, a link answered `204` stops
   saying it at the page it was at, and *Back* to a held page says it from
   the press (`tests/a_cards_loading_from_a_navigations_start_through_chrome.rs`).
+  **A `mailto:` link in a card** (777, ADR 0060's fifth amendment): a
+  refusal is no error page — the card stays at its page, drawn. The
+  machine's Chrome leaves the page as it was; alo's CEF host committed
+  Chrome's error page over it, and now cancels, before Chromium decides
+  it, every navigation to a scheme Chromium does not load itself
+  (`alo-cef-host`'s `handed.rs`, through `OnBeforeBrowse`). Through both
+  programs a `mailto:` link pressed in the card leaves it at its page,
+  drawn in the colour the link's click gave it, for three seconds after
+  (`tests/a_mailto_link_in_a_card_through_chrome.rs`). Whether the
+  machine's Chrome hands the address to another program is not measured
+  (782).
   **A card's frames at the window's scale** (738, ADR 0090): the card's
   Chromium is started told the conversation window's scale
   (`--force-device-scale-factor`), so its page is drawn and streamed at it
@@ -999,8 +1010,17 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`messages_across_a_boundary.rs`), a fetch bounded against a local proxy
   (`alo-window/tests/a_sites_marks_fetched_and_bounded.rs`) and through the
   window's own road (`alo-window/tests/a_sites_mark_in_the_window.rs`).
-  Owed: the Images grid's mark (768); a picture rounded by its own
-  `border-radius` (769).
+  Since 769 the mark is the `<img>` alone, rounded by its own
+  `border-radius`, no clipping tile. **The Images grid's marks** (768):
+  an image's `meta_url.favicon`, which Brave's reference documents for
+  image results as for web ones, is read, fetched from the proxy alone
+  after the thumbnails, weighed with the marks, sent only on the Images
+  tab, and drawn in the grid's 14 square rounded 4, the letter where it
+  does not read — in a layout assertion and the reference
+  `images-tab-with-marks.png` (`alo-renderer/tests/a_sites_own_mark.rs`),
+  and through the window's own road, the second image's mark named at its
+  site never asked
+  (`alo-window/tests/images_and_sites_pressed_in_the_window.rs`).
   **A card that fails says why, and a page that replaces itself opens**
   (749): a page that replaces itself before its `load` — reddit's
   challenge — was waited on by its first loader, which never loads, for
@@ -1064,9 +1084,17 @@ The reason this exists rather than a faster fork of somebody else's engine.
   picture, drawn down from the face's strike (`alo-paint`'s
   `glyph_picture.rs`). Its licence is in the application. The face that
   drew each character, by name, a layout assertion and a reference render
-  (`alo-renderer/tests/emoji_in_a_searchs_results.rs`). Owed: `COLR` and
-  `SVG` colour faces, and an emoji's shadow (766); CJK in the interface,
-  still `LastResort`'s box on macOS (767).
+  (`alo-renderer/tests/emoji_in_a_searchs_results.rs`). **A `COLR`
+  version 0 glyph in its colours** (766): drawn as its layers, bottom
+  first, each in its palette colour or the text's, never as its own plain
+  outline (`alo-paint`'s `glyph::layers_at` through `ttf-parser`'s `COLR`
+  walk, `glyph_layers.rs`), what Windows' Segoe UI Emoji is — in numbers,
+  in pixels at one and two, a reference render and Chrome 156's pixels of
+  a test face made for it
+  (`alo-renderer/tests/a_glyph_in_layers_of_colour.rs`). Owed: `COLR`
+  version 1 and `SVG ` colour glyphs (785), an emoji's shadow and a line
+  stepping aside for it (786); CJK in the interface, still `LastResort`'s
+  box on macOS (767).
   **The conversation keeps every turn, and scrolls** (703, ADR 0085):
   each search and each page opened — from the box, a site's title or a
   page shown earlier — is a turn under the last, the person's words its

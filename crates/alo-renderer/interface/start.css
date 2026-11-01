@@ -594,19 +594,12 @@ a {
   background: #6b655c;
 }
 
-/* A site's own mark (queue item 747): its icon from Brave's proxy, drawn in
-   the letter's 18 square and rounded as its tile is; transparent where the
-   icon is. */
+/* A site's own mark (queue item 747): its icon from Brave's proxy, an
+   `<img>` in the letter's 18 square, rounded by its own radius as the
+   tile is (769); transparent where the icon is. */
 .fav.icon {
   display: block;
-  overflow: hidden;
   background: transparent;
-}
-
-.fav.icon img {
-  display: block;
-  width: 18px;
-  height: 18px;
 }
 
 .t {

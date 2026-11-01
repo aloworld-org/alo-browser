@@ -26,7 +26,8 @@
 //! page refused unless it is a site's, its picture as an image's is, and
 //! more than [`MOST_VIDEOS`] refused; each story's the same, with no
 //! picture, more than [`MOST_STORIES`] refused. Each site, video and story
-//! carries its site's mark, if one is sent (queue item 747): refused larger
+//! — and each image, after its thumbnail (768) — carries its site's mark,
+//! if one is sent (queue item 747): refused larger
 //! than [`LARGEST_MARK`] or unless it begins as a picture. Then the tab shown (744),
 //! by a tag, refused unless it can be chosen ([`Results::open`]).
 
@@ -157,6 +158,7 @@ impl Writer {
                     self.text(&image.page.serialised);
                     self.text(&image.source);
                     self.picture(image.picture.as_ref());
+                    self.picture(image.mark.as_ref());
                 }
             }
             Images::Unanswered(why) => {
@@ -266,11 +268,13 @@ impl Reader<'_> {
                         })?;
                     let source = self.text()?;
                     let picture = self.picture()?;
+                    let mark = self.mark()?;
                     found.push(Pictured {
                         title,
                         page,
                         source,
                         picture,
+                        mark,
                     });
                 }
                 Images::Found(found)

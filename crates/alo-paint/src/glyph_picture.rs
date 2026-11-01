@@ -22,9 +22,10 @@
 //! # What is not drawn
 //!
 //! A glyph whose picture does not read is drawn as nothing, as a glyph with
-//! no outline is. A colour face whose glyphs are layers of outlines (`COLR`)
-//! or SVG documents is not drawn in colour here: its outlines, where it has
-//! them, are drawn as text (queue item 766).
+//! no outline is. A colour face whose glyphs are layers of outlines
+//! (`COLR` version 0) is drawn by [`crate::glyph_layers`] (queue item 766);
+//! one of `COLR` version 1 or SVG documents is not drawn in colour: its
+//! outlines, where it has them, are drawn as text (785).
 
 use crate::canvas::Canvas;
 use crate::glyph::picture_at;

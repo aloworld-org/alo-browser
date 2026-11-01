@@ -165,11 +165,18 @@ is text in the tree; its picture is paint.
   carried for CJK is 16–20 MB a weight and is not proposed.
 - **A `COLR` or `SVG` face is drawn as its outlines**, in the text's colour,
   where it has them (Segoe UI Emoji's base glyphs). Queued with `COLR`
-  v1 (766).
+  v1 (766). *Since queue item 766 (1 November 2026)* a `COLR` **version
+  0** glyph is drawn as its layers, bottom first, each filled in the first
+  palette's colour or the text's (`0xFFFF`), and never as its own plain
+  outline (`alo-paint`'s `glyph::layers_at`, `glyph_layers.rs`); Chrome
+  156 draws a test face of the same bytes the same in every pixel of one
+  colour (`alo-renderer/tests/a_glyph_in_layers_of_colour.rs`). A
+  version 1 glyph and an `SVG ` glyph are still their outlines (785).
 - **An emoji casts no `text-shadow`** and a decoration line does not step
   aside for it: the shadow is cast by the run's outlines, which a picture
   glyph has none of. Nothing in the interface shadows text; queued with
-  766.
+  766, and since then on its own (786) — a layered glyph, whose own
+  outline is left out, casts none either.
 - **Pages are unchanged on macOS and Windows.** A page's renderer is never
   handed Noto. The rule of § 3 runs everywhere, but a page reaches a face
   of pictures only where the machine scan hands it one — a Linux machine
@@ -228,6 +235,22 @@ round, since this engine does not round a picture by its own
 grid (its 14-square letters): whether Brave's image results name a site's
 mark is not read here, and is queued (768). A mark is decoration, hidden
 from the tree, as the letter was.
+
+*Since queue item 769 (1 November 2026)* the engine trims a picture to its
+own content edge's curve, and the mark is the `<img>` alone, `fav icon`,
+rounded 5 by `.fav`'s own radius: no tile around it. The three reference
+renders of `a_sites_own_mark.rs` are unchanged, pixel for pixel.
+
+*Since queue item 768 (1 November 2026)* the Images grid is marked too.
+Brave's reference documents an image result's `meta_url` with the same
+`favicon` (*"The favicon used for the URL"*) as a web result's — read from
+the reference, not from a real answer, which no test asks for. It is read
+as a site's is (`search_protocol::image`), fetched after the images'
+thumbnails by the same `search_marks::fetch` — the proxy alone, once each,
+16 KiB, twenty an answer — counted in the first screen's budget with the
+other marks (before the thumbnails), sent only on the Images tab, and drawn
+by `marks_document::small_mark` in `.fav.small`'s 14 square rounded 4,
+the letter where it does not read.
 
 ## Consequences
 

@@ -375,3 +375,42 @@ to do, which ADR 0008 asks for; it is not Chrome's to work around nor
 ours. The application's own page says what a person must do: allow it,
 there or in System Settings under Privacy & Security, Local Network.
 
+
+## Fifth amendment, 2026-11-01 — a refused scheme leaves the page as it was (queue item 777)
+
+§ 2 refuses a scheme a page may not send its tab to, and says so by name —
+but a `mailto:` link, or any scheme Chromium does not load itself, is never
+paused, so what the page is left showing was Chromium's to decide. Measured
+over the pipe (770, ADR 0089's amendment): the machine's Chrome 156 starts
+the navigation and stops it with nothing committed; alo's CEF host (CEF
+156.0.14) committed Chrome's error page (`chrome-error://chromewebdata/`)
+over the page, so a card showed an error where the person's page had been.
+
+**Decided: a refusal is no error page.** A page asking to go to a scheme
+Chromium would hand to another program stays where it was, drawn, as the
+machine's Chrome leaves it, and nothing is handed on. In the Chromium alo
+carries that is the host's to do, and it does it **before Chromium decides
+the navigation**: every page's client has a request handler whose
+`OnBeforeBrowse` cancels a navigation — of the page's own frame or a frame
+inside it — to any scheme outside the sixteen Chromium loads itself
+(`alo-cef-host`'s `handed.rs`: `http`, `https`, `ws`, `wss`, `file`,
+`data`, `blob`, `filesystem`, `about`, `javascript` and Chromium's own
+pages). A cancelled navigation is CEF's `ERR_ABORTED`, which commits
+nothing. Every scheme Chromium loads stays alo's gate's to judge, as § 2
+says, and the host's own `--app=data:,` is never cancelled. The rule is a
+superset of § 2's refusals for what is handed elsewhere, and names no scheme
+§ 2 lets go.
+
+**Tested** through the window's own road and both programs
+(`alo-window`'s `a_mailto_link_in_a_card_through_chrome.rs`): a teal page
+whose `mailto:` link turns it orange as it is clicked, the link pressed in
+the card — the card's frame turns orange, and for three seconds after the
+card is at the page it was at, drawn orange, never said unopened, not
+loading. With the host cancelling nothing, the card's frame is the white
+error page within the press's first frames, and the test fails.
+
+**Not measured:** whether the machine's Chrome, shown, hands a pressed
+`mailto:` to the program the machine names for it (on this Mac, Chrome
+itself) — the page is left as it was either way, and the hand-off is
+Chrome's external protocol handler, which nothing of alo's stands in front
+of (queue item 782).
