@@ -47,6 +47,11 @@ same socket; `--agent-site` keeps it to sites as for the others. When there is n
 or another browser is already answering there, it says so and opens no socket.
 On Windows how an agent reaches the browser is not decided yet.
 
+alo's own agent (queue item 704, ADR 0096) reaches the card through the
+same relay, with the same asks and verbs, answered and refused alike and
+recorded beside every other agent as *alo's own agent* — never through a
+road of its own.
+
 `alo-ask [SOCKET]` is the smallest caller. It sends each line it reads and
 prints each answer.
 
@@ -268,6 +273,7 @@ caller must never depend on it.
 | `NothingLoaded` | `tab` | |
 | `TabGone` | `tab` | The tab's renderer is gone, or could not answer. `said` says why |
 | `NotCarriedOut` | `tab` | The verb was decided and the renderer did not carry it out, so nothing was done: through Chrome, the node was drawn nowhere, its middle is under something else, the page went elsewhere while the verb was decided, or a date Chrome's date field would not hold as it was written — past `275760-09-13`, or a year of more than four digits that starts with `0` — was not typed (queue item 632), or an option of a closed `<select>`, which Chrome draws no box for and every key to which chooses options on the way, was not pressed (queue item 660). `said` says which |
+| `Password` | `tab`, `node` | `put_text` was aimed at a password field of a page shown as a card in the conversation (`alo --conversation`, queue item 704, ADR 0096 § 6): no agent types a password there — signing in is the person's step — and nothing was typed. Judged on the element itself, before anything is sent to the page. `alo --chrome` and this engine's tabs do not refuse it |
 | `TreeTooDeep` | `tab`, `most` | |
 | `TooManyCallers` | `most` | |
 

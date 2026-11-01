@@ -101,6 +101,12 @@ impl Provider {
         self.model
     }
 
+    /// Where its key is held: carried by the application, or in this Mac's
+    /// keychain — what a refusal of it says.
+    pub fn held(&self) -> Held {
+        self.key.held()
+    }
+
     /// The request for an answer to `question` from `sources`, made as the
     /// person's.
     pub fn request(
@@ -109,15 +115,27 @@ impl Provider {
         sources: &[Found],
         identities: &mut Identities,
     ) -> Request {
+        self.post(
+            answer_protocol::request_body(self.model, question, sources),
+            answer_protocol::LARGEST,
+            identities,
+        )
+    }
+
+    /// The request posting `body` to the Responses API, made as the
+    /// person's, its answer read to at most `largest` bytes: an answer's
+    /// ([`Self::request`]) or the agent's step (queue item 704,
+    /// [`crate::agent_protocol`]), with the same headers and nothing more.
+    pub fn post(&self, body: Vec<u8>, largest: usize, identities: &mut Identities) -> Request {
         let mut request = Request::sending(
             self.endpoint.clone(),
             "POST",
-            answer_protocol::request_body(self.model, question, sources),
+            body,
             Cause::Person {
                 tab: identities.a_tab(),
             },
         )
-        .reading_at_most(answer_protocol::LARGEST as u64);
+        .reading_at_most(largest as u64);
         request.headers.add("Content-Type", "application/json");
         request.headers.add("Accept", "application/json");
         request.headers.add(
@@ -174,7 +192,17 @@ pub fn ask(
 /// What a person is told when `OpenAI`'s answer has the status `status`, not
 /// 200, to a request asked with a key `held` there.
 pub fn unanswered(status: u16, held: Held) -> String {
-    let why = match (status, held) {
+    format!(
+        "alo could not write an answer: {}",
+        why_unanswered(status, held)
+    )
+}
+
+/// Why `OpenAI` did not answer with the status `status`, not 200, to a
+/// request asked with a key `held` there: the sentence an answer and the
+/// agent (queue item 704) both say after their own words.
+pub fn why_unanswered(status: u16, held: Held) -> String {
+    match (status, held) {
         (401 | 403, Held::Keychain) => format!(
             "{ANSWERER} refused alo's key ({status}). The key in this Mac's keychain may be \
              wrong or revoked."
@@ -190,8 +218,7 @@ pub fn unanswered(status: u16, held: Held) -> String {
         ),
         (500..=599, _) => format!("{ANSWERER} could not answer just now ({status})."),
         _ => format!("{ANSWERER} answered {status}, which alo does not read."),
-    };
-    format!("alo could not write an answer: {why}")
+    }
 }
 
 #[cfg(test)]

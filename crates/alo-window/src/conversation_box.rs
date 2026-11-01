@@ -33,7 +33,7 @@
 
 use crate::typing::Edit;
 use alo_renderer::results::{PROVIDER, SetUp};
-use alo_renderer::typed::{LONGEST_TYPED, Offer, offers};
+use alo_renderer::typed::{LONGEST_TYPED, Offer, offers_for};
 
 /// The one box.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -69,10 +69,12 @@ impl TheBox {
     }
 
     /// What is offered under the box now, in order: nothing unless it has
-    /// the keyboard and something is typed.
-    pub fn offers(&self) -> Vec<Offer> {
+    /// the keyboard and something is typed — asking alo before searching
+    /// when `asks_first`, while a card is open and the agent can be asked
+    /// (queue item 704).
+    pub fn offers(&self, asks_first: bool) -> Vec<Offer> {
         if self.focused {
-            offers(&self.typed)
+            offers_for(&self.typed, asks_first)
         } else {
             Vec::new()
         }
@@ -98,12 +100,13 @@ impl TheBox {
 
     /// What the first offer is, if anything is offered: what Return and
     /// *Go* choose.
-    pub fn choice(&self) -> Option<Offer> {
-        self.offers().into_iter().next()
+    pub fn choice(&self, asks_first: bool) -> Option<Offer> {
+        self.offers(asks_first).into_iter().next()
     }
 
-    /// Make `edit`, if the box has the keyboard.
-    pub fn edit(&mut self, edit: Edit) -> Typed {
+    /// Make `edit`, if the box has the keyboard, offering as `asks_first`
+    /// says.
+    pub fn edit(&mut self, edit: Edit, asks_first: bool) -> Typed {
         if !self.focused {
             return Typed::Unchanged;
         }
@@ -122,7 +125,9 @@ impl TheBox {
                 true
             }
             Edit::Choose => {
-                return self.choice().map_or(Typed::Unchanged, Typed::Chose);
+                return self
+                    .choice(asks_first)
+                    .map_or(Typed::Unchanged, Typed::Chose);
             }
         };
         if changed {
@@ -134,8 +139,16 @@ impl TheBox {
 }
 
 /// What the window says, in the first screen's line, when `chosen` was
-/// chosen, searching being as `search` says (queue item 708).
-pub fn said(chosen: &Offer, search: &SetUp) -> String {
+/// chosen, searching being as `search` says (queue item 708) and asking
+/// alo as `asking` does (queue item 704).
+pub fn said(chosen: &Offer, search: &SetUp, asking: &SetUp) -> String {
+    if let Offer::Ask(words) = chosen {
+        return match asking {
+            SetUp::Ready => format!("alo is working on the page: \u{201c}{words}\u{201d}"),
+            SetUp::Not(why) if why.trim().is_empty() => "asking alo is not set up yet".to_owned(),
+            SetUp::Not(why) => format!("asking alo is not set up yet: {why}"),
+        };
+    }
     match (chosen, search) {
         (Offer::Go(url), _) => format!("going to {url}"),
         (Offer::Search(words), SetUp::Ready) => {
@@ -145,9 +158,7 @@ pub fn said(chosen: &Offer, search: &SetUp) -> String {
             "searching is not set up yet".to_owned()
         }
         (Offer::Search(_), SetUp::Not(why)) => format!("searching is not set up yet: {why}"),
-        (Offer::Ask(_), _) => {
-            "asking alo is not set up yet: no model has been chosen (queue item 707)".to_owned()
-        }
+        (Offer::Ask(_), _) => String::new(),
     }
 }
 
@@ -162,16 +173,16 @@ mod tests {
     }
 
     fn put(the_box: &mut TheBox, text: &str) -> Typed {
-        the_box.edit(Edit::Put(text.to_owned()))
+        the_box.edit(Edit::Put(text.to_owned()), false)
     }
 
     #[test]
     fn without_the_keyboard_nothing_is_typed_or_offered() {
         let mut the_box = TheBox::default();
         assert_eq!(put(&mut the_box, "example.com"), Typed::Unchanged);
-        assert_eq!(the_box.edit(Edit::Choose), Typed::Unchanged);
+        assert_eq!(the_box.edit(Edit::Choose, false), Typed::Unchanged);
         assert_eq!(the_box.typed(), "");
-        assert!(the_box.offers().is_empty());
+        assert!(the_box.offers(false).is_empty());
     }
 
     #[test]
@@ -181,46 +192,60 @@ mod tests {
             assert_eq!(put(&mut the_box, &letter.to_string()), Typed::Changed);
         }
         assert_eq!(the_box.typed(), "example.com");
-        let Typed::Chose(Offer::Go(url)) = the_box.edit(Edit::Choose) else {
-            panic!("not gone to: {:?}", the_box.offers());
+        let Typed::Chose(Offer::Go(url)) = the_box.edit(Edit::Choose, false) else {
+            panic!("not gone to: {:?}", the_box.offers(false));
         };
         assert_eq!(url.to_string(), "https://example.com/");
-        assert_eq!(the_box.offers().len(), 3);
+        assert_eq!(the_box.offers(false).len(), 3);
     }
 
     #[test]
     fn return_on_a_question_chooses_search_which_is_not_set_up() {
         let mut the_box = focused();
         let _ = put(&mut the_box, "what is x");
-        let chosen = the_box.edit(Edit::Choose);
+        let chosen = the_box.edit(Edit::Choose, false);
         assert_eq!(chosen, Typed::Chose(Offer::Search("what is x".to_owned())));
         let missing = SetUp::Not("no Brave Search key in this Mac's keychain".to_owned());
         if let Typed::Chose(offer) = chosen {
             assert_eq!(
-                said(&offer, &missing),
+                said(&offer, &missing, &SetUp::Ready),
                 "searching is not set up yet: no Brave Search key in this Mac's keychain"
             );
             assert_eq!(
-                said(&offer, &SetUp::Ready),
+                said(&offer, &SetUp::Ready, &SetUp::Ready),
                 "searching Brave Search for \u{201c}what is x\u{201d}"
             );
         }
-        assert!(said(&Offer::Ask(String::new()), &SetUp::Ready).contains("not set up yet"));
+        // Asking alo says what it does when it is set up, and why not when
+        // it is not (queue item 704).
+        let ask = Offer::Ask("send it".to_owned());
+        assert_eq!(
+            said(&ask, &SetUp::Ready, &SetUp::Ready),
+            "alo is working on the page: \u{201c}send it\u{201d}"
+        );
+        assert_eq!(
+            said(
+                &ask,
+                &SetUp::Ready,
+                &SetUp::Not("no page is open".to_owned())
+            ),
+            "asking alo is not set up yet: no page is open"
+        );
         // Nothing typed is nothing to choose.
-        assert_eq!(focused().edit(Edit::Choose), Typed::Unchanged);
+        assert_eq!(focused().edit(Edit::Choose, false), Typed::Unchanged);
     }
 
     #[test]
     fn backspace_erases_and_escape_empties_then_lets_go() {
         let mut the_box = focused();
         let _ = put(&mut the_box, "exampl€");
-        assert_eq!(the_box.edit(Edit::Erase), Typed::Changed);
+        assert_eq!(the_box.edit(Edit::Erase, false), Typed::Changed);
         assert_eq!(the_box.typed(), "exampl");
-        assert_eq!(the_box.edit(Edit::Clear), Typed::Changed);
+        assert_eq!(the_box.edit(Edit::Clear, false), Typed::Changed);
         assert_eq!(the_box.typed(), "");
         assert!(the_box.focused());
-        assert_eq!(the_box.edit(Edit::Erase), Typed::Unchanged);
-        assert_eq!(the_box.edit(Edit::Clear), Typed::Changed);
+        assert_eq!(the_box.edit(Edit::Erase, false), Typed::Unchanged);
+        assert_eq!(the_box.edit(Edit::Clear, false), Typed::Changed);
         assert!(!the_box.focused());
     }
 
@@ -231,11 +256,11 @@ mod tests {
         assert!(the_box.blur());
         assert!(!the_box.blur());
         assert_eq!(the_box.typed(), "example.com");
-        assert!(the_box.offers().is_empty());
-        assert_eq!(the_box.choice(), None);
+        assert!(the_box.offers(false).is_empty());
+        assert_eq!(the_box.choice(false), None);
         assert!(the_box.focus());
         assert!(!the_box.focus());
-        assert_eq!(the_box.offers().len(), 3);
+        assert_eq!(the_box.offers(false).len(), 3);
     }
 
     #[test]

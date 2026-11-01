@@ -303,8 +303,8 @@ Nothing is replaced. Within a turn the bubble and what follows are 16 apart
   right edge, in the gutter beside the column — as long against the room as
   the room is against the whole conversation, never under 32, and as far
   down it as the conversation is scrolled. Nothing presses it yet (793).
-- The agent's own words and its steps are turns too, when there is an agent
-  to say them (704, 707).
+- The agent's own words and its steps are drawn on its live card (704);
+  kept as turns of the chat is 820.
 
 ## The answer
 
@@ -381,6 +381,32 @@ that way, and greyed otherwise. The blank page the card's window began at is
 not the card's, so a card's first page has *Back* greyed (item 737).
 
 ## The agent at work
+
+### What is built of it (item 704, ADR 0096)
+
+Words typed while a card is open, and Return, ask alo: the box offers *Ask
+alo about "…"* first, saying *alo works on this page*. The agent works on
+the card's page through the same road an agent on the socket takes, one
+step at a time, and is drawn **under the page, inside the card**: while it
+works the card and its page are outlined in terracotta (2 over the page,
+the card's border and 1 more around it), and a line 36 tall on
+`#F6E7E0` says *alo is working on this page · click anywhere to take over*
+in `#7A3A24`, 13 px, 600, with **Stop** at its end (28 tall, rounded 8,
+outlined terracotta); 10 under it what the person asked (13.5 on 20, 600),
+then one line per step in the quiet colour, 6 apart, why under a step when
+it chose (12.5 on 18), the step under way in terracotta. Asking before
+pressing what pays, sends, deletes or sends a form: a box rounded 12, 12
+by 14 inside, the question (600), then **Allow** in the ink and **Not
+now**, 28 tall, 8 apart. Stuck: why, then each choice as a button. Done:
+*Done in N steps* in the done colour and the result in full. A press on
+the page stops it and gives the person the page. It never types a
+password: the card refuses it, for any agent. Not built yet: the split
+view below, a sentence of plan and the next steps greyed, carrying on
+after taking over, what, when, where and how much before paying (819);
+the run kept as turns of the chat (820); an agent opening its own page
+(821).
+
+### As designed
 
 - The window splits: the page large on the left, the agent's column on the
   right (384 px), the panel a rail.

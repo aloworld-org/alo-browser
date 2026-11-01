@@ -57,6 +57,10 @@
 //! order drawn, oldest turn first; what is scrolled out of the room is
 //! clipped, and a press there finds nothing to claim.
 //!
+//! The agent at work on a card's page (queue item 704) is pressed the same
+//! way: its *Stop*, *Allow* and *Not now*, each one of the closed list,
+//! and a stuck agent's choice by its place among the choices drawn.
+//!
 //! The offers for what was typed (queue items 701, 714), under the box or
 //! above it in a conversation, are claimed by their place among the offers
 //! drawn, whichever of them Return would choose and whether or not each is
@@ -190,6 +194,19 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The agent's *Stop*, while it works on the card's page (queue item
+    /// 704).
+    Stop,
+    /// The agent's *Allow*, under the question it asks before acting.
+    Allow,
+    /// The agent's *Not now*, beside *Allow*.
+    NotNow,
+    /// The choice at this place among those a stuck agent offers, counting
+    /// from zero.
+    Choice {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -218,7 +235,11 @@ impl Claim {
             | Claim::SeeAllImages { .. }
             | Claim::ShowMoreSites { .. }
             | Claim::FullAnswer { .. }
-            | Claim::Image { .. } => Part::Start,
+            | Claim::Image { .. }
+            | Claim::Stop
+            | Claim::Allow
+            | Claim::NotNow
+            | Claim::Choice { .. } => Part::Start,
         }
     }
 }
@@ -249,6 +270,10 @@ impl fmt::Display for Claim {
             Claim::ShowMoreSites { at } => write!(f, "the Show more sites at place {at}"),
             Claim::FullAnswer { at } => write!(f, "the Full answer at place {at}"),
             Claim::Image { at } => write!(f, "the image found at place {at}"),
+            Claim::Stop => f.write_str("the agent's Stop"),
+            Claim::Allow => f.write_str("the agent's Allow"),
+            Claim::NotNow => f.write_str("the agent's Not now"),
+            Claim::Choice { at } => write!(f, "the agent's choice at place {at}"),
         }
     }
 }
@@ -315,6 +340,12 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
                 &["im", "im held", "pic"],
                 Pressable::Placed(|at| Claim::Image { at }),
             ),
+            // The agent at work on the card's page (queue item 704): Stop,
+            // Allow and Not now each one of a kind, a choice by its place.
+            (&["abtn stop"], Pressable::One(Claim::Stop)),
+            (&["abtn allow"], Pressable::One(Claim::Allow)),
+            (&["abtn notnow"], Pressable::One(Claim::NotNow)),
+            (&["achoice"], Pressable::Placed(|at| Claim::Choice { at })),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).
             (

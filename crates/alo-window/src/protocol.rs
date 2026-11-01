@@ -537,6 +537,10 @@ fn refused(refused: &Refused) -> Value {
             put("tab", Value::from(tab.as_str()));
             put("most", Value::from(*most));
         }
+        Refused::Password { tab, node } => {
+            put("tab", Value::from(tab.as_str()));
+            put("node", id(*node));
+        }
         Refused::Verb { tab, refusal } => {
             put("tab", Value::from(tab.as_str()));
             verb_refused(refusal, &mut put);

@@ -123,12 +123,21 @@ pub fn snapshot(
     drawn: &mut dyn FnMut(u64) -> Result<Vec<Rect>, Failed>,
 ) -> Result<Snapshot, Unread> {
     let window = (pixels_of(width), pixels_of(height));
-    let mut by_id = HashMap::with_capacity(nodes.len());
+    let mut by_id: HashMap<&str, &AxNode> = HashMap::with_capacity(nodes.len());
     for node in nodes {
-        if by_id.insert(node.id.as_str(), node).is_some() {
-            return Err(Unread::Repeated {
-                node: node.id.clone(),
-            });
+        match by_id.insert(node.id.as_str(), node) {
+            // The same node listed twice, every field alike, is one node:
+            // Chrome 156 lists some of a line's pieces (`InlineTextBox`)
+            // twice on en.wikipedia.org, ninety of them on its main page,
+            // each under the one parent that names it once (measured 1
+            // November 2026, queue item 704).
+            Some(held) if held == node => {}
+            Some(_) => {
+                return Err(Unread::Repeated {
+                    node: node.id.clone(),
+                });
+            }
+            None => {}
         }
     }
     let children: HashSet<&str> = nodes
@@ -818,6 +827,15 @@ mod tests {
                 node: "4".to_owned()
             })
         );
+        // A node listed twice alike is one node, read once.
+        let listed_twice = [
+            ax("1", "RootWebArea", "", &["2"]),
+            ax("2", "paragraph", "", &["3"]),
+            ax("3", "StaticText", "Once", &["4"]),
+            ax("4", "InlineTextBox", "Once", &[]),
+            ax("4", "InlineTextBox", "Once", &[]),
+        ];
+        assert!(read(&listed_twice).is_ok(), "{:?}", read(&listed_twice));
         let twice = [ax("1", "RootWebArea", "", &[]), ax("1", "link", "x", &[])];
         assert_eq!(
             read(&twice),

@@ -302,6 +302,7 @@ fn unanswered(tab: String, why: Unanswered) -> Refused {
     match why {
         Unanswered::Gone(said) => Refused::TabGone { tab, said },
         Unanswered::NotCarriedOut(said) => Refused::NotCarriedOut { tab, said },
+        Unanswered::Password(node) => Refused::Password { tab, node },
     }
 }
 

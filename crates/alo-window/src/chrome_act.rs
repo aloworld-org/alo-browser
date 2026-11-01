@@ -206,6 +206,13 @@ pub enum Unacted {
         /// Why, and how far it got.
         why: Unwalked,
     },
+    /// Text was to be put into a password field of a page that keeps them
+    /// ([`Tab::keep_passwords`]): a card's, where signing in is the
+    /// person's step (queue item 704, ADR 0096). Nothing was typed.
+    Password {
+        /// The field.
+        node: BoxId,
+    },
     /// It was decided, and is not a thing this path carries out.
     ///
     /// Reached only by an outcome no decision on Chrome's page makes today —
@@ -246,6 +253,11 @@ impl fmt::Display for Unacted {
             Self::Unwalked { node, list, why } => write!(
                 f,
                 "{node} of the closed list {list} was not chosen in its menu: {why}"
+            ),
+            Self::Password { node } => write!(
+                f,
+                "{node} is a password field, and alo types no password on a page in the \
+                 conversation: signing in is the person's step, so nothing was typed"
             ),
             Self::Untypable { node, why } => {
                 write!(f, "{why}, so nothing was typed into {node}")
@@ -345,6 +357,15 @@ impl Tab<'_> {
             let described =
                 chrome_protocol::described(&self.ask(&Command::Describe { node: dom_of(list) })?)?;
             reading = reading.with_element(list, &described);
+        }
+        // Never a password on a card's page, whoever asks (queue item 704,
+        // ADR 0096): signing in is the person's step. Refused by the element
+        // Chrome described, before anything is carried out.
+        if self.keeps_passwords()
+            && matches!(verb, Verb::PutText(_))
+            && reading.is_a_password(aimed.id)
+        {
+            return Err(Unacted::Password { node: aimed.id });
         }
         let decided = perform(&reading, target, verb).map_err(Unacted::Refused)?;
         // Decided, and so heard from here: what the page's script says as

@@ -246,6 +246,15 @@ pub enum Refused {
         /// Why, in words, for a person.
         said: String,
     },
+    /// Text was to be put into a password field of a page shown in the
+    /// conversation, where signing in is the person's step (queue item
+    /// 704, ADR 0096): whichever agent asked, nothing was typed.
+    Password {
+        /// The tab.
+        tab: String,
+        /// The field.
+        node: alo_box::BoxId,
+    },
     /// The page's tree is deeper than [`MOST_DEPTH`].
     TreeTooDeep {
         /// The tab.
@@ -306,6 +315,7 @@ impl Refused {
             Refused::NothingLoaded { .. } => "NothingLoaded",
             Refused::TabGone { .. } => "TabGone",
             Refused::NotCarriedOut { .. } => "NotCarriedOut",
+            Refused::Password { .. } => "Password",
             Refused::TreeTooDeep { .. } => "TreeTooDeep",
             Refused::TooManyCallers { .. } => "TooManyCallers",
             Refused::Verb { refusal, .. } => refusal_kind(refusal),
@@ -396,6 +406,11 @@ impl fmt::Display for Refused {
             Refused::NotCarriedOut { tab, said } => {
                 write!(f, "nothing was done in the tab at {tab}: {said}")
             }
+            Refused::Password { tab, node } => write!(
+                f,
+                "{node} in the tab at {tab} is a password field, and no agent types a password \
+                 on a page in the conversation: signing in is the person's step"
+            ),
             Refused::TreeTooDeep { tab, most } => write!(
                 f,
                 "the page at {tab} is more than {most} boxes deep, and half a tree is not answered"

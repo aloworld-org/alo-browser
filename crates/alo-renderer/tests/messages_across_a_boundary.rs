@@ -191,6 +191,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             down: 0.0,
             bar: None,
             search: SetUp::Not("no key\0<b>".to_owned()),
+            asking: SetUp::Not("no page\0<b>".to_owned()),
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
@@ -583,6 +584,74 @@ fn a_first_screen_holding_a_card_survives_the_crossing() {
     }
 }
 
+/// Queue item 704: the agent at work on a card's page crosses as it was
+/// sent, in each thing it can be doing, its strangers' words intact; and
+/// one holding more steps or choices than are drawn is refused.
+#[test]
+fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
+    use alo_renderer::agent_work::{AtWork, MOST_CHOICES, MOST_STEPS, Now, Step};
+    let card = |work: AtWork| {
+        let mut card = alo_renderer::card::Card::new(
+            "a page",
+            alo_url::parse("https://example.com/").unwrap_or_else(|_| panic!("parses")),
+        );
+        card.agent = Some(work);
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Page(card)],
+            ..Start::default()
+        }))
+    };
+    let step = Step {
+        line: "Typing \u{201c}</li>\0\u{201d}".to_owned(),
+        why: "<b>because</b>".to_owned(),
+    };
+    let mut nows = vec![
+        Now::Acting,
+        Now::Asking {
+            what: "Press \u{201c}Send\u{201d}?\0".to_owned(),
+        },
+        Now::Stuck {
+            why: "no form".to_owned(),
+            choices: vec!["a".to_owned(); MOST_CHOICES],
+        },
+        Now::Done {
+            said: "Sent.".to_owned(),
+        },
+        Now::Stopped {
+            why: "You stopped alo.".to_owned(),
+        },
+    ];
+    for now in nows.drain(..) {
+        let original = card(AtWork {
+            asked: "send <it>".to_owned(),
+            steps: vec![step.clone(); MOST_STEPS],
+            now,
+        });
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
+    }
+    for refused in [
+        card(AtWork {
+            asked: String::new(),
+            steps: vec![step.clone(); MOST_STEPS + 1],
+            now: Now::Acting,
+        }),
+        card(AtWork {
+            asked: String::new(),
+            steps: Vec::new(),
+            now: Now::Stuck {
+                why: String::new(),
+                choices: vec!["a".to_owned(); MOST_CHOICES + 1],
+            },
+        }),
+    ] {
+        let bytes = write_to_renderer(&refused);
+        assert!(read_to_renderer(&bytes).is_err(), "{refused:?} was read");
+    }
+}
+
 /// Queue item 703: a conversation of every kind of turn, oldest first,
 /// scrolled either way, crosses as it was sent; and asking how far it
 /// reaches, and the answer, do too.
@@ -818,6 +887,11 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::SeeAllImages { at: 1 })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Image { at: usize::MAX })),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::ShowMoreSites { at: 3 })),
+        // Queue item 704: the agent's buttons and a stuck agent's choice.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Stop)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Allow)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::NotNow)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Choice { at: 2 })),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);

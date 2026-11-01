@@ -82,6 +82,7 @@ impl Writer {
             }
         }
         self.search_set_up(&start.search);
+        self.search_set_up(&start.asking);
         self.number(start.turns.len() as u64);
         for turn in &start.turns {
             match turn {
@@ -136,6 +137,8 @@ impl Writer {
             }
             None => self.bool(false),
         }
+        // The agent at work on its page (queue item 704).
+        self.agent_work(card.agent.as_ref());
     }
 }
 
@@ -172,6 +175,7 @@ impl Reader<'_> {
             offers.push(self.offer()?);
         }
         let search = self.search_set_up()?;
+        let asking = self.search_set_up()?;
         let count = self.count()?;
         if count > MOST_TURNS {
             return Err(unreadable(format!(
@@ -240,6 +244,7 @@ impl Reader<'_> {
             down,
             bar,
             search,
+            asking,
         })
     }
 
@@ -283,6 +288,7 @@ impl Reader<'_> {
         } else {
             None
         };
+        let agent = self.agent_work()?;
         Ok(Card {
             said,
             url,
@@ -290,6 +296,7 @@ impl Reader<'_> {
             forward,
             frame,
             loading,
+            agent,
         })
     }
 

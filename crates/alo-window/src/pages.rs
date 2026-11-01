@@ -86,6 +86,10 @@ pub enum Unanswered {
     /// The verb was decided and its renderer did not carry it out, so
     /// nothing was done; in words, for a person.
     NotCarriedOut(String),
+    /// Text was to be put into a password field of a page shown in the
+    /// conversation, which no agent types into (queue item 704, ADR 0096):
+    /// the field, and nothing was typed.
+    Password(alo_box::BoxId),
 }
 
 /// The open tabs an agent may be answered from.

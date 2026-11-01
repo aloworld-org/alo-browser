@@ -78,6 +78,14 @@ pub struct Shown<C, S> {
     /// Every *Full answer ›* drawn, in order (queue item 707): the chat and
     /// the turn's place.
     pub full_answer: Vec<(C, usize)>,
+    /// The run of the agent at work on the card's page, while it works and
+    /// *Stop* is drawn (queue item 704), by the browser process's number.
+    pub working: Option<u64>,
+    /// The question the agent is asking the person, by the browser
+    /// process's number, while *Allow* and *Not now* are drawn under it.
+    pub asking: Option<u64>,
+    /// The choices a stuck agent offers, in order.
+    pub choices: Vec<String>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -97,6 +105,9 @@ impl<C, S> Default for Shown<C, S> {
             show_more: Vec::new(),
             pictured: Vec::new(),
             full_answer: Vec::new(),
+            working: None,
+            asking: None,
+            choices: Vec::new(),
         }
     }
 }
@@ -162,6 +173,15 @@ pub enum Decided<C, S> {
         /// The turn's place in it.
         turn: usize,
     },
+    /// The agent's *Stop*, for its run of this number (queue item 704).
+    Stop(u64),
+    /// The agent's *Allow*, for its question of this number: the one the
+    /// person was shown, and is still asked.
+    Allow(u64),
+    /// The agent's *Not now*, for its question of this number.
+    NotNow(u64),
+    /// The choice a stuck agent offered, in its words.
+    Choice(String),
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -195,6 +215,8 @@ pub enum Listed {
     Images,
     /// The *Full answer ›* drawn (queue item 707).
     FullAnswer,
+    /// The choices a stuck agent offered (queue item 704).
+    Choices,
 }
 
 impl fmt::Display for Listed {
@@ -211,6 +233,7 @@ impl fmt::Display for Listed {
             Listed::ShowMoreSites => "Show more sites",
             Listed::Images => "image found",
             Listed::FullAnswer => "Full answer",
+            Listed::Choices => "agent's choice",
         })
     }
 }
@@ -256,6 +279,14 @@ pub enum Refusal {
         /// Whether the panel was hidden, painted or now.
         hidden: bool,
     },
+    /// The renderer claimed the agent's *Stop*, *Allow* or *Not now* when
+    /// the first screen did not draw it as painted, or would not now: no
+    /// agent at work, no question asked, or another question than the one
+    /// painted (queue item 704).
+    NotAsked {
+        /// What it claimed.
+        claim: Claim,
+    },
     /// A claim that answered no press.
     Unasked,
     /// The part's renderer answered a press with something that is not a
@@ -296,6 +327,11 @@ impl fmt::Display for Refusal {
                 } else {
                     "shown whole"
                 }
+            ),
+            Refusal::NotAsked { claim } => write!(
+                f,
+                "a renderer claimed {claim}, which the first screen does not show as it was \
+                 painted, or not still, {refused}"
             ),
             Refusal::Unasked => write!(
                 f,
@@ -352,6 +388,21 @@ where
         }
         Claim::Back => Decided::Back,
         Claim::Forward => Decided::Forward,
+        // The agent's buttons (queue item 704): each only for what was
+        // painted and is still so — *Allow* allows the one question the
+        // person was shown, and none asked since.
+        Claim::Stop => same(painted.working, now.working)
+            .map_or(Decided::Refused(Refusal::NotAsked { claim }), Decided::Stop),
+        Claim::Allow => same(painted.asking, now.asking).map_or(
+            Decided::Refused(Refusal::NotAsked { claim }),
+            Decided::Allow,
+        ),
+        Claim::NotNow => same(painted.asking, now.asking).map_or(
+            Decided::Refused(Refusal::NotAsked { claim }),
+            Decided::NotNow,
+        ),
+        Claim::Choice { at } => held(Listed::Choices, at, &painted.choices, &now.choices)
+            .map_or_else(Decided::Refused, Decided::Choice),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::Chat { at } => held(Listed::Chats, at, &painted.chats, &now.chats)
@@ -425,6 +476,11 @@ fn drawn_as_hidden(claim: Claim, painted: bool, now: bool) -> Option<Refusal> {
         .into_iter()
         .find(|&hidden| hidden != on_the_rail)
         .map(|hidden| Refusal::PanelNotSo { claim, hidden })
+}
+
+/// The number painted, if it is the one now too.
+fn same(painted: Option<u64>, now: Option<u64>) -> Option<u64> {
+    painted.filter(|&number| now == Some(number))
 }
 
 /// What was at place `at` of `painted`, if it is still in `now`.
@@ -761,6 +817,80 @@ mod tests {
 
     fn decided(claim: Claim, part: Part) -> Decided<u32, &'static str> {
         decide(claimed(claim), part, &painted(), &painted())
+    }
+
+    /// Queue item 704: the agent's buttons are decided only for what was
+    /// painted and still is — *Allow* for the question the person was
+    /// shown, never one asked since, nor once it is answered.
+    #[test]
+    fn the_agents_buttons_are_decided_only_for_the_question_painted_and_still_asked() {
+        let asking = |working, asking| Shown {
+            working,
+            asking,
+            ..painted()
+        };
+        let shown = asking(Some(3), Some(7));
+        for (claim, as_it) in [
+            (Claim::Stop, Decided::Stop(3)),
+            (Claim::Allow, Decided::Allow(7)),
+            (Claim::NotNow, Decided::NotNow(7)),
+        ] {
+            assert_eq!(decide(claimed(claim), Part::Start, &shown, &shown), as_it);
+            assert_eq!(
+                decide(claimed(claim), Part::Panel, &shown, &shown),
+                Decided::Refused(Refusal::NotDrawnThere {
+                    part: Part::Panel,
+                    claim
+                })
+            );
+        }
+        // Another question asked since it was painted, none asked any more,
+        // or none painted: refused, and nothing allowed.
+        for (painted_as, now) in [
+            (asking(Some(3), Some(7)), asking(Some(3), Some(8))),
+            (asking(Some(3), Some(7)), asking(Some(3), None)),
+            (asking(Some(3), None), asking(Some(3), Some(7))),
+        ] {
+            for claim in [Claim::Allow, Claim::NotNow] {
+                assert_eq!(
+                    decide(claimed(claim), Part::Start, &painted_as, &now),
+                    Decided::Refused(Refusal::NotAsked { claim })
+                );
+            }
+        }
+        // Stop, once the run painted has ended or another is at work.
+        for now in [asking(None, None), asking(Some(4), None)] {
+            assert_eq!(
+                decide(claimed(Claim::Stop), Part::Start, &shown, &now),
+                Decided::Refused(Refusal::NotAsked { claim: Claim::Stop })
+            );
+        }
+        // A choice by its place among those painted, still offered.
+        let stuck = Shown {
+            choices: vec!["Try again".to_owned(), "Stop here".to_owned()],
+            ..painted()
+        };
+        assert_eq!(
+            decide(
+                claimed(Claim::Choice { at: 1 }),
+                Part::Start,
+                &stuck,
+                &stuck
+            ),
+            Decided::Choice("Stop here".to_owned())
+        );
+        assert_eq!(
+            decide(
+                claimed(Claim::Choice { at: 0 }),
+                Part::Start,
+                &stuck,
+                &painted()
+            ),
+            Decided::Refused(Refusal::Gone {
+                listed: Listed::Choices,
+                at: 0
+            })
+        );
     }
 
     #[test]

@@ -13,6 +13,10 @@
   --quiet: #5f5a52;
   --heading: #6b655c;
   --bar: #cbc3b6;
+  --acting: #b5573a;
+  --acting-text: #7a3a24;
+  --acting-tint: #f6e7e0;
+  --done: #2f6b5e;
 }
 
 * {
@@ -497,6 +501,7 @@ a {
 }
 
 .page {
+  position: relative;
   height: 520px;
   overflow: hidden;
 }
@@ -505,6 +510,166 @@ a {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* The agent at work on the card's page (queue item 704, ADR 0096,
+   docs/design/shell.md, *The agent at work*): while it acts the card and
+   its page are outlined in the acting colour — the one place it is used
+   (ADR 0074 § 2) — and under the page stands its column: the terracotta
+   line saying so with Stop at its end, what the person asked, one line per
+   step with why under it when it chose, and what it is doing now. Every
+   line is one line, cut with an ellipsis, so the column's height is its
+   lines'. */
+.card.acting {
+  border-color: var(--acting);
+  box-shadow: 0 0 0 1px var(--acting), 0 10px 28px rgba(27, 36, 51, 0.07);
+}
+
+.ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--acting);
+}
+
+.agent {
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid #eee8de;
+  font-size: 13.5px;
+  line-height: 20px;
+}
+
+.working {
+  display: flex;
+  align-items: center;
+  column-gap: 12px;
+  height: 36px;
+  padding: 0 4px 0 12px;
+  border-radius: 10px;
+  background: var(--acting-tint);
+  color: var(--acting-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.working .said {
+  flex-grow: 1;
+  min-width: 0;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.abtn,
+.achoice {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 26px;
+}
+
+.abtn.stop {
+  border-color: var(--acting);
+  color: var(--acting-text);
+}
+
+.abtn.allow {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.asked {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  row-gap: 6px;
+  list-style-type: none;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  color: var(--quiet);
+}
+
+.step .line,
+.step .why {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step .why {
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+.step.now .line {
+  color: var(--acting);
+  font-weight: 600;
+}
+
+/* Asking the person before it pays, sends, deletes or sends a form (ADR
+   0052's person's gate): the question, then Allow in the ink and Not now. */
+.asks {
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfaf7;
+}
+
+.question {
+  font-weight: 600;
+}
+
+.answers {
+  display: flex;
+  column-gap: 8px;
+}
+
+/* Stuck: why, then each choice as a button, the closest to what was asked
+   first. */
+.stuck {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  column-gap: 8px;
+}
+
+.because {
+  width: 100%;
+}
+
+.finished .done {
+  font-weight: 600;
+  color: var(--done);
+}
+
+.stopped {
+  color: var(--quiet);
 }
 
 /* A search's results, as the design's All tab draws them (queue item 708,

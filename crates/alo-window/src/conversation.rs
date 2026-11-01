@@ -102,6 +102,7 @@
 use crate::chat_name;
 use crate::chat_store::Kept;
 use crate::chrome_history::Travel;
+use crate::conversation_agent::AgentSaid;
 use crate::conversation_box::{TheBox, Typed};
 use crate::conversation_find::FindChats;
 use crate::conversation_fold::Fold;
@@ -109,6 +110,7 @@ use crate::conversation_keys::Scroll;
 use crate::conversation_place::Side;
 use crate::conversation_search::{Came, Searched};
 use crate::conversation_thread::Thread;
+use crate::conversation_work::Work;
 use crate::scale::Scale;
 use crate::typing::Edit;
 use alo_layout::Size;
@@ -124,6 +126,14 @@ use std::time::Instant;
 
 /// What the first screen says first, at any hour.
 pub const GREETING: &str = "Hello.";
+
+/// What the agent's card says once a person pressed *Stop* (queue item
+/// 704).
+pub const STOPPED: &str = "You stopped alo. Nothing more was done on the page.";
+
+/// What it says once a person pressed the page while it worked: *click
+/// anywhere to take over*.
+pub const TAKEN_OVER: &str = "You took over the page, so alo stopped. Ask again to go on.";
 
 /// A chat, as the browser process knows it: a number it gave the chat
 /// when it was made, never reused — across launches too, since the chats
@@ -190,6 +200,8 @@ pub struct Conversation {
     /// The tabs asked for and not yet answered: each one's number, and the
     /// chat and turn it was opened in.
     asked: Vec<(u64, ChatId, usize)>,
+    /// The agent at work on the card's page (queue item 704).
+    work: Work,
 }
 
 /// A tab opened whose results are to be asked of the provider — Videos or
@@ -229,6 +241,7 @@ impl Default for Conversation {
             further: 0,
             to_ask: Vec::new(),
             asked: Vec::new(),
+            work: Work::default(),
         }
     }
 }
@@ -310,7 +323,7 @@ impl Conversation {
             waiting: Vec::new(),
             card: self.card().is_some(),
             found: self.thread().map(Thread::links).unwrap_or_default(),
-            offers: self.the_box.offers(),
+            offers: self.the_box.offers(self.asks_first()),
             hidden: self.railed(),
             tabs: self
                 .on_this_chat(Thread::tabs)
@@ -325,6 +338,9 @@ impl Conversation {
                 .thread()
                 .map(Thread::pictured_pages)
                 .unwrap_or_default(),
+            working: self.work.working(self.card()),
+            asking: self.work.asking_now(self.card()),
+            choices: Work::choices(self.card()),
         }
     }
 
@@ -347,7 +363,7 @@ impl Conversation {
         let changed = match &pressed {
             Pressed::TheBox => self.the_box.focus(),
             Pressed::Go => {
-                let choice = self.the_box.choice();
+                let choice = self.the_box.choice(self.asks_first());
                 self.chose(choice)
             }
             // Chosen as Return chooses the first: the box keeps the
@@ -428,6 +444,13 @@ impl Conversation {
             }
             Pressed::HideThePanel => self.fold.hide() || changed,
             Pressed::ShowThePanel => self.fold.show() || changed,
+            // The agent (queue item 704): *Stop* says so on the card at
+            // once; a choice a stuck run offered is asked of it anew.
+            Pressed::Stop(_) => self.stop_agent(STOPPED).is_some() || changed,
+            Pressed::Choice(choice) => {
+                let choice = choice.clone();
+                self.ask_alo(&choice) || changed
+            }
             _ => changed,
         };
         self.pressed(pressed, changed)
@@ -460,7 +483,7 @@ impl Conversation {
                 Typed::Unchanged
             };
         }
-        let typed = self.the_box.edit(edit);
+        let typed = self.the_box.edit(edit, self.asks_first());
         if let Typed::Chose(offer) = &typed {
             let _ = self.chose(Some(offer.clone()));
         }
@@ -494,8 +517,88 @@ impl Conversation {
                 let _ = self.the_box.empty();
                 true
             }
+            // Asking alo, while a card is open (queue item 704): it works
+            // on the card's page, and the box is emptied as for a search.
+            Some(Offer::Ask(words)) => {
+                let words = words.clone();
+                if self.ask_alo(&words) {
+                    self.name_on_screen();
+                    let _ = self.the_box.empty();
+                    true
+                } else {
+                    false
+                }
+            }
             _ => false,
         }
+    }
+
+    /// Whether the model can be asked to work on a card's page is now
+    /// `set_up` (queue item 704).
+    pub fn set_agent(&mut self, set_up: SetUp) {
+        self.work.set_up(set_up);
+    }
+
+    /// Whether asking alo can be done now: set up, and a card open.
+    pub fn asking(&self) -> SetUp {
+        self.work.asking(self.card().is_some())
+    }
+
+    /// Whether the box offers asking alo before searching: while it can be
+    /// done (`docs/design/shell.md`: a request typed while a card is open
+    /// is the agent's).
+    fn asks_first(&self) -> bool {
+        self.asking() == SetUp::Ready
+    }
+
+    /// Start the agent on the card's page for what was `asked`: whether it
+    /// started.
+    fn ask_alo(&mut self, asked: &str) -> bool {
+        let on = self.on_screen();
+        let card = self
+            .threads
+            .iter_mut()
+            .find(|(id, _)| Some(*id) == on)
+            .and_then(|(_, thread)| thread.card_mut());
+        match card {
+            Some(card) => self.work.start(card, asked),
+            None => false,
+        }
+    }
+
+    /// The run of the agent started and not yet handed to the window, once:
+    /// its number, and what the person asked.
+    pub fn take_run(&mut self) -> Option<(u64, String)> {
+        self.work.take_start()
+    }
+
+    /// The run of the agent at work on the card, if one is.
+    pub fn working(&self) -> Option<u64> {
+        self.work.working(self.card())
+    }
+
+    /// What a run of the agent said: shown on the card when it is the run
+    /// at work there. Whether the first screen shows something else.
+    pub fn agent_said(&mut self, said: AgentSaid) -> bool {
+        let on = self.on_screen();
+        let card = self
+            .threads
+            .iter_mut()
+            .find(|(id, _)| Some(*id) == on)
+            .and_then(|(_, thread)| thread.card_mut());
+        self.work.heard(card, said)
+    }
+
+    /// Stop the run of the agent at work, saying `why` on its card: its
+    /// number, if one was.
+    pub fn stop_agent(&mut self, why: &str) -> Option<u64> {
+        let on = self.on_screen();
+        let card = self
+            .threads
+            .iter_mut()
+            .find(|(id, _)| Some(*id) == on)
+            .and_then(|(_, thread)| thread.card_mut());
+        self.work.stop(card, why)
     }
 
     /// Whether searching can be done is now `search`, as the searcher says
@@ -801,7 +904,7 @@ impl Conversation {
             scale: 1.0,
             typed: self.the_box.typed().to_owned(),
             focused: self.the_box.focused(),
-            offers: self.the_box.offers(),
+            offers: self.the_box.offers(self.asks_first()),
             // Only the pictures each tab draws, the newest turns' first,
             // within the first screen's budget (queue item 743).
             turns: self
@@ -813,6 +916,7 @@ impl Conversation {
                 .thread()
                 .and_then(|thread| thread.bar(viewport, scale.factor())),
             search: self.search.clone(),
+            asking: self.asking(),
         }
         .at_scale(scale.factor())
     }

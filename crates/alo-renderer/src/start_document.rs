@@ -30,8 +30,10 @@
 //! named by its words and what they lead to — *Go to the site* and the
 //! address; *Search for "…"* and where it goes, *Brave Search*, or
 //! [`NOT_SET_UP`] and why ([`searched_with`], queue item 708); *Ask alo
-//! about "…"* and [`NOT_SET_UP`] — the first `aria-selected`, being what
-//! Return chooses, and each that is not set up `aria-disabled`.
+//! about "…"* and [`ASKED_WITH`] while a card is open and the model can be
+//! asked (queue item 704), [`NOT_SET_UP`] and why otherwise
+//! ([`asked_with`]) — the first `aria-selected`, being what Return
+//! chooses, and each that is not set up `aria-disabled`.
 //!
 //! What was typed enters an offer's words as a text node's data, as every
 //! stranger's string here does. Nothing typed, nothing offered, and no
@@ -103,6 +105,20 @@ pub fn ask_about(said: &str) -> String {
     format!("Ask alo about \u{201c}{said}\u{201d}")
 }
 
+/// What the offer to ask alo says under its words (queue item 704): that
+/// it works on the page open in the card when it is set up, and that it is
+/// not and why, when it is not.
+pub fn asked_with(asking: &SetUp) -> String {
+    match asking {
+        SetUp::Ready => ASKED_WITH.to_owned(),
+        SetUp::Not(why) if why.trim().is_empty() => NOT_SET_UP.to_owned(),
+        SetUp::Not(why) => format!("{NOT_SET_UP} \u{2014} {why}"),
+    }
+}
+
+/// What the offer to ask alo says under its words when it is set up.
+pub const ASKED_WITH: &str = "alo works on this page";
+
 /// The id of the template's heading, which holds the greeting.
 const GREETING: &str = "greeting";
 
@@ -154,7 +170,11 @@ pub fn build(start: &Start) -> Result<Document, Unbuilt> {
     let offers = if start.offers.is_empty() {
         None
     } else {
-        Some(make_offers(&mut document, &start.offers, &start.search)?)
+        Some(make_offers(
+            &mut document,
+            &start.offers,
+            (&start.search, &start.asking),
+        )?)
     };
     if start.conversing() {
         // A conversation rather than a greeting (queue items 717, 708,
@@ -323,7 +343,7 @@ fn make_waiting(document: &mut Document, waiting: &[Waiting]) -> Result<NodeId, 
 fn make_offers(
     document: &mut Document,
     offers: &[Offer],
-    search: &SetUp,
+    (search, asking): (&SetUp, &SetUp),
 ) -> Result<NodeId, Unbuilt> {
     let list = element(document, "div")?;
     attribute(document, list, "class", "offers")?;
@@ -331,12 +351,13 @@ fn make_offers(
     attribute(document, list, "aria-label", SUGGESTIONS)?;
     for (place, offer) in offers.iter().enumerate() {
         let chosen = place == 0;
-        let set_up =
-            offer.is_set_up() || (matches!(offer, Offer::Search(_)) && *search == SetUp::Ready);
+        let set_up = offer.is_set_up()
+            || (matches!(offer, Offer::Search(_)) && *search == SetUp::Ready)
+            || (matches!(offer, Offer::Ask(_)) && *asking == SetUp::Ready);
         let (words, leads_to) = match offer {
             Offer::Go(url) => (GO_TO_THE_SITE.to_owned(), url.serialised.clone()),
             Offer::Search(said) => (search_for(said), searched_with(search)),
-            Offer::Ask(said) => (ask_about(said), NOT_SET_UP.to_owned()),
+            Offer::Ask(said) => (ask_about(said), asked_with(asking)),
         };
         let option = element(document, "div")?;
         let class = match (chosen, set_up) {

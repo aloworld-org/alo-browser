@@ -20733,7 +20733,7 @@ What stage 2's exit gate actually measures: a person using it.
   render at one and two with each button's box in numbers, and a press on
   each decided as its chat.
 
-- [ ] **704. The agent at work, shown as the design shows it.** The split
+- [x] **704. The agent at work, shown as the design shows it.** The split
   view with the page large and the agent's column beside it, the panel a
   rail; one line per step in a person's words, with why when it chose; the
   terracotta outline and *click anywhere to take over*; *Stop*; asking before
@@ -20743,6 +20743,42 @@ What stage 2's exit gate actually measures: a person using it.
   the agent's words and its steps are **turns** of the conversation
   (`alo-renderer`'s `turn.rs`, ADR 0085 § 1) — this item adds them, as the
   model's answer (707) adds the short answer and the Answer tab.
+  ***Done (1 November 2026), decided in ADR 0096; the split view, a plan
+  and carrying on after taking over cut to 819, the run kept as turns to
+  820, an agent opening its own page to 821.*** **Built:** the browser
+  process runs the agent (`conversation_agent.rs`), one step at a time,
+  asking OpenAI's `gpt-6.1-terra` through the Responses API with function
+  calling (`agent_protocol.rs`, on `gate.sh`'s `serde_json` list) — tools
+  `activate`, `put_text`, `scroll` by the tree's node numbers, `done`,
+  `stuck`; what was asked, the tree as text with a password's dots and a
+  secret field's text withheld (`agent_page.rs`, at most 100,000
+  characters), the steps so far; `store: false`; 20 verbs, 400,000 tokens,
+  60 s / 90 s — and **every read and verb as an `Order::Agent` into the
+  relay the socket reaches the card by**, recorded as `Caller::ALO`. **The
+  person's gate** (`agent_gate.rs`): an `activate` the fresh tree says pays,
+  sends or deletes, or a button in a `form`, held and asked; *Allow*
+  decided only for the question the picture pressed showed and still asked
+  (`Shown::asking`), the page read again before the press; *Not now* ends
+  the run. **Never a password**: a card's tab refuses `put_text` into an
+  `<input type=password>` for every agent (`Tab::keep_passwords`,
+  `Unacted::Password` → `Refused::Password`, in the contract). Drawn under
+  the card's page (`agent_work.rs`, `agent_document.rs`, `wire/agent.rs`,
+  `start.css`): the outline, the working line with *Stop*, what was asked,
+  the steps, the question with *Allow*/*Not now*, stuck with choices, done
+  or stopped; claimed as `Stop`, `Allow`, `NotNow`, `Choice`; a press on the
+  page takes over. Return on words while a card is open asks alo
+  (`typed::offers_for`). Found by hand: Chrome 156 lists some
+  `InlineTextBox`es twice on en.wikipedia.org, which every agent's read
+  refused — an identical repeat is now one node (`chrome_tree.rs`).
+  **Tests:** unit (gate, page text, protocol, run against a fake card and
+  model, work state, claims and decisions, the box); `messages_across_a_boundary.rs`;
+  `the_agent_at_work.rs` (layout in numbers, three references, the tree,
+  claims); `the_agent_at_work_on_a_card_through_chrome.rs` through both
+  Chromiums — fill, press, *Send* held until *Allow*, *Not now*, password
+  refused, *Stop* and a press on the page, the step limit, a 503.
+  **Mutations:** the gate off — four unit tests and the window test fail;
+  the card's password refusal off — the window test fails; the painted
+  question not kept — *Allow* refused in the window (found so).
 
 - [ ] **705. What the agent may do, as a settings screen.** The design's
   screen 19 over `alo-grants`: reading, filling and clicking on every site;
@@ -22393,6 +22429,39 @@ What stage 2's exit gate actually measures: a person using it.
   is kept in OpenAI's abuse-monitoring logs for up to 30 days; zero data
   retention is by OpenAI's prior approval (ADR 0081 § 0). *needs the
   owner: a request to OpenAI.*
+
+- [ ] **819. The agent at work as the split view (cut from 704).**
+  `shell.md`: the window splits, the page large on the left and the
+  agent's column 384 wide on the right, the panel a rail; a sentence of
+  plan first and the next steps greyed; *click anywhere to take over*
+  pausing the agent and carrying on from what the page then shows; before
+  paying, what, when, where and how much, and *Confirm and pay*. Built in
+  704: the column under the page inside the card's 880, the page box
+  unmoved (878 × 520), a press on the page stopping the run, the question
+  naming what is pressed and where. Measure what the split costs the page
+  (Chrome told a narrower size while it works) and decide. *Depends on
+  704. needs design for the plan.*
+
+- [ ] **820. The agent's run kept as turns of the chat (cut from 704).**
+  ADR 0085 § 1 and ADR 0092: a run is drawn on its live card and goes when
+  the card is put away; the chat's file keeps the page's address, not
+  what was asked, the steps, or how it ended. Keep them as words, read
+  back checked, never asking the model again. *Depends on 704, 757.*
+
+- [ ] **821. The agent opening its own page (cut from 704).** Asking alo
+  works only on the page open as a card; with none it says to open one.
+  Decide whether a request with no page opens one (a search, an address
+  the model proposes), and through which gate. *Depends on 704. needs
+  design.*
+
+- [ ] **822. A card's ring is Chrome's inspector highlight, tooltip and
+  all (found by hand in 704).** The verb's ring on a card's page (624,
+  716) is drawn by Chrome's `Overlay.highlightNode`, which on a card shows
+  Chrome's own tooltip — the element's tag, size, *Accessibility, Name,
+  Role, Keyboard-focusable* — over the page, and it stays after the run
+  ends until the next verb. Draw the ring as the window draws its own, or
+  ask Chrome for the box alone, and take it away when the run ends.
+  *Depends on 704.*
 
 ## K. ★ The agent, on somebody else's pages
 

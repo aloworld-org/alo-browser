@@ -794,7 +794,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   box the design's screen 0b offers *Go to the site* first when what is
   typed is an address — `example.com`, `localhost:8080`, `https://…`, read
   by this repository's own URL parser — then *Search for "…"* (708, below)
-  and *Ask alo about "…"*, which says it is not set up yet; an agent reads them as a
+  and *Ask alo about "…"* — set up while a card is open and the model can
+  be asked, and then offered before searching (704, below), saying why not
+  otherwise; an agent reads them as a
   *listbox Suggestions* of options, the first selected. Backspace erases,
   Escape empties, and Return or *Go* chooses the first: for `example.com`,
   going to `https://example.com/` is decided, and said in the window.
@@ -1261,9 +1263,42 @@ The reason this exists rather than a faster fork of somebody else's engine.
   Chromiums, `alo-ask` reads page one's tree, is refused a site not named
   by it, and after page two replaces it reads two and is told one is no
   tab open (`tests/an_agent_reaching_a_page_the_conversation_opened_through_chrome.rs`).
-  A field's value is kept to one line by the engine (715). Owed: the agent
-  at work (704), its settings (705); the answer is built (707, ADR 0095),
-  and the agent will be asked of the same provider (ADR 0081).
+  A field's value is kept to one line by the engine (715).
+  **The agent at work on the card's page** (704, ADR 0096): words typed
+  while a card is open, and Return, ask alo (*Ask alo about "…"* offered
+  first, *alo works on this page*); the browser process runs the agent on
+  a thread of its own, asking OpenAI's `gpt-6.1-terra` (ADR 0081) one step
+  at a time through the Responses API with function calling — its tools
+  exactly the socket's verbs, `activate`, `put_text` and `scroll`, aimed by
+  the tree's node numbers, never a position, and `done` and `stuck` —
+  with what was asked, the page's tree as text (a password's dots and what
+  a field named as a secret holds withheld, no rectangle, at most 100,000
+  characters) and the steps so far, `store: false`; **every read and verb
+  goes through the relay the agent socket reaches the card by**, answered,
+  refused and recorded as any agent's, as *alo's own agent*. **The
+  person's gate**: a press the tree says pays, sends or deletes, or a
+  button inside a form, is held, asked of the person under the steps —
+  *Press "Send" on example.com? It sends something from you.* — and done
+  only after their press on *Allow*, decided against the question the
+  picture pressed showed; *Not now* presses nothing and ends the run.
+  **Never a password**: a card refuses text put into a password field for
+  every agent, by kind (`Password`, on the socket too), judged on the
+  element, and the run says it is stuck. Drawn under the card's page: the
+  card and page outlined in terracotta while it works, *alo is working on
+  this page · click anywhere to take over* with *Stop*, what was asked,
+  one line per step with why under it when it chose, the question with
+  *Allow* and *Not now*, stuck with its choices, *Done in N steps* and the
+  result, or why it stopped; a press on the page takes over and stops it.
+  At most 20 verbs and 400,000 tokens a run, 60 s for the model and 90 s
+  for the page; a provider's refusal said in words. Layout in numbers,
+  three references (`alo-renderer/tests/the_agent_at_work.rs`), the run
+  against a fake card and a fake model (`conversation_agent.rs`), and the
+  window's own road through both Chromiums against a local model
+  (`alo-window/tests/the_agent_at_work_on_a_card_through_chrome.rs`). Cut:
+  the split view, a plan and the next steps greyed, taking over and
+  carrying on, a payment's details (819); the run kept as turns in the
+  chat's file (820); an agent opening its own page (821); its settings
+  (705).
 
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item

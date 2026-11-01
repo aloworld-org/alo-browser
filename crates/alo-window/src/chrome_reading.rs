@@ -118,6 +118,19 @@ impl ChromeReading {
         self.elements.get(&id)
     }
 
+    /// Whether the node `id`, once described, is a password field: an
+    /// `<input>` whose `type` is `password`, whatever its case (queue item
+    /// 704). Chrome's tree says nothing of it — a password field is a
+    /// `textbox`, its value drawn as dots — so only the element can.
+    pub(crate) fn is_a_password(&self, id: BoxId) -> bool {
+        self.element(id).is_some_and(|element| {
+            element.name.local.as_ref() == "input"
+                && element
+                    .attr("type")
+                    .is_some_and(|kind| kind.eq_ignore_ascii_case("password"))
+        })
+    }
+
     /// The nearest `listbox` or `combobox` above the node `id` in the tree:
     /// the list it is chosen in when it is an option of a `<select>`, which
     /// [`Reading::list_of`] answers once both are described.
@@ -481,6 +494,25 @@ mod tests {
         let svg =
             ChromeReading::of(&page()).with_element(id(2), &described("button", "button", &[]));
         assert!(!svg.submits(id(2)), "not HTML's button");
+    }
+
+    #[test]
+    fn a_password_field_is_one_by_its_elements_type_whatever_its_case() {
+        let id = BoxId::from_wire;
+        let field = |name: &str, local: &str, attributes: &[(&str, &str)]| {
+            ChromeReading::of(&page())
+                .with_element(id(3), &described(name, local, attributes))
+                .is_a_password(id(3))
+        };
+        assert!(field("INPUT", "input", &[("type", "password")]));
+        assert!(field("INPUT", "input", &[("type", "PassWord")]));
+        assert!(!field("INPUT", "input", &[]), "a text field");
+        assert!(!field("INPUT", "input", &[("type", "text")]));
+        assert!(!field("TEXTAREA", "textarea", &[("type", "password")]));
+        assert!(
+            !ChromeReading::of(&page()).is_a_password(id(3)),
+            "a node never described is not known to be one"
+        );
     }
 
     #[test]

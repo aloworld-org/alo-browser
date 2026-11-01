@@ -46,6 +46,8 @@
 //! single-process. The pipeline is *inside* the renderer, and so is the
 //! corpus.
 
+pub mod agent_document;
+pub mod agent_work;
 pub mod answer_document;
 pub mod answers;
 pub mod ask;

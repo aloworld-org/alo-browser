@@ -78,11 +78,12 @@ good() { printf '\033[32mok\033[0m    %s\n' "$1"; }
 # text is read, and `selectors` wherever a selector is built or run. What holds
 # for both is that no type of theirs appears in `alo-css`'s public API.
 #
-# `serde_json` is five files: four protocols, each read from a stranger — the
+# `serde_json` is six files: five protocols, each read from a stranger — the
 # agent's lines on its socket, Chrome's messages on its pipe (ADR 0058), the
-# search provider's answers (ADR 0083) and the model's (ADR 0095) — and the
-# chats kept on the machine as JSON (ADR 0092). Each is a reason to change of
-# its own, so none is another's.
+# search provider's answers (ADR 0083), the model's answers (ADR 0095) and the
+# model's steps for alo's own agent (ADR 0096) — and the chats kept on the
+# machine as JSON (ADR 0092). Each is a reason to change of its own, so none
+# is another's.
 #
 # Prose may say the name anywhere — comments are stripped before this looks.
 declare -a BOUNDARIES=(
@@ -114,7 +115,7 @@ declare -a BOUNDARIES=(
   "softbuffer:crates/alo-window/src/present.rs"
   "raw_window_handle:crates/alo-window/src/present.rs"
   "rustix:crates/alo-storage/src/volume.rs"
-  "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs,crates/alo-window/src/answer_protocol.rs,crates/alo-window/src/chat_record.rs"
+  "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs,crates/alo-window/src/answer_protocol.rs,crates/alo-window/src/agent_protocol.rs,crates/alo-window/src/chat_record.rs"
   # Brave's matcher of filter lists (ADR 0094): asked of every request a page
   # in Chromium makes, in one file of the browser process.
   "adblock:crates/alo-window/src/blocking.rs"

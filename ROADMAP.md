@@ -2491,8 +2491,11 @@ items where being right and being unusable are the same outcome.
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
-      a page inside the conversation (702), the agent's words and steps as
-      turns, with the agent at work (704), scrolling from the keyboard (754), a sign of more
+      a page inside the conversation (702), the agent at work on a card's
+      page — its column, outline, Stop and the person's gate, never a
+      password (704, ADR 0096) — the split view and a plan (819), its run
+      kept as turns (820), an agent opening its own page (821), Chrome's
+      inspector tooltip on a card's ring (822), scrolling from the keyboard (754), a sign of more
       above (755), a wheel's lines smoothed (756), chats kept across
       launches (757), a chat named by its words (758), what the agent may
       do (705),

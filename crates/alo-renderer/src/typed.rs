@@ -33,9 +33,10 @@
 //!
 //! Nothing with white space or a control character in it is an address:
 //! `what is x` is a question. Searching and asking are always offered for
-//! anything typed, since either can be what a person meant. Asking says it
-//! is not set up yet until the agent is built (queue item 704; a search's
-//! own answer is 707's, drawn with its results); searching
+//! anything typed, since either can be what a person meant. Asking is the
+//! agent's (queue item 704): set up while a page is open as a card and the
+//! model can be asked, and then offered before searching
+//! ([`offers_for`]), and saying it is not set up and why otherwise; searching
 //! goes to the Brave Search API when the browser process holds a key, and
 //! says it is not set up and why when it does not (queue item 708,
 //! [`crate::results::SetUp`]) — offered, so the screen is the design's, and
@@ -57,15 +58,16 @@ pub enum Offer {
     /// *Search for "…"*, with what was typed, trimmed: set up when the
     /// browser process says so (queue item 708, [`crate::results::SetUp`]).
     Search(String),
-    /// *Ask alo about "…"*, with what was typed, trimmed. Not set up yet
-    /// (queue item 704).
+    /// *Ask alo about "…"*, with what was typed, trimmed: the agent, on the
+    /// page open as a card, set up when the browser process says so (queue
+    /// item 704).
     Ask(String),
 }
 
 impl Offer {
     /// Whether choosing it can do what it says whatever else holds: going to
-    /// a site always can; asking waits on the agent (704); searching can when
-    /// the first screen is told it is set up (708), which this does not know.
+    /// a site always can; asking (704) and searching (708) can when the
+    /// first screen is told each is set up, which this does not know.
     pub fn is_set_up(&self) -> bool {
         matches!(self, Offer::Go(_))
     }
@@ -75,6 +77,14 @@ impl Offer {
 /// to the site first when it is an address, then searching and asking.
 /// Nothing is offered for nothing typed, or only white space.
 pub fn offers(typed: &str) -> Vec<Offer> {
+    offers_for(typed, false)
+}
+
+/// [`offers`], asking alo before searching when `asking_first` — while a
+/// page is open as a card and the agent can be asked (queue item 704,
+/// `docs/design/shell.md`: a request typed while a card is open is the
+/// agent's), so that Return on words asks alo to do them on the page.
+pub fn offers_for(typed: &str, asking_first: bool) -> Vec<Offer> {
     let said = typed.trim();
     if said.is_empty() {
         return Vec::new();
@@ -83,8 +93,13 @@ pub fn offers(typed: &str) -> Vec<Offer> {
     if let Some(url) = address(said) {
         offers.push(Offer::Go(url));
     }
-    offers.push(Offer::Search(said.to_owned()));
-    offers.push(Offer::Ask(said.to_owned()));
+    let search = Offer::Search(said.to_owned());
+    let ask = Offer::Ask(said.to_owned());
+    if asking_first {
+        offers.extend([ask, search]);
+    } else {
+        offers.extend([search, ask]);
+    }
     offers
 }
 
@@ -269,6 +284,17 @@ mod tests {
         );
         assert!(offered.first().is_some_and(Offer::is_set_up));
         assert!(!offered.iter().skip(1).any(Offer::is_set_up));
+        // While a card is open and the agent can be asked, asking comes
+        // before searching, after going to an address.
+        let asking = offers_for("example.com", true);
+        assert!(matches!(
+            asking.as_slice(),
+            [Offer::Go(_), Offer::Ask(_), Offer::Search(_)]
+        ));
+        assert!(matches!(
+            offers_for("send it", true).as_slice(),
+            [Offer::Ask(_), Offer::Search(_)]
+        ));
     }
 
     #[test]

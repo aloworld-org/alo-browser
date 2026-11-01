@@ -30,6 +30,7 @@
 //! browser process says there is nowhere to go ([`Card::back`],
 //! [`Card::forward`]).
 
+use crate::agent_work::AtWork;
 use alo_url::Url;
 
 /// What the card's picture is named by, as an `<img>`'s `src`: a name no
@@ -62,6 +63,9 @@ pub struct Card {
     /// frame has not loaded, as the browser process last heard (queue item
     /// 751).
     pub loading: bool,
+    /// The agent at work on the page, if a person asked it to be (queue
+    /// item 704, ADR 0096): drawn under the page.
+    pub agent: Option<AtWork>,
 }
 
 impl Card {
@@ -75,6 +79,7 @@ impl Card {
             forward: false,
             frame: None,
             loading: true,
+            agent: None,
         }
     }
 

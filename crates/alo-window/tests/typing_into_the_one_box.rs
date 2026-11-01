@@ -92,6 +92,7 @@ fn typing_example_com_and_return_decides_to_go_to_https_example_com() {
     assert_eq!(
         said(
             &Offer::Go(url.clone()),
+            &alo_renderer::results::SetUp::Ready,
             &alo_renderer::results::SetUp::Ready
         ),
         "going to https://example.com/"

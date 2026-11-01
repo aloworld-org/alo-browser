@@ -555,6 +555,12 @@ fn serve_in_chrome(
     let swept = chrome.swept().clone();
     let profile = chrome.profile().to_path_buf();
     let mut tab = match open(&mut chrome, opening, size, drawn) {
+        // A card's page: no agent types a password on it (queue item 704,
+        // ADR 0096).
+        Ok(mut tab) if matches!(drawn, Drawn::Shown { front: false, .. }) => {
+            tab.keep_passwords();
+            tab
+        }
         Ok(tab) => tab,
         Err(why) => {
             let _ = tell.send(Err(Unserved::Unopened(why)));

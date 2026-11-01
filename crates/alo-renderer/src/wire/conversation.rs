@@ -63,6 +63,10 @@ impl Writer {
             Claim::Image { at } => (20, Some(at)),
             Claim::ShowMoreSites { at } => (21, Some(at)),
             Claim::FullAnswer { at } => (22, Some(at)),
+            Claim::Stop => (23, None),
+            Claim::Allow => (24, None),
+            Claim::NotNow => (25, None),
+            Claim::Choice { at } => (26, Some(at)),
         };
         self.tag(tag);
         if let Some(at) = at {
@@ -112,6 +116,10 @@ impl Reader<'_> {
             20 => Claim::Image { at: self.place()? },
             21 => Claim::ShowMoreSites { at: self.place()? },
             22 => Claim::FullAnswer { at: self.place()? },
+            23 => Claim::Stop,
+            24 => Claim::Allow,
+            25 => Claim::NotNow,
+            26 => Claim::Choice { at: self.place()? },
             other => return Err(unreadable(format!("a claim tagged {other}"))),
         };
         Ok(Some(claim))

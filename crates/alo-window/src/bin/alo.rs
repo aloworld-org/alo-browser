@@ -244,17 +244,28 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     // The socket an agent reaches the card live by (queue item 716), kept
     // to the sites named, stopped and removed once every card is closed —
     // as the window's event loop ends, quit included (item 688).
-    let (reaching, listening) = match alo_window::conversation_agents::relay(opening.agents.clone())
-    {
-        Ok((orders, reaching)) => {
-            let listening = listen(&orders, &opening.agents);
-            (reaching, listening)
-        }
-        Err(why) => {
-            eprintln!("alo: no agent can reach this browser: no thread to reach a card by: {why}");
-            (alo_window::conversation_agents::Reaching::default(), None)
-        }
-    };
+    // alo's own agent (queue item 704, ADR 0096) reaches the card by the
+    // same relay, through the same orders: no road of its own.
+    let (reaching, listening, agent) =
+        match alo_window::conversation_agents::relay(opening.agents.clone()) {
+            Ok((orders, reaching)) => {
+                let listening = listen(&orders, &opening.agents);
+                let agent = answer
+                    .clone()
+                    .map(|provider| alo_window::conversation_agent::Agent::new(provider, orders));
+                (reaching, listening, agent)
+            }
+            Err(why) => {
+                eprintln!(
+                    "alo: no agent can reach this browser: no thread to reach a card by: {why}"
+                );
+                (
+                    alo_window::conversation_agents::Reaching::default(),
+                    None,
+                    Err(format!("no thread to reach a card by ({why})")),
+                )
+            }
+        };
     let closing = Closing::of(|| stop_listening(listening));
     match alo_window::window::conversation(
         opening.scale,
@@ -262,7 +273,7 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
         chromium,
         (search, answer),
         chats,
-        (reaching, closing),
+        (reaching, closing, agent),
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {

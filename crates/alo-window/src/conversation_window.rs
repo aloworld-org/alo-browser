@@ -70,6 +70,7 @@ use crate::chat_record;
 use crate::chat_store::{ChatStore, Opened};
 use crate::chrome_history::Way;
 use crate::conversation::{Conversation, Pressed as Decided};
+use crate::conversation_agent::{Agent, AgentSaid, Run, Said, TellAgent};
 use crate::conversation_answer;
 use crate::conversation_box::{self, Typed};
 use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
@@ -86,8 +87,9 @@ use alo_layout::Size;
 use alo_renderer::Frame;
 use alo_renderer::card_place;
 use alo_renderer::conversation_scroll::{self, Reach};
-use alo_renderer::results::{PROVIDER, Showing, Tab};
+use alo_renderer::results::{PROVIDER, SetUp, Showing, Tab};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 /// What the conversation's window hears from the threads it hands work to.
@@ -100,6 +102,9 @@ pub enum Heard {
     /// What came of a search, from the thread asking the search provider
     /// (queue item 708).
     Searched(Searched),
+    /// What a run of the agent at work on the card's page said (queue item
+    /// 704).
+    Agent(AgentSaid),
 }
 
 /// Where the window is, as the window server gives it.
@@ -183,6 +188,15 @@ pub struct ConversationWindow {
     written: HashMap<u64, String>,
     /// Why a chat was last not written, said once until it changes.
     unkept: Option<String>,
+    /// The agent that works on the card's page, and how its runs tell the
+    /// window (queue item 704); [`None`] when the window was given none.
+    agent: Option<(Agent, TellAgent)>,
+    /// The run of the agent at work, while one is.
+    run: Option<Run>,
+    /// Whether the conversation is kept scrolled to its newest end, so the
+    /// agent's newest line and its question are seen — from what a run
+    /// says until a person scrolls.
+    following: bool,
 }
 
 /// How the window's two threads ended.
@@ -253,6 +267,100 @@ impl ConversationWindow {
             store: None,
             written: HashMap::new(),
             unkept: None,
+            agent: None,
+            run: None,
+            following: false,
+        }
+    }
+
+    /// The same window, its card's page worked on by `agent` (queue item
+    /// 704, ADR 0096), each run telling the window with `tell`; or, with
+    /// none and why, asking alo said not set up, and why.
+    #[must_use]
+    pub fn with_agent(mut self, agent: Result<Agent, String>, tell: TellAgent) -> Self {
+        match agent {
+            Ok(agent) => {
+                self.conversation.set_agent(SetUp::Ready);
+                self.agent = Some((agent, tell));
+            }
+            Err(why) => self.conversation.set_agent(SetUp::Not(why)),
+        }
+        self
+    }
+
+    /// Start the run the conversation just started, if it did, stopping the
+    /// one at work before it; and stop a run the conversation no longer has
+    /// at work — stopped, its card closed or put away, another page opened.
+    fn follow_runs(&mut self) {
+        if let Some((number, asked)) = self.conversation.take_run() {
+            if let Some(run) = self.run.take() {
+                run.stop();
+            }
+            if let Some((agent, tell)) = &self.agent {
+                match agent.start(number, asked, Arc::clone(tell)) {
+                    Ok(run) => {
+                        self.run = Some(run);
+                        self.following = true;
+                    }
+                    Err(why) => {
+                        let _ = self.conversation.stop_agent(&format!(
+                            "alo could not start: no thread to work in ({why})."
+                        ));
+                    }
+                }
+            }
+        }
+        let working = self.conversation.working();
+        if self
+            .run
+            .as_ref()
+            .is_some_and(|run| Some(run.number()) != working)
+            && let Some(run) = self.run.take()
+        {
+            run.stop();
+        }
+    }
+
+    /// What a run of the agent said: shown on its card, said on the
+    /// terminal, and the conversation kept at its newest end so it is seen.
+    fn agent_said(&mut self, said: AgentSaid) {
+        if self.run.as_ref().map(Run::number) != Some(said.run) {
+            return;
+        }
+        match &said.said {
+            Said::Step { line, why } if why.is_empty() => self.said.push(format!("agent: {line}")),
+            Said::Step { line, why } => self.said.push(format!("agent: {line} ({why})")),
+            Said::Asking { what, .. } => self.said.push(format!("agent asks: {what}")),
+            Said::Allowed => self.said.push("agent: allowed by the person".to_owned()),
+            Said::Stuck { why, .. } => self.said.push(format!("agent is stuck: {why}")),
+            Said::Done { result } => self.said.push(format!("agent is done: {result}")),
+            Said::Stopped { why } => self.said.push(format!("agent stopped: {why}")),
+            Said::Spent(spent) => self.said.push(format!(
+                "agent: {}'s {} chose a step ({} tokens in, {} out)",
+                crate::openai_answer::ANSWERER,
+                crate::openai_answer::MODEL,
+                spent.input,
+                spent.output
+            )),
+        }
+        if self.conversation.agent_said(said) {
+            self.following = true;
+            self.ask_drawn();
+        }
+        self.follow_runs();
+    }
+
+    /// What a press on the agent's *Allow* or *Not now* was decided to be,
+    /// handed to the run at work (queue item 704). Only a person's press
+    /// reaches here: no agent's request is one.
+    fn agent_pressed(&self, pressed: &Decided) {
+        let Some(run) = &self.run else {
+            return;
+        };
+        match pressed {
+            Decided::Allow(question) => run.allow(*question),
+            Decided::NotNow(question) => run.not_now(*question),
+            _ => {}
         }
     }
 
@@ -580,6 +688,17 @@ impl ConversationWindow {
                 if self.told.take().is_some() {
                     self.redraw = true;
                 }
+                // *Click anywhere to take over* (queue item 704): the agent
+                // at work stops, and the page is the person's.
+                if self
+                    .conversation
+                    .stop_agent(crate::conversation::TAKEN_OVER)
+                    .is_some()
+                {
+                    self.follow_runs();
+                    self.redraw = true;
+                    self.ask_drawn();
+                }
                 if self.conversation.press_the_page() {
                     self.ask_drawn();
                 }
@@ -644,6 +763,8 @@ impl ConversationWindow {
                 self.to_the_page(CardInput::Wheel { x, y, right, down });
             }
             Some(card_aim::Aimed::Part(Part::Start, _)) if self.conversation.conversing() => {
+                // A person scrolling is followed, not the agent.
+                self.following = false;
                 #[expect(
                     clippy::cast_possible_truncation,
                     reason = "a wheel's turn in CSS pixels, far inside an f32's range; what the first screen is laid out in"
@@ -691,9 +812,11 @@ impl ConversationWindow {
         let had_a_card = self.conversation.card().is_some();
         let show = matches!(pressed, Decided::ShowThePanel);
         self.card_pressed(&pressed);
+        self.agent_pressed(&pressed);
         if self.conversation.act(pressed) {
             self.ask_drawn();
         }
+        self.follow_runs();
         // Shown in a window too narrow for it, the panel is still the rail
         // until the window is wide enough, and the window says so (queue
         // item 775).
@@ -702,7 +825,11 @@ impl ConversationWindow {
         }
         self.ask_further();
         if go && let Some(chosen) = self.conversation.chosen() {
-            self.start_said = Some(conversation_box::said(chosen, self.searching()));
+            self.start_said = Some(conversation_box::said(
+                chosen,
+                self.searching(),
+                &self.conversation.asking(),
+            ));
             self.go();
             self.search();
         }
@@ -810,6 +937,15 @@ impl ConversationWindow {
         let Some(url) = self.conversation.going().cloned() else {
             return;
         };
+        // Another page replaces the card, and the agent at work on it stops
+        // before the new page is open to any agent (queue item 704).
+        if self
+            .conversation
+            .stop_agent("alo stopped: you opened another page.")
+            .is_some()
+        {
+            self.follow_runs();
+        }
         let Some(streamed) = self.card_streamed() else {
             return;
         };
@@ -935,6 +1071,8 @@ impl ConversationWindow {
             // A frame is a picture, never kept: what else changed may be.
             if !framed {
                 self.keep();
+                // The card gone or replaced: its agent with it.
+                self.follow_runs();
             }
         }
     }
@@ -945,6 +1083,7 @@ impl ConversationWindow {
         match heard {
             Heard::Chrome(went) => self.went(went),
             Heard::Searched(searched) => self.searched(searched),
+            Heard::Agent(said) => self.agent_said(said),
             Heard::Drawn(Drawn::Painted(Part::Panel, frame)) => {
                 self.panel = Some(frame);
                 self.panel_said = None;
@@ -991,7 +1130,17 @@ impl ConversationWindow {
         let before = bar(self);
         // Kept inside the reach, or the sign of more above or below placed
         // by it for the first time or anew (queue item 755): drawn again.
-        if self.conversation.reached(reach, turns, room) || bar(self) != before {
+        let moved = self.conversation.reached(reach, turns, room);
+        // The agent's newest line and its question seen (queue item 704).
+        let followed = self.following
+            && self
+                .conversation
+                .card()
+                .is_some_and(|card| card.agent.is_some())
+            && self
+                .conversation
+                .scroll_by_key(conversation_keys::Scroll::ToNewest, room);
+        if moved || followed || bar(self) != before {
             self.ask_drawn();
         }
     }
@@ -1014,6 +1163,7 @@ impl ConversationWindow {
             && let Some(room) = self.start_room()
             && let Some(scroll) = conversation_keys::scroll(press, conversation_scroll::room(room))
         {
+            self.following = false;
             if self.conversation.scroll_by_key(scroll, room) {
                 self.redraw = true;
                 self.ask_drawn();
@@ -1034,13 +1184,18 @@ impl ConversationWindow {
                 // A choice is a decision as a press is: what the last one
                 // came to is no longer said.
                 self.told = None;
-                self.start_said = Some(conversation_box::said(&chosen, self.searching()));
+                self.start_said = Some(conversation_box::said(
+                    &chosen,
+                    self.searching(),
+                    &self.conversation.asking(),
+                ));
                 // The box, emptied when a site or a search was chosen,
                 // drawn so.
                 self.ask_drawn();
                 self.go();
                 self.search();
                 self.shut_if_put_away(had_a_card);
+                self.follow_runs();
                 self.redraw = true;
                 self.keep();
             }
@@ -1052,6 +1207,10 @@ impl ConversationWindow {
     pub fn finish(&mut self) {
         // The last of what is kept written, the live card's address with it.
         self.keep();
+        // The agent at work stops before its card's Chrome closes.
+        if let Some(run) = self.run.take() {
+            let _ = run.finish();
+        }
         if let Some(drawing) = self.drawing.take() {
             self.ended.drawing = drawing.finish();
         }

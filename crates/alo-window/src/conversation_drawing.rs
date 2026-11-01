@@ -290,6 +290,11 @@ impl Holding {
                     asked.showing.show_more.clone(),
                     asked.showing.full_answer.clone(),
                 ),
+                (
+                    asked.showing.working,
+                    asked.showing.asking,
+                    asked.showing.choices.clone(),
+                ),
             )
         };
         if last.as_ref().map(start_of) != Some(start_of(&asked)) {
@@ -321,6 +326,12 @@ impl Holding {
                 self.painted
                     .full_answer
                     .clone_from(&asked.showing.full_answer);
+                // And the agent at work, the question it asks and a stuck
+                // agent's choices (queue item 704): *Allow* allows only the
+                // question the picture pressed showed.
+                self.painted.working = asked.showing.working;
+                self.painted.asking = asked.showing.asking;
+                self.painted.choices.clone_from(&asked.showing.choices);
                 // How far the turns painted reach, for a person's wheel, and
                 // how far they were scrolled (queue item 703) — told before
                 // the frame, so the window aims a press on it by the offset

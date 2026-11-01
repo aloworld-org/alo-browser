@@ -51,6 +51,7 @@ use alo_net::csp::{Inline, Placement};
 use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
+mod agent;
 mod conversation;
 mod fetch;
 mod form;

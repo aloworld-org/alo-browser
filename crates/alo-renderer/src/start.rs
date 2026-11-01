@@ -97,6 +97,10 @@ pub struct Start {
     pub bar: Option<Bar>,
     /// Whether searching is set up, which the box's offer to search says.
     pub search: SetUp,
+    /// Whether asking alo — the agent, on the card's page (queue item 704)
+    /// — is set up, which the box's offer to ask says: set up only while a
+    /// card is open and the model can be asked.
+    pub asking: SetUp,
 }
 
 /// One site a person keeps on the first screen.
@@ -136,6 +140,7 @@ impl Default for Start {
             down: 0.0,
             bar: None,
             search: SetUp::Not(String::new()),
+            asking: SetUp::Not(String::new()),
         }
     }
 }

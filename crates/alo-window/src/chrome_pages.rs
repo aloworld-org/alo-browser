@@ -112,6 +112,7 @@ impl Pages for ChromePages<'_> {
         match acted {
             Ok((outcome, issues)) => Ok((action, Acted::Done { outcome, issues })),
             Err(Unacted::Refused(refusal)) => Ok((action, Acted::Refused(refusal))),
+            Err(Unacted::Password { node }) => Err(Unanswered::Password(node)),
             Err(why @ (Unacted::Unread(_) | Unacted::Failed(_))) => {
                 Err(Unanswered::Gone(why.to_string()))
             }

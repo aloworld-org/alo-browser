@@ -48141,3 +48141,110 @@ run: 6248 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is met." (11
 of 11 steps)*, `serde_json` behind its five files.
 
 The next unused queue number is **819** and the next ADR is **0096**.
+
+## Iteration 491 — queue item 704: the agent at work on a card's page (ADR 0096)
+
+**Decided (ADR 0096).** The browser process runs alo's own agent on a
+thread of its own (`conversation_agent.rs`), one step a request to OpenAI's
+`gpt-6.1-terra` (ADR 0081's `MODEL`, the answer's `Provider`, its key ADR
+0091's) through the Responses API with function calling: tools exactly the
+socket's verbs — `activate`, `put_text`, `scroll` by the tree's node number,
+never a position — and `done`, `stuck`; `tool_choice: required`, one call,
+`store: false`, no `previous_response_id`. Each request sends what the
+person asked, the page's address and tree as text (`agent_page.rs`: a
+password's dots and everything inside a field named as a secret written
+`(withheld)`, no rectangle, at most 100,000 characters, the rest counted),
+the steps so far and what came of each. **Every read and verb is an
+`Order::Agent` into the relay the socket reaches the card by** — the same
+`serve`, sites, refusal kinds and record, as `Caller::ALO`. Limits: 20
+verbs, 400,000 tokens, 60 s a model answer, 90 s a page answer. **The
+person's gate** (`agent_gate.rs`), judged on a fresh read by the browser
+process: an `activate` whose words pay, send or delete, or a button inside
+a `form`, is asked — *Press "Send" on 127.0.0.1:8765? It sends something
+from you.* — and done only after *Allow*, which the drawing thread decides
+only for the question the picture pressed showed and still asked; the page
+is read again and pressed only if it still asks the same; *Not now* ends
+the run. **Never a password**: every card's tab refuses `put_text` into an
+`<input type=password>` (`Tab::keep_passwords`, judged on `DOM.describeNode`
+before anything is sent), refused by kind `Password` — on the socket too,
+in the contract — and the run says it is stuck.
+
+**Built.** `alo-renderer`: `agent_work.rs` (the run as data on the live
+card), `wire/agent.rs` (at most 40 steps, 4 choices), `agent_document.rs`
+(under the page: the card and page outlined `#B5573A`, the working line on
+`#F6E7E0` with *Stop*, what was asked, a step a line with why, the question
+with *Allow*/*Not now*, stuck with choices, done, stopped), `start.css`;
+claims `Stop`, `Allow`, `NotNow`, `Choice{at}` and their decisions against
+`Shown::{working, asking, choices}`; `Start::asking` and
+`typed::offers_for` — Return on words while a card is open asks alo.
+`alo-window`: `agent_protocol.rs` (sixth `serde_json` file),
+`agent_page.rs`, `agent_gate.rs`, `conversation_agent.rs`,
+`conversation_work.rs` (runs and questions by the browser's numbers),
+`ConversationWindow::with_agent` (start, stop on *Stop*, a press on the
+page, the card going or another page chosen; kept scrolled to the newest
+end while it speaks), `alo --conversation` wiring the relay's orders and
+the answer's provider. **Found by hand**: every agent's read of
+en.wikipedia.org failed — Chrome 156 lists ninety `InlineTextBox`es twice,
+identical, under one parent naming each once (measured with CDP on the
+main page) — so an identical repeat is one node now (`chrome_tree.rs`); and
+the painted question was not kept by the drawing thread, so the first
+*Allow* through the window's road was refused (found by the window test).
+
+**Tests:** window unit 689, renderer unit 400 (new: protocol, page text,
+gate, the run against a fake card and model — fill and press, *Send* held
+until *Allow*, *Not now*, an answer to another question, stopped while
+asked, the step limit, a 500 and nonsense, stuck — work state, decisions,
+the box, `chrome_reading`'s password rule, `chrome_tree`'s repeat);
+`messages_across_a_boundary.rs` (the run crossing, too many steps or
+choices refused, the four claims); `the_agent_at_work.rs` (6: the column in
+numbers acting, asking and stuck, three references `agent-acting.png`,
+`agent-asking.png`, `agent-stuck.png` looked at and run once without update
+mode, the tree, each button claimed);
+`the_agent_at_work_on_a_card_through_chrome.rs` through the machine's
+Chrome and alo's CEF host (each ~47 s): a local page and a local model in
+OpenAI's shape finding nodes by name in the tree it is sent — fill *Name*,
+press *Say hello*, *Send* held (nothing sent in 2 s) until *Allow* is found
+on the screen and pressed through the claim, the form sent `name=Ada`, no
+request holding `hunter2`, every one `store:false`; *Delete everything*
+held, *Not now* pressed, never followed, the model not asked again; a
+password `put_text` refused, stuck, no input heard; *Stop* and a press on
+the page while the model's answer is held, nothing pressed when it comes;
+20 presses then stopped; a 503 said. **Mutations:** the gate's judgement
+off — four unit tests and the window test fail (Send done unasked); the
+card's password refusal off — the window test fails (typed, not stuck).
+
+**By hand** (screen unlocked; release built, CEF host built, the old `.app`
+removed, `alo-bundle --keys-from keychain` carrying both keys, the carried
+key checked masked without printing it; `--conversation --chats`
+`handrun28/chats2`; the window moved onto the Retina display by
+AppleScript, 1280 × 960; keys and presses posted from a private event
+source with no flags; screenshots in `handrun28/`): `en.wikipedia.org`,
+then *Search Wikipedia for Kampala and open the article* and Return — the
+first run, before the `chrome_tree` fix, stopped at once: *the page could
+not be read: … Chrome's tree names node -1000000467 twice* (no model
+asked). After the fix: *Opening Wikipedia search*, *Typing Kampala into
+Wikipedia search* (twice), *Searching Wikipedia for Kampala*, then held —
+*Press "Search" on en.wikipedia.org? It sends the form on this page.*
+(`03-at-work`: the outline, the working line, *Stop*, the steps, the
+question) — *Allow* pressed, and *Done in 4 steps* — *Opened the Wikipedia
+article on Kampala.* on `en.wikipedia.org/wiki/Kampala` (`04-result`).
+Then a local page served from the scratchpad: typed without `http://` it
+was opened as `https://` and failed, and the request typed next became a
+search (one Brave request and one answer asked) — my mistake; typed with
+`http://`: *Write hello in the message and send it* — *Typing hello in the
+message*, *Sending the message*, held: *Press "Send" on 127.0.0.1:8765? It
+sends something from you.* (`06-send-asks`), *Not now* pressed — *Not
+done: you said not now. alo did not press "Send" on 127.0.0.1:8765.*, and
+the server never asked for `sent.html` (`07-not-now`). Seen: the verb's
+ring on a card is Chrome's inspector highlight with its tooltip, and stays
+after the run (822). Usage: the Kampala run 62,083 tokens in, 152 out; the
+send run 1,700 in, 61 out; the stray search's answer 1,193 in, 46 out —
+**≈ $0.066** at Terra's prices. Quit by AppleScript `quit`; no alo process
+left; the pointer back at 1400, 1000; neither key in any hand-run file.
+
+**Gate: met, first run** (CEF_PATH set, pointer at 1400, 1000; detached
+with `setsid`, waited on by its PID). **Summary [1132.113s] 6287 tests
+run: 6287 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is met." (11
+of 11 steps)*, `serde_json` behind its six files.
+
+The next unused queue number is **823** and the next ADR is **0097**.

@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo can now do things on the page you have open.** With a page open in
+  the conversation, type what you want done — *search Wikipedia for
+  Kampala and open the article* — and press Return. alo works on the page
+  step by step, reading it as what it is rather than as a picture, and
+  shows each step under the page, with why when it chose, while the page
+  is outlined in terracotta. Press *Stop*, or anywhere on the page, to take
+  over. Before it presses anything that pays, sends, deletes or sends a
+  form, it asks you, and does nothing until you press *Allow*; *Not now*
+  stops it. It never types a password: signing in is yours. When it is
+  stuck it says so and offers choices. What you asked, the page's text
+  (never a password, a card's number or a security code it can recognise)
+  and its steps so far go to OpenAI for each step, asked to store nothing;
+  alo uses the same road any agent outside the browser uses, and the same
+  record keeps what it did. A page whose accessibility tree lists a piece
+  of text twice — Wikipedia's do, in Chrome 156 — can now be read by any
+  agent.
 - **A search now comes with an answer, and every sentence says where it
   came from.** Once a search finds sites, alo asks OpenAI's
   `gpt-6.1-terra` to answer the question from what Brave Search said of the

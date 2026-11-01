@@ -185,6 +185,10 @@ pub struct Tab<'c> {
     /// closed, by a person closing its window or by this process, and
     /// nothing sent through the session is answered after (item 672).
     detached: bool,
+    /// Whether text put into a password field is refused, for every agent:
+    /// so for a page shown as a card in the conversation, where signing in
+    /// is the person's step (queue item 704, ADR 0096).
+    keeps_passwords: bool,
     /// The page streamed as frames, for the conversation's card (ADR 0076
     /// B, queue item 717): every frame answered as it is read, the newest
     /// kept.
@@ -450,6 +454,7 @@ impl<'c> Tab<'c> {
             sockets: Vec::new(),
             address: alo_url::parse(url).ok(),
             detached: false,
+            keeps_passwords: false,
             casting: Casting::default(),
             loading: Loading::default(),
             navigations: 0,
@@ -553,6 +558,20 @@ impl<'c> Tab<'c> {
     /// and recorded rather than answered from a frozen page's bytes.
     fn is_from_the_network(&self) -> bool {
         matches!(self.kept, Kept::Network)
+    }
+
+    /// From now on, refuse text put into a password field, whichever agent
+    /// asks — for a page shown as a card in the conversation, where signing
+    /// in is the person's step (queue item 704, ADR 0096): refused as
+    /// [`Unacted::Password`](crate::chrome_act::Unacted::Password), before
+    /// Chrome is asked to do anything.
+    pub fn keep_passwords(&mut self) {
+        self.keeps_passwords = true;
+    }
+
+    /// Whether text put into a password field is refused.
+    pub fn keeps_passwords(&self) -> bool {
+        self.keeps_passwords
     }
 
     /// The address of the page the tab shows, as an agent names the tab

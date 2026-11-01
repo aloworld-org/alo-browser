@@ -127,7 +127,10 @@
 //! has measured, such as 1.25 — painted at the largest measured scale below
 //! it — and a link opening a tab (item 300).
 
+pub mod agent_gate;
 pub mod agent_lines;
+pub mod agent_page;
+pub mod agent_protocol;
 pub mod agent_record;
 pub mod agent_sites;
 #[cfg(unix)]
@@ -197,6 +200,7 @@ pub mod colours;
 pub mod compose;
 pub mod conductor;
 pub mod conversation;
+pub mod conversation_agent;
 pub mod conversation_agents;
 pub mod conversation_aim;
 pub mod conversation_answer;
@@ -212,6 +216,7 @@ pub mod conversation_place;
 pub mod conversation_search;
 pub mod conversation_thread;
 pub mod conversation_window;
+pub mod conversation_work;
 pub mod cursor;
 pub mod engine_pages;
 pub mod fonts;

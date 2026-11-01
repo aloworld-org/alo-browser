@@ -22,7 +22,9 @@
 //! buttons, *Back* and *Forward* disabled when there is nowhere to go; then
 //! the page, as an image named [`PICTURED`] once a frame has arrived; and,
 //! while the page is still loading, the bar's [`LOADING`] after the address
-//! (queue item 751), a paragraph a person and an agent read alike. The
+//! (queue item 751), a paragraph a person and an agent read alike; and,
+//! once a person asked alo to work on the page, the agent's column under
+//! it ([`crate::agent_document`], queue item 704). The
 //! icons are decoration and hidden from the tree. What the page itself
 //! holds is Chrome's to say, through the agent's socket (ADR 0058), never
 //! read off its picture.
@@ -35,6 +37,7 @@
 //! drawn, decoded in this confined process. No frame yet, no `<img>`: the
 //! page box is the card's white.
 
+use crate::agent_document;
 use crate::card::{Card, FRAME_SRC};
 use crate::resource::Resource;
 use crate::start_document::{Unbuilt, append, attribute, by_id, element};
@@ -140,6 +143,18 @@ fn fill(document: &mut Document, made: NodeId, card: &Card) -> Result<(), Unbuil
         attribute(document, picture, "src", FRAME_SRC)?;
         attribute(document, picture, "alt", PICTURED)?;
         append(document, page, picture)?;
+    }
+    if let Some(work) = &card.agent {
+        // The agent at work (queue item 704): its column under the page,
+        // and, while it works, the page outlined in the acting colour.
+        if work.is_working() {
+            attribute(document, made, "class", "card acting")?;
+            let page = of_class(document, made, "page")?;
+            let ring = agent_document::ring(document)?;
+            append(document, page, ring)?;
+        }
+        let column = agent_document::make(document, work)?;
+        append(document, made, column)?;
     }
     Ok(())
 }

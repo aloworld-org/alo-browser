@@ -883,7 +883,11 @@ pub fn conversation(
         Result<crate::openai_answer::Provider, String>,
     ),
     chats: Result<PathBuf, String>,
-    (reaching, closing): (Reaching, Closing<'_>),
+    (reaching, closing, agent): (
+        Reaching,
+        Closing<'_>,
+        Result<crate::conversation_agent::Agent, String>,
+    ),
 ) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
@@ -918,7 +922,14 @@ pub fn conversation(
         Box::new(move |searched| proxy.send_event(Heard::Searched(searched)).is_ok()),
     )
     .map_err(|why| format!("no thread to search with: {why}"))?;
-    let state = ConversationWindow::new(forced, drawing, chrome).with_search(searcher);
+    // The agent at work on a card's page (queue item 704, ADR 0096), each
+    // run telling the window as the other threads do.
+    let proxy = event_loop.create_proxy();
+    let tell_agent: crate::conversation_agent::TellAgent =
+        std::sync::Arc::new(move |said| proxy.send_event(Heard::Agent(said)).is_ok());
+    let state = ConversationWindow::new(forced, drawing, chrome)
+        .with_search(searcher)
+        .with_agent(agent, tell_agent);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
     // read before the window opens; with nowhere, said, and none kept.
     let state = match chats.and_then(|directory| ChatStore::open(&directory)) {

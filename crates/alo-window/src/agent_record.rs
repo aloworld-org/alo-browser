@@ -49,8 +49,18 @@ pub const MOST_KEPT: usize = 10_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Caller(pub u64);
 
+impl Caller {
+    /// alo's own agent, run by the browser process on a card's page (queue
+    /// item 704, ADR 0096): recorded as every agent is, by a number no
+    /// connection to the socket is ever given — they count up from nought.
+    pub const ALO: Caller = Caller(u64::MAX);
+}
+
 impl fmt::Display for Caller {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self == Self::ALO {
+            return f.write_str("alo's own agent");
+        }
         write!(f, "agent#{}", self.0)
     }
 }
