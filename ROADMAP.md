@@ -2493,20 +2493,19 @@ items where being right and being unusable are the same outcome.
       the engine itself (715),
       a page inside the conversation (702), the agent at work on a card's
       page — its column, outline, Stop and the person's gate, never a
-      password (704, ADR 0096) — the split view and a plan (819), its run
-      kept as turns (820), an agent opening its own page (821), Chrome's
-      inspector tooltip on a card's ring (822), scrolling from the keyboard (754), a sign of more
+      password (704, ADR 0096) — the split view and a plan (819), an agent opening its own page (821),
+      alo's own ring on a card (823), scrolling from the keyboard (754), a sign of more
       above (755), a wheel's lines smoothed (756), chats kept across
       launches (757), a chat named by its words (758), what the agent may
       do (705),
-      the exact line on hover (812), a source opened as a card at its line (813), an answer kept in a chat (814), streaming an answer (815), richer grounding (816), an evaluation of the model (817), zero data retention (818), `COLR` version 1 and `SVG` colour
+      the exact line on hover (812), a source opened as a card at its line (813), streaming an answer (815), richer grounding (816), an evaluation of the model (817), zero data retention (818), `COLR` version 1 and `SVG` colour
       glyphs (785), an emoji's shadow (786), a rounded picture at fractions of a pixel (783),
       a varied glyph's advance to its fraction (795), a kerning pair's
       variation along an axis (796), kerning across a space on a line
       measured word by word (797),
       an SVG's drawing rounded (784), the panel
       shown over the conversation in a narrow window (776). Built
-      since: a search's answer at the top of All and on the Answer tab, from OpenAI, every citation checked, and OpenAI's key carried in its own slot (707, 773, ADRs 0081 and 0095); a response's body bounded per request, a search's pictures
+      since: each run of alo's agent kept as turns of its chat, never a text typed that the person did not say (820, ADR 0092 amended); a search's answer kept in its chat and read back checked, never asked again (814, ADR 0092 amended); nothing of Chrome's inspector over a card's page, any mark taken away as a run ends, through both Chromiums (822, ADR 0066 amended); a search's answer at the top of All and on the Answer tab, from OpenAI, every citation checked, and OpenAI's key carried in its own slot (707, 773, ADRs 0081 and 0095); a response's body bounded per request, a search's pictures
       cut at their bound and an HTTP/2 body bounded at all (762, ADR 0086
       § 3); a person's hover, double clicks, arrows, shortcuts and paging
       keys on a card's page, through both Chromiums (740, 741); the first press on a card just opened, measured the page's, and a press with a modifier said (805); trackers and adverts refused by EasyList and EasyPrivacy through both Chromiums (736, ADR 0094); a field's value kept to one line and cut at its content box (715); an agent reaching the page the conversation shows, over one socket following the newest card (716, ADR 0075 amended); a news story's photo (765, ADR 0087 § 3); the Sites tab's

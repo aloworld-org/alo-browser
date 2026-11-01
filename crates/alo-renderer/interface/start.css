@@ -417,6 +417,22 @@ a {
   color: var(--ink);
 }
 
+/* A run of alo's agent kept with a page shown earlier (queue item 820):
+   what the person asked, as their bubble, then what alo did on a white box
+   rounded 12, 14 by 16 inside — its steps as the live card draws them, 6
+   apart, and how it ended, 10 under them. */
+.ran {
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 13.5px;
+  line-height: 20px;
+}
+
 /* What was chosen and could not be done, and why, in quiet words. */
 .failed {
   font-size: 14.5px;

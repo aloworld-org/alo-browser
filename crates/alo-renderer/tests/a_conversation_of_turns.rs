@@ -302,6 +302,7 @@ fn visited() -> Turn {
     Turn::Visited {
         said: "Installing a charger at home: what to expect".to_owned(),
         url: url("https://evhomeguide.org/installing-a-charger"),
+        ran: Vec::new(),
     }
 }
 
@@ -610,6 +611,7 @@ fn every_turns_words_stay_text_through_the_drawing() {
             Turn::Visited {
                 said: hostile.to_owned(),
                 url: url("https://example.com/%3Cb%3E"),
+                ran: Vec::new(),
             },
         ],
         0.0,

@@ -652,6 +652,91 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
     }
 }
 
+/// Queue item 820: the runs of the agent kept with a page shown earlier
+/// cross as they were sent — every kind of ending, as many steps as are
+/// drawn — and more runs or steps than are drawn, or a card's runs on a
+/// live card, are not carried.
+#[test]
+fn the_runs_kept_with_a_page_cross_and_too_many_are_refused() {
+    use alo_renderer::agent_ran::{Ended, MOST_RUNS, Ran};
+    use alo_renderer::agent_work::{MOST_STEPS, Step};
+    let page = |ran: Vec<Ran>| {
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Visited {
+                said: "a page".to_owned(),
+                url: alo_url::parse("https://example.com/").unwrap_or_else(|_| panic!("parses")),
+                ran,
+            }],
+            ..Start::default()
+        }))
+    };
+    let step = Step {
+        line: "Typing \u{201c}</li>\0\u{201d}".to_owned(),
+        why: "<b>because</b>".to_owned(),
+    };
+    let ran = |ended: Ended, steps: usize| Ran {
+        asked: "send <it>".to_owned(),
+        steps: vec![step.clone(); steps],
+        ended,
+    };
+    let every = vec![
+        ran(
+            Ended::Done {
+                said: "Sent.".to_owned(),
+            },
+            MOST_STEPS,
+        ),
+        ran(
+            Ended::Stuck {
+                why: "no form".to_owned(),
+            },
+            1,
+        ),
+        ran(
+            Ended::Stopped {
+                why: "You stopped alo.".to_owned(),
+            },
+            0,
+        ),
+    ];
+    let original = page(every);
+    let back = read_to_renderer(&write_to_renderer(&original))
+        .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+    assert_eq!(back, original);
+    let most = page(vec![Ran::starting("x"); MOST_RUNS]);
+    assert!(read_to_renderer(&write_to_renderer(&most)).is_ok());
+    for refused in [
+        page(vec![Ran::starting("x"); MOST_RUNS + 1]),
+        page(vec![ran(
+            Ended::Done {
+                said: String::new(),
+            },
+            MOST_STEPS + 1,
+        )]),
+    ] {
+        assert!(
+            read_to_renderer(&write_to_renderer(&refused)).is_err(),
+            "{refused:?} was read"
+        );
+    }
+    // A live card's runs are the browser process's: not carried.
+    let mut card = alo_renderer::card::Card::new(
+        "a page",
+        alo_url::parse("https://example.com/").unwrap_or_else(|_| panic!("parses")),
+    );
+    card.ran = vec![Ran::starting("x")];
+    let live = ToRenderer::Start(Box::new(Start {
+        turns: vec![Turn::Page(card)],
+        ..Start::default()
+    }));
+    let ToRenderer::Start(back) = read_to_renderer(&write_to_renderer(&live))
+        .unwrap_or_else(|why| panic!("a live card did not survive: {why}"))
+    else {
+        panic!("not a first screen");
+    };
+    assert!(matches!(back.turns.first(), Some(Turn::Page(card)) if card.ran.is_empty()));
+}
+
 /// Queue item 703: a conversation of every kind of turn, oldest first,
 /// scrolled either way, crosses as it was sent; and asking how far it
 /// reaches, and the answer, do too.
@@ -664,6 +749,7 @@ fn a_conversation_of_turns_and_its_reach_survive_the_crossing() {
         Turn::Visited {
             said: "<b>said</b>".to_owned(),
             url: site("https://a.example/b?c#d"),
+            ran: Vec::new(),
         },
         Turn::Failed {
             said: "b.example".to_owned(),
@@ -786,6 +872,7 @@ fn a_conversation_the_renderer_should_not_draw_is_refused() {
         vec![Turn::Visited {
             said: "x".to_owned(),
             url: site("file:///etc/passwd"),
+            ran: Vec::new(),
         }],
         0.0,
     );

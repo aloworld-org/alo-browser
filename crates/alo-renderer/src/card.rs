@@ -30,6 +30,7 @@
 //! browser process says there is nowhere to go ([`Card::back`],
 //! [`Card::forward`]).
 
+use crate::agent_ran::Ran;
 use crate::agent_work::AtWork;
 use alo_url::Url;
 
@@ -66,6 +67,11 @@ pub struct Card {
     /// The agent at work on the page, if a person asked it to be (queue
     /// item 704, ADR 0096): drawn under the page.
     pub agent: Option<AtWork>,
+    /// Every run of the agent on the page, oldest first, as the chat keeps
+    /// it (queue item 820): the browser process's, never sent with the
+    /// live card — which draws its newest run as [`Card::agent`] — and
+    /// drawn once the page is shown earlier ([`crate::turn::Turn::Visited`]).
+    pub ran: Vec<Ran>,
 }
 
 impl Card {
@@ -80,6 +86,7 @@ impl Card {
             frame: None,
             loading: true,
             agent: None,
+            ran: Vec::new(),
         }
     }
 

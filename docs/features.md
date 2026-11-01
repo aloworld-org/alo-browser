@@ -1298,7 +1298,27 @@ The reason this exists rather than a faster fork of somebody else's engine.
   the split view, a plan and the next steps greyed, taking over and
   carrying on, a payment's details (819); the run kept as turns in the
   chat's file (820); an agent opening its own page (821); its settings
-  (705).
+  (705). **Nothing of Chrome's over a card** (822, ADR 0066 amended): a card's
+  page is never marked by Chrome's `Overlay.highlightNode` — whose tooltip
+  the stream carried into the conversation — a verb takes any mark away,
+  a card expanded into Chrome's window is marked as before, and
+  `CardOrder::Unmark` takes any mark away as a run ends or stops (no pixel
+  of Chrome's border on the card, through both Chromiums; alo's own ring
+  on a card, 823). **Kept in its chat** (814, ADR 0092 amended):
+  the answer's line, sentences and points with their numbers — or not
+  found, or why not — written to the chat's file in words and read back
+  checked as the wire checks it, its tab with it, never asking the model
+  again (`chat_record.rs`; through two launches in
+  `tests/a_searchs_answer_in_the_window.rs`). **Each run kept as turns of the chat** (820, ADR 0092
+  amended): what was asked, each step's line and why, and how it ended,
+  kept with the page it worked on (`Card::ran`, `agent_kept.rs`) and
+  written to the chat's file — a typing step whose text the person did not
+  say kept as *Typed into a field*, that text replaced by `…` everywhere
+  else — read back checked (20 runs a page, 40 steps a run) and drawn under
+  the page's line once it is shown earlier, as the person's bubble and
+  what alo did (`ran_document.rs`; a layout assertion and
+  `references/agent-runs-kept.png`; through both Chromiums in
+  `tests/the_agent_at_work_on_a_card_through_chrome.rs`).
 
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item

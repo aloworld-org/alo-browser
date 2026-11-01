@@ -331,8 +331,9 @@ OpenAI. Where there is no answer, one sentence of 14.5 on 23 in quiet text
 stands in its place on both: *alo is writing an answer from these sites…*,
 *I couldn't find a reliable answer.* and where the sites are, or why — no
 key, the key refused, too many requests, OpenAI unable to answer,
-unreachable, an answer unreadable or citing a site it was not given. Not
-built yet: the exact line on hover (812), a source opened as a card at the
+unreachable, an answer unreadable or citing a site it was not given. A
+chat reopened from *Earlier* shows the answer it had, on the tab it was on,
+read from its file and never asked again (814). Not built yet: the exact line on hover (812), a source opened as a card at the
 line it was used for (813), streaming (815).
 
 ### As designed
@@ -400,11 +401,19 @@ by 14 inside, the question (600), then **Allow** in the ink and **Not
 now**, 28 tall, 8 apart. Stuck: why, then each choice as a button. Done:
 *Done in N steps* in the done colour and the result in full. A press on
 the page stops it and gives the person the page. It never types a
-password: the card refuses it, for any agent. Not built yet: the split
+password: the card refuses it, for any agent. Nothing of Chrome's is
+drawn over the card's page — no inspector highlight, no tooltip (822);
+alo's own ring on a card is 823. Not built yet: the split
 view below, a sentence of plan and the next steps greyed, carrying on
 after taking over, what, when, where and how much before paying (819);
-the run kept as turns of the chat (820); an agent opening its own page
-(821).
+an agent opening its own page (821). **Each run is kept** with the page it
+worked on (820): once the page is shown earlier, under its line, what the
+person asked as their bubble, then what alo did on a white box rounded 12,
+14 by 16 inside — its steps in the quiet colour, 6 apart, why under a step
+— and 10 under them *Done in N steps* in the done colour and the result,
+or why it was stuck or stopped; nothing on it pressable. A text typed that
+the person did not say is never kept: that step reads *Typed into a
+field*.
 
 ### As designed
 

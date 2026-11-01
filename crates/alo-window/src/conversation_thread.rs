@@ -28,6 +28,8 @@
 
 use crate::conversation_glide::Glide;
 use alo_layout::Size;
+use alo_renderer::agent_ran::Ended;
+use alo_renderer::agent_work::AtWork;
 use alo_renderer::card::Card;
 use alo_renderer::conversation_scroll::{self, Bar, Reach};
 use alo_renderer::results::{self, Images, Next, Page, Results, Stories, Tab, Videos};
@@ -35,6 +37,11 @@ use alo_renderer::results_answer::Answer;
 use alo_renderer::turn::Turn;
 use alo_url::Url;
 use std::time::Instant;
+
+/// What a run of the agent still at work on a card is kept as having come
+/// to when the card is put away — closed, or a newer turn come (queue item
+/// 820).
+pub const PUT_AWAY: &str = "alo stopped: the page was closed or replaced.";
 
 /// One chat's turns, and how far they are scrolled.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -64,6 +71,7 @@ impl Thread {
                 Turn::Page(card) => Turn::Visited {
                     said: card.said,
                     url: card.url,
+                    ran: card.ran,
                 },
                 other => other,
             })
@@ -397,9 +405,20 @@ impl Thread {
         let Turn::Page(card) = turn else {
             return false;
         };
+        // A run still at work on it stops with it, and is kept so.
+        if card.agent.as_ref().is_some_and(AtWork::is_working)
+            && let Some(newest) = card.ran.last_mut()
+        {
+            newest.ended = Ended::Stopped {
+                why: PUT_AWAY.to_owned(),
+            };
+        }
+        // Its runs of the agent go with it, kept under its line (queue
+        // item 820).
         *turn = Turn::Visited {
             said: std::mem::take(&mut card.said),
             url: card.url.clone(),
+            ran: std::mem::take(&mut card.ran),
         };
         true
     }
@@ -444,7 +463,7 @@ impl Thread {
                         .find(|story| story.page == *url)
                         .map(|story| story.title.clone())
                 }),
-            Turn::Visited { said, url: at } if at == url => Some(said.clone()),
+            Turn::Visited { said, url: at, .. } if at == url => Some(said.clone()),
             _ => None,
         })
     }
@@ -702,6 +721,7 @@ mod tests {
             Some(&Turn::Visited {
                 said: "example.com".to_owned(),
                 url: url("https://example.com/"),
+                ran: Vec::new(),
             })
         );
         assert!(thread.searched(
@@ -740,6 +760,45 @@ mod tests {
         );
         assert!(!thread.put_away_card(), "no live card");
         assert_eq!(thread.turns().len(), 3);
+    }
+
+    #[test]
+    fn a_cards_runs_go_with_it_and_one_at_work_is_kept_as_stopped_with_it() {
+        use alo_renderer::agent_ran::Ran;
+        let mut thread = Thread::default();
+        thread.open_card("example.com".to_owned(), url("https://example.com/"));
+        let done = Ran {
+            asked: "one".to_owned(),
+            steps: Vec::new(),
+            ended: Ended::Done {
+                said: "Done.".to_owned(),
+            },
+        };
+        if let Some(card) = thread.card_mut() {
+            card.ran = vec![done.clone(), Ran::starting("two")];
+            card.agent = Some(AtWork::starting("two"));
+        }
+        // A newer turn puts the card away while its run is at work.
+        thread.search("ev".to_owned());
+        let Some(Turn::Visited { ran, .. }) = thread.turns().first() else {
+            panic!("{:?}", thread.turns());
+        };
+        assert_eq!(
+            ran,
+            &vec![
+                done,
+                Ran {
+                    asked: "two".to_owned(),
+                    steps: Vec::new(),
+                    ended: Ended::Stopped {
+                        why: PUT_AWAY.to_owned()
+                    }
+                }
+            ]
+        );
+        // Read back, a kept card's runs stay with it.
+        let kept = Thread::kept(thread.turns().to_vec());
+        assert_eq!(kept.turns(), thread.turns());
     }
 
     #[test]

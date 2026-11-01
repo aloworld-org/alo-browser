@@ -99,10 +99,16 @@ impl AtWork {
 
     /// What its finished line says: *Done in 1 step*, *Done in 6 steps*.
     pub fn done_in(&self) -> String {
-        match self.steps.len() {
-            1 => "Done in 1 step".to_owned(),
-            steps => format!("Done in {steps} steps"),
-        }
+        done_in(self.steps.len())
+    }
+}
+
+/// What a run's finished line says after `steps` steps: *Done in 1 step*,
+/// *Done in 6 steps*.
+pub fn done_in(steps: usize) -> String {
+    match steps {
+        1 => "Done in 1 step".to_owned(),
+        steps => format!("Done in {steps} steps"),
     }
 }
 

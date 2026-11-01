@@ -25,7 +25,8 @@
 //! bytes begin as a PNG's — decoded, in this confined process, only by the
 //! picture readers every `<img>` goes through — and refused anywhere but
 //! as the newest turn, since one page is open at a time; a page shown
-//! earlier, its address refused unless it is a site's; and a failure, in
+//! earlier, its address refused unless it is a site's, with the runs of
+//! the agent kept with it (queue item 820); and a failure, in
 //! words. A search's thumbnails together weigh at most
 //! [`MOST_PICTURE_BYTES`] (queue item 743). Then how far the conversation
 //! is scrolled, a finite number.
@@ -94,10 +95,12 @@ impl Writer {
                     self.tag(1);
                     self.card(card);
                 }
-                Turn::Visited { said, url } => {
+                Turn::Visited { said, url, ran } => {
                     self.tag(2);
                     self.text(said);
                     self.text(&url.serialised);
+                    // Each run of the agent kept with it (queue item 820).
+                    self.runs(ran);
                 }
                 Turn::Failed { said, why } => {
                     self.tag(3);
@@ -184,32 +187,7 @@ impl Reader<'_> {
         }
         let mut turns = Vec::with_capacity(count);
         for place in 0..count {
-            let turn = match self.tag()? {
-                0 => Turn::Searched(self.results()?),
-                1 if place + 1 == count => Turn::Page(self.card()?),
-                1 => {
-                    return Err(unreadable(
-                        "a page shown live in a turn that is not the newest",
-                    ));
-                }
-                2 => {
-                    let said = self.text()?;
-                    Turn::Visited {
-                        said,
-                        url: self
-                            .site("a page shown earlier at an address that is not a site's")?,
-                    }
-                }
-                3 => {
-                    let said = self.text()?;
-                    Turn::Failed {
-                        said,
-                        why: self.text()?,
-                    }
-                }
-                other => return Err(unreadable(format!("a turn tagged {other}"))),
-            };
-            turns.push(turn);
+            turns.push(self.turn(place + 1 == count)?);
         }
         let pictures: usize = turns
             .iter()
@@ -245,6 +223,37 @@ impl Reader<'_> {
             bar,
             search,
             asking,
+        })
+    }
+
+    /// One turn of the conversation, as [`Writer::start`] wrote it: a live
+    /// card only as the `newest`.
+    fn turn(&mut self, newest: bool) -> Result<Turn, Unreadable> {
+        Ok(match self.tag()? {
+            0 => Turn::Searched(self.results()?),
+            1 if newest => Turn::Page(self.card()?),
+            1 => {
+                return Err(unreadable(
+                    "a page shown live in a turn that is not the newest",
+                ));
+            }
+            2 => {
+                let said = self.text()?;
+                let url = self.site("a page shown earlier at an address that is not a site's")?;
+                Turn::Visited {
+                    said,
+                    url,
+                    ran: self.runs()?,
+                }
+            }
+            3 => {
+                let said = self.text()?;
+                Turn::Failed {
+                    said,
+                    why: self.text()?,
+                }
+            }
+            other => return Err(unreadable(format!("a turn tagged {other}"))),
         })
     }
 
@@ -297,6 +306,8 @@ impl Reader<'_> {
             frame,
             loading,
             agent,
+            // Never sent with the live card: drawn once it is shown earlier.
+            ran: Vec::new(),
         })
     }
 

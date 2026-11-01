@@ -40,6 +40,25 @@
 //!
 //! Only a shown Chrome is marked: a headless one has nobody to see it, and
 //! the commands would be sent for nothing.
+//!
+//! # Never over a card
+//!
+//! A page shown as a card in the conversation (ADR 0076 B) is drawn by alo
+//! from the frames Chrome streams of it, and Chrome's overlay is in those
+//! frames: on a card, `Overlay.highlightNode` drew Chrome's inspector
+//! tooltip — the element's tag and size, *Accessibility*, *Name*, *Role*,
+//! *Keyboard-focusable* — over the page, and it stayed after alo's own
+//! agent had finished, until the next verb (queue item 822, found by hand
+//! in 704). So **while its page is a card, Chrome is asked to draw nothing
+//! over it** ([`Marker::over_a_card`]): a verb takes away any mark there is
+//! instead, and the card's run says, in its lines, what each step did. A
+//! card expanded into Chrome's own window ([`Marker::expanded`]) is
+//! Chrome's window again, and marked as this module's first sections say.
+//! Whatever is drawn is taken away when a run of alo's agent ends or is
+//! stopped ([`Marker::clear`], `CardOrder::Unmark`), so nothing of Chrome's
+//! is left over a page nobody is acting on. alo's own ring on a card,
+//! drawn by the first screen against the frame it was measured on, is
+//! queue item 823 (ADR 0066's amendment of 1 November 2026).
 
 use crate::asking::Answer;
 use crate::chrome::Failed;
@@ -47,6 +66,7 @@ use crate::chrome_act::dom_of;
 use crate::chrome_protocol::Command;
 use crate::chrome_tab::Tab;
 use crate::colours;
+use crate::message::CardOrder;
 use alo_agent::Outcome;
 use alo_box::BoxId;
 use alo_net::cause::DocumentId;
@@ -88,14 +108,87 @@ pub enum Marked {
     Kept,
 }
 
+/// What a [`Marker`] asks of Chrome for a [`Marking`]: the decision, before
+/// anything is sent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Plan {
+    /// Ask for nothing.
+    Nothing,
+    /// Take any mark away: `Overlay.hideHighlight`, sent only when Chrome
+    /// has been let draw one.
+    Unmark,
+    /// Mark the first of these Chrome drew, on the page the verb was done
+    /// to.
+    Nodes(Vec<BoxId>),
+}
+
 /// The mark over one tab's page in Chrome: whether Chrome has been let draw
-/// one yet.
+/// one yet, and whether the page is a card, over which nothing is drawn.
 #[derive(Debug, Default)]
 pub struct Marker {
     shown: bool,
+    card: bool,
 }
 
 impl Marker {
+    /// The mark over a page shown as a card in the conversation: never
+    /// drawn while it is one (queue item 822).
+    pub fn over_a_card() -> Self {
+        Self::over(true)
+    }
+
+    /// The mark over a page shown as a card when `card`, or in Chrome's own
+    /// window.
+    pub fn over(card: bool) -> Self {
+        Self { shown: false, card }
+    }
+
+    /// What a card order asks of the mark: its card expanded into Chrome's
+    /// own window ([`Marker::expanded`]), or any mark taken away as a run
+    /// of alo's agent ends ([`Marker::clear`], `CardOrder::Unmark`).
+    pub fn heed(&mut self, tab: &mut Tab<'_>, order: &CardOrder) {
+        match order {
+            CardOrder::Expand { .. } => self.expanded(),
+            // A mark Chrome would not take away is said by nothing: the
+            // next verb's mark replaces it.
+            CardOrder::Unmark => {
+                let _ = self.clear(tab);
+            }
+            CardOrder::Stream { .. }
+            | CardOrder::Unstream
+            | CardOrder::Input(_)
+            | CardOrder::Travel(_) => {}
+        }
+    }
+
+    /// Its card expanded into Chrome's own window, which a person now
+    /// looks at: marked from now on, as ADR 0066 has it.
+    pub fn expanded(&mut self) {
+        self.card = false;
+    }
+
+    /// What `marking` comes to here: on a card, never a node — a verb that
+    /// ran takes any mark away, as one refused does.
+    pub fn plan(&self, marking: &Marking) -> Plan {
+        match marking {
+            Marking::Keep => Plan::Nothing,
+            Marking::Unmark => Plan::Unmark,
+            Marking::Nodes(_) if self.card => Plan::Unmark,
+            Marking::Nodes(nodes) => Plan::Nodes(nodes.clone()),
+        }
+    }
+
+    /// Take any mark away, as a run of alo's agent ends or is stopped
+    /// (queue item 822): nothing is asked of Chrome when it has never been
+    /// let draw one.
+    ///
+    /// # Errors
+    ///
+    /// [`Failed`], when Chrome did not answer or declined.
+    pub fn clear(&mut self, tab: &mut Tab<'_>) -> Result<Marked, Failed> {
+        self.unmark(tab)
+    }
+
     /// Do what `marking` asks over `tab`'s page, which held the document
     /// `before` when the verb was asked.
     ///
@@ -109,16 +202,16 @@ impl Marker {
         marking: &Marking,
         before: Option<DocumentId>,
     ) -> Result<Marked, Failed> {
-        let nodes = match marking {
-            Marking::Keep => return Ok(Marked::Kept),
-            Marking::Unmark => return self.unmark(tab),
-            Marking::Nodes(nodes) => nodes,
+        let nodes = match self.plan(marking) {
+            Plan::Nothing => return Ok(Marked::Kept),
+            Plan::Unmark => return self.unmark(tab),
+            Plan::Nodes(nodes) => nodes,
         };
         if before.is_none() || tab.document() != before {
             return self.unmark(tab);
         }
         for node in nodes {
-            let dom = dom_of(*node);
+            let dom = dom_of(node);
             if tab.drawn(dom)?.is_empty() {
                 continue;
             }
@@ -128,7 +221,7 @@ impl Marker {
                 node: dom,
                 border: (red, green, blue),
             })?;
-            return Ok(Marked::Node(*node));
+            return Ok(Marked::Node(node));
         }
         self.unmark(tab)
     }
@@ -190,6 +283,22 @@ mod tests {
             ),
             Marking::Nodes(vec![node, list])
         );
+    }
+
+    #[test]
+    fn over_a_card_nothing_is_marked_and_a_verb_takes_any_mark_away() {
+        let node = BoxId::from_wire(7);
+        let ran = Marking::of(true, &done(Outcome::Activated { node, name: None }));
+        let mut card = Marker::over_a_card();
+        assert_eq!(card.plan(&ran), Plan::Unmark);
+        assert_eq!(card.plan(&Marking::Unmark), Plan::Unmark);
+        assert_eq!(card.plan(&Marking::Keep), Plan::Nothing);
+        // Expanded into Chrome's own window, it is marked as ADR 0066 has it.
+        card.expanded();
+        assert_eq!(card.plan(&ran), Plan::Nodes(vec![node]));
+        let window = Marker::default();
+        assert_eq!(window.plan(&ran), Plan::Nodes(vec![node]));
+        assert_eq!(window.plan(&Marking::Keep), Plan::Nothing);
     }
 
     #[test]

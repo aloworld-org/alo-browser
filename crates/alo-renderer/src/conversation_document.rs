@@ -22,8 +22,10 @@
 //! Each turn is what the person said, as their bubble at its right, then
 //! what came back ([`crate::turn::Turn`]): a search's results
 //! ([`crate::results_document`]), a live card ([`crate::card_document`]),
-//! the address of a page shown earlier, or why what was chosen could not be
-//! done.
+//! the address of a page shown earlier — and under it each run of alo's
+//! agent kept with it, as the person's words and what alo did
+//! ([`crate::ran_document`], queue item 820) — or why what was chosen could
+//! not be done.
 //!
 //! # What an agent reads
 //!
@@ -174,6 +176,11 @@ fn make_turn(
         }
     };
     append(document, made, reply)?;
+    // Each run of alo's agent kept with a page shown earlier, as turns of
+    // their own under its line (queue item 820).
+    if let Turn::Visited { ran, .. } = turn {
+        crate::ran_document::append_runs(document, made, ran)?;
+    }
     Ok(made)
 }
 
@@ -243,6 +250,7 @@ mod tests {
             Turn::Visited {
                 said: "Chargers".to_owned(),
                 url: url("https://a.example/b?c"),
+                ran: Vec::new(),
             },
             Turn::Failed {
                 said: "b.example".to_owned(),
@@ -336,6 +344,7 @@ mod tests {
                 Turn::Visited {
                     said: hostile.to_owned(),
                     url: url("https://a.example/%3Cscript%3E"),
+                    ran: Vec::new(),
                 },
                 Turn::Failed {
                     said: hostile.to_owned(),

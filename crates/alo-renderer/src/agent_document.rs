@@ -176,7 +176,12 @@ fn now(document: &mut Document, work: &AtWork) -> Result<Option<NodeId>, Unbuilt
 }
 
 /// An element `name` of `class` holding `said` as a text node.
-fn words(document: &mut Document, name: &str, class: &str, said: &str) -> Result<NodeId, Unbuilt> {
+pub(crate) fn words(
+    document: &mut Document,
+    name: &str,
+    class: &str,
+    said: &str,
+) -> Result<NodeId, Unbuilt> {
     let made = element(document, name)?;
     attribute(document, made, "class", class)?;
     let text = document.create_text_node(said);

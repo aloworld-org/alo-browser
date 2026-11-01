@@ -17,6 +17,11 @@
 //! reading the column; and a press on *Stop*, *Allow*, *Not now* and a
 //! choice claimed as each.
 //!
+//! And queue item 820: each run kept with a page shown earlier, drawn under
+//! its line as the person's words and what alo did — its layout in
+//! numbers, its reference (`references/agent-runs-kept.png`), and the agent
+//! reading it.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-renderer --test the_agent_at_work`
 //! rewrites the render references. A rewritten reference is a diff
 //! somebody reads.
@@ -24,10 +29,12 @@
 use alo_layout::{Rect, Size};
 use alo_paint::{Point, from_png};
 use alo_renderer::agent_document::{ALLOW, ASKS, AT_WORK, NOT_NOW, STEPS, STOP};
+use alo_renderer::agent_ran::{CLOSED, Ended, Ran};
 use alo_renderer::agent_work::{AtWork, Now, Step, WORKING};
 use alo_renderer::card::Card;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::frame::frame_to_png;
+use alo_renderer::ran_document::RAN;
 use alo_renderer::start::Start;
 use alo_renderer::turn::Turn;
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, ToRenderer};
@@ -429,5 +436,132 @@ fn a_press_on_each_of_its_buttons_is_claimed_as_it() -> Result<(), String> {
             "{x}"
         );
     }
+    Ok(())
+}
+
+/// The first screen holding one page shown earlier, en.wikipedia.org's
+/// article, with two runs kept under its line: one done in three steps, one
+/// stopped as alo closed.
+fn kept() -> Result<Start, String> {
+    let url = alo_url::parse("https://en.wikipedia.org/wiki/Kampala")
+        .map_err(|_| "the page's address".to_owned())?;
+    Ok(Start {
+        greeting: "Hello.".to_owned(),
+        viewport: Size::new(WIDTH, HEIGHT),
+        turns: vec![Turn::Visited {
+            said: "en.wikipedia.org".to_owned(),
+            url,
+            ran: vec![
+                Ran {
+                    asked: "Search Wikipedia for Kampala and open the article".to_owned(),
+                    steps: vec![
+                        step("Typing Kampala into Search Wikipedia", ""),
+                        step("Pressing Search", "it sends the search for Kampala"),
+                        step("Opening the article on Kampala", ""),
+                    ],
+                    ended: Ended::Done {
+                        said: "Opened the Wikipedia article on Kampala.".to_owned(),
+                    },
+                },
+                Ran::starting("Find its population"),
+            ],
+        }],
+        ..Start::default()
+    })
+}
+
+#[test]
+fn the_runs_kept_with_a_page_stand_under_its_line_as_turns() -> Result<(), String> {
+    let renderer = laid_out(kept()?);
+    let at = |class: &str| boxes_of(&renderer, class);
+    // The newest turn's top at the room's top, 40: the person's bubble, 42
+    // tall (10 + 22 + 10), then 16 under it the page's line, 880 wide at
+    // 80 and 44 tall.
+    assert_eq!(at("visit"), vec![px(80.0, 98.0, 880.0, 44.0)]);
+    // 16 under it the first run asked, the person's bubble at the column's
+    // right, 42 tall; 16 under that what alo did, on a box with a border
+    // of 1, 14 above and 16 below inside: three steps (20, 6, 20 and a why
+    // of 18, 6, 20 = 90), 10, then *Done in 3 steps* and the result, 20
+    // each: 1 + 14 + 90 + 10 + 40 + 16 + 1 = 172.
+    let requests = at("you request");
+    assert_eq!(requests.len(), 2, "{requests:?}");
+    let ran = at("ran");
+    assert_eq!(
+        ran,
+        vec![px(80.0, 216.0, 880.0, 172.0), px(80.0, 462.0, 880.0, 52.0)]
+    );
+    // Inside, 16 in from either side through its border: 846 wide.
+    assert_eq!(at("steps"), vec![px(97.0, 231.0, 846.0, 90.0)]);
+    assert_eq!(
+        at("step"),
+        vec![
+            px(97.0, 231.0, 846.0, 20.0),
+            px(97.0, 257.0, 846.0, 38.0),
+            px(97.0, 301.0, 846.0, 20.0)
+        ]
+    );
+    assert_eq!(at("why"), vec![px(97.0, 277.0, 846.0, 18.0)]);
+    assert_eq!(at("done"), vec![px(97.0, 331.0, 846.0, 20.0)]);
+    assert_eq!(at("result"), vec![px(97.0, 351.0, 846.0, 20.0)]);
+    // The second asked 16 under the first box, 42 tall, at 404; its box 16
+    // under, at 462: 1 + 14 + its one line of 20 + 16 + 1 = 52.
+    assert_eq!(at("stopped"), vec![px(97.0, 477.0, 846.0, 20.0)]);
+    // Nothing of a live card, and nothing pressable.
+    assert!(at("agent").is_empty() && at("abtn stop").is_empty() && at("achoice").is_empty());
+    Ok(())
+}
+
+#[test]
+fn the_runs_kept_are_drawn_as_the_reference_and_read_as_what_alo_did() -> Result<(), String> {
+    let (frame, tree) = drawn(kept()?);
+    let painted = frame.as_ref().ok_or("nothing was painted")?;
+    // The box's border in the line's colour (`#ddd6ca`) at its left edge,
+    // clear of its corners, and the surface inside it.
+    assert_eq!(pixel(painted, 80, 300), Some([0xdd, 0xd6, 0xca, 0xff]));
+    assert_eq!(pixel(painted, 90, 300), Some([0xff, 0xff, 0xff, 0xff]));
+    assert_eq!(holds("agent-runs-kept.png", frame.as_ref()), Ok(()));
+    let outline = tree.to_outline();
+    let regions: Vec<String> = tree
+        .nodes()
+        .into_iter()
+        .filter(|node| node.role.as_str() == "region" && node.name.as_deref() == Some(RAN))
+        .map(|node| {
+            alo_renderer::Snapshot {
+                root: Some(node.clone()),
+            }
+            .to_outline()
+        })
+        .collect();
+    assert_eq!(regions.len(), 2, "{outline}");
+    let first = regions.first().ok_or("no region")?;
+    for said in [
+        STEPS,
+        "Pressing Search",
+        "it sends the search for Kampala",
+        "Done in 3 steps",
+        "Opened the Wikipedia article on Kampala.",
+    ] {
+        assert!(first.contains(said), "{said} not read: {first}");
+    }
+    assert!(regions.get(1).is_some_and(|second| second.contains(CLOSED)));
+    for asked in [
+        "Search Wikipedia for Kampala and open the article",
+        "Find its population",
+    ] {
+        assert!(outline.contains(asked), "{asked} not read: {outline}");
+    }
+    // Nothing in the conversation is pressable but the page's line.
+    let conversation = tree
+        .nodes()
+        .into_iter()
+        .find(|node| node.role.as_str() == "region" && node.name.as_deref() == Some("Conversation"))
+        .map(|node| {
+            alo_renderer::Snapshot {
+                root: Some(node.clone()),
+            }
+            .to_outline()
+        })
+        .ok_or_else(|| format!("no conversation: {outline}"))?;
+    assert!(!conversation.contains("button"), "{conversation}");
     Ok(())
 }

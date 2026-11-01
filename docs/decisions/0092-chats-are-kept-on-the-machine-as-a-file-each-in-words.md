@@ -1,6 +1,6 @@
 # ADR 0092 — Chats are kept on the machine, a file each, in words
 
-**Status:** accepted — built by queue items 757 and 758 (1 November 2026)
+**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814 and 820
 **Date:** 2026-11-01
 **Context:** ADR 0085 (the conversation keeps every turn, per chat; an
 earlier card is its address, not a picture); ADR 0074 (the interface is a
@@ -167,3 +167,109 @@ looks like is not designed. That is queue item 791.
 - Cut, each queued: deleting a chat from the panel (789); chats encrypted
   at rest, the owner's choice (790); closing a chat to *Earlier* while alo
   runs (791).
+
+## Amendment, 2026-11-01 — a search's answer is kept (queue item 814)
+
+§ 2's list of what a search keeps gains **its answer, in words**: a
+written answer's line, its sentences and its points, each with the
+numbers of the sites it cites (`"answer": {"written": {"line", "sentences":
+[{"text", "sources": [1, 3]}], "points": […]}}`); or `"not found"` — the
+model said the sites do not reliably answer, *I couldn't find a reliable
+answer*; or why it was not answered (`{"unanswered": WHY}`); or `"not
+asked"`. Only the words drawn are kept — the same few hundred characters
+the Answer tab shows — and nothing of what was sent to have it written
+(ADR 0095 § 3) that the search does not already keep.
+
+- **Read back checked as the wire checks it.** None to a search that found
+  no sites; a written answer only when `Written::check` passes against the
+  first eight sites read with it — a line and a sentence, at most three
+  sentences and six points, none past 600 characters, every one citing at
+  least one source and every number one of the sites given. A file whose
+  answer fails is **not read at all** (§ 4), never read without its
+  answer: a citation the person was never shown is never drawn.
+- **Never asked again.** A chat read back shows what was written; nothing
+  in reading it asks the model, and a search is asked again only when a
+  person searches again (§ 1). An answer still being written when alo
+  closed is read as not written, saying so (*This answer was not written
+  before alo was closed.*), and is not asked again either.
+- **The Answer tab** is read back as the tab shown when it was, as every
+  other tab is; a chat written before this amendment holds no answer, is
+  read as never asked, and is shown on All. `"version"` stays 1: the
+  field is added, a file without it is read, and a browser before 814
+  reading a file with it reads every field it knows.
+
+Checked by `chat_record`'s tests (each kind round trip; a citation past
+the sites read, past the eighth, to a search with none, more sentences
+than are drawn, a number that is not one — each refused by name) and
+through the window's road (`tests/a_searchs_answer_in_the_window.rs`): an
+answer kept, two launches on one directory, the chat pressed under
+*Earlier* painting its Answer tab's rows as they were, and no request to
+the model.
+
+## Amendment, 2026-11-01 — alo's agent's runs are kept as turns (queue item 820)
+
+A run of alo's own agent (ADR 0096) was drawn on its live card and went
+when the card was put away; the file kept the page's address and nothing of
+what was done on it. § 2's list of what a page keeps gains **each run of
+the agent on it**, oldest first, kept with the page it worked on
+(`"visited": {"said", "url", "ran": [{"asked", "steps": [{"line",
+"why"}], "ended": {"done" | "stuck" | "stopped": …}}]}`), and drawn, once
+the page is shown earlier, under its line as turns of the conversation:
+what the person asked as their bubble, then what alo did — one line per
+step, why under it when it chose, and *Done in N steps* and the result, or
+why it was stuck or stopped (`ran_document.rs`, a reference render).
+
+**What is kept, and why each:**
+
+- **What the person asked** — as they said it, as a search's words are:
+  it is the person's own turn.
+- **Each step's line and why, as the person was shown them** — the run is
+  the person's record of what was done in their name, and the steps are
+  what they read while it was done. They are the model's words about the
+  page, and so hold **page text only as far as the steps already said
+  it**: no tree, no field's value, no address but the page's own is added.
+- **How it ended** — the result in full, or why it was stuck or stopped.
+  A run still at work when alo closed is kept as *alo was closed before
+  this was finished.*; one put away with its card as *alo stopped: the
+  page was closed or replaced.*; one replaced by a newer as *You asked alo
+  something else, so it stopped.*
+
+**What is never kept:**
+
+- **What was typed into a field**, unless the person's own words already
+  said it (`agent_kept.rs`). The browser process hears what each typing
+  step put into its field (never drawn, never on the terminal). A typing
+  step whose text the person's request holds as whole words — *search
+  Wikipedia for Kampala*, typing *Kampala* — is kept as shown; any other
+  typing step is kept as *Typed into a field*, with no why; and every
+  other line, why and result has each such text replaced by `…` wherever
+  it stands as whole words, in any case. A value the agent read off the
+  page or made up — an address, a name, a code — never reaches the file.
+  **Its limit**: a model that writes a typed text otherwise than as typed
+  — spelled out, split, translated — is not recognised.
+- **A stuck run's choices**: buttons on a live card, no use on a line.
+- **The question it asked the person**, *Allow* or *Not now*: how the run
+  ended says what came of it.
+- A password: never typed (ADR 0096 § 6), so never kept; a page's
+  password field's dots never in a step.
+
+**Read back checked** as the wire checks it: at most 20 runs a page
+(`MOST_RUNS`; past it the oldest is not kept), each of at most 40 steps;
+an ending of no known kind, a step without its line or why, refuses the
+whole file (§ 4). A file without `"ran"` — kept before 820 — reads as no
+runs. **Never asked again**: a run read back is words; nothing is sent to
+the model, and nothing is done on any page.
+
+A live card's runs are the browser process's: the wire carries them only
+with a page shown earlier, and the live card draws its newest run as it
+did (ADR 0096 § 7).
+
+Checked by `agent_kept`'s, `conversation_work`'s, `conversation_thread`'s
+and `chat_record`'s tests (each mutated: the typed text kept, a run put
+away left as at work, the runs not read — each fails), the wire's bounds
+(`messages_across_a_boundary.rs`), a layout assertion and a reference of a
+page with two runs kept (`the_agent_at_work.rs`, `agent-runs-kept.png`),
+and through the window's road on both Chromiums
+(`the_agent_at_work_on_a_card_through_chrome.rs`): seven runs over two
+cards read back from the chat's file — the text typed into the password
+field, which the person never said, and the page's own password absent.

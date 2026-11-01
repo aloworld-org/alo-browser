@@ -201,6 +201,9 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted
         CardOrder::Travel(way) => {
             let _ = chrome_history::go(tab, way);
         }
+        // The mark is the serving thread's, which carries this out before
+        // any card order reaches here (`crate::chrome_mark`).
+        CardOrder::Unmark => {}
     }
 }
 

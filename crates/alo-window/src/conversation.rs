@@ -1191,7 +1191,8 @@ mod tests {
                 .turns,
             vec![Turn::Visited {
                 said: "example.com".to_owned(),
-                url
+                url,
+                ran: Vec::new(),
             }]
         );
     }
@@ -1430,6 +1431,7 @@ mod tests {
         let visited = |said: &str| Turn::Visited {
             said: said.to_owned(),
             url: alo_url::parse("https://a.example/").unwrap(),
+            ran: Vec::new(),
         };
         let kept = vec![
             Kept {
@@ -1929,7 +1931,8 @@ mod tests {
             start.turns.get(1),
             Some(&Turn::Visited {
                 said: "A site".to_owned(),
-                url: two
+                url: two,
+                ran: Vec::new(),
             })
         );
         assert_eq!(conversation.showing().found.len(), 4);

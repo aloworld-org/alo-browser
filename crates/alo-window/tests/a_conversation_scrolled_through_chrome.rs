@@ -465,7 +465,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     match thread.turns() {
         [
             Turn::Searched(_),
-            Turn::Visited { said, url },
+            Turn::Visited { said, url, .. },
             Turn::Page(card),
         ] => {
             assert_eq!(said, "Page two", "{who}");

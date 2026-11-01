@@ -168,8 +168,9 @@ as *More sites ›* is.
   not pages, so the line a sentence rests on is the description itself;
   showing it beside the answer is cut.
 - **A source opened as a card, scrolled to the line used** (813).
-- **The answer kept in a chat's file** (814): a chat read back shows its
-  sites with no answer, and the Answer tab closed.
+- ~~**The answer kept in a chat's file** (814)~~ — built 1 November 2026:
+  kept in words and read back checked as the wire checks it, never asked
+  again (ADR 0092's amendment).
 - **Streaming** (815): the answer is drawn whole when it comes.
 - **Richer grounding** — Brave's extra snippets, or the pages' own text
   (816): each costs a decision of what more leaves the machine.

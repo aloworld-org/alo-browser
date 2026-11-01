@@ -315,6 +315,8 @@ enum Work {
     /// Go back or forward from the page shown as a card, as a person
     /// pressed.
     Travel(Way),
+    /// Take away anything Chrome draws over the page shown as a card.
+    Unmark,
     /// Close the page shown as a card.
     Shut,
     /// The Chrome started at the open this numbers said its window is gone.
@@ -418,6 +420,13 @@ impl ChromeOpener {
     /// never an agent's — nothing an agent sends reaches this.
     pub fn travel(&self, way: Way) {
         self.send(Work::Travel(way));
+    }
+
+    /// Take away anything Chrome draws over the page shown as a card, if
+    /// one is (queue item 822): a run of alo's agent on it has ended or
+    /// been stopped.
+    pub fn unmark(&self) {
+        self.send(Work::Unmark);
     }
 
     /// Close the page shown as a card: its stream stopped, its Chrome
@@ -534,6 +543,7 @@ fn hold(
                 ),
                 Work::Input(input) => ask_of(open.as_ref(), CardOrder::Input(input)),
                 Work::Travel(way) => ask_of(open.as_ref(), CardOrder::Travel(way)),
+                Work::Unmark => ask_of(open.as_ref(), CardOrder::Unmark),
                 Work::Framed(number, frame) => {
                     // Decoded here, off the thread an agent's commands wait
                     // on; one that is not base64 is not shown.
@@ -909,6 +919,9 @@ mod tests {
         // A person's Back and Forward (queue item 737).
         opener.travel(Way::Back);
         opener.travel(Way::Forward);
+        // A run of alo's agent ended: anything Chrome drew is taken away
+        // (queue item 822).
+        opener.unmark();
         // Frames told by Chrome's thread reach the window; a frame of a
         // Chrome since replaced would not.
         let frame = did.lock().unwrap().told.remove(0);
@@ -985,6 +998,7 @@ mod tests {
                 },
                 CardOrder::Travel(Way::Back),
                 CardOrder::Travel(Way::Forward),
+                CardOrder::Unmark,
             ]
         );
         assert_eq!(did.lock().unwrap().closed, vec!["https://example.com/"]);
@@ -992,6 +1006,7 @@ mod tests {
         opener.shut();
         opener.expand(Placing::APART);
         opener.travel(Way::Back);
+        opener.unmark();
         assert!(opener.finish());
         assert!(told.try_recv().is_err());
     }

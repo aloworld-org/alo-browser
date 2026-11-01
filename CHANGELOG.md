@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **What alo did on a page stays in the conversation.** Each time you ask
+  alo to work on a page, what you asked, every step it took and how it
+  ended now stay under the page in the chat — after the page is closed,
+  and after alo is quit and opened again. Anything alo typed into a field
+  that you did not say yourself is never kept: that step is kept as *Typed
+  into a field*.
+- **A search's answer is kept with its chat.** Reopen a chat from
+  *Earlier* — after quitting alo too — and its searches show the answer
+  they had, on the tab you left them on, with every sentence's sources,
+  without asking OpenAI again. Only the answer's words and the numbers of
+  the sites it cites are kept, in the chat's file on your Mac.
+- **Nothing of Chrome's inspector is drawn over a page in a card any
+  more.** When alo (or another agent) pressed something on a page shown in
+  the conversation, Chrome's own developer highlight appeared over it —
+  the element's tag, size and accessibility details — and stayed after alo
+  had finished. Now nothing is drawn over a card's page; each step is said
+  in the agent's own lines under it, and anything Chrome drew is taken away
+  when a run ends or is stopped. A page expanded into Chrome's own window
+  is still marked as before.
 - **alo can now do things on the page you have open.** With a page open in
   the conversation, type what you want done — *search Wikipedia for
   Kampala and open the article* — and press Return. alo works on the page

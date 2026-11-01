@@ -47,6 +47,7 @@
 //! corpus.
 
 pub mod agent_document;
+pub mod agent_ran;
 pub mod agent_work;
 pub mod answer_document;
 pub mod answers;
@@ -105,6 +106,7 @@ pub mod pointer;
 mod press;
 mod put;
 pub mod rail_document;
+pub mod ran_document;
 pub mod renderer;
 pub mod resource;
 pub mod results;

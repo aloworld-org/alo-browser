@@ -124,6 +124,11 @@ pub enum CardOrder {
     /// conversation's window sends one, for a person, and no agent verb
     /// becomes one.
     Travel(Way),
+    /// Take away anything Chrome draws over the page — a run of alo's own
+    /// agent has ended or been stopped (queue item 822), and nothing is
+    /// left over a page nobody is acting on. Carried out by the thread
+    /// holding the tab, which holds its mark (`crate::chrome_mark`).
+    Unmark,
 }
 
 /// What a person asked of the tabs (ADR 0024 §§ 5, 6).

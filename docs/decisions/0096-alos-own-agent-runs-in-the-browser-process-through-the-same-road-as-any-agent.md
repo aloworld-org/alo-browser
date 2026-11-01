@@ -198,10 +198,12 @@ first*, and with no key why, as the answer does.
   the page, inside the card, in the conversation's 880 — item 819.
 - **A sentence of plan, and the next steps greyed**: the model chooses one
   step at a time and is not asked for a plan — item 819.
-- **The run as turns of the conversation, kept in the chat's file** (ADR
-  0085, ADR 0092): a run is drawn on its live card and goes when the card
-  is put away; the chat's file keeps the page's address, not the run —
-  item 820.
+- ~~**The run as turns of the conversation, kept in the chat's file**~~ —
+  built 1 November 2026 (item 820, ADR 0092's amendment): each run kept
+  with its page in words, never a text typed that the person did not say,
+  and drawn under the page's line once it is shown earlier. Chrome's
+  inspector highlight over a card is gone too (item 822, ADR 0066's
+  amendment).
 - **An agent that opens its own page**: alo works only on the page open as
   a card — item 821.
 - **Taking over and carrying on** from what the page then shows: a press on

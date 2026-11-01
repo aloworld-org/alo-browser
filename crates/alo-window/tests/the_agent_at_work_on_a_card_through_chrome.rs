@@ -33,6 +33,11 @@
 //!    person's, nothing more is done.
 //! 6. **The step limit**: twenty presses, then it stops and says so.
 //! 7. **A provider error** is said, and nothing is done.
+//! 8. **Every run kept as turns of the chat** (queue item 820): the chat's
+//!    file, read back, holds each run with the page it worked on — what
+//!    was asked, its steps in words, how it ended — and never the text it
+//!    typed into the password field, which the person did not say, nor
+//!    the password the page held.
 //!
 //! The real pointer is never moved and no key is posted to the system.
 //! Never the real network: every address is `http://127.0.0.1:PORT/…`.
@@ -43,11 +48,15 @@ mod carried;
 
 use alo_layout::Size;
 use alo_renderer::Frame;
+use alo_renderer::agent_ran::{Ended, Ran, TYPED};
 use alo_renderer::agent_work::Now;
 use alo_renderer::card_place;
 use alo_renderer::host::Renderers;
+use alo_renderer::turn::Turn;
 use alo_window::agent_sites::AgentSites;
 use alo_window::beside::{Chromium, renderer_beside};
+use alo_window::chat_record;
+use alo_window::chat_store::{ChatStore, file_of};
 use alo_window::conversation::{STOPPED, TAKEN_OVER};
 use alo_window::conversation_agent::{Agent, MOST_STEPS, TellAgent};
 use alo_window::conversation_agents::relay;
@@ -585,7 +594,12 @@ fn pixel(frame: &Frame, x: u32, y: u32) -> Option<[u8; 4]> {
 
 /// The conversation's window at one, both parts painted, its Chrome
 /// `chromium`, the agent asking the model at `endpoint`.
-fn the_window(chromium: Chromium, endpoint: &str, who: &'static str) -> Result<Driven, String> {
+fn the_window(
+    chromium: Chromium,
+    endpoint: &str,
+    who: &'static str,
+    chats: &Path,
+) -> Result<Driven, String> {
     let renderers = Renderers::running(renderer()?, &[]).with_machine(alo_window::fonts::frozen());
     let (tell, heard) = channel();
     let drawn = tell.clone();
@@ -606,8 +620,10 @@ fn the_window(chromium: Chromium, endpoint: &str, who: &'static str) -> Result<D
     let provider = Provider::at(endpoint, key)?;
     let told = tell;
     let tell_agent: TellAgent = Arc::new(move |said| told.send(Heard::Agent(said)).is_ok());
+    let (store, opened) = ChatStore::open(chats)?;
     let mut window = ConversationWindow::new(Some(Scale::ONE), drawing, chrome)
-        .with_agent(Ok(Agent::new(provider, orders)), tell_agent);
+        .with_agent(Ok(Agent::new(provider, orders)), tell_agent)
+        .with_chats(store, opened);
     window.measured_as(Measured {
         size: WINDOW,
         scale_factor: 1.0,
@@ -629,6 +645,31 @@ fn the_window(chromium: Chromium, endpoint: &str, who: &'static str) -> Result<D
             .is_some_and(|scene| scene.panel.is_some() && scene.start.is_some())
     })?;
     Ok(driven)
+}
+
+/// How many pixels of the card's newest frame are drawn in Chrome's
+/// highlight's border ([`marked_pixels`]).
+fn card_marked(driven: &Driven) -> Result<usize, String> {
+    driven
+        .window
+        .conversation()
+        .card()
+        .and_then(|card| card.frame.as_deref())
+        .ok_or_else(|| format!("{}: the card has no frame", driven.who))
+        .and_then(marked_pixels)
+}
+
+/// How many pixels of the card's frame `png` are drawn in Chrome's
+/// highlight's border, alo's accent (`#e76f51`), within a few levels: the
+/// page itself has none.
+fn marked_pixels(png: &[u8]) -> Result<usize, String> {
+    let canvas = alo_paint::encode::picture_from_png(png).map_err(|why| format!("{why:?}"))?;
+    let near = |a: u8, b: u8| a.abs_diff(b) <= 24;
+    Ok((0..canvas.height())
+        .flat_map(|y| (0..canvas.width()).map(move |x| (x, y)))
+        .filter_map(|(x, y)| canvas.at(x, y).map(alo_value::color::Rgba::to_rgba8))
+        .filter(|&(red, green, blue, _)| near(red, 0xe7) && near(green, 0x6f) && near(blue, 0x51))
+        .count())
 }
 
 fn count(asked: &Asked, path: &str) -> usize {
@@ -674,8 +715,15 @@ fn fills_presses_and_asks_before_sending(
         what.starts_with("Press \u{201c}Send\u{201d} on 127.0.0.1:"),
         "{who}: {what}"
     );
-    // Held while nobody presses.
+    // Held while nobody presses — and *Say hello*, pressed, is not marked
+    // by Chrome over the card's page (queue item 822): its frames carry no
+    // inspector highlight and no tooltip.
     driven.hear_for(Duration::from_secs(2))?;
+    assert_eq!(
+        card_marked(driven)?,
+        0,
+        "{who}: Chrome's highlight is over the card's page"
+    );
     assert_eq!(
         count(asked, "/sent"),
         0,
@@ -760,7 +808,8 @@ fn not_now_presses_nothing(
 fn never_types_a_password(driven: &mut Driven, model: &Model, asked: &Asked) -> Result<(), String> {
     let who = driven.who;
     model.will(&[Scripted::Put("textbox", "Password", "letmein")]);
-    driven.ask("Sign me in with letmein")?;
+    // Not the person's words: what it types is never kept (queue item 820).
+    driven.ask("Sign me in")?;
     driven.until("the run stuck", |driven| {
         matches!(driven.now(), Some(Now::Stuck { .. }))
     })?;
@@ -838,6 +887,15 @@ fn its_limits_are_said(driven: &mut Driven, model: &Model, asked: &Asked) -> Res
         .and_then(|card| card.agent.as_ref())
         .map_or(0, |work| work.steps.len());
     assert_eq!(steps, MOST_STEPS, "{who}: one line per step");
+    // Queue item 822: twenty presses on one button, and nothing of
+    // Chrome's drawn over the card's page — no inspector highlight, no
+    // tooltip — in the frames streamed after the run stopped.
+    driven.hear_for(Duration::from_millis(1500))?;
+    assert_eq!(
+        card_marked(driven)?,
+        0,
+        "{who}: Chrome's highlight is over the card's page"
+    );
     model.will(&[Scripted::Status(503)]);
     driven.ask("Say hello once")?;
     driven.until("the run stopped for the model", |driven| {
@@ -864,7 +922,13 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     let (port, asked) = serve()?;
     let form = format!("http://127.0.0.1:{port}/form.html");
     let (endpoint, model) = model()?;
-    let mut driven = the_window(chromium, &endpoint, who)?;
+    let chats = std::env::temp_dir().join(format!(
+        "alo-agent-runs-kept-{}-{}",
+        std::process::id(),
+        who.len()
+    ));
+    let _ = std::fs::remove_dir_all(&chats);
+    let mut driven = the_window(chromium, &endpoint, who, &chats)?;
     driven.go(&form)?;
     fills_presses_and_asks_before_sending(&mut driven, &model, &asked)?;
     driven.go(&form)?;
@@ -873,10 +937,131 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     stop_and_take_over(&mut driven, &model, &asked)?;
     its_limits_are_said(&mut driven, &model, &asked)?;
     driven.window.finish();
-    match driven.window.unfinished() {
-        Some(why) => Err(format!("{who}: {why}")),
-        None => Ok(()),
+    if let Some(why) = driven.window.unfinished() {
+        return Err(format!("{who}: {why}"));
     }
+    kept_as_turns(&chats, who)?;
+    let _ = std::fs::remove_dir_all(&chats);
+    Ok(())
+}
+
+/// Queue item 820: every run kept in the chat's file with the page it
+/// worked on — what was asked, its steps in words and how it ended — and
+/// read back so; never a text typed that the person did not say, never the
+/// password the page held.
+fn kept_as_turns(chats: &Path, who: &str) -> Result<(), String> {
+    let written = std::fs::read_to_string(file_of(chats, 0)).map_err(|why| why.to_string())?;
+    for never in ["letmein", "hunter2"] {
+        assert!(!written.contains(never), "{who}: {never} kept: {written}");
+    }
+    let chat = chat_record::read(written.as_bytes()).map_err(|why| why.0)?;
+    let runs: Vec<Vec<Ran>> = chat
+        .turns
+        .iter()
+        .filter_map(|turn| match turn {
+            Turn::Visited { ran, .. } => Some(ran.clone()),
+            _ => None,
+        })
+        .collect();
+    let [first, second] = runs.as_slice() else {
+        return Err(format!("{who}: not two pages: {:?}", chat.turns));
+    };
+    assert_eq!(
+        first
+            .iter()
+            .map(|ran| ran.asked.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Send my name Ada through the form"],
+        "{who}"
+    );
+    let sent = first.first().ok_or("no run")?;
+    assert_eq!(
+        sent.steps
+            .iter()
+            .map(|step| step.line.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "Typing Ada into Name",
+            "Pressing Say hello",
+            "Pressing Send"
+        ],
+        "{who}: Ada is the person's own word"
+    );
+    assert_eq!(
+        sent.ended,
+        Ended::Done {
+            said: "Sent your name, Ada.".to_owned()
+        },
+        "{who}"
+    );
+    second_page_kept(second, who);
+    Ok(())
+}
+
+/// The second page's runs, kept: each asked, how each ended, and no text
+/// typed that the person did not say.
+fn second_page_kept(second: &[Ran], who: &str) {
+    assert_eq!(
+        second
+            .iter()
+            .map(|ran| ran.asked.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "Delete everything here",
+            "Sign me in",
+            "Say hello",
+            "Say hello",
+            "Say hello again and again",
+            "Say hello once"
+        ],
+        "{who}"
+    );
+    let ended: Vec<String> = second
+        .iter()
+        .map(|ran| match &ran.ended {
+            Ended::Done { said } => format!("done: {said}"),
+            Ended::Stuck { why } => format!("stuck: {why}"),
+            Ended::Stopped { why } => format!("stopped: {why}"),
+        })
+        .collect();
+    assert!(
+        ended
+            .first()
+            .is_some_and(|said| said.starts_with("stopped: Not done: you said not now.")),
+        "{who}: {ended:?}"
+    );
+    assert!(
+        ended.get(1).is_some_and(|said| said.starts_with("stuck: ") && said.contains("alo never types one")),
+        "{who}: {ended:?}"
+    );
+    assert_eq!(
+        second.get(1).map(|ran| ran.steps.clone()),
+        Some(vec![alo_renderer::agent_work::Step {
+            line: TYPED.to_owned(),
+            why: String::new()
+        }]),
+        "{who}: the password's text never kept"
+    );
+    assert_eq!(
+        ended.get(2..4),
+        Some(
+            &[
+                format!("stopped: {STOPPED}"),
+                format!("stopped: {TAKEN_OVER}")
+            ][..]
+        ),
+        "{who}"
+    );
+    assert_eq!(
+        second.get(4).map(|ran| ran.steps.len()),
+        Some(MOST_STEPS),
+        "{who}: one line per step"
+    );
+    assert_eq!(
+        ended.get(5).map(String::as_str),
+        Some("stopped: alo could not go on: OpenAI could not answer just now (503)."),
+        "{who}"
+    );
 }
 
 #[test]

@@ -22399,12 +22399,22 @@ What stage 2's exit gate actually measures: a person using it.
   used and highlighted, with *alo used the highlighted part of this page*
   and *1 of 3 sources ‹ ›*. *Depends on 707, 812, 717.*
 
-- [ ] **814. A search's answer kept in its chat (cut from 707).** ADR
+- [x] **814. A search's answer kept in its chat (cut from 707).** ADR
   0092's file keeps a search's sites, images, videos and news, and not its
   answer: a chat read back shows no answer and its Answer tab closed.
   Write the line, sentences, points and their numbers, read them back
   checked as the wire checks them, and never ask the model again for a
   chat read back. *Depends on 707, 757.*
+  ***Done (1 November 2026, ADR 0092 amended).*** `chat_record.rs` writes
+  `"answer"` — written (line, sentences, points, each with its numbers),
+  not found, unanswered and why, or not asked — and reads it back checked
+  by `Written::check` against the first eight sites read with it, or not
+  at all; one still being written is read as not written, saying so; a
+  file without the field is read as never asked; the Answer tab is read
+  back as shown. Through the window's road: two launches on one
+  directory, the Answer tab's rows painted as before, no request to the
+  model. Mutations: the answer not read back, the check dropped — each
+  fails its test.
 
 - [ ] **815. An answer drawn as it is written (cut from 707).** The answer
   is drawn whole when it comes; the Responses API can stream. Measure how
@@ -22442,11 +22452,23 @@ What stage 2's exit gate actually measures: a person using it.
   (Chrome told a narrower size while it works) and decide. *Depends on
   704. needs design for the plan.*
 
-- [ ] **820. The agent's run kept as turns of the chat (cut from 704).**
+- [x] **820. The agent's run kept as turns of the chat (cut from 704).**
   ADR 0085 § 1 and ADR 0092: a run is drawn on its live card and goes when
   the card is put away; the chat's file keeps the page's address, not
   what was asked, the steps, or how it ended. Keep them as words, read
   back checked, never asking the model again. *Depends on 704, 757.*
+  ***Done (1 November 2026, ADR 0092 amended).*** Each run is kept on its
+  card as it stands (`Card::ran`, made by `agent_kept::kept` each time the
+  run speaks) and goes with the card into its page's line; the file keeps
+  what was asked, each step's line and why, and how it ended — a typing
+  step whose text the person did not say kept as *Typed into a field*, and
+  that text replaced by `…` in every other line — and reads it back
+  checked (20 runs, 40 steps). Drawn under the page's line as the person's
+  bubble and what alo did (`ran_document.rs`; layout in numbers, the
+  reference `agent-runs-kept.png`). Through both Chromiums, seven runs on
+  two cards read back from the file, the password field's typed text
+  absent. Mutations: the typed text kept, a run put away left at work,
+  the runs not read — each fails.
 
 - [ ] **821. The agent opening its own page (cut from 704).** Asking alo
   works only on the page open as a card; with none it says to open one.
@@ -22454,7 +22476,7 @@ What stage 2's exit gate actually measures: a person using it.
   the model proposes), and through which gate. *Depends on 704. needs
   design.*
 
-- [ ] **822. A card's ring is Chrome's inspector highlight, tooltip and
+- [x] **822. A card's ring is Chrome's inspector highlight, tooltip and
   all (found by hand in 704).** The verb's ring on a card's page (624,
   716) is drawn by Chrome's `Overlay.highlightNode`, which on a card shows
   Chrome's own tooltip — the element's tag, size, *Accessibility, Name,
@@ -22462,6 +22484,23 @@ What stage 2's exit gate actually measures: a person using it.
   ends until the next verb. Draw the ring as the window draws its own, or
   ask Chrome for the box alone, and take it away when the run ends.
   *Depends on 704.*
+  ***Done (1 November 2026, ADR 0066 amended).*** Over a card, Chrome is
+  asked to draw nothing (`Marker::over_a_card`): a verb takes any mark
+  away instead, and the run's own lines say what each step did; a card
+  expanded into Chrome's window is marked as ADR 0066 has it. When a run
+  ends or is stopped the window sends `CardOrder::Unmark`, and any mark is
+  taken away. Through both Chromiums, no pixel of the card's frame is
+  Chrome's border colour while the agent waits on *Allow* and after its
+  twenty presses; each check fails on its mutation (347 pixels). alo's
+  own ring on a card is cut to 823.
+
+- [ ] **823. alo's own ring on a card (cut from 822).** The engine path
+  rings the box a verb acted on (624); a card shows nothing (ADR 0066's
+  amendment). Draw the ring over the card's picture from the node's
+  rectangles (`DOM.getContentQuads`), tied to the frame it was measured
+  against — `Page.screencastFrame`'s metadata carries the frame's scroll
+  offset — and taken away with the next frame that moves it. *Depends on
+  822, 624.*
 
 ## K. ★ The agent, on somebody else's pages
 

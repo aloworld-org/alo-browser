@@ -275,6 +275,7 @@ mod tests {
         vec![Turn::Visited {
             said: said.to_owned(),
             url: alo_url::parse("https://a.example/").unwrap(),
+            ran: Vec::new(),
         }]
     }
 

@@ -18,12 +18,18 @@
 //!   pages, sites, ages and descriptions; or why one was not answered.
 //! - **A page** — live or shown earlier — as what was said and the address
 //!   it was last at: a live card is written as the page shown earlier it
-//!   becomes when anything newer comes (ADR 0085 § 2).
+//!   becomes when anything newer comes (ADR 0085 § 2). With it, **each run
+//!   of alo's agent on it** (queue item 820): what was asked, each step's
+//!   line and why, and how it ended, as the card keeps them — never a text
+//!   typed that the person did not say (`crate::agent_kept`); a run still
+//!   at work is written as alo closing stops it.
 //! - **A page that could not be opened** — what was said, and why not.
 //!
-//! **Not written yet:** a search's answer (queue item 707) — a chat read
-//! back shows its sites with no answer, and the Answer tab is not open; a
-//! chat kept on it is read back on All (queue item 814).
+//! - **A search's answer** (queue item 814), in words: a written one's
+//!   line, sentences and points, each with the numbers of the sites it
+//!   cites; or that none reliable was found; or why it was not answered; or
+//!   that it was never asked. A chat written before 814 holds none, and is
+//!   read as never asked.
 //!
 //! **Never written:** a picture's bytes — a thumbnail, a site's mark, a
 //! card's frame — nor anything typed and not yet chosen, how far the chat
@@ -42,15 +48,26 @@
 //! cannot be under way after it: a search still searching is read as
 //! unanswered, saying why ([`NOT_ANSWERED`]), and a tab's results still
 //! being asked for as never asked, so opening the tab asks again (ADR 0087).
+//! An answer is read back **checked as the wire checks it**
+//! (`alo_renderer::wire`): none to a search that found no sites, and a
+//! written one only if [`Written::check`] passes against the first
+//! [`MOST_SOURCES`] sites read with it — every number cited one of them,
+//! no more sentences or points than are drawn — or the whole file is not
+//! read. An answer still being written when alo closed is read as not
+//! written, saying why ([`ANSWER_NOT_WRITTEN`]); **a chat read back never
+//! asks the model again**: what it shows is what was written.
 //! A search's sites past its first page are the further pages a person
 //! asked for (queue item 761), counted again from how many there are; no
 //! further page is offered for a chat read back, since whether there is
 //! one is the provider's to say, and more than [`MOST_SITES`] are not read.
 //! Nothing read asks anything of the network.
 
+use alo_renderer::agent_ran::{Ended, MOST_RUNS, Ran};
+use alo_renderer::agent_work::{MOST_STEPS, Step};
 use alo_renderer::results::{
     Asked, Found, MOST_FOUND, MOST_SITES, Pictured, Results, Showing, Tab,
 };
+use alo_renderer::results_answer::{Answer, Cited, MOST_SOURCES, Written};
 use alo_renderer::results_media::{self, Story, Video};
 use alo_renderer::turn::{MOST_TURNS, Turn};
 use alo_url::Url;
@@ -69,6 +86,10 @@ pub const LARGEST: u64 = 16 * 1024 * 1024;
 
 /// Why a search kept while it was still searching is not answered.
 pub const NOT_ANSWERED: &str = "This search was not answered before alo was closed.";
+
+/// Why a search's answer still being written when alo closed is not
+/// there (queue item 814): it is never asked again for a chat read back.
+pub const ANSWER_NOT_WRITTEN: &str = "This answer was not written before alo was closed.";
 
 /// A chat as it is kept: its name and its turns.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -112,20 +133,8 @@ fn object<const N: usize>(fields: [(&str, Value); N]) -> Value {
 fn turn(turn: &Turn) -> Value {
     match turn {
         Turn::Searched(results) => object([("searched", searched(results))]),
-        Turn::Page(card) => object([(
-            "visited",
-            object([
-                ("said", Value::from(card.said.as_str())),
-                ("url", Value::from(card.url.to_string())),
-            ]),
-        )]),
-        Turn::Visited { said, url } => object([(
-            "visited",
-            object([
-                ("said", Value::from(said.as_str())),
-                ("url", Value::from(url.to_string())),
-            ]),
-        )]),
+        Turn::Page(card) => visited(&card.said, &card.url, &card.ran),
+        Turn::Visited { said, url, ran } => visited(said, url, ran),
         Turn::Failed { said, why } => object([(
             "failed",
             object([
@@ -134,6 +143,45 @@ fn turn(turn: &Turn) -> Value {
             ]),
         )]),
     }
+}
+
+/// A page, written: what was said for it, where it last was, and each run
+/// of the agent kept with it (queue item 820).
+fn visited(said: &str, url: &Url, ran: &[Ran]) -> Value {
+    object([(
+        "visited",
+        object([
+            ("said", Value::from(said)),
+            ("url", Value::from(url.to_string())),
+            ("ran", ran.iter().map(run).collect()),
+        ]),
+    )])
+}
+
+/// A run of the agent, written as the chat keeps it: what was asked, each
+/// step's line and why, and how it ended.
+fn run(ran: &Ran) -> Value {
+    let ended = match &ran.ended {
+        Ended::Done { said } => object([("done", Value::from(said.as_str()))]),
+        Ended::Stuck { why } => object([("stuck", Value::from(why.as_str()))]),
+        Ended::Stopped { why } => object([("stopped", Value::from(why.as_str()))]),
+    };
+    object([
+        ("asked", Value::from(ran.asked.as_str())),
+        (
+            "steps",
+            ran.steps
+                .iter()
+                .map(|step| {
+                    object([
+                        ("line", Value::from(step.line.as_str())),
+                        ("why", Value::from(step.why.as_str())),
+                    ])
+                })
+                .collect(),
+        ),
+        ("ended", ended),
+    ])
 }
 
 /// The name a tab is written by.
@@ -162,7 +210,45 @@ fn searched(results: &Results) -> Value {
         ("images", asked(&results.images, image)),
         ("videos", asked(&results.videos, video)),
         ("news", asked(&results.news, story)),
+        ("answer", answer(&results.answer)),
     ])
+}
+
+/// A search's answer, written in words (queue item 814): its line,
+/// sentences and points with the numbers they cite, or what came instead.
+fn answer(answer: &Answer) -> Value {
+    let claims = |claims: &[Cited]| -> Value {
+        claims
+            .iter()
+            .map(|cited| {
+                object([
+                    ("text", Value::from(cited.text.as_str())),
+                    (
+                        "sources",
+                        cited
+                            .sources
+                            .iter()
+                            .map(|&number| Value::from(number))
+                            .collect(),
+                    ),
+                ])
+            })
+            .collect()
+    };
+    match answer {
+        Answer::NotAsked => Value::from("not asked"),
+        Answer::Asking => Value::from("asking"),
+        Answer::Written(written) => object([(
+            "written",
+            object([
+                ("line", Value::from(written.line.as_str())),
+                ("sentences", claims(&written.sentences)),
+                ("points", claims(&written.points)),
+            ]),
+        )]),
+        Answer::NotFound => Value::from("not found"),
+        Answer::Unanswered(why) => object([("unanswered", Value::from(why.as_str()))]),
+    }
 }
 
 /// A further search, written, each thing found by `each`.
@@ -311,6 +397,7 @@ fn read_turn(value: &Value) -> Result<Turn, Unread> {
         return Ok(Turn::Visited {
             said: text(visited, "said")?,
             url: address(visited, "url")?,
+            ran: read_runs(visited)?,
         });
     }
     if let Some(Value::Object(failed)) = turn.get("failed") {
@@ -359,6 +446,7 @@ fn read_searched(object: &Map<String, Value>) -> Result<Results, Unread> {
     results.images = read_asked(object, "images", read_image)?;
     results.videos = read_asked(object, "videos", read_video)?;
     results.news = read_asked(object, "news", read_story)?;
+    results.answer = read_answer(object, &results.showing)?;
     let tab = match object.get("tab").and_then(Value::as_str) {
         Some("all") => Tab::All,
         Some("answer") => Tab::Answer,
@@ -374,15 +462,157 @@ fn read_searched(object: &Map<String, Value>) -> Result<Results, Unread> {
     let unasked = match tab {
         Tab::Videos => matches!(results.videos, Asked::NotAsked),
         Tab::News => matches!(results.news, Asked::NotAsked),
-        // A search's answer is not kept (queue item 814): its tab is not
-        // shown, and cannot be chosen.
-        Tab::Answer => true,
+        // Never asked — a chat written before its answer was kept (queue
+        // item 814) — its tab cannot be chosen.
+        Tab::Answer => matches!(results.answer, Answer::NotAsked),
         Tab::All | Tab::Sites | Tab::Images => false,
     };
     if results.open(tab) && !unasked {
         results.tab = tab;
     }
     Ok(results)
+}
+
+/// The runs of the agent kept with a page, `"ran"` of `visited`: none in
+/// a chat kept before runs were (queue item 820); at most [`MOST_RUNS`],
+/// each of at most [`MOST_STEPS`] steps, as the wire reads them.
+fn read_runs(visited: &Map<String, Value>) -> Result<Vec<Ran>, Unread> {
+    let Some(runs) = visited.get("ran") else {
+        return Ok(Vec::new());
+    };
+    let runs = runs.as_array().ok_or_else(|| missing("ran"))?;
+    if runs.len() > MOST_RUNS {
+        return Err(Unread(format!(
+            "it holds {} runs of the agent on one page, more than the {MOST_RUNS} kept",
+            runs.len()
+        )));
+    }
+    runs.iter()
+        .map(|ran| {
+            let ran = ran.as_object().ok_or_else(|| missing("ran"))?;
+            let steps = ran
+                .get("steps")
+                .and_then(Value::as_array)
+                .ok_or_else(|| missing("steps"))?;
+            if steps.len() > MOST_STEPS {
+                return Err(Unread(format!(
+                    "it holds a run of {} steps, more than the {MOST_STEPS} drawn",
+                    steps.len()
+                )));
+            }
+            let steps = steps
+                .iter()
+                .map(|step| {
+                    let step = step.as_object().ok_or_else(|| missing("steps"))?;
+                    Ok(Step {
+                        line: text(step, "line")?,
+                        why: text(step, "why")?,
+                    })
+                })
+                .collect::<Result<Vec<_>, Unread>>()?;
+            let ended = ran
+                .get("ended")
+                .and_then(Value::as_object)
+                .filter(|ended| ended.len() == 1)
+                .ok_or_else(|| missing("ended"))?;
+            let ended = if let Some(said) = ended.get("done").and_then(Value::as_str) {
+                Ended::Done {
+                    said: said.to_owned(),
+                }
+            } else if let Some(why) = ended.get("stuck").and_then(Value::as_str) {
+                Ended::Stuck {
+                    why: why.to_owned(),
+                }
+            } else if let Some(why) = ended.get("stopped").and_then(Value::as_str) {
+                Ended::Stopped {
+                    why: why.to_owned(),
+                }
+            } else {
+                return Err(missing("ended"));
+            };
+            Ok(Ran {
+                asked: text(ran, "asked")?,
+                steps,
+                ended,
+            })
+        })
+        .collect()
+}
+
+/// A search's answer, `"answer"` of `object`, checked against the sites
+/// `showing` holds as the wire checks it: none to a search that found no
+/// sites, and a written one citing only the first [`MOST_SOURCES`] of
+/// them. One still being written is read as not written; none at all, a
+/// chat kept before answers were (queue item 814), as never asked.
+fn read_answer(object: &Map<String, Value>, showing: &Showing) -> Result<Answer, Unread> {
+    let answer = match object.get("answer") {
+        None => return Ok(Answer::NotAsked),
+        Some(Value::String(state)) => match state.as_str() {
+            "not asked" => Answer::NotAsked,
+            "asking" => Answer::Unanswered(ANSWER_NOT_WRITTEN.to_owned()),
+            "not found" => Answer::NotFound,
+            _ => return Err(missing("answer")),
+        },
+        Some(Value::Object(answer)) if answer.len() == 1 => {
+            if let Some(why) = answer.get("unanswered").and_then(Value::as_str) {
+                Answer::Unanswered(why.to_owned())
+            } else {
+                let written = answer
+                    .get("written")
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| missing("answer"))?;
+                Answer::Written(Written {
+                    line: text(written, "line")?,
+                    sentences: read_claims(written, "sentences")?,
+                    points: read_claims(written, "points")?,
+                })
+            }
+        }
+        Some(_) => return Err(missing("answer")),
+    };
+    let given = match showing {
+        Showing::Found(found) => found.len().min(MOST_SOURCES),
+        Showing::Searching | Showing::Unanswered(_) => 0,
+    };
+    if given == 0 && answer != Answer::NotAsked {
+        return Err(Unread(
+            "it holds an answer to a search that found no sites".to_owned(),
+        ));
+    }
+    if let Answer::Written(written) = &answer {
+        written
+            .check(given)
+            .map_err(|why| Unread(format!("its answer is refused: {why}")))?;
+    }
+    Ok(answer)
+}
+
+/// An answer's sentences or points, `field` of `written`: each its text
+/// and the numbers it cites. How many, and which numbers, are checked by
+/// [`Written::check`].
+fn read_claims(written: &Map<String, Value>, field: &str) -> Result<Vec<Cited>, Unread> {
+    written
+        .get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| missing(field))?
+        .iter()
+        .map(|claim| {
+            let claim = claim.as_object().ok_or_else(|| missing(field))?;
+            let sources = claim
+                .get("sources")
+                .and_then(Value::as_array)
+                .ok_or_else(|| missing("sources"))?
+                .iter()
+                .map(|number| {
+                    number
+                        .as_u64()
+                        .and_then(|number| usize::try_from(number).ok())
+                        .ok_or_else(|| missing("sources"))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Cited::new(text(claim, "text")?, sources))
+        })
+        .collect()
 }
 
 /// Each thing `found` of an object holding only that, read by `each`.
@@ -513,6 +743,7 @@ mod tests {
             Turn::Visited {
                 said: "Lifetimes".to_owned(),
                 url: url("https://l.example/"),
+                ran: Vec::new(),
             },
             Turn::Failed {
                 said: "Nope".to_owned(),
@@ -549,6 +780,7 @@ mod tests {
             Some(&Turn::Visited {
                 said: "example.com".to_owned(),
                 url: url("https://example.com/now"),
+                ran: Vec::new(),
             }),
             "a live card is kept as the page shown earlier it becomes"
         );
@@ -621,20 +853,75 @@ mod tests {
         );
     }
 
+    /// A written answer citing the search's first and third sites.
+    fn written() -> alo_renderer::results_answer::Written {
+        Written {
+            line: "About a day, \u{201c}quoted\u{201d}.".to_owned(),
+            sentences: vec![
+                Cited::new("A fitting takes a day.", [1]),
+                Cited::new("A circuit adds one.", [1, 3]),
+            ],
+            points: vec![Cited::new("Book early.", [3])],
+        }
+    }
+
+    /// A search that found `count` sites.
+    fn found(count: usize) -> Results {
+        Results::of(
+            "ev",
+            Showing::Found(
+                (0..count)
+                    .map(|n| Found::new("S", url(&format!("https://s{n}.example/")), ""))
+                    .collect(),
+            ),
+        )
+    }
+
     #[test]
-    fn a_searchs_answer_is_not_kept_and_its_tab_is_read_back_as_all() {
-        use alo_renderer::results_answer::{Answer, Cited, Written};
-        let answered = a_search()
-            .with_answer(Answer::Written(Written {
-                line: "A secret only the model wrote.".to_owned(),
-                sentences: vec![Cited::new("A secret only the model wrote.", [1])],
-                points: Vec::new(),
-            }))
+    fn a_searchs_answer_is_kept_in_words_and_read_back_on_its_tab() {
+        let answered = found(3)
+            .with_answer(Answer::Written(written()))
             .on(Tab::Answer);
-        let written = write("x", &[Turn::Searched(answered)]);
-        assert!(!written.contains("secret"), "{written}");
-        assert!(written.contains("\"tab\":\"answer\""), "{written}");
-        let kept = read(written.as_bytes()).expect("read");
+        let text = write("x", &[Turn::Searched(answered.clone())]);
+        assert!(text.contains("\"line\":\"About a day"), "{text}");
+        assert!(text.contains("\"sources\":[1,3]"), "{text}");
+        let kept = read(text.as_bytes()).expect("read");
+        assert_eq!(kept.turns, vec![Turn::Searched(answered)]);
+        // Each kind of answer, round trip; the Answer tab shown with each.
+        for answer in [
+            Answer::NotFound,
+            Answer::Unanswered("OpenAI could not answer just now (503).".to_owned()),
+        ] {
+            let results = found(2).with_answer(answer).on(Tab::Answer);
+            let kept =
+                read(write("x", &[Turn::Searched(results.clone())]).as_bytes()).expect("read");
+            assert_eq!(kept.turns, vec![Turn::Searched(results)]);
+        }
+        let never = found(2);
+        let kept = read(write("x", &[Turn::Searched(never.clone())]).as_bytes()).expect("read");
+        assert_eq!(kept.turns, vec![Turn::Searched(never)]);
+    }
+
+    #[test]
+    fn an_answer_being_written_is_read_as_not_written_and_never_asked_again() {
+        let asking = found(2).with_answer(Answer::Asking).on(Tab::Answer);
+        let kept = read(write("x", &[Turn::Searched(asking)]).as_bytes()).expect("read");
+        assert!(
+            matches!(
+                kept.turns.first(),
+                Some(Turn::Searched(r)) if r.answer == Answer::Unanswered(ANSWER_NOT_WRITTEN.to_owned())
+                    && r.tab == Tab::Answer
+            ),
+            "{kept:?}"
+        );
+    }
+
+    #[test]
+    fn a_chat_kept_before_answers_were_is_read_with_none_on_all() {
+        let text = write("x", &[Turn::Searched(found(2).on(Tab::Answer))])
+            .replace("\"answer\":\"not asked\",", "");
+        assert!(!text.contains("answer\":"), "{text}");
+        let kept = read(text.as_bytes()).expect("read");
         assert!(
             matches!(
                 kept.turns.first(),
@@ -642,6 +929,159 @@ mod tests {
             ),
             "{kept:?}"
         );
+    }
+
+    #[test]
+    fn an_answer_is_read_back_checked_as_the_wire_checks_it() {
+        let why = |results: Results| {
+            read(write("x", &[Turn::Searched(results)]).as_bytes())
+                .err()
+                .map(|Unread(why)| why)
+                .unwrap_or_default()
+        };
+        // Citing the third site of a search that found two.
+        assert_eq!(
+            why(found(2).with_answer(Answer::Written(written()))),
+            "turn 1: its answer is refused: the answer cites source 3, and it was given 2"
+        );
+        // Past the first eight sites, a source is not one given.
+        let mut ninth = written();
+        ninth.points = vec![Cited::new("Far down.", [9])];
+        assert!(
+            why(found(20).with_answer(Answer::Written(ninth)))
+                .ends_with("the answer cites source 9, and it was given 8")
+        );
+        // An answer to a search that found nothing.
+        assert!(
+            why(Results::of("ev", Showing::Found(Vec::new())).with_answer(Answer::NotFound))
+                .contains("an answer to a search that found no sites")
+        );
+        // More sentences than are drawn.
+        let mut many = written();
+        many.sentences = vec![Cited::new("x", [1]); 4];
+        assert!(why(found(3).with_answer(Answer::Written(many))).contains("4 sentences"));
+        // A number that is not one, and an answer of no kind.
+        let good = write(
+            "x",
+            &[Turn::Searched(
+                found(3).with_answer(Answer::Written(written())),
+            )],
+        );
+        let bad = |text: String| {
+            read(text.as_bytes())
+                .err()
+                .map(|Unread(why)| why)
+                .unwrap_or_default()
+        };
+        assert!(bad(good.replace("[1,3]", "[1,-3]")).contains("\u{201c}sources\u{201d}"));
+        assert!(bad(good.replace("[1,3]", "[1,\"3\"]")).contains("\u{201c}sources\u{201d}"));
+        let never = write("x", &[Turn::Searched(found(3))]);
+        assert!(
+            bad(never.replace("\"answer\":\"not asked\"", "\"answer\":\"thought\""))
+                .contains("\u{201c}answer\u{201d}"),
+            "{never}"
+        );
+    }
+
+    /// A run done in two steps, and one stopped with none.
+    fn runs() -> Vec<Ran> {
+        vec![
+            Ran {
+                asked: "Search Wikipedia for Kampala".to_owned(),
+                steps: vec![
+                    Step {
+                        line: "Typing Kampala into Search Wikipedia".to_owned(),
+                        why: String::new(),
+                    },
+                    Step {
+                        line: "Pressing Search".to_owned(),
+                        why: "it sends the search".to_owned(),
+                    },
+                ],
+                ended: Ended::Done {
+                    said: "Opened the article.".to_owned(),
+                },
+            },
+            Ran::starting("Find its population"),
+        ]
+    }
+
+    #[test]
+    fn the_agents_runs_are_kept_with_their_page_live_or_shown_earlier() {
+        let mut card = Card::new(
+            "en.wikipedia.org",
+            url("https://en.wikipedia.org/wiki/Kampala"),
+        );
+        card.ran = runs();
+        card.agent = Some(alo_renderer::agent_work::AtWork::starting(
+            "Find its population",
+        ));
+        let text = write("x", &[Turn::Page(card)]);
+        assert!(
+            text.contains("\"asked\":\"Search Wikipedia for Kampala\""),
+            "{text}"
+        );
+        assert!(
+            text.contains("\"ended\":{\"done\":\"Opened the article.\"}"),
+            "{text}"
+        );
+        let kept = read(text.as_bytes()).expect("read");
+        assert_eq!(
+            kept.turns,
+            vec![Turn::Visited {
+                said: "en.wikipedia.org".to_owned(),
+                url: url("https://en.wikipedia.org/wiki/Kampala"),
+                ran: runs(),
+            }]
+        );
+        // Written again from what was read, the same text.
+        assert_eq!(write("x", &kept.turns), text);
+        // A chat kept before runs were: none.
+        let before = text.replace(
+            &text[text.find("\"ran\":").expect("ran")..text.find("\"said\":").expect("said")],
+            "",
+        );
+        assert!(!before.contains("\"ran\""), "{before}");
+        assert!(
+            matches!(read(before.as_bytes()).expect("read").turns.first(), Some(Turn::Visited { ran, .. }) if ran.is_empty())
+        );
+    }
+
+    #[test]
+    fn runs_past_what_is_drawn_or_of_no_kind_are_not_read() {
+        let why = |turns: &[Turn]| {
+            read(write("x", turns).as_bytes())
+                .err()
+                .map(|Unread(why)| why)
+                .unwrap_or_default()
+        };
+        let visited = |ran: Vec<Ran>| Turn::Visited {
+            said: "s".to_owned(),
+            url: url("https://s.example/"),
+            ran,
+        };
+        assert!(
+            why(&[visited(vec![Ran::starting("x"); MOST_RUNS + 1])]).contains("21 runs"),
+            "more runs than are kept"
+        );
+        let mut long = Ran::starting("x");
+        long.steps = vec![
+            Step {
+                line: "s".to_owned(),
+                why: String::new()
+            };
+            MOST_STEPS + 1
+        ];
+        assert!(why(&[visited(vec![long])]).contains("41 steps"));
+        let good = write("x", &[visited(runs())]);
+        let bad = |text: String| {
+            read(text.as_bytes())
+                .err()
+                .map(|Unread(why)| why)
+                .unwrap_or_default()
+        };
+        assert!(bad(good.replace("{\"done\":", "{\"thought\":")).contains("\u{201c}ended\u{201d}"));
+        assert!(bad(good.replace("\"why\":\"\"", "\"why\":1")).contains("\u{201c}why\u{201d}"));
     }
 
     #[test]
@@ -666,6 +1106,7 @@ mod tests {
             &[Turn::Visited {
                 said: "a".to_owned(),
                 url: url("https://a.example/"),
+                ran: Vec::new(),
             }],
         );
         assert!(read(good.as_bytes()).is_ok());

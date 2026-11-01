@@ -29,6 +29,10 @@
 //! 5. A search that found no sites: no answer asked, nothing sent.
 //! 6. With no key for the model: said where the answer would be, and
 //!    nothing sent.
+//! 7. Kept in its chat (queue item 814, ADR 0092 as amended): the answer
+//!    written to the chat's file in words, and after a second launch on the
+//!    same directory the chat pressed under *Earlier* shows it on the
+//!    Answer tab as it was — **with no request to the model**.
 
 #![cfg(target_os = "macos")]
 
@@ -38,6 +42,7 @@ use alo_renderer::results::{Showing, Tab};
 use alo_renderer::results_answer::{Answer, NO_RELIABLE_ANSWER};
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::brave_search::Provider;
+use alo_window::chat_store::{ChatStore, file_of};
 use alo_window::conversation_answer::Answerer;
 use alo_window::conversation_chrome::ChromeOpener;
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
@@ -238,7 +243,10 @@ impl Driven {
             let left = until
                 .checked_duration_since(Instant::now())
                 .ok_or_else(|| format!("{what} did not happen; the window said {:?}", self.said))?;
-            let Ok(heard) = self.heard.recv_timeout(left) else {
+            let Ok(heard) = self
+                .heard
+                .recv_timeout(left.min(Duration::from_millis(100)))
+            else {
                 continue;
             };
             if let Heard::Drawn(Drawn::Said(part, said)) = &heard {
@@ -289,7 +297,11 @@ fn pixel(frame: &Frame, x: u32, y: u32) -> Option<[u8; 4]> {
 /// The conversation's window at one, both parts painted, searching through
 /// the server on `port` and asking it for answers — or, with `model` an
 /// error, with answers not set up.
-fn the_window(port: u16, model: Result<(), String>) -> Result<Driven, String> {
+fn the_window(
+    port: u16,
+    model: Result<(), String>,
+    chats: Option<&Path>,
+) -> Result<Driven, String> {
     let renderers = Renderers::running(renderer()?, &[]).with_machine(alo_window::fonts::frozen());
     let (tell, heard) = channel();
     let drawn = tell.clone();
@@ -326,6 +338,10 @@ fn the_window(port: u16, model: Result<(), String>) -> Result<Driven, String> {
     .map_err(|why| format!("no search thread: {why}"))?;
     let mut window =
         ConversationWindow::new(Some(Scale::ONE), drawing, chrome).with_search(searcher);
+    if let Some(chats) = chats {
+        let (store, opened) = ChatStore::open(chats)?;
+        window = window.with_chats(store, opened);
+    }
     window.measured_as(Measured {
         size: WINDOW,
         scale_factor: 1.0,
@@ -431,7 +447,7 @@ fn sent_once_and_only_what_it_may(requests: &[Asked]) -> Result<(), String> {
 fn a_searchs_answer_is_asked_once_its_sites_come_and_drawn_or_refused() -> Result<(), String> {
     let (asking, asked) = channel();
     let port = provide(asking)?;
-    let mut driven = the_window(port, Ok(()))?;
+    let mut driven = the_window(port, Ok(()), None)?;
 
     // 1. Answered, drawn, and Full answer opens the Answer tab.
     let answer = asked_for(&mut driven, "ev charger install time")?;
@@ -536,6 +552,7 @@ fn with_no_key_for_the_model_the_answer_says_why_and_nothing_is_sent() -> Result
     let mut driven = the_window(
         port,
         Err("no OpenAI key in this Mac's keychain (alo-openai)".to_owned()),
+        None,
     )?;
     let answer = asked_for(&mut driven, "ev charger install time")?;
     assert_eq!(
@@ -552,6 +569,94 @@ fn with_no_key_for_the_model_the_answer_says_why_and_nothing_is_sent() -> Result
         "{requests:?}"
     );
     driven.window.finish();
+    match driven.window.unfinished() {
+        Some(why) => Err(why.to_owned()),
+        None => Ok(()),
+    }
+}
+
+/// The first row under *Earlier* with one chat open, at one: the open row
+/// at 178 and the earlier ones from 254, each 38 tall.
+const FIRST_EARLIER: (f64, f64) = (120.0, 273.0);
+
+/// A directory of this test's own, never a person's.
+fn scratch() -> PathBuf {
+    let directory = std::env::temp_dir().join(format!("alo-an-answer-kept-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&directory);
+    directory
+}
+
+/// The rows of `frame` from 100 to 600 — the tab row, the answer and its
+/// sources — as bytes, to be compared with another launch's.
+fn answer_rows(frame: &Frame) -> Option<Vec<u8>> {
+    let row = usize::try_from(frame.width).ok()? * 4;
+    frame.pixels.get(100 * row..600 * row).map(<[u8]>::to_vec)
+}
+
+#[test]
+fn a_searchs_answer_is_kept_in_its_chat_and_read_back_without_asking_again() -> Result<(), String> {
+    let (asking, asked) = channel();
+    let port = provide(asking)?;
+    let chats = scratch();
+    let mut driven = the_window(port, Ok(()), Some(&chats))?;
+    let answer = asked_for(&mut driven, "ev charger install time")?;
+    assert!(matches!(answer, Answer::Written(_)), "{answer:?}");
+    driven.click((PANEL + 110.0, 209.0));
+    driven.until("the Answer tab shown and painted", |driven| {
+        driven
+            .window
+            .conversation()
+            .results()
+            .is_some_and(|results| results.tab == Tab::Answer)
+            && driven.painted().is_some_and(|frame| {
+                (150..400).any(|y| pixel(&frame, 740, y) == Some([0xe1, 0xda, 0xce, 0xff]))
+            })
+    })?;
+    // Painted again with nothing more to come, as the person sees it.
+    let deadline = Instant::now() + Duration::from_secs(2);
+    driven.until("a moment", |_| Instant::now() >= deadline)?;
+    let before = driven
+        .painted()
+        .and_then(|frame| answer_rows(&frame))
+        .ok_or("the Answer tab not painted")?;
+    driven.window.finish();
+    if let Some(why) = driven.window.unfinished() {
+        return Err(why.to_owned());
+    }
+    let written = std::fs::read_to_string(file_of(&chats, 0)).map_err(|why| why.to_string())?;
+    for words in [
+        "\"line\":\"About a day.\"",
+        "{\"sources\":[1],\"text\":\"Fitting takes half a day to a day.\"}",
+        "\"tab\":\"answer\"",
+    ] {
+        assert!(written.contains(words), "{words} not kept: {written}");
+    }
+    let _ = every(&asked);
+
+    // The second launch: the chat pressed under Earlier, its answer drawn
+    // on the Answer tab as it was, and nothing asked of the model.
+    let mut driven = the_window(port, Ok(()), Some(&chats))?;
+    driven.click(FIRST_EARLIER);
+    driven.until("the kept chat's answer drawn", |driven| {
+        driven
+            .window
+            .conversation()
+            .results()
+            .is_some_and(|results| results.tab == Tab::Answer && results.answer == answer)
+            && driven
+                .painted()
+                .and_then(|frame| answer_rows(&frame))
+                .is_some_and(|rows| rows == before)
+    })?;
+    driven.window.finish();
+    let requests = every(&asked);
+    assert!(
+        requests
+            .iter()
+            .all(|(head, _)| !head.starts_with("POST /v1/responses ")),
+        "the model was asked again: {requests:?}"
+    );
+    let _ = std::fs::remove_dir_all(&chats);
     match driven.window.unfinished() {
         Some(why) => Err(why.to_owned()),
         None => Ok(()),

@@ -48247,4 +48247,129 @@ with `setsid`, waited on by its PID). **Summary [1132.113s] 6287 tests
 run: 6287 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is met." (11
 of 11 steps)*, `serde_json` behind its six files.
 
-The next unused queue number is **823** and the next ADR is **0097**.
+The next unused queue number was **823** and the next ADR **0097**.
+
+## Iteration 492 — queue items 822, 814 and 820: nothing of Chrome's over a card (ADR 0066 amended), a search's answer kept in its chat and alo's runs kept as turns (ADR 0092 amended); 819 not started
+
+Batched under one gate run at the owner's request; each item finished with
+its tests and documents before the next. **819 (the split view) was not
+started**: with the three above built in depth there was not the room to
+build a layout mode — the page and a 384 column side by side, the panel a
+rail, Chrome told a new page size, the press aiming and every number and
+reference of 704 moved — with its layout assertions and references, so it
+stays open as written; nothing of it is ticked.
+
+**822 — nothing of Chrome's over a card (ADR 0066 amended).**
+`chrome_mark.rs`: a `Marker` knows whether its page is a card
+(`Marker::over`, `over_a_card`); its decision is a pure `Plan` (`plan`): on
+a card a verb that ran takes any mark away instead of highlighting, a card
+expanded into Chrome's window (`expanded`, on `CardOrder::Expand`) is
+marked as before, and `clear` takes any mark away. A new
+`CardOrder::Unmark` (`ChromeOpener::unmark`), sent by the window whenever
+`follow_runs` stops a run — done, stuck, stopped, taken over, replaced —
+is carried out by the serving thread (`Marker::heed`). Both Chromiums run
+the same code. `keep_passwords` moved into `chrome_serving::open` (clippy's
+100 lines). Tests: `plan` over a card, expanded and in a window (unit);
+`ChromeOpener`'s order list holds `Unmark`; through the machine's Chrome
+and alo's CEF host, no pixel of the card's frame within 24 levels of
+`#e76f51` while the agent waits on *Allow* after pressing *Say hello*, and
+after its twenty presses. **Mutations**: the card marked — the first check
+fails (347 pixels); the card marked and no `Unmark` sent — the second
+fails (347); `the_box_marked_through_chrome.rs` (a shown window) still
+marks. alo's own ring on a card is **823**.
+
+**814 — a search's answer kept (ADR 0092 amended).** `chat_record.rs`
+writes `"answer"` (written: line, sentences, points each with `sources`;
+`"not found"`; `{"unanswered": why}`; `"not asked"`; `"asking"`) and reads
+it back checked as the wire checks it — none to a search with no sites,
+`Written::check` against the first eight sites read with it — or the
+file is not read; `"asking"` reads as *This answer was not written before
+alo was closed.*; a file without the field reads as never asked; the
+Answer tab is read back as shown. Version stays 1. Tests: four unit tests
+(round trip of each kind with its tab; asking read as not written; a file
+from before; a citation past the sites, past the eighth, to no sites, four
+sentences, a negative or quoted number, an answer of no kind — each
+refused by name); `a_searchs_answer_in_the_window.rs` gained a third test:
+an answer kept, the window closed, a second launch on the same directory,
+the chat pressed under *Earlier* painting the Answer tab's rows 100–600
+byte for byte as before, and no `POST /v1/responses`. (Its `until` now
+waits in slices of 100 ms, so a wait on time alone ends on time.)
+**Mutations**: the answer not read back — the window test fails; the
+check dropped — the unit test fails.
+
+**820 — alo's runs kept as turns (ADR 0092 amended).** `alo-renderer`:
+`agent_ran.rs` (`Ran`, `Ended`, `MOST_RUNS` 20, `TYPED`, `CLOSED`),
+`Turn::Visited::ran`, `Card::ran` (the browser process's, never sent with a
+live card), `wire/agent.rs`'s `runs` (20 runs, 40 steps), `ran_document.rs`
+drawing each run under the page's line as the person's bubble (`you
+request`) and a white box of steps and the ending (`.ran`), named *What
+alo did*. `alo-window`: `agent_kept.rs` — a typing step whose text the
+person's request holds as whole words is kept as shown, any other as
+*Typed into a field* with no why, and that text replaced by `…` (whole
+words, any case, longest first) in every other line, why and result;
+`Said::Step::typed` (never drawn, never on the terminal);
+`conversation_work.rs` keeps the run at work on its card as it stands at
+each word heard (ended provisionally as alo closing would), one replaced as
+*You asked alo something else, so it stopped.*; `Thread::put_away_card`
+carries the runs into the page's line, a run at work kept as *alo stopped:
+the page was closed or replaced.*; `chat_record.rs` writes and reads
+`"ran"`. Tests: `agent_kept` (4), `conversation_work` (every run kept, the
+typed text never, 20 kept), `conversation_thread` (runs carried, one at
+work stopped), `chat_record` (2), `ran_document` (2),
+`messages_across_a_boundary.rs` (crossing, 21 runs and 41 steps refused, a
+live card's not carried), `the_agent_at_work.rs` (+2: the layout in
+numbers, computed by hand before the run and passing first time — the
+line at 98, the first box at 216 172 tall, steps at 231, 257, 301, *Done*
+at 331, the second box at 462 52 tall — and the reference
+`agent-runs-kept.png`, looked at, written once and compared once without
+update mode; the tree reads two regions *What alo did*, no button in the
+conversation), and through both Chromiums
+(`the_agent_at_work_on_a_card_through_chrome.rs`, now keeping chats in a
+directory of its own): seven runs on two cards read back from the file,
+each asked, ended and step as expected, *Sign me in* now asked without the
+password so the text typed into the password field is kept as *Typed into
+a field*, and neither `letmein` nor `hunter2` in the file. **Mutations**:
+the typed text kept, a run put away left at work, the runs not read — each
+fails its unit test.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached with `setsid`, waited on by its PID). **Summary [1143.408s] 6306
+tests run: 6306 passed (7 slow, 1 leaky), 0 skipped** — *"The gate is
+met." (11 of 11 steps)*, `serde_json` behind its six files (no new file
+parses JSON). One reference added (`agent-runs-kept.png`); none moved.
+
+**By hand** (screen unlocked; release built, CEF host built, the old `.app`
+removed, `alo-bundle --keys-from keychain` carrying both keys — the carried
+slots listed, neither printed; `--conversation --chats handrun29/chats`,
+the directory made by me beforehand, so `0755` and not alo's `0700`; the
+window on the main display at 215, 90; keys and presses from a private
+event source with no flags, typing as unicode strings; screenshots in
+`handrun29/`): *how long is the nile river* — *I couldn't find a reliable
+answer.* (the sites say 6,650 and 7,088 km; `01-search`); *what is the
+capital of uganda* — *Kampala is the capital of Uganda. 2 4 6 It is also
+the country's largest city. 2*, *Drew on 3 sites* (`02-search-answered`);
+`https://en.wikipedia.org` opened as a card (`03-wikipedia`); *Search
+Wikipedia for Kampala and open the article* — *Opening Wikipedia search*,
+*Typing Kampala into Search Wikipedia* twice, with **no inspector tooltip
+or highlight on the card** after pressing the search icon and typing
+(`05-at-work`), *Searching Wikipedia for Kampala*, held — *Press "Search"
+on en.wikipedia.org? It sends the form on this page.* (`06-asks`) —
+*Allow* pressed, *Done in 4 steps*, *Opened the Wikipedia article on
+Kampala: …/wiki/Kampala*, nothing of Chrome's over the article
+(`07-done`). The column still stands under the page: the split view is
+819, not built. Quit by AppleScript `quit`; the chat's file held the run
+(`"ran"` with its four steps and `"done"`) and the written answer
+(`"line":"The capital of Uganda is Kampala."`). Relaunched on the same
+directory (`08-relaunched`: *Earlier* — *how long is the nile river*);
+pressed, the chat drew the page's line, *Search Wikipedia for Kampala and
+open the article* as a bubble and the four steps with *Done in 4 steps*
+(`09-chat-reopened`), and above, after Page Up, the Uganda answer with its
+numbers and *alo used this*, the sites' marks as letters
+(`10-answer-kept`); the relaunched process's terminal named no request to
+OpenAI. Usage: answers 1,139/144 and 1,102/102, the run 62,123/161 in five
+steps — **64,364 tokens in, 407 out, ≈ $0.066** at Terra's prices — and two
+Brave searches. Quit by AppleScript `quit`; no alo, renderer or Chromium
+process left; the pointer back at 1400, 1000; neither key in any hand-run
+file.
+
+The next unused queue number is **824** and the next ADR is **0097**.

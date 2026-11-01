@@ -187,3 +187,48 @@ window in front of it changes nothing:
   (216,118,89 on this screen).
 
 Still open: a node in a frame, and how long a person wants the label.
+
+## Amendment, 2026-11-01 — nothing of Chrome's over a card (queue item 822)
+
+This decision was made for **Chrome's own window**, which a person looks
+at. A page shown as a **card** in the conversation (ADR 0076 B) is drawn by
+alo from the frames Chrome streams of it, and the overlay is in those
+frames. Seen by hand in 704: on a card, the highlight came with Chrome's
+inspector tooltip — the element's tag and size, *Accessibility*, *Name*,
+*Role*, *Keyboard-focusable* — drawn over the page in the conversation, and
+it stayed after alo's own agent had finished, until the next verb. That is
+an inspector, not alo, inside alo's own interface.
+
+So, decided:
+
+1. **While its page is a card, Chrome is asked to draw nothing over it**
+   (`Marker::over_a_card`, `chrome_mark.rs`). A verb that ran takes away
+   any mark there is, as a refused one does; nothing is highlighted. What
+   each step did is said by the card's own run, in its lines (ADR 0096
+   § 7), and the terracotta outline says the agent is acting. An agent on
+   the socket reaching the card (716) is answered the same and sees the
+   same: nothing drawn.
+2. **A card expanded into Chrome's own window** (`CardOrder::Expand`) is
+   Chrome's window again, a person looking at it, and is marked as § 3
+   says from then on.
+3. **When a run of alo's agent ends or is stopped** — done, stuck, stopped
+   by the person, by a press on the page, by its limits, or replaced by
+   another — the window sends `CardOrder::Unmark`, and the thread holding
+   the tab takes any mark away (`Overlay.hideHighlight`, sent only when
+   Chrome was ever let draw one). Nothing of Chrome's is left over a page
+   nobody is acting on.
+
+Both Chromiums are the same code: the machine's Chrome and the Chromium
+alo carries are driven over one protocol. Checked on both by
+`the_agent_at_work_on_a_card_through_chrome.rs`: no pixel of the card's
+frame within 24 levels of `#e76f51`, while the agent waits on *Allow* after
+pressing *Say hello*, and after its twenty presses end at the step limit.
+Each check fails on its own mutation (the card marked: 347 such pixels;
+the card marked and nothing taken away at the end: 347).
+
+**Not decided here, queued:** alo's own ring on a card (823) — drawn by
+the first screen over the card's picture from the node's rectangles, as
+the engine path's ring is (624). A ring measured once is a guess about the
+next frame, and a stream's frames come at Chrome's pace, so it needs the
+ring tied to the frame it was measured against (a frame's own scroll
+offset, `Page.screencastFrame`'s metadata), and is its own item.

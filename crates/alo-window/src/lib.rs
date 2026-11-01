@@ -128,6 +128,7 @@
 //! it — and a link opening a tab (item 300).
 
 pub mod agent_gate;
+pub mod agent_kept;
 pub mod agent_lines;
 pub mod agent_page;
 pub mod agent_protocol;

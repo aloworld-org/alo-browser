@@ -295,6 +295,7 @@ impl ConversationWindow {
         if let Some((number, asked)) = self.conversation.take_run() {
             if let Some(run) = self.run.take() {
                 run.stop();
+                self.unmark();
             }
             if let Some((agent, tell)) = &self.agent {
                 match agent.start(number, asked, Arc::clone(tell)) {
@@ -318,6 +319,16 @@ impl ConversationWindow {
             && let Some(run) = self.run.take()
         {
             run.stop();
+            self.unmark();
+        }
+    }
+
+    /// Take away anything Chrome draws over the card's page (queue item
+    /// 822): a run has ended or been stopped, and nothing of Chrome's is
+    /// left over a page nobody is acting on.
+    fn unmark(&self) {
+        if let Some(chrome) = &self.chrome {
+            chrome.unmark();
         }
     }
 
@@ -328,8 +339,10 @@ impl ConversationWindow {
             return;
         }
         match &said.said {
-            Said::Step { line, why } if why.is_empty() => self.said.push(format!("agent: {line}")),
-            Said::Step { line, why } => self.said.push(format!("agent: {line} ({why})")),
+            Said::Step { line, why, .. } if why.is_empty() => {
+                self.said.push(format!("agent: {line}"));
+            }
+            Said::Step { line, why, .. } => self.said.push(format!("agent: {line} ({why})")),
             Said::Asking { what, .. } => self.said.push(format!("agent asks: {what}")),
             Said::Allowed => self.said.push("agent: allowed by the person".to_owned()),
             Said::Stuck { why, .. } => self.said.push(format!("agent is stuck: {why}")),

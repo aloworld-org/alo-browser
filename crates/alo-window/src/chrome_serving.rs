@@ -84,7 +84,10 @@
 //! A shown Chrome is asked, after the agent has been answered and the frame
 //! told, to mark the box the verb acted on over its page — Chrome's own
 //! highlight of the node, never a window of ours ([`Marker`], ADR 0066,
-//! queue item 680). A headless one is not: nobody would see it.
+//! queue item 680). A headless one is not: nobody would see it; nor is a
+//! card's page, whose frames would carry Chrome's inspector tooltip into
+//! the conversation (queue item 822) — until it is expanded into Chrome's
+//! own window. `CardOrder::Unmark` takes any mark away.
 //!
 //! # What it is not
 //!
@@ -555,12 +558,6 @@ fn serve_in_chrome(
     let swept = chrome.swept().clone();
     let profile = chrome.profile().to_path_buf();
     let mut tab = match open(&mut chrome, opening, size, drawn) {
-        // A card's page: no agent types a password on it (queue item 704,
-        // ADR 0096).
-        Ok(mut tab) if matches!(drawn, Drawn::Shown { front: false, .. }) => {
-            tab.keep_passwords();
-            tab
-        }
         Ok(tab) => tab,
         Err(why) => {
             let _ = tell.send(Err(Unserved::Unopened(why)));
@@ -574,7 +571,10 @@ fn serve_in_chrome(
             return record;
         }
     };
-    let mut marker = placed.is_some().then(Marker::default);
+    // Over a card's page Chrome draws nothing (queue item 822).
+    let mut marker = placed
+        .is_some()
+        .then(|| Marker::over(matches!(drawn, Drawn::Shown { front: false, .. })));
     let mut pages = ChromePages::of(tab, rendered_by.clone());
     if tell
         .send(Ok(Started {
@@ -626,6 +626,9 @@ fn serve_in_chrome(
                     .answer(caller, ask, &reply);
                 }
                 Arrival::Order(Order::Card(order)) => {
+                    if let Some(marker) = marker.as_mut() {
+                        marker.heed(pages.tab_mut(), &order);
+                    }
                     chrome_card::carry_out(pages.tab_mut(), order, frame, &mut fitted);
                 }
                 Arrival::Order(Order::CloseEverything | Order::Tabs(TabOrder::CloseSelected)) => {
@@ -663,7 +666,8 @@ fn serve_in_chrome(
 /// Open `opening` in `chrome` at `size`, for a Chrome drawing as `drawn`
 /// says. Only a card's window is parked rather than brought in front, and a
 /// card's page from the network is streamed from its first paint, not its
-/// load (queue item 751): it is waited for only until it commits.
+/// load (queue item 751): it is waited for only until it commits. A card's
+/// tab refuses text put into a password field, for every agent.
 fn open(
     chrome: &mut Chrome,
     opening: Opening,
@@ -671,11 +675,17 @@ fn open(
     drawn: Drawn,
 ) -> Result<Tab<'_>, Unopened> {
     let a_card = matches!(drawn, Drawn::Shown { front: false, .. });
-    match opening {
+    let mut tab = match opening {
         Opening::Frozen { url, page } => Tab::open_frozen(chrome, &url, page, size),
         Opening::Network(address) if a_card => Tab::open_as_a_card(chrome, &address, size),
         Opening::Network(address) => Tab::open(chrome, &address, size),
+    }?;
+    // A card's page: no agent types a password on it (queue item 704, ADR
+    // 0096).
+    if a_card {
+        tab.keep_passwords();
     }
+    Ok(tab)
 }
 
 /// [`placing`], and how the scale its page is drawn at is had: a card of

@@ -112,6 +112,11 @@ pub enum Said {
         line: String,
         /// Why; empty when it did not choose.
         why: String,
+        /// What a typing step puts into its field: the browser process's
+        /// own, kept out of the chat's file unless the person said it
+        /// (queue item 820, [`crate::agent_kept`]), never drawn and never
+        /// said on the terminal.
+        typed: Option<String>,
     },
     /// It waits on the person: the question numbered so, and its words.
     Asking {
@@ -459,9 +464,14 @@ impl Running {
         } else {
             line
         };
+        let typed = match &verb {
+            Verb::PutText(text) => Some(text.clone()),
+            Verb::Activate | Verb::Scroll(_) => None,
+        };
         if !self.say(Said::Step {
             line: line.clone(),
             why,
+            typed,
         }) {
             return Err(None);
         }

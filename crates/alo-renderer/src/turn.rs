@@ -24,14 +24,17 @@
 //! - **An honest failure** ([`Turn::Failed`]): a page that could not be
 //!   opened, and why, in this browser's words.
 //!
-//! The agent's own words and the steps it took are not here: what they are
-//! waits on a model (queue item 707) and on the agent's record given a face
-//! (704). Nothing stands in for them.
+//! **alo's agent at work** on a live card is drawn on the card
+//! ([`Card::agent`], item 704); **each run it made** — what was asked, its
+//! steps in words, how it ended — is kept with the page ([`Card::ran`]) and
+//! stands under the page's line once it is shown earlier
+//! ([`Turn::Visited::ran`], queue item 820, [`crate::agent_ran`]).
 //!
 //! Every string is a stranger's — what a person typed, a site's title, an
 //! address, a reason that names one — and enters the document as a text
 //! node ([`crate::conversation_document`]).
 
+use crate::agent_ran::Ran;
 use crate::card::Card;
 use crate::results::Results;
 use alo_url::Url;
@@ -56,6 +59,9 @@ pub enum Turn {
         said: String,
         /// Where the page last was.
         url: Url,
+        /// Each run of alo's agent on the page, oldest first, as the chat
+        /// keeps it (queue item 820): at most [`crate::agent_ran::MOST_RUNS`].
+        ran: Vec<Ran>,
     },
     /// What the person chose that could not be done, and why.
     Failed {
@@ -167,6 +173,7 @@ mod tests {
         let visited = Turn::Visited {
             said: "s".to_owned(),
             url: url("https://e.example/p"),
+            ran: Vec::new(),
         };
         assert_eq!(visited.links(), vec![&url("https://e.example/p")]);
         assert!(
