@@ -102,7 +102,6 @@ use crate::chrome::{self, Chrome, Failed, Unstarted};
 use crate::chrome_card;
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
-use crate::chrome_history;
 use crate::chrome_mark::{Marker, Marking};
 use crate::chrome_named::{self, Naming};
 use crate::chrome_pages::ChromePages;
@@ -593,12 +592,9 @@ fn serve_in_chrome(
         named: Naming::default(),
         next: Instant::now(),
     });
-    // Where the card's page was last told to be (queue item 742).
-    let mut told_where = None;
-    // And whether it was last told to be loading (queue item 751).
-    let mut told_loading = None;
-    // And where it can go back or forward to (queue item 737).
-    let mut told_travel = chrome_history::Told::default();
+    // What the card was last told of its page (queue items 742, 751, 737,
+    // 736).
+    let mut told_card = chrome_card::Told::default();
     // And the size its page was last laid out at (queue item 774), and
     // whether its window is still parked (queue item 771).
     let mut fitted = chrome_card::Fitted::parked(size, scaled);
@@ -648,12 +644,7 @@ fn serve_in_chrome(
                 Arrival::Order(_) | Arrival::Exchanged(_) | Arrival::NetworkGone => {}
             }
         }
-        // Whether the page is loading before the frame drawn of it, so the
-        // first frame is never shown without the card knowing.
-        chrome_card::tell_loading(pages.tab(), &mut told_loading, frame);
-        chrome_card::tell_newest(pages.tab_mut(), frame);
-        chrome_card::tell_where(pages.tab(), &mut told_where, frame);
-        chrome_card::tell_travel(pages.tab_mut(), &mut told_travel, frame);
+        told_card.tell(pages.tab_mut(), frame);
         if let Some(follower) = following.as_mut()
             && Instant::now() >= follower.next
             && follower.follow(pages.tab_mut()) == Follow::Closed

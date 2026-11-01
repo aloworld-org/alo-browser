@@ -38,11 +38,12 @@
 //! And it is where a person asks for the browser's own interface as a
 //! conversation (`--conversation`, ADR 0074, queue item 709): the chats
 //! panel and the first screen, in this engine's window. It is named no
-//! page and opens no socket — an address chosen in it opens in Chrome
-//! from there (item 713, ADR 0075), reached by no agent — so a page, a
-//! sheet, Chrome or an agent's site named beside it is refused rather than
-//! quietly dropped; the frozen fonts and a scale
-//! are this engine's window's, and are kept.
+//! page — an address chosen in it opens in Chrome from there (item 713,
+//! ADR 0075) — so a page, a sheet or Chrome named beside it is refused
+//! rather than quietly dropped; the frozen fonts and a scale are this
+//! engine's window's, and are kept; and `--agent-site` keeps the agents
+//! its socket lets reach the page it shows to those sites, as with
+//! `--chrome` (queue item 716).
 
 use crate::agent_sites::AgentSites;
 use crate::chrome_serving;
@@ -57,7 +58,7 @@ use std::path::{Path, PathBuf};
 /// How to use `alo`, as it is said when it was used wrongly.
 pub const USAGE: &str = "usage: alo [--frozen-fonts] [--scale FACTOR] [--agent-site ADDRESS ...] \
      [PAGE.html [SHEET.css ...]]\n       alo --chrome [--agent-site ADDRESS ...] (ADDRESS | PAGE.html)\n       \
-     alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR]";
+     alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR] [--agent-site ADDRESS ...]";
 
 /// The size, in CSS pixels, a page in Chrome is laid out at: the size ADR
 /// 0061 measured Chrome's frames at. Chrome's window is sized to hold the
@@ -145,9 +146,9 @@ impl Opening {
     /// `--agent-site` with no address or one that has no site, a `--scale`
     /// with no factor or one that is not measured, or a sheet with no page;
     /// and with `--chrome`, no page, or a scale, the frozen fonts or a sheet
-    /// beside it; and with `--conversation`, a page, a sheet, `--chrome` or
-    /// an agent's site beside it; and `--chats` with no directory, one that
-    /// is not an absolute path, or without `--conversation`.
+    /// beside it; and with `--conversation`, a page, a sheet or `--chrome`
+    /// beside it; and `--chats` with no directory, one that is not an
+    /// absolute path, or without `--conversation`.
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let mut fonts = Fonts::AsAsked;
         let mut files = Vec::new();
@@ -211,23 +212,19 @@ impl Opening {
             ));
         }
         if conversation {
-            opening.refuse_beside_the_conversation(!sites.is_empty())?;
+            opening.refuse_beside_the_conversation()?;
         } else if renderer == Renderer::Chrome {
             opening.refuse_beside_chrome()?;
         }
         Ok(opening)
     }
 
-    /// What `--conversation` cannot be given, or nothing: `agents_named`
-    /// says whether an agent's site was.
-    fn refuse_beside_the_conversation(&self, agents_named: bool) -> Result<(), String> {
+    /// What `--conversation` cannot be given, or nothing.
+    fn refuse_beside_the_conversation(&self) -> Result<(), String> {
         let refused = if self.renderer == Renderer::Chrome {
             "--conversation is drawn by this engine, and Chrome draws no part of it yet"
         } else if self.page.is_some() || !self.sheets.is_empty() {
             "--conversation opens the browser's own first screen, and no page"
-        } else if agents_named {
-            "--agent-site keeps agents to sites, and the conversation opens no socket for an \
-             agent to reach its pages by"
         } else {
             return Ok(());
         };
@@ -543,6 +540,17 @@ mod tests {
             Opening::from_arguments(arguments(&["--conversation", "--chats", "/tmp/kept chats"]))
                 .expect("these are arguments");
         assert_eq!(elsewhere.chats, Some(PathBuf::from("/tmp/kept chats")));
+        // Queue item 716: agents reaching its card kept to a site.
+        let kept = Opening::from_arguments(arguments(&[
+            "--conversation",
+            "--agent-site",
+            "https://example.com/a",
+        ]))
+        .expect("these are arguments");
+        assert_eq!(
+            kept.agents,
+            AgentSites::named(["https://example.com"]).expect("a site")
+        );
         let plain = Opening::from_arguments(arguments(&[])).expect("no arguments is fine");
         assert!(
             !plain.conversation,
@@ -564,10 +572,6 @@ mod tests {
             ),
             (&["--conversation", "a.html"][..], "and no page"),
             (&["a.html", "b.css", "--conversation"][..], "and no page"),
-            (
-                &["--conversation", "--agent-site", "https://example.com"][..],
-                "opens no socket for an agent",
-            ),
             (
                 &["--conversation", "--chats"][..],
                 "--chats names no directory",

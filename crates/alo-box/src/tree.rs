@@ -969,14 +969,21 @@ fn field_text(document: &Document, id: NodeId) -> Option<String> {
     ) {
         return None;
     }
-    let value = element.attr("value")?;
+    // HTML's value sanitisation for these kinds strips every newline: a
+    // one-line field's value is one line (queue item 715; Chrome 156 reads
+    // `value="ab⏎cd"` back as `abcd`, measured).
+    let value: String = element
+        .attr("value")?
+        .chars()
+        .filter(|c| !matches!(c, '\n' | '\r'))
+        .collect();
     if value.is_empty() {
         return None;
     }
     Some(match kind.as_str() {
         // A password shows that it holds something and never what.
         "password" => "•".repeat(value.chars().count()),
-        _ => value.to_owned(),
+        _ => value,
     })
 }
 
@@ -2647,6 +2654,19 @@ mod tests {
         assert_eq!(texts("<p>ab   c\n  d</p>", css), ["ab c d"]);
         let css = "p { white-space: pre-line }";
         assert_eq!(texts("<p>ab   c\n  d</p>", css), ["ab c\nd"]);
+    }
+
+    /// Queue item 715: a one-line field's value is drawn as HTML sanitises
+    /// it — its newlines stripped, every space kept — and a field of only
+    /// newlines shows nothing, as an empty one does.
+    #[test]
+    fn a_fields_value_is_drawn_with_its_newlines_stripped_and_its_spaces_kept() {
+        for kind in ["text", "search", "url", "tel", "email"] {
+            let html = format!("<input type={kind} value='ab\n  c\r\nd'>");
+            assert_eq!(shown(&html), ["ab  cd"], "{kind}");
+        }
+        assert_eq!(shown("<input type=password value='a\nb'>"), ["••"]);
+        assert!(shown("<input value='\n\r\n'>").is_empty());
     }
 
     /// The hints a document's fields show, in order: the text of every box

@@ -1,0 +1,24 @@
+block flow · document
+  block flex · generic
+    inline flow-root · textbox
+      anonymous block
+        text "The quick brown fox jumps over the lazy dog again and again"
+    block flow · paragraph
+      text "Below the field"
+    inline flow-root · textbox
+      anonymous block
+        text "The quick brown fox jumps over the lazy dog again and again"
+    inline flow-root · textbox
+      anonymous block
+        text "The quick brown fox jumps over the lazy dog again and again"
+    inline flow-root · textbox
+      anonymous block
+        text "a    b    c    WWWWWWWWWWWWWWWWWWWWWWWW"
+    inline flow-root · textbox
+      anonymous block
+        text "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW"
+    inline flow-root · textbox
+      anonymous block
+        text "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW" · ::placeholder
+    block flow · paragraph
+      text "After the fields"

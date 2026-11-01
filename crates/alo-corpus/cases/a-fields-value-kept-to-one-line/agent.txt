@@ -1,0 +1,16 @@
+document at (0, 0) 400×236
+  textbox at (8, 8) 172×21
+    text "The quick brown fox jumps over the lazy dog again and again" at (12, 11) 411.51563×15
+  paragraph at (8, 37) 119.09375×19
+    text "Below the field" at (8, 37) 119.09375×19
+  textbox at (8, 64) 172×21
+    text "The quick brown fox jumps over the lazy dog again and again" at (12, 67) 411.51563×15
+  textbox at (8, 93) 172×21
+    text "The quick brown fox jumps over the lazy dog again and again" at (12, 96) 411.51563×15
+  textbox at (8, 122) 128×21
+    text "a b c WWWWWWWWWWWWWWWWWWWWWWWW" at (12, 125) 391.14063×15
+  textbox at (8, 151) 144×21
+    text "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW" at (20, 154) 421.78125×15
+  textbox "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW" [placeholder="WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW"] at (8, 180) 144×21
+  paragraph at (8, 209) 117.71875×19
+    text "After the fields" at (8, 209) 117.71875×19

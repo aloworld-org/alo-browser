@@ -853,10 +853,26 @@ fn added(left: Edges, right: Edges) -> Edges {
 /// space and newline whatever its `white-space` says, as the box tree kept
 /// them (`alo_box::WhiteSpace::in_a_text_area`); its `::placeholder` is a
 /// hint with a style of its own, and is left to it.
+///
+/// A one-line field's text — its value, or its hint — is one line whatever
+/// the field's `white-space` says, every space kept, as Chrome 156 sets it
+/// (`white-space: pre` on its inner editor and on `::placeholder`, while
+/// `getComputedStyle` reads the field's own `normal` or `pre-wrap`; queue
+/// item 715, measured): what does not fit runs on past the field's edge,
+/// where the field cuts it off (`alo_paint`'s clip of the field's line).
 fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
     let mut style = boxes
         .nearest_style(styles, id)
         .map_or_else(TextStyle::default, text_style_of);
+    let in_a_fields_line = holds_one_line(boxes, id)
+        || boxes
+            .get(id)
+            .and_then(|node| node.parent)
+            .is_some_and(|parent| holds_one_line(boxes, parent));
+    if in_a_fields_line {
+        style.white_space = alo_box::WhiteSpace::Pre;
+        return style;
+    }
     let in_a_text_area = holds_a_text_areas_lines(boxes, id)
         || boxes
             .get(id)

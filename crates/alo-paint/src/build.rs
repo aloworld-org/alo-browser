@@ -608,9 +608,20 @@ impl Builder<'_> {
     /// and what a root of `overflow: hidden; height: 50px` holds past its
     /// own (queue item 662, [`alo_layout::viewport`]). The viewport's own
     /// edge is the canvas's.
+    ///
+    /// A one-line field's line is cut off at the field's content box, which
+    /// is the box the field holds it in: Chrome 156 holds what a person types
+    /// in an inner box of the content box's width and cuts there what runs
+    /// past it — a value of `W`s in a field padded 10 pixels across stops 10
+    /// pixels short of its border, measured (queue item 715) — whatever the
+    /// field's own `overflow`, which it computes as `clip`.
     fn clip_of(&self, id: BoxId) -> Option<Path> {
         if self.layout.gives_its_overflow_to_the_viewport(id) {
             return None;
+        }
+        if holds_a_fields_line(self.boxes, id) {
+            let line = snap::to_device_pixels(self.layout.get(id)?.border_box, self.styles.scale());
+            return Some(rounded_rectangle(line, Corners::default()));
         }
         let style = self.style_of(id)?;
         let clips = |name: &str| {
@@ -1622,6 +1633,23 @@ impl Builder<'_> {
     fn nearest_styled_ancestor(&self, id: BoxId) -> Option<&alo_style::ComputedStyle> {
         self.boxes.nearest_style(self.styles, id)
     }
+}
+
+/// Whether `id` is the box a one-line field holds its line of text in: a
+/// text field's, a search's, a number's — not a date's, whose segments do
+/// not run on (`alo_box::Purpose::Control`).
+fn holds_a_fields_line(boxes: &BoxTree, id: BoxId) -> bool {
+    matches!(
+        boxes.get(id).map(|node| &node.kind),
+        Some(BoxKind::Anonymous {
+            purpose: alo_box::Purpose::Control {
+                one_line: true,
+                in_segments: false,
+                ..
+            },
+            ..
+        })
+    )
 }
 
 /// The colour of a border that is `solid` and one colour on every side it

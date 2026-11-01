@@ -2501,7 +2501,7 @@ items where being right and being unusable are the same outcome.
       since: a response's body bounded per request, a search's pictures
       cut at their bound and an HTTP/2 body bounded at all (762, ADR 0086
       § 3); a person's hover, double clicks, arrows, shortcuts and paging
-      keys on a card's page, through both Chromiums (740, 741); a news story's photo (765, ADR 0087 § 3); the Sites tab's
+      keys on a card's page, through both Chromiums (740, 741); the first press on a card just opened, measured the page's, and a press with a modifier said (805); trackers and adverts refused by EasyList and EasyPrivacy through both Chromiums (736, ADR 0094); a field's value kept to one line and cut at its content box (715); an agent reaching the page the conversation shows, over one socket following the newest card (716, ADR 0075 amended); a news story's photo (765, ADR 0087 § 3); the Sites tab's
       *Show more sites*, a paid page a press, one at a time (761, ADR 0086
       § 1); Newsreader at its optical size, `font-optical-sizing` read (752);
       Chinese, Japanese and Korean in the interface, a face read out of a

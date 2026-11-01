@@ -1,0 +1,28 @@
+EasyList and EasyPrivacy, carried by alo browser
+=================================================
+
+alo browser carries two filter lists, unmodified, and refuses the requests
+they name before a page in Chromium makes them (ADR 0094):
+
+  easylist.txt     EasyList,    Version: 202611011105
+                   SHA-256 78038e0a38d997d5a11e94c6830ebe40eb4fe95b5bca08d72bb8306438b2d832
+  easyprivacy.txt  EasyPrivacy, Version: 202611011057
+                   SHA-256 7aa46125ff7db276a4022126cacde442e5d350b338ff5c5294552b62ce17852b
+
+Both were taken on 1 November 2026 from https://easylist.to/easylist/.
+
+Source and attribution: The EasyList authors (https://easylist.to/).
+
+Licence. Unless otherwise noted, the contents of the EasyList repository
+(https://github.com/easylist) are dual licensed under the GNU General Public
+License version 3 of the License, or (at your option) any later version, and
+Creative Commons Attribution-ShareAlike 3.0 Unported, or (at your option) any
+later version (https://easylist.to/pages/licence.html). alo browser takes
+both lists under the Creative Commons Attribution-ShareAlike 3.0 Unported
+licence:
+
+  https://creativecommons.org/licenses/by-sa/3.0/legalcode
+
+The lists are distributed as they were published, each with its own header
+naming its version and licence. alo browser's own source is under the Mozilla
+Public License 2.0; the lists are not, and are not relicensed by being carried.

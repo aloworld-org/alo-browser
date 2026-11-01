@@ -66,7 +66,7 @@
 //! tab, which still answers its agents.
 
 use crate::chrome_card_input;
-use crate::chrome_history::{self, Told};
+use crate::chrome_history;
 use crate::chrome_park::{self, Parked};
 use crate::chrome_tab::Tab;
 use crate::chrome_window;
@@ -321,7 +321,7 @@ pub fn tell_loading(tab: &Tab<'_>, told: &mut Option<bool>, tell: TellCard<'_>) 
 /// history is asked of Chrome only when the tab's own frame has navigated
 /// since it was last read. Chrome declining, or gone, tells nothing: it is
 /// asked again at the next pass, and the next ask of the tab says it gone.
-pub fn tell_travel(tab: &mut Tab<'_>, told: &mut Told, tell: TellCard<'_>) {
+pub fn tell_travel(tab: &mut Tab<'_>, told: &mut chrome_history::Told, tell: TellCard<'_>) {
     if !tab.casting().is_on() {
         return;
     }
@@ -331,6 +331,58 @@ pub fn tell_travel(tab: &mut Tab<'_>, told: &mut Told, tell: TellCard<'_>) {
     if let Ok(Some(travel)) = told.changed(tab) {
         // Nobody to hear it is a conversation that has gone.
         let _ = tell(ToFrame::Travel(travel));
+    }
+}
+
+/// What the card was last told of its page, so each pass of the thread
+/// holding it tells only what changed.
+#[derive(Debug, Default)]
+pub struct Told {
+    /// Where its page was last told to be (queue item 742).
+    at: Option<Url>,
+    /// Whether it was last told to be loading (queue item 751).
+    loading: Option<bool>,
+    /// Where it can go back or forward to (queue item 737).
+    travel: chrome_history::Told,
+    /// How many of its requests the lists refused have been told (queue
+    /// item 736).
+    blocked: usize,
+}
+
+impl Told {
+    /// Tell `tell` what changed of `tab`'s page since this was last told,
+    /// if it streams: whether it is loading before the frame drawn of it,
+    /// so the first frame is never shown without the card knowing; the
+    /// newest frame; where the page is; where it can go back or forward
+    /// to; and what the lists refused.
+    pub fn tell(&mut self, tab: &mut Tab<'_>, tell: TellCard<'_>) {
+        tell_loading(tab, &mut self.loading, tell);
+        tell_newest(tab, tell);
+        tell_where(tab, &mut self.at, tell);
+        tell_travel(tab, &mut self.travel, tell);
+        tell_blocked(tab, &mut self.blocked, tell);
+    }
+}
+
+/// Tell `tell` each request of `tab`'s page the lists alo carries refused
+/// since the `told` first (ADR 0094, queue item 736), if it streams: read
+/// from what the tab refused as it answered Chrome ([`Tab::blocked`]), so
+/// this asks Chrome nothing. A card covered is told what was refused
+/// meanwhile once it is streamed again.
+pub fn tell_blocked(tab: &Tab<'_>, told: &mut usize, tell: TellCard<'_>) {
+    if !tab.casting().is_on() {
+        return;
+    }
+    let Some(tell) = tell else {
+        return;
+    };
+    for (url, by) in tab.blocked().iter().skip(*told) {
+        *told += 1;
+        // Nobody to hear it is a conversation that has gone.
+        let _ = tell(ToFrame::Blocked {
+            url: url.clone(),
+            by: by.clone(),
+        });
     }
 }
 

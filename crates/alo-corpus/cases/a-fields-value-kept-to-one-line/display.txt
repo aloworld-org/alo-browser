@@ -1,0 +1,33 @@
+fill box#1 rgb(255 255 255) at (0, 0) 400×236
+fill box#3 rgb(255 255 255) at (8.5, 8.5) 171×20
+fill box#3 rgb(118 118 118) at (8, 8) 172×21
+clip box#5 to (12, 11) 164×15
+text box#4 "The quick brown fox jumps over the lazy dog again and again" rgb(0 0 0) 13.333333px at (12, 23)
+unclip
+text box#8 "Below the field" rgb(0 0 0) 16px at (8, 52)
+fill box#10 rgb(255 255 255) at (8.5, 64.5) 171×20
+fill box#10 rgb(118 118 118) at (8, 64) 172×21
+clip box#12 to (12, 67) 164×15
+text box#11 "The quick brown fox jumps over the lazy dog again and again" rgb(0 0 0) 13.333333px at (12, 79)
+unclip
+fill box#14 rgb(255 255 255) at (8.5, 93.5) 171×20
+fill box#14 rgb(118 118 118) at (8, 93) 172×21
+clip box#16 to (12, 96) 164×15
+text box#15 "The quick brown fox jumps over the lazy dog again and again" rgb(0 0 0) 13.333333px at (12, 108)
+unclip
+fill box#18 rgb(255 255 255) at (8.5, 122.5) 127×20
+fill box#18 rgb(118 118 118) at (8, 122) 128×21
+clip box#20 to (12, 125) 120×15
+text box#19 "a    b    c    WWWWWWWWWWWWWWWWWWWWWWWW" rgb(0 0 0) 13.333333px at (12, 137)
+unclip
+fill box#22 rgb(255 255 255) at (8.5, 151.5) 143×20
+fill box#22 rgb(118 118 118) at (8, 151) 144×21
+clip box#24 to (20, 154) 120×15
+text box#23 "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW" rgb(0 0 0) 13.333333px at (20, 166)
+unclip
+fill box#26 rgb(255 255 255) at (8.5, 180.5) 143×20
+fill box#26 rgb(118 118 118) at (8, 180) 144×21
+clip box#28 to (20, 183) 120×15
+text box#27 "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW" rgb(117 117 117) 13.333333px at (20, 195)
+unclip
+text box#31 "After the fields" rgb(0 0 0) 16px at (8, 224)

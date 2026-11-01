@@ -72,14 +72,15 @@
 //! the Chrome showing a page is closed, waited for, and its profile removed
 //! (ADR 0069) before it returns.
 
-use crate::agent_sites::AgentSites;
 use crate::beside::Chromium;
+use crate::blocking::Blocked;
 use crate::card_input::CardInput;
 use crate::chrome_follow::Follow;
 use crate::chrome_history::{Travel, Way};
 use crate::chrome_protocol::Bounds;
 use crate::chrome_screencast::Frame as CastFrame;
 use crate::chrome_serving::{ChromeServing, Opening, TellFrame};
+use crate::conversation_agents::Reaching;
 use crate::conversation_place::Side;
 use crate::frame_told::{ToFrame, Uncast};
 use crate::message::CardOrder;
@@ -181,6 +182,15 @@ pub enum Went {
     /// Where the page shown as a card can go back or forward to, told as
     /// that changes while it streams (queue item 737).
     Travel(Travel),
+    /// A request of the page shown as a card that the lists alo carries
+    /// named, refused before it left (ADR 0094, queue item 736): what it
+    /// asked for, as Chrome spells it, and the list, line and rule.
+    Blocked {
+        /// What the page asked for.
+        url: String,
+        /// What refused it.
+        by: Blocked,
+    },
 }
 
 impl Went {
@@ -205,6 +215,9 @@ impl Went {
             Self::Moved(url) => format!("the card's page is now at {url}"),
             Self::Loading(true) => "the card's page is loading".to_owned(),
             Self::Loading(false) => "the card's page has loaded".to_owned(),
+            Self::Blocked { url, by } => {
+                format!("the card's page asked for {url}, refused as {by} (ADR 0094)")
+            }
             Self::Travel(travel) => match (travel.back, travel.forward) {
                 (true, true) => "the card's page can go back and forward",
                 (true, false) => "the card's page can go back",
@@ -337,8 +350,26 @@ impl ChromeOpener {
     ///
     /// What the system said when no thread could be started.
     pub fn start(chromium: Chromium, tell: TellWent) -> std::io::Result<Self> {
+        Self::start_reached(chromium, Reaching::default(), tell)
+    }
+
+    /// [`ChromeOpener::start`], each card's page kept to the sites agents
+    /// are kept to and reached by the conversation's agent socket while it
+    /// is the live card (queue item 716): `reaching` is told as each card
+    /// opens and closes.
+    ///
+    /// # Errors
+    ///
+    /// What the system said when no thread could be started.
+    pub fn start_reached(
+        chromium: Chromium,
+        reaching: Reaching,
+        tell: TellWent,
+    ) -> std::io::Result<Self> {
         Self::starting_with(
-            Box::new(move |url, streamed, told| in_chrome(&chromium, url, streamed, told)),
+            Box::new(move |url, streamed, told| {
+                in_chrome(&chromium, &reaching, url, streamed, told)
+            }),
             tell,
         )
     }
@@ -563,6 +594,9 @@ fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
             ToFrame::Moved(url) => again.send(Work::Told(number, Went::Moved(url))),
             ToFrame::Loading(loading) => again.send(Work::Told(number, Went::Loading(loading))),
             ToFrame::Travel(travel) => again.send(Work::Told(number, Went::Travel(travel))),
+            ToFrame::Blocked { url, by } => {
+                again.send(Work::Told(number, Went::Blocked { url, by }))
+            }
             _ => Ok(()),
         };
         true
@@ -582,6 +616,7 @@ fn ask_of(open: Option<&Open>, order: CardOrder) {
 /// (ADR 0090), as `streamed` says, held as `alo --chrome` holds its page.
 fn in_chrome(
     chromium: &Chromium,
+    reaching: &Reaching,
     url: &Url,
     streamed: Streamed,
     told: TellFrame,
@@ -591,13 +626,15 @@ fn in_chrome(
         Opening::Network(url.clone()),
         streamed.page,
         streamed.scale,
-        // No socket is opened for the conversation's pages (queue item
-        // 716): no agent reaches this tab, so it is kept to no site of its
-        // own.
-        AgentSites::Every,
+        // Agents reach the live card through the conversation's socket,
+        // kept to the sites a person named (queue item 716).
+        reaching.sites.clone(),
         told,
     )
     .map_err(|why| why.to_string())?;
+    // The live card from here until it is closed.
+    reaching.reached.now(Some(serving.orders()));
+    let reached = reaching.reached.clone();
     let shown = Shown {
         by: serving.rendered_by().to_string(),
         process: serving.process(),
@@ -609,6 +646,8 @@ fn in_chrome(
     Ok(Held {
         shown,
         close: Box::new(move || {
+            // No agent reaches a card closing.
+            reached.now(None);
             // Chrome's thread gone is Chrome already closing.
             let _ = orders.send(crate::message::Order::CloseEverything);
             drop(orders);
@@ -820,6 +859,40 @@ mod tests {
         assert!(hold(starter(&did, ""), &asking, &asked, &tell));
         assert_eq!(did.lock().unwrap().started, vec!["https://c.example/"]);
         assert_eq!(next(&told), Went::Opening(url("https://c.example/")));
+    }
+
+    #[test]
+    fn what_the_lists_refused_is_told_the_window_as_a_line() {
+        let did = Arc::new(Mutex::new(Did::default()));
+        let (opener, told) = opener(&did, "");
+        opener.open(url("https://example.com/"), STREAMED);
+        let _ = (next(&told), next(&told));
+        let frame = did.lock().unwrap().told.remove(0);
+        // What the lists alo carries refused (queue item 736).
+        let by = crate::blocking::Blocked {
+            list: Some("EasyPrivacy"),
+            line: Some(973),
+            rule: Some("/fbevents.js".to_owned()),
+        };
+        assert!(frame(ToFrame::Blocked {
+            url: "https://example.com/fbevents.js".to_owned(),
+            by: by.clone(),
+        }));
+        let blocked = next(&told);
+        assert_eq!(
+            blocked,
+            Went::Blocked {
+                url: "https://example.com/fbevents.js".to_owned(),
+                by
+            }
+        );
+        assert_eq!(
+            blocked.said(),
+            "the card's page asked for https://example.com/fbevents.js, refused as a tracker \
+             or an advert by EasyPrivacy, line 973: /fbevents.js (ADR 0094)"
+        );
+        opener.shut();
+        assert_eq!(next(&told), Went::Shut(url("https://example.com/")));
     }
 
     #[test]

@@ -18,7 +18,10 @@
 //! License asks: `Contents/Resources/licences/OFL-InstrumentSans.txt`,
 //! `OFL-Newsreader.txt` and `OFL-NotoColorEmoji.txt` (ADR 0088), the files
 //! published with the fonts
-//! (`alo-renderer`'s `typefaces::LICENCES`).
+//! (`alo-renderer`'s `typefaces::LICENCES`). So are `EasyList` and `EasyPrivacy`,
+//! the lists of trackers and adverts `alo` refuses (ADR 0094), with their
+//! licence and attribution beside them in
+//! `licences/EasyList-and-EasyPrivacy.txt` ([`crate::blocking::LICENCES`]).
 //!
 //! The Chromium the application draws the web with, at
 //! [`crate::bundle::CHROMIUM`] (ADR 0077), is put in after, when there is
@@ -203,6 +206,7 @@ fn put_together(programs: &Path, application: &Path) -> Result<(), NotMade> {
     files.extend(
         alo_renderer::typefaces::LICENCES
             .iter()
+            .chain(crate::blocking::LICENCES.iter())
             .map(|(name, text)| (licences.join(name), text.as_bytes().to_vec())),
     );
     files.push((
@@ -283,6 +287,14 @@ mod tests {
                 std::fs::read_to_string(contents.join("Resources/licences").join(name)).ok(),
                 Some(text.to_owned()),
                 "{name}, the licence of a typeface `alo` carries"
+            );
+        }
+        // Item 736: the filter lists' licence and attribution (ADR 0094).
+        for (name, text) in crate::blocking::LICENCES {
+            assert_eq!(
+                std::fs::read_to_string(contents.join("Resources/licences").join(name)).ok(),
+                Some(text.to_owned()),
+                "{name}, the licence of the lists `alo` carries"
             );
         }
         let left: Vec<_> = std::fs::read_dir(&root)

@@ -6,6 +6,28 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can reach the page open in the conversation.** Started with
+  `--conversation`, alo now opens its agent socket too and says where on its
+  terminal; an agent (with `alo-ask`, say) reads and acts on the page shown
+  in the conversation's card, follows it when a new address replaces it,
+  and can be kept to named sites with `--agent-site`, as with `--chrome`.
+- **A long value stays inside its text field.** Text in an `<input>` longer
+  than the field no longer wraps onto lines below it, over whatever follows;
+  it stays on one line and is cut off at the field's inner edge, as Chrome
+  draws it.
+- **Trackers and adverts refused.** A page in alo's Chromium — or the Mac's
+  Chrome — no longer reaches the trackers and advert servers named by
+  EasyList and EasyPrivacy: each such request is stopped before it leaves,
+  and alo keeps a note of what it stopped and by which rule of which list.
+  The lists come inside alo, with their licence, and are never downloaded
+  while you browse; a page that asks for nothing on them loads as before.
+  Nothing in the window shows it yet, and there is no switch to turn it off
+  for one site yet.
+- **A click with ⌘ or another modifier held says why it did nothing.** Such
+  a click is not yet used by alo's window, and it was silently ignored; now
+  the line under the box says so. A first click on a page just opened in a
+  card reaches the page, as any other does — a click that seemed lost there
+  had carried a ⌘ the Mac still counted as held.
 - **A search's pictures stop downloading at their size limit.** A thumbnail
   or a site's icon that turns out larger than alo keeps is now cut off as
   soon as it passes the limit, instead of being downloaded whole and thrown

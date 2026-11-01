@@ -15,7 +15,9 @@ clip box#7 to (8, 66) 96×21
 fill box#7 rgb(33 33 33) at (8, 66) 96×21
 fill box#7 rgb(202 202 202) at (8, 66) 96×21
 unclip
+clip box#9 to (12, 69) 88×15
 text box#8 "Ada" rgb(0 0 0) 13.333333px at (12, 81)
+unclip
 clip box#10 to (8, 95) 32×24
 fill box#10 rgb(168 168 168) at (8, 95) 32×24
 fill box#10 rgb(84 84 84) at (8, 95) 32×24

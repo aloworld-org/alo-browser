@@ -73,8 +73,8 @@ ADR 0058 — and nothing else does:
 | ✓ | **701** | going to a website from the one box, with no model — typed, offered, and Return deciding where to go (iteration 451) |
 | ✓ | **713** | the address chosen from the box opened in the machine's Chrome, from the conversation's own process with no frame of ours (ADR 0075, iteration 452) |
 | | **714** | a press on an offer under the box, claimed and decided (cut from 701) |
-| | **715** | a field's value kept to one line by the engine, as Chrome keeps it (found by 701) |
-| | **716** | an agent reaching a page the conversation opened in Chrome, over the socket and kept to `--agent-site` (cut from 713) |
+| ✓ | **715** | a field's value kept to one line by the engine, as Chrome keeps it (found by 701; iteration 488) |
+| ✓ | **716** | an agent reaching a page the conversation opened in Chrome, over the socket and kept to `--agent-site` (cut from 713; iteration 488, one socket following the newest card) |
 | ✓ | **702** | where a page opens inside the conversation — measured, and decided by the owner: Chrome's frames streamed into a card (ADR 0076) |
 | ✓ | **717** | the page as a card, drawn from Chrome's frames (iteration 460) |
 | ✓ | **718** | a person's pointer and keys forwarded from the card to the page (iteration 461) |
@@ -90,7 +90,7 @@ ADR 0058 — and nothing else does:
 | | **733** | a profile's path made again, empty, a second after alo removed it — Chrome and the host alike, swept by the next start (found by 727) |
 | | **728**, **729** | Windows and Linux (728), and what macOS keeps for the host (729) — cut from 725 |
 | | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
-| | **736** | trackers and ads blocked by alo itself, with Brave's `adblock-rust` at the place every request is held |
+| ✓ | **736** | trackers and ads blocked by alo itself, with Brave's `adblock-rust` at the place every request is held (iteration 488, ADR 0094; cuts 806, 807) |
 | | **707** | the answer — blocked on the owner's choice of model |
 | ✓ | **708** | search results as the design's All tab, from the Brave Search API (ADR 0083, iteration 463) |
 | ✓ | **749** | a card that fails says why and gives the box the keyboard back; a page that replaces itself before it loads opens (iteration 464) |
@@ -19320,15 +19320,41 @@ What stage 2's exit gate actually measures: a person using it.
   it over a card at three heights (`a_page_as_a_card.rs`); decisions;
   `Conversation` choosing go, search and ask; the window's own road.
 
-- [ ] **715. A field's value kept to one line by the engine, as Chrome
+- [x] **715. A field's value kept to one line by the engine, as Chrome
   keeps it.** Found by 701: an `<input type=text>` holding more than its
   width wraps its value onto lines below the field, over what follows it.
   Measure what Chrome does — its value on one line, clipped to the field —
   and make the user agent's sheet or the field's layout do the same, with
   a layout assertion and a reference render. The first screen's sheet
   keeps its own field to one line until then. *Depends on nothing.*
+  ***Done (iteration 488).*** **Measured** in Chrome 156.0.8078.76,
+  headless: `getComputedStyle` reads a field's own `white-space` (`normal`,
+  `pre-wrap`) and `overflow: clip` even under `visible`, yet its value is
+  drawn on one line, four spaces taking four spaces' room, nothing below
+  the field; its text is cut at the content box (a `W` value in a field
+  padded 10 across stops 10 short of the border); a long hint is one line
+  (`::placeholder` computes `pre`); `value="ab⏎cd"` reads back `abcd`.
+  **Built:** a one-line field's text — value or hint — laid out `pre`
+  whatever the field says (`alo-layout`'s `text_style_for`); the box a
+  one-line field holds its line in clips what it holds at its own edge, the
+  content box (`alo-paint`'s `clip_of`, `holds_a_fields_line`; not a date's
+  segments); a value's newlines stripped as HTML sanitises it (`alo-box`'s
+  `field_text`). **Tests:** the corpus case `a-fields-value-kept-to-one-line`
+  (six fields: long, `normal`, `pre-wrap` with `overflow: visible`, spaces,
+  padded 10, a hint) with its references; `a_fields_value_kept_to_one_line.rs`
+  — each text one piece at its field's line, 15 tall, 200+ wider than the
+  field; the paragraph after the first at 37; ink up to and not past each
+  content box's end, none below; the gap of four spaces 15–19 px; a unit
+  test of newlines stripped. **References moved:** five cases' `display.txt`
+  gained the fields' clips (no pixel), and `web-a-form/filled.png` one pixel
+  (150, 30) of a glyph's edge past its field's content box, now cut as
+  Chrome cuts it. **Mutations:** not `pre` — wraps (fails); no clip — ink
+  past the field (fails); clipped at the padding box — ink in the padding
+  (fails). The spaces' gap held without the change too (a value was never
+  collapsed), so it pins, not proves. **Not built:** where the line scrolls
+  to as a person types past the field's end (no caret in the engine's fields).
 
-- [ ] **716. An agent reaching a page the conversation opened in Chrome.**
+- [x] **716. An agent reaching a page the conversation opened in Chrome.**
   Cut from 713. `alo --chrome` opens the agent socket (ADR 0055) over the
   tab it serves and keeps agents to `--agent-site`; a page opened from the
   conversation (ADR 0075) is held by the same `ChromeServing` but no socket
@@ -19339,6 +19365,33 @@ What stage 2's exit gate actually measures: a person using it.
   on the terminal. *Depends on 713. Closes when:* `alo-ask` reads the tree
   of a page opened from the conversation, a site not named is refused by
   name, and the socket follows (or is said to end with) a replaced page.
+  ***Done (iteration 488), ADR 0075 amended.*** **Decided:** one socket
+  for as long as the conversation runs, following the newest card — a
+  socket per page moves under the agent; one only while a card is open cuts
+  an agent off between two. **Built:** `conversation_agents.rs` — a relay
+  the socket sends to (`relay`), handing each ask as `Order::Agent` to the
+  thread serving the live card, told by the opener as each opens and before
+  it closes (`Reached::now`, `ChromeOpener::start_reached`, `in_chrome`
+  passing the sites to `start_as_a_card`); with no card it answers itself
+  through `serving::serve` over no pages (no tabs; `NotGranted` by site;
+  `NoSuchTab`), and a card gone as an ask is sent is no card. `alo
+  --conversation` opens the socket, says where on the terminal, accepts
+  `--agent-site` (`opening.rs`), and stops it as the event loop ends,
+  quit included (`window::conversation`'s `closing`). The contract
+  (`docs/contracts/agent-socket.md`) says so. **Tests:** unit (no card: no
+  tabs, `NoSuchTab`, `NotGranted`; an ask sent to the live card and
+  answered back, then answered here once none is live, and once its thread
+  has gone; `--agent-site` beside `--conversation` read);
+  `an_agent_reaching_a_page_the_conversation_opened_through_chrome.rs`
+  through both Chromiums with `alo-ask` — before a card no tabs and
+  `NoSuchTab`; page one's tab and tree, `localhost` `NotGranted`; page two
+  typed over it: its tab and tree, page one `NoSuchTab`; the socket removed.
+  **Mutations:** the live card never told — no tabs (fails); the card not
+  kept to the sites — `NoSuchTab` for `localhost` (fails). Clearing the
+  live card as it closes is covered by the relay's own fallback (a card's
+  thread gone is no card), so leaving it out survives the integration test;
+  the unit test asserts both. The program's own socket line is checked by
+  hand.
 
 - [x] **702. Where Chrome's window goes when a page opens inside the
   conversation — measured, then decided.** The design opens a page in a card
@@ -22006,7 +22059,7 @@ What stage 2's exit gate actually measures: a person using it.
   waits for every process naming a profile before it removes it. *needs
   design: ADR 0069 § 2.*
 
-- [ ] **805. A first press on a card just opened, lost (found by hand,
+- [x] **805. A first press on a card just opened, lost (found by hand,
   740).** Run by hand on 1 November 2026: an address typed in the box,
   Return, the card drawn about eight seconds later, then a press on
   Wikipedia's search button in it — the button took the pointer's hover,
@@ -22017,6 +22070,30 @@ What stage 2's exit gate actually measures: a person using it.
   window takes it back, 742), and so whether the press was the one that
   only brings a window forward. Measure it and make the first press on a
   card the page's. *Depends on 740, 742.*
+  ***Done (iteration 488), with 736, 715 and 716 — measured: the press was
+  not lost to the window.*** The application built with the window's events
+  written out, alo's CEF host: as a card's Chromium starts the window gets
+  `Focused(false)` then `Focused(true)` two or three times, 10–30 ms each,
+  and is the key window ~1 s before the card is drawn; a first press on
+  Wikipedia's search button 0.95 s after *is open in a card* opened the
+  search and the keys typed next went into it — with presses from a private
+  event source and with `cliclick`, three runs of three. The first press of
+  the session, from `cliclick`, came after `ModifiersChanged(SUPER)`: the
+  window server's flags still held ⌘ (the 740 run's key tool posts ⌘ with a
+  key and never a release), so the press was a press with ⌘, nobody's yet
+  (798), and nothing said so. **Built:** such a press is said — *a press
+  with ⌘ held was not acted on: a press with a modifier is nobody's yet
+  (queue item 798)* — in the first screen's line and on the terminal
+  (`Held::said`, `conversation_window.rs`), and a press decided as the
+  page's clears what an earlier press came to. **Tests:** unit (the
+  modifiers said in macOS's order; said over a part, silent over nothing);
+  `a_first_press_on_a_card_just_opened_through_chrome.rs` through both
+  Chromiums — the window's keyboard lost and had back twice as measured
+  (the front asked twice), a press on a field as the first frame shows the
+  page reaching it, the card given the keyboard and the next key typing in
+  the field; with ⌘ held a press reaching nothing for 2 s and said.
+  **Mutations:** not said — fails; the press not giving the card the
+  keyboard — fails.
 
 - [x] **778. A card's page moving its own window into view.** Cut from
   771. A page in a card may move its `--app` window: measured through alo's
@@ -22064,7 +22141,7 @@ What stage 2's exit gate actually measures: a person using it.
   `a-typeface-at-its-optical-size.png`; the greeting's and the mark's
   references redrawn.
 
-- [ ] **736. Trackers and ads blocked by alo itself, with `adblock-rust`.**
+- [x] **736. Trackers and ads blocked by alo itself, with `adblock-rust`.**
   The owner asked for it on 30 October 2026, after weighing Brave: alo does
   not fork Brave, but takes Brave's ad and tracker blocker, `adblock-rust`
   (Rust, MPL-2.0, the engine of Brave's Shields), as a rented crate behind
@@ -22079,6 +22156,74 @@ What stage 2's exit gate actually measures: a person using it.
   what the person sees. *Closes when:* a tracker on a local test page is
   refused and recorded, a page that needs nothing blocked loads unchanged,
   through Chrome and through the carried CEF host alike.
+  ***Done (iteration 488), ADR 0094, with cuts to 806 and 807.*** **Decided
+  first** (ADR 0094): EasyList and EasyPrivacy as published (versions
+  202611011105 and 202611011057, taken 1 November 2026), pinned in
+  `crates/alo-window/lists/` with `LICENCE.txt` — dual GPLv3+ / CC BY-SA
+  3.0+, taken under CC BY-SA 3.0 with the EasyList authors' attribution —
+  compiled into `alo` and the licence carried in the application, never
+  fetched (not at a load, not at build); asked at ADR 0060's gate in
+  `chrome_tab.rs`'s `answer`, after `chrome_gate` lets a request go, with
+  the page the tab shows as the side `third-party` is read against; the
+  tab's own document never judged; network rules only (cosmetic, 806); a
+  per-site switch designed for 705, not built; the person sees a terminal
+  line per refusal and nothing in the window (807). **Built:** `adblock`
+  =0.13.5 (MPL-2.0; default features off, `embedded-domain-resolver` and
+  `full-regex-handling`; ten new crates, all MIT, Apache-2.0, Unlicense or
+  MPL-2.0; its `unsafe` the crate's and `flatbuffers`'), named only in
+  `blocking.rs` (gate boundary added); `Blocker::carried` read once per
+  process with each rule's text and line; refused with `Fetch.failRequest`,
+  recorded `Refused` with *a tracker or an advert by EasyPrivacy, line 973:
+  /fbevents.js*, kept in `Tab::blocked` and `Tab::refused`; told to the
+  conversation (`ToFrame::Blocked`, `Went::Blocked`, `chrome_card::Told`)
+  and said on its terminal only. **Measured:** read in 30–36 ms (release,
+  177 ms debug), a request ~1.2 µs + 0.9 µs to read it, ~57 MiB resident
+  with the rules' text (~41 without), `alo` 23,474,064 → 30,227,792 bytes,
+  3.5 MB of lists in the repository. **Tests:** unit (a small list's list,
+  line and rule; exceptions, `third-party`, kinds; the tab's own document
+  never judged, a frame's is; the carried lists naming Google Analytics by
+  EasyPrivacy and DoubleClick by EasyList at the lines holding the rules;
+  the pinned versions and licence; the card's line); 
+  `trackers_and_adverts_refused_in_chrome.rs` through both Chromiums — a
+  page's `/prebid.js` and `/fbevents.js` never reaching the server and
+  recorded with their rules, a clean page's every request reaching it once
+  and let go; the card's terminal line through both
+  (`a_first_press_on_a_card_just_opened_through_chrome.rs`). **Mutations:**
+  the lists never asked — the server received both; recorded as let go —
+  fails.
+
+- [ ] **806. Hiding what is left of an advert: the lists' cosmetic rules.**
+  Cut from 736 (ADR 0094 § 5). EasyList's element-hiding rules
+  (`##.ad-banner` and about fifty thousand more) are not read, so a page may
+  show the empty box an advert refused would have filled. Carrying them out
+  puts something of ours into somebody else's page in Chromium — a style
+  sheet per frame over the pipe (`CSS.createStyleSheet`, `CSS.addRule`), a
+  script being ruled out (ADR 0058). Measure what a sheet of the generic
+  rules costs a real page's layout and first paint through both Chromiums,
+  and whether a site's specific rules alone are worth it, then decide.
+  *needs design: an amendment to ADR 0094.*
+
+- [ ] **807. What a person sees of what alo refused, and a site's switch.**
+  Cut from 736 (ADR 0094 § 6). Today each request the lists refuse is a
+  line on the conversation's terminal and in the record, and nothing in
+  the window; a page the lists break cannot be let off. The owner decides
+  what a person sees — a count on the card, its list, nothing — and builds
+  the per-site switch with 705 (a value per site held by the browser
+  process, asked before the lists). *needs design: the owner's.*
+
+- [ ] **808. A parked card's link bubble seen at the display's edge (found
+  by hand, 736's run).** On 1 November 2026, with
+  `www.theguardian.com/international` in a card through alo's CEF host and
+  the pointer over a link in it, the host showed Chromium's status bubble
+  — the link's address — as a window of its own, opaque, layer 0, 569 × 22
+  at 1669, 565: its first 41 points on the Retina display's right edge,
+  beside the parked window (1670, 34, alpha 0, floating). ADR 0076 B4 makes
+  the parked window transparent and lets the pointer through, but not the
+  windows Chromium shows beside it. Measure which windows a card's
+  Chromium opens (the status bubble, a select's menu, a tooltip, a
+  permission bubble) and keep each unseen while the card is — a CEF
+  setting, the host making each transparent as it is shown, or the bubble
+  off — through both programs. *Depends on 771, 781.*
 
 ## K. ★ The agent, on somebody else's pages
 

@@ -1,0 +1,15 @@
+/* A one-line field's value is one line, however long, whatever the field's
+   `white-space` and `overflow` say, and is cut off at the field's content
+   box (queue item 715). Measured in Chrome 156: `getComputedStyle` reads the
+   field's own `white-space` (`normal`, `pre-wrap`) and `overflow: clip`
+   even under `visible`; its text is drawn on one line, every space kept —
+   four spaces between `a` and `b` take four spaces' room — and nothing is
+   drawn below the field; a value of `W`s in a field padded 10 pixels across
+   stops at the content box, 10 pixels short of the border; a long hint is
+   one line too (`::placeholder` computes `white-space: pre`). The first
+   field is followed by a paragraph the value used to wrap over. */
+body { margin: 0; padding: 8px; background: #ffffff; display: flex;
+  flex-direction: column; align-items: flex-start; gap: 8px }
+p { margin: 0 }
+.narrow { width: 120px }
+#padded, #hint { padding: 1px 10px }

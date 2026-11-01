@@ -141,6 +141,18 @@ unicode-script = "0.5"
 # `alo-text`'s `emoji.rs`.
 unicode-properties = { version = "0.1", default-features = false, features = ["emoji"] }
 dejavu = "2.37"
+# Trackers and ads, refused by Brave's matcher, rented (ADR 0094): `adblock`
+# (MPL-2.0), the engine of Brave's Shields, reading EasyList and EasyPrivacy as
+# alo carries them (`alo-window/lists`) and named in one file, `alo-window`'s
+# `blocking.rs`. Pinned exactly: a new matcher is a diff somebody reads. Its
+# default features are off, so it is built without `single-thread` — one
+# engine, `Sync`, shared by every page of the process — and with the two it
+# needs: the public suffix list's domains (`embedded-domain-resolver`, `addr`
+# over the `psl` already here) and every rule's regular expression
+# (`full-regex-handling`). No cosmetic filtering (`css-validation`), no
+# resources (`resource-assembler`). Its `unsafe` (`flatbuffers`) is the
+# crate's, not ours (ADR 0010).
+adblock = { version = "=0.13.5", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
 # The window, rented (ADR 0024 § 1). `winit` is the window and its events and
 # `softbuffer` puts CPU-drawn pixels in it; both reach the window server through
 # `unsafe` of their own (on macOS, the `objc2` crates), which is ADR 0010's

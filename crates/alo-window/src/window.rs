@@ -178,6 +178,7 @@ use crate::chrome_protocol::Bounds;
 use crate::chrome_protocol::Named;
 use crate::closing::Closing;
 use crate::compose::{FrameScene, compose, compose_frame};
+use crate::conversation_agents::Reaching;
 use crate::conversation_chrome::ChromeOpener;
 use crate::conversation_compose::compose_conversation;
 use crate::conversation_drawing::ConversationDrawing;
@@ -800,7 +801,8 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
             | ToFrame::Uncast(_)
             | ToFrame::Moved(_)
             | ToFrame::Loading(_)
-            | ToFrame::Travel(_) => {
+            | ToFrame::Travel(_)
+            | ToFrame::Blocked { .. } => {
                 return;
             }
         };
@@ -862,7 +864,10 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
 /// words chosen are searched with `search`, or said not set up and why
 /// (queue item 708). Its chats are kept in the directory `chats` names,
 /// read from it as the window opens (queue item 757, ADR 0092), or, with
-/// none or one that cannot be opened, not kept, and said so.
+/// none or one that cannot be opened, not kept, and said so. The card live
+/// is reached by agents as `reaching` says (queue item 716), and `closing`
+/// is run as the window's event loop ends — quit included, after which
+/// `AppKit` ends the process (item 688) — once every card is closed.
 ///
 /// # Errors
 ///
@@ -875,6 +880,7 @@ pub fn conversation(
     chromium: Chromium,
     search: Result<Provider, String>,
     chats: Result<PathBuf, String>,
+    (reaching, closing): (Reaching, Closing<'_>),
 ) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
@@ -888,8 +894,9 @@ pub fn conversation(
     )
     .map_err(|why| format!("no thread to draw the chats panel and the first screen: {why}"))?;
     let proxy = event_loop.create_proxy();
-    let chrome = ChromeOpener::start(
+    let chrome = ChromeOpener::start_reached(
         chromium,
+        reaching,
         Box::new(move |went| proxy.send_event(Heard::Chrome(went)).is_ok()),
     )
     .map_err(|why| format!("no thread to open a page in Chrome: {why}"))?;
@@ -913,12 +920,14 @@ pub fn conversation(
         presenter: None,
         modifiers: ModifiersState::empty(),
         failed: None,
+        closing,
     };
     let ran = event_loop
         .run_app(&mut conversing)
         .map_err(|why| format!("the event loop stopped: {why}"));
     // A loop refused before it ran never reached `exiting`.
     conversing.state.finish();
+    conversing.closing.run();
     ran?;
     match (conversing.failed, conversing.state.unfinished()) {
         (Some(why), _) => Err(why),
@@ -930,7 +939,7 @@ pub fn conversation(
 /// The conversation's event loop's state: the window, and what it holds
 /// short of the window server ([`ConversationWindow`]), which every event
 /// is handed to as this browser's own value.
-struct Conversing {
+struct Conversing<'c> {
     /// Everything but the window itself.
     state: ConversationWindow,
     /// The face the window's own lines are drawn in.
@@ -941,9 +950,12 @@ struct Conversing {
     modifiers: ModifiersState,
     /// Why the window had to stop, if it did.
     failed: Option<String>,
+    /// Run once every card is closed, as the event loop ends: the agent
+    /// socket stopped and removed (queue item 716).
+    closing: Closing<'c>,
 }
 
-impl Conversing {
+impl Conversing<'_> {
     /// Tell the state where the window is now.
     fn measure(&mut self) {
         if let Some(window) = &self.window {
@@ -991,7 +1003,7 @@ impl Conversing {
     }
 }
 
-impl ApplicationHandler<Heard> for Conversing {
+impl ApplicationHandler<Heard> for Conversing<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -1120,6 +1132,7 @@ impl ApplicationHandler<Heard> for Conversing {
     /// showing a page is closed, waited for and its profile removed.
     fn exiting(&mut self, _: &ActiveEventLoop) {
         self.state.finish();
+        self.closing.run();
     }
 }
 

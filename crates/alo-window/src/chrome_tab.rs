@@ -37,7 +37,10 @@
 //! go (`Fetch.continueRequest`) or refused by name (`Fetch.failRequest`), in
 //! [`Tab::went`] or [`Tab::refusals`]. A navigation the page, or a frame in
 //! it, asks for that Chrome never pauses — a link to `mailto:` — is judged as
-//! it is told of, and a refusal named and recorded. [`Tab::open_for_agent`] is the same, after the agent's
+//! it is told of, and a refusal named and recorded. A request those rules let
+//! go is then asked of the lists of trackers and adverts alo carries
+//! ([`crate::blocking`], ADR 0094): one they name is refused the same way,
+//! recorded with the list, line and rule, and in [`Tab::blocked`]. [`Tab::open_for_agent`] is the same, after the agent's
 //! address is judged against the sites a person named for agents: one outside
 //! them is refused as [`Refused::NotGranted`] **before a single command is
 //! written** (ADR 0060 § 3).
@@ -94,6 +97,7 @@
 
 use crate::agent_sites::AgentSites;
 use crate::asking::Refused;
+use crate::blocking::{Asked, Blocked, Blocker};
 use crate::chrome::{Chrome, Failed};
 use crate::chrome_gate::{self, Refusal};
 use crate::chrome_hold::{Holding, Kind, Unheld};
@@ -129,6 +133,9 @@ pub struct Tab<'c> {
     refused: Vec<String>,
     /// Why each request the browser process's rules refused was refused.
     refusals: Vec<Refusal>,
+    /// Every request the lists alo carries named, refused (ADR 0094): its
+    /// address as Chrome spells it, and the rule.
+    blocked: Vec<(String, Blocked)>,
     /// Every request let go, in the order it was paused.
     went: Vec<Went>,
     /// The frames and workers of the tab, held.
@@ -425,6 +432,7 @@ impl<'c> Tab<'c> {
             kept,
             refused: Vec::new(),
             refusals: Vec::new(),
+            blocked: Vec::new(),
             went: Vec::new(),
             holding: Holding::default(),
             answering: HashMap::new(),
@@ -488,6 +496,15 @@ impl<'c> Tab<'c> {
     /// are refused for being not the page, and are only in [`Tab::refused`].
     pub fn refusals(&self) -> &[Refusal] {
         &self.refusals
+    }
+
+    /// Every request of a page from the network the lists alo carries named
+    /// and the tab refused (ADR 0094, queue item 736), in the order it was
+    /// asked for: its address as Chrome spells it, and the list, line and
+    /// rule that named it. Each is in [`Tab::refused`] too, and in the
+    /// record.
+    pub fn blocked(&self) -> &[(String, Blocked)] {
+        &self.blocked
     }
 
     /// Every request of a page from the network that was let go, in the
@@ -1517,8 +1534,8 @@ impl<'c> Tab<'c> {
 
     /// How to answer `paused`, a request paused in a target of kind `by`, and
     /// whether it is a frozen page's own.
-    fn answer(&mut self, paused: chrome_protocol::Paused, by: Kind) -> (Command, bool) {
-        let request = paused.request;
+    fn answer(&mut self, mut paused: chrome_protocol::Paused, by: Kind) -> (Command, bool) {
+        let request = core::mem::take(&mut paused.request);
         match &self.kept {
             Kept::Frozen(page) if paused.url == self.url => (
                 Command::Fulfil {
@@ -1575,9 +1592,21 @@ impl<'c> Tab<'c> {
                         paused.network.as_deref(),
                     )
                 };
-                let purpose = purpose_of(&paused.kind);
-                match chrome_gate::judge(&paused.url) {
+                let said = (purpose_of(&paused.kind), cause, window);
+                let judged = chrome_gate::judge(&paused.url);
+                // Let go by the browser process's rules, a request is asked
+                // of the lists alo carries (ADR 0094).
+                if let Some(blocked) = judged.as_ref().ok().and_then(|_| self.listed(&paused)) {
+                    let happened = Happened::Refused {
+                        rule: blocked.to_string(),
+                    };
+                    self.refuse(&paused, hop, said, happened);
+                    self.blocked.push((paused.url, blocked));
+                    return (Command::Refuse { request }, false);
+                }
+                match judged {
                     Ok(url) => {
+                        let (purpose, cause, window) = said;
                         self.write_or_owe(
                             url,
                             &paused.method,
@@ -1593,32 +1622,57 @@ impl<'c> Tab<'c> {
                         (Command::Continue { request }, false)
                     }
                     Err(refusal) => {
-                        if hop != Hop::None
-                            && let Some(arriving) = self.causes.ended(&paused.frame)
-                        {
-                            let settled = self.owed.ended(&paused.frame, arriving);
-                            self.settle(settled);
-                        }
-                        if let Some(url) = recordable(&paused.url) {
-                            let happened = Happened::Refused {
-                                rule: refusal.rule.to_string(),
-                            };
-                            self.write_or_owe(
-                                url,
-                                &paused.method,
-                                purpose,
-                                cause,
-                                happened,
-                                window,
-                            );
-                        }
-                        self.refused.push(paused.url);
+                        let happened = Happened::Refused {
+                            rule: refusal.rule.to_string(),
+                        };
+                        self.refuse(&paused, hop, said, happened);
                         self.refusals.push(refusal);
                         (Command::Refuse { request }, false)
                     }
                 }
             }
         }
+    }
+
+    /// Whether the lists alo carries name `paused` (ADR 0094), asked with
+    /// the address of the page the tab shows — where it was opened, until
+    /// its own frame has committed a document.
+    fn listed(&self, paused: &chrome_protocol::Paused) -> Option<Blocked> {
+        let page = self
+            .address
+            .as_ref()
+            .map_or_else(|| self.url.clone(), ToString::to_string);
+        Blocker::carried().judge(&Asked {
+            url: &paused.url,
+            page: &page,
+            kind: &paused.kind,
+            in_a_frame: paused.frame != self.target,
+            method: &paused.method,
+        })
+    }
+
+    /// Refuse `paused`, a request on navigation `hop` of its frame or none:
+    /// the frame's arrival ended if it was a navigation's, and — when its
+    /// address is one a line can hold — written down as `happened`, of the
+    /// purpose, cause and window `said`; and its address kept among those
+    /// refused.
+    fn refuse(
+        &mut self,
+        paused: &chrome_protocol::Paused,
+        hop: Hop,
+        (purpose, cause, window): (Purpose, alo_net::Cause, Option<Window>),
+        happened: Happened,
+    ) {
+        if hop != Hop::None
+            && let Some(arriving) = self.causes.ended(&paused.frame)
+        {
+            let settled = self.owed.ended(&paused.frame, arriving);
+            self.settle(settled);
+        }
+        if let Some(url) = recordable(&paused.url) {
+            self.write_or_owe(url, &paused.method, purpose, cause, happened, window);
+        }
+        self.refused.push(paused.url.clone());
     }
 
     /// Write down that `method` `url`, of kind `purpose`, was asked for by

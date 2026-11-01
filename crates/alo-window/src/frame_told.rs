@@ -26,6 +26,7 @@
 //! nowhere in this process (ADR 0024 § 4).
 
 use crate::agent_lines::AgentLine;
+use crate::blocking::Blocked;
 use crate::chrome_follow::Follow;
 use crate::chrome_history::Travel;
 use crate::chrome_protocol::Named;
@@ -67,6 +68,15 @@ pub enum ToFrame {
     /// as that changes while it streams, read from the tab's session
     /// history after each navigation (queue item 737).
     Travel(Travel),
+    /// A request of the page streamed for the conversation's card that the
+    /// lists alo carries named, refused (ADR 0094, queue item 736): its
+    /// address as Chrome spells it, and the rule.
+    Blocked {
+        /// What the page asked for.
+        url: String,
+        /// The list, line and rule that refused it.
+        by: Blocked,
+    },
 }
 
 /// What a stream of frames came to, told as it stops.

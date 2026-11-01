@@ -37,7 +37,13 @@ No agent can name, widen or read the sites. They hold for every agent
 connected and end when the browser does.
 
 `alo` prints the path when its window opens, and `alo --chrome` once the
-page is open in Chrome; either first says which renderer draws the page. When there is no private place,
+page is open in Chrome; either first says which renderer draws the page.
+`alo --conversation` prints it as its window opens, and its socket reaches
+**the page shown in the conversation's card now** (queue item 716, ADR
+0075's amendment): `tabs` answers that page's address, or none while no card
+is open; when a person chooses another address, the page it replaced is no
+tab open (`NoSuchTab`) and the new one is answered from then on, over the
+same socket; `--agent-site` keeps it to sites as for the others. When there is no private place,
 or another browser is already answering there, it says so and opens no socket.
 On Windows how an agent reaches the browser is not decided yet.
 

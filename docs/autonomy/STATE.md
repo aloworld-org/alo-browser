@@ -47832,3 +47832,147 @@ interval (800), the glass (801), a killed Chromium's remade profile (804),
 the first press lost (805).
 
 The next unused queue number is **806** and the next ADR is **0094**.
+
+## Iteration 488 — queue items 805, 736, 715 and 716: the first press on a card measured, trackers and adverts refused (ADR 0094), a field's value on one line, an agent reaching the conversation's page (ADR 0075 amended)
+
+Batched under one gate, at the owner's asking; each item built with its own
+tests and docs, in that order. New: ADR 0094. Amended: ADR 0075 (716), ADR
+0076 noted (805).
+
+**805 — the first press on a card just opened.** **Measured** with the
+application built to write out its window's events (a scratch build, its
+instrumentation removed before anything else was built): as a card's
+Chromium starts the conversation's window gets `Focused(false)` and
+`Focused(true)` two or three times, 10–30 ms each, and takes the front back
+each time; it is the key window ~1 s before the card is drawn. A first
+press on Wikipedia's search button 0.95 s after *is open in a card* opened
+the search and the keys after it went into it — three runs of three, with
+presses from a private event source and from `cliclick`. The session's
+very first press, from `cliclick`, came after `ModifiersChanged(SUPER)`:
+the window server's flags still held ⌘ (the 740 run's key tool posts ⌘ with
+a key, never a release), so it was a press with ⌘, which is nobody's yet
+(798) — dropped with nothing said: 805's symptom exactly. **Built:** such a
+press is said (*a press with ⌘ held was not acted on: a press with a
+modifier is nobody's yet (queue item 798)*), in the first screen's line and
+on the terminal (`Held::said`, `conversation_window.rs`); a press decided as
+the page's clears what an earlier press came to. **Tests:** unit (the
+modifiers in macOS's order; said over a part, silent over nothing);
+`a_first_press_on_a_card_just_opened_through_chrome.rs` through both
+Chromiums — the keyboard lost and had back twice, a press on a field as the
+first frame shows the page reaching it, the card given the keyboard, the
+next key typing in it; ⌘ held: nothing reaches the page for 2 s, and it is
+said. **Mutations:** not said — fails; the press not giving the card the
+keyboard — fails.
+
+**736 — trackers and adverts refused (ADR 0094, written first).** EasyList
+and EasyPrivacy as published on 1 November 2026 (202611011105,
+202611011057), pinned in `crates/alo-window/lists/` with `LICENCE.txt`
+(dual GPLv3+/CC BY-SA 3.0+, taken under CC BY-SA 3.0, attributed to the
+EasyList authors), compiled into `alo`, the licence carried in the
+application's `licences/`; never fetched. Brave's `adblock` =0.13.5
+(MPL-2.0), default features off, `embedded-domain-resolver` and
+`full-regex-handling`; ten new crates (MIT, Apache-2.0, MIT OR Apache-2.0,
+Unlicense OR MIT, MPL-2.0); its `unsafe` the crate's and `flatbuffers'`;
+resolved for the workspace's 1.89. Named only in `blocking.rs` (the gate's
+boundary list). Asked in `chrome_tab.rs`'s `answer` after `chrome_gate`
+lets a request go; refused with `Fetch.failRequest`; recorded `Refused`
+with list, line and rule; `Tab::blocked`; told to the conversation and said
+on its terminal only. The tab's own document never judged; cosmetic rules
+not read (806); a per-site switch designed for 705, not built, and what a
+person sees is the owner's (807). **Measured:** read in 30–36 ms release
+(177 ms debug), a request ~1.2 µs + 0.9 µs to read it, ~57 MiB more
+resident with the rules' text (~41 without), `alo` 23,474,064 → 30,227,792
+bytes, 3.5 MB of lists. **Tests:** unit (6 in `blocking.rs`, the card's
+line in `conversation_chrome.rs` and `conversation_window.rs`, the bundle
+carrying the licence); `trackers_and_adverts_refused_in_chrome.rs` through
+both Chromiums: `/prebid.js` (EasyList's `/prebid.$script,domain=~prebid.org`)
+and `/fbevents.js` (EasyPrivacy's) never reach the local server and are
+recorded with their rules; a clean page's five requests each reach it once,
+let go. **Mutations:** the lists never asked — fails; recorded let go —
+fails.
+
+**715 — a field's value on one line.** **Measured** in Chrome
+156.0.8078.76 headless: computed `white-space` as written and `overflow:
+clip` even under `visible`, yet one line, spaces kept, nothing below; cut at
+the content box (`W`s in a field padded 10 stop 10 short of the border); a
+long hint one line (`::placeholder` `pre`); newlines stripped from
+`value`. **Built:** a one-line field's text laid out `pre`
+(`alo-layout`'s `text_style_for`); the box it holds its line in clips at its
+own edge, the content box (`alo-paint`'s `clip_of`); newlines stripped
+(`alo-box`'s `field_text`). **Tests:** corpus case
+`a-fields-value-kept-to-one-line` with references and
+`a_fields_value_kept_to_one_line.rs` (three tests: one piece, 15 tall, on
+the line, wider than the field, the next paragraph at 37; ink to and not
+past each content box, none below; four spaces' gap 15–19 px); a unit test
+of the stripping. **References moved:** five cases' `display.txt` gained
+the fields' clips (no pixel changed); `web-a-form/filled.png` one pixel
+(150, 30) of a glyph's edge past its field's content box. **Mutations:** not
+`pre`; no clip; clipped at the padding box — each fails. The spaces' gap
+held without the change (a value was never collapsed): a pin, not a proof.
+
+**716 — an agent reaching the page the conversation opened (ADR 0075
+amended).** One socket for as long as the conversation runs, following the
+newest card: `conversation_agents.rs`'s relay hands each ask to the live
+card's thread, told by the opener as each opens and before it closes; with
+none it answers itself (no tabs, `NotGranted`, `NoSuchTab`). `alo
+--conversation` opens the socket, says where, accepts `--agent-site`,
+stops it as the event loop ends (`window::conversation`'s `closing`). The
+contract says so. **Tests:** unit (relay: no card; live card and back;
+a card's thread gone); `an_agent_reaching_a_page_the_conversation_opened_through_chrome.rs`
+through both Chromiums with `alo-ask`. **Mutations:** the live card never
+told; the sites not passed — each fails. Leaving out the clearing as a
+card closes survives the integration test (the relay's own fallback: a
+gone thread is no card); the unit test asserts it.
+
+**Shown-Chrome lists:** two new binaries in `.config/nextest.toml`'s
+`threads-required = 2` override (both named with *chrome*); the tracker
+test is headless.
+
+**Gate: met** on the fourth run (CEF 156.0.14; pointer at 1400, 1000).
+**Summary [1005.534s] 6214 tests run: 6214 passed (7 slow, 1 leaky), 0
+skipped** — *"The gate is met." (11 of 11 steps)*, `adblock stays behind
+its boundary` among them. The first run failed
+`the_application_assembled`: the application now carries
+`licences/EasyList-and-EasyPrivacy.txt`, which its list of files did not
+name — the test now names it and checks it is the lists' licence byte for
+byte. The second and third each failed one test of the 658 family in
+`a_closed_list_chosen_through_a_shown_chrome` (a menu still shown after
+the refusal; then *a menu closed by another application before Return*),
+which opens a frozen page none of this touches; alone, the first passed 4
+of 6 and the second 3 of 3, swap at 6.2 of 7.2 GB.
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys carried; `--conversation
+--chats` the scratch directory `handrun25/chats`; screenshots in the
+session scratchpad `handrun25/`; the window opened on the left display and
+was moved onto the Retina display with System Events): the terminal said
+*an agent reaches this browser at …/alo-browser/agent.sock*; `alo-ask`
+`tabs` before any card answered `[]`. `www.theguardian.com/international`
+in a card (`02-news`, `03-news-accepted`): the page drew; before its
+consent dialog was answered 12 requests were refused (11 to
+`ophan.theguardian.com`, EasyPrivacy line 16682; 1 to
+`sourcepoint.theguardian.com`, line 2714), and after *Accept all*, pressed
+on the card, 16 more — `securepubads.g.doubleclick.net` (EasyList 57505),
+`c.amazon-adsystem.com` (EasyList 18141), `cdn.adsafeprotected.com`
+(EasyList 17331), `assets.guim.co.uk`'s prebid (EasyList 966),
+`www.googleadservices.com`, `sb.scorecardresearch.com`, `cdn.permutive.app`,
+`cdn.confiant-integrations.net`, `cdn.brandmetrics.com` (EasyPrivacy) and
+7 more to ophan; the advert's slot stayed an empty grey box (806). Then
+`en.wikipedia.org/wiki/Cat` typed over it: one refused
+(`/ins-502b/v2/events`, EasyPrivacy 17581); a press on its search button as
+soon as the card showed (the card still blank in `04-card-just-opened`)
+opened the search and `kitten` went into it (`05-first-press`). `alo-ask`:
+`tabs` the Wikipedia page, its renderer *CarriedChromium*, the Guardian
+`NoSuchTab`. 29 refused in all (4 EasyList, 25 EasyPrivacy). Quit by the
+application's *quit* (Apple event, no keys posted); no alo process left,
+the socket removed, the pointer back at 1400, 1000, no new crash report.
+**Found:** while the pointer was over a link in the Guardian's card, the
+host showed Chromium's status bubble as an opaque window of its own (569 ×
+22 at 1669, 565, layer 0), its first 41 points on the Retina display's
+right edge (`03-bubble-crop`) — queue item 808.
+
+**Not done here:** cosmetic filtering (806), what a person sees and a
+site's switch (807), the parked card's bubble (808), a press with a
+modifier (798).
+
+The next unused queue number is **809** and the next ADR is **0095**.

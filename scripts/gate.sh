@@ -114,6 +114,9 @@ declare -a BOUNDARIES=(
   "raw_window_handle:crates/alo-window/src/present.rs"
   "rustix:crates/alo-storage/src/volume.rs"
   "serde_json:crates/alo-window/src/protocol.rs,crates/alo-window/src/chrome_protocol.rs,crates/alo-window/src/search_protocol.rs"
+  # Brave's matcher of filter lists (ADR 0094): asked of every request a page
+  # in Chromium makes, in one file of the browser process.
+  "adblock:crates/alo-window/src/blocking.rs"
   # alo's CEF host (ADR 0079 § 3, option H), its own workspace: CEF where it
   # is loaded and run, where the host's windows and pages are, and where its
   # application object answers CEF's protocols; AppKit only in the

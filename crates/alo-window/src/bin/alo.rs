@@ -30,12 +30,12 @@
 //! Closing either closes both, and so does this browser's input ending —
 //! Ctrl-D at a terminal.
 //!
-//! `alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR]`
-//! opens the browser's own interface as a conversation instead (ADR 0074,
-//! queue item 709): the chats panel down the left and the first screen beside it, each
-//! drawn by a confined renderer of this engine's, in a window of the
-//! design's size. It holds one new chat and greets a person; it opens no
-//! page and no socket. A press on a chat or *New chat* is answered (queue
+//! `alo --conversation [--frozen-fonts] [--scale FACTOR] [--chats DIR]
+//! [--agent-site ADDRESS ...]` opens the browser's own interface as a
+//! conversation instead (ADR 0074, queue item 709): the chats panel down
+//! the left and the first screen beside it, each drawn by a confined
+//! renderer of this engine's, in a window of the design's size. It holds
+//! one new chat and greets a person; it opens no page. A press on a chat or *New chat* is answered (queue
 //! item 710), and a press on the box lets a person type into it, with *Go
 //! to the site* offered for an address and Return deciding to go there
 //! (item 701). Going there opens the address in the machine's Chrome — or,
@@ -43,9 +43,13 @@
 //! Chrome's own window put over the first screen and with no frame of ours
 //! beside it, its every request held to the same rules and recorded as
 //! `--chrome`'s (item 713, ADR 0075); a second address replaces the first,
-//! and the first screen's line says what became of each. No socket is
-//! opened for it. Closing the window stops both renderers and closes that
-//! Chrome, its profile removed.
+//! and the first screen's line says what became of each. **An agent
+//! reaches the page it shows** (queue item 716, ADR 0075's amendment) over
+//! the same socket `--chrome` opens, said on the terminal, for as long as
+//! the conversation runs: it follows the newest card, and with none open
+//! there is no tab to name; `--agent-site` keeps agents to its sites.
+//! Closing the window stops both renderers and closes that Chrome, its
+//! profile removed, and the socket.
 //!
 //! Inside the macOS application, `alo browser.app` (queue items 477 and
 //! 719, ADRs 0067, 0068 and 0077), nothing named opens the application's own
@@ -232,7 +236,29 @@ fn in_the_conversation(opening: &Opening, chromium: Chromium, bundle: Option<&Bu
     if let Ok(directory) = &chats {
         eprintln!("alo: chats are kept in {}", directory.display());
     }
-    match alo_window::window::conversation(opening.scale, renderers, chromium, search, chats) {
+    // The socket an agent reaches the card live by (queue item 716), kept
+    // to the sites named, stopped and removed once every card is closed —
+    // as the window's event loop ends, quit included (item 688).
+    let (reaching, listening) = match alo_window::conversation_agents::relay(opening.agents.clone())
+    {
+        Ok((orders, reaching)) => {
+            let listening = listen(&orders, &opening.agents);
+            (reaching, listening)
+        }
+        Err(why) => {
+            eprintln!("alo: no agent can reach this browser: no thread to reach a card by: {why}");
+            (alo_window::conversation_agents::Reaching::default(), None)
+        }
+    };
+    let closing = Closing::of(|| stop_listening(listening));
+    match alo_window::window::conversation(
+        opening.scale,
+        renderers,
+        chromium,
+        search,
+        chats,
+        (reaching, closing),
+    ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {
             eprintln!("alo: {why}");

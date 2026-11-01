@@ -15,7 +15,9 @@
 //! `.icns` whose every picture is the corpus's reference byte for byte and
 //! which Apple's own `iconutil` reads back as an icon of every size (queue
 //! item 689), and the licences of the typefaces `alo` carries byte for byte
-//! as published with the fonts (queue item 706). `codesign` checks
+//! as published with the fonts (queue item 706), and the licence and
+//! attribution of the filter lists `alo` carries as the repository holds
+//! it (queue item 736, ADR 0094). `codesign` checks
 //! the seal on its own, strictly; and a page changed after sealing is
 //! refused by it, so the seal covers what the application carries. Made a
 //! second time into the same place, it is refused and the first left as it
@@ -238,6 +240,7 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
             "alo browser.app/Contents/MacOS/alo-ask",
             "alo browser.app/Contents/MacOS/alo-render",
             "alo browser.app/Contents/Resources/icon.icns",
+            "alo browser.app/Contents/Resources/licences/EasyList-and-EasyPrivacy.txt",
             "alo browser.app/Contents/Resources/licences/OFL-InstrumentSans.txt",
             "alo browser.app/Contents/Resources/licences/OFL-Newsreader.txt",
             "alo browser.app/Contents/Resources/licences/OFL-NotoColorEmoji.txt",
@@ -267,6 +270,11 @@ fn the_command_makes_a_sealed_application_holding_what_it_should() -> Result<(),
     }
     the_icon_is_the_corpus_pictures(&cases, &contents.join("Resources/icon.icns"))?;
     the_typefaces_licences_are_the_published_ones(&contents)?;
+    for (name, text) in alo_window::blocking::LICENCES {
+        let carried = std::fs::read_to_string(contents.join("Resources/licences").join(name))
+            .map_err(|why| format!("{name}: {why}"))?;
+        assert!(carried == text, "{name} is not the lists' licence");
+    }
     for program in ["alo", "alo-render", "alo-ask"] {
         assert!(
             alo_window::beside::is_program(&contents.join("MacOS").join(program)),

@@ -208,6 +208,15 @@ struct Front {
     asked: bool,
 }
 
+/// What a press with `held` is said to have come to (queue item 805).
+fn held_press(held: Held) -> String {
+    format!(
+        "a press with {} held was not acted on: a press with a modifier is nobody's yet \
+         (queue item 798)",
+        held.said()
+    )
+}
+
 impl ConversationWindow {
     /// The window's state with nothing drawn yet: drawn by `drawing`, an
     /// address chosen opened by `chrome`, laid out at `forced` when a
@@ -548,16 +557,28 @@ impl ConversationWindow {
     /// to it, and gives it the keyboard (queue items 718, 740); a press
     /// over a part is handed to the thread that holds its renderer, to be
     /// claimed and decided. A press with a modifier held is nobody's yet
-    /// (queue item 798).
+    /// (queue item 798) — and says so, as a refused press does (queue item
+    /// 805): a modifier the window server still counts as held, as a tool
+    /// posting a key with ⌘ and never its release leaves it, made a first
+    /// press on a card just opened look lost.
     pub fn main_button_pressed_at(&mut self, now: Instant) {
-        if self.held != Held::NOTHING {
-            return;
-        }
         let Some(at) = self.cursor else {
             return;
         };
+        if self.held != Held::NOTHING {
+            if self.aimed(at).is_some() {
+                self.tell(held_press(self.held));
+                self.redraw = true;
+            }
+            return;
+        }
         match self.aimed(at) {
             Some(card_aim::Aimed::Page { x, y }) => {
+                // A press decided as the page's: what an earlier one came
+                // to is said no more.
+                if self.told.take().is_some() {
+                    self.redraw = true;
+                }
                 if self.conversation.press_the_page() {
                     self.ask_drawn();
                 }
@@ -852,6 +873,9 @@ impl ConversationWindow {
             | Went::Moved(_)
             | Went::Loading(_)
             | Went::Travel(_) => {}
+            // Said on the terminal only, one line a request: the card shows
+            // nothing of it yet (ADR 0094 § 6).
+            Went::Blocked { .. } => self.said.push(said.clone()),
             // A card put away for a search's results, its page closed
             // after: the line says the search (queue item 708).
             Went::Shut(_) if self.conversation.card().is_none() => {}
@@ -896,7 +920,7 @@ impl ConversationWindow {
                 self.front.asked |= std::mem::take(&mut self.front.owed) && !self.front.focused;
                 false
             }
-            Went::Unstreamed(_) => false,
+            Went::Unstreamed(_) | Went::Blocked { .. } => false,
         };
         if changed {
             self.ask_drawn();
@@ -1112,6 +1136,46 @@ mod tests {
         window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Nothing)));
         assert_eq!(window.told(), None);
         assert_eq!(window.scene().and_then(|scene| scene.start_sentence), None);
+        assert!(window.take_said().is_empty());
+        window.finish();
+    }
+
+    #[test]
+    fn a_press_with_a_modifier_held_is_said_and_one_with_none_is_not() {
+        use crate::keys::Modifier;
+        let mut window = window();
+        let sized = |width: u32, height: u32| Frame {
+            width,
+            height,
+            pixels: vec![0; usize::try_from(width * height * 4).unwrap()],
+        };
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Panel, sized(240, 820))));
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, sized(1040, 820))));
+        let _ = window.take_redraw();
+        // Over nothing of the window: nobody's, and nothing said.
+        window.moved((-10.0, -10.0));
+        window.held(Held::NOTHING.with(Modifier::Command));
+        window.main_button_pressed();
+        assert_eq!(window.told(), None);
+        // Over the first screen, with ⌘ — as a tool that posted ⌘ and never
+        // its release leaves it held (805).
+        window.moved((640.0, 400.0));
+        window.main_button_pressed();
+        let said = "a press with ⌘ held was not acted on: a press with a modifier is \
+                    nobody's yet (queue item 798)";
+        assert_eq!(window.told(), Some(said));
+        assert_eq!(window.take_said(), vec![said.to_owned()]);
+        assert!(window.take_redraw(), "drawn in the first screen's line");
+        assert_eq!(
+            window.scene().and_then(|scene| scene.start_sentence),
+            Some(said)
+        );
+        window.held(Held::NOTHING.with(Modifier::Shift).with(Modifier::Control));
+        window.main_button_pressed();
+        assert!(window.take_said()[0].starts_with("a press with ⌃⇧ held"));
+        // With nothing held the press is handed on, and says nothing.
+        window.held(Held::NOTHING);
+        window.main_button_pressed();
         assert!(window.take_said().is_empty());
         window.finish();
     }
@@ -1719,6 +1783,32 @@ mod tests {
         );
         assert!(window.take_redraw(), "the card is drawn again");
         // The card says it; the first screen's line is left as it was.
+        assert_eq!(window.start_said, opening);
+        assert_eq!(window.told(), None);
+        window.finish();
+    }
+
+    #[test]
+    fn a_request_the_lists_refused_is_said_on_the_terminal_alone() {
+        let mut window = window();
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::TheBox)));
+        type_and_return(&mut window, "example.com");
+        let url = window.conversation().going().cloned().unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        let opening = window.start_said.clone();
+        let _ = window.take_said();
+        let blocked = Went::Blocked {
+            url: "https://example.com/fbevents.js".to_owned(),
+            by: crate::blocking::Blocked {
+                list: Some("EasyPrivacy"),
+                line: Some(973),
+                rule: Some("/fbevents.js".to_owned()),
+            },
+        };
+        let said = blocked.said();
+        window.heard(Heard::Chrome(blocked));
+        assert_eq!(window.take_said(), vec![said]);
+        // Nothing of the window changes: its line, what a press came to.
         assert_eq!(window.start_said, opening);
         assert_eq!(window.told(), None);
         window.finish();

@@ -117,7 +117,8 @@ fn agents_line(news: ToFrame) -> Option<AgentLine> {
         | ToFrame::Uncast(_)
         | ToFrame::Moved(_)
         | ToFrame::Loading(_)
-        | ToFrame::Travel(_) => None,
+        | ToFrame::Travel(_)
+        | ToFrame::Blocked { .. } => None,
     }
 }
 

@@ -125,6 +125,8 @@ The chosen URL, and nothing else typed: Chrome is told the `Url` that
 - **No agent socket is opened for a page the conversation opens**, so
   `--agent-site` is still refused beside `--conversation`, now saying so.
   An agent reaching that page, kept to the sites named, is queue item 716.
+  *Replaced by the amendment below (716): one socket, following the newest
+  card.*
 - Closing the conversation's window waits for the Chrome showing a page to
   close — at most as long as Chrome is given to answer.
 
@@ -134,3 +136,53 @@ The chosen URL, and nothing else typed: Chrome is told the `Url` that
   feel like one under Stage Manager: item 702.
 - Whether the frame of ADR 0062 is ever drawn by the conversation's own
   loop. Nothing here needs it.
+
+## Amended (1 November 2026, queue item 716): an agent reaches the page the conversation shows
+
+The consequence above — no agent socket for a page the conversation opens,
+`--agent-site` refused beside `--conversation` — is replaced.
+
+**Decided: one socket for as long as the conversation runs, following the
+newest card.** § 4 opens a Chrome per address and closes the one before,
+so a socket per page would move under an agent each time a person chose
+another address, and the agent would have to be told where to find the
+next one. Instead `alo --conversation` opens the socket ADR 0055 places —
+the same path, the same rules, said on the terminal as `--chrome` says it
+(*alo: an agent reaches this browser at …*) — once, as it starts, and
+removes it once every card is closed as the window's event loop ends,
+quit included (item 688). What it is handed is a relay
+(`conversation_agents.rs`): every ask goes on, as `Order::Agent`, to the
+thread serving **the card live now**, which answers and records it exactly
+as `alo --chrome`'s thread does; the opener tells the relay as each card
+opens and, before closing it, that none is live. So:
+
+- **An agent asking for the tabs** is told the one card's page, or none.
+- **A page that was replaced is no tab open** (`NoSuchTab`): the socket
+  follows the newest page, and an agent holding the old address learns it
+  went the way it learns a tab closed.
+- **With no card open** — before the first address, between two, or one
+  that would not open — the relay answers as a browser with no tab: no
+  tabs, a site not named refused by its site first (`NotGranted`), any
+  other address no tab open at it.
+- **`--agent-site` is accepted beside `--conversation`** and keeps every
+  card's agents to the sites named, refused by name before Chrome is sent
+  anything (ADR 0060 § 3), as with `--chrome`. A person's own browsing in
+  the card is never narrowed by it (ADR 0052).
+- **The record** of what agents asked is each card's own, kept by the
+  thread serving it and gone with it, as `alo --chrome`'s goes with its
+  Chrome; the relay keeps its own for what it answered with no card. A
+  record that outlives a card is the record's own question (ADR 0012), not
+  this one's.
+
+**Rejected:** a socket per card (it moves under the agent); a socket only
+while a card is open (an agent connected between two cards would be cut
+off, and could not tell *no page* from *no browser*).
+
+**Tested** through the window's own road and both Chromiums,
+`alo-window`'s `an_agent_reaching_a_page_the_conversation_opened_through_chrome.rs`:
+`alo-ask`, a process of its own, asks over a socket of the test's own,
+placed as the browser places one — no tabs before any card; with page one
+in the card its tab, its tree, and a page on `localhost` (not named beside
+`127.0.0.1`) refused `NotGranted`; with page two typed over it, its tab,
+its tree, and page one `NoSuchTab`. The program's own `listen`, and its
+line on the terminal, are checked by hand.

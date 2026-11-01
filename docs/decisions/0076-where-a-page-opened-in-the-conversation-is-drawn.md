@@ -846,3 +846,18 @@ display held no tile of it, ⌘-Tab's switcher showed one *alo*, the Dock one
 *alo*; *Expand* showed the page opaque, the host `Foreground` with its menu
 bar; closing the window and ⌘Q left no alo process. The first build of
 this, accessory without floating, drew a blank card there (`first-try/`).
+
+## Note (1 November 2026, queue item 805): the first press on a card is the page's
+
+Measured with the application built to write out its window's events, the
+carried Chromium accessory and floating as the second amendment decided:
+the conversation's window loses the keyboard two or three times for 10 to
+30 ms as a card's Chromium starts — so the host's showing its window still
+takes the front for an instant — and has it back each time (the 742
+`take_front`), about a second before the card is drawn. A first press on
+the card 0.95 s after it opened reached the page, three times of three. The
+press 740 found lost was a press with ⌘: the tool posting that run's keys
+leaves ⌘ in the window server's flags. A press with a modifier is nobody's
+until 798 decides it, and is now said in the first screen's line and on the
+terminal rather than dropped in silence. Nothing in this ADR changes.
+

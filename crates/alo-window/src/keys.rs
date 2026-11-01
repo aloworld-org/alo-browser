@@ -99,6 +99,22 @@ impl Held {
         self.0 & modifier.bit() != 0
     }
 
+    /// The modifiers held, as a Mac's keyboard prints them — `⌃⌥⇧⌘` in
+    /// the order macOS's menus write them — for a sentence saying what a
+    /// press with them held came to (queue item 805).
+    pub fn said(self) -> String {
+        [
+            (Modifier::Control, '⌃'),
+            (Modifier::Option, '⌥'),
+            (Modifier::Shift, '⇧'),
+            (Modifier::Command, '⌘'),
+        ]
+        .into_iter()
+        .filter(|(modifier, _)| self.holds(*modifier))
+        .map(|(_, sign)| sign)
+        .collect()
+    }
+
     /// Exactly `modifiers`, and nothing else.
     fn exactly(modifiers: &[Modifier]) -> Self {
         modifiers
@@ -279,6 +295,25 @@ mod tests {
 
     fn on_a_mac(press: &Press) -> Option<TabOrder> {
         meaning(press, Platform::Mac)
+    }
+
+    #[test]
+    fn the_modifiers_held_are_said_as_a_macs_menus_print_them() {
+        assert_eq!(Held::NOTHING.said(), "");
+        assert_eq!(Held::NOTHING.with(Modifier::Command).said(), "⌘");
+        let every = Held::NOTHING
+            .with(Modifier::Command)
+            .with(Modifier::Shift)
+            .with(Modifier::Option)
+            .with(Modifier::Control);
+        assert_eq!(every.said(), "⌃⌥⇧⌘");
+        assert_eq!(
+            Held::NOTHING
+                .with(Modifier::Shift)
+                .with(Modifier::Control)
+                .said(),
+            "⌃⇧"
+        );
     }
 
     fn elsewhere(press: &Press) -> Option<TabOrder> {
