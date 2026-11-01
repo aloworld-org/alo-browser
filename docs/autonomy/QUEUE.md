@@ -21099,7 +21099,7 @@ What stage 2's exit gate actually measures: a person using it.
   `Main_Page` in eight of sixteen back-to-back captures, then at the
   history page, then not (`11-wiki-bars.png`).
 
-- [ ] **771. A parked card's window really off every display.** Found by
+- [x] **771. A parked card's window really off every display.** Found by
   738. ADR 0076 B4 parks Chromium's window at −20000 and says Chrome
   clamped it off every display; measured on this Mac with three displays,
   the window server moves it back until a strip is on one — `PARKED` lands
@@ -21114,9 +21114,10 @@ What stage 2's exit gate actually measures: a person using it.
   717, 738; beside 739. Closes when:* a parked card's window is on no
   display by the window server's list against every display's bounds,
   and still streams, through both programs.
-  ***Built for the Chromium alo carries (iteration 478, ADR 0076 B4
-  amended); not closed — through the machine's Chrome measured not
-  possible by public means, and left to the owner.*** **Measured** (both
+  ***Done for the Chromium alo carries (iteration 478, ADR 0076 B4
+  amended), with a cut to 779: through the machine's Chrome — used only by
+  `alo --chrome` and tests, never by the application — measured not
+  possible by public means.*** **Measured** (both
   programs, three displays): the parked window streams 69–70 frames a
   second at 153 points on the portrait display; hiding its application,
   ordering it out (host), a hidden target or a background tab stop its
@@ -21333,6 +21334,16 @@ What stage 2's exit gate actually measures: a person using it.
   the likely answer — and make the host do it. *Depends on 770. Closes
   when:* a `mailto:` link pressed in the card leaves the card at its page,
   drawn, through both programs.
+
+- [ ] **779. A parked card's window unseen through the machine's Chrome.**
+  Cut from 771. alo's own Chromium makes a parked card's window
+  transparent (`--alo-card`); the machine's Chrome takes no such switch,
+  and hiding, ordering out, minimising (under Stage Manager) or starting it
+  off every display either stops its frames or shows it, so a card through
+  `alo --chrome` keeps a 153-point strip on a display. Decide whether that
+  path wants a headless card, or stays as measured. *Depends on 771.
+  Closes when:* a card through the machine's Chrome is on no display and
+  still streams, or the decision to leave it is written in ADR 0076 B4.
 
 - [ ] **778. A card's page moving its own window into view.** Cut from
   771. A page in a card may move its `--app` window: measured through alo's
