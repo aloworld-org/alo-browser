@@ -46888,3 +46888,74 @@ first; pointer moved to (1400,1000). **Summary [784.772s] 6047 tests run:
 **Cut:** the panel folding to the rail in a narrow window (775).
 
 The next unused queue number is **776** and the next ADR is **0092**.
+
+## Iteration 476 — queue item 775: the panel folds to the rail in a narrow window
+
+**The decision** (in `docs/design/shell.md`, *Folded in a narrow window*;
+no ADR — the design already folds the panel on a narrow window, and this
+names its numbers). The tab row ends 444.75 from the room's left (412.75
+into the column), so beside the panel it fits from a window of 717. The
+panel **folds below 760** — the first round width with a gutter's 32 to
+spare (column 456 at 760; 631 beside the rail at 759) — and unfolds from
+760. A person's choice is remembered apart from the fold: hidden stays
+hidden when widened; *Show the panel* pressed while narrow is kept and
+said (*The window is too narrow for the panel: it comes back at 760
+wide*), the line going as the panel comes back. The window takes **a
+least size of 600 × 600** (`with_min_inner_size`, a safe setter in winit
+0.30.13's source), the column 472 beside the rail, so the tab row never
+scrolls.
+
+**Built.** `alo-window`'s new `conversation_fold.rs` (`Fold`,
+`FOLD_WIDTH`, `LEAST_SIZE`, `too_narrow`); `Conversation` holds a `Fold`
+in place of `hidden`, `side()` is the fold's, `fit(width)` folds or
+unfolds and lets *Search chats* go; `ConversationWindow::measured_as`
+tells it the window's CSS width and lays both parts out again when the
+side changes, so `card_place`, the box, the card's restream and
+`card_aim` follow it by the road *Hide the panel* takes.
+
+**Tests.** Unit tests in `conversation_fold.rs`, `conversation.rs`,
+`conversation_window.rs` (the card streamed at 454, 629, 470, 661, 878 as
+the window is 760, 759, 600, 967, 1280; the line said and cleared) and
+`card_place.rs` (rooms 520, 695, 536). Layout assertions in
+`alo-renderer`'s `a_conversation_in_a_narrow_window.rs` (the tab row,
+clip, box and card at 760/panel, 759/rail and 600 × 600/rail) and
+`the_chats_panel.rs` (the rail at 820 and 600 tall). A reference render of
+the window at 759, `the-panel-folded-at-759.png`
+(`alo-window/tests/the_panel_folded_in_a_narrow_window.rs`), run once
+without update mode, written, looked at and compared. No existing
+reference moved.
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, `--conversation`; session
+scratchpad `handrun16/`): *rust ownership* searched at 967
+(`01-searched-967.png`); 760 the panel with the tab row inside
+(`02-at-760-panel.png`); 759 the rail (`03-at-759-folded.png`); asked for
+400 × 400 the window stopped at 600 × 600 inside, the tab row inside the
+column (`04-least.png`); 967 again the panel (`05-widened-967.png`);
+hidden by hand (`06-hidden-967.png`), narrowed to 700
+(`07-hidden-at-700.png`) and widened to 967 still the rail
+(`08-hidden-widened-967.png`); *Show the panel* at 700 said its line
+(`09-show-pressed-at-700.png`), and widened the panel came back but the
+line stayed (`10-shown-widened-967.png`) — **found by hand and fixed**:
+`measured_as` now clears that line as the panel unfolds, with a test.
+After a rebuild, on the Retina display at two: *rust borrowing* at 1280,
+*Show the panel* at 700 said (`12-show-pressed-at-700.png`), widened to
+967 the panel back and the line gone (`13-shown-widened-967-line-gone.png`).
+The second display is 1080 wide, so the window there could not be
+widened past 967. ⌘Q left no alo process each time; pointer back at
+1400,1000.
+
+**Gate: met** (first run). Clippy and both touched crates' `--lib` tests
+first; pointer moved to (1400,1000). **Summary [799.603s] 6060 tests run:
+6060 passed (6 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of
+11 steps)*.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0074, 0076 B,
+0085, 0024 § 1 and § 5; `docs/design/shell.md`'s window table.
+
+**Roadmap:** the conversation line's owed list swaps 775 for 776; 775
+built.
+
+**Cut:** the panel shown over the conversation in a narrow window (776).
+
+The next unused queue number is **777** and the next ADR is **0092**.

@@ -17,10 +17,11 @@ they open one.
 
 | Part | Size | |
 |---|---|---|
-| Chats panel | 240 px wide, full height | collapses to a 64 px rail while the agent works, or on a narrow window |
+| Chats panel | 240 px wide, full height | collapses to a 64 px rail while the agent works, or on a window narrower than 760 px (item 775) |
 | Top bar | 52 px tall | the chat's name, *Share* |
 | Conversation | a column 880 px wide, centred in what the panel leaves | narrower in a narrow window: what the panel leaves less 32 px either side (item 774) |
 | The box | 56 px tall, 880 px wide, 24 px above the window's foot | 64 px tall on the first screen; as wide as the column |
+| The window | at least 600 × 600 px | never narrower nor shorter (item 775) |
 
 ## The chats panel (item 699)
 
@@ -63,6 +64,31 @@ window: the mark, 40 tall 10 down; *New chat*, a 44-square button with an
 12 up, *Show the panel*, 44 square with the same icon, which brings the
 panel back as it was, what was searched kept. The design's rail also holds
 each open chat as its site's mark; that is item 760.
+
+### Folded in a narrow window (item 775)
+
+**In a window narrower than 760 px the panel folds to the rail on its
+own**, and the conversation takes the rest; widened to 760 or more it
+unfolds, as it was — what was searched in it kept. 760 is the first round
+width at which the column beside the panel holds the search's tab row,
+*All* to *News* (412.75 into the column), with a gutter's 32 to spare: at
+760 the column is 456, at 759 beside the rail 631. *Search chats* lets the
+keyboard go as the panel folds.
+
+**A person's choice is remembered apart from the fold.** A panel a person
+hid stays the rail when the window is widened past 760. *Show the panel*
+pressed while the window is narrower than 760 is kept — the panel comes
+back as soon as the window is 760 wide — and, since the column beside it
+would not hold the tab row, the window says so in words (*The window is
+too narrow for the panel: it comes back at 760 wide*) rather than doing
+nothing silently; the line goes when the panel comes back. Showing the panel over the conversation in a narrow
+window, as a sheet, is not designed yet (item 776).
+
+**The window is never narrower than 600 nor shorter than 600.** Beside the
+rail the tab row needs a window of 541; at 600 the column is 472. At 600
+tall the conversation is seen from 40 to 496 and the first screen's sites
+row whole. So the tab row never scrolls: the window server keeps the
+window at least that size.
 
 ### Icons (item 712)
 

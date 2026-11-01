@@ -18,6 +18,10 @@
 //! screen's 720 column likewise; and a reference render of the All tab at
 //! 967, `references/narrow-all-tab-with-results.png`.
 //!
+//! Queue item 775 adds the widths the panel folds at and the least window:
+//! the tab row inside the column at 760 beside the panel, at 759 beside the
+//! rail, and at 600 × 600 beside the rail.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-renderer --test a_conversation_in_a_narrow_window`
 //! rewrites the reference. A rewritten reference is a diff somebody reads.
 
@@ -308,6 +312,79 @@ fn at_the_designs_room_and_one_just_wide_enough_the_column_is_880() {
         );
         assert_eq!(at("rtabs"), vec![px(left, 102.0, 880.0, 42.0)], "{room}");
         assert_eq!(at("box"), vec![px(left, 740.0, 880.0, 56.0)], "{room}");
+    }
+}
+
+/// Queue item 775: the panel folds to its rail in a window narrower than
+/// 760 (`alo-window`'s `conversation_fold`), and the window is never
+/// narrower than 600 nor shorter than 600. At 760 beside the panel (a room
+/// of 520), at 759 beside the rail it folds to (695), and in the least
+/// window beside the rail (536 × 600), the column is the room less 32
+/// either side and the tab row, *All* to *News*, is inside it.
+#[test]
+fn at_the_fold_and_in_the_least_window_the_tab_row_is_inside_the_column() {
+    for (said, room, height, column) in [
+        ("760 beside the panel", 520.0, HEIGHT, 456.0),
+        ("759 beside the rail", 695.0, HEIGHT, 631.0),
+        ("the least window beside the rail", 536.0, 600.0, 472.0),
+    ] {
+        let mut start = found(room);
+        start.viewport = Size::new(room, height);
+        let renderer = laid_out(start);
+        let at = |class: &str| boxes_of(&renderer, class);
+        // The clip 40 down to 24 over the box, which is 24 over the foot.
+        assert_eq!(
+            at("thread"),
+            vec![px(0.0, 40.0, room, height - 144.0)],
+            "{said}"
+        );
+        assert_eq!(at("rtabs"), vec![px(32.0, 102.0, column, 42.0)], "{said}");
+        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 45.546_875, 42.0)]);
+        assert_eq!(
+            at("rt"),
+            vec![
+                px(162.468_75, 102.0, 59.546_875, 42.0),
+                px(304.906_25, 102.0, 72.5, 42.0),
+                px(381.406_25, 102.0, 63.343_75, 42.0),
+            ],
+            "{said}: News ends at 444.75, inside the column's {}",
+            32.0 + column
+        );
+        assert_eq!(
+            at("box"),
+            vec![px(32.0, height - 80.0, column, 56.0)],
+            "{said}"
+        );
+        let column_box = Rect::new(32.0, 0.0, column, height);
+        for class in ["rtabs", "rt", "found", "t", "box"] {
+            let rects = rects_of(&renderer, class);
+            assert!(!rects.is_empty(), "{said}: no {class}");
+            assert!(
+                rects.iter().all(|rect| inside(*rect, column_box)),
+                "{said}: a {class} outside the column: {rects:?}"
+            );
+        }
+        // And the card the browser computes is the one laid out here too.
+        let viewport = Size::new(room, height);
+        let carded = laid_out(Start {
+            viewport,
+            ..with_a_card(room)
+        });
+        assert_eq!(
+            boxes_of(&carded, "page"),
+            vec![units(card_place::page_box(viewport, 0.0))],
+            "{said}"
+        );
+        assert_eq!(
+            boxes_of(&carded, "thread"),
+            vec![px(
+                0.0,
+                card_place::TOP,
+                room,
+                card_place::room_bottom(viewport, 0) - card_place::TOP
+            )],
+            "{said}"
+        );
     }
 }
 

@@ -329,6 +329,30 @@ mod tests {
     }
 
     #[test]
+    fn at_the_panels_fold_and_the_least_window_the_column_holds_the_tab_row() {
+        // Queue item 775: 760 wide beside the panel's 240, a room of 520;
+        // 759 beside the rail it folds to, 695; the least window, 600
+        // beside the rail, 536. The tab row ends 444.75 from the room's
+        // left, 412.75 from the column's, inside each.
+        for (room, wide, page) in [
+            (520.0, 456.0, 454),
+            (695.0, 631.0, 629),
+            (536.0, 472.0, 470),
+        ] {
+            let viewport = Size::new(room, 820.0);
+            assert_eq!(column(viewport).to_bits(), f32::to_bits(wide), "{room}");
+            assert_eq!(column_left(viewport).to_bits(), GUTTER.to_bits(), "{room}");
+            assert_eq!(page_size(viewport), (page, 520), "{room}");
+            assert_eq!(
+                sides(page_box(viewport, 0.0)),
+                sides(Rect::new(33.0, 145.0, length(page), 520.0)),
+                "{room}"
+            );
+            assert!(column_left(viewport) + column(viewport) >= 444.75, "{room}");
+        }
+    }
+
+    #[test]
     fn at_the_designs_width_and_wider_the_column_is_the_designs() {
         for width in [1040.0, 1041.0, 1216.0, 1400.0] {
             let viewport = Size::new(width, 820.0);

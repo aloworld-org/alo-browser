@@ -107,7 +107,9 @@
 //!   opens in the machine's Chrome, in a window of its own beside no frame
 //!   of ours (item 713, ADR 0075). The panel's *Search chats* is
 //!   [`conversation_find`], edited by the same keys while it has the
-//!   keyboard (item 711).
+//!   keyboard (item 711). Whether the panel stands whole or folded to its
+//!   rail — hidden by a person, or the window narrower than 760 — is
+//!   [`conversation_fold`], with the least window (item 775).
 //!
 //! # What it is not yet
 //!
@@ -189,6 +191,7 @@ pub mod conversation_chrome;
 pub mod conversation_compose;
 pub mod conversation_drawing;
 pub mod conversation_find;
+pub mod conversation_fold;
 pub mod conversation_place;
 pub mod conversation_search;
 pub mod conversation_thread;

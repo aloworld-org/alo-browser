@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The chats panel folds to its rail in a narrow window.** Narrower than
+  760 points, the conversation's window shows the panel as its slim rail
+  on its own, so the tabs above a search's results always fit beside it,
+  and widened again it shows the whole panel as it was. A panel you hid
+  stays hidden when you widen the window; pressing *Show the panel* while
+  the window is too narrow says so and brings the panel back once the
+  window is wide enough. The window can no longer be made smaller than
+  600 by 600 points.
 - **The conversation fits a narrow window.** In a window narrower than
   about 1180 points, the conversation — what you typed, the tabs, the
   results, a page open in the conversation and the box at the foot — was

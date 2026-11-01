@@ -996,8 +996,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   narrower box, and again whenever the window is resized or the panel
   hidden, only the newest of a drag's sizes carried out
   (`tests/a_conversation_in_a_narrow_window.rs`, a reference render at 967;
-  `a_page_as_a_card_through_chrome.rs` through both Chromiums). Not yet:
-  the panel folding to the rail in a narrow window (775).
+  `a_page_as_a_card_through_chrome.rs` through both Chromiums).
+  **The panel folded in a narrow window** (775): narrower than 760 the
+  panel is the rail on its own and the conversation the rest; widened to
+  760 it unfolds unless a person hid it, a person's choice remembered
+  apart from the fold (`alo-window`'s `conversation_fold.rs`); *Show the
+  panel* while too narrow is kept and said. The card's page box, the box
+  and the room follow the fold as they follow *Hide the panel*. The window
+  is at least 600 × 600, where the tab row is inside the column beside the
+  rail (`tests/a_conversation_in_a_narrow_window.rs` at 760, 759 and the
+  least window; `alo-window`'s `the_panel_folded_in_a_narrow_window.rs`, a
+  reference render at 759). Not yet: the panel shown over the
+  conversation in a narrow window (776).
   **The design's typefaces** (706, ADR 0084): Instrument Sans and
   Newsreader, as Google Fonts publishes them under the OFL, compiled into
   `alo-renderer` (`typefaces.rs`, `interface/fonts/`) and handed as bytes

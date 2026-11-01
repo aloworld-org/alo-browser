@@ -21159,7 +21159,7 @@ What stage 2's exit gate actually measures: a person using it.
   *rust borrowing* searched at 760 (`07-searched-760-panel.png`). ⌘Q left
   no alo process. **Cut:** the panel folding to the rail (775).
 
-- [ ] **775. The panel folds to the rail in a narrow window.** Cut from
+- [x] **775. The panel folds to the rail in a narrow window.** Cut from
   774. `docs/design/shell.md` says the chats panel collapses to the 64 rail
   "on a narrow window"; it does not — only *Hide the panel* makes the rail.
   Under about 720 wide the column beside the panel is narrower than the
@@ -21171,6 +21171,63 @@ What stage 2's exit gate actually measures: a person using it.
   when:* a window narrowed past that width shows the rail with the panel
   remembered, layout assertions of the rail and the column at that width,
   and the tab row inside the column at the least width.
+  ***Done (iteration 476), with a cut to 776.*** **Decided** (recorded in
+  `docs/design/shell.md`, *Folded in a narrow window*; no ADR — the design
+  already says the panel collapses on a narrow window, and this names the
+  numbers): the tab row ends 444.75 from the room's left, 412.75 into the
+  column, so beside the panel it fits from a window of 717; **the panel
+  folds below 760** (the first round width with a gutter's 32 to spare:
+  column 456 at 760, 631 beside the rail at 759) and unfolds from 760.
+  **A person's choice is kept apart** (`alo-window`'s
+  `conversation_fold.rs`, `Fold { hidden, narrow }`): a panel a person hid
+  stays the rail when widened; *Show the panel* pressed while narrow is
+  kept, the panel back once the window is 760, and the window says *The
+  window is too narrow for the panel: it comes back at 760 wide* until it
+  is. **The window takes a least size**, 600 × 600 (`with_min_inner_size`,
+  a safe setter checked in winit 0.30.13's source): the column 472 beside
+  the rail, the row's end 59 inside it, so the row never scrolls.
+  *Search chats* lets the keyboard go as the panel folds; what was typed
+  in it is kept. `Conversation::fit` is told the window's CSS width by
+  `ConversationWindow::measured_as`, and `Conversation::side` is the
+  fold's, so `card_place`, the box, the card's restream and `card_aim`
+  follow the fold through the same road as *Hide the panel*. **Tests:**
+  `conversation_fold.rs` (759 folds, 760 holds, hidden kept both ways,
+  shown while narrow kept, the least window folded); `conversation.rs`
+  (folded the panel is the rail, its search kept and unfocused; hidden
+  stays hidden past the fold); `conversation_window.rs` (a card streamed
+  at 454 at 760, 629 at 759 by the measure alone, 470 at 600, 661 back at
+  967; hidden then 1280 the rail and 878; *Show* at 700 said, the line gone
+  and 454 at 760); `card_place.rs` (rooms 520, 695, 536: columns 456, 631,
+  472, pages 454, 629, 470 at (33, 145)); `alo-renderer`'s
+  `a_conversation_in_a_narrow_window.rs` (at 760 beside the panel, 759
+  beside the rail and 600 × 600 beside the rail: the clip, the tab row
+  (32, 102) column × 42 with News ending at 444.75 inside, the box (32,
+  height − 80) column × 56, nothing outside the column, the card's page
+  box and room equal to `card_place`'s) and `the_chats_panel.rs` (the rail
+  at 820 and 600 tall, *Show the panel* at (10, height − 56)); a reference
+  render of the window at 759, `alo-window/tests/references/the-panel-
+  folded-at-759.png` (`the_panel_folded_in_a_narrow_window.rs`: the rail
+  64 and the first screen 695, one to one), written once after a run
+  without update mode, looked at, then compared. No existing reference
+  moved. **By hand** (`handrun16/`): searched at 967; 760 the panel, 759
+  the rail, the least size 600 × 600 with the tab row inside; widened to
+  967 the panel back; hidden by hand, narrowed to 700 and widened to 967
+  still the rail; *Show the panel* at 700 said the line, and widened the
+  panel came back — the line stayed, a bug found here and fixed (the line
+  now goes as the panel unfolds, seen in a second run). ⌘Q left no alo
+  process. **Cut:** the panel shown over the conversation in a narrow
+  window (776).
+
+- [ ] **776. The panel shown over the conversation in a narrow window.**
+  Cut from 775. In a window narrower than 760 the panel is the rail, and
+  *Show the panel* is only remembered until the window is wide enough.
+  Many applications show the whole panel over the content as a sheet
+  instead, closed by choosing a chat or pressing outside it. Decide whether
+  alo does (the design does not say), and if so: the panel drawn over the
+  first screen's left with a shade, claims aimed at it first, Escape and a
+  press outside closing it, and the card's page not pressed through it.
+  *Depends on 775. Closes when:* a reference render of the sheet at 700,
+  its boxes in numbers, and a press outside it decided as closing it.
 
 - [ ] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a

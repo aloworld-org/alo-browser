@@ -71,6 +71,7 @@ use crate::conversation_box::{self, Typed};
 use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use crate::conversation_compose::ConversationScene;
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
+use crate::conversation_fold;
 use crate::conversation_place::{ConversationPlacement, panel_viewport_as, start_viewport_as};
 use crate::conversation_search::{Came, Searched, Searcher};
 use crate::keys::{Held, Press};
@@ -250,9 +251,26 @@ impl ConversationWindow {
     }
 
     /// The window is where `measured` says — given as it opens, and each
-    /// time it is resized, moved or given another scale.
+    /// time it is resized, moved or given another scale. Narrowed past
+    /// [`conversation_fold::FOLD_WIDTH`] the panel folds to its rail, and
+    /// widened past it again it unfolds unless a person hid it (queue item
+    /// 775): both parts are then laid out again beside it, and the card's
+    /// page streamed at its new page box, as when a person hides it.
+    /// Unfolded, what was said of the panel being too narrow is no longer
+    /// so, and is no longer said.
     pub fn measured_as(&mut self, measured: Measured) {
         self.window = Some(measured);
+        if let Some(((width, _), scale)) = self.measured()
+            && self.conversation.fit(scale.fitting(width))
+        {
+            if !self.conversation.fold().narrow()
+                && self.told.as_deref() == Some(conversation_fold::too_narrow().as_str())
+            {
+                self.told = None;
+            }
+            self.redraw = true;
+            self.ask_drawn();
+        }
     }
 
     /// The window's size in device pixels and its scale, if there is a
@@ -542,9 +560,16 @@ impl ConversationWindow {
             Decided::Go | Decided::Found(_) | Decided::Offer(_) | Decided::Image(_)
         );
         let had_a_card = self.conversation.card().is_some();
+        let show = matches!(pressed, Decided::ShowThePanel);
         self.card_pressed(&pressed);
         if self.conversation.act(pressed) {
             self.ask_drawn();
+        }
+        // Shown in a window too narrow for it, the panel is still the rail
+        // until the window is wide enough, and the window says so (queue
+        // item 775).
+        if show && self.conversation.fold().narrow() {
+            self.tell(conversation_fold::too_narrow());
         }
         self.ask_further();
         if go && let Some(chosen) = self.conversation.chosen() {
@@ -1095,6 +1120,82 @@ mod tests {
         )));
         resize(&mut window, (1280, 820), 1.0);
         assert_eq!(page(&window), Some((590, 520)));
+        window.finish();
+    }
+
+    /// Queue item 775: narrowed past 760 the panel folds to its rail on its
+    /// own, the card's page streamed beside it as when a person hides it;
+    /// widened again it unfolds — unless a person hid it — and *Show the
+    /// panel* pressed while too narrow is kept, and said.
+    #[test]
+    fn a_window_narrowed_past_760_folds_the_panel_and_widened_unfolds_it() {
+        use crate::conversation_place::Side;
+        let mut window = window();
+        let measure = |window: &mut ConversationWindow, width: u32| {
+            window.measured_as(Measured {
+                size: (width, 820),
+                scale_factor: 1.0,
+                outer: Some((0, 0)),
+            });
+        };
+        // As the event loop does on a resize: measured, then drawn.
+        let resize = |window: &mut ConversationWindow, width: u32| {
+            measure(window, width);
+            window.ask_drawn();
+        };
+        let page = |window: &ConversationWindow| window.streaming.map(|streamed| streamed.page);
+        let side = |window: &ConversationWindow| window.scene().map(|scene| scene.side);
+        let url = alo_url::parse("https://example.com/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        window.seen(true);
+        assert_eq!(page(&window), Some((878, 520)));
+        let _ = window.take_redraw();
+        // 760 wide the panel stands: a room of 520, the column 456.
+        measure(&mut window, 760);
+        assert_eq!(side(&window), Some(Side::Panel));
+        assert!(!window.take_redraw(), "nothing folded");
+        window.ask_drawn();
+        assert_eq!(page(&window), Some((454, 520)));
+        // 759 folds it: the rail's 64 leaves 695, the column 631, and the
+        // page is streamed at 629 by the measure alone.
+        measure(&mut window, 759);
+        assert_eq!(side(&window), Some(Side::Rail));
+        assert!(window.take_redraw(), "folded, drawn again");
+        assert_eq!(page(&window), Some((629, 520)));
+        assert!(window.conversation().showing().hidden);
+        // The least window, 600: 536 beside the rail, the column 472.
+        resize(&mut window, 600);
+        assert_eq!(page(&window), Some((470, 520)));
+        // Widened past the fold it unfolds, nobody having hidden it.
+        resize(&mut window, 967);
+        assert_eq!(side(&window), Some(Side::Panel));
+        assert_eq!(page(&window), Some((661, 520)));
+        // Hidden by a person, it stays the rail through a narrow window
+        // and back.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Panel,
+            Decided::HideThePanel,
+        )));
+        resize(&mut window, 700);
+        resize(&mut window, 1280);
+        assert_eq!(side(&window), Some(Side::Rail));
+        assert_eq!(page(&window), Some((878, 520)));
+        // Shown while too narrow: still the rail, said why, and the panel
+        // back once the window is 760.
+        resize(&mut window, 700);
+        let _ = window.take_said();
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Panel,
+            Decided::ShowThePanel,
+        )));
+        assert_eq!(side(&window), Some(Side::Rail));
+        let said = conversation_fold::too_narrow();
+        assert_eq!(window.told(), Some(said.as_str()));
+        assert_eq!(window.take_said(), vec![said]);
+        resize(&mut window, 760);
+        assert_eq!(side(&window), Some(Side::Panel));
+        assert_eq!(page(&window), Some((454, 520)));
+        assert_eq!(window.told(), None, "no longer so, no longer said");
         window.finish();
     }
 

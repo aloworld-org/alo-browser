@@ -521,6 +521,42 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
     }
 }
 
+/// Queue item 775: folded in a narrow window, the panel is the same rail
+/// as hidden — in the window at the fold, 820 tall, and in the least
+/// window, 600 tall — *Show the panel* 12 above its foot.
+#[test]
+fn folded_the_rail_is_laid_out_at_the_folds_height_and_the_least_windows() {
+    for height in [820.0, 600.0] {
+        let drawn = draw(Panel {
+            hidden: true,
+            viewport: Size::new(64.0, height),
+            ..panel_of(five())
+        });
+        let outline = drawn.tree.to_outline();
+        let buttons: Vec<(Option<&str>, String)> = read(&drawn.tree, "button")
+            .iter()
+            .map(|button| (button.name.as_deref(), units(button.rect)))
+            .collect();
+        assert_eq!(
+            buttons,
+            vec![
+                (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
+                (Some("Show the panel"), px(10.0, height - 56.0, 44.0, 44.0)),
+            ],
+            "{height}: {outline}"
+        );
+        assert!(read(&drawn.tree, "link").is_empty(), "no chat: {outline}");
+        let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "820 or 600, whole and positive"
+        )]
+        let tall = height as u32;
+        assert_eq!((frame.width, frame.height), (64, tall));
+    }
+}
+
 #[test]
 fn an_empty_panel_is_the_panels_colour_new_chat_and_settings() {
     let drawn = draw(panel_of(Vec::new()));

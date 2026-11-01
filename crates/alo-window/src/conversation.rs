@@ -80,7 +80,10 @@
 //! process's to say. Hiding the panel draws it as the design's rail, and
 //! the window lays the first screen out beside the rail
 //! ([`Conversation::side`]); the rail's *Show the panel* brings it back,
-//! and its *New chat* is the panel's.
+//! and its *New chat* is the panel's. Queue item 775 folds it to the rail
+//! on its own in a narrow window, and unfolds it as the window widens,
+//! the person's own choice kept apart ([`crate::conversation_fold`]): the
+//! window tells it how wide it is ([`Conversation::fit`]).
 //!
 //! Every other — *Settings*, a kept site, *Add a site*, a waiting chat — is
 //! decided and kept as [`Conversation::last_pressed`], and **changes
@@ -99,6 +102,7 @@
 use crate::chrome_history::Travel;
 use crate::conversation_box::{TheBox, Typed};
 use crate::conversation_find::FindChats;
+use crate::conversation_fold::Fold;
 use crate::conversation_place::Side;
 use crate::conversation_search::{Came, Searched};
 use crate::conversation_thread::Thread;
@@ -161,8 +165,9 @@ pub struct Conversation {
     searches: u64,
     /// The panel's *Search chats* (queue item 711).
     find: FindChats,
-    /// Whether a person hid the panel, which is then the rail.
-    hidden: bool,
+    /// Whether the panel is folded to the rail: hidden by a person, or the
+    /// window too narrow for it (queue items 711, 775).
+    fold: Fold,
     /// How many tabs were asked for (queue items 745, 746): the newest
     /// one's number.
     further: u64,
@@ -202,7 +207,7 @@ impl Default for Conversation {
             search: SetUp::Not(String::new()),
             searches: 0,
             find: FindChats::default(),
-            hidden: false,
+            fold: Fold::default(),
             further: 0,
             to_ask: Vec::new(),
             asked: Vec::new(),
@@ -213,7 +218,8 @@ impl Default for Conversation {
 impl Conversation {
     /// The chats panel as it is now, laid out at `viewport` on a screen of
     /// `scale`: the chats *Search chats* finds, and what is typed into it,
-    /// or — hidden — the rail, which shows no chat (queue item 711).
+    /// or — hidden or folded — the rail, which shows no chat (queue items
+    /// 711, 775).
     pub fn panel(&self, viewport: Size, scale: Scale) -> Panel {
         Panel {
             chats: self.listed().map(|(_, chat)| chat.clone()).collect(),
@@ -221,25 +227,49 @@ impl Conversation {
             scale: 1.0,
             searched: self.find.typed().to_owned(),
             searching: self.find.focused(),
-            hidden: self.hidden,
+            hidden: self.railed(),
         }
         .at_scale(scale.factor())
     }
 
     /// The chats the panel shows, with their identities, in the order the
     /// browser process keeps them: those whose names hold what *Search
-    /// chats* holds, and none while the panel is hidden.
+    /// chats* holds, and none while the panel is the rail.
     fn listed(&self) -> impl Iterator<Item = &(ChatId, Chat)> {
         let searched = self.find.typed();
         self.chats
             .iter()
-            .filter(move |(_, chat)| !self.hidden && matching(chat, searched))
+            .filter(move |(_, chat)| !self.railed() && matching(chat, searched))
     }
 
     /// What stands down the window's left: the panel, or its rail while a
-    /// person has hidden it (queue item 711).
+    /// person has hidden it (queue item 711) or the window is too narrow
+    /// for it (queue item 775).
     pub fn side(&self) -> Side {
-        if self.hidden { Side::Rail } else { Side::Panel }
+        self.fold.side()
+    }
+
+    /// Whether the panel is folded, and why: what a person chose kept
+    /// apart from the window's width.
+    pub fn fold(&self) -> Fold {
+        self.fold
+    }
+
+    /// The window is `width` CSS pixels wide now (queue item 775): whether
+    /// that folded the panel to its rail or unfolded it, and so whether the
+    /// window is to be laid out again. Folded, *Search chats* is not drawn,
+    /// so it lets the keyboard go; what was typed in it is kept.
+    pub fn fit(&mut self, width: u32) -> bool {
+        let changed = self.fold.fit(width);
+        if changed && self.railed() {
+            let _ = self.find.blur();
+        }
+        changed
+    }
+
+    /// Whether the panel is drawn as its rail.
+    fn railed(&self) -> bool {
+        self.side() == Side::Rail
     }
 
     /// What is typed into *Search chats*, and whether it has the keyboard.
@@ -263,7 +293,7 @@ impl Conversation {
             card: self.card().is_some(),
             found: self.thread().map(Thread::links).unwrap_or_default(),
             offers: self.the_box.offers(),
-            hidden: self.hidden,
+            hidden: self.railed(),
             tabs: self
                 .on_this_chat(Thread::tabs)
                 .into_iter()
@@ -355,8 +385,8 @@ impl Conversation {
                 self.new_chat();
                 true
             }
-            Pressed::HideThePanel => !std::mem::replace(&mut self.hidden, true) || changed,
-            Pressed::ShowThePanel => std::mem::replace(&mut self.hidden, false) || changed,
+            Pressed::HideThePanel => self.fold.hide() || changed,
+            Pressed::ShowThePanel => self.fold.show() || changed,
             _ => changed,
         };
         self.pressed(pressed, changed)
@@ -1740,5 +1770,44 @@ mod tests {
         assert!(!panel.hidden);
         assert_eq!(panel.searched, "new", "what was searched is kept");
         assert_eq!(panel.chats.len(), 2);
+    }
+
+    #[test]
+    fn a_narrow_window_folds_the_panel_to_the_rail_and_a_wider_one_brings_it_back() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::SearchChats);
+        type_in(&mut conversation, "new");
+        assert!(!conversation.fit(760), "760 holds the panel");
+        assert_eq!(conversation.side(), Side::Panel);
+        assert!(conversation.find().focused());
+        assert!(conversation.fit(759), "759 folds it");
+        assert_eq!(conversation.side(), Side::Rail);
+        assert!(!conversation.find().focused(), "the rail has no field");
+        let rail = conversation.panel(Size::new(64.0, 820.0), Scale::ONE);
+        assert!(rail.hidden, "drawn as the rail");
+        assert!(rail.chats.is_empty());
+        assert!(conversation.showing().hidden, "and decided against as it");
+        assert!(!conversation.fold().hidden(), "nobody hid it");
+        assert!(conversation.fit(1280), "widened, it unfolds");
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        assert!(!panel.hidden);
+        assert_eq!(panel.searched, "new", "what was searched is kept");
+        assert_eq!(panel.chats.len(), 1);
+    }
+
+    #[test]
+    fn a_person_who_hid_the_panel_keeps_it_hidden_past_the_fold_both_ways() {
+        let mut conversation = Conversation::default();
+        assert!(conversation.act(Pressed::HideThePanel));
+        assert!(!conversation.fit(700), "already the rail");
+        assert!(!conversation.fit(1280), "a person hid it");
+        assert_eq!(conversation.side(), Side::Rail);
+        // Shown while narrow: kept, and seen once the window is wide.
+        let _ = conversation.fit(700);
+        assert!(!conversation.act(Pressed::ShowThePanel), "too narrow yet");
+        assert_eq!(conversation.side(), Side::Rail);
+        assert!(!conversation.fold().hidden());
+        assert!(conversation.fit(760));
+        assert_eq!(conversation.side(), Side::Panel);
     }
 }

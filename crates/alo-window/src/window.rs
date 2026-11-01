@@ -159,7 +159,9 @@
 //! `Window::set_outer_position`, `request_inner_size` and `set_visible`, and
 //! on macOS `EventLoopBuilderExtMacOS::with_activate_ignoring_other_apps`,
 //! each a safe function in 0.30.13's source as checked by item 642 (ADR
-//! 0062's consequences); `with_parent_window`, the one `unsafe fn` beside
+//! 0062's consequences), and the conversation's window adds
+//! `WindowAttributes::with_min_inner_size` (queue item 775), a safe setter
+//! of a field in the same source; `with_parent_window`, the one `unsafe fn` beside
 //! them, is not called. Quitting the program adds no call either: the
 //! frame's shutdown is run in `ApplicationHandler::exiting`, a method of
 //! ours that `winit`'s own application delegate calls from
@@ -178,6 +180,7 @@ use crate::compose::{FrameScene, compose, compose_frame};
 use crate::conversation_chrome::ChromeOpener;
 use crate::conversation_compose::compose_conversation;
 use crate::conversation_drawing::ConversationDrawing;
+use crate::conversation_fold::LEAST_SIZE;
 use crate::conversation_search::Searcher;
 use crate::conversation_window::{ConversationWindow, Heard, Measured};
 use crate::cursor::{Cursor, Pressed};
@@ -979,9 +982,12 @@ impl ApplicationHandler<Heard> for Conversing {
         if self.window.is_some() {
             return;
         }
+        // Never narrower than the tab row beside the rail, nor shorter than
+        // the first screen's sites row (queue item 775).
         let attributes = WindowAttributes::default()
             .with_title("alo")
-            .with_inner_size(LogicalSize::new(CONVERSATION_SIZE.0, CONVERSATION_SIZE.1));
+            .with_inner_size(LogicalSize::new(CONVERSATION_SIZE.0, CONVERSATION_SIZE.1))
+            .with_min_inner_size(LogicalSize::new(LEAST_SIZE.0, LEAST_SIZE.1));
         let window = match event_loop.create_window(attributes) {
             Ok(window) => Rc::new(window),
             Err(why) => {
