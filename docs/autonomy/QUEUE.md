@@ -19598,7 +19598,7 @@ What stage 2's exit gate actually measures: a person using it.
   is not off every display (771); a card keeps the scale it opened at when
   the conversation moves to a display of another (772).
 
-- [ ] **739. What the Dock, ⌘-Tab and Stage Manager do with a parked
+- [x] **739. What the Dock, ⌘-Tab and Stage Manager do with a parked
   Chrome.** ADR 0076 left it to the item that builds B; 717 built B and did
   not measure it. A person may find Chrome's application in the Dock or ⌘-Tab
   and bring a window off every display to the front. Measure it, and answer
@@ -19609,6 +19609,19 @@ What stage 2's exit gate actually measures: a person using it.
   still shows in both. Hiding the application stops a card's frames
   (measured, 771); making the host an accessory application while it holds
   a parked card (`NSApp.setActivationPolicy`) was not tried.
+  ***Done for the Chromium alo carries (iteration 484, with 781 and 778,
+  ADR 0076 B4's second amendment), with a cut to 788: the machine's
+  Chrome.*** **Measured** (alo's CEF host, a Node client): as built, the
+  host `Foreground` by `lsappinfo`, in the Dock's list, frontmost after
+  showing its window. **Decided and built:** a card's host is an accessory
+  application from before CEF starts until the card is seen
+  (`unseen_mac::listed`, `parked::Stage::listed`, `host.rs`): `UIElement`,
+  not in the Dock, not made active by its window showing; expanded, an
+  ordinary application again. **Tests:** the 717 file asserts through the
+  host `UIElement` while parked and `Foreground` once expanded (through
+  Chrome too). Mutations: never accessory, never ordinary again — each
+  fails. **By hand** (`handrun21/`): one *alo* in ⌘-Tab's switcher and in
+  the Dock while a card was open; *Expand* gave the host its menu bar.
 
 - [ ] **740. The rest of a person's pointer on the card.** Cut from 718,
   which sends a press of the main button, its drags and its release, and a
@@ -21320,7 +21333,7 @@ What stage 2's exit gate actually measures: a person using it.
   two streams at two with nothing of it seen, or the decision to leave it
   is written in ADR 0090.
 
-- [ ] **781. A parked card's window in Stage Manager's strip.** Found by
+- [x] **781. A parked card's window in Stage Manager's strip.** Found by
   772's hand run: with Stage Manager on, the carried Chromium's parked
   window on the display holding the conversation — by the conversation's
   scale (772), or on a Mac with one display (771) — is put in that
@@ -21334,6 +21347,25 @@ What stage 2's exit gate actually measures: a person using it.
   card parked by the conversation's display under Stage Manager leaves no
   tile in its strip and still streams, or the decision to leave it is in
   ADR 0076 B4.
+  ***Done (iteration 484, with 739 and 778, ADR 0076 B4's second
+  amendment).*** **Measured** (alo's CEF host parked by the Retina display,
+  Terminal brought in front there): as built, the window listed at 16, 505,
+  103 × 97 — a tile — and the strip showed a blank tile; accessory (at four
+  timings, or `LSUIElement`) or floating, listed where parked, streaming
+  38–41 frames a second of a noisy page at two. **Why 772's accessory
+  host drew no card:** no longer made active by showing its window, the
+  host's window was shown under the conversation's, occluded, and Chromium
+  stopped laying it out — the application said *Chrome's window was still
+  moving* and never parked it (reproduced by hand, `handrun21/first-try/`);
+  under alo's conversation the page said `hidden`, floating `visible`.
+  **Decided and built:** accessory until seen (739's) and the unseen window
+  floating (`NSFloatingWindowLevel`, `unseen_mac::unseen`). **Tests:** the
+  717 file asserts through the host the parked window listed floating
+  (layer 3) at Chromium's own size, never a tile; the window not floated
+  fails all three host tests. **By hand** (`handrun21/`): `en.wikipedia.org`
+  in a card on the Retina display drew, its window at 1670, 34 floating at
+  alpha 0, no tile in the strip (`02-retina-strip.png`). A Mac with one
+  display is reasoned, not measured.
 
 - [ ] **773. The AI provider's slot among the carried keys.** Cut from 748.
   ADR 0091 carries the providers' keys inside the application, but defines
@@ -21534,7 +21566,28 @@ What stage 2's exit gate actually measures: a person using it.
   Closes when:* a card through the machine's Chrome is on no display and
   still streams, or the decision to leave it is written in ADR 0076 B4.
 
-- [ ] **778. A card's page moving its own window into view.** Cut from
+- [ ] **787. A card's page moving its window through the machine's
+  Chrome.** Cut from 778. alo's CEF host refuses a card's page's own
+  `moveTo`/`resizeTo` while the card is unseen; the machine's Chrome
+  carries them out, and nothing alo tells it stands in front (a page may
+  move its own `--app` window, measured 2026-10-26). `alo --chrome` and tests
+  only; its parked window is seen anyway (779). Decide whether alo parks it
+  again on a move it did not ask for, or leaves it. *Depends on 778, 779.
+  Closes when:* a card's page calling `moveTo` through the machine's Chrome
+  leaves its window parked in a test, or the decision to leave it is in ADR
+  0076 B4.
+
+- [ ] **788. The machine's Chrome in the Dock and ⌘-Tab while it holds a
+  card.** Cut from 739. The Chromium alo carries is an accessory
+  application while its card is parked; the machine's Chrome is an
+  ordinary one throughout (`Foreground`, asserted in the 717 test after
+  *Expand*); whether anything alo can tell it or ask of macOS changes
+  another program's activation policy was not tried. `alo --chrome` and tests only. *Depends on 739, 779.
+  Closes when:* the decision to leave it is written in ADR 0076 B4, or a
+  card through the machine's Chrome is out of the Dock and ⌘-Tab in a
+  test.
+
+- [x] **778. A card's page moving its own window into view.** Cut from
   771. A page in a card may move its `--app` window: measured through alo's
   CEF host, `moveTo(200, 200)` from the page put the parked, transparent
   window wholly on the portrait display, and the host — which cannot tell
@@ -21545,6 +21598,18 @@ What stage 2's exit gate actually measures: a person using it.
   parking it again), through both programs. *Depends on 771. Closes
   when:* a card's page calling `moveTo` and `resizeTo` leaves its window
   where alo parked it, unseen, in a test through both programs.
+  ***Done for the Chromium alo carries (iteration 484, with 781 and 739,
+  ADR 0076 B4's second amendment), with a cut to 787: the machine's
+  Chrome.*** **Built:** every page's display handler answers CEF's
+  `OnContentsBoundsChange` (a page's `moveTo/By`, `resizeTo/By`) as handled
+  while its window is a card's and unseen (`parked::Stage::moved_by_its_page`,
+  `window.rs`'s `Titled`, sharing the card's stage with `Framed`); seen,
+  CEF's default carries it out. **Tests:**
+  `a_cards_page_moving_its_own_window_through_chrome.rs` — a page asking
+  every 200 ms for 200, 200 and 400 × 300, ten asks: the window at its park
+  (−3725, −50, 878 × 552), alpha 0, on no display, `UIElement`, 103 frames
+  streamed; expanded, opaque at 200, 200. Mutations: never refused — fails
+  (opaque at −2320, 200, 400 × 300); always refused — fails after *Expand*.
 
 - [ ] **752. A variable font's optical size set by the text's size.** Cut
   from 706. Newsreader varies along `opsz` (6–72) as well as `wght`, and a

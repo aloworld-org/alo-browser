@@ -674,3 +674,175 @@ hand (session scratchpad `handrun18/`): `en.wikipedia.org` in a card, every
 display captured — the portrait display's corner where the strip was shows
 the desktop only — and *Talk* pressed in the card followed, the card at
 `Talk:Main_Page`.
+
+## Amended (1 November 2026, queue items 781, 739 and 778): a card's host out of the Dock, ⌘-Tab and Stage Manager's strip, and its window alo's alone to move
+
+The 771 amendment left three costs: a parked window by the conversation's
+own display — by its scale (ADR 0090's amendment), or on any Mac with one
+display — put by Stage Manager in that display's strip as a blank tile with
+the host's icon (781); *alo Chromium* in the Dock and ⌘-Tab, bringing
+nothing visible to the front (739); and a card's page moving its own window
+onto a display, which the host took for *Expand* (778). This amendment
+measures each through alo's CEF host and decides. The machine's Chrome is
+left as measured (§ 5).
+
+### Measured
+
+The same Mac (macOS 26.5, Stage Manager on; the Retina display at two at the
+origin, a display at one left of it, a portrait one left of that), alo's CEF
+host (CEF 156.0.14) started with `--alo-card --app=data:,`, driven by a Node
+client of the session's scratchpad as alo drives it: fitted where it was
+shown, parked at 20000, 0 (the window server leaves it at 1670, 34 by the
+Retina display, 40 points of it on it), its page a box turning and a field
+of noise, streamed as PNG at most 1756 × 1040; then another application's
+window brought in front (Terminal, on the Retina display); then *Expand*
+(`Browser.setWindowBounds` 120, 80 900 × 600 and `Target.activateTarget`).
+Read: frames a second, `requestAnimationFrame`s a second, a press over the
+pipe, the window server's list of the process's windows, `lsappinfo`'s
+`ApplicationType` of the process, the application frontmost (System
+Events), and the Dock's items (its accessibility list). A scratch build of
+the host whose variants were chosen by environment variables; neither CEF's
+nor Chromium's source was read.
+
+| the host | parked, Terminal in front: the window server lists it at | frames/s, rAF/s, press | `ApplicationType` | in the Dock | frontmost after it showed its window |
+|---|---|---|---|---|---|
+| as built (771) | **16, 505, 103 × 97** — a tile of the strip, alpha 0 (a blank tile with the host's icon in a screenshot) | 40.5, 61.4, lands | Foreground | yes | the host |
+| made accessory (`setActivationPolicy`) before CEF starts | 1670, 34, 878 × 552 — where parked | 40.5, 62.0, lands | **UIElement** | **no** | Terminal — **never activated** |
+| the same, once CEF is up / in `OnWindowCreated` / after showing | where parked | 38–41, 60–62, lands | UIElement | no | the host / Terminal / the host |
+| `LSUIElement` in the host's `Info.plist` | where parked | 41.0, 61.5, lands | UIElement | no | Terminal |
+| floating (`NSFloatingWindowLevel`, layer 3), an ordinary application | where parked, layer 3 | 40.5, 62.0, lands | Foreground | yes | the host |
+
+772 had found an accessory host's window "neither moved nor drew a card",
+measured in the application; its experiment's code was not kept. Here the
+probe's window was moved and streamed at every timing, and the application
+showed why it had not: **an accessory host is not made active by showing its
+window, so the window is shown under the conversation's**, and Chromium
+stops laying out and drawing a page whose window is covered (macOS calls it
+occluded; transparent or not). In the application built accessory-only, the
+card stayed blank and alo said *Chrome's window was still moving, last at
+455,145 and 878×552* — the page never laid out again at the card's size, so
+`chrome_window::put` waited out its patience and the card was never parked;
+in the probe with alo's conversation window in front of the host's, the page
+said `hidden` once resized. Made to float over every ordinary window, the
+page stayed `visible` and was laid out, fitted and parked under the
+conversation, and in the application the card drew. As built before this
+amendment the host was activated by its own window showing (ADR 0076's 742
+section), so its window was in front while it was fitted, and the
+conversation took the front back after (`ConversationWindow::take_front`).
+
+*Expand*, the host accessory throughout: the window opaque at 120, 80, a
+person's click (`cliclick`) on the page reached it, but the frontmost
+application stayed Terminal by System Events' word and the host had no menu
+bar. Made an ordinary application again as it was placed: `Foreground`, in
+the Dock, a click reaching the page, and the frontmost application in six
+runs of seven (the seventh, right after its page's own moves were refused,
+left Terminal frontmost though the host was active); by hand in the
+application, frontmost with its menu bar (*alo*, *Edit*, *Window*).
+
+A page's own move (`OnContentsBoundsChange`, CEF's display handler, which
+CEF says is called for `window.moveTo/By` and `resizeTo/By` before its
+default handling, and that a handled one is not carried out): handled, the
+parked window stayed where it was — `moveTo(200, 200)` asked 200, 200 by the
+Retina display, or −2798, 200 by the portrait one, and `resizeTo(400, 300)`,
+each left the window at its park, alpha 0, streaming. Not handled (as
+built), the window went to 200, 200, then 400 × 300, and was drawn opaque.
+
+### Decided
+
+1. **A card's host is an accessory application until the card is seen.**
+   Started with `--alo-card`, the host sets `NSApplicationActivationPolicy
+   Accessory` after making its application object and before CEF starts
+   (`host.rs`, `unseen_mac::listed`, `parked::Stage::listed`): no Dock icon,
+   no place in ⌘-Tab, no tile in Stage Manager's strip, and its window's
+   showing no longer takes the front from the conversation. Seen —
+   placed after it was parked, *Expand* — it is made an ordinary
+   application again, for good: in the Dock and ⌘-Tab, its menu bar shown,
+   as a window a person works in is. A host started for anything but a
+   card is ordinary throughout, so its `Info.plist` is unchanged.
+2. **An unseen card's window floats** (`NSFloatingWindowLevel`, beside its
+   alpha 0 and its letting the pointer through, `unseen_mac::unseen`), so no
+   ordinary window covers it and Chromium goes on laying it out and drawing
+   it; seen, it is an ordinary window again (layer 0).
+3. **A card's page cannot move or resize its window while it is unseen.**
+   Every page's display handler answers `OnContentsBoundsChange` as handled
+   — nothing done — while its window is a card's and not yet seen
+   (`parked::Stage::moved_by_its_page`, `window.rs`'s `Titled`), so the only
+   moves that reach the window are alo's, and no page's is taken for
+   *Expand*. Seen, a page's move is CEF's default, as Chrome carries out an
+   `--app` window's.
+4. **With one display** the parked window is by that display, which holds
+   the conversation — the case 781 was found for. The same two things keep
+   it out of the strip there as by the Retina display here: an accessory
+   application's window, floating. Reasoned, not measured: no display was
+   removed from this Mac.
+5. **The machine's Chrome is left as measured.** It is an ordinary
+   application throughout — `Foreground`, in the Dock and ⌘-Tab — its
+   parked window keeps its strip (779), and its page's own `moveTo` is
+   Chrome's to carry out; whether anything alo can tell another program
+   changes either was not tried. `alo --chrome` and tests only. Queue
+   items 787 and 788.
+
+### Rejected
+
+- **`LSUIElement` in the host's `Info.plist`** — the same as the policy
+  set before CEF starts, measured, but for every host alo starts, not only a
+  card's; and the policy must change at *Expand* anyway.
+- **Accessory alone** — the window then shown under the conversation's is
+  occluded and the card is never drawn (above).
+- **Floating alone** — kept the window out of the strip (measured), but the
+  host stays in the Dock and ⌘-Tab.
+- **Staying accessory once expanded** — a person's window with no menu bar,
+  not in ⌘-Tab to come back to, and not the frontmost application by
+  macOS's word.
+- **`Transient`, `IgnoresCycle`, `Auxiliary` collection behaviours** (772)
+  — the tile stayed.
+- **Telling the host which moves are alo's** — a message or switch from
+  alo per placing: the host already cannot tell a placing from its effect,
+  and refusing the page's own moves where CEF names them needs nothing from
+  alo.
+
+### What it costs
+
+- **A floating window over every ordinary one**, though transparent and
+  letting the pointer through: a screenshot tool or a window list shows a
+  floating window of *alo* (alpha 0) where the card is parked.
+- **A card's page that moves its window by design** (a page written to
+  arrange its own `--app` window) is not moved while it is a card; once
+  expanded it is.
+- **Another window a card's page opens** (`window.open`) is a window of an
+  accessory application while the card is parked: not in the Dock, and
+  not made transparent. Not measured.
+- **The narrowest card and a conversation half off every display** stay as
+  the 771 amendment says.
+
+### Built and tested
+
+`crates/alo-cef-host`: `unseen_mac.rs` (`listed`; `unseen` also floats the
+window), `parked.rs` (`Stage::moved_by_its_page`, `Stage::listed`, 2 more
+unit tests, 7 in all), `host.rs` (accessory before CEF starts),
+`window.rs` (`Page` and `Titled` share the card's stage;
+`on_contents_bounds_change`; ordinary again when seen); `Cargo.toml` adds
+`objc2-app-kit`'s `NSRunningApplication`. No new file names `cef` or
+`objc2`, and no `unsafe`. `alo-window`'s tests:
+`a_page_as_a_card_through_chrome.rs` now asserts through the host that
+while parked the process is a `UIElement` and its window is listed floating
+(layer 3) at Chromium's own size, never shrunk into a tile, and that once
+expanded it is `Foreground` (through Chrome too); a new
+`a_cards_page_moving_its_own_window_through_chrome.rs` — a page asking every
+200 ms for 200, 200 and 400 × 300 — asserts through the host that after ten
+asks the window is where alo parked it (−3725, −50, 878 × 552), alpha 0, on
+no display, a `UIElement`, having streamed 103 frames of the page box, and
+that once expanded the page's next ask is carried out (opaque at 200, 200).
+`tests/listed/mod.rs` reads `lsappinfo`. Mutations: the host never made
+accessory — both host tests of the 717 file fail (`Foreground`); never made
+ordinary again — the expanded test fails (`UIElement`); the window not
+floated — all three host tests fail; a page's move never refused — the 778
+test fails (its window opaque at −2320, 200, 400 × 300); always refused — it
+fails after *Expand*. By hand (session scratchpad `handrun21/`):
+`en.wikipedia.org` in a card with the conversation on the Retina display —
+the card drew, the host's window at 1670, 34 floating with alpha 0, the
+host a `UIElement`, alo frontmost; Stage Manager's strip on the Retina
+display held no tile of it, ⌘-Tab's switcher showed one *alo*, the Dock one
+*alo*; *Expand* showed the page opaque, the host `Foreground` with its menu
+bar; closing the window and ⌘Q left no alo process. The first build of
+this, accessory without floating, drew a blank card there (`first-try/`).

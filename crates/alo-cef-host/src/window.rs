@@ -49,6 +49,15 @@
 //! (measured: a window put at −20000 before it was shown was shown wholly
 //! on the leftmost display).
 //!
+//! A card's page cannot move its window while it is unseen: a page's own
+//! `moveTo` or `resizeTo` — which CEF hands the page's display handler
+//! (`OnContentsBoundsChange`) before carrying it out — is refused until the
+//! card is seen ([`Stage::moved_by_its_page`], queue item 778), so no move
+//! but alo's is ever taken for *Expand*. And the host is an accessory
+//! application — no Dock icon, no place in ⌘-Tab, no tile in Stage
+//! Manager's strip — until the card is seen, then an ordinary one
+//! ([`Stage::listed`], `host.rs`, queue items 781 and 739).
+//!
 //! # Never sent to another program
 //!
 //! Every page's client cancels a navigation to a scheme Chromium does not
@@ -180,8 +189,8 @@ wrap_browser_process_handler! {
         fn default_client(&self) -> Option<Client> {
             // Every page Chromium opens of its own — `Target.createTarget`,
             // a popup — is counted as the host's own are, so that
-            // [`close_all`] closes it too.
-            Some(Page::new())
+            // [`close_all`] closes it too. None is a card's window.
+            Some(Page::new(std::rc::Rc::new(Cell::new(None))))
         }
     }
 }
@@ -190,7 +199,11 @@ wrap_browser_process_handler! {
 /// unseen and parked when it is a `card`'s — or say why not, and open
 /// nothing.
 fn open(page: &str, card: bool) {
-    let mut client = Page::new();
+    // Where a card's window is in its life, shared by the window, which
+    // follows it, and the page's client, which refuses the page's own moves
+    // while it is unseen.
+    let stage = std::rc::Rc::new(Cell::new(card.then_some(Stage::Opened)));
+    let mut client = Page::new(std::rc::Rc::clone(&stage));
     let mut viewed = Viewed::new();
     let Some(view) = browser_view_create(
         Some(&mut client),
@@ -203,19 +216,21 @@ fn open(page: &str, card: bool) {
         eprintln!("alo's CEF host: CEF made no view for the page");
         return;
     };
-    let stage = card.then_some(Stage::Opened);
-    let mut framed = Framed::new(view, std::rc::Rc::new(Cell::new(stage)));
+    let mut framed = Framed::new(view, stage);
     if window_create_top_level(Some(&mut framed)).is_none() {
         eprintln!("alo's CEF host: CEF made no window for the page");
     }
 }
 
 wrap_client! {
-    struct Page {}
+    struct Page {
+        // Where its window is, when it is a card's (`Framed`'s own).
+        stage: std::rc::Rc<Cell<Option<Stage>>>,
+    }
 
     impl Client {
         fn display_handler(&self) -> Option<DisplayHandler> {
-            Some(Titled::new())
+            Some(Titled::new(std::rc::Rc::clone(&self.stage)))
         }
 
         fn life_span_handler(&self) -> Option<LifeSpanHandler> {
@@ -337,9 +352,30 @@ pub fn close_all() {
 }
 
 wrap_display_handler! {
-    struct Titled {}
+    struct Titled {
+        // Where its window is, when it is a card's (`Framed`'s own).
+        stage: std::rc::Rc<Cell<Option<Stage>>>,
+    }
 
     impl DisplayHandler {
+        fn on_contents_bounds_change(
+            &self,
+            _browser: Option<&mut Browser>,
+            _new_bounds: Option<&Rect>,
+        ) -> ::std::os::raw::c_int {
+            // A page's own `moveTo`, `moveBy`, `resizeTo` or `resizeBy`
+            // (CEF's word for each). A card's window is alo's alone to move
+            // until it is seen: said handled, nothing is done, and the
+            // window stays where alo parked it (queue item 778). Otherwise
+            // CEF's own handling moves it, as Chrome moves an `--app`
+            // window its page asks to.
+            let refused = self
+                .stage
+                .get()
+                .is_some_and(|stage| !stage.moved_by_its_page());
+            c_int::from(refused)
+        }
+
         fn on_title_change(&self, browser: Option<&mut Browser>, title: Option<&CefString>) {
             if let Some(window) = browser_view_get_for_browser(browser).and_then(|view| view.window()) {
                 window.set_title(title);
@@ -451,6 +487,7 @@ wrap_window_delegate! {
             self.stage.set(Some(after));
             if stage != Stage::Seen && after == Stage::Seen {
                 crate::unseen_mac::unseen(window.window_handle(), false);
+                crate::unseen_mac::listed(after.listed());
             }
         }
 

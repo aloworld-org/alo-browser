@@ -164,3 +164,14 @@ alo starts and drives over a pipe, and this boundary is in it alone.
 transparent and passes the pointer through until it is placed on a display.
 It makes safe `objc2-app-kit` calls only and holds no `unsafe`; the gate's
 boundary list names it beside the two files above.
+
+**Amended 1 November 2026 (queue items 781, 739 and 778, ADR 0076 B4's
+second amendment):** `unseen_mac.rs` also makes a card's window float over
+every ordinary window while it is unseen (`setLevel`) and makes the host an
+accessory application until the card is seen (`setActivationPolicy`, for
+which the host's manifest names `objc2-app-kit`'s `NSRunningApplication`
+feature). Both are safe `objc2-app-kit` calls; the file still holds no
+`unsafe`, no new file names `cef` or `objc2`, and the gate's boundary list
+is unchanged. `window.rs`'s new display-handler callback
+(`OnContentsBoundsChange`) is built by the `cef` crate's `wrap_*` macro, as
+its other callbacks are.

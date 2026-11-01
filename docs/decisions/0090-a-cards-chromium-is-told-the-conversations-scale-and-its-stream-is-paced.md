@@ -293,7 +293,12 @@ Chrome's parked window on the conversation's display would be seen (ADR
   Neither the window's `Transient`, `IgnoresCycle` nor `Auxiliary`
   collection behaviour kept it out of the strip; making the host an
   accessory application did, but its window then was not moved and drew no
-  card (measured, not built). Queue item 781.
+  card (measured, not built). Queue item 781 — **answered by ADR 0076 B4's
+  second amendment** (queue items 781, 739, 778): the card's host is an
+  accessory application until the card is seen and its unseen window floats
+  over every ordinary one, so no tile is left in the strip; the accessory
+  host's window had drawn no card because, no longer activated by showing
+  it, it was shown under the conversation's window and occluded.
 - Parking asks the window server for its displays (`osascript`, about
   80 ms) and moves the window (150 ms or more until it is still) at a
   card's start and at each new scale — not at each resize.

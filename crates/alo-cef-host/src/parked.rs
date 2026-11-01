@@ -23,6 +23,17 @@
 //! shown and where alo first fits it to the card, before parking it, are
 //! on a display and do not count; only a placing after the park does.
 //!
+//! While it is not yet seen, the window is alo's alone to move: a page's
+//! own `moveTo`, `moveBy`, `resizeTo` or `resizeBy` is refused
+//! ([`Stage::moved_by_its_page`], queue item 778). Measured through this
+//! host before it was: `moveTo(200, 200)` from a parked card's page put the
+//! window wholly on a display, which [`placed`] then took for *Expand*,
+//! and the page was seen. Once seen, the window is a person's, and a page
+//! moves it as Chrome lets a page move its own `--app` window. Likewise the
+//! host is an accessory application — out of the Dock, ⌘-Tab and Stage
+//! Manager's strip — until the card is seen ([`Stage::listed`], queue items
+//! 781 and 739).
+//!
 //! [`placed`] says when a window is placed: when its centre is on a
 //! display.
 //! A window the window server has parked is on a display by its strip only,
@@ -89,6 +100,20 @@ impl Stage {
             (Self::Opened | Self::Parked, false) => Self::Parked,
             (Self::Parked | Self::Seen, true) | (Self::Seen, false) => Self::Seen,
         }
+    }
+
+    /// Whether the window's own page may move or resize it (`moveTo`,
+    /// `resizeTo` and their `By`s): only once it is seen. Unseen, a move of
+    /// the page's would be taken for alo's placing it (queue item 778).
+    pub fn moved_by_its_page(self) -> bool {
+        self == Self::Seen
+    }
+
+    /// Whether the host is listed among a person's applications — the
+    /// Dock, ⌘-Tab, Stage Manager — at this stage: only once the card is
+    /// seen; until then an accessory application (queue items 781, 739).
+    pub fn listed(self) -> bool {
+        self == Self::Seen
     }
 }
 
@@ -199,6 +224,30 @@ mod tests {
                 Stage::Seen,
             ]
         );
+    }
+
+    #[test]
+    fn a_cards_page_moves_its_window_only_once_it_is_seen() {
+        // Shown and parked, a page's `moveTo` is refused: had it been
+        // carried out, a window moved onto a display would be taken for
+        // *Expand* (queue item 778).
+        assert!(!Stage::Opened.moved_by_its_page());
+        assert!(!Stage::Parked.moved_by_its_page());
+        // Expanded, the window is a person's, and the page's as Chrome's
+        // own `--app` window is.
+        assert!(Stage::Seen.moved_by_its_page());
+    }
+
+    #[test]
+    fn a_card_is_listed_among_the_applications_only_once_it_is_seen() {
+        assert!(!Stage::Opened.listed());
+        assert!(!Stage::Parked.listed());
+        assert!(Stage::Seen.listed());
+        // And it is seen only through being placed after the park: neither
+        // where it was shown nor where it was parked lists it.
+        assert!(!Stage::Opened.after(true).listed());
+        assert!(!Stage::Opened.after(false).listed());
+        assert!(Stage::Parked.after(true).listed());
     }
 
     #[test]

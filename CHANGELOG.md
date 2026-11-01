@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page open in the conversation no longer shows up as a second
+  application.** While a page is shown as a card, the Chromium alo carries
+  is no longer in the Dock or the ⌘-Tab switcher, and Stage Manager no
+  longer puts a blank tile of it in its strip — on a Mac with one display
+  that tile sat beside the conversation. It becomes an ordinary window, in
+  the Dock and ⌘-Tab, once the card is expanded. Opening a card also no
+  longer takes the keyboard from the conversation for a moment.
+
+- **A page in a card can no longer move its window into view.** A page that
+  called `moveTo` or `resizeTo` could put its hidden window on the screen,
+  where it was then drawn as if expanded. The page's own moves are now
+  refused while it is a card, and carried out once it is expanded, as Chrome
+  does for an app window.
+
 - **Emoji in fonts built from coloured layers are drawn in colour.** A
   font that draws an emoji as layers of coloured shapes — the older colour
   format Windows' own emoji font uses — had its emoji drawn as plain

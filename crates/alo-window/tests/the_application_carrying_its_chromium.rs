@@ -160,14 +160,54 @@ fn codesign(options: &[&str], path: &Path) -> Result<(bool, String), String> {
 }
 
 /// The bytes of the program at `program` with its signature taken off, from
-/// a copy at `copy`.
+/// a copy at `copy` — all but one number codesign leaves behind.
+///
+/// `codesign --remove-signature` cuts the signature from the end of the
+/// `__LINKEDIT` segment but leaves the segment's size in memory (`vmsize`)
+/// as the signature it removed had it, a whole number of 16 KiB pages. The
+/// linker's own signature on the host built and the seal on the host
+/// carried differ in length, so where the program's length puts the two on
+/// either side of a page's end, the one number differs and nothing else:
+/// measured on 1 November 2026, the host of queue items 781 and 778 built in
+/// debug, stripped of each, was 2,453,912 bytes both times with the one
+/// byte of `__LINKEDIT`'s `vmsize` (0x164000 against 0x168000) apart. So that
+/// number is read as zero in both; every byte of the program is still
+/// compared, its code and its segments' places in the file among them.
 fn unsigned(program: &Path, copy: &Path) -> Result<Vec<u8>, String> {
     std::fs::copy(program, copy).map_err(|why| format!("{}: {why}", program.display()))?;
     let (removed, said) = codesign(&["--remove-signature"], copy)?;
     if !removed {
         return Err(format!("{}: {said}", program.display()));
     }
-    std::fs::read(copy).map_err(|why| why.to_string())
+    let mut bytes = std::fs::read(copy).map_err(|why| why.to_string())?;
+    let at = linkedit_vmsize(&bytes)
+        .ok_or_else(|| format!("{}: no __LINKEDIT segment read", program.display()))?;
+    if let Some(vmsize) = bytes.get_mut(at..at + 8) {
+        vmsize.fill(0);
+    }
+    Ok(bytes)
+}
+
+/// Where, in a 64-bit Mach-O program's `bytes`, its `__LINKEDIT` segment's
+/// `vmsize` is: the header is 32 bytes, its load commands follow it, and a
+/// 64-bit segment's command (`LC_SEGMENT_64`, 0x19) names the segment at 8
+/// and holds its `vmsize` at 32.
+fn linkedit_vmsize(bytes: &[u8]) -> Option<usize> {
+    let word = |at: usize| -> Option<u32> {
+        Some(u32::from_le_bytes(bytes.get(at..at + 4)?.try_into().ok()?))
+    };
+    if bytes.get(..4)? != [0xcf, 0xfa, 0xed, 0xfe] {
+        return None;
+    }
+    let mut command = 32;
+    for _ in 0..word(16)? {
+        let (kind, size) = (word(command)?, usize::try_from(word(command + 4)?).ok()?);
+        if kind == 0x19 && bytes.get(command + 8..command + 24)? == b"__LINKEDIT\0\0\0\0\0\0" {
+            return Some(command + 32);
+        }
+        command = command.checked_add(size).filter(|_| size > 0)?;
+    }
+    None
 }
 
 /// Whether the file at `path` is Mach-O code, by its first four bytes.

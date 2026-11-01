@@ -51,15 +51,23 @@
 //! - **A narrower card** (queue item 774): a stream asked at a narrower
 //!   page box — a window 967 wide, then 720 — and at the whole one again
 //!   has the page laid out at each first, so every frame is the box asked.
+//! - **Out of the Dock, ⌘-Tab and Stage Manager's strip while parked**
+//!   (queue items 781 and 739): through alo's CEF host, macOS says the
+//!   process is a `UIElement` — an accessory application — and the window
+//!   server lists its window floating over every ordinary window (layer 3,
+//!   so nothing covers it and Chromium goes on drawing it) at the size
+//!   Chromium gives it, never shrunk into a tile of the strip.
 //! - **Expand** shows the same tab in Chromium's own window, the stream
 //!   stopped, at the place and size asked, drawn opaque, by Chromium's word
-//!   and the window server's.
+//!   and the window server's — and its application an ordinary one,
+//!   `Foreground`, in the Dock and ⌘-Tab, through both programs.
 //!
 //! Never the real network: the page is `http://127.0.0.1:PORT/card.html`.
 
 #![cfg(target_os = "macos")]
 
 mod carried;
+mod listed;
 
 use alo_window::agent_sites::AgentSites;
 use alo_window::agents::Listening;
@@ -96,6 +104,16 @@ const OVER_THE_BUDGET: f64 = 0.15;
 
 /// How long a stream is watched to count its frames.
 const WATCHED: Duration = Duration::from_secs(3);
+
+/// The window server's layer of a window floating over every ordinary one
+/// (`NSFloatingWindowLevel`): where alo's CEF host keeps a card's window
+/// while it is unseen (queue item 781). Seen, it is at 0, an ordinary
+/// window's.
+const FLOATING: i64 = 3;
+
+/// How many readings of an expanded window, 100 ms apart, must agree after
+/// the first before it is taken to have stopped moving: half a second.
+const SETTLED: u32 = 5;
 
 /// How many reads an agent makes, with the stream and without.
 const READS: usize = 40;
@@ -343,15 +361,34 @@ fn parked(serving: &ChromeServing, who: &str, unseen: bool, scale: Scale) -> Res
                  displays {screens:?}"
             );
         }
+        // Floating over every ordinary window while unseen, so that none
+        // covers it and Chromium goes on drawing it (queue item 781).
         assert!(
-            shown.iter().any(|listed| listed.layer == 0),
-            "{who}'s window is not on the screen at all, where it would not stream"
+            shown.iter().any(|listed| listed.layer == FLOATING),
+            "{who}'s window is not on the screen floating, where it would not stream: {shown:?}"
         );
         assert!(
             shown
                 .iter()
                 .all(|listed| !window_server::seen(listed, &displays)),
             "{who}'s window is seen on a display: {shown:?}, the displays {displays:?}"
+        );
+        // Out of the Dock, ⌘-Tab and Stage Manager's strip (queue items
+        // 781, 739): an accessory application, whose window the strip
+        // never shrinks into a tile — listed at Chromium's own size, where
+        // a tile of the strip is about 103 × 97.
+        assert_eq!(
+            listed::application_type(process)?,
+            "UIElement",
+            "{who} is an ordinary application while its card is parked"
+        );
+        assert!(
+            shown.iter().any(|listed| listed.layer == FLOATING
+                && listed
+                    .bounds
+                    .is_some_and(|at| (at.width, at.height) == (window.width, window.height))),
+            "{who}'s window is not listed at its own size {window:?}, as in Stage Manager's \
+             strip: {shown:?}"
         );
     } else {
         assert!(
@@ -692,7 +729,7 @@ fn parked_now(serving: &ChromeServing, who: &str, scale: Scale) -> Result<(), St
     );
     let windows: Vec<Bounds> = shown
         .iter()
-        .filter(|listed| listed.layer == 0)
+        .filter(|listed| listed.layer == FLOATING)
         .filter_map(|listed| listed.bounds)
         .collect();
     eprintln!("{who}: parked at {}: {windows:?}", scale.factor());
@@ -731,10 +768,14 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
     assert!(unstreamed.answered);
     // An app window with no sides: its page's width is the window's. It is
     // fitted where it is going, sized and then sized again by its title
-    // bar, so it is found once two readings in turn agree.
+    // bar, so it is found once its readings agree for half a second. Two
+    // readings 100 ms apart were enough while the host was an ordinary
+    // application throughout; made one again as it is seen (queue item
+    // 781), the host's window was read at 900 × 600 twice in turn before
+    // its title bar's resize made it 900 × 632.
     let process = serving.process();
     let until = Instant::now() + Duration::from_secs(20);
-    let (mut found, mut before) = (None, None);
+    let (mut found, mut before, mut agreeing) = (None, None, 0);
     while found.is_none() && Instant::now() < until {
         let listed = window_server::on_the_screen(process).map_err(|why| why.to_string())?;
         let now = listed
@@ -742,7 +783,12 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
             .filter(|window| window.layer == 0 && window.alpha == u8::MAX)
             .filter_map(|window| window.bounds)
             .find(|bounds| (bounds.left, bounds.top, bounds.width) == (120, 80, 900));
-        found = now.filter(|_| now == before);
+        agreeing = if now.is_some() && now == before {
+            agreeing + 1
+        } else {
+            0
+        };
+        found = now.filter(|_| agreeing >= SETTLED);
         before = now;
         std::thread::sleep(Duration::from_millis(100));
     }
@@ -752,7 +798,19 @@ fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
             window_server::on_the_screen(process)
         )
     })?;
-    assert!(listed_at(process, bounds)?);
+    assert!(
+        listed_at(process, bounds)?,
+        "{who}'s window left {bounds:?}: {:?}",
+        window_server::on_the_screen(process)
+    );
+    // Seen, its application is an ordinary one again: in the Dock and
+    // ⌘-Tab, its menu bar shown (queue items 781, 739). The machine's
+    // Chrome is one throughout.
+    assert_eq!(
+        listed::application_type(process)?,
+        "Foreground",
+        "{who} is not an ordinary application once expanded"
+    );
     let (after, _) = frames_within(&told, Duration::from_millis(500));
     assert!(after.is_empty(), "{who} streamed an expanded page");
     orders

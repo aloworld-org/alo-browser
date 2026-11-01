@@ -40,9 +40,12 @@ cef = { version = "=156.2.0", default-features = false, features = ["sandbox"] }
 # which hold none. The versions are the ones the `cef` crate itself builds
 # against (`objc2` 0.6), and `Cargo.lock` holds them. Without default
 # features, with only the classes the three files use — and
-# `objc2-core-foundation`, for the `CGFloat` a window's transparency is.
+# `objc2-core-foundation`, for the `CGFloat` a window's transparency is, and
+# `NSRunningApplication`, for an application's activation policy (a card's
+# host kept out of the Dock, ⌘-Tab and Stage Manager's strip until it is
+# seen, queue items 781 and 739).
 objc2 = "0.6.3"
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSEvent", "NSMenu", "NSMenuItem", "NSResponder", "NSView", "NSWindow", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSEvent", "NSMenu", "NSMenuItem", "NSResponder", "NSRunningApplication", "NSView", "NSWindow", "objc2-core-foundation"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString"] }
 
 # The workspace's lints, which a crate outside the workspace cannot inherit,

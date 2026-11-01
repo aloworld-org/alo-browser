@@ -118,7 +118,8 @@ declare -a BOUNDARIES=(
   # is loaded and run, where the host's windows and pages are, and where its
   # application object answers CEF's protocols; AppKit only in the
   # application object, its menu bar (ADR 0080) and where a card's window is
-  # made transparent (queue item 771).
+  # made transparent, floated and its application kept out of the Dock (queue
+  # items 771, 781).
   "cef:crates/alo-cef-host/src/host.rs,crates/alo-cef-host/src/window.rs,crates/alo-cef-host/src/application_mac.rs"
   "objc2:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs"
   "objc2_app_kit:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs"

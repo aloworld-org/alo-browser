@@ -821,8 +821,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   second of noise-heavy frames, and an agent's read of the page no slower
   while it streams (`tests/a_page_as_a_card_through_chrome.rs`). Owed:
   frames at the conversation's
-  scale when the parked window lands by a display of another (738), what
-  the Dock, ⌘-Tab and Stage Manager do with a parked Chrome (739).
+  scale when the parked window lands by a display of another (738); the
+  Dock, ⌘-Tab and Stage Manager with a parked Chrome are answered for the
+  Chromium alo carries (739, below), the machine's Chrome left (788).
   **The parked window unseen** (771, ADR 0076 B4's amendment): the window
   server keeps a strip of a parked window on a display (153 points on this
   Mac's leftmost), so the Chromium alo carries, started with `--alo-card`,
@@ -830,8 +831,20 @@ The reason this exists rather than a faster fork of somebody else's engine.
   until the card is expanded — on no display by the window server's list,
   still streaming and taking input — and a parked window is fitted where it
   is parked. Through the machine's Chrome the strip stays (nothing public
-  hides it and keeps it drawing, measured). Owed: a card's page moving its
-  own window into view (778).
+  hides it and keeps it drawing, measured).
+  **Out of the Dock, ⌘-Tab and Stage Manager's strip, and moved by alo
+  alone** (781, 739, 778, ADR 0076 B4's second amendment): a card's host is
+  an accessory application until the card is seen — no Dock icon, no place
+  in ⌘-Tab, no blank tile in the strip of the conversation's display, and
+  its window's showing no longer takes the front — and its unseen window
+  floats over every ordinary window, so the conversation's never covers it
+  and Chromium goes on drawing it. A card's page's own `moveTo` and
+  `resizeTo` are refused while it is unseen. Expanded, it is an ordinary
+  application and window again, and its page may move it. Through alo's CEF
+  host in `tests/a_page_as_a_card_through_chrome.rs` and
+  `tests/a_cards_page_moving_its_own_window_through_chrome.rs`; the
+  machine's Chrome stays an ordinary application whose page moves its
+  window (787, 788).
   **A person's pointer, wheel and keys on the card** (718, ADR 0024 § 5):
   the browser process computes the card's page box from the first
   screen's viewport and aims a point of the window at it from its own
@@ -919,7 +932,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   streams every frame at 1756 × 1040 and back at one at 878 × 520, drawn on
   no display (`tests/a_page_as_a_card_through_chrome.rs`). The machine's
   Chrome keeps its first scale (780); under Stage Manager the parked window
-  by the conversation's own display shows a blank tile in the strip (781).
+  by the conversation's own display showed a blank tile in the strip, now
+  gone (781, above).
   **The card's *Back* and *Forward*** (737): after each commit or move
   within its document of the page's own frame, the thread holding the card
   reads the tab's session history (`Page.getNavigationHistory`) and tells

@@ -36,6 +36,16 @@
 //! that clean-up would remove outside the profile is still kept inside it
 //! (`switches.rs`).
 //!
+//! # Out of the Dock while it holds a parked card
+//!
+//! Started for a card ([`crate::switches::card`]), the host is made an
+//! accessory application before CEF starts — no Dock icon, no place in
+//! ⌘-Tab, no tile in Stage Manager's strip, and not made active by showing
+//! its window — and an ordinary one again once the card is seen
+//! ([`crate::unseen_mac`], [`crate::parked`], queue items 781 and 739).
+//! Its `Info.plist` stays an ordinary application's: a host started for
+//! anything but a card is one throughout.
+//!
 //! # Its own bundle, inside alo's
 //!
 //! CEF looks for its framework and its main bundle in the **top-level**
@@ -54,7 +64,8 @@
 //! where it looks, so both are looked for first and their absence is said
 //! and the process ends with [`MISSING`].
 
-use crate::{application_mac, menu_mac, switches, window};
+use crate::parked::Stage;
+use crate::{application_mac, menu_mac, switches, unseen_mac, window};
 use cef::args::Args;
 use cef::library_loader::LibraryLoader;
 use cef::sandbox::Sandbox;
@@ -145,6 +156,12 @@ pub fn browser(program: &Path, profile: &Path, page: Option<String>, card: bool)
     if let Err(why) = application_mac::install(window::close_all) {
         eprintln!("alo's CEF host: no application object of its own: {why:?}");
         return NO_APPLICATION;
+    }
+    // A card's host is an accessory application from before CEF starts —
+    // so before it shows a window, which would make an ordinary one active
+    // — until the card is seen (`window.rs`, queue items 781 and 739).
+    if card {
+        unseen_mac::listed(Stage::Opened.listed());
     }
     let Some(bundle) = bundle(program) else {
         return MISSING;

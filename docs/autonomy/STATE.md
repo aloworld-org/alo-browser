@@ -47358,3 +47358,90 @@ same bytes as a web font (`chrome-layers.png`, >10,000 compared).
 4 fail.
 
 The next unused queue number is **787** and the next ADR is **0092**.
+
+## Iteration 484 — queue items 781, 739 and 778: a card's host out of the Dock, ⌘-Tab and Stage Manager's strip, and its window alo's alone to move (ADR 0076 B4's second amendment)
+
+Built in one batch under one gate run (the owner's choice; each item's
+paragraph is its own). Measured with a scratch build of the host driven by
+a Node client (`m781/` in the session scratchpad), then in the 717 tests and
+by hand.
+
+**781 — the strip.** Parked by the Retina display with Terminal brought in
+front there, the host's window was listed at 16, 505, 103 × 97 (a tile,
+blank, with the host's icon). Accessory — set before CEF starts, once CEF
+is up, in `OnWindowCreated` or after showing, or `LSUIElement` — or floating
+(`NSFloatingWindowLevel`), it stayed where parked, streaming 38–41 frames a
+second of a noisy page at two, rAF at 60, presses landing. Why 772's
+accessory host drew no card: no longer activated by showing its window,
+the host's window is shown under the conversation's and occluded, and
+Chromium stops laying it out — reproduced in the application (*Chrome's
+window was still moving, last at 455,145 and 878×552*, a blank card,
+`handrun21/first-try/`) and in the probe (the page `hidden` under alo's
+conversation, `visible` floating). **Built:** `unseen_mac::unseen` also
+floats the window while unseen (ordinary again when seen). **Tests:** the
+717 file asserts through the host the parked window listed floating (layer
+3) at Chromium's own size; not floated, all three host tests fail. A Mac
+with one display is reasoned, not measured.
+
+**739 — the Dock and ⌘-Tab.** As built the host was `Foreground`, in the
+Dock, frontmost after its window showed. **Built:** a card's host is an
+accessory application from before CEF starts until the card is seen
+(`unseen_mac::listed`, `parked::Stage::listed`, `host.rs`), and ordinary
+again once seen (`window.rs`). **Tests:** `UIElement` while parked and
+`Foreground` once expanded (through Chrome too, which is always
+`Foreground`), read by `lsappinfo` (`tests/listed/mod.rs`). Mutations:
+never accessory — both host tests fail; never ordinary again — the expanded
+test fails. **Cut:** the machine's Chrome (788). The expanded window's
+reading now waits for half a second of agreeing readings (`SETTLED`): made
+ordinary as it is seen, the host's window was read at 900 × 600 twice
+before its title bar made it 900 × 632.
+
+**778 — a page moving its window.** **Built:** every page's display handler
+answers `OnContentsBoundsChange` as handled while its window is a card's
+and unseen (`parked::Stage::moved_by_its_page`; `Page` and `Titled` share
+the card's stage with `Framed`). **Tests:**
+`a_cards_page_moving_its_own_window_through_chrome.rs` (new, in nextest's
+shown-Chrome list): ten asks for 200, 200 and 400 × 300 leave the window at
+−3725, −50, 878 × 552, alpha 0, on no display, `UIElement`, 103 frames
+streamed; expanded, opaque at 200, 200. Mutations: never refused — fails
+(opaque at −2320, 200, 400 × 300); always refused — fails after *Expand*.
+**Cut:** the machine's Chrome (787).
+
+All 25 card and host tests in `alo-window` passed through both programs
+(337 s); `alo-cef-host`'s unit tests 20. No new file names `cef` or
+`objc2`; no `unsafe`; ADR 0080 notes the file's two new calls.
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys, `--conversation` on the
+Retina display; `handrun21/`; pointer saved and put back):
+`en.wikipedia.org` in a card drew (`01-card.png`), the host's window at
+1670, 34 floating at alpha 0, the host `UIElement`, alo frontmost; no tile
+of it in the Retina display's strip (`02-retina-strip.png`); ⌘-Tab's
+switcher showed one *alo* (`03-cmd-tab*.png`), the Dock one *alo*
+(`04-dock.png`); *Expand* showed the page opaque, the host `Foreground` and
+frontmost with its menu bar *alo, Edit, Window* (`05-expanded.png`); the
+window closed (`06-closed.png`) and ⌘Q left no alo process. A macOS
+notification "Not Allowed was prevented from modifying apps on your Mac"
+was on screen throughout (not this change's; not looked into); keys sent
+through System Events typed nothing into the box, so the box was pressed and
+typed into with `cliclick`.
+
+**Found by the first gate run:** `the_application_carrying_its_chromium`'s
+"the host carried is not the host built" — the host, grown by this change,
+stripped of the linker's signature and of the seal, differed in one byte:
+`__LINKEDIT`'s `vmsize`, which `codesign --remove-signature` leaves at the
+removed signature's page-rounded size (0x164000 against 0x168000; both
+2,453,912 bytes). The test now reads that one number as zero in both and
+compares every other byte (`linkedit_vmsize`).
+
+**Gate: met** (third run). The first failed on the comparison above; the
+second on the closed-list menu flake (658's family: *the pointer never
+reached 775, 64* in `a_menu_the_pointer_is_moved_over_chooses_nothing_and_is_closed`,
+which passed alone, 4 of 4). **Summary [862.959s] 6098 tests run: 6098
+passed (7 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+
+**Cut:** a card's page moving its window through the machine's Chrome
+(787); the machine's Chrome in the Dock and ⌘-Tab while it holds a card
+(788).
+
+The next unused queue number is **789** and the next ADR is **0092**.

@@ -2464,10 +2464,16 @@ items where being right and being unusable are the same outcome.
       first (780); a parked card's window unseen (771, ADR 0076 B4's
       amendment) — drawn transparent and letting the pointer through by the
       Chromium alo carries until *Expand*, on no display by the window
-      server's list while it streams; the machine's Chrome keeps its strip
+      server's list while it streams; the machine's Chrome keeps its strip;
+      a parked card out of the Dock, ⌘-Tab and Stage Manager's strip, and
+      moved by alo alone (781, 739, 778, ADR 0076 B4's second amendment) —
+      the card's host an accessory application with its unseen window
+      floating until *Expand*, and its page's own moves refused, through the
+      Chromium alo carries
       · Owed: the rail's chats (760), a refused scheme handed on by the
       machine's Chrome (782), a card's new scale through the machine's
-      Chrome (780), a parked card's window in Stage Manager's strip (781),
+      Chrome (780), a page moving its card's window and the Dock and ⌘-Tab
+      through the machine's Chrome (787, 788),
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
