@@ -21,6 +21,7 @@ use crate::asking::{Answer, Ask, Refused};
 use crate::card_input::CardInput;
 use crate::chrome_history::Way;
 use crate::mark::Marked;
+use crate::scale::Scale;
 use alo_paint::Point;
 use alo_renderer::pointer::Pointer;
 use alo_renderer::{Frame, Page, Screen, Visibility};
@@ -86,7 +87,11 @@ pub enum CardOrder {
     /// Stream the page as PNG frames, each at most this many device pixels
     /// each way: the card's page box times the window's scale — the page
     /// laid out at `page` CSS pixels first, the card's page box, when it is
-    /// not already (queue item 774: a narrower window, a narrower card).
+    /// not already (queue item 774: a narrower window, a narrower card) —
+    /// and drawn at `scale`, the window's, where the Chromium can be made
+    /// to (queue item 772: the Chromium alo carries, its window parked by a
+    /// display at that scale; the machine's Chrome keeps the one it was
+    /// started at).
     Stream {
         /// In device pixels.
         width: u32,
@@ -94,6 +99,8 @@ pub enum CardOrder {
         height: u32,
         /// In CSS pixels.
         page: (u32, u32),
+        /// The conversation's window's.
+        scale: Scale,
     },
     /// Stream no more: the card is off the screen.
     Unstream,

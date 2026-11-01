@@ -897,8 +897,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   1756 × 1040 parked by a display at one, within the budget, an agent's
   read unchanged; a card at one streams at 878 × 520
   (`tests/a_page_as_a_card_through_chrome.rs`). A conversation moved to a
-  display of another scale keeps its card's first scale (772); the parked
-  window is not off every display (771).
+  display of another scale keeps its card's first scale (772, below); the
+  parked window is not off every display (771).
+  **A card's frames at a new scale** (772, ADR 0090 amended): the Chromium
+  alo carries is told no scale; its window is parked by a display at the
+  conversation's scale — past a free edge of it, where the window server
+  leaves it, read back — and parked again when the conversation's window
+  moves to a display of another scale, so the page is drawn again at it,
+  not reloaded. Through alo's CEF host a card started at one, asked at two,
+  streams every frame at 1756 × 1040 and back at one at 878 × 520, drawn on
+  no display (`tests/a_page_as_a_card_through_chrome.rs`). The machine's
+  Chrome keeps its first scale (780); under Stage Manager the parked window
+  by the conversation's own display shows a blank tile in the strip (781).
   **The card's *Back* and *Forward*** (737): after each commit or move
   within its document of the page's own frame, the thread holding the card
   reads the tab's session history (`Page.getNavigationHistory`) and tells

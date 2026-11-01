@@ -107,15 +107,28 @@ pub fn scaled(scale: Scale) -> String {
 /// machine's Chrome is never given it, having no such thing to do.
 pub const CARD: &str = "--alo-card";
 
+/// Whether a card's Chromium is told its scale at start ([`scaled`], ADR
+/// 0090) and keeps it, or draws at the scale of the display its window is
+/// parked by, parked by one at the conversation's (`chrome_park.rs`, ADR
+/// 0090 as amended, queue item 772): the machine's Chrome is told, since a
+/// strip of its window beside the conversation would be seen; the Chromium
+/// alo carries, whose parked window is unseen ([`CARD`]), is not.
+pub fn told_its_scale(chromium: &Chromium) -> bool {
+    !matches!(chromium, Chromium::Carried(_))
+}
+
 /// What a card's Chromium is started with beside every Chromium's
-/// switches: the conversation window's `scale` ([`scaled`], ADR 0090), and
-/// for the Chromium alo carries, [`CARD`].
+/// switches: for the machine's Chrome, the conversation window's `scale`
+/// ([`scaled`], ADR 0090), which it then keeps; for the Chromium alo
+/// carries, [`CARD`] and no scale, which a switch would fix for its life
+/// (measured, queue item 772) — its window is parked by a display at the
+/// scale instead ([`told_its_scale`]).
 pub fn as_a_card(chromium: &Chromium, scale: Scale) -> Vec<String> {
-    let mut added = vec![scaled(scale)];
-    if matches!(chromium, Chromium::Carried(_)) {
-        added.push(CARD.to_owned());
+    if told_its_scale(chromium) {
+        vec![scaled(scale)]
+    } else {
+        vec![CARD.to_owned()]
     }
-    added
 }
 
 /// How many messages read from Chrome are held for an answer to be found
@@ -275,12 +288,14 @@ impl Chrome {
         Self::start_from(&Chromium::Machines, true)
     }
 
-    /// [`Chrome::start_from`], shown, its every window drawn at `scale`
-    /// whatever display it is on (`--force-device-scale-factor`, ADR 0090):
-    /// for a page shown as a card, whose window is parked by whichever
-    /// display the window server chooses (queue item 738) — and, for the
-    /// Chromium alo carries, unseen until the card is expanded ([`CARD`],
-    /// queue item 771).
+    /// [`Chrome::start_from`], shown, for a page shown as a card
+    /// ([`as_a_card`]): the machine's Chrome with its every window drawn at
+    /// `scale` whatever display it is on (`--force-device-scale-factor`,
+    /// ADR 0090), its window parked by whichever display the window server
+    /// chooses (queue item 738); the Chromium alo carries unseen until the
+    /// card is expanded ([`CARD`], queue item 771) and drawn at the scale of
+    /// the display it is parked by, which is chosen for `scale` once it is
+    /// shown (queue item 772).
     ///
     /// # Errors
     ///
@@ -607,19 +622,22 @@ mod tests {
     }
 
     #[test]
-    fn a_cards_chromium_is_told_its_scale_and_only_alos_own_that_it_is_a_card() {
+    fn only_the_machines_chrome_is_told_its_scale_and_only_alos_own_that_it_is_a_card() {
+        let carried = Chromium::Carried(PathBuf::from(
+            "/A/alo Chromium.app/Contents/MacOS/alo Chromium",
+        ));
+        assert!(told_its_scale(&Chromium::Machines));
+        assert!(!told_its_scale(&carried));
         assert_eq!(
             as_a_card(&Chromium::Machines, Scale::TWO),
             ["--force-device-scale-factor=2"]
         );
         assert_eq!(
-            as_a_card(
-                &Chromium::Carried(PathBuf::from(
-                    "/A/alo Chromium.app/Contents/MacOS/alo Chromium"
-                )),
-                Scale::ONE
-            ),
-            ["--force-device-scale-factor=1", "--alo-card"]
+            as_a_card(&Chromium::Machines, Scale::ONE),
+            ["--force-device-scale-factor=1"]
         );
+        // Told, it would keep the scale for its life (queue item 772).
+        assert_eq!(as_a_card(&carried, Scale::ONE), ["--alo-card"]);
+        assert_eq!(as_a_card(&carried, Scale::TWO), ["--alo-card"]);
     }
 }

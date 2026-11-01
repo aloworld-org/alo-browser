@@ -98,7 +98,7 @@ use crate::agent_record::{AgentRecord, Caller};
 use crate::agent_sites::AgentSites;
 use crate::asking::{Answer, Ask, Refused};
 use crate::beside::Chromium;
-use crate::chrome::{Chrome, Failed, Unstarted};
+use crate::chrome::{self, Chrome, Failed, Unstarted};
 use crate::chrome_card;
 use crate::chrome_follow::{FOLLOW_EVERY, Follow, Following};
 use crate::chrome_frame;
@@ -106,6 +106,7 @@ use crate::chrome_history;
 use crate::chrome_mark::{Marker, Marking};
 use crate::chrome_named::{self, Naming};
 use crate::chrome_pages::ChromePages;
+use crate::chrome_park;
 use crate::chrome_profile::Swept;
 use crate::chrome_protocol::Named;
 use crate::chrome_tab::{Tab, Unopened};
@@ -357,10 +358,14 @@ impl ChromeServing {
     /// not once it has loaded ([`Tab::open_as_a_card`], queue item 751), so
     /// a slow page is streamed from its first paint.
     ///
-    /// The Chromium is told `scale`, the conversation's window's, and draws
-    /// the page at it wherever its parked window is (ADR 0090, queue item
-    /// 738): the window server parks a window by a display of its own
-    /// choosing, which is the conversation's only by chance.
+    /// The page is drawn at `scale`, the conversation's window's: the
+    /// machine's Chrome is told it, and draws at it wherever its parked
+    /// window is, for its life (ADR 0090, queue item 738) — the window
+    /// server parks a window by a display of its own choosing, which is the
+    /// conversation's only by chance; the Chromium alo carries is told no
+    /// scale and its window is parked by a display at `scale`
+    /// ([`chrome_park`], ADR 0090 as amended, queue item 772), and parked
+    /// again when a stream is asked at another.
     ///
     /// # Errors
     ///
@@ -557,8 +562,8 @@ fn serve_in_chrome(
             return record;
         }
     };
-    let placed = match placing(&mut tab, drawn) {
-        Ok(placed) => placed,
+    let (placed, scaled) = match placed_and_scaled(&mut tab, chromium, drawn) {
+        Ok(both) => both,
         Err(why) => {
             let _ = tell.send(Err(Unserved::Unplaced(why)));
             return record;
@@ -596,7 +601,7 @@ fn serve_in_chrome(
     let mut told_travel = chrome_history::Told::default();
     // And the size its page was last laid out at (queue item 774), and
     // whether its window is still parked (queue item 771).
-    let mut fitted = chrome_card::Fitted::parked(size);
+    let mut fitted = chrome_card::Fitted::parked(size, scaled);
     loop {
         let until = chrome_card::until(
             pages.tab(),
@@ -673,6 +678,29 @@ fn open(
         Opening::Frozen { url, page } => Tab::open_frozen(chrome, &url, page, size),
         Opening::Network(address) if a_card => Tab::open_as_a_card(chrome, &address, size),
         Opening::Network(address) => Tab::open(chrome, &address, size),
+    }
+}
+
+/// [`placing`], and how the scale its page is drawn at is had: a card of
+/// the Chromium alo carries is parked by a display at its scale, which it
+/// then draws at (queue item 772); every other window is put where it was
+/// asked to be, and a card's Chromium was told its scale.
+fn placed_and_scaled(
+    tab: &mut Tab<'_>,
+    chromium: &Chromium,
+    drawn: Drawn,
+) -> Result<(Option<Placed>, chrome_card::Scaled), Unplaced> {
+    match drawn {
+        Drawn::Shown {
+            scale: Some(scale), ..
+        } if !chrome::told_its_scale(chromium) => {
+            let parked = chrome_park::park(tab, scale);
+            Ok((
+                Some(chrome_window::placed(tab)?),
+                chrome_card::Scaled::ByItsDisplay(parked),
+            ))
+        }
+        _ => Ok((placing(tab, drawn)?, chrome_card::Scaled::Told)),
     }
 }
 

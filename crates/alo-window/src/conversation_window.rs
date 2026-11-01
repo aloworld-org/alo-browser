@@ -1123,6 +1123,49 @@ mod tests {
         window.finish();
     }
 
+    /// Queue item 772: the window dragged from a display at one to one at
+    /// two — measured again at twice the device pixels, the same size in
+    /// points — asks for the card's stream at two, the same page box; and
+    /// dragged back, at one again. A card's Chromium is parked by a display
+    /// at the scale each stream asks (`chrome_card.rs`).
+    #[test]
+    fn a_card_is_streamed_at_the_scale_of_the_display_the_window_is_moved_to() {
+        // No scale named: the window's is its display's.
+        let drawing = ConversationDrawing::start(
+            Renderers::running("/nonexistent/alo-render", &[]),
+            Box::new(|_| true),
+        )
+        .unwrap();
+        let chrome = ChromeOpener::start(Chromium::Machines, Box::new(|_| true)).unwrap();
+        let mut window = ConversationWindow::new(None, drawing, chrome);
+        let moved = |window: &mut ConversationWindow, scale_factor: f64| {
+            let times = if scale_factor > 1.5 { 2 } else { 1 };
+            window.measured_as(Measured {
+                size: (1280 * times, 820 * times),
+                scale_factor,
+                outer: Some((0, 0)),
+            });
+            window.ask_drawn();
+        };
+        moved(&mut window, 1.0);
+        window.heard(Heard::Chrome(Went::Opening(
+            alo_url::parse("https://example.com/").unwrap(),
+        )));
+        window.seen(true);
+        assert_eq!(window.streaming, Some(Streamed::at((878, 520), Scale::ONE)));
+        moved(&mut window, 2.0);
+        assert_eq!(window.streaming, Some(Streamed::at((878, 520), Scale::TWO)));
+        assert_eq!(
+            window
+                .streaming
+                .map(|streamed| (streamed.width, streamed.height)),
+            Some((1756, 1040))
+        );
+        moved(&mut window, 1.0);
+        assert_eq!(window.streaming, Some(Streamed::at((878, 520), Scale::ONE)));
+        window.finish();
+    }
+
     /// Queue item 775: narrowed past 760 the panel folds to its rail on its
     /// own, the card's page streamed beside it as when a person hides it;
     /// widened again it unfolds — unless a person hid it — and *Show the

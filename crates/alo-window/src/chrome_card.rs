@@ -18,9 +18,13 @@
 //!   [`CAST_EVERY`] at most. A card whose page box is another size than the
 //!   page is laid out at — the window made narrower or wider, the panel
 //!   hidden or shown (queue item 774) — has Chrome's window fitted to it
-//!   first — at [`crate::chrome_window::PARKED`] while it is parked, so it
-//!   stays parked — so one CSS pixel of the page is still one of the
-//!   card's. Of the streams asked while the thread was busy, only the
+//!   first — where it was parked while it is parked, so it stays parked —
+//!   so one CSS pixel of the page is still one of the card's. A stream
+//!   asked at a scale the page is not drawn at — the conversation moved to
+//!   a display of another — has the window of the Chromium alo carries
+//!   parked again by a display at that scale ([`crate::chrome_park`],
+//!   queue item 772), so its frames come at it; the machine's Chrome keeps
+//!   the scale it was started at ([`Scaled::Told`]). Of the streams asked while the thread was busy, only the
 //!   newest is carried out ([`only_the_newest_stream`]): a window dragged
 //!   narrower asks one at every step.
 //! - **Unstream**: Chrome is told to stop, and the conversation what the
@@ -62,6 +66,7 @@
 
 use crate::chrome_card_input;
 use crate::chrome_history::{self, Told};
+use crate::chrome_park::{self, Parked};
 use crate::chrome_tab::Tab;
 use crate::chrome_window;
 use crate::frame_told::{ToFrame, Uncast};
@@ -79,22 +84,52 @@ pub const CAST_EVERY: Duration = Duration::from_millis(4);
 pub type TellCard<'t> = Option<&'t (dyn Fn(ToFrame) -> bool + Send)>;
 
 /// What the thread holding a card's tab has made of its window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Fitted {
     /// The size, in CSS pixels, the page was last laid out at as far as
     /// this thread has fitted it (queue item 774).
     pub page: (u32, u32),
     /// Whether the window is still parked, the card not yet expanded: a
-    /// parked window is fitted at [`chrome_window::PARKED`], so that it
-    /// stays parked (queue item 771).
+    /// parked window is fitted where it was parked, so that it stays
+    /// parked (queue item 771).
     pub parked: bool,
+    /// How the scale its page is drawn at is had (queue item 772).
+    pub scaled: Scaled,
+}
+
+/// How the scale a card's page is drawn at is had (ADR 0090 as amended,
+/// queue item 772).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Scaled {
+    /// Told its Chromium at start (`--force-device-scale-factor`), and kept
+    /// for its life wherever its window is — the machine's Chrome, whose
+    /// window is parked at [`chrome_window::PARKED`].
+    Told,
+    /// From the display its window is parked by — the Chromium alo
+    /// carries, untold: parked again ([`chrome_park::park`]) whenever a
+    /// stream is asked at a scale it is not drawn at, so a conversation
+    /// moved to a display of another scale has its card's frames at it.
+    ByItsDisplay(Parked),
 }
 
 impl Fitted {
     /// A card's window as the thread holding it starts: its page laid out
-    /// at `page`, and parked.
-    pub fn parked(page: (u32, u32)) -> Self {
-        Self { page, parked: true }
+    /// at `page`, and parked, its scale had as `scaled` says.
+    pub fn parked(page: (u32, u32), scaled: Scaled) -> Self {
+        Self {
+            page,
+            parked: true,
+            scaled,
+        }
+    }
+
+    /// Where a parked window is fitted, so that it stays parked: where it
+    /// was parked.
+    fn parked_at(&self) -> (i32, i32) {
+        match &self.scaled {
+            Scaled::Told => chrome_window::PARKED,
+            Scaled::ByItsDisplay(parked) => parked.at,
+        }
     }
 }
 
@@ -106,24 +141,43 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted
             width,
             height,
             page,
+            scale,
         } => {
             if tab.casting().is_on() {
                 // Asked again at another size: stopped and started, since
                 // Chrome takes a stream's size only as it starts.
                 stop(tab, tell);
             }
+            // Whether fitting the page moved the window off the display it
+            // was parked by: fitted wider, a window may be mostly on
+            // another.
+            let mut moved_off = false;
             if fitted.page != page {
                 // Declined, the page keeps its size and its frames are
                 // drawn in the card's box as they come; asked again with
                 // the next stream.
                 let fit = if fitted.parked {
-                    chrome_window::fit_at(tab, page.0, page.1, chrome_window::PARKED)
+                    chrome_window::fit_at(tab, page.0, page.1, fitted.parked_at())
                 } else {
                     chrome_window::fit(tab, page.0, page.1)
                 };
-                if fit.is_ok() {
+                if let Ok(placed) = fit {
                     fitted.page = page;
+                    if let Scaled::ByItsDisplay(parked) = &mut fitted.scaled {
+                        let before = parked.drawn;
+                        parked.drawn =
+                            chrome_park::drawn_at(placed.window.bounds, &parked.displays);
+                        moved_off = before == Some(parked.scale) && parked.drawn != before;
+                    }
                 }
+            }
+            if fitted.parked
+                && let Scaled::ByItsDisplay(parked) = &mut fitted.scaled
+                && (parked.scale != scale || moved_off)
+            {
+                // Parked by a display at the scale asked, once per scale:
+                // whatever it came to is what the frames are drawn at.
+                *parked = chrome_park::park(tab, scale);
             }
             // Declined, the card keeps no picture; see the module's words.
             let _ = tab.cast(width, height);
@@ -283,6 +337,7 @@ mod tests {
             width,
             height: 520,
             page: (width, 520),
+            scale: crate::scale::Scale::ONE,
         }))
     }
 

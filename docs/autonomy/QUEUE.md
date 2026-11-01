@@ -21159,7 +21159,7 @@ What stage 2's exit gate actually measures: a person using it.
   a headless card for `alo --chrome`. **Cut:** a card's page moving its own
   window into view (778).
 
-- [ ] **772. A card's frames at a new scale after it opened.** Cut from
+- [x] **772. A card's frames at a new scale after it opened.** Cut from
   738. A card's Chromium is started at the conversation window's scale
   (ADR 0090) and keeps it: the window dragged from a display at one to
   the Retina display streams frames at one, enlarged and blurred, until
@@ -21170,6 +21170,70 @@ What stage 2's exit gate actually measures: a person using it.
   card's frames stay at their first scale. *Depends on 738. Closes when:*
   a card opened at one and moved to two streams at two, or the decision
   not to is an ADR, tested through both programs.
+  ***Done for the Chromium alo carries (iteration 479, ADR 0090 amended),
+  with cuts to 780 and 781.*** **Measured** (both programs, three
+  displays, a Node client): told `--force-device-scale-factor`, nothing a
+  running Chromium takes changes its frames — its window moved onto a
+  display of another scale, `Emulation.setDeviceMetricsOverride` (the page
+  told two, frames still 878 × 520), the stream restarted, the window
+  resized; told nothing, both draw at the scale of the display holding the
+  window and redraw at another's as soon as it is moved there, while
+  streaming (−3725, 0 by the portrait display: 878 × 520; 1670, 34 by the
+  Retina display: 1756 × 1040; and back). The window server moves a window
+  asked past a display's free edge back onto that display (40 points inside
+  a right edge, 32 rows inside a bottom edge). **Decided (ADR 0090
+  amended):** the carried Chromium is told no scale (`--alo-card` alone)
+  and its window is parked by a display at the conversation's scale
+  (`chrome_park.rs`: `places` past a free right, left or bottom edge,
+  `drawn_at` the display holding the most of it, read back, `PARKED` when
+  none fits), and parked again when a stream is asked at another scale
+  (`CardOrder::Stream`'s `scale`, `chrome_card::Scaled`); the display list
+  now carries each display's `backingScaleFactor`
+  (`window_server::Display`). The machine's Chrome keeps ADR 0090 § 1 —
+  its parked window cannot be made unseen (780). No new Chromium for a new
+  scale: the page's state is kept. **Tests:** through the host
+  (`a_page_as_a_card_through_chrome.rs`), a card started at one streams
+  878 × 520, asked at two 1756 × 1040 (its window by the Retina display,
+  drawn on no display), at one again 878 × 520; through Chrome, 878 × 520
+  throughout; the 717 test at two through both (the host 18.7 a second,
+  25.1 MiB/s, a read 0.95 → 0.99 ms). Unit tests: `chrome_park.rs` (3),
+  `window_server.rs` (displays with their scales), `chrome.rs`,
+  `conversation_window.rs` (the window moved to two and back asks two and
+  one). Mutations: no new park on a new scale, the carried Chromium told
+  its scale — each fails at two (878 × 520); `drawn_at` by the least area,
+  and `places` not refusing a place on another display — each fails its
+  unit test. **By hand** (`handrun19/`): `en.wikipedia.org` at one on the
+  display at one, dragged to the Retina display: sharp (mean |Laplacian|
+  11.99 at 1756 × 1040 against 5.54 for the crop at one enlarged), *Talk*
+  followed, and back at one parked by the portrait display. **Found:**
+  under Stage Manager, the parked window by the conversation's own display
+  goes to its strip as a blank tile with the carried Chromium's icon (781).
+
+- [ ] **780. A card's new scale through the machine's Chrome.** Cut from
+  772. The machine's Chrome is told the conversation's scale at start (ADR
+  0090 § 1) and keeps it; told nothing, its window could be parked by a
+  display at the scale as the carried Chromium's is, but a strip of its
+  opaque window would be seen beside the conversation (ADR 0076 B4's
+  amendment, 779). `alo --chrome` and tests only. Decide whether it waits
+  on 779 (an unseen parked window) or stays at its first scale. *Depends
+  on 772, 779. Closes when:* a card through the machine's Chrome moved to
+  two streams at two with nothing of it seen, or the decision to leave it
+  is written in ADR 0090.
+
+- [ ] **781. A parked card's window in Stage Manager's strip.** Found by
+  772's hand run: with Stage Manager on, the carried Chromium's parked
+  window on the display holding the conversation — by the conversation's
+  scale (772), or on a Mac with one display (771) — is put in that
+  display's strip as a blank tile with *alo Chromium*'s icon, though it is
+  transparent and still streams. `Transient`, `IgnoresCycle` and
+  `Auxiliary` collection behaviours did not keep it out; the host made an
+  accessory application did, but its window then neither moved nor drew a
+  card (measured, not built). Measure what keeps a window of another
+  application out of the strip and streaming (beside 739: the Dock and
+  ⌘-Tab), and decide. *Depends on 771, 772; beside 739. Closes when:* a
+  card parked by the conversation's display under Stage Manager leaves no
+  tile in its strip and still streams, or the decision to leave it is in
+  ADR 0076 B4.
 
 - [ ] **773. The AI provider's slot among the carried keys.** Cut from 748.
   ADR 0091 carries the providers' keys inside the application, but defines

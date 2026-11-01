@@ -2449,11 +2449,16 @@ items where being right and being unusable are the same outcome.
       (738, ADR 0090) — its Chromium started at the conversation's scale
       wherever its window is parked, and its stream paced to ADR 0076's
       24 MiB a second so the agent's pipe waits for none of it, through both
-      Chromiums; a parked card's window unseen (771, ADR 0076 B4's
+      Chromiums; a card's frames at a new scale (772, ADR 0090 amended) —
+      the Chromium alo carries told no scale and parked by a display at the
+      conversation's, again when it moves, the machine's Chrome keeping its
+      first (780); a parked card's window unseen (771, ADR 0076 B4's
       amendment) — drawn transparent and letting the pointer through by the
       Chromium alo carries until *Expand*, on no display by the window
       server's list while it streams; the machine's Chrome keeps its strip
-      · Owed: the rail's chats (760), an agent reaching a page the conversation
+      · Owed: the rail's chats (760), a card's new scale through the machine's
+      Chrome (780), a parked card's window in Stage Manager's strip (781),
+      an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
       a page inside the conversation (702), the agent's words and steps as

@@ -1,6 +1,6 @@
 # ADR 0090 — A card's Chromium is told the conversation's scale, and its stream is paced
 
-**Status:** accepted — built with queue item 738 (31 October 2026)
+**Status:** accepted — built with queue item 738 (31 October 2026); § 1 amended for the Chromium alo carries by queue item 772 (1 November 2026, *Amended* below)
 **Date:** 2026-10-31
 **Context:** ADR 0076 B (the card is drawn from the PNG frames Chromium
 streams of its page, Chromium's window parked off every display; B1 and B2,
@@ -189,3 +189,136 @@ Mutations: the switch not passed fails at the frames' size through both;
 the pace taken out fails at the budget through both (67.6 and 77.5 MiB a
 second). By hand (`handrun13/`): `en.wikipedia.org` in a card on the Retina
 display, blurred before and sharp after.
+
+## Amended (1 November 2026, queue item 772): the Chromium alo carries follows the conversation's scale
+
+§ 1 told a card's Chromium its scale at start and said it could not be
+changed after: a conversation dragged from a display at one to the Retina
+display streamed its card at one, enlarged and blurred, until the next card.
+This amendment measures what a running Chromium takes, and decides.
+
+### Measured
+
+The same Mac, macOS 26.5, Stage Manager on, the same three displays (the
+Retina display at two at the origin; one at one left of it, −1920, 0; a
+portrait one at one left of that, −3000, −80). Google Chrome 156.0.8078.76
+and alo's CEF host (CEF 156.0.14, Chromium 156.0.8078.48; the host with
+`--alo-card`, its window transparent), each shown with `--app=data:,`, its
+window 878 × 552 parked at `left: -20000`, its page a box turning and a
+field of noise, streamed as PNG at most 1756 × 1040; then its window moved
+with `Browser.setWindowBounds` and read two seconds later — frames' sizes,
+`devicePixelRatio`, where Chromium and the window server put it. A Node
+client of the scratchpad's; neither program's source was read.
+
+| started with | then | where it went | `devicePixelRatio` | frames |
+|---|---|---|---|---|
+| no scale switch (both) | parked at −20000, 0 | −3725, 0, 153 points on the portrait display | 1 | 878 × 520 |
+| no scale switch (both) | asked 20000, 0 | 1670, 34, 40 points on the Retina display | 2 | **1756 × 1040** |
+| no scale switch (both) | asked −20000, 0 again | −3725, 0 | 1 | 878 × 520 |
+| no scale switch (host) | asked 0, 20000 | −1960, 1808, 40 × 32 on the portrait display | 1 | 878 × 520 |
+| `--force-device-scale-factor=1` (both) | asked 20000, 0 | 1670, 34 | 1 | 878 × 520 |
+| the same | `Emulation.setDeviceMetricsOverride`, `deviceScaleFactor: 2` | — | 2 | 878 × 520 |
+| the same | the screencast stopped and started again | — | 2 | 878 × 520 |
+| the same | the window resized to 900 and back | — | 2 | 878 × 520 |
+| `--force-device-scale-factor=2` (Chrome) | moved between the two | — | 2 | 1756 × 1040 throughout |
+
+Where the window server leaves a window asked just past a display's edge
+(the host, no switch): 1711, 0 / 600 / 1000 → 1670 at that height, at two;
+0 or 800, 1108 (under the Retina display) → that x, 1075 — 32 rows on it —
+at two; −1000 or −1920, 1081 (under the display at one) → that x, 1048, at
+one; −2500, 1841 (under the portrait one) → −2500, 1808, at one; above any
+display (−1000, 1000 or −2500, −1000) → wholly under its top, 30 or 34. A
+window asked past a display's edge with no display beyond it is moved back
+onto that display, and drawn at its scale, within the two seconds read.
+
+So: **nothing a running Chromium takes over the pipe changes a scale it was
+told at start** — not a move onto a display of another, not emulation (the
+page told two, the frame still one), not a new stream, not a resize; CEF's
+own host-side calls for it (`NotifyScreenInfoChanged`, `WasResized`) are
+documented by CEF as for windowless rendering only, which a Chrome-style
+browser view — the one ADR 0060's held requests need — does not do (read in
+CEF's API documentation; not tried). **Told nothing, either
+program draws its window at the scale of the display holding it, and again
+at another's as soon as it is moved there, while it streams.** Through the
+carried Chromium only the place decides; through Chrome too, but a strip of
+Chrome's parked window on the conversation's display would be seen (ADR
+0076 B4's amendment, § 3).
+
+### Decision
+
+1. **The Chromium alo carries is told no scale.** A card of it is started
+   with `--alo-card` alone (`chrome::as_a_card`, `told_its_scale`), and its
+   window is **parked by a display at the conversation's scale**
+   (`chrome_park.rs`): for each display the window server lists at exactly
+   that scale (`window_server::displays`, which now reads each display's
+   `backingScaleFactor`), just past its right edge, its left edge and its
+   bottom edge — each only where the window asked there meets no display,
+   never above (a window asked above is put wholly on the display). Where
+   the window went is read back (`chrome_window::put_at`), and the scale of
+   the display holding the most of it (`drawn_at`) must be the one asked,
+   or the next place is tried; with none — no display at that scale, one
+   at 1.25, the window server not answering — the window is parked at
+   `PARKED` as before and drawn at whatever display keeps it.
+2. **A new scale parks it again.** The conversation's window moved to a
+   display of another scale asks for the card's stream at it (queue item
+   774's restream, `Streamed::scale`), and `CardOrder::Stream` now carries
+   the scale; the thread holding the card parks the window by a display at
+   it before the stream starts again (`chrome_card::Scaled::ByItsDisplay`),
+   once per scale, and again only if fitting the page moved the window off
+   the display it was parked by. A parked window is fitted where it was
+   parked (`Fitted::parked_at`), so it stays there. The page is not
+   reloaded: the same Chromium, the same page, drawn again at the new scale.
+3. **The machine's Chrome keeps § 1.** It is still told the conversation's
+   scale at start (`Scaled::Told`) and keeps it: its parked window cannot be
+   made unseen, and parking it by the conversation's display would put a
+   strip of the live page beside the conversation. `alo --chrome` and tests
+   start it; the application never does. Queue item 780.
+4. **A new Chromium for a new scale is rejected** for both: it would lose
+   the page's state — a form half filled, a scroll, a login in a page's
+   memory — for a sharper picture; and through the carried Chromium it is
+   not needed.
+
+### What it costs
+
+- **The parked window is on the conversation's display when no other
+  display is at its scale**, as it already was with one display (ADR 0076
+  B4's amendment): transparent and letting the pointer through, so the
+  window server lists it drawn on no display. But **under Stage Manager it
+  is put in the display's strip**, as a blank tile with the carried
+  Chromium's icon — measured by hand with the conversation on the Retina
+  display, both when the card opened there and when the conversation was
+  dragged there; the window is then listed at the tile (16, 714, 103 × 111,
+  alpha 0) and still streams at two and takes presses. Moved back to a
+  display at one, the window is parked by it again and the tile goes.
+  Neither the window's `Transient`, `IgnoresCycle` nor `Auxiliary`
+  collection behaviour kept it out of the strip; making the host an
+  accessory application did, but its window then was not moved and drew no
+  card (measured, not built). Queue item 781.
+- Parking asks the window server for its displays (`osascript`, about
+  80 ms) and moves the window (150 ms or more until it is still) at a
+  card's start and at each new scale — not at each resize.
+- A display at a scale this engine has not measured (1.25, 1.75) is
+  parked by only when nothing else is — then the frames come at its scale
+  and are drawn into the card's box as they come.
+
+### Built and tested
+
+Queue item 772: `chrome_park.rs` (`park`, `places`, `drawn_at`);
+`window_server::Display` and the displays' scales; `chrome::told_its_scale`
+and `as_a_card`; `chrome_card::Fitted`'s `Scaled`; `CardOrder::Stream`'s
+`scale`; `chrome_serving`'s `placed_and_scaled`. Through alo's CEF host
+(`a_page_as_a_card_through_chrome.rs`): a card started at one streams every
+frame at 878 × 520, asked at two every frame at **1756 × 1040**, its window
+listed at 1670, 34 by the Retina display and drawn on no display, and asked
+at one again 878 × 520, parked at −3725, −50 by the portrait display; a card
+started at two parked by the Retina display streams 1756 × 1040 at 18.7 a
+second within the budget, an agent's read 0.95 → 0.99 ms median. Through
+Chrome the same card at one asked at two streams 878 × 520 throughout.
+Mutations: no new park on a new scale, and the carried Chromium told its
+scale, each fail at *moved to two* (878 × 520). By hand (`handrun19/`):
+`en.wikipedia.org` in a card at one, the conversation dragged to the Retina
+display: the card sharp — mean |Laplacian| 11.99 over the page's crop at
+1756 × 1040 where the crop at one enlarged two times bilinearly gives 5.54
+— *Talk* pressed and followed, and dragged back, parked by the portrait
+display again; the Stage Manager tile while on the Retina display.
+

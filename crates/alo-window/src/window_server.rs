@@ -34,10 +34,12 @@
 //! written into its text. And where every display is ([`displays`]), so
 //! that whether a person can see any of a window is said against all of
 //! them ([`seen`]) — a card's window is parked by the window server with a
-//! strip of it on whichever display it chooses (queue item 771).
+//! strip of it on whichever display it chooses (queue item 771) — and the
+//! scale each draws a window at, so that a card's window can be parked by
+//! a display at the conversation's (`chrome_park.rs`, queue item 772).
 //!
 //! What `osascript` prints is read as strictly as anything from outside: a
-//! line that is not exactly eight numbers — four for a display — is
+//! line that is not exactly eight numbers — five for a display — is
 //! refused, and so is the whole reading, rather than half of it believed.
 
 use crate::chrome_protocol::Bounds;
@@ -69,7 +71,8 @@ const LISTING: &str = "ObjC.import('CoreGraphics');\
 /// The script listing the displays, a line each — left, top, width, height
 /// — in the window server's points, where windows are: `AppKit`'s screens,
 /// whose frames count up from the main display's bottom edge, turned to
-/// count down from its top as the window server's do.
+/// count down from its top as the window server's do; and then the scale a
+/// window on it is drawn at, its `backingScaleFactor` (queue item 772).
 #[cfg(target_os = "macos")]
 const DISPLAYS: &str = "ObjC.import('AppKit');\
     function run() {\
@@ -78,9 +81,20 @@ const DISPLAYS: &str = "ObjC.import('AppKit');\
       var main = screens[0].frame.size.height;\
       return screens.map(s => { var f = s.frame;\
           return [f.origin.x, main - f.origin.y - f.size.height,\
-            f.size.width, f.size.height].join(' '); })\
+            f.size.width, f.size.height, s.backingScaleFactor].join(' '); })\
         .join('\\n');\
     }";
+
+/// A display, as the window server has it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Display {
+    /// Where it is, in the window server's points, the main display's top
+    /// left corner at the origin.
+    pub bounds: Bounds,
+    /// How many device pixels a point is on it — the scale a window on it
+    /// is drawn at: `AppKit`'s `backingScaleFactor`, as it said it.
+    pub factor: f64,
+}
 
 /// A window the window server shows on the screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,15 +206,15 @@ pub fn on_the_screen(_owner: u32) -> Result<Vec<Listed>, Unlisted> {
     Err(Unlisted::Elsewhere)
 }
 
-/// Where every display is, in the window server's points, the main one's
-/// top left corner at the origin.
+/// Every display: where it is, in the window server's points, the main
+/// one's top left corner at the origin, and the scale it draws a window at.
 ///
 /// # Errors
 ///
 /// [`Unlisted`], when it could not be asked or what it said is not a
 /// listing of displays — or [`Unlisted::Elsewhere`] off macOS.
 #[cfg(target_os = "macos")]
-pub fn displays() -> Result<Vec<Bounds>, Unlisted> {
+pub fn displays() -> Result<Vec<Display>, Unlisted> {
     let ran = std::process::Command::new("osascript")
         .args(["-l", "JavaScript", "-e", DISPLAYS])
         .stdin(std::process::Stdio::null())
@@ -221,7 +235,7 @@ pub fn displays() -> Result<Vec<Bounds>, Unlisted> {
 ///
 /// [`Unlisted::Elsewhere`], always.
 #[cfg(not(target_os = "macos"))]
-pub fn displays() -> Result<Vec<Bounds>, Unlisted> {
+pub fn displays() -> Result<Vec<Display>, Unlisted> {
     Err(Unlisted::Elsewhere)
 }
 
@@ -252,8 +266,8 @@ fn meet(one: Bounds, other: Bounds) -> bool {
 /// # Errors
 ///
 /// [`Unread`], for the first line in it that is not four whole numbers
-/// with a width and a height above none.
-pub fn read_displays(printed: &[u8]) -> Result<Vec<Bounds>, Unread> {
+/// with a width and a height above none, then a scale above none.
+pub fn read_displays(printed: &[u8]) -> Result<Vec<Display>, Unread> {
     let text = core::str::from_utf8(printed).map_err(|_| Unread::NotText)?;
     let mut displays = Vec::new();
     for (index, line) in text.lines().enumerate() {
@@ -268,23 +282,39 @@ pub fn read_displays(printed: &[u8]) -> Result<Vec<Bounds>, Unread> {
     Ok(displays)
 }
 
-/// One display's line: its four bounds, each whole.
-fn display(line: &str) -> Option<Bounds> {
+/// One display's line: its four bounds, each whole, and its scale.
+fn display(line: &str) -> Option<Display> {
     let mut fields = line.split(' ');
     let mut sides = [0; 4];
     for side in &mut sides {
         *side = whole(fields.next()?)?;
     }
+    let factor = factor(fields.next()?)?;
     if fields.next().is_some() {
         return None;
     }
     let [left, top, width, height] = sides;
-    (width > 0 && height > 0).then_some(Bounds {
-        left,
-        top,
-        width,
-        height,
+    (width > 0 && height > 0).then_some(Display {
+        bounds: Bounds {
+            left,
+            top,
+            width,
+            height,
+        },
+        factor,
     })
+}
+
+/// A display's scale, written as a number above none: digits, and at most
+/// one point with digits after it.
+fn factor(field: &str) -> Option<f64> {
+    let (before, after) = field.split_once('.').unwrap_or((field, "0"));
+    let digits = |part: &str| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit());
+    if !digits(before) || !digits(after) {
+        return None;
+    }
+    let factor: f64 = field.parse().ok()?;
+    (factor.is_finite() && factor > 0.0).then_some(factor)
 }
 
 /// A listing as the script prints it, read.
@@ -500,18 +530,41 @@ mod tests {
 
     #[test]
     fn displays_are_read_a_display_a_line() {
+        let read = read_displays(b"0 0 1710 1107 2\n-3000 -80 1080 1920 1\n-1920 0 1920 1080 1\n")
+            .expect("three displays");
         assert_eq!(
-            read_displays(b"0 0 1710 1107\n-3000 -80 1080 1920\n-1920 0 1920 1080\n"),
-            Ok(THREE.to_vec())
+            read.iter()
+                .map(|display| display.bounds)
+                .collect::<Vec<_>>(),
+            THREE.to_vec()
+        );
+        assert_eq!(
+            read.iter()
+                .map(|display| display.factor.to_bits())
+                .collect::<Vec<_>>(),
+            [2.0_f64.to_bits(), 1.0_f64.to_bits(), 1.0_f64.to_bits()]
+        );
+        let between = read_displays(b"0 0 1280 800 1.5").expect("one display");
+        assert_eq!(
+            between.first().map(|display| display.factor.to_bits()),
+            Some(1.5_f64.to_bits())
         );
         assert_eq!(read_displays(b""), Ok(Vec::new()));
         for bad in [
             &b"0 0 1710"[..],
-            b"0 0 1710 1107 1",
-            b"0 0 0 1107",
-            b"0 0 1710 -1107",
-            b"0 0 1710.5 1107",
-            b"0 0 1710 1107 ",
+            b"0 0 1710 1107",
+            b"0 0 1710 1107 2 1",
+            b"0 0 0 1107 2",
+            b"0 0 1710 -1107 2",
+            b"0 0 1710.5 1107 2",
+            b"0 0 1710 1107 2 ",
+            b"0 0 1710 1107 0",
+            b"0 0 1710 1107 -2",
+            b"0 0 1710 1107 2.",
+            b"0 0 1710 1107 .5",
+            b"0 0 1710 1107 1e1",
+            b"0 0 1710 1107 NaN",
+            b"0 0 1710 1107 two",
         ] {
             assert_eq!(read_displays(bad), Err(Unread::BadLine(1)), "{bad:?}");
         }

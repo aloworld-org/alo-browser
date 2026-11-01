@@ -64,11 +64,13 @@ mod carried;
 use alo_window::agent_sites::AgentSites;
 use alo_window::agents::Listening;
 use alo_window::beside::Chromium;
+use alo_window::chrome_park;
 use alo_window::chrome_protocol::Bounds;
 use alo_window::chrome_screencast::{STREAM_BUDGET, png_size};
 use alo_window::chrome_serving::{ChromeServing, Opening};
 use alo_window::chrome_window::PARKED;
 use alo_window::frame_told::{ToFrame, Uncast};
+use alo_window::inbox::Orders;
 use alo_window::message::{CardOrder, Order};
 use alo_window::scale::Scale;
 use alo_window::window_server;
@@ -316,25 +318,31 @@ fn listed_at(process: u32, bounds: Bounds) -> Result<bool, String> {
     }
 }
 
-/// The card's window parked: left of the main display, by Chromium's word
-/// — and, through alo's CEF host (`unseen`), on no display by the window
-/// server's: no window of the process it lists on the screen is drawn on
-/// any display. Through the machine's Chrome, only left of the main
-/// display (see the module's words).
-fn parked(serving: &ChromeServing, who: &str, unseen: bool) -> Result<(), String> {
+/// The card's window parked. Through alo's CEF host (`unseen`): on no
+/// display by the window server's word — no window of the process it lists
+/// on the screen is drawn on any display — and, where a display draws at
+/// `scale`, parked by one at it, by Chromium's word (queue item 772).
+/// Through the machine's Chrome, left of the main display, by Chromium's
+/// word and the window server's (see the module's words).
+fn parked(serving: &ChromeServing, who: &str, unseen: bool, scale: Scale) -> Result<(), String> {
     let process = serving.process();
     let window = serving
         .placed()
         .map(|placed| placed.window.bounds)
         .ok_or("a shown Chromium's window was not read")?;
-    assert!(
-        window.left + window.width <= 0 && i64::from(PARKED.0) <= window.left,
-        "{who}'s window was not parked: {window:?}"
-    );
     let shown = window_server::on_the_screen(process).map_err(|why| why.to_string())?;
     if unseen {
-        let displays = window_server::displays().map_err(|why| why.to_string())?;
+        let screens = window_server::displays().map_err(|why| why.to_string())?;
+        let displays: Vec<Bounds> = screens.iter().map(|display| display.bounds).collect();
         assert!(!displays.is_empty(), "the window server listed no display");
+        if !chrome_park::places(&screens, scale, (window.width, window.height)).is_empty() {
+            assert_eq!(
+                chrome_park::drawn_at(window, &screens),
+                Some(scale),
+                "{who}'s window was not parked by a display at {scale:?}: {window:?}, the \
+                 displays {screens:?}"
+            );
+        }
         assert!(
             shown.iter().any(|listed| listed.layer == 0),
             "{who}'s window is not on the screen at all, where it would not stream"
@@ -346,6 +354,10 @@ fn parked(serving: &ChromeServing, who: &str, unseen: bool) -> Result<(), String
             "{who}'s window is seen on a display: {shown:?}, the displays {displays:?}"
         );
     } else {
+        assert!(
+            window.left + window.width <= 0 && i64::from(PARKED.0) <= window.left,
+            "{who}'s window was not parked: {window:?}"
+        );
         assert!(
             shown
                 .iter()
@@ -467,7 +479,7 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
         told,
         address,
     } = card(chromium, port, Scale::TWO)?;
-    parked(&serving, who, carried(chromium))?;
+    parked(&serving, who, carried(chromium), Scale::TWO)?;
 
     // The agent's reads with no stream.
     let path = socket(who)?;
@@ -482,6 +494,7 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
             width: ASKED.0,
             height: ASKED.1,
             page: PAGE,
+            scale: Scale::TWO,
         }))
         .map_err(|_| "the card's thread has gone")?;
     streamed(&told, who);
@@ -527,6 +540,7 @@ fn a_card_through(chromium: &Chromium, who: &str) -> Result<(), String> {
             width: ASKED.0,
             height: ASKED.1,
             page: PAGE,
+            scale: Scale::TWO,
         }))
         .map_err(|_| "the card's thread has gone")?;
     let (again, _) = frames_within(&told, Duration::from_secs(2));
@@ -567,6 +581,7 @@ fn narrowed(serving: &ChromeServing, told: &Receiver<ToFrame>, who: &str) -> Res
                 width: page.0,
                 height: page.1,
                 page,
+                scale: Scale::ONE,
             }))
             .map_err(|_| "the card's thread has gone")?;
         // The stream at the last size stopped, then frames at the new.
@@ -586,31 +601,126 @@ fn narrowed(serving: &ChromeServing, told: &Receiver<ToFrame>, who: &str) -> Res
     Ok(())
 }
 
+/// The frames of a stream asked of the card at `scale`, at the page box at
+/// that scale: their sizes, each said — once the stream before it, if
+/// `was_streaming`, has said it stopped.
+fn streamed_at(
+    (orders, told): (&Orders, &Receiver<ToFrame>),
+    scale: Scale,
+    was_streaming: bool,
+    who: &str,
+) -> Result<Vec<Option<(u32, u32)>>, String> {
+    let asked = (scale.device(PAGE.0), scale.device(PAGE.1));
+    orders
+        .send(Order::Card(CardOrder::Stream {
+            width: asked.0,
+            height: asked.1,
+            page: PAGE,
+            scale,
+        }))
+        .map_err(|_| "the card's thread has gone")?;
+    if was_streaming {
+        // Frames of the stream before it, until it said it stopped, are not
+        // this one's.
+        let _ = stopped(told)?;
+    }
+    let (frames, _) = frames_within(told, Duration::from_secs(1));
+    let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();
+    eprintln!(
+        "{who}: streamed at {}: {} frames, {:?}",
+        scale.factor(),
+        sizes.len(),
+        sizes.iter().take(3).collect::<Vec<_>>()
+    );
+    assert!(!sizes.is_empty(), "{who} streamed nothing at {scale:?}");
+    Ok(sizes)
+}
+
+/// Queue item 772: a card started at one, its conversation moved to a
+/// display at two — a stream asked at two — and back. Through alo's CEF
+/// host (`follows`) every frame comes at the scale asked, its window parked
+/// by a display at it and still unseen; through the machine's Chrome,
+/// started told one, every frame stays at one (ADR 0090 as amended, queue
+/// item 780).
+fn moved_to_two_and_back(
+    serving: &ChromeServing,
+    told: &Receiver<ToFrame>,
+    who: &str,
+    follows: bool,
+) -> Result<(), String> {
+    let orders = serving.orders();
+    let at_one = streamed_at((&orders, told), Scale::ONE, false, who)?;
+    assert!(
+        at_one.iter().all(|size| *size == Some(PAGE)),
+        "{who}'s frames of a card at one are not the page box at one: {:?}",
+        at_one.iter().take(3).collect::<Vec<_>>()
+    );
+    let at_two = streamed_at((&orders, told), Scale::TWO, true, who)?;
+    let expected = if follows { ASKED } else { PAGE };
+    assert!(
+        at_two.iter().all(|size| *size == Some(expected)),
+        "{who}'s frames of a card at one moved to two are not {expected:?}: {:?}",
+        at_two.iter().take(3).collect::<Vec<_>>()
+    );
+    if follows {
+        parked_now(serving, who, Scale::TWO)?;
+    }
+    let back = streamed_at((&orders, told), Scale::ONE, true, who)?;
+    assert!(
+        back.iter().all(|size| *size == Some(PAGE)),
+        "{who}'s frames of a card moved back to one are not the page box at one: {:?}",
+        back.iter().take(3).collect::<Vec<_>>()
+    );
+    if follows {
+        parked_now(serving, who, Scale::ONE)?;
+    }
+    Ok(())
+}
+
+/// The host's card's window as it is now — not where it was first parked
+/// — unseen by the window server's word, and drawn by a display at `scale`
+/// where one draws at it.
+fn parked_now(serving: &ChromeServing, who: &str, scale: Scale) -> Result<(), String> {
+    let screens = window_server::displays().map_err(|why| why.to_string())?;
+    let displays: Vec<Bounds> = screens.iter().map(|display| display.bounds).collect();
+    let shown = window_server::on_the_screen(serving.process()).map_err(|why| why.to_string())?;
+    assert!(
+        shown
+            .iter()
+            .all(|listed| !window_server::seen(listed, &displays)),
+        "{who}'s window is seen on a display: {shown:?}, the displays {displays:?}"
+    );
+    let windows: Vec<Bounds> = shown
+        .iter()
+        .filter(|listed| listed.layer == 0)
+        .filter_map(|listed| listed.bounds)
+        .collect();
+    eprintln!("{who}: parked at {}: {windows:?}", scale.factor());
+    let window = windows
+        .first()
+        .ok_or_else(|| format!("{who}'s window is not on the screen, where it would not stream"))?;
+    if !chrome_park::places(&screens, scale, (window.width, window.height)).is_empty() {
+        assert_eq!(
+            chrome_park::drawn_at(*window, &screens),
+            Some(scale),
+            "{who}'s window is not parked by a display at {scale:?}: {windows:?}"
+        );
+    }
+    Ok(())
+}
+
 /// The card expanded: the same tab in Chromium's own window, at the place
-/// and size asked, the stream stopped — a card started at one, whose frames
-/// come at one though two is asked.
+/// and size asked, the stream stopped — a card started at one, moved to two
+/// and back first (queue item 772), and narrowed (queue item 774).
 fn expanded_through(chromium: &Chromium, who: &str) -> Result<(), String> {
     let port = serve()?;
     let Card { serving, told, .. } = card(chromium, port, Scale::ONE)?;
+    parked(&serving, who, carried(chromium), Scale::ONE)?;
     let orders = serving.orders();
-    orders
-        .send(Order::Card(CardOrder::Stream {
-            width: ASKED.0,
-            height: ASKED.1,
-            page: PAGE,
-        }))
-        .map_err(|_| "the card's thread has gone")?;
-    let (frames, _) = frames_within(&told, Duration::from_secs(1));
-    assert!(!frames.is_empty(), "{who} streamed nothing");
-    let sizes: Vec<Option<(u32, u32)>> = frames.iter().map(|(_, png)| png_size(png)).collect();
-    assert!(
-        sizes.iter().all(|size| *size == Some(PAGE)),
-        "{who}'s frames of a card at one are not the page box at one: {:?}",
-        sizes.iter().take(3).collect::<Vec<_>>()
-    );
+    moved_to_two_and_back(&serving, &told, who, carried(chromium))?;
     narrowed(&serving, &told, who)?;
     // Streamed, and fitted to narrower cards and back, still parked.
-    parked(&serving, who, carried(chromium))?;
+    parked(&serving, who, carried(chromium), Scale::ONE)?;
     orders
         .send(Order::Card(CardOrder::Expand {
             at: (120, 80),
@@ -669,12 +779,12 @@ fn a_card_streamed_read_stopped_and_closed_through_alos_cef_host() -> Result<(),
 }
 
 #[test]
-fn a_card_expanded_through_chrome() -> Result<(), String> {
+fn a_card_moved_to_two_narrowed_and_expanded_through_chrome() -> Result<(), String> {
     expanded_through(&Chromium::Machines, "Chrome")
 }
 
 #[test]
-fn a_card_expanded_through_alos_cef_host() -> Result<(), String> {
+fn a_card_moved_to_two_narrowed_and_expanded_through_alos_cef_host() -> Result<(), String> {
     let Some(host) = carried::host("717")? else {
         return Ok(());
     };

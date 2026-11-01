@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page open in the conversation stays sharp when you move the window
+  to another screen.** Dragging alo's window from a screen at ordinary
+  resolution to a Retina one left the page in its card drawn at the first
+  screen's resolution — enlarged and blurred — until you opened another
+  page. The Chromium alo carries now redraws the page at the new screen's
+  resolution as soon as the window arrives, without reloading it, and back
+  again when you return. With Stage Manager on, while the conversation is
+  on the screen the card's hidden Chromium window is kept by, an empty
+  tile with alo Chromium's icon shows in Stage Manager's strip. Run with
+  the machine's own Chrome (`alo --chrome`), a card keeps the resolution
+  it opened at.
+
 - **A page open in the conversation no longer shows a strip of itself at
   the edge of a screen.** The page in a card is drawn from a window of
   Chromium's kept out of the way; on a Mac with more than one display,

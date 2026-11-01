@@ -77,7 +77,9 @@
 //!   new document owed by [`chrome_owed`] until Chrome names the document
 //!   that asked (item 647). A Chrome started shown draws its one
 //!   page in a window of its own, which [`chrome_window`] sizes around the
-//!   page and places on the screen (ADR 0061, item 627); where a frame of
+//!   page and places on the screen (ADR 0061, item 627), and a card's window
+//!   is parked by [`chrome_park`] by a display at the conversation's scale
+//!   (ADR 0090 as amended, item 772); where a frame of
 //!   ours stands around it is [`chrome_frame`]'s to say, from Chrome's word
 //!   and what [`window_server`] shows on the screen (ADR 0062, item 672),
 //!   and what that frame's window is told as Chrome's moves, hides and
@@ -168,6 +170,7 @@ pub mod chrome_menu;
 pub mod chrome_named;
 pub mod chrome_owed;
 pub mod chrome_pages;
+pub mod chrome_park;
 pub mod chrome_profile;
 pub mod chrome_protocol;
 pub mod chrome_reading;

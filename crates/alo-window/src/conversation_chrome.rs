@@ -283,6 +283,7 @@ impl Streamed {
             width: self.width,
             height: self.height,
             page: self.page,
+            scale: self.scale,
         }
     }
 }
@@ -881,18 +882,21 @@ mod tests {
                 CardOrder::Stream {
                     width: 1756,
                     height: 1040,
-                    page: (878, 520)
+                    page: (878, 520),
+                    scale: Scale::TWO,
                 },
                 CardOrder::Unstream,
                 CardOrder::Stream {
                     width: 878,
                     height: 520,
-                    page: (878, 520)
+                    page: (878, 520),
+                    scale: Scale::ONE,
                 },
                 CardOrder::Stream {
                     width: 661,
                     height: 520,
-                    page: (661, 520)
+                    page: (661, 520),
+                    scale: Scale::ONE,
                 },
                 CardOrder::Expand {
                     at: CHROME_AT,

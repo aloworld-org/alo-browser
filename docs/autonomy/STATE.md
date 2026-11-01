@@ -47148,3 +47148,73 @@ one; absolute negatives need `=` (`c:=-2950,300`).
 **Cut:** a card's page moving its own window into view (778).
 
 The next unused queue number is **779** and the next ADR is **0092**.
+
+## Iteration 479 — queue item 772: a card's frames at a new scale (ADR 0090 amended)
+
+**Measured** (macOS 26.5, Stage Manager on, the same three displays; Chrome
+156.0.8078.76 and alo's CEF host, CEF 156.0.14; a Node client, session
+scratchpad `m772/`). Told `--force-device-scale-factor=1`, neither program
+changes its frames for anything taken while running: its window moved to
+1670, 34 by the Retina display, `Emulation.setDeviceMetricsOverride` with
+`deviceScaleFactor: 2` (`devicePixelRatio` 2, frames 878 × 520), the stream
+restarted, the window resized and back. Told nothing, both draw at the
+display holding the window and redraw on a move while streaming: −3725, 0
+(portrait) 878 × 520; 1670, 34 (Retina) 1756 × 1040; back, 878 × 520. Asked
+just past a display's free edge, the window is moved back onto it (40
+points inside a right edge, 32 rows inside a bottom edge; above, wholly
+under the top). CEF's `NotifyScreenInfoChanged`/`WasResized` are documented
+for windowless rendering only; not tried.
+
+**Decided** (ADR 0090 amended, not a new ADR: § 1 refined for one program).
+The carried Chromium is told no scale (`--alo-card` alone) and its window is
+parked by a display at the conversation's scale, and parked again when a
+stream is asked at another; the machine's Chrome keeps § 1 (780). No new
+Chromium for a new scale.
+
+**Built.** `alo-window`: `chrome_park.rs` (`park`, `places`, `drawn_at`);
+`window_server::Display` (bounds and `backingScaleFactor`, the displays
+script and reader with a fifth field); `chrome::told_its_scale`,
+`as_a_card` (the carried Chromium no switch); `chrome_card::Fitted`'s
+`Scaled` (`Told` / `ByItsDisplay(Parked)`), fitted where parked, re-parked
+once per scale or when a fit moved it off; `CardOrder::Stream`'s `scale`
+(from `Streamed`); `chrome_serving::placed_and_scaled` (a carried card
+parked by its scale at start, not first at `PARKED`). The host unchanged.
+
+**Tests.** `a_page_as_a_card_through_chrome.rs`: the expanded test renamed
+`a_card_moved_to_two_narrowed_and_expanded_through_*` — through the host a
+card at one streams 878 × 520, asked at two 1756 × 1040 (window at 1670, 34,
+drawn on no display), at one again 878 × 520 (−3725, −50); through Chrome
+878 × 520 throughout; `parked` checks, through the host, the display holding
+the window is at the card's scale (where one is). The 717 test at two: host
+18.7 a second, 25.1 MiB/s, read 0.95 → 0.99 ms median; Chrome 21.2, 24.9,
+0.93 → 0.96. Unit: `chrome_park.rs` (3), `window_server.rs` (displays'
+scales), `chrome.rs` (rewritten), `conversation_window.rs` (moved to two and
+back), `conversation_chrome.rs` and `chrome_card.rs` orders with a scale.
+**Mutations:** no re-park on a new scale; the carried Chromium told its
+scale — both fail at two (878 × 520); `drawn_at` by least area; `places`
+not refusing a place meeting a display — each fails its unit test.
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, no keys, `--conversation`;
+`handrun19/final/`; pointer saved and put back). At one on the display at
+one, `en.wikipedia.org` in a card, the card's Chromium started with
+`--alo-card` only, its window at −3725, −50 alpha 0 (`01-at-one.png`); the
+window moved to the Retina display with System Events: the card's crop
+1756 × 1040 sharp, mean |Laplacian| 11.99 against 5.54 for the crop at one
+enlarged bilinearly (`02-at-two*.png`); *Talk* pressed and followed
+(`03-talk-pressed-at-two.png`); moved back, the window at −3725, −50 again
+(`04-back-at-one*.png`). **Found:** while on the Retina display, the window
+was listed in Stage Manager's strip (16, 714, 103 × 111, alpha 0) and the
+strip showed a blank tile with alo Chromium's icon (`02-retina-strip-
+corner.png`), gone once back at one; the same when a card opened with the
+conversation on the Retina display. Tried, not kept (`experiments/`):
+`Transient`, `IgnoresCycle`, `Auxiliary` collection behaviours (tile
+stayed); an accessory host (no tile, but the window neither moved nor drew a
+card). ⌘Q left no alo process.
+
+**Gate: met** (first run). **Summary [830.340s] 6075 tests run: 6075 passed (6 slow), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+
+**Cut:** a card's new scale through the machine's Chrome (780); a parked
+card's window in Stage Manager's strip (781).
+
+The next unused queue number is **782** and the next ADR is **0092**.
