@@ -87,8 +87,9 @@
 //!
 //! A page opened as the conversation's card is waited for only until its
 //! navigation has **committed** ([`Tab::open_as_a_card`], queue item 751):
-//! it is streamed from its first paint, and whether it has loaded is read
-//! as Chrome goes on telling of it ([`Tab::is_loading`]). Every other tab is
+//! it is streamed from its first paint, and whether it is loading — from a
+//! navigation's start to Chrome's word that it stopped (queue item 770) —
+//! is read as Chrome goes on telling of it ([`Tab::is_loading`]). Every other tab is
 //! waited for until it has loaded, as an agent reads a page that has.
 
 use crate::agent_sites::AgentSites;
@@ -704,11 +705,13 @@ impl<'c> Tab<'c> {
         self.before
     }
 
-    /// Whether the page is still loading: the newest document its own frame
-    /// began has not been told to have loaded (queue item 751) — as Chrome
-    /// last said, which is read whenever the tab is ([`Tab::catch_up`]).
+    /// Whether the page is loading: from the start of a navigation of its
+    /// own frame to another document — before anything commits — until
+    /// Chrome says it stopped (queue items 751 and 770,
+    /// [`crate::chrome_loading`]) — as Chrome last said, which is read
+    /// whenever the tab is ([`Tab::catch_up`]).
     pub fn is_loading(&self) -> bool {
-        !self.loading.loaded()
+        self.loading.is_loading()
     }
 
     /// Take every message Chrome has sent already — answering each request
@@ -1155,9 +1158,10 @@ impl<'c> Tab<'c> {
         }
     }
 
-    /// Whether `message` is a stage of a document of the tab's, told through
-    /// its own session — kept, for whether its page has committed and
-    /// loaded ([`crate::chrome_loading`]).
+    /// Whether `message` is a stage of a document of the tab's, a navigation
+    /// it began or its loading stopped, told through its own session — kept,
+    /// for whether its page has committed, has loaded and is loading
+    /// ([`crate::chrome_loading`]).
     ///
     /// # Errors
     ///
@@ -1171,6 +1175,26 @@ impl<'c> Tab<'c> {
             } if *session == self.session && method == "Page.lifecycleEvent" => {
                 let stage = chrome_protocol::stage(params).map_err(Failed::Malformed)?;
                 self.loading.told(&self.target, stage);
+                Ok(true)
+            }
+            // A navigation begun, and loading stopped: whether the page is
+            // loading from a navigation's start (queue item 770).
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if *session == self.session && method == "Page.frameStartedNavigating" => {
+                let started = chrome_protocol::started(params).map_err(Failed::Malformed)?;
+                self.loading.started(&self.target, &started);
+                Ok(true)
+            }
+            Message::Event {
+                method,
+                session: Some(session),
+                params,
+            } if *session == self.session && method == "Page.frameStoppedLoading" => {
+                let stopped = chrome_protocol::stopped(params).map_err(Failed::Malformed)?;
+                self.loading.stopped(&self.target, &stopped);
                 Ok(true)
             }
             _ => Ok(false),

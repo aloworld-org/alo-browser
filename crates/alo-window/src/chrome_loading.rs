@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Whether a tab's page has committed and whether it has loaded, as Chrome
-//! tells of its own frame's stages (`Page.lifecycleEvent`, queue items 749
-//! and 751).
+//! Whether a tab's page has committed, whether it has loaded, and whether
+//! it is loading, as Chrome tells of its own frame's stages
+//! (`Page.lifecycleEvent`, queue items 749 and 751) and of its navigations'
+//! starts and stops (queue item 770).
 //!
 //! # The document that counts is the newest
 //!
@@ -24,12 +25,37 @@
 //! of. A document later begun by the frame — a link followed, a script's
 //! `location` — is loading again until its own `load`.
 //!
+//! # Loading, from a navigation's start
+//!
+//! The page is **loading** from the moment its own frame begins a navigation
+//! to another document — a link pressed, a script's `location`, a step back
+//! or forward, `Page.navigate` (`Page.frameStartedNavigating`) — until Chrome
+//! says the frame has stopped loading (`Page.frameStoppedLoading`): as
+//! Chrome's own tab turns its spinner (queue item 770). So a slow server's
+//! whole wait, before anything commits, is loading; and a navigation that
+//! never commits — a `204`, a download, one stopped, a `mailto:` handed
+//! elsewhere — stops being loading when Chrome says so, the page it left
+//! still shown. One that fails commits Chrome's error page, and is loading
+//! until that has loaded. Measured against Chrome 156 and CEF 156 over the
+//! pipe, every request paused as the tab pauses them: the start is told of
+//! for each of those before its request is made, and the stop after the
+//! newest document's `load`, or at once for a navigation that ends without
+//! one. A page stopped after its commit and before its `load` is told
+//! stopped with no `load` ever told, and Chrome's spinner stops then — so
+//! the stop, not the `load`, ends it.
+//!
+//! A move within the document — a fragment, an entry the page pushed — is
+//! not loading: Chrome turns no spinner for it, and its stop, told a few
+//! milliseconds later, would only make the card's word blink. Until Chrome
+//! has told of either since the tab was sent somewhere, the page is loading
+//! while its newest document has not loaded, as before.
+//!
 //! Only the tab's own frame is read: a frame inside the page has loaders of
 //! its own, and its `load` is not the page's. Only the last document begun
 //! and the last loaded are kept, so a page that goes somewhere a million
 //! times costs nothing more.
 
-use crate::chrome_protocol::Stage;
+use crate::chrome_protocol::{Stage, Started};
 
 /// What Chrome has told of the tab's own frame's documents since the tab
 /// was last sent somewhere.
@@ -42,6 +68,10 @@ pub struct Loading {
     newest: Option<String>,
     /// The loader of the last of the tab's own frame's documents to load.
     loaded: Option<String>,
+    /// Whether Chrome last told of the tab's own frame beginning a
+    /// navigation to another document (`true`) or stopping loading
+    /// (`false`) — or [`None`], of neither since it was sent somewhere.
+    busy: Option<bool>,
 }
 
 impl Loading {
@@ -65,6 +95,29 @@ impl Loading {
             "load" => self.loaded = Some(stage.loader),
             _ => {}
         }
+    }
+
+    /// Chrome told of the tab whose own frame is `frame` beginning `started`.
+    pub fn started(&mut self, frame: &str, started: &Started) {
+        if started.frame == frame && !started.is_within_the_document() {
+            self.busy = Some(true);
+        }
+    }
+
+    /// Chrome told of `stopped`, a frame of the tab whose own frame is
+    /// `frame`, having stopped loading.
+    pub fn stopped(&mut self, frame: &str, stopped: &str) {
+        if stopped == frame {
+            self.busy = Some(false);
+        }
+    }
+
+    /// Whether the page is loading: from the start of its own frame's
+    /// navigation to another document until Chrome says it stopped — or,
+    /// before Chrome has told of either, while its newest document has not
+    /// loaded.
+    pub fn is_loading(&self) -> bool {
+        self.busy.unwrap_or_else(|| !self.loaded())
     }
 
     /// Whether the navigation has committed: answered, and a document begun
@@ -158,12 +211,103 @@ mod tests {
         assert!(!loading.loaded());
     }
 
+    fn begun(frame: &str, kind: &str) -> Started {
+        Started {
+            frame: frame.to_owned(),
+            kind: kind.to_owned(),
+        }
+    }
+
+    /// The tab's page, opened and loaded, as Chrome tells of it.
+    fn loaded_page() -> Loading {
+        let mut loading = Loading::default();
+        loading.navigating();
+        loading.started(TAB, &begun(TAB, "differentDocument"));
+        loading.navigated("A".to_owned());
+        loading.told(TAB, stage(TAB, "A", "init"));
+        assert!(loading.committed() && loading.is_loading());
+        loading.told(TAB, stage(TAB, "A", "load"));
+        assert!(loading.is_loading(), "loading until Chrome says stopped");
+        loading.stopped(TAB, TAB);
+        assert!(!loading.is_loading());
+        loading
+    }
+
+    #[test]
+    fn loading_from_a_links_start_through_a_slow_servers_wait_to_its_stop() {
+        let mut loading = loaded_page();
+        // Pressed: nothing committed, the server not yet answered.
+        loading.started(TAB, &begun(TAB, "differentDocument"));
+        assert!(loading.is_loading(), "said from the start");
+        loading.told(TAB, stage(TAB, "B", "init"));
+        loading.told(TAB, stage(TAB, "B", "load"));
+        assert!(loading.is_loading());
+        loading.stopped(TAB, TAB);
+        assert!(!loading.is_loading());
+        // Back, a reload: loading from their starts too.
+        for kind in ["historyDifferentDocument", "reload"] {
+            loading.started(TAB, &begun(TAB, kind));
+            assert!(loading.is_loading(), "{kind}");
+            loading.stopped(TAB, TAB);
+            assert!(!loading.is_loading(), "{kind}");
+        }
+    }
+
+    #[test]
+    fn a_navigation_that_never_commits_stops_loading_where_chrome_stops() {
+        // A 204, a download, a stop, a mailto: — begun, and stopped, with
+        // no document begun: the page before it is still the page.
+        let mut loading = loaded_page();
+        loading.started(TAB, &begun(TAB, "differentDocument"));
+        assert!(loading.is_loading());
+        loading.stopped(TAB, TAB);
+        assert!(!loading.is_loading());
+        assert!(loading.loaded(), "the page left is loaded still");
+    }
+
+    #[test]
+    fn a_page_stopped_before_its_load_is_not_loading() {
+        // Measured: Page.stopLoading after the commit, a picture held — the
+        // stop is told, no load ever is, and Chrome's spinner stops.
+        let mut loading = loaded_page();
+        loading.started(TAB, &begun(TAB, "differentDocument"));
+        loading.told(TAB, stage(TAB, "B", "init"));
+        loading.stopped(TAB, TAB);
+        assert!(!loading.loaded());
+        assert!(!loading.is_loading());
+    }
+
+    #[test]
+    fn a_move_within_the_document_or_a_frame_inside_is_not_the_pages_loading() {
+        let mut loading = loaded_page();
+        loading.started(TAB, &begun(TAB, "sameDocument"));
+        loading.started(TAB, &begun(TAB, "historySameDocument"));
+        assert!(!loading.is_loading());
+        loading.started(TAB, &begun("INNER", "differentDocument"));
+        assert!(!loading.is_loading());
+        // A frame inside stopping is not the page stopping.
+        loading.started(TAB, &begun(TAB, "differentDocument"));
+        loading.stopped(TAB, "INNER");
+        assert!(loading.is_loading());
+    }
+
+    #[test]
+    fn before_a_start_or_a_stop_is_told_the_newest_documents_load_decides() {
+        let mut loading = Loading::default();
+        loading.navigated("A".to_owned());
+        loading.told(TAB, stage(TAB, "A", "init"));
+        assert!(loading.is_loading());
+        loading.told(TAB, stage(TAB, "A", "load"));
+        assert!(!loading.is_loading());
+    }
+
     #[test]
     fn sent_somewhere_again_forgets_what_was_told() {
         let mut loading = Loading::default();
         loading.navigated("A".to_owned());
         loading.told(TAB, stage(TAB, "A", "init"));
         loading.told(TAB, stage(TAB, "A", "load"));
+        loading.stopped(TAB, TAB);
         loading.navigating();
         assert_eq!(loading, Loading::default());
         assert!(!loading.committed() && !loading.loaded());

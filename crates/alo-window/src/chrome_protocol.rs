@@ -1097,6 +1097,53 @@ pub fn stage(params: &[u8]) -> Result<Stage, Malformed> {
     })
 }
 
+/// A navigation a frame of a tab began, from `Page.frameStartedNavigating`:
+/// told of before its request is made, whoever began it — a link, a
+/// script's `location`, `Page.navigate`, a step through the session history
+/// (measured against Chrome 156 and CEF 156, queue item 770).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Started {
+    /// The frame's id: a tab's own frame has the tab's id.
+    pub frame: String,
+    /// What kind of navigation, in Chrome's words: `differentDocument`,
+    /// `historyDifferentDocument`, `reload`, `sameDocument`,
+    /// `historySameDocument`, …
+    pub kind: String,
+}
+
+impl Started {
+    /// Whether it moves within the document the frame holds — a fragment,
+    /// a step to an entry the page pushed — rather than to another: a move
+    /// that loads nothing, and over which Chrome's own tab turns no spinner.
+    pub fn is_within_the_document(&self) -> bool {
+        matches!(self.kind.as_str(), "sameDocument" | "historySameDocument")
+    }
+}
+
+/// A `Page.frameStartedNavigating` event's `params`: the frame, and what
+/// kind of navigation it began.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without a `frameId` and a `navigationType`.
+pub fn started(params: &[u8]) -> Result<Started, Malformed> {
+    let fields = object(params)?;
+    Ok(Started {
+        frame: text(fields.get("frameId"), "frameId")?,
+        kind: text(fields.get("navigationType"), "navigationType")?,
+    })
+}
+
+/// A `Page.frameStoppedLoading` event's `params`: the frame that has
+/// stopped loading.
+///
+/// # Errors
+///
+/// [`Malformed`], for params without a `frameId`.
+pub fn stopped(params: &[u8]) -> Result<String, Malformed> {
+    text(object(params)?.get("frameId"), "frameId")
+}
+
 /// A request Chrome has paused, from a `Fetch.requestPaused` event.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Paused {
@@ -3055,6 +3102,37 @@ mod tests {
     }
 
     #[test]
+    fn a_navigations_start_and_its_stop_are_read_as_chrome_156_wrote_them() {
+        // As Chrome 156 and CEF 156 told of a link followed and of a
+        // fragment's step back (queue item 770).
+        let begun = started(
+            br#"{"frameId":"F","url":"http://127.0.0.1:53417/slow.html","loaderId":"5B82EC43229F3C27F3755A17B73CF16D","navigationType":"differentDocument"}"#,
+        );
+        assert_eq!(
+            begun,
+            Ok(Started {
+                frame: "F".to_owned(),
+                kind: "differentDocument".to_owned()
+            })
+        );
+        assert!(begun.is_ok_and(|begun| !begun.is_within_the_document()));
+        assert!(
+            started(
+                br#"{"frameId":"F","url":"http://127.0.0.1:53453/one.html#x","loaderId":"C8","navigationType":"historySameDocument"}"#
+            )
+            .is_ok_and(|begun| begun.is_within_the_document())
+        );
+        for kind in ["historyDifferentDocument", "reload", "restore"] {
+            let begun = Started {
+                frame: "F".to_owned(),
+                kind: kind.to_owned(),
+            };
+            assert!(!begun.is_within_the_document(), "{kind}");
+        }
+        assert_eq!(stopped(br#"{"frameId":"F"}"#), Ok("F".to_owned()));
+    }
+
+    #[test]
     fn a_tab_and_its_loading_are_read_as_chrome_155_wrote_them() {
         assert_eq!(
             target(br#"{"targetId":"6D9C1C29E4A1B1AF4B9A2E0F52E7A9A1"}"#),
@@ -3286,6 +3364,13 @@ mod tests {
         assert_eq!(stage(br#"{"frameId":"F","loaderId":"L"}"#), bad("name"));
         assert_eq!(stage(br#"{"frameId":"F","name":"load"}"#), bad("loaderId"));
         assert_eq!(stage(br#"{"loaderId":"L","name":"load"}"#), bad("frameId"));
+        assert_eq!(started(br#"{"frameId":"F"}"#), bad("navigationType"));
+        assert_eq!(
+            started(br#"{"navigationType":"differentDocument"}"#),
+            bad("frameId")
+        );
+        assert_eq!(stopped(br#"{"frameId":7}"#), bad("frameId"));
+        assert_eq!(stopped(b"{}"), bad("frameId"));
         assert_eq!(paused(br#"{"requestId":"R"}"#), bad("request"));
         assert_eq!(paused(br#"{"requestId":"R","request":{}}"#), bad("url"));
         assert_eq!(paused(br#"{"request":{"url":"u"}}"#), bad("requestId"));

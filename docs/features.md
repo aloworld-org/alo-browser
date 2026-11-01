@@ -863,6 +863,19 @@ The reason this exists rather than a faster fork of somebody else's engine.
   *Loading* once the picture is answered
   (`tests/a_card_drawn_before_its_page_loads_through_chrome.rs`). Every
   other tab — an agent's, `alo --chrome`'s — is still opened loaded.
+  **Saying *Loading* from a navigation's start** (770, ADR 0089's amendment): the
+  card says *Loading* from the start of a navigation of its page's own
+  frame to another document (`Page.frameStartedNavigating` — told for a
+  link, a script's `location`, *Back*/*Forward* and `Page.navigate`
+  alike, where `frameRequestedNavigation` is told only for the page's own
+  asks) until Chrome says the frame stopped loading
+  (`Page.frameStoppedLoading`), committed or not — measured in both
+  programs, and against Chrome's own tab spinner. A move within the
+  document is not loading. Through the machine's Chrome and the Chromium
+  alo carries, a link pressed to a page the server holds says *Loading*
+  while the card is still at the first page, a link answered `204` stops
+  saying it at the page it was at, and *Back* to a held page says it from
+  the press (`tests/a_cards_loading_from_a_navigations_start_through_chrome.rs`).
   **A card's frames at the window's scale** (738, ADR 0090): the card's
   Chromium is started told the conversation window's scale
   (`--force-device-scale-factor`), so its page is drawn and streamed at it

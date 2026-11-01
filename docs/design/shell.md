@@ -312,7 +312,12 @@ first paint; until the page has loaded, its bar says **Loading** after the
 address, in the bar's quiet 13 px words, 8 either side, before *Expand* —
 the address gives it the room. A page that never loads stays a card saying
 *Loading* until a person closes it; nothing closes it for them (ADR 0089,
-item 751).
+item 751). A link followed in the card, *Back* or *Forward*, or the page
+sending itself elsewhere says *Loading* from that moment — while the server
+is still to answer — until Chrome stops loading, as its own tab's spinner
+turns; a link that leads to no page (a download, an empty answer) stops
+saying it with the page it left still shown (ADR 0089's amendment, item
+770).
 
 The page in the card is as sharp as the window it is in: its frames are
 drawn at the conversation window's scale, two on a Retina display, wherever

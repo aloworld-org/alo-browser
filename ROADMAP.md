@@ -2439,6 +2439,9 @@ items where being right and being unusable are the same outcome.
       page's first paint (751, ADR 0089) — opened at its navigation's
       commit, saying *Loading* until its page has loaded, and kept as a card
       when it never does, through the window's own road and both Chromiums;
+      *Loading* from a navigation's start (770) — from a link's press, *Back*
+      or *Forward* to Chrome's stop, committed or not, as Chrome's own
+      spinner turns, through the window's own road and both Chromiums;
       the card's *Back* and *Forward* (737) — read from the tab's session
       history after each navigation, the window's own blank page never the
       card's, and followed as Chrome's own buttons are, through the window's

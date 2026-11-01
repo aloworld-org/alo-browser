@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page in the conversation says *Loading* from the moment you follow a
+  link.** A link pressed in a page open in the conversation, its *Back* or
+  *Forward*, or the page sending itself elsewhere, said nothing until the
+  new page began to arrive — all the while a slow server took to answer.
+  Now the card's bar says *Loading* from the press, as Chrome's own tab
+  turns its spinner, and stops saying it when Chrome stops: when the new
+  page has loaded, and also when the link leads to no page at all (a
+  download, an empty answer, a navigation stopped), the page you were on
+  still shown.
 - **The chats panel folds to its rail in a narrow window.** Narrower than
   760 points, the conversation's window shows the panel as its slim rail
   on its own, so the tabs above a search's results always fit beside it,

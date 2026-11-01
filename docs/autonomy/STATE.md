@@ -46959,3 +46959,105 @@ built.
 **Cut:** the panel shown over the conversation in a narrow window (776).
 
 The next unused queue number is **777** and the next ADR is **0092**.
+
+## Iteration 477 — queue item 770: *Loading* from a navigation's start, not its commit
+
+**Why.** The card said *Loading* only once its page's own frame had begun a
+document (751), so a link pressed in the card, *Back*/*Forward* or a
+script's `location` said nothing for a slow server's whole wait, where
+Chrome's own tab turns its spinner from the press.
+
+**Measured first** (Node probe over `--remote-debugging-pipe`, shown with
+`--app=data:,`, every request paused by `Fetch` and let go as the tab does;
+session scratchpad `m770/probe.mjs`, logs `chrome3.txt` and `cef2.txt`).
+Chrome 156.0.8078.76 and alo's CEF host (CEF 156.0.14, Chromium
+156.0.8078.48) send the same for the tab's own frame: a link and a
+script's `location` tell `frameRequestedNavigation`, then
+`frameStartedNavigating` (`differentDocument`) and `frameStartedLoading`,
+before the request is paused; `Page.navigate` and
+`Page.navigateToHistoryEntry` the latter two only (`historyDifferentDocument`
+for *Back*/*Forward*) — so `frameRequestedNavigation` cannot be the start.
+`frameStoppedLoading` follows the newest document's `load`; it comes alone
+for a `204`, a download, `Page.stopLoading` before the commit, a navigation
+replaced by another (the second's stop) and, in Chrome, a `mailto:`; a
+refused port, a request the browser process fails, and in the CEF host a
+`mailto:` commit `chrome-error://chromewebdata/` and stop after its `load`.
+`Page.stopLoading` after a commit with a picture still held tells the stop
+and no `load`, ever. A fragment or `pushState` tells `frameStartedLoading`
+(a step back to a pushed entry also `frameStartedNavigating`
+`historySameDocument`) with its stop within 5 ms. A page with only
+`Cache-Control: no-store` was still restored whole on going back; an
+`unload` listener kept it out of the back-forward cache in both programs
+(`NOT USED … UnloadHandlerExistsInMainFrame`). **Chrome's own spinner**,
+screenshotted in a tabbed Chrome window (`m770/spinner.mjs`, `strip.png`,
+`strip2.png`): turning 1.5 s into a link's held answer and into a `204`'s,
+stopped once the `204` was answered, stopped at `Page.stopLoading` before
+the commit, and stopped at `Page.stopLoading` after a commit with the
+picture still held.
+
+**Decided** (an amendment to ADR 0089 § 2, not a new ADR — the card's word
+is still Chrome's word; only which of Chrome's events says it changed): the
+card is loading from a `Page.frameStartedNavigating` of its own frame that
+is not a move within the document until a `Page.frameStoppedLoading` of
+it, committed or not; before either is told since the tab was sent
+somewhere, the newest document's `load` decides, as 751 had it.
+
+**Built.** `chrome_protocol::Started`, `started`, `stopped` (and
+`Started::is_within_the_document`); `chrome_loading::Loading` keeps `busy`
+(`started`, `stopped`, `is_loading`), its module words rewritten;
+`Tab::staged_in` reads the two events from the tab's own session and
+`Tab::is_loading` answers `Loading::is_loading`. `chrome_card`'s words.
+Nothing the conversation is told changed.
+
+**Tests.** `tests/a_cards_loading_from_a_navigations_start_through_chrome.rs`
+(new; in `.config/nextest.toml`'s shown-Chrome list; its name carries
+"chrome"), through the window's own road, the machine's Chrome and alo's
+CEF host, a server holding each page while the test says: the first page
+opened and loaded; a link pressed to `/two.html` held — the server asked,
+the card at the first page saying *Loading*, and so for two seconds more —
+let go, at `/two.html` loaded; a link to `/nothing` held — *Loading* at
+`/two.html` — answered `204`, no longer loading, at `/two.html`, drawn;
+*Back* pressed (decided *Back*), `/one.html` held — *Loading* at
+`/two.html` — let go, at `/one.html` loaded; told `[true, false]` thrice,
+the server asked `/one.html`, `/two.html`, `/nothing`, `/one.html`. Both
+pass (15.7 s, 17.5 s). A first version asserted the opening told
+`[true, false]`; a page that quick may load before the card's first pass,
+told `[false]` only (seen through the CEF host), so the opening asserts its
+last telling only. **Mutations:** `Tab::is_loading` as before (`!loaded`)
+fails at *the held page asked for, the card loading* through both programs;
+the stop not read fails at *the first page, drawn and loaded*. Unit tests:
+`chrome_loading.rs` (5 new), `chrome_protocol.rs`
+(`a_navigations_start_and_its_stop_are_read_as_chrome_156_wrote_them`, and
+the refusals). 751's, 737's, 749's and 717's card tests through both
+programs pass unchanged (10 of 10).
+
+**By hand** (screen unlocked; release build, CEF host, the old `.app`
+removed, `alo-bundle` with CEF 156.0.14, `--conversation`, the window on
+the display at one; session scratchpad `handrun17/`, a local server
+`serve.py` on 127.0.0.1:8770). `/one.html` opened (`01-one.png`); its link
+to `/slow.html` (the server waits 5 s) pressed: *Loading* at
+`/one.html` at 1 s and 3 s (`02`, `03-slow-pressed-3s.png`), then
+`/slow.html` drawn and not loading (`04`); *Back* (`05`); the `204` link:
+*Loading* at `/one.html` 2 s in (`06-204-pressed-2s.png`), and once
+answered not, still at `/one.html`, drawn (`07`); *Forward* to `/slow.html`,
+asked again: *Loading* at `/one.html` 2 s in (`08-forward-2s.png`), then
+`/slow.html` (`09`). `en.wikipedia.org` (`10-wikipedia.png`), *View
+history* pressed and sixteen back-to-back captures over about 3 s: the
+first eight *Loading* at `Main_Page`, two *Loading* at the history page,
+the rest loaded (`11-wiki-bars.png`). ⌘Q left no alo, alo-render or alo
+Chromium process; the pointer back at 1400,1000.
+
+**Gate: met** (first run). Clippy and `alo-window`'s `--lib` tests first;
+pointer moved to (1400,1000); `CEF_PATH` set. **Summary [820.708s] 6068
+tests run: 6068 passed (6 slow), 0 skipped** — *"The gate is met." (11 of
+11 steps)*.
+
+**Contracts that applied:** `CLAUDE.md`, `LOOP.md`, ADRs 0089 (amended),
+0076 B, 0060; `docs/design/shell.md`'s card words.
+
+**Roadmap:** the conversation line's *Built* gains 770.
+
+**Cut:** a `mailto:` link in a card through alo's Chromium commits Chrome's
+error page over the person's page, where Chrome leaves the page (777).
+
+The next unused queue number is **778** and the next ADR is **0092**.

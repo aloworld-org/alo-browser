@@ -33,7 +33,9 @@
 //! - **Whether it is loading**: told to the conversation whenever that
 //!   changes while it streams ([`tell_loading`], [`ToFrame::Loading`],
 //!   queue item 751): the page is streamed from its navigation's commit,
-//!   so the card says *loading* until its newest document has loaded.
+//!   and the card says *loading* from each later navigation's start — a
+//!   link pressed, *Back*, a script's `location` — until Chrome says it
+//!   stopped, whether or not it committed (queue item 770).
 //! - **Where it can go**: told to the conversation whenever that changes
 //!   while it streams ([`tell_travel`], [`ToFrame::Travel`], queue item
 //!   737), read from the tab's session history after each navigation
@@ -196,8 +198,8 @@ pub fn tell_where(tab: &Tab<'_>, told: &mut Option<Url>, tell: TellCard<'_>) {
 }
 
 /// Tell `tell` whether `tab`'s page is loading, if it streams and that is
-/// not `told`, what it last told (queue item 751): read from what Chrome
-/// last said of the tab's own frame ([`Tab::is_loading`]), so this asks
+/// not `told`, what it last told (queue items 751 and 770): read from what
+/// Chrome last said of the tab's own frame ([`Tab::is_loading`]), so this asks
 /// Chrome nothing. A card covered is told once it is streamed again.
 pub fn tell_loading(tab: &Tab<'_>, told: &mut Option<bool>, tell: TellCard<'_>) {
     if !tab.casting().is_on() {
