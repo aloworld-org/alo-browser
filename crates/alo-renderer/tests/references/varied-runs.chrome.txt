@@ -1,0 +1,2405 @@
+# Chrome 156.0.8078.76's layout width of 2,400 runs (queue items 795, 796, 797),
+# measured on 2 November 2026, headless, the interface's Newsreader.ttf and
+# InstrumentSans.ttf as web fonts, after document.fonts.load: each a
+# white-space: pre span's getBoundingClientRect().width times 64.
+# family|weight|size|font-optical-sizing|text|width in 1/64 px
+Newsreader|500|72|none|:'4(ch- bhOlL2l ;JxbG PJ00mytZ|62429
+Newsreader|500|20|auto|mr?Cd CrX SQ(ht(MK BYZ 8|15863
+Instrument Sans|550|90|auto|9 5U6 0J3KwX( u1 ktFEt|62589
+Instrument Sans|600|22|auto|DYga1 yewVwE7D AD?0X|16631
+Instrument Sans|450|14|none|irZd2!2 39HB2 6m ,?|8223
+Newsreader|500|14|auto|.?6feQp|3193
+Newsreader|600|22|none|'kFQ S09tgI|7428
+Instrument Sans|500|28|auto|ZnJch,VP 1 HsIW.|13955
+Newsreader|600|11|auto|BK xt42y va2Eu( JIcLNi!|8685
+Newsreader|600|32|auto|F 0V|4332
+Newsreader|700|11|auto|nv ?PWhG ldx8604 RrOWR|10145
+Newsreader|600|90|auto|q00|10904
+Instrument Sans|450|40|auto|p KFg?r.qt L(mYDEk|23846
+Newsreader|300|16|none|g2iu AM30|4765
+Instrument Sans|550|64|auto|vd. xeBlz CUng1t gSlr|40365
+Newsreader|700|28|none|M3L|4054
+Instrument Sans|600|48|none|kE30 b;A1F4nB Zx|25666
+Instrument Sans|600|90|auto|V RX|13233
+Newsreader|300|56|auto|I;!l9a; ;Rno G:u,Src5 O 8I-0Hl|44476
+Instrument Sans|400|11|none|s25 zCo5f-3' hmMRK Hn'dM|8999
+Instrument Sans|450|72|none|2dq2v w|17581
+Instrument Sans|650|40|auto|n2Y'0GJU b'K|16277
+Instrument Sans|550|90|auto|dYlp|12575
+Instrument Sans|700|90|auto|9KCf8' V(w'3: 2)OaPG )I2ek- 7|80502
+Instrument Sans|650|20|auto|;j'a Ntg gcEU4HrF|10515
+Instrument Sans|700|72|none|He guXM)Dg(|30390
+Newsreader|300|22|auto|r;)lWZ 34|5516
+Instrument Sans|700|24|none|:zm|2699
+Newsreader|400|13|none|Gn)|1291
+Newsreader|500|90|auto|f.)3Pf !(wd 6|31617
+Instrument Sans|450|18|auto|vlD9i2L|4052
+Newsreader|300|13|none|jleB6 7|2323
+Newsreader|400|28|none|xmU8sceR|7825
+Instrument Sans|700|48|auto|5st1tCd|11305
+Newsreader|600|11|none|EA uT) Uw; 71|4468
+Newsreader|200|56|none|u)iZ ..|7744
+Newsreader|600|14|auto|5r-1G X yIHX ,0k'b3|8702
+Newsreader|300|22|none|5 i;.G4 GsZ Zsz|8634
+Instrument Sans|450|28|auto|tOa E0Q5'zv|10247
+Newsreader|800|28|none|jV,5.cr 'P )9)1Q D)aSOH|19566
+Newsreader|400|56|auto|4r dDGY1|16250
+Newsreader|800|12|auto|yLDYF|2847
+Newsreader|700|16|auto|ws e ,HMQJp2 r:)b3g0O V5|13001
+Newsreader|200|12|none|idH(d'ZQ lNv!x n;g)3aX3 LiT hS|9806
+Newsreader|800|11|none|q Bk5!NEx 5!y 4Zp-cfhL|7916
+Newsreader|200|72|none|CpH7MnRJ poQ3Js mX w .X,cL|58612
+Newsreader|800|16|auto|;3OvL PeGUa,7 dDl?tHO aIFt;5f k44f|18731
+Instrument Sans|450|32|auto|.tF pJ1-YL|8923
+Instrument Sans|600|22|auto|ud2rhJ A|5813
+Newsreader|500|56|auto|7 df2vo e850jC 9SdK|34851
+Newsreader|700|90|auto|f0clD : JKMxv4|44505
+Instrument Sans|550|40|auto|d?|3057
+Newsreader|800|22|auto|WOUQ(Z r 6mzHL|12284
+Instrument Sans|500|48|auto|MEtaK96|13290
+Instrument Sans|700|13.5|none|m)|1148
+Instrument Sans|550|40|auto|iXGVR qm|12098
+Newsreader|700|72|none|;3Lm uYi|18602
+Newsreader|700|28|auto|V P)wPa. I2P:1jC aR|16386
+Newsreader|500|13|none|j;wL;mNX 'ID.zI Hb!om) j)C|9647
+Instrument Sans|700|16|auto|Rfu;LLox - YE(xk57V SN;oz 8cY|15069
+Instrument Sans|500|13|auto|GIP bC|2691
+Newsreader|800|40|none|f-K?7HSZ P, YK|19085
+Instrument Sans|650|90|none|gzm'K2 Kpv-bP0S 83?7v7) 4.pe|85556
+Newsreader|600|22|auto|:l 'B:L4|4319
+Instrument Sans|600|18|none|FXNRa xA|5434
+Newsreader|700|13|auto|7OsV 8 )ts0b|5223
+Instrument Sans|700|13.5|auto|.T14zv LQRPU?e dqm|8597
+Instrument Sans|700|64|auto|TNc-s GT d6p 0;HDF|39846
+Instrument Sans|400|72|auto|H W wKLUULCO|35307
+Instrument Sans|550|12|auto|?ak-AA V(kxZ|4946
+Newsreader|300|18|auto|uQIJ lNIm'GV wj:;F1d c7FE8F|14119
+Newsreader|500|14|auto|jKz8QHN|4071
+Newsreader|200|32|auto|Wm 7neLu3 e-D,J(nb|17401
+Instrument Sans|600|12|auto|l L?!PfE ehEq0we|6202
+Newsreader|400|12|auto|Tds fGU8)4 HmN-h28 tBPAwJd) TrSk:'N|14494
+Instrument Sans|400|11|auto|EWnbC6 d:gt|4403
+Newsreader|300|13|auto|iswBD JTfS9S WZ yl|7545
+Instrument Sans|650|12|none|5Y? (SM C|3741
+Newsreader|300|56|auto|jAZpc ,rFpE6 zi|23360
+Newsreader|700|24|none|sm gX jj FCw9c)KT|13032
+Instrument Sans|650|56|auto|P|2399
+Newsreader|200|22|auto|2cy oM X()|6317
+Newsreader|400|90|none|GRho3 YoTC(7 cF|42737
+Newsreader|500|22|auto|x8EFFaU sjj|7183
+Newsreader|800|20|auto|ZE!R !l iL|5567
+Newsreader|400|14|auto|'g|613
+Newsreader|200|15|auto|YKNO.2 bp!m1N ;|7536
+Instrument Sans|400|24|auto|wE,uAK7) Ikz rm 0Ftiq. r4,3|18754
+Newsreader|400|12|none|xWjkTgIc e!Rp P1|5548
+Instrument Sans|450|90|auto|(G'PsKKT -EMc?E dU oQl S3|75312
+Instrument Sans|450|14|none|D1C. E|2608
+Newsreader|300|72|auto|Qx22G ngrg 1'S:q4 -RRRr|51286
+Instrument Sans|450|12|auto|GEDvoN0d 3Ke,Ie|6363
+Instrument Sans|550|32|none|;LL zax y3y.NX-y dg548 9.lQxl|28049
+Newsreader|200|48|auto|i8W|5427
+Instrument Sans|550|14|auto|l340xk 5ysK 3iSsh H09g4' r1|11709
+Instrument Sans|500|13.5|auto|m 0'O|2365
+Newsreader|700|48|auto|g!D0yQL|13205
+Newsreader|300|18|auto|VVvwLUc 4fH('4U:|9207
+Instrument Sans|650|56|none|mf5zwi|12398
+Newsreader|400|32|auto|-w1; 8C,KG|10191
+Instrument Sans|400|40|auto|olNl3gg|9181
+Instrument Sans|600|16|auto|QU)wei|3582
+Instrument Sans|550|13|auto|:DYaNIqZ .'XI?a ed.uZ GJn!txi|10956
+Newsreader|400|90|auto|L4 wPs(Q (b!XWq qE;CE!oC|72309
+Instrument Sans|550|20|none|Eqjf oeVY1.l5 SKpOSY: 5OQ|16317
+Instrument Sans|400|72|none|E) L4mKr a7Cq( 1vpP 9(,7M|56748
+Instrument Sans|550|64|auto|BQDW LnU4z( pX)M7,G I2S18HN1 rc|67908
+Instrument Sans|600|72|auto|;VQ ec.Pn 0z Z0sKhx Y|49420
+Newsreader|200|48|none|TOi6Uo, Nop wip fI39|27871
+Newsreader|600|13|none|mLInH uXg|4291
+Instrument Sans|700|13|none|CZ-61 yu|3383
+Newsreader|600|11|auto|fESn L6pHvV tUM? N|7902
+Newsreader|600|14|none|3 'd4lTi 2?e2 'O ;'|6628
+Instrument Sans|650|72|auto|LR|5715
+Instrument Sans|550|22|auto|)zMtN57|5705
+Instrument Sans|500|28|none|psRHdNl. sMcvJ WF9xatis iSPbPcd|28889
+Newsreader|800|14|none|hh OWSVm?w; avQ?cjJ|9491
+Instrument Sans|600|40|none|T:t M1r,swMK Myi(|21575
+Newsreader|500|14|auto|OgDB8fJq .Gn )Ktpo.iU zDw w|12577
+Newsreader|200|28|auto|A.?)|2700
+Instrument Sans|550|14|auto|CN|1321
+Newsreader|800|11|auto|Iw9NF UT :jOpb -m0h J.DB|10183
+Instrument Sans|650|15|none|EmA!,w A;pXjiL LV:WyH6N|11845
+Instrument Sans|550|13|auto|cX8o1 qy|3374
+Newsreader|200|24|auto|y,TK qnx7pO X1Y|11505
+Instrument Sans|550|24|auto|GW0egi6|6919
+Newsreader|400|16|none|i C:CXD4 z34VvDSo 5VnTJ)|12087
+Newsreader|200|11|auto|RX A4aOU4U|4531
+Newsreader|700|14|none|1ii6lK|2586
+Instrument Sans|550|24|none|4l k,|2860
+Instrument Sans|550|13.5|auto|Umv)q1eZ T Y|5525
+Instrument Sans|600|48|none|9 Z'3P|8876
+Instrument Sans|400|32|auto|c KwFXI'|7928
+Instrument Sans|400|90|none|Hs5o(G lyMfa1 :wCW|54974
+Instrument Sans|600|13.5|none|,m.!GU?( dCxO0k(|7467
+Newsreader|800|22|none|DJZmB|4909
+Instrument Sans|650|14|auto|s 2v|1604
+Instrument Sans|500|15|auto|W7! d!JeOn|5164
+Instrument Sans|700|16|auto|I-tXSX;T N3K 48|7868
+Instrument Sans|400|13.5|auto|0 NPq64F 3 OiK.Chy,|8197
+Instrument Sans|450|72|auto|pi.Gfbh q(IN0 Db R|39933
+Newsreader|700|40|none|:rUn1 shG 4XsG ,N22-y OiW|32866
+Newsreader|600|12|auto|w7x )40,4 i8ARTWWr OWd59ftP|12710
+Instrument Sans|400|90|none|L1x75j! 5)KN.ANG|45804
+Instrument Sans|600|64|none|Sk83Mp 5 BXk|27628
+Instrument Sans|450|40|auto|1x:A ?-?;KO,O 6cG .DoY|27020
+Instrument Sans|400|48|auto|7T j' 02OX 8Fq|20291
+Newsreader|500|56|none|CSa6vV Kl1a DvCj3G?|34885
+Instrument Sans|450|72|auto|-f28M sGq|22603
+Newsreader|400|14|auto|VqwJ 9|2887
+Newsreader|700|15|none|6R6A Q.1 IgzD!xNq 6.Bh|10721
+Instrument Sans|550|22|auto|izh4,72 .J6|6648
+Newsreader|500|13|auto|Ng:w o'9B)8N dS4v aRE2s|10173
+Newsreader|600|11|none|C9r RITbg 8LT Gniy|6301
+Newsreader|200|64|auto|?ZFgk ;UF1W Qti5 hM.3:Am ,9N|57203
+Newsreader|200|64|auto|j YG'exk aYs(Wl7r|30321
+Instrument Sans|600|14|none|: 36 oeyup6 uCAfV 0|8559
+Newsreader|500|14|auto|Fc(4'QFT cdwpt)qL I Ao49tPki rc|13571
+Instrument Sans|550|90|auto|4p OL2;u W7P|38728
+Instrument Sans|600|13|auto|IYqR RW f zY,BXx(l|7152
+Newsreader|800|32|auto|';DUSGw nLTz9JRi ?fYa1e( g UTT!!ch|36730
+Newsreader|800|22|auto|-Ahuu TATLdnA6 gC O-ItZOPo 8ossA|24746
+Newsreader|500|12|none|bcU(uM !|3009
+Instrument Sans|650|28|auto|Mz-dP 9 Y JC(SIH GT|17409
+Instrument Sans|400|28|auto|rQrk sgs1EqS iz|12403
+Newsreader|500|28|auto|.Sk)Fiu|5371
+Instrument Sans|600|12|none|b9USg;h YqVRelHU R B ewD|10067
+Newsreader|300|13.5|auto|i0 L5td8l lj 6-aO sdVPxe|9278
+Newsreader|400|56|none|9'e7s|7269
+Instrument Sans|550|28|none|8I!l R.:MVZ2r Cf|12938
+Newsreader|500|15|auto|LX5mGGod 80?s:Qai XteFi0Y YKgJN23|17477
+Newsreader|300|22|auto|).M|1925
+Newsreader|300|32|auto|0? 3 S-Rjq01|10829
+Instrument Sans|400|15|auto|sE c|1771
+Newsreader|700|12|auto|42: EyfzXyEC W 9cZS9- (|9785
+Instrument Sans|550|90|auto|Zr!KVP JJ!|27012
+Newsreader|800|11|auto|pj?MUW QlIZ 6WPjM|8501
+Instrument Sans|400|13|auto|44qDXg5 :d NhJo|6627
+Instrument Sans|650|64|auto|,AtE E8O- Y'Fn 3K ?,9IW'-|48903
+Newsreader|800|13.5|auto|zubCcLU 5ryxg7b P.emZs) Uj8Zu dc.UbLF|18419
+Newsreader|800|56|none|,Qf 9?M':1|17842
+Instrument Sans|500|24|auto|vnKJr b-kjk N|9533
+Instrument Sans|400|13.5|auto|)XdyDT?|3447
+Instrument Sans|600|22|none|X8Z;?s|4500
+Instrument Sans|550|28|auto|(leaq WG9lpH|11890
+Newsreader|500|20|auto|BaQMX 0xb w 8q2gITJ EPF)M|16968
+Instrument Sans|550|16|auto|36 Szxkg eKSmE!l|8567
+Instrument Sans|500|56|auto|FtXp UmFdeB4y|27221
+Instrument Sans|550|13.5|auto|O93?s 1)FK ,ux U|6710
+Newsreader|600|14|auto|H!Ntar|2975
+Newsreader|200|90|none|Dj cgIelgUk r,82xYu! Wx3|58614
+Newsreader|200|56|auto|URdc 9dQc0,8 Cv QRGjAcNv|45304
+Newsreader|600|15|auto|.s)NQr32 7eQuuM A 9J w3(!z|12971
+Instrument Sans|600|13|auto|7Q;4dXZ TdSYO i5vU(|8515
+Newsreader|700|72|auto|f ;qq914S vU Z -5|39431
+Instrument Sans|400|28|none|N7eaMkJ 4)MK jO ZOg|18503
+Newsreader|700|72|none|.I7Qy9G PGi 9 j.P0h,|43667
+Instrument Sans|550|13.5|auto|aT,BuO(W sy Fn?W!M ,,Mv-SaS|12388
+Newsreader|700|13.5|none|!Vla6 GQup,QV HbZf5,8|9482
+Newsreader|800|32|none|9P-2u6Q 4CaP Y|16219
+Instrument Sans|500|40|auto|oHx'R3:L zaj4HFI|19935
+Newsreader|500|12|none|Jd RxopLz!5 2h:Bp: !'gw3sO|9032
+Newsreader|400|13|auto|rYvLIYcj H TQCi4E Df-'|8917
+Instrument Sans|550|24|auto|vM-N5wHr|7899
+Instrument Sans|650|13|none|e|477
+Instrument Sans|600|22|none|.h-7a i-Z7N n':po0I mBy5|15814
+Newsreader|400|18|auto|16zjdF8D 31AuxQZ-|10199
+Instrument Sans|550|11|auto|R Gu??2Ef9 1)yP|5358
+Instrument Sans|450|90|none|Q(nc8I Lj.sg QDobA6EQ k:|69527
+Instrument Sans|550|22|auto|Bi xiDs ,0se|7474
+Instrument Sans|450|18|auto|x)3e)NF z|5056
+Instrument Sans|600|72|none|X -hH'zfEy CqRwxh f7P:P.oD 3Ss|70108
+Instrument Sans|500|32|auto|Amg3ydem frSHkE hbVc9 CzL5 ;|30970
+Instrument Sans|450|15|auto|nu.8gK|3132
+Newsreader|400|14|none|09v;R|2220
+Newsreader|700|64|auto|8E t H 3ppDSKW|35016
+Newsreader|400|64|auto|C g N,cXM62 zMX OB;q|44747
+Instrument Sans|650|20|auto|ab?pnb?g xMT z|9861
+Instrument Sans|450|14|none|6C gQZh|3740
+Newsreader|700|20|auto|m2ND C.N9 ?LDcXg l|12559
+Instrument Sans|450|14|auto|!SX6 !ckcy:7o|5266
+Newsreader|300|12|auto|N5 OqXSkT uZ5)ZdI Qy9 x?(I|10432
+Instrument Sans|500|11|none|voN y? 5i 3Ibxff9|5396
+Instrument Sans|650|20|auto|wy8I z 4Su6MxRK ;-ic|13033
+Instrument Sans|700|32|auto|iGK3u?YJ|9077
+Newsreader|200|32|auto|KSflj- ywa5 QXC2rHG) i' M|22797
+Newsreader|800|28|none|nOJ5-EE Z !q n|12344
+Instrument Sans|450|13.5|none|4,Jmdr3. sP mCdD OTH|9375
+Instrument Sans|600|13.5|auto|deF ,3.I0K aOQnpb|7668
+Newsreader|800|24|auto|XdzqUb '5Tjis|10135
+Newsreader|700|64|none|vRWk(e .l?,y 5AW 3:4 CjL.)3l|52624
+Instrument Sans|600|72|none|4VEj rs!f:O I.. D40)1|40800
+Instrument Sans|650|32|auto|,yn;(T2 Tocr|11373
+Newsreader|500|20|auto|Nm|1989
+Newsreader|600|28|auto|r|750
+Instrument Sans|450|32|auto|po WaEUm !AAN,2D Mr|22262
+Instrument Sans|600|12|auto|s3sbv|2082
+Newsreader|200|12|auto|g CDmBd HX; :WJr9)|7197
+Instrument Sans|700|18|auto|D4!Fdg,3 I0?x)t!T ILi-6|12258
+Instrument Sans|600|28|none|IS- mF!5JK8k OtbTjSo orNj R5|24727
+Newsreader|600|48|none|-f,yMi 4b;HG 1ph|23644
+Newsreader|200|14|auto|S'?S142p RxS: IQJj3G9?|9321
+Newsreader|400|13|auto|PFrj jy85Icc zJOW 6OfgC-D w31VY.z|14141
+Instrument Sans|600|24|auto|w)1qs !Z,Im?8a E5o'B|14716
+Instrument Sans|500|72|auto|Skonh6p ,KrvzYL cJatPOqW B!Zops5;|79754
+Instrument Sans|500|12|auto|,S|646
+Newsreader|300|15|none|JPuX r?s - Ig|4728
+Newsreader|800|56|auto|aXC10an emS Ff8BI sd|41037
+Instrument Sans|450|56|none|0S80(|10674
+Newsreader|200|12|auto|ta z3DyX0w x T-p' ?fH!(|8187
+Newsreader|500|16|auto|?( 4?mG03 3- 37lKE!V9 E4c3qa|14495
+Newsreader|400|18|auto|(S7|1561
+Instrument Sans|600|72|none|bTnkX k2nrpDd )pe4N|47984
+Newsreader|400|13.5|none|9j (6IQ|2508
+Instrument Sans|400|28|none|O,Ea,U:|5704
+Instrument Sans|700|14|auto|o9Wrome 6k9,iQ g8jZ '|9709
+Newsreader|600|24|auto|IfI) UzQVs.JG|9319
+Instrument Sans|650|11|auto|X S:;k0;X fDfWN Cc g',w5R|8798
+Instrument Sans|450|22|auto|f)bdaR rb9mMw4|11519
+Instrument Sans|550|48|none|-Cp! Yz4m .? Bb|22534
+Newsreader|500|90|auto|x1wfLI 1Y2ixR.q J))gu'a bv0HH 0VQNjI|106242
+Newsreader|600|13|auto|Me7BZ|2999
+Instrument Sans|700|48|auto|3:,mY|8252
+Instrument Sans|450|64|none|F:a oE u.hVoQ bRrhsy|40045
+Instrument Sans|500|64|auto|b8ZZ|10027
+Instrument Sans|550|28|auto|6 Js,B|4624
+Instrument Sans|650|12|none|hbt-Q AD Rx6.|5242
+Newsreader|600|13|auto|TF zBnuvocQ s|5978
+Newsreader|300|40|auto|ls;|2176
+Instrument Sans|700|64|auto|V:W2Cj|14787
+Newsreader|400|32|none|fNiY! j(G5eFog P: 8 q'a?sbr|22683
+Newsreader|300|24|auto|(wx z|3196
+Newsreader|700|90|none|RS|7358
+Instrument Sans|700|11|auto|3wkci 1s -AO QM,hIaO 9FJE|8919
+Newsreader|200|72|auto|C8?;6;LO mz2uSX :On|45283
+Instrument Sans|700|24|auto|d8MiCZ:n hv8PWr 9YUr(0Sq -2G!326|26868
+Newsreader|600|12|none|GvIOlk) rq f2DPf)uP vgr;3|8835
+Newsreader|800|20|auto|Kf2 pXLtTgX bv1R|11545
+Instrument Sans|650|16|none|WTL S yUs .YH|7028
+Instrument Sans|700|32|auto|,aW9 mkb wzeDilS SI c64.|24896
+Instrument Sans|500|32|none|q.Y.WF jxya -6:KkWU|19829
+Instrument Sans|700|90|auto|ycPnRL 6 qZ p6|42256
+Newsreader|700|24|auto|2HeM04b LUy6syyS|14675
+Newsreader|700|56|none|qCw57zwe ZR|23181
+Newsreader|800|18|none|-b5sq r( em|5831
+Newsreader|600|64|auto|Mcl8WuNa|22013
+Instrument Sans|450|22|none|lm w8hE?TAR hRuds1w1 vGt:H34 ED|23397
+Newsreader|600|22|auto|KtHTg M!rXM|9253
+Newsreader|200|56|auto|7|2098
+Newsreader|200|48|auto|x 0A8|7986
+Instrument Sans|550|18|auto|FR|1434
+Instrument Sans|600|56|auto|K8b Ueh;K)p x. R9 k5|35119
+Instrument Sans|500|15|auto|ulLW IF5d rQA Vo46.-|9616
+Instrument Sans|650|16|auto|rGPTH (: BYsDBO 3Equ JWl3mH|15309
+Newsreader|400|18|none|1 bR9t W|4485
+Instrument Sans|550|28|auto|X zCfYc n?GrGsj0|14817
+Instrument Sans|550|64|auto|(ARu b|12852
+Newsreader|400|12|auto|6gK ,'h 9y5b7 9d'0)9 9dS|8823
+Newsreader|300|72|none|aawcuRP Lv8Jp5W BXz)Fu FzZ|57835
+Newsreader|300|16|none|F3Fl G2n(qunw h6 p|8589
+Instrument Sans|550|22|auto|aXAQJ) (|5891
+Newsreader|600|64|auto|o(.GcZ(w|16742
+Newsreader|600|13|none|AM(USEG|3933
+Newsreader|700|14|auto|x w: QP|3250
+Newsreader|500|48|none|-;Skmt 1 2 49NYvP sXjG|32058
+Instrument Sans|650|72|none|0 a(td|12792
+Newsreader|600|32|auto|vPHC x?E5!v du(q qmG))C )y2Acf6|31711
+Instrument Sans|700|90|none|Qv XE!24jz; xW;.ua5 s7;o g|70624
+Newsreader|500|11|auto|w-e|1215
+Instrument Sans|400|22|auto|O9 u4llt Pea;!i|8854
+Instrument Sans|400|48|auto|cv|3202
+Newsreader|400|13.5|auto|3 T3hCE LEG(-|6021
+Instrument Sans|500|56|none|Ut6efN; Ct8|19864
+Newsreader|200|32|none|P0z4(9 .cSsI4Id zKoD8Gf l qUZ|25719
+Newsreader|600|90|auto|?:V4vY OxD FpGkC6 dMJH1, pKyQc7N|109150
+Instrument Sans|600|13|auto|;69gP(r QZ)bqs n kFbn wulKhNqW|13621
+Instrument Sans|550|18|auto|e'h3.)Ky XwsF VjPll|10012
+Newsreader|400|64|none|V, aLpj B.P T 'HwDi4|35378
+Newsreader|300|40|auto|y 7 sH bJ9x4C|15583
+Newsreader|600|13.5|none|t?8AjOL r4B4-|5657
+Instrument Sans|600|72|auto|yI.:|6029
+Instrument Sans|550|13.5|auto|oJZ!a G uyCT,2)|6135
+Instrument Sans|600|12|auto|Lnid tUe2BdZB LBAR41)|8582
+Instrument Sans|400|24|auto|w,A2v rg;nax Faa|11700
+Instrument Sans|450|18|auto|u6c!d! pG-WfZ Is.kztV|11666
+Instrument Sans|700|72|auto|J:J|5079
+Instrument Sans|550|48|auto|aP n5q|9882
+Newsreader|800|40|none|uPkVUvDi 3r('d-b K8hjyB|30827
+Instrument Sans|550|11|none|by? 7LNX2Y r)nQiW|6599
+Newsreader|700|22|auto|Bw|2055
+Instrument Sans|550|13.5|auto|OVK0'|2600
+Newsreader|200|16|auto|k3j V-'2Fj Z6;v9 vH. c(|9400
+Newsreader|700|48|auto|tL AIVD3 U-0t.WaJ 6?0UUoa|42419
+Instrument Sans|600|40|auto|jd2i u|6374
+Instrument Sans|600|24|auto|6MaYV2W 3K( a .1-RZGm|18045
+Instrument Sans|600|32|none|7O!mPWk (E2h nC5J zHn1i)|26345
+Instrument Sans|450|64|auto|KWV,:-: atyzG gjF:r P1d WC'pCBb|62673
+Instrument Sans|650|72|none|k S9LU7Z|20558
+Instrument Sans|550|12|auto|Q,gaA|2229
+Instrument Sans|450|12|none|eD)S(|2027
+Newsreader|600|15|none|EGO oY 1I)grHj V ?r|8395
+Instrument Sans|400|14|none|' Jw|1478
+Instrument Sans|400|90|auto|5J6 :xt2kW XBK?TwNo 3wa5|75624
+Newsreader|500|64|auto|jRopA4W )M6Eo zMY w47!kneL|61570
+Instrument Sans|500|14|auto|qjsJA'p0 ;58m KsHvq9w Mxnbn|13039
+Newsreader|600|18|auto|Lth2NvNr ry 86z sTs-Zg1 KHOM|16671
+Newsreader|400|90|auto|b? 4C!etWl|28501
+Instrument Sans|550|16|none|-|508
+Instrument Sans|400|12|auto|oprn|1662
+Newsreader|300|32|auto|tXu;Ub7 )e06SN,)|14917
+Instrument Sans|550|48|auto|3 e:62UsR|14176
+Newsreader|700|14|auto|eTHp'(8h 1Sp)1f7J|8168
+Instrument Sans|450|11|none|J'7sY bUCjU! VCIHj nDGx (U|8906
+Newsreader|600|16|auto|vKIvG 2TdfQt2 z8IP1Q HAFBkL?|15986
+Newsreader|500|72|auto|g)!JR3'|13954
+Instrument Sans|500|14|auto|Or W(O n|3870
+Instrument Sans|400|90|none|O72 rCU 0z4vZLv, 7QM-2vy ,H|78567
+Newsreader|400|14|auto|Qqq mWO Bv;(Rz ks0urekm|11239
+Newsreader|800|32|auto|ne|2298
+Newsreader|200|48|none|N4LG6yp|12590
+Instrument Sans|600|22|auto|Ql|1501
+Instrument Sans|500|32|auto|3Zg'6u2 Z.A)'k oBOzp0C5|24391
+Newsreader|800|28|auto|'ChA 0bf5T ;dZ1 3C,wbD2|22512
+Instrument Sans|550|56|auto|cZd?1ny; k8;j92zk ZxZald|41383
+Instrument Sans|600|13|auto|g H|1281
+Newsreader|300|20|none|!w'IM iCVU s9,|7923
+Instrument Sans|450|14|auto|qJVSeT|3104
+Instrument Sans|700|56|auto|9A e)5X9?W|21418
+Newsreader|600|40|auto|Q XE IM?AeF1 jH|21054
+Instrument Sans|600|13|auto|;:sL iiY TNMB4 O'Ze!v mBn|10196
+Newsreader|500|72|auto|qoyEf.5y gM:!1 UrsNL. 7XTcoAhU 9oO|83766
+Newsreader|500|90|auto|aJgFg1rI|22754
+Instrument Sans|450|20|auto|vYH,ZR Gc20KK Svv|11999
+Newsreader|300|20|none|V- jh0.'9M? WfS bA0(dm|12808
+Instrument Sans|700|14|auto|9Z7A5 A(k6b0g|6646
+Newsreader|400|28|auto|W5 vH tB3Nd-s (|12861
+Newsreader|700|11|auto|xg5|1330
+Newsreader|200|22|none|9z(nr2 pw-WU|8289
+Instrument Sans|450|18|none|Y:Rk-9IL wJ6V3Z NzU|11357
+Newsreader|200|13|auto|P XG: oR)G1 ;oosiGL SCX2JP|10697
+Instrument Sans|500|16|none|22F3 o;zt SJ2Tbbj|8310
+Newsreader|700|18|auto|7T('nti7 FN? xFKwQ2: a5x Mbp,mmi,|19380
+Newsreader|800|24|auto|jvEL GrI)Npg Ply VC6w 5QA!9F|22917
+Instrument Sans|700|40|none|-HiX5 UW6dc; R)Q2yz|26663
+Newsreader|800|14|auto|Yj2SK6l vFY)? DntBOD 'o. Pmq!ICr|16059
+Newsreader|500|13|auto|B 6 pqjv;2|3958
+Instrument Sans|450|18|none|n7c9),!C 8;JtTY N0mbC (zaqHg|16281
+Instrument Sans|700|90|auto|:' qPx2ymu- Tjpq'F7 c!LaEsgW|83837
+Newsreader|300|11|auto|!FvY LOKq KmLl jRuy ,5obOm|9939
+Newsreader|400|13|auto|9fQ396 jb9XzV4 S:'|7478
+Newsreader|300|13|auto|mFA1mu ?rZwANx|7206
+Newsreader|700|22|none|uXEuykyr ciytvs|10367
+Instrument Sans|400|40|auto|33DK X oqml p ;Du-O|25191
+Instrument Sans|450|24|auto|?k,dEL vk paqT NiS'el cV|17091
+Newsreader|400|12|auto|;uUN F(W|3599
+Instrument Sans|450|16|auto|lx2mP|3009
+Instrument Sans|650|64|none|,S yqJTFW 1P VV|32315
+Newsreader|500|28|none|:J9Ues;- X22C '8qzu' !;n vAIU(;-P|24865
+Instrument Sans|500|12|auto|OcBLh)|2698
+Instrument Sans|600|18|auto|5ZBlUT AqO O?|8427
+Newsreader|600|20|auto|-s8C4yG' C|6362
+Instrument Sans|600|32|auto|-5 OuV9F8?q L!Ri4W|20121
+Instrument Sans|700|28|auto|SgOTp H|7396
+Newsreader|500|56|auto|2a1|6138
+Instrument Sans|500|14|auto|!Lf|1057
+Instrument Sans|550|24|none|PbX rzV 4m l PxDyHv|15122
+Newsreader|700|18|none|V fWP w 5. 637HPa|10395
+Newsreader|800|56|auto|!vob 5TTC-h EhMQKd?b|44285
+Newsreader|300|12|auto|L. IXB B e h4Iy,!|5555
+Instrument Sans|600|15|auto|FQ 7fWZL5|5098
+Instrument Sans|400|64|none|8Thlf: tytGNBe UK!cW fN Ly2g|56951
+Newsreader|800|22|auto|gkKXC QAmtlGO|11660
+Instrument Sans|500|20|auto|a5T,4j t:2LvMxf ez ru!cA (Uq|16349
+Instrument Sans|550|56|auto|E8 OLxSK oW j9,IQ|31522
+Instrument Sans|500|14|auto|oZDU1X;:|3790
+Instrument Sans|550|13.5|none|hbz (Ic Mx8Uo2B c)0YCH|10092
+Newsreader|600|22|none|Ta)I,1T4 7s?WH a(csA SH|15759
+Instrument Sans|500|15|auto|Dy4dQ dIiSF2Jh LXy a ,u|10664
+Instrument Sans|500|11|none|XaX J|1778
+Newsreader|800|11|auto|e5 g1, EJLf !)vnXgh|7406
+Newsreader|800|20|auto|oU!|2049
+Instrument Sans|600|20|auto|i S 1nj CYzV)ypG|9632
+Instrument Sans|650|48|auto|6p;1xva ' d: ,sARu2|26315
+Instrument Sans|600|40|auto|,Li4X1 amwBLP,( k ZY,:v!HB|31859
+Newsreader|800|20|auto|sj9f6(M :9S:Nmpd 2 i-0i|14395
+Instrument Sans|600|48|none|ZK D'4'wAQI UKyI 1X|28397
+Newsreader|600|48|auto|E P'gT7Gb! A|18800
+Instrument Sans|450|11|none|s)fQy w Vm ZX3 aSkrHKO|8251
+Instrument Sans|650|13.5|auto|oE WsZ),k9 gKzo S4|8166
+Newsreader|600|22|none|b1:LWe :MAQ'V-z|11152
+Newsreader|400|22|auto|h fr)8AEM|6390
+Newsreader|600|18|auto|s1a!NNXY qmc'Y: 'hGv|11461
+Newsreader|200|20|none|g 'PbViIaH b:x,qMD|9947
+Instrument Sans|700|24|auto|hTv fgJ3rF7p|9190
+Newsreader|400|56|auto|xlHok y,'7 o MYgAdV -S|37292
+Newsreader|600|12|auto|z|392
+Instrument Sans|550|15|auto|d6( ?QLE ZaP2j Z 0-5VR|10866
+Instrument Sans|550|22|auto|-5hx-P2;|5746
+Newsreader|800|13.5|none|6N1J D(0 Kcguu|6608
+Instrument Sans|500|90|auto|3KuMXu YC|31953
+Instrument Sans|700|90|auto|N onAUv NP:6 VAN,8 S|60348
+Newsreader|800|90|none|nQ0G 7fTO|32660
+Newsreader|800|11|auto|Z|528
+Instrument Sans|700|32|none|gofT|4662
+Instrument Sans|550|13.5|auto|VNBt10 Q8;bZ--G 3Ajf ,P8(hQU|12528
+Newsreader|700|13|auto|5hZn3h5 ,ew1Y;6G|8019
+Instrument Sans|600|16|auto|JYm)U s ePs?2JBS s H|10230
+Instrument Sans|500|48|auto|AFV|6306
+Instrument Sans|550|11|none|YG256D( (SCL1lok|5999
+Instrument Sans|700|64|auto|(;i,H) BMOIZKi WNjUelf gbab-X XY|66778
+Newsreader|300|40|none|6,t8AhA! )W Aw4M|20752
+Instrument Sans|500|20|auto|GT fd -)3Ru pJ ZRMdhB|13748
+Newsreader|400|40|none|En|2985
+Newsreader|600|20|auto|(g ;A9Rs,: 9G4DW.g|11138
+Instrument Sans|650|56|none|.VR6GD ONsu7 c3|29712
+Instrument Sans|700|18|none|p rZS B3|4410
+Instrument Sans|550|22|auto|ET9HLi V.GqY kR3yC|13764
+Newsreader|300|18|auto|c-f'0k 5Vnv|5472
+Instrument Sans|400|40|none|XiY:-EaM i7mM1 ym dh5XQd|33708
+Newsreader|500|16|none|)PA43h, jXrEs :Kqs|8242
+Instrument Sans|650|32|none|i!!2qf1|5666
+Instrument Sans|400|40|auto|kQ.MM Kdlqrp JQIqN2K i -|30907
+Newsreader|700|32|none|WP5 F3 I|8788
+Instrument Sans|550|16|none|y5 8ilKVd1 wt-re!r tLcX|10785
+Newsreader|400|48|none|-G)rG HJHVeM CyE,B3 jrJi|35365
+Newsreader|600|72|auto|Pi D sP, 'j5qkdoA|36423
+Instrument Sans|600|24|auto|pZxoQC?j ; H|9350
+Newsreader|200|12|none|4'ZC :DaopLCq ,bZ0- h H5r5(|9092
+Instrument Sans|600|32|auto|9n )7Po ayEs (PT 6|17834
+Newsreader|600|64|none|0th;g aI lWo-ylLH|31874
+Instrument Sans|700|22|none|K (m4- bCxuCp .W|12568
+Instrument Sans|600|22|auto|kzn)WccQ ZrsQM2t7|13759
+Instrument Sans|450|13|none|' d0QkxDdb zFOnBVY (Zh7?u t?M|13047
+Newsreader|800|14|auto|mM ql;n0A|5173
+Newsreader|300|15|auto|x.Sc.:l sgMy9|5351
+Newsreader|800|32|auto|Wk|3571
+Newsreader|800|90|auto|D'7 68;|21131
+Newsreader|800|22|auto|d3N3n h:5(;mR5 kQ 'IEd|16158
+Instrument Sans|400|11|auto|Xl6l tv tVVCAk cqZt|6407
+Newsreader|400|14|auto|dkHf XN2b 7)yIJKC|8181
+Newsreader|200|72|none|Ejr sg hSEo|20382
+Instrument Sans|700|24|none|3M|2268
+Instrument Sans|400|48|auto|-u. yDlx a,!I7hF|20564
+Instrument Sans|500|15|auto|6vWKRA Wu6K 9 pF7Nf-9|11766
+Instrument Sans|600|22|auto|ee4H CDrcuxY5 oL WeQJ|16697
+Instrument Sans|500|16|none|W|1115
+Instrument Sans|400|56|auto|m8l2d|10376
+Newsreader|300|13.5|auto|T2uWcB h?Oh 5 0D|7612
+Instrument Sans|450|18|none|4tqr!NpZ oFrn.3K 5rIyu;Y?|13741
+Instrument Sans|500|16|none|'zOy)E;;|3549
+Instrument Sans|450|12|none|u ; Q7FYX|3454
+Newsreader|800|90|auto|(NkE3G8A 'LRJ|46386
+Instrument Sans|550|40|none|8)h(4l|7005
+Newsreader|400|72|none|mhheWn0l 5bE.zO pUX1E2P3 ;z33!I;l xTb,|82643
+Newsreader|400|32|auto|M l;DDyv spu Q JJJ1w|19616
+Instrument Sans|700|32|auto|7xGYK :ThvEtr|13947
+Instrument Sans|500|13|auto|Tz,1ZD aznl3Jt|5372
+Newsreader|300|72|none|7 46Q2 P-ZUCr53 lC!;|42560
+Newsreader|400|13|auto|dHvUT? k)WPUe 2:r)|8123
+Newsreader|800|12|auto|ih HbzeR|3698
+Instrument Sans|450|20|auto|rRBvYeZ t OHt3|9124
+Instrument Sans|650|56|auto|7it 5wSW.. !qyAnd)|31817
+Instrument Sans|450|12|none|d|469
+Newsreader|500|12|auto|Yy-, Ks|2556
+Instrument Sans|450|90|auto|0QGZHg q;IjuN)d ZGK8 CseV z:;8H|92401
+Newsreader|600|13|auto|VZn7 4I AU|4789
+Instrument Sans|650|14|auto|: XbPzG5;q|4658
+Newsreader|800|13.5|none|:2)DIJK c: 0OI ?;KR2. sLzpNd|11797
+Instrument Sans|600|28|none|6d77 OWN)OAK|13869
+Instrument Sans|600|24|auto|4K! KgWKCxlA Rg:8t)x- g- 3(|20955
+Instrument Sans|450|22|auto|HwMnK:Q 3Gl B Up4|13346
+Newsreader|600|28|none|5Bx xYl ;K6;Ci|11539
+Newsreader|400|28|auto|DV2jsx ?ZL C)0Xm,I mB! .|19787
+Instrument Sans|650|32|auto|M,iZJ j TQCP( jmySPjO|21824
+Newsreader|300|48|none|!TnwG mqx 6Z- qO' A'YOU|34122
+Instrument Sans|700|40|none|a 7UHc! DIrT)oa1 N)?e|26033
+Instrument Sans|650|90|none|yLY0OT ayEfaol u|47011
+Newsreader|200|32|auto|3 hE6G R'EYy-z|13277
+Newsreader|200|72|auto|ZUc8dO|17283
+Instrument Sans|450|14|auto|65A m't.) xP2|5450
+Newsreader|400|15|none|oH2vyL :-r?3gQt j ?|7748
+Instrument Sans|700|64|auto|Pw)-z|11170
+Newsreader|300|56|auto|XsNGba 6L1f0QH ?1JU|37274
+Newsreader|400|20|auto|S Kh '2 YkE5 fF|8610
+Instrument Sans|700|24|none|tuv z4 c2Io4 rI.t IJF|13209
+Instrument Sans|400|24|auto|UH8WUM: 59qlZElS|14307
+Newsreader|700|90|none|w P1YZax U dn Isw,ZUoj|63351
+Instrument Sans|550|22|none|XBNG9YS VvZ xn 5Zhg02E|17612
+Instrument Sans|500|72|auto|xkqy OU9G|24492
+Newsreader|300|22|none|9 p6Q BIh:Tg0K|9302
+Instrument Sans|600|28|auto|D1:7Otrv 4vY,C|12169
+Instrument Sans|600|14|auto|c(Kt B nAZlL;?|5981
+Newsreader|500|24|none|Dz;'I?C ; TcR;! 8QP7.rTI mzm|19034
+Instrument Sans|500|56|auto|mqL2 rG5Xu6Li (|28247
+Newsreader|500|90|auto|jzpb dZRE;|29727
+Newsreader|700|20|auto|y; q ZBIm; 2Y.aI:;H 5y|12664
+Newsreader|600|14|none|.IK,HD 5 xF|4727
+Newsreader|200|32|auto|xt4 !O8r3n5E IZkH!|17027
+Instrument Sans|600|12|auto|x,' :OKD 4 dpybA05 W)Bb0|9669
+Newsreader|600|20|auto|r,F Twb6MR6O r0T-.QP )HBOzCz|19099
+Instrument Sans|400|14|auto|P:7Vt|2169
+Instrument Sans|700|11|none|6j ''0 Vtu.d KCZ qK|6125
+Newsreader|200|12|auto|sOzG i-K6aO D,)|5573
+Instrument Sans|500|20|auto|QR9ceg pZPa4|8943
+Newsreader|200|15|auto|uN!z|1913
+Newsreader|500|20|auto|'bo UVuZu0L 'MaQ|10572
+Instrument Sans|600|64|auto|f Rx?es q0,!)|23510
+Instrument Sans|600|12|none|;LL3vnz (i5PS) zfXY3u gSLloBkp|11582
+Instrument Sans|700|15|none|u?72U:y, WT nx'EXi( 5:rv4xS|12789
+Instrument Sans|500|15|none|LqYEAMAq d :A m,I C1,R!rb|11964
+Newsreader|600|14|auto|ey oy2 hGZGhO-!|7320
+Newsreader|800|13|auto|YsLA1e 1GzBx .n1G vMofc0PR|13448
+Newsreader|300|15|auto|Fj?vA:LA o d(8-s.|7003
+Newsreader|400|15|none|eD- 7quoV8 ZFXUZl n|9086
+Instrument Sans|700|32|auto|SN3H 1-|7580
+Newsreader|300|72|none|PGx T6sfoc) ne hXp 21bT(mJ4|57048
+Instrument Sans|450|13.5|auto|u 6t9? ,j|3130
+Newsreader|400|13.5|auto|T9fqu2 JYPUeF :kxHhiQP|10318
+Instrument Sans|400|12|none|!3KA34 ?63;'Fo lcNtPJQ?|8707
+Newsreader|500|28|auto|2 jAkNqHUF|10285
+Newsreader|300|15|auto|IZ!oV: zj|3301
+Instrument Sans|550|16|none|9GlSlY5M .X|5946
+Newsreader|200|32|none|3kaf64Ne D1HU|14215
+Newsreader|300|48|auto|YIdTo6 CfoVR;|19683
+Instrument Sans|500|40|none|Jso;lq U?DkVM ; puL0ks J1PAA4eN|40966
+Newsreader|800|11|none|YBYV4ndD Bs7n LFP)|7473
+Newsreader|300|20|auto|lUVKlj|3526
+Instrument Sans|450|13.5|none|Lpqjwk7 :c 0-q 7GY|7643
+Newsreader|700|40|auto|K L.J wxvqgd8 QquIerJ FSxkSIyj|38591
+Instrument Sans|500|24|none|UbM 51Eo;PHP|10501
+Newsreader|400|56|auto|r3mY|8693
+Instrument Sans|650|20|auto|c|714
+Newsreader|600|20|auto|rRqi 3aPxb Ga4kcHkm rsqnJNT!|18309
+Instrument Sans|450|40|auto|LzDX|6287
+Newsreader|800|64|none|SZA cE|13652
+Newsreader|600|14|auto|9v-.Ju b2aW|5264
+Newsreader|700|18|auto|- X2?|2725
+Newsreader|300|16|auto|g2aobG|3347
+Instrument Sans|600|14|none|oT;pW|2643
+Instrument Sans|600|90|auto|eT;: V'-Ml)|27011
+Instrument Sans|650|14|auto|cMK8Ah ;UXC9sk:|7670
+Instrument Sans|700|56|none|Qk dhJ7D dOF sd|29052
+Instrument Sans|600|32|auto|RTYsy5u 09)i c2aQ mR C:f|24972
+Instrument Sans|500|24|auto|RG7hD0M V6(v1k j9eNqt|17682
+Newsreader|700|15|none|4LgW(j n crSh|6087
+Newsreader|800|90|none|x'VNIx, zb6S7 m .L)r'6|59703
+Instrument Sans|700|18|auto|RCw-L YSvM8Yf4|9672
+Instrument Sans|450|22|auto|. K|1627
+Newsreader|300|20|auto|?R7yh7I|4396
+Instrument Sans|700|90|auto|:c4'd4) rb2x7fa xG!0E|58200
+Instrument Sans|450|16|none|YvJT !:NV 62wo Fg 9sl5|10766
+Instrument Sans|450|64|auto|:j3u HuLv :C Hlexsfb RtUOvC(;|56043
+Instrument Sans|700|14|auto|sj P 0H|2893
+Newsreader|300|20|none|n;hY djRBno 9f HkoFU iwm|14435
+Newsreader|600|24|auto|7s|1514
+Newsreader|300|18|auto|ehAe YCED AQP2RqS3|11197
+Newsreader|500|48|auto|!8I8SU5V jomjD H-kn|30232
+Instrument Sans|400|13.5|none|JtZ H|2064
+Newsreader|500|18|auto|nHR7GB;z 0D|7122
+Instrument Sans|400|12|auto|aoEk(y Yi ;Rnj)JHp 2BCp,b7- YrfN.|11698
+Instrument Sans|650|13.5|auto|QZ'U :m:68fG|5545
+Newsreader|200|40|auto|8xx,fI lskJGci f,c|16875
+Instrument Sans|500|13|auto|L3Ux EYx. 3Lw|5552
+Instrument Sans|650|13.5|auto|LJ;y|1573
+Instrument Sans|450|13.5|auto|prT,fJ1 B|3102
+Newsreader|800|90|none|t HWu mk4?x6 sww)l,Mq|67441
+Instrument Sans|450|20|none|p x YAXYj.JM xvx'|10296
+Newsreader|700|40|auto|hTIX2 A9W9 q j Dr1Dco|29502
+Newsreader|400|16|auto|2fP'qIyi rxQlvVqd|7940
+Newsreader|700|48|auto|;'ZPmi'|10026
+Instrument Sans|450|24|auto|4Eb xWiZ|6894
+Newsreader|300|90|auto|rJfDkDt|19979
+Instrument Sans|400|12|auto|OWh Z7p6g nM7Q. H,bZa5 U(zR|11264
+Instrument Sans|450|48|auto|3,dx7N tnvbLOe6|24255
+Newsreader|700|40|auto|71 t zB.-67rr V.|18133
+Instrument Sans|700|64|auto|wQ6Vsj 8P!TJE NL9F5,I )nKz|54272
+Instrument Sans|400|16|auto|X|705
+Instrument Sans|450|18|auto|OZW;4Dm x5|7172
+Newsreader|200|32|auto|1r UI-|4875
+Newsreader|600|56|none|6Q1,NPd nqtWt's Zztm4xa|41561
+Newsreader|700|40|auto|pT;bxpnX q|13709
+Newsreader|800|24|none|6dRW VC)zeoeM : - hf|15503
+Newsreader|400|14|none|MSZB7W4c 'Af!O Bn4|8568
+Instrument Sans|400|24|auto|fUvbxH xck.3 hDNw|13881
+Newsreader|300|72|none|TZKE(H;|17314
+Instrument Sans|700|24|auto|( m'GHqtJ0 aJ)hMM l:iW|17554
+Newsreader|500|16|auto|S Cv IV5nCY|6022
+Instrument Sans|550|40|auto|mP|4096
+Instrument Sans|650|20|none|y xtYWms|6221
+Newsreader|400|48|auto|02lBfMs x::CE:p QmEff E!7 PKoChl(o|50850
+Newsreader|500|12|auto|a Uzj-o J0d4;1g JuOHSC d?1S0mWs|13237
+Newsreader|200|72|auto|CrGxp|13331
+Newsreader|400|12|none|J1 AIo Ig)? WQu4dW;l|7086
+Instrument Sans|500|13.5|auto|-eDXRh jw KjJ(s HB dqiPq:|10388
+Newsreader|800|32|none|HlL I(mGC5a sFk apP;YR|23821
+Instrument Sans|700|14|none|jl BrwPF xTEsHDO|7740
+Instrument Sans|550|13|none|q|514
+Instrument Sans|650|24|none|R7yi5GG jYM.T M|12355
+Instrument Sans|550|24|none|0 Ar|3053
+Instrument Sans|700|13.5|auto|rAG .mm9ZKS. VuNSU|9064
+Instrument Sans|700|12|auto|8NfX DyQ;2LL|5172
+Newsreader|400|64|auto|t B9j5x,d|16554
+Newsreader|700|72|auto|c7bvm)e ),w YyI2vUcq xvmF n6H-d;P|83372
+Newsreader|700|11|auto|?A7)0|2229
+Instrument Sans|400|90|auto|GFX Xp 6j,hY|34319
+Instrument Sans|400|24|auto|5fV.,)K i!JR09: ct|11447
+Instrument Sans|700|48|none|'zYg0!6l VYP.1V: )O|27096
+Newsreader|800|13|none|HmdBYbgN i2R;Dm8P vD90uU zHL|14229
+Instrument Sans|400|15|auto|4 -Cfar|3131
+Newsreader|400|20|none|( IjT ArGoBV9j|7929
+Instrument Sans|650|13|auto|StVGC7h 4vvI T vLR p|8439
+Instrument Sans|650|64|auto|EWQd 9 iR-0WqM AFIiS|46122
+Instrument Sans|500|72|auto|NiQZNr 9m-mnP5 TSS|48555
+Instrument Sans|450|56|auto|7mpOH Ae)FFUVc 5b0r3W|45030
+Newsreader|600|72|auto|J DXU kDCNI g6rW|43428
+Newsreader|600|90|auto|kY c((K YIRvhSc oiinHFc x|71768
+Instrument Sans|600|90|auto|2|3209
+Instrument Sans|650|56|auto|JjLYl cc2Af . ?c kUr5ws|37592
+Instrument Sans|700|64|none|-2Zqme 3|18441
+Instrument Sans|650|14|auto|2kh|1559
+Instrument Sans|650|56|auto|5 7rrid! s s8|18967
+Newsreader|400|12|auto|C oWL! G k'7SM|5945
+Newsreader|200|13|auto|ML)se|2280
+Instrument Sans|400|72|auto|;f dnR,|13295
+Instrument Sans|550|48|none|4e h2C, bTv1 'I|19621
+Newsreader|600|28|none|VV?f0Y P- PP xIQwM7 ZICMx|24287
+Instrument Sans|500|13|auto|qiI?twbR 5D1fF|5830
+Newsreader|200|48|auto|32NbtX2|12392
+Newsreader|700|15|none|gXS4B 2Mapf)? sehh|9081
+Newsreader|700|64|none|CxoUd,mt ani:Kxx|33240
+Newsreader|200|14|auto|BvpKh8 3Br fPs|6217
+Newsreader|500|48|none|g)8SG ,1ls peK|18984
+Instrument Sans|600|64|auto|G QuV.OS hS(1|27445
+Instrument Sans|500|64|auto|ePw4BlO Pepj|26857
+Newsreader|700|14|none|o?Z87|2531
+Instrument Sans|700|13.5|auto|nMxm m-Cdhb?P 7 o|8636
+Instrument Sans|450|40|auto|!hqZnq3C|11922
+Newsreader|300|22|none|h 14.,bmgF Po3|8832
+Newsreader|600|40|none|t xn cZL.i) zBLk b|19409
+Newsreader|300|13|none|Eebm2) 8XC 2t11J uBS TduvDq|10835
+Instrument Sans|700|64|none|WvQ4EQ c!hxk X(8:M.2 9o -NMVlnA|70050
+Instrument Sans|600|16|none|y|550
+Newsreader|500|32|none|-gjVkR -Rza1D|12960
+Newsreader|300|20|auto|1oE.EBS G5UZE mX ??B2WB slb5Na|19697
+Newsreader|600|48|none|d5NiD'qC|13309
+Newsreader|800|16|none|q0R;Y|2983
+Instrument Sans|650|14|none|WOiOGHG0 2)er)|7410
+Instrument Sans|700|24|auto|,q tmDVpg4|8786
+Instrument Sans|500|64|none|cK :DQ;g.O dNjY'|31998
+Newsreader|300|56|none|TAsPo:o 4dv|18168
+Instrument Sans|550|72|none|Mj 'nR1 (;5b PatApDe 8K|51527
+Newsreader|300|18|auto|38Wx9|3490
+Instrument Sans|650|22|auto|a0VwrPw xt77t 8pu al.RLn KxaGZOE|24163
+Newsreader|200|56|auto|7tZ0Q ,b FDuJ3Mj NsrhTd0 7|44818
+Newsreader|300|40|none|lTMh3m|9289
+Instrument Sans|500|56|none|Q'lJ Y|9184
+Newsreader|700|11|none|BS 8tbK h|3189
+Instrument Sans|700|11|none|,QUidTS QJH 28..d2b|6838
+Instrument Sans|550|22|none|rO3eh|4128
+Newsreader|500|64|none|UMSy 0X cD Dm-C|34504
+Newsreader|500|72|auto|Z4Yq -2X9;Pd WFzXrB 86HTez|67668
+Instrument Sans|600|28|auto|sK -rOddv n8l(D!?G Lf35qe0F|25075
+Instrument Sans|700|11|auto|:1iqa9 KU)DRI A;iZLeX Q CU|9124
+Instrument Sans|600|15|auto|ZYN8? U QNl|5869
+Newsreader|700|32|none|7xa )R.gdlm Asr(L|16165
+Instrument Sans|600|13|none|ZBr b 7i|2896
+Instrument Sans|700|13.5|auto|9p9pYCl Rn'0gTTh MHEC|10461
+Instrument Sans|550|40|none|zh-tcr) DQsXwLrE lP5cR57 aCN6rV3|43218
+Newsreader|700|11|auto|k88O;n aI U4CW 5R(?pI2 iZU!x(h|12195
+Instrument Sans|400|90|auto|oajyL XY?PFL|36876
+Newsreader|600|16|auto|AY?KK:'p lFEy|6947
+Instrument Sans|550|22|none|k.n)AWPG h0QERRL Cw4hGJG B|21672
+Instrument Sans|500|13.5|auto|vX9RK L0 M?c4E78|7836
+Newsreader|200|15|auto|HGn Rb0TC84 BnVoWU'|10269
+Instrument Sans|450|32|auto|UVwcr Br r,,KtNW|16541
+Instrument Sans|550|13.5|none|5|501
+Instrument Sans|600|90|none|UZ?aT OjWI2ds|41173
+Instrument Sans|550|90|auto|ov244qp H-PbFGG b'MR os,C, Xj|86519
+Instrument Sans|550|24|none|?MhX6I x94h!Am EJ3TJ, ':cvq|20674
+Instrument Sans|650|18|none|Sf3y3p HiK;w AHvz MiP;HcR! 2WI|17974
+Newsreader|600|13.5|auto|F'7v0zKJ 9Wr5yI:p E8h|9995
+Instrument Sans|700|22|auto|8'OXy5 U0:sRz8 F5u2M4c|16918
+Newsreader|400|15|auto|dQ?mVemY 1|5626
+Newsreader|300|11|auto|Kl8nz g7|2894
+Instrument Sans|550|12|none|cQonx yOgQK :hZQ3n FacdMp CjNMWk|14434
+Newsreader|200|28|auto|Qp f 7bYa,),B C.,5, S|13953
+Newsreader|700|14|none|ByEx?m l )fGk7Mqn RVVAgEH j|13017
+Instrument Sans|550|16|auto|(,-mxZ: kqo?K|6673
+Newsreader|300|72|auto|q' h zdh bRw7.n N05M|46511
+Instrument Sans|500|28|auto|ys7Cg L,B dlk(4s(|14028
+Instrument Sans|600|18|auto|r7D ) 2Y|4270
+Newsreader|300|14|none|vka1|1742
+Instrument Sans|500|72|auto|1 QXZoaG|20945
+Instrument Sans|700|13|auto|TfS7ist Xh(DD (VM; uw;bN|10491
+Newsreader|400|72|auto|:wcMC|14794
+Instrument Sans|600|28|none|,c|1413
+Newsreader|400|22|auto|2C 0 . urL;hh? FaoCy.ak|13858
+Newsreader|400|18|none|);6|1245
+Instrument Sans|400|11|auto|Ve|860
+Newsreader|800|64|none|iLv(LS bIXG 9CI8;' Xu?7k.JL 1sw|63161
+Instrument Sans|500|28|auto|VW!1Lx.S 9 Gr'uZd|15148
+Instrument Sans|650|20|none|rOqT5 1?KCUG yb ;zxs|13364
+Newsreader|600|72|auto|O)y? 2T,U|21676
+Newsreader|700|24|auto|'w.5 4pyDbog 2-t2pTj( TtcWa E0OMqb|26877
+Newsreader|300|15|auto|Hi . PcDPz cog|5893
+Instrument Sans|500|56|auto|o I9dA,f ,QOfb:(M tNs3 e(JfgO-6|52869
+Instrument Sans|400|48|auto|kX-)geIn 3PIHl2 ,yw?,y|30453
+Instrument Sans|600|14|none|JZRR3 EJR6 Ya?bCo?M|9551
+Instrument Sans|700|48|auto|mRSTx -XJAo pL-lH9SP RnN :py|45869
+Newsreader|400|22|auto|KJd B m snU!w9qB|11381
+Instrument Sans|600|22|none|b7v6tA-? ;wpUV'Hx|12770
+Instrument Sans|700|72|none|bPELres e hdL1p|35487
+Instrument Sans|650|22|auto|',d 7 AseER|7093
+Instrument Sans|550|40|auto|Y6aj:1t|7834
+Instrument Sans|650|48|auto|pLxON4E|13914
+Instrument Sans|450|28|auto|NLdQ?B|6899
+Newsreader|200|28|auto|5GoVsY2 Bxb? !Ux?iN|16148
+Instrument Sans|450|40|none|o CrL 4)mQ o7 n15|21309
+Newsreader|800|22|none|qxRuLy80 9Ww i5z;ih9K T(udyE7W|24080
+Newsreader|400|64|none|7mUY-M p-IN(? LOfRWIE 1h!Z (57'7N|67634
+Instrument Sans|500|28|auto|5P' PZ4XxK2 xAo2c7|17115
+Newsreader|500|48|none|t|1041
+Newsreader|300|24|auto|Q,( hM21?nJ|8142
+Instrument Sans|550|40|none|!Q70x.w0|11267
+Newsreader|300|20|auto|E2ekA|3565
+Instrument Sans|400|14|none|;2K B61WEy|4960
+Instrument Sans|500|15|none|R;YfhUpS WUdPS4) Ogs:Q8z bd;C'Cm|17054
+Newsreader|600|11|auto|I I'|922
+Instrument Sans|550|64|none|!IUh|7613
+Instrument Sans|400|12|auto|Zj6L J|2066
+Newsreader|300|12|auto|Gaupm3au gS VIR VKrI ivTblQy|11220
+Newsreader|200|48|auto|ji'k|3392
+Instrument Sans|550|15|auto|QKK w|3074
+Newsreader|200|11|none|R-:0 zUDc(hYL p:Td L8FswZK|8344
+Newsreader|800|16|auto|qCbIUp -ANsV p3S;7z7|11494
+Instrument Sans|500|11|auto|K!(o a)jS2|3075
+Instrument Sans|400|13.5|auto|P n33?CE , 22eZme,|7882
+Instrument Sans|700|90|auto|Ge Qhd38iv ? KMNA5 ljo|66361
+Newsreader|700|32|auto|w. CKjFcpFo ')Z: daZ:p3w. N6-|27995
+Instrument Sans|400|13.5|none|D1|979
+Newsreader|800|72|none|rysGpWN gLy c b9;!YOq? 5FNF|66759
+Newsreader|700|14|auto|UyO:pz xz6!cITe R)0KZa|10692
+Newsreader|400|48|auto|Bbt;;Dr;|10758
+Newsreader|800|15|none|MHMr C Fq73 (TVQc;|9949
+Newsreader|300|56|auto|Mj pMUF|15204
+Newsreader|300|48|auto|8 .|3023
+Instrument Sans|500|64|none|hp m,P!' 7 g(h251S|34373
+Instrument Sans|650|48|none|WUb)zOs EE3E 13ch-o JdGdr CSh|48356
+Newsreader|500|20|none|K:5c, !ss7kyy|7053
+Newsreader|200|20|auto|(ZOeq9 tb)g;6J O VcYPVa.|13175
+Instrument Sans|400|48|none|jwL9PHkS i)qf 9O 2RYgv9qO vtNPN|50286
+Instrument Sans|600|13.5|none|A?jE)|2146
+Newsreader|500|18|auto|?GH f|2902
+Newsreader|700|28|auto|'hH GguOMtz|11413
+Instrument Sans|450|20|auto|K,o!51 WoE2y sy2|10108
+Newsreader|200|32|auto|y266 T0A k 59pc3 Rls:U|20872
+Instrument Sans|400|64|none|cSUZ -wvmHJNC )J622r|45392
+Newsreader|800|15|none|H DNRavN B2 udVTaJE(|10934
+Instrument Sans|400|64|auto|eSgP)! 1Ar0PEA 0|33625
+Instrument Sans|550|12|auto|OAV 5 MqcvM. -HZdyhf|8401
+Newsreader|300|15|none|(6Lw-cr l7 (|4396
+Newsreader|400|18|auto|M4 x-Y2: zUcV 1eDd|9958
+Instrument Sans|500|20|auto|n,Tb1fq al;w1 ZB|9141
+Newsreader|200|90|auto|vk XOKm 3EgQgp|45965
+Newsreader|200|48|none|-)7sm?|7843
+Newsreader|700|11|auto|HSWgUJTL - )eEg0|6951
+Newsreader|600|15|auto|nc|1043
+Instrument Sans|450|20|auto|ixXx W2.z)2o|7717
+Instrument Sans|400|11|auto|YBGNhBS uJs6nr y,rD5I 82fJ5o;y|10405
+Newsreader|400|28|auto|-1weMR c)qaP; WteYx|16556
+Instrument Sans|550|14|auto|kNCypK - e257Q|6976
+Instrument Sans|600|20|auto|'cY8EX '5,( OZ : F|9767
+Newsreader|500|72|auto|Mw;D|13327
+Newsreader|600|72|none|q8f6 nl 7V(s Z5Zce|38028
+Newsreader|400|15|auto|F;5m!|2457
+Newsreader|700|20|auto|V?!;! ;J;4Mdz UXtEAg rH5wO, GZMS|21631
+Instrument Sans|600|56|none|IX:iUqj|10929
+Instrument Sans|450|13|none|h4J ng6y):XP v4. boM,Pg|9487
+Newsreader|200|48|none|vl:( AaO5XN -Y00EXN zCPch|37190
+Newsreader|600|12|auto|V sVAY)|2987
+Newsreader|600|20|none|aox'866u TU TdTPq0?|12472
+Newsreader|800|13|none|Qcy 3sXIBmvq|5731
+Instrument Sans|400|16|none|Wv RQA !LE|5773
+Newsreader|300|48|auto|2TC!bs G. oUr (FmO FyO|32933
+Instrument Sans|650|14|auto|0Uf? )51a5Nk gPKZ57cs js?(sh CxD|14679
+Newsreader|400|13|none|SUbzuf4 ?,sZWO9|6361
+Newsreader|700|64|auto|GVFU|12319
+Instrument Sans|500|11|auto|VMf'Zav dGqQtPzJ JTi4.!I|8218
+Instrument Sans|500|22|auto|P)so XfP|5576
+Newsreader|500|24|auto|h :GW:1BCC b XZtD(2|15080
+Instrument Sans|700|72|none|grk 3D)2:alj lrxAgw d m:74v|58877
+Newsreader|400|14|auto|(zTh ,u|2651
+Instrument Sans|550|40|none|;:F lOLkU.u muX'6mm QWmr1F|36697
+Newsreader|300|72|auto|kA pf9 9o!67|26811
+Instrument Sans|700|12|none|w!ELKV 7ma GJp fsES)Vf bNQca|11669
+Instrument Sans|550|28|auto|P9bq0-hM cg8 6WpeEZG Ivy-LJO;|28959
+Newsreader|600|14|none|TaE0OF)5 JfT9!YiR 6(fbx8M. M3Q2 Qc5V|16958
+Newsreader|800|56|auto|sBs5 L3,i9 ugS?bEQj v?9 mf5htPKF|64351
+Newsreader|300|56|none|BR,hm|9581
+Instrument Sans|600|72|auto|Uau)Wv7|19323
+Newsreader|300|11|auto|uB R|1537
+Newsreader|600|40|auto|7;vuC dl t;z fAq D8C|23888
+Newsreader|200|72|none|C|3074
+Newsreader|500|22|auto|pmJwX4 nNG?|9080
+Instrument Sans|400|48|auto|J 2B|5641
+Newsreader|300|56|none|QuT b JntQx8ud 9e.2vW|35999
+Instrument Sans|450|14|auto|o4g. U2|3152
+Newsreader|200|20|auto|iZ ALByC, LAciqm 63eYk Ze|14805
+Newsreader|200|90|none|PJA9 A|16632
+Instrument Sans|700|40|auto|j7.!|3206
+Instrument Sans|650|22|none|.Xh 1Nt;3.i XLxDR gu6nuWdC|19338
+Instrument Sans|450|40|none|IIdDJG LRYL5 L FQG, fOwXAyN|36349
+Newsreader|200|24|auto|:MRhjlW b'pug 2B0 :;7Jxk oiA|18293
+Instrument Sans|400|16|auto|E t uT6:v(|4349
+Newsreader|800|13|auto|S:);RZC( x(1Lh 72)Npp5 vq-|11758
+Newsreader|700|22|none|Q?(jX sKL|6338
+Newsreader|700|28|none|xBC qO1hCqfm dz2W Arlg1 etAx9a1|29942
+Instrument Sans|650|16|none|YD? xwOXwiRn|7470
+Instrument Sans|400|56|auto|!5!6-6a F|14483
+Instrument Sans|700|11|none|HkZ7RKK|3245
+Newsreader|700|64|none|gHO, c ?G SyN|26306
+Newsreader|500|11|none|B1u7vz y 6 r:QIT|5156
+Newsreader|400|24|auto|?Y5lX4l3 LI2Mc n.(g;!!|14638
+Newsreader|500|48|auto|H 13AEbVpZ|18341
+Instrument Sans|450|24|auto|- 7oo;x;(m Ec6K'9 j3Q;Sqt|18154
+Instrument Sans|700|11|auto|TLCgfd|2508
+Instrument Sans|400|56|auto|d054:O. 3M OI2|25440
+Instrument Sans|400|12|none|f-gYQeE! q|3858
+Instrument Sans|500|24|none|m0t l!zIAO R8mE;'1p B1zFDm|20610
+Instrument Sans|400|15|auto|l J-( FrQc90Kk prj blDx3d|11172
+Newsreader|700|72|auto|SU;ZSL dq|23907
+Newsreader|700|56|auto|OcWg jcdE fw6J6|30124
+Instrument Sans|450|13.5|auto|G1 i8hk|2867
+Newsreader|300|12|none|JuoouCA 910zlv 6KZcW?2 SZkQf|10681
+Newsreader|300|24|auto|Wb0Y0F T51B l|10385
+Newsreader|400|13.5|auto|?gu;'qe?|3029
+Newsreader|400|28|none|.(ZE, QQfq 0G,WGS v gN(8py|21988
+Newsreader|200|56|auto|rBE2cq !s3ic7 1|23651
+Newsreader|200|64|auto|cci h JYjV 4U(DNE, 0|36474
+Newsreader|800|56|auto|8C3y0W1 l3?pF y!2EO|41444
+Instrument Sans|400|13.5|auto|PBHCc w !dv4SFdV Hjju 9Gc3T,pS|13469
+Instrument Sans|500|32|auto|R|1352
+Newsreader|300|48|none|t3 FAJ(CiK wAxHKA O yFc|34205
+Instrument Sans|600|16|auto|f8i7?H-b u'V|6057
+Instrument Sans|700|13|auto|T0vHx:!v A5ST|5863
+Instrument Sans|600|28|none|'m1mQS EzPA35 QtbnE9)|21315
+Newsreader|300|24|auto|Ef' JroY)M|6595
+Instrument Sans|500|14|auto|vg|1012
+Newsreader|800|13.5|none|pg1Ko|2668
+Newsreader|300|28|auto|'54n fG-Y d'I9 Zb r|13694
+Instrument Sans|400|64|auto|q7-w fcr|15164
+Newsreader|700|16|none|63t4?J4;|4129
+Instrument Sans|400|32|auto|1UYxIM uOUd kL|15555
+Instrument Sans|700|11|none|qzmJB b7;P0|4247
+Instrument Sans|500|72|auto|1K z1 -2e 0qc5l 0P:1|40903
+Newsreader|500|12|auto|spQBxE!p (0EIqI|6140
+Newsreader|800|90|auto|ng I?Vf|21033
+Instrument Sans|450|56|none|-l( SJo'o!-p|17844
+Instrument Sans|450|24|auto|BhSquS. rWq 6 5?5s(Qu|16848
+Instrument Sans|550|12|none|XUHE-oL 4D2x T2M1|7475
+Instrument Sans|450|32|auto|0sA9D KPeN 4N h (ASl|21458
+Newsreader|300|40|auto|1:53)Pmj ,6TKu0i|19041
+Instrument Sans|700|13|auto|DEzYFmwn j2t|5754
+Newsreader|300|48|auto|'?lzLj|6343
+Instrument Sans|450|32|auto|3hk0M|6726
+Instrument Sans|650|72|auto|tNnn?rY(|19706
+Instrument Sans|400|11|auto|1 nBo8|2102
+Instrument Sans|550|90|auto|IRCdVG26|28152
+Newsreader|700|56|none|5 malQe|13158
+Instrument Sans|500|48|auto|Dq6Ii7Z 4m EIA o8o 2jcaJbz|39240
+Newsreader|300|13|auto|,PFVKJa|3127
+Instrument Sans|550|40|auto|b|1580
+Instrument Sans|400|64|auto|kJOISd (JFEtJ'9|28992
+Newsreader|200|18|auto|X:b05I sPTzy TN|7882
+Newsreader|500|72|auto|:Pz0o8 66;iWQj m 'f dXgsEC|60940
+Instrument Sans|400|11|auto|M68 XwW.1es9|4805
+Instrument Sans|600|11|auto|.saFL iW(mAO )-v9Q9b b|8332
+Newsreader|600|72|none|Oj wKGTB6 RWaIj qnK70k 5Vq|64308
+Instrument Sans|700|22|auto|d4 N!T;B3Lm ks|10255
+Newsreader|700|72|auto|aOlsZp|15973
+Instrument Sans|400|48|auto|H Lp3R,|11004
+Instrument Sans|650|32|none|8Da9u1( K?Ai|12759
+Newsreader|500|64|auto|MW5AAjGg vshKgukX C oMju13|63394
+Newsreader|700|12|auto|s lUIWgy 6! XU|5895
+Instrument Sans|500|32|none|yD KqQ qNbi8onR c cgU,am|26263
+Newsreader|300|13.5|none|!vM oW,o) ,Hi XB2jg 1a|8087
+Newsreader|200|13|auto|w1GiOiY Gx|4677
+Instrument Sans|650|32|auto|Bu)G 'YVH|10162
+Instrument Sans|550|22|none|E;( Bs!f)iEt .EcYvWNA|14195
+Newsreader|800|22|auto|2W j|3101
+Instrument Sans|550|11|auto|iz2 Qo2211t z0d6NAT|6894
+Newsreader|800|13.5|none|aB)bc2|2756
+Instrument Sans|500|64|none|U;(:.s-i|12055
+Newsreader|200|72|auto|LWVj L (Y7h1ils GBNmLp;P ,O|60796
+Newsreader|700|24|auto|F T.w-85O|7220
+Newsreader|300|64|none|t9TG 7zZm m6).yW Y0jjF 1sVU|52502
+Instrument Sans|550|56|auto|T ReH tDsSjSF!|24995
+Instrument Sans|650|32|auto|VI :4CwQ1 Mb)KOu cZnV|23608
+Instrument Sans|550|11|none|82h|1237
+Newsreader|300|16|auto|( x0M D|3590
+Newsreader|400|18|auto|eu. R2xr. DOUmdpy :a7ZI;Ig tLiA|15938
+Newsreader|800|20|auto|EPbCg NDBCtUi I7vY O9Iq5E ;-j1|20448
+Newsreader|700|14|none|y Q;c|2003
+Instrument Sans|500|24|auto|10k|2468
+Instrument Sans|700|64|none|4 Je Xa (e,|18887
+Newsreader|600|13|auto|ulJMLc Z6t9Yh 1: jxU '7oOU0Y|12804
+Newsreader|600|12|auto|Y)'kRXWM B 3OF'Ga- lL7?rDp|11792
+Newsreader|400|20|auto|cw4Pq !zD CQgQKZwu t9Uqs16|17438
+Instrument Sans|500|20|auto|Jo!HgU d4c)1wb Ew g MCYO,2K|18448
+Newsreader|800|28|none|UNv.u NANE;i|11862
+Instrument Sans|550|15|auto|3y ,vJRw!S' C:qCf|7503
+Newsreader|600|64|auto|Cq -qQCP aaUb3dnm H:dhSK|57593
+Newsreader|200|40|none|tyU64h 7d,H H8uK z!Kh|25566
+Newsreader|700|90|auto|Suz? 2b7FZ-I|37626
+Newsreader|200|14|auto|p;ul:d?l|2763
+Instrument Sans|600|32|none|k1s)K7ol rHp9Zu Q6|18794
+Newsreader|200|28|auto|, g '6O) m0W. Lv|11693
+Newsreader|600|40|none|FBopZK HUpP|16912
+Newsreader|300|15|auto|9hHOuN;e|4516
+Instrument Sans|650|90|none|p1?jRo ?JnMHm5|45515
+Instrument Sans|450|24|auto|'15FY-Bw YI;:S-M9 VA,O76YH|20588
+Instrument Sans|700|12|none|,|219
+Instrument Sans|700|40|auto|vP7jIH fg8G sZR!|20043
+Newsreader|700|32|auto|4 e|2702
+Instrument Sans|600|18|auto|QSDKok0! k 6|7485
+Instrument Sans|500|13.5|auto|R E '|1669
+Instrument Sans|700|15|none|Y !H-! If !zchpu|6590
+Newsreader|200|13|auto|z;r iLV .hNmEu|5470
+Instrument Sans|650|20|none|tYy7 Fz2 !e0RCyK) FwZt1 i0:s|17138
+Newsreader|200|13|auto|Cg MHO|3271
+Newsreader|400|11|none|1S2 DSAsK P: at!?p03L|6868
+Instrument Sans|550|28|auto|HbBMUc z3NZrgk lqOR:P.4 TOH Gp|29311
+Newsreader|400|11|auto|ab-y4|1877
+Instrument Sans|500|11|none|O?D wb S Eqyd8j8 EC|7041
+Newsreader|300|12|auto|k(n MHl OZ3)t9Fl|6296
+Instrument Sans|400|64|auto|TAQ!kJh ,DO3Q9Sh )k-ZuDm|54694
+Instrument Sans|500|24|auto|z(LEqP|5155
+Instrument Sans|600|11|auto|Js :ID:8plt|3195
+Instrument Sans|600|32|auto|3ab!eVsR 1|10065
+Instrument Sans|550|11|none|XW.pm o 7-9 7PrX3|6304
+Newsreader|700|18|auto|DG :QOunK RMShW2,N M;t' hR?sV|18577
+Newsreader|300|12|auto|up 8!wCx9xR 8y Fx:g|7530
+Instrument Sans|400|40|none|dKqL Ff|9117
+Newsreader|700|14|none|r2jN;h -w.A aM MTBUv|9592
+Instrument Sans|550|28|none|n7A5LGKL KmRy haE3z't' b|22392
+Newsreader|300|22|none|3uKa?C Wgn9;|8549
+Newsreader|600|32|none|r9t8wfuo|8435
+Newsreader|300|13.5|auto|ESUt ?lLz!q 2Qhr0 t|7654
+Instrument Sans|700|32|auto|.p V )v .'cC70) R|14836
+Newsreader|800|90|none|Up|7771
+Newsreader|400|90|none|MHRs;4C.|25506
+Instrument Sans|500|56|auto|3G!36 ESn V|20503
+Newsreader|400|20|auto|SKrGq4 8D p ZR Lm|11254
+Instrument Sans|450|14|auto|,LnBL2p r;HBL' NTvEsxtI gRr38-ir|13530
+Newsreader|500|15|auto|I4o! 2TVfy(|4999
+Newsreader|800|20|none|WUFLP 0!ajqz gR! 6.2Ex|14715
+Instrument Sans|500|18|auto|'oQrTmr? xpqx|7857
+Newsreader|700|32|auto|EO9k1 wr)FdqC|15200
+Instrument Sans|550|18|none|8IAlCT a Tn|6101
+Newsreader|400|56|none|lZhxK. rePAKU 3y zOgi6 3Q|42793
+Newsreader|400|28|auto|MTNr I 9rdjQT|11861
+Instrument Sans|600|13.5|auto|sgbr)K2 ykJ6N5HE VE.nM3J|11288
+Instrument Sans|700|13|auto|Xty lICWEX6|5022
+Newsreader|500|18|none|v :5KaL MD wUJGJ e|10482
+Newsreader|700|56|auto|OFH|8333
+Newsreader|200|40|auto|3cwG AWL28 Lof;LyU5|25906
+Newsreader|400|90|auto|xZ Z ,4VQOAY|38454
+Instrument Sans|650|90|auto|qg|7193
+Instrument Sans|400|22|auto|EcB KPxNl U'B XFB !h|13664
+Instrument Sans|700|22|auto|DrdOO|4751
+Newsreader|500|56|auto|.osZd wk(A . k5JCHq),|35078
+Newsreader|600|24|auto|JIwi.wPC 3vaUvj h.pc ,sNOB-5J|21211
+Newsreader|500|90|auto|ZN6Pd !tR W!f|39001
+Newsreader|600|28|auto|4X0;nFJV IJHE lO!Ucavi mrO ebdIBi(p|30819
+Instrument Sans|450|13.5|auto|2Ea OD4c;D (TVrv8: JQ7Q8tl|11350
+Instrument Sans|450|28|none|fZguVF IGqSXz;U 4v|16637
+Newsreader|200|90|auto|wysG pvz4n?c. DmlD|53257
+Instrument Sans|700|72|none|I A2TMVAaz vd ;M dR6?|51122
+Newsreader|700|28|auto|oN:??:CL p'MIf1,|13781
+Newsreader|200|48|auto|IuA -5I5xx.; Nr|19021
+Newsreader|800|32|auto|'W- LZU|8156
+Newsreader|300|56|auto|h !0k 81U t|17408
+Newsreader|700|22|auto|J20gl-b QMG ?M om76e ?553Ki?|21416
+Instrument Sans|700|24|auto|OsVFMH 9vHwua vf!8P k PM)-54Zr|25325
+Newsreader|300|24|auto|4Pfdu- (? s Mff|9198
+Instrument Sans|500|32|none|9'bq DAfo|9359
+Newsreader|800|13.5|auto|gck F|2310
+Newsreader|800|13|none|iQQ FBNu Eumh 7Li:rX 1Jt|10527
+Newsreader|200|11|auto|oh8N-8;( ,.zSWR,f t:j-0y;|7656
+Instrument Sans|650|13.5|none|uP?COAS AEe|5855
+Newsreader|600|13|auto|qSoTI MdnEfC|6038
+Newsreader|600|24|none|CR-Vn E|5637
+Newsreader|600|64|auto|,jjsT?(B xH8 6)a,Ar|36362
+Newsreader|500|40|none|lfXwG0 (GLR M|18120
+Newsreader|600|11|none|FJD|1232
+Instrument Sans|500|32|none|mJ|2801
+Instrument Sans|550|90|none|;.Uq|10354
+Newsreader|700|15|auto|C 0j 3Fa4K|5106
+Newsreader|300|28|none|CDL-8 3CG|8933
+Instrument Sans|450|18|auto|z yX6: CWZ CsoLvBw jH(A|13753
+Instrument Sans|700|40|auto|-5pUE9!h bm Vbl:P f3 UIYi4XH|36683
+Newsreader|500|90|auto|ZZ4WV NPY pKi8!Q.'|57137
+Instrument Sans|550|72|none|a -|5728
+Newsreader|600|90|none|TmtPwPbE|28473
+Newsreader|200|28|none|0EBYJZW|7359
+Newsreader|200|13.5|none|QLrF|1829
+Instrument Sans|550|13|none|Boa 0duMXL RniyeYAX :?-3TFWa|12946
+Instrument Sans|600|11|none|MTZby sKNs0 Kx )449F2j|8446
+Instrument Sans|650|22|none|rlovI g M3s)bX11 4 f)t3|14338
+Instrument Sans|550|15|none|tH(oGZ,)|3862
+Instrument Sans|450|64|auto|aq;hQ A Qc4EH mqU80hiS|50805
+Instrument Sans|450|12|auto|k|416
+Instrument Sans|600|22|auto|5zj)G5P ldM F:nhQ8|13158
+Newsreader|200|22|auto|;oM 7?M ?Wy:Ae 8Dy|12815
+Newsreader|800|13.5|auto|SiY1, V5t g!VX|6710
+Newsreader|400|40|auto|GEit , c|7846
+Instrument Sans|650|64|none|MI3NlPG9|19531
+Newsreader|500|20|none|bL3'EZp 4Bc|7090
+Newsreader|400|56|auto|ZXZrdt|11812
+Instrument Sans|500|72|auto|PgROVy iD,ec g8 ER|42396
+Newsreader|700|18|auto|dhrK 3lEi.Ar N)nx;DO|11448
+Instrument Sans|700|48|auto|cArPa?s Y:2:yk3 '99h!WWR IwH|45521
+Instrument Sans|700|12|auto|l!xw1uw 5'!|3851
+Newsreader|800|64|auto|iCK (JpyWduS|29243
+Instrument Sans|600|28|none|t1b2 7 L S((W:,G Npn!8z3|20463
+Instrument Sans|600|48|none|J yD(o cm1LAH ;l|23456
+Newsreader|800|15|auto|fakG7l:. z'v|5307
+Instrument Sans|700|32|auto|OTbD -VNxgJ)f 5t 2PE|21357
+Instrument Sans|700|64|none|3 CpBj t;|16225
+Instrument Sans|700|13|auto|Ya6BTX ! AE -(-ilSJz U)yxqv|10718
+Newsreader|800|32|auto|5J ge)|5425
+Newsreader|600|18|auto|,'1qJ .1 A? v3 P(|7706
+Instrument Sans|600|20|auto|!k|1092
+Newsreader|400|40|auto|. Xc3vi tcWgd)|15525
+Newsreader|800|48|auto|2;a RNg r|13954
+Newsreader|300|20|auto|w) Z|2264
+Newsreader|600|28|none|XLz9 26zRPdl ujA|14384
+Newsreader|300|90|none|jqx gpB hxYp1ZuW yHTzx VSHbxn|81809
+Instrument Sans|500|13|auto|H?ehy3sJ B9x 5XqeBux FRroep! ItMM5|14906
+Instrument Sans|650|12|auto|Jxt|1072
+Instrument Sans|700|56|auto|,xIK: .b3 6c3'B 'ou88l|34661
+Newsreader|200|13.5|none|OYwsvMB r)V|4893
+Newsreader|800|40|auto|KlnQN )91Ar 52so HO0vvU|34643
+Newsreader|800|13|auto|qE v4pPJM|4924
+Newsreader|200|20|auto|i9Y|1855
+Instrument Sans|550|24|auto|X32UDc vPu e,oV2 .pc;EZJ|18613
+Newsreader|700|15|auto|2g mA'XT8 uaVCBvL H9f|11682
+Newsreader|700|90|auto|B,ZPwE7m|32418
+Newsreader|500|11|auto|xXO)T2EG fmA2p DG|7653
+Instrument Sans|650|12|auto|21wsUR. 5-zkOf|5584
+Newsreader|700|22|none|Dy ?tI,m iv8(0:B: hFzwN(6|16597
+Instrument Sans|450|12|auto|8A 68|2080
+Instrument Sans|650|48|auto|9f Wu kurJ Qnc, zGK|29204
+Newsreader|700|13|auto|,|231
+Instrument Sans|550|18|auto|'qawF4 0eQ-|6874
+Instrument Sans|600|40|none|l;8SS )C)X7E t19 Y 2BUXy7VM|35336
+Newsreader|500|64|none|mGl-UjWC RJOp, -pPx RDkdk2Z HDABEM9,|80378
+Instrument Sans|650|48|auto|5 EA?ML T9zNf4 ?On7IHK tMm3qkW|53255
+Newsreader|600|48|auto|IrP8e|7843
+Instrument Sans|400|15|auto|(? HF!eaO3 2RN yBppn5|10539
+Instrument Sans|700|18|none|hXKWQ)f bfN' b!JHZsZ|12418
+Newsreader|800|18|none|,LAVME 18 y;6LIv j,XmK8'j|15184
+Newsreader|500|14|auto|uJRwnH 2hQC|6226
+Instrument Sans|650|16|none|,FI ret|2740
+Newsreader|700|64|auto|(rQMSg1|18262
+Instrument Sans|400|24|auto|. S oA2Wvjg OKu98?|14596
+Newsreader|700|32|auto|Pd6cNY9Y|10546
+Newsreader|200|18|auto|D? (mKD (T43pg|7915
+Instrument Sans|450|32|none|o9BNla o G G4jrC2|17575
+Instrument Sans|650|48|auto|xuo xCQppIT ,QS|24965
+Instrument Sans|450|18|auto|ivBY|2352
+Instrument Sans|400|72|auto|'n d1R uDAFESd ?EWzh ijc|55439
+Newsreader|800|40|auto|h Oyrk L2.1xC|18166
+Newsreader|200|28|auto|j:UIwy kTv e|8912
+Instrument Sans|450|24|auto|t6 Ae1jI: OkIa fL|10774
+Instrument Sans|600|15|auto|V5u as PC|4536
+Instrument Sans|550|64|auto|Y qYdm 6CW5X?m keZ(Vd|51065
+Newsreader|700|20|auto|qJ|1301
+Instrument Sans|650|11|auto|ps?a7u LMP|3895
+Newsreader|500|24|auto|CV|2122
+Newsreader|500|32|auto|C8Cvr7|7149
+Newsreader|600|14|none|T. VN w2gY tnEqw -fbz!G.|10053
+Instrument Sans|650|32|auto|)FbpKWw E5 fmHN JxVB 'mC2n|30689
+Newsreader|300|16|auto|DqcuXN|3798
+Newsreader|700|13|auto|of|846
+Instrument Sans|600|16|none|6R|1310
+Newsreader|700|14|auto|LQ2zb DVFPH k|7273
+Newsreader|600|72|auto|cCn!TP 42 I pFRQ|39966
+Instrument Sans|500|32|none|lJqg|3925
+Newsreader|400|40|none|T?J8MNHe 4a VB k rur|25246
+Instrument Sans|550|24|auto|2 )f.?et WI|7097
+Newsreader|200|14|auto|i N:W0MTd|4531
+Newsreader|400|20|auto|1; yoz7sGXu 0),e2sK 5azm|13988
+Newsreader|200|18|auto|R' TVJL U Gp TIo:;0|9105
+Newsreader|300|16|none|3YDF3xf|3914
+Newsreader|300|32|auto|xSohpnG! YGh|12678
+Instrument Sans|650|13.5|auto|9k4 EbYPO|4539
+Instrument Sans|600|15|auto|QN|1470
+Newsreader|600|48|auto|fXSFalG u?1bA7jj XY uexWpwxX|47302
+Newsreader|800|40|auto|GVY:yS bpw 1x|18953
+Instrument Sans|400|14|auto|x10F. :j;) R|4008
+Newsreader|600|18|none|KPHr?d)5 ?qn3bS-( U.|11188
+Newsreader|400|72|auto|XnvmP N gRE 'r1!! GQ|46818
+Instrument Sans|550|72|none|l)(-j) An0 3|23151
+Instrument Sans|650|18|none|2qL 36CyV9 P iH 8I|10211
+Newsreader|600|11|none|Kdm E0-m8ue csqHo?f ,Zlk0Zgd .g|10623
+Instrument Sans|500|11|auto|0XfQFcJf jp6PZVHj|6304
+Instrument Sans|650|14|auto|AZMn6 2HCDO:y|7230
+Instrument Sans|550|13|none|Y?kZ vdwc L6B hTrF? e|8806
+Instrument Sans|650|14|none|o.,? C.;.ZA6 6kT8Oq u! F,:ZzQ|12029
+Instrument Sans|650|16|none|b 3rbeu 5V;?yS. Dn|9103
+Newsreader|300|18|auto|dM|1664
+Instrument Sans|700|72|none|kcea|10253
+Instrument Sans|400|20|auto|e3WWK6|5810
+Instrument Sans|400|13.5|auto|i.m0,.,V hL494Q|6218
+Newsreader|700|90|none|Q )PR!KrW . GZiE|46158
+Instrument Sans|600|64|auto|;-ymPv Hy0bGBoP 4gnY iR?biH!E|64054
+Newsreader|700|90|none|Mk? A).r's82|32789
+Instrument Sans|500|72|auto|kSUp:d? BwRgDr u|40062
+Newsreader|500|72|auto|pxL,1n h-q?K; P tewF125 -xY|62135
+Instrument Sans|650|40|auto|6 ,6u Fu) z0tAEv F5EvD1:|29458
+Newsreader|200|90|none|xt5 QyhUZ TTBuyIHP ZjEM|66845
+Newsreader|800|11|auto|HPDvPWb 3|4819
+Newsreader|200|12|auto|f qM :WfTg ,OKG w|6634
+Instrument Sans|650|18|auto|H ,w43LyBr|5988
+Instrument Sans|450|90|auto|G9y7lK VZQoG'(o y);0 TYX|69865
+Newsreader|200|12|none|IQNrp|1967
+Instrument Sans|650|14|auto|i' yC8 zQF|4188
+Newsreader|400|32|none|eDG2BG3 .|9789
+Instrument Sans|400|13|auto|2o?j s1njsqMr f1,KLp5s t16o(COR|12326
+Newsreader|400|48|auto|oUCb2g a N xhv!M arcPmaSU|40329
+Newsreader|600|14|auto|wM RLh2 Y PoWG'|8083
+Newsreader|200|14|auto|ST.)OX-( tjS. ETHB6un|8647
+Newsreader|700|56|auto|; 0 c|6654
+Newsreader|700|13.5|none|srbTuf8P 2ZEB9MJL|8283
+Newsreader|300|90|none|!P7W|13189
+Newsreader|700|13.5|auto|EI,j7SCM|4175
+Instrument Sans|500|16|auto|Cz !06E':A|4876
+Newsreader|500|32|auto|U LB;t y|7364
+Instrument Sans|550|13|auto|jth1Lo0|2844
+Instrument Sans|450|56|auto|Ta17OQ )64?F;|23995
+Instrument Sans|650|56|auto|Q7-Z.Zn|13402
+Instrument Sans|450|64|none|NsJis2|11997
+Newsreader|700|90|auto|'n?J d|15262
+Newsreader|800|15|none|A4|1378
+Newsreader|700|90|none|s|2272
+Instrument Sans|650|90|auto|VESSke|21435
+Newsreader|700|18|auto|8F3 btAQ(Y4 j|7584
+Newsreader|700|32|auto|jV x ,9R GKvTY|14605
+Instrument Sans|400|15|none|scTf wf CEa9ZO|6922
+Instrument Sans|550|32|auto|xW5'5)|6737
+Instrument Sans|600|48|auto|GhB c91Z6KNI Eqp:vvM.|34430
+Newsreader|300|40|none|XD9 7'Adla K|14312
+Instrument Sans|550|11|auto|3f70 kaP-tT H pbMK:n4|7646
+Instrument Sans|650|16|auto|AsEem QMDe Y5?Bm!1 6xGCej|14849
+Newsreader|800|12|none|kHTwzy ;hX)9 799vs2 oXAVXy|11195
+Instrument Sans|400|64|auto|ciNY6qC0|19428
+Newsreader|700|56|auto|;xb RmK,T d|21135
+Newsreader|800|15|none|AlYk ?OVFS c|6293
+Instrument Sans|650|48|auto|D67GaP01|15228
+Instrument Sans|650|20|auto|79G Om1km h(.) kE:MOD 2|15841
+Newsreader|800|15|auto|KL DZrDG|5121
+Newsreader|700|12|auto|TP,D?z .d;z4 X)U?FCs F7p7ltF UOw|13868
+Newsreader|700|20|none|hFTRIo Mkk P4T3 hThVd()W rw9dUGf|22656
+Instrument Sans|550|22|auto|;sq K|3233
+Instrument Sans|400|12|auto|w ; 8uc 8AzjJGp rwZ642bI|8903
+Instrument Sans|500|48|auto|2EgK FtFaDl|17542
+Newsreader|600|22|auto|?R(N) Ui cV!S4|9073
+Newsreader|700|15|none|2 a v;jev;b) jj|5170
+Newsreader|200|64|auto|VEijZoj 9y LGcD9 Snm;|41647
+Instrument Sans|500|28|auto|GN'W?jl M-qTK, JQ Bc aQm|23083
+Newsreader|600|24|none|Y jN|2913
+Newsreader|300|16|auto|3jQ-eXc, MWTlJK? cb ':TX|11560
+Instrument Sans|500|11|auto|6p)pM? IM z.UOaFYz bp6NZp0u|10484
+Newsreader|300|13|none|Lg|845
+Instrument Sans|400|20|none|SG|1758
+Instrument Sans|550|90|auto|HI9J 7 VQ|25514
+Newsreader|800|14|none|GpP:|2060
+Newsreader|300|28|auto|Bt: YJB VU; pOV|12319
+Newsreader|600|64|auto|nAC5y-F0|19686
+Newsreader|400|32|auto|QFxTn') A djgS6CG? V|19476
+Instrument Sans|450|20|none|Xu8 Z?T5ew(K Y Z-cD !|13593
+Newsreader|700|14|none|BbJ841Mj 8|5059
+Newsreader|400|18|auto|U-pC|2626
+Newsreader|200|14|none|bCev opIK-|4009
+Instrument Sans|400|48|none|cXevb UTeW|17953
+Instrument Sans|600|56|auto|Eq l bZu'JQz K aF66,5ap|39107
+Instrument Sans|550|22|auto|r!BO4C Iui: 0SRUMl1 )3|14869
+Newsreader|600|48|auto|HY4d0o7O|16503
+Newsreader|700|90|none|q5vczQGQ .L Z-byfr) 011';lvf LMBeEq|99137
+Newsreader|500|11|auto|jMNS?T .31t R,BETH .op qa38KHA|12217
+Instrument Sans|500|32|auto|P l'fQ'rtO SML6 0fLDGO?r ae)9|29494
+Newsreader|200|40|auto|vL R'K.JgRI Jb RFai:|19809
+Newsreader|800|13.5|auto|3D|1330
+Newsreader|600|40|none|hyaG'z60 UGLA hlm|22912
+Newsreader|500|13|auto|l47;N, hlNy ib,r|5951
+Instrument Sans|700|20|none|J4Vu; clB ?c3yE u bxLx-!|14371
+Instrument Sans|400|22|none|iWyB GF (;M2 :5mDBiT|14675
+Instrument Sans|500|40|auto|6-cC)-2! -.E3Iuy Gv 68z7aI -?A('s|37539
+Instrument Sans|450|12|auto|-|387
+Instrument Sans|450|90|auto|9uX8?) PF 6 lq:A|44183
+Newsreader|400|13|auto|mCduZlRH 843r9R|7431
+Instrument Sans|700|40|auto|3T sM58-DY) yjidujj|23896
+Newsreader|300|13|auto|hV5r40 k,kQyAu QI|7396
+Instrument Sans|700|20|auto|;R b kOd?3JY 4X (SDa|13119
+Newsreader|700|20|none|PaejM 1ro|5910
+Newsreader|700|22|auto|8i qz;O 0z?a;|7992
+Newsreader|200|13.5|auto|ZxZ aQWB|4164
+Newsreader|700|28|auto|EcXeuBW mn;0IZ T9 Z'J|20026
+Instrument Sans|400|32|auto|Ks 'M ANXok|12076
+Instrument Sans|550|12|auto|ukFdNL|2809
+Instrument Sans|700|64|none|JJTB|8758
+Instrument Sans|400|20|none|toBew UN1W bGX)9s6|13218
+Instrument Sans|550|14|none|viHPx lkX3-Q9 IT,;z !nEj-;0|10860
+Newsreader|300|22|none|CCsWW zE fi5 Y0W Px!nV!|15724
+Newsreader|800|20|auto|WyQ'dAA cz U8 RVhTVBgJ|16468
+Instrument Sans|450|13.5|none|Y3d47h Ofrj pt|5777
+Newsreader|600|32|none|i|589
+Instrument Sans|700|11|none|vgjO4y i(Ead1u|4948
+Newsreader|800|40|auto|uyE)dt5s vLhrqY Ak5Fan|31139
+Newsreader|600|13.5|auto|Ww Q.86oB|4883
+Newsreader|700|22|none|4f-6rh CgOp|7980
+Newsreader|200|40|auto|iJf- t8yu7 4 w|14309
+Instrument Sans|650|11|auto|P d)siOiU3 7l)1|4809
+Newsreader|200|13.5|auto|b A1I XD36;k0u|6244
+Newsreader|400|12|auto|5J Y- w) KR:ikpA?|6390
+Newsreader|800|13.5|none|Zajk|1772
+Newsreader|600|12|auto|B!g P' 3QQxaU3a gl)F9 O!d!fCpE|12251
+Instrument Sans|450|16|auto|rtM|1720
+Newsreader|500|14|auto|Zy)M?Q|3381
+Instrument Sans|600|40|auto|x!o, !8u!X A9 .o -Pw1e|25391
+Newsreader|300|14|auto|0'c(2A sc7f?J u HATQ0FF B|10963
+Newsreader|300|40|none|?U h Oaxy:!A z|15414
+Newsreader|400|13|auto|Gts- aC 5Zr8xI|5663
+Instrument Sans|650|56|none|Wai OiGz ksIO NXG-:' 5juv|43132
+Instrument Sans|400|18|auto|DV|1659
+Instrument Sans|700|48|none|4X6P' uyK|14884
+Instrument Sans|650|11|auto|fiMY:U! Qp Y gPLUIvf6 dLUJ:g|9693
+Instrument Sans|650|24|auto|lTm LO|5051
+Instrument Sans|500|15|auto|0E HQXWuY9D S4Mp?Dxy a j.1';cy:|15346
+Instrument Sans|400|15|none|.PU|1554
+Newsreader|500|40|auto|9zYK|6138
+Newsreader|800|90|auto|otA,PH1D z6zYWq 7z (ZZE! z8gAtx|105601
+Newsreader|200|13.5|none|TZu- 1r|2669
+Instrument Sans|650|24|auto|k2 mrnu QN;.Xy|11211
+Instrument Sans|550|56|auto|UyBraA91|16034
+Newsreader|300|12|auto|37B;8l! ) jAcdJ)Do|6267
+Instrument Sans|550|14|none|HYwLF7sm OyRG(Fm|9058
+Instrument Sans|550|13.5|none|zRa? b l KDx ,GFZ3c|7889
+Instrument Sans|500|16|auto|4X.pe(k A(jukx 41JZBoR pKAU54 f9,u9|18008
+Newsreader|800|13|auto|DemI! djuMS X(i-zW SCljX:m1|13162
+Newsreader|600|64|none|2nv xw-90 rW.- CL:Nr x|42278
+Newsreader|400|13|auto|OcoK|2132
+Newsreader|500|32|auto|X( L!R(BQ96 X? o g);A-,b|22123
+Instrument Sans|500|22|auto|dZ-rOt VTNt ClEA oU,:r GmK|18763
+Instrument Sans|500|18|auto|oacg|2632
+Newsreader|800|90|auto|69 5vVYNwt Fvy8 !ZXv|70376
+Newsreader|800|16|auto|dx8 'oOGGY, dvCZ!ww1 xY;A6nV6 7l0:|19293
+Instrument Sans|550|56|none|UJy 'K39 Vw qhVa|29316
+Newsreader|400|48|auto|iI42FJG; A 6 i kf4DNU:d|32812
+Newsreader|800|18|auto|5U|1651
+Instrument Sans|550|56|auto|j v8HT d 4)C4zJg 8s-K|36910
+Instrument Sans|600|32|auto|e6'SC) W872J AtANyvhY fsn1AR( Hd|34436
+Newsreader|200|20|auto|kGj 7xO7V4 md|8595
+Instrument Sans|400|48|none|Wn t6mhJPix sa|22878
+Newsreader|800|13.5|auto|H7. 8R4 iU 0HYZf|8213
+Instrument Sans|600|13|auto|ckP EhkQ-2hu X: VYJ! Un13J|10754
+Instrument Sans|400|14|none|5pogb YMCN 8pqIf !e.zYJ|10270
+Newsreader|600|14|none|WnY|1902
+Newsreader|500|14|none|gLr95-W7 pnU CgA', zmz9OU|11432
+Instrument Sans|600|13|auto|UM e wP9-Ka0|5833
+Instrument Sans|550|48|none|t b|3721
+Instrument Sans|650|48|none|O2kkc|9229
+Newsreader|200|13.5|auto|.0h9!eq tW(g (N O|6754
+Newsreader|300|48|none|mt4)7 IkC --M0G|22022
+Instrument Sans|450|14|auto|e svSC|2791
+Instrument Sans|500|13.5|auto|ItOCJ V9R :EXs gh|7293
+Newsreader|200|13.5|auto|Zsiu7Efu O? taPr!U ,RHlW|9927
+Instrument Sans|600|90|auto|;M e5R,: jD;dK LCQ|50362
+Newsreader|800|14|auto|Tqq J|2392
+Instrument Sans|400|12|none|Ybhu-pN' PU(wXq|6388
+Instrument Sans|550|72|auto|aLjSPgsC I2Mh2- n|40443
+Newsreader|400|20|none|q LHkY|4098
+Newsreader|500|20|auto|H2 7 SYbgnim FaGI|10956
+Newsreader|400|24|auto|ru'y4rA xk ;4F x7qU3 ExhLdm2'|20865
+Instrument Sans|700|56|none|3e|4144
+Newsreader|300|20|auto|'? ReC; TIpC8T53 aE'fn(WI ;T|15542
+Newsreader|600|11|auto|M5 oO jSWkt|4808
+Instrument Sans|450|40|auto|cYjMf TIKs RzdyZX 5ie 0UJg.|33256
+Instrument Sans|500|28|auto|yyIX62RN w Qdeu|14850
+Instrument Sans|700|20|auto|5IjmBKF uxf4UwX T mIX'KWC m5D|21352
+Newsreader|400|72|auto|3|2765
+Instrument Sans|500|16|auto|V,oM-.o 6b.pMXA, Igql5G1M Co JPTDhNqZ|20159
+Newsreader|600|32|auto|.TbP|4176
+Newsreader|600|11|none|K7o Gk(7qOVb 0qJ)9T29 xKm L|10179
+Instrument Sans|400|90|auto|L T5M mf-V|31174
+Newsreader|600|40|none|r lg H|6133
+Newsreader|600|32|none|r A wC|5943
+Newsreader|600|32|auto|jOGQhCPW )uRmp.Qo|20855
+Newsreader|400|40|none|h 7V3EPt -( Pz)9QsJ ?iU|25807
+Instrument Sans|650|28|auto|-4o3|4053
+Newsreader|800|20|none|20ZJa|3734
+Newsreader|600|28|none|eD7DyPq- ,xiuKiv i N KQg,d0|23050
+Newsreader|600|56|auto|.eLRYmO hvm3j;lp NWAUL7-|49615
+Newsreader|400|18|auto|zybL u YbnURtGP Myt0!tw, v|14134
+Newsreader|600|15|auto|KHLj TuS CNN-q-QG Iygs|11594
+Newsreader|500|32|auto|ly5K ! WKqmh,d YCKtpJ|22119
+Newsreader|800|11|auto|iC80 5!7l4Y: cCs02T vUIxzG4M|12139
+Newsreader|400|40|auto|1yZQF?NN rD 5IMwt FDfT|31326
+Instrument Sans|600|15|none|i5 hya- RC? ;.R,OW;V gDNT-S-Q|14182
+Newsreader|500|13|none|jouLMxJ sn4r ;W707 I4sG Wni7?|11782
+Newsreader|400|20|auto|ZeMdhj ZVb VdXeyv6|11939
+Newsreader|700|40|auto|-Z!KoG WF 'QByF wO|25621
+Newsreader|600|22|none|rjX8O H ;'8' ik:y|9925
+Newsreader|700|14|none|'K,u,Qe dv8 Z|5373
+Instrument Sans|450|24|none|1h -xPoizJ CC6g XPGeafpR|19146
+Newsreader|300|13.5|none|a29zMG|3066
+Instrument Sans|700|11|auto|IZ r-3O2j|2880
+Newsreader|300|28|none|Y'WRgzN1 J?8|10794
+Newsreader|700|18|none|:v8I z;!S'NH S TI|8507
+Newsreader|300|72|none|Mtm8g|13790
+Instrument Sans|500|48|auto|!Gqs?t|9307
+Instrument Sans|450|72|auto|LqEwE 7|17942
+Instrument Sans|550|40|none|gXZ7 3iyb ZOo WlsmMo Fnzg(k|37778
+Instrument Sans|550|15|none|riUNo|2552
+Newsreader|400|64|auto|aVt-|6953
+Newsreader|400|22|auto|:5vL G6!A tiK90x V 2fWQ3C|17452
+Newsreader|500|16|auto|SppQ3RrX|4964
+Instrument Sans|550|56|none|rfMsaKIt OMH|23983
+Instrument Sans|700|72|auto|j(witw ccF PF'7xK|38344
+Instrument Sans|600|13.5|auto|rjmumk(9 ??'i2 8 abbV6 DdCZi(W|13521
+Instrument Sans|400|11|none|!P z SozJj FE(bpxg|5824
+Instrument Sans|400|24|auto|)ljBp Z; qPwEJ3Vd p G3r1gg2|20257
+Newsreader|500|11|auto|ty'; T(mMXa 'vwy B,|6935
+Newsreader|200|13|auto|-J d J g5?F6k0|5164
+Instrument Sans|700|48|auto|'zR) 4J?4Mq|17600
+Newsreader|300|12|auto|L uaqE:k2I NBszqx )3yEZjp xYa|11009
+Newsreader|600|22|none|GI3G, ifp7e|7213
+Newsreader|300|72|auto|f uQVg!P|17703
+Instrument Sans|500|28|auto|oZky CKVIY|9929
+Instrument Sans|500|12|auto|bux,-R;u|2968
+Instrument Sans|550|13.5|none|kt wYwESp.M|5419
+Instrument Sans|550|16|none|9EZK0 zmEm Bjlg Jx|9768
+Newsreader|500|11|auto|C.A0 ?XhRHEV jR IZ6b3C|9102
+Instrument Sans|550|13.5|none|NBSRns sQXQ8;w KoC|9081
+Instrument Sans|700|22|auto|bk5j 1RVYbgX M f0jtxTr; JL1d'g|20239
+Instrument Sans|500|13.5|auto|o4 u a9 Y(i|4138
+Newsreader|300|13.5|none|: M|1182
+Instrument Sans|450|12|none|9cJAq52 )T2:9mpp Da|7847
+Newsreader|500|13|auto|,cN|1285
+Newsreader|500|14|auto|1B1E8vrD xFa.Y p)Gh0F uJCf.: SkjR|14863
+Newsreader|700|90|none|!xaT p6F?(9Q j t 9,Qu0tH|64894
+Instrument Sans|650|90|auto|hgqZRXU? ZZ|37914
+Newsreader|700|56|auto|) dHW52u,p|20974
+Newsreader|800|48|none|SXdeA|9789
+Newsreader|500|40|auto|;RjoN B(N : q|14507
+Newsreader|300|40|auto|YYwvKb YZCWHE,K|23367
+Instrument Sans|500|22|auto|fyvreh|4191
+Instrument Sans|400|13|auto|prA.;-P jk!(bjF U EpplZ M;-Hm8|11861
+Newsreader|600|13.5|auto|G4 IOZMKq (R8Sl! hB-m83|11415
+Newsreader|700|11|auto|zV8 1iL|2788
+Newsreader|800|22|none|GW Pb8KE Mb5qnW!L DZ4jL;lG|21969
+Instrument Sans|650|90|auto|f0)6sN0 Wat'zl|40416
+Newsreader|300|64|auto|GyCL( e-2:wLxb zg CjfDWP|49697
+Newsreader|400|32|none|!UXg|4445
+Instrument Sans|450|48|auto|5ZfvI?|8828
+Instrument Sans|450|16|auto|C e-Iw(|3490
+Instrument Sans|650|28|none|jFaFceOw|8380
+Newsreader|800|56|auto|x9!nZ)Ss|15599
+Newsreader|800|22|none|. Gl e!GHuVv RUUgV )|14102
+Instrument Sans|450|72|auto|jDPm!t1U x;7 (Y 0Bn|42484
+Instrument Sans|600|90|none|yN:g(d3! vcrm nX ArThRRO A|78333
+Instrument Sans|400|48|auto|iyTs'o; L.w|13173
+Instrument Sans|450|56|auto|89 zIjW 6FFuJ bhRCZ yKM31NM|52940
+Instrument Sans|450|90|none|x;)b :XZ4u|26989
+Instrument Sans|400|40|auto|3KGrji|7184
+Instrument Sans|450|15|none|uRfoN !8yznc a7c!SV1|9298
+Newsreader|300|40|auto|bZHg (!Up3|12552
+Instrument Sans|500|15|auto|PTT Dl i3C 8NZ|6790
+Newsreader|500|90|auto|WYXUC (b3 qn4(?E|53247
+Newsreader|300|56|auto|rOnU,)gb|13695
+Newsreader|200|18|auto|p)n oOc9 qnF b4,U|8690
+Newsreader|300|90|auto|NTq? U -|22423
+Newsreader|400|11|auto|2LC mQclV. p?rWM nR1qu|9065
+Newsreader|700|22|none|Q,,nq xpeRt5d4 4Na dNww'v g;|19498
+Newsreader|200|32|auto|tJ: 3:aHR|7328
+Instrument Sans|700|14|auto|BAE Ex|3036
+Newsreader|400|56|auto|JrmIX bd|14487
+Newsreader|200|14|auto|h4 9 CPPUs5 -nCdB!|8067
+Newsreader|400|56|auto|jTo7 R- zJ3oO|22199
+Instrument Sans|700|32|auto|k8u|3658
+Newsreader|300|90|auto|C)UvNG7: A'-k ?gUE1eU JWXa s)8Ed:r|96654
+Instrument Sans|650|72|auto|RYfQxQ1v :r' F;A: o1v a|47453
+Instrument Sans|450|90|auto|g?,cE|14139
+Newsreader|700|15|none|FO3TF? kl'kCF EUw6 gdt)|11367
+Instrument Sans|400|22|none|zkEZdTni es bG-z67? 1 Us|16222
+Instrument Sans|500|11|auto|4LG,1vp6 )gCt h Nvw; Lsx|8169
+Newsreader|200|28|auto|7y;BKRY! VgD1 IcH 5sD- o5dSeW;|25278
+Newsreader|400|22|none|:;xZ2 d?VLWzCu|9899
+Instrument Sans|550|12|none|c3jw O2b|3319
+Instrument Sans|650|13.5|auto|fIo pKcWVOLW W7xub,k xRCCT!t 8!I|14909
+Instrument Sans|400|22|none|PsP S(c g4B0?Rf|10853
+Instrument Sans|400|13.5|auto|m5MCNZ-F fUN6Mxl5 gGpXsks|12622
+Instrument Sans|500|15|none|86N|1860
+Newsreader|700|64|none|n;i!8hR Ce xEQ DG|35247
+Instrument Sans|650|64|none|?5RL H-|15672
+Newsreader|800|48|auto|k0uT|8162
+Instrument Sans|400|14|auto|80V X ( CIHUdUf|6948
+Instrument Sans|450|72|auto|2fxF,2 ;N W'2VYg|36247
+Newsreader|200|15|auto|(?;8RHJq 9x OjcqFJH 5B;hIpTA|12605
+Newsreader|400|72|auto|NPT 59pQN1 zQ0oT|44297
+Instrument Sans|700|24|auto|(2 oWIg y4i|8111
+Instrument Sans|700|64|auto|e|2352
+Instrument Sans|450|40|none|g0 6cd4 E,x|13856
+Instrument Sans|650|11|none|,gS33ZY8 JTzJ: ZREslp2, zYCjAo)' Tan|12180
+Newsreader|300|18|auto|vDKSkp x63nm|7521
+Instrument Sans|600|12|none|xJEdq G mqn|4746
+Instrument Sans|550|32|none|6fEgG j30,Dj Lm|15568
+Newsreader|800|28|auto|ihhb-fER l-7h PtV3|16495
+Instrument Sans|450|28|auto|myJvPz gNq u FC9|15295
+Instrument Sans|700|32|auto|R IY,er2X B9GQ67 av|19831
+Newsreader|600|40|auto|PtimHF 0 9XFjLl !(nSB|26738
+Newsreader|200|14|auto|2N W .Pz I908vvAu FM|9261
+Newsreader|300|12|auto|8SmmX|2841
+Newsreader|500|22|auto|Q,Re hdiF|6041
+Newsreader|500|90|auto|(nfX-7|17314
+Newsreader|700|13|auto|)MX 00-f'. Op1T i|7274
+Instrument Sans|650|18|auto|F2X3w|3704
+Newsreader|700|32|auto|ig RpJu;: 1AJroke r?wzae -?x.hz|29112
+Instrument Sans|700|24|auto|oeG3( d;v|7071
+Newsreader|200|13.5|none|G23 Iu;T B|3789
+Instrument Sans|650|48|none|J gpqAWB s'gO)y|24348
+Newsreader|500|18|auto|Ndru7 LTcF|5798
+Newsreader|600|32|auto|:yaX|4116
+Instrument Sans|400|22|auto|Vz furn ww R;,f( nX|11973
+Instrument Sans|550|16|auto|PP o'jt!P! ,-jHU2g NQdK3x|12232
+Instrument Sans|400|56|auto|7mMNsHC? 60mXe uo'5EQ|45241
+Instrument Sans|650|15|auto|x rheV:|3113
+Newsreader|500|56|none|TMKQq9IR mEJtAg|31366
+Newsreader|200|11|auto|ylP!:sDT|2685
+Newsreader|500|12|auto|FobAb|2422
+Instrument Sans|550|56|auto|Uw;?!p dI o:abC8; hqj 202v|43933
+Instrument Sans|700|40|none|u 'I2p jcq8h y3qIAE|22889
+Instrument Sans|450|24|none|zTHWqA FHho,nOt ;xi SUmFZ|21150
+Newsreader|300|14|none|1g MM3cKwsZ H|6503
+Newsreader|200|64|auto|2 e3 BKs b|18647
+Newsreader|500|12|auto|cfzho IZ0u hRV?Yn o Tf.|8948
+Instrument Sans|600|90|auto|eG,)q b:AG9u ljK'Cuz vB w|69464
+Instrument Sans|400|28|auto|vS )O rpoaY-J7 z.Kh.bq YxDO|23562
+Instrument Sans|400|14|auto|5P GZL1f ,E 'dgC2)wt|8487
+Newsreader|200|56|none|..VBncJ LjyZ)B6 )H YaJEW!|38288
+Instrument Sans|650|28|auto|MucCVSGW kjyQO'|16590
+Newsreader|200|32|auto|U51f- vWVcq HQZd:K6|20138
+Instrument Sans|400|20|auto|i4NAgyK) ?m76(5 TnxQ NL|15738
+Newsreader|300|13.5|auto|y1'Z-bF vK0 G'|5734
+Instrument Sans|400|48|none|03t SK9 NHtVX FMB yYDS|37298
+Newsreader|200|11|auto|r?4M6l WgZo ,Sg?6 DFc VJf|8771
+Instrument Sans|550|32|auto|iy)'2x Ke!415s 8ri4CFIC gAOEC ;WYHs|35966
+Instrument Sans|550|64|auto|K9yhegP PSJ6KbH-|38269
+Instrument Sans|700|72|auto|3 l D5 1!!m|21474
+Newsreader|700|72|auto|z|2431
+Instrument Sans|550|18|auto|Qf|1344
+Instrument Sans|600|22|auto|Vj81! Riu'Y!(n (V4LRA vXNOdgH ;SsF5u|25557
+Instrument Sans|600|13|auto|Pscn sqs'5L8 J z)xYP2ii 0S|10092
+Newsreader|700|32|auto|9g8 Y|5515
+Instrument Sans|450|16|auto|3wKn63 fU1az3 S j)j|9142
+Instrument Sans|650|20|auto|J F'pj8r s37Vv .(Fp.(k .1|13307
+Instrument Sans|700|56|none|t7et761T c-a1:Y! .Tn,0d -yCfT 9:Ad|56079
+Newsreader|700|11|auto|(: 8eH ZcBjbh4E|5875
+Instrument Sans|600|32|none|pFfWp8 .8GF fN|15348
+Newsreader|700|12|auto|ADO!W-y g6 47 1HC i;aHrW(|11320
+Newsreader|700|28|auto|B1-)6swy jSP5LP !G ZrI|19324
+Instrument Sans|500|13|none|E UU5.D|3162
+Instrument Sans|450|15|auto|;XdtOLb ;5vVfa'' 7S u;0W.p|11688
+Newsreader|500|28|auto|UVsMR Eq7exD|12705
+Instrument Sans|600|90|none|07eP|13573
+Newsreader|300|72|none|TeqtNA go HX uEd|35851
+Instrument Sans|550|22|none|l iSAH y|4924
+Newsreader|600|14|auto|UB|1358
+Instrument Sans|450|32|auto|Qm ) (OfMA0lp 5X|17604
+Instrument Sans|400|13|auto|s|394
+Instrument Sans|600|24|auto|jR kFqr1a?C|8317
+Instrument Sans|600|28|none|SO4OU:gH WS2QAL AV6 M(g :9JO|29034
+Instrument Sans|450|16|auto|HS-V4 !s M!UcUL|7977
+Instrument Sans|650|72|auto|e-OkSx cvX! eBTK|39311
+Newsreader|800|24|auto|OS.|2551
+Instrument Sans|550|11|auto|AJfK4G 1hr;E8L|5053
+Instrument Sans|500|16|auto|66p78c VGdBS Sn U:ok|10922
+Newsreader|800|22|auto|Dosk-;j|4575
+Instrument Sans|500|56|auto|.UV8 k'2BDU ANsl|29211
+Newsreader|300|11|auto|BhX bRae;.B|4005
+Instrument Sans|450|24|auto|W 5yle 3ZM 5wC2He2s Py2La(sw|23436
+Newsreader|800|72|none|)xBL|10177
+Newsreader|800|56|auto|m 8R0V OSU ,DDGX n|39946
+Instrument Sans|400|12|auto|u1HqM 9M Y DV3R5b|7534
+Newsreader|500|40|none|x9R p. Lpv|11585
+Instrument Sans|600|90|none|K Su PPyFsOs|37742
+Newsreader|400|24|auto|G|1131
+Newsreader|600|13.5|none|BEZvU Q?F9sEj|6080
+Newsreader|700|22|auto|H yO ?uEKD|8183
+Instrument Sans|450|11|auto|w R5L0 Q3 .aQgn(Qm UDnt,qO|10001
+Newsreader|500|56|auto|r!|2450
+Instrument Sans|550|72|none|9.9N) JF S'dDx Dcs|39825
+Newsreader|200|90|auto|l?O ;RUu (4;FEX:T wo )MmzS4|76139
+Instrument Sans|700|56|auto|xGMkL qLXFuC 8aeD HAqtyJx 5Clo5eMp|69179
+Instrument Sans|600|13.5|auto|qY?.|1752
+Instrument Sans|600|14|auto|7. 8ARVFYxu F09N. 72El8(A( )FwjTM3m|16645
+Instrument Sans|500|40|none|bpW6|7239
+Instrument Sans|550|11|none|Z1piKn!A )wXKyMkB F.!rM2 g-uI|10250
+Instrument Sans|500|13.5|auto|MwVW;h2 k5|5301
+Instrument Sans|400|48|auto|k X Lpcc8gtp '|19919
+Newsreader|200|20|auto|G .o M.6V)Cu;|7396
+Instrument Sans|600|11|auto|T'EUwbQ( rGXUNtZ v,s|7554
+Instrument Sans|450|40|none|b: hTWM-P( 5|16629
+Instrument Sans|700|90|auto|i;i, Y.M zY9QP s -WF)Ir|60446
+Instrument Sans|500|20|auto|'|313
+Instrument Sans|550|48|auto|g2MqeF s? 3 ;3|21091
+Instrument Sans|650|13.5|auto|lJXRAL hA 'tjycVX b1AcneH tZX|12677
+Instrument Sans|600|24|none|3pR2 2hRTNL 7o|11775
+Instrument Sans|400|40|auto|9e0I1H1 xuE-?-N oU|23243
+Newsreader|300|72|auto|ZodwYfY)|20843
+Instrument Sans|700|12|none|CYa)7 DMW4:e, SKg1CHK NrYek|11534
+Newsreader|200|40|none|tc xyrgH LocR nGm b6DjTGh|30349
+Instrument Sans|500|72|none|U lUCl;IwQ f|25391
+Instrument Sans|400|11|auto|Uu'(:qUC 02E'9|4838
+Newsreader|600|90|auto|R|4341
+Instrument Sans|650|11|auto|BMweH17x s!8sNY|6056
+Instrument Sans|450|28|auto|w ,yXT!u NTJY|11381
+Instrument Sans|650|40|auto|oA16FAu 2FGfUdN|21955
+Instrument Sans|550|90|none|so032ml (i8wk?wY 9 I3)GEqs 9I2(qUp)|102157
+Instrument Sans|450|90|auto|rJxV-0yJ gmkouYu uo0FRB|71180
+Instrument Sans|500|64|auto|1BC68JPJ Y9jei|28417
+Instrument Sans|700|32|none|rZ)W26U. n:0,|13308
+Newsreader|800|40|auto|rreFtSo) xl;z-a|17277
+Instrument Sans|700|56|none|.(Vt8d(G B73f's5H m nU D5qIN8u-|56918
+Instrument Sans|500|40|auto|Fn84k'? .|10700
+Newsreader|200|11|auto|? !MZsp ! 0|3546
+Instrument Sans|550|14|auto|XnCEXe;B 5|4980
+Instrument Sans|600|64|auto|-ymIO3|14503
+Instrument Sans|600|28|auto|ANxl'z|5411
+Newsreader|300|28|none|F 8Z0Qz .7Cxd vkYnW|16625
+Newsreader|800|48|auto|is !wNOZM QOYG4my p:E-Nsye|47338
+Instrument Sans|700|11|auto|Z7lSDN; s7I8b WJs1Zmyw 7rm Xv!mG4|12729
+Instrument Sans|500|16|auto|cH|1304
+Newsreader|800|72|auto|, nEo y! Zsu(xpX|37212
+Newsreader|400|32|auto|lw0 mY pRGCh9w|15975
+Newsreader|700|16|auto|WhtT16v C( KULo!tn3|10984
+Instrument Sans|550|24|auto|Jt ,P3tYPCh 3S uhk|13731
+Instrument Sans|450|14|auto|F1ubcTuh|3894
+Newsreader|300|40|auto|jnGSe' u e,u.|12562
+Instrument Sans|550|22|auto|A W|2837
+Newsreader|300|48|auto|xa; 1QDf|11854
+Instrument Sans|650|16|auto|5waLKd jw-D0o7s !aT lAP(B|13217
+Newsreader|700|13.5|none|617MZm|3756
+Newsreader|500|90|auto|r Pl|9072
+Newsreader|700|48|none|1lLT ? VV4bq:X ,S;28s:|31533
+Newsreader|700|14|auto|MU5s BT- h Lzp)L ,K5|9618
+Instrument Sans|500|24|auto|ZP ; WFBTdsyD V|12418
+Newsreader|600|14|auto|xmYjLJ 3t|4316
+Newsreader|200|18|auto|Tp1-rwXj hhqsm83c CBFd I;8I YHBvu!-|18276
+Instrument Sans|700|28|auto|O3T eN1wkN72 eKnrD)uf wAXZG'?|29156
+Instrument Sans|500|28|auto|LPPK?9 Wqr|10697
+Instrument Sans|700|40|auto|7m5jI? T9n7e K!DR7|24305
+Instrument Sans|500|32|auto|uT 1 G.M gVx|12026
+Instrument Sans|650|24|auto|0C7w(Z (Flbg:T A6H'IcH|17441
+Newsreader|800|24|auto|4s9q A'jfn)76|9705
+Newsreader|300|16|auto|?-0 -YWL63 (k?fj|7390
+Newsreader|500|15|none|TRDN iP KTQ WQ.fSCG|10241
+Newsreader|200|24|auto|ge:)gV qsbSgf N:'nDH4 4J09g v(,UH|21778
+Newsreader|800|18|none|? otno1Q|4860
+Newsreader|200|20|none|ucMum: wpi'rF Q!yP|10440
+Newsreader|600|12|none|;YW|1454
+Instrument Sans|500|11|auto|ap0n VjO0Xq eVl?|6003
+Newsreader|400|64|auto|DCj 4Q9'Ba (jYBgv|34434
+Instrument Sans|550|11|auto|4|431
+Instrument Sans|450|16|auto|WRfSr c H|4851
+Instrument Sans|650|12|auto|DXRj C-t (LxGw;jg K ak|8281
+Instrument Sans|400|28|none|l9ABLJaF Dlq7eR|13978
+Newsreader|300|22|auto|)J j)LIvw 4Yz !GZhv|11167
+Instrument Sans|450|14|auto|4LTaZrke hv8lzFt; efv pWD4!l|11984
+Newsreader|200|13.5|auto|o'vRAaD2 I31s|5622
+Newsreader|300|22|none|hcDREw|4985
+Instrument Sans|400|22|none|x N,NvYR|5982
+Newsreader|500|13|none|AldnA8o|3213
+Newsreader|200|48|none|D pUWyA|12803
+Newsreader|600|11|auto|2dZk8Kt|3209
+Newsreader|400|22|none|vO Hs60h;|6340
+Newsreader|300|64|auto|Hx6 lxl;S2 7n2UlsP|34804
+Newsreader|500|90|none|Pl;' Ew9DD7 njXzpK uHB'c09|73559
+Newsreader|500|13|auto|(U)73H1' 'XfJ4t': K,ss'pS8 !E'Pz!Z|12980
+Instrument Sans|400|64|auto|'Y;-I Mt nJPuh(mj yW.|40330
+Instrument Sans|500|90|auto|8?C03 hPBeZ. 5 vNRR 4Uf6hlp|81372
+Newsreader|800|22|none|MST X6K (:qvPWf|12180
+Newsreader|800|13.5|none|48LT7; 4.9!G0Nt|7019
+Instrument Sans|600|11|none|!GvZWxlv|3180
+Instrument Sans|450|56|none|h?Nl|7454
+Newsreader|500|40|auto|92iMdvc ,6K ;2N8QWm! I4Q- 7(PDyCbA|46693
+Instrument Sans|550|32|auto|eVad bOlnie eyukec|18671
+Instrument Sans|600|32|auto|d fgByk sW!:iO u|15548
+Instrument Sans|500|32|auto|2gnEid;p UKVrm2-k|18955
+Instrument Sans|700|28|none|hXz dozJ,|7875
+Instrument Sans|600|13.5|none|)aW Mzp ;wkTbD j8|7804
+Newsreader|700|40|auto|T2)M9|8520
+Newsreader|400|11|auto|qyM5b0 ;QktBVf q 6l0re8 b-Vh2|10863
+Instrument Sans|700|13|none|b66-I|2167
+Instrument Sans|450|64|auto|ppB QG KEL;|24457
+Newsreader|200|14|none|UW7d R Yp1JLV(|6301
+Newsreader|700|18|auto|Su JC; l|3731
+Newsreader|300|11|auto|S)oN5bTq Mq7J|5207
+Newsreader|300|56|none|V e3|6600
+Instrument Sans|450|15|auto|qW d6kaO-Z4 gWnW)O fC8|12518
+Instrument Sans|550|32|none|41hSaE mbr|11292
+Newsreader|700|28|auto|)) NH 9|5721
+Newsreader|300|48|auto|z0.vUOJn E.32C0fv A ,X2zTs G|40649
+Newsreader|800|28|none|eQrD?06,|8108
+Newsreader|700|15|auto|d|580
+Instrument Sans|450|13.5|auto|J,-YD6 J6WMzf!L wF yRkQG jPP54r|14042
+Instrument Sans|500|22|auto|0qrc- an'z2hef An2B3) tz|16121
+Instrument Sans|450|14|auto|xqvX|2050
+Instrument Sans|650|56|none|'|940
+Newsreader|400|12|none|MR T Mt,eyG|4421
+Instrument Sans|400|24|auto|FT'G. RDjvr)'y -F,pa5 vuLaeZ bAJZMuRF|27837
+Instrument Sans|450|12|none|,A6q Cbgt B7ywel w|6989
+Newsreader|300|11|auto|JN:hOMr ,tw kfL 'V !EUU|8231
+Instrument Sans|550|56|none|tc!pj f|9414
+Newsreader|200|72|auto|)s3F9Z AtTsZGd7|35385
+Newsreader|200|90|none|l biv4gVS|21649
+Instrument Sans|650|48|none|x AaCqk1hl|16106
+Newsreader|700|16|auto|yT Y tV UQy0XEvv|9127
+Newsreader|300|18|none|r1-leD?, 7tr P|6137
+Instrument Sans|550|72|auto|S, Cfj.Xi4 cdmKt0|37636
+Instrument Sans|650|14|auto|!O9Qr)Iw e t6u .|6611
+Instrument Sans|650|72|auto|;YQc7PXP MUt8o,ih V.?U x05p 2l?quha|83477
+Newsreader|600|22|auto|2kXxg96Y NOdcv|11284
+Instrument Sans|400|20|auto|HLQJ5pBa uB9Ld ri 0A1z dOyLh36o|20827
+Instrument Sans|550|56|none|Go :DJ WVn0|22250
+Newsreader|800|90|auto|?L v(mel? Td7? llKGdmr tVw|83276
+Instrument Sans|650|40|none|BOzk Us9|11551
+Instrument Sans|700|24|auto|;W ? yTMBfzXC 76u'Ke|16405
+Instrument Sans|650|15|none|J7O RZrS|4099
+Instrument Sans|450|32|auto|'|488
+Newsreader|500|13.5|none|- B04!|2257
+Newsreader|300|13.5|auto|Qzx 2h:36Mo llya:d.3 2t1NxT|11396
+Newsreader|600|14|auto|jIeC)D ZNf|4568
+Instrument Sans|700|22|none|do|1735
+Instrument Sans|550|24|auto|:Op ztgU|6284
+Instrument Sans|500|12|none|Im8'u (JW0'!f On|5852
+Instrument Sans|450|13|auto|n2WJIHxk|3903
+Newsreader|600|48|auto|zFX9fG 9 b0 ddLm-|28009
+Instrument Sans|500|28|auto|h Fm6F U., DUH2Oz,N oR1h.|22785
+Instrument Sans|550|90|auto|ZMR!mxZ z QvHc- - PklW?Pmn|84796
+Newsreader|400|48|none|p 69Jjkv 8fN,ul|19690
+Newsreader|600|11|auto|s5Rj8!9? ))nnGRa8 (f4PMl5 !P46L(c,|12854
+Instrument Sans|600|22|none|lw;,P) eZ-jN !lNV Ht!pdz,x Kjne|19735
+Instrument Sans|700|24|auto|FffQB1|4874
+Newsreader|400|11|none|jTb02|1765
+Instrument Sans|600|24|auto|sEL19Oun DgY71P!4 Sx TqD58!q d|24197
+Newsreader|700|90|none|gO? EZ ! y2CsJmHX|52016
+Newsreader|700|64|auto|HBki qYu|18825
+Instrument Sans|450|64|none|?|2337
+Instrument Sans|500|20|auto|E.(A|2416
+Instrument Sans|700|48|auto|NZi6fG xQ Ka7:N, OBZE|33786
+Instrument Sans|650|15|auto|dmy) HtU6k53 eRI Ax Z2bDI|12507
+Instrument Sans|400|18|auto|Jk:|1432
+Instrument Sans|450|18|auto|N 6uw W6MmWSN4 Q4V|13611
+Instrument Sans|600|20|auto|uKR wS(ZvCQ Q|9775
+Newsreader|400|28|auto|7? -hai r69C|9330
+Instrument Sans|600|72|auto|.LuREGJ|17780
+Newsreader|500|11|none|ff ,WIUT) GtD4E? 9fvPTImK|8787
+Newsreader|200|20|none|K 46Uka:? i|5992
+Instrument Sans|500|22|none|W n5Sm t|6492
+Instrument Sans|500|18|auto|vqZq) )7 hza,Z'(K UZMW|12974
+Newsreader|700|12|auto|Ct|926
+Newsreader|500|14|auto|Xt GP DQbT! q!afmmA 4i|10473
+Newsreader|800|20|auto|Dz Jx!-X 9EP)QL|9912
+Instrument Sans|400|15|auto|Y|649
+Instrument Sans|400|64|none|'aR|5485
+Newsreader|600|12|auto|4Qb-:vz )QV), Yc|6094
+Instrument Sans|450|18|auto|, 8B2v FF ::foS tHbH?J|11529
+Instrument Sans|550|11|auto|tqwG6B0q kT! P AoEHcn,y|8614
+Instrument Sans|600|22|none|6:(zadp|4913
+Newsreader|400|40|none|O? !p.5j 7Ky|12978
+Newsreader|200|28|auto|Os-X'w bD0ni|10130
+Instrument Sans|550|40|auto|7YoC(DM g?QRsOOu M.Mr|32500
+Instrument Sans|650|28|auto|8;Nn2H5K svM. J7Ak|17116
+Newsreader|800|14|auto|xeT|1629
+Instrument Sans|650|13|auto|ph(Xe UU 9(g G nRZ|7754
+Instrument Sans|400|12|none|Q 0Aj|1970
+Newsreader|500|13.5|auto|?O;(|1640
+Newsreader|400|48|auto|Z?f-yI|7718
+Instrument Sans|650|20|none|3SZS5 6RkE;lN cYjNz Fi7 3x|16316
+Newsreader|700|22|none|ti-A :'1M|5603
+Instrument Sans|700|28|auto|K3.Wx(|6135
+Newsreader|200|12|auto|ISWZ )cz?g dy- jh .Jgw|7521
+Newsreader|200|32|none|M 1k7QTgA s WIK|15638
+Instrument Sans|500|72|auto|j:J K1'NiMkr bjEUf3Gu LA -XF|61161
+Instrument Sans|400|48|auto|b-m2so3u Yv 2 Rlpz1Ve|32659
+Newsreader|400|28|auto|iZst wJthNmP j6- x?hljr6Y O2?|23227
+Newsreader|500|13.5|none|'IETJS|2362
+Instrument Sans|450|13.5|auto|Wgl|1629
+Newsreader|600|11|none|,E,Hf5k K G ETw3 J:|6333
+Newsreader|300|48|auto|, zef5EU 2!ymu0 k6x ZV1q42cr|41621
+Instrument Sans|700|72|auto|4OM(S3S ykSCp9 Ar(2'tL|55264
+Newsreader|800|22|none|e,xgeo3 E:wmO87|11780
+Instrument Sans|550|20|auto|9HzmLC!|5538
+Newsreader|600|14|auto|;|259
+Instrument Sans|400|72|auto|f1Pxk|11364
+Instrument Sans|450|13.5|none|.L- aibT ,Ji- LKBk|6576
+Instrument Sans|400|11|none|R99ixB Fg4rb .hi3 !j;59|7195
+Newsreader|400|24|none|BTqsFQ:1 sWxHA;-V D-d8Do q64e2|23232
+Newsreader|200|32|auto|H e3kx m Z:kS5fd|15220
+Instrument Sans|550|22|none|hS?P4s W WbNHsLs MV'4|17218
+Newsreader|400|15|none|GR9 b1OA2k5 TYMy8 uFQ-.V|12390
+Instrument Sans|500|13.5|auto|1i9V K bn p4n''I|5979
+Instrument Sans|450|18|auto|Uz o NlFUnyH 4wu(G!l HDp|14178
+Newsreader|500|16|auto|x(T TE''g3S Max8l1A|9651
+Instrument Sans|600|13|auto|8H7|1568
+Newsreader|400|72|auto|56F0 Kc(lk1v1 bxN|40726
+Newsreader|600|22|none|jgNJjtB|4525
+Instrument Sans|450|12|auto|AmY6) 7SsSSiuV OIVSe(p eEBiOx tvqmQ,|14648
+Instrument Sans|400|32|none|Gh!8u xOKH V! SBzlOG3L|24120
+Instrument Sans|550|13.5|auto|R|572
+Newsreader|400|22|auto|Kch4A!bM .B?6,X|10629
+Instrument Sans|600|20|auto|lMilS3S UM jtxm SRzjU1B-|15532
+Newsreader|600|24|auto|sQ1(Dk,L 97-IIis Pg)nbAv|17287
+Instrument Sans|650|64|auto|Gfk 2rbsh Js H(f83|34928
+Newsreader|400|18|auto|x: fCgGKtq pA:,L5-m|10203
+Newsreader|500|13|auto|p zCaX .V0auqv ?Grj|7963
+Instrument Sans|450|16|auto|HU8P8Pe Y,E)m VNC7El,R HHs|14566
+Instrument Sans|700|16|none|w( Enm|3716
+Newsreader|200|15|auto|JUr1J h SXQ|5125
+Instrument Sans|600|48|none|561:x uL:sm 8sv Pmom MLm86i|45327
+Newsreader|300|48|auto|CXb a:DDFuvB )Hqa4 iDt) zOK6SR0,|48380
+Instrument Sans|500|14|auto|JHE20H0 b!?YjYnc LC;!ElR2 ?LvEv 7sp;F6k|17399
+Instrument Sans|600|13|none|0sqt|1844
+Instrument Sans|400|32|none|4uRUJr esH7U shGthq :b-5Ic O3NS.1rb|35574
+Instrument Sans|600|48|none|9JCqsg4 t yZh7 G. Ohtb|33456
+Newsreader|500|90|auto|Gh CjO,Y PMmQlm x|56456
+Newsreader|600|18|none|C|807
+Newsreader|300|56|auto|rO|4056
+Newsreader|600|22|auto|)BttSw seB .2,N|9432
+Newsreader|300|64|none|T0A|7610
+Instrument Sans|450|20|none|mT8H G-7 'To Q LGs-8xVM|15700
+Newsreader|500|20|none|FMGWF9 w8G)D t cNj0Ha Z4L!zHX(|20623
+Instrument Sans|550|12|auto|a2N6 3dKogFuI Yep lB2!. OU|9931
+Instrument Sans|550|24|none|.TO y)pPqX NrnF|11812
+Instrument Sans|700|48|auto|15tIK:! a9.9 dSe|21968
+Instrument Sans|700|14|auto|idc|1305
+Instrument Sans|500|24|auto|i-|1084
+Instrument Sans|650|15|none|(0aC?Ffq XPBQ|7148
+Newsreader|300|11|none|56eITd lAwvN33y 'Do:ZKJ fgdkgN3Y|10748
+Newsreader|300|22|auto|Y|936
+Instrument Sans|400|16|auto|HEDtrUQ|4474
+Instrument Sans|700|24|auto|1 3KI.0jHG NBXe3qk xbiS02|19832
+Instrument Sans|650|20|none|STTJVl No' 58E PCx7SY,I|14479
+Instrument Sans|400|32|auto|pGP)? 'Yo1mfz9 DZ40Vf), 1V|26346
+Instrument Sans|500|13.5|auto|KVcb 1y!,x5 r FhL!?|7381
+Instrument Sans|700|28|auto|Ik3-W|5118
+Instrument Sans|550|12|auto|KAIxxoMe Imm3EC u 3-|8564
+Instrument Sans|550|40|none|WyhP ;!nre a! 1C bH2EJFb|30407
+Newsreader|600|11|auto|pt5xF )wTblV p1b7pX9 RcV;,I Kt|11604
+Newsreader|800|12|auto|DV!MNt whdt2ldI NFDE56|11151
+Instrument Sans|500|56|auto|vX.!T1i hA L D9ucnmm g-0;|44901
+Newsreader|500|15|auto|9YZ egsL B7Ma Ck8;nC5 H0P)).3P|15164
+Instrument Sans|400|72|auto|20zZpoX HGLj7 --vBaN-b|54347
+Newsreader|200|12|auto|j t )Kw|2172
+Newsreader|700|12|auto|.BlHE|2322
+Newsreader|700|14|auto|4h56;Mc|3984
+Instrument Sans|650|11|auto|SHd:,bC w'eA|4471
+Newsreader|300|28|auto|C ;H af.Qsk XRpx y(1G|16887
+Instrument Sans|500|15|auto|q '1Ie :y;vTeBd lL|7043
+Instrument Sans|650|48|auto|a Vk3BLl oOyySFv!|27047
+Newsreader|500|90|auto|Bi Bg0Hgc:1|33020
+Newsreader|500|56|none|!!KB 4SIAv|17002
+Instrument Sans|550|48|none|kgq|5429
+Newsreader|800|64|none|oZ-uKs Ly!X3(Z Rie:Y pQ2zS|54518
+Newsreader|800|56|auto|FKu'8H Nwbo6 ciFOSV|41742
+Newsreader|300|72|auto|Tny(B pa 2j,Wh Sns :447r|51144
+Newsreader|500|16|none|PzE' 9'JEBD.w|6211
+Instrument Sans|550|11|none|sjlno2Iy|2497
+Instrument Sans|550|72|auto|?pLc2P0 j-,U|27211
+Instrument Sans|700|56|none|mY-aoLrg I.Ntci Suw7iWN QPtNx|55517
+Newsreader|300|13|auto|hxo hs 8gb 02IIKE|6888
+Instrument Sans|650|18|auto|lSd aSst dyW, iRr JkA|11293
+Newsreader|300|12|auto|egZSXx|2710
+Newsreader|800|24|auto|0Cn-RG1 b KND?HPr|15860
+Newsreader|500|22|auto|'lXb8Gnm (s7X gQB6W'0 U )2|18325
+Newsreader|400|18|auto|l3Q qkW3!f|5605
+Newsreader|200|72|auto|8PM IGCk9m KXRPa|43189
+Instrument Sans|500|16|auto|pL7yh ;Fl(m?Lj Ldf|8674
+Newsreader|500|40|auto|Fw BVMT Y9Vr,Mvb nAGd|31067
+Instrument Sans|500|32|auto|B,UvS: OsNlBG !b1:(v8 ;7|22244
+Instrument Sans|450|18|auto|xFm ajM)OP e)aQKGB9|12529
+Newsreader|700|72|auto|8cY- jJirH|21864
+Newsreader|400|13|auto|4N,Y409 Sl7lly 6uG M 17EAb|11378
+Newsreader|600|16|none|kFh|1750
+Instrument Sans|500|13.5|none|X7MVrET Y:qI5m2g p'Ol R6xO|11960
+Newsreader|200|14|auto|i Jbuk9R r-z9MbyV )H2z:G7 i9yJiM7L|14703
+Instrument Sans|700|14|auto|VNMn0c 1 R(,|5607
+Instrument Sans|650|22|none|gWbUx|5068
+Newsreader|300|40|none|B jd- rLQDm2|14689
+Instrument Sans|600|56|auto|,r ?dmoNY GM)'|26711
+Newsreader|500|64|none|fS.m66CE qjMxhu O. 6q6|45116
+Newsreader|400|18|none|nZxxnK|3905
+Newsreader|800|32|auto|8Yeq(z XlEJ;H'b A8(,X i tv|25218
+Newsreader|300|24|auto|FSLy P T0|6468
+Newsreader|200|18|none|v(QKEtb !s,r N I;mnussD :RT9US83|16267
+Newsreader|200|72|auto|ZKv pp 9 6X( s5|32160
+Instrument Sans|700|13.5|none|r L|1018
+Newsreader|800|32|auto|9hE Y)sQYNa P; lE|18125
+Newsreader|600|32|none|nUiQ:|5365
+Newsreader|800|13|none|CVcZZ-) j1 70 I-|6057
+Newsreader|200|64|auto|LgkAUZFp 02ow aj?8U|41286
+Newsreader|200|24|none|dL GFz!)!N Air6 Ss;NZ:d|14763
+Newsreader|600|40|auto|ubi!NqT1 8IjL RUu;I9|25309
+Instrument Sans|400|20|none|:gb'1QMk m0ON1G'|11372
+Newsreader|700|64|none|RZF0x Dj1o .'b R,5D9g|42076
+Instrument Sans|500|28|auto|LZX 5 Li rRMJw2?|14606
+Instrument Sans|550|72|auto|3KxYu w'xgqv q )3J|40894
+Instrument Sans|500|11|none|oR pW4'? 7P( QX (VMS|7545
+Instrument Sans|500|15|auto|FWh .1Sjj..L bD(T9n4 RIcEv7f|12654
+Instrument Sans|450|40|auto|T3mQ nx:QrWp I U(jAUUX uCb?BZ|40753
+Instrument Sans|600|13.5|auto|JSWR s13)OjKQ Z3V6r .9|9829
+Instrument Sans|700|32|auto|cnV,xc|6288
+Instrument Sans|550|48|auto|G-c!6 G QxD S'' Q0vF7Y|34442
+Instrument Sans|650|40|auto|HSqB Gi9mN0s r-3J|23807
+Newsreader|700|72|none|LM uZ' CZUE-2X Uc5;k j8d0ZfLM|72874
+Newsreader|200|90|none|a 1wutZy )Bp)8|34886
+Newsreader|300|48|auto|W8WH ,cet|15013
+Newsreader|300|15|auto|5 : F:2h-Cn3 F|5930
+Newsreader|200|22|auto|R P416b ;S';'u i7)I0 jLMao|14690
+Instrument Sans|550|13.5|none|2pZdml 8jxVqo q, wrzy eocBUTF|12913
+Instrument Sans|600|20|none|WbtqCdcd|6714
+Instrument Sans|600|13.5|auto|V sSyGf 2?RHLjf 6E3B9r Z|10444
+Newsreader|700|12|none|U,i,gr AP0|3553
+Newsreader|200|13.5|auto|,Zev Preb ry T BCCLaB|8571
+Newsreader|300|32|none|s 9ZR9(sP; 5MP(|13898
+Instrument Sans|550|56|none|ZMJ2Y|11509
+Instrument Sans|550|40|auto|jQpjZ iNut) zr TPv.y|22636
+Newsreader|400|28|auto|z qc 9 ;DNI0 vNHQe|15563
+Instrument Sans|650|14|auto|BM J;E)ZYZZ qpg 2Ktc -H|10580
+Instrument Sans|450|40|auto|,GH8: -|8213
+Newsreader|200|28|none|93'|2243
+Newsreader|200|16|none|2fQ Tx VP|4337
+Newsreader|300|64|auto|: ry?n.o F|16136
+Newsreader|300|13|none|3wT,TF 5Cyn1-f Dq 1T?Yshs|9725
+Newsreader|700|56|auto|OcTKN OGRT I(NqCUm G|45097
+Instrument Sans|500|24|none|c-- 7mb e!j3 rB.E Ns6(zRyA|18980
+Newsreader|400|20|none|z16tX|3231
+Instrument Sans|600|72|auto|v:Ui7C Gqs|23603
+Newsreader|700|18|auto|VlR). ?K;3S;K3 O,e rPqeHQe, yRTez:|18599
+Newsreader|200|13.5|none|6PAT.Yj|2666
+Newsreader|700|11|auto|)nm, WobGu|4458
+Newsreader|600|20|auto|immUmR Qf'0( pMTHjA 9xaPK|18059
+Newsreader|700|13.5|none|Sp8? wszvz|4301
+Instrument Sans|400|18|none|37 jn2Ij K9q5 0Tz'Cde|11205
+Instrument Sans|650|16|auto|M(mtdY yXI;H ,hT My|10128
+Newsreader|300|32|none|UhG 2bY|7733
+Instrument Sans|650|32|auto|7C jQPuir'( 'V7,O 0DMTEp;g|26630
+Instrument Sans|700|28|none|JXJIs|4092
+Instrument Sans|600|28|auto|-Z3Hox|6221
+Instrument Sans|650|12|auto|!l|435
+Instrument Sans|650|13.5|auto|n7|951
+Newsreader|500|20|auto|'5i7SP kop(e p) ZEa6x|11817
+Instrument Sans|550|32|auto|N9 z 0EcqIW '|13239
+Newsreader|600|15|none|t 5?LFuEp|4354
+Instrument Sans|500|11|auto|P4(8xp yxpl ';8ne M|6302
+Instrument Sans|500|13|none|Kc3 X6E2' UrTyOP 8dcB RSSyxbz|12666
+Newsreader|700|28|auto|.ybPJFI|5957
+Newsreader|500|24|none|G ez Y: Ped|7149
+Newsreader|200|56|none|vxj393r d,OH yw|24750
+Instrument Sans|600|13.5|auto|HgVv6Ko|3839
+Newsreader|400|90|auto|d neY0 awtqXtlK aY)K !|60319
+Instrument Sans|700|22|none|rYk R5zrPSY|8387
+Instrument Sans|550|12|none|a(63Kx? J|3474
+Newsreader|600|13|auto|N)Tu C9j!HX5Z|6361
+Instrument Sans|700|90|none|KbSc8 elG a u!I)e|46426
+Newsreader|400|15|auto|K-;4YLj vcLr- . F3Vm .,d|10045
+Instrument Sans|550|22|auto|tqxab ;b6 e pQRjV cLhtfn|16516
+Newsreader|600|28|none|7d Ltjn w. FzhG2!|13705
+Instrument Sans|500|64|auto|yUTu3BI|15769
+Newsreader|800|72|none|O?M c|13689
+Newsreader|700|24|none|K,T32J7B t bQG|11523
+Newsreader|400|13|auto|kax 3(Q;, aVek24|6296
+Newsreader|700|16|auto|t-ta76m.|4151
+Newsreader|800|20|none|?OlD .K Qw)6:2.h 6|11416
+Newsreader|400|11|auto|f C;-cU 4!djTNU|5443
+Newsreader|500|90|auto|tm01SMSl kluDM z ,yDs X2|74560
+Instrument Sans|550|48|auto|TNd qzl M n40rW|25212
+Instrument Sans|450|56|auto|J!|2521
+Newsreader|300|90|auto|07 z -VO? ? m8|38075
+Instrument Sans|400|14|auto|nCUY 6?69z ' rTlP2q Ov;ENx|11686
+Newsreader|600|15|auto|28G3FkM9 eVaMY1Rc hw9y|13146
+Instrument Sans|500|13.5|auto|MCow0a- 7Zr Wqk?S,zx se|10796
+Newsreader|300|28|none|)J|1109
+Newsreader|500|64|auto|))V4 u?q2 Bhbh|28673
+Instrument Sans|600|90|auto|x rj|8182
+Newsreader|700|32|none|E!I,ud. !6Wl(Qp lSnrmA lN|24213
+Instrument Sans|600|22|auto|N2|1806
+Instrument Sans|600|18|none|'N8y7|2980
+Instrument Sans|600|12|auto|,;|398
+Instrument Sans|400|40|auto|qE|3185
+Newsreader|200|11|auto|y l9?R JK;3)|3780
+Newsreader|500|14|auto|SHA yQhVrOm kL'|7680
+Instrument Sans|700|90|auto|m b|10184
+Instrument Sans|550|32|auto|Bil sGn qP1k Apv31Wqf|21858
+Newsreader|200|90|auto|H !mIX|17736
+Instrument Sans|400|28|auto|nfrw|3730
+Instrument Sans|450|72|auto|Q1g|8215
+Instrument Sans|500|90|auto|9PH|11559
+Newsreader|200|13.5|auto|u 3e Dp(On u8.s!;uC .8MP|9838
+Newsreader|600|11|none|T0 DKM0Zzwh|4883
+Newsreader|500|16|auto|-)|607
+Newsreader|800|16|none|9FwfaBx UZzF7E Y1QeOfr Cz:lLXT ?w;.|19279
+Newsreader|200|20|auto|QI qs|2668
+Instrument Sans|550|14|auto|82 IL3 g- 7 o2Q2|6708
+Newsreader|500|16|none|-aqki A|3082
+Newsreader|400|28|none|b:wS:47'|6343
+Newsreader|700|13|auto|07 XN G:9|4309
+Instrument Sans|400|48|auto|0rd7lM6l A4O lJ|22509
+Newsreader|800|40|auto|L.PjQ|7165
+Instrument Sans|500|18|auto|wkZw ?JV vbg in5CHp.|12012
+Instrument Sans|650|15|auto|f;8pnXko GGGl|6764
+Newsreader|800|28|none|.Dz 7E4q|7657
+Instrument Sans|400|40|auto|uy3Q ciTGhtVn 0F1zmv E.-(v81|35741
+Newsreader|200|24|auto|dd.3d2lt o5E4 Lw i9(a1Ew|16553
+Newsreader|800|14|auto|D2T 3uDVhV )tR92bgC 9YKG|13687
+Newsreader|700|72|auto|FXAG9i4 gaAG ThtYy .9W9)(s4 1:Lj|80466
+Instrument Sans|400|28|auto|JOOXgaOe eEi|12080
+Newsreader|200|28|auto|VS D2:HmI1|9356
+Newsreader|600|18|none|hx eph2Vdo A9 k Jn|9880
+Instrument Sans|500|20|none|7y 7 Tqp)be TU4:TWGb eqRnj2-|18555
+Instrument Sans|500|56|auto|fcPAO04.|15967
+Newsreader|400|18|none|MNB8SIUa j.K cMAP '9?1n, 1dGo:|16713
+Newsreader|400|28|auto|5Nkw!3 LmpD gSJYKc|17409
+Instrument Sans|450|13.5|auto|E MubPD|3761
+Newsreader|700|56|auto|5Ls0;mUC uPTLr, uURwS0 k2X!A C|62230
+Newsreader|800|12|auto|kt3 FFTGb0|5023
+Instrument Sans|650|48|none|r:O JQ7() !Zd, gBG Bp2Z?RB|39705
+Newsreader|300|20|auto|FUN FQVPG(Vg 5WQC),- 2a6b6|17140
+Newsreader|800|72|auto|XISSMuaj|24342
+Newsreader|600|18|auto|q1Dj|2493
+Newsreader|300|32|none|pmvWPX32 nk R72ihoo X75|24444
+Newsreader|700|13|none|Yq ITT6Yx w W;U Ov39c|9314
+Newsreader|200|11|auto|KQ R'D.LSTC U(NmY 72VnO4?O VI|11458
+Newsreader|700|48|auto|zW A V!p,PN5x ipphF c?SBxC|42481
+Instrument Sans|550|18|auto|Ix8kgjD|4109
+Instrument Sans|600|16|none|'Vc 3u6zsh GND|7658
+Newsreader|800|15|auto|Z6uI jAw4d B3z2up6V aJB OvJkpuL2|18207
+Newsreader|200|16|none|Hj 7T7( NJ8Zmox a8,|8836
+Newsreader|200|56|none|vi d V DPgasLg|21246
+Instrument Sans|500|20|none|J2;,N mMktf,R B0PT 31a GXN|16983
+Newsreader|300|28|auto|3n4y; ? Ef! -BGVydm|15731
+Instrument Sans|450|12|none|MJnUwAd! R.Jk3DH|6970
+Instrument Sans|400|16|none|f'LG4d rG Lsjr,|6575
+Newsreader|200|15|auto|1AL W 7fTWP Eh x.ws5:Y!|10997
+Newsreader|700|14|auto|gegy!a !AR mh1F e4mO,3|10963
+Instrument Sans|550|20|auto|)6L!p9C 5g2l mg5xF39Z pCD7H; UYn;(Q|23801
+Newsreader|300|18|auto|;A. F ,R!|3541
+Instrument Sans|450|90|auto|q -|7550
+Instrument Sans|500|90|auto|S2dyi ',qrtaN|33241
+Instrument Sans|600|13|auto|jX- 'qZ(XC?3 S!6e0|7306
+Instrument Sans|550|12|auto|-5u ro uzV !|4029
+Newsreader|600|11|none|.ZD|1153
+Newsreader|400|32|none|; Rn7hM 5ZTS,ssb E1BuSGj|24050
+Newsreader|400|12|auto|S df|1407
+Instrument Sans|500|32|auto|B C AX;4|8288
+Newsreader|500|18|auto|27f )SKN|4662
+Newsreader|500|12|auto|9DQo631 ;uMe|5663
+Instrument Sans|400|11|none|FEQ Mb 7XS )Lc;Od,|6521
+Instrument Sans|550|56|auto|fn.z1xM ?Y e6tZ ! ThPsG,Gf|44783
+Newsreader|200|72|auto|R)h (Ae'jSEb 63nRXu iE9hu b!Yj-s5I|70081
+Instrument Sans|450|12|auto|'zenB,hU|3050
+Instrument Sans|700|24|auto|pD0i!e)l|5871
+Instrument Sans|500|13|auto|c9TF rwH G|4515
+Instrument Sans|500|64|auto|2 jpBcqMS|20183
+Newsreader|600|22|none|) l Pj 2Pt,qcN|7940
+Newsreader|600|15|none|KG Y bQTrLH JunCigB|9672
+Instrument Sans|450|28|none|VT4DJxFR Mp !bG ynLO0o|21947
+Instrument Sans|550|56|none|4D GVs FAg|19619
+Instrument Sans|700|24|auto|I05(Mzrf bv1sfEDq G!.U Xk|19019
+Instrument Sans|700|20|auto|-1OK tfLxcy HnE1SAI EaplaC|16925
+Newsreader|600|24|auto|a)2gr K8T!;(X ) 85)yPBin|16730
+Instrument Sans|600|13|auto|tx 7:q8q|3157
+Instrument Sans|600|64|auto|Epr)Mb 6j?!OILG tn'u!p:|44175
+Newsreader|400|48|auto|s5 q ZcC2f9Y )w08G'6.|30861
+Instrument Sans|700|14|auto|W0PB av7ZqvzC B DEN|9820
+Instrument Sans|400|16|none|G43.Cz 3PQWTm g3q7tM|12073
+Newsreader|700|64|auto|K9? xfk9'|19231
+Newsreader|500|13.5|auto|az Nqy': ZpQgiJS L;|7799
+Instrument Sans|600|16|auto|7K.-sWo|4039
+Newsreader|500|28|auto|jR97 y|5001
+Newsreader|300|72|auto|dhkzb t35s ijM,MV' kEhq-X H7GBWe|75898
+Newsreader|800|12|auto|AIvY7vD|3744
+Instrument Sans|450|64|auto|A sd!:fu 4vs Wxi:Z Hhv|41876
+Newsreader|800|16|none|XW?!p? 9,W6zZ k5qC|10539
+Instrument Sans|600|32|auto|Z9N q4MY7 h:.ESDl JdYAg|25158
+Instrument Sans|550|72|auto|3yyPW- BxD4Ty8G JZzAsL hM,IVg )y|78896
+Instrument Sans|500|16|auto|AfF l,Wy6D NqD c(RBk:P0 Oq|13944
+Newsreader|300|24|auto|DOF )nDk'|6685
+Instrument Sans|600|14|auto|g|557
+Instrument Sans|500|22|none|KY( yVq a WA6thf'|11948
+Instrument Sans|600|16|auto|aj|823
+Newsreader|300|14|auto|vB0,5|2268
+Instrument Sans|550|13.5|auto|AV? 0l.AShS ClO2g pFZPBjL7 1|12270
+Newsreader|200|13|none|iT,bMe8 rljs0d(|4896
+Newsreader|400|40|auto|Y VWh MPA2z 2aBU)c|25294
+Newsreader|300|40|auto|51|2921
+Newsreader|600|18|auto|E:ABO fLp(r FJ?2N y2z rXCFIoCu|17215
+Newsreader|500|11|auto|6Q x5 ?C2:A|4328
+Newsreader|200|14|auto|kiA9h(mu J36;;l PS;RY|8733
+Instrument Sans|500|12|auto|kvKQfOwP DHJcW ggQW 0zrZ!;N F|12536
+Instrument Sans|700|24|auto|X?T)|3599
+Instrument Sans|400|13.5|none|(d7NN? yU5. 1B?jnv; R|8560
+Instrument Sans|400|24|auto|thlVF(N 0)cX|9223
+Instrument Sans|650|20|none|h(ypzr eT.2|6419
+Newsreader|400|13|auto|c2CdT 7|3224
+Instrument Sans|500|11|auto|a2D5O8w Mr'V'P|5554
+Instrument Sans|400|11|auto|KjD0B?(i 1qQ9|4724
+Instrument Sans|550|24|auto|qbzx9v ;7 ONqgQM!|14427
+Instrument Sans|450|14|none|as!38H 1Bq1eD|6001
+Instrument Sans|500|12|auto|XoX3' O|2787
+Newsreader|800|12|auto|vqeOh8;w|4061
+Instrument Sans|450|22|auto|shb10- 7tH2Lj'|9239
+Newsreader|400|11|auto|WcZ6CJ,|2975
+Newsreader|700|24|none|DQRnQ e;Q2f|9696
+Instrument Sans|550|13|auto|)jv.c XR7R.fcB )|5794
+Newsreader|700|90|auto|m uGzsv !(SthIc'|44449
+Newsreader|700|20|auto|w)c9f|3159
+Instrument Sans|700|56|auto|z(FoDtfU kxf|21992
+Instrument Sans|550|72|auto|t0qMZlH9 QDP r8n AJ8r,lm|58580
+Instrument Sans|700|32|auto|!cKl' eS6!c .)nH d3L G|20685
+Newsreader|400|16|auto|UZucb;nS T2b Oz6|8496
+Newsreader|400|64|none|z|1674
+Newsreader|300|28|none|dsC.ow0 PZAw!?|12352
+Instrument Sans|700|28|auto|TIc2 se KU9Im iBo,XDz7|19974
+Newsreader|200|13|auto|5!8k G3XhmnH bt;?Y76 gpS-|10839
+Newsreader|500|12|auto|,pvVZ.yg AYahm'N( J9Pc8 )YpU HBB|13282
+Instrument Sans|650|14|auto|UE4Ba(V M N|5600
+Newsreader|800|24|auto|)vTqP S|5265
+Newsreader|500|14|auto|bv5 iYd8. .V z|5437
+Newsreader|800|28|auto|Ev3|3414
+Instrument Sans|600|22|none|ubKn izl)7 laBu RIh e|13264
+Instrument Sans|400|22|auto|Ry3 xt vY F )Y;|9007
+Newsreader|400|56|auto|iVVLNHO p(rttc5|28063
+Newsreader|600|13.5|auto|0;tx-Qn Y|3998
+Newsreader|400|14|auto|gVASf eNcJu tp!;kNI x9fWg6H|12498
+Newsreader|700|12|none|VE 'Fa5 ltZxmI e5e8OZ|8006
+Newsreader|700|20|auto|:VI4 TX rZ|6119
+Instrument Sans|600|14|auto|2wp77T|3311
+Newsreader|700|15|auto|en3p(o jy6wC ?BS :bW '0Osul9|13971
+Newsreader|300|48|none|AUQw p.:QL|16146
+Newsreader|300|13|none|e0X g!jII|2814
+Newsreader|500|22|auto|zV eew8!tdy q Tu !xsvL|13447
+Instrument Sans|600|15|auto|ooQc.M 455AzT Yd6njBml 3y4cJzBi gadq|18296
+Instrument Sans|500|16|auto|xf Ax'Ie Sn|4977
+Newsreader|300|11|auto|'e ogrPdAS 2CaaF Ve?Ncw AfmCAt|11344
+Newsreader|400|13|auto|aqeDY|2512
+Instrument Sans|650|64|auto|0OIF9Ly!|17419
+Instrument Sans|500|24|none|ExR0T; ZW R?6 ep 2,300|17566
+Instrument Sans|400|64|auto|ZaDY(MW 1QC3S LVGel.e|48374
+Newsreader|500|14|auto|X|685
+Instrument Sans|650|72|none|Jal-lNK8 me5aXl7|38551
+Instrument Sans|500|32|auto|r0 a|3675
+Instrument Sans|400|64|none|6w|5596
+Newsreader|200|13.5|none|sCF c5PhBVA|4806
+Newsreader|500|22|auto|)GlNJ WOU 5 dbx4ygS1|14599
+Newsreader|200|90|auto|NnYS-HY 8FZYe vMfF Z.m;mc|76004
+Instrument Sans|650|56|auto|'!!'z!|6254
+Newsreader|500|40|auto|)zq 1Z irgoDb|15276
+Instrument Sans|600|56|auto|gS4G|9449
+Instrument Sans|400|64|auto|oy|4469
+Instrument Sans|550|24|auto|(q 9?co7S|6938
+Instrument Sans|400|32|none|EiM )|4858
+Newsreader|400|90|none|:c)Szt|12451
+Instrument Sans|450|64|auto|m I4Z-npE 1UGEm5|37033
+Newsreader|700|90|auto|NF sHSZnbWs OFY8 5!jOcR|79146
+Newsreader|300|13.5|auto|iv2V 8 cQw|4491
+Newsreader|700|13|none|!rD :ugE|3034
+Instrument Sans|600|13|auto|;nm8JDS r6'FV0Nf ?6CjfV 2;jnD1( Vq!'Yf3|15976
+Instrument Sans|700|20|auto|f- A SJ 0L(|6200
+Newsreader|600|72|none|c!3J ItT 80)XKHbz hU|44632
+Newsreader|200|15|auto|28-Xa vP VvNAme|7664
+Instrument Sans|550|16|none|(!W UyO9|4677
+Newsreader|700|20|auto|aFd1l2|3998
+Instrument Sans|450|16|none|v40XWc EwM4wKYc 3XKVapE|14502
+Instrument Sans|700|90|auto|GuqS7f R Cz|33771
+Instrument Sans|700|24|auto|NCtPiff eF GS-VxaE6 nqu btXcP6|24128
+Newsreader|400|16|auto|,T .1' SKSL|4740
+Newsreader|800|14|auto|q j356U.VO|5218
+Newsreader|700|32|auto|5U ntMri XNQw(vb|18565
+Newsreader|700|13|none|oCtK7 33vuXf l.q|6637
+Instrument Sans|650|20|auto|,:RxV?mx to02'k F s BSgu|15287
+Newsreader|300|20|auto|n:bP t5W3Ju,O P4E qF q3mzyuKW|18381
+Instrument Sans|600|64|auto|nJIk FmpZV OH6BR|37505
+Instrument Sans|700|16|auto|t T9TYyLyg 7ti(iO?|9005
+Newsreader|400|72|auto|)e yT7vL s 9e|27437
+Instrument Sans|600|90|auto|d'F0E 4 2'( 4:A|38641
+Newsreader|600|64|auto|J?Ej; (Y?)YA S4 .HAtx|41295
+Newsreader|200|24|auto|M|1401
+Newsreader|700|15|none|gVMrR)6|4033
+Newsreader|600|13.5|auto|cPPAFN whFc 7u8.U,Q KVh C7OGoF:P|16124
+Instrument Sans|600|64|none|!mj.(7 4aGS|22022
+Instrument Sans|500|24|auto|D WSP.dp?A JMVF|13234
+Instrument Sans|400|13|none|M Pg)(.s|3111
+Instrument Sans|700|48|auto|mTdP)Yy VqinUf,2 4NpfP9 a!|40612
+Newsreader|200|16|auto|i ZgwM E6mSeh Uj eUxK8L|12096
+Instrument Sans|650|32|auto|cUvH gn !i;Z:b heZi|17850
+Newsreader|200|72|auto|gv) HVO WlxcOX|34812
+Instrument Sans|450|56|auto|-D Frg5CF PgDEoQ !9|36506
+Newsreader|600|48|none|hZm 7 sY:-B p|18296
+Newsreader|300|40|auto|xlQ5haQf LQ7F-b|19582
+Newsreader|700|64|none|fz LxGirM2|21541
+Newsreader|300|18|auto|lU|1099
+Instrument Sans|700|32|auto|5?h xLqm Py5fC(|16923
+Newsreader|400|16|auto|DnyAe6j: aprkh;V v u8Bw'f K:|13143
+Newsreader|300|40|auto|Lh(3qU LR mjW(WZ QGY.W9N|34200
+Instrument Sans|700|40|none|8 A)Lh j1o5ek5' T3|21855
+Newsreader|600|18|auto|p|643
+Newsreader|500|72|auto|guZ UGrurr -aL9zio PRcQyL|60632
+Instrument Sans|550|12|auto|RV4Ea gVRoyqST g3 H6OitC|10208
+Newsreader|400|15|auto|ss5,sTKi smLFJeu 6Bp'C Txy2zt- V|14513
+Newsreader|400|72|none|MAt ji|12348
+Newsreader|300|32|auto|2Ha0|4741
+Newsreader|400|20|auto|wVpyEf .,7TP18) Vp. z'-g'h|13903
+Newsreader|600|22|none|Y?RrcJ6W|6612
+Instrument Sans|650|11|auto|.CV17ABA Ea Oyu6DZ|7045
+Newsreader|500|20|auto|m8GPWe7p L8 C :Ko 6JWn|15266
+Newsreader|400|11|auto|Tb(bb8V|2972
+Instrument Sans|450|15|auto|T fa a;n) W:i|5166
+Instrument Sans|600|40|auto|wGPp|7287
+Instrument Sans|500|20|none|(s- )fmuO At G '|9245
+Instrument Sans|400|40|auto|MDMN;Eg Gq- 9V V hLC|28990
+Instrument Sans|450|24|auto|?!) Zf uc5UP|8627
+Instrument Sans|600|56|auto|c Gw vtelQ7K Gb8P4X|37151
+Newsreader|200|90|none|Nb 9Tr iV DXx'uHP, WXe3WRi'|72525
+Newsreader|200|72|auto|A1RmG m6Nm2K !A 7Y 2OE|59690
+Newsreader|500|18|auto|6uXVMi1 sB:dF xD3spfU esTn|15129
+Newsreader|300|28|none|czrf9u gRE7!G kKeU;|15489
+Instrument Sans|500|22|auto|e(MJ. X:M roIAdg RFeu)K|16284
+Newsreader|200|64|auto|R) 3E ;m|14785
+Instrument Sans|600|28|none|;urIG fABi bjy JFb1|14675
+Newsreader|600|28|none|Z180ggV 1C4uVbdc .Y PGU ySN|25555
+Newsreader|200|15|auto|HA99b,Ac :,vu|5892
+Newsreader|400|72|auto|B6d'U ' R mNeb|32342
+Instrument Sans|600|20|auto|MAPh9U eZH|8095
+Instrument Sans|400|13|none|?|472
+Instrument Sans|600|72|none|0|3119
+Instrument Sans|450|72|auto|HUxt;IZ3 QD!UUDVw|44299
+Newsreader|800|20|none|qeU2jj|3918
+Newsreader|300|72|none|S -M,|9885
+Instrument Sans|450|56|none|zB9PgwFE sI5q tb'L NTiFE i:c|47855
+Newsreader|300|28|auto|BL)Y(v|5077
+Newsreader|700|14|none|Zv|1016
+Instrument Sans|700|16|none|mxh3aXaA|5343
+Instrument Sans|450|12|auto|Yjy;jvX|2352
+Newsreader|500|32|none|FiQHqmU 7L:hMH2 LP?v 8fpD|28131
+Instrument Sans|550|32|none|Pz i3oQ'x mzlgU 2|16869
+Newsreader|400|32|auto|?,NO,AIR I.VZ 7|13964
+Newsreader|700|32|none|i )?'E|4349
+Newsreader|800|11|auto|X3lKUh; 9i9: q9q ' S5w,OsxX|10987
+Instrument Sans|600|28|auto|,y-xYbQf cOd6t3Y1 l!1 F6M|22000
+Instrument Sans|600|13.5|none|ydZU dz4rT rSbv:o|7423
+Instrument Sans|550|15|none|Xms 10XR)C7 u;9v4|8705
+Instrument Sans|600|11|auto|MgFpK bTG!jB8 LE804TP HS,i-2 h5BU:pzH|13841
+Newsreader|200|16|auto|L7tcqjyk 334O D:qT2U qY6'3sri|13780
+Newsreader|600|24|auto|rFLI R;X Ddz bP(WGSQ ELre|19852
+Newsreader|700|24|auto|ulfSYDA|6227
+Newsreader|600|90|auto|e! :g ;F9a rhjDktJ|46166
+Instrument Sans|700|56|none|c(wJh1) cxIgvDu5 2KUA|39328
+Instrument Sans|600|16|auto|k6E|1833
+Instrument Sans|550|14|none|5M-r0Ud .8H:N 5?y?pow|10346
+Instrument Sans|700|32|auto|fmo56wOe ?RHByH u6O1U f3jxubvK|35099
+Instrument Sans|600|72|auto|. 8mSZXhw|24604
+Instrument Sans|650|28|auto|i( FENPR-|8178
+Newsreader|300|64|auto|M:kIPqt CT 7QaS|31481
+Instrument Sans|500|28|auto|32ztx z4Kfh'Z Q-IK3)cF|19218
+Instrument Sans|500|24|auto|Rpy ; P !CrZ U)wz|11966
+Newsreader|800|56|auto|,O T ivAR poO2Mog?|37146
+Newsreader|300|15|none|nr9-5eTt tIGY ,.PRkpG i6;|9954
+Instrument Sans|400|90|none|IhgqL|15282
+Newsreader|600|18|auto|) 9sCUCJP) 6M;GT(|10067
+Instrument Sans|700|22|none|zI7Tkn! PO2?aNj|10989
+Instrument Sans|550|20|auto|D|966
+Instrument Sans|500|12|auto|HxGYCh f(|3778
+Instrument Sans|450|72|auto|- E 3?MBXMP 2zHSs jX)p3|56306
+Newsreader|400|90|auto|Pen4kWD Qz cMH5 'vWnp9 q|79313
+Newsreader|700|72|none|u O:Du ok8('th Hh OyYT:|51628
+Newsreader|300|48|auto|b6UA6T ?DdLXYA|25306
+Newsreader|800|13|auto|(wv|1522
+Newsreader|800|64|auto|9 ofx bLi9)sh !LOY.Oe VM9o|58407
+Newsreader|200|12|none|xCNB ?h UOE cmNxd UedPzs3|9769
+Instrument Sans|700|13|none|iqZ!3w Pe tDIrV|6091
+Instrument Sans|500|18|auto|s?w6XLj.|4736
+Instrument Sans|500|90|auto|L)dbfh l|20543
+Instrument Sans|700|14|auto|ujl(AtqC|3563
+Newsreader|600|15|auto|55 6 OeyS lO7Cm,U gT?y,n|12096
+Newsreader|300|64|none|r 3YT YD;|17118
+Instrument Sans|550|90|auto|xaBj t-uVYj XLzM5a1F 0|63199
+Newsreader|600|72|none|MSHc?jh uonqdK5 j)Kb ; Tav0d|63162
+Instrument Sans|550|24|none|7XhoB -xq)|8115
+Newsreader|200|90|auto|9L9 Og utWQYMJ|45997
+Newsreader|300|16|none|nvX9 fb .''xq' ((Hq3|7638
+Newsreader|700|18|auto|(jXb(5x (9 McE|7719
+Instrument Sans|600|12|none|.wU80F 3 E!m CLKbCx7|8463
+Instrument Sans|600|22|auto|BD r x|3891
+Instrument Sans|400|64|auto|Ny J CA u(Uw T|28701
+Newsreader|600|14|none|C'asY|2058
+Newsreader|800|28|none|Lvs;i3D|6482
+Newsreader|500|12|auto|K0|1089
+Instrument Sans|500|90|none|Ur yuk|17014
+Instrument Sans|550|12|auto|STYF7CM 2 8J0|5666
+Instrument Sans|550|13|auto|,U'G|1544
+Newsreader|800|20|none|MAO4D SN,r T-M; 8 yzim1ueJ|18091
+Newsreader|300|18|auto|A,vH DQn!yz lRW M QYzt9M3Z|15329
+Newsreader|200|20|none|YO .GGx5K|6157
+Newsreader|700|64|auto|yW 65 FNzP2vo:|33121
+Newsreader|300|18|auto|nkT 6)cZZX|5640
+Instrument Sans|400|18|auto|AdBIE|3269
+Newsreader|700|48|auto|.14'retG TBX,|19982
+Newsreader|600|64|auto|!pRK : miF|20334
+Newsreader|700|24|auto|b04e0 j aJ0Ry QoJg KG-N|17881
+Instrument Sans|550|11|auto|rv9 jRCV1- ?(pQ|5267
+Instrument Sans|600|12|auto|X)UM t-4F? 7w urj Zo|7516
+Newsreader|800|28|auto|?e.02 hc4DQLD P|15196
+Instrument Sans|550|28|auto|gdj!. !HJ?n(sN ebLvo rKa !lFP|23524
+Instrument Sans|500|28|auto|:. 9bzysFg- Lhyoe8t9 v( i|20294
+Instrument Sans|500|11|auto|?V Ff2dZcV) s2g0FC )kjMW|9138
+Instrument Sans|400|22|auto|RC1JX )4b6T0wY|11141
+Newsreader|700|28|auto|TcGJt8|5899
+Newsreader|300|13.5|auto|3DJp3,fU O7PvK;. (pwV|9307
+Newsreader|800|90|none|!8sZo UIU-e: EecqTs 573?-p|73538
+Instrument Sans|700|72|none|g :kd,gE w) i160h' k|40689
+Instrument Sans|500|13.5|auto|Z9 1VC-|3199
+Instrument Sans|650|16|auto|)zhO! 8MaeM N(o3 I ,dm|11482
+Instrument Sans|650|16|none|S 3bVhe ) M(o|6726
+Newsreader|300|28|auto|HbkxegT M570;c( IryA dz2 epzG|24213
+Instrument Sans|600|20|auto|'P BR Z3eG|6578
+Newsreader|400|12|none|;X'P.XM T?ngc RZm T9Z45ot 45P9pQxV|13246
+Newsreader|500|20|auto|()yz Bep|4288
+Newsreader|500|24|auto|t q:.;P k c9K-'|8498
+Newsreader|500|90|auto|exrUiX)x k9OA|40819
+Newsreader|600|12|auto|v;|699
+Newsreader|500|28|auto|TU75m7s JzF)n4y hkIY vqNRC|24300
+Newsreader|400|12|auto|bq|908
+Newsreader|600|13.5|auto|9M u72?8 U|5181
+Newsreader|700|18|none|Hah|2152
+Instrument Sans|600|28|auto|k6a?H,No 'WPZBJNi i xa.HKZ|24053
+Newsreader|300|90|auto|,qk 4 kC 0YcZaq3 T92dZ|63529
+Newsreader|500|13|auto|SuPoQ H Xi' B|5579
+Instrument Sans|600|56|auto|S0 gtPtfpNt 'HlncH4 Vrx6y(L9|51058
+Instrument Sans|400|64|auto|1yM BBO3v8G Fb4(2 OZX|47805
+Newsreader|200|48|auto|YtD c 00pXu2 dR;wtv( w|31997
+Instrument Sans|700|64|auto|Qewp!' bIVkA BxTm Y(:ci f5t|53748
+Newsreader|300|56|auto|'fX|4645
+Instrument Sans|650|16|auto|xf2M tzoV)wa Ko(VE|9965
+Instrument Sans|500|48|auto|YFz1e X|10915
+Instrument Sans|400|90|auto|y5N3wty 2ORWhF lkuZD c|70077
+Instrument Sans|600|15|auto|k Sco BYmamr|6493
+Newsreader|200|13.5|auto|3zqoL7ge 3j)K'6 H4 Nzq8YY! aCNw(A|14513
+Instrument Sans|400|14|auto|jam|1516
+Newsreader|300|32|auto|. r41D70OV Sg33OycS|19691
+Instrument Sans|550|90|none|pJ k?n7ou|26188
+Newsreader|800|13|none|,;X iFw Zr9SaG 85QW ajK8,B;8|12218
+Instrument Sans|600|18|none|QcE ,PqtUfvx Y4 .|9402
+Newsreader|400|11|auto|-E hUV7zAv Yb4W6.q! dF;J|9239
+Instrument Sans|600|28|auto|!N7:8eK) D3Tu7 kcfQWsvF|22032
+Instrument Sans|550|11|auto|TtVIy.Z|2289
+Instrument Sans|550|12|auto|uyXq'S 5|3021
+Instrument Sans|500|72|auto|Z Q6p|13129
+Newsreader|200|18|auto|-xGW :'|3348
+Instrument Sans|450|16|auto|v4qv fmi806AU Hw:n7FK|11804
+Newsreader|600|40|none|Ow'yMz Yv. zyx 2Tn9|23991
+Newsreader|800|64|none|cl|3171
+Instrument Sans|450|24|auto|r Aa2bLSt dUxKp AvnniB Eo'U|20842
+Instrument Sans|700|90|auto|1 XZi8|16088
+Newsreader|600|18|auto|betIAkm m1J:?! ;:.RJ xbm(;s r:aI7v1B|18439
+Newsreader|800|56|auto|UCpE N0zq J )V3lOI,|36733
+Newsreader|400|14|auto|.Ln Lk3HeLvi yHXOy!a9|9935
+Instrument Sans|500|24|auto|duKzA QbG:uA !Z|12456
+Newsreader|300|18|auto|jXsTg G,(GFK v MhY5:h|11067
+Instrument Sans|550|13|auto|QT vquey|3679
+Newsreader|800|16|auto|P!la( rm.E-I|5655
+Newsreader|300|11|none|c,fjqb91 R m6lg2zt|5364
+Instrument Sans|650|24|none|xz(?f.;; sV 3Jd|9680
+Instrument Sans|450|13|auto|?sq. : FDs|3655
+Instrument Sans|500|15|auto|dId|1422
+Newsreader|700|28|auto|K ?R0r 8;'R awGG|14711
+Instrument Sans|400|22|auto|Ni 37kkarW Z.II :s|10953
+Newsreader|700|32|none|FwEnAr ,4: DZ)W1 K4WN! Sq03|30339
+Instrument Sans|450|15|auto|.J1n,I? 5|3369
+Instrument Sans|650|28|auto|yG-cV cBhK 5' ;u:H 9ctr|19547
+Newsreader|600|28|auto|LqZu .4i 6RT qHW)Cb6|18974
+Instrument Sans|450|28|auto|RuMQyu a 6pKf?!3T fvi l|19669
+Newsreader|800|16|none|od nBp2d, ,S;z9F Lw,K t')vVdV|14323
+Newsreader|800|56|none|H.bw(-1 531;ym-- lp? X 7xumOBK|56956
+Newsreader|200|64|auto|,f Re?qHu I6domuvv j.KMT0qw QwM|66483
+Instrument Sans|550|15|none|uF:hh' Com-IJX- NNQs|10023
+Instrument Sans|700|40|auto|YVUjb RK4l ul7J(k9'|23686
+Instrument Sans|400|48|auto|5D c;Jml uYRyLk 6qrq O:p-L7-|42127
+Newsreader|200|48|none|Ra?F T?c)SGK|17353
+Instrument Sans|650|15|none|Uzf ubLi|3673
+Newsreader|600|18|none|)b,4a DR6U?hW|8126
+Newsreader|300|32|auto|vlB yln?M|8510
+Newsreader|400|13.5|none|qli75Nz :VG! da|5621
+Newsreader|600|56|none|PiQ) MXYXM D K1X Eo|39145
+Instrument Sans|400|40|auto|nCt7 AVezeg3 'lXD04 ,mz7o2|33695
+Instrument Sans|550|11|none|Af??ENUi ,G|3997
+Newsreader|200|13.5|auto|DvV-bKsM g:|4970
+Instrument Sans|450|40|auto|hz X,f2OKgn Za7 P8:i|24119
+Instrument Sans|600|16|auto|Jy2Rx JIIZhB ya aEj3xr'W 2)L|13530
+Newsreader|300|11|auto|08H' 'H jc3Cy :JQIN'(U|7393
+Instrument Sans|400|28|auto|GPBl 5 FWr0k0Ys f )Z5R9v|21886
+Instrument Sans|650|56|none|kFp !t ;9L,NUy|23515
+Newsreader|300|48|none|KoZKBi RzH'|16476
+Instrument Sans|400|48|none|I|781
+Newsreader|300|64|auto|Q:7GT r;N 44-Zgp'Q 5Pit03 qIt!;I|58296
+Newsreader|400|13.5|auto|0(G( rSY5' vby|5637
+Newsreader|400|16|auto|U A?.76,|3774
+Newsreader|300|22|auto|::-E (ITchD r Ed J85p|11759
+Newsreader|200|72|none|7R9zRQ|15569
+Newsreader|600|72|auto|b6W75 ,1xY -!|31107
+Newsreader|700|64|auto|Kxk a;|12670
+Newsreader|700|64|auto|D aEFK 4VJig7j8|33964
+Newsreader|500|13|none|H0x )qe28,Nc rBhso, lI|7947
+Newsreader|500|24|none|T-O31k OQc I6YhpJ ArQ4Zt, d|20629
+Newsreader|700|16|auto|o|564
+Newsreader|800|40|auto|tg(X -uyFdO b2yXMG KJ'Dlo sGP;C|43814
+Newsreader|700|56|none|B2JaNu gP)W Pc aUu' LAUB|44938
+Newsreader|700|32|auto|hMo)FxJb Fh) (U1a DKwr?em Ab|30680
+Newsreader|500|72|auto|jERr2GM|20966
+Newsreader|800|16|auto|VCtdWBKg j f9x afd3HA6|13235
+Instrument Sans|500|24|none|.u Vck Mx0G mu.crS T|15576
+Instrument Sans|450|72|auto|Em q.d|14714
+Newsreader|500|11|auto|?XBA kTO'sk|4569
+Newsreader|500|24|none|dbB(cHMe|7006
+Newsreader|300|40|none|M LYFa3A Re3k Cl( d!cMG|28480
+Instrument Sans|450|18|auto|:-G9al- LUKEs LBkRP(9( kB2!( IzK7Wt|20080
+Newsreader|600|16|auto|TdiU2|2933
+Instrument Sans|550|32|auto|F s8PLzf nJ?EV iE|16796
+Instrument Sans|400|56|none|,lM',x|8211
+Instrument Sans|400|90|auto|AMMKK|22603
+Newsreader|800|20|auto|m|1123
+Instrument Sans|650|11|auto|w9|1007
+Newsreader|200|24|auto|BVAZ0! ,9ZjtWh b)6Rhm J6iwXC|20377
+Instrument Sans|450|56|none|OAh-Xj SyY1' k Mokgm|37246
+Newsreader|300|11|none|CI4 aFgsF;xj (0.NWiY X('kc5 6c|8910
+Newsreader|200|40|auto|Rt vRHVZRT|13918
+Newsreader|700|28|auto|)4oEaR. Id'Zlg )(qlI0Rl|17866
+Instrument Sans|700|13|auto|z(v,oe|2269
+Newsreader|200|18|auto|vKY! 29|3822
+Instrument Sans|600|12|auto|G7Sz? ARXlRbB|5690
+Newsreader|400|15|none|IB EG?- hk r.8:-m|6913
+Newsreader|400|13|none|YQx tdOY0Lxe c(8B G:F|8468
+Instrument Sans|650|16|auto|K9L ,pMC21|5713
+Newsreader|300|16|auto|9iSy7 A yexl H,TFIIr YTfQ2|11940
+Newsreader|200|15|auto|mQBNa)- P Z HULPPz;|9333
+Newsreader|500|12|auto|aa5S)2-B|3300
+Newsreader|300|22|auto|vEzLS5? oBDK'!S7 9F.GLF M.v 6I|19377

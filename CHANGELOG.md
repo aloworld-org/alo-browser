@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The interface's text is set as Chrome sets it, to a 64th of a pixel.**
+  A line's words are now measured as one run, so the kerning between a
+  space (or a hyphen) and the letter after it is kept — the greeting and
+  your words in the conversation were up to a pixel and a half too wide.
+  And Instrument Sans at its in-between weights, and Newsreader at any
+  size or weight but its own default, are now set with the exact widths
+  and kerning the fonts give them there, where the shaping library alo
+  uses rounded the widths and left part of the kerning out. Of 2,400
+  sample lines measured in Chrome, 2,370 now match it exactly and the
+  rest by a 64th of a pixel; before, 759 did and some were five and a
+  half pixels off.
+- **The box's hint fits in the agent's column.** While alo works on a
+  page, the box at the foot of its column says *Ask, search, or type a
+  website…* rather than a hint cut off at *webs*.
 - **While alo works on a page, the page gets the room.** Ask alo to do
   something on the page open in the conversation and the window splits:
   the page large on the left, laid out at its new size, and what alo is

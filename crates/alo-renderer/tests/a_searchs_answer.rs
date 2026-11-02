@@ -400,11 +400,11 @@ fn the_short_answer_is_laid_out_over_the_sites_as_the_design_draws_it() {
     assert_eq!(
         at("used"),
         vec![
-            px(451.671_88, 290.0, 79.5625, 16.0),
-            px(392.75, 482.0, 79.5625, 16.0),
+            px(450.640_63, 290.0, 79.578_125, 16.0),
+            px(392.421_88, 482.0, 79.578_125, 16.0),
         ]
     );
-    assert_eq!(at("more"), vec![px(80.0, 575.0, 75.6875, 20.0)]);
+    assert_eq!(at("more"), vec![px(80.0, 575.0, 75.625, 20.0)]);
     // The Answer tab is open now, second in the row.
     assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.546_875, 42.0)]);
     assert!(

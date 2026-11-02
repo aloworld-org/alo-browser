@@ -186,3 +186,8 @@ MPL 2.0, does not cover those four files; the OFL does.
 - Newsreader's optical size was queue item 752, built: every reference
   holding the mark or the greeting was redrawn (the mark at 22 barely, the
   greeting at 40 wider and finer).
+- Both faces are variable, and the rented shaper set them a little off
+  Chrome away from their masters — advances rounded to whole units, a
+  kerning pair's variation lost or rounded — and a line was measured word
+  by word: queue items 797, 795 and 796, built (2 November 2026, ADR 0097).
+  2,370 of 2,400 measured runs are now Chrome's to its layout unit.

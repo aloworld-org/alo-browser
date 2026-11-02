@@ -60,6 +60,7 @@
 //! and the runs are laid down in the order the text is written, which is right
 //! for text that is one direction and honest about text that is two.
 
+pub(crate) mod advance;
 pub mod cluster;
 pub mod database;
 pub mod emoji;
@@ -69,6 +70,7 @@ pub mod line;
 pub mod linebreak;
 mod macintosh;
 pub mod measure;
+pub(crate) mod pair_variation;
 pub mod room;
 pub mod run;
 pub mod shape;

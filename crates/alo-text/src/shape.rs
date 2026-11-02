@@ -164,6 +164,10 @@ pub fn shape_at(text: &str, font: &Font, size: f32, scale: f32, direction: Direc
     let Some(face) = font.shaper(size) else {
         return ShapedRun::empty();
     };
+    // The same instance as the parser reads it, for what the shaper rounds
+    // off or leaves out there (ADR 0097): set at the size the run is, as
+    // the shaper's face is, not at the size cut below.
+    let instance = font.varied(size);
     let metrics = font.metrics_at(size, scale);
     // Advances are scaled by the size the face is set at, as its metrics
     // are: `13.333333px` text is set at 13.33 (`crate::face_size`).
@@ -178,6 +182,13 @@ pub fn shape_at(text: &str, font: &Font, size: f32, scale: f32, direction: Direc
     // The script and the language are still the shaper's to work out; only the
     // direction is decided above, because that one spans several runs.
     buffer.guess_segment_properties();
+    // The script's OpenType tag, which is its ISO 15924 code in lower case
+    // for every script whose kerning is corrected below (left to right).
+    let script = buffer
+        .script()
+        .tag()
+        .to_bytes()
+        .map(|byte| byte.to_ascii_lowercase());
 
     let shaped = rustybuzz::shape(&face, &[], buffer);
     let units = f32::from(u16::try_from(face.units_per_em()).unwrap_or(1000));
@@ -185,18 +196,46 @@ pub fn shape_at(text: &str, font: &Font, size: f32, scale: f32, direction: Direc
 
     let infos = shaped.glyph_infos();
     let positions = shaped.glyph_positions();
+    // What a varied kerning pair moves each glyph by that the shaper left
+    // out (queue item 796): only for a run set left to right.
+    let ids: Vec<u16> = infos
+        .iter()
+        .map(|info| u16::try_from(info.glyph_id).unwrap_or(0))
+        .collect();
+    let varied = match &instance {
+        Some(instance) if !direction.is_rtl() => {
+            crate::pair_variation::corrections(instance, &ids, script)
+        }
+        _ => None,
+    };
     let mut glyphs = Vec::with_capacity(infos.len());
     let mut width = 0.0;
 
     for (index, (info, position)) in infos.iter().zip(positions.iter()).enumerate() {
-        let advance = as_f32(position.x_advance) * scale;
+        // The fraction of a varied advance the shaper rounded off, given
+        // back as Chrome keeps it (queue item 795) — never to a mark the
+        // shaper zeroed.
+        let glyph = ids.get(index).copied().unwrap_or(0);
+        let lost = match &instance {
+            Some(instance)
+                if position.x_advance != 0 && !crate::advance::is_mark(instance, glyph) =>
+            {
+                crate::advance::lost(instance, glyph)
+            }
+            _ => 0.0,
+        };
+        let moved = varied
+            .as_ref()
+            .and_then(|varied| varied.get(index).copied())
+            .unwrap_or_default();
+        let advance = (as_f32(position.x_advance) + lost + moved.advance) * scale;
         width += advance;
         glyphs.push(ShapedGlyph {
             glyph_id: u16::try_from(info.glyph_id).unwrap_or(0),
             advance,
             offset: (
-                as_f32(position.x_offset) * scale,
-                as_f32(position.y_offset) * scale,
+                (as_f32(position.x_offset) + moved.across) * scale,
+                (as_f32(position.y_offset) + moved.up) * scale,
             ),
             source: source_range(text, infos, index, direction),
         });

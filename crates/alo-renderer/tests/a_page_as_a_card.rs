@@ -298,7 +298,7 @@ fn the_card_is_laid_out_as_the_design_draws_it() -> Result<(), String> {
     assert!(
         at("you")
             .first()
-            .is_some_and(|you| you.starts_with("(766.8125, 40)") && you.ends_with("×42")),
+            .is_some_and(|you| you.starts_with("(767.9219, 40)") && you.ends_with("×42")),
         "{:?}",
         at("you")
     );

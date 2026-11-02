@@ -63,6 +63,7 @@ pub(crate) mod out_of_flow;
 pub mod overflow_wrap;
 pub mod placement;
 pub mod replaced;
+pub(crate) mod run_pen;
 pub mod scroll_container;
 pub mod sizing;
 pub(crate) mod soft_wrap;

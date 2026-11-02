@@ -325,10 +325,10 @@ fn the_question_stands_under_the_steps_with_allow_and_not_now() -> Result<(), St
     assert!(at("step now").is_empty());
     assert_eq!(at("asks"), vec![px(97.0, 612.0, 846.0, 84.0)]);
     assert_eq!(at("question"), vec![px(112.0, 625.0, 816.0, 20.0)]);
-    assert_eq!(at("abtn allow"), vec![px(112.0, 655.0, 60.281_25, 28.0)]);
+    assert_eq!(at("abtn allow"), vec![px(112.0, 655.0, 60.296_875, 28.0)]);
     assert_eq!(
         at("abtn notnow"),
-        vec![px(180.281_25, 655.0, 76.765_625, 28.0)]
+        vec![px(180.296_88, 655.0, 76.796_875, 28.0)]
     );
     // *Stop* still drawn: it waits, and can be stopped.
     assert_eq!(
@@ -352,8 +352,8 @@ fn stuck_it_draws_why_and_its_choices_and_no_outline() -> Result<(), String> {
     assert_eq!(
         at("achoice"),
         vec![
-            px(97.0, 568.0, 161.8125, 28.0),
-            px(266.8125, 568.0, 85.390_625, 28.0)
+            px(97.0, 568.0, 161.265_63, 28.0),
+            px(266.265_63, 568.0, 85.390_625, 28.0)
         ]
     );
     Ok(())

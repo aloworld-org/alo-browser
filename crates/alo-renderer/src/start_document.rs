@@ -130,7 +130,7 @@ const BLOCKS: &str = "blocks";
 const SCREEN: &str = "start";
 
 /// The id of the template's field.
-const FIELD: &str = "ask";
+pub(crate) const FIELD: &str = "ask";
 
 /// The id of the template's one box, around the field and *Go*.
 const BOX: &str = "the-box";

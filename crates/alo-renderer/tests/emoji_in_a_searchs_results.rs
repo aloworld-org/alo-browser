@@ -348,7 +348,10 @@ fn an_emoji_is_as_wide_as_its_face_says_and_its_line_no_taller() {
         at("found"),
         vec![px(80.0, 168.0, 880.0, 74.0), px(80.0, 264.0, 880.0, 51.0)]
     );
-    assert_eq!(at("title").first(), Some(&px(80.0, 191.0, 358.9375, 22.0)));
+    assert_eq!(
+        at("title").first(),
+        Some(&px(80.0, 191.0, 358.921_88, 22.0))
+    );
 }
 
 #[test]

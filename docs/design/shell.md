@@ -429,7 +429,9 @@ lines of 18 in the column, 8 inside above and below), what was asked, the
 steps — each line wrapping rather than cut, the newest kept seen and the
 oldest clipped above when they do not fit — then the question with
 *Allow* and *Not now*; at least 16 under them, the offers and the box, 56
-tall, at the column's foot, where the conversation's box is. The
+tall, at the column's foot, where the conversation's box is. In the
+column the box's hint is *Ask, search, or type a website…*: the first
+screen's is wider than the column's field and would be cut (item 827). The
 conversation's earlier turns are not drawn while it works.
 
 | The window, beside the rail | The page box | The column |

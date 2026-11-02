@@ -17,22 +17,24 @@
 //! glyph's advance as a canvas's `measureText` (no layout unit). Chrome's
 //! source was not read.
 //!
-//! What closes it, each a test below: each glyph's advance at `opsz` 40 is
-//! Chrome's to half a font unit, and at 72 exactly; a run set with `none` is
-//! Chrome's `none` to its layout unit at every size; a run set with `auto`
-//! is Chrome's `auto` to its layout unit where no kerning pair in it varies
-//! along `opsz`; a page's `font-optical-sizing: none` read, its boxes in
-//! numbers; a reference render, `references/a-typeface-at-its-optical-size.png`.
+//! What closes it, each a test below: each glyph's advance at `opsz` 40
+//! and 72 is Chrome's canvas advance to a thousandth of a pixel; a run set
+//! with `none` or `auto` is Chrome's to its layout unit at every size; a
+//! kerning pair varied along `opsz` is varied as Chrome varies it; a page's
+//! `font-optical-sizing: none` read, its boxes in numbers and Chrome's;
+//! a reference render, `references/a-typeface-at-its-optical-size.png`.
 //!
-//! **What still differs, and why** (cut to queue items 795, 796 and 797):
-//! a line's words are measured apart, losing the kerning across a space
-//! (797, older than this item and at every optical size); and the
-//! shaper this engine rents, `rustybuzz` 0.20.1, gives a varied glyph's
-//! advance in whole font units, where Chrome keeps the fraction (≤ 0.01 px
-//! a glyph at 40 px); and it applies a kerning pair's value without the
-//! pair's own variation along the axis, which HarfBuzz 11.2.1 (`hb-shape
-//! --variations=opsz=72`) and Chrome apply — `iv` is kerned −14 units at
-//! 18 and 0 at 72, and this engine kerns it −14 at both.
+//! Three things made these Chrome's after 752 (queue items 797, 795 and
+//! 796, ADR 0097): a line's text measured as one run, not word by word, so
+//! the kerning across a space is kept; a varied glyph's advance kept to the
+//! fraction `HVAR` gives it, where the rented shaper, `rustybuzz` 0.20.1,
+//! rounds it to a whole unit; and a kerning pair's own variation along the
+//! axis applied — `iv` kerned −14 units at 18 and 0 at 72 — which the
+//! shaper leaves out of a pair listed glyph by glyph (`ttf-parser` 0.25.1
+//! reads its table's offset from the wrong place) and rounds in one kerned
+//! by classes. The last ten-thousandths of a pixel left are `ttf-parser`'s
+//! coordinate on the axis, cut to 6,674 of 16,384 at 40 where Chrome keeps
+//! 6,674.96.
 //!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-renderer --test a_typeface_at_its_optical_size`
 //! rewrites the reference. A rewritten reference is a diff somebody reads.
@@ -101,12 +103,12 @@ const AT_72: [(char, f32); 6] = [
 #[test]
 fn each_glyphs_advance_at_opsz_40_and_72_is_chromes() {
     let auto = newsreader(400, OpticalSizing::Auto);
-    // Half of Newsreader's 2,000-unit em's unit, at 40 px.
-    let half_a_unit = 0.5 * 40.0 / 2000.0;
+    // A varied advance kept to its fraction (queue item 795): where it was
+    // rounded to a whole unit it was up to 0.0096 px off at 40.
     for (glyph, chrome) in AT_40 {
         let ours = shaped(&glyph.to_string(), 40.0, &auto).unwrap_or(0.0);
         assert!(
-            (ours - chrome).abs() <= half_a_unit + 1e-4,
+            (ours - chrome).abs() < 1e-3,
             "{glyph:?} at 40: {ours} where Chrome's is {chrome}"
         );
     }
@@ -118,10 +120,10 @@ fn each_glyphs_advance_at_opsz_40_and_72_is_chromes() {
         );
     }
     // Not the 18-point cut's: `G` at 40 with `none` is narrower by more
-    // than a pixel, so the axis is what moved it.
+    // than half a pixel, so the axis is what moved it.
     let none = shaped("G", 40.0, &newsreader(400, OpticalSizing::None)).unwrap_or(0.0);
     let auto_g = shaped("G", 40.0, &auto).unwrap_or(0.0);
-    assert!((auto_g - none - 0.56).abs() < 1e-3, "{auto_g} and {none}");
+    assert!(auto_g - none > 0.5, "{auto_g} and {none}");
 }
 
 /// Chrome 156's layout width of "Good afternoon, Ada." at each size, weight
@@ -148,12 +150,10 @@ fn a_run_set_with_none_is_chromes_none_at_every_size_and_with_auto_its_auto() {
             "none at {size}: {ours} where Chrome's is {none}"
         );
         let ours = shaped(greeting, size, &newsreader(400, OpticalSizing::Auto)).unwrap_or(0.0);
-        // At and under 22 the greeting's kerning pairs vary too little to
-        // show; at 40 and 90 their variation, which the rented shaper does
-        // not apply (796), leaves this engine within an eighth of a pixel.
-        let within = if size <= 22.0 { UNIT } else { 0.125 };
+        // Its kerning pairs varied along `opsz` as Chrome varies them
+        // (796): at 40 and 90 they were an eighth of a pixel off.
         assert!(
-            (ours - auto).abs() <= within,
+            (ours - auto).abs() <= UNIT,
             "auto at {size}: {ours} where Chrome's is {auto}"
         );
     }
@@ -168,16 +168,22 @@ fn a_run_set_with_none_is_chromes_none_at_every_size_and_with_auto_its_auto() {
 }
 
 #[test]
-fn diverges_a_kerning_pair_varied_along_the_axis_is_kerned_as_at_18() {
+fn a_kerning_pair_varied_along_the_axis_is_varied_as_chrome_varies_it() {
     // Queue item 796: `iv` at 72, `opsz` 72. Chrome's layout width is
-    // 60.671875 — the pair unkerned, 553 + 1132 units of 2,000 — and this
-    // engine's 60.156, the pair still kerned its 18-point −14.
+    // 60.671875 — the pair unkerned, 553 + 1132 units of 2,000 — where the
+    // rented shaper alone kerns it its 18-point −14, 60.156.
     let ours = shaped("iv", 72.0, &newsreader(400, OpticalSizing::Auto)).unwrap_or(0.0);
+    assert!((ours - 60.671_875).abs() <= UNIT, "{ours}");
     assert!(
-        (ours - (553.0 + 1132.0 - 14.0) * 72.0 / 2000.0).abs() < 1e-3,
+        (ours - (553.0 + 1132.0) * 72.0 / 2000.0).abs() < 1e-3,
         "{ours}"
     );
-    assert!((ours - 60.671_875).abs() > 0.5, "Chrome's differs");
+    // At 18, the font's default, Chrome kerns it −14 too: 13.640625; and
+    // at 40 partly, 31.6875.
+    for (size, chrome) in [(18.0, 13.640_625), (40.0, 31.687_5)] {
+        let ours = shaped("iv", size, &newsreader(400, OpticalSizing::Auto)).unwrap_or(0.0);
+        assert!((ours - chrome).abs() <= UNIT, "{size}: {ours}");
+    }
 }
 
 /// The page: the greeting at 40 px with `auto`, then with `none`, then the
@@ -258,21 +264,22 @@ fn a_page_sets_its_text_at_its_size_and_reads_none() {
     let auto = width_of(&rendered, "auto").unwrap_or(0.0);
     let none = width_of(&rendered, "none").unwrap_or(0.0);
     let big = width_of(&rendered, "big").unwrap_or(0.0);
-    // `font-optical-sizing: none` is read: the greeting at 40 is 14.5
+    // `font-optical-sizing: none` is read: the greeting at 40 is 14.30
     // narrower, its 18-point cut.
     assert!(
-        (auto - none - 14.5).abs() < 1e-3,
+        (auto - none - 14.296_88).abs() < 1e-3,
         "auto {auto}, none {none}"
     );
     // `alo` at 72, `opsz` 72: Chrome's 97.0625.
     assert!((big - 97.0625).abs() <= UNIT, "big {big}");
-    // DIVERGES (queue item 797): a line's words are measured apart, so the
-    // kerning between a space and the word after it is lost — `" A"` is
-    // kerned −1.48 at `opsz` 40 and −0.63 at 18 — and each greeting box is
-    // its three words' widths, 103.64 + 184.36 + 77.42 = 365.42 and 99.76
-    // + 176.74 + 74.42 = 350.92, on the layout unit, where Chrome's are
-    // 363.83 and 349.53. The runs themselves are Chrome's (above).
-    assert!((auto - 365.421_88).abs() < 1e-3, "auto {auto}");
-    assert!((none - 350.921_88).abs() < 1e-3, "none {none}");
+    // Queue item 797: a line's text is measured as one run, as Chrome
+    // shapes it, so the kerning between a space and the word after it is
+    // kept — `" A"` is kerned −1.48 at `opsz` 40 and −0.63 at 18. Measured
+    // word by word the boxes were 365.42 and 350.92; now `none` is
+    // Chrome's 349.53 to its layout unit, and `auto` within an eighth of
+    // its 363.83, the variation of the greeting's kerning pairs along
+    // `opsz` that the rented shaper does not apply (796).
+    assert!((none - 349.531_25).abs() <= UNIT, "none {none}");
+    assert!((auto - 363.828_12).abs() <= UNIT, "auto {auto}");
     assert_eq!(holds(&rendered.drawing.canvas), Ok(()));
 }

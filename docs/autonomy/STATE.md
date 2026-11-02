@@ -48448,3 +48448,114 @@ in the column (*Ask anything, search, or type a webs…*).
 over (825), a payment's details and *Confirm and pay* (826).
 
 The next unused queue number is **827** and the next ADR is **0097**.
+
+## 2026-11-02 — items 827, 797, 795 and 796: the box's hint in the column, and the interface's varied faces set as Chrome sets them (ADR 0097)
+
+Batched under one gate, at the owner's asking; each item built with its own
+tests and docs, in that order. Chrome measured: **156.0.8078.76** (checked
+with `--version` before measuring), headless, the interface's own font files
+as web fonts after `document.fonts.load`; its source not read.
+
+**827 — the box's hint in the agent's column.** alo-workplace's design says
+nothing of the hint there. The column's field is 263 wide and the first
+screen's hint 292.72, so it was cut at *webs*; in the column the hint is
+*Ask, search, or type a website…* (`split_document::COLUMN_HINT`, set on
+the field once the box is in the column), 223.98 wide — Chrome's width of
+both strings is the same to its layout unit. The field's name an agent
+reads is unchanged; the conversation's box keeps the first screen's hint,
+whole. **Tests:** `the_split_view.rs`'s
+`the_boxs_hint_in_the_column_is_its_own_and_whole` (the field (872, 748)
+263 × 40, the hint (872, 758) 223.98 × 20 inside it, the conversation's
+292.72 inside its own; the outline reads the new hint and the old name);
+`split-view-asking.png` redrawn — 1,874 pixels, all in the hint's box,
+looked at. **Mutation:** the hint not set — both fail. No by-hand run.
+
+**797 — a line's text measured as one run.** `alo-layout`'s new
+`run_pen.rs`: `add_run` shapes the text box's run once (`cluster_ends`) and
+every piece's width — letters, letters and space, a space alone, a word
+left after a cut — is the pen's move between its two ends; a piece starting
+or ending inside a cluster (a ligature, a right-to-left run) is measured
+alone, as before. Paint already drew each line's piece of a box as one run.
+**Measured:** the greeting at 40 is 349.53 with `none` (Chrome 349.53, word
+by word 350.92); *Open the sign-in page* at 13 px 600 135.27, Chrome's
+(word by word it lost the kerning at the hyphen); the bubble
+*127.0.0.1:8765/card.html* at 15 px 160.08, Chrome's (word by word 161.18
+— a break after the `/`). 19 strings in all, each Chrome's to the layout
+unit once 795 and 796 were done too. **Tests:** `run_pen.rs` 2 unit tests
+(a fake face kerning a space before `A` and joining `fi`);
+`a_typeface_at_its_optical_size.rs`'s page test now asserts Chrome's boxes.
+**References moved** (18 tests, all in `alo-renderer`; each looked at):
+the person's bubble 1.1 narrower and so 1.1 further right
+(`conversation-of-three-turns`, `-scrolled-back`, `-at-two`s,
+`-goes-on-above-and-below`, `card-before-a-frame`, `card-holding-a-frame`;
+1,310 pixels at one), *Open the sign-in page* 0.55 narrower
+(`agent-stuck`), the *used* pills after an address 1.0 and 0.3 left, the
+Answer tab's lines (`answer-tab`, `all-tab-with-an-answer`). **No corpus
+case moved**: `cargo test -p alo-corpus` passed unchanged — DejaVu Sans
+kerns no pair across a space or a break the corpus has — so the
+whole-corpus box comparison over CDP was not needed. **Mutation:** a piece
+measured alone — `a_page_as_a_card` fails (3 tests).
+
+**795 and 796 — a varied face set as Chrome sets it (ADR 0097).** Found in
+the rented crates' source: `ttf-parser` 0.25.1 rounds a varied advance to a
+`u16`, and reads a format 1 kerning pair's variation offset from its records
+— two bytes into the `PairSet`, within the records only — so `rustybuzz`
+0.20.1 almost never applies it (Newsreader: 21,795 of 22,297 listed pairs
+vary; Instrument Sans 1,656 of 1,661), and rounds a format 2 pair's.
+`alo-text`'s `advance.rs` gives back the advance's fraction (never to a
+mark); `pair_variation.rs` walks the run as HarfBuzz's pair positioning does
+(the script's `kern` and `dist` lookups, `GDEF` skipping, first subtable,
+past a valued second glyph) and gives each glyph the exact delta less the
+shaper's own reading of it, its wrong offset and rounding repeated so that
+nothing is counted twice. Left alone: right-to-left runs, `FeatureVariations`,
+faces without `GDEF` classes. **Measured:** 2,400 random runs (both faces,
+weights 200–800, 11–90 px, `auto` and `none`) in Chrome, frozen in
+`alo-renderer/tests/references/varied-runs.chrome.txt`: **2,370 exact to the
+layout unit, 30 a 64th off** (each within a quarter of a 64th of the grid's
+edge — the axis coordinate `ttf-parser` cuts to a 16,384th, and `f32` sums),
+where with 797 alone 759 were exact and the worst was 354 64ths (5.5 px).
+Canvas advances: Instrument Sans at 500 and 600 within 0.000 05 px (were
+0.0054), Newsreader at 40 within 0.000 23 (were 0.0096). `iv`: Chrome's
+13.640625 at 18, 31.6875 at 40, 60.671875 at 72. **Tests:**
+`advance.rs` 2 and `pair_variation.rs` 3 unit tests; the new
+`a_varied_face_set_as_chrome_sets_it.rs` (54 canvas advances to 1e-3, the
+2,400 runs); `a_typeface_at_its_optical_size.rs` tightened (advances to
+1e-3, `auto` runs to the layout unit at every size, `iv` Chrome's).
+**Mutations:** no advance fraction — 3 of 4 optical-size tests fail; no pair
+correction — 3 of 4 and the 2,400 runs fail; a pair counted twice (the
+shaper's own reading not taken off) — 2 and the 2,400 runs fail.
+**References moved, each looked at** (on top of 797's): 37 in
+`alo-renderer` (every interface reference with text at 500 or 600 or in
+Newsreader: subpixel shifts, max channel change 40 but for
+`emoji-in-results`, where the car at a title's end moved a pixel left with
+the title) and 6 in `alo-window` (`the-conversation` at one and two and with
+the panel hidden, `the-panel-after-a-press`, `the-panel-folded-at-759`;
+max change 27). 16 numbers in 7 test files moved by one or two 64ths —
+tabs, *Show more sites*, *Allow* and *Not now*, the pills, a news source's
+name and age, an emoji title — none further.
+No corpus case moved (`DejaVu Sans` is not variable).
+
+**Not started, and why:** 786 (a colour glyph's shadow and a line stepping
+aside for it), 783 and 784 (rounded pictures at fractions and SVGs) and 785
+(`COLR` v1 and SVG glyphs) — each needs its own Chrome measurement and
+picture fitting, which would not have fitted beside one gate run; they stay
+open as they were.
+
+**Gate: met, second run** (CEF_PATH set, the pointer at 1400, 1000;
+detached with `setsid`, waited on by its PID). **Summary [1074.793s] 6342
+tests run: 6342 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is met."
+(11 of 11 steps)*. **The first run failed twice:** the boundary check — the
+new `advance.rs`, `pair_variation.rs` and `shape.rs` named `ttf_parser`, and
+`pair_variation.rs` `rustybuzz`, where ADR 0001 lets only `font.rs` (and
+`shape.rs` for the shaper) name them. Fixed without touching the gate: the
+parser is read through `font.rs`'s new `Varied` view. Moving the instance
+there, it was first read at the size cut to hundredths, not the run's
+(13.33 for 13.337, 0.03 px off), and `a_typeface_at_its_optical_size.rs`
+caught it before the second run. And `alo-window`'s
+`a_persons_press_keys_and_wheel_on_a_card_reach_the_page_through_chrome`
+saw one key more than it expected (`typed?Ada%20Lx` for `…%20L`); it touches
+no text shaping, passed three runs out of three alone and in the second
+gate, so it is taken for a flake under the gate's load — not reproduced;
+queued as 828.
+
+The next unused queue number is **829** and the next ADR is **0098**.

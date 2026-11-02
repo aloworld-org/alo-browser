@@ -410,7 +410,7 @@ fn the_all_tab_is_laid_out_as_the_design_draws_it() {
     );
     // More sites, 20 under the last site; and the box, 880 × 56, 24 above
     // the window's foot: 820 - 24 - 56 = 740 (queue item 750).
-    assert_eq!(at("more"), vec![px(80.0, 477.0, 75.6875, 20.0)]);
+    assert_eq!(at("more"), vec![px(80.0, 477.0, 75.625, 20.0)]);
     assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
 }
 

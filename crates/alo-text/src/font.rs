@@ -553,6 +553,16 @@ impl Font {
         Some(face)
     }
 
+    /// This font's face at its instance for a run at `size` CSS pixels, as
+    /// the parser reads it, for what the rented shaper rounds off or leaves
+    /// out there ([`Varied`], ADR 0097) — [`None`] for a face that is not
+    /// varied, or is at its default, where the shaper leaves nothing out.
+    pub(crate) fn varied(&self, size: f32) -> Option<Varied<'_>> {
+        let face = self.face_at(size)?;
+        (face.is_variable() && face.has_non_default_variation_coordinates())
+            .then_some(Varied { face })
+    }
+
     /// The shaper's face, at this font's instance.
     ///
     /// In this file rather than in [`crate::shape`] because it is the same
@@ -576,6 +586,110 @@ impl Font {
             face.set_variations(&variations);
         }
         Some(face)
+    }
+}
+
+/// A varied face at its instance, as `ttf-parser` reads it: the questions
+/// [`crate::advance`] and [`crate::pair_variation`] ask of it to give back
+/// what the shaper rounds off a glyph's advance and leaves out of a kerning
+/// pair's variation (ADR 0097). Asked here, at the same instance the
+/// shaper's face is set to ([`Font::shaper`]), so that the parser stays
+/// behind this file (ADR 0001) and the two read one instance.
+pub(crate) struct Varied<'a> {
+    face: ttf_parser::Face<'a>,
+}
+
+/// What a face's `GDEF` says a glyph is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GlyphKind {
+    /// A base glyph.
+    Base,
+    /// A ligature.
+    Ligature,
+    /// A mark, set on another glyph.
+    Mark,
+    /// A part of a glyph.
+    Component,
+}
+
+impl<'a> Varied<'a> {
+    /// `glyph`'s advance in font units: its `hmtx` advance, the delta its
+    /// instance moves it by — `HVAR`'s, or with none `gvar`'s right phantom
+    /// point — and the whole number of units the shaper is given for it
+    /// (the two summed and rounded). [`None`] where the face gives no delta.
+    pub(crate) fn advance(&self, glyph: u16) -> Option<(u16, f32, u16)> {
+        let id = ttf_parser::GlyphId(glyph);
+        let base = self.face.tables().hmtx?.advance(id)?;
+        let delta = match self.face.tables().hvar {
+            Some(hvar) => hvar.advance_offset(id, self.face.variation_coordinates()),
+            None => self
+                .face
+                .glyph_phantom_points(id)
+                .map(|points| points.right.x),
+        }?;
+        Some((base, delta, self.face.glyph_hor_advance(id)?))
+    }
+
+    /// Whether the face's `GDEF` classes its glyphs at all.
+    pub(crate) fn has_glyph_classes(&self) -> bool {
+        self.face
+            .tables()
+            .gdef
+            .is_some_and(|gdef| gdef.has_glyph_classes())
+    }
+
+    /// What `GDEF` says `glyph` is, if anything.
+    pub(crate) fn kind(&self, glyph: u16) -> Option<GlyphKind> {
+        use ttf_parser::gdef::GlyphClass;
+        match self
+            .face
+            .tables()
+            .gdef?
+            .glyph_class(ttf_parser::GlyphId(glyph))?
+        {
+            GlyphClass::Base => Some(GlyphKind::Base),
+            GlyphClass::Ligature => Some(GlyphKind::Ligature),
+            GlyphClass::Mark => Some(GlyphKind::Mark),
+            GlyphClass::Component => Some(GlyphKind::Component),
+        }
+    }
+
+    /// A mark's attachment class, 0 where it has none.
+    pub(crate) fn attachment_class(&self, glyph: u16) -> u16 {
+        self.face.tables().gdef.map_or(0, |gdef| {
+            gdef.glyph_mark_attachment_class(ttf_parser::GlyphId(glyph))
+        })
+    }
+
+    /// Whether `glyph` is in the mark glyph set `set`.
+    pub(crate) fn in_mark_set(&self, glyph: u16, set: u16) -> bool {
+        self.face
+            .tables()
+            .gdef
+            .is_some_and(|gdef| gdef.is_mark_glyph(ttf_parser::GlyphId(glyph), Some(set)))
+    }
+
+    /// The delta the variation store's item `outer`, `inner` gives at this
+    /// instance, in font units, unrounded.
+    pub(crate) fn delta(&self, outer: u16, inner: u16) -> Option<f32> {
+        self.face.tables().gdef?.glyph_variation_delta(
+            outer,
+            inner,
+            self.face.variation_coordinates(),
+        )
+    }
+
+    /// The face's `GPOS` table's bytes.
+    pub(crate) fn gpos(&self) -> Option<&'a [u8]> {
+        self.face
+            .raw_face()
+            .table(ttf_parser::Tag::from_bytes(b"GPOS"))
+    }
+
+    /// The glyph the face maps `character` to.
+    #[cfg(test)]
+    pub(crate) fn glyph(&self, character: char) -> Option<u16> {
+        self.face.glyph_index(character).map(|id| id.0)
     }
 }
 

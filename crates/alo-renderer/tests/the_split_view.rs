@@ -343,10 +343,10 @@ fn asking_the_question_stands_in_the_column_under_the_steps() -> Result<(), Stri
     // 10 under the steps; its words on two lines of 20 in the 321 inside.
     assert_eq!(at("asks"), vec![px(849.0, 164.0, 351.0, 104.0)]);
     assert_eq!(at("question"), vec![px(864.0, 177.0, 321.0, 40.0)]);
-    assert_eq!(at("abtn allow"), vec![px(864.0, 227.0, 60.281_25, 28.0)]);
+    assert_eq!(at("abtn allow"), vec![px(864.0, 227.0, 60.296_875, 28.0)]);
     assert_eq!(
         at("abtn notnow"),
-        vec![px(932.281_25, 227.0, 76.765_625, 28.0)]
+        vec![px(932.296_9, 227.0, 76.796_875, 28.0)]
     );
     Ok(())
 }
@@ -393,6 +393,60 @@ fn at_the_least_width_it_splits_and_one_narrower_it_is_the_conversation() -> Res
     );
     assert_eq!(at("agent"), vec![px(129.5, 665.0, 878.0, 171.0)]);
     assert_eq!(at("thread"), vec![px(96.5, 40.0, 944.0, 676.0)]);
+    Ok(())
+}
+
+/// The box's hint as laid out, and the field it is shown in: the hint's
+/// text box and the field's content box.
+fn hint_and_field(renderer: &Renderer) -> Option<(Rect, Rect)> {
+    let drawing = renderer.rendered()?;
+    let boxes = &drawing.boxes;
+    let hint = boxes.ids().find(|&id| boxes.is_placeholder(id))?;
+    let field = rects_of(renderer, "ask").into_iter().next()?;
+    let geometry = drawing
+        .boxes
+        .ids()
+        .filter(|&id| {
+            boxes
+                .get(id)
+                .is_some_and(|made| !matches!(made.kind, alo_box::BoxKind::Text { .. }))
+        })
+        .filter_map(|id| drawing.layout.get(id))
+        .find(|geometry| geometry.border_box == field)?;
+    Some((drawing.layout.get(hint)?.border_box, geometry.content_box()))
+}
+
+#[test]
+fn the_boxs_hint_in_the_column_is_its_own_and_whole() -> Result<(), String> {
+    // Queue item 827: the first screen's hint, *Ask anything, search, or
+    // type a website…*, is wider than the column's field and was cut at
+    // *webs*; the column says it without *anything*, whole in the field.
+    let renderer = laid_out(with(acting(), NORMAL)?);
+    let (hint, field) =
+        hint_and_field(&renderer).ok_or("the column's box shows no hint, or no field")?;
+    // The field the box's 351 less its border, padding, *Go* and the gap
+    // between them: 1 + 22 + 263 + 10 + 44 + 10 + 1.
+    assert_eq!(units(field), px(872.0, 748.0, 263.0, 40.0));
+    assert_eq!(units(hint), px(872.0, 758.0, 223.984_38, 20.0));
+    assert!(hint.right() <= field.right(), "{}", units(hint));
+    let (_, tree) = drawn(with(acting(), NORMAL)?);
+    let outline = tree.to_outline();
+    assert!(
+        outline.contains(alo_renderer::split_document::COLUMN_HINT),
+        "the hint read: {outline}"
+    );
+    assert!(
+        outline.contains("Ask anything, search, or type a website"),
+        "the field's own name kept: {outline}"
+    );
+    // In the conversation, one narrower than the split, the box is wider
+    // and its hint the first screen's, whole too.
+    let narrower = Size::new(split_place::LEAST_ROOM - 1.0, 820.0);
+    let renderer = laid_out(with(acting(), narrower)?);
+    let (hint, field) =
+        hint_and_field(&renderer).ok_or("the conversation's box shows no hint, or no field")?;
+    assert_eq!(units(hint), px(151.5, 758.0, 292.718_75, 20.0));
+    assert!(hint.right() <= field.right(), "{}", units(hint));
     Ok(())
 }
 

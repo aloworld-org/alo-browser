@@ -386,7 +386,7 @@ fn the_all_tabs_row_of_images_is_laid_out_as_the_design_draws_it() {
             px(792.0, 522.0, 168.0, 0.0),
         ]
     );
-    assert_eq!(at("more"), vec![px(80.0, 584.0, 75.6875, 20.0)]);
+    assert_eq!(at("more"), vec![px(80.0, 584.0, 75.625, 20.0)]);
     assert_eq!(at("box"), vec![px(80.0, 740.0, 880.0, 56.0)]);
     // The tabs: All shown, Sites, Images, Videos and News open (queue
     // items 744–746), Answer disabled.
@@ -429,7 +429,7 @@ fn the_all_tab_with_images_is_drawn_as_the_reference() {
 fn the_sites_tab_shows_every_site_and_no_row_of_images() {
     let renderer = laid_out(with(results(Tab::Sites)));
     let at = |class: &str| boxes_of(&renderer, class);
-    assert_eq!(at("rt on"), vec![px(209.843_75, 102.0, 60.9375, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(209.843_75, 102.0, 60.875, 42.0)]);
     assert_eq!(at("res"), vec![px(80.0, 164.0, 880.0, 558.0)]);
     assert_eq!(
         at("found"),
@@ -587,7 +587,7 @@ fn with_no_images_yet_all_draws_no_row_and_the_images_tab_says_so() {
     assert!(boxes_of(&renderer, "imrow").is_empty());
     assert_eq!(
         boxes_of(&renderer, "more"),
-        vec![px(80.0, 454.0, 75.6875, 20.0)],
+        vec![px(80.0, 454.0, 75.625, 20.0)],
         "More sites 20 under the sites, where it was before images"
     );
     let drawn = draw(with(asking.on(Tab::Images)));

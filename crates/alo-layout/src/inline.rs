@@ -146,6 +146,7 @@ use crate::geometry::{Edges, Point, Rect, Size};
 use crate::layout_unit;
 use crate::measure::{MeasureText, TextStyle};
 use crate::overflow_wrap::{Cut, Cutting};
+use crate::run_pen::RunPen;
 use crate::soft_wrap::SoftWrap;
 use crate::text_run::TextRun;
 use crate::vertical_align::{Edge, LineAlign, Parent};
@@ -918,6 +919,10 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             return;
         };
         let offset = range.start;
+        // The run is shaped once and each piece measured within it, so a
+        // kerning pair across a space is kept (queue item 797).
+        let pen = RunPen::of(text, style, self.measurer);
+        let width_of = |from: usize, to: usize| pen.width(text, (from, to), style, self.measurer);
         let mut start = 0usize;
         for end in self.measurer.break_opportunities(text) {
             if end <= start {
@@ -931,7 +936,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             // would break a line one word early. A no-break space is not one:
             // it does not hang, and it is drawn.
             let visible = piece.trim_end_matches(SPACES);
-            let width = self.measurer.measure(visible, style, None).width;
+            let width = width_of(start, start + visible.len());
             // What has to fit is where its letters would end, on the grid.
             let reach = TextRun::for_piece(self.run, box_id, offset + start, self.pen, style.scale)
                 .reach(width);
@@ -957,7 +962,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 start = rest;
                 let piece = text.get(start..end).unwrap_or_default();
                 let visible = piece.trim_end_matches(SPACES);
-                let width = self.measurer.measure(visible, style, None).width;
+                let width = width_of(start, start + visible.len());
                 (piece, visible, width)
             };
             if visible.is_empty() {
@@ -970,14 +975,14 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 // a line of code, and it takes its room wherever it stands.
                 let preserved = !style.white_space.collapses_spaces();
                 if preserved || !self.holds_nothing() {
-                    let room = self.measurer.measure(piece, style, None).width;
+                    let room = width_of(start, end);
                     self.place_space(box_id, offset + start..offset + end, room, style);
                 }
                 self.laid(piece, style);
                 start = end;
                 continue;
             }
-            let placed = self.measurer.measure(piece, style, None).width;
+            let placed = width_of(start, end);
             self.content = true;
             self.place_text(box_id, offset + start..offset + end, width, placed, style);
             self.laid(piece, style);

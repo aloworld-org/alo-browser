@@ -22053,7 +22053,7 @@ What stage 2's exit gate actually measures: a person using it.
   display's frames (a `CADisplayLink`-like tick, or `winit`'s redraw at
   vsync), measured. *Depends on 756.*
 
-- [ ] **795. A varied glyph's advance kept to its fraction.** Cut from 752.
+- [x] **795. A varied glyph's advance kept to its fraction.** Cut from 752.
   The rented shaper (`rustybuzz` 0.20.1) gives a glyph's advance at a
   variable font's instance in whole font units, where Chrome 156 keeps the
   fraction `HVAR` interpolates to: Newsreader's `o` at `opsz` 40 is 21.24
@@ -22064,8 +22064,16 @@ What stage 2's exit gate actually measures: a person using it.
   advance plus the exact one. Every interface reference moves a little;
   measure each against Chrome. *Closes when:* Newsreader's glyphs at `opsz`
   40 and Instrument Sans' at 600 are Chrome's canvas advances to 1e-3.
+  ***Done (2 November 2026, ADR 0097).*** `alo-text`'s `advance.rs` gives
+  back what `ttf-parser` rounds off each varied glyph's advance (`hmtx` plus
+  `HVAR`'s `f32` delta, or `gvar`'s phantom point, less the rounded `u16`),
+  never to a mark or a glyph set to nothing. Measured in Chrome
+  156.0.8078.76's canvas: Newsreader's thirteen greeting glyphs at `opsz` 40
+  within 0.000 23 px (were up to 0.0096), Instrument Sans' 27 at 500 and 600
+  within 0.000 05 (were 0.0054); the last ten-thousandths are `ttf-parser`'s
+  coordinate on the axis, cut to a whole 16,384th.
 
-- [ ] **796. A kerning pair's variation along an axis.** Cut from 752.
+- [x] **796. A kerning pair's variation along an axis.** Cut from 752.
   `rustybuzz` 0.20.1 applies a `GPOS` pair's value without its variation:
   Newsreader kerns `iv` −14 units at `opsz` 18 and 0 at 72 (HarfBuzz
   11.2.1's `hb-shape --variations=opsz=72`, and Chrome 156), and this engine
@@ -22074,8 +22082,19 @@ What stage 2's exit gate actually measures: a person using it.
   `harfrust`, or a fix offered upstream is the answer is an ADR's.
   *Closes when:* `iv` at 72 is Chrome's 60.671875 in a test, and no other
   run's width moves but by its own varied pairs.
+  ***Done (2 November 2026, ADR 0097).*** Found in the source: `ttf-parser`
+  0.25.1 reads a format 1 pair's variation offset from the pair records,
+  two bytes into its `PairSet`, so the delta is almost never applied; a
+  format 2 pair's is rounded. `alo-text`'s `pair_variation.rs` walks the
+  run as HarfBuzz's pair positioning does and gives each glyph the exact
+  delta less what the shaper applied of it. `iv` at 72 is Chrome's
+  60.671875 (at 18 its 13.640625, at 40 its 31.6875); of 2,400 random runs
+  in both faces (frozen, `varied-runs.chrome.txt`), 2,370 Chrome's to the
+  layout unit and the rest a 64th off, where 759 were and the worst 354
+  64ths off. No `rustybuzz` or `ttf-parser` newer than 0.20.1 and 0.25.1 on
+  crates.io; `harfrust` not tried (ADR 0097 § 2).
 
-- [ ] **797. Kerning across a space on a line measured word by word.** Cut
+- [x] **797. Kerning across a space on a line measured word by word.** Cut
   from 752, older than it. Inline layout measures a line's words apart
   (`Good `, `afternoon, `, `Ada.`) and sums them, so a kerning pair across a
   space is lost: Newsreader kerns ` A` −0.63 at `opsz` 18 and −1.48 at 40,
@@ -22084,6 +22103,15 @@ What stage 2's exit gate actually measures: a person using it.
   line's text as one run where it is one, and where it breaks, as Chrome
   does at a break. *Closes when:* the greeting's box at 40 is Chrome's to
   its layout unit, with and without optical sizing, in a layout assertion.
+  ***Done (2 November 2026).*** `alo-layout`'s `run_pen.rs`: a text box's
+  run is shaped once (`cluster_ends`) and each piece measured as the pen's
+  move between its ends, a piece inside a cluster alone as before; paint
+  already drew a line's piece as one run. The greeting's box at 40 is
+  Chrome's 349.53125 with `none` and 363.828125 with `auto` (with 795 and
+  796) — a layout assertion; 18 interface tests moved, each by the kerning
+  across a space or a hyphen (the bubble *127.0.0.1:8765/card.html* 160.08,
+  Chrome's, was 161.18); no corpus case moved (`DejaVu Sans` kerns no space
+  or hyphen pair the corpus has).
 
 - [ ] **798. A press the page's Chromium would take somewhere else.** Cut
   from 740, which sends the main button with nothing held. The secondary
@@ -22591,6 +22619,30 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on 819, 705. Closes when:* a frozen checkout page's question
   in numbers and words, a reference of the question, and through both
   Chromiums the payment held until *Confirm and pay*.
+
+- [x] **827. The box's hint in the agent's column (found by hand in
+  819).** In the split view's column the box's field is 263 wide and the
+  first screen's hint, *Ask anything, search, or type a website…*, 292.72
+  at 16 px in Instrument Sans, so it was cut at *webs*. alo-workplace's
+  design says nothing of it. *Closes when:* the column's hint is whole, in
+  numbers and a reference.
+  ***Done (2 November 2026).*** In the column the field's hint is *Ask,
+  search, or type a website…* (`split_document::COLUMN_HINT`), 223.98
+  wide, whole inside the field's 263 at (872, 748); its name, read by an
+  agent, unchanged; the conversation's box keeps the first screen's,
+  whole in its wider field. Layout assertion and `split-view-asking.png`
+  redrawn (1,874 pixels, all inside the hint); the mutation (the hint not
+  set) fails both.
+
+- [ ] **828. A typed key seen twice on a card under load (found by the
+  gate, 2 November 2026).** In the first gate run of items 827, 797, 795
+  and 796, `alo-window`'s
+  `a_persons_press_keys_and_wheel_on_a_card_reach_the_page_through_chrome`
+  read `typed?Ada%20Lx` where it waits for `typed?Ada%20L` — the page said
+  one key more than the step expected. It passed three runs alone and the
+  second gate. Reproduce under load (`yes` ×96 and nextest) and find
+  whether the test reads a later key's report or a key is sent early.
+  *Closes when:* the cause is named and the test holds under that load.
 
 ## K. ★ The agent, on somebody else's pages
 

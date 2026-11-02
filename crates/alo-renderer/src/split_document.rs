@@ -37,11 +37,18 @@ use crate::agent_document;
 use crate::card_document;
 use crate::conversation_document::take_the_greeting;
 use crate::start::Start;
-use crate::start_document::{Unbuilt, append, attribute, element, insert_before};
+use crate::start_document::{Unbuilt, append, attribute, by_id, element, insert_before};
 use alo_dom::{Document, NodeId};
 
 /// What the agent's column is named, to an agent reading the screen.
 pub const BESIDE: &str = "alo beside the page";
+
+/// The box's hint in the agent's column (queue item 827): the first
+/// screen's *Ask anything, search, or type a website…* is 292.72 wide at
+/// 16 px in Instrument Sans and the column's field 263, so it was cut
+/// mid-word (*…type a webs*); without *anything* it says the same three
+/// things in 223.98. The field's name, read by an agent, is unchanged.
+pub const COLUMN_HINT: &str = "Ask, search, or type a website\u{2026}";
 
 /// Put the split view for `start` into `document`, the first screen's,
 /// inside `screen`, its `main`: the greeting, its line and `blocks` taken
@@ -84,7 +91,9 @@ pub fn put(
         append(document, column, offers)?;
     }
     append(document, column, the_box)?;
-    append(document, screen, column)
+    append(document, screen, column)?;
+    let field = by_id(document, crate::start_document::FIELD)?;
+    attribute(document, field, "placeholder", COLUMN_HINT)
 }
 
 #[cfg(test)]
