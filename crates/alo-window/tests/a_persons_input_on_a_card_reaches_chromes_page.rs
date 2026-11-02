@@ -22,7 +22,11 @@
 //! 1. **A press in the field and typing reach the field**: the press gives
 //!    the card the keyboard, the box loses it, and `Ada Lx`, then
 //!    Backspace, leave the field's value `Ada L`; the box holds nothing of
-//!    it.
+//!    it. The page numbers each value it reports (queue item 828): the
+//!    field passes through `Ada L` before the `x`, and each report is a
+//!    fetch of its own that may reach the server out of order, so the test
+//!    waits for the seventh report and reads all seven in the page's order,
+//!    each key's value once.
 //! 2. **A press on a link follows it**: the page at the link's address says
 //!    where it is, and a frame streamed after it shows its colour where the
 //!    link was pressed.
@@ -67,7 +71,8 @@ const WINDOW: (u32, u32) = (1280, 820);
 
 /// The first page: a field and a link under it, each at a place of its own
 /// in the page's CSS pixels; it tells the server its field's value as it
-/// changes.
+/// changes, each report numbered from one in the order the page heard the
+/// changes (`typed?N=value`).
 const CARD_PAGE: &str = "<!doctype html><title>Card</title>\
     <style>body{margin:0;background:#fff}\
     #field{position:absolute;left:100px;top:60px;width:300px;height:40px;font-size:20px}\
@@ -76,7 +81,11 @@ const CARD_PAGE: &str = "<!doctype html><title>Card</title>\
     <input id=field aria-label=Field><a id=next href=/two.html>Two</a>\
     <script>const said = (what) => fetch('/said/' + what, {cache: 'no-store'});\
       const field = document.getElementById('field');\
-      field.addEventListener('input', () => said('typed?' + encodeURIComponent(field.value)));\
+      let changes = 0;\
+      field.addEventListener('input', () => {\
+        changes += 1;\
+        said('typed?' + changes + '=' + encodeURIComponent(field.value));\
+      });\
       said('ready');</script>";
 
 /// The page the link leads to: all one colour and tall, telling the server
@@ -166,6 +175,36 @@ fn heard(said: &Said, wanted: &str, who: &str) -> Result<(), String> {
         if Instant::now() > until {
             return Err(format!(
                 "{who}'s page never said {wanted}; it said {so_far:?}"
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// The field's values the page reported, in the order it heard them — each
+/// `typed?N=value` placed at its `N`, whatever order the reports reached the
+/// server in — once it has reported `count` of them; or why not.
+fn typed_in_order(said: &Said, count: usize, who: &str) -> Result<Vec<String>, String> {
+    let until = Instant::now() + SAID_WITHIN;
+    loop {
+        let so_far = said.lock().map(|said| said.clone()).unwrap_or_default();
+        let mut numbered = so_far
+            .iter()
+            .filter_map(|each| {
+                let (number, value) = each.strip_prefix("typed?")?.split_once('=')?;
+                Some((number.parse::<usize>().ok()?, value.to_owned()))
+            })
+            .collect::<Vec<_>>();
+        numbered.sort_by_key(|(number, _)| *number);
+        if numbered.iter().any(|(number, _)| *number >= count) {
+            return Ok(numbered
+                .into_iter()
+                .map(|(number, value)| format!("{number}={value}"))
+                .collect());
+        }
+        if Instant::now() > until {
+            return Err(format!(
+                "{who}'s page never reported its field's change {count}; it said {so_far:?}"
             ));
         }
         std::thread::sleep(Duration::from_millis(50));
@@ -414,12 +453,21 @@ fn typed_into_the_field(card: &mut Card<'_>) -> Result<(), String> {
     }
     let backspace = Press::of(Key::Backspace);
     key(&card.conversation, &card.opener, &backspace, Some("\u{8}"));
-    heard(&card.said, "typed?Ada%20L", who)?;
-    let typed = card.said_of("typed?");
+    // Each key once, in order: a key sent twice, or one lost, moves every
+    // value after it.
+    let expected = [
+        "1=A",
+        "2=Ad",
+        "3=Ada",
+        "4=Ada%20",
+        "5=Ada%20L",
+        "6=Ada%20Lx",
+        "7=Ada%20L",
+    ];
+    let typed = typed_in_order(&card.said, expected.len(), who)?;
     assert_eq!(
-        typed.last().map(String::as_str),
-        Some("typed?Ada%20L"),
-        "{who}: the field's value, as the page said it: {typed:?}"
+        typed, expected,
+        "{who}: the field's values, in the order the page heard them"
     );
     assert_eq!(
         the_box(&card.conversation),

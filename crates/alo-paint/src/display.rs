@@ -106,6 +106,21 @@ pub enum DisplayItem {
         /// What colour.
         color: Rgba,
     },
+    /// The shadow one colour glyph casts (queue item 786): the glyph as it
+    /// is drawn — a picture's alpha, its layers at their colours' opacity
+    /// put over each other — as one shape, blurred on its own and drawn in
+    /// one colour ([`crate::glyph_shadow`]). The letters beside it cast a
+    /// [`DisplayItem::Shadow`] of their outlines.
+    GlyphShadow {
+        /// The box that cast it.
+        box_id: BoxId,
+        /// The glyph, already moved by the shadow's offset.
+        cast: crate::glyph_shadow::Cast,
+        /// How far its edge fades over.
+        blur: f32,
+        /// What colour.
+        color: Rgba,
+    },
     /// Everything until the matching [`DisplayItem::PopClip`] is drawn only
     /// where this shape covers.
     ///
@@ -206,6 +221,7 @@ impl DisplayItem {
         match self {
             DisplayItem::Fill { box_id, .. }
             | DisplayItem::Shadow { box_id, .. }
+            | DisplayItem::GlyphShadow { box_id, .. }
             | DisplayItem::Picture { box_id, .. }
             | DisplayItem::Text { box_id, .. }
             | DisplayItem::Area { box_id, .. }
@@ -350,34 +366,22 @@ impl DisplayList {
                         bottom - top,
                     )
                 }
-                DisplayItem::Text {
+                DisplayItem::GlyphShadow {
                     box_id,
-                    text,
-                    origin,
-                    size,
+                    cast,
+                    blur,
                     color,
-                    shadows,
-                    oblique,
-                    ..
                 } => {
-                    let mut line = format!(
-                        "text {box_id} {text:?} {color} {size}px at ({}, {})",
-                        origin.0, origin.1,
-                    );
-                    // Said only when it is there, so a list of upright text
-                    // reads as it always has.
-                    if *oblique != 0.0 {
-                        let _ = write!(line, " leaned {oblique}deg");
-                    }
-                    for shadow in shadows {
-                        let _ = write!(
-                            line,
-                            " + shadow {} blur {} at ({}, {})",
-                            shadow.color, shadow.blur, shadow.offset.0, shadow.offset.1,
-                        );
-                    }
-                    writeln!(out, "{line}")
+                    let (left, top, right, bottom) = cast.bounds().unwrap_or((0.0, 0.0, 0.0, 0.0));
+                    writeln!(
+                        out,
+                        "shadow {box_id} {color} blur {blur} at ({left}, {top}) {}×{} of {}",
+                        right - left,
+                        bottom - top,
+                        cast.kind(),
+                    )
                 }
+                DisplayItem::Text { .. } => writeln!(out, "{}", text_line(item)),
                 DisplayItem::PushClip { box_id, path } => {
                     let (left, top, right, bottom) = path.bounds().unwrap_or((0.0, 0.0, 0.0, 0.0));
                     writeln!(
@@ -400,6 +404,41 @@ impl DisplayList {
         }
         out
     }
+}
+
+/// A text item's line in [`DisplayList::to_outline`]; empty for anything
+/// else.
+fn text_line(item: &DisplayItem) -> String {
+    let DisplayItem::Text {
+        box_id,
+        text,
+        origin,
+        size,
+        color,
+        shadows,
+        oblique,
+        ..
+    } = item
+    else {
+        return String::new();
+    };
+    let mut line = format!(
+        "text {box_id} {text:?} {color} {size}px at ({}, {})",
+        origin.0, origin.1,
+    );
+    // Said only when it is there, so a list of upright text reads as it
+    // always has.
+    if *oblique != 0.0 {
+        let _ = write!(line, " leaned {oblique}deg");
+    }
+    for shadow in shadows {
+        let _ = write!(
+            line,
+            " + shadow {} blur {} at ({}, {})",
+            shadow.color, shadow.blur, shadow.offset.0, shadow.offset.1,
+        );
+    }
+    line
 }
 
 #[cfg(test)]

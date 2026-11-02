@@ -136,6 +136,22 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                     clips.last(),
                 );
             }
+            DisplayItem::GlyphShadow {
+                cast, blur, color, ..
+            } => {
+                // One shape — letters, layers and pictures as they are
+                // drawn — softened once (queue item 786).
+                let shape = crate::glyph_shadow::coverage(cast, current);
+                let soft = blurred(&shape, blur * current.scale_factor());
+                let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
+                draw_coverage(
+                    target,
+                    &soft,
+                    &Paint::Solid(*color),
+                    Matrix::IDENTITY,
+                    clips.last(),
+                );
+            }
             DisplayItem::Text { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
                 draw_text(target, item, current, clips.last(), list.scale());

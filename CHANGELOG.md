@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A rounded picture, or SVG, is rounded where Chrome rounds it.** A
+  picture with its own rounded corners that sits at a fraction of a pixel
+  now has its corners — and its edges — cut exactly where Chrome cuts
+  them, where before a corner could look half as round as it should. An
+  SVG drawing or an SVG picture with rounded corners is now rounded too;
+  before, it was drawn square.
+- **An emoji casts its shadow.** Text with a `text-shadow` now shadows
+  its emoji and other colour glyphs as well as its letters — the emoji's
+  own shape, see-through where the emoji is, as Chrome draws it — where
+  before an emoji cast nothing. An underline under an emoji runs straight
+  under it, as in Chrome.
+- **A test of typing into a page on a card no longer misreads a key.** It
+  waited for a value the field passes through on the way and could read
+  the key after it; it now waits for every key, in order.
+
 - **The interface's text is set as Chrome sets it, to a 64th of a pixel.**
   A line's words are now measured as one run, so the kerning between a
   space (or a hyphen) and the letter after it is kept — the greeting and

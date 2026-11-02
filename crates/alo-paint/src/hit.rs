@@ -117,6 +117,7 @@ pub fn box_at(list: &DisplayList, at: Point) -> Option<BoxId> {
             }
             DisplayItem::Fill { .. }
             | DisplayItem::Shadow { .. }
+            | DisplayItem::GlyphShadow { .. }
             | DisplayItem::PushGroup { .. }
             | DisplayItem::PopGroup
             | DisplayItem::Picture { .. }

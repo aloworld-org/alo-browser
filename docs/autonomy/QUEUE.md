@@ -21310,13 +21310,82 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on 766. Closes when:* a `COLR` v1 emoji is drawn as Chrome
   draws it, in a reference render and against Chrome's pixels.
 
-- [ ] **786. A colour glyph's `text-shadow`, and a line stepping aside for
+- [x] **786. A colour glyph's `text-shadow`, and a line stepping aside for
   it.** Cut from 766. A picture glyph (`CBDT`/`sbix`) and a layered one
   (`COLR` v0) cast no `text-shadow` and a decoration line does not step
   aside for them: both are cast by the run's outlines, which such a glyph
   has none of. Measure what Chrome casts (the picture's alpha? the
   layers?) and draw it. *Depends on 766. Closes when:* an emoji's shadow
   and an underline under it are Chrome's in a reference render.
+  ***Done (2 November 2026), with 829, 830 and 831 found and queued.***
+  **Measured** in Chrome 156.0.8078.76 (`--version`), headless, at one,
+  two and eight, on two faces made for it with `fontTools` (repository
+  licence): `alo-paint/tests/fonts/pictured.ttf` (1,060 bytes, `B` and
+  U+1F642 a `CBDT` picture 40 × 40 with opaque, half-opaque and clear
+  pixels) and `layered-deep.ttf` (1,004 bytes, `B`, U+1F642 and U+E000 a
+  `COLR` v0 glyph: a red leg descending 200 units, a blue side at half
+  opacity, a foot in the text's colour, over a plain outline the whole
+  em). A picture glyph casts its picture's alpha; a layered glyph its
+  layers as drawn over each other, never its own outline, a text-coloured
+  layer whole under faint text; each glyph softened as one shape on its
+  own — a seam between layers blurred 16 within 3 levels of one shape's
+  (layers apart: 32 lighter); an emoji 8 px from a letter, blurred 16, meet
+  at 156 (one shape with the letter: 147). An underline does **not** step
+  aside for either — under clear pixels, a layer or the own outline it is
+  drawn as with `skip-ink: none`, the glyph over it, the line's shadow
+  under the glyph's. **Built:** `alo-paint`'s `glyph_shadow.rs` (`Cast`, a
+  picture or a glyph's layers; `coverage`), `DisplayItem::GlyphShadow`
+  (drawn in `render.rs`, listed in `display.rs`, passed over by `hit.rs`),
+  `glyph_layers::each_layered_glyph_at`, and `build.rs`' `shadow_items` /
+  `colour_glyphs`: a piece in a face that may draw in colour casts its
+  shadows before its letters, the letters' outlines as one `Shadow` and
+  each colour glyph its own. **Tests:** 4 unit tests (`glyph_shadow.rs`);
+  `alo-renderer/tests/a_colour_glyphs_shadow.rs`, 14 rows — what each
+  glyph casts in numbers (ten glyph shadows, kinds, opacities, places,
+  the letters' nine shadows apart from them, and a line's), the pixels at one and two (the
+  picture's half grey, its clear columns white, the side's half, the
+  own outline casting nothing, faint text's foot whole), the line under
+  both drawn as with `skip-ink: none` pixel for pixel, references
+  `colour-glyph-shadows.png` and `-at-2.png`, and Chrome's own pictures
+  (`chrome-colour-glyph-shadows.png`, `-at-2.png`): hard shadows and lines
+  to a level in every pixel at both scales, blurred rows within 19 at one
+  and 12 at two (a box blur against Chrome's), blurred 16 within 5 and 6.
+  **Mutations:** no picture cast, layers cast opaque, the shadow left to
+  the text item — 4 of 5 tests fail each; each layer softened apart — 3
+  fail. Nothing in the interface casts a text shadow; no reference moved.
+
+- [ ] **829. A face listed first that draws in colour, chosen as Chrome
+  chooses it (found by 786, 2 November 2026).** `FontDatabase::font_shown`
+  looks for a character meant as a letter first in a face whose glyphs
+  are not pictures, and for an emoji first in one whose are — every face
+  of the database in its chain. Chrome 156 takes the first face *listed*
+  that has the character: a `CBDT` face named first draws `B` in colour
+  there, where this engine takes a later plain face that has `B`; and
+  beside `DejaVu Sans`, a `COLR` face listed before a `CBDT` one draws an
+  emoji in Chrome, where this engine takes the `CBDT` face, a `COLR` face
+  not counting as one of pictures. `a_colour_glyphs_shadow.rs` writes its
+  glyphs so that both engines choose alike. Measure which face Chrome takes
+  for letters, emoji and text-presentation emoji across listed, generic
+  and fallback faces, and choose so. *Depends on nothing.*
+
+- [ ] **830. A colour glyph drawn at its text's opacity (found by 786, 2
+  November 2026).** Chrome 156 draws a `COLR` glyph's every layer, and a
+  `CBDT` picture glyph, at the text colour's own alpha: under
+  `color: rgba(42, 157, 143, 0.3)` a palette red `#e63946` is drawn 247,
+  195, 199 over white, and under `color: transparent` nothing — while the
+  shadow stays whole. This engine draws palette layers and pictures
+  opaque. Fade each (a layer's colour times the text's alpha; a picture
+  through a fade fitted to Chrome's picture blend, `mix_onto.rs`) and
+  compare row 9 of `a_colour_glyphs_shadow.rs`'s page, now left out of its
+  Chrome comparison. *Depends on 786.*
+
+- [ ] **831. Plain letters' `text-shadow` softened glyph by glyph (found by
+  786, 2 November 2026).** Chrome 156 blurs each glyph's shadow on its own
+  and puts the blurred shadows over each other: two boxes of a test face
+  8 px apart, blurred 16, meet at 129 of 255 where this engine, blurring
+  the run's outlines as one shape, draws 110. A colour glyph's shadow is
+  already its own (786). Every text shadow with a blur moves, so corpus
+  and interface references with one will too. *Depends on nothing.*
 
 - [x] **767. Chinese, Japanese and Korean in the interface.** Cut from ADR
   0088 § 5. On macOS the machine scan reads no `.ttc` collection — the CJK
@@ -21397,7 +21466,7 @@ What stage 2's exit gate actually measures: a person using it.
   of its own (`tenths`' top left fits a radius of 2.5, not 5.25, at one),
   bounded at 131 and 117 (783).
 
-- [ ] **783. A rounded picture at fractions of a pixel, at one and two.**
+- [x] **783. A rounded picture at fractions of a pixel, at one and two.**
   Cut from 769. A picture laid out at fractions of a pixel is trimmed by
   Chrome 156 to its content edge's curve exactly at eight, but at one and
   two its curve fits neither that curve on the picture's snapped box nor
@@ -21407,14 +21476,59 @@ What stage 2's exit gate actually measures: a person using it.
   difference (131 at one, 117 at two). Fit the rule over many fractional
   offsets at one, 1.5 and two. *Depends on 769. Closes when:* the case's
   fractional pictures are within the whole-pixel bound (53).
+  ***Done (2 November 2026).*** **The rule:** Chrome 156 lays the curve on
+  the picture's **border box snapped edge by edge, less the border and the
+  padding as laid out** — not on the content box snapped edge by edge,
+  which the picture itself is drawn into. The two differ by under a device
+  pixel, and the curve's straight sides cut the picture's own edge pixels
+  where they fall inside it: a padding of 2.25 leaves a picture's first
+  column 64 of 255 from black (three quarters covered), a padding of 2.5
+  its last column 127. `tenths`' "radius of 2.5" was its 5.25 laid 0.75
+  further out. **Measured** (`--force-device-scale-factor` 1, 1.5 and 2,
+  without `--disable-gpu`): 96 black pictures at sixteenths of a pixel in
+  two seeds — sizes 30–38, paddings 0–2.75, transparent borders 0–2, radii
+  4–16, each in a file of its own — with the curve on the picture's own
+  box the worst edge pixel was 252, 254 and 223 (the other seed 249, 228,
+  215; median per picture up to 177); laid on the snapped border box,
+  within 20, 24 and 21 (22, 24, 21), median 11–14. **Built:** `alo-paint`'s
+  `content_curve::edge` and `build.rs`' `content_curve`, used by
+  `picture_of`. **Tests:** a unit test (`content_curve.rs`); corpus case
+  `rounded-pictures-at-fractions` (seed 1's 48 pictures, one `ink.png`,
+  Chrome's pictures at one, 1.5 and two beside it) and
+  `tests/rounded_pictures_at_fractions.rs` — two curves in numbers at one
+  and two, every pixel within 20, 24 and 21 of Chrome's, `render-at-2.png`;
+  `rounded_pictures.rs`' fractional bound tightened from 131 and 117 to
+  **8 and 17** (the whole-pixel one stays 53), `tenths`' curve asserted on
+  its own rectangle. **References moved:** `rounded-pictures`' `render.png`,
+  `render-at-2.png` and `display.txt` (`tenths`' clip), each looked at; no
+  other case. **Mutation:** the curve back on the picture's box — all six
+  tests and the corpus fail.
 
-- [ ] **784. An `<svg>`'s drawing, and an SVG picture's, rounded.** Cut
+- [x] **784. An `<svg>`'s drawing, and an SVG picture's, rounded.** Cut
   from 769. CSS trims every replaced box's content to its content edge's
   curve; 769 trims a raster picture's. An `<svg>` with `overflow: hidden`
   and an `<img>` of an SVG file are still clipped to their square content
   box (`build.rs`' `drawing_of`). Measure both in Chrome and trim them as
   it does. *Depends on 769. Closes when:* a corpus case of rounded SVGs is
   Chrome's in every plain pixel at one and two.
+  ***Done (2 November 2026).*** **Measured** in Chrome 156 at one, two and
+  eight: an `<svg>` that clips (`overflow` not `visible`) and an `<img>` of
+  an SVG file are trimmed to the content edge's curve exactly as a raster
+  picture is (769, 783) — the curve laid on the snapped border box less
+  the border and padding as laid out; an `overflow: visible` `<svg>` is
+  not trimmed. Chrome smooths an SVG picture's curve in quarters of a
+  pixel (64, 128 or 191 from white, at eight too). **Built:** `build.rs`'
+  `drawing_of` pushes the curve inside its square clip, through the same
+  `content_curve` as a picture. **Tests:** corpus case `rounded-svgs` (five
+  `<svg>`s whose squares reach past their viewports, four SVG pictures,
+  one at fractions of a pixel and drawn smaller than its box; Chrome's
+  pictures at one and two) and `tests/rounded_svgs.rs` — four boxes' clips
+  in numbers at one and two (`s4` none), every white or black pixel
+  Chrome's, the `<svg>`s' edges within 25 at one and 20 at two and the
+  pictures' within 58 and 60 (`i4`, Chrome's quarters), `render-at-2.png`.
+  Before, all eight were square, 255 from Chrome at their corners. **No
+  other case moved.** **Mutations:** no curve for a drawing — all three
+  fail; every `<svg>` clipped, `visible` too — all three fail.
 
 - [x] **748. How alo carries the search key in release (ADR 0083 § 1).**
   Cut from 708. The owner's stated direction is to ship the application
@@ -22634,7 +22748,7 @@ What stage 2's exit gate actually measures: a person using it.
   redrawn (1,874 pixels, all inside the hint); the mutation (the hint not
   set) fails both.
 
-- [ ] **828. A typed key seen twice on a card under load (found by the
+- [x] **828. A typed key seen twice on a card under load (found by the
   gate, 2 November 2026).** In the first gate run of items 827, 797, 795
   and 796, `alo-window`'s
   `a_persons_press_keys_and_wheel_on_a_card_reach_the_page_through_chrome`
@@ -22643,6 +22757,24 @@ What stage 2's exit gate actually measures: a person using it.
   second gate. Reproduce under load (`yes` ×96 and nextest) and find
   whether the test reads a later key's report or a key is sent early.
   *Closes when:* the cause is named and the test holds under that load.
+  ***Done (2 November 2026).*** **The cause was the test's own wait, not a
+  key:** the field's value passes through `Ada L` on its way — after the
+  `L`, before the `x` — so the wait for `typed?Ada%20L` was met by the
+  fifth report, and the test then read the last report heard, which was
+  the sixth (`…%20Lx`) whenever it had arrived and the seventh (Backspace's)
+  had not. Each report is a fetch of its own, so the order they reach the
+  server is not even the page's. Keys are sent in order, each once Chrome
+  has answered the one before (`chrome_card_input::forward`); none was
+  sent twice. **Counted** with the test's own wait instrumented: idle, 2
+  of 20 runs failed (the wait met at the sixth report), 11 of 20 passed
+  without ever seeing Backspace's report (met at the fifth) and 7 saw it;
+  under `yes` ×96 (nextest, one test), 5 of 12 failed and the other 7
+  passed without seeing it. **Fixed in the test, the assertion stronger:**
+  the page numbers each report (`typed?N=value`), and the test waits for
+  the seventh and asserts all seven in the page's order — each key's value
+  once, `1=A` to `7=Ada%20L`. After: 20 of 20 idle and 15 of 15 under
+  `yes` ×96 pass. **Mutation:** each key sent twice
+  (`chrome_card_input::commands`) — the test fails, reading twelve values.
 
 ## K. ★ The agent, on somebody else's pages
 

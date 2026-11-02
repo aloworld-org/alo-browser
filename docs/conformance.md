@@ -69,8 +69,15 @@ colours or the text's (item 766): a test face's layered letter is
 Chrome 156's in every pixel of one colour at one, and drawn the same at
 two, its own plain outline nowhere
 (`alo-renderer/tests/a_glyph_in_layers_of_colour.rs`). **Not yet:** a
-`COLR` version 1 or `SVG ` face in colour (785), or an emoji's
-`text-shadow` (786). A page's renderer is
+`COLR` version 1 or `SVG ` face in colour (785), a colour glyph at its
+text's opacity (830). A colour glyph casts its `text-shadow` as Chrome
+156 does (786) — a picture its alpha, a layered glyph its layers as
+drawn, each glyph softened on its own — and an underline runs under it
+without stepping aside, as Chrome's; hard shadows and lines are Chrome's
+to a level in every pixel at one and two, blurred ones within 19 levels
+(`a_colour_glyphs_shadow.rs`). Chrome softens plain letters' shadows
+glyph by glyph too, which this engine does not: two letters 8 px apart
+blurred 16 meet at 110 where Chrome's meet at 129 (831). A page's renderer is
 handed no such face on macOS, so a page's emoji there are drawn as before.
 
 Lines are real too: text wraps between words across inline boxes, everything on
@@ -564,10 +571,14 @@ Chrome's in every plain pixel at one and at two. A picture with its own
 the border and the padding beside it (769) — as Chrome 156 trims 27 of 27
 probes at eight; `rounded-pictures` (eleven pictures) is Chrome's in every
 plain pixel at one and at two, its curves' edge pixels within 53 of 255
-for pictures on whole pixels, and within 131 at one and 117 at two for the
-two laid out at fractions of a pixel, whose curves Chrome draws by a rule
-of its own there (783). An `<svg>`'s or an SVG picture's drawing is not
-rounded (784). A border whose sides
+for pictures on whole pixels, and within 8 at one and 17 at two for the
+two laid out at fractions of a pixel, whose curve Chrome lays on the
+snapped border box less the border and padding as laid out (783);
+`rounded-pictures-at-fractions`' 48 are within 20, 24 and 21 of Chrome's
+at one, 1.5 and two. An `<svg>` that clips and an SVG picture are
+trimmed the same way (784): `rounded-svgs` is Chrome's in every white or
+black pixel at one and two, its edges within 25 for `<svg>`s and 58 for
+SVG pictures, which Chrome smooths in quarters of a pixel. A border whose sides
 differ in width or colour fills its rounded corners to the inner curve,
 one colour as one ring and differing sides split on the mitre (592);
 `borders-side-by-side` is Chrome's in every plain pixel at one and at two.

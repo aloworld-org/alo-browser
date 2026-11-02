@@ -218,23 +218,82 @@ impl<'a> Letters<'a> {
     /// The letters' shadows, furthest back first, each as its own item:
     /// the same runs [`crate::render`] outlines for the text items, moved by
     /// the shadow's offset. For text whose lines go between its shadows and
-    /// its letters, or whose runs are more than one, which one text item
-    /// cannot hold: every shadow of the piece is under all of its letters.
+    /// its letters, or whose runs are more than one, or which may hold a
+    /// colour glyph, which one text item cannot hold: every shadow of the
+    /// piece is under all of its letters. A colour glyph casts what it
+    /// draws, a shadow of its own after the letters'
+    /// ([`crate::glyph_shadow`], queue item 786).
     fn shadow_items(&self, id: BoxId, shadows: &[TextShadow], scale: f32) -> Vec<DisplayItem> {
+        if shadows.is_empty() {
+            return Vec::new();
+        }
         let mut run = Path::new();
         for glyph in self.shapes(scale) {
             run.extend(&glyph);
         }
-        shadows
-            .iter()
-            .rev()
-            .map(|shadow| DisplayItem::Shadow {
+        let glyphs = self.colour_glyphs(scale);
+        let mut items = Vec::new();
+        for shadow in shadows.iter().rev() {
+            // A piece of colour glyphs alone has no letters to cast.
+            if !run.is_empty() || glyphs.is_empty() {
+                items.push(DisplayItem::Shadow {
+                    box_id: id,
+                    path: run.translated(crate::path::Point::new(shadow.offset.0, shadow.offset.1)),
+                    blur: shadow.blur,
+                    color: shadow.color,
+                });
+            }
+            items.extend(glyphs.iter().map(|glyph| DisplayItem::GlyphShadow {
                 box_id: id,
-                path: run.translated(crate::path::Point::new(shadow.offset.0, shadow.offset.1)),
+                cast: glyph.translated(shadow.offset),
                 blur: shadow.blur,
                 color: shadow.color,
-            })
-            .collect()
+            }));
+        }
+        items
+    }
+
+    /// Each colour glyph of the letters as it casts a shadow, set on a
+    /// screen at `scale`: a picture glyph's picture, a layered glyph's
+    /// layers at their colours' opacity, a layer in the text's colour
+    /// whole, as a letter's outline is (queue item 786).
+    fn colour_glyphs(&self, scale: f32) -> Vec<crate::glyph_shadow::Cast> {
+        let (size, spacing) = (self.size, self.letter_spacing);
+        let mut glyphs = Vec::new();
+        for run in &self.runs {
+            glyphs.extend(
+                crate::glyph_picture::pictured_glyphs_at(
+                    run.text, &run.font, size, scale, spacing, run.origin,
+                )
+                .into_iter()
+                .map(|(rect, pixels)| crate::glyph_shadow::Cast::Picture(rect, pixels)),
+            );
+            glyphs.extend(
+                crate::glyph_layers::each_layered_glyph_at(
+                    run.text, &run.font, size, scale, spacing, run.origin,
+                )
+                .into_iter()
+                .map(|layers| {
+                    crate::glyph_shadow::Cast::Layers(
+                        layers
+                            .into_iter()
+                            .map(|layer| {
+                                (layer.path, layer.color.map_or(1.0, |colour| colour.alpha))
+                            })
+                            .collect(),
+                    )
+                }),
+            );
+        }
+        glyphs
+    }
+
+    /// Whether a run is in a face that may draw a glyph in colour — a
+    /// picture or layers — whose shadow its text item cannot cast.
+    fn may_be_coloured(&self) -> bool {
+        self.runs
+            .iter()
+            .any(|run| run.font.draws_pictures() || run.font.draws_layers())
     }
 
     /// Each glyph's shape where it is drawn on a screen at `scale`, leaned as
@@ -1075,7 +1134,7 @@ impl Builder<'_> {
         out: &mut Vec<DisplayItem>,
     ) {
         let beneath = Self::decorations_at(decorations, true, piece, letters, scale);
-        let items = if beneath.is_empty() && letters.runs.len() < 2 {
+        let items = if beneath.is_empty() && letters.runs.len() < 2 && !letters.may_be_coloured() {
             letters.items(id, color, &decorations.shadows, scale)
         } else {
             out.extend(letters.shadow_items(id, &decorations.shadows, scale));
@@ -1317,21 +1376,12 @@ impl Builder<'_> {
         };
         let scale = self.styles.scale();
         let rect = snap::to_device_pixels(geometry.content_box(), scale);
-        let corners = self.style_of(id).map_or(Corners::SQUARE, |style| {
-            let border_box = snap::to_device_pixels(geometry.border_box, scale);
-            crate::content_curve::of(
-                Corners::of(style, Self::extent_of(border_box)),
-                border_box,
-                geometry.border,
-                geometry.padding,
-            )
-        });
-        let trimmed = !corners.are_square();
-        if trimmed {
-            out.push(DisplayItem::PushClip {
-                box_id: id,
-                path: rounded_rectangle(rect, corners),
-            });
+        // The curve is the snapped border box's less what is inside it as
+        // laid out, not the picture's own rectangle (queue item 783).
+        let curve = self.content_curve(id, &geometry, scale);
+        let trimmed = curve.is_some();
+        if let Some(path) = curve {
+            out.push(DisplayItem::PushClip { box_id: id, path });
         }
         out.push(DisplayItem::Picture {
             box_id: id,
@@ -1396,10 +1446,22 @@ impl Builder<'_> {
                 .style_of(id)
                 .and_then(|style| style.get("overflow"))
                 .is_some_and(|overflow| !overflow.eq_ignore_ascii_case("visible"));
-        if clips {
+        // Rounded by the box's own `border-radius`, as a picture is, where
+        // it is clipped at all (queue item 784): an `overflow: visible`
+        // `<svg>` is not, in Chrome 156.
+        let rounded = if clips {
             out.push(DisplayItem::PushClip {
                 box_id: id,
                 path: rect_path(snapped),
+            });
+            self.content_curve(id, &geometry, scale)
+        } else {
+            None
+        };
+        if let Some(curve) = &rounded {
+            out.push(DisplayItem::PushClip {
+                box_id: id,
+                path: curve.clone(),
             });
         }
         for item in drawing.items() {
@@ -1417,9 +1479,39 @@ impl Builder<'_> {
                 DrawingItem::PopGroup => DisplayItem::PopGroup,
             });
         }
+        if rounded.is_some() {
+            out.push(DisplayItem::PopClip);
+        }
         if clips {
             out.push(DisplayItem::PopClip);
         }
+    }
+
+    /// The curve a replaced box's content is trimmed to — its own
+    /// `border-radius` less its border and padding, laid on its snapped
+    /// border box less them ([`crate::content_curve`], queue items 769 and
+    /// 783) — or [`None`] where nothing of it is left and the content is
+    /// square.
+    fn content_curve(
+        &self,
+        id: BoxId,
+        geometry: &alo_layout::BoxGeometry,
+        scale: f32,
+    ) -> Option<Path> {
+        let style = self.style_of(id)?;
+        let border_box = snap::to_device_pixels(geometry.border_box, scale);
+        let corners = crate::content_curve::of(
+            Corners::of(style, Self::extent_of(border_box)),
+            border_box,
+            geometry.border,
+            geometry.padding,
+        );
+        (!corners.are_square()).then(|| {
+            rounded_rectangle(
+                crate::content_curve::edge(border_box, geometry.border, geometry.padding),
+                corners,
+            )
+        })
     }
 
     /// Which decoration lines cover this text, and in what colour.

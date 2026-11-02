@@ -23,11 +23,12 @@
 //! `--force-device-scale-factor=1` and `=2`, without `--disable-gpu`, taken
 //! 2026-11-01. Wherever both pictures hold a plain colour it is the same
 //! one at both scales. On the curves' edge pixels the two differ by at
-//! most [`EDGE`]: the worst are on `tenths` and `tenths-ringed`, laid out
-//! at fractions of a pixel, whose curves Chrome draws at one and two by a
-//! rule this engine does not follow — at eight they are the content
-//! edge's curve on the picture's snapped box, exactly; at one `tenths`'s
-//! top left fits a radius of 2.5 rather than 5.25 (queue item 783).
+//! most [`WHOLE_EDGE`], and by `tenths` and `tenths-ringed`, laid out at
+//! fractions of a pixel, by at most [`EDGE`]: since queue item 783 their
+//! curve is laid on the snapped border box less the border and the padding
+//! as laid out, as Chrome's is, not on the picture's own snapped box —
+//! which made `tenths`' top left look like a radius of 2.5, not 5.25, at
+//! one (`rounded_pictures_at_fractions.rs` holds 48 more).
 //!
 //! `render-at-2.png` is this engine's picture at two, beside `render.png`
 //! and never in its place (ADR 0057 § 5).
@@ -114,6 +115,19 @@ const TRIMS: [Trim; 11] = [
     ),
 ];
 
+/// The rectangle a picture's curve rounds, where it is not the picture's
+/// own: the snapped border box less the border and the padding as laid out
+/// (queue item 783), at one and at two. `tenths`' border box, laid out at
+/// (170.3, 70.4) 46 × 37.75, snaps to 170–216 by 70–108 at one and to
+/// 170.5–216.5 by 70.5–108 at two; less its padding of 2.25 it is not the
+/// picture's own box, 173–214 by 73–106 at one and 172.5–214 by 72.5–106 at
+/// two. `tenths-ringed`'s, less its whole border, is its picture's.
+const CURVED_ELSEWHERE: [(&str, [f32; 4], [f32; 4]); 1] = [(
+    "tenths",
+    [172.25, 72.25, 41.5, 33.5],
+    [172.75, 72.75, 41.5, 33.0],
+)];
+
 /// The case's plain colours: the page's white, the picture's ink, the
 /// borders' blue and the paddings' red.
 const PLAIN: [(u8, u8, u8); 4] = [
@@ -123,11 +137,13 @@ const PLAIN: [(u8, u8, u8); 4] = [
     (0xc0, 0x39, 0x2b),
 ];
 
-/// How far a curve's edge pixel may be from Chrome's, of 255 in any
-/// channel, at each scale, where either picture has a blend. Measured on
-/// this case: the worst at one, 131 at (175, 73), and at two, 117 at (350,
-/// 146), are both on `tenths`' top left curve (queue item 783).
-const EDGE: [(f32, u8); 2] = [(1.0, 131), (2.0, 117)];
+/// How far a curve's edge pixel of the two pictures laid out at fractions
+/// of a pixel may be from Chrome's, of 255 in any channel, at each scale,
+/// where either picture has a blend. Measured on this case since queue item
+/// 783: 8 at one, at (172, 71), and 17 at two, at (565, 223) — where
+/// before it, with the curve laid on the picture's own snapped box, they
+/// were 131 at (175, 73) and 117 at (350, 146), on `tenths`' top left.
+const EDGE: [(f32, u8); 2] = [(1.0, 8), (2.0, 17)];
 
 /// How far a curve's edge pixel away from the pictures at fractions of a
 /// pixel may be from Chrome's, at each scale: Chrome's smoothing against
@@ -255,8 +271,18 @@ fn every_picture_is_trimmed_to_its_content_edges_curve() {
             let Some(clip) = clip else {
                 panic!("{class} at {scale} is drawn square");
             };
+            let curved = CURVED_ELSEWHERE
+                .iter()
+                .find(|(name, _, _)| *name == class)
+                .map_or(expected, |(_, one, two)| {
+                    let [left, top, width, height] = if pick == 0 { *one } else { *two };
+                    Rect {
+                        origin: Point { x: left, y: top },
+                        size: Size { width, height },
+                    }
+                });
             assert!(
-                same(&clip, &rounded_rectangle(expected, corners)),
+                same(&clip, &rounded_rectangle(curved, corners)),
                 "{class} at {scale} is trimmed to {:?}, not {corners:?}",
                 clip.segments()
             );
@@ -306,8 +332,8 @@ fn by_a_fraction(x: u32, y: u32, scale: u32) -> bool {
 /// Wherever both pictures have a plain colour it is the same one, at one
 /// and at two: no square corner of ink where Chrome's is trimmed, and no
 /// white or red where Chrome's picture is. Where either is a blend, a
-/// curve's edge, the two are within `EDGE`, and within `WHOLE_EDGE` away
-/// from the two pictures at fractions of a pixel.
+/// curve's edge, the two are within `EDGE` by the two pictures at
+/// fractions of a pixel, and within `WHOLE_EDGE` away from them.
 #[test]
 fn every_picture_is_trimmed_where_chromes_is() {
     let Some(case) = case() else {
@@ -338,10 +364,11 @@ fn every_picture_is_trimmed_where_chromes_is() {
                 }
                 blends += 1;
                 let found = difference(ours, &chrome, x, y);
-                if found > worst.0 {
-                    worst = (found, Some((x, y)));
-                }
-                if !by_a_fraction(x, y, if scale > 1.0 { 2 } else { 1 }) && found > worst_whole.0 {
+                if by_a_fraction(x, y, if scale > 1.0 { 2 } else { 1 }) {
+                    if found > worst.0 {
+                        worst = (found, Some((x, y)));
+                    }
+                } else if found > worst_whole.0 {
                     worst_whole = (found, Some((x, y)));
                 }
             }
@@ -349,7 +376,7 @@ fn every_picture_is_trimmed_where_chromes_is() {
         assert!(blends > 0, "at {scale} no curve was compared");
         assert!(
             worst.0 <= edge,
-            "at {scale} a curve's edge is {} from Chrome's at {:?}",
+            "at {scale} a fractional picture's edge is {} from Chrome's at {:?}",
             worst.0,
             worst.1,
         );

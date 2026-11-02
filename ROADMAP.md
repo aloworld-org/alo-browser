@@ -569,7 +569,10 @@ correctness, not before it.
       (iteration 353) a rounded clip inside a border follows its inner
       curve, 60 of 60 clips measured (`rounded-clips-inside-borders`),
       and since queue item 769 a picture is trimmed to its content edge's
-      curve, 27 of 27 probes at eight (`rounded-pictures`),
+      curve, 27 of 27 probes at eight (`rounded-pictures`), since 783 on
+      Chrome's own rectangle at fractions of a pixel, 96 of 96 within 24
+      at one, 1.5 and two (`rounded-pictures-at-fractions`), and since 784
+      an `<svg>`'s drawing and an SVG picture too (`rounded-svgs`),
       and since queue item 589 (iteration 354) an `<svg>` is clipped and
       drawn on whole device pixels, 1,792 of 1,792 `<svg>`s and 672 of 672
       SVG pictures measured (`svgs-on-device-pixels`), and since queue
@@ -2450,7 +2453,8 @@ items where being right and being unusable are the same outcome.
       renderers alone, a `CBDT`/`sbix` glyph painted as its picture and an
       emoji's sequence kept in one face (ADR 0088); a `COLR` version 0
       glyph drawn as its layers in their colours (766), as Chrome draws a
-      test face; a card drawn from its
+      test face; a colour glyph's `text-shadow`, cast as it is drawn and
+      softened on its own, a line under it not stepping aside (786); a card drawn from its
       page's first paint (751, ADR 0089) — opened at its navigation's
       commit, saying *Loading* until its page has loaded, and kept as a card
       when it never does, through the window's own road and both Chromiums;
@@ -2500,10 +2504,10 @@ items where being right and being unusable are the same outcome.
       launches (757), a chat named by its words (758), what the agent may
       do (705),
       the exact line on hover (812), a source opened as a card at its line (813), streaming an answer (815), richer grounding (816), an evaluation of the model (817), zero data retention (818), `COLR` version 1 and `SVG` colour
-      glyphs (785), an emoji's shadow (786), a rounded picture at fractions of a pixel (783),
-      an SVG's drawing rounded (784), the panel
+      glyphs (785), a colour face listed first (829), a colour glyph at its text's opacity (830),
+      plain letters' shadows softened glyph by glyph (831), the panel
       shown over the conversation in a narrow window (776). Built
-      since: the interface's varied faces set as Chrome sets them — a line's text measured as one run, kerning across a space kept, a varied advance kept to its fraction and a kerning pair varied along its axis, 2,370 of 2,400 runs Chrome's to the layout unit and the rest a 64th off (797, 795, 796, ADR 0097); the box's hint in the agent's column its own, whole (827); each run of alo's agent kept as turns of its chat, never a text typed that the person did not say (820, ADR 0092 amended); a search's answer kept in its chat and read back checked, never asked again (814, ADR 0092 amended); nothing of Chrome's inspector over a card's page, any mark taken away as a run ends, through both Chromiums (822, ADR 0066 amended); a search's answer at the top of All and on the Answer tab, from OpenAI, every citation checked, and OpenAI's key carried in its own slot (707, 773, ADRs 0081 and 0095); a response's body bounded per request, a search's pictures
+      since: a colour glyph's shadow (786), a rounded picture at fractions of a pixel (783) and an SVG's drawing rounded (784), each Chrome 156's, and a card's typing test that waits for every key (828); the interface's varied faces set as Chrome sets them — a line's text measured as one run, kerning across a space kept, a varied advance kept to its fraction and a kerning pair varied along its axis, 2,370 of 2,400 runs Chrome's to the layout unit and the rest a 64th off (797, 795, 796, ADR 0097); the box's hint in the agent's column its own, whole (827); each run of alo's agent kept as turns of its chat, never a text typed that the person did not say (820, ADR 0092 amended); a search's answer kept in its chat and read back checked, never asked again (814, ADR 0092 amended); nothing of Chrome's inspector over a card's page, any mark taken away as a run ends, through both Chromiums (822, ADR 0066 amended); a search's answer at the top of All and on the Answer tab, from OpenAI, every citation checked, and OpenAI's key carried in its own slot (707, 773, ADRs 0081 and 0095); a response's body bounded per request, a search's pictures
       cut at their bound and an HTTP/2 body bounded at all (762, ADR 0086
       § 3); a person's hover, double clicks, arrows, shortcuts and paging
       keys on a card's page, through both Chromiums (740, 741); the first press on a card just opened, measured the page's, and a press with a modifier said (805); trackers and adverts refused by EasyList and EasyPrivacy through both Chromiums (736, ADR 0094); a field's value kept to one line and cut at its content box (715); an agent reaching the page the conversation shows, over one socket following the newest card (716, ADR 0075 amended); a news story's photo (765, ADR 0087 § 3); the Sites tab's

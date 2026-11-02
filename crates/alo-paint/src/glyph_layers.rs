@@ -21,9 +21,10 @@
 //!
 //! A `COLR` version 1 glyph — gradients, transforms, clips, groups, Noto's
 //! vector build — and an `SVG ` glyph are drawn as their outlines in the
-//! text's colour, as before (queue item 785). A layered glyph casts no
-//! `text-shadow`, and a line under it does not step aside for it, as a
-//! picture glyph does not (786).
+//! text's colour, as before (queue item 785). A layered glyph casts its
+//! layers as its `text-shadow` ([`crate::glyph_shadow`], 786); a line under
+//! it does not step aside for it, nor for its own plain outline, as Chrome
+//! 156's does not.
 
 use crate::glyph::{GlyphLayer, layers_at};
 use crate::path::Point;
@@ -41,6 +42,23 @@ pub fn layered_glyphs_at(
     letter_spacing: f32,
     origin: (f32, f32),
 ) -> Vec<GlyphLayer> {
+    each_layered_glyph_at(text, font, size, scale, letter_spacing, origin)
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+/// The same, glyph by glyph: each layered glyph's layers, bottom first —
+/// what each casts as a shadow of its own ([`crate::glyph_shadow`], queue
+/// item 786).
+pub fn each_layered_glyph_at(
+    text: &str,
+    font: &Font,
+    size: f32,
+    scale: f32,
+    letter_spacing: f32,
+    origin: (f32, f32),
+) -> Vec<Vec<GlyphLayer>> {
     if !font.draws_layers() {
         return Vec::new();
     }
@@ -53,10 +71,15 @@ pub fn layered_glyphs_at(
     for glyph in &run.glyphs {
         if let Some(layers) = layers_at(font, glyph.glyph_id, size, scale) {
             let at = Point::new(pen.0 + glyph.offset.0, pen.1 + glyph.offset.1);
-            drawn.extend(layers.into_iter().map(|layer| GlyphLayer {
-                path: layer.path.translated(at),
-                color: layer.color,
-            }));
+            drawn.push(
+                layers
+                    .into_iter()
+                    .map(|layer| GlyphLayer {
+                        path: layer.path.translated(at),
+                        color: layer.color,
+                    })
+                    .collect(),
+            );
         }
         pen.0 += glyph.advance;
     }

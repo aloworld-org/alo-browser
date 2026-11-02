@@ -200,6 +200,36 @@ is text in the tree; its picture is paint.
   glyph has none of. Nothing in the interface shadows text; queued with
   766, and since then on its own (786) — a layered glyph, whose own
   outline is left out, casts none either.
+  *Since queue item 786 (2 November 2026):* **a colour glyph casts what
+  it draws** (`alo-paint`'s `glyph_shadow.rs`, `DisplayItem::GlyphShadow`).
+  Measured in Chrome 156.0.8078.76, headless, at one, two and eight, on two
+  test faces made for it (`alo-paint/tests/fonts/pictured.ttf`, a `CBDT`
+  picture with clear, opaque and half-opaque pixels; `layered-deep.ttf`, a
+  `COLR` v0 glyph with a palette layer at half opacity and a plain outline
+  larger than its layers): a picture glyph casts its picture's alpha in
+  the shadow's colour; a layered glyph its layers as they are drawn over
+  each other, never its own outline, a layer in the text's colour whole
+  however faint the text, as a letter's outline is; and **each glyph is
+  softened on its own** — one shape within a glyph (an opaque layer beside
+  a half one, blurred 16, Chrome's seam within 3 levels of one shape's,
+  where layers softened apart would be 32 lighter), apart from the glyph
+  beside it (an emoji 8 px from a letter, blurred 16, meet at 156 of 255
+  in Chrome where one shape would be 147). Chrome softens plain letters
+  apart too, which this engine still does not: two letters 8 px apart meet
+  at 129 there and 110 here (queue item 831). **A decoration line does not
+  step aside** for a picture glyph or a layered one — not for a picture's
+  clear pixels, nor a layer, nor a layered glyph's own outline: an
+  underline is drawn under either exactly as with
+  `text-decoration-skip-ink: none`, the glyph over it, its shadow under
+  the glyph's — what this engine already drew, now asserted. Every pixel
+  of the hard shadows and lines is Chrome's to a level at one and two
+  (`alo-renderer/tests/a_colour_glyphs_shadow.rs`). Found on the way and
+  queued: Chrome draws a colour glyph at the text colour's own opacity
+  (a palette red under `rgba(…, 0.3)` text is 247, 195, 199), which this
+  engine does not (830); and a face listed first that draws a character in
+  colour is Chrome's choice for it, where this engine takes a later plain
+  face for a character meant as a letter, and a picture face over a
+  layered one for an emoji (829).
 - **Pages are unchanged on macOS and Windows.** A page's renderer is never
   handed Noto. The rule of § 3 runs everywhere, but a page reaches a face
   of pictures only where the machine scan hands it one — a Linux machine

@@ -48559,3 +48559,112 @@ gate, so it is taken for a flake under the gate's load — not reproduced;
 queued as 828.
 
 The next unused queue number is **829** and the next ADR is **0098**.
+
+## 2026-11-02 — items 828, 786, 783 and 784: a card's keys counted in order, a colour glyph's shadow, and rounded pictures and SVGs where Chrome rounds them; 785 not started
+
+Batched under one gate, at the owner's asking ("Go ahead" to the
+engine-fidelity backlog); each item built with its own tests and docs, in
+that order. Chrome measured: **156.0.8078.76** (checked with `--version`
+before measuring), headless, without `--disable-gpu`; its source not read.
+
+**828 — the typed key seen twice.** Not a key: the test's wait. The field's
+value passes through `Ada L` before the `x`, so waiting for
+`typed?Ada%20L` was met by the fifth report, and the test then took the
+last report heard — the sixth, `…%20Lx`, whenever Backspace's had not yet
+arrived. Each report is a fetch of its own and reaches the server in no
+promised order. Keys go in order, each once Chrome has answered the one
+before (`chrome_card_input::forward`). **Counted** with the wait
+instrumented (one test under nextest): idle, 2 of 20 failed, 11 of 20
+passed never having seen Backspace's report, 7 saw it; under `yes` ×96, 5
+of 12 failed and 7 passed unseen. **Fixed in the test, stronger:** the page
+numbers its reports (`typed?N=value`), and the test waits for the seventh
+and asserts all seven in the page's order. After: 20 of 20 idle, 15 of 15
+under `yes` ×96. Mutation: each key sent twice — the test fails on twelve
+values.
+
+**786 — a colour glyph's `text-shadow` (ADR 0088 § 5 amended).**
+**Measured** on two faces made with `fontTools` for it (`pictured.ttf`, a
+`CBDT` picture with clear, opaque and half pixels; `layered-deep.ttf`, a
+`COLR` v0 glyph whose palette side is half opaque and whose plain outline
+is larger than its layers): a picture glyph casts its alpha, a layered one
+its layers as drawn over each other and never its own outline, a layer in
+the text's colour whole under faint text; each glyph is one shape softened
+on its own (a layer seam blurred 16 within 3 levels of one shape, where
+layers apart are 32 lighter; an emoji 8 px from a letter, blurred 16, meet
+at 156 where one shape would give 147). **An underline does not step
+aside** for either — clear pixels, layers or own outline — drawn as with
+`skip-ink: none`, the glyph over it and its shadow under the glyph's:
+this engine already drew that; it is now asserted. **Built:**
+`glyph_shadow.rs` (`Cast`: a picture or a glyph's layers; `coverage`),
+`DisplayItem::GlyphShadow`, `glyph_layers::each_layered_glyph_at`,
+`build.rs`' `colour_glyphs` (a piece in a face that may draw in colour
+casts its shadows before its letters: the letters' outlines as one
+`Shadow`, each colour glyph its own). `display.rs`' `to_outline` lost its
+text line to `text_line` (clippy's 100 lines). **Tests:** 4 unit;
+`a_colour_glyphs_shadow.rs` (5 tests, 14 rows): casts in numbers, pixels
+at one and two, the line pixel for pixel as `skip-ink: none`, references
+`colour-glyph-shadows.png` and `-at-2.png`, Chrome's pictures within a
+level for hard shadows and lines, 19/12 blurred 4, 5/6 blurred 16, 31/13
+beside `DejaVu Sans` letters. **Mutations:** no picture cast, layers cast
+opaque, the shadow left to the text item — 4 of 5 fail each; layers
+softened apart — 3 fail. **Found and queued:** 829 (Chrome takes the face
+*listed* first that has a character, colour or not; this engine prefers a
+plain face for a letter and a `CBDT` face for an emoji — the test writes
+its glyphs so both choose alike), 830 (Chrome draws a colour glyph at the
+text colour's alpha: palette red under a 0.3 text colour is 247, 195,
+199; transparent text draws none, its shadow whole — this engine draws
+them opaque; row 9's glyph is left out of the Chrome comparison), 831
+(Chrome softens plain letters' shadows glyph by glyph: two boxes 8 px
+apart blurred 16 meet at 129 here 110). No interface text casts a shadow;
+no reference moved.
+
+**783 — a rounded picture at fractions of a pixel.** Chrome lays the
+curve on the **border box snapped edge by edge, less the border and the
+padding as laid out**, not on the picture's own snapped content box: under
+a device pixel apart, and the curve's straight sides cut the picture's own
+edge pixels inside it (a padding of 2.25: first column 64 from black;
+2.5: last column 127). **Measured:** 96 pictures at sixteenths of a pixel
+in two seeds at one, 1.5 and two (a file each): with the curve on the
+picture's box the worst edge pixel was 252/254/223 (seed 2: 249/228/215);
+on the snapped border box 20/24/21 (22/24/21). **Built:**
+`content_curve::edge`, `build.rs`' `content_curve` (used by `picture_of`).
+**Tests:** a unit test; corpus case `rounded-pictures-at-fractions` (seed
+1, one `ink.png`, Chrome at 1, 1.5, 2) and its test (two curves in
+numbers, every pixel within 20/24/21, `render-at-2.png`);
+`rounded_pictures.rs`' fractional bound 131/117 → **8/17**. **References
+moved:** `rounded-pictures`' `render.png`, `render-at-2.png`,
+`display.txt` (`tenths`), looked at; nothing else. **Mutation:** the curve
+on the picture's box — all six tests and the corpus fail.
+
+**784 — an `<svg>`'s drawing and an SVG picture rounded.** Chrome trims an
+`<svg>` that clips and an `<img>` of an SVG file as a raster picture
+(the same rectangle as 783), and not an `overflow: visible` `<svg>`; it
+smooths an SVG picture's curve in quarters of a pixel, at eight too.
+**Built:** `drawing_of` pushes `content_curve` inside its square clip.
+**Tests:** corpus case `rounded-svgs` (five `<svg>`s, four SVG pictures,
+Chrome at one and two) and `rounded_svgs.rs`: four boxes' clips in
+numbers at one and two, every white or black pixel Chrome's, edges within
+25/20 (`<svg>`s) and 58/60 (`i4`'s quarters); before, 255 at every
+rounded corner. No other case moved. **Mutations:** no curve — 3 of 3
+fail; `visible` clipped too — 3 of 3 fail.
+
+**785 not started.** `COLR` v1's paint graph (linear, radial and sweep
+gradients on COLR's own geometry, transforms, clips, composite modes) and
+`SVG ` glyphs need a gradient evaluator `alo-paint` does not have — CSS's
+`Gradient` is measured along an area, not COLR's three points or two
+circles — plus a v1 test face, Chrome's pixels and their dithering fitted.
+That would not have fitted beside the four above and one gate; it stays
+open as it was. A v1 glyph's shadow will come with it through
+`glyph_shadow::Cast`.
+
+Temporary probes (`alo-renderer/tests/zz_probe786.rs`,
+`alo-corpus/examples/probe783.rs`) were moved out of the tree before the
+gate; the generators and Chrome scripts are in the session's scratchpad
+(`m786/`, `m783/`, `m784/`, `m828/`).
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached with `setsid`, waited on by its PID). **Summary [1095.553s] 6358
+tests run: 6358 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is met."
+(11 of 11 steps)*.
+
+The next unused queue number is **832** and the next ADR is **0098**.

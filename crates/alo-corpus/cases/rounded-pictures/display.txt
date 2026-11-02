@@ -30,7 +30,7 @@ clip box#19 to (90, 70) 60×44
 picture box#19 20×20 at (90, 70) 60×44
 unclip
 fill box#21 rgb(192 57 43) at (170, 70) 46×38
-clip box#21 to (173, 73) 41×33
+clip box#21 to (172.25, 72.25) 41.5×33.5
 picture box#21 20×20 at (173, 73) 41×33
 unclip
 fill box#23 rgb(29 78 216) at (241, 71) 44×44

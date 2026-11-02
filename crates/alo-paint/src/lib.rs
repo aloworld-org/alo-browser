@@ -64,6 +64,7 @@ mod gif_picture;
 pub mod glyph;
 pub mod glyph_layers;
 pub mod glyph_picture;
+pub mod glyph_shadow;
 pub mod hit;
 pub mod ink_runs;
 mod jpeg_picture;

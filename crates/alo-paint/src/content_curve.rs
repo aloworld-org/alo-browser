@@ -22,9 +22,17 @@
 //! border edge's 20 by whole pixels. A radius smaller than the border and
 //! padding beside it leaves the picture square.
 //!
-//! The rectangle is the one the picture is drawn into — its content box
-//! with each edge rounded on its own to device pixels (`build.rs`) — and
-//! the radii are the snapped border box's, as an `overflow` clip's are.
+//! The radii are the snapped border box's, as an `overflow` clip's are, and
+//! so is the rectangle they round: the border box with each edge rounded on
+//! its own to device pixels, less the border and the padding **as laid
+//! out** ([`edge`], queue item 783) — not the content box snapped edge by
+//! edge, which the picture itself is drawn into (`build.rs`). The two are
+//! the same for a box on whole pixels. For one laid out at fractions of a
+//! pixel they differ by under a device pixel, and the curve's straight
+//! sides then cut the picture's own edge pixels where they fall inside it:
+//! Chrome 156 at one, one and a half and two, 96 pictures at sixteenths of
+//! a pixel, every edge pixel within 24 of 255 of Chrome's this way, where
+//! the curve on the picture's own box missed by up to 254.
 
 use crate::corner::Corners;
 use alo_layout::{Edges, Rect};
@@ -33,12 +41,28 @@ use alo_layout::{Edges, Rect};
 /// for the box's border box `border_box` and fitted to it — less `border`
 /// and `padding` on each side. Square when nothing is left of any.
 pub fn of(written: Corners, border_box: Rect, border: Edges, padding: Edges) -> Corners {
-    written.fitted_to(border_box.size).inside(Edges {
+    written
+        .fitted_to(border_box.size)
+        .inside(inside(border, padding))
+}
+
+/// The rectangle those corners round: the border box `border_box` as it is
+/// snapped, less `border` and `padding` as they were laid out — not the
+/// content box snapped on its own, which the picture is drawn into (queue
+/// item 783). The two differ by under a device pixel, and only where the
+/// box is laid out at fractions of one.
+pub fn edge(border_box: Rect, border: Edges, padding: Edges) -> Rect {
+    border_box.shrunk_by(inside(border, padding))
+}
+
+/// The border and the padding together, side by side.
+fn inside(border: Edges, padding: Edges) -> Edges {
+    Edges {
         top: border.top + padding.top,
         right: border.right + padding.right,
         bottom: border.bottom + padding.bottom,
         left: border.left + padding.left,
-    })
+    }
 }
 
 #[cfg(test)]
@@ -111,6 +135,54 @@ mod tests {
             Edges::all(3.0),
         );
         assert!(close(corners.top_left, (10.0, 10.0)), "{corners:?}");
+    }
+
+    #[test]
+    fn the_curves_rectangle_is_the_snapped_border_box_less_what_is_inside_it() {
+        // `rounded-pictures`' `tenths`: its border box snapped to 170–216 by
+        // 70–108, less a padding of 2.25 laid out — not its picture's own
+        // box snapped edge by edge, 173–214 by 73–106.
+        let edge = edge(
+            Rect::new(170.0, 70.0, 46.0, 38.0),
+            Edges::ZERO,
+            Edges::all(2.25),
+        );
+        assert!(
+            close((edge.left(), edge.top()), (172.25, 72.25)),
+            "{edge:?}"
+        );
+        assert!(
+            close((edge.size.width, edge.size.height), (41.5, 33.5)),
+            "{edge:?}"
+        );
+        // Each side its own border and padding.
+        let uneven = edge_of_uneven();
+        assert!(
+            close((uneven.left(), uneven.top()), (7.5, 1.5)),
+            "{uneven:?}"
+        );
+        assert!(
+            close((uneven.right(), uneven.bottom()), (36.5, 34.5)),
+            "{uneven:?}"
+        );
+    }
+
+    fn edge_of_uneven() -> Rect {
+        edge(
+            Rect::new(0.0, 0.0, 40.0, 40.0),
+            Edges {
+                top: 1.0,
+                right: 2.0,
+                bottom: 3.0,
+                left: 4.0,
+            },
+            Edges {
+                top: 0.5,
+                right: 1.5,
+                bottom: 2.5,
+                left: 3.5,
+            },
+        )
     }
 
     #[test]

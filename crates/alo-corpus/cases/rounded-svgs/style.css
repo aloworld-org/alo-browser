@@ -1,0 +1,22 @@
+/* An `<svg>`'s drawing and an SVG picture rounded by their own
+   `border-radius` (queue item 784). Each `<svg>` holds a black square
+   reaching 20 past its viewport on every side, so what is drawn is the
+   clip; `ink.svg` is a black square of its own size. A replaced box's
+   content is trimmed to its content edge's curve, as a raster picture's is
+   (items 769 and 783): `s1` plain, `s2` inside a padding and a transparent
+   border, `s3` at fractions of a pixel, `s5` a circle. `s4` is
+   `overflow: visible` and is not trimmed, in Chrome 156 as here. The
+   pictures `i1` to `i4` the same, `i4` at fractions and drawn smaller than
+   its box (its file's ratio kept). `tests/rounded_svgs.rs` says what each
+   is. */
+body { margin: 0; background: #ffffff }
+svg, img { position: absolute; width: 40px; height: 40px }
+.s1 { left: 10px; top: 10px; border-radius: 10px }
+.s2 { left: 70px; top: 10px; padding: 3px; border: 2px solid transparent; border-radius: 12px }
+.s3 { left: 130.3px; top: 10.6px; padding: 2.25px; border-radius: 9.5px }
+.s4 { left: 190px; top: 10px; border-radius: 10px; overflow: visible }
+.s5 { left: 250px; top: 10px; border-radius: 50% }
+.i1 { left: 10px; top: 70px; border-radius: 10px }
+.i2 { left: 70px; top: 70px; padding: 3px; border: 2px solid transparent; border-radius: 12px }
+.i3 { left: 130.3px; top: 70.6px; padding: 2.25px; border-radius: 9.5px }
+.i4 { left: 190.5px; top: 70.25px; width: 37.75px; height: 33.5px; border-radius: 12px 4px }

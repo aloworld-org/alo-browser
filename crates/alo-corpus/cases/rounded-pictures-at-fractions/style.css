@@ -1,0 +1,59 @@
+/* Pictures rounded by their own `border-radius`, laid out at fractions
+   of a pixel (queue item 783): 48 pictures of one black 8 × 8 PNG, each at
+   its own sixteenths of a pixel across and down, 30 to 38 and sixteenths
+   wide and tall, a padding of 0 to 2.75 and sixteenths, a transparent
+   border of 0, 1 or 2, and a radius of 4 to 16 and sixteenths — drawn from
+   one seed (1) of a scratch generator. Chrome 156 trims each to its
+   content edge's curve laid on its snapped border box less the border and
+   the padding as laid out, which cuts the picture's own snapped edges too.
+   `tests/rounded_pictures_at_fractions.rs` says what each is. */
+body { margin: 0; background: #ffffff }
+img { position: absolute }
+.p0 { left: 10.9375px; top: 10.0px; width: 32.125px; height: 34.1875px; padding: 2.75px; border: 2px solid transparent; border-radius: 6.1875px }
+.p1 { left: 70.0px; top: 10.0px; width: 36.8125px; height: 30.875px; padding: 1.4375px; border: 0px solid transparent; border-radius: 8.0px }
+.p2 { left: 130.4375px; top: 10.6875px; width: 38.0px; height: 36.375px; padding: 2.0px; border: 0px solid transparent; border-radius: 10.9375px }
+.p3 { left: 190.1875px; top: 10.625px; width: 33.4375px; height: 37.5625px; padding: 0.8125px; border: 0px solid transparent; border-radius: 6.5625px }
+.p4 { left: 250.0625px; top: 10.9375px; width: 38.8125px; height: 38.375px; padding: 1.5625px; border: 2px solid transparent; border-radius: 12.75px }
+.p5 { left: 310.3125px; top: 10.75px; width: 33.75px; height: 36.3125px; padding: 1px; border: 2px solid transparent; border-radius: 16.1875px }
+.p6 { left: 370.3125px; top: 10.4375px; width: 35.9375px; height: 30.9375px; padding: 0.5625px; border: 2px solid transparent; border-radius: 16.3125px }
+.p7 { left: 430.0px; top: 10.75px; width: 30.375px; height: 38.4375px; padding: 2.6875px; border: 1px solid transparent; border-radius: 10.5px }
+.p8 { left: 10.8125px; top: 70.9375px; width: 38.25px; height: 38.375px; padding: 2.75px; border: 1px solid transparent; border-radius: 12.375px }
+.p9 { left: 70.3125px; top: 70.125px; width: 35.8125px; height: 35.0px; padding: 1.875px; border: 0px solid transparent; border-radius: 6.3125px }
+.p10 { left: 130.5px; top: 70.1875px; width: 38.5px; height: 30.125px; padding: 0.75px; border: 0px solid transparent; border-radius: 8.4375px }
+.p11 { left: 190.5625px; top: 70.875px; width: 32.6875px; height: 34.125px; padding: 0.5px; border: 0px solid transparent; border-radius: 16.5px }
+.p12 { left: 250.5px; top: 70.1875px; width: 35.9375px; height: 37.1875px; padding: 0.75px; border: 1px solid transparent; border-radius: 10.375px }
+.p13 { left: 310.875px; top: 70.8125px; width: 34.375px; height: 36.0px; padding: 0.75px; border: 0px solid transparent; border-radius: 4.3125px }
+.p14 { left: 370.0625px; top: 70.5625px; width: 38.4375px; height: 38.875px; padding: 0.75px; border: 1px solid transparent; border-radius: 16.8125px }
+.p15 { left: 430.8125px; top: 70.5px; width: 32.375px; height: 30.5625px; padding: 0.5px; border: 1px solid transparent; border-radius: 16.3125px }
+.p16 { left: 10.6875px; top: 130.1875px; width: 32.0px; height: 38.0625px; padding: 0.25px; border: 0px solid transparent; border-radius: 10.375px }
+.p17 { left: 70.75px; top: 130.5625px; width: 33.8125px; height: 33.9375px; padding: 0.5px; border: 2px solid transparent; border-radius: 4.625px }
+.p18 { left: 130.75px; top: 130.6875px; width: 30.3125px; height: 33.625px; padding: 0.75px; border: 0px solid transparent; border-radius: 8.1875px }
+.p19 { left: 190.375px; top: 130.5px; width: 38.9375px; height: 38.4375px; padding: 0px; border: 0px solid transparent; border-radius: 6.3125px }
+.p20 { left: 250.25px; top: 130.1875px; width: 35.5px; height: 35.625px; padding: 1.5px; border: 0px solid transparent; border-radius: 12.9375px }
+.p21 { left: 310.125px; top: 130.4375px; width: 35.0625px; height: 36.125px; padding: 2.25px; border: 1px solid transparent; border-radius: 4.75px }
+.p22 { left: 370.0px; top: 130.0px; width: 31.5px; height: 35.5625px; padding: 0.5px; border: 0px solid transparent; border-radius: 4.5625px }
+.p23 { left: 430.875px; top: 130.3125px; width: 31.8125px; height: 31.0625px; padding: 0.4375px; border: 2px solid transparent; border-radius: 6.1875px }
+.p24 { left: 10.625px; top: 190.1875px; width: 33.3125px; height: 31.8125px; padding: 2.5625px; border: 1px solid transparent; border-radius: 16.9375px }
+.p25 { left: 70.625px; top: 190.75px; width: 33.625px; height: 30.0px; padding: 0.5625px; border: 1px solid transparent; border-radius: 10.75px }
+.p26 { left: 130.5px; top: 190.3125px; width: 31.125px; height: 35.875px; padding: 0.25px; border: 2px solid transparent; border-radius: 16.6875px }
+.p27 { left: 190.125px; top: 190.625px; width: 38.375px; height: 34.375px; padding: 0px; border: 1px solid transparent; border-radius: 4.875px }
+.p28 { left: 250.1875px; top: 190.125px; width: 33.75px; height: 34.0625px; padding: 1.5px; border: 1px solid transparent; border-radius: 6.625px }
+.p29 { left: 310.0px; top: 190.0px; width: 33.4375px; height: 30.4375px; padding: 2.5px; border: 0px solid transparent; border-radius: 16.125px }
+.p30 { left: 370.3125px; top: 190.25px; width: 34.6875px; height: 37.9375px; padding: 0.1875px; border: 1px solid transparent; border-radius: 4.3125px }
+.p31 { left: 430.625px; top: 190.375px; width: 32.625px; height: 34.1875px; padding: 1.25px; border: 0px solid transparent; border-radius: 12.0625px }
+.p32 { left: 10.8125px; top: 250.5px; width: 32.5625px; height: 36.3125px; padding: 0.5px; border: 0px solid transparent; border-radius: 16.875px }
+.p33 { left: 70.0px; top: 250.8125px; width: 38.875px; height: 38.875px; padding: 0.5px; border: 0px solid transparent; border-radius: 8.9375px }
+.p34 { left: 130.3125px; top: 250.125px; width: 30.0625px; height: 35.25px; padding: 0.5px; border: 1px solid transparent; border-radius: 10.75px }
+.p35 { left: 190.9375px; top: 250.4375px; width: 33.9375px; height: 30.3125px; padding: 1.25px; border: 0px solid transparent; border-radius: 8.9375px }
+.p36 { left: 250.5625px; top: 250.5625px; width: 36.625px; height: 38.5px; padding: 0px; border: 1px solid transparent; border-radius: 6.375px }
+.p37 { left: 310.5px; top: 250.8125px; width: 34.6875px; height: 32.875px; padding: 0.1875px; border: 2px solid transparent; border-radius: 6.25px }
+.p38 { left: 370.125px; top: 250.5px; width: 33.0625px; height: 37.75px; padding: 1.75px; border: 0px solid transparent; border-radius: 12.0625px }
+.p39 { left: 430.3125px; top: 250.625px; width: 31.5px; height: 31.25px; padding: 0.25px; border: 2px solid transparent; border-radius: 10.75px }
+.p40 { left: 10.5px; top: 310.4375px; width: 37.25px; height: 37.375px; padding: 0.8125px; border: 2px solid transparent; border-radius: 4.5625px }
+.p41 { left: 70.3125px; top: 310.5625px; width: 36.0px; height: 33.875px; padding: 0.0px; border: 0px solid transparent; border-radius: 8.375px }
+.p42 { left: 130.1875px; top: 310.375px; width: 32.375px; height: 34.5625px; padding: 1.25px; border: 1px solid transparent; border-radius: 10.8125px }
+.p43 { left: 190.25px; top: 310.125px; width: 36.375px; height: 34.1875px; padding: 0.1875px; border: 0px solid transparent; border-radius: 12.5625px }
+.p44 { left: 250.6875px; top: 310.5625px; width: 38.6875px; height: 34.8125px; padding: 1px; border: 0px solid transparent; border-radius: 10.875px }
+.p45 { left: 310.5px; top: 310.375px; width: 38.75px; height: 35.9375px; padding: 0.75px; border: 0px solid transparent; border-radius: 12.0px }
+.p46 { left: 370.8125px; top: 310.75px; width: 37.8125px; height: 34.3125px; padding: 2.5px; border: 0px solid transparent; border-radius: 16.75px }
+.p47 { left: 430.5px; top: 310.3125px; width: 35.125px; height: 37.4375px; padding: 1.75px; border: 0px solid transparent; border-radius: 16.75px }
