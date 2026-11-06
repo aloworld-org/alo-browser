@@ -54,6 +54,10 @@ pub enum Cast {
     /// drawn at — its palette colour's, or one for a layer in the text's
     /// colour.
     Layers(Vec<(Path, f32)>),
+    /// A glyph drawn by a paint program (queue item 785): the program, the
+    /// pen it is drawn at and CSS pixels to a font unit — casting what it
+    /// draws, its alpha, as the others do.
+    Painted(Arc<Vec<crate::colour_paint::Step>>, (f32, f32), f32),
 }
 
 impl Cast {
@@ -61,6 +65,7 @@ impl Cast {
     pub fn kind(&self) -> String {
         match self {
             Cast::Picture(..) => "a picture".to_owned(),
+            Cast::Painted(steps, ..) => format!("a program of {} steps", steps.len()),
             Cast::Layers(layers) => format!("{} layers", layers.len()),
         }
     }
@@ -73,6 +78,9 @@ impl Cast {
                 rect.translated(alo_layout::Point::new(by.0, by.1)),
                 Arc::clone(pixels),
             ),
+            Cast::Painted(steps, pen, to_css) => {
+                Cast::Painted(Arc::clone(steps), (pen.0 + by.0, pen.1 + by.1), *to_css)
+            }
             Cast::Layers(layers) => {
                 let point = crate::path::Point::new(by.0, by.1);
                 Cast::Layers(
@@ -90,6 +98,9 @@ impl Cast {
     pub fn bounds(&self) -> Option<(f32, f32, f32, f32)> {
         match self {
             Cast::Picture(rect, _) => Some((rect.left(), rect.top(), rect.right(), rect.bottom())),
+            Cast::Painted(steps, pen, to_css) => {
+                crate::painted_glyph::reach(steps, crate::render::font_units(*pen, *to_css))
+            }
             Cast::Layers(layers) => {
                 layers
                     .iter()
@@ -113,6 +124,10 @@ impl Cast {
 pub fn coverage(cast: &Cast, transform: Matrix) -> Coverage {
     match cast {
         Cast::Picture(rect, pixels) => alpha_of(pixels, *rect, transform),
+        Cast::Painted(steps, pen, to_css) => crate::painted_glyph::alpha(
+            steps,
+            crate::render::font_units(*pen, *to_css).then(transform),
+        ),
         Cast::Layers(layers) => {
             let parts = layers
                 .iter()

@@ -117,10 +117,13 @@ pub fn box_at(list: &DisplayList, at: Point) -> Option<BoxId> {
             }
             DisplayItem::Fill { .. }
             | DisplayItem::Shadow { .. }
+            | DisplayItem::LettersShadow { .. }
             | DisplayItem::GlyphShadow { .. }
             | DisplayItem::PushGroup { .. }
             | DisplayItem::PopGroup
             | DisplayItem::Picture { .. }
+            | DisplayItem::LayeredGlyph { .. }
+            | DisplayItem::PaintedGlyph { .. }
             | DisplayItem::Text { .. } => {}
         }
     }

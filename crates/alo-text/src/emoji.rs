@@ -14,11 +14,12 @@
 //! (UTS #51) — which is rented (`unicode-properties`), and this is the only
 //! file that names it.
 //!
-//! What is done with the answer is ours, and it is what a browser does: a
-//! character meant to be a picture is looked for first in a face that draws
-//! pictures ([`crate::Font::draws_pictures`]), and one meant to be a letter
-//! first in a face that does not — each falling back to the plain chain when
-//! no such face has it, so nothing that was drawn before is lost.
+//! What is done with the answer is ours, and it is what Chrome 156 does,
+//! measured (queue item 829, [`crate::FontDatabase::font_shown`]): a face a
+//! page lists that has the character draws it, however it is meant —
+//! unless a variation selector asks, U+FE0F for a face that draws in colour
+//! and U+FE0E for one that does not; only where no face listed has it does
+//! how it is meant by default choose among the rest.
 //!
 //! # What keeps to the character before it
 //!
@@ -34,10 +35,14 @@ use unicode_properties::emoji::{EmojiStatus, UnicodeEmoji};
 /// How a character is meant to be shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Presentation {
-    /// As a letter: the ordinary chain, a face of outlines first.
+    /// As a letter, by default (`Emoji_Presentation=No`), nothing asked.
     Text,
-    /// As a picture: a face that draws pictures first.
+    /// As a picture, by default (`Emoji_Presentation=Yes`), nothing asked.
     Emoji,
+    /// As a letter, asked for by a U+FE0E after it.
+    AskedText,
+    /// As a picture, asked for by a U+FE0F after an emoji character.
+    AskedEmoji,
 }
 
 /// U+FE0E, which asks for the character before it as a letter.
@@ -53,8 +58,8 @@ const AS_EMOJI: char = '\u{fe0f}';
 /// picture, as `Emoji_Presentation` says.
 pub fn presentation(character: char, next: Option<char>) -> Presentation {
     match next {
-        Some(AS_TEXT) => return Presentation::Text,
-        Some(AS_EMOJI) if character.is_emoji_char() => return Presentation::Emoji,
+        Some(AS_TEXT) => return Presentation::AskedText,
+        Some(AS_EMOJI) if character.is_emoji_char() => return Presentation::AskedEmoji,
         _ => {}
     }
     // Every status that says `Emoji_Presentation=Yes`; the table may grow
@@ -112,9 +117,9 @@ mod tests {
 
     #[test]
     fn a_variation_selector_after_a_character_decides_how_it_is_shown() {
-        assert_eq!(presentation('❤', Some(AS_EMOJI)), Presentation::Emoji);
-        assert_eq!(presentation('1', Some(AS_EMOJI)), Presentation::Emoji);
-        assert_eq!(presentation('😀', Some(AS_TEXT)), Presentation::Text);
+        assert_eq!(presentation('❤', Some(AS_EMOJI)), Presentation::AskedEmoji);
+        assert_eq!(presentation('1', Some(AS_EMOJI)), Presentation::AskedEmoji);
+        assert_eq!(presentation('😀', Some(AS_TEXT)), Presentation::AskedText);
         assert_eq!(
             presentation('a', Some(AS_EMOJI)),
             Presentation::Text,

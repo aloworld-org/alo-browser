@@ -259,8 +259,9 @@ pub struct Font {
     /// Whether a run's size sets that axis: `font-optical-sizing`.
     optical_sizing: OpticalSizing,
     /// Whether its glyphs are pictures — a `CBDT` or `sbix` table — rather
-    /// than outlines alone: a colour emoji face (ADR 0088).
-    pictured: bool,
+    /// than outlines alone, and whose: a colour emoji face (ADR 0088; queue
+    /// item 829).
+    pictures: Pictures,
     /// Whether it holds a `COLR` table: some of its glyphs are layers of
     /// outlines, each in a colour of its own (queue item 766).
     layered: bool,
@@ -269,6 +270,17 @@ pub struct Font {
     /// to one glyph each — Apple's `LastResort`, whose glyph for a character
     /// is its block's box (queue item 767).
     last_resort: bool,
+}
+
+/// Which table a face's pictures are in, if it has any.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Pictures {
+    /// None: its glyphs are outlines.
+    None,
+    /// `CBDT`, Google's (Noto Color Emoji).
+    Google,
+    /// `sbix` alone, Apple's (Apple Color Emoji).
+    Apple,
 }
 
 impl Font {
@@ -291,7 +303,11 @@ impl Font {
         let axis = weight_axis_of(&face);
         let optical = optical_axis_of(&face);
         let tables = face.tables();
-        let pictured = tables.cbdt.is_some() || tables.sbix.is_some();
+        let pictures = match (tables.cbdt.is_some(), tables.sbix.is_some()) {
+            (true, _) => Pictures::Google,
+            (false, true) => Pictures::Apple,
+            (false, false) => Pictures::None,
+        };
         let layered = tables.colr.is_some();
         let last_resort = tables.cmap.is_some_and(|cmap| {
             let mut subtables = cmap.subtables.into_iter().peekable();
@@ -312,7 +328,7 @@ impl Font {
             axis,
             optical,
             optical_sizing: OpticalSizing::Auto,
-            pictured,
+            pictures,
             layered,
             last_resort,
         })
@@ -433,7 +449,25 @@ impl Font {
     /// is looked for in such a font first ([`crate::emoji`]), and paint draws
     /// such a glyph's picture where its outline would be.
     pub fn draws_pictures(&self) -> bool {
-        self.pictured
+        self.pictures != Pictures::None
+    }
+
+    /// Whether its pictures are Apple's `sbix` ones, with no `CBDT` table —
+    /// which Chrome 156 keeps, listed first, for a character asked for as a
+    /// letter (U+FE0E) that no listed face of letters has, where it leaves
+    /// a `CBDT` face and a `COLR` one for the system's (queue item 829,
+    /// [`crate::FontDatabase::font_shown`]).
+    pub fn draws_apple_pictures(&self) -> bool {
+        self.pictures == Pictures::Apple
+    }
+
+    /// Whether it may draw a glyph in colours of its own — as pictures or as
+    /// layers ([`Font::draws_pictures`], [`Font::draws_layers`]): what
+    /// Chrome 156 asks of a face for a character asked for as a picture
+    /// (U+FE0F), and passes over in fallback for one shown as a letter
+    /// (queue item 829).
+    pub fn draws_in_colour(&self) -> bool {
+        self.draws_pictures() || self.layered
     }
 
     /// Whether some of its glyphs may be layers of outlines in colours of

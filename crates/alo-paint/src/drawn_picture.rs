@@ -48,13 +48,13 @@
 //! *inside* it while its outline is smooth. Item 613.
 
 use crate::canvas::Canvas;
-use crate::mix_onto::onto;
+use crate::mix_onto::faded_onto;
 use crate::path::Path;
 use crate::picture_filter::Uploads;
 use crate::raster::fill;
 use crate::render::{pixel_centre, place};
 use alo_layout::Rect;
-use alo_value::Matrix;
+use alo_value::{Matrix, Rgba};
 use std::sync::Arc;
 
 /// Draw a picture into a rectangle in page coordinates, under a transform,
@@ -70,13 +70,27 @@ pub fn draw_picture(
     transform: Matrix,
     uploads: &mut Uploads,
 ) {
-    if picture.width() == 0 || picture.height() == 0 {
+    draw_faded_picture(target, picture, rect, transform, uploads, u8::MAX);
+}
+
+/// The same, drawn at `fade` of 255: a colour glyph's picture under text of
+/// a translucent colour (queue item 830), each pixel's mix faded as Chrome
+/// fades it ([`crate::mix_onto::faded_onto`]). At 255, [`draw_picture`].
+pub fn draw_faded_picture(
+    target: &mut Canvas,
+    picture: &Arc<Canvas>,
+    rect: Rect,
+    transform: Matrix,
+    uploads: &mut Uploads,
+    fade: u8,
+) {
+    if picture.width() == 0 || picture.height() == 0 || fade == 0 {
         return;
     }
     if keeps_upright(transform) {
-        upright(target, picture, rect, transform, uploads);
+        upright(target, picture, rect, transform, uploads, fade);
     } else {
-        turned(target, picture, rect, transform);
+        turned(target, picture, rect, transform, fade);
     }
 }
 
@@ -94,6 +108,7 @@ fn upright(
     rect: Rect,
     transform: Matrix,
     uploads: &mut Uploads,
+    fade: u8,
 ) {
     // The corners, transformed once. Everything after this is integers, so that
     // the per-pixel arithmetic cannot lose anything and does not need a cast
@@ -120,7 +135,9 @@ fn upright(
             let Some(mix) = filtered.mix(x, y) else {
                 continue;
             };
-            target.replace(at_x + x - off_x, at_y + y - off_y, |under| onto(mix, under));
+            target.replace(at_x + x - off_x, at_y + y - off_y, |under| {
+                faded_onto(mix, under, fade)
+            });
         }
     }
 }
@@ -135,7 +152,7 @@ fn off_the_page(value: f32) -> u32 {
 
 /// The turned path: the rectangle as a transformed shape, each covered pixel
 /// sampled from where it came from.
-fn turned(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix) {
+fn turned(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix, fade: u8) {
     let width = rect.right() - rect.left();
     let height = rect.bottom() - rect.top();
     // Written as a refusal of everything that is not a positive size, so that
@@ -168,7 +185,12 @@ fn turned(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix) 
             let Some(colour) = picture.at(from_x, from_y) else {
                 continue;
             };
-            // Partly covered at the outline, like any other shape's edge.
+            // Partly covered at the outline, like any other shape's edge;
+            // faded as a whole pixel of it is.
+            let colour = Rgba {
+                alpha: colour.alpha * (f32::from(fade) / 255.0),
+                ..colour
+            };
             target.blend(x, y, colour, covered);
         }
     }

@@ -76,6 +76,7 @@ pub fn outline_at(font: &Font, glyph_id: u16, size: f32, scale: f32) -> Option<G
     let mut builder = Builder {
         path: Path::new(),
         scale,
+        up: -1.0,
     };
     // A glyph with no outline returns `None` here and is a blank glyph, not a
     // failure: `outline_glyph` says "nothing to draw", and a space has nothing
@@ -275,10 +276,214 @@ impl<'a> ttf_parser::colr::Painter<'a> for Layers<'_> {
     }
 }
 
-/// Turns the font's outline calls into our path, scaled and flipped.
+/// A glyph of `COLR` version 1 — or any glyph of a `COLR` face that
+/// [`layers_at`] does not take as flat layers — as its paint program
+/// ([`crate::colour_paint`], queue item 785), in the font's own units with
+/// `y` up, set to the instance a run at `size` is set to (on a screen of
+/// `scale`), the text's own
+/// colour standing for `0xFFFF`. [`None`] for a glyph with no colour of its
+/// own, or a font that cannot be read.
+pub fn painted(
+    font: &Font,
+    glyph_id: u16,
+    (size, scale): (f32, f32),
+    foreground: Rgba,
+) -> Option<PaintedGlyph> {
+    if !font.draws_layers() {
+        return None;
+    }
+    let mut face = ttf_parser::Face::parse(font.data(), font.index()).ok()?;
+    for (axis, value) in font.variations(size) {
+        let _ = face.set_variation(ttf_parser::Tag::from_bytes(&axis), value);
+    }
+    let id = ttf_parser::GlyphId(glyph_id);
+    let units = f32::from(face.units_per_em());
+    if !face.is_color_glyph(id) || units <= 0.0 {
+        return None;
+    }
+    let (red, green, blue, alpha) = foreground.to_rgba8();
+    let mut recorder = Recorder {
+        face: &face,
+        steps: Vec::new(),
+    };
+    face.paint_color_glyph(
+        id,
+        0,
+        ttf_parser::RgbaColor::new(red, green, blue, alpha),
+        &mut recorder,
+    )?;
+    Some(PaintedGlyph {
+        steps: recorder.steps,
+        to_css: alo_text::face_size_at(size, scale) / units,
+    })
+}
+
+/// A glyph's paint program ([`painted`]) and how far a font unit is in CSS
+/// pixels at the size it is set at.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PaintedGlyph {
+    /// The program, in font units, `y` up.
+    pub steps: Vec<crate::colour_paint::Step>,
+    /// CSS pixels to a font unit.
+    pub to_css: f32,
+}
+
+/// Records a paint program as `ttf-parser` walks it, in our words.
+struct Recorder<'f, 'a> {
+    face: &'f ttf_parser::Face<'a>,
+    steps: Vec<crate::colour_paint::Step>,
+}
+
+/// A colour line's stops, at the face's instance, in our words.
+fn colour_line(
+    stops: impl Iterator<Item = ttf_parser::colr::ColorStop>,
+    extend: ttf_parser::colr::GradientExtend,
+) -> crate::colour_paint::ColourLine {
+    use crate::colour_paint::Extend;
+    crate::colour_paint::ColourLine {
+        stops: stops
+            .map(|stop| {
+                let colour = stop.color;
+                (
+                    stop.stop_offset,
+                    Rgba::from_rgba8(colour.red, colour.green, colour.blue, colour.alpha),
+                )
+            })
+            .collect(),
+        extend: match extend {
+            ttf_parser::colr::GradientExtend::Pad => Extend::Pad,
+            ttf_parser::colr::GradientExtend::Repeat => Extend::Repeat,
+            ttf_parser::colr::GradientExtend::Reflect => Extend::Reflect,
+        },
+    }
+}
+
+impl<'a> ttf_parser::colr::Painter<'a> for Recorder<'_, 'a> {
+    fn outline_glyph(&mut self, glyph_id: ttf_parser::GlyphId) {
+        let mut builder = Builder {
+            path: Path::new(),
+            scale: 1.0,
+            up: 1.0,
+        };
+        let _ = self.face.outline_glyph(glyph_id, &mut builder);
+        self.steps
+            .push(crate::colour_paint::Step::Outline(builder.path));
+    }
+
+    fn paint(&mut self, paint: ttf_parser::colr::Paint<'a>) {
+        use crate::colour_paint::Fill;
+        let coords = self.face.variation_coordinates();
+        let fill = match paint {
+            ttf_parser::colr::Paint::Solid(colour) => Fill::Solid(Rgba::from_rgba8(
+                colour.red,
+                colour.green,
+                colour.blue,
+                colour.alpha,
+            )),
+            ttf_parser::colr::Paint::LinearGradient(gradient) => Fill::Linear {
+                points: [
+                    (gradient.x0, gradient.y0),
+                    (gradient.x1, gradient.y1),
+                    (gradient.x2, gradient.y2),
+                ],
+                line: colour_line(gradient.stops(0, coords), gradient.extend),
+            },
+            ttf_parser::colr::Paint::RadialGradient(gradient) => Fill::Radial {
+                circles: [
+                    (gradient.x0, gradient.y0, gradient.r0),
+                    (gradient.x1, gradient.y1, gradient.r1),
+                ],
+                line: colour_line(gradient.stops(0, coords), gradient.extend),
+            },
+            ttf_parser::colr::Paint::SweepGradient(gradient) => Fill::Sweep {
+                centre: (gradient.center_x, gradient.center_y),
+                angles: (gradient.start_angle, gradient.end_angle),
+                line: colour_line(gradient.stops(0, coords), gradient.extend),
+            },
+        };
+        self.steps.push(crate::colour_paint::Step::Paint(fill));
+    }
+
+    fn push_clip(&mut self) {
+        self.steps.push(crate::colour_paint::Step::PushClip);
+    }
+
+    fn push_clip_box(&mut self, clipbox: ttf_parser::colr::ClipBox) {
+        self.steps.push(crate::colour_paint::Step::PushClipBox(
+            clipbox.x_min,
+            clipbox.y_min,
+            clipbox.x_max,
+            clipbox.y_max,
+        ));
+    }
+
+    fn pop_clip(&mut self) {
+        self.steps.push(crate::colour_paint::Step::PopClip);
+    }
+
+    fn push_layer(&mut self, mode: ttf_parser::colr::CompositeMode) {
+        use crate::colour_paint::Mode;
+        use ttf_parser::colr::CompositeMode as M;
+        let mode = match mode {
+            M::Clear => Mode::Clear,
+            M::Source => Mode::Source,
+            M::Destination => Mode::Destination,
+            M::SourceOver => Mode::SourceOver,
+            M::DestinationOver => Mode::DestinationOver,
+            M::SourceIn => Mode::SourceIn,
+            M::DestinationIn => Mode::DestinationIn,
+            M::SourceOut => Mode::SourceOut,
+            M::DestinationOut => Mode::DestinationOut,
+            M::SourceAtop => Mode::SourceAtop,
+            M::DestinationAtop => Mode::DestinationAtop,
+            M::Xor => Mode::Xor,
+            M::Plus => Mode::Plus,
+            M::Screen => Mode::Screen,
+            M::Overlay => Mode::Overlay,
+            M::Darken => Mode::Darken,
+            M::Lighten => Mode::Lighten,
+            M::ColorDodge => Mode::ColorDodge,
+            M::ColorBurn => Mode::ColorBurn,
+            M::HardLight => Mode::HardLight,
+            M::SoftLight => Mode::SoftLight,
+            M::Difference => Mode::Difference,
+            M::Exclusion => Mode::Exclusion,
+            M::Multiply => Mode::Multiply,
+            M::Hue => Mode::Hue,
+            M::Saturation => Mode::Saturation,
+            M::Color => Mode::Color,
+            M::Luminosity => Mode::Luminosity,
+        };
+        self.steps.push(crate::colour_paint::Step::PushLayer(mode));
+    }
+
+    fn pop_layer(&mut self) {
+        self.steps.push(crate::colour_paint::Step::PopLayer);
+    }
+
+    fn push_transform(&mut self, transform: ttf_parser::Transform) {
+        self.steps.push(crate::colour_paint::Step::PushTransform([
+            transform.a,
+            transform.b,
+            transform.c,
+            transform.d,
+            transform.e,
+            transform.f,
+        ]));
+    }
+
+    fn pop_transform(&mut self) {
+        self.steps.push(crate::colour_paint::Step::PopTransform);
+    }
+}
+
+/// Turns the font's outline calls into our path, scaled and flipped — or,
+/// for a paint program's outlines, left in the font's own units with `y`
+/// up (`up` 1 rather than −1).
 struct Builder {
     path: Path,
     scale: f32,
+    up: f32,
 }
 
 impl Builder {
@@ -286,7 +491,7 @@ impl Builder {
         // Positive `y` is up in a font and down on a screen. This minus sign
         // is the whole of that difference, and it is here so that it is
         // nowhere else.
-        Point::new(x * self.scale, -y * self.scale)
+        Point::new(x * self.scale, self.up * y * self.scale)
     }
 }
 

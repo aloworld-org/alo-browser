@@ -48668,3 +48668,90 @@ tests run: 6358 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is met."
 (11 of 11 steps)*.
 
 The next unused queue number is **832** and the next ADR is **0098**.
+
+## 2026-11-06 — items 830, 829, 831 and 785: a colour glyph at its text's opacity, the face Chrome chooses, letters' shadows glyph by glyph, and `COLR` version 1
+
+Batched under one gate, at the owner's asking ("Go ahead" to the
+engine-fidelity backlog), each item built with its own tests and docs in
+that order. Chrome measured headless, without `--disable-gpu`, its source
+not read: **156.0.8078.76** for 830 and 829; it updated itself mid-batch,
+and 831 and 785 were measured on **157.0.8103.38** (`--version` checked
+each time).
+
+**830 — a colour glyph at its text's opacity.** A picture glyph is faded
+texel by texel: each texel premultiplied to a level, times the text
+alpha's byte (0.3 → 77, 0.7 → 179 — `to_rgba8`'s f32 half-up, which is
+Chrome's), over the ground — 86,400 samples of a random 40 × 40 `CBDT`
+picture under eighteen alphas over three grounds, every one. A layered
+glyph is one group: its layers put over each other as Chrome's software
+rasteriser makes a glyph's picture (colours premultiplied to a level,
+`s + ⌊d(256 − sₐ)/256⌋`) and faded once — 108 of 108 samples of the
+text-coloured foot over the leg and the half-opaque side at one and two
+(held in floats, 11 off by a level; the foot drawn at 0.3 rather than 77,
+768 pixels). Transparent text draws none; the shadow stays whole. Every
+layered glyph is now that group (`DisplayItem::LayeredGlyph`), opaque text
+too: drawn layer by layer, a half-opaque layer was a level off Chrome's in
+416 pixels. At two a picture glyph enlarged past its strike is a level off
+in about half its pixels under any text alpha — cut to **832**.
+References moved: `colour-glyph-shadows.png` (row 9's faint glyph, 1,088
+pixels, now Chrome's exactly; row 11, 76 pixels a level apart, where both
+engines' glyph sits half a pixel apart — cut to **833**) and
+`-at-2.png` (row 9, 4,352, now exact).
+
+**829 — the face Chrome chooses.** Measured with four faces made for it
+(plain, `CBDT`, `COLR`, `sbix`, each its own advance) in thirty lists:
+Chrome takes the first *listed* face that has a character whatever it is;
+U+FE0F the first face that draws in colour anywhere in the chain; U+FE0E
+the first listed face that does not, else an `sbix` face listed first,
+else a face of letters among the rest; the default presentation only
+chooses among faces not listed. `sans-serif` lists widen into CoreText's
+cascade on macOS (cut to **837**). 476 choices replayed in
+`alo-text/tests/a_face_chosen_as_chrome_chooses_it.rs`, every one.
+Reference moved: `emoji-in-results.png` — 😀 in a title whose list holds
+`system-ui`, mapped in that test to `DejaVu Sans`, which has 😀: now its
+outline in the title's ink, as Chrome draws a listed face's glyph (on a
+Mac's own faces, which lack it, still Noto's picture); the title 355.27
+wide (was 358.92). Looked at side by side: only that glyph and what
+follows it on the line moved.
+
+**831 — letters' shadows glyph by glyph.** Each glyph's shadow softened on
+its own and drawn over the others: two `A`s blurred 16 meet at 132 here
+and 129 in Chrome (one shape: 110); two overlapping `W`s' hard half-black
+shadows 63 where they overlap, as Chrome's. Chrome also fills translucent
+*letters* glyph by glyph (63 where two half-teal `W`s overlap; here 128) —
+cut to **834**, since it moves every text reference's shared edge pixels.
+References moved: corpus `text-shadow-on-lines` (`render.png` 486 pixels,
+`render-at-2.png` 2,127, up to 7 and 11 levels, letter-edge pixels of hard
+shadows where two glyphs share a pixel — against `chrome.png` 214 nearer,
+217 farther) and `shadowed-card` (`render.png` 248, its title's soft
+translucent shadow darker between letters). `display.txt` unchanged: a
+letters' shadow is listed as before.
+
+**785 — `COLR` version 1.** The paint program recorded from `ttf-parser`'s
+own walk in `glyph.rs` into our words (`colour_paint.rs`), run on a
+surface of the glyph's own (`painted_glyph.rs`): three-point linear,
+two-circle radial and sweep gradients with pad, repeat and reflect;
+transforms; glyph clips and clip boxes; layers put on by every mode
+(Porter–Duff, separable and non-separable blends); held in eight bits and
+drawn at the text alpha. Fitted to Chrome 157 on a sixteen-glyph test
+face: stops mixed straight, then premultiplied (premultiplied mixing was
+22 off at a 0.6 stop); a sweep's angles carry the table's bias of one
+(187 off without); no dithering. Every pixel inside a shape is within a
+level of Chrome's at one and two; slanted edges within 24 and 34 (the
+turned square — Chrome's glyph rasteriser's coverage). A painted glyph
+casts its alpha as its shadow (measured on `R`: 88, Chrome 88). `SVG `
+glyphs cut to **835**; a variable `COLR` glyph's deltas are applied by the
+walk but untested — cut to **836**.
+
+Temporary probes (`alo-renderer/tests/zz_probe830.rs`, `zz_probe831.rs`)
+were removed before the gate; the generators, Chrome shots and fits are in
+the session's scratchpad (`m830/`, `m829/`, `m831/`, `m785/`; some of
+`m830`/`m829` were cleared by the system while the session waited on its
+usage limit, after their numbers were taken).
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000;
+detached with `setsid`, waited on by its PID). **Summary [639.087s] 6384
+tests run: 6384 passed (4 slow, 2 leaky), 0 skipped** — *"The gate is met."
+(11 of 11 steps)*.
+
+The next unused queue number is **838** and the next ADR is **0098**.

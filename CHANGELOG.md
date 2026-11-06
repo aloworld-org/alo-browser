@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Colour emoji drawn with gradients.** A colour font of the newer kind
+  (`COLR` version 1, as Noto's vector emoji are) is now drawn in its
+  colours — its gradients, turns, clips and blending — as Chrome draws it,
+  where before it was drawn as a flat outline in the text's colour.
+- **An emoji in faint text is faint too.** A colour emoji or other colour
+  glyph in text of a see-through colour is now drawn at that colour's
+  opacity, as in Chrome, where before it was drawn solid; in transparent
+  text it is not drawn at all.
+- **The font that draws a character is the one Chrome picks.** A font a
+  page lists first now draws every character it has, emoji included,
+  however it is meant — only a variation selector asks for a colour font
+  (U+FE0F) or a plain one (U+FE0E) — where before an emoji went to a
+  colour font and a letter away from one even when the listed font had it.
+- **A soft text shadow is as dark as Chrome's between letters.** Each
+  letter's shadow is now softened on its own and the shadows laid over
+  each other, so where two letters' shadows meet, or overlap, they are as
+  dark as in Chrome; before, the run's letters were softened as one shape
+  and came out lighter there.
 - **A rounded picture, or SVG, is rounded where Chrome rounds it.** A
   picture with its own rounded corners that sits at a fraction of a pixel
   now has its corners — and its edges — cut exactly where Chrome cuts

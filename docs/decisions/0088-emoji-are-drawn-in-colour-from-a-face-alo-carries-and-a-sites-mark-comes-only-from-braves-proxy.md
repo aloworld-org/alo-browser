@@ -1,6 +1,6 @@
 # ADR 0088 — Emoji are drawn in colour from a face alo carries, and a site's mark comes only from Brave's proxy
 
-**Status:** accepted — built with queue item 747 (31 October 2026); § 5's CJK built by 767 (1 November 2026)
+**Status:** accepted — built with queue item 747 (31 October 2026); § 5's CJK built by 767 (1 November 2026); § 3's choice of face amended by 829, § 5's colour glyphs by 830, 831 and 785 (6 November 2026)
 **Date:** 2026-10-31
 **Context:** ADR 0084 (the interface's typefaces are compiled in and handed
 to its renderers alone; § 4, a character neither has); ADR 0010 (a renderer
@@ -129,6 +129,27 @@ so the face is handed the whole sequence and its `GSUB` makes it one
 picture. Layout and paint read the same split, so an emoji is laid out at
 the width it is drawn: Noto's advance, 2550/2048 em.
 
+*Since queue item 829 (6 November 2026)* **the face is chosen as Chrome
+chooses it**, measured in Chrome 156.0.8078.76 (510 widths, seventeen
+characters and sequences in thirty font lists of four test faces): a
+face the request **lists** that has the character draws it, whatever its
+kind and however the character is meant by default — a `CBDT` face listed
+first draws `B` in colour, a plain face listed first draws 🙂 as its
+outline; U+FE0F asks for the first face of the whole chain that draws in
+colour (`CBDT`, `sbix` or `COLR`), past a plain face listed first;
+U+FE0E for the first listed face that does not, else the face listed
+first if it is `sbix`, else a face of letters among the rest; and only
+where no listed face has the character does `Emoji_Presentation` choose
+among the rest — an emoji the first face that draws in colour, a letter
+the first that does not, a last resort never preferred
+(`FontDatabase::font_shown`). In the interface, whose families are
+Instrument Sans then `system-ui` and `sans-serif`, an emoji still comes
+from Noto wherever those faces lack it — on macOS, every emoji; under
+`--frozen-fonts`, where `DejaVu Sans` stands for them, 😀 and the few
+emoji `DejaVu Sans` has are its outlines, as Chrome draws a listed face's
+glyph. Chrome on macOS widens a generic family into CoreText's cascade,
+which this engine does not (queue item 837).
+
 **What an agent reads** is unchanged: the characters (ADR 0002). An emoji
 is text in the tree; its picture is paint.
 
@@ -195,6 +216,17 @@ is text in the tree; its picture is paint.
   156 draws a test face of the same bytes the same in every pixel of one
   colour (`alo-renderer/tests/a_glyph_in_layers_of_colour.rs`). A
   version 1 glyph and an `SVG ` glyph are still their outlines (785).
+  *Since queue item 785 (6 November 2026)* **a version 1 glyph is drawn as
+  its paint program** — linear, radial and sweep gradients on `COLR`'s
+  own geometry, transforms, glyph clips and clip boxes, layers and every
+  compositing mode — recorded from `ttf-parser`'s walk in `glyph.rs` (the
+  one file that names it) into `alo-paint`'s `colour_paint.rs` and run on
+  a surface of the glyph's own (`painted_glyph.rs`), then drawn at the
+  text's alpha as a layered glyph is. Measured in Chrome 157.0.8103.38 on a
+  test face of sixteen glyphs: every pixel inside a shape Chrome's to a
+  level at one and two, gradients' stops mixed as straight colours, a
+  sweep's angles with the table's bias of one, no dithering. An `SVG `
+  glyph is still its outlines (835).
 - **An emoji casts no `text-shadow`** and a decoration line does not step
   aside for it: the shadow is cast by the run's outlines, which a picture
   glyph has none of. Nothing in the interface shadows text; queued with
@@ -216,7 +248,8 @@ is text in the tree; its picture is paint.
   beside it (an emoji 8 px from a letter, blurred 16, meet at 156 of 255
   in Chrome where one shape would be 147). Chrome softens plain letters
   apart too, which this engine still does not: two letters 8 px apart meet
-  at 129 there and 110 here (queue item 831). **A decoration line does not
+  at 129 there and 110 here (queue item 831). *Since queue item 831 (6 November 2026)* it
+  does: each letter's shadow softened on its own (132 here, Chrome 157 129). **A decoration line does not
   step aside** for a picture glyph or a layered one — not for a picture's
   clear pixels, nor a layer, nor a layered glyph's own outline: an
   underline is drawn under either exactly as with
@@ -226,7 +259,10 @@ is text in the tree; its picture is paint.
   (`alo-renderer/tests/a_colour_glyphs_shadow.rs`). Found on the way and
   queued: Chrome draws a colour glyph at the text colour's own opacity
   (a palette red under `rgba(…, 0.3)` text is 247, 195, 199), which this
-  engine does not (830); and a face listed first that draws a character in
+  engine does not (830); *since queue item 830 (6 November 2026)* it
+  does — a picture faded texel by texel, a layered or painted glyph as one
+  group made in eight bits as Chrome's rasteriser makes it, then faded once
+  (`glyph_fade.rs`), every pixel of a test page Chrome 156's at one; and a face listed first that draws a character in
   colour is Chrome's choice for it, where this engine takes a later plain
   face for a character meant as a letter, and a picture face over a
   layered one for an emoji (829).

@@ -106,6 +106,37 @@ pub enum DisplayItem {
         /// What colour.
         color: Rgba,
     },
+    /// A glyph drawn by a paint program of `COLR` version 1 (queue item
+    /// 785): run on a surface of its own and drawn at the text colour's
+    /// alpha, as a layered glyph is ([`crate::painted_glyph`]).
+    PaintedGlyph {
+        /// The box it belongs to.
+        box_id: BoxId,
+        /// Its program, in font units with `y` up.
+        steps: std::sync::Arc<Vec<crate::colour_paint::Step>>,
+        /// Where its pen is, on the baseline, in page coordinates.
+        pen: (f32, f32),
+        /// CSS pixels to a font unit.
+        to_css: f32,
+        /// How strongly it is drawn, of 255: the text colour's alpha.
+        fade: u8,
+    },
+    /// The shadow a run of letters casts (queue item 831): each glyph's
+    /// outline softened on its own and drawn over the others in one colour,
+    /// as Chrome 157 draws a text shadow glyph by glyph — two letters 8 px
+    /// apart blurred 16 meet darker than one shape would, and where two
+    /// letters overlap a translucent shadow is darker still. Listed as a
+    /// [`DisplayItem::Shadow`] of their outlines together is.
+    LettersShadow {
+        /// The box that cast it.
+        box_id: BoxId,
+        /// Each glyph's outline, already moved by the shadow's offset.
+        glyphs: Vec<Path>,
+        /// How far each edge fades over.
+        blur: f32,
+        /// What colour.
+        color: Rgba,
+    },
     /// The shadow one colour glyph casts (queue item 786): the glyph as it
     /// is drawn — a picture's alpha, its layers at their colours' opacity
     /// put over each other — as one shape, blurred on its own and drawn in
@@ -186,6 +217,25 @@ pub enum DisplayItem {
         rect: Rect,
         /// The pixels, at their own size — scaled to `rect` when drawn.
         picture: std::sync::Arc<crate::canvas::Canvas>,
+        /// How strongly it is drawn, of 255: a colour glyph's picture under
+        /// text of a translucent colour is faded by that colour's alpha
+        /// (queue item 830); every other picture is drawn whole, at 255.
+        fade: u8,
+    },
+    /// A glyph drawn in layers of colour (`COLR` version 0, queue item 766):
+    /// its layers put over each other on a surface of their own, as
+    /// Chrome's rasteriser makes a glyph's picture, and that drawn at the
+    /// text colour's alpha — faded once under a translucent colour, whole
+    /// under an opaque one (queue item 830, [`crate::glyph_fade`]).
+    LayeredGlyph {
+        /// The box it belongs to.
+        box_id: BoxId,
+        /// Each layer's outline, in page coordinates, and its colour —
+        /// the text's own, at its own opacity, for a layer asking for it —
+        /// bottom first.
+        layers: Vec<(Path, Rgba)>,
+        /// How strongly the glyph is drawn, of 255: the text colour's alpha.
+        fade: u8,
     },
     /// A run of text, on its baseline.
     Text {
@@ -221,8 +271,11 @@ impl DisplayItem {
         match self {
             DisplayItem::Fill { box_id, .. }
             | DisplayItem::Shadow { box_id, .. }
+            | DisplayItem::LettersShadow { box_id, .. }
             | DisplayItem::GlyphShadow { box_id, .. }
             | DisplayItem::Picture { box_id, .. }
+            | DisplayItem::LayeredGlyph { box_id, .. }
+            | DisplayItem::PaintedGlyph { box_id, .. }
             | DisplayItem::Text { box_id, .. }
             | DisplayItem::Area { box_id, .. }
             | DisplayItem::PushClip { box_id, .. }
@@ -318,20 +371,9 @@ impl DisplayList {
             // Writing to a `String` cannot fail.
             let _ = match item {
                 DisplayItem::Area { .. } => Ok(()),
-                DisplayItem::Picture {
-                    box_id,
-                    rect,
-                    picture,
-                } => writeln!(
-                    out,
-                    "picture {box_id} {}×{} at ({}, {}) {}×{}",
-                    picture.width(),
-                    picture.height(),
-                    rect.left(),
-                    rect.top(),
-                    rect.right() - rect.left(),
-                    rect.bottom() - rect.top(),
-                ),
+                DisplayItem::Picture { .. }
+                | DisplayItem::LayeredGlyph { .. }
+                | DisplayItem::PaintedGlyph { .. } => writeln!(out, "{}", drawn_line(item)),
                 DisplayItem::Fill {
                     box_id,
                     path,
@@ -352,20 +394,26 @@ impl DisplayList {
                         bottom - top,
                     )
                 }
+                DisplayItem::LettersShadow {
+                    box_id,
+                    glyphs,
+                    blur,
+                    color,
+                } => writeln!(
+                    out,
+                    "{}",
+                    shadow_line(*box_id, *color, *blur, bounds_of(glyphs.iter()))
+                ),
                 DisplayItem::Shadow {
                     box_id,
                     path,
                     blur,
                     color,
-                } => {
-                    let (left, top, right, bottom) = path.bounds().unwrap_or((0.0, 0.0, 0.0, 0.0));
-                    writeln!(
-                        out,
-                        "shadow {box_id} {color} blur {blur} at ({left}, {top}) {}×{}",
-                        right - left,
-                        bottom - top,
-                    )
-                }
+                } => writeln!(
+                    out,
+                    "{}",
+                    shadow_line(*box_id, *color, *blur, bounds_of([path].into_iter()))
+                ),
                 DisplayItem::GlyphShadow {
                     box_id,
                     cast,
@@ -408,6 +456,99 @@ impl DisplayList {
 
 /// A text item's line in [`DisplayList::to_outline`]; empty for anything
 /// else.
+/// How strongly a picture or a glyph is drawn, in words — nothing when it
+/// is drawn whole, so every list of a page's pictures reads as it did.
+fn faded(fade: u8) -> String {
+    if fade == u8::MAX {
+        String::new()
+    } else {
+        format!(" faded to {fade}/255")
+    }
+}
+
+/// A picture's or a colour glyph's line: what it is, where, and how
+/// strongly it is drawn.
+fn drawn_line(item: &DisplayItem) -> String {
+    match item {
+        DisplayItem::Picture {
+            box_id,
+            rect,
+            picture,
+            fade,
+        } => format!(
+            "picture {box_id} {}×{} at ({}, {}) {}×{}{}",
+            picture.width(),
+            picture.height(),
+            rect.left(),
+            rect.top(),
+            rect.right() - rect.left(),
+            rect.bottom() - rect.top(),
+            faded(*fade),
+        ),
+        DisplayItem::LayeredGlyph {
+            box_id,
+            layers,
+            fade,
+        } => glyph_line(*box_id, layers, *fade),
+        DisplayItem::PaintedGlyph {
+            box_id,
+            steps,
+            pen,
+            fade,
+            ..
+        } => format!(
+            "glyph {box_id} painted in {} steps at ({}, {}){}",
+            steps.len(),
+            pen.0,
+            pen.1,
+            faded(*fade)
+        ),
+        _ => String::new(),
+    }
+}
+
+/// Where some shapes reach together, as `(left, top, right, bottom)`; all
+/// noughts for none.
+fn bounds_of<'a>(paths: impl Iterator<Item = &'a Path>) -> (f32, f32, f32, f32) {
+    paths
+        .filter_map(Path::bounds)
+        .reduce(|one, other| {
+            (
+                one.0.min(other.0),
+                one.1.min(other.1),
+                one.2.max(other.2),
+                one.3.max(other.3),
+            )
+        })
+        .unwrap_or((0.0, 0.0, 0.0, 0.0))
+}
+
+/// A shadow's line: its colour, its blur, and where its shape reaches.
+fn shadow_line(
+    box_id: BoxId,
+    color: Rgba,
+    blur: f32,
+    (left, top, right, bottom): (f32, f32, f32, f32),
+) -> String {
+    format!(
+        "shadow {box_id} {color} blur {blur} at ({left}, {top}) {}×{}",
+        right - left,
+        bottom - top,
+    )
+}
+
+/// A layered glyph's line: its layers, where they reach and how strongly.
+fn glyph_line(box_id: BoxId, layers: &[(Path, Rgba)], fade: u8) -> String {
+    let (left, top, right, bottom) = bounds_of(layers.iter().map(|(path, _)| path));
+    format!(
+        "glyph {box_id} {} layers at ({left}, {top}) {}×{}{}",
+        layers.len(),
+        right - left,
+        bottom - top,
+        faded(fade),
+    )
+}
+
 fn text_line(item: &DisplayItem) -> String {
     let DisplayItem::Text {
         box_id,

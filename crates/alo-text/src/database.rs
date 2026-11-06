@@ -116,6 +116,12 @@ impl FontDatabase {
     /// (queue item 767), wherever it was added: a face asked for by name is
     /// asked in its place, last resort or not.
     pub fn chain(&self, request: &FontRequest) -> Vec<Font> {
+        self.chain_listed(request).0
+    }
+
+    /// The chain ([`FontDatabase::chain`]), and how many of its first faces
+    /// are the ones the request named.
+    fn chain_listed(&self, request: &FontRequest) -> (Vec<Font>, usize) {
         let mut order: Vec<usize> = Vec::new();
         for family in &request.families {
             for name in self.resolve_generic(family) {
@@ -126,6 +132,7 @@ impl FontDatabase {
                 }
             }
         }
+        let listed = order.len();
         // Every other face, in the order it was added — but a last resort
         // after all of them (queue item 767): it has a glyph for every
         // character, its block's box, so a face after it would never be
@@ -137,14 +144,15 @@ impl FontDatabase {
                 }
             }
         }
-        order
+        let chain = order
             .iter()
             .filter_map(|index| self.fonts.get(*index))
             .map(|font| {
                 font.at_weight(request.weight)
                     .sized_optically(request.optical_sizing)
             })
-            .collect()
+            .collect();
+        (chain, listed)
     }
 
     /// Whether this database has any face filed under a family.
@@ -215,25 +223,71 @@ impl FontDatabase {
             .find(|font| font.has_glyph(character))
     }
 
-    /// The first font in the chain that has this character, shown as
-    /// `presentation` asks (ADR 0088): meant as a picture, the first face
-    /// that draws pictures and has it; meant as a letter, the first that does
-    /// not. Either way, the plain chain's answer ([`FontDatabase::font_for`])
-    /// when no such face has it — so a character some font has is never
-    /// left undrawn for being meant otherwise.
+    /// The font that draws this character, shown as `presentation` asks —
+    /// as Chrome 156 chooses it, measured (queue item 829): 510 widths of
+    /// seventeen characters and sequences in thirty font lists of four test
+    /// faces (plain, `CBDT`, `COLR` and `sbix`), `DejaVu Sans` and the
+    /// system's.
+    ///
+    /// - **Nothing asked:** the first face the request lists that has it,
+    ///   of whatever kind — a `CBDT` face listed first draws `B` in colour,
+    ///   and a plain face listed first draws `🙂` as its outline. Only where
+    ///   no listed face has it does how it is meant by default choose among
+    ///   the rest: an emoji the first face that draws in colour, a letter
+    ///   the first that does not.
+    /// - **U+FE0F after it:** the first face of the whole chain that draws
+    ///   in colour ([`Font::draws_in_colour`]) and has it — past a plain
+    ///   face listed first.
+    /// - **U+FE0E after it:** the first listed face that has it and does not
+    ///   draw in colour; failing that, the face listed first if it is an
+    ///   `sbix` one that has it ([`Font::draws_apple_pictures`]: `S, C`
+    ///   keeps the `sbix` face, where `C, S` and `C` alone go to the
+    ///   system's face of letters — measured, the reason not read); then
+    ///   the first other face that does not draw in colour.
+    ///
+    /// A last resort ([`Font::is_last_resort`]) is never preferred.
+    ///
+    /// Each falls back to the plain chain's answer
+    /// ([`FontDatabase::font_for`]) when no such face has it, so a
+    /// character some font has is never left undrawn for being meant
+    /// otherwise.
     pub fn font_shown(
         &self,
         request: &FontRequest,
         character: char,
         presentation: crate::emoji::Presentation,
     ) -> Option<Font> {
-        let pictures = presentation == crate::emoji::Presentation::Emoji;
-        let chain = self.chain(request);
-        chain
-            .iter()
-            .find(|font| font.draws_pictures() == pictures && font.has_glyph(character))
-            .or_else(|| chain.iter().find(|font| font.has_glyph(character)))
-            .cloned()
+        use crate::emoji::Presentation;
+        let (chain, listed) = self.chain_listed(request);
+        let has = |font: &&Font| font.has_glyph(character);
+        // A last resort's box is never preferred: it comes only as the
+        // plain chain's last answer.
+        let plain = |font: &&Font| !font.draws_in_colour() && !font.is_last_resort();
+        let (named, rest) = chain.split_at(listed.min(chain.len()));
+        let chosen = match presentation {
+            Presentation::AskedEmoji => {
+                chain.iter().filter(has).find(|font| font.draws_in_colour())
+            }
+            Presentation::AskedText => named
+                .iter()
+                .filter(has)
+                .find(|font| !font.draws_in_colour())
+                .or_else(|| {
+                    named
+                        .first()
+                        .filter(|font| font.draws_apple_pictures() && font.has_glyph(character))
+                })
+                .or_else(|| rest.iter().filter(has).find(|font| plain(font))),
+            Presentation::Text | Presentation::Emoji => {
+                let pictured = presentation == Presentation::Emoji;
+                named.iter().find(has).or_else(|| {
+                    rest.iter()
+                        .filter(has)
+                        .find(|font| !font.is_last_resort() && font.draws_in_colour() == pictured)
+                })
+            }
+        };
+        chosen.or_else(|| chain.iter().find(has)).cloned()
     }
 
     /// The names a family stands for: itself, and whatever a generic name has

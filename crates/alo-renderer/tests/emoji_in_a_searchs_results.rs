@@ -7,8 +7,11 @@
 //!
 //! A title and a description holding emoji, a star and a Cyrillic letter,
 //! as Brave's do. What closes it, each a test below: the face that drew
-//! each, by name, read off the drawing — an emoji in **Noto Color Emoji**,
-//! drawn as a picture in its own colours, never the text's ink; the star
+//! each, by name, read off the drawing — an emoji no listed face has in
+//! **Noto Color Emoji**, drawn as a picture in its own colours, never the
+//! text's ink (and 😀, which the `DejaVu Sans` standing for `system-ui`
+//! has, in that face, as Chrome draws a listed face's glyph — queue item
+//! 829); the star
 //! and the letter in the corpus's `DejaVu Sans`, as the machine's fonts
 //! would draw them; and the rest in **Instrument Sans**; a layout
 //! assertion in numbers — an emoji as wide as the face says and the line
@@ -231,7 +234,8 @@ fn url(address: &str) -> alo_url::Url {
     alo_url::parse(address).unwrap_or_else(|_| alo_url::Url::about_blank())
 }
 
-/// The title: a grinning face, a star and a car — the car with a
+/// The title: a grinning face (which `DejaVu Sans` has), a star and a car —
+/// the car with a
 /// selector asking for its picture.
 const TITLE: &str =
     "Home chargers \u{1f600} rated \u{2605}\u{2605}\u{2605} for every \u{1f697}\u{fe0f}";
@@ -306,7 +310,10 @@ fn each_character_is_drawn_by_the_face_that_has_it_and_an_emoji_by_noto() {
         drawn.get(from..to).unwrap_or_default(),
         [
             run("Home chargers ", sans, 0),
-            run("\u{1f600}", emoji, 1),
+            // `DejaVu Sans`, the `system-ui` this test hands, has 😀 and is
+            // listed: Chrome 156 draws it there, as its outline (queue item
+            // 829). A face of the machine's that lacks it leaves it to Noto.
+            run("\u{1f600}", "DejaVu Sans", 0),
             run(" rated ", sans, 0),
             run("\u{2605}\u{2605}\u{2605}", "DejaVu Sans", 0),
             run(" for every ", sans, 0),
@@ -350,7 +357,7 @@ fn an_emoji_is_as_wide_as_its_face_says_and_its_line_no_taller() {
     );
     assert_eq!(
         at("title").first(),
-        Some(&px(80.0, 191.0, 358.921_88, 22.0))
+        Some(&px(80.0, 191.0, 355.265_63, 22.0))
     );
 }
 
@@ -365,14 +372,20 @@ fn the_results_with_emoji_are_drawn_as_the_reference() {
     let frame = drawn.frame.as_ref();
     assert!(frame.is_some(), "nothing was painted");
     if let Some(frame) = frame {
-        // The grinning face's yellow inside its picture, 212.8 to 235.3
-        // across and 191.3 to 212.5 down: drawn in its own colours, never
-        // in the title's ink.
-        let face = pixel(frame, 224, 196);
-        assert!(
-            face.is_some_and(|[red, green, blue, _]| red > 0xd0 && green > 0x90 && blue < 0x60),
-            "{face:?}"
-        );
+        // In colour where Noto draws (the car), and in the title's ink
+        // where `DejaVu Sans` draws the grinning face (queue item 829):
+        // its own outline, 212.8 to 231.6 across, no colour of its own.
+        let coloured = |left: u32, right: u32| {
+            (191..213).any(|y| {
+                (left..right).any(|x| {
+                    pixel(frame, x, y).is_some_and(|[red, green, blue, _]| {
+                        red.max(green).max(blue) - red.min(green).min(blue) > 120
+                    })
+                })
+            })
+        };
+        assert!(coloured(240, 440), "the car is drawn in its own colours");
+        assert!(!coloured(212, 232), "the grinning face is an outline");
     }
     assert_eq!(holds("emoji-in-results.png", frame), Ok(()));
 }

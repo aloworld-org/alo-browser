@@ -68,16 +68,29 @@ face (Windows' Segoe UI Emoji) is drawn as its layers in their palette's
 colours or the text's (item 766): a test face's layered letter is
 Chrome 156's in every pixel of one colour at one, and drawn the same at
 two, its own plain outline nowhere
-(`alo-renderer/tests/a_glyph_in_layers_of_colour.rs`). **Not yet:** a
-`COLR` version 1 or `SVG ` face in colour (785), a colour glyph at its
-text's opacity (830). A colour glyph casts its `text-shadow` as Chrome
+(`alo-renderer/tests/a_glyph_in_layers_of_colour.rs`). A `COLR`
+version 1 glyph is drawn as its paint program (785) — gradients,
+transforms, clips, layers and compositing modes — every pixel inside a
+shape Chrome 157's to a level at one and two, a slanted edge within 19
+and 27 levels (Chrome's glyph rasteriser covers an edge pixel otherwise)
+(`a_glyph_painted_by_colr_version_one.rs`). A colour glyph is drawn at
+its text colour's opacity (830): every pixel of a test page Chrome 156's
+at one; at two a picture glyph enlarged past its strike is a level off in
+about half its pixels, under opaque text too (832). **Not yet:** an
+`SVG ` face in colour (835). A colour glyph casts its `text-shadow` as Chrome
 156 does (786) — a picture its alpha, a layered glyph its layers as
 drawn, each glyph softened on its own — and an underline runs under it
 without stepping aside, as Chrome's; hard shadows and lines are Chrome's
 to a level in every pixel at one and two, blurred ones within 19 levels
-(`a_colour_glyphs_shadow.rs`). Chrome softens plain letters' shadows
-glyph by glyph too, which this engine does not: two letters 8 px apart
-blurred 16 meet at 110 where Chrome's meet at 129 (831). A page's renderer is
+(`a_colour_glyphs_shadow.rs`). Plain letters' shadows are softened glyph
+by glyph as Chrome 157's are (831): two letters 8 px apart blurred 16
+meet at 132 where Chrome's meet at 129 (one shape was 110), and two
+overlapping halves are 63 as Chrome's (`a_letters_shadow_glyph_by_glyph.rs`);
+Chrome fills translucent letters glyph by glyph too, which this engine
+does not yet (834). The face that draws a character is Chrome 156's
+choice in 476 of 476 measured cases (829): a listed face first, whatever
+its kind, a variation selector asking for colour or not
+(`alo-text/tests/a_face_chosen_as_chrome_chooses_it.rs`). A page's renderer is
 handed no such face on macOS, so a page's emoji there are drawn as before.
 
 Lines are real too: text wraps between words across inline boxes, everything on

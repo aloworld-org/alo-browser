@@ -176,42 +176,72 @@ impl<'a> Letters<'a> {
                 color,
                 shadows: shadows.to_vec(),
             });
-            items.extend(
-                crate::glyph_picture::pictured_glyphs_at(
-                    run.text,
-                    &run.font,
-                    self.size,
-                    scale,
-                    self.letter_spacing,
-                    run.origin,
-                )
-                .into_iter()
-                .map(|(rect, picture)| DisplayItem::Picture {
-                    box_id: id,
-                    rect,
-                    picture,
-                }),
-            );
-            // A glyph in layers of colour: each layer filled, in its own
-            // colour or the text's (queue item 766).
-            items.extend(
-                crate::glyph_layers::layered_glyphs_at(
-                    run.text,
-                    &run.font,
-                    self.size,
-                    scale,
-                    self.letter_spacing,
-                    run.origin,
-                )
-                .into_iter()
-                .map(|layer| DisplayItem::Fill {
-                    rule: FillRule::NonZero,
-                    box_id: id,
-                    path: layer.path,
-                    paint: Paint::Solid(layer.color.unwrap_or(color)),
-                }),
-            );
+            items.extend(self.colour_glyph_items(id, run, color, scale));
         }
+        items
+    }
+
+    /// A run's colour glyphs, each in its own colours: a picture glyph as a
+    /// picture item, a layered one as one item of its layers, each in its
+    /// palette's colour or the text's (queue item 766) — each drawn at the
+    /// text colour's alpha, and under a transparent one not at all (830).
+    fn colour_glyph_items(
+        &self,
+        id: BoxId,
+        run: &Inked<'_>,
+        color: Rgba,
+        scale: f32,
+    ) -> Vec<DisplayItem> {
+        let fade = crate::glyph_fade::fade_of(color);
+        if fade == 0 {
+            return Vec::new();
+        }
+        let (size, spacing) = (self.size, self.letter_spacing);
+        let mut items: Vec<DisplayItem> = crate::glyph_picture::pictured_glyphs_at(
+            run.text, &run.font, size, scale, spacing, run.origin,
+        )
+        .into_iter()
+        .map(|(rect, picture)| DisplayItem::Picture {
+            box_id: id,
+            rect,
+            picture,
+            fade,
+        })
+        .collect();
+        let glyphs = crate::glyph_layers::each_layered_glyph_at(
+            run.text, &run.font, size, scale, spacing, run.origin,
+        );
+        // A glyph of a paint program, run on its own (queue item 785).
+        items.extend(
+            crate::glyph_layers::each_painted_glyph_at(
+                run.text,
+                &run.font,
+                (size, scale),
+                spacing,
+                run.origin,
+                color,
+            )
+            .into_iter()
+            .map(|(pen, painted)| DisplayItem::PaintedGlyph {
+                box_id: id,
+                steps: std::sync::Arc::new(painted.steps),
+                pen,
+                to_css: painted.to_css,
+                fade,
+            }),
+        );
+        // A layered glyph is one group of its layers, as Chrome makes it,
+        // drawn at the text's alpha.
+        items.extend(glyphs.into_iter().map(|layers| {
+            DisplayItem::LayeredGlyph {
+                box_id: id,
+                layers: layers
+                    .into_iter()
+                    .map(|layer| (layer.path, layer.color.unwrap_or(color)))
+                    .collect(),
+                fade,
+            }
+        }));
         items
     }
 
@@ -223,22 +253,30 @@ impl<'a> Letters<'a> {
     /// piece is under all of its letters. A colour glyph casts what it
     /// draws, a shadow of its own after the letters'
     /// ([`crate::glyph_shadow`], queue item 786).
-    fn shadow_items(&self, id: BoxId, shadows: &[TextShadow], scale: f32) -> Vec<DisplayItem> {
+    fn shadow_items(
+        &self,
+        id: BoxId,
+        shadows: &[TextShadow],
+        (scale, color): (f32, Rgba),
+    ) -> Vec<DisplayItem> {
         if shadows.is_empty() {
             return Vec::new();
         }
-        let mut run = Path::new();
-        for glyph in self.shapes(scale) {
-            run.extend(&glyph);
-        }
-        let glyphs = self.colour_glyphs(scale);
+        // Each glyph's own outline, softened on its own (queue item 831).
+        let letters: Vec<Path> = self
+            .shapes(scale)
+            .into_iter()
+            .filter(|glyph| !glyph.is_empty())
+            .collect();
+        let glyphs = self.colour_glyphs(scale, color);
         let mut items = Vec::new();
         for shadow in shadows.iter().rev() {
             // A piece of colour glyphs alone has no letters to cast.
-            if !run.is_empty() || glyphs.is_empty() {
-                items.push(DisplayItem::Shadow {
+            if !letters.is_empty() || glyphs.is_empty() {
+                let by = crate::path::Point::new(shadow.offset.0, shadow.offset.1);
+                items.push(DisplayItem::LettersShadow {
                     box_id: id,
-                    path: run.translated(crate::path::Point::new(shadow.offset.0, shadow.offset.1)),
+                    glyphs: letters.iter().map(|glyph| glyph.translated(by)).collect(),
                     blur: shadow.blur,
                     color: shadow.color,
                 });
@@ -256,9 +294,15 @@ impl<'a> Letters<'a> {
     /// Each colour glyph of the letters as it casts a shadow, set on a
     /// screen at `scale`: a picture glyph's picture, a layered glyph's
     /// layers at their colours' opacity, a layer in the text's colour
-    /// whole, as a letter's outline is (queue item 786).
-    fn colour_glyphs(&self, scale: f32) -> Vec<crate::glyph_shadow::Cast> {
+    /// whole, as a letter's outline is (queue item 786); a painted glyph
+    /// what its program makes, its parts in the text's colour whole (785).
+    fn colour_glyphs(&self, scale: f32, foreground: Rgba) -> Vec<crate::glyph_shadow::Cast> {
         let (size, spacing) = (self.size, self.letter_spacing);
+        // A part in the text's colour casts whole, as a letter does.
+        let foreground = Rgba {
+            alpha: 1.0,
+            ..foreground
+        };
         let mut glyphs = Vec::new();
         for run in &self.runs {
             glyphs.extend(
@@ -281,6 +325,24 @@ impl<'a> Letters<'a> {
                                 (layer.path, layer.color.map_or(1.0, |colour| colour.alpha))
                             })
                             .collect(),
+                    )
+                }),
+            );
+            glyphs.extend(
+                crate::glyph_layers::each_painted_glyph_at(
+                    run.text,
+                    &run.font,
+                    (size, scale),
+                    spacing,
+                    run.origin,
+                    foreground,
+                )
+                .into_iter()
+                .map(|(pen, painted)| {
+                    crate::glyph_shadow::Cast::Painted(
+                        std::sync::Arc::new(painted.steps),
+                        pen,
+                        painted.to_css,
                     )
                 }),
             );
@@ -1137,7 +1199,7 @@ impl Builder<'_> {
         let items = if beneath.is_empty() && letters.runs.len() < 2 && !letters.may_be_coloured() {
             letters.items(id, color, &decorations.shadows, scale)
         } else {
-            out.extend(letters.shadow_items(id, &decorations.shadows, scale));
+            out.extend(letters.shadow_items(id, &decorations.shadows, (scale, color)));
             letters.items(id, color, &[], scale)
         };
         Self::draw_lines(id, &beneath, &decorations.shadows, out);
@@ -1387,6 +1449,7 @@ impl Builder<'_> {
             box_id: id,
             rect,
             picture: std::sync::Arc::clone(picture),
+            fade: u8::MAX,
         });
         if trimmed {
             out.push(DisplayItem::PopClip);

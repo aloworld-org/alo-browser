@@ -26,7 +26,7 @@ use crate::canvas::Canvas;
 use crate::clipped_picture::draw_clipped_picture;
 use crate::coverage::Coverage;
 use crate::display::{DisplayItem, DisplayList};
-use crate::drawn_picture::draw_picture;
+use crate::drawn_picture::draw_faded_picture;
 use crate::glyph::outline_at;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
@@ -60,21 +60,39 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
         match item {
             // Where a pointer finds a box, which is nothing to draw.
             DisplayItem::Area { .. } => {}
-            DisplayItem::Picture { rect, picture, .. } => {
+            DisplayItem::Picture {
+                rect,
+                picture,
+                fade,
+                ..
+            } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
-                // Inside a clip, only what the clip lets through is kept
-                // (queue item 717).
-                match clips.last() {
-                    None => draw_picture(target, picture, *rect, current, &mut uploads),
-                    Some(clip) => draw_clipped_picture(
-                        target,
-                        picture,
-                        *rect,
-                        current,
-                        &mut uploads,
-                        &|x, y| clip.at(x, y),
-                    ),
-                }
+                let placed = (*rect, current, *fade);
+                draw_picture_item(target, picture, placed, clips.last(), &mut uploads);
+            }
+            DisplayItem::PaintedGlyph {
+                steps,
+                pen,
+                to_css,
+                fade,
+                ..
+            } => {
+                // Its program run on a surface of its own (queue item 785).
+                let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
+                let clip = clips.last();
+                let placement = font_units(*pen, *to_css).then(current);
+                crate::painted_glyph::draw_painted(target, steps, placement, *fade, &|x, y| {
+                    clip.map_or(u8::MAX, |clip| clip.at(x, y))
+                });
+            }
+            DisplayItem::LayeredGlyph { layers, fade, .. } => {
+                // Its layers over each other, then faded once (queue item
+                // 830).
+                let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
+                let clip = clips.last();
+                crate::glyph_fade::draw_faded_layers(target, layers, *fade, current, &|x, y| {
+                    clip.map_or(u8::MAX, |clip| clip.at(x, y))
+                });
             }
             DisplayItem::PushTransform { matrix, .. } => {
                 // The inner transform happens first, in the coordinates the
@@ -119,44 +137,41 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                     clips.last(),
                 );
             }
-            DisplayItem::Shadow {
-                path, blur, color, ..
-            } => {
-                // The shape, softened. Coverage rather than colour, so what is
-                // behind the shadow is not blurred along with it. The radius
-                // grows with the transform, because a shadow is blurred in the
-                // box's own coordinates and then moved with it.
-                let soft = blurred(&fill(&moved(path, current)), blur * current.scale_factor());
+            DisplayItem::Shadow { .. }
+            | DisplayItem::LettersShadow { .. }
+            | DisplayItem::GlyphShadow { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
-                draw_coverage(
-                    target,
-                    &soft,
-                    &Paint::Solid(*color),
-                    Matrix::IDENTITY,
-                    clips.last(),
-                );
-            }
-            DisplayItem::GlyphShadow {
-                cast, blur, color, ..
-            } => {
-                // One shape — letters, layers and pictures as they are
-                // drawn — softened once (queue item 786).
-                let shape = crate::glyph_shadow::coverage(cast, current);
-                let soft = blurred(&shape, blur * current.scale_factor());
-                let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
-                draw_coverage(
-                    target,
-                    &soft,
-                    &Paint::Solid(*color),
-                    Matrix::IDENTITY,
-                    clips.last(),
-                );
+                draw_shadow_item(target, item, current, clips.last());
             }
             DisplayItem::Text { .. } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
                 draw_text(target, item, current, clips.last(), list.scale());
             }
         }
+    }
+}
+
+/// A picture item: drawn into its rectangle under the transform in force at
+/// its fade, and inside a clip only what the clip lets through kept (queue
+/// item 717).
+fn draw_picture_item(
+    target: &mut Canvas,
+    picture: &std::sync::Arc<Canvas>,
+    (rect, current, fade): (alo_layout::Rect, Matrix, u8),
+    clip: Option<&Clip>,
+    uploads: &mut Uploads,
+) {
+    match clip {
+        None => draw_faded_picture(target, picture, rect, current, uploads, fade),
+        Some(clip) => draw_clipped_picture(
+            target,
+            picture,
+            rect,
+            current,
+            uploads,
+            &|x, y| clip.at(x, y),
+            fade,
+        ),
     }
 }
 
@@ -187,23 +202,23 @@ fn draw_text(
     // The run is outlined once and drawn once per shadow plus once for
     // itself: shaping and outlining are the expensive part, and a shadow is
     // the same letters somewhere else. A lean is part of the letters, so a
-    // shadow leans with them.
-    let outlined = letters(text, font, *size, *letter_spacing, *origin, *oblique, scale);
+    // shadow leans with them. Each glyph casts its own shadow, softened on
+    // its own (queue item 831); the letters are filled as one shape.
+    let glyphs: Vec<Path> = outlined_glyphs_at(text, font, *size, scale, *letter_spacing, *origin)
+        .iter()
+        .filter(|glyph| !glyph.is_empty())
+        .map(|glyph| leaned(glyph, *oblique, origin.1))
+        .collect();
     // Furthest back first, so the first shadow written ends up on top — which
     // is the order CSS draws them in.
     for shadow in shadows.iter().rev() {
-        let placed = outlined.translated(Point::new(shadow.offset.0, shadow.offset.1));
-        let soft = blurred(
-            &fill(&moved(&placed, current)),
-            shadow.blur * current.scale_factor(),
-        );
-        draw_coverage(
-            target,
-            &soft,
-            &Paint::Solid(shadow.color),
-            Matrix::IDENTITY,
-            clip,
-        );
+        let by = Point::new(shadow.offset.0, shadow.offset.1);
+        let placed: Vec<Path> = glyphs.iter().map(|glyph| glyph.translated(by)).collect();
+        draw_letters_shadow(target, &placed, (shadow.blur, shadow.color), current, clip);
+    }
+    let mut outlined = Path::new();
+    for glyph in &glyphs {
+        outlined.extend(glyph);
     }
     draw_coverage(
         target,
@@ -212,6 +227,76 @@ fn draw_text(
         current,
         clip,
     );
+}
+
+/// A shadow item: a box's or a line's shape, a run's letters glyph by
+/// glyph, or a colour glyph as it is drawn — each softened, coverage rather
+/// than colour so that what is behind it is not blurred along with it, the
+/// radius grown with the transform, because a shadow is blurred in the
+/// box's own coordinates and then moved with it. Anything else draws
+/// nothing.
+fn draw_shadow_item(target: &mut Canvas, item: &DisplayItem, current: Matrix, clip: Option<&Clip>) {
+    let (soft, color) = match item {
+        DisplayItem::Shadow {
+            path, blur, color, ..
+        } => (
+            blurred(&fill(&moved(path, current)), blur * current.scale_factor()),
+            *color,
+        ),
+        DisplayItem::LettersShadow {
+            glyphs,
+            blur,
+            color,
+            ..
+        } => {
+            draw_letters_shadow(target, glyphs, (*blur, *color), current, clip);
+            return;
+        }
+        // One shape — layers and pictures as they are drawn — softened once
+        // (queue item 786).
+        DisplayItem::GlyphShadow {
+            cast, blur, color, ..
+        } => (
+            blurred(
+                &crate::glyph_shadow::coverage(cast, current),
+                blur * current.scale_factor(),
+            ),
+            *color,
+        ),
+        _ => return,
+    };
+    draw_coverage(target, &soft, &Paint::Solid(color), Matrix::IDENTITY, clip);
+}
+
+/// A run's shadow, glyph by glyph (queue item 831): each glyph's outline
+/// under the transform in force, softened by `blur` grown with it, and drawn
+/// in the shadow's colour over the glyphs before it — as Chrome 157 draws
+/// one, so two letters' soft edges add where they meet and a translucent
+/// shadow is darker where two letters overlap.
+fn draw_letters_shadow(
+    target: &mut Canvas,
+    glyphs: &[Path],
+    (blur, color): (f32, Rgba),
+    current: Matrix,
+    clip: Option<&Clip>,
+) {
+    for glyph in glyphs {
+        let soft = blurred(&fill(&moved(glyph, current)), blur * current.scale_factor());
+        draw_coverage(target, &soft, &Paint::Solid(color), Matrix::IDENTITY, clip);
+    }
+}
+
+/// A glyph's font units, `y` up, where its pen is in CSS pixels: grown by
+/// `to_css` and turned over.
+pub fn font_units(pen: (f32, f32), to_css: f32) -> Matrix {
+    Matrix {
+        a: to_css,
+        b: 0.0,
+        c: 0.0,
+        d: -to_css,
+        e: pen.0,
+        f: pen.1,
+    }
 }
 
 /// A shape where the transform in force puts it.
@@ -226,30 +311,11 @@ fn moved(path: &Path, transform: Matrix) -> Path {
     path.transformed(transform)
 }
 
-/// A text item's letters as one shape: its run outlined as it is set on a
-/// screen at `scale`, then leaned by however far the face had to be
-/// ([`crate::synthesis`]).
-fn letters(
-    text: &str,
-    font: &Font,
-    size: f32,
-    letter_spacing: f32,
-    origin: (f32, f32),
-    oblique: f32,
-    scale: f32,
-) -> Path {
-    leaned(
-        &outlined_run_at(text, font, size, scale, letter_spacing, origin),
-        oblique,
-        origin.1,
-    )
-}
-
 /// Every glyph of a run, as one shape, with the pen where the run starts.
 ///
-/// One path rather than one per glyph because a shadow is blurred from it: two
-/// letters that touch would otherwise be blurred separately and composited on
-/// top of one another, which is darker where they overlap.
+/// A shadow is not cast from it: Chrome softens each glyph's shadow on its
+/// own and puts them over each other, darker where two letters overlap
+/// (queue item 831), so a shadow is cast from [`outlined_glyphs_at`].
 ///
 /// Public because the browser's own words are drawn with it too: `alo-window`
 /// says what happened to a tab in a sentence that belongs to no document, and
@@ -307,7 +373,9 @@ pub fn outlined_glyphs_at(
     for glyph in &run.glyphs {
         // A glyph drawn in layers of colour is drawn as its layers, never as
         // its own plain outline (`glyph_layers.rs`, queue item 766).
-        if crate::glyph::layers_at(font, glyph.glyph_id, size, scale).is_some() {
+        if crate::glyph::layers_at(font, glyph.glyph_id, size, scale).is_some()
+            || crate::glyph::painted(font, glyph.glyph_id, (size, scale), Rgba::BLACK).is_some()
+        {
             glyphs.push(Path::new());
             pen.0 += glyph.advance;
             continue;

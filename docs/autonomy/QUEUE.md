@@ -21301,7 +21301,7 @@ What stage 2's exit gate actually measures: a person using it.
   font). Mutations: the own outline not left out — 3 of 4 fail; every layer
   given a palette colour (no foreground) — all 4 fail.
 
-- [ ] **785. `COLR` version 1 and `SVG ` colour glyphs.** Cut from 766. A
+- [x] **785. `COLR` version 1 and `SVG ` colour glyphs.** Cut from 766. A
   `COLR` v1 glyph (Noto's 5 MB vector build) is a paint graph — linear,
   radial and sweep gradients, transforms, clips, composite modes — and an
   `SVG ` glyph an SVG document; both are drawn as their outlines in the
@@ -21309,6 +21309,37 @@ What stage 2's exit gate actually measures: a person using it.
   `alo-paint` (`ttf-parser` walks it), then SVG glyphs through `alo-svg`.
   *Depends on 766. Closes when:* a `COLR` v1 emoji is drawn as Chrome
   draws it, in a reference render and against Chrome's pixels.
+  ***Done (6 November 2026) for `COLR` version 1; `SVG ` glyphs cut to
+  835, a variable `COLR` glyph's test to 836.*** **Built:** `alo-paint`'s
+  `colour_paint.rs` (a glyph's paint program in our words: `Step`, `Fill`
+  — solid, three-point linear, two-circle radial, sweep — `ColourLine`
+  with pad, repeat and reflect, `Mode`), `glyph::painted` (the program
+  recorded from `ttf-parser`'s own `COLR` walk, in font units, the text's
+  colour standing for `0xFFFF`, at the run's instance), `painted_glyph.rs`
+  (run on a surface of the glyph's own in device pixels: outlines and
+  clip boxes under the transforms in force, glyph clips, layers put on by
+  every compositing mode — Porter and Duff's, the separable blend modes
+  and the four non-separable ones — then held in eight bits and drawn at
+  the text's alpha as a layered glyph is), `DisplayItem::PaintedGlyph`,
+  `glyph_layers::each_painted_glyph_at`, `glyph_shadow::Cast::Painted` (it
+  casts its alpha), and the glyph's own outline left out of its run.
+  **Measured** in Chrome 157.0.8103.38 on a test face made with
+  `fontTools` (`alo-paint/tests/fonts/painted.ttf`, sixteen glyphs: three
+  linear, two radial, a sweep, five transforms, layers, four modes, a
+  foreground gradient): a gradient's stops are mixed as straight colours
+  and premultiplied after (premultiplied, a stop at 0.6 was 22 levels
+  off); a sweep's angles carry the table's bias of one (without it, 187
+  off); no dithering in any gradient. **Tests:** 10 unit tests
+  (`colour_paint.rs` 5, `painted_glyph.rs` 5);
+  `alo-renderer/tests/a_glyph_painted_by_colr_version_one.rs` — 21
+  painted glyphs in numbers (pens, fades, a linear fill's points, each
+  kind met), four pixels by hand (multiply 28, 70, 134; the sweep's start;
+  half-faint `C`; `R`'s shadow 88), every pixel inside a shape within a
+  level of Chrome's at one and two and an edge within 24 and 34 (the
+  turned square's, Chrome's rasteriser), and the reference
+  `a-glyph-painted-by-colr-version-one.png`. **Mutations:** stops mixed
+  premultiplied, the sweep's bias dropped, multiply as normal, outlines
+  untransformed — each fails 2–3 of 4.
 
 - [x] **786. A colour glyph's `text-shadow`, and a line stepping aside for
   it.** Cut from 766. A picture glyph (`CBDT`/`sbix`) and a layered one
@@ -21354,7 +21385,7 @@ What stage 2's exit gate actually measures: a person using it.
   the text item — 4 of 5 tests fail each; each layer softened apart — 3
   fail. Nothing in the interface casts a text shadow; no reference moved.
 
-- [ ] **829. A face listed first that draws in colour, chosen as Chrome
+- [x] **829. A face listed first that draws in colour, chosen as Chrome
   chooses it (found by 786, 2 November 2026).** `FontDatabase::font_shown`
   looks for a character meant as a letter first in a face whose glyphs
   are not pictures, and for an emoji first in one whose are — every face
@@ -21367,8 +21398,35 @@ What stage 2's exit gate actually measures: a person using it.
   glyphs so that both engines choose alike. Measure which face Chrome takes
   for letters, emoji and text-presentation emoji across listed, generic
   and fallback faces, and choose so. *Depends on nothing.*
+  ***Done (6 November 2026).*** **Measured** in Chrome 156.0.8078.76: 510
+  widths of seventeen characters and sequences (a letter, 🙂 and ⭐ and 😀
+  with and without selectors, ☺, ❤, ©, `#`, U+E000) in thirty lists of
+  four test faces (plain, `CBDT`, `COLR`, `sbix`, each its own advance),
+  `DejaVu Sans` and the system's. **Chrome's rule:** with no selector, the
+  first *listed* face that has the character, of any kind (`P, C` draws
+  🙂 in the plain face; `C, P` draws `B` in colour); U+FE0F, the first face
+  of the whole chain that draws in colour (past a plain face listed first,
+  to the system's emoji face); U+FE0E, the first listed face that does not
+  draw in colour, else the first-listed face when it is `sbix` (`S, C`
+  keeps it; `C, S` goes to the system's letters), else the first other
+  face of letters; only when no listed face has it does the default
+  presentation choose among the rest. Lists naming `sans-serif` widen into
+  CoreText's own cascade on macOS — not taken (837). **Built:**
+  `FontDatabase::font_shown`, `chain_listed`; `emoji::Presentation` with
+  `AskedText`/`AskedEmoji`; `Font::draws_in_colour`,
+  `Font::draws_apple_pictures` (a `Pictures` kind in place of a bool).
+  **Tests:** `alo-text/tests/a_face_chosen_as_chrome_chooses_it.rs` — 476
+  of the 510 (the 28 lists without `sans-serif`), each Chrome's, the
+  system stood in for by two faces (`choice-*.ttf`, made with
+  `fontTools`); `run.rs`' unit test moved to the rule. **References
+  moved:** `emoji-in-results.png` (2,238 pixels in one title line) — 😀
+  in a title listing `system-ui`, which this test maps to `DejaVu Sans`,
+  is now `DejaVu Sans`'s outline in the title's ink, as Chrome draws a
+  listed face's glyph; the title 3.66 px narrower (355.27). **Mutations:**
+  the default presentation among listed faces, the `sbix` rule dropped,
+  U+FE0F among listed faces only — each fails.
 
-- [ ] **830. A colour glyph drawn at its text's opacity (found by 786, 2
+- [x] **830. A colour glyph drawn at its text's opacity (found by 786, 2
   November 2026).** Chrome 156 draws a `COLR` glyph's every layer, and a
   `CBDT` picture glyph, at the text colour's own alpha: under
   `color: rgba(42, 157, 143, 0.3)` a palette red `#e63946` is drawn 247,
@@ -21378,14 +21436,57 @@ What stage 2's exit gate actually measures: a person using it.
   through a fade fitted to Chrome's picture blend, `mix_onto.rs`) and
   compare row 9 of `a_colour_glyphs_shadow.rs`'s page, now left out of its
   Chrome comparison. *Depends on 786.*
+  ***Done (6 November 2026).*** **Measured** in Chrome 156.0.8078.76:
+  a `CBDT` glyph of 40 × 40 random texels and the `COLR` v0 glyph of
+  `layered-deep.ttf` under eighteen text alphas over white, black and grey,
+  at one and two. A picture is faded texel by texel — each texel
+  premultiplied to a level, times the alpha's byte (0.3 is 77, 0.7 179,
+  as `to_rgba8` rounds) — 86,400 samples, every one; a layered glyph as
+  one group made as Chrome's software rasteriser makes a glyph's picture
+  (each colour premultiplied to a level, put over as `s + ⌊d(256 −
+  sₐ)/256⌋`) and faded once — 108 of 108 samples of the foot over the leg
+  and side at one and two (in floats, 11 a level off); transparent text,
+  nothing; the shadow whole. **Built:** `mix_onto::faded_onto`,
+  `drawn_picture::draw_faded_picture`, `DisplayItem::Picture`'s `fade`,
+  `glyph_fade.rs` (`fade_of`, `draw_faded_layers`, `put_held`),
+  `DisplayItem::LayeredGlyph` (every layered glyph now one group, opaque
+  text too: Chrome's at one, where a half-opaque layer drawn alone was a
+  level off in 416 pixels). **Tests:** 5 unit tests (`glyph_fade.rs`);
+  `alo-renderer/tests/a_colour_glyph_at_its_texts_opacity.rs` — the fades
+  in numbers, 247/195/199 by hand, every pixel Chrome's at one and within
+  a level at two (832); `a_colour_glyphs_shadow.rs`' row 9 now compared,
+  Chrome's in every pixel. **References moved:** `colour-glyph-shadows`
+  at one and two (row 9: 1,088 and 4,352 pixels, now Chrome's exactly;
+  row 11 at one, 76 pixels a level apart, both engines' glyph half a pixel
+  apart — 833). **Mutations:** pictures not faded, the group in exact
+  `/255` arithmetic, layers faded one by one — each fails.
 
-- [ ] **831. Plain letters' `text-shadow` softened glyph by glyph (found by
+- [x] **831. Plain letters' `text-shadow` softened glyph by glyph (found by
   786, 2 November 2026).** Chrome 156 blurs each glyph's shadow on its own
   and puts the blurred shadows over each other: two boxes of a test face
   8 px apart, blurred 16, meet at 129 of 255 where this engine, blurring
   the run's outlines as one shape, draws 110. A colour glyph's shadow is
   already its own (786). Every text shadow with a blur moves, so corpus
   and interface references with one will too. *Depends on nothing.*
+  ***Done (6 November 2026).*** **Measured** in Chrome 157.0.8103.38 on a
+  test face (`alo-paint/tests/fonts/shadowed.ttf`: `A` a box, `W` a box
+  reaching 300 units into each neighbour): each glyph's shadow softened on
+  its own and drawn over the others — two `A`s blurred 16 meet at 129
+  (here 132, was 110); two overlapping `W`s' hard half-black shadow 63
+  where they overlap, 127 apart (was 128 throughout). Translucent *letters*
+  overlap the same way in Chrome — cut to 834. **Built:**
+  `DisplayItem::LettersShadow` (listed as a `shadow` line, so no
+  `display.txt` moved), `render::draw_letters_shadow`, a text item's own
+  shadows glyph by glyph. **Tests:**
+  `alo-renderer/tests/a_letters_shadow_glyph_by_glyph.rs` — the glyph
+  shapes in numbers, the meeting point and the overlap at one and two, and
+  every pixel Chrome's (the hard row to a level, blurred within 4 and 7).
+  **References moved:** corpus `text-shadow-on-lines` (`render.png` 486
+  pixels, `render-at-2.png` 2,127, up to 7 and 11 levels: hard shadows
+  where two letters' edges share a pixel, neither nearer Chrome — 214
+  closer, 217 farther at one) and `shadowed-card` (`render.png` 248, a
+  title's soft translucent shadow darker between letters). **Mutation:**
+  the run's glyphs softened as one shape — 2 of 3 fail.
 
 - [x] **767. Chinese, Japanese and Korean in the interface.** Cut from ADR
   0088 § 5. On macOS the machine scan reads no `.ttc` collection — the CJK
@@ -22775,6 +22876,50 @@ What stage 2's exit gate actually measures: a person using it.
   once, `1=A` to `7=Ada%20L`. After: 20 of 20 idle and 15 of 15 under
   `yes` ×96 pass. **Mutation:** each key sent twice
   (`chrome_card_input::commands`) — the test fails, reading twelve values.
+
+- [ ] **832. A picture glyph enlarged at two as Chrome smooths it (found
+  by 830, 6 November 2026).** At a scale of two a `CBDT` glyph of 40
+  texels drawn 80 device pixels wide is a level from Chrome 156's in about
+  half its pixels — 27,752 of the 360,000 of
+  `a_colour_glyph_at_its_texts_opacity.rs`' page, under opaque text as
+  much as faint — where at one every texel is Chrome's. Fit Chrome's
+  filter for a glyph's picture (it may not be `bilinear.rs`' `<img>`
+  rule) and tighten that test's slack. *Depends on nothing.*
+
+- [ ] **833. A colour glyph on a whole device pixel, as Chrome places it
+  (found by 830, 6 November 2026).** After `DejaVu Sans`' `a` (a pen at
+  34.5) Chrome 156 draws `layered-deep.ttf`'s glyph from a whole pixel
+  where this engine draws it half a pixel along
+  (`a_colour_glyphs_shadow.rs`' row 11: 76 pixels 87 levels apart on
+  average). Measure how Chrome places a colour glyph's pen (picture,
+  layered, painted) at fractions at one and two, and place it so.
+  *Depends on nothing.*
+
+- [ ] **834. Translucent letters filled glyph by glyph (found by 831, 6
+  November 2026).** Chrome 157 fills each glyph of a run on its own: two
+  overlapping `W`s at half opacity are 63 where they overlap; this engine
+  fills the run as one shape (128). Where two opaque letters' edges share
+  a pixel the two coverages are put over each other too, so every text
+  reference may move by a level at such pixels — measure, then build.
+  *Depends on nothing.*
+
+- [ ] **835. `SVG ` colour glyphs (cut from 785).** A face's `SVG ` table
+  holds an SVG document per glyph; draw it through `alo-svg` at the
+  glyph's place, size and text alpha, as Chrome does. *Depends on 785.*
+
+- [ ] **836. A variable `COLR` glyph, tested (cut from 785).** The paint
+  program is recorded at the run's instance (`ttf-parser` applies
+  `COLR`'s deltas at the face's coordinates), untested: build a variable
+  v1 test face whose gradient and transform move along an axis and
+  compare with Chrome at two instances. *Depends on 785.*
+
+- [ ] **837. A generic family widened as Chrome on macOS widens it (found
+  by 829, 6 November 2026).** In Chrome 156 on this Mac `sans-serif,
+  'X'` draws ☺ and © in faces of CoreText's cascade for Helvetica before
+  the next listed family — a machine's list after a generic name. This
+  engine maps a generic name to one face. Decide whether a page's
+  renderer should be handed the system's cascade order, measure it, and
+  choose so. *Depends on nothing.*
 
 ## K. ★ The agent, on somebody else's pages
 

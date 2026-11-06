@@ -309,14 +309,21 @@ mod tests {
     }
 
     #[test]
-    fn an_emoji_is_drawn_by_the_face_of_pictures_and_a_letter_by_the_text_face() {
+    fn an_emoji_no_listed_face_has_is_drawn_by_the_face_of_pictures() {
+        // `DejaVu Sans` has no 🙂: the face that draws in colour, as Chrome
+        // falls back for an emoji (queue item 829).
         assert_eq!(
-            faces("a\u{1f600}b"),
+            faces("a\u{1f642}b"),
             named(&[
                 ("a", "DejaVu Sans"),
-                ("\u{1f600}", "Noto Color Emoji"),
+                ("\u{1f642}", "Noto Color Emoji"),
                 ("b", "DejaVu Sans")
             ])
+        );
+        // It has 😀, listed: Chrome 156 draws it there, as its outline.
+        assert_eq!(
+            faces("a\u{1f600}b"),
+            named(&[("a\u{1f600}b", "DejaVu Sans")])
         );
         // Both faces have `©`, `#` and digits; they are meant as letters.
         assert_eq!(faces("\u{a9} #1"), named(&[("\u{a9} #1", "DejaVu Sans")]));

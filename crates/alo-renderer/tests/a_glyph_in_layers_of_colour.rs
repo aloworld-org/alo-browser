@@ -23,8 +23,9 @@
 //! Chrome's in every pixel of one colour (`chrome-layers.png`, beside the
 //! reference; measured 2026-11-01, headless, `--force-device-scale-factor=1`).
 //!
-//! What closes it: the drawing in numbers — the fills `B` is drawn as, in
-//! their colours and places, and no letter of the text where `B` is; the
+//! What closes it: the drawing in numbers — the layers `B` is drawn as, in
+//! their colours and places (one item since queue item 830, its layers put
+//! over each other as Chrome's rasteriser puts them), and no letter of the text where `B` is; the
 //! pixels, at one and two; a reference render,
 //! `references/a-glyph-in-layers-of-colour.png`.
 //!
@@ -32,7 +33,7 @@
 //! rewrites the reference. A rewritten reference is a diff somebody reads.
 
 use alo_layout::Size;
-use alo_paint::{Canvas, DisplayItem, Paint, from_png, to_png};
+use alo_paint::{Canvas, DisplayItem, from_png, to_png};
 use alo_renderer::Screen;
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_value::Rgba;
@@ -91,21 +92,19 @@ const BASELINE: f32 = 10.0 + 5.0 + 32.0;
 #[test]
 fn the_layered_letter_is_drawn_as_its_layers_in_their_colours() {
     let rendered = drawn(1.0);
+    // One item for the glyph, its layers bottom first, drawn whole under
+    // opaque text (queue item 830).
     let fills: Vec<(Rgba, (f32, f32, f32, f32))> = rendered
         .drawing
         .display
         .items()
         .iter()
         .filter_map(|item| match item {
-            DisplayItem::Fill {
-                path,
-                paint: Paint::Solid(colour),
-                ..
-            } if *colour != Rgba::from_rgba8(0xff, 0xff, 0xff, 0xff) => {
-                path.bounds().map(|bounds| (*colour, bounds))
-            }
+            DisplayItem::LayeredGlyph { layers, fade, .. } if *fade == u8::MAX => Some(layers),
             _ => None,
         })
+        .flatten()
+        .filter_map(|(path, colour)| path.bounds().map(|bounds| (*colour, bounds)))
         .collect();
     // `B` starts one em along, at 50: its back 54–86 across and 32 up from
     // the baseline; its middle 62–78 by 8–24 up; its foot in the text's

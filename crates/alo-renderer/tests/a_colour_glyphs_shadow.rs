@@ -185,7 +185,7 @@ fn glyph_shadows(rendered: &alo_renderer::Rendered) -> Vec<(f32, Option<Vec<f32>
         .filter_map(|item| match item {
             DisplayItem::GlyphShadow { cast, .. } => cast.bounds().map(|bounds| {
                 let layers = match cast {
-                    Cast::Picture(..) => None,
+                    Cast::Picture(..) | Cast::Painted(..) => None,
                     Cast::Layers(layers) => {
                         Some(layers.iter().map(|(_, opacity)| *opacity).collect())
                     }
@@ -241,6 +241,18 @@ fn a_colour_glyph_casts_what_it_draws() {
         .iter()
         .filter_map(|item| match item {
             DisplayItem::Shadow { path, .. } => path.bounds(),
+            // The letters' own, glyph by glyph (queue item 831).
+            DisplayItem::LettersShadow { glyphs, .. } => glyphs
+                .iter()
+                .filter_map(alo_paint::Path::bounds)
+                .reduce(|one, other| {
+                    (
+                        one.0.min(other.0),
+                        one.1.min(other.1),
+                        one.2.max(other.2),
+                        one.3.max(other.3),
+                    )
+                }),
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -409,9 +421,9 @@ fn apart(ours: [u8; 4], theirs: [u8; 4]) -> u8 {
 /// two, measured); and where letters of `DejaVu Sans` stand beside a colour
 /// glyph (rows 10 and 11), their blurred shadow within 31 and 13 (the
 /// letters' own edges are not Chrome's), and above it every pixel of the
-/// page's own colours that is one in both pictures the same in both. Row 9's glyph is not
-/// compared: Chrome draws a colour glyph at the text's own opacity, which
-/// this engine does not yet (queue item 830).
+/// page's own colours that is one in both pictures the same in both. Row
+/// 9's glyph, drawn at the faint text's own opacity, is Chrome's to a level
+/// too (queue item 830).
 #[test]
 fn every_pixel_is_chromes_within_its_rows_bound() {
     let plain = [WHITE, BLACK, TEAL, RED, LINE];
@@ -455,7 +467,6 @@ fn every_pixel_is_chromes_within_its_rows_bound() {
                 let bound = match row {
                     1 | 5 => soft,
                     12 | 13 => far,
-                    9 if within < 60.0 => continue,
                     10 | 11 if within >= 60.0 => beside,
                     10 | 11 => {
                         if plain.contains(&ours) && plain.contains(&theirs) {

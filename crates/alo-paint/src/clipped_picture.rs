@@ -30,7 +30,7 @@
 //! not Chrome's (`docs/conformance.md`).
 
 use crate::canvas::Canvas;
-use crate::drawn_picture::draw_picture;
+use crate::drawn_picture::draw_faded_picture;
 use crate::picture_filter::Uploads;
 use alo_layout::Rect;
 use alo_value::{Matrix, Rgba};
@@ -38,7 +38,9 @@ use std::sync::Arc;
 
 /// Draw `picture` into `rect` under `transform`, as
 /// [`crate::drawn_picture::draw_picture`] does, keeping of what it drew at
-/// each pixel only as much as `inside` lets through — 255 all of it, 0 none.
+/// each pixel only as much as `inside` lets through — 255 all of it, 0 none —
+/// the picture drawn at `fade` of 255 (a colour glyph's under translucent
+/// text, queue item 830; 255 for any other picture).
 pub fn draw_clipped_picture(
     target: &mut Canvas,
     picture: &Arc<Canvas>,
@@ -46,6 +48,7 @@ pub fn draw_clipped_picture(
     transform: Matrix,
     uploads: &mut Uploads,
     inside: &dyn Fn(u32, u32) -> u8,
+    fade: u8,
 ) {
     let Some(touched) = touched(target, rect, transform) else {
         return;
@@ -54,7 +57,7 @@ pub fn draw_clipped_picture(
         .pixels()
         .map(|(x, y)| target.at(x, y).unwrap_or(Rgba::TRANSPARENT))
         .collect();
-    draw_picture(target, picture, rect, transform, uploads);
+    draw_faded_picture(target, picture, rect, transform, uploads, fade);
     for ((x, y), was) in touched.pixels().zip(before) {
         let kept = inside(x, y);
         if kept == u8::MAX {
@@ -141,6 +144,7 @@ fn between(was: Rgba, drawn: Rgba, kept: u8) -> Rgba {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::drawn_picture::draw_picture;
 
     fn red_square() -> Arc<Canvas> {
         Arc::new(Canvas::new(4, 4, Rgba::from_rgba8(255, 0, 0, 255)))
@@ -155,6 +159,7 @@ mod tests {
             Matrix::IDENTITY,
             &mut Uploads::default(),
             inside,
+            u8::MAX,
         );
         canvas
     }

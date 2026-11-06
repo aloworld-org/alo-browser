@@ -1187,10 +1187,29 @@ The reason this exists rather than a faster fork of somebody else's engine.
   glyph softened on its own (`alo-paint`'s `glyph_shadow.rs`); an
   underline does not step aside for either, as in Chrome 156 — in numbers,
   in pixels at one and two, two references and Chrome's pictures of two
-  test faces (`alo-renderer/tests/a_colour_glyphs_shadow.rs`). Owed: `COLR`
-  version 1 and `SVG ` colour glyphs (785); a colour glyph at its text's
-  opacity (830); a colour face listed first chosen as Chrome chooses it
-  (829); plain letters' shadows softened glyph by glyph (831).
+  test faces (`alo-renderer/tests/a_colour_glyphs_shadow.rs`). **A colour
+  glyph at its text's opacity** (830): a picture glyph faded texel by
+  texel, a layered glyph as one group made in eight bits and faded once,
+  nothing under a transparent colour (`alo-paint`'s `glyph_fade.rs`,
+  `mix_onto::faded_onto`) — every pixel Chrome 156's at one
+  (`a_colour_glyph_at_its_texts_opacity.rs`). **The face that draws a
+  character, as Chrome chooses it** (829): a listed face that has it
+  first, whatever its kind; U+FE0F asks for a face that draws in colour
+  and U+FE0E for one that does not; how a character is meant by default
+  chooses only among faces not listed (`alo-text`'s
+  `FontDatabase::font_shown`) — 476 of Chrome 156's choices
+  (`alo-text/tests/a_face_chosen_as_chrome_chooses_it.rs`). **Plain
+  letters' shadows softened glyph by glyph** (831), as Chrome 157 softens
+  them (`alo-renderer/tests/a_letters_shadow_glyph_by_glyph.rs`). **A
+  `COLR` version 1 glyph's paint program** (785): linear, radial and sweep
+  gradients, transforms, glyph clips and clip boxes, layers, and every
+  compositing mode, run on a surface of the glyph's own and drawn as a
+  layered glyph is (`alo-paint`'s `colour_paint.rs`, `painted_glyph.rs`) —
+  every pixel inside a shape Chrome 157's to a level
+  (`alo-renderer/tests/a_glyph_painted_by_colr_version_one.rs`). Owed:
+  `SVG ` colour glyphs (835); a picture glyph enlarged at two (832); a
+  colour glyph on a whole device pixel (833); translucent letters filled
+  glyph by glyph (834); a variable `COLR` glyph tested (836).
   **The conversation keeps every turn, and scrolls** (703, ADR 0085):
   each search and each page opened — from the box, a site's title or a
   page shown earlier — is a turn under the last, the person's words its

@@ -53,16 +53,31 @@ use alo_value::Rgba;
 
 /// The pixel `mix` makes of the pixel `under` it.
 pub fn onto(mix: Mix, under: Rgba) -> Rgba {
-    if mix.alpha == 0 {
+    faded_onto(mix, under, u8::MAX)
+}
+
+/// The same, the mix drawn at `fade` of 255 — a colour glyph's picture
+/// under text of a translucent colour (queue item 830).
+///
+/// Measured in Chrome 156.0.8078.76 (headless, its default raster path):
+/// a `CBDT` glyph's 1,600 random texels, drawn at their own size under
+/// eighteen text alphas over white, black and grey, are every one this
+/// rule's — the mix's colour and alpha each times `fade / 255`, then
+/// composited as an unfaded mix is — with the alpha's byte rounded a half
+/// up from the colour's own (0.3 is 77), as every colour's is. At 255 it is
+/// [`onto`] exactly: a product with one changes no float.
+pub fn faded_onto(mix: Mix, under: Rgba, fade: u8) -> Rgba {
+    if mix.alpha == 0 || fade == 0 {
         return under;
     }
     let (red, green, blue, alpha) = under.to_rgba8();
-    if mix.alpha < Mix::OPAQUE && alpha < u8::MAX {
-        return in_floats(mix, under);
+    if (mix.alpha < Mix::OPAQUE || fade < u8::MAX) && alpha < u8::MAX {
+        return in_floats(mix, under, fade);
     }
-    let keep = 1.0 - level(mix.alpha);
+    let strength = f32::from(fade) / 255.0;
+    let keep = 1.0 - level(mix.alpha) * strength;
     let channel = |colour: u16, beneath: u8| {
-        let x = (f32::from(beneath) / 255.0).mul_add(keep, level(colour));
+        let x = (f32::from(beneath) / 255.0).mul_add(keep, level(colour) * strength);
         written(x)
     };
     Rgba::from_rgba8(
@@ -93,14 +108,15 @@ fn written(x: f32) -> u8 {
 }
 
 /// A translucent mix over a pixel that is not opaque either: as a colour
-/// over its alpha, composited in floats like every other drawing.
-fn in_floats(mix: Mix, under: Rgba) -> Rgba {
+/// over its alpha, at `fade` of 255, composited in floats like every other
+/// drawing.
+fn in_floats(mix: Mix, under: Rgba, fade: u8) -> Rgba {
     let alpha = f32::from(mix.alpha);
     let over = Rgba {
         red: (f32::from(mix.red) / alpha).min(1.0),
         green: (f32::from(mix.green) / alpha).min(1.0),
         blue: (f32::from(mix.blue) / alpha).min(1.0),
-        alpha: alpha / f32::from(Mix::OPAQUE),
+        alpha: alpha / f32::from(Mix::OPAQUE) * (f32::from(fade) / 255.0),
     };
     over.over(under)
 }

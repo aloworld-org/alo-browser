@@ -132,6 +132,7 @@ fn drawn_smaller(
             box_id,
             rect,
             picture,
+            ..
         } = item
         else {
             continue;
