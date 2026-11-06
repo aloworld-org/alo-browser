@@ -278,6 +278,25 @@ a {
   font-weight: 600;
 }
 
+/* The × an open chat's hovered row offers (queue item 791): 24 square at
+   the row's end, as Delete is, its 12 px cross in the ink. */
+.shut {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--line-soft);
+  color: var(--ink);
+}
+
+.shut .icon {
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 0 auto;
+}
+
 /* A chat just deleted, for five seconds: a dark pill above Settings, as
    alo's own Undo send is drawn, its name cut where the pill ends. */
 .undo {

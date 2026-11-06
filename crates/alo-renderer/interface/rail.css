@@ -1,11 +1,17 @@
-/* The chats panel hidden, as the design's rail 64 wide (queue item 711,
-   docs/design/shell.md): the mark, New chat, a short line, and at the foot
-   the button that shows the panel again. The values are the palette's,
-   spelled here because no other file is reachable from a renderer. */
+/* The chats panel hidden, as the design's rail 64 wide (queue items 711
+   and 760, docs/design/shell.md): the mark, New chat, a short line, the
+   most recent chats as round initials, and at the foot the button that
+   shows the panel again. The values are the palette's, spelled here
+   because no other file is reachable from a renderer.
+
+   The rail is drawn on nothing: only the rail itself has the panel's
+   ground, so the name standing beside a hovered chat, past the rail's
+   edge, is all the window draws over the first screen. */
 :root {
   --ink: #1b2433;
   --panel: #eeeae2;
   --line-soft: #e1dace;
+  --acting: #b5573a;
 }
 
 * {
@@ -20,7 +26,6 @@ body {
 }
 
 body {
-  background: var(--panel);
   color: #3d3a35;
   font-family: "Instrument Sans", system-ui, sans-serif;
   font-size: 13.5px;
@@ -32,8 +37,10 @@ body {
   flex-direction: column;
   align-items: center;
   row-gap: 6px;
+  width: 64px;
   height: 100%;
   padding: 10px 0 12px;
+  background: var(--panel);
 }
 
 .mark {
@@ -76,4 +83,68 @@ body {
 /* What is left between the line and the foot. */
 .room {
   flex-grow: 1;
+}
+
+/* A chat (queue item 760): its button 44 square, as the others, holding its
+   initials in a 32 px circle on the line's colour, 12 px 600 in the ink;
+   the chat on screen white with a shadow, as the panel's row is white. */
+.rchat {
+  position: relative;
+}
+
+.rchat[data-hovered="true"] {
+  background: #f6f3ee;
+}
+
+.initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto;
+  border-radius: 16px;
+  background: var(--line-soft);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.rchat[aria-current="page"] .initials {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(27, 36, 51, 0.18);
+}
+
+/* The agent at work in it: the panel's 7 px terracotta dot, at the
+   circle's shoulder. */
+.rchat .working {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--acting);
+}
+
+/* Its name beside it while the pointer is over it: a dark pill 28 tall
+   centred on the button, 4 past the rail's edge, at most 240 wide and cut
+   where it ends, as the panel's Undo pill is drawn. */
+.named {
+  position: absolute;
+  top: 8px;
+  left: 58px;
+  height: 28px;
+  max-width: 240px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #2b2722;
+  color: #f3efe8;
+  font-size: 12.5px;
+  line-height: 28px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

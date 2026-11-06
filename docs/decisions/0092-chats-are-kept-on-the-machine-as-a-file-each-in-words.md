@@ -1,6 +1,6 @@
 # ADR 0092 — Chats are kept on the machine, a file each, in words
 
-**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814, 820 and 789; § 2's *not encrypted* superseded by ADR 0098 (790)
+**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814, 820, 789 and 791; § 2's *not encrypted* superseded by ADR 0098 (790)
 **Date:** 2026-11-01
 **Context:** ADR 0085 (the conversation keeps every turn, per chat; an
 earlier card is its address, not a picture); ADR 0074 (the interface is a
@@ -331,3 +331,52 @@ seconds pass — the other chat's file kept — then deleted and the window
 closed before they pass, its file gone, and a relaunch showing neither.
 Mutations — the file never removed, *Delete* decided against what is held
 now rather than what was painted — each fail.
+
+## Amendment, 2026-11-06 — a chat closed to *Earlier* (queue item 791)
+
+The owner approved this on 6 November 2026 (*"I agree"*): **an × appears on
+hover over an open chat; closing moves it from *Open* to *Earlier*; nothing
+is deleted.** § 5's *closing is not built* is replaced by this.
+
+- **Which rows offer which.** The row the pointer is over offers one thing
+  at its end, never two: **an open chat its ×**, 24 square, a 12 px cross
+  in the ink on the line's colour, named *Close* and the chat's name; **an
+  earlier chat *Delete*** (789). Closing loses nothing, so it is what a chat
+  in use offers; deleting is offered only for a chat already put away, so
+  deleting an open chat takes two deliberate presses — closed, then
+  deleted — and the × and *Delete* never stand where a person reaching for
+  one could press the other. The rail offers neither (760).
+- **Closed, a chat moves to the top of *Earlier*** — the most recently
+  put away is the newest of the earlier ones — its name and turns as they
+  were, a live card put away as its address (and its page closed, as any
+  card put away). Nothing is written for it but what its kept form already
+  changed: whether a chat is open is not kept (§ 5 reads every chat back
+  under *Earlier*), so a closed chat's file is the one it had.
+- **A chat with nothing in it closed goes**: no name and no turn, nothing
+  would be kept of it, and it has no file (§ 3 writes a chat once it holds
+  a turn).
+- **The chat on screen closed** puts the open chat below it in the panel on
+  screen, or else the one above, or else a new chat. **The empty chat on
+  screen offers no ×**: closed it would come straight back as *New chat*.
+- **Pressed again, an earlier chat is open and first under *Open*** — the
+  most recent, as a new chat is first — and so first on the rail (760).
+  Until 760 a chat opened again kept its place among the open ones.
+- **What an agent reads**: the × is a button named *Close* and the chat's
+  name. A person closes; an agent's verbs never reach the panel (ADR 0074).
+
+Checked by `conversation`'s tests (to the top of *Earlier*, nothing gone and
+everything kept; the chat on screen closed, below, above or a new one; the
+empty chat on screen not closable; an empty chat closed gone, a card on
+screen put away; open again first under *Open*), `conversation_decide`'s
+(the × only for the open chat painted offering it and still so),
+`conversation_claim`'s and `the_chats_panel.rs` (the × 24 square at (196,
+225) in the 38-row from 218, its cross at (202, 231), the row unmoved, no
+*Delete*; a press and a hover on it claimed as the ×; reference
+`panel-closing.png`; the 789 reference `panel-deleting.png` now hovers an
+earlier row), the wire, and through the window's road
+(`offers_and_the_panel_pressed_in_the_window.rs`): an open row hovered and
+painted offering its ×, pressed, the chat under *Earlier* — where, hovered,
+the panel's renderer finds it at 254 and its row offers *Delete*.
+Mutations — a closed chat put last rather than first, the painted × not
+kept by the drawing thread — each fail.
+

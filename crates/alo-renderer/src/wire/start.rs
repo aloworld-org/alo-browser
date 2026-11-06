@@ -118,6 +118,7 @@ impl Writer {
                 self.float(bar.length);
                 self.bool(bar.above);
                 self.bool(bar.below);
+                self.float(bar.seen);
             }
             None => self.bool(false),
         }
@@ -276,11 +277,20 @@ impl Reader<'_> {
                 "a sign of more above or below placed further than any room",
             ));
         }
+        let above = self.bool()?;
+        let below = self.bool()?;
+        // How much of it is seen (queue item 793): a fraction, and nothing
+        // else.
+        let seen = self.float()?;
+        if !(0.0..=1.0).contains(&seen) {
+            return Err(unreadable("a sign of more seen as other than a fraction"));
+        }
         Ok(Some(Bar {
             top,
             length,
-            above: self.bool()?,
-            below: self.bool()?,
+            above,
+            below,
+            seen,
         }))
     }
 

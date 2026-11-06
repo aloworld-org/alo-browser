@@ -32,17 +32,22 @@
 //! hides the panel is a `button` named *Hide the panel*. Hidden, the panel
 //! is the rail, built by [`crate::rail_document`].
 //!
-//! # Deleting a chat
+//! # Closing and deleting a chat
 //!
-//! Queue item 789. The chat whose row the pointer is over offers *Delete*:
-//! a `button` of the class `delete` at the row's end, named *Delete* and
-//! the chat's name. A chat deleted a moment ago is said in the foot, above
+//! Queue items 789 and 791. The chat whose row the pointer is over offers
+//! one thing at the row's end: an **open** chat a `button` of the class
+//! `shut`, an × named *Close* and the chat's name, which moves it under
+//! *Earlier* — unless the browser process says it is not closable (the
+//! empty chat on screen, which would only come back as *New chat*); an
+//! **earlier** chat a `button` of the class `delete`, named *Delete* and
+//! the chat's name. Never both: closing loses nothing, so it is what an
+//! open row offers, and only a chat already put away can be deleted. A chat deleted a moment ago is said in the foot, above
 //! *Settings* — *Deleted “…”* — with a `button` of the class `bring` named
 //! *Undo*, in a `status` an agent reads as *“Weekend in Lisbon” deleted*.
 //!
 //! It runs no script: the template has none and nothing here makes one.
 
-use crate::panel::{Chat, Doing, Panel};
+use crate::panel::{Chat, Closing, Doing, Panel};
 use alo_dom::{Document, NodeId, parse_document};
 
 /// The panel's markup, compiled in: the mark, *New chat*, an empty place for
@@ -70,11 +75,17 @@ const PANEL: &str = "panel";
 /// The id of the template's *Search chats* field.
 const FIND: &str = "find";
 
+/// The id of the template's `<template>` holding the × an open row offers.
+const SHUT_ICON: &str = "shut-icon";
+
 /// The id of the template's foot, holding *Settings*.
 const FOOT: &str = "foot";
 
-/// What a hovered chat's row offers.
+/// What a hovered earlier chat's row offers.
 pub const DELETE: &str = "Delete";
+
+/// What a hovered open chat's × is named, before the chat's name.
+pub const CLOSE: &str = "Close";
 
 /// What brings a chat just deleted back.
 pub const UNDO: &str = "Undo";
@@ -108,7 +119,7 @@ pub struct Unbuilt {
 /// refused an operation, which no state can cause.
 pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
     if panel.hidden {
-        return crate::rail_document::build();
+        return crate::rail_document::build(panel);
     }
     let mut document = parse_document(TEMPLATE);
     let place = by_id(&document, CHATS)?;
@@ -247,21 +258,56 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
     }
     if chat.hovered {
         attribute(document, row, "data-hovered", "true")?;
-        let delete = element(document, "button")?;
-        attribute(document, delete, "class", "delete")?;
-        attribute(document, delete, "type", "button")?;
-        // A stranger's string, entering as an attribute's value.
-        attribute(
-            document,
-            delete,
-            "aria-label",
-            &format!("{DELETE} {}", chat.label()),
-        )?;
-        let words = document.create_text_node(DELETE);
-        append(document, delete, words)?;
-        append(document, row, delete)?;
+        if !chat.open {
+            let delete = element(document, "button")?;
+            attribute(document, delete, "class", "delete")?;
+            attribute(document, delete, "type", "button")?;
+            // A stranger's string, entering as an attribute's value.
+            attribute(
+                document,
+                delete,
+                "aria-label",
+                &format!("{DELETE} {}", chat.label()),
+            )?;
+            let words = document.create_text_node(DELETE);
+            append(document, delete, words)?;
+            append(document, row, delete)?;
+        } else if chat.closing == Closing::Offered {
+            append_shut(document, row, chat)?;
+        }
     }
     Ok(row)
+}
+
+/// The × an open chat's hovered row offers (queue item 791): a `button`
+/// named *Close* and the chat's name. `alo-dom` makes HTML elements only,
+/// so its icon is written in the template's `<template id="shut-icon">`
+/// and moved from there — one row is hovered at a time.
+fn append_shut(document: &mut Document, row: NodeId, chat: &Chat) -> Result<(), Unbuilt> {
+    let shut = element(document, "button")?;
+    attribute(document, shut, "class", "shut")?;
+    attribute(document, shut, "type", "button")?;
+    // A stranger's string, entering as an attribute's value.
+    attribute(
+        document,
+        shut,
+        "aria-label",
+        &format!("{CLOSE} {}", chat.label()),
+    )?;
+    let holder = by_id(document, SHUT_ICON)?;
+    let icon = document
+        .element(holder)
+        .and_then(|holder| holder.template_contents)
+        .and_then(|contents| {
+            document
+                .children(contents)
+                .find(|&child| document.element(child).is_some())
+        })
+        .ok_or_else(|| Unbuilt {
+            why: format!("the panel's template {SHUT_ICON:?} holds no icon"),
+        })?;
+    append(document, shut, icon)?;
+    append(document, row, shut)
 }
 
 /// The template's element with `id`.

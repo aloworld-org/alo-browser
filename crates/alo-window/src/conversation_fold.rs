@@ -51,10 +51,11 @@
 //! # Shown in a narrow window
 //!
 //! *Show the panel* pressed while the window is narrow is a person's
-//! choice, and kept: the panel comes back as soon as the window is
-//! [`FOLD_WIDTH`] wide. It does not come back at once — the column beside
-//! it would be narrower than the tab row — and the window says so in
-//! words rather than doing nothing silently.
+//! choice, and kept: the panel comes back beside the conversation as soon
+//! as the window is [`FOLD_WIDTH`] wide. It does not stand beside it at
+//! once — the column beside it would be narrower than the tab row — but
+//! slides over the conversation as a sheet until it is closed (queue item
+//! 776, [`crate::conversation_sheet`]).
 
 use crate::conversation_place::Side;
 
@@ -65,12 +66,6 @@ pub const FOLD_WIDTH: u32 = 760;
 /// The least window the conversation is laid out in, in CSS pixels, wide
 /// and tall: what the window server is told is its least inner size.
 pub const LEAST_SIZE: (u32, u32) = (600, 600);
-
-/// What the window says when *Show the panel* is pressed while it is too
-/// narrow for the panel: why it is still the rail, and when it is not.
-pub fn too_narrow() -> String {
-    format!("The window is too narrow for the panel: it comes back at {FOLD_WIDTH} wide")
-}
 
 /// What the window says when *Show the panel* is pressed while alo's agent
 /// works on the card (queue item 819): why it is still the rail, and when

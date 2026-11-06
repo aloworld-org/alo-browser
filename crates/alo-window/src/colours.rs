@@ -29,6 +29,17 @@ pub fn panel() -> Rgba {
     Rgba::from_rgba8(0xee, 0xea, 0xe2, 0xff)
 }
 
+/// The shade over the conversation while the chats panel stands over it as
+/// a sheet in a narrow window (queue item 776): the conversation's ink,
+/// `#1b2433` — ADR 0074 § 2, as [`panel`] is — at `alpha`, the sheet's
+/// own ([`crate::conversation_sheet::SHADE`] all the way out).
+pub fn shade(alpha: f32) -> Rgba {
+    Rgba {
+        alpha: alpha.clamp(0.0, 1.0),
+        ..Rgba::from_rgba8(0x1b, 0x24, 0x33, 0xff)
+    }
+}
+
 /// Behind the tab strip until its renderer has painted, and wherever its
 /// frame does not reach: `--bg-rail`, the strip's own ground, so the band
 /// is the strip's colour from the window's first moment.

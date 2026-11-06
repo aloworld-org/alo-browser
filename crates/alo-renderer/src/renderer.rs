@@ -779,7 +779,7 @@ impl Renderer {
                 strip.viewport,
                 strip.scale,
                 crate::strip::address(),
-                (strip_document::SHEET, Vec::new()),
+                (strip_document::SHEET, Vec::new(), false),
                 Holds::Strip,
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoStrip { why: unbuilt.why }),
@@ -803,7 +803,10 @@ impl Renderer {
                 panel.viewport,
                 panel.scale,
                 crate::panel::address(),
-                (sheet, Vec::new()),
+                // The rail is drawn on nothing, so the name of the chat
+                // hovered on it stands over the first screen (queue item
+                // 760); the whole panel on white.
+                (sheet, Vec::new(), panel.hidden),
                 Holds::Conversation(Part::Panel),
             ),
             Err(unbuilt) => FromRenderer::Failed(Failure::NoPanel { why: unbuilt.why }),
@@ -830,6 +833,7 @@ impl Renderer {
                         .chain(crate::news_document::pictures(start))
                         .chain(crate::marks_document::pictures(start))
                         .collect(),
+                    false,
                 ),
                 Holds::Conversation(Part::Start),
             ),
@@ -843,14 +847,15 @@ impl Renderer {
     /// frame, queue item 717, and a search's thumbnails, 743), letting go of
     /// whatever was held first, and answer
     /// as a load does. `holds` says which part it is, and so what a press
-    /// on it may be claimed as.
+    /// on it may be claimed as; `clear`, whether it is drawn on nothing
+    /// rather than on white (only the rail, queue item 760).
     fn interface(
         &mut self,
         document: alo_dom::Document,
         viewport: alo_layout::Size,
         scale: f32,
         address: Option<alo_url::Url>,
-        (sheet, pictures): (&str, Vec<crate::resource::Resource>),
+        (sheet, pictures, clear): (&str, Vec<crate::resource::Resource>, bool),
         holds: Holds,
     ) -> FromRenderer {
         let left = self.let_go();
@@ -860,6 +865,7 @@ impl Renderer {
             .with_sheet(sheet);
         self.easel.borrow_mut().begin(&page);
         self.easel.borrow_mut().lend(pictures);
+        self.easel.borrow_mut().on_nothing(clear);
         self.view = Rc::new(PageView::at(
             Screen::new(page.viewport).at_scale(page.scale),
             Rc::clone(&self.easel),

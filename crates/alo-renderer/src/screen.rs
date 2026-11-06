@@ -16,6 +16,15 @@
 //! ([`crate::Page::scale`], queue item 563) and lays it out and draws it
 //! there, and a `Resize` carries a whole `Screen`, so a window moved to a
 //! screen of another scale has its page laid out again at it (562).
+//!
+//! # What it is drawn on
+//!
+//! A page is drawn on white: a page with no background of its own is a
+//! white page. One document of the browser's own is drawn on nothing
+//! instead — the chats panel's rail, whose hovered chat's name stands past
+//! the rail's edge over the first screen (queue item 760) — so the window
+//! composes what lies beyond the rail's own background as it is
+//! ([`Screen::on_nothing`]). Nobody's page is ever drawn so.
 
 use alo_layout::Size;
 
@@ -27,13 +36,19 @@ pub struct Screen {
     /// Device pixels per CSS pixel: any finite factor above zero, and 1 for
     /// anything else.
     scale: f32,
+    /// Whether it is drawn on nothing rather than on white.
+    clear: bool,
 }
 
 impl Screen {
     /// A window of this size on a screen of one device pixel to the CSS
     /// pixel, which is every render's until a window says otherwise.
     pub fn new(size: Size) -> Self {
-        Self { size, scale: 1.0 }
+        Self {
+            size,
+            scale: 1.0,
+            clear: false,
+        }
     }
 
     /// The same window on a screen of `scale` device pixels to the CSS
@@ -50,6 +65,22 @@ impl Screen {
     pub fn scale(self) -> f32 {
         self.scale
     }
+
+    /// The same window, drawn on nothing rather than on white when `clear`:
+    /// what no background covers is left transparent.
+    #[must_use]
+    pub fn on_nothing(self, clear: bool) -> Self {
+        Self { clear, ..self }
+    }
+
+    /// What it is drawn on: white, or nothing.
+    pub fn ground(self) -> alo_value::Rgba {
+        if self.clear {
+            alo_value::Rgba::TRANSPARENT
+        } else {
+            alo_value::Rgba::WHITE
+        }
+    }
 }
 
 #[cfg(test)]
@@ -62,6 +93,20 @@ mod tests {
         assert_eq!(screen.scale().to_bits(), 1.0_f32.to_bits());
         assert_eq!(screen.at_scale(2.0).scale().to_bits(), 2.0_f32.to_bits());
         assert_eq!(screen.at_scale(1.5).scale().to_bits(), 1.5_f32.to_bits());
+    }
+
+    #[test]
+    fn a_screen_is_drawn_on_white_unless_it_is_drawn_on_nothing() {
+        let screen = Screen::new(Size::new(64.0, 600.0));
+        assert_eq!(screen.ground(), alo_value::Rgba::WHITE);
+        assert_eq!(
+            screen.at_scale(2.0).on_nothing(true).ground(),
+            alo_value::Rgba::TRANSPARENT
+        );
+        assert_eq!(
+            screen.on_nothing(true).at_scale(2.0).scale().to_bits(),
+            2.0_f32.to_bits()
+        );
     }
 
     #[test]

@@ -462,11 +462,12 @@ fn chats_are_kept_across_launches_named_by_their_first_words() -> Result<(), Str
                 .and_then(|frame| pixel(&frame, 81, 177))
                 .is_some_and(|colour| colour == second)
     })?;
+    // First under Open: in use again, the most recent (queue item 760).
     assert_eq!(
         driven.rows(),
         vec![
-            (NEW_CHAT.to_owned(), true, false),
             ("rust borrow checker".to_owned(), true, true),
+            (NEW_CHAT.to_owned(), true, false),
             ("lifetimes".to_owned(), false, false)
         ],
         "in use again, under Open"

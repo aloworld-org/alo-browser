@@ -141,13 +141,18 @@ fn append_bar(document: &mut Document, thread: NodeId, bar: Bar, room: f32) -> R
     attribute(document, sign, "class", "goes-on")?;
     attribute(document, sign, "role", "image")?;
     attribute(document, sign, "aria-label", &bar.said(room))?;
-    // Numbers of the browser process's, never a string of anybody's.
-    attribute(
-        document,
-        sign,
-        "style",
-        &format!("top: {}px; height: {}px", bar.top, bar.length),
-    )?;
+    // Numbers of the browser process's, never a string of anybody's: where
+    // it is, and — faded once the conversation has stopped (queue item
+    // 793) — how much of it is seen.
+    let style = if bar.seen < 1.0 {
+        format!(
+            "top: {}px; height: {}px; opacity: {}",
+            bar.top, bar.length, bar.seen
+        )
+    } else {
+        format!("top: {}px; height: {}px", bar.top, bar.length)
+    };
+    attribute(document, sign, "style", &style)?;
     append(document, thread, sign)
 }
 

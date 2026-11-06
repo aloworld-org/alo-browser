@@ -26,6 +26,11 @@
 //!    the box, and the panel shows only the chats named so (711).
 //! 5. The button that hides the panel lays the window out beside the rail,
 //!    whose *New chat* and *Show the panel* work, at one and at two.
+//! 6. An open chat's × closes it to *Earlier*, where its row offers
+//!    *Delete* (791); the rail's chats are each pressed as their chat, and
+//!    the hovered one is named past the rail (760); and in a narrow window
+//!    the panel slides over the conversation, a chat chosen in it, a press
+//!    outside it and Escape each closing it (776).
 
 #![cfg(target_os = "macos")]
 
@@ -36,6 +41,7 @@ use alo_renderer::turn::Turn;
 use alo_renderer::typed::Offer;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::brave_search::Provider;
+use alo_window::conversation::ChatId;
 use alo_window::conversation_chrome::{ChromeOpener, Went};
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
 use alo_window::conversation_place::{Side, start_viewport_as};
@@ -222,6 +228,16 @@ fn pixel(frame: &Frame, x: u32, y: u32) -> Option<[u8; 4]> {
 /// parts painted, searching through the provider on `port`, its card's
 /// Chromium one that is not there.
 fn the_window(port: u16, window: (u32, u32), scale: Scale) -> Result<Driven, String> {
+    the_window_on(port, window, scale, Instant::now)
+}
+
+/// [`the_window`], reading the time from `clock` (queue item 776).
+fn the_window_on(
+    port: u16,
+    window: (u32, u32),
+    scale: Scale,
+    clock: impl Fn() -> Instant + 'static,
+) -> Result<Driven, String> {
     let renderers = Renderers::running(renderer()?, &[]).with_machine(alo_window::fonts::frozen());
     let (tell, heard) = channel();
     let drawn = tell.clone();
@@ -243,8 +259,9 @@ fn the_window(port: u16, window: (u32, u32), scale: Scale) -> Result<Driven, Str
         Box::new(move |s| told.send(Heard::Searched(s)).is_ok()),
     )
     .map_err(|why| format!("no search thread: {why}"))?;
-    let mut conversation =
-        ConversationWindow::new(Some(scale), drawing, chrome).with_search(searcher);
+    let mut conversation = ConversationWindow::new(Some(scale), drawing, chrome)
+        .with_search(searcher)
+        .with_clock(clock);
     conversation.measured_as(Measured {
         size: window,
         scale_factor: f64::from(scale.factor()),
@@ -445,9 +462,10 @@ fn the_rail(driven: &mut Driven) -> Result<(), String> {
     driven.until("the box pressed where it is now", |driven| {
         driven.the_box().1
     })?;
-    // The rail's New chat, 44 square at (10, 56).
+    // The rail's New chat, 44 square at (10, 56); its two chats under the
+    // line (queue item 760).
     let chats = driven.window.conversation().showing();
-    assert!(chats.chats.is_empty(), "the rail shows no chat");
+    assert_eq!(chats.chats.len(), 2, "the rail shows its chats");
     driven.click((32.0, 78.0));
     driven.until("a chat made from the rail", |driven| {
         driven.thread().turns().is_empty() && !driven.the_box().1
@@ -497,6 +515,177 @@ fn offers_and_the_panels_buttons_pressed_through_the_windows_own_road() -> Resul
     driven.until("the panel shown again at two", |driven| {
         driven.sizes() == Some(((480, 1640), (2080, 1640)))
     })?;
+    driven.window.finish();
+    match driven.window.unfinished() {
+        Some(why) => Err(why.to_owned()),
+        None => Ok(()),
+    }
+}
+
+/// Step 6, first: two chats searched at 1280, and the older closed with its
+/// ×: the two, the older first.
+fn closing_a_chat(driven: &mut Driven) -> Result<(ChatId, ChatId), String> {
+    let search = |driven: &mut Driven, words: &str| -> Result<(), String> {
+        driven.click((640.0, 285.0));
+        driven.until("the box given the keyboard", |driven| driven.the_box().1)?;
+        driven.type_in(words);
+        driven.window.key(&Press::of(Key::Return), Some("\r"));
+        driven.until("the search answered", |driven| searched(driven, words))
+    };
+    search(driven, "lifetimes")?;
+    let lifetimes = driven.window.conversation().on_screen().ok_or("no chat")?;
+    driven.click((60.0, 75.0));
+    driven.until("a second chat", |driven| {
+        driven.window.conversation().on_screen() != Some(lifetimes)
+    })?;
+    search(driven, "rust borrow checker")?;
+    let rust = driven.window.conversation().on_screen().ok_or("no chat")?;
+    let panel_pixel = |driven: &Driven, x: u32, y: u32| {
+        driven
+            .window
+            .scene()
+            .and_then(|scene| scene.panel.and_then(|frame| pixel(frame, x, y)))
+    };
+    // The second open row, 38 tall from 218: hovered, its × at its end,
+    // 24 square from (196, 225), painted on the line's colour.
+    driven.window.moved((120.0, 237.0));
+    driven.until("the open row painted offering its ×", |driven| {
+        driven.window.conversation().showing().closing == Some(lifetimes)
+            && panel_pixel(driven, 199, 237) == Some([0xe1, 0xda, 0xce, 0xff])
+    })?;
+    assert_eq!(
+        driven.window.conversation().showing().hovered,
+        None,
+        "no Delete"
+    );
+    driven.click((208.0, 237.0));
+    driven.until("lifetimes closed to Earlier", |driven| {
+        driven
+            .window
+            .conversation()
+            .panel(alo_layout::Size::new(240.0, 820.0), Scale::ONE)
+            .chats
+            .iter()
+            .any(|chat| chat.label() == "lifetimes" && !chat.open)
+    })?;
+    assert_eq!(driven.window.conversation().on_screen(), Some(rust));
+    // Drawn under Earlier — its heading under the one open row, the row at
+    // 254 — where, hovered, the panel's renderer finds it and its row
+    // offers Delete, and no ×.
+    driven.window.moved((120.0, 273.0));
+    driven.until("the earlier row hovered", |driven| {
+        driven.window.conversation().showing().hovered == Some(lifetimes)
+    })?;
+    assert_eq!(driven.window.conversation().showing().closing, None);
+    driven.window.cursor_left();
+    Ok((lifetimes, rust))
+}
+
+/// Step 6, then: the rail at 700, each of its chats pressed as its own, and
+/// the one the pointer is on named past it.
+fn the_rails_chats(driven: &mut Driven, (lifetimes, rust): (ChatId, ChatId)) -> Result<(), String> {
+    // The rail at 700: the two chats under its line, the open one first.
+    driven.window.measured_as(Measured {
+        size: (700, 820),
+        scale_factor: 1.0,
+        outer: Some((100, 100)),
+    });
+    driven.window.ask_drawn();
+    driven.until("the window laid out beside the rail", |driven| {
+        driven.sizes() == Some(((64, 820), (636, 820)))
+    })?;
+    assert_eq!(
+        driven.window.conversation().showing().chats,
+        vec![rust, lifetimes]
+    );
+    // Each pressed is decided as its chat. Chosen, an earlier chat is open
+    // again, and the most recent: first on the rail.
+    driven.click((32.0, 193.0));
+    driven.until("lifetimes chosen on the rail", |driven| {
+        driven.window.conversation().on_screen() == Some(lifetimes)
+    })?;
+    assert_eq!(
+        driven.window.conversation().showing().chats,
+        vec![lifetimes, rust]
+    );
+    driven.click((32.0, 193.0));
+    driven.until("rust chosen on the rail", |driven| {
+        driven.window.conversation().on_screen() == Some(rust)
+    })?;
+    // The pointer on it: the rail laid out 320 wide, its name over the
+    // first screen.
+    driven.until("the rail naming the chat", |driven| {
+        driven.sizes() == Some(((320, 820), (636, 820)))
+            && driven.window.scene().is_some_and(|scene| scene.named)
+    })?;
+    driven.window.moved((300.0, 400.0));
+    driven.until("the rail no longer naming it", |driven| {
+        driven.sizes() == Some(((64, 820), (636, 820)))
+    })?;
+    Ok(())
+}
+
+/// Step 6, last: the sheet at 700, closed by a chat chosen in it, a press
+/// outside it and Escape.
+fn the_sheet(
+    driven: &mut Driven,
+    clock: &std::rc::Rc<std::cell::Cell<Instant>>,
+    lifetimes: ChatId,
+) -> Result<(), String> {
+    // Show the panel: the sheet, painted whole.
+    let show = |driven: &mut Driven| -> Result<(), String> {
+        driven.click((32.0, 786.0));
+        driven.until("the sheet painted", |driven| {
+            driven.window.conversation().sheet() && driven.sizes() == Some(((240, 820), (636, 820)))
+        })?;
+        // All the way out, 200 ms after it was pressed, by the window's
+        // clock.
+        clock.set(clock.get() + Duration::from_millis(400));
+        let left = driven
+            .window
+            .scene()
+            .and_then(|scene| scene.sheet.map(|sheet| sheet.left));
+        if left == Some(0) {
+            Ok(())
+        } else {
+            Err(format!("the sheet is not out: {left:?}"))
+        }
+    };
+    show(driven)?;
+    // A chat chosen in it — lifetimes, the first open row, at 178 —
+    // closes it.
+    driven.click((120.0, 197.0));
+    driven.until("a chat chosen in the sheet", |driven| {
+        driven.window.conversation().on_screen() == Some(lifetimes)
+    })?;
+    assert!(!driven.window.conversation().sheet());
+    // A press outside it, over the shade where the box is: closed at once,
+    // the box not pressed.
+    show(driven)?;
+    driven.click((500.0, 760.0));
+    assert!(!driven.window.conversation().sheet(), "closed by the press");
+    assert!(!driven.the_box().1, "nothing under the shade was pressed");
+    assert_eq!(driven.window.conversation().on_screen(), Some(lifetimes));
+    // Escape.
+    show(driven)?;
+    driven.window.key(&Press::of(Key::Escape), Some("\u{1b}"));
+    assert!(!driven.window.conversation().sheet(), "closed by Escape");
+    driven.until("the rail again", |driven| {
+        driven.sizes() == Some(((64, 820), (636, 820)))
+    })?;
+    Ok(())
+}
+
+#[test]
+fn closing_a_chat_the_rails_chats_and_the_sheet_through_the_windows_own_road() -> Result<(), String>
+{
+    let port = provide()?;
+    let clock = std::rc::Rc::new(std::cell::Cell::new(Instant::now()));
+    let reading = std::rc::Rc::clone(&clock);
+    let mut driven = the_window_on(port, WINDOW, Scale::ONE, move || reading.get())?;
+    let chats = closing_a_chat(&mut driven)?;
+    the_rails_chats(&mut driven, chats)?;
+    the_sheet(&mut driven, &clock, chats.0)?;
     driven.window.finish();
     match driven.window.unfinished() {
         Some(why) => Err(why.to_owned()),

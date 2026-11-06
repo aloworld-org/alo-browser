@@ -30,7 +30,6 @@ use alo_layout::{LayoutTree, Size};
 use alo_paint::{Canvas, DisplayList, PaintContext};
 use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET};
 use alo_text::{FontDatabase, TextMeasurer};
-use alo_value::Rgba;
 use std::fmt;
 use std::rc::Rc;
 
@@ -368,13 +367,14 @@ pub fn draw(
     );
 
     // White, because a page with no background of its own is a white page and
-    // a transparent picture is harder to look at in a diff. In device pixels:
-    // the list is drawn at its scale onto it (ADR 0057 § 4).
+    // a transparent picture is harder to look at in a diff — save the one
+    // document of ours drawn on nothing, the rail (queue item 760). In device
+    // pixels: the list is drawn at its scale onto it (ADR 0057 § 4).
     let scale = screen.scale();
     let mut canvas = Canvas::new(
         whole(size.width * scale),
         whole(size.height * scale),
-        Rgba::WHITE,
+        screen.ground(),
     );
     alo_paint::render(&display, &mut canvas);
 
@@ -413,6 +413,7 @@ fn whole(value: f32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_value::Rgba;
 
     fn no_fonts() -> FontDatabase {
         FontDatabase::new()

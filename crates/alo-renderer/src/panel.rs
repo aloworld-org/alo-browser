@@ -58,7 +58,9 @@ pub struct Panel {
     /// Whether *Search chats* has the keyboard.
     pub searching: bool,
     /// Whether the panel is hidden, drawn as the design's rail 64 wide:
-    /// the mark, *New chat* and *Show the panel* (queue item 711).
+    /// the mark, *New chat*, the chats ([`RAIL_CHATS`] of them, queue item
+    /// 760) and *Show the panel* (queue item 711). The browser process
+    /// sends the rail only the chats it shows, in the order it shows them.
     pub hidden: bool,
     /// What the chat deleted a moment ago is called, while it can be
     /// brought back: the panel's foot says it was deleted, with *Undo*
@@ -83,9 +85,28 @@ pub struct Chat {
     /// What the agent is doing in it.
     pub doing: Doing,
     /// Whether the pointer is over its row, which then offers *Delete*
-    /// (queue item 789).
+    /// when it is an earlier chat (queue item 789) or its × when it is open
+    /// and closable (queue item 791); on the rail, its name stands beside
+    /// it (queue item 760).
     pub hovered: bool,
+    /// Whether, open and hovered, its row offers the × that moves it under
+    /// *Earlier* (queue item 791): the browser process's to say — not for
+    /// the empty chat on screen, which would only come back as *New chat*.
+    pub closing: Closing,
 }
+
+/// Whether an open chat's hovered row offers its × (queue item 791).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Closing {
+    /// It does: closed, the chat moves under *Earlier*.
+    Offered,
+    /// It does not: the empty chat on screen.
+    Withheld,
+}
+
+/// How many chats the rail holds at most, the most recent first: the
+/// design's five (queue item 760).
+pub const RAIL_CHATS: usize = 5;
 
 /// What the agent is doing in a chat.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +155,7 @@ impl Chat {
             current: false,
             doing: Doing::Nothing,
             hovered: false,
+            closing: Closing::Offered,
         }
     }
 
@@ -151,10 +173,17 @@ impl Chat {
         self
     }
 
-    /// The same chat, the pointer over its row, offering *Delete*.
+    /// The same chat, the pointer over its row, offering *Delete* or its ×.
     #[must_use]
     pub fn hovered(mut self) -> Self {
         self.hovered = true;
+        self
+    }
+
+    /// The same chat, offering no × when hovered: the empty chat on screen.
+    #[must_use]
+    pub fn not_closable(mut self) -> Self {
+        self.closing = Closing::Withheld;
         self
     }
 
@@ -172,6 +201,26 @@ impl Chat {
             NEW_CHAT
         } else {
             longest(&self.name)
+        }
+    }
+
+    /// What the rail draws for it (queue item 760): the first letter of
+    /// each of the first two words of its name as the row shows it — *New
+    /// chat* for one with none — as capitals, a word's letter being its
+    /// first letter or digit. `WI` for *Weekend in Lisbon*, `R` for
+    /// *rust*; a name with no letter at all is a middle dot.
+    pub fn initials(&self) -> String {
+        let letters: String = self
+            .label()
+            .split_whitespace()
+            .filter_map(|word| word.chars().find(|c| c.is_alphanumeric()))
+            .take(2)
+            .flat_map(char::to_uppercase)
+            .collect();
+        if letters.is_empty() {
+            "\u{b7}".to_owned()
+        } else {
+            letters
         }
     }
 
@@ -227,6 +276,20 @@ mod tests {
         assert!(first.is_alone());
         assert_eq!(first.scheme(), "alo");
         assert_ne!(first, site());
+    }
+
+    #[test]
+    fn a_chats_initials_are_its_first_two_words_first_letters() {
+        let initials = |name: &str| Chat::new(name, "").initials();
+        assert_eq!(initials("Weekend in Lisbon"), "WI");
+        assert_eq!(initials("rust"), "R");
+        assert_eq!(initials(""), "NC", "New chat");
+        assert_eq!(initials("  “quoted” 3 cats"), "Q3");
+        assert_eq!(initials("éclair recipes"), "ÉR");
+        assert_eq!(initials("https://www.theguardian.com/international"), "H");
+        assert_eq!(initials("— …"), "\u{b7}");
+        // A letter whose capital is two letters is both.
+        assert_eq!(initials("ßeta"), "SS");
     }
 
     #[test]

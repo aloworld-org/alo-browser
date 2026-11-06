@@ -12,14 +12,15 @@
 //! ([`crate::panel_document`]).
 
 use super::{Reader, Unreadable, Writer, unreadable};
-use crate::panel::{Chat, Doing, Panel};
+use crate::panel::{Chat, Closing, Doing, Panel};
 use alo_layout::geometry::Size;
 
 impl Writer {
     /// The panel: its size and its screen's scale, what was searched for
     /// and whether the search has the keyboard, whether it is hidden as a
     /// rail, the name of a chat just deleted if *Undo* is offered, then
-    /// each chat in order, and whether its row is hovered.
+    /// each chat in order, whether its row is hovered and whether it offers
+    /// its × (queue item 791).
     pub(super) fn panel(&mut self, panel: &Panel) {
         self.float(panel.viewport.width);
         self.float(panel.viewport.height);
@@ -43,6 +44,7 @@ impl Writer {
                 Doing::Done => 2,
             });
             self.bool(chat.hovered);
+            self.bool(chat.closing == Closing::Offered);
         }
     }
 }
@@ -80,6 +82,11 @@ impl Reader<'_> {
                 other => return Err(unreadable(format!("what a chat is doing tagged {other}"))),
             };
             let hovered = self.bool()?;
+            let closing = if self.bool()? {
+                Closing::Offered
+            } else {
+                Closing::Withheld
+            };
             chats.push(Chat {
                 name,
                 site,
@@ -87,6 +94,7 @@ impl Reader<'_> {
                 current,
                 doing,
                 hovered,
+                closing,
             });
         }
         Ok(Panel {

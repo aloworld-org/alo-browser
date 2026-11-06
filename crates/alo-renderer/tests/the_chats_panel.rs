@@ -100,6 +100,10 @@ struct Drawn {
     /// read them — they are `aria-hidden` — so they are found in the
     /// drawing's own boxes, by the element each box is for.
     icons: Vec<String>,
+    /// Every element's box with a class, by its class, in document order:
+    /// how what an agent does not read — the rail's initials and the name
+    /// beside a hovered chat — is found (queue item 760).
+    classed: Vec<(String, String)>,
 }
 
 fn draw(panel: Panel) -> Drawn {
@@ -128,13 +132,43 @@ fn draw(panel: Panel) -> Drawn {
         })
         .unwrap_or_default();
     let icons = icons(&renderer);
+    let classed = classed(&renderer);
     Drawn {
         answer,
         frame,
         tree,
         texts,
         icons,
+        classed,
     }
+}
+
+/// The border box of every element with a class the renderer drew, by its
+/// class, in the order the boxes were made.
+fn classed(renderer: &Renderer) -> Vec<(String, String)> {
+    let (Some(drawing), Some(document)) = (renderer.rendered(), renderer.document()) else {
+        return Vec::new();
+    };
+    drawing
+        .boxes
+        .ids()
+        .filter_map(|id| {
+            let node = drawing.boxes.get(id).and_then(|made| made.kind.node())?;
+            let class = document.attribute_by_name(node, "class")?;
+            let geometry = drawing.layout.get(id)?;
+            Some((class.to_owned(), units(geometry.border_box)))
+        })
+        .collect()
+}
+
+/// The boxes of `class` among `drawn`'s.
+fn of_class(drawn: &Drawn, class: &str) -> Vec<String> {
+    drawn
+        .classed
+        .iter()
+        .filter(|(each, _)| each == class)
+        .map(|(_, rect)| rect.clone())
+        .collect()
 }
 
 /// The border box of every `<svg>` the renderer drew, in the order the
@@ -468,10 +502,20 @@ fn search_chats_finding_nothing_says_so_in_words() {
     assert!(texts.contains(&Some(said.as_str())), "{outline}");
 }
 
+/// Three chats for the rail (queue item 760): the one on screen, one the
+/// agent is at work in, one it finished.
+fn three() -> Vec<Chat> {
+    let mut chats = five();
+    chats.truncate(3);
+    chats
+}
+
 #[test]
 fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
     // Queue item 711: 64 wide, the mark 40 tall 10 down, New chat 44 square
     // 6 under it, centred, and Show the panel at the foot, 12 above it.
+    // Queue item 760: under the line, each chat 44 square, 6 apart from
+    // 121, its initials in a 32 circle in the middle.
     for (scale, factor, name) in [
         (1.0, 1, "panel-rail.png"),
         (2.0, 2, "panel-rail-at-two.png"),
@@ -480,7 +524,7 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             Panel {
                 hidden: true,
                 viewport: Size::new(64.0, HEIGHT),
-                ..panel_of(five())
+                ..panel_of(three())
             }
             .at_scale(scale),
         );
@@ -491,17 +535,36 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             Some("Chats"),
             "{outline}"
         );
-        assert!(read(&drawn.tree, "link").is_empty(), "no chat: {outline}");
+        assert!(read(&drawn.tree, "link").is_empty(), "no row: {outline}");
         let buttons: Vec<(Option<&str>, String)> = read(&drawn.tree, "button")
             .iter()
             .map(|button| (button.name.as_deref(), units(button.rect)))
             .collect();
+        let done = format!("Invoice for March {DONE}");
         assert_eq!(
             buttons,
             vec![
                 (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
+                (Some("Charging my EV"), px(10.0, 121.0, 44.0, 44.0)),
+                (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 44.0)),
+                (Some(done.as_str()), px(10.0, 221.0, 44.0, 44.0)),
                 (Some("Show the panel"), px(10.0, 504.0, 44.0, 44.0)),
             ],
+            "{outline}"
+        );
+        assert_eq!(
+            of_class(&drawn, "initials"),
+            vec![
+                px(16.0, 127.0, 32.0, 32.0),
+                px(16.0, 177.0, 32.0, 32.0),
+                px(16.0, 227.0, 32.0, 32.0),
+            ],
+            "{outline}"
+        );
+        // The working chat's dot at its circle's shoulder, 5 in.
+        assert_eq!(
+            of_class(&drawn, "working"),
+            vec![px(42.0, 176.0, 7.0, 7.0)],
             "{outline}"
         );
         assert_eq!(
@@ -517,8 +580,133 @@ fn hidden_the_panel_is_the_rail_at_one_and_at_two() {
             pixel(&frame, device(32), device(110)),
             Some([0xe1, 0xda, 0xce, 0xff])
         );
+        // The chat on screen is white in its circle's middle, beside its
+        // letters; the others on the line's colour. The rail is opaque.
+        assert_eq!(
+            pixel(&frame, device(19), device(143)),
+            Some([0xff, 0xff, 0xff, 0xff])
+        );
+        assert_eq!(
+            pixel(&frame, device(19), device(193)),
+            Some([0xe1, 0xda, 0xce, 0xff])
+        );
+        assert_eq!(
+            pixel(&frame, device(63), device(300)),
+            Some([0xee, 0xea, 0xe2, 0xff])
+        );
         assert_eq!(holds(name, Some(&frame)), Ok(()));
     }
+}
+
+/// Queue item 760: the chat the pointer is over on the rail has its name
+/// beside it, past the rail's edge, in a rail laid out 320 wide and drawn
+/// on nothing — so the window composes only the rail and the name.
+#[test]
+fn a_hovered_chat_on_the_rail_has_its_name_beside_it_over_nothing() {
+    let mut chats = three();
+    if let Some(lisbon) = chats.get_mut(1) {
+        lisbon.hovered = true;
+    }
+    let drawn = draw(Panel {
+        hidden: true,
+        viewport: Size::new(320.0, HEIGHT),
+        ..panel_of(chats)
+    });
+    let outline = drawn.tree.to_outline();
+    assert!(
+        matches!(&drawn.answer, FromRenderer::Loaded { issues, .. } if issues.is_empty()),
+        "{:?}",
+        drawn.answer
+    );
+    // The name is the button's own; an agent reads it once.
+    let buttons: Vec<Option<&str>> = read(&drawn.tree, "button")
+        .iter()
+        .map(|button| button.name.as_deref())
+        .collect();
+    assert_eq!(buttons.get(2).copied().flatten(), Some("Weekend in Lisbon"));
+    let pills = of_class(&drawn, "named");
+    let [pill] = pills.as_slice() else {
+        panic!("one name beside the hovered chat: {pills:?}\n{outline}");
+    };
+    // 28 tall, centred on the 44 button at 171, from 68: 4 past the rail.
+    assert!(
+        pill.starts_with("(68, 179) ") && pill.ends_with("×28"),
+        "{pill}"
+    );
+    assert!(
+        drawn
+            .texts
+            .iter()
+            .any(|text| text.contains("Weekend in Lisbon")),
+        "{:?}",
+        drawn.texts
+    );
+    let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));
+    assert_eq!((frame.width, frame.height), (320, 560));
+    // The rail's ground to its edge, the hovered button a shade lighter,
+    // the pill's dark ground past the edge, and nothing elsewhere.
+    assert_eq!(pixel(&frame, 63, 300), Some([0xee, 0xea, 0xe2, 0xff]));
+    assert_eq!(pixel(&frame, 12, 193), Some([0xf6, 0xf3, 0xee, 0xff]));
+    assert_eq!(pixel(&frame, 70, 193), Some([0x2b, 0x27, 0x22, 0xff]));
+    for (x, y) in [(64, 0), (66, 193), (200, 140), (319, 559), (100, 300)] {
+        assert_eq!(
+            pixel(&frame, x, y).map(|rgba| rgba[3]),
+            Some(0),
+            "nothing at ({x}, {y})"
+        );
+    }
+    assert_eq!(holds("panel-rail-named.png", Some(&frame)), Ok(()));
+}
+
+/// Queue item 760: a press on each of the rail's chats claims it by its
+/// place; on the name beside a hovered one, nothing.
+#[test]
+fn a_press_on_each_chat_of_the_rail_claims_its_place() {
+    use alo_paint::Point;
+    use alo_renderer::conversation_claim::Claim;
+    let mut chats = three();
+    if let Some(lisbon) = chats.get_mut(1) {
+        lisbon.hovered = true;
+    }
+    let mut renderer = Renderer::new(fonts());
+    let loaded = renderer.handle(ToRenderer::Panel(Box::new(Panel {
+        hidden: true,
+        viewport: Size::new(320.0, HEIGHT),
+        ..panel_of(chats)
+    })));
+    assert!(matches!(loaded, FromRenderer::Loaded { .. }), "{loaded:?}");
+    let _ = renderer.handle(ToRenderer::Paint);
+    let mut at = |message: fn(Point) -> ToRenderer, x: f32, y: f32| match renderer
+        .handle(message(Point::new(x, y)))
+    {
+        FromRenderer::ConversationClaimed(claim) => claim,
+        other => panic!("{other:?}"),
+    };
+    for (place, top) in [(0, 121.0), (1, 171.0), (2, 221.0)] {
+        for (x, y) in [(32.0, top + 22.0), (10.0, top), (53.0, top + 43.0)] {
+            assert_eq!(
+                at(ToRenderer::ConversationPress, x, y),
+                Some(Claim::Chat { at: place }),
+                "({x}, {y})"
+            );
+            assert_eq!(
+                at(ToRenderer::ConversationHover, x, y),
+                Some(Claim::Chat { at: place }),
+                "({x}, {y})"
+            );
+        }
+    }
+    // Between two, and under the last.
+    for (x, y) in [(32.0, 168.0), (32.0, 280.0)] {
+        assert_eq!(at(ToRenderer::ConversationPress, x, y), None, "({x}, {y})");
+    }
+    // The name beside the hovered one is inside its button, so were a press
+    // there sent it would be that chat's; the window sends none, since it
+    // stands past the rail's room, over the first screen.
+    assert_eq!(
+        at(ToRenderer::ConversationPress, 120.0, 193.0),
+        Some(Claim::Chat { at: 1 })
+    );
 }
 
 /// Queue item 775: folded in a narrow window, the panel is the same rail
@@ -537,15 +725,23 @@ fn folded_the_rail_is_laid_out_at_the_folds_height_and_the_least_windows() {
             .iter()
             .map(|button| (button.name.as_deref(), units(button.rect)))
             .collect();
+        // Five chats, the most the rail holds (queue item 760), still clear
+        // of Show the panel in the least window.
+        let done = format!("Invoice for March {DONE}");
         assert_eq!(
             buttons,
             vec![
                 (Some("New chat"), px(10.0, 56.0, 44.0, 44.0)),
+                (Some("Charging my EV"), px(10.0, 121.0, 44.0, 44.0)),
+                (Some("Weekend in Lisbon"), px(10.0, 171.0, 44.0, 44.0)),
+                (Some(done.as_str()), px(10.0, 221.0, 44.0, 44.0)),
+                (Some("Compare phone plans"), px(10.0, 271.0, 44.0, 44.0)),
+                (Some("Birthday present ideas"), px(10.0, 321.0, 44.0, 44.0)),
                 (Some("Show the panel"), px(10.0, height - 56.0, 44.0, 44.0)),
             ],
             "{height}: {outline}"
         );
-        assert!(read(&drawn.tree, "link").is_empty(), "no chat: {outline}");
+        assert!(read(&drawn.tree, "link").is_empty(), "no row: {outline}");
         let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));
         #[expect(
             clippy::cast_possible_truncation,
@@ -695,12 +891,13 @@ fn the_panel_is_drawn_the_same_by_a_confined_renderer_at_its_own_site() {
     renderers.stop_everything();
 }
 
-/// Queue item 789: the hovered row's *Delete*, and the foot's *Undo*.
+/// Queue item 789: the hovered row's *Delete* — an earlier chat's, since an
+/// open one offers its × instead (queue item 791) — and the foot's *Undo*.
 fn deleting() -> Panel {
     let mut chats = five();
     chats.truncate(4);
-    if let Some(lisbon) = chats.get_mut(1) {
-        lisbon.hovered = true;
+    if let Some(compare) = chats.get_mut(3) {
+        compare.hovered = true;
     }
     Panel {
         deleted: Some("Birthday present ideas".to_owned()),
@@ -729,14 +926,14 @@ fn a_hovered_chat_offers_delete_and_a_chat_just_deleted_offers_undo() {
         vec![
             (Some("New chat"), px(10.0, 56.0, 220.0, 40.0)),
             (Some("Charging my EV"), px(10.0, 178.0, 220.0, 38.0)),
+            (Some("Weekend in Lisbon"), px(10.0, 218.0, 220.0, 38.0)),
+            (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
             // The hovered row holds Delete, and is read with it, as a
             // finished chat is read with its Done.
             (
-                Some("Weekend in Lisbon Delete"),
-                px(10.0, 218.0, 220.0, 38.0)
+                Some("Compare phone plans Delete"),
+                px(10.0, 334.0, 220.0, 38.0)
             ),
-            (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
-            (Some("Compare phone plans"), px(10.0, 334.0, 220.0, 38.0)),
             (Some("Settings"), px(10.0, 510.0, 220.0, 38.0)),
         ],
         "{outline}"
@@ -753,7 +950,7 @@ fn a_hovered_chat_offers_delete_and_a_chat_just_deleted_offers_undo() {
         panic!("three buttons, not {buttons:?}\n{outline}");
     };
     assert_eq!(hide.0, Some("Hide the panel"));
-    assert_eq!(delete.0, Some("Delete Weekend in Lisbon"));
+    assert_eq!(delete.0, Some("Delete Compare phone plans"));
     assert_eq!(
         (
             units(Rect::new(
@@ -764,7 +961,7 @@ fn a_hovered_chat_offers_delete_and_a_chat_just_deleted_offers_undo() {
             )),
             delete.1.size.width > 40.0 && delete.1.size.width < 70.0
         ),
-        (px(220.0, 225.0, 0.0, 24.0), true),
+        (px(220.0, 341.0, 0.0, 24.0), true),
         "{outline}"
     );
     assert_eq!(undo.0, Some("Undo"));
@@ -813,12 +1010,12 @@ fn a_press_on_delete_or_undo_claims_it_and_a_hover_finds_the_row() {
     // Delete, at the hovered row's end; the row elsewhere; Undo; the pill
     // beside it, which is nothing.
     assert_eq!(
-        at(ToRenderer::ConversationPress, 200.0, 237.0),
+        at(ToRenderer::ConversationPress, 200.0, 353.0),
         Some(Claim::DeleteChat)
     );
     assert_eq!(
-        at(ToRenderer::ConversationPress, 60.0, 237.0),
-        Some(Claim::Chat { at: 1 })
+        at(ToRenderer::ConversationPress, 60.0, 353.0),
+        Some(Claim::Chat { at: 3 })
     );
     assert_eq!(
         at(ToRenderer::ConversationPress, 210.0, 484.0),
@@ -831,8 +1028,106 @@ fn a_press_on_delete_or_undo_claims_it_and_a_hover_finds_the_row() {
         Some(Claim::Chat { at: 2 })
     );
     assert_eq!(
-        at(ToRenderer::ConversationHover, 200.0, 237.0),
+        at(ToRenderer::ConversationHover, 200.0, 353.0),
         Some(Claim::DeleteChat)
     );
     assert_eq!(at(ToRenderer::ConversationHover, 120.0, 20.0), None);
+}
+
+/// Queue item 791: an open chat's hovered row offers its × at the row's
+/// end, where an earlier one's offers *Delete* — never both — and the
+/// empty chat on screen, which would only come back as *New chat*, offers
+/// none.
+#[test]
+fn a_hovered_open_chat_offers_its_close_and_the_empty_chat_on_screen_none() {
+    use alo_paint::Point;
+    use alo_renderer::conversation_claim::Claim;
+    let mut chats = five();
+    if let Some(lisbon) = chats.get_mut(1) {
+        lisbon.hovered = true;
+    }
+    let drawn = draw(panel_of(chats.clone()));
+    let outline = drawn.tree.to_outline();
+    let links: Vec<(Option<&str>, String)> = read(&drawn.tree, "link")
+        .iter()
+        .map(|link| (link.name.as_deref(), units(link.rect)))
+        .collect();
+    assert_eq!(
+        links.get(2),
+        Some(&(Some("Weekend in Lisbon"), px(10.0, 218.0, 220.0, 38.0))),
+        "the row did not move: {outline}"
+    );
+    let buttons: Vec<(Option<&str>, String)> = read(&drawn.tree, "button")
+        .iter()
+        .map(|button| (button.name.as_deref(), units(button.rect)))
+        .collect();
+    // 24 square, 7 down its 38-row, its right edge at the row's padding.
+    assert_eq!(
+        buttons,
+        vec![
+            (Some("Hide the panel"), px(194.0, 11.0, 36.0, 36.0)),
+            (
+                Some("Close Weekend in Lisbon"),
+                px(196.0, 225.0, 24.0, 24.0)
+            ),
+        ],
+        "{outline}"
+    );
+    assert!(
+        !buttons
+            .iter()
+            .any(|(name, _)| name.is_some_and(|name| name.starts_with("Delete"))),
+        "an open row offers no Delete: {outline}"
+    );
+    // Its cross, 12 square in the middle of it.
+    assert!(
+        drawn.icons.contains(&px(202.0, 231.0, 12.0, 12.0)),
+        "{:?}",
+        drawn.icons
+    );
+    let frame = drawn.frame.as_ref();
+    // The ×'s ground beside its cross, and the hovered row's lighter one.
+    assert_eq!(
+        frame.and_then(|frame| pixel(frame, 199, 237)),
+        Some([0xe1, 0xda, 0xce, 0xff])
+    );
+    assert_eq!(
+        frame.and_then(|frame| pixel(frame, 150, 222)),
+        Some([0xf6, 0xf3, 0xee, 0xff])
+    );
+    assert_eq!(holds("panel-closing.png", frame), Ok(()));
+
+    // Pressed and hovered, it is the ×; the row beside it is the chat.
+    let mut renderer = Renderer::new(fonts());
+    let _ = renderer.handle(ToRenderer::Panel(Box::new(panel_of(chats))));
+    let _ = renderer.handle(ToRenderer::Paint);
+    let mut at = |message: fn(Point) -> ToRenderer, x: f32, y: f32| match renderer
+        .handle(message(Point::new(x, y)))
+    {
+        FromRenderer::ConversationClaimed(claim) => claim,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(
+        at(ToRenderer::ConversationPress, 208.0, 237.0),
+        Some(Claim::CloseChat)
+    );
+    assert_eq!(
+        at(ToRenderer::ConversationHover, 208.0, 237.0),
+        Some(Claim::CloseChat)
+    );
+    assert_eq!(
+        at(ToRenderer::ConversationPress, 120.0, 237.0),
+        Some(Claim::Chat { at: 1 })
+    );
+
+    // The empty chat on screen, hovered and not closable, offers nothing.
+    let empty = draw(panel_of(vec![
+        Chat::new("", "").current().hovered().not_closable(),
+        Chat::new("Weekend in Lisbon", ""),
+    ]));
+    let names: Vec<Option<&str>> = read(&empty.tree, "button")
+        .iter()
+        .map(|button| button.name.as_deref())
+        .collect();
+    assert_eq!(names, vec![Some("Hide the panel")]);
 }

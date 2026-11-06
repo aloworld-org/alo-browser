@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The conversation's scroll bar fades.** The thin bar beside the
+  conversation stays while it scrolls and for a second after, then fades
+  away as macOS's own does; it comes back at once when the conversation
+  moves, or when the pointer comes near it.
+- **A chat can be closed.** Hovering an open chat in the panel offers an
+  ×; closing moves the chat to *Earlier*, its turns kept — nothing is
+  deleted. *Delete* is now offered on chats under *Earlier*.
+- **The rail shows your chats.** With the panel hidden or the window
+  narrow, the rail shows your five most recent chats as round initials;
+  the pointer on one shows its name beside it, and a press opens it.
+- **The panel in a narrow window.** In a window narrower than 760 pixels,
+  the panel button slides the whole panel over the conversation, over a
+  dimmed backdrop; Escape, a press outside it or choosing a chat closes it.
+
 - **A chat can be deleted, and brought back for five seconds.** Hovering
   over a chat in the panel offers *Delete*; the chat leaves the panel at
   once, and the panel's foot says *Deleted “…”* with **Undo** for five

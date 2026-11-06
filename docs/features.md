@@ -1368,6 +1368,20 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (RustCrypto's `chacha20poly1305`, behind `chat_seal.rs`) under a key alo
   makes once in the login keychain (`alo-chats`), never printed; chats in
   words sealed once; one that does not open said and left.
+  **A chat closed to *Earlier*** (791, ADR 0092's amendment; the owner's
+  design of 6 November 2026): an open row hovered offers its ×, an earlier
+  row *Delete*, never both; closed, a chat is first under *Earlier*, its
+  turns kept, nothing deleted. **The rail's chats** (760): the five most
+  recent as round initials, the one on screen white, the name in a pill
+  beside the hovered one over the first screen (the rail drawn on nothing),
+  each pressed as its chat. **The panel over the conversation in a narrow
+  window** (776): below 760, *Show the panel* slides the whole panel out
+  from the rail in 200 ms over the ink at 0.32; Escape, a press outside it
+  (pressing nothing under it) or a chat chosen closes it
+  (`conversation_sheet.rs`). **The conversation's bar fades** (793, ADR
+  0093's amendment): whole while it moves and a second after, faded out in
+  300 ms, whole while the pointer is within 24 px of it
+  (`conversation_bar.rs`); dragging it is 845.
 
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item

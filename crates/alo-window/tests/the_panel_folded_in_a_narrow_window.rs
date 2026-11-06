@@ -14,21 +14,29 @@
 //! reference, and checked in numbers: the rail's room 64 and the first
 //! screen's 695, each frame placed one to one.
 //!
+//! Queue item 776: in such a window *Show the panel* slides the whole panel
+//! over the conversation as a sheet, over a shade — composed here at 700,
+//! all the way out and part way — and queue item 760: the rail shows the
+//! chats, and the name of the one the pointer is over stands past its edge
+//! over the first screen — composed here at 759.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window --test
-//! the_panel_folded_in_a_narrow_window` rewrites the reference. A rewritten
-//! reference is a diff somebody reads.
+//! the_panel_folded_in_a_narrow_window` rewrites the references. A
+//! rewritten reference is a diff somebody reads.
 
 use alo_paint::{Canvas, from_png, to_png};
 use alo_renderer::results::{Found, SetUp, Showing};
 use alo_renderer::{Frame, FromRenderer, Renderer, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::conversation::{Conversation, Pressed};
-use alo_window::conversation_compose::{ConversationScene, compose_conversation};
+use alo_window::conversation_compose::{ConversationScene, SheetScene, compose_conversation};
 use alo_window::conversation_fold::FOLD_WIDTH;
 use alo_window::conversation_place::{
-    ConversationPlacement, PANEL_WIDTH, RAIL_WIDTH, Side, panel_viewport_as, start_viewport_as,
+    ConversationPlacement, PANEL_WIDTH, RAIL_WIDTH, Side, panel_viewport_as, panel_viewport_of,
+    sheet_left, start_viewport_as,
 };
 use alo_window::conversation_search::Searched;
+use alo_window::conversation_sheet::{SHADE, Slide};
 use alo_window::notice::Lettering;
 use alo_window::place::PixelRect;
 use alo_window::scale::Scale;
@@ -180,9 +188,10 @@ fn both(conversation: &Conversation, window: (u32, u32)) -> Result<(Frame, Frame
     let side = conversation.side();
     let scale = Scale::ONE;
     Ok((
-        painted(ToRenderer::Panel(Box::new(
-            conversation.panel(panel_viewport_as(window, scale, side), scale),
-        )))?,
+        painted(ToRenderer::Panel(Box::new(conversation.panel(
+            panel_viewport_of(window, scale, conversation.panel_width()),
+            scale,
+        ))))?,
         painted(ToRenderer::Start(Box::new(
             conversation.start(start_viewport_as(window, scale, side), scale),
         )))?,
@@ -208,6 +217,8 @@ fn a_window_narrowed_past_760_is_the_rail_and_the_conversation_beside_it() {
         start: Some(&start),
         start_sentence: None,
         side,
+        named: false,
+        sheet: None,
     };
     let canvas = compose_conversation(
         &scene,
@@ -263,4 +274,171 @@ fn widened_past_the_fold_the_panel_is_back_as_it_was() {
     );
     assert!(!drawn.hidden);
     assert_eq!(drawn.searched, "n", "what was searched is kept");
+}
+
+/// Each channel of `got` within a level of `want`.
+fn near(got: Option<(u8, u8, u8, u8)>, want: (u8, u8, u8, u8)) -> bool {
+    got.is_some_and(|got| {
+        got.0.abs_diff(want.0) <= 1
+            && got.1.abs_diff(want.1) <= 1
+            && got.2.abs_diff(want.2) <= 1
+            && got.3 == want.3
+    })
+}
+
+/// `under` with the ink at the sheet's shade over it.
+fn shaded(under: (u8, u8, u8)) -> (u8, u8, u8, u8) {
+    let mix = |under: u8, ink: u8| {
+        let mixed = f32::from(under) * (1.0 - SHADE) + f32::from(ink) * SHADE;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a mix of two channels, inside 0..=255"
+        )]
+        let mixed = mixed.round() as u8;
+        mixed
+    };
+    (
+        mix(under.0, 0x1b),
+        mix(under.1, 0x24),
+        mix(under.2, 0x33),
+        0xff,
+    )
+}
+
+#[test]
+fn shown_at_700_the_panel_slides_over_the_conversation_as_a_sheet_over_a_shade() {
+    let lettering =
+        Lettering::compiled_in().unwrap_or_else(|| panic!("DejaVu Sans is not compiled in"));
+    let window = (700, 820);
+    let mut conversation = searched().unwrap_or_else(|why| panic!("{why}"));
+    assert!(conversation.fit(window.0));
+    assert!(conversation.act(Pressed::ShowThePanel));
+    assert!(conversation.sheet());
+    // The first screen still beside the rail; the panel laid out whole.
+    assert_eq!(conversation.side(), Side::Rail);
+    assert_eq!(conversation.panel_width(), PANEL_WIDTH);
+    let (panel, start) = both(&conversation, window).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!((panel.width, panel.height), (PANEL_WIDTH, 820));
+    assert_eq!((start.width, start.height), (636, 820));
+    // All the way out: the sheet from the window's left edge, 240 wide.
+    let at = std::time::Instant::now();
+    let mut slide = Slide::default();
+    slide.open(at);
+    let out = at + std::time::Duration::from_millis(200);
+    assert_eq!(sheet_left(slide.left(out), Scale::ONE), 0);
+    let scene = ConversationScene {
+        window,
+        scale: Scale::ONE,
+        panel: Some(&panel),
+        panel_sentence: None,
+        start: Some(&start),
+        start_sentence: None,
+        side: Side::Rail,
+        named: false,
+        sheet: Some(SheetScene {
+            frame: &panel,
+            left: sheet_left(slide.left(out), Scale::ONE),
+            shade: slide.shade(out),
+        }),
+    };
+    let placed = ConversationPlacement::of(window, Scale::ONE, scene.parts());
+    assert_eq!(
+        placed.start_room,
+        PixelRect {
+            x: 64,
+            y: 0,
+            width: 636,
+            height: 820
+        },
+        "the conversation laid out beside the rail, under the sheet"
+    );
+    let canvas = compose_conversation(&scene, &lettering);
+    let at_xy = |x: u32, y: u32| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+    // The sheet is the panel's frame one to one, 0 to 239.
+    assert_eq!(
+        not_one_to_one(
+            &canvas,
+            &panel,
+            PixelRect {
+                x: 0,
+                y: 0,
+                width: 240,
+                height: 820
+            }
+        ),
+        None
+    );
+    // Past it, the conversation's paper under the shade: in its gutter,
+    // 64 + 16 across, and at the window's right.
+    let paper = shaded((0xf4, 0xf1, 0xec));
+    assert!(near(at_xy(240, 177), paper), "{:?}", at_xy(240, 177));
+    assert!(near(at_xy(699, 177), paper), "{:?}", at_xy(699, 177));
+    assert_eq!(holds("the-sheet-at-700.png", &canvas), Ok(()));
+    // Part way, 50 ms out: its left edge at −74, its right at 166, the
+    // shade lighter.
+    let part = at + std::time::Duration::from_millis(50);
+    let left = sheet_left(slide.left(part), Scale::ONE);
+    assert_eq!(left, -74);
+    let canvas = compose_conversation(
+        &ConversationScene {
+            sheet: Some(SheetScene {
+                frame: &panel,
+                left,
+                shade: slide.shade(part),
+            }),
+            ..scene
+        },
+        &lettering,
+    );
+    let at_xy = |x: u32, y: u32| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+    assert_eq!(at_xy(165, 5), panel.at(239, 5));
+    assert_ne!(at_xy(166, 5), panel.at(239, 5));
+    assert_eq!(holds("the-sheet-sliding-at-700.png", &canvas), Ok(()));
+}
+
+#[test]
+fn the_rail_at_759_names_the_chat_the_pointer_is_over_past_its_edge() {
+    let lettering =
+        Lettering::compiled_in().unwrap_or_else(|| panic!("DejaVu Sans is not compiled in"));
+    let mut conversation = searched().unwrap_or_else(|why| panic!("{why}"));
+    assert!(conversation.fit(FOLDED.0));
+    let chat = conversation.showing().chats[0];
+    assert!(conversation.hover(Some(chat)));
+    assert!(conversation.rail_named());
+    assert_eq!(conversation.panel_width(), 320);
+    let (panel, start) = both(&conversation, FOLDED).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!((panel.width, panel.height), (320, 820));
+    let scene = ConversationScene {
+        window: FOLDED,
+        scale: Scale::ONE,
+        panel: Some(&panel),
+        panel_sentence: None,
+        start: Some(&start),
+        start_sentence: None,
+        side: Side::Rail,
+        named: true,
+        sheet: None,
+    };
+    let placed = ConversationPlacement::of(FOLDED, Scale::ONE, scene.parts());
+    assert_eq!(
+        placed.panel,
+        PixelRect {
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 820
+        },
+        "over the first screen"
+    );
+    let canvas = compose_conversation(&scene, &lettering);
+    let at_xy = |x: u32, y: u32| canvas.at(x, y).map(alo_value::Rgba::to_rgba8);
+    // The chat, 44 square at (10, 121), a shade lighter; its name's dark
+    // pill past the rail's edge, from 68, centred on it; the first screen
+    // where the rail's frame draws nothing.
+    assert_eq!(at_xy(12, 143), Some((0xf6, 0xf3, 0xee, 0xff)));
+    assert_eq!(at_xy(70, 143), Some((0x2b, 0x27, 0x22, 0xff)));
+    assert_eq!(at_xy(66, 143), start.at(2, 143));
+    assert_eq!(at_xy(400, 400), start.at(336, 400));
+    assert_eq!(holds("the-rail-naming-a-chat-at-759.png", &canvas), Ok(()));
 }

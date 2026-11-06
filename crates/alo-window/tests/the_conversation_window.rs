@@ -126,6 +126,8 @@ fn composed(
             start: Some(start),
             start_sentence: None,
             side: Side::Panel,
+            named: false,
+            sheet: None,
         },
         &lettering()?,
     ))
@@ -216,6 +218,8 @@ fn the_window_at(window: (u32, u32), scale: Scale, name: &str) -> Result<(), Str
             start: Some(&start),
             start_sentence: None,
             side: Side::Panel,
+            named: false,
+            sheet: None,
         }
         .parts(),
     );
@@ -317,6 +321,8 @@ fn the_window_hidden_at(window: (u32, u32), scale: Scale, name: &str) -> Result<
         start: Some(&start),
         start_sentence: None,
         side,
+        named: false,
+        sheet: None,
     };
     let canvas = compose_conversation(&scene, &lettering()?);
     let placed = ConversationPlacement::of(window, scale, scene.parts());

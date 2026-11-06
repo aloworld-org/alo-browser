@@ -419,3 +419,84 @@ fn a_press_on_the_bar_claims_nothing() -> Result<(), String> {
     );
     Ok(())
 }
+
+/// Queue item 793: the bar fades once the conversation has stopped. Drawn
+/// at what the browser process says is seen of it — half way through its
+/// fade, then gone — where it stood, and still read by an agent, which
+/// reads what the interface is, not how faint it is.
+#[test]
+fn a_bar_fading_is_drawn_at_what_is_seen_of_it_and_still_read() -> Result<(), String> {
+    let at = |seen: f32| -> Result<Drawn, String> {
+        let mut start = scrolled(-301.0, 1.0)?;
+        if let Some(bar) = start.bar.as_mut() {
+            bar.seen = seen;
+        }
+        Ok(draw(start))
+    };
+    let paper = draw(conversation(three()?, -301.0));
+    let paper_frame = paper.frame.as_ref().ok_or("nothing was painted")?;
+    let under = pixel(paper_frame, 976, 378).ok_or("no paper")?;
+    let half = at(0.5)?;
+    let frame = half.frame.as_ref().ok_or("nothing was painted")?;
+    // Where it stands, as when whole: 973 to 979, 199 to 557.
+    assert_eq!(half.at("goes-on"), vec![px(973.0, 199.0, 6.0, 358.0)]);
+    // Half the bar over the paper, each channel within a level of the
+    // mean, the paper the conversation's own under it.
+    let seen = pixel(frame, 976, 378).ok_or("no bar")?;
+    let bar = BAR.ok_or("no colour")?;
+    for channel in 0..3 {
+        let mean = u16::midpoint(u16::from(bar[channel]), u16::from(under[channel]));
+        assert!(
+            u16::from(seen[channel]).abs_diff(mean) <= 1,
+            "{seen:?} is not half {bar:?} over {under:?}"
+        );
+    }
+    assert_eq!(
+        holds("conversation-goes-on-fading.png", Some(frame)),
+        Ok(())
+    );
+    // Faded out: the paper, and nothing else, where it stood.
+    let gone = at(0.0)?;
+    let frame = gone.frame.as_ref().ok_or("nothing was painted")?;
+    assert_eq!(pixel(frame, 976, 378), Some(under));
+    assert_eq!(pixel(frame, 973, 300), pixel(paper_frame, 973, 300));
+    // Read either way, by which way it goes on and how far down it is.
+    for drawn in [&half, &gone] {
+        assert_eq!(
+            names(&read(&drawn.tree, "image")).last(),
+            Some(&Some(
+                "The conversation goes on above and below; scrolled 50% of the way down".to_owned()
+            )),
+            "{}",
+            drawn.tree.to_outline()
+        );
+    }
+    Ok(())
+}
+
+/// Queue item 793: where the bar's left edge stands, from which the browser
+/// process measures the pointer near it: the clip's right edge less 13 and
+/// the bar's 6 — 973 at the design's width, and in a narrow window too.
+#[test]
+fn the_bars_left_edge_is_where_it_is_drawn() -> Result<(), String> {
+    assert_eq!(
+        format!("{}", conversation_scroll::bar_left(viewport())),
+        "973"
+    );
+    let narrow = Size::new(695.0, HEIGHT);
+    // A column of 631 from 32, the clip to 695, the bar 19 in from it.
+    assert_eq!(format!("{}", conversation_scroll::bar_left(narrow)), "676");
+    let drawn = draw(Start {
+        viewport: narrow,
+        bar: conversation_scroll::bar(-301.0, REACH, narrow, 1.0),
+        ..conversation(three()?, -301.0)
+    });
+    let placed = drawn.at("goes-on");
+    assert!(
+        placed
+            .first()
+            .is_some_and(|rect| rect.starts_with("(676, ")),
+        "{placed:?}"
+    );
+    Ok(())
+}

@@ -111,7 +111,10 @@
 //!   [`conversation_find`], edited by the same keys while it has the
 //!   keyboard (item 711). Whether the panel stands whole or folded to its
 //!   rail — hidden by a person, or the window narrower than 760 — is
-//!   [`conversation_fold`], with the least window (item 775).
+//!   [`conversation_fold`], with the least window (item 775); there the
+//!   whole panel slides over the conversation as a sheet
+//!   ([`conversation_sheet`], item 776). The conversation's bar fades once
+//!   it stops scrolling ([`conversation_bar`], item 793).
 //!
 //! # What it is not yet
 //!
@@ -210,6 +213,7 @@ pub mod conversation_agent;
 pub mod conversation_agents;
 pub mod conversation_aim;
 pub mod conversation_answer;
+pub mod conversation_bar;
 pub mod conversation_box;
 pub mod conversation_chrome;
 pub mod conversation_compose;
@@ -220,6 +224,7 @@ pub mod conversation_glide;
 pub mod conversation_keys;
 pub mod conversation_place;
 pub mod conversation_search;
+pub mod conversation_sheet;
 pub mod conversation_thread;
 pub mod conversation_window;
 pub mod conversation_work;

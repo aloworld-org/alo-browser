@@ -68,17 +68,19 @@
 //! counted among all of them. A box with the keyboard is drawn under a
 //! `main` of class `start focused`; its own class stays `box`.
 //!
-//! The hovered chat's *Delete* and the foot's *Undo* (queue item 789) are
-//! each one of a kind: only the row under the pointer offers *Delete*, so
-//! which chat it deletes is the browser process's to say, from the row it
-//! last had painted hovered — and a press there is found on *Delete*
-//! before the row around it.
+//! The hovered chat's *Delete* or × and the foot's *Undo* (queue items 789,
+//! 791) are each one of a kind: only the row under the pointer offers
+//! either, so which chat it deletes or closes is the browser process's to
+//! say, from the row it last had painted hovered — and a press there is
+//! found on the button before the row around it.
 //!
 //! The panel's *Search chats* — its field, its glass, the room around them
 //! — and the button that hides the panel are each one of a kind (queue item
 //! 711); so, once it is hidden, are the rail's *New chat* and *Show the
-//! panel*. The rail draws no chat, and a press on its mark or between its
-//! buttons is on nothing.
+//! panel*. The rail's chats (queue item 760) are claimed as the panel's
+//! rows are, by their place among the chats the rail draws, which are all
+//! the browser process sent it; a press on its mark, on the name standing
+//! beside a hovered chat, or between its buttons is on nothing.
 
 use crate::hit;
 use crate::pipeline::Drawing;
@@ -216,6 +218,9 @@ pub enum Claim {
     /// The *Delete* the hovered chat's row offers (queue item 789): one of
     /// a kind, since only the row under the pointer offers it.
     DeleteChat,
+    /// The × the hovered open chat's row offers, closing it to *Earlier*
+    /// (queue item 791): one of a kind, as *Delete* is.
+    CloseChat,
     /// The panel's *Undo*, bringing back the chat just deleted.
     Undo,
     /// The card's shield, the switch for blocking on its page's site
@@ -234,6 +239,7 @@ impl Claim {
             | Claim::HideThePanel
             | Claim::ShowThePanel
             | Claim::DeleteChat
+            | Claim::CloseChat
             | Claim::Undo => Part::Panel,
             Claim::Site { .. }
             | Claim::AddASite
@@ -292,6 +298,7 @@ impl fmt::Display for Claim {
             Claim::NotNow => f.write_str("the agent's Not now"),
             Claim::Choice { at } => write!(f, "the agent's choice at place {at}"),
             Claim::DeleteChat => f.write_str("the hovered chat's Delete"),
+            Claim::CloseChat => f.write_str("the hovered chat's ×"),
             Claim::Undo => f.write_str("the panel's Undo"),
             Claim::Shield => f.write_str("the card's shield"),
         }
@@ -316,6 +323,9 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
         Part::Panel => &[
             (&["new"], Pressable::One(Claim::NewChat)),
             (&["chat"], Pressable::Placed(|at| Claim::Chat { at })),
+            // A chat on the rail (queue item 760), by its place among the
+            // rail's, which are all the chats it was sent.
+            (&["rbtn rchat"], Pressable::Placed(|at| Claim::Chat { at })),
             (&["settings"], Pressable::One(Claim::Settings)),
             // Queue item 711: Search chats, the button beside the mark, and
             // the rail's two buttons once it is hidden.
@@ -326,6 +336,8 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             // Queue item 789: the hovered row's Delete, inside the row and
             // so found before it, and the foot's Undo.
             (&["delete"], Pressable::One(Claim::DeleteChat)),
+            // Queue item 791: an open row's ×, found before the row too.
+            (&["shut"], Pressable::One(Claim::CloseChat)),
             (&["bring"], Pressable::One(Claim::Undo)),
         ],
         Part::Start => &[
@@ -758,22 +770,32 @@ mod tests {
     }
 
     #[test]
-    fn the_rails_new_chat_and_show_the_panel_are_claimed_and_nothing_else() {
+    fn the_rails_new_chat_its_chats_and_show_the_panel_are_claimed_and_nothing_else() {
         // New chat 44 square at (10, 56); Show the panel at (10, 504).
         assert_eq!(on_the_rail(32.0, 78.0), claim(Claim::NewChat));
         assert_eq!(on_the_rail(10.0, 56.0), claim(Claim::NewChat));
         assert_eq!(on_the_rail(32.0, 526.0), claim(Claim::ShowThePanel));
         assert_eq!(on_the_rail(53.0, 547.0), claim(Claim::ShowThePanel));
+        // Queue item 760: the five chats, 44 square from 121, 6 apart, each
+        // by its place among the rail's.
+        for at in 0..5 {
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "a place under five, exact in an f32"
+            )]
+            let top = 121.0 + 50.0 * at as f32;
+            assert_eq!(on_the_rail(32.0, top + 22.0), chat(at), "{at}");
+        }
         for (x, y) in [
-            // The mark, the line, the room, either side of a button, and
-            // where the panel's chats and Search chats would be.
+            // The mark, the line, between two chats, the room, either side
+            // of a button.
             (32.0, 30.0),
             (32.0, 110.0),
-            (32.0, 300.0),
+            (32.0, 168.0),
+            (32.0, 400.0),
             (5.0, 78.0),
             (58.0, 526.0),
-            (32.0, 194.0),
-            (32.0, 121.0),
+            (5.0, 143.0),
         ] {
             assert_eq!(
                 on_the_rail(x, y),

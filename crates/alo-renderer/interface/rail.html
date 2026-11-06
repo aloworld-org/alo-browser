@@ -1,9 +1,10 @@
 <!doctype html>
-<!-- The chats panel hidden, as the design's rail (ADR 0074, queue item 711).
-     Compiled into the renderer, fixed, and never assembled from anything:
-     `rail_document.rs` parses it as it is and puts nothing into it. The mark,
-     New chat and the button that shows the panel again, each button named in
-     words and its icon hidden from an agent. -->
+<!-- The chats panel hidden, as the design's rail (ADR 0074, queue items 711
+     and 760). Compiled into the renderer, fixed, and never assembled from
+     anything: `rail_document.rs` parses it as it is and puts only the chats
+     into it, before the room, each with alo-dom's operations. The mark, New
+     chat, the chats and the button that shows the panel again, each button
+     named in words and its icon hidden from an agent. -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />

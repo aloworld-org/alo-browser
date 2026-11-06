@@ -17,7 +17,7 @@ they open one.
 
 | Part | Size | |
 |---|---|---|
-| Chats panel | 240 px wide, full height | collapses to a 64 px rail while the agent works, or on a window narrower than 760 px (item 775) |
+| Chats panel | 240 px wide, full height | collapses to a 64 px rail while the agent works, or on a window narrower than 760 px (item 775); shown there, it slides over the conversation (item 776) |
 | Top bar | 52 px tall | the chat's name, *Share* |
 | Conversation | a column 880 px wide, centred in what the panel leaves | narrower in a narrow window: what the panel leaves less 32 px either side (item 774) |
 | The box | 56 px tall, 880 px wide, 24 px above the window's foot | 64 px tall on the first screen; as wide as the column |
@@ -38,15 +38,34 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
   name; one it finished has a green tick, and both say so in words to an
   agent.
 - **Earlier** — past chats, in quiet text, without marks. Closing a chat
-  never loses it: it moves here (closing is item 791). The chats kept from
+  never loses it: it moves here, first (item 791). The chats kept from
   before alo was last closed are here, newest first; pressed, one is on
-  screen and under *Open* again (item 757, ADR 0092).
+  screen and under *Open* again — first there, the most recent (items 757,
+  760, ADR 0092).
 - **A chat's name** is the first words said in it — up to 48 characters,
   whole words, `…` when there was more — and *New chat* until something is
   said (item 758).
 - **Settings**, at the foot, under a line, with a settings icon — two
   lines, a knob on each — before its words.
-- **Deleting a chat** (item 789, ADR 0092's amendment): the row the
+- **Closing a chat** (item 791, ADR 0092's amendment; approved by the
+  owner 2026-11-06 — *an × appears on hover over an open chat; closing
+  moves it from Open to Earlier; nothing is deleted*): the open row the
+  pointer is over is a shade lighter and has **an ×** at its end — 24 px
+  square, rounded 6, a 12 px cross in the ink on the line colour, named
+  *Close* and the chat's name; the row does not move. Pressed, the chat
+  moves to the top of *Earlier*, its turns kept and a live card put away as
+  its address; nothing is deleted and no file removed. The chat on screen
+  closed puts the open chat below it on screen, or else the one above, or
+  else a new chat. **The empty chat on screen has no ×** — closed, it would
+  only come back as *New chat* — and an empty chat that is not on screen,
+  closed, simply goes: nothing would be kept of it.
+- **Which rows offer which** (decided with item 791): **an open row offers
+  its ×, an earlier row offers *Delete*** — never both, and the rail
+  neither. Closing loses nothing, so it is what a chat in use offers;
+  deleting is offered only for a chat already put away, so an open chat is
+  deleted in two deliberate presses, closed then deleted, and a person
+  reaching for one can never press the other.
+- **Deleting a chat** (item 789, ADR 0092's amendment): the earlier row the
   pointer is over is a shade lighter and has **Delete** at its end — 24 px
   tall, 12 px 600 words on the line colour, 8 px either side; the row does
   not move, its name gives way. Pressed, the chat leaves the panel at
@@ -75,8 +94,41 @@ becomes **the rail**, 64 wide, and the conversation takes the rest of the
 window: the mark, 40 tall 10 down; *New chat*, a 44-square button with an
 18 px plus, 6 under it; a 28-wide line 4 above and below; and at the foot,
 12 up, *Show the panel*, 44 square with the same icon, which brings the
-panel back as it was, what was searched kept. The design's rail also holds
-each open chat as its site's mark; that is item 760.
+panel back as it was, what was searched kept.
+
+### The rail's chats (item 760)
+
+Approved by the owner 2026-11-06: *the narrow rail shows round initials for
+the five most recent chats, with the name on hover; a press opens the chat;
+a "+" at the top makes a new chat.*
+
+- **Which five.** The first five the panel would draw — the open chats,
+  most recent first, then the earlier ones, newest first — whatever *Search
+  chats* holds. A chat opened again from *Earlier* is first under *Open*,
+  and so first on the rail.
+- **Each** is a 44-square button, 6 under the line and 6 apart — the first
+  at (10, 121), then 171, 221, 271 and 321 — holding **its initials**, the
+  first letter or digit of each of the first two words of its name as the
+  panel shows it, in capitals (*Weekend in Lisbon* `WI`, *rust* `R`, *New
+  chat* `NC`, a name with no letter a middle dot), 12 px 600 in the ink in
+  a **32 px circle** on the line colour. **The chat on screen** is white
+  with a shadow, as its row is white in the panel; one the agent works in
+  has the panel's 7 px terracotta dot at its circle's shoulder. Five fit
+  above *Show the panel* in the least window.
+- **The name on hover.** The chat the pointer is over is a shade lighter,
+  and its name stands beside it in a dark pill — `#2b2722`, 12.5 px 500 in
+  `#f3efe8`, 28 tall, rounded 8, 10 inside, at most 240 wide and cut where
+  it ends — centred on the button, 4 past the rail's edge, over the first
+  screen. The rail is then laid out 320 wide and drawn on nothing, so only
+  the rail and the pill stand over the first screen; the pill is not
+  pressed (a press there is the first screen's), and the pointer leaving
+  the rail takes it away.
+- **A press** on a chat opens it, as its row in the panel does; the "+" at
+  the top — *New chat*, under the mark — makes a new chat. The rail offers
+  no × and no *Delete*.
+- **An agent reads** each as a button named by the chat — with *Done* after
+  a finished one, busy while the agent works in it, the one on screen
+  current; the initials and the pill are hidden from it.
 
 ### Folded in a narrow window (item 775)
 
@@ -91,11 +143,35 @@ keyboard go as the panel folds.
 **A person's choice is remembered apart from the fold.** A panel a person
 hid stays the rail when the window is widened past 760. *Show the panel*
 pressed while the window is narrower than 760 is kept — the panel comes
-back as soon as the window is 760 wide — and, since the column beside it
-would not hold the tab row, the window says so in words (*The window is
-too narrow for the panel: it comes back at 760 wide*) rather than doing
-nothing silently; the line goes when the panel comes back. Showing the panel over the conversation in a narrow
-window, as a sheet, is not designed yet (item 776).
+back beside the conversation as soon as the window is 760 wide — and,
+meanwhile, the panel slides over the conversation (below).
+
+### The panel over the conversation in a narrow window (item 776)
+
+Approved by the owner 2026-11-06: *below 760 wide, pressing the panel button
+slides the panel in over the conversation with a dimmed backdrop; Escape, a
+press outside, or choosing a chat closes it.*
+
+- **The sheet.** *Show the panel* on the rail, in a window narrower than
+  760, brings **the whole panel**, 240 wide and the window's height, over
+  the conversation; the conversation stays laid out beside the rail under
+  it. It **slides out from the rail** — its left edge from −176, where its
+  right 64 stand over the rail, to the window's edge — in **200 ms, eased
+  out** (`1 − (1 − t)³`), and back the same way, so it never shows the rail
+  bare as it comes. Closed half way out, it goes back from where it was.
+- **The backdrop** is the conversation's ink, `#1b2433`, at **0.32** over
+  the conversation and the rail, as far on as the sheet is out.
+- **In it** the panel is the panel: its rows hovered offer their × or
+  *Delete*, *Search chats* takes the keyboard, *Undo* is there.
+- **Closing it**: **Escape** — whatever has the keyboard, *Search chats*
+  letting it go with what was typed kept; **a press outside it**, on the
+  backdrop — which presses nothing under it, not the box, not a card's page;
+  **choosing a chat** in it, or **New chat**; and *Hide the panel* in it,
+  which is a person's choice of the rail. *Search chats*, × and *Delete*
+  keep it out. Widened to 760, the panel stands beside the conversation and
+  the sheet is gone at once.
+- While it is out, nothing under it is hovered, scrolled or typed into. It
+  is never shown while alo's agent works (the rail for the run, item 819).
 
 **The window is never narrower than 600 nor shorter than 600.** Beside the
 rail the tab row needs a window of 541; at 600 the column is 472. At 600
@@ -310,7 +386,15 @@ Nothing is replaced. Within a turn the bubble and what follows are 16 apart
   room, a bar 6 wide, rounded 3, `#cbc3b6`, stands 13 in from the clip's
   right edge, in the gutter beside the column — as long against the room as
   the room is against the whole conversation, never under 32, and as far
-  down it as the conversation is scrolled. Nothing presses it yet (793).
+  down it as the conversation is scrolled. **It fades** (item 793, ADR
+  0093's amendment; approved by the owner 2026-11-06 — *keep the thin bar,
+  but it fades out about a second after scrolling stops, as macOS does; it
+  comes back while scrolling or when the pointer nears the right edge*):
+  whole while the conversation moves — a wheel, a glide, a key, a new turn —
+  and for a second after, then faded out in 300 ms; whole again at once
+  when it moves, and while the pointer is within 24 px either side of it,
+  between the room's top and foot. A chat opened shows none until it moves.
+  An agent reads it either way. Nothing presses or drags it (845).
 - The agent's own words and its steps are drawn on its live card (704);
   kept as turns of the chat is 820.
 

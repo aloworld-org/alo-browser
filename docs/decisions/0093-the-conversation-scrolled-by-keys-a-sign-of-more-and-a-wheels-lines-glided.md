@@ -1,8 +1,8 @@
 # ADR 0093 — The conversation scrolled by keys, a sign of more, and a wheel's lines glided
 
 **Status:** accepted — built by queue items 754, 755 and 756 (1 November
-2026); § 2's look is this item's choice, for the owner to confirm or replace
-(793)
+2026); § 2's look confirmed by the owner, with a fade, on 6 November 2026
+(793, amendment below)
 **Date:** 2026-11-01
 **Context:** ADR 0085 § 3 (the conversation is scrolled from the newest
 turn's top by one number of the browser process's, kept inside the reach
@@ -130,3 +130,47 @@ queue item 794.
 - Cut, each queued: keyboard scrolls glided as Chrome's (792); the owner's
   look for the sign, and a bar a person can drag or press (793); the glide
   stepped at the display's own refresh (794).
+
+## Amendment, 2026-11-06 — the bar fades (queue item 793)
+
+The owner approved this on 6 November 2026 (*"I agree"*): **keep the thin
+bar, but it fades out about a second after scrolling stops (as macOS does);
+it comes back while scrolling or when the pointer nears the right edge.**
+§ 2's bar — its place, size, colour, numbers and reading — is kept as it
+was; what changes is how much of it is seen.
+
+- **Seen as a fraction of the browser process's** (`Bar::seen`, `0` to
+  `1`, refused on the wire as anything else), drawn as the bar's
+  `opacity`. Kept in `alo-window`'s `conversation_bar.rs`, time and nothing
+  else, tested at given instants with an injected clock.
+- **Whole while the conversation moves** — a wheel or a trackpad, each step
+  of a glide, a key, a new turn put at the room's top: the window sees the
+  turns or the offset it draws change — and **for a second after** (1,000
+  ms), then **faded out in 300 ms**, straight, to nothing. It comes back
+  whole at once, not faded in, as macOS's does. A chat opened, or one
+  pressed in the panel, shows no bar until it moves.
+- **Near** is the pointer over the first screen, between the room's top and
+  its foot, within **24 CSS pixels either side of the bar** — the gutter
+  beside the column and a little of the column's edge. While it is there the
+  bar is whole; leaving starts its second from then.
+- **Faded, it is still there to an agent**, read as § 2 says: an agent
+  reads what the interface is, not how faint it is.
+- **The window wakes** as the second ends and at each sixtieth of the fade,
+  and not otherwise; the first screen is drawn again only when what is seen
+  changed.
+- **Dragging the bar, and pressing above or below it, are not in the
+  owner's design**, and stay unbuilt: queue item 845.
+
+Checked by `conversation_bar`'s tests (whole for the second, 0.75, 0.50 and
+0.25 at 75, 150 and 225 ms into the fade, nothing after; whole again at
+once; near and leaving; the strip either side; when to wake), the window's
+(`conversation_window`: a trackpad's scroll, then 1.00, 0.50 and 0.00 at
+999, 1,150 and 1,300 ms on the window's own clock, woken at the second's end
+and each frame of the fade, whole with the pointer at 1,240, not at 1,244 or
+above the room), the wire's (a fraction, and nothing else), and
+`a_sign_that_the_conversation_goes_on.rs` (half seen, each channel within a
+level of the mean of the bar's and the paper's; nothing seen, the paper;
+read either way; reference `conversation-goes-on-fading.png`; the bar's left
+edge 973 at the design's width and 676 at a room of 695). Mutation — the
+bar always whole — fails.
+

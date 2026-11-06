@@ -130,6 +130,29 @@ pub struct Bar {
     /// Whether it goes on below: it is scrolled back from the newest turn's
     /// foot.
     pub below: bool,
+    /// How much of it is seen, from `1` to `0` (queue item 793): whole
+    /// while the conversation scrolls and for a second after, then faded
+    /// out, and whole again while the pointer is near it — the browser
+    /// process's to say (`alo-window`'s `conversation_bar`). Faded, it is still there to an agent.
+    pub seen: f32,
+}
+
+/// How far in from the clip's right edge the bar stands, in CSS pixels:
+/// centred in the clip's gutter of [`crate::card_place::GUTTER`].
+pub const BAR_INSET: f32 = 13.0;
+
+/// How wide the bar is, in CSS pixels.
+pub const BAR_WIDTH: f32 = 6.0;
+
+/// Where the bar's left edge is on a first screen laid out at `viewport`,
+/// in CSS pixels from its left: the clip is the column and a gutter either
+/// side, and the bar [`BAR_INSET`] in from its right edge.
+pub fn bar_left(viewport: Size) -> f32 {
+    crate::card_place::column_left(viewport)
+        + crate::card_place::column(viewport)
+        + crate::card_place::GUTTER
+        - BAR_INSET
+        - BAR_WIDTH
 }
 
 impl Bar {
@@ -188,6 +211,7 @@ pub fn bar(down: f32, reach: Reach, viewport: Size, scale: f32) -> Option<Bar> {
         length: on_a_pixel(length),
         above: down > least,
         below: down < most,
+        seen: 1.0,
     })
 }
 

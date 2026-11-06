@@ -72,14 +72,18 @@ use crate::chrome_history::Way;
 use crate::conversation::{Conversation, Pressed as Decided};
 use crate::conversation_agent::{Agent, AgentSaid, Run, Said, TellAgent};
 use crate::conversation_answer;
+use crate::conversation_bar::{self, BarFade};
 use crate::conversation_box::{self, Typed};
 use crate::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
-use crate::conversation_compose::ConversationScene;
+use crate::conversation_compose::{ConversationScene, SheetScene};
 use crate::conversation_drawing::{Asked, ConversationDrawing, Drawn, Part};
 use crate::conversation_fold;
 use crate::conversation_keys;
-use crate::conversation_place::{ConversationPlacement, panel_viewport_as, start_viewport_as};
+use crate::conversation_place::{
+    ConversationPlacement, PANEL_WIDTH, panel_viewport_of, sheet_left, start_viewport_as,
+};
 use crate::conversation_search::{Came, Searched, Searcher};
+use crate::conversation_sheet::Slide;
 use crate::keys::{Held, Press};
 use crate::scale::Scale;
 use crate::typing;
@@ -207,6 +211,21 @@ pub struct ConversationWindow {
     /// Where the sites blocking is switched off for are kept, when the
     /// window was given somewhere (queue item 807).
     switches: Option<std::path::PathBuf>,
+    /// The sheet sliding over the conversation in a narrow window (queue
+    /// item 776).
+    slide: Slide,
+    /// The panel's last frame painted as the sheet: what slides back in
+    /// once it is closed, while the rail is drawn under it.
+    sheet_frame: Option<Frame>,
+    /// How much of the conversation's bar is seen (queue item 793).
+    bar: BarFade,
+    /// The chat, the number of turns and how far down they were when the
+    /// first screen was last asked to be drawn: a change of the last two is
+    /// the conversation moving, which brings its bar back.
+    moved_from: Option<(Option<crate::conversation::ChatId>, usize, u32)>,
+    /// What the window reads the time from: the machine's clock, or a
+    /// test's own ([`ConversationWindow::with_clock`]).
+    clock: Box<dyn Fn() -> Instant>,
 }
 
 /// How the window's two threads ended.
@@ -283,7 +302,27 @@ impl ConversationWindow {
             following: false,
             over_the_panel: false,
             switches: None,
+            slide: Slide::default(),
+            sheet_frame: None,
+            bar: BarFade::default(),
+            moved_from: None,
+            clock: Box::new(Instant::now),
         }
+    }
+
+    /// The same window, reading the time from `clock` rather than the
+    /// machine's: what a test of a slide or a fade sets, so its state is
+    /// asserted at given instants rather than waited for (queue items 776,
+    /// 793).
+    #[must_use]
+    pub fn with_clock(mut self, clock: impl Fn() -> Instant + 'static) -> Self {
+        self.clock = Box::new(clock);
+        self
+    }
+
+    /// The time, as the window reads it.
+    fn now(&self) -> Instant {
+        (self.clock)()
     }
 
     /// The same window, its card's page worked on by `agent` (queue item
@@ -551,17 +590,17 @@ impl ConversationWindow {
     /// widened past it again it unfolds unless a person hid it (queue item
     /// 775): both parts are then laid out again beside it, and the card's
     /// page streamed at its new page box, as when a person hides it.
-    /// Unfolded, what was said of the panel being too narrow is no longer
-    /// so, and is no longer said.
+    /// Unfolded, a sheet that stood over the conversation is gone at once
+    /// (queue item 776): the panel stands whole beside it.
     pub fn measured_as(&mut self, measured: Measured) {
         self.window = Some(measured);
+        let sheet = self.conversation.sheet();
         if let Some(((width, _), scale)) = self.measured()
             && self.conversation.fit(scale.fitting(width))
         {
-            if !self.conversation.fold().narrow()
-                && self.told.as_deref() == Some(conversation_fold::too_narrow().as_str())
-            {
-                self.told = None;
+            if sheet && !self.conversation.sheet() {
+                self.slide.shut();
+                self.sheet_frame = None;
             }
             self.redraw = true;
             self.ask_drawn();
@@ -602,19 +641,43 @@ impl ConversationWindow {
         let Some((window, scale)) = self.measured() else {
             return;
         };
-        let Some(drawing) = self.drawing.as_mut() else {
+        if self.drawing.is_none() {
             return;
-        };
+        }
         let side = self.conversation.side();
-        drawing.draw(Asked {
-            panel: self
-                .conversation
-                .panel(panel_viewport_as(window, scale, side), scale),
-            start: self
-                .conversation
-                .start(start_viewport_as(window, scale, side), scale),
-            showing: self.conversation.showing(),
-        });
+        let panel = self.conversation.panel(
+            panel_viewport_of(window, scale, self.conversation.panel_width()),
+            scale,
+        );
+        let mut start = self
+            .conversation
+            .start(start_viewport_as(window, scale, side), scale);
+        // The conversation moved — scrolled, or a turn added — since it was
+        // last drawn: its bar is whole again, and faded as it says (793).
+        let now = self.now();
+        let here = (
+            self.conversation.on_screen(),
+            start.turns.len(),
+            start.down.to_bits(),
+        );
+        if let Some((chat, turns, down)) = self.moved_from
+            && chat == here.0
+            && (turns, down) != (here.1, here.2)
+        {
+            self.bar.moved(now);
+        }
+        self.moved_from = Some(here);
+        if let Some(bar) = start.bar.as_mut() {
+            bar.seen = self.bar.seen(now);
+        }
+        let showing = self.conversation.showing();
+        if let Some(drawing) = self.drawing.as_mut() {
+            drawing.draw(Asked {
+                panel,
+                start,
+                showing,
+            });
+        }
         self.restream();
     }
 
@@ -655,6 +718,7 @@ impl ConversationWindow {
     /// refused.
     pub fn scene(&self) -> Option<ConversationScene<'_>> {
         let (window, scale) = self.measured()?;
+        let now = self.now();
         Some(ConversationScene {
             window,
             scale,
@@ -663,7 +727,57 @@ impl ConversationWindow {
             start: self.start.as_ref(),
             start_sentence: self.start_said.as_deref().or(self.told.as_deref()),
             side: self.conversation.side(),
+            named: self.conversation.rail_named(),
+            sheet: self.sheet_scene(now),
         })
+    }
+
+    /// The sheet as it is composed at `now`, while any of it is seen and
+    /// its renderer has painted the whole panel for it (queue item 776):
+    /// until then the rail alone is drawn.
+    fn sheet_scene(&self, now: Instant) -> Option<SheetScene<'_>> {
+        let (window, scale) = self.measured()?;
+        let whole = scale.device(PANEL_WIDTH).min(window.0);
+        let frame = self
+            .sheet_frame
+            .as_ref()
+            .filter(|frame| self.slide.seen(now) && frame.width == whole)?;
+        Some(SheetScene {
+            frame,
+            left: sheet_left(self.slide.left(now), scale),
+            shade: self.slide.shade(now),
+        })
+    }
+
+    /// Where the sheet stands at `now` across the window, in device
+    /// pixels, while it is out: its left edge, and how wide it is.
+    fn sheet_at(&self, now: Instant) -> Option<(i32, u32, Scale)> {
+        let (window, scale) = self.measured()?;
+        self.conversation.sheet().then(|| {
+            (
+                sheet_left(self.slide.left(now), scale),
+                scale.device(PANEL_WIDTH).min(window.0),
+                scale,
+            )
+        })
+    }
+
+    /// Where the point `at`, in device pixels, is on the sheet standing at
+    /// `now`, in the panel's CSS pixels — or [`None`] when it is outside
+    /// the sheet, over the shade.
+    fn on_the_sheet(&self, at: (f64, f64), now: Instant) -> Option<alo_paint::Point> {
+        let (left, width, scale) = self.sheet_at(now)?;
+        let x = at.0 - f64::from(left);
+        if !(0.0..f64::from(width)).contains(&x) || at.1 < 0.0 {
+            return None;
+        }
+        let factor = f64::from(scale.factor());
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "a point on a window, in CSS pixels, far inside an f32's range"
+        )]
+        let point = alo_paint::Point::new((x / factor) as f32, (at.1 / factor) as f32);
+        Some(point)
     }
 
     /// The first screen's viewport at the window's size and scale, beside
@@ -768,6 +882,41 @@ impl ConversationWindow {
         }
     }
 
+    /// Close the sheet `now` — Escape, or a press outside it (queue item
+    /// 776): it slides back in, and the rail is drawn under it.
+    fn close_the_sheet(&mut self, now: Instant) {
+        if self.conversation.close_sheet() {
+            self.slide.close(now);
+            self.over_the_panel = false;
+            self.redraw = true;
+            self.ask_drawn();
+        }
+    }
+
+    /// The pointer is at `at` `now`: whether it is near the conversation's
+    /// bar, which is then whole (queue item 793) — over the first screen,
+    /// within the room, beside the bar — and the first screen drawn again
+    /// if that changed.
+    fn near_the_bar(&mut self, at: (f64, f64), now: Instant) {
+        let near = match (self.aimed(at), self.start_room()) {
+            (Some(card_aim::Aimed::Part(Part::Start, on)), Some(room))
+                if self.seen_drawn().is_some() =>
+            {
+                let top = alo_renderer::card_place::TOP;
+                conversation_bar::near(
+                    on.x,
+                    on.y,
+                    conversation_scroll::bar_left(room),
+                    (top, top + conversation_scroll::room(room)),
+                )
+            }
+            _ => false,
+        };
+        if self.bar.pointer(near, now) {
+            self.ask_drawn();
+        }
+    }
+
     /// Which chat's row the pointer is over, as the panel's renderer found
     /// it (queue item 789): drawn offering *Delete* while the cursor is
     /// still over the panel.
@@ -781,18 +930,54 @@ impl ConversationWindow {
 
     /// When the window is next to be woken with [`Self::tick`], if it is:
     /// as a chat deleted can no longer be brought back (queue item 789).
+    ///
+    /// Also each of the display's frames while the sheet slides (queue item
+    /// 776), and while the conversation's bar is to fade, when its second
+    /// ends and each frame of the fade (793).
     pub fn wake_at(&self) -> Option<Instant> {
-        self.conversation.undo_until()
+        let now = self.now();
+        let slide = self
+            .slide
+            .moving(now)
+            .then_some(now + conversation_bar::FRAME);
+        let bar = self.seen_drawn().and_then(|_| self.bar.wake_at(now));
+        [self.conversation.undo_until(), slide, bar]
+            .into_iter()
+            .flatten()
+            .min()
     }
 
     /// The time is `now`: a chat deleted whose *Undo* has passed is gone,
-    /// the panel drawn again without it, and its file removed.
+    /// the panel drawn again without it, and its file removed; the sheet
+    /// slid on, and once back in let go; the bar drawn as faded as it now
+    /// is.
     pub fn tick(&mut self, now: Instant) {
         if self.conversation.expire(now) {
             self.redraw = true;
             self.ask_drawn();
         }
         self.remove_gone();
+        let back_in = !self.slide.seen(now)
+            && !self.conversation.sheet()
+            && self.sheet_frame.take().is_some();
+        if self.slide.moving(now) || back_in {
+            self.redraw = true;
+        }
+        if self
+            .seen_drawn()
+            .is_some_and(|seen| seen.to_bits() != self.bar.seen(now).to_bits())
+        {
+            self.ask_drawn();
+            self.redraw = true;
+        }
+    }
+
+    /// How much of the conversation's bar the first screen was last asked
+    /// to show, while it was asked to show one (queue item 793).
+    pub fn seen_drawn(&self) -> Option<f32> {
+        self.drawing
+            .as_ref()
+            .and_then(ConversationDrawing::sent_bar_seen)
     }
 
     /// Remove the file of each chat deleted and gone, and say so (queue item
@@ -839,6 +1024,21 @@ impl ConversationWindow {
             }
             return;
         }
+        // The sheet out over the conversation (queue item 776): a press on
+        // it is the panel's, where the sheet stands now; anywhere else —
+        // the shade, the card's page under it — closes it, and nothing
+        // under it is pressed.
+        if self.conversation.sheet() {
+            match self.on_the_sheet(at, now) {
+                Some(on) => {
+                    if let Some(drawing) = self.drawing.as_mut() {
+                        drawing.press(Part::Panel, on);
+                    }
+                }
+                None => self.close_the_sheet(now),
+            }
+            return;
+        }
         match self.aimed(at) {
             Some(card_aim::Aimed::Page { x, y }) => {
                 // A press decided as the page's: what an earlier one came
@@ -876,9 +1076,34 @@ impl ConversationWindow {
     /// is held, as a hover while it is over the page box, and once more as
     /// it leaves it (queue items 718, 740).
     pub fn moved(&mut self, at: (f64, f64)) {
+        self.moved_at(at, self.now());
+    }
+
+    /// The cursor moved to `at` at `now`, as [`Self::moved`]: over the sheet
+    /// while it is out (queue item 776), its row hovered and nothing under
+    /// it; near the conversation's bar, the bar whole (queue item 793).
+    pub fn moved_at(&mut self, at: (f64, f64), now: Instant) {
         self.cursor = Some(at);
-        // Over the panel, the row under the pointer offers Delete (queue
-        // item 789); off it, none does.
+        if self.conversation.sheet() {
+            match self.on_the_sheet(at, now) {
+                Some(on) => {
+                    self.over_the_panel = true;
+                    if let Some(drawing) = self.drawing.as_mut() {
+                        drawing.hover(on);
+                    }
+                }
+                None if self.over_the_panel => self.off_the_panel(),
+                None => {}
+            }
+            // Nothing under the shade is hovered: the page's hover ends.
+            if let Some(input) = self.pointer.moved(None) {
+                self.to_the_page(input);
+            }
+            return;
+        }
+        // Over the panel, the row under the pointer offers Delete or its ×
+        // (queue items 789, 791), and on the rail its name stands beside it
+        // (760); off it, none does.
         match self.aimed(at) {
             Some(card_aim::Aimed::Part(Part::Panel, on)) => {
                 self.over_the_panel = true;
@@ -889,6 +1114,7 @@ impl ConversationWindow {
             _ if self.over_the_panel => self.off_the_panel(),
             _ => {}
         }
+        self.near_the_bar(at, now);
         let on = self.on_the_card(at).map(|on| OnThePage {
             at: on,
             over: matches!(self.aimed(at), Some(card_aim::Aimed::Page { .. })),
@@ -928,6 +1154,10 @@ impl ConversationWindow {
             return;
         };
         let (right, down) = card_aim::scrolled(turned, scale);
+        // Nothing under the sheet scrolls, and the panel does not (776).
+        if self.conversation.sheet() {
+            return;
+        }
         match self.aimed(at) {
             Some(card_aim::Aimed::Page { x, y }) => {
                 self.to_the_page(CardInput::Wheel { x, y, right, down });
@@ -984,20 +1214,33 @@ impl ConversationWindow {
         );
         let had_a_card = self.conversation.card().is_some();
         let show = matches!(pressed, Decided::ShowThePanel);
+        let sheet = self.conversation.sheet();
         self.card_pressed(&pressed);
         self.agent_pressed(&pressed);
         if self.conversation.act(pressed) {
             self.ask_drawn();
         }
         self.follow_runs();
-        // Shown in a window too narrow for it, the panel is still the rail
-        // until the window is wide enough, and the window says so (queue
-        // item 775).
-        if show && self.conversation.fold().narrow() {
-            self.tell(conversation_fold::too_narrow());
-        } else if show && self.conversation.at_work() {
-            // And while alo's agent works, until the run ends (queue item
-            // 819).
+        // Shown in a window too narrow for it, the panel slides over the
+        // conversation as the sheet; a chat chosen in it, New chat or Hide
+        // the panel slides it back (queue item 776).
+        let now = self.now();
+        match (sheet, self.conversation.sheet()) {
+            (false, true) => self.slide.open(now),
+            (true, false) => {
+                self.slide.close(now);
+                // The row hovered in the sheet is no row on the rail under
+                // it: unhovered, or the rail would name it (found by hand).
+                self.over_the_panel = false;
+                if self.conversation.hover(None) {
+                    self.ask_drawn();
+                }
+            }
+            _ => {}
+        }
+        // While alo's agent works the panel is the rail until the run ends,
+        // and the window says so (queue item 819).
+        if show && self.conversation.at_work() {
             self.tell(conversation_fold::at_work());
         }
         self.ask_further();
@@ -1268,6 +1511,11 @@ impl ConversationWindow {
             Heard::Searched(searched) => self.searched(searched),
             Heard::Agent(said) => self.agent_said(said),
             Heard::Drawn(Drawn::Painted(Part::Panel, frame)) => {
+                // Painted whole while the sheet is out (queue item 776): what
+                // slides, and what slides back in once it is closed.
+                if self.conversation.sheet() {
+                    self.sheet_frame = Some(frame.clone());
+                }
                 self.panel = Some(frame);
                 self.panel_said = None;
             }
@@ -1344,6 +1592,22 @@ impl ConversationWindow {
     /// one box, if it makes one, drawn again when it changed what the box
     /// holds, and what it chose said.
     pub fn key(&mut self, press: &Press, text: Option<&str>) {
+        // The sheet out (queue item 776): Escape closes it, whatever has
+        // the keyboard; *Search chats* in it still takes what is typed, and
+        // nothing under it takes a key.
+        if self.conversation.sheet() {
+            if press.key == crate::keys::Key::Escape && press.held == Held::NOTHING {
+                let now = self.now();
+                self.close_the_sheet(now);
+            } else if self.conversation.find().focused()
+                && let Some(edit) = typing::edit(press, text)
+                && self.conversation.edit(edit) == Typed::Changed
+            {
+                self.ask_drawn();
+                self.redraw = true;
+            }
+            return;
+        }
         if self.conversation.keys_to_the_card() {
             // The card's page has the keyboard (queue item 718).
             if let Some(key) = card_keys::key(press, text) {
@@ -1958,7 +2222,8 @@ mod tests {
     /// Queue item 775: narrowed past 760 the panel folds to its rail on its
     /// own, the card's page streamed beside it as when a person hides it;
     /// widened again it unfolds — unless a person hid it — and *Show the
-    /// panel* pressed while too narrow is kept, and said.
+    /// panel* pressed while too narrow is kept, the panel shown over the
+    /// conversation meanwhile (queue item 776).
     #[test]
     fn a_window_narrowed_past_760_folds_the_panel_and_widened_unfolds_it() {
         use crate::conversation_place::Side;
@@ -2012,8 +2277,9 @@ mod tests {
         resize(&mut window, 1280);
         assert_eq!(side(&window), Some(Side::Rail));
         assert_eq!(page(&window), Some((878, 520)));
-        // Shown while too narrow: still the rail, said why, and the panel
-        // back once the window is 760.
+        // Shown while too narrow: the conversation still beside the rail,
+        // the panel over it as the sheet (queue item 776), nothing said;
+        // and the panel back beside it, no sheet, once the window is 760.
         resize(&mut window, 700);
         let _ = window.take_said();
         window.heard(Heard::Drawn(Drawn::Pressed(
@@ -2021,13 +2287,13 @@ mod tests {
             Decided::ShowThePanel,
         )));
         assert_eq!(side(&window), Some(Side::Rail));
-        let said = conversation_fold::too_narrow();
-        assert_eq!(window.told(), Some(said.as_str()));
-        assert_eq!(window.take_said(), vec![said]);
+        assert!(window.conversation().sheet());
+        assert_eq!(window.told(), None);
+        assert!(window.take_said().is_empty());
         resize(&mut window, 760);
         assert_eq!(side(&window), Some(Side::Panel));
+        assert!(!window.conversation().sheet());
         assert_eq!(page(&window), Some((454, 520)));
-        assert_eq!(window.told(), None, "no longer so, no longer said");
         window.finish();
     }
 
@@ -2420,6 +2686,252 @@ mod tests {
         // Nothing of the window changes: its line, what a press came to.
         assert_eq!(window.start_said, opening);
         assert_eq!(window.told(), None);
+        window.finish();
+    }
+
+    /// A window on a clock of the test's own, at `at` to begin with: what
+    /// the slide and the fade are read from (queue items 776, 793).
+    fn on_a_clock(at: Instant) -> (ConversationWindow, std::rc::Rc<std::cell::Cell<Instant>>) {
+        let clock = std::rc::Rc::new(std::cell::Cell::new(at));
+        let reading = std::rc::Rc::clone(&clock);
+        (window().with_clock(move || reading.get()), clock)
+    }
+
+    fn frame_of(width: u32, height: u32) -> Frame {
+        Frame {
+            width,
+            height,
+            pixels: vec![0; usize::try_from(width * height * 4).unwrap_or(0)],
+        }
+    }
+
+    /// Queue item 776: below 760, *Show the panel* slides the whole panel
+    /// over the conversation, over a shade, in 200 ms; a press on it is the
+    /// panel's, a press outside it closes it and is nobody else's, and so
+    /// do Escape and a chat chosen in it; nothing under it scrolls.
+    #[test]
+    fn in_a_narrow_window_the_panel_slides_over_the_conversation_and_closes() {
+        use std::time::Duration;
+        let ms = Duration::from_millis;
+        let t0 = Instant::now();
+        let (mut window, clock) = on_a_clock(t0);
+        window.measured_as(Measured {
+            size: (700, 820),
+            scale_factor: 1.0,
+            outer: Some((0, 0)),
+        });
+        let show = |window: &mut ConversationWindow| {
+            window.heard(Heard::Drawn(Drawn::Pressed(
+                Part::Panel,
+                Decided::ShowThePanel,
+            )));
+        };
+        show(&mut window);
+        assert!(window.conversation().sheet());
+        assert_eq!(window.told(), None, "nothing said: the sheet answers");
+        // Laid out whole for the sheet, the first screen still beside the
+        // rail.
+        assert_eq!(window.conversation().panel_width(), 240);
+        assert!(!window.conversation().showing().hidden);
+        let sheet = |window: &ConversationWindow| {
+            window.scene().and_then(|scene| {
+                scene
+                    .sheet
+                    .map(|sheet| (sheet.left, format!("{:.3}", sheet.shade)))
+            })
+        };
+        assert_eq!(sheet(&window), None, "nothing to slide until it is painted");
+        window.heard(Heard::Drawn(Drawn::Painted(
+            Part::Panel,
+            frame_of(240, 820),
+        )));
+        window.heard(Heard::Drawn(Drawn::Painted(
+            Part::Start,
+            frame_of(636, 820),
+        )));
+        assert_eq!(sheet(&window), None, "at its first instant none is out");
+        for (after, left, shade) in [
+            (1, -173, "0.005"),
+            (50, -74, "0.185"),
+            (100, -22, "0.280"),
+            (200, 0, "0.320"),
+        ] {
+            clock.set(t0 + ms(after));
+            assert_eq!(sheet(&window), Some((left, shade.to_owned())), "{after} ms");
+        }
+        assert!(
+            window.wake_at().is_none(),
+            "out and still: nothing to wake for"
+        );
+        clock.set(t0 + ms(100));
+        assert!(
+            window.wake_at().is_some_and(|wake| wake <= t0 + ms(117)),
+            "each frame while it slides"
+        );
+        clock.set(t0 + ms(200));
+        // A press on it is the panel's: it stays out. Nothing under it is
+        // scrolled by a wheel.
+        window.moved_at((120.0, 300.0), t0 + ms(200));
+        window.main_button_pressed_at(t0 + ms(200));
+        assert!(window.conversation().sheet());
+        window.wheeled_at(
+            Turned::Lines {
+                across: 0.0,
+                down: 3.0,
+            },
+            t0 + ms(200),
+        );
+        assert!(!window.gliding(), "nothing under the sheet scrolls");
+        // A press outside it, over the shade, closes it; it slides back.
+        window.moved_at((500.0, 300.0), t0 + ms(300));
+        window.main_button_pressed_at(t0 + ms(300));
+        assert!(!window.conversation().sheet());
+        assert!(window.conversation().showing().hidden, "the rail again");
+        clock.set(t0 + ms(350));
+        assert_eq!(sheet(&window).map(|(left, _)| left), Some(-3), "going back");
+        clock.set(t0 + ms(500));
+        assert_eq!(sheet(&window), None, "back in");
+        window.tick(t0 + ms(500));
+        assert!(window.sheet_frame.is_none(), "let go");
+        window.finish();
+    }
+
+    /// Queue item 776: Escape closes the sheet, so does a chat chosen in it
+    /// — which leaves no row hovered for the rail to name — and widened
+    /// past the fold it is gone at once.
+    #[test]
+    fn the_sheet_closed_by_escape_a_chat_chosen_or_the_window_widened() {
+        let (mut window, _clock) = on_a_clock(Instant::now());
+        window.measured_as(Measured {
+            size: (700, 820),
+            scale_factor: 1.0,
+            outer: Some((0, 0)),
+        });
+        let show = |window: &mut ConversationWindow| {
+            window.heard(Heard::Drawn(Drawn::Pressed(
+                Part::Panel,
+                Decided::ShowThePanel,
+            )));
+        };
+        let sheet = |window: &ConversationWindow| {
+            window
+                .scene()
+                .and_then(|scene| scene.sheet.map(|sheet| sheet.left))
+        };
+        // Escape closes it, whatever has the keyboard.
+        show(&mut window);
+        assert!(window.conversation().sheet());
+        window.key(&Press::of(Key::Escape), Some("\u{1b}"));
+        assert!(!window.conversation().sheet());
+        // So does a chat chosen in it.
+        show(&mut window);
+        let chat = window.conversation().showing().chats[0];
+        assert!(
+            window.conversation.hover(Some(chat)),
+            "its row hovered in the sheet"
+        );
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Panel,
+            Decided::Chat(chat),
+        )));
+        assert!(!window.conversation().sheet());
+        // Closed, the row hovered in it is not named on the rail (found by
+        // hand: the rail named it, the pointer elsewhere).
+        assert!(!window.conversation().rail_named());
+        // Widened past the fold, the panel stands beside the conversation
+        // and the sheet is gone at once.
+        show(&mut window);
+        window.measured_as(Measured {
+            size: (900, 820),
+            scale_factor: 1.0,
+            outer: Some((0, 0)),
+        });
+        assert!(!window.conversation().sheet());
+        assert_eq!(sheet(&window), None);
+        window.finish();
+    }
+
+    /// Queue item 793: the bar is whole while the conversation scrolls and
+    /// for a second after, then fades out in 300 ms, drawn at each instant
+    /// as faded as it is; the pointer near it brings it back whole.
+    #[test]
+    fn the_conversations_bar_fades_a_second_after_it_stops_and_comes_back_near() {
+        use std::time::Duration;
+        let ms = Duration::from_millis;
+        let t0 = Instant::now();
+        let (mut window, clock) = on_a_clock(t0);
+        let url = |address: &str| alo_url::parse(address).unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url("https://a.example/"))));
+        window.heard(Heard::Chrome(Went::Opening(url("https://b.example/"))));
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 2,
+            down: 0.0,
+            offered: 0,
+            stands: Stands::InTheConversation,
+            reach: Reach {
+                earlier: 900.0,
+                newest: 1000.0,
+            },
+        }));
+        window.heard(Heard::Drawn(Drawn::Painted(
+            Part::Panel,
+            frame_of(240, 820),
+        )));
+        window.heard(Heard::Drawn(Drawn::Painted(
+            Part::Start,
+            frame_of(1040, 820),
+        )));
+        let seen =
+            |window: &ConversationWindow| window.seen_drawn().map(|seen| format!("{seen:.2}"));
+        // Its turns came at t0, which moved it: whole, then faded out.
+        assert_eq!(seen(&window), Some("1.00".to_owned()));
+        clock.set(t0 + ms(1_300));
+        window.tick(t0 + ms(1_300));
+        assert_eq!(seen(&window), Some("0.00".to_owned()));
+        // Scrolled by a trackpad's pixels at t1: whole again at once.
+        let t1 = t0 + ms(2_000);
+        clock.set(t1);
+        window.moved_at((640.0, 400.0), t1);
+        window.wheeled_at(
+            Turned::Pixels {
+                across: 0.0,
+                down: 10.0,
+            },
+            t1,
+        );
+        assert_eq!(seen(&window), Some("1.00".to_owned()));
+        for (after, expected) in [(999, "1.00"), (1_150, "0.50"), (1_300, "0.00")] {
+            clock.set(t1 + ms(after));
+            window.tick(t1 + ms(after));
+            assert_eq!(seen(&window), Some(expected.to_owned()), "{after} ms");
+        }
+        // Woken as its second ends, each frame of the fade, and not after.
+        clock.set(t1 + ms(500));
+        assert_eq!(window.wake_at(), Some(t1 + ms(1_000)));
+        clock.set(t1 + ms(1_100));
+        assert!(
+            window
+                .wake_at()
+                .is_some_and(|wake| wake > t1 + ms(1_100) && wake <= t1 + ms(1_117))
+        );
+        clock.set(t1 + ms(1_300));
+        assert_eq!(window.wake_at(), None);
+        // The pointer near it, 24 either side of 973 across the first
+        // screen — 1213 in the window, beside the panel's 240: whole.
+        window.moved_at((1_240.0, 400.0), t1 + ms(1_300));
+        assert_eq!(seen(&window), Some("1.00".to_owned()));
+        assert_eq!(window.wake_at(), None, "nothing to fade while it is near");
+        // Not near: 25 past its right edge, or above the room.
+        let t2 = t1 + ms(5_000);
+        clock.set(t2);
+        window.moved_at((1_244.0, 400.0), t2);
+        clock.set(t2 + ms(1_300));
+        window.tick(t2 + ms(1_300));
+        assert_eq!(seen(&window), Some("0.00".to_owned()), "left at t2, faded");
+        window.moved_at((1_216.0, 20.0), t2 + ms(1_300));
+        assert_eq!(seen(&window), Some("0.00".to_owned()), "above the room");
+        window.moved_at((1_216.0, 400.0), t2 + ms(1_300));
+        assert_eq!(seen(&window), Some("1.00".to_owned()), "beside it");
         window.finish();
     }
 }

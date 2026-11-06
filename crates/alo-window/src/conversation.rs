@@ -119,7 +119,7 @@ use alo_layout::Size;
 use alo_renderer::card::{Card, Shield};
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::conversation_scroll::Reach;
-use alo_renderer::panel::{Chat, Panel, drawn_order, matching};
+use alo_renderer::panel::{Chat, Closing, Panel, RAIL_CHATS, drawn_order, matching};
 use alo_renderer::results::{self, Results, SetUp};
 use alo_renderer::start::{KeptSite, Start};
 use alo_renderer::typed::Offer;
@@ -223,6 +223,10 @@ pub struct Conversation {
     /// The site whose blocking a person just switched, not yet kept and
     /// its page not yet loaded again.
     switched: Option<String>,
+    /// Whether the whole panel is shown over the conversation as a sheet,
+    /// the window being too narrow for it beside the conversation (queue
+    /// item 776).
+    sheet: bool,
 }
 
 /// A tab opened whose results are to be asked of the provider — Videos or
@@ -268,6 +272,7 @@ impl Default for Conversation {
             gone: Vec::new(),
             off: Off::default(),
             switched: None,
+            sheet: false,
         }
     }
 }
@@ -275,14 +280,23 @@ impl Default for Conversation {
 impl Conversation {
     /// The chats panel as it is now, laid out at `viewport` on a screen of
     /// `scale`: the chats *Search chats* finds, and what is typed into it,
-    /// or — hidden or folded — the rail, which shows no chat (queue items
-    /// 711, 775).
+    /// or — hidden or folded — the rail, with the most recent chats (queue
+    /// items 711, 760, 775). The row the pointer is over is hovered: an
+    /// earlier chat's offers *Delete*, an open one's its × unless it is the
+    /// empty chat on screen (789, 791), and on the rail its name stands
+    /// beside it.
     pub fn panel(&self, viewport: Size, scale: Scale) -> Panel {
         Panel {
             chats: self
                 .listed()
+                .into_iter()
                 .map(|(id, chat)| Chat {
                     hovered: self.hovered == Some(*id),
+                    closing: if self.closable(*id, chat) {
+                        Closing::Offered
+                    } else {
+                        Closing::Withheld
+                    },
                     ..chat.clone()
                 })
                 .collect(),
@@ -300,14 +314,63 @@ impl Conversation {
         .at_scale(scale.factor())
     }
 
+    /// How wide the panel's renderer lays it out, in CSS pixels: the whole
+    /// panel, shown or as the sheet; the rail; or the rail wider while it
+    /// shows the name of the chat the pointer is over (queue item 760).
+    pub fn panel_width(&self) -> u32 {
+        if !self.railed() {
+            crate::conversation_place::PANEL_WIDTH
+        } else if self.rail_named() {
+            alo_renderer::rail_document::NAMED_WIDTH
+        } else {
+            crate::conversation_place::RAIL_WIDTH
+        }
+    }
+
+    /// Whether the rail shows the name of the chat the pointer is over,
+    /// past its edge, over the first screen (queue item 760).
+    pub fn rail_named(&self) -> bool {
+        self.railed()
+            && self
+                .hovered
+                .is_some_and(|id| self.listed().iter().any(|(each, _)| *each == id))
+    }
+
     /// The chats the panel shows, with their identities, in the order the
     /// browser process keeps them: those whose names hold what *Search
-    /// chats* holds, and none while the panel is the rail.
-    fn listed(&self) -> impl Iterator<Item = &(ChatId, Chat)> {
+    /// chats* holds — or, on the rail, the [`RAIL_CHATS`] most recent, in
+    /// the order the panel would draw them, open ones first, whatever was
+    /// searched (queue item 760).
+    fn listed(&self) -> Vec<&(ChatId, Chat)> {
+        if self.railed() {
+            let open = self.chats.iter().filter(|(_, chat)| chat.open);
+            let earlier = self.chats.iter().filter(|(_, chat)| !chat.open);
+            return open.chain(earlier).take(RAIL_CHATS).collect();
+        }
         let searched = self.find.typed();
         self.chats
             .iter()
-            .filter(move |(_, chat)| !self.railed() && matching(chat, searched))
+            .filter(move |(_, chat)| matching(chat, searched))
+            .collect()
+    }
+
+    /// Whether `chat`, `id`, hovered while open, offers its × (queue item
+    /// 791): every open chat but the one on screen with nothing in it,
+    /// which would only come back as *New chat*.
+    fn closable(&self, id: ChatId, chat: &Chat) -> bool {
+        chat.open && !(chat.current && self.empty(id))
+    }
+
+    /// Whether the chat `id` holds nothing: no name and no turn.
+    fn empty(&self, id: ChatId) -> bool {
+        self.chats
+            .iter()
+            .any(|(each, chat)| *each == id && chat.name.is_empty())
+            && self
+                .threads
+                .iter()
+                .find(|(each, _)| *each == id)
+                .is_none_or(|(_, thread)| thread.turns().is_empty())
     }
 
     /// What stands down the window's left: the panel, or its rail while a
@@ -339,15 +402,42 @@ impl Conversation {
     /// so it lets the keyboard go; what was typed in it is kept.
     pub fn fit(&mut self, width: u32) -> bool {
         let changed = self.fold.fit(width);
+        // Wide enough again, the panel stands whole beside the conversation:
+        // no sheet over it (queue item 776).
+        if !self.fold.narrow() {
+            self.sheet = false;
+        }
         if changed && self.railed() {
             let _ = self.find.blur();
         }
         changed
     }
 
-    /// Whether the panel is drawn as its rail.
+    /// Whether the panel is drawn as its rail: folded, and not shown over
+    /// the conversation as the sheet.
     fn railed(&self) -> bool {
-        self.side() == Side::Rail
+        self.side() == Side::Rail && !self.sheet()
+    }
+
+    /// Whether the whole panel is shown over the conversation as a sheet
+    /// (queue item 776): *Show the panel* pressed while the window is too
+    /// narrow for it, and not yet closed — never while alo's agent works,
+    /// which keeps the rail for the run.
+    pub fn sheet(&self) -> bool {
+        self.sheet && self.fold.narrow() && !self.at_work()
+    }
+
+    /// Close the sheet — Escape, or a press outside it: whether it was
+    /// shown. What *Search chats* holds is kept, and it lets the keyboard
+    /// go, as when the panel folds.
+    pub fn close_sheet(&mut self) -> bool {
+        let shown = self.sheet();
+        self.sheet = false;
+        if shown {
+            let _ = self.find.blur();
+            self.hovered = None;
+        }
+        shown
     }
 
     /// What is typed into *Search chats*, and whether it has the keyboard.
@@ -359,7 +449,14 @@ impl Conversation {
     /// in the order its part draws it: what a claim on either is decided
     /// against once they are painted.
     pub fn showing(&self) -> Showing {
-        let listed: Vec<&(ChatId, Chat)> = self.listed().collect();
+        let listed: Vec<&(ChatId, Chat)> = self.listed();
+        // The row the pointer is over, in the whole panel: an earlier one
+        // offers Delete, an open one its × (queue items 789, 791). The rail
+        // offers neither.
+        let row = self
+            .hovered
+            .and_then(|id| listed.iter().find(|(each, _)| *each == id))
+            .filter(|_| !self.railed());
         let chats: Vec<Chat> = listed.iter().map(|(_, chat)| chat.clone()).collect();
         Shown {
             chats: drawn_order(&chats)
@@ -388,9 +485,10 @@ impl Conversation {
             working: self.work.working(self.card()),
             asking: self.work.asking_now(self.card()),
             choices: Work::choices(self.card()),
-            hovered: self
-                .hovered
-                .filter(|id| listed.iter().any(|(each, _)| each == id)),
+            hovered: row.filter(|(_, chat)| !chat.open).map(|(id, _)| *id),
+            closing: row
+                .filter(|(id, chat)| self.closable(*id, chat))
+                .map(|(id, _)| *id),
             undo: self
                 .deleting
                 .as_ref()
@@ -445,7 +543,11 @@ impl Conversation {
             self.card_keys = false;
         }
         let changed = match &pressed {
-            Pressed::Chat(id) => self.put_on_screen(*id) || changed,
+            // Choosing a chat closes the sheet it was chosen in (776).
+            Pressed::Chat(id) => {
+                let sheet = core::mem::replace(&mut self.sheet, false);
+                self.put_on_screen(*id) || sheet || changed
+            }
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
                 changed
@@ -498,17 +600,19 @@ impl Conversation {
                 true
             }
             Pressed::NewChat => {
+                self.sheet = false;
                 self.new_chat();
                 true
             }
             Pressed::DeleteChat(id) => self.delete(*id, Instant::now()) || changed,
+            Pressed::CloseChat(id) => self.close(*id) || changed,
             Pressed::Shield(site) => {
                 let site = site.clone();
                 self.switch_blocking(&site) || changed
             }
             Pressed::Undo(id) => self.undo(*id) || changed,
-            Pressed::HideThePanel => self.fold.hide() || changed,
-            Pressed::ShowThePanel => self.fold.show() || changed,
+            Pressed::HideThePanel => self.hide_the_panel() || changed,
+            Pressed::ShowThePanel => self.show_the_panel() || changed,
             // The agent (queue item 704): *Stop* says so on the card at
             // once; a choice a stuck run offered is asked of it anew.
             Pressed::Stop(_) => self.stop_agent(STOPPED).is_some() || changed,
@@ -519,6 +623,25 @@ impl Conversation {
             _ => changed,
         };
         self.pressed(pressed, changed)
+    }
+
+    /// *Hide the panel*: the rail, a person's choice — and from the sheet,
+    /// the sheet closed too (queue item 776). Whether anything changed.
+    fn hide_the_panel(&mut self) -> bool {
+        let sheet = core::mem::replace(&mut self.sheet, false);
+        self.fold.hide() || sheet
+    }
+
+    /// *Show the panel*: the panel beside the conversation — or, in a
+    /// window too narrow for it, over it as the sheet, the choice kept for
+    /// when the window is wide enough (queue items 775, 776). Whether
+    /// anything changed.
+    fn show_the_panel(&mut self) -> bool {
+        let side = self.fold.show();
+        if self.fold.narrow() && !self.at_work() {
+            self.sheet = true;
+        }
+        side || self.sheet()
     }
 
     /// Keep `pressed` as the last pressed, and say whether it `changed`
@@ -632,8 +755,9 @@ impl Conversation {
         if started {
             // The panel is the rail for the run (queue item 819): *Search
             // chats* is not drawn, so it lets the keyboard go; what was
-            // typed in it is kept.
+            // typed in it is kept. No sheet stands over the run.
             let _ = self.find.blur();
+            self.sheet = false;
         }
         started
     }
@@ -847,10 +971,19 @@ impl Conversation {
         }
         // One page is open at a time, and it was the chat before's.
         let _ = self.close_card();
+        // A chat from before, pressed, is in use again: drawn under *Open*
+        // (queue item 757, `docs/design/shell.md`) — first there, the most
+        // recent, as a new chat is, and so first on the rail (760).
+        if let Some(place) = self
+            .chats
+            .iter()
+            .position(|(each, chat)| *each == id && !chat.open)
+        {
+            let again = self.chats.remove(place);
+            self.chats.insert(0, again);
+        }
         for (each, chat) in &mut self.chats {
             chat.current = *each == id;
-            // A chat from before, pressed, is in use again: drawn under
-            // *Open* (queue item 757, `docs/design/shell.md`).
             chat.open |= *each == id;
         }
         true
@@ -898,9 +1031,10 @@ impl Conversation {
 
     /// The pointer is over the row of `hovered`, or no row (queue item
     /// 789): whether the panel is to be drawn again, its row offering
-    /// *Delete*. A chat the panel does not list is no row.
+    /// *Delete* or its × — or, on the rail, its name beside it (760). A
+    /// chat the panel does not list is no row.
     pub fn hover(&mut self, hovered: Option<ChatId>) -> bool {
-        let hovered = hovered.filter(|id| self.listed().any(|(each, _)| each == id));
+        let hovered = hovered.filter(|id| self.listed().iter().any(|(each, _)| each == id));
         core::mem::replace(&mut self.hovered, hovered) != hovered
     }
 
@@ -972,6 +1106,69 @@ impl Conversation {
         let place = deleting.place.min(self.chats.len());
         self.chats.insert(place, (deleting.id, deleting.chat));
         self.threads.push((deleting.id, deleting.thread));
+        true
+    }
+
+    /// Close the open chat `id` (queue item 791): it moves under
+    /// *Earlier*, first there, its turns kept — its live card put away as
+    /// its address — and nothing deleted. One with nothing said in it goes,
+    /// since nothing would be kept of it. The chat on screen closed, the
+    /// open chat below it in the panel is put on screen, or the one above,
+    /// or else a new chat; the empty chat on screen is not closed, since it
+    /// would only come back. Whether anything changed.
+    pub fn close(&mut self, id: ChatId) -> bool {
+        let Some(place) = self
+            .chats
+            .iter()
+            .position(|(each, chat)| *each == id && chat.open)
+        else {
+            return false;
+        };
+        let empty = self.empty(id);
+        let on_screen = self.on_screen() == Some(id);
+        if on_screen && empty {
+            return false;
+        }
+        let open: Vec<ChatId> = self
+            .chats
+            .iter()
+            .filter(|(_, chat)| chat.open)
+            .map(|(each, _)| *each)
+            .collect();
+        let next = open.iter().position(|each| *each == id).and_then(|at| {
+            open.get(at + 1)
+                .or_else(|| at.checked_sub(1).and_then(|above| open.get(above)))
+                .copied()
+        });
+        if on_screen {
+            let _ = self.close_card();
+        }
+        self.hovered = None;
+        let (_, chat) = self.chats.remove(place);
+        if empty {
+            self.threads.retain(|(each, _)| *each != id);
+        } else {
+            self.chats.insert(
+                0,
+                (
+                    id,
+                    Chat {
+                        open: false,
+                        current: false,
+                        hovered: false,
+                        ..chat
+                    },
+                ),
+            );
+        }
+        if on_screen {
+            match next {
+                Some(next) => {
+                    let _ = self.put_on_screen(next);
+                }
+                None => self.new_chat(),
+            }
+        }
         true
     }
 
@@ -1403,10 +1600,12 @@ mod tests {
             panic!("{showing:?}");
         };
         let (newest, middle, oldest) = (*newest, *middle, *oldest);
-        // Hovered: its row offers Delete; a chat not listed is no row.
+        // Hovered: its row is hovered — open, it offers its ×, not Delete
+        // (queue item 791) — and a chat not listed is no row.
         assert!(conversation.hover(Some(middle)));
         assert!(!conversation.hover(Some(middle)), "the same row again");
-        assert_eq!(conversation.showing().hovered, Some(middle));
+        assert_eq!(conversation.showing().hovered, None);
+        assert_eq!(conversation.showing().closing, Some(middle));
         let hovered: Vec<bool> = conversation
             .panel(Size::new(240.0, 820.0), Scale::ONE)
             .chats
@@ -2719,11 +2918,11 @@ mod tests {
         assert!(!conversation.find().focused(), "the rail has no field");
         let rail = conversation.panel(Size::new(64.0, 820.0), Scale::TWO);
         assert!(rail.hidden);
-        assert!(rail.chats.is_empty(), "the rail shows no chat");
+        assert_eq!(rail.chats.len(), 1, "the rail shows its chats (760)");
         assert!((rail.scale - 2.0).abs() < f32::EPSILON);
         let showing = conversation.showing();
         assert!(showing.hidden);
-        assert!(showing.chats.is_empty());
+        assert_eq!(showing.chats.len(), 1);
         // New chat from the rail is New chat.
         assert!(conversation.act(Pressed::NewChat));
         assert_eq!(conversation.side(), Side::Rail);
@@ -2749,7 +2948,7 @@ mod tests {
         assert!(!conversation.find().focused(), "the rail has no field");
         let rail = conversation.panel(Size::new(64.0, 820.0), Scale::ONE);
         assert!(rail.hidden, "drawn as the rail");
-        assert!(rail.chats.is_empty());
+        assert_eq!(rail.chats.len(), 1, "its chats, whatever was searched");
         assert!(conversation.showing().hidden, "and decided against as it");
         assert!(!conversation.fold().hidden(), "nobody hid it");
         assert!(conversation.fit(1280), "widened, it unfolds");
@@ -2766,12 +2965,280 @@ mod tests {
         assert!(!conversation.fit(700), "already the rail");
         assert!(!conversation.fit(1280), "a person hid it");
         assert_eq!(conversation.side(), Side::Rail);
-        // Shown while narrow: kept, and seen once the window is wide.
+        // Shown while narrow: kept, the panel over the conversation as the
+        // sheet meanwhile (queue item 776), and beside it once the window
+        // is wide.
         let _ = conversation.fit(700);
-        assert!(!conversation.act(Pressed::ShowThePanel), "too narrow yet");
+        assert!(conversation.act(Pressed::ShowThePanel), "the sheet");
         assert_eq!(conversation.side(), Side::Rail);
+        assert!(conversation.sheet());
         assert!(!conversation.fold().hidden());
         assert!(conversation.fit(760));
+        assert_eq!(conversation.side(), Side::Panel);
+        assert!(!conversation.sheet());
+    }
+
+    /// A conversation of chats called by `names`, each holding one turn,
+    /// the first on screen, and `earlier` kept from before under *Earlier*.
+    fn named_chats(names: &[&str], earlier: &[&str]) -> Conversation {
+        use crate::chat_record::Record;
+        let visited = |said: &str| Turn::Visited {
+            said: said.to_owned(),
+            url: alo_url::parse("https://a.example/").unwrap(),
+            ran: Vec::new(),
+        };
+        let kept = earlier
+            .iter()
+            .enumerate()
+            .map(|(at, name)| Kept {
+                number: 100 - u64::try_from(at).unwrap_or(0),
+                record: Record {
+                    name: (*name).to_owned(),
+                    turns: vec![visited(name)],
+                },
+            })
+            .collect();
+        let mut conversation = Conversation::default().keeping(kept, Some(100));
+        // Made oldest first, so the first named is the newest, on screen.
+        for name in names.iter().rev() {
+            let _ = conversation.act(Pressed::NewChat);
+            let id = conversation.on_screen().unwrap();
+            if let Some((_, chat)) = conversation.chats.iter_mut().find(|(each, _)| *each == id) {
+                chat.name = (*name).to_owned();
+            }
+            if let Some((_, thread)) = conversation
+                .threads
+                .iter_mut()
+                .find(|(each, _)| *each == id)
+            {
+                *thread = Thread::kept(vec![visited(name)]);
+            }
+        }
+        // The empty chat the conversation began with goes: nothing in it.
+        let first = conversation
+            .chats
+            .iter()
+            .find(|(_, chat)| chat.name.is_empty())
+            .map(|(id, _)| *id);
+        if let Some(first) = first {
+            assert!(conversation.close(first));
+        }
+        conversation
+    }
+
+    /// Each chat's label, whether open, and whether on screen, as drawn.
+    fn drawn(conversation: &Conversation) -> Vec<(String, bool, bool)> {
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        drawn_order(&panel.chats)
+            .into_iter()
+            .filter_map(|at| panel.chats.get(at))
+            .map(|chat| (chat.label().to_owned(), chat.open, chat.current))
+            .collect()
+    }
+
+    fn id_of(conversation: &Conversation, name: &str) -> ChatId {
+        conversation
+            .chats
+            .iter()
+            .find(|(_, chat)| chat.label() == name)
+            .map_or_else(|| panic!("no chat called {name}"), |(id, _)| *id)
+    }
+
+    #[test]
+    fn a_closed_chat_moves_to_the_top_of_earlier_and_nothing_is_deleted() {
+        let mut conversation = named_chats(&["Lisbon", "Invoice", "EV"], &["Phones"]);
+        assert_eq!(
+            drawn(&conversation),
+            vec![
+                ("Lisbon".to_owned(), true, true),
+                ("Invoice".to_owned(), true, false),
+                ("EV".to_owned(), true, false),
+                ("Phones".to_owned(), false, false),
+            ]
+        );
+        let invoice = id_of(&conversation, "Invoice");
+        // Hovered, an open row offers its ×, and no Delete.
+        assert!(conversation.hover(Some(invoice)));
+        assert_eq!(conversation.showing().closing, Some(invoice));
+        assert_eq!(conversation.showing().hovered, None);
+        assert!(conversation.act(Pressed::CloseChat(invoice)));
+        assert_eq!(
+            drawn(&conversation),
+            vec![
+                ("Lisbon".to_owned(), true, true),
+                ("EV".to_owned(), true, false),
+                ("Invoice".to_owned(), false, false),
+                ("Phones".to_owned(), false, false),
+            ],
+            "first under Earlier"
+        );
+        // Kept, turns and all: nothing is deleted, nothing gone.
+        assert!(conversation.take_gone().is_empty());
+        assert_eq!(conversation.to_keep().count(), 4);
+        // Hovered now, it is an earlier row: it offers Delete, and no ×.
+        assert!(conversation.hover(Some(invoice)));
+        assert_eq!(conversation.showing().hovered, Some(invoice));
+        assert_eq!(conversation.showing().closing, None);
+        // Closed twice is closed once; pressed, it is open again.
+        assert!(!conversation.close(invoice));
+        assert!(conversation.act(Pressed::Chat(invoice)));
+        assert_eq!(conversation.on_screen(), Some(invoice));
+        assert!(drawn(&conversation).contains(&("Invoice".to_owned(), true, true)));
+    }
+
+    #[test]
+    fn the_chat_on_screen_closed_puts_the_one_below_on_screen_or_above_or_a_new_one() {
+        let mut conversation = named_chats(&["Lisbon", "Invoice", "EV"], &[]);
+        let (lisbon, invoice, ev) = (
+            id_of(&conversation, "Lisbon"),
+            id_of(&conversation, "Invoice"),
+            id_of(&conversation, "EV"),
+        );
+        // The one below it.
+        assert!(conversation.close(lisbon));
+        assert_eq!(conversation.on_screen(), Some(invoice));
+        // The last open one: the one above it.
+        assert!(conversation.act(Pressed::Chat(ev)));
+        assert!(conversation.close(ev));
+        assert_eq!(conversation.on_screen(), Some(invoice));
+        // None left open: a new chat, empty, on screen — and that one,
+        // empty and on screen, offers no × and is not closed.
+        assert!(conversation.close(invoice));
+        let fresh = conversation.on_screen().unwrap();
+        assert!(![lisbon, invoice, ev].contains(&fresh));
+        assert_eq!(
+            drawn(&conversation).first(),
+            Some(&(NEW_CHAT.to_owned(), true, true))
+        );
+        assert!(conversation.hover(Some(fresh)));
+        assert_eq!(conversation.showing().closing, None);
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        assert_eq!(panel.chats[0].closing, Closing::Withheld);
+        assert!(!conversation.close(fresh));
+        // Everything closed is under Earlier, newest closed first.
+        let earlier: Vec<String> = drawn(&conversation)
+            .into_iter()
+            .filter(|(_, open, _)| !open)
+            .map(|(name, _, _)| name)
+            .collect();
+        assert_eq!(earlier, vec!["Invoice", "EV", "Lisbon"]);
+    }
+
+    #[test]
+    fn an_empty_chat_closed_goes_and_a_card_on_screen_closed_is_put_away() {
+        let mut conversation = named_chats(&["Lisbon"], &[]);
+        let _ = conversation.act(Pressed::NewChat);
+        let empty = conversation.on_screen().unwrap();
+        let lisbon = id_of(&conversation, "Lisbon");
+        assert!(conversation.act(Pressed::Chat(lisbon)));
+        // Not on screen, empty: closable, and closed it goes.
+        assert!(conversation.close(empty));
+        assert_eq!(drawn(&conversation).len(), 1);
+        assert!(!conversation.chats.iter().any(|(id, _)| *id == empty));
+        assert!(!conversation.threads.iter().any(|(id, _)| *id == empty));
+        // A live card in the chat on screen is put away as its address.
+        conversation.open_card(alo_url::parse("https://example.com/").unwrap());
+        assert!(conversation.card().is_some());
+        assert!(conversation.close(lisbon));
+        assert!(conversation.card().is_none());
+        let kept: Vec<usize> = conversation
+            .to_keep()
+            .map(|(_, _, thread)| thread.turns().len())
+            .collect();
+        assert_eq!(kept, vec![2], "its turns, the card's address among them");
+    }
+
+    #[test]
+    fn the_rail_holds_the_five_most_recent_chats_open_first_and_names_the_hovered() {
+        let mut conversation = named_chats(
+            &["Lisbon", "Invoice", "EV"],
+            &["Phones", "Birthday", "Taxes"],
+        );
+        let _ = conversation.act(Pressed::SearchChats);
+        type_in(&mut conversation, "zzz");
+        assert!(conversation.act(Pressed::HideThePanel));
+        let rail = conversation.panel(Size::new(64.0, 820.0), Scale::ONE);
+        assert!(rail.hidden);
+        let names: Vec<&str> = rail.chats.iter().map(Chat::label).collect();
+        assert_eq!(
+            names,
+            vec!["Lisbon", "Invoice", "EV", "Phones", "Birthday"],
+            "whatever was searched"
+        );
+        let showing = conversation.showing();
+        assert_eq!(showing.chats.len(), 5);
+        assert_eq!(conversation.panel_width(), 64);
+        // Hovered: its name beside it, the rail laid out wider; it offers
+        // neither × nor Delete.
+        let ev = id_of(&conversation, "EV");
+        assert!(conversation.hover(Some(ev)));
+        assert!(conversation.rail_named());
+        assert_eq!(conversation.panel_width(), 320);
+        assert_eq!(conversation.showing().closing, None);
+        assert_eq!(conversation.showing().hovered, None);
+        // A press on it, by its place on the rail, puts it on screen.
+        let at = conversation.showing().chats.iter().position(|id| *id == ev);
+        assert_eq!(at, Some(2));
+        assert!(conversation.act(Pressed::Chat(ev)));
+        assert_eq!(conversation.on_screen(), Some(ev));
+        // A chat the rail does not show is no row on it.
+        let taxes = id_of(&conversation, "Taxes");
+        assert!(conversation.hover(None));
+        assert!(!conversation.hover(Some(taxes)));
+        assert!(!conversation.rail_named());
+        // A chat from before chosen is open again, and the most recent:
+        // first on the rail, the last of the five gone from it.
+        let phones = id_of(&conversation, "Phones");
+        assert!(conversation.act(Pressed::Chat(phones)));
+        let rail = conversation.panel(Size::new(64.0, 820.0), Scale::ONE);
+        let names: Vec<&str> = rail.chats.iter().map(Chat::label).collect();
+        assert_eq!(names, vec!["Phones", "Lisbon", "Invoice", "EV", "Birthday"]);
+    }
+
+    #[test]
+    fn show_in_a_narrow_window_is_the_sheet_and_choosing_in_it_closes_it() {
+        let mut conversation = named_chats(&["Lisbon", "Invoice"], &["Phones"]);
+        let _ = conversation.fit(700);
+        assert!(!conversation.sheet());
+        assert!(conversation.act(Pressed::ShowThePanel));
+        assert!(conversation.sheet());
+        // The conversation still beside the rail; the panel drawn whole,
+        // decided against as whole, its rows hoverable.
+        assert_eq!(conversation.side(), Side::Rail);
+        assert!(
+            !conversation
+                .panel(Size::new(240.0, 820.0), Scale::ONE)
+                .hidden
+        );
+        assert!(!conversation.showing().hidden);
+        assert_eq!(conversation.panel_width(), 240);
+        // Search chats in it keeps it out; a chat chosen closes it.
+        assert!(conversation.act(Pressed::SearchChats));
+        assert!(conversation.sheet());
+        let invoice = id_of(&conversation, "Invoice");
+        assert!(conversation.act(Pressed::Chat(invoice)));
+        assert!(!conversation.sheet());
+        assert!(conversation.showing().hidden, "the rail again");
+        // New chat closes it.
+        assert!(conversation.act(Pressed::ShowThePanel));
+        assert!(conversation.act(Pressed::NewChat));
+        assert!(!conversation.sheet());
+        // Hide the panel closes it, and is the person's choice.
+        assert!(conversation.act(Pressed::ShowThePanel));
+        assert!(conversation.act(Pressed::HideThePanel));
+        assert!(!conversation.sheet());
+        assert!(conversation.fold().hidden());
+        // Escape or a press outside: closed, Search chats letting go.
+        assert!(conversation.act(Pressed::ShowThePanel));
+        assert!(conversation.act(Pressed::SearchChats));
+        assert!(conversation.close_sheet());
+        assert!(!conversation.close_sheet(), "closed once");
+        assert!(!conversation.find().focused());
+        // Wide, Show the panel is the panel beside the conversation, no
+        // sheet.
+        let _ = conversation.fit(1280);
+        assert!(!conversation.act(Pressed::ShowThePanel));
+        assert!(!conversation.sheet());
         assert_eq!(conversation.side(), Side::Panel);
     }
 }

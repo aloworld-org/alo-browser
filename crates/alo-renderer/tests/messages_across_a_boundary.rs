@@ -237,6 +237,26 @@ fn the_panel_searched_and_hidden_survives_the_crossing() {
         })),
         ToRenderer::ConversationHover(alo_paint::Point::new(120.0, 273.5)),
         ToRenderer::ConversationHover(alo_paint::Point::new(-0.25, 1e9)),
+        // Queue items 791 and 760: an open row hovered offering its ×, the
+        // empty chat on screen offering none, and the rail's chats with one
+        // hovered, its name beside it, laid out wider.
+        ToRenderer::Panel(Box::new(Panel {
+            chats: vec![
+                Chat::new("", "").current().not_closable(),
+                Chat::new("Lisbon", "").hovered(),
+            ],
+            viewport: Size::new(240.0, 820.0),
+            ..Panel::default()
+        })),
+        ToRenderer::Panel(Box::new(Panel {
+            chats: vec![
+                Chat::new("Weekend in Lisbon", "").current(),
+                Chat::new("</button>\u{202e}", "").hovered().earlier(),
+            ],
+            viewport: Size::new(320.0, 820.0),
+            hidden: true,
+            ..Panel::default()
+        })),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -782,12 +802,15 @@ fn a_conversation_of_turns_and_its_reach_survive_the_crossing() {
             length: 32.0,
             above: true,
             below: false,
+            seen: 1.0,
         }),
+        // Fading, as it does once the conversation has stopped (793).
         Some(Bar {
             top: 0.0,
             length: 675.5,
             above: false,
             below: true,
+            seen: 0.375,
         }),
         None,
     ];
@@ -838,12 +861,37 @@ fn a_sign_of_more_placed_past_any_room_is_refused() {
                 length,
                 above: true,
                 below: true,
+                seen: 1.0,
             }),
             ..Start::default()
         }));
         assert!(
             refused(&placed).contains("further than any room"),
             "{top} {length}: {}",
+            refused(&placed)
+        );
+    }
+    // Seen as other than a fraction (queue item 793).
+    for (seen, why) in [
+        (-0.01, "other than a fraction"),
+        (1.5, "other than a fraction"),
+        (f32::NAN, "not a number"),
+        (f32::INFINITY, "not a number"),
+    ] {
+        let placed = ToRenderer::Start(Box::new(Start {
+            turns: vec![card.clone()],
+            bar: Some(Bar {
+                top: 0.0,
+                length: 32.0,
+                above: false,
+                below: true,
+                seen,
+            }),
+            ..Start::default()
+        }));
+        assert!(
+            refused(&placed).contains(why),
+            "{seen}: {}",
             refused(&placed)
         );
     }
@@ -998,6 +1046,8 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Undo)),
         // Queue item 807: a card's shield.
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Shield)),
+        // Queue item 791: an open row's ×.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::CloseChat)),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);

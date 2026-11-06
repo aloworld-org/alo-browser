@@ -91,6 +91,10 @@ pub struct Easel {
     /// handed in with it rather than fetched: the card's frame of a page
     /// Chrome draws (queue item 717). A page a stranger wrote has none.
     lent: Vec<Resource>,
+    /// Whether the document on it is drawn on nothing rather than on white:
+    /// only the chats panel's rail ([`crate::screen::Screen::on_nothing`],
+    /// queue item 760). A page a stranger wrote never is.
+    clear: bool,
 }
 
 impl core::fmt::Debug for Easel {
@@ -122,6 +126,7 @@ impl Easel {
             drawn: None,
             draws: 0,
             lent: Vec::new(),
+            clear: false,
         }
     }
 
@@ -139,6 +144,15 @@ impl Easel {
         self.restyle = false;
         self.drawn = None;
         self.lent = Vec::new();
+        self.clear = false;
+    }
+
+    /// The document of the browser's own on it is drawn on nothing rather
+    /// than on white, from the next drawing, when `clear` (queue item 760):
+    /// set after [`Self::begin`], which draws every page on white.
+    pub(crate) fn on_nothing(&mut self, clear: bool) {
+        self.clear = clear;
+        self.restyle = true;
     }
 
     /// The pictures the page on it is drawn with from now on, handed in
@@ -194,7 +208,9 @@ impl Easel {
         let drawing = draw(
             document,
             &self.sheets,
-            Screen::new(viewport).at_scale(self.scale),
+            Screen::new(viewport)
+                .at_scale(self.scale)
+                .on_nothing(self.clear),
             &self.fonts,
             &linked,
             &self.lent,

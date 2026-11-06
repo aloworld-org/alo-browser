@@ -20723,7 +20723,7 @@ What stage 2's exit gate actually measures: a person using it.
   the page's with nothing offered and the offer's while offering (with the
   aim's offers removed, that test fails).
 
-- [ ] **760. The rail's chats.** Cut from 711. The design's rail (the
+- [x] **760. The rail's chats.** Cut from 711. The design's rail (the
   chats panel hidden) holds each open chat as a 44-square button with its
   site's mark, 20 square rounded 5 in white on a tint, the one on screen
   white with a shadow, named by the chat (and what the agent is doing) in
@@ -20733,6 +20733,41 @@ What stage 2's exit gate actually measures: a person using it.
   *Depends on 711. Closes when:* the rail with three chats in a reference
   render at one and two with each button's box in numbers, and a press on
   each decided as its chat.
+  ***Done (6 November 2026), the owner's design, approved by the owner
+  2026-11-06*** (*"the narrow rail shows round initials for the five most
+  recent chats, with the name on hover. A press opens the chat. A "+" at
+  the top makes a new chat."*), written into `docs/design/shell.md`, *The
+  rail's chats*. **Decided here:** the five are the first five the panel
+  would draw (open, most recent first, then earlier), whatever was searched;
+  a chat opened again from *Earlier* is first under *Open*, so first on the
+  rail; initials are the first letter or digit of the first two words of
+  the name as shown (`WI`, `R`, `NC`, a middle dot for none), 12 px 600 in
+  a 32 circle on the line colour, the chat on screen white with a shadow,
+  the agent's terracotta dot at the circle's shoulder; the "+" is the
+  rail's existing *New chat*. **The name on hover** is a dark pill (12.5 px
+  500, 28 tall, at most 240) 4 past the rail's edge, over the first screen:
+  the rail is laid out 320 wide and drawn **on nothing**
+  (`Screen::on_nothing`, an easel flag only the rail sets), and the window
+  places its frame whole over the first screen
+  (`ConversationPlacement`'s `Parts::named`). The rail offers no × or
+  *Delete*. **Tests:** `rail_document` (at most five, a name only ever
+  text), `panel` (initials), `conversation_claim` (each of five claimed by
+  place), `conversation` (the five, hovered naming, 320, opened again
+  first), `conversation_place` and `conversation_compose` (the named rail
+  reaching over the first screen, nothing else of the panel's), the wire,
+  `the_chats_panel.rs` (three chats at (10, 121), (10, 171), (10, 221),
+  44 square, initials at (16, 127) 32 square…, the dot at (42, 176), at one
+  and two, references `panel-rail.png` and `panel-rail-at-two.png` moved;
+  the pill at (68, 179) 28 tall over transparent pixels, `panel-rail-named.png`
+  new; a press and a hover on each claimed as its chat),
+  `the_panel_folded_in_a_narrow_window.rs` (`the-rail-naming-a-chat-at-759.png`
+  new, the pill's dark ground at (70, 143), the first screen where the rail
+  draws nothing; `the-panel-folded-at-759.png` moved) and through the
+  window's road (`offers_and_the_panel_pressed_in_the_window.rs`: each
+  rail chat pressed decided as its chat, the rail laid out 320 wide while
+  the pointer is on one). `the-conversation-panel-hidden*.png` moved (the
+  rail's one chat). Mutations — the rail drawn on white, no chats put on
+  it — each fail.
 
 - [x] **704. The agent at work, shown as the design shows it.** The split
   view with the page large and the agent's column beside it, the panel a
@@ -22154,7 +22189,7 @@ What stage 2's exit gate actually measures: a person using it.
   process. **Cut:** the panel shown over the conversation in a narrow
   window (776).
 
-- [ ] **776. The panel shown over the conversation in a narrow window.**
+- [x] **776. The panel shown over the conversation in a narrow window.**
   Cut from 775. In a window narrower than 760 the panel is the rail, and
   *Show the panel* is only remembered until the window is wide enough.
   Many applications show the whole panel over the content as a sheet
@@ -22164,6 +22199,44 @@ What stage 2's exit gate actually measures: a person using it.
   press outside closing it, and the card's page not pressed through it.
   *Depends on 775. Closes when:* a reference render of the sheet at 700,
   its boxes in numbers, and a press outside it decided as closing it.
+  ***Done (6 November 2026), the owner's design, approved by the owner
+  2026-11-06*** (*"below 760 wide, pressing the panel button slides the
+  panel in over the conversation with a dimmed backdrop. Escape, a press
+  outside, or choosing a chat closes it."*), written into
+  `docs/design/shell.md`, *The panel over the conversation in a narrow
+  window*. **Decided here:** the whole panel slides out from the rail, its
+  left edge from −176 to 0 in 200 ms eased out (`1 − (1 − t)³`), back the
+  same way and from wherever it is (`conversation_sheet.rs`, time alone);
+  the backdrop is the ink at 0.32 as far on as it is out
+  (`colours::shade`); the first screen stays laid out beside the rail; New
+  chat and *Hide the panel* in it close it too, *Search chats*, × and
+  *Delete* keep it out; Escape closes it whatever has the keyboard;
+  widened to 760 it is gone at once; never while the agent works. The old
+  line *The window is too narrow for the panel…* is gone — the sheet
+  answers the press. A press outside presses nothing under it, the wheel
+  and keys reach nothing under it, the card's page's hover ends.
+  **Tests:** `conversation_sheet` (−176, −74.25, −22, −2.75, 0 and shades
+  0.185 … 0.320 at 0–200 ms; back, half way and reversed; shut at once),
+  `conversation` (shown narrow is the sheet; chat, New chat, Hide and
+  `close_sheet` close it; wide, no sheet), `conversation_place`
+  (`sheet_left` on device pixels), `conversation_compose` (where it slid
+  to, over the shade), `conversation_window` (on an injected clock: nothing
+  until painted, then −173, −74, −22, 0; woken each frame while it slides;
+  a press on it the panel's; the wheel under it nothing; a press outside
+  closes it, −3 at 50 ms back, let go after; Escape; a chat chosen; widened
+  past the fold), `the_panel_folded_in_a_narrow_window.rs` (at 700 the
+  first screen's room (64, 0) 636 × 820 under it, the sheet the panel's
+  frame one to one over 0–239, the shaded paper at 240 and 699 within a
+  level; references `the-sheet-at-700.png` and, 50 ms out with its right
+  edge at 166, `the-sheet-sliding-at-700.png`, both new, looked at), and
+  through the window's road (`offers_and_the_panel_pressed_in_the_window.rs`:
+  painted whole, out at 0 on the window's clock, a chat chosen in it, a
+  press outside over the box pressing nothing and closing it, Escape).
+  Mutation — a press outside not closing it — fails both window tests.
+  **Found by hand, fixed:** a chat chosen in the sheet after its row was
+  hovered stayed hovered, so the rail under it named it with the pointer
+  elsewhere; closing the sheet now unhovers (`conversation_window`'s test
+  asserts it; with the fix undone it fails).
 
 - [x] **777. A `mailto:` link in a card through alo's Chromium.** Found by
   770's probe: through the machine's Chrome a `mailto:` link in the card's
@@ -22271,10 +22344,33 @@ What stage 2's exit gate actually measures: a person using it.
   `chat_store` (9), the window's road (no word in the clear). Mutations:
   the number out of the associated data, the words unsealed — each fails.
 
-- [ ] **791. Closing a chat to *Earlier*.** Cut from 758. The design moves
+- [x] **791. Closing a chat to *Earlier*.** Cut from 758. The design moves
   a closed chat to *Earlier*; there is no control to close one while alo
   runs. *needs design. Closes when:* a chat closed in the panel is drawn
   under *Earlier*, in a test.
+  ***Done (6 November 2026), ADR 0092's amendment, the owner's design,
+  approved by the owner 2026-11-06*** (*"an × appears on hover over an open
+  chat. Closing moves it from Open to Earlier. Nothing is deleted."*),
+  written into `docs/design/shell.md`, *Closing a chat* and *Which rows
+  offer which*. **Decided here:** an open row offers its ×, an earlier row
+  *Delete* (789) — never both, the rail neither; the × is 24 square at the
+  row's end, a 12 px cross on the line colour, named *Close* and the name;
+  closed, a chat is first under *Earlier*, turns kept, a live card put away;
+  an empty chat not on screen closed goes; the empty chat on screen has no
+  × (`Chat::closing`, `Closing::Withheld`); the chat on screen closed puts
+  the open one below on screen, else above, else a new chat. The 789 hand
+  run's deleting of an open chat is now closed then deleted. **Tests:**
+  `conversation` (four), `conversation_decide`, `conversation_claim`, the
+  wire, `the_chats_panel.rs` (the × at (196, 225) 24 × 24, its cross at
+  (202, 231), its ground at (199, 237) `#e1dace`, the row (10, 218) 220 ×
+  38 unmoved, no *Delete*; none for the empty chat on screen; reference
+  `panel-closing.png` new; `panel-deleting.png` moved to hover an earlier
+  row), and through the window's road
+  (`offers_and_the_panel_pressed_in_the_window.rs`: hovered, painted with
+  its ×, pressed, under *Earlier* where the panel's renderer finds it at 254
+  offering *Delete*). Mutations — a closed chat put last, the painted ×
+  not kept by the drawing thread (the window's refusal said) — each
+  fail.
 
 - [ ] **792. Keyboard scrolls glided as Chrome's.** Cut from 754. A key's
   scroll is made at once; Chrome 156 glides Page Down over ~130 ms on a
@@ -22282,10 +22378,31 @@ What stage 2's exit gate actually measures: a person using it.
   `CGEvent`s without the function-key flags). Measure and glide them.
   *Depends on 754, 756.*
 
-- [ ] **793. The sign of more: the owner's look, and a bar to drag.** Cut
+- [x] **793. The sign of more: the owner's look, and a bar to drag.** Cut
   from 755. The bar's look is this item's choice, not the owner's; and it
   is pressed by nobody — dragging it, or pressing above or below it, as a
   scroll bar does, is not built. *needs design.*
+  ***Done (6 November 2026) for the owner's look, ADR 0093's amendment;
+  dragging cut to 845. Approved by the owner 2026-11-06*** (*"keep the thin
+  bar, but it fades out about a second after scrolling stops (as macOS
+  does). It comes back while scrolling or when the pointer nears the right
+  edge."*), written into `docs/design/shell.md`, *A sign that it goes on*.
+  **Decided here:** whole while the conversation moves (the turns or the
+  offset drawn change: a wheel, each glide step, a key, a new turn) and for
+  1,000 ms after, then faded out straight in 300 ms; whole again at once;
+  near is the pointer over the first screen within 24 px either side of the
+  bar between the room's top and foot (`conversation_bar.rs`); a chat
+  opened shows none until it moves; `Bar::seen` on the wire, a fraction,
+  drawn as `opacity`; an agent still reads it; the window wakes at the
+  second's end and each sixtieth of the fade. **Tests:** `conversation_bar`
+  (five), `conversation_window` (an injected clock: 1.00, 0.50, 0.00 at
+  999, 1,150, 1,300 ms; the wakes; near at 1,240, not at 1,244 or above the
+  room), the wire (−0.01, 1.5, NaN, ∞ refused),
+  `a_sign_that_the_conversation_goes_on.rs` (half seen within a level of the
+  mean, gone the paper, read either way; `bar_left` 973 and 676; reference
+  `conversation-goes-on-fading.png` new). Mutation — always whole — fails.
+  Not designed by the owner and so cut: dragging it, and pressing above or
+  below it (845).
 
 - [ ] **794. A glide stepped at the display's own refresh.** Cut from 756.
   The window steps a wheel's glide on a 60 Hz timer; on a 120 Hz display
@@ -23022,6 +23139,13 @@ What stage 2's exit gate actually measures: a person using it.
   EasyList's generic or the site's own named it. Read which element it is
   in Chrome, and whether a list's rule, a supplement (ADR 0094 § 2) or
   nothing should hide it. *Depends on 806.*
+
+- [ ] **845. The conversation's bar dragged, or pressed above or below
+  (cut from 793).** The owner's design of 6 November 2026 keeps the bar
+  thin and fading and says nothing of pressing it: a drag that scrolls the
+  conversation as far as the bar moves, and a press above or below it
+  paging, as a scroll bar does, are not built — and the bar, 6 wide, would
+  need a wider target than itself. *needs design.*
 
 ## K. ★ The agent, on somebody else's pages
 

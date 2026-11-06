@@ -185,6 +185,15 @@ impl ConversationDrawing {
         self.sent = Some(asked);
     }
 
+    /// How much of the conversation's bar the first screen was last asked
+    /// to show (queue item 793), while it was asked to show one.
+    pub fn sent_bar_seen(&self) -> Option<f32> {
+        self.sent
+            .as_ref()
+            .and_then(|asked| asked.start.bar)
+            .map(|bar| bar.seen)
+    }
+
     /// A person pressed `part` at `at`, in its CSS pixels: have it claimed
     /// and decided. Returns at once: what was decided is told to the window.
     pub fn press(&mut self, part: Part, at: Point) {
@@ -289,6 +298,7 @@ impl Holding {
                 asked.showing.chats.clone(),
                 asked.showing.hidden,
                 asked.showing.hovered,
+                asked.showing.closing,
                 asked.showing.undo,
             )
         };
@@ -300,8 +310,10 @@ impl Holding {
                 // Whether it was the rail, which draws its own two buttons
                 // and none of the panel's (queue item 711).
                 self.painted.hidden = asked.showing.hidden;
-                // Which row offered Delete, and which chat Undo (789).
+                // Which row offered Delete, which its × (789, 791), and
+                // which chat Undo.
                 self.painted.hovered = asked.showing.hovered;
+                self.painted.closing = asked.showing.closing;
                 self.painted.undo = asked.showing.undo;
             }
             said.extend(came);
@@ -454,8 +466,9 @@ impl Holding {
 
 impl Holding {
     /// Ask the panel's renderer what is under the pointer at `at`: which
-    /// chat's row, among the chats it painted — its *Delete* is its row's
-    /// too — or none. Nothing when the panel's renderer has gone or nothing
+    /// chat's row, among the chats it painted — its *Delete* or × is its
+    /// row's too, and on the rail a chat's button (queue item 760) — or
+    /// none. Nothing when the panel's renderer has gone or nothing
     /// was painted; anything else it answers is no row.
     fn hover(&mut self, at: Point) -> Option<Drawn> {
         self.drawn.as_ref()?;
@@ -471,6 +484,8 @@ impl Holding {
                 self.painted.chats.get(at).copied()
             }
             FromRenderer::ConversationClaimed(Some(Claim::DeleteChat)) => self.painted.hovered,
+            // An open row's × is its row's too (queue item 791).
+            FromRenderer::ConversationClaimed(Some(Claim::CloseChat)) => self.painted.closing,
             _ => None,
         };
         Some(Drawn::Hovered(over))

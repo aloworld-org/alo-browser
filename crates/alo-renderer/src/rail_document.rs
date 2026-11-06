@@ -2,25 +2,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The chats panel hidden, as the design's rail (ADR 0074, queue item 711):
-//! a document of its own, drawn by the panel's renderer in place of the
-//! panel while a person has hidden it.
+//! The chats panel hidden, as the design's rail (ADR 0074, queue items 711
+//! and 760): a document of its own, drawn by the panel's renderer in place
+//! of the panel while a person has hidden it or the window is too narrow.
 //!
-//! The rail is [`TEMPLATE`] and nothing else: the mark, *New chat*, a short
-//! line and, at its foot, *Show the panel*. Nothing a person or a site said
-//! enters it, so it is parsed as it is. The design's rail also holds each
-//! open chat as its site's mark; that is cut to its own queue item (760), so
-//! a press on this rail chooses no chat.
+//! The rail is [`TEMPLATE`] with the chats put in: the mark, *New chat* — the
+//! "+" at its top — a short line, then **the chats the browser process sent
+//! it**, at most [`crate::panel::RAIL_CHATS`], the most recent first, each a
+//! 44-square button holding the chat's initials in a 32 px circle
+//! ([`crate::panel::Chat::initials`]), the one on screen white with a
+//! shadow; and at its foot *Show the panel*. The chat the pointer is over is
+//! a shade lighter, and **its name stands beside it**, past the rail's edge,
+//! in a dark pill — over the first screen, which is why the rail is drawn
+//! on nothing rather than on white ([`crate::screen::Screen::on_nothing`])
+//! and the browser process lays it out wider while it shows a name. A name
+//! is a stranger's string, so it enters as a text node, and as an
+//! attribute's value where a button is named by it.
 //!
 //! # What an agent reads
 //!
-//! ADR 0002: a `navigation` named *Chats* holding two buttons, *New chat*
-//! and *Show the panel*. The mark and the icons are hidden from the tree.
+//! ADR 0002: a `navigation` named *Chats* holding *New chat*, a button for
+//! each chat named by the chat — with *Done* after a finished one's name,
+//! busy while the agent works in it, and the one on screen current — and
+//! *Show the panel*. The mark, the initials, the name beside a hovered chat
+//! (it repeats the button's) and the icons are hidden from the tree.
 //!
 //! It runs no script: the template has none and nothing here makes one.
 
-use crate::panel_document::Unbuilt;
-use alo_dom::{Document, parse_document};
+use crate::panel::{Chat, Doing, Panel};
+use crate::panel_document::{DONE, Unbuilt};
+use alo_dom::{Document, NodeId, parse_document};
 
 /// The rail's markup, compiled in.
 pub const TEMPLATE: &str = include_str!("../interface/rail.html");
@@ -28,34 +39,119 @@ pub const TEMPLATE: &str = include_str!("../interface/rail.html");
 /// The rail's stylesheet, after the owner's design, compiled in.
 pub const SHEET: &str = include_str!("../interface/rail.css");
 
-/// The rail's document.
+/// How wide the rail is laid out while it shows the name of the chat the
+/// pointer is over, in CSS pixels: its own 64, and the pill beside it —
+/// 4 past the rail's edge, at most 240 wide — with room to spare.
+pub const NAMED_WIDTH: u32 = 320;
+
+/// The rail's document for `panel`, its chats in the order sent.
 ///
 /// # Errors
 ///
-/// [`Unbuilt`] if the template lacks the rail, which is a defect in its
-/// template, never in anything sent.
-pub fn build() -> Result<Document, Unbuilt> {
-    let document = parse_document(TEMPLATE);
-    let rail = document
-        .descendants(document.root())
-        .any(|node| document.attribute_by_name(node, "class") == Some("rail"));
-    if rail {
-        Ok(document)
-    } else {
-        Err(Unbuilt {
-            why: "the rail's template has no rail".to_owned(),
-        })
+/// [`Unbuilt`] if the template lacks the rail or the room under its chats,
+/// or `alo-dom` refused an operation, which no state can cause.
+pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
+    let mut document = parse_document(TEMPLATE);
+    let of_class = |document: &Document, class: &str| {
+        document
+            .descendants(document.root())
+            .find(|&node| document.attribute_by_name(node, "class") == Some(class))
+    };
+    let (Some(rail), Some(room)) = (of_class(&document, "rail"), of_class(&document, "room"))
+    else {
+        return Err(Unbuilt {
+            why: "the rail's template has no rail, or no room under its chats".to_owned(),
+        });
+    };
+    for chat in panel.chats.iter().take(crate::panel::RAIL_CHATS) {
+        let button = make_chat(&mut document, chat)?;
+        document
+            .insert_before(rail, button, Some(room))
+            .map(|_| ())
+            .map_err(|refused| Unbuilt {
+                why: format!("a chat could not be put on the rail: {refused}"),
+            })?;
     }
+    Ok(document)
+}
+
+/// One chat on the rail: a button named by the chat, holding its initials,
+/// a dot while the agent works in it, and — hovered — its name beside it.
+fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
+    let button = element(document, "button")?;
+    attribute(document, button, "class", "rbtn rchat")?;
+    attribute(document, button, "type", "button")?;
+    let named = match chat.doing {
+        Doing::Done => format!("{} {DONE}", chat.label()),
+        Doing::Nothing | Doing::Working => chat.label().to_owned(),
+    };
+    // A stranger's string, entering as an attribute's value.
+    attribute(document, button, "aria-label", &named)?;
+    if chat.current {
+        attribute(document, button, "aria-current", "page")?;
+    }
+    if chat.doing == Doing::Working {
+        attribute(document, button, "aria-busy", "true")?;
+    }
+    let initials = element(document, "span")?;
+    attribute(document, initials, "class", "initials")?;
+    attribute(document, initials, "aria-hidden", "true")?;
+    let letters = document.create_text_node(&chat.initials());
+    append(document, initials, letters)?;
+    append(document, button, initials)?;
+    if chat.doing == Doing::Working {
+        let dot = element(document, "span")?;
+        attribute(document, dot, "class", "working")?;
+        attribute(document, dot, "aria-hidden", "true")?;
+        append(document, button, dot)?;
+    }
+    if chat.hovered {
+        attribute(document, button, "data-hovered", "true")?;
+        let name = element(document, "span")?;
+        attribute(document, name, "class", "named")?;
+        attribute(document, name, "aria-hidden", "true")?;
+        // A stranger's string, entering as a text node's data.
+        let words = document.create_text_node(chat.label());
+        append(document, name, words)?;
+        append(document, button, name)?;
+    }
+    Ok(button)
+}
+
+fn element(document: &mut Document, local: &str) -> Result<NodeId, Unbuilt> {
+    document.create_element(local).map_err(|refused| Unbuilt {
+        why: format!("a <{local}> could not be made: {refused}"),
+    })
+}
+
+fn attribute(
+    document: &mut Document,
+    node: NodeId,
+    local: &str,
+    value: &str,
+) -> Result<(), Unbuilt> {
+    document
+        .set_attribute(node, local, value)
+        .ok_or_else(|| Unbuilt {
+            why: format!("{local} could not be set on a node that is not an element"),
+        })
+}
+
+fn append(document: &mut Document, parent: NodeId, child: NodeId) -> Result<(), Unbuilt> {
+    document
+        .append_child(parent, child)
+        .map(|_| ())
+        .map_err(|refused| Unbuilt {
+            why: format!("a node could not be put on the rail: {refused}"),
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn the_rail_is_the_mark_new_chat_and_show_the_panel_and_no_script() {
-        let document = build().unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why));
-        let buttons: Vec<Option<&str>> = document
+    fn buttons(document: &Document) -> Vec<Option<&str>> {
+        document
             .descendants(document.root())
             .filter(|&node| {
                 document
@@ -63,8 +159,24 @@ mod tests {
                     .is_some_and(|element| element.name.local.as_ref() == "button")
             })
             .map(|node| document.attribute_by_name(node, "aria-label"))
-            .collect();
-        assert_eq!(buttons, vec![Some("New chat"), Some("Show the panel")]);
+            .collect()
+    }
+
+    fn rail(chats: Vec<Chat>) -> Panel {
+        Panel {
+            chats,
+            hidden: true,
+            ..Panel::default()
+        }
+    }
+
+    #[test]
+    fn the_rail_is_the_mark_new_chat_and_show_the_panel_and_no_script() {
+        let document = build(&rail(Vec::new())).unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why));
+        assert_eq!(
+            buttons(&document),
+            vec![Some("New chat"), Some("Show the panel")]
+        );
         let scripts = document
             .descendants(document.root())
             .filter_map(|node| document.element(node))
@@ -72,5 +184,77 @@ mod tests {
             .count();
         assert_eq!(scripts, 0);
         assert!(SHEET.contains(".rail"));
+    }
+
+    #[test]
+    fn the_rail_holds_at_most_five_chats_between_new_chat_and_show_the_panel() {
+        let chats = [
+            "Weekend in Lisbon",
+            "rust ownership",
+            "",
+            "Invoice for March",
+            "Compare phone plans",
+            "Birthday present ideas",
+        ]
+        .into_iter()
+        .map(|name| Chat::new(name, ""))
+        .collect();
+        let document = build(&rail(chats)).unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why));
+        assert_eq!(
+            buttons(&document),
+            vec![
+                Some("New chat"),
+                Some("Weekend in Lisbon"),
+                Some("rust ownership"),
+                Some("New chat"),
+                Some("Invoice for March"),
+                Some("Compare phone plans"),
+                Some("Show the panel"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_hovered_chat_has_its_name_beside_it_and_a_name_is_only_ever_text() {
+        let hostile = "<img src=x onerror=alert(1)> & \"quoted\"";
+        let chats = vec![
+            Chat::new(hostile, "").current().hovered(),
+            Chat::new("Invoice for March", "").doing(Doing::Done),
+            Chat::new("Weekend in Lisbon", "").doing(Doing::Working),
+        ];
+        let document = build(&rail(chats)).unwrap_or_else(|unbuilt| panic!("{}", unbuilt.why));
+        let of_class = |class: &str| -> Vec<NodeId> {
+            document
+                .descendants(document.root())
+                .filter(|&node| document.attribute_by_name(node, "class") == Some(class))
+                .collect()
+        };
+        let named = of_class("named");
+        let [named] = named.as_slice() else {
+            panic!("one name beside the hovered chat: {named:?}");
+        };
+        assert_eq!(document.text_content(*named), hostile);
+        assert!(
+            !document
+                .descendants(document.root())
+                .filter_map(|node| document.element(node))
+                .any(|element| element.name.local.as_ref() == "img"),
+            "no element came of a name"
+        );
+        assert_eq!(
+            buttons(&document).get(2).copied().flatten(),
+            Some("Invoice for March Done")
+        );
+        let current: Vec<NodeId> = of_class("rbtn rchat")
+            .into_iter()
+            .filter(|&node| document.attribute_by_name(node, "aria-current") == Some("page"))
+            .collect();
+        assert_eq!(current.len(), 1);
+        assert_eq!(of_class("working").len(), 1, "the dot of the working chat");
+        let busy = of_class("rbtn rchat")
+            .into_iter()
+            .filter(|&node| document.attribute_by_name(node, "aria-busy") == Some("true"))
+            .count();
+        assert_eq!(busy, 1);
     }
 }

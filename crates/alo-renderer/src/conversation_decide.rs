@@ -87,8 +87,11 @@ pub struct Shown<C, S> {
     /// The choices a stuck agent offers, in order.
     pub choices: Vec<String>,
     /// The chat whose row offers *Delete*, the pointer over it (queue item
-    /// 789).
+    /// 789): an earlier chat's.
     pub hovered: Option<C>,
+    /// The chat whose row offers its ×, the pointer over it (queue item
+    /// 791): an open chat's.
+    pub closing: Option<C>,
     /// The chat just deleted, while the panel offers *Undo*.
     pub undo: Option<C>,
     /// The site of the live card's page while its shield is drawn (queue
@@ -117,6 +120,7 @@ impl<C, S> Default for Shown<C, S> {
             asking: None,
             choices: Vec::new(),
             hovered: None,
+            closing: None,
             undo: None,
             shield: None,
         }
@@ -195,6 +199,9 @@ pub enum Decided<C, S> {
     Choice(String),
     /// *Delete* on this chat's row (queue item 789).
     DeleteChat(C),
+    /// The × on this open chat's row, closing it to *Earlier* (queue item
+    /// 791).
+    CloseChat(C),
     /// *Undo*, bringing this chat back.
     Undo(C),
     /// The card's shield, for the page's site of this name (queue item
@@ -391,6 +398,7 @@ where
     if let Some(refusal) = drawn_as_hidden(claim, painted.hidden, now.hidden) {
         return Decided::Refused(refusal);
     }
+    let not_asked = || Decided::Refused(Refusal::NotAsked { claim });
     match claim {
         Claim::NewChat => Decided::NewChat,
         Claim::Settings => Decided::Settings,
@@ -410,21 +418,16 @@ where
         // The agent's buttons (queue item 704): each only for what was
         // painted and is still so — *Allow* allows the one question the
         // person was shown, and none asked since.
-        Claim::Stop => same(painted.working, now.working)
-            .map_or(Decided::Refused(Refusal::NotAsked { claim }), Decided::Stop),
-        Claim::Allow => same(painted.asking, now.asking).map_or(
-            Decided::Refused(Refusal::NotAsked { claim }),
-            Decided::Allow,
-        ),
-        Claim::NotNow => same(painted.asking, now.asking).map_or(
-            Decided::Refused(Refusal::NotAsked { claim }),
-            Decided::NotNow,
-        ),
+        Claim::Stop => same(painted.working, now.working).map_or_else(not_asked, Decided::Stop),
+        Claim::Allow => same(painted.asking, now.asking).map_or_else(not_asked, Decided::Allow),
+        Claim::NotNow => same(painted.asking, now.asking).map_or_else(not_asked, Decided::NotNow),
         Claim::Choice { at } => held(Listed::Choices, at, &painted.choices, &now.choices)
             .map_or_else(Decided::Refused, Decided::Choice),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
-        Claim::DeleteChat | Claim::Undo | Claim::Shield => offered(claim, painted, now),
+        Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {
+            offered(claim, painted, now)
+        }
         Claim::Chat { at } => held(Listed::Chats, at, &painted.chats, &now.chats)
             .map_or_else(Decided::Refused, Decided::Chat),
         Claim::Site { at } => held(Listed::Sites, at, &painted.sites, &now.sites)
@@ -500,6 +503,7 @@ fn drawn_as_hidden(claim: Claim, painted: bool, now: bool) -> Option<Refusal> {
 
 /// What a thing offered for one chat or site comes to: the panel's *Delete*
 /// deletes the one chat whose row was painted offering it and still does,
+/// and its × closes the one open chat painted offering it (queue item 791),
 /// and *Undo* brings back the one the panel said while it still says so
 /// (queue item 789); the card's shield switches the one site it was painted
 /// for, while the card still shows that site's page (queue item 807).
@@ -515,6 +519,8 @@ where
         Claim::Shield => {
             same_one(painted.shield.as_ref(), now.shield.as_ref()).map_or(refused, Decided::Shield)
         }
+        Claim::CloseChat => same_one(painted.closing.as_ref(), now.closing.as_ref())
+            .map_or(refused, Decided::CloseChat),
         _ => same_one(painted.hovered.as_ref(), now.hovered.as_ref())
             .map_or(refused, Decided::DeleteChat),
     }
@@ -784,6 +790,45 @@ mod tests {
             Decided::Refused(Refusal::NotDrawnThere {
                 part: Part::Panel,
                 claim: Claim::Shield
+            })
+        );
+    }
+
+    #[test]
+    fn a_close_is_decided_only_for_the_open_chat_painted_offering_it_and_still_so() {
+        let offering = Shown {
+            closing: Some(7),
+            hovered: Some(9),
+            ..painted()
+        };
+        let close = claimed(Claim::CloseChat);
+        assert_eq!(
+            decide(close.clone(), Part::Panel, &offering, &offering),
+            Decided::CloseChat(7)
+        );
+        for (painted, now) in [
+            (
+                &offering,
+                &Shown {
+                    closing: Some(8),
+                    ..painted()
+                },
+            ),
+            (&offering, &painted()),
+            (&painted(), &offering),
+        ] {
+            assert_eq!(
+                decide(close.clone(), Part::Panel, painted, now),
+                Decided::Refused(Refusal::NotAsked {
+                    claim: Claim::CloseChat
+                })
+            );
+        }
+        assert_eq!(
+            decide(close, Part::Start, &offering, &offering),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Start,
+                claim: Claim::CloseChat
             })
         );
     }

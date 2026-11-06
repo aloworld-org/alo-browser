@@ -48928,3 +48928,118 @@ found the shield's bug; this third, after the fix: **Summary [1099.423s]
 met." (11 of 11 steps)*.
 
 The next unused queue number is **845** and the next ADR is **0099**.
+
+## 2026-11-06 — items 793, 791, 760 and 776: the bar fades, a chat closed to Earlier, the rail's chats, and the panel over a narrow window
+
+Batched under one gate, at the owner's asking: four panel and chat designs
+the owner approved on 6 November 2026 (*"I agree"*), each written into
+`docs/design/shell.md` and its queue item as approved by the owner
+2026-11-06, every detail the design left open settled here and recorded.
+
+**793 — the bar fades** (ADR 0093's amendment). `Bar::seen`, a fraction on
+the wire (refused otherwise), drawn as `opacity`; `alo-window`'s
+`conversation_bar.rs` holds it as time alone: whole while the conversation
+moves (the window sees the turns or the offset it draws change — wheel,
+glide step, key, new turn) and for 1,000 ms after, then faded straight in
+300 ms; whole again at once; whole while the pointer is within 24 CSS px
+either side of the bar between the room's top and foot
+(`conversation_scroll::bar_left`, 973 at the design's width). A chat opened
+shows none until it moves; an agent reads it either way. The window wakes
+at the second's end and each sixtieth of the fade. Tested at given instants
+on an injected clock (`ConversationWindow::with_clock`): 1.00, 0.50, 0.00 at
+999, 1,150, 1,300 ms. Reference `conversation-goes-on-fading.png` (new,
+half seen, each channel within a level of the mean). Dragging and pressing
+the bar are not in the owner's design: cut to **845**.
+
+**791 — closing a chat** (ADR 0092's amendment). **Decided: an open row
+offers its ×, an earlier row *Delete*, never both; the rail neither** — so
+an open chat is deleted in two deliberate presses. The × is 24 square, a
+12 px cross (moved from the template's `<template id="shut-icon">`) on the
+line colour, named *Close* and the chat's name. Closed, a chat is first
+under *Earlier*, turns kept, a live card put away; nothing deleted, no file
+touched. The chat on screen closed puts the open one below on screen, else
+above, else a new chat; the empty chat on screen offers no ×
+(`Closing::Withheld`); an empty chat not on screen closed simply goes.
+Reference `panel-closing.png` new; `panel-deleting.png` moved (it now
+hovers an earlier row).
+
+**760 — the rail's chats.** The first five the panel would draw (open,
+most recent first, then earlier), whatever was searched; a chat opened again
+from *Earlier* is now first under *Open* — the most recent — and so first on
+the rail (this changed one expectation in `chats_kept_across_launches.rs`).
+Initials: the first letter or digit of the first two words of the shown
+name (`WI`, `R`, `NC`, a middle dot), 12 px 600 in a 32 circle on the line
+colour; the chat on screen white with a shadow; the agent's dot at the
+circle's shoulder. Boxes from (10, 121), 50 apart. **The name on hover** is
+a dark pill past the rail's edge, over the first screen: the rail is laid
+out 320 wide and **drawn on nothing** — a new `Screen::on_nothing` flag the
+renderer sets only for the rail (every page still on white) — and the
+window places that frame whole over the first screen (`Parts::named`),
+compositing the first screen first. References `panel-rail.png` and
+`panel-rail-at-two.png` moved, `panel-rail-named.png` and
+`the-rail-naming-a-chat-at-759.png` new; `the-panel-folded-at-759.png` and
+`the-conversation-panel-hidden*.png` moved (the rail's one chat).
+
+**776 — the panel over a narrow window.** Below 760, *Show the panel* is a
+sheet: the whole panel slides out from the rail (left edge −176 → 0) in
+200 ms eased out, back the same curve from wherever it is
+(`conversation_sheet.rs`), over the ink at 0.32 (`colours::shade`); the
+first screen stays laid out beside the rail; the panel's last frame painted
+as the sheet slides back in over the rail. Escape (whatever has the
+keyboard), a press outside (pressing nothing under it), a chat chosen, New
+chat and *Hide the panel* close it; *Search chats*, × and *Delete* keep it;
+widened to 760 it is gone at once; never while the agent works. The line
+*The window is too narrow for the panel…* (775) is retired. References
+`the-sheet-at-700.png` and `the-sheet-sliding-at-700.png` new.
+
+All new and moved pictures were run once without update mode, then written,
+and looked at. Through the window's own road with real renderers
+(`offers_and_the_panel_pressed_in_the_window.rs`, new test): an open row's
+× pressed into *Earlier* and found there offering *Delete*; each rail chat
+pressed as its chat and named 320 wide; the sheet chosen in, pressed outside
+and Escaped. **Mutations**, each failing: bar always whole; a press outside
+not closing the sheet; the drawing thread not keeping the painted × (the
+window says the refusal); a closed chat put last of *Earlier*; the rail
+given no chats; the rail drawn on white; closing the sheet without
+unhovering.
+
+**Found by hand, fixed:** a chat chosen in the sheet after its row was
+hovered stayed hovered, so the rail beneath named it with the pointer away
+(`handrun33/19-…`); closing the sheet now unhovers, asserted by
+`the_sheet_closed_by_escape_a_chat_chosen_or_the_window_widened` (fails
+with the fix undone); seen fixed after a rebuild (`21-…`).
+
+**By hand** (screen unlocked; release, CEF host and bundle rebuilt,
+`alo-bundle --keys-from keychain`; `--conversation --chats handrun33/chats`;
+window at 120, 80 found by PID; keys from a private event source, no
+flags; wheel notches posted by a small CGEvent tool; screenshots in the
+session scratchpad's `handrun33/`): three searches then a scroll — the
+bar's pixel sampled every ~0.2 s: `#cbc3b6` from the first frames to 1.6 s
+after the notch, (239, 236, 232) at 1.8 s, the paper by 2.2 s (`05`–`07`;
+capture latency puts each reading a few tenths late); the pointer at the
+right edge brought it back whole (`08`). A second chat; the older open row
+hovered showed its × (`09`), pressed it moved under *Earlier*, both sealed
+files still there (`10`); hovered there it offered *Delete* (`11`). At 700
+wide the rail showed `KW` and `RL`, the hovered one named over the first
+screen (`12`); pressed, it opened (`13`). *Show the panel*: caught sliding
+(`14`), out over the shade (`15`), closed by Escape (`16`), by a press
+outside (`17`–`18`) and by choosing a chat (`19`, with the bug above).
+Relaunched on the same directory: both chats under *Earlier*, the Earlier
+row hovered in the sheet offering *Delete* (`20`), chosen, and the rail
+with no stray name (`21`). Quit with `tell application id
+"org.aloworld.Browser" to quit`; no alo process left; the pointer at 1400,
+1000. **Not seen by hand:** the rail at 2×'s own pixels beyond the
+screenshots' scale, the ×'s press on the chat on screen, a sheet at a
+Retina-scale window other than this one.
+
+ROADMAP: the interface line's owed list loses 776 and gains 845; *Built
+since* names the four.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000; detached
+— `setsid` is not on this Mac, so through `perl -MPOSIX=setsid` — and waited
+on by its PID). **Summary [1102.341s] 6452 tests run: 6452 passed (5 slow,
+1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. A first
+attempt with `nohup setsid` never started (*setsid: No such file or
+directory*) and ran nothing.
+
+The next unused queue number is **846** and the next ADR is **0099**.

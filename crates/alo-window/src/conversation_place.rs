@@ -24,6 +24,17 @@
 //! rail, [`RAIL_WIDTH`] wide, and the first screen has the rest — the
 //! window laid out without the panel, and a way back on the rail. Which it
 //! is is the window's [`Side`].
+//!
+//! # Over the first screen
+//!
+//! Two things of the panel's stand over the first screen rather than
+//! beside it. The rail, while it shows the name of the chat the pointer is
+//! over (queue item 760), is laid out wider and drawn on nothing, and its
+//! frame is placed whole from the window's left, over the first screen,
+//! rather than cut at its room ([`Parts::named`]). And in a narrow window
+//! the whole panel slides over the conversation as a sheet (queue item
+//! 776), its left edge where the slide has it ([`sheet_left`]), over a
+//! shade.
 
 use crate::place::{NOTICE_HEIGHT, PixelRect};
 use crate::scale::Scale;
@@ -68,6 +79,18 @@ pub fn panel_viewport(window: (u32, u32), scale: Scale) -> Size {
 pub fn panel_viewport_as(window: (u32, u32), scale: Scale, side: Side) -> Size {
     Size::new(
         css_length(scale.fitting(panel_room(window, scale, side))),
+        css_length(scale.fitting(window.1)),
+    )
+}
+
+/// The size the panel's renderer lays it out at in a `window` of device
+/// pixels at `scale`, `width` CSS pixels wide — the panel's, the rail's, or
+/// the rail's while it names a chat (queue item 760) — or as much of it as
+/// the window has, and the most whole CSS pixels that fit the window's
+/// height.
+pub fn panel_viewport_of(window: (u32, u32), scale: Scale, width: u32) -> Size {
+    Size::new(
+        css_length(scale.fitting(scale.device(width).min(window.0))),
         css_length(scale.fitting(window.1)),
     )
 }
@@ -117,6 +140,9 @@ pub struct Parts {
     pub start_saying: bool,
     /// Whether the panel is shown whole or hidden as its rail.
     pub side: Side,
+    /// Whether the rail shows a chat's name past its edge (queue item
+    /// 760): its frame is then placed whole, over the first screen.
+    pub named: bool,
 }
 
 /// Where the panel, the first screen and the lines about them go.
@@ -126,7 +152,8 @@ pub struct ConversationPlacement {
     /// [`RAIL_WIDTH`], hidden — and the window's whole height: in the
     /// panel's colour until it has painted.
     pub panel_room: PixelRect,
-    /// The part of it the panel's frame covers, from its top-left corner.
+    /// The part of it the panel's frame covers, from its top-left corner —
+    /// past it, over the first screen, while the rail shows a chat's name.
     pub panel: PixelRect,
     /// The first screen's room, everything right of the panel's.
     pub start_room: PixelRect,
@@ -178,15 +205,38 @@ impl ConversationPlacement {
         };
         let start_notice = stack(parts.start_saying);
         let panel_notice = stack(parts.panel_saying);
+        // The rail with a chat's name beside it reaches over the first
+        // screen; anything else of the panel's is cut at its room.
+        let reach = if parts.named && parts.side == Side::Rail {
+            PixelRect {
+                width: window.0,
+                ..panel_room
+            }
+        } else {
+            panel_room
+        };
         Self {
             panel_room,
-            panel: within(panel_room, parts.panel),
+            panel: within(reach, parts.panel),
             start_room,
             start: within(start_room, parts.start),
             start_notice,
             panel_notice,
         }
     }
+}
+
+/// Where the sheet's left edge is in device pixels at `scale`, its left
+/// edge `left` CSS pixels from the window's (queue item 776): rounded to a
+/// whole device pixel, so the panel's frame is placed one to one.
+pub fn sheet_left(left: f32, scale: Scale) -> i32 {
+    let device = (left * scale.factor()).round();
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "a slide's left edge, from −176 CSS pixels times the scale to 0, rounded"
+    )]
+    let device = device as i32;
+    device
 }
 
 /// The part of `room` a frame of `size` covers from its top-left corner,
@@ -222,6 +272,62 @@ mod tests {
             start: Some(start),
             ..Parts::default()
         }
+    }
+
+    #[test]
+    fn the_rail_naming_a_chat_reaches_over_the_first_screen_and_nothing_else_does() {
+        let window = (759, 820);
+        let named = Parts {
+            panel: Some((320, 820)),
+            start: Some((695, 820)),
+            side: Side::Rail,
+            named: true,
+            ..Parts::default()
+        };
+        let placed = ConversationPlacement::of(window, Scale::ONE, named);
+        assert_eq!(placed.panel_room, rect(0, 0, 64, 820));
+        assert_eq!(placed.panel, rect(0, 0, 320, 820), "over the first screen");
+        assert_eq!(placed.start_room, rect(64, 0, 695, 820));
+        // Not naming one, the same frame is cut at the rail's room; nor
+        // does the whole panel ever reach past its own.
+        let placed = ConversationPlacement::of(
+            window,
+            Scale::ONE,
+            Parts {
+                named: false,
+                ..named
+            },
+        );
+        assert_eq!(placed.panel, rect(0, 0, 64, 820));
+        let placed = ConversationPlacement::of(
+            (1280, 820),
+            Scale::ONE,
+            Parts {
+                side: Side::Panel,
+                panel: Some((320, 820)),
+                ..named
+            },
+        );
+        assert_eq!(placed.panel, rect(0, 0, 240, 820));
+        // At two, twice the device pixels.
+        let placed = ConversationPlacement::of(
+            (1518, 1640),
+            Scale::TWO,
+            Parts {
+                panel: Some((640, 1640)),
+                ..named
+            },
+        );
+        assert_eq!(placed.panel, rect(0, 0, 640, 1640));
+    }
+
+    #[test]
+    fn the_sheets_left_edge_is_on_a_whole_device_pixel() {
+        assert_eq!(sheet_left(-176.0, Scale::ONE), -176);
+        assert_eq!(sheet_left(-74.25, Scale::ONE), -74);
+        assert_eq!(sheet_left(-74.25, Scale::TWO), -149);
+        assert_eq!(sheet_left(0.0, Scale::TWO), 0);
+        assert_eq!(sheet_left(-2.75, Scale::ONE_AND_A_HALF), -4);
     }
 
     #[test]
