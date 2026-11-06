@@ -47,8 +47,9 @@
 //! gone is not sent, and its line is already said; one whose renderer goes
 //! as it is asked is said as a drawing's would be.
 
-use crate::conversation::{Pressed, Showing};
+use crate::conversation::{ChatId, Pressed, Showing};
 use alo_paint::Point;
+use alo_renderer::conversation_claim::Claim;
 use alo_renderer::conversation_decide::{self, decide};
 use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::host::{Gone, Renderers};
@@ -74,6 +75,9 @@ pub enum Drawn {
     Said(Part, String),
     /// What a person's press on it was decided to be.
     Pressed(Part, Pressed),
+    /// Which chat's row the pointer is over in the panel, as its renderer
+    /// found it among the chats it painted, or none (queue item 789).
+    Hovered(Option<ChatId>),
     /// How far the first screen's conversation reaches, as its renderer
     /// measured it after painting this many turns (queue item 703): what
     /// the window keeps a person's wheel inside. Told just before the
@@ -119,6 +123,9 @@ enum Work {
     Draw(Box<Asked>),
     /// A person pressed this part here, in its CSS pixels.
     Press(Part, Point),
+    /// The pointer is over the panel here, in its CSS pixels, no button
+    /// held (queue item 789).
+    Hover(Point),
 }
 
 /// A thread holding the panel's renderer and the first screen's.
@@ -187,6 +194,15 @@ impl ConversationDrawing {
         }
     }
 
+    /// The pointer moved over the panel to `at`, in its CSS pixels: have
+    /// the row under it found. Returns at once: which chat it is over is
+    /// told to the window. Of hovers waiting, only the newest is asked.
+    pub fn hover(&mut self, at: Point) {
+        if let Some(sender) = &self.asked {
+            let _ = sender.send(Work::Hover(at));
+        }
+    }
+
     /// Stop the thread and wait for it, its renderers stopped with it:
     /// whether it ended rather than panicked, which the lints make
     /// unreachable and is said rather than assumed.
@@ -239,11 +255,18 @@ fn hold(mut holding: Holding, asking: &Receiver<Work>, tell: &TellConversation) 
         let last_drawing = waiting
             .iter()
             .rposition(|work| matches!(work, Work::Draw(_)));
+        let last_hover = waiting
+            .iter()
+            .rposition(|work| matches!(work, Work::Hover(_)));
         for (place, work) in waiting.into_iter().enumerate() {
             let said = match work {
                 Work::Draw(asked) if Some(place) == last_drawing => holding.draw(*asked),
-                Work::Draw(_) => Vec::new(),
                 Work::Press(part, at) => holding.press(part, at).into_iter().collect(),
+                Work::Hover(at) if Some(place) == last_hover => {
+                    holding.hover(at).into_iter().collect()
+                }
+                // A drawing or a hover a later one replaces.
+                Work::Draw(_) | Work::Hover(_) => Vec::new(),
             };
             for drawn in said {
                 if !tell(drawn) {
@@ -265,6 +288,8 @@ impl Holding {
                 asked.panel.clone(),
                 asked.showing.chats.clone(),
                 asked.showing.hidden,
+                asked.showing.hovered,
+                asked.showing.undo,
             )
         };
         if last.as_ref().map(panel_of) != Some(panel_of(&asked)) {
@@ -275,6 +300,9 @@ impl Holding {
                 // Whether it was the rail, which draws its own two buttons
                 // and none of the panel's (queue item 711).
                 self.painted.hidden = asked.showing.hidden;
+                // Which row offered Delete, and which chat Undo (789).
+                self.painted.hovered = asked.showing.hovered;
+                self.painted.undo = asked.showing.undo;
             }
             said.extend(came);
         }
@@ -298,6 +326,7 @@ impl Holding {
                     asked.showing.working,
                     asked.showing.asking,
                     asked.showing.choices.clone(),
+                    asked.showing.shield.clone(),
                 ),
             )
         };
@@ -334,6 +363,10 @@ impl Holding {
                 // agent's choices (queue item 704): *Allow* allows only the
                 // question the picture pressed showed.
                 self.painted.working = asked.showing.working;
+                // And the site the card's shield was drawn for (queue item
+                // 807): a press on it switches only that site. Left out at
+                // first, every press on the shield was refused by hand.
+                self.painted.shield.clone_from(&asked.showing.shield);
                 self.painted.asking = asked.showing.asking;
                 self.painted.choices.clone_from(&asked.showing.choices);
                 // How far the turns painted reach, for a person's wheel, and
@@ -416,6 +449,31 @@ impl Holding {
                 Some(Drawn::Said(part, said))
             }
         }
+    }
+}
+
+impl Holding {
+    /// Ask the panel's renderer what is under the pointer at `at`: which
+    /// chat's row, among the chats it painted — its *Delete* is its row's
+    /// too — or none. Nothing when the panel's renderer has gone or nothing
+    /// was painted; anything else it answers is no row.
+    fn hover(&mut self, at: Point) -> Option<Drawn> {
+        self.drawn.as_ref()?;
+        if self.panel.gone.is_some() {
+            return None;
+        }
+        let answer = self
+            .renderers
+            .ask(&self.panel.site, &ToRenderer::ConversationHover(at))
+            .ok()?;
+        let over = match answer {
+            FromRenderer::ConversationClaimed(Some(Claim::Chat { at })) => {
+                self.painted.chats.get(at).copied()
+            }
+            FromRenderer::ConversationClaimed(Some(Claim::DeleteChat)) => self.painted.hovered,
+            _ => None,
+        };
+        Some(Drawn::Hovered(over))
     }
 }
 

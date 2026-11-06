@@ -91,6 +91,7 @@ ADR 0058 — and nothing else does:
 | | **728**, **729** | Windows and Linux (728), and what macOS keeps for the host (729) — cut from 725 |
 | | **721**–**724** | kept updated (721); later, before alo is offered widely, alo's own Chromium build on machines of its own (ADR 0078) |
 | ✓ | **736** | trackers and ads blocked by alo itself, with Brave's `adblock-rust` at the place every request is held (iteration 488, ADR 0094; cuts 806, 807) |
+| ✓ | **806**, **807** | the empty boxes adverts leave hidden by the lists' own rules, through Chromium's style sheet commands; a shield on each card counting what was refused, switching blocking off for its site, kept on the machine (6 November 2026, ADR 0094's amendment; cuts 838–841) |
 | | **707** | the answer — blocked on the owner's choice of model |
 | ✓ | **708** | search results as the design's All tab, from the Brave Search API (ADR 0083, iteration 463) |
 | ✓ | **749** | a card that fails says why and gives the box the keyboard back; a page that replaces itself before it loads opens (iteration 464) |
@@ -22233,18 +22234,42 @@ What stage 2's exit gate actually measures: a person using it.
   card through the machine's Chrome is out of the Dock and ⌘-Tab in a
   test.
 
-- [ ] **789. Deleting a chat.** Cut from 757. The panel has no way to
+- [x] **789. Deleting a chat.** Cut from 757. The panel has no way to
   delete a chat; its file stays in alo's directory until removed by hand
   (ADR 0092 § 4). Design the control (a row's menu, or a key), remove the
   file, and say so; decide whether a deleted chat can be brought back.
   *needs design. Closes when:* a chat deleted in the panel is gone from it
   and its file gone, in a test on a temporary directory.
+  ***Done (6 November 2026), ADR 0092's amendment, the owner's design.***
+  *Delete* on the row the pointer is over (the panel's renderer asked what
+  is under it, `ToRenderer::ConversationHover`), decided only for the row
+  painted offering it; the chat out of the panel at once and held five
+  seconds (`chat_delete.rs`) while the foot says *Deleted “…”* with *Undo*;
+  gone — its own file removed, `ChatStore::remove`, never another number's
+  or a damaged one — when the five seconds pass, another is deleted, or the
+  window closes; the window woken for it (`wake_at`). **Tests:** unit
+  (panel, claims, decisions, conversation, store), a layout assertion and
+  `panel-deleting.png`, the wire, and through the window's road on a
+  temporary directory (`chats_kept_across_launches.rs`). Mutations: never
+  removed, decided against what is held now — each fails.
 
-- [ ] **790. Chats encrypted at rest.** Cut from 757. Kept chats are plain
+- [x] **790. Chats encrypted at rest.** Cut from 757. Kept chats are plain
   JSON, `0600`, protected by the account and FileVault, not from another
   program running as the same person (ADR 0092 § 2). Whether to encrypt
   them under a key in the keychain — and what a lost key costs — is the
   owner's. *needs owner decision.*
+  ***Done (6 November 2026), ADR 0098, the owner's design.*** Sealed with
+  RustCrypto's XChaCha20-Poly1305 (`chacha20poly1305` =0.10.1, NCC-audited,
+  behind `chat_seal.rs` on the gate's list) under a 256-bit key alo makes
+  once in the login keychain (`alo-chats`, through `security -i` on its
+  standard input, never printed), made only on *item not found*;
+  `chat-N.sealed`, the chat's number in the associated data; a chat in
+  words sealed once, its words' file removed after the sealed one is
+  flushed; one that does not open said and left. Lost key, lost chats —
+  said plainly in the ADR. Windows and Linux left open. **Tests:**
+  `chat_seal` (4), `chat_key` (3, a keychain file of the test's own),
+  `chat_store` (9), the window's road (no word in the clear). Mutations:
+  the number out of the associated data, the words unsealed — each fails.
 
 - [ ] **791. Closing a chat to *Earlier*.** Cut from 758. The design moves
   a closed chat to *Earlier*; there is no control to close one while alo
@@ -22523,7 +22548,7 @@ What stage 2's exit gate actually measures: a person using it.
   the lists never asked — the server received both; recorded as let go —
   fails.
 
-- [ ] **806. Hiding what is left of an advert: the lists' cosmetic rules.**
+- [x] **806. Hiding what is left of an advert: the lists' cosmetic rules.**
   Cut from 736 (ADR 0094 § 5). EasyList's element-hiding rules
   (`##.ad-banner` and about fifty thousand more) are not read, so a page may
   show the empty box an advert refused would have filled. Carrying them out
@@ -22533,14 +22558,37 @@ What stage 2's exit gate actually measures: a person using it.
   rules costs a real page's layout and first paint through both Chromiums,
   and whether a site's specific rules alone are worth it, then decide.
   *needs design: an amendment to ADR 0094.*
+  ***Done (6 November 2026), ADR 0094's amendment A; procedural rules cut
+  to 838, the sheet's timing to 839.*** EasyList's generic hiding rules (less
+  the excused) and a site's own, `$generichide` honoured, made a sheet per
+  document committed from the network, put in through Chromium's own
+  `CSS.createStyleSheet`/`setStyleSheetText` once `CSS.enable` answers
+  (`chrome_cosmetic.rs`) — no script. Measured on seven real pages: +2–9 ms
+  of style, first paint not later, ad slots alone hidden, nothing on
+  Wikipedia, GitHub, Reddit or the Daily Monitor; none kept out. **Tests:**
+  unit (`blocking`, `chrome_cosmetic`, `chrome_protocol`) and through both
+  Chromiums (`adverts_hidden_and_a_sites_switch_through_chrome.rs`).
+  Mutation: no sheet — fails.
 
-- [ ] **807. What a person sees of what alo refused, and a site's switch.**
+- [x] **807. What a person sees of what alo refused, and a site's switch.**
   Cut from 736 (ADR 0094 § 6). Today each request the lists refuse is a
   line on the conversation's terminal and in the record, and nothing in
   the window; a page the lists break cannot be let off. The owner decides
   what a person sees — a count on the card, its list, nothing — and builds
   the per-site switch with 705 (a value per site held by the browser
   process, asked before the lists). *needs design: the owner's.*
+  ***Done (6 November 2026), ADR 0094's amendment B, the owner's design;
+  the list of what was refused cut to 841.*** A shield on the live card,
+  counting its page's refusals, a toggle button that switches blocking off
+  for the page's site (`blocking_off.rs`, asked before the lists in
+  `chrome_tab.rs`), kept in `sites-without-blocking.txt` beside the chats,
+  the page loaded again (`Page.reload`). **Tests:** unit (conversation,
+  window, decisions, wire, `blocking_off`), a layout assertion and
+  `card-shield.png`, `card-shield-off.png`, the window's own road (a press
+  on the shield decided against what was painted — every press was refused
+  by hand until the drawing thread kept the painted shield), and through
+  both Chromiums. Mutations: the switch not asked, the painted shield not
+  kept — each fails.
 
 - [x] **808. A parked card's link bubble seen at the display's edge (found
   by hand, 736's run).** On 1 November 2026, with
@@ -22671,12 +22719,20 @@ What stage 2's exit gate actually measures: a person using it.
   page's own text would need alo to fetch it. Each sends more to OpenAI and
   costs more; *needs the owner's decision* (ADR 0095 § 7).
 
-- [ ] **817. The model measured on alo's own material (cut from 707, ADR
+- [x] **817. The model measured on alo's own material (cut from 707, ADR
   0081 § 4).** Fifty questions with known answers over frozen results,
   scored for correct citations, *I couldn't find a reliable answer* when it
   is right, latency and cost from `usage`, on `gpt-6.1-terra`, `gpt-6-luna`
   and `gpt-6.1-sol` — so the owner confirms the model on numbers.
   *Depends on 707. Costs real requests; the owner's to approve.*
+  ***Done (6 November 2026), ADR 0081's note: keep `gpt-6.1-terra`;
+  `MODEL` not changed, the owner confirms.*** 26 questions (factual,
+  contested, recent, Kampala, Luganda, Japanese, unanswerable), Brave's
+  results frozen, alo's own request bodies and reader: Sol 100% of claims
+  supported (and the judge), Terra 98.0% (2% partly), Luna 92.2% (1%
+  unsupported, two inventions); all 8 of 8 honest refusals, no false ones;
+  Terra $0.00185 and 2.84 s an answer. Spent $0.497 and 26 searches. The
+  line's missing citation and repeated points cut to 843.
 
 - [ ] **818. Zero data retention at OpenAI (cut from 707).** What alo sends
   is kept in OpenAI's abuse-monitoring logs for up to 30 days; zero data
@@ -22920,6 +22976,52 @@ What stage 2's exit gate actually measures: a person using it.
   engine maps a generic name to one face. Decide whether a page's
   renderer should be handed the system's cascade order, measure it, and
   choose so. *Depends on nothing.*
+
+- [ ] **838. Procedural hiding rules and scriptlets (cut from 806).**
+  EasyList's procedural rules (`:has-text`, `:upward`) and Brave's
+  scriptlets (`+js`) hide or neutralise what a sheet cannot; each needs
+  script of ours in somebody else's page, which ADR 0058 and ADR 0094's
+  amendment rule out. *needs the owner's decision.*
+
+- [ ] **839. The hiding sheet before the first paint (cut from 806).** The
+  sheet is made once `CSS.enable` answers, which Chrome 157 delays until
+  the document's own sheets are read; on a fast page an advert's empty box
+  can be painted for a moment first. Measure how long after the commit the
+  sheet lands through both Chromiums, and whether making it at
+  `Page.frameNavigated` with the CSS domain kept on is faster and safe.
+  *Depends on 806.*
+
+- [ ] **840. A hiding sheet's `CSS.disable` and a closed list's styles
+  (found by 806).** `chrome_choose` reads computed styles between its own
+  `CSS.enable` and `CSS.disable`; a frame committing while it reads makes
+  `chrome_cosmetic` send `CSS.disable` on the same session, which can end
+  the chooser's reading early. Not seen; make the two share the domain (a
+  count of who holds it on) and test it with a frame committing mid-read.
+
+- [ ] **841. What alo refused on a card, listed (cut from 807).** The
+  shield counts; the owner's design offered its list too (*a count on the
+  card, its list*). Each refusal is on the terminal and in the record;
+  drawing them — the address, the list and rule — under the shield is a
+  design. *needs design.*
+
+- [ ] **842. The chats' key on Windows and Linux (cut from 790, ADR 0098
+  § 6).** The key lives in the macOS keychain through `/usr/bin/security`;
+  elsewhere the Secret Service or the Credential Manager. *Depends on alo
+  being built for either platform.*
+
+- [ ] **843. An answer's line cites nothing, and its points repeat its
+  sentences (found by 817).** The one-line summary carries no source in
+  alo's schema, so a claim in it is checked by nothing (Luna wrote one no
+  snippet said); Terra repeated a sentence as a point 15 times in 57.
+  Decide in ADR 0095 whether the line cites, and fix the instructions;
+  measure on 817's frozen questions. *Depends on 707, 817.*
+
+- [ ] **844. An advert's slot the lists do not name (found by 806's hand
+  run).** On the Daily Monitor's front page (6 November 2026) a pale empty
+  box stood where an advert would be, with blocking on: no rule of
+  EasyList's generic or the site's own named it. Read which element it is
+  in Chrome, and whether a list's rule, a supplement (ADR 0094 § 2) or
+  nothing should hide it. *Depends on 806.*
 
 ## K. ★ The agent, on somebody else's pages
 

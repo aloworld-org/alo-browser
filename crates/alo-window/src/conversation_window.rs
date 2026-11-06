@@ -201,6 +201,12 @@ pub struct ConversationWindow {
     /// agent's newest line and its question are seen — from what a run
     /// says until a person scrolls.
     following: bool,
+    /// Whether the cursor is over the panel, where its row offers *Delete*
+    /// (queue item 789): a hover answered after it left is no row.
+    over_the_panel: bool,
+    /// Where the sites blocking is switched off for are kept, when the
+    /// window was given somewhere (queue item 807).
+    switches: Option<std::path::PathBuf>,
 }
 
 /// How the window's two threads ended.
@@ -275,6 +281,8 @@ impl ConversationWindow {
             agent: None,
             run: None,
             following: false,
+            over_the_panel: false,
+            switches: None,
         }
     }
 
@@ -404,9 +412,77 @@ impl ConversationWindow {
         for damaged in &opened.unread {
             self.tell(damaged.said());
         }
+        for said in &opened.said {
+            self.tell(said.clone());
+        }
+        if opened.sealed > 0 {
+            self.said.push(format!(
+                "{} {} kept in words before {} sealed under the key in this Mac's keychain \
+                 (ADR 0098)",
+                opened.sealed,
+                if opened.sealed == 1 { "chat" } else { "chats" },
+                if opened.sealed == 1 { "was" } else { "were" },
+            ));
+        }
         self.conversation =
             std::mem::take(&mut self.conversation).keeping(opened.chats, opened.highest);
         self.store = Some(store);
+        self
+    }
+
+    /// The same window, saying on the terminal that the key its chats are
+    /// sealed under was `made` just now, in this person's keychain, when it
+    /// was (queue item 790): a new keychain item is never made unsaid.
+    #[must_use]
+    pub fn key_made(mut self, made: bool) -> Self {
+        if made {
+            self.said.push(format!(
+                "a key to seal the chats was made in this Mac's keychain, as the item {} \
+                 (ADR 0098); lost, the chats sealed under it cannot be read",
+                crate::chat_key::SERVICE
+            ));
+        }
+        self
+    }
+
+    /// The same window, its cards' shields showing and switching `off` —
+    /// the sites blocking is off for, shared with every card's Chromium —
+    /// and each switch kept in `file` when there is one (queue item 807).
+    #[must_use]
+    pub fn with_blocking_off(
+        mut self,
+        off: crate::blocking_off::Off,
+        file: Option<std::path::PathBuf>,
+    ) -> Self {
+        self.conversation.set_blocking_off(off);
+        self.switches = file;
+        self
+    }
+
+    /// A person switched blocking for `site` with a card's shield (queue
+    /// item 807): the switch kept, said, and the card's page loaded again,
+    /// so what it shows is what the switch now asks.
+    fn switched(&mut self, site: &str) {
+        let off = self.conversation.shield_off(site);
+        self.said.push(format!(
+            "blocking trackers and adverts is {} for {site} (ADR 0094)",
+            if off { "off" } else { "on" }
+        ));
+        if let Some(file) = &self.switches
+            && let Err(why) = crate::blocking_off::write(file, self.conversation.blocking_off())
+        {
+            self.tell(format!("a site's switch is not kept: {why}"));
+        }
+        if let Some(chrome) = &self.chrome {
+            chrome.travel(crate::chrome_history::Way::Again);
+        }
+    }
+
+    /// The same window, saying `line` on the terminal and in the first
+    /// screen's line as it opens.
+    #[must_use]
+    pub fn saying(mut self, line: String) -> Self {
+        self.tell(line);
         self
     }
 
@@ -680,6 +756,62 @@ impl ConversationWindow {
         if let Some(input) = self.pointer.left() {
             self.to_the_page(input);
         }
+        self.off_the_panel();
+    }
+
+    /// The cursor is no longer over the panel: no row offers *Delete*.
+    fn off_the_panel(&mut self) {
+        self.over_the_panel = false;
+        if self.conversation.hover(None) {
+            self.redraw = true;
+            self.ask_drawn();
+        }
+    }
+
+    /// Which chat's row the pointer is over, as the panel's renderer found
+    /// it (queue item 789): drawn offering *Delete* while the cursor is
+    /// still over the panel.
+    fn hovered(&mut self, over: Option<crate::conversation::ChatId>) {
+        let over = over.filter(|_| self.over_the_panel);
+        if self.conversation.hover(over) {
+            self.redraw = true;
+            self.ask_drawn();
+        }
+    }
+
+    /// When the window is next to be woken with [`Self::tick`], if it is:
+    /// as a chat deleted can no longer be brought back (queue item 789).
+    pub fn wake_at(&self) -> Option<Instant> {
+        self.conversation.undo_until()
+    }
+
+    /// The time is `now`: a chat deleted whose *Undo* has passed is gone,
+    /// the panel drawn again without it, and its file removed.
+    pub fn tick(&mut self, now: Instant) {
+        if self.conversation.expire(now) {
+            self.redraw = true;
+            self.ask_drawn();
+        }
+        self.remove_gone();
+    }
+
+    /// Remove the file of each chat deleted and gone, and say so (queue item
+    /// 789); one that cannot be removed is said, as a chat not kept is.
+    fn remove_gone(&mut self) {
+        let gone = self.conversation.take_gone();
+        for id in gone {
+            self.written.remove(&id.number());
+            let Some(store) = &self.store else {
+                continue;
+            };
+            match store.remove(id.number()) {
+                Ok(()) => self.said.push(format!(
+                    "the chat numbered {} was deleted, and its file removed",
+                    id.number()
+                )),
+                Err(why) => self.tell(format!("a deleted chat's file is not removed: {why}")),
+            }
+        }
     }
 
     /// The main button went down: see [`Self::main_button_pressed_at`].
@@ -745,6 +877,18 @@ impl ConversationWindow {
     /// it leaves it (queue items 718, 740).
     pub fn moved(&mut self, at: (f64, f64)) {
         self.cursor = Some(at);
+        // Over the panel, the row under the pointer offers Delete (queue
+        // item 789); off it, none does.
+        match self.aimed(at) {
+            Some(card_aim::Aimed::Part(Part::Panel, on)) => {
+                self.over_the_panel = true;
+                if let Some(drawing) = self.drawing.as_mut() {
+                    drawing.hover(on);
+                }
+            }
+            _ if self.over_the_panel => self.off_the_panel(),
+            _ => {}
+        }
         let on = self.on_the_card(at).map(|on| OnThePage {
             at: on,
             over: matches!(self.aimed(at), Some(card_aim::Aimed::Page { .. })),
@@ -867,7 +1011,11 @@ impl ConversationWindow {
             self.search();
         }
         self.shut_if_put_away(had_a_card);
+        if let Some(site) = self.conversation.take_switched() {
+            self.switched(&site);
+        }
         self.keep();
+        self.remove_gone();
     }
 
     /// Close the live card's page if what was just done put the card away —
@@ -1097,7 +1245,9 @@ impl ConversationWindow {
                 self.front.asked |= std::mem::take(&mut self.front.owed) && !self.front.focused;
                 false
             }
-            Went::Unstreamed(_) | Went::Blocked { .. } => false,
+            // Counted on the card's shield (queue item 807).
+            Went::Blocked { .. } => self.conversation.blocked(),
+            Went::Unstreamed(_) => false,
         };
         if changed {
             self.ask_drawn();
@@ -1135,6 +1285,7 @@ impl ConversationWindow {
             Heard::Drawn(Drawn::Said(Part::Panel, said)) => self.panel_said = Some(said),
             Heard::Drawn(Drawn::Said(Part::Start, said)) => self.start_said = Some(said),
             Heard::Drawn(Drawn::Pressed(part, pressed)) => self.pressed(part, pressed),
+            Heard::Drawn(Drawn::Hovered(over)) => self.hovered(over),
             Heard::Drawn(Drawn::Reached {
                 turns,
                 down,
@@ -1250,6 +1401,10 @@ impl ConversationWindow {
     pub fn finish(&mut self) {
         // The last of what is kept written, the live card's address with it.
         self.keep();
+        // A chat deleted and still held for its Undo is gone as the window
+        // closes, and its file removed (queue item 789).
+        self.conversation.let_go();
+        self.remove_gone();
         // The agent at work stops before its card's Chrome closes.
         if let Some(run) = self.run.take() {
             let _ = run.finish();
@@ -1320,6 +1475,65 @@ mod tests {
             height: 1,
             pixels: vec![0; 4],
         }
+    }
+
+    #[test]
+    fn a_cards_shield_counts_refusals_and_a_press_keeps_its_sites_switch() {
+        let directory =
+            std::env::temp_dir().join(format!("alo-window-shield-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let file = crate::blocking_off::file_in(&directory);
+        let off = crate::blocking_off::Off::default();
+        let mut window = window().with_blocking_off(off.clone(), Some(file.clone()));
+        let url = alo_url::parse("https://www.theguardian.com/international").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url.clone())));
+        let refused = || Went::Blocked {
+            url: "https://securepubads.g.doubleclick.net/gpt.js".to_owned(),
+            by: crate::blocking::Blocked {
+                list: Some("EasyList"),
+                line: Some(1),
+                rule: Some("||doubleclick.net^".to_owned()),
+            },
+        };
+        window.heard(Heard::Chrome(refused()));
+        window.heard(Heard::Chrome(refused()));
+        let shield = |window: &ConversationWindow| {
+            window
+                .conversation()
+                .card()
+                .and_then(|card| card.shield)
+                .map(|shield| (shield.blocked, shield.on))
+        };
+        assert_eq!(shield(&window), Some((2, true)));
+        let _ = window.take_said();
+        // Pressed: off for the site, kept in the file, said.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Shield("theguardian.com".to_owned()),
+        )));
+        assert_eq!(shield(&window), Some((0, false)));
+        assert!(off.is_off(&url.serialised), "the Chromiums' switches too");
+        assert_eq!(
+            crate::blocking_off::read(&file),
+            Ok(vec!["theguardian.com".to_owned()])
+        );
+        assert!(
+            window.take_said().iter().any(|line| line
+                == "blocking trackers and adverts is off for theguardian.com (ADR 0094)"),
+        );
+        // Refused while off: nothing is (and nothing is counted).
+        window.heard(Heard::Chrome(refused()));
+        assert_eq!(shield(&window), Some((0, false)));
+        // On again.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Shield("theguardian.com".to_owned()),
+        )));
+        assert_eq!(crate::blocking_off::read(&file), Ok(Vec::new()));
+        assert!(!off.is_off(&url.serialised));
+        window.finish();
+        let _ = std::fs::remove_dir_all(&directory);
     }
 
     #[test]

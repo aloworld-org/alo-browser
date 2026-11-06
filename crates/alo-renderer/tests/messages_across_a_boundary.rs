@@ -223,6 +223,20 @@ fn the_panel_searched_and_hidden_survives_the_crossing() {
             hidden: true,
             ..Panel::default()
         })),
+        // Queue item 789: a row hovered offering Delete, and a chat just
+        // deleted, named in words a page could have written; and the
+        // pointer over the panel.
+        ToRenderer::Panel(Box::new(Panel {
+            chats: vec![
+                Chat::new("Invoice", "").current(),
+                Chat::new("Lisbon", "").hovered().earlier(),
+            ],
+            viewport: Size::new(240.0, 820.0),
+            deleted: Some("</nav><b>gone\0</b>".to_owned()),
+            ..Panel::default()
+        })),
+        ToRenderer::ConversationHover(alo_paint::Point::new(120.0, 273.5)),
+        ToRenderer::ConversationHover(alo_paint::Point::new(-0.25, 1e9)),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -979,6 +993,11 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Allow)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::NotNow)),
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Choice { at: 2 })),
+        // Queue item 789: the hovered row's Delete, and the foot's Undo.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::DeleteChat)),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Undo)),
+        // Queue item 807: a card's shield.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Shield)),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -2383,5 +2402,42 @@ fn a_sites_mark_crosses_and_one_that_is_no_mark_is_refused() {
             .map(|why| why.why)
             .unwrap_or_default();
         assert!(why.contains(refusal), "{refusal}: {why:?}");
+    }
+}
+
+/// Queue item 807: a card's shield crosses on and off, at no count and the
+/// most one holds.
+#[test]
+fn a_cards_shield_crosses_as_it_was_sent() {
+    use alo_renderer::card::{Card, Shield};
+    for shield in [
+        None,
+        Some(Shield {
+            blocked: 0,
+            on: true,
+        }),
+        Some(Shield {
+            blocked: u32::MAX,
+            on: true,
+        }),
+        Some(Shield {
+            blocked: 3,
+            on: false,
+        }),
+    ] {
+        let mut card = Card::new(
+            "a page",
+            alo_url::parse("https://www.theguardian.com/international")
+                .unwrap_or_else(|_| panic!("parses")),
+        );
+        card.shield = shield;
+        let original = ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Page(card)],
+            ..Start::default()
+        }));
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original);
     }
 }

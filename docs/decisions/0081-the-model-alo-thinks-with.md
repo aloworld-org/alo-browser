@@ -138,7 +138,8 @@ by the browser process alone.
 - The owner's confirmation of `gpt-6.1-terra`.
 - The agent (704): which model drives it is decided with it, under this
   provider.
-- The evaluation of § 4 (817) and zero data retention (818).
+- Zero data retention (818). The evaluation of § 4 (817) is below, in
+  the note of 6 November 2026.
 
 ## The question in one line
 
@@ -536,3 +537,83 @@ shows a date of its own.
 [skill]: Anthropic's `claude-api` reference as carried by Claude Code
 (cached 2026-10-06): forced `tool_choice` refused on the 5.5 models; 512-token
 minimum cacheable prefix on them.
+
+## Note, 2026-11-06 — the three models measured on alo's own material (queue item 817)
+
+Approved by the owner on 6 November 2026, with a budget of US$3 of OpenAI
+and 30 Brave searches. **Spent: US$0.497** (386 requests: $0.154 for the 78
+answers, $0.343 for the 308 judgements) **and 26 Brave searches**. The
+script is not part of the product and is not in the repository (the
+session's scratchpad, `eval817/`); it was built against this repository's
+own code at `5f4fb6b`, so every request is alo's: Brave asked as
+`brave_search::Provider` asks, its answers read by `search_protocol::read`,
+the first eight sites taken as `conversation_answer` takes them, each body
+made by `answer_protocol::request_body` (Terra's checked byte for byte
+against `openai_answer::Provider::request`), each answer read by
+`answer_protocol::read` — alo's own citation check. Only the transport
+differed (curl over HTTP/1.1, the key on its standard input, `gzip,
+deflate`). `GET /v1/models` (free) listed 96 models, the three among them.
+
+**The questions** — 26, their Brave results fetched once and frozen: 6
+factual, 4 contested (sources disagree: coffee and the heart, fasting,
+eggs and cholesterol, who invented the light bulb), 4 recent (2026), 4
+local to Kampala (the Northern Bypass, a national ID, the Entebbe
+Expressway's tolls, Owino market), 2 in Luganda and 2 in Japanese, and 4
+the snippets cannot answer (a rate on a future day, a manager's phone
+number, a day's visitors, a hotel's Wi-Fi password). Read before scoring:
+15 the snippets answer, 3 partly (Nakasero market in Luganda, the Skytree's
+hours, NIRA's steps), 4 disagree, 4 do not answer.
+
+**The rules.** *Citation validity*: every sentence and point — 308 — judged
+by `gpt-6.1-sol` given only the claim and the title and description of the
+sites it cites, answering *supported*, *partly* or *unsupported* in strict
+JSON, never from its own knowledge (the answer's one-line summary cites
+nothing in alo's schema and is not judged). *Honest refusal*: on the 8
+questions whose snippets disagree or do not answer, `answered: false` or an
+answer that states the disagreement or the gap, read by hand. *False
+refusal*: `answered: false` on one of the 15 the snippets answer.
+*Length*: characters of the line, sentences and points as drawn.
+*Latency*: send to last byte, sequential, the models interleaved. *Cost*:
+`usage` at § 0's prices.
+
+| Model | Claims supported / partly / unsupported | Answers every claim supported | Honest refusal | False refusals | Mean length | Latency mean / p90 | Cost an answer |
+|---|---|---|---|---|---|---|---|
+| `gpt-6.1-sol` | 100% / 0% / 0% (107) | 21 of 21 | 8 of 8 | 0 of 15 | 415 | 3.46 s / 5.84 s | $0.00386 |
+| **`gpt-6.1-terra`** | **98.0% / 2.0% / 0%** (98) | **18 of 20** | **8 of 8** | **0 of 15** | **372** | **2.84 s / 3.62 s** | **$0.00185** |
+| `gpt-6-luna` | 92.2% / 6.8% / 1.0% (103) | 17 of 22 | 8 of 8 | 0 of 15 | 443 | 2.45 s / 3.18 s (one 11.9 s) | $0.00019 |
+
+(Means of ~1,180 tokens in; 133–151 out; reasoning a few tokens at
+`effort: low`; nothing served from the cache. No request failed, and alo's
+own `read` refused no answer.)
+
+**Checked by hand.** 33 judgements read against their snippets in full —
+every one not *supported*, and a random dozen of the rest: 30 agreed with.
+The three that did not were the judge being stricter than the reader (two
+coffee claims a reader calls supported; Luna's invented date the judge
+called *partly*, a reader *unsupported*). Eight of Terra's, read again by
+the builder: six agreed with, and Terra's two *partly* — a coffee claim
+and the toll's currency, which the snippet does not name — read as
+supported. The judge is also one of the models judged; on a random sample
+of Sol's own claims no sign of favouring itself was found, and the risk is
+real.
+
+**What the numbers say.** All three said *I couldn't find a reliable
+answer*, or set out the disagreement, every time they should (8 of 8), and
+never refused a question its snippets answered (0 of 15): the honest
+refusal ADR 0095 asks for holds on all three. They differ in **citation
+quality**: Luna's claims were *partly* or *unsupported* four times as often
+as Terra's, and Luna wrote two things no snippet says — Nakasero market
+"on Nakasero hill", in its one-line summary, which nothing checks; and
+the Skytree's extended hours as its usual ones, with an invented date —
+and twice put citation markers (*[2,4]*) into its plain line, which alo
+would draw as text. Sol scored perfectly but was also the judge, costs
+twice Terra's and was a second slower at the 90th percentile. On 26
+questions, Terra against Sol is **not a clear difference**; Terra against
+Luna **is**, for the claims, at a tenth of the price.
+
+**Recommendation: keep `gpt-6.1-terra`.** `MODEL` is **not changed** by
+this note; the owner confirms. Two things found for later items, not
+built here: points that nearly repeat a sentence (15 of Terra's 57) is
+the prompt's to fix; and the one-line summary, which carries no citation,
+is where an unsupported claim got through unchecked (Luna's), so whether
+the line should cite is a design question for ADR 0095.

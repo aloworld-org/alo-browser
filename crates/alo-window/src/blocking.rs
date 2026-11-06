@@ -22,9 +22,17 @@
 //! record with the list, line and rule that refused it. The tab's own
 //! document is never judged here: a person, or an agent, chose to go there.
 //!
-//! Network rules only. Cosmetic rules (hiding parts of a page) are not read:
-//! carrying them out needs something of ours inside somebody else's page,
-//! which ADR 0094 leaves to an item of its own.
+//! # Hiding what is left of an advert
+//!
+//! Queue item 806, ADR 0094's amendment of 6 November 2026: the lists'
+//! element-hiding rules are read too, and [`Blocker::hiding`] answers, for
+//! a document's address, the one style sheet that hides what they name in
+//! it — every generic rule (`##.ad-banner`), less those the lists except
+//! anywhere or on that site, and the site's own rules; only the site's own
+//! where the lists say `$generichide` for it. Each selector is a rule of its
+//! own, so a selector Chromium cannot read loses that rule alone. What puts
+//! the sheet into the document is [`crate::chrome_cosmetic`]'s; no script.
+//! Procedural rules and scriptlets are never read into a sheet.
 
 use adblock::Engine;
 use adblock::lists::{FilterSet, ParseOptions, RuleTypes};
@@ -114,6 +122,11 @@ pub struct Blocker {
     /// The lists' names, in the order their rules were read: the matcher
     /// names a rule's list by this place.
     names: Vec<&'static str>,
+    /// Every generic hiding rule's selector, in the lists' order, less
+    /// those a generic exception (`#@#`) excuses everywhere.
+    generic: Vec<&'static str>,
+    /// The same, to ask whether a selector is one.
+    generic_set: std::collections::HashSet<&'static str>,
 }
 
 impl Blocker {
@@ -124,7 +137,8 @@ impl Blocker {
         CARRIED_ONCE.get_or_init(|| Blocker::of(&CARRIED))
     }
 
-    /// `lists`' network rules, read: each keeps its text and line.
+    /// `lists`' rules, read: each network rule keeps its text and line,
+    /// and the hiding rules are read for [`Blocker::hiding`].
     pub fn of(lists: &[List]) -> Self {
         // Each rule's text kept, so a refusal names it (ADR 0094 § 4).
         let mut set = FilterSet::new(true);
@@ -132,15 +146,46 @@ impl Blocker {
             set.add_filter_list(
                 list.text.to_owned(),
                 ParseOptions {
-                    rule_types: RuleTypes::NetworkOnly,
+                    rule_types: RuleTypes::All,
                     ..ParseOptions::default()
                 },
             );
         }
+        let generic = generic_hiding(lists);
         Self {
             engine: Engine::new_with_filter_set(set),
             names: lists.iter().map(|list| list.name).collect(),
+            generic_set: generic.iter().copied().collect(),
+            generic,
         }
+    }
+
+    /// The style sheet hiding what the lists' element-hiding rules name in
+    /// a document at `address` (queue item 806), or [`None`] when they
+    /// name nothing there: each selector a rule `{display:none!important}`
+    /// of its own, generic ones first in the lists' order, then the site's
+    /// own, sorted.
+    pub fn hiding(&self, address: &str) -> Option<String> {
+        let resources = self.engine.url_cosmetic_resources(address);
+        let mut own: Vec<&str> = resources
+            .hide_selectors
+            .iter()
+            .map(String::as_str)
+            .filter(|selector| !self.generic_set.contains(selector))
+            .collect();
+        own.sort_unstable();
+        let generic = self
+            .generic
+            .iter()
+            .copied()
+            .filter(|_| !resources.generichide)
+            .filter(|selector| !resources.exceptions.contains(*selector));
+        let sheet: String = generic
+            .chain(own)
+            .filter(|selector| is_a_selector(selector))
+            .flat_map(|selector| [selector, "{display:none!important}\n"])
+            .collect();
+        (!sheet.is_empty()).then_some(sheet)
     }
 
     /// Whether the lists name `asked`, and by which rule: [`None`] for a
@@ -165,6 +210,27 @@ impl Blocker {
             rule: matched.raw_line,
         })
     }
+}
+
+/// Every generic hiding rule of `lists` — `##` and a selector, naming no
+/// site — less every one a generic exception (`#@#` and the same selector)
+/// excuses, in the lists' order.
+fn generic_hiding(lists: &[List]) -> Vec<&'static str> {
+    let lines = || lists.iter().flat_map(|list| list.text.lines());
+    let excused: std::collections::HashSet<&str> = lines()
+        .filter_map(|line| line.strip_prefix("#@#"))
+        .collect();
+    let mut seen = std::collections::HashSet::new();
+    lines()
+        .filter_map(|line| line.strip_prefix("##"))
+        .filter(|selector| !excused.contains(selector) && seen.insert(*selector))
+        .collect()
+}
+
+/// Whether `selector` can stand before a declaration block as a rule of
+/// its own: never one that could close the block or open another.
+fn is_a_selector(selector: &str) -> bool {
+    !selector.is_empty() && !selector.contains(['{', '}']) && !selector.contains("/*")
 }
 
 /// What the matcher calls a request of Chrome's `kind` (`resourceType`),
@@ -356,6 +422,65 @@ mod tests {
             )),
             None
         );
+    }
+
+    fn hiding() -> Blocker {
+        Blocker::of(&[List {
+            name: "Hiding",
+            text: "! hiding rules\n##.ad-banner\n###top-ad\n##.fine\n#@#.fine\n\
+                   news.example##.local-ad\nnews.example#@#.ad-banner\n\
+                   ##div{color:red}\n##.ad-banner\n@@||quiet.example^$generichide\n\
+                   quiet.example##.its-own\n",
+        }])
+    }
+
+    #[test]
+    fn a_sheet_hides_every_generic_rule_less_the_excused_and_the_sites_own() {
+        let blocker = hiding();
+        assert_eq!(
+            blocker.hiding("https://elsewhere.example/page").as_deref(),
+            Some(".ad-banner{display:none!important}\n#top-ad{display:none!important}\n"),
+            "an exception everywhere is no rule, a selector closing the block is \
+             never one, and a rule twice is once"
+        );
+        assert_eq!(
+            blocker.hiding("https://www.news.example/today").as_deref(),
+            Some("#top-ad{display:none!important}\n.local-ad{display:none!important}\n"),
+            "excused on the site, and the site's own after the generic"
+        );
+        assert_eq!(
+            blocker.hiding("https://quiet.example/").as_deref(),
+            Some(".its-own{display:none!important}\n"),
+            "`$generichide`: the site's own alone"
+        );
+        assert_eq!(small().hiding("https://elsewhere.example/"), None);
+        assert_eq!(
+            blocker.hiding("not an address"),
+            blocker.hiding("https://elsewhere.example/"),
+            "no site's own: the generic alone"
+        );
+    }
+
+    #[test]
+    fn the_carried_lists_hide_an_ad_slot_and_name_no_page_s_own_words() {
+        let sheet = Blocker::carried()
+            .hiding("https://www.theguardian.com/international")
+            .unwrap_or_default();
+        let rules: Vec<&str> = sheet.lines().collect();
+        assert!(rules.len() > 13_000, "{}", rules.len());
+        assert!(
+            rules
+                .iter()
+                .all(|rule| rule.ends_with("{display:none!important}")
+                    && rule.matches('{').count() == 1),
+            "every rule is one selector and the one declaration"
+        );
+        // Measured 6 November 2026 on the Guardian's, the BBC's and CNN's
+        // front pages: what the generic rules hid were these slots.
+        for named in [".ad-slot-container", ".dotcom-ad", ".ad-slot"] {
+            let rule = format!("{named}{{display:none!important}}");
+            assert!(rules.contains(&rule.as_str()), "{named}");
+        }
     }
 
     #[test]

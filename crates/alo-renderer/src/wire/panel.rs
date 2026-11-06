@@ -18,7 +18,8 @@ use alo_layout::geometry::Size;
 impl Writer {
     /// The panel: its size and its screen's scale, what was searched for
     /// and whether the search has the keyboard, whether it is hidden as a
-    /// rail, then each chat in order.
+    /// rail, the name of a chat just deleted if *Undo* is offered, then
+    /// each chat in order, and whether its row is hovered.
     pub(super) fn panel(&mut self, panel: &Panel) {
         self.float(panel.viewport.width);
         self.float(panel.viewport.height);
@@ -26,6 +27,10 @@ impl Writer {
         self.text(&panel.searched);
         self.bool(panel.searching);
         self.bool(panel.hidden);
+        self.bool(panel.deleted.is_some());
+        if let Some(deleted) = &panel.deleted {
+            self.text(deleted);
+        }
         self.number(panel.chats.len() as u64);
         for chat in &panel.chats {
             self.text(&chat.name);
@@ -37,6 +42,7 @@ impl Writer {
                 Doing::Working => 1,
                 Doing::Done => 2,
             });
+            self.bool(chat.hovered);
         }
     }
 }
@@ -55,6 +61,11 @@ impl Reader<'_> {
         let searched = self.text()?;
         let searching = self.bool()?;
         let hidden = self.bool()?;
+        let deleted = if self.bool()? {
+            Some(self.text()?)
+        } else {
+            None
+        };
         let how_many = self.count()?;
         let mut chats = Vec::new();
         for _ in 0..how_many {
@@ -68,12 +79,14 @@ impl Reader<'_> {
                 2 => Doing::Done,
                 other => return Err(unreadable(format!("what a chat is doing tagged {other}"))),
             };
+            let hovered = self.bool()?;
             chats.push(Chat {
                 name,
                 site,
                 open,
                 current,
                 doing,
+                hovered,
             });
         }
         Ok(Panel {
@@ -83,6 +96,7 @@ impl Reader<'_> {
             searched,
             searching,
             hidden,
+            deleted,
         })
     }
 }

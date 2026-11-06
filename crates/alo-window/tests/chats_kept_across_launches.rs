@@ -35,6 +35,7 @@ use alo_renderer::turn::Turn;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::brave_search::Provider;
 use alo_window::chat_record;
+use alo_window::chat_seal::Key as ChatKey;
 use alo_window::chat_store::{ChatStore, file_of};
 use alo_window::conversation_chrome::ChromeOpener;
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
@@ -266,7 +267,7 @@ fn the_window(port: u16, chats: &Path) -> Result<Driven, String> {
         Box::new(move |s| told.send(Heard::Searched(s)).is_ok()),
     )
     .map_err(|why| format!("no search thread: {why}"))?;
-    let (store, opened) = ChatStore::open(chats)?;
+    let (store, opened) = ChatStore::open(chats, test_key())?;
     let mut window = ConversationWindow::new(Some(Scale::ONE), drawing, chrome)
         .with_search(searcher)
         .with_chats(store, opened);
@@ -318,8 +319,9 @@ fn search(driven: &mut Driven, words: &str, turns: usize) -> Result<(), String> 
 }
 
 /// A directory of this test's own, never a person's.
-fn scratch() -> PathBuf {
-    let directory = std::env::temp_dir().join(format!("alo-chats-kept-{}", std::process::id()));
+fn scratch(name: &str) -> PathBuf {
+    let directory =
+        std::env::temp_dir().join(format!("alo-chats-kept-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&directory);
     directory
 }
@@ -350,9 +352,26 @@ fn first_launch(port: u16, chats: &Path) -> Result<(), String> {
         said.iter().all(|line| !line.contains("not kept")),
         "{said:?}"
     );
-    // Each chat in a file of its own: its words and addresses, no picture.
-    let older = std::fs::read_to_string(file_of(chats, 0)).map_err(|why| why.to_string())?;
-    let newer = std::fs::read_to_string(file_of(chats, 1)).map_err(|why| why.to_string())?;
+    // Each chat in a file of its own, sealed (ADR 0098): no word of it on
+    // the disk in the clear.
+    for number in [0, 1] {
+        let bytes = std::fs::read(file_of(chats, number)).map_err(|why| why.to_string())?;
+        for word in [
+            &b"lifetimes"[..],
+            b"borrow",
+            b"doc.example.org",
+            b"alo chat",
+        ] {
+            assert!(
+                !bytes.windows(word.len()).any(|window| window == word),
+                "chat {number} holds {:?} in the clear",
+                String::from_utf8_lossy(word)
+            );
+        }
+    }
+    // Its words and addresses, opened, no picture.
+    let older = kept_words(chats, 0)?;
+    let newer = kept_words(chats, 1)?;
     for written in [&older, &newer] {
         assert!(
             !written.contains("picture") && !written.contains("\"mark\""),
@@ -396,7 +415,7 @@ fn first_launch(port: u16, chats: &Path) -> Result<(), String> {
 #[test]
 fn chats_are_kept_across_launches_named_by_their_first_words() -> Result<(), String> {
     let port = provide()?;
-    let chats = scratch();
+    let chats = scratch("kept");
     first_launch(port, &chats)?;
 
     // 2. A file that does not read, beside them: said, and left as it is.
@@ -409,7 +428,7 @@ fn chats_are_kept_across_launches_named_by_their_first_words() -> Result<(), Str
             .iter()
             .any(|line| line.contains(&damaged.display().to_string())
                 && line.contains("could not be read")
-                && line.contains("not JSON")),
+                && line.contains("not a sealed chat")),
         "{:?}",
         driven.said
     );
@@ -467,6 +486,145 @@ fn chats_are_kept_across_launches_named_by_their_first_words() -> Result<(), Str
         b"not a chat",
         "untouched"
     );
+    let _ = std::fs::remove_dir_all(&chats);
+    Ok(())
+}
+
+/// The key this test's chats are sealed under: its own, never the
+/// keychain's (ADR 0098).
+fn test_key() -> ChatKey {
+    ChatKey::of([0x2a; 32])
+}
+
+/// The words of the chat numbered `number` kept in `chats`, opened under
+/// the test's key.
+fn kept_words(chats: &std::path::Path, number: u64) -> Result<String, String> {
+    ChatStore::open(chats, test_key())?.0.words(number)
+}
+
+/// The first chat under *Earlier*, a row above [`SECOND_EARLIER`].
+const FIRST_EARLIER: (f64, f64) = (120.0, 273.0);
+
+/// That row's *Delete*, at the row's end (queue item 789): 24 tall in the
+/// middle of the row, its right edge at 220.
+const ITS_DELETE: (f64, f64) = (200.0, 273.0);
+
+/// The panel's *Undo*: in the dark pill 8 above *Settings*, whose row ends
+/// 12 above the window's foot — the pill 726 to 762 — at its right end.
+const UNDO: (f64, f64) = (205.0, 744.0);
+
+/// The colour of a pixel of the panel as it was last painted.
+fn panel_pixel(driven: &Driven, at: (u32, u32)) -> Option<[u8; 4]> {
+    driven
+        .window
+        .scene()
+        .and_then(|scene| scene.panel.cloned())
+        .and_then(|frame| pixel(&frame, at.0, at.1))
+}
+
+/// Hover the first earlier row until it is painted offering *Delete* —
+/// the button's ground, the palette's `--line-soft` — then press *Delete*.
+fn delete_the_first_earlier(driven: &mut Driven) -> Result<(), String> {
+    let left = driven.rows().len() - 1;
+    // A panel painted before, still offering Delete, is not this one.
+    driven.until("the panel painted with no Delete", |driven| {
+        panel_pixel(driven, (215, 263)) != Some([0xe1, 0xda, 0xce, 0xff])
+    })?;
+    driven.window.moved(FIRST_EARLIER);
+    driven.until("Delete painted on the hovered row", |driven| {
+        panel_pixel(driven, (215, 263)) == Some([0xe1, 0xda, 0xce, 0xff])
+    })?;
+    driven.click(ITS_DELETE);
+    driven.until("the chat deleted", |driven| driven.rows().len() == left)
+}
+
+#[test]
+fn a_chat_deleted_goes_from_the_panel_at_once_and_its_file_when_its_undo_has_passed()
+-> Result<(), String> {
+    let port = provide()?;
+    let chats = scratch("deleted");
+    first_launch(port, &chats)?;
+    let mut driven = the_window(port, &chats)?;
+    let rows = |names: &[&str]| -> Vec<(String, bool, bool)> {
+        names
+            .iter()
+            .enumerate()
+            .map(|(at, name)| ((*name).to_owned(), at == 0, at == 0))
+            .collect()
+    };
+    assert_eq!(
+        driven.rows(),
+        rows(&[NEW_CHAT, "lifetimes", "rust borrow checker"])
+    );
+
+    // 1. Deleted: gone from the panel at once, its file kept for its Undo,
+    //    which the panel's foot offers.
+    delete_the_first_earlier(&mut driven)?;
+    assert_eq!(driven.rows(), rows(&[NEW_CHAT, "rust borrow checker"]));
+    assert!(
+        file_of(&chats, 1).exists(),
+        "kept until its Undo has passed"
+    );
+    let deleted = driven
+        .window
+        .conversation()
+        .panel(alo_layout::Size::new(240.0, 820.0), Scale::ONE)
+        .deleted;
+    assert_eq!(deleted.as_deref(), Some("lifetimes"));
+
+    // 2. Undo: back where it stood, its turns as they were.
+    driven.until("Undo painted", |driven| {
+        panel_pixel(driven, (30, 730)) == Some([0x2b, 0x27, 0x22, 0xff])
+    })?;
+    driven.click(UNDO);
+    driven.until("the chat brought back", |driven| driven.rows().len() == 3)?;
+    assert_eq!(
+        driven.rows(),
+        rows(&[NEW_CHAT, "lifetimes", "rust borrow checker"])
+    );
+    assert!(driven.window.wake_at().is_none(), "nothing is held now");
+
+    // 3. Deleted again, and its five seconds passed: its file removed, and
+    //    no other.
+    delete_the_first_earlier(&mut driven)?;
+    let until = driven.window.wake_at().ok_or("woken as the Undo passes")?;
+    let before = until
+        .checked_sub(Duration::from_millis(1))
+        .ok_or("a moment before the Undo passes")?;
+    driven.window.tick(before);
+    assert!(file_of(&chats, 1).exists(), "a moment before, still kept");
+    driven.window.tick(until);
+    driven.said.extend(driven.window.take_said());
+    assert!(!file_of(&chats, 1).exists(), "removed once its Undo passed");
+    assert!(file_of(&chats, 0).exists(), "the other chat's file is kept");
+    assert_eq!(
+        driven
+            .window
+            .conversation()
+            .panel(alo_layout::Size::new(240.0, 820.0), Scale::ONE)
+            .deleted,
+        None
+    );
+    assert!(
+        driven
+            .said
+            .iter()
+            .any(|line| line.contains("numbered 1 was deleted, and its file removed")),
+        "{:?}",
+        driven.said
+    );
+
+    // 4. Deleted, and alo closed before its Undo passed: removed as it
+    //    closes.
+    delete_the_first_earlier(&mut driven)?;
+    assert!(file_of(&chats, 0).exists());
+    let said = driven.close()?;
+    assert!(!file_of(&chats, 0).exists(), "{said:?}");
+
+    // 5. Launched again: neither chat is there.
+    let driven = the_window(port, &chats)?;
+    assert_eq!(driven.rows(), rows(&[NEW_CHAT]));
+    let _ = driven.close()?;
     let _ = std::fs::remove_dir_all(&chats);
     Ok(())
 }

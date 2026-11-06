@@ -473,6 +473,38 @@ a {
   color: var(--quiet);
 }
 
+/* The card's shield (queue item 807): a switch, after the address and
+   before Expand — its shield drawn in the done colour while the lists are
+   asked, with how many requests they refused, and greyed, saying Off,
+   once a person switched them off for the site. */
+.shield {
+  display: flex;
+  align-items: center;
+  column-gap: 5px;
+  flex-shrink: 0;
+  height: 28px;
+  margin: 0 6px;
+  padding: 0 9px 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: transparent;
+  color: #2f6b5e;
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.shield.off {
+  color: #8a8378;
+}
+
+.shield .icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
 .ibtn {
   flex-shrink: 0;
   width: 36px;

@@ -15,6 +15,7 @@ raw-window-handle.workspace = true
 dejavu.workspace = true
 serde_json.workspace = true
 adblock.workspace = true
+chacha20poly1305.workspace = true
 alo-agent = { path = "../alo-agent" }
 alo-box = { path = "../alo-box" }
 alo-css = { path = "../alo-css" }

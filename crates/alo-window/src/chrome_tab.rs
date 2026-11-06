@@ -99,6 +99,7 @@ use crate::agent_sites::AgentSites;
 use crate::asking::Refused;
 use crate::blocking::{Asked, Blocked, Blocker};
 use crate::chrome::{Chrome, Failed};
+use crate::chrome_cosmetic::Cosmetic;
 use crate::chrome_gate::{self, Refusal};
 use crate::chrome_hold::{Holding, Kind, Unheld};
 use crate::chrome_loading::Loading;
@@ -138,6 +139,9 @@ pub struct Tab<'c> {
     blocked: Vec<(String, Blocked)>,
     /// Every request let go, in the order it was paused.
     went: Vec<Went>,
+    /// The lists' hiding sheets being put into its documents (queue item
+    /// 806).
+    cosmetic: Cosmetic,
     /// The frames and workers of the tab, held.
     holding: Holding,
     /// The requests this tab answered and awaits Chrome's word on, and
@@ -438,6 +442,7 @@ impl<'c> Tab<'c> {
             refusals: Vec::new(),
             blocked: Vec::new(),
             went: Vec::new(),
+            cosmetic: Cosmetic::default(),
             holding: Holding::default(),
             answering: HashMap::new(),
             telling: HashMap::new(),
@@ -1078,9 +1083,7 @@ impl<'c> Tab<'c> {
             return Ok(None);
         }
         let held = self.held_by(&message);
-        // What a page's script said, what Chrome logged of it, and a request
-        // a renderer of the tab told of — what a line owed waits for.
-        if self.heard_in(&message) || self.logged_in(&message)? || self.told_in(&message, held)? {
+        if self.taken_in(&message, held)? {
             return Ok(None);
         }
         match message {
@@ -1192,6 +1195,21 @@ impl<'c> Tab<'c> {
             } if held.is_none() => Ok(None),
             other => Ok(Some(other)),
         }
+    }
+
+    /// Whether `message` is taken here and nothing more is done with it:
+    /// what a page's script said, what Chrome logged of it, and a request a
+    /// renderer of the tab told of — what a line owed waits for — or what
+    /// Chromium tells of style sheets while a hiding sheet is made.
+    ///
+    /// # Errors
+    ///
+    /// As [`Tab::logged_in`] and [`Tab::told_in`].
+    fn taken_in(&mut self, message: &Message, held: Option<Kind>) -> Result<bool, Failed> {
+        Ok(self.heard_in(message)
+            || self.logged_in(message)?
+            || self.told_in(message, held)?
+            || of_sheets(message, held))
     }
 
     /// Whether `message` is a stage of a document of the tab's, a navigation
@@ -1327,10 +1345,21 @@ impl<'c> Tab<'c> {
             || self.holding.awaits(id)
             || self.telling.contains_key(&id)
             || self.answering.contains_key(&id)
+            || self.cosmetic.awaits(id)
     }
 
     /// Chrome's answer to `id`, a command [`Tab::awaits`].
     fn answered(&mut self, id: u64, result: Result<Vec<u8>, Declined>) -> Result<(), Failed> {
+        // A hiding sheet made, to be filled (queue item 806); or an answer
+        // nothing needs.
+        if self.cosmetic.awaits(id) {
+            let chrome = &mut *self.chrome;
+            return self
+                .cosmetic
+                .answered(id, &result, &mut |session, command| {
+                    chrome.send(Some(session), command)
+                });
+        }
         // A frame's renderer, answering after every request it told of: a
         // line owed still was never told of. A refusal says the same — the
         // target has gone, and with it whatever would have told.
@@ -1463,7 +1492,42 @@ impl<'c> Tab<'c> {
             self.address = alo_url::parse(&committed.url).ok();
             self.navigations += 1;
         }
-        Ok(())
+        self.hide_in(session, &committed.frame, &committed.url)
+    }
+
+    /// Put the lists' hiding sheet for a document at `url` into the one
+    /// `frame` just committed, through `session` (queue item 806): only
+    /// for a page from the network whose site blocking is on for, and only
+    /// when the lists name anything there, in a document from `http` or
+    /// `https` — never an `about:blank` a page writes into, which would be
+    /// handed the whole sheet for each one.
+    fn hide_in(&mut self, session: &str, frame: &str, url: &str) -> Result<(), Failed> {
+        let fetched = url.starts_with("https://") || url.starts_with("http://");
+        if !fetched || !self.is_from_the_network() || self.blocking_is_off() {
+            return Ok(());
+        }
+        let Some(rules) = Blocker::carried().hiding(url) else {
+            return Ok(());
+        };
+        let chrome = &mut *self.chrome;
+        self.cosmetic
+            .begin(session, frame, rules, &mut |session, command| {
+                chrome.send(Some(session), command)
+            })
+    }
+
+    /// The address of the page the tab shows: where it was opened, until
+    /// its own frame has committed a document.
+    fn page(&self) -> String {
+        self.address
+            .as_ref()
+            .map_or_else(|| self.url.clone(), ToString::to_string)
+    }
+
+    /// Whether a person switched blocking off for the site of the page the
+    /// tab shows (queue item 807, [`crate::blocking_off`]).
+    fn blocking_is_off(&self) -> bool {
+        crate::blocking_off::process().is_off(&self.page())
     }
 
     /// Whether `message` is a request a renderer of the tab told of
@@ -1656,11 +1720,14 @@ impl<'c> Tab<'c> {
     /// Whether the lists alo carries name `paused` (ADR 0094), asked with
     /// the address of the page the tab shows — where it was opened, until
     /// its own frame has committed a document.
+    ///
+    /// A site a person switched blocking off for is never asked of them
+    /// (queue item 807): its requests are let go, and written so.
     fn listed(&self, paused: &chrome_protocol::Paused) -> Option<Blocked> {
-        let page = self
-            .address
-            .as_ref()
-            .map_or_else(|| self.url.clone(), ToString::to_string);
+        if self.blocking_is_off() {
+            return None;
+        }
+        let page = self.page();
         Blocker::carried().judge(&Asked {
             url: &paused.url,
             page: &page,
@@ -1933,6 +2000,13 @@ fn on_the_network(address: &Url) -> Result<(), Unopened> {
 }
 
 /// Whether a message through a session held as `held` is one a frame of the
+/// Whether `message` is what Chromium tells of style sheets through a
+/// session `held` while a hiding sheet is made (queue item 806): nothing
+/// here reads it.
+fn of_sheets(message: &Message, held: Option<Kind>) -> bool {
+    held.is_some() && matches!(message, Message::Event { method, .. } if method.starts_with("CSS."))
+}
+
 /// tab tells of: the tab's own, or a frame of it in a target of its own.
 fn is_a_frames(held: Option<Kind>) -> bool {
     matches!(held, Some(Kind::Page | Kind::Frame))

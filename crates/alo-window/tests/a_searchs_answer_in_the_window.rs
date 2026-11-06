@@ -42,7 +42,8 @@ use alo_renderer::results::{Showing, Tab};
 use alo_renderer::results_answer::{Answer, NO_RELIABLE_ANSWER};
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::brave_search::Provider;
-use alo_window::chat_store::{ChatStore, file_of};
+use alo_window::chat_seal::Key as ChatKey;
+use alo_window::chat_store::ChatStore;
 use alo_window::conversation_answer::Answerer;
 use alo_window::conversation_chrome::ChromeOpener;
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
@@ -339,7 +340,7 @@ fn the_window(
     let mut window =
         ConversationWindow::new(Some(Scale::ONE), drawing, chrome).with_search(searcher);
     if let Some(chats) = chats {
-        let (store, opened) = ChatStore::open(chats)?;
+        let (store, opened) = ChatStore::open(chats, test_key())?;
         window = window.with_chats(store, opened);
     }
     window.measured_as(Measured {
@@ -623,7 +624,7 @@ fn a_searchs_answer_is_kept_in_its_chat_and_read_back_without_asking_again() -> 
     if let Some(why) = driven.window.unfinished() {
         return Err(why.to_owned());
     }
-    let written = std::fs::read_to_string(file_of(&chats, 0)).map_err(|why| why.to_string())?;
+    let written = kept_words(&chats, 0)?;
     for words in [
         "\"line\":\"About a day.\"",
         "{\"sources\":[1],\"text\":\"Fitting takes half a day to a day.\"}",
@@ -661,4 +662,16 @@ fn a_searchs_answer_is_kept_in_its_chat_and_read_back_without_asking_again() -> 
         Some(why) => Err(why.to_owned()),
         None => Ok(()),
     }
+}
+
+/// The key this test's chats are sealed under: its own, never the
+/// keychain's (ADR 0098).
+fn test_key() -> ChatKey {
+    ChatKey::of([0x2a; 32])
+}
+
+/// The words of the chat numbered `number` kept in `chats`, opened under
+/// the test's key.
+fn kept_words(chats: &std::path::Path, number: u64) -> Result<String, String> {
+    ChatStore::open(chats, test_key())?.0.words(number)
 }

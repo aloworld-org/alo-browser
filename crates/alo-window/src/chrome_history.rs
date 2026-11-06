@@ -53,6 +53,9 @@ pub enum Way {
     Back,
     /// The card's *Forward*.
     Forward,
+    /// The same page again, loaded anew: what switching blocking on or off
+    /// for its site does (queue item 807), as Brave's Shields do.
+    Again,
 }
 
 /// Where the card can go in `history`, the card's own entries being those
@@ -73,6 +76,7 @@ pub fn entry(history: &History, before: Option<i64>, way: Way) -> Option<i64> {
     let to = match way {
         Way::Back => history.current.checked_sub(1)?,
         Way::Forward => history.current.checked_add(1)?,
+        Way::Again => history.current,
     };
     if to < first {
         return None;
@@ -114,13 +118,18 @@ impl Told {
 }
 
 /// Go `way` through `tab`'s history, as Chrome's own buttons do, if the
-/// card has somewhere to go that way: whether it was asked.
+/// card has somewhere to go that way — or load its page again: whether it
+/// was asked.
 ///
 /// # Errors
 ///
 /// [`Failed`], when Chrome declines, does not answer or answers what cannot
 /// be read.
 pub fn go(tab: &mut Tab<'_>, way: Way) -> Result<bool, Failed> {
+    if way == Way::Again {
+        tab.ask(&Command::LoadAgain)?;
+        return Ok(true);
+    }
     let Some(entry) = entry(&read(tab)?, tab.before(), way) else {
         return Ok(false);
     };

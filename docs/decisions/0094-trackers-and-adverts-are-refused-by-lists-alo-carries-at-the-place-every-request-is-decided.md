@@ -1,6 +1,7 @@
 # ADR 0094 — Trackers and adverts are refused by lists alo carries, at the place every request is decided
 
-**Status:** accepted
+**Status:** accepted; amended 6 November 2026 for queue items 806 and 807
+(§ 5 and § 6 superseded by the amendment)
 **Date:** 2026-11-01
 **Context:** queue item 736, asked for by the owner on 30 October 2026 after
 weighing Brave: alo does not fork Brave, but takes Brave's ad and tracker
@@ -206,3 +207,121 @@ a page may show the empty box its advert would have filled. Queue item 806.
 - **The lists' GPL** — CC BY-SA asks only attribution and share-alike of
   the lists themselves, both met by carrying them unmodified with their
   notice.
+
+## Amendment, 2026-11-06 — the boxes adverts leave hidden, and a site's switch (queue items 806, 807)
+
+Approved by the owner on 6 November 2026 as proposed: a small shield on
+each card showing how many requests were blocked on its page, with a
+switch to turn blocking off for that site, remembered per site across
+launches and kept on the machine only; and the empty boxes blocked adverts
+leave hidden, by EasyList's element-hiding rules, applied without script of
+ours in the page, generic rules that break pages kept out if measured to.
+
+### A. Hiding: a style sheet through Chromium's own commands (806; § 5 superseded)
+
+- **What is read.** The lists are now read with every rule kind
+  (`RuleTypes::All`): their network rules as before, and their
+  element-hiding rules. `Blocker::hiding(address)` answers the one sheet
+  for a document there: **every generic rule** (`##.ad-banner` — 13,635 in
+  EasyList 202611011105, two in EasyPrivacy; none procedural), less those
+  a generic exception excuses (`#@#`) and those the site excuses, **then
+  the site's own rules** (`theguardian.com##…`) as Brave's matcher answers
+  them; only the site's own where the lists say `$generichide` for it —
+  as EasyList does for `127.0.0.1`, `localhost:` and a list of sites it
+  knows the generic rules break. Each selector is a rule of its own,
+  `{display:none!important}`, so a selector Chromium cannot read loses
+  that rule alone; a selector that could close the block is never one.
+  Procedural rules (`:has-text`, `:upward`) and scriptlets (`+js`) are
+  never read into a sheet: they need script.
+- **How it is put there: no script.** As a frame of a card's page — the
+  tab's own, or a frame in it, through its own target or the tab's —
+  commits a document from `http` or `https` whose site blocking is on for,
+  the browser process sends Chromium, through that frame's session,
+  `DOM.enable` and `CSS.enable`, and once `CSS.enable` has answered,
+  `CSS.createStyleSheet` for the frame; once that answers with the sheet's
+  id, `CSS.setStyleSheetText` and `CSS.disable` (`chrome_cosmetic.rs`).
+  Measured against Chrome 157: a sheet asked for before `CSS.enable` has
+  answered is refused (*No target stylesheet found*), and Chrome answers
+  `CSS.enable` only after `CSS.createStyleSheet` sent with it; the sheet
+  stays in force after `CSS.disable`. Chromium puts such a sheet into the
+  document as a `<style>` element of its head, which the page's own script
+  can see and remove — that is the page's to do, and nothing of ours runs
+  in it. An `about:blank` a page writes into is never sent the sheet (it
+  would be half a megabyte for each).
+- **What it costs, measured** (6 November 2026, headless Chrome 157,
+  this Mac, seven real pages loaded twice without and twice with the
+  sheet made at the commit, the CSS domain on before the load): the
+  sheet set **16–53 ms** after the commit — after the first paint on a
+  fast page (the BBC's at 19–26 ms), so a box can show for a moment before
+  it is hidden; as built, the sheet waits for `CSS.enable`'s answer at
+  each commit, whose delay was not measured apart; style recalculation
+  **+2 to +9 ms** on six pages (CNN's, noisy at 300–450 ms, was lower with
+  it); layout not longer; first contentful paint **not later** (cold
+  first loads dominated); the matcher read in **52 ms** (release; 30–36 ms
+  network rules alone) and **+58 MiB** resident (was +57); a document's
+  sheet built in **0.67 ms** (release; 10.8 ms debug); 535 KB of rules
+  sent to Chromium per document.
+- **What it hid**: on the Guardian's front page 36 boxes, every one an ad
+  slot (`ad-slot-container`, `dfp-ad--*`, `top-banner-ad-container`); the
+  BBC's 5 (`dotcom-ad`); CNN's 13 (`ad-slot`, `ad_bnr_atf_01`, …); on
+  Wikipedia's *Kampala*, GitHub's `brave/adblock-rust`, Reddit's front page
+  and the Daily Monitor's (Uganda), **nothing**. No generic rule was
+  measured to break a page, so **none is kept out**; a rule that breaks
+  one is kept out by name here, in a diff, when a real page shows it.
+- **Not hidden**: what a script puts into a page after its sheet is in
+  place is hidden as it arrives (the sheet is a sheet); a procedural rule's
+  target; a frame Chromium makes with no document from the network.
+
+### B. The shield and a site's switch (807; § 6 superseded)
+
+- **What a person sees.** A live card whose page a Chromium judges has a
+  **shield** in its bar, after the address and before *Expand*: a pill 28
+  tall with a shield drawn in the done colour and **how many requests of
+  the page the lists refused** — counted from each refusal the card's
+  Chromium tells (`Went::Blocked`), begun anew when the card's page moves
+  to another address and when the switch is pressed. Pressed, it is the
+  **switch**: blocking is turned **off for the page's site** — its
+  registrable domain, as every per-site decision here is — and the pill
+  is grey and says **Off**; pressed again, on. Either way the card's page
+  is **loaded again** (`Page.reload`, the card's own *Back* road), as
+  Brave's Shields do, so what it shows is what the switch now asks. An
+  agent reads a toggle button named *Block trackers and ads on
+  theguardian.com*, pressed while on — `aria-pressed`, not a `switch`,
+  whose `aria-checked` this engine draws a tick for. Its list of what was
+  refused is not drawn (the terminal still says each, one line a request).
+- **Held by the browser process, asked before the lists.** The switches
+  are a value of the browser process (`blocking_off::Off`, one for the
+  process), set by the window alone — no page, renderer or agent can — and
+  asked in `chrome_tab.rs` **before the lists**: a site switched off is
+  never asked of them, its requests let go and written so, and no hiding
+  sheet is put into its documents. A press is decided only for the site
+  the shield was painted for and the card still shows.
+- **Kept on this machine, and nowhere else.** One site a line, in words,
+  in `sites-without-blocking.txt` **beside the chats** in alo's own
+  directory (ADR 0092 § 1), so `--chats DIR` keeps a hand run's switches
+  apart from a person's; `0600`, written whole or not at all, read at
+  launch. It is not sealed (ADR 0098): it names sites, not what was said;
+  sealing it is a later decision if the owner wants it.
+- **705's settings screen** takes this value when it is built: the switch
+  is the shape § 6 designed for it.
+
+Checked by `blocking`'s tests (the sheet less what is excused; the site's
+own after; `$generichide`; the carried lists hiding the measured slots),
+`chrome_cosmetic`'s (the sheet made only once `CSS.enable` answers, filled,
+the domain turned off; a sheet not made sends nothing more),
+`chrome_protocol`'s (the commands' words), `blocking_off`'s (a site; the
+switch; the file), `conversation`'s and `conversation_window`'s (the count,
+anew on another page and on a press, nothing counted while off, the press
+switching and keeping the site), `conversation_decide`'s (only the site
+painted), the wire's round trip, a layout assertion and references of the
+shield on and off (`a_page_as_a_card.rs`, `card-shield.png`,
+`card-shield-off.png`), through the window's own road — the drawing
+thread's claim decided against what it painted
+(`offers_and_the_panel_pressed_in_the_window.rs`; the hand run of 6
+November found every press refused, the painted shield never kept, while
+the unit tests deciding it directly passed) — and through both Chromiums
+(`tests/adverts_hidden_and_a_sites_switch_through_chrome.rs`): an advert's
+box hidden and its script refused; switched off for the site, the box
+shown and the script let go and written so; on again, hidden and refused.
+Mutations — no sheet made, the switch not asked, the painted shield not
+kept — each fail.

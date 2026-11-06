@@ -119,6 +119,9 @@ declare -a BOUNDARIES=(
   # Brave's matcher of filter lists (ADR 0094): asked of every request a page
   # in Chromium makes, in one file of the browser process.
   "adblock:crates/alo-window/src/blocking.rs"
+  # The cipher the kept chats are sealed with (ADR 0098): RustCrypto's
+  # XChaCha20-Poly1305, in one file of the browser process.
+  "chacha20poly1305:crates/alo-window/src/chat_seal.rs"
   # alo's CEF host (ADR 0079 § 3, option H), its own workspace: CEF where it
   # is loaded and run, where the host's windows and pages are, and where its
   # application object answers CEF's protocols; AppKit only in the

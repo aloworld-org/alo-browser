@@ -142,6 +142,12 @@ impl Writer {
         }
         // The agent at work on its page (queue item 704).
         self.agent_work(card.agent.as_ref());
+        // Its shield (queue item 807).
+        self.bool(card.shield.is_some());
+        if let Some(shield) = card.shield {
+            self.number(u64::from(shield.blocked));
+            self.bool(shield.on);
+        }
     }
 }
 
@@ -298,6 +304,16 @@ impl Reader<'_> {
             None
         };
         let agent = self.agent_work()?;
+        let shield = if self.bool()? {
+            let blocked = u32::try_from(self.number()?)
+                .map_err(|_| unreadable("a shield's count past what one holds"))?;
+            Some(crate::card::Shield {
+                blocked,
+                on: self.bool()?,
+            })
+        } else {
+            None
+        };
         Ok(Card {
             said,
             url,
@@ -308,6 +324,7 @@ impl Reader<'_> {
             agent,
             // Never sent with the live card: drawn once it is shown earlier.
             ran: Vec::new(),
+            shield,
         })
     }
 

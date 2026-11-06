@@ -64,7 +64,8 @@ use alo_renderer::turn::Turn;
 use alo_window::agent_sites::AgentSites;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::chat_record;
-use alo_window::chat_store::{ChatStore, file_of};
+use alo_window::chat_seal::Key as ChatKey;
+use alo_window::chat_store::ChatStore;
 use alo_window::conversation::{STOPPED, TAKEN_OVER};
 use alo_window::conversation_agent::{Agent, MOST_STEPS, TellAgent};
 use alo_window::conversation_agents::relay;
@@ -683,7 +684,7 @@ fn the_window(
     let provider = Provider::at(endpoint, key)?;
     let told = tell;
     let tell_agent: TellAgent = Arc::new(move |said| told.send(Heard::Agent(said)).is_ok());
-    let (store, opened) = ChatStore::open(chats)?;
+    let (store, opened) = ChatStore::open(chats, test_key())?;
     let mut window = ConversationWindow::new(Some(Scale::ONE), drawing, chrome)
         .with_agent(Ok(Agent::new(provider, orders)), tell_agent)
         .with_chats(store, opened);
@@ -1034,7 +1035,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
 /// read back so; never a text typed that the person did not say, never the
 /// password the page held.
 fn kept_as_turns(chats: &Path, who: &str) -> Result<(), String> {
-    let written = std::fs::read_to_string(file_of(chats, 0)).map_err(|why| why.to_string())?;
+    let written = kept_words(chats, 0)?;
     for never in ["letmein", "hunter2"] {
         assert!(!written.contains(never), "{who}: {never} kept: {written}");
     }
@@ -1159,4 +1160,16 @@ fn the_agent_at_work_on_a_card_through_alos_cef_host() -> Result<(), String> {
         return Ok(());
     };
     through(host.chromium(), "alo's CEF host")
+}
+
+/// The key this test's chats are sealed under: its own, never the
+/// keychain's (ADR 0098).
+fn test_key() -> ChatKey {
+    ChatKey::of([0x2a; 32])
+}
+
+/// The words of the chat numbered `number` kept in `chats`, opened under
+/// the test's key.
+fn kept_words(chats: &std::path::Path, number: u64) -> Result<String, String> {
+    ChatStore::open(chats, test_key())?.0.words(number)
 }

@@ -46,6 +46,14 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
   said (item 758).
 - **Settings**, at the foot, under a line, with a settings icon — two
   lines, a knob on each — before its words.
+- **Deleting a chat** (item 789, ADR 0092's amendment): the row the
+  pointer is over is a shade lighter and has **Delete** at its end — 24 px
+  tall, 12 px 600 words on the line colour, 8 px either side; the row does
+  not move, its name gives way. Pressed, the chat leaves the panel at
+  once, and above *Settings* a dark pill, 36 px tall and rounded, says
+  *Deleted “…”* in 12.5 px light words, the name cut where it ends, with
+  **Undo** in a light pill at its end, for five seconds — the time alo's
+  own *Undo send* holds a mail. *Undo* puts the chat back where it stood.
 
 A group's heading is 11.5 px, capitals, 600, quiet text, 18 px above it and
 6 px below.
@@ -375,6 +383,14 @@ on a display, so the Chromium alo carries draws it fully transparent and
 lets a person's pointer through it until *Expand* shows it (ADR 0076 B4's
 amendment, item 771). Through the machine's Chrome, run from a terminal,
 the strip stays.
+
+**The shield** (item 807, ADR 0094's amendment): after the address,
+before *Expand*, a pill 28 px tall, rounded, under a line-colour border:
+a 16 px shield in the done green and how many requests the lists refused
+on the page, 12 px 600. Pressed, blocking is off for the page's site: the
+shield and its word **Off** are grey; pressed again, on. Either way the
+page loads again. What the lists name as an advert's box is hidden in the
+page (item 806) — nothing of it is drawn by alo.
 
 *Back* and *Forward* are the page's own session history, as Chrome holds it:
 each is drawn dark and pressable only when there is a page of the card's

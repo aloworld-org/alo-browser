@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A chat can be deleted, and brought back for five seconds.** Hovering
+  over a chat in the panel offers *Delete*; the chat leaves the panel at
+  once, and the panel's foot says *Deleted “…”* with **Undo** for five
+  seconds. Its file is removed only once those have passed, or when alo is
+  closed — never another chat's.
+- **Kept chats are encrypted.** Each chat's file is now sealed
+  (XChaCha20-Poly1305) under a key alo makes once and keeps in your macOS
+  keychain, as the item *alo-chats*; chats kept before are sealed the
+  first time alo reads them. A copy of the files without the keychain is
+  unreadable — and so are the chats, to anyone, if that keychain item is
+  ever lost. A file that does not open is said and left untouched.
+- **The empty boxes adverts leave are hidden.** EasyList's own hiding
+  rules are applied to every page in a card, through Chromium's style
+  sheet commands — no script of alo's runs in the page.
+- **A shield on each card.** It counts the trackers and adverts refused on
+  the card's page; pressed, it turns blocking off for that site and loads
+  the page again, and pressed again turns it back on. alo remembers each
+  site switched off, on this machine only.
+- **The answer's model was measured.** `gpt-6.1-terra`, `gpt-6.1-sol` and
+  `gpt-6-luna` were compared on 26 of alo's own searches (factual,
+  disputed, recent, Kampala, Luganda, Japanese); alo keeps Terra.
 - **Colour emoji drawn with gradients.** A colour font of the newer kind
   (`COLR` version 1, as Noto's vector emoji are) is now drawn in its
   colours — its gradients, turns, clips and blending — as Chrome draws it,

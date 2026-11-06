@@ -293,7 +293,9 @@ impl Renderer {
             ToRenderer::StripPress(at) => self.strip_press(at),
             ToRenderer::Panel(panel) => self.panel(&panel),
             ToRenderer::Start(start) => self.start(&start),
-            ToRenderer::ConversationPress(at) => self.conversation_press(at),
+            ToRenderer::ConversationPress(at) | ToRenderer::ConversationHover(at) => {
+                self.conversation_press(at)
+            }
             ToRenderer::ConversationReach => self.conversation_reach(),
         }
     }
@@ -912,7 +914,10 @@ impl Renderer {
     /// 0074, queue item 710): what it was on, claimed by its place or its
     /// kind, from the drawing the person sees
     /// ([`crate::conversation_claim`]), as a press on the strip is. A
-    /// renderer holding neither part answers that it holds neither.
+    /// renderer holding neither part answers that it holds neither. A
+    /// pointer over the panel (queue item 789) is answered with the same
+    /// finding — what is under it — and the browser process tells the two
+    /// apart by what it asked.
     fn conversation_press(&mut self, at: alo_paint::Point) -> FromRenderer {
         let Holds::Conversation(part) = self.holds else {
             return FromRenderer::Failed(Failure::NotTheConversation);

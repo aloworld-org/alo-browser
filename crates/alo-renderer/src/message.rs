@@ -162,6 +162,17 @@ pub enum ToRenderer {
     /// dispatched, since neither part runs script. A renderer that holds
     /// neither answers [`Failure::NotTheConversation`].
     ConversationPress(Point),
+    /// The pointer moved over the chats panel, to here, in its CSS pixels,
+    /// no button held (queue item 789): sent only to the panel's renderer,
+    /// only by the browser process, and only for a person.
+    ///
+    /// Answered as a press is, with [`FromRenderer::ConversationClaimed`] —
+    /// what is under the point ([`crate::conversation_claim`]) — which the
+    /// browser process reads only for **which chat's row** it is over, to
+    /// draw that row offering *Delete*; nothing is dispatched, and nothing
+    /// is acted on. A renderer that holds neither part answers
+    /// [`Failure::NotTheConversation`].
+    ConversationHover(Point),
     /// Say how far the first screen's conversation reaches either side of
     /// its newest turn's top, as it was last laid out (queue item 703):
     /// answered with [`FromRenderer::ConversationReached`], measured from
@@ -495,6 +506,11 @@ impl fmt::Display for ToRenderer {
                 "a press on the chats panel or the first screen at ({}, {})",
                 at.x, at.y
             ),
+            ToRenderer::ConversationHover(at) => write!(
+                f,
+                "the pointer over the chats panel at ({}, {})",
+                at.x, at.y
+            ),
             ToRenderer::ConversationReach => {
                 f.write_str("say how far the first screen's conversation reaches")
             }
@@ -597,6 +613,8 @@ mod tests {
             // Where a person pressed a part of the conversation, and nothing
             // about any page.
             ToRenderer::ConversationPress(_) => "a person's press on the conversation",
+            // Where a person's pointer is over the panel, and nothing else.
+            ToRenderer::ConversationHover(_) => "a person's pointer over the panel",
             // Nothing: a question about the part it holds.
             ToRenderer::ConversationReach => "nothing but the question",
         };

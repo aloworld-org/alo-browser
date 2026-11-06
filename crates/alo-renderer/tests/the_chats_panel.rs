@@ -694,3 +694,145 @@ fn the_panel_is_drawn_the_same_by_a_confined_renderer_at_its_own_site() {
     assert_eq!(tree.to_outline(), here.tree.to_outline());
     renderers.stop_everything();
 }
+
+/// Queue item 789: the hovered row's *Delete*, and the foot's *Undo*.
+fn deleting() -> Panel {
+    let mut chats = five();
+    chats.truncate(4);
+    if let Some(lisbon) = chats.get_mut(1) {
+        lisbon.hovered = true;
+    }
+    Panel {
+        deleted: Some("Birthday present ideas".to_owned()),
+        ..panel_of(chats)
+    }
+}
+
+#[test]
+fn a_hovered_chat_offers_delete_and_a_chat_just_deleted_offers_undo() {
+    let drawn = draw(deleting());
+    assert!(
+        matches!(&drawn.answer, FromRenderer::Loaded { issues, .. } if issues.is_empty()),
+        "{:?}",
+        drawn.answer
+    );
+    let outline = drawn.tree.to_outline();
+    // The rows are where they were: the hovered one did not move for its
+    // Delete, nor Settings for the Undo above it.
+    let links: Vec<(Option<&str>, String)> = read(&drawn.tree, "link")
+        .iter()
+        .map(|link| (link.name.as_deref(), units(link.rect)))
+        .collect();
+    let done = format!("Invoice for March {DONE}");
+    assert_eq!(
+        links,
+        vec![
+            (Some("New chat"), px(10.0, 56.0, 220.0, 40.0)),
+            (Some("Charging my EV"), px(10.0, 178.0, 220.0, 38.0)),
+            // The hovered row holds Delete, and is read with it, as a
+            // finished chat is read with its Done.
+            (
+                Some("Weekend in Lisbon Delete"),
+                px(10.0, 218.0, 220.0, 38.0)
+            ),
+            (Some(done.as_str()), px(10.0, 258.0, 220.0, 38.0)),
+            (Some("Compare phone plans"), px(10.0, 334.0, 220.0, 38.0)),
+            (Some("Settings"), px(10.0, 510.0, 220.0, 38.0)),
+        ],
+        "{outline}"
+    );
+    // Delete: 24 tall in the middle of its 38-row (7 down), its right edge
+    // at the row's padding (230 less 10); Undo: 26 tall in the middle of
+    // the 36-pill, its right edge 6 inside the pill's; the pill 8 above
+    // Settings, the whole panel's width less its padding.
+    let buttons: Vec<(Option<&str>, Rect)> = read(&drawn.tree, "button")
+        .iter()
+        .map(|button| (button.name.as_deref(), button.rect))
+        .collect();
+    let [hide, delete, undo] = buttons.as_slice() else {
+        panic!("three buttons, not {buttons:?}\n{outline}");
+    };
+    assert_eq!(hide.0, Some("Hide the panel"));
+    assert_eq!(delete.0, Some("Delete Weekend in Lisbon"));
+    assert_eq!(
+        (
+            units(Rect::new(
+                delete.1.right(),
+                delete.1.top(),
+                0.0,
+                delete.1.size.height
+            )),
+            delete.1.size.width > 40.0 && delete.1.size.width < 70.0
+        ),
+        (px(220.0, 225.0, 0.0, 24.0), true),
+        "{outline}"
+    );
+    assert_eq!(undo.0, Some("Undo"));
+    assert_eq!(
+        (
+            units(Rect::new(
+                undo.1.right(),
+                undo.1.top(),
+                0.0,
+                undo.1.size.height
+            )),
+            undo.1.size.width > 30.0 && undo.1.size.width < 60.0
+        ),
+        (px(224.0, 471.0, 0.0, 26.0), true),
+        "{outline}"
+    );
+    let status: Vec<String> = read(&drawn.tree, "status")
+        .iter()
+        .map(|status| units(status.rect))
+        .collect();
+    assert_eq!(status, vec![px(10.0, 466.0, 220.0, 36.0)], "{outline}");
+    assert!(
+        drawn
+            .texts
+            .iter()
+            .any(|text| text.contains("Deleted \u{201c}Birthday")),
+        "{:?}",
+        drawn.texts
+    );
+    assert_eq!(holds("panel-deleting.png", drawn.frame.as_ref()), Ok(()));
+}
+
+#[test]
+fn a_press_on_delete_or_undo_claims_it_and_a_hover_finds_the_row() {
+    use alo_paint::Point;
+    use alo_renderer::conversation_claim::Claim;
+    let mut renderer = Renderer::new(fonts());
+    let loaded = renderer.handle(ToRenderer::Panel(Box::new(deleting())));
+    assert!(matches!(loaded, FromRenderer::Loaded { .. }), "{loaded:?}");
+    let _ = renderer.handle(ToRenderer::Paint);
+    let mut at =
+        |message: fn(Point) -> ToRenderer, x, y| match renderer.handle(message(Point::new(x, y))) {
+            FromRenderer::ConversationClaimed(claim) => claim,
+            other => panic!("{other:?}"),
+        };
+    // Delete, at the hovered row's end; the row elsewhere; Undo; the pill
+    // beside it, which is nothing.
+    assert_eq!(
+        at(ToRenderer::ConversationPress, 200.0, 237.0),
+        Some(Claim::DeleteChat)
+    );
+    assert_eq!(
+        at(ToRenderer::ConversationPress, 60.0, 237.0),
+        Some(Claim::Chat { at: 1 })
+    );
+    assert_eq!(
+        at(ToRenderer::ConversationPress, 210.0, 484.0),
+        Some(Claim::Undo)
+    );
+    assert_eq!(at(ToRenderer::ConversationPress, 40.0, 484.0), None);
+    // A hover is answered as a press is: what is under the pointer.
+    assert_eq!(
+        at(ToRenderer::ConversationHover, 60.0, 277.0),
+        Some(Claim::Chat { at: 2 })
+    );
+    assert_eq!(
+        at(ToRenderer::ConversationHover, 200.0, 237.0),
+        Some(Claim::DeleteChat)
+    );
+    assert_eq!(at(ToRenderer::ConversationHover, 120.0, 20.0), None);
+}

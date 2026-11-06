@@ -32,6 +32,14 @@
 //! hides the panel is a `button` named *Hide the panel*. Hidden, the panel
 //! is the rail, built by [`crate::rail_document`].
 //!
+//! # Deleting a chat
+//!
+//! Queue item 789. The chat whose row the pointer is over offers *Delete*:
+//! a `button` of the class `delete` at the row's end, named *Delete* and
+//! the chat's name. A chat deleted a moment ago is said in the foot, above
+//! *Settings* — *Deleted “…”* — with a `button` of the class `bring` named
+//! *Undo*, in a `status` an agent reads as *“Weekend in Lisbon” deleted*.
+//!
 //! It runs no script: the template has none and nothing here makes one.
 
 use crate::panel::{Chat, Doing, Panel};
@@ -61,6 +69,20 @@ const PANEL: &str = "panel";
 
 /// The id of the template's *Search chats* field.
 const FIND: &str = "find";
+
+/// The id of the template's foot, holding *Settings*.
+const FOOT: &str = "foot";
+
+/// What a hovered chat's row offers.
+pub const DELETE: &str = "Delete";
+
+/// What brings a chat just deleted back.
+pub const UNDO: &str = "Undo";
+
+/// What the foot says of a chat just deleted, called `name`.
+pub fn deleted(name: &str) -> String {
+    format!("Deleted \u{201c}{name}\u{201d}")
+}
 
 /// What the panel says when no chat is called what was `searched`.
 pub fn none_called(searched: &str) -> String {
@@ -115,7 +137,40 @@ pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
         let group = make_group(&mut document, heading, class, &chats)?;
         append(&mut document, place, group)?;
     }
+    if let Some(name) = &panel.deleted {
+        let foot = by_id(&document, FOOT)?;
+        let undo = make_undo(&mut document, name)?;
+        match document.first_child(foot) {
+            Some(first) => document
+                .insert_before(foot, undo, Some(first))
+                .map(|_| ())
+                .map_err(|refused| Unbuilt {
+                    why: format!("Undo could not be put into the panel: {refused}"),
+                })?,
+            None => append(&mut document, foot, undo)?,
+        }
+    }
     Ok(document)
+}
+
+/// What the foot says of a chat just deleted, called `name`, and *Undo*.
+fn make_undo(document: &mut Document, name: &str) -> Result<NodeId, Unbuilt> {
+    let undo = element(document, "div")?;
+    attribute(document, undo, "class", "undo")?;
+    attribute(document, undo, "role", "status")?;
+    let gone = element(document, "span")?;
+    attribute(document, gone, "class", "gone")?;
+    // A stranger's string, entering as a text node's data.
+    let words = document.create_text_node(&deleted(crate::strip::longest(name)));
+    append(document, gone, words)?;
+    append(document, undo, gone)?;
+    let bring = element(document, "button")?;
+    attribute(document, bring, "class", "bring")?;
+    attribute(document, bring, "type", "button")?;
+    let words = document.create_text_node(UNDO);
+    append(document, bring, words)?;
+    append(document, undo, bring)?;
+    Ok(undo)
 }
 
 /// One group: its heading, and a list holding each of its chats.
@@ -189,6 +244,22 @@ fn make_chat(document: &mut Document, chat: &Chat) -> Result<NodeId, Unbuilt> {
             append(document, said, words)?;
             append(document, row, said)?;
         }
+    }
+    if chat.hovered {
+        attribute(document, row, "data-hovered", "true")?;
+        let delete = element(document, "button")?;
+        attribute(document, delete, "class", "delete")?;
+        attribute(document, delete, "type", "button")?;
+        // A stranger's string, entering as an attribute's value.
+        attribute(
+            document,
+            delete,
+            "aria-label",
+            &format!("{DELETE} {}", chat.label()),
+        )?;
+        let words = document.create_text_node(DELETE);
+        append(document, delete, words)?;
+        append(document, row, delete)?;
     }
     Ok(row)
 }

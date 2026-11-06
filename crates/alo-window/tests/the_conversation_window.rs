@@ -396,6 +396,7 @@ fn painted_confined(window: (u32, u32), scale: Scale) -> Result<(Frame, Frame), 
             }
             // A first screen with no turns is not measured (queue item 703).
             Ok(Drawn::Reached { .. }) => return Err("a greeting was measured".to_owned()),
+            Ok(Drawn::Hovered(over)) => return Err(format!("nothing was hovered: {over:?}")),
             Err(why) => return Err(format!("nothing was painted: {why}")),
         }
     }

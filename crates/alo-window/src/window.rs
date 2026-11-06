@@ -931,10 +931,36 @@ pub fn conversation(
         .with_search(searcher)
         .with_agent(agent, tell_agent);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
-    // read before the window opens; with nowhere, said, and none kept.
-    let state = match chats.and_then(|directory| ChatStore::open(&directory)) {
-        Ok((store, opened)) => state.with_chats(store, opened),
-        Err(why) => state.keeping_nothing(&why),
+    // sealed under the key in the person's keychain (queue item 790, ADR
+    // 0098), read before the window opens; with nowhere, or no key, said,
+    // and none kept.
+    let state = match chats.and_then(|directory| {
+        let key = crate::chat_key::ChatKey::for_this_person()?;
+        ChatStore::open(&directory, key.key).map(|opened| (opened, key.made))
+    }) {
+        Ok(((store, opened), made)) => {
+            // The sites blocking is switched off for, kept beside the chats
+            // (queue item 807), are this process's from here.
+            let file = crate::blocking_off::file_in(store.directory());
+            let off = crate::blocking_off::process();
+            let read = crate::blocking_off::read(&file);
+            for site in read.as_deref().unwrap_or_default() {
+                off.switch(site, true);
+            }
+            let state = state
+                .with_chats(store, opened)
+                .key_made(made)
+                .with_blocking_off(off.clone(), Some(file));
+            match read {
+                Ok(_) => state,
+                Err(why) => state.saying(format!(
+                    "the sites blocking is switched off for are not read, so none is: {why}"
+                )),
+            }
+        }
+        Err(why) => state
+            .keeping_nothing(&why)
+            .with_blocking_off(crate::blocking_off::process().clone(), None),
     };
     let mut conversing = Conversing {
         state,
@@ -1137,15 +1163,22 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
 
     /// Nothing more to hear for now: while a wheel's lines are glided
     /// (queue item 756), move the glide on and wake again a frame later;
-    /// otherwise wait for the next event.
+    /// while a chat deleted can be brought back (queue item 789), wake when
+    /// it no longer can; otherwise wait for the next event.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let now = Instant::now();
+        self.state.tick(now);
+        let wake = self.state.wake_at();
         if self.state.gliding() {
-            let now = Instant::now();
             self.state.glide(now);
             self.follow();
-            event_loop.set_control_flow(ControlFlow::WaitUntil(now + FRAME));
+            let next = now + FRAME;
+            event_loop.set_control_flow(ControlFlow::WaitUntil(
+                wake.map_or(next, |wake| wake.min(next)),
+            ));
         } else {
-            event_loop.set_control_flow(ControlFlow::Wait);
+            self.follow();
+            event_loop.set_control_flow(wake.map_or(ControlFlow::Wait, ControlFlow::WaitUntil));
         }
     }
 

@@ -60,6 +60,10 @@ pub struct Panel {
     /// Whether the panel is hidden, drawn as the design's rail 64 wide:
     /// the mark, *New chat* and *Show the panel* (queue item 711).
     pub hidden: bool,
+    /// What the chat deleted a moment ago is called, while it can be
+    /// brought back: the panel's foot says it was deleted, with *Undo*
+    /// (queue item 789). A stranger's string, drawn as a text node.
+    pub deleted: Option<String>,
 }
 
 /// One chat in the panel.
@@ -78,6 +82,9 @@ pub struct Chat {
     pub current: bool,
     /// What the agent is doing in it.
     pub doing: Doing,
+    /// Whether the pointer is over its row, which then offers *Delete*
+    /// (queue item 789).
+    pub hovered: bool,
 }
 
 /// What the agent is doing in a chat.
@@ -101,6 +108,7 @@ impl Default for Panel {
             searched: String::new(),
             searching: false,
             hidden: false,
+            deleted: None,
         }
     }
 }
@@ -125,6 +133,7 @@ impl Chat {
             open: true,
             current: false,
             doing: Doing::Nothing,
+            hovered: false,
         }
     }
 
@@ -139,6 +148,13 @@ impl Chat {
     #[must_use]
     pub fn current(mut self) -> Self {
         self.current = true;
+        self
+    }
+
+    /// The same chat, the pointer over its row, offering *Delete*.
+    #[must_use]
+    pub fn hovered(mut self) -> Self {
+        self.hovered = true;
         self
     }
 

@@ -252,3 +252,67 @@ a {
   padding: 0 10px;
   border-radius: 9px;
 }
+
+/* The row the pointer is over (queue item 789): a lighter ground, and
+   Delete at its end — a flex item of the row, so the name gives way to it
+   and no row moves. */
+.chat[data-hovered="true"] {
+  background: #f6f3ee;
+}
+
+.chat[aria-current="page"][data-hovered="true"] {
+  background: var(--surface);
+}
+
+.delete {
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--line-soft);
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+/* A chat just deleted, for five seconds: a dark pill above Settings, as
+   alo's own Undo send is drawn, its name cut where the pill ends. */
+.undo {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+  height: 36px;
+  margin-bottom: 8px;
+  padding: 0 6px 0 14px;
+  border-radius: 18px;
+  background: #2b2722;
+  color: #f3efe8;
+  font-size: 12.5px;
+}
+
+.gone {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bring {
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 13px;
+  background: #f3efe8;
+  color: #2b2722;
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 12.5px;
+  line-height: 26px;
+  font-weight: 600;
+}

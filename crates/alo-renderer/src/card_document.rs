@@ -20,7 +20,12 @@
 //! the page's address — the bar's own words, which it is labelled by —
 //! holding *Back*, *Forward*, *Expand to the whole window* and *Close* as
 //! buttons, *Back* and *Forward* disabled when there is nowhere to go; then
-//! the page, as an image named [`PICTURED`] once a frame has arrived; and,
+//! the page, as an image named [`PICTURED`] once a frame has arrived; a
+//! card whose page a Chromium judges holds its shield after the address
+//! (queue item 807): a toggle button named [`shield_named`], pressed while
+//! the lists alo carries are asked for the site — `aria-pressed`, not a
+//! `switch`, whose `aria-checked` this engine draws a tick for — holding
+//! how many requests they refused, or *Off*; and,
 //! while the page is still loading, the bar's [`LOADING`] after the address
 //! (queue item 751), a paragraph a person and an agent read alike; and,
 //! once a person asked alo to work on the page, the agent's column under
@@ -50,6 +55,14 @@ pub const PICTURED: &str = "The page, as Chrome last drew it";
 /// What the bar says after the address while the page is still loading
 /// (queue item 751).
 pub const LOADING: &str = "Loading";
+
+/// What a card's shield is named, to an agent, for the site `site`.
+pub fn shield_named(site: &str) -> String {
+    format!("Block trackers and ads on {site}")
+}
+
+/// What a card's shield says while blocking is off for its site.
+pub const OFF: &str = "Off";
 
 /// The id of the template's `<template>` holding the card.
 const CARD: &str = "card";
@@ -138,6 +151,7 @@ fn fill(document: &mut Document, made: NodeId, card: &Card, column: Column) -> R
         append(document, part, text)?;
         append(document, address, part)?;
     }
+    shield(document, made, card)?;
     for (class, open) in [("ibtn back", card.back), ("ibtn forward", card.forward)] {
         if open {
             continue;
@@ -182,6 +196,40 @@ fn fill(document: &mut Document, made: NodeId, card: &Card, column: Column) -> R
             append(document, made, under)?;
         }
     }
+    Ok(())
+}
+
+/// The card's shield, filled from `card`'s and named for its page's site —
+/// what the switch switches, its registrable domain — or taken out of the
+/// bar when the card has none.
+fn shield(document: &mut Document, made: NodeId, card: &Card) -> Result<(), Unbuilt> {
+    let button = of_class(document, made, "shield")?;
+    let Some(shield) = card.shield else {
+        let _ = document.remove(button);
+        return Ok(());
+    };
+    let site = card
+        .url
+        .host
+        .as_ref()
+        .map(alo_url::site::of)
+        .unwrap_or_default();
+    // The page's site, entering as an attribute's value.
+    attribute(document, button, "aria-label", &shield_named(&site))?;
+    if !shield.on {
+        attribute(document, button, "class", "shield off")?;
+        attribute(document, button, "aria-pressed", "false")?;
+    }
+    let count = element(document, "span")?;
+    attribute(document, count, "class", "count")?;
+    let words = if shield.on {
+        shield.blocked.to_string()
+    } else {
+        OFF.to_owned()
+    };
+    let text = document.create_text_node(&words);
+    append(document, count, text)?;
+    append(document, button, count)?;
     Ok(())
 }
 

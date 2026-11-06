@@ -99,6 +99,8 @@
 //! the first screen a person sees. So it says [`GREETING`], which is true at
 //! any hour, until the machine's zone is read.
 
+use crate::blocking_off::{self, Off};
+use crate::chat_delete::Deleting;
 use crate::chat_name;
 use crate::chat_store::Kept;
 use crate::chrome_history::Travel;
@@ -114,7 +116,7 @@ use crate::conversation_work::Work;
 use crate::scale::Scale;
 use crate::typing::Edit;
 use alo_layout::Size;
-use alo_renderer::card::Card;
+use alo_renderer::card::{Card, Shield};
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::panel::{Chat, Panel, drawn_order, matching};
@@ -146,6 +148,12 @@ impl ChatId {
     /// ([`crate::chat_store::file_of`]).
     pub fn number(self) -> u64 {
         self.0
+    }
+
+    /// A chat of this number, for a test of another file.
+    #[cfg(test)]
+    pub(crate) fn for_a_test(number: u64) -> Self {
+        Self(number)
     }
 }
 
@@ -202,6 +210,19 @@ pub struct Conversation {
     asked: Vec<(u64, ChatId, usize)>,
     /// The agent at work on the card's page (queue item 704).
     work: Work,
+    /// The chat whose row the pointer is over, offering *Delete* (queue
+    /// item 789).
+    hovered: Option<ChatId>,
+    /// The chat deleted a moment ago, while *Undo* can bring it back.
+    deleting: Option<Deleting>,
+    /// The chats deleted and gone, whose files are now to be removed.
+    gone: Vec<ChatId>,
+    /// The sites blocking is switched off for (queue item 807): what a
+    /// card's shield shows, and switches.
+    off: Off,
+    /// The site whose blocking a person just switched, not yet kept and
+    /// its page not yet loaded again.
+    switched: Option<String>,
 }
 
 /// A tab opened whose results are to be asked of the provider — Videos or
@@ -242,6 +263,11 @@ impl Default for Conversation {
             to_ask: Vec::new(),
             asked: Vec::new(),
             work: Work::default(),
+            hovered: None,
+            deleting: None,
+            gone: Vec::new(),
+            off: Off::default(),
+            switched: None,
         }
     }
 }
@@ -253,12 +279,23 @@ impl Conversation {
     /// 711, 775).
     pub fn panel(&self, viewport: Size, scale: Scale) -> Panel {
         Panel {
-            chats: self.listed().map(|(_, chat)| chat.clone()).collect(),
+            chats: self
+                .listed()
+                .map(|(id, chat)| Chat {
+                    hovered: self.hovered == Some(*id),
+                    ..chat.clone()
+                })
+                .collect(),
             viewport,
             scale: 1.0,
             searched: self.find.typed().to_owned(),
             searching: self.find.focused(),
             hidden: self.railed(),
+            deleted: self
+                .deleting
+                .as_ref()
+                .filter(|_| !self.railed())
+                .map(Deleting::name),
         }
         .at_scale(scale.factor())
     }
@@ -351,6 +388,18 @@ impl Conversation {
             working: self.work.working(self.card()),
             asking: self.work.asking_now(self.card()),
             choices: Work::choices(self.card()),
+            hovered: self
+                .hovered
+                .filter(|id| listed.iter().any(|(each, _)| each == id)),
+            undo: self
+                .deleting
+                .as_ref()
+                .filter(|_| !self.railed())
+                .map(|deleting| deleting.id),
+            shield: self
+                .card()
+                .filter(|card| card.shield.is_some())
+                .and_then(|card| blocking_off::site_of(&card.url.serialised)),
         }
     }
 
@@ -452,6 +501,12 @@ impl Conversation {
                 self.new_chat();
                 true
             }
+            Pressed::DeleteChat(id) => self.delete(*id, Instant::now()) || changed,
+            Pressed::Shield(site) => {
+                let site = site.clone();
+                self.switch_blocking(&site) || changed
+            }
+            Pressed::Undo(id) => self.undo(*id) || changed,
             Pressed::HideThePanel => self.fold.hide() || changed,
             Pressed::ShowThePanel => self.fold.show() || changed,
             // The agent (queue item 704): *Stop* says so on the card at
@@ -841,6 +896,120 @@ impl Conversation {
         self.threads.push((id, Thread::default()));
     }
 
+    /// The pointer is over the row of `hovered`, or no row (queue item
+    /// 789): whether the panel is to be drawn again, its row offering
+    /// *Delete*. A chat the panel does not list is no row.
+    pub fn hover(&mut self, hovered: Option<ChatId>) -> bool {
+        let hovered = hovered.filter(|id| self.listed().any(|(each, _)| each == id));
+        core::mem::replace(&mut self.hovered, hovered) != hovered
+    }
+
+    /// Delete `id` `now` (queue item 789, [`crate::chat_delete`]): out of
+    /// the panel at once, held for its *Undo*. A chat deleted before it
+    /// and still held is gone now. The chat on screen deleted, its card is
+    /// put away first and a new chat is on screen — one with nothing in
+    /// it already open, or a new one. Whether anything changed.
+    pub fn delete(&mut self, id: ChatId, now: Instant) -> bool {
+        let Some(place) = self.chats.iter().position(|(each, _)| *each == id) else {
+            return false;
+        };
+        if let Some(before) = self.deleting.take() {
+            self.gone.push(before.id);
+        }
+        let on_screen = self.on_screen() == Some(id);
+        if on_screen {
+            let _ = self.close_card();
+        }
+        let (_, chat) = self.chats.remove(place);
+        let thread = self
+            .threads
+            .iter()
+            .position(|(each, _)| *each == id)
+            .map(|at| self.threads.remove(at).1)
+            .unwrap_or_default();
+        self.hovered = None;
+        let _ = self.find.blur();
+        self.deleting = Some(Deleting::at(
+            id,
+            Chat {
+                current: false,
+                hovered: false,
+                ..chat
+            },
+            thread,
+            place,
+            now,
+        ));
+        if on_screen {
+            let empty = self.chats.iter().find_map(|(each, chat)| {
+                let blank = chat.open
+                    && chat.name.is_empty()
+                    && self
+                        .threads
+                        .iter()
+                        .any(|(other, thread)| other == each && thread.turns().is_empty());
+                blank.then_some(*each)
+            });
+            match empty {
+                Some(empty) => {
+                    let _ = self.put_on_screen(empty);
+                }
+                None => self.new_chat(),
+            }
+        }
+        true
+    }
+
+    /// *Undo*: `id`, deleted a moment ago, back where it stood, its turns as
+    /// they were, not on screen. Whether it was still held.
+    pub fn undo(&mut self, id: ChatId) -> bool {
+        if self.deleting.as_ref().map(|deleting| deleting.id) != Some(id) {
+            return false;
+        }
+        let Some(deleting) = self.deleting.take() else {
+            return false;
+        };
+        let place = deleting.place.min(self.chats.len());
+        self.chats.insert(place, (deleting.id, deleting.chat));
+        self.threads.push((deleting.id, deleting.thread));
+        true
+    }
+
+    /// Whether a chat deleted is held for its *Undo*, and until when: the
+    /// window wakes then.
+    pub fn undo_until(&self) -> Option<Instant> {
+        self.deleting.as_ref().map(|deleting| deleting.until)
+    }
+
+    /// The time is `now`: a chat deleted whose *Undo* has passed is gone.
+    /// Whether the panel is to be drawn again, its *Undo* no longer there.
+    pub fn expire(&mut self, now: Instant) -> bool {
+        if !self
+            .deleting
+            .as_ref()
+            .is_some_and(|deleting| deleting.passed(now))
+        {
+            return false;
+        }
+        if let Some(deleting) = self.deleting.take() {
+            self.gone.push(deleting.id);
+        }
+        true
+    }
+
+    /// The window is closing: a chat deleted and still held is gone now.
+    pub fn let_go(&mut self) {
+        if let Some(deleting) = self.deleting.take() {
+            self.gone.push(deleting.id);
+        }
+    }
+
+    /// The chats deleted and gone since this was last asked, each once:
+    /// their files are now to be removed.
+    pub fn take_gone(&mut self) -> Vec<ChatId> {
+        std::mem::take(&mut self.gone)
+    }
+
     /// Name the chat on screen by the first words said in it (queue item
     /// 758, [`chat_name`]), once it holds a turn, if it has no name yet.
     fn name_on_screen(&mut self) {
@@ -944,8 +1113,12 @@ impl Conversation {
     /// a time (ADR 0075 § 4).
     pub fn open_card(&mut self, url: Url) {
         let said = self.said.clone();
+        let shield = self.shield_for(&url);
         if let Some(thread) = self.thread_mut() {
             thread.open_card(said, url);
+            if let Some(card) = thread.card_mut() {
+                card.shield = Some(shield);
+            }
         }
         self.name_on_screen();
         self.card_keys = false;
@@ -980,13 +1153,85 @@ impl Conversation {
         if !matches!(url.scheme.as_str(), "http" | "https") {
             return false;
         }
+        let shield = self.shield_for(&url);
         match self.thread_mut().and_then(Thread::card_mut) {
             Some(card) if card.url != url => {
                 card.url = url;
+                // Another page: nothing refused on it yet (queue item 807).
+                if card.shield.is_some() {
+                    card.shield = Some(shield);
+                }
                 true
             }
             _ => false,
         }
+    }
+
+    /// A fresh shield for a page at `url`: nothing refused yet, and on
+    /// unless a person switched blocking off for its site (queue item 807).
+    fn shield_for(&self, url: &Url) -> Shield {
+        Shield {
+            blocked: 0,
+            on: !self.off.is_off(&url.serialised),
+        }
+    }
+
+    /// The sites blocking is switched off for are `off` (queue item 807):
+    /// the window's, shared with every card's Chromium.
+    pub fn set_blocking_off(&mut self, off: Off) {
+        self.off = off;
+    }
+
+    /// The lists refused a request of the live card's page: counted on its
+    /// shield. Whether the card shows something else for it.
+    pub fn blocked(&mut self) -> bool {
+        match self.thread_mut().and_then(Thread::card_mut) {
+            Some(Card {
+                shield: Some(shield),
+                ..
+            }) if shield.on => {
+                shield.blocked = shield.blocked.saturating_add(1);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The shield pressed for `site` (queue item 807): blocking switched
+    /// off for it, or on again, the count begun anew, and the switch kept
+    /// for the window to keep and load the page again with
+    /// ([`Conversation::take_switched`]).
+    fn switch_blocking(&mut self, site: &str) -> bool {
+        let off = !self.off.is_off_for(site);
+        self.off.switch(site, off);
+        if let Some(Card {
+            shield: Some(shield),
+            ..
+        }) = self.thread_mut().and_then(Thread::card_mut)
+        {
+            *shield = Shield {
+                blocked: 0,
+                on: !off,
+            };
+        }
+        self.switched = Some(site.to_owned());
+        true
+    }
+
+    /// Whether blocking is switched off for `site`.
+    pub fn shield_off(&self, site: &str) -> bool {
+        self.off.is_off_for(site)
+    }
+
+    /// The sites blocking is switched off for.
+    pub fn blocking_off(&self) -> &Off {
+        &self.off
+    }
+
+    /// The site whose blocking was just switched, once: the window keeps
+    /// the switches and loads the card's page again.
+    pub fn take_switched(&mut self) -> Option<String> {
+        self.switched.take()
     }
 
     /// The card's page is `loading`, or has loaded (queue item 751): the
@@ -1127,10 +1372,13 @@ impl Conversation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blocking_off::Off;
+    use alo_renderer::card::Shield;
     use alo_renderer::conversation_decide::Refusal;
     use alo_renderer::message::Failure;
     use alo_renderer::panel::{Doing, NEW_CHAT};
     use alo_renderer::turn::Turn;
+    use std::time::Duration;
 
     /// The labels of the panel's chats, in order, and which is on screen.
     fn rows(conversation: &Conversation) -> (Vec<String>, Vec<bool>) {
@@ -1143,6 +1391,170 @@ mod tests {
                 .collect(),
             panel.chats.iter().map(|chat| chat.current).collect(),
         )
+    }
+
+    #[test]
+    fn a_chat_deleted_leaves_the_panel_at_once_and_comes_back_with_undo() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::NewChat);
+        let _ = conversation.act(Pressed::NewChat);
+        let showing = conversation.showing();
+        let [newest, middle, oldest] = showing.chats.as_slice() else {
+            panic!("{showing:?}");
+        };
+        let (newest, middle, oldest) = (*newest, *middle, *oldest);
+        // Hovered: its row offers Delete; a chat not listed is no row.
+        assert!(conversation.hover(Some(middle)));
+        assert!(!conversation.hover(Some(middle)), "the same row again");
+        assert_eq!(conversation.showing().hovered, Some(middle));
+        let hovered: Vec<bool> = conversation
+            .panel(Size::new(240.0, 820.0), Scale::ONE)
+            .chats
+            .iter()
+            .map(|chat| chat.hovered)
+            .collect();
+        assert_eq!(hovered, vec![false, true, false]);
+        let now = Instant::now();
+        assert!(conversation.act(Pressed::DeleteChat(middle)));
+        assert_eq!(conversation.showing().chats, vec![newest, oldest]);
+        assert_eq!(conversation.showing().hovered, None);
+        assert_eq!(conversation.showing().undo, Some(middle));
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        assert_eq!(panel.deleted.as_deref(), Some(NEW_CHAT));
+        assert!(
+            conversation
+                .undo_until()
+                .is_some_and(|until| until >= now + crate::chat_delete::UNDO_FOR),
+            "held for its five seconds"
+        );
+        assert!(
+            !conversation.hover(Some(middle)),
+            "a deleted chat is no row"
+        );
+        // Undo: back where it stood, not on screen.
+        assert!(conversation.act(Pressed::Undo(middle)));
+        assert_eq!(conversation.showing().chats, vec![newest, middle, oldest]);
+        assert_eq!(conversation.on_screen(), Some(newest));
+        assert!(!conversation.undo(middle), "brought back once");
+        assert_eq!(conversation.undo_until(), None);
+        assert!(conversation.take_gone().is_empty(), "nothing is gone");
+    }
+
+    #[test]
+    fn a_chat_deleted_is_gone_when_its_undo_passes_another_is_deleted_or_alo_closes() {
+        let mut conversation = Conversation::default();
+        for _ in 0..3 {
+            let _ = conversation.act(Pressed::NewChat);
+        }
+        let ids = conversation.showing().chats;
+        let now = Instant::now();
+        assert!(conversation.delete(ids[1], now));
+        assert!(!conversation.expire(now + Duration::from_millis(4_999)));
+        assert!(conversation.take_gone().is_empty());
+        assert!(conversation.expire(now + Duration::from_secs(5)));
+        assert_eq!(conversation.take_gone(), vec![ids[1]]);
+        assert!(conversation.take_gone().is_empty(), "each once");
+        assert!(!conversation.undo(ids[1]), "too late");
+        // A second deleted while the first is held: the first is gone.
+        assert!(conversation.delete(ids[2], now));
+        assert!(conversation.delete(ids[3], now));
+        assert_eq!(conversation.take_gone(), vec![ids[2]]);
+        assert_eq!(conversation.showing().undo, Some(ids[3]));
+        conversation.let_go();
+        assert_eq!(conversation.take_gone(), vec![ids[3]]);
+        assert!(!conversation.delete(ids[3], now), "no such chat any more");
+    }
+
+    #[test]
+    fn the_chat_on_screen_deleted_puts_an_empty_open_chat_on_screen_or_a_new_one() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::NewChat);
+        let [on_screen, other] = conversation.showing().chats[..] else {
+            panic!("two chats");
+        };
+        assert_eq!(conversation.on_screen(), Some(on_screen));
+        // Another empty open chat is there: it is put on screen.
+        assert!(conversation.delete(on_screen, Instant::now()));
+        assert_eq!(conversation.on_screen(), Some(other));
+        assert_eq!(conversation.showing().chats, vec![other]);
+        // None is left but the one on screen, holding a turn: a new one.
+        let _ = conversation.act(Pressed::TheBox);
+        let _ = conversation.edit(Edit::Put("example.com".to_owned()));
+        assert!(matches!(conversation.edit(Edit::Choose), Typed::Chose(_)));
+        let url = conversation.going().cloned().unwrap();
+        conversation.open_card(url);
+        assert!(conversation.card().is_some());
+        assert!(conversation.delete(other, Instant::now()));
+        assert!(conversation.card().is_none(), "its card put away with it");
+        let [fresh] = conversation.showing().chats[..] else {
+            panic!("one chat");
+        };
+        assert_ne!(fresh, other);
+        assert_eq!(conversation.on_screen(), Some(fresh));
+        assert_eq!(rows(&conversation), (vec![NEW_CHAT.to_owned()], vec![true]));
+        // Brought back: its page kept as its address, not a live card.
+        assert!(conversation.undo(other));
+        assert!(conversation.card().is_none());
+        assert_eq!(conversation.on_screen(), Some(fresh));
+    }
+
+    #[test]
+    fn a_cards_shield_counts_its_pages_refusals_and_switches_its_site() {
+        let mut conversation = Conversation::default();
+        conversation.set_blocking_off(Off::of(["bbc.com".to_owned()]));
+        let _ = conversation.act(Pressed::TheBox);
+        let _ = conversation.edit(Edit::Put("www.theguardian.com".to_owned()));
+        assert!(matches!(conversation.edit(Edit::Choose), Typed::Chose(_)));
+        let url = conversation.going().cloned().unwrap();
+        conversation.open_card(url);
+        let shield = |conversation: &Conversation| conversation.card().and_then(|card| card.shield);
+        assert_eq!(
+            shield(&conversation),
+            Some(Shield {
+                blocked: 0,
+                on: true
+            })
+        );
+        assert!(conversation.blocked() && conversation.blocked());
+        assert_eq!(
+            shield(&conversation),
+            Some(Shield {
+                blocked: 2,
+                on: true
+            })
+        );
+        assert_eq!(
+            conversation.showing().shield.as_deref(),
+            Some("theguardian.com")
+        );
+        // Another page of the card: counted anew, and off where switched.
+        assert!(conversation.moved_card(alo_url::parse("https://www.bbc.com/news").unwrap()));
+        assert_eq!(
+            shield(&conversation),
+            Some(Shield {
+                blocked: 0,
+                on: false
+            })
+        );
+        assert!(!conversation.blocked(), "nothing is counted while off");
+        // Pressed: on again for the BBC, kept for the window once.
+        assert!(conversation.act(Pressed::Shield("bbc.com".to_owned())));
+        assert_eq!(
+            shield(&conversation),
+            Some(Shield {
+                blocked: 0,
+                on: true
+            })
+        );
+        assert!(!conversation.shield_off("bbc.com"));
+        assert_eq!(conversation.take_switched().as_deref(), Some("bbc.com"));
+        assert_eq!(conversation.take_switched(), None);
+        assert!(conversation.act(Pressed::Shield("bbc.com".to_owned())));
+        assert!(conversation.shield_off("bbc.com"));
+        assert_eq!(
+            conversation.blocking_off().sites(),
+            vec!["bbc.com".to_owned()]
+        );
     }
 
     #[test]

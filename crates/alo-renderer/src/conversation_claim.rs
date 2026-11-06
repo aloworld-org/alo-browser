@@ -39,8 +39,8 @@
 //! rows, the room below them — is on nothing, and claims nothing.
 //!
 //! A page shown as a card (queue item 717) is pressed the same way: its
-//! *Back*, *Forward*, *Expand to the whole window* and *Close*, each one of
-//! the closed list, and a greyed *Back* or *Forward* — nowhere to go — on
+//! *Back*, *Forward*, *Expand to the whole window*, *Close* and its shield
+//! (queue item 807), each one of the closed list, and a greyed *Back* or *Forward* — nowhere to go — on
 //! nothing. A press on the card's picture of the page claims nothing:
 //! a person's pointer reaching the page is queue item 718's, and is never
 //! a claim.
@@ -67,6 +67,12 @@
 //! set up: each is of a class `offer` with what marks it after, and is
 //! counted among all of them. A box with the keyboard is drawn under a
 //! `main` of class `start focused`; its own class stays `box`.
+//!
+//! The hovered chat's *Delete* and the foot's *Undo* (queue item 789) are
+//! each one of a kind: only the row under the pointer offers *Delete*, so
+//! which chat it deletes is the browser process's to say, from the row it
+//! last had painted hovered — and a press there is found on *Delete*
+//! before the row around it.
 //!
 //! The panel's *Search chats* — its field, its glass, the room around them
 //! — and the button that hides the panel are each one of a kind (queue item
@@ -207,6 +213,14 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The *Delete* the hovered chat's row offers (queue item 789): one of
+    /// a kind, since only the row under the pointer offers it.
+    DeleteChat,
+    /// The panel's *Undo*, bringing back the chat just deleted.
+    Undo,
+    /// The card's shield, the switch for blocking on its page's site
+    /// (queue item 807).
+    Shield,
 }
 
 impl Claim {
@@ -218,7 +232,9 @@ impl Claim {
             | Claim::Settings
             | Claim::SearchChats
             | Claim::HideThePanel
-            | Claim::ShowThePanel => Part::Panel,
+            | Claim::ShowThePanel
+            | Claim::DeleteChat
+            | Claim::Undo => Part::Panel,
             Claim::Site { .. }
             | Claim::AddASite
             | Claim::Waiting { .. }
@@ -239,7 +255,8 @@ impl Claim {
             | Claim::Stop
             | Claim::Allow
             | Claim::NotNow
-            | Claim::Choice { .. } => Part::Start,
+            | Claim::Choice { .. }
+            | Claim::Shield => Part::Start,
         }
     }
 }
@@ -274,6 +291,9 @@ impl fmt::Display for Claim {
             Claim::Allow => f.write_str("the agent's Allow"),
             Claim::NotNow => f.write_str("the agent's Not now"),
             Claim::Choice { at } => write!(f, "the agent's choice at place {at}"),
+            Claim::DeleteChat => f.write_str("the hovered chat's Delete"),
+            Claim::Undo => f.write_str("the panel's Undo"),
+            Claim::Shield => f.write_str("the card's shield"),
         }
     }
 }
@@ -303,6 +323,10 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             (&["hide"], Pressable::One(Claim::HideThePanel)),
             (&["rbtn new"], Pressable::One(Claim::NewChat)),
             (&["rbtn show"], Pressable::One(Claim::ShowThePanel)),
+            // Queue item 789: the hovered row's Delete, inside the row and
+            // so found before it, and the foot's Undo.
+            (&["delete"], Pressable::One(Claim::DeleteChat)),
+            (&["bring"], Pressable::One(Claim::Undo)),
         ],
         Part::Start => &[
             (&["tile"], Pressable::Placed(|at| Claim::Site { at })),
@@ -317,6 +341,8 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             (&["ibtn forward"], Pressable::One(Claim::Forward)),
             (&["ibtn expand"], Pressable::One(Claim::Expand)),
             (&["ibtn close"], Pressable::One(Claim::CloseTheCard)),
+            // The card's shield, on or off (queue item 807).
+            (&["shield", "shield off"], Pressable::One(Claim::Shield)),
             // A site's title among a search's results (queue item 708).
             (&["title"], Pressable::Placed(|at| Claim::Found { at })),
             // An open tab of the results, *More sites ›*, *See all images*

@@ -72,6 +72,22 @@ pub struct Card {
     /// live card — which draws its newest run as [`Card::agent`] — and
     /// drawn once the page is shown earlier ([`crate::turn::Turn::Visited`]).
     pub ran: Vec<Ran>,
+    /// The shield in its bar (queue item 807): how many requests of its
+    /// page the lists alo carries refused, and whether they are asked for
+    /// its site — or [`None`], drawing no shield, for a card no Chromium
+    /// judges.
+    pub shield: Option<Shield>,
+}
+
+/// A card's shield: a switch, pressed to turn blocking off for the page's
+/// site, or on again (queue item 807, ADR 0094's amendment).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Shield {
+    /// How many requests of the page the lists refused.
+    pub blocked: u32,
+    /// Whether the lists are asked for the page's site: off, a person
+    /// switched them off for it.
+    pub on: bool,
 }
 
 impl Card {
@@ -87,6 +103,7 @@ impl Card {
             loading: true,
             agent: None,
             ran: Vec::new(),
+            shield: None,
         }
     }
 

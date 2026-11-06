@@ -408,6 +408,26 @@ pub enum Command {
         /// The entry's `id`, as [`history`] read it.
         entry: i64,
     },
+    /// `Page.reload`: the page loaded again, from where it is (queue item
+    /// 807).
+    LoadAgain,
+    /// `DOM.enable`: which [`Command::ReadStyles`] needs first, to make a
+    /// sheet (queue item 806, measured against Chrome 157).
+    ReadTheDom,
+    /// `CSS.createStyleSheet`: a style sheet of the browser's own in the
+    /// document `frame` holds, empty, answered with its id ([`sheet_made`]).
+    MakeSheet {
+        /// The frame, by Chrome's `frameId`.
+        frame: String,
+    },
+    /// `CSS.setStyleSheetText`: the sheet `sheet` made by
+    /// [`Command::MakeSheet`] holds `text`.
+    FillSheet {
+        /// The sheet's `styleSheetId`.
+        sheet: String,
+        /// Its rules.
+        text: String,
+    },
 }
 
 impl Command {
@@ -466,6 +486,10 @@ impl Command {
             Self::StopCasting => "Page.stopScreencast",
             Self::ReadHistory => "Page.getNavigationHistory",
             Self::GoToEntry { .. } => "Page.navigateToHistoryEntry",
+            Self::ReadTheDom => "DOM.enable",
+            Self::LoadAgain => "Page.reload",
+            Self::MakeSheet { .. } => "CSS.createStyleSheet",
+            Self::FillSheet { .. } => "CSS.setStyleSheetText",
         }
     }
 
@@ -497,7 +521,9 @@ impl Command {
             | Self::ReadStyles
             | Self::StopReadingStyles
             | Self::StopCasting
-            | Self::ReadHistory => {}
+            | Self::ReadHistory
+            | Self::ReadTheDom
+            | Self::LoadAgain => {}
             Self::GoToEntry { entry } => put("entryId", Value::from(*entry)),
             Self::FrameSeen { frame } => put("sessionId", Value::from(*frame)),
             Self::IdsOf { nodes } => put("backendNodeIds", Value::from(nodes.clone())),
@@ -525,15 +551,14 @@ impl Command {
                     .into_iter()
                     .for_each(|(name, value)| put(name, value));
             }
-            Self::Fulfil { request, body } => {
-                for (name, value) in fulfilled(request, body) {
-                    put(name, value);
-                }
-            }
-            Self::Continue { request } => put("requestId", Value::from(request.as_str())),
-            Self::Refuse { request } => {
-                put("requestId", Value::from(request.as_str()));
-                put("errorReason", Value::from("BlockedByClient"));
+            Self::Fulfil { .. }
+            | Self::Continue { .. }
+            | Self::Refuse { .. }
+            | Self::MakeSheet { .. }
+            | Self::FillSheet { .. } => {
+                self.answering()
+                    .into_iter()
+                    .for_each(|(name, value)| put(name, value));
             }
             Self::WhereDrawn { node }
             | Self::Describe { node }
@@ -573,6 +598,25 @@ impl Command {
 }
 
 impl Command {
+    /// The `params` of a command answering a paused request, or making or
+    /// filling a sheet (queue item 806).
+    fn answering(&self) -> Vec<(&'static str, Value)> {
+        match self {
+            Self::Fulfil { request, body } => fulfilled(request, body),
+            Self::Continue { request } => vec![("requestId", Value::from(request.as_str()))],
+            Self::Refuse { request } => vec![
+                ("requestId", Value::from(request.as_str())),
+                ("errorReason", Value::from("BlockedByClient")),
+            ],
+            Self::MakeSheet { frame } => vec![("frameId", Value::from(frame.as_str()))],
+            Self::FillSheet { sheet, text } => vec![
+                ("styleSheetId", Value::from(sheet.as_str())),
+                ("text", Value::from(text.as_str())),
+            ],
+            _ => Vec::new(),
+        }
+    }
+
     /// The `params` of a command saying how the page is drawn: the size it
     /// is laid out at, or the frames streamed of it — and none for any
     /// other.
@@ -1095,6 +1139,15 @@ pub fn target(result: &[u8]) -> Result<String, Malformed> {
 /// [`Malformed`], for a result with no `sessionId`.
 pub fn session(result: &[u8]) -> Result<String, Malformed> {
     text(object(result)?.get("sessionId"), "sessionId")
+}
+
+/// The id of the sheet a [`Command::MakeSheet`] made.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `styleSheetId` that is text.
+pub fn sheet_made(result: &[u8]) -> Result<String, Malformed> {
+    text(object(result)?.get("styleSheetId"), "styleSheetId")
 }
 
 /// Whether a `Page.navigate` went: the loader the new page is loaded by
@@ -2699,9 +2752,29 @@ mod tests {
             at(&Command::ComputedStyle { node: 8 }),
             r#"{"id":9,"method":"CSS.getComputedStyleForNode","params":{"nodeId":8},"sessionId":"S"}"#
         );
+        assert_eq!(
+            at(&Command::MakeSheet {
+                frame: "F1".to_owned()
+            }),
+            r#"{"id":9,"method":"CSS.createStyleSheet","params":{"frameId":"F1"},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            at(&Command::FillSheet {
+                sheet: "style-sheet-1".to_owned(),
+                text: ".ad{display:none!important}\n".to_owned()
+            }),
+            r#"{"id":9,"method":"CSS.setStyleSheetText","params":{"styleSheetId":"style-sheet-1","text":".ad{display:none!important}\n"},"sessionId":"S"}"#
+        );
+        assert_eq!(
+            sheet_made(br#"{"styleSheetId":"style-sheet-41"}"#),
+            Ok("style-sheet-41".to_owned())
+        );
+        assert!(sheet_made(b"{}").is_err());
         for (command, method) in [
             (Command::ReadStyles, "CSS.enable"),
             (Command::StopReadingStyles, "CSS.disable"),
+            (Command::ReadTheDom, "DOM.enable"),
+            (Command::LoadAgain, "Page.reload"),
         ] {
             assert_eq!(
                 at(&command),

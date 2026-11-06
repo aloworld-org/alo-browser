@@ -48755,3 +48755,176 @@ tests run: 6384 passed (4 slow, 2 leaky), 0 skipped** — *"The gate is met."
 (11 of 11 steps)*.
 
 The next unused queue number is **838** and the next ADR is **0098**.
+
+## 2026-11-06 — items 789, 790, 806, 807 and 817: a chat deleted with an undo, chats sealed, adverts' boxes hidden, a site's switch, and the model measured
+
+Batched under one gate, at the owner's asking: the four designs proposed and
+approved on 6 November 2026 (*"yes implement the 4 mentioned"*), each built
+with its own tests and docs.
+
+**789 — deleting a chat** (ADR 0092's amendment). The row the pointer is
+over offers *Delete*: the window asks the panel's renderer what is under the
+pointer as it moves over the panel (`ToRenderer::ConversationHover`, answered
+with the claim under the point — only which chat's row is read of it, only
+the newest of a run of moves asked) and draws that row with the button at
+its end, the row unmoved. A press on it is decided only for the row painted
+offering it and still offering it. The chat leaves the panel at once, held
+in the browser process (`chat_delete.rs`) with its turns and its place for
+five seconds — the time alo-workplace's *Undo send* holds a mail — while the
+panel's foot says *Deleted “…”* with **Undo** in a dark pill above
+*Settings*; *Undo* puts it back where it stood. When the five seconds pass
+(the event loop woken with `WaitUntil`), another chat is deleted, or the
+window closes, it is gone and only then is its own file removed
+(`ChatStore::remove`: its sealed file, and its words' file if it was not yet
+sealed — never another number's, never a damaged file). The chat on screen
+deleted has its card put away and an empty open chat, or a new one, put on
+screen. The rail shows no chats, so offers no *Delete*. Panel layout:
+*Delete* 24 tall at the row's end (its right edge 220, 7 down in the
+38-row), the pill 220 × 36 at 466, *Undo* 26 tall ending at 224 —
+`the_chats_panel.rs`, reference `panel-deleting.png` (new; looked at). The
+window's road on a temporary directory
+(`chats_kept_across_launches.rs`): hovered, deleted, brought back, deleted
+again and its file gone when the five seconds pass with the other chat's
+kept; deleted and the window closed before they pass, its file gone; a
+relaunch showing neither. Mutations — the file never removed, *Delete*
+decided against what is held now — each fail.
+
+**790 — chats sealed** (ADR 0098). XChaCha20-Poly1305 from RustCrypto's
+`chacha20poly1305` =0.10.1 (MIT OR Apache-2.0, NCC Group audit 2020;
+default features off, `alloc`; seven crates new to the lockfile, all MIT OR
+Apache-2.0, MSRV 1.56 or none), named only in `chat_seal.rs`, added to the
+gate's boundary list. A 256-bit key from `/dev/urandom`, kept as 64
+hexadecimal digits in the login keychain, item `alo-chats`, made by alo only
+when the keychain answers *item not found* (exit 44) — through `security -i`
+with the command on its standard input, never on a command line — and read
+back before use; a locked or refusing keychain, or an item that is not a key,
+is said and no key made. `chat-N.sealed`: a magic line, a fresh 24-byte nonce
+a write, the words, the tag; the magic and the chat's number are the
+associated data. A `chat-N.json` is sealed the first time it is read, the
+words' file removed only after the sealed file is flushed; stopped between,
+the next launch removes the words only if they say the same chat. A file
+that does not open is said and left untouched. The ADR says plainly: lost
+key, lost chats; nothing protects against someone using the logged-in
+account; Windows and Linux left open (842). Tests never touch the person's
+keychain: injected keys, and a keychain file of the test's own made and
+deleted under the temporary directory. Mutations — the number out of the
+associated data, the words written unsealed — each fail.
+
+**806 — adverts' empty boxes hidden** (ADR 0094's amendment A). The lists
+are read with every rule kind; `Blocker::hiding(address)` is one sheet:
+EasyList's 13,635 generic hiding rules less the excused, then the site's own,
+only the site's own under `$generichide` — which EasyList says for
+`127.0.0.1` and `localhost:` themselves, so the test page is served at
+`news.localhost`, which Chromium resolves to this machine. Put into each
+document a card's page commits from the network through Chromium's own
+commands, no script (`chrome_cosmetic.rs`): `DOM.enable`, `CSS.enable`,
+and — only once `CSS.enable` has answered, since Chrome 157 refuses a sheet
+asked for before (*No target stylesheet found*, found when the first run
+through the machine's Chrome hid nothing) — `CSS.createStyleSheet`, then
+`setStyleSheetText` and `CSS.disable`. Measured on seven real pages, headless
+Chrome 157, twice without and twice with: style +2–9 ms, layout not longer,
+first paint not later; hidden only ad slots (the Guardian 36, the BBC 5, CNN
+13) and nothing on Wikipedia's *Kampala*, GitHub, Reddit or the Daily
+Monitor — no generic rule kept out. The matcher with every rule kind: read
+in 52 ms release (30–36 network only), +58 MiB, a document's sheet 0.67 ms.
+Cuts: procedural rules and scriptlets (838), the sheet before the first
+paint (839), `CSS.disable` racing a closed list's style reading (840).
+
+**807 — a site's switch, on the card's shield** (ADR 0094's amendment B). A
+pill after the address counts the page's refusals (`Went::Blocked`, anew on
+another address and on a press); pressed, blocking is off for the page's
+site — registrable domain — asked in `chrome_tab.rs` before the lists
+(`blocking_off::process`), no sheet put in; the shield says *Off* in grey;
+the page loaded again (`Page.reload`, a third `Way`). Kept in
+`sites-without-blocking.txt` beside the chats (so `--chats DIR` keeps a hand
+run's apart), `0600`, written whole. An agent reads a toggle button named
+*Block trackers and ads on theguardian.com*, pressed while on —
+`aria-pressed`, because this engine paints a tick in a `switch` whose
+`aria-checked` is true (the first reference showed it; changed). References
+`card-shield.png` and `card-shield-off.png` (new; looked at). Through both
+Chromiums (`adverts_hidden_and_a_sites_switch_through_chrome.rs`): hidden and
+refused; off, shown, let go and written so; on again. Mutations — no sheet,
+the switch not asked — each fail. The list of what was refused is cut (841).
+
+**817 — the model measured** (ADR 0081's note). 26 questions with Brave's
+results frozen (26 searches), alo's own request bodies and reader, three
+models, 308 claims judged by `gpt-6.1-sol` under a stated rule and 33
+judgements read by hand (30 agreed; eight more of Terra's read by the
+builder, six agreed, the two *partly* read as supported):
+
+| Model | Claims supported / partly / unsupported | Honest refusal | False refusals | Mean length | Latency mean / p90 | Cost an answer |
+|---|---|---|---|---|---|---|
+| `gpt-6.1-sol` | 100 / 0 / 0 % | 8 of 8 | 0 of 15 | 415 | 3.46 / 5.84 s | $0.00386 |
+| `gpt-6.1-terra` | 98.0 / 2.0 / 0 % | 8 of 8 | 0 of 15 | 372 | 2.84 / 3.62 s | $0.00185 |
+| `gpt-6-luna` | 92.2 / 6.8 / 1.0 % | 8 of 8 | 0 of 15 | 443 | 2.45 / 3.18 s | $0.00019 |
+
+Recommendation: keep Terra — clearly better cited than Luna, not clearly
+worse than Sol (which was also the judge) at half the price. **`MODEL` not
+changed**; the owner confirms. Spent **US$0.497** of the $3 and **26** of 30
+searches. The line citing nothing and points repeating sentences cut (843).
+The evaluation is in the session's scratchpad (`eval817/`), not the
+repository; no key in any file (checked by value).
+
+**Found on the way.** The CEF distribution at the session's `CEF_PATH` had
+been emptied (the scratchpad cleared while the session waited); it was
+fetched again — CEF 156.0.14 for Chromium 156.0.8078.48, the version
+`cef-dll-sys` 156.2.0 pins, by `download-cef`'s own index and SHA-1 — so the
+CEF host's tests ran rather than being skipped.
+
+**Found by hand, fixed.** The first press on the shield in the real window
+was refused — *a renderer claimed the card's shield, which the first screen
+does not show as it was painted* — because the drawing thread never kept
+the site the shield was painted for (`conversation_drawing.rs`), while the
+unit tests, which decided the press directly, passed: 742's lesson again.
+Fixed, and a test added through the window's own road
+(`offers_and_the_panel_pressed_in_the_window.rs`,
+`a_cards_shield_pressed_through_the_windows_own_road`); with the fix
+undone it fails with that very refusal. The gate below is the run after
+the fix.
+
+**By hand** (screen unlocked; release built, CEF host built, the old `.app`
+removed, `alo-bundle --keys-from keychain` carrying both keys; `--conversation
+--chats handrun32/chats`, the directory made by alo, `0700`; the window
+placed at 120, 80 by AppleScript, found by its PID; keys from a private
+event source with no flags, typed as unicode strings; screenshots in
+`handrun32/`). First launch: *a key to seal the chats was made in this
+Mac's keychain, as the item alo-chats* — **so the owner's login keychain now
+holds an `alo-chats` item**; relaunches read it without making another.
+`https://www.theguardian.com/international` as a card: the shield said
+**13**, the terminal 13 refusals (`01`); its press was refused (the bug
+above; `02`). Rebuilt, relaunched on the same directory: the Guardian chat
+read back under *Earlier*. `https://www.bbc.com/news`: the shield **4**,
+then **15** after its consent dialog was dismissed, and no box under the
+header (`04`); pressed: *blocking trackers and adverts is off for bbc.com*,
+`sites-without-blocking.txt` (`0600`) naming `bbc.com`, the shield grey and
+*Off*, the page loaded again **with an advert banner under the header**
+(`05`); pressed again: on, the file emptied, the count anew (**23**), the
+banner gone (`06`). Hidden ad boxes were seen only as that difference —
+the Guardian's and the BBC's consent dialogs covered the rest — and on the
+Daily Monitor (`10`) a pale empty box stayed with blocking on (cut to
+844). Chats: the Guardian chat's row hovered offered *Delete* (`07`);
+deleted, it left the panel and the foot said *Deleted “https://www.t…”*
+with *Undo* (`08`) — **my press on *Undo* came after the five seconds**
+(a screenshot between them), so the chat was gone and its file removed,
+as designed (`09-undo-too-late`). A second chat made (the Daily Monitor,
+`10`); the BBC chat deleted and *Undo* pressed within a second: back where
+it stood, its file never removed (`11-12`); deleted again — its file still
+there two seconds on, removed after the five, the Monitor's kept (`13`).
+Quit with `tell application id "org.aloworld.Browser" to quit`: the
+remaining `chat-2.sealed` begins `alo sealed chat 1` and holds none of
+`monitor.co.ug`, `monitor`, `https`, `alo chat` or `turns` (`grep -c`, no
+key printed); relaunched, the Monitor chat under *Earlier* and neither
+deleted chat (`14`). Quit again; the pointer restored to 1400, 1000; no
+alo process left.
+
+**Gate: met on the run after the fix** (CEF_PATH set, the CEF distribution
+fetched again as above; the pointer at 1400, 1000; detached with `setsid`,
+waited on by its PID). The first run failed one test,
+`the_application_carrying_its_chromium`, because the fetched distribution
+lacked the archive's `LICENSE.txt` (put back from the archive, its SHA-256
+the pinned one); the second was met (6417 of 6417) before the hand run
+found the shield's bug; this third, after the fix: **Summary [1099.423s]
+6418 tests run: 6418 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is
+met." (11 of 11 steps)*.
+
+The next unused queue number is **845** and the next ADR is **0099**.

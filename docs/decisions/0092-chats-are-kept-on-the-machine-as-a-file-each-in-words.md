@@ -1,6 +1,6 @@
 # ADR 0092 — Chats are kept on the machine, a file each, in words
 
-**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814 and 820
+**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814, 820 and 789; § 2's *not encrypted* superseded by ADR 0098 (790)
 **Date:** 2026-11-01
 **Context:** ADR 0085 (the conversation keeps every turn, per chat; an
 earlier card is its address, not a picture); ADR 0074 (the interface is a
@@ -71,7 +71,8 @@ proxy hands out again on request. Read back, an image is drawn by its title
 on its tile, a site by its letter on its tint — as each is drawn already
 when its picture does not come.
 
-**Not encrypted by alo.** The files are the user's, `0600` in a `0700`
+**Not encrypted by alo** — *superseded on 6 November 2026 by ADR 0098: the
+files are now sealed under a key in the person's keychain.* The files are the user's, `0600` in a `0700`
 directory, on a disk FileVault encrypts when a person has turned it on.
 Encrypting them under a key in the keychain would keep them from another
 program running as the same person, which `0600` does not; it is the
@@ -119,9 +120,8 @@ listed, or a chat that cannot be written, is said the same way — *chats are
 not kept: …*, *a chat is not kept: …* — and the conversation goes on, so
 nobody believes a chat kept that is not.
 
-**Nothing here deletes anything.** The panel has no way to delete a chat
-yet; that is queue item 789. Until then a person deletes one by removing
-its file, which this ADR names so that it can be found.
+**Nothing here deletes anything** but a person's *Delete* (amendment of 6
+November 2026, queue item 789): a damaged file never.
 
 ## 5. Kept chats are *Earlier*; a chat is named by its first words
 
@@ -273,3 +273,61 @@ and through the window's road on both Chromiums
 (`the_agent_at_work_on_a_card_through_chrome.rs`): seven runs over two
 cards read back from the chat's file — the text typed into the password
 field, which the person never said, and the page's own password absent.
+
+## Amendment, 2026-11-06 — a chat deleted, with an undo (queue item 789)
+
+Approved by the owner on 6 November 2026 as proposed: *Delete* when
+hovering over a chat in the panel, an *Undo* for a few seconds, the file
+removed only once the undo has passed or on quit, never another chat's.
+
+- **Delete is offered on the row the pointer is over.** As the pointer
+  moves over the panel the browser process asks the panel's renderer what
+  is under it (`ToRenderer::ConversationHover`, answered as a press is,
+  with the claim under the point; only *which chat's row* is read of it),
+  and draws that row with a *Delete* button at its end — the row does not
+  move; its name gives way. Off the panel, or the cursor out of the
+  window, no row offers it. The rail shows no chats, so it offers none.
+  A press on *Delete* is decided only for the chat whose row was painted
+  offering it and still does (`Shown::hovered`); anything else is refused
+  by name, as every claim is.
+- **Out of the panel at once; gone after five seconds.** The chat leaves
+  the panel the moment *Delete* is decided — its row, its turns and where
+  it stood held in the browser process (`chat_delete.rs`) — and the
+  panel's foot says *Deleted “…”* with **Undo**, in a dark pill above
+  *Settings*, for **five seconds**, the time alo's own *Undo send* holds a
+  mail (`alo-workplace`'s mail module). *Undo* puts it back where it
+  stood, its turns as they were, not on screen. When the five seconds
+  pass, when another chat is deleted, or when the window closes, the chat
+  is **gone**, and only then is its file removed — so a chat brought back
+  never needed writing again, and one deleted by mistake was never off the
+  disk. The window wakes for it (`ConversationWindow::wake_at`, the event
+  loop's `WaitUntil`); nothing polls.
+- **Its own file alone.** `ChatStore::remove(N)` removes `chat-N.sealed`
+  and, if that chat was read from words not yet sealed, its `chat-N.json`
+  — never a file of another number, never a damaged file (which is never a
+  chat in the panel, and whose number is never given again). Its number is
+  not given again either. Removing is said on the terminal; a file that
+  cannot be removed is said as a chat not kept is.
+- **The chat on screen deleted** puts its card away first (the live page
+  closed, the agent at work on it stopped, as any card put away) and puts
+  an open chat with nothing in it on screen, or a new one.
+- **What an agent reads**: the hovered row is read with its *Delete*, as a
+  finished chat is with its *Done*, and the button is named *Delete* and
+  the chat's name; the foot's pill is a `status` holding *Deleted “…”* and
+  a button *Undo*. An agent's verbs never reach the panel (ADR 0074); a
+  person deletes.
+
+Checked by `panel_document`'s, `conversation_claim`'s (a press on *Delete*
+and *Undo*, a hover finding the row), `conversation_decide`'s (*Delete*
+and *Undo* only for what was painted and is still held), `conversation`'s
+(out at once, back with *Undo* where it stood, gone after five seconds, on
+another delete and at closing; the chat on screen deleted) and
+`chat_store`'s tests (its own files and no other), a layout assertion and
+a reference of the panel offering both (`the_chats_panel.rs`,
+`panel-deleting.png`), the wire's round trip, and through the window's road
+on a temporary directory (`tests/chats_kept_across_launches.rs`): hovered,
+deleted, brought back, deleted again and its file gone when its five
+seconds pass — the other chat's file kept — then deleted and the window
+closed before they pass, its file gone, and a relaunch showing neither.
+Mutations — the file never removed, *Delete* decided against what is held
+now rather than what was painted — each fail.

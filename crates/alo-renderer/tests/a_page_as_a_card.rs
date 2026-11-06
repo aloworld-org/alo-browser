@@ -23,8 +23,8 @@
 
 use alo_layout::{Rect, Size};
 use alo_paint::{Point, from_png};
-use alo_renderer::card::{Card, PAGE_SIZE};
-use alo_renderer::card_document::{LOADING, PICTURED};
+use alo_renderer::card::{Card, PAGE_SIZE, Shield};
+use alo_renderer::card_document::{LOADING, OFF, PICTURED, shield_named};
 use alo_renderer::card_place;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::face::Face;
@@ -679,5 +679,137 @@ fn the_card_is_drawn_the_same_by_a_confined_renderer_which_decodes_the_frame() -
     };
     assert_eq!(tree.to_outline(), here.tree.to_outline());
     renderers.stop_everything();
+    Ok(())
+}
+
+/// Every text `renderer`'s drawing put down, in order.
+fn texts(renderer: &Renderer) -> Vec<String> {
+    renderer
+        .rendered()
+        .map(|drawing| {
+            drawing
+                .display
+                .items()
+                .iter()
+                .filter_map(|item| match item {
+                    alo_paint::DisplayItem::Text { text, .. } => Some(text.clone()),
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Queue item 807: the card's page judged by a Chromium, its shield in the
+/// bar — on, counting what the lists refused, or off for its site.
+fn with_a_shield(shield: Shield) -> Result<Start, String> {
+    let mut start = with_a_card_loading(Some(frame()?), false);
+    if let Some(Turn::Page(card)) = start.turns.last_mut() {
+        card.shield = Some(shield);
+    }
+    Ok(start)
+}
+
+#[test]
+fn a_cards_shield_counts_what_was_refused_and_switches_its_site() -> Result<(), String> {
+    for (shield, words, pressed_now, reference) in [
+        (
+            Shield {
+                blocked: 12,
+                on: true,
+            },
+            "12",
+            Some(true),
+            "card-shield.png",
+        ),
+        (
+            Shield {
+                blocked: 0,
+                on: false,
+            },
+            OFF,
+            Some(false),
+            "card-shield-off.png",
+        ),
+    ] {
+        let mut renderer = Renderer::new(fonts());
+        let answer = renderer.handle(ToRenderer::Start(Box::new(with_a_shield(shield)?)));
+        assert!(
+            matches!(&answer, FromRenderer::Loaded { issues, .. } if issues.is_empty()),
+            "{answer:?}"
+        );
+        let class = if shield.on { "shield" } else { "shield off" };
+        let at = |class: &str| boxes_of(&renderer, class);
+        // 28 tall in the middle of the bar's 45 above its line (99 +
+        // 8.5); its right edge 6 of margin and the bar's 2 of gap before
+        // Expand at 879; the address ends 6 and 2 before it. Expand and
+        // Close have not moved.
+        let shields = at(class);
+        let [shield_box] = shields.as_slice() else {
+            return Err(format!("one shield: {shields:?}"));
+        };
+        let drawn = draw(with_a_shield(shield)?);
+        let switches: Vec<&SnapshotNode> = read(&drawn.tree, "button")
+            .into_iter()
+            .filter(|button| button.states.pressed.is_some())
+            .collect();
+        let [switch] = switches[..] else {
+            return Err(format!("one toggle: {}", drawn.tree.to_outline()));
+        };
+        let rect = switch.rect;
+        assert_eq!(&units(rect), shield_box);
+        assert_eq!(
+            units(Rect::new(rect.right(), rect.top(), 0.0, rect.size.height)),
+            px(871.0, 107.5, 0.0, 28.0)
+        );
+        assert!(rect.size.width > 38.0 && rect.size.width < 70.0, "{rect:?}");
+        assert_eq!(
+            at("url"),
+            vec![px(171.0, 112.5, rect.left() - 8.0 - 171.0, 18.0)]
+        );
+        assert_eq!(at("ibtn expand"), vec![px(879.0, 103.5, 36.0, 36.0)]);
+        assert_eq!(at("ibtn close"), vec![px(917.0, 103.5, 36.0, 36.0)]);
+        // Its shield, 16 square, 1 of border and 7 of padding in, and in
+        // the middle of the 28: 6 down.
+        let icons = icons(&renderer);
+        assert_eq!(
+            icons.get(2),
+            Some(&px(rect.left() + 8.0, 113.5, 16.0, 16.0)),
+            "{icons:?}"
+        );
+        // Read as a toggle button named for the site, pressed while blocking
+        // is on; drawn saying the count — or Off.
+        assert!(
+            switch
+                .name
+                .as_deref()
+                .is_some_and(|name| name == shield_named("127.0.0.1")),
+            "{:?}",
+            switch.name
+        );
+        assert_eq!(switch.states.pressed, pressed_now);
+        // The count, or Off, drawn as words of their own in it.
+        let texts = texts(&renderer);
+        assert!(texts.iter().any(|text| text == words), "{words}: {texts:?}");
+        // Pressed, it is the shield.
+        let pressed = pressed(
+            with_a_shield(shield)?,
+            rect.left() + rect.size.width / 2.0,
+            121.5,
+        );
+        assert_eq!(
+            pressed,
+            FromRenderer::ConversationClaimed(Some(Claim::Shield))
+        );
+        assert_eq!(holds(reference, drawn.frame.as_ref()), Ok(()));
+    }
+    // No shield for a card no Chromium judges: the address has its room.
+    let mut plain = Renderer::new(fonts());
+    let _ = plain.handle(ToRenderer::Start(Box::new(with_a_card_loading(
+        Some(frame()?),
+        false,
+    ))));
+    assert!(boxes_of(&plain, "shield").is_empty());
+    assert_eq!(boxes_of(&plain, "url"), vec![px(171.0, 112.5, 706.0, 18.0)]);
     Ok(())
 }

@@ -354,6 +354,47 @@ fn offers_over_a_card(driven: &mut Driven) -> Result<(), String> {
     Ok(())
 }
 
+/// Step 3b (queue item 807): the card's shield, pressed through the
+/// window's own road — the drawing thread's claim decided against what it
+/// painted. By hand on 6 November 2026 every such press was refused, the
+/// painted shield never kept, while the unit tests that decided it directly
+/// passed.
+fn the_shield_pressed(driven: &mut Driven) -> Result<(), String> {
+    let url = alo_url::parse("http://127.0.0.1:8765/card.html").map_err(|why| why.to_string())?;
+    driven.window.heard(Heard::Chrome(Went::Opening(url)));
+    let shield = |driven: &Driven| {
+        driven
+            .window
+            .conversation()
+            .card()
+            .and_then(|card| card.shield)
+            .map(|shield| shield.on)
+    };
+    assert_eq!(shield(driven), Some(true));
+    // A fresh chat's card stands 76 down in the first screen, under the
+    // person's empty line, its page still loading: the shield's pill is
+    // 758 to 804 across and 86 to 114 down there (its top border, the line
+    // colour, at 86), and the first screen stands 240 into the window.
+    driven.until("the shield painted", |driven| {
+        driven.shows(781, 86, [0xdd, 0xd6, 0xca, 0xff])
+    })?;
+    driven.click((1021.0, 100.0));
+    driven.until("blocking switched off for the site", |driven| {
+        driven.window.conversation().shield_off("127.0.0.1")
+    })?;
+    assert_eq!(shield(driven), Some(false));
+    assert_eq!(driven.window.told(), None, "the press was not refused");
+    assert!(
+        driven
+            .said
+            .iter()
+            .any(|line| line.contains("blocking trackers and adverts is off for 127.0.0.1")),
+        "{:?}",
+        driven.said
+    );
+    Ok(())
+}
+
 /// Step 4: Search chats.
 fn search_chats(driven: &mut Driven) -> Result<(), String> {
     // Search chats 220 × 38 at (10, 102) of the panel.
@@ -419,6 +460,18 @@ fn the_rail(driven: &mut Driven) -> Result<(), String> {
     assert_eq!(driven.window.conversation().side(), Side::Panel);
     assert_eq!(driven.window.conversation().showing().chats.len(), 3);
     Ok(())
+}
+
+#[test]
+fn a_cards_shield_pressed_through_the_windows_own_road() -> Result<(), String> {
+    let port = provide()?;
+    let mut driven = the_window(port, WINDOW, Scale::ONE)?;
+    the_shield_pressed(&mut driven)?;
+    driven.window.finish();
+    match driven.window.unfinished() {
+        Some(why) => Err(why.to_owned()),
+        None => Ok(()),
+    }
 }
 
 #[test]

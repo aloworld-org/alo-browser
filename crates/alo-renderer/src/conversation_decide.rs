@@ -86,6 +86,14 @@ pub struct Shown<C, S> {
     pub asking: Option<u64>,
     /// The choices a stuck agent offers, in order.
     pub choices: Vec<String>,
+    /// The chat whose row offers *Delete*, the pointer over it (queue item
+    /// 789).
+    pub hovered: Option<C>,
+    /// The chat just deleted, while the panel offers *Undo*.
+    pub undo: Option<C>,
+    /// The site of the live card's page while its shield is drawn (queue
+    /// item 807).
+    pub shield: Option<String>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -108,6 +116,9 @@ impl<C, S> Default for Shown<C, S> {
             working: None,
             asking: None,
             choices: Vec::new(),
+            hovered: None,
+            undo: None,
+            shield: None,
         }
     }
 }
@@ -182,6 +193,13 @@ pub enum Decided<C, S> {
     NotNow(u64),
     /// The choice a stuck agent offered, in its words.
     Choice(String),
+    /// *Delete* on this chat's row (queue item 789).
+    DeleteChat(C),
+    /// *Undo*, bringing this chat back.
+    Undo(C),
+    /// The card's shield, for the page's site of this name (queue item
+    /// 807).
+    Shield(String),
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -330,8 +348,9 @@ impl fmt::Display for Refusal {
             ),
             Refusal::NotAsked { claim } => write!(
                 f,
-                "a renderer claimed {claim}, which the first screen does not show as it was \
-                 painted, or not still, {refused}"
+                "a renderer claimed {claim}, which {} does not show as it was painted, or not \
+                 still, {refused}",
+                claim.part()
             ),
             Refusal::Unasked => write!(
                 f,
@@ -405,6 +424,7 @@ where
             .map_or_else(Decided::Refused, Decided::Choice),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
+        Claim::DeleteChat | Claim::Undo | Claim::Shield => offered(claim, painted, now),
         Claim::Chat { at } => held(Listed::Chats, at, &painted.chats, &now.chats)
             .map_or_else(Decided::Refused, Decided::Chat),
         Claim::Site { at } => held(Listed::Sites, at, &painted.sites, &now.sites)
@@ -476,6 +496,33 @@ fn drawn_as_hidden(claim: Claim, painted: bool, now: bool) -> Option<Refusal> {
         .into_iter()
         .find(|&hidden| hidden != on_the_rail)
         .map(|hidden| Refusal::PanelNotSo { claim, hidden })
+}
+
+/// What a thing offered for one chat or site comes to: the panel's *Delete*
+/// deletes the one chat whose row was painted offering it and still does,
+/// and *Undo* brings back the one the panel said while it still says so
+/// (queue item 789); the card's shield switches the one site it was painted
+/// for, while the card still shows that site's page (queue item 807).
+fn offered<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> Decided<C, S>
+where
+    C: Clone + PartialEq,
+{
+    let refused = Decided::Refused(Refusal::NotAsked { claim });
+    match claim {
+        Claim::Undo => {
+            same_one(painted.undo.as_ref(), now.undo.as_ref()).map_or(refused, Decided::Undo)
+        }
+        Claim::Shield => {
+            same_one(painted.shield.as_ref(), now.shield.as_ref()).map_or(refused, Decided::Shield)
+        }
+        _ => same_one(painted.hovered.as_ref(), now.hovered.as_ref())
+            .map_or(refused, Decided::DeleteChat),
+    }
+}
+
+/// What was painted, if it is what is held now too.
+fn same_one<T: Clone + PartialEq>(painted: Option<&T>, now: Option<&T>) -> Option<T> {
+    painted.filter(|&shown| now == Some(shown)).cloned()
 }
 
 /// The number painted, if it is the one now too.
@@ -705,6 +752,92 @@ mod tests {
             }
             .to_string(),
             "a renderer claimed the offer at place 5, and 2 were shown, and nothing was done"
+        );
+    }
+
+    #[test]
+    fn the_shield_switches_only_the_site_it_was_painted_for_while_it_shows_it() {
+        let shown = |site: Option<&str>| Shown {
+            shield: site.map(str::to_owned),
+            ..painted()
+        };
+        let guardian = shown(Some("theguardian.com"));
+        let shield = claimed(Claim::Shield);
+        assert_eq!(
+            decide(shield.clone(), Part::Start, &guardian, &guardian),
+            Decided::Shield("theguardian.com".to_owned())
+        );
+        for (painted, now) in [
+            (&guardian, &shown(Some("bbc.com"))),
+            (&guardian, &shown(None)),
+            (&shown(None), &guardian),
+        ] {
+            assert_eq!(
+                decide(shield.clone(), Part::Start, painted, now),
+                Decided::Refused(Refusal::NotAsked {
+                    claim: Claim::Shield
+                })
+            );
+        }
+        assert_eq!(
+            decide(shield, Part::Panel, &guardian, &guardian),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Panel,
+                claim: Claim::Shield
+            })
+        );
+    }
+
+    #[test]
+    fn delete_and_undo_are_decided_only_for_the_chat_painted_and_still_so() {
+        let offering = Shown {
+            hovered: Some(7),
+            undo: Some(4),
+            ..painted()
+        };
+        let delete = claimed(Claim::DeleteChat);
+        let undo = claimed(Claim::Undo);
+        assert_eq!(
+            decide(delete.clone(), Part::Panel, &offering, &offering),
+            Decided::DeleteChat(7)
+        );
+        assert_eq!(
+            decide(undo.clone(), Part::Panel, &offering, &offering),
+            Decided::Undo(4)
+        );
+        // Another row hovered since, or none; the Undo passed since, or
+        // never painted: refused, never moved along.
+        for now in [
+            Shown {
+                hovered: Some(8),
+                undo: Some(5),
+                ..painted()
+            },
+            painted(),
+        ] {
+            for (claim, answer) in [(Claim::DeleteChat, &delete), (Claim::Undo, &undo)] {
+                assert_eq!(
+                    decide(answer.clone(), Part::Panel, &offering, &now),
+                    Decided::Refused(Refusal::NotAsked { claim })
+                );
+                assert_eq!(
+                    decide(answer.clone(), Part::Panel, &now, &offering),
+                    Decided::Refused(Refusal::NotAsked { claim })
+                );
+            }
+        }
+        // Claimed by the first screen's renderer: it draws neither.
+        assert_eq!(
+            decide(delete, Part::Start, &offering, &offering),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Start,
+                claim: Claim::DeleteChat
+            })
+        );
+        assert_eq!(
+            Refusal::NotAsked { claim: Claim::Undo }.to_string(),
+            "a renderer claimed the panel's Undo, which the chats panel does not show as it \
+             was painted, or not still, and nothing was done"
         );
     }
 

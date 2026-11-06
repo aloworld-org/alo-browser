@@ -153,6 +153,13 @@ dejavu = "2.37"
 # resources (`resource-assembler`). Its `unsafe` (`flatbuffers`) is the
 # crate's, not ours (ADR 0010).
 adblock = { version = "=0.13.5", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
+# Authenticated encryption, rented (ADR 0001, ADR 0098): the kept chats sealed
+# under a key in the person's keychain. RustCrypto's XChaCha20-Poly1305 —
+# pure Rust, MIT OR Apache-2.0, its ChaCha20Poly1305 audited by NCC Group
+# (2020) — named only in `alo-window`'s `chat_seal.rs`. Pinned exactly, default
+# features off: no `getrandom` (the nonce is read from `/dev/urandom` by std)
+# and only `alloc`. Its `unsafe` (SIMD back ends) is the crate's (ADR 0010).
+chacha20poly1305 = { version = "=0.10.1", default-features = false, features = ["alloc"] }
 # The window, rented (ADR 0024 § 1). `winit` is the window and its events and
 # `softbuffer` puts CPU-drawn pixels in it; both reach the window server through
 # `unsafe` of their own (on macOS, the `objc2` crates), which is ADR 0010's
