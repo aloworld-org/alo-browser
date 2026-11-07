@@ -97,6 +97,12 @@ pub enum Drawn {
         /// How far they reach.
         reach: Reach,
     },
+    /// Every drawing asked of the thread up to this number
+    /// ([`ConversationDrawing::asked_through`]) has been drawn, or replaced
+    /// by a later one before it was: told after what came of the newest
+    /// of them, so a window that has heard it holds the frames of what it
+    /// last asked (queue item 862).
+    Through(u64),
 }
 
 /// How the thread tells the window what was drawn: whether anybody heard.
@@ -119,8 +125,9 @@ pub struct Asked {
 #[derive(Debug, Clone, PartialEq)]
 enum Work {
     /// Draw both parts as they are now — boxed, since what is typed and
-    /// offered made it the one large kind of work.
-    Draw(Box<Asked>),
+    /// offered made it the one large kind of work — numbered in the order
+    /// asked.
+    Draw(Box<Asked>, u64),
     /// A person pressed this part here, in its CSS pixels.
     Press(Part, Point),
     /// The pointer is over the panel here, in its CSS pixels, no button
@@ -135,6 +142,8 @@ pub struct ConversationDrawing {
     asked: Option<Sender<Work>>,
     /// What was last sent, so the same is not sent twice.
     sent: Option<Asked>,
+    /// How many drawings have been sent: the number of the newest.
+    numbered: u64,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -167,6 +176,7 @@ impl ConversationDrawing {
         Ok(Self {
             asked: Some(asked),
             sent: None,
+            numbered: 0,
             thread: Some(thread),
         })
     }
@@ -178,11 +188,18 @@ impl ConversationDrawing {
             return;
         }
         if let Some(sender) = &self.asked {
+            self.numbered += 1;
             // A thread that has gone is a window that is closing, which
             // nothing here waits for.
-            let _ = sender.send(Work::Draw(Box::new(asked.clone())));
+            let _ = sender.send(Work::Draw(Box::new(asked.clone()), self.numbered));
         }
         self.sent = Some(asked);
+    }
+
+    /// The number of the newest drawing sent, which [`Drawn::Through`]
+    /// says once it is drawn; 0 before any is.
+    pub fn asked_through(&self) -> u64 {
+        self.numbered
     }
 
     /// How much of the conversation's bar the first screen was last asked
@@ -263,19 +280,23 @@ fn hold(mut holding: Holding, asking: &Receiver<Work>, tell: &TellConversation) 
         let waiting: Vec<Work> = core::iter::once(first).chain(asking.try_iter()).collect();
         let last_drawing = waiting
             .iter()
-            .rposition(|work| matches!(work, Work::Draw(_)));
+            .rposition(|work| matches!(work, Work::Draw(..)));
         let last_hover = waiting
             .iter()
             .rposition(|work| matches!(work, Work::Hover(_)));
         for (place, work) in waiting.into_iter().enumerate() {
             let said = match work {
-                Work::Draw(asked) if Some(place) == last_drawing => holding.draw(*asked),
+                Work::Draw(asked, number) if Some(place) == last_drawing => {
+                    let mut said = holding.draw(*asked);
+                    said.push(Drawn::Through(number));
+                    said
+                }
                 Work::Press(part, at) => holding.press(part, at).into_iter().collect(),
                 Work::Hover(at) if Some(place) == last_hover => {
                     holding.hover(at).into_iter().collect()
                 }
                 // A drawing or a hover a later one replaces.
-                Work::Draw(_) | Work::Hover(_) => Vec::new(),
+                Work::Draw(..) | Work::Hover(_) => Vec::new(),
             };
             for drawn in said {
                 if !tell(drawn) {

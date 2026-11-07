@@ -111,6 +111,7 @@ pub mod pointer;
 mod press;
 mod put;
 pub mod rail_document;
+pub mod rail_initials;
 pub mod ran_document;
 pub mod renderer;
 pub mod resource;

@@ -213,24 +213,11 @@ impl Chat {
         }
     }
 
-    /// What the rail draws for it (queue item 760): the first letter of
-    /// each of the first two words of its name as the row shows it — *New
-    /// chat* for one with none — as capitals, a word's letter being its
-    /// first letter or digit. `WI` for *Weekend in Lisbon*, `R` for
-    /// *rust*; a name with no letter at all is a middle dot.
+    /// What the rail draws for it (queue items 760 and 860): the letters
+    /// of its name as the row shows it, a host's being its site's name's
+    /// ([`crate::rail_initials`]).
     pub fn initials(&self) -> String {
-        let letters: String = self
-            .label()
-            .split_whitespace()
-            .filter_map(|word| word.chars().find(|c| c.is_alphanumeric()))
-            .take(2)
-            .flat_map(char::to_uppercase)
-            .collect();
-        if letters.is_empty() {
-            "\u{b7}".to_owned()
-        } else {
-            letters
-        }
+        crate::rail_initials::of(self.label())
     }
 
     /// The row's mark: the first letter of its site, as a capital, or
@@ -288,17 +275,12 @@ mod tests {
     }
 
     #[test]
-    fn a_chats_initials_are_its_first_two_words_first_letters() {
+    fn a_chats_initials_are_its_names_as_the_row_shows_it() {
         let initials = |name: &str| Chat::new(name, "").initials();
         assert_eq!(initials("Weekend in Lisbon"), "WI");
-        assert_eq!(initials("rust"), "R");
         assert_eq!(initials(""), "NC", "New chat");
-        assert_eq!(initials("  “quoted” 3 cats"), "Q3");
-        assert_eq!(initials("éclair recipes"), "ÉR");
-        assert_eq!(initials("https://www.theguardian.com/international"), "H");
-        assert_eq!(initials("— …"), "\u{b7}");
-        // A letter whose capital is two letters is both.
-        assert_eq!(initials("ßeta"), "SS");
+        assert_eq!(initials("en.wikipedia.org"), "W");
+        assert_eq!(initials("https://www.theguardian.com/international"), "T");
     }
 
     #[test]

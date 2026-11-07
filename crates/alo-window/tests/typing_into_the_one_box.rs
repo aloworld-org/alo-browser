@@ -196,9 +196,17 @@ fn painted_through_a_confined_renderer(conversation: &Conversation) -> Result<Fr
     Ok(frame)
 }
 
+/// The next part painted or line said. Which drawing the thread has drawn
+/// through (queue item 862) is passed over: it is the window's, and
+/// `the_conversation_window.rs` holds it.
 fn next(told: &Receiver<Drawn>) -> Result<Drawn, String> {
-    told.recv_timeout(AT_MOST)
-        .map_err(|why| format!("nothing was told: {why}"))
+    loop {
+        match told.recv_timeout(AT_MOST) {
+            Ok(Drawn::Through(_)) => {}
+            Ok(drawn) => return Ok(drawn),
+            Err(why) => return Err(format!("nothing was told: {why}")),
+        }
+    }
 }
 
 #[test]

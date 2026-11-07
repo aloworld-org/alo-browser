@@ -1353,9 +1353,15 @@ impl Conversation {
             if self.chats.iter().any(|(each, _)| *each == id) {
                 continue;
             }
-            self.chats
-                .push((id, Chat::new(one.record.name, "").earlier()));
-            self.threads.push((id, Thread::kept(one.record.turns)));
+            let thread = Thread::kept(one.record.turns);
+            // A name 758's rule made is named again by 859's (ADR 0092's
+            // amendment of 7 November 2026); any other is kept.
+            let name = chat_name::read_back(
+                &one.record.name,
+                thread.turns().first().map(alo_renderer::turn::Turn::said),
+            );
+            self.chats.push((id, Chat::new(name, "").earlier()));
+            self.threads.push((id, thread));
         }
         self
     }
@@ -2349,6 +2355,71 @@ mod tests {
         // New chats are numbered past every kept one.
         assert!(conversation.act(Pressed::NewChat));
         assert_eq!(conversation.on_screen().map(ChatId::number), Some(13));
+    }
+
+    #[test]
+    fn a_chat_of_two_addresses_is_named_by_the_first_ones_host_alone() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "en.wikipedia.org/wiki/Kampala");
+        let _ = conversation.edit(Edit::Choose);
+        conversation.open_card(alo_url::parse("https://en.wikipedia.org/wiki/Kampala").unwrap());
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "https://www.bbc.com/news");
+        let _ = conversation.edit(Edit::Choose);
+        conversation.open_card(alo_url::parse("https://www.bbc.com/news").unwrap());
+        assert_eq!(conversation.thread().map(|t| t.turns().len()), Some(2));
+        assert_eq!(rows(&conversation).0, vec!["en.wikipedia.org".to_owned()]);
+        // Kept and read back, it is named the same.
+        let kept: Vec<(u64, String)> = conversation
+            .to_keep()
+            .map(|(id, name, _)| (id.number(), name.to_owned()))
+            .collect();
+        assert_eq!(kept, vec![(0, "en.wikipedia.org".to_owned())]);
+    }
+
+    #[test]
+    fn a_name_kept_by_the_rule_before_is_named_again_as_it_is_read() {
+        use crate::chat_record::Record;
+        let visited = |said: &str, url: &str| Turn::Visited {
+            said: said.to_owned(),
+            url: alo_url::parse(url).unwrap(),
+            ran: Vec::new(),
+        };
+        let glued = "https://en.wikipedia.orghttps://en.wikipedia.org";
+        let kept = vec![
+            // Batch 16's chat, as 758's rule named it.
+            Kept {
+                number: 2,
+                record: Record {
+                    name: glued.to_owned(),
+                    turns: vec![
+                        visited(glued, "https://en.wikipedia.org/"),
+                        visited("www.bbc.com/news", "https://www.bbc.com/news"),
+                    ],
+                },
+            },
+            // A name not 758's of its first turn: kept as it is.
+            Kept {
+                number: 1,
+                record: Record {
+                    name: "https://example.com".to_owned(),
+                    turns: vec![visited("example.com", "https://example.com/")],
+                },
+            },
+        ];
+        let conversation = Conversation::default().keeping(kept, None);
+        assert_eq!(
+            rows(&conversation).0,
+            vec![
+                NEW_CHAT.to_owned(),
+                "en.wikipedia.org".to_owned(),
+                "https://example.com".to_owned()
+            ]
+        );
+        // And written so the next time it is kept.
+        let names: Vec<&str> = conversation.to_keep().map(|(_, name, _)| name).collect();
+        assert_eq!(names, vec!["en.wikipedia.org", "https://example.com"]);
     }
 
     #[test]

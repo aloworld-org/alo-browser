@@ -1,6 +1,6 @@
 # ADR 0092 — Chats are kept on the machine, a file each, in words
 
-**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814, 820, 789, 791 and 824; § 2's *not encrypted* superseded by ADR 0098 (790)
+**Status:** accepted — built by queue items 757 and 758 (1 November 2026); amended for 814, 820, 789, 791, 824 and 859; § 2's *not encrypted* superseded by ADR 0098 (790)
 **Date:** 2026-11-01
 **Context:** ADR 0085 (the conversation keeps every turn, per chat; an
 earlier card is its address, not a picture); ADR 0074 (the interface is a
@@ -403,3 +403,54 @@ drawn as it stood) and through both Chromiums
 (`the_agent_at_work_on_a_card_through_chrome.rs`: the run carried on after
 taking over read back from the file with its plan of two steps).
 
+## Amendment, 2026-11-07 — an address in a name is its host, and names kept by 758's rule are named again (queue item 859)
+
+**What was seen.** Batch 16's hand run left a chat named
+*https://en.wikipedia.orghttp…*. Its cause was not a second turn joined to
+the first — a name is drawn from the first turn alone, and always was —
+but that turn's own words: the one box has no ⌘A (it edits only at its
+end, and ⌘ never types), so the run's ⌘A did nothing and the address typed
+again went on after the first, and the box sent
+`https://en.wikipedia.orghttps://en.wikipedia.org` as one turn. § 5's rule
+named it faithfully, an address whole with its scheme — which also made
+every address-named chat's rail initials `H`. ⌘A in the box is queue item
+861.
+
+**§ 5's rule gains two clauses** (`chat_name.rs`):
+
+- **An address reads as its host.** A word the one box would go to
+  (`alo-renderer`'s `typed::address`) stands in the name as its host, a
+  port kept when written: *https://en.wikipedia.org/wiki/Kampala* is
+  *en.wikipedia.org*. The path is not kept in the name: the turn holds the
+  address whole, a press away; a path is mostly opaque; and a host is what
+  tells chats apart in a row of some thirty characters and on the rail.
+  The same host twice in a row is said once.
+- **Two addresses glued are two words.** An `http://` or `https://`
+  straight after a letter or digit begins a new word; one after `/`, `=` or
+  `?` is an address carried inside another's path or query and is left
+  there. Two hosts glued with no scheme between are one host to anybody
+  and stay one word.
+
+**What is stored.** The name is still the one field `"name"`, the format
+and its version unchanged; a chat named now is stored with the new name.
+
+**Names stored before.** A name is never typed by a person today and no
+model names a chat, so every stored name is alo's — but not every future
+one will be. So a name is **named again as it is read** only when it is
+**exactly what 758's rule made of the chat's first kept turn** — provably
+alo's, by that rule, from that turn — and kept as it is otherwise (a name a
+person or, one day, a model gave; a first turn no longer kept). Read so,
+batch 16's chat is *en.wikipedia.org*; a chat named *ev chargers near me*
+is named the same either way. The file is not rewritten for it: it holds
+the new name the next time the chat changes and is written, and until
+then reading it again names it again the same. Nothing is deleted, and a
+file that does not read is still never read in part (§ 4).
+
+Checked by `chat_name`'s tests (an address as its host; glued addresses
+two words and none ever joined without a space, over every pair of four
+addresses glued, spaced and on two lines; a carried address left whole;
+a name read back named again only when it is the old rule's) and
+`conversation`'s (a chat of two address turns named by the first's host
+and kept so; a kept chat of batch 16's name read back as
+*en.wikipedia.org* and another's kept as stored). Mutations — the address
+kept whole, glued addresses not cut, every stored name kept — each fail.

@@ -709,6 +709,72 @@ fn a_press_on_each_chat_of_the_rail_claims_its_place() {
     );
 }
 
+/// Queue item 860: chats named by their hosts (859) have their sites'
+/// letters on the rail — past *www*, *m* and a language — not each `H`
+/// or `W`, so they can be told apart.
+#[test]
+fn chats_named_by_addresses_have_their_sites_letters_on_the_rail() {
+    let chats = vec![
+        Chat::new("en.wikipedia.org", "en.wikipedia.org").current(),
+        Chat::new("www.bbc.com", "www.bbc.com").doing(Doing::Working),
+        Chat::new("m.youtube.com", "m.youtube.com").doing(Doing::Done),
+        // A name kept before 859 that a person gave: a whole address.
+        Chat::new("https://www.theguardian.com/international", "").earlier(),
+        Chat::new("127.0.0.1:8736", "").earlier(),
+    ];
+    let drawn = draw(
+        Panel {
+            hidden: true,
+            viewport: Size::new(64.0, 600.0),
+            ..panel_of(chats)
+        }
+        .at_scale(2.0),
+    );
+    let outline = drawn.tree.to_outline();
+    // An agent reads each by its name, as before.
+    let named: Vec<Option<&str>> = read(&drawn.tree, "button")
+        .iter()
+        .map(|button| button.name.as_deref())
+        .collect();
+    let done = format!("m.youtube.com {DONE}");
+    assert_eq!(
+        named,
+        vec![
+            Some("New chat"),
+            Some("en.wikipedia.org"),
+            Some("www.bbc.com"),
+            Some(done.as_str()),
+            Some("https://www.theguardian.com/international"),
+            Some("127.0.0.1:8736"),
+            Some("Show the panel"),
+        ],
+        "{outline}"
+    );
+    // The letters drawn, in the rail's order: five, all different.
+    let letters: Vec<&str> = drawn
+        .texts
+        .iter()
+        .map(String::as_str)
+        .filter(|text| text.chars().count() <= 2 && *text != "alo")
+        .collect();
+    assert_eq!(letters, vec!["W", "B", "Y", "T", "1"], "{:?}", drawn.texts);
+    // Each in its 32 circle where 760 put it.
+    assert_eq!(
+        of_class(&drawn, "initials"),
+        vec![
+            px(16.0, 127.0, 32.0, 32.0),
+            px(16.0, 177.0, 32.0, 32.0),
+            px(16.0, 227.0, 32.0, 32.0),
+            px(16.0, 277.0, 32.0, 32.0),
+            px(16.0, 327.0, 32.0, 32.0),
+        ],
+        "{outline}"
+    );
+    let frame = drawn.frame.unwrap_or_else(|| panic!("nothing was painted"));
+    assert_eq!((frame.width, frame.height), (128, 1200));
+    assert_eq!(holds("panel-rail-addresses.png", Some(&frame)), Ok(()));
+}
+
 /// Queue item 775: folded in a narrow window, the panel is the same rail
 /// as hidden — in the window at the fold, 820 tall, and in the least
 /// window, 600 tall — *Show the panel* 12 above its foot.

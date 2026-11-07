@@ -408,10 +408,17 @@ fn renderer() -> Result<PathBuf, String> {
 }
 
 /// The next thing the window is told that is not a frame of the other
-/// part: a part painted, a line said, or a press decided.
+/// part: a part painted, a line said, or a press decided. Which drawing
+/// the thread has drawn through (queue item 862) is passed over: it is the
+/// window's, and `the_conversation_window.rs` holds it.
 fn next(told: &Receiver<Drawn>) -> Result<Drawn, String> {
-    told.recv_timeout(AT_MOST)
-        .map_err(|why| format!("nothing was told: {why}"))
+    loop {
+        match told.recv_timeout(AT_MOST) {
+            Ok(Drawn::Through(_)) => {}
+            Ok(drawn) => return Ok(drawn),
+            Err(why) => return Err(format!("nothing was told: {why}")),
+        }
+    }
 }
 
 /// Wait until both parts have painted, failing on anything said.

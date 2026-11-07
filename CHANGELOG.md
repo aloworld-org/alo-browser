@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A chat opened from an address is named by its site.** A chat whose
+  first words were an address is now called by its host —
+  *en.wikipedia.org* rather than *https://en.wikipedia.org/wiki/…* — and
+  two addresses typed with nothing between them are never run together
+  into one name. Chats kept from before with such a name are named again
+  as they are read.
+- **The narrow rail tells sites apart.** A chat named after a site shows
+  its site's letter on the rail — `W` for Wikipedia, `B` for
+  *www.bbc.com* — past *www*, *m* and a language such as *en*, rather than
+  `H` for every one.
 - **alo's agent shows its plan.** Before it acts on a page, alo writes two
   to five short steps of the task in its column: the steps done are
   ticked, the one it is on is in bold, and the rest are greyed. The plan

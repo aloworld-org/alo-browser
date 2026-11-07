@@ -49420,3 +49420,113 @@ through `perl -MPOSIX=setsid` and waited on by its PID). **Summary
 *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
 
 The next unused queue number is **859** and the next ADR is **0100**.
+
+## 2026-11-07 — items 859 and 860: a chat named by its host, and its site's letter on the rail
+
+Batched under one gate, at the owner's asking (*"Fix them"*). Contracts
+read: `CLAUDE.md`, `LOOP.md`, `docs/design/shell.md` (*The chats panel*,
+*The rail's chats*), ADR 0092 (amended here). No `unsafe`.
+
+**859 — the cause.** Not two turns joined: a chat's name is drawn from its
+first turn alone, and always was. Batch 16's turn itself said
+`https://en.wikipedia.orghttps://en.wikipedia.org` (`handrun36/02-typed.png`,
+its log's line 5): the one box takes no ⌘ key and is edited only at its end
+(`typing.rs`), so that run's ⌘A did nothing and the address typed again
+went on after the first; 758's rule named the word as it was. **The rule
+now** (`chat_name.rs`): an address reads as its host, a port kept, the
+path left to the turn; an `http://`/`https://` straight after a letter or
+digit begins a new word (one after `/`, `=`, `?` stays in its address);
+the same host twice in a row said once. **Names stored before:** named
+again as they are read only when exactly 758's name of the first kept turn
+— alo's own — and kept otherwise; the file holds the new name at its next
+write (ADR 0092 amended). Cut: ⌘A in the box (861).
+
+**860 — the rail.** `alo-renderer`'s `rail_initials.rs`: a host's (or an
+address's) letter is its first label's past a prefix — `www`/`wwwN`, `m`,
+`mobile`, `amp`, two letters with perhaps `-xx…` — while two labels stand
+after it; a host of two labels keeps its first; known limit
+*my.site.example* `S`. `Chat::initials` asks it.
+
+**Tests:** unit (`chat_name` 7, `conversation` 2 new, `rail_initials` 3,
+`panel` 1 rewritten); `the_chats_panel.rs`'s new
+`chats_named_by_addresses_have_their_sites_letters_on_the_rail` — the
+names read, the letters drawn `W B Y T 1`, the circles' boxes in numbers,
+reference `panel-rail-addresses.png` at scale 2, run once without update
+mode (failing only on the missing file), written, looked at. No existing
+reference moved. **Mutations**, each failing: the address kept whole;
+glued addresses not cut; every stored name kept; no prefix skipped; hosts
+not read.
+
+**By hand** (screen unlocked; release, CEF host and bundle rebuilt,
+`alo-bundle --keys-from keychain`, keys never printed; `--conversation
+--chats handrun37/chats`, `0700`; window at 120, 60, 1280 × 852 points on
+the Retina; typing through System Events; screenshots in the session
+scratchpad's `handrun37/`): *en.wikipedia.org/wiki/Kampala* typed (`01`)
+and opened — the chat *en.wikipedia.org* (`02`); *https://www.bbc.com/news*
+opened in the same chat, the name unchanged (`03`); ⌘T sent by System
+Events over the card did not make a new chat (`04`, not looked into — the
+card's page holds the keys while it has the keyboard, 718), so *New chat*
+was pressed: *www.bbc.com* (`04a`); the glued address typed as batch 16
+had it — *en.wikipedia.org*, its page not opened as before (`05`);
+*m.youtube.com*, *github.com/rust-lang* (`06`); the window 700 wide, the
+rail `G Y W B W` (`07`), *www.bbc.com* named on hover (`08`) and opened by
+a press (`09`). Relaunched on a copy of batch 16's own `handrun36/chats`:
+its chats read back as *127.0.0.1:8736* and *en.wikipedia.org* (`10`).
+Quit with `tell application id "org.aloworld.Browser" to quit`; no alo
+process left; the pointer at 1400, 1000. **Spend: none** — no search, no
+model. **Not seen by hand:** a name a person gave kept as stored (none can
+be given yet; unit test only); the re-derived name written back at the
+chat's next change.
+
+ROADMAP: the interface line's *Built since* names 859 and 860; its owed
+list gains 861.
+
+**Gate: not met, first and only run** (CEF_PATH set, the pointer at
+1400, 1000; detached through `perl -MPOSIX=setsid` and waited on by its
+PID). **Summary [ 639.459s] 6422/6579 tests run: 6421 passed (4 slow, 1
+leaky), 1 failed, 0 skipped** — *"The gate is not met." (11 of 11
+steps)*; fmt and clippy clean. The one failure,
+`a_searchs_answer_is_kept_in_its_chat_and_read_back_without_asking_again`,
+is **not this change's**: it passes alone (3/3) and fails beside sixteen
+`yes` 6/6 on this tree and 4/4 on a clean worktree of 615b22d, the tab and
+answer right and only the results' marks' column differing — a timing race
+in the test, queued as 862. 157 tests were not run after it (nextest
+stops at a failure). Not re-run, as asked; the owner's call.
+`scripts/gate.sh` not edited.
+
+**862, fixed in this change at the coordinator's asking.** The cause was
+not the marks (this test's sites have none): saved under load, the
+*before* picture was the All tab while the state said Answer — the wait
+took any frame with the line's colour at x 740, which All's rule under its
+answer has, and the fixed 2 s passed before the Answer tab's frame came.
+New signal: every drawing sent is numbered, the drawing thread tells
+`Drawn::Through(n)` after the newest it handled, and
+`ConversationWindow::drawn_as_asked` says whether the newest sent is
+painted; the test waits on it before both pictures, the 2 s gone, the
+comparison unchanged. Beside sixteen `yes`: 10/10 here, 10/10 on a clean
+worktree of 615b22d with the fix; the fixed wait put back fails 0/5.
+`the_conversation_window.rs` holds the signal (`Through(1)` after both
+frames, nothing more).
+
+**Second gate: not met** (`gate-batch17b.log`). **Summary [ 625.448s]
+6332/6579 tests run: 6331 passed (4 slow), 1 failed, 0 skipped** — *"The
+gate is not met." (11 of 11 steps)*. Caused by 862's signal:
+`a_press_on_the_conversation.rs`'s
+`the_same_presses_through_two_confined_renderers` reads the drawing
+thread's channel strictly and met `Through(1)` where it waited for a
+press's decision; `typing_into_the_one_box.rs` reads it the same way (not
+reached before the gate stopped). Both tests' `next` now passes over
+`Drawn::Through` — the number is the window's, held by
+`the_conversation_window.rs` — and every other reader goes through
+`ConversationWindow::heard`.
+
+Before the third run, every alo-window test with `--no-fail-fast`: 1083
+passed.
+
+**Third gate: met** (`gate-batch17c.log`; CEF_PATH set, the pointer at
+1400, 1000; detached through `perl -MPOSIX=setsid` and waited on by its
+PID). **Summary [1200.662s] 6579 tests run: 6579 passed (7 slow, 1
+leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*.
+`scripts/gate.sh` not edited.
+
+The next unused queue number is **863** and the next ADR is **0100**.

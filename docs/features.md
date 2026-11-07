@@ -1285,7 +1285,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   text — and read back under *Earlier*, newest first, a live card as its
   address and a search under way as not answered; a file that does not
   read is said and left as it is. A chat is named by the first words said
-  in it, up to 48 characters. In the format's and the store's unit tests in
+  in it, up to 48 characters, an address as its host (859: *en.wikipedia.org*,
+  two addresses glued two words, a name kept by the rule before named
+  again as it is read — ADR 0092 amended). In the format's and the store's unit tests in
   a temporary directory, and two launches through the window's own road
   (`alo-window/tests/chats_kept_across_launches.rs`). Owed: deleting a chat
   (789), encrypted at rest (790), closing one to *Earlier* (791).
@@ -1437,7 +1439,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   design of 6 November 2026): an open row hovered offers its ×, an earlier
   row *Delete*, never both; closed, a chat is first under *Earlier*, its
   turns kept, nothing deleted. **The rail's chats** (760): the five most
-  recent as round initials, the one on screen white, the name in a pill
+  recent as round initials — a host's its site's letter, past *www*, *m*
+  and a language (860: *en.wikipedia.org* `W`, reference
+  `panel-rail-addresses.png`) — the one on screen white, the name in a pill
   beside the hovered one over the first screen (the rail drawn on nothing),
   each pressed as its chat. **The panel over the conversation in a narrow
   window** (776): below 760, *Show the panel* slides the whole panel out

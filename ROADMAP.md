@@ -2499,7 +2499,7 @@ items where being right and being unusable are the same outcome.
       method (847), input methods in the box (848), a closed list's option
       no one key reaches (849), alo's menu by keys (850), ⇧ and ⌥ on a
       link (851), the strip's own face and the face chosen (852),
-      *Settings* by keys (856),
+      *Settings* by keys (856), ⌘A in the one box (861),
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
@@ -2528,7 +2528,9 @@ items where being right and being unusable are the same outcome.
       alo continue* telling the model what the person changed, and a
       payment's amount, merchant and summary before *Pay*, a card's
       details never an agent's — the owner's designs of 6 November 2026
-      (824, 825, 826, ADRs 0096 amended and 0099);
+      (824, 825, 826, ADRs 0096 amended and 0099); a chat opened from an
+      address named by its host, glued addresses never one word, and its
+      site's letter on the rail (859, 860, ADR 0092 amended);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

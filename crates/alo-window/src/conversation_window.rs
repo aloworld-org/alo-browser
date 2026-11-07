@@ -177,6 +177,9 @@ pub struct ConversationWindow {
     /// the box, and where the live card stood, in the frame of the first
     /// screen about to be told: its drawing thread says so just before it.
     painting_down: Option<(f32, usize, Stands)>,
+    /// The number of the newest drawing the drawing thread has said is
+    /// drawn ([`Drawn::Through`], queue item 862).
+    drawn_through: u64,
     /// The modifier keys held.
     held: Held,
     /// Whether the window has the keyboard, and the front is to be taken
@@ -377,6 +380,7 @@ impl ConversationWindow {
             drawn_offered: 0,
             drawn_stands: Stands::InTheConversation,
             painting_down: None,
+            drawn_through: 0,
             held: Held::NOTHING,
             front: Front::default(),
             redraw: false,
@@ -2034,7 +2038,18 @@ impl ConversationWindow {
                 stands,
                 reach,
             }) => self.reached(turns, (down, offered, stands), reach),
+            Heard::Drawn(Drawn::Through(number)) => self.drawn_through = number,
         }
+    }
+
+    /// Whether what the window holds painted is what it last asked drawn:
+    /// the drawing thread has said it drew the newest drawing sent, or
+    /// none was sent (queue item 862). What a picture of the window is
+    /// compared after, rather than after a while.
+    pub fn drawn_as_asked(&self) -> bool {
+        self.drawing
+            .as_ref()
+            .is_none_or(|drawing| drawing.asked_through() == self.drawn_through)
     }
 
     /// The first screen is about to be told painted with `turns` turns

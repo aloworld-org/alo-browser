@@ -44,7 +44,22 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
   760, ADR 0092).
 - **A chat's name** is the first words said in it — up to 48 characters,
   whole words, `…` when there was more — and *New chat* until something is
-  said (item 758).
+  said (item 758). Only the first turn names it, so a name never joins two
+  turns' words. **An address in it reads as its host** (item 859):
+  *https://en.wikipedia.org/wiki/Kampala* is *en.wikipedia.org*, a port
+  kept (*127.0.0.1:8736*), the scheme and path left to the turn, which
+  holds the address whole a press away — the path was considered and
+  left out: it is mostly opaque (ids, `wiki/…`), it would push every
+  second site's name past the row, and a host is what tells two chats
+  apart in the panel and on the rail. **Two addresses typed with nothing
+  between** — an `http://` or `https://` straight after a letter or digit
+  — are two words, never one; one after `/`, `=` or `?` is part of the
+  address that carries it. The same host twice in a row is said once.
+  Two hosts glued with no scheme between (*example.comexample.com*) are
+  one host to anyone, and stay so. **A name kept before 859** that is
+  exactly what 758's rule made of the chat's first kept turn is alo's own,
+  and is named again by this rule as it is read; any other name is kept as
+  it is (ADR 0092's amendment of 7 November 2026).
 - **Settings**, at the foot, under a line, with a settings icon — two
   lines, a knob on each — before its words. Pressed, it opens *Settings*
   in the conversation's place, and its row is then white, as the chat on
@@ -112,7 +127,18 @@ a "+" at the top makes a new chat.*
   at (10, 121), then 171, 221, 271 and 321 — holding **its initials**, the
   first letter or digit of each of the first two words of its name as the
   panel shows it, in capitals (*Weekend in Lisbon* `WI`, *rust* `R`, *New
-  chat* `NC`, a name with no letter a middle dot), 12 px 600 in the ink in
+  chat* `NC`, a name with no letter a middle dot) — **a word that is a host
+  or an address giving its site's name's letter** (item 860,
+  `rail_initials.rs`): the first letter of its host's first label that is
+  not a prefix, a prefix being, before at least two more labels, `www` (or
+  `www` and digits), `m`, `mobile` or `amp`, or two letters with perhaps a
+  hyphen and two to four more — a language or a country (*en.wikipedia.org*
+  `W`, *en.m.wikipedia.org* `W`, *www.bbc.com* `B`, *m.youtube.com* `Y`, a
+  whole address kept before 859 *https://www.theguardian.com/…* `T`, never
+  `H`). A host of two labels keeps its first (*go.dev* `G`), and a first
+  label of the site's own stays (*news.bbc.co.uk* `N`); a site whose own
+  name is two letters before two labels (*my.site.example*) is read past,
+  to `S` — the rule's known limit. An IP address is its first digit —, 12 px 600 in the ink in
   a **32 px circle** on the line colour. **The chat on screen** is white
   with a shadow, as its row is white in the panel; one the agent works in
   has the panel's 7 px terracotta dot at its circle's shoulder. Five fit

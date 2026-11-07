@@ -603,19 +603,22 @@ fn a_searchs_answer_is_kept_in_its_chat_and_read_back_without_asking_again() -> 
     let answer = asked_for(&mut driven, "ev charger install time")?;
     assert!(matches!(answer, Answer::Written(_)), "{answer:?}");
     driven.click((PANEL + 110.0, 209.0));
+    // The Answer tab shown, and the frame held the one drawn of it: the
+    // window holds painted what it last asked drawn (queue item 862). A
+    // frame of All has the line's colour at 740 too, under its answer —
+    // which is how a fixed wait once took All's picture as the Answer
+    // tab's under load.
     driven.until("the Answer tab shown and painted", |driven| {
         driven
             .window
             .conversation()
             .results()
             .is_some_and(|results| results.tab == Tab::Answer)
+            && driven.window.drawn_as_asked()
             && driven.painted().is_some_and(|frame| {
                 (150..400).any(|y| pixel(&frame, 740, y) == Some([0xe1, 0xda, 0xce, 0xff]))
             })
     })?;
-    // Painted again with nothing more to come, as the person sees it.
-    let deadline = Instant::now() + Duration::from_secs(2);
-    driven.until("a moment", |_| Instant::now() >= deadline)?;
     let before = driven
         .painted()
         .and_then(|frame| answer_rows(&frame))
@@ -644,6 +647,7 @@ fn a_searchs_answer_is_kept_in_its_chat_and_read_back_without_asking_again() -> 
             .conversation()
             .results()
             .is_some_and(|results| results.tab == Tab::Answer && results.answer == answer)
+            && driven.window.drawn_as_asked()
             && driven
                 .painted()
                 .and_then(|frame| answer_rows(&frame))

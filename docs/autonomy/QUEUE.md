@@ -23521,18 +23521,95 @@ What stage 2's exit gate actually measures: a person using it.
   when:* measured through both Chromiums on a local page framing a
   cross-site card field, and the refusal shown to hold there, or the field
   shown unreachable. *Depends on 826.*
-- [ ] **859. A chat named from two addresses runs them together.** Seen in
+- [x] **859. A chat named from two addresses runs them together.** Seen in
   batch 16's hand run (`12-taken-over.png`): a chat whose turns were two
   addresses is named *https://en.wikipedia.orghttp…*, the second joined to
   the first with no space. A chat's name is made in `chat_name.rs`. *Closes
   when:* a name drawn from several turns never joins two words without a
   space, an address in a name reads as its host (*en.wikipedia.org*), and a
   unit test holds both.
-- [ ] **860. The rail's initials for a chat named by an address.** Every
+  ***Done (7 November 2026).*** **The cause:** not two turns — a name is
+  drawn from the first turn alone and always was — but that one turn's
+  words. The run's log and bubble (`handrun36/02-typed.png`, `alo-1.log`
+  line 5) show the turn said `https://en.wikipedia.orghttps://en.wikipedia.org`:
+  the one box has no ⌘A (⌘ never edits it, and it is edited only at its
+  end — `typing.rs`), so the run's ⌘A did nothing and the address typed
+  again went on after the first; 758's rule named that word faithfully.
+  **Fixed in the rule** (`chat_name.rs`): a word the box would go to reads
+  as its host, a port kept (the path left to the turn — opaque, long, and
+  not what tells two chats apart); an `http://` or `https://` straight
+  after a letter or digit starts a new word, one after `/`, `=` or `?` is
+  carried inside its address; the same host twice in a row said once. **A
+  name kept before** is named again as it is read only when it is exactly
+  758's name of its first kept turn — alo's own — and otherwise kept (ADR
+  0092 amended; `docs/design/shell.md`, *A chat's name*). **Tests:** unit
+  (`chat_name`: hosts, glued, carried, every pair of four addresses glued,
+  spaced or on two lines never one word, read back; `conversation`: a chat
+  of two address turns named by the first's host and kept so, batch 16's
+  name read back as *en.wikipedia.org*, another kept as stored).
+  **Mutations**, each failing: the address kept whole; glued addresses not
+  cut; every stored name kept. **By hand** (`handrun37/`): two addresses in
+  one chat named *en.wikipedia.org* (`02`, `03`); the glued address named
+  *en.wikipedia.org* (`05`); batch 16's own chats directory read back as
+  *en.wikipedia.org* and *127.0.0.1:8736* (`10`). Cut: ⌘A in the box (861).
+- [x] **860. The rail's initials for a chat named by an address.** Every
   chat named after an address shows *H* on the rail (760), so they cannot be
   told apart. *Closes when:* such a chat's initials come from its host's
   name (*W* for *en.wikipedia.org*, skipping *www* and *en*), with a unit
   test, the rail's reference redrawn and looked at. *Depends on 859.*
+  ***Done (7 November 2026).*** `alo-renderer`'s `rail_initials.rs`: a
+  word that is a host, or an address with a scheme (a name kept before
+  859), gives the first letter of its host's first label that is not a
+  prefix — before at least two more labels, `www` (or with digits), `m`,
+  `mobile`, `amp`, or two letters with perhaps a hyphen and two to four
+  more (a language or country); a host of two labels keeps its first; an
+  IP address its first digit. Known limit: a site's own two-letter name
+  before two labels (*my.site.example* `S`). Recorded in `shell.md`, *The
+  rail's chats*. **Tests:** unit (`rail_initials`, `panel`); layout and
+  letters in numbers and the new reference `panel-rail-addresses.png`
+  (`W`, `B`, `Y`, `T`, `1`; `the_chats_panel.rs`), run once without
+  update mode (failing only on the missing file), written and looked at;
+  no existing reference moved (their names hold no host). **Mutations**,
+  each failing: no prefix skipped; hosts not read (760's rule). **By
+  hand:** a window 700 wide, the rail `G`, `Y`, `W`, `B`, `W` for
+  *github.com*, *m.youtube.com*, two *en.wikipedia.org* and *www.bbc.com*
+  (`07`), *www.bbc.com* named on hover (`08`) and opened by a press (`09`).
+
+- [ ] **861. ⌘A in the one box (found by 859).** The one box takes no ⌘
+  key and is edited only at its end (`typing.rs`), so ⌘A then typing does
+  not replace what is typed but goes on after it — how batch 16's hand run
+  sent one turn holding an address twice. Select all, and what typing over
+  a selection does, as macOS fields have it; decide with 850 and 848 how
+  the box's selection is drawn. *needs design. Depends on 850.*
+
+- [x] **862. A kept answer's test races a frame under load (found by
+  859/860's gate).** `a_searchs_answer_in_the_window.rs`'s
+  `a_searchs_answer_is_kept_in_its_chat_and_read_back_without_asking_again`
+  failed the gate (*the kept chat's answer drawn did not happen*); passes
+  alone (3/3), fails 6/6 beside sixteen `yes` and **4/4 the same at
+  615b22d**, before 859 and 860. *Closes when:* the test compares only
+  after the state it compares is painted, never after a fixed wait, and
+  passes beside sixteen `yes`.
+  ***Done (7 November 2026).*** **Not the marks**, as first written here:
+  this test's sites name no mark. The two pictures saved under load showed
+  its *before* was **the All tab** while the state said Answer — the wait
+  accepted any frame with the line's colour at x 740, which All's rule
+  under its answer (y 238) has too, and the fixed 2 s passed before the
+  Answer tab's frame came. **The signal, new and small**
+  (`conversation_drawing.rs`, `conversation_window.rs`): each drawing the
+  window sends is numbered; the drawing thread, after what came of the
+  newest it handled (a later one replacing those waiting), tells
+  `Drawn::Through(n)`; `ConversationWindow::drawn_as_asked` says whether
+  the newest sent is drawn. The test waits on it before *before* and
+  before *after*, the 2 s gone; the pixel comparison unchanged, nothing
+  left out of it. `the_conversation_window.rs` holds the signal: one
+  drawing sent (the same again not), `Through(1)` after both frames and
+  nothing more. **Beside sixteen `yes`:** 10/10 on this tree, 10/10 with
+  the fix applied to a clean worktree of 615b22d. **Mutation:** the fixed
+  2 s put back in place of the signal — 0/5, failing as the gate did. Two
+  tests that read the drawing thread's channel strictly
+  (`a_press_on_the_conversation.rs`, `typing_into_the_one_box.rs`) pass
+  over `Through`, which the second gate found.
 
 ## K. ★ The agent, on somebody else's pages
 

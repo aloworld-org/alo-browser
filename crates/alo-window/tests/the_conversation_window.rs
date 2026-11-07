@@ -403,8 +403,18 @@ fn painted_confined(window: (u32, u32), scale: Scale) -> Result<(Frame, Frame), 
             // A first screen with no turns is not measured (queue item 703).
             Ok(Drawn::Reached { .. }) => return Err("a greeting was measured".to_owned()),
             Ok(Drawn::Hovered(over)) => return Err(format!("nothing was hovered: {over:?}")),
+            Ok(Drawn::Through(number)) => {
+                return Err(format!("drawn through {number} before both were painted"));
+            }
             Err(why) => return Err(format!("nothing was painted: {why}")),
         }
+    }
+    // Then that the one drawing sent is drawn (queue item 862): the same
+    // again was not sent.
+    assert_eq!(drawing.asked_through(), 1);
+    match told.recv_timeout(AT_MOST) {
+        Ok(Drawn::Through(1)) => {}
+        other => return Err(format!("not drawn through the one drawing: {other:?}")),
     }
     if !drawing.finish() {
         return Err("the drawing thread did not finish".to_owned());
