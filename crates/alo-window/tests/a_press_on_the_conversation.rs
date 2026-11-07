@@ -299,6 +299,9 @@ fn a_press_on_a_chat_makes_it_current_and_the_panel_is_drawn_again() {
 #[test]
 fn a_press_on_the_box_is_claimed_as_the_box_and_gives_it_the_keyboard() {
     let mut conversation = Conversation::default();
+    // The keyboard it opened with (queue item 875) taken from the box, so
+    // a press can give it back.
+    assert!(conversation.act(Pressed::AddASite));
     let mut here = Here::of(&conversation);
     let before = asked(&conversation);
     // The box 720 × 64 at (160, 254) in the first screen; Go 44 square at
@@ -499,6 +502,12 @@ fn pressed_through_confined_renderers() -> Result<Frame, String> {
         Drawn::Painted(Part::Panel, frame) => frame,
         other => return Err(format!("the panel was not drawn again: {other:?}")),
     };
+    // The press on a chat took the keyboard from the box, which had it as
+    // the window opened (queue item 875): the first screen drawn again.
+    match next(&told)? {
+        Drawn::Painted(Part::Start, _) => {}
+        other => return Err(format!("the box was not drawn letting go: {other:?}")),
+    }
     // A press between two rows claims nothing.
     assert_eq!(
         press(&mut drawing, &told, (120.0, 216.5))?,

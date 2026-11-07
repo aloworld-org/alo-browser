@@ -30,7 +30,7 @@
 //! Never the real network: the address is `http://127.0.0.1:PORT/…`.
 
 use alo_window::beside::Chromium;
-use alo_window::conversation::{Conversation, Pressed};
+use alo_window::conversation::{Conversation, Field, Pressed};
 use alo_window::conversation_box::Typed;
 use alo_window::conversation_chrome::{ChromeOpener, Placing, Streamed, Went};
 use alo_window::keys::{Key, Press};
@@ -309,10 +309,9 @@ fn an_address_typed_and_returned_opens_in_chrome_and_a_second_replaces_it() -> R
     let (port, asked_for) = serve()?;
     let (opener, told) = opener()?;
     let mut conversation = Conversation::default();
-    assert!(
-        conversation.act(Pressed::TheBox),
-        "the box has the keyboard"
-    );
+    // The box has the keyboard as the window opens (queue item 875).
+    assert!(!conversation.act(Pressed::TheBox), "already the box's");
+    assert_eq!(conversation.field_focused(), Some(Field::TheBox));
 
     let one = format!("http://127.0.0.1:{port}/one.html");
     let (first, first_profile) = go(&mut conversation, &one, &opener, &told)?;

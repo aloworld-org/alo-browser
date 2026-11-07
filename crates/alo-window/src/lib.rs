@@ -223,6 +223,7 @@ pub mod conversation_agents;
 pub mod conversation_aim;
 pub mod conversation_answer;
 pub mod conversation_bar;
+pub mod conversation_bar_press;
 pub mod conversation_box;
 pub mod conversation_chrome;
 pub mod conversation_compose;
@@ -274,6 +275,7 @@ pub mod search_text;
 pub mod search_thumbnails;
 pub mod serving;
 pub mod settings_file;
+pub mod settings_keys;
 pub mod showing;
 #[cfg(unix)]
 pub mod socket_place;

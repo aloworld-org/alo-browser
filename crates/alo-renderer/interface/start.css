@@ -1759,6 +1759,18 @@ a {
   color: #3d3a35;
 }
 
+/* The keyboard's ring (queue item 856): 3 px of the ink at a third,
+   outside the edge, following its rounding — on *Back to the chat*, or on
+   the face chosen while the keyboard is on the radio group. Drawn only
+   once Tab has put the keyboard there, as a browser draws
+   `:focus-visible`. The button keyed is on the paper it stands on, so the
+   ring is seen only outside it: this engine does not yet keep an outer
+   shadow outside its box, as CSS does (queue item 877). */
+.pback.keyed {
+  background: var(--paper);
+  box-shadow: 0 0 0 3px rgba(27, 36, 51, 0.33);
+}
+
 .pback .icon {
   display: block;
   margin: 0 auto;
@@ -1811,6 +1823,10 @@ a {
 .face.on {
   border-color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.face.on.keyed {
+  box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 3px rgba(27, 36, 51, 0.33);
 }
 
 .fhead {

@@ -279,6 +279,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
                 Scale::ONE,
             )
             .focused
+            && driven.window.presses_decided()
     })?;
 
     // 1. Drawn before it loads, the card saying it is loading.

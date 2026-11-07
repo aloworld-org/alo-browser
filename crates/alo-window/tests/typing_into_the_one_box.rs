@@ -64,7 +64,9 @@ fn key(conversation: &mut Conversation, press: &Press) -> Typed {
 #[test]
 fn typing_example_com_and_return_decides_to_go_to_https_example_com() {
     let mut conversation = Conversation::default();
-    // Before the box has the keyboard, keys type nothing.
+    // While the box does not have the keyboard, keys type nothing: a press
+    // elsewhere took it from the box it opened with (queue item 875).
+    assert!(conversation.act(Pressed::AddASite), "the box lets it go");
     assert_eq!(keys(&mut conversation, "nothing"), Typed::Unchanged);
     assert!(conversation.act(Pressed::TheBox));
     assert_eq!(keys(&mut conversation, "example.con"), Typed::Changed);

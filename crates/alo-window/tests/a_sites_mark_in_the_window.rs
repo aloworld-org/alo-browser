@@ -333,6 +333,7 @@ fn each_sites_mark_is_painted_in_its_letters_place_in_the_window() -> Result<(),
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && driven.window.presses_decided()
     })?;
     driven.type_and_return("home ev charger");
     // The first site's icon in its 18 square at (80, 168) of the first

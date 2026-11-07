@@ -363,7 +363,7 @@ fn the_window(
     })?;
     driven.click(THE_BOX);
     driven.until("the box given the keyboard", |driven| {
-        start(&driven.window).focused
+        start(&driven.window).focused && driven.window.presses_decided()
     })?;
     Ok(driven)
 }

@@ -38,6 +38,9 @@ pub fn make(field: &mut TextField, edit: Edit) -> Made {
         Edit::Erase(unit, toward) => field.erase(unit, toward),
         Edit::Move(unit, toward, extend) => field.go(unit, toward, extend),
         Edit::SelectAll => field.select_all(),
+        Edit::Kill => field.kill(),
+        Edit::Yanked(text) => field.yank(&text),
+        Edit::Transpose => field.transpose(),
         Edit::Undo => field.undo(),
         Edit::Redo => field.redo(),
         Edit::Copy => {
@@ -50,8 +53,9 @@ pub fn make(field: &mut TextField, edit: Edit) -> Made {
         }
         Edit::Cut => return field.cut().map_or(Made::Nothing, Made::Cut),
         // The clipboard is read by the window, which makes it a paste of
-        // what it read.
-        Edit::Paste => false,
+        // what it read; and what was killed is held by the window, which
+        // makes ⌃Y a yank of what it holds (queue item 865).
+        Edit::Paste | Edit::Yank => false,
         Edit::Clear if field.text().is_empty() => return Made::Theirs(Edit::Clear),
         Edit::Clear => field.clear(),
         Edit::Choose => return Made::Theirs(Edit::Choose),
@@ -108,5 +112,21 @@ mod tests {
         assert_eq!(make(&mut field, Edit::Choose), Made::Theirs(Edit::Choose));
         let _ = make(&mut field, Edit::Put("a".to_owned()));
         assert_eq!(make(&mut field, Edit::Clear), Made::Changed);
+        // The Ctrl bindings (queue item 865).
+        let _ = make(&mut field, Edit::Put("ab".to_owned()));
+        assert_eq!(make(&mut field, Edit::Transpose), Made::Changed);
+        assert_eq!(field.text(), "ba");
+        assert_eq!(
+            make(&mut field, Edit::Move(Unit::Edge, Toward::Start, false)),
+            Made::Changed
+        );
+        assert_eq!(make(&mut field, Edit::Kill), Made::Changed);
+        assert_eq!(field.text(), "");
+        assert_eq!(make(&mut field, Edit::Yank), Made::Nothing, "the window's");
+        assert_eq!(
+            make(&mut field, Edit::Yanked("ba".to_owned())),
+            Made::Changed
+        );
+        assert_eq!(field.text(), "ba");
     }
 }

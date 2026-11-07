@@ -97,6 +97,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+mod bar;
 mod beneath;
 mod fields;
 
@@ -182,6 +183,12 @@ pub struct ConversationWindow {
     /// The number of the newest drawing the drawing thread has said is
     /// drawn ([`Drawn::Through`], queue item 862).
     drawn_through: u64,
+    /// How many presses on a part were sent to be decided and are not yet:
+    /// what a test waits on before typing after a press, which the press's
+    /// decision would otherwise land in the middle of (queue item 875).
+    undecided: usize,
+    /// A drag of the conversation's bar under way (queue item 845).
+    bar_drag: Option<bar::BarDrag>,
     /// The live card's page, drawn beneath the first screen (queue item
     /// 869, ADR 0100).
     beneath: beneath::CardBeneath,
@@ -389,6 +396,8 @@ impl ConversationWindow {
             drawn_stands: Stands::InTheConversation,
             painting_down: None,
             drawn_through: 0,
+            undecided: 0,
+            bar_drag: None,
             beneath: beneath::CardBeneath::default(),
             held: Held::NOTHING,
             front: Front::default(),
@@ -1432,6 +1441,18 @@ impl ConversationWindow {
         };
         if self.held != Held::NOTHING {
             let aimed = self.aimed(at);
+            // ⇧ alone on a part is sent to be decided, and grows a field's
+            // selection if it lands on one (queue item 863); with alo's menu
+            // or the sheet out it is refused as before.
+            if self.held == Held::NOTHING.with(Modifier::Shift)
+                && self.conversation.card_menu().is_none()
+                && !self.conversation.sheet()
+                && let Some(card_aim::Aimed::Part(part, on)) = aimed
+            {
+                self.field_shift_pressed_at(part, on, now);
+                self.send_press(part, on);
+                return;
+            }
             // ⌘ alone on the page opens a link as the next turn, and Ctrl
             // alone is the secondary button, as a Mac takes it (queue item
             // 798).
@@ -1471,13 +1492,16 @@ impl ConversationWindow {
         // under it is pressed.
         if self.conversation.sheet() {
             match self.on_the_sheet(at, now) {
-                Some(on) => {
-                    if let Some(drawing) = self.drawing.as_mut() {
-                        drawing.press(Part::Panel, on);
-                    }
-                }
+                Some(on) => self.send_press(Part::Panel, on),
                 None => self.close_the_sheet(now),
             }
+            return;
+        }
+        // The conversation's bar, a strip about it, is the window's own
+        // (queue item 845).
+        if let Some(card_aim::Aimed::Part(Part::Start, on)) = self.aimed(at)
+            && self.bar_pressed(on, at, now)
+        {
             return;
         }
         match self.aimed(at) {
@@ -1500,12 +1524,26 @@ impl ConversationWindow {
                 // Counted, for a field's word or everything (queue item
                 // 861), and kept until it is decided.
                 self.field_pressed_at(part, on, now);
-                if let Some(drawing) = self.drawing.as_mut() {
-                    drawing.press(part, on);
-                }
+                self.send_press(part, on);
             }
             None => {}
         }
+    }
+
+    /// Hand a press on `part` at `on` to the drawing thread, to be claimed
+    /// and decided, counted until it is.
+    fn send_press(&mut self, part: Part, on: alo_paint::Point) {
+        if let Some(drawing) = self.drawing.as_mut() {
+            drawing.press(part, on);
+            self.undecided += 1;
+        }
+    }
+
+    /// Whether every press sent to be decided has been: what a test waits
+    /// on after a press, so a key it then gives lands after the press's
+    /// decision, as a person's does (queue item 875).
+    pub fn presses_decided(&self) -> bool {
+        self.undecided == 0
     }
 
     /// The cursor moved to `at`: the page's — as a drag while a press on it
@@ -1520,6 +1558,10 @@ impl ConversationWindow {
     /// it; near the conversation's bar, the bar whole (queue item 793).
     pub fn moved_at(&mut self, at: (f64, f64), now: Instant) {
         self.cursor = Some(at);
+        // The bar's thumb held: the move is its alone (queue item 845).
+        if self.bar_dragged(at, now) {
+            return;
+        }
         if self.conversation.sheet() {
             match self.on_the_sheet(at, now) {
                 Some(on) => {
@@ -1572,6 +1614,10 @@ impl ConversationWindow {
     /// press on it.
     pub fn main_button_released(&mut self) {
         self.field_released();
+        // A drag of the bar's thumb was nobody else's (queue item 845).
+        if self.bar_released() {
+            return;
+        }
         let at = self.cursor.and_then(|at| self.on_the_card(at));
         if let Some(input) = self.pointer.released(at) {
             self.to_the_page(input);
@@ -1641,6 +1687,15 @@ impl ConversationWindow {
     /// kept to say until the next press is decided, and said on the
     /// terminal.
     fn pressed(&mut self, part: Part, pressed: Decided) {
+        // A press with ⇧ is a field's or nobody's (queue item 863).
+        if !self.shift_press_refused(&pressed) {
+            self.act_on(part, pressed);
+        }
+    }
+
+    /// Act on `pressed`, a press on `part` decided — or a key standing for
+    /// one, as ⌘T stands for *New chat* — as [`Self::pressed`] says.
+    fn act_on(&mut self, part: Part, pressed: Decided) {
         self.told = None;
         match &pressed {
             Decided::Refused(refusal) => self.tell(refusal.to_string()),
@@ -2107,9 +2162,19 @@ impl ConversationWindow {
                 // Where it left the card's page clear (queue item 869).
                 self.beneath_painted();
             }
-            Heard::Drawn(Drawn::Said(Part::Panel, said)) => self.panel_said = Some(said),
-            Heard::Drawn(Drawn::Said(Part::Start, said)) => self.start_said = Some(said),
-            Heard::Drawn(Drawn::Pressed(part, pressed)) => self.pressed(part, pressed),
+            // A renderer gone decides no press it was handed.
+            Heard::Drawn(Drawn::Said(Part::Panel, said)) => {
+                self.undecided = 0;
+                self.panel_said = Some(said);
+            }
+            Heard::Drawn(Drawn::Said(Part::Start, said)) => {
+                self.undecided = 0;
+                self.start_said = Some(said);
+            }
+            Heard::Drawn(Drawn::Pressed(part, pressed)) => {
+                self.undecided = self.undecided.saturating_sub(1);
+                self.pressed(part, pressed);
+            }
             Heard::Drawn(Drawn::Hovered(over)) => self.hovered(over),
             Heard::Drawn(Drawn::Reached {
                 turns,
@@ -2185,6 +2250,14 @@ impl ConversationWindow {
     /// one box, if it makes one, drawn again when it changed what the box
     /// holds, and what it chose said.
     pub fn key(&mut self, press: &Press, text: Option<&str>) {
+        // ⌘T, drawn on *New chat*, is a new chat wherever the keyboard is,
+        // as pressing it is (queue item 875); a card's page never takes it.
+        if crate::keys::meaning(press, crate::keys::Platform::HERE)
+            == Some(crate::message::TabOrder::New)
+        {
+            self.act_on(Part::Panel, Decided::NewChat);
+            return;
+        }
         // The sheet out (queue item 776): Escape closes it, whatever has
         // the keyboard; *Search chats* in it still takes what is typed, and
         // nothing under it takes a key.
@@ -2219,6 +2292,22 @@ impl ConversationWindow {
             self.stream_under_settings();
             self.ask_drawn();
             self.redraw = true;
+            return;
+        }
+        // *Settings* by keys (queue item 856): Tab, the arrows, Space and
+        // Return are its, unless *Search chats* has the keyboard.
+        if self.conversation.settings().is_open()
+            && !self.conversation.find().focused()
+            && let Some(asked) = crate::settings_keys::key(press)
+        {
+            if self.conversation.settings_key(asked) {
+                if !self.conversation.settings().is_open() {
+                    self.stream_under_settings();
+                }
+                self.keep_face();
+                self.ask_drawn();
+                self.redraw = true;
+            }
             return;
         }
         if self.conversation.keys_to_the_card() {
@@ -2646,10 +2735,14 @@ mod tests {
             "inside a character"
         );
         let (mut window, over) = with_a_card();
+        // The box has the keyboard as the window opens (queue item 875),
+        // and input methods are its (848); Escape on it empty lets it go.
+        assert_eq!(window.take_ime().allowed, Some(true));
+        window.key(&Press::of(crate::keys::Key::Escape), None);
         assert_eq!(
             window.take_ime(),
             ImeAsked {
-                allowed: None,
+                allowed: Some(false),
                 caret: None
             }
         );
@@ -2798,6 +2891,94 @@ mod tests {
         );
         window.glide(start + ms(1000));
         assert_eq!(down(&window), Some((-900.0_f32).to_bits()));
+        window.finish();
+    }
+
+    #[test]
+    fn the_bar_dragged_scrolls_as_far_as_it_moves_and_a_press_beside_it_pages() {
+        // Queue item 845, at the design's window at one: the first screen
+        // from 240, its room 40 to 716; two turns reaching 900 above the
+        // newest's top and 1000 below it.
+        let mut window = window();
+        let url = |address: &str| alo_url::parse(address).unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url("https://a.example/"))));
+        window.heard(Heard::Chrome(Went::Opening(url("https://b.example/"))));
+        let reach = Reach {
+            earlier: 900.0,
+            newest: 1000.0,
+        };
+        window.heard(Heard::Drawn(Drawn::Reached {
+            turns: 2,
+            down: 0.0,
+            offered: 0,
+            stands: Stands::InTheConversation,
+            reach,
+        }));
+        let sized = |width: u32, height: u32| Frame {
+            width,
+            height,
+            pixels: vec![0; usize::try_from(width * height * 4).unwrap()],
+        };
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Panel, sized(240, 820))));
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, sized(1040, 820))));
+        let down = |window: &ConversationWindow| {
+            window
+                .conversation()
+                .thread()
+                .map(crate::conversation_thread::Thread::down)
+                .unwrap()
+        };
+        // The bar: 676 of 1900, 241 long, 320 down the room — its thumb
+        // 360 to 601 down the window; its middle 976 + 240 across.
+        let viewport = start_viewport((1280, 820), Scale::ONE);
+        let bar = window
+            .conversation()
+            .thread()
+            .and_then(|thread| thread.bar(viewport, 1.0))
+            .unwrap();
+        assert_eq!(
+            (bar.top.to_bits(), bar.length.to_bits()),
+            (320.0_f32.to_bits(), 241.0_f32.to_bits())
+        );
+        let thumb = (1216.0, 380.0);
+        window.moved(thumb);
+        window.main_button_pressed();
+        assert!(window.dragging_the_bar());
+        // Dragged 100 down: the conversation 100 × 1224 / 435 on.
+        window.moved((1210.0, 480.0));
+        let expected = 100.0 * 1224.0 / (676.0 - 241.0);
+        assert!((down(&window) - expected).abs() < 1.0, "{}", down(&window));
+        assert!(window.take_redraw());
+        // Past the foot, kept at the newest turn's foot, 324; let go, a
+        // move is a move.
+        window.moved((900.0, 2000.0));
+        assert_eq!(down(&window).to_bits(), 324.0_f32.to_bits());
+        window.main_button_released();
+        assert!(!window.dragging_the_bar());
+        window.moved((1216.0, 100.0));
+        assert_eq!(down(&window).to_bits(), 324.0_f32.to_bits());
+        // Above the thumb, now at the room's foot: a page back, 636.
+        window.main_button_pressed();
+        window.main_button_released();
+        assert_eq!(down(&window).to_bits(), (324.0_f32 - 636.0).to_bits());
+        // Below it: a page on.
+        window.moved((1216.0, 700.0));
+        window.main_button_pressed();
+        window.main_button_released();
+        assert_eq!(down(&window).to_bits(), 324.0_f32.to_bits());
+        // Just outside its strip of 16: the first screen's to decide,
+        // and nothing scrolled.
+        window.moved((1216.0 - 8.5, 100.0));
+        window.main_button_pressed();
+        window.main_button_released();
+        assert_eq!(down(&window).to_bits(), 324.0_f32.to_bits());
+        // The bar's presses left the keyboard where it was, and said
+        // nothing.
+        assert_eq!(
+            window.conversation().field_focused(),
+            Some(crate::conversation::Field::TheBox)
+        );
+        assert_eq!(window.told(), None);
         window.finish();
     }
 

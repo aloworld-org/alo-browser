@@ -28,6 +28,11 @@
 //! 5. ⌘A, then Return, goes to the address: chosen, and the box emptied.
 //! 6. Input methods are allowed while the box has the keyboard, and a
 //!    composition is drawn in it and committed into it.
+//!
+//! And apart: the box has the keyboard as the window opens, its caret
+//! drawn and typing reaching it with no press, and again after ⌘T makes a
+//! new chat (queue item 875); a press with ⇧ grows its selection, and a
+//! press with ⇧ on anything but a field is refused and said (863).
 
 #![cfg(target_os = "macos")]
 
@@ -39,7 +44,7 @@ use alo_window::conversation::Field;
 use alo_window::conversation_chrome::ChromeOpener;
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
 use alo_window::conversation_window::{ConversationWindow, Heard, Measured};
-use alo_window::keys::{Arrow, Key, Modifier, Press};
+use alo_window::keys::{Arrow, Held, Key, Modifier, Press};
 use alo_window::scale::Scale;
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
@@ -232,6 +237,7 @@ fn typed_moved_and_its_caret_drawn(driven: &mut Driven) -> Result<(), String> {
     driven.click((640.0, FIELD_MIDDLE));
     driven.until("the box given the keyboard", |driven| {
         driven.window.conversation().field_focused() == Some(Field::TheBox)
+            && driven.window.presses_decided()
     })?;
     driven.type_in("kampla");
     driven.press(Key::Arrow(Arrow::Left), &[], None);
@@ -441,6 +447,183 @@ fn search_chats_takes_a_paste_its_keys_and_undo_as_the_box_does() -> Result<(), 
     driven.later(1_000);
     driven.click((47.0, 121.0));
     driven.until("the caret at the start", |driven| searched(driven).1 == 0)?;
+    driven.window.finish();
+    Ok(())
+}
+
+#[test]
+fn the_box_has_the_keyboard_as_the_window_opens_and_on_a_new_chat() -> Result<(), String> {
+    let mut driven = the_window()?;
+    // Queue item 875: nothing pressed, the box has the keyboard.
+    assert_eq!(
+        driven.window.conversation().field_focused(),
+        Some(Field::TheBox)
+    );
+    driven.type_in("kampala");
+    assert_eq!(driven.the_box(), ("kampala".to_owned(), 7, None));
+    driven.until("kampala painted", |driven| driven.painted().is_some())?;
+    let shown = driven.painted().ok_or("nothing painted")?;
+    // Its caret drawn and blinking: the one column its hidden half takes
+    // away, after `kampala`.
+    driven.later(500);
+    driven.until("the caret hidden", |driven| {
+        driven
+            .painted()
+            .is_some_and(|frame| frame.pixels != shown.pixels)
+    })?;
+    let hidden = driven.painted().ok_or("nothing painted")?;
+    let caret = columns_differing(&shown, &hidden);
+    assert_eq!(caret.len(), 1, "one column: {caret:?}");
+    let at = caret.first().copied().unwrap_or_default();
+    assert!((240..260).contains(&at), "the caret after kampala at {at}");
+    // *Search chats* pressed takes the keyboard; ⌘T, *New chat*'s key,
+    // makes a chat whose box has it again.
+    driven.click((120.0, 121.0));
+    driven.until("Search chats given the keyboard", |driven| {
+        driven.window.conversation().field_focused() == Some(Field::SearchChats)
+    })?;
+    let chats = driven.window.conversation().showing().chats.len();
+    let before = driven.window.conversation().on_screen();
+    driven.command("t", false);
+    assert_eq!(
+        driven.window.conversation().showing().chats.len(),
+        chats + 1
+    );
+    assert_ne!(driven.window.conversation().on_screen(), before);
+    assert_eq!(
+        driven.window.conversation().field_focused(),
+        Some(Field::TheBox)
+    );
+    driven.type_in("x");
+    assert_eq!(driven.the_box().0, "kampalax", "typed with no press");
+    // ⌘T held down repeating is one chat, not one a repeat.
+    driven.window.key(
+        &Press::character("t").with(Modifier::Command).repeating(),
+        Some("t"),
+    );
+    assert_eq!(
+        driven.window.conversation().showing().chats.len(),
+        chats + 1
+    );
+    driven.window.finish();
+    Ok(())
+}
+
+#[test]
+fn a_press_with_shift_grows_the_boxs_selection_and_is_refused_elsewhere() -> Result<(), String> {
+    let mut driven = the_window()?;
+    driven.type_in("open en.wikipedia.org now");
+    driven.until("the words painted", |driven| driven.painted().is_some())?;
+    // A press at the start puts the caret there; ⇧ with a press past the
+    // end grows the selection to it.
+    driven.click((FIELD_LEFT + 1.0, FIELD_MIDDLE));
+    driven.until("the caret placed at the start", |driven| {
+        driven.the_box().1 == 0 && driven.the_box().2.is_none()
+    })?;
+    driven.later(1_000);
+    driven.window.held(Held::NOTHING.with(Modifier::Shift));
+    driven.click((FIELD_LEFT + 600.0, FIELD_MIDDLE));
+    driven.until("the selection grown to the end", |driven| {
+        driven.the_box().2 == Some((0, 25))
+    })?;
+    // ⇧ with a press in the middle, quick after: grown, never a word
+    // selected as a second press would.
+    driven.later(100);
+    driven.click((FIELD_LEFT + 60.0, FIELD_MIDDLE));
+    driven.until("the selection's end moved into the words", |driven| {
+        driven
+            .the_box()
+            .2
+            .is_some_and(|(start, end)| start == 0 && (3..12).contains(&end))
+    })?;
+    assert_eq!(driven.window.told(), None, "a field's press says nothing");
+    // ⇧ with a press on *New chat* is nobody's: refused and said, the box
+    // and the chats as they were.
+    let chats = driven.window.conversation().showing().chats.len();
+    let kept = driven.the_box();
+    driven.later(1_000);
+    driven.click((120.0, 79.0));
+    driven.until("the press refused", |driven| driven.window.told().is_some())?;
+    assert!(
+        driven.window.told().is_some_and(|told| told.contains("⇧")),
+        "{:?}",
+        driven.window.told()
+    );
+    assert_eq!(driven.window.conversation().showing().chats.len(), chats);
+    assert_eq!(driven.the_box(), kept);
+    // ⇧ let go, the same press is *New chat*.
+    driven.window.held(Held::NOTHING);
+    driven.later(1_000);
+    driven.click((120.0, 79.0));
+    driven.until("a new chat", |driven| {
+        driven.window.conversation().showing().chats.len() == chats + 1
+    })?;
+    driven.window.finish();
+    Ok(())
+}
+
+#[test]
+fn macs_control_keys_move_kill_and_yank_across_both_fields() -> Result<(), String> {
+    // Queue item 865: the text system's standard bindings, the kill buffer
+    // the window's own and never the clipboard.
+    let mut driven = the_window()?;
+    let control = |driven: &mut Driven, letter: &str| {
+        driven.window.key(
+            &Press::character(letter).with(Modifier::Control),
+            Some("\u{b}"),
+        );
+    };
+    driven.type_in("en.wikipedia.org kampala");
+    control(&mut driven, "a");
+    assert_eq!(driven.the_box().1, 0, "⌃A to the start");
+    control(&mut driven, "f");
+    control(&mut driven, "f");
+    assert_eq!(driven.the_box().1, 2, "⌃F ⌃F");
+    control(&mut driven, "b");
+    assert_eq!(driven.the_box().1, 1, "⌃B");
+    control(&mut driven, "e");
+    assert_eq!(driven.the_box().1, 24, "⌃E to the end");
+    control(&mut driven, "t");
+    assert_eq!(
+        driven.the_box().0,
+        "en.wikipedia.org kampaal",
+        "⌃T at the end"
+    );
+    control(&mut driven, "h");
+    control(&mut driven, "h");
+    assert_eq!(driven.the_box().0, "en.wikipedia.org kampa", "⌃H ⌃H");
+    // ⌃P to the start, ⌃D the letter after.
+    control(&mut driven, "p");
+    control(&mut driven, "d");
+    assert_eq!(
+        driven.the_box(),
+        ("n.wikipedia.org kampa".to_owned(), 0, None)
+    );
+    // ⌃N to the end; ⌥← to the last word's start; ⌃K kills it.
+    control(&mut driven, "n");
+    driven.press(Key::Arrow(Arrow::Left), &[Modifier::Option], None);
+    control(&mut driven, "k");
+    assert_eq!(driven.the_box().0, "n.wikipedia.org ");
+    assert!(driven.copied.borrow().is_empty(), "never the clipboard");
+    // ⌃Y yanks it into *Search chats*, the other field.
+    driven.click((120.0, 121.0));
+    driven.until("Search chats given the keyboard", |driven| {
+        driven.window.conversation().field_focused() == Some(Field::SearchChats)
+            && driven.window.presses_decided()
+    })?;
+    control(&mut driven, "y");
+    let searched = driven.window.conversation().field(Field::SearchChats);
+    assert_eq!((searched.text(), searched.caret()), ("kampa", 5));
+    // ⌘Z undoes the yank alone.
+    driven.command("z", false);
+    assert_eq!(
+        driven
+            .window
+            .conversation()
+            .field(Field::SearchChats)
+            .text(),
+        ""
+    );
     driven.window.finish();
     Ok(())
 }

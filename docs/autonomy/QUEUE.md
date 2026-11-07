@@ -23337,12 +23337,31 @@ What stage 2's exit gate actually measures: a person using it.
   in Chrome, and whether a list's rule, a supplement (ADR 0094 § 2) or
   nothing should hide it. *Depends on 806.*
 
-- [ ] **845. The conversation's bar dragged, or pressed above or below
+- [x] **845. The conversation's bar dragged, or pressed above or below
   (cut from 793).** The owner's design of 6 November 2026 keeps the bar
   thin and fading and says nothing of pressing it: a drag that scrolls the
   conversation as far as the bar moves, and a press above or below it
   paging, as a scroll bar does, are not built — and the bar, 6 wide, would
   need a wider target than itself. *needs design.*
+  ***Done (7 November 2026), designed under the owner's go-ahead for batch
+  22*** (`docs/design/shell.md`, *The conversation*): a strip 16 wide
+  centred on the bar, between the room's top and foot, is its to press;
+  on the thumb a drag, the conversation following as far as the thumb
+  moves; above or below it a page, the room less a line, as Page Up and
+  Page Down and a Mac's *Jump to the next page*; the press the window's
+  own, never the renderer's, the keyboard left where it was; not under
+  *Settings*, in the split view or while the turns fit.
+  `conversation_bar_press.rs` (the geometry), `conversation_window/bar.rs`
+  (the press, the drag, the release). **Tests:** units (the strip and the
+  thumb's span in numbers at the design's room, a drag's scroll to the
+  pixel, kept to the ends, nothing for turns that fit) and the window's
+  (dragged 100 down, past the foot, a page back and on, a press 8.5 off
+  the middle nobody's, the keyboard kept, nothing said). **Mutations**,
+  each caught: the strip 6; the drag unscaled; the bar never pressed; a
+  press beside the thumb not a page. **By hand** at two (`handrun42/845-*`):
+  the thumb dragged up 250 points moved 249 and the conversation with it;
+  a press below it paged to the newest turn's foot. Cut: a press held
+  repeating (876).
 
 - [ ] **846. A page's own pointer picture over a card (cut from 799).**
   `cursor: url(…)` comes to the host as CEF's `CT_CUSTOM` with the picture
@@ -23514,11 +23533,41 @@ What stage 2's exit gate actually measures: a person using it.
   `card-menu-cut.png`. **Mutations**, each failing: the words not allowed
   to shrink; the line one piece.
 
-- [ ] **856. Settings by keys (cut from 854).** *Settings* is pressed with
+- [x] **856. Settings by keys (cut from 854).** *Settings* is pressed with
   the pointer only: Tab to its radio group, the arrows to move the choice
   and Escape to leave, as macOS and the ARIA radio group pattern have it.
   Decide with 850 how alo's own interface takes keys beyond the box and
   *Search chats*. *needs design. Depends on 854, 850.*
+  ***Done (7 November 2026), designed under the owner's go-ahead for batch
+  22, *Settings* alone*** (`docs/design/shell.md`, *Settings*, *By keys*):
+  Tab and ⇧Tab move the keyboard between *Back to the chat* and the radio
+  group *Font* (on the face chosen), round; ← ↑ and → ↓ choose the face
+  before or after, round, set and kept at once; Space or Return press
+  *Back to the chat*; Escape as before. A ring — 3 px of the ink at a third
+  outside the edge — is drawn only after Tab, as `:focus-visible`, and a
+  pointer's press puts it away. The rest of alo's interface by keys stays
+  850's, so this no longer waits on it. `conversation_settings.rs`
+  (`keyed`, `tab`, `step`, `unkey`), `settings_keys.rs` (which keys),
+  `Conversation::settings_key`, the window's `key`; the renderer's
+  `Start::settings_keyed` (`SettingsKeyed`), crossing in the one byte that
+  said *Settings* (0–3, anything else refused by name), the class `keyed`
+  and its ring in `start.css`. **Tests:** units (Tab round from either end
+  and from nothing, the arrows round and kept, the keys read and refused
+  with ⌘ ⌃ ⌥, the class on one thing alone); the boundary (each state
+  crosses; 4, 9, 255 refused); the renderer (the ring moves no box — Back
+  152, 32, 36 × 36 and Geist's face 525, 148, 355 × 136 as unkeyed — ringed
+  2 px out and the page 5 px out, references `settings-keyed-back.png`,
+  `settings-keyed-font.png`, run once without update mode first); the
+  window's road (`a_font_chosen_in_settings_in_the_window.rs`: Tab, Tab, →
+  Geist written to `settings.txt`, ← ← round to Instrument Sans, ⌘Tab
+  nothing, ⇧Tab, Return back to the chat, a press putting the ring away).
+  **Mutations**, each caught: Tab not round; the arrows not round; a
+  press not putting the ring away; the window not reading the keys; no
+  `keyed` class; no ring in the sheet; the byte's Back and Font swapped.
+  **By hand** at two (`handrun42/856-*`). Found: this engine does not keep
+  an outer `box-shadow` outside its box, as CSS does — the ring around the
+  transparent Back button filled it — so the keyed button stands on the
+  paper; the engine's fix is 877.
 
 - [x] **857. The closing quote right after the `…` in *Search for “…”*
   (found by 855's hand run, `handrun35/17`).** Cut by the stylesheet, the
@@ -23717,11 +23766,27 @@ What stage 2's exit gate actually measures: a person using it.
   (`a_press_on_the_conversation.rs`, `typing_into_the_one_box.rs`) pass
   over `Through`, which the second gate found.
 
-- [ ] **863. A press with ⇧ on alo's own field grows its selection (cut
+- [x] **863. A press with ⇧ on alo's own field grows its selection (cut
   from 861).** macOS's field takes ⇧ with a press as the selection grown
   to it; a press with any modifier is nobody's yet (798, 805), so a ⇧-press
   on the box is refused and said. Claim it as the field's when the press
   lands on one, and only then. *Depends on 861.*
+  ***Done (7 November 2026).*** A press with ⇧ alone on a part is sent to
+  its renderer to be decided as any press; decided as the box or *Search
+  chats*, it grows the selection (`TextField::grow_to`: before it keeps its
+  end, after it its start, inside the anchor kept; never a word however
+  quick; a drag goes on growing it); decided as anything else it is
+  refused and said as before (`shift_press_refused`). With alo's menu or
+  the sheet out it is refused as before. **Tests:** unit (`grow_to` before,
+  after, inside, from a caret, past the end); the window's road
+  (`the_box_as_a_text_field_in_the_window.rs`: a press at the start then
+  ⇧ past the end selecting 0..25, a quick ⇧-press inside moving the end,
+  nothing said; ⇧ on *New chat* refused, said with ⇧, no chat made, the box
+  as it was; let go, the same press a new chat). **Mutations**, each
+  caught: grow as a drag's extend; the ⇧-press never sent; never refused.
+  **By hand** at two (`handrun42/863-*`): a ⇧-press grew the selection, a
+  second past the end grew it to the end; ⇧ on *New chat* said *a press with
+  ⇧ held was not acted on* and made no chat.
 
 - [ ] **864. The marks of every script hang on their letters (cut from
   861).** An arrow steps over a letter and what hangs on it
@@ -23731,10 +23796,26 @@ What stage 2's exit gate actually measures: a person using it.
   grapheme clusters (UAX #29) with no new crate, or from the renderer's own
   cluster ends, measured against a Mac's field. *Depends on 861.*
 
-- [ ] **865. macOS's Ctrl bindings in alo's own fields (cut from 861).**
+- [x] **865. macOS's Ctrl bindings in alo's own fields (cut from 861).**
   A Mac's field takes ⌃A and ⌃E (a line's start and end), ⌃K and ⌃Y (kill
   and yank), ⌃F ⌃B ⌃D ⌃H ⌃T…; alo's fields take nothing with Ctrl. The
   card's are 803. *Depends on 861.*
+  ***Done (7 November 2026).*** As macOS's standard key bindings have them
+  for a one-line field (`typing.rs`'s `control_binding`): ⌃A ⌃E start and
+  end, ⌃B ⌃F a letter, ⌃P ⌃N start and end, ⌃H ⌃D the letter before and
+  after, ⌃K kill to the end (from the selection's start), ⌃Y yank, ⌃T
+  transpose (`TextField::kill`, `yank`, `transpose`, `to_be_killed`). The
+  kill buffer is the window's own, shared by both fields, never the
+  clipboard (`conversation_window/fields.rs`). Nothing else with Ctrl, and
+  nothing with ⌃ and ⇧, ⌥ or ⌘. **Tests:** units (every binding, the rest
+  refused, elsewhere nothing; kill, yank, each a step to undo; transpose
+  inside, at the end, a letter with its mark, nothing at the start, with
+  one letter or a selection; the one road); the window's road (every
+  binding in the box, ⌃K's kill yanked into *Search chats*, the test's
+  clipboard untouched, ⌘Z undoing the yank alone). **Mutations**, each
+  caught: no ⌃K; transpose always inside; the kill never kept. **By hand**
+  at two (`handrun42/865-*`): `go kampaal` by ⌃A, words, ⌃E, ⌃T; ⌃K; ⌃Y;
+  ⌃H ⌃B ⌃D.
 
 - [ ] **866. A drag past a field's edge scrolls it gradually (cut from
   861).** Dragged past an edge, alo's field selects to that end at once;
@@ -23977,6 +24058,74 @@ What stage 2's exit gate actually measures: a person using it.
   event loop or given to the window server as a layer of its own, never a
   pixel moved. *Closes when:* each is measured on hardware before and
   after, with a test that counts the work. *Depends on 872.*
+
+- [x] **874. An address with a port and no scheme (found by 871/872's
+  hand run).** `127.0.0.1:8739` typed into the one box — and
+  `localhost:3000`, `192.168.1.5:8080`, `[::1]:8080` — was opened as
+  `https://`, and Chrome showed an SSL error. *Closes when:* loopback and
+  private-network addresses, `localhost` and `*.localhost`, typed with no
+  scheme, open as `http://`, and public hosts keep `https://`, with unit
+  tests for the classification, including what must stay a search or
+  `https`.
+  ***Done (7 November 2026).*** `alo-renderer`'s `typed::address` reads a
+  bare host on this machine or its network — `localhost`, a name ending
+  `.localhost`, and an address `alo-net`'s `is_public` says is not the
+  public internet's (loopback, `10.`, `172.16.`–`172.31.`, `192.168.`,
+  link-local, unique local, a v4 address in a v6 one) — as `http://`, as
+  Chrome does; a written scheme is kept. **Tests:** units (eighteen local
+  addresses `http`, a port `https` drops kept; twelve public ones
+  `https`, `shop.notlocalhost` and `evil-localhost.com` among them; a
+  scheme kept; local words still searches) and the box's Go. **Mutations**,
+  each caught: always `https`; loopback only; v6 loopback only; no
+  `.localhost`; a loose `localhost` suffix (survived first, caught once
+  `shop.notlocalhost` was added); always `http`. **By hand** at two
+  (`handrun42/874-*`): *Go to the site* offered `http://127.0.0.1:8739/`
+  and the card opened the local page.
+
+- [x] **875. The box takes keystrokes only after a click (found by 871/872's
+  hand run).** System Events' keystrokes after alo was activated did not
+  reach the one box until it was pressed. *Closes when:* on launch and on
+  a new chat the box has the keyboard with a blinking caret and typing
+  reaches it with no press; a card takes keys only once pressed into.
+  ***Done (7 November 2026).*** **Reproduced first** on the base build
+  (`handrun42/base-launch-typed-no-click.png`): alo frontmost, its window
+  key, and `hello` typed went nowhere. **The cause was not the window
+  server:** the box itself began without the keyboard (`TheBox`'s
+  `focused` false until pressed), *New chat* pressed took it away as any
+  press elsewhere does, and ⌘T, drawn on *New chat*, was read by nothing.
+  **The fix:** the conversation opens with the box holding the keyboard
+  (`TheBox::with_the_keyboard`), *New chat* gives it the keyboard, and ⌘T
+  is *New chat* wherever the keyboard is (never repeated). A card loaded
+  takes no keys until pressed, as before, and the window takes the front
+  back from the card's Chromium, as before. Tests that pressed the box and
+  then typed now also wait for the press's decision
+  (`ConversationWindow::presses_decided`), which otherwise lands among the
+  keys. **Tests:** units (the box at opening and after *New chat*; a box
+  made with the keyboard); the window's road (typed with no press, its
+  caret blinking as the one column taken away; *Search chats* pressed, ⌘T
+  a new chat whose box has the keyboard; ⌘T held is one chat); the
+  references `the-conversation.png` and `-at-two.png` rewritten, the box's
+  focused border the one change. **Mutations**, each caught: no keyboard
+  at opening; none on *New chat*; ⌘T read as another key. **By hand** at
+  two (`handrun42/875-*`): launched directly and by `open`, typing with no
+  press reached the box with its caret; *Search chats* then ⌘T then typing
+  reached the new chat's box; after a card loaded, typing reached the box.
+
+- [ ] **876. A press held on the conversation's bar pages on (cut from
+  845).** A press above or below the thumb pages once; a Mac's scroll bar
+  pages again and again while the button is held, until the thumb reaches
+  the pointer. Measure its first delay and its rate on this Mac before
+  building. *Depends on 845.*
+
+- [ ] **877. An outer box-shadow kept outside its box (found by 856).**
+  CSS (Backgrounds 3) clips an outer shadow inside the border box, so a
+  shadow never shows through a box's own transparent background; this
+  engine draws it whole under the box (`alo-paint`'s `draw_one_area`), so
+  `box-shadow: 0 0 0 3px` on a transparent button fills it. Clip each
+  outer shadow to outside its rounded border box, measured against Chrome
+  at one and two, edge pixels included, and every reference it moves read.
+  Then *Back to the chat*'s keyed ring needs no paper of its own. *Depends
+  on nothing.*
 
 ## K. ★ The agent, on somebody else's pages
 

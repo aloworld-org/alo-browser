@@ -286,7 +286,7 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     // The box pressed, the address typed, Return.
     driven.click(THE_BOX);
     driven.until("the box given the keyboard", |driven| {
-        start(&driven.window).focused
+        start(&driven.window).focused && driven.window.presses_decided()
     })?;
     let address = format!("http://127.0.0.1:{port}/card.html");
     for letter in address.chars() {

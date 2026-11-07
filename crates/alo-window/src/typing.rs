@@ -29,10 +29,23 @@
 //! | ⌘Z, ⇧⌘Z | undo, and do again |
 //! | anything else | the text it writes, less control characters |
 //!
+//! **macOS's own Ctrl bindings** (queue item 865), as its text system's
+//! standard key bindings have them for a one-line field:
+//!
+//! | | |
+//! |---|---|
+//! | ⌃A ⌃E | the caret to the line's start, or its end |
+//! | ⌃B ⌃F | a letter back, or on, as ← → |
+//! | ⌃P ⌃N | the line above or below: a one-line field's start or end, as ↑ ↓ |
+//! | ⌃H ⌃D | the letter before, or after, as Backspace and ⌦ |
+//! | ⌃K | kill: from the caret — or the selection's start — to the end, kept for ⌃Y and never put on the clipboard |
+//! | ⌃Y | yank: what was last killed, in either field, at the caret |
+//! | ⌃T | the two letters about the caret swapped, and the caret on; at the end, the last two |
+//!
 //! **Every other key held with ⌘ is the browser's or the system's, and
-//! types nothing** — ⌘T, ⌘W, ⌘Q, ⌘, among them — and **nothing held with
-//! Ctrl types**: macOS's own Ctrl bindings in a field (⌃A, ⌃E, ⌃K…) are
-//! not read yet (queue item 865). Tab does not type either: the design has
+//! types nothing** — ⌘T, ⌘W, ⌘Q, ⌘, among them — and **nothing else held
+//! with Ctrl types**: ⌃ with ⇧, ⌥ or ⌘ too, and ⌃O, ⌃L and ⌃V, which mean
+//! nothing in a one-line field. Tab does not type either: the design has
 //! it ask the agent. Home, End and the paging keys type nothing; with the
 //! field empty they scroll the conversation (queue item 754).
 //!
@@ -47,7 +60,7 @@
 //! What an input method composes reaches the field as the window server's
 //! `Ime` events, never as these (queue item 848).
 
-use crate::keys::{Arrow, Key, Modifier, Platform, Press};
+use crate::keys::{Arrow, Held, Key, Modifier, Platform, Press};
 use crate::text_field::{Toward, Unit};
 
 /// What a key does to a field.
@@ -75,6 +88,16 @@ pub enum Edit {
     Undo,
     /// Do again the step last undone.
     Redo,
+    /// Kill from the caret, or the selection's start, to the end, as ⌃K
+    /// does: kept by the window for [`Edit::Yank`], never the clipboard.
+    Kill,
+    /// Put in what was last killed, which the window holds
+    /// ([`Edit::Yanked`]).
+    Yank,
+    /// This text, last killed, put in at the caret, over what is selected.
+    Yanked(String),
+    /// Swap the letters about the caret, as ⌃T does.
+    Transpose,
     /// Empty the field.
     Clear,
     /// Choose what is offered first.
@@ -100,7 +123,15 @@ pub fn edit_on(press: &Press, written: Option<&str>, platform: Platform) -> Opti
         Platform::Elsewhere => (control, command),
     };
     if other {
-        return None;
+        // A Mac's Ctrl bindings, with nothing else held (queue item 865).
+        return match (platform, &press.key) {
+            (Platform::Mac, Key::Character(letter))
+                if held == Held::NOTHING.with(Modifier::Control) =>
+            {
+                control_binding(letter)
+            }
+            _ => None,
+        };
     }
     // By a word: ⌥ on a Mac, Ctrl elsewhere (which is the shortcut key).
     let (word, edge) = match platform {
@@ -146,6 +177,26 @@ pub fn edit_on(press: &Press, written: Option<&str>, platform: Platform) -> Opti
             let text: String = written?.chars().filter(|each| !each.is_control()).collect();
             (!text.is_empty()).then_some(Edit::Put(text))
         }
+    }
+}
+
+/// What Ctrl with `letter` does to a field on a Mac — the key's letter
+/// as the person's layout names it — as macOS's standard key bindings have
+/// it (queue item 865).
+fn control_binding(letter: &str) -> Option<Edit> {
+    match letter.to_lowercase().as_str() {
+        // The line's start or end; the line above or below, which in one
+        // line are the same.
+        "a" | "p" => Some(Edit::Move(Unit::Edge, Toward::Start, false)),
+        "e" | "n" => Some(Edit::Move(Unit::Edge, Toward::End, false)),
+        "b" => Some(Edit::Move(Unit::Character, Toward::Start, false)),
+        "f" => Some(Edit::Move(Unit::Character, Toward::End, false)),
+        "h" => Some(Edit::Erase(Unit::Character, Toward::Start)),
+        "d" => Some(Edit::Erase(Unit::Character, Toward::End)),
+        "k" => Some(Edit::Kill),
+        "y" => Some(Edit::Yank),
+        "t" => Some(Edit::Transpose),
+        _ => None,
     }
 }
 
@@ -237,14 +288,57 @@ mod tests {
     }
 
     #[test]
-    fn nothing_held_with_control_types_on_a_mac() {
-        for letter in ["a", "e", "k", "t", "v"] {
+    fn macs_control_bindings_move_erase_kill_yank_and_transpose() {
+        // Queue item 865: the text system's standard key bindings, with
+        // the letter a layout names the key (the window server's written
+        // text for ⌃A is a control character, never typed).
+        let control = |letter: &str| {
+            edit_on(
+                &Press::character(letter).with(Modifier::Control),
+                Some("\u{1}"),
+                Platform::Mac,
+            )
+        };
+        let moved = |unit, toward| Some(Edit::Move(unit, toward, false));
+        assert_eq!(control("a"), moved(Unit::Edge, Toward::Start));
+        assert_eq!(control("e"), moved(Unit::Edge, Toward::End));
+        assert_eq!(control("b"), moved(Unit::Character, Toward::Start));
+        assert_eq!(control("f"), moved(Unit::Character, Toward::End));
+        assert_eq!(control("p"), moved(Unit::Edge, Toward::Start));
+        assert_eq!(control("n"), moved(Unit::Edge, Toward::End));
+        assert_eq!(
+            control("h"),
+            Some(Edit::Erase(Unit::Character, Toward::Start))
+        );
+        assert_eq!(
+            control("d"),
+            Some(Edit::Erase(Unit::Character, Toward::End))
+        );
+        assert_eq!(control("k"), Some(Edit::Kill));
+        assert_eq!(control("y"), Some(Edit::Yank));
+        assert_eq!(control("t"), Some(Edit::Transpose));
+        // A layout's capital names the same key; held, it goes on.
+        assert_eq!(control("E"), moved(Unit::Edge, Toward::End));
+        assert_eq!(
+            on_a_mac(&Press::character("f").with(Modifier::Control).repeating()),
+            moved(Unit::Character, Toward::End)
+        );
+    }
+
+    #[test]
+    fn nothing_else_held_with_control_types_on_a_mac() {
+        for letter in ["o", "l", "v", "w", "q", "1", " "] {
             let press = Press::character(letter).with(Modifier::Control);
             assert_eq!(
                 edit_on(&press, Some(letter), Platform::Mac),
                 None,
                 "⌃{letter}"
             );
+        }
+        // With anything else held too, nothing.
+        for also in [Modifier::Shift, Modifier::Option, Modifier::Command] {
+            let press = Press::character("a").with(Modifier::Control).with(also);
+            assert_eq!(on_a_mac(&press), None, "{also:?}");
         }
         assert_eq!(
             on_a_mac(&Press::of(Key::Arrow(Arrow::Left)).with(Modifier::Control)),
@@ -254,6 +348,16 @@ mod tests {
             on_a_mac(&Press::of(Key::Backspace).with(Modifier::Control)),
             None
         );
+        // Elsewhere Ctrl is the shortcut key: ⌃K and ⌃E are nothing there.
+        let elsewhere = |letter: &str| {
+            edit_on(
+                &Press::character(letter).with(Modifier::Control),
+                None,
+                Platform::Elsewhere,
+            )
+        };
+        assert_eq!(elsewhere("k"), None);
+        assert_eq!(elsewhere("e"), None);
     }
 
     #[test]

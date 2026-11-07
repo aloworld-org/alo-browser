@@ -270,7 +270,9 @@ impl Default for Conversation {
             next: 1,
             greeting: GREETING.to_owned(),
             last_pressed: None,
-            the_box: TheBox::default(),
+            // The keyboard is the box's as the window opens (queue item
+            // 875): a person's first keys reach it without a press.
+            the_box: TheBox::with_the_keyboard(),
             chosen: None,
             said: String::new(),
             threads: vec![(ChatId(0), Thread::default())],
@@ -552,15 +554,18 @@ impl Conversation {
     /// and an offer itself (queue item 714), kept as
     /// [`Conversation::chosen`]. *Search chats* takes the keyboard, and the
     /// button that hides the panel, or the rail's that shows it, does so
-    /// (queue item 711). A press on anything but the box, *Go* and an offer
-    /// takes the keyboard from the box, and on anything but *Search chats*
-    /// from it. Everything else changes nothing yet (see the module's
+    /// (queue item 711). *New chat* gives the box the keyboard, as the
+    /// window's opening does (queue item 875). A press on anything but the
+    /// box, *New chat*, *Go* and an offer takes the keyboard from the box,
+    /// and on anything but *Search chats* from it. Everything else changes nothing yet (see the module's
     /// words), and neither does a chat this does not hold, which the
     /// decision refused unless it went between being decided and being
     /// acted on, nor a press refused or unanswered.
     pub fn act(&mut self, pressed: Pressed) -> bool {
         let changed = match &pressed {
-            Pressed::TheBox => self.the_box.focus(),
+            // A new chat's box has the keyboard, as the window's first does
+            // (queue item 875).
+            Pressed::TheBox | Pressed::NewChat => self.the_box.focus(),
             Pressed::Go => {
                 let choice = self.the_box.choice(self.asks_first());
                 self.chose(choice)
@@ -576,14 +581,8 @@ impl Conversation {
         };
         let changed = match &pressed {
             Pressed::Refused(_) | Pressed::Failed(_) => changed,
-            Pressed::SearchChats => self.find.focus() || changed,
-            _ => self.find.blur() || changed,
+            _ => self.pointer_pressed(matches!(pressed, Pressed::SearchChats)) || changed,
         };
-        if !matches!(pressed, Pressed::Refused(_) | Pressed::Failed(_)) {
-            // A press on either part, the card's bar among them, is not on
-            // its page.
-            self.card_keys = false;
-        }
         let changed = match &pressed {
             Pressed::Chat(_) | Pressed::Settings | Pressed::Face(_) | Pressed::LeaveSettings => {
                 self.in_settings(&pressed) || changed
@@ -677,6 +676,23 @@ impl Conversation {
             _ => changed,
         };
         self.pressed(pressed, changed)
+    }
+
+    /// The pointer pressed on either part, the card's bar among them —
+    /// on *Search chats* when `on_search`: it has the keyboard then, and
+    /// loses it otherwise; the press is not on the card's page, which no
+    /// longer has the keyboard; and the keyboard's ring on *Settings* is
+    /// put away (queue item 856). Whether *Search chats* or the ring
+    /// changed.
+    fn pointer_pressed(&mut self, on_search: bool) -> bool {
+        let search = if on_search {
+            self.find.focus()
+        } else {
+            self.find.blur()
+        };
+        self.card_keys = false;
+        let unkeyed = self.settings.unkey();
+        search || unkeyed
     }
 
     /// A chat chosen in the panel, or *Settings* pressed (queue item 854):
@@ -1396,6 +1412,7 @@ impl Conversation {
                 viewport,
                 face: self.settings.face(),
                 settings: true,
+                settings_keyed: self.settings.keyed(),
                 search: self.search.clone(),
                 ..Start::default()
             }
@@ -1425,8 +1442,28 @@ impl Conversation {
             asking: self.asking(),
             face: self.settings.face(),
             settings: false,
+            settings_keyed: None,
         }
         .at_scale(scale.factor())
+    }
+
+    /// A key on *Settings* while it is open (queue item 856,
+    /// [`crate::settings_keys`]): the keyboard moved, a face chosen by an
+    /// arrow, or *Back to the chat* pressed, closing it. Whether anything
+    /// changed, to be drawn again.
+    pub fn settings_key(&mut self, key: crate::settings_keys::SettingsKey) -> bool {
+        use crate::settings_keys::SettingsKey;
+        use alo_renderer::start::SettingsKeyed;
+        if !self.settings.is_open() {
+            return false;
+        }
+        match key {
+            SettingsKey::Tab { back } => self.settings.tab(back),
+            SettingsKey::Step { on } => self.settings.step(on),
+            SettingsKey::Press => {
+                self.settings.keyed() == Some(SettingsKeyed::Back) && self.settings.close()
+            }
+        }
     }
 
     /// Show the page at `url` as a card, answering what the person last
@@ -2163,6 +2200,22 @@ mod tests {
     }
 
     #[test]
+    fn the_box_has_the_keyboard_as_the_window_opens_and_on_every_new_chat() {
+        // Queue item 875: a person's first keys reach the box unpressed.
+        let mut conversation = Conversation::default();
+        assert_eq!(conversation.field_focused(), Some(Field::TheBox));
+        // A press elsewhere takes it, as before; New chat gives it back.
+        let _ = conversation.act(Pressed::SearchChats);
+        assert_eq!(conversation.field_focused(), Some(Field::SearchChats));
+        assert!(conversation.act(Pressed::NewChat));
+        assert_eq!(conversation.field_focused(), Some(Field::TheBox));
+        let _ = conversation.act(Pressed::Settings);
+        assert_eq!(conversation.field_focused(), None);
+        let _ = conversation.act(Pressed::NewChat);
+        assert_eq!(conversation.field_focused(), Some(Field::TheBox));
+    }
+
+    #[test]
     fn a_chat_pressed_becomes_the_one_on_screen() {
         let mut conversation = Conversation::default();
         let first = conversation.on_screen();
@@ -2496,6 +2549,7 @@ mod tests {
     #[test]
     fn a_chat_it_does_not_hold_changes_nothing() {
         let mut conversation = Conversation::default();
+        let _ = conversation.the_box.blur();
         let before = conversation.clone();
         assert!(!conversation.act(Pressed::Chat(ChatId(99))));
         assert_eq!(rows(&conversation), rows(&before));
@@ -2514,6 +2568,9 @@ mod tests {
             Pressed::Failed(Failure::NotTheConversation),
         ] {
             let mut conversation = Conversation::default();
+            // Not the box's keyboard, given as the window opens (875), to
+            // take away.
+            let _ = conversation.the_box.blur();
             let before = conversation.clone();
             assert!(!conversation.act(pressed.clone()), "{pressed:?}");
             assert_eq!(
@@ -2936,6 +2993,9 @@ mod tests {
     #[test]
     fn a_press_on_the_box_gives_it_the_keyboard_and_typing_reaches_only_the_first_screen() {
         let mut conversation = Conversation::default();
+        // Given the keyboard as the window opens (875), and pressed away.
+        let _ = conversation.act(Pressed::Settings);
+        let _ = conversation.act(Pressed::LeaveSettings);
         let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
         type_in(&mut conversation, "ignored");
         assert_eq!(
@@ -2998,7 +3058,8 @@ mod tests {
         );
         assert_eq!(
             conversation.going().map(ToString::to_string).as_deref(),
-            Some("https://localhost:8080/")
+            Some("http://localhost:8080/"),
+            "this machine's, read as http (874)"
         );
     }
 

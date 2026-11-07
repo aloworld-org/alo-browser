@@ -114,6 +114,20 @@ pub struct Start {
     /// Whether the screen is *Settings* (queue item 854), drawn in place of
     /// the chat on screen, which is left as it was.
     pub settings: bool,
+    /// What of *Settings* the keyboard is on, drawn with a ring (queue item
+    /// 856): nothing until Tab is pressed there.
+    pub settings_keyed: Option<SettingsKeyed>,
+}
+
+/// What of *Settings* the keyboard is on (queue item 856,
+/// `docs/design/shell.md`, *Settings*).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsKeyed {
+    /// *Back to the chat*: Space or Return presses it.
+    Back,
+    /// The radio group *Font*, at the face chosen: the arrows choose
+    /// another.
+    Font,
 }
 
 /// One site a person keeps on the first screen.
@@ -158,6 +172,7 @@ impl Default for Start {
             asking: SetUp::Not(String::new()),
             face: InterfaceFace::Inter,
             settings: false,
+            settings_keyed: None,
         }
     }
 }

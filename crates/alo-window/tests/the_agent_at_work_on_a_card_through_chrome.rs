@@ -499,6 +499,7 @@ impl Driven {
                 .conversation()
                 .start(Size::new(1040.0, 820.0), Scale::ONE)
                 .focused
+                && driven.window.presses_decided()
         })
     }
 

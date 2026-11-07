@@ -363,6 +363,7 @@ fn search_and_open_the_second(driven: &mut Driven, said: &Said, two: &str) -> Re
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && driven.window.presses_decided()
     })?;
     for letter in "two pages".chars() {
         let written = letter.to_string();

@@ -23,6 +23,15 @@
 //! face whatever the page is set in. The face's name and the sample are
 //! hidden from an agent, which reads the radio by its name.
 //!
+//! # Where the keyboard is
+//!
+//! Tab and ⇧Tab move the keyboard between *Back to the chat* and the radio
+//! group *Font* (queue item 856), which the browser process holds and says
+//! ([`Start::settings_keyed`]): the one it is on is of the class `keyed`
+//! too, *Back to the chat*'s button or the face chosen — on the group, the
+//! keyboard is on its checked radio, as the ARIA radio group pattern has
+//! it — and drawn with a ring outside its edge.
+//!
 //! # What a press is on
 //!
 //! A face — its radio, its name, its sample, the room around them — is of
@@ -33,7 +42,7 @@
 //! anything the renderer said.
 
 use crate::interface_face::InterfaceFace;
-use crate::start::Start;
+use crate::start::{SettingsKeyed, Start};
 use crate::start_document::{Unbuilt, append, attribute, by_id, element};
 use alo_dom::{Document, NodeId};
 
@@ -85,9 +94,21 @@ pub fn put(document: &mut Document, start: &Start) -> Result<(), Unbuilt> {
     }
     let page = take_page(document)?;
     append(document, screen, page)?;
+    // The keyboard on *Back to the chat* (queue item 856): ringed.
+    if start.settings_keyed == Some(SettingsKeyed::Back) {
+        let back = document
+            .descendants(page)
+            .find(|&node| document.attribute_by_name(node, "class") == Some("pback"))
+            .ok_or_else(|| Unbuilt {
+                why: "the first screen's settings hold no Back to the chat".to_owned(),
+            })?;
+        attribute(document, back, "class", "pback keyed")?;
+    }
     let faces = by_id(document, FACES)?;
+    let font = start.settings_keyed == Some(SettingsKeyed::Font);
     for face in InterfaceFace::ALL {
-        let radio = make_face(document, face, face == start.face)?;
+        let chosen = face == start.face;
+        let radio = make_face(document, face, chosen, chosen && font)?;
         append(document, faces, radio)?;
     }
     Ok(())
@@ -120,14 +141,17 @@ fn make_face(
     document: &mut Document,
     face: InterfaceFace,
     chosen: bool,
+    keyed: bool,
 ) -> Result<NodeId, Unbuilt> {
     let made = element(document, "div")?;
-    attribute(
-        document,
-        made,
-        "class",
-        if chosen { "face on" } else { "face" },
-    )?;
+    // The keyboard on the radio group is on the face chosen, as the ARIA
+    // radio group pattern has it (queue item 856): ringed.
+    let class = match (chosen, keyed) {
+        (true, true) => "face on keyed",
+        (true, false) => "face on",
+        (false, _) => "face",
+    };
+    attribute(document, made, "class", class)?;
     attribute(document, made, "style", &face.declaration())?;
     let head = element(document, "div")?;
     attribute(document, head, "class", "fhead")?;
@@ -213,6 +237,25 @@ mod tests {
         let text = document.text_content(document.root());
         assert!(text.contains(TITLE) && text.contains(FONT), "{text}");
         assert!(!text.contains("Hello."), "{text}");
+    }
+
+    #[test]
+    fn the_keyboard_on_back_or_on_the_font_rings_it_and_nothing_else() {
+        // Queue item 856.
+        let keyed = |settings_keyed| {
+            let start = Start {
+                settings_keyed,
+                ..settings(InterfaceFace::Geist)
+            };
+            let document = build(&start).expect("built");
+            classes(&document)
+                .into_iter()
+                .filter(|class| class.contains("keyed"))
+                .collect::<Vec<_>>()
+        };
+        assert!(keyed(None).is_empty());
+        assert_eq!(keyed(Some(SettingsKeyed::Back)), vec!["pback keyed"]);
+        assert_eq!(keyed(Some(SettingsKeyed::Font)), vec!["face on keyed"]);
     }
 
     #[test]

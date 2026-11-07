@@ -19,6 +19,11 @@
 //! set in it, `references/face-<face>-result.png` and
 //! `face-<face>-panel.png`, so a face that breaks a line says so.
 //!
+//! Queue item 856: the keyboard on *Back to the chat* or on the radio group
+//! is drawn as a ring outside the edge of the button or of the face chosen,
+//! moving nothing (a layout assertion), and as the references
+//! `settings-keyed-back.png` and `settings-keyed-font.png`.
+//!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-renderer --test settings_and_the_face_chosen`
 //! rewrites the references. A rewritten reference is a diff somebody reads.
 
@@ -31,7 +36,7 @@ use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::panel::{Chat, Doing, Panel};
 use alo_renderer::results::{Found, Results, SetUp, Showing};
 use alo_renderer::settings_document::{BACK, FONT, SAMPLE_DESCRIPTION, SAMPLE_TITLE, TITLE};
-use alo_renderer::start::Start;
+use alo_renderer::start::{SettingsKeyed, Start};
 use alo_renderer::turn::Turn;
 use alo_renderer::{Frame, FromRenderer, Renderer, Snapshot, SnapshotNode, ToRenderer};
 use alo_text::{Font, FontDatabase, Slant, Weight};
@@ -548,5 +553,102 @@ fn each_face_draws_a_result_and_the_panel_as_its_references() {
             4,
             "{face:?}"
         );
+    }
+}
+
+/// Queue item 856: the keyboard's ring on *Back to the chat*, and on the
+/// face chosen while it is on the radio group, outside each one's edge:
+/// every box where it was without it, and the ring only around the one.
+#[test]
+fn the_keyboards_ring_moves_nothing_and_is_drawn_as_the_references() {
+    let unkeyed = draw(ToRenderer::Start(Box::new(settings(
+        InterfaceFace::Geist,
+        DESIGN,
+    ))));
+    for (keyed, class, name) in [
+        (
+            SettingsKeyed::Back,
+            "pback keyed",
+            "settings-keyed-back.png",
+        ),
+        (
+            SettingsKeyed::Font,
+            "face on keyed",
+            "settings-keyed-font.png",
+        ),
+    ] {
+        let drawn = draw(ToRenderer::Start(Box::new(Start {
+            settings_keyed: Some(keyed),
+            ..settings(InterfaceFace::Geist, DESIGN)
+        })));
+        let unkeyed_class = class.trim_end_matches(" keyed");
+        // Moving nothing: the one keyed where it stood unkeyed, in numbers.
+        assert_eq!(
+            boxes_of(&drawn.renderer, class),
+            boxes_of(&unkeyed.renderer, unkeyed_class),
+            "{class}"
+        );
+        assert_eq!(boxes_of(&drawn.renderer, class).len(), 1, "{class}");
+        let faces = |renderer: &Renderer| {
+            ["face", "face on", "face on keyed"]
+                .into_iter()
+                .flat_map(|each| rects_of(renderer, each))
+                .map(units)
+                .collect::<Vec<_>>()
+        };
+        let mut keyed_faces = faces(&drawn.renderer);
+        let mut faces_before = faces(&unkeyed.renderer);
+        keyed_faces.sort();
+        faces_before.sort();
+        assert_eq!(keyed_faces, faces_before, "every face where it was");
+        // *Back to the chat* 36 square at 152 less 8, 32 down; Geist's
+        // face the second of the first row, 365 wide at 525.
+        let expected = match keyed {
+            SettingsKeyed::Back => vec![px(152.0, 32.0, 36.0, 36.0)],
+            SettingsKeyed::Font => vec![px(525.0, 148.0, 355.0, 136.0)],
+        };
+        assert_eq!(boxes_of(&drawn.renderer, class), expected, "{class}");
+        // The ring: 3 outside the edge, the ink at a third over the page.
+        let frame = drawn.frame.as_ref().expect("painted");
+        let rect = rects_of(&drawn.renderer, class)
+            .into_iter()
+            .next()
+            .expect("a box");
+        let at = |x: f32, y: f32| -> [u8; 4] {
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "a point inside the frame, in whole pixels"
+            )]
+            let (x, y) = (x as u32, y as u32);
+            let i = usize::try_from((y * frame.width + x) * 4).unwrap_or(0);
+            let mut pixel = [0; 4];
+            pixel.copy_from_slice(frame.pixels.get(i..i + 4).unwrap_or(&[0; 4]));
+            pixel
+        };
+        let unkeyed_frame = unkeyed.frame.as_ref().expect("painted");
+        let before = |x: f32, y: f32| -> [u8; 4] {
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "a point inside the frame, in whole pixels"
+            )]
+            let (x, y) = (x as u32, y as u32);
+            let i = usize::try_from((y * unkeyed_frame.width + x) * 4).unwrap_or(0);
+            let mut pixel = [0; 4];
+            pixel.copy_from_slice(unkeyed_frame.pixels.get(i..i + 4).unwrap_or(&[0; 4]));
+            pixel
+        };
+        let middle = rect.top() + rect.size.height / 2.0;
+        // 2 px outside the left edge: ringed, darker than the page.
+        let ring = at(rect.left() - 2.0, middle);
+        let page = before(rect.left() - 2.0, middle);
+        assert!(ring[0] < page[0], "{class}: ring {ring:?}, page {page:?}");
+        // 5 px outside it: the page as it was.
+        assert_eq!(
+            at(rect.left() - 5.0, middle),
+            before(rect.left() - 5.0, middle)
+        );
+        assert_eq!(holds(name, drawn.frame.as_ref()), Ok(()));
     }
 }

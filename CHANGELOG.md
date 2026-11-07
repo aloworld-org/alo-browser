@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Typing works the moment alo opens.** The box at the centre of a new
+  window, and of every new chat, now has the keyboard with its caret
+  blinking, so what you type goes straight into it — no click first. ⌘T,
+  shown on *New chat*, now makes one. An address on your own machine or
+  network typed without `http://` — `localhost:3000`, `127.0.0.1:8739`,
+  `192.168.1.5:8080` — opens over `http://` rather than as an `https://`
+  error page; other sites still open securely. Shift-clicking in the box
+  grows the selection, and the Mac's Control keys work there and in
+  *Search chats*: ⌃A and ⌃E to the start and end, ⌃K to cut to the end and
+  ⌃Y to put it back, ⌃T to swap two letters and the rest. *Settings* can
+  be used from the keyboard — Tab to its buttons, the arrow keys to pick a
+  font, Return to go back — and the thin bar beside a long conversation can
+  be dragged, or clicked above or below to move a page.
 - **Every letter, the first among them, is on screen at once beside a live
   page.** The first letter typed beside a page open as a card opens the
   suggestions under the box, and alo drew the whole conversation again for

@@ -341,6 +341,7 @@ fn typed_between_frames(driven: &mut Driven) -> Result<(), String> {
     driven.window.main_button_released();
     driven.until("the box given the keyboard", |driven| {
         driven.window.conversation().field_focused() == Some(Field::TheBox)
+            && driven.window.presses_decided()
     })?;
     let before = driven.window.scene().and_then(|scene| scene.start.cloned());
     let page = frame(5);

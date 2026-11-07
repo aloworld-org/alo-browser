@@ -398,6 +398,7 @@ fn videos_and_news_asked_once_each_when_their_tabs_are_pressed() -> Result<(), S
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && driven.window.presses_decided()
     })?;
 
     // 1. The sites and the images; neither videos nor news.

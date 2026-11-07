@@ -201,6 +201,7 @@ impl Driven {
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && self.window.presses_decided()
     }
 
     /// Whether the card shows a frame of the page at `address`.

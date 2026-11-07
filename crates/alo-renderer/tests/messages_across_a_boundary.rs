@@ -38,7 +38,7 @@ use alo_renderer::results::{
     Found, Images, LARGEST_THUMBNAIL, MOST_IMAGES, Pictured, Results, SetUp, Showing, Tab,
 };
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
-use alo_renderer::start::{KeptSite, Start, Waiting};
+use alo_renderer::start::{KeptSite, SettingsKeyed, Start, Waiting};
 use alo_renderer::strip::LONGEST_TITLE;
 use alo_renderer::turn::{MOST_TURNS, Turn};
 use alo_renderer::typed::Offer;
@@ -214,6 +214,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             asking: SetUp::Not("no page\0<b>".to_owned()),
             face: InterfaceFace::PlusJakartaSans,
             settings: false,
+            settings_keyed: None,
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
@@ -3026,5 +3027,65 @@ fn what_changed_of_a_frame_crosses_and_hostile_ones_are_refused() {
     let whole = write_from_renderer(&FromRenderer::PaintedOver(patch));
     for cut in 0..whole.len() {
         assert!(read_from_renderer(&whole[..cut]).is_err(), "cut at {cut}");
+    }
+}
+
+/// Queue item 856: *Settings* and what of it the keyboard is on cross as
+/// sent, in one byte, and a byte naming anything else is refused by name.
+#[test]
+fn settings_and_where_the_keyboard_is_on_it_cross_and_nothing_else_does() {
+    let messages = vec![
+        // *Settings*, and each thing of it the keyboard may be on (queue
+        // item 856).
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed: Some(SettingsKeyed::Back),
+            ..Start::default()
+        })),
+        ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed: Some(SettingsKeyed::Font),
+            face: InterfaceFace::Geist,
+            ..Start::default()
+        })),
+    ];
+    for original in messages {
+        let bytes = write_to_renderer(&original);
+        let back = read_to_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+    let keyed = |settings_keyed| {
+        write_to_renderer(&ToRenderer::Start(Box::new(Start {
+            settings: true,
+            settings_keyed,
+            ..Start::default()
+        })))
+    };
+    let back = keyed(Some(SettingsKeyed::Back));
+    let font = keyed(Some(SettingsKeyed::Font));
+    assert_eq!(back.len(), font.len(), "one byte either way");
+    let differing: Vec<usize> = (0..back.len())
+        .filter(|&at| back.get(at) != font.get(at))
+        .collect();
+    assert_eq!(differing.len(), 1, "{differing:?}");
+    let at = differing.first().copied().unwrap_or_default();
+    assert_eq!((back.get(at), font.get(at)), (Some(&2), Some(&3)));
+    for hostile in [4_u8, 9, 255] {
+        let mut bytes = font.clone();
+        if let Some(byte) = bytes.get_mut(at) {
+            *byte = hostile;
+        }
+        let refused = read_to_renderer(&bytes).expect_err("refused");
+        assert!(
+            refused
+                .to_string()
+                .contains(&format!("a Settings tagged {hostile}")),
+            "{refused}"
+        );
     }
 }

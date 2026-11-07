@@ -304,15 +304,29 @@ fn found(driven: &Driven, turns: usize) -> bool {
 }
 
 /// Search `words` from the box, and wait for its sites in the chat's
-/// `turns`th turn.
+/// `turns`th turn: the box pressed only when it does not have the keyboard
+/// — it has it as the window opens, on a new chat and after a search (queue
+/// item 875), and once a turn is on screen it stands at the window's foot,
+/// so a press where it stood on the greeting is on the turns, which takes
+/// the keyboard away.
 fn search(driven: &mut Driven, words: &str, turns: usize) -> Result<(), String> {
-    driven.click(THE_BOX);
+    let focused = |driven: &Driven| {
+        driven
+            .window
+            .conversation()
+            .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
+            .focused
+    };
+    if !focused(driven) {
+        driven.click(THE_BOX);
+    }
     driven.until("the box given the keyboard", |driven| {
         driven
             .window
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && driven.window.presses_decided()
     })?;
     driven.type_and_return(words);
     driven.until(&format!("{words}'s sites"), |driven| found(driven, turns))

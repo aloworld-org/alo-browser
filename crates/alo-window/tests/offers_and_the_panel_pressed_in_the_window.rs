@@ -296,7 +296,9 @@ fn offers_pressed(driven: &mut Driven) -> Result<(), String> {
     // 1. The box at (640, 285) of the window; "lifetimes" offers searching
     //    and asking, 706 × 52 from (167, 333) of the first screen.
     driven.click((640.0, 285.0));
-    driven.until("the box given the keyboard", |driven| driven.the_box().1)?;
+    driven.until("the box given the keyboard", |driven| {
+        driven.the_box().1 && driven.window.presses_decided()
+    })?;
     driven.type_in("lifetimes");
     driven.until("the offers painted under the box", |driven| {
         driven.shows(400, 359, PAPER)
@@ -566,15 +568,18 @@ fn the_rail(driven: &mut Driven) -> Result<(), String> {
     // from 64 + 248, pressed there — where the panel's 240 was, nothing.
     driven.click((64.0 + 248.0 + 240.0, 285.0));
     driven.until("the box pressed where it is now", |driven| {
-        driven.the_box().1
+        driven.the_box().1 && driven.window.presses_decided()
     })?;
     // The rail's New chat, 44 square at (10, 56); its two chats under the
     // line (queue item 760).
     let chats = driven.window.conversation().showing();
     assert_eq!(chats.chats.len(), 2, "the rail shows its chats");
     driven.click((32.0, 78.0));
+    // Its box has the keyboard, as a new chat's does (queue item 875).
     driven.until("a chat made from the rail", |driven| {
-        driven.thread().turns().is_empty() && !driven.the_box().1
+        driven.window.conversation().showing().chats.len() == 3
+            && driven.thread().turns().is_empty()
+            && driven.the_box().1
     })?;
     // Show the panel, 44 square at (10, 764).
     driven.click((32.0, 786.0));
@@ -633,7 +638,9 @@ fn offers_and_the_panels_buttons_pressed_through_the_windows_own_road() -> Resul
 fn closing_a_chat(driven: &mut Driven) -> Result<(ChatId, ChatId), String> {
     let search = |driven: &mut Driven, words: &str| -> Result<(), String> {
         driven.click((640.0, 285.0));
-        driven.until("the box given the keyboard", |driven| driven.the_box().1)?;
+        driven.until("the box given the keyboard", |driven| {
+            driven.the_box().1 && driven.window.presses_decided()
+        })?;
         driven.type_in(words);
         driven.window.key(&Press::of(Key::Return), Some("\r"));
         driven.until("the search answered", |driven| searched(driven, words))

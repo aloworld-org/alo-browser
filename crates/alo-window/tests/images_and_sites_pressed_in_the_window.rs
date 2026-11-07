@@ -408,6 +408,7 @@ fn images_more_sites_and_the_images_tab_pressed_in_the_window() -> Result<(), St
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && driven.window.presses_decided()
     })?;
 
     // 1. The sites, then the row of images: the first tile's 4:3 picture

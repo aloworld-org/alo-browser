@@ -380,6 +380,7 @@ fn two_searches_scrolled_back_and_an_earlier_title_pressed_open_a_new_turn() -> 
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && driven.window.presses_decided()
     })?;
 
     // 1. Two searches, two turns, the newest at the room's top: its first

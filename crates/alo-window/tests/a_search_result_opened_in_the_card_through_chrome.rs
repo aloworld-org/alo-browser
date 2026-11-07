@@ -209,6 +209,7 @@ fn a_search_results_title_pressed_opens_its_page_in_the_card_through_chrome() ->
                 .conversation()
                 .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
                 .focused
+                && window.presses_decided()
         },
     )?;
     for letter in "a page".chars() {

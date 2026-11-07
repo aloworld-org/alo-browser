@@ -239,8 +239,12 @@ picture.
 
 ### What is built of it (item 701)
 
-A press on the box gives it the keyboard; a press anywhere else takes it
-away, and while it has it the box's border is the quiet text's colour.
+The box has the keyboard as the window opens and on every new chat —
+*New chat* pressed, or ⌘T, the key drawn on it — with its caret blinking,
+so a person's first keys reach it with no press, as a Mac's search field
+in a new window has them (item 875). A press on the box gives it the
+keyboard; a press anywhere else takes it away, and while it has it the
+box's border is the quiet text's colour.
 What a person types is shown as the field's value. Under the box, 8 px
 below it, a white card 720 px wide with a line border, 14 px corners and
 6 px inside holds the offers, each 52 px tall — its words at 15 px, and
@@ -250,7 +254,14 @@ the one Return chooses on the paper's colour with 10 px corners:
 - *Go to the site*, and the address it goes to, first — only when what is
   typed is an address: `example.com`, `localhost:8080`, `127.0.0.1`,
   `https://…`; never words with spaces between them, `3.14`, a mail
-  address, or another scheme.
+  address, or another scheme. Typed with no scheme it is read as
+  `https://`, but for this machine and its own network — `localhost`, a
+  name ending `.localhost`, and an address that is not the public
+  internet's (loopback, `10.`, `172.16.`–`172.31.`, `192.168.`,
+  link-local, a unique local IPv6 address) — which is read as `http://`,
+  as Chrome reads them: a server a person runs there almost never has a
+  certificate, so `https://` was an error page (item 874). A scheme
+  written is kept.
 - *Search for “…”*, saying *Brave Search* under it when a key is held,
   and otherwise, in quiet text, *Not set up yet — why* (708); then *Ask
   alo about “…”*, in quiet text, saying *Not set up yet* until the agent
@@ -291,10 +302,19 @@ following macOS's own fields where in doubt:
 - **Shortcuts.** A field takes six ⌘ keys: ⌘A select all, ⌘C copy, ⌘X
   cut, ⌘V paste, ⌘Z undo, ⇧⌘Z redo — by the key's letter in the person's
   layout. **Every other ⌘ key is the browser's or the system's and types
-  nothing** — ⌘T, ⌘W, ⌘Q, ⌘, among them — and nothing with Ctrl types
-  (macOS's own Ctrl bindings in a field are 865). With no field holding
-  the keyboard the six go nowhere; with a card's page holding it, they are
+  nothing** — ⌘T, ⌘W, ⌘Q, ⌘, among them. With no field holding the
+  keyboard the six go nowhere; with a card's page holding it, they are
   the page's.
+- **macOS's Ctrl bindings** (item 865), as its text system's standard key
+  bindings have them for a one-line field: ⌃A and ⌃E to the start and the
+  end, ⌃B and ⌃F a letter back and on, ⌃P and ⌃N the line above and below
+  — in one line, the start and the end — ⌃H and ⌃D the letter before and
+  after, ⌃T the two letters about the caret swapped and the caret on (at
+  the end, the last two), ⌃K **kill** from the caret, or the selection's
+  start, to the end, and ⌃Y **yank** what was last killed in either field
+  at the caret. The kill buffer is the window's own, never the clipboard,
+  as a Mac's is its application's; a kill and a yank are each a step to
+  undo. Nothing else with Ctrl types: ⌃ with ⇧, ⌥ or ⌘ too, ⌃O, ⌃L, ⌃V.
 - **The clipboard.** ⌘C and ⌘X put what is selected on the system's
   clipboard with `pbcopy`, as *Copy link* does; ⌘V reads it with
   `pbpaste -Prefer txt`, at most 16 KiB of it, cut back to a whole
@@ -345,8 +365,15 @@ following macOS's own fields where in doubt:
   of spaces, or the one mark); a third selects everything; the pointer
   moved with the button still down after a first press selects from it, to
   the place nearest the pointer — past an edge, to that end at once (a
-  gradual scroll while dragging past an edge is 866). A press with ⇧ is
-  not yet the selection grown (863).
+  gradual scroll while dragging past an edge is 866). **A press with ⇧**
+  grows the selection to it (item 863): a place before the selection keeps
+  its end, one after it its start, so what was selected stays selected;
+  a place inside it moves the caret there, the anchor kept; however quick
+  after another press, never a word selected; with the button still down,
+  a drag goes on growing it. It is the field's only when the press lands
+  on one — decided by the field's renderer as any press is — and anywhere
+  else a press with ⇧ is nobody's, refused and said as every press with a
+  modifier is (798, 805).
 - **Input methods** (848): allowed while the box or *Search chats* has
   the keyboard, as they are while a card's page has it (802). What is
   being composed is drawn underlined, in the ink, at the caret in place of
@@ -525,7 +552,20 @@ Nothing is replaced. Within a turn the bubble and what follows are 16 apart
   and for a second after, then faded out in 300 ms; whole again at once
   when it moves, and while the pointer is within 24 px either side of it,
   between the room's top and foot. A chat opened shows none until it moves.
-  An agent reads it either way. Nothing presses or drags it (845).
+  An agent reads it either way.
+- **Pressed and dragged** (item 845): the bar, 6 across, is too thin to
+  hit, so a press is its anywhere in a strip **16 wide centred on it**,
+  between the room's top and foot — where the pointer has already brought
+  it back whole. On the thumb, a drag: the conversation follows the
+  pointer as far as the thumb moves (the pointer's travel times the
+  conversation's travel over the thumb's), kept inside how far the turns
+  reach, until the button comes up, the bar whole all the while. Above or
+  below the thumb, a page back or on — the room less a line, as Page Up
+  and Page Down — as a Mac's scroll bar does with *Jump to the next page*,
+  its default; once a press (a press held repeating is 876). A press on
+  the bar is the window's own: never handed to the first screen's renderer
+  to claim, and the keyboard stays where it was. Not under *Settings*, in
+  the split view, or while the turns fit.
 - The agent's own words and its steps are drawn on its live card (704);
   kept as turns of the chat is 820.
 
@@ -1015,6 +1055,23 @@ Settled here, as the design left them open:
   page, whose renderer is never handed these faces. The link strip of an
   expanded card is drawn by the Chromium alo carries, which is not told the
   face (item 852).
+- **By keys** (item 856), as the ARIA radio group pattern and a Mac's
+  radio buttons have it: **Tab** puts the keyboard on *Back to the chat*,
+  Tab again on the radio group *Font* — on the face chosen — and Tab
+  again back, round; **⇧Tab** the other way, and from nothing to *Font*.
+  On *Font*, **← ↑** choose the face before the one chosen and **→ ↓** the
+  one after, round from either end, set and kept at once as a press sets
+  and keeps it. On *Back to the chat*, **Space** or **Return** presses it.
+  Escape closes *Settings* wherever the keyboard is, as before. What the
+  keyboard is on is drawn with **a ring**, 3 px of the ink at a third,
+  outside its edge and following its rounding — around *Back to the chat*,
+  then standing on the paper, or around the face chosen, outside its ink
+  edge — **only once Tab has put the keyboard there**, as a browser draws
+  `:focus-visible`: opening *Settings*, by its row or otherwise, puts it on
+  nothing, and a press of the pointer anywhere puts the ring away. Nothing
+  moves for it. While *Search chats* has the keyboard these keys are its.
+  How the rest of alo's interface takes keys beyond its fields — the
+  panel, the rail, a card's own bar — is still 850's.
 - **What an agent reads**: a region named *Settings* holding *Back to the
   chat*, its heading, and a region named *Font* holding its heading and
   **a radio group named *Font*** holding a
@@ -1047,4 +1104,6 @@ the agent is acting**, and appears nowhere else.
 
 Dark mode, a phone-width window, downloads and bookmarks, and the
 settings other than *Font* — *What alo may do* among them (item 705).
-*Settings* is pressed with the pointer only (item 856).
+*Settings* is walked by keys (item 856); the rest of alo's interface,
+beyond its two fields and *Settings*, is pressed with the pointer only
+(item 850).

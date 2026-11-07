@@ -36,7 +36,7 @@ use crate::card::Card;
 use crate::card_menu::{CardMenu, MenuItem};
 use crate::conversation_scroll::{Bar, MOST};
 use crate::results::MOST_PICTURE_BYTES;
-use crate::start::{KeptSite, Start, Waiting};
+use crate::start::{KeptSite, SettingsKeyed, Start, Waiting};
 use crate::turn::{MOST_TURNS, Turn};
 use crate::typed::Offer;
 use alo_layout::geometry::Size;
@@ -55,7 +55,14 @@ impl Writer {
         self.float(start.viewport.height);
         self.float(start.scale);
         self.face(start.face);
-        self.bool(start.settings);
+        // *Settings* and what of it the keyboard is on (queue item 856), in
+        // one byte: not it, it, its *Back to the chat*, its *Font*.
+        self.tag(match (start.settings, start.settings_keyed) {
+            (false, _) => 0,
+            (true, None) => 1,
+            (true, Some(SettingsKeyed::Back)) => 2,
+            (true, Some(SettingsKeyed::Font)) => 3,
+        });
         self.text(&start.greeting);
         self.number(start.sites.len() as u64);
         for site in &start.sites {
@@ -196,7 +203,13 @@ impl Reader<'_> {
         };
         let scale = alo_value::device_scale(self.float()?);
         let face = self.face()?;
-        let settings = self.bool()?;
+        let (settings, settings_keyed) = match self.tag()? {
+            0 => (false, None),
+            1 => (true, None),
+            2 => (true, Some(SettingsKeyed::Back)),
+            3 => (true, Some(SettingsKeyed::Font)),
+            other => return Err(unreadable(format!("a Settings tagged {other}"))),
+        };
         let greeting = self.text()?;
         let mut sites = Vec::new();
         for _ in 0..self.count()? {
@@ -270,6 +283,7 @@ impl Reader<'_> {
             asking,
             face,
             settings,
+            settings_keyed,
         })
     }
 

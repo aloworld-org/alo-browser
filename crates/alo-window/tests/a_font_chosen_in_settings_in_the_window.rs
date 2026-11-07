@@ -26,6 +26,10 @@
 //!    frame, pixel for pixel the panel the first launch painted in it.
 //! 3. A damaged file: Inter, said with why, the panel pixel for pixel the
 //!    first launch's in Inter, and the file left as it was.
+//!
+//! And queue item 856, *Settings* by keys: Tab to *Back to the chat* and
+//! on to *Font*, each drawn with its ring; → choosing the next face, kept
+//! as a press keeps it; ⇧Tab back; Return pressing *Back to the chat*.
 
 #![cfg(target_os = "macos")]
 
@@ -38,7 +42,7 @@ use alo_window::chat_store::ChatStore;
 use alo_window::conversation_chrome::ChromeOpener;
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
 use alo_window::conversation_window::{ConversationWindow, Heard, Measured};
-use alo_window::keys::{Key, Press};
+use alo_window::keys::{Arrow, Key, Modifier, Press};
 use alo_window::scale::Scale;
 use alo_window::settings_file;
 use std::os::unix::fs::PermissionsExt;
@@ -88,10 +92,12 @@ struct Driven {
 
 impl Driven {
     /// Give the window what its threads told it, as its event loop does,
-    /// until `done` holds of it.
+    /// until `done` holds of it and what it last asked is painted — never
+    /// a frame of a drawing asked before, as the box's caret blinking
+    /// (queue item 875) asks more of them.
     fn until(&mut self, what: &str, done: impl Fn(&Self) -> bool) -> Result<(), String> {
         let until = Instant::now() + AT_MOST;
-        while !done(self) {
+        while !(done(self) && self.window.drawn_as_asked()) {
             let left = until
                 .checked_duration_since(Instant::now())
                 .ok_or_else(|| format!("{what} did not happen; the window said {:?}", self.said))?;
@@ -303,6 +309,80 @@ fn a_font_chosen_applies_at_once_is_kept_across_launches_and_a_damaged_file_is_i
         std::fs::read_to_string(&file).ok().as_deref(),
         Some("font Comic Sans\n")
     );
+    let _ = std::fs::remove_dir_all(&directory);
+    Ok(())
+}
+
+#[test]
+fn settings_is_walked_by_keys_a_face_chosen_by_an_arrow_and_back_by_return() -> Result<(), String> {
+    let directory = scratch("keys");
+    let file = settings_file::file_in(&directory);
+    let mut driven = the_window(&directory)?;
+    let key = |driven: &mut Driven, press: Press| driven.window.key(&press, None);
+    let keyed = |driven: &Driven| {
+        driven
+            .window
+            .conversation()
+            .start(
+                alo_window::conversation_place::start_viewport(WINDOW, Scale::ONE),
+                Scale::ONE,
+            )
+            .settings_keyed
+    };
+    driven.click(SETTINGS_ROW);
+    driven.until("Settings open", open)?;
+    let plain = driven.start().ok_or("no first screen")?;
+    assert_eq!(keyed(&driven), None, "no ring until Tab");
+    // Tab: *Back to the chat*, ringed — the first screen painted again.
+    key(&mut driven, Press::of(Key::Tab));
+    assert_eq!(
+        keyed(&driven),
+        Some(alo_renderer::start::SettingsKeyed::Back)
+    );
+    driven.until("Back ringed", |driven| {
+        driven.start().as_ref().is_some_and(|frame| *frame != plain)
+    })?;
+    // Tab: *Font*; → the face after Inter, Geist, set and kept at once.
+    key(&mut driven, Press::of(Key::Tab));
+    assert_eq!(
+        keyed(&driven),
+        Some(alo_renderer::start::SettingsKeyed::Font)
+    );
+    key(&mut driven, Press::of(Key::Arrow(Arrow::Right)));
+    assert_eq!(face(&driven), InterfaceFace::Geist);
+    assert_eq!(
+        std::fs::read_to_string(&file).ok().as_deref(),
+        Some(settings_file::text_of(InterfaceFace::Geist).as_str())
+    );
+    // ← ← round to Instrument Sans, the last.
+    key(&mut driven, Press::of(Key::Arrow(Arrow::Left)));
+    key(&mut driven, Press::of(Key::Arrow(Arrow::Left)));
+    assert_eq!(face(&driven), InterfaceFace::InstrumentSans);
+    // A key with ⌘ is none of these: nothing moved.
+    key(&mut driven, Press::of(Key::Tab).with(Modifier::Command));
+    assert_eq!(
+        keyed(&driven),
+        Some(alo_renderer::start::SettingsKeyed::Font)
+    );
+    // ⇧Tab back to *Back to the chat*; Return presses it: the chat again.
+    key(&mut driven, Press::of(Key::Tab).with(Modifier::Shift));
+    assert_eq!(
+        keyed(&driven),
+        Some(alo_renderer::start::SettingsKeyed::Back)
+    );
+    driven.window.key(&Press::of(Key::Return), Some("\r"));
+    assert!(!open(&driven), "Return pressed Back to the chat");
+    // Opened again by the pointer: no ring; a press puts a ring away.
+    driven.click(SETTINGS_ROW);
+    driven.until("Settings open again", open)?;
+    assert_eq!(keyed(&driven), None);
+    key(&mut driven, Press::of(Key::Tab));
+    driven.click(GEIST);
+    driven.until("Geist pressed", |driven| {
+        face(driven) == InterfaceFace::Geist
+    })?;
+    assert_eq!(keyed(&driven), None, "the pointer put the ring away");
+    driven.close()?;
     let _ = std::fs::remove_dir_all(&directory);
     Ok(())
 }

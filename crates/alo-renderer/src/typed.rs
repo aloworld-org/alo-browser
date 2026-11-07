@@ -30,6 +30,17 @@
 //!   is something and whose last begins with a letter — so `example.com`,
 //!   `localhost:8080` and `127.0.0.1` are addresses, and `3.14`, `hello`,
 //!   `e.g.` and `me@example.com` are not.
+//! - **On this machine or its network** (queue item 874):
+//!   written without a scheme, `localhost`, a name ending `.localhost`, and
+//!   an address that is not the public internet's — loopback, a private
+//!   network's (`10.`, `172.16.`–`172.31.`, `192.168.`), link-local, a
+//!   unique local IPv6 address, as `alo-net`'s
+//!   [`is_public`](alo_net::resolve::is_public) judges them — are read as
+//!   `http://`, as Chrome reads them. A server a person runs on their own
+//!   machine or a device on their own network almost never has a
+//!   certificate, so `https://` there is an error page where `http://` is
+//!   the page; nothing between the two ends is a stranger's network. A
+//!   public host keeps `https://`.
 //!
 //! Nothing with white space or a control character in it is an address:
 //! `what is x` is a question. Searching and asking are always offered for
@@ -42,8 +53,9 @@
 //! [`crate::results::SetUp`]) — offered, so the screen is the design's, and
 //! saying so, rather than pretending.
 
-use alo_url::Url;
-use std::net::Ipv4Addr;
+use alo_net::resolve::is_public;
+use alo_url::{Host, Url};
+use std::net::{IpAddr, Ipv4Addr};
 
 /// The most characters the box holds. A person types far fewer; what goes
 /// past it is not taken, so no key can make the first screen's document
@@ -128,7 +140,27 @@ pub fn address(typed: &str) -> Option<Url> {
         return None;
     }
     let url = alo_url::parse(&format!("https://{typed}")).ok()?;
-    url.host.is_some().then_some(url)
+    let host = url.host.as_ref()?;
+    if is_on_this_network(host) {
+        return alo_url::parse(&format!("http://{typed}")).ok();
+    }
+    Some(url)
+}
+
+/// Whether `host`, as parsed, is this machine or its own network's: read
+/// as `http://` when typed with no scheme (queue item 874).
+fn is_on_this_network(host: &Host) -> bool {
+    match host {
+        Host::Domain(name) => {
+            let name = name.trim_end_matches('.');
+            name.eq_ignore_ascii_case("localhost")
+                || name
+                    .rsplit_once('.')
+                    .is_some_and(|(_, last)| last.eq_ignore_ascii_case("localhost"))
+        }
+        Host::Ipv4(four) => !is_public(IpAddr::V4(*four)),
+        Host::Ipv6(six) => !is_public(IpAddr::V6(*six)),
+    }
 }
 
 /// Whether `url` is one a site is at: `http` or `https`.
@@ -211,17 +243,86 @@ mod tests {
     }
 
     #[test]
-    fn localhost_and_numbered_hosts_are_addresses() {
+    fn this_machine_and_its_network_typed_bare_are_http() {
+        // Queue item 874: `127.0.0.1:8739` opened as `https://` was an SSL
+        // error.
+        for (typed, url) in [
+            ("127.0.0.1:8739", "http://127.0.0.1:8739/"),
+            ("localhost:3000", "http://localhost:3000/"),
+            ("localhost", "http://localhost/"),
+            ("LocalHost:3000/a?b#c", "http://localhost:3000/a?b#c"),
+            ("app.localhost:5173", "http://app.localhost:5173/"),
+            ("192.168.1.5:8080", "http://192.168.1.5:8080/"),
+            ("192.168.1.5", "http://192.168.1.5/"),
+            ("10.0.0.2/admin", "http://10.0.0.2/admin"),
+            ("172.16.0.1", "http://172.16.0.1/"),
+            ("172.31.255.254:81", "http://172.31.255.254:81/"),
+            ("169.254.1.1", "http://169.254.1.1/"),
+            ("127.0.0.1:3000/a", "http://127.0.0.1:3000/a"),
+            ("[::1]:8080", "http://[::1]:8080/"),
+            ("[::1]", "http://[::1]/"),
+            ("[fd00::5]:8080", "http://[fd00::5]:8080/"),
+            ("[fe80::1]", "http://[fe80::1]/"),
+            ("[::ffff:127.0.0.1]:80", "http://[::ffff:7f00:1]/"),
+            // A port the parser drops for `https` is kept for `http`.
+            ("localhost:443", "http://localhost:443/"),
+        ] {
+            assert_eq!(went(typed).as_deref(), Some(url), "{typed:?}");
+        }
+    }
+
+    #[test]
+    fn a_public_host_typed_bare_stays_https() {
+        for (typed, url) in [
+            ("example.com:8080", "https://example.com:8080/"),
+            ("8.8.8.8", "https://8.8.8.8/"),
+            ("1.1.1.1:853", "https://1.1.1.1:853/"),
+            ("172.32.0.1", "https://172.32.0.1/"),
+            ("172.15.255.255", "https://172.15.255.255/"),
+            ("192.169.1.5", "https://192.169.1.5/"),
+            ("11.0.0.1", "https://11.0.0.1/"),
+            ("[2001:4860:4860::8888]", "https://[2001:4860:4860::8888]/"),
+            // A name only ending in the letters, or holding the word, is
+            // not this machine.
+            ("notlocalhost.com", "https://notlocalhost.com/"),
+            ("localhost.example.com", "https://localhost.example.com/"),
+            ("evil-localhost.com", "https://evil-localhost.com/"),
+            ("shop.notlocalhost", "https://shop.notlocalhost/"),
+        ] {
+            assert_eq!(went(typed).as_deref(), Some(url), "{typed:?}");
+        }
+    }
+
+    #[test]
+    fn a_scheme_written_is_kept_on_this_machine_too() {
         assert_eq!(
-            went("localhost:8080").as_deref(),
-            Some("https://localhost:8080/")
+            went("https://localhost:8443/").as_deref(),
+            Some("https://localhost:8443/")
         );
-        assert_eq!(went("localhost").as_deref(), Some("https://localhost/"));
         assert_eq!(
-            went("127.0.0.1:3000/a").as_deref(),
-            Some("https://127.0.0.1:3000/a")
+            went("https://192.168.1.5/").as_deref(),
+            Some("https://192.168.1.5/")
         );
-        assert_eq!(went("[::1]:8080").as_deref(), Some("https://[::1]:8080/"));
+        assert_eq!(
+            went("http://example.com/").as_deref(),
+            Some("http://example.com/")
+        );
+    }
+
+    #[test]
+    fn this_machines_words_are_still_searches() {
+        for typed in [
+            "localhost is down",
+            "127.0.0.1 refused",
+            "127.0.0",
+            "127.0.0.1:",
+            "127.0.0.1:port",
+            "me@localhost",
+            "mylocalhost",
+            "192.168.1.5:8080 not loading",
+        ] {
+            assert_eq!(went(typed), None, "{typed:?}");
+        }
     }
 
     #[test]

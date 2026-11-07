@@ -6,6 +6,10 @@
 //! 0074, queue item 701): whether it has the keyboard, what a person has
 //! typed into it, and what choosing makes of that.
 //!
+//! It has the keyboard as the window opens and on every new chat (queue
+//! item 875), as a Mac's search field in a new window has, so a person's
+//! first keys reach it without a press; a press anywhere else takes it.
+//!
 //! What is typed is held **here and nowhere else**. The first screen's
 //! renderer is sent it as data to show as the field's value
 //! (`alo-renderer`'s `start`), with what is offered for it
@@ -114,6 +118,15 @@ impl TheBox {
         }
     }
 
+    /// An empty box with the keyboard: as the window opens, and on a new
+    /// chat (queue item 875).
+    pub fn with_the_keyboard() -> Self {
+        Self {
+            focused: true,
+            ..Self::default()
+        }
+    }
+
     /// Give the box the keyboard: whether that changed anything.
     pub fn focus(&mut self) -> bool {
         !std::mem::replace(&mut self.focused, true)
@@ -214,6 +227,15 @@ mod tests {
         assert_eq!(the_box.edit(Edit::Choose, false), Typed::Unchanged);
         assert_eq!(the_box.typed(), "");
         assert!(the_box.offers(false).is_empty());
+    }
+
+    #[test]
+    fn a_box_made_with_the_keyboard_takes_keys_at_once() {
+        let mut the_box = TheBox::with_the_keyboard();
+        assert!(the_box.focused());
+        assert!(!the_box.focus(), "already had it");
+        assert_eq!(put(&mut the_box, "h"), Typed::Changed);
+        assert_eq!(the_box.typed(), "h");
     }
 
     #[test]

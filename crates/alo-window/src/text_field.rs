@@ -237,6 +237,64 @@ impl TextField {
         self.replace(span, "", Kind::Alone).then_some(selected)
     }
 
+    /// What ⌃K would kill (queue item 865): from the caret — or the
+    /// selection's start — to the end.
+    pub fn to_be_killed(&self) -> String {
+        self.text.chars().skip(self.span().0).collect()
+    }
+
+    /// Kill from the caret, or the selection's start, to the end, as ⌃K
+    /// does on a Mac: a step to undo. Whether anything went.
+    pub fn kill(&mut self) -> bool {
+        let (start, _) = self.span();
+        self.replace((start, self.count()), "", Kind::Alone)
+    }
+
+    /// Put `killed` in at the caret, over what is selected, as ⌃Y does: a
+    /// step to undo. Whether anything changed.
+    pub fn yank(&mut self, killed: &str) -> bool {
+        let killed: String = killed.chars().filter(|c| !c.is_control()).collect();
+        if killed.is_empty() {
+            return false;
+        }
+        self.replace(self.span(), &killed, Kind::Alone)
+    }
+
+    /// Swap the letters about the caret and move it on, as ⌃T does on a
+    /// Mac: at the end, the last two swapped and the caret left there; at
+    /// the start, with fewer than two letters or with a selection, nothing.
+    /// A letter is one with what hangs on it ([`crate::text_stops`]).
+    pub fn transpose(&mut self) -> bool {
+        if self.selection().is_some() {
+            return false;
+        }
+        let chars = self.chars();
+        let at = self.caret;
+        if at == 0 {
+            return false;
+        }
+        // At the end, the two before the caret; else the one before and the
+        // one after it.
+        let middle = if at >= chars.len() {
+            before(&chars, at)
+        } else {
+            at
+        };
+        let start = before(&chars, middle);
+        let end = after(&chars, middle);
+        if start == middle || middle == end {
+            return false;
+        }
+        let first: String = chars
+            .get(start..middle)
+            .unwrap_or_default()
+            .iter()
+            .collect();
+        let second: String = chars.get(middle..end).unwrap_or_default().iter().collect();
+        let swapped = format!("{second}{first}");
+        self.replace((start, end), &swapped, Kind::Alone)
+    }
+
     /// Empty it, as Escape does, a step to undo: whether it held anything.
     pub fn clear(&mut self) -> bool {
         self.replace((0, self.count()), "", Kind::Alone)
@@ -314,6 +372,26 @@ impl TextField {
         let before_move = self.caret;
         self.caret = at;
         self.caret != before_move
+    }
+
+    /// Grow the selection to `at`, as a press with ⇧ does on a Mac's field
+    /// (queue item 863): a place before the selection keeps its end and
+    /// one after it its start, so what was selected stays selected; a
+    /// place inside it moves the caret there, the anchor kept, as a drag
+    /// does. Whether the selection changed.
+    pub fn grow_to(&mut self, at: usize) -> bool {
+        self.history.close();
+        let at = at.min(self.count());
+        let before_move = (self.caret, self.anchor);
+        let (start, end) = (self.caret.min(self.anchor), self.caret.max(self.anchor));
+        if at < start {
+            self.anchor = end;
+        } else if at > end {
+            self.anchor = start;
+        }
+        self.caret = at;
+        self.composing = None;
+        (self.caret, self.anchor) != before_move
     }
 
     /// Select the word at `at`, as a double press does
@@ -512,6 +590,83 @@ mod tests {
         assert_eq!(field.selected(), "en.wikipedia.org");
         assert!(field.place(900));
         assert_eq!(field.caret(), 25, "past the end is the end");
+    }
+
+    #[test]
+    fn a_press_with_shift_grows_the_selection_to_it() {
+        // Queue item 863: what was selected stays selected.
+        let mut field = typed("open en.wikipedia.org now");
+        assert!(field.place(10));
+        assert!(field.grow_to(21));
+        assert_eq!(field.selection(), Some((10, 21)));
+        // Before the selection, its end kept, though the caret was there.
+        assert!(field.grow_to(5));
+        assert_eq!(field.selection(), Some((5, 21)));
+        assert_eq!(field.caret(), 5);
+        // After it, its start kept, though the anchor was its end.
+        assert!(field.grow_to(25));
+        assert_eq!(field.selection(), Some((5, 25)));
+        // Inside it, the anchor kept and the caret moved there.
+        assert!(field.grow_to(12));
+        assert_eq!(field.selection(), Some((5, 12)));
+        assert!(!field.grow_to(12), "the same place changes nothing");
+        // Nothing selected: from the caret.
+        assert!(field.place(3));
+        assert!(field.grow_to(0));
+        assert_eq!(field.selection(), Some((0, 3)));
+        assert!(field.grow_to(900));
+        assert_eq!(field.selection(), Some((0, 25)), "past the end is the end");
+    }
+
+    #[test]
+    fn control_k_kills_to_the_end_and_control_y_yanks_it_back() {
+        // Queue item 865.
+        let mut field = typed("open en.wikipedia.org now");
+        assert!(field.go(Unit::Word, Toward::Start, false));
+        assert_eq!(field.to_be_killed(), "now");
+        assert!(field.kill());
+        assert_eq!(field.text(), "open en.wikipedia.org ");
+        assert!(!field.kill(), "nothing after the caret");
+        assert!(field.go(Unit::Edge, Toward::Start, false));
+        assert!(field.yank("now "));
+        assert_eq!(field.text(), "now open en.wikipedia.org ");
+        assert_eq!(field.caret(), 4);
+        assert!(!field.yank(""), "nothing killed, nothing yanked");
+        // A selection's start is where a kill begins.
+        assert!(field.extend_to(8));
+        assert_eq!(field.to_be_killed(), "open en.wikipedia.org ");
+        assert!(field.kill());
+        assert_eq!(field.text(), "now ");
+        // Each a step of its own to undo.
+        assert!(field.undo());
+        assert_eq!(field.text(), "now open en.wikipedia.org ");
+        assert!(field.undo());
+        assert_eq!(field.text(), "open en.wikipedia.org ");
+    }
+
+    #[test]
+    fn control_t_swaps_the_letters_about_the_caret() {
+        let mut field = typed("kampaal");
+        // At the end: the last two, the caret staying.
+        assert!(field.transpose());
+        assert_eq!((field.text(), field.caret()), ("kampala", 7));
+        // Inside: the one before and the one after, the caret on.
+        assert!(field.place(1));
+        assert!(field.transpose());
+        assert_eq!((field.text(), field.caret()), ("akmpala", 2));
+        // A letter with its mark is one letter.
+        let mut marked = typed("e\u{301}a");
+        assert!(marked.place(2));
+        assert!(marked.transpose());
+        assert_eq!(marked.text(), "ae\u{301}");
+        // At the start, with one letter, or a selection: nothing.
+        assert!(field.place(0));
+        assert!(!field.transpose());
+        assert!(!typed("a").transpose());
+        assert!(field.select_all());
+        assert!(!field.transpose());
+        assert!(field.undo());
+        assert_eq!(field.text(), "kampala");
     }
 
     #[test]

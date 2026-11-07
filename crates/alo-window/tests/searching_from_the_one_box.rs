@@ -261,7 +261,7 @@ fn words_typed_and_return_are_searched_and_drawn_as_the_all_tab() -> Result<(), 
     let mut driven = the_window(port)?;
     driven.click(THE_BOX);
     driven.until("the box given the keyboard", |driven| {
-        start(&driven.window).focused
+        start(&driven.window).focused && driven.window.presses_decided()
     })?;
     assert_eq!(start(&driven.window).search, SetUp::Ready);
 

@@ -2546,7 +2546,12 @@ items where being right and being unusable are the same outcome.
       offers (870, ADR 0101), the first letter painting only where the
       conversation's clip moved, from coverage kept, a frame crossing as
       only what changed and the window composing only that (871, 872, ADR
-      0102);
+      0102); a bare address on this machine or its network read as
+      `http://` (874); the box holding the keyboard as the window opens and
+      on a new chat, ⌘T among them (875); a ⇧-press growing a field's
+      selection and macOS's Ctrl bindings in alo's fields (863, 865);
+      *Settings* walked by keys (856); the conversation's bar dragged, or
+      pressed beside its thumb to page (845);
       the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and

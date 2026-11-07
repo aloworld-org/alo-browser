@@ -49992,3 +49992,81 @@ detached through `perl -MPOSIX=setsid` and waited on by its PID;
 `gate-batch21.log`). **Summary [1166.118s] 6679 tests run: 6679 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
 
 The next unused queue number is **874** and the next ADR is **0103**.
+
+## 2026-11-07 — batch 22: items 874, 875, 856, 863, 865 and 845
+
+Owner's go-ahead: "go ahead". Contracts read: `CLAUDE.md`, this loop,
+`docs/design/shell.md` (*The one box*, *as a text field*, *The
+conversation*, *Settings*). 874 and 875 were added to the queue first, from
+871/872's hand run; 856 and 845 were *needs design* and were designed here
+under the go-ahead, written into `shell.md`.
+
+**874 — a bare address on this machine.** `typed::address` reads
+`localhost`, `*.localhost` and every address `alo-net`'s `is_public` says
+is not the public internet's as `http://` when typed with no scheme;
+public hosts keep `https://`, a written scheme is kept.
+
+**875 — the box without the keyboard.** Reproduced on the base build
+(`handrun42/base-launch-typed-no-click.png`): alo frontmost, `hello` typed
+went nowhere. Cause: the box began unfocused and only a press on it gave it
+the keyboard; *New chat* took it away; ⌘T was read by nothing. Fixed in the
+conversation's state, not the window server: the box has the keyboard at
+opening and on *New chat*, and ⌘T is *New chat*. The window's test files changed
+with it: those that pressed the box and typed now wait for the press's
+decision (`ConversationWindow::presses_decided`, new), which otherwise
+landed among their keys; those that asserted the box began unfocused give
+it away first; the font test's wait now also waits for the newest drawing
+(the blink asks more of them); `the-conversation.png` and `-at-two.png`
+rewritten, the focused border the one change, looked at.
+
+**863** ⇧-press grows a field's selection, refused elsewhere. **865**
+macOS's Ctrl bindings, the kill buffer the window's own. **856** *Settings*
+by Tab, the arrows, Space and Return, a ring after Tab only; the renderer's
+`SettingsKeyed` crosses in the byte that said *Settings*. **845** the bar's
+16-wide strip: a drag on the thumb, a page beside it
+(`conversation_bar_press.rs`, `conversation_window/bar.rs`).
+
+Each item's tests, mutations (every one caught; two survivors on their first
+test made stronger: `.localhost`'s loose suffix and the ring put away by a
+press, caught by the window's road) and hand runs are written in its queue
+entry. **Layout assertions**: the bar's strip and thumb in numbers; the
+keyed ring moving no box. **References**: `settings-keyed-back.png`,
+`settings-keyed-font.png` (new, each run once without update mode first and
+looked at), `the-conversation.png`, `the-conversation-at-two.png` (moved:
+the focused box's border).
+
+**By hand** (screen unlocked; release and CEF host built, the `.app` remade
+by `alo-bundle` with no keys; the Retina display at two; the window at 120,
+60, 1280 × 852; `--conversation --chats handrun42/chats-*`, `0700`; keys
+through System Events, alo checked frontmost; a local server on
+127.0.0.1:8739; screenshots in `handrun42/`): `875-01`–`06`, `874-01`–`02`,
+`865-01`–`04`, `863-01`–`03`, `845-00`–`04`, `856-01`–`07`. **Not seen by
+hand:** scale one; input methods with the new opening focus; ⌘T with a
+card's page holding the keyboard; the bar dragged on the sheet's narrow
+window; *Settings* by keys while *Search chats* has the keyboard. Quit with
+`tell application id "org.aloworld.Browser" to quit`; the local server
+stopped; the pointer at 1400, 1000. **Spend: none.**
+
+**Found:** this engine draws an outer `box-shadow` under its box's
+transparent background where CSS clips it away — queued as 877; the keyed
+*Back to the chat* stands on the paper meanwhile. **Cut, queued:** a press
+held on the bar paging on (876).
+
+CHANGELOG, conformance (the fields', the bar's and Settings' rows), ROADMAP
+(*Built since* names 874, 875, 863, 865, 856, 845), QUEUE (874 and 875
+added and ticked, 856, 863, 865, 845 ticked, 876 and 877 added),
+`docs/design/shell.md`. No ADR.
+
+**Gate: met, second run** (CEF_PATH set, the pointer at 1400, 1000;
+detached through `perl -MPOSIX=setsid` and waited on by its PID;
+`gate-batch22.log`). **Summary [1169.657s] 6702 tests run: 6702 passed (5 slow, 1 leaky), 0 skipped** — *"The gate is met." (11 of 11 steps)*. The first run
+(`gate-batch22-first.log`) failed `chats_kept_across_launches.rs`'s two
+tests: its search helper pressed where the box stood on the greeting
+before every search, and once a turn was on screen that press landed on
+the turns and took the keyboard away — passing before only because its
+keys raced ahead of the press's decision. It now presses the box only when
+the box lacks the keyboard. Every `alo-window` test then passed
+`--no-fail-fast` (1132), before the gate was run again. `scripts/gate.sh`
+not edited.
+
+The next unused queue number is **878** and the next ADR is **0103**.

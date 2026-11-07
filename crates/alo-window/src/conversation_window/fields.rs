@@ -13,11 +13,16 @@
 //!   reads it with `pbpaste` ([`crate::clipboard::paste`]) — or a test's
 //!   own reader ([`ConversationWindow::paste_with`]), so no test touches a
 //!   person's clipboard.
+//! - **The kill buffer** (queue item 865): what ⌃K last killed in either
+//!   field, put back by ⌃Y; the window's own, never the clipboard.
 //! - **A press and a drag**: a press decided as the field puts the caret
 //!   where it was, by where its renderer said each place the caret may
 //!   stand is ([`alo_renderer::field::FieldLaidOut`]); a second quick press
 //!   at one place selects the word, a third everything; the pointer moved
-//!   with the button still down after one selects from it.
+//!   with the button still down after one selects from it. A press with ⇧
+//!   alone grows the field's selection to it (queue item 863) — claimed as
+//!   the field's only when its renderer decides it landed on one, and
+//!   refused and said, as every other press with a modifier is, when not.
 //! - **The caret's blink** ([`crate::field_blink`]): shown while the window
 //!   and the field have the keyboard and nothing is selected, in its shown
 //!   half — and the words' scroll and room, as the renderer last laid them,
@@ -63,6 +68,13 @@ pub(super) struct Fields {
     down: bool,
     /// The field a press is selecting in while the button is down.
     dragging: Option<Field>,
+    /// Whether the press kept until it is decided was made with ⇧ alone
+    /// (queue item 863).
+    shifted: bool,
+    /// What ⌃K last killed, in either field, for ⌃Y (queue item 865): the
+    /// window's own, as a Mac's kill buffer is its application's, and never
+    /// the clipboard.
+    killed: String,
 }
 
 impl Default for Fields {
@@ -76,6 +88,8 @@ impl Default for Fields {
             press: None,
             down: false,
             dragging: None,
+            shifted: false,
+            killed: String::new(),
         }
     }
 }
@@ -184,9 +198,21 @@ impl ConversationWindow {
                     return Some(Typed::Unchanged);
                 }
             },
+            // ⌃Y puts in what the window last killed (queue item 865).
+            Edit::Yank => Edit::Yanked(self.fields.killed.clone()),
             other => other,
         };
+        // ⌃K: what it takes, read before it goes, kept if it went.
+        let killing = (edit == Edit::Kill)
+            .then(|| self.field_with_keys())
+            .flatten()
+            .map(|field| self.conversation.field(field).to_be_killed());
         let typed = self.conversation.edit(edit);
+        if let Some(killed) = killing
+            && typed == Typed::Changed
+        {
+            self.fields.killed = killed;
+        }
         match &typed {
             Typed::Copy(text) | Typed::Cut(text) => {
                 if let Err(why) = (self.clipboard)(text) {
@@ -213,6 +239,43 @@ impl ConversationWindow {
         self.fields.press = Some((part, on, count));
         self.fields.down = true;
         self.fields.dragging = None;
+        self.fields.shifted = false;
+    }
+
+    /// The main button went down `now` on `part` at `on` with ⇧ alone held
+    /// (queue item 863): kept as [`Self::field_pressed_at`] keeps a press,
+    /// to grow a field's selection if it is decided as one.
+    pub(super) fn field_shift_pressed_at(
+        &mut self,
+        part: Part,
+        on: alo_paint::Point,
+        now: Instant,
+    ) {
+        self.field_pressed_at(part, on, now);
+        self.fields.shifted = true;
+    }
+
+    /// Whether a press decided as `pressed` was made with ⇧ and is to be
+    /// refused: decided as anything but a field — or refused or unanswered,
+    /// which says so itself — it is nobody's, as every press with a
+    /// modifier is (queue items 798, 805, 863), and said.
+    pub(super) fn shift_press_refused(&mut self, pressed: &Decided) -> bool {
+        if !self.fields.shifted {
+            return false;
+        }
+        if matches!(
+            pressed,
+            Decided::TheBox | Decided::SearchChats | Decided::Refused(_) | Decided::Failed(_)
+        ) {
+            return false;
+        }
+        self.fields.shifted = false;
+        self.fields.press = None;
+        self.tell(super::held_press(
+            crate::keys::Held::NOTHING.with(crate::keys::Modifier::Shift),
+        ));
+        self.redraw = true;
+        true
     }
 
     /// A press on `part` was decided as `pressed`, and acted on: decided as
@@ -237,12 +300,15 @@ impl ConversationWindow {
         let Some(text) = self.conversation.field_mut() else {
             return false;
         };
+        let shifted = std::mem::replace(&mut self.fields.shifted, false);
         let changed = match count {
+            // ⇧ grows the selection to it, however quick (queue item 863).
+            _ if shifted => text.grow_to(at),
             1 => text.place(at),
             2 => text.select_word(at),
             _ => text.select_all(),
         };
-        if count == 1 && self.fields.down {
+        if (count == 1 || shifted) && self.fields.down {
             self.fields.dragging = Some(field);
         }
         let now = self.now();

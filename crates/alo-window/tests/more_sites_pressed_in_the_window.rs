@@ -340,6 +340,7 @@ fn show_more_sites_asks_each_further_page_once_per_press() -> Result<(), String>
             .conversation()
             .start(start_viewport(WINDOW, Scale::ONE), Scale::ONE)
             .focused
+            && driven.window.presses_decided()
     })?;
 
     // 1. The search; Brave says there are more, and nothing more is asked.
