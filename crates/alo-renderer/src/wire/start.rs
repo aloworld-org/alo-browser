@@ -33,6 +33,7 @@
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::card::Card;
+use crate::card_menu::{CardMenu, MenuItem};
 use crate::conversation_scroll::{Bar, MOST};
 use crate::results::MOST_PICTURE_BYTES;
 use crate::start::{KeptSite, Start, Waiting};
@@ -148,6 +149,33 @@ impl Writer {
         if let Some(shield) = card.shield {
             self.number(u64::from(shield.blocked));
             self.bool(shield.on);
+        }
+        // alo's menu over its page (queue item 798).
+        self.bool(card.menu.is_some());
+        if let Some(menu) = &card.menu {
+            self.number(u64::from(menu.at.0.unsigned_abs()));
+            self.number(u64::from(menu.at.1.unsigned_abs()));
+            self.number(menu.items.len() as u64);
+            for item in &menu.items {
+                match item {
+                    MenuItem::Copy { selected } => {
+                        self.tag(0);
+                        self.bool(*selected);
+                    }
+                    MenuItem::CopyLink(link) => {
+                        self.tag(1);
+                        self.text(link);
+                    }
+                    MenuItem::OpenInNewChat(link) => {
+                        self.tag(2);
+                        self.text(link);
+                    }
+                    MenuItem::Search(words) => {
+                        self.tag(3);
+                        self.text(words);
+                    }
+                }
+            }
         }
     }
 }
@@ -324,6 +352,11 @@ impl Reader<'_> {
         } else {
             None
         };
+        let menu = if self.bool()? {
+            Some(self.card_menu()?)
+        } else {
+            None
+        };
         Ok(Card {
             said,
             url,
@@ -335,7 +368,37 @@ impl Reader<'_> {
             // Never sent with the live card: drawn once it is shown earlier.
             ran: Vec::new(),
             shield,
+            menu,
         })
+    }
+
+    /// alo's menu over a card's page, as [`Writer::card`] wrote it: placed
+    /// inside a page box no card is past, with at most four lines, each one
+    /// of the four kinds.
+    fn card_menu(&mut self) -> Result<CardMenu, Unreadable> {
+        let mut place = || {
+            u16::try_from(self.number()?)
+                .map(i32::from)
+                .map_err(|_| unreadable("a menu placed past any page box"))
+        };
+        let at = (place()?, place()?);
+        let lines = self.number()?;
+        if lines > 4 {
+            return Err(unreadable("a menu of more than four lines"));
+        }
+        let mut items = Vec::new();
+        for _ in 0..lines {
+            items.push(match self.tag()? {
+                0 => MenuItem::Copy {
+                    selected: self.bool()?,
+                },
+                1 => MenuItem::CopyLink(self.text()?),
+                2 => MenuItem::OpenInNewChat(self.text()?),
+                3 => MenuItem::Search(self.text()?),
+                other => return Err(unreadable(format!("a menu's line tagged {other}"))),
+            });
+        }
+        Ok(CardMenu { at, items })
     }
 
     /// An address, read back with the URL parser, refused as `refused` says

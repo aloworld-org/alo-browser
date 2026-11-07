@@ -191,6 +191,17 @@ pub enum Went {
         /// What refused it.
         by: Blocked,
     },
+    /// What the Chromium alo carries told of the page shown as a card
+    /// beside its pipe (queue items 799 and 798): the pointer's shape it
+    /// asks for, a press for a menu, a link to open as the next turn.
+    Told(crate::chrome_told::Told),
+    /// A person pressed a closed list on the card's page, and the press is
+    /// held until the card is expanded, where its menu opens as Chrome's
+    /// own (queue item 810).
+    ListPressed,
+    /// Where the person is typing on the card's page, read as an input
+    /// method's composition began (queue item 802).
+    Caret(crate::chrome_card_caret::Caret),
 }
 
 impl Went {
@@ -218,6 +229,12 @@ impl Went {
             Self::Blocked { url, by } => {
                 format!("the card's page asked for {url}, refused as {by} (ADR 0094)")
             }
+            Self::Told(told) => format!("the card's Chromium told {told:?}"),
+            Self::Caret(caret) => format!("the card's page has its caret at {caret:?}"),
+            Self::ListPressed => {
+                "a list pressed on the card's page: the card expanded, its menu opened there"
+                    .to_owned()
+            }
             Self::Travel(travel) => match (travel.back, travel.forward) {
                 (true, true) => "the card's page can go back and forward",
                 (true, false) => "the card's page can go back",
@@ -240,6 +257,11 @@ pub struct Shown {
     pub profile: PathBuf,
     /// Where its window went, by Chrome's word, once it stopped moving.
     pub window: Option<Bounds>,
+    /// Whether it tells what its pipe does not carry — the pointer's shape,
+    /// a context menu, a link to open elsewhere ([`crate::chrome_told`],
+    /// queue items 799 and 798): the Chromium alo carries does, the
+    /// machine's Chrome does not.
+    pub tells: bool,
 }
 
 /// How the thread tells the window what became of an address: whether
@@ -607,6 +629,9 @@ fn heard_from(again: Sender<Work>, number: u64) -> TellFrame {
             ToFrame::Blocked { url, by } => {
                 again.send(Work::Told(number, Went::Blocked { url, by }))
             }
+            ToFrame::Told(told) => again.send(Work::Told(number, Went::Told(told))),
+            ToFrame::ListPressed => again.send(Work::Told(number, Went::ListPressed)),
+            ToFrame::Caret(caret) => again.send(Work::Told(number, Went::Caret(caret))),
             _ => Ok(()),
         };
         true
@@ -650,6 +675,7 @@ fn in_chrome(
         process: serving.process(),
         profile: serving.profile().to_path_buf(),
         window: serving.placed().map(|placed| placed.window.bounds),
+        tells: matches!(chromium, Chromium::Carried(_)),
     };
     let orders = serving.orders();
     let card = serving.orders();
@@ -719,6 +745,7 @@ mod tests {
                     process: 7,
                     profile: PathBuf::from("/nowhere"),
                     window: None,
+                    tells: false,
                 },
                 close: Box::new(move || {
                     closing.lock().unwrap().closed.push(address);

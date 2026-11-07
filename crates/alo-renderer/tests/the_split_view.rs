@@ -23,8 +23,9 @@
 
 use alo_layout::{Rect, Size};
 use alo_paint::{Point, from_png};
+use alo_renderer::agent_document::options_named;
 use alo_renderer::agent_document::{ALLOW, AT_WORK, STOP};
-use alo_renderer::agent_work::{AtWork, Now, Step, WORKING};
+use alo_renderer::agent_work::{AtWork, Dropdown, Now, Step, WORKING};
 use alo_renderer::card::Card;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::frame::frame_to_png;
@@ -115,6 +116,7 @@ fn acting() -> AtWork {
             ),
         ],
         now: Now::Acting,
+        choosing: None,
     }
 }
 
@@ -130,6 +132,7 @@ fn asking() -> AtWork {
             what: "Press \u{201c}Send\u{201d} on 127.0.0.1:8765? It sends the form on this page."
                 .to_owned(),
         },
+        choosing: None,
     }
 }
 
@@ -141,6 +144,7 @@ fn twenty() -> AtWork {
             .map(|n| step(&format!("Opening section {n}"), "it is the next one down"))
             .collect(),
         now: Now::Acting,
+        choosing: None,
     }
 }
 
@@ -537,4 +541,41 @@ fn the_split_view_is_drawn_as_the_reference() -> Result<(), String> {
     assert_eq!(pixel(frame, 852, 20), Some([0xf6, 0xe7, 0xe0, 0xff]));
     assert_eq!(pixel(frame, 866, 241), Some([0x1b, 0x24, 0x33, 0xff]));
     holds("split-view-asking.png", asked.as_ref())
+}
+
+/// Queue item 810: it choosing *Dates* in the closed list *Fruit* — the
+/// list's options in its own column under the step, the one chosen ticked.
+fn choosing() -> AtWork {
+    let mut work = acting();
+    work.steps.push(step("Choosing Dates in Fruit", ""));
+    work.choosing = Some(Dropdown {
+        list: "Fruit".to_owned(),
+        options: ["Apples", "Apricots", "Bananas", "Cherries", "Dates"]
+            .map(str::to_owned)
+            .to_vec(),
+        chosen: 4,
+    });
+    work
+}
+
+#[test]
+fn a_closed_lists_options_stand_in_the_column_under_the_step_choosing() -> Result<(), String> {
+    let renderer = laid_out(with(choosing(), NORMAL)?);
+    let at = |class: &str| boxes_of(&renderer, class);
+    // The step under way 6 under the two before it; the options 4 under
+    // its line: 1 of border, 4 inside, a line of 20 for each of the five.
+    assert_eq!(at("step now"), vec![px(849.0, 178.0, 351.0, 134.0)]);
+    assert_eq!(at("dropdown"), vec![px(849.0, 202.0, 351.0, 110.0)]);
+    let lines = at("opt");
+    assert_eq!(lines.len(), 4);
+    assert_eq!(lines.first(), Some(&px(850.0, 207.0, 349.0, 20.0)));
+    assert_eq!(at("opt chosen"), vec![px(850.0, 287.0, 349.0, 20.0)]);
+    let (frame, tree) = drawn(with(choosing(), NORMAL)?);
+    let listed: Vec<&alo_renderer::SnapshotNode> = tree
+        .nodes()
+        .into_iter()
+        .filter(|node| node.name.as_deref() == Some(&options_named("Fruit")))
+        .collect();
+    assert_eq!(listed.len(), 1, "{}", tree.to_outline());
+    holds("agent-choosing-in-a-list.png", frame.as_ref())
 }

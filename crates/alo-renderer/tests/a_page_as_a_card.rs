@@ -25,6 +25,7 @@ use alo_layout::{Rect, Size};
 use alo_paint::{Point, from_png};
 use alo_renderer::card::{Card, PAGE_SIZE, Shield};
 use alo_renderer::card_document::{LOADING, OFF, PICTURED, shield_named};
+use alo_renderer::card_menu::CardMenu;
 use alo_renderer::card_place;
 use alo_renderer::conversation_claim::Claim;
 use alo_renderer::face::Face;
@@ -811,5 +812,104 @@ fn a_cards_shield_counts_what_was_refused_and_switches_its_site() -> Result<(), 
     ))));
     assert!(boxes_of(&plain, "shield").is_empty());
     assert_eq!(boxes_of(&plain, "url"), vec![px(171.0, 112.5, 706.0, 18.0)]);
+    Ok(())
+}
+
+/// Queue item 798: alo's own menu over the card's page, opened by a
+/// person's secondary press at `at` over a link with words selected.
+fn with_a_menu(
+    at: (i32, i32),
+    link: Option<&str>,
+    selection: Option<&str>,
+) -> Result<Start, String> {
+    let mut start = with_a_card_loading(Some(frame()?), false);
+    if let Some(Turn::Page(card)) = start.turns.last_mut() {
+        card.menu = Some(CardMenu::placed(
+            at,
+            PAGE_SIZE,
+            CardMenu::offering(link, selection),
+        ));
+    }
+    Ok(start)
+}
+
+#[test]
+fn alos_menu_over_the_page_stands_where_pressed_and_names_each_line() -> Result<(), String> {
+    let link = "http://127.0.0.1:8765/elsewhere.html";
+    let mut renderer = Renderer::new(fonts());
+    let answer = renderer.handle(ToRenderer::Start(Box::new(with_a_menu(
+        (60, 52),
+        Some(link),
+        Some("Kampala"),
+    )?)));
+    assert!(
+        matches!(&answer, FromRenderer::Loaded { issues, .. } if issues.is_empty()),
+        "{answer:?}"
+    );
+    // The page box, and the menu at the press inside it: 220 wide, four
+    // lines of 30, 4 above and below them and a border of 1 — 130.
+    let pages = boxes_of(&renderer, "page");
+    let [page] = pages.as_slice() else {
+        return Err(format!("one page box: {pages:?}"));
+    };
+    assert_eq!(page, &px(81.0, 145.0, 878.0, 520.0));
+    assert_eq!(
+        boxes_of(&renderer, "cmenu"),
+        vec![px(141.0, 197.0, 220.0, 130.0)]
+    );
+    let lines: Vec<String> = (0..4)
+        .map(|line| {
+            #[expect(clippy::cast_precision_loss, reason = "four lines")]
+            let down = 202.0 + 30.0 * line as f32;
+            px(142.0, down, 218.0, 30.0)
+        })
+        .collect();
+    assert_eq!(boxes_of(&renderer, "mitem"), lines);
+    // Read as a menu of named lines.
+    let drawn = draw(with_a_menu((60, 52), Some(link), Some("Kampala"))?);
+    let named: Vec<String> = read(&drawn.tree, "menuitem")
+        .iter()
+        .filter_map(|item| item.name.clone())
+        .collect();
+    assert_eq!(
+        named,
+        [
+            "Copy",
+            "Copy link",
+            "Open link in new chat",
+            "Search for “Kampala”"
+        ]
+    );
+    assert_eq!(read(&drawn.tree, "menu").len(), 1);
+    // A press on its third line claims it by its place.
+    assert_eq!(
+        pressed(
+            with_a_menu((60, 52), Some(link), Some("Kampala"))?,
+            200.0,
+            270.0
+        ),
+        FromRenderer::ConversationClaimed(Some(Claim::MenuItem { at: 2 }))
+    );
+    assert_eq!(holds("card-menu.png", drawn.frame.as_ref()), Ok(()));
+    // Nothing selected and no link: Copy alone, greyed, claiming nothing;
+    // pressed near the foot of the page, the menu stands above the press.
+    let mut bare = Renderer::new(fonts());
+    let _ = bare.handle(ToRenderer::Start(Box::new(with_a_menu(
+        (800, 500),
+        None,
+        None,
+    )?)));
+    assert_eq!(
+        boxes_of(&bare, "cmenu"),
+        vec![px(739.0, 605.0, 220.0, 40.0)]
+    );
+    assert_eq!(
+        boxes_of(&bare, "mitem off"),
+        vec![px(740.0, 610.0, 218.0, 30.0)]
+    );
+    assert_eq!(
+        pressed(with_a_menu((800, 500), None, None)?, 800.0, 626.0),
+        FromRenderer::ConversationClaimed(None)
+    );
     Ok(())
 }

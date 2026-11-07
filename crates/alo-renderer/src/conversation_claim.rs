@@ -226,6 +226,12 @@ pub enum Claim {
     /// The card's shield, the switch for blocking on its page's site
     /// (queue item 807).
     Shield,
+    /// The line at this place of alo's menu over the card's page, counting
+    /// from zero (queue item 798).
+    MenuItem {
+        /// Its place.
+        at: usize,
+    },
 }
 
 impl Claim {
@@ -262,6 +268,7 @@ impl Claim {
             | Claim::Allow
             | Claim::NotNow
             | Claim::Choice { .. }
+            | Claim::MenuItem { .. }
             | Claim::Shield => Part::Start,
         }
     }
@@ -297,6 +304,7 @@ impl fmt::Display for Claim {
             Claim::Allow => f.write_str("the agent's Allow"),
             Claim::NotNow => f.write_str("the agent's Not now"),
             Claim::Choice { at } => write!(f, "the agent's choice at place {at}"),
+            Claim::MenuItem { at } => write!(f, "the line of the page's menu at place {at}"),
             Claim::DeleteChat => f.write_str("the hovered chat's Delete"),
             Claim::CloseChat => f.write_str("the hovered chat's ×"),
             Claim::Undo => f.write_str("the panel's Undo"),
@@ -384,6 +392,9 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             (&["abtn allow"], Pressable::One(Claim::Allow)),
             (&["abtn notnow"], Pressable::One(Claim::NotNow)),
             (&["achoice"], Pressable::Placed(|at| Claim::Choice { at })),
+            // A line of alo's menu over the card's page (queue item 798);
+            // one that does nothing is `mitem off`, and claims nothing.
+            (&["mitem"], Pressable::Placed(|at| Claim::MenuItem { at })),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).
             (

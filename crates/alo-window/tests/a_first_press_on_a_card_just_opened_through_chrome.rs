@@ -360,19 +360,21 @@ fn through(chromium: Chromium, who: &'static str) -> Result<(), String> {
     assert_eq!(driven.pressed, [Pressed::TheBox], "{who}: the box pressed");
     assert_eq!(driven.window.told(), None, "{who}");
 
-    // 3. With ⌘ held, a press reaches nothing and says so.
-    driven.window.held(Held::NOTHING.with(Modifier::Command));
+    // 3. With ⇧ held, a press reaches nothing and says so — ⌘ and Ctrl
+    // alone are taken through the Chromium alo carries (queue item 798).
+    driven.window.held(Held::NOTHING.with(Modifier::Shift));
     driven.press(FIELD);
     let moved = driven.until_or(Instant::now() + STILL, |driven| {
         driven.colour() != Some(BLUE)
     })?;
     assert!(
         !moved,
-        "{who}: a press with ⌘ held reached the page: {:?}",
+        "{who}: a press with ⇧ held reached the page: {:?}",
         driven.colour()
     );
-    let said = "a press with ⌘ held was not acted on: a press with a modifier is nobody's yet \
-                (queue item 798)";
+    let said = "a press with ⇧ held was not acted on: only ⌘ (a link opened as the next turn) \
+                and Ctrl (alo's menu) are taken, on a card's page through the Chromium alo \
+                carries";
     assert_eq!(driven.window.told(), Some(said), "{who}");
     // Said on the terminal before it: the tracker the page asked for,
     // refused by the lists alo carries (queue item 736, ADR 0094).

@@ -196,6 +196,15 @@ pub enum Unacted {
         /// Its list.
         list: BoxId,
     },
+    /// An option of a closed list on a card's page, which no one key
+    /// chooses alone: there its menu is never opened for an agent, and
+    /// nothing was sent (queue item 810, `chrome_type_ahead`).
+    NoOneKey {
+        /// The option.
+        node: BoxId,
+        /// Its list.
+        list: BoxId,
+    },
     /// An option of a closed list was to be chosen in its menu in a shown
     /// Chrome, and was not (ADR 0071, queue item 658).
     Unwalked {
@@ -249,6 +258,12 @@ impl fmt::Display for Unacted {
             Self::Closed { node, list } => write!(
                 f,
                 "{node} is an option of the closed list {list}, which this browser chooses in only through a shown Chrome on macOS, so nothing was pressed"
+            ),
+            Self::NoOneKey { node, list } => write!(
+                f,
+                "{node} of the closed list {list} is on a card's page, where its menu is never \
+                 opened for an agent, and no one key chooses it alone: so nothing was sent. The \
+                 person chooses it by pressing the list"
             ),
             Self::Unwalked { node, list, why } => write!(
                 f,

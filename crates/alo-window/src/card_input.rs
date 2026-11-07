@@ -45,6 +45,43 @@ pub enum CardInput {
     },
     /// A key, pressed and let go, while the card has the keyboard.
     Key(PersonsKey),
+    /// An input method's composition while the card has the keyboard
+    /// (queue item 802): what is composed so far, not yet the field's, and
+    /// the selection in it in UTF-16 code units, as Chromium counts; empty
+    /// ends it, choosing nothing.
+    Compose {
+        /// What is composed.
+        text: String,
+        /// The selection in it: where it begins and ends.
+        selection: (usize, usize),
+    },
+    /// What an input method's composition came to, put into the field as
+    /// typing puts words (queue item 802).
+    Commit(String),
+    /// A press that is not the main button's alone, pressed and let go at a
+    /// point of the page (queue item 798): what the page then does — a
+    /// context menu, a link opened elsewhere — the Chromium alo carries
+    /// tells ([`crate::chrome_told`]).
+    Other {
+        /// Which.
+        press: OtherPress,
+        /// From the page's left edge, in its CSS pixels.
+        x: f64,
+        /// From the page's top edge, in its CSS pixels.
+        y: f64,
+    },
+}
+
+/// A press that is not the main button's alone (queue item 798).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OtherPress {
+    /// The secondary button — or, on a Mac, the main one with Ctrl, which
+    /// macOS takes as it: the page's context menu.
+    Secondary,
+    /// The middle button: a link opened elsewhere.
+    Middle,
+    /// The main button with ⌘: a link opened elsewhere.
+    Command,
 }
 
 impl CardInput {

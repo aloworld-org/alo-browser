@@ -71,6 +71,7 @@ impl Writer {
             Claim::Undo => (28, None),
             Claim::Shield => (29, None),
             Claim::CloseChat => (30, None),
+            Claim::MenuItem { at } => (31, Some(at)),
         };
         self.tag(tag);
         if let Some(at) = at {
@@ -128,6 +129,7 @@ impl Reader<'_> {
             28 => Claim::Undo,
             29 => Claim::Shield,
             30 => Claim::CloseChat,
+            31 => Claim::MenuItem { at: self.place()? },
             other => return Err(unreadable(format!("a claim tagged {other}"))),
         };
         Ok(Some(claim))

@@ -70,6 +70,18 @@ pub enum Mouse {
     Released,
 }
 
+/// A mouse's button, as `Input.dispatchMouseEvent` names them (queue item
+/// 798).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Button {
+    /// The main one, left on a right-handed mouse.
+    Main,
+    /// The secondary one, which opens a context menu.
+    Secondary,
+    /// The middle one, the wheel pressed.
+    Middle,
+}
+
 /// A key a person presses, as `Input.dispatchKeyEvent` sends one: one with
 /// a command Chrome's editing carries out, or a digit typed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -267,6 +279,32 @@ pub enum Command {
         /// What arrives.
         text: String,
     },
+    /// `Input.imeSetComposition`: an input method's composition in the
+    /// focused field, as a person composes it (queue item 802): its text,
+    /// underlined and not yet the field's, and the selection in it, in
+    /// characters.
+    Compose {
+        /// What is composed so far; empty ends the composition, choosing
+        /// nothing.
+        text: String,
+        /// Where the selection in it begins.
+        start: usize,
+        /// Where it ends.
+        end: usize,
+    },
+    /// `DOM.querySelector`: the element under `document` that has the
+    /// keyboard (`:focus`), by the DOM domain's id (queue item 802).
+    Focused {
+        /// The document's id, as `DOM.getDocument` gave it.
+        document: u64,
+    },
+    /// `DOM.describeNode` of the element numbered `node` by the DOM
+    /// domain, with everything under it, its shadow trees too (queue item
+    /// 802).
+    DescribeAll {
+        /// The DOM domain's id.
+        node: u64,
+    },
     /// `Input.dispatchMouseEvent`, a wheel turned over a point of the page:
     /// a person's, over a card's page, and never an agent's (queue item
     /// 718, ADR 0002).
@@ -295,6 +333,22 @@ pub enum Command {
         /// Which press of a quick succession a press or a release is,
         /// counted from one; nought for a move.
         clicks: u32,
+    },
+    /// `Input.dispatchMouseEvent`: a person's press of another button than
+    /// the main one, or of the main one with a modifier, over a card's page,
+    /// going down or coming up (queue item 798) — a person's, never an
+    /// agent's (ADR 0002).
+    Clicked {
+        /// Which button.
+        button: Button,
+        /// The modifier keys held.
+        held: keys::Held,
+        /// In CSS pixels of the page.
+        x: f64,
+        /// In CSS pixels of the page.
+        y: f64,
+        /// Whether it goes down, rather than up.
+        down: bool,
     },
     /// `Input.dispatchKeyEvent`: a key a person pressed while a card's page
     /// had the keyboard, going down or coming up — a person's, never an
@@ -457,16 +511,21 @@ impl Command {
             Self::ReadTree => "Accessibility.getFullAXTree",
             Self::WhereDrawn { .. } => "DOM.getContentQuads",
             Self::Window => "Page.getLayoutMetrics",
-            Self::Describe { .. } | Self::DescribeValue { .. } => "DOM.describeNode",
+            Self::Describe { .. } | Self::DescribeValue { .. } | Self::DescribeAll { .. } => {
+                "DOM.describeNode"
+            }
             Self::ReadNode { .. } => "Accessibility.getPartialAXTree",
             Self::ScrollIntoView { .. } => "DOM.scrollIntoViewIfNeeded",
             Self::NodeAt { .. } => "DOM.getNodeForLocation",
-            Self::Mouse { .. } | Self::Wheel { .. } | Self::Pointed { .. } => {
-                "Input.dispatchMouseEvent"
-            }
+            Self::Mouse { .. }
+            | Self::Wheel { .. }
+            | Self::Pointed { .. }
+            | Self::Clicked { .. } => "Input.dispatchMouseEvent",
             Self::Focus { .. } => "DOM.focus",
             Self::Key { .. } | Self::Typed { .. } => "Input.dispatchKeyEvent",
             Self::InsertText { .. } => "Input.insertText",
+            Self::Compose { .. } => "Input.imeSetComposition",
+            Self::Focused { .. } => "DOM.querySelector",
             Self::HoldNewTabs { .. } => "Target.setAutoAttach",
             Self::LetGo => "Runtime.runIfWaitingForDebugger",
             Self::Targets => "Target.getTargets",
@@ -577,21 +636,18 @@ impl Command {
                 put("x", Value::from(*x));
                 put("y", Value::from(*y));
             }
-            Self::Mouse { .. }
-            | Self::Key { .. }
-            | Self::Wheel { .. }
-            | Self::Typed { .. }
-            | Self::Pointed { .. } => {
-                self.input()
-                    .into_iter()
-                    .for_each(|(name, value)| put(name, value));
-            }
             Self::InsertText { text } => put("text", Value::from(text.as_str())),
             Self::HoldNewTabs { hold } => {
                 put("autoAttach", Value::Bool(*hold));
                 put("waitForDebuggerOnStart", Value::Bool(*hold));
                 put("flatten", Value::Bool(true));
             }
+            // A mouse's, a key's, a composition's, and finding where a
+            // person is typing: [`Command::input`]'s.
+            _ => self
+                .input()
+                .into_iter()
+                .for_each(|(name, value)| put(name, value)),
         }
         params
     }
@@ -639,6 +695,29 @@ impl Command {
         }
     }
 
+    /// The `params` of a command of an input method's composition, or of
+    /// finding where a person is typing (queue item 802), and none for any
+    /// other command.
+    fn typing(&self) -> Vec<(&'static str, Value)> {
+        match self {
+            Self::Compose { text, start, end } => vec![
+                ("text", Value::from(text.as_str())),
+                ("selectionStart", Value::from(*start)),
+                ("selectionEnd", Value::from(*end)),
+            ],
+            Self::Focused { document } => vec![
+                ("nodeId", Value::from(*document)),
+                ("selector", Value::from(":focus")),
+            ],
+            Self::DescribeAll { node } => vec![
+                ("nodeId", Value::from(*node)),
+                ("depth", Value::from(-1)),
+                ("pierce", Value::Bool(true)),
+            ],
+            _ => Vec::new(),
+        }
+    }
+
     /// The `params` of an input event: a mouse's or a key's, and none for
     /// any other command.
     fn input(&self) -> Vec<(&'static str, Value)> {
@@ -653,7 +732,14 @@ impl Command {
             Self::Wheel { x, y, right, down } => persons_wheel((*x, *y), (*right, *down)),
             Self::Typed { key, down } => persons_key(key, *down),
             Self::Pointed { kind, x, y, clicks } => persons_pointer(*kind, (*x, *y), *clicks),
-            _ => Vec::new(),
+            Self::Clicked {
+                button,
+                held,
+                x,
+                y,
+                down,
+            } => clicked(*button, *held, (*x, *y), *down),
+            _ => self.typing(),
         }
     }
 }
@@ -798,7 +884,7 @@ fn persons_wheel(at: (f64, f64), by: (f64, f64)) -> Vec<(&'static str, Value)> {
 /// press's count — so a second press soon after the first at one place is
 /// heard as a double click, a word selected and `dblclick` sent — and, for
 /// a move with no button held, no count at all. Never a modifier: a press
-/// with one held is not sent (queue item 798).
+/// with one held is another press ([`Command::Clicked`], queue item 798).
 fn persons_pointer(kind: Mouse, at: (f64, f64), clicks: u32) -> Vec<(&'static str, Value)> {
     let mut fields = mouse(kind, at, false);
     for (name, value) in &mut fields {
@@ -807,6 +893,37 @@ fn persons_pointer(kind: Mouse, at: (f64, f64), clicks: u32) -> Vec<(&'static st
         }
     }
     fields
+}
+
+/// The `params` of `Input.dispatchMouseEvent` for `button` going down, or
+/// coming up, at `x`, `y` with `held` — a first press, counted one.
+fn clicked(
+    button: Button,
+    held: keys::Held,
+    (x, y): (f64, f64),
+    down: bool,
+) -> Vec<(&'static str, Value)> {
+    let (named, buttons) = match button {
+        Button::Main => ("left", 1),
+        Button::Secondary => ("right", 2),
+        Button::Middle => ("middle", 4),
+    };
+    vec![
+        (
+            "type",
+            Value::from(if down {
+                "mousePressed"
+            } else {
+                "mouseReleased"
+            }),
+        ),
+        ("x", Value::from(x)),
+        ("y", Value::from(y)),
+        ("button", Value::from(named)),
+        ("buttons", Value::from(if down { buttons } else { 0 })),
+        ("clickCount", Value::from(1)),
+        ("modifiers", Value::from(modifiers_of(held))),
+    ]
 }
 
 /// Chrome's modifiers for `held`, as `Input` takes them: ⌥ or Alt 1, Ctrl
@@ -1611,6 +1728,116 @@ pub fn node_at(result: &[u8]) -> Result<u64, Malformed> {
         .ok_or(Malformed::BadField {
             field: "backendNodeId",
         })
+}
+
+/// A reply's `result` to `DOM.getDocument`: the document's id in the DOM
+/// domain (queue item 802).
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `root` holding a whole `nodeId`.
+pub fn document_root(result: &[u8]) -> Result<u64, Malformed> {
+    object(result)?
+        .get("root")
+        .and_then(|root| root.get("nodeId"))
+        .and_then(Value::as_u64)
+        .ok_or(Malformed::BadField { field: "root" })
+}
+
+/// A reply's `result` to `DOM.querySelector`: the element found, by the
+/// DOM domain's id — or [`None`], Chrome's nought, when none was.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no whole `nodeId`.
+pub fn selected(result: &[u8]) -> Result<Option<u64>, Malformed> {
+    object(result)?
+        .get("nodeId")
+        .and_then(Value::as_u64)
+        .map(|id| (id != 0).then_some(id))
+        .ok_or(Malformed::BadField { field: "nodeId" })
+}
+
+/// What is last inside an element, as the caret after its words is placed
+/// by (queue item 802).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Inside {
+    /// By Chrome's `backendNodeId`.
+    pub node: u64,
+    /// Whether it is words — a text node holding more than white space —
+    /// rather than the innermost last element, when it holds none.
+    pub words: bool,
+}
+
+/// A reply's `result` to `DOM.describeNode` with everything under it
+/// ([`Command::DescribeAll`]): the last text node holding more than white
+/// space in it, in document order through its shadow trees — or, when
+/// there is none, its innermost last element (an empty field's editing
+/// box) — or [`None`] when nothing is under it.
+///
+/// # Errors
+///
+/// [`Malformed`], for a result with no `node`.
+pub fn last_inside(result: &[u8]) -> Result<Option<Inside>, Malformed> {
+    let root = object(result)?
+        .get("node")
+        .cloned()
+        .ok_or(Malformed::BadField { field: "node" })?;
+    let mut words = None;
+    let mut element = None;
+    // In document order: a node, then its shadow trees, then its children.
+    // The bound keeps a hostile page's tree from being walked for ever.
+    let mut waiting = vec![&root];
+    let mut walked = 0usize;
+    while let Some(node) = waiting.pop() {
+        walked += 1;
+        if walked > MOST_NODES {
+            break;
+        }
+        let backend = node.get("backendNodeId").and_then(Value::as_u64);
+        match node.get("nodeType").and_then(Value::as_u64) {
+            Some(3) => {
+                let spoken = node
+                    .get("nodeValue")
+                    .and_then(Value::as_str)
+                    .is_some_and(|value| !value.trim().is_empty());
+                if let (Some(backend), true) = (backend, spoken) {
+                    words = Some(backend);
+                }
+            }
+            // A field's placeholder is not its words: the caret of an
+            // empty field is at its start, not after them.
+            Some(1) if placeholder(node) => continue,
+            Some(1) => element = backend.or(element),
+            _ => {}
+        }
+        let mut under: Vec<&Value> = Vec::new();
+        for key in ["shadowRoots", "children"] {
+            if let Some(Value::Array(each)) = node.get(key) {
+                under.extend(each.iter());
+            }
+        }
+        waiting.extend(under.into_iter().rev());
+    }
+    Ok(words
+        .map(|node| Inside { node, words: true })
+        .or_else(|| element.map(|node| Inside { node, words: false })))
+}
+
+/// Whether the described element `node` is a field's placeholder in its
+/// shadow tree, as Chromium names it.
+fn placeholder(node: &Value) -> bool {
+    let Some(Value::Array(attributes)) = node.get("attributes") else {
+        return false;
+    };
+    attributes.chunks(2).any(|pair| {
+        matches!(
+            pair,
+            [Value::String(name), Value::String(value)]
+                if (name == "id" && value == "placeholder")
+                    || (name == "pseudo" && value.contains("placeholder"))
+        )
+    })
 }
 
 /// A reply's `result` to `DOM.pushNodesByBackendIdsToFrontend` for
@@ -4257,6 +4484,88 @@ mod tests {
         assert!(
             pointed(Mouse::Dragged, 0)
                 .contains(r#""button":"left","clickCount":0,"modifiers":0,"type":"mouseMoved""#)
+        );
+    }
+
+    #[test]
+    fn a_composition_and_the_focused_elements_last_words_are_asked_and_read() {
+        assert_eq!(
+            persons_at(&Command::Compose {
+                text: "きょう".to_owned(),
+                start: 3,
+                end: 3,
+            }),
+            r#"{"id":9,"method":"Input.imeSetComposition","params":{"selectionEnd":3,"selectionStart":3,"text":"きょう"},"sessionId":"S"}"#
+        );
+        assert!(persons_at(&Command::Focused { document: 1 }).contains(r#""selector":":focus""#));
+        assert!(
+            persons_at(&Command::DescribeAll { node: 7 })
+                .contains(r#""params":{"depth":-1,"nodeId":7,"pierce":true}"#)
+        );
+        assert_eq!(document_root(br#"{"root":{"nodeId":1}}"#), Ok(1));
+        assert_eq!(selected(br#"{"nodeId":0}"#), Ok(None));
+        assert_eq!(selected(br#"{"nodeId":12}"#), Ok(Some(12)));
+        // An input holding words, its placeholder before them in its
+        // shadow tree: the words' node.
+        let field = br#"{"node":{"nodeType":1,"backendNodeId":5,"shadowRoots":[{"nodeType":11,"backendNodeId":6,"children":[
+            {"nodeType":1,"backendNodeId":7,"attributes":["id","placeholder"],"children":[{"nodeType":3,"backendNodeId":8,"nodeValue":"Search"}]},
+            {"nodeType":1,"backendNodeId":9,"attributes":["id","inner-editor"],"children":[{"nodeType":3,"backendNodeId":10,"nodeValue":"Kampa"}]}]}]}}"#;
+        assert_eq!(
+            last_inside(field),
+            Ok(Some(Inside {
+                node: 10,
+                words: true
+            }))
+        );
+        // Empty: the editing box, never the placeholder's words.
+        let empty = br#"{"node":{"nodeType":1,"backendNodeId":5,"shadowRoots":[{"nodeType":11,"backendNodeId":6,"children":[
+            {"nodeType":1,"backendNodeId":7,"attributes":["id","placeholder"],"children":[{"nodeType":3,"backendNodeId":8,"nodeValue":"Search"}]},
+            {"nodeType":1,"backendNodeId":9,"attributes":["id","inner-editor"]}]}]}}"#;
+        assert_eq!(
+            last_inside(empty),
+            Ok(Some(Inside {
+                node: 9,
+                words: false
+            }))
+        );
+        assert_eq!(
+            last_inside(b"{}"),
+            Err(Malformed::BadField { field: "node" })
+        );
+    }
+
+    #[test]
+    fn another_button_or_a_press_with_command_is_written_with_its_button_and_modifiers() {
+        let clicked = |button, held, down| {
+            persons_at(&Command::Clicked {
+                button,
+                held,
+                x: 12.0,
+                y: 30.5,
+                down,
+            })
+        };
+        assert_eq!(
+            clicked(Button::Secondary, keys::Held::NOTHING, true),
+            r#"{"id":9,"method":"Input.dispatchMouseEvent","params":{"button":"right","buttons":2,"clickCount":1,"modifiers":0,"type":"mousePressed","x":12.0,"y":30.5},"sessionId":"S"}"#
+        );
+        assert!(
+            clicked(Button::Secondary, keys::Held::NOTHING, false)
+                .contains(r#""button":"right","buttons":0,"clickCount":1,"modifiers":0,"type":"mouseReleased""#)
+        );
+        assert!(
+            clicked(Button::Middle, keys::Held::NOTHING, true)
+                .contains(r#""button":"middle","buttons":4,"#)
+        );
+        assert!(
+            clicked(
+                Button::Main,
+                keys::Held::NOTHING.with(Modifier::Command),
+                true
+            )
+            .contains(
+                r#""button":"left","buttons":1,"clickCount":1,"modifiers":4,"type":"mousePressed""#
+            )
         );
     }
 

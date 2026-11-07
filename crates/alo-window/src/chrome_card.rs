@@ -65,7 +65,10 @@
 //! not move is said by the next reading of where it is. Neither ends the
 //! tab, which still answers its agents.
 
+use crate::card_input::{CardInput, Went};
+use crate::chrome_card_caret;
 use crate::chrome_card_input;
+use crate::chrome_card_list;
 use crate::chrome_history;
 use crate::chrome_park::{self, Parked};
 use crate::chrome_tab::Tab;
@@ -96,6 +99,15 @@ pub struct Fitted {
     pub parked: bool,
     /// How the scale its page is drawn at is had (queue item 772).
     pub scaled: Scaled,
+    /// The closed list a person's press was held on, to be pressed again
+    /// once the card is expanded (queue item 810, [`chrome_card_list`]).
+    pub list: Option<u64>,
+    /// Whether the moves and the release of a press held on a closed list
+    /// are still to come, and are not sent.
+    pub holding_a_press: bool,
+    /// Whether an input method's composition is under way on the page
+    /// (queue item 802): where the person is typing is read as one begins.
+    pub composing: bool,
 }
 
 /// How the scale a card's page is drawn at is had (ADR 0090 as amended,
@@ -121,6 +133,9 @@ impl Fitted {
             page,
             parked: true,
             scaled,
+            list: None,
+            holding_a_press: false,
+            composing: false,
         }
     }
 
@@ -194,8 +209,13 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted
                 let _ = chrome_window::place(tab, at.0, at.1);
                 fitted.parked = false;
             }
+            // A person's press held on a closed list (queue item 810): made
+            // again, now its menu opens where a person sees it.
+            if let Some(list) = fitted.list.take() {
+                chrome_card_list::press(tab, list);
+            }
         }
-        CardOrder::Input(input) => chrome_card_input::forward(tab, &input),
+        CardOrder::Input(input) => person(tab, &input, tell, fitted),
         // Declined, the page stays where it is, and the card says so by
         // its address not moving.
         CardOrder::Travel(way) => {
@@ -205,6 +225,58 @@ pub fn carry_out(tab: &mut Tab<'_>, order: CardOrder, tell: TellCard<'_>, fitted
         // any card order reaches here (`crate::chrome_mark`).
         CardOrder::Unmark => {}
     }
+}
+
+/// Send a person's `input` to `tab`'s page — but a first press on a closed
+/// list of a parked card's page, which is held, the conversation told so
+/// that it expands the card, and the press's moves and release with it
+/// (queue item 810, [`chrome_card_list`]).
+fn person(tab: &mut Tab<'_>, input: &CardInput, tell: TellCard<'_>, fitted: &mut Fitted) {
+    if fitted.holding_a_press {
+        match input {
+            CardInput::Pointer {
+                went: Went::Released { .. },
+                ..
+            } => {
+                fitted.holding_a_press = false;
+                return;
+            }
+            CardInput::Pointer {
+                went: Went::Dragged,
+                ..
+            } => return,
+            _ => fitted.holding_a_press = false,
+        }
+    }
+    if let CardInput::Pointer {
+        went: Went::Pressed { clicks: 1 },
+        x,
+        y,
+    } = *input
+        && fitted.parked
+        && let Some(list) = chrome_card_list::closed_list_at(tab, x, y)
+    {
+        fitted.list = Some(list);
+        fitted.holding_a_press = true;
+        if let Some(tell) = tell {
+            // Nobody to hear it is a conversation that has gone.
+            let _ = tell(ToFrame::ListPressed);
+        }
+        return;
+    }
+    // An input method's composition beginning: where the person is
+    // typing, for its candidates (queue item 802).
+    match input {
+        CardInput::Compose { text, .. } if !text.is_empty() && !fitted.composing => {
+            fitted.composing = true;
+            if let (Some(caret), Some(tell)) = (chrome_card_caret::caret(tab), tell) {
+                let _ = tell(ToFrame::Caret(caret));
+            }
+        }
+        CardInput::Compose { .. } | CardInput::Commit(_) => fitted.composing = false,
+        _ => {}
+    }
+    chrome_card_input::forward(tab, input);
 }
 
 /// `arrived` without each stream a later one in it supersedes: the newest
@@ -364,6 +436,23 @@ impl Told {
         tell_where(tab, &mut self.at, tell);
         tell_travel(tab, &mut self.travel, tell);
         tell_blocked(tab, &mut self.blocked, tell);
+        tell_told(tab, tell);
+    }
+}
+
+/// Tell `tell` what `tab`'s Chromium told beside its pipe since this was
+/// last asked ([`Tab::take_told`], queue items 799 and 798), in order: read
+/// from what its own thread read, so this asks Chromium nothing. Told while
+/// the card is not streamed, it is dropped: the pointer's shape and a press
+/// are of a card on the screen.
+pub fn tell_told(tab: &Tab<'_>, tell: TellCard<'_>) {
+    let told = tab.take_told();
+    let (true, Some(tell)) = (tab.casting().is_on(), tell) else {
+        return;
+    };
+    for each in told {
+        // Nobody to hear it is a conversation that has gone.
+        let _ = tell(ToFrame::Told(each));
     }
 }
 

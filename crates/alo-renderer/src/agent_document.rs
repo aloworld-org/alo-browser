@@ -42,7 +42,7 @@
 //! ([`crate::conversation_decide`]) — so a press on *Allow* allows only the
 //! question the person was shown.
 
-use crate::agent_work::{AtWork, Now, WORKING};
+use crate::agent_work::{AtWork, Dropdown, Now, WORKING};
 use crate::start_document::{Unbuilt, append, attribute, element};
 use alo_dom::{Document, NodeId};
 
@@ -106,6 +106,12 @@ pub fn make(document: &mut Document, work: &AtWork) -> Result<NodeId, Unbuilt> {
                 let why = words(document, "span", "why", &step.why)?;
                 append(document, item, why)?;
             }
+            // The closed list the step under way chooses in: its options
+            // in the column (queue item 810).
+            if under_way && let Some(choosing) = &work.choosing {
+                let options = dropdown(document, choosing)?;
+                append(document, item, options)?;
+            }
             append(document, list, item)?;
         }
         append(document, column, list)?;
@@ -114,6 +120,38 @@ pub fn make(document: &mut Document, work: &AtWork) -> Result<NodeId, Unbuilt> {
         append(document, column, now)?;
     }
     Ok(column)
+}
+
+/// What a closed list's options are named, to an agent, for the list
+/// named `list`.
+pub fn options_named(list: &str) -> String {
+    format!("The options of {list}")
+}
+
+/// A closed list's options as the agent's column lists them (queue item
+/// 810): a list named [`options_named`], each option a line of the class
+/// `opt` — `opt chosen`, ticked, for the one being chosen — and, past
+/// [`crate::agent_work::MOST_OPTIONS`], a line saying how many more.
+fn dropdown(document: &mut Document, choosing: &Dropdown) -> Result<NodeId, Unbuilt> {
+    let list = element(document, "ul")?;
+    attribute(document, list, "class", "dropdown")?;
+    attribute(document, list, "aria-label", &options_named(&choosing.list))?;
+    let (shown, more) = choosing.shown();
+    for (place, name) in shown {
+        let line = if place == choosing.chosen {
+            let line = words(document, "li", "opt chosen", &format!("\u{2713} {name}"))?;
+            attribute(document, line, "aria-selected", "true")?;
+            line
+        } else {
+            words(document, "li", "opt", name)?
+        };
+        append(document, list, line)?;
+    }
+    if more > 0 {
+        let line = words(document, "li", "opt more", &format!("and {more} more"))?;
+        append(document, list, line)?;
+    }
+    Ok(list)
 }
 
 /// The outline drawn over the page while the agent works: decoration over

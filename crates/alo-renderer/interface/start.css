@@ -554,6 +554,47 @@ a {
   overflow: hidden;
 }
 
+/* alo's own menu over a card's page (queue item 798): a white box rounded
+   10 under a line-colour border and a soft shadow, 220 wide, a line 30
+   tall with 4 above the first and below the last; its top left corner where
+   the page was pressed, placed inside the page box by the browser process
+   (`card_menu.rs`). A line that does nothing — Copy with nothing selected —
+   is quiet and half seen. */
+.cmenu {
+  position: absolute;
+  width: 220px;
+  box-sizing: border-box;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(27, 36, 51, 0.16);
+}
+
+.mitem {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 30px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.mitem.off {
+  color: var(--quiet);
+  opacity: 0.5;
+}
+
 .shot {
   display: block;
   width: 100%;
@@ -674,6 +715,35 @@ a {
 
 .step.now .line {
   color: var(--acting);
+  font-weight: 600;
+}
+
+/* The closed list the step under way chooses in (queue item 810): its
+   options listed in the agent's own column — never a menu in a window
+   nobody sees — on white, rounded 8 under a line-colour border, a line of
+   20 each in the quiet colour, the one chosen ticked in the ink. */
+.dropdown {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  list-style-type: none;
+}
+
+.opt {
+  padding: 0 10px;
+  color: var(--quiet);
+  font-size: 12.5px;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.opt.chosen {
+  color: var(--ink);
   font-weight: 600;
 }
 

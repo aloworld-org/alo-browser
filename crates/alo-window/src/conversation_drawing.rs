@@ -339,6 +339,7 @@ impl Holding {
                     asked.showing.asking,
                     asked.showing.choices.clone(),
                     asked.showing.shield.clone(),
+                    asked.showing.menu.clone(),
                 ),
             )
         };
@@ -379,6 +380,10 @@ impl Holding {
                 // 807): a press on it switches only that site. Left out at
                 // first, every press on the shield was refused by hand.
                 self.painted.shield.clone_from(&asked.showing.shield);
+                // And the lines of alo's menu over the card's page (queue
+                // item 798): a press claims one by its place, decided only
+                // against the menu the picture pressed showed.
+                self.painted.menu.clone_from(&asked.showing.menu);
                 self.painted.asking = asked.showing.asking;
                 self.painted.choices.clone_from(&asked.showing.choices);
                 // How far the turns painted reach, for a person's wheel, and

@@ -206,3 +206,14 @@ three closes — the host ends with status 0, its profile removed, no crash
 report. With the Escape not posted the test fails (a crash report, after
 the second's wait).
 
+
+**Amended 7 November 2026 (queue item 811, ADR 0076's fourth amendment):**
+`objc2`, `objc2_app_kit` and `objc2_foundation` may also be named in
+`crates/alo-cef-host/src/strip_mac.rs`, which draws an expanded card's
+link strip — an `NSBox` of the paper colour holding an `NSTextField`
+label, added to the window's content view — with safe `objc2-app-kit`
+calls only (the manifest names `NSBox`, `NSColor`, `NSControl`, `NSFont`,
+`NSParagraphStyle`, `NSText` and `NSTextField` for them). The file holds no
+`unsafe`; `application_mac.rs` is unchanged, and the gate's boundary list
+names the new file beside the others. No other file of the host holds
+`unsafe` or names the lint.

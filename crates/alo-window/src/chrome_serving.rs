@@ -684,6 +684,7 @@ fn open(
     // 0096).
     if a_card {
         tab.keep_passwords();
+        tab.show_as_a_card();
     }
     Ok(tab)
 }

@@ -130,6 +130,7 @@
 //! has measured, such as 1.25 — painted at the largest measured scale below
 //! it — and a link opening a tab (item 300).
 
+pub mod agent_dropdown;
 pub mod agent_gate;
 pub mod agent_kept;
 pub mod agent_lines;
@@ -156,6 +157,7 @@ pub mod bundle_made;
 pub mod bundle_seal;
 pub mod card_aim;
 pub mod card_clicks;
+pub mod card_cursor;
 pub mod card_input;
 pub mod card_keys;
 pub mod card_moves;
@@ -174,7 +176,9 @@ pub mod chrome;
 pub mod chrome_act;
 pub mod chrome_bubble;
 pub mod chrome_card;
+pub mod chrome_card_caret;
 pub mod chrome_card_input;
+pub mod chrome_card_list;
 pub mod chrome_cast_wire;
 pub mod chrome_choose;
 pub mod chrome_cosmetic;
@@ -200,10 +204,13 @@ pub mod chrome_said;
 pub mod chrome_screencast;
 pub mod chrome_serving;
 pub mod chrome_tab;
+pub mod chrome_told;
 pub mod chrome_tree;
+pub mod chrome_type_ahead;
 pub mod chrome_unfocusable;
 pub mod chrome_window;
 pub mod chrome_wire;
+pub mod clipboard;
 pub mod closing;
 pub mod colours;
 pub mod compose;

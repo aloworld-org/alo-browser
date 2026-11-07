@@ -205,13 +205,13 @@ use std::sync::mpsc::Receiver;
 use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
-use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{self as winit_keys, ModifiersState, NamedKey};
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-use winit::window::{Window, WindowAttributes, WindowId, WindowLevel};
+use winit::window::{CursorIcon, Window, WindowAttributes, WindowId, WindowLevel};
 
 /// How big a new window is, in the window server's logical points.
 const FIRST_SIZE: (f64, f64) = (1000.0, 700.0);
@@ -802,7 +802,10 @@ impl ApplicationHandler<ToFrame> for Framing<'_> {
             | ToFrame::Moved(_)
             | ToFrame::Loading(_)
             | ToFrame::Travel(_)
-            | ToFrame::Blocked { .. } => {
+            | ToFrame::Blocked { .. }
+            | ToFrame::Told(_)
+            | ToFrame::ListPressed
+            | ToFrame::Caret(_) => {
                 return;
             }
         };
@@ -1028,9 +1031,27 @@ impl Conversing<'_> {
         }
         let front = self.state.take_front();
         let redraw = self.state.take_redraw();
+        let cursor = self.state.take_cursor();
+        let ime = self.state.take_ime();
         if let Some(window) = &self.window {
+            // Input methods on the card's page (queue item 802): allowed
+            // while it has the keyboard, the candidates under its caret.
+            if let Some(allowed) = ime.allowed {
+                window.set_ime_allowed(allowed);
+            }
+            if let Some((left, top, width, height)) = ime.caret {
+                window.set_ime_cursor_area(
+                    PhysicalPosition::new(left, top),
+                    PhysicalSize::new(width, height),
+                );
+            }
             if front {
                 window.focus_window();
+            }
+            // The shape the card's page asked for over it (queue item 799).
+            if let Some(shape) = cursor {
+                window.set_cursor_visible(shape != "none");
+                window.set_cursor(shape.parse::<CursorIcon>().unwrap_or_default());
             }
             if redraw {
                 window.request_redraw();
@@ -1134,6 +1155,15 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
                 button: MouseButton::Left,
                 ..
             } => self.state.main_button_pressed(),
+            // The secondary and the middle buttons over a card's page
+            // (queue item 798).
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: button @ (MouseButton::Right | MouseButton::Middle),
+                ..
+            } => self
+                .state
+                .other_button_pressed(button == MouseButton::Middle),
             WindowEvent::MouseInput {
                 state: ElementState::Released,
                 button: MouseButton::Left,
@@ -1145,6 +1175,12 @@ impl ApplicationHandler<Heard> for Conversing<'_> {
                     Turned::Pixels { across: x, down: y }
                 }
             }),
+            // An input method's composition, and what it came to, on the
+            // card's page (queue item 802).
+            WindowEvent::Ime(Ime::Preedit(text, selection)) => {
+                self.state.composing(&text, selection);
+            }
+            WindowEvent::Ime(Ime::Commit(text)) => self.state.committed(&text),
             // A key already down as the window gained focus was pressed
             // somewhere else.
             WindowEvent::KeyboardInput {

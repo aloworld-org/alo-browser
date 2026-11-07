@@ -115,6 +115,7 @@ mod tests {
                 why: String::new(),
             }],
             now,
+            choosing: None,
         });
         Start {
             greeting: "Hello.".to_owned(),

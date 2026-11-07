@@ -187,7 +187,11 @@ impl Work {
                 said: result.clone(),
             }),
             Said::Stopped { why } => Some(Ended::Stopped { why: why.clone() }),
-            Said::Step { .. } | Said::Asking { .. } | Said::Allowed | Said::Spent(_) => None,
+            Said::Step { .. }
+            | Said::Choosing(_)
+            | Said::Asking { .. }
+            | Said::Allowed
+            | Said::Spent(_) => None,
         };
         match said.said {
             Said::Step { line, why, typed } => {
@@ -200,8 +204,12 @@ impl Work {
                     work.steps.push(Step { line, why });
                 }
                 work.now = Now::Acting;
+                work.choosing = None;
                 self.question = None;
             }
+            // The closed list the step chooses in (queue item 810), drawn
+            // under it while it is under way.
+            Said::Choosing(choosing) => work.choosing = Some(choosing),
             Said::Asking { question, what } => {
                 work.now = Now::Asking { what };
                 self.question = Some(question);

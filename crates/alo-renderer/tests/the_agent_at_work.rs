@@ -125,6 +125,7 @@ fn acting() -> AtWork {
             ),
         ],
         now: Now::Acting,
+        choosing: None,
     }
 }
 
@@ -140,6 +141,7 @@ fn asking() -> AtWork {
             what: "Press \u{201c}Send\u{201d} on 127.0.0.1:8765? It sends the form on this page."
                 .to_owned(),
         },
+        choosing: None,
     }
 }
 
@@ -153,6 +155,7 @@ fn stuck() -> AtWork {
                 .to_owned(),
             choices: vec!["Open the sign-in page".to_owned(), "Stop here".to_owned()],
         },
+        choosing: None,
     }
 }
 

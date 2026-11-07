@@ -23,14 +23,20 @@
 //! - **A wheel** is Chrome's `mouseWheel` at the point, the page scrolled
 //!   by the CSS pixels the window measured.
 //! - **A key** goes down and comes up ([`crate::chrome_protocol::Command::Typed`]).
+//! - **Another press** (queue item 798) — the secondary button, the middle
+//!   one, the main one with ⌘ — is the pointer arriving and the button
+//!   going down and up there, a first press: the page hears its
+//!   `contextmenu` or `auxclick`, and what Chromium would do next is told
+//!   beside the pipe ([`crate::chrome_told`]).
 //!
 //! What Chrome declines is not said: a person's input that does nothing is
 //! a press that did nothing, as on any page, and the next frame shows the
 //! page as it is. A Chrome gone is said by the next ask of the tab.
 
-use crate::card_input::{CardInput, Went};
-use crate::chrome_protocol::{Command, Mouse};
+use crate::card_input::{CardInput, OtherPress, Went};
+use crate::chrome_protocol::{Button, Command, Mouse};
 use crate::chrome_tab::Tab;
+use crate::keys::{Held, Modifier};
 
 /// What Chrome is asked, in order, for `input`.
 pub fn commands(input: &CardInput) -> Vec<Command> {
@@ -51,6 +57,31 @@ pub fn commands(input: &CardInput) -> Vec<Command> {
             right: *right,
             down: *down,
         }],
+        CardInput::Other { press, x, y } => {
+            let (button, held) = match press {
+                OtherPress::Secondary => (Button::Secondary, Held::NOTHING),
+                OtherPress::Middle => (Button::Middle, Held::NOTHING),
+                OtherPress::Command => (Button::Main, Held::NOTHING.with(Modifier::Command)),
+            };
+            let clicked = |down| Command::Clicked {
+                button,
+                held,
+                x: *x,
+                y: *y,
+                down,
+            };
+            vec![
+                pointed(Mouse::Moved, *x, *y, 0),
+                clicked(true),
+                clicked(false),
+            ]
+        }
+        CardInput::Compose { text, selection } => vec![Command::Compose {
+            text: text.clone(),
+            start: selection.0,
+            end: selection.1,
+        }],
+        CardInput::Commit(text) => vec![Command::InsertText { text: text.clone() }],
         CardInput::Key(key) => [true, false]
             .map(|down| Command::Typed {
                 key: key.clone(),
@@ -75,7 +106,6 @@ pub fn forward(tab: &mut Tab<'_>, input: &CardInput) {
 mod tests {
     use super::*;
     use crate::card_input::{Keyed, PersonsKey};
-    use crate::keys::Held;
 
     #[test]
     fn a_press_arrives_then_goes_down_and_a_release_comes_up_as_its_count() {
@@ -110,6 +140,49 @@ mod tests {
             commands(&at(Went::Hovered)),
             vec![pointed(Mouse::Moved, 0)],
             "a hover is a move with no button"
+        );
+    }
+
+    #[test]
+    fn another_press_arrives_then_goes_down_and_up_with_its_button() {
+        let other = |press| CardInput::Other {
+            press,
+            x: 5.0,
+            y: 6.0,
+        };
+        let moved = Command::Pointed {
+            kind: Mouse::Moved,
+            x: 5.0,
+            y: 6.0,
+            clicks: 0,
+        };
+        let clicked = |button, held, down| Command::Clicked {
+            button,
+            held,
+            x: 5.0,
+            y: 6.0,
+            down,
+        };
+        assert_eq!(
+            commands(&other(OtherPress::Secondary)),
+            vec![
+                moved.clone(),
+                clicked(Button::Secondary, Held::NOTHING, true),
+                clicked(Button::Secondary, Held::NOTHING, false)
+            ]
+        );
+        assert_eq!(
+            commands(&other(OtherPress::Middle))[1],
+            clicked(Button::Middle, Held::NOTHING, true)
+        );
+        let command = Held::NOTHING.with(Modifier::Command);
+        assert_eq!(
+            commands(&other(OtherPress::Command)),
+            vec![
+                moved,
+                clicked(Button::Main, command, true),
+                clicked(Button::Main, command, false)
+            ]
         );
     }
 

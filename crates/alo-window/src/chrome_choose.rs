@@ -61,11 +61,14 @@
 //! page's `change` listener may put the old choice back, and the answer then
 //! says the option is not chosen.
 
+use crate::card_input::{Keyed, PersonsKey};
 use crate::chrome::Failed;
 use crate::chrome_act::{Unacted, dom_of};
 use crate::chrome_menu::{self, Key, Posted, Unposted};
 use crate::chrome_protocol::{self, AxNode, Command};
 use crate::chrome_tab::Tab;
+use crate::chrome_type_ahead;
+use crate::keys::Held;
 use crate::window_server::{self, Unlisted};
 use alo_agent::Outcome;
 use alo_box::BoxId;
@@ -100,10 +103,15 @@ impl Tab<'_> {
             toggles,
         } = choosing;
         if closed {
-            if !self.is_shown() || !cfg!(target_os = "macos") {
+            // On a card the menu is never opened (queue item 810): one key,
+            // or nothing.
+            if self.is_a_card() {
+                self.choose_by_one_key(nodes, option, list)?;
+            } else if !self.is_shown() || !cfg!(target_os = "macos") {
                 return Err(Unacted::Closed { node: option, list });
+            } else {
+                self.choose_in_menu(nodes, option, list)?;
             }
-            self.choose_in_menu(nodes, option, list)?;
         } else {
             let (x, y) = self.aim(nodes, option)?;
             self.click(x, y, toggles)?;
@@ -116,6 +124,56 @@ impl Tab<'_> {
             list,
             chosen: is_selected(&read, dom_of(option)),
         })
+    }
+
+    /// Choose `option` of the closed list `list`, read in `nodes`, on a
+    /// card's page, by the one key that reaches it alone, typed into the
+    /// list focused — or send nothing when the list holds it already, and
+    /// refuse it when no one key does (queue item 810).
+    fn choose_by_one_key(
+        &mut self,
+        nodes: &[AxNode],
+        option: BoxId,
+        list: BoxId,
+    ) -> Result<(), Unacted> {
+        let by_id: HashMap<&str, &AxNode> =
+            nodes.iter().map(|node| (node.id.as_str(), node)).collect();
+        let options = options_of(nodes, dom_of(list));
+        let named = |dom: u64| {
+            by_id
+                .values()
+                .find(|node| node.node == Some(dom) && node.role == "option")
+                .and_then(|node| node.name.clone())
+                .unwrap_or_default()
+        };
+        let listed: Vec<chrome_type_ahead::Listed> = options
+            .iter()
+            .map(|each| chrome_type_ahead::Listed {
+                name: named(each.dom),
+                enabled: each.item,
+            })
+            .collect();
+        let Some(target) = options.iter().position(|each| each.dom == dom_of(option)) else {
+            return Err(Unacted::NoOneKey { node: option, list });
+        };
+        if options.get(target).is_some_and(|each| each.chosen) {
+            return Ok(());
+        }
+        let Some(letter) = chrome_type_ahead::one_key(&listed, target) else {
+            return Err(Unacted::NoOneKey { node: option, list });
+        };
+        self.ask(&Command::Focus { node: dom_of(list) })?;
+        let key = PersonsKey {
+            key: Keyed::Text(letter.to_string()),
+            held: Held::NOTHING,
+        };
+        for down in [true, false] {
+            self.ask(&Command::Typed {
+                key: key.clone(),
+                down,
+            })?;
+        }
+        Ok(())
     }
 
     /// Choose `option` of the closed list `list`, read in `nodes`, in the

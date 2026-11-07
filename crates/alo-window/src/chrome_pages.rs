@@ -122,6 +122,7 @@ impl Pages for ChromePages<'_> {
                 | Unacted::Moved { .. }
                 | Unacted::Untypable { .. }
                 | Unacted::Closed { .. }
+                | Unacted::NoOneKey { .. }
                 | Unacted::Unwalked { .. }
                 | Unacted::Uncarried { .. }),
             ) => Err(Unanswered::NotCarriedOut(why.to_string())),

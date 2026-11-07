@@ -49043,3 +49043,125 @@ attempt with `nohup setsid` never started (*setsid: No such file or
 directory*) and ran nothing.
 
 The next unused queue number is **846** and the next ADR is **0099**.
+
+## 2026-11-07 — items 799, 811, 798, 810 and 802: the pointer follows a card's page, a link's strip, alo's own menu, dropdowns on a card, and input methods
+
+Batched under one gate, at the owner's asking: five card designs the owner
+approved on 6 November 2026 (*"I agree"*), each written into
+`docs/design/shell.md` (*A person on a card's page*) and its queue item as
+approved by the owner 2026-11-06, every detail the design left open
+settled there. Contracts read: `CLAUDE.md`, `LOOP.md`, ADRs 0076 (with its
+amendments), 0079, 0080, 0089, 0090. Recorded as ADR 0076's fourth
+amendment and ADR 0080's amendment for `strip_mac.rs`; no `unsafe`, so no
+new ADR.
+
+**The road beside the pipe.** The Chromium alo carries now tells alo what
+the DevTools pipe does not carry: alo pipes every Chromium's error output
+to descriptor 5 (`chrome.rs`'s starter), the host writes a line per thing
+(`told.rs`: a word and tab-separated fields, a stranger's tab, line end
+and backslash escaped, a field cut at 2,048 characters), alo reads it on a
+thread of its own, 256 lines held at most, each bounded and refused when
+not as written (`chrome_told.rs`). Only an unseen card tells.
+
+**799 — the pointer.** CEF's `OnCursorChange` handled and told by CSS name;
+the window shows the page's shape over the page box and while a press on it
+is held, the arrow elsewhere (`card_cursor.rs`, winit's `set_cursor`).
+Through the host: link `pointer`, words and a field `text`, ground
+`default`. Mutations: the hand told as the arrow; the shape shown
+everywhere — each fails. Cut: a page's own pointer picture (846).
+
+**811 — the link strip.** Measured: CEF still calls `OnStatusMessage` with
+the bubble disabled; a CEF views overlay docked bottom left stood 32 points
+(a title bar) above the window's foot, and one asked lower was not drawn.
+So the host draws the strip with AppKit in the window's content view
+(`strip_mac.rs`, safe calls; `strip.rs` in numbers): paper, quiet ink, 12
+pt, 24 tall, at most a third of the window. Through the host, measured in a
+capture: 300 × 24 points at the expanded window's bottom left, reference
+`link-strip.png` (looked at; run first without update mode, stable on the
+second); nothing beside a parked card. Mutation: no strip once seen —
+fails. Cut: alo's own face (852). **`scripts/gate.sh` edited, three lines
+only** — `strip_mac.rs` added to the `objc2`, `objc2_app_kit` and
+`objc2_foundation` boundary entries.
+
+**798 — alo's menu, and a link opened as the next turn.** A secondary press
+(or Ctrl and the main button) is sent to the page with the right button;
+CEF's `RunContextMenu` of an unseen card is cancelled and told (link,
+selection, editable); alo's menu (`card_menu.rs`: *Copy*, *Copy link*,
+*Open link in new chat*, *Search for “…”*; 220 wide, lines of 30, at the
+press inside the page box) is a claim decided against the menu painted. A
+⌘ or middle press is sent with its button; `OnOpenURLFromTab` cancelled and
+told; the window opens the address as the next turn. *Copy link* writes
+through `pbcopy` (`clipboard.rs`; tests inject their own writer). Through
+the machine's Chrome such presses are said and nobody's. Measured: on a
+Mac a secondary press selects the word under it, a link's words too.
+References: `card-menu.png` (new; looked at). Window's own road with real
+renderers: *Copy link* copied, a press beside it closing it, Escape, *Open
+link in new chat*. Mutations: the drawing thread not keeping the painted
+menu (the road refuses the line); the host not telling the menu — each
+fails. The older 805 test now holds ⇧ for "a press with a modifier said".
+Cuts: the menu by keys (850), ⇧ and ⌥ presses (851).
+
+**810 — dropdowns on a card.** Measured through the host on a focused
+closed list: →, ←, Home, End, Page Down change nothing and open no menu; a
+letter goes to the next option beginning with it (`d` → *Dates*, `a` →
+*Apples*, `a` again → *Apricots*). **The person:** a first press on a closed
+list of a parked card is held (`chrome_card_list.rs`, asked of Chromium at
+the point), the window expands the card, the press is made again at the
+list's middle: Chromium's own menu under it (through the host at 148, 116
+over the expanded window; nothing beside the parked card first, no
+`mousedown` heard until expanded). **The agent:** on a card the menu is
+never opened; one key when the option alone begins with its letter
+(`chrome_type_ahead.rs`), else `Unacted::NoOneKey`; the options listed in
+the column under the step, the one chosen ticked (`agent_dropdown.rs`,
+`AtWork::choosing`, wire carried). Reference
+`agent-choosing-in-a-list.png` (new; looked at). Mutations: no list found;
+a shared letter used — each fails. Cut: an option no one key reaches
+(849).
+
+**802 — input methods on a card.** Allowed only while the card's page has
+the keyboard (`set_ime_allowed`); preedit → `Input.imeSetComposition`
+(UTF-16 selection), commit → `Input.insertText`; where the person types read
+as a composition begins through the DOM domain, no script
+(`chrome_card_caret.rs`: `:focus`, its last words through the shadow tree,
+the placeholder skipped, their quad), the candidates placed with
+`set_ime_cursor_area`. No AppKit glue was needed — winit's view is the
+text-input client — so no `unsafe` and no ADR 0099. Through the machine's
+Chrome: the caret after *Kampa* at 106, 43 (23 tall), an empty field's at
+43, 123; `きょう` then `今日` heard as Chrome's own input methods are. No
+reference: the candidate window is the system's. Mutation: the caret before
+the words — fails. Cuts: a caret moved back into the words (847), the box
+and *Search chats* (848).
+
+**By hand** (screen unlocked; release, CEF host and bundle rebuilt,
+`alo-bundle --keys-from keychain`; `--conversation --chats handrun34/chats`;
+window at 120, 80; keys from a private event source, no flags; a local
+`http.server` on 127.0.0.1:8734; screenshots in the session scratchpad's
+`handrun34/`): the card opened (`01`); the system cursor sampled with
+`NSCursor.currentSystem` — over a link 32 × 32 hot spot 13, 8 (the hand),
+over words 23 × 22 hot 12, 11 (the I-beam), over the ground and the panel
+the arrow (`02`–`05`, `cursors-sheet.png`); a right-click over the link,
+alo's menu with *Search for* the link's words (`06`), Escape closing it
+(`07`), a double-clicked word right-clicked: *Copy* and *Search for
+“Kampala”* (`08`); ⌘-click on a link opened it as the next turn (`09`); the
+agent asked to choose *Elderberries* listed the six options in its column,
+*✓ Elderberries* (`10`), the list holding it after (`11`); a press on the
+list expanded the card and Chromium's own dropdown opened under the list
+(`12`); in the expanded window a link hovered showed alo's strip with its
+address (`13`). **Found by hand, fixed:** *Search for “…”* over the link's
+24-character words overflowed the menu's line, its closing quote cut; the
+words shown are now cut at 16 (unit test updated; not re-run by hand).
+**Not seen by hand:** Japanese or Chinese input — no such input source is
+enabled on this Mac (only ABC-AZERTY and Press and Hold), and system
+settings were not changed; the candidate window's placement is tested only
+in numbers. Quit with `tell application id "org.aloworld.Browser" to
+quit`; no alo process left; the pointer at 1400, 1000.
+
+ROADMAP: the interface line's owed list loses 810 and 811 and gains
+846–852; *Built since* names the five.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000; detached
+through `perl -MPOSIX=setsid` and waited on by its PID). **Summary
+[1121.376s] 6485 tests run: 6485 passed (5 slow, 1 leaky), 0 skipped** —
+*"The gate is met." (11 of 11 steps)*.
+
+The next unused queue number is **853** and the next ADR is **0099**.

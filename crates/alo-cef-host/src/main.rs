@@ -51,7 +51,10 @@ mod handed;
 mod host;
 mod menu_mac;
 mod parked;
+mod strip;
+mod strip_mac;
 mod switches;
+mod told;
 mod unseen_mac;
 mod window;
 

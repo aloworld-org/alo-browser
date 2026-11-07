@@ -476,6 +476,83 @@ shield and its word **Off** are grey; pressed again, on. Either way the
 page loads again. What the lists name as an advert's box is hidden in the
 page (item 806) — nothing of it is drawn by alo.
 
+### A person on a card's page (items 799, 811, 798, 810, 802)
+
+Five designs the owner approved on 6 November 2026 (*"I agree"*),
+approved by the owner 2026-11-06; what the design left open was settled
+by the builder and is recorded here. Each is built through the Chromium
+alo carries, which tells alo what the DevTools pipe does not carry — the
+pointer's shape, a context menu, a link to open elsewhere — on a line of
+its own beside the pipe (descriptor 5, `chrome_told.rs`, ADR 0076's
+fourth amendment); through the machine's Chrome, run from a terminal,
+they are not, and the window says so where a press would otherwise do
+nothing.
+
+**The pointer follows the page** (item 799): the hand over a link, the
+I-beam over text and over a field, and whatever else the page's `cursor`
+asks — every shape CSS names — exactly as Chromium decides it, while the
+pointer is over the card's page box, and wherever it is while a press on
+the page is held (a selection dragged past the page's edge); the arrow
+over everything of alo's own. A new page begins at the arrow. `none`
+hides the pointer over the page; a page's own picture for a pointer is
+shown as the arrow (846).
+
+**A link's address on hover, in an expanded card** (item 811): a strip at
+the bottom left of the expanded page's window, drawn by alo's own host
+program, never Chromium's status bubble: the interface's paper `#f4f1ec`,
+its words in the quiet ink `#5f5a52`, 12 points, 24 points tall, 8 either
+side of the words, at most a third of the window wide and an address
+longer than that cut at its end with `…`; gone while the pointer is over
+no link. Its face is *Instrument Sans* where the system has it, and the
+system's own otherwise — the host carries no font of alo's (852). A card
+in the conversation shows no strip: its page is a picture there.
+
+**alo's own small menu** (item 798): a press of the secondary button on
+the card's page — or the main one with Ctrl, as a Mac takes it — is the
+page's first: it hears its `contextmenu`, and a page that takes it for
+itself shows its own. Otherwise alo draws its menu where the press was:
+*Copy* (greyed when nothing is selected), *Copy link* and *Open link in
+new chat* over a link, and *Search for “…”* when words are selected — the
+words shown cut at 16 characters with `…` so the line fits, searched whole. A white box
+rounded 10 under a line-colour border and a soft shadow, 220 wide, a line
+30 tall in the ink, 13 px 500, 12 in from its left, 4 above the first
+line and below the last; its top left corner at the press, moved left to
+stay inside the page box, and drawn above the press when there is no room
+under it. A press on a line does it and closes the menu; a press anywhere
+else, Escape and a wheel close it and do nothing else. *Copy* copies the
+page's selection as ⌘C does there; *Copy link* puts the address on the
+system's clipboard; *Open link in new chat* opens it as a new chat's first
+turn; *Search* searches the words as this chat's next turn. On a Mac a
+secondary press selects the word under it, so over a link the menu also
+offers *Search for* the link's words. The menu is walked by the pointer
+alone for now (850). **The middle button, and the main one with ⌘, on a
+link** open it as the conversation's next turn — its address the turn's
+bubble — and never in a tab nobody sees; a page that takes the press for
+itself opens nothing. Every other modifier held with a press is said and
+nobody's (851).
+
+**A dropdown on a card** (item 810): **while the agent works**, its
+choosing in a closed list on the card's page never opens the list's menu
+— a window nobody sees, taking the person's keys — and the list's options
+stand in the agent's own column under the step choosing, on white rounded
+8 under a line-colour border, a line of 20 each in the quiet colour, the
+one being chosen ticked (`✓`) in the ink; at most eight shown, the
+chosen among them, and *and N more* after. It chooses by the one key
+that reaches the option alone (the option's first letter, when no other
+option begins with it) — the page hearing one `input` and one `change`,
+for it alone — and otherwise not at all, saying the person chooses it
+(849). **When the person uses the page**, a press on a closed list
+expands the card and opens Chromium's own menu there, under the list, as
+Chrome's does: the normal dropdown.
+
+**Chinese and Japanese input** (item 802): while the card's page has the
+keyboard, macOS's input methods compose in it — the composition
+underlined in the page's field as Chrome's own input methods do, and what
+is chosen put in — and their candidates stand under where the person is
+typing: the end of the field's words, on their line, or the start of an
+empty field (847: a caret moved back into the words). alo's own box and
+*Search chats* take no input method yet (848).
+
 *Back* and *Forward* are the page's own session history, as Chrome holds it:
 each is drawn dark and pressable only when there is a page of the card's
 that way, and greyed otherwise. The blank page the card's window began at is

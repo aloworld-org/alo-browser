@@ -77,6 +77,15 @@ pub enum ToFrame {
         /// The list, line and rule that refused it.
         by: Blocked,
     },
+    /// What the Chromium alo carries told of the page streamed for the
+    /// conversation's card beside its pipe (queue items 799 and 798).
+    Told(crate::chrome_told::Told),
+    /// A person's press on a closed list of the card's parked page, held
+    /// until the card is expanded (queue item 810).
+    ListPressed,
+    /// Where the person is typing on the card's page, as an input method's
+    /// composition begins (queue item 802).
+    Caret(crate::chrome_card_caret::Caret),
 }
 
 /// What a stream of frames came to, told as it stops.

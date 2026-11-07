@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A card's page behaves as a page.** The pointer turns into a hand over
+  a link and a text cursor over words; an expanded card shows a link's
+  address in a small strip of alo's own at its bottom left; a right-click
+  opens alo's own small menu (*Copy*, *Copy link*, *Open link in new chat*,
+  *Search for “…”*), and ⌘-click or a middle click opens a link as the next
+  turn; a dropdown pressed by a person opens as Chrome's own with the card
+  expanded, and while alo's agent works its options are listed in the
+  agent's column instead of a menu nobody sees; and Japanese or Chinese
+  input methods type into a card, their candidates where you type.
+
 - **The conversation's scroll bar fades.** The thin bar beside the
   conversation stays while it scrolls and for a second after, then fades
   away as macOS's own does; it comes back at once when the conversation

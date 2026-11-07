@@ -137,25 +137,26 @@
 
 use crate::after_menus::{Closing, GIVE_UP_AFTER, Now, Owed};
 use crate::parked::Stage;
+use crate::told::{self, Told};
 use cef::{
     App, Browser, BrowserProcessHandler, BrowserSettings, BrowserView, BrowserViewDelegate,
     CefString, ChromeToolbarType, Client, CommandHandler, ContextMenuHandler, ContextMenuParams,
-    Display, DisplayHandler, Frame, ImplApp, ImplBrowser, ImplBrowserHost,
+    CursorInfo, CursorType, Display, DisplayHandler, Frame, ImplApp, ImplBrowser, ImplBrowserHost,
     ImplBrowserProcessHandler, ImplBrowserView, ImplBrowserViewDelegate, ImplClient,
-    ImplCommandHandler, ImplContextMenuHandler, ImplDisplay, ImplDisplayHandler,
-    ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplPermissionHandler,
-    ImplPermissionPromptCallback, ImplRequest, ImplRequestHandler, ImplTask, ImplView,
-    ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler, MenuModel,
-    PermissionHandler, PermissionPromptCallback, PermissionRequestResult, Rect, Request,
-    RequestHandler, RuntimeStyle, Size, State, Task, ThreadId, View, Window, WindowDelegate,
-    WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler, WrapBrowserViewDelegate, WrapClient,
-    WrapCommandHandler, WrapContextMenuHandler, WrapDisplayHandler, WrapLifeSpanHandler,
-    WrapPermissionHandler, WrapRequestHandler, WrapTask, WrapWindowDelegate, browser_view_create,
-    browser_view_get_for_browser, display_get_alls, display_get_count, post_delayed_task,
-    post_task, window_create_top_level, wrap_app, wrap_browser_process_handler,
-    wrap_browser_view_delegate, wrap_client, wrap_command_handler, wrap_context_menu_handler,
-    wrap_display_handler, wrap_life_span_handler, wrap_permission_handler, wrap_request_handler,
-    wrap_task, wrap_window_delegate,
+    ImplCommandHandler, ImplContextMenuHandler, ImplContextMenuParams, ImplDisplay,
+    ImplDisplayHandler, ImplLifeSpanHandler, ImplPanel, ImplPanelDelegate, ImplPermissionHandler,
+    ImplPermissionPromptCallback, ImplRequest, ImplRequestHandler, ImplRunContextMenuCallback,
+    ImplTask, ImplView, ImplViewDelegate, ImplWindow, ImplWindowDelegate, LifeSpanHandler,
+    MenuModel, PermissionHandler, PermissionPromptCallback, PermissionRequestResult, Rect, Request,
+    RequestHandler, RunContextMenuCallback, RuntimeStyle, Size, State, Task, ThreadId, View,
+    Window, WindowDelegate, WindowOpenDisposition, WrapApp, WrapBrowserProcessHandler,
+    WrapBrowserViewDelegate, WrapClient, WrapCommandHandler, WrapContextMenuHandler,
+    WrapDisplayHandler, WrapLifeSpanHandler, WrapPermissionHandler, WrapRequestHandler, WrapTask,
+    WrapWindowDelegate, browser_view_create, browser_view_get_for_browser, display_get_alls,
+    display_get_count, post_delayed_task, post_task, window_create_top_level, wrap_app,
+    wrap_browser_process_handler, wrap_browser_view_delegate, wrap_client, wrap_command_handler,
+    wrap_context_menu_handler, wrap_display_handler, wrap_life_span_handler,
+    wrap_permission_handler, wrap_request_handler, wrap_task, wrap_window_delegate,
 };
 use std::cell::{Cell, RefCell};
 use std::os::raw::c_int;
@@ -281,11 +282,11 @@ wrap_client! {
         }
 
         fn request_handler(&self) -> Option<RequestHandler> {
-            Some(Kept::new())
+            Some(Kept::new(std::rc::Rc::clone(&self.stage)))
         }
 
         fn context_menu_handler(&self) -> Option<ContextMenuHandler> {
-            Some(Menus::new())
+            Some(Menus::new(std::rc::Rc::clone(&self.stage)))
         }
 
         fn permission_handler(&self) -> Option<PermissionHandler> {
@@ -328,7 +329,10 @@ wrap_permission_handler! {
 }
 
 wrap_context_menu_handler! {
-    struct Menus {}
+    struct Menus {
+        // Where its window is, when it is a card's (`Framed`'s own).
+        stage: std::rc::Rc<Cell<Option<Stage>>>,
+    }
 
     impl ContextMenuHandler {
         fn on_before_context_menu(
@@ -341,6 +345,35 @@ wrap_context_menu_handler! {
             // Shown as Chromium shows it; counted, so no page closes under
             // it (`after_menus.rs`, queue item 734).
             CLOSING.with_borrow_mut(Closing::shown);
+        }
+
+        fn run_context_menu(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            params: Option<&mut ContextMenuParams>,
+            _model: Option<&mut MenuModel>,
+            callback: Option<&mut RunContextMenuCallback>,
+        ) -> ::std::os::raw::c_int {
+            // A card's page, unseen: no menu of Chromium's is shown — it
+            // would be a window beside the parked one, and the host would
+            // crash under it if the card closed (734) — and alo is told
+            // where the press was and what it was over, and draws its own
+            // menu over the card (queue item 798). The menu is cancelled at
+            // once, so CEF says it is dismissed. Seen, Chromium's own.
+            let unseen = self.stage.get().is_some_and(Stage::tells);
+            let (Some(params), Some(callback), true) = (params, callback, unseen) else {
+                return 0;
+            };
+            told::tell(&Told::Menu {
+                x: params.xcoord(),
+                y: params.ycoord(),
+                link: CefString::from(&params.link_url()).to_string(),
+                selection: CefString::from(&params.selection_text()).to_string(),
+                editable: params.is_editable() != 0,
+            });
+            callback.cancel();
+            1
         }
 
         fn on_context_menu_dismissed(&self, _browser: Option<&mut Browser>, _frame: Option<&mut Frame>) {
@@ -410,9 +443,37 @@ fn wait_for_the_menu(now: Now) {
 }
 
 wrap_request_handler! {
-    struct Kept {}
+    struct Kept {
+        // Where its window is, when it is a card's (`Framed`'s own).
+        stage: std::rc::Rc<Cell<Option<Stage>>>,
+    }
 
     impl RequestHandler {
+        fn on_open_urlfrom_tab(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            target_url: Option<&CefString>,
+            target_disposition: WindowOpenDisposition,
+            user_gesture: ::std::os::raw::c_int,
+        ) -> ::std::os::raw::c_int {
+            // A link a person pressed with ⌘, or with the middle button, on
+            // an unseen card's page: Chromium would open it in a tab or a
+            // window of its own, which no card shows. It is cancelled here
+            // and told to alo, which opens it as the conversation's next
+            // turn (queue item 798). Only a person's, and only one asked to
+            // go somewhere new; seen, Chromium's own.
+            let unseen = self.stage.get().is_some_and(Stage::tells);
+            let elsewhere = elsewhere(target_disposition);
+            match target_url {
+                Some(address) if unseen && elsewhere && user_gesture != 0 => {
+                    told::tell(&Told::Open(address.to_string()));
+                    1
+                }
+                _ => 0,
+            }
+        }
+
         fn on_before_browse(
             &self,
             _browser: Option<&mut Browser>,
@@ -531,6 +592,34 @@ wrap_display_handler! {
     }
 
     impl DisplayHandler {
+        fn on_cursor_change(
+            &self,
+            _browser: Option<&mut Browser>,
+            _cursor: *mut u8,
+            type_: CursorType,
+            _custom_cursor_info: Option<&CursorInfo>,
+        ) -> ::std::os::raw::c_int {
+            // The pointer's shape the page asks for, on an unseen card's
+            // page: told to alo, whose window the pointer is over (queue
+            // item 799), and kept from Chromium, whose window is not.
+            // Seen, Chromium's own.
+            if self.stage.get().is_some_and(Stage::tells) {
+                told::tell(&Told::Cursor(shape(type_)));
+                1
+            } else {
+                0
+            }
+        }
+
+        fn on_status_message(&self, browser: Option<&mut Browser>, value: Option<&CefString>) {
+            // The address of a link under the pointer, or nothing: shown in
+            // the host's own strip once the card is seen (queue item 811).
+            if self.stage.get().is_some_and(Stage::strips) {
+                let said = value.map(ToString::to_string);
+                show_strip(browser, crate::strip::says(said.as_deref()));
+            }
+        }
+
         fn on_contents_bounds_change(
             &self,
             _browser: Option<&mut Browser>,
@@ -681,6 +770,84 @@ wrap_window_delegate! {
     }
 }
 
+/// The pointer's shape `kind` asks for, by its name in CSS, as alo is told
+/// it (queue item 799): every shape CEF names that CSS names too; a page's
+/// own picture (`CT_CUSTOM`) and a drag's shapes are told as the arrow,
+/// which is what alo draws for them.
+fn shape(kind: CursorType) -> &'static str {
+    let named: [(CursorType, &'static str); 43] = [
+        (CursorType::CROSS, "crosshair"),
+        (CursorType::HAND, "pointer"),
+        (CursorType::IBEAM, "text"),
+        (CursorType::WAIT, "wait"),
+        (CursorType::HELP, "help"),
+        (CursorType::EASTRESIZE, "e-resize"),
+        (CursorType::NORTHRESIZE, "n-resize"),
+        (CursorType::NORTHEASTRESIZE, "ne-resize"),
+        (CursorType::NORTHWESTRESIZE, "nw-resize"),
+        (CursorType::SOUTHRESIZE, "s-resize"),
+        (CursorType::SOUTHEASTRESIZE, "se-resize"),
+        (CursorType::SOUTHWESTRESIZE, "sw-resize"),
+        (CursorType::WESTRESIZE, "w-resize"),
+        (CursorType::NORTHSOUTHRESIZE, "ns-resize"),
+        (CursorType::EASTWESTRESIZE, "ew-resize"),
+        (CursorType::NORTHEASTSOUTHWESTRESIZE, "nesw-resize"),
+        (CursorType::NORTHWESTSOUTHEASTRESIZE, "nwse-resize"),
+        (CursorType::COLUMNRESIZE, "col-resize"),
+        (CursorType::ROWRESIZE, "row-resize"),
+        (CursorType::MIDDLEPANNING, "all-scroll"),
+        (CursorType::EASTPANNING, "e-resize"),
+        (CursorType::NORTHPANNING, "n-resize"),
+        (CursorType::NORTHEASTPANNING, "ne-resize"),
+        (CursorType::NORTHWESTPANNING, "nw-resize"),
+        (CursorType::SOUTHPANNING, "s-resize"),
+        (CursorType::SOUTHEASTPANNING, "se-resize"),
+        (CursorType::SOUTHWESTPANNING, "sw-resize"),
+        (CursorType::WESTPANNING, "w-resize"),
+        (CursorType::MOVE, "move"),
+        (CursorType::VERTICALTEXT, "vertical-text"),
+        (CursorType::CELL, "cell"),
+        (CursorType::CONTEXTMENU, "context-menu"),
+        (CursorType::ALIAS, "alias"),
+        (CursorType::PROGRESS, "progress"),
+        (CursorType::NODROP, "no-drop"),
+        (CursorType::COPY, "copy"),
+        (CursorType::NONE, "none"),
+        (CursorType::NOTALLOWED, "not-allowed"),
+        (CursorType::ZOOMIN, "zoom-in"),
+        (CursorType::ZOOMOUT, "zoom-out"),
+        (CursorType::GRAB, "grab"),
+        (CursorType::GRABBING, "grabbing"),
+        (CursorType::MIDDLE_PANNING_VERTICAL, "ns-resize"),
+    ];
+    named
+        .iter()
+        .find(|(each, _)| *each == kind)
+        .map_or("default", |(_, name)| *name)
+}
+
+/// Whether `disposition` opens a page somewhere other than where it was
+/// asked from — a tab or a window of its own — which a card never shows.
+fn elsewhere(disposition: WindowOpenDisposition) -> bool {
+    [
+        WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        WindowOpenDisposition::NEW_BACKGROUND_TAB,
+        WindowOpenDisposition::NEW_WINDOW,
+        WindowOpenDisposition::NEW_POPUP,
+        WindowOpenDisposition::SINGLETON_TAB,
+        WindowOpenDisposition::SWITCH_TO_TAB,
+    ]
+    .contains(&disposition)
+}
+
+/// Show `says` in the strip of the window holding `browser`, or hide it
+/// with nothing to say (`strip.rs`, `strip_mac.rs`).
+fn show_strip(browser: Option<&mut Browser>, says: Option<&str>) {
+    if let Some(window) = browser_view_get_for_browser(browser).and_then(|view| view.window()) {
+        crate::strip_mac::show(window.window_handle(), says);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -694,5 +861,24 @@ mod tests {
             settings(true).chrome_zoom_bubble,
             BrowserSettings::default().chrome_zoom_bubble
         );
+    }
+
+    #[test]
+    fn the_pointers_shape_is_told_by_its_name_in_css() {
+        assert_eq!(shape(CursorType::HAND), "pointer");
+        assert_eq!(shape(CursorType::IBEAM), "text");
+        assert_eq!(shape(CursorType::POINTER), "default");
+        assert_eq!(shape(CursorType::NOTALLOWED), "not-allowed");
+        assert_eq!(shape(CursorType::CUSTOM), "default", "a page's own picture");
+        assert_eq!(shape(CursorType::DND_COPY), "default");
+    }
+
+    #[test]
+    fn only_a_link_asked_to_open_elsewhere_is_told() {
+        assert!(elsewhere(WindowOpenDisposition::NEW_BACKGROUND_TAB));
+        assert!(elsewhere(WindowOpenDisposition::NEW_FOREGROUND_TAB));
+        assert!(elsewhere(WindowOpenDisposition::NEW_WINDOW));
+        assert!(!elsewhere(WindowOpenDisposition::CURRENT_TAB));
+        assert!(!elsewhere(WindowOpenDisposition::SAVE_TO_DISK));
     }
 }

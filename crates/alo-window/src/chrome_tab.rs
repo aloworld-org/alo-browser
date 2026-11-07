@@ -193,6 +193,9 @@ pub struct Tab<'c> {
     /// so for a page shown as a card in the conversation, where signing in
     /// is the person's step (queue item 704, ADR 0096).
     keeps_passwords: bool,
+    /// Whether the page is shown as a card in the conversation (queue item
+    /// 810): a closed list's menu is then never opened for an agent.
+    a_card: bool,
     /// The page streamed as frames, for the conversation's card (ADR 0076
     /// B, queue item 717): every frame answered as it is read, the newest
     /// kept.
@@ -460,6 +463,7 @@ impl<'c> Tab<'c> {
             address: alo_url::parse(url).ok(),
             detached: false,
             keeps_passwords: false,
+            a_card: false,
             casting: Casting::default(),
             loading: Loading::default(),
             navigations: 0,
@@ -577,6 +581,18 @@ impl<'c> Tab<'c> {
     /// Whether text put into a password field is refused.
     pub fn keeps_passwords(&self) -> bool {
         self.keeps_passwords
+    }
+
+    /// The page is shown as a card in the conversation (queue item 810):
+    /// from now on a closed list's menu is never opened for an agent
+    /// (`chrome_choose`).
+    pub fn show_as_a_card(&mut self) {
+        self.a_card = true;
+    }
+
+    /// Whether the page is shown as a card.
+    pub fn is_a_card(&self) -> bool {
+        self.a_card
     }
 
     /// The address of the page the tab shows, as an agent names the tab
@@ -885,6 +901,13 @@ impl<'c> Tab<'c> {
             self.answer_frame(Some(due))?;
         }
         Ok(())
+    }
+
+    /// What the tab's Chromium told beside its pipe since this was last
+    /// asked (queue items 799 and 798): only the Chromium alo carries tells
+    /// anything, and only of a card's page while it is unseen.
+    pub fn take_told(&self) -> Vec<crate::chrome_told::Told> {
+        self.chrome.take_told()
     }
 
     /// The newest frame read since this was last asked, if the page is

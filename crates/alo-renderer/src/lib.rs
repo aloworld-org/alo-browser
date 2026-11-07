@@ -54,6 +54,7 @@ pub mod answers;
 pub mod ask;
 pub mod card;
 pub mod card_document;
+pub mod card_menu;
 pub mod card_place;
 mod choose;
 pub mod cjk_faces;

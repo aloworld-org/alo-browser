@@ -22470,7 +22470,7 @@ What stage 2's exit gate actually measures: a person using it.
   Chrome's, was 161.18); no corpus case moved (`DejaVu Sans` kerns no space
   or hyphen pair the corpus has).
 
-- [ ] **798. A press the page's Chromium would take somewhere else.** Cut
+- [x] **798. A press the page's Chromium would take somewhere else.** Cut
   from 740, which sends the main button with nothing held. The secondary
   button opens Chromium's context menu, in a window parked off every
   display where nobody sees it (ADR 0076 B4) — and a page closed with it
@@ -22481,14 +22481,61 @@ What stage 2's exit gate actually measures: a person using it.
   link opened as the conversation's next card, a download refused or
   carried — and send the buttons and modifiers then. *needs design. Depends
   on 740, 734.*
+  **Design, approved by the owner 2026-11-06:** alo's own small menu — *Copy*, *Copy link*,
+  *Open link in new chat*, and *Search for "…"* when text is selected;
+  middle-click and ⌘-click open the link as a new turn in the
+  conversation (`docs/design/shell.md`, *A person on a card's page*, the
+  details settled there).
+  ***Done (7 November 2026), through the Chromium alo carries; the menu's
+  keys cut to 850, other modifiers to 851.*** The host tells alo what the
+  pipe does not carry, a line each on descriptor 5 (`told.rs`;
+  `chrome_told.rs` reads it, bounded, a stranger's words escaped): a
+  secondary press (or Ctrl and the main button) is sent to the page with
+  the right button, the page hears its `contextmenu`, and CEF's
+  `RunContextMenu` for an unseen card is cancelled — no menu of
+  Chromium's — and told with the link, the words selected and whether a
+  field; alo draws its menu (`card_menu.rs`, `Claim::MenuItem`, decided
+  against the menu painted). A ⌘ or middle press is sent with its button
+  and modifier, and CEF's `OnOpenURLFromTab` cancelled and told; alo opens
+  the address as the next turn. *Copy link* writes the clipboard through
+  `pbcopy` (`clipboard.rs`; tests hand the window a writer of their own).
+  Through the machine's Chrome such a press is said and nobody's.
+  **Tests:** unit (the menu's offer, placement and hit; the told lines; the
+  clicks' commands; the window: opened inside the page box, closed by
+  Escape, a wheel and a press beside it, a link told opened as the next
+  turn, a press through a silent Chrome said); a layout assertion and the
+  reference `card-menu.png` (`a_page_as_a_card.rs`); the window's own road
+  with real renderers (`offers_and_the_panel_pressed_in_the_window.rs`:
+  *Copy link* copied, a press beside it closing it, Escape, *Open link in
+  new chat* opening a new chat); through alo's CEF host
+  (`what_a_cards_chromium_tells_beside_its_pipe_through_chrome.rs`: a menu
+  over a link with its address — and its words, as a Mac selects them —,
+  over a double-clicked word with it, none over a box taking its own
+  `contextmenu`; a ⌘ and a middle press told and never followed).
+  **Mutations:** the drawing thread not keeping the painted menu — the
+  window's road refuses the line; the host not telling the menu — told
+  nothing.
 
-- [ ] **799. The pointer's shape the page asks for, over a card.** Cut from
+- [x] **799. The pointer's shape the page asks for, over a card.** Cut from
   740. Over a card's page the window's pointer stays the arrow; a page's
   `cursor` — the hand over a link, the I-beam over text — is Chromium's to
   say, and nothing on the DevTools pipe tells it (CEF tells the host,
   `CefDisplayHandler::OnCursorChange`; the machine's Chrome tells no one).
   Decide how the window learns it and set it (`winit`'s `set_cursor`).
   *needs design. Depends on 740.*
+  **Design, approved by the owner 2026-11-06:** the pointer follows the page (hand over links,
+  text cursor over text).
+  ***Done (7 November 2026), through the Chromium alo carries; a page's
+  own pointer picture cut to 846.*** CEF's `OnCursorChange` for an unseen
+  card is answered handled and told (`cursor pointer`), every CEF shape by
+  its CSS name; the window shows the page's newest over the page box and
+  while a press on it is held, the arrow elsewhere (`card_cursor.rs`,
+  `ConversationWindow::take_cursor`), set with winit's `set_cursor`.
+  **Tests:** unit (the names, the shape shown, the window over the page,
+  the panel, a held press and a new page); through alo's CEF host: a link
+  `pointer`, words and a field `text`, the ground `default`.
+  **Mutations:** the hand told as the arrow — fails; the page's shape shown
+  everywhere — fails.
 
 - [ ] **800. A person's own double-click interval.** Cut from 740. A card
   counts presses within a fixed 500 ms (`card_clicks::QUICK`); a person sets
@@ -22505,7 +22552,7 @@ What stage 2's exit gate actually measures: a person using it.
   to the frame on the glass — and say it beside ADR 0076 B3's estimate.
   *Depends on 740.*
 
-- [ ] **802. An input method's composition on a card's page.** Cut from
+- [x] **802. An input method's composition on a card's page.** Cut from
   741. Japanese, Chinese, Korean, and an accent held on a Mac, reach a
   window only as `winit`'s `Ime` events once it allows them
   (`set_ime_allowed`), and then a composing key no longer arrives as it
@@ -22513,6 +22560,26 @@ What stage 2's exit gate actually measures: a person using it.
   page (`Input.imeSetComposition`, `Input.insertText`), the candidates
   placed at the page's caret, and to the box. *needs design. Depends on
   741.*
+  **Design, approved by the owner 2026-11-06:** macOS input methods work inside cards, with the
+  candidate window shown where you are typing.
+  ***Done for cards (7 November 2026); the box and *Search chats* cut to
+  848, a caret moved back into the words to 847.*** Input methods are
+  allowed only while the card's page has the keyboard (winit's
+  `set_ime_allowed`), so alo's box keeps its keys as before; a preedit is
+  `Input.imeSetComposition` (its selection from winit's bytes to UTF-16),
+  a commit `Input.insertText`. As a composition begins the card's thread
+  reads where the person types through the DOM domain, no script
+  (`chrome_card_caret.rs`: the focused element, its last words through its
+  shadow tree, a placeholder never counted, their drawn quad), and the
+  window puts the candidates under it (`set_ime_cursor_area`). No new
+  AppKit glue — winit's view is the text-input client — so no `unsafe` and
+  no ADR. **Tests:** unit (UTF-16, the window allowing and placing, the
+  readers); through the machine's Chrome
+  (`an_input_methods_composition_on_a_card_through_chrome.rs`): the caret
+  after *Kampa* at 106, 43, 23 tall; an empty field's at its start, 43,
+  123; `きょう` composed and `今日` chosen heard as Chrome's own input
+  methods are, the field *Kampa今日*. **Mutation:** the caret before the
+  words — fails.
 
 - [ ] **803. Ctrl's text bindings on a Mac, on a card's page.** Cut from
   741. macOS's text system binds Ctrl+A, E, K, Y, F, B, N, P, D, H, O and T
@@ -22775,7 +22842,7 @@ What stage 2's exit gate actually measures: a person using it.
   the CEF host tests 3 of 3. **Mutation:** the stillness guard removed —
   the new test fails 3 of 3 (once choosing *Dates* for *Honeydew*).
 
-- [ ] **810. A closed list pressed on a parked card opens its menu at the
+- [x] **810. A closed list pressed on a parked card opens its menu at the
   display's edge (cut from 808).** A person's press on a `<select>` in a
   parked card reaches the page, and Chromium opens the list's native menu
   where the select is — in the parked window — which macOS moves onto the
@@ -22784,14 +22851,51 @@ What stage 2's exit gate actually measures: a person using it.
   drawn by alo over the card, the card expanded, or the menu walked by
   keys as 658's — and keep the menu off the screen until then. *needs
   design. Depends on 808, 740.*
+  **Design, approved by the owner 2026-11-06:** while the agent works, a dropdown's options are
+  shown in the agent's own column so nothing invisible captures keys; when
+  the person uses the page, the normal dropdown.
+  ***Done (7 November 2026); an option no one key reaches cut to 849.***
+  **The person:** a first press on a closed list of a parked card's page
+  is held (`chrome_card_list.rs`, asked of Chromium at the point), the
+  conversation expands the card, and the press is made again at the list's
+  middle there: Chromium's own menu, under the list. **The agent:** on a
+  card's page a closed list's menu is never opened; the option is chosen by
+  its first letter when no other option begins with it — measured through
+  the host: arrows, Home, End and Page Down change nothing, a letter goes
+  to the next option beginning with it (`chrome_type_ahead.rs`) — else
+  refused (`Unacted::NoOneKey`); the list's options stand in the agent's
+  column under the step, the one chosen ticked (`agent_dropdown.rs`,
+  `AtWork::choosing`). **Tests:** unit; a layout assertion and the
+  reference `agent-choosing-in-a-list.png` (`the_split_view.rs`); through
+  the machine's Chrome
+  (`a_closed_list_on_a_card_chosen_by_one_key_through_chrome.rs`: *Dates*
+  by `d`, one `input` and one `change`; *Apples* refused, nothing heard);
+  through alo's CEF host (`a_closed_list_pressed_on_a_card_through_chrome.rs`:
+  no window beside the parked card and no `mousedown` heard; expanded, the
+  menu at 148, 116 over the window, closed by Escape choosing nothing).
+  **Mutations:** no list found — fails; a shared letter used — fails.
 
-- [ ] **811. A link's address on an expanded card (cut from 808).** A
+- [x] **811. A link's address on an expanded card (cut from 808).** A
   card's browser is made with no status bubble (808), for its life, so an
   expanded card shows no address under a link where Chrome would. Measure
   whether CEF tells the host the status text (`OnStatusMessage`) in Chrome
   style, and decide whether alo shows it — in the card's bar while parked,
   in the expanded window — or the bubble is had back once expanded.
   *Depends on 808.*
+  **Design, approved by the owner 2026-11-06:** in an expanded card, a link's address shows in a
+  small strip at the card's bottom-left, drawn by alo, not Chromium.
+  ***Done (7 November 2026); alo's own face in the strip cut to 852.***
+  Measured: CEF tells `OnStatusMessage` with the bubble disabled. Once the
+  card is seen the host shows the address in a strip of its own
+  (`strip.rs` in numbers, `strip_mac.rs` drawing it with AppKit: CEF's
+  docked overlay stood a title bar's height above the window's foot, and
+  one asked lower was not drawn). **Tests:** unit (placement, words, the
+  plate's frames); through alo's CEF host
+  (`an_expanded_cards_link_shown_in_alos_strip_through_chrome.rs`: no
+  window beside the parked card over a link; expanded, the strip's paper
+  measured 300 × 24 points at the window's bottom left, the reference
+  `link-strip.png`, gone off the link). **Mutation:** no strip once seen —
+  fails.
 
 - [ ] **812. The exact line an answer's sentence rests on, on hover (cut
   from 707).** `shell.md`: hovering a source's number shows the site, the
@@ -23146,6 +23250,50 @@ What stage 2's exit gate actually measures: a person using it.
   conversation as far as the bar moves, and a press above or below it
   paging, as a scroll bar does, are not built — and the bar, 6 wide, would
   need a wider target than itself. *needs design.*
+
+- [ ] **846. A page's own pointer picture over a card (cut from 799).**
+  `cursor: url(…)` comes to the host as CEF's `CT_CUSTOM` with the picture
+  and its hot spot; alo shows the arrow. Carry the picture beside the pipe
+  and set it as a custom cursor (winit's `CustomCursor`), bounded in size.
+  *Depends on 799.*
+
+- [ ] **847. The candidates at a caret moved back into the words (cut from
+  802).** Where a person types is read as the end of the focused field's
+  words; a caret an arrow or a press put inside them puts the candidates
+  at the words' end. The exact caret is Chromium's text-input client's
+  (`firstRectForCharacterRange`), `unsafe` to ask from Rust: decide whether
+  an ADR allows it in the host, or measure another road. *needs design.
+  Depends on 802.*
+
+- [ ] **848. Input methods in alo's own box and *Search chats* (cut from
+  802).** The window allows input methods only while a card's page has the
+  keyboard; Japanese and Chinese typed into the box arrive as its keys.
+  Compose in the box's own text, drawn underlined by this engine, the
+  candidates at its caret. *Depends on 802.*
+
+- [ ] **849. A closed list's option no one key reaches, chosen by an agent
+  on a card (cut from 810).** On a card the menu is never opened for an
+  agent, and an option that shares its first letter is refused (the person
+  chooses it). Find a road with no option passed through and no window
+  nobody sees — the host walking its own menu unseen, or the person
+  choosing from the agent's column — measured. *needs design. Depends on
+  810.*
+
+- [ ] **850. alo's menu over a card walked by keys (cut from 798).** The
+  menu is pressed with the pointer only, and Escape closes it. Arrows to
+  move through its lines and Return to choose, as a macOS menu. *Depends
+  on 798.*
+
+- [ ] **851. A press with ⇧ or ⌥ on a card's link (cut from 798).** In
+  Chrome ⇧ opens a link in a new window and ⌥ downloads it; on a card such
+  a press is said and nobody's. Decide what each is on a card. *needs
+  design. Depends on 798.*
+
+- [ ] **852. The link strip in alo's own face (cut from 811).** The host
+  draws the strip in *Instrument Sans* only where the system has it, and
+  the system's face otherwise: alo's faces are handed to its renderers
+  alone (ADR 0084). Register the carried face for the host's process, or
+  draw the strip with this engine. *Depends on 811.*
 
 ## K. ★ The agent, on somebody else's pages
 

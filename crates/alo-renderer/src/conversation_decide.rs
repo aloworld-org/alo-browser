@@ -32,6 +32,7 @@
 //! its own identity for a chat, its own record of a site — never anything
 //! the renderer said but a place or a kind.
 
+use crate::card_menu::MenuItem;
 use crate::conversation_claim::{Claim, Part};
 use crate::message::{Failure, FromRenderer};
 use crate::results::Tab;
@@ -97,6 +98,9 @@ pub struct Shown<C, S> {
     /// The site of the live card's page while its shield is drawn (queue
     /// item 807).
     pub shield: Option<String>,
+    /// The lines of alo's menu over the card's page, in order, while it is
+    /// drawn (queue item 798).
+    pub menu: Vec<MenuItem>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -123,6 +127,7 @@ impl<C, S> Default for Shown<C, S> {
             closing: None,
             undo: None,
             shield: None,
+            menu: Vec::new(),
         }
     }
 }
@@ -207,6 +212,8 @@ pub enum Decided<C, S> {
     /// The card's shield, for the page's site of this name (queue item
     /// 807).
     Shield(String),
+    /// A line of alo's menu over the card's page (queue item 798).
+    MenuItem(MenuItem),
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -242,6 +249,8 @@ pub enum Listed {
     FullAnswer,
     /// The choices a stuck agent offered (queue item 704).
     Choices,
+    /// The lines of alo's menu over the card's page (queue item 798).
+    MenuItems,
 }
 
 impl fmt::Display for Listed {
@@ -259,6 +268,7 @@ impl fmt::Display for Listed {
             Listed::Images => "image found",
             Listed::FullAnswer => "Full answer",
             Listed::Choices => "agent's choice",
+            Listed::MenuItems => "line of the page's menu",
         })
     }
 }
@@ -423,6 +433,8 @@ where
         Claim::NotNow => same(painted.asking, now.asking).map_or_else(not_asked, Decided::NotNow),
         Claim::Choice { at } => held(Listed::Choices, at, &painted.choices, &now.choices)
             .map_or_else(Decided::Refused, Decided::Choice),
+        Claim::MenuItem { at } => held(Listed::MenuItems, at, &painted.menu, &now.menu)
+            .map_or_else(Decided::Refused, Decided::MenuItem),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {

@@ -15,7 +15,7 @@
 
 use super::{Reader, Unreadable, Writer, unreadable};
 use crate::agent_ran::{Ended, MOST_RUNS, Ran};
-use crate::agent_work::{AtWork, MOST_CHOICES, MOST_STEPS, Now, Step};
+use crate::agent_work::{AtWork, Dropdown, MOST_CHOICES, MOST_LISTED, MOST_STEPS, Now, Step};
 
 impl Writer {
     /// The agent at work, if it is: whether it is, then what was asked,
@@ -47,6 +47,13 @@ impl Writer {
                 self.tag(4);
                 self.text(why);
             }
+        }
+        // The closed list it chooses in (queue item 810).
+        self.bool(work.choosing.is_some());
+        if let Some(choosing) = &work.choosing {
+            self.text(&choosing.list);
+            self.texts(&choosing.options);
+            self.number(choosing.chosen as u64);
         }
     }
 }
@@ -161,6 +168,26 @@ impl Reader<'_> {
             4 => Now::Stopped { why: self.text()? },
             other => return Err(unreadable(format!("an agent doing what is tagged {other}"))),
         };
-        Ok(Some(AtWork { asked, steps, now }))
+        let choosing = if self.bool()? {
+            let list = self.text()?;
+            let options = self.texts()?;
+            let chosen = usize::try_from(self.number()?)
+                .ok()
+                .filter(|chosen| *chosen < options.len() && options.len() <= MOST_LISTED)
+                .ok_or_else(|| unreadable("a closed list's option chosen past its options"))?;
+            Some(Dropdown {
+                list,
+                options,
+                chosen,
+            })
+        } else {
+            None
+        };
+        Ok(Some(AtWork {
+            asked,
+            steps,
+            now,
+            choosing,
+        }))
     }
 }

@@ -117,6 +117,7 @@ use crate::scale::Scale;
 use crate::typing::Edit;
 use alo_layout::Size;
 use alo_renderer::card::{Card, Shield};
+use alo_renderer::card_menu::{CardMenu, MenuItem};
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::conversation_scroll::Reach;
 use alo_renderer::panel::{Chat, Closing, Panel, RAIL_CHATS, drawn_order, matching};
@@ -498,6 +499,10 @@ impl Conversation {
                 .card()
                 .filter(|card| card.shield.is_some())
                 .and_then(|card| blocking_off::site_of(&card.url.serialised)),
+            menu: self
+                .card_menu()
+                .map(|menu| menu.items.clone())
+                .unwrap_or_default(),
         }
     }
 
@@ -619,6 +624,14 @@ impl Conversation {
             Pressed::Choice(choice) => {
                 let choice = choice.clone();
                 self.ask_alo(&choice) || changed
+            }
+            // alo's menu over the card's page (queue item 798): it closes,
+            // whatever its line; a link opens as a new chat's first turn,
+            // words selected are searched as this chat's next. Copying is
+            // the window's, which holds the page and the clipboard.
+            Pressed::MenuItem(item) => {
+                let item = item.clone();
+                self.menu_pressed(item) || changed
             }
             _ => changed,
         };
@@ -1429,6 +1442,88 @@ impl Conversation {
     /// the switches and loads the card's page again.
     pub fn take_switched(&mut self) -> Option<String> {
         self.switched.take()
+    }
+
+    /// A line of alo's menu over the card's page pressed (queue item 798):
+    /// the menu closes; a link opens as a new chat's first turn, and words
+    /// selected are searched as this chat's next. Whether the first screen
+    /// shows something else.
+    fn menu_pressed(&mut self, item: MenuItem) -> bool {
+        let closed = self.close_card_menu();
+        match item {
+            MenuItem::OpenInNewChat(address) => {
+                self.sheet = false;
+                self.new_chat();
+                self.open_link(&address);
+                true
+            }
+            MenuItem::Search(words) => self.search_for(&words) || closed,
+            MenuItem::Copy { .. } | MenuItem::CopyLink(_) => closed,
+        }
+    }
+
+    /// alo's menu over the live card's page, while it is open (queue item
+    /// 798).
+    pub fn card_menu(&self) -> Option<&CardMenu> {
+        self.card().and_then(|card| card.menu.as_ref())
+    }
+
+    /// Open `menu` over the live card's page, in place of any open: whether
+    /// there was a card to open it over.
+    pub fn open_card_menu(&mut self, menu: CardMenu) -> bool {
+        match self.thread_mut().and_then(Thread::card_mut) {
+            Some(card) => {
+                card.menu = Some(menu);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Close alo's menu over the live card's page: whether one was open.
+    pub fn close_card_menu(&mut self) -> bool {
+        self.thread_mut()
+            .and_then(Thread::card_mut)
+            .and_then(|card| card.menu.take())
+            .is_some()
+    }
+
+    /// Open the link at `address` as the conversation's next turn (queue
+    /// item 798): chosen as an address typed is, the turn's bubble its
+    /// address; the window opens it ([`Conversation::going`]). An address
+    /// that is not a site's is not chosen. Whether it was.
+    pub fn open_link(&mut self, address: &str) -> bool {
+        let Ok(url) = alo_url::parse(address) else {
+            return false;
+        };
+        if !matches!(url.scheme.as_str(), "http" | "https") {
+            return false;
+        }
+        self.said.clone_from(&url.serialised);
+        self.chosen = Some(Offer::Go(url));
+        true
+    }
+
+    /// Search for `words` as the conversation's next turn (queue item 798's
+    /// *Search for “…”*), as the box searches what was typed: whether the
+    /// first screen shows something else for it.
+    pub fn search_for(&mut self, words: &str) -> bool {
+        let words = words.split_whitespace().collect::<Vec<_>>().join(" ");
+        if words.is_empty() {
+            return false;
+        }
+        self.said.clone_from(&words);
+        self.chosen = Some(Offer::Search(words.clone()));
+        if self.search != SetUp::Ready {
+            return false;
+        }
+        self.searches += 1;
+        if let Some(thread) = self.thread_mut() {
+            thread.search(words);
+        }
+        self.name_on_screen();
+        self.card_keys = false;
+        true
     }
 
     /// The card's page is `loading`, or has loaded (queue item 751): the

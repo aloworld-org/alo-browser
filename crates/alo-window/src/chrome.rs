@@ -77,12 +77,15 @@ use crate::chrome_hold::Unheld;
 use crate::chrome_profile::{Profile, Swept, new_profile};
 use crate::chrome_protocol::{self, Command, Declined, Malformed, Message, Version};
 use crate::chrome_record::Record;
+use crate::chrome_told::{self, Told};
 use crate::chrome_wire::{self, Frame, Frames, MOST_MESSAGE, Unframed};
 use crate::scale::Scale;
 use core::fmt;
 use std::io::ErrorKind;
+use std::io::{BufRead as _, Read as _};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command as Process, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, Command as Process, Stdio};
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 /// How long Chrome is waited for, to answer and to close, unless a caller
@@ -170,8 +173,16 @@ const FEATURES_OFF: &str = "--disable-features=AimEnabled,PreconnectToSearch,\
      NetworkTimeServiceQuerying,OptimizationHints,OptGuideOnDeviceModel,\
      SafeBrowsingHashPrefixRealTimeLookups,AsyncDns";
 
-/// The shell's whole script: move the pipes to 3 and 4, then become Chrome.
-const STARTER: &str = r#"exec "$0" "$@" 3<&0 4>&1 0</dev/null 1>/dev/null"#;
+/// The shell's whole script: move the pipes to 3 and 4 — and the error
+/// output alo reads to 5, where the Chromium alo carries tells what the
+/// pipe does not carry ([`crate::chrome_told`], queue items 799 and 798),
+/// its own error output going nowhere as before — then become Chrome.
+const STARTER: &str = r#"exec "$0" "$@" 3<&0 4>&1 5>&2 0</dev/null 1>/dev/null 2>/dev/null"#;
+
+/// The most lines of what a Chromium told beside its pipe held unread: a
+/// card's thread reads them every few milliseconds while it streams, and
+/// one that is not streaming drops what it is not told of in time.
+const HELD_TOLD: usize = 256;
 
 /// Chrome, running, with a pipe to it.
 pub struct Chrome {
@@ -187,6 +198,9 @@ pub struct Chrome {
     shown: bool,
     /// What its tabs asked for, and what caused each (ADR 0060 § 2).
     record: Record,
+    /// What it told beside its pipe, read on a thread of its own (queue
+    /// items 799 and 798): only the Chromium alo carries tells anything.
+    told: Receiver<Told>,
 }
 
 /// Why Chrome was not started.
@@ -263,6 +277,56 @@ impl fmt::Display for Failed {
             Self::Detached => {
                 f.write_str("the tab's page was closed, and Chrome answers nothing of it")
             }
+        }
+    }
+}
+
+/// What a Chromium tells on `beside`, its error output moved to 5, read
+/// line by line on a thread of its own as [`crate::chrome_told`] reads
+/// them: a line past the longest is passed over, one that is not as the
+/// host writes it dropped, and at most [`HELD_TOLD`] held unread, newer
+/// ones dropped meanwhile. The thread ends with the Chromium.
+fn told_beside(beside: ChildStderr) -> Receiver<Told> {
+    let (tell, told) = std::sync::mpsc::sync_channel(HELD_TOLD);
+    std::thread::spawn(move || {
+        let mut reading = std::io::BufReader::new(beside);
+        let mut line = Vec::new();
+        loop {
+            line.clear();
+            match (&mut reading)
+                .take(u64::try_from(chrome_told::LONGEST_LINE + 2).unwrap_or(u64::MAX))
+                .read_until(b'\n', &mut line)
+            {
+                Ok(0) | Err(_) => return,
+                Ok(_) => {}
+            }
+            if line.last() != Some(&b'\n') {
+                // Past the longest: passed over, to its end.
+                if skip_line(&mut reading).is_err() {
+                    return;
+                }
+                continue;
+            }
+            line.pop();
+            let read = std::str::from_utf8(&line).ok().and_then(chrome_told::read);
+            if let Some(read) = read
+                && let Err(std::sync::mpsc::TrySendError::Disconnected(_)) = tell.try_send(read)
+            {
+                return;
+            }
+        }
+    });
+    told
+}
+
+/// Read `reading` to the end of the line it is in.
+fn skip_line(reading: &mut impl std::io::BufRead) -> std::io::Result<()> {
+    let mut passed = Vec::new();
+    loop {
+        passed.clear();
+        let read = reading.take(4096).read_until(b'\n', &mut passed)?;
+        if read == 0 || passed.last() == Some(&b'\n') {
+            return Ok(());
         }
     }
 }
@@ -372,7 +436,7 @@ impl Chrome {
             .args(added)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn();
         let mut child = match spawned {
             Ok(child) => child,
@@ -380,8 +444,8 @@ impl Chrome {
                 return Err(Unstarted::Unspawned(why.kind()));
             }
         };
-        let (to, from) = (child.stdin.take(), child.stdout.take());
-        let (Some(to), Some(from)) = (to, from) else {
+        let (to, from, beside) = (child.stdin.take(), child.stdout.take(), child.stderr.take());
+        let (Some(to), Some(from), Some(beside)) = (to, from, beside) else {
             let _ = child.kill();
             let _ = child.wait();
             return Err(Unstarted::Unspawned(ErrorKind::BrokenPipe));
@@ -417,7 +481,14 @@ impl Chrome {
             profile,
             shown,
             record: Record::default(),
+            told: told_beside(beside),
         })
+    }
+
+    /// What it told beside its pipe since this was last asked, oldest
+    /// first (queue items 799 and 798).
+    pub fn take_told(&self) -> Vec<Told> {
+        self.told.try_iter().collect()
     }
 
     /// Wait at most `patience` for an answer, and for Chrome to close.

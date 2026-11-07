@@ -873,8 +873,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
   a frame and ends off the box, and a double click selects a word
   (`tests/a_persons_hover_and_double_click_on_a_card_through_chrome.rs`);
   measured to the frame told to the window, a hover 8–12 ms, a key 7–13 ms,
-  a press after a quiet half second ~110 ms. Owed: the other buttons and a
-  press with a modifier (798), the pointer's shape (799), a person's own
+  a press after a quiet half second ~110 ms. Owed: a person's own
   double-click interval (800), and to the glass (801).
   **The rest of a person's keys on the card** (741): the arrows, Home, End,
   Page Up and Down, the forward delete and F1–F20 sent as themselves with
@@ -883,8 +882,26 @@ The reason this exists rather than a faster fork of somebody else's engine.
   or Backspace — the page's, every other ⌘ or Ctrl key the browser's and the
   system's. Through both Chromiums an arrow moves a field's caret, ⌘A and
   typing replace its text, ⌘C and ⌘V paste, F5 is heard and Page Down and
-  Home scroll (`tests/a_persons_keys_on_a_card_through_chrome.rs`). Owed: an
-  input method's composition (802), Ctrl's text bindings on a Mac (803).
+  Home scroll (`tests/a_persons_keys_on_a_card_through_chrome.rs`). Owed:
+  Ctrl's text bindings on a Mac (803).
+  **A person on a card's page** (the owner's designs of 6 November 2026,
+  ADR 0076's fourth amendment): the Chromium alo carries tells alo, on a
+  line beside the pipe, what the pipe does not carry. **The pointer follows
+  the page** (799) — the hand over a link, the I-beam over words and fields,
+  every CSS shape — over the page box. **A link's address** in a strip at an
+  expanded card's bottom left, drawn by alo's host with AppKit (811).
+  **alo's own menu** on a secondary press — *Copy*, *Copy link*, *Open link
+  in new chat*, *Search for “…”* — where the page did not take the press
+  for itself, and a ⌘ or middle press on a link opening it as the next turn
+  (798). **A closed list** pressed by a person expands the card and opens
+  Chromium's own menu there; an agent on a card never opens one, choosing
+  by one key or not at all, the list's options in its column (810).
+  **Input methods** compose on the card's page, the candidates at the
+  field's words' end (802). Through the machine's Chrome only the closed
+  list and the input methods. Owed: a page's own pointer picture (846), a
+  caret moved back into the words (847), input methods in the box (848),
+  an option no one key reaches (849), the menu by keys (850), ⇧ and ⌥
+  presses (851), the strip's own face (852).
   **The first press on a card just opened** (805): the page's, measured —
   the window loses the keyboard two or three times for 10–30 ms as the
   card's Chromium starts and takes it back, and is the key window long
@@ -1381,7 +1398,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (`conversation_sheet.rs`). **The conversation's bar fades** (793, ADR
   0093's amendment): whole while it moves and a second after, faded out in
   300 ms, whole while the pointer is within 24 px of it
-  (`conversation_bar.rs`); dragging it is 845.
+  (`conversation_bar.rs`); dragging it is 845. **A person on a card's
+  page** (799, 811, 798, 810, 802): the pointer's shape, a link's strip once
+  expanded, alo's own menu, a closed list's normal dropdown and the agent's
+  list in its column, input methods — see *A page inside the conversation*.
 
 - [2] A window, tabs, and a tab strip.
   Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item

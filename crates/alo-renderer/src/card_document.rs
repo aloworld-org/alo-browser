@@ -182,6 +182,12 @@ fn fill(document: &mut Document, made: NodeId, card: &Card, column: Column) -> R
         attribute(document, picture, "alt", PICTURED)?;
         append(document, page, picture)?;
     }
+    if let Some(menu) = &card.menu {
+        // alo's menu over the page, where it was pressed (queue item 798).
+        let page = of_class(document, made, "page")?;
+        let drawn = crate::card_menu::make(document, menu)?;
+        append(document, page, drawn)?;
+    }
     if let Some(work) = &card.agent {
         // The agent at work (queue item 704): its column under the page,
         // and, while it works, the page outlined in the acting colour.

@@ -63,7 +63,8 @@
 //! the two apart.
 
 use crate::card_aim::{self, Turned};
-use crate::card_input::CardInput;
+use crate::card_cursor;
+use crate::card_input::{CardInput, Editing, Keyed, OtherPress, PersonsKey};
 use crate::card_keys;
 use crate::card_pointer::{CardPointer, OnThePage};
 use crate::chat_record;
@@ -84,11 +85,12 @@ use crate::conversation_place::{
 };
 use crate::conversation_search::{Came, Searched, Searcher};
 use crate::conversation_sheet::Slide;
-use crate::keys::{Held, Press};
+use crate::keys::{Held, Modifier, Press};
 use crate::scale::Scale;
 use crate::typing;
 use alo_layout::Size;
 use alo_renderer::Frame;
+use alo_renderer::card_menu::{CardMenu, MenuItem};
 use alo_renderer::conversation_scroll::{self, Reach};
 use alo_renderer::results::{PROVIDER, SetUp, Showing, Tab};
 use alo_renderer::split_place::Stands;
@@ -226,6 +228,44 @@ pub struct ConversationWindow {
     /// What the window reads the time from: the machine's clock, or a
     /// test's own ([`ConversationWindow::with_clock`]).
     clock: Box<dyn Fn() -> Instant>,
+    /// The pointer's shape the card's page last asked for, by its name in
+    /// CSS (queue item 799): told by the Chromium alo carries.
+    page_cursor: &'static str,
+    /// The pointer's shape the window was last asked to show.
+    shown_cursor: &'static str,
+    /// Whether the card's Chromium tells what its pipe does not carry
+    /// (queue items 799 and 798): the Chromium alo carries, never the
+    /// machine's Chrome.
+    tells: Telling,
+    /// What writes the system's clipboard (queue item 798's *Copy link*):
+    /// `pbcopy`, or a test's own ([`ConversationWindow::copy_with`]).
+    clipboard: Clipboard,
+    /// Input methods, as the window was last asked to take them (queue
+    /// item 802): whether allowed, and where the caret was told to be.
+    ime: Ime,
+}
+
+/// Input methods in the conversation's window (queue item 802).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct Ime {
+    /// Whether the window was last asked to allow them.
+    allowed: bool,
+    /// Where the card's page last said its caret is.
+    caret: Option<crate::chrome_card_caret::Caret>,
+    /// The caret's rectangle in the window's device pixels the window was
+    /// last asked to show candidates under.
+    shown: Option<(f64, f64, f64, f64)>,
+}
+
+/// What the event loop is to tell the window of input methods (queue item
+/// 802).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ImeAsked {
+    /// Allow them, or not, if that changed.
+    pub allowed: Option<bool>,
+    /// Show their candidates under this rectangle — left, top, width and
+    /// height in the window's device pixels — if it changed.
+    pub caret: Option<(f64, f64, f64, f64)>,
 }
 
 /// How the window's two threads ended.
@@ -252,12 +292,52 @@ struct Front {
     asked: bool,
 }
 
-/// What a press with `held` is said to have come to (queue item 805).
+/// What a press with `held` is said to have come to (queue items 805 and
+/// 798): on a card's page through the Chromium alo carries, ⌘ alone and
+/// Ctrl alone are taken; anything else held — and every press with one
+/// through the machine's Chrome, which tells alo nothing it would open —
+/// is nobody's.
 fn held_press(held: Held) -> String {
     format!(
-        "a press with {} held was not acted on: a press with a modifier is nobody's yet \
-         (queue item 798)",
+        "a press with {} held was not acted on: only ⌘ (a link opened as the next turn) \
+         and Ctrl (alo's menu) are taken, on a card's page through the Chromium alo carries",
         held.said()
+    )
+}
+
+/// The selection `selection` of `text`, given in bytes as winit gives an
+/// input method's, in UTF-16 code units as Chromium counts it — the end of
+/// the words when there is none, and a byte inside a character taken as
+/// its end (queue item 802).
+fn in_utf16(text: &str, selection: Option<(usize, usize)>) -> (usize, usize) {
+    let all = text.encode_utf16().count();
+    let units = |byte: usize| {
+        text.get(..byte)
+            .map_or(all, |before| before.encode_utf16().count())
+    };
+    selection.map_or((all, all), |(start, end)| (units(start), units(end)))
+}
+
+/// What writes the system's clipboard (queue item 798).
+type Clipboard = Box<dyn Fn(&str) -> Result<(), String>>;
+
+/// Whether the card's Chromium tells alo what its pipe does not carry
+/// (queue items 799 and 798).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Telling {
+    /// The Chromium alo carries: the pointer's shape, a context menu, a
+    /// link opened elsewhere.
+    Tells,
+    /// The machine's Chrome: nothing.
+    Silent,
+}
+
+/// What a press of the `button` button on a card's page through the
+/// machine's Chrome is said to have come to (queue item 798).
+fn untold(button: &str) -> String {
+    format!(
+        "a press of the {button} button was not acted on: only the Chromium alo carries tells \
+         alo what a card's page would open"
     )
 }
 
@@ -307,7 +387,102 @@ impl ConversationWindow {
             bar: BarFade::default(),
             moved_from: None,
             clock: Box::new(Instant::now),
+            page_cursor: card_cursor::ARROW,
+            shown_cursor: card_cursor::ARROW,
+            tells: Telling::Silent,
+            clipboard: Box::new(crate::clipboard::copy),
+            ime: Ime::default(),
         }
+    }
+
+    /// What the event loop is to tell the window of input methods now, if
+    /// anything changed (queue item 802): allowed while the card's page has
+    /// the keyboard — Japanese and Chinese composed there — and not
+    /// otherwise, so a key typed into alo's own box arrives as it always
+    /// has; and the candidates under the caret the page last said it has,
+    /// mapped into the window.
+    pub fn take_ime(&mut self) -> ImeAsked {
+        let allowed = self.conversation.keys_to_the_card() && !self.conversation.sheet();
+        let changed =
+            (allowed != std::mem::replace(&mut self.ime.allowed, allowed)).then_some(allowed);
+        if !allowed {
+            self.ime.caret = None;
+            self.ime.shown = None;
+        }
+        let caret = self
+            .ime
+            .caret
+            .and_then(|caret| self.caret_in_the_window(caret))
+            .filter(|at| Some(*at) != self.ime.shown);
+        if caret.is_some() {
+            self.ime.shown = caret;
+        }
+        ImeAsked {
+            allowed: changed,
+            caret,
+        }
+    }
+
+    /// The rectangle of `caret`, a point of the card's page, in the
+    /// window's device pixels — as the page box was last painted — one CSS
+    /// pixel wide and as tall as its line.
+    fn caret_in_the_window(
+        &self,
+        caret: crate::chrome_card_caret::Caret,
+    ) -> Option<(f64, f64, f64, f64)> {
+        let scene = self.scene()?;
+        let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
+        let painted = self.card_on_screen()?;
+        let page = painted.stands.page_box(painted.viewport, painted.down);
+        let device = |css: f64| css * f64::from(scene.scale.factor());
+        Some((
+            f64::from(placed.start.x) + device(f64::from(page.left()) + f64::from(caret.x)),
+            f64::from(placed.start.y) + device(f64::from(page.top()) + f64::from(caret.y)),
+            device(1.0),
+            device(f64::from(caret.height)),
+        ))
+    }
+
+    /// An input method's composition, `text` with its selection at the
+    /// bytes `selection` of it, while the card's page has the keyboard
+    /// (queue item 802): the page's, as Chromium composes one, the
+    /// selection counted in UTF-16 code units as it counts them.
+    pub fn composing(&mut self, text: &str, selection: Option<(usize, usize)>) {
+        if !self.conversation.keys_to_the_card() {
+            return;
+        }
+        self.to_the_page(CardInput::Compose {
+            text: text.to_owned(),
+            selection: in_utf16(text, selection),
+        });
+    }
+
+    /// What an input method's composition came to, `text`, put into the
+    /// card's page's field (queue item 802).
+    pub fn committed(&mut self, text: &str) {
+        if self.conversation.keys_to_the_card() && !text.is_empty() {
+            self.to_the_page(CardInput::Commit(text.to_owned()));
+        }
+    }
+
+    /// Write the clipboard with `clipboard` rather than the system's: what
+    /// a test of *Copy link* sets, so no test touches a person's clipboard
+    /// (queue item 798).
+    pub fn copy_with(&mut self, clipboard: impl Fn(&str) -> Result<(), String> + 'static) {
+        self.clipboard = Box::new(clipboard);
+    }
+
+    /// The pointer's shape the window is to show now, by its name in CSS,
+    /// if it is not the one it was last asked to show (queue item 799): the
+    /// one the card's page asked for while the pointer is over its page
+    /// box, or a press on it is held; the arrow anywhere else.
+    pub fn take_cursor(&mut self) -> Option<&'static str> {
+        let over = self
+            .cursor
+            .is_some_and(|at| matches!(self.aimed(at), Some(card_aim::Aimed::Page { .. })))
+            && !self.conversation.sheet();
+        let wanted = card_cursor::shown(self.page_cursor, over, self.pointer.holds());
+        (wanted != std::mem::replace(&mut self.shown_cursor, wanted)).then_some(wanted)
     }
 
     /// The same window, reading the time from `clock` rather than the
@@ -403,6 +578,11 @@ impl ConversationWindow {
             }
             Said::Step { line, why, .. } => self.said.push(format!("agent: {line} ({why})")),
             Said::Asking { what, .. } => self.said.push(format!("agent asks: {what}")),
+            Said::Choosing(choosing) => self.said.push(format!(
+                "agent chooses in {}, of {} options",
+                choosing.list,
+                choosing.options.len()
+            )),
             Said::Allowed => self.said.push("agent: allowed by the person".to_owned()),
             Said::Stuck { why, .. } => self.said.push(format!("agent is stuck: {why}")),
             Said::Done { result } => self.said.push(format!("agent is done: {result}")),
@@ -828,7 +1008,98 @@ impl ConversationWindow {
     fn aimed(&self, at: (f64, f64)) -> Option<card_aim::Aimed> {
         let scene = self.scene()?;
         let placed = ConversationPlacement::of(scene.window, scene.scale, scene.parts());
-        card_aim::aim(&placed, scene.scale, self.card_on_screen(), at)
+        let aimed = card_aim::aim(&placed, scene.scale, self.card_on_screen(), at)?;
+        // alo's menu over the page is the first screen's, not the page's
+        // (queue item 798): a press on it is claimed and decided as any.
+        if let card_aim::Aimed::Page { x, y } = aimed
+            && self
+                .conversation
+                .card_menu()
+                .is_some_and(|menu| menu.holds((x, y)))
+        {
+            return crate::conversation_aim::aim(&placed, scene.scale, at)
+                .map(|(part, on)| card_aim::Aimed::Part(part, on));
+        }
+        Some(aimed)
+    }
+
+    /// Whether the point `at` is over alo's menu over the card's page.
+    fn on_the_menu(&self, at: (f64, f64)) -> bool {
+        self.on_the_card(at).is_some_and(|on| {
+            self.conversation
+                .card_menu()
+                .is_some_and(|menu| menu.holds(on))
+        })
+    }
+
+    /// Close alo's menu over the card's page, if one is open, and draw the
+    /// first screen again (queue item 798): whether one was.
+    fn close_menu(&mut self) -> bool {
+        let closed = self.conversation.close_card_menu();
+        if closed {
+            self.redraw = true;
+            self.ask_drawn();
+        }
+        closed
+    }
+
+    /// A press that is not the main button's alone over the card's page at
+    /// `x`, `y` (queue item 798): sent to the page, through a Chromium that
+    /// tells what it then does; through one that does not, nobody's, and
+    /// said, as `held` says.
+    fn other_press(&mut self, press: OtherPress, x: f64, y: f64, held: Held) {
+        let _ = self.close_menu();
+        if self.tells == Telling::Silent {
+            self.tell(match press {
+                OtherPress::Secondary if held == Held::NOTHING => untold("secondary"),
+                OtherPress::Middle => untold("middle"),
+                OtherPress::Secondary | OtherPress::Command => held_press(held),
+            });
+            self.redraw = true;
+            return;
+        }
+        if self.told.take().is_some() {
+            self.redraw = true;
+        }
+        if self
+            .conversation
+            .stop_agent(crate::conversation::TAKEN_OVER)
+            .is_some()
+        {
+            self.follow_runs();
+            self.redraw = true;
+            self.ask_drawn();
+        }
+        if self.conversation.press_the_page() {
+            self.ask_drawn();
+        }
+        self.to_the_page(CardInput::Other { press, x, y });
+    }
+
+    /// The secondary or the middle button went down (queue item 798): over
+    /// the card's page, the page's — alo's menu, or a link opened as the
+    /// next turn, as its Chromium tells — and anywhere else nothing, but
+    /// closing alo's menu.
+    pub fn other_button_pressed(&mut self, middle: bool) {
+        let Some(at) = self.cursor else {
+            return;
+        };
+        if self.conversation.sheet() {
+            return;
+        }
+        match self.aimed(at) {
+            Some(card_aim::Aimed::Page { x, y }) => {
+                let press = if middle {
+                    OtherPress::Middle
+                } else {
+                    OtherPress::Secondary
+                };
+                self.other_press(press, x, y, self.held);
+            }
+            _ => {
+                let _ = self.close_menu();
+            }
+        }
     }
 
     /// Where the point `at` is on the card's page, wherever it is, while
@@ -1018,10 +1289,38 @@ impl ConversationWindow {
             return;
         };
         if self.held != Held::NOTHING {
-            if self.aimed(at).is_some() {
-                self.tell(held_press(self.held));
-                self.redraw = true;
+            let aimed = self.aimed(at);
+            // ⌘ alone on the page opens a link as the next turn, and Ctrl
+            // alone is the secondary button, as a Mac takes it (queue item
+            // 798).
+            let alone = [Modifier::Command, Modifier::Control]
+                .into_iter()
+                .find(|modifier| self.held == Held::NOTHING.with(*modifier));
+            match (aimed, alone) {
+                (Some(card_aim::Aimed::Page { x, y }), Some(modifier)) => {
+                    let press = if modifier == Modifier::Command {
+                        OtherPress::Command
+                    } else {
+                        OtherPress::Secondary
+                    };
+                    self.other_press(press, x, y, self.held);
+                }
+                (Some(_), _) => {
+                    let _ = self.close_menu();
+                    self.tell(held_press(self.held));
+                    self.redraw = true;
+                }
+                (None, _) => {}
             }
+            return;
+        }
+        // alo's menu open over the page (queue item 798): a press on it is
+        // its own; anywhere else closes it, and is nothing else, as a
+        // menu's closing press is.
+        if self.conversation.card_menu().is_some()
+            && !matches!(self.aimed(at), Some(card_aim::Aimed::Part(Part::Start, _)) if self.on_the_menu(at))
+        {
+            let _ = self.close_menu();
             return;
         }
         // The sheet out over the conversation (queue item 776): a press on
@@ -1154,6 +1453,8 @@ impl ConversationWindow {
             return;
         };
         let (right, down) = card_aim::scrolled(turned, scale);
+        // A wheel closes alo's menu, as a scroll closes a menu (798).
+        let _ = self.close_menu();
         // Nothing under the sheet scrolls, and the panel does not (776).
         if self.conversation.sheet() {
             return;
@@ -1210,8 +1511,13 @@ impl ConversationWindow {
         self.redraw = true;
         let go = matches!(
             pressed,
-            Decided::Go | Decided::Found(_) | Decided::Offer(_) | Decided::Image(_)
+            Decided::Go
+                | Decided::Found(_)
+                | Decided::Offer(_)
+                | Decided::Image(_)
+                | Decided::MenuItem(MenuItem::OpenInNewChat(_) | MenuItem::Search(_))
         );
+        self.menu_pressed(&pressed);
         let had_a_card = self.conversation.card().is_some();
         let show = matches!(pressed, Decided::ShowThePanel);
         let sheet = self.conversation.sheet();
@@ -1259,6 +1565,26 @@ impl ConversationWindow {
         }
         self.keep();
         self.remove_gone();
+    }
+
+    /// What a line of alo's menu over the card's page copies (queue item
+    /// 798): what is selected on the page, as ⌘C copies it there; a link's
+    /// address, on the system's clipboard. The other lines are the
+    /// conversation's ([`Conversation::act`]).
+    fn menu_pressed(&mut self, pressed: &Decided) {
+        match pressed {
+            Decided::MenuItem(MenuItem::Copy { selected: true }) => {
+                self.to_the_page(CardInput::Key(PersonsKey {
+                    key: Keyed::Editing(Editing::Copy),
+                    held: Held::NOTHING.with(Modifier::Command),
+                }));
+            }
+            Decided::MenuItem(MenuItem::CopyLink(address)) => match (self.clipboard)(address) {
+                Ok(()) => self.said.push(format!("copied the link {address}")),
+                Err(why) => self.tell(format!("the link was not copied: {why}")),
+            },
+            _ => {}
+        }
     }
 
     /// Close the live card's page if what was just done put the card away —
@@ -1440,7 +1766,10 @@ impl ConversationWindow {
             | Went::Unstreamed(_)
             | Went::Moved(_)
             | Went::Loading(_)
-            | Went::Travel(_) => {}
+            | Went::Travel(_)
+            // What the card's Chromium told beside its pipe is shown as
+            // what it asks for, never said.
+            | Went::Told(_) => {}
             // Said on the terminal only, one line a request: the card shows
             // nothing of it yet (ADR 0094 § 6).
             Went::Blocked { .. } => self.said.push(said.clone()),
@@ -1458,8 +1787,10 @@ impl ConversationWindow {
         }
         let changed = match went {
             Went::Opening(url) => {
-                // Another page: nothing held, hovered or counted on it.
+                // Another page: nothing held, hovered or counted on it, and
+                // the arrow until it asks for another shape.
                 self.pointer.forget();
+                self.page_cursor = card_cursor::ARROW;
                 self.conversation.open_card(url);
                 true
             }
@@ -1481,7 +1812,12 @@ impl ConversationWindow {
                 self.front.owed = false;
                 self.conversation.close_card()
             }
-            Went::Opened { .. } => {
+            Went::Opened { shown, .. } => {
+                self.tells = if shown.tells {
+                    Telling::Tells
+                } else {
+                    Telling::Silent
+                };
                 // Its Chromium took the front as it showed its parked
                 // window; the window had it as the address was chosen, and
                 // has not had it back.
@@ -1491,6 +1827,22 @@ impl ConversationWindow {
             // Counted on the card's shield (queue item 807).
             Went::Blocked { .. } => self.conversation.blocked(),
             Went::Unstreamed(_) => false,
+            Went::Told(told) => self.told_beside(told),
+            // Where the person is typing, for an input method's candidates
+            // (queue item 802).
+            Went::Caret(caret) => {
+                self.ime.caret = Some(caret);
+                false
+            }
+            // A closed list pressed on the card's page (queue item 810):
+            // the card expanded, as *Expand* does, and its thread presses
+            // the list again there, where its menu is seen.
+            Went::ListPressed => {
+                if let Some(chrome) = &self.chrome {
+                    chrome.expand(self.over_the_first_screen());
+                }
+                false
+            }
         };
         if changed {
             self.ask_drawn();
@@ -1499,6 +1851,44 @@ impl ConversationWindow {
                 self.keep();
                 // The card gone or replaced: its agent with it.
                 self.follow_runs();
+            }
+        }
+    }
+
+    /// What the card's Chromium told beside its pipe (queue items 799 and
+    /// 798), acted on: whether the parts are to be drawn again.
+    fn told_beside(&mut self, told: crate::chrome_told::Told) -> bool {
+        match told {
+            crate::chrome_told::Told::Cursor(shape) => {
+                self.page_cursor = shape;
+                false
+            }
+            // alo's menu where the page was pressed, inside its page box
+            // (queue item 798).
+            crate::chrome_told::Told::Menu(menu) => {
+                let Some(streamed) = self.card_streamed() else {
+                    return false;
+                };
+                let items = CardMenu::offering(menu.link.as_deref(), menu.selection.as_deref());
+                self.conversation
+                    .open_card_menu(CardMenu::placed(menu.at, streamed.page, items))
+            }
+            // A link pressed with ⌘ or the middle button: the
+            // conversation's next turn (queue item 798).
+            crate::chrome_told::Told::Open(address) => {
+                if self.conversation.open_link(&address) {
+                    self.start_said = self.conversation.chosen().map(|chosen| {
+                        conversation_box::said(
+                            chosen,
+                            self.searching(),
+                            &self.conversation.asking(),
+                        )
+                    });
+                    self.go();
+                    true
+                } else {
+                    false
+                }
             }
         }
     }
@@ -1606,6 +1996,12 @@ impl ConversationWindow {
                 self.ask_drawn();
                 self.redraw = true;
             }
+            return;
+        }
+        // Escape closes alo's menu over the page, and is nothing else
+        // (queue item 798).
+        if press.key == crate::keys::Key::Escape && press.held == Held::NOTHING && self.close_menu()
+        {
             return;
         }
         if self.conversation.keys_to_the_card() {
@@ -1849,8 +2245,9 @@ mod tests {
         // its release leaves it held (805).
         window.moved((640.0, 400.0));
         window.main_button_pressed();
-        let said = "a press with ⌘ held was not acted on: a press with a modifier is \
-                    nobody's yet (queue item 798)";
+        let said = "a press with ⌘ held was not acted on: only ⌘ (a link opened as the next \
+                    turn) and Ctrl (alo's menu) are taken, on a card's page through the \
+                    Chromium alo carries";
         assert_eq!(window.told(), Some(said));
         assert_eq!(window.take_said(), vec![said.to_owned()]);
         assert!(window.take_redraw(), "drawn in the first screen's line");
@@ -1865,6 +2262,202 @@ mod tests {
         window.held(Held::NOTHING);
         window.main_button_pressed();
         assert!(window.take_said().is_empty());
+        window.finish();
+    }
+
+    /// A window holding a card with a frame of its page, both parts
+    /// painted, and a point of the window over the card's page box.
+    fn with_a_card() -> (ConversationWindow, (f64, f64)) {
+        let mut window = window();
+        let url = alo_url::parse("https://a.example/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        window.heard(Heard::Chrome(Went::Framed(vec![1])));
+        let sized = |width: u32, height: u32| Frame {
+            width,
+            height,
+            pixels: vec![0; usize::try_from(width * height * 4).unwrap()],
+        };
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Panel, sized(240, 820))));
+        window.heard(Heard::Drawn(Drawn::Painted(Part::Start, sized(1040, 820))));
+        let over = (0..80)
+            .map(|step| (760.0, f64::from(step) * 10.0))
+            .find(|at| matches!(window.aimed(*at), Some(card_aim::Aimed::Page { .. })))
+            .unwrap();
+        (window, over)
+    }
+
+    #[test]
+    fn the_pointer_takes_the_shape_the_cards_page_asks_for_over_it_alone() {
+        use crate::chrome_told::Told;
+        let (mut window, over) = with_a_card();
+        let _ = window.take_cursor();
+        window.moved(over);
+        assert_eq!(window.take_cursor(), None, "the arrow, as before");
+        window.heard(Heard::Chrome(Went::Told(Told::Cursor("pointer"))));
+        assert_eq!(
+            window.take_cursor(),
+            Some("pointer"),
+            "the hand over a link"
+        );
+        assert_eq!(window.take_cursor(), None, "asked once");
+        window.heard(Heard::Chrome(Went::Told(Told::Cursor("text"))));
+        assert_eq!(window.take_cursor(), Some("text"));
+        // Off the page — the panel — the arrow; back over it, the page's.
+        window.moved((100.0, 400.0));
+        assert_eq!(window.take_cursor(), Some("default"));
+        window.moved(over);
+        assert_eq!(window.take_cursor(), Some("text"));
+        // A press held on the page keeps the page's shape off it.
+        window.main_button_pressed();
+        window.moved((100.0, 400.0));
+        assert_eq!(window.take_cursor(), None, "a selection dragged off");
+        window.main_button_released();
+        window.moved((100.0, 401.0));
+        assert_eq!(window.take_cursor(), Some("default"));
+        // Another page begins at the arrow.
+        let next = alo_url::parse("https://b.example/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(next)));
+        window.heard(Heard::Chrome(Went::Framed(vec![1])));
+        window.moved(over);
+        assert_eq!(
+            window.take_cursor(),
+            None,
+            "the arrow on a page that asked nothing"
+        );
+        window.finish();
+    }
+
+    #[test]
+    fn alos_menu_opens_inside_the_page_box_and_a_link_told_opened_is_the_next_turn() {
+        use crate::chrome_told::{Menu, Told};
+        let (mut window, over) = with_a_card();
+        let menu = |at| {
+            Heard::Chrome(Went::Told(Told::Menu(Menu {
+                at,
+                link: Some("https://a.example/b".to_owned()),
+                selection: Some("words".to_owned()),
+                editable: false,
+            })))
+        };
+        // Pressed near the page box's right foot: moved left and above.
+        window.heard(menu((800, 500)));
+        let opened = window.conversation().card_menu().cloned().unwrap();
+        assert_eq!(opened.at, (658, 370));
+        assert_eq!(opened.items.len(), 4);
+        // Escape closes it; a wheel too.
+        window.key(&Press::of(crate::keys::Key::Escape), None);
+        assert!(window.conversation().card_menu().is_none());
+        window.heard(menu((10, 10)));
+        window.moved(over);
+        window.wheeled(Turned::Lines {
+            across: 0.0,
+            down: -1.0,
+        });
+        assert!(window.conversation().card_menu().is_none());
+        // A press beside it closes it and is nothing else: the page does
+        // not take the keyboard.
+        window.heard(menu((10, 10)));
+        window.moved(over);
+        window.main_button_pressed();
+        assert!(window.conversation().card_menu().is_none());
+        assert!(!window.conversation().keys_to_the_card());
+        // A link the page's Chromium told opened is chosen as the next
+        // turn, its bubble its address.
+        window.heard(Heard::Chrome(Went::Told(Told::Open(
+            "https://b.example/next".to_owned(),
+        ))));
+        assert_eq!(
+            window
+                .conversation()
+                .going()
+                .map(|url| url.serialised.as_str()),
+            Some("https://b.example/next")
+        );
+        // Not a site's address: nothing chosen.
+        window.heard(Heard::Chrome(Went::Told(Told::Open(
+            "mailto:a@b.c".to_owned(),
+        ))));
+        assert_eq!(
+            window
+                .conversation()
+                .going()
+                .map(|url| url.serialised.as_str()),
+            Some("https://b.example/next")
+        );
+        window.finish();
+    }
+
+    #[test]
+    fn another_press_through_a_chromium_that_tells_nothing_is_said() {
+        let (mut window, over) = with_a_card();
+        window.moved(over);
+        window.other_button_pressed(false);
+        assert_eq!(
+            window.told(),
+            Some(
+                "a press of the secondary button was not acted on: only the Chromium alo \
+                 carries tells alo what a card's page would open"
+            )
+        );
+        window.other_button_pressed(true);
+        assert!(
+            window
+                .told()
+                .is_some_and(|told| told.starts_with("a press of the middle"))
+        );
+        window.held(Held::NOTHING.with(Modifier::Control));
+        window.main_button_pressed();
+        assert!(
+            window
+                .told()
+                .is_some_and(|told| told.starts_with("a press with ⌃ held"))
+        );
+        window.finish();
+    }
+
+    #[test]
+    fn input_methods_are_allowed_while_the_page_has_the_keyboard_and_shown_at_its_caret() {
+        use crate::chrome_card_caret::Caret;
+        // winit's bytes, Chromium's UTF-16 code units.
+        assert_eq!(in_utf16("きょう", Some((9, 9))), (3, 3));
+        assert_eq!(in_utf16("きょう", Some((3, 6))), (1, 2));
+        assert_eq!(in_utf16("a😀", None), (3, 3));
+        assert_eq!(
+            in_utf16("きょう", Some((1, 1))),
+            (3, 3),
+            "inside a character"
+        );
+        let (mut window, over) = with_a_card();
+        assert_eq!(
+            window.take_ime(),
+            ImeAsked {
+                allowed: None,
+                caret: None
+            }
+        );
+        window.moved(over);
+        window.main_button_pressed();
+        window.main_button_released();
+        assert!(window.conversation().keys_to_the_card());
+        assert_eq!(window.take_ime().allowed, Some(true));
+        window.heard(Heard::Chrome(Went::Caret(Caret {
+            x: 10,
+            y: 20,
+            height: 23,
+        })));
+        let shown = window.take_ime().caret.unwrap();
+        // One CSS pixel wide at one, as tall as the line, inside the page
+        // box the press was over.
+        assert_eq!(
+            (shown.2.to_bits(), shown.3.to_bits()),
+            (1.0_f64.to_bits(), 23.0_f64.to_bits())
+        );
+        let on_the_page = window.on_the_card((shown.0, shown.1)).unwrap();
+        assert_eq!(
+            (on_the_page.0.to_bits(), on_the_page.1.to_bits()),
+            (10.0_f64.to_bits(), 20.0_f64.to_bits())
+        );
+        assert_eq!(window.take_ime().caret, None, "asked once");
         window.finish();
     }
 
@@ -2120,6 +2713,7 @@ mod tests {
             process: 7,
             profile: PathBuf::from("/nowhere"),
             window: None,
+            tells: false,
         }
     }
 

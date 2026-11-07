@@ -660,6 +660,7 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
             asked: "send <it>".to_owned(),
             steps: vec![step.clone(); MOST_STEPS],
             now,
+            choosing: None,
         });
         let bytes = write_to_renderer(&original);
         let back = read_to_renderer(&bytes)
@@ -671,6 +672,7 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
             asked: String::new(),
             steps: vec![step.clone(); MOST_STEPS + 1],
             now: Now::Acting,
+            choosing: None,
         }),
         card(AtWork {
             asked: String::new(),
@@ -679,8 +681,62 @@ fn the_agent_at_work_crosses_and_too_many_steps_or_choices_are_refused() {
                 why: String::new(),
                 choices: vec!["a".to_owned(); MOST_CHOICES + 1],
             },
+            choosing: None,
         }),
     ] {
+        let bytes = write_to_renderer(&refused);
+        assert!(read_to_renderer(&bytes).is_err(), "{refused:?} was read");
+    }
+}
+
+/// Queue items 798 and 810: alo's menu over a card's page and the closed
+/// list the agent chooses in cross as they were sent, strangers' words
+/// intact; a menu of more than four lines, a line of no kind, and a list
+/// whose chosen option is past its options are refused.
+#[test]
+fn a_cards_menu_and_the_list_the_agent_chooses_in_cross_and_nonsense_is_refused() {
+    use alo_renderer::agent_work::{AtWork, Dropdown, Now};
+    use alo_renderer::card_menu::{CardMenu, MenuItem};
+    let card = |menu: Option<CardMenu>, choosing: Option<Dropdown>| {
+        let mut card = alo_renderer::card::Card::new(
+            "a page",
+            alo_url::parse("https://example.com/").unwrap_or_else(|_| panic!("parses")),
+        );
+        card.menu = menu;
+        card.agent = Some(AtWork {
+            asked: "choose".to_owned(),
+            steps: Vec::new(),
+            now: Now::Acting,
+            choosing,
+        });
+        ToRenderer::Start(Box::new(Start {
+            turns: vec![Turn::Page(card)],
+            ..Start::default()
+        }))
+    };
+    let menu = CardMenu {
+        at: (658, 370),
+        items: vec![
+            MenuItem::Copy { selected: true },
+            MenuItem::CopyLink("https://a.example/\0</p>".to_owned()),
+            MenuItem::OpenInNewChat("https://a.example/".to_owned()),
+            MenuItem::Search("<b>words</b>\n".to_owned()),
+        ],
+    };
+    let choosing = Dropdown {
+        list: "Fruit </ul>".to_owned(),
+        options: vec!["Apples".to_owned(), "Dates\0".to_owned()],
+        chosen: 1,
+    };
+    let original = card(Some(menu.clone()), Some(choosing.clone()));
+    let bytes = write_to_renderer(&original);
+    let back = read_to_renderer(&bytes).unwrap_or_else(|why| panic!("did not survive: {why}"));
+    assert_eq!(back, original);
+    let mut five = menu.clone();
+    five.items.push(MenuItem::Copy { selected: false });
+    let mut past = choosing.clone();
+    past.chosen = 2;
+    for refused in [card(Some(five), None), card(None, Some(past))] {
         let bytes = write_to_renderer(&refused);
         assert!(read_to_renderer(&bytes).is_err(), "{refused:?} was read");
     }

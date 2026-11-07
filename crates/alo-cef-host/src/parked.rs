@@ -126,6 +126,23 @@ impl Stage {
     pub fn prompts(self) -> bool {
         self == Self::Seen
     }
+
+    /// Whether the host tells alo what Chromium tells it of the page — the
+    /// pointer's shape, a context menu, a link to open elsewhere
+    /// (`told.rs`, queue items 799 and 798) — and keeps them from
+    /// Chromium's own answer: only while the card is unseen, a picture in
+    /// alo's conversation. Seen, the page is in a window a person works
+    /// in, which Chromium answers itself, as Chrome does.
+    pub fn tells(self) -> bool {
+        self != Self::Seen
+    }
+
+    /// Whether the host shows a link's address in its own strip at the
+    /// window's bottom left (`strip.rs`, queue item 811): only once seen,
+    /// since a card's browser has no status bubble of Chromium's.
+    pub fn strips(self) -> bool {
+        self == Self::Seen
+    }
 }
 
 /// Whether a window at `window` has been put where a person is to see it,
@@ -266,6 +283,14 @@ mod tests {
         assert!(!Stage::Opened.prompts());
         assert!(!Stage::Parked.prompts());
         assert!(Stage::Seen.prompts());
+    }
+
+    #[test]
+    fn an_unseen_card_tells_alo_and_a_seen_one_shows_its_own_strip() {
+        assert!(Stage::Opened.tells() && Stage::Parked.tells());
+        assert!(!Stage::Seen.tells());
+        assert!(!Stage::Opened.strips() && !Stage::Parked.strips());
+        assert!(Stage::Seen.strips());
     }
 
     #[test]

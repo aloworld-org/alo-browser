@@ -118,7 +118,10 @@ fn agents_line(news: ToFrame) -> Option<AgentLine> {
         | ToFrame::Moved(_)
         | ToFrame::Loading(_)
         | ToFrame::Travel(_)
-        | ToFrame::Blocked { .. } => None,
+        | ToFrame::Blocked { .. }
+        | ToFrame::Told(_)
+        | ToFrame::ListPressed
+        | ToFrame::Caret(_) => None,
     }
 }
 

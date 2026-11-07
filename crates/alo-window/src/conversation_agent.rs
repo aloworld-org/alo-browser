@@ -125,6 +125,9 @@ pub enum Said {
         /// What the person is asked.
         what: String,
     },
+    /// The step begun chooses in a closed list: its options, shown in the
+    /// agent's column (queue item 810).
+    Choosing(alo_renderer::agent_work::Dropdown),
     /// The person allowed it, and it goes on.
     Allowed,
     /// It cannot go on: why, and its choices.
@@ -477,6 +480,14 @@ impl Running {
         }
         // Judged on the page as it is now, not as the model was sent it.
         let (now_at, now) = self.read()?;
+        // An option of a closed list: its options in the column, never a
+        // menu opened where nobody sees it (queue item 810).
+        if matches!(verb, Verb::Activate)
+            && let Some(choosing) = crate::agent_dropdown::of(&now, node)
+            && !self.say(Said::Choosing(choosing))
+        {
+            return Err(None);
+        }
         let host = alo_url::parse(&now_at)
             .map(|url| alo_url::reading::host(&url))
             .unwrap_or_default();

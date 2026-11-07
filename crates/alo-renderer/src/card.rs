@@ -32,6 +32,7 @@
 
 use crate::agent_ran::Ran;
 use crate::agent_work::AtWork;
+use crate::card_menu::CardMenu;
 use alo_url::Url;
 
 /// What the card's picture is named by, as an `<img>`'s `src`: a name no
@@ -77,6 +78,9 @@ pub struct Card {
     /// its site — or [`None`], drawing no shield, for a card no Chromium
     /// judges.
     pub shield: Option<Shield>,
+    /// alo's own menu over its page, while a person's secondary press
+    /// opened it (queue item 798).
+    pub menu: Option<CardMenu>,
 }
 
 /// A card's shield: a switch, pressed to turn blocking off for the page's
@@ -104,6 +108,7 @@ impl Card {
             agent: None,
             ran: Vec::new(),
             shield: None,
+            menu: None,
         }
     }
 

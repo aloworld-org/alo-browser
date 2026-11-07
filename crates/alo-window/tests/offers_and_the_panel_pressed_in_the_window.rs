@@ -41,6 +41,7 @@ use alo_renderer::turn::Turn;
 use alo_renderer::typed::Offer;
 use alo_window::beside::{Chromium, renderer_beside};
 use alo_window::brave_search::Provider;
+use alo_window::chrome_told::{Menu, Told};
 use alo_window::conversation::ChatId;
 use alo_window::conversation_chrome::{ChromeOpener, Went};
 use alo_window::conversation_drawing::{ConversationDrawing, Drawn};
@@ -410,6 +411,108 @@ fn the_shield_pressed(driven: &mut Driven) -> Result<(), String> {
         driven.said
     );
     Ok(())
+}
+
+/// Queue item 798: alo's menu over the card's page, opened as the card's
+/// Chromium tells a secondary press over a link with a word selected, and
+/// pressed through the window's own road — its lines claimed by the
+/// drawing thread and decided against the menu it painted.
+fn the_menu_pressed(driven: &mut Driven) -> Result<(), String> {
+    let url = alo_url::parse("http://127.0.0.1:8765/card.html").map_err(|why| why.to_string())?;
+    let png = std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../alo-renderer/tests/references/card-frame.png"),
+    )
+    .map_err(|why| format!("no card frame: {why}"))?;
+    let copied = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let copying = std::rc::Rc::clone(&copied);
+    driven.window.copy_with(move |text| {
+        copying.borrow_mut().push(text.to_owned());
+        Ok(())
+    });
+    driven.window.heard(Heard::Chrome(Went::Opening(url)));
+    driven.window.heard(Heard::Chrome(Went::Framed(png)));
+    driven.until("the card's picture painted", |driven| {
+        driven.shows(111, 175, HEADER)
+    })?;
+    let link = "http://127.0.0.1:8765/elsewhere.html";
+    let menu = || {
+        Heard::Chrome(Went::Told(Told::Menu(Menu {
+            at: (60, 52),
+            link: Some(link.to_owned()),
+            selection: Some("Kampala".to_owned()),
+            editable: false,
+        })))
+    };
+    // The menu at the press, 60 across and 52 down the page box, which in
+    // a fresh chat stands 81 into the first screen — itself 240 into the
+    // window — under the card's bar: its white 1 inside its border, from
+    // 141 + 1 across. Its lines are found from where its white begins.
+    let open = |driven: &mut Driven| -> Result<f64, String> {
+        driven.window.heard(menu());
+        driven.until("the menu painted over the page", |driven| {
+            driven
+                .window
+                .conversation()
+                .card_menu()
+                .is_some_and(|menu| menu.at == (60, 52))
+                && driven.shows(150, 240, [0xff, 0xff, 0xff, 0xff])
+        })?;
+        // The page box's top: where the page's blue header begins, 111
+        // across, left of the menu.
+        let frame = driven.painted().ok_or("no first screen")?;
+        let top = (0..400)
+            .find(|y| pixel(&frame, 111, *y) == Some(HEADER))
+            .ok_or("no page drawn")?;
+        // The first line's middle: the press 52 down, the menu's border 1
+        // and its 4 inside, then 15 into the 30 of a line.
+        Ok(f64::from(top) + 52.0 + 1.0 + 4.0 + 15.0)
+    };
+    let first = open(driven)?;
+    assert_eq!(driven.window.conversation().showing().menu.len(), 4);
+    // Copy link, the second line.
+    driven.click((440.0, first + 30.0));
+    driven.until("the link copied", |_| copied.borrow().len() == 1)?;
+    assert_eq!(copied.borrow().as_slice(), [link.to_owned()]);
+    assert!(driven.window.conversation().card_menu().is_none(), "closed");
+    assert_eq!(driven.window.told(), None, "the press was not refused");
+    // A press beside it closes it, and reaches nothing.
+    let _ = open(driven)?;
+    driven.click((900.0, 600.0));
+    assert!(driven.window.conversation().card_menu().is_none());
+    assert!(
+        !driven.window.conversation().keys_to_the_card(),
+        "the closing press went to the page"
+    );
+    // Escape closes it.
+    let _ = open(driven)?;
+    driven.window.key(&Press::of(Key::Escape), None);
+    assert!(driven.window.conversation().card_menu().is_none());
+    // Open link in new chat, the third line: a new chat, going there.
+    let first = open(driven)?;
+    let before = driven.window.conversation().on_screen();
+    driven.click((440.0, first + 60.0));
+    driven.until("the link opened in a new chat", |driven| {
+        driven.window.conversation().on_screen() != before
+            && driven
+                .window
+                .conversation()
+                .going()
+                .is_some_and(|going| going.serialised == link)
+    })?;
+    Ok(())
+}
+
+#[test]
+fn alos_menu_over_a_card_pressed_through_the_windows_own_road() -> Result<(), String> {
+    let port = provide()?;
+    let mut driven = the_window(port, WINDOW, Scale::ONE)?;
+    the_menu_pressed(&mut driven)?;
+    driven.window.finish();
+    match driven.window.unfinished() {
+        Some(why) => Err(why.to_owned()),
+        None => Ok(()),
+    }
 }
 
 /// Step 4: Search chats.

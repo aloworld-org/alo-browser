@@ -130,9 +130,9 @@ declare -a BOUNDARIES=(
   # items 771, 781), and where a context menu is dismissed before its page
   # closes (queue item 734).
   "cef:crates/alo-cef-host/src/host.rs,crates/alo-cef-host/src/window.rs,crates/alo-cef-host/src/application_mac.rs"
-  "objc2:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs,crates/alo-cef-host/src/dismissed_mac.rs"
-  "objc2_app_kit:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs,crates/alo-cef-host/src/dismissed_mac.rs"
-  "objc2_foundation:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/dismissed_mac.rs"
+  "objc2:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs,crates/alo-cef-host/src/dismissed_mac.rs,crates/alo-cef-host/src/strip_mac.rs"
+  "objc2_app_kit:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/unseen_mac.rs,crates/alo-cef-host/src/dismissed_mac.rs,crates/alo-cef-host/src/strip_mac.rs"
+  "objc2_foundation:crates/alo-cef-host/src/application_mac.rs,crates/alo-cef-host/src/menu_mac.rs,crates/alo-cef-host/src/dismissed_mac.rs,crates/alo-cef-host/src/strip_mac.rs"
 )
 
 # --- alo's CEF host, and the one `unsafe` boundary it holds -------------------

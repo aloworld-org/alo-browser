@@ -25,6 +25,14 @@ pub const MOST_STEPS: usize = 40;
 /// The most choices a stuck agent offers.
 pub const MOST_CHOICES: usize = 4;
 
+/// The most options of a closed list the agent's column lists (queue item
+/// 798's sibling, 810); past them it says how many more.
+pub const MOST_OPTIONS: usize = 8;
+
+/// The most options the wire carries for one list: past any list a
+/// person chooses in by reading it.
+pub const MOST_LISTED: usize = 500;
+
 /// What the page is said to be while the agent acts on it, the design's
 /// words (`docs/design/shell.md`, *The agent at work*).
 pub const WORKING: &str = "alo is working on this page \u{b7} click anywhere to take over";
@@ -38,6 +46,40 @@ pub struct AtWork {
     pub steps: Vec<Step>,
     /// What it is doing now.
     pub now: Now,
+    /// The closed list it is choosing in, while the newest step chooses in
+    /// one (queue item 810): its options listed in its own column, never a
+    /// menu opened in a window nobody sees.
+    pub choosing: Option<Dropdown>,
+}
+
+/// A closed list's options, as the agent choosing in it shows them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Dropdown {
+    /// The list's name.
+    pub list: String,
+    /// Its options' names, in order.
+    pub options: Vec<String>,
+    /// The place of the option being chosen among them.
+    pub chosen: usize,
+}
+
+impl Dropdown {
+    /// The options shown in the column: at most [`MOST_OPTIONS`], the one
+    /// chosen among them — the options from the start, or, for one past
+    /// them, those ending with it — and how many are not shown.
+    pub fn shown(&self) -> (Vec<(usize, &str)>, usize) {
+        let first = (self.chosen + 1).saturating_sub(MOST_OPTIONS);
+        let shown: Vec<(usize, &str)> = self
+            .options
+            .iter()
+            .enumerate()
+            .skip(first)
+            .take(MOST_OPTIONS)
+            .map(|(place, name)| (place, name.as_str()))
+            .collect();
+        let more = self.options.len().saturating_sub(shown.len());
+        (shown, more)
+    }
 }
 
 /// One step, in a person's words.
@@ -88,6 +130,7 @@ impl AtWork {
             asked: asked.into(),
             steps: Vec::new(),
             now: Now::Acting,
+            choosing: None,
         }
     }
 
@@ -114,6 +157,24 @@ pub fn done_in(steps: usize) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_long_lists_options_are_shown_eight_at_a_time_holding_the_chosen() {
+        let list = |chosen| super::Dropdown {
+            list: "Fruit".to_owned(),
+            options: (0..12).map(|place| format!("Option {place}")).collect(),
+            chosen,
+        };
+        let early = list(2);
+        let (shown, more) = early.shown();
+        assert_eq!(shown.first().copied(), Some((0, "Option 0")));
+        assert_eq!((shown.len(), more), (8, 4));
+        let late = list(10);
+        let (shown, more) = late.shown();
+        assert_eq!(shown.first().copied(), Some((3, "Option 3")));
+        assert_eq!(shown.last().copied(), Some((10, "Option 10")));
+        assert_eq!((shown.len(), more), (8, 4));
+    }
+
     use super::*;
 
     #[test]

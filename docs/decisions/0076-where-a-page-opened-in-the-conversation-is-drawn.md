@@ -1,6 +1,6 @@
 # ADR 0076 — Where a page opened in the conversation is drawn
 
-**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below); the windows a parked card's Chromium opens beside it, by queue item 808 (1 November 2026, the third *Amended* below)
+**Status:** accepted — B, chosen by the owner on 30 October 2026; the card built by queue item 717 (31 October 2026, *Built* below), input by 718; B4's park amended by queue item 771 (1 November 2026, *Amended* below); the windows a parked card's Chromium opens beside it, by queue item 808 (1 November 2026, the third *Amended* below); what the carried Chromium tells beside the pipe, a link's strip and a closed list pressed, by queue items 799, 811, 798, 810 and 802 (7 November 2026, the fourth *Amended* below)
 **Date:** 2026-10-30
 **Context:** ADR 0058 (Chromium is a renderer we drive); ADR 0059 (the
 product path and the engine path); ADR 0061 (Chrome draws the page in its own
@@ -953,3 +953,85 @@ leaves ⌘ in the window server's flags. A press with a modifier is nobody's
 until 798 decides it, and is now said in the first screen's line and on the
 terminal rather than dropped in silence. Nothing in this ADR changes.
 
+
+## Amended (7 November 2026, queue items 799, 811, 798, 810 and 802): what a card's Chromium tells beside the pipe, a link's strip, a closed list and an input method
+
+The owner approved five designs for a person on a card's page on 6 November
+2026 (`docs/design/shell.md`, *A person on a card's page*). B said that
+anything Chromium draws outside the page's compositor — the pointer's
+shape, a context menu, a `<select>`'s menu, an input method's window —
+"needs its own answer or the expanded window". These are the answers.
+
+### Measured
+
+Through alo's CEF host (CEF 156.0.14), a card parked and streaming, a
+person's input sent over the pipe: CEF calls the page's display handler's
+`OnCursorChange` for the shape under the pointer (a link `CT_HAND`, words
+and a field `CT_IBEAM`, the ground `CT_POINTER`) and `OnStatusMessage`
+with a link's address though the status bubble is disabled; a secondary
+press reaches the page (`contextmenu`) and then `RunContextMenu`, with the
+link, the words selected — on a Mac the word under the press, a link's
+words too — and whether a field; a ⌘ or middle press on a link reaches
+`OnOpenURLFromTab` with a new tab's disposition; a page that takes
+`contextmenu` for itself reaches no handler. On a focused closed list →,
+←, Home, End and Page Down change nothing and open no menu; a letter
+chooses the next option beginning with it. CEF's views overlay docked at a
+window's bottom left stood a title bar's height (32 points) above the
+foot, and one asked lower was not drawn.
+
+### Decided
+
+1. **The Chromium alo carries tells alo what the pipe does not carry, on a
+   line of its own.** alo starts every Chromium with its error output on a
+   pipe of its own, moved to descriptor 5 (`chrome.rs`'s starter), the
+   Chromium's own error output going nowhere as before. The host writes one
+   line per thing (`told.rs`): a word, then fields after tabs, a stranger's
+   tab, line end and backslash escaped, each field cut at 2,048 characters;
+   alo reads it on a thread of its own, at most 256 lines held, each line
+   bounded and refused when not as written (`chrome_told.rs`). Only a
+   card's page tells, only while it is unseen; the machine's Chrome tells
+   nothing. Not the DevTools pipe: nothing of the host's can be put on it.
+2. **The pointer's shape** (799): told by its CSS name, handled — Chromium
+   sets no cursor of a window nobody sees — and set by alo's window over the
+   page box.
+3. **A link's strip** (811): once seen, the host draws it itself with
+   AppKit (`strip_mac.rs`, safe `objc2-app-kit` calls) in the window's
+   content view at the page's bottom left — not a CEF overlay, which could
+   not reach the foot.
+4. **A context menu** (798): `RunContextMenu` of an unseen card cancelled
+   and told; alo draws its own menu. No menu of Chromium's is ever shown
+   for a parked card, so none can be left open under a page that closes
+   (734). A ⌘ or middle press: `OnOpenURLFromTab` cancelled and told;
+   alo opens the link as the conversation's next turn.
+5. **A closed list** (810): a person's first press on one is held, the
+   card expanded, and the press made again there — B's own answer, the
+   expanded window, taken for the person. For an agent the menu is never
+   opened on a card; one key, or nothing (`chrome_type_ahead.rs`).
+6. **An input method** (802): alo's window composes (winit's text-input
+   client) and sends the composition over the pipe
+   (`Input.imeSetComposition`, `Input.insertText`); the candidates stand
+   where the DOM domain says the focused field's words end. No AppKit glue
+   and no `unsafe`; the exact caret (847) would need one.
+
+### What it costs
+
+- A third channel between alo and its Chromium, read beside the pipe; a
+  line the host writes that alo does not read is dropped once 256 wait.
+- Through the machine's Chrome none of this: the arrow, no strip but
+  Chrome's own bubble once expanded, a secondary, middle or ⌘ press said
+  and nobody's, a closed list's press held and expanded as through the
+  host.
+- A person's first press on a closed list of a card expands the card.
+
+### Built and tested
+
+`alo-cef-host`: `told.rs`, `strip.rs`, `strip_mac.rs`, `parked.rs`'s
+`Stage::tells` and `strips`, `window.rs`'s handlers. `alo-window`:
+`chrome_told.rs`, `card_cursor.rs`, `card_menu`'s claims, `clipboard.rs`,
+`chrome_card_list.rs`, `chrome_type_ahead.rs`, `agent_dropdown.rs`,
+`chrome_card_caret.rs`. Through the host:
+`what_a_cards_chromium_tells_beside_its_pipe_through_chrome.rs`,
+`an_expanded_cards_link_shown_in_alos_strip_through_chrome.rs`,
+`a_closed_list_pressed_on_a_card_through_chrome.rs`; through the machine's
+Chrome: `a_closed_list_on_a_card_chosen_by_one_key_through_chrome.rs`,
+`an_input_methods_composition_on_a_card_through_chrome.rs`.
