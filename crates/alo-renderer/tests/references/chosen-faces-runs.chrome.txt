@@ -1,0 +1,1606 @@
+# Chrome 157.0.8103.38's layout width of 1,600 runs (queue items 853, 854), measured on
+# 7 November 2026, headless, the interface's Inter.ttf, Geist.ttf, DMSans.ttf and
+# PlusJakartaSans.ttf as web fonts, after document.fonts.load: each a white-space: pre
+# span's getBoundingClientRect().width times 64. Inter and DM Sans vary by opsz, so
+# some of theirs are set with font-optical-sizing: none.
+# family|weight|size|font-optical-sizing|text|width in 1/64 px
+Inter Variable|400|13|auto|· Search|3235
+Inter Variable|400|20|auto|Yesterday or|7386
+Inter Variable|500|36|none|chats search|14130
+Inter Variable|300|12|auto|chats settings “double” earlier chat|12380
+Inter Variable|700|16|auto|alo results|5155
+Inter Variable|600|18|none|… office or Ask|8436
+Inter Variable|500|13|none|quick chats over Victoria chat|11797
+Inter Variable|300|28|none|… dog panel settings|17352
+Inter Variable|400|15|none|… Wikipedia typeface alo|11439
+Inter Variable|500|20|auto|chats website Search hills anything,|21342
+Inter Variable|500|16|auto|settings Victoria|7882
+Inter Variable|300|11|none|Uganda shore wave Lake|8276
+Inter Variable|500|15|auto|a search —|5118
+Inter Variable|400|40|auto|sample type jumps Copy|27655
+Inter Variable|600|20|none|chats|3410
+Inter Variable|300|32|none|chat Ask type panel search|25812
+Inter Variable|500|20|auto|– anything, AVA brown lazy|16133
+Inter Variable|400|17|none|settings · Uganda Victoria city|15416
+Inter Variable|500|15|auto|city chats|4445
+Inter Variable|400|14|none|— New of|4184
+Inter Variable|400|11|auto|city website Yesterday|7495
+Inter Variable|400|28|none|alo|2515
+Inter Variable|500|24|auto|dog|2719
+Inter Variable|500|15.5|auto|alo search Kampala search|12699
+Inter Variable|400|17|auto|quick of · lazy|7039
+Inter Variable|400|32|auto|Search sample …|15059
+Inter Variable|400|14|auto|shore quick results|8023
+Inter Variable|600|16|auto|Wikipedia Lake “double” shore search|18659
+Inter Variable|600|11|auto|Kampala font|4514
+Inter Variable|400|11.5|auto|Copy New shore Search AVA|10054
+Inter Variable|300|20|auto|—|1280
+Inter Variable|500|11.5|none|website over Copy over|8293
+Inter Variable|300|13|none|chats AVA “double” AVA a|9895
+Inter Variable|400|32|auto|settings · settings|15366
+Inter Variable|400|32|auto|—|2048
+Inter Variable|400|13.5|none|alo shore city results office|11037
+Inter Variable|400|11.5|none|— results “double”|6466
+Inter Variable|500|20|auto|over typeface capital chat|15505
+Inter Variable|700|18|auto|shore dog panel or|10332
+Inter Variable|700|12.5|auto|hills city New the dog|8361
+Inter Variable|600|13.337|none|Today Ask 2026 the|8242
+Inter Variable|700|15|auto|quick search,|6315
+Inter Variable|700|15.5|auto|2026 Ask Lake|7144
+Inter Variable|300|11|auto|… AVA lazy|3643
+Inter Variable|600|13.337|auto|Victoria website|6655
+Inter Variable|400|15|auto|“double” and Copy chats search|14525
+Inter Variable|500|16|auto|search a a Victoria type|11451
+Inter Variable|600|15|auto|anything, Yesterday dog font|13319
+Inter Variable|400|15.5|none|Victoria “double” typeface – wave|15831
+Inter Variable|400|18|auto|– anything, capital panel|12934
+Inter Variable|700|16|none|jumps typeface|7776
+Inter Variable|400|17|auto|Ask AVA of Lake|8310
+Inter Variable|500|22|none|Wikipedia New|10042
+Inter Variable|500|15.5|none|chat New … ·|6196
+Inter Variable|300|17|auto|fox New|4112
+Inter Variable|400|11|auto|Wikipedia chats Lake|7039
+Inter Variable|600|15.5|auto|–|496
+Inter Variable|500|13.5|none|AVA Uganda|5154
+Inter Variable|300|28|auto|wave|4100
+Inter Variable|400|14|auto|– anything, shore — AVA|10382
+Inter Variable|400|18|auto|chats|2908
+Inter Variable|500|28|none|— type typeface the|17395
+Inter Variable|300|11.5|auto|office|1931
+Inter Variable|700|17|none|font sample Yesterday ‘quoted’|16514
+Inter Variable|500|12.5|auto|Victoria New —|5901
+Inter Variable|400|14|auto|jumps typeface … dog|9460
+Inter Variable|600|28|none|dog alo Yesterday|15488
+Inter Variable|300|40|auto|Ask or brown|14194
+Inter Variable|600|16|auto|office Yesterday|7999
+Inter Variable|300|32|auto|link fox Ask|9682
+Inter Variable|300|28|auto|over typeface alo alo|16060
+Inter Variable|700|32|auto|chat chats Kampala|18728
+Inter Variable|500|16|auto|city over capital chat|10110
+Inter Variable|500|40|auto|Yesterday|11271
+Inter Variable|300|22|auto|Today shore alo|9945
+Inter Variable|300|20|auto|and|2170
+Inter Variable|500|14|none|‘quoted’ website shore|9708
+Inter Variable|600|14|auto|fox brown|4317
+Inter Variable|700|11.5|auto|alo chat alo alo|5347
+Inter Variable|500|24|auto|2026 search AVA website anything,|24978
+Inter Variable|700|40|auto|quick Victoria Victoria fox|30411
+Inter Variable|500|24|auto|panel|3878
+Inter Variable|600|18|auto|capital|3691
+Inter Variable|400|12|auto|panel and Uganda Today search|11724
+Inter Variable|600|22|none|Kampala New|9361
+Inter Variable|500|24|auto|city anything, sample New|18571
+Inter Variable|400|16|none|and link chats|6677
+Inter Variable|600|18|none|of|1150
+Inter Variable|600|13.5|auto|font brown sample €19.99 Lake|13021
+Inter Variable|400|12.5|none|over and dog|4988
+Inter Variable|400|22|none|typeface panel Copy 2026|17704
+Inter Variable|600|15|none|Uganda|3597
+Inter Variable|300|18|auto|search a office … chats|12117
+Inter Variable|500|18|auto|panel type of “double”|12105
+Inter Variable|500|28|auto|shore —|6768
+Inter Variable|300|17|auto|brown or “double”|8950
+Inter Variable|300|24|auto|brown search,|9608
+Inter Variable|300|40|auto|over panel of – panel|22452
+Inter Variable|300|11|auto|… the hills … Victoria|6750
+Inter Variable|500|12.5|auto|the 2026|3444
+Inter Variable|600|18|auto|Lake|2594
+Inter Variable|400|20|auto|type results|6895
+Inter Variable|400|24|auto|and chats Yesterday brown|18778
+Inter Variable|500|28|auto|brown wave|9759
+Inter Variable|600|32|none|quick ·|6596
+Inter Variable|700|17|auto|chat Copy sample|9437
+Inter Variable|300|32|none|€19.99 hills anything, 2026 panel|31427
+Inter Variable|400|22|auto|Ask capital Ask|9814
+Inter Variable|400|28|auto|dog Today Lake capital office|23153
+Inter Variable|700|15|auto|link AVA AVA wave 2026|11504
+Inter Variable|400|36|none|results type Kampala AVA|27975
+Inter Variable|500|15.5|auto|office results office|9104
+Inter Variable|500|24|auto|alo the the|7396
+Inter Variable|700|24|auto|alo alo sample|10335
+Inter Variable|600|15.5|none|alo the type settings open|12414
+Inter Variable|300|14|none|results Search … Wikipedia €19.99|14305
+Inter Variable|300|11|auto|wave – open … font|6406
+Inter Variable|600|24|auto|wave open jumps|12489
+Inter Variable|600|12|auto|… · Lake|3100
+Inter Variable|400|20|none|AVA website Uganda alo|14759
+Inter Variable|600|40|auto|over fox link|13866
+Inter Variable|500|14|none|Victoria over search, Kampala a|13564
+Inter Variable|500|28|none|settings sample|13499
+Inter Variable|600|17|none|font|2110
+Inter Variable|700|36|auto|chats|5933
+Inter Variable|500|12.5|auto|earlier anything, panel chat|10417
+Inter Variable|400|36|auto|· wave €19.99 results|20807
+Inter Variable|500|36|none|jumps Today typeface and –|30904
+Inter Variable|300|13|auto|Kampala Search anything,|10086
+Inter Variable|600|20|auto|wave anything, search|13598
+Inter Variable|500|15.5|auto|Uganda lazy the search, open|14011
+Inter Variable|600|32|auto|· “double” dog fox|16181
+Inter Variable|600|14|auto|Uganda|3357
+Inter Variable|400|15.5|auto|Ask|1742
+Inter Variable|600|24|auto|lazy dog link –|10039
+Inter Variable|600|18|auto|link earlier search over dog|14847
+Inter Variable|600|13.337|auto|website Ask or jumps the|10361
+Inter Variable|600|17|auto|lazy brown dog · of|9895
+Inter Variable|700|13.5|auto|Today –|3228
+Inter Variable|600|12.5|none|– Uganda over AVA|7345
+Inter Variable|600|17|none|Uganda of and settings link|14312
+Inter Variable|500|11.5|none|Today|2153
+Inter Variable|400|20|none|New €19.99 … Today –|13701
+Inter Variable|700|15.5|auto|font font of|5377
+Inter Variable|500|24|auto|brown of dog or|11171
+Inter Variable|300|17|auto|New hills search Lake Lake|13496
+Inter Variable|500|22|auto|…|1140
+Inter Variable|700|12.5|none|Yesterday Lake sample|8985
+Inter Variable|500|36|auto|type ·|5692
+Inter Variable|500|11|auto|Ask Kampala|4385
+Inter Variable|500|16|auto|office panel|5724
+Inter Variable|400|18|auto|chats New link|7791
+Inter Variable|700|15.5|auto|website Victoria lazy wave link|14797
+Inter Variable|500|12|auto|link|1279
+Inter Variable|500|11|auto|office|1931
+Inter Variable|300|11|auto|Lake settings Lake quick Today|10215
+Inter Variable|600|36|auto|wave quick fox Copy|21527
+Inter Variable|400|13.337|none|‘quoted’ quick|5670
+Inter Variable|500|15|auto|city chats Victoria|8223
+Inter Variable|500|11|auto|dog|1297
+Inter Variable|700|15.5|auto|anything, “double”|9099
+Inter Variable|500|28|none|office|4914
+Inter Variable|400|32|auto|… fox|4571
+Inter Variable|600|12|auto|hills|1495
+Inter Variable|700|14|none|Victoria|3441
+Inter Variable|600|13|auto|hills fox wave|5431
+Inter Variable|500|24|auto|city search|7768
+Inter Variable|400|24|auto|over earlier open|11636
+Inter Variable|400|15.5|auto|anything, over|6625
+Inter Variable|600|15|none|results city the|6882
+Inter Variable|300|32|none|dog quick|9401
+Inter Variable|600|15.5|none|Copy 2026 anything,|10068
+Inter Variable|600|28|none|shore panel|10146
+Inter Variable|500|11|auto|wave office the link|6519
+Inter Variable|400|22|auto|panel AVA chat AVA font|15572
+Inter Variable|700|12.5|none|fox|1241
+Inter Variable|600|22|auto|search anything, search lazy|18878
+Inter Variable|500|12.5|auto|hills type|3444
+Inter Variable|500|13.5|auto|alo …|2247
+Inter Variable|400|17|auto|type office and typeface|12417
+Inter Variable|500|18|none|Victoria|4248
+Inter Variable|300|20|auto|type results|6719
+Inter Variable|500|14|auto|shore panel New|7190
+Inter Variable|500|40|auto|sample €19.99 chats earlier|30945
+Inter Variable|400|15.5|none|Lake shore website — 2026|13055
+Inter Variable|400|11.5|auto|shore AVA font shore|7330
+Inter Variable|400|12|auto|€19.99 wave|4579
+Inter Variable|300|16|auto|anything, chat|6650
+Inter Variable|600|14|auto|capital earlier open type|10498
+Inter Variable|600|40|auto|fox Yesterday|15756
+Inter Variable|600|32|auto|sample the Uganda and hills|25957
+Inter Variable|700|11.5|none|typeface search|5842
+Inter Variable|500|16|none|Search the|5278
+Inter Variable|400|36|auto|Today Search|13634
+Inter Variable|400|15.5|none|city sample the of alo|10044
+Inter Variable|500|36|auto|hills city chats|14429
+Inter Variable|600|15|none|anything, “double” ‘quoted’|12734
+Inter Variable|400|32|none|Uganda search, ‘quoted’ lazy|28132
+Inter Variable|500|22|auto|over|2863
+Inter Variable|400|13.337|none|search quick|5163
+Inter Variable|500|28|auto|AVA Kampala|10842
+Inter Variable|300|36|auto|€19.99 over settings typeface|28568
+Inter Variable|400|22|auto|Search|4508
+Inter Variable|600|11|none|Search lazy hills office|7656
+Inter Variable|400|14|auto|2026 link sample quick|9773
+Inter Variable|600|15.5|auto|2026 dog|4597
+Inter Variable|300|14|auto|the €19.99|4363
+Inter Variable|300|40|auto|or sample office fox|21042
+Inter Variable|500|28|auto|… Copy|6034
+Inter Variable|500|11.5|auto|settings office over brown of|10101
+Inter Variable|600|12.5|none|search, a|3536
+Inter Variable|500|12.5|auto|or or wave|4031
+Inter Variable|400|13.5|auto|dog sample capital search, the|12511
+Inter Variable|500|12.5|auto|panel a|2777
+Inter Variable|600|13.337|none|type|1859
+Inter Variable|600|36|none|€19.99|7607
+Inter Variable|600|20|none|‘quoted’ lazy|7930
+Inter Variable|300|15.5|auto|the Search Kampala settings —|14283
+Inter Variable|700|24|auto|Kampala wave capital ‘quoted’ type|25777
+Inter Variable|500|20|none|the open|5386
+Inter Variable|400|18|auto|or chats website|8783
+Inter Variable|400|13.337|auto|over dog brown Victoria|9661
+Inter Variable|700|20|auto|anything, — Victoria brown and|19243
+Inter Variable|600|11|none|alo 2026|2987
+Inter Variable|400|13|auto|results link earlier and wave|10949
+Inter Variable|600|12.5|auto|panel of open|5289
+Inter Variable|400|40|none|capital website jumps|26140
+Inter Variable|300|24|auto|office office Today|12436
+Inter Variable|600|15|none|Kampala jumps font link|11105
+Inter Variable|500|12.5|auto|chats|2094
+Inter Variable|500|13.5|none|lazy capital AVA|6618
+Inter Variable|500|22|auto|search, panel|8725
+Inter Variable|300|11|none|– link|1665
+Inter Variable|500|28|auto|fox Search link New …|17718
+Inter Variable|600|12.5|none|dog a|2148
+Inter Variable|600|12|auto|settings panel link dog brown|10888
+Inter Variable|500|11.5|auto|2026 panel —|4915
+Inter Variable|500|13|none|search, Copy sample — panel|11823
+Inter Variable|500|13.337|auto|lazy Copy|4038
+Inter Variable|600|14|auto|lazy lazy alo city|7157
+Inter Variable|300|12|none|open settings and or|7321
+Inter Variable|400|18|auto|chats anything, a New|11841
+Inter Variable|600|20|auto|shore|3424
+Inter Variable|500|13.5|auto|Yesterday|4118
+Inter Variable|300|36|auto|New Lake … of|14176
+Inter Variable|700|36|auto|AVA panel|10783
+Inter Variable|600|15.5|none|‘quoted’ search, …|8934
+Inter Variable|400|15.5|none|2026 Today shore|8515
+Inter Variable|600|13|auto|alo|1202
+Inter Variable|400|22|auto|search – results|10051
+Inter Variable|700|11.5|auto|wave link Today Lake|7611
+Inter Variable|600|24|auto|fox shore|6650
+Inter Variable|400|13|auto|search,|2906
+Inter Variable|500|12|none|font|1459
+Inter Variable|500|32|auto|panel Uganda|12590
+Inter Variable|400|24|auto|“double” font “double”|15182
+Inter Variable|500|14|auto|over|1895
+Inter Variable|400|13.337|none|alo “double”|4900
+Inter Variable|600|24|none|open Wikipedia Search chats|21565
+Inter Variable|600|15.5|auto|dog —|3074
+Inter Variable|400|13.337|auto|font|1586
+Inter Variable|500|15.5|none|hills shore type panel type|12480
+Inter Variable|600|18|none|Lake|2625
+Inter Variable|600|12.5|auto|quick Kampala|5699
+Inter Variable|700|36|none|€19.99|7735
+Inter Variable|500|13.337|auto|shore search|5303
+Inter Variable|500|11|auto|chats|1842
+Inter Variable|500|16|none|— — 2026 fox|6964
+Inter Variable|300|28|auto|sample search, fox|14502
+Inter Variable|600|13.337|auto|lazy Search chats|7297
+Inter Variable|700|13|auto|type New|3867
+Inter Variable|500|15|auto|Today or|3995
+Inter Variable|600|16|auto|the|1587
+Inter Variable|400|40|auto|brown|6932
+Inter Variable|600|22|none|Wikipedia dog results type font|21219
+Inter Variable|600|36|none|settings|8960
+Inter Variable|400|17|auto|the sample|5569
+Inter Variable|600|14|auto|of hills type|5041
+Inter Variable|600|14|none|type Copy Victoria New Wikipedia|14741
+Inter Variable|700|28|auto|Victoria Yesterday office|20580
+Inter Variable|600|14|auto|the settings panel over of|10996
+Inter Variable|400|22|none|Kampala typeface earlier shore|20792
+Inter Variable|400|17|auto|shore city Copy|7978
+Inter Variable|500|15|auto|Lake hills Wikipedia a|9779
+Inter Variable|400|13.5|auto|a|486
+Inter Variable|400|11.5|auto|city type lazy open brown|8993
+Inter Variable|600|11|auto|results Victoria a shore|7835
+Inter Variable|600|17|auto|“double”|4566
+Inter Variable|600|13|auto|office a Copy|5329
+Inter Variable|500|12.5|none|type type quick brown over|10461
+Inter Variable|500|14|auto|font the|3311
+Inter Variable|400|17|auto|and or hills 2026 search|12206
+Inter Variable|400|15.5|auto|wave link search|7759
+Inter Variable|600|32|auto|Wikipedia a|10751
+Inter Variable|500|13|auto|a Copy|2785
+Inter Variable|500|15|none|— earlier fox Victoria link|11477
+Inter Variable|600|13|auto|brown – and €19.99|7831
+Inter Variable|400|15.5|auto|hills lazy …|5093
+Inter Variable|500|13.337|auto|Lake … type|4975
+Inter Variable|700|13.337|none|hills|1704
+Inter Variable|600|11|auto|AVA a panel link or|6334
+Inter Variable|500|13|auto|chats “double” hills|7662
+Inter Variable|400|15|auto|Uganda anything, a Uganda the|14261
+Inter Variable|600|15|auto|search, –|4154
+Inter Variable|400|16|auto|or Kampala panel|8355
+Inter Variable|600|11|auto|jumps jumps and|5780
+Inter Variable|300|20|auto|the Search the and –|11889
+Inter Variable|600|16|auto|Search|3456
+Inter Variable|600|12.5|none|Copy wave €19.99|7120
+Inter Variable|400|11.5|auto|sample … Uganda|6266
+Inter Variable|400|28|none|a link chat|8601
+Inter Variable|700|11.5|auto|Copy city brown over brown|10095
+Inter Variable|700|40|none|€19.99 Lake alo|19444
+Inter Variable|300|20|auto|or search chats Lake|11954
+Inter Variable|500|28|none|lazy jumps|9174
+Inter Variable|500|32|auto|Search dog hills Yesterday|23894
+Inter Variable|400|11.5|none|font alo lazy city search,|8479
+Inter Variable|600|12.5|auto|typeface Kampala anything, chats|13182
+Inter Variable|400|14|auto|office font website|7871
+Inter Variable|600|17|auto|lazy Kampala – AVA|10218
+Inter Variable|400|13|auto|—|832
+Inter Variable|500|16|auto|over|2145
+Inter Variable|400|15.5|auto|link — and capital|8246
+Inter Variable|300|20|auto|Uganda office Today|11956
+Inter Variable|400|15|auto|link quick — chats —|9452
+Inter Variable|600|14|auto|Today sample|6016
+Inter Variable|600|12|auto|hills … “double” capital Lake|10508
+Inter Variable|600|13.337|auto|office|2378
+Inter Variable|700|24|auto|search open sample|14615
+Inter Variable|300|16|auto|hills Lake New of|8017
+Inter Variable|400|13|auto|sample font anything, ‘quoted’|11874
+Inter Variable|600|11.5|auto|link ‘quoted’|4350
+Inter Variable|500|15|none|‘quoted’ of Today|7985
+Inter Variable|600|32|none|… Kampala|11078
+Inter Variable|400|13.337|auto|over over settings|7223
+Inter Variable|600|24|auto|lazy|2913
+Inter Variable|600|11|none|AVA Uganda|4246
+Inter Variable|500|14|auto|Uganda lazy typeface over|11486
+Inter Variable|400|11.5|auto|jumps Kampala the|6632
+Inter Variable|400|36|auto|type Uganda quick 2026 city|29096
+Inter Variable|700|36|auto|€19.99 —|9953
+Inter Variable|400|28|auto|of|1578
+Inter Variable|600|17|none|font ·|2730
+Inter Variable|500|20|auto|‘quoted’|4799
+Inter Variable|500|32|auto|of font sample ‘quoted’ Ask|24565
+Inter Variable|500|24|auto|of search, Copy jumps|15759
+Inter Variable|300|28|none|New and open dog|15912
+Inter Variable|400|18|auto|chats Kampala quick quick|14300
+Inter Variable|500|11|none|Uganda type chat Kampala|9083
+Inter Variable|500|11|none|jumps —|2933
+Inter Variable|400|11|auto|·|203
+Inter Variable|700|13|auto|jumps chat dog open|8489
+Inter Variable|700|36|none|capital|7610
+Inter Variable|500|13.5|auto|chats link anything,|8016
+Inter Variable|400|40|auto|the settings|12892
+Inter Variable|600|14|auto|Ask dog|3539
+Inter Variable|400|32|none|hills a|5506
+Inter Variable|400|11|auto|earlier Today|4337
+Inter Variable|600|12.5|auto|office Search|5148
+Inter Variable|600|16|auto|chats|2710
+Inter Variable|400|20|auto|type dog|5250
+Inter Variable|400|24|none|city shore|7166
+Inter Variable|500|12.5|auto|wave €19.99|4828
+Inter Variable|400|13.337|none|earlier Lake 2026 results office|12527
+Inter Variable|600|36|auto|search,|7624
+Inter Variable|600|13.5|auto|chats|2302
+Inter Variable|300|32|auto|New alo Wikipedia fox wave|24158
+Inter Variable|700|32|none|shore font fox|13881
+Inter Variable|400|13.5|none|· Kampala|4032
+Inter Variable|600|22|auto|sample — search Victoria|16859
+Inter Variable|600|28|auto|Copy AVA capital|14150
+Inter Variable|600|11|auto|city Uganda Copy font|7594
+Inter Variable|300|12.5|auto|sample · open|5249
+Inter Variable|600|24|auto|Victoria Search chats typeface|22038
+Inter Variable|300|15|auto|chats earlier|5437
+Inter Variable|400|18|none|Wikipedia|5334
+Inter Variable|400|28|auto|– AVA Wikipedia|12827
+Inter Variable|400|11.5|none|fox settings the|5349
+Inter Variable|600|16|auto|dog search chats|8458
+Inter Variable|600|32|auto|fox chat Wikipedia|17103
+Inter Variable|400|20|auto|alo earlier alo and Copy|13862
+Inter Variable|600|12|none|capital type capital –|7624
+Inter Variable|400|18|none|dog chats …|6707
+Inter Variable|400|13.337|auto|wave open|4401
+Inter Variable|300|20|auto|– and wave – and|10046
+Inter Variable|600|12.5|auto|city|1446
+Inter Variable|600|18|none|capital|3740
+Inter Variable|500|15.5|auto|Uganda sample typeface Copy|14513
+Inter Variable|500|22|auto|the|2095
+Inter Variable|600|14|auto|a|515
+Inter Variable|700|28|auto|lazy|3421
+Inter Variable|600|15.5|auto|Victoria Lake|6210
+Inter Variable|600|40|none|capital Search Ask ‘quoted’|33766
+Inter Variable|500|32|none|Copy chat font lazy alo|22408
+Inter Variable|400|16|none|AVA|1980
+Inter Variable|600|22|auto|anything, sample chat Kampala|20690
+Inter Variable|700|20|auto|brown a alo sample Victoria|16917
+Inter Variable|600|20|auto|website … over website|14204
+Inter Variable|600|12.5|auto|Victoria wave brown anything, of|12726
+Inter Variable|600|22|none|and Lake Copy 2026 Victoria|19633
+Inter Variable|400|18|auto|New fox results anything,|13515
+Inter Variable|300|16|auto|Yesterday Kampala office results|15348
+Inter Variable|700|17|auto|… Yesterday Kampala city anything,|18936
+Inter Variable|300|24|auto|— Victoria chat|10341
+Inter Variable|500|13.5|none|hills|1639
+Inter Variable|600|24|auto|capital jumps wave city|16750
+Inter Variable|500|13|auto|wave ‘quoted’|5546
+Inter Variable|600|22|auto|‘quoted’ · and dog|11778
+Inter Variable|400|11.5|auto|of office New quick chats|8880
+Inter Variable|700|36|none|and or|7122
+Inter Variable|300|12|auto|link|1217
+Inter Variable|600|13|none|the of shore office|7351
+Inter Variable|500|14|auto|Copy · ‘quoted’ 2026|8960
+Inter Variable|400|11.5|auto|… New|2416
+Inter Variable|500|12.5|auto|brown chats|4710
+Inter Variable|500|15.5|auto|Victoria of Victoria panel|11619
+Inter Variable|300|20|auto|Search jumps chat ‘quoted’ Victoria|20306
+Inter Variable|600|15.5|auto|hills|1917
+Inter Variable|400|40|auto|wave chat|11308
+Inter Variable|300|13.5|none|Search … link panel shore|10368
+Inter Variable|500|18|auto|jumps Today Uganda|11409
+Inter Variable|600|40|none|search, lazy over|21080
+Inter Variable|500|13|auto|type a Yesterday ‘quoted’|10109
+Inter Variable|700|12.5|auto|Kampala|3428
+Inter Variable|400|14|auto|quick city city — –|7738
+Inter Variable|500|15|auto|‘quoted’ Victoria 2026|10133
+Inter Variable|500|22|auto|wave anything, anything, sample settings|26809
+Inter Variable|600|13.5|auto|New or Copy|5378
+Inter Variable|500|36|auto|Today dog|10637
+Inter Variable|400|11.5|auto|Kampala results Lake sample|10116
+Inter Variable|300|24|auto|panel quick link|10456
+Inter Variable|500|15.5|auto|‘quoted’ fox|5546
+Inter Variable|600|12|auto|wave and anything, alo over|10371
+Inter Variable|500|13|auto|over Today|4415
+Inter Variable|400|15|auto|Wikipedia settings search quick|14314
+Inter Variable|700|16|auto|hills chat brown|7849
+Inter Variable|400|13.337|auto|Lake link|3534
+Inter Variable|600|13.5|auto|— chats|3383
+Inter Variable|600|40|auto|Uganda|9043
+Inter Variable|400|20|auto|alo the “double” link over|14584
+Inter Variable|500|15.5|none|fox or shore Uganda|9620
+Inter Variable|600|20|auto|type brown –|7817
+Inter Variable|600|16|auto|shore|2782
+Inter Variable|500|22|auto|typeface|5769
+Inter Variable|600|13|auto|€19.99|2747
+Inter Variable|300|14|auto|2026 search sample|8519
+Inter Variable|400|11|auto|open “double” Wikipedia dog|9675
+Inter Variable|400|16|none|panel of brown|7265
+Inter Variable|500|12|none|panel wave type of website|10043
+Inter Variable|700|17|none|chats a Today Kampala office|15616
+Inter Variable|500|32|auto|Ask … “double” chats|18861
+Inter Variable|400|13.337|auto|settings|3191
+Inter Variable|600|15|auto|Search|3250
+Inter Variable|400|24|auto|over “double” chats|13432
+Inter Variable|400|15|auto|type chats €19.99 link anything,|14311
+Inter Variable|300|15|auto|search, settings panel earlier dog|14755
+Inter Variable|400|15|auto|over type|4269
+Inter Variable|600|16|auto|brown 2026 wave|8796
+Inter Variable|300|12.5|auto|brown search, search|8048
+Inter Variable|600|17|auto|panel Ask Victoria|9443
+Inter Variable|600|15.5|auto|the €19.99 Uganda 2026 panel|14634
+Inter Variable|600|20|auto|wave lazy open website of|15964
+Inter Variable|600|13|none|Yesterday|4024
+Inter Variable|600|12|auto|over link or|4118
+Inter Variable|400|13.337|none|Ask|1508
+Inter Variable|400|36|auto|lazy|3949
+Inter Variable|700|11|auto|alo ‘quoted’|4036
+Inter Variable|500|12.5|none|Uganda and Kampala fox AVA|11363
+Inter Variable|400|12|auto|…|664
+Inter Variable|500|12.5|none|anything,|3571
+Inter Variable|300|13.5|auto|… results|3639
+Inter Variable|500|24|auto|fox the search Ask Copy|17166
+Inter Variable|400|13.5|none|Search brown of and Today|11257
+Inter Variable|400|12|auto|city capital settings brown over|11339
+Inter Variable|600|15.5|none|fox results fox earlier|10115
+Inter Variable|600|24|auto|search, over results quick website|24284
+Inter Variable|600|11.5|auto|alo|1064
+Inter Variable|700|22|none|and|2582
+Inter Variable|500|20|auto|the|1918
+Inter Variable|600|28|auto|link search,|9338
+Inter Variable|600|16|auto|Today quick sample lazy typeface|16668
+Inter Variable|700|11|none|quick|1896
+Inter Variable|600|40|auto|city chat Lake|16173
+Inter Variable|400|36|none|the open|9605
+Inter Variable|400|40|none|2026 typeface|17732
+Inter Variable|500|17|auto|office quick|6022
+Inter Variable|300|28|auto|… or|3219
+Inter Variable|500|36|none|‘quoted’ website hills Kampala|33308
+Inter Variable|500|17|auto|Ask a sample Lake alo|11361
+Inter Variable|500|14|auto|€19.99 shore|5566
+Inter Variable|400|12|none|type or the|3951
+Inter Variable|600|13.337|none|search, chat —|6159
+Inter Variable|400|22|auto|shore panel and|10270
+Inter Variable|600|16|auto|office|2828
+Inter Variable|400|15.5|auto|– fox ‘quoted’ the panel|10818
+Inter Variable|400|12|none|chats Copy 2026 fox|7552
+Inter Variable|400|40|auto|Lake font|10309
+Inter Variable|700|32|auto|“double” type Today wave website|32349
+Inter Variable|500|36|none|capital over|12835
+Inter Variable|700|12|none|Uganda Lake|4849
+Geist|500|40|auto|hills|4908
+Geist|500|18|auto|search, … earlier quick|11859
+Geist|700|12|auto|€19.99 Uganda – lazy Wikipedia|11874
+Geist|600|11.5|auto|office website jumps quick|9423
+Geist|500|16|auto|results type|5677
+Geist|500|13.5|auto|wave Copy results earlier Search|13244
+Geist|400|24|auto|alo results Search|12573
+Geist|600|28|auto|Uganda brown 2026 wave font|26254
+Geist|500|14|auto|– office hills|5030
+Geist|400|20|auto|€19.99 over 2026 New link|15789
+Geist|400|12|auto|settings|2797
+Geist|400|20|auto|Yesterday settings|10692
+Geist|500|32|auto|search the New ‘quoted’|23149
+Geist|700|13.337|auto|website search Victoria font|11773
+Geist|400|36|auto|typeface panel|15682
+Geist|600|32|auto|… AVA search website|21098
+Geist|500|15|auto|– open Search chat Yesterday|13308
+Geist|600|15.5|auto|Lake a capital|6600
+Geist|600|36|auto|quick Lake over|17440
+Geist|500|24|auto|chats “double” typeface|17221
+Geist|400|12.5|auto|panel|2031
+Geist|700|13.5|auto|Kampala –|4391
+Geist|600|13.5|auto|over office chats panel|9398
+Geist|700|12.5|auto|city shore|3874
+Geist|300|28|auto|alo wave over sample|17425
+Geist|600|12.5|auto|font lazy 2026 Yesterday|9580
+Geist|500|18|auto|Wikipedia chats|8519
+Geist|600|12|auto|… Search|3283
+Geist|300|13.337|auto|fox website search, · Uganda|10970
+Geist|700|14|auto|type|1995
+Geist|300|40|auto|type Lake search|19828
+Geist|400|11|auto|link chats open|4899
+Geist|500|22|auto|Uganda|5069
+Geist|400|40|auto|· “double”|11026
+Geist|700|15|auto|Uganda office wave|9202
+Geist|700|15.5|auto|AVA|1946
+Geist|300|15|auto|… anything, earlier Today the|12093
+Geist|700|13|auto|fox results type Kampala –|10836
+Geist|700|17|auto|· wave Kampala chats|11406
+Geist|300|18|auto|search,|3720
+Geist|600|12.5|auto|Yesterday|3794
+Geist|500|12|auto|Yesterday – alo a|6073
+Geist|300|12.5|auto|Wikipedia|3487
+Geist|600|15.5|auto|search, chat anything, office link|15334
+Geist|300|16|auto|website lazy AVA Uganda search|14989
+Geist|600|20|auto|·|288
+Geist|400|13.5|auto|Yesterday|3856
+Geist|500|22|auto|of wave lazy|8197
+Geist|500|16|auto|type|2154
+Geist|400|36|auto|search, Lake|13255
+Geist|300|11|auto|search, jumps wave office –|8722
+Geist|300|32|auto|wave chats quick search, alo|26393
+Geist|400|11|auto|font brown 2026 …|5992
+Geist|300|11.5|auto|“double”|2762
+Geist|400|11|auto|– sample font|4420
+Geist|300|36|auto|€19.99 €19.99 hills the Search|31317
+Geist|600|32|auto|and|3661
+Geist|500|15.5|auto|search, ‘quoted’ over chats Copy|15029
+Geist|600|24|auto|… – capital|7694
+Geist|600|32|auto|office font jumps open|21939
+Geist|600|18|auto|wave Yesterday|8625
+Geist|700|11|auto|of Uganda chat|5219
+Geist|600|28|auto|“double” link font panel Victoria|27315
+Geist|700|13.5|auto|panel Uganda 2026 search 2026|13806
+Geist|500|24|auto|and quick chat|10575
+Geist|500|24|auto|type search, 2026|13062
+Geist|600|11.5|auto|2026 … —|3398
+Geist|400|13.337|auto|city Victoria Yesterday Today office|13471
+Geist|400|14|auto|chat Yesterday Victoria link dog|12855
+Geist|600|20|auto|Copy|3163
+Geist|300|15|auto|Yesterday 2026|6843
+Geist|400|12.5|auto|or Today type New|6804
+Geist|500|28|auto|lazy|3430
+Geist|500|13.5|auto|font dog · Ask fox|7078
+Geist|400|18|auto|website over New lazy|11825
+Geist|300|11|auto|Wikipedia …|3636
+Geist|500|11.5|auto|Uganda a|3245
+Geist|500|17|auto|quick jumps 2026|9210
+Geist|300|36|auto|Copy … the brown alo|21937
+Geist|600|15.5|auto|sample settings search|11027
+Geist|400|22|auto|Ask … shore search dog|15042
+Geist|500|11|auto|2026|1787
+Geist|300|11|auto|Ask fox €19.99 ‘quoted’ results|9716
+Geist|600|15.5|auto|Copy ·|2908
+Geist|600|15.5|auto|and Lake|4301
+Geist|500|11.5|auto|Copy|1780
+Geist|500|22|auto|open|3285
+Geist|500|28|auto|dog Copy wave AVA ·|17356
+Geist|400|24|auto|New Yesterday chats Ask|17747
+Geist|400|11.5|auto|—|668
+Geist|400|12|auto|quick Search font|6209
+Geist|700|13|auto|panel quick “double” Uganda chats|14275
+Geist|600|13.5|auto|chat|1833
+Geist|600|40|auto|chats sample … chat search|33610
+Geist|400|13.5|auto|website|3094
+Geist|500|18|auto|and Copy open search,|12218
+Geist|300|17|auto|earlier the chat|7367
+Geist|500|24|auto|quick Copy settings Ask Lake|21223
+Geist|500|14|auto|city typeface €19.99 Copy|10922
+Geist|600|20|auto|· — Today|5674
+Geist|700|13|auto|office earlier fox sample|9896
+Geist|400|22|auto|of €19.99 the and Search|16147
+Geist|600|16|auto|Wikipedia|4820
+Geist|400|22|auto|AVA chats – website Uganda|18297
+Geist|600|20|auto|office Lake lazy the Search|16540
+Geist|500|11|auto|and|1232
+Geist|300|32|auto|New|4222
+Geist|500|12|auto|Copy link alo or dog|7138
+Geist|500|12|auto|chats search,|4763
+Geist|300|16|auto|search, search chats|9457
+Geist|400|40|auto|type website chats Ask|27200
+Geist|400|22|auto|or font|4279
+Geist|700|20|auto|lazy wave|6169
+Geist|400|40|auto|search, · brown|17480
+Geist|500|13.337|auto|of AVA or|3648
+Geist|600|15.5|auto|shore Ask|4740
+Geist|500|24|auto|or panel Victoria capital|17023
+Geist|400|13.5|auto|fox settings jumps capital AVA|11875
+Geist|400|32|auto|of alo of|7683
+Geist|700|32|auto|hills anything, lazy|18575
+Geist|400|12.5|auto|search shore link results|8906
+Geist|300|17|auto|Uganda · –|5178
+Geist|700|20|auto|‘quoted’ Search over Uganda|17995
+Geist|700|13|auto|–|496
+Geist|600|11.5|auto|a Search|3092
+Geist|400|15.5|auto|a|547
+Geist|500|20|auto|results search, alo Victoria Lake|18981
+Geist|600|40|auto|chats typeface anything, website Copy|47453
+Geist|400|32|auto|search “double”|14713
+Geist|400|28|auto|Search typeface results|19404
+Geist|400|22|auto|capital …|5487
+Geist|400|12.5|auto|typeface search search,|8700
+Geist|700|15.5|auto|search, anything,|8268
+Geist|700|14|auto|2026 New typeface|8637
+Geist|500|12.5|auto|chats chats 2026 Lake search|11285
+Geist|400|13|auto|settings office results or open|11206
+Geist|300|22|auto|€19.99 New|7568
+Geist|400|32|auto|Lake AVA and|12751
+Geist|300|17|auto|lazy|1988
+Geist|600|12.5|auto|… wave|2719
+Geist|500|12|auto|Today over of website Uganda|10779
+Geist|400|18|auto|settings anything, Wikipedia Today dog|20359
+Geist|700|13.5|auto|brown — Today search,|9595
+Geist|400|24|auto|Yesterday and|9866
+Geist|600|32|auto|Yesterday 2026 · earlier|23233
+Geist|600|14|auto|brown over Search|8021
+Geist|600|11|auto|Yesterday|3339
+Geist|400|17|auto|Copy Search a Today|10415
+Geist|400|14|auto|Wikipedia Yesterday|8194
+Geist|400|11|auto|alo over|2544
+Geist|300|17|auto|sample or alo|6619
+Geist|600|13|auto|quick typeface lazy search, of|11915
+Geist|500|13|auto|chats alo the|5022
+Geist|600|12.5|auto|capital|2633
+Geist|600|13|auto|search,|2892
+Geist|600|17|auto|results hills — Yesterday|12678
+Geist|600|24|auto|typeface|6554
+Geist|700|13.5|auto|font dog 2026|6036
+Geist|300|28|auto|and search, New lazy of|19222
+Geist|500|32|auto|office|5363
+Geist|600|16|auto|website wave ‘quoted’|10883
+Geist|600|15|auto|and jumps capital Search ·|12054
+Geist|600|15|auto|‘quoted’|3708
+Geist|400|20|auto|chats Kampala or a|11186
+Geist|500|11.5|auto|shore earlier Yesterday alo of|9982
+Geist|500|12.5|auto|website ·|3311
+Geist|400|13.5|auto|jumps chats search,|7828
+Geist|600|18|auto|–|685
+Geist|500|17|auto|earlier website earlier lazy|13380
+Geist|300|32|auto|font Copy open chats|19662
+Geist|400|11|auto|dog|1227
+Geist|400|18|auto|chats|2885
+Geist|600|14|auto|of quick sample|6845
+Geist|400|28|auto|– results or brown search|20693
+Geist|400|18|auto|Kampala New “double”|12023
+Geist|400|40|auto|Search of|11290
+Geist|400|15.5|auto|or a ‘quoted’ of|6758
+Geist|600|13.5|auto|alo shore|3786
+Geist|600|24|auto|Uganda|5638
+Geist|500|22|auto|link Ask|5319
+Geist|600|32|auto|Yesterday|9712
+Geist|700|15|auto|over|2102
+Geist|500|16|auto|Kampala Uganda … Kampala …|14293
+Geist|400|22|auto|dog ‘quoted’ chats chat ‘quoted’|20428
+Geist|500|13.337|auto|Search Lake search New search|12785
+Geist|600|13.5|auto|Search dog website|8179
+Geist|300|13|auto|of shore office Wikipedia|9156
+Geist|600|13.337|auto|– the font|3952
+Geist|400|24|auto|website font Wikipedia|15913
+Geist|600|12|auto|Lake font|3473
+Geist|400|15|auto|sample open|5636
+Geist|500|36|auto|Wikipedia|10530
+Geist|300|12|auto|or New – chats Victoria|8003
+Geist|700|22|auto|chats|3854
+Geist|700|22|auto|Lake ‘quoted’ Search|14441
+Geist|700|16|auto|chat|2233
+Geist|600|13.5|auto|·|195
+Geist|400|11.5|auto|2026 settings typeface|7841
+Geist|400|11|auto|… font dog Search ‘quoted’|8458
+Geist|500|36|auto|– ‘quoted’ chats|17064
+Geist|400|18|auto|link dog Lake|7074
+Geist|700|12|auto|Wikipedia jumps chats|8478
+Geist|700|13|auto|Search|2884
+Geist|500|13.337|auto|type Search Yesterday|8953
+Geist|700|36|auto|earlier the|11650
+Geist|500|17|auto|type panel font Today|10990
+Geist|600|40|auto|search the €19.99 shore link|34604
+Geist|600|14|auto|Yesterday search,|7575
+Geist|600|11.5|auto|fox font New|4524
+Geist|500|16|auto|shore fox earlier over brown|13360
+Geist|500|13|auto|Uganda Ask chat wave|8856
+Geist|600|13|auto|Today anything, … Victoria chats|12661
+Geist|400|12|auto|search Today|4618
+Geist|500|13|auto|Today · AVA|4411
+Geist|700|24|auto|‘quoted’ anything, Kampala Uganda ‘quoted’|32869
+Geist|600|28|auto|chat|3800
+Geist|300|13.337|auto|wave|2016
+Geist|600|11|auto|a anything,|3680
+Geist|500|13|auto|Wikipedia 2026 “double”|9648
+Geist|600|13|auto|jumps chats –|5534
+Geist|400|20|auto|Kampala alo dog city|12184
+Geist|700|13.5|auto|open|2107
+Geist|600|13.5|auto|of a quick Uganda settings|11017
+Geist|600|11|auto|earlier brown and wave|7790
+Geist|600|14|auto|results — jumps of|7932
+Geist|300|32|auto|search Uganda panel link|23386
+Geist|400|15.5|auto|chat|1984
+Geist|600|15|auto|website|3635
+Geist|400|15.5|auto|Search 2026|5919
+Geist|300|36|auto|· sample website Lake|22974
+Geist|600|28|auto|chats Today and|13879
+Geist|700|40|auto|shore|7055
+Geist|700|36|auto|of|2384
+Geist|500|15.5|auto|wave|2433
+Geist|300|11|auto|chats of dog office|5860
+Geist|400|17|auto|jumps of lazy ‘quoted’|10830
+Geist|500|11.5|auto|Ask Victoria hills Uganda|8571
+Geist|400|12|auto|2026 brown|4295
+Geist|600|24|auto|and chats dog|10357
+Geist|500|15.5|auto|Victoria quick|6377
+Geist|600|12|auto|font alo type anything,|8232
+Geist|700|28|auto|office Ask settings Kampala —|26580
+Geist|400|11.5|auto|Ask|1288
+Geist|400|16|auto|type office “double” link alo|12763
+Geist|500|11.5|auto|–|437
+Geist|400|14|auto|office|2256
+Geist|400|14|auto|and website results settings ·|11847
+Geist|400|22|auto|results office|8244
+Geist|600|12|auto|“double” results|5906
+Geist|600|13.337|auto|Yesterday typeface brown quick|13098
+Geist|700|22|auto|office type|7429
+Geist|600|14|auto|— lazy|2791
+Geist|300|18|auto|Copy chat|5233
+Geist|400|28|auto|New link chats|12125
+Geist|500|18|auto|shore|3011
+Geist|600|14|auto|chat Uganda|5400
+Geist|500|13.5|auto|typeface|3579
+Geist|700|28|auto|results|6123
+Geist|500|11.5|auto|Copy dog link results sample|9952
+Geist|500|13.5|auto|shore · jumps|5326
+Geist|500|13.337|auto|shore city chat anything, chat|11707
+Geist|400|13.337|auto|capital|2625
+Geist|400|32|auto|Copy brown anything, New font|29328
+Geist|600|11|auto|wave of sample|5269
+Geist|700|14|auto|chats earlier Victoria chat|11330
+Geist|700|11.5|auto|2026|1933
+Geist|700|36|auto|jumps link chat|17239
+Geist|500|20|auto|Copy|3096
+Geist|600|11.5|auto|of sample|3489
+Geist|500|11|auto|open chats Victoria font 2026|9807
+Geist|700|11.5|auto|fox a|1793
+Geist|700|40|auto|… anything, settings Copy|31879
+Geist|300|22|auto|Search €19.99|9146
+Geist|400|14|auto|font anything, a earlier Copy|11486
+Geist|400|12.5|auto|typeface sample search,|8910
+Geist|600|13.337|auto|Yesterday panel Ask|8310
+Geist|400|13|auto|Ask the – quick type|7824
+Geist|600|20|auto|Lake a Search chats|12343
+Geist|500|36|auto|of Lake chats a chat|21696
+Geist|300|12.5|auto|chats open chats Ask fox|9067
+Geist|500|28|auto|and ‘quoted’ New Today|19880
+Geist|400|12.5|auto|sample|2672
+Geist|400|20|auto|…|731
+Geist|700|24|auto|chat AVA|6712
+Geist|400|12|auto|chats AVA type chats|7366
+Geist|300|16|auto|a results office|6706
+Geist|400|22|auto|type|2874
+Geist|300|24|auto|link|2511
+Geist|400|15.5|auto|chats Today or of Search|11200
+Geist|700|13|auto|Victoria – dog|5632
+Geist|700|18|auto|2026 font city Uganda|12612
+Geist|500|15|auto|fox office –|4999
+Geist|500|40|auto|Ask capital|13388
+Geist|600|40|auto|Today|7237
+Geist|300|20|auto|Kampala earlier Yesterday Yesterday|20878
+Geist|500|28|auto|of dog jumps website results|24115
+Geist|300|12|auto|‘quoted’ font Victoria city|8535
+Geist|500|32|auto|€19.99|6502
+Geist|400|16|auto|panel font Lake —|8465
+Geist|500|13|auto|typeface font ‘quoted’|8557
+DM Sans|600|28|none|open panel link|13146
+DM Sans|500|11|auto|the chat Uganda|5515
+DM Sans|700|28|auto|of Kampala search …|17406
+DM Sans|600|12|auto|the Victoria capital|7136
+DM Sans|300|13.337|none|lazy open brown Copy of|9819
+DM Sans|600|12|auto|or capital anything, Ask chats|11017
+DM Sans|400|14|auto|chats Today fox link|8131
+DM Sans|500|16|none|brown|3076
+DM Sans|600|16|auto|Ask sample Yesterday Today|14048
+DM Sans|500|13.337|none|and a brown Wikipedia|9226
+DM Sans|700|18|auto|office website settings search|16955
+DM Sans|400|36|auto|earlier|6051
+DM Sans|700|15.5|auto|link results settings Yesterday panel|17554
+DM Sans|400|24|none|or Yesterday chat|12622
+DM Sans|500|14|auto|hills panel|4189
+DM Sans|500|13.337|none|Today quick results panel hills|12102
+DM Sans|700|18|auto|dog|2107
+DM Sans|300|18|auto|brown Today ‘quoted’|11294
+DM Sans|500|40|auto|sample hills a|14445
+DM Sans|500|16|none|website|3843
+DM Sans|600|15|none|search office|6102
+DM Sans|500|11.5|auto|brown AVA|3744
+DM Sans|600|17|auto|capital type|6328
+DM Sans|300|16|auto|website chats Search fox|11660
+DM Sans|600|15|none|– capital sample search, Kampala|15682
+DM Sans|500|13.337|auto|Uganda|3051
+DM Sans|400|40|none|and results search|22037
+DM Sans|500|13|none|– Uganda €19.99 wave capital|11815
+DM Sans|400|15.5|none|Uganda Copy results|9600
+DM Sans|500|13|auto|chats|2198
+DM Sans|400|17|auto|brown website|7367
+DM Sans|500|14|auto|of 2026|3282
+DM Sans|400|40|auto|search|7192
+DM Sans|500|14|auto|sample Today Victoria — of|11467
+DM Sans|300|12.5|auto|search, lazy chats|6460
+DM Sans|400|24|none|Wikipedia|7002
+DM Sans|300|13|auto|earlier Lake New the …|8346
+DM Sans|700|13|auto|type … …|3454
+DM Sans|500|17|auto|a Search chats ‘quoted’ chat|14618
+DM Sans|300|20|auto|of|1174
+DM Sans|600|13.337|none|website city jumps AVA|9722
+DM Sans|500|15|none|open search, Yesterday|10642
+DM Sans|500|24|auto|chats results a|10537
+DM Sans|600|40|none|Uganda|9431
+DM Sans|400|22|auto|link of office alo|10206
+DM Sans|700|18|none|chats ‘quoted’ and earlier brown|18536
+DM Sans|500|15.5|none|panel – dog hills|7641
+DM Sans|600|22|none|lazy anything, 2026|13304
+DM Sans|400|14|none|of AVA brown|5591
+DM Sans|300|40|auto|earlier Uganda|14982
+DM Sans|400|36|none|Today “double” jumps|23264
+DM Sans|500|22|none|font open a|7683
+DM Sans|400|15.5|auto|Kampala Copy Kampala|10768
+DM Sans|400|40|none|Search search link AVA|27014
+DM Sans|400|36|none|or|2275
+DM Sans|600|13.5|auto|Copy €19.99 Uganda search Lake|13734
+DM Sans|700|13.337|auto|Lake typeface|5945
+DM Sans|400|15|auto|Wikipedia shore Copy|9725
+DM Sans|500|22|auto|Today Victoria AVA|12459
+DM Sans|600|28|auto|and Kampala search Victoria|24050
+DM Sans|600|11.5|auto|€19.99 hills capital type chats|10655
+DM Sans|400|36|auto|chats AVA|9835
+DM Sans|500|20|auto|sample panel 2026|11505
+DM Sans|500|13.5|auto|hills brown – Search|8203
+DM Sans|500|13|auto|Yesterday|3889
+DM Sans|600|15|auto|– alo alo jumps|6959
+DM Sans|400|40|none|chat and|10550
+DM Sans|500|28|auto|jumps Yesterday open|18308
+DM Sans|400|14|auto|typeface city search|8557
+DM Sans|400|36|auto|results font –|13041
+DM Sans|600|12|auto|quick search,|4954
+DM Sans|500|13.337|auto|New settings Yesterday chat quick|13878
+DM Sans|600|24|none|Today chats Kampala typeface|23044
+DM Sans|400|24|auto|website|5550
+DM Sans|600|15.5|none|panel dog AVA Uganda type|13251
+DM Sans|500|20|auto|wave –|4245
+DM Sans|400|20|auto|chats Uganda New typeface|16628
+DM Sans|500|13.337|none|jumps|2469
+DM Sans|400|11.5|auto|2026 alo|3001
+DM Sans|700|13.5|none|alo Search|4495
+DM Sans|300|17|auto|office font office Yesterday|13391
+DM Sans|600|16|auto|“double” and|6421
+DM Sans|600|15|none|jumps open Kampala|9699
+DM Sans|500|13.337|auto|fox|1219
+DM Sans|500|17|auto|“double” capital the or|11528
+DM Sans|600|32|auto|type font 2026|14043
+DM Sans|700|22|auto|typeface AVA AVA|12369
+DM Sans|400|13|auto|jumps settings and anything, shore|13443
+DM Sans|400|13|none|office|2209
+DM Sans|300|15|auto|open fox lazy — search|9981
+DM Sans|300|11|auto|search, capital chats|6659
+DM Sans|500|15|none|city dog Copy font|8499
+DM Sans|600|20|auto|shore|3460
+DM Sans|400|11|auto|of Ask|2036
+DM Sans|600|17|none|— anything, link ‘quoted’ 2026|15876
+DM Sans|400|17|auto|or Search|4800
+DM Sans|700|36|none|panel|6331
+DM Sans|500|20|auto|a earlier typeface|10563
+DM Sans|700|12.5|none|AVA|1569
+DM Sans|500|13.5|auto|jumps ‘quoted’ settings type –|12489
+DM Sans|400|24|auto|Victoria type|9181
+DM Sans|400|36|auto|a the Wikipedia|15277
+DM Sans|500|20|auto|Lake search|7156
+DM Sans|400|22|auto|search, website hills Ask Ask|18373
+DM Sans|500|32|none|sample|7024
+DM Sans|300|12|auto|Wikipedia – wave font|7763
+DM Sans|700|14|auto|the city “double” city|9412
+DM Sans|700|15|none|jumps 2026 Yesterday|10543
+DM Sans|500|16|auto|€19.99 alo|4913
+DM Sans|400|24|none|Victoria the Victoria|14411
+DM Sans|600|40|none|open font Lake earlier|27141
+DM Sans|600|13.337|none|wave AVA font dog|7688
+DM Sans|700|40|none|typeface or font|20707
+DM Sans|500|13.5|auto|over Search “double” open|10843
+DM Sans|300|28|none|Copy Today|9760
+DM Sans|600|14|auto|font “double”|5752
+DM Sans|300|14|none|dog New Ask|5362
+DM Sans|400|15.5|auto|alo Lake|3703
+DM Sans|600|15|auto|— over search, ‘quoted’ ‘quoted’|14795
+DM Sans|600|32|auto|Uganda a Lake Lake|18469
+DM Sans|500|16|auto|brown|3017
+DM Sans|700|11.5|auto|Wikipedia hills Search search, Today|13163
+DM Sans|300|15|auto|brown hills 2026 office|9996
+DM Sans|500|40|auto|font brown|11878
+DM Sans|300|15|none|city city results jumps|9848
+DM Sans|600|15|auto|shore hills dog Uganda Today|13388
+DM Sans|700|12.5|auto|capital alo|4103
+DM Sans|600|13.337|auto|search, font|4894
+DM Sans|600|11|none|sample wave over city Ask|9058
+DM Sans|600|24|auto|wave|3749
+DM Sans|300|22|none|AVA search|7276
+DM Sans|600|40|auto|‘quoted’ €19.99 Wikipedia|29499
+DM Sans|400|24|auto|dog|2692
+DM Sans|700|17|auto|€19.99 search, ‘quoted’|12340
+DM Sans|600|11|auto|search hills website chats|8837
+DM Sans|300|18|auto|alo shore|4777
+DM Sans|400|11|none|and or …|2712
+DM Sans|400|40|auto|€19.99 and Uganda link over|30152
+DM Sans|300|11|auto|–|436
+DM Sans|600|12.5|auto|a jumps earlier|5698
+DM Sans|600|15.5|none|jumps open panel|8543
+DM Sans|500|15|auto|… font ·|3120
+DM Sans|500|20|auto|Lake|2765
+DM Sans|400|12.5|auto|Search Today|4999
+DM Sans|600|11|auto|panel alo|3078
+DM Sans|500|11|auto|New the|2749
+DM Sans|500|13.5|auto|typeface the wave anything, Uganda|14796
+DM Sans|500|13|none|the chats —|4723
+DM Sans|500|13.337|auto|Today quick AVA –|7433
+DM Sans|500|13.5|auto|sample chats a or|7237
+DM Sans|400|12|auto|Today and|3682
+DM Sans|500|15.5|none|type search, city ‘quoted’|12036
+DM Sans|500|16|none|Victoria type website website|14571
+DM Sans|400|16|none|fox Victoria jumps|8625
+DM Sans|700|11.5|auto|Uganda chats Wikipedia|8785
+DM Sans|300|16|auto|… search office|6891
+DM Sans|600|24|auto|Search Search sample|16376
+DM Sans|600|12|auto|Ask Search|4146
+DM Sans|300|22|none|search, —|6177
+DM Sans|600|14|auto|search, font of hills of|9217
+DM Sans|500|12|auto|lazy open —|4340
+DM Sans|300|13|auto|and Victoria office|6991
+DM Sans|300|18|none|AVA or search, 2026|10761
+DM Sans|500|15.5|none|open open Kampala font|11513
+DM Sans|400|32|none|anything, capital sample wave|28607
+DM Sans|500|12.5|auto|Yesterday €19.99|6477
+DM Sans|300|13.337|auto|hills typeface over sample|10159
+DM Sans|700|14|auto|chat a anything, over|9176
+DM Sans|500|12|auto|‘quoted’ Wikipedia|6751
+DM Sans|500|20|auto|office|3435
+DM Sans|500|12.5|none|office quick chat earlier|9007
+DM Sans|400|40|none|… Kampala open|19008
+DM Sans|400|18|auto|over AVA fox type|9366
+DM Sans|400|20|auto|wave alo and|7633
+DM Sans|700|12.5|auto|2026 Search|4929
+DM Sans|400|13.337|none|type city sample font|8544
+DM Sans|500|12.5|auto|wave panel capital typeface office|12975
+DM Sans|600|11.5|auto|hills type Search “double”|9199
+DM Sans|400|13.5|auto|Lake sample|4951
+DM Sans|500|12|none|jumps New|4014
+DM Sans|600|13.337|auto|Uganda|3124
+DM Sans|600|13|auto|Ask Victoria over 2026|9074
+DM Sans|400|12.5|auto|and alo|2703
+DM Sans|500|18|auto|quick Copy results|10104
+DM Sans|400|13.337|auto|2026 quick – a AVA|7715
+DM Sans|600|14|none|Yesterday|4357
+DM Sans|700|12|auto|a website a|4273
+DM Sans|700|20|auto|the|2108
+DM Sans|400|22|auto|hills chats search, ·|12090
+DM Sans|700|17|auto|fox Ask … fox|6761
+DM Sans|300|32|none|Lake|4256
+DM Sans|700|12|auto|quick wave|4229
+DM Sans|500|12.5|auto|and open sample|6501
+DM Sans|700|14|auto|‘quoted’ a New|6484
+DM Sans|400|36|none|or|2275
+DM Sans|500|40|none|· Ask|5669
+DM Sans|400|17|auto|type font Lake the –|10214
+DM Sans|600|24|auto|earlier AVA brown|12974
+DM Sans|300|18|auto|AVA|2034
+DM Sans|600|13.5|auto|chats 2026|4696
+DM Sans|500|22|auto|lazy panel 2026|10399
+DM Sans|500|32|auto|Today|5620
+DM Sans|400|14|none|sample Yesterday the earlier|11858
+DM Sans|600|14|auto|Lake Today|4813
+DM Sans|700|20|auto|of|1249
+DM Sans|600|15.5|auto|… AVA …|3667
+DM Sans|300|14|auto|settings Yesterday Victoria of or|13075
+DM Sans|500|13|none|Lake ‘quoted’ “double” open type|13104
+DM Sans|500|12.5|auto|city lazy Lake|5073
+DM Sans|300|24|auto|panel typeface – website settings|23666
+DM Sans|300|22|none|website sample shore quick|18074
+DM Sans|300|15.5|none|office of brown Lake Copy|11999
+DM Sans|700|40|auto|chat — dog brown Wikipedia|33105
+DM Sans|300|40|auto|anything, Lake chats earlier chats|34166
+DM Sans|300|32|auto|font search, earlier|16168
+DM Sans|500|15.5|auto|capital chat panel|8381
+DM Sans|500|13.337|auto|Victoria “double”|6831
+DM Sans|400|16|auto|shore font|4842
+DM Sans|600|32|auto|the|3138
+DM Sans|700|13.337|none|hills|1703
+DM Sans|500|14|none|‘quoted’ website|7060
+DM Sans|500|11|auto|Victoria shore results Ask ‘quoted’|11431
+DM Sans|600|12|none|Today results results|7794
+DM Sans|700|18|none|over Lake anything,|11089
+DM Sans|600|13.5|auto|alo|1240
+DM Sans|600|28|auto|fox — font|8469
+DM Sans|500|13|auto|fox chats Today city|7895
+DM Sans|300|12.5|none|quick website|5104
+DM Sans|700|15|auto|Today search|6262
+DM Sans|700|15|auto|hills Kampala panel|9012
+DM Sans|300|32|auto|lazy Kampala Victoria Kampala lazy|30571
+DM Sans|600|18|auto|· Yesterday website Victoria|15382
+DM Sans|400|16|auto|over Uganda Wikipedia hills|12924
+DM Sans|400|40|auto|and over New Search|22587
+DM Sans|300|11|auto|‘quoted’|2613
+DM Sans|600|16|auto|open shore|5530
+DM Sans|700|11|auto|city Copy|3335
+DM Sans|600|40|auto|results office Kampala anything, shore|42551
+DM Sans|400|11|auto|— alo|1766
+DM Sans|500|11.5|auto|typeface type New Ask|8104
+DM Sans|600|32|none|anything, shore chats over|26514
+DM Sans|600|20|auto|Wikipedia|6152
+DM Sans|700|13|none|Uganda typeface|7059
+DM Sans|500|16|auto|dog “double” Yesterday|11277
+DM Sans|600|15|auto|New chats €19.99 Kampala …|13231
+DM Sans|500|11.5|auto|font dog|2934
+DM Sans|500|11.5|auto|anything, the — Wikipedia €19.99|11540
+DM Sans|500|14|auto|Yesterday font “double”|9997
+DM Sans|600|14|none|capital brown of|7127
+DM Sans|400|13.337|none|jumps|2416
+DM Sans|400|17|auto|jumps AVA … jumps|9615
+DM Sans|600|12.5|auto|anything, · hills|5698
+DM Sans|600|13.5|auto|“double” Kampala website a|11647
+DM Sans|400|36|auto|Victoria sample and ‘quoted’ capital|35324
+DM Sans|500|11.5|auto|or chats office Victoria lazy|9525
+DM Sans|700|22|none|Kampala office office Lake shore|22528
+DM Sans|700|32|auto|Ask|3601
+DM Sans|500|12|auto|brown anything,|5807
+DM Sans|500|11|auto|dog earlier capital Kampala New|10679
+DM Sans|600|18|auto|New|2406
+DM Sans|300|40|auto|chats and wave|16175
+DM Sans|400|36|auto|and ‘quoted’ brown chats Kampala|34047
+DM Sans|400|22|none|Wikipedia search lazy typeface|20442
+DM Sans|400|18|auto|quick Ask of|6505
+DM Sans|600|20|none|results fox … jumps|11840
+DM Sans|600|32|none|– chat|6484
+DM Sans|500|40|auto|Kampala type search of ‘quoted’|35299
+DM Sans|400|13.5|auto|Wikipedia quick chats alo|10203
+DM Sans|700|12|none|search, sample the|7240
+DM Sans|400|16|none|– ‘quoted’ — Kampala jumps|13481
+DM Sans|500|15|auto|type city of Victoria earlier|12109
+DM Sans|700|32|none|type Copy alo|14002
+DM Sans|500|32|auto|“double”|8004
+DM Sans|300|28|auto|€19.99 Uganda Lake AVA|19494
+DM Sans|600|15|auto|Victoria Yesterday search,|12082
+DM Sans|400|13.337|auto|Uganda wave type of|8303
+DM Sans|600|24|auto|–|1058
+DM Sans|400|13|auto|the|1280
+DM Sans|500|13.337|auto|chat hills|3592
+DM Sans|500|12.5|auto|quick fox quick|5695
+DM Sans|600|13.337|auto|results type|4955
+DM Sans|400|13|auto|— of|1729
+DM Sans|700|15.5|auto|Uganda over chat Today|11650
+DM Sans|500|13.5|none|·|197
+DM Sans|500|36|auto|–|1575
+DM Sans|600|16|auto|results|3378
+DM Sans|500|12|auto|website|2862
+DM Sans|500|15|auto|capital lazy sample|8635
+DM Sans|400|40|auto|over · font|10586
+DM Sans|400|36|none|city Kampala type —|22020
+DM Sans|600|15.5|none|capital Yesterday search, chat chats|17659
+DM Sans|500|11.5|auto|Today capital search chat search,|11688
+DM Sans|600|15.5|auto|font Copy website|8725
+DM Sans|500|32|auto|hills link brown|13295
+DM Sans|500|11.5|auto|New Ask over|4686
+DM Sans|500|15.5|auto|capital font Lake|7752
+DM Sans|400|16|auto|Today … Today|6810
+DM Sans|600|15.5|auto|open|2428
+DM Sans|400|24|auto|and jumps of chats|13605
+DM Sans|400|18|auto|2026 earlier dog €19.99|12648
+DM Sans|400|13|none|font fox link over|6435
+DM Sans|600|12.5|auto|Search — office type Uganda|11146
+DM Sans|500|14|auto|hills open anything,|8098
+DM Sans|600|13.337|auto|search chats …|6096
+DM Sans|600|20|auto|New capital a city|10973
+DM Sans|400|18|none|Uganda hills settings|11088
+DM Sans|300|20|auto|capital|3921
+DM Sans|400|18|auto|a|626
+DM Sans|700|13.337|auto|and|1586
+DM Sans|600|20|auto|dog|2313
+DM Sans|500|36|none|Lake brown|12530
+DM Sans|400|18|none|search, of|5273
+DM Sans|600|11|none|chats|1945
+DM Sans|500|36|auto|chats shore brown a|20291
+DM Sans|400|20|auto|shore wave jumps –|11795
+DM Sans|500|32|auto|type hills|8243
+DM Sans|400|13.337|auto|Uganda search Search dog|10560
+DM Sans|600|12|auto|and results panel ‘quoted’ “double”|13055
+DM Sans|500|17|auto|lazy €19.99 — capital|10723
+DM Sans|400|18|auto|Ask Victoria link|8436
+DM Sans|600|28|auto|type or typeface|14128
+DM Sans|600|13.337|auto|typeface|3720
+DM Sans|300|12.5|none|chat chat €19.99 results|8985
+DM Sans|500|11.5|auto|‘quoted’ type a capital|7829
+DM Sans|400|13|auto|alo sample €19.99|6958
+DM Sans|700|17|auto|chat of|3749
+DM Sans|300|15|auto|open|2239
+DM Sans|600|13.337|auto|results or|3893
+DM Sans|600|32|auto|brown|5941
+DM Sans|700|11|none|… over|2205
+DM Sans|400|18|auto|chats results earlier earlier anything,|19186
+DM Sans|300|36|auto|search or and city €19.99|24426
+DM Sans|400|12|none|Victoria the hills|5777
+DM Sans|600|36|none|Uganda|8488
+DM Sans|700|22|none|or shore alo Kampala hills|17702
+DM Sans|500|13.5|auto|Copy Wikipedia of|7449
+DM Sans|300|11|auto|panel Lake chats anything,|8511
+DM Sans|700|13.337|auto|Uganda|3180
+DM Sans|700|11|none|of font|2334
+DM Sans|700|22|auto|capital a “double” shore|16523
+DM Sans|500|40|auto|search, of type Lake|21793
+DM Sans|500|15.5|auto|sample typeface|7856
+DM Sans|600|13|auto|€19.99|2676
+DM Sans|700|32|auto|chats|5381
+DM Sans|400|16|auto|Victoria Search ·|7683
+DM Sans|300|18|auto|the jumps settings|9760
+DM Sans|500|13.337|none|Uganda|3070
+DM Sans|600|24|none|fox 2026 link Kampala the|19183
+DM Sans|600|20|none|fox earlier|6241
+DM Sans|600|13.337|none|Wikipedia typeface Uganda fox open|15238
+DM Sans|400|22|none|the shore dog capital jumps|18350
+DM Sans|700|13|none|settings link or Yesterday|10465
+DM Sans|400|18|auto|font|2158
+DM Sans|700|15|none|Lake|2210
+DM Sans|400|20|auto|settings Wikipedia sample open shore|22546
+DM Sans|300|36|auto|Today Wikipedia website dog|28395
+DM Sans|600|16|auto|alo|1466
+DM Sans|500|32|none|capital a Search chats|21703
+DM Sans|300|22|auto|link – office alo AVA|12508
+DM Sans|700|20|auto|quick “double”|9305
+DM Sans|600|28|auto|— New of search, of|16430
+DM Sans|600|36|none|over|4945
+DM Sans|400|12|auto|settings · chats|5421
+DM Sans|300|18|none|of a Copy|5146
+DM Sans|300|12|auto|and office|3534
+DM Sans|400|12.5|auto|website ‘quoted’|6139
+DM Sans|400|17|none|‘quoted’ typeface Search|12764
+DM Sans|300|40|auto|typeface Search 2026 or quick|32341
+DM Sans|500|15.5|auto|sample|3399
+DM Sans|400|13.337|auto|and Yesterday lazy|7354
+DM Sans|600|16|none|website|3955
+DM Sans|500|20|none|Lake Today open typeface|15978
+DM Sans|500|13|none|brown of “double” type website|12508
+DM Sans|600|20|auto|or|1277
+DM Sans|500|12|auto|results Lake city jumps chat|10189
+DM Sans|600|28|auto|New settings Copy|15801
+DM Sans|500|14|auto|Uganda|3201
+DM Sans|600|12|auto|alo panel city Victoria search|10833
+DM Sans|500|28|auto|– sample|7661
+DM Sans|500|11|none|dog the|2566
+DM Sans|600|13.337|auto|typeface search Yesterday typeface Wikipedia|19289
+DM Sans|400|28|none|anything, typeface New|19712
+DM Sans|500|17|auto|fox quick sample “double”|13338
+DM Sans|500|15|auto|Ask Yesterday|6371
+DM Sans|600|36|auto|New Today Today hills font|27454
+DM Sans|700|24|auto|AVA Yesterday|10862
+DM Sans|600|16|auto|and search, Uganda of Ask|13000
+DM Sans|600|11|none|Ask|1259
+DM Sans|600|28|auto|earlier panel – ‘quoted’|19443
+DM Sans|500|13.337|none|type link|3478
+DM Sans|300|11.5|none|chats city alo|4581
+DM Sans|500|40|auto|“double” or – “double” search,|33143
+DM Sans|600|17|auto|‘quoted’ wave settings|11772
+DM Sans|400|14|auto|shore jumps|5099
+DM Sans|500|15|auto|panel “double” Ask link Ask|12206
+DM Sans|300|17|auto|hills|1862
+DM Sans|400|32|none|€19.99|6400
+DM Sans|600|17|auto|shore chat|5586
+DM Sans|600|20|auto|Search|4274
+DM Sans|300|13|auto|open quick|4224
+DM Sans|600|12|auto|typeface earlier capital ·|9060
+DM Sans|600|40|auto|alo lazy link capital|20883
+DM Sans|600|12|none|link ·|1687
+DM Sans|500|13.337|auto|shore|2260
+DM Sans|600|17|auto|Today|3149
+DM Sans|300|12|auto|anything, panel ·|5655
+DM Sans|400|12.5|auto|over brown earlier dog|8305
+DM Sans|400|18|auto|website website|8649
+DM Sans|400|22|auto|Lake|2964
+DM Sans|600|32|none|settings Victoria|16595
+DM Sans|500|13|auto|over settings earlier over search,|12761
+DM Sans|500|11.5|auto|search settings|5376
+DM Sans|500|17|auto|Yesterday sample|9076
+DM Sans|600|24|none|– typeface search, “double”|20923
+DM Sans|400|14|auto|Yesterday quick open Uganda brown|15126
+DM Sans|600|18|none|panel dog|5471
+DM Sans|600|15|auto|Kampala wave settings or|11768
+DM Sans|400|11.5|auto|search|2307
+DM Sans|400|22|auto|sample|4726
+DM Sans|400|15|none|results Wikipedia|7672
+DM Sans|600|36|auto|brown|6562
+DM Sans|500|18|none|Victoria wave results|11476
+DM Sans|600|13|auto|€19.99 Kampala search,|9467
+DM Sans|500|11|auto|earlier Wikipedia|5583
+DM Sans|500|13.5|auto|open|2074
+DM Sans|500|15|auto|shore|2537
+DM Sans|500|24|auto|“double” type chats link|17243
+DM Sans|400|18|auto|results Today panel|10306
+DM Sans|400|13.337|none|font quick capital|6958
+DM Sans|600|32|auto|alo office capital|15529
+DM Sans|600|11|auto|alo brown office Copy|7422
+DM Sans|500|17|none|or open — lazy|7552
+DM Sans|500|36|auto|of Uganda|10305
+DM Sans|700|15|auto|sample Victoria jumps the shore|15195
+DM Sans|500|32|auto|Lake|4240
+DM Sans|700|15|auto|shore wave|5283
+DM Sans|400|17|none|chat — jumps|6900
+DM Sans|400|12|auto|2026 or Victoria ‘quoted’ 2026|10988
+DM Sans|700|40|auto|quick city alo search,|24226
+DM Sans|400|11|none|chats|1839
+DM Sans|300|18|auto|sample AVA …|7081
+DM Sans|400|12.5|auto|capital or Copy ‘quoted’ …|9582
+DM Sans|400|20|auto|—|1119
+DM Sans|500|18|none|font or anything, results|13115
+DM Sans|600|40|auto|typeface hills fox New –|26937
+DM Sans|400|12.5|auto|open shore font –|6658
+DM Sans|500|13|none|search chats panel alo jumps|11533
+DM Sans|600|14|auto|alo|1284
+DM Sans|400|16|none|chats|2674
+DM Sans|300|16|auto|search, office AVA|8321
+DM Sans|400|40|auto|lazy type and|14288
+DM Sans|600|12.5|auto|· typeface|3885
+DM Sans|400|13.5|auto|Victoria Victoria Uganda|9702
+DM Sans|400|22|none|hills|2512
+DM Sans|400|13|auto|wave|1955
+DM Sans|600|12|auto|–|528
+DM Sans|300|13.5|auto|2026 search|4989
+DM Sans|600|28|auto|· Uganda Wikipedia Wikipedia fox|28007
+DM Sans|500|12.5|auto|results of|3543
+DM Sans|400|11|auto|Lake office font link|6346
+DM Sans|700|12.5|auto|chat Copy over search|8832
+DM Sans|600|13.337|auto|‘quoted’ Lake|5499
+DM Sans|500|13.337|none|typeface Search type wave|11106
+DM Sans|500|15.5|auto|office|2665
+DM Sans|500|20|none|… link|3189
+DM Sans|300|13.337|auto|panel font … Wikipedia|8683
+DM Sans|500|22|auto|Wikipedia|6571
+DM Sans|500|28|none|Victoria wave|11552
+DM Sans|400|14|none|“double” chat New|7717
+DM Sans|600|13.337|auto|wave panel hills typeface|10355
+DM Sans|600|13.5|auto|anything, search|6904
+DM Sans|400|12|auto|shore brown office|6673
+DM Sans|600|22|auto|type AVA “double” Ask €19.99|20123
+DM Sans|500|22|none|earlier €19.99 Copy|12954
+DM Sans|400|24|auto|‘quoted’ Ask office|13198
+DM Sans|500|12|auto|website Victoria “double” chat Today|13436
+DM Sans|700|12|auto|settings brown Copy|7822
+DM Sans|700|11|auto|€19.99|2310
+DM Sans|400|17|auto|AVA|1962
+DM Sans|300|13|auto|Uganda type type|6841
+DM Sans|600|15|auto|· — office Yesterday|9052
+DM Sans|500|13.5|none|hills Today Wikipedia|8544
+DM Sans|500|12|none|AVA and Yesterday chat|8673
+DM Sans|300|11|auto|– Wikipedia|3781
+DM Sans|400|14|auto|search, website|6439
+DM Sans|400|11|auto|and earlier or|4346
+DM Sans|300|24|none|— brown of Yesterday jumps|20130
+DM Sans|600|13.337|auto|fox Today chat|6019
+DM Sans|600|17|auto|Copy hills jumps search Yesterday|17884
+DM Sans|500|12.5|auto|Victoria jumps Lake and|9051
+DM Sans|400|40|auto|font a|6124
+DM Sans|600|18|none|sample Lake search,|11340
+DM Sans|500|32|auto|website New office Today jumps|29679
+DM Sans|600|15|auto|chats alo a|4995
+DM Sans|400|32|auto|New shore panel New chats|24745
+DM Sans|500|11|none|link Wikipedia lazy|6110
+DM Sans|700|15.5|none|New Yesterday chats sample|14172
+DM Sans|500|14|none|Wikipedia|4192
+DM Sans|700|40|auto|alo Today search|19294
+DM Sans|500|36|none|fox Copy Copy|15967
+Plus Jakarta Sans|500|13.5|auto|jumps|2513
+Plus Jakarta Sans|500|24|auto|office font brown|12674
+Plus Jakarta Sans|500|13|auto|settings|3247
+Plus Jakarta Sans|500|12|auto|search, settings|5836
+Plus Jakarta Sans|400|11|auto|–|400
+Plus Jakarta Sans|400|40|auto|quick|6700
+Plus Jakarta Sans|500|14|auto|sample Ask AVA|6724
+Plus Jakarta Sans|500|22|auto|€19.99 a AVA panel|12546
+Plus Jakarta Sans|500|14|auto|·|284
+Plus Jakarta Sans|600|11.5|auto|capital dog Wikipedia earlier dog|11644
+Plus Jakarta Sans|500|15.5|auto|typeface|4363
+Plus Jakarta Sans|300|28|auto|Victoria|6524
+Plus Jakarta Sans|500|15.5|auto|dog capital – capital Victoria|13415
+Plus Jakarta Sans|500|17|auto|anything, city dog|9314
+Plus Jakarta Sans|400|11.5|auto|sample alo Lake|5559
+Plus Jakarta Sans|500|28|auto|… anything,|9561
+Plus Jakarta Sans|300|20|auto|typeface – type|9544
+Plus Jakarta Sans|500|32|auto|shore the brown the|19401
+Plus Jakarta Sans|600|28|auto|jumps fox Uganda — search,|24180
+Plus Jakarta Sans|500|13.337|auto|city Today New|6153
+Plus Jakarta Sans|300|11.5|auto|€19.99 AVA jumps|6047
+Plus Jakarta Sans|300|13.337|auto|wave|2095
+Plus Jakarta Sans|500|28|auto|chat|3841
+Plus Jakarta Sans|500|32|auto|… 2026 panel website|21031
+Plus Jakarta Sans|400|17|auto|New Uganda Today|9908
+Plus Jakarta Sans|600|13.337|auto|earlier or|3585
+Plus Jakarta Sans|300|32|auto|link dog|7624
+Plus Jakarta Sans|700|11.5|auto|shore panel Search “double” New|12056
+Plus Jakarta Sans|500|12|auto|Today font AVA|5492
+Plus Jakarta Sans|500|20|auto|dog search,|7266
+Plus Jakarta Sans|500|40|auto|hills chats|11844
+Plus Jakarta Sans|700|12.5|auto|office chats Uganda Today font|12072
+Plus Jakarta Sans|300|15.5|auto|city Copy Kampala — ‘quoted’|14040
+Plus Jakarta Sans|300|14|auto|sample AVA or sample|9259
+Plus Jakarta Sans|500|20|auto|sample of earlier|10068
+Plus Jakarta Sans|300|15|auto|hills Yesterday Kampala €19.99|13757
+Plus Jakarta Sans|300|24|auto|Victoria New alo|11625
+Plus Jakarta Sans|500|11.5|auto|open search, chats|6652
+Plus Jakarta Sans|600|22|auto|sample “double” “double”|18038
+Plus Jakarta Sans|700|11|auto|or Uganda|3519
+Plus Jakarta Sans|600|14|auto|fox New office chat|8335
+Plus Jakarta Sans|700|12|auto|Lake 2026|3828
+Plus Jakarta Sans|500|16|auto|results font|5501
+Plus Jakarta Sans|700|15.5|auto|anything, · Yesterday ‘quoted’|14634
+Plus Jakarta Sans|400|18|auto|jumps AVA the|7647
+Plus Jakarta Sans|400|12.5|auto|Today chat over Victoria|9003
+Plus Jakarta Sans|500|15.5|auto|Uganda Wikipedia open —|12412
+Plus Jakarta Sans|300|14|auto|Today quick over panel jumps|12377
+Plus Jakarta Sans|600|20|auto|chat and shore New|12102
+Plus Jakarta Sans|500|17|auto|€19.99 shore type|9279
+Plus Jakarta Sans|500|22|auto|or|1414
+Plus Jakarta Sans|500|14|auto|chats — sample|6670
+Plus Jakarta Sans|300|22|auto|AVA fox Yesterday|11827
+Plus Jakarta Sans|600|18|auto|website or fox office type|14136
+Plus Jakarta Sans|400|16|auto|a|586
+Plus Jakarta Sans|400|22|auto|dog city|5502
+Plus Jakarta Sans|400|20|auto|€19.99 … settings or type|14904
+Plus Jakarta Sans|300|18|auto|dog earlier Search|9903
+Plus Jakarta Sans|600|13.5|auto|website lazy capital|8137
+Plus Jakarta Sans|400|13|auto|website Victoria €19.99 Yesterday|13222
+Plus Jakarta Sans|700|36|auto|chats a jumps of|17992
+Plus Jakarta Sans|500|32|auto|· sample and of and|18849
+Plus Jakarta Sans|500|13|auto|Yesterday earlier type|8610
+Plus Jakarta Sans|500|12.5|auto|website Today|5532
+Plus Jakarta Sans|400|13.337|auto|chats type lazy dog|7779
+Plus Jakarta Sans|500|17|auto|‘quoted’ – and Today|10873
+Plus Jakarta Sans|500|13|auto|hills chats dog Lake open|9911
+Plus Jakarta Sans|600|13|auto|dog shore results – –|8229
+Plus Jakarta Sans|700|15.5|auto|– of|1863
+Plus Jakarta Sans|400|13.337|auto|hills open — font|6541
+Plus Jakarta Sans|300|11|auto|brown open ‘quoted’ over website|11374
+Plus Jakarta Sans|300|32|auto|jumps of wave and|17761
+Plus Jakarta Sans|500|14|auto|results open|5274
+Plus Jakarta Sans|600|11|auto|chat “double” · AVA|6663
+Plus Jakarta Sans|400|20|auto|city|2244
+Plus Jakarta Sans|700|28|auto|dog brown capital a|17210
+Plus Jakarta Sans|500|15|auto|a quick|3257
+Plus Jakarta Sans|700|13|auto|open office Search type|9679
+Plus Jakarta Sans|500|13.5|auto|jumps · font Today|7471
+Plus Jakarta Sans|300|12|auto|fox “double” 2026 capital earlier|11527
+Plus Jakarta Sans|300|13.337|auto|chats Yesterday sample earlier|12208
+Plus Jakarta Sans|500|13.337|auto|Search website|6291
+Plus Jakarta Sans|300|28|auto|Ask|3046
+Plus Jakarta Sans|400|14|auto|Wikipedia alo|5704
+Plus Jakarta Sans|400|17|auto|search|3479
+Plus Jakarta Sans|700|20|auto|New Wikipedia a the panel|16308
+Plus Jakarta Sans|300|32|auto|link search sample|17617
+Plus Jakarta Sans|600|40|auto|type Ask|10759
+Plus Jakarta Sans|500|13|auto|— Copy brown|5802
+Plus Jakarta Sans|400|18|auto|link search, panel office|12704
+Plus Jakarta Sans|500|28|auto|settings €19.99 Search Uganda|26496
+Plus Jakarta Sans|500|13.5|auto|typeface|3800
+Plus Jakarta Sans|600|16|auto|settings chat|6421
+Plus Jakarta Sans|600|18|auto|chats chat dog €19.99 alo|14141
+Plus Jakarta Sans|600|24|auto|panel · Victoria|10985
+Plus Jakarta Sans|300|18|auto|type chats and link website|14583
+Plus Jakarta Sans|500|36|auto|open shore lazy|17033
+Plus Jakarta Sans|500|13.337|auto|alo Ask Copy 2026 office|10141
+Plus Jakarta Sans|400|14|auto|Search a typeface website New|13333
+Plus Jakarta Sans|400|14|auto|city over|3610
+Plus Jakarta Sans|300|15.5|auto|search, – chat ·|6858
+Plus Jakarta Sans|600|22|auto|Uganda anything, font lazy capital|22817
+Plus Jakarta Sans|500|32|auto|earlier New … Uganda|20771
+Plus Jakarta Sans|500|36|auto|hills lazy|8748
+Plus Jakarta Sans|400|12.5|auto|Yesterday brown|6347
+Plus Jakarta Sans|300|40|auto|results and|13146
+Plus Jakarta Sans|400|15|auto|font font — “double” AVA|11154
+Plus Jakarta Sans|300|16|auto|quick alo|4338
+Plus Jakarta Sans|700|20|auto|fox a|2994
+Plus Jakarta Sans|400|22|auto|alo Wikipedia Ask Search anything,|22930
+Plus Jakarta Sans|400|12|auto|over hills|3106
+Plus Jakarta Sans|700|11|auto|fox|1114
+Plus Jakarta Sans|400|22|auto|2026 quick of …|10377
+Plus Jakarta Sans|500|15.5|auto|2026 capital|5921
+Plus Jakarta Sans|500|13.5|auto|a quick wave|5247
+Plus Jakarta Sans|400|11|auto|a dog|1920
+Plus Jakarta Sans|600|15.5|auto|· 2026 AVA office Uganda|12065
+Plus Jakarta Sans|500|11|auto|earlier|2090
+Plus Jakarta Sans|300|11|auto|capital city|3618
+Plus Jakarta Sans|500|24|auto|chats|4077
+Plus Jakarta Sans|500|40|auto|results search, New|23662
+Plus Jakarta Sans|400|13.337|auto|office Search|5391
+Plus Jakarta Sans|600|24|auto|Uganda chats Uganda and|19339
+Plus Jakarta Sans|400|11.5|auto|link quick anything,|6552
+Plus Jakarta Sans|500|32|auto|open the typeface|18122
+Plus Jakarta Sans|400|40|auto|search,|8876
+Plus Jakarta Sans|500|17|auto|New lazy|4541
+Plus Jakarta Sans|400|15|auto|‘quoted’ the over|7773
+Plus Jakarta Sans|400|12|auto|link a Ask website 2026|8340
+Plus Jakarta Sans|400|12.5|auto|jumps city quick Victoria|9128
+Plus Jakarta Sans|600|12|auto|alo Ask a dog|4859
+Plus Jakarta Sans|400|18|auto|AVA|2116
+Plus Jakarta Sans|700|18|auto|· earlier earlier|7881
+Plus Jakarta Sans|300|22|auto|Search Kampala lazy|13530
+Plus Jakarta Sans|300|15|auto|Ask wave city|5980
+Plus Jakarta Sans|500|16|auto|Ask and AVA|5949
+Plus Jakarta Sans|700|11|auto|website|2776
+Plus Jakarta Sans|400|12.5|auto|lazy earlier sample|6842
+Plus Jakarta Sans|700|13.337|auto|quick|2305
+Plus Jakarta Sans|400|20|auto|– Yesterday|7016
+Plus Jakarta Sans|600|13|auto|Victoria Lake|5180
+Plus Jakarta Sans|300|28|auto|sample typeface Copy €19.99|25348
+Plus Jakarta Sans|600|11.5|auto|and chats ‘quoted’ Yesterday|10400
+Plus Jakarta Sans|700|13.5|auto|– ‘quoted’ or|5485
+Plus Jakarta Sans|700|13|auto|Today earlier Search|8139
+Plus Jakarta Sans|300|12.5|auto|a Uganda – jumps|6605
+Plus Jakarta Sans|400|13.5|auto|quick dog “double” Yesterday|12183
+Plus Jakarta Sans|400|36|auto|lazy typeface ‘quoted’ link Wikipedia|39666
+Plus Jakarta Sans|600|13.5|auto|anything, Lake AVA alo Copy|11753
+Plus Jakarta Sans|500|40|auto|brown search sample Yesterday|38734
+Plus Jakarta Sans|500|18|auto|a lazy 2026|6065
+Plus Jakarta Sans|700|36|auto|font|4719
+Plus Jakarta Sans|300|17|auto|jumps Yesterday|8487
+Plus Jakarta Sans|600|16|auto|or settings jumps|8425
+Plus Jakarta Sans|400|40|auto|panel chats|13973
+Plus Jakarta Sans|500|15|auto|chats open quick AVA brown|12935
+Plus Jakarta Sans|600|28|auto|– city wave or Ask|15215
+Plus Jakarta Sans|300|13.5|auto|the open quick the|7589
+Plus Jakarta Sans|500|36|auto|font dog brown|17040
+Plus Jakarta Sans|400|22|auto|quick open hills lazy Wikipedia|19856
+Plus Jakarta Sans|600|12|auto|lazy|1430
+Plus Jakarta Sans|300|32|auto|the|3228
+Plus Jakarta Sans|600|32|auto|website font €19.99|19557
+Plus Jakarta Sans|600|13.5|auto|fox chat|3359
+Plus Jakarta Sans|500|12|auto|a|442
+Plus Jakarta Sans|700|15.5|auto|Lake Lake · settings|9399
+Plus Jakarta Sans|400|13.5|auto|lazy typeface|5454
+Plus Jakarta Sans|600|40|auto|—|2448
+Plus Jakarta Sans|500|28|auto|lazy|3269
+Plus Jakarta Sans|500|32|auto|dog jumps ‘quoted’ shore|25127
+Plus Jakarta Sans|300|24|auto|typeface chat earlier Lake|18693
+Plus Jakarta Sans|400|14|auto|capital results Yesterday Yesterday wave|17047
+Plus Jakarta Sans|500|24|auto|website over –|10620
+Plus Jakarta Sans|500|15|auto|Copy a office Lake alo|10053
+Plus Jakarta Sans|600|12.5|auto|website over and|6586
+Plus Jakarta Sans|400|12|auto|– … sample €19.99 —|7325
+Plus Jakarta Sans|300|32|auto|New Victoria and Lake|21200
+Plus Jakarta Sans|300|13|auto|Today|2395
+Plus Jakarta Sans|400|18|auto|earlier|3371
+Plus Jakarta Sans|400|11|auto|over 2026 shore or|6215
+Plus Jakarta Sans|300|32|auto|Copy or Kampala of|19063
+Plus Jakarta Sans|500|28|auto|wave chats|9559
+Plus Jakarta Sans|400|28|auto|lazy|3201
+Plus Jakarta Sans|500|14|auto|Wikipedia website Search Yesterday wave|17912
+Plus Jakarta Sans|600|17|auto|type · a a|4661
+Plus Jakarta Sans|400|15.5|auto|Victoria quick|6379
+Plus Jakarta Sans|600|12|auto|website – typeface 2026 the|10578
+Plus Jakarta Sans|700|40|auto|Uganda · website alo|25935
+Plus Jakarta Sans|500|18|auto|€19.99 anything, Wikipedia|14774
+Plus Jakarta Sans|500|28|auto|of capital quick · or|16065
+Plus Jakarta Sans|500|17|auto|and a hills Lake|7602
+Plus Jakarta Sans|400|36|auto|dog|4572
+Plus Jakarta Sans|400|11|auto|Kampala|2932
+Plus Jakarta Sans|400|28|auto|· Wikipedia|9312
+Plus Jakarta Sans|500|40|auto|·|811
+Plus Jakarta Sans|400|22|auto|earlier chat|7349
+Plus Jakarta Sans|300|12.5|auto|Wikipedia settings hills Uganda Copy|13911
+Plus Jakarta Sans|600|20|auto|panel of …|6180
+Plus Jakarta Sans|500|11.5|auto|capital lazy|3881
+Plus Jakarta Sans|500|24|auto|search,|5412
+Plus Jakarta Sans|600|12|auto|Copy|2035
+Plus Jakarta Sans|400|15|auto|typeface AVA font|8171
+Plus Jakarta Sans|300|13.5|auto|brown settings Search|9112
+Plus Jakarta Sans|700|13.337|auto|Yesterday shore the dog or|11088
+Plus Jakarta Sans|700|36|auto|office shore of Lake|21895
+Plus Jakarta Sans|600|15.5|auto|2026 office fox|7212
+Plus Jakarta Sans|300|32|auto|– AVA|5247
+Plus Jakarta Sans|700|28|auto|fox over ‘quoted’ or|17266
+Plus Jakarta Sans|500|12|auto|Today|2229
+Plus Jakarta Sans|300|12|auto|chat sample|4445
+Plus Jakarta Sans|600|11|auto|— quick hills search jumps|8690
+Plus Jakarta Sans|500|14|auto|office Kampala the a hills|10471
+Plus Jakarta Sans|400|17|auto|or settings quick – city|11407
+Plus Jakarta Sans|500|24|auto|and font Ask|9078
+Plus Jakarta Sans|600|12|auto|chat or brown Kampala of|9416
+Plus Jakarta Sans|500|11.5|auto|typeface Uganda|6133
+Plus Jakarta Sans|700|13.337|auto|Today|2527
+Plus Jakarta Sans|500|36|auto|AVA search, sample|21397
+Plus Jakarta Sans|400|15|auto|‘quoted’ Victoria and|9476
+Plus Jakarta Sans|600|13|auto|the a AVA|3742
+Plus Jakarta Sans|700|11|auto|chat New capital Ask|7115
+Plus Jakarta Sans|600|12.5|auto|·|278
+Plus Jakarta Sans|500|13.337|auto|search,|3006
+Plus Jakarta Sans|600|16|auto|chat Today and Kampala chats|14879
+Plus Jakarta Sans|300|13|auto|font|1642
+Plus Jakarta Sans|600|13.5|auto|panel Ask chat AVA|7877
+Plus Jakarta Sans|500|16|auto|– €19.99 chats Copy|9878
+Plus Jakarta Sans|700|11.5|auto|office|2120
+Plus Jakarta Sans|400|11|auto|earlier|2060
+Plus Jakarta Sans|600|11|auto|the Search quick Wikipedia Today|11358
+Plus Jakarta Sans|300|12|auto|fox alo of office “double”|8943
+Plus Jakarta Sans|500|40|auto|€19.99|8304
+Plus Jakarta Sans|300|20|auto|· office open office Ask|13792
+Plus Jakarta Sans|600|11|auto|lazy|1311
+Plus Jakarta Sans|600|11|auto|chats Kampala 2026|6874
+Plus Jakarta Sans|600|12|auto|“double” dog|5081
+Plus Jakarta Sans|500|15.5|auto|Wikipedia|4752
+Plus Jakarta Sans|500|14|auto|Wikipedia|4292
+Plus Jakarta Sans|700|20|auto|Today|3791
+Plus Jakarta Sans|600|36|auto|office website –|17800
+Plus Jakarta Sans|700|12|auto|office link search, Lake|8466
+Plus Jakarta Sans|500|14|auto|panel sample Kampala Uganda 2026|15554
+Plus Jakarta Sans|600|24|auto|type chats|7845
+Plus Jakarta Sans|400|13.337|auto|Yesterday and|5738
+Plus Jakarta Sans|700|36|auto|2026 the Kampala lazy –|26825
+Plus Jakarta Sans|500|22|auto|lazy €19.99|7378
+Plus Jakarta Sans|500|40|auto|chats typeface|18493
+Plus Jakarta Sans|600|16|auto|chat type chats … type|11059
+Plus Jakarta Sans|500|12.5|auto|Kampala Lake|5311
+Plus Jakarta Sans|400|22|auto|Wikipedia sample website Uganda|22931
+Plus Jakarta Sans|700|13|auto|New open|4112
+Plus Jakarta Sans|700|22|auto|quick|3804
+Plus Jakarta Sans|600|40|auto|wave city search typeface AVA|37720
+Plus Jakarta Sans|500|15|auto|Today Kampala Uganda capital|14066
+Plus Jakarta Sans|700|13.337|auto|link €19.99 shore|6905
+Plus Jakarta Sans|600|13.5|auto|Wikipedia ‘quoted’ New|10047
+Plus Jakarta Sans|500|24|auto|capital search, or Kampala Yesterday|26866
+Plus Jakarta Sans|700|22|auto|jumps Victoria typeface “double” hills|25909
+Plus Jakarta Sans|400|13|auto|“double” anything, Ask|8870
+Plus Jakarta Sans|600|13.5|auto|Search Kampala panel|9204
+Plus Jakarta Sans|400|15|auto|link settings typeface typeface Victoria|17748
+Plus Jakarta Sans|400|14|auto|settings quick search|8985
+Plus Jakarta Sans|500|15.5|auto|capital brown quick a|10000
+Plus Jakarta Sans|400|16|auto|AVA · Yesterday|7378
+Plus Jakarta Sans|300|18|auto|— hills|3240
+Plus Jakarta Sans|400|28|auto|Kampala – search,|15302
+Plus Jakarta Sans|300|16|auto|hills and search, of lazy|10742
+Plus Jakarta Sans|400|28|auto|wave shore Ask dog|16763
+Plus Jakarta Sans|300|15.5|auto|the fox Kampala city|9385
+Plus Jakarta Sans|300|17|auto|alo|1585
+Plus Jakarta Sans|400|20|auto|New jumps settings|11837
+Plus Jakarta Sans|700|40|auto|a 2026 settings or|22026
+Plus Jakarta Sans|700|12.5|auto|office|2304
+Plus Jakarta Sans|500|11|auto|Copy website|4680
+Plus Jakarta Sans|400|15.5|auto|website Kampala anything, shore|15396
+Plus Jakarta Sans|300|12.5|auto|and — Victoria search,|8247
+Plus Jakarta Sans|500|40|auto|quick shore Kampala the|29838
+Plus Jakarta Sans|300|24|auto|fox panel Wikipedia|14147
+Plus Jakarta Sans|300|24|auto|of 2026 shore of|11878
+Plus Jakarta Sans|600|13|auto|of|865
+Plus Jakarta Sans|700|36|auto|… anything, quick|19447
+Plus Jakarta Sans|600|13.337|auto|€19.99|2801
+Plus Jakarta Sans|700|16|auto|link office capital|8459
+Plus Jakarta Sans|600|17|auto|search dog|5880
+Plus Jakarta Sans|300|13.337|auto|quick website|5598
+Plus Jakarta Sans|600|16|auto|Uganda|3869
+Plus Jakarta Sans|700|24|auto|Search AVA anything, panel font|23832
+Plus Jakarta Sans|500|24|auto|capital typeface Ask city Uganda|24044
+Plus Jakarta Sans|400|13.5|auto|of chats type capital|8306
+Plus Jakarta Sans|600|11|auto|brown wave Uganda|6898
+Plus Jakarta Sans|400|28|auto|· 2026 city city|12242
+Plus Jakarta Sans|500|14|auto|— AVA|2689
+Plus Jakarta Sans|700|13.337|auto|€19.99 –|3544
+Plus Jakarta Sans|300|17|auto|New or dog Lake font|10907
+Plus Jakarta Sans|600|11|auto|search open fox a|5931
+Plus Jakarta Sans|700|18|auto|dog|2276
+Plus Jakarta Sans|300|18|auto|Copy|3026
+Plus Jakarta Sans|600|32|auto|website settings typeface|25830
+Plus Jakarta Sans|600|32|auto|the – search, search|19630
+Plus Jakarta Sans|600|15.5|auto|capital jumps|6369

@@ -49165,3 +49165,135 @@ through `perl -MPOSIX=setsid` and waited on by its PID). **Summary
 *"The gate is met." (11 of 11 steps)*.
 
 The next unused queue number is **853** and the next ADR is **0099**.
+
+## 2026-11-07 — items 853, 854 and 855: Inter, Settings with a choice of face, and the menu's line cut at its edge
+
+Batched under one gate, at the owner's asking: the owner's design of 7
+November 2026 (*"Yes please"*) — Inter for every word of the interface,
+then *Settings* with one section, *Font* — written into
+`docs/design/shell.md` (*Typefaces*, *Settings*) and queue items 853 and
+854 as approved by the owner 2026-11-07, every detail it left open settled
+there; and 855, the check of the card menu's line asked with it. Contracts
+read: `CLAUDE.md`, `LOOP.md`, ADRs 0084 (amended), 0088, 0097, 0092 § 1,
+0076, 0002. No `unsafe`, so no new ADR.
+
+**The faces.** Each from its upstream release only, into a directory of
+its own, nothing but the font and its licence read from it; all four OFL
+1.1 (licence file, `name` ID 13). Inter 4.1 `InterVariable.ttf`
+(`rsms/inter` `v4.1`, 879,708 bytes, SHA-256 `4989b125…d0ccaf`); Geist
+1.9.2 `Geist[wght].ttf` (`vercel/geist-font` release zip, digest-checked,
+169,056, `b34955a0…7e241`); DM Sans `DMSans[opsz,wght].ttf` (240,164,
+`8cd08d97…1c0d`) and Plus Jakarta Sans `PlusJakartaSans[wght].ttf`
+(176,288, `89b3fb38…8bc8`) from `google/fonts` at `86aced91`, git blobs
+matching its API. Licences beside each; **1,482,864 bytes added**.
+`.gitattributes` keeps the licences' bytes (DM Sans' is CR LF). Inter
+calls itself *Inter Variable*, the family the sheets ask for. ADR 0084's
+amendment has the table.
+
+**853 — Inter.** `typefaces.rs` carries the five faces of words, all
+handed to the interface's renderers as they start; every sheet asks for
+`var(--face), system-ui, sans-serif`, `--face` Inter on the root.
+Measured against Chrome 157.0.8103.38 rather than assumed: Inter's `opsz`
+(14–32) and DM Sans' (9–40) set to the run's CSS pixels as Chrome sets
+them — every glyph's canvas advance at 9 to 40 px to a thousandth, 1,570
+of 1,600 runs of the four new faces Chrome's to its layout unit, the other
+30 a 64th apart (`a_chosen_face_set_as_chrome_sets_it.rs`). Found: the
+rail's buttons asked for no face and were drawn in a control's own; they
+ask for the face now. Every reference of the interface redrawn (44 in
+`alo-renderer`, 9 in `alo-window`), each run once without update mode,
+written, and looked at before beside after — the panel, rail, first
+screen, all six tabs, answer, card, menu, agent at work and stuck, split
+view, conversation, emoji, narrow windows and the sheet. Nothing clipped
+or overflowed that did not before; what moved: descriptions and the
+answer break at other words (still within their two lines), the first
+description at 759 wraps to two lines (one before), a hovered earlier
+row's name is cut with `…` by its *Delete* where it was whole, and a
+column of 416 beside the panel — a window of 720, the rail's since 775 —
+would not hold Inter's six tabs (2.78 px): that unreachable case moved to
+760's 456. Layout assertions moved by Inter's widths, each a text's box;
+the emoji test now asserts fallback in Instrument Sans (no ★, no
+Cyrillic) and Inter (has both).
+
+**854 — Settings.** `interface_face.rs` (the five, by name and family,
+the root's `--face`); `Panel` and `Start` carry the face and whether
+*Settings* is on screen, on the wire (an unknown face refused);
+`settings_document.rs` and a template in `start.html` draw it in the
+conversation's place: *Back to the chat*, *Settings*, the region *Font*
+with a radio group named *Font* of five `<input type=radio>` named by
+their face (a `role="radio"` element is drawn by this engine as a fill of
+its whole box, so a real radio, Chrome's picture, in the ink), each face a
+sample result in it. Claimed by place (`Claim::Face`,
+`Claim::LeaveSettings`), decided against the faces painted
+(`Shown::faces`). The window (`conversation_settings.rs`) opens it from
+the *Settings* row — closing the sheet — and closes it by *Back*, Escape
+(after *Search chats*), a chat or *New chat*; nothing of the chat drawn,
+scrolled or streamed under it, and no press aimed at a card's page.
+`settings_file.rs`: `settings.txt` beside the chats, `0600` in `0700`,
+whole or not at all; read at launch whether or not the chats' key is
+found; a file that does not read is Inter, said with its path and why.
+
+**855 — the menu's line.** *Search for “…”* is three pieces; the words
+shrink and end in `…` at the menu's edge, the quote kept; a selection
+held to 80 characters and named whole to an agent. The cut at 16
+characters was measured not to fit sixteen `W`s in any face.
+
+**Tests:** unit (faces, wire, documents, decisions, the file eight ways
+damaged and bounded, the conversation, the window's stream, Escape and
+aim); renderer: `settings_and_the_face_chosen.rs` (the agent's reading,
+layout in numbers at 1040 and the least window, each sample whole in its
+face, presses, `settings.png`, `settings-in-the-least-window.png`, and
+`face-<face>-result.png` / `face-<face>-panel.png` for all five with the
+same boxes), `the_interfaces_typefaces.rs` (every word of panel, rail and
+first screen in each face, the mark and greeting Newsreader),
+`the_page_menus_words_cut_at_its_edge.rs` (`card-menu-cut.png`); the
+window's own road, `a_font_chosen_in_settings_in_the_window.rs`. Every
+new picture run once without update mode first. **Mutations**, each
+failing: default face Geist; Inter asked for as Instrument Sans; the
+rail's buttons in their own face; optical size left at the default; the
+drawing thread not keeping the faces painted (found that way first: every
+face pressed was refused through the window's road); the file never
+written; an unknown face read silently; the Settings row not current;
+the face not put on the root; Escape not closing; the card streamed under
+Settings; Settings not sent; a press aimed at a hidden card's page; the
+menu's words not shrinking; the line one piece.
+
+**By hand** (screen unlocked; release, CEF host and bundle rebuilt,
+`alo-bundle --keys-from keychain`; `--conversation --chats
+handrun35/chats`; window at 215, 90 (points) found by PID; keys through
+System Events — the private-source key tool's posts did not reach the
+window this time; a local `http.server` on 127.0.0.1:8735; screenshots in
+the session scratchpad's `handrun35/`): a Brave search for *kampala* in
+Inter (`01`); *Settings* (`02`); Geist chosen (`03`) and the results in
+Geist, DM Sans, Plus Jakarta Sans and Instrument Sans, each by Escape
+back to the chat (`04`–`07`), the terminal saying each, `settings.txt`
+`0600` naming the last; the panel and the rail with the hovered chat's
+name in Instrument Sans (`08`, `09`); a card of the local page (`10`); a
+long word selected and right-clicked, alo's menu cutting it with `…` and
+the quote in Inter (`11`). **Found by hand, fixed:** a face pressed in
+*Settings* over a live card went to the card's page (`12`, the menu still
+in Inter); fixed in `card_on_screen`, a unit test failing without it,
+seen fixed after a rebuild — Instrument Sans chosen over a live card
+(`16`) and its menu (`17`), then Geist, DM Sans and Plus Jakarta Sans
+(`18`–`20`): **no menu line ran past the menu in any of the five**.
+Plus Jakarta Sans chosen (`14`), alo quit and relaunched on the same
+directory: in it from the first frame (`15`). Quit with `tell application
+id "org.aloworld.Browser" to quit`; no alo process left; the pointer at
+1400, 1000. **Not seen by hand:** a damaged settings file at launch (the
+window's road and unit tests only), *Settings* at a Retina scale other
+than this one's 2, the least window, the sheet's *Settings*, and the
+choice with the chats' key missing.
+
+**852 looked at:** not small — the host would need Core Text's font
+registration in its rented boundary and a word beside the pipe for the
+face chosen; its text amended, the strip's face name now *Inter*. Cut:
+*Settings* by keys (856).
+
+ROADMAP: the interface line's owed list gains 856 and the face chosen for
+852; *Built since* names 853, 854 and 855.
+
+**Gate: met, first run** (CEF_PATH set, the pointer at 1400, 1000; detached
+through `perl -MPOSIX=setsid` and waited on by its PID). **Summary
+[1181.780s] 6520 tests run: 6520 passed (5 slow, 1 leaky), 0 skipped** —
+*"The gate is met." (11 of 11 steps)*. `scripts/gate.sh` not edited.
+
+The next unused queue number is **857** and the next ADR is **0099**.

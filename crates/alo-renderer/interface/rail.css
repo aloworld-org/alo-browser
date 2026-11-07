@@ -8,6 +8,11 @@
    ground, so the name standing beside a hovered chat, past the rail's
    edge, is all the window draws over the first screen. */
 :root {
+  /* The face every word is set in (queue items 853, 854): Inter, unless a
+     person chose another in Settings, which the document builder puts on
+     the root element as its own style. The mark and the greeting stay in
+     Newsreader whatever is chosen. */
+  --face: "Inter Variable";
   --ink: #1b2433;
   --panel: #eeeae2;
   --line-soft: #e1dace;
@@ -27,7 +32,7 @@ body {
 
 body {
   color: #3d3a35;
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 13.5px;
   line-height: 18px;
 }
@@ -55,6 +60,9 @@ body {
 
 /* Each button 44 square, rounded 10, its 18 px icon in the middle in the
    panel's text colour. */
+/* A button's words are set in the face chosen, not a control's own face
+   (queue item 854 found the initials and the hovered name drawn in the
+   machine's sans-serif). */
 .rbtn {
   flex-shrink: 0;
   width: 44px;
@@ -63,6 +71,7 @@ body {
   border-radius: 10px;
   background: transparent;
   color: #3d3a35;
+  font-family: var(--face), system-ui, sans-serif;
 }
 
 .rbtn .icon {

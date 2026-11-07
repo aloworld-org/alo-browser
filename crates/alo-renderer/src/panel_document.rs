@@ -16,7 +16,9 @@
 //! heading and a list; each chat a link named by its name, `aria-current`
 //! when it is on screen and `aria-busy` while the agent works in it; a chat
 //! the agent finished says [`DONE`] after its name, in words a person and an
-//! agent both read. The site's mark is decoration and is hidden from the
+//! agent both read. While *Settings* is the page on screen (queue item
+//! 854) its link is the one `aria-current`, and no chat's is. The site's
+//! mark is decoration and is hidden from the
 //! tree: the row is named by its chat, not by a letter. So are the icons
 //! before *New chat* and *Settings* (queue item 712): inline SVG written in
 //! the template, stroked in `currentColor`, and `aria-hidden`.
@@ -122,7 +124,18 @@ pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
         return crate::rail_document::build(panel);
     }
     let mut document = parse_document(TEMPLATE);
+    // Set in the face chosen (queue items 853, 854).
+    panel
+        .face
+        .set_on(&mut document)
+        .map_err(|why| Unbuilt { why })?;
     let place = by_id(&document, CHATS)?;
+    if panel.settings {
+        // *Settings* is the page on screen (queue item 854): its row is
+        // drawn, and read, as the chat on screen's is.
+        let row = by_class(&document, "settings")?;
+        attribute(&mut document, row, "aria-current", "page")?;
+    }
     if panel.searching {
         let nav = by_id(&document, PANEL)?;
         attribute(&mut document, nav, "class", "panel searching")?;
@@ -317,6 +330,16 @@ fn by_id(document: &Document, id: &str) -> Result<NodeId, Unbuilt> {
         .find(|&node| document.attribute_by_name(node, "id") == Some(id))
         .ok_or_else(|| Unbuilt {
             why: format!("the panel's template has no element with the id {id:?}"),
+        })
+}
+
+/// The template's element whose whole class is `class`.
+fn by_class(document: &Document, class: &str) -> Result<NodeId, Unbuilt> {
+    document
+        .descendants(document.root())
+        .find(|&node| document.attribute_by_name(node, "class") == Some(class))
+        .ok_or_else(|| Unbuilt {
+            why: format!("the panel's template has no element of the class {class:?}"),
         })
 }
 

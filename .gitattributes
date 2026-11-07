@@ -6,3 +6,6 @@
 *.ttf binary
 # A frozen HTTP response is the bytes a server sent, CR LF and all.
 *.http binary
+# A font's licence is carried as its foundry published it, byte for byte
+# (ADR 0084 § 5): DM Sans' OFL.txt ends its lines CR LF.
+crates/alo-renderer/interface/fonts/*.txt -text

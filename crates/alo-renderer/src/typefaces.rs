@@ -2,27 +2,31 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The interface's own typefaces, carried by the application (queue item
-//! 706, ADR 0084).
+//! The interface's own typefaces, carried by the application (queue items
+//! 706 and 853, ADR 0084).
 //!
-//! The owner's design is set in two families, both under the SIL Open Font
-//! License 1.1: **Instrument Sans** for everything a person reads in the
-//! interface, and **Newsreader** for the mark *alo* and the greeting. Fonts
-//! are rented physics (`CLAUDE.md`), so these are the files as Google Fonts
-//! publishes them (`github.com/google/fonts`, `ofl/instrumentsans` and
-//! `ofl/newsreader`), unmodified, each beside its own `OFL.txt` in
-//! `interface/fonts/` — ADR 0084 records which commit and which hashes.
+//! The owner's design sets every word of the interface in **Inter** (since
+//! 7 November 2026, queue item 853; before, Instrument Sans), and the mark
+//! *alo* and the greeting in **Newsreader**, whatever else is chosen. A
+//! person may set the interface's words in one of four other faces instead
+//! — **Geist**, **DM Sans**, **Plus Jakarta Sans** and **Instrument Sans**
+//! — in *Settings* (queue item 854, [`crate::interface_face`]). All six are
+//! under the SIL Open Font License 1.1, and fonts are rented physics
+//! (`CLAUDE.md`), so each is the file its foundry or Google Fonts publishes,
+//! unmodified, beside its own licence in `interface/fonts/` — ADR 0084
+//! records where each came from and its hashes.
 //!
-//! # Variable, and set by weight alone
+//! # Variable, and set by weight and size alone
 //!
-//! Both are variable fonts, one file each for every weight the design uses
-//! (Instrument Sans 400, 500 and 600; Newsreader 400 and 500). This engine
-//! sets a variable font's `wght` axis to the weight asked for — measured,
-//! shaped and outlined at that instance (`alo_text::Font::at_weight`) — and
-//! leaves every other axis at the file's default: Instrument Sans' `wdth`
-//! at 100, which is the design's, and Newsreader's `opsz` at 18, where a
-//! browser sets it to the size of the text (`font-optical-sizing: auto`).
-//! That difference is queue item 752's.
+//! Every one is a variable font, one file for every weight the design uses
+//! (400, 500 and 600; Newsreader 400 and 500). This engine sets a variable
+//! font's `wght` axis to the weight asked for — measured, shaped and
+//! outlined at that instance (`alo_text::Font::at_weight`) — and its `opsz`
+//! axis, where it has one, to the CSS pixels the text is set at, as Chrome
+//! does (`font-optical-sizing: auto`, queue item 752): Newsreader's from 6
+//! to 72, Inter's from 14 to 32 and DM Sans' from 9 to 40. Every other axis
+//! is left at the file's default: Instrument Sans' `wdth` at 100, the
+//! design's.
 //!
 //! # Compiled in, and handed over as every font is
 //!
@@ -30,36 +34,68 @@
 //! nothing is read from a disk or a network to find them. A renderer is
 //! confined and opens no file (ADR 0010); the browser process hands these to
 //! the conversation's renderers as bytes on the pipe, as it hands every face
-//! ([`crate::face`]). Only the interface's renderers are handed them — never
-//! a page's — so no page is drawn in them, and none can tell from its
-//! fonts that it is in this browser.
+//! ([`crate::face`]) — all of them, so a face chosen in *Settings* is drawn
+//! at once, with nothing handed again. Only the interface's renderers are
+//! handed them — never a page's — so no page is drawn in them, and none can
+//! tell from its fonts that it is in this browser.
 //!
 //! # And a face for emoji
 //!
-//! Neither family has emoji, and a search's titles and descriptions are
-//! full of them. So the interface carries a third face, **Noto Color
+//! No family here has emoji, and a search's titles and descriptions are
+//! full of them. So the interface carries one more face, **Noto Color
 //! Emoji**, also under the OFL 1.1 — the file `googlefonts/noto-emoji`
 //! publishes, unmodified — whose glyphs are colour pictures (`CBDT`), drawn
 //! by `alo-paint` as pictures (ADR 0088). It is handed to the interface's
-//! renderers with the other two, never to a page's, and the shaper looks in
+//! renderers with the others, never to a page's, and the shaper looks in
 //! it first for a character meant to be shown as an emoji
 //! (`alo_text::emoji`).
 //!
 //! # The licence goes with them
 //!
 //! The OFL lets the fonts be bundled with software so long as each file's
-//! copyright notice and the licence go with it. [`LICENCES`] are those two
+//! copyright notice and the licence go with it. [`LICENCES`] are those
 //! files, as published, and `alo-bundle` puts them in the application's
 //! `Contents/Resources/licences`.
 
 use crate::face::Face;
 use alo_text::Font;
 
-/// The family the interface's text is set in.
+/// The family the interface's words are set in unless a person chose
+/// another (queue item 853): Inter, which its file calls *Inter Variable* —
+/// its `name` table has no typographic family, so that is the family a
+/// stylesheet asks for (ADR 0084 § 2).
+pub const INTER: &str = "Inter Variable";
+
+/// Geist, a face a person may choose in *Settings* (queue item 854).
+pub const GEIST: &str = "Geist";
+
+/// DM Sans, a face a person may choose in *Settings*: its typographic
+/// family (its legacy one is *DM Sans 9pt*).
+pub const DM_SANS: &str = "DM Sans";
+
+/// Plus Jakarta Sans, a face a person may choose in *Settings*.
+pub const PLUS_JAKARTA_SANS: &str = "Plus Jakarta Sans";
+
+/// Instrument Sans: the interface's face until queue item 853, kept as a
+/// fifth choice in *Settings*.
 pub const INSTRUMENT_SANS: &str = "Instrument Sans";
 
-/// The family the mark and the greeting are set in.
+/// The family the mark and the greeting are set in, whatever is chosen.
 pub const NEWSREADER: &str = "Newsreader";
+
+/// `InterVariable.ttf` of Inter 4.1's release (`rsms/inter`), as published.
+const INTER_FILE: &[u8] = include_bytes!("../interface/fonts/Inter.ttf");
+
+/// `geist-font/Geist/variable/Geist[wght].ttf` of Geist 1.9.2's release
+/// (`vercel/geist-font`), as published.
+const GEIST_FILE: &[u8] = include_bytes!("../interface/fonts/Geist.ttf");
+
+/// `ofl/dmsans/DMSans[opsz,wght].ttf` of `google/fonts`, as published.
+const DM_SANS_FILE: &[u8] = include_bytes!("../interface/fonts/DMSans.ttf");
+
+/// `ofl/plusjakartasans/PlusJakartaSans[wght].ttf` of `google/fonts`, as
+/// published.
+const PLUS_JAKARTA_SANS_FILE: &[u8] = include_bytes!("../interface/fonts/PlusJakartaSans.ttf");
 
 /// `InstrumentSans[wdth,wght].ttf`, as published.
 const INSTRUMENT_SANS_FILE: &[u8] = include_bytes!("../interface/fonts/InstrumentSans.ttf");
@@ -76,8 +112,24 @@ const NOTO_COLOR_EMOJI_FILE: &[u8] = include_bytes!("../interface/fonts/NotoColo
 
 /// Each family's licence: its file name as carried, and its text — the
 /// copyright notice and the SIL Open Font License 1.1, as published beside
-/// the font.
-pub const LICENCES: [(&str, &str); 3] = [
+/// the font (Noto's notice is in the font itself).
+pub const LICENCES: [(&str, &str); 7] = [
+    (
+        "OFL-Inter.txt",
+        include_str!("../interface/fonts/OFL-Inter.txt"),
+    ),
+    (
+        "OFL-Geist.txt",
+        include_str!("../interface/fonts/OFL-Geist.txt"),
+    ),
+    (
+        "OFL-DMSans.txt",
+        include_str!("../interface/fonts/OFL-DMSans.txt"),
+    ),
+    (
+        "OFL-PlusJakartaSans.txt",
+        include_str!("../interface/fonts/OFL-PlusJakartaSans.txt"),
+    ),
     (
         "OFL-InstrumentSans.txt",
         include_str!("../interface/fonts/OFL-InstrumentSans.txt"),
@@ -92,18 +144,26 @@ pub const LICENCES: [(&str, &str); 3] = [
     ),
 ];
 
-/// The interface's faces, as a renderer is handed them: Instrument Sans,
-/// then Newsreader, then Noto Color Emoji, each filed under what the font
-/// says it is.
+/// The interface's faces, as a renderer is handed them: the five a
+/// person may set its words in, Inter first, then Newsreader, then Noto
+/// Color Emoji, each filed under what the font says it is.
 ///
 /// A face the font would not describe is left out rather than filed under
 /// a name written here, which is a broken build rather than anything a page
 /// could cause, and which the tests below would say.
 pub fn faces() -> Vec<Face> {
-    [INSTRUMENT_SANS_FILE, NEWSREADER_FILE, NOTO_COLOR_EMOJI_FILE]
-        .into_iter()
-        .filter_map(|bytes| Face::described(bytes.to_vec()))
-        .collect()
+    [
+        INTER_FILE,
+        GEIST_FILE,
+        DM_SANS_FILE,
+        PLUS_JAKARTA_SANS_FILE,
+        INSTRUMENT_SANS_FILE,
+        NEWSREADER_FILE,
+        NOTO_COLOR_EMOJI_FILE,
+    ]
+    .into_iter()
+    .filter_map(|bytes| Face::described(bytes.to_vec()))
+    .collect()
 }
 
 /// The same faces as fonts, for a renderer built in this process — a test's
@@ -120,19 +180,30 @@ mod tests {
     use super::*;
     use alo_text::{Slant, Weight};
 
+    /// The five faces a person may set the interface's words in, in the
+    /// order they are handed, then the serif and the emoji face.
+    const FAMILIES: [&str; 7] = [
+        INTER,
+        GEIST,
+        DM_SANS,
+        PLUS_JAKARTA_SANS,
+        INSTRUMENT_SANS,
+        NEWSREADER,
+        NOTO_COLOR_EMOJI,
+    ];
+
     #[test]
-    fn the_faces_are_filed_under_the_designs_two_families_and_the_emoji_face() {
+    fn the_faces_are_filed_under_what_each_font_says_it_is() {
         let named: Vec<(String, u16, Slant)> = faces()
             .into_iter()
             .map(|face| (face.family, face.weight, face.slant))
             .collect();
         assert_eq!(
             named,
-            vec![
-                (INSTRUMENT_SANS.to_owned(), 400, Slant::Normal),
-                (NEWSREADER.to_owned(), 400, Slant::Normal),
-                (NOTO_COLOR_EMOJI.to_owned(), 400, Slant::Normal),
-            ]
+            FAMILIES
+                .iter()
+                .map(|family| ((*family).to_owned(), 400, Slant::Normal))
+                .collect::<Vec<_>>()
         );
     }
 
@@ -152,6 +223,10 @@ mod tests {
         assert_eq!(
             ranges,
             vec![
+                (INTER.to_owned(), Some((100, 900))),
+                (GEIST.to_owned(), Some((100, 900))),
+                (DM_SANS.to_owned(), Some((100, 1000))),
+                (PLUS_JAKARTA_SANS.to_owned(), Some((200, 800))),
                 (INSTRUMENT_SANS.to_owned(), Some((400, 700))),
                 (NEWSREADER.to_owned(), Some((200, 800))),
                 (NOTO_COLOR_EMOJI.to_owned(), None),
@@ -169,16 +244,21 @@ mod tests {
 
     #[test]
     fn each_licence_is_the_ofl_with_its_familys_copyright() {
-        let (designs, emoji) = LICENCES.split_at(2);
-        for ((name, text), family) in designs.iter().zip([INSTRUMENT_SANS, NEWSREADER]) {
+        let (designs, emoji) = LICENCES.split_at(6);
+        let projects = [
+            "The Inter Project Authors",
+            "The Geist Project Authors",
+            "The DM Sans Project Authors",
+            "The Plus Jakarta Sans Project Authors",
+            "The Instrument Sans Project Authors",
+            "The Newsreader Project Authors",
+        ];
+        for ((name, text), project) in designs.iter().zip(projects) {
             assert!(
-                text.starts_with("Copyright 20"),
+                text.starts_with("Copyright "),
                 "{name} starts with its copyright notice"
             );
-            assert!(
-                text.contains(&format!("The {family} Project Authors")),
-                "{name}"
-            );
+            assert!(text.contains(project), "{name}");
             assert!(
                 text.contains("SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007"),
                 "{name} is the OFL 1.1"
@@ -210,18 +290,37 @@ mod tests {
     }
 
     #[test]
-    fn the_emoji_face_draws_pictures_and_the_designs_two_do_not() {
+    fn inter_and_dm_sans_vary_by_optical_size_and_the_rest_do_not() {
+        let sized: Vec<(String, Option<(f32, f32)>)> = fonts()
+            .iter()
+            .map(|font| (font.family().to_owned(), font.optical_axis()))
+            .collect();
+        assert_eq!(
+            sized,
+            vec![
+                (INTER.to_owned(), Some((14.0, 32.0))),
+                (GEIST.to_owned(), None),
+                (DM_SANS.to_owned(), Some((9.0, 40.0))),
+                (PLUS_JAKARTA_SANS.to_owned(), None),
+                (INSTRUMENT_SANS.to_owned(), None),
+                (NEWSREADER.to_owned(), Some((6.0, 72.0))),
+                (NOTO_COLOR_EMOJI.to_owned(), None),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_emoji_face_draws_pictures_and_the_designs_do_not() {
         let drawn: Vec<(String, bool)> = fonts()
             .iter()
             .map(|font| (font.family().to_owned(), font.draws_pictures()))
             .collect();
         assert_eq!(
             drawn,
-            vec![
-                (INSTRUMENT_SANS.to_owned(), false),
-                (NEWSREADER.to_owned(), false),
-                (NOTO_COLOR_EMOJI.to_owned(), true),
-            ]
+            FAMILIES
+                .iter()
+                .map(|family| ((*family).to_owned(), *family == NOTO_COLOR_EMOJI))
+                .collect::<Vec<_>>()
         );
     }
 }

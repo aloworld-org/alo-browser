@@ -23290,10 +23290,112 @@ What stage 2's exit gate actually measures: a person using it.
   design. Depends on 798.*
 
 - [ ] **852. The link strip in alo's own face (cut from 811).** The host
-  draws the strip in *Instrument Sans* only where the system has it, and
-  the system's face otherwise: alo's faces are handed to its renderers
-  alone (ADR 0084). Register the carried face for the host's process, or
-  draw the strip with this engine. *Depends on 811.*
+  draws the strip in *Inter* (since 853; *Instrument Sans* before) only
+  where the system has it, and the system's face otherwise: alo's faces
+  are handed to its renderers alone (ADR 0084). And since 854 a person
+  chooses the interface's face, which the host is not told. Register the
+  carried faces for the host's process and tell it the face chosen, or
+  draw the strip with this engine. Looked at with 854 and not small: it
+  needs Core Text's registration in the host's rented boundary and a word
+  beside the pipe for the face. *Depends on 811, 854.*
+
+- [x] **853. Inter, the interface's face (the owner's design of 7 November
+  2026).** **Design, approved by the owner 2026-11-07** (*"Yes please"*):
+  *Inter for every word of the interface; Newsreader stays for the alo
+  mark and the greeting, whatever is chosen* (`docs/design/shell.md`,
+  *Typefaces*). Contracts: ADR 0084 (amended), 0088, 0097.
+  ***Done (7 November 2026).*** Inter 4.1's `InterVariable.ttf`
+  (`rsms/inter`'s release, OFL 1.1, 879,708 bytes, `opsz` 14–32 and `wght`
+  100–900) carried in `alo-renderer`'s `typefaces.rs` and handed to the
+  interface's renderers alone, as the design's other faces are; filed as
+  the font calls itself, *Inter Variable*. Every stylesheet of the
+  interface asks for `var(--face), system-ui, sans-serif` (the rail's
+  buttons, which asked for nothing and were drawn in a control's own face,
+  now too), `--face` Inter on the root. Measured, not assumed: Inter's and
+  DM Sans' optical sizes are set as Chrome 157 sets them — each glyph's
+  advance at 9 to 40 px Chrome's canvas advance to a thousandth of a
+  pixel, and 1,570 of 1,600 runs of the four new faces Chrome's width to
+  its layout unit, the other 30 a 64th apart within 0.28 of a 64th of the
+  grid's edge (`a_chosen_face_set_as_chrome_sets_it.rs`,
+  `references/chosen-faces-runs.chrome.txt`). Every reference of the
+  interface redrawn and looked at; layout assertions moved by Inter's
+  widths. Found: a column of 416 beside the panel — a window of 720,
+  which has had the rail since 775 — would not hold Inter's six result
+  tabs (News 2.78 past it); the case is now 760's 456.
+  **Mutations**, each failing: the default face Geist; Inter asked for as
+  Instrument Sans; the rail's buttons in their own face; a face's optical
+  size left at its default.
+
+- [x] **854. Settings, and the face a person chooses (the owner's design of
+  7 November 2026).** **Design, approved by the owner 2026-11-07**
+  (*"Yes please"*): *Settings opens as a page in the conversation area,
+  with one section to start: Font — Inter (default), Geist, DM Sans, Plus
+  Jakarta Sans and Instrument Sans, each shown as a sample of a real
+  result (title and snippet) set in that font; choosing one changes the
+  whole interface at once, with no restart; web pages inside cards are not
+  affected; the choice is saved on this Mac beside the chats and
+  remembered across launches* (`docs/design/shell.md`, *Settings*, every
+  detail the design left open settled there). Contracts: ADR 0084, 0092
+  § 1, 0076, 0002. *Depends on 853.*
+  ***Done (7 November 2026).*** Geist 1.9.2 (`vercel/geist-font`'s
+  release), DM Sans and Plus Jakarta Sans (`google/fonts` at `86aced91`)
+  carried with Inter and Instrument Sans, all handed as the renderers
+  start. `interface_face.rs` names the five; the panel and the first
+  screen are sent the face, and their builders put it on the root as
+  `--face`. *Settings* (`settings_document.rs`, a template in
+  `start.html`): in the conversation's place, the chat left as it was; a
+  radio group named *Font*, an `<input type=radio>` named by each face;
+  each face a sample of a result set in it. Pressed by place
+  (`Claim::Face`, `Claim::LeaveSettings`), decided against the faces
+  painted (`Shown::faces`). Held by the window (`conversation_settings.rs`):
+  opened by the *Settings* row, closed by *Back to the chat*, Escape, a
+  chat chosen or *New chat*; a live card not streamed under it. Kept in
+  `settings.txt` beside the chats (`settings_file.rs`), `0600`, whole or
+  not at all; a file that does not read is Inter, said.
+  **Tests:** unit (the faces, the file — kept, damaged eight ways, bounded
+  —, the conversation, the window's stream and Escape, the decision);
+  layout assertions in numbers at the design's room and the least
+  window's, each face's sample whole at the design's in its face; the
+  reference `settings.png` and `settings-in-the-least-window.png`; for each
+  face `face-<face>-result.png` and `face-<face>-panel.png`, their boxes
+  the same in all five; the window's own road with real renderers
+  (`a_font_chosen_in_settings_in_the_window.rs`): Geist chosen, both parts
+  painted again in it, the file written `0600`, Escape and *Back to the
+  chat*; a relaunch painting the panel in Geist pixel for pixel; a damaged
+  file Inter, said, left as it was.
+  **Mutations**, each failing: the drawing thread not keeping the faces
+  painted (found so: every face pressed was refused through the window's
+  road); the file never written; a face alo does not carry read as Inter
+  unsaid; the *Settings* row not current; the face not put on the first
+  screen's root; Escape not closing; the card streamed under *Settings*;
+  *Settings* not sent to the first screen; a press where a live card's
+  page was aimed at the page. **Found by hand, fixed:** with a live card
+  under *Settings*, a face pressed where the card's page had been went to
+  the page, not *Settings* (`handrun35/12`); the window no longer aims at
+  a card's page while *Settings* stands in its place
+  (`under_settings_a_press_where_the_page_was_is_not_the_pages`, failing
+  with the fix undone), seen fixed after a rebuild (`handrun35/16`).
+  Cut: *Settings* by keys (856).
+
+- [x] **855. alo's menu cuts the words it searches for at its own edge
+  (found by 798's hand run).** *Search for “…”* ran past the menu's right
+  edge; a cut at 16 characters made then fitted ordinary words in
+  Instrument Sans, and was measured not to fit sixteen wide letters in any
+  of the five faces (`W`: 277 to 299 px; the line's room is 196).
+  ***Done (7 November 2026).*** The line is three pieces — *Search for “*,
+  the words, *”* — and the stylesheet ends the words with `…` where the
+  line reaches the menu's edge; the menu holds at most 80 characters of a
+  selection, and names the line whole to an agent. Layout assertions in
+  each face (`the_page_menus_words_cut_at_its_edge.rs`): the quote closing
+  at the line's end, the words cut with `…`, short words whole; reference
+  `card-menu-cut.png`. **Mutations**, each failing: the words not allowed
+  to shrink; the line one piece.
+
+- [ ] **856. Settings by keys (cut from 854).** *Settings* is pressed with
+  the pointer only: Tab to its radio group, the arrows to move the choice
+  and Escape to leave, as macOS and the ARIA radio group pattern have it.
+  Decide with 850 how alo's own interface takes keys beyond the box and
+  *Search chats*. *needs design. Depends on 854, 850.*
 
 ## K. ★ The agent, on somebody else's pages
 

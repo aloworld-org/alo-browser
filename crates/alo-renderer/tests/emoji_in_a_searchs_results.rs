@@ -13,7 +13,9 @@
 //! has, in that face, as Chrome draws a listed face's glyph — queue item
 //! 829); the star
 //! and the letter in the corpus's `DejaVu Sans`, as the machine's fonts
-//! would draw them; and the rest in **Instrument Sans**; a layout
+//! would draw them, where the face chosen lacks them (Instrument Sans,
+//! queue item 854) — and in Inter, which has them (853); and the rest in
+//! the face chosen; a layout
 //! assertion in numbers — an emoji as wide as the face says and the line
 //! no taller for it; a reference render, `references/emoji-in-results.png`;
 //! and the same drawn by the real, confined renderer.
@@ -28,6 +30,7 @@ use alo_renderer::face::Face;
 use alo_renderer::frame::frame_to_png;
 use alo_renderer::generic::Generics;
 use alo_renderer::host::Renderers;
+use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::results::{Found, Results, SetUp, Showing};
 use alo_renderer::start::{self, Start};
 use alo_renderer::turn::Turn;
@@ -296,18 +299,28 @@ fn run(text: &str, family: &str, pictures: usize) -> (String, String, usize) {
     (text.to_owned(), family.to_owned(), pictures)
 }
 
-#[test]
-fn each_character_is_drawn_by_the_face_that_has_it_and_an_emoji_by_noto() {
-    let mut renderer = laid_out(with(sites()));
+/// The runs from the first title to *More sites ›*, in a first screen set
+/// in `face`.
+fn runs_in(face: InterfaceFace) -> Vec<(String, String, usize)> {
+    let mut start = with(sites());
+    start.face = face;
+    let mut renderer = laid_out(start);
     let _ = renderer.handle(ToRenderer::Paint);
     let drawn = faces_drawn(&renderer);
     let at = |text: &str| drawn.iter().position(|(each, _, _)| each == text);
     let from = at("Home chargers ").unwrap_or(drawn.len());
     let to = at("More sites \u{203a}").unwrap_or(drawn.len());
+    drawn.get(from..to).unwrap_or_default().to_vec()
+}
+
+#[test]
+fn each_character_is_drawn_by_the_face_that_has_it_and_an_emoji_by_noto() {
     let emoji = "Noto Color Emoji";
+    // In Instrument Sans, chosen in Settings (queue item 854), which has no
+    // star and no Cyrillic: each is drawn by the next face that has it.
     let sans = "Instrument Sans";
     assert_eq!(
-        drawn.get(from..to).unwrap_or_default(),
+        runs_in(InterfaceFace::InstrumentSans),
         [
             run("Home chargers ", sans, 0),
             // `DejaVu Sans`, the `system-ui` this test hands, has 😀 and is
@@ -334,6 +347,29 @@ fn each_character_is_drawn_by_the_face_that_has_it_and_an_emoji_by_noto() {
         ],
         "a skin tone, a selector and a joined pair are each one picture"
     );
+    // In Inter, the interface's own face (queue item 853), which has the
+    // star and the letters: only the emoji leave it.
+    let inter = "Inter Variable";
+    assert_eq!(
+        runs_in(InterfaceFace::Inter),
+        [
+            run("Home chargers ", inter, 0),
+            run("\u{1f600}", "DejaVu Sans", 0),
+            run(" rated \u{2605}\u{2605}\u{2605} for every ", inter, 0),
+            run("\u{1f697}\u{fe0f}", emoji, 1),
+            run("Works with every car ", inter, 0),
+            run("\u{1f44d}\u{1f3fd}", emoji, 1),
+            run(" \u{2014} \u{416}\u{434}\u{443} ", inter, 0),
+            run("\u{2764}\u{fe0f}", emoji, 1),
+            run(" ", inter, 0),
+            run("\u{1f469}\u{200d}\u{1f4bb}", emoji, 1),
+            run(" installs it", inter, 0),
+            run("P", inter, 0),
+            run("Plugs", inter, 0),
+            run("plugs.example", inter, 0),
+            run("\u{1f50c}\u{1f50c}", emoji, 2),
+        ]
+    );
 }
 
 #[test]
@@ -341,8 +377,10 @@ fn an_emoji_is_as_wide_as_its_face_says_and_its_line_no_taller() {
     let renderer = laid_out(with(sites()));
     let at = |class: &str| boxes_of(&renderer, class);
     // Two plugs at 18 px: Noto's advance is 2550 of 2048 units each,
-    // 22.412… px, 44.828125 in layout's sixty-fourths.
-    assert_eq!(at("title").get(1), Some(&px(80.0, 287.0, 44.828_125, 22.0)));
+    // 22.412… px, 44.828125 in layout's sixty-fourths. The link's box is
+    // its first face's: Inter's ascent and descent at 18, 21 tall, 2 into
+    // its line of 25 (Instrument Sans' were 22, 1 in; queue item 853).
+    assert_eq!(at("title").get(1), Some(&px(80.0, 288.0, 44.828_125, 21.0)));
     // Each title's line 25 tall and each description's 23, as with no emoji
     // in them: the emoji face's taller ascent does not grow a line whose
     // height the stylesheet sets.
@@ -355,10 +393,7 @@ fn an_emoji_is_as_wide_as_its_face_says_and_its_line_no_taller() {
         at("found"),
         vec![px(80.0, 168.0, 880.0, 74.0), px(80.0, 264.0, 880.0, 51.0)]
     );
-    assert_eq!(
-        at("title").first(),
-        Some(&px(80.0, 191.0, 355.265_63, 22.0))
-    );
+    assert_eq!(at("title").first(), Some(&px(80.0, 192.0, 372.687_5, 21.0)));
 }
 
 #[test]

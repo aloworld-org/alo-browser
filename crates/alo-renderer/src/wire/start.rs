@@ -48,11 +48,14 @@ const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 impl Writer {
     /// The first screen: its size and scale, its greeting, then each site
     /// and each waiting chat in order, then what is typed, whether the box
-    /// has the keyboard, and what is offered.
+    /// has the keyboard, and what is offered; the face its words are set in
+    /// and whether it is *Settings* (queue items 853, 854).
     pub(super) fn start(&mut self, start: &Start) {
         self.float(start.viewport.width);
         self.float(start.viewport.height);
         self.float(start.scale);
+        self.face(start.face);
+        self.bool(start.settings);
         self.text(&start.greeting);
         self.number(start.sites.len() as u64);
         for site in &start.sites {
@@ -189,6 +192,8 @@ impl Reader<'_> {
             height: self.float()?,
         };
         let scale = alo_value::device_scale(self.float()?);
+        let face = self.face()?;
+        let settings = self.bool()?;
         let greeting = self.text()?;
         let mut sites = Vec::new();
         for _ in 0..self.count()? {
@@ -258,6 +263,8 @@ impl Reader<'_> {
             bar,
             search,
             asking,
+            face,
+            settings,
         })
     }
 

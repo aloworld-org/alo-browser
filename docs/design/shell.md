@@ -46,7 +46,9 @@ Top to bottom, inside 6 px above and 10 px either side, 12 px below:
   whole words, `…` when there was more — and *New chat* until something is
   said (item 758).
 - **Settings**, at the foot, under a line, with a settings icon — two
-  lines, a knob on each — before its words.
+  lines, a knob on each — before its words. Pressed, it opens *Settings*
+  in the conversation's place, and its row is then white, as the chat on
+  screen's is, and no chat's row is (item 854, below).
 - **Closing a chat** (item 791, ADR 0092's amendment; approved by the
   owner 2026-11-06 — *an × appears on hover over an open chat; closing
   moves it from Open to Earlier; nothing is deleted*): the open row the
@@ -512,8 +514,10 @@ the card's page — or the main one with Ctrl, as a Mac takes it — is the
 page's first: it hears its `contextmenu`, and a page that takes it for
 itself shows its own. Otherwise alo draws its menu where the press was:
 *Copy* (greyed when nothing is selected), *Copy link* and *Open link in
-new chat* over a link, and *Search for “…”* when words are selected — the
-words shown cut at 16 characters with `…` so the line fits, searched whole. A white box
+new chat* over a link, and *Search for “…”* when words are selected —
+searched whole, and shown ending in `…` where the line reaches the menu's
+edge, the closing quote kept, in any face (item 855: a cut at 16
+characters fitted ordinary words, never wide letters). A white box
 rounded 10 under a line-colour border and a soft shadow, 220 wide, a line
 30 tall in the ink, 13 px 500, 12 in from its left, 4 above the first
 line and below the last; its top left corner at the press, moved left to
@@ -658,14 +662,104 @@ card, stuck's choices with it, as before the split.
 
 ## Typefaces
 
-**Instrument Sans** for every word of the interface, at 400, 500 and 600;
-**Newsreader** — *the serif* in this file — for the mark *alo* and the
-greeting, at 400. Both under the SIL Open Font License, compiled into the
-application and handed to the interface's renderers alone (item 706, ADR
-0084); a stylesheet asks for each first and keeps `system-ui, sans-serif`
-or `serif` after it. Emoji are drawn in **Noto Color Emoji**, carried and
-handed the same way (ADR 0088). Newsreader's optical size follows the text's size in
-the canvas; here it is the file's 18 until item 752.
+Approved by the owner on 7 November 2026 (*"Yes please"*): **Inter for
+every word of the interface** (item 853); **Newsreader** — *the serif* in
+this file — for the mark *alo* and the greeting, at 400, **whatever is
+chosen**. A person may set the interface's words in one of four other
+faces instead, in *Settings* (item 854, below): **Geist**, **DM Sans**,
+**Plus Jakarta Sans**, and **Instrument Sans** — the design's face until
+then, kept as a fifth choice. Each at 400, 500 and 600.
+
+All six are under the SIL Open Font License, compiled into the
+application and handed to the interface's renderers alone (items 706 and
+853, ADR 0084) — all of them as the renderers start, so a face chosen is
+drawn at once, with nothing handed again; never to a page's. A stylesheet
+asks for `var(--face), system-ui, sans-serif` wherever it sets words, or
+`Newsreader, serif`; `--face` is Inter on each document's root, and the
+document builders put the face chosen there as the root's own style.
+Inter's file calls its family *Inter Variable*, so that is the name asked
+for. Emoji are drawn in **Noto Color Emoji**, carried and handed the same
+way (ADR 0088). A face with an optical size — Newsreader's 6 to 72,
+Inter's 14 to 32 and DM Sans' 9 to 40 — is set to the CSS pixels its text
+is at, as Chrome sets it (measured in Chrome 157, item 853).
+
+## Settings (items 853, 854)
+
+Approved by the owner on 7 November 2026 (*"Yes please"*), in their
+words: *Settings opens as a page in the conversation area, with one
+section to start: Font. Choices: Inter (default), Geist, DM Sans, Plus
+Jakarta Sans, and Instrument Sans. Each is shown as a sample of a real
+result (title and snippet) set in that font. Choosing one changes the
+whole interface at once, with no restart. Web pages inside cards are not
+affected. The choice is saved on this Mac beside the chats and remembered
+across launches. First Inter as the default, then the Settings page with
+the choice.*
+
+Settled here, as the design left them open:
+
+- **Opened** by the panel's *Settings* row, pressed — or in the sheet over
+  a narrow window, which it closes, as a chat chosen does. Its row is then
+  white, as the chat on screen's is, and no chat's row is; an agent reads
+  the row's link as the current page. The rail has no *Settings*.
+- **In the conversation's place.** The first screen shows *Settings*
+  instead of the chat on screen, which is left exactly as it was — its
+  turns, how far it was scrolled, what was typed into the box, a live
+  card. Nothing of the chat is drawn, pressed, scrolled or typed into
+  while *Settings* stands there: no box, and a live card's page is not
+  streamed (ADR 0076: only while the card is on the screen).
+- **Closed**, back to the chat as it was, by *Back to the chat* — a 36 px
+  square button with the card's back arrow, at the page's top left — by
+  Escape (unless *Search chats* has the keyboard, which Escape empties
+  first), by a chat chosen in the panel (the chat on screen included) and
+  by *New chat*. Choosing a face does not close it.
+- **The page**, in the first screen's column (720 wide, or the room less
+  32 either side), 32 from the top: *Back to the chat* and **Settings**,
+  22 px 600, in a row of 36; 24 under it **Font**, 15 px 600, and under it,
+  in quiet 13.5 px, *The face alo's own words are set in. Pages in cards
+  keep their own.*; 14 under that the faces, **two a row, 10 apart**, in
+  the order above.
+- **A face** is a white box, 1 px line-colour border, rounded 14, 15 / 16
+  / 16 inside: a row of 18 holding a radio, 16 across, drawn as Chrome
+  draws one in the ink, and the face's name in 13 px 600 (*Inter ·
+  Default* for Inter) — quiet, or the ink when chosen; 10 under it the
+  sample. The face chosen has its border in the ink and a second pixel
+  inside it, so nothing moves. The whole box is pressed as the face.
+- **The sample** is a search's result as the results draw one — its
+  title, 18 px 600 in the link colour on one line, cut with `…` where it
+  ends; its description, 14.5 px on lines of 23, at most two — *Kampala –
+  Wikipedia* and *The capital and largest city of Uganda, set on hills
+  near the shore of Lake Victoria.*, fixed, set in that face whatever the
+  page is set in. At the design's width each is whole in every face; in
+  the least window (a column of 472, two faces of 231) the description is
+  cut at its two lines.
+- **Effect**: choosing a face sets every word of the panel, the rail and
+  the first screen in it at once — both renderers draw again, neither is
+  started anew — and never the mark or the greeting, and never a card's
+  page, whose renderer is never handed these faces. The link strip of an
+  expanded card is drawn by the Chromium alo carries, which is not told the
+  face (item 852).
+- **What an agent reads**: a region named *Settings* holding *Back to the
+  chat*, its heading, and a region named *Font* holding its heading and
+  **a radio group named *Font*** holding a
+  radio named by each face — *Inter*, *Geist*, *DM Sans*, *Plus Jakarta
+  Sans*, *Instrument Sans* — the one chosen checked. The names, the circle
+  and the samples are hidden from it. Never a coordinate (ADR 0002).
+- **Kept** in `settings.txt` in the chats' directory (ADR 0092 § 1) — so
+  `alo --conversation --chats DIR` keeps a hand run's choice apart from a
+  person's, as it keeps its chats — `0600` in a `0700` directory, written
+  whole or not at all (`.writing`, flushed, renamed, the directory
+  flushed), not sealed (a face says nothing about a person, and a choice
+  that needed the keychain would be lost with it). It reads `# alo: what a
+  person chose in Settings (docs/design/shell.md)` then `font` and the
+  face's name: `font Plus Jakarta Sans`. Written as the face is chosen,
+  and said on the terminal; one that cannot be written is said in the
+  first screen's line, and the interface is set in it until alo closes.
+- **A file that does not read** — a face alo does not carry, a line it
+  does not know, no `font` line or two, bytes that are not text, more than
+  4,096 bytes, or a file that cannot be opened — is **Inter, and said**,
+  with the file's path and why, on the terminal and in the first screen's
+  line as the window opens; the file is left as it is until a face is next
+  chosen, which writes it whole. No file is Inter, said nothing.
 
 ## Colours
 
@@ -674,5 +768,6 @@ the agent is acting**, and appears nowhere else.
 
 ## What is not designed yet
 
-Dark mode, a phone-width window, downloads and bookmarks, and the settings
-screens other than *What alo may do*.
+Dark mode, a phone-width window, downloads and bookmarks, and the
+settings other than *Font* — *What alo may do* among them (item 705).
+*Settings* is pressed with the pointer only (item 856).

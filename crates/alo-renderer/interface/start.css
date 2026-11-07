@@ -5,6 +5,11 @@
    values are the palette's, spelled here because no other file is
    reachable from a renderer. */
 :root {
+  /* The face every word is set in (queue items 853, 854): Inter, unless a
+     person chose another in Settings, which the document builder puts on
+     the root element as its own style. The mark and the greeting stay in
+     Newsreader whatever is chosen. */
+  --face: "Inter Variable";
   --ink: #1b2433;
   --paper: #f4f1ec;
   --surface: #ffffff;
@@ -30,13 +35,13 @@ body {
   height: 100%;
 }
 
-/* The design's typefaces, Instrument Sans and Newsreader, handed to this
-   renderer by the browser process (ADR 0084); the generics after each are
-   for a renderer that was not handed them. */
+/* The design's typefaces — the face chosen, and Newsreader — handed to
+   this renderer by the browser process (ADR 0084); the generics after each
+   are for a renderer that was not handed them. */
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 15px;
   line-height: 20px;
 }
@@ -88,7 +93,7 @@ a {
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 16px;
   /* What a person typed stays one line, inside the field, however long
      it is (queue item 701). */
@@ -104,7 +109,7 @@ a {
   border-radius: 12px;
   background: var(--ink);
   color: var(--surface);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 18px;
 }
 
@@ -489,7 +494,7 @@ a {
   border-radius: 14px;
   background: transparent;
   color: #2f6b5e;
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 12px;
   line-height: 16px;
   font-weight: 600;
@@ -593,6 +598,23 @@ a {
 .mitem.off {
   color: var(--quiet);
   opacity: 0.5;
+}
+
+/* *Search for “…”* (queue item 855): the words a page selected end in an
+   ellipsis where the line reaches the menu's edge, and the quotes around
+   them stay whole, in any face and any width of letters. */
+.mlead,
+.mend {
+  flex-shrink: 0;
+  white-space: pre;
+}
+
+.mwords {
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .shot {
@@ -937,7 +959,7 @@ a {
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--quiet);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 14px;
   line-height: 20px;
 }
@@ -1046,7 +1068,7 @@ a {
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;
@@ -1064,7 +1086,7 @@ a {
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 14px;
   line-height: 20px;
 }
@@ -1130,7 +1152,7 @@ a {
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 13px;
   line-height: 18px;
   font-weight: 600;
@@ -1267,7 +1289,7 @@ a {
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 13px;
   line-height: 18px;
   font-weight: 500;
@@ -1541,4 +1563,133 @@ a {
 
 .age {
   flex-shrink: 0;
+}
+
+/* Settings (queue item 854, docs/design/shell.md, *Settings*), in place of
+   the chat on screen: in the first screen's column, 720 wide — or as wide
+   as the room less 32 either side — 32 from the top. */
+.start.set {
+  padding-top: 32px;
+}
+
+.prefs {
+  width: calc(100% - 64px);
+  max-width: 720px;
+}
+
+/* *Back to the chat*, 36 square, and the page's name beside it. */
+.phead {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+  height: 36px;
+}
+
+.pback {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin-left: -8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #3d3a35;
+}
+
+.pback .icon {
+  display: block;
+  margin: 0 auto;
+}
+
+.ptitle {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+.pgroup {
+  margin-top: 24px;
+}
+
+.pname {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.pabout {
+  margin-top: 4px;
+  color: var(--quiet);
+  font-size: 13.5px;
+  line-height: 18px;
+}
+
+/* The faces, two a row, 10 apart: each a sample of a result — its title
+   and its description, at the sizes and in the colours a search's are —
+   drawn in that face, which its own style names. */
+.faces {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.face {
+  min-width: 0;
+  padding: 15px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  font-family: var(--face), system-ui, sans-serif;
+}
+
+/* The face chosen: its edge in the ink, a second pixel inside it so
+   nothing moves. */
+.face.on {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.fhead {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+  height: 18px;
+  margin-bottom: 10px;
+  color: var(--quiet);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+/* The radio, 16 across, drawn as Chrome draws one, in the ink. */
+.dot {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.face.on .fhead {
+  color: var(--ink);
+}
+
+.sample-t {
+  margin-bottom: 4px;
+  color: #22406e;
+  font-size: 18px;
+  line-height: 25px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sample-d {
+  max-height: 46px;
+  overflow: hidden;
+  color: #4a463f;
+  font-size: 14.5px;
+  line-height: 23px;
 }

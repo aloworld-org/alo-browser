@@ -85,10 +85,15 @@
 //! the person's own choice kept apart ([`crate::conversation_fold`]): the
 //! window tells it how wide it is ([`Conversation::fit`]).
 //!
-//! Every other — *Settings*, a kept site, *Add a site*, a waiting chat — is
-//! decided and kept as [`Conversation::last_pressed`], and **changes
-//! nothing yet**: there is no settings screen (705), and nothing keeps a
-//! site or a waiting chat.
+//! Queue item 854 adds *Settings* ([`crate::conversation_settings`]): its
+//! row in the panel opens it in place of the chat on screen, which is left
+//! as it was — its turns, its scroll and a live card kept — until *Back to
+//! the chat*, Escape, a chat chosen or *New chat*; and a face chosen in it
+//! sets every word of both parts at once ([`Conversation::face`]).
+//!
+//! Every other — a kept site, *Add a site*, a waiting chat — is decided
+//! and kept as [`Conversation::last_pressed`], and **changes nothing yet**:
+//! nothing keeps a site or a waiting chat.
 //!
 //! # The greeting
 //!
@@ -111,6 +116,7 @@ use crate::conversation_fold::Fold;
 use crate::conversation_keys::Scroll;
 use crate::conversation_place::Side;
 use crate::conversation_search::{Came, Searched};
+use crate::conversation_settings::Settings;
 use crate::conversation_thread::Thread;
 use crate::conversation_work::Work;
 use crate::scale::Scale;
@@ -120,6 +126,7 @@ use alo_renderer::card::{Card, Shield};
 use alo_renderer::card_menu::{CardMenu, MenuItem};
 use alo_renderer::conversation_decide::{Decided, Shown};
 use alo_renderer::conversation_scroll::Reach;
+use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::panel::{Chat, Closing, Panel, RAIL_CHATS, drawn_order, matching};
 use alo_renderer::results::{self, Results, SetUp};
 use alo_renderer::start::{KeptSite, Start};
@@ -228,6 +235,9 @@ pub struct Conversation {
     /// the window being too narrow for it beside the conversation (queue
     /// item 776).
     sheet: bool,
+    /// *Settings*: whether it is the page on screen, and the face the
+    /// interface is set in (queue item 854).
+    settings: Settings,
 }
 
 /// A tab opened whose results are to be asked of the provider — Videos or
@@ -274,6 +284,7 @@ impl Default for Conversation {
             off: Off::default(),
             switched: None,
             sheet: false,
+            settings: Settings::default(),
         }
     }
 }
@@ -292,6 +303,8 @@ impl Conversation {
                 .listed()
                 .into_iter()
                 .map(|(id, chat)| Chat {
+                    // *Settings* on screen, no chat is (queue item 854).
+                    current: chat.current && !self.settings.is_open(),
                     hovered: self.hovered == Some(*id),
                     closing: if self.closable(*id, chat) {
                         Closing::Offered
@@ -311,6 +324,8 @@ impl Conversation {
                 .as_ref()
                 .filter(|_| !self.railed())
                 .map(Deleting::name),
+            face: self.settings.face(),
+            settings: self.settings.is_open(),
         }
         .at_scale(scale.factor())
     }
@@ -459,7 +474,7 @@ impl Conversation {
             .and_then(|id| listed.iter().find(|(each, _)| *each == id))
             .filter(|_| !self.railed());
         let chats: Vec<Chat> = listed.iter().map(|(_, chat)| chat.clone()).collect();
-        Shown {
+        let shown = Shown {
             chats: drawn_order(&chats)
                 .into_iter()
                 .filter_map(|place| listed.get(place).map(|(id, _)| *id))
@@ -503,6 +518,21 @@ impl Conversation {
                 .card_menu()
                 .map(|menu| menu.items.clone())
                 .unwrap_or_default(),
+            faces: Vec::new(),
+        };
+        if !self.settings.is_open() {
+            return shown;
+        }
+        // *Settings* in place of the chat on screen (queue item 854): the
+        // first screen shows its faces and nothing of the chat.
+        Shown {
+            chats: shown.chats,
+            hidden: shown.hidden,
+            hovered: shown.hovered,
+            closing: shown.closing,
+            undo: shown.undo,
+            faces: InterfaceFace::ALL.to_vec(),
+            ..Shown::default()
         }
     }
 
@@ -548,10 +578,8 @@ impl Conversation {
             self.card_keys = false;
         }
         let changed = match &pressed {
-            // Choosing a chat closes the sheet it was chosen in (776).
-            Pressed::Chat(id) => {
-                let sheet = core::mem::replace(&mut self.sheet, false);
-                self.put_on_screen(*id) || sheet || changed
+            Pressed::Chat(_) | Pressed::Settings | Pressed::Face(_) | Pressed::LeaveSettings => {
+                self.in_settings(&pressed) || changed
             }
             Pressed::Found(url) => {
                 self.choose_found(url.clone());
@@ -606,6 +634,7 @@ impl Conversation {
             }
             Pressed::NewChat => {
                 self.sheet = false;
+                let _ = self.settings.close();
                 self.new_chat();
                 true
             }
@@ -636,6 +665,29 @@ impl Conversation {
             _ => changed,
         };
         self.pressed(pressed, changed)
+    }
+
+    /// A chat chosen in the panel, or *Settings* pressed (queue item 854):
+    /// a chat chosen is on screen, closing the sheet it was chosen in (776)
+    /// and *Settings*; *Settings* opens in place of the chat on screen,
+    /// closing the sheet as a chat chosen does; a face chosen sets
+    /// everything in it; *Back to the chat* closes it. Whether anything
+    /// changed.
+    fn in_settings(&mut self, pressed: &Pressed) -> bool {
+        match pressed {
+            Pressed::Chat(id) => {
+                let sheet = core::mem::replace(&mut self.sheet, false);
+                let settings = self.settings.close();
+                self.put_on_screen(*id) || sheet || settings
+            }
+            Pressed::Settings => {
+                let sheet = core::mem::replace(&mut self.sheet, false);
+                self.settings.open() || sheet
+            }
+            Pressed::Face(face) => self.settings.choose(*face),
+            Pressed::LeaveSettings => self.settings.close(),
+            _ => false,
+        }
     }
 
     /// *Hide the panel*: the rail, a person's choice — and from the sheet,
@@ -1292,6 +1344,18 @@ impl Conversation {
     /// The first screen as it is now, laid out at `viewport` on a screen of
     /// `scale`.
     pub fn start(&self, viewport: Size, scale: Scale) -> Start {
+        if self.settings.is_open() {
+            // *Settings*, and nothing of the chat under it (queue item 854).
+            return Start {
+                greeting: self.greeting.clone(),
+                viewport,
+                face: self.settings.face(),
+                settings: true,
+                search: self.search.clone(),
+                ..Start::default()
+            }
+            .at_scale(scale.factor());
+        }
         Start {
             greeting: self.greeting.clone(),
             sites: Vec::new(),
@@ -1313,6 +1377,8 @@ impl Conversation {
                 .and_then(|thread| thread.bar(viewport, scale.factor())),
             search: self.search.clone(),
             asking: self.asking(),
+            face: self.settings.face(),
+            settings: false,
         }
         .at_scale(scale.factor())
     }
@@ -1601,6 +1667,10 @@ impl Conversation {
     /// A person's wheel turned `by` CSS pixels down over the conversation,
     /// laid out at `viewport` (queue item 703): whether it scrolled.
     pub fn scroll(&mut self, by: f32, viewport: Size) -> bool {
+        // Nothing of the conversation is drawn under *Settings* (854).
+        if self.settings.is_open() {
+            return false;
+        }
         self.thread_mut()
             .is_some_and(|thread| thread.scroll(by, viewport))
     }
@@ -1610,7 +1680,8 @@ impl Conversation {
     /// holding the keyboard would take them — neither the card's page,
     /// nor *Search chats*, nor the box while it holds what was typed.
     pub fn keys_scroll(&self) -> bool {
-        self.conversing()
+        !self.settings.is_open()
+            && self.conversing()
             && !self.keys_to_the_card()
             && !self.find.focused()
             && (!self.the_box.focused() || self.the_box.typed().is_empty())
@@ -1630,6 +1701,9 @@ impl Conversation {
     /// `now`, laid out at `viewport` on a screen of `scale` (queue item
     /// 756): whether a glide is under way for them.
     pub fn glide_lines(&mut self, by: f32, viewport: Size, now: Instant, scale: f32) -> bool {
+        if self.settings.is_open() {
+            return false;
+        }
         self.thread_mut()
             .is_some_and(|thread| thread.glide_lines(by, viewport, now, scale))
     }
@@ -1651,6 +1725,32 @@ impl Conversation {
     pub fn reached(&mut self, reach: Reach, drawn: usize, viewport: Size) -> bool {
         self.thread_mut()
             .is_some_and(|thread| thread.reached(reach, drawn, viewport))
+    }
+
+    /// *Settings* as it is now: whether it is on screen, and the face the
+    /// interface is set in (queue item 854).
+    pub fn settings(&self) -> Settings {
+        self.settings
+    }
+
+    /// The same conversation, set in `face` — read back from where it was
+    /// kept as the window opens (queue item 854).
+    #[must_use]
+    pub fn set_in(mut self, face: InterfaceFace) -> Self {
+        self.settings = Settings::set_in(face);
+        self
+    }
+
+    /// Close *Settings* — Escape — back to the chat on screen: whether it
+    /// was open.
+    pub fn close_settings(&mut self) -> bool {
+        self.settings.close()
+    }
+
+    /// The face a person chose in *Settings* since this was last asked, to
+    /// be kept beside the chats.
+    pub fn take_face_chosen(&mut self) -> Option<InterfaceFace> {
+        self.settings.take_chosen()
     }
 
     /// Whether the first screen is a conversation: the chat on screen holds
@@ -2261,7 +2361,6 @@ mod tests {
     #[test]
     fn every_other_press_is_kept_and_changes_nothing_yet() {
         for pressed in [
-            Pressed::Settings,
             Pressed::Site(KeptSite::new("Mail", "https://mail.example/")),
             Pressed::AddASite,
             Pressed::Waiting(ChatId(0)),
@@ -2842,7 +2941,7 @@ mod tests {
 
     #[test]
     fn a_press_elsewhere_takes_the_keyboard_and_hides_the_offers() {
-        for elsewhere in [Pressed::Nothing, Pressed::Settings, Pressed::AddASite] {
+        for elsewhere in [Pressed::Nothing, Pressed::AddASite] {
             let mut conversation = Conversation::default();
             let _ = conversation.act(Pressed::TheBox);
             type_in(&mut conversation, "example.com");
@@ -3335,5 +3434,119 @@ mod tests {
         assert!(!conversation.act(Pressed::ShowThePanel));
         assert!(!conversation.sheet());
         assert_eq!(conversation.side(), Side::Panel);
+    }
+
+    /// Queue item 854: *Settings* opens in place of the chat on screen,
+    /// which is left as it was, and closes back to it.
+    #[test]
+    fn settings_stands_in_place_of_the_chat_on_screen_and_leaves_it_as_it_was() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.act(Pressed::TheBox);
+        type_in(&mut conversation, "example.com");
+        let room = Size::new(1040.0, 820.0);
+        let before = conversation.start(room, Scale::ONE);
+        assert!(conversation.act(Pressed::Settings));
+        assert!(conversation.settings().is_open());
+        assert!(!conversation.act(Pressed::Settings), "open already");
+        let start = conversation.start(room, Scale::ONE);
+        assert!(start.settings);
+        assert!(start.turns.is_empty() && start.offers.is_empty() && start.typed.is_empty());
+        assert!(!start.focused, "the box let the keyboard go");
+        // The panel: no chat current, Settings is.
+        let panel = conversation.panel(Size::new(240.0, 820.0), Scale::ONE);
+        assert!(panel.settings);
+        assert!(panel.chats.iter().all(|chat| !chat.current));
+        // What a press is decided against: the faces, nothing of the chat.
+        let showing = conversation.showing();
+        assert_eq!(showing.faces, InterfaceFace::ALL.to_vec());
+        assert!(!showing.card && showing.offers.is_empty() && showing.found.is_empty());
+        assert_eq!(
+            showing.chats.len(),
+            1,
+            "the panel's chats are still pressed"
+        );
+        // Nothing of the conversation scrolls or takes the paging keys.
+        assert!(!conversation.keys_scroll());
+        assert!(!conversation.scroll(120.0, room));
+        // Back to the chat: as it was, what was typed kept.
+        assert!(conversation.act(Pressed::LeaveSettings));
+        assert!(!conversation.settings().is_open());
+        let after = conversation.start(room, Scale::ONE);
+        assert_eq!(after.typed, before.typed);
+        assert!(!after.settings);
+        assert!(conversation.showing().faces.is_empty());
+    }
+
+    #[test]
+    fn a_chat_new_chat_or_escape_closes_settings_and_a_chat_chosen_is_on_screen() {
+        let mut conversation = named_chats(&["Lisbon", "Invoice"], &[]);
+        let lisbon = id_of(&conversation, "Lisbon");
+        let invoice = id_of(&conversation, "Invoice");
+        assert!(conversation.act(Pressed::Chat(invoice)));
+        // The chat already on screen, pressed: Settings closes all the same.
+        assert!(conversation.act(Pressed::Settings));
+        assert!(conversation.act(Pressed::Chat(invoice)));
+        assert!(!conversation.settings().is_open());
+        assert_eq!(conversation.on_screen(), Some(invoice));
+        assert!(conversation.act(Pressed::Settings));
+        assert!(conversation.act(Pressed::Chat(lisbon)));
+        assert_eq!(conversation.on_screen(), Some(lisbon));
+        assert!(!conversation.settings().is_open());
+        assert!(conversation.act(Pressed::Settings));
+        assert!(conversation.act(Pressed::NewChat));
+        assert!(!conversation.settings().is_open());
+        assert!(conversation.act(Pressed::Settings));
+        assert!(conversation.close_settings(), "Escape");
+        assert!(!conversation.close_settings(), "closed already");
+    }
+
+    #[test]
+    fn a_face_chosen_sets_both_parts_at_once_and_is_kept_once() {
+        let mut conversation = Conversation::default();
+        assert_eq!(conversation.settings().face(), InterfaceFace::Inter);
+        let _ = conversation.act(Pressed::Settings);
+        assert!(conversation.act(Pressed::Face(InterfaceFace::PlusJakartaSans)));
+        assert!(conversation.settings().is_open(), "choosing keeps it open");
+        let room = Size::new(1040.0, 820.0);
+        assert_eq!(
+            conversation.start(room, Scale::ONE).face,
+            InterfaceFace::PlusJakartaSans
+        );
+        assert_eq!(
+            conversation.panel(Size::new(240.0, 820.0), Scale::ONE).face,
+            InterfaceFace::PlusJakartaSans
+        );
+        assert_eq!(
+            conversation.take_face_chosen(),
+            Some(InterfaceFace::PlusJakartaSans)
+        );
+        assert_eq!(conversation.take_face_chosen(), None);
+        assert!(!conversation.act(Pressed::Face(InterfaceFace::PlusJakartaSans)));
+        assert_eq!(
+            conversation.take_face_chosen(),
+            None,
+            "the same face is no choice"
+        );
+        // Closed, the chat is drawn in it too; set in a face read back, it
+        // starts so, nothing to keep.
+        let _ = conversation.act(Pressed::LeaveSettings);
+        assert_eq!(
+            conversation.start(room, Scale::ONE).face,
+            InterfaceFace::PlusJakartaSans
+        );
+        let kept = Conversation::default().set_in(InterfaceFace::Geist);
+        assert_eq!(kept.panel(room, Scale::ONE).face, InterfaceFace::Geist);
+        assert_eq!(kept.clone().take_face_chosen(), None);
+    }
+
+    #[test]
+    fn settings_pressed_in_the_sheet_closes_the_sheet() {
+        let mut conversation = Conversation::default();
+        let _ = conversation.fit(700);
+        let _ = conversation.act(Pressed::ShowThePanel);
+        assert!(conversation.sheet());
+        assert!(conversation.act(Pressed::Settings));
+        assert!(!conversation.sheet());
+        assert!(conversation.settings().is_open());
     }
 }

@@ -930,9 +930,21 @@ pub fn conversation(
     let proxy = event_loop.create_proxy();
     let tell_agent: crate::conversation_agent::TellAgent =
         std::sync::Arc::new(move |said| proxy.send_event(Heard::Agent(said)).is_ok());
+    // What a person chose in Settings, kept beside the chats whether or not
+    // the chats themselves can be opened (queue item 854): a file that does
+    // not read is Inter, and said.
+    let settings = chats.as_deref().ok().map(crate::settings_file::file_in);
+    let read = settings.as_deref().map_or(
+        crate::settings_file::Read {
+            face: alo_renderer::interface_face::InterfaceFace::Inter,
+            said: None,
+        },
+        crate::settings_file::read,
+    );
     let state = ConversationWindow::new(forced, drawing, chrome)
         .with_search(searcher)
-        .with_agent(agent, tell_agent);
+        .with_agent(agent, tell_agent)
+        .with_settings(read, settings);
     // Where the chats are kept across launches (queue item 757, ADR 0092),
     // sealed under the key in the person's keychain (queue item 790, ADR
     // 0098), read before the window opens; with nowhere, or no key, said,

@@ -36,6 +36,7 @@
 
 use crate::card::Card;
 use crate::conversation_scroll::Bar;
+use crate::interface_face::InterfaceFace;
 use crate::results::SetUp;
 use crate::site::Site;
 use crate::split_place::Stands;
@@ -103,6 +104,12 @@ pub struct Start {
     /// — is set up, which the box's offer to ask says: set up only while a
     /// card is open and the model can be asked.
     pub asking: SetUp,
+    /// The face its words are set in (queue items 853, 854): Inter unless
+    /// a person chose another in *Settings*.
+    pub face: InterfaceFace,
+    /// Whether the screen is *Settings* (queue item 854), drawn in place of
+    /// the chat on screen, which is left as it was.
+    pub settings: bool,
 }
 
 /// One site a person keeps on the first screen.
@@ -127,7 +134,8 @@ pub struct Waiting {
 impl Default for Start {
     /// A greeting of nothing, no sites, nothing waiting, at no size, on a
     /// screen of one, an empty box without the keyboard, no turns, not
-    /// scrolled, and searching not set up, for no reason given.
+    /// scrolled, and searching not set up, for no reason given, in Inter,
+    /// and not *Settings*.
     fn default() -> Self {
         Self {
             greeting: String::new(),
@@ -143,6 +151,8 @@ impl Default for Start {
             bar: None,
             search: SetUp::Not(String::new()),
             asking: SetUp::Not(String::new()),
+            face: InterfaceFace::Inter,
+            settings: false,
         }
     }
 }

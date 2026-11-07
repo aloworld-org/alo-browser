@@ -12,6 +12,7 @@
 //! ([`crate::panel_document`]).
 
 use super::{Reader, Unreadable, Writer, unreadable};
+use crate::interface_face::InterfaceFace;
 use crate::panel::{Chat, Closing, Doing, Panel};
 use alo_layout::geometry::Size;
 
@@ -20,11 +21,14 @@ impl Writer {
     /// and whether the search has the keyboard, whether it is hidden as a
     /// rail, the name of a chat just deleted if *Undo* is offered, then
     /// each chat in order, whether its row is hovered and whether it offers
-    /// its × (queue item 791).
+    /// its × (queue item 791); the face its words are set in, and whether
+    /// *Settings* is the page on screen (queue item 854).
     pub(super) fn panel(&mut self, panel: &Panel) {
         self.float(panel.viewport.width);
         self.float(panel.viewport.height);
         self.float(panel.scale);
+        self.face(panel.face);
+        self.bool(panel.settings);
         self.text(&panel.searched);
         self.bool(panel.searching);
         self.bool(panel.hidden);
@@ -47,6 +51,18 @@ impl Writer {
             self.bool(chat.closing == Closing::Offered);
         }
     }
+
+    /// The face the interface's words are set in (queue items 853, 854),
+    /// by its place among the five.
+    pub(super) fn face(&mut self, face: InterfaceFace) {
+        self.tag(match face {
+            InterfaceFace::Inter => 0,
+            InterfaceFace::Geist => 1,
+            InterfaceFace::DmSans => 2,
+            InterfaceFace::PlusJakartaSans => 3,
+            InterfaceFace::InstrumentSans => 4,
+        });
+    }
 }
 
 impl Reader<'_> {
@@ -60,6 +76,8 @@ impl Reader<'_> {
             height: self.float()?,
         };
         let scale = alo_value::device_scale(self.float()?);
+        let face = self.face()?;
+        let settings = self.bool()?;
         let searched = self.text()?;
         let searching = self.bool()?;
         let hidden = self.bool()?;
@@ -105,6 +123,21 @@ impl Reader<'_> {
             searching,
             hidden,
             deleted,
+            face,
+            settings,
         })
+    }
+
+    /// The face the interface's words are set in, one of the five; any
+    /// other tag is refused.
+    pub(super) fn face(&mut self) -> Result<InterfaceFace, Unreadable> {
+        match self.tag()? {
+            0 => Ok(InterfaceFace::Inter),
+            1 => Ok(InterfaceFace::Geist),
+            2 => Ok(InterfaceFace::DmSans),
+            3 => Ok(InterfaceFace::PlusJakartaSans),
+            4 => Ok(InterfaceFace::InstrumentSans),
+            other => Err(unreadable(format!("a face tagged {other}"))),
+        }
     }
 }

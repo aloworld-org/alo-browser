@@ -12,8 +12,9 @@
 //!
 //! What closes its engine half, each a test below: a layout assertion, in
 //! numbers, of the column, the tab row, the results and the box at the
-//! rooms a window 967 and 720 wide leaves beside the panel (240) and beside
-//! the rail (64); the card's page box, the box and the room held to what
+//! rooms a window 967 wide leaves beside the panel (240) and beside the
+//! rail (64), and 760 and 720 wide beside each (a window of 720 has had
+//! the rail since queue item 775); the card's page box, the box and the room held to what
 //! the browser process computes (`card_place`) at the same rooms; the first
 //! screen's 720 column likewise; and a reference render of the All tab at
 //! 967, `references/narrow-all-tab-with-results.png`.
@@ -214,18 +215,25 @@ fn inside(inner: Rect, outer: Rect) -> bool {
 
 /// The person's line, one line of 22 and 10 above and below: as wide as
 /// its words, or cut to the column.
-const SAID_WIDE: f32 = 535.906_25;
+const SAID_WIDE: f32 = 554.812_5;
 
 #[test]
 fn the_column_is_the_room_less_32_either_side_with_the_panel_or_the_rail() {
     // Each room: the clip the room's whole width, 40 down to 24 above the
     // box (820 - 24 - 56 - 24 - 40 = 676); the column 64 narrower from 32;
     // and the box as wide, 24 above the window's foot. The third site's
-    // description is one line where the column holds it, and two at 416.
+    // description is one line where the column holds it, and two at 456.
+    //
+    // A window 720 wide was laid out beside the panel, a column of 416,
+    // until the panel folded to the rail below 760 (queue item 775): the
+    // narrowest column beside the panel is 760's, 456, where Inter's six
+    // tabs fit with 37 to spare (queue item 853). At 416 they would not:
+    // News would end 2.78 past the column, Inter's tabs being 2 to 4 wider
+    // each than Instrument Sans'.
     for (said, room, column, third) in [
         ("967 beside the panel", 727.0, 663.0, 74.0),
         ("967 beside the rail", 903.0, 839.0, 74.0),
-        ("720 beside the panel", 480.0, 416.0, 97.0),
+        ("760 beside the panel", 520.0, 456.0, 97.0),
         ("720 beside the rail", 656.0, 592.0, 74.0),
     ] {
         let renderer = laid_out(found(room));
@@ -246,15 +254,15 @@ fn the_column_is_the_room_less_32_either_side_with_the_panel_or_the_rail() {
             "{said}"
         );
         assert_eq!(at("rtabs"), vec![px(32.0, 102.0, column, 42.0)], "{said}");
-        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 45.546_875, 42.0)]);
+        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 45.515_625, 42.0)]);
         assert_eq!(
             at("rt"),
             vec![
-                px(162.468_75, 102.0, 59.546_875, 42.0),
-                px(304.906_25, 102.0, 72.5, 42.0),
-                px(381.406_25, 102.0, 63.343_75, 42.0),
+                px(163.484_38, 102.0, 60.375, 42.0),
+                px(307.890_63, 102.0, 73.578_125, 42.0),
+                px(385.468_75, 102.0, 65.312_5, 42.0),
             ],
-            "{said}: Sites, Videos and News, News ending at 444.75"
+            "{said}: Sites, Videos and News, News ending at 450.78125"
         );
         // The sites, 22 apart, each as wide as the column; a description
         // 740 at most.
@@ -339,13 +347,13 @@ fn at_the_fold_and_in_the_least_window_the_tab_row_is_inside_the_column() {
             "{said}"
         );
         assert_eq!(at("rtabs"), vec![px(32.0, 102.0, column, 42.0)], "{said}");
-        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 45.546_875, 42.0)]);
+        assert_eq!(at("rt on"), vec![px(32.0, 102.0, 45.515_625, 42.0)]);
         assert_eq!(
             at("rt"),
             vec![
-                px(162.468_75, 102.0, 59.546_875, 42.0),
-                px(304.906_25, 102.0, 72.5, 42.0),
-                px(381.406_25, 102.0, 63.343_75, 42.0),
+                px(163.484_38, 102.0, 60.375, 42.0),
+                px(307.890_63, 102.0, 73.578_125, 42.0),
+                px(385.468_75, 102.0, 65.312_5, 42.0),
             ],
             "{said}: News ends at 444.75, inside the column's {}",
             32.0 + column

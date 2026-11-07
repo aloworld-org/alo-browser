@@ -34,6 +34,7 @@
 
 use crate::card_menu::MenuItem;
 use crate::conversation_claim::{Claim, Part};
+use crate::interface_face::InterfaceFace;
 use crate::message::{Failure, FromRenderer};
 use crate::results::Tab;
 use crate::typed::Offer;
@@ -101,6 +102,9 @@ pub struct Shown<C, S> {
     /// The lines of alo's menu over the card's page, in order, while it is
     /// drawn (queue item 798).
     pub menu: Vec<MenuItem>,
+    /// The faces *Settings* offers, in order, while it is drawn in place of
+    /// the chat on screen (queue item 854); none while it is not.
+    pub faces: Vec<InterfaceFace>,
 }
 
 impl<C, S> Default for Shown<C, S> {
@@ -128,6 +132,7 @@ impl<C, S> Default for Shown<C, S> {
             undo: None,
             shield: None,
             menu: Vec::new(),
+            faces: Vec::new(),
         }
     }
 }
@@ -214,6 +219,10 @@ pub enum Decided<C, S> {
     Shield(String),
     /// A line of alo's menu over the card's page (queue item 798).
     MenuItem(MenuItem),
+    /// This face, chosen in *Settings* (queue item 854).
+    Face(InterfaceFace),
+    /// *Settings*' *Back to the chat*.
+    LeaveSettings,
     /// The press was on nothing, and nothing is done.
     Nothing,
     /// The claim was refused, and nothing is done.
@@ -251,6 +260,8 @@ pub enum Listed {
     Choices,
     /// The lines of alo's menu over the card's page (queue item 798).
     MenuItems,
+    /// The faces *Settings* offers (queue item 854).
+    Faces,
 }
 
 impl fmt::Display for Listed {
@@ -269,6 +280,7 @@ impl fmt::Display for Listed {
             Listed::FullAnswer => "Full answer",
             Listed::Choices => "agent's choice",
             Listed::MenuItems => "line of the page's menu",
+            Listed::Faces => "face Settings offers",
         })
     }
 }
@@ -435,6 +447,7 @@ where
             .map_or_else(Decided::Refused, Decided::Choice),
         Claim::MenuItem { at } => held(Listed::MenuItems, at, &painted.menu, &now.menu)
             .map_or_else(Decided::Refused, Decided::MenuItem),
+        Claim::Face { .. } | Claim::LeaveSettings => in_settings(claim, painted, now),
         Claim::Expand => Decided::Expand,
         Claim::CloseTheCard => Decided::CloseTheCard,
         Claim::DeleteChat | Claim::CloseChat | Claim::Undo | Claim::Shield => {
@@ -511,6 +524,20 @@ fn drawn_as_hidden(claim: Claim, painted: bool, now: bool) -> Option<Refusal> {
         .into_iter()
         .find(|&hidden| hidden != on_the_rail)
         .map(|hidden| Refusal::PanelNotSo { claim, hidden })
+}
+
+/// What a press on *Settings* comes to (queue item 854): a face it offered
+/// as painted and still does; *Back to the chat* only while it was drawn and
+/// still is.
+fn in_settings<C, S>(claim: Claim, painted: &Shown<C, S>, now: &Shown<C, S>) -> Decided<C, S> {
+    match claim {
+        Claim::Face { at } => held(Listed::Faces, at, &painted.faces, &now.faces)
+            .map_or_else(Decided::Refused, Decided::Face),
+        _ if painted.faces.is_empty() || now.faces.is_empty() => {
+            Decided::Refused(Refusal::NotAsked { claim })
+        }
+        _ => Decided::LeaveSettings,
+    }
 }
 
 /// What a thing offered for one chat or site comes to: the panel's *Delete*
@@ -1304,6 +1331,70 @@ mod tests {
             Refusal::Unasked.to_string(),
             "a renderer claimed a part of the conversation with no press behind it, and \
              nothing was done"
+        );
+    }
+
+    /// Queue item 854: a face *Settings* offered as painted, and still
+    /// offers, is decided as itself; one past them, or once *Settings* has
+    /// closed, is refused; *Back to the chat* only while it was drawn and
+    /// still is.
+    #[test]
+    fn a_face_settings_offered_is_decided_and_back_only_while_it_stands() {
+        let open = Shown {
+            faces: InterfaceFace::ALL.to_vec(),
+            ..painted()
+        };
+        let closed = painted();
+        let face = |at| claimed(Claim::Face { at });
+        assert_eq!(
+            decide(face(2), Part::Start, &open, &open),
+            Decided::Face(InterfaceFace::DmSans)
+        );
+        assert_eq!(
+            decide(face(5), Part::Start, &open, &open),
+            Decided::Refused(Refusal::NotShown {
+                listed: Listed::Faces,
+                at: 5,
+                shown: 5
+            })
+        );
+        assert_eq!(
+            decide(face(0), Part::Start, &closed, &open),
+            Decided::Refused(Refusal::NotShown {
+                listed: Listed::Faces,
+                at: 0,
+                shown: 0
+            }),
+            "not painted"
+        );
+        assert_eq!(
+            decide(face(1), Part::Start, &open, &closed),
+            Decided::Refused(Refusal::Gone {
+                listed: Listed::Faces,
+                at: 1
+            }),
+            "closed since"
+        );
+        let back = claimed(Claim::LeaveSettings);
+        assert_eq!(
+            decide(back.clone(), Part::Start, &open, &open),
+            Decided::LeaveSettings
+        );
+        for (painted, now) in [(&closed, &open), (&open, &closed)] {
+            assert_eq!(
+                decide(back.clone(), Part::Start, painted, now),
+                Decided::Refused(Refusal::NotAsked {
+                    claim: Claim::LeaveSettings
+                })
+            );
+        }
+        // Neither is the panel's to claim.
+        assert_eq!(
+            decide(face(0), Part::Panel, &open, &open),
+            Decided::Refused(Refusal::NotDrawnThere {
+                part: Part::Panel,
+                claim: Claim::Face { at: 0 }
+            })
         );
     }
 }

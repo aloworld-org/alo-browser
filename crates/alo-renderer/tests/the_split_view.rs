@@ -320,10 +320,10 @@ fn in_the_designs_window_the_page_is_large_and_the_column_384_on_the_right() -> 
     // The working line its two lines of 18 and 8 above and below, *Stop*
     // in its middle at its end; what was asked 10 under it; the steps.
     assert_eq!(at("working"), vec![px(849.0, 16.0, 351.0, 52.0)]);
-    assert_eq!(at("said"), vec![px(861.0, 24.0, 267.843_75, 36.0)]);
+    assert_eq!(at("said"), vec![px(861.0, 24.0, 268.046_88, 36.0)]);
     assert_eq!(
         at("abtn stop"),
-        vec![px(1_140.843_8, 28.0, 55.156_25, 28.0)]
+        vec![px(1_141.046_9, 28.0, 54.953_125, 28.0)]
     );
     assert_eq!(at("asked"), vec![px(849.0, 78.0, 351.0, 20.0)]);
     assert_eq!(at("steps"), vec![px(849.0, 108.0, 351.0, 64.0)]);
@@ -347,10 +347,10 @@ fn asking_the_question_stands_in_the_column_under_the_steps() -> Result<(), Stri
     // 10 under the steps; its words on two lines of 20 in the 321 inside.
     assert_eq!(at("asks"), vec![px(849.0, 164.0, 351.0, 104.0)]);
     assert_eq!(at("question"), vec![px(864.0, 177.0, 321.0, 40.0)]);
-    assert_eq!(at("abtn allow"), vec![px(864.0, 227.0, 60.296_875, 28.0)]);
+    assert_eq!(at("abtn allow"), vec![px(864.0, 227.0, 60.890_625, 28.0)]);
     assert_eq!(
         at("abtn notnow"),
-        vec![px(932.296_9, 227.0, 76.796_875, 28.0)]
+        vec![px(932.890_6, 227.0, 78.234_375, 28.0)]
     );
     Ok(())
 }
@@ -431,7 +431,7 @@ fn the_boxs_hint_in_the_column_is_its_own_and_whole() -> Result<(), String> {
     // The field the box's 351 less its border, padding, *Go* and the gap
     // between them: 1 + 22 + 263 + 10 + 44 + 10 + 1.
     assert_eq!(units(field), px(872.0, 748.0, 263.0, 40.0));
-    assert_eq!(units(hint), px(872.0, 758.0, 223.984_38, 20.0));
+    assert_eq!(units(hint), px(872.0, 758.0, 239.312_5, 20.0));
     assert!(hint.right() <= field.right(), "{}", units(hint));
     let (_, tree) = drawn(with(acting(), NORMAL)?);
     let outline = tree.to_outline();
@@ -449,7 +449,7 @@ fn the_boxs_hint_in_the_column_is_its_own_and_whole() -> Result<(), String> {
     let renderer = laid_out(with(acting(), narrower)?);
     let (hint, field) =
         hint_and_field(&renderer).ok_or("the conversation's box shows no hint, or no field")?;
-    assert_eq!(units(hint), px(151.5, 758.0, 292.718_75, 20.0));
+    assert_eq!(units(hint), px(151.5, 758.0, 308.437_5, 20.0));
     assert!(hint.right() <= field.right(), "{}", units(hint));
     Ok(())
 }

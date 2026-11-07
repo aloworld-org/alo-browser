@@ -47,7 +47,9 @@ pub const BESIDE: &str = "alo beside the page";
 /// screen's *Ask anything, search, or type a website…* is 292.72 wide at
 /// 16 px in Instrument Sans and the column's field 263, so it was cut
 /// mid-word (*…type a webs*); without *anything* it says the same three
-/// things in 223.98. The field's name, read by an agent, is unchanged.
+/// things in 223.98 — and in 239.31 in Inter, the widest of the five faces
+/// *Settings* offers (queue items 853, 854), so whole in each. The field's
+/// name, read by an agent, is unchanged.
 pub const COLUMN_HINT: &str = "Ask, search, or type a website\u{2026}";
 
 /// Put the split view for `start` into `document`, the first screen's,

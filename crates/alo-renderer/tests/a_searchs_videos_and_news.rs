@@ -351,7 +351,7 @@ const PHOTO_TILE: [u8; 4] = [0xe9, 0xe3, 0xd8, 0xff];
 fn the_videos_tab_is_a_list_of_pictures_lengths_and_titles() {
     let renderer = laid_out(with(results(Tab::Videos)));
     let at = |class: &str| boxes_of(&renderer, class);
-    assert_eq!(at("rt on"), vec![px(352.281_25, 102.0, 73.75, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(354.828_13, 102.0, 75.093_75, 42.0)]);
     assert!(at("res").is_empty() && at("more").is_empty() && at("imrow").is_empty());
     // 20 under the tab row, three rows 112 tall — the picture's height —
     // and 20 apart.
@@ -382,9 +382,9 @@ fn the_videos_tab_is_a_list_of_pictures_lengths_and_titles() {
     assert_eq!(lengths.len(), 2, "the third has no length");
     assert_eq!(
         lengths.first(),
-        Some(&px(236.546_88, 249.0, 35.453_125, 19.0))
+        Some(&px(235.171_88, 249.0, 36.828_125, 19.0))
     );
-    assert_eq!(lengths.get(1), Some(&px(222.4375, 381.0, 49.5625, 19.0)));
+    assert_eq!(lengths.get(1), Some(&px(220.062_5, 381.0, 51.937_5, 19.0)));
     // 16 beside the tile: the title 2 down, 24 tall; 4 under it the site
     // and age, 18; 6 under that what is said, 22.
     assert_eq!(
@@ -445,7 +445,7 @@ fn the_videos_tab_is_drawn_as_the_reference() {
 fn the_news_tab_is_a_list_of_sites_ages_headlines_and_photos() {
     let renderer = laid_out(with(results(Tab::News)));
     let at = |class: &str| boxes_of(&renderer, class);
-    assert_eq!(at("rt on"), vec![px(428.781_25, 102.0, 63.9375, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(432.406_25, 102.0, 66.156_25, 42.0)]);
     // Each story 16 above and below — the first 4 above — over a line of
     // 1, and as tall as its photo's tile, 88, which is taller than what is
     // told of it (18 + 4 + 24 + 4 + 22 = 72, or 50 with nothing said):
@@ -490,8 +490,14 @@ fn the_news_tab_is_a_list_of_sites_ages_headlines_and_photos() {
         tops.map(|top| px(80.0, top, 728.0, 18.0)).to_vec()
     );
     // The site's name 8 after its mark, and its age 8 after the name.
-    assert_eq!(at("name").first(), Some(&px(106.0, 168.0, 151.0, 18.0)));
-    assert_eq!(at("age").first(), Some(&px(265.0, 168.0, 65.9375, 18.0)));
+    assert_eq!(
+        at("name").first(),
+        Some(&px(106.0, 168.0, 154.234_38, 18.0))
+    );
+    assert_eq!(
+        at("age").first(),
+        Some(&px(268.234_38, 168.0, 74.953_125, 18.0))
+    );
     assert_eq!(at("age").len(), 2, "the third has no age");
     assert_eq!(
         at("nt"),

@@ -3,6 +3,11 @@
    no other file is reachable from a renderer. Terracotta is kept for one
    thing: a chat where the agent is at work. */
 :root {
+  /* The face every word is set in (queue items 853, 854): Inter, unless a
+     person chose another in Settings, which the document builder puts on
+     the root element as its own style. The mark and the greeting stay in
+     Newsreader whatever is chosen. */
+  --face: "Inter Variable";
   --ink: #1b2433;
   --panel: #eeeae2;
   --surface: #ffffff;
@@ -25,13 +30,13 @@ body {
   height: 100%;
 }
 
-/* The design's typefaces, Instrument Sans and Newsreader, handed to this
-   renderer by the browser process (ADR 0084); the generics after each are
-   for a renderer that was not handed them. */
+/* The design's typefaces — the face chosen, and Newsreader — handed to
+   this renderer by the browser process (ADR 0084); the generics after each
+   are for a renderer that was not handed them. */
 body {
   background: var(--panel);
   color: #3d3a35;
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 13.5px;
   line-height: 18px;
 }
@@ -130,7 +135,7 @@ a {
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 13.5px;
   white-space: nowrap;
   overflow: hidden;
@@ -253,6 +258,14 @@ a {
   border-radius: 9px;
 }
 
+/* Settings as the page on screen (queue item 854): white, as the chat on
+   screen's row is. */
+.settings[aria-current="page"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* The row the pointer is over (queue item 789): a lighter ground, and
    Delete at its end — a flex item of the row, so the name gives way to it
    and no row moves. */
@@ -272,7 +285,7 @@ a {
   border-radius: 6px;
   background: var(--line-soft);
   color: var(--ink);
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 12px;
   line-height: 24px;
   font-weight: 600;
@@ -330,7 +343,7 @@ a {
   border-radius: 13px;
   background: #f3efe8;
   color: #2b2722;
-  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-family: var(--face), system-ui, sans-serif;
   font-size: 12.5px;
   line-height: 26px;
   font-weight: 600;

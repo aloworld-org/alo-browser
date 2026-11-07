@@ -57,6 +57,9 @@
 //! order drawn, oldest turn first; what is scrolled out of the room is
 //! clipped, and a press there finds nothing to claim.
 //!
+//! *Settings* (queue item 854) is pressed the same way: a face by its place
+//! among the faces it offers, and *Back to the chat* one of a kind.
+//!
 //! The agent at work on a card's page (queue item 704) is pressed the same
 //! way: its *Stop*, *Allow* and *Not now*, each one of the closed list,
 //! and a stuck agent's choice by its place among the choices drawn.
@@ -232,6 +235,14 @@ pub enum Claim {
         /// Its place.
         at: usize,
     },
+    /// The face at this place among those *Settings* offers, counting from
+    /// zero (queue item 854).
+    Face {
+        /// Its place.
+        at: usize,
+    },
+    /// *Settings*' *Back to the chat*.
+    LeaveSettings,
 }
 
 impl Claim {
@@ -269,6 +280,8 @@ impl Claim {
             | Claim::NotNow
             | Claim::Choice { .. }
             | Claim::MenuItem { .. }
+            | Claim::Face { .. }
+            | Claim::LeaveSettings
             | Claim::Shield => Part::Start,
         }
     }
@@ -309,6 +322,8 @@ impl fmt::Display for Claim {
             Claim::CloseChat => f.write_str("the hovered chat's ×"),
             Claim::Undo => f.write_str("the panel's Undo"),
             Claim::Shield => f.write_str("the card's shield"),
+            Claim::Face { at } => write!(f, "the face Settings offers at place {at}"),
+            Claim::LeaveSettings => f.write_str("Settings' Back to the chat"),
         }
     }
 }
@@ -395,6 +410,14 @@ fn pressables(part: Part) -> &'static [(&'static [&'static str], Pressable)] {
             // A line of alo's menu over the card's page (queue item 798);
             // one that does nothing is `mitem off`, and claims nothing.
             (&["mitem"], Pressable::Placed(|at| Claim::MenuItem { at })),
+            // *Settings* (queue item 854): a face by its place among those
+            // offered, the one chosen among them; *Back to the chat* one of
+            // a kind.
+            (
+                &["face", "face on"],
+                Pressable::Placed(|at| Claim::Face { at }),
+            ),
+            (&["pback"], Pressable::One(Claim::LeaveSettings)),
             // An offer for what was typed, whichever is chosen and whether
             // it is set up (queue item 714).
             (

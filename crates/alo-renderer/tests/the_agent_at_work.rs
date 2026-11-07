@@ -295,10 +295,10 @@ fn the_column_stands_under_the_page_as_the_design_draws_it() -> Result<(), Strin
     assert_eq!(at("working"), vec![px(97.0, 480.0, 846.0, 36.0)]);
     // Its words 12 in, one line of 18 in its middle; *Stop* 28 tall at its
     // end, 4 in from its right.
-    assert_eq!(at("said"), vec![px(109.0, 489.0, 762.843_75, 18.0)]);
+    assert_eq!(at("said"), vec![px(109.0, 489.0, 763.046_9, 18.0)]);
     assert_eq!(
         at("abtn stop"),
-        vec![px(883.843_75, 484.0, 55.156_25, 28.0)]
+        vec![px(884.046_9, 484.0, 54.953_125, 28.0)]
     );
     assert_eq!(at("asked"), vec![px(97.0, 526.0, 846.0, 20.0)]);
     assert_eq!(at("steps"), vec![px(97.0, 556.0, 846.0, 64.0)]);
@@ -328,15 +328,15 @@ fn the_question_stands_under_the_steps_with_allow_and_not_now() -> Result<(), St
     assert!(at("step now").is_empty());
     assert_eq!(at("asks"), vec![px(97.0, 612.0, 846.0, 84.0)]);
     assert_eq!(at("question"), vec![px(112.0, 625.0, 816.0, 20.0)]);
-    assert_eq!(at("abtn allow"), vec![px(112.0, 655.0, 60.296_875, 28.0)]);
+    assert_eq!(at("abtn allow"), vec![px(112.0, 655.0, 60.890_625, 28.0)]);
     assert_eq!(
         at("abtn notnow"),
-        vec![px(180.296_88, 655.0, 76.796_875, 28.0)]
+        vec![px(180.890_63, 655.0, 78.234_375, 28.0)]
     );
     // *Stop* still drawn: it waits, and can be stopped.
     assert_eq!(
         at("abtn stop"),
-        vec![px(883.843_75, 484.0, 55.156_25, 28.0)]
+        vec![px(884.046_9, 484.0, 54.953_125, 28.0)]
     );
     Ok(())
 }
@@ -355,8 +355,8 @@ fn stuck_it_draws_why_and_its_choices_and_no_outline() -> Result<(), String> {
     assert_eq!(
         at("achoice"),
         vec![
-            px(97.0, 568.0, 161.265_63, 28.0),
-            px(266.265_63, 568.0, 85.390_625, 28.0)
+            px(97.0, 568.0, 165.390_63, 28.0),
+            px(270.390_63, 568.0, 86.437_5, 28.0)
         ]
     );
     Ok(())

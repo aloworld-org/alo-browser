@@ -213,6 +213,14 @@ pub struct ConversationWindow {
     /// Where the sites blocking is switched off for are kept, when the
     /// window was given somewhere (queue item 807).
     switches: Option<std::path::PathBuf>,
+    /// Where what a person chose in *Settings* is kept, when the window was
+    /// given somewhere (queue item 854).
+    settings: Option<std::path::PathBuf>,
+    /// What the card's page was streamed at when *Settings* came to stand
+    /// in its place, or would be had the window been seen meanwhile: asked
+    /// for again once the card is back on the screen (ADR 0076, queue item
+    /// 854).
+    under_settings: Option<Streamed>,
     /// The sheet sliding over the conversation in a narrow window (queue
     /// item 776).
     slide: Slide,
@@ -382,6 +390,8 @@ impl ConversationWindow {
             following: false,
             over_the_panel: false,
             switches: None,
+            settings: None,
+            under_settings: None,
             slide: Slide::default(),
             sheet_frame: None,
             bar: BarFade::default(),
@@ -676,6 +686,71 @@ impl ConversationWindow {
         self.conversation.set_blocking_off(off);
         self.switches = file;
         self
+    }
+
+    /// The same window, its interface set in the face `read` back from
+    /// where it was kept, and each face a person chooses kept in `file` when
+    /// there is one (queue item 854): a file that did not read is Inter, and
+    /// said, with why, on the terminal and in the first screen's line.
+    #[must_use]
+    pub fn with_settings(
+        mut self,
+        read: crate::settings_file::Read,
+        file: Option<std::path::PathBuf>,
+    ) -> Self {
+        self.conversation = std::mem::take(&mut self.conversation).set_in(read.face);
+        if let Some(said) = read.said {
+            self.tell(said);
+        }
+        self.settings = file;
+        self
+    }
+
+    /// Keep the face a person just chose in *Settings*, if one was (queue
+    /// item 854): one that cannot be kept is said, and the interface is
+    /// set in it all the same until alo closes.
+    fn keep_face(&mut self) {
+        let Some(face) = self.conversation.take_face_chosen() else {
+            return;
+        };
+        let kept = match &self.settings {
+            Some(file) => crate::settings_file::write(file, face),
+            None => Err("there is nowhere to keep it".to_owned()),
+        };
+        match kept {
+            Ok(()) => self.said.push(format!(
+                "alo is set in {}, as chosen in Settings",
+                face.name()
+            )),
+            Err(why) => self.tell(format!("the font chosen is not kept: {why}")),
+        }
+    }
+
+    /// *Settings* opened over a live card, or closed again (queue item
+    /// 854): its page is not streamed while *Settings* stands in its place,
+    /// and is again once the card is back on the screen.
+    fn stream_under_settings(&mut self) {
+        if self.conversation.card().is_none() {
+            return;
+        }
+        let wanted = if self.conversation.settings().is_open() {
+            if self.streaming.is_some() {
+                self.under_settings = self.streaming;
+            }
+            None
+        } else if self.under_settings.take().is_some() {
+            // At the page box as it is now: the window may have been
+            // resized meanwhile.
+            self.card_streamed()
+        } else {
+            self.streaming
+        };
+        if wanted != self.streaming
+            && let Some(chrome) = &self.chrome
+        {
+            chrome.stream(wanted);
+            self.streaming = wanted;
+        }
     }
 
     /// A person switched blocking for `site` with a card's shield (queue
@@ -975,6 +1050,9 @@ impl ConversationWindow {
         let viewport = self.start_room()?;
         self.conversation
             .card()
+            // Never while *Settings* stands in its place (queue item 854):
+            // a press there is Settings', not the page's — found by hand.
+            .filter(|_| !self.conversation.settings().is_open())
             .and_then(|card| card.frame.as_ref())
             .map(|_| card_aim::OnScreen {
                 viewport,
@@ -1523,9 +1601,16 @@ impl ConversationWindow {
         let sheet = self.conversation.sheet();
         self.card_pressed(&pressed);
         self.agent_pressed(&pressed);
+        let settings = self.conversation.settings().is_open();
         if self.conversation.act(pressed) {
             self.ask_drawn();
         }
+        // *Settings* opened or closed (queue item 854): a live card's page
+        // streamed only while it is on the screen; a face chosen kept.
+        if settings != self.conversation.settings().is_open() {
+            self.stream_under_settings();
+        }
+        self.keep_face();
         self.follow_runs();
         // Shown in a window too narrow for it, the panel slides over the
         // conversation as the sheet; a chat chosen in it, New chat or Hide
@@ -1748,7 +1833,13 @@ impl ConversationWindow {
             return;
         };
         if self.conversation.card().is_some() {
-            let streaming = seen.then_some(streamed);
+            // Not while *Settings* stands in the card's place, which brings
+            // it back once it closes (854).
+            let under = self.conversation.settings().is_open();
+            if under {
+                self.under_settings = seen.then_some(streamed);
+            }
+            let streaming = (seen && !under).then_some(streamed);
             chrome.stream(streaming);
             self.streaming = streaming;
         }
@@ -2004,6 +2095,18 @@ impl ConversationWindow {
         {
             return;
         }
+        // Escape closes *Settings*, back to the chat (queue item 854) —
+        // unless *Search chats* has the keyboard, which it empties first.
+        if press.key == crate::keys::Key::Escape
+            && press.held == Held::NOTHING
+            && !self.conversation.find().focused()
+            && self.conversation.close_settings()
+        {
+            self.stream_under_settings();
+            self.ask_drawn();
+            self.redraw = true;
+            return;
+        }
         if self.conversation.keys_to_the_card() {
             // The card's page has the keyboard (queue item 718).
             if let Some(key) = card_keys::key(press, text) {
@@ -2109,6 +2212,7 @@ mod tests {
     use alo_renderer::conversation_claim::Claim;
     use alo_renderer::conversation_decide::Refusal;
     use alo_renderer::host::Renderers;
+    use alo_renderer::interface_face::InterfaceFace;
     use std::path::PathBuf;
 
     /// A window whose renderers never start and whose Chrome is never
@@ -2767,6 +2871,80 @@ mod tests {
         )));
         resize(&mut window, (1280, 820), 1.0);
         assert_eq!(page(&window), Some((590, 520)));
+        window.finish();
+    }
+
+    /// Queue item 854, found by hand: a press where the card's page was, with
+    /// *Settings* in its place, is *Settings*', never the page's.
+    #[test]
+    fn under_settings_a_press_where_the_page_was_is_not_the_pages() {
+        let (mut window, over) = with_a_card();
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        assert!(matches!(
+            window.aimed(over),
+            Some(card_aim::Aimed::Part(Part::Start, _))
+        ));
+        window.key(&Press::of(crate::keys::Key::Escape), Some("\u{1b}"));
+        assert!(matches!(
+            window.aimed(over),
+            Some(card_aim::Aimed::Page { .. })
+        ));
+        window.finish();
+    }
+
+    /// Queue item 854: *Settings* stands in the live card's place, so its
+    /// page is not streamed while it is open — nor when the window is seen
+    /// again under it — and is again once Escape or *Back to the chat*
+    /// brings the card back; Escape closes it only when *Search chats* does
+    /// not have the keyboard; a face chosen with nowhere to keep it is said.
+    #[test]
+    fn settings_over_a_live_card_stops_its_stream_and_escape_brings_it_back() {
+        let mut window = window();
+        let url = alo_url::parse("https://example.com/").unwrap();
+        window.heard(Heard::Chrome(Went::Opening(url)));
+        window.seen(true);
+        let streamed = Some(Streamed::at((878, 520), Scale::ONE));
+        assert_eq!(window.streaming, streamed);
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        assert!(window.conversation().settings().is_open());
+        assert_eq!(window.streaming, None, "not on the screen");
+        window.seen(false);
+        window.seen(true);
+        assert_eq!(window.streaming, None, "seen again, still under Settings");
+        // Search chats has the keyboard: Escape is its, Settings stays.
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Panel,
+            Decided::SearchChats,
+        )));
+        window.key(&Press::of(crate::keys::Key::Escape), Some("\u{1b}"));
+        assert!(window.conversation().settings().is_open());
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Start, Decided::Nothing)));
+        window.key(&Press::of(crate::keys::Key::Escape), Some("\u{1b}"));
+        assert!(!window.conversation().settings().is_open());
+        assert_eq!(window.streaming, streamed, "the card back on the screen");
+        // Back to the chat, likewise.
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        assert_eq!(window.streaming, None);
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::LeaveSettings,
+        )));
+        assert_eq!(window.streaming, streamed);
+        // A face chosen in a window given nowhere to keep it: set, and said.
+        let _ = window.take_said();
+        window.heard(Heard::Drawn(Drawn::Pressed(Part::Panel, Decided::Settings)));
+        window.heard(Heard::Drawn(Drawn::Pressed(
+            Part::Start,
+            Decided::Face(InterfaceFace::Geist),
+        )));
+        assert_eq!(
+            window.conversation().settings().face(),
+            InterfaceFace::Geist
+        );
+        assert_eq!(
+            window.told(),
+            Some("the font chosen is not kept: there is nowhere to keep it")
+        );
         window.finish();
     }
 

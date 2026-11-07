@@ -17,8 +17,11 @@
 //! - **Copy** — what is selected on the page, as ⌘C copies it; greyed when
 //!   nothing is;
 //! - **Copy link** and **Open link in new chat** — over a link only;
-//! - **Search for “…”** — only when words are selected, the words cut at
-//!   [`SEARCHED_SHOWN`] characters in the menu and searched whole.
+//! - **Search for “…”** — only when words are selected, searched whole:
+//!   the menu holds at most [`SEARCHED_SHOWN`] characters of them, and its
+//!   stylesheet ends them with `…` where the line reaches the menu's edge,
+//!   the closing quote kept (queue item 855) — so no face, and no width of
+//!   letters, runs the line past the menu.
 //!
 //! It is a white box rounded [`ROUNDED`], under a line-colour border and a
 //! soft shadow, [`WIDE`] wide, [`ITEM`] a line with [`INSIDE`] above the
@@ -45,11 +48,19 @@ pub const BORDER: f32 = 1.0;
 /// How rounded its corners are.
 pub const ROUNDED: f32 = 10.0;
 
-/// The most characters of the words selected the menu shows in *Search
-/// for “…”*: past them it shows `…`. Sixteen, so the line fits the menu's
-/// 196 inside its padding at 13 px — found by hand: at 24 the line was
-/// cut before its closing quote.
-pub const SEARCHED_SHOWN: usize = 16;
+/// The most characters of the words selected the menu holds in *Search
+/// for “…”*: past them it holds `…`. A bound on what a stranger's page
+/// selected, not the line's — the stylesheet cuts the words where the menu
+/// ends (queue item 855). A cut at sixteen characters, found by hand to fit
+/// Instrument Sans, was measured not to fit sixteen wide letters in any of
+/// the five faces (`W` 277 to 299 px, the line's room 196).
+pub const SEARCHED_SHOWN: usize = 80;
+
+/// What *Search for “…”* says before the words.
+pub const SEARCH_FOR: &str = "Search for “";
+
+/// What it says after them.
+pub const SEARCHED_END: &str = "”";
 
 /// What the menu is named, to an agent.
 pub const NAMED: &str = "Page menu";
@@ -72,21 +83,33 @@ pub enum MenuItem {
 }
 
 impl MenuItem {
-    /// The words it is drawn with, and named by.
+    /// The words it is drawn with, and named by: *Search for “…”* holding
+    /// [`MenuItem::searched`].
     pub fn label(&self) -> String {
         match self {
             Self::Copy { .. } => "Copy".to_owned(),
             Self::CopyLink(_) => "Copy link".to_owned(),
             Self::OpenInNewChat(_) => "Open link in new chat".to_owned(),
-            Self::Search(words) => {
-                let words = words.split_whitespace().collect::<Vec<_>>().join(" ");
-                let mut shown: String = words.chars().take(SEARCHED_SHOWN).collect();
-                if words.chars().count() > SEARCHED_SHOWN {
-                    shown = format!("{}…", shown.trim_end());
-                }
-                format!("Search for “{shown}”")
-            }
+            Self::Search(_) => format!(
+                "{SEARCH_FOR}{}{SEARCHED_END}",
+                self.searched().unwrap_or_default()
+            ),
         }
+    }
+
+    /// The words *Search for “…”* holds, their white space one space each,
+    /// at most [`SEARCHED_SHOWN`] characters and `…` past them; [`None`] for
+    /// any other line.
+    pub fn searched(&self) -> Option<String> {
+        let Self::Search(words) = self else {
+            return None;
+        };
+        let words = words.split_whitespace().collect::<Vec<_>>().join(" ");
+        let mut shown: String = words.chars().take(SEARCHED_SHOWN).collect();
+        if words.chars().count() > SEARCHED_SHOWN {
+            shown = format!("{}…", shown.trim_end());
+        }
+        Some(shown)
     }
 
     /// Whether pressing it does anything: all but *Copy* with nothing
@@ -197,9 +220,28 @@ pub fn make(document: &mut Document, menu: &CardMenu) -> Result<NodeId, Unbuilt>
             attribute(document, line, "class", "mitem off")?;
             attribute(document, line, "disabled", "")?;
         }
-        // Words a stranger's page selected, entering as a text node's data.
-        let words = document.create_text_node(&item.label());
-        append(document, line, words)?;
+        if let Some(searched) = item.searched() {
+            // *Search for “…”* in three pieces, so the stylesheet cuts the
+            // words alone where the menu ends and the quote stays (855).
+            // Named whole, as one line, whatever it is drawn as.
+            attribute(document, line, "aria-label", &item.label())?;
+            for (class, text) in [
+                ("mlead", SEARCH_FOR),
+                ("mwords", searched.as_str()),
+                ("mend", SEARCHED_END),
+            ] {
+                let piece = element(document, "span")?;
+                attribute(document, piece, "class", class)?;
+                // Words a stranger's page selected, entering as a text
+                // node's data.
+                let words = document.create_text_node(text);
+                append(document, piece, words)?;
+                append(document, line, piece)?;
+            }
+        } else {
+            let words = document.create_text_node(&item.label());
+            append(document, line, words)?;
+        }
         append(document, made, line)?;
     }
     Ok(made)
@@ -239,8 +281,15 @@ mod tests {
         );
         assert_eq!(
             MenuItem::Search("the hills of Kampala\nand  Entebbe by the lake".to_owned()).label(),
-            "Search for “the hills of Kam…”"
+            "Search for “the hills of Kampala and Entebbe by the lake”"
         );
+        // Held to eighty characters, `…` past them; drawn cut at the menu.
+        let long = MenuItem::Search("word ".repeat(30));
+        assert_eq!(
+            long.searched(),
+            Some(format!("{}…", "word ".repeat(16).trim_end()))
+        );
+        assert_eq!(MenuItem::Copy { selected: true }.searched(), None);
         assert!(!MenuItem::Copy { selected: false }.pressable());
         assert!(MenuItem::Copy { selected: true }.pressable());
         assert!(MenuItem::Search("a".to_owned()).pressable());

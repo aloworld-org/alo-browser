@@ -1181,6 +1181,33 @@ The reason this exists rather than a faster fork of somebody else's engine.
   byte for byte (`tests/the_application_assembled.rs`); every reference
   render of the interface redrawn in them. Owed: Newsreader's optical size
   set by the text's size (752).
+  **Inter, and a face a person chooses** (853, 854, ADR 0084's amendment;
+  the owner's design of 7 November 2026): every word of the interface in
+  Inter 4.1 (`rsms/inter`, OFL), Newsreader kept for the mark and the
+  greeting; Geist 1.9.2, DM Sans and Plus Jakarta Sans carried beside
+  Instrument Sans, all five handed to the interface's renderers as they
+  start (`typefaces.rs`). Inter's and DM Sans' optical size set as Chrome
+  157 sets it, measured: each glyph's advance to a thousandth of a pixel,
+  1,570 of 1,600 runs Chrome's to its layout unit
+  (`tests/a_chosen_face_set_as_chrome_sets_it.rs`). The stylesheets ask
+  for `var(--face)`, which the document builders set on the root from the
+  face the browser process names (`interface_face.rs`). **Settings**
+  (`settings_document.rs`): the panel's *Settings* row opens it in the
+  conversation's place, the chat left as it was; one section, *Font*, a
+  radio group of the five, each a sample of a result set in that face;
+  choosing one sets both parts at once, with no restart, never a card's
+  page; *Back to the chat*, Escape, a chat or *New chat* closes it. Kept in
+  `settings.txt` beside the chats, `0600`, whole or not at all; a file that
+  does not read is Inter, and said (`alo-window`'s `settings_file.rs`,
+  `conversation_settings.rs`). Layout assertions, references of the page
+  and of a result and the panel in each face, and the window's own road
+  — chosen, applied, relaunched, damaged
+  (`alo-renderer/tests/settings_and_the_face_chosen.rs`,
+  `alo-window/tests/a_font_chosen_in_settings_in_the_window.rs`). Not yet:
+  *Settings* by keys (856); the link strip in the face chosen (852).
+  **The page menu's search line cut at its edge** (855): *Search for
+  “…”*'s words end in `…` at the menu's edge, the quote kept, in each face
+  (`tests/the_page_menus_words_cut_at_its_edge.rs`).
   **Emoji, in colour** (ADR 0088): the interface carries a third face,
   Noto Color Emoji (`CBDT`, OFL 1.1, `googlefonts/noto-emoji` `v2.051`),
   handed to its renderers alone; a character Unicode means as an emoji

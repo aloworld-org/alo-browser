@@ -30,6 +30,7 @@ use alo_renderer::conversation_claim::Claim as ConversationClaim;
 use alo_renderer::conversation_scroll::Bar;
 use alo_renderer::frame::Frame;
 use alo_renderer::generic::{Generics, MOST_PAIRS};
+use alo_renderer::interface_face::InterfaceFace;
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
 use alo_renderer::panel::{Chat, Doing, Panel};
@@ -192,6 +193,8 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             bar: None,
             search: SetUp::Not("no key\0<b>".to_owned()),
             asking: SetUp::Not("no page\0<b>".to_owned()),
+            face: InterfaceFace::PlusJakartaSans,
+            settings: false,
         })),
         ToRenderer::Start(Box::default()),
         // A person's press on a part of the conversation, anywhere in it.
@@ -1104,6 +1107,12 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
         FromRenderer::ConversationClaimed(Some(ConversationClaim::Shield)),
         // Queue item 791: an open row's ×.
         FromRenderer::ConversationClaimed(Some(ConversationClaim::CloseChat)),
+        // Queue item 798: a line of alo's menu over the card's page.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::MenuItem { at: 3 })),
+        // Queue item 854: a face Settings offers, and its Back to the chat.
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Face { at: 0 })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::Face { at: usize::MAX })),
+        FromRenderer::ConversationClaimed(Some(ConversationClaim::LeaveSettings)),
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -1111,6 +1120,62 @@ fn every_claim_on_the_conversation_survives_the_crossing() {
             .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
         assert_eq!(back, original, "{original:?} changed on the way across");
     }
+}
+
+/// Queue items 853 and 854: each face the interface may be set in, and
+/// *Settings* on screen, cross to the panel's and the first screen's
+/// renderers; a face tagged as none of the five is refused.
+#[test]
+fn every_face_and_settings_survive_the_crossing_and_an_unknown_face_is_refused() {
+    for face in InterfaceFace::ALL {
+        for settings in [false, true] {
+            let messages = [
+                ToRenderer::Panel(Box::new(Panel {
+                    chats: vec![Chat::new("Invoice", "").current()],
+                    viewport: Size::new(240.0, 820.0),
+                    face,
+                    settings,
+                    ..Panel::default()
+                })),
+                ToRenderer::Start(Box::new(Start {
+                    viewport: Size::new(1040.0, 820.0),
+                    face,
+                    settings,
+                    ..Start::default()
+                })),
+            ];
+            for original in messages {
+                let bytes = write_to_renderer(&original);
+                let back = read_to_renderer(&bytes)
+                    .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+                assert_eq!(back, original, "{original:?} changed on the way across");
+            }
+        }
+    }
+    // The one byte the face is: found where Inter and Geist differ, and set
+    // to a tag no face has.
+    let of = |face| {
+        write_to_renderer(&ToRenderer::Panel(Box::new(Panel {
+            face,
+            ..Panel::default()
+        })))
+    };
+    let (inter, geist) = (of(InterfaceFace::Inter), of(InterfaceFace::Geist));
+    let differ: Vec<usize> = (0..inter.len())
+        .filter(|&at| inter.get(at) != geist.get(at))
+        .collect();
+    assert_eq!(differ.len(), 1, "{differ:?}");
+    let mut unknown = inter.clone();
+    if let Some(byte) = differ.first().and_then(|&at| unknown.get_mut(at)) {
+        *byte = 5;
+    }
+    let refused = read_to_renderer(&unknown).map_err(|why| why.to_string());
+    assert!(
+        refused
+            .as_ref()
+            .is_err_and(|why| why.contains("a face tagged 5")),
+        "{refused:?}"
+    );
 }
 
 /// Every refusal a verb can meet, each of which an agent is told by name.

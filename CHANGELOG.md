@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo is set in Inter.** Every word of alo's own interface — the panel,
+  the results, the cards' bars, the agent's column — is now set in Inter;
+  the *alo* mark and the greeting stay in Newsreader.
+- **Settings, with a choice of font.** *Settings* at the foot of the panel
+  opens a page in the conversation's place, with one section, *Font*:
+  Inter, Geist, DM Sans, Plus Jakarta Sans or Instrument Sans, each shown
+  setting a search result. Choosing one changes the whole interface at
+  once, with no restart; pages inside cards keep their own fonts. The
+  choice is kept on this Mac beside your chats and remembered the next
+  time alo opens; a settings file that cannot be read is set aside, said,
+  and alo is in Inter. *Back to the chat*, Escape, or choosing a chat goes
+  back.
+- **The page menu's search line fits the menu.** *Search for “…”* ends
+  the words in an ellipsis at the menu's edge, the closing quote kept,
+  whatever the words and the font.
+
 - **A card's page behaves as a page.** The pointer turns into a hand over
   a link and a text cursor over words; an expanded card shows a link's
   address in a small strip of alo's own at its bottom left; a right-click

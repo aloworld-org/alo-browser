@@ -32,10 +32,12 @@ pub const PAPER: u32 = 0xF4_F1EC;
 /// Its words' colour: the interface's quiet ink, `#5f5a52`.
 pub const QUIET: u32 = 0x5F_5A52;
 
-/// Its words' face: the interface's own where the system has it, and the
-/// system's own face otherwise — the host carries no font of alo's, which
-/// are handed to alo's own renderers alone (ADR 0084).
-pub const FACE_NAME: &str = "Instrument Sans";
+/// Its words' face: the interface's default, Inter (queue item 853), where
+/// the system has it, and the system's own face otherwise — the host
+/// carries no font of alo's, which are handed to alo's own renderers alone
+/// (ADR 0084), and is not told the face a person chose in Settings: both
+/// are queue item 852's.
+pub const FACE_NAME: &str = "Inter";
 
 /// Its words' size, in points.
 pub const SIZE: f64 = 12.0;

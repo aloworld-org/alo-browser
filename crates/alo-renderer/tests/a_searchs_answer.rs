@@ -373,15 +373,15 @@ fn the_short_answer_is_laid_out_over_the_sites_as_the_design_draws_it() {
     assert_eq!(at("ans"), vec![px(80.0, 164.0, 880.0, 101.0)]);
     assert_eq!(at("ansp"), vec![px(80.0, 164.0, 760.0, 52.0)]);
     assert_eq!(at("ansf"), vec![px(80.0, 226.0, 880.0, 18.0)]);
-    assert_eq!(at("full"), vec![px(80.0, 226.0, 75.8125, 18.0)]);
-    assert_eq!(at("ansn"), vec![px(169.812_5, 226.0, 89.843_75, 18.0)]);
+    assert_eq!(at("full"), vec![px(80.0, 226.0, 80.046_875, 18.0)]);
+    assert_eq!(at("ansn"), vec![px(174.046_88, 226.0, 95.109_375, 18.0)]);
     // Each number 16 square, after its sentence, inside the sentence's line.
     assert_eq!(
         at("cite"),
         vec![
-            px(581.453_1, 172.0, 16.0, 16.0),
-            px(310.281_25, 198.0, 16.0, 16.0),
-            px(583.578_1, 198.0, 16.0, 16.0),
+            px(609.109_4, 172.0, 16.0, 16.0),
+            px(409.765_63, 198.0, 16.0, 16.0),
+            px(695.312_5, 198.0, 16.0, 16.0),
         ]
     );
     // 20 under the rule the sites, where All without an answer puts them
@@ -400,17 +400,17 @@ fn the_short_answer_is_laid_out_over_the_sites_as_the_design_draws_it() {
     assert_eq!(
         at("used"),
         vec![
-            px(450.640_63, 290.0, 79.578_125, 16.0),
-            px(392.421_88, 482.0, 79.578_125, 16.0),
+            px(460.984_38, 290.0, 82.203_125, 16.0),
+            px(403.109_38, 482.0, 82.203_125, 16.0),
         ]
     );
-    assert_eq!(at("more"), vec![px(80.0, 575.0, 75.625, 20.0)]);
+    assert_eq!(at("more"), vec![px(80.0, 575.0, 79.968_75, 20.0)]);
     // The Answer tab is open now, second in the row.
-    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.546_875, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(80.0, 102.0, 45.515_625, 42.0)]);
     assert!(
         at("rt")
             .first()
-            .is_some_and(|tab| tab == &px(129.546_88, 102.0, 76.921_875, 42.0)),
+            .is_some_and(|tab| tab == &px(129.515_63, 102.0, 77.968_75, 42.0)),
         "{:?}",
         at("rt")
     );
@@ -461,7 +461,7 @@ fn the_answer_tab_is_laid_out_as_the_design_draws_it() {
     assert_eq!(at("sent"), vec![px(80.0, 441.0, 880.0, 18.0)]);
     // No site, no short answer, no More sites on this tab.
     assert!(at("found").is_empty() && at("ans").is_empty() && at("more").is_empty());
-    assert_eq!(at("rt on"), vec![px(128.921_88, 102.0, 78.125, 42.0)]);
+    assert_eq!(at("rt on"), vec![px(128.453_13, 102.0, 79.828_125, 42.0)]);
 }
 
 #[test]
@@ -484,8 +484,8 @@ fn the_short_answer_and_the_answer_tab_are_drawn_as_the_references() {
             // The rule under the answer, in #e1dace; a number's pill in
             // #e9e3d8 at its corner's inside; alo used this in #e3ece8.
             assert_eq!(pixel(frame, 500, 264), Some([0xe1, 0xda, 0xce, 0xff]));
-            assert_eq!(pixel(frame, 583, 180), Some([0xe9, 0xe3, 0xd8, 0xff]));
-            assert_eq!(pixel(frame, 453, 298), Some([0xe3, 0xec, 0xe8, 0xff]));
+            assert_eq!(pixel(frame, 611, 180), Some([0xe9, 0xe3, 0xd8, 0xff]));
+            assert_eq!(pixel(frame, 463, 298), Some([0xe3, 0xec, 0xe8, 0xff]));
         }
         assert_eq!(holds(name, frame), Ok(()));
     }

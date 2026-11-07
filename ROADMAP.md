@@ -2498,7 +2498,8 @@ items where being right and being unusable are the same outcome.
       a page's own pointer picture (846), a caret moved back for an input
       method (847), input methods in the box (848), a closed list's option
       no one key reaches (849), alo's menu by keys (850), ⇧ and ⌥ on a
-      link (851), the strip's own face (852),
+      link (851), the strip's own face and the face chosen (852),
+      *Settings* by keys (856),
       an agent reaching a page the conversation
       opened (716), a field's value kept to one line by
       the engine itself (715),
@@ -2514,7 +2515,15 @@ items where being right and being unusable are the same outcome.
       glyphs (785), a colour face listed first (829), a colour glyph at its text's opacity (830),
       plain letters' shadows softened glyph by glyph (831), the
       conversation's bar dragged or pressed (845). Built
-      since: the pointer following a card's page, a link's strip on an
+      since: Inter for every word of the interface, Newsreader kept for the
+      mark and the greeting, and *Settings* with its one section, *Font* —
+      Inter, Geist, DM Sans, Plus Jakarta Sans or Instrument Sans, each a
+      sample of a result in that face, choosing one setting the whole
+      interface at once and kept beside the chats, a damaged file Inter and
+      said — the owner's design of 7 November 2026, Inter's and DM Sans'
+      optical sizes measured as Chrome 157's (853, 854, ADR 0084 amended);
+      alo's menu cutting the words it searches for at its own edge (855);
+      the pointer following a card's page, a link's strip on an
       expanded card, alo's own menu and a link opened as the next turn, a
       closed list's normal dropdown and the agent's list in its column, and
       input methods on a card (799, 811, 798, 810, 802, ADR 0076's fourth

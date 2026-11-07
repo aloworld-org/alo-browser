@@ -96,14 +96,16 @@ pub fn with_cjk(faces: &[Face], cjk: Vec<Face>) -> Vec<Face> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alo_renderer::typefaces::{INSTRUMENT_SANS, NEWSREADER, NOTO_COLOR_EMOJI};
+    use alo_renderer::typefaces::{
+        DM_SANS, GEIST, INSTRUMENT_SANS, INTER, NEWSREADER, NOTO_COLOR_EMOJI, PLUS_JAKARTA_SANS,
+    };
 
     fn families(faces: &[Face]) -> Vec<&str> {
         faces.iter().map(|face| face.family.as_str()).collect()
     }
 
     #[test]
-    fn the_interface_is_handed_the_frozen_faces_then_the_designs_two_and_emoji() {
+    fn the_interface_is_handed_the_frozen_faces_then_the_designs_five_its_serif_and_emoji() {
         let handed = for_the_interface(&frozen().faces);
         assert_eq!(
             families(&handed),
@@ -113,6 +115,10 @@ mod tests {
                 "DejaVu Serif",
                 "DejaVu Sans Mono",
                 "DejaVu Sans Mono",
+                INTER,
+                GEIST,
+                DM_SANS,
+                PLUS_JAKARTA_SANS,
                 INSTRUMENT_SANS,
                 NEWSREADER,
                 NOTO_COLOR_EMOJI
@@ -140,7 +146,9 @@ mod tests {
     #[test]
     fn a_pages_fonts_never_hold_the_designs_typefaces() {
         let page = families(&frozen().faces).join(", ");
-        assert!(!page.contains(INSTRUMENT_SANS), "{page}");
+        for family in [INTER, GEIST, DM_SANS, PLUS_JAKARTA_SANS, INSTRUMENT_SANS] {
+            assert!(!page.contains(family), "{page}");
+        }
         assert!(!page.contains(NEWSREADER), "{page}");
         assert!(!page.contains(NOTO_COLOR_EMOJI), "{page}");
     }

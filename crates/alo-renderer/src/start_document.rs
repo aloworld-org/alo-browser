@@ -155,6 +155,16 @@ pub struct Unbuilt {
 /// groups, or `alo-dom` refused an operation, which no state can cause.
 pub fn build(start: &Start) -> Result<Document, Unbuilt> {
     let mut document = parse_document(TEMPLATE);
+    // Set in the face chosen (queue items 853, 854).
+    start
+        .face
+        .set_on(&mut document)
+        .map_err(|why| Unbuilt { why })?;
+    if start.settings {
+        // *Settings*, in place of the chat on screen (queue item 854).
+        crate::settings_document::put(&mut document, start)?;
+        return Ok(document);
+    }
     let greeting = by_id(&document, GREETING)?;
     let words = document.create_text_node(&start.greeting);
     append(&mut document, greeting, words)?;

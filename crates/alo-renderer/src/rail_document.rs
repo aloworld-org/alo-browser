@@ -52,6 +52,11 @@ pub const NAMED_WIDTH: u32 = 320;
 /// or `alo-dom` refused an operation, which no state can cause.
 pub fn build(panel: &Panel) -> Result<Document, Unbuilt> {
     let mut document = parse_document(TEMPLATE);
+    // Set in the face chosen (queue items 853, 854).
+    panel
+        .face
+        .set_on(&mut document)
+        .map_err(|why| Unbuilt { why })?;
     let of_class = |document: &Document, class: &str| {
         document
             .descendants(document.root())

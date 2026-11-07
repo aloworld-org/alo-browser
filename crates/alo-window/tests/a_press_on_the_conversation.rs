@@ -315,10 +315,14 @@ fn a_press_on_the_box_is_claimed_as_the_box_and_gives_it_the_keyboard() {
     }
     let pressed = here.press(&conversation, Part::Panel, 120.0, 529.0);
     assert_eq!(pressed, Pressed::Nothing, "the room above Settings at 820");
+    // Settings opens in the first screen's place (queue item 854), and
+    // Back to the chat brings it back as it was.
     let pressed = here.press(&conversation, Part::Panel, 120.0, 789.0);
     assert_eq!(pressed, Pressed::Settings);
-    assert!(!conversation.act(pressed));
-    assert_eq!(asked(&conversation), before, "nothing drawn changed");
+    assert!(conversation.act(pressed));
+    assert!(asked(&conversation).start.settings);
+    assert!(conversation.act(Pressed::LeaveSettings));
+    assert_eq!(asked(&conversation), before, "back as it was");
     assert_eq!(conversation.chosen(), None);
     // The box takes the keyboard, and the first screen is drawn again
     // showing so; the panel is not.

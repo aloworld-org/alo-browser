@@ -17,6 +17,7 @@
 //! At [`site`], a site no page can name, minted fresh as the strip's is: its
 //! renderer holds nobody's page but the panel.
 
+use crate::interface_face::InterfaceFace;
 use crate::site::Site;
 use crate::strip::longest;
 use alo_layout::Size;
@@ -66,6 +67,12 @@ pub struct Panel {
     /// brought back: the panel's foot says it was deleted, with *Undo*
     /// (queue item 789). A stranger's string, drawn as a text node.
     pub deleted: Option<String>,
+    /// The face its words are set in (queue items 853, 854): Inter unless a
+    /// person chose another in *Settings*.
+    pub face: InterfaceFace,
+    /// Whether *Settings* is the page on screen (queue item 854): its row
+    /// is then drawn as the chat on screen's is, and no chat's is.
+    pub settings: bool,
 }
 
 /// One chat in the panel.
@@ -120,7 +127,7 @@ pub enum Doing {
 }
 
 impl Default for Panel {
-    /// No chats, at no size, on a screen of one.
+    /// No chats, at no size, on a screen of one, in Inter.
     fn default() -> Self {
         Self {
             chats: Vec::new(),
@@ -130,6 +137,8 @@ impl Default for Panel {
             searching: false,
             hidden: false,
             deleted: None,
+            face: InterfaceFace::Inter,
+            settings: false,
         }
     }
 }

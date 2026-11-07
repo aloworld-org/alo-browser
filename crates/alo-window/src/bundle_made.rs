@@ -13,11 +13,12 @@
 //! into the command as it is compiled, so the pages an application carries
 //! are the bytes whose renders are committed — never a copy that drifted.
 //!
-//! The interface's typefaces are compiled into `alo` (queue item 706, ADR
-//! 0084), and their licences are carried beside it, as the SIL Open Font
-//! License asks: `Contents/Resources/licences/OFL-InstrumentSans.txt`,
-//! `OFL-Newsreader.txt` and `OFL-NotoColorEmoji.txt` (ADR 0088), the files
-//! published with the fonts
+//! The interface's typefaces are compiled into `alo` (queue items 706 and
+//! 853, ADR 0084), and their licences are carried beside it, as the SIL
+//! Open Font License asks: `Contents/Resources/licences/OFL-Inter.txt`,
+//! `OFL-Geist.txt`, `OFL-DMSans.txt`, `OFL-PlusJakartaSans.txt`,
+//! `OFL-InstrumentSans.txt`, `OFL-Newsreader.txt` and
+//! `OFL-NotoColorEmoji.txt` (ADR 0088), the files published with the fonts
 //! (`alo-renderer`'s `typefaces::LICENCES`). So are `EasyList` and `EasyPrivacy`,
 //! the lists of trackers and adverts `alo` refuses (ADR 0094), with their
 //! licence and attribution beside them in

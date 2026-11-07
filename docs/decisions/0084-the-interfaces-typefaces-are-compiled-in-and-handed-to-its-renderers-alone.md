@@ -1,6 +1,6 @@
 # ADR 0084 — The interface's typefaces are compiled in, and handed to its renderers alone
 
-**Status:** accepted — built by queue item 706 (31 October 2026); Newsreader's optical size set by 752 (1 November 2026)
+**Status:** accepted — built by queue item 706 (31 October 2026); Newsreader's optical size set by 752 (1 November 2026); amended 7 November 2026 — Inter the interface's face, and four more a person may choose (queue items 853, 854)
 **Date:** 2026-10-31
 **Context:** ADR 0074 § 3 (the design is set in Instrument Sans and
 Newsreader; carrying them is its own change, item 706); ADR 0010 (a renderer
@@ -191,3 +191,104 @@ MPL 2.0, does not cover those four files; the OFL does.
   kerning pair's variation lost or rounded — and a line was measured word
   by word: queue items 797, 795 and 796, built (2 November 2026, ADR 0097).
   2,370 of 2,400 measured runs are now Chrome's to its layout unit.
+
+## Amendment, 2026-11-07 — Inter, and four faces a person chooses (queue items 853, 854)
+
+The owner's design of 7 November 2026 (*"Yes please"*,
+`docs/design/shell.md`, *Typefaces* and *Settings*): **Inter** for every
+word of the interface, Newsreader kept for the mark and the greeting
+whatever is chosen; and in *Settings* a choice of **Geist**, **DM Sans**,
+**Plus Jakarta Sans** and **Instrument Sans** instead. Everything above
+holds of the four new faces as of the first two — compiled in, filed by
+what each font says it is, handed to the interface's renderers alone and
+never a page's, each licence in the bundle — and this records what is
+new.
+
+### The files, as published
+
+Each from its official upstream release only, downloaded into a directory
+of its own and nothing but the font and its licence read from it. All
+four are under the **SIL Open Font License 1.1**: each licence file says
+so, and each font's `name` table (ID 13) and copyright notice (ID 0),
+unmodified, say so too. Each is renamed only in its file's name, so none
+is a Modified Version.
+
+| File in `crates/alo-renderer/interface/fonts/` | Published as | Bytes | SHA-256 |
+|---|---|---|---|
+| `Inter.ttf` | `InterVariable.ttf` in `Inter-4.1.zip`, the `v4.1` release of `github.com/rsms/inter` (tag commit `e3a3d4c5`; the zip's SHA-256 `9883fdd4…6b11e`) | 879 708 | `4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf` |
+| `OFL-Inter.txt` | `LICENSE.txt` in the same zip (git blob `9b2ca37b`, the tag's own) | 4 380 | `262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a` |
+| `Geist.ttf` | `geist-font/Geist/variable/Geist[wght].ttf` in `geist-font-v1.9.2.zip`, the `v1.9.2` release of `github.com/vercel/geist-font` (tag commit `ef2597cf`; the zip's SHA-256 `15f066d5…5d3d8`, the digest GitHub lists for the asset) | 169 056 | `b34955a09f71d9ac4b67e54cedb1825d3d5264c7992dbbafa0802080d617e241` |
+| `OFL-Geist.txt` | `geist-font/OFL.txt` in the same zip (git blob `999fa237`, the tag's own) | 4 384 | `021caa749f89fecd7c2e40a50499de29e84d2bc19251659b47d499c2fbfffc17` |
+| `DMSans.ttf` | `ofl/dmsans/DMSans[opsz,wght].ttf` of `github.com/google/fonts` at commit `86aced91de05cd4f96a06838124cca45be337b2b` (git blob `c672f980`) | 240 164 | `8cd08d97e89c24d0aa92edd2f0f4c8ee6195eee9b7c9f154865a58b02f0c1c0d` |
+| `OFL-DMSans.txt` | `ofl/dmsans/OFL.txt` there (git blob `4430b85a`) | 4 482 | `9af36190332437f5ecd09974de43c1f7c77a310a996cdd8ceb25628b458840e1` |
+| `PlusJakartaSans.ttf` | `ofl/plusjakartasans/PlusJakartaSans[wght].ttf` there (git blob `0cb13a99`) | 176 288 | `89b3fb38aa0d275d7a731d0d817a4f1622b316b4d7fbdedcf02ee9099ff68bc8` |
+| `OFL-PlusJakartaSans.txt` | `ofl/plusjakartasans/OFL.txt` there (git blob `ea69b0ca`) | 4 402 | `995c7199cab65954f545996326755daee7b63cc6b42b06c13da1f9502ab08a99` |
+
+**1 482 864 bytes** added in all: 1 465 216 of fonts, 17 648 of
+licences. Geist's file in the release differs from the copy committed at
+the tag (`fonts/Geist/variable`, the same size, 251 bytes apart — its
+`head` and checksums); the release is the one carried. `OFL-DMSans.txt`
+ends its lines CR LF as published, and `.gitattributes` keeps the
+licences' bytes as they are, so the bundle's copy is the published one
+byte for byte.
+
+**Variable, all of them**, over every weight the design uses: Inter
+`wght` 100–900 and `opsz` 14–32 (its default 14); Geist `wght` 100–900;
+DM Sans `wght` 100–1000 and `opsz` 9–40 (its default 9); Plus Jakarta Sans
+`wght` 200–800. Only the upright files are carried.
+
+**Inter calls itself *Inter Variable*.** Its `name` table has no
+typographic family and its legacy family is *Inter Variable*, and § 2's
+rule files a face by what the font says, so that is the family a
+stylesheet asks for (`typefaces::INTER`). DM Sans' typographic family is
+*DM Sans* (its legacy one *DM Sans 9pt*).
+
+### Their optical size, measured rather than assumed
+
+Inter and DM Sans vary by `opsz`, and § 1's rule since 752 — a face's
+optical size set to the CSS pixels its run is at, clamped to the axis —
+was checked against Chrome rather than taken for them: in Chrome
+157.0.8103.38, headless, the four files as web fonts after
+`document.fonts.load`, each glyph's canvas advance at 9, 12, 13.5, 14, 20,
+24, 32 and 40 px is this engine's to a thousandth of a pixel (below an
+axis's least size and past its most, the axis's end), and 1,600 random
+runs of the four faces at weights 300 to 700, 11 to 40 px, `auto` and
+`none`, measured as Chrome's layout width: **1,570 Chrome's to its
+layout unit, the other 30 a 64th apart**, each within 0.28 of a 64th of
+the grid's edge — what this ADR's correction (ADR 0097) left of the first
+two faces too. Frozen in
+`crates/alo-renderer/tests/references/chosen-faces-runs.chrome.txt`,
+held by `tests/a_chosen_face_set_as_chrome_sets_it.rs`.
+
+### One face at a time, chosen without handing anything again
+
+All five faces of words are handed to each interface renderer as it
+starts, beside Newsreader and Noto (`fonts::for_the_interface`), so a
+face chosen in *Settings* is drawn at once. Which one is drawn is said by
+the browser process as one of a closed list (`interface_face.rs`), on the
+panel's and the first screen's state, and put on each document's root as
+its own style, `--face: "<family>"`; every stylesheet of the interface
+asks for `var(--face), system-ui, sans-serif` and says `--face` is Inter
+on the root. No stranger's string reaches the declaration. The tab
+strip's stylesheet stays on `system-ui` (§ 3), and a card's page is never
+handed any of these.
+
+### The licences in the bundle
+
+`alo-bundle` writes all seven licences into `Contents/Resources/licences/`
+as before (`typefaces::LICENCES`); `tests/the_application_assembled.rs`
+lists them and compares their bytes with the published ones.
+
+### Consequences
+
+- Every reference render of the interface was redrawn in Inter and looked
+  at, and the layout assertions whose numbers are text widths were moved
+  by what Inter measures — of the five, the widest on the interface's own
+  lines that were measured (the box's hint, the agent's line, a menu's). The rail's buttons asked for no face and were drawn in a
+  control's own; they ask for the face chosen now.
+- 1.48 MB more in the program, and on each interface renderer's pipe as
+  it starts.
+- The link strip of an expanded card, drawn by the Chromium alo carries,
+  asks for *Inter* where the system has it and is not told the face
+  chosen (queue item 852).
+

@@ -231,6 +231,7 @@ pub mod conversation_glide;
 pub mod conversation_keys;
 pub mod conversation_place;
 pub mod conversation_search;
+pub mod conversation_settings;
 pub mod conversation_sheet;
 pub mod conversation_thread;
 pub mod conversation_window;
@@ -266,6 +267,7 @@ pub mod search_protocol;
 pub mod search_text;
 pub mod search_thumbnails;
 pub mod serving;
+pub mod settings_file;
 pub mod showing;
 #[cfg(unix)]
 pub mod socket_place;
